@@ -49,6 +49,44 @@ public class PlayerViewModelPauseTimeoutTests
             await PlayerViewModel.WaitForPlaybackStopAsync(faulted, TimeSpan.FromSeconds(5), logger, "scene-1"));
     }
 
+    [Test]
+    public async Task RunAudioPlaybackWithImmediateStopAsync_stops_audio_while_playback_is_blocked()
+    {
+        using var playbackCts = new CancellationTokenSource();
+        using var playbackEntered = new ManualResetEventSlim();
+        using var releasePlayback = new ManualResetEventSlim();
+        var stopped = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
+        Task playback = Task.Run(() => PlayerViewModel.RunAudioPlaybackWithImmediateStopAsync(
+            playbackCts.Token,
+            () => stopped.TrySetResult(true),
+            () =>
+            {
+                playbackEntered.Set();
+                if (!releasePlayback.Wait(TimeSpan.FromSeconds(5)))
+                {
+                    throw new TimeoutException("The simulated synchronous buffer composition was not released.");
+                }
+
+                return Task.CompletedTask;
+            }));
+
+        try
+        {
+            Assert.That(playbackEntered.Wait(TimeSpan.FromSeconds(5)), Is.True);
+            playbackCts.Cancel();
+
+            await stopped.Task.WaitAsync(TimeSpan.FromSeconds(5));
+            Assert.That(playback.IsCompleted, Is.False,
+                "audio must stop without waiting for synchronous buffer composition to return");
+        }
+        finally
+        {
+            releasePlayback.Set();
+        }
+
+        await playback.WaitAsync(TimeSpan.FromSeconds(5));
+    }
+
     private sealed class CapturingLogger : ILogger
     {
         public List<string> Errors { get; } = [];

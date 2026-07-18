@@ -57,11 +57,16 @@ public sealed class PlayerViewModel : IAsyncDisposable, IPreviewPlayer
     private readonly IEditorClock _editorClock;
     private readonly IEditorSelection _editorSelection;
     private IDisposable? _currentFrameSubscription;
+    private readonly object _renderRequestLock = new();
     private CancellationTokenSource? _cts;
+    private bool _isDisposing;
     private Size _maxFrameSize;
     private Task _playbackTask = Task.CompletedTask;
     private bool _isShuttling;
     private readonly PlaybackSessionGuard _sessionGuard = new();
+    private readonly ReactivePropertySlim<string?> _previewRenderError = new();
+    private long _previewRenderErrorIssuedVersion;
+    private long _previewRenderErrorAppliedVersion;
     // Serializes RestoreStoppedPreviewState so PlayInternal's finally and Pause()'s timeout path
     // cannot interleave the dispose/resubscribe and Scene.Edited unhook/hook steps across threads.
     private readonly object _restoreLock = new();
@@ -351,6 +356,8 @@ public sealed class PlayerViewModel : IAsyncDisposable, IPreviewPlayer
 
     public ReactivePropertySlim<Ref<Bitmap>?> PreviewImage { get; } = new();
 
+    public IReadOnlyReactiveProperty<string?> PreviewRenderError => _previewRenderError;
+
     IReadOnlyReactiveProperty<Ref<Bitmap>?> IPreviewPlayer.PreviewImage => PreviewImage;
 
     IObservable<Unit> IPreviewPlayer.AfterRendered => AfterRendered;
@@ -497,9 +504,11 @@ public sealed class PlayerViewModel : IAsyncDisposable, IPreviewPlayer
         PlaybackDirection.Value = ViewModels.PlaybackDirection.Forward;
         // Mark playing before publishing _playbackTask so a Pause() in the startup window
         // (before PlayInternal runs) signals the loop to stop instead of awaiting forever.
-        _stopRequested = false;
-        IsPlaying.Value = true;
-        int generation = _sessionGuard.Claim();
+        int generation = _sessionGuard.Claim(() =>
+        {
+            _stopRequested = false;
+            IsPlaying.Value = true;
+        });
 
         _playbackTask = Task.Run(async () =>
         {
@@ -509,7 +518,12 @@ public sealed class PlayerViewModel : IAsyncDisposable, IPreviewPlayer
             bool restart;
             do
             {
-                restart = await PlayInternal(generation);
+                using var playbackCts = new CancellationTokenSource();
+                using IDisposable cancelPlayback = IsPlaying
+                    .Where(static value => !value)
+                    .Take(1)
+                    .Subscribe(_ => playbackCts.Cancel());
+                restart = await PlayInternal(generation, playbackCts.Token);
                 // Stop restarting on a boundary-window pause (_stopRequested set without flipping
                 // IsPlaying), or when a Pause() timeout disowned this task and a newer session took
                 // over — a stale task must not re-arm and stomp the session that replaced it.
@@ -518,55 +532,65 @@ public sealed class PlayerViewModel : IAsyncDisposable, IPreviewPlayer
                     restart = false;
                 }
 
-                if (restart)
+                if (restart && !_sessionGuard.TryApply(
+                        generation,
+                        () => IsPlaying.Value = true))
                 {
-                    // Re-arm IsPlaying for the next PlayInternal, which no longer sets it.
-                    IsPlaying.Value = true;
+                    restart = false;
                 }
             } while (restart);
         });
     }
 
-    private async Task<bool> PlayInternal(int generation)
+    private async Task<bool> PlayInternal(int generation, CancellationToken playbackToken)
     {
-        if (!_isEnabled.Value || Scene == null)
+        Scene? scene = Scene;
+        if (playbackToken.IsCancellationRequested || !_isEnabled.Value || scene == null)
         {
-            IsPlaying.Value = false;
+            _sessionGuard.TryApply(generation, () => IsPlaying.Value = false);
             return false;
         }
 
         BufferStatusViewModel bufferStatus = EditViewModel.BufferStatus;
         FrameCacheManager frameCacheManager = EditViewModel.FrameCacheManager.Value;
-        Scene.Edited -= OnSceneEdited;
-        _currentFrameSubscription?.Dispose();
-        _currentFrameSubscription = null;
-
         int rate = GetFrameRate();
 
         TimeSpan tick = TimeSpan.FromSeconds(1d / rate);
         TimeSpan startTime = _editorClock.CurrentTime.Value;
-        TimeSpan durationTime = Scene.Duration;
+        TimeSpan durationTime = scene.Duration;
         int startFrame = (int)startTime.ToFrameNumber(rate);
         int durationFrame = (int)Math.Ceiling(durationTime.ToFrameNumber(rate));
-        int endFrame = (int)Scene.Start.ToFrameNumber(rate) + durationFrame;
-        bufferStatus.StartTime.Value = startTime;
-        bufferStatus.EndTime.Value = startTime;
-        frameCacheManager.Options = frameCacheManager.Options with
+        int endFrame = (int)scene.Start.ToFrameNumber(rate) + durationFrame;
+        if (!_sessionGuard.TryApply(generation, () =>
         {
-            DeletionStrategy = FrameCacheDeletionStrategy.BackwardBlock
-        };
+            scene.Edited -= OnSceneEdited;
+            _currentFrameSubscription?.Dispose();
+            _currentFrameSubscription = null;
+            bufferStatus.StartTime.Value = startTime;
+            bufferStatus.EndTime.Value = startTime;
+            frameCacheManager.Options = frameCacheManager.Options with
+            {
+                DeletionStrategy = FrameCacheDeletionStrategy.BackwardBlock
+            };
+            frameCacheManager.CurrentFrame = startFrame;
+        }))
+        {
+            return false;
+        }
 
-        frameCacheManager.CurrentFrame = startFrame;
         bool reachedNaturalEnd = false;
         try
         {
-            using var playerImpl = new BufferedPlayer(EditViewModel, Scene, IsPlaying, rate);
+            using var playerImpl = new BufferedPlayer(EditViewModel, scene, IsPlaying, rate, playbackToken);
             _logger.LogInformation("Start the playback. ({SceneId}, {Rate}, {Start}, {Duration})",
                 _editViewModel.SceneId, rate, startFrame, durationFrame);
-            playerImpl.Start();
 
             var clock = new AudioPlaybackClock();
-            var audioTask = PlayAudio(Scene, clock, startTime, generation);
+            if (!_sessionGuard.TryApply(generation, playerImpl.Start))
+            {
+                return false;
+            }
+            Task audioTask = PlayAudio(scene, clock, startTime, generation, playbackToken);
 
             // 音声バッファの準備に1フレーム以上かかると、映像だけが先に進んでしまい、
             // その後音声がアンカーされた瞬間に「映像が先行した状態」で止まってしまう。
@@ -578,6 +602,7 @@ public sealed class PlayerViewModel : IAsyncDisposable, IPreviewPlayer
             var tcs = new TaskCompletionSource<bool>();
             int nextExpectedFrame = startFrame + 1;
             int processing = 0;
+            bool renderFailureHandled = false;
 
             int ComputeExpectFrame()
             {
@@ -586,6 +611,27 @@ public sealed class PlayerViewModel : IAsyncDisposable, IPreviewPlayer
                     : DateTime.UtcNow - startDateTime;
                 if (elapsed < TimeSpan.Zero) elapsed = TimeSpan.Zero;
                 return (int)(elapsed.Ticks / tick.Ticks) + startFrame;
+            }
+
+            bool StopForRenderFailure()
+            {
+                BufferedPlayer.RenderFailure? failure = playerImpl.Failure;
+                if (failure is null)
+                    return false;
+
+                if (renderFailureHandled)
+                    return true;
+
+                renderFailureHandled = true;
+                _sessionGuard.TryApply(generation, () =>
+                {
+                    ApplyPlaybackRenderFailure(
+                        failure,
+                        rate,
+                        () => _sessionGuard.Owns(generation));
+                });
+                tcs.TrySetResult(true);
+                return true;
             }
 
             await using var timer = new Timer(_ =>
@@ -604,22 +650,33 @@ public sealed class PlayerViewModel : IAsyncDisposable, IPreviewPlayer
                         return;
                     }
 
+                    // The producer publishes its terminal render exception before ProducerStopped.
+                    // Stop before consuming any older frames still buffered ahead of the playhead,
+                    // otherwise a pre-failure frame could hide the error that ended playback.
+                    if (StopForRenderFailure())
+                    {
+                        return;
+                    }
+
                     var expectFrame = ComputeExpectFrame();
                     if (_stopRequested || !IsPlaying.Value || expectFrame >= endFrame)
                     {
-                        // ループ用に endFrame で打ち切る場合、音声側にも停止を伝える。
-                        // ただし停止要求中はループの自然終端とみなさず、再開させない。
-                        if (!_stopRequested && IsLoopEnabled.Value && expectFrame >= endFrame)
+                        _sessionGuard.TryApply(generation, () =>
                         {
-                            reachedNaturalEnd = true;
-                            IsPlaying.Value = false;
-                        }
-                        else if (_stopRequested)
-                        {
-                            // A pause that raced the loop re-arm leaves IsPlaying=true; clear it so the
-                            // audio task stops here instead of running to the scene's natural end.
-                            IsPlaying.Value = false;
-                        }
+                            // ループ用に endFrame で打ち切る場合、音声側にも停止を伝える。
+                            // ただし停止要求中はループの自然終端とみなさず、再開させない。
+                            if (!_stopRequested && IsLoopEnabled.Value && expectFrame >= endFrame)
+                            {
+                                reachedNaturalEnd = true;
+                                IsPlaying.Value = false;
+                            }
+                            else if (_stopRequested)
+                            {
+                                // A pause that raced the loop re-arm leaves IsPlaying=true; clear it so the
+                                // audio task stops here instead of running to the scene's natural end.
+                                IsPlaying.Value = false;
+                            }
+                        });
 
                         tcs.TrySetResult(true);
                         return;
@@ -636,12 +693,23 @@ public sealed class PlayerViewModel : IAsyncDisposable, IPreviewPlayer
                         dequeued = true;
                         using (frame.Bitmap)
                         {
-                            UpdateImage(frame.Bitmap.Clone());
-
-                            if (Scene != null)
+                            Ref<Bitmap> preview = frame.Bitmap.Clone();
+                            bool applied = _sessionGuard.TryApply(generation, () =>
                             {
-                                _editorClock.CurrentTime.Value = frame.Time.ToTimeSpan(rate);
-                                EditViewModel.FrameCacheManager.Value.CurrentFrame = frame.Time;
+                                UpdateImage(preview);
+                                ClearPreviewRenderError(generation);
+
+                                if (Scene != null)
+                                {
+                                    _editorClock.CurrentTime.Value = frame.Time.ToTimeSpan(rate);
+                                    EditViewModel.FrameCacheManager.Value.CurrentFrame = frame.Time;
+                                }
+                            });
+                            if (!applied)
+                            {
+                                preview.Dispose();
+                                tcs.TrySetResult(true);
+                                return;
                             }
                         }
 
@@ -657,9 +725,24 @@ public sealed class PlayerViewModel : IAsyncDisposable, IPreviewPlayer
                         // 期待していたフレームよりも前のフレームが来た場合
                     }
 
+                    // Close the race where the producer faults while this timer callback is
+                    // dequeuing the last successfully rendered frame.
+                    if (StopForRenderFailure())
+                    {
+                        return;
+                    }
+
                     if (!dequeued && playerImpl.ProducerStopped)
                     {
-                        IsPlaying.Value = false;
+                        // ProducerStopped is published after Failure. Re-read Failure only after
+                        // observing the terminal flag so a fault published in the preceding gap
+                        // cannot be mistaken for a normal producer stop.
+                        if (StopForRenderFailure())
+                        {
+                            return;
+                        }
+
+                        _sessionGuard.TryApply(generation, () => IsPlaying.Value = false);
                         tcs.TrySetResult(true);
                         return;
                     }
@@ -677,10 +760,7 @@ public sealed class PlayerViewModel : IAsyncDisposable, IPreviewPlayer
             // Committing the recorded cache blocks is a shared write, so gate it on ownership like the
             // finally/rewind paths below: a task disowned by a Pause() timeout that unblocks after a
             // newer session started must not stomp that session's frame-cache bookkeeping.
-            if (_sessionGuard.Owns(generation))
-            {
-                frameCacheManager.UpdateBlocks();
-            }
+            _sessionGuard.TryApply(generation, frameCacheManager.UpdateBlocks);
         }
         finally
         {
@@ -688,10 +768,7 @@ public sealed class PlayerViewModel : IAsyncDisposable, IPreviewPlayer
             // task detached on entry) only while this task still owns the session. If a Pause()
             // timeout disowned it and a newer session took over, restoring here would stomp that
             // session, so the new owner — or Pause()'s timeout path — restores it instead.
-            if (_sessionGuard.Owns(generation))
-            {
-                RestoreStoppedPreviewState();
-            }
+            _sessionGuard.TryApply(generation, RestoreStoppedPreviewState);
 
             _logger.LogInformation("End the playback. ({SceneId})", _editViewModel.SceneId);
         }
@@ -700,10 +777,9 @@ public sealed class PlayerViewModel : IAsyncDisposable, IPreviewPlayer
         // loopStart は購読で最新化されているため、再生中の In/Out 変更にも追従する。
         // A task disowned by a Pause() timeout must not rewind the playhead of a stopped editor or
         // the session that replaced it, so gate the shared CurrentTime write on ownership too.
-        if (IsLoopEnabled.Value && reachedNaturalEnd && Scene != null && _sessionGuard.Owns(generation))
+        if (IsLoopEnabled.Value && reachedNaturalEnd && Scene != null)
         {
-            _editorClock.CurrentTime.Value = Scene.Start;
-            return true;
+            return _sessionGuard.TryApply(generation, () => _editorClock.CurrentTime.Value = Scene.Start);
         }
 
         return false;
@@ -924,13 +1000,16 @@ public sealed class PlayerViewModel : IAsyncDisposable, IPreviewPlayer
 
     private void StartShuttle()
     {
-        if (_isShuttling || Scene == null) return;
+        Scene? scene = Scene;
+        if (_isShuttling || scene == null) return;
         // Clear a stop request left by a prior Pause() so the flag's "true until the next
         // playback start" invariant holds across shuttle too, not just Play().
-        _stopRequested = false;
-        _isShuttling = true;
-        IsPlaying.Value = true;
-        int generation = _sessionGuard.Claim();
+        int generation = _sessionGuard.Claim(() =>
+        {
+            _stopRequested = false;
+            _isShuttling = true;
+            IsPlaying.Value = true;
+        });
 
         _playbackTask = Task.Run(async () =>
         {
@@ -939,11 +1018,17 @@ public sealed class PlayerViewModel : IAsyncDisposable, IPreviewPlayer
                 int rate = GetFrameRate();
                 TimeSpan tick = TimeSpan.FromSeconds(1d / rate);
 
-                Scene.Edited -= OnSceneEdited;
+                if (!_sessionGuard.TryApply(generation, () => scene.Edited -= OnSceneEdited))
+                {
+                    return;
+                }
                 // 既存の CurrentFrame 購読は維持して UpdateCurrentFrame 経由でレンダリングを行う
 
                 DateTime lastTime = DateTime.UtcNow;
-                while (_isShuttling && IsPlaying.Value && Scene != null)
+                while (_isShuttling
+                       && IsPlaying.Value
+                       && Scene != null
+                       && _sessionGuard.Owns(generation))
                 {
                     var direction = PlaybackDirection.Value;
                     if (direction == ViewModels.PlaybackDirection.Stopped)
@@ -995,10 +1080,13 @@ public sealed class PlayerViewModel : IAsyncDisposable, IPreviewPlayer
                     TimeSpan target = next;
                     Avalonia.Threading.Dispatcher.UIThread.Post(() =>
                     {
-                        if (Scene != null)
+                        _sessionGuard.TryApply(generation, () =>
                         {
-                            _editorClock.CurrentTime.Value = target;
-                        }
+                            if (Scene != null)
+                            {
+                                _editorClock.CurrentTime.Value = target;
+                            }
+                        });
                     });
 
                     await Task.Delay(tick).ConfigureAwait(false);
@@ -1008,7 +1096,7 @@ public sealed class PlayerViewModel : IAsyncDisposable, IPreviewPlayer
             {
                 // Only restore shared state while this shuttle still owns the session; a Pause()
                 // timeout that disowned it must not let this late finally stomp a newer session.
-                if (_sessionGuard.Owns(generation))
+                _sessionGuard.TryApply(generation, () =>
                 {
                     _isShuttling = false;
                     IsPlaying.Value = false;
@@ -1019,28 +1107,38 @@ public sealed class PlayerViewModel : IAsyncDisposable, IPreviewPlayer
                         Scene.Edited -= OnSceneEdited;
                         Scene.Edited += OnSceneEdited;
                     }
-                }
+                });
             }
         });
     }
 
-    private async Task PlayAudio(Scene scene, AudioPlaybackClock clock, TimeSpan startTime, int generation)
+    private async Task PlayAudio(
+        Scene scene,
+        AudioPlaybackClock clock,
+        TimeSpan startTime,
+        int generation,
+        CancellationToken playbackToken)
     {
         try
         {
+            playbackToken.ThrowIfCancellationRequested();
             if (OperatingSystem.IsWindows())
             {
                 using var audioContext = new XAudioContext();
-                await PlayWithXA2(audioContext, scene, clock, startTime).ConfigureAwait(false);
+                await PlayWithXA2(audioContext, scene, clock, startTime, playbackToken).ConfigureAwait(false);
             }
             else
             {
                 await Task.Run(async () =>
                 {
+                    playbackToken.ThrowIfCancellationRequested();
                     using var audioContext = new AudioContext();
-                    await PlayWithOpenAL(audioContext, scene, clock, startTime);
-                });
+                    await PlayWithOpenAL(audioContext, scene, clock, startTime, playbackToken);
+                }, playbackToken);
             }
+        }
+        catch (OperationCanceledException) when (playbackToken.IsCancellationRequested)
+        {
         }
         catch (Exception ex)
         {
@@ -1049,10 +1147,7 @@ public sealed class PlayerViewModel : IAsyncDisposable, IPreviewPlayer
             _logger.LogError(ex, "An exception occurred during audio playback.");
             // Only stop the session this task owns: a fault from an audio backend abandoned by a
             // Pause() timeout must not clear IsPlaying on the session that replaced it.
-            if (_sessionGuard.Owns(generation))
-            {
-                IsPlaying.Value = false;
-            }
+            _sessionGuard.TryApply(generation, () => IsPlaying.Value = false);
         }
         finally
         {
@@ -1134,8 +1229,10 @@ public sealed class PlayerViewModel : IAsyncDisposable, IPreviewPlayer
     }
 
     private async Task PlayWithXA2(XAudioContext audioContext, Scene scene,
-        AudioPlaybackClock clock, TimeSpan startTime)
+        AudioPlaybackClock clock, TimeSpan startTime, CancellationToken playbackToken)
     {
+        using var cts = CancellationTokenSource.CreateLinkedTokenSource(playbackToken);
+        cts.Token.ThrowIfCancellationRequested();
         var composer = EditViewModel.Composer.Value;
         int sampleRate = composer.SampleRate;
         TimeSpan cur = startTime;
@@ -1148,9 +1245,11 @@ public sealed class PlayerViewModel : IAsyncDisposable, IPreviewPlayer
 
         void PrepareBuffer(XAudioBuffer buffer)
         {
+            cts.Token.ThrowIfCancellationRequested();
             TimeSpan bufferStartTime = cur;
             TimeSpan sceneEndTime = scene.Start + scene.Duration;
-            Pcm<Stereo32BitFloat>? pcm = FillAudioData(cur, sceneEndTime, composer);
+            using Pcm<Stereo32BitFloat>? pcm = FillAudioData(cur, sceneEndTime, composer);
+            cts.Token.ThrowIfCancellationRequested();
             if (pcm != null)
             {
                 if (!hasAudio)
@@ -1174,18 +1273,7 @@ public sealed class PlayerViewModel : IAsyncDisposable, IPreviewPlayer
             clock.Anchor(startTime + TimeSpan.FromSeconds(seconds));
         }
 
-        var cts = new CancellationTokenSource();
-        IDisposable revoker = IsPlaying.Where(v => !v)
-            .Take(1)
-            .Subscribe(_ =>
-            {
-                // ReSharper disable AccessToDisposedClosure
-                source.Stop();
-                cts.Cancel();
-                // ReSharper restore AccessToDisposedClosure
-            });
-
-        try
+        async Task PlaybackLoop()
         {
             PrepareBuffer(primaryBuffer);
 
@@ -1237,56 +1325,70 @@ public sealed class PlayerViewModel : IAsyncDisposable, IPreviewPlayer
                 AnchorClock();
             }
         }
+
+        try
+        {
+            await RunAudioPlaybackWithImmediateStopAsync(cts.Token, source.Stop, PlaybackLoop)
+                .ConfigureAwait(false);
+        }
         catch (OperationCanceledException)
         {
             source.Stop();
         }
         finally
         {
-            revoker.Dispose();
             source.Dispose();
-            cts.Dispose();
             primaryBuffer.Dispose();
             secondaryBuffer.Dispose();
         }
     }
 
-    private async Task PlayWithOpenAL(AudioContext audioContext, Scene scene,
-        AudioPlaybackClock clock, TimeSpan startTime)
+    internal static async Task RunAudioPlaybackWithImmediateStopAsync(
+        CancellationToken token, Action stop, Func<Task> playback)
     {
-        var cts = new CancellationTokenSource();
-        IDisposable revoker = IsPlaying.Where(v => !v)
-            .Take(1)
-            .Subscribe(_ => cts.Cancel());
+        using CancellationTokenRegistration stopPlayback = token.Register(stop);
+        await playback().ConfigureAwait(false);
+    }
+
+    private async Task PlayWithOpenAL(AudioContext audioContext, Scene scene,
+        AudioPlaybackClock clock, TimeSpan startTime, CancellationToken playbackToken)
+    {
+        using var cts = CancellationTokenSource.CreateLinkedTokenSource(playbackToken);
+        cts.Token.ThrowIfCancellationRequested();
+        audioContext.MakeCurrent();
+
+        var composer = EditViewModel.Composer.Value;
+        int sampleRate = composer.SampleRate;
+        TimeSpan cur = startTime;
+        uint[] buffers = audioContext.GenBuffers(2);
+        uint source = audioContext.GenSource();
+        long totalProcessedSamples = 0;
+        var queuedBufferSamples = new Queue<int>();
+        bool hasAudio = false;
+        bool audioClockValid = false;
+
+        void AnchorClock()
+        {
+            if (!hasAudio || !audioClockValid) return;
+            audioContext.GetSource(source, GetSourceInteger.SampleOffset, out int sampleOffset);
+            long pos = totalProcessedSamples + sampleOffset;
+            double seconds = (double)pos / sampleRate;
+            clock.Anchor(startTime + TimeSpan.FromSeconds(seconds));
+        }
 
         try
         {
-            audioContext.MakeCurrent();
-
-            var composer = EditViewModel.Composer.Value;
-            int sampleRate = composer.SampleRate;
-            TimeSpan cur = startTime;
-            uint[] buffers = audioContext.GenBuffers(2);
-            uint source = audioContext.GenSource();
-            long totalProcessedSamples = 0;
-            var queuedBufferSamples = new Queue<int>();
-            bool hasAudio = false;
-            bool audioClockValid = false;
-
-            void AnchorClock()
-            {
-                if (!hasAudio || !audioClockValid) return;
-                audioContext.GetSource(source, GetSourceInteger.SampleOffset, out int sampleOffset);
-                long pos = totalProcessedSamples + sampleOffset;
-                double seconds = (double)pos / sampleRate;
-                clock.Anchor(startTime + TimeSpan.FromSeconds(seconds));
-            }
-
             foreach (uint buffer in buffers)
             {
+                if (cts.Token.IsCancellationRequested)
+                    break;
+
                 TimeSpan bufferStartTime = cur;
                 TimeSpan sceneEndTime = scene.Start + scene.Duration;
                 using Pcm<Stereo32BitFloat>? pcmf = FillAudioData(cur, sceneEndTime, composer);
+                if (cts.Token.IsCancellationRequested)
+                    break;
+
                 cur += s_second;
                 int fillSamples = 0;
                 if (pcmf != null)
@@ -1308,6 +1410,7 @@ public sealed class PlayerViewModel : IAsyncDisposable, IPreviewPlayer
                 queuedBufferSamples.Enqueue(fillSamples);
             }
 
+            cts.Token.ThrowIfCancellationRequested();
             audioContext.SourcePlay(source);
 
             try
@@ -1340,15 +1443,17 @@ public sealed class PlayerViewModel : IAsyncDisposable, IPreviewPlayer
                 // ここで明示的に StartedTask をシグナルする。
                 clock.SignalStarted();
 
-                while (IsPlaying.Value)
+                while (IsPlaying.Value && !cts.Token.IsCancellationRequested)
                 {
                     audioContext.MakeCurrent();
                     audioContext.GetSource(source, GetSourceInteger.BuffersProcessed, out int processed);
                     while (processed > 0)
                     {
+                        cts.Token.ThrowIfCancellationRequested();
                         TimeSpan bufferStartTime = cur;
                         TimeSpan sceneEndTime = scene.Start + scene.Duration;
                         using Pcm<Stereo32BitFloat>? pcmf = FillAudioData(cur, sceneEndTime, composer);
+                        cts.Token.ThrowIfCancellationRequested();
                         cur += s_second;
                         uint buffer = audioContext.SourceUnqueueBuffer(source);
                         int fillSamples = 0;
@@ -1386,7 +1491,9 @@ public sealed class PlayerViewModel : IAsyncDisposable, IPreviewPlayer
                         break;
                 }
 
-                while (audioContext.GetSourceState(source) == SourceState.Playing && IsPlaying.Value)
+                while (audioContext.GetSourceState(source) == SourceState.Playing
+                       && IsPlaying.Value
+                       && !cts.Token.IsCancellationRequested)
                 {
                     audioContext.MakeCurrent();
                     audioContext.GetSource(source, GetSourceInteger.BuffersProcessed, out int drainProcessed);
@@ -1403,16 +1510,15 @@ public sealed class PlayerViewModel : IAsyncDisposable, IPreviewPlayer
             catch (OperationCanceledException)
             {
             }
-
+        }
+        finally
+        {
+            audioContext.MakeCurrent();
             audioContext.SourceStop(source);
             // https://hamken100.blogspot.com/2014/04/aldeletebuffersalinvalidoperation.html
             audioContext.Source(source, SourceInteger.Buffer, 0);
             audioContext.DeleteBuffers(buffers);
             audioContext.DeleteSource(source);
-        }
-        finally
-        {
-            revoker.Dispose();
         }
     }
 
@@ -1451,8 +1557,7 @@ public sealed class PlayerViewModel : IAsyncDisposable, IPreviewPlayer
                     // session, then restore the stopped state here: the task detached the preview
                     // subscriptions on entry and, now disowned, will skip re-attaching them, so
                     // otherwise the editor would stay detached until (if ever) the task unblocks.
-                    _sessionGuard.Disown();
-                    RestoreStoppedPreviewState();
+                    _sessionGuard.Disown(RestoreStoppedPreviewState);
                 }
             }
         }
@@ -1505,6 +1610,79 @@ public sealed class PlayerViewModel : IAsyncDisposable, IPreviewPlayer
         PreviewInvalidated?.Invoke(this, EventArgs.Empty);
     }
 
+    private void ReportPreviewRenderError(CancellationToken token)
+    {
+        UpdatePreviewRenderError(
+            MessageStrings.FrameDrawingException,
+            () => !token.IsCancellationRequested);
+    }
+
+    private void ClearPreviewRenderError(CancellationToken token)
+    {
+        UpdatePreviewRenderError(null, () => !token.IsCancellationRequested);
+    }
+
+    private void ClearPreviewRenderError(int generation)
+    {
+        UpdatePreviewRenderError(null, () => _sessionGuard.Owns(generation));
+    }
+
+    internal void SetPreviewRenderError(string? message)
+    {
+        UpdatePreviewRenderError(message, static () => true);
+    }
+
+    internal bool ApplyPlaybackRenderFailure(
+        BufferedPlayer.RenderFailure failure,
+        int rate,
+        Func<bool> isCurrent)
+    {
+        ArgumentNullException.ThrowIfNull(failure);
+        ArgumentNullException.ThrowIfNull(isCurrent);
+        if (Scene is null || !isCurrent())
+            return false;
+
+        _editorClock.CurrentTime.Value = failure.Frame.ToTimeSpan(rate);
+        EditViewModel.FrameCacheManager.Value.CurrentFrame = failure.Frame;
+        UpdatePreviewRenderError(MessageStrings.FrameDrawingException, isCurrent);
+        IsPlaying.Value = false;
+        return true;
+    }
+
+    private void UpdatePreviewRenderError(string? message, Func<bool> isCurrent)
+    {
+        if (!isCurrent())
+            return;
+
+        long version = Interlocked.Increment(ref _previewRenderErrorIssuedVersion);
+
+        void Update()
+        {
+            // A queued update may run after this view model was disposed or its render/playback
+            // request was superseded. Keep the error scoped to the preview that still owns it.
+            // Invalid newer updates do not advance the applied version, so they cannot suppress
+            // an older update that is still valid for the current request.
+            if (Scene is not null
+                && isCurrent()
+                && version > _previewRenderErrorAppliedVersion)
+            {
+                _previewRenderErrorAppliedVersion = version;
+                _previewRenderError.Value = message;
+            }
+        }
+
+        if (Avalonia.Threading.Dispatcher.UIThread.CheckAccess())
+        {
+            Update();
+        }
+        else
+        {
+            Avalonia.Threading.Dispatcher.UIThread.Post(
+                Update,
+                Avalonia.Threading.DispatcherPriority.Background);
+        }
+    }
+
     private void DrawBoundaries(Renderer renderer, SKCanvas canvas, Size canvasSize, bool recalculate = false)
     {
         int? selected = _editorSelection.SelectedLayerNumber.Value;
@@ -1551,9 +1729,6 @@ public sealed class PlayerViewModel : IAsyncDisposable, IPreviewPlayer
 
     private void QueueRender()
     {
-        if (EditViewModel.Renderer.Value.IsGraphicsRendering)
-            return;
-
         void RenderOnRenderThread(CancellationToken token)
         {
             if (token.IsCancellationRequested)
@@ -1746,11 +1921,20 @@ public sealed class PlayerViewModel : IAsyncDisposable, IPreviewPlayer
                         }
                     }
 
+                    if (token.IsCancellationRequested)
+                    {
+                        bitmapRef.Dispose();
+                        return;
+                    }
+
                     UpdateImage(bitmapRef);
 
                     // Dispose と並走した場合に AfterRendered が破棄されている可能性があるためトークンを確認する
                     if (!token.IsCancellationRequested)
+                    {
                         AfterRendered.OnNext(Unit.Default);
+                        ClearPreviewRenderError(token);
+                    }
                 }
                 catch (ObjectDisposedException) when (token.IsCancellationRequested)
                 {
@@ -1759,22 +1943,55 @@ public sealed class PlayerViewModel : IAsyncDisposable, IPreviewPlayer
                 }
                 catch (Exception ex)
                 {
-                    NotificationService.ShowError(MessageStrings.UnexpectedError,
-                        MessageStrings.FrameDrawingException);
                     _logger.LogError(ex,
                         "An exception occurred while drawing the frame. onionSkin={UseOnionSkin}, sampleCount={Count}, frame={Frame}.",
                         useOnionSkin, onionSampleCount, frame);
+                    ReportPreviewRenderError(token);
                 }
             }, ct: token);
         }
 
-        _cts?.Cancel();
-        _cts = new CancellationTokenSource();
+        CancellationTokenSource cts;
+        CancellationTokenSource? previousCts;
+        CancellationToken token;
+        lock (_renderRequestLock)
+        {
+            if (_isDisposing)
+                return;
 
-        Avalonia.Threading.Dispatcher.UIThread.InvokeAsync(
-            () => RenderOnRenderThread(_cts.Token),
-            Avalonia.Threading.DispatcherPriority.Background,
-            _cts.Token);
+            cts = new CancellationTokenSource();
+            token = cts.Token;
+            previousCts = _cts;
+            _cts = cts;
+
+            // Serialize the UI-side handoff with DisposeAsync. Once disposal claims this lock,
+            // no callback can enqueue more render-thread work behind its teardown barrier.
+            Avalonia.Threading.Dispatcher.UIThread.InvokeAsync(
+                () =>
+                {
+                    lock (_renderRequestLock)
+                    {
+                        if (!_isDisposing && !token.IsCancellationRequested)
+                        {
+                            RenderOnRenderThread(token);
+                        }
+                    }
+                },
+                Avalonia.Threading.DispatcherPriority.Background,
+                token);
+        }
+
+        if (previousCts is not null)
+        {
+            try
+            {
+                previousCts.Cancel();
+            }
+            finally
+            {
+                previousCts.Dispose();
+            }
+        }
     }
 
     private void UpdateCurrentFrame(TimeSpan timeSpan)
@@ -1804,12 +2021,25 @@ public sealed class PlayerViewModel : IAsyncDisposable, IPreviewPlayer
     public async ValueTask DisposeAsync()
     {
         _logger.LogInformation("Disposing PlayerViewModel. ({SceneId})", _editViewModel.SceneId);
+        CancellationTokenSource? renderCts;
+        lock (_renderRequestLock)
+        {
+            _isDisposing = true;
+            renderCts = _cts;
+            _cts = null;
+        }
+
+        // Stop accepting and cancel preview renders before Pause() can yield. QueueRender and
+        // teardown share the same lock, so a newly created source can never be disposed out from
+        // under the request that captured its token.
+        renderCts?.Cancel();
         await Pause();
+        // All preview callbacks dispatched before _isDisposing was set are ahead of this barrier.
+        // Wait for them to finish before disposing their token source and the subjects they use.
+        await RenderThread.Dispatcher.InvokeAsync(static () => { });
         // 進行中の QueueRender をキャンセルしてから Subject を破棄し、レンダースレッドが
         // 破棄済みの AfterRendered/_audioFramePushed に OnNext しないようにする
-        _cts?.Cancel();
-        _cts?.Dispose();
-        _cts = null;
+        renderCts?.Dispose();
         Scene!.Edited -= OnSceneEdited;
         _disposables.Dispose();
         _currentFrameSubscription?.Dispose();
