@@ -98,6 +98,19 @@ public sealed class StartupNotificationServiceTests
     }
 
     [Test]
+    public async Task ConfirmSideloadExtensions_CompletesWhenNotificationFails()
+    {
+        using var scope = new NotificationHandlerScope();
+        Task<bool> result = StartupNotificationService.ConfirmSideloadExtensions(["First"]);
+        Notification notification = AssertSingleNotification(scope.Handler);
+
+        notification.OnShowFailed!.Invoke();
+        notification.Actions![^1].Callback();
+
+        Assert.That(await result, Is.False);
+    }
+
+    [Test]
     public void ConfirmSideloadExtensions_TruncatesLongListsAndPackageNames()
     {
         using var scope = new NotificationHandlerScope();
@@ -116,8 +129,29 @@ public sealed class StartupNotificationServiceTests
             Assert.That(lines[1], Does.EndWith("…"));
             Assert.That(lines[2], Is.EqualTo("Third"));
             Assert.That(lines[3], Is.EqualTo(string.Format(MessageStrings.AndMorePackages, 2)));
-            Assert.That(notification.Actions, Has.Count.EqualTo(1));
-            Assert.That(notification.Actions![0].Text, Is.EqualTo(Strings.Yes));
+            Assert.That(notification.Actions, Has.Count.EqualTo(2));
+            Assert.That(notification.Actions![0].Text, Is.EqualTo(Strings.ShowDetails));
+            Assert.That(notification.Actions[0].DismissOnInvoke, Is.False);
+            Assert.That(notification.Actions[1].Text, Is.EqualTo(Strings.Yes));
+            Assert.That(notification.Actions[1].DismissOnInvoke, Is.True);
+        });
+    }
+
+    [AvaloniaTest]
+    public void CreateSideloadDetailsDialog_ContainsEveryOriginalPackageName()
+    {
+        string[] packageNames = ["First\nPackage", new('A', 100), "Third", "Fourth", "Fifth"];
+
+        ContentDialog dialog = StartupNotificationService.CreateSideloadDetailsDialog(packageNames);
+        var listBox = (ListBox)dialog.Content!;
+
+        Assert.Multiple(() =>
+        {
+            Assert.That((string[])listBox.ItemsSource!, Is.EqualTo(packageNames));
+            Assert.That(listBox.MaxHeight, Is.EqualTo(400));
+            Assert.That(listBox.MaxWidth, Is.EqualTo(520));
+            Assert.That(dialog.CloseButtonText, Is.EqualTo(Strings.Close));
+            Assert.That(dialog.DefaultButton, Is.EqualTo(ContentDialogButton.Close));
         });
     }
 
@@ -194,6 +228,23 @@ public sealed class StartupNotificationServiceTests
             Assert.That(infoBar.IsOpen, Is.False);
             Assert.That(dismissed.Task.IsCompleted, Is.True);
         });
+    }
+
+    [AvaloniaTest]
+    public async Task Show_WhenMainViewIsUnavailable_InvokesShowFailedInsteadOfOnClose()
+    {
+        int closed = 0;
+        var failed = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var notification = new Notification(
+            "Title",
+            "Message",
+            OnClose: () => closed++,
+            OnShowFailed: () => failed.TrySetResult());
+
+        new NotificationServiceHandler().Show(notification);
+        await failed.Task.WaitAsync(TimeSpan.FromSeconds(5));
+
+        Assert.That(closed, Is.Zero);
     }
 
     private static Notification AssertSingleNotification(CaptureNotificationHandler handler)

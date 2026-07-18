@@ -16,7 +16,19 @@ public static class NotificationService
 
     public static void Show(Notification notification)
     {
-        s_handler?.Show(notification);
+        Dispatch(notification, s_handler);
+    }
+
+    internal static void Dispatch(Notification notification, INotificationServiceHandler? handler)
+    {
+        if (handler is not null)
+        {
+            handler.Show(notification);
+        }
+        else
+        {
+            notification.OnShowFailed?.Invoke();
+        }
     }
 
     public static void Show(string title, string message,
@@ -24,55 +36,60 @@ public static class NotificationService
         TimeSpan? expiration = null,
         Action? onClose = null,
         IReadOnlyList<NotificationAction>? actions = null,
-        bool isClosable = true)
+        bool isClosable = true,
+        Action? onShowFailed = null)
     {
         Show(new Notification(
             title, message, type,
-            expiration, onClose, actions, isClosable));
+            expiration, onClose, actions, isClosable, onShowFailed));
     }
 
     public static void ShowInformation(string title, string message,
         TimeSpan? expiration = null,
         Action? onClose = null,
         IReadOnlyList<NotificationAction>? actions = null,
-        bool isClosable = true)
+        bool isClosable = true,
+        Action? onShowFailed = null)
     {
         Show(new Notification(
             title, message, NotificationType.Information,
-            expiration, onClose, actions, isClosable));
+            expiration, onClose, actions, isClosable, onShowFailed));
     }
 
     public static void ShowSuccess(string title, string message,
         TimeSpan? expiration = null,
         Action? onClose = null,
         IReadOnlyList<NotificationAction>? actions = null,
-        bool isClosable = true)
+        bool isClosable = true,
+        Action? onShowFailed = null)
     {
         Show(new Notification(
             title, message, NotificationType.Success,
-            expiration, onClose, actions, isClosable));
+            expiration, onClose, actions, isClosable, onShowFailed));
     }
 
     public static void ShowWarning(string title, string message,
         TimeSpan? expiration = null,
         Action? onClose = null,
         IReadOnlyList<NotificationAction>? actions = null,
-        bool isClosable = true)
+        bool isClosable = true,
+        Action? onShowFailed = null)
     {
         Show(new Notification(
             title, message, NotificationType.Warning,
-            expiration, onClose, actions, isClosable));
+            expiration, onClose, actions, isClosable, onShowFailed));
     }
 
     public static void ShowError(string title, string message,
         TimeSpan? expiration = null,
         Action? onClose = null,
         IReadOnlyList<NotificationAction>? actions = null,
-        bool isClosable = true)
+        bool isClosable = true,
+        Action? onShowFailed = null)
     {
         Show(new Notification(
             title, message, NotificationType.Error,
-            expiration, onClose, actions, isClosable));
+            expiration, onClose, actions, isClosable, onShowFailed));
     }
 }
 
@@ -101,4 +118,5 @@ public record Notification(
     TimeSpan? Expiration = null,
     Action? OnClose = null,
     IReadOnlyList<NotificationAction>? Actions = null,
-    bool IsClosable = true);
+    bool IsClosable = true,
+    Action? OnShowFailed = null);

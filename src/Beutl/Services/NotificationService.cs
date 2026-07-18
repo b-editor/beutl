@@ -61,6 +61,9 @@ public sealed class NotificationServiceHandler : INotificationServiceHandler
     {
         Action closeNotification = CreateOnceCallback(
             () => InvokeCallback(notification.OnClose, notification, "OnClose"));
+        Action showFailed = CreateOnceCallback(
+            () => InvokeCallback(notification.OnShowFailed, notification, "OnShowFailed"));
+        bool shown = false;
 
         try
         {
@@ -72,13 +75,14 @@ public sealed class NotificationServiceHandler : INotificationServiceHandler
                 {
                     if (GetMainView() is not MainView mainView)
                     {
-                        closeNotification();
+                        showFailed();
                         return;
                     }
 
                     var dismissed = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
                     InfoBar infoBar = BuildInfoBar(notification, dismissed, closeNotification);
                     mainView.NotificationPanel.Children.Add(infoBar);
+                    shown = true;
 
                     if (await WaitForDismissal(
                             notification.Expiration ?? TimeSpan.FromSeconds(3), dismissed.Task))
@@ -107,7 +111,10 @@ public sealed class NotificationServiceHandler : INotificationServiceHandler
                         e,
                         "Failed to show notification (Type={Type}, Title={Title})",
                         notification.Type, notification.Title);
-                    closeNotification();
+                    if (!shown)
+                    {
+                        showFailed();
+                    }
                 }
             });
         }
@@ -118,7 +125,10 @@ public sealed class NotificationServiceHandler : INotificationServiceHandler
                 e,
                 "Failed to dispatch notification (Type={Type}, Title={Title})",
                 notification.Type, notification.Title);
-            closeNotification();
+            if (!shown)
+            {
+                showFailed();
+            }
         }
     }
 
