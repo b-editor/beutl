@@ -71,10 +71,13 @@ public sealed class NotificationServiceHandler : INotificationServiceHandler
                     if (GetMainView() is not MainView mainView)
                         return;
 
-                    InfoBar infoBar = BuildInfoBar(notification);
+                    var dismissed = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+                    InfoBar infoBar = BuildInfoBar(notification, dismissed);
                     mainView.NotificationPanel.Children.Add(infoBar);
 
-                    await Task.Delay(notification.Expiration ?? TimeSpan.FromSeconds(3));
+                    Task expiration = Task.Delay(notification.Expiration ?? TimeSpan.FromSeconds(3));
+                    if (await Task.WhenAny(expiration, dismissed.Task) == dismissed.Task)
+                        return;
 
                     if (infoBar.IsPointerOver)
                         await WaitPointerExitedAsync(infoBar);
@@ -112,7 +115,7 @@ public sealed class NotificationServiceHandler : INotificationServiceHandler
         }
     }
 
-    private InfoBar BuildInfoBar(Notification notification)
+    private InfoBar BuildInfoBar(Notification notification, TaskCompletionSource dismissed)
     {
         var infoBar = new InfoBar
         {
@@ -139,6 +142,7 @@ public sealed class NotificationServiceHandler : INotificationServiceHandler
             {
                 InvokeCallback(n.OnClose, n, "OnClose");
                 Close(closingBar);
+                dismissed.TrySetResult();
             }
         };
 
@@ -154,6 +158,8 @@ public sealed class NotificationServiceHandler : INotificationServiceHandler
                     InfoBar? ancestor = button.FindLogicalAncestorOfType<InfoBar>();
                     if (ancestor != null)
                         Close(ancestor);
+
+                    dismissed.TrySetResult();
                 }
             };
             infoBar.ActionButton = actionButton;

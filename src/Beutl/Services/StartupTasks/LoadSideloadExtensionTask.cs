@@ -1,12 +1,7 @@
 ﻿using System.Collections.Concurrent;
 
-using Avalonia.Controls;
-using Avalonia.Threading;
-
 using Beutl.Api.Services;
 using Beutl.Logging;
-
-using FluentAvalonia.UI.Controls;
 
 using Microsoft.Extensions.Logging;
 
@@ -29,7 +24,9 @@ public sealed class LoadSideloadExtensionTask : StartupTask
                 {
                     activity?.AddEvent(new ActivityEvent("Done_GetSideLoadPackages"));
 
-                    if (await ShowDialog(sideloads))
+                    await App.WaitWindowOpened();
+                    if (await StartupNotificationService.ConfirmSideloadExtensions(
+                            sideloads.Select(x => x.Name).ToArray()))
                     {
                         activity?.AddEvent(new ActivityEvent("Started loading side-load-packages."));
 
@@ -61,25 +58,4 @@ public sealed class LoadSideloadExtensionTask : StartupTask
     public override Task Task { get; }
 
     public ConcurrentBag<(LocalPackage, Exception)> Failures { get; } = [];
-
-    private static async ValueTask<bool> ShowDialog(IReadOnlyList<LocalPackage> sideloads)
-    {
-        await App.WaitWindowOpened();
-        return await Dispatcher.UIThread.InvokeAsync(async () =>
-        {
-            var dialog = new ContentDialog
-            {
-                Title = MessageStrings.ConfirmLoadSideloadExtensions,
-                Content = new ListBox
-                {
-                    ItemsSource = sideloads.Select(x => x.Name).ToArray(),
-                    SelectedIndex = 0
-                },
-                PrimaryButtonText = Strings.Yes,
-                CloseButtonText = Strings.No,
-            };
-
-            return await dialog.ShowAsync() == ContentDialogResult.Primary;
-        });
-    }
 }
