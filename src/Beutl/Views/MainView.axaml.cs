@@ -149,8 +149,11 @@ public sealed partial class MainView : UserControl
                 SettingsStrings.AiAgents_UpdateAvailable_Title,
                 SettingsStrings.AiAgents_UpdateAvailable_Content,
                 expiration: TimeSpan.FromSeconds(30),
-                onActionButtonClick: () => _ = ReinstallAgentToolkitAsync(viewModel),
-                actionButtonText: SettingsStrings.AiAgents_Reinstall);
+                actions:
+                [
+                    new(SettingsStrings.AiAgents_Reinstall,
+                        () => _ = ReinstallAgentToolkitAsync(viewModel))
+                ]);
         }
         catch (Exception ex)
         {

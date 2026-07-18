@@ -34,8 +34,7 @@ public sealed class CheckForPackageUpdatesTask : StartupTask
                         NotificationService.ShowInformation(
                             MessageStrings.PackageUpdatesAvailable,
                             string.Format(MessageStrings.PackagesCanBeUpdated, updates.Count),
-                            onActionButtonClick: OpenExtensionsPage,
-                            actionButtonText: Strings.Open);
+                            actions: [new(Strings.Open, OpenExtensionsPage)]);
                     }
                     else
                     {

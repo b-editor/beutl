@@ -95,6 +95,9 @@
   <data name="ConfirmLoadSideloadExtensions" xml:space="preserve">
     <value>サイドロード拡張機能を読み込みますか？</value>
   </data>
+  <data name="AndMorePackages" xml:space="preserve">
+    <value>... ほか{0}件</value>
+  </data>
   <data name="UnableToSaveFile" xml:space="preserve">
     <value>ファイルを保存できません。</value>
   </data>

@@ -23,56 +23,51 @@ public static class NotificationService
         NotificationType type = NotificationType.Information,
         TimeSpan? expiration = null,
         Action? onClose = null,
-        Action? onActionButtonClick = null,
-        string? actionButtonText = null)
+        IReadOnlyList<NotificationAction>? actions = null)
     {
         Show(new Notification(
             title, message, type,
-            expiration, onClose, onActionButtonClick, actionButtonText));
+            expiration, onClose, actions));
     }
 
     public static void ShowInformation(string title, string message,
         TimeSpan? expiration = null,
         Action? onClose = null,
-        Action? onActionButtonClick = null,
-        string? actionButtonText = null)
+        IReadOnlyList<NotificationAction>? actions = null)
     {
         Show(new Notification(
             title, message, NotificationType.Information,
-            expiration, onClose, onActionButtonClick, actionButtonText));
+            expiration, onClose, actions));
     }
 
     public static void ShowSuccess(string title, string message,
         TimeSpan? expiration = null,
         Action? onClose = null,
-        Action? onActionButtonClick = null,
-        string? actionButtonText = null)
+        IReadOnlyList<NotificationAction>? actions = null)
     {
         Show(new Notification(
             title, message, NotificationType.Success,
-            expiration, onClose, onActionButtonClick, actionButtonText));
+            expiration, onClose, actions));
     }
 
     public static void ShowWarning(string title, string message,
         TimeSpan? expiration = null,
         Action? onClose = null,
-        Action? onActionButtonClick = null,
-        string? actionButtonText = null)
+        IReadOnlyList<NotificationAction>? actions = null)
     {
         Show(new Notification(
             title, message, NotificationType.Warning,
-            expiration, onClose, onActionButtonClick, actionButtonText));
+            expiration, onClose, actions));
     }
 
     public static void ShowError(string title, string message,
         TimeSpan? expiration = null,
         Action? onClose = null,
-        Action? onActionButtonClick = null,
-        string? actionButtonText = null)
+        IReadOnlyList<NotificationAction>? actions = null)
     {
         Show(new Notification(
             title, message, NotificationType.Error,
-            expiration, onClose, onActionButtonClick, actionButtonText));
+            expiration, onClose, actions));
     }
 }
 
@@ -89,11 +84,15 @@ public enum NotificationType
     Error = 3
 }
 
+public sealed record NotificationAction(
+    string Text,
+    Action Callback,
+    bool DismissOnInvoke = true);
+
 public record Notification(
     string Title,
     string Message,
     NotificationType Type = NotificationType.Information,
     TimeSpan? Expiration = null,
     Action? OnClose = null,
-    Action? OnActionButtonClick = null,
-    string? ActionButtonText = null);
+    IReadOnlyList<NotificationAction>? Actions = null);

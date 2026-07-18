@@ -25,8 +25,7 @@ public sealed class AfterLoadingExtensionsTask : StartupTask
                 NotificationService.ShowError(
                     MessageStrings.FailedToLoadPackage,
                     string.Format(MessageStrings.FailedToLoadNPackages, failures.Length),
-                    onActionButtonClick: () => ShowPackageLoadingError(failures),
-                    actionButtonText: Strings.Details);
+                    actions: [new(Strings.Details, () => ShowPackageLoadingError(failures))]);
             }
         });
     }

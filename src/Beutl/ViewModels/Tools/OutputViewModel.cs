@@ -516,8 +516,7 @@ public sealed class OutputViewModel : IOutputContext, ISupportOutputPreset
                 Strings.Completed,
                 string.Format(MessageStrings.ExportCompleted_File, fileName),
                 expiration: TimeSpan.FromSeconds(5),
-                onActionButtonClick: () => OpenContainingFolder(path),
-                actionButtonText: Strings.OpenFolder);
+                actions: [new(Strings.OpenFolder, () => OpenContainingFolder(path))]);
         }
         catch (Exception ex)
         {

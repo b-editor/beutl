@@ -37,8 +37,7 @@ public sealed class CheckForUpdatesTask : StartupTask
                         NotificationService.ShowInformation(
                             MessageStrings.NewVersionAvailable,
                             v1.Url,
-                            onActionButtonClick: () => OpenUrl(v1.Url),
-                            actionButtonText: Strings.Open);
+                            actions: [new(Strings.Open, () => OpenUrl(v1.Url))]);
                     }
                     else if (v1.MustLatest)
                     {
@@ -67,23 +66,23 @@ public sealed class CheckForUpdatesTask : StartupTask
                             NotificationService.ShowInformation(
                                 MessageStrings.NewVersionAvailable,
                                 releaseUrl,
-                                onActionButtonClick: () => OpenUrl(releaseUrl),
-                                actionButtonText: Strings.Open);
+                                actions: [new(Strings.Open, () => OpenUrl(releaseUrl))]);
                         }
                         else
                         {
                             NotificationService.ShowInformation(
                                 MessageStrings.NewVersionAvailable,
                                 message: MessageStrings.ConfirmInstall,
-                                onActionButtonClick: () =>
-                                {
-                                    var viewModel = new UpdateDialogViewModel(v3);
-                                    var dialog = new UpdateDialog { DataContext = viewModel };
-                                    dialog.ShowAsync();
-                                    viewModel.Start();
-                                },
-                                // TODO: Stringsに移動
-                                actionButtonText: ExtensionsStrings.Install);
+                                actions:
+                                [
+                                    new(ExtensionsStrings.Install, () =>
+                                    {
+                                        var viewModel = new UpdateDialogViewModel(v3);
+                                        var dialog = new UpdateDialog { DataContext = viewModel };
+                                        dialog.ShowAsync();
+                                        viewModel.Start();
+                                    })
+                                ]);
                         }
                     }
                     else if (v3.MustLatest)

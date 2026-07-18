@@ -122,7 +122,7 @@ public sealed class NotificationServiceHandler : INotificationServiceHandler
         }
     }
 
-    private InfoBar BuildInfoBar(
+    internal InfoBar BuildInfoBar(
         Notification notification,
         TaskCompletionSource dismissed,
         Action closeNotification)
@@ -156,18 +156,30 @@ public sealed class NotificationServiceHandler : INotificationServiceHandler
             }
         };
 
-        if (notification.OnActionButtonClick != null)
+        if (notification.Actions is { Count: > 0 } actions)
         {
-            var actionButton = new Button { Content = notification.ActionButtonText ?? "Action" };
-            actionButton.Click += (_, _) =>
+            var actionPanel = new WrapPanel();
+            foreach (NotificationAction action in actions)
             {
-                InvokeCallback(
-                    notification.OnActionButtonClick, notification, "OnActionButtonClick");
+                var actionButton = new Button
+                {
+                    Content = action.Text,
+                    Margin = new Thickness(4)
+                };
+                actionButton.Click += (_, _) =>
+                {
+                    InvokeCallback(action.Callback, notification, "Action");
 
-                Close(infoBar);
-                dismissed.TrySetResult();
-            };
-            infoBar.ActionButton = actionButton;
+                    if (action.DismissOnInvoke)
+                    {
+                        Close(infoBar);
+                        dismissed.TrySetResult();
+                    }
+                };
+                actionPanel.Children.Add(actionButton);
+            }
+
+            infoBar.ActionButton = actionPanel;
         }
 
         return infoBar;

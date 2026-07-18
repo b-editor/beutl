@@ -1,6 +1,10 @@
-﻿using Beutl.Configuration;
+﻿using Avalonia.Controls;
+using Avalonia.Headless.NUnit;
+using Avalonia.Interactivity;
+using Beutl.Configuration;
 using Beutl.Language;
 using Beutl.Services;
+using FluentAvalonia.UI.Controls;
 
 namespace Beutl.HeadlessUITests;
 
@@ -17,12 +21,18 @@ public sealed class StartupNotificationServiceTests
 
         Notification notification = AssertSingleNotification(scope.Handler);
         Assert.That(notification.Title, Is.EqualTo(SettingsStrings.Telemetry));
-        Assert.That(notification.Message, Is.EqualTo(
-            $"{SettingsStrings.Telemetry_Description}{Environment.NewLine}{StartupNotificationService.TelemetryDetailsUrl}"));
+        Assert.That(notification.Message, Is.EqualTo(SettingsStrings.Telemetry_Description));
         Assert.That(notification.Expiration, Is.EqualTo(Timeout.InfiniteTimeSpan));
-        Assert.That(notification.ActionButtonText, Is.EqualTo(Strings.Agree));
+        Assert.That(notification.Actions, Has.Count.EqualTo(2));
+        Assert.Multiple(() =>
+        {
+            Assert.That(notification.Actions![0].Text, Is.EqualTo(Strings.ShowDetails));
+            Assert.That(notification.Actions[0].DismissOnInvoke, Is.False);
+            Assert.That(notification.Actions[1].Text, Is.EqualTo(Strings.Agree));
+            Assert.That(notification.Actions[1].DismissOnInvoke, Is.True);
+        });
 
-        notification.OnActionButtonClick!.Invoke();
+        notification.Actions![1].Callback();
 
         AssertTelemetry(config, true);
     }
@@ -67,12 +77,13 @@ public sealed class StartupNotificationServiceTests
         Assert.That(notification.Title, Is.EqualTo(MessageStrings.ConfirmLoadSideloadExtensions));
         Assert.That(notification.Message, Is.EqualTo($"First{Environment.NewLine}Second"));
         Assert.That(notification.Expiration, Is.EqualTo(Timeout.InfiniteTimeSpan));
-        Assert.That(notification.ActionButtonText, Is.EqualTo(Strings.Yes));
+        Assert.That(notification.Actions, Has.Count.EqualTo(1));
+        Assert.That(notification.Actions![0].Text, Is.EqualTo(Strings.Yes));
         Assert.That(result.IsCompleted, Is.False);
 
         if (accept)
         {
-            notification.OnActionButtonClick!.Invoke();
+            notification.Actions[0].Callback();
         }
         else
         {
@@ -80,6 +91,30 @@ public sealed class StartupNotificationServiceTests
         }
 
         Assert.That(await result, Is.EqualTo(accept));
+    }
+
+    [Test]
+    public void ConfirmSideloadExtensions_TruncatesLongListsAndPackageNames()
+    {
+        using var scope = new NotificationHandlerScope();
+        string longName = new('A', StartupNotificationService.MaxSideloadPackageNameLength + 20);
+
+        StartupNotificationService.ConfirmSideloadExtensions(
+            ["First\nPackage", longName, "Third", "Fourth", "Fifth"]);
+        Notification notification = AssertSingleNotification(scope.Handler);
+        string[] lines = notification.Message.Split(Environment.NewLine);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(lines, Has.Length.EqualTo(StartupNotificationService.MaxVisibleSideloadPackages + 1));
+            Assert.That(lines[0], Is.EqualTo("First Package"));
+            Assert.That(lines[1], Has.Length.EqualTo(StartupNotificationService.MaxSideloadPackageNameLength));
+            Assert.That(lines[1], Does.EndWith("…"));
+            Assert.That(lines[2], Is.EqualTo("Third"));
+            Assert.That(lines[3], Is.EqualTo(string.Format(MessageStrings.AndMorePackages, 2)));
+            Assert.That(notification.Actions, Has.Count.EqualTo(1));
+            Assert.That(notification.Actions![0].Text, Is.EqualTo(Strings.Yes));
+        });
     }
 
     [Test]
@@ -105,6 +140,46 @@ public sealed class StartupNotificationServiceTests
         dismissed.SetResult();
 
         Assert.That(await result, Is.True);
+    }
+
+    [AvaloniaTest]
+    public void BuildInfoBar_OnlyDismissesForDismissingAction()
+    {
+        int nonDismissingInvocations = 0;
+        int dismissingInvocations = 0;
+        var dismissed = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var notification = new Notification(
+            "Title",
+            "Message",
+            Actions:
+            [
+                new("Details", () => nonDismissingInvocations++, DismissOnInvoke: false),
+                new("Accept", () => dismissingInvocations++)
+            ]);
+        var handler = new NotificationServiceHandler();
+        InfoBar infoBar = handler.BuildInfoBar(notification, dismissed, () => { });
+        var actionPanel = (WrapPanel)infoBar.ActionButton!;
+        var detailsButton = (Button)actionPanel.Children[0];
+        var acceptButton = (Button)actionPanel.Children[1];
+
+        detailsButton.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(nonDismissingInvocations, Is.EqualTo(1));
+            Assert.That(dismissingInvocations, Is.Zero);
+            Assert.That(infoBar.IsOpen, Is.True);
+            Assert.That(dismissed.Task.IsCompleted, Is.False);
+        });
+
+        acceptButton.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(dismissingInvocations, Is.EqualTo(1));
+            Assert.That(infoBar.IsOpen, Is.False);
+            Assert.That(dismissed.Task.IsCompleted, Is.True);
+        });
     }
 
     private static Notification AssertSingleNotification(CaptureNotificationHandler handler)
