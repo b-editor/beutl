@@ -3,7 +3,6 @@ using Avalonia.Controls;
 using Avalonia.Controls.ApplicationLifetimes;
 using Avalonia.Controls.Primitives;
 using Avalonia.Input;
-using Avalonia.LogicalTree;
 using Avalonia.Markup.Xaml.MarkupExtensions;
 using Avalonia.Threading;
 using Avalonia.VisualTree;
@@ -60,6 +59,9 @@ public sealed class NotificationServiceHandler : INotificationServiceHandler
 
     private async Task ShowCoreAsync(Notification notification)
     {
+        Action closeNotification = CreateOnceCallback(
+            () => InvokeCallback(notification.OnClose, notification, "OnClose"));
+
         try
         {
             await App.WaitWindowOpened();
@@ -69,14 +71,17 @@ public sealed class NotificationServiceHandler : INotificationServiceHandler
                 try
                 {
                     if (GetMainView() is not MainView mainView)
+                    {
+                        closeNotification();
                         return;
+                    }
 
                     var dismissed = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
-                    InfoBar infoBar = BuildInfoBar(notification, dismissed);
+                    InfoBar infoBar = BuildInfoBar(notification, dismissed, closeNotification);
                     mainView.NotificationPanel.Children.Add(infoBar);
 
-                    Task expiration = Task.Delay(notification.Expiration ?? TimeSpan.FromSeconds(3));
-                    if (await Task.WhenAny(expiration, dismissed.Task) == dismissed.Task)
+                    if (await WaitForDismissal(
+                            notification.Expiration ?? TimeSpan.FromSeconds(3), dismissed.Task))
                         return;
 
                     if (infoBar.IsPointerOver)
@@ -102,6 +107,7 @@ public sealed class NotificationServiceHandler : INotificationServiceHandler
                         e,
                         "Failed to show notification (Type={Type}, Title={Title})",
                         notification.Type, notification.Title);
+                    closeNotification();
                 }
             });
         }
@@ -112,10 +118,14 @@ public sealed class NotificationServiceHandler : INotificationServiceHandler
                 e,
                 "Failed to dispatch notification (Type={Type}, Title={Title})",
                 notification.Type, notification.Title);
+            closeNotification();
         }
     }
 
-    private InfoBar BuildInfoBar(Notification notification, TaskCompletionSource dismissed)
+    private InfoBar BuildInfoBar(
+        Notification notification,
+        TaskCompletionSource dismissed,
+        Action closeNotification)
     {
         var infoBar = new InfoBar
         {
@@ -138,9 +148,9 @@ public sealed class NotificationServiceHandler : INotificationServiceHandler
 
         infoBar.CloseButtonClick += (s, _) =>
         {
-            if (s is InfoBar { DataContext: Notification n } closingBar)
+            if (s is InfoBar { DataContext: Notification } closingBar)
             {
-                InvokeCallback(n.OnClose, n, "OnClose");
+                closeNotification();
                 Close(closingBar);
                 dismissed.TrySetResult();
             }
@@ -149,23 +159,43 @@ public sealed class NotificationServiceHandler : INotificationServiceHandler
         if (notification.OnActionButtonClick != null)
         {
             var actionButton = new Button { Content = notification.ActionButtonText ?? "Action" };
-            actionButton.Click += (s, _) =>
+            actionButton.Click += (_, _) =>
             {
-                if (s is Button { DataContext: Notification n } button)
-                {
-                    InvokeCallback(n.OnActionButtonClick, n, "OnActionButtonClick");
+                InvokeCallback(
+                    notification.OnActionButtonClick, notification, "OnActionButtonClick");
 
-                    InfoBar? ancestor = button.FindLogicalAncestorOfType<InfoBar>();
-                    if (ancestor != null)
-                        Close(ancestor);
-
-                    dismissed.TrySetResult();
-                }
+                Close(infoBar);
+                dismissed.TrySetResult();
             };
             infoBar.ActionButton = actionButton;
         }
 
         return infoBar;
+    }
+
+    internal static Action CreateOnceCallback(Action callback)
+    {
+        int invoked = 0;
+        return () =>
+        {
+            if (Interlocked.Exchange(ref invoked, 1) == 0)
+            {
+                callback();
+            }
+        };
+    }
+
+    internal static async Task<bool> WaitForDismissal(TimeSpan expiration, Task dismissed)
+    {
+        using var cancellation = new CancellationTokenSource();
+        Task expirationTask = Task.Delay(expiration, cancellation.Token);
+        if (await Task.WhenAny(expirationTask, dismissed) == dismissed)
+        {
+            await cancellation.CancelAsync();
+            return true;
+        }
+
+        return false;
     }
 
     private void InvokeCallback(Action? callback, Notification notification, string callbackName)
