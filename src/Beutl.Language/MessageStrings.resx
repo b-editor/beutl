@@ -100,6 +100,9 @@ because the new name conflicts with an existing folder.</value>
   <data name="ConfirmLoadSideloadExtensions" xml:space="preserve">
     <value>Do you want to load sideload extensions?</value>
   </data>
+  <data name="AndMorePackages" xml:space="preserve">
+    <value>... and {0} more packages</value>
+  </data>
   <data name="UnableToSaveFile" xml:space="preserve">
     <value>Unable to save file.</value>
   </data>

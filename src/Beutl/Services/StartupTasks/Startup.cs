@@ -36,8 +36,10 @@ public sealed class Startup
     {
         LoadInstalledExtensionTask t1 = GetTask<LoadInstalledExtensionTask>();
         LoadPrimitiveExtensionTask t2 = GetTask<LoadPrimitiveExtensionTask>();
+        await Task.WhenAll(t1.Task, t2.Task).ConfigureAwait(false);
+
         LoadSideloadExtensionTask t3 = GetTask<LoadSideloadExtensionTask>();
-        await Task.WhenAll(t1.Task, t2.Task, t3.Task).ConfigureAwait(false);
+        await t3.WaitForAcceptedLoadingAsync().ConfigureAwait(false);
     }
 
     public T GetTask<T>()

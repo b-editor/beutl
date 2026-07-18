@@ -35,10 +35,12 @@ public sealed class App : Application
     private ThemeService? _themeService;
     private MainViewModel? _mainViewModel;
     private Startup? _startUp;
+    private LoadSideloadExtensionTask? _sideloadExtensionTask;
 
     public override void Initialize()
     {
         _startUp = GetMainViewModel().RunStartupTask();
+        _sideloadExtensionTask = _startUp.GetTask<LoadSideloadExtensionTask>();
         _startUp.WaitAll().ContinueWith(_ => _startUp = null);
 
         using Activity? activity = Telemetry.StartActivity("App.Initialize");
@@ -174,6 +176,10 @@ public sealed class App : Application
         if (Current is App { _startUp: { } obj })
         {
             await obj.WaitLoadingExtensions();
+        }
+        else if (Current is App { _sideloadExtensionTask: { } sideloadTask })
+        {
+            await sideloadTask.WaitForAcceptedLoadingAsync();
         }
     }
 

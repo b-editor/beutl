@@ -120,7 +120,7 @@ public sealed partial class MainView : UserControl
             InitExtMenuItems(viewModel);
         }
 
-        await ShowTelemetryDialog();
+        StartupNotificationService.ShowTelemetryConsent(GlobalConfiguration.Instance.TelemetryConfig);
         await CheckDifferentVersion();
         await CheckAgentToolkitUpdateAsync();
 
@@ -149,8 +149,11 @@ public sealed partial class MainView : UserControl
                 SettingsStrings.AiAgents_UpdateAvailable_Title,
                 SettingsStrings.AiAgents_UpdateAvailable_Content,
                 expiration: TimeSpan.FromSeconds(30),
-                onActionButtonClick: () => _ = ReinstallAgentToolkitAsync(viewModel),
-                actionButtonText: SettingsStrings.AiAgents_Reinstall);
+                actions:
+                [
+                    new(SettingsStrings.AiAgents_Reinstall,
+                        () => _ = ReinstallAgentToolkitAsync(viewModel))
+                ]);
         }
         catch (Exception ex)
         {
@@ -191,24 +194,6 @@ public sealed partial class MainView : UserControl
                     await dialog.ShowAsync();
                 }
             }
-        }
-    }
-
-    private static async Task ShowTelemetryDialog()
-    {
-        TelemetryConfig tconfig = GlobalConfiguration.Instance.TelemetryConfig;
-        if (!(tconfig.Beutl_Api_Client.HasValue
-              && tconfig.Beutl_Application.HasValue
-              && tconfig.Beutl_PackageManagement.HasValue
-              && tconfig.Beutl_Logging.HasValue))
-        {
-            var dialog = new TelemetryDialog();
-
-            bool result = await dialog.ShowAsync() == ContentDialogResult.Primary;
-            tconfig.Beutl_Api_Client = result;
-            tconfig.Beutl_Application = result;
-            tconfig.Beutl_PackageManagement = result;
-            tconfig.Beutl_Logging = result;
         }
     }
 

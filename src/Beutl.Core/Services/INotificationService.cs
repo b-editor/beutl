@@ -1,8 +1,31 @@
-﻿namespace Beutl.Services;
+﻿using Beutl.Logging;
+using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Logging.Abstractions;
+
+namespace Beutl.Services;
 
 public static class NotificationService
 {
+    private static ILogger? s_logger;
     private static INotificationServiceHandler? s_handler;
+
+    private static ILogger Logger
+    {
+        get
+        {
+            if (s_logger is not null) return s_logger;
+            if (!Log.IsLoggerFactoryConfigured) return NullLogger.Instance;
+
+            try
+            {
+                return s_logger = Log.CreateLogger(typeof(NotificationService));
+            }
+            catch (Exception)
+            {
+                return NullLogger.Instance;
+            }
+        }
+    }
 
     public static INotificationServiceHandler Handler
     {
@@ -16,63 +39,110 @@ public static class NotificationService
 
     public static void Show(Notification notification)
     {
-        s_handler?.Show(notification);
+        Dispatch(notification, s_handler);
+    }
+
+    internal static void Dispatch(Notification notification, INotificationServiceHandler? handler)
+    {
+        int failureReported = 0;
+
+        void ReportShowFailure()
+        {
+            if (Interlocked.Exchange(ref failureReported, 1) != 0)
+                return;
+
+            try
+            {
+                notification.OnShowFailed?.Invoke();
+            }
+            catch (Exception e)
+            {
+                Logger.LogError(
+                    e,
+                    "Notification OnShowFailed callback failed (Type={Type}, Title={Title})",
+                    notification.Type, notification.Title);
+            }
+        }
+
+        if (handler is null)
+        {
+            ReportShowFailure();
+            return;
+        }
+
+        try
+        {
+            handler.Show(notification with { OnShowFailed = ReportShowFailure });
+        }
+        catch (Exception e)
+        {
+            Logger.LogError(
+                e,
+                "Notification handler failed (Type={Type}, Title={Title})",
+                notification.Type, notification.Title);
+            ReportShowFailure();
+        }
     }
 
     public static void Show(string title, string message,
         NotificationType type = NotificationType.Information,
         TimeSpan? expiration = null,
         Action? onClose = null,
-        Action? onActionButtonClick = null,
-        string? actionButtonText = null)
+        IReadOnlyList<NotificationAction>? actions = null,
+        bool isClosable = true,
+        Action? onShowFailed = null)
     {
         Show(new Notification(
             title, message, type,
-            expiration, onClose, onActionButtonClick, actionButtonText));
+            expiration, onClose, actions, isClosable, onShowFailed));
     }
 
     public static void ShowInformation(string title, string message,
         TimeSpan? expiration = null,
         Action? onClose = null,
-        Action? onActionButtonClick = null,
-        string? actionButtonText = null)
+        IReadOnlyList<NotificationAction>? actions = null,
+        bool isClosable = true,
+        Action? onShowFailed = null)
     {
         Show(new Notification(
             title, message, NotificationType.Information,
-            expiration, onClose, onActionButtonClick, actionButtonText));
+            expiration, onClose, actions, isClosable, onShowFailed));
     }
 
     public static void ShowSuccess(string title, string message,
         TimeSpan? expiration = null,
         Action? onClose = null,
-        Action? onActionButtonClick = null,
-        string? actionButtonText = null)
+        IReadOnlyList<NotificationAction>? actions = null,
+        bool isClosable = true,
+        Action? onShowFailed = null)
     {
         Show(new Notification(
             title, message, NotificationType.Success,
-            expiration, onClose, onActionButtonClick, actionButtonText));
+            expiration, onClose, actions, isClosable, onShowFailed));
     }
 
     public static void ShowWarning(string title, string message,
         TimeSpan? expiration = null,
         Action? onClose = null,
-        Action? onActionButtonClick = null,
-        string? actionButtonText = null)
+        IReadOnlyList<NotificationAction>? actions = null,
+        bool isClosable = true,
+        Action? onShowFailed = null)
     {
         Show(new Notification(
             title, message, NotificationType.Warning,
-            expiration, onClose, onActionButtonClick, actionButtonText));
+            expiration, onClose, actions, isClosable, onShowFailed));
     }
 
     public static void ShowError(string title, string message,
         TimeSpan? expiration = null,
         Action? onClose = null,
-        Action? onActionButtonClick = null,
-        string? actionButtonText = null)
+        IReadOnlyList<NotificationAction>? actions = null,
+        bool isClosable = true,
+        Action? onShowFailed = null)
     {
         Show(new Notification(
             title, message, NotificationType.Error,
-            expiration, onClose, onActionButtonClick, actionButtonText));
+            expiration, onClose, actions, isClosable, onShowFailed));
     }
 }
 
@@ -89,11 +159,17 @@ public enum NotificationType
     Error = 3
 }
 
+public sealed record NotificationAction(
+    string Text,
+    Action Callback,
+    bool DismissOnInvoke = true);
+
 public record Notification(
     string Title,
     string Message,
     NotificationType Type = NotificationType.Information,
     TimeSpan? Expiration = null,
     Action? OnClose = null,
-    Action? OnActionButtonClick = null,
-    string? ActionButtonText = null);
+    IReadOnlyList<NotificationAction>? Actions = null,
+    bool IsClosable = true,
+    Action? OnShowFailed = null);

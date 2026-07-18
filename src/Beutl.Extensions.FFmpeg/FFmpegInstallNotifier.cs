@@ -38,8 +38,7 @@ internal static class FFmpegInstallNotifier
         NotificationService.ShowError(
             Strings.FFmpegError,
             Strings.Make_sure_you_have_FFmpeg_installed,
-            onActionButtonClick: ShowInstallDialog,
-            actionButtonText: Strings.Install);
+            actions: [new(Strings.Install, ShowInstallDialog)]);
     }
 
     // CAS guard: only the thread whose CompareExchange swaps `last` -> `now`

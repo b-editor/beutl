@@ -37,8 +37,11 @@ public sealed class AuthenticationTask : StartupTask
                                 NotificationService.ShowError(
                                     SettingsStrings.Account,
                                     MessageStrings.SigninInvalid,
-                                    onActionButtonClick: () => _ = _beutlApiApplication.SignInAsync(default),
-                                    actionButtonText: SettingsStrings.SignIn);
+                                    actions:
+                                    [
+                                        new(SettingsStrings.SignIn,
+                                            () => _ = _beutlApiApplication.SignInAsync(default))
+                                    ]);
                             }
                         }
                         catch (Exception ex)
