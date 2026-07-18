@@ -1,12 +1,31 @@
 ﻿using Beutl.Logging;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Logging.Abstractions;
 
 namespace Beutl.Services;
 
 public static class NotificationService
 {
-    private static readonly ILogger s_logger = Log.CreateLogger(typeof(NotificationService));
+    private static ILogger? s_logger;
     private static INotificationServiceHandler? s_handler;
+
+    private static ILogger Logger
+    {
+        get
+        {
+            if (s_logger is not null) return s_logger;
+            if (!Log.IsLoggerFactoryConfigured) return NullLogger.Instance;
+
+            try
+            {
+                return s_logger = Log.CreateLogger(typeof(NotificationService));
+            }
+            catch (Exception)
+            {
+                return NullLogger.Instance;
+            }
+        }
+    }
 
     public static INotificationServiceHandler Handler
     {
@@ -38,7 +57,7 @@ public static class NotificationService
             }
             catch (Exception e)
             {
-                s_logger.LogError(
+                Logger.LogError(
                     e,
                     "Notification OnShowFailed callback failed (Type={Type}, Title={Title})",
                     notification.Type, notification.Title);
@@ -57,7 +76,7 @@ public static class NotificationService
         }
         catch (Exception e)
         {
-            s_logger.LogError(
+            Logger.LogError(
                 e,
                 "Notification handler failed (Type={Type}, Title={Title})",
                 notification.Type, notification.Title);
