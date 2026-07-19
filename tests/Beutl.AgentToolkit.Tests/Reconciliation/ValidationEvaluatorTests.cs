@@ -18,7 +18,8 @@ public class ValidationEvaluatorTests
         Assert.Multiple(() =>
         {
             Assert.That(coerced.Status, Is.EqualTo(ValidationStatus.Coerced));
-            Assert.That(coerced.CoercedValue, Is.EqualTo(10));
+            Assert.That(coerced.CoercedValue!.GetValue<int>(), Is.EqualTo(10));
+            Assert.That(coerced.OriginalValue!.GetValue<int>(), Is.EqualTo(50));
             Assert.That(rejected.Status, Is.EqualTo(ValidationStatus.Rejected));
         });
     }
@@ -34,7 +35,7 @@ public class ValidationEvaluatorTests
         Assert.Multiple(() =>
         {
             Assert.That(coerced.Status, Is.EqualTo(ValidationStatus.Coerced));
-            Assert.That(coerced.CoercedValue, Is.EqualTo(10));
+            Assert.That(coerced.CoercedValue!.GetValue<int>(), Is.EqualTo(10));
             Assert.That(rejected.Status, Is.EqualTo(ValidationStatus.Rejected));
         });
     }

@@ -1,4 +1,5 @@
-﻿using System.Text.Json.Serialization;
+﻿using System.Text.Json.Nodes;
+using System.Text.Json.Serialization;
 using Beutl.Engine;
 using Beutl.Media;
 using Beutl.Validation;
@@ -15,30 +16,37 @@ public enum ValidationStatus
 
 public sealed record ValidationOutcome(
     ValidationStatus Status,
-    object? OriginalValue,
-    object? CoercedValue,
+    JsonNode? OriginalValue,
+    JsonNode? CoercedValue,
     string? Message,
     [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     string? Hint = null)
 {
     public static ValidationOutcome Ok(object? value)
     {
-        return new ValidationOutcome(ValidationStatus.Ok, value, value, null);
+        JsonNode? node = ValidationValueNode.From(value);
+        return new ValidationOutcome(ValidationStatus.Ok, node, node?.DeepClone(), null);
     }
 
     public static ValidationOutcome Coerced(object? original, object? coerced)
     {
-        return new ValidationOutcome(ValidationStatus.Coerced, original, coerced, null);
+        return new ValidationOutcome(
+            ValidationStatus.Coerced,
+            ValidationValueNode.From(original),
+            ValidationValueNode.From(coerced),
+            null);
     }
 
     public static ValidationOutcome Warning(object? value, string message, string? hint = null)
     {
-        return new ValidationOutcome(ValidationStatus.Warning, value, value, message, hint);
+        JsonNode? node = ValidationValueNode.From(value);
+        return new ValidationOutcome(ValidationStatus.Warning, node, node?.DeepClone(), message, hint);
     }
 
     public static ValidationOutcome Rejected(object? original, string message, string? hint = null)
     {
-        return new ValidationOutcome(ValidationStatus.Rejected, original, original, message, hint);
+        JsonNode? node = ValidationValueNode.From(original);
+        return new ValidationOutcome(ValidationStatus.Rejected, node, node?.DeepClone(), message, hint);
     }
 }
 

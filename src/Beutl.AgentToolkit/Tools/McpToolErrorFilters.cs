@@ -134,14 +134,16 @@ public static class McpToolErrorFilters
     private static CallToolResult CreateValidationRejectedResult(string? toolName, string? detail = null)
     {
         string target = string.IsNullOrWhiteSpace(toolName) ? "tool" : toolName;
+        // This filter wraps the whole pipeline, so the failure may also come from serializing an
+        // already-applied tool result — the caller's arguments are not necessarily at fault.
         string message = detail is null
-            ? $"Tool arguments could not be bound for '{target}'. Check required parameters and parameter types."
-            : $"Tool arguments could not be bound for '{target}': {detail}";
+            ? $"Call to '{target}' failed while binding arguments or serializing the result. Check required parameters and parameter types."
+            : $"Call to '{target}' failed while binding arguments or serializing the result: {detail}";
         ToolResult<object?> result = ToolResult<object?>.Failure(
             ErrorCode.ValidationRejected,
             message,
             target,
-            "Call tools/list for the current schema and pass the required arguments with the documented JSON shapes.");
+            "If the message names a missing or mistyped argument, call tools/list for the current schema and pass the documented JSON shapes. Otherwise the failure happened after the tool ran, so read back the current state before retrying to avoid applying the same edit twice.");
 
         return new CallToolResult
         {
