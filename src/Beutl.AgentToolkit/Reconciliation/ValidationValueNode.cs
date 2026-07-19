@@ -7,7 +7,9 @@ internal static class ValidationValueNode
 {
     // System.Text.Json cannot write a live engine object: IProperty.ValueType is a System.Type, and
     // IFileSource needs a serialization context that is gone by the time the response is written.
-    public static JsonNode? From(object? value)
+    // options carries the document's BaseUri, without which a media reference is reported as an
+    // absolute host path while the document itself reports it relative.
+    public static JsonNode? From(object? value, CoreSerializerOptions? options)
     {
         switch (value)
         {
@@ -21,7 +23,7 @@ internal static class ValidationValueNode
 
         try
         {
-            return CoreSerializer.SerializeToJsonNode(value);
+            return CoreSerializer.SerializeToJsonNode(value, options);
         }
         catch (Exception)
         {

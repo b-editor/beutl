@@ -1,4 +1,4 @@
-using System.Text.Json;
+﻿using System.Text.Json;
 using System.Text.Json.Nodes;
 using Beutl.AgentToolkit.Common;
 using Beutl.AgentToolkit.Schema;
@@ -57,12 +57,12 @@ public sealed class ValidationPayloadSerializationTests
         Assert.Multiple(() =>
         {
             Assert.That(apply.IsSuccess, Is.True, apply.Error?.Message);
+            Assert.That(apply.Value!.Valid, Is.True);
             Assert.That(rect.FilterEffect.CurrentValue, Is.InstanceOf<Blur>());
-            Assert.That(apply.Value!.Validation, Is.Not.Null.And.Not.Empty);
+            Assert.That(apply.Value.Validation, Is.Not.Null.And.Not.Empty);
             Assert.DoesNotThrow(() => JsonSerializer.Serialize(apply, s_toolResultOptions));
-            Assert.That(
-                SerializeValidation(apply.Value),
-                Does.Contain("\"Sigma\":\"9, 9\""));
+            Assert.That(SerializeValidation(apply.Value), Does.Contain("\"Sigma\":\"9, 9\""));
+            Assert.That(SerializeValidation(apply.Value), Does.Contain("\"status\":\"Ok\""));
         });
     }
 
@@ -98,10 +98,14 @@ public sealed class ValidationPayloadSerializationTests
         Assert.Multiple(() =>
         {
             Assert.That(apply.IsSuccess, Is.True, apply.Error?.Message);
+            Assert.That(apply.Value!.Valid, Is.True);
             Assert.That(scene.Children, Has.Count.EqualTo(2));
-            Assert.That(apply.Value!.Validation, Is.Not.Null.And.Not.Empty);
+            Assert.That(apply.Value.Validation, Is.Not.Null.And.Not.Empty);
             Assert.DoesNotThrow(() => JsonSerializer.Serialize(apply, s_toolResultOptions));
             Assert.That(SerializeValidation(apply.Value), Does.Contain("image.png"));
+            // The document reports media relative to the scene, so the validation payload must not
+            // leak the host path alongside it.
+            Assert.That(SerializeValidation(apply.Value), Does.Not.Contain("file:///"));
         });
     }
 

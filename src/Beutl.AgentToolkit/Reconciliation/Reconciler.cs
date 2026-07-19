@@ -1042,7 +1042,7 @@ public sealed class Reconciler
                 object? value = valueNode is null
                     ? null
                     : EnumJsonValueNormalizer.Deserialize(valueNode, coreProperty.PropertyType, options);
-                validation.Add(ValidationEvaluator.Evaluate(target, coreProperty, value));
+                validation.Add(ValidationEvaluator.Evaluate(target, coreProperty, value, options));
                 return;
             }
 
@@ -1052,7 +1052,7 @@ public sealed class Reconciler
                 object? value = valueNode is null
                     ? null
                     : EnumJsonValueNormalizer.Deserialize(valueNode, engineProperty.ValueType, options);
-                validation.Add(ValidationEvaluator.Evaluate(engineProperty, value));
+                validation.Add(ValidationEvaluator.Evaluate(engineProperty, value, options));
             }
         }
         catch (Exception ex)
