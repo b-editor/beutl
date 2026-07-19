@@ -1,13 +1,13 @@
 # Breaking Changes and Migration Contract
 
-Feature 004 intentionally replaces the executable render-node pull API. It is breaking for custom `RenderNode`/`RenderNodeOperation` authors and direct `RenderNodeProcessor` consumers in `Beutl.Engine`, `Beutl.NodeGraph`, `Beutl.ProjectSystem`, `Beutl.AgentToolkit`, the application, and downstream plugins. Ordinary `FilterEffect.ApplyTo` implementations remain source-compatible unless they directly use the removed operation-backed `EffectTarget` members or subclass/consume the changed render-node API.
+Feature 004 intentionally replaces the executable render-node pull API. It is breaking for custom `RenderNode`/`RenderNodeOperation` authors and direct `RenderNodeProcessor` consumers in `Beutl.Engine`, `Beutl.Editor`, `Beutl.NodeGraph`, `Beutl.ProjectSystem`, `Beutl.AgentToolkit`, the application, and downstream plugins. Ordinary `FilterEffect.ApplyTo` implementations remain source-compatible unless they directly use the removed operation-backed `EffectTarget` members or subclass/consume the changed render-node API.
 
 The implementation commit carrying this public change must use a breaking Conventional Commit such as:
 
 ```text
 refactor(engine)!: record complete render requests before execution
 
-BREAKING CHANGE: Beutl.Engine, Beutl.NodeGraph, Beutl.ProjectSystem, Beutl.AgentToolkit, and application render-node consumers now use void Process(RenderNodeContext), context-owned RenderFragmentHandle values, and high-level request entry points. Executable/disposable RenderNodeOperation, RenderNodeProcessor Pull APIs, OperationWrapperRenderNode.SetOperations, and operation-backed EffectTarget members were removed. RenderNodeContext is now an engine-created sealed recorder: Input/CalculateBounds/the cache setter migrate to Inputs/CalculateInputBounds/DisableRenderCache, and its static scale helpers move to RenderScaleUtilities. Rasterize now returns one owned RenderNodeRasterization carrying its logical Bounds, OutputScale, and nullable Bitmap; Measure reports separate OutputBounds and QueryBounds. Existing FilterEffect.ApplyTo implementations remain supported unless they used the removed executable members; custom nodes returned by FilterEffect.Resource.CreateRenderNode must migrate.
+BREAKING CHANGE: Beutl.Engine, Beutl.Editor, Beutl.NodeGraph, Beutl.ProjectSystem, Beutl.AgentToolkit, and application render-node consumers now use void Process(RenderNodeContext), context-owned RenderFragmentHandle values, and high-level request entry points. Executable/disposable RenderNodeOperation, RenderNodeProcessor Pull APIs, OperationWrapperRenderNode.SetOperations, and operation-backed EffectTarget members were removed. RenderNodeContext is now an engine-created sealed recorder: Input/CalculateBounds/the cache setter migrate to Inputs/CalculateInputBounds/DisableRenderCache, and its static scale helpers move to RenderScaleUtilities. Rasterize now returns one owned RenderNodeRasterization carrying its logical Bounds, OutputScale, and nullable Bitmap; Measure reports separate OutputBounds and QueryBounds. Existing FilterEffect.ApplyTo implementations remain supported unless they used the removed executable members; custom nodes returned by FilterEffect.Resource.CreateRenderNode must migrate.
 ```
 
 No `[Obsolete]` shim, returning overload, `V2` type, or executable compatibility wrapper remains after the same change.
@@ -272,6 +272,8 @@ RenderFragmentHandle filtered = context.Shader(capture, _shader);
 context.Publish(context.ContributeValues(filtered));
 ```
 
+This public capture is an explicit resampling boundary, not a lossless copy at the enclosing target's density. `MaterializeAtWorkingScale` derives a concrete density from request `OutputScale`, `MaxWorkingScale`, the capture bounds, and the buffer clamp. `Custom` may derive a different concrete density, but its `InputSupplies` list is empty and it may use only `OutputBounds`, `OutputScale`, and `MaxWorkingScale`; it receives no density supply from the enclosing root, finite Layer, or `TargetLayerScope`. Capturing inside a denser scope may therefore intentionally downsample before the Shader runs. Only the engine-internal backdrop capture may late-bind the resolved scope density because it exposes no unresolved public handle.
+
 Use `TargetScope(input, description)` for exactly one same-target replay surrounded only by allocation-free transform/clip state. Opacity, Blend, and brush-backed OpacityMask are typed scope operations. Group isolation that remains an ordered current-target effect uses the normal bottom-up typed scope:
 
 ```csharp
@@ -431,14 +433,17 @@ Callers migrate by intent:
 | Old use | Replacement |
 |---|---|
 | `PullToRoot` then render each operation | `RenderNodeRenderer.Render(destination)` |
-| `PullToRoot` then union operation `Bounds` | `RenderNodeRenderer.Measure().QueryBounds` |
-| actual root write/raster extent (no exact old operation-bounds equivalent) | `RenderNodeRenderer.Measure().OutputBounds` |
+| `PullToRoot` then union operation `Bounds` for layout/query/selection or hit-test intent | `RenderNodeRenderer.Measure().QueryBounds` |
+| `PullToRoot` bounds union used to size/save the subsequent raster result | `RenderNodeRenderer.Measure().OutputBounds` before execution, then the returned `RenderNodeRasterization.Bounds` for the selected actual raster domain |
+| actual root write/raster extent (no sound old operation-bounds equivalent) | `RenderNodeRenderer.Measure().OutputBounds` |
 | `PullToRoot` then call `HitTest` | `RenderNodeRenderer.HitTest(point)` |
 | old `Rasterize` list / `RasterizeAndConcat` | one owned `RenderNodeRasterization` from `RenderNodeRenderer.Rasterize()` |
 | retain/wrap one operation in NodeGraph | request-scoped `RecordNode` input binding |
 | independent pull to fill render cache | selected capture point in current request |
 
 All in-tree consumers migrate in the same change. No code outside the recorder/executor may enumerate executable operations because no such public object remains.
+
+Golden-image harnesses and save/export paths that previously unioned operation bounds and replayed a list into one target do not reproduce that loop. They call `Measure().OutputBounds` when a preflight size is required, then consume the single owned `RenderNodeRasterization`; its `Bounds` supplies the raster's logical origin/domain and its `Bitmap` is already the complete painter-ordered result. Layout, query, selection, and hit-test callers use `QueryBounds` instead.
 
 A direct consumer constructs the facade with explicit request policy:
 
@@ -467,7 +472,7 @@ if (!rasterized.IsEmpty)
 }
 ```
 
-`TargetDomain` is needed by target-less `Measure`/`HitTest`/`Rasterize` when the graph publishes Full target access whose enclosing root has no real destination; a query rectangle never substitutes for that target domain. `Measure.OutputBounds` unions contributing value bounds with resolved potentially-writing target-effect regions, while `Measure.QueryBounds` remains the independent bounds/hit-test view. `RequestedRegion = null` selects complete `OutputBounds`; a non-null region is the exact final output/commit crop and still does not replace the target domain.
+`TargetDomain` is needed by target-less `Measure`/`HitTest`/`Rasterize` when the graph publishes Full target access whose enclosing root has no real destination; a query rectangle never substitutes for that target domain. The old union of operation `Bounds` represented value/query metadata and had no separate sound extent for target writes—a Full Clear could write the entire domain while contributing no query bounds. `Measure.OutputBounds` therefore intentionally may differ: it unions contributing value bounds with resolved potentially-writing target-effect regions. `Measure.QueryBounds` remains the independent layout/query/hit-test view. `RequestedRegion = null` selects complete `OutputBounds`; a non-null region is the exact final output/commit crop and still does not replace the target domain.
 
 `RenderNodeRasterization.Bounds` preserves that selected logical domain, including shifted origins. A zero-area selection is a normal `IsEmpty` result with `Bitmap == null`; a non-empty selection owns a non-null bitmap even if all pixels are transparent. The result, not the renderer or caller separately, owns/disposes that bitmap. A former `RenderNodeProcessor.CreateRenderTarget` override becomes an injected `IRenderTargetFactory`; the renderer pool invokes it only on a compatible-pool miss and owns every accepted target until eviction or renderer disposal. A null factory selects the built-in current-backend RGBA16F allocator. The renderer borrows `root`, `targetFactory`, and `destination`. Request diagnostics remain an internal implementation/evidence seam rather than a public renderer option.
 

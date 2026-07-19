@@ -8,7 +8,7 @@
 
 Replace the executable `RenderNodeOperation[]` pull pipeline with a renderer-wide, recording-only request pipeline. Every `RenderNode` implements `void Process(RenderNodeContext)` and publishes ordered `RenderFragmentHandle` instances through the context. One fragment DAG preserves value contributions, target commands/captures, finite value Layers, symbolic current-target `TargetLayerScope` effects, other target-scope nesting, and painter order; its embedded value DAG exposes only the semantic values that may be analyzed or fused. Scope-local target-token topology is derived after recording, never stored in an early root-global side list. The recorder discovers the complete 2D request without consulting render caches or touching GPU/media resources, then lowers scope-local token dependencies, resolves forward query/output metadata, propagates requested regions backward, substitutes safe cache entries, partitions execution islands, compiles compatible Shader/opacity runs, schedules pooled resources, and executes the request once.
 
-The public filter-effect lifecycle remains `FilterEffect.ApplyTo(FilterEffectContext, Resource)`. `FilterEffectContext` and `RenderNodeContext` will accept the same renderer-neutral `ShaderDescription` and `GeometryDescription` types. Only a mechanically validated current-pixel Shader form is fusible; whole-source Shader, Geometry, legacy custom effects, 3D work, destination readback, and unknown callbacks remain explicit barriers. Legacy `CustomEffect` preserves its raw execution callback as marked opaque-external work, so exact physical-pass claims require zero such boundaries. The abandoned implementation branch is an extraction source for leaf algorithms, tests, and independently reproducible visual evidence, not a branch or subsystem to merge.
+The public filter-effect lifecycle remains `FilterEffect.ApplyTo(FilterEffectContext, Resource)`. `FilterEffectContext` and `RenderNodeContext` will accept the same renderer-neutral `ShaderDescription` and `GeometryDescription` types. Only a mechanically validated current-pixel Shader form is fusible, and that validation proves coordinate restrictions rather than commutation with antialiased coverage. Arbitrary CurrentPixel work therefore remains after upstream coverage is resolved; only engine-known operations with mechanically proven premultiplied-coverage homogeneity may cross a coverage-producing rasterization boundary. Whole-source Shader, Geometry, legacy custom effects, 3D work, destination readback, and unknown callbacks remain explicit barriers. Legacy `CustomEffect` preserves its raw execution callback as marked opaque-external work, so exact physical-pass claims require zero such boundaries. The abandoned implementation branch is an extraction source for leaf algorithms, tests, and independently reproducible visual evidence, not a branch or subsystem to merge.
 
 ## Technical Context
 
@@ -16,7 +16,7 @@ The public filter-effect lifecycle remains `FilterEffect.ApplyTo(FilterEffectCon
 
 **Primary Dependencies**: Beutl.Engine rendering abstractions, SkiaSharp/SkSL, Avalonia geometry primitives, the existing Vulkan/Skia backends, Beutl.Engine.SourceGenerators as already referenced by consuming projects
 
-**Storage**: In-memory recorded graphs, structural/program caches, render-output caches, pooled RGBA16F render targets, and raw linear-RGBA16F golden files under the test tree; no database or persisted project-format change
+**Storage**: In-memory recorded graphs, structural/program caches, render-output caches, pooled RGBA16F render targets, and immutable raw linear-RGBA16F starting-SHA references plus fingerprinted manifests under this feature's evidence directory; no database or persisted project-format change
 
 **Testing**: NUnit + Moq for unit/integration/public-contract coverage; Vulkan-gated NUnit execution-shape tests; BenchmarkDotNet for paired renderer benchmarks
 
@@ -24,11 +24,11 @@ The public filter-effect lifecycle remains `FilterEffect.ApplyTo(FilterEffectCon
 
 **Project Type**: Desktop compositing/rendering engine with plugin-facing public APIs
 
-**Performance Goals**: Exactly one GPU pass for the distinct-node `Shader A -> Opacity -> Shader B` proof; one structural compilation across 100 parameter-only frames; zero warmed intermediate creations for stable bounds; no growth in peak live intermediates between equivalent 3-stage and 10-stage linear schedules; paired warmed median frame-time ratio whose 95% confidence interval is below 1.0 for the cross-boundary workload
+**Performance Goals**: Exactly one GPU pass for the distinct-node, coverage-resolved-source `Shader A -> Opacity -> Shader B` proof; one structural compilation across 100 parameter-only frames; zero warmed intermediate creations for stable bounds; no growth in peak live intermediates between equivalent 3-stage and 10-stage linear schedules; paired warmed median frame-time ratio whose 95% confidence interval is below 1.0 for the cross-boundary workload
 
-**Constraints**: Recording performs no GPU, target allocation, media-read, snapshot, flush, synchronization, or nested execution; preserve painter order, scoped target dependencies, premultiplied linear RGBA16F semantics, feature-003 density rules and 16,384-pixel buffer clamp; keep output-cache identity separate from structural/program identity; preserve current-main allocation-failure behavior; no GPU fusion across opaque, legacy raw-canvas, 3D, readback, unsafe composite, external-target, or backend boundaries
+**Constraints**: Recording performs no GPU, target allocation, media-read, snapshot, flush, synchronization, or nested execution; preserve painter order, scoped target dependencies, antialiased coverage application order, premultiplied linear RGBA16F semantics, feature-003 density rules and 16,384-pixel buffer clamp; keep output-cache identity separate from structural/program identity; preserve current-main allocation-failure behavior; no GPU fusion across unresolved coverage production, opaque, legacy raw-canvas, 3D, readback, destination-dependent/unproven composite, external-target, or backend boundaries
 
-**Scale/Scope**: One complete target-surface request, including all top-level drawables and nested/auxiliary 2D requests; migrate 29 production and 7 test `Process` overrides plus every direct processor/operation consumer across `Beutl.Engine`, `Beutl.NodeGraph`, `Beutl.ProjectSystem`, `Beutl.AgentToolkit`, and application call sites; add a non-friend public API contract test project
+**Scale/Scope**: One complete target-surface request, including all top-level drawables and nested/auxiliary 2D requests; migrate 29 production and 7 test `Process` overrides plus every direct processor/operation and scale-helper consumer across `Beutl.Engine`, `Beutl.NodeGraph`, `Beutl.ProjectSystem`, `Beutl.Editor`, `Beutl.AgentToolkit`, and application call sites; add a non-friend public API contract test project
 
 ## Constitution Check
 
@@ -62,6 +62,11 @@ docs/specs/004-gpu-pass-fusion/
 │   ├── render-request.md
 │   ├── breaking-changes.md
 │   └── diagnostics-and-evidence.md
+├── evidence/
+│   ├── target-baseline-generator.patch # applied only to a pinned baseline worktree
+│   ├── generate-target-baseline.sh     # reproducible out-of-tree generator driver
+│   ├── run-paired-visual-evidence.sh   # exact-fingerprint baseline/feature comparison
+│   └── target-baseline/                # immutable RGBA16F files + fingerprinted manifest
 └── tasks.md                         # generated by /speckit-tasks, not this phase
 ```
 
@@ -69,6 +74,7 @@ docs/specs/004-gpu-pass-fusion/
 
 ```text
 src/Beutl.Engine/Graphics/
+├── ImmediateCanvas.cs
 ├── FilterEffects/
 │   ├── FilterEffect.cs
 │   ├── FilterEffectContext.cs
@@ -87,7 +93,6 @@ src/Beutl.Engine/Graphics/
 │   ├── RenderScaleUtilities.cs        # feature-003 pure scale helpers
 │   ├── RenderNodeRenderer.cs         # high-level replacement for Pull APIs
 │   ├── Renderer.cs
-│   ├── ImmediateCanvas.cs
 │   ├── GraphicsContext2D.cs
 │   ├── Operations/
 │   │   ├── RenderOperationDescriptor.cs
@@ -116,11 +121,13 @@ src/Beutl.Engine/Graphics/
 │   └── Cache/
 │       ├── RenderNodeCache.cs
 │       └── RenderNodeCacheHelper.cs  # policy/invalidation only; no independent pull
-└── Graphics3D/
-    └── Scene3DRenderNode.cs           # records an opaque backend source
+
+src/Beutl.Engine/Graphics3D/
+└── Scene3DRenderNode.cs               # records an opaque backend source
 
 src/Beutl.NodeGraph/                  # migrate wrapper/output nodes and query consumers
 src/Beutl.ProjectSystem/              # migrate SceneDrawable and nested scene consumers
+src/Beutl.Editor/                     # migrate save-frame scale and renderer consumers
 src/Beutl.AgentToolkit/               # migrate metadata-only query consumers
 src/Beutl/                            # migrate player/type-converter processor consumers
 
@@ -181,7 +188,7 @@ Per-node requested regions are not exposed during `Process`, because they are no
 
 ### Shader and Geometry seam
 
-Both authoring contexts accept the same `ShaderDescription` and `GeometryDescription` objects. `ShaderDescription.CurrentPixel` accepts only the restricted `half4 apply(half4 color)` form after lexer-based validation; there is no author-asserted invariance flag. `ShaderDescription.WholeSource` is valid but always starts a non-fused pass. Structural source/binding names are separated from execution-time uniform/resource values, and full source equality protects program-cache hash collisions.
+Both authoring contexts accept the same `ShaderDescription` and `GeometryDescription` objects. `ShaderDescription.CurrentPixel` accepts only the restricted `half4 apply(half4 color)` form after lexer-based validation; there is no author-asserted invariance or coverage-homogeneity flag. CurrentPixel consumes pixels after upstream analytic/antialiased coverage has been resolved. Coordinate validation is the eligibility source for joining a Shader run, but does not prove `f(kx) = kf(x)` for partial coverage. The planner materializes vector, text, path, or antialiased-clip coverage before arbitrary public CurrentPixel work; a future engine-known participant may cross only when the engine mechanically proves that premultiplied-coverage property. `ShaderDescription.WholeSource` is valid but always starts a non-fused pass. Structural source/binding names are separated from execution-time uniform/resource values, and full source equality protects program-cache hash collisions.
 
 `GeometryDescription` is a deferred one-input/zero-or-one-output barrier with mandatory forward/backward bounds, CPU hit-test contract, separate structural/runtime cache identities, declared resources, and an explicit readback declaration. Its callback receives complete output bounds, resolved required/device region, and a one-shot callback-scoped canvas facade over executor-owned input/output resources. The canvas maps composition-global logical coordinates through canonical rounded device bounds and closes without an implicit flush. Retained sessions, inputs, canvases, facades, and resource handles reject use after the callback. Runtime output discard or shrink is permitted only within the allocated forward bounds.
 
@@ -190,18 +197,19 @@ Both authoring contexts accept the same `ShaderDescription` and `GeometryDescrip
 ### Phase A - Freeze the current-main behavior
 
 1. Pin starting code SHA `43a38e665d9bf52548161a3917e748bd1457ff55` in provenance.
-2. Add raw linear-RGBA16F immutable golden support and alpha MAE without changing rendering behavior.
-3. Capture new-branch visual, allocation-failure, scale, cache, nested/query, and no-preferred-GPU behavior. Import the eight independently reproducible `004-parity-strong` donor references only as supplemental effect regressions.
-4. Add request-wide observational counters to the existing renderer and capture baseline schedules and allocations without changing decisions.
-5. Add a persistent-production-lifetime BenchmarkDotNet harness and record paired baseline data; do not adopt donor timing percentages.
+2. Add raw linear-RGBA16F immutable golden support, alpha MAE, edge-band local MAE, and maximum-channel error without changing rendering behavior.
+3. Store the target-baseline generator as `evidence/target-baseline-generator.patch` plus `evidence/generate-target-baseline.sh`; the script creates a temporary worktree pinned to the starting SHA, applies the patch there, and copies only immutable RGBA16F files and a manifest back. No historical generator source is compiled by the feature branch. Add `evidence/run-paired-visual-evidence.sh` to run both worktrees and reject missing or mismatched fingerprint fields before comparison. The manifest records artifact/generator/paired-runner hashes and exact OS, architecture, backend, device, driver, graphics-library, and runtime fingerprints.
+4. Capture new-branch visual, allocation-failure, scale, cache, nested/query, AA-coverage, and no-preferred-GPU behavior. Paired baseline/feature evidence is valid only under an exact matching fingerprint and fails explicitly on mismatch. Normal CI instead compares fusion-disabled and fusion-enabled output in the same process/device through an internal request `FusionMode`; production and public renderer options expose only the enabled behavior, while friend evidence tests may select disabled compatibility partitioning. The mode is part of structural-plan identity so the two schedules cannot reuse one another accidentally. Normal-CI AA edge checks use a fixed device-independent maximum channel error of `0.02`; fingerprint-specific paired bounds come only from the exact matching manifest. CI always verifies evidence integrity, never silently selects a foreign-device blob, and does not treat this same-process check as a replacement for the paired starting-SHA proof. Import the eight independently reproducible `004-parity-strong` donor references only as supplemental effect regressions.
+5. Add request-wide observational counters to the existing renderer and capture baseline schedules and allocations without changing decisions. Prove instrumentation-on/off neutrality for output, allocation/failure behavior, and cache decisions before relying on those counters.
+6. Add a persistent-production-lifetime BenchmarkDotNet harness and record paired baseline data; do not adopt donor timing percentages.
 
 ### Phase B - Introduce the recording contract with compatibility execution
 
-1. Add request options (including target-less `TargetDomain` distinct from `RequestedRegion`), render purpose/intent, renderer-wide bounds contract including custom-forward/full-input fallback, ordered fragment/value IR, scope-local target-token lowering, provenance, owned/borrowed resource handles, scalar runtime identities, and node transaction support. Move feature-003 pure density helpers from the recorder to `RenderScaleUtilities` and migrate every caller without a forwarding shim.
+1. Add request options (including target-less `TargetDomain` distinct from `RequestedRegion`), render purpose/intent, renderer-wide bounds contract including custom-forward/full-input fallback, ordered fragment/value IR, scope-local target-token lowering, provenance, owned/borrowed resource handles, scalar runtime identities, and node transaction support. Characterize option sanitization, lifecycle transitions, graph IDs/order/provenance/cache candidates, LIFO cleanup and cleanup-fault aggregation, exact ownership discharge/cache transfer, and diagnostics neutrality before production implementation. Move feature-003 pure density helpers from the recorder to `RenderScaleUtilities` and migrate every production and test caller without a forwarding shim; update the old `EffectiveScale` operation-oriented documentation at the same time.
 2. Change `RenderNode.Process` to `void`, remove executable `RenderNodeOperation`, add the sealed `RenderFragmentHandle`, and implement the concrete `RenderNodeContext` API in [contracts/public-api.md](contracts/public-api.md). Fix `CanBeUsedAsValueInput` propagation per recorder: eligible Shader/Geometry/opaque values stay true, pure-child Opacity stays true, destination-dependent Blend plus `TargetScope`, `TargetLayerScope`, raw target forms, and commands stay false, and finite Layer is the explicit mixed-stream-to-value boundary.
 3. Implement typed `TargetCommand`, non-contributing `TargetCapture`/`ContributeValues`, public symbolic `TargetLayerScope(inputs, TargetRegion)`, finite public `Layer(inputs, Rect domain)`, guarded `TargetScope`, and the explicitly opaque-external `RawTargetScope`/`RawTargetCommand`. `LayerRenderNode.Process` records a default legacy `PushLayer()` through `TargetLayerScope(..., Full)` in the normal bottom-up transaction; no recorder traversal special-case bypasses a public override. The scope retains symbolic Full through later parent transform/clip wrappers and resolves it only during target-token lowering. It remains value-input-ineligible; a non-empty scope preserves the isolation target unless equivalence proves elision, while `Empty` preserves ordering without pixel work. It becomes an ordinary value only through an explicit finite Layer. Add ordering characterizations for root `[A, Clear, B]`, finite public `Layer { A, Clear, B }`, `Transform(+10) -> PushLayer(default) -> Full Clear`, nested target-Layer scopes, empty target-Layer scopes, and `Snapshot -> optional Clear -> blend/transform/filter DrawBackdrop`; require each capture to materialize once and contribute only at its explicit later draw.
-4. Migrate all 29 production and 7 test overrides in one breaking change. Classify every old callback through the migration census: typed value/effect, guarded `Opaque*`, typed target command/capture/scope, raw scope/command, or 3D/backend boundary. Initially keep unsupported callbacks opaque so output remains baseline-equivalent before fusion, but leave no unclassified `CreateLambda` or raw-canvas escape.
-5. Replace `RenderNodeProcessor.Pull`/`PullToRoot` and both old rasterize shapes with the disposable high-level `RenderNodeRenderer.Render`, single-result `Rasterize`, `Measure`, and `HitTest` operations. `Rasterize` returns one caller-owned result that carries its logical bounds/origin, output scale, normal empty state, and optional bitmap rather than a list or a bare shifted bitmap. Migrate all Engine, NodeGraph, ProjectSystem, AgentToolkit, and application consumers. Remove operation-backed `EffectTarget` and `OperationWrapperRenderNode.SetOperations`; the renderer owns persistent plan/program/pool state and factory-created pooled targets, and no executable/list-rasterization compatibility operation remains.
+4. Migrate all 29 production and 7 test overrides in one breaking change. Classify every old callback through the migration census: typed value/effect, guarded `Opaque*`, typed target command/capture/scope, raw scope/command, or 3D/backend boundary. Separately migrate every existing render-node authoring, scale, hit-test, rasterization, cross-project, and golden-harness test that directly names the removed operation/pull surface; the 18 golden consumers remain unchanged behind the migrated harness. Initially keep unsupported callbacks opaque so output remains baseline-equivalent before fusion, but leave no unclassified `CreateLambda` or raw-canvas escape.
+5. Replace `RenderNodeProcessor.Pull`/`PullToRoot` and both old rasterize shapes with the disposable high-level `RenderNodeRenderer.Render`, single-result `Rasterize`, `Measure`, and `HitTest` operations. `Rasterize` returns one caller-owned result that carries its logical bounds/origin, output scale, normal empty state, and optional bitmap rather than a list or a bare shifted bitmap. Migrate all Engine, NodeGraph, ProjectSystem, Editor, AgentToolkit, and application consumers. Raster/save callers use `Measure().OutputBounds` or the rasterization result bounds, while layout/query/hit-test callers use `QueryBounds`; the old operation-bounds union never represented every target write soundly, so new output and query bounds intentionally differ where required. Remove operation-backed `EffectTarget` and `OperationWrapperRenderNode.SetOperations`; the renderer owns persistent plan/program/pool state and factory-created pooled targets, and no executable/list-rasterization compatibility operation remains.
 6. Make Particle, Scene3D, media sources, custom filter effects, nested drawables, brushes, and NodeGraph record deferred work instead of executing during `Process`. Lower DrawableBrush masks through inherited nested recording. Add the `ImmediateCanvas` deferred-callback capability guard so author disposal, snapshot, nested execution, undeclared resources, synchronization, `SaveLayer`-backed state APIs, and hidden target allocation are rejected.
 
 ### Phase C - Make the renderer request-wide
@@ -230,17 +238,17 @@ Both authoring contexts accept the same `ShaderDescription` and `GeometryDescrip
 
 ### Phase F - Plan, fuse, and execute
 
-1. Lower a target-token chain independently for every root, finite Layer, and non-empty TargetLayerScope; preserve an Empty TargetLayerScope as order-only metadata with no local chain or pixel work. Then partition the complete graph at cache, opaque, target-read/write, raw-canvas, readback, unsafe composite, external-target, backend, dynamic-topology, and 3D boundaries.
-2. Compose maximal validated current-pixel Shader runs and invariant opacity across distinct render nodes. Split deterministically at backend stage/uniform/sampler/child/program limits.
-3. Compile a structural plan independent of parameter values, bind execution-time bounds/regions/resources, include built-in parameters, Shader uniforms, declared resources, and callback runtime identities only in output-cache keys, and cache programs by backend capability plus full-source equality.
+1. Lower a target-token chain independently for every root, finite Layer, and non-empty TargetLayerScope; preserve an Empty TargetLayerScope as order-only metadata with no local chain or pixel work. Then partition the complete graph at cache, unresolved analytic/antialiased coverage production, opaque, target-read/write, raw-canvas, readback, destination-dependent/unproven composite, external-target, backend, dynamic-topology, and 3D boundaries.
+2. Compose maximal validated current-pixel Shader runs and invariant opacity across distinct render nodes after upstream coverage is resolved. Split deterministically at coverage and backend stage/uniform/sampler/child/program limits.
+3. Compile a structural plan independent of parameter values, bind execution-time bounds/regions/resources, include the internal fusion mode in plan identity, include built-in parameters, Shader uniforms, declared resources, and callback runtime identities only in output-cache keys, and cache programs by backend capability plus full-source equality.
 4. Schedule pooled RGBA16F intermediates by lifetime, execute one request owner, release all resources on every path, and publish caches only after complete success.
 5. Preserve current-main fallback and allocation-failure outcomes; invalid Shader source/bindings or program creation fail explicitly and never become identity.
 
 ### Phase G - Prove the redesign
 
 1. Run public contract, raw-callback migration census, fragment/scope order, target capture/backdrop, transaction, ROI, scale, cache, animation, fallback, nested, 3D-boundary, failure, program-cache, pool, and diagnostics reconciliation suites.
-2. Require exactly one pass for `Shader A -> Opacity -> Shader B`, exact barrier splits, one compile over 100 parameter frames, zero warmed allocation, bounded peak ownership, and non-vacuous visual references.
-3. Run all applicable feature-003 goldens, the full `net10.0` test suite, both target builds, format verification, and Vulkan-required execution-shape tests on capable hardware.
+2. Require exactly one pass for a coverage-resolved source followed by `Shader A -> Opacity -> Shader B`; require an exact materialization/barrier before a non-coverage-homogeneous Shader applied to an antialiased thin line/path and enforce edge-local parity; also require exact remaining barrier splits, one compile over 100 parameter frames, zero warmed allocation, bounded peak ownership, and non-vacuous visual references.
+3. Run all applicable feature-003 goldens, the full `net10.0` test suite, both target builds, format verification, and dedicated `GpuPassFusionGpu` NUnit-category suites in both `Beutl.UnitTests` and `Beutl.Graphics3DTests` with GPU absence promoted to failure. Run the non-GPU Shader fallback suite separately so a hardware filter cannot hide it.
 4. Run paired persistent-lifetime benchmarks against the pinned baseline and record confidence intervals, controls, environment, code SHAs, counters, and raw results.
 
 ## Dependency and Review Boundaries
@@ -259,6 +267,7 @@ Both authoring contexts accept the same `ShaderDescription` and `GeometryDescrip
 | Painter-order or target-read corruption | Ordered effectful fragments; scope-local target tokens; explicit read/write dependencies; root/finite-Layer/TargetLayerScope clear-order and multi-root backdrop/snapshot tests. |
 | ROI under-render | Graph-complete backward analysis; mandatory bounds contracts; full-input fallback; shifted/full/empty ROI goldens. |
 | False Shader fusion | Restricted current-pixel grammar validated by lexer; no invariance assertion; exact barrier and collision suites. |
+| Shader moves across antialiased coverage | CurrentPixel is post-coverage; arbitrary public stages stop at geometry/text/path/AA-clip rasterization; only engine-mechanically-proven coverage-homogeneous operations may cross; thin-AA edge-local golden and exact-boundary tests. |
 | Cache hides dependencies or loses density | Record before lookup; substitute only after metadata/ROI; retain provenance; include coverage/density/device in output-cache identity. |
 | Animated values trigger recompilation | Separate structural source/names/topology from runtime binding values and resource contents; 100-frame counter gate. |
 | Recording leaks GPU or media side effects | Transaction probes around every public node shape and known eager source; execution sessions are callback-scoped. |
@@ -266,6 +275,7 @@ Both authoring contexts accept the same `ShaderDescription` and `GeometryDescrip
 | Dynamic N-to-M output loses ordering | Stream-valued handles with explicit cardinality/topology and aggregate metadata; never infer identity from empty bounds. |
 | Resource leaks or masked failures | One request owner, generation-checked leases, rollback checkpoints, best-effort cleanup sweep, primary-exception preservation, injection at every acquisition/compile/publish phase. |
 | Donor architecture contaminates the redesign | Leaf-file allowlist and explicit denylist in research; no cherry-pick, no `PlanExecutor` copy, no effect-local caches or replacement lifecycle. |
+| Device-specific evidence becomes a false CI oracle | Out-of-tree pinned-SHA generator; hashed RGBA16F manifest with exact environment fingerprint; hard-error paired mismatches; same-process fusion-off/on CI comparison; no foreign-blob selection. |
 
 ## Complexity Tracking
 

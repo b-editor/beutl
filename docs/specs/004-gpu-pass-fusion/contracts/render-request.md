@@ -198,14 +198,17 @@ The planner partitions the post-cache graph at:
 - every `LegacyCustomEffect` or `LegacyRawCanvas` opaque-external callback whose internal passes/synchronization are unmeasured;
 - materialized cache inputs and captures;
 - target commands/captures/readback and Layer/target-scope boundaries where token equivalence is not proven;
-- unsafe or target-dependent blend/composite;
+- destination-dependent `Blend` or another target-dependent composite;
 - external targets;
 - backend transitions and 3D;
 - runtime-dynamic topology that cannot be scheduled statically;
 - explicit CPU readback;
+- an analytic/AA coverage-producing source before an arbitrary public CurrentPixel stage, unless every crossed engine-owned stage has a mechanical premultiplied-coverage-homogeneity proof;
 - backend Shader capability/resource limits.
 
 An island is maximal only when combining adjacent work preserves authored fragment/value order, scope-local target-token order, contribution semantics, bounds/ROI, scale, color/alpha semantics, hit-test metadata, output cardinality, cache identity, and synchronization behavior.
+
+Production requests use internal `FusionMode.Enabled`. Friend evidence tests may issue otherwise identical requests with `FusionMode.Disabled`, which retains the same semantic lowering and compatibility execution but prevents eligible stage composition. The mode is inherited by nested requests and included in structural-plan identity; it is not a public `RenderNodeRendererOptions` switch and therefore is not a plugin-visible behavior knob.
 
 ## Shader fusion
 
@@ -217,11 +220,13 @@ Eligible stages are:
 - the built-in invariant opacity descriptor;
 - later built-in operations only after a dedicated equivalence rule and tests are added within this feature.
 
-WholeSource Shader, Geometry, opaque work, coordinate changes, unknown sampling, unsafe blend/composite, dynamic topology, readback, cache capture/input, external target, and backend transitions are barriers.
+WholeSource Shader, Geometry, opaque work, coordinate changes, unknown sampling, destination-dependent `Blend`/composite, dynamic topology, readback, cache capture/input, external target, and backend transitions are barriers. Blend remains destination-dependent and value-input-ineligible even when its child is pure; no Shader eligibility rule weakens that existing barrier.
+
+Coordinate independence proves only that adjacent CurrentPixel stages can share pixel coordinates. It does not prove equivalence between applying a nonlinear transform before analytic/AA coverage and applying it to the coverage-resolved premultiplied pixel. An arbitrary public CurrentPixel stage therefore starts after a materialization boundary when its producer emits analytic coverage. Vector, text, geometry, and equivalent coverage-producing sources must first resolve coverage into the intermediate value. Only an engine-owned stage with a mechanical premultiplied-coverage-homogeneity proof may be lowered across that source boundary, and the public API exposes no assertion flag. Once coverage is resolved, adjacent eligible CurrentPixel/opacity stages may form the normal maximal run.
 
 ### Composition
 
-The compiler uses lexer/token-aware renaming and emits one merged program that applies stages in authored order. It must isolate:
+The compiler uses lexer/token-aware renaming and emits one merged program that applies stages in authored order. A compiled run records whether its input coverage was already resolved or which engine-owned homogeneity proof authorized crossing a coverage-producing source; a source boundary without either fact splits the run before compilation. The compiler must isolate:
 
 - uniform and resource names;
 - functions, top-level constants, arrays, and declarations;
@@ -253,7 +258,7 @@ For every materializing value during forward recording:
 6. apply `ClampWorkingScaleToBufferBudget` against the complete output bounds so each device axis is at most 16,384 pixels;
 7. publish the actual clamped density immediately as downstream `EffectiveScale`.
 
-Public `TargetCapture` follows the same rule from `OutputScale` and its declared bounds because no value input supplies density. The engine-internal backdrop capture may late-bind the already resolved density of its owning root, finite Layer, or TargetLayerScope target, but never exposes an unresolved public handle. CurrentPixel Shader and other vector-preserving stages remain `Unbounded` until the run's eventual materialization. Backward ROI later chooses `Full`, `Empty`, or a finite cropped logical allocation. It never recomputes or raises a published density; the crop uses the already-published scale. The root target remains at the destination density. `PixelRect.FromRect(croppedBounds, density)` remains the canonical logical-to-device rounding. Device/density-dependent Shader uniforms bind after ROI using that stable density and final device bounds.
+Public `TargetCapture` follows the same rule from `OutputScale` and its declared bounds because no value input supplies density. It is a deliberate sampling/materialization boundary, not a lossless or scope-density-preserving snapshot: a capture inside a denser finite Layer or TargetLayerScope may downsample into its published concrete density. Its `Custom` resolver sees an empty `InputSupplies` list and may use only `OutputBounds`, `OutputScale`, and `MaxWorkingScale`; it never receives the enclosing target's resolved density. The engine-internal backdrop capture may late-bind the already resolved density of its owning root, finite Layer, or TargetLayerScope target, but never exposes an unresolved public handle. CurrentPixel Shader and other vector-preserving stages remain `Unbounded` until the run's eventual materialization, subject to the analytic/AA coverage boundary above. Backward ROI later chooses `Full`, `Empty`, or a finite cropped logical allocation. It never recomputes or raises a published density; the crop uses the already-published scale. The root target remains at the destination density. `PixelRect.FromRect(croppedBounds, density)` remains the canonical logical-to-device rounding. Device/density-dependent Shader uniforms bind after ROI using that stable density and final device bounds.
 
 ### Pool and liveness
 

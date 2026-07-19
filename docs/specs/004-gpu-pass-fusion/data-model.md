@@ -202,7 +202,7 @@ Immutable description of one element-wise Shader operation.
 | bounds contract | Structural behavior | Identity for CurrentPixel; mandatory explicit contract for WholeSource. |
 | color/alpha contract | Structural | Linear-light RGBA16F, premultiplied input/output for this feature. |
 
-CurrentPixel validation proves the restricted form and is the sole Shader fusion eligibility source. WholeSource never becomes fusible from an author flag. Its coordinate is local output device pixels; runtime context carries logical origin, required region, device bounds, output density, and input supply density so implicit source and declared resources map coordinates without recording-time assumptions.
+CurrentPixel validation proves the restricted coordinate form and is the sole Shader fusion eligibility source within one resolved-coverage domain. CurrentPixel consumes premultiplied pixels after upstream analytic/antialiased coverage has been applied. Coordinate validation does not prove `f(kx) = kf(x)` for partial coverage, so an arbitrary public stage cannot fold into vector, text, path, or antialiased-clip coverage generation. Only an engine-known participant with mechanically proven premultiplied-coverage homogeneity may carry a compiled run across that boundary; no public author flag supplies this proof. WholeSource never becomes fusible from an author flag. Its coordinate is local output device pixels; runtime context carries logical origin, required region, device bounds, output density, and input supply density so implicit source and declared resources map coordinates without recording-time assumptions.
 
 Direct uniform values automatically enter output-cache identity. Custom uniform providers include their passed value but default to a request-unique runtime identity unless the author supplies a complete key for any additional captured/global state; resource binders use the same rule. Source/binding shape remains structural and does not vary with those runtime values.
 
@@ -238,7 +238,7 @@ All methods validate the shared active token. `UseSnapshot` additionally require
 
 ### TargetCapture, TargetScope, TargetLayerScope, Layer, and TargetCommand descriptions
 
-- `TargetCapture` consumes the preceding scope-local token and produces a non-contributing request-owned value. Its finite content bounds, Full/finite source region, hit test, and concrete standard/custom capture density are pure metadata. `ContributeValues` explicitly enables later automatic compositing; unary transforms preserve the flag.
+- `TargetCapture` consumes the preceding scope-local token and produces a non-contributing request-owned value. Its finite content bounds, Full/finite source region, hit test, and concrete standard/custom capture density are pure metadata. The standard density is output-derived; a custom resolver always receives an empty `InputSupplies` list and may use only `OutputBounds`, `OutputScale`, and `MaxWorkingScale`. Neither observes the owning target density resolved later during scope-token lowering. Public capture is therefore an intentional materialization/resampling boundary and may downsample a denser finite Layer or TargetLayerScope rather than preserving that target losslessly. The resulting concrete density is exposed through `EffectiveScale`. Only the internal backdrop capture may late-bind to the owning scope density without publishing an unresolved public handle. `ContributeValues` explicitly enables later automatic compositing; unary transforms preserve the flag.
 - `TargetScope` is a same-target per-fragment map restricted to mechanically allocation-free transform/clip state plus exactly one replay. Opacity and Blend are planner-visible typed layer scopes. OpacityMask snapshots a `Brush.Resource` declaratively during recording, lowers known brushes to internal shader/value dependencies, and records DrawableBrush content as inherited nested work; it never calls `BrushConstructor` during execution.
 - Public `TargetLayerScope(inputs, TargetRegion)` is a scope-relative offscreen-isolation effect recorded through the same normal bottom-up `Process` path as every other node. A non-empty resolved region replays the ordered input stream into one transient local target and composites that target back into the current painter target; `Empty` preserves order without allocating a target or executing pixel work. A `Full` region remains symbolic during recording and becomes finite only during scope-token dependency lowering, after enclosing transforms, clips, external-root domains, and finite Layers are known. The scope preserves declared cardinality for dependency accounting but has `ContributesValuesToTarget == false` and `CanBeUsedAsValueInput == false`; non-empty offscreen materialization remains required unless the planner proves an equivalent removal. Existing `LayerRenderNode` default/`PushLayer(default)` records this typed public shape with `TargetRegion.Full`.
 - `RawTargetScope` is the marked opaque-external decorator escape and `RawTargetCommand` is its zero-input painter-target counterpart. Both conservatively access `TargetRegion.Full` as read/write because raw callback bounds are query metadata, not enforceable access limits.
@@ -262,6 +262,7 @@ Immutable options inherited by the request and nested requests.
 | `OutputScale` | Final root density. |
 | `MaxWorkingScale` | Intermediate quality ceiling. |
 | `CachePolicy` | Effective persistent/transient cache permissions. |
+| internal `FusionMode` | `Enabled` for production; friend evidence tests may select `Disabled` compatibility partitioning. It is inherited by nested requests and participates in structural-plan identity, but is not exposed through public renderer options. |
 | allocator/failure owner/internal diagnostics | Shared resource owner, cleanup/failure aggregation, and internal evidence state inherited by nested requests; none is a public completion sink. |
 | target/backend identity | Externally owned destination and backend capabilities. |
 
@@ -385,7 +386,7 @@ Island boundaries include:
 - opaque or Geometry execution;
 - target command/capture/current-target scope, scope-relative `TargetLayerScope` offscreen isolation, and raw target work;
 - explicit readback;
-- unsupported/unsafe blend or composite;
+- destination-dependent Blend or another unsupported/unproven composite;
 - external target ownership;
 - backend transition or 3D output;
 - runtime-dynamic topology where downstream scheduling cannot be static;
@@ -419,7 +420,7 @@ Stale/double releases fail deterministically. `CacheTransferred` discharges the 
 
 ### CompiledShaderRun
 
-A maximal compatible sequence of validated CurrentPixel Shader stages and participating invariant operations such as opacity. It stores merged source/signature, stage-to-binding layout, backend capability/budget decisions, and program-cache key. It is split deterministically before exceeding stage, uniform, sampler, child, source, or backend limits.
+A maximal compatible sequence of validated CurrentPixel Shader stages and participating invariant operations such as opacity, rooted in an input whose upstream analytic/antialiased coverage is already resolved. It stores merged source/signature, stage-to-binding layout, coverage provenance, backend capability/budget decisions, and program-cache key. A vector/text/path/AA-clip producer is a deterministic boundary unless every crossing engine-known participant has mechanically proven premultiplied-coverage homogeneity. The run is also split deterministically before exceeding stage, uniform, sampler, child, source, or backend limits.
 
 ## Request lifecycle
 
