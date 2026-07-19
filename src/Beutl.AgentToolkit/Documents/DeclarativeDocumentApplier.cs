@@ -17,12 +17,17 @@ namespace Beutl.AgentToolkit.Documents;
 
 internal sealed class DeclarativeDocumentApplier
 {
+    // Fallback base for objects not attached to the hierarchy yet (newly created identity-list members),
+    // whose own ancestry cannot supply the Uri their relative file sources were written against.
+    private Uri? _documentBaseUri;
+
     public void Apply(CoreObject root, JsonObject document)
     {
+        _documentBaseUri = ResolveBaseUri(root);
         ApplyCoreObject(root, document);
     }
 
-    private static void ApplyCoreObject(CoreObject target, JsonObject desired)
+    private void ApplyCoreObject(CoreObject target, JsonObject desired)
     {
         switch (target)
         {
@@ -49,7 +54,7 @@ internal sealed class DeclarativeDocumentApplier
         }
     }
 
-    private static void ApplyScene(Scene scene, JsonObject desired)
+    private void ApplyScene(Scene scene, JsonObject desired)
     {
         ApplyRegisteredProperties(
             scene,
@@ -97,7 +102,7 @@ internal sealed class DeclarativeDocumentApplier
         }
     }
 
-    private static void ApplyElement(Element element, JsonObject desired)
+    private void ApplyElement(Element element, JsonObject desired)
     {
         JsonObject payload = (JsonObject)desired.DeepClone();
         payload.Remove(nameof(Element.Objects));
@@ -119,7 +124,7 @@ internal sealed class DeclarativeDocumentApplier
         }
     }
 
-    private static void ApplyEngineObject(EngineObject target, JsonObject desired)
+    private void ApplyEngineObject(EngineObject target, JsonObject desired)
     {
         JsonObject payload = (JsonObject)desired.DeepClone();
         payload.Remove("Animations");
@@ -141,7 +146,7 @@ internal sealed class DeclarativeDocumentApplier
         ApplyExpressions(target, desired);
     }
 
-    private static void ApplyKeyFrameAnimation(KeyFrameAnimation animation, JsonObject desired)
+    private void ApplyKeyFrameAnimation(KeyFrameAnimation animation, JsonObject desired)
     {
         JsonObject payload = (JsonObject)desired.DeepClone();
         payload.Remove(nameof(KeyFrameAnimation.KeyFrames));
@@ -152,7 +157,7 @@ internal sealed class DeclarativeDocumentApplier
 
         if (desired.TryGetPropertyValue(nameof(KeyFrameAnimation.KeyFrames), out JsonNode? keyframesNode))
         {
-            ApplyKeyFrameList(animation.KeyFrames, RequireArrayMember(keyframesNode, nameof(KeyFrameAnimation.KeyFrames)));
+            ApplyKeyFrameList(animation.KeyFrames, RequireArrayMember(keyframesNode, nameof(KeyFrameAnimation.KeyFrames)), animation);
         }
         else
         {
@@ -160,7 +165,7 @@ internal sealed class DeclarativeDocumentApplier
         }
     }
 
-    private static void ApplyKeyFrame(IKeyFrame keyFrame, JsonObject desired)
+    private void ApplyKeyFrame(IKeyFrame keyFrame, JsonObject desired)
     {
         if (keyFrame is CoreObject coreObject)
         {
@@ -189,11 +194,11 @@ internal sealed class DeclarativeDocumentApplier
             keyFrame.KeyTime = (TimeSpan)CoreSerializer.DeserializeFromJsonNode(
                 keyTimeNode.DeepClone(),
                 typeof(TimeSpan),
-                keyFrame is CoreObject keyFrameCore ? CreateOptions(keyFrameCore) : CreateOptions(null))!;
+                CreateOptions(keyFrame as CoreObject))!;
         }
     }
 
-    private static void ApplyRegisteredProperties(CoreObject target, JsonObject desired, IReadOnlySet<string> excluded)
+    private void ApplyRegisteredProperties(CoreObject target, JsonObject desired, IReadOnlySet<string> excluded)
     {
         foreach (CoreProperty property in PropertyRegistry.GetRegistered(target.GetType()))
         {
@@ -277,7 +282,7 @@ internal sealed class DeclarativeDocumentApplier
         }
     }
 
-    private static void ApplyListProperties(EngineObject target, JsonObject desired)
+    private void ApplyListProperties(EngineObject target, JsonObject desired)
     {
         foreach (IListProperty listProperty in target.Properties.OfType<IListProperty>())
         {
@@ -292,7 +297,7 @@ internal sealed class DeclarativeDocumentApplier
         }
     }
 
-    private static void ApplyAnimations(EngineObject target, JsonObject desired)
+    private void ApplyAnimations(EngineObject target, JsonObject desired)
     {
         JsonObject? animations = desired.TryGetPropertyValue("Animations", out JsonNode? animationsNode)
             ? RequireObjectMember(animationsNode, "Animations")
@@ -334,7 +339,7 @@ internal sealed class DeclarativeDocumentApplier
         }
     }
 
-    private static void ApplyAnimation(IProperty property, JsonObject animationJson)
+    private void ApplyAnimation(IProperty property, JsonObject animationJson)
     {
         IAnimation? current = property.Animation;
         if (current is CoreObject currentObject
@@ -409,11 +414,11 @@ internal sealed class DeclarativeDocumentApplier
         }
     }
 
-    private static void ApplyIdentityList(IList list, Type elementBaseType, string fieldName, JsonArray desired, CoreObject? owner)
+    private void ApplyIdentityList(IList list, Type elementBaseType, string fieldName, JsonArray desired, CoreObject? owner)
     {
         if (!IsIdentityArray(desired))
         {
-            ReplaceList(list, elementBaseType, fieldName, desired);
+            ReplaceList(list, elementBaseType, fieldName, desired, owner);
             return;
         }
 
@@ -443,12 +448,17 @@ internal sealed class DeclarativeDocumentApplier
                 }
                 else
                 {
-                    item = CreateIdentityListItem(itemJson, elementBaseType);
+                    item = CreateIdentityListItem(itemJson, elementBaseType, owner);
                     if (owner is Scene scene && item is Element element)
                     {
                         JsonObject elementJson = (JsonObject)itemJson.DeepClone();
                         elementJson.Remove("Uri");
-                        ApplyCoreObject(element, elementJson);
+                        // The subtree's relative media URIs were written against the incoming
+                        // element's own .belm, which may sit in a subdirectory of the scene. That
+                        // path only survives in the JSON: the element is still detached here, and
+                        // AssignNewElementUri later rehomes it directly under the scene.
+                        Uri? incomingBaseUri = ResolveIncomingElementBaseUri(scene, itemJson);
+                        ApplyDetached(element, elementJson, incomingBaseUri);
                         AssignNewElementUri(scene, element);
                     }
                     else
@@ -519,7 +529,7 @@ internal sealed class DeclarativeDocumentApplier
         }
     }
 
-    private static void ApplyKeyFrameList(KeyFrames list, JsonArray desired)
+    private void ApplyKeyFrameList(KeyFrames list, JsonArray desired, CoreObject? owner)
     {
         var desiredIds = new HashSet<Guid>();
         for (int index = 0; index < desired.Count; index++)
@@ -546,7 +556,7 @@ internal sealed class DeclarativeDocumentApplier
                 item = (CoreObject)CoreSerializer.DeserializeFromJsonObject(
                     NormalizeCoreSerializableJson(itemJson, typeof(IKeyFrame)),
                     typeof(IKeyFrame),
-                    CreateOptions(null));
+                    CreateOptions(owner));
                 list.Add((IKeyFrame)item, out _);
             }
 
@@ -579,7 +589,7 @@ internal sealed class DeclarativeDocumentApplier
         }
     }
 
-    private static void ReplaceList(IList list, Type elementBaseType, string fieldName, JsonArray desired)
+    private void ReplaceList(IList list, Type elementBaseType, string fieldName, JsonArray desired, CoreObject? owner)
     {
         bool typedObjectList = typeof(ICoreSerializable).IsAssignableFrom(elementBaseType);
         // Validate and deserialize every entry before mutating the target: DocumentAdapter.Write can run
@@ -611,8 +621,8 @@ internal sealed class DeclarativeDocumentApplier
                 ? CoreSerializer.DeserializeFromJsonObject(
                     NormalizeCoreSerializableJson(obj, elementBaseType),
                     elementBaseType,
-                    CreateOptions(null))
-                : EnumJsonValueNormalizer.Deserialize(node, elementBaseType, CreateOptions(null)));
+                    CreateOptions(owner))
+                : EnumJsonValueNormalizer.Deserialize(node, elementBaseType, CreateOptions(owner)));
         }
 
         list.Clear();
@@ -657,7 +667,7 @@ internal sealed class DeclarativeDocumentApplier
             $"Provide '{fieldName}' as an object keyed by property name, or omit it entirely to clear it."));
     }
 
-    private static CoreObject CreateIdentityListItem(JsonObject itemJson, Type elementBaseType)
+    private CoreObject CreateIdentityListItem(JsonObject itemJson, Type elementBaseType, CoreObject? owner)
     {
         var shell = new JsonObject();
         CopyIfPresent(itemJson, shell, "$type");
@@ -666,7 +676,7 @@ internal sealed class DeclarativeDocumentApplier
         return (CoreObject)CoreSerializer.DeserializeFromJsonObject(
             NormalizeCoreSerializableJson(shell, elementBaseType),
             elementBaseType,
-            CreateOptions(null));
+            CreateOptions(owner));
     }
 
     private static void CopyIfPresent(JsonObject source, JsonObject destination, string propertyName)
@@ -865,12 +875,64 @@ internal sealed class DeclarativeDocumentApplier
         list.Insert(Math.Clamp(newIndex, 0, list.Count), item);
     }
 
-    internal static CoreSerializerOptions CreateOptions(CoreObject? root)
+    // Applies a subtree whose relative file sources were written against a base other than the
+    // document root's, for objects that cannot reach that base through HierarchicalParent.
+    private void ApplyDetached(CoreObject target, JsonObject desired, Uri? baseUri)
+    {
+        Uri? previous = _documentBaseUri;
+        _documentBaseUri = baseUri ?? previous;
+        try
+        {
+            ApplyCoreObject(target, desired);
+        }
+        finally
+        {
+            _documentBaseUri = previous;
+        }
+    }
+
+    private static Uri? ResolveIncomingElementBaseUri(Scene scene, JsonObject itemJson)
+    {
+        return itemJson["Uri"] is JsonValue value
+               && value.TryGetValue(out string? relative)
+               && Uri.TryCreate(scene.Uri, Uri.UnescapeDataString(relative), out Uri? uri)
+            ? uri
+            : null;
+    }
+
+    private CoreSerializerOptions CreateOptions(CoreObject? target)
+    {
+        return CreateOptions(ResolveBaseUri(target) ?? _documentBaseUri);
+    }
+
+    internal static CoreSerializerOptions CreateOptions(Uri? baseUri)
     {
         return new CoreSerializerOptions
         {
-            BaseUri = root?.Uri,
+            BaseUri = baseUri,
             Mode = CoreSerializationMode.Read | CoreSerializationMode.EmbedReferencedObjects
         };
+    }
+
+    // Mirrors the serializer's context chain: a nested object inherits the BaseUri of the nearest
+    // ancestor that owns a Uri, which is what its relative file-source URIs were written against.
+    internal static Uri? ResolveBaseUri(CoreObject? target)
+    {
+        if (target?.Uri is { } own)
+        {
+            return own;
+        }
+
+        for (IHierarchical? parent = (target as IHierarchical)?.HierarchicalParent;
+             parent is not null;
+             parent = parent.HierarchicalParent)
+        {
+            if (parent is CoreObject { Uri: not null } owner)
+            {
+                return owner.Uri;
+            }
+        }
+
+        return null;
     }
 }
