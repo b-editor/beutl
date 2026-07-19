@@ -29,13 +29,15 @@ Do not cherry-pick the abandoned GPU-pass branch. Extract only reviewed leaf alg
 First add only test/provenance tooling and observational counters:
 
 1. raw linear premultiplied RGBA16F golden storage;
-2. SSIM, RGB MAE, and alpha MAE assertions;
+2. SSIM, RGB MAE, alpha MAE, edge-band local MAE, and maximum-channel-error assertions;
 3. fail-on-missing immutable references and non-vacuity controls;
-4. target-baseline provenance scripts/hashes;
+4. target-baseline provenance patch/scripts/hashes under `docs/specs/004-gpu-pass-fusion/evidence/`, including `run-paired-visual-evidence.sh`;
 5. request-wide counters that do not alter decisions;
 6. persistent-lifetime BenchmarkDotNet scenes.
 
-Capture current behavior for the primary chain, barriers, multiple roots, ROI/scale, cache hit/miss, nested/query, 3D, fallback, and preview/delivery allocation failures. Commit the evidence separately before changing `Process` or execution order.
+`generate-target-baseline.sh` must create a temporary worktree pinned to the starting SHA, apply `target-baseline-generator.patch` there, and copy back only immutable RGBA16F artifacts plus a manifest. Do not compile the historical generator in the feature branch. `run-paired-visual-evidence.sh` runs both worktrees and rejects missing or mismatched fingerprint fields before comparison. Record artifact/patch/generator-script/paired-runner hashes and exact OS, architecture, backend, device, driver, graphics-library, and runtime fingerprints. Normal CI instead compares fusion-disabled and fusion-enabled output on the same process/device through the internal request `FusionMode`, uses a fixed per-channel AA edge maximum error of `0.02`, and always verifies manifest integrity; the paired workflow may use a tighter edge bound only from its exact matching fingerprinted manifest. The mode is inherited and included in structural-plan identity but is not exposed in public renderer options. CI never selects a foreign-device blob, and this A/B check does not replace the starting-SHA proof.
+
+Capture current behavior for the primary chain, barriers, antialiased thin paths, multiple roots, ROI/scale, cache hit/miss, nested/query, 3D, fallback, and preview/delivery allocation failures. Commit the evidence separately before changing `Process` or execution order.
 
 The donor's eight independently reproducible `004-parity-strong` files may be copied as supplemental regressions only after their historical verification script reproduces their hashes. Do not use donor timing/counter values as target baselines.
 
@@ -73,7 +75,7 @@ Run transaction and recording-side-effect tests before broad migration.
 
 ## 4. Migrate the complete executable API in one change
 
-Change `RenderNode.Process`, replace executable `RenderNodeOperation` with the sealed `RenderFragmentHandle`, and migrate all production/test overrides and direct pull consumers together. Replace direct pulls/list rasterization with a disposable `RenderNodeRenderer` and its `Render`, single-result `Rasterize`, `Measure`, and `HitTest` operations; `Rasterize` returns one disposable `RenderNodeRasterization` carrying its logical bounds/origin, output scale, normal empty state, and optional owned bitmap. Dispose each owner at the consumer lifetime boundary. Do not leave a returning overload, obsolete shim, public executable callback factory, or `Pull`/`PullToRoot` path.
+Change `RenderNode.Process`, replace executable `RenderNodeOperation` with the sealed `RenderFragmentHandle`, and migrate all production/test overrides and direct pull consumers together. Treat the seven test overrides as only the override subset: separately migrate all 24 starting-SHA test files that name the removed surface, including the golden harness while leaving its 18 consumers unchanged. Move all 24 direct feature-003 scale-helper caller/reference files (15 production and 9 tests) to `RenderScaleUtilities` without a forwarding shim. Replace direct pulls/list rasterization with a disposable `RenderNodeRenderer` and its `Render`, single-result `Rasterize`, `Measure`, and `HitTest` operations; `Rasterize` returns one disposable `RenderNodeRasterization` carrying its logical bounds/origin, output scale, normal empty state, and optional owned bitmap. Dispose each owner at the consumer lifetime boundary. Do not leave a returning overload, obsolete shim, public executable callback factory, or `Pull`/`PullToRoot` path.
 
 Use the shapes in [contracts/breaking-changes.md](contracts/breaking-changes.md):
 
@@ -96,6 +98,7 @@ Apply the public invariants at the same checkpoint:
 - assert the complete `CanBeUsedAsValueInput` table: value maps remain eligible, Opacity preserves eligible pure children, Blend/target scopes/commands—including `TargetLayerScope`—are ineligible, and finite Layer restores eligibility by local materialization;
 - keep target-less `TargetDomain` separate from `RequestedRegion`; reject root Full target access without a destination/`TargetDomain`, and record existing `PushLayer(default)` through bottom-up `TargetLayerScope(..., Full)` so its region remains symbolic through all later parent transform/clip scopes;
 - keep `RootOutputExtent` (contributing values plus potentially pixel-writing target effects) separate from query bounds; a null `RequestedRegion` selects the former, while Measure and HitTest retain the latter.
+- treat public `TargetCapture` as a concrete declared-density resampling boundary. Its standard policy starts from output-derived density; its custom resolver receives empty `InputSupplies` and may use only `OutputBounds`, `OutputScale`, and `MaxWorkingScale`. Neither form inherits a denser enclosing target resolved later. Reserve owning-scope late binding for the internal backdrop path.
 
 At this checkpoint, all visual/counter baselines must still match with fusion disabled.
 
@@ -152,6 +155,7 @@ Extract the donor lexer/merger/binding/bounds/session algorithms only after appl
 
 - remove author-asserted whole-source invariance;
 - reject coordinate access and unsupported grammar in CurrentPixel source;
+- define CurrentPixel as operating after upstream analytic/antialiased coverage is resolved. Coordinate validation does not prove `f(kx) = kf(x)`, so arbitrary public stages must not fold into vector/text/path/AA-clip coverage generation; only engine-known mechanically proven coverage-homogeneous operations may cross, with no public assertion flag;
 - resolve child/native Shader resources only at execution;
 - compare full source/signature after hash lookup;
 - add sampler/child/backend budget checks;
@@ -166,7 +170,7 @@ Verify public authoring through the non-friend `Beutl.PublicApiContractTests` pr
 
 ## 8. Prove the first renderer-wide fusion seam
 
-Build this exact distinct-node topology:
+Start from a deterministic coverage-resolved semitransparent materialized source and build this exact distinct-node topology:
 
 ```text
 Gamma CurrentPixel Shader -> OpacityRenderNode -> Invert CurrentPixel Shader
@@ -183,6 +187,8 @@ With fusion disabled, confirm baseline parity and three semantic stages in the r
 - non-vacuity when each stage is disabled.
 
 Then insert each required barrier and assert the exact deterministic split.
+
+In particular, apply a valid non-coverage-homogeneous CurrentPixel transform such as `color * color.a` after an antialiased thin line/path. Require a materialization boundary between coverage production and the Shader run, and compare the edge band with local-MAE and maximum-channel-error thresholds. Whole-frame averages alone are not sufficient for this control.
 
 ## 9. Add structural/program caches and pooled resources
 
@@ -219,11 +225,22 @@ dotnet build Beutl.slnx
 dotnet test Beutl.slnx -f net10.0 --settings coverlet.runsettings
 ```
 
-On a configured capable graphics host:
+Run the ordinary fallback gate on every host:
+
+```bash
+dotnet test tests/Beutl.UnitTests/Beutl.UnitTests.csproj \
+  -f net10.0 --filter "FullyQualifiedName~ShaderFallbackTests"
+```
+
+On a configured capable graphics host, run both GPU-required projects explicitly:
 
 ```bash
 BEUTL_REQUIRE_GPU=1 dotnet test tests/Beutl.UnitTests/Beutl.UnitTests.csproj \
-  -f net10.0 --filter FullyQualifiedName~GpuPassFusion
+  -f net10.0 \
+  --filter "(TestCategory=GpuPassFusionGpu|FullyQualifiedName~GpuGoldenSuiteCanaryTests)"
+
+BEUTL_REQUIRE_GPU=1 dotnet test tests/Beutl.Graphics3DTests/Beutl.Graphics3DTests.csproj \
+  -f net10.0 --filter "TestCategory=GpuPassFusionGpu"
 ```
 
 Run the paired persistent-lifetime benchmark in the pinned baseline and feature worktrees on the same system:
@@ -235,4 +252,4 @@ dotnet run -c Release --project tests/Beutl.Benchmarks -- \
 
 Record raw results, SHAs, environment, controls, confidence intervals, and request counters. The primary warmed post/pre median ratio's 95% confidence interval must lie below 1.0; donor percentages are not acceptance thresholds.
 
-Finally run the public-design and repository boundary reviews. The public migration commit must be breaking and name `Beutl.Engine`, `Beutl.NodeGraph`, and downstream custom render-node authors in its `BREAKING CHANGE:` footer.
+Finally run the public-design and repository boundary reviews. The public migration commit must be breaking and name `Beutl.Engine`, `Beutl.Editor`, `Beutl.NodeGraph`, `Beutl.ProjectSystem`, `Beutl.AgentToolkit`, the application, and downstream custom render-node authors in its `BREAKING CHANGE:` footer.
