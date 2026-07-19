@@ -463,7 +463,9 @@ internal sealed class DeclarativeDocumentApplier
                     }
                     else
                     {
-                        ApplyCoreObject(item, itemJson);
+                        // Same detachment as above: the item is populated before insertion, so it
+                        // cannot reach the owner through HierarchicalParent.
+                        ApplyDetached(item, itemJson, ResolveBaseUri(owner));
                     }
                 }
             }

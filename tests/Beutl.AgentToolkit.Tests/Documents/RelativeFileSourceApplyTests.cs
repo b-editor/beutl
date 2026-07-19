@@ -13,6 +13,7 @@ namespace Beutl.AgentToolkit.Tests.Documents;
 // detectable difference rather than the same answer by coincidence.
 // KeyFrame values are not covered: every in-tree media property is a non-animatable
 // SimpleProperty, so only a plugin could produce a media-valued keyframe.
+[TestFixture]
 public class RelativeFileSourceApplyTests
 {
     [Test]
@@ -62,6 +63,27 @@ public class RelativeFileSourceApplyTests
 
         Assert.That(target.Children, Has.Count.EqualTo(1));
         Assert.That(SourceUriOf(target.Children[0])?.LocalPath, Is.EqualTo(imagePath));
+    }
+
+    [Test]
+    public void Write_resolves_a_relative_file_source_uri_on_an_object_added_to_an_existing_element()
+    {
+        string dir = CreateWorkspace();
+        string subDir = CreateSubDirectory(dir);
+        string imagePath = CreateImage(subDir);
+        var scene = new Scene(1920, 1080, "Scene") { Uri = new Uri(Path.Combine(dir, "Scene.scene")) };
+        Element element = CreateElement(Path.Combine(subDir, "media.belm"), imagePath);
+        scene.Children.Add(element);
+        var adapter = new DocumentAdapter();
+        JsonObject document = adapter.Read(scene);
+
+        // The element stays Id-matched so only the object is new: it is populated before insertion
+        // and cannot reach the element's .belm through HierarchicalParent, while the ambient
+        // document root is the scene, whose directory differs from the element's.
+        element.Objects.Clear();
+        adapter.Write(scene, document);
+
+        Assert.That(SourceUriOf(element)?.LocalPath, Is.EqualTo(imagePath));
     }
 
     [Test]
