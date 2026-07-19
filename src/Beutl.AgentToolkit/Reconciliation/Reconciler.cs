@@ -1034,7 +1034,8 @@ public sealed class Reconciler
                 return;
             }
 
-            CoreSerializerOptions options = DeclarativeDocumentApplier.CreateOptions(target);
+            CoreSerializerOptions options = DeclarativeDocumentApplier.CreateOptions(
+                DeclarativeDocumentApplier.ResolveBaseUri(target) ?? root.Uri);
 
             if (PropertyRegistry.FindRegistered(target, propertyName) is { } coreProperty)
             {
