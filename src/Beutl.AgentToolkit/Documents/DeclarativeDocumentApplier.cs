@@ -457,7 +457,7 @@ internal sealed class DeclarativeDocumentApplier
                         // element's own .belm, which may sit in a subdirectory of the scene. That
                         // path only survives in the JSON: the element is still detached here, and
                         // AssignNewElementUri later rehomes it directly under the scene.
-                        Uri? incomingBaseUri = ResolveIncomingElementBaseUri(scene, itemJson);
+                        Uri? incomingBaseUri = ResolveIncomingBaseUri(scene.Uri, itemJson);
                         ApplyDetached(element, elementJson, incomingBaseUri);
                         AssignNewElementUri(scene, element);
                     }
@@ -620,10 +620,7 @@ internal sealed class DeclarativeDocumentApplier
             }
 
             items.Add(node is JsonObject obj && typedObjectList
-                ? CoreSerializer.DeserializeFromJsonObject(
-                    NormalizeCoreSerializableJson(obj, elementBaseType),
-                    elementBaseType,
-                    CreateOptions(owner))
+                ? DeserializeListItem(obj, elementBaseType, ResolveBaseUri(owner) ?? _documentBaseUri)
                 : EnumJsonValueNormalizer.Deserialize(node, elementBaseType, CreateOptions(owner)));
         }
 
@@ -893,11 +890,27 @@ internal sealed class DeclarativeDocumentApplier
         }
     }
 
-    private static Uri? ResolveIncomingElementBaseUri(Scene scene, JsonObject itemJson)
+    // An embedded object that carries its own "Uri" is the base for its own subtree. CoreSerializer
+    // resolves that field but leaves BaseUri alone when options are already non-null (ReflectUri's
+    // `options ??=`), so the object's Uri is absolutized here and the resolved value passed as the
+    // base — absolutizing keeps ReflectUri from re-resolving it against itself.
+    private object DeserializeListItem(JsonObject itemJson, Type elementBaseType, Uri? ownerBaseUri)
+    {
+        JsonObject normalized = NormalizeCoreSerializableJson(itemJson, elementBaseType);
+        if (ResolveIncomingBaseUri(ownerBaseUri, itemJson) is { } ownUri)
+        {
+            normalized["Uri"] = ownUri.ToString();
+            return CoreSerializer.DeserializeFromJsonObject(normalized, elementBaseType, CreateOptions(ownUri));
+        }
+
+        return CoreSerializer.DeserializeFromJsonObject(normalized, elementBaseType, CreateOptions(ownerBaseUri));
+    }
+
+    private static Uri? ResolveIncomingBaseUri(Uri? parentBaseUri, JsonObject itemJson)
     {
         return itemJson["Uri"] is JsonValue value
                && value.TryGetValue(out string? relative)
-               && Uri.TryCreate(scene.Uri, Uri.UnescapeDataString(relative), out Uri? uri)
+               && Uri.TryCreate(parentBaseUri, Uri.UnescapeDataString(relative), out Uri? uri)
             ? uri
             : null;
     }

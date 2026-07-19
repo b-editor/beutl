@@ -87,6 +87,30 @@ public class RelativeFileSourceApplyTests
     }
 
     [Test]
+    public void Write_resolves_a_relative_file_source_uri_on_a_wholesale_replaced_element_list()
+    {
+        string dir = CreateWorkspace();
+        string subDir = CreateSubDirectory(dir);
+        string imagePath = CreateImage(subDir);
+        var sceneUri = new Uri(Path.Combine(dir, "Scene.scene"));
+        var source = new Scene(1920, 1080, "Scene") { Uri = sceneUri };
+        source.Children.Add(CreateElement(Path.Combine(subDir, "media.belm"), imagePath));
+        var adapter = new DocumentAdapter();
+
+        JsonObject document = adapter.Read(source);
+        foreach (JsonObject item in RequireArray(document, "Elements").OfType<JsonObject>())
+        {
+            item.Remove(nameof(CoreObject.Id));
+        }
+
+        var target = new Scene(1920, 1080, "Scene") { Uri = sceneUri };
+        adapter.Write(target, document);
+
+        Assert.That(target.Children, Has.Count.EqualTo(1));
+        Assert.That(SourceUriOf(target.Children[0])?.LocalPath, Is.EqualTo(imagePath));
+    }
+
+    [Test]
     public void Write_resolves_a_relative_file_source_uri_on_a_wholesale_replaced_object_list()
     {
         string dir = CreateWorkspace();
