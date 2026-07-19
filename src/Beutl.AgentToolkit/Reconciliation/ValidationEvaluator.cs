@@ -26,13 +26,13 @@ public sealed record ValidationOutcome(
     [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     string? Hint = null)
 {
-    public static ValidationOutcome Ok(object? value, CoreSerializerOptions? options = null)
+    public static ValidationOutcome Ok(object? value, CoreSerializerOptions? options)
     {
         JsonNode? node = ValidationValueNode.From(value, options);
         return new ValidationOutcome(ValidationStatus.Ok, node, node?.DeepClone(), null);
     }
 
-    public static ValidationOutcome Coerced(object? original, object? coerced, CoreSerializerOptions? options = null)
+    public static ValidationOutcome Coerced(object? original, object? coerced, CoreSerializerOptions? options)
     {
         return new ValidationOutcome(
             ValidationStatus.Coerced,
@@ -42,14 +42,14 @@ public sealed record ValidationOutcome(
     }
 
     public static ValidationOutcome Warning(
-        object? value, string message, string? hint = null, CoreSerializerOptions? options = null)
+        object? value, string message, CoreSerializerOptions? options, string? hint = null)
     {
         JsonNode? node = ValidationValueNode.From(value, options);
         return new ValidationOutcome(ValidationStatus.Warning, node, node?.DeepClone(), message, hint);
     }
 
     public static ValidationOutcome Rejected(
-        object? original, string message, string? hint = null, CoreSerializerOptions? options = null)
+        object? original, string message, CoreSerializerOptions? options, string? hint = null)
     {
         JsonNode? node = ValidationValueNode.From(original, options);
         return new ValidationOutcome(ValidationStatus.Rejected, node, node?.DeepClone(), message, hint);
@@ -59,7 +59,7 @@ public sealed record ValidationOutcome(
 public static class ValidationEvaluator
 {
     public static ValidationOutcome Evaluate(
-        ICoreObject target, CoreProperty property, object? value, CoreSerializerOptions? options = null)
+        ICoreObject target, CoreProperty property, object? value, CoreSerializerOptions? options)
     {
         ArgumentNullException.ThrowIfNull(target);
         ArgumentNullException.ThrowIfNull(property);
@@ -69,8 +69,8 @@ public static class ValidationEvaluator
             return ValidationOutcome.Rejected(
                 value,
                 $"Value is not assignable to {property.PropertyType.FullName}.",
-                CreateValueHint(property.PropertyType),
-                options);
+                options,
+                CreateValueHint(property.PropertyType));
         }
 
         IValidator? validator = property.GetMetadata<ICorePropertyMetadata>(target.GetType()).GetValidator();
@@ -78,7 +78,7 @@ public static class ValidationEvaluator
     }
 
     public static ValidationOutcome Evaluate(
-        IProperty property, object? value, CoreSerializerOptions? options = null)
+        IProperty property, object? value, CoreSerializerOptions? options)
     {
         ArgumentNullException.ThrowIfNull(property);
 
@@ -87,8 +87,8 @@ public static class ValidationEvaluator
             return ValidationOutcome.Rejected(
                 value,
                 $"Value is not assignable to {property.ValueType.FullName}.",
-                CreateValueHint(property.ValueType),
-                options);
+                options,
+                CreateValueHint(property.ValueType));
         }
 
         IValidator validator = property.CreateValidator(property.GetAttributes() ?? []);
@@ -114,7 +114,7 @@ public static class ValidationEvaluator
         string? message = validator.Validate(context, value);
         return message is null
             ? ValidationOutcome.Ok(value, options)
-            : ValidationOutcome.Rejected(value, message, null, options);
+            : ValidationOutcome.Rejected(value, message, options);
     }
 
     private static bool IsAssignableValue(Type targetType, object? value)

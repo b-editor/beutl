@@ -12,8 +12,8 @@ public class ValidationEvaluatorTests
     {
         var target = new RangedCoreObject();
 
-        ValidationOutcome coerced = ValidationEvaluator.Evaluate(target, RangedCoreObject.AmountProperty, 50);
-        ValidationOutcome rejected = ValidationEvaluator.Evaluate(target, RangedCoreObject.AmountProperty, "bad");
+        ValidationOutcome coerced = ValidationEvaluator.Evaluate(target, RangedCoreObject.AmountProperty, 50, options: null);
+        ValidationOutcome rejected = ValidationEvaluator.Evaluate(target, RangedCoreObject.AmountProperty, "bad", options: null);
 
         Assert.Multiple(() =>
         {
@@ -29,8 +29,8 @@ public class ValidationEvaluatorTests
     {
         var target = new RangedEngineObject();
 
-        ValidationOutcome coerced = ValidationEvaluator.Evaluate(target.Amount, 50);
-        ValidationOutcome rejected = ValidationEvaluator.Evaluate(target.Amount, "bad");
+        ValidationOutcome coerced = ValidationEvaluator.Evaluate(target.Amount, 50, options: null);
+        ValidationOutcome rejected = ValidationEvaluator.Evaluate(target.Amount, "bad", options: null);
 
         Assert.Multiple(() =>
         {
@@ -45,8 +45,8 @@ public class ValidationEvaluatorTests
     {
         var target = new TypedEngineObject();
 
-        ValidationOutcome color = ValidationEvaluator.Evaluate(target.Color, "Amber");
-        ValidationOutcome pen = ValidationEvaluator.Evaluate(target.Pen, new object());
+        ValidationOutcome color = ValidationEvaluator.Evaluate(target.Color, "Amber", options: null);
+        ValidationOutcome pen = ValidationEvaluator.Evaluate(target.Pen, new object(), options: null);
 
         Assert.Multiple(() =>
         {

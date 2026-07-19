@@ -228,7 +228,7 @@ public sealed class Reconciler
             string lengthText = elementLength.ToString("c");
             string message = $"UseGlobalClock=false keyframe at '{keyFramePath}' has KeyTime '{keyTime:c}' outside Element '{elementName}' local range '00:00:00'..'{lengthText}' (Element Start '{elementStart}', Length '{lengthText}').";
             string hint = "For UseGlobalClock=false, KeyTime is local to the owning timeline element. Use 00:00:00..Element.Length, or set UseGlobalClock=true when the KeyTime values are scene timeline times.";
-            validation.Add(ValidationOutcome.Warning(keyTime.ToString("c"), message, hint));
+            validation.Add(ValidationOutcome.Warning(keyTime.ToString("c"), message, options: null, hint));
         }
     }
 
@@ -598,6 +598,7 @@ public sealed class Reconciler
             validation.Add(ValidationOutcome.Rejected(
                 element.Start.ToString("c"),
                 $"Element {identity} Start '{element.Start:c}' must be non-negative.",
+                options: null,
                 $"Set a non-negative Start on element {element.Id}."));
         }
 
@@ -606,6 +607,7 @@ public sealed class Reconciler
             validation.Add(ValidationOutcome.Rejected(
                 element.Length.ToString("c"),
                 $"Element {identity} Length '{element.Length:c}' must be positive.",
+                options: null,
                 $"Set a positive Length on element {element.Id}."));
         }
     }
@@ -625,6 +627,7 @@ public sealed class Reconciler
             validation.Add(ValidationOutcome.Rejected(
                 $"{scene.FrameSize.Width}x{scene.FrameSize.Height}",
                 $"Scene frame size '{scene.FrameSize.Width}x{scene.FrameSize.Height}' must be positive.",
+                options: null,
                 "Set Width and Height to positive pixel values before applying."));
         }
 
@@ -633,6 +636,7 @@ public sealed class Reconciler
             validation.Add(ValidationOutcome.Rejected(
                 scene.Duration.ToString("c"),
                 $"Scene duration '{scene.Duration:c}' must be positive.",
+                options: null,
                 "Set a positive Duration before applying."));
         }
     }
@@ -1029,8 +1033,8 @@ public sealed class Reconciler
             {
                 string? easingError = DeclarativeDocumentApplier.ValidateEasingNode(valueNode);
                 validation.Add(easingError is null
-                    ? ValidationOutcome.Ok(valueNode?.DeepClone())
-                    : ValidationOutcome.Rejected(null, $"{propertyName}: {easingError}", null));
+                    ? ValidationOutcome.Ok(valueNode?.DeepClone(), options: null)
+                    : ValidationOutcome.Rejected(null, $"{propertyName}: {easingError}", options: null));
                 return;
             }
 
@@ -1061,6 +1065,7 @@ public sealed class Reconciler
             validation.Add(ValidationOutcome.Rejected(
                 null,
                 $"{propertyName}: {ex.Message}",
+                options: null,
                 targetType is null ? null : ValidationEvaluator.CreateValueHint(targetType)));
         }
     }
