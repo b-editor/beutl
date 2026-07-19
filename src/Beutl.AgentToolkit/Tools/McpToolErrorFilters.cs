@@ -137,7 +137,7 @@ public static class McpToolErrorFilters
         // This filter wraps the whole downstream pipeline, so it cannot tell argument binding, the
         // tool body, and result serialization apart. Do not name a cause the caller cannot trust.
         string message = detail is null
-            ? $"Call to '{target}' failed. Check required parameters and parameter types."
+            ? $"Call to '{target}' failed."
             : $"Call to '{target}' failed: {detail}";
         ToolResult<object?> result = ToolResult<object?>.Failure(
             ErrorCode.ValidationRejected,

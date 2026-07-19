@@ -1033,7 +1033,7 @@ public sealed class Reconciler
             {
                 string? easingError = DeclarativeDocumentApplier.ValidateEasingNode(valueNode);
                 validation.Add(easingError is null
-                    ? ValidationOutcome.Ok(valueNode?.DeepClone(), options: null)
+                    ? ValidationOutcome.Ok(valueNode, options: null)
                     : ValidationOutcome.Rejected(null, $"{propertyName}: {easingError}", options: null));
                 return;
             }
