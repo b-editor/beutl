@@ -133,10 +133,17 @@ public class ElementViewLayoutTests
             Control label = element.GetVisualDescendants().OfType<Control>().First(c => c.Name == "textBlock");
             var textBox = (TextBox)element.GetVisualDescendants().OfType<Control>().First(c => c.Name == "textBox");
 
-            textBox.IsVisible = true;
-            HeadlessTestHelpers.Render(5);
-
+            // Read the label first: entering rename hides it, and an unarranged control has no
+            // position to compare against.
             double labelInset = label.TranslatePoint(new Point(0, 0), border)!.Value.X;
+
+            // Focus-time styling changes the editor's border, so an unfocused probe would miss a
+            // shift that renaming actually shows.
+            ((ElementViewModel)element.DataContext!).RenameRequested();
+            HeadlessTestHelpers.Render(5);
+            Assert.That(textBox.IsVisible && textBox.IsFocused, Is.True,
+                "Rename did not put the focused editor on screen, so this comparison would prove nothing.");
+
             TextPresenter presenter = textBox.GetVisualDescendants().OfType<TextPresenter>().First();
             double editInset = presenter.TranslatePoint(new Point(0, 0), border)!.Value.X;
 
