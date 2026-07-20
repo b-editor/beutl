@@ -29,6 +29,7 @@
             HorizontalAlignment="Left"
             Background="{Binding Color.Value, Converter={StaticResource ColorToBrushConverter}}"
             BorderThickness="1"
+            CornerRadius="4"
             Classes.elm-disabled="{Binding !IsEnabled.Value}"
             Classes.elm-locked="{Binding !IsEditable.Value}"
             Classes.selected="{Binding IsSelected.Value}">
@@ -196,36 +197,49 @@
             </ui:FAMenuFlyout>
         </Border.ContextFlyout>
         <Panel>
-            <v:ThumbnailStripControl x:Name="thumbnailStrip"
-                                     HorizontalAlignment="Stretch"
-                                     VerticalAlignment="Stretch"
-                                     IsVisible="{Binding IsThumbnailsKindVideo.Value}"
-                                     ThumbnailCount="{Binding VideoThumbnailCount.Value}" />
+            <Border x:Name="mediaClip"
+                    ClipToBounds="True"
+                    CornerRadius="3">
+                <Panel>
+                    <v:ThumbnailStripControl x:Name="thumbnailStrip"
+                                             HorizontalAlignment="Stretch"
+                                             VerticalAlignment="Stretch"
+                                             IsVisible="{Binding IsThumbnailsKindVideo.Value}"
+                                             ThumbnailCount="{Binding VideoThumbnailCount.Value}" />
 
-            <v:WaveformControl x:Name="waveformControl"
-                               HorizontalAlignment="Stretch"
-                               VerticalAlignment="Stretch"
-                               ChunkCount="{Binding WaveformChunkCount.Value}"
-                               IsVisible="{Binding IsThumbnailsKindAudio.Value}"
-                               WaveformBrush="{Binding TextColor.Value, Converter={StaticResource ColorToBrushConverter}}" />
-
-            <TextBlock x:Name="textBlock"
-                       VerticalAlignment="Center"
-                       ClipToBounds="True"
-                       Foreground="{Binding TextColor.Value, Converter={StaticResource ColorToBrushConverter}}"
-                       Text="{Binding Name.Value}" />
+                    <v:WaveformControl x:Name="waveformControl"
+                                       HorizontalAlignment="Stretch"
+                                       VerticalAlignment="Stretch"
+                                       ChunkCount="{Binding WaveformChunkCount.Value}"
+                                       IsVisible="{Binding IsThumbnailsKindAudio.Value}"
+                                       WaveformBrush="{Binding TextColor.Value, Converter={StaticResource ColorToBrushConverter}}" />
+                </Panel>
+            </Border>
+            <!-- The lock glyph owns a column, so the label clears it by layout instead of by a
+                 reserved margin; a hidden glyph measures to zero and the label keeps its own inset. -->
+            <Grid ColumnDefinitions="Auto,*">
+                <icons:FluentIcon x:Name="lockIcon"
+                                  Grid.Column="0"
+                                  Margin="6,0,0,0"
+                                  VerticalAlignment="Center"
+                                  FontSize="12"
+                                  Foreground="{Binding TextColor.Value, Converter={StaticResource ColorToBrushConverter}}"
+                                  IsVisible="{Binding !IsEditable.Value}"
+                                  Icon="LockClosed" />
+                <TextBlock x:Name="textBlock"
+                           Grid.Column="1"
+                           Margin="6,0,0,1"
+                           VerticalAlignment="Center"
+                           ClipToBounds="True"
+                           Foreground="{Binding TextColor.Value, Converter={StaticResource ColorToBrushConverter}}"
+                           Text="{Binding Name.Value}" />
+            </Grid>
             <TextBox x:Name="textBox"
                      HorizontalAlignment="Stretch"
                      IsEnabled="{Binding IsEditable.Value}"
                      IsVisible="False"
-                     Text="{Binding Name.Value}" />
-            <icons:FluentIcon Margin="4,0"
-                              HorizontalAlignment="Left"
-                              VerticalAlignment="Center"
-                              FontSize="12"
-                              Foreground="{Binding TextColor.Value, Converter={StaticResource ColorToBrushConverter}}"
-                              IsVisible="{Binding !IsEditable.Value}"
-                              Icon="LockClosed" />
+                     Text="{Binding Name.Value}"
+                     Theme="{StaticResource ElementNameTextBoxTheme}" />
 
             <Border x:Name="proxyIndicator"
                     Width="8"
