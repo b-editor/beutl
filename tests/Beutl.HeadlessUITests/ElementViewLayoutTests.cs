@@ -162,22 +162,24 @@ public class ElementViewLayoutTests
             var textBox = (TextBox)element.GetVisualDescendants().OfType<Control>().First(c => c.Name == "textBox");
             Point origin = border.TranslatePoint(new Point(0, 0), window)!.Value;
 
-            // (+1,+0) lies outside the 4px corner arc: at y=0.5 the rounded edge only starts at
-            // x≈2.06. The rename editor overhangs the clip vertically, so without a rounded clip on
-            // the border it repaints this pixel.
-            var probe = new PixelPoint((int)origin.X + 1, (int)origin.Y);
+            // The probe pixel straddles the clip's corner arc, so a correctly clipped repaint still
+            // shifts it by antialiasing alone. An unclipped one fills it with the editor's focus
+            // accent instead. Measured drift: 39 clipped, 133 unclipped.
+            PixelPoint probe = ToPixel(window, origin + new Point(1, 0));
             uint atRest = SamplePixel(window, probe);
 
-            textBox.IsVisible = true;
-            textBox.Focus();
+            // Drive the real rename entry point: a probe taken without focus would sample the
+            // unfocused editor and pass even with the clip removed.
+            ((ElementViewModel)element.DataContext!).RenameRequested();
             HeadlessTestHelpers.Render(5);
+            Assert.That(textBox.IsVisible && textBox.IsFocused, Is.True,
+                "Rename did not put the focused editor on screen, so this probe would prove nothing.");
+
             uint whileRenaming = SamplePixel(window, probe);
 
-            // Measured: 39 with the border clipped, 133 without it (the editor's fill bleeding into
-            // the corner). The threshold sits between, so it tolerates antialiasing but not the bleed.
             int drift = MaxChannelDelta(atRest, whileRenaming);
             Assert.That(drift, Is.LessThan(64),
-                $"Renaming repainted the rounded corner: #{atRest:X8} became #{whileRenaming:X8} "
+                $"Renaming repainted the rounded corner: {Rgba(atRest)} became {Rgba(whileRenaming)} "
                 + $"(max channel drift {drift}). The clip's Border needs ClipToBounds to round its children.");
         }
         finally
@@ -187,16 +189,35 @@ public class ElementViewLayoutTests
         }
     }
 
+    private static PixelPoint ToPixel(Window window, Point dip)
+    {
+        double scale = window.RenderScaling;
+        return new PixelPoint((int)Math.Round(dip.X * scale), (int)Math.Round(dip.Y * scale));
+    }
+
+    // Reads raw framebuffer memory, so every assumption it makes has to fail loudly: an
+    // out-of-range index would read unrelated memory instead of throwing.
     private static uint SamplePixel(Window window, PixelPoint point)
     {
-        using WriteableBitmap frame = window.CaptureRenderedFrame()!;
+        using WriteableBitmap frame = window.CaptureRenderedFrame()
+            ?? throw new InvalidOperationException("CaptureRenderedFrame returned null; the window never rendered.");
         using ILockedFramebuffer buffer = frame.Lock();
+        Assert.That(buffer.Format, Is.EqualTo(PixelFormat.Rgba8888).Or.EqualTo(PixelFormat.Bgra8888),
+            $"SamplePixel assumes a 32bpp framebuffer but the frame is {buffer.Format}.");
+        Assert.That(point.X, Is.InRange(0, buffer.Size.Width - 1), "Probe X is outside the captured frame.");
+        Assert.That(point.Y, Is.InRange(0, buffer.Size.Height - 1), "Probe Y is outside the captured frame.");
+
         unsafe
         {
             byte* row = (byte*)buffer.Address + (point.Y * buffer.RowBytes);
             return ((uint*)row)[point.X];
         }
     }
+
+    // The framebuffer is Rgba8888, so a little-endian uint reads back as 0xAABBGGRR — printing it
+    // as hex would name the channels in the wrong order.
+    private static string Rgba(uint pixel)
+        => $"rgba({pixel & 0xFF},{(pixel >> 8) & 0xFF},{(pixel >> 16) & 0xFF},{pixel >> 24})";
 
     private static int MaxChannelDelta(uint left, uint right)
     {

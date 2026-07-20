@@ -55,11 +55,9 @@
     <ControlTheme x:Key="ElementNameTextBoxTheme"
                   TargetType="TextBox"
                   BasedOn="{StaticResource {x:Type TextBox}}">
-        <ControlTheme.Resources>
-            <Thickness x:Key="TextControlBorderThemeThicknessFocused">0</Thickness>
-        </ControlTheme.Resources>
         <!-- Padding.Left must equal the display label's margin, or renaming shifts the name.
-             The border is dropped so padding is the only inset in that sum. -->
+             The base theme's focus ring is left alone: it draws inside PART_BorderElement and so
+             does not move the content. -->
         <Setter Property="BorderThickness" Value="0" />
         <Setter Property="Padding" Value="6,0,6,0" />
         <Setter Property="VerticalContentAlignment" Value="Center" />
