@@ -9,10 +9,18 @@ namespace Beutl.UnitTests.Configuration;
 [TestFixture]
 public class ViewConfigThemeMigrationTests
 {
+    // ViewConfig's DefaultThemeId is private and the app-layer DarkBorderThemeExtension.ThemeId is out
+    // of reach here, so the id is repeated; DarkBorderThemeExtensionTests.ViewConfigDefault_MatchesThemeId
+    // is what keeps all three in sync.
+    private const string DefaultThemeId = "beutl.dark.border";
+
     // Legacy <2.0 settings.json stored the old ViewTheme enum as an int (0-3) or PascalCase name.
     // The string id persisted by >=2.0 and unknown ids (custom themes) must round-trip unchanged.
+    // Legacy Dark (1) is the exception: it was the pre-2.0 default, so it means "never chose a theme"
+    // and migrates onto the current default rather than pinning the user to the classic look. A name
+    // string is an id, not an enum, so "dark"/"Dark" is an explicit opt-in to classic and is kept.
     [TestCase("0", BuiltinThemeIds.Light)]
-    [TestCase("1", BuiltinThemeIds.Dark)]
+    [TestCase("1", DefaultThemeId)]
     [TestCase("2", BuiltinThemeIds.HighContrast)]
     [TestCase("3", BuiltinThemeIds.System)]
     [TestCase("Light", BuiltinThemeIds.Light)]
@@ -35,7 +43,7 @@ public class ViewConfigThemeMigrationTests
     }
 
     [TestCase(0, BuiltinThemeIds.Light)]
-    [TestCase(1, BuiltinThemeIds.Dark)]
+    [TestCase(1, DefaultThemeId)]
     [TestCase(2, BuiltinThemeIds.HighContrast)]
     [TestCase(3, BuiltinThemeIds.System)]
     public void MigratesLegacyThemeValue_AsNumber(int raw, string expected)
@@ -46,6 +54,21 @@ public class ViewConfigThemeMigrationTests
         CoreSerializer.PopulateFromJsonObject(config, json);
 
         Assert.That(config.Theme, Is.EqualTo(expected));
+    }
+
+    // Never a ViewTheme member, so this is corrupt rather than a choice and lands where an absent
+    // value does — the two must not diverge.
+    [TestCase(4)]
+    [TestCase(-1)]
+    [TestCase(99)]
+    public void UsesDefaultTheme_WhenLegacyEnumIsOutOfRange(int raw)
+    {
+        var json = new JsonObject { ["Theme"] = JsonValue.Create(raw) };
+        var config = new ViewConfig();
+
+        CoreSerializer.PopulateFromJsonObject(config, json);
+
+        Assert.That(config.Theme, Is.EqualTo(DefaultThemeId));
     }
 
     // A custom id survives a JSON round-trip only if it is decoded rather than read as raw JSON
@@ -96,26 +119,78 @@ public class ViewConfigThemeMigrationTests
         Assert.That(config.Theme, Is.EqualTo(expected));
     }
 
+    // No persisted choice must land on the same theme a fresh install gets, or a settings.json written
+    // before the key existed would strand its user on a different look than ViewConfig's DefaultValue.
     [Test]
-    public void DefaultsToDark_WhenThemeNull()
+    public void UsesDefaultTheme_WhenThemeNull()
     {
         var json = new JsonObject { ["Theme"] = null };
         var config = new ViewConfig();
 
         CoreSerializer.PopulateFromJsonObject(config, json);
 
-        Assert.That(config.Theme, Is.EqualTo(BuiltinThemeIds.Dark));
+        Assert.That(config.Theme, Is.EqualTo(DefaultThemeId));
     }
 
     [Test]
-    public void DefaultsToDark_WhenThemeMissing()
+    public void UsesDefaultTheme_WhenThemeMissing()
     {
         var json = new JsonObject();
         var config = new ViewConfig();
 
         CoreSerializer.PopulateFromJsonObject(config, json);
 
-        Assert.That(config.Theme, Is.EqualTo(BuiltinThemeIds.Dark));
+        Assert.That(config.Theme, Is.EqualTo(DefaultThemeId));
+    }
+
+    // A hand-edited or corrupted file can put a container where the id belongs; it carries no choice,
+    // so it resolves like a missing key rather than falling to a hard-coded built-in.
+    [Test]
+    public void UsesDefaultTheme_WhenThemeIsNotAJsonValue()
+    {
+        var json = new JsonObject { ["Theme"] = new JsonObject() };
+        var config = new ViewConfig();
+
+        CoreSerializer.PopulateFromJsonObject(config, json);
+
+        Assert.That(config.Theme, Is.EqualTo(DefaultThemeId));
+    }
+
+    [TestCase("")]
+    [TestCase("   ")]
+    public void UsesDefaultTheme_WhenThemeIsBlank(string raw)
+    {
+        var json = new JsonObject { ["Theme"] = JsonValue.Create(raw) };
+        var config = new ViewConfig();
+
+        CoreSerializer.PopulateFromJsonObject(config, json);
+
+        Assert.That(config.Theme, Is.EqualTo(DefaultThemeId));
+    }
+
+    // The classic look stays reachable: picking "Dark (Classic)" persists this id, and reloading must
+    // not migrate it back onto the default the way legacy enum 1 is migrated.
+    [Test]
+    public void KeepsExplicitClassicDarkId()
+    {
+        var config = new ViewConfig { Theme = BuiltinThemeIds.Dark };
+
+        JsonObject json = CoreSerializer.SerializeToJsonObject(config);
+        var restored = new ViewConfig();
+        CoreSerializer.PopulateFromJsonObject(restored, json);
+
+        Assert.That(restored.Theme, Is.EqualTo(BuiltinThemeIds.Dark));
+    }
+
+    [Test]
+    public void KeepsExplicitDefaultThemeId()
+    {
+        var json = new JsonObject { ["Theme"] = JsonValue.Create(DefaultThemeId) };
+        var config = new ViewConfig();
+
+        CoreSerializer.PopulateFromJsonObject(config, json);
+
+        Assert.That(config.Theme, Is.EqualTo(DefaultThemeId));
     }
 
     [Test]

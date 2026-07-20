@@ -105,10 +105,9 @@
         <Setter Property="Background" Value="Transparent" />
         <Setter Property="TransparencyBackgroundFallback" Value="Transparent" />
     </Style>-->
+    <!--  The theme override raises this to the design surface (#16181D); classic dark keeps FA's acrylic.  -->
     <Style Selector="MenuFlyoutPresenter /template/ Border#LayoutRoot">
-        <Setter Property="Background">
-            <SolidColorBrush Opacity="0.725" Color="{DynamicResource SolidBackgroundFillColorBase}" />
-        </Setter>
+        <Setter Property="Background" Value="{DynamicResource AcrylicInAppFillColorDefaultBrush}" />
     </Style>
 
     <Style Selector="Border.CardStyle">

@@ -58,7 +58,8 @@ public sealed class LoadPrimitiveExtensionTask : StartupTask
         ScriptEditorExtension.Instance,
         FileBrowserTabExtension.Instance,
         HistoryTabExtension.Instance,
-        TerminalTabExtension.Instance
+        TerminalTabExtension.Instance,
+        DarkBorderThemeExtension.Instance
     ];
 
     public LoadPrimitiveExtensionTask(PackageManager manager, ExtensionProvider provider,
