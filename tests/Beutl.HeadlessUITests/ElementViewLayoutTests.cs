@@ -203,26 +203,33 @@ public class ElementViewLayoutTests
     }
 
     // Reads raw framebuffer memory, so every assumption it makes has to fail loudly: an
-    // out-of-range index would read unrelated memory instead of throwing.
+    // out-of-range index would read unrelated memory instead of throwing. The result is normalized
+    // to RGBA byte order so callers never have to re-check which layout the backend handed back.
     private static uint SamplePixel(Window window, PixelPoint point)
     {
         using WriteableBitmap frame = window.CaptureRenderedFrame()
             ?? throw new InvalidOperationException("CaptureRenderedFrame returned null; the window never rendered.");
         using ILockedFramebuffer buffer = frame.Lock();
         Assert.That(buffer.Format, Is.EqualTo(PixelFormat.Rgba8888).Or.EqualTo(PixelFormat.Bgra8888),
-            $"SamplePixel assumes a 32bpp framebuffer but the frame is {buffer.Format}.");
+            $"SamplePixel assumes a 32bpp RGBA or BGRA framebuffer but the frame is {buffer.Format}.");
         Assert.That(point.X, Is.InRange(0, buffer.Size.Width - 1), "Probe X is outside the captured frame.");
         Assert.That(point.Y, Is.InRange(0, buffer.Size.Height - 1), "Probe Y is outside the captured frame.");
 
+        uint pixel;
         unsafe
         {
             byte* row = (byte*)buffer.Address + (point.Y * buffer.RowBytes);
-            return ((uint*)row)[point.X];
+            pixel = ((uint*)row)[point.X];
         }
+
+        return buffer.Format == PixelFormat.Bgra8888 ? SwapRedAndBlue(pixel) : pixel;
     }
 
-    // The framebuffer is Rgba8888, so a little-endian uint reads back as 0xAABBGGRR — printing it
-    // as hex would name the channels in the wrong order.
+    private static uint SwapRedAndBlue(uint pixel)
+        => (pixel & 0xFF00FF00) | ((pixel & 0x000000FF) << 16) | ((pixel & 0x00FF0000) >> 16);
+
+    // A little-endian uint over an RGBA frame reads back as 0xAABBGGRR, so printing it as hex would
+    // name the channels in reverse.
     private static string Rgba(uint pixel)
         => $"rgba({pixel & 0xFF},{(pixel >> 8) & 0xFF},{(pixel >> 16) & 0xFF},{pixel >> 24})";
 
