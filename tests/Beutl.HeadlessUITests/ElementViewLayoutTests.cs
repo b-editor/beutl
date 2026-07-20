@@ -1,7 +1,10 @@
 ﻿using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Controls.Presenters;
+using Avalonia.Headless;
 using Avalonia.Headless.NUnit;
+using Avalonia.Media.Imaging;
+using Avalonia.Platform;
 using Avalonia.Styling;
 using Avalonia.VisualTree;
 using Beutl.Editor.Components.TimelineTab.ViewModels;
@@ -147,6 +150,64 @@ public class ElementViewLayoutTests
             window.Close();
             HeadlessTestHelpers.Settle();
         }
+    }
+
+    [AvaloniaTest]
+    public async Task Renaming_does_not_paint_into_the_rounded_corner()
+    {
+        (Window window, ElementView element) = await InflateFirstElementView("elementview-corner");
+        try
+        {
+            Control border = element.GetVisualDescendants().OfType<Control>().First(c => c.Name == "border");
+            var textBox = (TextBox)element.GetVisualDescendants().OfType<Control>().First(c => c.Name == "textBox");
+            Point origin = border.TranslatePoint(new Point(0, 0), window)!.Value;
+
+            // (+1,+0) lies outside the 4px corner arc: at y=0.5 the rounded edge only starts at
+            // x≈2.06. The rename editor overhangs the clip vertically, so without a rounded clip on
+            // the border it repaints this pixel.
+            var probe = new PixelPoint((int)origin.X + 1, (int)origin.Y);
+            uint atRest = SamplePixel(window, probe);
+
+            textBox.IsVisible = true;
+            textBox.Focus();
+            HeadlessTestHelpers.Render(5);
+            uint whileRenaming = SamplePixel(window, probe);
+
+            // Measured: 39 with the border clipped, 133 without it (the editor's fill bleeding into
+            // the corner). The threshold sits between, so it tolerates antialiasing but not the bleed.
+            int drift = MaxChannelDelta(atRest, whileRenaming);
+            Assert.That(drift, Is.LessThan(64),
+                $"Renaming repainted the rounded corner: #{atRest:X8} became #{whileRenaming:X8} "
+                + $"(max channel drift {drift}). The clip's Border needs ClipToBounds to round its children.");
+        }
+        finally
+        {
+            window.Close();
+            HeadlessTestHelpers.Settle();
+        }
+    }
+
+    private static uint SamplePixel(Window window, PixelPoint point)
+    {
+        using WriteableBitmap frame = window.CaptureRenderedFrame()!;
+        using ILockedFramebuffer buffer = frame.Lock();
+        unsafe
+        {
+            byte* row = (byte*)buffer.Address + (point.Y * buffer.RowBytes);
+            return ((uint*)row)[point.X];
+        }
+    }
+
+    private static int MaxChannelDelta(uint left, uint right)
+    {
+        int max = 0;
+        for (int shift = 0; shift < 32; shift += 8)
+        {
+            int delta = Math.Abs((int)((left >> shift) & 0xFF) - (int)((right >> shift) & 0xFF));
+            max = Math.Max(max, delta);
+        }
+
+        return max;
     }
 
     [AvaloniaTest]

@@ -29,6 +29,7 @@
             HorizontalAlignment="Left"
             Background="{Binding Color.Value, Converter={StaticResource ColorToBrushConverter}}"
             BorderThickness="1"
+            ClipToBounds="True"
             CornerRadius="4"
             Classes.elm-disabled="{Binding !IsEnabled.Value}"
             Classes.elm-locked="{Binding !IsEditable.Value}"
