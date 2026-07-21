@@ -1463,6 +1463,7 @@
     <SolidColorBrush x:Key="DockBorderStrongBrush" Color="#31343E" />
     <SolidColorBrush x:Key="DockSeparatorBrush" Color="#212330" />
     <SolidColorBrush x:Key="DockSplitterIdleBrush" Color="#212330" />
+    <SolidColorBrush x:Key="DockSplitterHoverBrush" Color="{DynamicResource SystemAccentColorLight1}" />
 
     <SolidColorBrush x:Key="DockTabBackgroundBrush" Color="Transparent" />
     <SolidColorBrush x:Key="DockTabHoverBackgroundBrush" Color="#0BFFFFFF" />
