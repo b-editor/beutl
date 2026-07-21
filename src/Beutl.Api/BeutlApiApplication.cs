@@ -155,7 +155,7 @@ public class BeutlApiApplication
         Register(() => new PackageInstaller(new HttpClient(), GetResource<InstalledPackageRepository>(), this));
         Register(() => new PackageManager(
             GetResource<InstalledPackageRepository>(), GetResource<ExtensionProvider>(),
-            GetResource<ContextCommandManager>(), this));
+            GetResource<ContextCommandManager>(), this, new ClrmdLoadContextUnloadDiagnostics()));
     }
 
     private void Register<T>(Func<T> factory)

@@ -22,7 +22,8 @@ public sealed class PackageManager(
     InstalledPackageRepository installedPackageRepository,
     ExtensionProvider extensionProvider,
     ContextCommandManager commandManager,
-    BeutlApiApplication apiApplication) : PackageLoader
+    BeutlApiApplication apiApplication,
+    ILoadContextUnloadDiagnostics? unloadDiagnostics = null) : PackageLoader
 {
     private readonly ILogger _logger = Log.CreateLogger<PackageManager>();
     private readonly ConcurrentDictionary<int, LoadedPackageInfo> _loadedPackages = new();
@@ -236,7 +237,7 @@ public sealed class PackageManager(
     {
         using (Activity? activity = Telemetry.ActivitySource.StartActivity("Unload"))
         {
-            var result = UnloadCore(activity, package, out WeakReference? weakReference);
+            var result = UnloadCore(activity, package, out WeakReference? weakReference, out string[] assemblyNames);
             if (!result || weakReference == null)
             {
                 return false;
@@ -250,13 +251,25 @@ public sealed class PackageManager(
                 await Task.Delay(100).ConfigureAwait(false);
             }
 
-            return !weakReference.IsAlive;
+            bool unloaded = !weakReference.IsAlive;
+            if (!unloaded && unloadDiagnostics is { } diagnostics && assemblyNames.Length > 0)
+            {
+                activity?.AddEvent(new ActivityEvent("Capturing unload diagnostics"));
+                // Fire-and-forget: the snapshot is heavy and the contract forbids delaying the uninstall flow.
+                // The implementation self-guards and never throws, so the task cannot fault.
+                _ = Task.Run(() => diagnostics.CaptureUnloadFailure(package.Name, assemblyNames));
+            }
+
+            return unloaded;
         }
     }
 
-    private bool UnloadCore(Activity? activity, LocalPackage package, [NotNullWhen(true)] out WeakReference? weakReference)
+    private bool UnloadCore(
+        Activity? activity, LocalPackage package,
+        [NotNullWhen(true)] out WeakReference? weakReference, out string[] assemblyNames)
     {
         weakReference = null;
+        assemblyNames = [];
         activity?.SetTag("PackageName", package.Name);
 
         if (package.LocalId == LocalPackage.Reserved0)
@@ -294,6 +307,13 @@ public sealed class PackageManager(
 
         if (info.LoadContext is { } loadContext)
         {
+            // Capture only the assembly names as strings; never retain the assemblies/types, or the diagnostics
+            // pass below would itself root the context it is meant to diagnose.
+            assemblyNames = [.. loadContext.Assemblies
+                .Select(a => a.GetName().Name)
+                .OfType<string>()
+                .Distinct(StringComparer.OrdinalIgnoreCase)];
+
             TryUnloadLoadContext(package, loadContext);
         }
 

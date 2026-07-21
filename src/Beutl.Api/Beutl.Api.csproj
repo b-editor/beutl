@@ -5,6 +5,7 @@
   </ItemGroup>
 
   <ItemGroup>
+    <PackageReference Include="Microsoft.Diagnostics.Runtime" />
     <PackageReference Include="Microsoft.Extensions.DependencyModel" />
     <PackageReference Include="Nito.AsyncEx" />
     <PackageReference Include="OpenTelemetry" />
