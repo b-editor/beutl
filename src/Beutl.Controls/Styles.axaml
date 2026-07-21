@@ -67,12 +67,15 @@
             <ResourceDictionary.ThemeDictionaries>
                 <ResourceDictionary x:Key="Default">
                     <StaticResource x:Key="MainWindowBackground" ResourceKey="ApplicationPageBackgroundThemeBrush" />
+                    <!--  The border theme recolors this to match its dock splitter (BeutlDarkBorder.axaml); Light/classic Dark keep the FA stroke.  -->
+                    <SolidColorBrush x:Key="TitleBarBottomBorderBrush" Color="{DynamicResource ControlStrokeColorDefault}" />
                 </ResourceDictionary>
                 <ResourceDictionary x:Key="Dark">
                     <ResourceDictionary.MergedDictionaries>
                         <ResourceInclude Source="/Styling/BeutlDarkColors.axaml" />
                     </ResourceDictionary.MergedDictionaries>
                     <SolidColorBrush x:Key="MainWindowBackground" Color="#FF111111" />
+                    <SolidColorBrush x:Key="TitleBarBottomBorderBrush" Color="{DynamicResource ControlStrokeColorDefault}" />
                 </ResourceDictionary>
             </ResourceDictionary.ThemeDictionaries>
 

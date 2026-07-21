@@ -1464,6 +1464,8 @@
     <SolidColorBrush x:Key="DockSeparatorBrush" Color="#212330" />
     <SolidColorBrush x:Key="DockSplitterIdleBrush" Color="#212330" />
     <SolidColorBrush x:Key="DockSplitterHoverBrush" Color="{DynamicResource SystemAccentColorLight1}" />
+    <!--  The title-bar bottom border shares the dock splitter's color in this theme only.  -->
+    <StaticResource x:Key="TitleBarBottomBorderBrush" ResourceKey="DockSplitterIdleBrush" />
 
     <SolidColorBrush x:Key="DockTabBackgroundBrush" Color="Transparent" />
     <SolidColorBrush x:Key="DockTabHoverBackgroundBrush" Color="#0BFFFFFF" />

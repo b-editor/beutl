@@ -179,6 +179,43 @@ public class DarkBorderThemeColorTests
         }
     }
 
+    // The new dark theme paints the title-bar bottom border with the dock splitter's color so the two
+    // dividers read as one; Light and Dark (Classic) keep FluentAvalonia's stroke instead. Dark
+    // (Classic) is unreachable from this harness (see the class comment), so only the border-theme
+    // coupling and the presence of a non-border fallback are asserted here.
+    [AvaloniaTest]
+    public void Title_bar_bottom_border_matches_the_dock_splitter_under_the_border_theme()
+    {
+        Application.Current!.RequestedThemeVariant = ThemeVariant.Dark;
+
+        var probe = new Border();
+        var window = new Window { Content = probe, Width = 200, Height = 120 };
+        try
+        {
+            window.Show();
+            HeadlessTestHelpers.Render(1);
+
+            Color splitter = ResolveColor(probe, "DockSplitterIdleBrush", ThemeVariant.Dark);
+            Assert.Multiple(() =>
+            {
+                Assert.That(ResolveColor(probe, "TitleBarBottomBorderBrush", ThemeVariant.Dark), Is.EqualTo(splitter),
+                    "the border theme must paint the title-bar bottom border with the dock splitter color");
+                Assert.That(splitter.A, Is.GreaterThan(0),
+                    "the shared divider color must be visible under the border theme");
+
+                Assert.That(probe.TryFindResource("TitleBarBottomBorderBrush", ThemeVariant.Light, out object? light), Is.True,
+                    "non-border themes must still define the title-bar bottom border brush");
+                Assert.That(light, Is.InstanceOf<ISolidColorBrush>(),
+                    "the non-border fallback must be a solid color brush so the border stays painted");
+            });
+        }
+        finally
+        {
+            window.Close();
+            HeadlessTestHelpers.Settle();
+        }
+    }
+
     private static Color ResolveColor(Control context, string key, ThemeVariant variant)
     {
         if (!context.TryFindResource(key, variant, out object? value) || value is not ISolidColorBrush brush)
