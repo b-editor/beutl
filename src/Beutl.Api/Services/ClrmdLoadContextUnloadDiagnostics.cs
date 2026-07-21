@@ -21,7 +21,8 @@ internal sealed class ClrmdLoadContextUnloadDiagnostics : ILoadContextUnloadDiag
     private const int MaxVisitedObjects = 300_000;
     private const int MaxFramesPerThread = 200;
 
-    // The shared log-dir housekeeping only runs in the desktop host, so self-prune to stay bounded in headless hosts.
+    // Dumps get their own directory that the app-side log housekeeping never scans, so PruneOldDumps is their only
+    // retention bound. Unload failures are rare, so keeping a few is plenty of history.
     private const int MaxRetainedDumps = 5;
 
     private readonly ILogger _logger = Log.CreateLogger<ClrmdLoadContextUnloadDiagnostics>();
@@ -282,17 +283,20 @@ internal sealed class ClrmdLoadContextUnloadDiagnostics : ILoadContextUnloadDiag
         return signature;
     }
 
+    internal static string GetDumpDirectory() =>
+        Path.Combine(BeutlEnvironment.GetHomeDirectoryPath(), "log", "unload-dumps");
+
     private string? TryWriteReport(string packageName, UnloadDiagnosticsReport report)
     {
         try
         {
-            string logDir = Path.Combine(BeutlEnvironment.GetHomeDirectoryPath(), "log");
-            Directory.CreateDirectory(logDir);
+            string dumpDir = GetDumpDirectory();
+            Directory.CreateDirectory(dumpDir);
             string safeName = string.Concat(packageName.Select(c => Path.GetInvalidFileNameChars().Contains(c) ? '_' : c));
             string fileName = $"unload-dump-{safeName}-{DateTime.Now:yyyyMMddHHmmss}.txt";
-            string path = Path.Combine(logDir, fileName);
+            string path = Path.Combine(dumpDir, fileName);
             File.WriteAllText(path, report.BuildReport());
-            PruneOldDumps(logDir, MaxRetainedDumps);
+            PruneOldDumps(dumpDir, MaxRetainedDumps);
             return path;
         }
         catch (Exception ex)

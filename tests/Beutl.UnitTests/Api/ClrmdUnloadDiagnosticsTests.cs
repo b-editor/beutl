@@ -50,8 +50,15 @@ public class ClrmdUnloadDiagnosticsTests
             var diagnostics = new ClrmdLoadContextUnloadDiagnostics();
             diagnostics.CaptureUnloadFailure("ClrmdProbe", ["Beutl.UnitTests"]);
 
-            string[] dumps = Directory.GetFiles(Path.Combine(home, "log"), "unload-dump-ClrmdProbe-*.txt");
-            Assert.That(dumps, Is.Not.Empty, "a dump file should have been written");
+            string[] dumps = Directory.GetFiles(
+                ClrmdLoadContextUnloadDiagnostics.GetDumpDirectory(), "unload-dump-ClrmdProbe-*.txt");
+            Assert.Multiple(() =>
+            {
+                Assert.That(dumps, Is.Not.Empty, "a dump file should have been written");
+                Assert.That(
+                    Directory.Exists(Path.Combine(home, "log", "unload-dumps")),
+                    "dumps should live in the dedicated log/unload-dumps subdirectory");
+            });
 
             string content = File.ReadAllText(dumps[0]);
             Assert.Multiple(() =>
