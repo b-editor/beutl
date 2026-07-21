@@ -90,6 +90,34 @@
         </ControlTheme>
     </Styles.Resources>
 
+    <!--
+        The stock splitter template is fully transparent, so adjacent panels show no boundary.
+        Draw a centered 1px divider inside the 4px grab area; the pseudo-class reflects the
+        parent panel's orientation (:horizontal panel => vertical divider bar).
+    -->
+    <Style Selector="ProportionalStackPanelSplitter">
+        <Setter Property="Template">
+            <ControlTemplate>
+                <Panel Background="Transparent">
+                    <Rectangle Name="PART_DividerLine" Fill="{DynamicResource DockSplitterIdleBrush}" />
+                </Panel>
+            </ControlTemplate>
+        </Setter>
+    </Style>
+    <Style Selector="ProportionalStackPanelSplitter:horizontal /template/ Rectangle#PART_DividerLine">
+        <Setter Property="Width" Value="1" />
+        <Setter Property="HorizontalAlignment" Value="Center" />
+        <Setter Property="VerticalAlignment" Value="Stretch" />
+    </Style>
+    <Style Selector="ProportionalStackPanelSplitter:vertical /template/ Rectangle#PART_DividerLine">
+        <Setter Property="Height" Value="1" />
+        <Setter Property="HorizontalAlignment" Value="Stretch" />
+        <Setter Property="VerticalAlignment" Value="Center" />
+    </Style>
+    <Style Selector="ProportionalStackPanelSplitter:pointerover /template/ Rectangle#PART_DividerLine">
+        <Setter Property="Fill" Value="{DynamicResource DockSplitterHoverBrush}" />
+    </Style>
+
     <Style Selector="HostWindow">
         <Setter Property="SystemDecorations" Value="BorderOnly" />
         <Setter Property="Background" Value="{DynamicResource DockSurfaceWorkbenchBrush}" />
