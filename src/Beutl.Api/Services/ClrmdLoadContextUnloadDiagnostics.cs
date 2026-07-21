@@ -21,6 +21,9 @@ internal sealed class ClrmdLoadContextUnloadDiagnostics : ILoadContextUnloadDiag
     private const int MaxVisitedObjects = 300_000;
     private const int MaxFramesPerThread = 200;
 
+    // The shared log-dir housekeeping only runs in the desktop host, so self-prune to stay bounded in headless hosts.
+    private const int MaxRetainedDumps = 5;
+
     private readonly ILogger _logger = Log.CreateLogger<ClrmdLoadContextUnloadDiagnostics>();
 
     public void CaptureUnloadFailure(string packageName, IReadOnlyList<string> assemblySimpleNames)
@@ -289,12 +292,49 @@ internal sealed class ClrmdLoadContextUnloadDiagnostics : ILoadContextUnloadDiag
             string fileName = $"unload-dump-{safeName}-{DateTime.Now:yyyyMMddHHmmss}.txt";
             string path = Path.Combine(logDir, fileName);
             File.WriteAllText(path, report.BuildReport());
+            PruneOldDumps(logDir, MaxRetainedDumps);
             return path;
         }
         catch (Exception ex)
         {
             _logger.LogError(ex, "Failed to write unload diagnostics dump for {PackageName}.", packageName);
             return null;
+        }
+    }
+
+    // Best-effort retention: keep the newest dumps by write time and drop the rest. Never throws, so a failed prune
+    // cannot mask the dump that was just written.
+    internal static void PruneOldDumps(string logDir, int maxRetained)
+    {
+        try
+        {
+            var dir = new DirectoryInfo(logDir);
+            if (!dir.Exists)
+            {
+                return;
+            }
+
+            FileInfo[] dumps = dir.GetFiles("unload-dump-*.txt");
+            if (dumps.Length <= maxRetained)
+            {
+                return;
+            }
+
+            foreach (FileInfo old in dumps.OrderByDescending(f => f.LastWriteTimeUtc).Skip(maxRetained))
+            {
+                try
+                {
+                    old.Delete();
+                }
+                catch
+                {
+                    // A racing host may have removed it already; skip and continue.
+                }
+            }
+        }
+        catch
+        {
+            // Retention must never disturb the uninstall flow.
         }
     }
 }
