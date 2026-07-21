@@ -3,6 +3,7 @@ using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Headless.NUnit;
 using Avalonia.Markup.Xaml;
+using Avalonia.Media;
 using Avalonia.Styling;
 using Avalonia.Threading;
 using Beutl.Configuration;
@@ -33,6 +34,8 @@ public class DarkBorderThemeExtensionTests
             Assert.That(descriptor.ResourceUri, Is.Not.Null);
             Assert.That(descriptor.BaseVariant, Is.EqualTo(ThemeVariant.Dark));
             Assert.That(descriptor.DisplayName, Is.Not.Empty);
+            Assert.That(descriptor.AccentColor, Is.EqualTo(Color.FromRgb(0x25, 0x63, 0xEB)),
+                "the design accent seeds SystemAccentColor* while no custom accent is configured");
         });
     }
 

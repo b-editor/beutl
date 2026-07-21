@@ -5,6 +5,10 @@
         the Dark base variant by ThemeService. Every key here must also exist in the built-in "Dark
         (Classic)" dictionaries (Styling/BeutlDarkColors.axaml, Dock/DockFluent.axaml, Styles.axaml's
         Dark scope): swap the value, never leave a dangling key. Non-color design stays app-level.
+
+        Accent surfaces reference SystemAccentColor* dynamically so a configured custom accent
+        retints them; with no custom accent, ThemeService seeds those shades from
+        DarkBorderThemeExtension's AccentColor (the design blue). Never hardcode an accent hex here.
     -->
 
     <!-- ===== Colors (darkened) ===== -->
@@ -56,6 +60,10 @@
     <Color x:Key="SurfaceStrokeColorFlyout">#31343E</Color>
     <Color x:Key="SurfaceStrokeColorInverse">#0F000000</Color>
     <Color x:Key="DividerStrokeColorDefault">#212330</Color>
+    <!--
+        A Color resource cannot follow the accent dynamically, so this stays the static design blue;
+        every first-party consumer goes through FocusStrokeColorOuterBrush, which does follow it.
+    -->
     <Color x:Key="FocusStrokeColorOuter">#3B82F6</Color>
     <Color x:Key="FocusStrokeColorInner">#B3000000</Color>
     <Color x:Key="CardBackgroundFillColorDefault">#00FFFFFF</Color>
@@ -124,9 +132,9 @@
     <SolidColorBrush x:Key="ControlOnImageFillColorTertiaryBrush" Color="{StaticResource ControlOnImageFillColorTertiary}" />
     <SolidColorBrush x:Key="ControlOnImageFillColorDisabledBrush" Color="{StaticResource ControlOnImageFillColorDisabled}" />
     <SolidColorBrush x:Key="AccentFillColorSelectedTextBackgroundBrush" Color="{DynamicResource SystemAccentColor}" />
-    <SolidColorBrush x:Key="AccentFillColorDefaultBrush" Color="#2563EB" />
-    <SolidColorBrush x:Key="AccentFillColorSecondaryBrush" Color="#3B82F6" />
-    <SolidColorBrush x:Key="AccentFillColorTertiaryBrush" Color="#2563EB" Opacity="0.8" />
+    <SolidColorBrush x:Key="AccentFillColorDefaultBrush" Color="{DynamicResource SystemAccentColor}" />
+    <SolidColorBrush x:Key="AccentFillColorSecondaryBrush" Color="{DynamicResource SystemAccentColorLight1}" />
+    <SolidColorBrush x:Key="AccentFillColorTertiaryBrush" Color="{DynamicResource SystemAccentColor}" Opacity="0.8" />
     <SolidColorBrush x:Key="AccentFillColorDisabledBrush" Color="{StaticResource AccentFillColorDisabled}" />
     <SolidColorBrush x:Key="ControlStrokeColorDefaultBrush" Color="{StaticResource ControlStrokeColorDefault}" />
     <SolidColorBrush x:Key="ControlStrokeColorSecondaryBrush" Color="{StaticResource ControlStrokeColorSecondary}" />
@@ -143,7 +151,7 @@
     <SolidColorBrush x:Key="SurfaceStrokeColorFlyoutBrush" Color="{StaticResource SurfaceStrokeColorFlyout}" />
     <SolidColorBrush x:Key="SurfaceStrokeColorInverseBrush" Color="{StaticResource SurfaceStrokeColorInverse}" />
     <SolidColorBrush x:Key="DividerStrokeColorDefaultBrush" Color="{StaticResource DividerStrokeColorDefault}" />
-    <SolidColorBrush x:Key="FocusStrokeColorOuterBrush" Color="{StaticResource FocusStrokeColorOuter}" />
+    <SolidColorBrush x:Key="FocusStrokeColorOuterBrush" Color="{DynamicResource SystemAccentColorLight1}" />
     <SolidColorBrush x:Key="FocusStrokeColorInnerBrush" Color="{StaticResource FocusStrokeColorInner}" />
     <SolidColorBrush x:Key="CardBackgroundFillColorDefaultBrush" Color="{StaticResource CardBackgroundFillColorDefault}" />
     <SolidColorBrush x:Key="CardBackgroundFillColorSecondaryBrush" Color="{StaticResource CardBackgroundFillColorSecondary}" />
@@ -351,9 +359,9 @@
         which is invisible on the near-black surface. Disabled stays transparent: no consumer reaches
         the indeterminate-disabled state.
     -->
-    <SolidColorBrush x:Key="ToggleButtonBackgroundIndeterminate" Color="#263B82F6" />
-    <SolidColorBrush x:Key="ToggleButtonBackgroundIndeterminatePointerOver" Color="#333B82F6" />
-    <SolidColorBrush x:Key="ToggleButtonBackgroundIndeterminatePressed" Color="#1F3B82F6" />
+    <SolidColorBrush x:Key="ToggleButtonBackgroundIndeterminate" Color="{DynamicResource SystemAccentColorLight1}" Opacity="0.149" />
+    <SolidColorBrush x:Key="ToggleButtonBackgroundIndeterminatePointerOver" Color="{DynamicResource SystemAccentColorLight1}" Opacity="0.2" />
+    <SolidColorBrush x:Key="ToggleButtonBackgroundIndeterminatePressed" Color="{DynamicResource SystemAccentColorLight1}" Opacity="0.122" />
     <StaticResource x:Key="ToggleButtonBackgroundIndeterminateDisabled" ResourceKey="ControlFillColorTransparentBrush" />
     <StaticResource x:Key="ToggleButtonForeground" ResourceKey="TextFillColorPrimaryBrush" />
     <StaticResource x:Key="ToggleButtonForegroundPointerOver" ResourceKey="TextFillColorPrimaryBrush" />
@@ -1045,9 +1053,9 @@
     <StaticResource x:Key="ListViewItemBackground" ResourceKey="SubtleFillColorTransparentBrush" />
     <StaticResource x:Key="ListViewItemBackgroundPointerOver" ResourceKey="SubtleFillColorSecondaryBrush" />
     <StaticResource x:Key="ListViewItemBackgroundPressed" ResourceKey="SubtleFillColorTertiaryBrush" />
-    <SolidColorBrush x:Key="ListViewItemBackgroundSelected" Color="#263B82F6" />
-    <SolidColorBrush x:Key="ListViewItemBackgroundSelectedPointerOver" Color="#333B82F6" />
-    <SolidColorBrush x:Key="ListViewItemBackgroundSelectedPressed" Color="#1F3B82F6" />
+    <SolidColorBrush x:Key="ListViewItemBackgroundSelected" Color="{DynamicResource SystemAccentColorLight1}" Opacity="0.149" />
+    <SolidColorBrush x:Key="ListViewItemBackgroundSelectedPointerOver" Color="{DynamicResource SystemAccentColorLight1}" Opacity="0.2" />
+    <SolidColorBrush x:Key="ListViewItemBackgroundSelectedPressed" Color="{DynamicResource SystemAccentColorLight1}" Opacity="0.122" />
     <StaticResource x:Key="ListViewItemForeground" ResourceKey="TextFillColorPrimaryBrush" />
     <StaticResource x:Key="ListViewItemForegroundPointerOver" ResourceKey="TextFillColorPrimaryBrush" />
     <StaticResource x:Key="ListViewItemForegroundPressed" ResourceKey="TextFillColorPrimaryBrush" />
@@ -1150,9 +1158,9 @@
     <StaticResource x:Key="TreeViewItemBackgroundPointerOver" ResourceKey="SubtleFillColorSecondaryBrush" />
     <StaticResource x:Key="TreeViewItemBackgroundPressed" ResourceKey="SubtleFillColorTertiaryBrush" />
     <StaticResource x:Key="TreeViewItemBackgroundDisabled" ResourceKey="SubtleFillColorDisabledBrush" />
-    <SolidColorBrush x:Key="TreeViewItemBackgroundSelected" Color="#263B82F6" />
-    <SolidColorBrush x:Key="TreeViewItemBackgroundSelectedPointerOver" Color="#333B82F6" />
-    <SolidColorBrush x:Key="TreeViewItemBackgroundSelectedPressed" Color="#1F3B82F6" />
+    <SolidColorBrush x:Key="TreeViewItemBackgroundSelected" Color="{DynamicResource SystemAccentColorLight1}" Opacity="0.149" />
+    <SolidColorBrush x:Key="TreeViewItemBackgroundSelectedPointerOver" Color="{DynamicResource SystemAccentColorLight1}" Opacity="0.2" />
+    <SolidColorBrush x:Key="TreeViewItemBackgroundSelectedPressed" Color="{DynamicResource SystemAccentColorLight1}" Opacity="0.122" />
     <StaticResource x:Key="TreeViewItemBackgroundSelectedDisabled" ResourceKey="SubtleFillColorDisabledBrush" />
     <StaticResource x:Key="TreeViewItemForeground" ResourceKey="TextFillColorPrimaryBrush" />
     <StaticResource x:Key="TreeViewItemForegroundPointerOver" ResourceKey="TextFillColorPrimaryBrush" />
@@ -1272,8 +1280,8 @@
     <StaticResource x:Key="CommandBarFlyoutButtonBackground" ResourceKey="SystemControlTransparentBrush" />
     <StaticResource x:Key="DataGridCellBackgroundBrush" ResourceKey="SubtleFillColorTransparentBrush" />
     <StaticResource x:Key="DataGridCurrencyVisualPrimaryBrush" ResourceKey="SubtleFillColorTransparentBrush" />
-    <StaticResource x:Key="DataGridCellFocusVisualPrimaryBrush" ResourceKey="FocusStrokeColorOuter" />
-    <StaticResource x:Key="DataGridCellFocusVisualSecondaryBrush" ResourceKey="FocusStrokeColorInner" />
+    <StaticResource x:Key="DataGridCellFocusVisualPrimaryBrush" ResourceKey="FocusStrokeColorOuterBrush" />
+    <StaticResource x:Key="DataGridCellFocusVisualSecondaryBrush" ResourceKey="FocusStrokeColorInnerBrush" />
     <StaticResource x:Key="DataGridCellInvalidBrush" ResourceKey="SystemFillColorCriticalBrush" />
     <StaticResource x:Key="DataGridFillerColumnGridLinesBrush" ResourceKey="SubtleFillColorTransparentBrush" />
     <StaticResource x:Key="DataGridGridLinesBrush" ResourceKey="DividerStrokeColorDefaultBrush" />

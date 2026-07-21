@@ -1,4 +1,5 @@
-﻿using Avalonia.Styling;
+﻿using Avalonia.Media;
+using Avalonia.Styling;
 using Beutl.Extensibility;
 using Beutl.Language;
 
@@ -17,6 +18,11 @@ public sealed class DarkBorderThemeExtension : ThemeExtension
     private static readonly Uri s_resourceUri =
         new("avares://Beutl.Controls/Styling/Themes/BeutlDarkBorder.axaml");
 
+    // The design accent. BeutlDarkBorder.axaml's accent surfaces reference SystemAccentColor*
+    // dynamically; ThemeService seeds those shades from this value unless the user configured a
+    // custom accent, so this is the single source of the theme's default blue.
+    private static readonly Color s_accentColor = Color.FromRgb(0x25, 0x63, 0xEB);
+
     public static readonly DarkBorderThemeExtension Instance = new();
 
     public override string Name => "DarkBorderTheme";
@@ -24,5 +30,5 @@ public sealed class DarkBorderThemeExtension : ThemeExtension
     public override string DisplayName => SettingsStrings.Dark;
 
     public override ThemeDescriptor GetThemeDescriptor() =>
-        new(ThemeId, SettingsStrings.Dark, ThemeVariant.Dark, s_resourceUri);
+        new(ThemeId, SettingsStrings.Dark, ThemeVariant.Dark, s_resourceUri, AccentColor: s_accentColor);
 }

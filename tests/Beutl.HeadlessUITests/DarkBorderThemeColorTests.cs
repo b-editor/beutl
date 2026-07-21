@@ -8,6 +8,7 @@ using Avalonia.Media;
 using Avalonia.Styling;
 using Avalonia.VisualTree;
 using Beutl.Testing.Headless;
+using FluentAvalonia.Styling;
 
 namespace Beutl.HeadlessUITests;
 
@@ -89,7 +90,8 @@ public class DarkBorderThemeColorTests
     // The Indeterminate brushes are literal copies of the list/tree selected surface (the theme holds
     // no shared token layer, so each key mirrors classic dark value-for-value). Nothing else keeps the
     // copies equal, so tie them together here: change one selected-surface value and this catches the
-    // two it leaves behind.
+    // two it leaves behind. The state distinction lives in Opacity (the color is the shared accent
+    // shade), so both halves are compared.
     [AvaloniaTest]
     public void Indeterminate_toggle_fill_mirrors_the_list_and_tree_selected_surface()
     {
@@ -106,16 +108,64 @@ public class DarkBorderThemeColorTests
             {
                 foreach (string suffix in new[] { "", "PointerOver", "Pressed" })
                 {
-                    Color toggle = ResolveColor(probe, $"ToggleButtonBackgroundIndeterminate{suffix}", ThemeVariant.Dark);
-                    Assert.That(toggle, Is.EqualTo(ResolveColor(probe, $"ListViewItemBackgroundSelected{suffix}", ThemeVariant.Dark)),
+                    (Color, double) toggle = ResolveFill(probe, $"ToggleButtonBackgroundIndeterminate{suffix}", ThemeVariant.Dark);
+                    Assert.That(toggle, Is.EqualTo(ResolveFill(probe, $"ListViewItemBackgroundSelected{suffix}", ThemeVariant.Dark)),
                         $"ToggleButtonBackgroundIndeterminate{suffix} must mirror ListViewItemBackgroundSelected{suffix}");
-                    Assert.That(toggle, Is.EqualTo(ResolveColor(probe, $"TreeViewItemBackgroundSelected{suffix}", ThemeVariant.Dark)),
+                    Assert.That(toggle, Is.EqualTo(ResolveFill(probe, $"TreeViewItemBackgroundSelected{suffix}", ThemeVariant.Dark)),
                         $"ToggleButtonBackgroundIndeterminate{suffix} must mirror TreeViewItemBackgroundSelected{suffix}");
                 }
             });
         }
         finally
         {
+            window.Close();
+            HeadlessTestHelpers.Settle();
+        }
+    }
+
+    // The accent surfaces reference SystemAccentColor* dynamically; in production ThemeService seeds
+    // those shades (custom accent first, then the theme's design accent). This harness runs no
+    // ThemeService, so the FluentAvaloniaTheme property is set directly.
+    [AvaloniaTest]
+    public void Custom_accent_retints_the_accent_fill_and_selected_surfaces()
+    {
+        Application.Current!.RequestedThemeVariant = ThemeVariant.Dark;
+        FluentAvaloniaTheme faTheme = Application.Current.Styles.OfType<FluentAvaloniaTheme>().Single();
+
+        var probe = new Border();
+        var window = new Window { Content = probe, Width = 200, Height = 120 };
+        try
+        {
+            window.Show();
+            HeadlessTestHelpers.Render(1);
+
+            var custom = Color.FromRgb(0x10, 0x89, 0x3E);
+            faTheme.CustomAccentColor = custom;
+            HeadlessTestHelpers.Render(1);
+
+            Assert.That(probe.TryFindResource("SystemAccentColorLight1", ThemeVariant.Dark, out object? light1Obj), Is.True,
+                "FluentAvalonia should expose the generated Light1 shade");
+            var light1 = (Color)light1Obj!;
+
+            Assert.Multiple(() =>
+            {
+                Assert.That(ResolveColor(probe, "AccentFillColorDefaultBrush", ThemeVariant.Dark), Is.EqualTo(custom),
+                    "the accent fill must take the custom accent");
+                Assert.That(ResolveColor(probe, "AccentFillColorSecondaryBrush", ThemeVariant.Dark), Is.EqualTo(light1),
+                    "the hover accent fill must take the generated Light1 shade");
+                Assert.That(ResolveColor(probe, "FocusStrokeColorOuterBrush", ThemeVariant.Dark), Is.EqualTo(light1),
+                    "the focus ring must follow the accent");
+                Assert.That(ResolveColor(probe, "ToggleButtonBackgroundIndeterminate", ThemeVariant.Dark), Is.EqualTo(light1),
+                    "the accent-soft selected surface must follow the accent");
+                Assert.That(ResolveColor(probe, "ListViewItemBackgroundSelected", ThemeVariant.Dark), Is.EqualTo(light1),
+                    "the list selected surface must follow the accent");
+                Assert.That(ResolveColor(probe, "TreeViewItemBackgroundSelected", ThemeVariant.Dark), Is.EqualTo(light1),
+                    "the tree selected surface must follow the accent");
+            });
+        }
+        finally
+        {
+            faTheme.CustomAccentColor = null;
             window.Close();
             HeadlessTestHelpers.Settle();
         }
@@ -226,6 +276,18 @@ public class DarkBorderThemeColorTests
         }
 
         return brush.Color;
+    }
+
+    private static (Color Color, double Opacity) ResolveFill(Control context, string key, ThemeVariant variant)
+    {
+        if (!context.TryFindResource(key, variant, out object? value) || value is not ISolidColorBrush brush)
+        {
+            Assert.Fail($"resource '{key}' should resolve to a solid color brush under {variant} "
+                + $"(got {value?.GetType().Name ?? "nothing"})");
+            return default;
+        }
+
+        return (brush.Color, brush.Opacity);
     }
 
     private static Color SolidColor(IBrush? brush, string what)

@@ -112,7 +112,7 @@
                                                             Margin="0,2,2,0"
                                                             HorizontalAlignment="Right"
                                                             VerticalAlignment="Top"
-                                                            Background="{DynamicResource FocusStrokeColorOuter}">
+                                                            Background="{DynamicResource FocusStrokeColorOuterBrush}">
                                                         <icons:FluentIcon FontSize="18"
                                                                           Foreground="{DynamicResource SystemAccentColor}"
                                                                           Icon="Checkmark" />
@@ -125,11 +125,11 @@
                                             <Setter Property="IsVisible" Value="False" />
                                         </Style>
                                         <Style Selector="^:pointerover /template/ Border#Root">
-                                            <Setter Property="BorderBrush" Value="{DynamicResource FocusStrokeColorOuter}" />
+                                            <Setter Property="BorderBrush" Value="{DynamicResource FocusStrokeColorOuterBrush}" />
                                         </Style>
 
                                         <Style Selector="^:selected /template/ Border#Root">
-                                            <Setter Property="BorderBrush" Value="{DynamicResource FocusStrokeColorOuter}" />
+                                            <Setter Property="BorderBrush" Value="{DynamicResource FocusStrokeColorOuterBrush}" />
                                         </Style>
                                         <Style Selector="^:selected /template/ Border#Check">
                                             <Setter Property="IsVisible" Value="True" />
