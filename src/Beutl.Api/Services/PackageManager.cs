@@ -256,8 +256,19 @@ public sealed class PackageManager(
             {
                 activity?.AddEvent(new ActivityEvent("Capturing unload diagnostics"));
                 // Fire-and-forget: the snapshot is heavy and the contract forbids delaying the uninstall flow.
-                // The implementation self-guards and never throws, so the task cannot fault.
-                _ = Task.Run(() => diagnostics.CaptureUnloadFailure(package.Name, assemblyNames));
+                // The interface is public, so contain exceptions here too — a throwing third-party implementation
+                // would otherwise fault an unobserved task.
+                _ = Task.Run(() =>
+                {
+                    try
+                    {
+                        diagnostics.CaptureUnloadFailure(package.Name, assemblyNames);
+                    }
+                    catch (Exception ex)
+                    {
+                        _logger.LogError(ex, "Unload diagnostics capture threw for {PackageName}.", package.Name);
+                    }
+                });
             }
 
             return unloaded;

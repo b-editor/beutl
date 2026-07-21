@@ -59,10 +59,12 @@ internal sealed class ClrmdLoadContextUnloadDiagnostics : ILoadContextUnloadDiag
             (List<UnloadDiagnosticsRootPath> rootPaths, bool rootTruncated) =
                 FindRootPaths(heap, targets, stopwatch);
 
-            List<UnloadDiagnosticsThreadStack> threads = CaptureThreadStacks(runtime, pluginAssemblies);
+            (List<UnloadDiagnosticsThreadStack> threads, bool threadTruncated) =
+                CaptureThreadStacks(runtime, pluginAssemblies, stopwatch);
 
             var report = new UnloadDiagnosticsReport(
-                packageName, assemblySimpleNames, total, groups, rootPaths, threads, censusTruncated || rootTruncated);
+                packageName, assemblySimpleNames, total, groups, rootPaths, threads,
+                censusTruncated || rootTruncated || threadTruncated);
 
             string? dumpPath = TryWriteReport(packageName, report);
             _logger.LogWarning(
@@ -78,7 +80,7 @@ internal sealed class ClrmdLoadContextUnloadDiagnostics : ILoadContextUnloadDiag
     private (List<UnloadDiagnosticsObjectGroup> Groups, int Total, HashSet<ulong> Targets, bool Truncated) CensusSurvivingObjects(
         ClrHeap heap, HashSet<string> pluginAssemblies, Stopwatch stopwatch)
     {
-        var counts = new Dictionary<string, (string Assembly, int Count)>(StringComparer.Ordinal);
+        var counts = new Dictionary<(string Assembly, string TypeName), int>();
         var targets = new HashSet<ulong>();
         int total = 0;
         bool truncated = false;
@@ -105,8 +107,7 @@ internal sealed class ClrmdLoadContextUnloadDiagnostics : ILoadContextUnloadDiag
 
             total++;
             string typeName = type.Name ?? "<unknown>";
-            counts.TryGetValue(typeName, out (string Assembly, int Count) entry);
-            counts[typeName] = (assembly, entry.Count + 1);
+            CountSurvivor(counts, assembly, typeName);
 
             if (targets.Count < MaxRootPaths && obj.Address != 0)
             {
@@ -114,11 +115,24 @@ internal sealed class ClrmdLoadContextUnloadDiagnostics : ILoadContextUnloadDiag
             }
         }
 
-        var groups = counts
-            .Select(kv => new UnloadDiagnosticsObjectGroup(kv.Key, kv.Value.Assembly, kv.Value.Count))
-            .ToList();
-        return (groups, total, targets, truncated);
+        return (ToObjectGroups(counts), total, targets, truncated);
     }
+
+    // Keyed by (assembly, type) so identical type names from different plugin assemblies stay distinct; keying by
+    // type name alone would merge their counts and mislabel the assembly.
+    internal static void CountSurvivor(
+        Dictionary<(string Assembly, string TypeName), int> counts, string assembly, string typeName)
+    {
+        (string Assembly, string TypeName) key = (assembly, typeName);
+        counts.TryGetValue(key, out int count);
+        counts[key] = count + 1;
+    }
+
+    internal static List<UnloadDiagnosticsObjectGroup> ToObjectGroups(
+        Dictionary<(string Assembly, string TypeName), int> counts) =>
+        counts
+            .Select(kv => new UnloadDiagnosticsObjectGroup(kv.Key.TypeName, kv.Key.Assembly, kv.Value))
+            .ToList();
 
     private static (List<UnloadDiagnosticsRootPath> Paths, bool Truncated) FindRootPaths(
         ClrHeap heap, HashSet<ulong> targets, Stopwatch stopwatch)
@@ -157,7 +171,7 @@ internal sealed class ClrmdLoadContextUnloadDiagnostics : ILoadContextUnloadDiag
                 break;
             }
 
-            if (visited >= MaxVisitedObjects || stopwatch.Elapsed > s_budget)
+            if (visited >= MaxVisitedObjects || parent.Count >= MaxVisitedObjects || stopwatch.Elapsed > s_budget)
             {
                 truncated = true;
                 break;
@@ -174,6 +188,14 @@ internal sealed class ClrmdLoadContextUnloadDiagnostics : ILoadContextUnloadDiag
 
             foreach (ClrReference reference in current.EnumerateReferencesWithFields(carefully: true, considerDependantHandles: true))
             {
+                // Children are enqueued faster than they are dequeued, so bound the map here too; the dequeue-side
+                // visit cap alone would let it outgrow MaxVisitedObjects on a large heap.
+                if (parent.Count >= MaxVisitedObjects)
+                {
+                    truncated = true;
+                    break;
+                }
+
                 ClrObject child = reference.Object;
                 if (!child.IsValid || child.Address == 0 || parent.ContainsKey(child.Address))
                 {
@@ -235,11 +257,19 @@ internal sealed class ClrmdLoadContextUnloadDiagnostics : ILoadContextUnloadDiag
         return "references";
     }
 
-    private static List<UnloadDiagnosticsThreadStack> CaptureThreadStacks(ClrRuntime runtime, HashSet<string> pluginAssemblies)
+    private static (List<UnloadDiagnosticsThreadStack> Threads, bool Truncated) CaptureThreadStacks(
+        ClrRuntime runtime, HashSet<string> pluginAssemblies, Stopwatch stopwatch)
     {
         var results = new List<UnloadDiagnosticsThreadStack>();
+        bool truncated = false;
         foreach (ClrThread thread in runtime.Threads)
         {
+            if (stopwatch.Elapsed > s_budget)
+            {
+                truncated = true;
+                break;
+            }
+
             if (!thread.IsAlive)
             {
                 continue;
@@ -256,13 +286,12 @@ internal sealed class ClrmdLoadContextUnloadDiagnostics : ILoadContextUnloadDiag
                 frames.Add(DescribeFrame(frame, pluginAssemblies));
             }
 
-            if (frames.Count > 0)
-            {
-                results.Add(new UnloadDiagnosticsThreadStack(thread.ManagedThreadId, thread.OSThreadId, frames));
-            }
+            // Keep alive threads with no managed frames too: a native-only stack is itself a signal, and the report
+            // renders it as "(no managed frames)".
+            results.Add(new UnloadDiagnosticsThreadStack(thread.ManagedThreadId, thread.OSThreadId, frames));
         }
 
-        return results;
+        return (results, truncated);
     }
 
     private static string DescribeFrame(ClrStackFrame frame, HashSet<string> pluginAssemblies)
@@ -293,7 +322,9 @@ internal sealed class ClrmdLoadContextUnloadDiagnostics : ILoadContextUnloadDiag
             string dumpDir = GetDumpDirectory();
             Directory.CreateDirectory(dumpDir);
             string safeName = string.Concat(packageName.Select(c => Path.GetInvalidFileNameChars().Contains(c) ? '_' : c));
-            string fileName = $"unload-dump-{safeName}-{DateTime.Now:yyyyMMddHHmmss}.txt";
+            // UTC (matching the LastWriteTimeUtc retention sort) with milliseconds and a GUID: concurrent captures
+            // for the same package would otherwise share a second-resolution name and overwrite each other.
+            string fileName = $"unload-dump-{safeName}-{DateTime.UtcNow:yyyyMMddHHmmssfff}-{Guid.NewGuid():N}.txt";
             string path = Path.Combine(dumpDir, fileName);
             File.WriteAllText(path, report.BuildReport());
             PruneOldDumps(dumpDir, MaxRetainedDumps);

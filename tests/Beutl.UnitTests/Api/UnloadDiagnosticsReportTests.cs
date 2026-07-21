@@ -36,6 +36,27 @@ public class UnloadDiagnosticsReportTests
     }
 
     [Test]
+    public void ObjectGroups_KeepSameTypeNameFromDifferentAssembliesDistinct()
+    {
+        var counts = new Dictionary<(string Assembly, string TypeName), int>();
+        ClrmdLoadContextUnloadDiagnostics.CountSurvivor(counts, "Plugin.A", "Shared.Ns.Foo");
+        ClrmdLoadContextUnloadDiagnostics.CountSurvivor(counts, "Plugin.B", "Shared.Ns.Foo");
+        ClrmdLoadContextUnloadDiagnostics.CountSurvivor(counts, "Plugin.A", "Shared.Ns.Foo");
+
+        List<UnloadDiagnosticsObjectGroup> groups = ClrmdLoadContextUnloadDiagnostics.ToObjectGroups(counts);
+
+        Assert.Multiple(() =>
+        {
+            // The same type name from two assemblies must not be merged into one group with a single assembly label.
+            Assert.That(groups, Has.Count.EqualTo(2));
+            Assert.That(groups, Has.One.Matches<UnloadDiagnosticsObjectGroup>(
+                g => g.AssemblyName == "Plugin.A" && g.TypeName == "Shared.Ns.Foo" && g.Count == 2));
+            Assert.That(groups, Has.One.Matches<UnloadDiagnosticsObjectGroup>(
+                g => g.AssemblyName == "Plugin.B" && g.TypeName == "Shared.Ns.Foo" && g.Count == 1));
+        });
+    }
+
+    [Test]
     public void BuildSummary_ListsTopFiveTypesAndCounts()
     {
         UnloadDiagnosticsObjectGroup[] groups =

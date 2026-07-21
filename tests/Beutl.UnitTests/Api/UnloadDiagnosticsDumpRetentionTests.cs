@@ -72,6 +72,6 @@ public class UnloadDiagnosticsDumpRetentionTests
     {
         string missing = Path.Combine(_logDir, "does-not-exist");
 
-        Assert.DoesNotThrow(() => ClrmdLoadContextUnloadDiagnostics.PruneOldDumps(missing, maxRetained: 5));
+        Assert.That(() => ClrmdLoadContextUnloadDiagnostics.PruneOldDumps(missing, maxRetained: 5), Throws.Nothing);
     }
 }
