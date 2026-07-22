@@ -465,7 +465,7 @@ internal static class FeatureVisualEvidenceExporter
     private static FeatureSceneFixture BuildStrokeEffectScene(bool applyEffect)
     {
         var fixture = new FeatureSceneFixture();
-        RenderNode source = new FeatureAnalyticCoverageNode(stroke: true, filled: true);
+        RenderNode source = new FeatureAnalyticRoundRectNode();
         if (!applyEffect)
         {
             fixture.Root = source;
@@ -1385,6 +1385,40 @@ internal sealed class FeatureAnalyticLineNode : RenderNode
             StrokeJoin = SKStrokeJoin.Round,
         };
         canvas.DrawLine(17.35f, 86.45f, 174.65f, 19.55f, paint);
+    }
+}
+
+internal sealed class FeatureAnalyticRoundRectNode : RenderNode
+{
+    private static readonly Rect s_bounds = new(10, 8, 172, 92);
+
+    public override void Process(RenderNodeContext context)
+    {
+        OpaqueRenderDescription description = OpaqueRenderDescription.CreateEngineSource(
+            execute: static session =>
+            {
+                using OpaqueRenderOutput output = session.CreateOutput(session.OutputBounds);
+                output.Canvas.Use(static canvas => Draw(canvas.Canvas));
+                session.Publish(output);
+            },
+            directReplay: static session => Draw(session.Canvas.Canvas),
+            bounds: RenderOperationBoundsContract.Source(s_bounds),
+            hitTest: RenderHitTestContract.OutputBounds,
+            scale: RenderScaleContract.Vector,
+            structuralKey: typeof(FeatureAnalyticRoundRectNode),
+            runtimeIdentity: new RenderRuntimeIdentity(typeof(FeatureAnalyticRoundRectNode)));
+        context.Publish(context.OpaqueSource(description));
+    }
+
+    private static void Draw(SKCanvas canvas)
+    {
+        using var paint = new SKPaint
+        {
+            IsAntialias = true,
+            Color = new SKColor(225, 85, 30, 205),
+            Style = SKPaintStyle.Fill,
+        };
+        canvas.DrawRoundRect(new SKRect(26.25f, 17.5f, 164.75f, 91.25f), 17, 17, paint);
     }
 }
 
