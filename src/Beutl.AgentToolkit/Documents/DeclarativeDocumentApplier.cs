@@ -56,10 +56,32 @@ internal sealed class DeclarativeDocumentApplier
 
     private void ApplyScene(Scene scene, JsonObject desired)
     {
+        // A present-but-null Markers member is a malformed document (RequireArrayMember rejects it,
+        // like Elements); only actual omission clears the list. Validate before the first mutation:
+        // ApplyScene applies in steps, so a late throw would leave the earlier steps applied on a
+        // direct Documents.Write (the reconciler's sandbox covers apply_edit, not direct writes).
+        JsonArray? markersArray = null;
+        if (desired.TryGetPropertyValue(nameof(Scene.Markers), out JsonNode? markersNode))
+        {
+            markersArray = RequireArrayMember(markersNode, nameof(Scene.Markers));
+            for (int index = 0; index < markersArray.Count; index++)
+            {
+                if (markersArray[index] is not JsonObject)
+                {
+                    string entryPath = CreateIdentityListItemPath(nameof(Scene.Markers), index);
+                    throw new ReconcileException(new ToolError(
+                        ErrorCode.ValidationRejected,
+                        $"List entry at '{entryPath}' is not an object.",
+                        entryPath,
+                        "Each Markers member must be a JSON object; remove null/primitive entries."));
+                }
+            }
+        }
+
         ApplyRegisteredProperties(
             scene,
             desired,
-            new HashSet<string> { nameof(Scene.Children), nameof(Scene.FrameSize), "Groups" });
+            new HashSet<string> { nameof(Scene.Children), nameof(Scene.FrameSize), "Groups", nameof(Scene.Markers) });
 
         int width = desired.TryGetPropertyValue("Width", out JsonNode? widthNode)
             ? widthNode!.GetValue<int>()
@@ -99,6 +121,18 @@ internal sealed class DeclarativeDocumentApplier
             // A full desired document that omits Groups means "no groups"; clear the existing ones like
             // Elements/Objects do, so the plan's removal is not left stale on later saves/renders.
             scene.Groups.Clear();
+        }
+
+        // Markers is [NotAutoSerialized] but custom-serialized by Scene, so the generic registered-
+        // property pass (which honors ShouldSerialize) never applies it — reconcile it by Id like
+        // Elements/Objects, with the same authoritative-omission semantics.
+        if (markersArray is not null)
+        {
+            ApplyIdentityList(scene.Markers, typeof(SceneMarker), nameof(Scene.Markers), markersArray, scene);
+        }
+        else
+        {
+            scene.Markers.Clear();
         }
     }
 
@@ -203,6 +237,7 @@ internal sealed class DeclarativeDocumentApplier
         foreach (CoreProperty property in PropertyRegistry.GetRegistered(target.GetType()))
         {
             if (excluded.Contains(property.Name)
+                || !IsSerializedProperty(target, property)
                 || !desired.TryGetPropertyValue(property.Name, out JsonNode? valueNode))
             {
                 continue;
@@ -248,10 +283,14 @@ internal sealed class DeclarativeDocumentApplier
         {
             // Getter-only properties (e.g. Element.Objects) reject SetValue, and identity lists
             // (Objects/KeyFrames) are cleared by their specialized handlers, never by nulling.
+            // Non-serialized properties (e.g. Hierarchical.HierarchicalParent) never appear in a
+            // document, so their absence carries no clear intent; nulling HierarchicalParent would
+            // silently detach the subtree from the hierarchy root.
             if (property.PropertyType.IsValueType
                 || property.PropertyType == typeof(string)
                 || typeof(ICoreList).IsAssignableFrom(property.PropertyType)
                 || property is IStaticProperty { CanWrite: false }
+                || !IsSerializedProperty(target, property)
                 || desired.ContainsKey(property.Name)
                 || serializedPayload.ContainsKey(property.Name))
             {
@@ -260,6 +299,11 @@ internal sealed class DeclarativeDocumentApplier
 
             target.SetValue(property, null);
         }
+    }
+
+    private static bool IsSerializedProperty(CoreObject target, CoreProperty property)
+    {
+        return property.GetMetadata<CorePropertyMetadata>(target.GetType()).ShouldSerialize;
     }
 
     private static void ClearAbsentObjectProperties(

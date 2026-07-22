@@ -92,9 +92,19 @@ public static class MergePatch
     {
         JsonArray result = (JsonArray)target.DeepClone();
 
-        int patchIndex = 0;
-        foreach (JsonObject patchItem in patch.OfType<JsonObject>())
+        for (int patchIndex = 0; patchIndex < patch.Count; patchIndex++)
         {
+            // Silently skipping a null/primitive entry would let a malformed patch report success
+            // (the applier-level checks never see it); reject like the applier's ApplyIdentityList.
+            if (patch[patchIndex] is not JsonObject patchItem)
+            {
+                throw new ReconcileException(new ToolError(
+                    ErrorCode.ValidationRejected,
+                    $"Array member at '{path}[{patchIndex}]' is not an object.",
+                    $"{path}[{patchIndex}]",
+                    "Each identity-array member must be a JSON object; remove null/primitive entries."));
+            }
+
             ValidateDirectives(patchItem);
 
             bool delete = patchItem.TryGetPropertyValue("$delete", out JsonNode? deleteNode)
@@ -122,7 +132,6 @@ public static class MergePatch
                     result.RemoveAt(currentIndex);
                 }
 
-                patchIndex++;
                 continue;
             }
 
@@ -138,7 +147,6 @@ public static class MergePatch
                 RejectNestedDirectives(nextItem, $"{path}[new:{patchIndex}]");
                 result.Add(nextItem);
                 MoveWithDirectives(result, id, patchItem);
-                patchIndex++;
                 continue;
             }
 
@@ -157,7 +165,6 @@ public static class MergePatch
             RemoveDirectives(nextItem);
             result[currentIndex] = nextItem;
             MoveWithDirectives(result, id, patchItem);
-            patchIndex++;
         }
 
         return result;
