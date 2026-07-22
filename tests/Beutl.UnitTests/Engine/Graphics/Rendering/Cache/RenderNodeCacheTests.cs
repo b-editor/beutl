@@ -135,6 +135,5 @@ public class RenderNodeCacheTests
         // Assert
         Assert.That(node.Cache.IsCached, Is.False);
         Assert.That(node.Cache.CanCache(), Is.False);
-        Assert.That(node.Cache.IsCacheRejected, Is.False);
     }
 }

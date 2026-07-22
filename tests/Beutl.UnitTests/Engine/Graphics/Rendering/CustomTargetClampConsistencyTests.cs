@@ -11,7 +11,12 @@ namespace Beutl.UnitTests.Engine.Graphics.Rendering;
 public class CustomTargetClampConsistencyTests
 {
     private static CustomFilterEffectContext Context(float workingScale)
-        => new(new EffectTargets(), outputScale: 1f, workingScale: workingScale);
+        => new(
+            new EffectTargets(),
+            RenderIntent.Delivery,
+            RenderRequestPurpose.Auxiliary,
+            outputScale: 1f,
+            workingScale: workingScale);
 
     [Test]
     public void CreateTarget_WithinBudget_KeepsWorkingScale_AndOpenMatches()
@@ -46,7 +51,7 @@ public class CustomTargetClampConsistencyTests
             Assert.That(target.Scale.IsUnbounded, Is.False);
             Assert.That(target.Scale.Value, Is.LessThan(2f),
                 "CreateTarget did not clamp the density for an over-budget buffer");
-            float expectedFit = RenderNodeContext.ClampWorkingScaleToBufferBudget(bounds, 2f);
+            float expectedFit = RenderScaleUtilities.ClampWorkingScaleToBufferBudget(bounds, 2f);
             Assert.That(target.Scale.Value, Is.EqualTo(expectedFit).Within(1e-4));
 
             // Open must tag the canvas with the clamped density.

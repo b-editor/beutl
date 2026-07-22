@@ -48,61 +48,43 @@ public class ParticleRenderNodeScaleTests
     // Particle composite reports At(w) concretely, even at w == 1.
     [TestCase(1.0f)]
     [TestCase(2.0f)]
-    public void Process_EmitsOpTaggedAtOutputScale_ConcreteNotUnbounded(float outputScale)
+    public void MaterializedOutput_IsTaggedAtOutputScale_ConcreteNotUnbounded(float outputScale)
     {
-        VulkanTestEnvironment.EnsureAvailable();
-        VulkanTestEnvironment.InvokeOnRenderThread(() =>
-        {
-            ParticleEmitter.Resource resource = BuildResourceWithAliveParticles();
-            Assert.That(resource.GetAliveParticles().Length, Is.GreaterThanOrEqualTo(1),
-                "precondition: at least one alive particle is required for Process to emit an op");
+        using ParticleEmitter.Resource resource = BuildResourceWithAliveParticles();
+        Assert.That(resource.GetAliveParticles().Length, Is.GreaterThanOrEqualTo(1),
+            "precondition: at least one alive particle is required for recording to emit a fragment");
 
-            using var node = new ParticleRenderNode(resource);
-            var context = new RenderNodeContext([], outputScale: outputScale);
+        using var pipeline = ScaleRecordingTestHelper.Pipeline(
+            new ParticleRenderNode(resource),
+            ScaleRecordingTestHelper.Materialize());
+        RenderNodeMeasurement measurement = ScaleRecordingTestHelper.Measure(pipeline, outputScale);
 
-            RenderNodeOperation[] ops = node.Process(context);
-
-            Assert.That(ops, Is.Not.Empty, "ParticleRenderNode emitted no op despite alive particles");
-            Assert.That(ops[0].EffectiveScale.Value, Is.EqualTo(outputScale).Within(1e-4),
-                $"the particle composite was not tagged At(w) with w == s_out ({outputScale})");
-            Assert.That(ops[0].EffectiveScale.IsUnbounded, Is.False,
-                "the particle composite was over-reported as re-rasterizable vector (Unbounded)");
-
-            DisposeAll(ops);
-        });
+        Assert.That(measurement.HasFragments, Is.True,
+            "ParticleRenderNode emitted no fragment despite alive particles");
+        Assert.That(measurement.EffectiveScale.Value, Is.EqualTo(outputScale).Within(1e-4),
+            $"the materialized particle composite was not tagged At(w) with w == s_out ({outputScale})");
+        Assert.That(measurement.EffectiveScale.IsUnbounded, Is.False,
+            "a materialized particle composite was reported as re-rasterizable vector (Unbounded)");
     }
 
     [Test]
-    public void Process_WhenParticleDrawableBufferClamps_TagsActualDensity()
+    public void MaterializedOutput_WhenParticleDrawableBufferClamps_TagsActualDensity()
     {
-        VulkanTestEnvironment.EnsureAvailable();
-        VulkanTestEnvironment.InvokeOnRenderThread(() =>
-        {
-            using ParticleEmitter.Resource resource = BuildResourceWithLargeParticleDrawable();
-            Assert.That(resource.GetAliveParticles().Length, Is.GreaterThanOrEqualTo(1),
-                "precondition: at least one alive particle is required for Process to emit an op");
+        using ParticleEmitter.Resource resource = BuildResourceWithLargeParticleDrawable();
+        Assert.That(resource.GetAliveParticles().Length, Is.GreaterThanOrEqualTo(1),
+            "precondition: at least one alive particle is required for recording to emit a fragment");
 
-            using var node = new ParticleRenderNode(resource);
-            var context = new RenderNodeContext([], outputScale: 8f);
+        using var pipeline = ScaleRecordingTestHelper.Pipeline(
+            new ParticleRenderNode(resource),
+            ScaleRecordingTestHelper.Materialize());
+        RenderNodeMeasurement measurement = ScaleRecordingTestHelper.Measure(pipeline, outputScale: 8);
 
-            RenderNodeOperation[] ops = node.Process(context);
-
-            Assert.That(ops, Is.Not.Empty, "ParticleRenderNode emitted no op despite alive particles");
-            Assert.That(ops[0].EffectiveScale.IsUnbounded, Is.False);
-            Assert.That(ops[0].EffectiveScale.Value, Is.LessThan(8f),
-                "the particle op must report the clamped buffer density, not the nominal output scale");
-            Assert.That(ops[0].EffectiveScale.Value, Is.EqualTo(
-                RenderNodeContext.ClampWorkingScaleToBufferBudget(new Rect(0, 0, 4000, 10), 8f)).Within(1e-3f));
-
-            DisposeAll(ops);
-        });
-    }
-
-    private static void DisposeAll(RenderNodeOperation[] ops)
-    {
-        foreach (RenderNodeOperation op in ops)
-        {
-            op.Dispose();
-        }
+        Assert.That(measurement.HasFragments, Is.True,
+            "ParticleRenderNode emitted no fragment despite alive particles");
+        Assert.That(measurement.EffectiveScale.IsUnbounded, Is.False);
+        Assert.That(measurement.EffectiveScale.Value, Is.LessThan(8),
+            "the materialized particle output must report the clamped buffer density, not the nominal output scale");
+        Assert.That(measurement.EffectiveScale.Value, Is.EqualTo(
+            RenderScaleUtilities.ClampWorkingScaleToBufferBudget(measurement.OutputBounds, 8)).Within(1e-3));
     }
 }

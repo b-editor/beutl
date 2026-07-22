@@ -93,7 +93,7 @@ public sealed class OutputViewModel : IOutputContext, ISupportOutputPreset
                 (long width, long height) = ExportSupersampling.GetRenderSize(frameSize, factor);
                 return string.Format(
                     MessageStrings.SupersamplingExceedsMaxRenderSize,
-                    Math.Max(1, factor), width, height, RenderNodeContext.MaxBufferDimension);
+                    Math.Max(1, factor), width, height, RenderScaleUtilities.MaxBufferDimension);
             })
             .ToReadOnlyReactivePropertySlim()
             .DisposeWith(_disposable);

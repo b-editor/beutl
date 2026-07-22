@@ -39,9 +39,9 @@ public class ContainerRenderNode : RenderNode
         containerNode._children.Clear();
     }
 
-    public override RenderNodeOperation[] Process(RenderNodeContext context)
+    public override void Process(RenderNodeContext context)
     {
-        return context.Input;
+        context.PassThrough();
     }
 
     protected override void OnDispose(bool disposing)

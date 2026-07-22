@@ -212,6 +212,7 @@ public class RenderTarget : IDisposable
         VerifyAccess();
 
         _surface.Value!.Flush(true, true);
+        ImmediateCanvas.RecordFlush(ImmediateCanvasFlushKind.PrepareForSampling);
         _texture?.Value?.PrepareForSampling();
     }
 

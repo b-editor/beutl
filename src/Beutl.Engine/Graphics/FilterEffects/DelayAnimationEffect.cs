@@ -77,7 +77,7 @@ public partial class DelayAnimationEffect : FilterEffect
                     // Forward output scale and working density into the nested re-application.
                     using var childFEContext = new FilterEffectContext(
                         target.Bounds, effectContext.OutputScale, effectContext.WorkingScale);
-                    data.childEffect.ApplyTo(childFEContext, data.cache[j]);
+                    childFEContext.ApplyTransactional(data.childEffect, data.cache[j]);
 
                     target.OriginalBounds = target.Bounds.WithX(0).WithY(0);
                     using var singleTargets = new EffectTargets();
@@ -85,7 +85,12 @@ public partial class DelayAnimationEffect : FilterEffect
                     using var builder = new SKImageFilterBuilder();
                     // Forward the working-scale ceiling into the nested pull.
                     using var activator = new FilterEffectActivator(
-                        singleTargets, builder, effectContext.OutputScale, effectContext.WorkingScale,
+                        singleTargets,
+                        builder,
+                        effectContext.Intent,
+                        effectContext.Purpose,
+                        effectContext.OutputScale,
+                        effectContext.WorkingScale,
                         effectContext.MaxWorkingScale);
                     activator.Apply(childFEContext);
                     activator.Flush(false);

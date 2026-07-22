@@ -2074,24 +2074,25 @@ public sealed class PlayerViewModel : IAsyncDisposable, IPreviewPlayer
         return await RenderThread.Dispatcher.InvokeAsync(() =>
         {
             if (Scene == null) throw new Exception("Scene is null.");
-            SceneRenderer renderer = EditViewModel.Renderer.Value;
-            var resource = drawable.ToResource(new CompositionContext(CurrentFrame.Value));
-            PixelSize frameSize = renderer.FrameSize;
+            SceneRenderer sceneRenderer = EditViewModel.Renderer.Value;
+            using var resource = drawable.ToResource(new CompositionContext(CurrentFrame.Value));
+            PixelSize frameSize = sceneRenderer.FrameSize;
             using var root = new DrawableRenderNode(resource);
             using (var context = new GraphicsContext2D(root, frameSize.ToSize(1)))
             {
                 drawable.Render(context, resource);
             }
 
-            var processor = new RenderNodeProcessor(root, false);
-            var bounds = Rect.Empty;
-            foreach (var op in processor.PullToRoot())
-            {
-                bounds = bounds.Union(op.Bounds);
-                op.Dispose();
-            }
-
-            return PixelRect.FromRect(bounds).Size;
+            using var renderer = new RenderNodeRenderer(
+                root,
+                new RenderNodeRendererOptions
+                {
+                    Intent = RenderIntent.Preview,
+                    TargetDomain = new Rect(default, frameSize.ToSize(1)),
+                    OutputScale = 1,
+                    UseRenderCache = false,
+                });
+            return PixelRect.FromRect(renderer.Measure().OutputBounds).Size;
         });
     }
 
@@ -2106,18 +2107,28 @@ public sealed class PlayerViewModel : IAsyncDisposable, IPreviewPlayer
         {
             if (Scene == null) throw new Exception("Scene is null.");
             // TODO: Rendererに特定のDrawableのみを描画するクラスを追加する
-            SceneRenderer renderer = EditViewModel.Renderer.Value;
-            var resource = drawable.ToResource(new CompositionContext(CurrentFrame.Value));
-            PixelSize frameSize = renderer.FrameSize;
+            SceneRenderer sceneRenderer = EditViewModel.Renderer.Value;
+            using var resource = drawable.ToResource(new CompositionContext(CurrentFrame.Value));
+            PixelSize frameSize = sceneRenderer.FrameSize;
             using var root = new DrawableRenderNode(resource);
             using (var context = new GraphicsContext2D(root, frameSize.ToSize(1)))
             {
                 drawable.Render(context, resource);
             }
 
-            var processor = new RenderNodeProcessor(
-                root, false, outputScale, WorkingScaleCeiling.Export());
-            return processor.RasterizeAndConcat();
+            using var renderer = new RenderNodeRenderer(
+                root,
+                new RenderNodeRendererOptions
+                {
+                    Intent = RenderIntent.Delivery,
+                    TargetDomain = new Rect(default, frameSize.ToSize(1)),
+                    OutputScale = outputScale,
+                    MaxWorkingScale = WorkingScaleCeiling.Export(),
+                    UseRenderCache = false,
+                });
+            using RenderNodeRasterization rasterization = renderer.Rasterize();
+            return rasterization.Bitmap?.Clone()
+                ?? throw new InvalidOperationException("The selected drawable produced no raster output.");
         });
     }
 

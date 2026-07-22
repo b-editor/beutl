@@ -12,7 +12,7 @@ public partial class PartsSplitEffect : FilterEffect
 {
     public override void ApplyTo(FilterEffectContext context, FilterEffect.Resource resource)
     {
-        context.CustomEffect(Unit.Default, ApplyCore);
+        context.CustomEffect(Unit.Default, ApplyCore, static (_, bounds) => bounds);
     }
 
     private void ApplyCore(Unit unit, CustomFilterEffectContext context)

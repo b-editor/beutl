@@ -49,25 +49,33 @@ public class ClearRenderNodeTest
     }
 
     [Test]
-    public void Process_ShouldReturnRenderNodeOperation()
+    public void Render_ShouldRecordAndExecuteTargetCommand()
     {
         // Arrange
         var color = new Color(255, 0, 0, 255);
         var node = new ClearRenderNode(color);
-        var context = new RenderNodeContext([]);
+        using var renderer = new RenderNodeRenderer(
+            node,
+            new RenderNodeRendererOptions
+            {
+                TargetDomain = new Rect(0, 0, 100, 100),
+                UseRenderCache = false,
+            });
         using var renderTarget = RenderTarget.CreateNull(100, 100);
         using var canvas = new ImmediateCanvas(renderTarget);
 
         // Act
-        var operations = node.Process(context);
+        RenderNodeMeasurement measurement = renderer.Measure();
 
         // Assert
-        Assert.That(operations, Is.Not.Null);
-        Assert.That(operations.Length, Is.EqualTo(1));
-        Assert.That(operations[0], Is.InstanceOf<RenderNodeOperation>());
-        Assert.That(operations[0].Bounds, Is.EqualTo(Rect.Empty));
-        Assert.That(() => operations[0].Render(canvas), Throws.Nothing);
-
-        operations[0].Dispose();
+        Assert.Multiple(() =>
+        {
+            Assert.That(measurement.HasFragments, Is.True);
+            Assert.That(measurement.HasContributingValues, Is.False);
+            Assert.That(measurement.HasTargetEffects, Is.True);
+            Assert.That(measurement.QueryBounds, Is.EqualTo(Rect.Empty));
+            Assert.That(measurement.OutputBounds, Is.EqualTo(new Rect(0, 0, 100, 100)));
+            Assert.That(() => renderer.Render(canvas), Throws.Nothing);
+        });
     }
 }

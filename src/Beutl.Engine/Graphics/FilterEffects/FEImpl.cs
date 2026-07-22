@@ -1,4 +1,5 @@
-﻿using SkiaSharp;
+﻿using Beutl.Graphics.Rendering;
+using SkiaSharp;
 
 namespace Beutl.Graphics.Effects;
 
@@ -53,4 +54,14 @@ internal record FEItem_CustomEffect<T>(
 internal interface IFEItem_Custom
 {
     void Accepts(CustomFilterEffectContext context);
+}
+
+internal sealed record FEItem_Shader(ShaderDescription Description) : IFEItem
+{
+    public Rect TransformBounds(Rect bounds) => Description.Bounds.TransformBounds(bounds);
+}
+
+internal sealed record FEItem_Geometry(GeometryDescription Description) : IFEItem
+{
+    public Rect TransformBounds(Rect bounds) => Description.Bounds.TransformBounds(bounds);
 }

@@ -2,48 +2,61 @@
 
 namespace Beutl.Graphics.Rendering;
 
-public class SnapshotBackdropRenderNode : RenderNode, IBackdrop
+public class SnapshotBackdropRenderNode : RenderNode, IBackdrop, IBuiltInBackdropCaptureSink
 {
-    private Bitmap? _bitmap;
-    private float _captureScale = 1f;
+    private BackdropCapture? _fallback;
 
-    public override RenderNodeOperation[] Process(RenderNodeContext context)
+    public override void Process(RenderNodeContext context)
     {
-        context.IsRenderCacheEnabled = false;
-        return
-        [
-            RenderNodeOperation.CreateLambda(default, canvas =>
-            {
-                _bitmap?.Dispose();
-                using var renderTarget = RenderTarget.GetRenderTarget(canvas);
-                _bitmap = renderTarget.Snapshot();
-                // Record the surface density (not current Density, which PushDeviceSpace resets to 1).
-                _captureScale = canvas.SurfaceDensity;
-            })
-        ];
+        context.DisableRenderCache();
+        context.Publish(context.BuiltInBackdropCapture(this));
     }
 
     public void Draw(ImmediateCanvas canvas)
     {
-        if (_bitmap != null)
+        BackdropCapture? fallback = Volatile.Read(ref _fallback);
+        if (fallback is not null)
         {
             // Un-scale by the capture's density, not the replay canvas's density.
-            if (_captureScale == 1f)
+            if (fallback.Density == 1f)
             {
-                canvas.DrawBitmap(_bitmap, Brushes.Resource.White, null);
+                canvas.DrawBitmap(fallback.Bitmap, Brushes.Resource.White, null);
             }
             else
             {
-                var dest = new Rect(0, 0, _bitmap.Width / _captureScale, _bitmap.Height / _captureScale);
-                canvas.DrawBitmapScaled(_bitmap, dest, Brushes.Resource.White);
+                var dest = new Rect(
+                    0,
+                    0,
+                    fallback.Bitmap.Width / fallback.Density,
+                    fallback.Bitmap.Height / fallback.Density);
+                canvas.DrawBitmapScaled(fallback.Bitmap, dest, Brushes.Resource.White);
             }
         }
+    }
+
+    void IBuiltInBackdropCaptureSink.CommitBackdropCapture(Bitmap bitmap, float density)
+    {
+        ArgumentNullException.ThrowIfNull(bitmap);
+        ObjectDisposedException.ThrowIf(IsDisposed, this);
+        if (!float.IsFinite(density) || density <= 0f)
+        {
+            throw new ArgumentOutOfRangeException(
+                nameof(density),
+                density,
+                "Capture density must be positive and finite.");
+        }
+
+        var next = new BackdropCapture(bitmap, density);
+        BackdropCapture? previous = Interlocked.Exchange(ref _fallback, next);
+        previous?.Bitmap.Dispose();
     }
 
     protected override void OnDispose(bool disposing)
     {
         base.OnDispose(disposing);
-        _bitmap?.Dispose();
-        _bitmap = null;
+        BackdropCapture? previous = Interlocked.Exchange(ref _fallback, null);
+        previous?.Bitmap.Dispose();
     }
+
+    private sealed record BackdropCapture(Bitmap Bitmap, float Density);
 }

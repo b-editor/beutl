@@ -16,18 +16,17 @@ public sealed class BlendModeRenderNode(BlendMode blendMode) : ContainerRenderNo
         return false;
     }
 
-    public override RenderNodeOperation[] Process(RenderNodeContext context)
+    public override void Process(RenderNodeContext context)
     {
-        context.IsRenderCacheEnabled = BlendMode == BlendMode.SrcOver;
-        return context.Input.Select(r =>
+        BlendMode blendMode = BlendMode;
+        if (blendMode != BlendMode.SrcOver)
+            context.DisableRenderCache();
+
+        foreach (RenderFragmentHandle input in context.Inputs)
         {
-            return RenderNodeOperation.CreateDecorator(r, canvas =>
-            {
-                using (canvas.PushBlendMode(BlendMode))
-                {
-                    r.Render(canvas);
-                }
-            });
-        }).ToArray();
+            context.Publish(blendMode == BlendMode.SrcOver
+                ? input
+                : context.Blend(input, blendMode));
+        }
     }
 }

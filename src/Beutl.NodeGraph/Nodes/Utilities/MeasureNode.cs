@@ -29,24 +29,24 @@ public partial class MeasureNode : GraphNode
     {
         public override void Update(GraphCompositionContext context)
         {
+            Rect rect = Rect.Empty;
             if (Input is RenderNode renderNode)
             {
-                // Scale 1 intentional: GraphCompositionContext carries no output scale; bounds are logical-res.
-                var processor = new RenderNodeProcessor(renderNode, true);
-                RenderNodeOperation[] list = processor.PullToRoot();
-                Rect rect = Rect.Empty;
-
-                foreach (RenderNodeOperation item in list)
+                if (FilterEffectInputBinding.TryGetCurrent(out FilterEffectInputBinding binding))
                 {
-                    rect = rect.Union(item.Bounds);
-                    item.Dispose();
+                    binding.TryMeasureSubtree(renderNode, out rect);
                 }
-
-                X = rect.X;
-                Y = rect.Y;
-                Width = rect.Width;
-                Height = rect.Height;
+                else
+                {
+                    using var renderer = new RenderNodeRenderer(renderNode);
+                    rect = renderer.Measure().QueryBounds;
+                }
             }
+
+            X = rect.X;
+            Y = rect.Y;
+            Width = rect.Width;
+            Height = rect.Height;
         }
     }
 }

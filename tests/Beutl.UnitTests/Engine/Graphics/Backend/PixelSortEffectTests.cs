@@ -41,7 +41,11 @@ public class PixelSortEffectTests
             effect.ApplyTo(feCtx, resource);
 
             using var builder = new SKImageFilterBuilder();
-            using var activator = new FilterEffectActivator(targets, builder);
+            using var activator = new FilterEffectActivator(
+                targets,
+                builder,
+                RenderIntent.Delivery,
+                RenderRequestPurpose.Auxiliary);
             activator.Apply(feCtx);
             activator.Flush(false);
 
@@ -79,7 +83,11 @@ public class PixelSortEffectTests
             effect.ApplyTo(feCtx, resource);
 
             using var builder = new SKImageFilterBuilder();
-            using var activator = new FilterEffectActivator(targets, builder);
+            using var activator = new FilterEffectActivator(
+                targets,
+                builder,
+                RenderIntent.Delivery,
+                RenderRequestPurpose.Auxiliary);
             Assert.DoesNotThrow(() => activator.Apply(feCtx));
             Assert.DoesNotThrow(() => activator.Flush(false));
         });

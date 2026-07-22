@@ -1,5 +1,6 @@
 ﻿using Beutl.Graphics.Rendering;
 using Beutl.Logging;
+using Beutl.Media;
 using Microsoft.Extensions.Logging;
 
 namespace Beutl.Graphics.Effects;
@@ -8,13 +9,25 @@ public class CustomFilterEffectContext
 {
     private static readonly ILogger s_logger = Log.CreateLogger("CustomFilterEffectContext");
 
-    internal CustomFilterEffectContext(EffectTargets targets, float outputScale = 1f, float workingScale = 1f,
+    internal CustomFilterEffectContext(
+        EffectTargets targets,
+        RenderIntent intent,
+        RenderRequestPurpose purpose,
+        float outputScale = 1f,
+        float workingScale = 1f,
         float maxWorkingScale = float.PositiveInfinity)
     {
+        if (!Enum.IsDefined(intent))
+            throw new ArgumentOutOfRangeException(nameof(intent), intent, "The render intent is invalid.");
+        if (!Enum.IsDefined(purpose))
+            throw new ArgumentOutOfRangeException(nameof(purpose), purpose, "The render request purpose is invalid.");
+
         Targets = targets;
         OutputScale = outputScale;
         WorkingScale = workingScale;
-        MaxWorkingScale = RenderNodeContext.SanitizeMaxWorkingScale(maxWorkingScale);
+        MaxWorkingScale = RenderScaleUtilities.SanitizeMaxWorkingScale(maxWorkingScale);
+        Intent = intent;
+        Purpose = purpose;
     }
 
     public EffectTargets Targets { get; }
@@ -24,12 +37,19 @@ public class CustomFilterEffectContext
 
     /// <summary>
     /// The working density <c>w</c> this effect's buffers are allocated at: <see cref="CreateTarget"/>
-    /// sizes them <c>ceil(bounds * w)</c>. Absolute-length pixel parameters must be multiplied by this.
+    /// uses the canonical near-edge/far-edge device footprint from <see cref="DeviceBufferBounds"/>.
+    /// Absolute-length pixel parameters must be multiplied by this.
     /// </summary>
     public float WorkingScale { get; }
 
     /// <summary>Working-scale ceiling forwarded into canvases from <see cref="Open"/>. <c>+Inf</c> = no ceiling.</summary>
     public float MaxWorkingScale { get; }
+
+    /// <summary>Gets the explicit preview or delivery classification for this execution.</summary>
+    public RenderIntent Intent { get; }
+
+    /// <summary>Gets the explicit request purpose for this execution.</summary>
+    public RenderRequestPurpose Purpose { get; }
 
     public void ForEach(Action<int, EffectTarget> action)
     {
@@ -69,13 +89,28 @@ public class CustomFilterEffectContext
 
     /// <summary>
     /// Device-buffer dimensions for a logical <paramref name="bounds"/> at density <paramref name="w"/>.
-    /// Shared so shader resolution uniforms match <see cref="CreateTarget"/>'s allocation.
+    /// This is <see cref="DeviceBufferBounds"/>'s size, including any extra rounding pixel caused by
+    /// a fractional logical origin. Shared so shader resolution uniforms match <see cref="CreateTarget"/>'s allocation.
     /// </summary>
     public static (int Width, int Height) DeviceBufferSize(Rect bounds, float w)
     {
-        int bw = w == 1f ? (int)bounds.Width : (int)MathF.Ceiling(bounds.Width * w);
-        int bh = w == 1f ? (int)bounds.Height : (int)MathF.Ceiling(bounds.Height * w);
-        return (bw, bh);
+        PixelSize size = DeviceBufferBounds(bounds, w).Size;
+        return (size.Width, size.Height);
+    }
+
+    /// <summary>
+    /// Gets the canonical composition-device footprint allocated for logical bounds at a concrete density.
+    /// The origin is retained because fractional logical positions can add a rounding pixel to the buffer.
+    /// </summary>
+    /// <exception cref="ArgumentOutOfRangeException">
+    /// <paramref name="w"/> is non-finite or not positive.
+    /// </exception>
+    public static PixelRect DeviceBufferBounds(Rect bounds, float w)
+    {
+        if (!float.IsFinite(w) || w <= 0)
+            throw new ArgumentOutOfRangeException(nameof(w), w, "Buffer density must be positive and finite.");
+
+        return PixelRect.FromRect(bounds, w);
     }
 
     /// <summary>
@@ -84,7 +119,7 @@ public class CustomFilterEffectContext
     /// <see cref="CreateTarget"/> so shader uniforms match the actual buffer.
     /// </summary>
     public float ResolveTargetDensity(Rect bounds)
-        => RenderNodeContext.ClampWorkingScaleToBufferBudget(bounds, WorkingScale);
+        => RenderScaleUtilities.ClampWorkingScaleToExactBufferBudget(bounds, WorkingScale);
 
     public EffectTarget CreateTarget(Rect bounds)
     {
@@ -99,18 +134,46 @@ public class CustomFilterEffectContext
             w = fit;
         }
 
-        (int bw, int bh) = DeviceBufferSize(bounds, w);
-        using var renderTarget = RenderTarget.Create(bw, bh);
+        PixelRect deviceBounds = DeviceBufferBounds(bounds, w);
+        return CreateTargetCore(bounds, w, deviceBounds);
+    }
+
+    internal EffectTarget CreateTargetLike(EffectTarget source)
+    {
+        ArgumentNullException.ThrowIfNull(source);
+        if (source.RenderTarget is null || source.Scale.IsUnbounded)
+            return new EffectTarget();
+
+        using var renderTarget = RenderTarget.Create(source.DeviceBounds.Width, source.DeviceBounds.Height);
         if (renderTarget != null)
         {
-            return new EffectTarget(renderTarget, bounds, EffectiveScale.At(w));
+            return source.CreateReplacement(renderTarget);
+        }
+        else
+        {
+            s_logger.LogWarning(
+                "Custom-effect target allocation failed ({Width}x{Height} px, w {WorkingScale}, bounds {Bounds}); returning an empty target.",
+                source.DeviceBounds.Width,
+                source.DeviceBounds.Height,
+                source.Scale.Value,
+                source.Bounds);
+            return new EffectTarget();
+        }
+    }
+
+    private static EffectTarget CreateTargetCore(Rect bounds, float density, PixelRect deviceBounds)
+    {
+        using var renderTarget = RenderTarget.Create(deviceBounds.Width, deviceBounds.Height);
+        if (renderTarget != null)
+        {
+            return new EffectTarget(renderTarget, bounds, EffectiveScale.At(density), deviceBounds);
         }
         else
         {
             // The empty target makes the subsequent Open() throw — log the cause before that happens.
             s_logger.LogWarning(
                 "Custom-effect target allocation failed ({Width}x{Height} px, w {WorkingScale}, bounds {Bounds}); returning an empty target.",
-                bw, bh, w, bounds);
+                deviceBounds.Width, deviceBounds.Height, density, bounds);
             return new EffectTarget();
         }
     }
@@ -130,6 +193,15 @@ public class CustomFilterEffectContext
 
         // Prefer the target's concrete Scale (may be clamped below WorkingScale by CreateTarget).
         float density = target.Scale.IsUnbounded ? WorkingScale : target.Scale.Value;
-        return new ImmediateCanvas(target.RenderTarget, density, MaxWorkingScale, logicalSize: target.Bounds.Size);
+        Rect rasterBounds = target.RasterBounds;
+        var canvas = new ImmediateCanvas(
+            target.RenderTarget,
+            density,
+            MaxWorkingScale,
+            logicalSize: rasterBounds.Size);
+        canvas.PushTransform(Matrix.CreateTranslation(
+            target.Bounds.X - rasterBounds.X,
+            target.Bounds.Y - rasterBounds.Y));
+        return canvas;
     }
 }

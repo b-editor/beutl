@@ -47,7 +47,7 @@ public class RectangleRenderNodeTest
     }
 
     [Test]
-    public void Process_ShouldReturnCorrectRenderNodeOperation()
+    public void Measure_ShouldReportRecordedFragment()
     {
         var rect = new Rect(0, 0, 100, 100);
         var fill = Brushes.Resource.Red;
@@ -55,13 +55,16 @@ public class RectangleRenderNodeTest
         pen.Brush.CurrentValue = Brushes.Black;
         pen.Thickness.CurrentValue = 1;
         var penResource = pen.ToResource(CompositionContext.Default);
-        var context = new RenderNodeContext([]);
+        using var node = new RectangleRenderNode(rect, fill, penResource);
+        using var renderer = CreateRenderer(node);
+        RenderNodeMeasurement measurement = renderer.Measure();
 
-        var node = new RectangleRenderNode(rect, fill, penResource);
-        var operations = node.Process(context);
-
-        Assert.That(operations, Is.Not.Null);
-        Assert.That(operations.Length, Is.EqualTo(1));
+        Assert.Multiple(() =>
+        {
+            Assert.That(measurement.HasFragments, Is.True);
+            Assert.That(measurement.HasContributingValues, Is.True);
+            Assert.That(measurement.ValueCardinality, Is.EqualTo(RenderValueCardinality.Single));
+        });
     }
 
     [Test]
@@ -73,13 +76,11 @@ public class RectangleRenderNodeTest
         pen.Brush.CurrentValue = Brushes.Black;
         pen.Thickness.CurrentValue = 1;
         var penResource = pen.ToResource(CompositionContext.Default);
-        var context = new RenderNodeContext([]);
-
-        var node = new RectangleRenderNode(rect, fill, penResource);
-        var operations = node.Process(context);
+        using var node = new RectangleRenderNode(rect, fill, penResource);
+        using var renderer = CreateRenderer(node);
         var point = new Point(50, 50);
 
-        Assert.That(operations[0].HitTest(point), Is.True);
+        Assert.That(renderer.HitTest(point), Is.True);
     }
 
     [Test]
@@ -91,13 +92,11 @@ public class RectangleRenderNodeTest
         pen.Brush.CurrentValue = Brushes.Black;
         pen.Thickness.CurrentValue = 1;
         var penResource = pen.ToResource(CompositionContext.Default);
-        var context = new RenderNodeContext([]);
-
-        var node = new RectangleRenderNode(rect, fill, penResource);
-        var operations = node.Process(context);
+        using var node = new RectangleRenderNode(rect, fill, penResource);
+        using var renderer = CreateRenderer(node);
         var point = new Point(150, 150);
 
-        Assert.That(operations[0].HitTest(point), Is.False);
+        Assert.That(renderer.HitTest(point), Is.False);
     }
 
     [Test]
@@ -108,12 +107,13 @@ public class RectangleRenderNodeTest
         pen.Brush.CurrentValue = Brushes.Black;
         pen.Thickness.CurrentValue = 50;
         var penResource = pen.ToResource(CompositionContext.Default);
-        var context = new RenderNodeContext([]);
-
-        var node = new RectangleRenderNode(rect, null, penResource);
-        var operations = node.Process(context);
+        using var node = new RectangleRenderNode(rect, null, penResource);
+        using var renderer = CreateRenderer(node);
         var point = new Point(30, 50);
 
-        Assert.That(operations[0].HitTest(point), Is.True);
+        Assert.That(renderer.HitTest(point), Is.True);
     }
+
+    private static RenderNodeRenderer CreateRenderer(RenderNode node)
+        => new(node, new RenderNodeRendererOptions { UseRenderCache = false });
 }

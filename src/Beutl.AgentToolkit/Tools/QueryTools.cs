@@ -933,7 +933,7 @@ public sealed class QueryTools(AgentSessionManager sessions) : ToolBase
     }
 
     [McpServerTool(Name = "measure_object_bounds")]
-    [Description("Measures RenderNode operation bounds for Drawable objects in the current scene. Use before positioning text, backing plates, or centered objects; default Drawable TranslateTransform values are offsets from the alignment-resolved position, not top-left coordinates.")]
+    [Description("Measures contributing RenderNode query bounds for Drawable objects in the current scene. Use before positioning text, backing plates, or centered objects; default Drawable TranslateTransform values are offsets from the alignment-resolved position, not top-left coordinates.")]
     public ToolResult<ObjectBoundsMeasurementResponse> MeasureObjectBounds(
         string? objectId = null,
         string? elementId = null,
@@ -1073,8 +1073,8 @@ public sealed class QueryTools(AgentSessionManager sessions) : ToolBase
             new ObjectBoundsPoint(scene.FrameSize.Width / 2d, scene.FrameSize.Height / 2d),
             time.ToString("c"),
             timeFiltered,
-            "Scene pixel coordinates. TransformedBounds are authoritative axis-aligned scene-space bounds measured from RenderNodeOperation.Bounds. LocalBounds are normalized from the render-node extents for size only and are not Drawable.MeasureCore results.",
-            "Default Drawable AlignmentX/AlignmentY is Center, so a pure TranslateTransform(x, y) moves the object relative to the alignment-resolved position. For a centered object in a 1920x1080 scene, TranslateTransform(0, 0) centers it at (960, 540). Bounds are measured through DrawableRenderNode and RenderNodeProcessor rather than per-type Drawable.Measure/FilterEffect.TransformBounds estimates.",
+            "Scene pixel coordinates. TransformedBounds are authoritative axis-aligned scene-space RenderNodeMeasurement.QueryBounds from contributing query fragments. LocalBounds are normalized from the query extents for size only and are not Drawable.MeasureCore results.",
+            "Default Drawable AlignmentX/AlignmentY is Center, so a pure TranslateTransform(x, y) moves the object relative to the alignment-resolved position. For a centered object in a 1920x1080 scene, TranslateTransform(0, 0) centers it at (960, 540). Bounds are measured through DrawableRenderNode and RenderNodeRenderer.Measure().QueryBounds rather than per-type Drawable.Measure/FilterEffect.TransformBounds estimates.",
             measurements);
     }
 
@@ -1441,8 +1441,8 @@ public sealed class QueryTools(AgentSessionManager sessions) : ToolBase
             ? new ObjectBoundsPoint(translate.X, translate.Y)
             : null;
         string? note = renderNodeBounds.Note is null
-            ? "Measured through DrawableRenderNode and RenderNodeProcessor.PullToRoot(). LocalBounds is normalized from render-node extents for size only."
-            : $"{renderNodeBounds.Note} LocalBounds is normalized from render-node extents for size only.";
+            ? "Measured through DrawableRenderNode and RenderNodeRenderer.Measure().QueryBounds from contributing query fragments. LocalBounds is normalized from query extents for size only."
+            : $"{renderNodeBounds.Note} LocalBounds is normalized from query extents for size only.";
 
         ObjectBoundsPoint? geometryBoundsOrigin = null;
         if (drawable is Shape shapeDrawable)
@@ -1471,7 +1471,7 @@ public sealed class QueryTools(AgentSessionManager sessions) : ToolBase
             drawable.IsEnabled,
             alignmentX.ToString(),
             alignmentY.ToString(),
-            "render-node-operation-bounds",
+            "render-node-query-bounds",
             ToBoundsRect(localBounds),
             ToBoundsRect(transformedBounds),
             ToBoundsPoint(transformedBounds.Center),
@@ -1493,42 +1493,23 @@ public sealed class QueryTools(AgentSessionManager sessions) : ToolBase
             drawable.Render(graphicsContext, resource);
         }
 
-        var processor = new RenderNodeProcessor(node, useRenderCache: false, outputScale: 1f, maxWorkingScale: 1f);
-        RenderNodeOperation[] operations = processor.PullToRoot();
-        Rect bounds = Rect.Empty;
-        bool hasBounds = false;
-        try
-        {
-            foreach (RenderNodeOperation operation in operations)
+        using var renderer = new RenderNodeRenderer(
+            node,
+            new RenderNodeRendererOptions
             {
-                Rect operationBounds = operation.Bounds;
-                bounds = hasBounds ? bounds.Union(operationBounds) : operationBounds;
-                hasBounds = true;
-            }
-        }
-        finally
-        {
-            DisposeRenderNodeOperations(operations);
-        }
+                Intent = RenderIntent.Preview,
+                TargetDomain = new Rect(default, canvasSize),
+                OutputScale = 1,
+                MaxWorkingScale = 1,
+                UseRenderCache = false,
+            });
+        RenderNodeMeasurement measurement = renderer.Measure();
 
-        return hasBounds
-            ? new RenderNodeBounds(bounds, null)
-            : new RenderNodeBounds(Rect.Empty, "The drawable produced no RenderNode operations at the requested time.");
-    }
-
-    private static void DisposeRenderNodeOperations(RenderNodeOperation[] operations)
-    {
-        foreach (RenderNodeOperation operation in operations)
-        {
-            try
-            {
-                operation.Dispose();
-            }
-            catch
-            {
-                // Match renderer cleanup behavior: disposal faults must not hide measurement results.
-            }
-        }
+        return measurement.HasFragments
+            ? new RenderNodeBounds(measurement.QueryBounds, null)
+            : new RenderNodeBounds(
+                Rect.Empty,
+                "The drawable produced no contributing RenderNode query fragments at the requested time.");
     }
 
     private static Rect NormalizeBoundsSize(Rect bounds)

@@ -3,9 +3,15 @@ using Beutl.Engine;
 using Beutl.Graphics;
 using Beutl.Graphics.Backend;
 using Beutl.Graphics.Rendering;
+using Beutl.Graphics3D.Camera;
+using Beutl.Graphics3D.Gizmo;
 using Beutl.Graphics3D.Lighting;
+using Beutl.Graphics3D.Materials;
+using Beutl.Graphics3D.Textures;
 using Beutl.Logging;
+using Beutl.Media;
 using Microsoft.Extensions.Logging;
+using SkiaSharp;
 
 namespace Beutl.Graphics3D;
 
@@ -16,7 +22,7 @@ internal sealed class Scene3DRenderNode(Scene3D.Resource scene) : RenderNode
 {
     private static readonly ILogger s_logger = Log.CreateLogger<Scene3DRenderNode>();
 
-    public Rect Bounds { get; private set; }
+    public Rect Bounds { get; private set; } = new(0, 0, scene.RenderWidth, scene.RenderHeight);
 
     public (Scene3D.Resource Resource, int Version)? Scene { get; private set; } = scene.Capture();
 
@@ -35,102 +41,125 @@ internal sealed class Scene3DRenderNode(Scene3D.Resource scene) : RenderNode
         return changed;
     }
 
-    public override RenderNodeOperation[] Process(RenderNodeContext context)
+    public override void Process(RenderNodeContext context)
     {
-        var scene = Scene?.Resource;
-        if (scene == null)
-            return [];
+        if (Scene is not { } sceneSnapshot)
+            return;
 
-        var graphicsContext = GraphicsContextFactory.SharedContext;
-        if (graphicsContext == null || !graphicsContext.Supports3DRendering)
-            return [];
-
-        // Camera is already a Resource from the source generator
-        var cameraResource = scene.Camera;
-        if (cameraResource == null)
-            return [];
-
-        int width = (int)scene.RenderWidth;
-        int height = (int)scene.RenderHeight;
-
-        if (width <= 0 || height <= 0)
-            return [];
-
-        // Render the 3D scene at the resolved output density. The 3D projection matrix is adjusted to
-        // compensate so that logical coordinates remain unchanged despite the dense surface.
-        float resolved = RenderNodeContext.ResolveWorkingScale([], context.OutputScale, context.MaxWorkingScale);
-        float w = RenderNodeContext.ClampWorkingScaleToBufferBudget(new Rect(0, 0, width, height), resolved);
-        int dw = w == 1f ? width : (int)MathF.Ceiling(width * w);
-        int dh = w == 1f ? height : (int)MathF.Ceiling(height * w);
-
-        var renderer = scene.Renderer ??= new Renderer3D(graphicsContext);
-
-        // Catch allocation failures (e.g. vkCreateImage past GPU limit) and drop the 3D op.
-        if (renderer.Width != dw || renderer.Height != dh)
+        Scene3D.Resource scene = sceneSnapshot.Resource;
+        Camera3D.Resource? camera = scene.Camera;
+        float width = scene.RenderWidth;
+        float height = scene.RenderHeight;
+        if (camera is null
+            || !float.IsFinite(width)
+            || !float.IsFinite(height)
+            || width <= 0
+            || height <= 0)
         {
-            try
-            {
-                if (renderer.Width == 0 || renderer.Height == 0)
-                {
-                    renderer.Initialize(dw, dh);
-                }
-
-                renderer.Resize(dw, dh);
-            }
-            catch (Exception ex)
-            {
-                s_logger.LogWarning(ex,
-                    "3D render surface allocation failed ({Width}x{Height} px, density {Scale}); dropping the 3D op for this frame.",
-                    dw, dh, w);
-                // Failed resize may leave the renderer inconsistent; discard so next frame rebuilds.
-                scene.Renderer?.Dispose();
-                scene.Renderer = null;
-                return [];
-            }
+            return;
         }
 
-        renderer.SurfaceDensity = w;
-
-        var objectResources = new List<Object3D.Resource>();
-        var lightResources = new List<Light3D.Resource>();
-        objectResources.AddRange(scene.Objects.Where(obj => obj.IsEnabled));
-        lightResources.AddRange(scene.Lights.Where(light => light.IsEnabled));
-
-        // Find gizmo target object
-        Object3D.Resource? gizmoTarget = null;
-        if (scene.GizmoTarget.HasValue)
-        {
-            gizmoTarget = FindObjectById(objectResources, scene.GizmoTarget.Value);
-        }
-
-        // Render
-        renderer.Render(
-            new CompositionContext(scene.Time)
-            {
-                DisableResourceShare = scene.DisableResourceShare,
-            },
-            cameraResource,
-            objectResources,
-            lightResources,
+        Rect bounds = new(0, 0, width, height);
+        float workingScale = RenderScaleContract.MaterializeAtWorkingScale.Resolve(
+            [],
+            bounds,
+            context.OutputScale,
+            context.MaxWorkingScale).Value;
+        Object3D.Resource[] objects = scene.Objects.Where(static item => item.IsEnabled).ToArray();
+        Light3D.Resource[] lights = scene.Lights.Where(static item => item.IsEnabled).ToArray();
+        Object3D.Resource? gizmoTarget = scene.GizmoTarget is { } targetId
+            ? FindObjectById(objects, targetId)
+            : null;
+        SceneTextureBinding[] textureBindings = RecordDrawableTextures(
+            context,
+            objects,
+            workingScale);
+        var execution = new SceneExecutionSnapshot(
+            camera,
+            objects,
+            lights,
+            bounds,
+            scene.Time,
+            scene.DisableResourceShare,
             scene.BackgroundColor,
             scene.AmbientColor,
             scene.AmbientIntensity,
             gizmoTarget,
-            scene.GizmoMode);
+            scene.GizmoMode,
+            textureBindings);
+        RenderResource<SceneExecutionSnapshot> sceneToken = context.Borrow(
+            execution,
+            new SceneSnapshotIdentity(scene.GetOriginal().Id, sceneSnapshot.Version),
+            sceneSnapshot.Version);
+        RenderResource<DeferredSceneRenderer> rendererToken = context.Own(new DeferredSceneRenderer());
 
-        // Get the rendered surface
-        var surface = renderer.CreateSkiaSurface();
-        if (surface == null)
-            return [];
+        RenderResource[] resources =
+        [
+            sceneToken,
+            rendererToken,
+            .. textureBindings.Select(static item => item.Binding),
+        ];
+        OpaqueRenderDescription description = OpaqueRenderDescription.CreateBackendBoundary(
+            RenderBackendBoundary.Graphics3D,
+            execute: session => session.UseResource(
+                sceneToken,
+                current => session.UseResource(
+                    rendererToken,
+                    renderer => renderer.Render(session, current))),
+            bounds: RenderOperationBoundsContract.Source(bounds),
+            hitTest: RenderHitTestContract.OutputBounds,
+            valueCardinality: RenderValueCardinality.Single,
+            scale: RenderScaleContract.MaterializeAtWorkingScale,
+            structuralKey: typeof(Scene3DRenderNode),
+            runtimeIdentity: new RenderRuntimeIdentity(
+                new SceneRuntimeIdentity(scene.GetOriginal().Id, sceneSnapshot.Version, bounds)),
+            resources: resources);
+        context.Publish(context.OpaqueSource(description));
+    }
 
-        // Tag the concrete bitmap surface at its rendered density At(w).
-        var operation = RenderNodeOperation.CreateFromSurface(
-            Bounds,
-            new Point(0, 0),
-            surface,
-            EffectiveScale.At(w));
+    private static SceneTextureBinding[] RecordDrawableTextures(
+        RenderNodeContext context,
+        IEnumerable<Object3D.Resource> objects,
+        float outputScale)
+    {
+        var seen = new HashSet<DrawableTextureSource.Resource>(ReferenceEqualityComparer.Instance);
+        var result = new List<SceneTextureBinding>();
+        foreach (Object3D.Resource obj in EnumerateObjects(objects))
+        {
+            Material3D.Resource? material = obj.Material;
+            if (material is null)
+                continue;
 
-        return [operation];
+            foreach (DrawableTextureSource.Resource source in material
+                         .EnumerateTextureSources()
+                         .OfType<DrawableTextureSource.Resource>())
+            {
+                if (!seen.Add(source))
+                    continue;
+                DrawableRenderNode? root = source.RecordDrawable(outputScale);
+                if (root is null)
+                    continue;
+
+                RecordedNestedRenderTarget nested = context.RecordNestedTargetAtScale(
+                    root,
+                    source.TextureDomain,
+                    outputScale);
+                result.Add(new SceneTextureBinding(source, nested.Binding));
+            }
+        }
+
+        return [.. result];
+    }
+
+    private static IEnumerable<Object3D.Resource> EnumerateObjects(
+        IEnumerable<Object3D.Resource> objects)
+    {
+        foreach (Object3D.Resource obj in objects)
+        {
+            yield return obj;
+            foreach (Object3D.Resource child in EnumerateObjects(obj.GetChildResources()))
+                yield return child;
+        }
     }
 
     private static Object3D.Resource? FindObjectById(IEnumerable<Object3D.Resource> objects, Guid targetId)
@@ -155,4 +184,131 @@ internal sealed class Scene3DRenderNode(Scene3D.Resource scene) : RenderNode
         base.OnDispose(disposing);
         Scene = null;
     }
+
+    private sealed record SceneExecutionSnapshot(
+        Camera3D.Resource Camera,
+        Object3D.Resource[] Objects,
+        Light3D.Resource[] Lights,
+        Rect Bounds,
+        TimeSpan Time,
+        bool DisableResourceShare,
+        Color BackgroundColor,
+        Color AmbientColor,
+        float AmbientIntensity,
+        Object3D.Resource? GizmoTarget,
+        GizmoMode GizmoMode,
+        SceneTextureBinding[] TextureBindings);
+
+    private sealed record SceneTextureBinding(
+        DrawableTextureSource.Resource Source,
+        RenderResource<NestedRenderTargetBinding> Binding);
+
+    private sealed class DeferredSceneRenderer : IDisposable
+    {
+        private Renderer3D? _renderer;
+
+        public void Render(OpaqueRenderSession session, SceneExecutionSnapshot snapshot)
+        {
+            UseTextureBindings(session, snapshot, index: 0, () => RenderCore(session, snapshot));
+        }
+
+        private static void UseTextureBindings(
+            OpaqueRenderSession session,
+            SceneExecutionSnapshot snapshot,
+            int index,
+            Action render)
+        {
+            if (index == snapshot.TextureBindings.Length)
+            {
+                render();
+                return;
+            }
+
+            SceneTextureBinding current = snapshot.TextureBindings[index];
+            session.UseResource(
+                current.Binding,
+                binding => NestedRenderTargetBindingScope.Use(
+                    current.Source,
+                    binding,
+                    () => UseTextureBindings(session, snapshot, index + 1, render)));
+        }
+
+        private void RenderCore(OpaqueRenderSession session, SceneExecutionSnapshot snapshot)
+        {
+            IGraphicsContext? graphicsContext = GraphicsContextFactory.SharedContext;
+            if (graphicsContext is null || !graphicsContext.Supports3DRendering)
+                return;
+
+            float density = session.WorkingScale;
+            int deviceWidth = (int)MathF.Ceiling((float)snapshot.Bounds.Width * density);
+            int deviceHeight = (int)MathF.Ceiling((float)snapshot.Bounds.Height * density);
+            Renderer3D renderer = _renderer ??= new Renderer3D(graphicsContext);
+
+            if (renderer.Width != deviceWidth || renderer.Height != deviceHeight)
+            {
+                try
+                {
+                    if (renderer.Width == 0 || renderer.Height == 0)
+                        renderer.Initialize(deviceWidth, deviceHeight);
+                    else
+                        renderer.Resize(deviceWidth, deviceHeight);
+                }
+                catch (Exception ex)
+                {
+                    s_logger.LogWarning(
+                        ex,
+                        "3D render surface allocation failed ({Width}x{Height} px, density {Scale}); dropping the 3D value for this frame.",
+                        deviceWidth,
+                        deviceHeight,
+                        density);
+                    _renderer?.Dispose();
+                    _renderer = null;
+                    return;
+                }
+            }
+
+            renderer.SurfaceDensity = density;
+            renderer.Render(
+                new CompositionContext(snapshot.Time)
+                {
+                    DisableResourceShare = snapshot.DisableResourceShare,
+                },
+                snapshot.Camera,
+                snapshot.Objects,
+                snapshot.Lights,
+                snapshot.BackgroundColor,
+                snapshot.AmbientColor,
+                snapshot.AmbientIntensity,
+                snapshot.GizmoTarget,
+                snapshot.GizmoMode);
+
+            using SKSurface? surface = renderer.CreateSkiaSurface();
+            if (surface is null)
+                return;
+
+            using OpaqueRenderOutput output = session.CreateOutput(snapshot.Bounds);
+            output.Canvas.Use(canvas =>
+            {
+                // This is the one deliberate backend hand-off: both surfaces have the same device
+                // footprint, so copy in device space without exposing a raw target to public callbacks.
+                using (canvas.PushDeviceSpace())
+                {
+                    canvas.Canvas.DrawSurface(surface, 0, 0);
+                }
+
+                surface.Flush(true, true);
+            });
+            session.Publish(output);
+        }
+
+        public void Dispose()
+        {
+            _renderer?.Dispose();
+            _renderer = null;
+        }
+    }
+
+    private readonly record struct SceneSnapshotIdentity(Guid SceneId, int Version);
+
+    private readonly record struct SceneRuntimeIdentity(Guid SceneId, int Version, Rect Bounds);
 }

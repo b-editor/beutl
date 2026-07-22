@@ -33,7 +33,7 @@ The `beutl-design-reviewer` subagent audits public-surface diffs against these r
 
 ## Tests
 
-- **NUnit + Moq** under `tests/`. Tests are split across per-area projects (e.g. `tests/Beutl.UnitTests/`, `tests/Beutl.Graphics3DTests/`, `tests/SourceGeneratorTest/`, `tests/Beutl.FFmpegIpc.Tests/`); add new tests to the one that matches the code you changed. Do not introduce another test framework. (`tests/Beutl.Graphics3DTests/` is a Vulkan-gated NUnit suite that self-skips when no Vulkan device is available; GPU-free Graphics3D logic tests live under `tests/Beutl.UnitTests/Engine/Graphics3D/`.)
+- **NUnit + Moq** under `tests/`. Tests are split across per-area projects (e.g. `tests/Beutl.UnitTests/`, `tests/Beutl.PublicApiContractTests/`, `tests/Beutl.Graphics3DTests/`, `tests/SourceGeneratorTest/`, `tests/Beutl.FFmpegIpc.Tests/`); add new tests to the one that matches the code you changed. `tests/Beutl.PublicApiContractTests/` is the non-friend compile gate for public authoring APIs. Do not introduce another test framework. (`tests/Beutl.Graphics3DTests/` is a Vulkan-gated NUnit suite that self-skips when no Vulkan device is available; GPU-free Graphics3D logic tests live under `tests/Beutl.UnitTests/Engine/Graphics3D/`.)
 - **New logic ships with a test.** A PR without a corresponding test is incomplete.
 - **`isolation: worktree`** — the `beutl-test-runner` subagent lets you try fixes against a worktree copy of the repo without polluting your real branch.
 

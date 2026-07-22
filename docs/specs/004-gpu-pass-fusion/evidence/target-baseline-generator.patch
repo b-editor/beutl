@@ -1,0 +1,2756 @@
+diff --git a/.gpu-pass-baseline/Beutl.GpuPassTargetBaselineGenerator.csproj b/.gpu-pass-baseline/Beutl.GpuPassTargetBaselineGenerator.csproj
+new file mode 100644
+index 0000000000000000000000000000000000000000..6d55410ecd222610a4a076142173ecd6289513f4
+--- /dev/null
++++ b/.gpu-pass-baseline/Beutl.GpuPassTargetBaselineGenerator.csproj
+@@ -0,0 +1,20 @@
++<Project Sdk="Microsoft.NET.Sdk">
++  <PropertyGroup>
++    <OutputType>Exe</OutputType>
++    <TargetFramework>net10.0</TargetFramework>
++    <AssemblyName>Beutl.GpuPassTargetBaselineGenerator</AssemblyName>
++    <RootNamespace>Beutl.GpuPassTargetBaselineGenerator</RootNamespace>
++    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
++    <Nullable>enable</Nullable>
++    <ImplicitUsings>enable</ImplicitUsings>
++    <Deterministic>true</Deterministic>
++    <ContinuousIntegrationBuild>true</ContinuousIntegrationBuild>
++    <PathMap>$(MSBuildThisFileDirectory)..=/beutl-target-baseline</PathMap>
++  </PropertyGroup>
++  <ItemGroup>
++    <ProjectReference Include="../src/Beutl.Engine/Beutl.Engine.csproj" />
++  </ItemGroup>
++  <ItemGroup>
++    <PackageReference Include="BenchmarkDotNet" />
++  </ItemGroup>
++</Project>
+diff --git a/.gpu-pass-baseline/Program.cs b/.gpu-pass-baseline/Program.cs
+new file mode 100644
+index 0000000000000000000000000000000000000000..796fb924cc38c372495bd80ae139fab02866b187
+--- /dev/null
++++ b/.gpu-pass-baseline/Program.cs
+@@ -0,0 +1,1959 @@
++using System.Buffers.Binary;
++using System.Collections.Immutable;
++using System.Diagnostics;
++using System.Numerics;
++using System.Reflection;
++using System.Runtime.InteropServices;
++using System.Security.Cryptography;
++using System.Text;
++using System.Text.Json;
++using BenchmarkDotNet.Running;
++using Beutl.Composition;
++using Beutl.Engine;
++using Beutl.Graphics;
++using Beutl.Graphics.Backend;
++using Beutl.Graphics.Backend.Composite;
++using Beutl.Graphics.Backend.Vulkan;
++using Beutl.Graphics.Effects;
++using Beutl.Graphics.Rendering;
++using Beutl.Graphics.Rendering.Cache;
++using Beutl.Graphics.Shapes;
++using Beutl.Graphics.Transformation;
++using Beutl.Graphics3D;
++using Beutl.Graphics3D.Camera;
++using Beutl.Graphics3D.Lighting;
++using Beutl.Graphics3D.Materials;
++using Beutl.Graphics3D.Primitives;
++using Beutl.Logging;
++using Beutl.Media;
++using Beutl.Media.Source;
++using Beutl.Serialization;
++using Microsoft.Extensions.Logging;
++using Silk.NET.Vulkan;
++using SkiaSharp;
++
++namespace Beutl.GpuPassTargetBaselineGenerator;
++
++internal static unsafe class Program
++{
++    private const string BaselineSha = "43a38e665d9bf52548161a3917e748bd1457ff55";
++    internal const int Seed = 20040719;
++    internal static readonly PixelSize Frame = new(192, 108);
++    private static readonly JsonSerializerOptions JsonOptions = new()
++    {
++        PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
++        WriteIndented = true,
++    };
++
++    private static int Main(string[] args)
++    {
++        try
++        {
++            if (args.Length > 0 && args[0] == "--benchmark")
++                return RunBenchmarks(args[1..]);
++
++            string outputDirectory = ParseOutputDirectory(args);
++            string repositoryRoot = RequireEnvironment("BEUTL_BASELINE_REPO_ROOT");
++            VerifyBaselineCheckout(repositoryRoot);
++            PrepareEmptyOutputDirectory(outputDirectory);
++            SeedLogging();
++
++            GenerationBundle bundle = RenderThread.Dispatcher.Invoke(GenerateOnRenderThread);
++
++            foreach (GeneratedArtifact artifact in bundle.Artifacts)
++            {
++                File.WriteAllBytes(Path.Combine(outputDirectory, artifact.FileName), artifact.Bytes);
++            }
++
++            EvidenceTools tools = CreateEvidenceTools();
++            var artifactHashes = new SortedDictionary<string, string>(StringComparer.Ordinal);
++            foreach (GeneratedArtifact artifact in bundle.Artifacts)
++            {
++                artifactHashes[artifact.FileName] = Sha256Hex(artifact.Bytes);
++            }
++
++            var manifest = new BaselineManifest
++            {
++                SchemaVersion = 1,
++                BaselineCodeSha = BaselineSha,
++                BaselineCommitTimestamp = RunProcess("git", ["-C", repositoryRoot, "show", "-s", "--format=%cI", BaselineSha]).Trim(),
++                PrePatchRepositoryState = RequireEnvironment("BEUTL_BASELINE_PREPATCH_STATE"),
++                PatchedDiffSha256 = RequireEnvironment("BEUTL_BASELINE_PATCHED_DIFF_SHA256"),
++                GeneratorSeed = Seed,
++                RoiBaselineMode = "legacy-full-render-then-device-crop",
++                EvidenceTools = tools,
++                Fingerprint = bundle.Fingerprint,
++                PixelFormat = new PixelFormatManifest
++                {
++                    ColorType = "RGBA16F",
++                    AlphaType = "premultiplied",
++                    ColorSpace = "linear-sRGB",
++                    Endianness = "little",
++                    BytesPerPixel = 8,
++                    Packing = "row-packed-without-padding",
++                },
++                ArtifactSha256 = artifactHashes,
++                Scenes = bundle.Scenes,
++                AllocationFailures = bundle.AllocationFailures,
++                Benchmark = new BenchmarkManifest
++                {
++                    Command = "docs/specs/004-gpu-pass-fusion/evidence/generate-target-baseline.sh",
++                    Environment = "byte-identical evidence fingerprint required",
++                    RawResultReference = "docs/specs/004-gpu-pass-fusion/evidence/target-benchmark/manifest.json",
++                    Status = "starting-SHA BenchmarkDotNet baseline captured by the pinned-worktree driver",
++                },
++            };
++
++            ValidateManifest(manifest, bundle.Artifacts);
++            string manifestPath = Path.Combine(outputDirectory, "manifest.json");
++            File.WriteAllText(manifestPath, JsonSerializer.Serialize(manifest, JsonOptions) + "\n", new UTF8Encoding(false));
++            VerifyWrittenArtifacts(manifest, outputDirectory);
++
++            GraphicsContextFactory.Shutdown();
++            Console.WriteLine($"Generated {bundle.Artifacts.Count} immutable RGBA16F artifacts and manifest.json at {outputDirectory}");
++            return 0;
++        }
++        catch (Exception ex)
++        {
++            Console.Error.WriteLine(ex);
++            try
++            {
++                GraphicsContextFactory.Shutdown();
++            }
++            catch
++            {
++            }
++
++            return 1;
++        }
++    }
++
++    private static GenerationBundle GenerateOnRenderThread()
++    {
++        IGraphicsContext graphicsContext = GraphicsContextFactory.GetOrCreateShared()
++            ?? throw new InvalidOperationException("A real GPU graphics context is required; fallback/null context is not valid evidence.");
++        if (!graphicsContext.Supports3DRendering)
++            throw new InvalidOperationException("The selected context does not support the required non-empty 3D evidence scene.");
++
++        EvidenceFingerprint fingerprint = CaptureFingerprint(graphicsContext);
++        List<VisualDefinition> definitions = CreateVisualDefinitions();
++        var artifacts = new List<GeneratedArtifact>(definitions.Count);
++        var scenes = new List<SceneManifest>(definitions.Count + 3);
++
++        foreach (VisualDefinition definition in definitions)
++        {
++            CapturedRender first = definition.Capture();
++            CapturedRender second = definition.Capture();
++            if (first.Bitmap == null || second.Bitmap == null)
++                throw new InvalidOperationException($"Visual scene '{definition.Id}' did not return a bitmap.");
++
++            using (first.Bitmap)
++            using (second.Bitmap)
++            {
++                byte[] firstBytes = Rgba16fWriter.Encode(first.Bitmap);
++                byte[] secondBytes = Rgba16fWriter.Encode(second.Bitmap);
++                if (!firstBytes.AsSpan().SequenceEqual(secondBytes))
++                    throw new InvalidOperationException($"Visual scene '{definition.Id}' is not byte-stable across two clean captures.");
++                if (!CountersEqual(first.Probe.Counters, second.Probe.Counters))
++                    throw new InvalidOperationException($"Visual scene '{definition.Id}' emitted unstable legacy counters.");
++
++                string fileName = definition.Id + ".rgba16f";
++                artifacts.Add(new GeneratedArtifact(fileName, firstBytes));
++                scenes.Add(new SceneManifest
++                {
++                    Id = definition.Id,
++                    Category = definition.Category,
++                    Role = definition.Role,
++                    ControlSceneId = definition.ControlSceneId,
++                    Blob = fileName,
++                    BlobWidth = first.Bitmap.Width,
++                    BlobHeight = first.Bitmap.Height,
++                    LogicalWidth = definition.LogicalSize.Width,
++                    LogicalHeight = definition.LogicalSize.Height,
++                    OutputScale = definition.OutputScale,
++                    MaxWorkingScale = FloatString(definition.MaxWorkingScale),
++                    RequestedRegion = definition.RequestedRegion,
++                    NonVacuityMode = definition.NonVacuityMode,
++                    NonVacuityRegion = definition.NonVacuityRegion,
++                    Empty = false,
++                    Parameters = definition.Parameters,
++                    LegacyCounters = SortedCounters(first.Probe.Counters),
++                    LegacyEvents = first.Probe.Events.ToArray(),
++                    Query = first.Query,
++                });
++            }
++        }
++
++        AddNonVacuityMetrics(scenes, artifacts);
++        AddMetadataOnlyScenes(scenes);
++
++        List<AllocationFailureManifest> allocationFailures = CaptureAllocationFailures();
++        return new GenerationBundle(fingerprint, artifacts, scenes, allocationFailures);
++    }
++
++    private static List<VisualDefinition> CreateVisualDefinitions()
++    {
++        var result = new List<VisualDefinition>();
++
++        Add(result, "primary-cross-node", "primary-chain", "parity", "primary-control-all-identity",
++            () => RenderManual("primary-cross-node", () => BuildPrimaryChain(165, 0.62f, 72), 1f, 2f),
++            scale: 1f, maxScale: 2f,
++            parameters: Parameters(("gammaPercent", "165"), ("opacity", "0.62"), ("invertPercent", "72"),
++                ("source", "materialized-semitransparent-rgba16f"), ("distinctRenderNodes", "true")));
++        Add(result, "primary-control-all-identity", "primary-chain", "control", null,
++            () => RenderManual("primary-control-all-identity", () => BuildPrimaryChain(100, 1f, 0), 1f, 2f),
++            parameters: Parameters(("gammaPercent", "100"), ("opacity", "1"), ("invertPercent", "0")));
++        Add(result, "primary-control-gamma-disabled", "primary-chain", "control", null,
++            () => RenderManual("primary-control-gamma-disabled", () => BuildPrimaryChain(100, 0.62f, 72), 1f, 2f),
++            parameters: Parameters(("disabledOperation", "Gamma")));
++        Add(result, "primary-control-opacity-disabled", "primary-chain", "control", null,
++            () => RenderManual("primary-control-opacity-disabled", () => BuildPrimaryChain(165, 1f, 72), 1f, 2f),
++            parameters: Parameters(("disabledOperation", "Opacity")));
++        Add(result, "primary-control-invert-disabled", "primary-chain", "control", null,
++            () => RenderManual("primary-control-invert-disabled", () => BuildPrimaryChain(165, 0.62f, 0), 1f, 2f),
++            parameters: Parameters(("disabledOperation", "Invert")));
++
++        Add(result, "aa-thin-line-color-times-alpha", "coverage-boundary", "parity", "aa-thin-line-control",
++            () => RenderManual("aa-thin-line-color-times-alpha", () => BuildAaShaderScene(stroke: false, applyShader: true), 1f, 2f),
++            nonVacuityMode: "alpha-edge-band",
++            nonVacuityRegion: new RequestedRegionManifest { X = 18, Y = 16, Width = 156, Height = 76 },
++            parameters: Parameters(("source", "analytic-antialiased-line"), ("strokeWidth", "0.75"),
++                ("shader", "return color * color.a"), ("edgeCrop", "18,16,156,76")));
++        Add(result, "aa-thin-line-control", "coverage-boundary", "control", null,
++            () => RenderManual("aa-thin-line-control", () => BuildAaShaderScene(stroke: false, applyShader: false), 1f, 2f),
++            parameters: Parameters(("disabledOperation", "CurrentPixelColorTimesAlpha")));
++        Add(result, "aa-thin-stroke-color-times-alpha", "coverage-boundary", "parity", "aa-thin-stroke-control",
++            () => RenderManual("aa-thin-stroke-color-times-alpha", () => BuildAaShaderScene(stroke: true, applyShader: true), 1f, 2f),
++            nonVacuityMode: "alpha-edge-band",
++            nonVacuityRegion: new RequestedRegionManifest { X = 18, Y = 16, Width = 156, Height = 76 },
++            parameters: Parameters(("source", "analytic-antialiased-path-stroke"), ("strokeWidth", "1.25"),
++                ("shader", "return color * color.a"), ("edgeCrop", "18,16,156,76")));
++        Add(result, "aa-thin-stroke-control", "coverage-boundary", "control", null,
++            () => RenderManual("aa-thin-stroke-control", () => BuildAaShaderScene(stroke: true, applyShader: false), 1f, 2f),
++            parameters: Parameters(("disabledOperation", "CurrentPixelColorTimesAlpha")));
++
++        Add(result, "whole-source-coordinate-shader", "boundary", "parity", "whole-source-coordinate-control",
++            () => RenderManual("whole-source-coordinate-shader", () => BuildWholeSourceScene(applyShader: true), 1f, 2f),
++            parameters: Parameters(("shaderCoordinates", "source.eval(fc + float2(5*sin(fc.y/9),0))")));
++        Add(result, "whole-source-coordinate-control", "boundary", "control", null,
++            () => RenderManual("whole-source-coordinate-control", () => BuildWholeSourceScene(applyShader: false), 1f, 2f),
++            parameters: Parameters(("disabledOperation", "WholeSourceCoordinateShader")));
++
++        Add(result, "geometry-stroke", "boundary", "parity", "geometry-stroke-control",
++            () => RenderManual("geometry-stroke", () => BuildStrokeEffectScene(applyEffect: true), 1f, 2f),
++            parameters: Parameters(("effect", "StrokeEffect"), ("thickness", "9")));
++        Add(result, "geometry-stroke-control", "boundary", "control", null,
++            () => RenderManual("geometry-stroke-control", () => BuildStrokeEffectScene(applyEffect: false), 1f, 2f),
++            parameters: Parameters(("disabledOperation", "StrokeEffect")));
++
++        Add(result, "opaque-custom-readback", "boundary", "parity", "opaque-custom-readback-control",
++            () => RenderManual("opaque-custom-readback", () => BuildColorGradingScene(applyEffect: true), 1f, 2f),
++            parameters: Parameters(("effect", "ColorGrading"), ("contrastPercent", "28"),
++                ("saturationPercent", "35"), ("exposure", "0.35"), ("legacyReadback", "true")));
++        Add(result, "opaque-custom-readback-control", "boundary", "control", null,
++            () => RenderManual("opaque-custom-readback-control", () => BuildColorGradingScene(applyEffect: false), 1f, 2f),
++            parameters: Parameters(("disabledOperation", "OpaqueCustomReadback")));
++
++        Add(result, "mixed-spatial-color-lut", "mixed-chain", "parity", "mixed-spatial-color-lut-control",
++            () => RenderManual("mixed-spatial-color-lut", () => BuildMixedChain(applyEffects: true), 1f, 2f),
++            parameters: Parameters(("chain", "Blur(3)->Gamma(145)->DropShadow->InvertLUT"),
++                ("lut", "non-identity-2x2x2")));
++        Add(result, "mixed-spatial-color-lut-control", "mixed-chain", "control", null,
++            () => RenderManual("mixed-spatial-color-lut-control", () => BuildMixedChain(applyEffects: false), 1f, 2f),
++            parameters: Parameters(("disabledOperation", "MixedEffectChain")));
++
++        Add(result, "split-expansion", "dynamic-expansion", "parity", "split-expansion-control",
++            () => RenderManual("split-expansion", () => BuildSplitScene(applyEffect: true), 1f, 2f),
++            parameters: Parameters(("effect", "SplitEffect"), ("divisions", "3x2"), ("spacing", "5x7")));
++        Add(result, "split-expansion-control", "dynamic-expansion", "control", null,
++            () => RenderManual("split-expansion-control", () => BuildSplitScene(applyEffect: false), 1f, 2f),
++            parameters: Parameters(("disabledOperation", "SplitEffect")));
++
++        Add(result, "external-materialized-source", "external-materialization", "parity", "external-materialized-source-control",
++            () => RenderManual("external-materialized-source", () => BuildExternalSourceScene(altered: false), 1f, 2f),
++            parameters: Parameters(("sourceClass", "external-materialized-rgba16f"), ("effectiveScale", "1")));
++        Add(result, "external-materialized-source-control", "external-materialization", "control", null,
++            () => RenderManual("external-materialized-source-control", () => BuildExternalSourceScene(altered: true), 1f, 2f),
++            parameters: Parameters(("controlChange", "deterministic-source-palette")));
++
++        Add(result, "root-a-clear-b", "target-order", "parity", "root-a-b-no-clear-control",
++            () => RenderManual("root-a-clear-b", () => BuildRootOrderScene(includeClear: true), 1f, 2f),
++            parameters: Parameters(("order", "A,Clear,B"), ("clear", "transparent-full-target")));
++        Add(result, "root-a-b-no-clear-control", "target-order", "control", null,
++            () => RenderManual("root-a-b-no-clear-control", () => BuildRootOrderScene(includeClear: false), 1f, 2f),
++            parameters: Parameters(("disabledOperation", "Clear")));
++
++        Add(result, "snapshot-clear-draw-backdrop", "target-order", "parity", "snapshot-draw-backdrop-no-clear-control",
++            () => RenderManual("snapshot-clear-draw-backdrop", () => BuildBackdropScene(includeClear: true), 1f, 2f),
++            parameters: Parameters(("order", "SnapshotBackdrop,Clear,DrawBackdrop"), ("captureCount", "1")));
++        Add(result, "snapshot-draw-backdrop-no-clear-control", "target-order", "control", null,
++            () => RenderManual("snapshot-draw-backdrop-no-clear-control", () => BuildBackdropScene(includeClear: false), 1f, 2f),
++            parameters: Parameters(("disabledOperation", "Clear")));
++
++        Add(result, "multiple-composition-roots", "multiple-roots", "parity", "multiple-composition-roots-control",
++            () => RenderCompositionRoots("multiple-composition-roots", includeSecond: true),
++            parameters: Parameters(("compositionRoots", "2"), ("rendererLifetime", "persistent-per-capture")));
++        Add(result, "multiple-composition-roots-control", "multiple-roots", "control", null,
++            () => RenderCompositionRoots("multiple-composition-roots-control", includeSecond: false),
++            parameters: Parameters(("disabledOperation", "second-root")));
++
++        Add(result, "nested-drawable-brush-delay", "nested", "parity", "nested-drawable-brush-delay-control",
++            () => RenderDrawable("nested-drawable-brush-delay", BuildNestedDrawableBrushDelay(), 1f, 2f),
++            parameters: Parameters(("nested", "DrawableBrush->DelayAnimationEffect->Mosaic"), ("delayMilliseconds", "0")));
++        Add(result, "nested-drawable-brush-delay-control", "nested", "control", null,
++            () => RenderDrawable("nested-drawable-brush-delay-control", BuildNestedControl(), 1f, 2f),
++            parameters: Parameters(("disabledOperation", "nested-drawable-and-delay")));
++
++        Add(result, "cache-cold", "cache", "parity", "cache-control-empty",
++            () => RenderCacheScene("cache-cold", warm: false, drawContent: true),
++            parameters: Parameters(("cacheState", "cold"), ("useRenderCache", "false")));
++        Add(result, "cache-warm-hit", "cache", "parity", "cache-control-empty",
++            () => RenderCacheScene("cache-warm-hit", warm: true, drawContent: true),
++            parameters: Parameters(("cacheState", "warm"), ("expectedCacheCapture", "1"), ("expectedCacheHit", "1")));
++        Add(result, "cache-control-empty", "cache", "control", null,
++            () => RenderCacheScene("cache-control-empty", warm: false, drawContent: false),
++            parameters: Parameters(("disabledOperation", "cacheable-source")));
++
++        AddScaleCase(result, "scale-half", 0.5f);
++        AddScaleCase(result, "scale-one", 1f);
++        AddScaleCase(result, "scale-two", 2f);
++
++        RequestedRegionManifest shifted = new() { X = 37, Y = 19, Width = 83, Height = 57 };
++        Add(result, "shifted-roi", "roi", "parity", "shifted-roi-control",
++            () => RenderManual("shifted-roi", () => BuildPrimaryChain(165, 0.62f, 72), 1f, 2f, shifted),
++            requestedRegion: shifted,
++            parameters: Parameters(("roiSemantics", "full-render-then-device-crop"), ("logicalOrigin", "37,19")));
++        Add(result, "shifted-roi-control", "roi", "control", null,
++            () => RenderManual("shifted-roi-control", () => BuildPrimaryChain(100, 1f, 0), 1f, 2f, shifted),
++            requestedRegion: shifted,
++            parameters: Parameters(("disabledOperation", "primary-chain")));
++
++        Add(result, "automatic-device-selection", "fallback", "parity", "automatic-device-selection-control",
++            () => RenderManual("automatic-device-selection", () => BuildPrimaryChain(145, 0.78f, 64), 1f, 2f),
++            parameters: Parameters(("preferredGpuName", "not-specified"), ("deviceSelection", "automatic")));
++        Add(result, "automatic-device-selection-control", "fallback", "control", null,
++            () => RenderManual("automatic-device-selection-control", () => BuildPrimaryChain(100, 1f, 0), 1f, 2f),
++            parameters: Parameters(("disabledOperation", "primary-chain")));
++
++        Add(result, "scene3d-with-2d-tail", "3d-boundary", "parity", "scene3d-no-2d-tail-control",
++            () => RenderDrawable("scene3d-with-2d-tail", BuildThreeDScene(withTail: true), 1f, 2f),
++            parameters: Parameters(("object", "lit-PBR-sphere"), ("light", "directional"),
++                ("2dTail", "Invert(65%)"), ("required3dBoundary", "true")));
++        Add(result, "scene3d-no-2d-tail-control", "3d-boundary", "control", null,
++            () => RenderDrawable("scene3d-no-2d-tail-control", BuildThreeDScene(withTail: false), 1f, 2f),
++            parameters: Parameters(("disabledOperation", "2d-tail")));
++
++        return result;
++    }
++
++    private static void AddScaleCase(List<VisualDefinition> result, string id, float scale)
++    {
++        string controlId = id + "-control";
++        Add(result, id, "scale", "parity", controlId,
++            () => RenderManual(id, () => BuildPrimaryChain(155, 0.68f, 70), scale, MathF.Max(2f * scale, 1f)),
++            scale: scale, maxScale: MathF.Max(2f * scale, 1f),
++            parameters: Parameters(("scaleCase", FloatString(scale)), ("maxWorkingScalePolicy", "max(2*outputScale,1)")));
++        Add(result, controlId, "scale", "control", null,
++            () => RenderManual(controlId, () => BuildPrimaryChain(100, 1f, 0), scale, MathF.Max(2f * scale, 1f)),
++            scale: scale, maxScale: MathF.Max(2f * scale, 1f),
++            parameters: Parameters(("disabledOperation", "primary-chain")));
++    }
++
++    private static void Add(
++        List<VisualDefinition> target,
++        string id,
++        string category,
++        string role,
++        string? controlSceneId,
++        Func<CapturedRender> capture,
++        float scale = 1f,
++        float maxScale = 2f,
++        RequestedRegionManifest? requestedRegion = null,
++        string nonVacuityMode = "full-frame",
++        RequestedRegionManifest? nonVacuityRegion = null,
++        SortedDictionary<string, string>? parameters = null)
++    {
++        target.Add(new VisualDefinition(
++            id,
++            category,
++            role,
++            controlSceneId,
++            Frame,
++            scale,
++            maxScale,
++            requestedRegion,
++            nonVacuityMode,
++            nonVacuityRegion,
++            parameters ?? new SortedDictionary<string, string>(StringComparer.Ordinal),
++            capture));
++    }
++
++    private static CapturedRender RenderManual(
++        string requestName,
++        Func<SceneFixture> fixtureFactory,
++        float outputScale,
++        float maxWorkingScale,
++        RequestedRegionManifest? requestedRegion = null)
++    {
++        using TargetBaselineProbe.Session probe = TargetBaselineProbe.Begin(requestName);
++        using SceneFixture fixture = fixtureFactory();
++        int deviceWidth = (int)MathF.Ceiling(Frame.Width * outputScale);
++        int deviceHeight = (int)MathF.Ceiling(Frame.Height * outputScale);
++        using IDisposable allocationClass = TargetBaselineProbe.ClassifyAllocation("ExternalRoot");
++        using RenderTarget target = RenderTarget.Create(deviceWidth, deviceHeight)
++            ?? throw new InvalidOperationException($"{requestName}: external root allocation failed.");
++        var canvas = new ImmediateCanvas(target, outputScale, maxWorkingScale, Frame.ToSize(1));
++        canvas.Clear();
++
++        var processor = new RenderNodeProcessor(fixture.Root, useRenderCache: fixture.UseRenderCache,
++            outputScale, maxWorkingScale);
++        RenderNodeOperation[] operations = processor.PullToRoot();
++        int consumed = 0;
++        try
++        {
++            foreach (RenderNodeOperation operation in operations)
++            {
++                operation.Render(canvas);
++                consumed++;
++                operation.Dispose();
++            }
++        }
++        catch
++        {
++            RenderNodeOperation.DisposeAll(operations.AsSpan(consumed));
++            throw;
++        }
++
++        canvas.Dispose();
++        using Bitmap full = target.Snapshot();
++        Bitmap? selected = SelectRequestedRegion(full, outputScale, requestedRegion);
++        TargetBaselineProbeSnapshot snapshot = probe.Snapshot();
++        return new CapturedRender(selected, snapshot, fixture.Query);
++    }
++
++    private static CapturedRender RenderDrawable(
++        string requestName,
++        Drawable.Resource resource,
++        float outputScale,
++        float maxWorkingScale)
++    {
++        using (resource)
++        using (var node = new DrawableRenderNode(resource))
++        {
++            using (var graphics = new GraphicsContext2D(node, Frame.ToSize(1), outputScale))
++            {
++                resource.GetOriginal().Render(graphics, resource);
++            }
++
++            return RenderExistingNode(requestName, node, outputScale, maxWorkingScale);
++        }
++    }
++
++    private static CapturedRender RenderExistingNode(
++        string requestName,
++        RenderNode root,
++        float outputScale,
++        float maxWorkingScale,
++        bool useCache = false)
++    {
++        using TargetBaselineProbe.Session probe = TargetBaselineProbe.Begin(requestName);
++        int deviceWidth = (int)MathF.Ceiling(Frame.Width * outputScale);
++        int deviceHeight = (int)MathF.Ceiling(Frame.Height * outputScale);
++        using IDisposable allocationClass = TargetBaselineProbe.ClassifyAllocation("ExternalRoot");
++        using RenderTarget target = RenderTarget.Create(deviceWidth, deviceHeight)
++            ?? throw new InvalidOperationException($"{requestName}: external root allocation failed.");
++        var canvas = new ImmediateCanvas(target, outputScale, maxWorkingScale, Frame.ToSize(1));
++        canvas.Clear();
++
++        var processor = new RenderNodeProcessor(root, useCache, outputScale, maxWorkingScale);
++        RenderNodeOperation[] operations = processor.PullToRoot();
++        try
++        {
++            foreach (RenderNodeOperation operation in operations)
++            {
++                operation.Render(canvas);
++                operation.Dispose();
++            }
++        }
++        catch
++        {
++            RenderNodeOperation.DisposeAll(operations);
++            throw;
++        }
++
++        canvas.Dispose();
++        Bitmap bitmap = target.Snapshot();
++        return new CapturedRender(bitmap, probe.Snapshot(), null);
++    }
++
++    private static CapturedRender RenderCompositionRoots(string requestName, bool includeSecond)
++    {
++        using TargetBaselineProbe.Session probe = TargetBaselineProbe.Begin(requestName);
++        using Drawable.Resource first = BuildCompositionRect(left: true);
++        using Drawable.Resource? second = includeSecond ? BuildCompositionRect(left: false) : null;
++        ImmutableArray<EngineObject.Resource> objects = includeSecond
++            ? [first, second!]
++            : [first];
++        var frame = new CompositionFrame(objects, new TimeRange(TimeSpan.Zero, TimeSpan.FromTicks(1)), Frame);
++        using IDisposable allocationClass = TargetBaselineProbe.ClassifyAllocation("ExternalRoot");
++        using var renderer = new Renderer(Frame.Width, Frame.Height, 1f, 2f)
++        {
++            CacheOptions = RenderCacheOptions.Disabled,
++        };
++        renderer.Render(frame);
++        Bitmap bitmap = renderer.Snapshot();
++        return new CapturedRender(bitmap, probe.Snapshot(), null);
++    }
++
++    private static CapturedRender RenderCacheScene(string requestName, bool warm, bool drawContent)
++    {
++        using TargetBaselineProbe.Session probe = TargetBaselineProbe.Begin(requestName);
++        using RenderNode node = drawContent
++            ? new EllipseRenderNode(new Rect(31, 12, 118, 82), Brushes.Resource.CornflowerBlue, null)
++            : new EmptySourceNode();
++
++        if (warm)
++        {
++            node.Cache.ReportRenderCount(RenderNodeCache.Count);
++            RenderNodeCacheHelper.MakeCache(node, RenderCacheOptions.Default, 1f, 2f);
++            if (!node.Cache.IsCached)
++                throw new InvalidOperationException("The warm-cache evidence workload did not create a cache entry.");
++        }
++
++        int deviceWidth = Frame.Width;
++        int deviceHeight = Frame.Height;
++        using IDisposable allocationClass = TargetBaselineProbe.ClassifyAllocation("ExternalRoot");
++        using RenderTarget target = RenderTarget.Create(deviceWidth, deviceHeight)
++            ?? throw new InvalidOperationException($"{requestName}: external root allocation failed.");
++        var canvas = new ImmediateCanvas(target, 1f, 2f, Frame.ToSize(1));
++        canvas.Clear();
++        var processor = new RenderNodeProcessor(node, useRenderCache: warm, 1f, 2f);
++        RenderNodeOperation[] operations = processor.PullToRoot();
++        foreach (RenderNodeOperation operation in operations)
++        {
++            operation.Render(canvas);
++            operation.Dispose();
++        }
++
++        canvas.Dispose();
++        Bitmap bitmap = target.Snapshot();
++        return new CapturedRender(bitmap, probe.Snapshot(), null);
++    }
++
++    internal static SceneFixture CreateBenchmarkFixture(string caseName)
++    {
++        return caseName switch
++        {
++            "NoEffectControl" => new SceneFixture { Root = CreateMaterializedPatternSource(altered: false) },
++            "ShaderOpacityShader" => BuildPrimaryChain(165, 0.62f, 72),
++            "ShaderOpacityShaderBarrier" => BuildPrimaryChainWithBarrier(),
++            _ => throw new ArgumentOutOfRangeException(nameof(caseName), caseName, "Unknown target baseline benchmark case."),
++        };
++    }
++
++    private static SceneFixture BuildPrimaryChain(float gammaPercent, float opacity, float invertPercent)
++    {
++        var fixture = new SceneFixture();
++        RenderNode source = CreateMaterializedPatternSource(altered: false);
++        RenderNode current = source;
++
++        var gamma = new Gamma();
++        gamma.Amount.CurrentValue = gammaPercent;
++        current = fixture.WrapEffect(current, gamma);
++
++        var opacityNode = new OpacityRenderNode(opacity);
++        opacityNode.AddChild(current);
++        current = opacityNode;
++
++        var invert = new Invert();
++        invert.Amount.CurrentValue = invertPercent;
++        invert.ExcludeAlphaChannel.CurrentValue = true;
++        current = fixture.WrapEffect(current, invert);
++        fixture.Root = current;
++        return fixture;
++    }
++
++    private static SceneFixture BuildPrimaryChainWithBarrier()
++    {
++        var fixture = new SceneFixture();
++        RenderNode current = CreateMaterializedPatternSource(altered: false);
++
++        var gamma = new Gamma();
++        gamma.Amount.CurrentValue = 165;
++        current = fixture.WrapEffect(current, gamma);
++
++        var opacityNode = new OpacityRenderNode(0.62f);
++        opacityNode.AddChild(current);
++        current = opacityNode;
++
++        var barrier = new SKSLScriptEffect();
++        barrier.Script.CurrentValue =
++            "uniform shader src; half4 main(float2 fc) { float dx = 3.0 * sin(fc.y / 11.0); "
++            + "return src.eval(fc + float2(dx, 0.0)); }";
++        current = fixture.WrapEffect(current, barrier);
++
++        var invert = new Invert();
++        invert.Amount.CurrentValue = 72;
++        invert.ExcludeAlphaChannel.CurrentValue = true;
++        current = fixture.WrapEffect(current, invert);
++
++        fixture.Root = current;
++        return fixture;
++    }
++
++    private static SceneFixture BuildAaShaderScene(bool stroke, bool applyShader)
++    {
++        var fixture = new SceneFixture();
++        RenderNode source = new AnalyticCoverageNode(stroke);
++        fixture.Root = applyShader ? fixture.WrapEffect(source, CreateColorTimesAlphaScript()) : source;
++        return fixture;
++    }
++
++    private static SceneFixture BuildWholeSourceScene(bool applyShader)
++    {
++        var fixture = new SceneFixture();
++        RenderNode source = CreateMaterializedPatternSource(altered: false);
++        if (applyShader)
++        {
++            var effect = new SKSLScriptEffect();
++            effect.Script.CurrentValue =
++                "uniform shader src; half4 main(float2 fc) { float dx = 5.0 * sin(fc.y / 9.0); "
++                + "half4 c = src.eval(fc + float2(dx, 0.0)); return half4(c.b, c.r, c.g, c.a); }";
++            fixture.Root = fixture.WrapEffect(source, effect);
++        }
++        else
++        {
++            fixture.Root = source;
++        }
++
++        return fixture;
++    }
++
++    private static SceneFixture BuildStrokeEffectScene(bool applyEffect)
++    {
++        var fixture = new SceneFixture();
++        RenderNode source = new AnalyticCoverageNode(stroke: true, filled: true);
++        if (applyEffect)
++        {
++            var pen = new Pen();
++            pen.Thickness.CurrentValue = 9f;
++            pen.Brush.CurrentValue = Brushes.OrangeRed;
++            var stroke = new StrokeEffect();
++            stroke.Pen.CurrentValue = pen;
++            fixture.Root = fixture.WrapEffect(source, stroke);
++        }
++        else
++        {
++            fixture.Root = source;
++        }
++
++        return fixture;
++    }
++
++    private static SceneFixture BuildColorGradingScene(bool applyEffect)
++    {
++        var fixture = new SceneFixture();
++        RenderNode source = CreateMaterializedPatternSource(altered: false);
++        if (applyEffect)
++        {
++            var grading = new ColorGrading();
++            grading.Contrast.CurrentValue = 28f;
++            grading.Saturation.CurrentValue = 35f;
++            grading.Exposure.CurrentValue = 0.35f;
++            fixture.Root = fixture.WrapEffect(source, grading);
++        }
++        else
++        {
++            fixture.Root = source;
++        }
++
++        return fixture;
++    }
++
++    private static SceneFixture BuildMixedChain(bool applyEffects)
++    {
++        var fixture = new SceneFixture();
++        RenderNode current = CreateMaterializedPatternSource(altered: false);
++        if (applyEffects)
++        {
++            var blur = new Blur();
++            blur.Sigma.CurrentValue = new Size(3, 3);
++            current = fixture.WrapEffect(current, blur);
++
++            var gamma = new Gamma();
++            gamma.Amount.CurrentValue = 145f;
++            current = fixture.WrapEffect(current, gamma);
++
++            var shadow = new DropShadow();
++            shadow.Position.CurrentValue = new Point(7, 5);
++            shadow.Sigma.CurrentValue = new Size(3, 3);
++            shadow.Color.CurrentValue = new Color(190, 5, 10, 20);
++            current = fixture.WrapEffect(current, shadow);
++
++            var lut = new LutEffect();
++            lut.Source.CurrentValue = CreateInvertLutSource();
++            lut.Strength.CurrentValue = 85f;
++            current = fixture.WrapEffect(current, lut);
++        }
++
++        fixture.Root = current;
++        return fixture;
++    }
++
++    private static SceneFixture BuildSplitScene(bool applyEffect)
++    {
++        var fixture = new SceneFixture();
++        RenderNode source = CreateMaterializedPatternSource(altered: false);
++        if (applyEffect)
++        {
++            var split = new SplitEffect();
++            split.HorizontalDivisions.CurrentValue = 3;
++            split.VerticalDivisions.CurrentValue = 2;
++            split.HorizontalSpacing.CurrentValue = 5;
++            split.VerticalSpacing.CurrentValue = 7;
++            fixture.Root = fixture.WrapEffect(source, split);
++        }
++        else
++        {
++            fixture.Root = source;
++        }
++
++        return fixture;
++    }
++
++    private static SceneFixture BuildExternalSourceScene(bool altered)
++    {
++        return new SceneFixture { Root = CreateMaterializedPatternSource(altered) };
++    }
++
++    private static SceneFixture BuildRootOrderScene(bool includeClear)
++    {
++        var root = new ContainerRenderNode();
++        root.AddChild(new ColoredRectNode(new Rect(12, 14, 94, 76), new SKColor(240, 35, 45, 170)));
++        if (includeClear)
++            root.AddChild(new ClearRenderNode(Colors.Transparent));
++        root.AddChild(new ColoredRectNode(new Rect(74, 22, 102, 68), new SKColor(30, 90, 245, 190)));
++        return new SceneFixture { Root = root };
++    }
++
++    private static SceneFixture BuildBackdropScene(bool includeClear)
++    {
++        var root = new ContainerRenderNode();
++        root.AddChild(new ColoredRectNode(new Rect(22, 12, 128, 82), new SKColor(250, 70, 30, 130)));
++        var snapshot = new SnapshotBackdropRenderNode();
++        root.AddChild(snapshot);
++        if (includeClear)
++            root.AddChild(new ClearRenderNode(Colors.Transparent));
++        root.AddChild(new DrawBackdropRenderNode(snapshot, new Rect(0, 0, Frame.Width, Frame.Height)));
++        return new SceneFixture { Root = root };
++    }
++
++    private static RenderNode CreateMaterializedPatternSource(bool altered)
++    {
++        using IDisposable allocationClass = TargetBaselineProbe.ClassifyAllocation("ExternalMaterializedSource");
++        RenderTarget target = RenderTarget.Create(Frame.Width, Frame.Height)
++            ?? throw new InvalidOperationException("Materialized source allocation failed.");
++        var canvas = new ImmediateCanvas(target, 1f, 2f, Frame.ToSize(1));
++        canvas.Clear();
++        DrawPattern(canvas.Canvas, altered);
++        canvas.Dispose();
++        return new MaterializedSourceNode(target, new Rect(0, 0, Frame.Width, Frame.Height), 1f);
++    }
++
++    private static void DrawPattern(SKCanvas canvas, bool altered)
++    {
++        using var paint = new SKPaint { IsAntialias = true };
++        paint.Color = altered ? new SKColor(20, 210, 135, 150) : new SKColor(230, 45, 70, 145);
++        canvas.DrawRoundRect(new SKRect(14, 10, 128, 92), 12, 12, paint);
++        paint.Color = altered ? new SKColor(245, 75, 20, 205) : new SKColor(35, 145, 240, 190);
++        canvas.DrawCircle(130, 51, 38, paint);
++        paint.Color = altered ? new SKColor(70, 40, 230, 180) : new SKColor(245, 205, 35, 175);
++        using var path = new SKPath();
++        path.MoveTo(25, 88);
++        path.LineTo(94, 18);
++        path.LineTo(172, 88);
++        path.Close();
++        canvas.DrawPath(path, paint);
++
++        var random = new Random(Seed);
++        for (int i = 0; i < 24; i++)
++        {
++            paint.Color = new SKColor(
++                (byte)random.Next(30, 256),
++                (byte)random.Next(30, 256),
++                (byte)random.Next(30, 256),
++                (byte)random.Next(70, 210));
++            float x = random.Next(8, Frame.Width - 8);
++            float y = random.Next(8, Frame.Height - 8);
++            canvas.DrawCircle(x, y, random.Next(1, 5), paint);
++        }
++    }
++
++    private static SKSLScriptEffect CreateColorTimesAlphaScript()
++    {
++        var effect = new SKSLScriptEffect();
++        effect.Script.CurrentValue =
++            "uniform shader src; half4 main(float2 fc) { half4 color = src.eval(fc); return color * color.a; }";
++        return effect;
++    }
++
++    private static CubeSource CreateInvertLutSource()
++    {
++        const string cubeText =
++            "TITLE \"004 target invert\"\n"
++            + "LUT_3D_SIZE 2\n"
++            + "DOMAIN_MIN 0 0 0\n"
++            + "DOMAIN_MAX 1 1 1\n"
++            + "1 1 1\n0 1 1\n1 0 1\n0 0 1\n1 1 0\n0 1 0\n1 0 0\n0 0 0\n";
++        var source = new CubeSource();
++        source.ReadFrom(new Uri("data:text/plain;base64," + Convert.ToBase64String(Encoding.ASCII.GetBytes(cubeText))));
++        return source;
++    }
++
++    private static Drawable.Resource BuildCompositionRect(bool left)
++    {
++        var shape = new RectShape();
++        shape.AlignmentX.CurrentValue = AlignmentX.Center;
++        shape.AlignmentY.CurrentValue = AlignmentY.Center;
++        shape.Width.CurrentValue = left ? 116 : 94;
++        shape.Height.CurrentValue = left ? 78 : 62;
++        shape.Fill.CurrentValue = left
++            ? new SolidColorBrush(new Color(175, 238, 55, 55))
++            : new SolidColorBrush(new Color(185, 35, 100, 245));
++        shape.TransformOrigin.CurrentValue = RelativePoint.Center;
++        var transform = new TransformGroup();
++        var translate = new TranslateTransform();
++        translate.X.CurrentValue = left ? -26 : 38;
++        translate.Y.CurrentValue = left ? -5 : 14;
++        var rotate = new RotationTransform();
++        rotate.Rotation.CurrentValue = left ? -11 : 17;
++        transform.Children.Add(translate);
++        transform.Children.Add(rotate);
++        shape.Transform.CurrentValue = transform;
++        return shape.ToResource(CompositionContext.Default);
++    }
++
++    private static Drawable.Resource BuildNestedDrawableBrushDelay()
++    {
++        var stripes = new RectShape();
++        stripes.AlignmentX.CurrentValue = AlignmentX.Center;
++        stripes.AlignmentY.CurrentValue = AlignmentY.Center;
++        stripes.Width.CurrentValue = 100;
++        stripes.Height.CurrentValue = 70;
++        var gradient = new LinearGradientBrush();
++        gradient.StartPoint.CurrentValue = new RelativePoint(0, 0, RelativeUnit.Absolute);
++        gradient.EndPoint.CurrentValue = new RelativePoint(13, 8, RelativeUnit.Absolute);
++        gradient.SpreadMethod.CurrentValue = GradientSpreadMethod.Repeat;
++        gradient.GradientStops.Add(new GradientStop(Colors.OrangeRed, 0));
++        gradient.GradientStops.Add(new GradientStop(Colors.OrangeRed, 0.48f));
++        gradient.GradientStops.Add(new GradientStop(Colors.CornflowerBlue, 0.52f));
++        gradient.GradientStops.Add(new GradientStop(Colors.CornflowerBlue, 1));
++        stripes.Fill.CurrentValue = gradient;
++
++        var mosaic = new MosaicEffect();
++        mosaic.TileSize.CurrentValue = new Size(9, 7);
++        var delay = new DelayAnimationEffect();
++        delay.Delay.CurrentValue = 0;
++        delay.Effect.CurrentValue = mosaic;
++        stripes.FilterEffect.CurrentValue = delay;
++
++        var drawableBrush = new DrawableBrush(stripes);
++        drawableBrush.Stretch.CurrentValue = Stretch.Fill;
++        drawableBrush.TileMode.CurrentValue = TileMode.Tile;
++        drawableBrush.DestinationRect.CurrentValue = new RelativeRect(0, 0, 0.5f, 0.5f, RelativeUnit.Relative);
++
++        var host = new EllipseShape();
++        host.AlignmentX.CurrentValue = AlignmentX.Center;
++        host.AlignmentY.CurrentValue = AlignmentY.Center;
++        host.Width.CurrentValue = 154;
++        host.Height.CurrentValue = 88;
++        host.Fill.CurrentValue = drawableBrush;
++        return host.ToResource(new CompositionContext(TimeSpan.FromMilliseconds(250)));
++    }
++
++    private static Drawable.Resource BuildNestedControl()
++    {
++        var host = new EllipseShape();
++        host.AlignmentX.CurrentValue = AlignmentX.Center;
++        host.AlignmentY.CurrentValue = AlignmentY.Center;
++        host.Width.CurrentValue = 154;
++        host.Height.CurrentValue = 88;
++        host.Fill.CurrentValue = Brushes.CornflowerBlue;
++        return host.ToResource(CompositionContext.Default);
++    }
++
++    private static Drawable.Resource BuildThreeDScene(bool withTail)
++    {
++        var scene = new Scene3D();
++        scene.RenderWidth.CurrentValue = Frame.Width;
++        scene.RenderHeight.CurrentValue = Frame.Height;
++        scene.BackgroundColor.CurrentValue = new Color(255, 16, 20, 28);
++        scene.AmbientColor.CurrentValue = Colors.White;
++        scene.AmbientIntensity.CurrentValue = 0.18f;
++
++        var camera = new PerspectiveCamera();
++        camera.Position.CurrentValue = new Vector3(0, 0, 5);
++        camera.Target.CurrentValue = Vector3.Zero;
++        camera.Up.CurrentValue = Vector3.UnitY;
++        camera.FieldOfView.CurrentValue = 45;
++        camera.NearPlane.CurrentValue = 0.1f;
++        camera.FarPlane.CurrentValue = 100;
++        scene.Camera.CurrentValue = camera;
++
++        var sphere = new Sphere3D();
++        sphere.Position.CurrentValue = Vector3.Zero;
++        sphere.Radius.CurrentValue = 1.35f;
++        sphere.Segments.CurrentValue = 24;
++        sphere.Rings.CurrentValue = 16;
++        var material = new PBRMaterial();
++        material.Albedo.CurrentValue = new Color(255, 220, 82, 45);
++        material.Metallic.CurrentValue = 0.32f;
++        material.Roughness.CurrentValue = 0.38f;
++        sphere.Material.CurrentValue = material;
++        scene.Objects.Add(sphere);
++
++        var light = new DirectionalLight3D();
++        light.Direction.CurrentValue = Vector3.Normalize(new Vector3(-0.4f, -0.7f, -1));
++        light.Color.CurrentValue = Colors.White;
++        light.Intensity.CurrentValue = 1.25f;
++        light.IsEnabled = true;
++        scene.Lights.Add(light);
++
++        if (withTail)
++        {
++            var invert = new Invert();
++            invert.Amount.CurrentValue = 65f;
++            scene.FilterEffect.CurrentValue = invert;
++        }
++
++        return scene.ToResource(CompositionContext.Default);
++    }
++
++    private static Bitmap? SelectRequestedRegion(
++        Bitmap full,
++        float outputScale,
++        RequestedRegionManifest? requestedRegion)
++    {
++        if (requestedRegion == null)
++            return full.Clone();
++
++        int x = (int)MathF.Floor(requestedRegion.X * outputScale);
++        int y = (int)MathF.Floor(requestedRegion.Y * outputScale);
++        int right = (int)MathF.Ceiling((requestedRegion.X + requestedRegion.Width) * outputScale);
++        int bottom = (int)MathF.Ceiling((requestedRegion.Y + requestedRegion.Height) * outputScale);
++        int clippedX = Math.Clamp(x, 0, full.Width);
++        int clippedY = Math.Clamp(y, 0, full.Height);
++        int clippedRight = Math.Clamp(right, 0, full.Width);
++        int clippedBottom = Math.Clamp(bottom, 0, full.Height);
++        if (clippedRight <= clippedX || clippedBottom <= clippedY)
++            return null;
++
++        return full.ExtractSubset(new PixelRect(
++            clippedX,
++            clippedY,
++            clippedRight - clippedX,
++            clippedBottom - clippedY));
++    }
++
++    private static List<AllocationFailureManifest> CaptureAllocationFailures()
++    {
++        return
++        [
++            CaptureAllocationFailure("preview", maxWorkingScale: 2f, expectThrow: false),
++            CaptureAllocationFailure("delivery", maxWorkingScale: float.PositiveInfinity, expectThrow: true),
++        ];
++    }
++
++    private static AllocationFailureManifest CaptureAllocationFailure(
++        string intent,
++        float maxWorkingScale,
++        bool expectThrow)
++    {
++        FailureCapture first = RunAllocationFailure(intent, maxWorkingScale);
++        FailureCapture second = RunAllocationFailure(intent, maxWorkingScale);
++        if (first.Outcome != second.Outcome
++            || first.ExceptionType != second.ExceptionType
++            || first.ExceptionMessage != second.ExceptionMessage
++            || !CountersEqual(first.Probe.Counters, second.Probe.Counters))
++        {
++            throw new InvalidOperationException($"{intent} allocation-failure characterization is unstable.");
++        }
++
++        if (expectThrow != (first.ExceptionType != null))
++            throw new InvalidOperationException($"{intent} allocation-failure outcome did not match the target contract.");
++        if (!first.Probe.AllocationFailureConsumed)
++            throw new InvalidOperationException($"{intent} allocation-failure injection was not consumed.");
++        string requiredCounter = expectThrow ? "DeliveryAllocationThrows" : "PreviewAllocationDrops";
++        if (first.Probe.Counters.GetValueOrDefault(requiredCounter) != 1)
++            throw new InvalidOperationException($"{intent} did not increment {requiredCounter} exactly once.");
++
++        return new AllocationFailureManifest
++        {
++            Intent = intent,
++            InjectionPoint = "next EffectMaterialization RenderTarget.Create",
++            MaxWorkingScale = FloatString(maxWorkingScale),
++            Outcome = first.Outcome,
++            ExceptionType = first.ExceptionType,
++            ExceptionMessage = first.ExceptionMessage,
++            LegacyCounters = SortedCounters(first.Probe.Counters),
++            LegacyEvents = first.Probe.Events.ToArray(),
++        };
++    }
++
++    private static FailureCapture RunAllocationFailure(string intent, float maxWorkingScale)
++    {
++        using TargetBaselineProbe.Session probe = TargetBaselineProbe.Begin("allocation-failure-" + intent);
++        using var source = new AnalyticCoverageNode(stroke: false, filled: true);
++        var fixture = new SceneFixture();
++        var gamma = new Gamma();
++        gamma.Amount.CurrentValue = 165f;
++        fixture.Root = fixture.WrapEffect(source, gamma);
++        using (fixture)
++        using (IDisposable allocationClass = TargetBaselineProbe.ClassifyAllocation("ExternalRoot"))
++        using (RenderTarget target = RenderTarget.Create(Frame.Width, Frame.Height)
++               ?? throw new InvalidOperationException("Failure-characterization root allocation failed."))
++        using (var canvas = new ImmediateCanvas(target, 1f, maxWorkingScale, Frame.ToSize(1)))
++        {
++            canvas.Clear();
++            TargetBaselineProbe.ArmAllocationFailure("EffectMaterialization");
++            try
++            {
++                var processor = new RenderNodeProcessor(fixture.Root, false, 1f, maxWorkingScale);
++                RenderNodeOperation[] operations = processor.PullToRoot();
++                foreach (RenderNodeOperation operation in operations)
++                {
++                    operation.Render(canvas);
++                    operation.Dispose();
++                }
++
++                string outcome = operations.Length == 0 ? "dropped-output-without-throw" : "unexpected-output";
++                return new FailureCapture(outcome, null, null, probe.Snapshot());
++            }
++            catch (Exception ex)
++            {
++                return new FailureCapture("threw", ex.GetType().FullName, ex.Message, probe.Snapshot());
++            }
++        }
++    }
++
++    private static void AddMetadataOnlyScenes(List<SceneManifest> scenes)
++    {
++        scenes.Add(CaptureQueryScene());
++        scenes.Add(CaptureEmptyRoiScene("outside-roi", new RequestedRegionManifest
++        {
++            X = 400,
++            Y = 300,
++            Width = 25,
++            Height = 20,
++        }));
++        scenes.Add(CaptureEmptyRoiScene("empty-roi", new RequestedRegionManifest
++        {
++            X = 44,
++            Y = 31,
++            Width = 0,
++            Height = 0,
++        }));
++    }
++
++    private static SceneManifest CaptureQueryScene()
++    {
++        static (QueryManifest Query, TargetBaselineProbeSnapshot Probe) Capture()
++        {
++            using TargetBaselineProbe.Session probe = TargetBaselineProbe.Begin("bounds-hit-test-query");
++            var pen = new Pen();
++            pen.Brush.CurrentValue = Brushes.White;
++            pen.Thickness.CurrentValue = 3;
++            using var penResource = (Pen.Resource)pen.ToResource(CompositionContext.Default);
++            using var node = new EllipseRenderNode(
++                new Rect(27.5f, 14.25f, 91.5f, 67.75f),
++                Brushes.Resource.CornflowerBlue,
++                penResource);
++            var processor = new RenderNodeProcessor(node, false, 1f, 2f);
++            RenderNodeOperation[] operations = processor.PullToRoot();
++            try
++            {
++                Rect bounds = operations.Aggregate(Rect.Empty, static (value, operation) => value.Union(operation.Bounds));
++                bool inside = operations.Any(operation => operation.HitTest(new Point(73, 48)));
++                bool outside = operations.Any(operation => operation.HitTest(new Point(2, 2)));
++                var query = new QueryManifest
++                {
++                    Bounds = RectString(bounds),
++                    InsidePoint = "73,48",
++                    InsideHit = inside,
++                    OutsidePoint = "2,2",
++                    OutsideHit = outside,
++                    LegacyQueryMayExecuteNodePulls = true,
++                };
++                return (query, probe.Snapshot());
++            }
++            finally
++            {
++                RenderNodeOperation.DisposeAll(operations);
++            }
++        }
++
++        var first = Capture();
++        var second = Capture();
++        if (JsonSerializer.Serialize(first.Query) != JsonSerializer.Serialize(second.Query)
++            || !CountersEqual(first.Probe.Counters, second.Probe.Counters))
++            throw new InvalidOperationException("Bounds/hit-test query characterization is unstable.");
++        if (!first.Query.InsideHit || first.Query.OutsideHit)
++            throw new InvalidOperationException("Bounds/hit-test query control points are not discriminating.");
++
++        return new SceneManifest
++        {
++            Id = "bounds-hit-test-query",
++            Category = "query",
++            Role = "metadata",
++            Blob = null,
++            LogicalWidth = Frame.Width,
++            LogicalHeight = Frame.Height,
++            OutputScale = 1,
++            MaxWorkingScale = "2",
++            Empty = false,
++            Parameters = Parameters(("queryExecution", "legacy-pull-may-execute-work")),
++            LegacyCounters = SortedCounters(first.Probe.Counters),
++            LegacyEvents = first.Probe.Events.ToArray(),
++            Query = first.Query,
++        };
++    }
++
++    private static SceneManifest CaptureEmptyRoiScene(string id, RequestedRegionManifest region)
++    {
++        CapturedRender first = RenderManual(id, () => BuildPrimaryChain(165, 0.62f, 72), 1f, 2f, region);
++        CapturedRender second = RenderManual(id, () => BuildPrimaryChain(165, 0.62f, 72), 1f, 2f, region);
++        first.Bitmap?.Dispose();
++        second.Bitmap?.Dispose();
++        if (first.Bitmap != null || second.Bitmap != null)
++            throw new InvalidOperationException($"{id} unexpectedly produced a non-empty ROI bitmap.");
++        if (!CountersEqual(first.Probe.Counters, second.Probe.Counters))
++            throw new InvalidOperationException($"{id} legacy full-render counters are unstable.");
++
++        return new SceneManifest
++        {
++            Id = id,
++            Category = "roi",
++            Role = "metadata",
++            Blob = null,
++            LogicalWidth = Frame.Width,
++            LogicalHeight = Frame.Height,
++            OutputScale = 1,
++            MaxWorkingScale = "2",
++            RequestedRegion = region,
++            Empty = true,
++            Parameters = Parameters(("roiSemantics", "legacy-full-render-then-device-crop")),
++            LegacyCounters = SortedCounters(first.Probe.Counters),
++            LegacyEvents = first.Probe.Events.ToArray(),
++        };
++    }
++
++    private static void AddNonVacuityMetrics(
++        List<SceneManifest> scenes,
++        List<GeneratedArtifact> artifacts)
++    {
++        Dictionary<string, SceneManifest> sceneById = scenes.ToDictionary(scene => scene.Id, StringComparer.Ordinal);
++        Dictionary<string, GeneratedArtifact> artifactByFile = artifacts.ToDictionary(a => a.FileName, StringComparer.Ordinal);
++
++        foreach (SceneManifest scene in scenes.Where(scene => scene.Role == "parity"))
++        {
++            if (scene.ControlSceneId == null || !sceneById.TryGetValue(scene.ControlSceneId, out SceneManifest? control))
++                throw new InvalidOperationException($"Parity scene '{scene.Id}' has no control scene.");
++            if (scene.Blob == null || control.Blob == null)
++                throw new InvalidOperationException($"Parity/control blob missing for '{scene.Id}'.");
++
++            GeneratedArtifact actual = artifactByFile[scene.Blob];
++            GeneratedArtifact disabled = artifactByFile[control.Blob];
++            if (scene.BlobWidth != control.BlobWidth || scene.BlobHeight != control.BlobHeight)
++                throw new InvalidOperationException($"Non-vacuity dimensions differ for '{scene.Id}'.");
++
++            PixelDelta delta = Rgba16fWriter.CalculateDelta(
++                actual.Bytes,
++                disabled.Bytes,
++                scene.BlobWidth,
++                scene.BlobHeight,
++                scene.NonVacuityMode,
++                scene.NonVacuityRegion);
++            const double parityTolerance = 0.02;
++            double discriminator = Math.Max(delta.LinearRgbMae, delta.AlphaMae);
++            double margin = discriminator - parityTolerance;
++            if (margin <= 0.005)
++            {
++                throw new InvalidOperationException(
++                    $"Parity scene '{scene.Id}' is vacuous: RGB MAE={delta.LinearRgbMae:F6}, alpha MAE={delta.AlphaMae:F6}.");
++            }
++
++            scene.NonVacuity = new NonVacuityManifest
++            {
++                LinearRgbMae = delta.LinearRgbMae,
++                AlphaMae = delta.AlphaMae,
++                MaximumChannelError = delta.MaximumChannelError,
++                SampleCount = delta.SampleCount,
++                MetricMode = scene.NonVacuityMode,
++                MetricRegion = scene.NonVacuityRegion,
++                ParityTolerance = parityTolerance,
++                MarginAboveTolerance = margin,
++            };
++        }
++    }
++
++    internal static EvidenceFingerprint CaptureFingerprint(IGraphicsContext context)
++    {
++        VulkanInstance instance = GraphicsContextFactory.VulkanInstance
++            ?? throw new InvalidOperationException("The Vulkan instance was not initialized.");
++        VulkanPhysicalDeviceInfo selected = GraphicsContextFactory.GetSelectedGpuDetails()
++            ?? throw new InvalidOperationException("The selected Vulkan physical device is unavailable.");
++
++        var idProperties = new PhysicalDeviceIDProperties
++        {
++            SType = StructureType.PhysicalDeviceIDProperties,
++        };
++        var driverProperties = new PhysicalDeviceDriverProperties
++        {
++            SType = StructureType.PhysicalDeviceDriverProperties,
++            PNext = &idProperties,
++        };
++        var properties2 = new PhysicalDeviceProperties2
++        {
++            SType = StructureType.PhysicalDeviceProperties2,
++            PNext = &driverProperties,
++        };
++        instance.Vk.GetPhysicalDeviceProperties2(selected.Device, &properties2);
++
++        PhysicalDeviceProperties properties = properties2.Properties;
++        string deviceName = FixedUtf8(properties.DeviceName, Vk.MaxPhysicalDeviceNameSize);
++        string driverName = FixedUtf8(driverProperties.DriverName, Vk.MaxDriverNameSize);
++        string driverInfo = FixedUtf8(driverProperties.DriverInfo, Vk.MaxDriverInfoSize);
++        string deviceUuid = Hex(properties: idProperties.DeviceUuid, Vk.UuidSize);
++        string driverUuid = Hex(properties: idProperties.DriverUuid, Vk.UuidSize);
++        MetalFingerprint metal = CaptureMetalFingerprint();
++
++        string rendererBackend = context.Backend.ToString();
++        string skiaBackend = context switch
++        {
++            CompositeContext composite when composite.Metal != null => "Metal",
++            VulkanContext => "Vulkan",
++            _ => context.Backend.ToString(),
++        };
++
++        var fingerprint = new EvidenceFingerprint
++        {
++            OsDescription = RuntimeInformation.OSDescription,
++            OsVersion = Environment.OSVersion.VersionString,
++            OsBuild = OperatingSystem.IsMacOS() ? RunProcess("/usr/bin/sw_vers", ["-buildVersion"]).Trim() : ReadOsBuild(),
++            OsArchitecture = RuntimeInformation.OSArchitecture.ToString(),
++            ProcessArchitecture = RuntimeInformation.ProcessArchitecture.ToString(),
++            RuntimeIdentifier = RuntimeInformation.RuntimeIdentifier,
++            FrameworkDescription = RuntimeInformation.FrameworkDescription,
++            EnvironmentVersion = Environment.Version.ToString(),
++            RendererBackend = rendererBackend,
++            SkiaBackend = skiaBackend,
++            DeviceSelection = "automatic-no-preferred-device",
++            VulkanApiVersion = DecodeVulkanVersion(properties.ApiVersion),
++            VulkanVendorId = $"0x{properties.VendorID:x8}",
++            VulkanDeviceId = $"0x{properties.DeviceID:x8}",
++            VulkanDeviceType = properties.DeviceType.ToString(),
++            VulkanDeviceName = deviceName,
++            VulkanDeviceUuid = deviceUuid,
++            VulkanDriverUuid = driverUuid,
++            VulkanDriverId = driverProperties.DriverID.ToString(),
++            VulkanDriverName = driverName,
++            VulkanDriverInfo = driverInfo,
++            VulkanDriverVersionRaw = properties.DriverVersion.ToString(),
++            VulkanDriverVersionDecoded = DecodeVulkanVersion(properties.DriverVersion),
++            VulkanEnabledExtensions = GraphicsContextFactory.GetEnabledExtensions()
++                .Distinct(StringComparer.Ordinal)
++                .Order(StringComparer.Ordinal)
++                .ToArray(),
++            MetalDeviceName = metal.DeviceName,
++            MetalRegistryId = metal.RegistryId,
++            MetalFeatureFamily = metal.FeatureFamily,
++            MetalDriver = OperatingSystem.IsMacOS()
++                ? $"Apple Metal shipped with macOS build {RunProcess("/usr/bin/sw_vers", ["-buildVersion"]).Trim()}"
++                : "not-applicable",
++            SkiaSharpManagedVersion = AssemblyVersion(typeof(SKBitmap).Assembly),
++            SkiaSharpNativeVersion = SkiaSharpVersion.Native.ToString(),
++            SilkNetVulkanVersion = AssemblyVersion(typeof(Vk).Assembly),
++            BeutlEngineAssemblyVersion = AssemblyVersion(typeof(RenderNode).Assembly),
++        };
++
++        ValidateFingerprint(fingerprint);
++        return fingerprint;
++    }
++
++    private static MetalFingerprint CaptureMetalFingerprint()
++    {
++        if (!OperatingSystem.IsMacOS())
++            return new MetalFingerprint("not-applicable", "not-applicable", "not-applicable");
++
++        IntPtr device = MTLCreateSystemDefaultDevice();
++        if (device == IntPtr.Zero)
++            throw new InvalidOperationException("MTLCreateSystemDefaultDevice returned null.");
++
++        try
++        {
++            IntPtr nameObject = IntPtr_objc_msgSend(device, sel_registerName("name"));
++            IntPtr utf8 = IntPtr_objc_msgSend(nameObject, sel_registerName("UTF8String"));
++            string name = Marshal.PtrToStringUTF8(utf8)
++                ?? throw new InvalidOperationException("The Metal device name was null.");
++            ulong registryId = UInt64_objc_msgSend(device, sel_registerName("registryID"));
++            if (registryId == 0)
++                throw new InvalidOperationException("The Metal registry ID was zero.");
++
++            string systemProfiler = RunProcess("/usr/sbin/system_profiler", ["SPDisplaysDataType", "-json"]);
++            using JsonDocument document = JsonDocument.Parse(systemProfiler);
++            JsonElement gpu = document.RootElement.GetProperty("SPDisplaysDataType")[0];
++            string featureFamily = gpu.TryGetProperty("spdisplays_mtlgpufamilysupport", out JsonElement family)
++                ? family.GetString() ?? throw new InvalidOperationException("The Metal feature family was null.")
++                : throw new InvalidOperationException("system_profiler did not report the Metal feature family.");
++            return new MetalFingerprint(name, $"0x{registryId:x16}", featureFamily);
++        }
++        finally
++        {
++            objc_release(device);
++        }
++    }
++
++    private static string FixedUtf8(byte* value, uint maxLength)
++    {
++        int length = 0;
++        while (length < maxLength && value[length] != 0)
++            length++;
++        return Encoding.UTF8.GetString(new ReadOnlySpan<byte>(value, length));
++    }
++
++    private static string Hex(byte* properties, uint length)
++    {
++        return Convert.ToHexString(new ReadOnlySpan<byte>(properties, checked((int)length))).ToLowerInvariant();
++    }
++
++    private static string DecodeVulkanVersion(uint value)
++    {
++        uint major = value >> 22;
++        uint minor = (value >> 12) & 0x3ff;
++        uint patch = value & 0xfff;
++        return $"{major}.{minor}.{patch}";
++    }
++
++    private static EvidenceTools CreateEvidenceTools()
++    {
++        return new EvidenceTools
++        {
++            GeneratorPatchSha256 = RequireEnvironment("BEUTL_BASELINE_PATCH_SHA256"),
++            GeneratorScriptSha256 = RequireEnvironment("BEUTL_BASELINE_GENERATOR_SCRIPT_SHA256"),
++            PairedRunnerSha256 = RequireEnvironment("BEUTL_BASELINE_PAIRED_RUNNER_SHA256"),
++            GeneratorSourceBundleSha256 = RequireEnvironment("BEUTL_BASELINE_SOURCE_BUNDLE_SHA256"),
++        };
++    }
++
++    private static void ValidateManifest(BaselineManifest manifest, IReadOnlyList<GeneratedArtifact> artifacts)
++    {
++        if (manifest.BaselineCodeSha != BaselineSha)
++            throw new InvalidOperationException("The manifest baseline SHA changed unexpectedly.");
++        if (manifest.Scenes.Count(scene => scene.Role == "parity") == 0)
++            throw new InvalidOperationException("No parity scenes were generated.");
++        if (!manifest.Scenes.Any(scene => scene.Id == "scene3d-with-2d-tail"
++                                         && scene.LegacyCounters.GetValueOrDefault("ThreeDBoundaries") >= 1))
++            throw new InvalidOperationException("The required 3D scene did not cross a real 3D boundary.");
++        if (!manifest.Scenes.Any(scene => scene.Id == "cache-warm-hit"
++                                         && scene.LegacyCounters.GetValueOrDefault("RenderCacheHits") >= 1
++                                         && scene.LegacyCounters.GetValueOrDefault("RenderCacheCaptures") >= 1))
++            throw new InvalidOperationException("The warm-cache scene did not capture and hit a cache.");
++        if (!manifest.Scenes.Any(scene => scene.Id == "bounds-hit-test-query" && scene.Query != null))
++            throw new InvalidOperationException("The query characterization is missing.");
++        if (!manifest.Scenes.Any(scene => scene.Id == "outside-roi" && scene.Empty && scene.Blob == null)
++            || !manifest.Scenes.Any(scene => scene.Id == "empty-roi" && scene.Empty && scene.Blob == null))
++            throw new InvalidOperationException("Empty/outside ROI characterizations are missing.");
++        if (manifest.AllocationFailures.Count != 2)
++            throw new InvalidOperationException("Both preview and delivery allocation failures are required.");
++        if (manifest.AllocationFailures.Single(x => x.Intent == "preview").Outcome != "dropped-output-without-throw")
++            throw new InvalidOperationException("Preview allocation behavior changed.");
++        if (manifest.AllocationFailures.Single(x => x.Intent == "delivery").ExceptionType != typeof(InvalidOperationException).FullName)
++            throw new InvalidOperationException("Delivery allocation behavior changed.");
++
++        var artifactNames = artifacts.Select(artifact => artifact.FileName).Order(StringComparer.Ordinal).ToArray();
++        var manifestNames = manifest.ArtifactSha256.Keys.Order(StringComparer.Ordinal).ToArray();
++        if (!artifactNames.SequenceEqual(manifestNames, StringComparer.Ordinal))
++            throw new InvalidOperationException("Manifest artifact set does not match generated blobs.");
++        foreach (SceneManifest scene in manifest.Scenes.Where(scene => scene.Blob != null))
++        {
++            if (!manifest.ArtifactSha256.ContainsKey(scene.Blob!))
++                throw new InvalidOperationException($"Scene '{scene.Id}' references an unhashed blob.");
++            if (scene.Role == "parity" && scene.NonVacuity == null)
++                throw new InvalidOperationException($"Scene '{scene.Id}' has no non-vacuity evidence.");
++        }
++    }
++
++    private static void ValidateFingerprint(EvidenceFingerprint fingerprint)
++    {
++        foreach (PropertyInfo property in typeof(EvidenceFingerprint).GetProperties())
++        {
++            object? value = property.GetValue(fingerprint);
++            if (value is string text
++                && (string.IsNullOrWhiteSpace(text)
++                    || text.Contains("unknown", StringComparison.OrdinalIgnoreCase)))
++            {
++                throw new InvalidOperationException($"Fingerprint field '{property.Name}' is missing or unknown.");
++            }
++            if (value is string[] array
++                && (array.Length == 0 || array.Any(string.IsNullOrWhiteSpace)))
++            {
++                throw new InvalidOperationException($"Fingerprint field '{property.Name}' is empty.");
++            }
++        }
++    }
++
++    private static void VerifyWrittenArtifacts(BaselineManifest manifest, string outputDirectory)
++    {
++        foreach ((string fileName, string expectedHash) in manifest.ArtifactSha256)
++        {
++            string path = Path.Combine(outputDirectory, fileName);
++            if (!File.Exists(path))
++                throw new FileNotFoundException("A generated artifact is missing.", path);
++            string actualHash = Sha256Hex(File.ReadAllBytes(path));
++            if (!string.Equals(expectedHash, actualHash, StringComparison.Ordinal))
++                throw new InvalidOperationException($"Hash mismatch after writing '{fileName}'.");
++
++            SceneManifest scene = manifest.Scenes.Single(item => item.Blob == fileName);
++            long expectedLength = checked((long)scene.BlobWidth * scene.BlobHeight * 8);
++            if (new FileInfo(path).Length != expectedLength)
++                throw new InvalidOperationException($"'{fileName}' is not tightly row-packed RGBA16F.");
++        }
++    }
++
++    private static string ParseOutputDirectory(string[] args)
++    {
++        if (args.Length != 2 || args[0] != "--output-dir")
++            throw new ArgumentException("Usage: generator --output-dir <empty-directory>");
++        return Path.GetFullPath(args[1]);
++    }
++
++    private static int RunBenchmarks(string[] args)
++    {
++        if (args.Length != 2 || args[0] != "--artifacts-dir")
++            throw new ArgumentException("Usage: generator --benchmark --artifacts-dir <empty-directory>");
++
++        string root = Path.GetFullPath(args[1]);
++        Directory.CreateDirectory(root);
++        if (Directory.EnumerateFileSystemEntries(root).Any())
++            throw new InvalidOperationException($"Benchmark artifacts directory must be empty: {root}");
++
++        string bdnArtifacts = Path.Combine(root, "BenchmarkDotNet.Artifacts");
++        string counters = Path.Combine(root, "counters");
++        Directory.CreateDirectory(counters);
++        Environment.SetEnvironmentVariable(TargetBaselineBenchmarks.ArtifactsEnvironmentVariable, bdnArtifacts);
++        Environment.SetEnvironmentVariable(TargetBaselineBenchmarks.CountersEnvironmentVariable, counters);
++        Environment.SetEnvironmentVariable("BEUTL_REQUIRE_GPU", "1");
++
++        var summary = BenchmarkRunner.Run<TargetBaselineBenchmarks>();
++        return summary.HasCriticalValidationErrors ? 1 : 0;
++    }
++
++    private static void VerifyBaselineCheckout(string repositoryRoot)
++    {
++        string actual = RunProcess("git", ["-C", repositoryRoot, "rev-parse", "HEAD"]).Trim();
++        if (!string.Equals(actual, BaselineSha, StringComparison.Ordinal))
++            throw new InvalidOperationException($"Expected target SHA {BaselineSha}, found {actual}.");
++    }
++
++    private static void PrepareEmptyOutputDirectory(string outputDirectory)
++    {
++        Directory.CreateDirectory(outputDirectory);
++        if (Directory.EnumerateFileSystemEntries(outputDirectory).Any())
++            throw new InvalidOperationException($"Output directory must be empty: {outputDirectory}");
++    }
++
++    private static void SeedLogging()
++    {
++        FieldInfo? field = typeof(Log).GetField(
++            "s_loggerFactory",
++            BindingFlags.NonPublic | BindingFlags.Static);
++        field?.SetValue(null, LoggerFactory.Create(builder => builder.SetMinimumLevel(LogLevel.Warning)));
++    }
++
++    private static string RequireEnvironment(string name)
++    {
++        string? value = Environment.GetEnvironmentVariable(name);
++        if (string.IsNullOrWhiteSpace(value))
++            throw new InvalidOperationException($"Required environment variable '{name}' is missing.");
++        return value;
++    }
++
++    private static string RunProcess(string fileName, IReadOnlyList<string> arguments)
++    {
++        var startInfo = new ProcessStartInfo(fileName)
++        {
++            RedirectStandardOutput = true,
++            RedirectStandardError = true,
++            UseShellExecute = false,
++        };
++        foreach (string argument in arguments)
++            startInfo.ArgumentList.Add(argument);
++
++        using Process process = Process.Start(startInfo)
++            ?? throw new InvalidOperationException($"Failed to start '{fileName}'.");
++        string stdout = process.StandardOutput.ReadToEnd();
++        string stderr = process.StandardError.ReadToEnd();
++        process.WaitForExit();
++        if (process.ExitCode != 0)
++            throw new InvalidOperationException($"'{fileName}' exited with {process.ExitCode}: {stderr}");
++        return stdout;
++    }
++
++    private static string ReadOsBuild()
++    {
++        if (OperatingSystem.IsLinux() && File.Exists("/etc/os-release"))
++            return Sha256Hex(File.ReadAllBytes("/etc/os-release"));
++        return Environment.OSVersion.VersionString;
++    }
++
++    private static string AssemblyVersion(Assembly assembly)
++    {
++        return assembly.GetCustomAttribute<AssemblyInformationalVersionAttribute>()?.InformationalVersion
++               ?? assembly.GetName().Version?.ToString()
++               ?? throw new InvalidOperationException($"Assembly '{assembly.FullName}' has no version.");
++    }
++
++    private static string Sha256Hex(byte[] bytes)
++    {
++        return Convert.ToHexString(SHA256.HashData(bytes)).ToLowerInvariant();
++    }
++
++    private static string FloatString(float value)
++    {
++        return float.IsPositiveInfinity(value) ? "+Infinity" : value.ToString("R", System.Globalization.CultureInfo.InvariantCulture);
++    }
++
++    private static string RectString(Rect value)
++    {
++        return string.Create(System.Globalization.CultureInfo.InvariantCulture,
++            $"{value.X:R},{value.Y:R},{value.Width:R},{value.Height:R}");
++    }
++
++    private static SortedDictionary<string, string> Parameters(params (string Key, string Value)[] values)
++    {
++        var result = new SortedDictionary<string, string>(StringComparer.Ordinal);
++        foreach ((string key, string value) in values)
++            result.Add(key, value);
++        return result;
++    }
++
++    private static SortedDictionary<string, long> SortedCounters(IReadOnlyDictionary<string, long> counters)
++    {
++        var result = new SortedDictionary<string, long>(StringComparer.Ordinal);
++        foreach ((string key, long value) in counters)
++            result.Add(key, value);
++        return result;
++    }
++
++    private static bool CountersEqual(IReadOnlyDictionary<string, long> left, IReadOnlyDictionary<string, long> right)
++    {
++        return left.Count == right.Count && left.All(pair => right.GetValueOrDefault(pair.Key, long.MinValue) == pair.Value);
++    }
++
++    [DllImport("/System/Library/Frameworks/Metal.framework/Metal")]
++    private static extern IntPtr MTLCreateSystemDefaultDevice();
++
++    [DllImport("/usr/lib/libobjc.A.dylib")]
++    private static extern IntPtr sel_registerName(string name);
++
++    [DllImport("/usr/lib/libobjc.A.dylib", EntryPoint = "objc_msgSend")]
++    private static extern IntPtr IntPtr_objc_msgSend(IntPtr receiver, IntPtr selector);
++
++    [DllImport("/usr/lib/libobjc.A.dylib", EntryPoint = "objc_msgSend")]
++    private static extern ulong UInt64_objc_msgSend(IntPtr receiver, IntPtr selector);
++
++    [DllImport("/usr/lib/libobjc.A.dylib")]
++    private static extern void objc_release(IntPtr value);
++}
++
++internal static class Rgba16fWriter
++{
++    internal static byte[] Encode(Bitmap bitmap)
++    {
++        if (bitmap.ColorType != BitmapColorType.RgbaF16
++            || bitmap.AlphaType != BitmapAlphaType.Premul
++            || !bitmap.ColorSpace.Equals(BitmapColorSpace.LinearSrgb))
++        {
++            throw new InvalidOperationException("Baseline bitmap must be RgbaF16/Premul/LinearSrgb.");
++        }
++
++        byte[] bytes = new byte[checked(bitmap.Width * bitmap.Height * 8)];
++        int destination = 0;
++        for (int y = 0; y < bitmap.Height; y++)
++        {
++            ReadOnlySpan<ushort> row = bitmap.GetRow<ushort>(y);
++            if (row.Length != bitmap.Width * 4)
++                throw new InvalidOperationException("Unexpected RGBA16F row length.");
++            foreach (ushort component in row)
++            {
++                BinaryPrimitives.WriteUInt16LittleEndian(bytes.AsSpan(destination, 2), component);
++                destination += 2;
++            }
++        }
++
++        if (destination != bytes.Length)
++            throw new InvalidOperationException("RGBA16F writer did not fill the exact row-packed output.");
++        return bytes;
++    }
++
++    internal static PixelDelta CalculateDelta(
++        ReadOnlySpan<byte> left,
++        ReadOnlySpan<byte> right,
++        int width,
++        int height,
++        string mode,
++        RequestedRegionManifest? region)
++    {
++        if (left.Length != right.Length || left.Length != checked(width * height * 8))
++            throw new ArgumentException("RGBA16F buffers must have identical row-packed lengths.");
++
++        int minX = region?.X ?? 0;
++        int minY = region?.Y ?? 0;
++        int maxX = checked(minX + (region?.Width ?? width));
++        int maxY = checked(minY + (region?.Height ?? height));
++        if (minX < 0 || minY < 0 || maxX > width || maxY > height || minX >= maxX || minY >= maxY)
++            throw new ArgumentOutOfRangeException(nameof(region), "Metric region must be a non-empty subset of the image.");
++        if (mode is not ("full-frame" or "alpha-edge-band"))
++            throw new ArgumentOutOfRangeException(nameof(mode), $"Unknown non-vacuity metric mode '{mode}'.");
++
++        double rgb = 0;
++        double alpha = 0;
++        double maximum = 0;
++        int pixels = 0;
++        for (int y = minY; y < maxY; y++)
++        {
++            for (int x = minX; x < maxX; x++)
++            {
++                int pixelOffset = checked((y * width + x) * 8);
++                float leftAlpha = ReadHalf(left, pixelOffset + 6);
++                float rightAlpha = ReadHalf(right, pixelOffset + 6);
++                if (mode == "alpha-edge-band"
++                    && !IsCoverageEdge(leftAlpha)
++                    && !IsCoverageEdge(rightAlpha))
++                {
++                    continue;
++                }
++
++                pixels++;
++                for (int component = 0; component < 4; component++)
++                {
++                    int offset = pixelOffset + component * 2;
++                    double difference = Math.Abs(ReadHalf(left, offset) - ReadHalf(right, offset));
++                    maximum = Math.Max(maximum, difference);
++                    if (component == 3)
++                        alpha += difference;
++                    else
++                        rgb += difference;
++                }
++            }
++        }
++
++        if (pixels == 0)
++            throw new InvalidOperationException($"Non-vacuity metric mode '{mode}' selected no pixels.");
++
++        return new PixelDelta(rgb / (pixels * 3d), alpha / pixels, maximum, pixels);
++
++        static float ReadHalf(ReadOnlySpan<byte> bytes, int offset)
++        {
++            return (float)BitConverter.UInt16BitsToHalf(BinaryPrimitives.ReadUInt16LittleEndian(bytes.Slice(offset, 2)));
++        }
++
++        static bool IsCoverageEdge(float alpha)
++        {
++            return alpha > 0.01f && alpha < 0.75f;
++        }
++    }
++}
++
++internal sealed class SceneFixture : IDisposable
++{
++    private readonly List<IDisposable> _resources = [];
++
++    internal RenderNode Root { get; set; } = null!;
++
++    internal bool UseRenderCache { get; init; }
++
++    internal QueryManifest? Query { get; init; }
++
++    internal RenderNode WrapEffect(RenderNode input, FilterEffect effect)
++    {
++        FilterEffect.Resource resource = effect.ToResource(CompositionContext.Default);
++        _resources.Add(resource);
++        FilterEffectRenderNode node = resource.CreateRenderNode();
++        node.AddChild(input);
++        return node;
++    }
++
++    public void Dispose()
++    {
++        Root?.Dispose();
++        for (int i = _resources.Count - 1; i >= 0; i--)
++            _resources[i].Dispose();
++    }
++}
++
++internal sealed class MaterializedSourceNode(RenderTarget target, Rect bounds, float density) : RenderNode
++{
++    public override RenderNodeOperation[] Process(RenderNodeContext context)
++    {
++        return
++        [
++            RenderNodeOperation.CreateFromRenderTarget(
++                bounds,
++                bounds.Position,
++                target.ShallowCopy(),
++                EffectiveScale.At(density)),
++        ];
++    }
++
++    protected override void OnDispose(bool disposing)
++    {
++        target.Dispose();
++        base.OnDispose(disposing);
++    }
++}
++
++internal sealed class AnalyticCoverageNode(bool stroke, bool filled = false) : RenderNode
++{
++    public override RenderNodeOperation[] Process(RenderNodeContext context)
++    {
++        return
++        [
++            RenderNodeOperation.CreateLambda(
++                new Rect(10, 8, 172, 92),
++                canvas => Draw(canvas.Canvas),
++                point => new Rect(10, 8, 172, 92).Contains(point)),
++        ];
++    }
++
++    private void Draw(SKCanvas canvas)
++    {
++        using var paint = new SKPaint
++        {
++            IsAntialias = true,
++            Color = new SKColor(225, 85, 30, 205),
++            Style = filled ? SKPaintStyle.Fill : SKPaintStyle.Stroke,
++            StrokeWidth = stroke ? 1.25f : 0.75f,
++            StrokeCap = SKStrokeCap.Round,
++            StrokeJoin = SKStrokeJoin.Round,
++        };
++        if (filled)
++        {
++            canvas.DrawRoundRect(new SKRect(26.25f, 17.5f, 164.75f, 91.25f), 17, 17, paint);
++        }
++        else if (stroke)
++        {
++            using var path = new SKPath();
++            path.MoveTo(18.25f, 83.6f);
++            path.CubicTo(51.75f, 12.4f, 119.5f, 96.2f, 174.4f, 22.75f);
++            canvas.DrawPath(path, paint);
++        }
++        else
++        {
++            canvas.DrawLine(17.35f, 86.45f, 174.65f, 19.55f, paint);
++        }
++    }
++}
++
++internal sealed class ColoredRectNode(Rect bounds, SKColor color) : RenderNode
++{
++    public override RenderNodeOperation[] Process(RenderNodeContext context)
++    {
++        return
++        [
++            RenderNodeOperation.CreateLambda(
++                bounds,
++                canvas =>
++                {
++                    using var paint = new SKPaint { IsAntialias = true, Color = color };
++                    canvas.Canvas.DrawRoundRect(bounds.ToSKRect(), 9, 9, paint);
++                },
++                bounds.Contains),
++        ];
++    }
++}
++
++internal sealed class EmptySourceNode : RenderNode
++{
++    public override RenderNodeOperation[] Process(RenderNodeContext context) => [];
++}
++
++internal sealed record VisualDefinition(
++    string Id,
++    string Category,
++    string Role,
++    string? ControlSceneId,
++    PixelSize LogicalSize,
++    float OutputScale,
++    float MaxWorkingScale,
++    RequestedRegionManifest? RequestedRegion,
++    string NonVacuityMode,
++    RequestedRegionManifest? NonVacuityRegion,
++    SortedDictionary<string, string> Parameters,
++    Func<CapturedRender> Capture);
++
++internal sealed record CapturedRender(Bitmap? Bitmap, TargetBaselineProbeSnapshot Probe, QueryManifest? Query);
++
++internal sealed record FailureCapture(
++    string Outcome,
++    string? ExceptionType,
++    string? ExceptionMessage,
++    TargetBaselineProbeSnapshot Probe);
++
++internal sealed record GeneratedArtifact(string FileName, byte[] Bytes);
++
++internal sealed record PixelDelta(double LinearRgbMae, double AlphaMae, double MaximumChannelError, int SampleCount);
++
++internal sealed record MetalFingerprint(string DeviceName, string RegistryId, string FeatureFamily);
++
++internal sealed record GenerationBundle(
++    EvidenceFingerprint Fingerprint,
++    List<GeneratedArtifact> Artifacts,
++    List<SceneManifest> Scenes,
++    List<AllocationFailureManifest> AllocationFailures);
++
++internal sealed class BaselineManifest
++{
++    public int SchemaVersion { get; init; }
++    public string BaselineCodeSha { get; init; } = "";
++    public string BaselineCommitTimestamp { get; init; } = "";
++    public string PrePatchRepositoryState { get; init; } = "";
++    public string PatchedDiffSha256 { get; init; } = "";
++    public int GeneratorSeed { get; init; }
++    public string RoiBaselineMode { get; init; } = "";
++    public EvidenceTools EvidenceTools { get; init; } = new();
++    public EvidenceFingerprint Fingerprint { get; init; } = new();
++    public PixelFormatManifest PixelFormat { get; init; } = new();
++    public SortedDictionary<string, string> ArtifactSha256 { get; init; } = new(StringComparer.Ordinal);
++    public List<SceneManifest> Scenes { get; init; } = [];
++    public List<AllocationFailureManifest> AllocationFailures { get; init; } = [];
++    public BenchmarkManifest Benchmark { get; init; } = new();
++}
++
++internal sealed class EvidenceTools
++{
++    public string GeneratorPatchSha256 { get; init; } = "";
++    public string GeneratorScriptSha256 { get; init; } = "";
++    public string PairedRunnerSha256 { get; init; } = "";
++    public string GeneratorSourceBundleSha256 { get; init; } = "";
++}
++
++internal sealed class EvidenceFingerprint
++{
++    public string OsDescription { get; init; } = "";
++    public string OsVersion { get; init; } = "";
++    public string OsBuild { get; init; } = "";
++    public string OsArchitecture { get; init; } = "";
++    public string ProcessArchitecture { get; init; } = "";
++    public string RuntimeIdentifier { get; init; } = "";
++    public string FrameworkDescription { get; init; } = "";
++    public string EnvironmentVersion { get; init; } = "";
++    public string RendererBackend { get; init; } = "";
++    public string SkiaBackend { get; init; } = "";
++    public string DeviceSelection { get; init; } = "";
++    public string VulkanApiVersion { get; init; } = "";
++    public string VulkanVendorId { get; init; } = "";
++    public string VulkanDeviceId { get; init; } = "";
++    public string VulkanDeviceType { get; init; } = "";
++    public string VulkanDeviceName { get; init; } = "";
++    public string VulkanDeviceUuid { get; init; } = "";
++    public string VulkanDriverUuid { get; init; } = "";
++    public string VulkanDriverId { get; init; } = "";
++    public string VulkanDriverName { get; init; } = "";
++    public string VulkanDriverInfo { get; init; } = "";
++    public string VulkanDriverVersionRaw { get; init; } = "";
++    public string VulkanDriverVersionDecoded { get; init; } = "";
++    public string[] VulkanEnabledExtensions { get; init; } = [];
++    public string MetalDeviceName { get; init; } = "";
++    public string MetalRegistryId { get; init; } = "";
++    public string MetalFeatureFamily { get; init; } = "";
++    public string MetalDriver { get; init; } = "";
++    public string SkiaSharpManagedVersion { get; init; } = "";
++    public string SkiaSharpNativeVersion { get; init; } = "";
++    public string SilkNetVulkanVersion { get; init; } = "";
++    public string BeutlEngineAssemblyVersion { get; init; } = "";
++}
++
++internal sealed class PixelFormatManifest
++{
++    public string ColorType { get; init; } = "";
++    public string AlphaType { get; init; } = "";
++    public string ColorSpace { get; init; } = "";
++    public string Endianness { get; init; } = "";
++    public int BytesPerPixel { get; init; }
++    public string Packing { get; init; } = "";
++}
++
++internal sealed class SceneManifest
++{
++    public string Id { get; init; } = "";
++    public string Category { get; init; } = "";
++    public string Role { get; init; } = "";
++    public string? ControlSceneId { get; init; }
++    public string? Blob { get; init; }
++    public int BlobWidth { get; init; }
++    public int BlobHeight { get; init; }
++    public int LogicalWidth { get; init; }
++    public int LogicalHeight { get; init; }
++    public float OutputScale { get; init; }
++    public string MaxWorkingScale { get; init; } = "";
++    public RequestedRegionManifest? RequestedRegion { get; init; }
++    public string NonVacuityMode { get; init; } = "full-frame";
++    public RequestedRegionManifest? NonVacuityRegion { get; init; }
++    public bool Empty { get; init; }
++    public SortedDictionary<string, string> Parameters { get; init; } = new(StringComparer.Ordinal);
++    public SortedDictionary<string, long> LegacyCounters { get; init; } = new(StringComparer.Ordinal);
++    public string[] LegacyEvents { get; init; } = [];
++    public QueryManifest? Query { get; init; }
++    public NonVacuityManifest? NonVacuity { get; set; }
++}
++
++internal sealed class RequestedRegionManifest
++{
++    public int X { get; init; }
++    public int Y { get; init; }
++    public int Width { get; init; }
++    public int Height { get; init; }
++}
++
++internal sealed class QueryManifest
++{
++    public string Bounds { get; init; } = "";
++    public string InsidePoint { get; init; } = "";
++    public bool InsideHit { get; init; }
++    public string OutsidePoint { get; init; } = "";
++    public bool OutsideHit { get; init; }
++    public bool LegacyQueryMayExecuteNodePulls { get; init; }
++}
++
++internal sealed class NonVacuityManifest
++{
++    public double LinearRgbMae { get; init; }
++    public double AlphaMae { get; init; }
++    public double MaximumChannelError { get; init; }
++    public int SampleCount { get; init; }
++    public string MetricMode { get; init; } = "";
++    public RequestedRegionManifest? MetricRegion { get; init; }
++    public double ParityTolerance { get; init; }
++    public double MarginAboveTolerance { get; init; }
++}
++
++internal sealed class AllocationFailureManifest
++{
++    public string Intent { get; init; } = "";
++    public string InjectionPoint { get; init; } = "";
++    public string MaxWorkingScale { get; init; } = "";
++    public string Outcome { get; init; } = "";
++    public string? ExceptionType { get; init; }
++    public string? ExceptionMessage { get; init; }
++    public SortedDictionary<string, long> LegacyCounters { get; init; } = new(StringComparer.Ordinal);
++    public string[] LegacyEvents { get; init; } = [];
++}
++
++internal sealed class BenchmarkManifest
++{
++    public string Command { get; init; } = "";
++    public string Environment { get; init; } = "";
++    public string RawResultReference { get; init; } = "";
++    public string Status { get; init; } = "";
++}
+diff --git a/.gpu-pass-baseline/TargetBaselineBenchmarks.cs b/.gpu-pass-baseline/TargetBaselineBenchmarks.cs
+new file mode 100644
+index 0000000000000000000000000000000000000000..5c9f394fdb4ed0f4e6f61fce0308ef52524159d3
+--- /dev/null
++++ b/.gpu-pass-baseline/TargetBaselineBenchmarks.cs
+@@ -0,0 +1,265 @@
++using System.Security.Cryptography;
++using System.Text.Json;
++using BenchmarkDotNet.Attributes;
++using BenchmarkDotNet.Columns;
++using BenchmarkDotNet.Configs;
++using BenchmarkDotNet.Diagnosers;
++using BenchmarkDotNet.Engines;
++using BenchmarkDotNet.Exporters.Json;
++using BenchmarkDotNet.Jobs;
++using BenchmarkDotNet.Loggers;
++using Beutl.Graphics;
++using Beutl.Graphics.Backend;
++using Beutl.Graphics.Rendering;
++using Beutl.Media;
++using Beutl.Threading;
++
++namespace Beutl.GpuPassTargetBaselineGenerator;
++
++[Config(typeof(TargetBaselineBenchmarkConfig))]
++public class TargetBaselineBenchmarks
++{
++    public const string ArtifactsEnvironmentVariable = "BEUTL_TARGET_BASELINE_BDN_ARTIFACTS";
++    public const string CountersEnvironmentVariable = "BEUTL_TARGET_BASELINE_COUNTERS";
++    public const int SetupWarmupFrameCount = 5;
++
++    private TargetBaselineBenchmarkSession? _session;
++    private Func<TargetBaselineBenchmarkFrame>? _renderFrame;
++    private TargetBaselineProbeSnapshot? _lastProbe;
++    private ulong _expectedChecksum;
++    private string _outputSha256 = "";
++
++    [Params("NoEffectControl", "ShaderOpacityShader", "ShaderOpacityShaderBarrier")]
++    public string CaseName { get; set; } = "";
++
++    [GlobalSetup]
++    public void Setup()
++    {
++        _session = RenderThread.Dispatcher.Invoke(() => new TargetBaselineBenchmarkSession(CaseName));
++        _renderFrame = _session.RenderFrame;
++
++        for (int index = 0; index < SetupWarmupFrameCount; index++)
++        {
++            TargetBaselineBenchmarkFrame frame = RenderThread.Dispatcher.Invoke(_renderFrame);
++            if (index == 0)
++            {
++                _expectedChecksum = frame.Checksum;
++            }
++            else if (frame.Checksum != _expectedChecksum)
++            {
++                throw new InvalidOperationException(
++                    $"Benchmark warm-up output changed for {CaseName}: {_expectedChecksum} -> {frame.Checksum}.");
++            }
++        }
++
++        _outputSha256 = RenderThread.Dispatcher.Invoke(_session.ComputeOutputSha256);
++    }
++
++    [Benchmark]
++    public ulong CompleteTargetFrame()
++    {
++        Func<TargetBaselineBenchmarkFrame> render = _renderFrame
++            ?? throw new InvalidOperationException("The benchmark session was not initialized.");
++        TargetBaselineBenchmarkFrame frame = RenderThread.Dispatcher.Invoke(render);
++        if (frame.Checksum != _expectedChecksum)
++        {
++            throw new InvalidOperationException(
++                $"Measured benchmark output changed for {CaseName}: {_expectedChecksum} -> {frame.Checksum}.");
++        }
++
++        _lastProbe = frame.Probe;
++        return frame.Checksum;
++    }
++
++    [GlobalCleanup]
++    public void Cleanup()
++    {
++        TargetBaselineBenchmarkSession? session = _session;
++        if (session == null)
++            return;
++
++        TargetBaselineProbeSnapshot probe = _lastProbe
++            ?? throw new InvalidOperationException($"Benchmark case {CaseName} completed without a measured request.");
++        TargetBaselineBenchmarkCounterRecord record = RenderThread.Dispatcher.Invoke(() =>
++        {
++            var result = new TargetBaselineBenchmarkCounterRecord
++            {
++                SchemaVersion = 1,
++                CaseName = CaseName,
++                Seed = Program.Seed,
++                Width = Program.Frame.Width,
++                Height = Program.Frame.Height,
++                SetupWarmupFrames = SetupWarmupFrameCount,
++                Lifetime = "persistent-root-external-target-canvas-processor-and-node-cache",
++                RenderCachePolicy = "persistent-node-cache-present; output-cache-selection-disabled",
++                RequestShape = "complete-target-frame-with-rgba16f-readback",
++                OutputSha256 = _outputSha256,
++                OutputChecksum = _expectedChecksum.ToString("x16"),
++                Fingerprint = session.Fingerprint,
++                LastRequestCounters = SortCounters(probe.Counters),
++                LastRequestEvents = probe.Events.ToArray(),
++            };
++            session.Dispose();
++            return result;
++        });
++
++        _session = null;
++        _renderFrame = null;
++
++        string directory = Environment.GetEnvironmentVariable(CountersEnvironmentVariable)
++            ?? throw new InvalidOperationException($"{CountersEnvironmentVariable} is not set.");
++        Directory.CreateDirectory(directory);
++        string path = Path.Combine(directory, CaseName + ".json");
++        using var stream = new FileStream(path, FileMode.CreateNew, FileAccess.Write, FileShare.None);
++        JsonSerializer.Serialize(stream, record, TargetBaselineBenchmarkCounterRecord.JsonOptions);
++        stream.WriteByte((byte)'\n');
++    }
++
++    private static SortedDictionary<string, long> SortCounters(IReadOnlyDictionary<string, long> counters)
++    {
++        var result = new SortedDictionary<string, long>(StringComparer.Ordinal);
++        foreach ((string name, long value) in counters)
++            result.Add(name, value);
++        return result;
++    }
++}
++
++internal sealed class TargetBaselineBenchmarkSession : IDisposable
++{
++    private readonly SceneFixture _fixture;
++    private readonly RenderTarget _target;
++    private readonly ImmediateCanvas _canvas;
++    private readonly RenderNodeProcessor _processor;
++    private readonly Bitmap _readback;
++
++    internal TargetBaselineBenchmarkSession(string caseName)
++    {
++        IGraphicsContext graphicsContext = GraphicsContextFactory.GetOrCreateShared()
++            ?? throw new InvalidOperationException("A real GPU context is required for the starting-SHA benchmark.");
++        Fingerprint = Program.CaptureFingerprint(graphicsContext);
++        _fixture = Program.CreateBenchmarkFixture(caseName);
++        using IDisposable allocationClass = TargetBaselineProbe.ClassifyAllocation("ExternalBenchmarkRoot");
++        _target = RenderTarget.Create(Program.Frame.Width, Program.Frame.Height)
++            ?? throw new InvalidOperationException("The persistent benchmark target could not be allocated.");
++        _canvas = new ImmediateCanvas(_target, 1f, 2f, Program.Frame.ToSize(1));
++        _processor = new RenderNodeProcessor(_fixture.Root, useRenderCache: false, 1f, 2f);
++        _readback = _target.CreateSnapshotBitmap();
++    }
++
++    internal EvidenceFingerprint Fingerprint { get; }
++
++    internal TargetBaselineBenchmarkFrame RenderFrame()
++    {
++        using TargetBaselineProbe.Session probe = TargetBaselineProbe.Begin("benchmark-complete-target-frame");
++        _canvas.Clear();
++        RenderNodeOperation[] operations = _processor.PullToRoot();
++        int consumed = 0;
++        try
++        {
++            foreach (RenderNodeOperation operation in operations)
++            {
++                operation.Render(_canvas);
++                consumed++;
++                operation.Dispose();
++            }
++        }
++        catch
++        {
++            RenderNodeOperation.DisposeAll(operations.AsSpan(consumed));
++            throw;
++        }
++
++        _target.SnapshotInto(_readback);
++        ulong checksum = CalculateSparseChecksum(_readback);
++        return new TargetBaselineBenchmarkFrame(checksum, probe.Snapshot());
++    }
++
++    internal string ComputeOutputSha256()
++    {
++        byte[] bytes = Rgba16fWriter.Encode(_readback);
++        return Convert.ToHexString(SHA256.HashData(bytes)).ToLowerInvariant();
++    }
++
++    public void Dispose()
++    {
++        _readback.Dispose();
++        _canvas.Dispose();
++        _target.Dispose();
++        _fixture.Dispose();
++    }
++
++    private static ulong CalculateSparseChecksum(Bitmap bitmap)
++    {
++        const ulong offset = 14695981039346656037;
++        const ulong prime = 1099511628211;
++        ulong result = offset;
++        for (int y = 0; y < bitmap.Height; y += 11)
++        {
++            ReadOnlySpan<ushort> row = bitmap.GetRow<ushort>(y);
++            for (int x = 0; x < bitmap.Width; x += 13)
++            {
++                int pixel = x * 4;
++                for (int channel = 0; channel < 4; channel++)
++                {
++                    result ^= row[pixel + channel];
++                    result *= prime;
++                }
++            }
++        }
++
++        return result;
++    }
++}
++
++internal sealed class TargetBaselineBenchmarkConfig : ManualConfig
++{
++    internal const int BenchmarkWarmupCount = 3;
++    internal const int BenchmarkIterationCount = 15;
++
++    public TargetBaselineBenchmarkConfig()
++    {
++        AddJob(Job.Default
++            .WithId("TargetBaselinePersistentGpu")
++            .WithStrategy(RunStrategy.Monitoring)
++            .WithLaunchCount(1)
++            .WithWarmupCount(BenchmarkWarmupCount)
++            .WithIterationCount(BenchmarkIterationCount)
++            .WithInvocationCount(1)
++            .WithUnrollFactor(1));
++        AddDiagnoser(MemoryDiagnoser.Default);
++        AddColumnProvider(DefaultColumnProviders.Instance);
++        AddLogger(ConsoleLogger.Default);
++        AddExporter(JsonExporter.Full);
++
++        string artifacts = Environment.GetEnvironmentVariable(TargetBaselineBenchmarks.ArtifactsEnvironmentVariable)
++            ?? throw new InvalidOperationException(
++                $"{TargetBaselineBenchmarks.ArtifactsEnvironmentVariable} is not set.");
++        ArtifactsPath = Path.GetFullPath(artifacts);
++    }
++}
++
++internal sealed class TargetBaselineBenchmarkCounterRecord
++{
++    internal static readonly JsonSerializerOptions JsonOptions = new()
++    {
++        PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
++        WriteIndented = true,
++    };
++
++    public int SchemaVersion { get; init; }
++    public string CaseName { get; init; } = "";
++    public int Seed { get; init; }
++    public int Width { get; init; }
++    public int Height { get; init; }
++    public int SetupWarmupFrames { get; init; }
++    public string Lifetime { get; init; } = "";
++    public string RenderCachePolicy { get; init; } = "";
++    public string RequestShape { get; init; } = "";
++    public string OutputSha256 { get; init; } = "";
++    public string OutputChecksum { get; init; } = "";
++    public EvidenceFingerprint Fingerprint { get; init; } = new();
++    public SortedDictionary<string, long> LastRequestCounters { get; init; } = new(StringComparer.Ordinal);
++    public string[] LastRequestEvents { get; init; } = [];
++}
++
++internal sealed record TargetBaselineBenchmarkFrame(ulong Checksum, TargetBaselineProbeSnapshot Probe);
+diff --git a/src/Beutl.Engine/Beutl.Engine.csproj b/src/Beutl.Engine/Beutl.Engine.csproj
+index 94be6bd9303b86cbba918b341a4b395f57a2668f..11cb36556c864088484e226c1c17c88cbb9968b7 100644
+--- a/src/Beutl.Engine/Beutl.Engine.csproj
++++ b/src/Beutl.Engine/Beutl.Engine.csproj
+@@ -6,6 +6,7 @@
+     <InternalsVisibleTo Include="Beutl" />
+     <InternalsVisibleTo Include="Beutl.Graphics3DTests" />
+     <InternalsVisibleTo Include="Beutl.UnitTests" />
++    <InternalsVisibleTo Include="Beutl.GpuPassTargetBaselineGenerator" />
+   </ItemGroup>
+   <ItemGroup>
+     <ProjectReference Include="..\Beutl.Core\Beutl.Core.csproj" />
+diff --git a/src/Beutl.Engine/Graphics/FilterEffects/CustomFilterEffectContext.cs b/src/Beutl.Engine/Graphics/FilterEffects/CustomFilterEffectContext.cs
+index 71fdceff9f35246a984f594e74245f3b0b40abf7..2cba5d1ef1c276a02dfa6684e3547a51570be2fd 100644
+--- a/src/Beutl.Engine/Graphics/FilterEffects/CustomFilterEffectContext.cs
++++ b/src/Beutl.Engine/Graphics/FilterEffects/CustomFilterEffectContext.cs
+@@ -100,6 +100,8 @@ public class CustomFilterEffectContext
+         }
+ 
+         (int bw, int bh) = DeviceBufferSize(bounds, w);
++        TargetBaselineProbe.RecordLegacyCustomTargetAllocation();
++        using IDisposable allocationClass = TargetBaselineProbe.ClassifyAllocation("LegacyCustomEffectTarget");
+         using var renderTarget = RenderTarget.Create(bw, bh);
+         if (renderTarget != null)
+         {
+diff --git a/src/Beutl.Engine/Graphics/FilterEffects/FilterEffectActivator.cs b/src/Beutl.Engine/Graphics/FilterEffects/FilterEffectActivator.cs
+index 7d70aa8fab3c7c2bc6127952d9d21679035d1a01..42a3c29cce5878b22f8335eff3dfd1e85d3e32f6 100644
+--- a/src/Beutl.Engine/Graphics/FilterEffects/FilterEffectActivator.cs
++++ b/src/Beutl.Engine/Graphics/FilterEffects/FilterEffectActivator.cs
+@@ -100,6 +100,10 @@ public sealed class FilterEffectActivator(
+                         "Effect flush buffer allocation failed (non-allocatable bounds {Bounds}); preview drops this target, delivery render fails fast.",
+                         originalBounds);
+                     target.Dispose();
++                    if (float.IsPositiveInfinity(MaxWorkingScale))
++                        TargetBaselineProbe.RecordDeliveryAllocationThrow();
++                    else
++                        TargetBaselineProbe.RecordPreviewAllocationDrop();
+                     ThrowIfDeliveryAllocationFailure(
+                         $"Effect flush buffer allocation failed (non-allocatable bounds {originalBounds}).");
+                     CurrentTargets.RemoveAt(i);
+@@ -110,6 +114,8 @@ public sealed class FilterEffectActivator(
+                 float w = WorkingScale;
+                 int bw = w == 1f ? (int)target.OriginalBounds.Width : (int)MathF.Ceiling(target.OriginalBounds.Width * w);
+                 int bh = w == 1f ? (int)target.OriginalBounds.Height : (int)MathF.Ceiling(target.OriginalBounds.Height * w);
++                TargetBaselineProbe.RecordEffectMaterialization();
++                using IDisposable allocationClass = TargetBaselineProbe.ClassifyAllocation("EffectMaterialization");
+                 using RenderTarget? surface = RenderTarget.Create(bw, bh);
+ 
+                 if (surface != null)
+@@ -141,6 +147,11 @@ public sealed class FilterEffectActivator(
+                         bw, bh, w, originalBounds);
+                     target?.Dispose();
+ 
++                    if (float.IsPositiveInfinity(MaxWorkingScale))
++                        TargetBaselineProbe.RecordDeliveryAllocationThrow();
++                    else
++                        TargetBaselineProbe.RecordPreviewAllocationDrop();
++
+                     ThrowIfDeliveryAllocationFailure(
+                         $"Effect flush buffer allocation failed ({bw}x{bh} px, w {w}, bounds {originalBounds}).");
+ 
+@@ -204,6 +215,7 @@ public sealed class FilterEffectActivator(
+                         Flush();
+                         if (CurrentTargets.Count == 0) return;
+ 
++                        TargetBaselineProbe.RecordLegacyCustomEntry();
+                         var customContext = new CustomFilterEffectContext(
+                             CurrentTargets, OutputScale, WorkingScale, MaxWorkingScale);
+                         custom.Accepts(customContext);
+diff --git a/src/Beutl.Engine/Graphics/ImmediateCanvas.cs b/src/Beutl.Engine/Graphics/ImmediateCanvas.cs
+index b88ba87b54b6cb07869d483b990f588064860ebf..cb8a51d7f38d05605bc898fe99f66ed15703e6a1 100644
+--- a/src/Beutl.Engine/Graphics/ImmediateCanvas.cs
++++ b/src/Beutl.Engine/Graphics/ImmediateCanvas.cs
+@@ -58,6 +58,7 @@ public partial class ImmediateCanvas : IDisposable, IPopable
+ 
+         _currentBaseTransform = _baseTransform;
+         _renderTarget.BeginDraw();
++        TargetBaselineProbe.RecordCanvasOpened();
+     }
+ 
+     ~ImmediateCanvas()
+@@ -172,6 +173,7 @@ public partial class ImmediateCanvas : IDisposable, IPopable
+ 
+         if (!IsDisposed)
+         {
++            TargetBaselineProbe.RecordCanvasClosed();
+             if (_dispatcher == null)
+             {
+                 DisposeCore();
+diff --git a/src/Beutl.Engine/Graphics/Rendering/Cache/RenderNodeCache.cs b/src/Beutl.Engine/Graphics/Rendering/Cache/RenderNodeCache.cs
+index 913c0facb243be619bc917e7537cae131b44e5ab..ec2ce614171fa39f2feb526c0be04cbe1d5e58cd 100644
+--- a/src/Beutl.Engine/Graphics/Rendering/Cache/RenderNodeCache.cs
++++ b/src/Beutl.Engine/Graphics/Rendering/Cache/RenderNodeCache.cs
+@@ -61,6 +61,7 @@ public sealed class RenderNodeCache(RenderNode node) : IDisposable
+     public void RejectCache()
+     {
+         _cacheRejected = true;
++        TargetBaselineProbe.RecordRenderCacheRejection();
+     }
+ 
+     public void Invalidate()
+@@ -114,6 +115,7 @@ public sealed class RenderNodeCache(RenderNode node) : IDisposable
+ 
+         _cache.Add((renderTarget.ShallowCopy(), bounds));
+         Density = density;
++        TargetBaselineProbe.RecordRenderCacheCapture();
+     }
+ 
+     public IEnumerable<(RenderTarget RenderTarget, Rect Bounds)> UseCache()
+@@ -131,5 +133,6 @@ public sealed class RenderNodeCache(RenderNode node) : IDisposable
+         }
+ 
+         Density = density;
++        TargetBaselineProbe.RecordRenderCacheCapture();
+     }
+ }
+diff --git a/src/Beutl.Engine/Graphics/Rendering/RenderNodeOperation.cs b/src/Beutl.Engine/Graphics/Rendering/RenderNodeOperation.cs
+index e578cd335618c211cb94664d969109f204a6b589..67d9a36880b3f8c27763f979fa0936350940c029 100644
+--- a/src/Beutl.Engine/Graphics/Rendering/RenderNodeOperation.cs
++++ b/src/Beutl.Engine/Graphics/Rendering/RenderNodeOperation.cs
+@@ -134,7 +134,11 @@ public abstract class RenderNodeOperation : IDisposable
+ 
+         public override EffectiveScale EffectiveScale => effectiveScale;
+ 
+-        public override void Render(ImmediateCanvas canvas) => render(canvas);
++        public override void Render(ImmediateCanvas canvas)
++        {
++            TargetBaselineProbe.RecordOperationExecution();
++            render(canvas);
++        }
+ 
+         public override bool HitTest(Point point) => hitTest?.Invoke(point) ?? false;
+ 
+diff --git a/src/Beutl.Engine/Graphics/Rendering/RenderNodeProcessor.cs b/src/Beutl.Engine/Graphics/Rendering/RenderNodeProcessor.cs
+index a632359265c344f494df53d3b8a32acfd6aea610..d2a5582e64088e7801802ef43402a1e1fdec4806 100644
+--- a/src/Beutl.Engine/Graphics/Rendering/RenderNodeProcessor.cs
++++ b/src/Beutl.Engine/Graphics/Rendering/RenderNodeProcessor.cs
+@@ -63,6 +63,7 @@ public class RenderNodeProcessor(
+         bool opDisposeStarted = false;
+         try
+         {
++            using IDisposable allocationClass = TargetBaselineProbe.ClassifyAllocation("NodeMaterialization");
+             renderTarget = CreateRenderTarget(rect.Width, rect.Height);
+             if (renderTarget == null)
+             {
+@@ -242,18 +243,25 @@ public class RenderNodeProcessor(
+ 
+     public RenderNodeOperation[] Pull(RenderNode node)
+     {
++        TargetBaselineProbe.RecordNodeProcess(node);
+         if (useRenderCache && node.Cache is { IsCached: true } cache)
+         {
++            TargetBaselineProbe.RecordRenderCacheLookup(hit: true);
+             // Replay tiles with the density they were rasterized at.
+-            return cache.UseCache()
++            RenderNodeOperation[] cached = cache.UseCache()
+                 .Select(i => RenderNodeOperation.CreateFromRenderTarget(
+                     bounds: i.Bounds,
+                     position: i.Bounds.Position,
+                     renderTarget: i.RenderTarget,
+                     effectiveScale: EffectiveScale.At(cache.Density)))
+                 .ToArray();
++            TargetBaselineProbe.RecordOperationsEmitted(cached.Length);
++            return cached;
+         }
+ 
++        if (useRenderCache)
++            TargetBaselineProbe.RecordRenderCacheLookup(hit: false);
++
+         RenderNodeOperation[] input = [];
+         if (node is ContainerRenderNode container)
+         {
+@@ -268,6 +276,7 @@ public class RenderNodeProcessor(
+ 
+         var context = new RenderNodeContext(input, OutputScale, MaxWorkingScale);
+         var result = node.Process(context);
++        TargetBaselineProbe.RecordOperationsEmitted(result.Length);
+         if (useRenderCache && !context.IsRenderCacheEnabled)
+         {
+             node.Cache.ReportRenderCount(0);
+diff --git a/src/Beutl.Engine/Graphics/Rendering/RenderTarget.cs b/src/Beutl.Engine/Graphics/Rendering/RenderTarget.cs
+index f39683f655d3bb6cdf784cfad6d429100ddf6bfc..6bc5d0f03ca185d841695cf15d9dcfb2cc2679ce 100644
+--- a/src/Beutl.Engine/Graphics/Rendering/RenderTarget.cs
++++ b/src/Beutl.Engine/Graphics/Rendering/RenderTarget.cs
+@@ -49,8 +49,13 @@ public class RenderTarget : IDisposable
+ 
+     public static RenderTarget? Create(int width, int height)
+     {
++        string allocationClass = TargetBaselineProbe.CurrentAllocationClass;
++        bool succeeded = false;
+         try
+         {
++            if (TargetBaselineProbe.BeforeRenderTargetCreate(allocationClass, width, height))
++                return null;
++
+             SKSurface? surface;
+             ITexture2D? sharedTexture = null;
+             if (Dispatcher.Current == null)
+@@ -75,14 +80,20 @@ public class RenderTarget : IDisposable
+             }
+ 
+             var textureRef = sharedTexture != null ? new SKSurfaceCounter<ITexture2D>(sharedTexture) : null;
+-            return surface == null
++            RenderTarget? result = surface == null
+                 ? null
+                 : new RenderTarget(new SKSurfaceCounter<SKSurface>(surface), width, height, textureRef);
++            succeeded = result != null;
++            return result;
+         }
+         catch
+         {
+             return null;
+         }
++        finally
++        {
++            TargetBaselineProbe.AfterRenderTargetCreate(allocationClass, width, height, succeeded);
++        }
+     }
+ 
+     public static RenderTarget CreateNull(int width, int height)
+@@ -211,6 +222,7 @@ public class RenderTarget : IDisposable
+     {
+         VerifyAccess();
+ 
++        TargetBaselineProbe.RecordPrepareForSampling();
+         _surface.Value!.Flush(true, true);
+         _texture?.Value?.PrepareForSampling();
+     }
+diff --git a/src/Beutl.Engine/Graphics/Rendering/TargetBaselineProbe.cs b/src/Beutl.Engine/Graphics/Rendering/TargetBaselineProbe.cs
+new file mode 100644
+index 0000000000000000000000000000000000000000..d88c83aa384f814f4d89d0294a47df13736c049e
+--- /dev/null
++++ b/src/Beutl.Engine/Graphics/Rendering/TargetBaselineProbe.cs
+@@ -0,0 +1,247 @@
++namespace Beutl.Graphics.Rendering;
++
++// Evidence-only instrumentation. This file exists only in the patch applied to the pinned
++// target SHA; it is never compiled by the feature branch.
++internal static class TargetBaselineProbe
++{
++    [ThreadStatic]
++    private static State? s_state;
++
++    [ThreadStatic]
++    private static string? s_allocationClass;
++
++    internal static Session Begin(string requestName)
++    {
++        if (s_state != null)
++            throw new InvalidOperationException("A target-baseline probe session is already active on this thread.");
++
++        s_state = new State(requestName);
++        return new Session(s_state);
++    }
++
++    internal static string CurrentAllocationClass => s_allocationClass ?? "Unclassified";
++
++    internal static IDisposable ClassifyAllocation(string allocationClass)
++    {
++        string? previous = s_allocationClass;
++        s_allocationClass = allocationClass;
++        return new Scope(() => s_allocationClass = previous);
++    }
++
++    internal static void ArmAllocationFailure(string allocationClass)
++    {
++        State state = s_state ?? throw new InvalidOperationException("No target-baseline probe session is active.");
++        if (state.FailNextAllocationClass != null)
++            throw new InvalidOperationException("An allocation failure is already armed.");
++
++        state.FailNextAllocationClass = allocationClass;
++        state.Events.Add($"allocation-failure-armed:{allocationClass}");
++    }
++
++    internal static bool BeforeRenderTargetCreate(string allocationClass, int width, int height)
++    {
++        State? state = s_state;
++        if (state == null)
++            return false;
++
++        state.Increment("RenderTargetCreateAttempts");
++        state.Increment($"RenderTargetCreateAttempts.{allocationClass}");
++        state.Events.Add($"allocation-attempt:{allocationClass}:{width}x{height}");
++
++        if (state.FailNextAllocationClass == allocationClass)
++        {
++            state.FailNextAllocationClass = null;
++            state.AllocationFailureConsumed = true;
++            state.Events.Add($"allocation-injected-failure:{allocationClass}:{width}x{height}");
++            return true;
++        }
++
++        return false;
++    }
++
++    internal static void AfterRenderTargetCreate(string allocationClass, int width, int height, bool succeeded)
++    {
++        State? state = s_state;
++        if (state == null)
++            return;
++
++        string outcome = succeeded ? "Successes" : "Failures";
++        state.Increment($"RenderTargetCreate{outcome}");
++        state.Increment($"RenderTargetCreate{outcome}.{allocationClass}");
++        if (succeeded)
++        {
++            if (allocationClass.StartsWith("External", StringComparison.Ordinal))
++                state.Increment("ExternalRootResources");
++            else
++                state.Increment("LegacyIntermediateTargets");
++        }
++
++        state.Events.Add($"allocation-{(succeeded ? "success" : "failure")}:{allocationClass}:{width}x{height}");
++    }
++
++    internal static void RecordCanvasOpened()
++    {
++        s_state?.Increment("CanvasSessions");
++    }
++
++    internal static void RecordCanvasClosed()
++    {
++        s_state?.Increment("CanvasCloseFlushes");
++    }
++
++    internal static void RecordPrepareForSampling()
++    {
++        s_state?.Increment("PrepareForSamplingCalls");
++    }
++
++    internal static void RecordNodeProcess(RenderNode node)
++    {
++        State? state = s_state;
++        if (state == null)
++            return;
++
++        state.Increment("NodeProcessCalls");
++        state.Increment($"NodeProcessCalls.{node.GetType().Name}");
++    }
++
++    internal static void RecordOperationsEmitted(int count)
++    {
++        s_state?.Increment("OperationsEmitted", count);
++    }
++
++    internal static void RecordOperationExecution()
++    {
++        s_state?.Increment("OperationsExecuted");
++    }
++
++    internal static void RecordEffectMaterialization()
++    {
++        s_state?.Increment("EffectMaterializations");
++    }
++
++    internal static void RecordLegacyCustomEntry()
++    {
++        State? state = s_state;
++        if (state == null)
++            return;
++
++        state.Increment("LegacyCustomEntries");
++        state.Increment("OpaqueExternalExecutions");
++    }
++
++    internal static void RecordLegacyCustomTargetAllocation()
++    {
++        s_state?.Increment("LegacyCustomTargetAllocations");
++    }
++
++    internal static void RecordPreviewAllocationDrop()
++    {
++        s_state?.Increment("PreviewAllocationDrops");
++    }
++
++    internal static void RecordDeliveryAllocationThrow()
++    {
++        s_state?.Increment("DeliveryAllocationThrows");
++    }
++
++    internal static void RecordRenderCacheLookup(bool hit)
++    {
++        State? state = s_state;
++        if (state == null)
++            return;
++
++        state.Increment("RenderCacheLookups");
++        state.Increment(hit ? "RenderCacheHits" : "RenderCacheMisses");
++    }
++
++    internal static void RecordRenderCacheCapture()
++    {
++        s_state?.Increment("RenderCacheCaptures");
++    }
++
++    internal static void RecordRenderCacheRejection()
++    {
++        s_state?.Increment("RenderCacheRejections");
++    }
++
++    internal static void RecordThreeDBoundary()
++    {
++        s_state?.Increment("ThreeDBoundaries");
++    }
++
++    internal sealed class Session : IDisposable
++    {
++        private State? _state;
++
++        internal Session(State state)
++        {
++            _state = state;
++        }
++
++        internal TargetBaselineProbeSnapshot Snapshot()
++        {
++            State state = _state ?? throw new ObjectDisposedException(nameof(Session));
++            return state.CreateSnapshot();
++        }
++
++        public void Dispose()
++        {
++            State? state = Interlocked.Exchange(ref _state, null);
++            if (state == null)
++                return;
++
++            if (!ReferenceEquals(s_state, state))
++                throw new InvalidOperationException("The active target-baseline probe session changed unexpectedly.");
++            if (state.FailNextAllocationClass != null)
++                throw new InvalidOperationException(
++                    $"The armed allocation failure for '{state.FailNextAllocationClass}' was not consumed.");
++
++            s_state = null;
++            s_allocationClass = null;
++        }
++    }
++
++    internal sealed class State(string requestName)
++    {
++        private readonly Dictionary<string, long> _counters = new(StringComparer.Ordinal);
++
++        internal string RequestName { get; } = requestName;
++
++        internal List<string> Events { get; } = [];
++
++        internal string? FailNextAllocationClass { get; set; }
++
++        internal bool AllocationFailureConsumed { get; set; }
++
++        internal void Increment(string counter, long amount = 1)
++        {
++            _counters[counter] = _counters.GetValueOrDefault(counter) + amount;
++        }
++
++        internal TargetBaselineProbeSnapshot CreateSnapshot()
++        {
++            var counters = new SortedDictionary<string, long>(_counters, StringComparer.Ordinal);
++            return new TargetBaselineProbeSnapshot(
++                RequestName,
++                counters,
++                Events.ToArray(),
++                AllocationFailureConsumed);
++        }
++    }
++
++    private sealed class Scope(Action dispose) : IDisposable
++    {
++        private Action? _dispose = dispose;
++
++        public void Dispose()
++        {
++            Interlocked.Exchange(ref _dispose, null)?.Invoke();
++        }
++    }
++}
++
++internal sealed record TargetBaselineProbeSnapshot(
++    string RequestName,
++    IReadOnlyDictionary<string, long> Counters,
++    IReadOnlyList<string> Events,
++    bool AllocationFailureConsumed);
+diff --git a/src/Beutl.Engine/Graphics3D/Scene3DRenderNode.cs b/src/Beutl.Engine/Graphics3D/Scene3DRenderNode.cs
+index 8424b980f83eea3e8f19a568b19a495b4b97c0bb..7fd3cded9a1b8c9b06e42eb3688f9f04c5e545a1 100644
+--- a/src/Beutl.Engine/Graphics3D/Scene3DRenderNode.cs
++++ b/src/Beutl.Engine/Graphics3D/Scene3DRenderNode.cs
+@@ -56,6 +56,8 @@ internal sealed class Scene3DRenderNode(Scene3D.Resource scene) : RenderNode
+         if (width <= 0 || height <= 0)
+             return [];
+ 
++        TargetBaselineProbe.RecordThreeDBoundary();
++
+         // Render the 3D scene at the resolved output density. The 3D projection matrix is adjusted to
+         // compensate so that logical coordinates remain unchanged despite the dense surface.
+         float resolved = RenderNodeContext.ResolveWorkingScale([], context.OutputScale, context.MaxWorkingScale);

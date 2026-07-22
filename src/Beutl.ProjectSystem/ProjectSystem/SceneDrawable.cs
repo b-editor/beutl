@@ -156,8 +156,6 @@ public sealed partial class SceneDrawable : Drawable
 
     private class SceneBitmapRenderNode(Resource resource) : RenderNode
     {
-        private Renderer? _renderer;
-
         public (Resource Resource, int Version)? Scene { get; set; } = resource.Capture();
 
         public bool Update(Resource resource)
@@ -172,54 +170,45 @@ public sealed partial class SceneDrawable : Drawable
             return false;
         }
 
-        public override RenderNodeOperation[] Process(RenderNodeContext context)
+        public override void Process(RenderNodeContext context)
         {
             var frame = Scene?.Resource.Frame;
             if (frame == null)
-                return [];
+                return;
 
-            // Inherit the outer render scale so nested scenes are not rasterized at 1x and upscaled.
-            float w = context.OutputScale;
-            var size = frame.Value.Size;
-            if (_renderer == null
-                || _renderer.FrameSize != size
-                || _renderer.OutputScale != w
-                || _renderer.MaxWorkingScale != context.MaxWorkingScale)
+            PixelSize size = frame.Value.Size;
+            var domain = new Rect(0, 0, size.Width, size.Height);
+            using var root = new ContainerRenderNode();
+            foreach (EngineObject.Resource item in frame.Value.Objects)
             {
-                _renderer?.Dispose();
-                _renderer = new Renderer(size.Width, size.Height, w, context.MaxWorkingScale);
+                if (item is not Drawable.Resource drawableResource)
+                    continue;
+
+                var node = new DrawableRenderNode(drawableResource);
+                try
+                {
+                    using var graphics = new GraphicsContext2D(
+                        node,
+                        size.ToSize(1),
+                        context.OutputScale);
+                    drawableResource.GetOriginal().Render(graphics, drawableResource);
+                    root.AddChild(node);
+                }
+                catch
+                {
+                    node.Dispose();
+                    throw;
+                }
             }
 
-            Renderer renderer = _renderer;
-            var bounds = new Rect(0, 0, size.Width, size.Height);
-            return
-            [
-                RenderNodeOperation.CreateLambda(
-                    bounds,
-                    canvas =>
-                    {
-                        renderer.Render(frame.Value);
-                        RenderTarget renderTarget = Renderer.GetInternalRenderTarget(renderer);
-                        // Point-blit only when both buffer and canvas are at density 1; otherwise use scaled blit.
-                        if (w == 1f && canvas.Density == 1f)
-                        {
-                            canvas.DrawRenderTarget(renderTarget, default);
-                        }
-                        else
-                        {
-                            canvas.DrawRenderTargetScaled(renderTarget, bounds);
-                        }
-                    },
-                    effectiveScale: EffectiveScale.At(w))
-            ];
+            IReadOnlyList<RenderFragmentHandle> outputs = context.RecordSubtree(root);
+            context.Publish(context.Layer(outputs, domain));
         }
 
         protected override void OnDispose(bool disposing)
         {
             base.OnDispose(disposing);
             Scene = null;
-            _renderer?.Dispose();
-            _renderer = null;
         }
     }
 }

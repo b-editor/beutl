@@ -5,6 +5,7 @@ using Beutl.Graphics.Shapes;
 using Beutl.Media;
 using Beutl.ProjectSystem;
 using Beutl.UnitTests.Engine.Graphics.Backend;
+using Beutl.UnitTests.Engine.Graphics.Rendering;
 
 namespace Beutl.UnitTests.ProjectSystem;
 
@@ -42,35 +43,24 @@ public class SceneDrawableScaleTests
         return scene;
     }
 
-    // Pulls the single concrete op at the given output scale.
-    private static RenderNodeOperation PullConcreteOp(SceneDrawable drawable, Scene inner, float outputScale)
+    // Materializes the recorded nested-scene subtree and reports its concrete output metadata.
+    private static RenderNodeMeasurement MeasureConcreteOutput(
+        SceneDrawable drawable,
+        Scene inner,
+        float outputScale)
     {
-        Drawable.Resource resource = drawable.ToResource(new CompositionContext(TimeSpan.Zero));
+        using Drawable.Resource resource = drawable.ToResource(new CompositionContext(TimeSpan.Zero));
         var root = new DrawableRenderNode(resource);
         using (var ctx = new GraphicsContext2D(root, inner.FrameSize.ToSize(1), outputScale))
         {
             drawable.Render(ctx, resource);
         }
 
-        var processor = new RenderNodeProcessor(root, useRenderCache: false, outputScale: outputScale);
-        RenderNodeOperation[] ops = processor.PullToRoot();
-
-        RenderNodeOperation? concrete = null;
-        foreach (RenderNodeOperation op in ops)
-        {
-            if (concrete == null && !op.EffectiveScale.IsUnbounded)
-            {
-                concrete = op;
-            }
-            else
-            {
-                op.Dispose();
-            }
-        }
-
-        Assert.That(concrete, Is.Not.Null,
-            "SceneDrawable emitted no concrete (bitmap) op — the nested-scene surface was lost or tagged Unbounded.");
-        return concrete!;
+        using var pipeline = ScaleRecordingTestHelper.SubtreePipeline(
+            root,
+            ScaleRecordingTestHelper.Layer(new Rect(0, 0, inner.FrameSize.Width, inner.FrameSize.Height)),
+            ScaleRecordingTestHelper.Materialize());
+        return ScaleRecordingTestHelper.Measure(pipeline, outputScale);
     }
 
     [TestCase(1.0f)] // even at s_out == 1 the nested buffer is concrete At(1), not Unbounded vector.
@@ -88,16 +78,16 @@ public class SceneDrawableScaleTests
                 var drawable = new SceneDrawable();
                 drawable.ReferencedScene.CurrentValue = inner;
 
-                RenderNodeOperation op = PullConcreteOp(drawable, inner, outputScale);
+                RenderNodeMeasurement measurement = MeasureConcreteOutput(drawable, inner, outputScale);
 
                 // A nested-scene buffer is concrete bitmap supply, never Unbounded.
-                Assert.That(op.EffectiveScale.IsUnbounded, Is.False,
+                Assert.That(measurement.HasFragments, Is.True,
+                    "SceneDrawable emitted no recorded fragment for the nested scene.");
+                Assert.That(measurement.EffectiveScale.IsUnbounded, Is.False,
                     "the nested-scene surface was reported as re-rasterizable Unbounded instead of a concrete bitmap");
                 // Inherits the outer output scale as its supply density.
-                Assert.That(op.EffectiveScale.Value, Is.EqualTo(outputScale).Within(1e-4),
+                Assert.That(measurement.EffectiveScale.Value, Is.EqualTo(outputScale).Within(1e-4),
                     $"the nested scene did not inherit the outer output scale {outputScale} as its supply density");
-
-                op.Dispose();
             });
         }
         finally

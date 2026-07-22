@@ -12,8 +12,8 @@ filter effects, brushes, and shaders.
 | Scale | Type | Meaning |
 |---|---|---|
 | **Output scale `s_out`** | `Renderer.OutputScale` / `RenderNodeContext.OutputScale` | the final target only: device pixels per logical unit at the root. `1.0` = logical == device. |
-| **Effective scale** | `RenderNodeOperation.EffectiveScale` | the supply density an op's pixels actually exist at. Vector ops are `Unbounded`; bitmap ops report `At(scale)`. |
-| **Working scale `w`** | `FilterEffectContext.WorkingScale` (+ `RenderNodeContext.ResolveWorkingScale`) | the density a buffer-allocating boundary runs at, negotiated from the inputs' supply densities (falling back to `s_out` for vector-only inputs), capped by `MaxWorkingScale`. There is no per-effect policy knob. |
+| **Effective scale** | `RenderFragmentHandle.TryGetMetadata(...).EffectiveScale` | the concrete recording-time supply density at which a recorded value's pixels exist. Vector fragments are `Unbounded`; materialized bitmap fragments report `At(scale)`. Symbolic fragments return `false` until an explicit finite `Layer` establishes conservative metadata. |
+| **Working scale `w`** | `FilterEffectContext.TryGetWorkingScale` / `WorkingScale` / `RenderScaleUtilities.ResolveWorkingScale` | the density a buffer-allocating boundary runs at. The standard materializing contract negotiates from input supply densities (falling back to `s_out` for vector-only inputs); a custom filter render node may declare another positive density, including one below `s_out`. Both are capped by `MaxWorkingScale` and per-buffer bounds. There is no closed per-effect policy enum. |
 
 ## What most authors need to do: nothing
 
@@ -32,8 +32,11 @@ the CTM handles it, and a manual `× w` would double-scale and regress the resul
 ## When scale matters
 
 - **Reading the working scale.** A `CustomEffect` / SKSL / GLSL author who hand-allocates an
-  intermediate or hard-codes a pixel literal reads `CustomFilterEffectContext.WorkingScale`
-  (or `FilterEffectContext.WorkingScale`); both default to `1.0`. `CreateTarget(bounds)` already
+  intermediate or hard-codes a pixel literal reads its execution-time context or actual target scale.
+  During `ApplyTo`, first call `FilterEffectContext.TryGetWorkingScale(out w)`: it returns `false` for a
+  symbolic owning domain or multiple independent input branches, and `WorkingScale` throws instead of exposing
+  a provisional/aggregate value. Even a successful probe is the nominal effect-input density; a later expanding
+  operation can apply its own dimension clamp. `CreateTarget(bounds)` already
   allocates a `ceil(bounds × w)` device buffer tagged `EffectiveScale.At(w)`, so the runtime shader
   evaluates in DEVICE pixels: multiply any **absolute-length** pixel literal
   (tile size, displacement amount, split offset, a hard-coded `iResolution`-style constant) by `w` to
@@ -44,15 +47,24 @@ the CTM handles it, and a manual `× w` would double-scale and regress the resul
   `× w` + `iScale = w`), GLSL (`Width`/`Height` push constants `× w`, plus a `scale` push constant `= w`
   mirroring SKSL's `iScale`) — verified by `CustomEffectSupersampleTests` (Mosaic + DisplacementMap 2×-delivered vs 1:1 SSIM
   1.0000; Mosaic strictly closer to ground truth than 1:1).
-- **Working scale (supply-driven).** Every effect runs at its **input supply density** — the densest
-  concrete (bitmap) input, with `s_out` as the floor for vector-only/mixed boundaries, capped only by the
+- **Working scale (standard supply-driven, custom when declared).** Every built-in effect uses the standard
+  materializing contract — the densest concrete (bitmap) input, with `s_out` as its floor, capped by the
   global memory ceiling (`MaxWorkingScale`). `s_out` is **not** a ceiling. Resolution-sensitive effects
   (PixelSort, Dilate/Erode, Mosaic, contour Stroke/FlatShadow/PartsSplit, Displacement, custom SKSL/GLSL,
   Clipping) get a high-resolution source's detail through them for free, with no per-effect knob. There is
   **no `ResolutionPolicy`**: the earlier `Inherit`/`ClampToOutput`/`Oversample(k)`/`PreserveSource` policy
   was removed because no built-in needed a non-default value. An effect that genuinely needs a different
-  working scale (clamp-to-output for perf, oversample for SSAA) returns a `FilterEffectRenderNode` subclass from
-  `FilterEffect.Resource.CreateRenderNode()` and overrides `Process` to compute its own `w`.
+  working scale (intentional sub-output rendering, clamp-to-output for performance, or SSAA) returns a `FilterEffectRenderNode` subclass from
+  `FilterEffect.Resource.CreateRenderNode()` and overrides `GetWorkingScaleContract()`. The base folds that
+  contract into the first surviving Shader, Geometry, or legacy operation without an identity fragment or extra
+  pass. An explicit `Custom` result is not raised to the standard `s_out` floor. The callback runs once per
+  surviving branch with one input supply and that branch's isolated effect-input bounds; legacy multi-input work
+  aggregates the densest concrete result and falls back to `s_out` only when every branch is `Unbounded`. Allocation
+  clamping follows branch-local, local-origin footprints and intermediate Flushes until an opaque `CustomEffect`;
+  because that callback may combine/split targets, the transformed branch results are unioned there and subsequent
+  footprints conservatively use that aggregate domain. No authored items means a true pass-through with
+  no isolation fragment; the hook/resolver stay lazy unless `ApplyTo` probes `WorkingScale`. Override `Process`
+  only for genuinely different topology or lowering.
 - **Bitmap sources.** A decoded image/video op reports its decoded density as `EffectiveScale.At(...)`,
   distinct from its logical footprint. Mixed-scale compositing resamples off-target bitmaps via
   `ImmediateCanvas.DrawRenderTargetScaled` / `DrawSurfaceScaled` (Mitchell). 003 ships only this seam; the
@@ -107,6 +119,36 @@ For the opposite direction, keep authored logical pixel literals stable by multi
 scale before using them in device-pixel shader math: `10.0 * iScale` in SKSL or `10.0 * pc.scale` in GLSL.
 See `docs/specs/003-resolution-independent-pipeline/contracts/shader-uniforms.md` for the full uniform
 contract.
+
+## Deferred Shader and Geometry authoring
+
+Filter effects retain `ApplyTo(FilterEffectContext, FilterEffect.Resource)`. The callback records work; it
+must not compile a native program, allocate a target, snapshot, read back, flush, or draw. Use:
+
+- `context.Shader(ShaderDescription.CurrentPixel(...))` for the restricted
+  `half4 apply(half4 color)` form. Adjacent compatible stages may be composed into one GPU pass, but only
+  after upstream vector/text/path antialiasing has been resolved.
+- `context.Shader(ShaderDescription.WholeSource(...))` for coordinate-dependent sampling with an explicit
+  `RenderBoundsContract`. It is a materialization boundary and ordinary unfused pass.
+- `context.Geometry(GeometryDescription.Create(...))` for a guarded execution-time canvas callback with
+  explicit bounds, hit testing, resources, and optional readback.
+- `context.CustomEffect(...)` only for legacy or backend-specific work that cannot be described above. It
+  remains an opaque external boundary and prevents an exact physical-pass claim across that callback.
+
+`ApplyTo` must also record scale-independent structure when `TryGetWorkingScale` returns `false`. The final
+owner-domain bounds and working density are resolved later; read them from `ShaderExecutionContext`,
+`GeometrySession`, or `CustomFilterEffectContext` during execution.
+
+Shader and Geometry descriptions update `FilterEffectContext.Bounds` synchronously in authored order.
+Their execution callbacks and binding writers are scoped facades and cannot be retained. Runtime bounds,
+required regions, working density, and device size are bound after planning; do not bake them into structural
+source or keys. Register owned/borrowed objects through `FilterEffectContext.Own` or `Borrow`, declare every
+resource on the description, and provide separate structural and runtime identities when custom binders or
+pixel-affecting state require them.
+
+The former executable `RenderNodeOperation`/`RenderNodeProcessor` lifecycle is removed. Custom render nodes
+override `void Process(RenderNodeContext context)`, record semantic fragments, and publish their handles in
+the same transaction. Handles are non-executable and valid only during that recording transaction.
 
 ## The scale-1.0 guarantee
 

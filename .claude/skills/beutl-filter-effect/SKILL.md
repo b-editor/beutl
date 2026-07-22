@@ -11,7 +11,10 @@ description: |
 
 ## Overview
 
-`FilterEffect` is the base class for applying filter processing to an image. Implementations rely on SkiaSharp's `SKImageFilter` / `SKColorFilter` or on SKSL/GLSL shaders.
+`FilterEffect` is the base class for applying filter processing to an image. Authors keep the existing
+`ApplyTo(FilterEffectContext, Resource)` lifecycle and append deferred operations to the context. Prefer
+built-in operations, `ShaderDescription`, or `GeometryDescription`; use `CustomEffect` only for work that
+cannot be described declaratively because it is an opaque GPU-pass-fusion boundary.
 
 ## Implementation steps
 
@@ -38,7 +41,7 @@ public sealed partial class YourEffect : FilterEffect
     public override void ApplyTo(FilterEffectContext context, FilterEffect.Resource resource)
     {
         var r = (Resource)resource;
-        // Apply effects via context.XXX()
+        // Append built-in, Shader, Geometry, or opaque fallback work via context.XXX().
     }
 }
 ```
@@ -201,7 +204,62 @@ context.Erode(radiusX, radiusY);
 context.Transform(matrix, interpolationMode);
 ```
 
-**Custom effects:**
+**Deferred Shader effects:**
+
+```csharp
+private const string InvertSource = """
+    half4 apply(half4 color) {
+        return half4(color.a - color.rgb, color.a);
+    }
+    """;
+
+public override void ApplyTo(FilterEffectContext context, FilterEffect.Resource resource)
+{
+    context.Shader(ShaderDescription.CurrentPixel(InvertSource));
+}
+```
+
+Use `CurrentPixel` only for the restricted `half4 apply(half4 color)` form. It is validated by the
+engine and can join adjacent compatible Shader and invariant-opacity stages after upstream analytic
+coverage has been resolved. It cannot sample the implicit source or use device/screen coordinates.
+
+Use `WholeSource` for coordinate-dependent sampling. It declares an implicit `uniform shader src`, a
+`half4 main(float2 coord)` entry point, and an explicit `RenderBoundsContract`. It remains a normal
+unfused pass:
+
+```csharp
+private static readonly ShaderDescription s_offset = ShaderDescription.WholeSource(
+    """
+    uniform shader src;
+    uniform float2 offset;
+    half4 main(float2 coord) { return src.eval(coord - offset); }
+    """,
+    RenderBoundsContract.Create(
+        bounds => bounds.Inflate(8),
+        required => required.Inflate(8),
+        structuralKey: typeof(YourEffect)),
+    bindings => bindings.Uniform("offset", new System.Numerics.Vector2(8, 0)));
+```
+
+**Deferred Geometry effects:**
+
+```csharp
+context.Geometry(GeometryDescription.Create(
+    render: session => session.Canvas.Use(canvas =>
+    {
+        // The output starts transparent. Read session.Input only through its declared APIs.
+        canvas.DrawRectangle(session.OutputBounds, Brushes.Resource.White, null);
+    }),
+    bounds: RenderBoundsContract.Identity,
+    hitTest: RenderHitTestContract.Input(0),
+    structuralKey: typeof(YourEffect)));
+```
+
+`GeometrySession` is valid only during its callback. Its output allocation is initialized transparent;
+`SetOutputBounds` may shrink within the declared conservative bounds, and `DiscardOutput` publishes no
+value. Set `requiresReadback: true` only when CPU readback is genuinely required.
+
+**Opaque fallback effects:**
 
 ```csharp
 context.CustomEffect(
@@ -214,6 +272,17 @@ context.CustomEffect(
     transformBounds: (data, bounds) => bounds
 );
 ```
+
+`CustomEffect` preserves compatibility for backend-specific or otherwise uninspectable work. Its callback
+runs only during execution, but the renderer treats it as opaque external work: it cannot be fused across,
+and its internal pass/synchronization count is not claimed by request diagnostics. Do not use it merely to
+compile an ordinary SkSL effect that can be expressed with `ShaderDescription`. Supply a conservative finite
+`transformBounds` whenever possible. Omitting it declares genuinely unknown output bounds; the renderer then
+resolves the complete finite local domain of the owning destination or target scope after enclosing transforms
+and clips are known. A target-less root without an explicit `TargetDomain` fails before the callback runs. Later
+Skia/custom/Shader/Geometry items remain in the same opaque runtime sequence and use actual target bounds; only
+the sequence's final semantic output is cropped to the resolved domain. The two-argument overload is never an
+identity-bounds shortcut.
 
 ### 4. Localization
 
@@ -235,105 +304,62 @@ Create your own resource files inside the extension project, or pass a literal s
 
 ### SKSL (SkiaShaderLanguage) pattern
 
-Compile the shader in the static constructor and apply it through `CustomEffect`:
+Describe the source and bindings during `ApplyTo`; compilation and native child creation are deferred until
+execution and cached by the renderer:
 
 ```csharp
-public partial class MosaicEffect : FilterEffect
+public partial class TintEffect : FilterEffect
 {
-    private static readonly SKRuntimeEffect? s_runtimeEffect;
-
-    static MosaicEffect()
-    {
-        string sksl = """
-            uniform shader src;
-            uniform float2 tileSize;
-
-            half4 main(float2 fragCoord) {
-                float2 blockIndex = floor(fragCoord / tileSize);
-                float2 sampleCoord = blockIndex * tileSize + tileSize * 0.5;
-                return src.eval(sampleCoord);
-            }
-            """;
-
-        s_runtimeEffect = SKRuntimeEffect.CreateShader(sksl, out string? errorText);
-        if (errorText is not null)
-        {
-            // log it
+    private const string Source = """
+        uniform float amount;
+        half4 apply(half4 color) {
+            half luminance = dot(color.rgb, half3(0.2126, 0.7152, 0.0722));
+            return half4(mix(color.rgb, half3(luminance), amount), color.a);
         }
-    }
+        """;
 
     public override void ApplyTo(FilterEffectContext context, FilterEffect.Resource resource)
     {
         var r = (Resource)resource;
-        context.CustomEffect(r.TileSize, OnApplyTo, static (_, bounds) => bounds);
-    }
-
-    private static void OnApplyTo(Size tileSize, CustomFilterEffectContext c)
-    {
-        for (int i = 0; i < c.Targets.Count; i++)
-        {
-            EffectTarget target = c.Targets[i];
-            using var image = target.RenderTarget!.Value.Snapshot();
-            using var baseShader = SKShader.CreateImage(image);
-
-            var builder = new SKRuntimeShaderBuilder(s_runtimeEffect);
-            builder.Children["src"] = baseShader;
-            builder.Uniforms["tileSize"] = tileSize.ToSKSize();
-
-            var newTarget = c.CreateTarget(target.Bounds);
-            using (SKShader shader = builder.Build())
-            using (var paint = new SKPaint { Shader = shader })
-            using (var canvas = c.Open(newTarget))
-            {
-                canvas.Clear();
-                canvas.Canvas.DrawRect(
-                    new SKRect(0, 0, target.Bounds.Width, target.Bounds.Height), paint);
-            }
-            target.Dispose();
-            c.Targets[i] = newTarget;
-        }
+        context.Shader(ShaderDescription.CurrentPixel(
+            Source,
+            bindings => bindings.Uniform("amount", r.Amount)));
     }
 }
 ```
 
 ### Dynamic SKSL pattern
 
-When the user can edit the script, compile it inside the `Resource` class:
+When the user can edit the script, keep the last validated `ShaderDescription` in the generated `Resource`
+state. Do not create `SKRuntimeEffect` during recording:
 
 ```csharp
 public new partial class Resource
 {
-    internal SKRuntimeEffect? _runtimeEffect;
-    internal string? _compiledScript;
+    internal ShaderDescription? _description;
+    internal string? _validatedScript;
 
     partial void PostUpdate(YourEffect obj, RenderContext context)
     {
-        CompileScript(Script);
+        ValidateScript(Script);
     }
 
-    private void CompileScript(string script)
+    private void ValidateScript(string script)
     {
-        if (_compiledScript == script) return;
-
-        _runtimeEffect?.Dispose();
-        _compiledScript = script;
-
-        if (string.IsNullOrWhiteSpace(script)) return;
-
-        _runtimeEffect = SKRuntimeEffect.CreateShader(script, out string? errorText);
-        // handle errors
-    }
-
-    partial void PostDispose(bool disposing)
-    {
-        _runtimeEffect?.Dispose();
+        if (_validatedScript == script) return;
+        _description = string.IsNullOrWhiteSpace(script)
+            ? null
+            : ShaderDescription.CurrentPixel(script);
+        _validatedScript = script;
     }
 }
 ```
 
-### GLSL (Vulkan) pattern
+### GLSL (Vulkan) opaque fallback
 
-Use the fragment shader on Vulkan-capable environments:
+The public declarative Shader API accepts SkSL. A Vulkan-only GLSL implementation therefore remains an
+opaque `CustomEffect` fallback and must also provide a supported ordinary-2D path if the effect is expected
+to work without that backend:
 
 ```csharp
 [Display(Name = nameof(Strings.Script), ResourceType = typeof(Strings))]

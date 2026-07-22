@@ -4,6 +4,7 @@ using Beutl.Engine;
 using Beutl.Graphics.Transformation;
 using Beutl.Language;
 using Beutl.Media;
+using SkiaSharp;
 
 namespace Beutl.Graphics.Effects;
 
@@ -32,42 +33,86 @@ public sealed partial class TransformEffect : FilterEffect
         if (r.Transform != null)
         {
             var mat = r.Transform.Matrix;
+            if (mat.IsIdentity)
+                return;
+
             RelativePoint originPoint = r.TransformOrigin;
 
             if (!r.ApplyToTarget)
             {
-                Vector origin = originPoint.ToPixels(context.Bounds.Size) + context.Bounds.Position;
-                Matrix offset = Matrix.CreateTranslation(origin);
+                if (context.Bounds.IsInvalid)
+                {
+                    context.AppendSkiaFilter(
+                        (mat, originPoint, r.BitmapInterpolationMode),
+                        static (data, input, activator) =>
+                        {
+                            Rect bounds = activator.CurrentTargets.CalculateBounds();
+                            Matrix transform = CreateRelativeOriginTransform(
+                                data.mat,
+                                data.originPoint,
+                                bounds);
+                            return SKImageFilter.CreateMatrix(
+                                transform.ToSKMatrix(),
+                                data.BitmapInterpolationMode.ToSKSamplingOptions(),
+                                input);
+                        },
+                        static (data, bounds) => bounds.TransformToAABB(
+                            CreateRelativeOriginTransform(data.mat, data.originPoint, bounds)));
+                }
+                else
+                {
+                    Vector origin = originPoint.ToPixels(context.Bounds.Size) + context.Bounds.Position;
+                    Matrix offset = Matrix.CreateTranslation(origin);
 
-                Matrix transform = (-offset) * mat * offset;
-                context.Transform(transform, r.BitmapInterpolationMode);
+                    Matrix transform = (-offset) * mat * offset;
+                    context.Transform(transform, r.BitmapInterpolationMode);
+                }
             }
             else
             {
-                context.CustomEffect((mat, originPoint), static (data, effectContext) =>
-                {
-                    effectContext.ForEach((_, target) =>
+                context.CustomEffect(
+                    (mat, originPoint),
+                    static (data, effectContext) =>
                     {
-                        Vector origin = data.originPoint.ToPixels(target.Bounds.Size);
-                        Matrix offset1 = Matrix.CreateTranslation(origin + target.Bounds.Position);
-                        Matrix offset2 = Matrix.CreateTranslation(origin);
-                        Matrix m1 = -offset1 * data.mat * offset1;
-                        Matrix m2 = -offset2 * data.mat * offset2;
-
-                        EffectTarget newTarget = effectContext.CreateTarget(target.Bounds.TransformToAABB(m1));
-                        using var canvas = effectContext.Open(newTarget);
-                        using (canvas.PushTransform(Matrix.CreateTranslation(target.Bounds.Position - newTarget.Bounds.Position)))
-                        using (canvas.PushTransform(m2))
+                        effectContext.ForEach((_, target) =>
                         {
-                            canvas.Clear();
-                            target.Draw(canvas);
-                        }
+                            Vector origin = data.originPoint.ToPixels(target.Bounds.Size);
+                            Matrix offset = Matrix.CreateTranslation(origin);
+                            Matrix transform = -offset * data.mat * offset;
 
-                        target.Dispose();
-                        return newTarget;
-                    });
-                });
+                            EffectTarget newTarget = effectContext.CreateTarget(TransformBounds(data, target.Bounds));
+                            using var canvas = effectContext.Open(newTarget);
+                            using (canvas.PushTransform(Matrix.CreateTranslation(
+                                       target.Bounds.Position - newTarget.Bounds.Position)))
+                            using (canvas.PushTransform(transform))
+                            {
+                                canvas.Clear();
+                                target.Draw(canvas);
+                            }
+
+                            target.Dispose();
+                            return newTarget;
+                        });
+                    },
+                    TransformBounds);
             }
         }
+    }
+
+    private static Rect TransformBounds((Matrix mat, RelativePoint originPoint) data, Rect bounds)
+    {
+        Vector origin = data.originPoint.ToPixels(bounds.Size);
+        Matrix offset = Matrix.CreateTranslation(origin + bounds.Position);
+        return bounds.TransformToAABB(-offset * data.mat * offset);
+    }
+
+    private static Matrix CreateRelativeOriginTransform(
+        Matrix matrix,
+        RelativePoint originPoint,
+        Rect bounds)
+    {
+        Vector origin = originPoint.ToPixels(bounds.Size) + bounds.Position;
+        Matrix offset = Matrix.CreateTranslation(origin);
+        return (-offset) * matrix * offset;
     }
 }

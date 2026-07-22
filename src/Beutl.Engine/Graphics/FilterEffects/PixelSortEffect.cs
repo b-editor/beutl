@@ -345,7 +345,7 @@ public sealed partial class PixelSortEffect : FilterEffect
                     });
 
                 // Pass 3: Gather + Restore - place pixels by rank, restore anchors
-                EffectTarget newTarget = ctx.CreateTarget(target.Bounds);
+                EffectTarget newTarget = ctx.CreateTargetLike(target);
                 RenderTarget? newRenderTarget = newTarget.RenderTarget;
 
                 if (newRenderTarget?.Texture == null)

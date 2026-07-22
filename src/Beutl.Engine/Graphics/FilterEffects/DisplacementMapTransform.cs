@@ -121,7 +121,8 @@ public partial class DisplacementMapTranslateTransform : DisplacementMapTransfor
                     // 新しいターゲットに適用
                     c.Targets[i] = s_shader.ApplyToNewTarget(c, builder, effectTarget.Bounds);
                 }
-            });
+            },
+            static (_, bounds) => bounds);
     }
 }
 
@@ -243,7 +244,8 @@ public partial class DisplacementMapScaleTransform : DisplacementMapTransform
                     // 新しいターゲットに適用
                     c.Targets[i] = s_shader.ApplyToNewTarget(c, builder, effectTarget.Bounds);
                 }
-            });
+            },
+            static (_, bounds) => bounds);
     }
 }
 
@@ -361,6 +363,7 @@ public partial class DisplacementMapRotationTransform : DisplacementMapTransform
                     // 新しいターゲットに適用
                     c.Targets[i] = s_shader.ApplyToNewTarget(c, builder, effectTarget.Bounds);
                 }
-            });
+            },
+            static (_, bounds) => bounds);
     }
 }
