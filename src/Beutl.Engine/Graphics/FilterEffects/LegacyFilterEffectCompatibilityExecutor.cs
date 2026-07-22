@@ -148,11 +148,11 @@ internal static class LegacyFilterEffectCompatibilityExecutor
                         tileMode,
                         tileMode,
                         SKSamplingOptions.Default,
-                        CreateInputLocalMatrix(
+                        RasterShaderMapping.CreateLocalMatrix(
                             output.Scale.Value,
                             input.Scale.Value,
-                            output.DeviceBounds,
-                            input.DeviceBounds));
+                            output.RasterBounds,
+                            input.RasterBounds));
                     children.Add(inputShader);
                     builder.Children[childName] = inputShader;
 
@@ -505,31 +505,6 @@ internal static class LegacyFilterEffectCompatibilityExecutor
                     ? value.Floats![0]
                     : value.Floats!;
         }
-    }
-
-    private static SKMatrix CreateInputLocalMatrix(
-        float outputScale,
-        float inputScale,
-        PixelRect outputDeviceBounds,
-        PixelRect inputDeviceBounds)
-    {
-        float scale = outputScale / inputScale;
-        float outputOriginX = outputDeviceBounds.X / outputScale;
-        float outputOriginY = outputDeviceBounds.Y / outputScale;
-        float inputOriginX = inputDeviceBounds.X / inputScale;
-        float inputOriginY = inputDeviceBounds.Y / inputScale;
-        float offsetX = (outputOriginX - inputOriginX) * inputScale;
-        float offsetY = (outputOriginY - inputOriginY) * inputScale;
-        return new SKMatrix(
-            scale,
-            0,
-            -offsetX * scale,
-            0,
-            scale,
-            -offsetY * scale,
-            0,
-            0,
-            1);
     }
 
     private static bool Contains(PixelRect outer, PixelRect inner)

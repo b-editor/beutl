@@ -103,20 +103,25 @@ public partial class FlatShadow : FilterEffect
             using (ImmediateCanvas newCanvas = context.Open(newTarget))
             {
                 newCanvas.Clear();
-                // Contour path is device px; shadow extrusion uses device-space coordinates.
-                float w = context.WorkingScale;
-                // CreateTarget may clamp below w; compensate with Scale(wOut / w).
+                float w = target.Scale.Value;
                 float wOut = newTarget.Scale.Value;
+                Vector rasterOrigin = target.RasterBounds.Position - target.Bounds.Position;
+                path.Transform(SKMatrix.CreateScaleTranslation(
+                    1f / w,
+                    1f / w,
+                    (float)rasterOrigin.X,
+                    (float)rasterOrigin.Y));
+                Vector outputOrigin = target.Bounds.Position - newTarget.Bounds.Position;
 
-                using (newCanvas.PushDeviceSpace())
-                using (w == wOut ? default : newCanvas.PushTransform(Matrix.CreateScale(wOut / w, wOut / w)))
-                using (newCanvas.PushTransform(Matrix.CreateTranslation((x2Abs - x2) / 2 * w, (y2Abs - y2) / 2 * w)))
+                using (newCanvas.PushTransform(Matrix.CreateTranslation(outputOrigin.X, outputOrigin.Y)))
                 {
                     float lenAbs = Math.Abs(length) * w;
                     int unit = Math.Sign(length);
                     for (int i = 0; i < lenAbs; i++)
                     {
-                        newCanvas.Transform = Matrix.CreateTranslation(x1 * unit, y1 * unit) * newCanvas.Transform;
+                        newCanvas.Transform = Matrix.CreateTranslation(
+                            x1 * unit / w,
+                            y1 * unit / w) * newCanvas.Transform;
                         newCanvas.Canvas.DrawPath(path, paint);
                     }
                 }
@@ -125,16 +130,19 @@ public partial class FlatShadow : FilterEffect
                 var c = new BrushConstructor(new(newTarget.Bounds.Size), brush, BlendMode.SrcIn, wOut,
                     context.MaxWorkingScale);
                 c.ConfigurePaint(brushPaint);
-                newCanvas.Canvas.DrawRect(SKRect.Create(newTarget.Bounds.Width, newTarget.Bounds.Height), brushPaint);
+                Vector outputRasterOrigin = newTarget.RasterBounds.Position - newTarget.Bounds.Position;
+                newCanvas.Canvas.DrawRect(
+                    new SKRect(
+                        (float)outputRasterOrigin.X,
+                        (float)outputRasterOrigin.Y,
+                        (float)(outputRasterOrigin.X + newTarget.RasterBounds.Width),
+                        (float)(outputRasterOrigin.Y + newTarget.RasterBounds.Height)),
+                    brushPaint);
 
                 if (!data.ShadowOnly)
                 {
-                    using (newCanvas.PushDeviceSpace())
-                    using (w == wOut ? default : newCanvas.PushTransform(Matrix.CreateScale(wOut / w, wOut / w)))
-                    {
-                        newCanvas.DrawRenderTarget(target.RenderTarget!,
-                            new((x2Abs - x2) / 2 * w, (y2Abs - y2) / 2 * w));
-                    }
+                    using (newCanvas.PushTransform(Matrix.CreateTranslation(outputOrigin.X, outputOrigin.Y)))
+                        target.Draw(newCanvas);
                 }
             }
 

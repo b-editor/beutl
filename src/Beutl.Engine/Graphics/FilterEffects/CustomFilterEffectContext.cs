@@ -2,6 +2,7 @@
 using Beutl.Logging;
 using Beutl.Media;
 using Microsoft.Extensions.Logging;
+using SkiaSharp;
 
 namespace Beutl.Graphics.Effects;
 
@@ -138,7 +139,12 @@ public class CustomFilterEffectContext
         return CreateTargetCore(bounds, w, deviceBounds);
     }
 
-    internal EffectTarget CreateTargetLike(EffectTarget source)
+    /// <summary>
+    /// Creates a replacement target with the source's complete physical footprint and current
+    /// logical placement. Use this for same-bounds raster effects so fractional-origin pixels and
+    /// raster aprons are preserved.
+    /// </summary>
+    public EffectTarget CreateTargetLike(EffectTarget source)
     {
         ArgumentNullException.ThrowIfNull(source);
         if (source.RenderTarget is null || source.Scale.IsUnbounded)
@@ -159,6 +165,36 @@ public class CustomFilterEffectContext
                 source.Bounds);
             return new EffectTarget();
         }
+    }
+
+    /// <summary>
+    /// Creates a child shader that maps destination backing-buffer coordinates to the source
+    /// target's current physical raster placement.
+    /// </summary>
+    /// <remarks>The caller owns and must dispose the returned shader.</remarks>
+    public SKShader CreateMappedInputShader(
+        EffectTarget source,
+        EffectTarget destination,
+        SKShader sourceShader)
+    {
+        ArgumentNullException.ThrowIfNull(source);
+        ArgumentNullException.ThrowIfNull(destination);
+        ArgumentNullException.ThrowIfNull(sourceShader);
+        if (source.RenderTarget is null || source.Scale.IsUnbounded)
+            throw new ArgumentException("The source must have a materialized target and concrete scale.", nameof(source));
+        if (destination.RenderTarget is null || destination.Scale.IsUnbounded)
+        {
+            throw new ArgumentException(
+                "The destination must have a materialized target and concrete scale.",
+                nameof(destination));
+        }
+
+        return sourceShader.WithLocalMatrix(
+            RasterShaderMapping.CreateLocalMatrix(
+                destination.Scale.Value,
+                source.Scale.Value,
+                destination.RasterBounds,
+                source.RasterBounds));
     }
 
     private static EffectTarget CreateTargetCore(Rect bounds, float density, PixelRect deviceBounds)

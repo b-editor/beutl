@@ -2,6 +2,7 @@
 using Beutl.Graphics.Effects;
 using Beutl.Graphics.Rendering;
 using Beutl.Media;
+using SkiaSharp;
 
 namespace Beutl.PublicApiContractTests;
 
@@ -53,6 +54,34 @@ public sealed class RasterFootprintContractTests
             Assert.That(deviceBounds.Size, Is.EqualTo(new PixelSize(17, 13)));
             Assert.That(CustomFilterEffectContext.DeviceBufferSize(bounds, density),
                 Is.EqualTo((deviceBounds.Width, deviceBounds.Height)));
+        });
+    }
+
+    [Test]
+    public void LegacyCustomShaderApi_SeparatesAllocationMappingAndRendering()
+    {
+        Type contextType = typeof(CustomFilterEffectContext);
+        Type shaderType = typeof(SKSLShader);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(
+                contextType.GetMethod(
+                    nameof(CustomFilterEffectContext.CreateTargetLike),
+                    [typeof(EffectTarget)]),
+                Is.Not.Null);
+            Assert.That(
+                contextType.GetMethod(
+                    nameof(CustomFilterEffectContext.CreateMappedInputShader),
+                    [typeof(EffectTarget), typeof(EffectTarget), typeof(SKShader)]),
+                Is.Not.Null);
+            Assert.That(
+                shaderType.GetMethod(
+                    nameof(SKSLShader.RenderToTarget),
+                    [typeof(CustomFilterEffectContext), typeof(SKRuntimeShaderBuilder), typeof(EffectTarget)]),
+                Is.Not.Null);
+            Assert.That(shaderType.GetMethod("ApplyToNewTarget"), Is.Null,
+                "the allocation-owning compatibility overload must not remain public");
         });
     }
 }

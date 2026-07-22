@@ -176,7 +176,6 @@ public sealed partial class Curves : FilterEffect
 
             var builder = s_shader.CreateBuilder();
 
-            builder.Children["src"] = baseShader;
             builder.Children["masterCurve"] = master;
             builder.Children["redCurve"] = red;
             builder.Children["greenCurve"] = green;
@@ -187,8 +186,20 @@ public sealed partial class Curves : FilterEffect
             builder.Children["lumaVsSat"] = lumSat;
             builder.Children["satVsSat"] = satSat;
 
-            // 新しいターゲットに適用
-            context.Targets[i] = s_shader.ApplyToNewTarget(context, builder, target.Bounds);
+            EffectTarget output = context.CreateTargetLike(target);
+            try
+            {
+                using SKShader mappedSource =
+                    context.CreateMappedInputShader(target, output, baseShader);
+                builder.Children["src"] = mappedSource;
+                s_shader.RenderToTarget(context, builder, output);
+                context.Targets[i] = output;
+            }
+            catch
+            {
+                output.Dispose();
+                throw;
+            }
         }
     }
 }

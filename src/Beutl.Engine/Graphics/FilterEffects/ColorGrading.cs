@@ -244,7 +244,6 @@ public sealed partial class ColorGrading : FilterEffect
             using SKShader baseShader = image.ToShader(SKShaderTileMode.Decal, SKShaderTileMode.Decal);
             var builder = s_shader.CreateBuilder();
 
-            builder.Children["src"] = baseShader;
             builder.Uniforms["exposure"] = data.Exposure;
             builder.Uniforms["contrast"] = data.Contrast / 100f;
             builder.Uniforms["contrastPivot"] = data.ContrastPivot;
@@ -271,8 +270,20 @@ public sealed partial class ColorGrading : FilterEffect
             builder.Uniforms["gain"] = ToColorVector(data.Gain, 0.0f);
             builder.Uniforms["offset"] = ToColorVector(data.Offset);
 
-            // 新しいターゲットに適用
-            context.Targets[i] = s_shader.ApplyToNewTarget(context, builder, target.Bounds);
+            EffectTarget output = context.CreateTargetLike(target);
+            try
+            {
+                using SKShader mappedSource =
+                    context.CreateMappedInputShader(target, output, baseShader);
+                builder.Children["src"] = mappedSource;
+                s_shader.RenderToTarget(context, builder, output);
+                context.Targets[i] = output;
+            }
+            catch
+            {
+                output.Dispose();
+                throw;
+            }
         }
     }
 

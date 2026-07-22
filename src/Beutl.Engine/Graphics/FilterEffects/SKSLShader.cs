@@ -68,32 +68,31 @@ public sealed class SKSLShader : IDisposable
         return new SKRuntimeShaderBuilder(_effect);
     }
 
-    public EffectTarget ApplyToNewTarget(CustomFilterEffectContext context, SKRuntimeShaderBuilder builder, Rect bounds)
+    /// <summary>
+    /// Renders a configured runtime shader over the complete backing buffer of an existing target.
+    /// The caller retains ownership of <paramref name="target"/>, including when rendering fails.
+    /// </summary>
+    public void RenderToTarget(
+        CustomFilterEffectContext context,
+        SKRuntimeShaderBuilder builder,
+        EffectTarget target)
     {
-        var newTarget = context.CreateTarget(bounds);
-        try
-        {
-            using (SKShader finalShader = builder.Build())
-            using (var paint = new SKPaint())
-            using (var canvas = context.Open(newTarget))
-            {
-                paint.Shader = finalShader;
-                canvas.Clear();
-                // Cover the full device buffer in device space.
-                float dw = context.WorkingScale == 1f ? (float)bounds.Width : newTarget.RenderTarget!.Width;
-                float dh = context.WorkingScale == 1f ? (float)bounds.Height : newTarget.RenderTarget!.Height;
-                using (canvas.PushDeviceSpace())
-                {
-                    canvas.Canvas.DrawRect(new SKRect(0, 0, dw, dh), paint);
-                }
-            }
+        ObjectDisposedException.ThrowIf(_disposed, this);
+        ArgumentNullException.ThrowIfNull(context);
+        ArgumentNullException.ThrowIfNull(builder);
+        ArgumentNullException.ThrowIfNull(target);
+        if (target.RenderTarget is null || target.Scale.IsUnbounded)
+            throw new ArgumentException("The target must be materialized with a concrete scale.", nameof(target));
 
-            return newTarget;
-        }
-        catch
+        using SKShader finalShader = builder.Build();
+        using var paint = new SKPaint { Shader = finalShader };
+        using ImmediateCanvas canvas = context.Open(target);
+        canvas.Clear();
+        using (canvas.PushDeviceSpace())
         {
-            newTarget.Dispose();
-            throw;
+            canvas.Canvas.DrawRect(
+                SKRect.Create(target.RenderTarget.Width, target.RenderTarget.Height),
+                paint);
         }
     }
 

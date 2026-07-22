@@ -85,11 +85,23 @@ public sealed partial class Invert : FilterEffect
             using SKShader baseShader = image.ToShader(SKShaderTileMode.Decal, SKShaderTileMode.Decal);
             var builder = s_shader.CreateBuilder();
 
-            builder.Children["src"] = baseShader;
             builder.Uniforms["amount"] = data.Amount / 100f;
             builder.Uniforms["excludeAlpha"] = data.ExcludeAlphaChannel ? 1 : 0;
 
-            context.Targets[i] = s_shader.ApplyToNewTarget(context, builder, target.Bounds);
+            EffectTarget output = context.CreateTargetLike(target);
+            try
+            {
+                using SKShader mappedSource =
+                    context.CreateMappedInputShader(target, output, baseShader);
+                builder.Children["src"] = mappedSource;
+                s_shader.RenderToTarget(context, builder, output);
+                context.Targets[i] = output;
+            }
+            catch
+            {
+                output.Dispose();
+                throw;
+            }
         }
     }
 }

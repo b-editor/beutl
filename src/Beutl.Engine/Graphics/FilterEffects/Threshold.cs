@@ -90,12 +90,24 @@ public sealed partial class Threshold : FilterEffect
             using SKShader baseShader = image.ToShader(SKShaderTileMode.Decal, SKShaderTileMode.Decal);
             var builder = s_shader.CreateBuilder();
 
-            builder.Children["src"] = baseShader;
             builder.Uniforms["threshold"] = data.Value / 100f;
             builder.Uniforms["smoothness"] = data.Smoothness / 100f;
             builder.Uniforms["strength"] = data.Strength / 100f;
 
-            context.Targets[i] = s_shader.ApplyToNewTarget(context, builder, target.Bounds);
+            EffectTarget output = context.CreateTargetLike(target);
+            try
+            {
+                using SKShader mappedSource =
+                    context.CreateMappedInputShader(target, output, baseShader);
+                builder.Children["src"] = mappedSource;
+                s_shader.RenderToTarget(context, builder, output);
+                context.Targets[i] = output;
+            }
+            catch
+            {
+                output.Dispose();
+                throw;
+            }
         }
     }
 }

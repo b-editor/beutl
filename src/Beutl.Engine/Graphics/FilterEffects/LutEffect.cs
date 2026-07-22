@@ -253,12 +253,24 @@ public sealed partial class LutEffect : FilterEffect
             }
             using var lutShader = lutImage.ToShader();
 
-            builder.Children["src"] = baseShader;
             builder.Children["lut"] = lutShader;
             builder.Uniforms["lutSize"] = data.cube.Size;
             builder.Uniforms["strength"] = data.strength;
 
-            c.Targets[i] = s_1dShader.ApplyToNewTarget(c, builder, effectTarget.Bounds);
+            EffectTarget output = c.CreateTargetLike(effectTarget);
+            try
+            {
+                using SKShader mappedSource =
+                    c.CreateMappedInputShader(effectTarget, output, baseShader);
+                builder.Children["src"] = mappedSource;
+                s_1dShader.RenderToTarget(c, builder, output);
+                c.Targets[i] = output;
+            }
+            catch
+            {
+                output.Dispose();
+                throw;
+            }
         }
     }
 
@@ -288,13 +300,24 @@ public sealed partial class LutEffect : FilterEffect
             }
             using var lutShader = lutImage.ToShader();
 
-            builder.Children["src"] = baseShader;
             builder.Children["lut"] = lutShader;
             builder.Uniforms["lutSize"] = data.cube.Size;
             builder.Uniforms["strength"] = data.strength;
 
-            // 新しいターゲットに適用
-            c.Targets[i] = s_shader.ApplyToNewTarget(c, builder, effectTarget.Bounds);
+            EffectTarget output = c.CreateTargetLike(effectTarget);
+            try
+            {
+                using SKShader mappedSource =
+                    c.CreateMappedInputShader(effectTarget, output, baseShader);
+                builder.Children["src"] = mappedSource;
+                s_shader.RenderToTarget(c, builder, output);
+                c.Targets[i] = output;
+            }
+            catch
+            {
+                output.Dispose();
+                throw;
+            }
         }
     }
 }

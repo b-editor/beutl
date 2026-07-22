@@ -10,6 +10,8 @@ refactor(engine)!: record complete render requests before execution
 BREAKING CHANGE: Beutl.Engine, Beutl.Editor, Beutl.NodeGraph, Beutl.ProjectSystem, Beutl.AgentToolkit, and application render-node consumers now use void Process(RenderNodeContext), context-owned RenderFragmentHandle values, and high-level request entry points. Executable/disposable RenderNodeOperation, RenderNodeProcessor Pull APIs, OperationWrapperRenderNode.SetOperations, and operation-backed EffectTarget members were removed. RenderNodeContext is now an engine-created sealed recorder: Input/CalculateBounds/the cache setter migrate to Inputs/TryCalculateInputBounds/DisableRenderCache, and its static scale helpers move to RenderScaleUtilities. RenderFragmentHandle no longer exposes direct Bounds, EffectiveScale, or HitTest members; authors use TryGetMetadata and TryHitTest and must handle symbolic owning-target dependencies. Rasterize now returns one owned RenderNodeRasterization carrying its logical Bounds, OutputScale, and nullable Bitmap; Measure reports separate OutputBounds and QueryBounds. Existing FilterEffect.ApplyTo operation calls remain available, but symbolic inputs expose Rect.Invalid Bounds and may make WorkingScale unavailable: effect authors must use TryGetWorkingScale and defer bounds/scale-dependent parameters to Shader, Geometry, or CustomEffect execution callbacks. Direct FilterEffectActivator callers must now pass RenderIntent and RenderRequestPurpose explicitly instead of inferring failure policy from MaxWorkingScale. Custom nodes returned by FilterEffect.Resource.CreateRenderNode must migrate.
 
 BREAKING CHANGE: `RenderNodeCacheHelper.MakeCache`, `CreateDefaultCache`, and `CanCacheRecursiveChildrenOnly`, together with `RenderNodeCache.RejectCache` and `IsCacheRejected`, are removed. Cache lookup, miss capture, and atomic publication now occur only inside the complete request after dependency and region analysis; callers render through `RenderNodeRenderer`/the production `Renderer` and use `Invalidate` or `RenderNodeCacheHelper.ClearCache` to discard retained entries.
+
+BREAKING CHANGE: `SKSLShader.ApplyToNewTarget` is replaced by explicit legacy-custom allocation, input mapping, and rendering. Use `CustomFilterEffectContext.CreateTargetLike` for same-bounds output or `CreateTarget` for changed bounds, bind snapshot children through `CreateMappedInputShader`, and finish with `SKSLShader.RenderToTarget`. Uniforms must use the allocated destination's actual `Scale` and backing dimensions.
 ```
 
 No `[Obsolete]` shim, returning overload, `V2` type, or executable compatibility wrapper remains after the same change.
@@ -390,6 +392,43 @@ Both forms remain in the current request. A returned handle preserves the child'
 `EffectTarget` itself remains because existing `FilterEffectContext.CustomEffect` callbacks use materialized targets. The engine now invokes those callbacks only at execution with render-target-backed `EffectTarget` instances. The public operation-backed constructor/property are removed; `Draw` and `Dispose` act only on the materialized target. Code that previously inspected `NodeOperation` migrates to Shader/Geometry/opaque recording before execution or consumes the execution-time `RenderTarget` supplied by the legacy custom-effect context.
 
 Materialized targets now expose immutable `DeviceBounds` and derived `RasterBounds`. `CustomFilterEffectContext.DeviceBufferBounds(bounds, w)` is the canonical allocation footprint, and `DeviceBufferSize` returns its size. This intentionally replaces the old independent width/height rounding: fractional logical origins may contribute an additional device pixel. Legacy effects must use the returned target `Scale`, `DeviceBounds`, or `RasterBounds` for buffer-coordinate math and keep semantic `Bounds` for effect bounds/placement metadata.
+
+### Legacy custom SKSL rendering
+
+`SKSLShader.ApplyToNewTarget(context, builder, bounds)` is removed because it allocated before callers could bind destination-dependent uniforms and could not distinguish same-bounds footprint preservation from changed-bounds allocation.
+
+Allocate first, configure from the returned destination, map each materialized input explicitly, and then render:
+
+```csharp
+using EffectTarget source = context.Targets[index];
+EffectTarget destination = context.CreateTargetLike(source);
+try
+{
+    using SKImage image = source.RenderTarget!.Value.Snapshot();
+    using SKShader snapshot = image.ToShader(
+        SKShaderTileMode.Decal,
+        SKShaderTileMode.Decal);
+    using SKShader mapped =
+        context.CreateMappedInputShader(source, destination, snapshot);
+
+    SKRuntimeShaderBuilder builder = shader.CreateBuilder();
+    builder.Children["src"] = mapped;
+    builder.Uniforms["iScale"] = destination.Scale.Value;
+    builder.Uniforms["iResolution"] = new SKPoint(
+        destination.RenderTarget!.Width,
+        destination.RenderTarget.Height);
+
+    shader.RenderToTarget(context, builder, destination);
+    context.Targets[index] = destination;
+}
+catch
+{
+    destination.Dispose();
+    throw;
+}
+```
+
+For expanded, cropped, or otherwise changed logical bounds, replace `CreateTargetLike(source)` with `CreateTarget(newBounds)`. A generator shader with no materialized input omits `CreateMappedInputShader`. The mapping uses the current `RasterBounds`, not immutable `DeviceBounds`, so translated targets, fractional origins, raster aprons, and differing input/output densities remain aligned. `RenderToTarget` borrows its arguments and always draws the complete destination backing; callers own unpublished destinations and dispose them on failure.
 
 `OperationWrapperRenderNode.SetOperations` cannot retain transaction handles and is removed with the wrapper's public executable role. NodeGraph input nodes receive fresh request-local facade handles through `RecordNode` binding and publish only while that nested transaction is active. A downstream custom wrapper follows the same pattern instead of storing handles in fields.
 

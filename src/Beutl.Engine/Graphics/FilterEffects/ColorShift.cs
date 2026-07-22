@@ -24,14 +24,13 @@ public partial class ColorShift : FilterEffect
             uniform float2 greenOffset;
             uniform float2 blueOffset;
             uniform float2 alphaOffset;
-            uniform float2 minOffset;
 
             half4 main(float2 fragCoord) {
                 // 出力画素座標 fragCoord に対し、各色成分のサンプル位置を計算
-                float2 redCoord   = fragCoord - redOffset   + minOffset;
-                float2 greenCoord = fragCoord - greenOffset + minOffset;
-                float2 blueCoord  = fragCoord - blueOffset  + minOffset;
-                float2 alphaCoord = fragCoord - alphaOffset + minOffset;
+                float2 redCoord   = fragCoord - redOffset;
+                float2 greenCoord = fragCoord - greenOffset;
+                float2 blueCoord  = fragCoord - blueOffset;
+                float2 alphaCoord = fragCoord - alphaOffset;
 
                 // 各色成分をそれぞれのオフセット位置からサンプル
                 // ※ サンプラーは通常 RGBA 順で色成分を返します
@@ -108,10 +107,6 @@ public partial class ColorShift : FilterEffect
             }
 
             var bounds = TransformBoundsCore(data, effectTarget.Bounds);
-            int minOffsetX = Math.Min(data.RedOffset.X,
-                Math.Min(data.GreenOffset.X, Math.Min(data.BlueOffset.X, data.AlphaOffset.X)));
-            int minOffsetY = Math.Min(data.RedOffset.Y,
-                Math.Min(data.GreenOffset.Y, Math.Min(data.BlueOffset.Y, data.AlphaOffset.Y)));
 
             using var image = renderTarget.Value.Snapshot();
             if (image is null)
@@ -129,22 +124,34 @@ public partial class ColorShift : FilterEffect
 
             using var baseShader = image.ToShader(SKShaderTileMode.Decal, SKShaderTileMode.Decal);
 
-            // SKRuntimeShaderBuilderを作成して、child shaderとuniformを設定
-            var builder = s_shader.CreateBuilder();
+            EffectTarget output = bounds == effectTarget.Bounds
+                ? context.CreateTargetLike(effectTarget)
+                : context.CreateTarget(bounds);
+            try
+            {
+                var builder = s_shader.CreateBuilder();
+                float w = output.Scale.Value;
+                builder.Uniforms["redOffset"] =
+                    new SKPoint(data.RedOffset.X * w, data.RedOffset.Y * w);
+                builder.Uniforms["greenOffset"] =
+                    new SKPoint(data.GreenOffset.X * w, data.GreenOffset.Y * w);
+                builder.Uniforms["blueOffset"] =
+                    new SKPoint(data.BlueOffset.X * w, data.BlueOffset.Y * w);
+                builder.Uniforms["alphaOffset"] =
+                    new SKPoint(data.AlphaOffset.X * w, data.AlphaOffset.Y * w);
 
-            // child shaderとしてテクスチャ用のシェーダーを設定
-            builder.Children["src"] = baseShader;
-            // Scale offsets by working density so they match the device-px buffer.
-            float w = context.ResolveTargetDensity(bounds);
-            builder.Uniforms["redOffset"] = new SKPoint(data.RedOffset.X * w, data.RedOffset.Y * w);
-            builder.Uniforms["greenOffset"] = new SKPoint(data.GreenOffset.X * w, data.GreenOffset.Y * w);
-            builder.Uniforms["blueOffset"] = new SKPoint(data.BlueOffset.X * w, data.BlueOffset.Y * w);
-            builder.Uniforms["alphaOffset"] = new SKPoint(data.AlphaOffset.X * w, data.AlphaOffset.Y * w);
-            builder.Uniforms["minOffset"] = new SKPoint(minOffsetX * w, minOffsetY * w);
-
-            // 新しいターゲットに適用
-            context.Targets[i] = s_shader.ApplyToNewTarget(context, builder, bounds);
-            effectTarget.Dispose();
+                using SKShader mappedSource =
+                    context.CreateMappedInputShader(effectTarget, output, baseShader);
+                builder.Children["src"] = mappedSource;
+                s_shader.RenderToTarget(context, builder, output);
+                context.Targets[i] = output;
+                effectTarget.Dispose();
+            }
+            catch
+            {
+                output.Dispose();
+                throw;
+            }
         }
     }
 }

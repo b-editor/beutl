@@ -90,13 +90,18 @@ public sealed partial class Clipping : FilterEffect
         {
             Thickness thickness = originalThickness;
             var target = context.Targets[i];
-            float w = context.WorkingScale;
+            float w = target.Scale.Value;
             var surface = target.RenderTarget!.Value;
             if (data.autoClip)
             {
                 // FindRect detects in device px; convert to logical (/ w).
                 Thickness detected = FindRectAndReturnThickness(surface);
-                thickness += new Thickness(detected.Left / w, detected.Top / w, detected.Right / w, detected.Bottom / w);
+                Rect rasterBounds = target.RasterBounds;
+                thickness += new Thickness(
+                    detected.Left / w + rasterBounds.X - target.Bounds.X,
+                    detected.Top / w + rasterBounds.Y - target.Bounds.Y,
+                    detected.Right / w + target.Bounds.Right - rasterBounds.Right,
+                    detected.Bottom / w + target.Bounds.Bottom - rasterBounds.Bottom);
             }
 
             Rect originalRect = target.Bounds.WithX(0).WithY(0);
@@ -133,14 +138,15 @@ public sealed partial class Clipping : FilterEffect
                     ? originalRect.CenterRect(clipRect).Translate(target.Bounds.Position)
                     : newBounds;
                 EffectTarget newTarget = context.CreateTarget(targetBounds);
-                // Crop offset and source blit are device px; enter device space.
                 using (ImmediateCanvas newCanvas = context.Open(newTarget))
-                using (newCanvas.PushDeviceSpace())
-                using (newCanvas.PushTransform(Matrix.CreateTranslation(pointX * w, pointY * w)))
                 {
                     newCanvas.Clear();
-                    newCanvas.DrawRenderTarget(target.RenderTarget!,
-                        new((target.Bounds.X - newBounds.X) * w, (target.Bounds.Y - newBounds.Y) * w));
+                    using (newCanvas.PushTransform(Matrix.CreateTranslation(
+                               target.Bounds.X - newBounds.X + pointX,
+                               target.Bounds.Y - newBounds.Y + pointY)))
+                    {
+                        target.Draw(newCanvas);
+                    }
                 }
 
                 target.Dispose();
