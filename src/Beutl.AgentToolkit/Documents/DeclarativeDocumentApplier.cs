@@ -59,7 +59,7 @@ internal sealed class DeclarativeDocumentApplier
         ApplyRegisteredProperties(
             scene,
             desired,
-            new HashSet<string> { nameof(Scene.Children), nameof(Scene.FrameSize), "Groups" });
+            new HashSet<string> { nameof(Scene.Children), nameof(Scene.FrameSize), "Groups", nameof(Scene.Markers) });
 
         int width = desired.TryGetPropertyValue("Width", out JsonNode? widthNode)
             ? widthNode!.GetValue<int>()
@@ -99,6 +99,22 @@ internal sealed class DeclarativeDocumentApplier
             // A full desired document that omits Groups means "no groups"; clear the existing ones like
             // Elements/Objects do, so the plan's removal is not left stale on later saves/renders.
             scene.Groups.Clear();
+        }
+
+        // Markers is [NotAutoSerialized] but custom-serialized by Scene, so the generic registered-
+        // property pass (which honors ShouldSerialize) never applies it — handle it explicitly like
+        // Groups, with the same authoritative-omission semantics.
+        if (desired.TryGetPropertyValue(nameof(Scene.Markers), out JsonNode? markersNode) && markersNode is not null)
+        {
+            var markers = (CoreList<SceneMarker>?)EnumJsonValueNormalizer.Deserialize(
+                RequireArrayMember(markersNode, nameof(Scene.Markers)),
+                typeof(CoreList<SceneMarker>),
+                CreateOptions(scene));
+            scene.Markers.Replace(markers ?? []);
+        }
+        else
+        {
+            scene.Markers.Clear();
         }
     }
 
