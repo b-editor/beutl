@@ -17,6 +17,7 @@
     <PackageReference Include="HarfBuzzSharp" />
     <PackageReference Include="ReactiveProperty" />
     <PackageReference Include="SkiaSharp" />
+    <PackageReference Include="System.Reactive" />
   </ItemGroup>
   <ItemGroup>
     <Compile Include="..\Beutl.Core\BeutlEnvironment.cs" />

@@ -20,5 +20,6 @@
   <PackageReference Include="ReactiveProperty" />
   <PackageReference Include="SkiaSharp" />
   <PackageReference Include="SkiaSharp.HarfBuzz" />
+  <PackageReference Include="System.Reactive" />
   </ItemGroup>
 </Project>
