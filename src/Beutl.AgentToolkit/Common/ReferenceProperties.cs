@@ -1,5 +1,5 @@
-﻿using System.Collections.Concurrent;
-using System.Diagnostics.CodeAnalysis;
+﻿using System.Diagnostics.CodeAnalysis;
+using System.Runtime.CompilerServices;
 using Beutl.Engine;
 
 namespace Beutl.AgentToolkit.Common;
@@ -9,7 +9,13 @@ internal sealed record ReferencePropertyDescriptor(string Name, Type ReferencedT
 // A ProjectItem is project-owned, so a property typed as one is a reference, not an inlined child.
 internal static class ReferenceProperties
 {
-    private static readonly ConcurrentDictionary<Type, ReferencePropertyDescriptor[]> s_byOwnerType = new();
+    // Weak-keyed so caching a plugin-defined owner type never roots its collectible AssemblyLoadContext.
+    private static readonly ConditionalWeakTable<Type, ReferencePropertyDescriptor[]> s_byOwnerType = new();
+
+    static ReferenceProperties()
+    {
+        TypeUnloadNotifier.TypesUnloading += Evict;
+    }
 
     public static ReferencePropertyDescriptor? Describe(IProperty property)
         => IsReferenceValueType(property.ValueType, out Type? referencedType)
@@ -17,7 +23,7 @@ internal static class ReferenceProperties
             : null;
 
     public static IReadOnlyList<ReferencePropertyDescriptor> ForOwner(Type ownerType)
-        => s_byOwnerType.GetOrAdd(ownerType, static type =>
+        => s_byOwnerType.GetValue(ownerType, static type =>
         {
             if (type.IsAbstract
                 || !typeof(EngineObject).IsAssignableFrom(type)
@@ -43,5 +49,16 @@ internal static class ReferenceProperties
 
         referencedType = null;
         return false;
+    }
+
+    private static void Evict(Type[] types)
+    {
+        foreach (KeyValuePair<Type, ReferencePropertyDescriptor[]> entry in s_byOwnerType.ToArray())
+        {
+            if (Array.Exists(types, type => TypeUnloadNotifier.ContainsTypeRecursive(entry.Key, type)))
+            {
+                s_byOwnerType.Remove(entry.Key);
+            }
+        }
     }
 }
