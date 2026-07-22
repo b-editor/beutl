@@ -28,7 +28,7 @@ internal sealed class UnloadDiagnosticsReport
         IReadOnlyList<UnloadDiagnosticsObjectGroup> survivingTypes,
         IReadOnlyList<UnloadDiagnosticsRootPath> rootPaths,
         IReadOnlyList<UnloadDiagnosticsThreadStack> threadStacks,
-        bool rootSearchTruncated)
+        bool captureTruncated)
     {
         PackageName = packageName;
         AssemblyNames = assemblyNames;
@@ -37,7 +37,7 @@ internal sealed class UnloadDiagnosticsReport
         SurvivingTypes = [.. survivingTypes.OrderByDescending(x => x.Count).ThenBy(x => x.TypeName, StringComparer.Ordinal)];
         RootPaths = rootPaths;
         ThreadStacks = threadStacks;
-        RootSearchTruncated = rootSearchTruncated;
+        CaptureTruncated = captureTruncated;
     }
 
     public string PackageName { get; }
@@ -52,14 +52,15 @@ internal sealed class UnloadDiagnosticsReport
 
     public IReadOnlyList<UnloadDiagnosticsThreadStack> ThreadStacks { get; }
 
-    public bool RootSearchTruncated { get; }
+    // Set when any capture phase (heap census, root search, or thread walk) stopped early on an object/time/frame bound.
+    public bool CaptureTruncated { get; }
 
     public string BuildSummary()
     {
         string assemblies = AssemblyNames.Count == 0 ? "(none)" : string.Join(", ", AssemblyNames);
         string topTypes = SurvivingTypes.Count == 0
             ? "(none)"
-            : string.Join(", ", SurvivingTypes.Take(TopTypesInSummary).Select(x => $"{x.TypeName} x{x.Count}"));
+            : string.Join(", ", SurvivingTypes.Take(TopTypesInSummary).Select(x => $"{x.TypeName} [{x.AssemblyName}] x{x.Count}"));
 
         return $"Package '{PackageName}' failed to unload: {SurvivingObjectCount} live object(s) across [{assemblies}]. " +
             $"Top types: {topTypes}. {RootPaths.Count} root path(s), {ThreadStacks.Count} thread(s) captured.";
@@ -108,11 +109,6 @@ internal sealed class UnloadDiagnosticsReport
             }
         }
 
-        if (RootSearchTruncated)
-        {
-            sb.AppendLine("(root path search stopped early: object or time budget exceeded)");
-        }
-
         sb.AppendLine();
         sb.AppendLine("--- Managed thread stacks ---");
         if (ThreadStacks.Count == 0)
@@ -137,6 +133,12 @@ internal sealed class UnloadDiagnosticsReport
                     }
                 }
             }
+        }
+
+        if (CaptureTruncated)
+        {
+            sb.AppendLine();
+            sb.AppendLine("(capture stopped early: an object, time, or frame budget exceeded; results may be partial)");
         }
 
         return sb.ToString();

@@ -153,6 +153,13 @@ internal sealed class ClrmdLoadContextUnloadDiagnostics : ILoadContextUnloadDiag
 
         foreach (ClrRoot root in heap.EnumerateRoots())
         {
+            // A root-heavy process can blow the object/time bound during seeding alone, before the walk below runs.
+            if (parent.Count >= MaxVisitedObjects || stopwatch.Elapsed > s_budget)
+            {
+                truncated = true;
+                break;
+            }
+
             ClrObject obj = root.Object;
             if (!obj.IsValid || obj.Address == 0 || parent.ContainsKey(obj.Address))
             {
@@ -210,14 +217,16 @@ internal sealed class ClrmdLoadContextUnloadDiagnostics : ILoadContextUnloadDiag
         return (results, truncated);
     }
 
-    private static UnloadDiagnosticsRootPath BuildPath(
+    internal static UnloadDiagnosticsRootPath BuildPath(
         ulong targetAddress, Dictionary<ulong, (ulong Parent, string Edge, string Type)> parent)
     {
+        const int MaxHops = 128;
         var reversed = new List<string>();
         string targetType = "<unknown>";
         ulong address = targetAddress;
+        bool reachedRoot = false;
 
-        for (int guard = 0; guard < 128 && parent.TryGetValue(address, out (ulong Parent, string Edge, string Type) node); guard++)
+        for (int guard = 0; guard < MaxHops && parent.TryGetValue(address, out (ulong Parent, string Edge, string Type) node); guard++)
         {
             if (address == targetAddress)
             {
@@ -227,10 +236,17 @@ internal sealed class ClrmdLoadContextUnloadDiagnostics : ILoadContextUnloadDiag
             reversed.Add($"{node.Edge} -> {node.Type} (0x{address:x})");
             if (node.Parent == 0)
             {
+                reachedRoot = true;
                 break;
             }
 
             address = node.Parent;
+        }
+
+        if (!reachedRoot)
+        {
+            // Hit the hop cap before a GC root; mark it so a cut chain isn't read as reaching the root.
+            reversed.Add($"... (path truncated after {MaxHops} hops; GC root not reached)");
         }
 
         reversed.Reverse();
@@ -278,6 +294,13 @@ internal sealed class ClrmdLoadContextUnloadDiagnostics : ILoadContextUnloadDiag
             var frames = new List<string>();
             foreach (ClrStackFrame frame in thread.EnumerateStackTrace(includeContext: false))
             {
+                // A single deep stack can exceed the shared budget on its own, so check per frame, not just per thread.
+                if (stopwatch.Elapsed > s_budget)
+                {
+                    truncated = true;
+                    break;
+                }
+
                 if (frames.Count >= MaxFramesPerThread)
                 {
                     break;
@@ -289,6 +312,11 @@ internal sealed class ClrmdLoadContextUnloadDiagnostics : ILoadContextUnloadDiag
             // Keep alive threads with no managed frames too: a native-only stack is itself a signal, and the report
             // renders it as "(no managed frames)".
             results.Add(new UnloadDiagnosticsThreadStack(thread.ManagedThreadId, thread.OSThreadId, frames));
+
+            if (truncated)
+            {
+                break;
+            }
         }
 
         return (results, truncated);

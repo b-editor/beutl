@@ -57,6 +57,39 @@ public class UnloadDiagnosticsReportTests
     }
 
     [Test]
+    public void BuildPath_MarksTruncation_WhenChainExceedsHopCap()
+    {
+        // A linear chain longer than the 128-hop cap where no node has Parent == 0, so a GC root is never reached.
+        var parent = new Dictionary<ulong, (ulong Parent, string Edge, string Type)>();
+        for (ulong i = 1; i <= 200; i++)
+        {
+            parent[i] = (i + 1, $"field f{i}", $"Type{i}");
+        }
+
+        UnloadDiagnosticsRootPath path = ClrmdLoadContextUnloadDiagnostics.BuildPath(1, parent);
+
+        Assert.That(path.Hops, Has.Some.Contains("truncated after 128 hops"));
+    }
+
+    [Test]
+    public void BuildPath_DoesNotMarkTruncation_WhenChainReachesRoot()
+    {
+        var parent = new Dictionary<ulong, (ulong Parent, string Edge, string Type)>
+        {
+            [1] = (2, "field child", "Leaf"),
+            [2] = (0, "StaticVar", "Root"),
+        };
+
+        UnloadDiagnosticsRootPath path = ClrmdLoadContextUnloadDiagnostics.BuildPath(1, parent);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(path.Hops, Has.None.Contains("truncated"));
+            Assert.That(path.TargetType, Is.EqualTo("Leaf"));
+        });
+    }
+
+    [Test]
     public void BuildSummary_ListsTopFiveTypesAndCounts()
     {
         UnloadDiagnosticsObjectGroup[] groups =
@@ -76,10 +109,11 @@ public class UnloadDiagnosticsReportTests
         {
             Assert.That(summary, Does.Contain("MyPlugin"));
             Assert.That(summary, Does.Contain("21 live object(s)"));
-            Assert.That(summary, Does.Contain("T1 x6"));
-            Assert.That(summary, Does.Contain("T5 x2"));
+            // Each top type carries its assembly so colliding type names stay disambiguated.
+            Assert.That(summary, Does.Contain("T1 [MyPlugin] x6"));
+            Assert.That(summary, Does.Contain("T5 [MyPlugin] x2"));
             // Only the top five appear in the one-line summary.
-            Assert.That(summary, Does.Not.Contain("T6 x1"));
+            Assert.That(summary, Does.Not.Contain("T6 [MyPlugin] x1"));
         });
     }
 
