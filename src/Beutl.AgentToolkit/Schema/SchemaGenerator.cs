@@ -2653,14 +2653,19 @@ public sealed class SchemaGenerator
                 ? listProperty.ElementType.FullName ?? listProperty.ElementType.Name
                 : null,
             EnumValues: EnumJsonValueNormalizer.GetEnumNames(property.ValueType),
-            UsageHint: CreatePropertyUsageHint(ownerType, property.Name, property.ValueType, property.IsAnimatable));
+            UsageHint: CreatePropertyUsageHint(ownerType, property.Name, property.ValueType, property.IsAnimatable, Common.ReferenceProperties.Find(ownerType, property.Name) is not null));
     }
 
-    private static string? CreatePropertyUsageHint(Type ownerType, string propertyName, Type valueType, bool animatable)
+    private static string? CreatePropertyUsageHint(Type ownerType, string propertyName, Type valueType, bool animatable, bool isReference = false)
     {
         Type type = Nullable.GetUnderlyingType(valueType) ?? valueType;
         List<string> hints = [];
-        if (ownerType == typeof(PortalObject) && propertyName == nameof(PortalObject.Count))
+        if (isReference)
+        {
+            hints.Add(
+                $"{propertyName} references an existing {type.Name} in the project and is set through the Expressions form, not as a direct value. Find the target Id via read_document/list tools, then set Expressions.{propertyName} = {{\"ObjectId\": \"<guid>\"}}. A direct value on {propertyName} is rejected.");
+        }
+        else if (ownerType == typeof(PortalObject) && propertyName == nameof(PortalObject.Count))
         {
             hints.Add("Portal flow intake. A PortalObject placed immediately before a flow operator (DrawableGroup, DrawableDecorator, SoundGroup, Scene3D) in Element.Objects pulls every active timeline Element whose ZIndex lies in the inclusive span portalZIndex+1..portalZIndex+Count out of normal composition and feeds their output into that flow operator (e.g. as DrawableGroup children), while each keeps its own Start/Length. Count is a ZIndex span, not an element count: all active Elements on those rows are pulled, and empty rows contribute nothing. Count=0 pulls no timeline rows; the operator then consumes whatever is already in the Element's flow — only its nested Children when the portal is the Element's first object — and Clear=true explicitly discards earlier same-Element flow first. Keep grouped rows directly above the rig Element, and note that pulled Elements render ungrouped at times when the rig Element is not active. See get_examples insert-camera-rig-portal.");
         }
@@ -2681,7 +2686,7 @@ public sealed class SchemaGenerator
         {
             hints.Add("Geometry is authored with typed segment objects, not an SVG path string. Use a PathGeometry ($type discriminator) whose Figures hold PathFigure objects, each with a StartPoint ('x, y') plus Segments of LineSegment/CubicBezierSegment/QuadraticBezierSegment/ConicSegment/ArcSegment; set IsClosed=true for filled shapes. Call get_examples for 'insert-new-geometry-shape-path' to copy a working GeometryShape+PathGeometry patch. RectGeometry/EllipseGeometry/RoundedRectGeometry are simpler alternatives for basic shapes. A GeometryShape's drawn center lands at the alignment-resolved center PLUS the path bounds origin, so author path coordinates with the artwork's top-left at (0, 0) (all coordinates non-negative); paths centered on (0, 0) shift up-left by half their size, and scene-absolute coordinates shift by their full offset. If coordinates cannot be normalized, add TranslateTransform(-boundsX, -boundsY) or check measure_object_bounds' geometryBoundsOrigin. RectShape/EllipseShape are unaffected because their geometry bounds start at the origin.");
         }
-        else if (typeof(EngineObject).IsAssignableFrom(type))
+        else if (!isReference && typeof(EngineObject).IsAssignableFrom(type))
         {
             hints.Add("Use a concrete '$type' discriminator returned by get_schema for this EngineObject value and only the returned PascalCase property names.");
         }
