@@ -435,7 +435,13 @@ public sealed class SchemaGenerator
             return [];
         }
 
+        // Non-serialized scalar properties (e.g. Hierarchical.HierarchicalParent) never appear in
+        // documents and the applier ignores them; advertising them would invite silent no-op edits.
+        // Non-serialized lists (Objects, Markers, ...) stay: they are applied by explicit handlers.
         return PropertyRegistry.GetRegistered(type)
+            .Where(property =>
+                property.GetMetadata<CorePropertyMetadata>(type).ShouldSerialize
+                || typeof(Collections.ICoreList).IsAssignableFrom(property.PropertyType))
             .Select(property =>
             {
                 ICorePropertyMetadata metadata = property.GetMetadata<ICorePropertyMetadata>(type);

@@ -23,6 +23,19 @@ namespace Beutl.AgentToolkit.Tests.Schema;
 public sealed class SchemaGenerationTests
 {
     [Test]
+    public void Base_fields_exclude_non_serialized_scalars_but_keep_explicit_lists()
+    {
+        var generator = new SchemaGenerator();
+        CapabilitySchema schema = generator.Generate(typeFilter: nameof(TextBlock));
+
+        TypeDescriptor textBlock = schema.Types.Single(type => type.Type == typeof(TextBlock).FullName);
+
+        Assert.That(
+            textBlock.BaseFields.Select(field => field.Name),
+            Does.Not.Contain(nameof(Hierarchical.HierarchicalParent)));
+    }
+
+    [Test]
     public void Schema_contains_builtin_parameters_and_fake_extension_type()
     {
         LibraryService.Current.Register<FakeExtensionDrawable>("Fake.Extension.Drawable", "Fake Extension");
