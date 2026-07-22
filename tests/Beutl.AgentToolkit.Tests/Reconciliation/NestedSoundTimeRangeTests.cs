@@ -11,6 +11,7 @@ namespace Beutl.AgentToolkit.Tests.Reconciliation;
 
 // Issue #2109: a Sound nested as a property value must inherit the element's TimeRange,
 // or audio composition throws ("Duration must be positive") at render time.
+[TestFixture]
 public sealed class NestedSoundTimeRangeTests
 {
     [Test]
@@ -29,7 +30,7 @@ public sealed class NestedSoundTimeRangeTests
         {
             ["Elements"] = new JsonArray(new JsonObject
             {
-                ["$type"] = "[Beutl.ProjectSystem]:Element",
+                ["$type"] = IdentityHelper.WriteDiscriminator(typeof(Element)),
                 ["Name"] = "viz",
                 ["Start"] = "00:00:00",
                 ["Length"] = "00:00:05",
@@ -89,7 +90,7 @@ public sealed class NestedSoundTimeRangeTests
         {
             ["Elements"] = new JsonArray(new JsonObject
             {
-                ["$type"] = "[Beutl.ProjectSystem]:Element",
+                ["$type"] = IdentityHelper.WriteDiscriminator(typeof(Element)),
                 ["Name"] = "viz",
                 ["Start"] = "00:00:01",
                 ["Length"] = "00:00:04",

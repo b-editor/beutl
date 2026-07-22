@@ -58,9 +58,9 @@ internal static class ToolErrorMapper
             detail += $" in {declaringType.Name}.{site.Name}";
         }
 
-        // Only identifier-shaped names are exposed: ParamName is free text in principle, and the
-        // redaction contract above must hold even for a pathological path-carrying value.
-        if (exception is ArgumentException { ParamName: { Length: > 0 } paramName }
+        // Only short identifier-shaped names are exposed: ParamName is free text in principle,
+        // and the redaction contract above must hold even for a pathological path-carrying value.
+        if (exception is ArgumentException { ParamName: { Length: > 0 and <= MaxParamNameLength } paramName }
             && IsIdentifierLike(paramName))
         {
             detail += $", parameter '{paramName}'";
@@ -68,6 +68,8 @@ internal static class ToolErrorMapper
 
         return detail;
     }
+
+    private const int MaxParamNameLength = 128;
 
     private static bool IsIdentifierLike(string name)
     {

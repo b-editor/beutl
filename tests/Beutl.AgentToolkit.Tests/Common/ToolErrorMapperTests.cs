@@ -2,6 +2,7 @@
 
 namespace Beutl.AgentToolkit.Tests.Common;
 
+[TestFixture]
 public sealed class ToolErrorMapperTests
 {
     [Test]
