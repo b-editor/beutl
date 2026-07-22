@@ -4,6 +4,7 @@ using Beutl.Language;
 using Beutl.Logging;
 using Beutl.Media;
 using Microsoft.Extensions.Logging;
+using SkiaSharp;
 
 namespace Beutl.Graphics.Effects;
 
@@ -90,12 +91,24 @@ public partial class ColorKey : FilterEffect
 
             var builder = s_shader.CreateBuilder();
 
-            builder.Children["src"] = baseShader;
             builder.Uniforms["color"] = data.color.ToLinear().ToSKColorF();
             builder.Uniforms["range"] = data.range / 100f;
             builder.Uniforms["boundary"] = data.boundary / 100f;
 
-            c.Targets[i] = s_shader.ApplyToNewTarget(c, builder, effectTarget.Bounds);
+            EffectTarget output = c.CreateTargetLike(effectTarget);
+            try
+            {
+                using SKShader mappedSource =
+                    c.CreateMappedInputShader(effectTarget, output, baseShader);
+                builder.Children["src"] = mappedSource;
+                s_shader.RenderToTarget(c, builder, output);
+                c.Targets[i] = output;
+            }
+            catch
+            {
+                output.Dispose();
+                throw;
+            }
         }
     }
 }

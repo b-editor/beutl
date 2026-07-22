@@ -1922,6 +1922,9 @@ internal sealed class RenderRequestExecutor
                                 value = cropped;
                             }
 
+                            // Scale-1 legacy EffectTarget output used a direct surface blit. Preserve that
+                            // coverage when the guarded destination check proves an exact device-pixel mapping.
+                            value.PreferPixelExactComposite = value.EffectiveScale.Value == 1f;
                             result.Add(value);
                         }
 
@@ -2196,11 +2199,11 @@ internal sealed class RenderRequestExecutor
                     SKShader inputShader = inputImage.ToShader(
                         SKShaderTileMode.Decal,
                         SKShaderTileMode.Decal,
-                        CreateInputLocalMatrix(
+                        RasterShaderMapping.CreateLocalMatrix(
                             outputScale,
                             input.EffectiveScale.Value,
-                            outputDeviceBounds,
-                            input.DeviceBounds));
+                            outputDeviceBounds.ToRect(outputScale),
+                            input.RasterBounds));
                     children.Add(inputShader);
                     runtimeChildren[SkslSnippetMerger.SourceChildName] = inputShader;
 
@@ -2449,11 +2452,11 @@ internal sealed class RenderRequestExecutor
                     SKShader inputShader = inputImage.ToShader(
                         tileMode,
                         tileMode,
-                        CreateInputLocalMatrix(
+                        RasterShaderMapping.CreateLocalMatrix(
                             output.EffectiveScale.Value,
                             input.EffectiveScale.Value,
-                            output.DeviceBounds,
-                            input.DeviceBounds));
+                            output.RasterBounds,
+                            input.RasterBounds));
                     children.Add(inputShader);
                     builder.Children[childName] = inputShader;
 
@@ -2693,31 +2696,6 @@ internal sealed class RenderRequestExecutor
                 if (!succeeded)
                     ReleaseUnpublished(cropped);
             }
-        }
-
-        private static SKMatrix CreateInputLocalMatrix(
-            float outputScale,
-            float inputScale,
-            PixelRect outputDeviceBounds,
-            PixelRect inputDeviceBounds)
-        {
-            float scale = outputScale / inputScale;
-            float outputOriginX = outputDeviceBounds.X / outputScale;
-            float outputOriginY = outputDeviceBounds.Y / outputScale;
-            float inputOriginX = inputDeviceBounds.X / inputScale;
-            float inputOriginY = inputDeviceBounds.Y / inputScale;
-            float offsetX = (outputOriginX - inputOriginX) * inputScale;
-            float offsetY = (outputOriginY - inputOriginY) * inputScale;
-            return new SKMatrix(
-                scale,
-                0,
-                -offsetX * scale,
-                0,
-                scale,
-                -offsetY * scale,
-                0,
-                0,
-                1);
         }
 
         private IReadOnlyList<CompatibilityRenderValue> InvokeOpaque(

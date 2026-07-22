@@ -88,33 +88,52 @@ public sealed partial class SKSLScriptEffect : FilterEffect, IScriptCompilableEf
             using var image = renderTarget.Value.Snapshot();
             using var baseShader = image.ToShader();
 
-            var builder = data.shader.CreateBuilder();
-            var effect = data.shader.Effect;
+            EffectTarget output = c.CreateTargetLike(effectTarget);
+            try
+            {
+                var builder = data.shader.CreateBuilder();
+                var effect = data.shader.Effect;
 
-            if (effect.Children.Contains("src"))
-                builder.Children["src"] = baseShader;
-            if (effect.Uniforms.Contains("progress"))
-                builder.Uniforms["progress"] = data.progress;
-            if (effect.Uniforms.Contains("duration"))
-                builder.Uniforms["duration"] = data.duration;
-            if (effect.Uniforms.Contains("time"))
-                builder.Uniforms["time"] = data.time;
-            // Resolution uniforms report device px at the clamped buffer density.
-            float w = c.ResolveTargetDensity(effectTarget.Bounds);
-            (int devW, int devH) = CustomFilterEffectContext.DeviceBufferSize(effectTarget.Bounds, w);
-            if (effect.Uniforms.Contains("width"))
-                builder.Uniforms["width"] = (float)devW;
-            if (effect.Uniforms.Contains("height"))
-                builder.Uniforms["height"] = (float)devH;
-            if (effect.Uniforms.Contains("iResolution"))
-                builder.Uniforms["iResolution"] = new SKPoint(devW, devH);
-            if (effect.Uniforms.Contains("iScale"))
-                builder.Uniforms["iScale"] = w;
-            if (effect.Uniforms.Contains("iTime"))
-                builder.Uniforms["iTime"] = data.time;
+                if (effect.Uniforms.Contains("progress"))
+                    builder.Uniforms["progress"] = data.progress;
+                if (effect.Uniforms.Contains("duration"))
+                    builder.Uniforms["duration"] = data.duration;
+                if (effect.Uniforms.Contains("time"))
+                    builder.Uniforms["time"] = data.time;
 
-            // 新しいターゲットに適用
-            c.Targets[i] = data.shader.ApplyToNewTarget(c, builder, effectTarget.Bounds);
+                float w = output.Scale.Value;
+                int deviceWidth = output.RenderTarget!.Width;
+                int deviceHeight = output.RenderTarget.Height;
+                if (effect.Uniforms.Contains("width"))
+                    builder.Uniforms["width"] = (float)deviceWidth;
+                if (effect.Uniforms.Contains("height"))
+                    builder.Uniforms["height"] = (float)deviceHeight;
+                if (effect.Uniforms.Contains("iResolution"))
+                    builder.Uniforms["iResolution"] = new SKPoint(deviceWidth, deviceHeight);
+                if (effect.Uniforms.Contains("iScale"))
+                    builder.Uniforms["iScale"] = w;
+                if (effect.Uniforms.Contains("iTime"))
+                    builder.Uniforms["iTime"] = data.time;
+
+                if (effect.Children.Contains("src"))
+                {
+                    using SKShader mappedSource =
+                        c.CreateMappedInputShader(effectTarget, output, baseShader);
+                    builder.Children["src"] = mappedSource;
+                    data.shader.RenderToTarget(c, builder, output);
+                }
+                else
+                {
+                    data.shader.RenderToTarget(c, builder, output);
+                }
+
+                c.Targets[i] = output;
+            }
+            catch
+            {
+                output.Dispose();
+                throw;
+            }
         }
     }
 

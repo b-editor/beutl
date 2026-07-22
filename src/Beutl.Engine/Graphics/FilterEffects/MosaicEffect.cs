@@ -3,6 +3,7 @@ using Beutl.Engine;
 using Beutl.Language;
 using Beutl.Logging;
 using Microsoft.Extensions.Logging;
+using SkiaSharp;
 
 namespace Beutl.Graphics.Effects;
 
@@ -70,22 +71,32 @@ public partial class MosaicEffect : FilterEffect
             using var image = renderTarget.Value.Snapshot();
             using var baseShader = image.ToShader();
 
-            // SKRuntimeShaderBuilderを作成して、child shaderとuniformを設定
-            var builder = s_shader.CreateBuilder();
+            EffectTarget output = c.CreateTargetLike(effectTarget);
+            try
+            {
+                var builder = s_shader.CreateBuilder();
+                float w = output.Scale.Value;
+                int bufferWidth = output.RenderTarget!.Width;
+                int bufferHeight = output.RenderTarget.Height;
+                builder.Uniforms["tileSize"] =
+                    new Size(data.tileSize.Width * w, data.tileSize.Height * w).ToSKSize();
+                Vector semanticOrigin = output.Bounds.Position - output.RasterBounds.Position;
+                Point origin = data.origin.Unit == RelativeUnit.Relative
+                    ? data.origin.ToPixels(new(bufferWidth, bufferHeight))
+                    : data.origin.Point * w + semanticOrigin * w;
+                builder.Uniforms["origin"] = origin.ToSKPoint();
 
-            // child shaderとしてテクスチャ用のシェーダーを設定
-            builder.Children["src"] = baseShader;
-            // Scale tile size by working density so uniforms match the device-px buffer.
-            float w = c.ResolveTargetDensity(effectTarget.Bounds);
-            var (bufW, bufH) = CustomFilterEffectContext.DeviceBufferSize(effectTarget.Bounds, w);
-            builder.Uniforms["tileSize"] = new Size(data.tileSize.Width * w, data.tileSize.Height * w).ToSKSize();
-            Point origin = data.origin.Unit == RelativeUnit.Relative
-                ? data.origin.ToPixels(new(bufW, bufH))
-                : data.origin.Point * w;
-            builder.Uniforms["origin"] = origin.ToSKPoint();
-
-            // 新しいターゲットに適用
-            c.Targets[i] = s_shader.ApplyToNewTarget(c, builder, effectTarget.Bounds);
+                using SKShader mappedSource =
+                    c.CreateMappedInputShader(effectTarget, output, baseShader);
+                builder.Children["src"] = mappedSource;
+                s_shader.RenderToTarget(c, builder, output);
+                c.Targets[i] = output;
+            }
+            catch
+            {
+                output.Dispose();
+                throw;
+            }
         }
     }
 }
