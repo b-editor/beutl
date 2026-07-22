@@ -42,8 +42,7 @@ public sealed class SceneMarkerApplyTests
         });
     }
 
-    // With existing markers the identity merge silently drops non-object patch entries, so the
-    // null only reaches the applier when the array is replaced wholesale (no current markers).
+    // No current markers: the array is replaced wholesale, so the applier-level check rejects.
     [Test]
     public void Null_marker_entry_is_rejected_without_mutation()
     {
@@ -65,6 +64,34 @@ public sealed class SceneMarkerApplyTests
             Assert.That(apply.IsSuccess, Is.False);
             Assert.That(apply.Error!.Code, Is.EqualTo(ErrorCode.ValidationRejected));
             Assert.That(session.Scene.Markers, Is.Empty);
+        });
+    }
+
+    // Existing markers give the array identity syntax, so this exercises the merge-patch-level
+    // rejection (the identity merge must not silently drop the null before the applier runs).
+    [Test]
+    public void Null_marker_entry_with_existing_markers_is_rejected_without_mutation()
+    {
+        using var source = new FileSessionSource();
+        FileEditingSession session = CreateSession(source);
+        session.Scene.Markers.Add(new SceneMarker(TimeSpan.FromSeconds(1), "keep"));
+        var manager = new AgentSessionManager();
+        manager.UseSource(source);
+        var tools = new EditTools(manager);
+
+        JsonObject patch = new()
+        {
+            [nameof(Scene.Markers)] = new JsonArray((JsonNode?)null)
+        };
+
+        ToolResult<ApplyEditResponse> apply = tools.ApplyEdit(patch: patch, schemaVersion: SchemaVersion.Current);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(apply.IsSuccess, Is.False);
+            Assert.That(apply.Error!.Code, Is.EqualTo(ErrorCode.ValidationRejected));
+            Assert.That(session.Scene.Markers, Has.Count.EqualTo(1));
+            Assert.That(session.Scene.Markers[0].Name, Is.EqualTo("keep"));
         });
     }
 
