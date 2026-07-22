@@ -1,5 +1,6 @@
 ﻿using System.Text.Json.Nodes;
 using Beutl.AgentToolkit.Common;
+using Beutl.AgentToolkit.Reconciliation;
 using Beutl.AgentToolkit.Sessions;
 using Beutl.AgentToolkit.Tools;
 using Beutl.ProjectSystem;
@@ -64,6 +65,26 @@ public sealed class SceneMarkerApplyTests
             Assert.That(apply.IsSuccess, Is.False);
             Assert.That(apply.Error!.Code, Is.EqualTo(ErrorCode.ValidationRejected));
             Assert.That(session.Scene.Markers, Is.Empty);
+        });
+    }
+
+    [Test]
+    public void Explicit_null_markers_member_is_rejected_without_mutation()
+    {
+        using var source = new FileSessionSource();
+        FileEditingSession session = CreateSession(source);
+        session.Scene.Markers.Add(new SceneMarker(TimeSpan.FromSeconds(1), "keep"));
+
+        JsonObject desired = session.Documents.Read(session.Scene);
+        desired[nameof(Scene.Markers)] = null;
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(
+                () => session.Documents.Write(session.Scene, desired),
+                Throws.InstanceOf<ReconcileException>());
+            Assert.That(session.Scene.Markers, Has.Count.EqualTo(1));
+            Assert.That(session.Scene.Markers[0].Name, Is.EqualTo("keep"));
         });
     }
 

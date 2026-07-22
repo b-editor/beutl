@@ -104,7 +104,9 @@ internal sealed class DeclarativeDocumentApplier
         // Markers is [NotAutoSerialized] but custom-serialized by Scene, so the generic registered-
         // property pass (which honors ShouldSerialize) never applies it — handle it explicitly like
         // Groups, with the same authoritative-omission semantics.
-        if (desired.TryGetPropertyValue(nameof(Scene.Markers), out JsonNode? markersNode) && markersNode is not null)
+        // A present-but-null Markers member is a malformed document (RequireArrayMember rejects it,
+        // like Elements); only actual omission clears the list.
+        if (desired.TryGetPropertyValue(nameof(Scene.Markers), out JsonNode? markersNode))
         {
             JsonArray markersArray = RequireArrayMember(markersNode, nameof(Scene.Markers));
             for (int index = 0; index < markersArray.Count; index++)
