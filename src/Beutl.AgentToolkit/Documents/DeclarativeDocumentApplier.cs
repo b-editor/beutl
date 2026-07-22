@@ -203,6 +203,7 @@ internal sealed class DeclarativeDocumentApplier
         foreach (CoreProperty property in PropertyRegistry.GetRegistered(target.GetType()))
         {
             if (excluded.Contains(property.Name)
+                || !IsSerializedProperty(target, property)
                 || !desired.TryGetPropertyValue(property.Name, out JsonNode? valueNode))
             {
                 continue;
@@ -248,10 +249,14 @@ internal sealed class DeclarativeDocumentApplier
         {
             // Getter-only properties (e.g. Element.Objects) reject SetValue, and identity lists
             // (Objects/KeyFrames) are cleared by their specialized handlers, never by nulling.
+            // Non-serialized properties (e.g. Hierarchical.HierarchicalParent) never appear in a
+            // document, so their absence carries no clear intent; nulling HierarchicalParent would
+            // silently detach the subtree from the hierarchy root.
             if (property.PropertyType.IsValueType
                 || property.PropertyType == typeof(string)
                 || typeof(ICoreList).IsAssignableFrom(property.PropertyType)
                 || property is IStaticProperty { CanWrite: false }
+                || !IsSerializedProperty(target, property)
                 || desired.ContainsKey(property.Name)
                 || serializedPayload.ContainsKey(property.Name))
             {
@@ -260,6 +265,11 @@ internal sealed class DeclarativeDocumentApplier
 
             target.SetValue(property, null);
         }
+    }
+
+    private static bool IsSerializedProperty(CoreObject target, CoreProperty property)
+    {
+        return property.GetMetadata<CorePropertyMetadata>(target.GetType()).ShouldSerialize;
     }
 
     private static void ClearAbsentObjectProperties(
