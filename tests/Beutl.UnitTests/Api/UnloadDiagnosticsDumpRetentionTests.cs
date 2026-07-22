@@ -68,6 +68,31 @@ public class UnloadDiagnosticsDumpRetentionTests
     }
 
     [Test]
+    public void PruneOldDumps_BreaksWriteTimeTies_ByNameDeterministically()
+    {
+        var sameTime = new DateTime(2026, 1, 1, 0, 0, 0, DateTimeKind.Utc);
+        for (char c = 'a'; c <= 'f'; c++)
+        {
+            string path = Path.Combine(_logDir, $"unload-dump-Pkg-20260101000000-{c}.txt");
+            File.WriteAllText(path, "dump");
+            File.SetLastWriteTimeUtc(path, sameTime);
+        }
+
+        ClrmdLoadContextUnloadDiagnostics.PruneOldDumps(_logDir, maxRetained: 2);
+
+        string[] remaining = Directory.GetFiles(_logDir, "unload-dump-*.txt")
+            .Select(Path.GetFileName)
+            .OrderBy(x => x, StringComparer.Ordinal)
+            .ToArray()!;
+        // With write times tied, the highest names win, so the two kept files are deterministic.
+        Assert.That(remaining, Is.EqualTo(new[]
+        {
+            "unload-dump-Pkg-20260101000000-e.txt",
+            "unload-dump-Pkg-20260101000000-f.txt",
+        }));
+    }
+
+    [Test]
     public void PruneOldDumps_DoesNotThrow_WhenDirectoryMissing()
     {
         string missing = Path.Combine(_logDir, "does-not-exist");

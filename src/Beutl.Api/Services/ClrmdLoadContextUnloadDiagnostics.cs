@@ -307,17 +307,20 @@ internal sealed class ClrmdLoadContextUnloadDiagnostics : ILoadContextUnloadDiag
             }
 
             var frames = new List<string>();
+            bool budgetExpired = false;
             foreach (ClrStackFrame frame in thread.EnumerateStackTrace(includeContext: false))
             {
                 // A single deep stack can exceed the shared budget on its own, so check per frame, not just per thread.
                 if (stopwatch.Elapsed > s_budget)
                 {
                     truncated = true;
+                    budgetExpired = true;
                     break;
                 }
 
                 if (frames.Count >= MaxFramesPerThread)
                 {
+                    // A per-thread cap only makes this thread partial; keep capturing the remaining threads.
                     truncated = true;
                     break;
                 }
@@ -329,7 +332,9 @@ internal sealed class ClrmdLoadContextUnloadDiagnostics : ILoadContextUnloadDiag
             // renders it as "(no managed frames)".
             results.Add(new UnloadDiagnosticsThreadStack(thread.ManagedThreadId, thread.OSThreadId, frames));
 
-            if (truncated)
+            // Only the shared time budget stops the whole walk; the per-thread frame cap must not skip later threads
+            // (one of which may be the one holding the plugin alive).
+            if (budgetExpired)
             {
                 break;
             }
@@ -393,13 +398,19 @@ internal sealed class ClrmdLoadContextUnloadDiagnostics : ILoadContextUnloadDiag
                 return;
             }
 
+            int retain = Math.Max(0, maxRetained);
             FileInfo[] dumps = dir.GetFiles("unload-dump-*.txt");
-            if (dumps.Length <= maxRetained)
+            if (dumps.Length <= retain)
             {
                 return;
             }
 
-            foreach (FileInfo old in dumps.OrderByDescending(f => f.LastWriteTimeUtc).Skip(maxRetained))
+            // Name is the tie-breaker (it embeds the timestamp + GUID), so which files survive is deterministic even
+            // when several dumps share a LastWriteTimeUtc.
+            foreach (FileInfo old in dumps
+                .OrderByDescending(f => f.LastWriteTimeUtc)
+                .ThenByDescending(f => f.Name, StringComparer.Ordinal)
+                .Skip(retain))
             {
                 try
                 {
