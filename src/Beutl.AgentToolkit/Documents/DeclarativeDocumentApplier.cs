@@ -56,6 +56,28 @@ internal sealed class DeclarativeDocumentApplier
 
     private void ApplyScene(Scene scene, JsonObject desired)
     {
+        // A present-but-null Markers member is a malformed document (RequireArrayMember rejects it,
+        // like Elements); only actual omission clears the list. Validate before the first mutation:
+        // ApplyScene applies in steps, so a late throw would leave the earlier steps applied on a
+        // direct Documents.Write (the reconciler's sandbox covers apply_edit, not direct writes).
+        JsonArray? markersArray = null;
+        if (desired.TryGetPropertyValue(nameof(Scene.Markers), out JsonNode? markersNode))
+        {
+            markersArray = RequireArrayMember(markersNode, nameof(Scene.Markers));
+            for (int index = 0; index < markersArray.Count; index++)
+            {
+                if (markersArray[index] is not JsonObject)
+                {
+                    string entryPath = CreateIdentityListItemPath(nameof(Scene.Markers), index);
+                    throw new ReconcileException(new ToolError(
+                        ErrorCode.ValidationRejected,
+                        $"List entry at '{entryPath}' is not an object.",
+                        entryPath,
+                        "Each Markers member must be a JSON object; remove null/primitive entries."));
+                }
+            }
+        }
+
         ApplyRegisteredProperties(
             scene,
             desired,
@@ -102,33 +124,11 @@ internal sealed class DeclarativeDocumentApplier
         }
 
         // Markers is [NotAutoSerialized] but custom-serialized by Scene, so the generic registered-
-        // property pass (which honors ShouldSerialize) never applies it — handle it explicitly like
-        // Groups, with the same authoritative-omission semantics.
-        // A present-but-null Markers member is a malformed document (RequireArrayMember rejects it,
-        // like Elements); only actual omission clears the list.
-        if (desired.TryGetPropertyValue(nameof(Scene.Markers), out JsonNode? markersNode))
+        // property pass (which honors ShouldSerialize) never applies it — reconcile it by Id like
+        // Elements/Objects, with the same authoritative-omission semantics.
+        if (markersArray is not null)
         {
-            JsonArray markersArray = RequireArrayMember(markersNode, nameof(Scene.Markers));
-            for (int index = 0; index < markersArray.Count; index++)
-            {
-                // A null/primitive entry would deserialize into a null list element and blow up
-                // later at render/UI time; reject before mutating, like ReplaceList does.
-                if (markersArray[index] is not JsonObject)
-                {
-                    string entryPath = CreateIdentityListItemPath(nameof(Scene.Markers), index);
-                    throw new ReconcileException(new ToolError(
-                        ErrorCode.ValidationRejected,
-                        $"List entry at '{entryPath}' is not an object.",
-                        entryPath,
-                        "Each Markers member must be a JSON object; remove null/primitive entries."));
-                }
-            }
-
-            var markers = (CoreList<SceneMarker>?)EnumJsonValueNormalizer.Deserialize(
-                markersArray,
-                typeof(CoreList<SceneMarker>),
-                CreateOptions(scene));
-            scene.Markers.Replace(markers ?? []);
+            ApplyIdentityList(scene.Markers, typeof(SceneMarker), nameof(Scene.Markers), markersArray, scene);
         }
         else
         {

@@ -131,11 +131,12 @@ public sealed class SceneMarkerApplyTests
     }
 
     [Test]
-    public void Document_roundtrip_preserves_markers()
+    public void Document_roundtrip_preserves_marker_instances()
     {
         using var source = new FileSessionSource();
         FileEditingSession session = CreateSession(source);
-        session.Scene.Markers.Add(new SceneMarker(TimeSpan.FromSeconds(3), "keep"));
+        var marker = new SceneMarker(TimeSpan.FromSeconds(3), "keep");
+        session.Scene.Markers.Add(marker);
 
         JsonObject desired = session.Documents.Read(session.Scene);
         session.Documents.Write(session.Scene, desired);
@@ -143,8 +144,31 @@ public sealed class SceneMarkerApplyTests
         Assert.Multiple(() =>
         {
             Assert.That(session.Scene.Markers, Has.Count.EqualTo(1));
+            Assert.That(session.Scene.Markers[0], Is.SameAs(marker));
             Assert.That(session.Scene.Markers[0].Time, Is.EqualTo(TimeSpan.FromSeconds(3)));
             Assert.That(session.Scene.Markers[0].Name, Is.EqualTo("keep"));
+        });
+    }
+
+    [Test]
+    public void Invalid_markers_member_rejects_before_other_scene_changes_apply()
+    {
+        using var source = new FileSessionSource();
+        FileEditingSession session = CreateSession(source);
+        session.Scene.Markers.Add(new SceneMarker(TimeSpan.FromSeconds(1), "keep"));
+        int originalWidth = session.Scene.FrameSize.Width;
+
+        JsonObject desired = session.Documents.Read(session.Scene);
+        desired["Width"] = originalWidth + 100;
+        desired[nameof(Scene.Markers)] = new JsonArray((JsonNode?)null);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(
+                () => session.Documents.Write(session.Scene, desired),
+                Throws.InstanceOf<ReconcileException>());
+            Assert.That(session.Scene.FrameSize.Width, Is.EqualTo(originalWidth));
+            Assert.That(session.Scene.Markers, Has.Count.EqualTo(1));
         });
     }
 
