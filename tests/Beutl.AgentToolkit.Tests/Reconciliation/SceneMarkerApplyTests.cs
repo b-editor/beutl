@@ -41,6 +41,32 @@ public sealed class SceneMarkerApplyTests
         });
     }
 
+    // With existing markers the identity merge silently drops non-object patch entries, so the
+    // null only reaches the applier when the array is replaced wholesale (no current markers).
+    [Test]
+    public void Null_marker_entry_is_rejected_without_mutation()
+    {
+        using var source = new FileSessionSource();
+        FileEditingSession session = CreateSession(source);
+        var manager = new AgentSessionManager();
+        manager.UseSource(source);
+        var tools = new EditTools(manager);
+
+        JsonObject patch = new()
+        {
+            [nameof(Scene.Markers)] = new JsonArray((JsonNode?)null)
+        };
+
+        ToolResult<ApplyEditResponse> apply = tools.ApplyEdit(patch: patch, schemaVersion: SchemaVersion.Current);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(apply.IsSuccess, Is.False);
+            Assert.That(apply.Error!.Code, Is.EqualTo(ErrorCode.ValidationRejected));
+            Assert.That(session.Scene.Markers, Is.Empty);
+        });
+    }
+
     [Test]
     public void Full_document_omitting_markers_clears_them()
     {

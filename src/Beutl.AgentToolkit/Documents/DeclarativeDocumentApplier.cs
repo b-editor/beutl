@@ -106,8 +106,24 @@ internal sealed class DeclarativeDocumentApplier
         // Groups, with the same authoritative-omission semantics.
         if (desired.TryGetPropertyValue(nameof(Scene.Markers), out JsonNode? markersNode) && markersNode is not null)
         {
+            JsonArray markersArray = RequireArrayMember(markersNode, nameof(Scene.Markers));
+            for (int index = 0; index < markersArray.Count; index++)
+            {
+                // A null/primitive entry would deserialize into a null list element and blow up
+                // later at render/UI time; reject before mutating, like ReplaceList does.
+                if (markersArray[index] is not JsonObject)
+                {
+                    string entryPath = CreateIdentityListItemPath(nameof(Scene.Markers), index);
+                    throw new ReconcileException(new ToolError(
+                        ErrorCode.ValidationRejected,
+                        $"List entry at '{entryPath}' is not an object.",
+                        entryPath,
+                        "Each Markers member must be a JSON object; remove null/primitive entries."));
+                }
+            }
+
             var markers = (CoreList<SceneMarker>?)EnumJsonValueNormalizer.Deserialize(
-                RequireArrayMember(markersNode, nameof(Scene.Markers)),
+                markersArray,
                 typeof(CoreList<SceneMarker>),
                 CreateOptions(scene));
             scene.Markers.Replace(markers ?? []);
