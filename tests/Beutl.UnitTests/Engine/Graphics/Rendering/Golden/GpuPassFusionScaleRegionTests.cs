@@ -93,6 +93,7 @@ public sealed class GpuPassFusionScaleRegionTests
     {
         var outputBounds = new Rect(10, 20, 30, 40);
         using RenderNode root = ScaleRecordingTestHelper.Source(EffectiveScale.At(1), outputBounds);
+        var diagnostics = new RenderPipelineDiagnosticsState();
         using var renderer = new RenderNodeRenderer(
             root,
             new RenderNodeRendererOptions
@@ -102,14 +103,27 @@ public sealed class GpuPassFusionScaleRegionTests
                 OutputScale = 1,
                 UseRenderCache = false,
                 TargetFactory = new CpuTargetFactory(),
+                RenderPurpose = RenderRequestPurpose.Frame,
+                Diagnostics = diagnostics,
             });
 
         using RenderNodeRasterization rasterization = renderer.Rasterize();
+        RenderPipelineDiagnosticSnapshot snapshot = diagnostics.Latest;
 
         Assert.Multiple(() =>
         {
             Assert.That(rasterization.Bounds, Is.EqualTo(Rect.Empty));
             Assert.That(rasterization.Bitmap, Is.Null);
+            Assert.That(snapshot.Succeeded, Is.True);
+            Assert.That(snapshot[RenderPipelineCounter.RecordedFragments], Is.GreaterThan(0));
+            Assert.That(
+                snapshot[RenderPipelineCounter.SkippedOutcomes],
+                Is.EqualTo(snapshot[RenderPipelineCounter.RecordedFragments]));
+            Assert.That(snapshot[RenderPipelineCounter.ExecutedOutcomes], Is.Zero);
+            Assert.That(snapshot[RenderPipelineCounter.ExecutedGpuPasses], Is.Zero);
+            Assert.That(snapshot[RenderPipelineCounter.IntermediateAcquires], Is.Zero);
+            Assert.That(snapshot.Events[^1].Kind, Is.EqualTo(RenderPipelineDiagnosticEventKind.RequestCompleted));
+            Assert.That(diagnostics.LatestFrame, Is.SameAs(snapshot));
         });
     }
 

@@ -164,12 +164,9 @@ public sealed class RenderNodeRenderer : IDisposable
         ThrowIfDisposed();
         ArgumentNullException.ThrowIfNull(destination);
         ObjectDisposedException.ThrowIf(destination.IsDisposed, destination);
-        if (Options.RequestedRegion is { } requested
-            && (requested.Width == 0 || requested.Height == 0))
-        {
-            return;
-        }
 
+        bool hasExplicitEmptySelection = Options.RequestedRegion is { } requested
+                                         && (requested.Width == 0 || requested.Height == 0);
         float maxWorkingScale = MathF.Min(Options.MaxWorkingScale, destination.MaxWorkingScale);
         Rect targetDomain = ResolveDestinationTargetDomain(destination);
         using RenderTargetLeaseSession targets = _targetRegistry.BeginSession(
@@ -188,7 +185,11 @@ public sealed class RenderNodeRenderer : IDisposable
                 targets);
             owner = request.Request.Options.Owner;
             var executor = new RenderRequestExecutor(targets, _programCache);
-            if (request.ExecutionTargetBounds == request.SelectedOutputBounds)
+            if (hasExplicitEmptySelection)
+            {
+                executor.CompleteEmptySelection(request);
+            }
+            else if (request.ExecutionTargetBounds == request.SelectedOutputBounds)
             {
                 executor.Execute(request, destination);
             }
@@ -356,6 +357,12 @@ public sealed class RenderNodeRenderer : IDisposable
                     transform?.Dispose();
                 }
             }
+            else
+            {
+                var executor = new RenderRequestExecutor(targets, _programCache);
+                executor.CompleteEmptySelection(request);
+                LastExecutionStatistics = executor.Statistics;
+            }
         }
         catch (Exception ex)
         {
@@ -427,8 +434,8 @@ public sealed class RenderNodeRenderer : IDisposable
     {
         RenderExecutionCallbackGuard.ThrowIfRendererLaunchForbidden();
         ThrowIfDisposed();
-        if (Options.RequestedRegion is { } requested && !requested.Contains(point))
-            return false;
+        bool pointInRequestedRegion = Options.RequestedRegion is not { } requested
+                                      || requested.Contains(point);
 
         RenderRequest request = CreateRequest(
             RenderRequestPurpose.HitTest,
@@ -444,13 +451,16 @@ public sealed class RenderNodeRenderer : IDisposable
             RecordedRenderGraph graph = recorder.Record(Root);
             var compiler = new RenderRequestCompiler();
             _ = compiler.ResolveMetadata(request, graph);
-            var roots = RenderRequestCompiler.ResolveRoots(graph);
-            for (int index = roots.Length - 1; index >= 0; index--)
+            if (pointInRequestedRegion)
             {
-                if (roots[index].HitTest(point))
+                var roots = RenderRequestCompiler.ResolveRoots(graph);
+                for (int index = roots.Length - 1; index >= 0; index--)
                 {
-                    result = true;
-                    break;
+                    if (roots[index].HitTest(point))
+                    {
+                        result = true;
+                        break;
+                    }
                 }
             }
 

@@ -19,6 +19,7 @@ public sealed class RenderNodeRendererLifetimeTests
         using var source = new TrackingRenderTarget(new PixelSize(8, 8));
         using var node = new ShaderNode(source, bounds);
         using var factory = new TrackingTargetFactory();
+        var diagnostics = new RenderPipelineDiagnosticsState();
         using var renderer = new RenderNodeRenderer(
             node,
             new RenderNodeRendererOptions
@@ -29,9 +30,12 @@ public sealed class RenderNodeRendererLifetimeTests
                 MaxWorkingScale = 2,
                 UseRenderCache = false,
                 TargetFactory = factory,
+                RenderPurpose = RenderRequestPurpose.Frame,
+                Diagnostics = diagnostics,
             });
 
         using RenderNodeRasterization rasterization = renderer.Rasterize();
+        RenderPipelineDiagnosticSnapshot snapshot = diagnostics.Latest;
 
         Assert.Multiple(() =>
         {
@@ -41,6 +45,62 @@ public sealed class RenderNodeRendererLifetimeTests
             Assert.That(rasterization.Bitmap, Is.Null);
             Assert.That(factory.Targets, Is.Empty);
             Assert.That(renderer.TargetPoolStatistics.LeasedTargets, Is.Zero);
+            Assert.That(snapshot.Succeeded, Is.True);
+            Assert.That(snapshot.Purpose, Is.EqualTo(RenderRequestPurpose.Frame));
+            Assert.That(snapshot[RenderPipelineCounter.RecordedFragments], Is.GreaterThan(0));
+            Assert.That(
+                snapshot[RenderPipelineCounter.SkippedOutcomes],
+                Is.EqualTo(snapshot[RenderPipelineCounter.RecordedFragments]));
+            Assert.That(snapshot[RenderPipelineCounter.ExecutedOutcomes], Is.Zero);
+            Assert.That(snapshot[RenderPipelineCounter.FailedOutcomes], Is.Zero);
+            Assert.That(snapshot.Events[^1].Kind, Is.EqualTo(RenderPipelineDiagnosticEventKind.RequestCompleted));
+            Assert.That(diagnostics.LatestFrame, Is.SameAs(snapshot));
+        });
+    }
+
+    [TestCase(3, 4, 0, 2)]
+    [TestCase(20, 20, 2, 2)]
+    public void Render_EmptySelection_PublishesSuccessfulSkippedDiagnostics(
+        int x,
+        int y,
+        int width,
+        int height)
+    {
+        var bounds = new Rect(0, 0, 8, 8);
+        using var source = new TrackingRenderTarget(new PixelSize(8, 8));
+        using var node = new ShaderNode(source, bounds);
+        var diagnostics = new RenderPipelineDiagnosticsState();
+        using var renderer = new RenderNodeRenderer(
+            node,
+            new RenderNodeRendererOptions
+            {
+                TargetDomain = bounds,
+                RequestedRegion = new Rect(x, y, width, height),
+                UseRenderCache = false,
+                RenderPurpose = RenderRequestPurpose.Frame,
+                Diagnostics = diagnostics,
+            });
+        using RenderTarget target = RenderTarget.CreateNull(8, 8);
+        using var canvas = new ImmediateCanvas(target);
+
+        renderer.Render(canvas);
+
+        RenderPipelineDiagnosticSnapshot snapshot = diagnostics.Latest;
+        Assert.Multiple(() =>
+        {
+            Assert.That(snapshot.Succeeded, Is.True);
+            Assert.That(snapshot.Purpose, Is.EqualTo(RenderRequestPurpose.Frame));
+            Assert.That(snapshot[RenderPipelineCounter.RecordedFragments], Is.GreaterThan(0));
+            Assert.That(
+                snapshot[RenderPipelineCounter.SkippedOutcomes],
+                Is.EqualTo(snapshot[RenderPipelineCounter.RecordedFragments]));
+            Assert.That(snapshot[RenderPipelineCounter.ExecutedOutcomes], Is.Zero);
+            Assert.That(
+                snapshot[RenderPipelineCounter.ExternalRootResources],
+                Is.EqualTo(width == 0 || height == 0 ? 0 : 1));
+            Assert.That(snapshot[RenderPipelineCounter.FailedOutcomes], Is.Zero);
+            Assert.That(snapshot.Events[^1].Kind, Is.EqualTo(RenderPipelineDiagnosticEventKind.RequestCompleted));
+            Assert.That(diagnostics.LatestFrame, Is.SameAs(snapshot));
         });
     }
 
