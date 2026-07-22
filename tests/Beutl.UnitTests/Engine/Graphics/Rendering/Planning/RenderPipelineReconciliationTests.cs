@@ -38,6 +38,37 @@ public sealed class RenderPipelineReconciliationTests
     }
 
     [Test]
+    public void HitTest_OutsideRequestedRegion_PublishesMetadataSnapshotWithoutReplacingLatestFrame()
+    {
+        var diagnostics = new RenderPipelineDiagnosticsState();
+        RenderPipelineDiagnosticSnapshot latestFrame = diagnostics.LatestFrame;
+        using var node = new ClearRenderNode(new Color(255, 12, 34, 56));
+        using var renderer = new RenderNodeRenderer(node, new RenderNodeRendererOptions
+        {
+            TargetDomain = new Rect(0, 0, 32, 24),
+            RequestedRegion = new Rect(8, 8, 12, 10),
+            Diagnostics = diagnostics,
+            UseRenderCache = false,
+        });
+
+        bool hit = renderer.HitTest(new Point(2, 2));
+
+        RenderPipelineDiagnosticSnapshot snapshot = diagnostics.Latest;
+        Assert.Multiple(() =>
+        {
+            Assert.That(hit, Is.False);
+            Assert.That(snapshot.Purpose, Is.EqualTo(RenderRequestPurpose.HitTest));
+            Assert.That(snapshot.Succeeded, Is.True);
+            Assert.That(snapshot[RenderPipelineCounter.RecordedFragments], Is.GreaterThan(0));
+            Assert.That(
+                snapshot[RenderPipelineCounter.MetadataOutcomes],
+                Is.EqualTo(snapshot[RenderPipelineCounter.RecordedFragments]));
+            Assert.That(snapshot.Events[^1].Kind, Is.EqualTo(RenderPipelineDiagnosticEventKind.RequestCompleted));
+            Assert.That(diagnostics.LatestFrame, Is.SameAs(latestFrame));
+        });
+    }
+
+    [Test]
     public void ExecutionPipeline_PublishesAfterExecutionAndIsolatesObserverFailures()
     {
         var diagnostics = new RenderPipelineDiagnosticsState();

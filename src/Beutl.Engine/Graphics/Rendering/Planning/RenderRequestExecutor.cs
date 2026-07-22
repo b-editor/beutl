@@ -34,6 +34,53 @@ internal sealed class RenderRequestExecutor
         _programCache = programCache;
     }
 
+    public void CompleteEmptySelection(CompiledRenderRequest request)
+    {
+        ArgumentNullException.ThrowIfNull(request);
+        ObjectDisposedException.ThrowIf(request.IsDisposed, request);
+        if (request.SelectedOutputBounds.Width != 0 && request.SelectedOutputBounds.Height != 0)
+        {
+            throw new InvalidOperationException(
+                "Only a request with an empty selected output can complete without execution.");
+        }
+
+        ValidateFamilyForExecution(request);
+        foreach (CompiledRenderRequest member in EnumerateFamilyDepthFirst(request))
+            member.Request.TransitionTo(RenderRequestState.Executing);
+
+        RenderPipelineDiagnosticRecorder? rootDiagnostics = RenderRequestDiagnostics.TryGet(request.Request);
+        var cleanupFailures = new List<Exception>();
+        RejectNestedBindings(request);
+
+        RenderRequestOwner owner = request.Request.Options.Owner;
+        int ownerCleanupStart = owner.CleanupFailures.Length;
+        owner.Cleanup();
+        foreach (Exception failure in owner.CleanupFailures.Skip(ownerCleanupStart))
+            AppendCleanupFailures(cleanupFailures, rootDiagnostics, failure);
+
+        try
+        {
+            _targets.Dispose();
+            _targets.ThrowIfCleanupFailed();
+        }
+        catch (Exception ex)
+        {
+            AppendCleanupFailures(cleanupFailures, rootDiagnostics, ex);
+        }
+
+        if (cleanupFailures.Count != 0)
+        {
+            Exception primaryFailure = cleanupFailures[0];
+            EnsureOwnerPrimary(owner, primaryFailure);
+            RecordAdditionalFailures(owner, cleanupFailures);
+            FailFamily(request, RenderPipelineFailurePhase.Cleanup);
+            ExceptionDispatchInfo.Capture(primaryFailure).Throw();
+        }
+
+        Statistics = default;
+        CompleteFamily(request);
+    }
+
     public void Execute(
         CompiledRenderRequest request,
         ImmediateCanvas destination,
