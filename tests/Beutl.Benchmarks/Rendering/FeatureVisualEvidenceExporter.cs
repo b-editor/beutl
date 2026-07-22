@@ -439,7 +439,9 @@ internal static class FeatureVisualEvidenceExporter
     private static FeatureSceneFixture BuildAaShaderScene(bool stroke, bool applyShader)
     {
         var fixture = new FeatureSceneFixture();
-        RenderNode source = new FeatureAnalyticCoverageNode(stroke);
+        RenderNode source = stroke
+            ? new FeatureAnalyticCoverageNode(stroke: true)
+            : new FeatureAnalyticLineNode();
         fixture.Root = applyShader
             ? fixture.WrapShader(source, FeatureEvidenceShaders.ColorTimesAlpha)
             : source;
@@ -1346,6 +1348,43 @@ internal sealed class FeatureAnalyticCoverageNode : RenderNode
             _geometryResource.Dispose();
         }
         base.OnDispose(disposing);
+    }
+}
+
+internal sealed class FeatureAnalyticLineNode : RenderNode
+{
+    private static readonly Rect s_bounds = new(10, 8, 172, 92);
+
+    public override void Process(RenderNodeContext context)
+    {
+        OpaqueRenderDescription description = OpaqueRenderDescription.CreateEngineSource(
+            execute: static session =>
+            {
+                using OpaqueRenderOutput output = session.CreateOutput(session.OutputBounds);
+                output.Canvas.Use(static canvas => Draw(canvas.Canvas));
+                session.Publish(output);
+            },
+            directReplay: static session => Draw(session.Canvas.Canvas),
+            bounds: RenderOperationBoundsContract.Source(s_bounds),
+            hitTest: RenderHitTestContract.OutputBounds,
+            scale: RenderScaleContract.Vector,
+            structuralKey: typeof(FeatureAnalyticLineNode),
+            runtimeIdentity: new RenderRuntimeIdentity(typeof(FeatureAnalyticLineNode)));
+        context.Publish(context.OpaqueSource(description));
+    }
+
+    private static void Draw(SKCanvas canvas)
+    {
+        using var paint = new SKPaint
+        {
+            IsAntialias = true,
+            Color = new SKColor(225, 85, 30, 205),
+            Style = SKPaintStyle.Stroke,
+            StrokeWidth = 0.75f,
+            StrokeCap = SKStrokeCap.Round,
+            StrokeJoin = SKStrokeJoin.Round,
+        };
+        canvas.DrawLine(17.35f, 86.45f, 174.65f, 19.55f, paint);
     }
 }
 
