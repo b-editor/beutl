@@ -36,6 +36,23 @@ public class UnloadDiagnosticsReportTests
     }
 
     [Test]
+    public void SurvivingTypes_BreakTiesByAssemblyName_ForStableOrderAcrossInputOrders()
+    {
+        // Same type name and count in two assemblies: order must not depend on the input sequence.
+        UnloadDiagnosticsObjectGroup a = new("Ns.Same", "Plugin.A", 5);
+        UnloadDiagnosticsObjectGroup b = new("Ns.Same", "Plugin.B", 5);
+
+        string[] fromAb = CreateReport([a, b]).SurvivingTypes.Select(x => x.AssemblyName).ToArray();
+        string[] fromBa = CreateReport([b, a]).SurvivingTypes.Select(x => x.AssemblyName).ToArray();
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(fromAb, Is.EqualTo(new[] { "Plugin.A", "Plugin.B" }));
+            Assert.That(fromBa, Is.EqualTo(new[] { "Plugin.A", "Plugin.B" }));
+        });
+    }
+
+    [Test]
     public void ObjectGroups_KeepSameTypeNameFromDifferentAssembliesDistinct()
     {
         var counts = new Dictionary<(string Assembly, string TypeName), int>();

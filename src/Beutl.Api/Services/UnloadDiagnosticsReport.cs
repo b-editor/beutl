@@ -33,8 +33,12 @@ internal sealed class UnloadDiagnosticsReport
         PackageName = packageName;
         AssemblyNames = assemblyNames;
         SurvivingObjectCount = survivingObjectCount;
-        // Sort here so callers may pass groups in any order and both outputs stay deterministic.
-        SurvivingTypes = [.. survivingTypes.OrderByDescending(x => x.Count).ThenBy(x => x.TypeName, StringComparer.Ordinal)];
+        // Sort here so callers may pass groups in any order and both outputs stay deterministic. AssemblyName is the
+        // final tie-breaker because the same type name can appear in two assemblies with an equal count.
+        SurvivingTypes = [.. survivingTypes
+            .OrderByDescending(x => x.Count)
+            .ThenBy(x => x.TypeName, StringComparer.Ordinal)
+            .ThenBy(x => x.AssemblyName, StringComparer.Ordinal)];
         RootPaths = rootPaths;
         ThreadStacks = threadStacks;
         CaptureTruncated = captureTruncated;

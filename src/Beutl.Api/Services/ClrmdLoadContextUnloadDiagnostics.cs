@@ -189,15 +189,16 @@ internal sealed class ClrmdLoadContextUnloadDiagnostics : ILoadContextUnloadDiag
 
             if (remaining.Remove(current.Address))
             {
+                // Record the path but keep walking this object's children: a selected survivor can be the only route
+                // to another selected survivor, which would otherwise get no root path.
                 results.Add(BuildPath(current.Address, parent));
-                continue;
             }
 
             foreach (ClrReference reference in current.EnumerateReferencesWithFields(carefully: true, considerDependantHandles: true))
             {
-                // Children are enqueued faster than they are dequeued, so bound the map here too; the dequeue-side
-                // visit cap alone would let it outgrow MaxVisitedObjects on a large heap.
-                if (parent.Count >= MaxVisitedObjects)
+                // Children are enqueued faster than they are dequeued, and a huge reference array can add no new
+                // parent entries at all, so bound by both the map size and the time budget here.
+                if (parent.Count >= MaxVisitedObjects || stopwatch.Elapsed > s_budget)
                 {
                     truncated = true;
                     break;
@@ -303,6 +304,7 @@ internal sealed class ClrmdLoadContextUnloadDiagnostics : ILoadContextUnloadDiag
 
                 if (frames.Count >= MaxFramesPerThread)
                 {
+                    truncated = true;
                     break;
                 }
 
