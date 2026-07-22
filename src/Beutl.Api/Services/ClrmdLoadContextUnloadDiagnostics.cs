@@ -25,10 +25,20 @@ internal sealed class ClrmdLoadContextUnloadDiagnostics : ILoadContextUnloadDiag
     // retention bound. Unload failures are rare, so keeping a few is plenty of history.
     private const int MaxRetainedDumps = 5;
 
+    // Skip a capture while one is already running: concurrent unload failures would otherwise fire several heavy
+    // self-snapshots at once. Internal so a test can hold it to exercise the skip path.
+    internal static readonly SemaphoreSlim s_captureGate = new(1, 1);
+
     private readonly ILogger _logger = Log.CreateLogger<ClrmdLoadContextUnloadDiagnostics>();
 
     public void CaptureUnloadFailure(string packageName, IReadOnlyList<string> assemblySimpleNames)
     {
+        if (!s_captureGate.Wait(0))
+        {
+            _logger.LogWarning("Skipping unload diagnostics for {PackageName}: a capture is already in progress.", packageName);
+            return;
+        }
+
         try
         {
             var pluginAssemblies = new HashSet<string>(assemblySimpleNames, StringComparer.OrdinalIgnoreCase);
@@ -74,6 +84,10 @@ internal sealed class ClrmdLoadContextUnloadDiagnostics : ILoadContextUnloadDiag
         {
             // Diagnostics must never disturb the uninstall flow; swallow everything after logging.
             _logger.LogError(ex, "Failed to capture unload diagnostics for {PackageName}.", packageName);
+        }
+        finally
+        {
+            s_captureGate.Release();
         }
     }
 

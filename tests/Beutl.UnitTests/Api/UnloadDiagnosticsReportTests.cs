@@ -187,4 +187,31 @@ public class UnloadDiagnosticsReportTests
             Assert.That(report.BuildSummary(), Does.Contain("Top types: (none)"));
         });
     }
+
+    [Test]
+    public void BuildSummary_NotesTruncation_WhenCaptureTruncated()
+    {
+        Assert.Multiple(() =>
+        {
+            Assert.That(CreateReport(truncated: true).BuildSummary(), Does.Contain("Capture truncated"));
+            Assert.That(CreateReport(truncated: false).BuildSummary(), Does.Not.Contain("Capture truncated"));
+        });
+    }
+
+    [Test]
+    [NonParallelizable]
+    public void CaptureUnloadFailure_SkipsWithoutThrowing_WhenACaptureIsAlreadyRunning()
+    {
+        // Hold the gate to simulate an in-flight capture; the call must take the skip path and return without work.
+        Assert.That(ClrmdLoadContextUnloadDiagnostics.s_captureGate.Wait(0), Is.True);
+        try
+        {
+            var diagnostics = new ClrmdLoadContextUnloadDiagnostics();
+            Assert.That(() => diagnostics.CaptureUnloadFailure("Pkg", ["Asm"]), Throws.Nothing);
+        }
+        finally
+        {
+            ClrmdLoadContextUnloadDiagnostics.s_captureGate.Release();
+        }
+    }
 }

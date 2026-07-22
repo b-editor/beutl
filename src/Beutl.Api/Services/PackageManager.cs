@@ -318,12 +318,20 @@ public sealed class PackageManager(
 
         if (info.LoadContext is { } loadContext)
         {
-            // Capture only the assembly names as strings; never retain the assemblies/types, or the diagnostics
-            // pass below would itself root the context it is meant to diagnose.
-            assemblyNames = [.. loadContext.Assemblies
-                .Select(a => a.GetName().Name)
-                .OfType<string>()
-                .Distinct(StringComparer.OrdinalIgnoreCase)];
+            try
+            {
+                // Capture only the assembly names as strings; never retain the assemblies/types, or the diagnostics
+                // pass below would itself root the context it is meant to diagnose.
+                assemblyNames = [.. loadContext.Assemblies
+                    .Select(a => a.GetName().Name)
+                    .OfType<string>()
+                    .Distinct(StringComparer.OrdinalIgnoreCase)];
+            }
+            catch (Exception ex)
+            {
+                // Best-effort like TryUnloadLoadContext: a reflection failure here must not break the unload flow.
+                _logger.LogWarning(ex, "Failed to capture assembly names for unload diagnostics of {PackageName}.", package.Name);
+            }
 
             TryUnloadLoadContext(package, loadContext);
         }

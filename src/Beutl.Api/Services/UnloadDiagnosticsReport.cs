@@ -66,8 +66,12 @@ internal sealed class UnloadDiagnosticsReport
             ? "(none)"
             : string.Join(", ", SurvivingTypes.Take(TopTypesInSummary).Select(x => $"{x.TypeName} [{x.AssemblyName}] x{x.Count}"));
 
-        return $"Package '{PackageName}' failed to unload: {SurvivingObjectCount} live object(s) across [{assemblies}]. " +
+        string summary =
+            $"Package '{PackageName}' failed to unload: {SurvivingObjectCount} live object(s) across [{assemblies}]. " +
             $"Top types: {topTypes}. {RootPaths.Count} root path(s), {ThreadStacks.Count} thread(s) captured.";
+
+        // The warning log line uses this summary, so it must flag partial results without opening the full dump.
+        return CaptureTruncated ? summary + " Capture truncated; results may be partial." : summary;
     }
 
     public string BuildReport()
