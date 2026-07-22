@@ -60,11 +60,12 @@ public sealed class ToolErrorMapperTests
         try
         {
             thrower();
-            throw new InvalidOperationException("Thrower did not throw.");
         }
         catch (Exception ex)
         {
             return ex;
         }
+
+        throw new InvalidOperationException("Thrower did not throw.");
     }
 }
