@@ -150,6 +150,43 @@ public sealed class SceneMarkerApplyTests
         });
     }
 
+    // Object-shaped but undeserializable payloads pass the applier's structural pre-check; the
+    // reconciler's validation sandbox is what keeps them from mutating the live scene.
+    [Test]
+    public void Undeserializable_marker_payload_is_rejected_without_mutating_the_live_scene()
+    {
+        using var source = new FileSessionSource();
+        FileEditingSession session = CreateSession(source);
+        var marker = new SceneMarker(TimeSpan.FromSeconds(1), "keep");
+        session.Scene.Markers.Add(marker);
+        int originalWidth = session.Scene.FrameSize.Width;
+        var manager = new AgentSessionManager();
+        manager.UseSource(source);
+        var tools = new EditTools(manager);
+
+        JsonObject patch = new()
+        {
+            ["Width"] = originalWidth + 100,
+            [nameof(Scene.Markers)] = new JsonArray(new JsonObject
+            {
+                [nameof(CoreObject.Id)] = marker.Id.ToString(),
+                [nameof(SceneMarker.Time)] = "not-a-timespan"
+            })
+        };
+
+        ToolResult<ApplyEditResponse> apply = tools.ApplyEdit(patch: patch, schemaVersion: SchemaVersion.Current);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(apply.IsSuccess, Is.False);
+            Assert.That(apply.Error!.Code, Is.EqualTo(ErrorCode.ValidationRejected));
+            Assert.That(session.Scene.FrameSize.Width, Is.EqualTo(originalWidth));
+            Assert.That(session.Scene.Markers, Has.Count.EqualTo(1));
+            Assert.That(session.Scene.Markers[0], Is.SameAs(marker));
+            Assert.That(session.Scene.Markers[0].Time, Is.EqualTo(TimeSpan.FromSeconds(1)));
+        });
+    }
+
     [Test]
     public void Invalid_markers_member_rejects_before_other_scene_changes_apply()
     {
