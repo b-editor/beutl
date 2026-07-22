@@ -18,17 +18,12 @@ public class ReferencesChildRenderNode(RenderNode? child) : RenderNode
         return HasChanges;
     }
 
-    public override RenderNodeOperation[] Process(RenderNodeContext context)
+    public override void Process(RenderNodeContext context)
     {
         if (Child != null && !Child.IsDisposed)
         {
-            // Forward the working-scale ceiling into the nested pull.
-            var processor = new RenderNodeProcessor(
-                Child, context.IsRenderCacheEnabled, context.OutputScale, context.MaxWorkingScale);
-            return processor.PullToRoot();
+            context.PublishRange(context.RecordSubtree(Child));
         }
-
-        return [];
     }
 
     protected override void OnDispose(bool disposing)

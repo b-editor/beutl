@@ -23,7 +23,7 @@ public static class SaveFrameScale
 
     /// <summary>Whether the scaled surface fits the per-axis buffer limit on both axes.</summary>
     public static bool FitsBufferLimit(
-        PixelSize frameSize, float scale, int maxDimension = RenderNodeContext.MaxBufferDimension)
+        PixelSize frameSize, float scale, int maxDimension = RenderScaleUtilities.MaxBufferDimension)
     {
         (long width, long height) = GetRenderSize(frameSize, scale);
         return width <= maxDimension && height <= maxDimension;

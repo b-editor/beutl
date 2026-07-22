@@ -67,29 +67,25 @@ public class ImageSourceRenderNodeTest
     }
 
     [Test]
-    public void Process_WithoutInput_ShouldReturnEmptyRenderNodeOperation()
+    public void Measure_WithoutInput_ShouldReportRecordedFragment()
     {
-        var context = new RenderNodeContext([]);
-
         ImageSource.Resource source = GetTestImageSourceResource();
-        var node = new ImageSourceRenderNode(source, null, null);
-        var operations = node.Process(context);
+        using var node = new ImageSourceRenderNode(source, null, null);
+        using var renderer = CreateRenderer(node);
+        RenderNodeMeasurement measurement = renderer.Measure();
 
-        Assert.That(operations, Is.Not.Empty);
+        Assert.That(measurement.HasFragments, Is.True);
     }
 
     [Test]
-    public void Process_WithInput_ShouldReturnExpectedRenderNodeOperation()
+    public void Measure_WithInput_ShouldReportRecordedFragment()
     {
-        var context = new RenderNodeContext([
-            RenderNodeOperation.CreateLambda(default, _ => { })
-        ]);
-
         ImageSource.Resource source = GetTestImageSourceResource();
-        var node = new ImageSourceRenderNode(source, null, null);
-        var operations = node.Process(context);
+        using var node = new InputFeedingNode(new ImageSourceRenderNode(source, null, null));
+        using var renderer = CreateRenderer(node);
+        RenderNodeMeasurement measurement = renderer.Measure();
 
-        Assert.That(operations, Is.Not.Empty);
+        Assert.That(measurement.HasFragments, Is.True);
     }
 
     [Test]
@@ -100,13 +96,11 @@ public class ImageSourceRenderNodeTest
         pen.Brush.CurrentValue = Brushes.Black;
         pen.Thickness.CurrentValue = 50;
         var penResource = pen.ToResource(CompositionContext.Default);
-        var context = new RenderNodeContext([]);
-
-        var node = new ImageSourceRenderNode(source, null, penResource);
-        var operations = node.Process(context);
+        using var node = new ImageSourceRenderNode(source, null, penResource);
+        using var renderer = CreateRenderer(node);
         var point = new Point(-10, -10);
 
-        Assert.That(operations[0].HitTest(point), Is.True);
+        Assert.That(renderer.HitTest(point), Is.True);
     }
 
     [Test]
@@ -117,13 +111,11 @@ public class ImageSourceRenderNodeTest
         pen.Brush.CurrentValue = Brushes.Black;
         pen.Thickness.CurrentValue = 50;
         var penResource = pen.ToResource(CompositionContext.Default);
-        var context = new RenderNodeContext([]);
-
-        var node = new ImageSourceRenderNode(source, null, penResource);
-        var operations = node.Process(context);
+        using var node = new ImageSourceRenderNode(source, null, penResource);
+        using var renderer = CreateRenderer(node);
         var point = new Point(60, 60);
 
-        Assert.That(operations[0].HitTest(point), Is.False);
+        Assert.That(renderer.HitTest(point), Is.False);
     }
 
     [Test]
@@ -131,13 +123,11 @@ public class ImageSourceRenderNodeTest
     {
         ImageSource.Resource source = GetTestImageSourceResource();
         Brush.Resource fill = Brushes.Resource.White;
-        var context = new RenderNodeContext([]);
-
-        var node = new ImageSourceRenderNode(source, fill, null);
-        var operations = node.Process(context);
+        using var node = new ImageSourceRenderNode(source, fill, null);
+        using var renderer = CreateRenderer(node);
         var point = new Point(50, 50);
 
-        Assert.That(operations[0].HitTest(point), Is.True);
+        Assert.That(renderer.HitTest(point), Is.True);
     }
 
     [Test]
@@ -145,26 +135,50 @@ public class ImageSourceRenderNodeTest
     {
         ImageSource.Resource source = GetTestImageSourceResource();
         Brush.Resource fill = Brushes.Resource.White;
-        var context = new RenderNodeContext([]);
-
-        var node = new ImageSourceRenderNode(source, fill, null);
-        var operations = node.Process(context);
+        using var node = new ImageSourceRenderNode(source, fill, null);
+        using var renderer = CreateRenderer(node);
         var point = new Point(150, 150);
 
-        Assert.That(operations[0].HitTest(point), Is.False);
+        Assert.That(renderer.HitTest(point), Is.False);
     }
 
     // A decoded image reports concrete At(1) density, not Unbounded.
     [Test]
-    public void Process_OpReportsConcreteNativeDensity_NotUnbounded()
+    public void Measure_ReportsConcreteNativeDensity_NotUnbounded()
     {
         ImageSource.Resource source = GetTestImageSourceResource();
-        var node = new ImageSourceRenderNode(source, Brushes.Resource.White, null);
-        var operations = node.Process(new RenderNodeContext([]));
+        using var node = new ImageSourceRenderNode(source, Brushes.Resource.White, null);
+        using var renderer = CreateRenderer(node);
+        RenderNodeMeasurement measurement = renderer.Measure();
 
-        Assert.That(operations[0].EffectiveScale.IsUnbounded, Is.False,
+        Assert.That(measurement.EffectiveScale.IsUnbounded, Is.False,
             "an image source must report a concrete density, not the vector Unbounded sentinel");
-        Assert.That(operations[0].EffectiveScale.Value, Is.EqualTo(1f),
+        Assert.That(measurement.EffectiveScale.Value, Is.EqualTo(1f),
             "an image drawn at its native 1:1 size has supply density 1");
+    }
+
+    private static RenderNodeRenderer CreateRenderer(RenderNode node)
+        => new(node, new RenderNodeRendererOptions { UseRenderCache = false });
+
+    private sealed class InputFeedingNode(RenderNode child) : RenderNode
+    {
+        public override void Process(RenderNodeContext context)
+        {
+            RenderFragmentHandle input = context.OpaqueSource(
+                OpaqueRenderDescription.Create(
+                    static _ => throw new AssertionException("Metadata recording must not execute opaque callbacks."),
+                    RenderOperationBoundsContract.Source(new Rect(0, 0, 1, 1)),
+                    RenderHitTestContract.None,
+                    RenderValueCardinality.Single,
+                    RenderScaleContract.Vector,
+                    structuralKey: typeof(InputFeedingNode)));
+            context.PublishRange(context.RecordNode(child, [input]));
+        }
+
+        protected override void OnDispose(bool disposing)
+        {
+            child.Dispose();
+            base.OnDispose(disposing);
+        }
     }
 }

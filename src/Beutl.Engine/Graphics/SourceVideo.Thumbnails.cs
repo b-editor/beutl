@@ -168,7 +168,15 @@ public partial class SourceVideo : IThumbnailsProvider
             int effectiveEnd = endIndex < 0 ? count - 1 : Math.Min(endIndex, count - 1);
 
             node = new DrawableRenderNode(resource);
-            var processor = new RenderNodeProcessor(node, false);
+            using var renderer = new RenderNodeRenderer(
+                node,
+                new RenderNodeRendererOptions
+                {
+                    Intent = RenderIntent.Preview,
+                    TargetDomain = new Rect(0, 0, thumbWidth, maxHeight),
+                    OutputScale = 1,
+                    UseRenderCache = false,
+                });
 
             for (int i = effectiveStart; i <= effectiveEnd; i++)
             {
@@ -205,7 +213,8 @@ public partial class SourceVideo : IThumbnailsProvider
                         DrawInternal(gctx, resource);
                     }
 
-                    return processor.RasterizeAndConcat();
+                    using RenderNodeRasterization rasterization = renderer.Rasterize();
+                    return rasterization.Bitmap?.Clone();
                 }, DispatchPriority.Medium, cancellationToken);
 
                 if (thumbnail != null)

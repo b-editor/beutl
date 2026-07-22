@@ -1,4 +1,6 @@
-﻿using Beutl.Graphics.Rendering;
+﻿using Beutl.Graphics;
+using Beutl.Graphics.Rendering;
+using Beutl.Media;
 
 namespace Beutl.UnitTests.Engine.Graphics.Rendering;
 
@@ -53,13 +55,24 @@ public class ContainerRenderNodeTest
     }
 
     [Test]
-    public void Process_ShouldReturnContextInput()
+    public void Measure_ShouldPassThroughChildOutput()
     {
         var node = new ContainerRenderNode();
-        var context = new RenderNodeContext([]);
-        var result = node.Process(context);
+        var bounds = new Rect(5, 10, 20, 30);
+        node.AddChild(new RectangleRenderNode(bounds, Brushes.Resource.White, null));
+        using var renderer = new RenderNodeRenderer(
+            node,
+            new RenderNodeRendererOptions { UseRenderCache = false });
 
-        Assert.That(result, Is.EqualTo(context.Input));
+        RenderNodeMeasurement result = renderer.Measure();
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(result.HasFragments, Is.True);
+            Assert.That(result.HasContributingValues, Is.True);
+            Assert.That(result.ValueCardinality, Is.EqualTo(RenderValueCardinality.Single));
+            Assert.That(result.OutputBounds, Is.EqualTo(bounds));
+        });
     }
 
     [Test]

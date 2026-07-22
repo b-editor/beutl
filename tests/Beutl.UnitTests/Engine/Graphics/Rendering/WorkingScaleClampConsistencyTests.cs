@@ -15,31 +15,88 @@ public class WorkingScaleClampConsistencyTests
     private static readonly Rect s_pathologicalBounds = new(0, 0, 4000, 10);
 
     [Test]
+    public void ExactClamp_NegativeOriginPreservesDensityWhenDeviceFootprintFits()
+    {
+        var bounds = new Rect(
+            -0.5f,
+            0,
+            RenderScaleUtilities.MaxBufferDimension + 0.5f,
+            1);
+        PixelSize deviceSize = PixelRect.FromRect(bounds, 1).Size;
+        float coarse = RenderScaleUtilities.ClampWorkingScaleToBufferBudget(bounds, 1);
+        float exact = RenderScaleUtilities.ClampWorkingScaleToExactBufferBudget(bounds, 1);
+        EffectiveScale planned = FilterEffectWorkingScalePolicy.ResolveMaterialized(
+            [EffectiveScale.At(1)],
+            [bounds],
+            outputScale: 1,
+            maxWorkingScale: 1);
+        using var targets = new EffectTargets();
+        var context = new CustomFilterEffectContext(
+            targets,
+            RenderIntent.Delivery,
+            RenderRequestPurpose.Auxiliary,
+            workingScale: 1);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(coarse, Is.LessThan(1), "the logical-width estimate must reproduce the false overflow");
+            Assert.That(deviceSize.Width, Is.EqualTo(RenderScaleUtilities.MaxBufferDimension));
+            Assert.That(exact, Is.EqualTo(1));
+            Assert.That(planned, Is.EqualTo(EffectiveScale.At(1)));
+            Assert.That(context.ResolveTargetDensity(bounds), Is.EqualTo(1));
+        });
+    }
+
+    [Test]
+    public void RasterApronClamp_PreservesDensityWhenExactApronedFootprintFits()
+    {
+        var bounds = new Rect(
+            -0.5f,
+            0,
+            RenderScaleUtilities.MaxBufferDimension - 1.5f,
+            1);
+        PixelRect footprint = RenderScaleUtilities.AddRasterApron(PixelRect.FromRect(bounds, 1));
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(footprint.Width, Is.EqualTo(RenderScaleUtilities.MaxBufferDimension));
+            Assert.That(
+                RenderScaleUtilities.ClampWorkingScaleToRasterApronBudget(bounds, 1),
+                Is.EqualTo(1));
+        });
+    }
+
+    [Test]
     public void Flush_ClampWriteback_KeepsWorkingScaleEqualToBufferDensity()
     {
         VulkanTestEnvironment.EnsureAvailable();
         VulkanTestEnvironment.InvokeOnRenderThread(() =>
         {
-            RenderNodeOperation op = RenderNodeOperation.CreateLambda(
-                s_pathologicalBounds,
-                canvas => canvas.DrawRectangle(s_pathologicalBounds, Brushes.Resource.White, null),
-                hitTest: _ => false);
-
-            using var targets = new EffectTargets { new EffectTarget(op) };
+            using RenderTarget source = RenderTarget.Create(4000, 10)!;
+            using var targets = new EffectTargets
+            {
+                new EffectTarget(source, s_pathologicalBounds, EffectiveScale.At(1)),
+            };
             using var builder = new SKImageFilterBuilder();
             using var activator = new FilterEffectActivator(
-                targets, builder, outputScale: 1f, workingScale: 8f, maxWorkingScale: 8f);
+                targets,
+                builder,
+                RenderIntent.Preview,
+                RenderRequestPurpose.Auxiliary,
+                outputScale: 1f,
+                workingScale: 8f,
+                maxWorkingScale: 8f);
 
             activator.Flush();
 
-            float expected = RenderNodeContext.ClampWorkingScaleToBufferBudget(s_pathologicalBounds, 8f);
+            float expected = RenderScaleUtilities.ClampWorkingScaleToBufferBudget(s_pathologicalBounds, 8f);
             Assert.That(expected, Is.LessThan(8f), "the fixture must actually trigger the clamp");
             Assert.That(activator.WorkingScale, Is.EqualTo(expected));
             Assert.That(activator.CurrentTargets, Has.Count.EqualTo(1));
             Assert.That(activator.CurrentTargets[0].Scale.Value, Is.EqualTo(activator.WorkingScale),
                 "the flushed buffer's density and the activator's WorkingScale must agree");
             Assert.That(activator.CurrentTargets[0].RenderTarget!.Width,
-                Is.LessThanOrEqualTo(RenderNodeContext.MaxBufferDimension));
+                Is.LessThanOrEqualTo(RenderScaleUtilities.MaxBufferDimension));
         });
     }
 
@@ -50,15 +107,20 @@ public class WorkingScaleClampConsistencyTests
         VulkanTestEnvironment.InvokeOnRenderThread(() =>
         {
             using var targets = new EffectTargets();
-            var context = new CustomFilterEffectContext(targets, outputScale: 1f, workingScale: 8f);
+            var context = new CustomFilterEffectContext(
+                targets,
+                RenderIntent.Delivery,
+                RenderRequestPurpose.Auxiliary,
+                outputScale: 1f,
+                workingScale: 8f);
 
             using EffectTarget target = context.CreateTarget(s_pathologicalBounds);
 
             Assert.That(target.IsEmpty, Is.False,
                 "an oversized request must degrade density, not return an empty target");
-            float expected = RenderNodeContext.ClampWorkingScaleToBufferBudget(s_pathologicalBounds, 8f);
+            float expected = RenderScaleUtilities.ClampWorkingScaleToBufferBudget(s_pathologicalBounds, 8f);
             Assert.That(target.Scale.Value, Is.EqualTo(expected));
-            Assert.That(target.RenderTarget!.Width, Is.LessThanOrEqualTo(RenderNodeContext.MaxBufferDimension));
+            Assert.That(target.RenderTarget!.Width, Is.LessThanOrEqualTo(RenderScaleUtilities.MaxBufferDimension));
         });
     }
 
@@ -68,10 +130,21 @@ public class WorkingScaleClampConsistencyTests
         using var targets = CreateInvalidFlushTargets();
         using var builder = new SKImageFilterBuilder();
         using var activator = new FilterEffectActivator(
-            targets, builder, outputScale: 1f, workingScale: 1f, maxWorkingScale: 8f);
+            targets,
+            builder,
+            RenderIntent.Preview,
+            RenderRequestPurpose.Auxiliary,
+            outputScale: 1f,
+            workingScale: 1f,
+            maxWorkingScale: 8f);
 
         Assert.That(() => activator.Flush(), Throws.Nothing);
-        Assert.That(activator.CurrentTargets, Is.Empty);
+        Assert.Multiple(() =>
+        {
+            Assert.That(activator.Intent, Is.EqualTo(RenderIntent.Preview));
+            Assert.That(activator.Purpose, Is.EqualTo(RenderRequestPurpose.Auxiliary));
+            Assert.That(activator.CurrentTargets, Is.Empty);
+        });
     }
 
     [Test]
@@ -80,19 +153,29 @@ public class WorkingScaleClampConsistencyTests
         using var targets = CreateInvalidFlushTargets();
         using var builder = new SKImageFilterBuilder();
         using var activator = new FilterEffectActivator(
-            targets, builder, outputScale: 1f, workingScale: 1f, maxWorkingScale: float.PositiveInfinity);
+            targets,
+            builder,
+            RenderIntent.Delivery,
+            RenderRequestPurpose.Auxiliary,
+            outputScale: 1f,
+            workingScale: 1f,
+            maxWorkingScale: float.PositiveInfinity);
 
         var ex = Assert.Throws<InvalidOperationException>(() => activator.Flush());
-        Assert.That(ex!.Message, Does.Contain("Effect flush buffer allocation failed"));
+        Assert.Multiple(() =>
+        {
+            Assert.That(activator.Intent, Is.EqualTo(RenderIntent.Delivery));
+            Assert.That(activator.Purpose, Is.EqualTo(RenderRequestPurpose.Auxiliary));
+            Assert.That(ex!.Message, Does.Contain("Effect flush buffer allocation failed"));
+        });
     }
 
     private static EffectTargets CreateInvalidFlushTargets()
     {
-        RenderNodeOperation op = RenderNodeOperation.CreateLambda(
-            new Rect(0, 0, -1, 10),
-            _ => { },
-            hitTest: _ => false);
-
-        return new EffectTargets { new EffectTarget(op) };
+        using RenderTarget source = RenderTarget.CreateNull(1, 1);
+        return new EffectTargets
+        {
+            new EffectTarget(source, new Rect(0, 0, -1, 10), EffectiveScale.At(1)),
+        };
     }
 }

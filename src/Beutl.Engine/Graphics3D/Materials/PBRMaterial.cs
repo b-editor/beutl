@@ -111,7 +111,21 @@ public sealed partial class PBRMaterial : Material3D
         private ITexture2D? _defaultNormalTexture;
         private ITexture2D? _defaultBlackTexture;
 
-        internal override IPipeline3D? Pipeline => _pipeline;
+        protected internal override IPipeline3D? Pipeline => _pipeline;
+
+        protected internal override IEnumerable<TextureSource.Resource> EnumerateTextureSources()
+        {
+            if (AlbedoMap is not null)
+                yield return AlbedoMap;
+            if (NormalMap is not null)
+                yield return NormalMap;
+            if (MetallicRoughnessMap is not null)
+                yield return MetallicRoughnessMap;
+            if (EmissiveMap is not null)
+                yield return EmissiveMap;
+            if (AOMap is not null)
+                yield return AOMap;
+        }
 
         public override void EnsurePipeline(RenderContext3D context)
         {

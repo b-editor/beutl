@@ -135,10 +135,10 @@ public sealed partial class DrawableGroup : Drawable, IFlowOperator
             return false;
         }
 
-        public override RenderNodeOperation[] Process(RenderNodeContext context)
+        public override void Process(RenderNodeContext context)
         {
-            MemoryNode.Value = context.CalculateBounds();
-            return context.Input;
+            MemoryNode.Value = context.CalculateRecordedInputBoundsHint();
+            context.PassThrough();
         }
     }
 
@@ -264,30 +264,66 @@ public sealed partial class DrawableGroup : Drawable, IFlowOperator
             return new Point(x, y);
         }
 
-        public override RenderNodeOperation[] Process(RenderNodeContext context)
+        public override void Process(RenderNodeContext context)
         {
             var bounds = Bounds.Value;
             var transform = GetTransformMatrix(bounds);
-            return context.Input.Select(r =>
-                    RenderNodeOperation.CreateLambda(
-                        r.Bounds.TransformToAABB(transform),
-                        canvas =>
-                        {
-                            using (canvas.PushTransform(transform))
-                            {
-                                r.Render(canvas);
-                            }
-                        },
-                        hitTest: point =>
-                        {
-                            if (transform.HasInverse)
-                                point *= transform.Invert();
-                            return r.HitTest(point);
-                        },
-                        onDispose: r.Dispose,
-                        // Re-scale a bitmap child's supply density through the transform boundary.
-                        effectiveScale: TransformRenderNode.RescaleDensity(r.EffectiveScale, transform)))
-                .ToArray();
+            bool hasInverse = transform.HasInverse;
+            Matrix inverse = hasInverse ? transform.Invert() : Matrix.Identity;
+            var metadataState = new CustomTransformMetadataState(transform, hasInverse, inverse);
+            foreach (RenderFragmentHandle input in context.Inputs)
+            {
+                OpaqueRenderDescription description = OpaqueRenderDescription.Create(
+                    execute: session => ExecuteTransform(session, transform),
+                    bounds: RenderOperationBoundsContract.Map(
+                        RenderBoundsContract.CreateFullInput(
+                            metadataState.TransformBounds,
+                            typeof(CustomTransformRenderNode))),
+                    hitTest: RenderHitTestContract.Custom(
+                        metadataState.HitTest,
+                        typeof(CustomTransformRenderNode)),
+                    valueCardinality: RenderValueCardinality.Single,
+                    scale: RenderScaleContract.MapInputSupply(
+                        new TransformScaleMapper(transform).Map,
+                        typeof(CustomTransformRenderNode)),
+                    structuralKey: typeof(CustomTransformRenderNode),
+                    runtimeIdentity: new RenderRuntimeIdentity(transform));
+                context.Publish(context.OpaqueMap(input, description));
+            }
+        }
+
+        private static void ExecuteTransform(OpaqueRenderSession session, Matrix transform)
+        {
+            using OpaqueRenderOutput output = session.CreateOutput(session.OutputBounds);
+            output.Canvas.Use(canvas =>
+            {
+                using (canvas.PushTransform(transform))
+                {
+                    session.Inputs[0].Draw(canvas);
+                }
+            });
+            session.Publish(output);
+        }
+
+        private readonly record struct CustomTransformMetadataState(
+            Matrix Transform,
+            bool HasInverse,
+            Matrix Inverse)
+        {
+            public Rect TransformBounds(Rect inputBounds) => inputBounds.TransformToAABB(Transform);
+
+            public bool HitTest(RenderHitTestContext context, Point point)
+            {
+                if (HasInverse)
+                    point *= Inverse;
+                return context.Inputs[0].HitTest(point);
+            }
+        }
+
+        private readonly record struct TransformScaleMapper(Matrix Transform)
+        {
+            public EffectiveScale Map(EffectiveScale inputSupply)
+                => TransformRenderNode.RescaleDensity(inputSupply, Transform);
         }
     }
 }

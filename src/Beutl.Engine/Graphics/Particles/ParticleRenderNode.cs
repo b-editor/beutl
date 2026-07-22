@@ -1,21 +1,12 @@
 ﻿using Beutl.Engine;
 using Beutl.Graphics.Rendering;
-using Beutl.Logging;
 using Beutl.Media;
-using Microsoft.Extensions.Logging;
 using SkiaSharp;
 
 namespace Beutl.Graphics.Particles;
 
 internal sealed class ParticleRenderNode(ParticleEmitter.Resource particle) : RenderNode
 {
-    private static readonly ILogger s_logger = Log.CreateLogger("ParticleRenderNode");
-
-    private (RenderTarget RT, Drawable.Resource? Resource, int? Version, float Density)? _cachedRenderTarget;
-    private Rect _drawableBounds;
-    // Requested output density; a change invalidates the cached particle drawable.
-    private float _renderScale = 1f;
-
     public (ParticleEmitter.Resource Resource, int Version)? Particle { get; private set; } = particle.Capture();
 
     public bool Update(ParticleEmitter.Resource resource)
@@ -30,261 +21,216 @@ internal sealed class ParticleRenderNode(ParticleEmitter.Resource particle) : Re
         return false;
     }
 
-    public override RenderNodeOperation[] Process(RenderNodeContext context)
+    public override void Process(RenderNodeContext context)
     {
-        if (!Particle.HasValue) return [];
-        var resource = Particle.Value.Resource;
-        var particles = resource.GetAliveParticles();
-        if (particles.Length == 0) return [];
+        if (Particle is not { } snapshot)
+            return;
 
-        float w = RenderNodeContext.ResolveWorkingScale([], context.OutputScale, context.MaxWorkingScale);
-        if (!_cachedRenderTarget.HasValue ||
-            _renderScale != w ||
-            !ReferenceEquals(_cachedRenderTarget.Value.Resource, resource.ParticleDrawable) ||
-            _cachedRenderTarget.Value.Version != resource.ParticleDrawable?.Version)
+        ParticleEmitter.Resource resource = snapshot.Resource;
+        Particle[] particles = resource.GetAliveParticles().ToArray();
+        if (particles.Length == 0)
+            return;
+
+        RenderFragmentHandle? source = resource.ParticleDrawable is { } drawable
+            ? RecordDrawableSource(context, drawable)
+            : RecordFallbackSource(context);
+        if (source is null)
+            return;
+
+        if (!source.TryGetMetadata(out RenderFragmentMetadata sourceMetadata))
         {
-            _cachedRenderTarget?.RT.Dispose();
-            _cachedRenderTarget = null;
-            _renderScale = w;
-
-            if (resource.ParticleDrawable is { } tracked)
-            {
-                _cachedRenderTarget = RenderDrawableToTarget(tracked, w, context.MaxWorkingScale, out _drawableBounds);
-            }
-            else
-            {
-                _cachedRenderTarget = RenderFallbackEllipse(w, context.MaxWorkingScale, out _drawableBounds);
-            }
+            throw new InvalidOperationException(
+                "A particle source with symbolic metadata must be localized by an explicit finite Layer.");
         }
 
-        if (_cachedRenderTarget == null)
+        Rect sourceBounds = sourceMetadata.Bounds;
+        Rect totalBounds = CalculateParticleBounds(particles, sourceBounds);
+        if (totalBounds.Width <= 0 || totalBounds.Height <= 0)
+            return;
+
+        RenderResource<Particle[]> particlesToken = context.Borrow(
+            particles,
+            new ParticleSnapshotIdentity(resource.GetOriginal().Id, snapshot.Version),
+            snapshot.Version);
+        TargetCommandDescription description = TargetCommandDescription.Create(
+            execute: session => session.UseResource(
+                particlesToken,
+                current => DrawParticles(session, current)),
+            affectedRegion: TargetRegion.Region(totalBounds),
+            queryBounds: totalBounds,
+            hitTest: RenderHitTestContract.None,
+            access: TargetAccess.ReadWrite,
+            structuralKey: typeof(ParticleRenderNode),
+            resources: [particlesToken]);
+        RenderFragmentHandle painter = context.TargetCommand([source], description);
+
+        // Repetition is an engine-controlled target command over a pre-recorded value. The finite
+        // layer turns that ordered painter result back into the single value published by this node.
+        context.Publish(context.Layer([painter], totalBounds));
+    }
+
+    private static RenderFragmentHandle? RecordDrawableSource(
+        RenderNodeContext context,
+        Drawable.Resource drawable)
+    {
+        using var root = new DrawableRenderNode(drawable);
+        using (var graphics = new GraphicsContext2D(
+                   root,
+                   new Size(1920, 1080),
+                   context.OutputScale))
         {
-            return [];
+            // This only builds the child's RenderNode tree. Pixel execution remains in the parent
+            // request after RecordSubtree imports the complete child sequence.
+            drawable.GetOriginal().Render(graphics, drawable);
         }
 
-        // Compute total bounds from all alive particles
-        Rect totalBounds = default;
-        var particlesSpan = particles.Span;
+        IReadOnlyList<RenderFragmentHandle> outputs = context.RecordSubtree(root);
+        Rect bounds = CalculateBounds(outputs);
+        if (bounds.Width <= 0 || bounds.Height <= 0)
+            return null;
+
+        return context.Layer(outputs, bounds);
+    }
+
+    private static RenderFragmentHandle RecordFallbackSource(RenderNodeContext context)
+    {
+        var bounds = new Rect(-5, -5, 10, 10);
+        Brush.Resource fill = Brushes.Resource.White;
+        RenderResource<Brush.Resource> fillToken = context.Borrow(
+            fill,
+            fill.GetOriginal().Id,
+            fill.Version);
+        OpaqueRenderDescription description = OpaqueRenderDescription.Create(
+            execute: session => DeferredOpaqueSource.Execute(
+                session,
+                fillToken,
+                pen: null,
+                (canvas, currentFill, _) => canvas.DrawEllipse(bounds, currentFill, null)),
+            bounds: RenderOperationBoundsContract.Source(bounds),
+            hitTest: RenderHitTestContract.OutputBounds,
+            valueCardinality: RenderValueCardinality.Single,
+            scale: RenderScaleContract.Vector,
+            structuralKey: typeof(ParticleFallbackSource),
+            runtimeIdentity: new RenderRuntimeIdentity(bounds),
+            resources: [fillToken]);
+        return context.OpaqueSource(description);
+    }
+
+    private static void DrawParticles(TargetCommandSession session, Particle[] particles)
+    {
+        session.Canvas.Use(canvas =>
+        {
+            foreach (RenderExecutionInput input in session.Inputs)
+            {
+                input.UseShader(shader => DrawParticleInput(canvas, input.Bounds, shader, particles));
+            }
+        });
+    }
+
+    private static void DrawParticleInput(
+        ImmediateCanvas canvas,
+        Rect inputBounds,
+        SKShader shader,
+        Particle[] particles)
+    {
+        Point center = inputBounds.Center;
         for (int i = 0; i < particles.Length; i++)
         {
-            ref readonly Particle p = ref particlesSpan[i];
-            if (!p.IsAlive) continue;
+            ref readonly Particle particle = ref particles[i];
+            if (!particle.IsAlive)
+                continue;
 
-            float scale = p.CurrentSize / 10f;
-            if (scale <= 0) continue;
+            float scale = particle.CurrentSize / 10f;
+            float opacity = particle.CurrentOpacity / 100f;
+            if (!float.IsFinite(scale)
+                || !float.IsFinite(opacity)
+                || scale <= 0
+                || opacity <= 0)
+            {
+                continue;
+            }
 
-            // Use a conservative square bounding box that safely encloses any rotation
-            float maxDim = MathF.Max((float)_drawableBounds.Width, (float)_drawableBounds.Height) * scale;
+            float rotation = particle.Rotation * MathF.PI / 180f;
+            Matrix transform = Matrix.CreateTranslation(-center.X, -center.Y)
+                               * Matrix.CreateScale(scale, scale)
+                               * Matrix.CreateRotation(rotation)
+                               * Matrix.CreateTranslation(particle.X, particle.Y);
+            Color color = particle.CurrentColor;
+            using SKColorFilter? colorFilter = color == Colors.White
+                ? null
+                : SKColorFilter.CreateBlendMode(
+                    new SKColor(color.R, color.G, color.B, color.A),
+                    SKBlendMode.Modulate);
+            using (canvas.PushTransform(transform))
+            using (var paint = new SKPaint
+            {
+                IsAntialias = true,
+                Shader = shader,
+                ColorFilter = colorFilter,
+                Color = SKColors.White.WithAlpha(
+                           (byte)Math.Clamp(MathF.Round(opacity * byte.MaxValue), 0, byte.MaxValue)),
+            })
+            {
+                canvas.Canvas.DrawRect(inputBounds.ToSKRect(), paint);
+            }
+        }
+    }
+
+    private static Rect CalculateParticleBounds(ReadOnlySpan<Particle> particles, Rect sourceBounds)
+    {
+        Rect totalBounds = Rect.Empty;
+        bool hasBounds = false;
+        float sourceDiameter = MathF.Max((float)sourceBounds.Width, (float)sourceBounds.Height);
+        for (int i = 0; i < particles.Length; i++)
+        {
+            ref readonly Particle particle = ref particles[i];
+            if (!particle.IsAlive)
+                continue;
+
+            float scale = particle.CurrentSize / 10f;
+            if (!float.IsFinite(scale) || scale <= 0)
+                continue;
+
+            float diameter = sourceDiameter * scale;
+            if (!float.IsFinite(diameter) || diameter <= 0)
+                continue;
+
             var particleBounds = new Rect(
-                p.X - maxDim / 2f,
-                p.Y - maxDim / 2f,
-                maxDim,
-                maxDim);
-
-            totalBounds = totalBounds.Union(particleBounds);
+                particle.X - diameter / 2f,
+                particle.Y - diameter / 2f,
+                diameter,
+                diameter);
+            totalBounds = hasBounds ? totalBounds.Union(particleBounds) : particleBounds;
+            hasBounds = true;
         }
 
-        // Capture references for the lambda
-        RenderTarget cachedRT = _cachedRenderTarget.Value.RT;
-        float cachedDensity = _cachedRenderTarget.Value.Density;
-        Rect drawableBounds = _drawableBounds;
-
-        return
-        [
-            RenderNodeOperation.CreateLambda(
-                totalBounds,
-                canvas => DrawAllParticles(canvas, cachedRT, particles, drawableBounds, cachedDensity),
-                effectiveScale: EffectiveScale.At(cachedDensity))
-        ];
+        return hasBounds ? totalBounds : Rect.Empty;
     }
 
-    private static void DrawAllParticles(
-        ImmediateCanvas canvas,
-        RenderTarget cachedRT,
-        ReadOnlyMemory<Particle> particles,
-        Rect drawableBounds,
-        float w)
+    private static Rect CalculateBounds(IReadOnlyList<RenderFragmentHandle> fragments)
     {
-        // Snapshot once and reuse across the loop (w == 1 uses point-blit instead).
-        SKImage? cachedImage = null;
-        if (w != 1f)
+        Rect bounds = Rect.Empty;
+        foreach (RenderFragmentHandle fragment in fragments)
         {
-            cachedRT.VerifyAccess();
-            cachedImage = cachedRT.Value.Snapshot();
-        }
-
-        try
-        {
-            var particlesSpan = particles.Span;
-            for (int i = 0; i < particles.Length; i++)
+            if (!fragment.TryGetMetadata(out RenderFragmentMetadata metadata))
             {
-                ref readonly Particle p = ref particlesSpan[i];
-                if (!p.IsAlive) continue;
-
-                float scale = p.CurrentSize / 10f;
-                float opacity = p.CurrentOpacity / 100f;
-                if (opacity <= 0 || scale <= 0) continue;
-
-                float rotRad = p.Rotation * MathF.PI / 180f;
-                Matrix transform = Matrix.CreateScale(scale, scale)
-                                   * Matrix.CreateRotation(rotRad)
-                                   * Matrix.CreateTranslation(p.X, p.Y);
-
-                using (canvas.PushTransform(transform))
-                using (canvas.PushOpacity(opacity))
-                {
-                    Color color = p.CurrentColor;
-                    if (color != Colors.White)
-                    {
-                        using var colorFilter = SKColorFilter.CreateBlendMode(
-                            new SKColor(color.R, color.G, color.B, color.A),
-                            SKBlendMode.Modulate);
-                        using var paint = new SKPaint();
-                        paint.ColorFilter = colorFilter;
-
-                        using (canvas.PushPaint(paint))
-                        {
-                            DrawCached(canvas, cachedRT, cachedImage, drawableBounds, w);
-                        }
-                    }
-                    else
-                    {
-                        DrawCached(canvas, cachedRT, cachedImage, drawableBounds, w);
-                    }
-                }
+                throw new InvalidOperationException(
+                    "A particle drawable with symbolic metadata must be localized by an explicit finite Layer.");
             }
+
+            bounds = bounds.Union(metadata.Bounds);
         }
-        finally
-        {
-            cachedImage?.Dispose();
-        }
-    }
-
-    // Blit the cached particle buffer: point-blit at w == 1, scaled image at w != 1.
-    private static void DrawCached(
-        ImmediateCanvas canvas, RenderTarget cachedRT, SKImage? cachedImage, Rect drawableBounds, float w)
-    {
-        var offset = new Point(-drawableBounds.Width / 2, -drawableBounds.Height / 2);
-        if (w == 1f)
-        {
-            canvas.DrawRenderTarget(cachedRT, offset);
-        }
-        else
-        {
-            canvas.DrawImageScaled(cachedImage!,
-                new Rect(offset.X, offset.Y, drawableBounds.Width, drawableBounds.Height));
-        }
-    }
-
-    private static (RenderTarget, Drawable.Resource, int, float)? RenderDrawableToTarget(
-        Drawable.Resource drawable,
-        float nominalScale,
-        float maxWorkingScale,
-        out Rect bounds)
-    {
-        using var node = new DrawableRenderNode(drawable);
-        // 1920x1080 is only the logical measurement canvas; actual buffer is sized from drawable bounds.
-        using (var gctx = new GraphicsContext2D(node, new Size(1920, 1080), nominalScale))
-        {
-            drawable.GetOriginal().Render(gctx, drawable);
-        }
-
-        var processor = new RenderNodeProcessor(node, false, nominalScale, maxWorkingScale);
-        var ops = processor.PullToRoot();
-
-        bounds = ops.Aggregate(Rect.Empty, (a, n) => a.Union(n.Bounds));
-        // Clamp density so oversized buffers degrade instead of failing to allocate.
-        float w = nominalScale > 1f
-            ? RenderNodeContext.ClampWorkingScaleToBufferBudget(bounds, nominalScale)
-            : nominalScale;
-        var rect = w == 1f ? PixelRect.FromRect(bounds) : PixelRect.FromRect(bounds, w);
-
-        if (rect.Width <= 0 || rect.Height <= 0)
-        {
-            foreach (var op in ops)
-                op.Dispose();
-            return null;
-        }
-
-        var renderTarget = RenderTarget.Create(rect.Width, rect.Height);
-        if (renderTarget == null)
-        {
-            foreach (var op in ops)
-                op.Dispose();
-            s_logger.LogWarning(
-                "Particle drawable buffer allocation failed ({Width}x{Height} px, density {Scale}, bounds {Bounds}); particles will be omitted from this frame.",
-                rect.Width, rect.Height, w, bounds);
-            return null;
-        }
-
-        int consumed = 0;
-        try
-        {
-            using var canvas = new ImmediateCanvas(renderTarget, w, maxWorkingScale, logicalSize: bounds.Size);
-            canvas.Clear();
-            using (canvas.PushTransform(Matrix.CreateTranslation(-bounds.X, -bounds.Y)))
-            {
-                foreach (var op in ops)
-                {
-                    op.Render(canvas);
-                    consumed++;
-                    op.Dispose();
-                }
-            }
-        }
-        catch
-        {
-            // renderTarget is not yet owned by a caller; release it with the un-rendered ops. Its
-            // GPU-native teardown can itself throw, so swallow that so the original render failure wins.
-            RenderNodeOperation.DisposeAll(ops.AsSpan(consumed));
-            try
-            {
-                renderTarget.Dispose();
-            }
-            catch
-            {
-                // ignored
-            }
-            throw;
-        }
-
-        return (renderTarget, drawable, drawable.Version, w);
-    }
-
-    private static (RenderTarget, Drawable.Resource?, int?, float)? RenderFallbackEllipse(
-        float w, float maxWorkingScale, out Rect bounds)
-    {
-        bounds = new Rect(-5, -5, 10, 10);
-        w = w > 1f
-            ? RenderNodeContext.ClampWorkingScaleToBufferBudget(bounds, w)
-            : w;
-
-        int dim = w == 1f ? 10 : (int)MathF.Ceiling(10 * w);
-        var renderTarget = RenderTarget.Create(dim, dim);
-        if (renderTarget == null)
-        {
-            s_logger.LogWarning(
-                "Fallback particle buffer allocation failed ({Width}x{Height} px, density {Scale}); particles will be omitted from this frame.",
-                dim, dim, w);
-            return null;
-        }
-
-        using (var canvas = new ImmediateCanvas(renderTarget, w, maxWorkingScale, logicalSize: bounds.Size))
-        {
-            canvas.Clear();
-            using (canvas.PushTransform(Matrix.CreateTranslation(5, 5)))
-            {
-                canvas.DrawEllipse(bounds, Brushes.Resource.White, null);
-            }
-        }
-
-        return (renderTarget, null, null, w);
+        return bounds;
     }
 
     protected override void OnDispose(bool disposing)
     {
-        _cachedRenderTarget?.RT.Dispose();
-        _cachedRenderTarget = null;
         Particle = null;
+    }
+
+    private readonly record struct ParticleSnapshotIdentity(Guid ResourceId, int Version);
+
+    private sealed class ParticleFallbackSource
+    {
     }
 }

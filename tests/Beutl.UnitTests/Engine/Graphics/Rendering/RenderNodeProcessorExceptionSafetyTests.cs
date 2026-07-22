@@ -1,351 +1,475 @@
 ﻿using Beutl.Graphics;
 using Beutl.Graphics.Rendering;
+using Beutl.Media;
+
 using SkiaSharp;
 
 namespace Beutl.UnitTests.Engine.Graphics.Rendering;
 
 [TestFixture]
-public class RenderNodeProcessorExceptionSafetyTests
+public class RenderNodeRendererExceptionSafetyTests
 {
-    // The three rasterize entry points share one disposal contract, so every scenario below runs
-    // against all of them. Rasterize and RasterizeToRenderTargets dispose per-op through RasterizeAt;
-    // RasterizeAndConcat renders into a single shared canvas and disposes through its catch sweep.
-    private static IEnumerable<TestCaseData> RasterizeMethods()
+    public enum EntryPoint
     {
-        yield return new TestCaseData((Action<RenderNodeProcessor>)(p => p.Rasterize()))
-            .SetName("{m}(Rasterize)");
-        yield return new TestCaseData((Action<RenderNodeProcessor>)(p => p.RasterizeAndConcat()))
-            .SetName("{m}(RasterizeAndConcat)");
-        yield return new TestCaseData((Action<RenderNodeProcessor>)(p => p.RasterizeToRenderTargets()))
-            .SetName("{m}(RasterizeToRenderTargets)");
+        Rasterize,
+        Render,
     }
 
-    [TestCaseSource(nameof(RasterizeMethods))]
-    public void DisposesFaultingAndRemainingOperations_WhenRenderThrows(Action<RenderNodeProcessor> rasterize)
+    [TestCase(EntryPoint.Rasterize)]
+    [TestCase(EntryPoint.Render)]
+    public void DischargesFaultingAndUnexecutedResources_WhenExecutionThrows(EntryPoint entryPoint)
     {
-        var disposed = new List<string>();
-        using var node = new StaticRenderNode(
-            CreateOperation("first", disposed),
-            CreateOperation("fault", disposed, throwOnRender: true),
-            CreateOperation("remaining", disposed));
-        var processor = new RenderNodeProcessor(node, useRenderCache: false);
+        var discharged = new List<string>();
+        using var node = CreateNode(
+            discharged,
+            new RecordedOperationSpec("first"),
+            new RecordedOperationSpec("fault", ThrowOnExecute: true),
+            new RecordedOperationSpec("remaining"));
+        using var renderer = CreateRenderer(node);
 
-        var ex = Assert.Throws<InvalidOperationException>(() => rasterize(processor));
+        var ex = Assert.Throws<InvalidOperationException>(() => Execute(entryPoint, renderer));
 
         Assert.That(ex!.Message, Is.EqualTo("fault"));
-        Assert.That(disposed, Is.EqualTo(new[] { "first", "fault", "remaining" }));
+        Assert.That(discharged, Is.EqualTo(new[] { "remaining", "fault", "first" }));
     }
 
-    [TestCaseSource(nameof(RasterizeMethods))]
-    public void DoesNotDoubleDisposeFaultingOperation_WhenDisposeThrows(Action<RenderNodeProcessor> rasterize)
+    [Test]
+    public void CleanupOnlyFailure_DischargesEveryResourceExactlyOnceAndSurfacesFailure()
     {
-        var disposed = new List<string>();
-        using var node = new StaticRenderNode(
-            CreateOperation("first", disposed),
-            CreateOperation("fault", disposed, throwOnDispose: true),
-            CreateOperation("remaining", disposed));
-        var processor = new RenderNodeProcessor(node, useRenderCache: false);
+        var discharged = new List<string>();
+        using var node = CreateNode(
+            discharged,
+            new RecordedOperationSpec("first"),
+            new RecordedOperationSpec("fault", ThrowOnDispose: true),
+            new RecordedOperationSpec("remaining"));
+        using var target = CreateCpuTarget(4, 4);
+        using var canvas = new ImmediateCanvas(target);
 
-        // A double-dispose would re-run the faulting op's OnDispose (use-after-free for GPU-backed
-        // ops) and skip the remaining op, so the faulting op must be disposed exactly once.
-        var ex = Assert.Throws<InvalidOperationException>(() => rasterize(processor));
+        var ex = Assert.Throws<AggregateException>(() => ExecuteRequestAndSurfaceOwnerFailure(node, canvas));
 
-        Assert.That(ex!.Message, Is.EqualTo("fault"));
-        Assert.That(disposed, Is.EqualTo(new[] { "first", "fault", "remaining" }));
+        Assert.That(ex!.InnerExceptions.Single().Message, Is.EqualTo("fault"));
+        Assert.That(discharged, Is.EqualTo(new[] { "remaining", "fault", "first" }));
     }
 
-    [TestCaseSource(nameof(RasterizeMethods))]
-    public void ContinuesCleanupAndPreservesOriginalException_WhenSweepDisposeThrows(
-        Action<RenderNodeProcessor> rasterize)
+    [Test]
+    public void Measure_CleanupOnlyFailure_DischargesEveryResourceExactlyOnceAndSurfacesFailure()
     {
-        var disposed = new List<string>();
-        using var node = CreateRenderThrowWithThrowingRemainingOps(disposed);
-        var processor = new RenderNodeProcessor(node, useRenderCache: false);
+        var discharged = new List<string>();
+        using var node = CreateNode(
+            discharged,
+            new RecordedOperationSpec("first", TrackMetadataDischarge: true),
+            new RecordedOperationSpec("fault", ThrowOnDispose: true, TrackMetadataDischarge: true),
+            new RecordedOperationSpec("remaining", TrackMetadataDischarge: true));
+        using var renderer = CreateRenderer(node);
 
-        var ex = Assert.Throws<InvalidOperationException>(() => rasterize(processor));
+        var ex = Assert.Throws<AggregateException>(() => renderer.Measure());
+
+        Assert.That(ex!.Flatten().InnerExceptions.Single().Message, Is.EqualTo("fault"));
+        Assert.That(discharged, Is.EqualTo(new[] { "remaining", "fault", "first" }));
+    }
+
+    [TestCase(EntryPoint.Rasterize)]
+    [TestCase(EntryPoint.Render)]
+    public void PooledTargetDisposeFailure_SurfacesAtRendererDisposalAfterSuccessfulRequest(EntryPoint entryPoint)
+    {
+        var discharged = new List<string>();
+        using var node = CreateNode(
+            discharged,
+            new RecordedOperationSpec("first"),
+            new RecordedOperationSpec("second"));
+        int throwingTarget = entryPoint == EntryPoint.Rasterize ? 1 : 0;
+        var factory = new TrackingTargetFactory(index => index == throwingTarget);
+        var renderer = CreateRenderer(node, factory);
+
+        Assert.DoesNotThrow(() => Execute(entryPoint, renderer));
+        Assert.That(factory.CreatedTargets, Has.All.Property(nameof(FakeRenderTarget.DisposeWasCalled)).False);
+        var ex = Assert.Throws<InvalidOperationException>(renderer.Dispose);
+
+        Assert.That(ex!.Message, Is.EqualTo("rt-dispose-fault"));
+        Assert.That(factory.CreatedTargets, Has.Count.EqualTo(entryPoint == EntryPoint.Rasterize ? 2 : 1));
+        Assert.That(factory.CreatedTargets, Has.All.Property(nameof(FakeRenderTarget.DisposeWasCalled)).True);
+        Assert.That(discharged, Is.EqualTo(new[] { "second", "first" }));
+    }
+
+    [TestCase(EntryPoint.Rasterize)]
+    [TestCase(EntryPoint.Render)]
+    public void ContinuesCleanupAndPreservesOriginalException_WhenRemainingResourcesThrow(EntryPoint entryPoint)
+    {
+        var discharged = new List<string>();
+        using var node = CreateNode(
+            discharged,
+            new RecordedOperationSpec("first"),
+            new RecordedOperationSpec("render-fault", ThrowOnExecute: true),
+            new RecordedOperationSpec("throwing-remaining-1", ThrowOnDispose: true),
+            new RecordedOperationSpec("throwing-remaining-2", ThrowOnDispose: true),
+            new RecordedOperationSpec("remaining"));
+        using var renderer = CreateRenderer(node);
+
+        var ex = Assert.Throws<InvalidOperationException>(() => Execute(entryPoint, renderer));
 
         Assert.That(ex!.Message, Is.EqualTo("render-fault"));
-        Assert.That(disposed, Is.EqualTo(new[]
+        Assert.That(discharged, Is.EqualTo(new[]
         {
-            "first",
-            "render-fault",
-            "throwing-remaining-1",
+            "remaining",
             "throwing-remaining-2",
-            "remaining"
+            "throwing-remaining-1",
+            "render-fault",
+            "first",
         }));
     }
 
-    // The faulting op throws on both render and dispose: the render throw must propagate while the
-    // dispose throw is swallowed during cleanup (RasterizeAt's DisposeBestEffort, or the DisposeAll
-    // sweep in RasterizeAndConcat's catch).
-    [TestCaseSource(nameof(RasterizeMethods))]
-    public void PreservesRenderException_WhenFaultingOpAlsoThrowsOnDispose(Action<RenderNodeProcessor> rasterize)
+    [TestCase(EntryPoint.Rasterize)]
+    [TestCase(EntryPoint.Render)]
+    public void PreservesExecutionException_WhenFaultingResourceAlsoThrowsOnDispose(EntryPoint entryPoint)
     {
-        var disposed = new List<string>();
-        using var node = new StaticRenderNode(
-            CreateOperation("first", disposed),
-            CreateOperation("render-fault", disposed, throwOnRender: true, throwOnDispose: true,
-                disposeFaultMessage: "dispose-fault"),
-            CreateOperation("remaining", disposed));
-        var processor = new RenderNodeProcessor(node, useRenderCache: false);
+        var discharged = new List<string>();
+        using var node = CreateNode(
+            discharged,
+            new RecordedOperationSpec("first"),
+            new RecordedOperationSpec(
+                "render-fault",
+                ThrowOnExecute: true,
+                ThrowOnDispose: true,
+                DisposeFaultMessage: "dispose-fault"),
+            new RecordedOperationSpec("remaining"));
+        using var renderer = CreateRenderer(node);
 
-        var ex = Assert.Throws<InvalidOperationException>(() => rasterize(processor));
+        var ex = Assert.Throws<InvalidOperationException>(() => Execute(entryPoint, renderer));
 
         Assert.That(ex!.Message, Is.EqualTo("render-fault"));
-        Assert.That(disposed, Is.EqualTo(new[] { "first", "render-fault", "remaining" }));
+        Assert.That(discharged, Is.EqualTo(new[] { "remaining", "render-fault", "first" }));
     }
 
-    // A throwing RenderTarget.Dispose() during faulting-op cleanup must not mask the render exception.
-    [TestCaseSource(nameof(RasterizeMethods))]
-    public void PreservesRenderException_WhenRenderTargetDisposeThrows(Action<RenderNodeProcessor> rasterize)
+    [TestCase(EntryPoint.Rasterize)]
+    [TestCase(EntryPoint.Render)]
+    public void PreservesExecutionException_WhilePooledTargetFailureWaitsForRendererDisposal(EntryPoint entryPoint)
     {
-        var disposed = new List<string>();
-        using var node = new StaticRenderNode(
-            CreateOperation("render-fault", disposed, throwOnRender: true));
-        var processor = new FakeRenderNodeProcessor(node, _ => true);
+        var discharged = new List<string>();
+        using var node = CreateNode(
+            discharged,
+            new RecordedOperationSpec("render-fault", ThrowOnExecute: true, AllocateBeforeThrow: true));
+        int throwingTarget = entryPoint == EntryPoint.Rasterize ? 1 : 0;
+        var factory = new TrackingTargetFactory(index => index == throwingTarget);
+        var renderer = CreateRenderer(node, factory);
 
-        var ex = Assert.Throws<InvalidOperationException>(() => rasterize(processor));
+        var ex = Assert.Throws<InvalidOperationException>(() => Execute(entryPoint, renderer));
 
         Assert.That(ex!.Message, Is.EqualTo("render-fault"));
-        Assert.That(processor.CreatedTargets, Has.Count.EqualTo(1));
-        Assert.That(processor.CreatedTargets[0].DisposeWasCalled, Is.True);
-        Assert.That(disposed, Is.EqualTo(new[] { "render-fault" }));
+        Assert.That(factory.CreatedTargets, Has.Count.EqualTo(entryPoint == EntryPoint.Rasterize ? 2 : 1));
+        Assert.That(factory.CreatedTargets, Has.All.Property(nameof(FakeRenderTarget.DisposeWasCalled)).False);
+        Assert.That(discharged, Is.EqualTo(new[] { "render-fault" }));
+        var cleanup = Assert.Throws<InvalidOperationException>(renderer.Dispose);
+        Assert.That(cleanup!.Message, Is.EqualTo("rt-dispose-fault"));
+        Assert.That(factory.CreatedTargets, Has.All.Property(nameof(FakeRenderTarget.DisposeWasCalled)).True);
     }
 
-    [TestCaseSource(nameof(RasterizeMethods))]
-    public void DisposesPulledOperations_WhenRenderTargetCreateThrows(Action<RenderNodeProcessor> rasterize)
+    [TestCase(EntryPoint.Rasterize)]
+    [TestCase(EntryPoint.Render)]
+    public void DischargesRecordedResources_WhenTargetFactoryThrows(EntryPoint entryPoint)
     {
-        var disposed = new List<string>();
-        using var node = new StaticRenderNode(
-            CreateOperation("first", disposed),
-            CreateOperation("second", disposed));
-        var processor = new FakeRenderNodeProcessor(node, _ => false, throwOnCreate: true);
+        var discharged = new List<string>();
+        using var node = CreateNode(
+            discharged,
+            new RecordedOperationSpec("first"),
+            new RecordedOperationSpec("second"));
+        var factory = new TrackingTargetFactory(_ => false, throwOnCreate: true);
+        using var renderer = CreateRenderer(node, factory);
 
-        var ex = Assert.Throws<InvalidOperationException>(() => rasterize(processor));
+        var ex = Assert.Throws<InvalidOperationException>(() => Execute(entryPoint, renderer));
 
         Assert.That(ex!.Message, Is.EqualTo("rt-create-fault"));
-        Assert.That(disposed, Is.EqualTo(new[] { "first", "second" }));
+        Assert.That(discharged, Is.EqualTo(new[] { "second", "first" }));
     }
 
-    [TestCaseSource(nameof(RasterizeMethods))]
-    public void DisposesPulledOperations_WhenRenderTargetCreateReturnsNull(Action<RenderNodeProcessor> rasterize)
+    [TestCase(EntryPoint.Rasterize)]
+    [TestCase(EntryPoint.Render)]
+    public void DischargesRecordedResources_WhenTargetFactoryReturnsNull(EntryPoint entryPoint)
     {
-        var disposed = new List<string>();
-        using var node = new StaticRenderNode(
-            CreateOperation("first", disposed),
-            CreateOperation("second", disposed));
-        var processor = new FakeRenderNodeProcessor(node, _ => false, returnNullOnCreate: true);
+        var discharged = new List<string>();
+        using var node = CreateNode(
+            discharged,
+            new RecordedOperationSpec("first"),
+            new RecordedOperationSpec("second"));
+        var factory = new TrackingTargetFactory(_ => false, returnNullOnCreate: true);
+        using var renderer = CreateRenderer(node, factory);
 
-        var ex = Assert.Throws<Exception>(() => rasterize(processor));
+        var ex = Assert.Throws<InvalidOperationException>(() => Execute(entryPoint, renderer));
 
-        Assert.That(ex!.Message, Is.EqualTo("RenderTarget is null"));
-        Assert.That(disposed, Is.EqualTo(new[] { "first", "second" }));
+        Assert.That(
+            ex!.Message,
+            Does.StartWith("The render-target factory could not allocate 4x4 pixels"));
+        Assert.That(discharged, Is.EqualTo(new[] { "second", "first" }));
     }
 
-    // When the null-allocation path also hits a throwing op.Dispose(), the "RenderTarget is null"
-    // failure must still surface rather than the op's dispose throw.
-    [TestCaseSource(nameof(RasterizeMethods))]
-    public void PreservesNullAllocationFailure_WhenOpDisposeAlsoThrows(Action<RenderNodeProcessor> rasterize)
+    [TestCase(EntryPoint.Rasterize)]
+    [TestCase(EntryPoint.Render)]
+    public void PreservesAllocationFailure_WhenResourceCleanupAlsoThrows(EntryPoint entryPoint)
     {
-        var disposed = new List<string>();
-        using var node = new StaticRenderNode(
-            CreateOperation("first", disposed, throwOnDispose: true),
-            CreateOperation("second", disposed));
-        var processor = new FakeRenderNodeProcessor(node, _ => false, returnNullOnCreate: true);
+        var discharged = new List<string>();
+        using var node = CreateNode(
+            discharged,
+            new RecordedOperationSpec("first", ThrowOnDispose: true),
+            new RecordedOperationSpec("second"));
+        var factory = new TrackingTargetFactory(_ => false, returnNullOnCreate: true);
+        using var renderer = CreateRenderer(node, factory);
 
-        var ex = Assert.Throws<Exception>(() => rasterize(processor));
+        var ex = Assert.Throws<InvalidOperationException>(() => Execute(entryPoint, renderer));
 
-        Assert.That(ex!.Message, Is.EqualTo("RenderTarget is null"));
-        Assert.That(disposed, Is.EqualTo(new[] { "first", "second" }));
-    }
-
-    [Test]
-    public void Render_DisposesFaultingAndRemainingOperations_WhenRenderThrows()
-    {
-        var disposed = new List<string>();
-        using var node = new StaticRenderNode(
-            CreateOperation("first", disposed),
-            CreateOperation("fault", disposed, throwOnRender: true),
-            CreateOperation("remaining", disposed));
-        var processor = new RenderNodeProcessor(node, useRenderCache: false);
-
-        using var renderTarget = RenderTarget.CreateNull(4, 4);
-        using var canvas = new ImmediateCanvas(renderTarget);
-
-        var ex = Assert.Throws<InvalidOperationException>(() => processor.Render(canvas));
-
-        Assert.That(ex!.Message, Is.EqualTo("fault"));
-        // A mid-loop render throw must still dispose the faulting op and every op after it, or those
-        // ops' GPU handles leak.
-        Assert.That(disposed, Is.EqualTo(new[] { "first", "fault", "remaining" }));
+        Assert.That(
+            ex!.Message,
+            Does.StartWith("The render-target factory could not allocate 4x4 pixels"));
+        Assert.That(discharged, Is.EqualTo(new[] { "second", "first" }));
     }
 
     [Test]
-    public void Render_DoesNotDoubleDisposeFaultingOperation_WhenDisposeThrows()
+    public void RequestOwner_CleanupContinuesAfterFaultAndPreservesStrictLifo()
     {
-        var disposed = new List<string>();
-        using var node = new StaticRenderNode(
-            CreateOperation("first", disposed),
-            CreateOperation("fault", disposed, throwOnDispose: true),
-            CreateOperation("remaining", disposed));
-        var processor = new RenderNodeProcessor(node, useRenderCache: false);
+        var discharged = new List<string>();
+        using var owner = new RenderRequestOwner();
+        Register(owner, new RecordedOperation(new RecordedOperationSpec("first"), discharged, true));
+        Register(owner, new RecordedOperation(
+            new RecordedOperationSpec("throws", ThrowOnDispose: true),
+            discharged,
+            true));
+        Register(owner, new RecordedOperation(new RecordedOperationSpec("remaining"), discharged, true));
 
-        using var renderTarget = RenderTarget.CreateNull(4, 4);
-        using var canvas = new ImmediateCanvas(renderTarget);
+        owner.Cleanup();
 
-        var ex = Assert.Throws<InvalidOperationException>(() => processor.Render(canvas));
-
-        Assert.That(ex!.Message, Is.EqualTo("fault"));
-        Assert.That(disposed, Is.EqualTo(new[] { "first", "fault", "remaining" }));
+        Assert.That(discharged, Is.EqualTo(new[] { "remaining", "throws", "first" }));
+        Assert.That(owner.CleanupFailures.Length, Is.EqualTo(1));
+        Assert.That(owner.PrimaryFailure!.SourceException, Is.TypeOf<AggregateException>());
     }
 
     [Test]
-    public void DisposeAll_DisposesEveryOperation_EvenWhenAnOperationThrowsOnDispose()
+    public void Diagnostics_ClassifyResourceDisposeFaultAsCleanup()
     {
-        var disposed = new List<string>();
-        RenderNodeOperation[] ops =
-        [
-            CreateOperation("first", disposed),
-            CreateOperation("throws", disposed, throwOnDispose: true),
-            CreateOperation("remaining", disposed),
-        ];
+        var diagnostics = new RenderPipelineDiagnosticsState();
+        RenderPipelineDiagnosticRecorder recorder = RenderPipelineDiagnosticRecorder.Start(
+            diagnostics,
+            RenderIntent.Preview,
+            RenderRequestPurpose.Auxiliary,
+            nameof(RenderNodeRenderer))!;
+        long[] subjects = recorder.RecordFragments(2, RenderPipelineOutcome.Executed);
+        var discharged = new List<string>();
+        using var owner = new RenderRequestOwner();
+        Register(owner, new RecordedOperation(new RecordedOperationSpec("remaining"), discharged, true));
+        Register(owner, new RecordedOperation(
+            new RecordedOperationSpec("fault", ThrowOnDispose: true),
+            discharged,
+            true));
 
-        Assert.DoesNotThrow(() => RenderNodeOperation.DisposeAll(ops));
-        Assert.That(disposed, Is.EqualTo(new[] { "first", "throws", "remaining" }));
+        owner.Cleanup();
+        recorder.RecordCleanupFailure(subjects[0]);
+        recorder.Complete();
+
+        RenderPipelineDiagnosticSnapshot snapshot = diagnostics.Latest;
+        Assert.Multiple(() =>
+        {
+            Assert.That(snapshot.FailurePhase, Is.EqualTo(RenderPipelineFailurePhase.Cleanup));
+            Assert.That(snapshot[RenderPipelineCounter.CleanupFailures], Is.EqualTo(1));
+            Assert.That(snapshot[RenderPipelineCounter.FailedOutcomes], Is.EqualTo(1));
+            Assert.That(snapshot[RenderPipelineCounter.SkippedOutcomes], Is.EqualTo(1));
+            Assert.That(
+                snapshot.Events.Single(item => item.Kind == RenderPipelineDiagnosticEventKind.Failure).SubjectId,
+                Is.EqualTo(subjects[0]));
+        });
     }
 
-    // RasterizeToRenderTargets keeps successfully-rendered targets in a list, so a list-resident
-    // target that throws on Dispose during cleanup must not stop the sweep or mask the render
-    // exception. Rasterize snapshots and disposes each target immediately and RasterizeAndConcat
-    // uses a single target, so neither has list-resident targets — this path is theirs alone.
     [Test]
-    public void RasterizeToRenderTargets_ContinuesCleanupAndPreservesException_WhenBuiltRenderTargetDisposeThrows()
+    public void Rasterize_ReturnsBuiltTargetsToPoolAndPreservesExecutionFailure()
     {
-        var disposed = new List<string>();
-        using var node = new StaticRenderNode(
-            CreateOperation("first", disposed),                               // renders OK; its RT enters the list
-            CreateOperation("second", disposed),                              // also list-resident
-            CreateOperation("render-fault", disposed, throwOnRender: true));  // faults; its RT disposed in RasterizeAt
-        // i => i == 0: only the first list-resident RT throws on Dispose, exercising the cleanup sweep.
-        var processor = new FakeRenderNodeProcessor(node, i => i == 0);
+        var discharged = new List<string>();
+        using var node = CreateNode(
+            discharged,
+            new RecordedOperationSpec("first"),
+            new RecordedOperationSpec("second"),
+            new RecordedOperationSpec("render-fault", ThrowOnExecute: true, AllocateBeforeThrow: true));
+        var factory = new TrackingTargetFactory(index => index == 1);
+        var renderer = CreateRenderer(node, factory);
 
-        var ex = Assert.Throws<InvalidOperationException>(() => processor.RasterizeToRenderTargets());
+        var ex = Assert.Throws<InvalidOperationException>(() => renderer.Rasterize());
 
         Assert.That(ex!.Message, Is.EqualTo("render-fault"));
-        Assert.That(processor.CreatedTargets, Has.Count.EqualTo(3));
-        Assert.That(processor.CreatedTargets[0].DisposeWasCalled, Is.True);
-        Assert.That(processor.CreatedTargets[1].DisposeWasCalled, Is.True);
-        Assert.That(processor.CreatedTargets[2].DisposeWasCalled, Is.True);
-        Assert.That(disposed, Is.EqualTo(new[] { "first", "second", "render-fault" }));
+        Assert.That(factory.CreatedTargets, Has.Count.EqualTo(2));
+        Assert.That(factory.CreatedTargets, Has.All.Property(nameof(FakeRenderTarget.DisposeWasCalled)).False);
+        Assert.That(discharged, Is.EqualTo(new[] { "render-fault", "second", "first" }));
+        var cleanup = Assert.Throws<InvalidOperationException>(renderer.Dispose);
+        Assert.That(cleanup!.Message, Is.EqualTo("rt-dispose-fault"));
+        Assert.That(factory.CreatedTargets, Has.All.Property(nameof(FakeRenderTarget.DisposeWasCalled)).True);
     }
 
-    // A throwing Dispose() during post-success cleanup must not discard the already-produced bitmap.
     [Test]
-    public void RasterizeAndConcat_ReturnsBitmap_WhenRenderSucceedsButRenderTargetDisposeThrows()
+    public void Rasterize_SurfacesPooledRootTargetDisposeFailureAtRendererDisposal()
     {
-        var disposed = new List<string>();
-        using var node = new StaticRenderNode(
-            CreateOperation("ok", disposed));
-        var processor = new FakeRenderNodeProcessor(node, _ => true);
+        var discharged = new List<string>();
+        using var node = CreateNode(discharged, new RecordedOperationSpec("ok"));
+        var factory = new TrackingTargetFactory(index => index == 0);
+        var renderer = CreateRenderer(node, factory);
 
-        using var result = processor.RasterizeAndConcat();
+        using RenderNodeRasterization rasterization = renderer.Rasterize();
+        Assert.That(factory.CreatedTargets, Has.All.Property(nameof(FakeRenderTarget.DisposeWasCalled)).False);
+        var ex = Assert.Throws<InvalidOperationException>(renderer.Dispose);
 
-        Assert.That(result, Is.Not.Null);
-        Assert.That(result.Width, Is.EqualTo(4));
-        Assert.That(result.Height, Is.EqualTo(4));
-        Assert.That(processor.CreatedTargets, Has.Count.EqualTo(1));
-        Assert.That(processor.CreatedTargets[0].DisposeWasCalled, Is.True);
-        Assert.That(disposed, Is.EqualTo(new[] { "ok" }));
+        Assert.That(ex!.Message, Is.EqualTo("rt-dispose-fault"));
+        Assert.That(factory.CreatedTargets, Has.Count.EqualTo(2));
+        Assert.That(factory.CreatedTargets[0].DisposeWasCalled, Is.True);
+        Assert.That(factory.CreatedTargets[1].DisposeWasCalled, Is.True);
+        Assert.That(discharged, Is.EqualTo(new[] { "ok" }));
     }
 
-    // A throwing Dispose() during post-snapshot cleanup must not discard the already-snapshotted bitmaps.
     [Test]
-    public void Rasterize_ReturnsBitmaps_WhenRenderSucceedsButRenderTargetDisposeThrows()
+    public void Diagnostics_ReconcileCleanupFaultAndIntermediateDischarge()
     {
-        var disposed = new List<string>();
-        using var node = new StaticRenderNode(
-            CreateOperation("ok", disposed));
-        var processor = new FakeRenderNodeProcessor(node, _ => true);
+        var diagnostics = new RenderPipelineDiagnosticsState();
+        RenderPipelineDiagnosticRecorder recorder = RenderPipelineDiagnosticRecorder.Start(
+            diagnostics,
+            RenderIntent.Preview,
+            RenderRequestPurpose.Auxiliary,
+            nameof(RenderNodeRenderer))!;
+        long subject = recorder.RecordFragments(1, RenderPipelineOutcome.Executed).Single();
 
-        var result = processor.Rasterize();
+        recorder.RecordIntermediateCreated();
+        recorder.RecordOutcome(subject, RenderPipelineOutcome.Executed);
+        recorder.RecordIntermediateDischarged();
+        recorder.RecordCleanupFailure();
+        recorder.Complete();
 
-        Assert.That(result, Has.Count.EqualTo(1));
-        using (result[0])
+        RenderPipelineDiagnosticSnapshot snapshot = diagnostics.Latest;
+        Assert.Multiple(() =>
         {
-            Assert.That(result[0].Width, Is.EqualTo(4));
-            Assert.That(result[0].Height, Is.EqualTo(4));
+            Assert.That(snapshot.Succeeded, Is.False);
+            Assert.That(snapshot.FailurePhase, Is.EqualTo(RenderPipelineFailurePhase.Cleanup));
+            Assert.That(snapshot[RenderPipelineCounter.CleanupFailures], Is.EqualTo(1));
+            Assert.That(snapshot[RenderPipelineCounter.IntermediateAcquires], Is.EqualTo(1));
+            Assert.That(snapshot[RenderPipelineCounter.IntermediateDischarges], Is.EqualTo(1));
+            Assert.That(snapshot[RenderPipelineCounter.ExecutedOutcomes], Is.EqualTo(1));
+        });
+    }
+
+    [Test]
+    public void Diagnostics_AttributeRequestLevelOutputFailureWithoutReplacingExecutedOutcome()
+    {
+        var diagnostics = new RenderPipelineDiagnosticsState();
+        RenderPipelineDiagnosticRecorder recorder = RenderPipelineDiagnosticRecorder.Start(
+            diagnostics,
+            RenderIntent.Preview,
+            RenderRequestPurpose.Auxiliary,
+            nameof(RenderNodeRenderer))!;
+        long subject = recorder.RecordFragments(1, RenderPipelineOutcome.Executed).Single();
+
+        recorder.RecordOutcome(subject, RenderPipelineOutcome.Executed);
+        recorder.RecordFailure(RenderPipelineFailurePhase.Execution);
+        recorder.Complete();
+
+        RenderPipelineDiagnosticSnapshot snapshot = diagnostics.Latest;
+        Assert.Multiple(() =>
+        {
+            Assert.That(snapshot.Succeeded, Is.False);
+            Assert.That(snapshot.FailurePhase, Is.EqualTo(RenderPipelineFailurePhase.Execution));
+            Assert.That(
+                snapshot.Events.Single(item => item.Kind == RenderPipelineDiagnosticEventKind.Failure).SubjectId,
+                Is.Zero);
+            Assert.That(snapshot[RenderPipelineCounter.ExecutedOutcomes], Is.EqualTo(1));
+            Assert.That(snapshot[RenderPipelineCounter.FailedOutcomes], Is.Zero);
+        });
+    }
+
+    private static FixedOpsNode CreateNode(
+        ICollection<string> discharged,
+        params RecordedOperationSpec[] operations)
+        => new(operations, discharged);
+
+    private static RenderNodeRenderer CreateRenderer(
+        RenderNode node,
+        IRenderTargetFactory? targetFactory = null)
+        => new(node, new RenderNodeRendererOptions
+        {
+            OutputScale = 1,
+            MaxWorkingScale = float.PositiveInfinity,
+            UseRenderCache = false,
+            TargetFactory = targetFactory,
+        });
+
+    private static void Execute(EntryPoint entryPoint, RenderNodeRenderer renderer)
+    {
+        if (entryPoint == EntryPoint.Rasterize)
+        {
+            using RenderNodeRasterization rasterization = renderer.Rasterize();
+            return;
         }
 
-        Assert.That(processor.CreatedTargets, Has.Count.EqualTo(1));
-        Assert.That(processor.CreatedTargets[0].DisposeWasCalled, Is.True);
-        Assert.That(disposed, Is.EqualTo(new[] { "ok" }));
+        using RenderTarget target = CreateCpuTarget(4, 4);
+        using var canvas = new ImmediateCanvas(target);
+        renderer.Render(canvas);
     }
 
-    private static StaticRenderNode CreateRenderThrowWithThrowingRemainingOps(ICollection<string> disposed)
+    private static void ExecuteRequestAndSurfaceOwnerFailure(RenderNode node, ImmediateCanvas destination)
     {
-        return new StaticRenderNode(
-            CreateOperation("first", disposed),
-            CreateOperation("render-fault", disposed, throwOnRender: true),
-            CreateOperation("throwing-remaining-1", disposed, throwOnDispose: true),
-            CreateOperation("throwing-remaining-2", disposed, throwOnDispose: true),
-            CreateOperation("remaining", disposed));
+        var request = new RenderRequest(new RenderRequestOptions(
+            RenderIntent.Preview,
+            RenderRequestPurpose.Auxiliary,
+            outputScale: destination.Density,
+            maxWorkingScale: destination.MaxWorkingScale,
+            cachePolicy: Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Disabled));
+        RenderRequestOwner owner = request.Options.Owner;
+        CompiledRenderRequest? compiled = null;
+        Exception? executionFailure = null;
+        using var targetRegistry = new RenderTargetLeaseRegistry(factory: null);
+        using RenderTargetLeaseSession targets = targetRegistry.BeginSession(
+            RenderIntent.Preview,
+            destination._renderTarget);
+        try
+        {
+            RecordedRenderGraph graph = new RenderRequestRecorder(request).Record(node);
+            compiled = new RenderRequestCompiler().Compile(request, graph);
+            new RenderRequestExecutor(targets).Execute(compiled, destination);
+        }
+        catch (Exception ex)
+        {
+            executionFailure = ex;
+        }
+        finally
+        {
+            if (compiled is not null)
+                compiled.Dispose();
+            else
+                request.Dispose();
+            targets.Dispose();
+        }
+
+        owner.ThrowIfFailed();
+        targets.ThrowIfCleanupFailed();
+        if (executionFailure is not null)
+            throw executionFailure;
     }
 
-    private static RenderNodeOperation CreateOperation(
-        string name,
-        ICollection<string> disposed,
-        bool throwOnRender = false,
-        bool throwOnDispose = false,
-        string? disposeFaultMessage = null)
+    private static void Register(RenderRequestOwner owner, RecordedOperation operation)
     {
-        return RenderNodeOperation.CreateLambda(
-            new Rect(0, 0, 4, 4),
-            _ =>
-            {
-                if (throwOnRender)
-                {
-                    throw new InvalidOperationException(name);
-                }
-            },
-            onDispose: () =>
-            {
-                disposed.Add(name);
-                if (throwOnDispose)
-                {
-                    throw new InvalidOperationException(disposeFaultMessage ?? name);
-                }
-            });
+        RenderResource<RecordedOperation> resource = owner.ResourceRegistry.RegisterOwned(operation);
+        owner.ResourceRegistry.Commit(resource);
     }
 
-    private sealed class StaticRenderNode(params RenderNodeOperation[] operations) : RenderNode
-    {
-        public override RenderNodeOperation[] Process(RenderNodeContext context) => operations;
-    }
+    private static RenderTarget CreateCpuTarget(int width, int height)
+        => new FakeRenderTarget(width, height, throwOnDispose: false);
 
-    // Substitutes RenderTarget allocation so the exception-safety paths can run with a RenderTarget
-    // whose Dispose() throws, or with a failing/null allocation, none of which a real GPU target offers.
-    private sealed class FakeRenderNodeProcessor(
-        RenderNode root,
+    private sealed class TrackingTargetFactory(
         Func<int, bool> shouldThrowOnDispose,
         bool throwOnCreate = false,
-        bool returnNullOnCreate = false)
-        : RenderNodeProcessor(root, useRenderCache: false)
+        bool returnNullOnCreate = false) : IRenderTargetFactory
     {
-        public List<FakeRenderTarget> CreatedTargets { get; } = new();
+        public List<FakeRenderTarget> CreatedTargets { get; } = [];
 
-        protected override RenderTarget? CreateRenderTarget(int width, int height)
+        public RenderTarget? Create(PixelSize deviceSize)
         {
             if (throwOnCreate)
-            {
                 throw new InvalidOperationException("rt-create-fault");
-            }
-
             if (returnNullOnCreate)
-            {
                 return null;
-            }
 
-            var target = new FakeRenderTarget(width, height, shouldThrowOnDispose(CreatedTargets.Count));
+            var target = new FakeRenderTarget(
+                deviceSize.Width,
+                deviceSize.Height,
+                shouldThrowOnDispose(CreatedTargets.Count));
             CreatedTargets.Add(target);
             return target;
         }
@@ -356,28 +480,23 @@ public class RenderNodeProcessorExceptionSafetyTests
     {
         public bool DisposeWasCalled { get; private set; }
 
-        // A CPU raster surface (CreateNull has no backing store and fails ReadPixels) so the
-        // RasterizeAndConcat success path can read pixels back through Snapshot() without a GPU.
-        private static SKSurface CreateReadbackSurface(int width, int height) =>
-            SKSurface.Create(new SKImageInfo(
-                width, height, SKColorType.RgbaF16, SKAlphaType.Premul, SKColorSpace.CreateSrgbLinear()));
+        private static SKSurface CreateReadbackSurface(int width, int height)
+            => SKSurface.Create(new SKImageInfo(
+                width,
+                height,
+                SKColorType.RgbaF16,
+                SKAlphaType.Premul,
+                SKColorSpace.CreateSrgbLinear()));
 
-        // Throw only on explicit disposal (disposing == true). The finalizer drives
-        // Dispose(disposing: false), which must stay throw-free so a GC-collected double
-        // cannot tear down the runtime from the finalizer thread.
         protected override void Dispose(bool disposing)
         {
             bool shouldThrow = disposing && throwOnDispose;
             if (disposing)
-            {
                 DisposeWasCalled = true;
-            }
 
             base.Dispose(disposing);
             if (shouldThrow)
-            {
                 throw new InvalidOperationException("rt-dispose-fault");
-            }
         }
     }
 }

@@ -34,6 +34,7 @@ public partial class LayerEffect : FilterEffect
                 }
 
                 ctx.Targets.Add(newTarget);
-            });
+            },
+            static (_, bounds) => bounds);
     }
 }

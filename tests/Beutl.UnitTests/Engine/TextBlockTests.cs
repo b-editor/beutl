@@ -55,8 +55,16 @@ public class TextBlockTests
             tb.Render(context, resource);
         }
 
-        var processor = new RenderNodeProcessor(node, false);
-        using Bitmap bmp = processor.RasterizeAndConcat();
+        using var renderer = new RenderNodeRenderer(
+            node,
+            new RenderNodeRendererOptions
+            {
+                TargetDomain = new Rect(0, 0, 1920, 1080),
+                UseRenderCache = false,
+            });
+        using RenderNodeRasterization rasterization = renderer.Rasterize();
+        Assert.That(rasterization.IsEmpty, Is.False);
+        Bitmap bmp = rasterization.Bitmap!;
 
         Assert.That(bmp.Save(Path.Combine(ArtifactProvider.GetArtifactDirectory(), $"{id}.png"), EncodedImageFormat.Png), Is.True);
     }

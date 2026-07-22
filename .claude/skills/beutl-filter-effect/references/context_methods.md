@@ -198,102 +198,60 @@ Append a SkiaSharp `SKColorFilter` directly (no bounds transformation).
 
 ---
 
-## Shaders (SKSL / GLSL)
+## Deferred Shader and Geometry authoring
 
-### SKSL (SkiaShaderLanguage)
+`ApplyTo` records descriptions only. Do not compile a native program, allocate a target, snapshot,
+read back, flush, or draw while recording.
 
-Author a custom shader with SkiaSharp's `SKRuntimeEffect`.
+### Current-pixel SkSL
 
-**Compile:**
+Use `CurrentPixel` for a restricted color transform. Its source defines exactly one
+`half4 apply(half4 color)` function; compatible adjacent stages may be fused.
+
 ```csharp
-SKRuntimeEffect? effect = SKRuntimeEffect.CreateShader(skslCode, out string? errorText);
+context.Shader(ShaderDescription.CurrentPixel(
+    "uniform float amount; half4 apply(half4 color) { return color * amount; }",
+    bindings => bindings.Uniform("amount", amount)));
 ```
 
-**Built-in uniforms:**
-```glsl
-uniform shader src;          // input image
-uniform float progress;      // 0.0 - 1.0 (effect progress)
-uniform float duration;      // seconds (effect length)
-uniform float time;          // seconds (current time)
-uniform float width;         // render-target width
-uniform float height;        // render-target height
-uniform float2 iResolution;  // (width, height)
-uniform float iTime;         // alias for time
-```
+### Whole-source SkSL
 
-**Applying a shader:**
+Use `WholeSource` when the shader samples coordinates. Declare the implicit upstream input as
+`uniform shader src;` and provide an explicit bounds contract. This is a materialization boundary.
+
 ```csharp
-using var image = target.RenderTarget!.Value.Snapshot();
-using var baseShader = SKShader.CreateImage(image);
-
-var builder = new SKRuntimeShaderBuilder(s_runtimeEffect);
-builder.Children["src"] = baseShader;
-builder.Uniforms["myParam"] = value;
-
-using SKShader shader = builder.Build();
-using var paint = new SKPaint { Shader = shader };
-canvas.Canvas.DrawRect(rect, paint);
+context.Shader(ShaderDescription.WholeSource(
+    """
+    uniform shader src;
+    half4 main(float2 coord) { return src.eval(coord); }
+    """,
+    RenderBoundsContract.Identity));
 ```
 
-**SKSL basics:**
-```glsl
-uniform shader src;
-uniform float2 tileSize;
+Declare uniforms and resources through `ShaderBindingBuilder`. Runtime bounds, device size, and working
+scale come from `ShaderExecutionContext` inside deferred binders; do not bake them into source or cache keys.
 
-half4 main(float2 fragCoord) {
-    // fragCoord: pixel coordinate
-    // src.eval(coord): sample the input image
-    half4 color = src.eval(fragCoord);
-    return color;
-}
-```
+### Geometry
 
-### GLSL (Vulkan)
+Use `GeometryDescription` for guarded execution-time canvas work, custom hit testing, or declared readback.
 
-Fragment shaders on Vulkan-capable environments via `GLSLFilterPipeline`.
-
-**Basic structure:**
-```glsl
-#version 450
-
-layout(location = 0) in vec2 fragCoord;  // 0.0 - 1.0 (normalized coordinate)
-layout(location = 0) out vec4 outColor;
-
-layout(set = 0, binding = 0) uniform sampler2D srcTexture;
-
-layout(push_constant) uniform PushConstants {
-    float progress;
-    float duration;
-    float time;
-    float width;
-    float height;
-} pc;
-
-void main() {
-    vec4 color = texture(srcTexture, fragCoord);
-    outColor = color;
-}
-```
-
-**PushConstants layout:**
 ```csharp
-[StructLayout(LayoutKind.Sequential)]
-private struct PushConstants
-{
-    public float Progress;
-    public float Duration;
-    public float Time;
-    public float Width;
-    public float Height;
-}
+context.Geometry(GeometryDescription.Create(
+    static session => session.Canvas.Use(canvas => session.Input.Draw(canvas)),
+    RenderBoundsContract.Identity,
+    RenderHitTestContract.AnyInput,
+    structuralKey: "identity-geometry"));
 ```
 
-**Compile and execute:**
-```csharp
-IGraphicsContext context = GraphicsContextFactory.SharedContext;
-GLSLFilterPipeline pipeline = GLSLFilterPipeline.Create(context, fragmentShaderCode);
-pipeline.Execute(sourceTexture, destinationTexture, depthTexture, pushConstants);
-```
+Set `requiresReadback: true` before calling `session.Input.UseSnapshot`. The execution-scoped session,
+input, canvas, binding writers, and snapshots must not be retained.
+
+### GLSL (opaque fallback)
+
+There is no public declarative GLSL description. Existing built-in GLSL effects use an internal backend;
+plugin authors must keep unavoidable GLSL work inside `CustomEffect`. That callback executes later as an
+opaque external island and prevents GPU-pass fusion across it. Do not reference the internal
+`GLSLFilterPipeline`, and never compile or execute GLSL during `ApplyTo`.
 
 ---
 
@@ -320,7 +278,7 @@ The render target used inside a `CustomEffect`.
 **Operations:**
 ```csharp
 // Snapshot
-using var image = target.RenderTarget!.Value.Snapshot();
+using var image = target.RenderTarget!.Snapshot();
 
 // Create a new target
 EffectTarget newTarget = context.CreateTarget(target.Bounds);

@@ -8,7 +8,7 @@ using Beutl.UnitTests.Engine.Graphics.Backend;
 
 namespace Beutl.UnitTests.Engine.Graphics.Rendering.Golden;
 
-// Custom effects allocate ceil(bounds * w) buffers and scale absolute-length params by w.
+// Custom effects allocate canonical PixelRect.FromRect(bounds, w) buffers and scale absolute-length params by w.
 [NonParallelizable]
 [TestFixture]
 public class CustomEffectSupersampleTests

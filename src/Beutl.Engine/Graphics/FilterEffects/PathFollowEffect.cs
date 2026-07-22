@@ -1,5 +1,6 @@
 ﻿using System.ComponentModel.DataAnnotations;
 using Beutl.Engine;
+using Beutl.Graphics.Rendering;
 using Beutl.Language;
 using Beutl.Media;
 using SkiaSharp;
@@ -58,42 +59,74 @@ public sealed partial class PathFollowEffect : FilterEffect
             rotationAngle = MathF.Atan2(tangent.Y, tangent.X);
         }
 
-        context.CustomEffect((offsetX, offsetY, rotationAngle), static (data, effectContext) =>
+        context.CustomEffect((offsetX, offsetY, rotationAngle), Apply, TransformBounds);
+    }
+
+    private static void Apply(
+        (float offsetX, float offsetY, float rotationAngle) data,
+        CustomFilterEffectContext effectContext)
+    {
+        effectContext.ForEach((_, target) =>
         {
-            effectContext.ForEach((_, target) =>
+            CreateTransforms(data, target.Bounds, out Matrix boundsTransform, out Matrix contentTransform);
+            Rect newBounds = target.Bounds.TransformToAABB(boundsTransform);
+            EffectTarget newTarget = effectContext.CreateTarget(newBounds);
+            // Open bakes the base CTM from the target's density.
+            using (var canvas = effectContext.Open(newTarget))
+            using (canvas.PushTransform(Matrix.CreateTranslation(target.Bounds.Position - newTarget.Bounds.Position)))
+            using (canvas.PushTransform(contentTransform))
             {
+                canvas.Clear();
+                target.Draw(canvas);
+            }
 
-                var translate = Matrix.CreateTranslation(data.offsetX, data.offsetY);
-                Matrix m1, m2;
-                if (data.rotationAngle != 0)
-                {
-                    var center = new Vector(target.Bounds.Width / 2, target.Bounds.Height / 2);
-                    var rotate = Matrix.CreateRotation(data.rotationAngle);
-
-                    var offset1 = Matrix.CreateTranslation(center + target.Bounds.Position);
-                    var offset2 = Matrix.CreateTranslation(center);
-                    m1 = -offset1 * rotate * offset1 * translate;
-                    m2 = -offset2 * rotate * offset2 * translate;
-                }
-                else
-                {
-                    m1 = m2 = translate;
-                }
-
-                var newBounds = target.Bounds.TransformToAABB(m1);
-                var newTarget = effectContext.CreateTarget(newBounds);
-                // Open bakes the base CTM from the target's density.
-                using (var canvas = effectContext.Open(newTarget))
-                using (canvas.PushTransform(Matrix.CreateTranslation(target.Bounds.Position - newTarget.Bounds.Position)))
-                using (canvas.PushTransform(m2))
-                {
-                    canvas.Clear();
-                    target.Draw(canvas);
-                }
-
-                target.Dispose();
-                return newTarget;
-            });
+            target.Dispose();
+            return newTarget;
         });
+    }
+
+    private static Rect TransformBounds(
+        (float offsetX, float offsetY, float rotationAngle) data,
+        Rect bounds)
+    {
+        CreateTransforms(data, bounds, out Matrix boundsTransform, out _);
+        Rect result = bounds.TransformToAABB(boundsTransform);
+
+        if (data.rotationAngle != 0)
+        {
+            // Apply rotates every EffectTarget around that target's own center. Bounds is only
+            // their union, so rotating the union around its center is not sufficient when the
+            // targets are separated. The center-dependent translation is (I - R) * deltaCenter;
+            // inflate by its maximum projection over every center inside the union.
+            float sin = MathF.Abs(MathF.Sin(data.rotationAngle));
+            float oneMinusCos = MathF.Abs(1f - MathF.Cos(data.rotationAngle));
+            float horizontal = ((oneMinusCos * bounds.Width) + (sin * bounds.Height)) / 2f;
+            float vertical = ((sin * bounds.Width) + (oneMinusCos * bounds.Height)) / 2f;
+            result = result.Inflate(new Thickness(horizontal, vertical));
+        }
+
+        return RenderRectValidation.IsFiniteNonNegative(result) ? result : Rect.Invalid;
+    }
+
+    private static void CreateTransforms(
+        (float offsetX, float offsetY, float rotationAngle) data,
+        Rect bounds,
+        out Matrix boundsTransform,
+        out Matrix contentTransform)
+    {
+        Matrix translate = Matrix.CreateTranslation(data.offsetX, data.offsetY);
+        if (data.rotationAngle != 0)
+        {
+            var center = new Vector(bounds.Width / 2, bounds.Height / 2);
+            Matrix rotate = Matrix.CreateRotation(data.rotationAngle);
+            Matrix boundsOrigin = Matrix.CreateTranslation(center + bounds.Position);
+            Matrix contentOrigin = Matrix.CreateTranslation(center);
+            boundsTransform = -boundsOrigin * rotate * boundsOrigin * translate;
+            contentTransform = -contentOrigin * rotate * contentOrigin * translate;
+        }
+        else
+        {
+            boundsTransform = contentTransform = translate;
+        }
     }
 }

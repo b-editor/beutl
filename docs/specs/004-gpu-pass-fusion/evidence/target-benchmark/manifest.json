@@ -1,0 +1,105 @@
+{
+  "artifactSha256": {
+    "counters.json": "ca9ad14f63e40b92ba71b1fad46a615fe66e2537d4b4f9dda06a045989310240",
+    "raw-benchmark-full.json": "d842833fbbf0045a0c57c6d8323041859cd8ffe821670d3426b2541a4b3abd2d",
+    "raw-benchmark-github.md": "e95233ee691433059a8a9fef161d01c7687727b30ce41c916067a514f7614056",
+    "raw-benchmark-stdout.txt": "fee2f1bc8b610a3e0ba3a1f5d229b83de62806b4369d7ab7f37590b786bb592f"
+  },
+  "baselineCodeSha": "43a38e665d9bf52548161a3917e748bd1457ff55",
+  "benchmarkDotNetVersion": "0.15.8",
+  "cases": {
+    "NoEffectControl": {
+      "maximumNanoseconds": 2865917.0,
+      "meanNanoseconds": 924927.8,
+      "medianNanoseconds": 726167.0,
+      "minimumNanoseconds": 604292.0,
+      "sampleCount": 15,
+      "standardDeviationNanoseconds": 565805.3054004657
+    },
+    "ShaderOpacityShader": {
+      "maximumNanoseconds": 5207750.0,
+      "meanNanoseconds": 3072377.7333333334,
+      "medianNanoseconds": 2765458.0,
+      "minimumNanoseconds": 2524959.0,
+      "sampleCount": 15,
+      "standardDeviationNanoseconds": 694012.3905844771
+    },
+    "ShaderOpacityShaderBarrier": {
+      "maximumNanoseconds": 6852666.0,
+      "meanNanoseconds": 4016744.2,
+      "medianNanoseconds": 3749583.0,
+      "minimumNanoseconds": 3166458.0,
+      "sampleCount": 15,
+      "standardDeviationNanoseconds": 1000847.8018907056
+    }
+  },
+  "command": "docs/specs/004-gpu-pass-fusion/evidence/generate-target-baseline.sh",
+  "configuration": {
+    "benchmarkWarmupIterations": 3,
+    "height": 108,
+    "invocationCount": 1,
+    "launchCount": 1,
+    "lifetime": "persistent-root-external-target-canvas-processor-and-node-cache",
+    "measurementIterations": 15,
+    "requestShape": "complete-target-frame-with-rgba16f-readback",
+    "seed": 20040719,
+    "setupWarmupFrames": 5,
+    "width": 192
+  },
+  "evidenceTools": {
+    "generatorPatchSha256": "037315804fa9531bdef1b79e2db405e8a3813e4bc137527690f9f2d5cb4e728c",
+    "generatorScriptSha256": "05d33410a06cdd3a6fee91911b25a348fdc480ed249916e45fe75c653b40c4f7",
+    "generatorSourceBundleSha256": "d6e5f339d5d7214b0cb879aa5cf2cd717896879b942400928e77b38c9a62a19e",
+    "pairedRunnerSha256": "1ac369986cf888ec32f39060f5d96d3c6758f881ecdb40f21f469926e253d413"
+  },
+  "fingerprint": {
+    "beutlEngineAssemblyVersion": "2.99.99+43a38e665d9bf52548161a3917e748bd1457ff55",
+    "deviceSelection": "automatic-no-preferred-device",
+    "environmentVersion": "10.0.9",
+    "frameworkDescription": ".NET 10.0.9",
+    "metalDeviceName": "Apple M3",
+    "metalDriver": "Apple Metal shipped with macOS build 25F84",
+    "metalFeatureFamily": "spdisplays_metal4",
+    "metalRegistryId": "0x0000000100000462",
+    "osArchitecture": "Arm64",
+    "osBuild": "25F84",
+    "osDescription": "macOS 26.5.2",
+    "osVersion": "Unix 26.5.2",
+    "processArchitecture": "Arm64",
+    "rendererBackend": "Metal",
+    "runtimeIdentifier": "osx-arm64",
+    "silkNetVulkanVersion": "2.23.0+94605142f7b7bd6e69c9201e8e721d245c69eb7e",
+    "skiaBackend": "Metal",
+    "skiaSharpManagedVersion": "3.119.4+release-3.119.4.f568ac94dd768ef9a2f593537cfde2dd0d348ef5.f568ac94dd768ef9a2f593537cfde2dd0d348ef5",
+    "skiaSharpNativeVersion": "119.0",
+    "vulkanApiVersion": "1.2.323",
+    "vulkanDeviceId": "0x1a050209",
+    "vulkanDeviceName": "Apple M3",
+    "vulkanDeviceType": "IntegratedGpu",
+    "vulkanDeviceUuid": "0000106b1a0502090000000000000000",
+    "vulkanDriverId": "DriverIDMoltenvk",
+    "vulkanDriverInfo": "1.4.0",
+    "vulkanDriverName": "MoltenVK",
+    "vulkanDriverUuid": "4d564b00000028a01a05020900000000",
+    "vulkanDriverVersionDecoded": "0.2.2208",
+    "vulkanDriverVersionRaw": "10400",
+    "vulkanEnabledExtensions": [
+      "VK_EXT_metal_objects",
+      "VK_EXT_metal_surface",
+      "VK_EXT_swapchain_colorspace",
+      "VK_KHR_get_physical_device_properties2",
+      "VK_KHR_portability_enumeration",
+      "VK_KHR_portability_subset",
+      "VK_KHR_surface",
+      "VK_KHR_swapchain"
+    ],
+    "vulkanVendorId": "0x0000106b"
+  },
+  "patchedDiffSha256": "037315804fa9531bdef1b79e2db405e8a3813e4bc137527690f9f2d5cb4e728c",
+  "prePatchRepositoryState": "clean",
+  "runCompletedUtc": "2026-07-19T07:58:27.988716+00:00",
+  "runStartedUtc": "2026-07-19T07:58:07.936284+00:00",
+  "schemaVersion": 1,
+  "scope": "minimum starting-SHA baseline; the 11-case paired confidence gate remains T112-T115",
+  "visualManifestSha256": "e3a1a6821715c88f927422c1f2bc9fa0f3e74c887bab2f85ac13b15e9b822618"
+}

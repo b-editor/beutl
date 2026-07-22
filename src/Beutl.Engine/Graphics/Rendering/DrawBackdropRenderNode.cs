@@ -19,12 +19,34 @@ public class DrawBackdropRenderNode(IBackdrop backdrop, Rect bounds) : RenderNod
         return false;
     }
 
-    public override RenderNodeOperation[] Process(RenderNodeContext context)
+    public override void Process(RenderNodeContext context)
     {
-        context.IsRenderCacheEnabled = false;
-        return
-        [
-            RenderNodeOperation.CreateLambda(Bounds, canvas => Backdrop.Draw(canvas), Bounds.Contains)
-        ];
+        context.DisableRenderCache();
+
+        IBackdrop backdrop = Backdrop;
+        Rect bounds = Bounds;
+        if (backdrop.GetType() == typeof(SnapshotBackdropRenderNode))
+        {
+            RenderFragmentHandle capture = context.BuiltInBackdrop(backdrop);
+            TargetCommandDescription description = TargetCommandDescription.Create(
+                static session => session.Canvas.Use(canvas => session.Inputs[0].Draw(canvas)),
+                TargetRegion.Region(bounds),
+                bounds,
+                RenderHitTestContract.OutputBounds,
+                TargetAccess.ReadWrite,
+                structuralKey: typeof(DrawBackdropRenderNode),
+                runtimeIdentity: new RenderRuntimeIdentity(bounds));
+            context.Publish(context.TargetCommand([capture], description));
+            return;
+        }
+
+        RenderResource<IBackdrop> resource = context.Borrow(backdrop);
+        RawTargetCommandDescription rawDescription = RawTargetCommandDescription.Create(
+            session => session.UseResource(resource, value => value.Draw(session.Canvas)),
+            bounds,
+            RenderHitTestContract.OutputBounds,
+            structuralKey: typeof(IBackdrop),
+            resources: [resource]);
+        context.Publish(context.RawTargetCommand(rawDescription));
     }
 }

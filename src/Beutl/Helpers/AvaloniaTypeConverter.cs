@@ -231,28 +231,36 @@ public static class AvaloniaTypeConverter
                 {
                     var imageBrush = new ImageBrush();
                     DrawableImageBrushHandler? handler = null;
-                    var d = AdaptEngineObject(
+                    var disposables = new CompositeDisposable();
+                    AdaptEngineObject(
                         db, time,
                         (o, rc) => o.ToResource(rc),
                         r =>
                         {
                             handler ??= new DrawableImageBrushHandler(r, imageBrush);
                             handler.Update();
-                        });
+                        })
+                        .DisposeWith(disposables);
+                    Disposable.Create(() => handler?.Dispose())
+                        .DisposeWith(disposables);
 
-                    return (imageBrush, d, null);
+                    return (imageBrush, disposables, null);
                 }
         }
 
         return default;
     }
 
-    public sealed class DrawableImageBrushHandler
+    public sealed class DrawableImageBrushHandler : IDisposable
     {
+        private readonly object _gate = new();
         private WriteableBitmap? _bitmap;
         private CancellationTokenSource? _cts;
         private readonly ImageBrush _imageBrush;
         private readonly DrawableBrush.Resource _drawableBrush;
+        private int _activeUpdates;
+        private bool _disposed;
+        private bool _resourceDisposalScheduled;
 
         public DrawableImageBrushHandler(DrawableBrush.Resource drawableBrush, ImageBrush imageBrush)
         {
@@ -262,41 +270,159 @@ public static class AvaloniaTypeConverter
 
         public void Update()
         {
-            _cts?.Cancel();
-            _cts = new CancellationTokenSource();
-            var token = _cts.Token;
+            CancellationTokenSource updateCts;
+            lock (_gate)
+            {
+                if (_disposed)
+                    return;
+
+                _cts?.Cancel();
+                updateCts = new CancellationTokenSource();
+                _cts = updateCts;
+                _activeUpdates++;
+            }
 
             RenderThread.Dispatcher.Dispatch(async () =>
             {
-                if (_drawableBrush.Drawable == null) return;
-                var node = new DrawableRenderNode(_drawableBrush.Drawable);
-                // TODO: UI側の物理的なサイズをもとに描画するように変更する
-                using (var context = new GraphicsContext2D(node, new Graphics.Size(1920, 1080)))
+                WriteableBitmap? nextBitmap = null;
+                try
                 {
-                    _drawableBrush.Drawable.GetOriginal()!.Render(context, _drawableBrush.Drawable);
+                    CancellationToken token = updateCts.Token;
+                    if (token.IsCancellationRequested || _drawableBrush.Drawable == null)
+                        return;
+
+                    using var node = new DrawableRenderNode(_drawableBrush.Drawable);
+                    // TODO: UI側の物理的なサイズをもとに描画するように変更する
+                    using (var context = new GraphicsContext2D(node, new Graphics.Size(1920, 1080)))
+                    {
+                        _drawableBrush.Drawable.GetOriginal()!.Render(context, _drawableBrush.Drawable);
+                    }
+
+                    using var renderer = new RenderNodeRenderer(
+                        node,
+                        new RenderNodeRendererOptions
+                        {
+                            Intent = RenderIntent.Preview,
+                            TargetDomain = new Graphics.Rect(0, 0, 1920, 1080),
+                            UseRenderCache = false,
+                        });
+                    using RenderNodeRasterization rasterization = renderer.Rasterize();
+                    Media.Bitmap? bitmap = rasterization.Bitmap;
+                    if (token.IsCancellationRequested || bitmap is null)
+                        return;
+
+                    nextBitmap = bitmap.ToAvaWriteableBitmap(null);
+                    if (token.IsCancellationRequested)
+                        return;
+
+                    await Dispatcher.UIThread.InvokeAsync(() =>
+                    {
+                        if (token.IsCancellationRequested)
+                            return;
+
+                        WriteableBitmap? previous;
+                        lock (_gate)
+                        {
+                            if (_disposed || token.IsCancellationRequested)
+                                return;
+
+                            previous = _bitmap;
+                            _bitmap = nextBitmap;
+                            nextBitmap = null;
+                        }
+
+                        _imageBrush.Stretch = _drawableBrush.Stretch switch
+                        {
+                            Stretch.Fill => Avalonia.Media.Stretch.Fill,
+                            Stretch.Uniform => Avalonia.Media.Stretch.Uniform,
+                            Stretch.UniformToFill => Avalonia.Media.Stretch.UniformToFill,
+                            Stretch.None => Avalonia.Media.Stretch.None,
+                            _ => Avalonia.Media.Stretch.Fill,
+                        };
+                        _imageBrush.Source = _bitmap;
+                        previous?.Dispose();
+                    }, DispatcherPriority.Background);
+                }
+                finally
+                {
+                    nextBitmap?.Dispose();
+                    CompleteUpdate(updateCts);
+                }
+            }, DispatchPriority.Low, CancellationToken.None);
+        }
+
+        public void Dispose()
+        {
+            bool disposeResource;
+            lock (_gate)
+            {
+                if (_disposed)
+                    return;
+
+                _disposed = true;
+                _cts?.Cancel();
+                _cts = null;
+                disposeResource = ScheduleResourceDisposalIfIdle();
+            }
+
+            DisposeUiResources();
+            if (disposeResource)
+                DispatchResourceDisposal();
+        }
+
+        private void CompleteUpdate(CancellationTokenSource updateCts)
+        {
+            bool disposeResource;
+            lock (_gate)
+            {
+                if (ReferenceEquals(_cts, updateCts))
+                    _cts = null;
+
+                _activeUpdates--;
+                disposeResource = ScheduleResourceDisposalIfIdle();
+            }
+
+            updateCts.Dispose();
+            if (disposeResource)
+                DispatchResourceDisposal();
+        }
+
+        private bool ScheduleResourceDisposalIfIdle()
+        {
+            if (!_disposed || _activeUpdates != 0 || _resourceDisposalScheduled)
+                return false;
+
+            _resourceDisposalScheduled = true;
+            return true;
+        }
+
+        private void DispatchResourceDisposal()
+        {
+            RenderThread.Dispatcher.Dispatch(
+                _drawableBrush.Dispose,
+                DispatchPriority.Low,
+                CancellationToken.None);
+        }
+
+        private void DisposeUiResources()
+        {
+            void DisposeCore()
+            {
+                WriteableBitmap? bitmap;
+                lock (_gate)
+                {
+                    bitmap = _bitmap;
+                    _bitmap = null;
                 }
 
-                var processor = new RenderNodeProcessor(node, false);
-                using var bitmap = processor.RasterizeAndConcat();
+                _imageBrush.Source = null;
+                bitmap?.Dispose();
+            }
 
-                var previous = _bitmap;
-                var pixelSize = new PixelSize(bitmap.Width, bitmap.Height);
-                _bitmap = bitmap.ToAvaWriteableBitmap(null);
-
-                await Dispatcher.UIThread.InvokeAsync(() =>
-                {
-                    _imageBrush.Stretch = _drawableBrush.Stretch switch
-                    {
-                        Stretch.Fill => Avalonia.Media.Stretch.Fill,
-                        Stretch.Uniform => Avalonia.Media.Stretch.Uniform,
-                        Stretch.UniformToFill => Avalonia.Media.Stretch.UniformToFill,
-                        Stretch.None => Avalonia.Media.Stretch.None,
-                        _ => Avalonia.Media.Stretch.Fill,
-                    };
-                    _imageBrush.Source = _bitmap;
-                    previous?.Dispose();
-                }, DispatcherPriority.Background);
-            }, DispatchPriority.Low, token);
+            if (Dispatcher.UIThread.CheckAccess())
+                DisposeCore();
+            else
+                Dispatcher.UIThread.Post(DisposeCore, DispatcherPriority.Background);
         }
     }
 }

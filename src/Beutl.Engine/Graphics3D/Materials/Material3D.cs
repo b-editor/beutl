@@ -1,6 +1,7 @@
 ﻿using System.Numerics;
 using Beutl.Engine;
 using Beutl.Graphics.Backend;
+using Beutl.Graphics3D.Textures;
 
 namespace Beutl.Graphics3D.Materials;
 
@@ -24,13 +25,24 @@ public abstract partial class Material3D : EngineObject
         /// <summary>
         /// Gets the pipeline for this material, or null if not yet created.
         /// </summary>
-        internal abstract IPipeline3D? Pipeline { get; }
+        /// <remarks>Custom material resources override this member to expose their backend pipeline.</remarks>
+        protected internal abstract IPipeline3D? Pipeline { get; }
 
         /// <summary>
         /// Gets whether this material is transparent and should use forward rendering.
         /// Default is false (opaque, deferred rendering).
         /// </summary>
         public virtual bool IsTransparent => false;
+
+        /// <summary>
+        /// Enumerates the texture resources that must be available while this material is rendered.
+        /// </summary>
+        /// <returns>The texture resources referenced by this material.</returns>
+        /// <remarks>The default implementation declares no texture dependencies.</remarks>
+        protected internal virtual IEnumerable<TextureSource.Resource> EnumerateTextureSources()
+        {
+            return [];
+        }
 
         /// <summary>
         /// Ensures the pipeline is created for this material.

@@ -31,15 +31,18 @@ public class VideoSourceRenderNodeTest
 
     // A decoded video frame reports concrete At(1) density, not Unbounded.
     [Test]
-    public void Process_OpReportsConcreteNativeDensity_NotUnbounded()
+    public void Measure_ReportsConcreteNativeDensity_NotUnbounded()
     {
-        var node = new VideoSourceRenderNode(_resource!, frame: 0, Brushes.Resource.White, null);
-        var operations = node.Process(new Beutl.Graphics.Rendering.RenderNodeContext([]));
+        using var node = new VideoSourceRenderNode(_resource!, frame: 0, Brushes.Resource.White, null);
+        using var renderer = new RenderNodeRenderer(
+            node,
+            new RenderNodeRendererOptions { UseRenderCache = false });
+        RenderNodeMeasurement measurement = renderer.Measure();
 
-        Assert.That(operations, Is.Not.Empty);
-        Assert.That(operations[0].EffectiveScale.IsUnbounded, Is.False,
+        Assert.That(measurement.HasFragments, Is.True);
+        Assert.That(measurement.EffectiveScale.IsUnbounded, Is.False,
             "a video source must report a concrete density, not the vector Unbounded sentinel");
-        Assert.That(operations[0].EffectiveScale.Value, Is.EqualTo(1f),
+        Assert.That(measurement.EffectiveScale.Value, Is.EqualTo(1f),
             "a video frame drawn at its native 1:1 size has supply density 1");
     }
 }

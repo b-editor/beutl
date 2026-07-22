@@ -62,8 +62,8 @@ public class SaveFrameScaleTests
     [Test]
     public void FitsBufferLimit_DefaultLimit_IsTheEngineConstant()
     {
-        var atLimit = new PixelSize(RenderNodeContext.MaxBufferDimension, 1080);
-        var overLimit = new PixelSize(RenderNodeContext.MaxBufferDimension + 1, 1080);
+        var atLimit = new PixelSize(RenderScaleUtilities.MaxBufferDimension, 1080);
+        var overLimit = new PixelSize(RenderScaleUtilities.MaxBufferDimension + 1, 1080);
 
         Assert.That(SaveFrameScale.FitsBufferLimit(atLimit, 1f), Is.True);
         Assert.That(SaveFrameScale.FitsBufferLimit(overLimit, 1f), Is.False);

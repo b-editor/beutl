@@ -16,7 +16,8 @@ public abstract partial class FilterEffect : EngineObject
     {
         /// <summary>
         /// Creates the render node for this effect. Override to supply a custom
-        /// <see cref="FilterEffectRenderNode"/> subclass with a different working scale.
+        /// <see cref="FilterEffectRenderNode"/> subclass. Working-scale customizations should override
+        /// <see cref="FilterEffectRenderNode.GetWorkingScaleContract"/> and reuse the base recording pipeline.
         /// </summary>
         public virtual FilterEffectRenderNode CreateRenderNode()
         {

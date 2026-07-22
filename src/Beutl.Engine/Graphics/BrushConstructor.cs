@@ -13,6 +13,18 @@ public readonly struct BrushConstructor(
     float maxWorkingScale = float.PositiveInfinity)
 {
     private static readonly ILogger s_logger = Log.CreateLogger("BrushConstructor");
+    private readonly BrushTileContent? _tileContent;
+
+    internal BrushConstructor(
+        Rect bounds,
+        ResolvedBrush brush,
+        BlendMode blendMode,
+        float scale = 1f,
+        float maxWorkingScale = float.PositiveInfinity)
+        : this(bounds, brush.Resource, blendMode, scale, maxWorkingScale)
+    {
+        _tileContent = brush.TileContent;
+    }
 
     public Rect Bounds { get; } = bounds;
 
@@ -27,7 +39,7 @@ public readonly struct BrushConstructor(
     public float Scale { get; } = scale;
 
     /// <summary>Working-scale ceiling forwarded into nested pulls (e.g. <see cref="DrawableBrush"/>).</summary>
-    public float MaxWorkingScale { get; } = RenderNodeContext.SanitizeMaxWorkingScale(maxWorkingScale);
+    public float MaxWorkingScale { get; } = RenderScaleUtilities.SanitizeMaxWorkingScale(maxWorkingScale);
 
     public void ConfigurePaint(SKPaint paint)
     {
@@ -229,8 +241,14 @@ public readonly struct BrushConstructor(
 
     private SKShader? CreateTileShader(TileBrush.Resource tileBrush)
     {
+        if (tileBrush is DrawableBrush.Resource)
+        {
+            return _tileContent is { } content
+                ? CreateDrawableTileShader(tileBrush, content)
+                : null;
+        }
+
         float s = Scale;
-        RenderTarget? renderTarget = null;
         SKImage? skImage;
         PixelSize pixelSize;     // logical content size (drives TileBrushCalculator)
         float contentDensity;    // skImage device px per logical content unit
@@ -241,52 +259,6 @@ public readonly struct BrushConstructor(
             skImage = SKImage.FromBitmap(bitmap.SKBitmap);
             pixelSize = new(bitmap.Width, bitmap.Height);
             contentDensity = 1f; // the bitmap's native pixels ARE the logical content (1:1)
-        }
-        else if (tileBrush is DrawableBrush.Resource drawableBrush)
-        {
-            if (drawableBrush.Drawable is null) return null;
-
-            var drawable = drawableBrush.Drawable;
-            using var node = new DrawableRenderNode(drawable);
-            using var context = new GraphicsContext2D(node, new Size((int)Bounds.Width, (int)Bounds.Height), s);
-            drawable.GetOriginal().Render(context, drawable);
-            var processor = new RenderNodeProcessor(node, true, s, MaxWorkingScale);
-            var ops = processor.RasterizeToRenderTargets();
-            var totalBounds = ops.Aggregate(Rect.Empty, (current, item) => current.Union(item.Bounds));
-
-            int dw = Math.Max(1, (int)MathF.Ceiling((float)totalBounds.Width * s));
-            int dh = Math.Max(1, (int)MathF.Ceiling((float)totalBounds.Height * s));
-            renderTarget = RenderTarget.Create(dw, dh);
-            if (renderTarget == null)
-            {
-                // Dispose ops that the blit loop below would have consumed.
-                foreach (var op in ops)
-                    op.RenderTarget.Dispose();
-
-                s_logger.LogWarning(
-                    "DrawableBrush content buffer allocation failed ({Width}x{Height} px, density {Scale}); preview fill degrades to solid white, delivery render fails fast.",
-                    dw, dh, s);
-                ThrowIfDeliveryAllocationFailure(
-                    $"DrawableBrush content buffer allocation failed ({dw}x{dh} px, density {s}).");
-                return null;
-            }
-
-            // Density 1: raw device-px blits with hand-computed offsets (no base CTM re-scale).
-            using (var icanvas = new ImmediateCanvas(renderTarget, 1f, MaxWorkingScale))
-            {
-                icanvas.Clear();
-
-                foreach (var op in ops)
-                {
-                    Point offset = (op.Bounds.Position - totalBounds.Position) * s;
-                    icanvas.DrawRenderTarget(op.RenderTarget, offset);
-                    op.RenderTarget.Dispose();
-                }
-            }
-
-            pixelSize = new PixelSize((int)totalBounds.Width, (int)totalBounds.Height);
-            contentDensity = s;
-            skImage = renderTarget.Value.Snapshot();
         }
         else
         {
@@ -373,8 +345,98 @@ public readonly struct BrushConstructor(
         {
             skImage?.Dispose();
             intermediate?.Dispose();
-            renderTarget?.Dispose();
         }
+    }
+
+    private SKShader? CreateDrawableTileShader(
+        TileBrush.Resource tileBrush,
+        BrushTileContent content)
+    {
+        float s = Scale;
+        var calc = new TileBrushCalculator(tileBrush, content.Bounds.Size, Bounds.Size);
+        int iw = Math.Max(1, (int)MathF.Ceiling((float)calc.IntermediateSize.Width * s));
+        int ih = Math.Max(1, (int)MathF.Ceiling((float)calc.IntermediateSize.Height * s));
+        RenderTarget? intermediate = RenderTarget.Create(iw, ih);
+        if (intermediate is null)
+        {
+            s_logger.LogWarning(
+                "Drawable-brush intermediate allocation failed ({Width}x{Height} px, density {Scale}); preview fill degrades to transparent, delivery render fails fast.",
+                iw,
+                ih,
+                s);
+            ThrowIfDeliveryAllocationFailure(
+                $"Drawable-brush intermediate allocation failed ({iw}x{ih} px, density {s}).");
+            return null;
+        }
+
+        try
+        {
+            using (var canvas = new ImmediateCanvas(intermediate, 1f, MaxWorkingScale))
+            using (var paint = new SKPaint { Shader = content.Shader })
+            {
+                canvas.Canvas.Clear();
+                canvas.Canvas.Save();
+                Rect clip = calc.IntermediateClip;
+                canvas.Canvas.ClipRect(new SKRect(
+                    (float)clip.Left * s,
+                    (float)clip.Top * s,
+                    (float)clip.Right * s,
+                    (float)clip.Bottom * s));
+                SKMatrix draw = SKMatrix.CreateScale(s, s)
+                    .PreConcat(calc.IntermediateTransform.ToSKMatrix())
+                    .PreConcat(SKMatrix.CreateTranslation(
+                        -(float)content.Bounds.X,
+                        -(float)content.Bounds.Y));
+                canvas.Canvas.SetMatrix(draw);
+                canvas.Canvas.DrawRect(content.Bounds.ToSKRect(), paint);
+                canvas.Canvas.Restore();
+            }
+
+            (SKShaderTileMode tileX, SKShaderTileMode tileY) = ResolveTileModes(tileBrush.TileMode);
+            SKMatrix tileTransform = CreateTileTransform(tileBrush, calc, s);
+            using SKImage snapshot = intermediate.Value.Snapshot();
+            using SKImage raster = snapshot.ToRasterImage();
+            return raster.ToShader(tileX, tileY, tileTransform);
+        }
+        finally
+        {
+            intermediate.Dispose();
+        }
+    }
+
+    private (SKShaderTileMode X, SKShaderTileMode Y) ResolveTileModes(TileMode tileMode)
+    {
+        SKShaderTileMode x = tileMode == TileMode.None
+            ? SKShaderTileMode.Decal
+            : tileMode is TileMode.FlipX or TileMode.FlipXY
+                ? SKShaderTileMode.Mirror
+                : SKShaderTileMode.Repeat;
+        SKShaderTileMode y = tileMode == TileMode.None
+            ? SKShaderTileMode.Decal
+            : tileMode is TileMode.FlipY or TileMode.FlipXY
+                ? SKShaderTileMode.Mirror
+                : SKShaderTileMode.Repeat;
+        return (x, y);
+    }
+
+    private SKMatrix CreateTileTransform(
+        TileBrush.Resource tileBrush,
+        TileBrushCalculator calc,
+        float scale)
+    {
+        SKMatrix tileTransform = tileBrush.TileMode != TileMode.None
+            ? SKMatrix.CreateTranslation(-calc.DestinationRect.X, -calc.DestinationRect.Y)
+            : SKMatrix.CreateIdentity();
+
+        if (tileBrush.Transform is not null)
+        {
+            Point origin = tileBrush.TransformOrigin.ToPixels(Bounds.Size);
+            var offset = Matrix.CreateTranslation(origin + Bounds.Position);
+            Matrix transform = (-offset) * tileBrush.Transform.Matrix * offset;
+            tileTransform = tileTransform.PreConcat(transform.ToSKMatrix());
+        }
+
+        return tileTransform.PreConcat(SKMatrix.CreateScale(1f / scale, 1f / scale));
     }
 
     private void ThrowIfDeliveryAllocationFailure(string message)

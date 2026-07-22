@@ -52,8 +52,8 @@ public partial class DisplacementMapEffect : FilterEffect
 
         if (r.ShowDisplacementMap)
         {
-            context.CustomEffect(displacementMap,
-                static (brush, effectContext) =>
+            context.CustomEffect(new DisplacementMapPreviewData(displacementMap),
+                static (data, effectContext) =>
                 {
                     for (int i = 0; i < effectContext.Targets.Count; i++)
                     {
@@ -62,7 +62,7 @@ public partial class DisplacementMapEffect : FilterEffect
                         var newTarget = effectContext.CreateTarget(effectTarget.Bounds);
                         float w = newTarget.Scale.Value;
                         using var displacementMapShader =
-                            new BrushConstructor(new Rect(effectTarget.Bounds.Size), brush, BlendMode.SrcOver, w,
+                            new BrushConstructor(new Rect(effectTarget.Bounds.Size), data.Brush, BlendMode.SrcOver, w,
                                     effectContext.MaxWorkingScale)
                                 .CreateShader();
 
@@ -82,11 +82,14 @@ public partial class DisplacementMapEffect : FilterEffect
 
                         effectTarget.Dispose();
                     }
-                });
+                },
+                static (_, bounds) => bounds);
         }
         else if (r.Transform is { } transform)
         {
             transform.GetOriginal().ApplyTo(displacementMap, transform, r.SpreadMethod, r.Channel, r.Signed, context);
         }
     }
+
+    private readonly record struct DisplacementMapPreviewData(Brush.Resource Brush);
 }

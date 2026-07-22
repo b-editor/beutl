@@ -10,13 +10,19 @@ namespace Beutl.UnitTests.Engine.Graphics.Rendering;
 [TestFixture]
 public class HitTestParityTests
 {
-    private static RenderNodeOperation BuildEllipseOp(float outputScale)
+    private static bool HitEllipse(float outputScale, Point point)
     {
         var rect = new Rect(0, 0, 100, 80);
-        var fill = new SolidColorBrush(Colors.Red).ToResource(CompositionContext.Default);
-        var node = new EllipseRenderNode(rect, fill, null);
-        var context = new RenderNodeContext([], outputScale);
-        return node.Process(context)[0];
+        using var fill = new SolidColorBrush(Colors.Red).ToResource(CompositionContext.Default);
+        using var node = new EllipseRenderNode(rect, fill, null);
+        using var renderer = new RenderNodeRenderer(
+            node,
+            new RenderNodeRendererOptions
+            {
+                OutputScale = outputScale,
+                UseRenderCache = false,
+            });
+        return renderer.HitTest(point);
     }
 
     [TestCase(0.25f)]
@@ -25,22 +31,20 @@ public class HitTestParityTests
     [TestCase(2f)]
     public void HitTest_SameLogicalPoint_SameResultAtEveryScale(float outputScale)
     {
-        RenderNodeOperation atOne = BuildEllipseOp(1f);
-        RenderNodeOperation atScale = BuildEllipseOp(outputScale);
-
         // One logical point inside the ellipse, one outside; both must agree across scales.
         var inside = new Point(50, 40);
         var outside = new Point(2, 2);
+        bool insideAtOne = HitEllipse(1, inside);
+        bool outsideAtOne = HitEllipse(1, outside);
+        bool insideAtScale = HitEllipse(outputScale, inside);
+        bool outsideAtScale = HitEllipse(outputScale, outside);
 
         Assert.Multiple(() =>
         {
-            Assert.That(atScale.HitTest(inside), Is.EqualTo(atOne.HitTest(inside)), "inside-point parity");
-            Assert.That(atScale.HitTest(outside), Is.EqualTo(atOne.HitTest(outside)), "outside-point parity");
-            Assert.That(atScale.HitTest(inside), Is.True, "inside point should hit");
-            Assert.That(atScale.HitTest(outside), Is.False, "outside point should miss");
+            Assert.That(insideAtScale, Is.EqualTo(insideAtOne), "inside-point parity");
+            Assert.That(outsideAtScale, Is.EqualTo(outsideAtOne), "outside-point parity");
+            Assert.That(insideAtScale, Is.True, "inside point should hit");
+            Assert.That(outsideAtScale, Is.False, "outside point should miss");
         });
-
-        atOne.Dispose();
-        atScale.Dispose();
     }
 }

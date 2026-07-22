@@ -1,6 +1,8 @@
 ﻿using System.ComponentModel;
 using System.Reactive;
+using System.Runtime.ExceptionServices;
 using Beutl.Collections.Pooled;
+using Beutl.Graphics.Rendering;
 using Beutl.Media;
 using Microsoft.Extensions.ObjectPool;
 using SkiaSharp;
@@ -26,6 +28,10 @@ public sealed class FilterEffectContext : IDisposable
 {
     internal readonly PooledList<IFEItem> _items;
     internal readonly PooledList<IFEItem> _renderTimeItems;
+    private readonly FilterEffectResourceState _resourceState;
+    private readonly Lazy<float> _workingScale;
+    private readonly bool _hasResolvedWorkingScale;
+    private bool _disposed;
 
     internal static readonly ObjectPool<float[]> s_colorMatPool;
 
@@ -35,10 +41,57 @@ public sealed class FilterEffectContext : IDisposable
     }
 
     public FilterEffectContext(Rect bounds, float outputScale = 1f, float workingScale = 1f)
+        : this(
+            bounds,
+            outputScale,
+            CreateResolvedWorkingScale(workingScale),
+            hasResolvedWorkingScale: true,
+            new FilterEffectResourceState(renderContext: null))
+    {
+    }
+
+    internal FilterEffectContext(
+        Rect bounds,
+        float outputScale,
+        float workingScale,
+        RenderNodeContext renderContext,
+        bool hasResolvedWorkingScale = true)
+        : this(
+            bounds,
+            outputScale,
+            CreateResolvedWorkingScale(workingScale),
+            hasResolvedWorkingScale,
+            new FilterEffectResourceState(renderContext))
+    {
+    }
+
+    internal FilterEffectContext(
+        Rect bounds,
+        float outputScale,
+        Func<float> resolveWorkingScale,
+        RenderNodeContext renderContext,
+        bool hasResolvedWorkingScale = true)
+        : this(
+            bounds,
+            outputScale,
+            new Lazy<float>(resolveWorkingScale ?? throw new ArgumentNullException(nameof(resolveWorkingScale))),
+            hasResolvedWorkingScale,
+            new FilterEffectResourceState(renderContext))
+    {
+    }
+
+    private FilterEffectContext(
+        Rect bounds,
+        float outputScale,
+        Lazy<float> workingScale,
+        bool hasResolvedWorkingScale,
+        FilterEffectResourceState resourceState)
     {
         Bounds = OriginalBounds = bounds;
         OutputScale = outputScale;
-        WorkingScale = workingScale;
+        _workingScale = workingScale;
+        _hasResolvedWorkingScale = hasResolvedWorkingScale;
+        _resourceState = resourceState;
         _renderTimeItems = [];
         _items = [];
     }
@@ -48,9 +101,22 @@ public sealed class FilterEffectContext : IDisposable
         OriginalBounds = obj.OriginalBounds;
         Bounds = obj.Bounds;
         OutputScale = obj.OutputScale;
-        WorkingScale = obj.WorkingScale;
+        _workingScale = obj._workingScale;
+        _hasResolvedWorkingScale = obj._hasResolvedWorkingScale;
+        _resourceState = obj._resourceState.AddReference();
         _renderTimeItems = new PooledList<IFEItem>(obj._renderTimeItems);
         _items = new PooledList<IFEItem>(obj._items);
+    }
+
+    private FilterEffectContext(FilterEffectContext obj, Rect bounds)
+    {
+        OriginalBounds = Bounds = bounds;
+        OutputScale = obj.OutputScale;
+        _workingScale = obj._workingScale;
+        _hasResolvedWorkingScale = obj._hasResolvedWorkingScale;
+        _resourceState = obj._resourceState.AddReference();
+        _renderTimeItems = [];
+        _items = [];
     }
 
     public Rect Bounds { get; internal set; }
@@ -63,24 +129,64 @@ public sealed class FilterEffectContext : IDisposable
     public float OutputScale { get; }
 
     /// <summary>
-    /// The density <c>w</c> at which intermediate buffers are allocated (<c>ceil(bounds * w)</c>).
-    /// Resolved per-effect via <see cref="Beutl.Graphics.Rendering.RenderNodeContext.ResolveWorkingScale"/>.
+    /// The nominal effect-input density <c>w</c> from which authored operations negotiate their buffers using the
+    /// canonical near-edge/far-edge composition-device footprint.
+    /// Resolved per-effect via <see cref="Beutl.Graphics.Rendering.RenderScaleUtilities.ResolveWorkingScale"/>.
     /// </summary>
-    public float WorkingScale { get; }
+    /// <remarks>An expanding operation may run below this value after its own per-buffer dimension clamp.</remarks>
+    /// <exception cref="InvalidOperationException">
+    /// The effect is being authored against unresolved or branch-dependent input metadata, so one final working
+    /// scale is not available. Use <see cref="TryGetWorkingScale"/> to probe availability and defer device-pixel
+    /// math to execution-time shader, geometry, or custom-effect callbacks.
+    /// </exception>
+    public float WorkingScale
+        => TryGetWorkingScale(out float workingScale)
+            ? workingScale
+            : throw new InvalidOperationException(
+                "The filter-effect working scale is unavailable because its input metadata is unresolved or "
+                + "different branches may lower at different densities. Use TryGetWorkingScale during ApplyTo "
+                + "and perform device-pixel math in an "
+                + "execution-time shader, geometry, or custom-effect callback.");
+
+    /// <summary>Tries to get the nominal effect-input working density available while authoring this effect.</summary>
+    /// <param name="workingScale">
+    /// Receives the positive finite working density, or <see langword="default"/> when input metadata is unresolved
+    /// or multiple input branches may lower at different densities.
+    /// </param>
+    /// <returns>
+    /// <see langword="true"/> when one concrete effect-input density is available;
+    /// otherwise <see langword="false"/> because the inputs are unresolved or branch-dependent.
+    /// </returns>
+    /// <remarks>
+    /// A later bounds-expanding operation may apply the per-buffer dimension clamp and run below this nominal
+    /// density. Use this value only for scale-independent recording decisions; read the operation-specific density
+    /// or actual target scale from the execution-time shader, geometry, or custom-effect context for device math.
+    /// A <see langword="false"/> result requires scale-independent recording.
+    /// </remarks>
+    public bool TryGetWorkingScale(out float workingScale)
+    {
+        workingScale = _hasResolvedWorkingScale ? _workingScale.Value : default;
+        return _hasResolvedWorkingScale;
+    }
+
+    private static Lazy<float> CreateResolvedWorkingScale(float workingScale)
+        => new(() => workingScale);
 
     public FilterEffectContext Clone()
     {
+        ThrowIfDisposed();
         return new FilterEffectContext(this);
     }
 
     public FilterEffectContext CreateChildContext()
     {
-        // 今はnewしているが、キャッシュする予定
-        return new FilterEffectContext(Bounds, OutputScale, WorkingScale);
+        ThrowIfDisposed();
+        return new FilterEffectContext(this, Bounds);
     }
 
     private void AddItem(IFEItem item)
     {
+        ThrowIfDisposed();
         if (!Bounds.IsInvalid)
         {
             _items.Add(item);
@@ -91,13 +197,58 @@ public sealed class FilterEffectContext : IDisposable
         }
     }
 
+    public void Shader(ShaderDescription description)
+    {
+        ArgumentNullException.ThrowIfNull(description);
+        _resourceState.ValidateResources(
+            description.Resources.Select(static binding => binding.Resource),
+            nameof(description));
+        AppendDescription(new FEItem_Shader(description));
+    }
+
+    public void Geometry(GeometryDescription description)
+    {
+        ArgumentNullException.ThrowIfNull(description);
+        _resourceState.ValidateResources(description.Resources, nameof(description));
+        AppendDescription(new FEItem_Geometry(description));
+    }
+
+    public RenderResource<T> Own<T>(T resource, object? cacheKey = null, long version = 0)
+        where T : class, IDisposable
+    {
+        ThrowIfDisposed();
+        return _resourceState.Own(resource, cacheKey, version);
+    }
+
+    public RenderResource<T> Borrow<T>(T resource, object? cacheKey = null, long version = 0)
+        where T : class
+    {
+        ThrowIfDisposed();
+        return _resourceState.Borrow(resource, cacheKey, version);
+    }
+
+    private void AppendDescription(IFEItem item)
+    {
+        ThrowIfDisposed();
+        if (Bounds.IsInvalid)
+        {
+            _renderTimeItems.Add(item);
+            return;
+        }
+
+        Rect nextBounds = item.TransformBounds(Bounds);
+        _items.Add(item);
+        Bounds = nextBounds;
+    }
+
     [EditorBrowsable(EditorBrowsableState.Never)]
     public void AppendSkiaFilter<T>(T data, Func<T, SKImageFilter?, FilterEffectActivator, SKImageFilter?> factory,
         Func<T, Rect, Rect> transformBounds)
         where T : IEquatable<T>
     {
         AddItem(new FEItem_Skia<T>(data, factory, transformBounds));
-        Bounds = transformBounds.Invoke(data, Bounds);
+        if (!Bounds.IsInvalid)
+            Bounds = transformBounds.Invoke(data, Bounds);
     }
 
     [EditorBrowsable(EditorBrowsableState.Never)]
@@ -469,9 +620,18 @@ public sealed class FilterEffectContext : IDisposable
         where T : IEquatable<T>
     {
         AddItem(new FEItem_CustomEffect<T>(data, action, transformBounds));
-        Bounds = transformBounds.Invoke(data, Bounds);
+        if (!Bounds.IsInvalid)
+            Bounds = transformBounds.Invoke(data, Bounds);
     }
 
+    /// <summary>
+    /// Appends an opaque custom effect whose output bounds cannot be determined during recording.
+    /// </summary>
+    /// <remarks>
+    /// The unknown bounds remain symbolic through later effects and are resolved to the complete finite local
+    /// domain of the owning destination or target scope after enclosing transforms and clips are known. A
+    /// target-less root request requires an explicit target domain.
+    /// </remarks>
     public void CustomEffect<T>(T data, Action<T, CustomFilterEffectContext> action)
     {
         AddItem(new FEItem_CustomEffect<T>(data, action, null));
@@ -483,9 +643,217 @@ public sealed class FilterEffectContext : IDisposable
         return _items.Count;
     }
 
+    internal IReadOnlyList<IFEItem> GetOrderedItems()
+    {
+        ThrowIfDisposed();
+        return _renderTimeItems.Count == 0
+            ? _items.ToArray()
+            : [.. _items, .. _renderTimeItems];
+    }
+
+    internal void ApplyTransactional(FilterEffect effect, FilterEffect.Resource resource)
+    {
+        ArgumentNullException.ThrowIfNull(effect);
+        ArgumentNullException.ThrowIfNull(resource);
+        ApplyTransactional(() => effect.ApplyTo(this, resource));
+    }
+
+    internal void ApplyTransactional(Action apply)
+    {
+        ArgumentNullException.ThrowIfNull(apply);
+        ThrowIfDisposed();
+
+        int itemCount = _items.Count;
+        int renderTimeItemCount = _renderTimeItems.Count;
+        int resourceCount = _resourceState.Count;
+        Rect bounds = Bounds;
+        try
+        {
+            apply();
+        }
+        catch (Exception ex)
+        {
+            ExceptionDispatchInfo primary = ExceptionDispatchInfo.Capture(ex);
+            while (_items.Count > itemCount)
+                _items.RemoveAt(_items.Count - 1);
+            while (_renderTimeItems.Count > renderTimeItemCount)
+                _renderTimeItems.RemoveAt(_renderTimeItems.Count - 1);
+            Bounds = bounds;
+            try
+            {
+                _resourceState.RollbackTo(resourceCount);
+            }
+            catch (Exception cleanupFailure)
+            {
+                const string key = "FilterEffectResourceRollbackFailure";
+                ex.Data[key] = ex.Data[key] is Exception previousFailure
+                    ? new AggregateException(
+                        "Multiple filter-effect resource rollback failures occurred.",
+                        previousFailure,
+                        cleanupFailure)
+                    : cleanupFailure;
+            }
+
+            primary.Throw();
+        }
+    }
+
+    internal void TransferResources() => _resourceState.Transfer();
+
+    internal static FilterEffectContext CreateLegacySegment(
+        Rect bounds,
+        float outputScale,
+        float workingScale,
+        IEnumerable<IFEItem> items)
+    {
+        ArgumentNullException.ThrowIfNull(items);
+        var context = new FilterEffectContext(bounds, outputScale, workingScale);
+        foreach (IFEItem item in items)
+        {
+            context.AddItem(item);
+            if (!context.Bounds.IsInvalid)
+                context.Bounds = item.TransformBounds(context.Bounds);
+        }
+
+        return context;
+    }
+
     public void Dispose()
     {
+        if (_disposed)
+            return;
+
+        _disposed = true;
         _items.Dispose();
         _renderTimeItems.Dispose();
+        _resourceState.ReleaseReference();
+    }
+
+    private void ThrowIfDisposed() => ObjectDisposedException.ThrowIf(_disposed, this);
+}
+
+internal sealed class FilterEffectResourceState
+{
+    private readonly RenderNodeContext? _renderContext;
+    private readonly RenderRequestResourceRegistry? _standaloneRegistry;
+    private readonly List<RenderResource> _resources = [];
+    private int _references = 1;
+    private bool _transferred;
+
+    public FilterEffectResourceState(RenderNodeContext? renderContext)
+    {
+        _renderContext = renderContext;
+        if (renderContext is null)
+            _standaloneRegistry = new RenderRequestResourceRegistry();
+    }
+
+    public int Count => _resources.Count;
+
+    public FilterEffectResourceState AddReference()
+    {
+        if (_references <= 0)
+            throw new ObjectDisposedException(nameof(FilterEffectResourceState));
+        _references++;
+        return this;
+    }
+
+    public RenderResource<T> Own<T>(T resource, object? cacheKey, long version)
+        where T : class, IDisposable
+    {
+        ThrowIfTransferred();
+        RenderResource<T> token = _renderContext is not null
+            ? _renderContext.Own(resource, cacheKey, version)
+            : _standaloneRegistry!.RegisterOwned(resource, cacheKey, version);
+        _resources.Add(token);
+        return token;
+    }
+
+    public RenderResource<T> Borrow<T>(T resource, object? cacheKey, long version)
+        where T : class
+    {
+        ThrowIfTransferred();
+        RenderResource<T> token = _renderContext is not null
+            ? _renderContext.Borrow(resource, cacheKey, version)
+            : _standaloneRegistry!.RegisterBorrowed(resource, cacheKey, version);
+        _resources.Add(token);
+        return token;
+    }
+
+    public void ValidateResources(IEnumerable<RenderResource> resources, string parameterName)
+    {
+        ArgumentNullException.ThrowIfNull(resources);
+        foreach (RenderResource resource in resources)
+        {
+            if (!_resources.Any(item => ReferenceEquals(item.SlotIdentity, resource.SlotIdentity))
+                || resource.RegistrationState == RenderResourceRegistrationState.Released)
+            {
+                throw new ArgumentException(
+                    "Every declared resource must be registered by this FilterEffectContext family.",
+                    parameterName);
+            }
+        }
+    }
+
+    public void RollbackTo(int count)
+    {
+        if (count < 0 || count > _resources.Count)
+            throw new ArgumentOutOfRangeException(nameof(count));
+        if (count == _resources.Count)
+            return;
+
+        RenderResource[] removed = _resources.Skip(count).ToArray();
+        _resources.RemoveRange(count, _resources.Count - count);
+        if (_renderContext is not null)
+        {
+            _renderContext.RollbackResources(removed);
+            return;
+        }
+
+        List<Exception>? failures = null;
+        for (int index = removed.Length - 1; index >= 0; index--)
+        {
+            try
+            {
+                _standaloneRegistry!.Rollback(removed[index]);
+            }
+            catch (Exception ex)
+            {
+                (failures ??= []).Add(ex);
+            }
+        }
+
+        if (failures is not null)
+            throw new AggregateException("Filter-effect resource rollback failed.", failures);
+    }
+
+    public void Transfer()
+    {
+        ThrowIfTransferred();
+        _transferred = true;
+    }
+
+    public void ReleaseReference()
+    {
+        if (_references <= 0)
+            return;
+        _references--;
+        if (_references != 0)
+            return;
+
+        try
+        {
+            if (!_transferred)
+                RollbackTo(0);
+        }
+        finally
+        {
+            _standaloneRegistry?.Dispose();
+        }
+    }
+
+    private void ThrowIfTransferred()
+    {
+        if (_transferred)
+            throw new InvalidOperationException("Filter-effect resources were already transferred to the render request.");
     }
 }

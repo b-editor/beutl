@@ -4,8 +4,7 @@ public class MemoryNode<T>(T value) : RenderNode
 {
     public T Value { get; set; } = value;
 
-    public override RenderNodeOperation[] Process(RenderNodeContext context)
+    public override void Process(RenderNodeContext context)
     {
-        return [];
     }
 }

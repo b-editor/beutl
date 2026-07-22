@@ -24,7 +24,7 @@ public abstract class RenderNode : IDisposable
 
     public RenderNodeCache Cache { get; }
 
-    public abstract RenderNodeOperation[] Process(RenderNodeContext context);
+    public abstract void Process(RenderNodeContext context);
 
     public void Dispose()
     {

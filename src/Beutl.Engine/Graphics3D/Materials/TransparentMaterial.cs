@@ -64,7 +64,13 @@ public sealed partial class TransparentMaterial : Material3D
         private ISampler? _sampler;
         private ITexture2D? _defaultWhiteTexture;
 
-        internal override IPipeline3D? Pipeline => _pipeline;
+        protected internal override IPipeline3D? Pipeline => _pipeline;
+
+        protected internal override IEnumerable<TextureSource.Resource> EnumerateTextureSources()
+        {
+            if (ColorMap is not null)
+                yield return ColorMap;
+        }
 
         /// <summary>
         /// Gets whether this material is transparent and requires forward rendering.
