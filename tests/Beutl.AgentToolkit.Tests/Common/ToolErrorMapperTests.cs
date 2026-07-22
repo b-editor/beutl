@@ -15,7 +15,23 @@ public sealed class ToolErrorMapperTests
             Assert.That(error.Message, Does.Contain(nameof(ArgumentOutOfRangeException)));
             Assert.That(error.Message, Does.Contain($"{nameof(ToolErrorMapperTests)}.{nameof(ThrowArgumentOutOfRange)}"));
             Assert.That(error.Message, Does.Contain("parameter 'duration'"));
-            Assert.That(error.Hint, Is.Not.Null);
+            Assert.That(error.Hint, Does.Contain("server log"));
+        });
+    }
+
+    [Test]
+    public void Unmapped_argument_exception_with_path_like_parameter_name_stays_redacted()
+    {
+        string secret = Path.Combine(Path.GetTempPath(), "secret-project.bep");
+
+        ToolError error = ToolErrorMapper.Map(Catch(
+            () => throw new ArgumentException("Invalid argument.", secret)));
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(error.Message, Does.Contain(nameof(ArgumentException)));
+            Assert.That(error.Message, Does.Not.Contain(secret));
+            Assert.That(error.Message, Does.Not.Contain("secret-project"));
         });
     }
 
