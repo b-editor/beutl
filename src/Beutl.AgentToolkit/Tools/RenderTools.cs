@@ -2214,7 +2214,7 @@ public sealed class RenderTools(
                     // are followed: ReferenceExpression is a general binding form, so an arbitrary
                     // data-binding on another property must not clone unrelated objects. The
                     // PropertyPath form is rejected at apply time, so only a direct ObjectId resolves.
-                    if (Common.ReferenceProperties.Find(engineObject.GetType(), property.Name) is { } descriptor
+                    if (Common.ReferenceProperties.Describe(property) is { } descriptor
                         && property.Expression is Engine.Expressions.IReferenceExpression { HasPropertyPath: false } referenceExpression
                         && referenceExpression.ObjectId != Guid.Empty
                         && lookupRoot?.FindById(referenceExpression.ObjectId) is CoreObject expressionTarget

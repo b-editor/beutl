@@ -289,7 +289,7 @@ public sealed class StillRenderer
         {
             foreach (IProperty property in drawable.Properties)
             {
-                if (Common.ReferenceProperties.Find(drawable.GetType(), property.Name) is { } descriptor
+                if (Common.ReferenceProperties.Describe(property) is { } descriptor
                     && property.Expression is IReferenceExpression { HasPropertyPath: false } referenceExpression
                     && lookupRoot.FindById(referenceExpression.ObjectId) is IHierarchical expressionTarget
                     && descriptor.ReferencedType.IsInstanceOfType(expressionTarget)

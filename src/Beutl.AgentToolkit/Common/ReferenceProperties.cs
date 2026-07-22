@@ -1,23 +1,47 @@
-﻿using Beutl.ProjectSystem;
+﻿using System.Collections.Concurrent;
+using System.Diagnostics.CodeAnalysis;
+using Beutl.Engine;
 
 namespace Beutl.AgentToolkit.Common;
 
 internal sealed record ReferencePropertyDescriptor(string Name, Type ReferencedType);
 
-// A scene reference is supplied through the Expressions form (ReferenceExpression), not a dedicated
-// property type, so the toolkit cannot discover reference properties by type at runtime and lists
-// them explicitly here. Schema hints and reference validation share this set.
+// A ProjectItem is project-owned, so a property typed as one is a reference, not an inlined child.
 internal static class ReferenceProperties
 {
-    private static readonly Dictionary<Type, ReferencePropertyDescriptor[]> s_byOwnerType = new()
-    {
-        [typeof(SceneDrawable)] = [new ReferencePropertyDescriptor(nameof(SceneDrawable.ReferencedScene), typeof(Scene))],
-        [typeof(SceneSound)] = [new ReferencePropertyDescriptor(nameof(SceneSound.ReferencedScene), typeof(Scene))],
-    };
+    private static readonly ConcurrentDictionary<Type, ReferencePropertyDescriptor[]> s_byOwnerType = new();
+
+    public static ReferencePropertyDescriptor? Describe(IProperty property)
+        => IsReferenceValueType(property.ValueType, out Type? referencedType)
+            ? new ReferencePropertyDescriptor(property.Name, referencedType)
+            : null;
 
     public static IReadOnlyList<ReferencePropertyDescriptor> ForOwner(Type ownerType)
-        => s_byOwnerType.TryGetValue(ownerType, out ReferencePropertyDescriptor[]? descriptors) ? descriptors : [];
+        => s_byOwnerType.GetOrAdd(ownerType, static type =>
+        {
+            if (type.IsAbstract
+                || !typeof(EngineObject).IsAssignableFrom(type)
+                || Activator.CreateInstance(type) is not EngineObject engineObject)
+            {
+                return [];
+            }
 
-    public static ReferencePropertyDescriptor? Find(Type ownerType, string propertyName)
-        => ForOwner(ownerType).FirstOrDefault(descriptor => descriptor.Name == propertyName);
+            return engineObject.Properties
+                .Select(Describe)
+                .OfType<ReferencePropertyDescriptor>()
+                .ToArray();
+        });
+
+    private static bool IsReferenceValueType(Type valueType, [NotNullWhen(true)] out Type? referencedType)
+    {
+        Type type = Nullable.GetUnderlyingType(valueType) ?? valueType;
+        if (typeof(ProjectItem).IsAssignableFrom(type))
+        {
+            referencedType = type;
+            return true;
+        }
+
+        referencedType = null;
+        return false;
+    }
 }

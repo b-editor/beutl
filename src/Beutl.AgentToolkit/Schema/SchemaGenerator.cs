@@ -2653,7 +2653,7 @@ public sealed class SchemaGenerator
                 ? listProperty.ElementType.FullName ?? listProperty.ElementType.Name
                 : null,
             EnumValues: EnumJsonValueNormalizer.GetEnumNames(property.ValueType),
-            UsageHint: CreatePropertyUsageHint(ownerType, property.Name, property.ValueType, property.IsAnimatable, Common.ReferenceProperties.Find(ownerType, property.Name) is not null));
+            UsageHint: CreatePropertyUsageHint(ownerType, property.Name, property.ValueType, property.IsAnimatable, Common.ReferenceProperties.Describe(property) is not null));
     }
 
     private static string? CreatePropertyUsageHint(Type ownerType, string propertyName, Type valueType, bool animatable, bool isReference = false)
