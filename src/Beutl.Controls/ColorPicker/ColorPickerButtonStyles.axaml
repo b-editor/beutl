@@ -13,7 +13,7 @@
     </Design.PreviewWith>
 
     <ControlTheme x:Key="{x:Type ui:ColorPickerButton}" TargetType="ui:ColorPickerButton">
-        <Setter Property="MinHeight" Value="40" />
+        <Setter Property="MinHeight" Value="28" />
         <Setter Property="MinWidth" Value="50" />
         <Setter Property="HorizontalAlignment" Value="Left" />
         <Setter Property="VerticalAlignment" Value="Top" />
@@ -25,21 +25,22 @@
                         HorizontalContentAlignment="Stretch"
                         CornerRadius="{TemplateBinding CornerRadius}">
                     <Grid ColumnDefinitions="*,Auto">
-                        <Border MinWidth="23"
-                                MinHeight="23"
-                                Margin="8,6,4,6"
+                        <Border MinWidth="44"
+                                MinHeight="22"
+                                Margin="6,2,4,2"
                                 HorizontalAlignment="Left"
                                 VerticalAlignment="Center"
                                 Background="{TemplateBinding Color,
                                                              Converter={StaticResource ColorBrushConv}}"
                                 BorderBrush="{DynamicResource ColorPickerButtonOutline}"
                                 BorderThickness="1"
-                                CornerRadius="{TemplateBinding CornerRadius}" />
+                                CornerRadius="3" />
 
                         <icons:FluentIcon Grid.Column="1"
-                                          Margin="4,6,8,6"
+                                          Margin="2,3,6,3"
                                           HorizontalAlignment="Right"
-                                          FontSize="18"
+                                          VerticalAlignment="Center"
+                                          FontSize="14"
                                           Icon="ChevronDown" />
                     </Grid>
                 </Button>
