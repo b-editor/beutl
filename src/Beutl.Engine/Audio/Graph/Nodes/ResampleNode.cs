@@ -24,6 +24,13 @@ public sealed class ResampleNode : AudioNode
         }
     }
 
+    // Known limitation: no Flush override. Process feeds its input a SourceSampleRate context and
+    // resamples the result to the output rate; the inherited flush instead forwards the output-rate
+    // context straight upstream and does not resample the drained tail. A latency node placed UPSTREAM
+    // of this resampler (initialized at SourceSampleRate) would then see a rate change on flush, reinit,
+    // and drop its tail. The built-in Sound chain puts ResampleNode before the effects, so a limiter is
+    // always downstream and runs at the output rate — this only bites a custom graph that resamples
+    // after a latency-bearing node; a rate-mirroring Flush override is the follow-up for that.
     public override AudioBuffer Process(AudioProcessContext context)
     {
         if (Inputs.Count != 1)

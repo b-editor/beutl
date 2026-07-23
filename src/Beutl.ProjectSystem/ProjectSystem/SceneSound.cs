@@ -114,6 +114,12 @@ public sealed partial class SceneSound : Sound
 
     private sealed class SceneNode(Resource? resource) : AudioNode
     {
+        // Known limitation: this leaf composes the referenced scene through its own Composer but inherits
+        // the zero-latency GetLatencySamples/Flush defaults, so an outer ClipNode reserves no drain for a
+        // lookahead limiter living inside the referenced scene. When a SceneSound clip cuts the scene
+        // before an inner limiter-bearing sound ends, that inner tail is dropped at the boundary.
+        // Surfacing it needs SceneNode to aggregate its internal graph's latency and flush that graph — a
+        // follow-up that reaches into the referenced scene's Composer.
         internal Resource? _resource = resource;
         private Composer? _composer;
 

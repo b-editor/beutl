@@ -22,6 +22,12 @@ public sealed class SpeedNode : AudioNode
 
     public IProperty<float>? Speed { get; set; }
 
+    // Known limitation (same class as ResampleNode's): no Flush override. Process streams its input
+    // through a resampler at a derived source position/rate; the inherited flush instead forwards the
+    // output context straight upstream, so a latency-bearing node placed UPSTREAM of this SpeedNode
+    // would see a discontinuity on flush, re-anchor, and drop its tail. The built-in Sound chain puts
+    // SpeedNode before the effects, so a limiter is always downstream — this only bites a custom graph
+    // that time-stretches after a latency-bearing node; a re-anchoring Flush override is the follow-up.
     public override AudioBuffer Process(AudioProcessContext context)
     {
         if (Inputs.Count != 1)
