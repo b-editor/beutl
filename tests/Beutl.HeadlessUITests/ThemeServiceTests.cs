@@ -180,6 +180,31 @@ public class ThemeServiceTests
         });
     }
 
+    // A trigger can post an apply job that fires only after the service is disposed (e.g. a test
+    // failing between the trigger and its RunJobs); a dead service must not touch global state.
+    [AvaloniaTest]
+    public void PendingApplyJob_AfterDispose_MutatesNothing()
+    {
+        using var scope = new ThemeScope();
+        Application.Current!.RequestedThemeVariant = ThemeVariant.Dark;
+        scope.Service.Start();
+        Dispatcher.UIThread.RunJobs();
+
+        scope.Config.Theme = BuiltinThemeIds.Light;
+        scope.Config.UseCustomAccentColor = true;
+        scope.Config.CustomAccentColor = Color.FromRgb(0x10, 0x89, 0x3E).ToString();
+        scope.Service.Dispose();
+        Dispatcher.UIThread.RunJobs();
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(Application.Current.RequestedThemeVariant, Is.EqualTo(ThemeVariant.Dark),
+                "a pending apply job must not switch the theme after Dispose");
+            Assert.That(scope.Theme.CustomAccentColor, Is.Null,
+                "a pending apply job must not seed the accent after Dispose");
+        });
+    }
+
     [AvaloniaTest]
     public void ThemeAccentColor_SeedsTheAccent_AndLeavesWithTheTheme()
     {

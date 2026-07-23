@@ -31,6 +31,7 @@ internal sealed class ThemeService : IDisposable
     private IDisposable? _useCustomAccentSubscription;
     private IDisposable? _customAccentColorSubscription;
     private bool _changedSubscribed;
+    private bool _disposed;
     private int _applyQueued;
 
     public ThemeService(FluentAvaloniaTheme theme, ViewConfig viewConfig)
@@ -88,6 +89,13 @@ internal sealed class ThemeService : IDisposable
     private void ResolveAndApply()
     {
         Interlocked.Exchange(ref _applyQueued, 0);
+
+        // A job posted before Dispose can still fire after it; Dispose only unsubscribes, so this
+        // guard is what keeps a dead service from mutating the app's theme/accent state.
+        if (_disposed)
+        {
+            return;
+        }
 
         ApplySelectedTheme();
         // Unconditionally: an accent-config trigger arrives with the applied descriptor unchanged,
@@ -237,6 +245,7 @@ internal sealed class ThemeService : IDisposable
 
     public void Dispose()
     {
+        _disposed = true;
         _themeSubscription?.Dispose();
         _useCustomAccentSubscription?.Dispose();
         _customAccentColorSubscription?.Dispose();
