@@ -7,7 +7,7 @@ using Beutl.ProjectSystem;
 
 namespace Beutl.AgentToolkit.Tests.Reconciliation;
 
-// Issue #2110: a Scene reference is set through the Expressions form (ReferenceExpression) so it
+// A Scene reference is set through the Expressions form (ReferenceExpression) so it
 // resolves to the existing project scene by Id; a direct value cannot resolve (the engine would mint
 // an empty Scene), and an unresolvable expression must be rejected instead of composing empty.
 [TestFixture]

@@ -2208,12 +2208,10 @@ public sealed class RenderTools(
             {
                 foreach (Engine.IProperty property in engineObject.Properties)
                 {
-                    // A scene reference is supplied through the Expressions form, which resolves its
-                    // ObjectId against the hierarchy at composition time, so the live target is found
-                    // here to be cloned into the snapshot. Only the known scene-reference properties
-                    // are followed: ReferenceExpression is a general binding form, so an arbitrary
-                    // data-binding on another property must not clone unrelated objects. The
-                    // PropertyPath form is rejected at apply time, so only a direct ObjectId resolves.
+                    // Only the known scene-reference properties are followed: ReferenceExpression is a
+                    // general binding form, so an arbitrary data-binding on another property must not
+                    // clone unrelated objects, and the PropertyPath form (rejected at apply time) leaves
+                    // only a direct ObjectId to resolve.
                     if (Common.ReferenceProperties.Describe(property) is { } descriptor
                         && property.Expression is Engine.Expressions.IReferenceExpression { HasPropertyPath: false } referenceExpression
                         && referenceExpression.ObjectId != Guid.Empty
