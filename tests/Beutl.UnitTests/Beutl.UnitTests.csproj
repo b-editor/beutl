@@ -55,4 +55,12 @@
     <EmbeddedResource Include="Assets\**\*.*" />
   </ItemGroup>
 
+  <ItemGroup Condition="'$(Configuration)' != 'Debug'">
+    <!-- These exercise the ClrMD unload diagnostics in Beutl.Api, which are Debug-only; drop them from Release so a
+         Release solution build stays green after ClrmdLoadContextUnloadDiagnostics is excluded there. -->
+    <Compile Remove="Api\ClrmdUnloadDiagnosticsTests.cs" />
+    <Compile Remove="Api\UnloadDiagnosticsDumpRetentionTests.cs" />
+    <Compile Remove="Api\UnloadDiagnosticsReportTests.cs" />
+  </ItemGroup>
+
 </Project>

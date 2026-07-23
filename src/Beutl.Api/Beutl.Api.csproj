@@ -5,7 +5,9 @@
   </ItemGroup>
 
   <ItemGroup>
-    <PackageReference Include="Microsoft.Diagnostics.Runtime" />
+    <!-- Development-only: the ClrMD unload diagnostics are compiled and wired under DEBUG only, so keep the heavy
+         Microsoft.Diagnostics.Runtime dependency (and its transitive diagnostics packages) out of Release. -->
+    <PackageReference Include="Microsoft.Diagnostics.Runtime" Condition="'$(Configuration)' == 'Debug'" />
     <PackageReference Include="Microsoft.Extensions.DependencyModel" />
     <PackageReference Include="Nito.AsyncEx" />
     <PackageReference Include="OpenTelemetry" />
@@ -17,6 +19,12 @@
     <PackageReference Include="NuGet.ProjectModel" />
     <PackageReference Include="NuGet.Protocol" />
     <PackageReference Include="NuGet.Resolver" />
+  </ItemGroup>
+
+  <ItemGroup Condition="'$(Configuration)' != 'Debug'">
+    <!-- Excluded from Release together with the Microsoft.Diagnostics.Runtime reference above; this is the only
+         type that depends on ClrMD, and it is instantiated exclusively under #if DEBUG (BeutlApiApplication). -->
+    <Compile Remove="Services\ClrmdLoadContextUnloadDiagnostics.cs" />
   </ItemGroup>
 
   <ItemGroup>
