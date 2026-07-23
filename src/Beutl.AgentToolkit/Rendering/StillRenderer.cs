@@ -1,4 +1,5 @@
 ﻿using Beutl.Engine;
+using Beutl.Engine.Expressions;
 using Beutl.Graphics;
 using Beutl.Graphics.Backend;
 using Beutl.Graphics.Rendering;
@@ -247,6 +248,16 @@ public sealed class StillRenderer
     // EnumerateAllChildren walks disabled subtrees, so recurse manually and prune them.
     private static bool ContainsEnabledGpuContent(IHierarchical node)
     {
+        return ContainsEnabledGpuContent(node, new HashSet<IHierarchical>(ReferenceEqualityComparer.Instance));
+    }
+
+    private static bool ContainsEnabledGpuContent(IHierarchical node, HashSet<IHierarchical> visited)
+    {
+        if (!visited.Add(node))
+        {
+            return false;
+        }
+
         if (node is EngineObject { IsEnabled: false })
         {
             return false;
@@ -259,9 +270,33 @@ public sealed class StillRenderer
 
         foreach (IHierarchical child in node.HierarchicalChildren)
         {
-            if (ContainsEnabledGpuContent(child))
+            if (ContainsEnabledGpuContent(child, visited))
             {
                 return true;
+            }
+        }
+
+        // A referenced scene is not a hierarchical child and its ReferenceExpression resolves only
+        // at composition time, so its GPU requirement is invisible unless the expression target is
+        // followed here (visited-guarded because references are user-cyclable). Only a Drawable
+        // owner evaluates the referenced scene's graphics — an audio-only SceneSound must not. Follow
+        // only the known scene-reference properties: ReferenceExpression is a general binding form, so
+        // an arbitrary data-binding on some other property must not drag in unrelated GPU content. The
+        // PropertyPath form is rejected at apply time, so only a direct-ObjectId target is followed,
+        // and only when it is the referenced type — ReferenceExpression<Scene?> evaluates a non-Scene
+        // target to null, so a legacy/malformed Id resolving to another object must not be followed.
+        if (node is Drawable drawable && drawable.FindHierarchicalRoot() is ICoreObject lookupRoot)
+        {
+            foreach (IProperty property in drawable.Properties)
+            {
+                if (Common.ReferenceProperties.Describe(property) is { } descriptor
+                    && property.Expression is IReferenceExpression { HasPropertyPath: false } referenceExpression
+                    && lookupRoot.FindById(referenceExpression.ObjectId) is IHierarchical expressionTarget
+                    && descriptor.ReferencedType.IsInstanceOfType(expressionTarget)
+                    && ContainsEnabledGpuContent(expressionTarget, visited))
+                {
+                    return true;
+                }
             }
         }
 
