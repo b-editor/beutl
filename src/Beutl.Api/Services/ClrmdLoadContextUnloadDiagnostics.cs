@@ -31,12 +31,12 @@ internal sealed class ClrmdLoadContextUnloadDiagnostics : ILoadContextUnloadDiag
 
     private readonly ILogger _logger = Log.CreateLogger<ClrmdLoadContextUnloadDiagnostics>();
 
-    public void CaptureUnloadFailure(string packageName, IReadOnlyList<string> assemblySimpleNames)
+    public string? CaptureUnloadFailure(string packageName, IReadOnlyList<string> assemblySimpleNames)
     {
         if (!s_captureGate.Wait(0))
         {
             _logger.LogWarning("Skipping unload diagnostics for {PackageName}: a capture is already in progress.", packageName);
-            return;
+            return null;
         }
 
         try
@@ -44,7 +44,7 @@ internal sealed class ClrmdLoadContextUnloadDiagnostics : ILoadContextUnloadDiag
             var pluginAssemblies = new HashSet<string>(assemblySimpleNames, StringComparer.OrdinalIgnoreCase);
             if (pluginAssemblies.Count == 0)
             {
-                return;
+                return null;
             }
 
             var stopwatch = Stopwatch.StartNew();
@@ -52,7 +52,7 @@ internal sealed class ClrmdLoadContextUnloadDiagnostics : ILoadContextUnloadDiag
             if (dataTarget.ClrVersions.IsDefaultOrEmpty)
             {
                 _logger.LogWarning("No CLR found in snapshot; cannot capture unload diagnostics for {PackageName}.", packageName);
-                return;
+                return null;
             }
 
             using ClrRuntime runtime = dataTarget.ClrVersions[0].CreateRuntime();
@@ -60,7 +60,7 @@ internal sealed class ClrmdLoadContextUnloadDiagnostics : ILoadContextUnloadDiag
             if (!heap.CanWalkHeap)
             {
                 _logger.LogWarning("Snapshot heap is not walkable; cannot capture unload diagnostics for {PackageName}.", packageName);
-                return;
+                return null;
             }
 
             (List<UnloadDiagnosticsObjectGroup> groups, int total, HashSet<ulong> targets, bool censusTruncated) =
@@ -79,11 +79,13 @@ internal sealed class ClrmdLoadContextUnloadDiagnostics : ILoadContextUnloadDiag
             string? dumpPath = TryWriteReport(packageName, report);
             _logger.LogWarning(
                 "{Summary} Dump file: {DumpPath}", report.BuildSummary(), dumpPath ?? "(not written)");
+            return dumpPath;
         }
         catch (Exception ex)
         {
             // Diagnostics must never disturb the uninstall flow; swallow everything after logging.
             _logger.LogError(ex, "Failed to capture unload diagnostics for {PackageName}.", packageName);
+            return null;
         }
         finally
         {

@@ -153,9 +153,18 @@ public class BeutlApiApplication
         Register(() => new PackageChangesQueue());
         Register(() => new LibraryService(this));
         Register(() => new PackageInstaller(new HttpClient(), GetResource<InstalledPackageRepository>(), this));
-        Register(() => new PackageManager(
-            GetResource<InstalledPackageRepository>(), GetResource<ExtensionProvider>(),
-            GetResource<ContextCommandManager>(), this, new ClrmdLoadContextUnloadDiagnostics()));
+        Register(() =>
+        {
+            // Unload diagnostics take a heavy ClrMD self-snapshot and write a dump; they are a development-only aid,
+            // so Release builds wire null and neither snapshot, dump, nor log on an unload failure.
+            ILoadContextUnloadDiagnostics? unloadDiagnostics = null;
+#if DEBUG
+            unloadDiagnostics = new ClrmdLoadContextUnloadDiagnostics();
+#endif
+            return new PackageManager(
+                GetResource<InstalledPackageRepository>(), GetResource<ExtensionProvider>(),
+                GetResource<ContextCommandManager>(), this, unloadDiagnostics);
+        });
     }
 
     private void Register<T>(Func<T> factory)

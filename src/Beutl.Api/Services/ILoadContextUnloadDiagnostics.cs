@@ -19,5 +19,10 @@ public interface ILoadContextUnloadDiagnostics
     /// <param name="assemblySimpleNames">
     /// The simple names (e.g. <c>MyPlugin</c>) of the assemblies loaded into the leaked context, captured as strings.
     /// </param>
-    void CaptureUnloadFailure(string packageName, IReadOnlyList<string> assemblySimpleNames);
+    /// <returns>
+    /// The full path of the diagnostics dump that was written, or <see langword="null"/> when none was produced
+    /// (e.g. snapshotting is unsupported, no plugin objects survived, or the write failed). Callers may surface this
+    /// path so a developer can open the dump; it is a plain string and must never be used to root the leaked context.
+    /// </returns>
+    string? CaptureUnloadFailure(string packageName, IReadOnlyList<string> assemblySimpleNames);
 }

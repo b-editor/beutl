@@ -157,9 +157,10 @@ public class PackageManagerExtensionLifecycleTests
     {
         public int InvokeCount { get; private set; }
 
-        public void CaptureUnloadFailure(string packageName, IReadOnlyList<string> assemblySimpleNames)
+        public string? CaptureUnloadFailure(string packageName, IReadOnlyList<string> assemblySimpleNames)
         {
             InvokeCount++;
+            return null;
         }
     }
 

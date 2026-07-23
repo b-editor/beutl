@@ -8,6 +8,7 @@ using Beutl.Api.Objects;
 using Beutl.Engine;
 using Beutl.Extensibility;
 using Beutl.Logging;
+using Beutl.Services;
 using Microsoft.Extensions.Logging;
 using NuGet.Packaging;
 using NuGet.Packaging.Core;
@@ -262,7 +263,8 @@ public sealed class PackageManager(
                 {
                     try
                     {
-                        diagnostics.CaptureUnloadFailure(package.Name, assemblyNames);
+                        string? dumpPath = diagnostics.CaptureUnloadFailure(package.Name, assemblyNames);
+                        NotifyUnloadFailure(package.Name, dumpPath);
                     }
                     catch (Exception ex)
                     {
@@ -339,6 +341,48 @@ public sealed class PackageManager(
         // https://learn.microsoft.com/ja-jp/dotnet/standard/assembly/unloadability#use-a-custom-collectible-assemblyloadcontext
         weakReference = new WeakReference(info.LoadContext, trackResurrection: true);
         return true;
+    }
+
+    private Action<string>? _dumpOpener;
+
+    // Test seam: a unit test substitutes this to assert the "Open dump" action targets the captured dump path
+    // without launching a real process. Production leaves it as OpenDumpFile.
+    internal Action<string> DumpOpener
+    {
+        get => _dumpOpener ??= OpenDumpFile;
+        set => _dumpOpener = value;
+    }
+
+    // Diagnostics are wired only in Debug builds (BeutlApiApplication injects null in Release), so the dump and its
+    // log line are Debug-only already; [Conditional] strips this toast the same way, keeping the prompt in step.
+    [Conditional("DEBUG")]
+    internal void NotifyUnloadFailure(string packageName, string? dumpPath)
+    {
+        // No dump was produced (snapshot unsupported / census empty / write failed): nothing to open, so stay silent.
+        if (string.IsNullOrEmpty(dumpPath))
+        {
+            return;
+        }
+
+        NotificationService.ShowWarning(
+            $"Failed to unload '{packageName}'",
+            "The extension's load context is still alive. A diagnostics dump was written; "
+            + "open it to see what is keeping the assemblies loaded.",
+            expiration: TimeSpan.FromSeconds(30),
+            actions: [new NotificationAction("Open dump", () => DumpOpener(dumpPath))]);
+    }
+
+    private void OpenDumpFile(string dumpPath)
+    {
+        try
+        {
+            // UseShellExecute routes to the OS handler (ShellExecute / open / xdg-open) to open the .txt on any platform.
+            Process.Start(new ProcessStartInfo(dumpPath) { UseShellExecute = true });
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to open unload diagnostics dump at {DumpPath}.", dumpPath);
+        }
     }
 
     public LocalPackage[] FindLoadedPackage(string name)
