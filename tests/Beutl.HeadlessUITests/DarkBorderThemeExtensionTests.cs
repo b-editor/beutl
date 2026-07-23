@@ -49,11 +49,12 @@ public class DarkBorderThemeExtensionTests
         Assert.That(loaded, Is.InstanceOf<IResourceProvider>());
     }
 
-    // The border theme is opt-in: a fresh ViewConfig must not name it.
+    // The border theme is opt-in: a fresh ViewConfig must not name it. Which id IS the default is
+    // pinned by ViewConfigThemeMigrationTests.DefaultsToBuiltinDark; only this layer can see ThemeId.
     [AvaloniaTest]
     public void ViewConfigDefault_IsNotTheBorderTheme()
     {
-        Assert.That(new ViewConfig().Theme, Is.EqualTo(BuiltinThemeIds.Dark));
+        Assert.That(new ViewConfig().Theme, Is.Not.EqualTo(DarkBorderThemeExtension.ThemeId));
     }
 
     [AvaloniaTest]
@@ -82,7 +83,7 @@ public class DarkBorderThemeExtensionTests
                 Assert.That(newTheme!.ResourceUri, Is.Not.Null);
                 Assert.That(classicDark, Is.Not.Null, "built-in dark must remain selectable");
                 Assert.That(classicDark!.DisplayName, Is.EqualTo(SettingsStrings.DarkClassic),
-                    "built-in dark is relabeled so it is distinct from the default theme's 'Dark'");
+                    "built-in dark is relabeled so it is distinct from the border theme's 'Dark'");
             });
         }
         finally
