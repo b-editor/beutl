@@ -109,6 +109,34 @@ public sealed class BackdropOrderingTests
         }
     }
 
+    [Test]
+    public void SnapshotDraw_WithoutCurrentCapture_UsesPersistedFallbackPath()
+    {
+        using var snapshot = new SnapshotBackdropRenderNode();
+        var fallback = new Bitmap((int)s_domain.Width, (int)s_domain.Height);
+        fallback.GetPixelSpan().Fill(byte.MaxValue);
+        ((IBuiltInBackdropCaptureSink)snapshot).CommitBackdropCapture(fallback, density: 1f);
+        using var draw = new DrawBackdropRenderNode(snapshot, s_drawBounds);
+        using var renderer = new RenderNodeRenderer(
+            draw,
+            new RenderNodeRendererOptions
+            {
+                TargetDomain = s_domain,
+                UseRenderCache = false,
+            });
+
+        using RenderNodeRasterization rasterization = renderer.Rasterize();
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(rasterization.Bounds.Contains(s_drawBounds), Is.True,
+                "The raw fallback may conservatively retain the full target domain.");
+            Assert.That(rasterization.Bitmap, Is.Not.Null);
+            Assert.That(rasterization.Bitmap!.GetPixelSpan().ToArray(), Has.Some.Not.Zero,
+                "The unbound draw must use the persisted snapshot rather than a transparent no-op.");
+        });
+    }
+
     private static ContainerRenderNode CreateTree(BackdropScope scope)
     {
         var root = new ContainerRenderNode();

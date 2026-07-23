@@ -86,6 +86,7 @@ internal sealed class RenderRequestResourceRegistry : IDisposable
     private readonly Dictionary<object, List<RenderResourceSlot>> _slotsByRawValue =
         new(ReferenceEqualityComparer.Instance);
     private readonly ConditionalWeakTable<object, OwnedResourceTombstone> _ownedTombstones = new();
+    private readonly ConditionalWeakTable<object, BorrowedResourceTombstone> _borrowedTombstones = new();
     private readonly List<RenderResourceSlot> _slots = [];
     private bool _disposed;
 
@@ -103,6 +104,12 @@ internal sealed class RenderRequestResourceRegistry : IDisposable
         {
             throw new InvalidOperationException(
                 "The raw resource was already transferred to this request family and cannot be registered again.");
+        }
+
+        if (_borrowedTombstones.TryGetValue(value, out _))
+        {
+            throw new InvalidOperationException(
+                "The raw resource was already borrowed by this request family and cannot later transfer ownership.");
         }
 
         if (_slotsByRawValue.TryGetValue(value, out List<RenderResourceSlot>? registrations)
@@ -164,7 +171,9 @@ internal sealed class RenderRequestResourceRegistry : IDisposable
 
                 if (matching is not null)
                 {
-                    return CreateToken<T>(matching);
+                    RenderResource<T> token = CreateToken<T>(matching);
+                    MarkBorrowed(value);
+                    return token;
                 }
             }
         }
@@ -174,7 +183,9 @@ internal sealed class RenderRequestResourceRegistry : IDisposable
             RenderResourceOwnershipMode.Borrowed,
             CreateCacheIdentity(cacheKey, version),
             cacheKey is not null);
-        return CreateToken<T>(created);
+        RenderResource<T> createdToken = CreateToken<T>(created);
+        MarkBorrowed(value);
+        return createdToken;
     }
 
     public void Commit(RenderResource resource)
@@ -288,6 +299,7 @@ internal sealed class RenderRequestResourceRegistry : IDisposable
         _slots.Clear();
         _slotsByRawValue.Clear();
         _ownedTombstones.Clear();
+        _borrowedTombstones.Clear();
         if (failures is not null)
         {
             throw new AggregateException("One or more render resources failed to discharge.", failures);
@@ -359,6 +371,12 @@ internal sealed class RenderRequestResourceRegistry : IDisposable
     private void ReleaseCore(RenderResource resource)
     {
         RenderResourceSlot slot = resource.Slot;
+        if (slot.State == RenderResourceOwnershipState.LeasedToCallback)
+        {
+            throw new InvalidOperationException(
+                "A leased render resource cannot be released from its callback.");
+        }
+
         switch (resource.RegistrationState)
         {
             case RenderResourceRegistrationState.Pending:
@@ -441,6 +459,9 @@ internal sealed class RenderRequestResourceRegistry : IDisposable
     {
         ObjectDisposedException.ThrowIf(_disposed, this);
     }
+
+    private void MarkBorrowed(object value)
+        => _ = _borrowedTombstones.GetValue(value, static _ => BorrowedResourceTombstone.Instance);
 }
 
 internal sealed class RenderResourceSlot
@@ -542,6 +563,15 @@ internal sealed class OwnedResourceTombstone
     public static OwnedResourceTombstone Instance { get; } = new();
 
     private OwnedResourceTombstone()
+    {
+    }
+}
+
+internal sealed class BorrowedResourceTombstone
+{
+    public static BorrowedResourceTombstone Instance { get; } = new();
+
+    private BorrowedResourceTombstone()
     {
     }
 }

@@ -276,7 +276,8 @@ public sealed class RenderNodeContext
             reference.ValueCardinality,
             reference.ContributesValuesToTarget,
             reference.CanBeUsedAsValueInput && !maskPlan.IsRawExternal,
-            reference.HasTargetEffects,
+            reference.HasTargetEffects
+                || dependencies.Any(static dependency => dependency.HasTargetEffects),
             reference.HasOpaqueExternalWork || maskPlan.IsRawExternal,
             inputs,
             new OpacityMaskRenderFragmentPayload(
@@ -669,8 +670,10 @@ public sealed class RenderNodeContext
         return handle;
     }
 
-    internal RenderFragmentHandle BuiltInBackdrop(object identity)
-        => GetTransaction().GetBuiltInBackdrop(identity);
+    internal bool TryBuiltInBackdrop(
+        object identity,
+        out RenderFragmentHandle? capture)
+        => GetTransaction().TryGetBuiltInBackdrop(identity, out capture);
 
     /// <summary>Records a finite off-screen layer and returns its composited value.</summary>
     /// <param name="inputs">A non-null ordered list of non-null fragments replayed inside the layer.</param>

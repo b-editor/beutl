@@ -580,7 +580,7 @@ internal sealed class RenderTargetPool : IDisposable
             throw new InvalidOperationException("The render-target pool request is no longer active.");
     }
 
-    private void VerifyLease(PooledRenderTargetLease lease)
+    internal void VerifyLease(PooledRenderTargetLease lease)
     {
         if (!ReferenceEquals(lease.Pool, this))
             throw new InvalidOperationException("The render-target lease belongs to a different pool.");
@@ -770,9 +770,23 @@ internal sealed class PooledRenderTargetLease : IDisposable
         WasReused = wasReused;
     }
 
-    public RenderTarget Target => Slot.Target;
+    public RenderTarget Target
+    {
+        get
+        {
+            Pool.VerifyLease(this);
+            return Slot.Target;
+        }
+    }
 
-    public PixelSize DeviceSize => Slot.Size;
+    public PixelSize DeviceSize
+    {
+        get
+        {
+            Pool.VerifyLease(this);
+            return Slot.Size;
+        }
+    }
 
     public long Generation { get; }
 

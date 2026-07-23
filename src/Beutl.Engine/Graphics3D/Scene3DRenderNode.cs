@@ -75,6 +75,7 @@ internal sealed class Scene3DRenderNode(Scene3D.Resource scene) : RenderNode
             objects,
             workingScale);
         var execution = new SceneExecutionSnapshot(
+            scene,
             camera,
             objects,
             lights,
@@ -91,21 +92,17 @@ internal sealed class Scene3DRenderNode(Scene3D.Resource scene) : RenderNode
             execution,
             new SceneSnapshotIdentity(scene.GetOriginal().Id, sceneSnapshot.Version),
             sceneSnapshot.Version);
-        RenderResource<DeferredSceneRenderer> rendererToken = context.Own(new DeferredSceneRenderer());
 
         RenderResource[] resources =
         [
             sceneToken,
-            rendererToken,
             .. textureBindings.Select(static item => item.Binding),
         ];
         OpaqueRenderDescription description = OpaqueRenderDescription.CreateBackendBoundary(
             RenderBackendBoundary.Graphics3D,
             execute: session => session.UseResource(
                 sceneToken,
-                current => session.UseResource(
-                    rendererToken,
-                    renderer => renderer.Render(session, current))),
+                current => Render(session, current)),
             bounds: RenderOperationBoundsContract.Source(bounds),
             hitTest: RenderHitTestContract.OutputBounds,
             valueCardinality: RenderValueCardinality.Single,
@@ -186,6 +183,7 @@ internal sealed class Scene3DRenderNode(Scene3D.Resource scene) : RenderNode
     }
 
     private sealed record SceneExecutionSnapshot(
+        Scene3D.Resource Scene,
         Camera3D.Resource Camera,
         Object3D.Resource[] Objects,
         Light3D.Resource[] Lights,
@@ -203,109 +201,98 @@ internal sealed class Scene3DRenderNode(Scene3D.Resource scene) : RenderNode
         DrawableTextureSource.Resource Source,
         RenderResource<NestedRenderTargetBinding> Binding);
 
-    private sealed class DeferredSceneRenderer : IDisposable
+    private static void Render(OpaqueRenderSession session, SceneExecutionSnapshot snapshot)
     {
-        private Renderer3D? _renderer;
+        UseTextureBindings(session, snapshot, index: 0, () => RenderCore(session, snapshot));
+    }
 
-        public void Render(OpaqueRenderSession session, SceneExecutionSnapshot snapshot)
+    private static void UseTextureBindings(
+        OpaqueRenderSession session,
+        SceneExecutionSnapshot snapshot,
+        int index,
+        Action render)
+    {
+        if (index == snapshot.TextureBindings.Length)
         {
-            UseTextureBindings(session, snapshot, index: 0, () => RenderCore(session, snapshot));
+            render();
+            return;
         }
 
-        private static void UseTextureBindings(
-            OpaqueRenderSession session,
-            SceneExecutionSnapshot snapshot,
-            int index,
-            Action render)
+        SceneTextureBinding current = snapshot.TextureBindings[index];
+        session.UseResource(
+            current.Binding,
+            binding => NestedRenderTargetBindingScope.Use(
+                current.Source,
+                binding,
+                () => UseTextureBindings(session, snapshot, index + 1, render)));
+    }
+
+    private static void RenderCore(OpaqueRenderSession session, SceneExecutionSnapshot snapshot)
+    {
+        IGraphicsContext? graphicsContext = GraphicsContextFactory.SharedContext;
+        if (graphicsContext is null || !graphicsContext.Supports3DRendering)
+            return;
+
+        float density = session.WorkingScale;
+        int deviceWidth = (int)MathF.Ceiling((float)snapshot.Bounds.Width * density);
+        int deviceHeight = (int)MathF.Ceiling((float)snapshot.Bounds.Height * density);
+        Renderer3D renderer = snapshot.Scene.Renderer ??= new Renderer3D(graphicsContext);
+
+        if (renderer.Width != deviceWidth || renderer.Height != deviceHeight)
         {
-            if (index == snapshot.TextureBindings.Length)
+            try
             {
-                render();
+                if (renderer.Width == 0 || renderer.Height == 0)
+                    renderer.Initialize(deviceWidth, deviceHeight);
+                else
+                    renderer.Resize(deviceWidth, deviceHeight);
+            }
+            catch (Exception ex)
+            {
+                s_logger.LogWarning(
+                    ex,
+                    "3D render surface allocation failed ({Width}x{Height} px, density {Scale}); dropping the 3D value for this frame.",
+                    deviceWidth,
+                    deviceHeight,
+                    density);
+                snapshot.Scene.Renderer?.Dispose();
+                snapshot.Scene.Renderer = null;
                 return;
             }
-
-            SceneTextureBinding current = snapshot.TextureBindings[index];
-            session.UseResource(
-                current.Binding,
-                binding => NestedRenderTargetBindingScope.Use(
-                    current.Source,
-                    binding,
-                    () => UseTextureBindings(session, snapshot, index + 1, render)));
         }
 
-        private void RenderCore(OpaqueRenderSession session, SceneExecutionSnapshot snapshot)
-        {
-            IGraphicsContext? graphicsContext = GraphicsContextFactory.SharedContext;
-            if (graphicsContext is null || !graphicsContext.Supports3DRendering)
-                return;
-
-            float density = session.WorkingScale;
-            int deviceWidth = (int)MathF.Ceiling((float)snapshot.Bounds.Width * density);
-            int deviceHeight = (int)MathF.Ceiling((float)snapshot.Bounds.Height * density);
-            Renderer3D renderer = _renderer ??= new Renderer3D(graphicsContext);
-
-            if (renderer.Width != deviceWidth || renderer.Height != deviceHeight)
+        renderer.SurfaceDensity = density;
+        renderer.Render(
+            new CompositionContext(snapshot.Time)
             {
-                try
-                {
-                    if (renderer.Width == 0 || renderer.Height == 0)
-                        renderer.Initialize(deviceWidth, deviceHeight);
-                    else
-                        renderer.Resize(deviceWidth, deviceHeight);
-                }
-                catch (Exception ex)
-                {
-                    s_logger.LogWarning(
-                        ex,
-                        "3D render surface allocation failed ({Width}x{Height} px, density {Scale}); dropping the 3D value for this frame.",
-                        deviceWidth,
-                        deviceHeight,
-                        density);
-                    _renderer?.Dispose();
-                    _renderer = null;
-                    return;
-                }
+                DisableResourceShare = snapshot.DisableResourceShare,
+            },
+            snapshot.Camera,
+            snapshot.Objects,
+            snapshot.Lights,
+            snapshot.BackgroundColor,
+            snapshot.AmbientColor,
+            snapshot.AmbientIntensity,
+            snapshot.GizmoTarget,
+            snapshot.GizmoMode);
+
+        using SKSurface? surface = renderer.CreateSkiaSurface();
+        if (surface is null)
+            return;
+
+        using OpaqueRenderOutput output = session.CreateOutput(snapshot.Bounds);
+        output.Canvas.Use(canvas =>
+        {
+            // This is the one deliberate backend hand-off: both surfaces have the same device
+            // footprint, so copy in device space without exposing a raw target to public callbacks.
+            using (canvas.PushDeviceSpace())
+            {
+                canvas.Canvas.DrawSurface(surface, 0, 0);
             }
 
-            renderer.SurfaceDensity = density;
-            renderer.Render(
-                new CompositionContext(snapshot.Time)
-                {
-                    DisableResourceShare = snapshot.DisableResourceShare,
-                },
-                snapshot.Camera,
-                snapshot.Objects,
-                snapshot.Lights,
-                snapshot.BackgroundColor,
-                snapshot.AmbientColor,
-                snapshot.AmbientIntensity,
-                snapshot.GizmoTarget,
-                snapshot.GizmoMode);
-
-            using SKSurface? surface = renderer.CreateSkiaSurface();
-            if (surface is null)
-                return;
-
-            using OpaqueRenderOutput output = session.CreateOutput(snapshot.Bounds);
-            output.Canvas.Use(canvas =>
-            {
-                // This is the one deliberate backend hand-off: both surfaces have the same device
-                // footprint, so copy in device space without exposing a raw target to public callbacks.
-                using (canvas.PushDeviceSpace())
-                {
-                    canvas.Canvas.DrawSurface(surface, 0, 0);
-                }
-
-                surface.Flush(true, true);
-            });
-            session.Publish(output);
-        }
-
-        public void Dispose()
-        {
-            _renderer?.Dispose();
-            _renderer = null;
-        }
+            surface.Flush(true, true);
+        });
+        session.Publish(output);
     }
 
     private readonly record struct SceneSnapshotIdentity(Guid SceneId, int Version);

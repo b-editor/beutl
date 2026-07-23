@@ -244,6 +244,42 @@ public sealed class StructuralAndProgramCacheTests
     }
 
     [Test]
+    public void NestedRequestFamily_ReusesEveryCurrentPlanAndTrimsRemovedMembers()
+    {
+        using var cache = new StructuralPlanCache();
+        using var child = new EmptyNode();
+        using var nested = new NestedParentNode(child);
+        using var flat = new EmptyNode();
+
+        using (Compile(cache, nested))
+        {
+        }
+        using (Compile(cache, nested))
+        {
+        }
+
+        StructuralPlanCacheStatistics warmed = cache.Statistics;
+        Assert.Multiple(() =>
+        {
+            Assert.That(warmed.Compilations, Is.EqualTo(2));
+            Assert.That(warmed.Misses, Is.EqualTo(2));
+            Assert.That(warmed.Hits, Is.EqualTo(2));
+            Assert.That(warmed.Replacements, Is.Zero);
+            Assert.That(warmed.RetainedPlans, Is.EqualTo(2));
+        });
+
+        using (Compile(cache, flat))
+        {
+        }
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(cache.Statistics.Hits, Is.EqualTo(3));
+            Assert.That(cache.Statistics.RetainedPlans, Is.EqualTo(1));
+        });
+    }
+
+    [Test]
     public void TargetLayerScope_EmptyRegionClass_CompilesOneReplacement()
     {
         using var cache = new StructuralPlanCache();
@@ -376,6 +412,12 @@ public sealed class StructuralAndProgramCacheTests
         public override void Process(RenderNodeContext context)
         {
         }
+    }
+
+    private sealed class NestedParentNode(RenderNode child) : RenderNode
+    {
+        public override void Process(RenderNodeContext context)
+            => _ = context.RecordNestedTarget(child, new Rect(0, 0, 8, 8));
     }
 
     private sealed class MutableTargetLayerScopeNode : RenderNode

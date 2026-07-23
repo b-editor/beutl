@@ -803,6 +803,12 @@ internal sealed class RegionAnalyzer
         }
         if (reference.ContributesValuesToTarget)
             return reference.Bounds;
+        if (reference.Kind == RenderFragmentKind.OpacityMask)
+        {
+            return reference.Inputs.IsDefaultOrEmpty
+                ? Rect.Empty
+                : ResolveQueryBounds(reference.Inputs[0]);
+        }
 
         Rect result = default;
         foreach (RenderFragmentReference input in reference.Inputs)
@@ -817,8 +823,6 @@ internal sealed class RegionAnalyzer
                 => scope.Description.Bounds.TransformBounds(result),
             RawTargetScopeRenderFragmentPayload scope
                 => scope.Description.Bounds.TransformBounds(result),
-            LayerRenderFragmentPayload layer
-                => result.Intersect(layer.Domain ?? reference.Bounds),
             TargetLayerScopeRenderFragmentPayload layer
                 => layer.Region.Kind == TargetRegionKind.Region
                     ? result.Intersect(layer.Region.Value)

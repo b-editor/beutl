@@ -246,9 +246,7 @@ public sealed class FilterEffectContext : IDisposable
         Func<T, Rect, Rect> transformBounds)
         where T : IEquatable<T>
     {
-        AddItem(new FEItem_Skia<T>(data, factory, transformBounds));
-        if (!Bounds.IsInvalid)
-            Bounds = transformBounds.Invoke(data, Bounds);
+        AppendDescription(new FEItem_Skia<T>(data, factory, transformBounds));
     }
 
     [EditorBrowsable(EditorBrowsableState.Never)]
@@ -619,9 +617,7 @@ public sealed class FilterEffectContext : IDisposable
         Func<T, Rect, Rect> transformBounds)
         where T : IEquatable<T>
     {
-        AddItem(new FEItem_CustomEffect<T>(data, action, transformBounds));
-        if (!Bounds.IsInvalid)
-            Bounds = transformBounds.Invoke(data, Bounds);
+        AppendDescription(new FEItem_CustomEffect<T>(data, action, transformBounds));
     }
 
     /// <summary>

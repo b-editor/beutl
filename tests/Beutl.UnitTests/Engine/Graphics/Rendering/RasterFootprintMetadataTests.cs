@@ -115,6 +115,24 @@ public sealed class RasterFootprintMetadataTests
     }
 
     [Test]
+    public void CachedValue_RejectsAPhysicalFootprintThatDoesNotContainSemanticBounds()
+    {
+        const float density = 2;
+        var bounds = new Rect(10.25f, 20.25f, 8, 6);
+        PixelRect canonical = PixelRect.FromRect(bounds, density);
+        var shifted = new PixelRect(
+            canonical.X + 1,
+            canonical.Y,
+            canonical.Width,
+            canonical.Height);
+        using RenderTarget target = RenderTarget.CreateNull(shifted.Width, shifted.Height);
+
+        Assert.That(
+            () => new RenderNodeCachedValue(target, bounds, EffectiveScale.At(density), shifted),
+            Throws.ArgumentException.With.Property("ParamName").EqualTo("deviceBounds"));
+    }
+
+    [Test]
     public void EffectTarget_TranslatesRasterBoundsWithoutMutatingItsAllocationFootprint()
     {
         const float density = 2;

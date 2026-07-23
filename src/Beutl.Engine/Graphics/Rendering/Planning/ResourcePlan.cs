@@ -281,8 +281,7 @@ internal sealed class ResourcePlanUseSchedule
             RenderFragmentReference fragment = ordered[index];
             if (fragment.Id is { } id && terminalFragmentIds.Contains(id))
                 continue;
-
-            foreach (RenderFragmentReference input in fragment.Inputs)
+            foreach (RenderFragmentReference input in fragment.ExecutionInputs)
                 consumers[input].Add(index);
         }
 
@@ -311,7 +310,7 @@ internal sealed class ResourcePlanUseSchedule
 
             if (fragment.Id is not { } id || !terminalFragmentIds.Contains(id))
             {
-                foreach (RenderFragmentReference input in fragment.Inputs)
+                foreach (RenderFragmentReference input in fragment.ExecutionInputs)
                     Visit(input, terminalFragmentIds, visiting, visited, ordered);
             }
 

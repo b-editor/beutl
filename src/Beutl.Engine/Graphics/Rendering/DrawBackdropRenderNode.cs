@@ -25,9 +25,9 @@ public class DrawBackdropRenderNode(IBackdrop backdrop, Rect bounds) : RenderNod
 
         IBackdrop backdrop = Backdrop;
         Rect bounds = Bounds;
-        if (backdrop.GetType() == typeof(SnapshotBackdropRenderNode))
+        if (backdrop.GetType() == typeof(SnapshotBackdropRenderNode)
+            && context.TryBuiltInBackdrop(backdrop, out RenderFragmentHandle? capture))
         {
-            RenderFragmentHandle capture = context.BuiltInBackdrop(backdrop);
             TargetCommandDescription description = TargetCommandDescription.Create(
                 static session => session.Canvas.Use(canvas => session.Inputs[0].Draw(canvas)),
                 TargetRegion.Region(bounds),
@@ -36,7 +36,7 @@ public class DrawBackdropRenderNode(IBackdrop backdrop, Rect bounds) : RenderNod
                 TargetAccess.ReadWrite,
                 structuralKey: typeof(DrawBackdropRenderNode),
                 runtimeIdentity: new RenderRuntimeIdentity(bounds));
-            context.Publish(context.TargetCommand([capture], description));
+            context.Publish(context.TargetCommand([capture!], description));
             return;
         }
 

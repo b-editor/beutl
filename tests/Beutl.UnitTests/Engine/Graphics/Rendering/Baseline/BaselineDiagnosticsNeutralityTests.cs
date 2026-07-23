@@ -28,8 +28,8 @@ public sealed class BaselineDiagnosticsNeutralityTests
             Assert.That(enabled.Snapshot, Is.Not.Null);
             Assert.That(enabled.Snapshot!.Purpose, Is.EqualTo(RenderRequestPurpose.Frame));
             Assert.That(enabled.Snapshot.Succeeded, Is.True);
-            Assert.That(enabled.Snapshot[RenderPipelineCounter.RecordedFragments], Is.EqualTo(1));
-            Assert.That(enabled.Snapshot[RenderPipelineCounter.ExecutedOutcomes], Is.EqualTo(1));
+            Assert.That(enabled.Snapshot[RenderPipelineCounter.RecordedFragments], Is.GreaterThan(0));
+            Assert.That(enabled.Snapshot[RenderPipelineCounter.ExecutedOutcomes], Is.GreaterThan(0));
         });
     }
 
@@ -48,9 +48,11 @@ public sealed class BaselineDiagnosticsNeutralityTests
             Assert.That(enabled.Snapshot, Is.Not.Null);
             Assert.That(enabled.Snapshot!.Purpose, Is.EqualTo(RenderRequestPurpose.Auxiliary));
             Assert.That(enabled.Snapshot.Succeeded, Is.True);
-            Assert.That(enabled.Snapshot[RenderPipelineCounter.IntermediateAcquires], Is.EqualTo(1));
-            Assert.That(enabled.Snapshot[RenderPipelineCounter.IntermediateCreates], Is.EqualTo(1));
-            Assert.That(enabled.Snapshot[RenderPipelineCounter.IntermediateDischarges], Is.EqualTo(1));
+            Assert.That(enabled.Snapshot[RenderPipelineCounter.IntermediateAcquires], Is.GreaterThan(0));
+            Assert.That(
+                enabled.Snapshot[RenderPipelineCounter.IntermediateDischarges],
+                Is.EqualTo(enabled.Snapshot[RenderPipelineCounter.IntermediateAcquires]));
+            Assert.That(enabled.Snapshot[RenderPipelineCounter.IntermediateCreates], Is.GreaterThan(0));
         });
     }
 
@@ -80,28 +82,17 @@ public sealed class BaselineDiagnosticsNeutralityTests
     public void FrameDiagnostics_DisposeFailureIsRecordedAsCleanup()
     {
         var state = new RenderPipelineDiagnosticsState();
-        RenderPipelineDiagnosticRecorder recorder = RenderPipelineDiagnosticRecorder.Start(
-            state,
-            RenderIntent.Preview,
-            RenderRequestPurpose.Frame,
-            nameof(Renderer))!;
-        long subject = recorder.RecordFragments(1, RenderPipelineOutcome.Executed).Single();
         var trace = new List<string>();
-        using (var owner = new RenderRequestOwner())
-        {
-            RenderResource<RecordedOperation> resource = owner.ResourceRegistry.RegisterOwned(
-                new RecordedOperation(
-                    new RecordedOperationSpec("dispose-fault", ThrowOnDispose: true),
-                    trace,
-                    trackDischarge: true));
-            owner.ResourceRegistry.Commit(resource);
-            owner.Cleanup();
+        using var node = new FixedOpsNode(
+            [new RecordedOperationSpec("dispose-fault", ThrowOnDispose: true)],
+            trace);
+        using var renderer = CreateRenderer(
+            node,
+            new TrackingTargetFactory(),
+            diagnostics: state,
+            purpose: RenderRequestPurpose.Frame);
 
-            Assert.Throws<AggregateException>(() => owner.ThrowIfFailed());
-        }
-
-        recorder.RecordCleanupFailure(subject);
-        recorder.Complete();
+        Assert.Throws<AggregateException>(() => renderer.Rasterize());
         RenderPipelineDiagnosticSnapshot snapshot = state.LatestFrame;
 
         Assert.Multiple(() =>
@@ -110,7 +101,7 @@ public sealed class BaselineDiagnosticsNeutralityTests
             Assert.That(snapshot.Succeeded, Is.False);
             Assert.That(snapshot.FailurePhase, Is.EqualTo(RenderPipelineFailurePhase.Cleanup));
             Assert.That(snapshot[RenderPipelineCounter.CleanupFailures], Is.EqualTo(1));
-            Assert.That(snapshot[RenderPipelineCounter.FailedOutcomes], Is.EqualTo(1));
+            Assert.That(snapshot[RenderPipelineCounter.Failures], Is.EqualTo(1));
         });
     }
 
@@ -151,14 +142,18 @@ public sealed class BaselineDiagnosticsNeutralityTests
             Assert.That(enabled.Snapshot, Is.Not.Null);
             Assert.That(enabled.Snapshot!.Succeeded, Is.False);
             Assert.That(enabled.Snapshot.FailurePhase, Is.EqualTo(RenderPipelineFailurePhase.Allocation));
-            Assert.That(enabled.Snapshot[RenderPipelineCounter.FailedOutcomes], Is.EqualTo(1));
             Assert.That(enabled.Snapshot[RenderPipelineCounter.Failures], Is.EqualTo(1));
+            Assert.That(enabled.Snapshot[RenderPipelineCounter.FailedOutcomes], Is.Zero,
+                "Root-target acquisition fails before any fragment becomes the active failure subject.");
+            Assert.That(
+                enabled.Snapshot[RenderPipelineCounter.SkippedOutcomes],
+                Is.EqualTo(enabled.Snapshot[RenderPipelineCounter.RecordedFragments]));
         });
     }
 
     [TestCase(false)]
     [TestCase(true)]
-    public void MetadataPull_InstrumentationPreservesCacheDecisionAndReturnedBounds(bool cacheHit)
+    public void PersistentCache_InstrumentationPreservesDecisionAndOutput(bool cacheHit)
     {
         PullRun disabled = RunPull(instrumentationEnabled: false, cacheHit);
         PullRun enabled = RunPull(instrumentationEnabled: true, cacheHit);
@@ -168,6 +163,7 @@ public sealed class BaselineDiagnosticsNeutralityTests
             Assert.That(enabled.ProcessCalls, Is.EqualTo(disabled.ProcessCalls));
             Assert.That(enabled.OutputBounds, Is.EqualTo(disabled.OutputBounds));
             Assert.That(enabled.CacheCount, Is.EqualTo(disabled.CacheCount));
+            Assert.That(enabled.Pixels, Is.EqualTo(disabled.Pixels));
             Assert.That(disabled.Snapshot, Is.Null);
             Assert.That(enabled.Snapshot, Is.Not.Null);
             Assert.That(
@@ -189,18 +185,13 @@ public sealed class BaselineDiagnosticsNeutralityTests
         {
             var trace = new List<string>();
             var state = instrumentationEnabled ? new RenderPipelineDiagnosticsState() : null;
-            RenderPipelineDiagnosticRecorder? diagnostics = StartDiagnostics(
-                state,
-                RenderRequestPurpose.Frame,
-                nameof(Renderer),
-                out long subject);
             var target = new CpuRenderTarget(8, 8);
             using var renderer = new Renderer(
                 width: 8,
                 height: 8,
                 renderScale: 1,
                 maxWorkingScale: float.PositiveInfinity,
-                diagnostics: null,
+                diagnostics: state,
                 surface: target);
             renderer.CacheOptions = RenderCacheOptions.Disabled;
 
@@ -216,8 +207,6 @@ public sealed class BaselineDiagnosticsNeutralityTests
                 new PixelSize(8, 8));
 
             renderer.Render(frame);
-            diagnostics?.RecordOutcome(subject, RenderPipelineOutcome.Executed);
-            diagnostics?.Complete();
             using Bitmap bitmap = renderer.Snapshot();
             return new FrameRun(
                 bitmap.GetPixelSpan().ToArray(),
@@ -230,23 +219,14 @@ public sealed class BaselineDiagnosticsNeutralityTests
     {
         var trace = new List<string>();
         var state = instrumentationEnabled ? new RenderPipelineDiagnosticsState() : null;
-        RenderPipelineDiagnosticRecorder? diagnostics = StartDiagnostics(
-            state,
-            RenderRequestPurpose.Auxiliary,
-            nameof(RenderNodeRenderer),
-            out long subject);
         using var node = new FixedOpsNode(
             () => [new RecordedOperationSpec("raster")],
             trace,
             () => trace.Add("process"));
         var factory = new TrackingTargetFactory();
-        using var renderer = CreateRenderer(node, factory);
+        using var renderer = CreateRenderer(node, factory, diagnostics: state);
 
         using RenderNodeRasterization rasterization = renderer.Rasterize();
-        diagnostics?.RecordIntermediateCreated();
-        diagnostics?.RecordIntermediateDischarged();
-        diagnostics?.RecordOutcome(subject, RenderPipelineOutcome.Executed);
-        diagnostics?.Complete();
         return new RasterRun(
             rasterization.Bitmap!.GetPixelSpan().ToArray(),
             [.. factory.Allocations],
@@ -258,17 +238,12 @@ public sealed class BaselineDiagnosticsNeutralityTests
     {
         var trace = new List<string>();
         var state = instrumentationEnabled ? new RenderPipelineDiagnosticsState() : null;
-        RenderPipelineDiagnosticRecorder? diagnostics = StartDiagnostics(
-            state,
-            RenderRequestPurpose.Auxiliary,
-            nameof(RenderNodeRenderer),
-            out long subject);
         using var node = new FixedOpsNode(
             () => [new RecordedOperationSpec("render-fault", ThrowOnExecute: !allocationFailure)],
             trace,
             () => trace.Add("process"));
         var factory = new TrackingTargetFactory(throwOnAllocation: allocationFailure);
-        using var renderer = CreateRenderer(node, factory);
+        using var renderer = CreateRenderer(node, factory, diagnostics: state);
 
         Exception? failure = null;
         try
@@ -278,15 +253,6 @@ public sealed class BaselineDiagnosticsNeutralityTests
         catch (Exception ex)
         {
             failure = ex;
-            diagnostics?.RecordFailure(
-                allocationFailure
-                    ? RenderPipelineFailurePhase.Allocation
-                    : RenderPipelineFailurePhase.Execution,
-                subject);
-        }
-        finally
-        {
-            diagnostics?.Complete();
         }
 
         return new FailureRun(
@@ -301,62 +267,49 @@ public sealed class BaselineDiagnosticsNeutralityTests
     {
         var trace = new List<string>();
         var state = instrumentationEnabled ? new RenderPipelineDiagnosticsState() : null;
-        RenderPipelineDiagnosticRecorder? diagnostics = StartDiagnostics(
-            state,
-            RenderRequestPurpose.Auxiliary,
-            nameof(RenderNodeRenderer),
-            out long subject);
         using var node = new FixedOpsNode(
             () => [new RecordedOperationSpec("pull")],
             trace,
             () => trace.Add("process"));
+        node.Cache.ReportRenderCount(RenderNodeCache.Count);
+        var factory = new TrackingTargetFactory();
+        using var renderer = CreateRenderer(
+            node,
+            factory,
+            useRenderCache: true,
+            diagnostics: state,
+            purpose: RenderRequestPurpose.Frame);
         if (cacheHit)
         {
-            using var cachedTarget = new CpuRenderTarget(4, 4);
-            node.Cache.StoreCache(cachedTarget, new Rect(0, 0, 4, 4));
+            using RenderNodeRasterization warmup = renderer.Rasterize();
+            state?.Reset();
         }
 
-        using var renderer = CreateRenderer(node, targetFactory: null, useRenderCache: true);
-        RenderNodeMeasurement measurement = renderer.Measure();
-        diagnostics?.RecordCacheDecision(cacheHit);
-        diagnostics?.RecordOutcome(
-            subject,
-            cacheHit ? RenderPipelineOutcome.Cached : RenderPipelineOutcome.Executed);
-        diagnostics?.Complete();
+        using RenderNodeRasterization rasterization = renderer.Rasterize();
 
         return new PullRun(
             node.ProcessCalls,
-            measurement.OutputBounds,
+            rasterization.Bounds,
             node.Cache.CacheCount,
-            state?.Latest);
+            rasterization.Bitmap!.GetPixelSpan().ToArray(),
+            state?.LatestFrame);
     }
 
     private static RenderNodeRenderer CreateRenderer(
         RenderNode root,
         IRenderTargetFactory? targetFactory,
-        bool useRenderCache = false)
+        bool useRenderCache = false,
+        IRenderPipelineDiagnosticsState? diagnostics = null,
+        RenderRequestPurpose purpose = RenderRequestPurpose.Auxiliary)
         => new(root, new RenderNodeRendererOptions
         {
             OutputScale = 1,
             MaxWorkingScale = float.PositiveInfinity,
             UseRenderCache = useRenderCache,
             TargetFactory = targetFactory,
+            RenderPurpose = purpose,
+            Diagnostics = diagnostics,
         });
-
-    private static RenderPipelineDiagnosticRecorder? StartDiagnostics(
-        IRenderPipelineDiagnosticsState? state,
-        RenderRequestPurpose purpose,
-        string targetClass,
-        out long subject)
-    {
-        RenderPipelineDiagnosticRecorder? diagnostics = RenderPipelineDiagnosticRecorder.Start(
-            state,
-            RenderIntent.Preview,
-            purpose,
-            targetClass);
-        subject = diagnostics?.RecordFragments(1, RenderPipelineOutcome.Metadata).Single() ?? 0;
-        return diagnostics;
-    }
 
     private sealed class TrackingTargetFactory(bool throwOnAllocation = false) : IRenderTargetFactory
     {
@@ -409,5 +362,6 @@ public sealed class BaselineDiagnosticsNeutralityTests
         int ProcessCalls,
         Rect OutputBounds,
         int CacheCount,
+        byte[] Pixels,
         RenderPipelineDiagnosticSnapshot? Snapshot);
 }

@@ -257,24 +257,20 @@ internal sealed class NodeRecordingTransaction : IRenderFragmentHandleOwner
         _builtInBackdropBindings.Add(new BuiltInBackdropBinding(identity, reference));
     }
 
-    public RenderFragmentHandle GetBuiltInBackdrop(object identity)
+    public bool TryGetBuiltInBackdrop(
+        object identity,
+        out RenderFragmentHandle? handle)
     {
         VerifyActive();
         ArgumentNullException.ThrowIfNull(identity);
-        for (int index = _builtInBackdropBindings.Count - 1; index >= 0; index--)
+        if (TryGetBuiltInBackdropReference(identity, out RenderFragmentReference? reference))
         {
-            BuiltInBackdropBinding binding = _builtInBackdropBindings[index];
-            if (ReferenceEquals(binding.Identity, identity))
-                return MapReference(binding.Reference);
+            handle = MapReference(reference!);
+            return true;
         }
 
-        if (_parent is not null)
-            return MapReference(_parent.GetBuiltInBackdropReference(identity));
-        if (Request.Options.Owner.TryGetBuiltInBackdrop(identity, out RenderFragmentReference? reference))
-            return MapReference(reference!);
-
-        throw new InvalidOperationException(
-            "No built-in backdrop capture was recorded for the supplied identity in this request family.");
+        handle = null;
+        return false;
     }
 
     public ImmutableArray<RenderFragmentReference> Commit()
@@ -444,23 +440,24 @@ internal sealed class NodeRecordingTransaction : IRenderFragmentHandleOwner
         }
     }
 
-    private RenderFragmentReference GetBuiltInBackdropReference(object identity)
+    private bool TryGetBuiltInBackdropReference(
+        object identity,
+        out RenderFragmentReference? reference)
     {
         VerifyActive();
         for (int index = _builtInBackdropBindings.Count - 1; index >= 0; index--)
         {
             BuiltInBackdropBinding binding = _builtInBackdropBindings[index];
             if (ReferenceEquals(binding.Identity, identity))
-                return binding.Reference;
+            {
+                reference = binding.Reference;
+                return true;
+            }
         }
 
         if (_parent is not null)
-            return _parent.GetBuiltInBackdropReference(identity);
-        if (Request.Options.Owner.TryGetBuiltInBackdrop(identity, out RenderFragmentReference? reference))
-            return reference!;
-
-        throw new InvalidOperationException(
-            "No built-in backdrop capture was recorded for the supplied identity in this request family.");
+            return _parent.TryGetBuiltInBackdropReference(identity, out reference);
+        return Request.Options.Owner.TryGetBuiltInBackdrop(identity, out reference);
     }
 
     private RenderFragmentHandle MapReference(RenderFragmentReference reference)

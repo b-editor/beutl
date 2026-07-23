@@ -1512,8 +1512,8 @@ internal sealed class RenderRequestExecutor
                 RenderFragmentKind.LegacyFilterEffect => ExecuteLegacyFilter(fragment, currentTarget),
                 RenderFragmentKind.Shader => ExecuteShader(fragment, currentTarget, requestedScale),
                 RenderFragmentKind.Geometry => ExecuteGeometry(fragment, currentTarget),
-                RenderFragmentKind.Opacity => MaterializeOpacity(fragment, requestedScale),
-                RenderFragmentKind.OpacityMask => MaterializeOpacityMask(fragment, requestedScale),
+                RenderFragmentKind.Opacity => MaterializeOpacity(fragment, currentTarget, requestedScale),
+                RenderFragmentKind.OpacityMask => MaterializeOpacityMask(fragment, currentTarget, requestedScale),
                 RenderFragmentKind.Layer => MaterializeLayer(fragment, requestedScale),
                 RenderFragmentKind.TargetCapture
                     or RenderFragmentKind.BuiltInBackdropCapture => CaptureTarget(fragment, currentTarget),
@@ -1555,16 +1555,13 @@ internal sealed class RenderRequestExecutor
             {
                 foreach (RenderNodeCachedValue cached in cachedOutput.Values)
                 {
-                    var value = new CompatibilityRenderValue(
-                        cached.Target.ShallowCopy(),
+                    CompatibilityRenderValue value = CreateOwnedShallowCopy(
+                        cached.Target,
                         cached.Bounds,
                         cached.EffectiveScale,
                         cached.DeviceBounds,
-                        ownsTarget: true,
-                        completeBounds: cached.CompleteBounds)
-                    {
-                        PreferPixelExactComposite = true,
-                    };
+                        completeBounds: cached.CompleteBounds);
+                    value.PreferPixelExactComposite = true;
                     _ownedValues.Add(value);
                     acquired.Add(value);
                 }
@@ -1694,6 +1691,7 @@ internal sealed class RenderRequestExecutor
 
         private IReadOnlyList<CompatibilityRenderValue> MaterializeOpacity(
             RenderFragmentReference fragment,
+            ImmediateCanvas currentTarget,
             EffectiveScale? requestedScale)
         {
             if (fragment.Inputs.Length != 1)
@@ -1706,35 +1704,50 @@ internal sealed class RenderRequestExecutor
             }
 
             EffectiveScale scale = requestedScale ?? ResolveConcreteScale(fragment, fragment.Bounds);
-            CompatibilityRenderValue value = CreateOwnedValue(fragment.Bounds, scale);
-            _diagnostics?.RecordGpuPassExecuted(fragment.Id?.Value ?? 0);
-            bool succeeded = false;
+            RenderFragmentReference input = fragment.Inputs[0];
+            IReadOnlyList<CompatibilityRenderValue> values = Materialize(
+                input,
+                currentTarget,
+                input.EffectiveScale.IsUnbounded ? scale : null);
             try
             {
-                using var canvas = ImmediateCanvas.CreateExecutorManaged(
-                    value.Target,
-                    scale.Value,
-                    _options.MaxWorkingScale,
-                    value.RasterBounds.Size);
-                using (canvas.PushTransform(Matrix.CreateTranslation(
-                           -value.RasterBounds.X,
-                           -value.RasterBounds.Y)))
-                using (canvas.PushOpacity(((OpacityRenderFragmentPayload)fragment.Payload!).Opacity))
-                    Replay(fragment.Inputs[0], canvas);
-                succeeded = true;
-                return [value];
+                CompatibilityRenderValue value = CreateOwnedValue(fragment.Bounds, scale);
+                _diagnostics?.RecordGpuPassExecuted(fragment.Id?.Value ?? 0);
+                bool succeeded = false;
+                try
+                {
+                    using var canvas = ImmediateCanvas.CreateExecutorManaged(
+                        value.Target,
+                        scale.Value,
+                        _options.MaxWorkingScale,
+                        value.RasterBounds.Size);
+                    using (canvas.PushTransform(Matrix.CreateTranslation(
+                               -value.RasterBounds.X,
+                               -value.RasterBounds.Y)))
+                    using (canvas.PushOpacity(((OpacityRenderFragmentPayload)fragment.Payload!).Opacity))
+                        DrawValues(values, canvas);
+                    succeeded = true;
+                    return [value];
+                }
+                finally
+                {
+                    if (!succeeded)
+                        ReleaseUnpublished(value);
+                }
             }
             finally
             {
-                if (!succeeded)
-                    ReleaseUnpublished(value);
+                CompleteFragmentUse(input);
             }
         }
 
         private IReadOnlyList<CompatibilityRenderValue> MaterializeOpacityMask(
             RenderFragmentReference fragment,
+            ImmediateCanvas currentTarget,
             EffectiveScale? requestedScale)
         {
+            if (fragment.Inputs.Length == 0)
+                throw new InvalidOperationException("An opacity mask requires a primary input.");
             if (fragment.Bounds.Width == 0 || fragment.Bounds.Height == 0)
             {
                 foreach (RenderFragmentReference input in fragment.Inputs)
@@ -1744,27 +1757,91 @@ internal sealed class RenderRequestExecutor
             }
 
             EffectiveScale scale = requestedScale ?? ResolveConcreteScale(fragment, fragment.Bounds);
-            CompatibilityRenderValue value = CreateOwnedValue(fragment.Bounds, scale);
-            _diagnostics?.RecordGpuPassExecuted(fragment.Id?.Value ?? 0);
-            bool succeeded = false;
+            var maskValues = new List<CompatibilityRenderValue>();
+            int materializedDependencyCount = 0;
+            bool primaryMaterialized = false;
             try
             {
-                using var canvas = ImmediateCanvas.CreateExecutorManaged(
-                    value.Target,
-                    scale.Value,
-                    _options.MaxWorkingScale,
-                    value.RasterBounds.Size);
-                using (canvas.PushTransform(Matrix.CreateTranslation(
-                           -value.RasterBounds.X,
-                           -value.RasterBounds.Y)))
-                    ReplayOpacityMask(fragment, canvas);
-                succeeded = true;
-                return [value];
+                for (int index = 1; index < fragment.Inputs.Length; index++)
+                {
+                    RenderFragmentReference dependency = fragment.Inputs[index];
+                    maskValues.AddRange(Materialize(
+                        dependency,
+                        currentTarget,
+                        dependency.EffectiveScale.IsUnbounded ? scale : null));
+                    materializedDependencyCount++;
+                }
+
+                RenderFragmentReference primary = fragment.Inputs[0];
+                IReadOnlyList<CompatibilityRenderValue> primaryValues = Materialize(
+                    primary,
+                    currentTarget,
+                    primary.EffectiveScale.IsUnbounded ? scale : null);
+                primaryMaterialized = true;
+                CompatibilityRenderValue value = CreateOwnedValue(fragment.Bounds, scale);
+                _diagnostics?.RecordGpuPassExecuted(fragment.Id?.Value ?? 0);
+                bool succeeded = false;
+                try
+                {
+                    using var canvas = ImmediateCanvas.CreateExecutorManaged(
+                        value.Target,
+                        scale.Value,
+                        _options.MaxWorkingScale,
+                        value.RasterBounds.Size);
+                    using (canvas.PushTransform(Matrix.CreateTranslation(
+                               -value.RasterBounds.X,
+                               -value.RasterBounds.Y)))
+                    {
+                        var payload = (OpacityMaskRenderFragmentPayload)fragment.Payload!;
+                        var token = new RenderExecutionSessionToken();
+                        var images = new List<SKImage>();
+                        try
+                        {
+                            IReadOnlyList<RenderExecutionInput> inputs = CreateExecutionInputs(
+                                token,
+                                maskValues,
+                                requiresReadback: false,
+                                readbackOwner: null,
+                                images);
+                            BrushExecutionResolver.UseBrush(
+                                token,
+                                payload.Resources,
+                                inputs,
+                                payload.Mask,
+                                mask =>
+                                {
+                                    using (canvas.PushOpacityMask(
+                                               mask,
+                                               payload.BrushBounds,
+                                               payload.Invert))
+                                    {
+                                        DrawValues(primaryValues, canvas);
+                                    }
+                                });
+                        }
+                        finally
+                        {
+                            foreach (SKImage image in images)
+                                image.Dispose();
+                            token.Complete();
+                        }
+                    }
+
+                    succeeded = true;
+                    return [value];
+                }
+                finally
+                {
+                    if (!succeeded)
+                        ReleaseUnpublished(value);
+                }
             }
             finally
             {
-                if (!succeeded)
-                    ReleaseUnpublished(value);
+                if (primaryMaterialized)
+                    CompleteFragmentUse(fragment.Inputs[0]);
+                for (int index = 1; index <= materializedDependencyCount; index++)
+                    CompleteFragmentUse(fragment.Inputs[index]);
             }
         }
 
@@ -1948,12 +2025,11 @@ internal sealed class RenderRequestExecutor
             if (target.RasterBounds == canonicalRasterBounds
                 && Contains(target.DeviceBounds, semanticDeviceBounds))
             {
-                return new CompatibilityRenderValue(
-                    renderTarget.ShallowCopy(),
+                return CreateOwnedShallowCopy(
+                    renderTarget,
                     target.Bounds,
                     target.Scale,
                     target.DeviceBounds,
-                    ownsTarget: true,
                     completeBounds: completeBounds);
             }
 
@@ -2850,12 +2926,11 @@ internal sealed class RenderRequestExecutor
                 target =>
                 {
                     description.ValidateTargetDeviceSize(target);
-                    return new CompatibilityRenderValue(
-                        target.ShallowCopy(),
+                    return CreateOwnedShallowCopy(
+                        target,
                         description.Bounds,
                         description.EffectiveScale,
-                        description.DeviceBounds,
-                        ownsTarget: true);
+                        description.DeviceBounds);
                 });
             _ownedValues.Add(value);
             return [value];
@@ -3286,8 +3361,6 @@ internal sealed class RenderRequestExecutor
             };
             if (domain.Width == 0 || domain.Height == 0)
             {
-                foreach (RenderFragmentReference input in fragment.Inputs)
-                    CompleteFragmentUse(input);
                 MarkExecutionSkipped(fragment);
                 return;
             }
@@ -3514,6 +3587,31 @@ internal sealed class RenderRequestExecutor
                 throw new InvalidOperationException(
                     $"The deferred callback published {count} values outside its declared cardinality "
                     + $"[{cardinality.Minimum}, {cardinality.Maximum?.ToString() ?? "unbounded"}].");
+            }
+        }
+
+        private static CompatibilityRenderValue CreateOwnedShallowCopy(
+            RenderTarget target,
+            Rect bounds,
+            EffectiveScale effectiveScale,
+            PixelRect deviceBounds,
+            Rect? completeBounds = null)
+        {
+            RenderTarget copy = target.ShallowCopy();
+            try
+            {
+                return new CompatibilityRenderValue(
+                    copy,
+                    bounds,
+                    effectiveScale,
+                    deviceBounds,
+                    ownsTarget: true,
+                    completeBounds: completeBounds);
+            }
+            catch
+            {
+                copy.Dispose();
+                throw;
             }
         }
 

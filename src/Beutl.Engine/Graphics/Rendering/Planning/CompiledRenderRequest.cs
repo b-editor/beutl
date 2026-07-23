@@ -537,15 +537,16 @@ internal sealed class ExecutionIslandExecutionLedger
     private static IEnumerable<RenderFragmentReference> EnumerateExecutionInputs(
         RenderFragmentReference reference)
     {
-        if (reference.Kind == RenderFragmentKind.OpacityMask && reference.Inputs.Length > 1)
+        ImmutableArray<RenderFragmentReference> inputs = reference.ExecutionInputs;
+        if (reference.Kind == RenderFragmentKind.OpacityMask && inputs.Length > 1)
         {
-            for (int index = 1; index < reference.Inputs.Length; index++)
-                yield return reference.Inputs[index];
-            yield return reference.Inputs[0];
+            for (int index = 1; index < inputs.Length; index++)
+                yield return inputs[index];
+            yield return inputs[0];
             yield break;
         }
 
-        foreach (RenderFragmentReference input in reference.Inputs)
+        foreach (RenderFragmentReference input in inputs)
             yield return input;
     }
 
@@ -567,8 +568,9 @@ internal sealed class ExecutionIslandExecutionLedger
             }
             if (!result.Add(reference) || cacheHits.Contains(id))
                 continue;
-            for (int index = reference.Inputs.Length - 1; index >= 0; index--)
-                pending.Push(reference.Inputs[index]);
+            ImmutableArray<RenderFragmentReference> inputs = reference.ExecutionInputs;
+            for (int index = inputs.Length - 1; index >= 0; index--)
+                pending.Push(inputs[index]);
         }
         return result;
     }

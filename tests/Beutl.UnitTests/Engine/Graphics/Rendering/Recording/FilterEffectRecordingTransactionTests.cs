@@ -87,6 +87,35 @@ public sealed class FilterEffectRecordingTransactionTests
     }
 
     [Test]
+    public void ThrowingLegacyTransformAppend_IsAtomic()
+    {
+        using var context = new FilterEffectContext(new Rect(0, 0, 20, 10));
+        context.Saturate(0.5f);
+        int originalCount = context.GetOrderedItems().Count;
+        Rect originalBounds = context.Bounds;
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(
+                () => context.AppendSkiaFilter(
+                    0,
+                    static (_, input, _) => input,
+                    static (_, _) => throw new InvalidOperationException("skia-bounds-failure")),
+                Throws.TypeOf<InvalidOperationException>().With.Message.EqualTo("skia-bounds-failure"));
+            Assert.That(context.GetOrderedItems(), Has.Count.EqualTo(originalCount));
+            Assert.That(context.Bounds, Is.EqualTo(originalBounds));
+            Assert.That(
+                () => context.CustomEffect(
+                    0,
+                    static (_, _) => { },
+                    static (_, _) => throw new InvalidOperationException("custom-bounds-failure")),
+                Throws.TypeOf<InvalidOperationException>().With.Message.EqualTo("custom-bounds-failure"));
+            Assert.That(context.GetOrderedItems(), Has.Count.EqualTo(originalCount));
+            Assert.That(context.Bounds, Is.EqualTo(originalBounds));
+        });
+    }
+
+    [Test]
     public void ApplyTransaction_RollsBackItemsBoundsAndOwnedResourcesExactlyOnce()
     {
         using var context = new FilterEffectContext(new Rect(0, 0, 10, 10));

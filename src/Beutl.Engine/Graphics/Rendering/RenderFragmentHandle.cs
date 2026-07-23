@@ -216,6 +216,16 @@ internal sealed class RenderFragmentReference
 
     public ImmutableArray<RenderFragmentReference> Inputs { get; }
 
+    public bool SuppressesInputExecution
+        => Kind == RenderFragmentKind.TargetLayerScope
+           && Payload is TargetLayerScopeRenderFragmentPayload layer
+           && layer.Region.Kind == TargetRegionKind.Empty;
+
+    public ImmutableArray<RenderFragmentReference> ExecutionInputs
+        => SuppressesInputExecution
+            ? ImmutableArray<RenderFragmentReference>.Empty
+            : Inputs;
+
     public object? Payload { get; }
 
     public RenderFragmentId? Id { get; set; }
@@ -249,8 +259,11 @@ internal sealed class RenderFragmentReference
 
     private bool ComputePotentiallyWritesTarget()
     {
-        bool replayWrites = Inputs.Any(static input =>
-            input.ContributesValuesToTarget || input.PotentiallyWritesTarget);
+        bool replayWrites = Kind == RenderFragmentKind.OpacityMask
+            ? Inputs.Length > 0
+              && (Inputs[0].ContributesValuesToTarget || Inputs[0].PotentiallyWritesTarget)
+            : Inputs.Any(static input =>
+                input.ContributesValuesToTarget || input.PotentiallyWritesTarget);
         return Kind switch
         {
             RenderFragmentKind.TargetCommand
@@ -378,8 +391,12 @@ internal static class TargetWriteMetadataResolver
     {
         Rect result = default;
         bool hasBounds = false;
-        foreach (RenderFragmentReference input in reference.Inputs)
+        int inputCount = reference.Kind == RenderFragmentKind.OpacityMask
+            ? Math.Min(1, reference.Inputs.Length)
+            : reference.Inputs.Length;
+        for (int i = 0; i < inputCount; i++)
         {
+            RenderFragmentReference input = reference.Inputs[i];
             if (input.ContributesValuesToTarget)
             {
                 if (!input.HasConcreteRecordingMetadata)
@@ -454,8 +471,12 @@ internal static class TargetWriteMetadataResolver
     {
         Rect result = default;
         bool hasBounds = false;
-        foreach (RenderFragmentReference input in reference.Inputs)
+        int inputCount = reference.Kind == RenderFragmentKind.OpacityMask
+            ? Math.Min(1, reference.Inputs.Length)
+            : reference.Inputs.Length;
+        for (int i = 0; i < inputCount; i++)
         {
+            RenderFragmentReference input = reference.Inputs[i];
             if (input.ContributesValuesToTarget)
             {
                 result = result.Union(input.Bounds);

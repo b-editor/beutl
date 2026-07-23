@@ -130,11 +130,13 @@ public sealed class RenderTargetPoolTests
         PooledRenderTargetLease firstLease;
         PooledRenderTargetLease secondLease;
         PooledRenderTargetLease thirdLease;
+        TrackingRenderTarget firstTarget;
         using (RenderTargetPoolRequest request = pool.BeginRequest())
         {
             firstLease = request.Acquire(new PixelSize(2, 2)); // 32 bytes
             secondLease = request.Acquire(new PixelSize(3, 2)); // 48 bytes
             thirdLease = request.Acquire(new PixelSize(1, 1)); // 8 bytes
+            firstTarget = (TrackingRenderTarget)firstLease.Target;
             firstLease.Dispose();
             secondLease.Dispose();
             thirdLease.Dispose();
@@ -143,7 +145,7 @@ public sealed class RenderTargetPoolTests
         Assert.Multiple(() =>
         {
             Assert.That(firstLease.State, Is.EqualTo(PooledRenderTargetLeaseState.Evicted));
-            Assert.That(firstLease.Target.IsDisposed, Is.True);
+            Assert.That(firstTarget.IsDisposed, Is.True);
             Assert.That(secondLease.State, Is.EqualTo(PooledRenderTargetLeaseState.Available));
             Assert.That(thirdLease.State, Is.EqualTo(PooledRenderTargetLeaseState.Available));
             Assert.That(pool.Statistics.RetainedBytes, Is.EqualTo(56));
@@ -163,22 +165,24 @@ public sealed class RenderTargetPoolTests
                 MaximumIdleRequests = 1,
             });
         PooledRenderTargetLease oldLease;
+        TrackingRenderTarget oldTarget;
         using (RenderTargetPoolRequest request = pool.BeginRequest())
         {
             oldLease = request.Acquire(new PixelSize(2, 2));
+            oldTarget = (TrackingRenderTarget)oldLease.Target;
             oldLease.Dispose();
         }
 
         using (RenderTargetPoolRequest request = pool.BeginRequest())
             request.Acquire(new PixelSize(3, 3)).Dispose();
 
-        Assert.That(oldLease.Target.IsDisposed, Is.False);
+        Assert.That(oldTarget.IsDisposed, Is.False);
         using (pool.BeginRequest())
         {
             Assert.Multiple(() =>
             {
                 Assert.That(oldLease.State, Is.EqualTo(PooledRenderTargetLeaseState.Evicted));
-                Assert.That(oldLease.Target.IsDisposed, Is.True);
+                Assert.That(oldTarget.IsDisposed, Is.True);
             });
         }
     }
@@ -188,9 +192,11 @@ public sealed class RenderTargetPoolTests
     {
         using var pool = new RenderTargetPool(new TrackingTargetFactory());
         PooledRenderTargetLease first;
+        RenderTarget firstTarget;
         using (RenderTargetPoolRequest request = pool.BeginRequest())
         {
             first = request.Acquire(new PixelSize(4, 4));
+            firstTarget = first.Target;
             first.Dispose();
         }
 
@@ -199,7 +205,7 @@ public sealed class RenderTargetPoolTests
 
         Assert.Multiple(() =>
         {
-            Assert.That(second.Target, Is.SameAs(first.Target));
+            Assert.That(second.Target, Is.SameAs(firstTarget));
             Assert.That(second.Generation, Is.GreaterThan(first.Generation));
             Assert.That(
                 () => first.Dispose(),
@@ -213,6 +219,25 @@ public sealed class RenderTargetPoolTests
     }
 
     [Test]
+    public void DischargedLease_RejectsTargetAndDeviceSizeAccess()
+    {
+        using var pool = new RenderTargetPool(new TrackingTargetFactory());
+        using RenderTargetPoolRequest request = pool.BeginRequest();
+        PooledRenderTargetLease lease = request.Acquire(new PixelSize(4, 4));
+        lease.Dispose();
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(
+                () => _ = lease.Target,
+                Throws.InvalidOperationException.With.Message.Contains("already been discharged"));
+            Assert.That(
+                () => _ = lease.DeviceSize,
+                Throws.InvalidOperationException.With.Message.Contains("already been discharged"));
+        });
+    }
+
+    [Test]
     public void ContextRecreation_EvictsOldBucketsBeforeAllocation()
     {
         var factory = new TrackingTargetFactory();
@@ -220,9 +245,11 @@ public sealed class RenderTargetPoolTests
         object firstContext = new();
         object secondContext = new();
         PooledRenderTargetLease firstLease;
+        TrackingRenderTarget firstTarget;
         using (RenderTargetPoolRequest request = pool.BeginRequestForContext(firstContext, 0))
         {
             firstLease = request.Acquire(new PixelSize(5, 5));
+            firstTarget = (TrackingRenderTarget)firstLease.Target;
             firstLease.Dispose();
         }
 
@@ -232,8 +259,8 @@ public sealed class RenderTargetPoolTests
         Assert.Multiple(() =>
         {
             Assert.That(firstLease.State, Is.EqualTo(PooledRenderTargetLeaseState.Evicted));
-            Assert.That(firstLease.Target.IsDisposed, Is.True);
-            Assert.That(secondLease.Target, Is.Not.SameAs(firstLease.Target));
+            Assert.That(firstTarget.IsDisposed, Is.True);
+            Assert.That(secondLease.Target, Is.Not.SameAs(firstTarget));
             Assert.That(pool.Statistics.Creates, Is.EqualTo(2));
         });
     }

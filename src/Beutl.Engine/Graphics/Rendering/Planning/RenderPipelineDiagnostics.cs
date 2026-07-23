@@ -240,10 +240,14 @@ internal sealed class RenderPipelineDiagnosticRecorder
         string rootTargetClass)
     {
         ArgumentNullException.ThrowIfNull(request);
+        IRenderPipelineDiagnosticsState? state = request.Options.Diagnostics;
+        if (state is null)
+            return null;
+
         try
         {
             return new RenderPipelineDiagnosticRecorder(
-                request.Options.Diagnostics,
+                state,
                 request.Options.Intent,
                 request.Options.Purpose,
                 rootTargetClass,
