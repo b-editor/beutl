@@ -46,7 +46,7 @@ public class ThemeCaptureTests
 
     private static string Capture(Window window, string name)
     {
-        WriteableBitmap? frame = window.CaptureRenderedFrame();
+        using WriteableBitmap? frame = window.CaptureRenderedFrame();
         Assert.That(frame, Is.Not.Null, "Headless frame capture returned null.");
 
         Directory.CreateDirectory(OutputDirectory);
@@ -218,8 +218,8 @@ public class ThemeCaptureTests
     [AvaloniaTest]
     public async Task Capture_editor_shell_dark()
     {
-        Application.Current!.RequestedThemeVariant = ThemeVariant.Dark;
         await TestReset.ResetShellAsync();
+        Application.Current!.RequestedThemeVariant = ThemeVariant.Dark;
         EditViewModel editor = await OpenEditorForNewScene("themecapture");
         for (int layer = 0; layer < 3; layer++)
         {
@@ -291,8 +291,8 @@ public class ThemeCaptureTests
     [AvaloniaTest]
     public async Task Capture_element_properties_dark()
     {
-        Application.Current!.RequestedThemeVariant = ThemeVariant.Dark;
         await TestReset.ResetShellAsync();
+        Application.Current!.RequestedThemeVariant = ThemeVariant.Dark;
         EditViewModel editor = await OpenEditorForNewScene("inspectorcapture");
 
         var adder = (IElementAdder)editor.GetService(typeof(IElementAdder))!;
@@ -366,8 +366,8 @@ public class ThemeCaptureTests
     [AvaloniaTest]
     public async Task Capture_library_dark()
     {
-        Application.Current!.RequestedThemeVariant = ThemeVariant.Dark;
         await TestReset.ResetShellAsync();
+        Application.Current!.RequestedThemeVariant = ThemeVariant.Dark;
         EditViewModel editor = await OpenEditorForNewScene("librarycapture");
 
         LibraryTabViewModel? library = editor.FindToolTab<LibraryTabViewModel>();
@@ -420,8 +420,8 @@ public class ThemeCaptureTests
     [AvaloniaTest]
     public async Task Capture_file_browser_dark()
     {
-        Application.Current!.RequestedThemeVariant = ThemeVariant.Dark;
         await TestReset.ResetShellAsync();
+        Application.Current!.RequestedThemeVariant = ThemeVariant.Dark;
         EditViewModel editor = await OpenEditorForNewScene("filebrowsercapture");
 
         FileBrowserTabViewModel? browser = editor.FindToolTab<FileBrowserTabViewModel>();

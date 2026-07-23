@@ -251,8 +251,8 @@
 
     <LinearGradientBrush x:Key="CircleElevationBorderBrush" StartPoint="0,0" EndPoint="0,1">
     <LinearGradientBrush.GradientStops>
-    <GradientStop Offset="0.70" Color="{StaticResource ControlStrokeColorSecondary}"/>
     <GradientStop Offset="0.50" Color="{StaticResource ControlStrokeColorDefault}"/>
+    <GradientStop Offset="0.70" Color="{StaticResource ControlStrokeColorSecondary}"/>
     </LinearGradientBrush.GradientStops>
     </LinearGradientBrush>
 

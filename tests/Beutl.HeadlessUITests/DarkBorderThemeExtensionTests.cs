@@ -63,7 +63,7 @@ public class DarkBorderThemeExtensionTests
         ClearRegistry();
         FluentAvaloniaTheme theme = Application.Current!.Styles.OfType<FluentAvaloniaTheme>().Single();
         var config = new ViewConfig { Theme = BuiltinThemeIds.Light };
-        using var service = new ThemeService(theme, config);
+        var service = new ThemeService(theme, config);
         var extension = new DarkBorderThemeExtension();
         try
         {
@@ -88,8 +88,12 @@ public class DarkBorderThemeExtensionTests
         }
         finally
         {
+            // Dispose before touching the registry: Unregister raises Changed synchronously, and a
+            // live service would post a ResolveAndApply job that outlives this test's cleanup.
+            service.Dispose();
             extension.Unload();
             ClearRegistry();
+            Dispatcher.UIThread.RunJobs();
             Application.Current!.RequestedThemeVariant = ThemeVariant.Dark;
         }
     }
