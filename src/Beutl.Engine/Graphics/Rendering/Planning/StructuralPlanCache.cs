@@ -11,13 +11,14 @@ internal readonly record struct StructuralPlanCacheStatistics(
     int RetainedPlans);
 
 /// <summary>
-/// Retains the last structural request plan for a renderer. Hashes only select the candidate bucket;
-/// the complete structural identity must still compare equal before a plan is rebound to a new request.
+/// Retains the last structural request family for a renderer. Each stable depth-first family slot keeps
+/// one candidate; hashes only select that candidate and the complete structural identity must still compare
+/// equal before a plan is rebound to a new request.
 /// </summary>
 internal sealed class StructuralPlanCache : IDisposable
 {
     private readonly object _gate = new();
-    private Entry? _entry;
+    private readonly Dictionary<int, Entry> _entries = [];
     private long _hits;
     private long _misses;
     private long _compilations;
@@ -35,7 +36,7 @@ internal sealed class StructuralPlanCache : IDisposable
                     _misses,
                     _compilations,
                     _replacements,
-                    _entry is null ? 0 : 1);
+                    _entries.Count);
             }
         }
     }
@@ -44,17 +45,19 @@ internal sealed class StructuralPlanCache : IDisposable
         StructuralPlanIdentity identity,
         RecordedRenderGraph graph,
         Func<ExecutionIslandPlan> compile,
-        int? bucketHashOverride = null)
+        int? bucketHashOverride = null,
+        int familySlot = 0)
     {
         ArgumentNullException.ThrowIfNull(identity);
         ArgumentNullException.ThrowIfNull(graph);
         ArgumentNullException.ThrowIfNull(compile);
+        ArgumentOutOfRangeException.ThrowIfNegative(familySlot);
 
         lock (_gate)
         {
             ObjectDisposedException.ThrowIf(_disposed, this);
             int bucketHash = bucketHashOverride ?? identity.GetHashCode();
-            if (_entry is { } entry
+            if (_entries.TryGetValue(familySlot, out Entry? entry)
                 && entry.BucketHash == bucketHash
                 && entry.Identity.Equals(identity))
             {
@@ -65,11 +68,22 @@ internal sealed class StructuralPlanCache : IDisposable
             _misses++;
             ExecutionIslandPlan compiled = compile();
             StructuralExecutionPlanTemplate template = StructuralExecutionPlanTemplate.Create(compiled, graph);
-            if (_entry is not null)
+            if (entry is not null)
                 _replacements++;
-            _entry = new Entry(bucketHash, identity, template);
+            _entries[familySlot] = new Entry(bucketHash, identity, template);
             _compilations++;
             return compiled;
+        }
+    }
+
+    public void RetainFamilySlots(int count)
+    {
+        ArgumentOutOfRangeException.ThrowIfNegative(count);
+        lock (_gate)
+        {
+            ObjectDisposedException.ThrowIf(_disposed, this);
+            foreach (int slot in _entries.Keys.Where(slot => slot >= count).ToArray())
+                _entries.Remove(slot);
         }
     }
 
@@ -81,7 +95,7 @@ internal sealed class StructuralPlanCache : IDisposable
                 return;
 
             _disposed = true;
-            _entry = null;
+            _entries.Clear();
         }
     }
 

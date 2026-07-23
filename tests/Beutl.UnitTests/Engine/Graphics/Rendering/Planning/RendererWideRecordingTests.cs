@@ -39,6 +39,85 @@ public sealed class RendererWideRecordingTests
     }
 
     [Test]
+    [NonParallelizable]
+    [Category("GpuPassFusionGpu")]
+    public void CacheMutations_FromCallerThread_DisposeCachedTreesOnRenderThread()
+    {
+        VulkanTestEnvironment.EnsureAvailable();
+        var state = new CacheMutationThreadState();
+        var drawable = new CacheMutationThreadProbeDrawable(state);
+        using var resource = (Drawable.Resource)drawable.ToResource(CompositionContext.Default);
+        var frame = new CompositionFrame(
+            ImmutableArray.Create<EngineObject.Resource>(resource),
+            new TimeRange(TimeSpan.Zero, TimeSpan.FromSeconds(1)),
+            new PixelSize(8, 8));
+        Renderer renderer = VulkanTestEnvironment.InvokeOnRenderThread(() =>
+        {
+            var result = new Renderer(8, 8);
+            result.Render(frame);
+            return result;
+        });
+
+        try
+        {
+            Assert.That(RenderThread.Dispatcher.CheckAccess(), Is.False);
+
+            renderer.ClearAllCaches();
+            Assert.That(state.DisposedOnRenderThread, Is.EqualTo(new[] { true }));
+
+            VulkanTestEnvironment.InvokeOnRenderThread(() => renderer.Render(frame));
+            renderer.CacheOptions = RenderCacheOptions.Disabled;
+
+            Assert.Multiple(() =>
+            {
+                Assert.That(state.DisposedOnRenderThread, Is.EqualTo(new[] { true, true }));
+                Assert.That(renderer.CacheOptions, Is.EqualTo(RenderCacheOptions.Disabled));
+            });
+        }
+        finally
+        {
+            VulkanTestEnvironment.InvokeOnRenderThread(renderer.Dispose);
+        }
+    }
+
+    [Test]
+    [NonParallelizable]
+    [Category("GpuPassFusionGpu")]
+    public void Detachment_FromCallerThread_DisposesCachedTreeOnRenderThread()
+    {
+        VulkanTestEnvironment.EnsureAvailable();
+        var state = new CacheMutationThreadState();
+        var root = new CacheMutationHierarchyRoot();
+        var drawable = new CacheMutationThreadProbeDrawable(state);
+        root.Attach(drawable);
+        using var resource = (Drawable.Resource)drawable.ToResource(CompositionContext.Default);
+        var frame = new CompositionFrame(
+            ImmutableArray.Create<EngineObject.Resource>(resource),
+            new TimeRange(TimeSpan.Zero, TimeSpan.FromSeconds(1)),
+            new PixelSize(8, 8));
+        Renderer renderer = VulkanTestEnvironment.InvokeOnRenderThread(() =>
+        {
+            var result = new Renderer(8, 8);
+            result.Render(frame);
+            return result;
+        });
+
+        try
+        {
+            Assert.That(RenderThread.Dispatcher.CheckAccess(), Is.False);
+
+            root.Detach(drawable);
+            VulkanTestEnvironment.InvokeOnRenderThread(static () => { });
+
+            Assert.That(state.DisposedOnRenderThread, Is.EqualTo(new[] { true }));
+        }
+        finally
+        {
+            VulkanTestEnvironment.InvokeOnRenderThread(renderer.Dispose);
+        }
+    }
+
+    [Test]
     public void CompleteTarget_RecordsEveryOrderedRootBeforeAnyExecution()
     {
         bool[] recorded = new bool[3];
@@ -294,6 +373,33 @@ public sealed class RendererWideRecordingTests
             => new CpuRenderTarget(deviceSize.Width, deviceSize.Height);
     }
 
+    private sealed class CacheMutationHierarchyRoot : Hierarchical, IHierarchicalRoot
+    {
+        public event EventHandler<IHierarchical>? DescendantAttached;
+
+        public event EventHandler<IHierarchical>? DescendantDetached;
+
+        public void Attach(IHierarchical child)
+        {
+            ((IModifiableHierarchical)this).AddChild(child);
+        }
+
+        public void Detach(IHierarchical child)
+        {
+            ((IModifiableHierarchical)this).RemoveChild(child);
+        }
+
+        public void OnDescendantAttached(IHierarchical descendant)
+        {
+            DescendantAttached?.Invoke(this, descendant);
+        }
+
+        public void OnDescendantDetached(IHierarchical descendant)
+        {
+            DescendantDetached?.Invoke(this, descendant);
+        }
+    }
+
     private sealed class CpuRenderTarget(int width, int height)
         : RenderTarget(
             SKSurface.Create(new SKImageInfo(
@@ -367,5 +473,55 @@ internal sealed class ProductionTreeProbeNode(
             structuralKey: (typeof(ProductionTreeProbeNode), index),
             runtimeIdentity: new RenderRuntimeIdentity(index));
         context.Publish(context.OpaqueSource(description));
+    }
+}
+
+internal sealed class CacheMutationThreadState
+{
+    public List<bool> DisposedOnRenderThread { get; } = [];
+}
+
+// Top-level partial because EngineObjectResourceGenerator does not support nested types.
+internal sealed partial class CacheMutationThreadProbeDrawable(
+    CacheMutationThreadState state) : Drawable
+{
+    public override void Render(GraphicsContext2D context, Drawable.Resource resource)
+    {
+        context.DrawNode(new CacheMutationThreadProbeNode(state));
+    }
+
+    protected override Size MeasureCore(Size availableSize, Drawable.Resource resource) => new(8, 8);
+
+    protected override void OnDraw(GraphicsContext2D context, Drawable.Resource resource)
+    {
+    }
+}
+
+internal sealed class CacheMutationThreadProbeNode(
+    CacheMutationThreadState state) : RenderNode
+{
+    public override void Process(RenderNodeContext context)
+    {
+        OpaqueRenderDescription description = OpaqueRenderDescription.Create(
+            session =>
+            {
+                using OpaqueRenderOutput output = session.CreateOutput(session.OutputBounds);
+                output.Canvas.Use(canvas => canvas.Clear(new Color(255, 32, 64, 96)));
+                session.Publish(output);
+            },
+            RenderOperationBoundsContract.Source(new Rect(0, 0, 8, 8)),
+            RenderHitTestContract.OutputBounds,
+            RenderValueCardinality.Single,
+            RenderScaleContract.MaterializeAtWorkingScale,
+            structuralKey: typeof(CacheMutationThreadProbeNode),
+            runtimeIdentity: new RenderRuntimeIdentity(typeof(CacheMutationThreadProbeNode)));
+        context.Publish(context.OpaqueSource(description));
+    }
+
+    protected override void OnDispose(bool disposing)
+    {
+        if (disposing)
+            state.DisposedOnRenderThread.Add(RenderThread.Dispatcher.CheckAccess());
+        base.OnDispose(disposing);
     }
 }

@@ -682,9 +682,11 @@ internal sealed class RenderFragmentOutputIdentity : IEquatable<RenderFragmentOu
                 AddResources(mask.Resources, components);
                 return;
             case ShaderRenderFragmentPayload shader:
+                components.Add(shader.Description.StructuralIdentity);
                 components.Add(shader.RuntimeIdentity);
                 return;
             case GeometryRenderFragmentPayload geometry:
+                components.Add(geometry.Description.StructuralIdentity);
                 components.Add(geometry.RuntimeIdentity);
                 AddResources(geometry.Description.Resources, components);
                 return;

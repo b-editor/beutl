@@ -61,7 +61,16 @@ internal sealed class RenderRequestCompiler
             var measurements = new Dictionary<RenderRequest, RenderNodeMeasurement>(
                 ReferenceEqualityComparer.Instance);
             ResolveMetadataFamily(request, graph, measurements, context);
-            return CompileFamily(request, graph, measurements, shaderBudget, context);
+            int nextStructuralPlanSlot = 0;
+            CompiledRenderRequest compiled = CompileFamily(
+                request,
+                graph,
+                measurements,
+                shaderBudget,
+                context,
+                ref nextStructuralPlanSlot);
+            _structuralPlanCache?.RetainFamilySlots(nextStructuralPlanSlot);
+            return compiled;
         }
         catch (Exception ex)
         {
@@ -104,7 +113,16 @@ internal sealed class RenderRequestCompiler
                 [request] = measurement,
             };
             CollectNestedMetadata(graph, measurements, context);
-            return CompileFamily(request, graph, measurements, shaderBudget, context);
+            int nextStructuralPlanSlot = 0;
+            CompiledRenderRequest compiled = CompileFamily(
+                request,
+                graph,
+                measurements,
+                shaderBudget,
+                context,
+                ref nextStructuralPlanSlot);
+            _structuralPlanCache?.RetainFamilySlots(nextStructuralPlanSlot);
+            return compiled;
         }
         catch (Exception ex)
         {
@@ -179,7 +197,8 @@ internal sealed class RenderRequestCompiler
         RecordedRenderGraph graph,
         IReadOnlyDictionary<RenderRequest, RenderNodeMeasurement> measurements,
         SkslBackendBudget shaderBudget,
-        FamilyCompilationContext context)
+        FamilyCompilationContext context,
+        ref int nextStructuralPlanSlot)
     {
         var nested = ImmutableArray.CreateBuilder<CompiledRenderRequest>(graph.NestedRequests.Length);
         foreach (RecordedNestedRenderRequest recordedNested in graph.NestedRequests)
@@ -189,16 +208,19 @@ internal sealed class RenderRequestCompiler
                 recordedNested.Graph,
                 measurements,
                 shaderBudget,
-                context));
+                context,
+                ref nextStructuralPlanSlot));
         }
 
+        int structuralPlanSlot = nextStructuralPlanSlot++;
         return CompileSingle(
             request,
             graph,
             measurements[request],
             shaderBudget,
             nested.MoveToImmutable(),
-            context);
+            context,
+            structuralPlanSlot);
     }
 
     private CompiledRenderRequest CompileSingle(
@@ -207,7 +229,8 @@ internal sealed class RenderRequestCompiler
         RenderNodeMeasurement measurement,
         SkslBackendBudget shaderBudget,
         ImmutableArray<CompiledRenderRequest> nestedRequests,
-        FamilyCompilationContext context)
+        FamilyCompilationContext context,
+        int structuralPlanSlot)
     {
         context.Set(request, RenderPipelineFailurePhase.RegionAnalysis);
         if (request.State != RenderRequestState.MetadataResolved)
@@ -265,7 +288,8 @@ internal sealed class RenderRequestCompiler
                     roots,
                     cacheResolution,
                     request.Options.FusionMode,
-                    shaderBudget));
+                    shaderBudget),
+                familySlot: structuralPlanSlot);
             StructuralPlanCacheStatistics after = _structuralPlanCache.Statistics;
             diagnostics?.RecordStructuralPlanDecision(
                 cacheHit: after.Hits > before.Hits,
@@ -455,12 +479,15 @@ internal static class TargetDependencyLowerer
             return scopeId;
         }
 
-        public void LowerRoot(RenderFragmentReference reference, TargetScopeId scopeId)
+        public void LowerRoot(
+            RenderFragmentReference reference,
+            TargetScopeId scopeId,
+            bool compositeOutput = true)
         {
             switch (reference.Kind)
             {
                 case RenderFragmentKind.Layer:
-                    LowerFiniteLayer(reference, scopeId);
+                    LowerFiniteLayer(reference, scopeId, compositeOutput);
                     return;
                 case RenderFragmentKind.TargetLayerScope:
                     LowerTargetLayerScope(reference, scopeId);
@@ -468,7 +495,7 @@ internal static class TargetDependencyLowerer
                 case RenderFragmentKind.TargetCapture:
                 case RenderFragmentKind.BuiltInBackdropCapture:
                     LowerCapture(reference, scopeId);
-                    if (reference.ContributesValuesToTarget)
+                    if (compositeOutput && reference.ContributesValuesToTarget)
                         AddStep(reference, scopeId, TargetDependencyKind.Composite, FirstInputValue(reference), null);
                     return;
                 case RenderFragmentKind.TargetCommand:
@@ -477,24 +504,34 @@ internal static class TargetDependencyLowerer
                     LowerCommand(reference, scopeId);
                     return;
                 case RenderFragmentKind.TargetScope:
-                    LowerScopeWrapper(reference, scopeId);
+                    LowerScopeWrapper(reference, scopeId, compositeOutput);
                     return;
                 case RenderFragmentKind.RawTargetScope:
                     ValidateFullDomain(reference, scopeId);
-                    LowerScopeWrapper(reference, scopeId);
+                    LowerScopeWrapper(reference, scopeId, compositeOutput);
                     return;
                 case RenderFragmentKind.ContributeValues:
                     LowerDependencies(reference, scopeId);
-                    AddStep(reference, scopeId, TargetDependencyKind.Composite, FirstInputValue(reference), null);
+                    if (compositeOutput)
+                    {
+                        AddStep(
+                            reference,
+                            scopeId,
+                            TargetDependencyKind.Composite,
+                            FirstInputValue(reference),
+                            null);
+                    }
                     return;
                 case RenderFragmentKind.Blend:
                 case RenderFragmentKind.Opacity:
+                    LowerScopeWrapper(reference, scopeId, compositeOutput);
+                    return;
                 case RenderFragmentKind.OpacityMask:
-                    LowerScopeWrapper(reference, scopeId);
+                    LowerOpacityMask(reference, scopeId, compositeOutput);
                     return;
                 default:
                     LowerDependencies(reference, scopeId);
-                    if (reference.ContributesValuesToTarget)
+                    if (compositeOutput && reference.ContributesValuesToTarget)
                         AddStep(reference, scopeId, TargetDependencyKind.Composite, FirstValue(reference), null);
                     return;
             }
@@ -504,7 +541,8 @@ internal static class TargetDependencyLowerer
 
         private void LowerFiniteLayer(
             RenderFragmentReference reference,
-            TargetScopeId parentScope)
+            TargetScopeId parentScope,
+            bool compositeOutput)
         {
             Rect domain = ((LayerRenderFragmentPayload)reference.Payload!).Domain
                 ?? reference.Bounds;
@@ -515,7 +553,7 @@ internal static class TargetDependencyLowerer
             foreach (RenderFragmentReference input in reference.Inputs)
                 LowerRoot(input, childScope);
 
-            if (reference.ContributesValuesToTarget)
+            if (compositeOutput && reference.ContributesValuesToTarget)
             {
                 AddStep(
                     reference,
@@ -554,7 +592,8 @@ internal static class TargetDependencyLowerer
 
         private void LowerScopeWrapper(
             RenderFragmentReference reference,
-            TargetScopeId scopeId)
+            TargetScopeId scopeId,
+            bool compositeOutput)
         {
             Rect? authoredDomain = MapDomainIntoScope(reference, GetDomain(scopeId));
             TargetScopeId authoredScope = CreateScope(
@@ -568,11 +607,48 @@ internal static class TargetDependencyLowerer
                 if (input.HasTargetEffects)
                 {
                     childHasEffects = true;
-                    LowerRoot(input, authoredScope);
+                    LowerRoot(input, authoredScope, compositeOutput);
                 }
             }
 
-            if (reference.ContributesValuesToTarget && !childHasEffects)
+            if (compositeOutput && reference.ContributesValuesToTarget && !childHasEffects)
+            {
+                AddStep(reference, authoredScope, TargetDependencyKind.Composite, FirstValue(reference), null);
+            }
+
+            _currentTokens[scopeId] = _currentTokens[authoredScope];
+        }
+
+        private void LowerOpacityMask(
+            RenderFragmentReference reference,
+            TargetScopeId scopeId,
+            bool compositeOutput)
+        {
+            for (int i = 1; i < reference.Inputs.Length; i++)
+            {
+                RenderFragmentReference dependency = reference.Inputs[i];
+                if (dependency.HasTargetEffects)
+                    LowerRoot(dependency, scopeId, compositeOutput: false);
+            }
+
+            Rect? authoredDomain = MapDomainIntoScope(reference, GetDomain(scopeId));
+            TargetScopeId authoredScope = CreateScope(
+                scopeId,
+                reference,
+                authoredDomain,
+                inheritParentToken: true);
+            bool childHasEffects = false;
+            if (!reference.Inputs.IsDefaultOrEmpty)
+            {
+                RenderFragmentReference primary = reference.Inputs[0];
+                if (primary.HasTargetEffects)
+                {
+                    childHasEffects = true;
+                    LowerRoot(primary, authoredScope, compositeOutput);
+                }
+            }
+
+            if (compositeOutput && reference.ContributesValuesToTarget && !childHasEffects)
             {
                 AddStep(reference, authoredScope, TargetDependencyKind.Composite, FirstValue(reference), null);
             }
@@ -637,7 +713,7 @@ internal static class TargetDependencyLowerer
                 if (!input.HasTargetEffects)
                     continue;
 
-                LowerRoot(input, scopeId);
+                LowerRoot(input, scopeId, compositeOutput: false);
             }
         }
 

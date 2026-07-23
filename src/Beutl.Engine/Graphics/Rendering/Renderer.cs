@@ -27,11 +27,25 @@ public class Renderer : IRenderer
         {
             try
             {
-                Dispose();
+                var dispatcher = RenderThread.Dispatcher;
+                if (!dispatcher.HasShutdownStarted)
+                {
+                    dispatcher.Dispatch(() =>
+                    {
+                        try
+                        {
+                            Dispose();
+                        }
+                        catch
+                        {
+                            // Finalizers cannot surface renderer or node cleanup failures.
+                        }
+                    }, ct: CancellationToken.None);
+                }
             }
             catch
             {
-                // Finalizers cannot surface renderer or node cleanup failures.
+                // Finalizers cannot surface dispatch failures.
             }
         }
 
@@ -45,6 +59,7 @@ public class Renderer : IRenderer
 
         public void Dispose()
         {
+            RenderThread.Dispatcher.VerifyAccess();
             if (!IsDisposed)
             {
                 IsDisposed = true;
@@ -203,8 +218,7 @@ public class Renderer : IRenderer
         SafeStep(nameof(_frameClear), () => _frameClear?.Dispose());
         SafeStep(nameof(_immediateCanvas), () => _immediateCanvas?.Dispose());
         SafeStep(nameof(_surface), () => _surface?.Dispose());
-        SafeStep(nameof(ClearAllCaches), ClearAllCaches);
-        SafeStep(nameof(DisposeAllEntries), DisposeAllEntries);
+        SafeStep(nameof(DispatchFinalizerEntryCleanup), DispatchFinalizerEntryCleanup);
     }
 
     private volatile bool _isDisposed;
@@ -219,15 +233,10 @@ public class Renderer : IRenderer
         set
         {
             ArgumentNullException.ThrowIfNull(value);
-            ClearAllCaches();
-            _cacheOptions = value;
-            RenderNodeRenderer replacement = CreateEntryRenderer(
-                _completeTarget,
-                RenderRequestPurpose.Frame,
-                _diagnostics);
-            RenderNodeRenderer previous = _frameRenderer;
-            _frameRenderer = replacement;
-            previous.Dispose();
+            if (RenderThread.Dispatcher.CheckAccess())
+                SetCacheOptionsCore(value);
+            else
+                RenderThread.Dispatcher.Invoke(() => SetCacheOptionsCore(value));
         }
     }
 
@@ -413,18 +422,33 @@ public class Renderer : IRenderer
         {
             if (sender is not Drawable senderDrawable) return;
 
-            if (weakRef.TryGetTarget(out Renderer? renderer)
-                && renderer._nodeCache.TryGetValue(senderDrawable, out Entry? entry))
+            if (weakRef.TryGetTarget(out Renderer? renderer))
             {
-                RenderNodeCacheHelper.ClearCache(entry.Node);
-                entry.Dispose();
-                renderer._nodeCache.Remove(senderDrawable);
+                renderer.EvictEntry(senderDrawable);
             }
 
             senderDrawable.DetachedFromHierarchy -= Handler;
         }
 
         drawable.DetachedFromHierarchy += Handler;
+    }
+
+    private void EvictEntry(Drawable drawable)
+    {
+        if (RenderThread.Dispatcher.CheckAccess())
+            EvictEntryCore(drawable);
+        else
+            RenderThread.Dispatcher.Invoke(() => EvictEntryCore(drawable));
+    }
+
+    private void EvictEntryCore(Drawable drawable)
+    {
+        RenderThread.Dispatcher.VerifyAccess();
+        if (_nodeCache.TryGetValue(drawable, out Entry? entry))
+        {
+            _nodeCache.Remove(drawable);
+            DisposeEntryCore(entry, clearCache: true);
+        }
     }
 
     private static void RevalidateAll(RenderNode current)
@@ -616,6 +640,28 @@ public class Renderer : IRenderer
 
     public void ClearAllCaches()
     {
+        if (RenderThread.Dispatcher.CheckAccess())
+            ClearAllCachesCore();
+        else
+            RenderThread.Dispatcher.Invoke(ClearAllCachesCore);
+    }
+
+    private void SetCacheOptionsCore(RenderCacheOptions value)
+    {
+        ClearAllCachesCore();
+        _cacheOptions = value;
+        RenderNodeRenderer replacement = CreateEntryRenderer(
+            _completeTarget,
+            RenderRequestPurpose.Frame,
+            _diagnostics);
+        RenderNodeRenderer previous = _frameRenderer;
+        _frameRenderer = replacement;
+        previous.Dispose();
+    }
+
+    private void ClearAllCachesCore()
+    {
+        RenderThread.Dispatcher.VerifyAccess();
         var entries = _nodeCache.ToArray();
         _nodeCache.Clear();
         Exception? primary = null;
@@ -623,16 +669,7 @@ public class Renderer : IRenderer
         {
             try
             {
-                RenderNodeCacheHelper.ClearCache(item.Value.Node);
-            }
-            catch (Exception ex)
-            {
-                primary ??= ex;
-            }
-
-            try
-            {
-                item.Value.Dispose();
+                DisposeEntryCore(item.Value, clearCache: true);
             }
             catch (Exception ex)
             {
@@ -646,23 +683,81 @@ public class Renderer : IRenderer
 
     private void DisposeAllEntries()
     {
+        if (RenderThread.Dispatcher.CheckAccess())
+            DisposeAllEntriesCore();
+        else
+            RenderThread.Dispatcher.Invoke(DisposeAllEntriesCore);
+    }
+
+    private void DisposeAllEntriesCore()
+    {
+        RenderThread.Dispatcher.VerifyAccess();
+        var entries = _nodeCache.ToArray();
+        _nodeCache.Clear();
         Exception? primary = null;
-        foreach (var item in _nodeCache)
+        foreach (var item in entries)
         {
             // Compositor側でDisposeされるのでResourceはDisposeせず、NodeだけがDisposeされるようにする
             try
             {
-                item.Value.Dispose();
+                DisposeEntryCore(item.Value, clearCache: false);
             }
             catch (Exception ex)
             {
                 primary ??= ex;
             }
         }
-        _nodeCache.Clear();
 
         if (primary is not null)
             System.Runtime.ExceptionServices.ExceptionDispatchInfo.Capture(primary).Throw();
+    }
+
+    private static void DisposeEntryCore(Entry entry, bool clearCache)
+    {
+        RenderThread.Dispatcher.VerifyAccess();
+        Exception? primary = null;
+        if (clearCache)
+        {
+            try
+            {
+                RenderNodeCacheHelper.ClearCache(entry.Node);
+            }
+            catch (Exception ex)
+            {
+                primary = ex;
+            }
+        }
+
+        try
+        {
+            entry.Dispose();
+        }
+        catch (Exception ex)
+        {
+            primary ??= ex;
+        }
+
+        if (primary is not null)
+            System.Runtime.ExceptionServices.ExceptionDispatchInfo.Capture(primary).Throw();
+    }
+
+    private void DispatchFinalizerEntryCleanup()
+    {
+        var dispatcher = RenderThread.Dispatcher;
+        if (dispatcher.HasShutdownStarted)
+            return;
+
+        dispatcher.Dispatch(() =>
+        {
+            try
+            {
+                ClearAllCachesCore();
+            }
+            catch (Exception ex)
+            {
+                s_logger.LogDebug(ex, "Renderer finalizer: entry cleanup threw during last-resort disposal");
+            }
+        }, ct: CancellationToken.None);
     }
 
     public static ImmediateCanvas GetInternalCanvas(Renderer renderer)

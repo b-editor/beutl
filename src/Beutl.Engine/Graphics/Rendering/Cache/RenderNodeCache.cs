@@ -292,6 +292,16 @@ internal sealed record RenderNodeCachedValue
                 "Cached value device bounds must match the backing target size.",
                 nameof(deviceBounds));
         }
+        PixelRect semanticDeviceBounds = PixelRect.FromRect(bounds, effectiveScale.Value);
+        if (deviceBounds.X > semanticDeviceBounds.X
+            || deviceBounds.Y > semanticDeviceBounds.Y
+            || deviceBounds.Right < semanticDeviceBounds.Right
+            || deviceBounds.Bottom < semanticDeviceBounds.Bottom)
+        {
+            throw new ArgumentException(
+                "Cached value device bounds must contain its semantic bounds.",
+                nameof(deviceBounds));
+        }
 
         Target = target;
         Bounds = bounds;

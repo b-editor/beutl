@@ -1,6 +1,8 @@
-﻿using Beutl.Graphics;
+﻿using Beutl.Composition;
+using Beutl.Graphics;
 using Beutl.Graphics.Rendering;
 using Beutl.Graphics.Rendering.Cache;
+using Beutl.Graphics.Shapes;
 using Beutl.Media;
 using SkiaSharp;
 
@@ -250,6 +252,150 @@ public sealed class TargetScopeLoweringTests
     }
 
     [Test]
+    public void OpacityMask_DrawableBrushDependency_RemainsValueOnlyInTargetPlan()
+    {
+        var subjectBounds = new Rect(5, 6, 12, 8);
+        using Brush.Resource mask = CreateRemoteDrawableBrush();
+        using var root = new OpacityMaskRenderNode(mask, s_rootDomain, invert: false);
+        root.AddChild(new SourceNode(subjectBounds, "mask-subject"));
+
+        using CompiledRenderRequest compiled = Compile(root, s_rootDomain);
+        IReadOnlyDictionary<RenderFragmentId, RenderFragmentReference> references = References(compiled.Graph);
+        RenderFragmentReference maskRoot = references[compiled.Graph.PublicationRoots.Single()];
+        RenderFragmentReference maskDependency = maskRoot.Inputs[1];
+        TargetScopePlan dependencyScope = compiled.TargetDependencies.Scopes.Single(scope =>
+            scope.OwnerFragmentId == maskDependency.Id);
+        TargetDependencyStep[] steps = compiled.TargetDependencies.Steps.ToArray();
+        TargetDependencyStep rootComposite = steps.Single(step => step.FragmentId == maskRoot.Id);
+        int rootCompositeIndex = Array.IndexOf(steps, rootComposite);
+        HashSet<TargetScopeId> dependencyScopes = [dependencyScope.Id];
+        bool addedScope;
+        do
+        {
+            addedScope = false;
+            foreach (TargetScopePlan scope in compiled.TargetDependencies.Scopes)
+            {
+                if (scope.ParentId is { } parent
+                    && dependencyScopes.Contains(parent)
+                    && dependencyScopes.Add(scope.Id))
+                {
+                    addedScope = true;
+                }
+            }
+        }
+        while (addedScope);
+        int[] dependencyStepIndices = steps
+            .Select((step, index) => (step, index))
+            .Where(item => dependencyScopes.Contains(item.step.ScopeId))
+            .Select(static item => item.index)
+            .ToArray();
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(maskRoot.Kind, Is.EqualTo(RenderFragmentKind.OpacityMask));
+            Assert.That(maskDependency.Kind, Is.EqualTo(RenderFragmentKind.Layer));
+            Assert.That(maskDependency.Bounds.Intersects(subjectBounds), Is.False,
+                "The test mask dependency must stay remote from the subject bounds.");
+            Assert.That(dependencyStepIndices, Is.Not.Empty,
+                "The DrawableBrush layer must retain its internal materialization steps.");
+            Assert.That(dependencyStepIndices, Is.All.LessThan(rootCompositeIndex));
+            Assert.That(steps, Has.None.Matches<TargetDependencyStep>(step =>
+                step.FragmentId == maskDependency.Id
+                && step.Kind == TargetDependencyKind.ScopeComposite));
+            Assert.That(rootComposite.Kind, Is.EqualTo(TargetDependencyKind.Composite));
+            Assert.That(compiled.Measurement.OutputBounds, Is.EqualTo(subjectBounds));
+            Assert.That(compiled.Measurement.QueryBounds, Is.EqualTo(subjectBounds));
+            Assert.That(compiled.ExecutionTargetBounds, Is.EqualTo(subjectBounds));
+        });
+    }
+
+    [Test]
+    public void NestedOpacityMask_DrawableBrushDependencyScopesRemainInTargetPlan()
+    {
+        var subjectBounds = new Rect(5, 6, 12, 8);
+        using Brush.Resource mask = CreateRemoteDrawableBrush();
+        using var root = new OpacityRenderNode(0.5f);
+        var opacityMask = new OpacityMaskRenderNode(mask, s_rootDomain, invert: false);
+        opacityMask.AddChild(new SourceNode(subjectBounds, "nested-mask-subject"));
+        root.AddChild(opacityMask);
+
+        using CompiledRenderRequest compiled = Compile(root, s_rootDomain);
+        IReadOnlyDictionary<RenderFragmentId, RenderFragmentReference> references = References(compiled.Graph);
+        RenderFragmentReference opacityRoot = references[compiled.Graph.PublicationRoots.Single()];
+        RenderFragmentReference maskRoot = opacityRoot.Inputs.Single();
+        RenderFragmentReference maskDependency = maskRoot.Inputs[1];
+        TargetScopePlan dependencyScope = compiled.TargetDependencies.Scopes.Single(scope =>
+            scope.OwnerFragmentId == maskDependency.Id);
+        TargetDependencyStep[] steps = compiled.TargetDependencies.Steps.ToArray();
+        int maskCompositeIndex = Array.FindIndex(
+            steps,
+            step => step.FragmentId == maskRoot.Id
+                    && step.Kind == TargetDependencyKind.Composite);
+        HashSet<TargetScopeId> dependencyScopes = [dependencyScope.Id];
+        bool addedScope;
+        do
+        {
+            addedScope = false;
+            foreach (TargetScopePlan scope in compiled.TargetDependencies.Scopes)
+            {
+                if (scope.ParentId is { } parent
+                    && dependencyScopes.Contains(parent)
+                    && dependencyScopes.Add(scope.Id))
+                {
+                    addedScope = true;
+                }
+            }
+        }
+        while (addedScope);
+        int[] dependencyStepIndices = steps
+            .Select((step, index) => (step, index))
+            .Where(item => dependencyScopes.Contains(item.step.ScopeId))
+            .Select(static item => item.index)
+            .ToArray();
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(opacityRoot.Kind, Is.EqualTo(RenderFragmentKind.Opacity));
+            Assert.That(maskRoot.Kind, Is.EqualTo(RenderFragmentKind.OpacityMask));
+            Assert.That(maskDependency.Kind, Is.EqualTo(RenderFragmentKind.Layer));
+            Assert.That(maskRoot.HasTargetEffects, Is.True);
+            Assert.That(opacityRoot.HasTargetEffects, Is.True);
+            Assert.That(dependencyStepIndices, Is.Not.Empty,
+                "The nested DrawableBrush layer must retain its materialization scope.");
+            Assert.That(maskCompositeIndex, Is.GreaterThanOrEqualTo(0));
+            Assert.That(dependencyStepIndices, Is.All.LessThan(maskCompositeIndex));
+            Assert.That(compiled.Measurement.OutputBounds, Is.EqualTo(subjectBounds));
+            Assert.That(compiled.Measurement.QueryBounds, Is.EqualTo(subjectBounds));
+            Assert.That(compiled.ExecutionTargetBounds, Is.EqualTo(subjectBounds));
+        });
+    }
+
+    [Test]
+    public void OpacityMask_NonContributingCommandPrimary_ExcludesDrawableBrushDependencyFromTargetMetadata()
+    {
+        var commandBounds = new Rect(7, 8, 9, 6);
+        using Brush.Resource mask = CreateRemoteDrawableBrush();
+        using var root = new OpacityMaskRenderNode(mask, s_rootDomain, invert: false);
+        root.AddChild(new FiniteCommandNode(commandBounds));
+
+        using CompiledRenderRequest compiled = Compile(root, s_rootDomain);
+        RenderFragmentReference maskRoot = References(compiled.Graph)[compiled.Graph.PublicationRoots.Single()];
+        RenderFragmentReference maskDependency = maskRoot.Inputs[1];
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(maskRoot.Kind, Is.EqualTo(RenderFragmentKind.OpacityMask));
+            Assert.That(maskRoot.ContributesValuesToTarget, Is.False);
+            Assert.That(maskRoot.PotentiallyWritesTarget, Is.True);
+            Assert.That(maskDependency.Bounds.Intersects(commandBounds), Is.False,
+                "The test mask dependency must stay remote from the command metadata.");
+            Assert.That(compiled.Measurement.OutputBounds, Is.EqualTo(commandBounds));
+            Assert.That(compiled.Measurement.QueryBounds, Is.EqualTo(commandBounds));
+            Assert.That(compiled.ExecutionTargetBounds, Is.EqualTo(commandBounds));
+        });
+    }
+
+    [Test]
     public void RootFullTargetLayer_ReplaysAndCompositesItsLocalTarget()
     {
         using var root = new EmptyTargetLayerNode(TargetRegion.Full);
@@ -298,6 +444,36 @@ public sealed class TargetScopeLoweringTests
                 Is.EqualTo(RenderFragmentKind.OpaqueSource));
             Assert.That(compiled.Measurement.OutputBounds, Is.EqualTo(new Rect(30, 0, 10, 10)));
             Assert.That(compiled.Measurement.QueryBounds, Is.EqualTo(new Rect(30, 0, 10, 10)));
+        });
+    }
+
+    [Test]
+    public void EmptyTargetLayer_SuppressesChildExecutionAndCompletesTheIslandSchedule()
+    {
+        using var root = new ContainerRenderNode();
+        var empty = new EmptyTargetLayerNode();
+        var suppressed = new SourceNode(new Rect(0, 0, 20, 20), "suppressed");
+        var visible = new SourceNode(new Rect(30, 0, 10, 10), "visible", execute: true);
+        empty.AddChild(suppressed);
+        root.AddChild(empty);
+        root.AddChild(visible);
+        using var renderer = new RenderNodeRenderer(
+            root,
+            new RenderNodeRendererOptions
+            {
+                TargetDomain = s_rootDomain,
+                TargetFactory = new CpuTargetFactory(),
+                UseRenderCache = false,
+            });
+
+        using RenderNodeRasterization raster = renderer.Rasterize();
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(suppressed.ExecuteCount, Is.Zero);
+            Assert.That(visible.ExecuteCount, Is.EqualTo(1));
+            Assert.That(raster.Bounds, Is.EqualTo(new Rect(30, 0, 10, 10)));
+            Assert.That(AlphaAt(raster.Bitmap!, 5, 5), Is.GreaterThan(0.99f));
         });
     }
 
@@ -451,6 +627,18 @@ public sealed class TargetScopeLoweringTests
         return (float)BitConverter.UInt16BitsToHalf(row[(x * 4) + 3]);
     }
 
+    private static Brush.Resource CreateRemoteDrawableBrush()
+    {
+        var content = new RectShape();
+        content.Width.CurrentValue = 10;
+        content.Height.CurrentValue = 8;
+        content.AlignmentX.CurrentValue = AlignmentX.Right;
+        content.AlignmentY.CurrentValue = AlignmentY.Bottom;
+        content.Fill.CurrentValue = Brushes.White;
+        var brush = new DrawableBrush(content);
+        return (Brush.Resource)brush.ToResource(CompositionContext.Default);
+    }
+
     private sealed class FullCommandNode(Color? color = null) : RenderNode
     {
         private readonly Color _color = color ?? Colors.Transparent;
@@ -502,6 +690,22 @@ public sealed class TargetScopeLoweringTests
         }
     }
 
+    private sealed class FiniteCommandNode(Rect bounds) : RenderNode
+    {
+        public override void Process(RenderNodeContext context)
+        {
+            context.Publish(context.TargetCommand(
+                [],
+                TargetCommandDescription.Create(
+                    static _ => { },
+                    TargetRegion.Region(bounds),
+                    bounds,
+                    RenderHitTestContract.None,
+                    TargetAccess.ReadWrite,
+                    structuralKey: typeof(FiniteCommandNode))));
+        }
+    }
+
     private sealed class EmptyTargetLayerNode(TargetRegion? region = null) : ContainerRenderNode
     {
         private readonly TargetRegion _region = region ?? TargetRegion.Empty;
@@ -512,11 +716,14 @@ public sealed class TargetScopeLoweringTests
 
     private sealed class SourceNode(Rect bounds, string key, bool execute = false) : RenderNode
     {
+        public int ExecuteCount { get; private set; }
+
         public override void Process(RenderNodeContext context)
         {
             OpaqueRenderDescription description = OpaqueRenderDescription.Create(
                 session =>
                 {
+                    ExecuteCount++;
                     if (!execute)
                         throw new AssertionException("Metadata and lowering must not execute source callbacks.");
 

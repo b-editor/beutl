@@ -299,8 +299,7 @@ internal sealed class ExecutionIslandPlanner
                 continue;
             if (cacheHitIds.Contains(GetId(reference)))
                 continue;
-
-            foreach (RenderFragmentReference input in reference.Inputs)
+            foreach (RenderFragmentReference input in reference.ExecutionInputs)
                 reachable.Add(input);
         }
 
@@ -320,8 +319,7 @@ internal sealed class ExecutionIslandPlanner
         {
             if (cacheHitIds.Contains(GetId(reference)))
                 continue;
-
-            foreach (RenderFragmentReference input in reference.Inputs)
+            foreach (RenderFragmentReference input in reference.ExecutionInputs)
             {
                 if (!result.TryGetValue(input, out int count))
                 {

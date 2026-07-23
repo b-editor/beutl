@@ -614,6 +614,24 @@ public sealed class RenderPipelineDiagnosticsTests
     }
 
     [Test]
+    public void RequestDiagnostics_NullStateRemainsDisabled()
+    {
+        using var request = new RenderRequest(new RenderRequestOptions(
+            RenderIntent.Preview,
+            RenderRequestPurpose.Auxiliary,
+            diagnostics: null));
+
+        RenderPipelineDiagnosticRecorder? recorder = RenderRequestDiagnostics.Start(request, "Root");
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(request.Options.Diagnostics, Is.Null);
+            Assert.That(recorder, Is.Null);
+            Assert.That(RenderRequestDiagnostics.TryGet(request), Is.Null);
+        });
+    }
+
+    [Test]
     public void Recorder_CleanupOnlyFailureBecomesPrimaryAndReconciles()
     {
         var state = new RenderPipelineDiagnosticsState();

@@ -87,6 +87,49 @@ public sealed class RenderResourceOwnershipTests
     }
 
     [Test]
+    public void RolledBackBorrow_RemainsATombstoneForTheRequestFamily()
+    {
+        var value = new TrackedDisposable();
+        using var registry = new RenderRequestResourceRegistry();
+        RenderResource<TrackedDisposable> resource = registry.RegisterBorrowed(value);
+        registry.Rollback(resource);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(value.DisposeCount, Is.Zero);
+            Assert.That(() => registry.RegisterOwned(value), Throws.TypeOf<InvalidOperationException>());
+        });
+    }
+
+    [Test]
+    public void FinalRelease_DuringUseIsRejectedBeforeOwnershipMutation()
+    {
+        var value = new TrackedDisposable();
+        using var registry = new RenderRequestResourceRegistry();
+        RenderResource<TrackedDisposable> resource = registry.RegisterOwned(value);
+        registry.Commit(resource);
+
+        Assert.That(
+            () => registry.Use(resource, _ =>
+            {
+                registry.Release(resource);
+                return 0;
+            }),
+            Throws.TypeOf<InvalidOperationException>());
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(resource.RegistrationState, Is.EqualTo(RenderResourceRegistrationState.Committed));
+            Assert.That(resource.OwnershipState, Is.EqualTo(RenderResourceOwnershipState.RequestOwned));
+            Assert.That(registry.Slots, Has.Count.EqualTo(1));
+            Assert.That(value.DisposeCount, Is.Zero);
+        });
+
+        registry.Release(resource);
+        Assert.That(value.DisposeCount, Is.EqualTo(1));
+    }
+
+    [Test]
     public void ExplicitBorrowIdentity_CoalescesOnlyForMatchingKeyAndVersion()
     {
         var value = new object();

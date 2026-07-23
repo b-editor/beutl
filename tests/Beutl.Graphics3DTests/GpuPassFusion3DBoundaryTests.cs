@@ -69,6 +69,52 @@ public sealed class GpuPassFusion3DBoundaryTests
         });
     }
 
+    [Test]
+    [Category("GpuPassFusionGpu")]
+    public void Scene3D_ReusesItsRendererAcrossRequests()
+    {
+        GpuTestEnvironment.EnsureAvailable();
+        GpuTestEnvironment.InvokeOnRenderThread(() =>
+        {
+            var scene = new Scene3D();
+            scene.RenderWidth.CurrentValue = 32;
+            scene.RenderHeight.CurrentValue = 24;
+            using var resource = (Scene3D.Resource)scene.ToResource(CompositionContext.Default);
+            using var sceneNode = new Scene3DRenderNode(resource);
+            Renderer3D? firstRenderer;
+
+            using (var renderer = new RenderNodeRenderer(
+                       sceneNode,
+                       new RenderNodeRendererOptions
+                       {
+                           TargetDomain = new Rect(0, 0, 32, 24),
+                           OutputScale = 1,
+                           MaxWorkingScale = 1,
+                           UseRenderCache = false,
+                       }))
+            {
+                Assert.That(resource.Renderer, Is.Null);
+                using (renderer.Rasterize())
+                {
+                }
+
+                firstRenderer = resource.Renderer;
+                Assert.That(firstRenderer, Is.Not.Null);
+
+                using (renderer.Rasterize())
+                {
+                }
+
+                Assert.That(resource.Renderer, Is.SameAs(firstRenderer));
+            }
+
+            Assert.That(
+                resource.Renderer,
+                Is.SameAs(firstRenderer),
+                "Request and RenderNodeRenderer cleanup must not dispose the scene-owned renderer.");
+        });
+    }
+
     [TestCase(MaterialTextureDependency.BasicDiffuseMap)]
     [TestCase(MaterialTextureDependency.PbrAlbedoMap)]
     [TestCase(MaterialTextureDependency.PbrNormalMap)]

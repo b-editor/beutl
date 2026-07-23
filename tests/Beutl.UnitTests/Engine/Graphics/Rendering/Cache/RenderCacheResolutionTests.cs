@@ -1,4 +1,5 @@
 ﻿using Beutl.Graphics;
+using Beutl.Graphics.Effects;
 using Beutl.Graphics.Rendering;
 using Beutl.Graphics.Rendering.Cache;
 using Beutl.Media;
@@ -351,6 +352,81 @@ public sealed class RenderCacheResolutionTests
     }
 
     [Test]
+    public void ShaderIdentity_DifferentStructureWithSameRuntimeIdentityDoesNotHit()
+    {
+        ShaderDescription firstDescription = ShaderDescription.CurrentPixel(
+            "half4 apply(half4 color) { return color; }");
+        ShaderDescription secondDescription = ShaderDescription.CurrentPixel(
+            "half4 apply(half4 color) { return half4(color.bgr, color.a); }");
+        Assert.That(
+            secondDescription.CreateRuntimeIdentity(),
+            Is.EqualTo(firstDescription.CreateRuntimeIdentity()),
+            "The regression requires equal runtime bindings so only shader structure distinguishes the outputs.");
+
+        var lookup = new RecordingLookup();
+        RenderOutputCacheIdentity firstIdentity;
+        using (Scenario first = ShaderCandidate(firstDescription))
+        {
+            RenderCacheResolution cold = Resolve(first, lookup);
+            RenderCacheMissCapture capture = cold.MissCaptures.Single();
+            firstIdentity = capture.Identity;
+            lookup.Add(capture);
+        }
+
+        using Scenario second = ShaderCandidate(secondDescription);
+        RenderCacheResolution resolution = Resolve(second, lookup);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(resolution.Hits, Is.Empty);
+            Assert.That(resolution.MissCaptures, Has.Length.EqualTo(1));
+            Assert.That(resolution.MissCaptures.Single().Identity, Is.Not.EqualTo(firstIdentity));
+        });
+    }
+
+    [Test]
+    public void GeometryIdentity_DifferentStructureWithSameRuntimeIdentityDoesNotHit()
+    {
+        var runtimeIdentity = new RenderRuntimeIdentity("stable-geometry");
+        GeometryDescription firstDescription = GeometryDescription.Create(
+            static _ => { },
+            RenderBoundsContract.Identity,
+            RenderHitTestContract.OutputBounds,
+            structuralKey: "geometry-a",
+            runtimeIdentity);
+        GeometryDescription secondDescription = GeometryDescription.Create(
+            static _ => { },
+            RenderBoundsContract.Identity,
+            RenderHitTestContract.OutputBounds,
+            structuralKey: "geometry-b",
+            runtimeIdentity);
+        Assert.That(
+            secondDescription.RuntimeIdentity,
+            Is.EqualTo(firstDescription.RuntimeIdentity),
+            "The regression requires equal runtime state so only geometry structure distinguishes the outputs.");
+
+        var lookup = new RecordingLookup();
+        RenderOutputCacheIdentity firstIdentity;
+        using (Scenario first = GeometryCandidate(firstDescription))
+        {
+            RenderCacheResolution cold = Resolve(first, lookup);
+            RenderCacheMissCapture capture = cold.MissCaptures.Single();
+            firstIdentity = capture.Identity;
+            lookup.Add(capture);
+        }
+
+        using Scenario second = GeometryCandidate(secondDescription);
+        RenderCacheResolution resolution = Resolve(second, lookup);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(resolution.Hits, Is.Empty);
+            Assert.That(resolution.MissCaptures, Has.Length.EqualTo(1));
+            Assert.That(resolution.MissCaptures.Single().Identity, Is.Not.EqualTo(firstIdentity));
+        });
+    }
+
+    [Test]
     public void MissCapture_RetainsProducerValuesAndProvenanceWithoutChangingTokenTopology()
     {
         RenderFragmentReference source = Pure();
@@ -409,6 +485,48 @@ public sealed class RenderCacheResolutionTests
                 ["prefix"] = prefix,
                 ["tail"] = tail,
             });
+    }
+
+    private static Scenario ShaderCandidate(ShaderDescription description)
+    {
+        RenderFragmentReference source = Pure();
+        var shader = new RenderFragmentReference(
+            RenderFragmentKind.Shader,
+            s_bounds,
+            EffectiveScale.Unbounded,
+            RenderValueCardinality.Single,
+            contributesValuesToTarget: true,
+            canBeUsedAsValueInput: true,
+            hasTargetEffects: false,
+            hasOpaqueExternalWork: false,
+            [source],
+            new ShaderRenderFragmentPayload(description, description.CreateRuntimeIdentity()),
+            static _ => true);
+        return Build(
+            [source, shader],
+            [shader],
+            [(shader, "shader")]);
+    }
+
+    private static Scenario GeometryCandidate(GeometryDescription description)
+    {
+        RenderFragmentReference source = Pure();
+        var geometry = new RenderFragmentReference(
+            RenderFragmentKind.Geometry,
+            s_bounds,
+            EffectiveScale.Unbounded,
+            RenderValueCardinality.Single,
+            contributesValuesToTarget: true,
+            canBeUsedAsValueInput: true,
+            hasTargetEffects: false,
+            hasOpaqueExternalWork: false,
+            [source],
+            new GeometryRenderFragmentPayload(description, description.RuntimeIdentity!.Value.Key),
+            static _ => true);
+        return Build(
+            [source, geometry],
+            [geometry],
+            [(geometry, "geometry")]);
     }
 
     private static RenderRequest NewRequest()

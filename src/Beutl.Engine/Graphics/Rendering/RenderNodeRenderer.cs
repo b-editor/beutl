@@ -175,6 +175,7 @@ public sealed class RenderNodeRenderer : IDisposable
         CompiledRenderRequest? request = null;
         RenderRequestOwner? owner = null;
         ExceptionDispatchInfo? primary = null;
+        bool failedBeforeExecution = false;
         try
         {
             request = RecordAndCompile(
@@ -207,11 +208,28 @@ public sealed class RenderNodeRenderer : IDisposable
         catch (Exception ex)
         {
             primary = ExceptionDispatchInfo.Capture(ex);
+            if (request is not null
+                && request.Request.State == RenderRequestState.Planned
+                && RenderRequestDiagnostics.TryGet(request.Request) is not null)
+            {
+                failedBeforeExecution = true;
+                if (owner?.PrimaryFailure is null)
+                    owner?.RecordPrimaryFailure(ex);
+                MarkFamilyFailedBeforeExecution(request, RenderPipelineFailurePhase.Allocation);
+            }
         }
         finally
         {
             DisposeAndCapture(request, ref primary);
             DisposeAndCapture(targets, ref primary);
+        }
+
+        if (request is not null && failedBeforeExecution)
+        {
+            CompleteFailedFamilyDiagnostics(
+                request,
+                owner?.CleanupFailures ?? [],
+                targets.CleanupFailures);
         }
 
         ThrowAfterCleanup(primary, owner, targets);
@@ -299,6 +317,7 @@ public sealed class RenderNodeRenderer : IDisposable
         Bitmap? bitmap = null;
         Rect selectedBounds = default;
         ExceptionDispatchInfo? primary = null;
+        RenderPipelineFailurePhase? preExecutionFailurePhase = null;
         try
         {
             targets = _targetRegistry.BeginSession(Options.Intent);
@@ -312,16 +331,27 @@ public sealed class RenderNodeRenderer : IDisposable
             selectedBounds = request.SelectedOutputBounds;
             if (selectedBounds.Width != 0 && selectedBounds.Height != 0)
             {
-                Rect executionBounds = request.ExecutionTargetBounds;
-                PixelRect deviceBounds = PixelRect.FromRect(executionBounds, Options.OutputScale);
-                Rect rasterBounds = deviceBounds.ToRect(Options.OutputScale);
-                rootLease = targets.Acquire(deviceBounds.Size);
-                canvas = ImmediateCanvas.CreateExecutorManaged(
-                    rootLease.Target,
-                    Options.OutputScale,
-                    Options.MaxWorkingScale,
-                    rasterBounds.Size);
-                canvas.Clear();
+                PixelRect deviceBounds;
+                Rect rasterBounds;
+                try
+                {
+                    Rect executionBounds = request.ExecutionTargetBounds;
+                    deviceBounds = PixelRect.FromRect(executionBounds, Options.OutputScale);
+                    rasterBounds = deviceBounds.ToRect(Options.OutputScale);
+                    rootLease = targets.Acquire(deviceBounds.Size);
+                    canvas = ImmediateCanvas.CreateExecutorManaged(
+                        rootLease.Target,
+                        Options.OutputScale,
+                        Options.MaxWorkingScale,
+                        rasterBounds.Size);
+                    canvas.Clear();
+                }
+                catch
+                {
+                    preExecutionFailurePhase = RenderPipelineFailurePhase.Allocation;
+                    throw;
+                }
+
                 IDisposable? transform = canvas.PushTransform(
                     Matrix.CreateTranslation(-rasterBounds.X, -rasterBounds.Y));
                 try
@@ -367,6 +397,12 @@ public sealed class RenderNodeRenderer : IDisposable
         catch (Exception ex)
         {
             primary = ExceptionDispatchInfo.Capture(ex);
+            if (request is not null && preExecutionFailurePhase is { } failurePhase)
+            {
+                if (owner?.PrimaryFailure is null)
+                    owner?.RecordPrimaryFailure(ex);
+                MarkFamilyFailedBeforeExecution(request, failurePhase);
+            }
         }
         finally
         {
@@ -374,6 +410,14 @@ public sealed class RenderNodeRenderer : IDisposable
             DisposeAndCapture(rootLease, ref primary);
             DisposeAndCapture(request, ref primary);
             DisposeAndCapture(targets, ref primary);
+        }
+
+        if (request is not null && preExecutionFailurePhase.HasValue)
+        {
+            CompleteFailedFamilyDiagnostics(
+                request,
+                owner?.CleanupFailures ?? [],
+                targets?.CleanupFailures ?? []);
         }
 
         try
@@ -607,6 +651,45 @@ public sealed class RenderNodeRenderer : IDisposable
         {
             primary ??= ExceptionDispatchInfo.Capture(ex);
         }
+    }
+
+    private static void MarkFamilyFailedBeforeExecution(
+        CompiledRenderRequest request,
+        RenderPipelineFailurePhase failurePhase)
+    {
+        foreach (CompiledRenderRequest member in EnumerateFamilyDepthFirst(request))
+        {
+            RenderRequestDiagnostics.TryGet(member.Request)?.RecordFamilyFailure(failurePhase);
+            member.Request.FailFamilyMember();
+        }
+    }
+
+    private static void CompleteFailedFamilyDiagnostics(
+        CompiledRenderRequest request,
+        IReadOnlyList<Exception> ownerCleanupFailures,
+        IReadOnlyList<Exception> targetCleanupFailures)
+    {
+        foreach (CompiledRenderRequest member in EnumerateFamilyDepthFirst(request))
+        {
+            RenderPipelineDiagnosticRecorder? diagnostics = RenderRequestDiagnostics.TryGet(member.Request);
+            foreach (Exception _ in ownerCleanupFailures)
+                diagnostics?.RecordCleanupFailure();
+            foreach (Exception _ in targetCleanupFailures)
+                diagnostics?.RecordCleanupFailure();
+            RenderRequestDiagnostics.Complete(member.Request);
+        }
+    }
+
+    private static IEnumerable<CompiledRenderRequest> EnumerateFamilyDepthFirst(
+        CompiledRenderRequest request)
+    {
+        foreach (CompiledRenderRequest nested in request.NestedRequests)
+        {
+            foreach (CompiledRenderRequest member in EnumerateFamilyDepthFirst(nested))
+                yield return member;
+        }
+
+        yield return request;
     }
 
     private static void ThrowAfterCleanup(

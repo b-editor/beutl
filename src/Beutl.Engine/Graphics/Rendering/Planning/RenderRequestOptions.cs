@@ -46,7 +46,7 @@ internal sealed class RenderRequestOptions
         FusionMode = fusionMode;
         Owner = owner ?? new RenderRequestOwner();
         OwnsOwner = owner is null;
-        Diagnostics = diagnostics ?? new RenderPipelineDiagnosticsState();
+        Diagnostics = diagnostics;
         TargetBinding = targetBinding;
         PlanIdentity = new RenderRequestPlanIdentity(
             Purpose,
@@ -73,7 +73,7 @@ internal sealed class RenderRequestOptions
 
     public RenderRequestOwner Owner { get; }
 
-    public IRenderPipelineDiagnosticsState Diagnostics { get; }
+    public IRenderPipelineDiagnosticsState? Diagnostics { get; }
 
     public NestedRenderTargetBinding? TargetBinding { get; }
 
