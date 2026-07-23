@@ -60,7 +60,7 @@ internal sealed class ThemeService : IDisposable
     private static ThemeDescriptor[] GetBuiltinThemes() =>
     [
         new(BuiltinThemeIds.Light, SettingsStrings.Light, ThemeVariant.Light),
-        // "Classic" distinguishes FluentAvalonia's stock dark from the default DarkBorderThemeExtension,
+        // "Classic" distinguishes FluentAvalonia's stock dark from DarkBorderThemeExtension,
         // which also shows as "Dark" but ships the near-black design overrides.
         new(BuiltinThemeIds.Dark, SettingsStrings.DarkClassic, ThemeVariant.Dark),
         new(BuiltinThemeIds.HighContrast, SettingsStrings.HighContrast, FluentAvaloniaTheme.HighContrastTheme),

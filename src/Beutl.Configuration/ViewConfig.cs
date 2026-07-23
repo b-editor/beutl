@@ -23,15 +23,10 @@ public sealed class ViewConfig : ConfigurationBase
     private readonly CoreList<string> _recentProjects = [];
     private bool _showExactBoundaries = false;
 
-    // The default first-party theme id (DarkBorderThemeExtension.ThemeId, which lives in the app layer
-    // this project cannot reference). It resolves to built-in Dark until the extension registers
-    // during startup. Kept in sync by DarkBorderThemeExtensionTests.ViewConfigDefault_MatchesThemeId.
-    private const string DefaultThemeId = "beutl.dark.border";
-
     static ViewConfig()
     {
         ThemeProperty = ConfigureProperty<string, ViewConfig>(nameof(Theme))
-            .DefaultValue(DefaultThemeId)
+            .DefaultValue(BuiltinThemeIds.Dark)
             .Register();
 
         UICultureProperty = ConfigureProperty<CultureInfo, ViewConfig>(nameof(UICulture))
@@ -165,7 +160,7 @@ public sealed class ViewConfig : ConfigurationBase
         }
         else
         {
-            Theme = NormalizeThemeId(context.GetValue<string>(nameof(Theme)));
+            Theme = BuiltinThemeIds.Normalize(context.GetValue<string>(nameof(Theme)));
         }
 
         // 古い settings.json や手動編集後のファイルでこれらのキーが欠落していると
@@ -237,58 +232,23 @@ public sealed class ViewConfig : ConfigurationBase
     }
 
     // Migrate legacy <2.0 ViewTheme enum values (a JSON number, or a PascalCase name) to the stable
-    // lowercase id. Name-form ids resolve through BuiltinThemeIds, which ThemeRegistry validates
-    // extension ids against — the two must not drift. The legacy-enum mapping stays here because it
-    // resolves to DefaultThemeId, an app-layer id that BuiltinThemeIds must never return: its
-    // Normalize backs ThemeRegistry's reserved-id check.
+    // lowercase id through BuiltinThemeIds — the same normalization ThemeRegistry validates extension
+    // ids against, so settings and the registry cannot drift.
     private static string NormalizeThemeId(JsonNode? node)
     {
         if (node is not JsonValue value)
         {
-            return DefaultThemeId;
+            return BuiltinThemeIds.Dark;
         }
 
         // A JSON number is only ever the legacy enum; ids are persisted as strings.
         if (value.TryGetValue(out int legacyEnum))
         {
-            return FromLegacyEnum(legacyEnum);
+            return BuiltinThemeIds.FromLegacyEnum(legacyEnum);
         }
 
-        return value.TryGetValue(out string? raw) ? NormalizeThemeId(raw) : DefaultThemeId;
+        return BuiltinThemeIds.Normalize(value.TryGetValue(out string? raw) ? raw : null);
     }
-
-    private static string NormalizeThemeId(string? raw)
-    {
-        if (string.IsNullOrWhiteSpace(raw))
-        {
-            return DefaultThemeId;
-        }
-
-        raw = raw.Trim();
-
-        // A hand-edited settings.json may quote the legacy enum; it must migrate like the number form.
-        // An id that merely looks numeric ("2026") is custom and is left to BuiltinThemeIds.Normalize.
-        if (int.TryParse(raw, CultureInfo.InvariantCulture, out int legacyEnum)
-            && legacyEnum is >= 0 and <= 3)
-        {
-            return FromLegacyEnum(legacyEnum);
-        }
-
-        return BuiltinThemeIds.Normalize(raw);
-    }
-
-    // Legacy Dark (1) was the pre-2.0 default, so it marks a user who never chose a theme rather than
-    // one who wants the classic look: they get DefaultThemeId, which is now the product's dark look.
-    // Classic dark remains reachable by picking "Dark (Classic)", which persists the "dark" id and so
-    // takes the name path above. Out-of-range values are corrupt rather than a choice, so they too
-    // fall to the default — a persisted theme and an absent one must not diverge.
-    private static string FromLegacyEnum(int legacyEnum) => legacyEnum switch
-    {
-        0 => BuiltinThemeIds.Light,
-        2 => BuiltinThemeIds.HighContrast,
-        3 => BuiltinThemeIds.System,
-        _ => DefaultThemeId,
-    };
 
     private record WindowPositionRecord(int X, int Y);
 

@@ -5,14 +5,15 @@ using Beutl.Language;
 
 namespace Beutl.Services.PrimitiveImpls;
 
-// The default first-party theme: Beutl's near-black flat-panel design. It ships only the color
-// overrides (Styling/Themes/BeutlDarkBorder.axaml); ThemeService merges them over the Dark base
-// variant. The built-in "Dark (Classic)" theme is the same base variant without this override.
+// A first-party theme: Beutl's near-black flat-panel design. It ships only the color overrides
+// (Styling/Themes/BeutlDarkBorder.axaml); ThemeService merges them over the Dark base variant.
+// The built-in "Dark (Classic)" theme — the default — is the same base variant without this
+// override.
 [PrimitiveImpl]
 public sealed class DarkBorderThemeExtension : ThemeExtension
 {
-    // Persisted in settings.json (ViewConfig.Theme) and referenced as the ViewConfig default, so it
-    // must stay stable. Not one of BuiltinThemeIds' reserved ids.
+    // Persisted in settings.json (ViewConfig.Theme) when this theme is selected, so it must stay
+    // stable. Not one of BuiltinThemeIds' reserved ids.
     public const string ThemeId = "beutl.dark.border";
 
     private static readonly Uri s_resourceUri =

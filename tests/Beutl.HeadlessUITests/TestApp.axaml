@@ -13,8 +13,9 @@
         <ResourceInclude Source="avares://Beutl.Controls/Styling/Fonts.axaml" />
       </ResourceDictionary.MergedDictionaries>
       <!--
-        Production applies the default "beutl.dark.border" theme's overrides at runtime via
-        ThemeService; the capture tests only flip RequestedThemeVariant, so mirror that theme here.
+        Production applies the first-party "beutl.dark.border" theme's overrides at runtime via
+        ThemeService when that theme is selected; the capture tests only flip RequestedThemeVariant,
+        so mirror that theme here to keep it under test.
         Scoped to Dark (not merged flat) so the Light captures still show the classic light theme.
       -->
       <ResourceDictionary.ThemeDictionaries>

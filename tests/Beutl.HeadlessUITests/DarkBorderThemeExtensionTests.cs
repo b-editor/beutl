@@ -15,8 +15,8 @@ using FluentAvalonia.Styling;
 
 namespace Beutl.HeadlessUITests;
 
-// Locks the theme-extension split: the design colors ship as the default first-party theme extension
-// (an avares override dictionary), while the built-in "Dark" stays registered as a selectable
+// Locks the theme-extension split: the design colors ship as a first-party theme extension
+// (an avares override dictionary), while the built-in "Dark" stays registered as the default
 // "Classic" theme.
 [TestFixture]
 public class DarkBorderThemeExtensionTests
@@ -49,12 +49,11 @@ public class DarkBorderThemeExtensionTests
         Assert.That(loaded, Is.InstanceOf<IResourceProvider>());
     }
 
+    // The border theme is opt-in: a fresh ViewConfig must not name it.
     [AvaloniaTest]
-    public void ViewConfigDefault_MatchesThemeId()
+    public void ViewConfigDefault_IsNotTheBorderTheme()
     {
-        // ViewConfig cannot reference the app-layer extension, so its default is a literal; this test
-        // is what keeps the two in sync.
-        Assert.That(new ViewConfig().Theme, Is.EqualTo(DarkBorderThemeExtension.ThemeId));
+        Assert.That(new ViewConfig().Theme, Is.EqualTo(BuiltinThemeIds.Dark));
     }
 
     [AvaloniaTest]
@@ -79,7 +78,7 @@ public class DarkBorderThemeExtensionTests
 
             Assert.Multiple(() =>
             {
-                Assert.That(newTheme, Is.Not.Null, "the default theme extension should be registered");
+                Assert.That(newTheme, Is.Not.Null, "the border theme extension should be registered");
                 Assert.That(newTheme!.ResourceUri, Is.Not.Null);
                 Assert.That(classicDark, Is.Not.Null, "built-in dark must remain selectable");
                 Assert.That(classicDark!.DisplayName, Is.EqualTo(SettingsStrings.DarkClassic),
