@@ -15,7 +15,9 @@ namespace Beutl.Api.Services;
 /// </summary>
 internal sealed class ClrmdLoadContextUnloadDiagnostics : ILoadContextUnloadDiagnostics
 {
-    // The whole capture runs only on the rare unload-failure path; these caps keep a large heap from hanging it.
+    // These caps keep a large heap from hanging the rare unload-failure capture. s_budget bounds only the heap, root,
+    // and thread walks below; DataTarget.CreateSnapshotAndAttach is a synchronous ClrMD call with no cancellation
+    // hook, so snapshot creation itself is outside this budget and can run longer on a huge or stalled process.
     private static readonly TimeSpan s_budget = TimeSpan.FromSeconds(30);
     private const int MaxRootPaths = 15;
     private const int MaxVisitedObjects = 300_000;
@@ -63,8 +65,10 @@ internal sealed class ClrmdLoadContextUnloadDiagnostics : ILoadContextUnloadDiag
                 return null;
             }
 
+            HashSet<ulong> loadContextTargets = FindLoadContextTargets(runtime, pluginAssemblies);
+
             (List<UnloadDiagnosticsObjectGroup> groups, int total, HashSet<ulong> targets, bool censusTruncated) =
-                CensusSurvivingObjects(heap, pluginAssemblies, stopwatch);
+                CensusSurvivingObjects(heap, pluginAssemblies, loadContextTargets, stopwatch);
 
             (List<UnloadDiagnosticsRootPath> rootPaths, bool rootTruncated) =
                 FindRootPaths(heap, targets, stopwatch);
@@ -94,12 +98,25 @@ internal sealed class ClrmdLoadContextUnloadDiagnostics : ILoadContextUnloadDiag
     }
 
     private (List<UnloadDiagnosticsObjectGroup> Groups, int Total, HashSet<ulong> Targets, bool Truncated) CensusSurvivingObjects(
-        ClrHeap heap, HashSet<string> pluginAssemblies, Stopwatch stopwatch)
+        ClrHeap heap, HashSet<string> pluginAssemblies, HashSet<ulong> loadContextTargets, Stopwatch stopwatch)
     {
         var counts = new Dictionary<(string Assembly, string TypeName), int>();
         var targets = new HashSet<ulong>();
         int total = 0;
         bool truncated = false;
+
+        // The plugin-module filter below only catches heap objects whose own type lives in a plugin assembly, so it
+        // misses the failure mode where no plugin instance survives and only the collectible AssemblyLoadContext (a
+        // Beutl.Api type) still roots the context. Seed those load-context objects first so the leak still has an anchor.
+        foreach (ulong address in loadContextTargets)
+        {
+            if (targets.Count >= MaxRootPaths)
+            {
+                break;
+            }
+
+            targets.Add(address);
+        }
 
         foreach (ClrObject obj in heap.EnumerateObjects())
         {
@@ -132,6 +149,51 @@ internal sealed class ClrmdLoadContextUnloadDiagnostics : ILoadContextUnloadDiag
         }
 
         return (ToObjectGroups(counts), total, targets, truncated);
+    }
+
+    // Resolve the AssemblyLoadContext object for each plugin assembly straight from its module metadata, which the
+    // runtime keeps alive as long as the context is loaded. This finds the leaked context even when no plugin-typed
+    // instance survives — the case the heap census cannot see, because the context object is a Beutl.Api type.
+    internal static HashSet<ulong> FindLoadContextTargets(ClrRuntime runtime, HashSet<string> pluginAssemblies)
+    {
+        var addresses = new HashSet<ulong>();
+        foreach (ClrModule module in runtime.EnumerateModules())
+        {
+            if (module.Name is not { } moduleName
+                || !pluginAssemblies.Contains(Path.GetFileNameWithoutExtension(moduleName)))
+            {
+                continue;
+            }
+
+            ulong loadContext = ResolveLoadContextAddress(runtime, module);
+            if (loadContext != 0)
+            {
+                addresses.Add(loadContext);
+            }
+        }
+
+        return addresses;
+    }
+
+    // AssemblyLoadContextAddress lives on ClrType, not ClrModule, so read it off any constructed type the module
+    // defines; every type loaded into a context reports that context's address, so the first non-zero hit suffices.
+    private static ulong ResolveLoadContextAddress(ClrRuntime runtime, ClrModule module)
+    {
+        foreach ((ulong methodTable, _) in module.EnumerateTypeDefToMethodTableMap())
+        {
+            if (methodTable == 0)
+            {
+                continue;
+            }
+
+            ClrType? type = runtime.GetTypeByMethodTable(methodTable);
+            if (type is not null && type.AssemblyLoadContextAddress != 0)
+            {
+                return type.AssemblyLoadContextAddress;
+            }
+        }
+
+        return 0;
     }
 
     // Keyed by (assembly, type) so identical type names from different plugin assemblies stay distinct; keying by
