@@ -255,22 +255,9 @@ public sealed class PackageManager(
             bool unloaded = !weakReference.IsAlive;
             if (!unloaded && unloadDiagnostics is { } diagnostics && assemblyNames.Length > 0)
             {
-                activity?.AddEvent(new ActivityEvent("Capturing unload diagnostics"));
-                // Fire-and-forget: the snapshot is heavy and the contract forbids delaying the uninstall flow.
-                // The interface is public, so contain exceptions here too — a throwing third-party implementation
-                // would otherwise fault an unobserved task.
-                _ = Task.Run(() =>
-                {
-                    try
-                    {
-                        string? dumpPath = diagnostics.CaptureUnloadFailure(package.Name, assemblyNames);
-                        NotifyUnloadFailure(package.Name, dumpPath);
-                    }
-                    catch (Exception ex)
-                    {
-                        _logger.LogError(ex, "Unload diagnostics capture threw for {PackageName}.", package.Name);
-                    }
-                });
+                activity?.AddEvent(new ActivityEvent("Prompting for unload diagnostics"));
+                // Ask before snapshotting: the ClrMD self-snapshot is heavy, so the developer decides whether it runs.
+                PromptCaptureUnloadDiagnostics(diagnostics, package.Name, assemblyNames);
             }
 
             return unloaded;
@@ -345,31 +332,65 @@ public sealed class PackageManager(
 
     private Action<string>? _dumpOpener;
 
-    // Test seam: a unit test substitutes this to assert the "Open dump" action targets the captured dump path
-    // without launching a real process. Production leaves it as OpenDumpFile.
+    // Test seam: a unit test substitutes this to assert the capture opens the written dump path without launching a
+    // real process. Production leaves it as OpenDumpFile.
     internal Action<string> DumpOpener
     {
         get => _dumpOpener ??= OpenDumpFile;
         set => _dumpOpener = value;
     }
 
-    // Diagnostics are wired only in Debug builds (BeutlApiApplication injects null in Release), so the dump and its
-    // log line are Debug-only already; [Conditional] strips this toast the same way, keeping the prompt in step.
+    // Diagnostics are wired only in Debug builds (BeutlApiApplication injects null in Release), so [Conditional]
+    // strips this prompt the same way, keeping the offer in step with the capture it would trigger.
     [Conditional("DEBUG")]
-    internal void NotifyUnloadFailure(string packageName, string? dumpPath)
+    internal void PromptCaptureUnloadDiagnostics(
+        ILoadContextUnloadDiagnostics diagnostics, string packageName, string[] assemblyNames)
     {
-        // No dump was produced (snapshot unsupported / census empty / write failed): nothing to open, so stay silent.
-        if (string.IsNullOrEmpty(dumpPath))
-        {
-            return;
-        }
-
         NotificationService.ShowWarning(
             $"Failed to unload '{packageName}'",
-            "The extension's load context is still alive. A diagnostics dump was written; "
-            + "open it to see what is keeping the assemblies loaded.",
+            "The extension's load context is still alive. Capture a diagnostics dump to find what is keeping the "
+            + "assemblies loaded?",
             expiration: TimeSpan.FromSeconds(30),
-            actions: [new NotificationAction("Open dump", () => DumpOpener(dumpPath))]);
+            actions:
+            [
+                // Offload: the ClrMD self-snapshot is heavy and must not block the UI thread the click runs on.
+                new NotificationAction(
+                    "Capture dump",
+                    () => { _ = Task.Run(() => CaptureAndOpenUnloadDump(diagnostics, packageName, assemblyNames)); })
+            ]);
+    }
+
+    // Synchronous so a test can drive it directly; production reaches it from the prompt action's Task.Run. Contained
+    // because CaptureUnloadFailure is a public interface a third-party implementation could throw from.
+    internal void CaptureAndOpenUnloadDump(
+        ILoadContextUnloadDiagnostics diagnostics, string packageName, string[] assemblyNames)
+    {
+        try
+        {
+            string? dumpPath = diagnostics.CaptureUnloadFailure(packageName, assemblyNames);
+            if (!string.IsNullOrEmpty(dumpPath))
+            {
+                DumpOpener(dumpPath);
+            }
+            else
+            {
+                // The capture ran but produced nothing (context already collected / another capture holds the gate /
+                // snapshotting unsupported). The click already dismissed the prompt, so acknowledge it or it looks dead.
+                NotifyDiagnosticsUnavailable(packageName);
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Unload diagnostics capture threw for {PackageName}.", packageName);
+        }
+    }
+
+    private static void NotifyDiagnosticsUnavailable(string packageName)
+    {
+        NotificationService.ShowInformation(
+            $"No dump captured for '{packageName}'",
+            "The load context was already collected, another capture is in progress, or snapshotting is "
+            + "unavailable. See the log for details.");
     }
 
     private void OpenDumpFile(string dumpPath)

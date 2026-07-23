@@ -33,14 +33,12 @@ public class PackageManagerUnloadNotificationTests
     }
 
     [Test]
-    public void NotifyUnloadFailure_ShowsWarningWithOpenDumpAction_WhenDumpWritten()
+    public void PromptCaptureUnloadDiagnostics_ShowsWarningOfferingCapture_WithoutCapturingYet()
     {
-        const string DumpPath = "/tmp/unload-dump-MyPlugin.txt";
-        PackageManager manager = CreatePackageManager();
-        string? openedPath = null;
-        manager.DumpOpener = path => openedPath = path;
+        var diagnostics = new StubUnloadDiagnostics();
+        PackageManager manager = CreatePackageManager(diagnostics);
 
-        manager.NotifyUnloadFailure("MyPlugin", DumpPath);
+        manager.PromptCaptureUnloadDiagnostics(diagnostics, "MyPlugin", ["MyPlugin.dll"]);
 
 #if DEBUG
         Beutl.Services.Notification notification = _handler.Single();
@@ -49,37 +47,86 @@ public class PackageManagerUnloadNotificationTests
             Assert.That(notification.Type, Is.EqualTo(NotificationType.Warning));
             Assert.That(notification.Title, Does.Contain("MyPlugin"));
             Assert.That(notification.Actions, Is.Not.Null.With.Count.EqualTo(1));
-            Assert.That(notification.Actions![0].Text, Is.EqualTo("Open dump"));
+            Assert.That(notification.Actions![0].Text, Is.EqualTo("Capture dump"));
+            // The snapshot must not run just from showing the prompt; it waits for the action.
+            Assert.That(diagnostics.InvokeCount, Is.EqualTo(0));
         });
-
-        // Invoking the action must open the exact dump path captured when the notification was built.
-        notification.Actions![0].Callback();
-        Assert.That(openedPath, Is.EqualTo(DumpPath));
 #else
-        // NotifyUnloadFailure is [Conditional("DEBUG")]: in Release builds the call is stripped, so nothing is shown.
+        // PromptCaptureUnloadDiagnostics is [Conditional("DEBUG")]: in Release builds the call is stripped.
         Assert.That(_handler.Notifications, Is.Empty);
 #endif
     }
 
-    [TestCase(null)]
-    [TestCase("")]
-    public void NotifyUnloadFailure_ShowsNothing_WhenNoDumpWritten(string? dumpPath)
+    [Test]
+    public void CaptureAndOpenUnloadDump_CapturesThenOpensTheWrittenDump()
     {
-        PackageManager manager = CreatePackageManager();
+        const string DumpPath = "/tmp/unload-dump-MyPlugin.txt";
+        var diagnostics = new StubUnloadDiagnostics { DumpPath = DumpPath };
+        PackageManager manager = CreatePackageManager(diagnostics);
+        string? openedPath = null;
+        manager.DumpOpener = path => openedPath = path;
 
-        manager.NotifyUnloadFailure("MyPlugin", dumpPath);
+        manager.CaptureAndOpenUnloadDump(diagnostics, "MyPlugin", ["MyPlugin.dll"]);
 
-        Assert.That(_handler.Notifications, Is.Empty);
+        Assert.Multiple(() =>
+        {
+            Assert.That(diagnostics.CapturedPackage, Is.EqualTo("MyPlugin"));
+            Assert.That(diagnostics.CapturedAssemblies, Is.EqualTo(new[] { "MyPlugin.dll" }));
+            // The action must open exactly the path the capture returned, proving the value is threaded end to end.
+            Assert.That(openedPath, Is.EqualTo(DumpPath));
+        });
     }
 
-    private static PackageManager CreatePackageManager()
+    [TestCase(null)]
+    [TestCase("")]
+    public void CaptureAndOpenUnloadDump_AcknowledgesWithoutOpening_WhenNoDumpWritten(string? dumpPath)
+    {
+        var diagnostics = new StubUnloadDiagnostics { DumpPath = dumpPath };
+        PackageManager manager = CreatePackageManager(diagnostics);
+        string? openedPath = null;
+        manager.DumpOpener = path => openedPath = path;
+
+        manager.CaptureAndOpenUnloadDump(diagnostics, "MyPlugin", ["MyPlugin.dll"]);
+
+        // A capture that yields no dump must still tell the user something happened; the click already dismissed the
+        // prompt, so a silent no-op would look broken.
+        Beutl.Services.Notification notification = _handler.Single();
+        Assert.Multiple(() =>
+        {
+            Assert.That(diagnostics.InvokeCount, Is.EqualTo(1));
+            Assert.That(openedPath, Is.Null);
+            Assert.That(notification.Type, Is.EqualTo(NotificationType.Information));
+            Assert.That(notification.Title, Does.Contain("MyPlugin"));
+        });
+    }
+
+    private static PackageManager CreatePackageManager(ILoadContextUnloadDiagnostics diagnostics)
     {
         return new PackageManager(
             new InstalledPackageRepository(),
             new ExtensionProvider(),
             new ContextCommandManager(new ContextCommandSettingsStore(), new ContextCommandHandlerRegistry()),
             apiApplication: null!,
-            unloadDiagnostics: null);
+            unloadDiagnostics: diagnostics);
+    }
+
+    private sealed class StubUnloadDiagnostics : ILoadContextUnloadDiagnostics
+    {
+        public string? DumpPath { get; init; }
+
+        public int InvokeCount { get; private set; }
+
+        public string? CapturedPackage { get; private set; }
+
+        public IReadOnlyList<string>? CapturedAssemblies { get; private set; }
+
+        public string? CaptureUnloadFailure(string packageName, IReadOnlyList<string> assemblySimpleNames)
+        {
+            InvokeCount++;
+            CapturedPackage = packageName;
+            CapturedAssemblies = assemblySimpleNames;
+            return DumpPath;
+        }
     }
 
     private sealed class CaptureNotificationHandler : INotificationServiceHandler
