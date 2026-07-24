@@ -555,6 +555,9 @@ internal sealed class RenderRequestExecutor
         {
             foreach (FamilyExecutionFrame frame in frames)
                 frame.State.AppendCachePublications(publications, transferredTargets);
+            // Transfer only detaches targets from the renderer pool. No cache is observable until this
+            // batch reaches PublishAtomically's validated reference-assignment commit point. If preparation
+            // fails, the catch below disposes every detached target and leaves every node cache unchanged.
             replacedStorageCleanupFailures = RenderNodeCache.PublishAtomically(publications);
         }
         catch (Exception ex)
