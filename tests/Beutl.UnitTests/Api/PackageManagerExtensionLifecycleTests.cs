@@ -109,7 +109,34 @@ public class PackageManagerExtensionLifecycleTests
         Assert.That(commandManager.GetDefinitions(typeof(SuccessfulViewExtension)), Is.Empty);
     }
 
+    [Test]
+    public async Task Unload_DoesNotCaptureDiagnostics_WhenPackageUnloadsCleanly()
+    {
+        var diagnostics = new RecordingUnloadDiagnostics();
+        PackageManager manager = CreatePackageManager(diagnostics, out _, out _);
+        var package = new LocalPackage { Name = "CleanUnload" };
+        manager.LoadExtensionsAndRegister(
+            activity: null, package, assemblies: [], loadContext: null, [typeof(SuccessfulViewExtension)]);
+
+        bool unloaded = await manager.Unload(package);
+
+        Assert.Multiple(() =>
+        {
+            // No load context means nothing pins the package, so the unload succeeds and diagnostics stay idle.
+            Assert.That(unloaded, Is.True);
+            Assert.That(diagnostics.InvokeCount, Is.EqualTo(0));
+        });
+    }
+
     private static PackageManager CreatePackageManager(
+        out ContextCommandManager commandManager,
+        out ExtensionProvider extensionProvider)
+    {
+        return CreatePackageManager(diagnostics: null, out commandManager, out extensionProvider);
+    }
+
+    private static PackageManager CreatePackageManager(
+        ILoadContextUnloadDiagnostics? diagnostics,
         out ContextCommandManager commandManager,
         out ExtensionProvider extensionProvider)
     {
@@ -122,7 +149,19 @@ public class PackageManagerExtensionLifecycleTests
             new InstalledPackageRepository(),
             extensionProvider,
             commandManager,
-            apiApplication: null!);
+            apiApplication: null!,
+            diagnostics);
+    }
+
+    private sealed class RecordingUnloadDiagnostics : ILoadContextUnloadDiagnostics
+    {
+        public int InvokeCount { get; private set; }
+
+        public string? CaptureUnloadFailure(string packageName, IReadOnlyList<string> assemblySimpleNames)
+        {
+            InvokeCount++;
+            return null;
+        }
     }
 
     // Nested + private so the app's exported-type scan never picks these up; [Export] stays because
