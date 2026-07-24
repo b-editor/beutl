@@ -23,15 +23,18 @@ internal sealed class RenderRequestExecutor
 
     private readonly RenderTargetLeaseSession _targets;
     private readonly ProgramCache<CachedSkRuntimeEffect>? _programCache;
+    private readonly Action<RenderFragmentKind>? _afterCaptureAllocation;
 
     public RenderExecutionStatistics Statistics { get; private set; }
 
     public RenderRequestExecutor(
         RenderTargetLeaseSession targets,
-        ProgramCache<CachedSkRuntimeEffect>? programCache = null)
+        ProgramCache<CachedSkRuntimeEffect>? programCache = null,
+        Action<RenderFragmentKind>? afterCaptureAllocation = null)
     {
         _targets = targets ?? throw new ArgumentNullException(nameof(targets));
         _programCache = programCache;
+        _afterCaptureAllocation = afterCaptureAllocation;
     }
 
     public void CompleteEmptySelection(CompiledRenderRequest request)
@@ -469,7 +472,8 @@ internal sealed class RenderRequestExecutor
             request.CacheResolution,
             _targets,
             programCache,
-            diagnostics);
+            diagnostics,
+            _afterCaptureAllocation);
         var frame = new FamilyExecutionFrame(request, state, diagnostics);
         frames.Add(frame);
         ExceptionDispatchInfo? bodyFailure = null;
@@ -732,6 +736,7 @@ internal sealed class RenderRequestExecutor
         private readonly RenderTargetLeaseSession _targets;
         private readonly ProgramCache<CachedSkRuntimeEffect> _programCache;
         private readonly RenderPipelineDiagnosticRecorder? _diagnostics;
+        private readonly Action<RenderFragmentKind>? _afterCaptureAllocation;
         private readonly Dictionary<RenderFragmentId, Rect> _resolvedScopeDomains = [];
         private readonly Dictionary<RenderFragmentId, Rect> _resolvedParentScopeDomains = [];
         private readonly Dictionary<RenderFragmentId, Rect> _resolvedAccessDomains = [];
@@ -772,7 +777,8 @@ internal sealed class RenderRequestExecutor
             RenderCacheResolution cacheResolution,
             RenderTargetLeaseSession targets,
             ProgramCache<CachedSkRuntimeEffect> programCache,
-            RenderPipelineDiagnosticRecorder? diagnostics)
+            RenderPipelineDiagnosticRecorder? diagnostics,
+            Action<RenderFragmentKind>? afterCaptureAllocation)
         {
             _options = options;
             _executionPlan = executionPlan;
@@ -789,6 +795,7 @@ internal sealed class RenderRequestExecutor
             _targets = targets;
             _programCache = programCache;
             _diagnostics = diagnostics;
+            _afterCaptureAllocation = afterCaptureAllocation;
             _cacheHits = cacheResolution.Hits.ToDictionary(static item => item.OriginalProducerId);
             _cacheMisses = cacheResolution.MissCaptures
                 .GroupBy(static item => item.ProducerId)
@@ -3292,21 +3299,31 @@ internal sealed class RenderRequestExecutor
                 ?? fragment.Bounds;
             EffectiveScale scale = requestedScale ?? ResolveConcreteScale(fragment, domain);
             CompatibilityRenderValue value = CreateOwnedValue(domain, scale);
-            _diagnostics?.RecordGpuPassExecuted(fragment.Id?.Value ?? 0);
-            using (var canvas = ImmediateCanvas.CreateExecutorManaged(
-                       value.Target,
-                       scale.Value,
-                       _options.MaxWorkingScale,
-                       value.RasterBounds.Size))
-            using (canvas.PushTransform(Matrix.CreateTranslation(
-                       -value.RasterBounds.X,
-                       -value.RasterBounds.Y)))
+            bool succeeded = false;
+            try
             {
-                foreach (RenderFragmentReference input in fragment.Inputs)
-                    Replay(input, canvas);
-            }
+                _diagnostics?.RecordGpuPassExecuted(fragment.Id?.Value ?? 0);
+                using (var canvas = ImmediateCanvas.CreateExecutorManaged(
+                           value.Target,
+                           scale.Value,
+                           _options.MaxWorkingScale,
+                           value.RasterBounds.Size))
+                using (canvas.PushTransform(Matrix.CreateTranslation(
+                           -value.RasterBounds.X,
+                           -value.RasterBounds.Y)))
+                {
+                    foreach (RenderFragmentReference input in fragment.Inputs)
+                        Replay(input, canvas);
+                }
 
-            return [value];
+                succeeded = true;
+                return [value];
+            }
+            finally
+            {
+                if (!succeeded)
+                    ReleaseUnpublished(value);
+            }
         }
 
         private IReadOnlyList<CompatibilityRenderValue> CaptureTarget(
@@ -3326,21 +3343,32 @@ internal sealed class RenderRequestExecutor
                 ? EffectiveScale.At(currentTarget.Density)
                 : ResolveConcreteScale(fragment, bounds);
             CompatibilityRenderValue value = CreateOwnedValue(bounds, scale);
-            _diagnostics?.RecordGpuPassExecuted(fragment.Id?.Value ?? 0);
-            using (var canvas = ImmediateCanvas.CreateExecutorManaged(
-                       value.Target,
-                       scale.Value,
-                       _options.MaxWorkingScale,
-                       value.RasterBounds.Size))
-            using (canvas.PushTransform(Matrix.CreateTranslation(
-                       -value.RasterBounds.X,
-                       -value.RasterBounds.Y)))
+            bool succeeded = false;
+            try
             {
-                using RenderTarget source = RenderTarget.GetRenderTarget(currentTarget);
-                canvas.DrawRenderTargetScaledWithoutFlush(source, bounds);
-            }
+                _afterCaptureAllocation?.Invoke(fragment.Kind);
+                _diagnostics?.RecordGpuPassExecuted(fragment.Id?.Value ?? 0);
+                using (var canvas = ImmediateCanvas.CreateExecutorManaged(
+                           value.Target,
+                           scale.Value,
+                           _options.MaxWorkingScale,
+                           value.RasterBounds.Size))
+                using (canvas.PushTransform(Matrix.CreateTranslation(
+                           -value.RasterBounds.X,
+                           -value.RasterBounds.Y)))
+                {
+                    using RenderTarget source = RenderTarget.GetRenderTarget(currentTarget);
+                    canvas.DrawRenderTargetScaledWithoutFlush(source, bounds);
+                }
 
-            return [value];
+                succeeded = true;
+                return [value];
+            }
+            finally
+            {
+                if (!succeeded)
+                    ReleaseUnpublished(value);
+            }
         }
 
         private void ReplayTargetLayerScope(
@@ -3367,22 +3395,28 @@ internal sealed class RenderRequestExecutor
 
             EffectiveScale scale = EffectiveScale.At(destination.Density);
             CompatibilityRenderValue value = CreateOwnedValue(domain, scale);
-            _diagnostics?.RecordGpuPassExecuted(fragment.Id?.Value ?? 0);
-            using (var canvas = ImmediateCanvas.CreateExecutorManaged(
-                       value.Target,
-                       scale.Value,
-                       _options.MaxWorkingScale,
-                       value.RasterBounds.Size))
-            using (canvas.PushTransform(Matrix.CreateTranslation(
-                       -value.RasterBounds.X,
-                       -value.RasterBounds.Y)))
+            try
             {
-                foreach (RenderFragmentReference input in fragment.Inputs)
-                    Replay(input, canvas);
-            }
+                _diagnostics?.RecordGpuPassExecuted(fragment.Id?.Value ?? 0);
+                using (var canvas = ImmediateCanvas.CreateExecutorManaged(
+                           value.Target,
+                           scale.Value,
+                           _options.MaxWorkingScale,
+                           value.RasterBounds.Size))
+                using (canvas.PushTransform(Matrix.CreateTranslation(
+                           -value.RasterBounds.X,
+                           -value.RasterBounds.Y)))
+                {
+                    foreach (RenderFragmentReference input in fragment.Inputs)
+                        Replay(input, canvas);
+                }
 
-            DrawValue(value, destination);
-            ReleaseUnpublished(value);
+                DrawValue(value, destination);
+            }
+            finally
+            {
+                ReleaseUnpublished(value);
+            }
         }
 
         private void AddValueReferences(IEnumerable<CompatibilityRenderValue> values)

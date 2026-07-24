@@ -62,6 +62,77 @@ public sealed class NestedTargetAndCleanupFailureTests
         });
     }
 
+    [TestCase(TransientMaterializationKind.Layer)]
+    [TestCase(TransientMaterializationKind.TargetLayerScope)]
+    public void TransientMaterializationFailure_ReleasesItsValueBeforePropagating(
+        TransientMaterializationKind kind)
+    {
+        using RenderTarget destination = FailureTestSupport.CreateCpuTarget();
+        using var registry = new RenderTargetLeaseRegistry(factory: null);
+        using var node = new TransientMaterializationFailureNode(
+            kind,
+            () => registry.Statistics.LeasedTargets);
+        using RenderRequest request = FailureTestSupport.CreateFrameRequest(useRenderCache: false);
+        RecordedRenderGraph graph = new RenderRequestRecorder(request).Record(node);
+        using CompiledRenderRequest compiled = new RenderRequestCompiler().Compile(request, graph);
+        using var canvas = new ImmediateCanvas(destination);
+        using RenderTargetLeaseSession targets = registry.BeginSession(RenderIntent.Preview, destination);
+
+        InvalidOperationException? failure = Assert.Throws<InvalidOperationException>(
+            () => new RenderRequestExecutor(targets).Execute(compiled, canvas));
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(failure, Is.SameAs(node.PrimaryFailure));
+            Assert.That(node.LeasedTargetsObservedBySource, Is.EqualTo(1),
+                "The failure must occur after the transient target has been acquired.");
+            Assert.That(node.LeasedTargetsObservedByCaller, Is.Zero,
+                "The transient target must be released before control returns to the replaying caller.");
+            Assert.That(registry.Statistics.LeasedTargets, Is.Zero);
+        });
+    }
+
+    [Test]
+    public void TargetCapturePostAllocationFailure_ReleasesItsValueBeforePropagating()
+    {
+        var primary = new InvalidOperationException("target-capture-post-allocation");
+        using RenderTarget destination = FailureTestSupport.CreateCpuTarget();
+        using var registry = new RenderTargetLeaseRegistry(factory: null);
+        using var node = new TargetCapturePostAllocationFailureNode(
+            primary,
+            () => registry.Statistics.LeasedTargets);
+        using RenderRequest request = FailureTestSupport.CreateFrameRequest(useRenderCache: false);
+        RecordedRenderGraph graph = new RenderRequestRecorder(request).Record(node);
+        using CompiledRenderRequest compiled = new RenderRequestCompiler().Compile(request, graph);
+        using var canvas = new ImmediateCanvas(destination);
+        using RenderTargetLeaseSession targets = registry.BeginSession(RenderIntent.Preview, destination);
+        int? leasedTargetsObservedByHook = null;
+        var executor = new RenderRequestExecutor(
+            targets,
+            afterCaptureAllocation: kind =>
+            {
+                if (kind == RenderFragmentKind.TargetCapture)
+                {
+                    leasedTargetsObservedByHook = registry.Statistics.LeasedTargets;
+                    throw primary;
+                }
+            });
+
+        InvalidOperationException? failure = Assert.Throws<InvalidOperationException>(
+            () => executor.Execute(compiled, canvas));
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(failure, Is.SameAs(primary));
+            Assert.That(leasedTargetsObservedByHook, Is.EqualTo(1));
+            Assert.That(node.LeasedTargetsObservedByCaller, Is.Zero,
+                "The capture target must be released before control returns to the replaying caller.");
+            Assert.That(registry.Statistics.Creates, Is.EqualTo(1));
+            Assert.That(registry.Statistics.PeakLiveTargets, Is.EqualTo(1));
+            Assert.That(registry.Statistics.LeasedTargets, Is.Zero);
+        });
+    }
+
     [Test]
     public void Graphics3DBackendBoundaryFailure_RemainsPrimaryAndPublishesNoOutput()
     {
@@ -774,6 +845,96 @@ public sealed class NestedTargetAndCleanupFailureTests
         RawScopeCallback,
         RawScopeMissingReplay,
         RawScopeDoubleReplay,
+    }
+
+    public enum TransientMaterializationKind
+    {
+        Layer,
+        TargetLayerScope,
+    }
+
+    private sealed class TransientMaterializationFailureNode(
+        TransientMaterializationKind kind,
+        Func<int> getLeasedTargetCount) : RenderNode
+    {
+        public InvalidOperationException PrimaryFailure { get; } =
+            new($"transient-{kind}-failure");
+
+        public int? LeasedTargetsObservedBySource { get; private set; }
+
+        public int? LeasedTargetsObservedByCaller { get; private set; }
+
+        public override void Process(RenderNodeContext context)
+        {
+            RenderFragmentHandle source = context.OpaqueSource(FailureTestSupport.SourceDescription(
+                execute: _ =>
+                {
+                    LeasedTargetsObservedBySource = getLeasedTargetCount();
+                    throw PrimaryFailure;
+                },
+                structuralKey: $"transient-{kind}-source"));
+            RenderFragmentHandle transient = kind switch
+            {
+                TransientMaterializationKind.Layer => context.Layer([source], s_bounds),
+                TransientMaterializationKind.TargetLayerScope => context.TargetLayerScope(
+                    [source],
+                    TargetRegion.Region(s_bounds)),
+                _ => throw new ArgumentOutOfRangeException(),
+            };
+            TargetScopeDescription caller = TargetScopeDescription.Create(
+                session =>
+                {
+                    try
+                    {
+                        session.Canvas.Use(_ => session.ReplayInput());
+                    }
+                    catch (InvalidOperationException ex) when (ReferenceEquals(ex, PrimaryFailure))
+                    {
+                        LeasedTargetsObservedByCaller = getLeasedTargetCount();
+                        throw;
+                    }
+                },
+                RenderBoundsContract.Identity,
+                RenderHitTestContract.AnyInput,
+                RenderScaleContract.PreserveInputSupply,
+                structuralKey: $"transient-{kind}-caller");
+            context.Publish(context.TargetScope(transient, caller));
+        }
+    }
+
+    private sealed class TargetCapturePostAllocationFailureNode(
+        InvalidOperationException primaryFailure,
+        Func<int> getLeasedTargetCount) : RenderNode
+    {
+        public int? LeasedTargetsObservedByCaller { get; private set; }
+
+        public override void Process(RenderNodeContext context)
+        {
+            RenderFragmentHandle capture = context.ContributeValues(context.TargetCapture(
+                TargetCaptureDescription.Create(
+                    TargetRegion.Region(s_bounds),
+                    s_bounds,
+                    RenderHitTestContract.OutputBounds,
+                    RenderScaleContract.MaterializeAtWorkingScale)));
+            TargetScopeDescription caller = TargetScopeDescription.Create(
+                session => session.Canvas.Use(_ =>
+                {
+                    try
+                    {
+                        session.ReplayInput();
+                    }
+                    catch (InvalidOperationException ex) when (ReferenceEquals(ex, primaryFailure))
+                    {
+                        LeasedTargetsObservedByCaller = getLeasedTargetCount();
+                        throw;
+                    }
+                }),
+                RenderBoundsContract.Identity,
+                RenderHitTestContract.AnyInput,
+                RenderScaleContract.PreserveInputSupply,
+                structuralKey: nameof(TargetCapturePostAllocationFailureNode));
+            context.Publish(context.TargetScope(capture, caller));
+        }
     }
 
     private sealed class TargetCallbackFailureNode(TargetCallbackFailure failurePoint) : RenderNode

@@ -1,7 +1,9 @@
 ﻿using System.Runtime.ExceptionServices;
 
+using Beutl.Graphics;
 using Beutl.Graphics.Rendering;
 using Beutl.Media;
+using Beutl.UnitTests.Engine.Graphics.Backend;
 
 using SkiaSharp;
 
@@ -216,6 +218,274 @@ public sealed class RenderTargetPoolTests
         Assert.That(
             () => second.Dispose(),
             Throws.InvalidOperationException.With.Message.Contains("already been discharged"));
+    }
+
+    [Test]
+    public void SessionDisposalFailure_EndsBothSessionAndPoolRequest()
+    {
+        var factory = new TrackingTargetFactory();
+        using var registry = new RenderTargetLeaseRegistry(factory);
+        RenderTargetLeaseSession session = registry.BeginSession(RenderIntent.Preview);
+        RenderTargetLease lease = session.Acquire(new PixelSize(4, 4));
+        var staleTarget = (TrackingRenderTarget)lease.Target;
+        lease.PooledLease.Slot.Generation++;
+
+        Assert.That(
+            session.Dispose,
+            Throws.InvalidOperationException.With.Message.Contains("generation is stale"));
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(staleTarget.IsDisposed, Is.True);
+            Assert.That(staleTarget.DisposeCalls, Is.EqualTo(1));
+            Assert.That(registry.Statistics.OwnedTargets, Is.Zero);
+            Assert.That(registry.Statistics.LeasedTargets, Is.Zero);
+            Assert.That(registry.Statistics.OwnedBytes, Is.Zero);
+            Assert.That(registry.Statistics.Evictions, Is.EqualTo(1));
+        });
+        Assert.DoesNotThrow(() => registry.BeginSession(RenderIntent.Preview).Dispose());
+    }
+
+    [Test]
+    public void RequestDisposalFailure_EvictsTheFailedLeaseAndContinuesCleanup()
+    {
+        var cleanup = new InvalidOperationException("stale-target-cleanup");
+        var factory = new TrackingTargetFactory(
+            (size, _) => new TrackingRenderTarget(
+                size.Width,
+                size.Height,
+                disposeFailure: size.Width == 4 ? cleanup : null));
+        using var pool = new RenderTargetPool(factory);
+        RenderTargetPoolRequest request = pool.BeginRequest();
+        PooledRenderTargetLease releasable = request.Acquire(new PixelSize(3, 3));
+        PooledRenderTargetLease stale = request.Acquire(new PixelSize(4, 4));
+        var staleTarget = (TrackingRenderTarget)stale.Target;
+        stale.Slot.Generation++;
+
+        Assert.That(
+            request.Dispose,
+            Throws.InvalidOperationException.With.Message.Contains("generation is stale"));
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(stale.State, Is.EqualTo(PooledRenderTargetLeaseState.Evicted));
+            Assert.That(releasable.State, Is.EqualTo(PooledRenderTargetLeaseState.Available));
+            Assert.That(staleTarget.IsDisposed, Is.True);
+            Assert.That(staleTarget.DisposeCalls, Is.EqualTo(1));
+            Assert.That(request.CleanupFailures, Is.EqualTo(new[] { cleanup }));
+            Assert.That(pool.Statistics.OwnedTargets, Is.EqualTo(1));
+            Assert.That(pool.Statistics.AvailableTargets, Is.EqualTo(1));
+            Assert.That(pool.Statistics.LeasedTargets, Is.Zero);
+            Assert.That(pool.Statistics.OwnedBytes, Is.EqualTo(3 * 3 * 8));
+            Assert.That(pool.Statistics.RetainedBytes, Is.EqualTo(3 * 3 * 8));
+            Assert.That(pool.Statistics.Evictions, Is.EqualTo(1));
+        });
+        Assert.DoesNotThrow(() => pool.BeginRequest().Dispose());
+    }
+
+    [Test]
+    public void PoolDisposal_ContinuesAfterActiveRequestFailure()
+    {
+        var factory = new TrackingTargetFactory();
+        var pool = new RenderTargetPool(factory);
+        using (RenderTargetPoolRequest warmup = pool.BeginRequest())
+            warmup.Acquire(new PixelSize(3, 3)).Dispose();
+        RenderTargetPoolRequest active = pool.BeginRequest();
+        PooledRenderTargetLease stale = active.Acquire(new PixelSize(4, 4));
+        stale.Slot.Generation++;
+
+        Assert.That(
+            pool.Dispose,
+            Throws.InvalidOperationException.With.Message.Contains("generation is stale"));
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(factory.Created.Cast<TrackingRenderTarget>().Select(static target => target.IsDisposed),
+                Is.All.True);
+            Assert.That(factory.Created.Cast<TrackingRenderTarget>().Select(static target => target.DisposeCalls),
+                Is.All.EqualTo(1));
+            Assert.That(pool.Statistics.OwnedTargets, Is.Zero);
+            Assert.That(pool.Statistics.AvailableTargets, Is.Zero);
+            Assert.That(pool.Statistics.LeasedTargets, Is.Zero);
+            Assert.That(pool.Statistics.OwnedBytes, Is.Zero);
+            Assert.That(pool.Statistics.RetainedBytes, Is.Zero);
+        });
+        Assert.DoesNotThrow(() => pool.Dispose());
+    }
+
+    [Test]
+    public void FreshLeaseRegistrationFailure_EvictsTheSlotAndAllowsRetry()
+    {
+        var primary = new InvalidOperationException("lease-registration-failure");
+        var cleanup = new InvalidOperationException("lease-registration-cleanup");
+        bool failNextRegistration = true;
+        int leasedTargetsAtFailure = -1;
+        RenderTargetPool? observedPool = null;
+        var factory = new TrackingTargetFactory(
+            (size, index) => new TrackingRenderTarget(
+                size.Width,
+                size.Height,
+                disposeFailure: index == 0 ? cleanup : null));
+        using var pool = new RenderTargetPool(
+            factory,
+            new RenderTargetPoolOptions
+            {
+                BeforeLeaseRegistration = () =>
+                {
+                    if (failNextRegistration)
+                    {
+                        failNextRegistration = false;
+                        leasedTargetsAtFailure = observedPool!.Statistics.LeasedTargets;
+                        throw primary;
+                    }
+                },
+            });
+        observedPool = pool;
+        using RenderTargetPoolRequest request = pool.BeginRequest();
+
+        InvalidOperationException? failure = Assert.Throws<InvalidOperationException>(
+            () => request.Acquire(new PixelSize(4, 4)));
+        TrackingRenderTarget rejected = (TrackingRenderTarget)factory.Created.Single();
+        Assert.Multiple(() =>
+        {
+            Assert.That(failure, Is.SameAs(primary));
+            Assert.That(leasedTargetsAtFailure, Is.EqualTo(1));
+            Assert.That(rejected.IsDisposed, Is.True);
+            Assert.That(rejected.DisposeCalls, Is.EqualTo(1));
+            Assert.That(request.CleanupFailures, Is.EqualTo(new[] { cleanup }));
+            Assert.That(pool.Statistics.Creates, Is.EqualTo(1));
+            Assert.That(pool.Statistics.Misses, Is.EqualTo(1));
+            Assert.That(pool.Statistics.Reuses, Is.Zero);
+            Assert.That(pool.Statistics.Evictions, Is.EqualTo(1));
+            Assert.That(pool.Statistics.OwnedTargets, Is.Zero);
+            Assert.That(pool.Statistics.AvailableTargets, Is.Zero);
+            Assert.That(pool.Statistics.LeasedTargets, Is.Zero);
+            Assert.That(pool.Statistics.OwnedBytes, Is.Zero);
+            Assert.That(pool.Statistics.RetainedBytes, Is.Zero);
+            Assert.That(pool.Statistics.PeakLiveTargets, Is.EqualTo(1));
+        });
+
+        using PooledRenderTargetLease retry = request.Acquire(new PixelSize(4, 4));
+        Assert.Multiple(() =>
+        {
+            Assert.That(retry.Target, Is.Not.SameAs(rejected));
+            Assert.That(pool.Statistics.Creates, Is.EqualTo(2));
+            Assert.That(pool.Statistics.Misses, Is.EqualTo(2));
+            Assert.That(pool.Statistics.Evictions, Is.EqualTo(1));
+            Assert.That(pool.Statistics.OwnedTargets, Is.EqualTo(1));
+            Assert.That(pool.Statistics.LeasedTargets, Is.EqualTo(1));
+        });
+    }
+
+    [Test]
+    public void ReusedLeaseRegistrationFailure_EvictsTheSlotAndAllowsRetry()
+    {
+        var primary = new InvalidOperationException("reused-lease-registration-failure");
+        bool failNextRegistration = false;
+        int leasedTargetsAtFailure = -1;
+        RenderTargetPool? observedPool = null;
+        var factory = new TrackingTargetFactory();
+        using var pool = new RenderTargetPool(
+            factory,
+            new RenderTargetPoolOptions
+            {
+                BeforeLeaseRegistration = () =>
+                {
+                    if (failNextRegistration)
+                    {
+                        failNextRegistration = false;
+                        leasedTargetsAtFailure = observedPool!.Statistics.LeasedTargets;
+                        throw primary;
+                    }
+                },
+            });
+        observedPool = pool;
+        PooledRenderTargetLease available;
+        TrackingRenderTarget rejected;
+        using (RenderTargetPoolRequest request = pool.BeginRequest())
+        {
+            available = request.Acquire(new PixelSize(4, 4));
+            rejected = (TrackingRenderTarget)available.Target;
+            available.Dispose();
+        }
+
+        failNextRegistration = true;
+        using RenderTargetPoolRequest retryRequest = pool.BeginRequest();
+        InvalidOperationException? failure = Assert.Throws<InvalidOperationException>(
+            () => retryRequest.Acquire(new PixelSize(4, 4)));
+        Assert.Multiple(() =>
+        {
+            Assert.That(failure, Is.SameAs(primary));
+            Assert.That(leasedTargetsAtFailure, Is.EqualTo(1));
+            Assert.That(rejected.IsDisposed, Is.True);
+            Assert.That(rejected.DisposeCalls, Is.EqualTo(1));
+            Assert.That(pool.Statistics.Creates, Is.EqualTo(1));
+            Assert.That(pool.Statistics.Misses, Is.EqualTo(1));
+            Assert.That(pool.Statistics.Reuses, Is.EqualTo(1));
+            Assert.That(pool.Statistics.Evictions, Is.EqualTo(1));
+            Assert.That(pool.Statistics.OwnedTargets, Is.Zero);
+            Assert.That(pool.Statistics.AvailableTargets, Is.Zero);
+            Assert.That(pool.Statistics.LeasedTargets, Is.Zero);
+            Assert.That(pool.Statistics.OwnedBytes, Is.Zero);
+            Assert.That(pool.Statistics.RetainedBytes, Is.Zero);
+            Assert.That(pool.Statistics.PeakLiveTargets, Is.EqualTo(1));
+        });
+
+        using PooledRenderTargetLease retry = retryRequest.Acquire(new PixelSize(4, 4));
+        Assert.Multiple(() =>
+        {
+            Assert.That(retry.Target, Is.Not.SameAs(rejected));
+            Assert.That(pool.Statistics.Creates, Is.EqualTo(2));
+            Assert.That(pool.Statistics.Misses, Is.EqualTo(2));
+            Assert.That(pool.Statistics.Reuses, Is.EqualTo(1));
+            Assert.That(pool.Statistics.Evictions, Is.EqualTo(1));
+            Assert.That(pool.Statistics.OwnedTargets, Is.EqualTo(1));
+            Assert.That(pool.Statistics.LeasedTargets, Is.EqualTo(1));
+        });
+    }
+
+    [Test]
+    [Category("GpuPassFusionGpu")]
+    public void DeferredGpuDraw_PreservesSnapshotAcrossSameSlotReuse()
+    {
+        VulkanTestEnvironment.EnsureAvailable();
+        VulkanTestEnvironment.InvokeOnRenderThread(() =>
+        {
+            using var pool = new RenderTargetPool(factory: null);
+            using RenderTargetPoolRequest request = pool.BeginRequest();
+            PooledRenderTargetLease source = request.Acquire(new PixelSize(4, 4));
+            using PooledRenderTargetLease destination = request.Acquire(new PixelSize(4, 4));
+            RenderTarget releasedTarget = source.Target;
+            releasedTarget.Value.Canvas.Clear(SKColors.Red);
+            destination.Target.Value.Canvas.Clear(SKColors.Transparent);
+            using var canvas = ImmediateCanvas.CreateExecutorManaged(
+                destination.Target,
+                logicalSize: new Size(4, 4));
+            var observedFlushes = new List<ImmediateCanvasFlushKind>();
+
+            using (ImmediateCanvas.ObserveFlushes(observedFlushes.Add))
+            {
+                canvas.DrawRenderTargetPixelsWithoutFlush(releasedTarget, 0, 0);
+                source.Dispose();
+                using PooledRenderTargetLease reused = request.Acquire(new PixelSize(4, 4));
+                Assert.That(reused.Target, Is.SameAs(releasedTarget));
+                reused.Target.Value.Canvas.Clear(SKColors.Blue);
+                Assert.That(observedFlushes, Is.Empty,
+                    "Recording the draw and reusing its source slot must not add an executor-managed flush.");
+
+                using Bitmap snapshot = destination.Target.Snapshot();
+                ReadOnlySpan<ushort> pixels = snapshot.GetPixelSpan<ushort>();
+                float red = (float)BitConverter.UInt16BitsToHalf(pixels[0]);
+                float blue = (float)BitConverter.UInt16BitsToHalf(pixels[2]);
+                float alpha = (float)BitConverter.UInt16BitsToHalf(pixels[3]);
+                Assert.Multiple(() =>
+                {
+                    Assert.That(red, Is.GreaterThan(0.99f));
+                    Assert.That(blue, Is.LessThan(0.01f));
+                    Assert.That(alpha, Is.GreaterThan(0.99f));
+                });
+            }
+        });
     }
 
     [Test]

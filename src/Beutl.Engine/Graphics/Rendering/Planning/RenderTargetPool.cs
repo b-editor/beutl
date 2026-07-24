@@ -13,6 +13,8 @@ internal sealed class RenderTargetPoolOptions
     public long MaximumRetainedBytes { get; init; } = DefaultMaximumRetainedBytes;
 
     public int MaximumIdleRequests { get; init; } = 120;
+
+    internal Action? BeforeLeaseRegistration { get; init; }
 }
 
 internal readonly record struct RenderTargetPoolStatistics(
@@ -82,6 +84,7 @@ internal sealed class RenderTargetPool : IDisposable
         {
             MaximumRetainedBytes = options.MaximumRetainedBytes,
             MaximumIdleRequests = options.MaximumIdleRequests,
+            BeforeLeaseRegistration = options.BeforeLeaseRegistration,
         };
     }
 
@@ -149,7 +152,16 @@ internal sealed class RenderTargetPool : IDisposable
         _disposed = true;
         List<Exception> failures = [];
         RenderTargetPoolRequest? activeRequest = _activeRequest;
-        activeRequest?.Dispose();
+        ExceptionDispatchInfo? primary = null;
+        try
+        {
+            activeRequest?.Dispose();
+        }
+        catch (Exception ex)
+        {
+            primary = ExceptionDispatchInfo.Capture(ex);
+        }
+
         failures.AddRange(activeRequest?.CleanupFailures ?? []);
         _activeRequest = null;
 
@@ -160,6 +172,7 @@ internal sealed class RenderTargetPool : IDisposable
         _availableLru.Clear();
         _knownTargets.Clear();
         _knownSurfaces.Clear();
+        primary?.Throw();
         ThrowCleanupFailures(failures);
     }
 
@@ -283,6 +296,15 @@ internal sealed class RenderTargetPool : IDisposable
             _activeRequest = null;
     }
 
+    internal void EvictAfterReleaseFailure(PooledRenderTargetLease lease)
+    {
+        ArgumentNullException.ThrowIfNull(lease);
+        if (!ReferenceEquals(lease.Pool, this))
+            throw new InvalidOperationException("The render-target lease belongs to a different pool.");
+
+        Evict(lease.Slot, lease.Request, failures: null);
+    }
+
     private RenderTargetPoolRequest BeginRequestCore(
         object contextIdentity,
         nint? expectedContextHandle,
@@ -334,21 +356,30 @@ internal sealed class RenderTargetPool : IDisposable
         TargetSlot slot,
         bool wasReused)
     {
-        long generation = ++_nextLeaseGeneration;
-        if (generation <= 0)
+        try
         {
-            _nextLeaseGeneration = 1;
-            generation = 1;
-        }
+            long generation = ++_nextLeaseGeneration;
+            if (generation <= 0)
+            {
+                _nextLeaseGeneration = 1;
+                generation = 1;
+            }
 
-        var lease = new PooledRenderTargetLease(this, request, slot, generation, wasReused);
-        slot.Generation = generation;
-        slot.LastAvailableLease = null;
-        slot.ActiveLease = lease;
-        _leasedTargets++;
-        _peakLiveTargets = Math.Max(_peakLiveTargets, _leasedTargets);
-        request.Register(lease);
-        return lease;
+            var lease = new PooledRenderTargetLease(this, request, slot, generation, wasReused);
+            slot.Generation = generation;
+            slot.LastAvailableLease = null;
+            slot.ActiveLease = lease;
+            _leasedTargets++;
+            _peakLiveTargets = Math.Max(_peakLiveTargets, _leasedTargets);
+            _options.BeforeLeaseRegistration?.Invoke();
+            request.Register(lease);
+            return lease;
+        }
+        catch
+        {
+            Evict(slot, request, failures: null);
+            throw;
+        }
     }
 
     private bool TryTakeAvailable(PixelSize size, out TargetSlot? slot)
@@ -720,14 +751,39 @@ internal sealed class RenderTargetPoolRequest : IDisposable
             return;
 
         IsDisposed = true;
-        for (int index = _leases.Count - 1; index >= 0; index--)
+        ExceptionDispatchInfo? primary = null;
+        try
         {
-            PooledRenderTargetLease lease = _leases[index];
-            if (lease.State == PooledRenderTargetLeaseState.Leased)
-                _pool.Release(lease);
+            for (int index = _leases.Count - 1; index >= 0; index--)
+            {
+                PooledRenderTargetLease lease = _leases[index];
+                if (lease.State == PooledRenderTargetLeaseState.Leased)
+                {
+                    try
+                    {
+                        _pool.Release(lease);
+                    }
+                    catch (Exception ex)
+                    {
+                        primary ??= ExceptionDispatchInfo.Capture(ex);
+                        try
+                        {
+                            _pool.EvictAfterReleaseFailure(lease);
+                        }
+                        catch (Exception cleanup)
+                        {
+                            primary ??= ExceptionDispatchInfo.Capture(cleanup);
+                        }
+                    }
+                }
+            }
+        }
+        finally
+        {
+            _pool.EndRequest(this);
         }
 
-        _pool.EndRequest(this);
+        primary?.Throw();
     }
 
     public void ThrowAfterCleanup(ExceptionDispatchInfo? primaryFailure)

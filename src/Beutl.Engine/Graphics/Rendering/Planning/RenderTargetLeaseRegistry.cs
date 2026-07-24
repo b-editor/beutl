@@ -169,10 +169,16 @@ internal sealed class RenderTargetLeaseSession : IDisposable
             return;
 
         IsDisposed = true;
-        for (int index = _leases.Count - 1; index >= 0; index--)
-            _registry.Release(_leases[index]);
-        Request.Dispose();
-        _registry.EndSession(this);
+        try
+        {
+            for (int index = _leases.Count - 1; index >= 0; index--)
+                _registry.Release(_leases[index]);
+            Request.Dispose();
+        }
+        finally
+        {
+            _registry.EndSession(this);
+        }
     }
 
     public void ThrowIfCleanupFailed()
