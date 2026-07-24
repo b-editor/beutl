@@ -20,7 +20,7 @@ dotnet test Beutl.slnx -f net10.0 --filter FullyQualifiedName~ResolutionScaleTes
 # regenerate golden baselines after an INTENTIONAL change (writes .bin instead of asserting)
 BEUTL_GOLDEN_UPDATE=1 dotnet test Beutl.slnx -f net10.0 --filter FullyQualifiedName~Rendering.Golden
 
-# benchmark (explicit; ratio gate, not in default CI)
+# benchmark (explicit; paired significance gate, not in default CI)
 dotnet test Beutl.slnx -f net10.0 --filter "Category=Benchmark"
 ```
 
