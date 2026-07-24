@@ -28,17 +28,21 @@ public sealed class SkslSnippetMergerTests
 
         SkslMergedProgram program = SkslSnippetMerger.Merge(
             [new(first), new(second)]);
+        string firstPrefix = program.Stages[0].Prefix;
+        string secondPrefix = program.Stages[1].Prefix;
 
         Assert.Multiple(() =>
         {
-            Assert.That(program.Source, Does.Contain("uniform float __beutl_s0_gain;")
-                .And.Contain("uniform float __beutl_s1_gain;"));
-            Assert.That(program.Source, Does.Contain("__beutl_s0_weights[2]")
-                .And.Contain("__beutl_s1_weights[2]"));
-            Assert.That(program.Source, Does.Contain("__beutl_s0_adjust")
-                .And.Contain("__beutl_s1_adjust"));
+            Assert.That(firstPrefix, Is.Not.EqualTo(secondPrefix));
+            Assert.That(program.Source, Does.Contain($"uniform float {firstPrefix}gain;")
+                .And.Contain($"uniform float {secondPrefix}gain;"));
+            Assert.That(program.Source, Does.Contain($"{firstPrefix}weights[2]")
+                .And.Contain($"{secondPrefix}weights[2]"));
+            Assert.That(program.Source, Does.Contain($"{firstPrefix}adjust")
+                .And.Contain($"{secondPrefix}adjust"));
             Assert.That(program.Source, Does.Contain("color.rrr")
-                .And.Not.Contain("color.__beutl"));
+                .And.Not.Contain($"color.{firstPrefix}")
+                .And.Not.Contain($"color.{secondPrefix}"));
             Assert.That(program.Source, Does.Contain("/* gain weights adjust */"),
                 "comments are copied verbatim rather than interpreted as identifiers");
         });
@@ -55,12 +59,14 @@ public sealed class SkslSnippetMergerTests
             + "half4 apply(half4 color) { return blue(color); }");
 
         SkslMergedProgram program = SkslSnippetMerger.Merge([new(red), new(blue)]);
+        string firstPrefix = program.Stages[0].Prefix;
+        string secondPrefix = program.Stages[1].Prefix;
 
         int firstCall = program.Source.IndexOf(
-            "__beutl_pixel = __beutl_s0_apply(__beutl_pixel);",
+            $"__beutl_pixel = {firstPrefix}apply(__beutl_pixel);",
             StringComparison.Ordinal);
         int secondCall = program.Source.IndexOf(
-            "__beutl_pixel = __beutl_s1_apply(__beutl_pixel);",
+            $"__beutl_pixel = {secondPrefix}apply(__beutl_pixel);",
             StringComparison.Ordinal);
 
         Assert.Multiple(() =>

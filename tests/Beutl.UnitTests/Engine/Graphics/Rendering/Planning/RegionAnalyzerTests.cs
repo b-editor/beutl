@@ -205,6 +205,30 @@ public sealed class RegionAnalyzerTests
     }
 
     [Test]
+    public void Analyze_RejectsNonDeterministicConcreteForwardMapping()
+    {
+        var graph = new FragmentGraph();
+        RenderFragmentReference source = graph.Source(new Rect(0, 0, 10, 10));
+        int calls = 0;
+        RenderBoundsContract nonDeterministic = RenderBoundsContract.Create(
+            input => calls++ == 0 ? input : input.Translate(new Point(0.25f, 0)),
+            static requested => requested,
+            "non-deterministic-forward");
+        RenderFragmentReference output = graph.Map(source, nonDeterministic);
+
+        InvalidOperationException? failure = Assert.Throws<InvalidOperationException>(
+            () => new RegionAnalyzer().Analyze(Options(), [output]));
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(
+                failure!.Message,
+                Does.Contain("changed between recording and graph-wide metadata resolution"));
+            Assert.That(calls, Is.EqualTo(2));
+        });
+    }
+
+    [Test]
     public void Analyze_KeepsOutputQueryTargetRequestedAndCommitDomainsIndependent()
     {
         var graph = new FragmentGraph();

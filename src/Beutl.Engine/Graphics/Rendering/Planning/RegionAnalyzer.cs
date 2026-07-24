@@ -424,6 +424,9 @@ internal sealed class RegionAnalyzer
             if (!reference.HasSymbolicBoundsDependency
                 && resolvedBounds != reference.RecordedBounds)
             {
+                // Concrete mappings are deliberately evaluated both while recording and here. Exact equality
+                // enforces the public contract that bounds delegates are deterministic over an immutable snapshot;
+                // a tolerance would hide mutable captures rather than accommodate numeric drift from identical inputs.
                 throw new InvalidOperationException(
                     "A forward bounds mapping changed between recording and graph-wide metadata resolution.");
             }

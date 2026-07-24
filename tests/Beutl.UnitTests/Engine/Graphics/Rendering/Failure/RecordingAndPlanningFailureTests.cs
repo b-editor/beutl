@@ -51,10 +51,19 @@ public sealed class RecordingAndPlanningFailureTests
         var factory = new FailureTestTargetFactory();
         using var renderer = FailureTestSupport.CreateRenderer(node, factory, useRenderCache: false);
 
-        Assert.That(() => renderer.Measure(), Throws.TypeOf<InvalidOperationException>());
+        InvalidOperationException? failure = Assert.Throws<InvalidOperationException>(
+            () => renderer.Measure());
+        string expectedMessage = conflict switch
+        {
+            ResourceConflict.DuplicateOwn or ResourceConflict.OwnThenBorrow => "already transferred",
+            ResourceConflict.BorrowThenOwn => "already borrowed",
+            ResourceConflict.BorrowKey or ResourceConflict.BorrowVersion => "Repeated explicit Borrow",
+            _ => throw new ArgumentOutOfRangeException(nameof(conflict)),
+        };
 
         Assert.Multiple(() =>
         {
+            Assert.That(failure!.Message, Does.Contain(expectedMessage));
             Assert.That(
                 resource.DisposeCalls,
                 Is.EqualTo(conflict is ResourceConflict.DuplicateOwn or ResourceConflict.OwnThenBorrow ? 1 : 0));
