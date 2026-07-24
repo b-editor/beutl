@@ -25,7 +25,9 @@
             <SolidColorBrush x:Key="DockBorderSubtleBrush" Color="#2A2A2A" />
             <SolidColorBrush x:Key="DockBorderStrongBrush" Color="#3A3A3A" />
             <SolidColorBrush x:Key="DockSeparatorBrush" Color="#2A2A2A" />
-            <SolidColorBrush x:Key="DockSplitterIdleBrush" Color="#2A2A2A" />
+            <!--  The panel-splitter divider is a border-theme accent; classic dark shows no divider line.  -->
+            <SolidColorBrush x:Key="DockSplitterIdleBrush" Color="Transparent" />
+            <SolidColorBrush x:Key="DockSplitterHoverBrush" Color="Transparent" />
 
             <SolidColorBrush x:Key="DockTabBackgroundBrush" Color="Transparent" />
             <SolidColorBrush x:Key="DockTabHoverBackgroundBrush" Color="#262626" />
@@ -53,7 +55,9 @@
             <SolidColorBrush x:Key="DockBorderSubtleBrush" Color="{DynamicResource ControlStrokeColorDefault}" />
             <SolidColorBrush x:Key="DockBorderStrongBrush" Color="{DynamicResource ControlStrongStrokeColorDefault}" />
             <SolidColorBrush x:Key="DockSeparatorBrush" Color="{DynamicResource ControlStrokeColorDefault}" />
-            <SolidColorBrush x:Key="DockSplitterIdleBrush" Color="{DynamicResource ControlStrokeColorDefault}" />
+            <!--  Border-theme-only divider (see the Dark dictionary); Light shows no divider line.  -->
+            <SolidColorBrush x:Key="DockSplitterIdleBrush" Color="Transparent" />
+            <SolidColorBrush x:Key="DockSplitterHoverBrush" Color="Transparent" />
 
             <SolidColorBrush x:Key="DockTabBackgroundBrush" Color="Transparent" />
             <SolidColorBrush x:Key="DockTabHoverBackgroundBrush" Color="{DynamicResource SubtleFillColorSecondary}" />
@@ -88,7 +92,6 @@
     <SolidColorBrush x:Key="DockDocumentTabCloseSelectedForegroundBrush" Color="{DynamicResource TextFillColorSecondary}" />
     <SolidColorBrush x:Key="DockDocumentTabClosePointerOverForegroundBrush" Color="{DynamicResource TextFillColorPrimary}" />
 
-    <SolidColorBrush x:Key="DockSplitterHoverBrush" Color="{DynamicResource SystemAccentColorLight1}" />
     <SolidColorBrush x:Key="DockSplitterDragBrush" Color="{DynamicResource SystemAccentColor}" />
 
     <SolidColorBrush x:Key="DockChromeButtonDangerHoverBrush" Color="{DynamicResource SystemFillColorCriticalBackground}" />

@@ -1,6 +1,7 @@
 ﻿using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Markup.Xaml;
+using Avalonia.Media;
 using Avalonia.Styling;
 using Avalonia.Threading;
 using Beutl.Configuration;
@@ -16,6 +17,8 @@ namespace Beutl.Services;
 // Applies the selected theme id to the running app: resolves it via ThemeRegistry, sets
 // RequestedThemeVariant (or PreferSystemTheme for the system theme), and merges the descriptor's
 // brush-override resources. Re-applies on ViewConfig.Theme changes and ThemeRegistry.Changed.
+// Also the sole writer of FluentAvaloniaTheme.CustomAccentColor: the user's custom accent (when
+// enabled) wins, then the applied descriptor's AccentColor, then null (the OS accent).
 internal sealed class ThemeService : IDisposable
 {
     private static readonly ILogger s_logger = Log.CreateLogger<ThemeService>();
@@ -25,7 +28,10 @@ internal sealed class ThemeService : IDisposable
     private ThemeDescriptor? _appliedDescriptor;
     private ThemeExtension? _appliedExtension;
     private IDisposable? _themeSubscription;
+    private IDisposable? _useCustomAccentSubscription;
+    private IDisposable? _customAccentColorSubscription;
     private bool _changedSubscribed;
+    private bool _disposed;
     private int _applyQueued;
 
     public ThemeService(FluentAvaloniaTheme theme, ViewConfig viewConfig)
@@ -43,6 +49,10 @@ internal sealed class ThemeService : IDisposable
 
         _themeSubscription = _viewConfig.GetObservable(ViewConfig.ThemeProperty)
             .Subscribe(_ => ScheduleApply());
+        _useCustomAccentSubscription = _viewConfig.GetObservable(ViewConfig.UseCustomAccentColorProperty)
+            .Subscribe(_ => ScheduleApply());
+        _customAccentColorSubscription = _viewConfig.GetObservable(ViewConfig.CustomAccentColorProperty)
+            .Subscribe(_ => ScheduleApply());
         ThemeRegistry.Changed += OnThemeRegistryChanged;
         _changedSubscribed = true;
         ScheduleApply();
@@ -51,7 +61,9 @@ internal sealed class ThemeService : IDisposable
     private static ThemeDescriptor[] GetBuiltinThemes() =>
     [
         new(BuiltinThemeIds.Light, SettingsStrings.Light, ThemeVariant.Light),
-        new(BuiltinThemeIds.Dark, SettingsStrings.Dark, ThemeVariant.Dark),
+        // "Classic" distinguishes FluentAvalonia's stock dark from DarkBorderThemeExtension,
+        // which also shows as "Dark" but ships the near-black design overrides.
+        new(BuiltinThemeIds.Dark, SettingsStrings.DarkClassic, ThemeVariant.Dark),
         new(BuiltinThemeIds.HighContrast, SettingsStrings.HighContrast, FluentAvaloniaTheme.HighContrastTheme),
         new(BuiltinThemeIds.System, SettingsStrings.FollowSystem, ThemeVariant.Default, IsSystemFollowing: true),
     ];
@@ -78,6 +90,21 @@ internal sealed class ThemeService : IDisposable
     {
         Interlocked.Exchange(ref _applyQueued, 0);
 
+        // A job posted before Dispose can still fire after it; Dispose only unsubscribes, so this
+        // guard is what keeps a dead service from mutating the app's theme/accent state.
+        if (_disposed)
+        {
+            return;
+        }
+
+        ApplySelectedTheme();
+        // Unconditionally: an accent-config trigger arrives with the applied descriptor unchanged,
+        // and a theme trigger can change which descriptor supplies the accent.
+        ApplyAccent();
+    }
+
+    private void ApplySelectedTheme()
+    {
         if (ThemeRegistry.ResolveOrDefault(_viewConfig.Theme) is not { } descriptor)
         {
             return; // nothing registered yet (very early startup)
@@ -102,6 +129,21 @@ internal sealed class ThemeService : IDisposable
             && !ReferenceEquals(fallback, descriptor))
         {
             ApplyCore(fallback);
+        }
+    }
+
+    // Skips writes of an unchanged value: every CustomAccentColor set makes FluentAvaloniaTheme
+    // regenerate its SystemAccentColor shade resources and invalidate dependents.
+    private void ApplyAccent()
+    {
+        Color? accent =
+            _viewConfig.UseCustomAccentColor && Color.TryParse(_viewConfig.CustomAccentColor, out Color custom)
+                ? custom
+                : _appliedDescriptor?.AccentColor;
+
+        if (_theme.CustomAccentColor != accent)
+        {
+            _theme.CustomAccentColor = accent;
         }
     }
 
@@ -203,7 +245,10 @@ internal sealed class ThemeService : IDisposable
 
     public void Dispose()
     {
+        _disposed = true;
         _themeSubscription?.Dispose();
+        _useCustomAccentSubscription?.Dispose();
+        _customAccentColorSubscription?.Dispose();
         if (_changedSubscribed)
         {
             ThemeRegistry.Changed -= OnThemeRegistryChanged;

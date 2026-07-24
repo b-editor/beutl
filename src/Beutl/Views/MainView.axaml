@@ -282,7 +282,7 @@
         </Grid>
         <Border Grid.Row="1"
                 HorizontalAlignment="Stretch"
-                Background="{DynamicResource ControlStrokeColorDefaultBrush}" />
+                Background="{DynamicResource TitleBarBottomBorderBrush}" />
 
         <views:EditorHostView Name="EditorHost"
                               Grid.Row="2"

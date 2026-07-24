@@ -232,8 +232,8 @@ public sealed class ViewConfig : ConfigurationBase
     }
 
     // Migrate legacy <2.0 ViewTheme enum values (a JSON number, or a PascalCase name) to the stable
-    // lowercase id. The rule lives in BuiltinThemeIds because ThemeRegistry validates extension ids
-    // against it — the two must not drift.
+    // lowercase id through BuiltinThemeIds — the same normalization ThemeRegistry validates extension
+    // ids against, so settings and the registry cannot drift.
     private static string NormalizeThemeId(JsonNode? node)
     {
         if (node is not JsonValue value)
@@ -247,7 +247,7 @@ public sealed class ViewConfig : ConfigurationBase
             return BuiltinThemeIds.FromLegacyEnum(legacyEnum);
         }
 
-        return value.TryGetValue(out string? raw) ? BuiltinThemeIds.Normalize(raw) : BuiltinThemeIds.Dark;
+        return BuiltinThemeIds.Normalize(value.TryGetValue(out string? raw) ? raw : null);
     }
 
     private record WindowPositionRecord(int X, int Y);

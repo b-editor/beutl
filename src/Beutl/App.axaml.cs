@@ -3,7 +3,6 @@ using Avalonia.Controls;
 using Avalonia.Controls.ApplicationLifetimes;
 using Avalonia.Input.Platform;
 using Avalonia.Markup.Xaml;
-using Avalonia.Media;
 using Avalonia.Styling;
 using Avalonia.Threading;
 using Beutl.Api.Services;
@@ -61,6 +60,7 @@ public sealed class App : Application
 
         activity?.AddEvent(new ActivityEvent("Xaml_Loaded"));
 
+        // ThemeService owns FluentAvaloniaTheme.CustomAccentColor (custom accent and theme accent).
         _themeService = new ThemeService(_theme!, view);
         _themeService.Start();
 
@@ -68,14 +68,6 @@ public sealed class App : Application
         {
             _theme.RemoveRange(1, _theme.Count - 1);
         }
-
-        if (view.UseCustomAccentColor && Color.TryParse(view.CustomAccentColor, out Color customColor))
-        {
-            activity?.SetTag("CustomAccentColor", customColor.ToString());
-
-            _theme.CustomAccentColor = customColor;
-        }
-
     }
 
     private void ApplyDockStringOverrides()

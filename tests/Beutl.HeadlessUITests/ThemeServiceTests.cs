@@ -1,6 +1,7 @@
 ﻿using System.Linq;
 using Avalonia;
 using Avalonia.Headless.NUnit;
+using Avalonia.Media;
 using Avalonia.Styling;
 using Avalonia.Threading;
 using Beutl.Configuration;
@@ -179,9 +180,83 @@ public class ThemeServiceTests
         });
     }
 
-    private sealed class RecordingThemeExtension(string id, string name) : ThemeExtension
+    // A trigger can post an apply job that fires only after the service is disposed (e.g. a test
+    // failing between the trigger and its RunJobs); a dead service must not touch global state.
+    [AvaloniaTest]
+    public void PendingApplyJob_AfterDispose_MutatesNothing()
     {
-        private readonly ThemeDescriptor _descriptor = new(id, name, ThemeVariant.Dark);
+        using var scope = new ThemeScope();
+        Application.Current!.RequestedThemeVariant = ThemeVariant.Dark;
+        scope.Service.Start();
+        Dispatcher.UIThread.RunJobs();
+
+        scope.Config.Theme = BuiltinThemeIds.Light;
+        scope.Config.UseCustomAccentColor = true;
+        scope.Config.CustomAccentColor = Color.FromRgb(0x10, 0x89, 0x3E).ToString();
+        scope.Service.Dispose();
+        Dispatcher.UIThread.RunJobs();
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(Application.Current.RequestedThemeVariant, Is.EqualTo(ThemeVariant.Dark),
+                "a pending apply job must not switch the theme after Dispose");
+            Assert.That(scope.Theme.CustomAccentColor, Is.Null,
+                "a pending apply job must not seed the accent after Dispose");
+        });
+    }
+
+    [AvaloniaTest]
+    public void ThemeAccentColor_SeedsTheAccent_AndLeavesWithTheTheme()
+    {
+        using var scope = new ThemeScope();
+        scope.Service.Start();
+        Dispatcher.UIThread.RunJobs();
+
+        var accent = Color.FromRgb(0x25, 0x63, 0xEB);
+        var ext = new RecordingThemeExtension("test.accent", "Accent", accent);
+        ext.Load();
+        scope.Config.Theme = "test.accent";
+        Dispatcher.UIThread.RunJobs();
+
+        Assert.That(scope.Theme.CustomAccentColor, Is.EqualTo(accent),
+            "the applied theme's design accent should seed FluentAvalonia's accent");
+
+        scope.Config.Theme = BuiltinThemeIds.Dark;
+        Dispatcher.UIThread.RunJobs();
+
+        Assert.That(scope.Theme.CustomAccentColor, Is.Null,
+            "built-ins carry no design accent, so the OS accent must come back");
+    }
+
+    [AvaloniaTest]
+    public void UserCustomAccent_WinsOverThemeAccent_AndYieldsBackWhenDisabled()
+    {
+        using var scope = new ThemeScope();
+        scope.Service.Start();
+        Dispatcher.UIThread.RunJobs();
+
+        var themeAccent = Color.FromRgb(0x25, 0x63, 0xEB);
+        var custom = Color.FromRgb(0x10, 0x89, 0x3E);
+        var ext = new RecordingThemeExtension("test.accent.custom", "Accent", themeAccent);
+        ext.Load();
+        scope.Config.Theme = "test.accent.custom";
+        scope.Config.UseCustomAccentColor = true;
+        scope.Config.CustomAccentColor = custom.ToString();
+        Dispatcher.UIThread.RunJobs();
+
+        Assert.That(scope.Theme.CustomAccentColor, Is.EqualTo(custom),
+            "the user's custom accent must win over the theme's design accent");
+
+        scope.Config.UseCustomAccentColor = false;
+        Dispatcher.UIThread.RunJobs();
+
+        Assert.That(scope.Theme.CustomAccentColor, Is.EqualTo(themeAccent),
+            "disabling the custom accent must fall back to the theme's design accent");
+    }
+
+    private sealed class RecordingThemeExtension(string id, string name, Color? accentColor = null) : ThemeExtension
+    {
+        private readonly ThemeDescriptor _descriptor = new(id, name, ThemeVariant.Dark, AccentColor: accentColor);
         public int AppliedCount;
         public int RevertedCount;
 
@@ -199,10 +274,12 @@ public class ThemeServiceTests
         public ThemeScope()
         {
             ClearRegistry();
-            FluentAvaloniaTheme theme = Application.Current!.Styles.OfType<FluentAvaloniaTheme>().Single();
+            Theme = Application.Current!.Styles.OfType<FluentAvaloniaTheme>().Single();
             Config = new ViewConfig();
-            Service = new ThemeService(theme, Config);
+            Service = new ThemeService(Theme, Config);
         }
+
+        public FluentAvaloniaTheme Theme { get; }
 
         public ViewConfig Config { get; }
 
@@ -211,6 +288,9 @@ public class ThemeServiceTests
         public void Dispose()
         {
             Service.Dispose();
+            // The accent lands on the process-global FluentAvaloniaTheme; leaving it set would
+            // bleed a test's accent into every later [AvaloniaTest] in the assembly.
+            Theme.CustomAccentColor = null;
             ClearRegistry();
         }
 
