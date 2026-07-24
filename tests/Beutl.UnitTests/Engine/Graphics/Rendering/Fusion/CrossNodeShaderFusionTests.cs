@@ -10,6 +10,7 @@ using SkiaSharp;
 namespace Beutl.UnitTests.Engine.Graphics.Rendering.Fusion;
 
 [TestFixture]
+[NonParallelizable]
 public sealed class CrossNodeShaderFusionTests
 {
     private static readonly Rect s_bounds = new(3, 5, 12, 8);
