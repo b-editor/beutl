@@ -43,14 +43,14 @@ internal sealed class RenderTargetLeaseRegistry : IDisposable
             return;
 
         _disposed = true;
-        ExceptionDispatchInfo? primary = null;
+        List<Exception> failures = [];
         try
         {
             _activeSession?.Dispose();
         }
         catch (Exception ex)
         {
-            primary = ExceptionDispatchInfo.Capture(ex);
+            AppendFailures(failures, ex);
         }
 
         _activeSession = null;
@@ -60,10 +60,17 @@ internal sealed class RenderTargetLeaseRegistry : IDisposable
         }
         catch (Exception ex)
         {
-            primary ??= ExceptionDispatchInfo.Capture(ex);
+            AppendFailures(failures, ex);
         }
 
-        primary?.Throw();
+        if (failures.Count == 1)
+            ExceptionDispatchInfo.Capture(failures[0]).Throw();
+        if (failures.Count > 1)
+        {
+            throw new AggregateException(
+                "One or more render-target registry resources failed to dispose.",
+                failures);
+        }
     }
 
     internal RenderTargetLease Acquire(RenderTargetLeaseSession session, PixelSize deviceSize)
@@ -116,6 +123,14 @@ internal sealed class RenderTargetLeaseRegistry : IDisposable
         ArgumentNullException.ThrowIfNull(session);
         if (!ReferenceEquals(_activeSession, session) || session.IsDisposed)
             throw new InvalidOperationException("The render-target allocation session is no longer active.");
+    }
+
+    private static void AppendFailures(List<Exception> failures, Exception failure)
+    {
+        if (failure is AggregateException aggregate)
+            failures.AddRange(aggregate.Flatten().InnerExceptions);
+        else
+            failures.Add(failure);
     }
 }
 

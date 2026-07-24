@@ -9,6 +9,7 @@ using Beutl.UnitTests.Engine.Graphics.Backend;
 namespace Beutl.UnitTests.Engine.Graphics.Rendering.Fusion;
 
 [TestFixture]
+[NonParallelizable]
 public sealed class ExecutionIslandAuthorityTests
 {
     private static readonly Rect s_bounds = new(0, 0, 24, 16);

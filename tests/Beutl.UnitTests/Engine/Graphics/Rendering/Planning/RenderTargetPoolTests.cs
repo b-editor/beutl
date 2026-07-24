@@ -247,6 +247,41 @@ public sealed class RenderTargetPoolTests
     }
 
     [Test]
+    public void RegistryDisposal_PreservesSessionAndPoolFailures()
+    {
+        var poolFailure = new InvalidOperationException("pool-target-cleanup");
+        var factory = new TrackingTargetFactory(
+            (size, _) => new TrackingRenderTarget(
+                size.Width,
+                size.Height,
+                disposeFailure: size.Width == 3 ? poolFailure : null));
+        var registry = new RenderTargetLeaseRegistry(factory);
+        RenderTargetLeaseSession session = registry.BeginSession(RenderIntent.Preview);
+        RenderTargetLease stale = session.Acquire(new PixelSize(4, 4));
+        RenderTargetLease available = session.Acquire(new PixelSize(3, 3));
+        available.Dispose();
+        stale.PooledLease.Slot.Generation++;
+
+        AggregateException? failure = Assert.Throws<AggregateException>(registry.Dispose);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(
+                failure!.InnerExceptions.Select(static exception => exception.Message),
+                Is.EquivalentTo(new[] { "The render-target lease generation is stale.", poolFailure.Message }));
+            Assert.That(
+                factory.Created.Cast<TrackingRenderTarget>().Select(static target => target.IsDisposed),
+                Is.All.True);
+            Assert.That(
+                factory.Created.Cast<TrackingRenderTarget>().Select(static target => target.DisposeCalls),
+                Is.All.EqualTo(1));
+            Assert.That(registry.Statistics.OwnedTargets, Is.Zero);
+            Assert.That(registry.Statistics.LeasedTargets, Is.Zero);
+        });
+        Assert.DoesNotThrow(registry.Dispose);
+    }
+
+    [Test]
     public void RequestDisposalFailure_EvictsTheFailedLeaseAndContinuesCleanup()
     {
         var cleanup = new InvalidOperationException("stale-target-cleanup");
