@@ -14,9 +14,17 @@ public sealed class GateNode : AudioNode
 
     private const float MinDb = -100f;
 
-    // Gate gain in dB, smoothed toward 0 (open) or the Range floor (closed). Starts fully closed so a
-    // silent lead-in stays quiet until the signal crosses the threshold.
+    // Adjacent sample-boundary chunks can differ by one tick from independent TimeSpan rounding; only a
+    // larger gap is a real seek/edit boundary that must reset the gate. Matches LimiterNode.
+    private const long TimestampQuantizationToleranceTicks = 1;
+
+    // Gate gain in dB, smoothed toward 0 (open) or the Range floor (closed). Seeded at the effective
+    // Range floor on the first sample after a reset (see NextGain) so a below-threshold lead-in rests at
+    // the user's floor rather than fading in from the -100 dB sentinel; true silence stays silent
+    // regardless of the seed, since a zero input sample multiplies any gain to zero.
     private float _gateGainDb = MinDb;
+    // False until the first sample after a reset has seeded the follower at the effective Range floor.
+    private bool _gatePrimed;
     // Samples remaining before a gate that has dropped below threshold begins to release.
     private int _holdCounter;
     private int _lastSampleRate;
@@ -64,7 +72,7 @@ public sealed class GateNode : AudioNode
         // Reset the gate on the first call or whenever this chunk does not continue from the previous
         // one; the node is cached across Compose() calls, so stale gate state would otherwise bleed in
         // after a seek/restart. Only DSP state resets here, not the diagnostic latches.
-        if (!_lastTimeRangeEnd.HasValue || _lastTimeRangeEnd.Value != context.TimeRange.Start)
+        if (!_lastTimeRangeEnd.HasValue || !IsTimestampContiguous(_lastTimeRangeEnd.Value, context.TimeRange.Start))
         {
             ResetGate();
         }
@@ -406,6 +414,16 @@ public sealed class GateNode : AudioNode
             _holdCounter--;
         }
 
+        // First sample after a reset: seed the follower at the effective closed floor (Range) instead
+        // of the -100 dB reset sentinel, so a below-threshold lead-in rests at the user's Range floor
+        // rather than fading in from near-silence. An above-threshold onset still ramps open from this
+        // floor via Attack. The Range >= 0 disabled path below overrides the seed to fully open.
+        if (!_gatePrimed)
+        {
+            _gatePrimed = true;
+            _gateGainDb = p.Range;
+        }
+
         // Range 0 dB disables gating: the closed floor equals the open level, so the gate is an exact
         // identity. Snap the follower fully open and bypass smoothing so the disabled case adds no
         // attack ramp or asymptotic sub-unity gain — output equals input sample-for-sample.
@@ -456,6 +474,13 @@ public sealed class GateNode : AudioNode
     {
         _gateGainDb = MinDb;
         _holdCounter = 0;
+        _gatePrimed = false;
+    }
+
+    private static bool IsTimestampContiguous(TimeSpan previousEnd, TimeSpan nextStart)
+    {
+        long difference = nextStart.Ticks - previousEnd.Ticks;
+        return difference is >= -TimestampQuantizationToleranceTicks and <= TimestampQuantizationToleranceTicks;
     }
 
     private void ResetDiagnostics()

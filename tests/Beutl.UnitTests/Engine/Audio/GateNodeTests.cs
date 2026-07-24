@@ -729,4 +729,59 @@ public class GateNodeTests
         Assert.That(onsetPeakDb, Is.LessThan(-20f),
             $"Digital silence at min threshold must keep the gate closed; loud onset should ramp from closed but measured {onsetPeakDb:F2} dB");
     }
+
+    [Test]
+    public void Process_BelowThresholdLeadIn_StartsAtRangeFloorNotFullMute()
+    {
+        // A below-threshold lead-in must rest at the user's Range floor from the very first sample, not
+        // fade in from the -100 dB reset sentinel. With a shallow Range (-20 dB) and a slow attack the
+        // buggy code seeded the follower near -100 dB and only ramped up toward -20, over-attenuating
+        // the opening; the first sample's gain should already sit at the -20 dB floor.
+        const int sampleCount = SampleRate / 10;
+        const float rangeDb = -20f;
+        const float amplitude = 0.01f; // ≈-40 dB, below the -30 dB threshold
+        using var input = CreateConstantBuffer(amplitude, sampleCount);
+        var node = CreateNode(threshold: -30f, attack: 100f, hold: 0f, release: 100f, range: rangeDb);
+        node.AddInput(new BufferReplayNode(input));
+
+        using var output = node.Process(CreateContext(TimeSpan.Zero, TimeSpan.FromSeconds(sampleCount / (double)SampleRate)));
+
+        float firstGainDb = 20f * MathF.Log10(MathF.Abs(output.GetChannelData(0)[0]) / amplitude);
+        Assert.That(firstGainDb, Is.EqualTo(rangeDb).Within(2f),
+            $"Below-threshold lead-in should start at the Range floor ({rangeDb} dB), but first-sample gain was " +
+            $"{firstGainDb:F2} dB (a value near -100 dB indicates a fade-in from the reset sentinel).");
+    }
+
+    [Test]
+    public void Process_OneTickBoundaryRounding_DoesNotResetGate()
+    {
+        // Adjacent sample-boundary chunks can differ by one tick from independent TimeSpan rounding. A
+        // one-tick gap must NOT be treated as a seek: the warmed-open gate must continue (its first
+        // sample stays loud) rather than reset to closed like a fresh gate. Buggy exact-equality would
+        // reset here, dropping the continuing gate's first sample to the fresh gate's value.
+        const int chunkSamples = SampleRate / 10;
+        var chunkDuration = TimeSpan.FromSeconds(chunkSamples / (double)SampleRate);
+        var ctx1 = CreateContext(TimeSpan.Zero, chunkDuration);
+        // Second chunk starts one tick before the exact previous end — within the rounding tolerance.
+        var ctx2 = CreateContext(chunkDuration - TimeSpan.FromTicks(1), chunkDuration);
+
+        var node = CreateNode();
+        using var warmupInput = CreateConstantBuffer(0.9f, chunkSamples);
+        node.AddInput(new BufferReplayNode(warmupInput));
+        using var warmup = node.Process(ctx1);
+        node.ClearInputs();
+        using var followInput = CreateConstantBuffer(0.9f, chunkSamples);
+        node.AddInput(new BufferReplayNode(followInput));
+        using var followOutput = node.Process(ctx2);
+
+        var nodeFresh = CreateNode();
+        using var freshInput = CreateConstantBuffer(0.9f, chunkSamples);
+        nodeFresh.AddInput(new BufferReplayNode(freshInput));
+        using var freshOutput = nodeFresh.Process(ctx1);
+
+        float continuingFirst = MathF.Abs(followOutput.GetChannelData(0)[0]);
+        float freshFirst = MathF.Abs(freshOutput.GetChannelData(0)[0]);
+        Assert.That(continuingFirst, Is.GreaterThan(freshFirst),
+            $"A one-tick boundary rounding must not reset the gate (continuing≈{continuingFirst:F4}, fresh≈{freshFirst:F4}).");
+    }
 }
