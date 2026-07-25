@@ -8,6 +8,7 @@ using Beutl.Configuration;
 using Beutl.Extensibility;
 using Beutl.Language;
 using Beutl.Logging;
+using Beutl.Services.PrimitiveImpls;
 using FluentAvalonia.Styling;
 using Microsoft.Extensions.Logging;
 using Reactive.Bindings;
@@ -47,6 +48,12 @@ internal sealed class ThemeService : IDisposable
             ThemeRegistry.Register(descriptor);
         }
 
+        // The default theme is not a built-in but a first-party extension, and the primitive-extension
+        // pass loads on a background thread — after the first apply below. Loading it here is what lets
+        // the configured default resolve on the first try instead of rendering classic dark and
+        // flashing to it (#2134); LoadPrimitiveExtensionTask leaves this one to us.
+        DarkBorderThemeExtension.Instance.Load();
+
         _themeSubscription = _viewConfig.GetObservable(ViewConfig.ThemeProperty)
             .Subscribe(_ => ScheduleApply());
         _useCustomAccentSubscription = _viewConfig.GetObservable(ViewConfig.UseCustomAccentColorProperty)
@@ -61,7 +68,7 @@ internal sealed class ThemeService : IDisposable
     private static ThemeDescriptor[] GetBuiltinThemes() =>
     [
         new(BuiltinThemeIds.Light, SettingsStrings.Light, ThemeVariant.Light),
-        // "Classic" distinguishes FluentAvalonia's stock dark from DarkBorderThemeExtension,
+        // "Classic" distinguishes FluentAvalonia's stock dark from the default DarkBorderThemeExtension,
         // which also shows as "Dark" but ships the near-black design overrides.
         new(BuiltinThemeIds.Dark, SettingsStrings.DarkClassic, ThemeVariant.Dark),
         new(BuiltinThemeIds.HighContrast, SettingsStrings.HighContrast, FluentAvaloniaTheme.HighContrastTheme),

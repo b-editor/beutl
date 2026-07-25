@@ -81,7 +81,14 @@ public sealed class LoadPrimitiveExtensionTask : StartupTask
                     {
                         manager.ContextCommandManager.Register(viewExtension);
                     }
-                    item.Load();
+
+                    // ThemeService loads the default theme itself, before it applies the configured one
+                    // (#2134). This pass reaches it too late for that and from another thread, so
+                    // loading it again here would only race that registration.
+                    if (!ReferenceEquals(item, DarkBorderThemeExtension.Instance))
+                    {
+                        item.Load();
+                    }
                 }
 
                 provider.AddExtensions(LocalPackage.Reserved0, allExtensions);

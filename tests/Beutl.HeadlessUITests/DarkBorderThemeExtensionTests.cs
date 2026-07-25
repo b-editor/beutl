@@ -15,8 +15,8 @@ using FluentAvalonia.Styling;
 
 namespace Beutl.HeadlessUITests;
 
-// Locks the theme-extension split: the design colors ship as a first-party theme extension
-// (an avares override dictionary), while the built-in "Dark" stays registered as the default
+// Locks the theme-extension split: the design colors ship as the default first-party theme extension
+// (an avares override dictionary), while the built-in "Dark" stays registered as a selectable
 // "Classic" theme.
 [TestFixture]
 public class DarkBorderThemeExtensionTests
@@ -49,12 +49,45 @@ public class DarkBorderThemeExtensionTests
         Assert.That(loaded, Is.InstanceOf<IResourceProvider>());
     }
 
-    // The border theme is opt-in: a fresh ViewConfig must not name it. Which id IS the default is
-    // pinned by ViewConfigThemeMigrationTests.DefaultsToBuiltinDark; only this layer can see ThemeId.
     [AvaloniaTest]
-    public void ViewConfigDefault_IsNotTheBorderTheme()
+    public void ViewConfigDefault_MatchesThemeId()
     {
-        Assert.That(new ViewConfig().Theme, Is.Not.EqualTo(DarkBorderThemeExtension.ThemeId));
+        // ViewConfig cannot reference the app-layer extension, so its default is a literal; this test
+        // is what keeps the two in sync.
+        Assert.That(new ViewConfig().Theme, Is.EqualTo(DarkBorderThemeExtension.ThemeId));
+    }
+
+    // The default theme ships as an extension, and in production the pass that loads extensions runs on
+    // a background thread — after the first apply. Unless Start registers it itself, the app renders
+    // classic dark and flashes to the near-black design once the pass lands (#2134).
+    [AvaloniaTest]
+    public void Start_ResolvesTheDefaultTheme_WithoutTheExtensionPass()
+    {
+        ClearRegistry();
+        FluentAvaloniaTheme theme = Application.Current!.Styles.OfType<FluentAvaloniaTheme>().Single();
+        var config = new ViewConfig();
+        var service = new ThemeService(theme, config);
+        try
+        {
+            service.Start();
+
+            ThemeDescriptor? resolved = ThemeRegistry.Resolve(config.Theme);
+            Assert.Multiple(() =>
+            {
+                Assert.That(resolved, Is.Not.Null, "the configured default must resolve at the first apply");
+                Assert.That(resolved!.Id, Is.EqualTo(DarkBorderThemeExtension.ThemeId));
+                Assert.That(ThemeRegistry.GetOwner(resolved), Is.SameAs(DarkBorderThemeExtension.Instance),
+                    "the extension has to own its theme, or unloading it could not revert the app");
+            });
+        }
+        finally
+        {
+            // Dispose before running the queued first apply: a disposed service drops it, which keeps
+            // the dark override out of this Application and out of the Light capture tests.
+            service.Dispose();
+            ClearRegistry();
+            Dispatcher.UIThread.RunJobs();
+        }
     }
 
     [AvaloniaTest]

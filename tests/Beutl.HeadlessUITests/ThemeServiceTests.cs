@@ -1,5 +1,6 @@
 ﻿using System.Linq;
 using Avalonia;
+using Avalonia.Controls;
 using Avalonia.Headless.NUnit;
 using Avalonia.Media;
 using Avalonia.Styling;
@@ -189,10 +190,13 @@ public class ThemeServiceTests
         Application.Current!.RequestedThemeVariant = ThemeVariant.Dark;
         scope.Service.Start();
         Dispatcher.UIThread.RunJobs();
+        // The default theme carries a design accent, so "untouched" is that accent rather than null.
+        Color? accentBeforeTrigger = scope.Theme.CustomAccentColor;
 
+        var custom = Color.FromRgb(0x10, 0x89, 0x3E);
         scope.Config.Theme = BuiltinThemeIds.Light;
         scope.Config.UseCustomAccentColor = true;
-        scope.Config.CustomAccentColor = Color.FromRgb(0x10, 0x89, 0x3E).ToString();
+        scope.Config.CustomAccentColor = custom.ToString();
         scope.Service.Dispose();
         Dispatcher.UIThread.RunJobs();
 
@@ -200,8 +204,9 @@ public class ThemeServiceTests
         {
             Assert.That(Application.Current.RequestedThemeVariant, Is.EqualTo(ThemeVariant.Dark),
                 "a pending apply job must not switch the theme after Dispose");
-            Assert.That(scope.Theme.CustomAccentColor, Is.Null,
+            Assert.That(scope.Theme.CustomAccentColor, Is.Not.EqualTo(custom),
                 "a pending apply job must not seed the accent after Dispose");
+            Assert.That(scope.Theme.CustomAccentColor, Is.EqualTo(accentBeforeTrigger));
         });
     }
 
@@ -271,10 +276,13 @@ public class ThemeServiceTests
     // test both starts from and hands back an empty registry.
     private sealed class ThemeScope : IDisposable
     {
+        private readonly IResourceProvider[] _mergedOnEntry;
+
         public ThemeScope()
         {
             ClearRegistry();
             Theme = Application.Current!.Styles.OfType<FluentAvaloniaTheme>().Single();
+            _mergedOnEntry = [.. Application.Current.Resources.MergedDictionaries];
             Config = new ViewConfig();
             Service = new ThemeService(Theme, Config);
         }
@@ -291,6 +299,14 @@ public class ThemeServiceTests
             // The accent lands on the process-global FluentAvaloniaTheme; leaving it set would
             // bleed a test's accent into every later [AvaloniaTest] in the assembly.
             Theme.CustomAccentColor = null;
+            // So do the applied theme's overrides, which ThemeService drops only on its next apply —
+            // Dispose is not one, and the default theme's are flat colors that would retint Light too.
+            IList<IResourceProvider> merged = Application.Current!.Resources.MergedDictionaries;
+            foreach (IResourceProvider applied in merged.Except(_mergedOnEntry).ToArray())
+            {
+                merged.Remove(applied);
+            }
+
             ClearRegistry();
         }
 
