@@ -105,8 +105,9 @@ internal sealed class ThemeService : IDisposable
         }
 
         ApplySelectedTheme();
-        // Unconditionally: an accent-config trigger arrives with the applied descriptor unchanged,
-        // and a theme trigger can change which descriptor supplies the accent.
+        // Unconditionally, even though ApplyCore already seeds a newly applied theme's accent: an
+        // accent-config trigger arrives with the applied descriptor unchanged, so nothing in
+        // ApplySelectedTheme would pick it up. Writes of an unchanged value are skipped.
         ApplyAccent();
     }
 
@@ -208,6 +209,11 @@ internal sealed class ThemeService : IDisposable
         {
             ThemeNotifier.NotifyReverted(previous, previousExtension);
         }
+
+        // Before OnApplied, and after the outgoing owner is reverted: an extension declares its accent
+        // on the descriptor instead of writing FluentAvalonia's, so a hook that recomputes
+        // accent-derived resources has to see this theme's accent rather than the outgoing one's.
+        ApplyAccent();
 
         ThemeNotifier.NotifyApplied(descriptor, extension);
         return true;

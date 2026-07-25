@@ -9,10 +9,9 @@ namespace Beutl.UnitTests.Configuration;
 [TestFixture]
 public class ViewConfigThemeMigrationTests
 {
-    // ViewConfig's DefaultThemeId is private and the app-layer DarkBorderThemeExtension.ThemeId is out
-    // of reach here, so the id is repeated; DarkBorderThemeExtensionTests.ViewConfigDefault_MatchesThemeId
-    // is what keeps all three in sync.
-    private const string DefaultThemeId = "beutl.dark.border";
+    // ViewConfig's own DefaultThemeId is private, but it is an alias of this shared id, so there is no
+    // literal to keep in sync.
+    private const string DefaultThemeId = FirstPartyThemeIds.DarkBorder;
 
     // Legacy <2.0 settings.json stored the old ViewTheme enum as an int (0-3) or PascalCase name.
     // The string id persisted by >=2.0 and unknown ids (custom themes) must round-trip unchanged.

@@ -23,11 +23,9 @@ public sealed class ViewConfig : ConfigurationBase
     private readonly CoreList<string> _recentProjects = [];
     private bool _showExactBoundaries = false;
 
-    // The default theme id (DarkBorderThemeExtension.ThemeId, which lives in the app layer this project
-    // cannot reference). Not a built-in id, so BuiltinThemeIds must never return it: its normalization
-    // backs ThemeRegistry's reserved-id check. Kept in sync by
-    // DarkBorderThemeExtensionTests.ViewConfigDefault_MatchesThemeId.
-    private const string DefaultThemeId = "beutl.dark.border";
+    // The default theme is the first-party design theme, not a built-in, so BuiltinThemeIds must never
+    // return this id: its normalization is what backs ThemeRegistry's reserved-id check.
+    private const string DefaultThemeId = FirstPartyThemeIds.DarkBorder;
 
     static ViewConfig()
     {

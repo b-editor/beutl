@@ -49,11 +49,11 @@ public class DarkBorderThemeExtensionTests
         Assert.That(loaded, Is.InstanceOf<IResourceProvider>());
     }
 
+    // The product default is this theme, and only this layer can compare the two: ViewConfig's default
+    // is the shared FirstPartyThemeIds id, the extension's descriptor is what registers under it.
     [AvaloniaTest]
     public void ViewConfigDefault_MatchesThemeId()
     {
-        // ViewConfig cannot reference the app-layer extension, so its default is a literal; this test
-        // is what keeps the two in sync.
         Assert.That(new ViewConfig().Theme, Is.EqualTo(DarkBorderThemeExtension.ThemeId));
     }
 

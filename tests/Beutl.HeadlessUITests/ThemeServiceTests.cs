@@ -210,6 +210,29 @@ public class ThemeServiceTests
         });
     }
 
+    // A ThemeExtension declares its accent on the descriptor because the host owns FluentAvalonia's
+    // accent, so OnApplied — the documented hook for apply-time resource recomputation — must run with
+    // that accent already seeded, not the outgoing theme's.
+    [AvaloniaTest]
+    public void ThemeAccent_IsSeededBeforeTheNewOwnersOnApplied()
+    {
+        using var scope = new ThemeScope();
+        scope.Service.Start();
+        Dispatcher.UIThread.RunJobs();
+
+        var accent = Color.FromRgb(0x8A, 0x2B, 0xE2);
+        var ext = new RecordingThemeExtension("test.accentorder", "AccentOrder", accent);
+        ext.Load();
+        scope.Config.Theme = "test.accentorder";
+        Dispatcher.UIThread.RunJobs();
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(ext.AppliedCount, Is.EqualTo(1), "precondition: the extension's theme was applied");
+            Assert.That(ext.AccentAtApplied, Is.EqualTo(accent));
+        });
+    }
+
     [AvaloniaTest]
     public void ThemeAccentColor_SeedsTheAccent_AndLeavesWithTheTheme()
     {
@@ -265,9 +288,17 @@ public class ThemeServiceTests
         public int AppliedCount;
         public int RevertedCount;
 
+        // What FluentAvalonia's accent was while OnApplied ran — the state an extension recomputing
+        // accent-derived resources in that hook would observe.
+        public Color? AccentAtApplied;
+
         public override ThemeDescriptor GetThemeDescriptor() => _descriptor;
 
-        public override void OnApplied(ThemeApplyContext context) => AppliedCount++;
+        public override void OnApplied(ThemeApplyContext context)
+        {
+            AppliedCount++;
+            AccentAtApplied = Application.Current!.Styles.OfType<FluentAvaloniaTheme>().Single().CustomAccentColor;
+        }
 
         public override void OnReverted() => RevertedCount++;
     }

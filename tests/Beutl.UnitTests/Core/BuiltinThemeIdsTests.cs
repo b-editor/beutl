@@ -55,7 +55,7 @@ public class BuiltinThemeIdsTests
         Assert.That(BuiltinThemeIds.IsReserved(id), Is.True);
     }
 
-    [TestCase("beutl.dark.border")]
+    [TestCase(FirstPartyThemeIds.DarkBorder)]
     [TestCase("darker")]
     [TestCase("2026")]
     public void IsReserved_LeavesIdsSettingsHandsBackUnchanged(string id)

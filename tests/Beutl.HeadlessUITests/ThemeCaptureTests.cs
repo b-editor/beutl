@@ -8,6 +8,7 @@ using Avalonia.Media.Imaging;
 using Avalonia.Styling;
 using Avalonia.VisualTree;
 using Beutl.Controls.PropertyEditors;
+using Beutl.Controls.Styling.Themes;
 using Beutl.Editor.Components.ElementPropertyTab.ViewModels;
 using Beutl.Editor.Components.ElementPropertyTab.Views;
 using Beutl.Editor.Components.FileBrowserTab.ViewModels;
@@ -25,6 +26,7 @@ using Beutl.Testing.Headless;
 using Beutl.ViewModels;
 using Beutl.ViewModels.Editors;
 using Beutl.Views;
+using FluentAvalonia.Styling;
 
 namespace Beutl.HeadlessUITests;
 
@@ -43,6 +45,17 @@ public class ThemeCaptureTests
     private static string OutputDirectory =>
         Environment.GetEnvironmentVariable("BEUTL_THEME_CAPTURE_DIR")
         ?? Path.Combine(Path.GetTempPath(), "beutl-theme-captures");
+
+    // Production seeds FluentAvalonia's accent from the applied theme's descriptor (ThemeService); these
+    // captures only flip the variant, so without seeding it here every accent-derived fill, focus ring
+    // and selected surface would show the headless host's accent instead of what ships. Built-ins
+    // declare no design accent, so the light capture passes null -- the OS accent, as in production.
+    // Beutl.Media.Color is also in scope here, so the accent is qualified.
+    private static void UseCaptureTheme(ThemeVariant variant, Avalonia.Media.Color? designAccent)
+    {
+        Application.Current!.RequestedThemeVariant = variant;
+        Application.Current.Styles.OfType<FluentAvaloniaTheme>().Single().CustomAccentColor = designAccent;
+    }
 
     private static string Capture(Window window, string name)
     {
@@ -219,7 +232,7 @@ public class ThemeCaptureTests
     public async Task Capture_editor_shell_dark()
     {
         await TestReset.ResetShellAsync();
-        Application.Current!.RequestedThemeVariant = ThemeVariant.Dark;
+        UseCaptureTheme(ThemeVariant.Dark, BeutlDarkBorderTheme.AccentColor);
         EditViewModel editor = await OpenEditorForNewScene("themecapture");
         for (int layer = 0; layer < 3; layer++)
         {
@@ -292,7 +305,7 @@ public class ThemeCaptureTests
     public async Task Capture_element_properties_dark()
     {
         await TestReset.ResetShellAsync();
-        Application.Current!.RequestedThemeVariant = ThemeVariant.Dark;
+        UseCaptureTheme(ThemeVariant.Dark, BeutlDarkBorderTheme.AccentColor);
         EditViewModel editor = await OpenEditorForNewScene("inspectorcapture");
 
         var adder = (IElementAdder)editor.GetService(typeof(IElementAdder))!;
@@ -367,7 +380,7 @@ public class ThemeCaptureTests
     public async Task Capture_library_dark()
     {
         await TestReset.ResetShellAsync();
-        Application.Current!.RequestedThemeVariant = ThemeVariant.Dark;
+        UseCaptureTheme(ThemeVariant.Dark, BeutlDarkBorderTheme.AccentColor);
         EditViewModel editor = await OpenEditorForNewScene("librarycapture");
 
         LibraryTabViewModel? library = editor.FindToolTab<LibraryTabViewModel>();
@@ -421,7 +434,7 @@ public class ThemeCaptureTests
     public async Task Capture_file_browser_dark()
     {
         await TestReset.ResetShellAsync();
-        Application.Current!.RequestedThemeVariant = ThemeVariant.Dark;
+        UseCaptureTheme(ThemeVariant.Dark, BeutlDarkBorderTheme.AccentColor);
         EditViewModel editor = await OpenEditorForNewScene("filebrowsercapture");
 
         FileBrowserTabViewModel? browser = editor.FindToolTab<FileBrowserTabViewModel>();
@@ -498,7 +511,7 @@ public class ThemeCaptureTests
     [AvaloniaTest]
     public void Capture_control_gallery_dark()
     {
-        Application.Current!.RequestedThemeVariant = ThemeVariant.Dark;
+        UseCaptureTheme(ThemeVariant.Dark, BeutlDarkBorderTheme.AccentColor);
         var window = new Window { Content = BuildGallery(), Width = 860, Height = 940 };
         try
         {
@@ -523,7 +536,7 @@ public class ThemeCaptureTests
     [AvaloniaTest]
     public void Capture_combobox_detail_dark()
     {
-        Application.Current!.RequestedThemeVariant = ThemeVariant.Dark;
+        UseCaptureTheme(ThemeVariant.Dark, BeutlDarkBorderTheme.AccentColor);
         var window = new Window
         {
             Content = new StackPanel
@@ -557,7 +570,7 @@ public class ThemeCaptureTests
     [AvaloniaTest]
     public void Capture_flyout_selected_tab_dark()
     {
-        Application.Current!.RequestedThemeVariant = ThemeVariant.Dark;
+        UseCaptureTheme(ThemeVariant.Dark, BeutlDarkBorderTheme.AccentColor);
 
         var presenter = new BrushEditorFlyoutPresenter
         {
@@ -588,7 +601,7 @@ public class ThemeCaptureTests
     [AvaloniaTest]
     public void Capture_textbox_border_dark()
     {
-        Application.Current!.RequestedThemeVariant = ThemeVariant.Dark;
+        UseCaptureTheme(ThemeVariant.Dark, BeutlDarkBorderTheme.AccentColor);
 
         var restBox = new TextBox { Text = "Rest", Width = 200 };
         var focusedBox = new TextBox { Text = "Focused", Width = 200 };
@@ -621,7 +634,7 @@ public class ThemeCaptureTests
     [AvaloniaTest]
     public void Capture_control_gallery_light()
     {
-        Application.Current!.RequestedThemeVariant = ThemeVariant.Light;
+        UseCaptureTheme(ThemeVariant.Light, designAccent: null);
         var window = new Window { Content = BuildGallery(), Width = 860, Height = 940 };
         try
         {
@@ -633,7 +646,7 @@ public class ThemeCaptureTests
         {
             window.Close();
             HeadlessTestHelpers.Settle();
-            Application.Current!.RequestedThemeVariant = ThemeVariant.Dark;
+            UseCaptureTheme(ThemeVariant.Dark, BeutlDarkBorderTheme.AccentColor);
         }
     }
 }
