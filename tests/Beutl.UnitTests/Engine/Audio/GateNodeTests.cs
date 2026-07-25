@@ -787,4 +787,87 @@ public class GateNodeTests
         Assert.That(continuingFirst, Is.GreaterThan(freshFirst),
             $"A one-tick boundary rounding must not reset the gate (continuing≈{continuingFirst:F4}, fresh≈{freshFirst:F4}).");
     }
+
+    [Test]
+    public void Process_Hold_KeepsGateOpenForEveryConfiguredSample()
+    {
+        // Hold of N samples must latch the gate open for all N below-threshold samples. Spending the
+        // latch before reading it made the gate release one sample early — and with a hold that converts
+        // to a single sample, immediately. The release is deliberately the fastest allowed (1 ms) so one
+        // sample of release is a large, unambiguous drop rather than a rounding-sized one.
+        const int holdSamples = 1;
+        const float holdMs = holdSamples * 1000f / SampleRate;
+        const int loudSamples = SampleRate / 100;
+        const int sampleCount = loudSamples + 8;
+        using var input = CreateBuffer(1, sampleCount, (_, i) => i < loudSamples ? 0.9f : 0.003f);
+        var node = CreateNode(threshold: -40f, attack: 0.1f, hold: holdMs, release: 1f, range: -60f);
+        node.AddInput(new BufferReplayNode(input));
+
+        using var output = node.Process(CreateContext(TimeSpan.Zero, TimeSpan.FromSeconds(sampleCount / (double)SampleRate)));
+
+        var data = output.GetChannelData(0);
+        // The first below-threshold sample is still inside the hold window, so it passes at (near) unity.
+        float heldGain = MathF.Abs(data[loudSamples]) / 0.003f;
+        // The next one is past the window and has begun releasing toward the Range floor.
+        float releasedGain = MathF.Abs(data[loudSamples + 1]) / 0.003f;
+
+        Assert.That(heldGain, Is.EqualTo(1f).Within(0.01f),
+            $"A {holdSamples}-sample hold must keep the first below-threshold sample fully open, but its gain was {heldGain:F4}.");
+        Assert.That(releasedGain, Is.LessThan(heldGain),
+            $"The sample after the hold window must have started releasing (held≈{heldGain:F4}, released≈{releasedGain:F4}).");
+    }
+
+    [Test]
+    public void Process_InputSampleRateMismatch_Throws()
+    {
+        // Coefficients and the hold count are derived from the context sample rate while the output
+        // buffer carries the input's, so a mismatched upstream buffer must be rejected rather than
+        // silently relabelled.
+        const int altSampleRate = 44100;
+        using var input = CreateConstantBuffer(0.9f, altSampleRate / 10, 2, altSampleRate);
+        var node = CreateNode();
+        node.AddInput(new BufferReplayNode(input));
+
+        Assert.Throws<InvalidOperationException>(
+            () => node.Process(CreateContext(TimeSpan.Zero, TimeSpan.FromSeconds(0.1))));
+    }
+
+    [Test]
+    public void Process_NonFinitePropertyDefault_FallsBackToDeclaredConstant()
+    {
+        // A library user can declare a property whose CurrentValue *and* DefaultValue are both
+        // non-finite. Returning the non-finite default would defeat the range clamp (NaN clamps to NaN)
+        // and collapse the gate to its recovery sentinel, so the declared GateParameters constants must
+        // take over: an above-threshold signal still passes at unity.
+        const int sampleCount = SampleRate / 4;
+        using var input = CreateConstantBuffer(0.9f, sampleCount);
+
+        var node = new GateNode
+        {
+            Threshold = Property.CreateAnimatable(float.NaN),
+            Attack = Property.CreateAnimatable(float.NaN),
+            Hold = Property.CreateAnimatable(float.NaN),
+            Release = Property.CreateAnimatable(float.NaN),
+            Range = Property.CreateAnimatable(float.NaN)
+        };
+        node.AddInput(new BufferReplayNode(input));
+
+        using var output = node.Process(CreateContext(TimeSpan.Zero, TimeSpan.FromSeconds(0.25)));
+
+        for (int ch = 0; ch < output.ChannelCount; ch++)
+        {
+            var data = output.GetChannelData(ch);
+            for (int i = 0; i < output.SampleCount; i++)
+            {
+                Assert.That(float.IsFinite(data[i]), Is.True,
+                    $"Output sample [{ch}][{i}] = {data[i]} is not finite");
+            }
+        }
+
+        // Defaults are Threshold -40 dB / Range -60 dB, so 0.9 (≈-0.9 dB) is above threshold and the
+        // settled tail must reach unity instead of sitting at the -100 dB recovery sentinel.
+        float steadyPeakDb = PeakDb(output, sampleCount / 2);
+        Assert.That(steadyPeakDb, Is.EqualTo(PeakDb(input, 0)).Within(1f),
+            $"With non-finite property defaults the declared constants must apply, but the tail measured {steadyPeakDb:F2} dB.");
+    }
 }

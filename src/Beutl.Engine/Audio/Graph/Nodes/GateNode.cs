@@ -63,6 +63,12 @@ public sealed class GateNode : AudioNode
 
         using var input = Inputs[0].Process(context);
 
+        // Coefficients and the hold count come from context.SampleRate while the output buffer carries
+        // input.SampleRate, so a mismatch would mislabel the samples rather than resample them.
+        if (input.SampleRate != context.SampleRate)
+            throw new InvalidOperationException(
+                $"Gate node: sample rate mismatch. context={context.SampleRate}, input={input.SampleRate}.");
+
         if (_lastSampleRate != context.SampleRate)
         {
             Reset();
@@ -320,11 +326,11 @@ public sealed class GateNode : AudioNode
     {
         return new EffectiveParameters
         {
-            Threshold = Sanitize(Threshold.CurrentValue, Threshold.DefaultValue, MinThresholdDb, MaxThresholdDb, nameof(Threshold)),
-            Attack = Sanitize(Attack.CurrentValue, Attack.DefaultValue, MinAttackMs, MaxAttackMs, nameof(Attack)),
-            Hold = Sanitize(Hold.CurrentValue, Hold.DefaultValue, MinHoldMs, MaxHoldMs, nameof(Hold)),
-            Release = Sanitize(Release.CurrentValue, Release.DefaultValue, MinReleaseMs, MaxReleaseMs, nameof(Release)),
-            Range = Sanitize(Range.CurrentValue, Range.DefaultValue, MinRangeDb, MaxRangeDb, nameof(Range)),
+            Threshold = Sanitize(Threshold.CurrentValue, Threshold.DefaultValue, DefaultThresholdDb, MinThresholdDb, MaxThresholdDb, nameof(Threshold)),
+            Attack = Sanitize(Attack.CurrentValue, Attack.DefaultValue, DefaultAttackMs, MinAttackMs, MaxAttackMs, nameof(Attack)),
+            Hold = Sanitize(Hold.CurrentValue, Hold.DefaultValue, DefaultHoldMs, MinHoldMs, MaxHoldMs, nameof(Hold)),
+            Release = Sanitize(Release.CurrentValue, Release.DefaultValue, DefaultReleaseMs, MinReleaseMs, MaxReleaseMs, nameof(Release)),
+            Range = Sanitize(Range.CurrentValue, Range.DefaultValue, DefaultRangeDb, MinRangeDb, MaxRangeDb, nameof(Range)),
         };
     }
 
@@ -334,20 +340,20 @@ public sealed class GateNode : AudioNode
     {
         return new EffectiveParameters
         {
-            Threshold = Sanitize(threshold, fallback.Threshold, MinThresholdDb, MaxThresholdDb, nameof(Threshold)),
-            Attack = Sanitize(attack, fallback.Attack, MinAttackMs, MaxAttackMs, nameof(Attack)),
-            Hold = Sanitize(hold, fallback.Hold, MinHoldMs, MaxHoldMs, nameof(Hold)),
-            Release = Sanitize(release, fallback.Release, MinReleaseMs, MaxReleaseMs, nameof(Release)),
-            Range = Sanitize(range, fallback.Range, MinRangeDb, MaxRangeDb, nameof(Range)),
+            Threshold = Sanitize(threshold, fallback.Threshold, DefaultThresholdDb, MinThresholdDb, MaxThresholdDb, nameof(Threshold)),
+            Attack = Sanitize(attack, fallback.Attack, DefaultAttackMs, MinAttackMs, MaxAttackMs, nameof(Attack)),
+            Hold = Sanitize(hold, fallback.Hold, DefaultHoldMs, MinHoldMs, MaxHoldMs, nameof(Hold)),
+            Release = Sanitize(release, fallback.Release, DefaultReleaseMs, MinReleaseMs, MaxReleaseMs, nameof(Release)),
+            Range = Sanitize(range, fallback.Range, DefaultRangeDb, MinRangeDb, MaxRangeDb, nameof(Range)),
         };
     }
 
     // Substitute fallback for NaN/Infinity, then clamp to the parameter's [Range]. A finite-but-out-of-
     // range value is a real authoring error distinct from the non-finite case, so it gets its own
     // once-per-parameter warning.
-    private float Sanitize(float value, float fallback, float min, float max, string paramName)
+    private float Sanitize(float value, float fallback, float declaredDefault, float min, float max, string paramName)
     {
-        float safe = SafeParameter(value, fallback, paramName);
+        float safe = SafeParameter(value, fallback, declaredDefault, paramName);
         float clamped = Math.Clamp(safe, min, max);
         if (clamped != safe && _loggedClampedParameters.Add(paramName))
         {
@@ -371,16 +377,19 @@ public sealed class GateNode : AudioNode
         _loggedNonFiniteGain = true;
     }
 
-    private float SafeParameter(float value, float fallback, string paramName)
+    private float SafeParameter(float value, float fallback, float declaredDefault, string paramName)
     {
         if (float.IsFinite(value)) return value;
+        // A library user can declare an IProperty whose DefaultValue is itself non-finite; returning it
+        // would defeat the caller's Math.Clamp (NaN clamps to NaN), so drop to the declared constant.
+        float safeFallback = float.IsFinite(fallback) ? fallback : declaredDefault;
         if (_loggedNonFiniteParameters.Add(paramName))
         {
             s_logger.LogWarning(
                 "Gate parameter '{Param}' produced a non-finite value; falling back to {Fallback}. Further occurrences for this parameter will be suppressed.",
-                paramName, fallback);
+                paramName, safeFallback);
         }
-        return fallback;
+        return safeFallback;
     }
 
     private float SanitizeOutput(float sample)
@@ -409,7 +418,11 @@ public sealed class GateNode : AudioNode
         {
             _holdCounter = holdSamples;
         }
-        else if (_holdCounter > 0)
+
+        // The latch must be read for the current sample before it is spent, or a hold of N samples
+        // would only keep the gate open for N-1 (and a one-sample hold for none at all).
+        bool heldOpen = _holdCounter > 0;
+        if (!aboveThreshold && heldOpen)
         {
             _holdCounter--;
         }
@@ -435,7 +448,7 @@ public sealed class GateNode : AudioNode
 
         // Open (0 dB) while the signal is above threshold or the hold timer keeps it latched; else
         // fall to the Range floor. Attack smooths the rise (opening), release smooths the fall.
-        float targetDb = aboveThreshold || _holdCounter > 0 ? 0f : p.Range;
+        float targetDb = aboveThreshold || heldOpen ? 0f : p.Range;
         float coeff = targetDb > _gateGainDb ? attackCoeff : releaseCoeff;
         _gateGainDb = targetDb + coeff * (_gateGainDb - targetDb);
         RecoverGainIfNonFinite();
