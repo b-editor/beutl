@@ -1,4 +1,5 @@
 ﻿using System.Collections.Specialized;
+using System.Reactive;
 using Avalonia;
 using Avalonia.Media.Imaging;
 using Avalonia.Threading;
@@ -230,25 +231,142 @@ public static class AvaloniaTypeConverter
             case Media.DrawableBrush db:
                 {
                     var imageBrush = new ImageBrush();
-                    DrawableImageBrushHandler? handler = null;
-                    var disposables = new CompositeDisposable();
-                    AdaptEngineObject(
-                        db, time,
-                        (o, rc) => o.ToResource(rc),
-                        r =>
-                        {
-                            handler ??= new DrawableImageBrushHandler(r, imageBrush);
-                            handler.Update();
-                        })
-                        .DisposeWith(disposables);
-                    Disposable.Create(() => handler?.Dispose())
-                        .DisposeWith(disposables);
-
-                    return (imageBrush, disposables, null);
+                    var subscription = new DrawableBrushSubscription(
+                        db,
+                        time,
+                        imageBrush,
+                        RenderThread.Dispatcher);
+                    return (imageBrush, subscription, null);
                 }
         }
 
         return default;
+    }
+
+    private sealed class DrawableBrushSubscription : IDisposable
+    {
+        private readonly object _gate = new();
+        private readonly Media.DrawableBrush _drawableBrush;
+        private readonly ImageBrush _imageBrush;
+        private readonly Beutl.Threading.Dispatcher _renderDispatcher;
+        private readonly CompositionContext _compositionContext = new(TimeSpan.Zero);
+        private readonly CancellationTokenSource _lifetime = new();
+        private readonly SingleAssignmentDisposable _subscription = new();
+        private DrawableBrush.Resource? _resource;
+        private DrawableImageBrushHandler? _handler;
+        private int _lastVersion = -1;
+        private bool _disposed;
+
+        public DrawableBrushSubscription(
+            Media.DrawableBrush drawableBrush,
+            IObservable<TimeSpan> time,
+            ImageBrush imageBrush,
+            Beutl.Threading.Dispatcher renderDispatcher)
+        {
+            _drawableBrush = drawableBrush;
+            _imageBrush = imageBrush;
+            _renderDispatcher = renderDispatcher;
+            _renderDispatcher.ShutdownStarted += OnRenderDispatcherShutdown;
+
+            IObservable<Unit> edits = Observable.FromEventPattern(
+                    h => _drawableBrush.Edited += h,
+                    h => _drawableBrush.Edited -= h)
+                .Select(static _ => Unit.Default)
+                .Publish(Unit.Default)
+                .RefCount();
+
+            _subscription.Disposable = edits
+                .CombineLatest(time)
+                .Subscribe(value => QueueUpdate(value.Second));
+
+            if (_renderDispatcher.HasShutdownStarted)
+                Dispose();
+        }
+
+        public void Dispose()
+        {
+            DrawableImageBrushHandler? handler;
+            lock (_gate)
+            {
+                if (_disposed)
+                    return;
+
+                _disposed = true;
+                _lifetime.Cancel();
+                handler = _handler;
+                _handler = null;
+                _resource = null;
+            }
+
+            _renderDispatcher.ShutdownStarted -= OnRenderDispatcherShutdown;
+            _subscription.Dispose();
+            handler?.Dispose();
+            _lifetime.Dispose();
+        }
+
+        private void QueueUpdate(TimeSpan time)
+        {
+            lock (_gate)
+            {
+                if (_disposed || _renderDispatcher.HasShutdownStarted)
+                    return;
+
+                _renderDispatcher.Dispatch(
+                    () => ApplyUpdate(time),
+                    DispatchPriority.Low,
+                    _lifetime.Token);
+            }
+        }
+
+        private void ApplyUpdate(TimeSpan time)
+        {
+            DrawableImageBrushHandler handler;
+            lock (_gate)
+            {
+                if (_disposed)
+                    return;
+
+                _compositionContext.Time = time;
+                if (_resource is null)
+                {
+                    DrawableBrush.Resource resource =
+                        (DrawableBrush.Resource)_drawableBrush.ToResource(_compositionContext);
+                    try
+                    {
+                        handler = new DrawableImageBrushHandler(
+                            resource,
+                            _imageBrush,
+                            _renderDispatcher);
+                    }
+                    catch
+                    {
+                        resource.Dispose();
+                        throw;
+                    }
+
+                    _resource = resource;
+                    _handler = handler;
+                }
+                else
+                {
+                    bool updateOnly = false;
+                    _resource.Update(_drawableBrush, _compositionContext, ref updateOnly);
+                    handler = _handler!;
+                }
+
+                if (_resource.Version == _lastVersion)
+                    return;
+
+                _lastVersion = _resource.Version;
+            }
+
+            handler.Update();
+        }
+
+        private void OnRenderDispatcherShutdown(object? sender, EventArgs e)
+        {
+            Dispose();
+        }
     }
 
     public sealed class DrawableImageBrushHandler : IDisposable
@@ -258,97 +376,57 @@ public static class AvaloniaTypeConverter
         private CancellationTokenSource? _cts;
         private readonly ImageBrush _imageBrush;
         private readonly DrawableBrush.Resource _drawableBrush;
-        private int _activeUpdates;
+        private readonly Beutl.Threading.Dispatcher _renderDispatcher;
+        private readonly HashSet<UpdateState> _activeUpdates = [];
         private bool _disposed;
         private bool _resourceDisposalScheduled;
+        private bool _resourceDisposed;
 
         public DrawableImageBrushHandler(DrawableBrush.Resource drawableBrush, ImageBrush imageBrush)
+            : this(drawableBrush, imageBrush, RenderThread.Dispatcher)
+        {
+        }
+
+        internal DrawableImageBrushHandler(
+            DrawableBrush.Resource drawableBrush,
+            ImageBrush imageBrush,
+            Beutl.Threading.Dispatcher renderDispatcher)
         {
             _imageBrush = imageBrush;
             _drawableBrush = drawableBrush;
+            _renderDispatcher = renderDispatcher;
+            _renderDispatcher.ShutdownStarted += OnRenderDispatcherShutdown;
+            if (_renderDispatcher.HasShutdownStarted)
+                OnRenderDispatcherShutdown(_renderDispatcher, EventArgs.Empty);
         }
 
         public void Update()
         {
-            CancellationTokenSource updateCts;
+            UpdateState update;
             lock (_gate)
             {
-                if (_disposed)
+                if (_disposed || _renderDispatcher.HasShutdownStarted)
                     return;
 
                 _cts?.Cancel();
-                updateCts = new CancellationTokenSource();
+                var updateCts = new CancellationTokenSource();
                 _cts = updateCts;
-                _activeUpdates++;
+                update = new UpdateState(updateCts);
+                _activeUpdates.Add(update);
             }
 
-            RenderThread.Dispatcher.Dispatch(async () =>
+            try
             {
-                WriteableBitmap? nextBitmap = null;
-                try
-                {
-                    CancellationToken token = updateCts.Token;
-                    if (token.IsCancellationRequested || _drawableBrush.Drawable == null)
-                        return;
-
-                    using var node = new DrawableRenderNode(_drawableBrush.Drawable);
-                    // TODO: UI側の物理的なサイズをもとに描画するように変更する
-                    using (var context = new GraphicsContext2D(node, new Graphics.Size(1920, 1080)))
-                    {
-                        _drawableBrush.Drawable.GetOriginal()!.Render(context, _drawableBrush.Drawable);
-                    }
-
-                    using var renderer = new RenderNodeRenderer(
-                        node,
-                        new RenderNodeRendererOptions
-                        {
-                            Intent = RenderIntent.Preview,
-                            TargetDomain = new Graphics.Rect(0, 0, 1920, 1080),
-                            UseRenderCache = false,
-                        });
-                    using RenderNodeRasterization rasterization = renderer.Rasterize();
-                    Media.Bitmap? bitmap = rasterization.Bitmap;
-                    if (token.IsCancellationRequested || bitmap is null)
-                        return;
-
-                    nextBitmap = bitmap.ToAvaWriteableBitmap(null);
-                    if (token.IsCancellationRequested)
-                        return;
-
-                    await Dispatcher.UIThread.InvokeAsync(() =>
-                    {
-                        if (token.IsCancellationRequested)
-                            return;
-
-                        WriteableBitmap? previous;
-                        lock (_gate)
-                        {
-                            if (_disposed || token.IsCancellationRequested)
-                                return;
-
-                            previous = _bitmap;
-                            _bitmap = nextBitmap;
-                            nextBitmap = null;
-                        }
-
-                        _imageBrush.Stretch = _drawableBrush.Stretch switch
-                        {
-                            Stretch.Fill => Avalonia.Media.Stretch.Fill,
-                            Stretch.Uniform => Avalonia.Media.Stretch.Uniform,
-                            Stretch.UniformToFill => Avalonia.Media.Stretch.UniformToFill,
-                            Stretch.None => Avalonia.Media.Stretch.None,
-                            _ => Avalonia.Media.Stretch.Fill,
-                        };
-                        _imageBrush.Source = _bitmap;
-                        previous?.Dispose();
-                    }, DispatcherPriority.Background);
-                }
-                finally
-                {
-                    nextBitmap?.Dispose();
-                    CompleteUpdate(updateCts);
-                }
-            }, DispatchPriority.Low, CancellationToken.None);
+                _renderDispatcher.Dispatch(
+                    () => ExecuteUpdate(update),
+                    DispatchPriority.Low,
+                    CancellationToken.None);
+            }
+            catch
+            {
+                CompleteUpdate(update);
+                throw;
+            }
         }
 
         public void Dispose()
@@ -360,7 +438,8 @@ public static class AvaloniaTypeConverter
                     return;
 
                 _disposed = true;
-                _cts?.Cancel();
+                foreach (UpdateState update in _activeUpdates)
+                    update.Cancellation.Cancel();
                 _cts = null;
                 disposeResource = ScheduleResourceDisposalIfIdle();
             }
@@ -370,27 +449,165 @@ public static class AvaloniaTypeConverter
                 DispatchResourceDisposal();
         }
 
-        private void CompleteUpdate(CancellationTokenSource updateCts)
+        private void ExecuteUpdate(UpdateState update)
+        {
+            lock (_gate)
+            {
+                if (!_activeUpdates.Contains(update)
+                    || update.Phase != UpdatePhase.Queued)
+                {
+                    return;
+                }
+
+                update.Phase = UpdatePhase.Rendering;
+            }
+
+            WriteableBitmap? nextBitmap = null;
+            bool publicationQueued = false;
+            try
+            {
+                CancellationToken token = update.Cancellation.Token;
+                var drawable = _drawableBrush.Drawable;
+                if (token.IsCancellationRequested || drawable == null)
+                    return;
+
+                using var node = new DrawableRenderNode(drawable);
+                // TODO: UI側の物理的なサイズをもとに描画するように変更する
+                using (var context = new GraphicsContext2D(node, new Graphics.Size(1920, 1080)))
+                {
+                    drawable.GetOriginal()!.Render(context, drawable);
+                }
+
+                using var renderer = new RenderNodeRenderer(
+                    node,
+                    new RenderNodeRendererOptions
+                    {
+                        Intent = RenderIntent.Preview,
+                        TargetDomain = new Graphics.Rect(0, 0, 1920, 1080),
+                        UseRenderCache = false,
+                    });
+                using RenderNodeRasterization rasterization = renderer.Rasterize();
+                Media.Bitmap? bitmap = rasterization.Bitmap;
+                if (token.IsCancellationRequested || bitmap is null)
+                    return;
+
+                nextBitmap = bitmap.ToAvaWriteableBitmap(null);
+                if (token.IsCancellationRequested)
+                    return;
+
+                Avalonia.Media.Stretch stretch = _drawableBrush.Stretch switch
+                {
+                    Stretch.Fill => Avalonia.Media.Stretch.Fill,
+                    Stretch.Uniform => Avalonia.Media.Stretch.Uniform,
+                    Stretch.UniformToFill => Avalonia.Media.Stretch.UniformToFill,
+                    Stretch.None => Avalonia.Media.Stretch.None,
+                    _ => Avalonia.Media.Stretch.Fill,
+                };
+                lock (_gate)
+                {
+                    if (!_activeUpdates.Contains(update))
+                        return;
+
+                    update.Phase = UpdatePhase.Publishing;
+                }
+
+                var publication = new BitmapPublication(
+                    this,
+                    nextBitmap,
+                    stretch,
+                    update);
+                nextBitmap = null;
+                publicationQueued = true;
+                publication.Queue();
+
+                bool disposeResource;
+                lock (_gate)
+                {
+                    disposeResource = ScheduleResourceDisposalIfIdle();
+                }
+
+                if (disposeResource)
+                    DispatchResourceDisposal();
+            }
+            finally
+            {
+                nextBitmap?.Dispose();
+                if (!publicationQueued)
+                    CompleteUpdate(update);
+            }
+        }
+
+        private void PublishBitmap(
+            WriteableBitmap bitmap,
+            Avalonia.Media.Stretch stretch,
+            UpdateState update)
+        {
+            WriteableBitmap? previous = null;
+            bool published = false;
+            try
+            {
+                lock (_gate)
+                {
+                    if (_disposed || update.Cancellation.IsCancellationRequested)
+                    {
+                        bitmap.Dispose();
+                        return;
+                    }
+
+                    previous = _bitmap;
+                    _bitmap = bitmap;
+                    try
+                    {
+                        _imageBrush.Stretch = stretch;
+                        _imageBrush.Source = bitmap;
+                        published = true;
+                    }
+                    catch
+                    {
+                        _bitmap = previous;
+                        throw;
+                    }
+                }
+            }
+            catch
+            {
+                bitmap.Dispose();
+                throw;
+            }
+            finally
+            {
+                if (published)
+                    previous?.Dispose();
+            }
+        }
+
+        private void CompleteUpdate(UpdateState update)
         {
             bool disposeResource;
             lock (_gate)
             {
-                if (ReferenceEquals(_cts, updateCts))
+                if (!_activeUpdates.Remove(update))
+                    return;
+
+                if (ReferenceEquals(_cts, update.Cancellation))
                     _cts = null;
 
-                _activeUpdates--;
                 disposeResource = ScheduleResourceDisposalIfIdle();
             }
 
-            updateCts.Dispose();
+            update.Cancellation.Dispose();
             if (disposeResource)
                 DispatchResourceDisposal();
         }
 
         private bool ScheduleResourceDisposalIfIdle()
         {
-            if (!_disposed || _activeUpdates != 0 || _resourceDisposalScheduled)
+            if (!_disposed
+                || _activeUpdates.Any(static update => update.Phase != UpdatePhase.Publishing)
+                || _resourceDisposalScheduled)
+            {
                 return false;
+            }
 
             _resourceDisposalScheduled = true;
             return true;
@@ -398,31 +615,224 @@ public static class AvaloniaTypeConverter
 
         private void DispatchResourceDisposal()
         {
-            RenderThread.Dispatcher.Dispatch(
-                _drawableBrush.Dispose,
-                DispatchPriority.Low,
-                CancellationToken.None);
+            if (_renderDispatcher.HasShutdownStarted)
+            {
+                DisposeResource();
+                return;
+            }
+
+            try
+            {
+                _renderDispatcher.Dispatch(
+                    DisposeResource,
+                    DispatchPriority.Low,
+                    CancellationToken.None);
+            }
+            catch
+            {
+                DisposeResource();
+                throw;
+            }
         }
 
         private void DisposeUiResources()
         {
-            void DisposeCore()
+            WriteableBitmap? bitmap;
+            lock (_gate)
             {
-                WriteableBitmap? bitmap;
-                lock (_gate)
-                {
-                    bitmap = _bitmap;
-                    _bitmap = null;
-                }
-
-                _imageBrush.Source = null;
-                bitmap?.Dispose();
+                bitmap = _bitmap;
+                _bitmap = null;
             }
 
             if (Dispatcher.UIThread.CheckAccess())
-                DisposeCore();
+            {
+                try
+                {
+                    _imageBrush.Source = null;
+                }
+                finally
+                {
+                    bitmap?.Dispose();
+                }
+            }
             else
-                Dispatcher.UIThread.Post(DisposeCore, DispatcherPriority.Background);
+            {
+                new BitmapCleanup(_imageBrush, bitmap).Queue();
+            }
+        }
+
+        private void OnRenderDispatcherShutdown(object? sender, EventArgs e)
+        {
+            List<UpdateState> abandoned = [];
+            bool disposeUiResources;
+            bool disposeResource;
+            lock (_gate)
+            {
+                disposeUiResources = !_disposed;
+                _disposed = true;
+                foreach (UpdateState update in _activeUpdates)
+                {
+                    update.Cancellation.Cancel();
+                    if (update.Phase == UpdatePhase.Queued)
+                        abandoned.Add(update);
+                }
+
+                foreach (UpdateState update in abandoned)
+                    _activeUpdates.Remove(update);
+
+                _cts = null;
+                disposeResource = ScheduleResourceDisposalIfIdle();
+            }
+
+            foreach (UpdateState update in abandoned)
+                update.Cancellation.Dispose();
+
+            if (disposeUiResources)
+                DisposeUiResources();
+
+            if (disposeResource || _resourceDisposalScheduled)
+                DisposeResource();
+        }
+
+        private void DisposeResource()
+        {
+            lock (_gate)
+            {
+                if (_resourceDisposed)
+                    return;
+
+                _resourceDisposed = true;
+            }
+
+            _renderDispatcher.ShutdownStarted -= OnRenderDispatcherShutdown;
+            _drawableBrush.Dispose();
+        }
+
+        private sealed class BitmapPublication(
+            DrawableImageBrushHandler owner,
+            WriteableBitmap bitmap,
+            Avalonia.Media.Stretch stretch,
+            UpdateState update)
+        {
+            private DispatcherOperation? _operation;
+            private WriteableBitmap? _bitmap = bitmap;
+            private int _completed;
+
+            public void Queue()
+            {
+                try
+                {
+                    DispatcherOperation operation = Dispatcher.UIThread.InvokeAsync(
+                        Publish,
+                        DispatcherPriority.Background);
+                    _operation = operation;
+                    operation.Completed += OnTerminal;
+                    operation.Aborted += OnTerminal;
+                    if (operation.Status is DispatcherOperationStatus.Completed
+                        or DispatcherOperationStatus.Aborted)
+                    {
+                        Complete();
+                    }
+                }
+                catch
+                {
+                    Complete();
+                }
+            }
+
+            private void Publish()
+            {
+                WriteableBitmap? owned = Interlocked.Exchange(ref _bitmap, null);
+                if (owned is not null)
+                    owner.PublishBitmap(owned, stretch, update);
+            }
+
+            private void OnTerminal(object? sender, EventArgs e)
+            {
+                Complete();
+            }
+
+            private void Complete()
+            {
+                if (Interlocked.Exchange(ref _completed, 1) != 0)
+                    return;
+
+                if (_operation is { } operation)
+                {
+                    operation.Completed -= OnTerminal;
+                    operation.Aborted -= OnTerminal;
+                }
+
+                Interlocked.Exchange(ref _bitmap, null)?.Dispose();
+                owner.CompleteUpdate(update);
+            }
+        }
+
+        private sealed class BitmapCleanup(ImageBrush imageBrush, WriteableBitmap? bitmap)
+        {
+            private DispatcherOperation? _operation;
+            private WriteableBitmap? _bitmap = bitmap;
+            private int _completed;
+
+            public void Queue()
+            {
+                try
+                {
+                    DispatcherOperation operation = Dispatcher.UIThread.InvokeAsync(
+                        ClearSource,
+                        DispatcherPriority.Background);
+                    _operation = operation;
+                    operation.Completed += OnTerminal;
+                    operation.Aborted += OnTerminal;
+                    if (operation.Status is DispatcherOperationStatus.Completed
+                        or DispatcherOperationStatus.Aborted)
+                    {
+                        Complete();
+                    }
+                }
+                catch
+                {
+                    Complete();
+                }
+            }
+
+            private void ClearSource()
+            {
+                imageBrush.Source = null;
+            }
+
+            private void OnTerminal(object? sender, EventArgs e)
+            {
+                Complete();
+            }
+
+            private void Complete()
+            {
+                if (Interlocked.Exchange(ref _completed, 1) != 0)
+                    return;
+
+                if (_operation is { } operation)
+                {
+                    operation.Completed -= OnTerminal;
+                    operation.Aborted -= OnTerminal;
+                }
+
+                Interlocked.Exchange(ref _bitmap, null)?.Dispose();
+            }
+        }
+
+        private sealed class UpdateState(CancellationTokenSource cancellation)
+        {
+            public CancellationTokenSource Cancellation { get; } = cancellation;
+
+            public UpdatePhase Phase { get; set; }
+        }
+
+        private enum UpdatePhase
+        {
+            Queued,
+            Rendering,
+            Publishing,
         }
     }
 }

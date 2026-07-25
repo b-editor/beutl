@@ -440,6 +440,36 @@ public sealed class CrossNodeShaderFusionTests
         });
     }
 
+    [Test]
+    [Category("GpuPassFusionGpu")]
+    public void TerminalDirectDraw_FractionalDestinationFallsBackToMaterializedComposite()
+    {
+        VulkanTestEnvironment.EnsureAvailable();
+        VulkanTestEnvironment.InvokeOnRenderThread(() =>
+        {
+            using RenderTarget source = CreateSourceTarget();
+            using var directNode = new PrimaryChainNode(source, s_bounds);
+            using var cachedNode = new PrimaryChainNode(source, s_bounds);
+            cachedNode.Cache.ReportRenderCount(RenderNodeCache.Count);
+            using var direct = CreateRenderer(directNode, FusionMode.Enabled);
+            using var cached = CreateRenderer(cachedNode, FusionMode.Enabled, useRenderCache: true);
+
+            using Bitmap directBitmap = RenderWithDestinationTranslation(direct, 2.25f, 1.5f);
+            using Bitmap cachedBitmap = RenderWithDestinationTranslation(cached, 2.25f, 1.5f);
+            RgbaMaximumError parity = ImageMetrics.MaximumAbsoluteErrorPerChannel(
+                directBitmap,
+                cachedBitmap);
+
+            Assert.Multiple(() =>
+            {
+                Assert.That(direct.LastExecutionStatistics.IntermediateTargetAcquisitions, Is.GreaterThan(0),
+                    "A fractional device origin must disable the terminal direct draw.");
+                Assert.That(cached.LastExecutionStatistics.IntermediateTargetAcquisitions, Is.GreaterThan(0));
+                Assert.That(parity.Maximum, Is.LessThanOrEqualTo(0.02));
+            });
+        });
+    }
+
     private static RenderNodeRenderer CreateRenderer(
         RenderNode node,
         FusionMode fusionMode,
@@ -460,12 +490,18 @@ public sealed class CrossNodeShaderFusionTests
             });
 
     private static Bitmap RenderWithActiveDestinationState(RenderNodeRenderer renderer)
+        => RenderWithDestinationTranslation(renderer, 2, 1);
+
+    private static Bitmap RenderWithDestinationTranslation(
+        RenderNodeRenderer renderer,
+        float x,
+        float y)
     {
         using RenderTarget target = RenderTarget.Create(32, 24)
             ?? throw new InvalidOperationException("Could not allocate the active-state destination.");
         using var canvas = new ImmediateCanvas(target, logicalSize: new Size(32, 24));
         canvas.Clear(new Color(255, 26, 48, 72));
-        using (canvas.PushTransform(Matrix.CreateTranslation(2, 1)))
+        using (canvas.PushTransform(Matrix.CreateTranslation(x, y)))
         using (canvas.PushClip(new Rect(4, 5, 10, 7)))
         using (canvas.PushOpacity(0.625f))
         using (canvas.PushBlendMode(BlendMode.Screen))

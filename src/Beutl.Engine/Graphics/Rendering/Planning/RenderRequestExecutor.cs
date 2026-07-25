@@ -734,6 +734,7 @@ internal sealed class RenderRequestExecutor
         private readonly RegionAnalysis _regions;
         private readonly ResourcePlanUseTracker _resourceUses;
         private readonly RenderCacheResolution _cacheResolution;
+        private readonly IReadOnlyDictionary<RenderFragmentReference, EffectiveScale> _materializationDemands;
         private readonly HashSet<RenderFragmentReference> _roots;
         private readonly RenderTargetLeaseSession _targets;
         private readonly RenderCacheDeviceContextIdentity _programCacheContext;
@@ -792,6 +793,10 @@ internal sealed class RenderRequestExecutor
                 .ToHashSet();
             _resourceUses = ResourcePlanUseSchedule.Create(roots, cacheHitFragmentIds).BeginExecution();
             _cacheResolution = cacheResolution;
+            _materializationDemands = RenderMaterializationDemandResolver.Resolve(
+                roots,
+                options.OutputScale,
+                options.MaxWorkingScale);
             _roots = new HashSet<RenderFragmentReference>(
                 roots,
                 ReferenceEqualityComparer.Instance);
@@ -1101,6 +1106,16 @@ internal sealed class RenderRequestExecutor
             if (density != destination.Density)
                 return false;
 
+            PixelRect outputDeviceBounds = PixelRect.FromRect(requiredRegion, density);
+            Rect rasterBounds = outputDeviceBounds.ToRect(density);
+            if (!destination.CanDrawPixelAligned(
+                    rasterBounds,
+                    density,
+                    outputDeviceBounds.Size))
+            {
+                return false;
+            }
+
             EffectiveScale inputRequestScale = !run.Output.EffectiveScale.IsUnbounded
                 ? run.Output.EffectiveScale
                 : EffectiveScale.At(destination.Density);
@@ -1125,8 +1140,6 @@ internal sealed class RenderRequestExecutor
                 }
 
                 CompatibilityRenderValue input = inputs[0];
-                PixelRect outputDeviceBounds = PixelRect.FromRect(requiredRegion, density);
-                Rect rasterBounds = outputDeviceBounds.ToRect(density);
                 ExecuteReplayIsland(
                     fragment,
                     () => ExecuteCompiledShaderRunProgram(
@@ -1451,6 +1464,17 @@ internal sealed class RenderRequestExecutor
             ImmediateCanvas currentTarget,
             EffectiveScale? requestedScale = null)
         {
+            if (fragment.EffectiveScale.IsUnbounded)
+            {
+                if (!_materializationDemands.TryGetValue(fragment, out EffectiveScale demand))
+                {
+                    throw new InvalidOperationException(
+                        "An executable fragment is not reachable from the request publication roots.");
+                }
+
+                requestedScale = demand;
+            }
+
             long? previous = ActiveSubjectId;
             ActiveSubjectId = fragment.Id?.Value;
             try

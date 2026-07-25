@@ -309,6 +309,38 @@ public sealed class RenderTargetPoolTests
         Assert.DoesNotThrow(() => pool.Dispose());
     }
 
+    [Test]
+    public void PoolDisposal_AggregatesActiveRequestAndTargetCleanupFailures()
+    {
+        var targetCleanup = new InvalidOperationException("available-target-cleanup");
+        var factory = new TrackingTargetFactory(
+            (size, _) => new TrackingRenderTarget(
+                size.Width,
+                size.Height,
+                disposeFailure: size.Width == 3 ? targetCleanup : null));
+        var pool = new RenderTargetPool(factory);
+        using (RenderTargetPoolRequest warmup = pool.BeginRequest())
+            warmup.Acquire(new PixelSize(3, 3)).Dispose();
+        RenderTargetPoolRequest active = pool.BeginRequest();
+        PooledRenderTargetLease stale = active.Acquire(new PixelSize(4, 4));
+        stale.Slot.Generation++;
+
+        AggregateException? failure = Assert.Throws<AggregateException>(pool.Dispose);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(
+                failure!.Flatten().InnerExceptions.Select(static exception => exception.Message),
+                Is.EquivalentTo(new[] { "The render-target lease generation is stale.", targetCleanup.Message }));
+            Assert.That(
+                factory.Created.Cast<TrackingRenderTarget>().Select(static target => target.DisposeCalls),
+                Is.All.EqualTo(1));
+            Assert.That(pool.Statistics.OwnedTargets, Is.Zero);
+            Assert.That(pool.Statistics.LeasedTargets, Is.Zero);
+        });
+        Assert.DoesNotThrow(pool.Dispose);
+    }
+
     [TestCase((int)RenderTargetPoolRegistrationStage.OwnedSlot)]
     [TestCase((int)RenderTargetPoolRegistrationStage.KnownTarget)]
     [TestCase((int)RenderTargetPoolRegistrationStage.KnownSurface)]

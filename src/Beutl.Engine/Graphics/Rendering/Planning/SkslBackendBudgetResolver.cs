@@ -1,4 +1,4 @@
-using Beutl.Graphics.Effects;
+﻿using Beutl.Graphics.Effects;
 using SkiaSharp;
 
 namespace Beutl.Graphics.Rendering;
@@ -16,6 +16,10 @@ internal enum SkslBackendCapabilityClass : byte
 /// <remarks>
 /// SkiaSharp exposes the backend family but not its fragment-uniform, sampler, or runtime-effect child
 /// ceilings. These profiles are therefore conservative engine policies rather than exact driver limits.
+/// <see cref="Portable"/> is the common-denominator profile used when target-less rasterization has not
+/// allocated a backend surface yet. Backend-specific profiles may raise its limits but must not lower them.
+/// The profiles currently share numeric limits while their capability classes keep backend program identities
+/// separate.
 /// Source and token limits bound fusion-generated program growth; a valid single stage remains eligible for
 /// the compatibility path when it exceeds one of those limits.
 /// </remarks>

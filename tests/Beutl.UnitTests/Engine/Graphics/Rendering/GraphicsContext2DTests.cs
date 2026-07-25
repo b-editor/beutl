@@ -120,6 +120,90 @@ public class GraphicsContext2DTests
     }
 
     [Test]
+    public void Dispose_DoesNotReplacePrimaryExceptionWithTrailingCleanupFailure()
+    {
+        using var root = new ContainerRenderNode();
+        var retained = new TrackingRenderNode();
+        var cleanup = new InvalidOperationException("trailing cleanup failed");
+        var trailing = new ThrowOnceDisposeRenderNode(cleanup);
+        root.AddChild(retained);
+        root.AddChild(trailing);
+        var primary = new InvalidOperationException("recording failed");
+
+        InvalidOperationException? failure = Assert.Throws<InvalidOperationException>(() =>
+        {
+            using var context = new GraphicsContext2D(root);
+            context.DrawNode(retained);
+            throw primary;
+        });
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(failure, Is.SameAs(primary));
+            Assert.That(trailing.DisposeCalls, Is.EqualTo(1));
+            Assert.That(root.Children, Is.EqualTo(new[] { retained }));
+        });
+    }
+
+    [Test]
+    public void DirectRecordingFailure_PreservesExistingTreeAndDisposesRejectedNode()
+    {
+        using var root = new ContainerRenderNode();
+        var replacementFailure = new InvalidOperationException("existing node cleanup failed");
+        var existing = new ThrowOnceDisposeRenderNode(replacementFailure);
+        var trailing = new TrackingRenderNode();
+        var rejected = new TrackingRenderNode();
+        root.AddChild(existing);
+        root.AddChild(trailing);
+
+        using (var context = new GraphicsContext2D(root))
+        {
+            InvalidOperationException? failure = Assert.Throws<InvalidOperationException>(
+                () => context.DrawNode(rejected));
+            Assert.That(failure, Is.SameAs(replacementFailure));
+        }
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(root.Children, Is.EqualTo(new RenderNode[] { existing, trailing }));
+            Assert.That(existing.IsDisposed, Is.False);
+            Assert.That(trailing.IsDisposed, Is.False);
+            Assert.That(rejected.IsDisposed, Is.True);
+        });
+    }
+
+    [Test]
+    public void NestedDrawableFailure_PreservesPrimaryExceptionAndRecordedChildOwnership()
+    {
+        using var root = new ContainerRenderNode();
+        var retained = new TrackingRenderNode();
+        var trailing = new TrackingRenderNode();
+        var primary = new InvalidOperationException("nested drawable failed");
+        var drawable = new PartialFailureDrawable(retained, primary);
+        using Drawable.Resource resource = drawable.ToResource(CompositionContext.Default);
+        var nested = new DrawableRenderNode(resource);
+        nested.AddChild(retained);
+        nested.AddChild(trailing);
+        root.AddChild(nested);
+
+        InvalidOperationException? failure;
+        using (var context = new GraphicsContext2D(root))
+        {
+            failure = Assert.Throws<InvalidOperationException>(
+                () => context.DrawDrawable(resource));
+        }
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(failure, Is.SameAs(primary));
+            Assert.That(root.Children, Is.EqualTo(new[] { nested }));
+            Assert.That(nested.Children, Is.EqualTo(new[] { retained, trailing }));
+            Assert.That(retained.IsDisposed, Is.False);
+            Assert.That(trailing.IsDisposed, Is.False);
+        });
+    }
+
+    [Test]
     public void Clear_ShouldCreateClearRenderNode()
     {
         var node = new ContainerRenderNode();
@@ -136,6 +220,23 @@ public class GraphicsContext2DTests
         public override void Process(RenderNodeContext context)
         {
             context.PassThrough();
+        }
+    }
+
+    private sealed class ThrowOnceDisposeRenderNode(Exception failure) : RenderNode
+    {
+        public int DisposeCalls { get; private set; }
+
+        public override void Process(RenderNodeContext context)
+        {
+            context.PassThrough();
+        }
+
+        protected override void OnDispose(bool disposing)
+        {
+            DisposeCalls++;
+            if (disposing && DisposeCalls == 1)
+                throw failure;
         }
     }
 
@@ -420,5 +521,23 @@ public class GraphicsContext2DTests
 
         Assert.That(node.Children, Is.Not.Empty);
         Assert.That(node.Children[0], Is.InstanceOf<TransformRenderNode>());
+    }
+}
+
+internal sealed partial class PartialFailureDrawable(
+    RenderNode child,
+    Exception failure) : Drawable
+{
+    public override void Render(GraphicsContext2D context, Drawable.Resource resource)
+    {
+        context.DrawNode(child);
+        throw failure;
+    }
+
+    protected override Size MeasureCore(Size availableSize, Drawable.Resource resource)
+        => Size.Empty;
+
+    protected override void OnDraw(GraphicsContext2D context, Drawable.Resource resource)
+    {
     }
 }

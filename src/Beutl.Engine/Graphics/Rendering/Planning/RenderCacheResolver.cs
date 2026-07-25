@@ -259,6 +259,52 @@ internal sealed record RenderCacheDecision(
     RenderCacheMissCapture? MissCapture,
     RenderCacheCandidateId? SupersededBy);
 
+internal static class RenderMaterializationDemandResolver
+{
+    public static IReadOnlyDictionary<RenderFragmentReference, EffectiveScale> Resolve(
+        IReadOnlyList<RenderFragmentReference> roots,
+        float outputScale,
+        float maxWorkingScale)
+    {
+        ArgumentNullException.ThrowIfNull(roots);
+        if (!float.IsFinite(outputScale) || outputScale <= 0)
+        {
+            throw new ArgumentOutOfRangeException(
+                nameof(outputScale),
+                outputScale,
+                "The output density must be finite and positive.");
+        }
+
+        var result = new Dictionary<RenderFragmentReference, EffectiveScale>(
+            ReferenceEqualityComparer.Instance);
+        var pending = new Stack<(RenderFragmentReference Fragment, float Demand)>();
+        float rootDemand = MathF.Min(
+            outputScale,
+            RenderScaleUtilities.SanitizeMaxWorkingScale(maxWorkingScale));
+        for (int index = roots.Count - 1; index >= 0; index--)
+            pending.Push((roots[index], rootDemand));
+
+        while (pending.TryPop(out var item))
+        {
+            RenderFragmentReference fragment = item.Fragment;
+            float demand = fragment.EffectiveScale.IsUnbounded
+                ? item.Demand
+                : fragment.EffectiveScale.Value;
+            if (result.TryGetValue(fragment, out EffectiveScale existing)
+                && existing.Value >= demand)
+            {
+                continue;
+            }
+
+            result[fragment] = EffectiveScale.At(demand);
+            for (int index = fragment.Inputs.Length - 1; index >= 0; index--)
+                pending.Push((fragment.Inputs[index], demand));
+        }
+
+        return result;
+    }
+}
+
 internal sealed class RenderCacheResolution
 {
     public RenderCacheResolution(ImmutableArray<RenderCacheDecision> decisions)
@@ -318,6 +364,11 @@ internal sealed class RenderCacheResolver
 
         Dictionary<RenderFragmentId, RecordedRenderFragment> fragments = graph.Fragments
             .ToDictionary(static item => item.Id);
+        IReadOnlyDictionary<RenderFragmentReference, EffectiveScale> materializationDemands =
+            RenderMaterializationDemandResolver.Resolve(
+                RenderRequestCompiler.ResolveRoots(graph),
+                request.Options.OutputScale,
+                request.Options.MaxWorkingScale);
         Dictionary<RenderCacheCandidateId, HashSet<RenderCacheCandidateId>> descendants =
             BuildCandidateDescendants(graph, fragments);
         RenderCacheCandidate[] parentFirst = [.. graph.CacheCandidates
@@ -351,6 +402,7 @@ internal sealed class RenderCacheResolver
                 fragments[candidate.FragmentId],
                 regions,
                 context,
+                materializationDemands,
                 lookup);
             decisions.Add(candidate.Id, decision);
             if (decision.Kind == RenderCacheResolutionKind.Hit)
@@ -367,18 +419,28 @@ internal sealed class RenderCacheResolver
         RecordedRenderFragment recorded,
         RegionAnalysis regions,
         RenderCacheResolutionContext context,
+        IReadOnlyDictionary<RenderFragmentReference, EffectiveScale> materializationDemands,
         IRenderCacheLookup? lookup)
     {
         if (recorded.Payload is not RenderFragmentReference reference)
             throw new InvalidOperationException("A cache candidate is missing its semantic fragment reference.");
 
-        RenderCacheBypassReason reason = GetBypassReason(request, reference, recorded, regions, context);
+        RenderCacheBypassReason reason = GetBypassReason(
+            request,
+            reference,
+            recorded,
+            regions,
+            context,
+            materializationDemands);
         if (reason != RenderCacheBypassReason.None)
             return Bypass(candidate, reason);
 
         RequiredRegion coverage = regions.FragmentRequirements[candidate.FragmentId];
         ResolvedFragmentMetadata metadata = regions.Metadata[candidate.FragmentId];
-        float density = ResolveMaterializationDensity(request.Options, metadata);
+        float density = ResolveMaterializationDensity(
+            reference,
+            metadata,
+            materializationDemands);
         var identity = new RenderOutputCacheIdentity(
             candidate.CacheKey,
             RenderFragmentOutputIdentity.Create(reference, graphRequestId: request.Id),
@@ -434,7 +496,8 @@ internal sealed class RenderCacheResolver
         RenderFragmentReference reference,
         RecordedRenderFragment recorded,
         RegionAnalysis regions,
-        RenderCacheResolutionContext context)
+        RenderCacheResolutionContext context,
+        IReadOnlyDictionary<RenderFragmentReference, EffectiveScale> materializationDemands)
     {
         if (!request.Options.CachePolicy.IsEnabled)
             return RenderCacheBypassReason.CacheDisabled;
@@ -457,7 +520,10 @@ internal sealed class RenderCacheResolver
         if (requirement.IsEmpty)
             return RenderCacheBypassReason.EmptyRequirement;
 
-        float density = ResolveMaterializationDensity(request.Options, metadata);
+        float density = ResolveMaterializationDensity(
+            reference,
+            metadata,
+            materializationDemands);
         Rect coverage = requirement.IsFull ? metadata.Bounds : requirement.Value;
         PixelRect deviceCoverage = PixelRect.FromRect(coverage, density);
         return request.Options.CachePolicy.Rules.Match(deviceCoverage.Size)
@@ -466,13 +532,17 @@ internal sealed class RenderCacheResolver
     }
 
     private static float ResolveMaterializationDensity(
-        RenderRequestOptions options,
-        ResolvedFragmentMetadata metadata)
+        RenderFragmentReference reference,
+        ResolvedFragmentMetadata metadata,
+        IReadOnlyDictionary<RenderFragmentReference, EffectiveScale> materializationDemands)
     {
-        float density = RenderScaleUtilities.ResolveWorkingScale(
-            [metadata.EffectiveScale],
-            options.OutputScale,
-            options.MaxWorkingScale);
+        if (!materializationDemands.TryGetValue(reference, out EffectiveScale demand))
+        {
+            throw new InvalidOperationException(
+                "A cache candidate is not reachable from the request publication roots.");
+        }
+
+        float density = demand.Value;
         return RenderScaleUtilities.ClampWorkingScaleToBufferBudget(metadata.Bounds, density);
     }
 

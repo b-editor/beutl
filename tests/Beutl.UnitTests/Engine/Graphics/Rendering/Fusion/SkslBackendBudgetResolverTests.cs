@@ -1,4 +1,4 @@
-using Beutl.Graphics.Effects;
+﻿using Beutl.Graphics.Effects;
 using Beutl.Graphics.Rendering;
 using SkiaSharp;
 
@@ -63,7 +63,7 @@ public sealed class SkslBackendBudgetResolverTests
     }
 
     [Test]
-    public void ProfilesShareConservativeLimitsButKeepProgramIdentitySeparated()
+    public void PortableLimitsAreCommonFloorAndCapabilityClassesSeparateProgramIdentity()
     {
         ShaderDescription description = ShaderDescription.CurrentPixel(
             "half4 apply(half4 color) { return color; }");
@@ -78,12 +78,18 @@ public sealed class SkslBackendBudgetResolverTests
 
         Assert.Multiple(() =>
         {
-            Assert.That(vulkan.MaxStages, Is.EqualTo(portable.MaxStages));
-            Assert.That(vulkan.MaxUniformVectors, Is.EqualTo(portable.MaxUniformVectors));
-            Assert.That(vulkan.MaxSamplers, Is.EqualTo(portable.MaxSamplers));
-            Assert.That(vulkan.MaxChildren, Is.EqualTo(portable.MaxChildren));
-            Assert.That(vulkan.MaxSourceBytes, Is.EqualTo(portable.MaxSourceBytes));
-            Assert.That(vulkan.MaxProgramTokens, Is.EqualTo(portable.MaxProgramTokens));
+            Assert.That(vulkan.MaxStages, Is.GreaterThanOrEqualTo(portable.MaxStages));
+            Assert.That(vulkan.MaxUniformVectors, Is.GreaterThanOrEqualTo(portable.MaxUniformVectors));
+            Assert.That(vulkan.MaxSamplers, Is.GreaterThanOrEqualTo(portable.MaxSamplers));
+            Assert.That(vulkan.MaxChildren, Is.GreaterThanOrEqualTo(portable.MaxChildren));
+            Assert.That(vulkan.MaxSourceBytes, Is.GreaterThanOrEqualTo(portable.MaxSourceBytes));
+            Assert.That(vulkan.MaxProgramTokens, Is.GreaterThanOrEqualTo(portable.MaxProgramTokens));
+            Assert.That(metal.MaxStages, Is.GreaterThanOrEqualTo(portable.MaxStages));
+            Assert.That(metal.MaxUniformVectors, Is.GreaterThanOrEqualTo(portable.MaxUniformVectors));
+            Assert.That(metal.MaxSamplers, Is.GreaterThanOrEqualTo(portable.MaxSamplers));
+            Assert.That(metal.MaxChildren, Is.GreaterThanOrEqualTo(portable.MaxChildren));
+            Assert.That(metal.MaxSourceBytes, Is.GreaterThanOrEqualTo(portable.MaxSourceBytes));
+            Assert.That(metal.MaxProgramTokens, Is.GreaterThanOrEqualTo(portable.MaxProgramTokens));
             Assert.That(portableProgram.Identity, Is.Not.EqualTo(vulkanProgram.Identity));
             Assert.That(portableProgram.Identity, Is.Not.EqualTo(metalProgram.Identity));
             Assert.That(vulkanProgram.Identity, Is.Not.EqualTo(metalProgram.Identity));

@@ -21,8 +21,7 @@ public sealed class RenderNodeCache(RenderNode node) : IDisposable
 
     ~RenderNodeCache()
     {
-        if (!IsDisposed)
-            Dispose();
+        Dispose(disposing: false);
     }
 
     public bool IsCached => _storage.Identity is not null || _storage.Values.Length != 0;
@@ -73,11 +72,36 @@ public sealed class RenderNodeCache(RenderNode node) : IDisposable
 
     public void Dispose()
     {
-        if (!IsDisposed)
+        try
         {
-            IsDisposed = true;
+            Dispose(disposing: true);
+        }
+        finally
+        {
             GC.SuppressFinalize(this);
-            DisposeStorage(DetachStorage());
+        }
+    }
+
+    private void Dispose(bool disposing)
+    {
+        if (IsDisposed)
+            return;
+
+        IsDisposed = true;
+        CacheStorage storage = DetachStorage();
+        if (disposing)
+        {
+            DisposeStorage(storage);
+            return;
+        }
+
+        try
+        {
+            DisposeStorage(storage);
+        }
+        catch
+        {
+            // Finalizers must never let cleanup failures terminate the process.
         }
     }
 

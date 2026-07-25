@@ -163,6 +163,45 @@ public class SelectedDrawableRenderTests
         }
     }
 
+    [AvaloniaTest]
+    public async Task Nested_scene_selected_drawable_records_the_requested_output_scale()
+    {
+        GpuTestGate.EnsureAvailable();
+        await ResetProjectAsync();
+        EditViewModel editor = await OpenEditor("selected-drawable-nested-scale");
+        string location = NewWorkspace("selected-drawable-nested-scale-source");
+        var innerScene = new Scene(64, 48, string.Empty)
+        {
+            Uri = new Uri(Path.Combine(location, "inner.scene"))
+        };
+        var capture = new SelectedDrawableScaleCaptureDrawable();
+        var element = new Element
+        {
+            Start = TimeSpan.Zero,
+            Length = TimeSpan.FromSeconds(1),
+            IsEnabled = true,
+            Uri = new Uri(Path.Combine(location, "nested.layer"))
+        };
+        element.AddObject(capture);
+        element.AddObject(new RectShape
+        {
+            Width = { CurrentValue = 64 },
+            Height = { CurrentValue = 48 },
+        });
+        innerScene.Children.Add(element);
+        var drawable = new SceneDrawable();
+        drawable.ReferencedScene.CurrentValue = innerScene;
+
+        using Bitmap bitmap = await editor.Player.DrawSelectedDrawable(drawable, outputScale: 2);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(capture.ObservedOutputScales, Is.EqualTo(new[] { 2f }));
+            Assert.That(bitmap.Width, Is.EqualTo(128));
+            Assert.That(bitmap.Height, Is.EqualTo(96));
+        });
+    }
+
     private static (RenderNodeMeasurement, RenderNodeRasterization) RenderSelectedDrawable(
         Drawable drawable,
         PixelSize frameSize)
@@ -189,5 +228,22 @@ public class SelectedDrawableRenderTests
             RenderNodeRasterization rasterization = renderer.Rasterize();
             return (measurement, rasterization);
         });
+    }
+}
+
+internal sealed partial class SelectedDrawableScaleCaptureDrawable : Drawable
+{
+    public List<float> ObservedOutputScales { get; } = [];
+
+    public override void Render(GraphicsContext2D context, Drawable.Resource resource)
+    {
+        ObservedOutputScales.Add(context.OutputScale);
+    }
+
+    protected override Size MeasureCore(Size availableSize, Drawable.Resource resource)
+        => Size.Empty;
+
+    protected override void OnDraw(GraphicsContext2D context, Drawable.Resource resource)
+    {
     }
 }

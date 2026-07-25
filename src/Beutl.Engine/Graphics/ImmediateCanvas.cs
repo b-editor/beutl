@@ -292,6 +292,40 @@ public partial class ImmediateCanvas : IDisposable, IPopable
         VerifyAccess();
         VerifyNativeTargetOperation();
         renderTarget.VerifyAccess();
+        if (!TryGetPixelAlignedDeviceOrigin(
+                dest,
+                sourceDensity,
+                new PixelSize(renderTarget.Width, renderTarget.Height),
+                out PixelPoint deviceOrigin))
+        {
+            return false;
+        }
+
+        DrawRenderTargetPixelsWithoutFlush(renderTarget, deviceOrigin.X, deviceOrigin.Y);
+        return true;
+    }
+
+    internal bool CanDrawPixelAligned(
+        Rect dest,
+        float sourceDensity,
+        PixelSize sourceSize)
+    {
+        VerifyAccess();
+        VerifyNativeTargetOperation();
+        return TryGetPixelAlignedDeviceOrigin(
+            dest,
+            sourceDensity,
+            sourceSize,
+            out _);
+    }
+
+    private bool TryGetPixelAlignedDeviceOrigin(
+        Rect dest,
+        float sourceDensity,
+        PixelSize sourceSize,
+        out PixelPoint deviceOrigin)
+    {
+        deviceOrigin = default;
         Matrix transform = _currentTransform;
         if (_currentDensity != sourceDensity
             || transform.M11 != sourceDensity
@@ -306,7 +340,7 @@ public partial class ImmediateCanvas : IDisposable, IPopable
         }
 
         PixelRect deviceBounds = PixelRect.FromRect(dest, sourceDensity);
-        if (deviceBounds.Size != new PixelSize(renderTarget.Width, renderTarget.Height)
+        if (deviceBounds.Size != sourceSize
             || deviceBounds.ToRect(sourceDensity) != dest)
         {
             return false;
@@ -321,7 +355,7 @@ public partial class ImmediateCanvas : IDisposable, IPopable
             return false;
         }
 
-        DrawRenderTargetPixelsWithoutFlush(renderTarget, x, y);
+        deviceOrigin = new PixelPoint(x, y);
         return true;
     }
 

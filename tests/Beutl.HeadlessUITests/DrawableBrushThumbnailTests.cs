@@ -1,4 +1,6 @@
-﻿using System.Diagnostics;
+﻿using System.Collections.Concurrent;
+using System.Diagnostics;
+using System.Reactive.Subjects;
 using Avalonia.Headless.NUnit;
 using Avalonia.Media.Imaging;
 using Beutl.Composition;
@@ -76,13 +78,13 @@ public class DrawableBrushThumbnailTests
         var drawableBrush = new DrawableBrush(staleDrawable);
         var resource = (DrawableBrush.Resource)drawableBrush.ToResource(new CompositionContext(TimeSpan.Zero));
         var imageBrush = new AvaImageBrush();
-        var publishedSizes = new List<AvaPixelSize>();
+        var publishedSizes = new ConcurrentQueue<AvaPixelSize>();
         imageBrush.PropertyChanged += (_, args) =>
         {
             if (args.Property == AvaImageBrush.SourceProperty
                 && imageBrush.Source is WriteableBitmap bitmap)
             {
-                publishedSizes.Add(bitmap.PixelSize);
+                publishedSizes.Enqueue(bitmap.PixelSize);
             }
         };
         var handler = new AvaloniaTypeConverter.DrawableImageBrushHandler(resource, imageBrush);
@@ -102,11 +104,58 @@ public class DrawableBrushThumbnailTests
                       && bitmap.PixelSize == new AvaPixelSize(72, 36),
                 TimeSpan.FromSeconds(5));
 
-            Assert.That(publishedSizes, Is.EqualTo(new[] { new AvaPixelSize(72, 36) }));
+            Assert.That(publishedSizes.ToArray(), Is.EqualTo(new[] { new AvaPixelSize(72, 36) }));
         }
         finally
         {
             staleDrawable.ReleaseRender();
+            handler.Dispose();
+            await WaitUntilAsync(() => resource.IsDisposed, TimeSpan.FromSeconds(5));
+        }
+    }
+
+    [AvaloniaTest]
+    public async Task Superseded_queued_publication_is_discarded_before_ui_delivery()
+    {
+        GpuTestGate.EnsureAvailable();
+        var drawableBrush = new DrawableBrush(CreateRectangle(40, 24, Colors.Red));
+        var resource = (DrawableBrush.Resource)drawableBrush.ToResource(new CompositionContext(TimeSpan.Zero));
+        var imageBrush = new AvaImageBrush();
+        var publishedSizes = new ConcurrentQueue<AvaPixelSize>();
+        imageBrush.PropertyChanged += (_, args) =>
+        {
+            if (args.Property == AvaImageBrush.SourceProperty
+                && imageBrush.Source is WriteableBitmap bitmap)
+            {
+                publishedSizes.Enqueue(bitmap.PixelSize);
+            }
+        };
+        var handler = new AvaloniaTypeConverter.DrawableImageBrushHandler(resource, imageBrush);
+
+        try
+        {
+            Assert.That(AvaDispatcher.UIThread.CheckAccess(), Is.True);
+            handler.Update();
+            RenderThread.Dispatcher.Invoke(
+                static () => { },
+                DispatchPriority.Low,
+                CancellationToken.None);
+
+            drawableBrush.Drawable.CurrentValue = CreateRectangle(72, 36, Colors.Blue);
+            UpdateResource(resource, drawableBrush);
+            handler.Update();
+
+            await WaitUntilAsync(
+                () => imageBrush.Source is WriteableBitmap bitmap
+                      && bitmap.PixelSize == new AvaPixelSize(72, 36),
+                TimeSpan.FromSeconds(5));
+
+            Assert.That(
+                publishedSizes.ToArray(),
+                Is.EqualTo(new[] { new AvaPixelSize(72, 36) }));
+        }
+        finally
+        {
             handler.Dispose();
             await WaitUntilAsync(() => resource.IsDisposed, TimeSpan.FromSeconds(5));
         }
@@ -155,6 +204,141 @@ public class DrawableBrushThumbnailTests
         {
             blockingDrawable.ReleaseRender();
             handler.Dispose();
+        }
+    }
+
+    [AvaloniaTest]
+    public void Immediate_subscription_disposal_cancels_resource_creation()
+    {
+        var blockerEntered = new ManualResetEventSlim();
+        var releaseBlocker = new ManualResetEventSlim();
+        IDisposable? subscription = null;
+
+        try
+        {
+            RenderThread.Dispatcher.Dispatch(
+                () =>
+                {
+                    blockerEntered.Set();
+                    releaseBlocker.Wait();
+                },
+                DispatchPriority.High);
+            Assert.That(blockerEntered.Wait(TimeSpan.FromSeconds(5)), Is.True);
+
+            var drawableBrush = new DisposalTrackingDrawableBrush();
+            using var clock = new BehaviorSubject<TimeSpan>(TimeSpan.Zero);
+            (_, subscription, _) = drawableBrush.ToAvaBrushSync(clock);
+            subscription.Dispose();
+
+            releaseBlocker.Set();
+            RenderThread.Dispatcher.Invoke(
+                static () => { },
+                DispatchPriority.Low,
+                CancellationToken.None);
+
+            Assert.Multiple(() =>
+            {
+                Assert.That(drawableBrush.ResourceUpdateCalls, Is.Zero);
+                Assert.That(drawableBrush.ResourceDisposeCalls, Is.Zero);
+            });
+        }
+        finally
+        {
+            subscription?.Dispose();
+            releaseBlocker.Set();
+            RenderThread.Dispatcher.Invoke(
+                static () => { },
+                DispatchPriority.Low,
+                CancellationToken.None);
+            blockerEntered.Dispose();
+            releaseBlocker.Dispose();
+        }
+    }
+
+    [AvaloniaTest]
+    public async Task Resource_lifetime_and_updates_are_serialized_on_render_dispatcher()
+    {
+        var drawableBrush = new DisposalTrackingDrawableBrush();
+        using var clock = new BehaviorSubject<TimeSpan>(TimeSpan.Zero);
+        (_, IDisposable subscription, _) = drawableBrush.ToAvaBrushSync(clock);
+
+        await WaitUntilAsync(
+            () => drawableBrush.ResourceUpdateCalls == 1,
+            TimeSpan.FromSeconds(5));
+
+        clock.OnNext(TimeSpan.FromSeconds(1));
+        await WaitUntilAsync(
+            () => drawableBrush.ResourceUpdateCalls == 2,
+            TimeSpan.FromSeconds(5));
+
+        subscription.Dispose();
+
+        await WaitUntilAsync(
+            () => drawableBrush.ResourceDisposeCalls == 1,
+            TimeSpan.FromSeconds(5));
+        Assert.Multiple(() =>
+        {
+            Assert.That(drawableBrush.ResourceDisposeCalls, Is.EqualTo(1));
+            Assert.That(
+                drawableBrush.ResourceCreationThreadId,
+                Is.EqualTo(RenderThread.Dispatcher.Thread.ManagedThreadId));
+            Assert.That(
+                drawableBrush.LastResourceUpdateThreadId,
+                Is.EqualTo(RenderThread.Dispatcher.Thread.ManagedThreadId));
+            Assert.That(
+                drawableBrush.ResourceDisposalThreadId,
+                Is.EqualTo(RenderThread.Dispatcher.Thread.ManagedThreadId));
+        });
+    }
+
+    [AvaloniaTest]
+    public void Render_dispatcher_shutdown_abandons_queued_update_and_releases_resource()
+    {
+        var drawableBrush = new DrawableBrush();
+        var resource = (DrawableBrush.Resource)drawableBrush.ToResource(
+            new CompositionContext(TimeSpan.Zero));
+        var imageBrush = new AvaImageBrush();
+        var blockerEntered = new ManualResetEventSlim();
+        var releaseBlocker = new ManualResetEventSlim();
+        Dispatcher dispatcher = Dispatcher.Spawn();
+        var handler = new AvaloniaTypeConverter.DrawableImageBrushHandler(
+            resource,
+            imageBrush,
+            dispatcher);
+
+        try
+        {
+            dispatcher.Dispatch(
+                () =>
+                {
+                    blockerEntered.Set();
+                    releaseBlocker.Wait();
+                },
+                DispatchPriority.High);
+            Assert.That(blockerEntered.Wait(TimeSpan.FromSeconds(5)), Is.True);
+
+            handler.Update();
+            handler.Dispose();
+            Assert.That(resource.IsDisposed, Is.False);
+
+            dispatcher.Shutdown();
+
+            Assert.Multiple(() =>
+            {
+                Assert.That(resource.IsDisposed, Is.True);
+                Assert.That(imageBrush.Source, Is.Null);
+            });
+        }
+        finally
+        {
+            handler.Dispose();
+            if (!dispatcher.HasShutdownStarted)
+                dispatcher.Shutdown();
+            releaseBlocker.Set();
+            Assert.That(dispatcher.Thread.Join(TimeSpan.FromSeconds(5)), Is.True);
+            blockerEntered.Dispose();
+            releaseBlocker.Dispose();
+            resource.Dispose();
         }
     }
 
@@ -220,5 +404,58 @@ internal sealed partial class BlockingThumbnailDrawable(
 
     protected override void OnDraw(GraphicsContext2D context, Drawable.Resource resource)
     {
+    }
+}
+
+internal sealed partial class DisposalTrackingDrawableBrush : DrawableBrush
+{
+    private int _resourceCreationThreadId;
+    private int _resourceDisposalThreadId;
+    private int _lastResourceUpdateThreadId;
+    private int _resourceDisposeCalls;
+    private int _resourceUpdateCalls;
+
+    public int ResourceCreationThreadId => Volatile.Read(ref _resourceCreationThreadId);
+
+    public int ResourceDisposalThreadId => Volatile.Read(ref _resourceDisposalThreadId);
+
+    public int LastResourceUpdateThreadId => Volatile.Read(ref _lastResourceUpdateThreadId);
+
+    public int ResourceDisposeCalls => Volatile.Read(ref _resourceDisposeCalls);
+
+    public int ResourceUpdateCalls => Volatile.Read(ref _resourceUpdateCalls);
+
+    public partial class Resource
+    {
+        private DisposalTrackingDrawableBrush? _owner;
+
+        partial void PostUpdate(DisposalTrackingDrawableBrush obj, CompositionContext context)
+        {
+            _owner = obj;
+            int updateCount = Interlocked.Increment(ref obj._resourceUpdateCalls);
+            if (updateCount == 1)
+            {
+                Volatile.Write(
+                    ref obj._resourceCreationThreadId,
+                    Environment.CurrentManagedThreadId);
+            }
+            else
+            {
+                Volatile.Write(
+                    ref obj._lastResourceUpdateThreadId,
+                    Environment.CurrentManagedThreadId);
+            }
+        }
+
+        partial void PostDispose(bool disposing)
+        {
+            if (disposing && _owner is not null)
+            {
+                Volatile.Write(
+                    ref _owner._resourceDisposalThreadId,
+                    Environment.CurrentManagedThreadId);
+                Interlocked.Increment(ref _owner._resourceDisposeCalls);
+            }
+        }
     }
 }

@@ -301,6 +301,37 @@ public sealed class RenderCacheResolutionTests
         AssertMiss(SingleCandidate(bounds: new Rect(0, 0, 63, 64)), s_context, lookup);
     }
 
+    [TestCase(2f, 2f)]
+    [TestCase(1.5f, 1.5f)]
+    public void DivergentFanOut_ColdAndWarmCacheUseHighestCappedDensity(
+        float maxWorkingScale,
+        float expectedDensity)
+    {
+        RenderFragmentReference source = Pure();
+        RenderFragmentReference unitScale = FixedScaleMap(source, 1, 1);
+        RenderFragmentReference doubleScale = FixedScaleMap(source, 2, expectedDensity);
+        using Scenario scenario = Build(
+            [source, unitScale, doubleScale],
+            [unitScale, doubleScale],
+            [(source, "source")],
+            maxWorkingScale: maxWorkingScale);
+
+        RenderCacheResolution cold = Resolve(scenario);
+        RenderCacheMissCapture capture = cold.MissCaptures.Single();
+        var lookup = new RecordingLookup();
+        lookup.Add(capture);
+
+        RenderCacheResolution warm = Resolve(scenario, lookup);
+        RenderCacheDecision decision = warm.GetDecision(scenario.Candidate(source));
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(capture.Identity.Density, Is.EqualTo(expectedDensity));
+            Assert.That(decision.Kind, Is.EqualTo(RenderCacheResolutionKind.Hit));
+            Assert.That(decision.Hit!.Entry.Identity.Density, Is.EqualTo(expectedDensity));
+        });
+    }
+
     [Test]
     public void FullHashCollision_NeverSubstitutesAnUnequalEntry()
     {
@@ -601,14 +632,16 @@ public sealed class RenderCacheResolutionTests
         float outputScale = 1,
         RenderRequestPurpose purpose = RenderRequestPurpose.Frame,
         IReadOnlyDictionary<string, RenderFragmentReference>? names = null,
-        bool stopAtMetadata = false)
+        bool stopAtMetadata = false,
+        float maxWorkingScale = float.PositiveInfinity)
     {
         var options = new RenderRequestOptions(
             RenderIntent.Preview,
             purpose,
             targetDomain: s_bounds,
             requestedRegion: requestedRegion,
-            outputScale: outputScale);
+            outputScale: outputScale,
+            maxWorkingScale: maxWorkingScale);
         var request = new RenderRequest(options);
         var builder = new RecordedRenderGraphBuilder(request.Id);
         var provenance = new Dictionary<RenderFragmentReference, RenderProvenanceId>(
@@ -665,6 +698,35 @@ public sealed class RenderCacheResolutionTests
             hasOpaqueExternalWork: inputs.Any(static item => item.HasOpaqueExternalWork),
             inputs,
             payload,
+            static _ => true);
+    }
+
+    private static RenderFragmentReference FixedScaleMap(
+        RenderFragmentReference input,
+        float authoredScale,
+        float resolvedScale)
+    {
+        var identity = new FixedScaleIdentity(authoredScale);
+        OpaqueRenderDescription description = OpaqueRenderDescription.Create(
+            static _ => { },
+            OpaqueRenderBoundsContract.Map(RenderBoundsContract.Identity),
+            RenderHitTestContract.AnyInput,
+            RenderValueCardinality.Single,
+            RenderScaleContract.Custom(
+                new FixedScaleResolver(authoredScale).Resolve,
+                identity),
+            structuralKey: identity);
+        return new RenderFragmentReference(
+            RenderFragmentKind.OpaqueMap,
+            s_bounds,
+            EffectiveScale.At(resolvedScale),
+            RenderValueCardinality.Single,
+            contributesValuesToTarget: true,
+            canBeUsedAsValueInput: true,
+            hasTargetEffects: false,
+            hasOpaqueExternalWork: true,
+            [input],
+            new OpaqueRenderFragmentPayload(OpaqueRenderTopology.Map, description),
             static _ => true);
     }
 
@@ -808,6 +870,13 @@ public sealed class RenderCacheResolutionTests
     }
 
     private sealed record RuntimeValue(int Value);
+
+    private sealed record FixedScaleResolver(float Scale)
+    {
+        public float Resolve(RenderScaleContext _) => Scale;
+    }
+
+    private readonly record struct FixedScaleIdentity(float Scale);
 
     private sealed record CollidingKey(string Value)
     {

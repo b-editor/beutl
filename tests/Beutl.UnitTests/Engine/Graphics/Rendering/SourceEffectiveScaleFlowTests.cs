@@ -691,6 +691,36 @@ public class SourceEffectiveScaleFlowTests
         });
     }
 
+    [TestCase(2f, 2f)]
+    [TestCase(1.5f, 1.5f)]
+    public void UnboundedFanOut_MaterializesOnceAtHighestConsumerDensity(
+        float maxWorkingScale,
+        float expectedWorkingScale)
+    {
+        var observedWorkingScales = new List<float>();
+        Rect bounds = new(0, 0, 12, 8);
+        using var node = new DivergentScaleFanOutNode(bounds, observedWorkingScales);
+        using var renderer = new RenderNodeRenderer(
+            node,
+            new RenderNodeRendererOptions
+            {
+                UseRenderCache = false,
+                OutputScale = 1,
+                MaxWorkingScale = maxWorkingScale,
+                TargetDomain = bounds,
+                TargetFactory = new CpuTargetFactory(),
+            });
+
+        using RenderNodeRasterization result = renderer.Rasterize();
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(result.IsEmpty, Is.False);
+            Assert.That(observedWorkingScales, Is.EqualTo(new[] { expectedWorkingScale }),
+                "A shared vector producer must select the highest downstream density before memoization.");
+        });
+    }
+
     [Test]
     public void CustomWorkingScale_LegacyOperationPreservesSubOutputScale()
     {
@@ -1382,6 +1412,77 @@ public class SourceEffectiveScaleFlowTests
             _fixed.Dispose();
             _preserve.Dispose();
             base.OnDispose(disposing);
+        }
+    }
+
+    private sealed class DivergentScaleFanOutNode : RenderNode
+    {
+        private readonly VectorSourceNode _source;
+
+        public DivergentScaleFanOutNode(
+            Rect bounds,
+            ICollection<float> observedWorkingScales)
+        {
+            _source = new VectorSourceNode(bounds, observedWorkingScales);
+        }
+
+        public override void Process(RenderNodeContext context)
+        {
+            RenderFragmentHandle shared = context.RecordNode(_source, []).Single();
+            context.Publish(context.OpaqueMap(shared, CreateConsumer(1)));
+            context.Publish(context.OpaqueMap(shared, CreateConsumer(2)));
+        }
+
+        protected override void OnDispose(bool disposing)
+        {
+            _source.Dispose();
+            base.OnDispose(disposing);
+        }
+
+        private static OpaqueRenderDescription CreateConsumer(float scale)
+            => OpaqueRenderDescription.Create(
+                execute: static session =>
+                {
+                    using OpaqueRenderOutput output = session.CreateOutput(session.OutputBounds);
+                    output.Canvas.Use(session.Inputs.Single().Draw);
+                    session.Publish(output);
+                },
+                bounds: OpaqueRenderBoundsContract.Map(RenderBoundsContract.Identity),
+                hitTest: RenderHitTestContract.AnyInput,
+                valueCardinality: RenderValueCardinality.Single,
+                scale: RenderScaleContract.Custom(
+                    new ConstantScaleResolver(scale).Resolve,
+                    new ConstantScaleIdentity(scale)),
+                structuralKey: new ConstantScaleIdentity(scale));
+
+        private sealed record ConstantScaleResolver(float Scale)
+        {
+            public float Resolve(RenderScaleContext _) => Scale;
+        }
+
+        private readonly record struct ConstantScaleIdentity(float Scale);
+
+        private sealed class VectorSourceNode(
+            Rect bounds,
+            ICollection<float> observedWorkingScales) : RenderNode
+        {
+            public override void Process(RenderNodeContext context)
+            {
+                OpaqueRenderDescription source = OpaqueRenderDescription.Create(
+                    session =>
+                    {
+                        observedWorkingScales.Add(session.WorkingScale);
+                        using OpaqueRenderOutput output = session.CreateOutput(bounds);
+                        output.Canvas.Use(static canvas => canvas.Clear());
+                        session.Publish(output);
+                    },
+                    OpaqueRenderBoundsContract.Source(bounds),
+                    RenderHitTestContract.None,
+                    RenderValueCardinality.Single,
+                    RenderScaleContract.Vector,
+                    structuralKey: typeof(VectorSourceNode));
+                context.Publish(context.OpaqueSource(source));
+            }
         }
     }
 

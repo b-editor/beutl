@@ -162,14 +162,13 @@ internal sealed class RenderTargetPool : IDisposable
         _disposed = true;
         List<Exception> failures = [];
         RenderTargetPoolRequest? activeRequest = _activeRequest;
-        ExceptionDispatchInfo? primary = null;
         try
         {
             activeRequest?.Dispose();
         }
         catch (Exception ex)
         {
-            primary = ExceptionDispatchInfo.Capture(ex);
+            AppendFailure(failures, ex);
         }
 
         failures.AddRange(activeRequest?.CleanupFailures ?? []);
@@ -182,7 +181,6 @@ internal sealed class RenderTargetPool : IDisposable
         _availableLru.Clear();
         _knownTargets.Clear();
         _knownSurfaces.Clear();
-        primary?.Throw();
         ThrowCleanupFailures(failures);
     }
 
@@ -702,6 +700,14 @@ internal sealed class RenderTargetPool : IDisposable
         if (failures.Count == 1)
             ExceptionDispatchInfo.Capture(failures[0]).Throw();
         throw new AggregateException("One or more pooled render targets failed to dispose.", failures);
+    }
+
+    private static void AppendFailure(List<Exception> failures, Exception failure)
+    {
+        if (failure is AggregateException aggregate)
+            failures.AddRange(aggregate.Flatten().InnerExceptions);
+        else
+            failures.Add(failure);
     }
 
     internal sealed class TargetSlot(
