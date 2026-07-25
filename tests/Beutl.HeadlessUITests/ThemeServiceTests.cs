@@ -233,6 +233,64 @@ public class ThemeServiceTests
         });
     }
 
+    // The accent picker offers the whole named-color palette, so a light accent is one click away while
+    // the theme's text-on-accent tokens are authored for its own dark blue. Asserted on
+    // AccentButtonForeground rather than the color token, because that alias is what a control actually
+    // reads — it only follows if the theme's brush takes its color dynamically.
+    [AvaloniaTest]
+    public void TextOnAccent_StaysWhite_OnTheDesignAccent()
+    {
+        AssertAccentForeground(Color.FromRgb(0x25, 0x63, 0xEB), Colors.White);
+    }
+
+    [AvaloniaTest]
+    public void TextOnAccent_TurnsBlack_OnALightAccent()
+    {
+        AssertAccentForeground(Color.FromRgb(0xFF, 0xB9, 0x00), Colors.Black);
+    }
+
+    private static void AssertAccentForeground(Color accent, Color expected)
+    {
+        using var scope = new ThemeScope();
+        scope.Service.Start();
+        Dispatcher.UIThread.RunJobs();
+
+        scope.Config.UseCustomAccentColor = true;
+        scope.Config.CustomAccentColor = accent.ToString();
+        Dispatcher.UIThread.RunJobs();
+
+        // AccentButtonForeground rather than the color token: that alias is what a control actually
+        // reads, and it only follows the token if the theme's brush takes its color dynamically.
+        bool found = Application.Current!.TryGetResource(
+            "AccentButtonForeground", ThemeVariant.Dark, out object? foreground);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(found, Is.True);
+            Assert.That(foreground, Is.InstanceOf<ISolidColorBrush>());
+            Assert.That(((ISolidColorBrush)foreground!).Color, Is.EqualTo(expected));
+        });
+    }
+
+    // Once Beutl stops resolving the accent, the theme's own tokens are the only defined answer again.
+    [AvaloniaTest]
+    public void TextOnAccent_ReturnsToTheThemesValue_WhenTheCustomAccentIsDisabled()
+    {
+        using var scope = new ThemeScope();
+        scope.Config.Theme = BuiltinThemeIds.Light;
+        scope.Service.Start();
+        scope.Config.UseCustomAccentColor = true;
+        scope.Config.CustomAccentColor = Color.FromRgb(0xFF, 0xB9, 0x00).ToString();
+        Dispatcher.UIThread.RunJobs();
+        Assert.That(Application.Current!.Resources.ContainsKey("TextOnAccentFillColorPrimary"), Is.True,
+            "precondition: the derived override is in place");
+
+        scope.Config.UseCustomAccentColor = false;
+        Dispatcher.UIThread.RunJobs();
+
+        Assert.That(Application.Current.Resources.ContainsKey("TextOnAccentFillColorPrimary"), Is.False);
+    }
+
     [AvaloniaTest]
     public void ThemeAccentColor_SeedsTheAccent_AndLeavesWithTheTheme()
     {
@@ -336,6 +394,18 @@ public class ThemeServiceTests
             foreach (IResourceProvider applied in merged.Except(_mergedOnEntry).ToArray())
             {
                 merged.Remove(applied);
+            }
+
+            // The accent-derived text-on-accent entries land in the Application's own resources, where
+            // they outlive both the merged dictionaries and the service.
+            foreach (string key in
+                     new[]
+                     {
+                         "TextOnAccentFillColorPrimary", "TextOnAccentFillColorSelectedText",
+                         "TextOnAccentFillColorSecondary", "TextOnAccentFillColorDisabled"
+                     })
+            {
+                Application.Current.Resources.Remove(key);
             }
 
             ClearRegistry();

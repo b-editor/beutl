@@ -23,6 +23,17 @@ namespace Beutl.Services;
 internal sealed class ThemeService : IDisposable
 {
     private static readonly ILogger s_logger = Log.CreateLogger<ThemeService>();
+
+    // The text-on-accent tokens and the opacity each one carries. Alpha comes from here rather than from
+    // the theme's own value so the derived set is one scheme regardless of which theme authored it.
+    private static readonly (string Key, byte Alpha)[] s_textOnAccentKeys =
+    [
+        ("TextOnAccentFillColorPrimary", 0xFF),
+        ("TextOnAccentFillColorSelectedText", 0xFF),
+        ("TextOnAccentFillColorSecondary", 0xC5),
+        ("TextOnAccentFillColorDisabled", 0x87),
+    ];
+
     private readonly FluentAvaloniaTheme _theme;
     private readonly ViewConfig _viewConfig;
     private IResourceProvider? _currentResources;
@@ -34,6 +45,7 @@ internal sealed class ThemeService : IDisposable
     private bool _changedSubscribed;
     private bool _disposed;
     private int _applyQueued;
+    private Color? _appliedTextOnAccent;
 
     public ThemeService(FluentAvaloniaTheme theme, ViewConfig viewConfig)
     {
@@ -153,6 +165,56 @@ internal sealed class ThemeService : IDisposable
         {
             _theme.CustomAccentColor = accent;
         }
+
+        ApplyTextOnAccent(accent);
+    }
+
+    // A theme authors its text-on-accent tokens for the accent it declares, but accent fills follow
+    // whatever accent is configured, and the user can pick any color: white text on a near-white fill
+    // leaves accent-button labels and checked glyphs unreadable, and a dark accent does the same to the
+    // classic palette's black. Where Beutl resolves the accent itself, the tokens follow that accent's
+    // contrast. The OS-accent path is left to the theme's own values: FluentAvalonia resolves that color,
+    // so there is nothing here to measure. Written as app-level entries, which win over the merged theme
+    // dictionaries; the first-party dictionaries take these colors by DynamicResource, so every alias
+    // built on those brushes follows.
+    private void ApplyTextOnAccent(Color? accent)
+    {
+        Color? foreground = accent is { } value ? ResolveForegroundOn(value) : null;
+        if (_appliedTextOnAccent == foreground)
+        {
+            return;
+        }
+
+        _appliedTextOnAccent = foreground;
+        IResourceDictionary resources = Application.Current!.Resources;
+        foreach ((string key, byte alpha) in s_textOnAccentKeys)
+        {
+            if (foreground is { } fg)
+            {
+                resources[key] = Color.FromArgb(alpha, fg.R, fg.G, fg.B);
+            }
+            else
+            {
+                resources.Remove(key);
+            }
+        }
+    }
+
+    // WCAG contrast against white and against black, whichever is higher. The design accent #2563EB
+    // lands on white, so the shipped look is unchanged.
+    private static Color ResolveForegroundOn(Color accent)
+    {
+        double luminance = RelativeLuminance(accent);
+        return (luminance + 0.05) / 0.05 > 1.05 / (luminance + 0.05) ? Colors.Black : Colors.White;
+    }
+
+    private static double RelativeLuminance(Color color) =>
+        (0.2126 * Linearize(color.R)) + (0.7152 * Linearize(color.G)) + (0.0722 * Linearize(color.B));
+
+    private static double Linearize(byte channel)
+    {
+        double value = channel / 255.0;
+        return value <= 0.03928 ? value / 12.92 : Math.Pow((value + 0.055) / 1.055, 2.4);
     }
 
     // False when the descriptor could not be applied and the caller should fall back; skipping an
