@@ -7,6 +7,7 @@ using Avalonia.Media;
 using Avalonia.Styling;
 using Avalonia.Threading;
 using Beutl.Configuration;
+using Beutl.Controls.Styling;
 using Beutl.Extensibility;
 using Beutl.Language;
 using Beutl.Services;
@@ -86,6 +87,57 @@ public class DarkBorderThemeExtensionTests
             service.Dispose();
             ClearRegistry();
             Dispatcher.UIThread.RunJobs();
+        }
+    }
+
+    // Start loads the default theme and the primitive-extension pass loads it again, on a background
+    // thread. That is only harmless because the descriptor instance is stable: a fresh record would be
+    // a new registration, which ThemeService cannot reference-skip and would re-apply as a theme change.
+    [AvaloniaTest]
+    public void RepeatLoad_RegistersTheSameDescriptor_AndAppliesNothing()
+    {
+        ClearRegistry();
+        FluentAvaloniaTheme theme = Application.Current!.Styles.OfType<FluentAvaloniaTheme>().Single();
+        IResourceProvider[] mergedOnEntry = [.. Application.Current.Resources.MergedDictionaries];
+        var config = new ViewConfig();
+        var service = new ThemeService(theme, config);
+        try
+        {
+            service.Start();
+            Dispatcher.UIThread.RunJobs();
+            ThemeDescriptor? applied = ThemeRegistry.Resolve(config.Theme);
+            IResourceProvider[] mergedAfterFirstLoad = [.. Application.Current.Resources.MergedDictionaries];
+
+            DarkBorderThemeExtension.Instance.Load();
+            Dispatcher.UIThread.RunJobs();
+
+            Assert.Multiple(() =>
+            {
+                Assert.That(applied, Is.Not.Null, "precondition: the default theme was registered and resolved");
+                Assert.That(ThemeRegistry.Resolve(config.Theme), Is.SameAs(applied),
+                    "a repeat Load must leave the registered descriptor instance untouched");
+                Assert.That(Application.Current.Resources.MergedDictionaries, Is.EqualTo(mergedAfterFirstLoad),
+                    "a repeat Load must not swap the applied theme's resources");
+            });
+        }
+        finally
+        {
+            service.Dispose();
+            DarkBorderThemeExtension.Instance.Unload();
+            ClearRegistry();
+            Dispatcher.UIThread.RunJobs();
+
+            // This test lets the apply run, so it owns what the apply left on the Application: the
+            // merged override dictionary and the accent, both process-global here.
+            IList<IResourceProvider> merged = Application.Current.Resources.MergedDictionaries;
+            foreach (IResourceProvider added in merged.Except(mergedOnEntry).ToArray())
+            {
+                merged.Remove(added);
+            }
+
+            theme.CustomAccentColor = null;
+            AccentTextResources.Apply(Application.Current.Resources, null);
+            Application.Current.RequestedThemeVariant = ThemeVariant.Dark;
         }
     }
 

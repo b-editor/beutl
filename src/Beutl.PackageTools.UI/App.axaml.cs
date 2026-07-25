@@ -8,6 +8,7 @@ using Avalonia.Media;
 using Avalonia.Styling;
 
 using Beutl.Configuration;
+using Beutl.Controls.Styling;
 using Beutl.Controls.Styling.Themes;
 using Beutl.PackageTools.UI.Views;
 
@@ -57,15 +58,19 @@ public partial class App : Application
         }
 
 
-        // Accent priority mirrors ThemeService.
-        if (view.UseCustomAccentColor && Color.TryParse(view.CustomAccentColor, out Color customColor))
+        // Accent priority mirrors ThemeService, and so does the text-on-accent derivation: this shell
+        // shows the same accent surfaces, so a light custom accent would leave the theme's white
+        // labels on a near-white fill.
+        Color? accent = view.UseCustomAccentColor && Color.TryParse(view.CustomAccentColor, out Color customColor)
+            ? customColor
+            : designAccent;
+
+        if (accent.HasValue)
         {
-            theme.CustomAccentColor = customColor;
+            theme.CustomAccentColor = accent;
         }
-        else if (designAccent.HasValue)
-        {
-            theme.CustomAccentColor = designAccent;
-        }
+
+        AccentTextResources.Apply(Resources, accent);
     }
 
     public override void OnFrameworkInitializationCompleted()

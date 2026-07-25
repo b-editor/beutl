@@ -92,8 +92,6 @@
     <SolidColorBrush x:Key="DockDocumentTabCloseSelectedForegroundBrush" Color="{DynamicResource TextFillColorSecondary}" />
     <SolidColorBrush x:Key="DockDocumentTabClosePointerOverForegroundBrush" Color="{DynamicResource TextFillColorPrimary}" />
 
-    <SolidColorBrush x:Key="DockSplitterDragBrush" Color="{DynamicResource SystemAccentColor}" />
-
     <SolidColorBrush x:Key="DockChromeButtonDangerHoverBrush" Color="{DynamicResource SystemFillColorCriticalBackground}" />
 
     <!--  ===== Typography (match Beutl BcTabItemFontSize=12) =====  -->

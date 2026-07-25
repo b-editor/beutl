@@ -49,4 +49,23 @@ public class BeutlDarkBorderThemeResourceTests
         // part of the shipped look.
         Assert.That(BeutlDarkBorderTheme.AccentColor, Is.EqualTo(Color.FromRgb(0x25, 0x63, 0xEB)));
     }
+
+    // The theme is a flat value-swap over the classic dark dictionaries, so a key it defines that they
+    // do not is an override of nothing: it reads as a real design decision but changes no pixel. The
+    // dictionary is deliberately left unmerged — resolution must succeed on the classic keys alone.
+    [AvaloniaTest]
+    public void EveryKeyItOverrides_ResolvesWithoutIt()
+    {
+        var resources = (IResourceDictionary)AvaloniaXamlLoader.Load(BeutlDarkBorderTheme.ResourceUri, null)!;
+        object[] dangling = resources.Keys
+            .Where(key => !Application.Current!.TryGetResource(key, ThemeVariant.Dark, out _))
+            .ToArray();
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(resources.Keys, Is.Not.Empty, "precondition: the theme defines keys");
+            Assert.That(dangling, Is.Empty,
+                "the border theme must override an existing key, never introduce a dangling one");
+        });
+    }
 }

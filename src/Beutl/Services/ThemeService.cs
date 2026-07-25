@@ -5,6 +5,7 @@ using Avalonia.Media;
 using Avalonia.Styling;
 using Avalonia.Threading;
 using Beutl.Configuration;
+using Beutl.Controls.Styling;
 using Beutl.Extensibility;
 using Beutl.Language;
 using Beutl.Logging;
@@ -23,16 +24,6 @@ namespace Beutl.Services;
 internal sealed class ThemeService : IDisposable
 {
     private static readonly ILogger s_logger = Log.CreateLogger<ThemeService>();
-
-    // Alpha comes from here rather than from the theme's own value, so the derived set is one scheme
-    // regardless of which theme authored it.
-    private static readonly (string Key, byte Alpha)[] s_textOnAccentKeys =
-    [
-        ("TextOnAccentFillColorPrimary", 0xFF),
-        ("TextOnAccentFillColorSelectedText", 0xFF),
-        ("TextOnAccentFillColorSecondary", 0xC5),
-        ("TextOnAccentFillColorDisabled", 0x87),
-    ];
 
     private readonly FluentAvaloniaTheme _theme;
     private readonly ViewConfig _viewConfig;
@@ -62,7 +53,8 @@ internal sealed class ThemeService : IDisposable
 
         // The default theme is an extension, and the primitive-extension pass loads on a background
         // thread — after the first apply below. Without this the app renders classic dark and flashes
-        // to the design theme (#2134); LoadPrimitiveExtensionTask leaves this one to us.
+        // to the design theme (#2134). That pass still loads it too; the descriptor instance is
+        // stable, so the second registration resolves to the same theme and applies nothing.
         DarkBorderThemeExtension.Instance.Load();
 
         _themeSubscription = _viewConfig.GetObservable(ViewConfig.ThemeProperty)
@@ -165,47 +157,18 @@ internal sealed class ThemeService : IDisposable
         ApplyTextOnAccent(accent);
     }
 
-    // A theme authors its text-on-accent tokens for its declared accent, but the user can configure any
-    // accent — white text on a near-white fill is unreadable. Beutl adjusts these only for accents it
-    // resolves; FluentAvalonia owns OS accents. App-level entries win over the merged theme
-    // dictionaries, whose brushes take these colors by DynamicResource.
+    // Two accents can derive the same foreground, so the cache is keyed on that rather than on the
+    // accent: it skips a rewrite that would invalidate every dependent for nothing.
     private void ApplyTextOnAccent(Color? accent)
     {
-        Color? foreground = accent is { } value ? ResolveForegroundOn(value) : null;
+        Color? foreground = accent is { } value ? AccentTextResources.ResolveForegroundOn(value) : null;
         if (_appliedTextOnAccent == foreground)
         {
             return;
         }
 
         _appliedTextOnAccent = foreground;
-        IResourceDictionary resources = Application.Current!.Resources;
-        foreach ((string key, byte alpha) in s_textOnAccentKeys)
-        {
-            if (foreground is { } fg)
-            {
-                resources[key] = Color.FromArgb(alpha, fg.R, fg.G, fg.B);
-            }
-            else
-            {
-                resources.Remove(key);
-            }
-        }
-    }
-
-    // WCAG contrast against white and against black, whichever is higher.
-    private static Color ResolveForegroundOn(Color accent)
-    {
-        double luminance = RelativeLuminance(accent);
-        return (luminance + 0.05) / 0.05 > 1.05 / (luminance + 0.05) ? Colors.Black : Colors.White;
-    }
-
-    private static double RelativeLuminance(Color color) =>
-        (0.2126 * Linearize(color.R)) + (0.7152 * Linearize(color.G)) + (0.0722 * Linearize(color.B));
-
-    private static double Linearize(byte channel)
-    {
-        double value = channel / 255.0;
-        return value <= 0.03928 ? value / 12.92 : Math.Pow((value + 0.055) / 1.055, 2.4);
+        AccentTextResources.Apply(Application.Current!.Resources, accent);
     }
 
     // False when the descriptor could not be applied and the caller should fall back; skipping an

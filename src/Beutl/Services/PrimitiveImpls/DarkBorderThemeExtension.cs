@@ -17,11 +17,17 @@ public sealed class DarkBorderThemeExtension : ThemeExtension
 
     public static readonly DarkBorderThemeExtension Instance = new();
 
+    // One instance for the life of the extension. ThemeRegistry keys ownership on the descriptor
+    // instance and ThemeService skips a re-apply by reference, so a fresh record per call would turn a
+    // repeat Load into a full revert/apply cycle — and, if two threads Load concurrently, leave
+    // Descriptor naming the instance that lost the registry write, which Unload could then not remove.
+    private static readonly ThemeDescriptor s_descriptor =
+        new(ThemeId, SettingsStrings.Dark, ThemeVariant.Dark, BeutlDarkBorderTheme.ResourceUri,
+            AccentColor: BeutlDarkBorderTheme.AccentColor);
+
     public override string Name => "DarkBorderTheme";
 
     public override string DisplayName => SettingsStrings.Dark;
 
-    public override ThemeDescriptor GetThemeDescriptor() =>
-        new(ThemeId, SettingsStrings.Dark, ThemeVariant.Dark, BeutlDarkBorderTheme.ResourceUri,
-            AccentColor: BeutlDarkBorderTheme.AccentColor);
+    public override ThemeDescriptor GetThemeDescriptor() => s_descriptor;
 }
