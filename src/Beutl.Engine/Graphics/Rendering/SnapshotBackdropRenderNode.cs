@@ -34,10 +34,22 @@ public class SnapshotBackdropRenderNode : RenderNode, IBackdrop, IBuiltInBackdro
         }
     }
 
+    bool IBuiltInBackdropCaptureSink.TryCommitBackdropCapture(Bitmap bitmap, float density)
+        => CommitBackdropCapture(bitmap, density, throwIfDisposed: false);
+
     void IBuiltInBackdropCaptureSink.CommitBackdropCapture(Bitmap bitmap, float density)
+        => CommitBackdropCapture(bitmap, density, throwIfDisposed: true);
+
+    private bool CommitBackdropCapture(Bitmap bitmap, float density, bool throwIfDisposed)
     {
         ArgumentNullException.ThrowIfNull(bitmap);
-        ObjectDisposedException.ThrowIf(IsDisposed, this);
+        if (IsDisposed)
+        {
+            if (throwIfDisposed)
+                throw new ObjectDisposedException(nameof(SnapshotBackdropRenderNode));
+            return false;
+        }
+
         if (!float.IsFinite(density) || density <= 0f)
         {
             throw new ArgumentOutOfRangeException(
@@ -49,6 +61,7 @@ public class SnapshotBackdropRenderNode : RenderNode, IBackdrop, IBuiltInBackdro
         var next = new BackdropCapture(bitmap, density);
         BackdropCapture? previous = Interlocked.Exchange(ref _fallback, next);
         previous?.Bitmap.Dispose();
+        return true;
     }
 
     protected override void OnDispose(bool disposing)

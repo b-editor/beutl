@@ -1,4 +1,6 @@
-﻿using Beutl.Graphics.Effects;
+﻿using System.Runtime.ExceptionServices;
+
+using Beutl.Graphics.Effects;
 using Beutl.Graphics.Transformation;
 using Beutl.Media;
 using Beutl.Media.Source;
@@ -19,6 +21,7 @@ public sealed class GraphicsContext2D(
 
     // 下位のノードで変更があったとき、上位に伝搬するためのフィールド。Pop時に上位ノードのHasChangesを変更する用。
     private bool _hasChanges;
+    private bool _faulted;
 
     /// <summary>The logical viewport size (float, not rounded to device pixels).</summary>
     public Size Size => canvasSize;
@@ -90,13 +93,53 @@ public sealed class GraphicsContext2D(
 
     public void Dispose()
     {
-        _container.RemoveRange(_drawOperationindex, _container.Children.Count - _drawOperationindex);
+        if (_faulted)
+            return;
+
+        int count = _container.Children.Count - _drawOperationindex;
+        if (count == 0)
+            return;
+
+        RenderNode[] removed = [.. _container.Children.Skip(_drawOperationindex)];
+        _container.RemoveRange(_drawOperationindex, count);
+        _container.HasChanges = true;
+        List<Exception>? failures = null;
+        foreach (RenderNode node in removed)
+        {
+            try
+            {
+                node.Dispose();
+            }
+            catch (Exception ex)
+            {
+                (failures ??= []).Add(ex);
+            }
+
+            try
+            {
+                Untracked(node);
+            }
+            catch (Exception ex)
+            {
+                (failures ??= []).Add(ex);
+            }
+        }
+
+        if (failures is [var failure])
+            ExceptionDispatchInfo.Capture(failure).Throw();
+        if (failures is { Count: > 1 })
+        {
+            throw new AggregateException(
+                "One or more untracked render nodes failed to dispose.",
+                failures);
+        }
     }
 
     public void Reset()
     {
         _drawOperationindex = 0;
         _nodes.Clear();
+        _faulted = false;
     }
 
     public MemoryNode<T> UseMemory<T>(T defaultValue)
@@ -328,14 +371,22 @@ public sealed class GraphicsContext2D(
 
         TNode? next = Next<TNode>();
 
-        if (next == null)
+        try
         {
-            TNode node = createNode(parameters);
-            Add(node);
+            if (next == null)
+            {
+                TNode node = createNode(parameters);
+                Add(node);
+            }
+            else
+            {
+                _hasChanges = updateNode(next, parameters);
+            }
         }
-        else
+        catch
         {
-            _hasChanges = updateNode(next, parameters);
+            _faulted = true;
+            throw;
         }
 
         ++_drawOperationindex;
@@ -375,6 +426,31 @@ public sealed class GraphicsContext2D(
 
     public void Pop(int count = -1)
     {
+        if (_faulted)
+        {
+            if (count < 0)
+            {
+                while (count < 0
+                       && _nodes.TryPop(out (ContainerRenderNode, int) state))
+                {
+                    _container = state.Item1;
+                    _drawOperationindex = state.Item2;
+                    count++;
+                }
+            }
+            else
+            {
+                while (_nodes.Count >= count
+                       && _nodes.TryPop(out (ContainerRenderNode, int) state))
+                {
+                    _container = state.Item1;
+                    _drawOperationindex = state.Item2;
+                }
+            }
+
+            return;
+        }
+
         if (count < 0)
         {
             while (count < 0

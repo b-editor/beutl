@@ -17,8 +17,6 @@ internal readonly record struct RenderExecutionStatistics(
 
 internal sealed class RenderRequestExecutor
 {
-    private static readonly object s_cpuProgramDevice = new();
-    private static readonly object s_cpuProgramContext = new();
     private static readonly object s_defaultCompileOptions = new();
 
     private readonly RenderTargetLeaseSession _targets;
@@ -357,7 +355,8 @@ internal sealed class RenderRequestExecutor
         ImmediateCanvas? canvas = null;
         FamilyExecutionException? failure = null;
         bool recordedAcquisition = false;
-        int sessionCleanupStart = _targets.CleanupFailures.Count;
+        RenderTargetCleanupFailureCheckpoint cleanupCheckpoint =
+            _targets.CaptureCleanupFailureCheckpoint();
         try
         {
             PixelRect deviceBounds = PixelRect.FromRect(bounds, request.Request.Options.OutputScale);
@@ -438,7 +437,7 @@ internal sealed class RenderRequestExecutor
             lease?.Dispose();
             if (lease is not null && recordedAcquisition)
                 diagnostics?.RecordIntermediateDischarged();
-            foreach (Exception cleanupFailure in _targets.CleanupFailures.Skip(sessionCleanupStart))
+            foreach (Exception cleanupFailure in _targets.GetCleanupFailuresSince(cleanupCheckpoint))
             {
                 AppendCleanupFailures(cleanupFailures, diagnostics, cleanupFailure);
                 failure ??= new FamilyExecutionException(
@@ -737,6 +736,7 @@ internal sealed class RenderRequestExecutor
         private readonly RenderCacheResolution _cacheResolution;
         private readonly HashSet<RenderFragmentReference> _roots;
         private readonly RenderTargetLeaseSession _targets;
+        private readonly RenderCacheDeviceContextIdentity _programCacheContext;
         private readonly ProgramCache<CachedSkRuntimeEffect> _programCache;
         private readonly RenderPipelineDiagnosticRecorder? _diagnostics;
         private readonly Action<RenderFragmentKind>? _afterCaptureAllocation;
@@ -796,6 +796,7 @@ internal sealed class RenderRequestExecutor
                 roots,
                 ReferenceEqualityComparer.Instance);
             _targets = targets;
+            _programCacheContext = targets.CacheDeviceContextIdentity;
             _programCache = programCache;
             _diagnostics = diagnostics;
             _afterCaptureAllocation = afterCaptureAllocation;
@@ -1397,13 +1398,20 @@ internal sealed class RenderRequestExecutor
                     ?? throw new InvalidOperationException("A backdrop capture was already discharged.");
                 try
                 {
-                    publication.Sink.CommitBackdropCapture(bitmap, publication.Density);
+                    bool accepted = publication.Sink.TryCommitBackdropCapture(
+                        bitmap,
+                        publication.Density);
                     publication.Bitmap = null;
+                    if (!accepted)
+                        bitmap.Dispose();
                 }
                 catch
                 {
-                    bitmap.Dispose();
-                    publication.Bitmap = null;
+                    if (publication.Bitmap is not null)
+                    {
+                        publication.Bitmap = null;
+                        bitmap.Dispose();
+                    }
                     throw;
                 }
             }
@@ -2272,7 +2280,7 @@ internal sealed class RenderRequestExecutor
             Action<SKShader> draw)
         {
             using SKImage inputImage = input.Target.Value.Snapshot();
-            ProgramCacheContextKey contextKey = CreateProgramContextKey(input.Target, run.Program.Budget);
+            ProgramCacheContextKey contextKey = CreateProgramContextKey(run.Program.Budget);
             using ProgramCacheLease<CachedSkRuntimeEffect> lease = AcquireProgram(run, contextKey);
             using var uniforms = new SKRuntimeEffectUniforms(lease.Program.Effect);
             using var runtimeChildren = new SKRuntimeEffectChildren(lease.Program.Effect);
@@ -2430,16 +2438,11 @@ internal sealed class RenderRequestExecutor
             }
         }
 
-        private static ProgramCacheContextKey CreateProgramContextKey(
-            RenderTarget target,
-            SkslBackendBudget budget)
+        private ProgramCacheContextKey CreateProgramContextKey(SkslBackendBudget budget)
         {
-            GRRecordingContext? context = target.Value.Context;
-            object contextIdentity = context is null ? s_cpuProgramContext : context.Handle;
-            object deviceIdentity = context is null ? s_cpuProgramDevice : context.Handle;
             return new ProgramCacheContextKey(
-                deviceIdentity,
-                contextIdentity,
+                _programCacheContext.DeviceIdentity,
+                _programCacheContext.ContextIdentity,
                 budget.CapabilityClass,
                 "linear-premultiplied-rgba16f",
                 s_defaultCompileOptions);
@@ -3035,7 +3038,7 @@ internal sealed class RenderRequestExecutor
             RawTargetCommandDescription description =
                 ((RawTargetCommandRenderFragmentPayload)fragment.Payload!).Description;
             var token = new RenderExecutionSessionToken();
-            ImmediateCanvas view = destination.CreateExecutionView();
+            using ImmediateCanvas view = destination.CreateExecutionView();
             try
             {
                 token.UseRawCanvas(
@@ -3169,7 +3172,7 @@ internal sealed class RenderRequestExecutor
                 ((RawTargetScopeRenderFragmentPayload)fragment.Payload!).Description;
             RenderFragmentReference input = fragment.Inputs.Single();
             var token = new RenderExecutionSessionToken();
-            ImmediateCanvas view = destination.CreateExecutionView();
+            using ImmediateCanvas view = destination.CreateExecutionView();
             try
             {
                 token.UseRawCanvas(

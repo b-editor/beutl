@@ -2,6 +2,7 @@
 using Beutl.Graphics.Rendering;
 using Beutl.Graphics.Rendering.Cache;
 using Beutl.Media;
+using Beutl.UnitTests.Engine.Graphics.Rendering.Failure;
 
 using SkiaSharp;
 
@@ -202,17 +203,18 @@ public class RenderNodeRendererExceptionSafetyTests
         Assert.That(discharged, Is.EqualTo(new[] { "second", "first" }));
     }
 
-    [Test]
-    public void Render_PreExecutionAllocationFailureRecordsTheFamilyOwnerWithoutDiagnostics()
+    [TestCase(EntryPoint.Rasterize)]
+    [TestCase(EntryPoint.Render)]
+    public void PreExecutionAllocationFailureRecordsTheFamilyOwnerWithoutDiagnostics(
+        EntryPoint entryPoint)
     {
-        using var node = new ExpandedReadbackNode();
+        using var node = new ExpandedReadbackNode(
+            publishRasterOutput: entryPoint == EntryPoint.Rasterize);
         var factory = new TrackingTargetFactory(_ => false, throwOnCreate: true);
         using var renderer = CreateRenderer(node, factory);
-        using RenderTarget target = CreateCpuTarget(4, 4);
-        using var canvas = new ImmediateCanvas(target);
 
         InvalidOperationException? failure = Assert.Throws<InvalidOperationException>(
-            () => renderer.Render(canvas));
+            () => Execute(entryPoint, renderer));
         RenderRequestOwner owner = node.NestedRequest!.Request.Options.Owner;
 
         Assert.Multiple(() =>
@@ -527,7 +529,7 @@ public class RenderNodeRendererExceptionSafetyTests
         }
     }
 
-    private sealed class ExpandedReadbackNode : RenderNode
+    private sealed class ExpandedReadbackNode(bool publishRasterOutput = false) : RenderNode
     {
         private static readonly Rect s_domain = new(0, 0, 4, 4);
         private readonly EmptyNode _nested = new();
@@ -546,6 +548,12 @@ public class RenderNodeRendererExceptionSafetyTests
                     RenderHitTestContract.None,
                     TargetAccess.Readback,
                     structuralKey: typeof(ExpandedReadbackNode))));
+            if (publishRasterOutput)
+            {
+                context.Publish(context.OpaqueSource(
+                    FailureTestSupport.SourceDescription(
+                        structuralKey: "expanded-readback-raster-output")));
+            }
         }
 
         protected override void OnDispose(bool disposing)

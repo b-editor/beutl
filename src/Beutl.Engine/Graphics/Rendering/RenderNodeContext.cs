@@ -1248,5 +1248,11 @@ internal sealed record TargetCommandRenderFragmentPayload(
 
 internal interface IBuiltInBackdropCaptureSink
 {
+    bool TryCommitBackdropCapture(Bitmap bitmap, float density)
+    {
+        CommitBackdropCapture(bitmap, density);
+        return true;
+    }
+
     void CommitBackdropCapture(Bitmap bitmap, float density);
 }

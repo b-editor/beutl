@@ -313,7 +313,7 @@ public sealed class RenderNodeRenderer : IDisposable
         Bitmap? bitmap = null;
         Rect selectedBounds = default;
         ExceptionDispatchInfo? primary = null;
-        RenderPipelineFailurePhase? preExecutionFailurePhase = null;
+        bool completeFailedDiagnostics = false;
         try
         {
             targets = _targetRegistry.BeginSession(Options.Intent);
@@ -327,26 +327,16 @@ public sealed class RenderNodeRenderer : IDisposable
             selectedBounds = request.SelectedOutputBounds;
             if (selectedBounds.Width != 0 && selectedBounds.Height != 0)
             {
-                PixelRect deviceBounds;
-                Rect rasterBounds;
-                try
-                {
-                    Rect executionBounds = request.ExecutionTargetBounds;
-                    deviceBounds = PixelRect.FromRect(executionBounds, Options.OutputScale);
-                    rasterBounds = deviceBounds.ToRect(Options.OutputScale);
-                    rootLease = targets.Acquire(deviceBounds.Size);
-                    canvas = ImmediateCanvas.CreateExecutorManaged(
-                        rootLease.Target,
-                        Options.OutputScale,
-                        Options.MaxWorkingScale,
-                        rasterBounds.Size);
-                    canvas.Clear();
-                }
-                catch
-                {
-                    preExecutionFailurePhase = RenderPipelineFailurePhase.Allocation;
-                    throw;
-                }
+                Rect executionBounds = request.ExecutionTargetBounds;
+                PixelRect deviceBounds = PixelRect.FromRect(executionBounds, Options.OutputScale);
+                Rect rasterBounds = deviceBounds.ToRect(Options.OutputScale);
+                rootLease = targets.Acquire(deviceBounds.Size);
+                canvas = ImmediateCanvas.CreateExecutorManaged(
+                    rootLease.Target,
+                    Options.OutputScale,
+                    Options.MaxWorkingScale,
+                    rasterBounds.Size);
+                canvas.Clear();
 
                 IDisposable? transform = canvas.PushTransform(
                     Matrix.CreateTranslation(-rasterBounds.X, -rasterBounds.Y));
@@ -393,12 +383,10 @@ public sealed class RenderNodeRenderer : IDisposable
         catch (Exception ex)
         {
             primary = ExceptionDispatchInfo.Capture(ex);
-            if (request is not null && preExecutionFailurePhase is { } failurePhase)
-            {
-                if (owner?.PrimaryFailure is null)
-                    owner?.RecordPrimaryFailure(ex);
-                MarkFamilyFailedBeforeExecution(request, failurePhase);
-            }
+            completeFailedDiagnostics = FailRequestFamilyBeforeExecution(
+                request,
+                ex,
+                RenderPipelineFailurePhase.Allocation);
         }
         finally
         {
@@ -408,7 +396,7 @@ public sealed class RenderNodeRenderer : IDisposable
             DisposeAndCapture(targets, ref primary);
         }
 
-        if (request is not null && preExecutionFailurePhase.HasValue)
+        if (request is not null && completeFailedDiagnostics)
         {
             CompleteFailedFamilyDiagnostics(
                 request,

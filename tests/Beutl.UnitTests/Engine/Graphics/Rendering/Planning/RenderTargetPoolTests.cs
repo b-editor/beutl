@@ -187,6 +187,27 @@ public sealed class RenderTargetPoolTests
     }
 
     [Test]
+    public void CleanupFailureCheckpoint_TracksSessionAndRequestFailuresIndependently()
+    {
+        using var registry = new RenderTargetLeaseRegistry(factory: null);
+        using RenderTargetLeaseSession session = registry.BeginSession(RenderIntent.Preview);
+        var priorSessionFailure = new InvalidOperationException("prior-session");
+        var priorRequestFailure = new InvalidOperationException("prior-request");
+        var nextSessionFailure = new InvalidOperationException("next-session");
+        var nextRequestFailure = new InvalidOperationException("next-request");
+        session.RecordCleanupFailure(priorSessionFailure);
+        session.Request.RecordCleanupFailure(priorRequestFailure);
+        RenderTargetCleanupFailureCheckpoint checkpoint = session.CaptureCleanupFailureCheckpoint();
+
+        session.RecordCleanupFailure(nextSessionFailure);
+        session.Request.RecordCleanupFailure(nextRequestFailure);
+
+        Assert.That(
+            session.GetCleanupFailuresSince(checkpoint),
+            Is.EqualTo(new[] { nextSessionFailure, nextRequestFailure }));
+    }
+
+    [Test]
     public void RegistryDisposal_PreservesSessionAndPoolFailures()
     {
         var poolFailure = new InvalidOperationException("pool-target-cleanup");
@@ -563,6 +584,52 @@ public sealed class RenderTargetPoolTests
             Assert.That(secondLease.Target, Is.Not.SameAs(firstTarget));
             Assert.That(pool.Statistics.Creates, Is.EqualTo(2));
         });
+    }
+
+    [Test]
+    public void ProgramCacheContextIdentity_IsStableUntilPoolContextReset()
+    {
+        using var pool = new RenderTargetPool(factory: null);
+        object backendContext = new();
+        object deviceIdentity = new();
+        object capabilityClass = new();
+        object compileOptions = new();
+
+        ProgramCacheContextKey first;
+        using (RenderTargetPoolRequest request = pool.BeginRequestForContext(backendContext, 0))
+        {
+            first = CreateProgramContextKey(request);
+        }
+
+        ProgramCacheContextKey sameGeneration;
+        using (RenderTargetPoolRequest request = pool.BeginRequestForContext(backendContext, 0))
+        {
+            sameGeneration = CreateProgramContextKey(request);
+        }
+
+        pool.ResetContext();
+        ProgramCacheContextKey nextGeneration;
+        using (RenderTargetPoolRequest request = pool.BeginRequestForContext(backendContext, 0))
+        {
+            nextGeneration = CreateProgramContextKey(request);
+        }
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(sameGeneration, Is.EqualTo(first));
+            Assert.That(nextGeneration, Is.Not.EqualTo(first));
+            Assert.That(nextGeneration.DeviceIdentity, Is.SameAs(deviceIdentity));
+        });
+
+        ProgramCacheContextKey CreateProgramContextKey(RenderTargetPoolRequest request)
+            => new(
+                deviceIdentity,
+                new RenderTargetCacheContextIdentity(
+                    request.ContextIdentity,
+                    request.ContextGeneration),
+                capabilityClass,
+                "linear-premultiplied-rgba16f",
+                compileOptions);
     }
 
     [Test]

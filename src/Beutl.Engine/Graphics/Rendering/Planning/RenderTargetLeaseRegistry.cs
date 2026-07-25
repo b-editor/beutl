@@ -172,6 +172,30 @@ internal sealed class RenderTargetLeaseSession : IDisposable
                 Request.ContextIdentity,
                 Request.ContextGeneration));
 
+    internal RenderTargetCleanupFailureCheckpoint CaptureCleanupFailureCheckpoint()
+        => new(this, _cleanupFailures.Count, Request.CleanupFailures.Count);
+
+    internal IReadOnlyList<Exception> GetCleanupFailuresSince(
+        RenderTargetCleanupFailureCheckpoint checkpoint)
+    {
+        if (!ReferenceEquals(checkpoint.Session, this)
+            || checkpoint.SessionFailureCount < 0
+            || checkpoint.SessionFailureCount > _cleanupFailures.Count
+            || checkpoint.RequestFailureCount < 0
+            || checkpoint.RequestFailureCount > Request.CleanupFailures.Count)
+        {
+            throw new ArgumentException(
+                "The cleanup-failure checkpoint does not belong to this session.",
+                nameof(checkpoint));
+        }
+
+        return
+        [
+            .. _cleanupFailures.Skip(checkpoint.SessionFailureCount),
+            .. Request.CleanupFailures.Skip(checkpoint.RequestFailureCount),
+        ];
+    }
+
     public RenderTargetLease Acquire(PixelSize deviceSize)
     {
         ObjectDisposedException.ThrowIf(IsDisposed, this);
@@ -235,6 +259,11 @@ internal sealed class RenderTargetLeaseSession : IDisposable
         return _registry.TransferToAcceptedCache(lease);
     }
 }
+
+internal readonly record struct RenderTargetCleanupFailureCheckpoint(
+    RenderTargetLeaseSession Session,
+    int SessionFailureCount,
+    int RequestFailureCount);
 
 internal sealed class RenderTargetLease : IDisposable
 {

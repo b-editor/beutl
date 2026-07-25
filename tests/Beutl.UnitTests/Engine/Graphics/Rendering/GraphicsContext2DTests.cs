@@ -68,6 +68,58 @@ public class GraphicsContext2DTests
     }
 
     [Test]
+    public void DrawNodeUpdateFailure_PreservesTheExistingTree()
+    {
+        using var root = new ContainerRenderNode();
+        var updated = new TrackingRenderNode();
+        var trailing = new TrackingRenderNode();
+        root.AddChild(updated);
+        root.AddChild(trailing);
+
+        using (var context = new GraphicsContext2D(root))
+        {
+            Assert.That(
+                () => context.DrawNode(
+                    0,
+                    static _ => new TrackingRenderNode(),
+                    static (_, _) => throw new InvalidOperationException("update failed")),
+                Throws.InvalidOperationException.With.Message.EqualTo("update failed"));
+        }
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(root.Children, Is.EqualTo(new[] { updated, trailing }));
+            Assert.That(updated.IsDisposed, Is.False);
+            Assert.That(trailing.IsDisposed, Is.False);
+        });
+    }
+
+    [Test]
+    public void Dispose_DischargesUnvisitedTrailingNodes()
+    {
+        using var root = new ContainerRenderNode();
+        var retained = new TrackingRenderNode();
+        var removed = new TrackingRenderNode();
+        root.AddChild(retained);
+        root.AddChild(removed);
+        RenderNode? untracked = null;
+
+        using (var context = new GraphicsContext2D(root))
+        {
+            context.OnUntracked = node => untracked = node;
+            context.DrawNode(retained);
+        }
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(root.Children, Is.EqualTo(new[] { retained }));
+            Assert.That(root.HasChanges, Is.True);
+            Assert.That(removed.IsDisposed, Is.True);
+            Assert.That(untracked, Is.SameAs(removed));
+        });
+    }
+
+    [Test]
     public void Clear_ShouldCreateClearRenderNode()
     {
         var node = new ContainerRenderNode();
@@ -77,6 +129,14 @@ public class GraphicsContext2DTests
 
         Assert.That(node.Children, Is.Not.Empty);
         Assert.That(node.Children[0], Is.InstanceOf<ClearRenderNode>());
+    }
+
+    private sealed class TrackingRenderNode : RenderNode
+    {
+        public override void Process(RenderNodeContext context)
+        {
+            context.PassThrough();
+        }
     }
 
     [Test]

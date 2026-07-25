@@ -137,6 +137,44 @@ public sealed class BackdropOrderingTests
         });
     }
 
+    [Test]
+    public void DisposedSnapshot_RejectsPersistedFallbackWithoutTakingOwnership()
+    {
+        var snapshot = new SnapshotBackdropRenderNode();
+        snapshot.Dispose();
+        using var fallback = new Bitmap((int)s_domain.Width, (int)s_domain.Height);
+
+        bool accepted = ((IBuiltInBackdropCaptureSink)snapshot)
+            .TryCommitBackdropCapture(fallback, density: 1f);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(accepted, Is.False);
+            Assert.That(fallback.IsDisposed, Is.False);
+        });
+    }
+
+    [Test]
+    public void TemporaryBackdropSubtree_CanBeDisposedAfterRecording()
+    {
+        using var root = new TemporaryBackdropSubtreeNode();
+        using var renderer = new RenderNodeRenderer(
+            root,
+            new RenderNodeRendererOptions
+            {
+                TargetDomain = s_domain,
+                UseRenderCache = false,
+            });
+
+        using RenderNodeRasterization rasterization = renderer.Rasterize();
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(rasterization.Bitmap, Is.Not.Null);
+            Assert.That(rasterization.Bitmap!.GetPixelSpan().ToArray(), Has.Some.Not.Zero);
+        });
+    }
+
     private static ContainerRenderNode CreateTree(BackdropScope scope)
     {
         var root = new ContainerRenderNode();
@@ -175,6 +213,21 @@ public sealed class BackdropOrderingTests
         var effect = new MosaicEffect();
         effect.TileSize.CurrentValue = new Size(8, 8);
         return new FilterEffectRenderNode(effect.ToResource(CompositionContext.Default));
+    }
+
+    private sealed class TemporaryBackdropSubtreeNode : RenderNode
+    {
+        public override void Process(RenderNodeContext context)
+        {
+            using var subtree = new ContainerRenderNode();
+            var snapshot = new SnapshotBackdropRenderNode();
+            subtree.AddChild(new ClearRenderNode(Colors.White));
+            subtree.AddChild(snapshot);
+            subtree.AddChild(new DrawBackdropRenderNode(snapshot, s_drawBounds));
+
+            IReadOnlyList<RenderFragmentHandle> outputs = context.RecordSubtree(subtree);
+            context.Publish(context.Layer(outputs, s_domain));
+        }
     }
 
     public enum BackdropScope

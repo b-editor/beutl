@@ -1,4 +1,5 @@
 ﻿using Beutl.Graphics;
+using Beutl.Graphics.Backend;
 using Beutl.Graphics.Effects;
 using Beutl.Graphics.Rendering;
 using Beutl.Graphics.Rendering.Cache;
@@ -164,6 +165,56 @@ public sealed class CrossNodeShaderFusionTests
                 Assert.That(warmedGpuStatistics.Hits, Is.EqualTo(1));
                 Assert.That(renderer.LastExecutionStatistics.ShaderRunExecutions, Is.EqualTo(2));
                 Assert.That(renderer.LastExecutionStatistics.ShaderStageExecutions, Is.EqualTo(stageCount));
+            });
+        });
+    }
+
+    [Test]
+    [Category("GpuPassFusionGpu")]
+    public void ProgramCache_ContextChangeMissesAndThenWarmsTheNewContext()
+    {
+        VulkanTestEnvironment.EnsureAvailable();
+        VulkanTestEnvironment.InvokeOnRenderThread(() =>
+        {
+            using IGraphicsContext firstContext = GraphicsContextFactory.CreateContext();
+            using IGraphicsContext secondContext = GraphicsContextFactory.CreateContext();
+            using RenderTarget firstDestination = CreateContextTarget(firstContext, 24, 16);
+            using RenderTarget secondDestination = CreateContextTarget(secondContext, 24, 16);
+            using var firstCanvas = new ImmediateCanvas(
+                firstDestination,
+                logicalSize: new Size(24, 16));
+            using var secondCanvas = new ImmediateCanvas(
+                secondDestination,
+                logicalSize: new Size(24, 16));
+            using RenderTarget source = new CpuTargetFactory().Create(
+                new PixelSize((int)s_bounds.Width, (int)s_bounds.Height));
+            source.Value.Canvas.Clear(new SKColor(48, 112, 216, 176));
+            using var node = new PrimaryChainNode(source, s_bounds);
+            using var renderer = CreateRenderer(node, FusionMode.Enabled);
+
+            renderer.Render(firstCanvas);
+            ProgramCacheStatistics firstCold = renderer.ProgramCacheStatistics;
+            renderer.Render(firstCanvas);
+            ProgramCacheStatistics firstWarm = renderer.ProgramCacheStatistics;
+            renderer.Render(secondCanvas);
+            ProgramCacheStatistics secondCold = renderer.ProgramCacheStatistics;
+            renderer.Render(secondCanvas);
+            ProgramCacheStatistics secondWarm = renderer.ProgramCacheStatistics;
+
+            Assert.Multiple(() =>
+            {
+                Assert.That(firstDestination.Value.Context?.Backend,
+                    Is.EqualTo(secondDestination.Value.Context?.Backend));
+                Assert.That(firstDestination.Value.Context?.Handle,
+                    Is.Not.EqualTo(secondDestination.Value.Context?.Handle));
+                Assert.That(firstCold.Creations, Is.EqualTo(1));
+                Assert.That(firstCold.Hits, Is.Zero);
+                Assert.That(firstWarm.Creations, Is.EqualTo(1));
+                Assert.That(firstWarm.Hits, Is.EqualTo(1));
+                Assert.That(secondCold.Creations, Is.EqualTo(2));
+                Assert.That(secondCold.Hits, Is.EqualTo(1));
+                Assert.That(secondWarm.Creations, Is.EqualTo(2));
+                Assert.That(secondWarm.Hits, Is.EqualTo(2));
             });
         });
     }
@@ -439,6 +490,26 @@ public sealed class CrossNodeShaderFusionTests
         return target;
     }
 
+    private static RenderTarget CreateContextTarget(
+        IGraphicsContext context,
+        int width,
+        int height)
+    {
+        ITexture2D texture = context.CreateTexture2D(
+            width,
+            height,
+            TextureFormat.RGBA16Float);
+        try
+        {
+            return new TextureRenderTarget(texture);
+        }
+        catch
+        {
+            texture.Dispose();
+            throw;
+        }
+    }
+
     private static double SumAbsoluteChannels(Bitmap bitmap)
     {
         double result = 0;
@@ -573,6 +644,30 @@ public sealed class CrossNodeShaderFusionTests
     private sealed class CpuRenderTarget(SKSurface surface, PixelSize size)
         : RenderTarget(surface, size.Width, size.Height)
     {
+    }
+
+    private sealed class TextureRenderTarget : RenderTarget
+    {
+        private ITexture2D? _texture;
+
+        public TextureRenderTarget(ITexture2D texture)
+            : base(texture.CreateSkiaSurface(), texture.Width, texture.Height)
+        {
+            _texture = texture;
+        }
+
+        protected override void Dispose(bool disposing)
+        {
+            try
+            {
+                base.Dispose(disposing);
+            }
+            finally
+            {
+                if (disposing)
+                    Interlocked.Exchange(ref _texture, null)?.Dispose();
+            }
+        }
     }
 
     private sealed class VectorTerminalShaderNode(bool publishTwice) : RenderNode

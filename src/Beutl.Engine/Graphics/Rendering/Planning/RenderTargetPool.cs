@@ -541,7 +541,7 @@ internal sealed class RenderTargetPool : IDisposable
                 "The render-target factory returned a target instance already owned by this pool.");
         }
 
-        SKSurface surface = ValidateSurface(target, size);
+        SKSurface surface = ValidateNewSurface(target, size);
         if (ReferenceEquals(surface, request.ExternalSurface) || _knownSurfaces.Contains(surface))
         {
             throw new InvalidOperationException(
@@ -561,13 +561,34 @@ internal sealed class RenderTargetPool : IDisposable
             throw new InvalidOperationException("The pooled render target is no longer reusable.");
         }
 
-        SKSurface surface = ValidateSurface(slot.Target, slot.Size);
+        SKSurface surface = ValidateSurfaceIdentityAndViewport(slot.Target, slot.Size);
         if (!ReferenceEquals(surface, slot.Surface))
             throw new InvalidOperationException("A pooled render target changed its backing surface.");
         ValidateContext(surface, request);
     }
 
-    private static SKSurface ValidateSurface(RenderTarget target, PixelSize size)
+    private static SKSurface ValidateNewSurface(RenderTarget target, PixelSize size)
+    {
+        SKSurface surface = ValidateSurfaceIdentityAndViewport(target, size);
+        using SKImage? image = surface.Snapshot();
+        using SKColorSpace expectedColorSpace = SKColorSpace.CreateSrgbLinear();
+        using SKColorSpace? actualColorSpace = image?.ColorSpace;
+        if (image is null
+            || image.Width != size.Width
+            || image.Height != size.Height
+            || image.ColorType != SKColorType.RgbaF16
+            || image.AlphaType != SKAlphaType.Premul
+            || actualColorSpace is null
+            || !SKColorSpace.Equal(actualColorSpace, expectedColorSpace))
+        {
+            throw new InvalidOperationException(
+                "Pooled render targets must be linear-premultiplied RGBA16F surfaces.");
+        }
+
+        return surface;
+    }
+
+    private static SKSurface ValidateSurfaceIdentityAndViewport(RenderTarget target, PixelSize size)
     {
         if (target.IsDisposed || target.Width != size.Width || target.Height != size.Height)
         {
@@ -585,21 +606,6 @@ internal sealed class RenderTargetPool : IDisposable
         {
             throw new InvalidOperationException(
                 "The render-target surface has an incompatible device viewport.");
-        }
-
-        using SKImage? image = surface.Snapshot();
-        using SKColorSpace expectedColorSpace = SKColorSpace.CreateSrgbLinear();
-        using SKColorSpace? actualColorSpace = image?.ColorSpace;
-        if (image is null
-            || image.Width != size.Width
-            || image.Height != size.Height
-            || image.ColorType != SKColorType.RgbaF16
-            || image.AlphaType != SKAlphaType.Premul
-            || actualColorSpace is null
-            || !SKColorSpace.Equal(actualColorSpace, expectedColorSpace))
-        {
-            throw new InvalidOperationException(
-                "Pooled render targets must be linear-premultiplied RGBA16F surfaces.");
         }
 
         return surface;
