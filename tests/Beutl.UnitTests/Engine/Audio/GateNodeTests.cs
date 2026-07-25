@@ -752,18 +752,21 @@ public class GateNodeTests
             $"{firstGainDb:F2} dB (a value near -100 dB indicates a fade-in from the reset sentinel).");
     }
 
-    [Test]
-    public void Process_OneTickBoundaryRounding_DoesNotResetGate()
+    [TestCase(-1L)]
+    [TestCase(1L)]
+    public void Process_OneTickBoundaryRounding_DoesNotResetGate(long tickOffset)
     {
         // Adjacent sample-boundary chunks can differ by one tick from independent TimeSpan rounding. A
-        // one-tick gap must NOT be treated as a seek: the warmed-open gate must continue (its first
-        // sample stays loud) rather than reset to closed like a fresh gate. Buggy exact-equality would
-        // reset here, dropping the continuing gate's first sample to the fresh gate's value.
+        // one-tick gap or overlap must NOT be treated as a seek: the warmed-open gate must continue (its
+        // first sample stays loud) rather than reset to closed like a fresh gate. The tolerance is
+        // symmetric, so both directions are covered; buggy exact-equality would reset either way,
+        // dropping the continuing gate's first sample to the fresh gate's value.
         const int chunkSamples = SampleRate / 10;
         var chunkDuration = TimeSpan.FromSeconds(chunkSamples / (double)SampleRate);
         var ctx1 = CreateContext(TimeSpan.Zero, chunkDuration);
-        // Second chunk starts one tick before the exact previous end — within the rounding tolerance.
-        var ctx2 = CreateContext(chunkDuration - TimeSpan.FromTicks(1), chunkDuration);
+        // Second chunk starts one tick before (-1) or after (+1) the exact previous end — either side is
+        // within the rounding tolerance and must not reset.
+        var ctx2 = CreateContext(chunkDuration + TimeSpan.FromTicks(tickOffset), chunkDuration);
 
         var node = CreateNode();
         using var warmupInput = CreateConstantBuffer(0.9f, chunkSamples);
