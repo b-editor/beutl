@@ -1,8 +1,6 @@
 ﻿namespace Beutl.Audio.Effects;
 
-// Single source of truth for the noise gate's ranges and defaults, shared by GateEffect's
-// [Range] declarations and GateNode's per-sample clamps so the two cannot drift.
-// GateEffectTests.GateParameters_RangeIsConsistent asserts each entry's consistency.
+// Shared ranges and defaults keep validation and per-sample clamps aligned.
 internal static class GateParameters
 {
     public const float MinThresholdDb = -100f;
@@ -21,9 +19,7 @@ internal static class GateParameters
     public const float MaxReleaseMs = 5000f;
     public const float DefaultReleaseMs = 100f;
 
-    // Attenuation applied while the gate is closed. 0 dB disables gating (the closed floor equals the
-    // open level), and more negative values attenuate harder. Kept above -∞ so a closed gate ramps to
-    // a finite floor rather than clicking to hard mute.
+    // A finite floor lets the closed gate ramp without clicking; 0 dB disables gating.
     public const float MinRangeDb = -100f;
     public const float MaxRangeDb = 0f;
     public const float DefaultRangeDb = -60f;

@@ -22,9 +22,6 @@ public class GateEffectTests
     [Test]
     public void CreateNode_WiresEveryPropertyToMatchingNodeSlot()
     {
-        // Each property must be forwarded to its node slot by reference, not copied: the node reads
-        // CurrentValue/Animation through these references at process time. Also catches a swap of any
-        // two properties.
         var effect = new GateEffect();
         using var context = new AudioContext(48000, 2);
         var inputNode = context.AddNode(new StubInputNode());
@@ -70,8 +67,6 @@ public class GateEffectTests
     [Test]
     public void ScanProperties_RegistersNamesAndRangeValidatorsForEveryProperty()
     {
-        // ScanProperties (run in the constructor) must name each property after its CLR member and
-        // attach the [Range] validator so out-of-range values are clamped at the engine layer.
         var effect = new GateEffect();
 
         AssertNameAndRange(effect.Threshold, nameof(effect.Threshold), MinThresholdDb, MaxThresholdDb);

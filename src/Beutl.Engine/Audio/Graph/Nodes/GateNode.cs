@@ -14,34 +14,25 @@ public sealed class GateNode : AudioNode
 
     private const float MinDb = -100f;
 
-    // Adjacent sample-boundary chunks can differ by one tick from independent TimeSpan rounding; only a
-    // larger gap is a real seek/edit boundary that must reset the gate. Matches LimiterNode.
+    // Independent TimeSpan rounding can shift adjacent sample boundaries by one tick.
     private const long TimestampQuantizationToleranceTicks = 1;
 
-    // Gate gain in dB, smoothed toward 0 (open) or the Range floor (closed). Seeded at the effective
-    // Range floor on the first sample after a reset (see NextGain) so a below-threshold lead-in rests at
-    // the user's floor rather than fading in from the -100 dB sentinel; true silence stays silent
-    // regardless of the seed, since a zero input sample multiplies any gain to zero.
     private float _gateGainDb = MinDb;
-    // False until the first sample after a reset has seeded the follower at the effective Range floor.
     private bool _gatePrimed;
-    // Samples remaining before a gate that has dropped below threshold begins to release.
     private int _holdCounter;
     private int _lastSampleRate;
     private TimeSpan? _lastTimeRangeEnd;
 
-    // Cached per-channel buffer handles so the hot loops skip GetChannelData's checks/re-slicing;
-    // arrays reused across Process(), reallocated only on a channel-count change.
+    // Reuse channel views to avoid checks and slicing in the sample loops.
     private Memory<float>[]? _inputChannelCache;
     private Memory<float>[]? _outputChannelCache;
 
-    // Latched per node instance so each non-finite warning fires only once, not per sample.
+    // Diagnostic warnings are emitted once per node, not once per sample.
     private bool _loggedNonFiniteGain;
     private bool _loggedNonFiniteSample;
     private readonly HashSet<string> _loggedNonFiniteParameters = new();
     private readonly HashSet<string> _loggedClampedParameters = new();
 
-    // Test-only counters (via InternalsVisibleTo) of warnings actually emitted.
     internal int NonFiniteSampleWarnings;
     internal int ClampWarnings;
 
@@ -63,8 +54,7 @@ public sealed class GateNode : AudioNode
 
         using var input = Inputs[0].Process(context);
 
-        // Coefficients and the hold count come from context.SampleRate while the output buffer carries
-        // input.SampleRate, so a mismatch would mislabel the samples rather than resample them.
+        // A mismatch would mislabel samples because this node does not resample.
         if (input.SampleRate != context.SampleRate)
             throw new InvalidOperationException(
                 $"Gate node: sample rate mismatch. context={context.SampleRate}, input={input.SampleRate}.");
@@ -75,9 +65,7 @@ public sealed class GateNode : AudioNode
             _lastSampleRate = context.SampleRate;
         }
 
-        // Reset the gate on the first call or whenever this chunk does not continue from the previous
-        // one; the node is cached across Compose() calls, so stale gate state would otherwise bleed in
-        // after a seek/restart. Only DSP state resets here, not the diagnostic latches.
+        // Cached nodes must not carry DSP state across seeks or restarts.
         if (!_lastTimeRangeEnd.HasValue || !IsTimestampContiguous(_lastTimeRangeEnd.Value, context.TimeRange.Start))
         {
             ResetGate();
@@ -89,9 +77,7 @@ public sealed class GateNode : AudioNode
             return new AudioBuffer(input.SampleRate, input.ChannelCount, 0);
         }
 
-        // Expression-backed properties are deliberately not treated as animated: AnimationSampler does
-        // not yet evaluate expressions per-sample, so routing them through ProcessAnimated would just
-        // re-read the same CurrentValue every iteration.
+        // AnimationSampler does not yet evaluate expressions per sample.
         bool hasAnimation = Threshold.Animation != null ||
                             Attack.Animation != null ||
                             Hold.Animation != null ||
@@ -131,8 +117,7 @@ public sealed class GateNode : AudioNode
                 for (int i = 0; i < sampleCount; i++)
                 {
                     float s0 = in0[i];
-                    // Seed from 0 and compare (NaN > 0 is false) so a NaN in one channel is skipped
-                    // rather than poisoning the linked-stereo peak; a finite channel still drives it.
+                    // Comparisons against NaN stay false, preserving a finite channel's peak.
                     float peak = 0f;
                     float a0 = MathF.Abs(s0);
                     if (a0 > peak) peak = a0;
@@ -209,8 +194,7 @@ public sealed class GateNode : AudioNode
 
             int processed = 0;
 
-            // Seed with NaN so the first comparison is always unequal and coefficients compute on
-            // sample 0; afterwards Exp runs only when the animated ms value changes.
+            // NaN forces coefficient calculation for sample zero.
             float lastAttackMs = float.NaN;
             float lastReleaseMs = float.NaN;
             float attackCoeff = 0f;
@@ -252,8 +236,7 @@ public sealed class GateNode : AudioNode
                     if (channels <= 2)
                     {
                         float s0 = in0[idx];
-                        // Seed from 0 and compare (NaN > 0 is false) so a NaN in one channel is
-                        // skipped rather than poisoning the linked-stereo peak.
+                        // Comparisons against NaN stay false, preserving a finite channel's peak.
                         float peak = 0f;
                         float a0 = MathF.Abs(s0);
                         if (a0 > peak) peak = a0;
@@ -348,9 +331,7 @@ public sealed class GateNode : AudioNode
         };
     }
 
-    // Substitute fallback for NaN/Infinity, then clamp to the parameter's [Range]. A finite-but-out-of-
-    // range value is a real authoring error distinct from the non-finite case, so it gets its own
-    // once-per-parameter warning.
+    // Non-finite and out-of-range values have distinct once-per-parameter warnings.
     private float Sanitize(float value, float fallback, float declaredDefault, float min, float max, string paramName)
     {
         float safe = SafeParameter(value, fallback, declaredDefault, paramName);
@@ -365,7 +346,7 @@ public sealed class GateNode : AudioNode
         return clamped;
     }
 
-    // Without this, one non-finite gain sample would poison the state until the next Reset().
+    // A non-finite gain would otherwise poison the state until Reset().
     private void RecoverGainIfNonFinite()
     {
         if (float.IsFinite(_gateGainDb)) return;
@@ -380,8 +361,7 @@ public sealed class GateNode : AudioNode
     private float SafeParameter(float value, float fallback, float declaredDefault, string paramName)
     {
         if (float.IsFinite(value)) return value;
-        // A library user can declare an IProperty whose DefaultValue is itself non-finite; returning it
-        // would defeat the caller's Math.Clamp (NaN clamps to NaN), so drop to the declared constant.
+        // IProperty implementations may expose non-finite defaults, which Math.Clamp cannot recover.
         float safeFallback = float.IsFinite(fallback) ? fallback : declaredDefault;
         if (_loggedNonFiniteParameters.Add(paramName))
         {
@@ -405,13 +385,10 @@ public sealed class GateNode : AudioNode
         return 0f;
     }
 
-    // Advances the gate one sample and returns the linear gain. Shared by ProcessStatic and
-    // ProcessAnimated so the gate/hold math cannot drift between the paths.
+    // Shared by static and animated processing to keep gate state transitions identical.
     private float NextGain(float peak, float attackCoeff, float releaseCoeff, in EffectiveParameters p, int holdSamples)
     {
-        // Digital silence (peak == 0) is -inf dB — below any threshold — so it must never open the
-        // gate, not even when Threshold sits at its -100 dB minimum where inputDb would otherwise
-        // collapse to MinDb and compare equal (-100 >= -100). Require real signal energy to open.
+        // Digital silence must remain closed even at the -100 dB minimum threshold.
         float inputDb = peak > 0f ? 20f * MathF.Log10(peak) : MinDb;
         bool aboveThreshold = peak > 0f && inputDb >= p.Threshold;
         if (aboveThreshold)
@@ -419,35 +396,27 @@ public sealed class GateNode : AudioNode
             _holdCounter = holdSamples;
         }
 
-        // The latch must be read for the current sample before it is spent, or a hold of N samples
-        // would only keep the gate open for N-1 (and a one-sample hold for none at all).
+        // Read the latch before decrementing so a hold of N lasts exactly N samples.
         bool heldOpen = _holdCounter > 0;
         if (!aboveThreshold && heldOpen)
         {
             _holdCounter--;
         }
 
-        // First sample after a reset: seed the follower at the effective closed floor (Range) instead
-        // of the -100 dB reset sentinel, so a below-threshold lead-in rests at the user's Range floor
-        // rather than fading in from near-silence. An above-threshold onset still ramps open from this
-        // floor via Attack. The Range >= 0 disabled path below overrides the seed to fully open.
+        // Seed at Range so a below-threshold lead-in starts at the configured floor.
         if (!_gatePrimed)
         {
             _gatePrimed = true;
             _gateGainDb = p.Range;
         }
 
-        // Range 0 dB disables gating: the closed floor equals the open level, so the gate is an exact
-        // identity. Snap the follower fully open and bypass smoothing so the disabled case adds no
-        // attack ramp or asymptotic sub-unity gain — output equals input sample-for-sample.
+        // Disabled gating must be an exact identity without smoothing artifacts.
         if (p.Range >= 0f)
         {
             _gateGainDb = 0f;
             return 1f;
         }
 
-        // Open (0 dB) while the signal is above threshold or the hold timer keeps it latched; else
-        // fall to the Range floor. Attack smooths the rise (opening), release smooths the fall.
         float targetDb = aboveThreshold || heldOpen ? 0f : p.Range;
         float coeff = targetDb > _gateGainDb ? attackCoeff : releaseCoeff;
         _gateGainDb = targetDb + coeff * (_gateGainDb - targetDb);
@@ -456,7 +425,7 @@ public sealed class GateNode : AudioNode
         return AudioMath.ConvertDbToLinear(_gateGainDb);
     }
 
-    // One-pole IIR smoothing coefficient for a 1/e settling time of `timeMs`.
+    // One-pole IIR coefficient with a 1/e settling time of timeMs.
     private static float ComputeCoeff(float timeMs, int sampleRate)
     {
         return MathF.Exp(-1f / (timeMs * 0.001f * sampleRate));
@@ -469,13 +438,11 @@ public sealed class GateNode : AudioNode
     }
 
     /// <summary>
-    /// Resets the gate to a clean "new render session" state: closes the gate, clears the hold timer,
-    /// and re-arms the one-shot non-finite diagnostic warnings.
+    /// Resets all gate state for a new render session.
     /// </summary>
     /// <remarks>
-    /// Do not call mid-buffer during playback — closing the gate there clicks. This is for genuine
-    /// session boundaries; <see cref="Process"/> already resets the gate on a sample-rate change or
-    /// time-range discontinuity. Public to match the sibling stateful nodes.
+    /// Do not call during playback because closing the gate mid-buffer clicks.
+    /// <see cref="Process"/> handles sample-rate changes and time-range discontinuities.
     /// </remarks>
     public void Reset()
     {

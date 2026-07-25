@@ -72,8 +72,6 @@ public class GateNodeTests
             null);
     }
 
-    // Two-phase buffer: a loud constant for the first half then a quiet constant for the second, used
-    // to drive the gate open and then observe how it releases against the quiet tail.
     private static AudioBuffer MakeTwoPhaseBuffer(float loud, float quiet, int loudSamples, int totalSamples)
     {
         return CreateBuffer(2, totalSamples, (_, i) => i < loudSamples ? loud : quiet);
@@ -82,8 +80,6 @@ public class GateNodeTests
     [Test]
     public void Process_SilenceInput_ProducesExactSilenceOutput()
     {
-        // A gate multiplies each sample by its gain, so a zero input must yield exact-zero output
-        // regardless of the internal gate state.
         const int sampleCount = SampleRate / 4;
         using var input = new AudioBuffer(SampleRate, 2, sampleCount);
         var node = CreateNode();
@@ -105,8 +101,6 @@ public class GateNodeTests
     [Test]
     public void Process_AboveThreshold_OpensAndPassesSignalThrough()
     {
-        // A steady tone well above the threshold opens the gate; the settled tail should reach unity
-        // gain (output peak ≈ input peak).
         const int sampleCount = SampleRate / 2;
         using var input = CreateConstantBuffer(0.9f, sampleCount);
         var node = CreateNode();
@@ -123,8 +117,6 @@ public class GateNodeTests
     [Test]
     public void Process_BelowThreshold_AttenuatesTowardRange()
     {
-        // A steady tone below the threshold keeps the gate closed, so the tail is attenuated by close
-        // to the Range depth (here ≈60 dB below input).
         const int sampleCount = SampleRate / 2;
         using var input = CreateConstantBuffer(0.003f, sampleCount); // ≈-50 dB, below -40 threshold
         var node = CreateNode(range: -60f);
@@ -141,8 +133,6 @@ public class GateNodeTests
     [Test]
     public void Process_RangeZero_DisablesGating()
     {
-        // Range = 0 means the closed floor equals the open level, so even a below-threshold signal
-        // passes through at unity — gating is effectively disabled.
         const int sampleCount = SampleRate / 2;
         using var input = CreateConstantBuffer(0.01f, sampleCount); // below -40 threshold
         var node = CreateNode(range: 0f);
@@ -159,10 +149,7 @@ public class GateNodeTests
     [Test]
     public void Process_AttackTimeConstant_GainReachesAbout63PercentAfterAttackMs()
     {
-        // Opening from the fully-closed floor, a one-pole attack should close ~(1 - 1/e) ≈ 63% of the
-        // distance to 0 dB after attackMs, leaving the gain ≈-36.8 dB. Range=-100 makes the closed
-        // floor equal the -100 dB start so the silent lead-in does not pre-open the gate. Catches a
-        // dropped ms→s conversion in ComputeCoeff, which would leave the gate stuck near -100 dB.
+        // After one attack time constant, gain covers 1 - 1/e of the distance to 0 dB.
         const float attackMs = 50f;
         const int sampleCount = SampleRate;
         const int stepAt = SampleRate / 10; // step to loud at 100 ms
@@ -184,9 +171,6 @@ public class GateNodeTests
     [Test]
     public void Process_Hold_KeepsGateOpenAfterSignalDrops()
     {
-        // After a loud burst opens the gate, a long Hold latches it open across a following
-        // below-threshold tail, so that quiet tail passes far louder than with Hold=0 (which releases
-        // immediately).
         const int loudSamples = SampleRate / 10;  // 100 ms loud
         const int quietSamples = SampleRate / 10;  // 100 ms quiet tail
         const int total = loudSamples + quietSamples;
@@ -200,7 +184,6 @@ public class GateNodeTests
         noHoldNode.AddInput(new BufferReplayNode(input));
         using var noHoldOut = noHoldNode.Process(CreateContext(TimeSpan.Zero, TimeSpan.FromSeconds(total / (double)SampleRate)));
 
-        // Probe the last 40 ms of the quiet tail.
         int probeWidth = SampleRate / 25;
         float holdTailDb = PeakDbInWindow(holdOut, total - probeWidth, probeWidth);
         float noHoldTailDb = PeakDbInWindow(noHoldOut, total - probeWidth, probeWidth);
@@ -212,8 +195,6 @@ public class GateNodeTests
     [Test]
     public void Process_GateStateContinuesAcrossChunks()
     {
-        // A gate opened by a previous loud chunk must NOT re-close on a time-contiguous next chunk. The
-        // warmed-open gate's first sample is louder than a fresh gate still ramping open from closed.
         const int chunkSamples = SampleRate / 10;
         var chunkDuration = TimeSpan.FromSeconds(chunkSamples / (double)SampleRate);
         var ctx1 = CreateContext(TimeSpan.Zero, chunkDuration);
@@ -241,8 +222,6 @@ public class GateNodeTests
     [Test]
     public void Process_NonContiguousTimeRange_ResetsGate()
     {
-        // A non-contiguous start time (a seek) must reset the gate to closed, so the first sample
-        // matches a fresh gate's first sample.
         const int chunkSamples = SampleRate / 10;
         using var loud = CreateConstantBuffer(0.9f, chunkSamples);
 
@@ -337,9 +316,6 @@ public class GateNodeTests
     [Test]
     public void Process_AnimatedThreshold_EngagesAnimatedPath()
     {
-        // Threshold animates from -60 dB (below the -40 dB input → gate open) to -20 dB (above it →
-        // gate closed), so a steady quiet tone goes from passing to attenuated: the late portion is
-        // quieter, proving the animated path runs.
         const int sampleCount = SampleRate / 2;
         using var input = CreateConstantBuffer(0.01f, sampleCount); // ≈-40 dB
 
@@ -371,9 +347,6 @@ public class GateNodeTests
     [Test]
     public void Process_StaticAndAnimatedPaths_ProduceIdenticalOutputForConstantParameters()
     {
-        // ProcessStatic and ProcessAnimated share the same gate helpers, so with a constant Threshold
-        // animation the animated path must match the static path sample-for-sample. A two-phase buffer
-        // exercises both an opening and a releasing transition.
         const int loudSamples = SampleRate / 4;
         const int sampleCount = SampleRate / 2;
         var duration = TimeSpan.FromSeconds(sampleCount / (double)SampleRate);
@@ -415,8 +388,6 @@ public class GateNodeTests
     [Test]
     public void Process_InfinityInputSamples_RecoversAndDoesNotLeakNonFiniteOutput()
     {
-        // A +Infinity head sample pollutes the gain follower; the self-recovery clamp and the output
-        // sanitizer must keep any NaN/Infinity from escaping downstream.
         const int sampleCount = SampleRate / 4;
         using var input = CreateConstantBuffer(0.9f, sampleCount);
         for (int ch = 0; ch < input.ChannelCount; ch++)
@@ -473,9 +444,6 @@ public class GateNodeTests
     [TestCase(AnimatedParam.Range)]
     public void Process_AnimatedNonFiniteValue_FallsBackWithoutMuting(AnimatedParam param)
     {
-        // A NaN keyframe on any animated parameter must fall back to its static CurrentValue rather
-        // than reach the gate math and mute the output. A loud above-threshold signal should keep
-        // passing.
         const int sampleCount = SampleRate / 4;
         using var input = CreateConstantBuffer(0.9f, sampleCount);
 
@@ -529,8 +497,6 @@ public class GateNodeTests
     [Test]
     public void Process_MonoBuffer_GatesCorrectly()
     {
-        // A single-channel buffer must gate with no off-by-one: above-threshold passes, below-threshold
-        // is attenuated.
         const int sampleCount = SampleRate / 2;
         using var loud = CreateConstantBuffer(0.9f, sampleCount, channels: 1);
         var loudNode = CreateNode();
@@ -611,8 +577,6 @@ public class GateNodeTests
     [Test]
     public void Process_AnimatedPath_SmoothAcrossChunkBoundary()
     {
-        // ProcessAnimated walks the input in fixed-size chunks. A steady loud input must show no
-        // discontinuity at chunk boundaries — a jump there would mean the gate was reset at a boundary.
         const int chunkSize = 1024;
         const int sampleCount = chunkSize * 3 + 137;
         using var input = CreateConstantBuffer(0.9f, sampleCount);
@@ -648,10 +612,6 @@ public class GateNodeTests
     [Test]
     public void Process_RangeZero_IsExactIdentity()
     {
-        // Range=0 disables gating, so output must equal input sample-for-sample — no startup attack
-        // ramp and no asymptotic sub-unity gain from the envelope follower. The buffer includes the
-        // initial samples (which would otherwise ramp up from the closed floor) and a below-threshold
-        // region (which a real gate would attenuate), so any residual smoothing would show up.
         const int loudSamples = SampleRate / 4;
         const int sampleCount = SampleRate / 2;
         using var input = MakeTwoPhaseBuffer(0.9f, 0.003f, loudSamples, sampleCount);
@@ -675,9 +635,6 @@ public class GateNodeTests
     [Test]
     public void Process_OneChannelNaN_GatesFromValidChannel()
     {
-        // A NaN in one channel must not poison linked-stereo peak detection: a loud, above-threshold
-        // valid channel must still open the gate and pass through, rather than the gate closing
-        // because Abs(NaN) contaminated the peak. All output stays finite (the NaN channel is zeroed).
         const int sampleCount = SampleRate / 2;
         using var input = CreateBuffer(2, sampleCount, (ch, _) => ch == 0 ? float.NaN : 0.9f);
         var node = CreateNode();
@@ -710,10 +667,6 @@ public class GateNodeTests
     [Test]
     public void Process_MinThreshold_DigitalSilenceDoesNotOpenGate()
     {
-        // At the -100 dB minimum Threshold, digital silence (sample 0 = -inf dB) must still leave the
-        // gate closed. If silence wrongly opened it, the following loud region would already be open
-        // and pass at unity immediately; with the gate correctly closed it ramps open (attack), so the
-        // loud onset starts heavily attenuated.
         const int silenceSamples = SampleRate / 5; // 200 ms
         const int sampleCount = SampleRate / 2;
         using var input = CreateBuffer(1, sampleCount, (_, i) => i < silenceSamples ? 0f : 0.9f);
@@ -722,8 +675,6 @@ public class GateNodeTests
 
         using var output = node.Process(CreateContext(TimeSpan.Zero, TimeSpan.FromSeconds(sampleCount / (double)SampleRate)));
 
-        // First 1 ms of the loud region: a correctly-closed gate is only starting to open, so the peak
-        // there is far below unity. A gate wrongly opened during silence would already sit near 0.9.
         int probeWidth = SampleRate / 1000;
         float onsetPeakDb = PeakDbInWindow(output, silenceSamples, probeWidth);
         Assert.That(onsetPeakDb, Is.LessThan(-20f),
@@ -733,10 +684,6 @@ public class GateNodeTests
     [Test]
     public void Process_BelowThresholdLeadIn_StartsAtRangeFloorNotFullMute()
     {
-        // A below-threshold lead-in must rest at the user's Range floor from the very first sample, not
-        // fade in from the -100 dB reset sentinel. With a shallow Range (-20 dB) and a slow attack the
-        // buggy code seeded the follower near -100 dB and only ramped up toward -20, over-attenuating
-        // the opening; the first sample's gain should already sit at the -20 dB floor.
         const int sampleCount = SampleRate / 10;
         const float rangeDb = -20f;
         const float amplitude = 0.01f; // ≈-40 dB, below the -30 dB threshold
@@ -756,16 +703,9 @@ public class GateNodeTests
     [TestCase(1L)]
     public void Process_OneTickBoundaryRounding_DoesNotResetGate(long tickOffset)
     {
-        // Adjacent sample-boundary chunks can differ by one tick from independent TimeSpan rounding. A
-        // one-tick gap or overlap must NOT be treated as a seek: the warmed-open gate must continue (its
-        // first sample stays loud) rather than reset to closed like a fresh gate. The tolerance is
-        // symmetric, so both directions are covered; buggy exact-equality would reset either way,
-        // dropping the continuing gate's first sample to the fresh gate's value.
         const int chunkSamples = SampleRate / 10;
         var chunkDuration = TimeSpan.FromSeconds(chunkSamples / (double)SampleRate);
         var ctx1 = CreateContext(TimeSpan.Zero, chunkDuration);
-        // Second chunk starts one tick before (-1) or after (+1) the exact previous end — either side is
-        // within the rounding tolerance and must not reset.
         var ctx2 = CreateContext(chunkDuration + TimeSpan.FromTicks(tickOffset), chunkDuration);
 
         var node = CreateNode();
@@ -791,10 +731,6 @@ public class GateNodeTests
     [Test]
     public void Process_Hold_KeepsGateOpenForEveryConfiguredSample()
     {
-        // Hold of N samples must latch the gate open for all N below-threshold samples. Spending the
-        // latch before reading it made the gate release one sample early — and with a hold that converts
-        // to a single sample, immediately. The release is deliberately the fastest allowed (1 ms) so one
-        // sample of release is a large, unambiguous drop rather than a rounding-sized one.
         const int holdSamples = 1;
         const float holdMs = holdSamples * 1000f / SampleRate;
         const int loudSamples = SampleRate / 100;
@@ -806,9 +742,7 @@ public class GateNodeTests
         using var output = node.Process(CreateContext(TimeSpan.Zero, TimeSpan.FromSeconds(sampleCount / (double)SampleRate)));
 
         var data = output.GetChannelData(0);
-        // The first below-threshold sample is still inside the hold window, so it passes at (near) unity.
         float heldGain = MathF.Abs(data[loudSamples]) / 0.003f;
-        // The next one is past the window and has begun releasing toward the Range floor.
         float releasedGain = MathF.Abs(data[loudSamples + 1]) / 0.003f;
 
         Assert.That(heldGain, Is.EqualTo(1f).Within(0.01f),
@@ -820,9 +754,6 @@ public class GateNodeTests
     [Test]
     public void Process_InputSampleRateMismatch_Throws()
     {
-        // Coefficients and the hold count are derived from the context sample rate while the output
-        // buffer carries the input's, so a mismatched upstream buffer must be rejected rather than
-        // silently relabelled.
         const int altSampleRate = 44100;
         using var input = CreateConstantBuffer(0.9f, altSampleRate / 10, 2, altSampleRate);
         var node = CreateNode();
@@ -835,10 +766,6 @@ public class GateNodeTests
     [Test]
     public void Process_NonFinitePropertyDefault_FallsBackToDeclaredConstant()
     {
-        // A library user can declare a property whose CurrentValue *and* DefaultValue are both
-        // non-finite. Returning the non-finite default would defeat the range clamp (NaN clamps to NaN)
-        // and collapse the gate to its recovery sentinel, so the declared GateParameters constants must
-        // take over: an above-threshold signal still passes at unity.
         const int sampleCount = SampleRate / 4;
         using var input = CreateConstantBuffer(0.9f, sampleCount);
 
@@ -864,8 +791,6 @@ public class GateNodeTests
             }
         }
 
-        // Defaults are Threshold -40 dB / Range -60 dB, so 0.9 (≈-0.9 dB) is above threshold and the
-        // settled tail must reach unity instead of sitting at the -100 dB recovery sentinel.
         float steadyPeakDb = PeakDb(output, sampleCount / 2);
         Assert.That(steadyPeakDb, Is.EqualTo(PeakDb(input, 0)).Within(1f),
             $"With non-finite property defaults the declared constants must apply, but the tail measured {steadyPeakDb:F2} dB.");
