@@ -8,10 +8,9 @@ using Beutl.Controls.Styling.Themes;
 
 namespace Beutl.E2ETests;
 
-// The PackageTools shell loads no extensions, so it merges the design theme's dictionary itself instead
-// of going through ThemeService. This app mirrors that situation — FluentAvalonia plus Beutl.Controls
-// styles, without the editor's theme plumbing — so it is where that path is pinned: the dictionary has
-// to load standalone (every StaticResource it uses must be a key it defines) and override the palette.
+// The PackageTools shell merges the design theme's dictionary itself instead of going through
+// ThemeService, and this app mirrors that — FluentAvalonia plus Beutl.Controls styles, no editor theme
+// plumbing. So the dictionary must load standalone: every StaticResource it uses is a key it defines.
 [TestFixture]
 public class BeutlDarkBorderThemeResourceTests
 {
@@ -47,7 +46,7 @@ public class BeutlDarkBorderThemeResourceTests
     public void AccentColor_IsTheDesignBlue()
     {
         // Whoever applies this theme seeds FluentAvalonia's accent shades from here, so the value is
-        // part of the theme's look rather than an implementation detail.
+        // part of the shipped look.
         Assert.That(BeutlDarkBorderTheme.AccentColor, Is.EqualTo(Color.FromRgb(0x25, 0x63, 0xEB)));
     }
 }

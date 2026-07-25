@@ -21,10 +21,10 @@ public static class BuiltinThemeIds
 
     /// <summary>
     /// The built-in id a legacy &lt;2.0 <c>ViewTheme</c> value names, or null when it names no theme:
-    /// 1 (Dark) was the pre-2.0 default, so it marks a user who never chose a theme rather than one who
-    /// wants the classic look, and a value outside the enum's 0-3 is corrupt. The caller decides what
-    /// those resolve to — the product default is an app-layer theme id this class must never return,
-    /// since <see cref="IsReserved"/> backs ThemeRegistry's reserved-id check.
+    /// 1 (Dark) was the pre-2.0 default, so it marks a user who never chose a theme, and anything
+    /// outside the enum's 0-3 is corrupt. The caller owns the fallback — the product default is an
+    /// app-layer id this class must never return, since <see cref="IsReserved"/> backs ThemeRegistry's
+    /// reserved-id check.
     /// </summary>
     public static string? TryFromLegacyEnum(int value) => value switch
     {

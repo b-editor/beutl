@@ -220,8 +220,8 @@ public sealed class ViewSettingsPageViewModel : PageContext, IDisposable
             }
         });
 
-    // Config-only on purpose: ThemeService subscribes to these properties and is the sole writer of
-    // FluentAvaloniaTheme.CustomAccentColor, falling back to the active theme's design accent.
+    // Config-only: ThemeService subscribes to these and is the sole writer of
+    // FluentAvaloniaTheme.CustomAccentColor.
     private static void UpdateAppAccentColor(Color? color)
     {
         ViewConfig viewConfig = GlobalConfiguration.Instance.ViewConfig;

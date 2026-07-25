@@ -43,8 +43,7 @@ public partial class App : Application
                 break;
             case FirstPartyThemeIds.DarkBorder:
                 // The default theme. Its ThemeExtension is out of reach here (no extensions load), so
-                // apply what ThemeService would: the Dark base variant plus the override dictionary,
-                // and the theme's design accent below.
+                // apply what ThemeService would: the Dark base variant plus the override dictionary.
                 RequestedThemeVariant = ThemeVariant.Dark;
                 Resources.MergedDictionaries.Add(
                     (IResourceProvider)AvaloniaXamlLoader.Load(BeutlDarkBorderTheme.ResourceUri, null)!);
@@ -58,8 +57,7 @@ public partial class App : Application
         }
 
 
-        // Same priority as ThemeService: the user's custom accent, then the applied theme's design
-        // accent, then the OS accent.
+        // Accent priority mirrors ThemeService.
         if (view.UseCustomAccentColor && Color.TryParse(view.CustomAccentColor, out Color customColor))
         {
             theme.CustomAccentColor = customColor;

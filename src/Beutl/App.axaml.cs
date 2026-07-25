@@ -60,7 +60,6 @@ public sealed class App : Application
 
         activity?.AddEvent(new ActivityEvent("Xaml_Loaded"));
 
-        // ThemeService owns FluentAvaloniaTheme.CustomAccentColor (custom accent and theme accent).
         _themeService = new ThemeService(_theme!, view);
         _themeService.Start();
 

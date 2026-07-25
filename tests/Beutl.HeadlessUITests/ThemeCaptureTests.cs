@@ -33,11 +33,9 @@ namespace Beutl.HeadlessUITests;
 // Pixel readback of the fully-inflated shell works locally on MoltenVK; the crash noted in
 // ShellViewTests applies to SwiftShader CI only.
 //
-// These frames show colors AND sizes, but only the colors come from the theme. Control metrics --
-// font size, row heights, slider geometry, the focused border thickness, the dropdown-glyph inset --
-// come from Beutl.Controls/Styling/DesignTokens.axaml and DropDownGlyphBehavior, which are separate
-// from the theme dictionaries. Read a frame as evidence about color; ControlMetricsTests is the
-// authority on sizes and insets.
+// A frame is evidence about color only. Control metrics -- font size, row heights, slider geometry,
+// border thickness, glyph insets -- come from DesignTokens.axaml and DropDownGlyphBehavior, not the
+// theme dictionaries; ControlMetricsTests is the authority on those.
 [TestFixture]
 [Explicit("Produces PNG captures for manual design review; not a regression test.")]
 public class ThemeCaptureTests
@@ -46,11 +44,10 @@ public class ThemeCaptureTests
         Environment.GetEnvironmentVariable("BEUTL_THEME_CAPTURE_DIR")
         ?? Path.Combine(Path.GetTempPath(), "beutl-theme-captures");
 
-    // Production seeds FluentAvalonia's accent from the applied theme's descriptor (ThemeService); these
-    // captures only flip the variant, so without seeding it here every accent-derived fill, focus ring
-    // and selected surface would show the headless host's accent instead of what ships. Built-ins
-    // declare no design accent, so the light capture passes null -- the OS accent, as in production.
-    // Beutl.Media.Color is also in scope here, so the accent is qualified.
+    // Production seeds FluentAvalonia's accent from the applied theme's descriptor (ThemeService);
+    // these captures only flip the variant, so unseeded they would show the headless host's accent.
+    // Built-ins declare no design accent, hence null for the light capture. Beutl.Media.Color is also
+    // in scope here, so the accent is qualified.
     private static void UseCaptureTheme(ThemeVariant variant, Avalonia.Media.Color? designAccent)
     {
         Application.Current!.RequestedThemeVariant = variant;
@@ -518,7 +515,6 @@ public class ThemeCaptureTests
             window.Show();
             HeadlessTestHelpers.Render(3);
 
-            // Open the flyout so the capture also shows popup styling.
             var menuButton = window.GetVisualDescendants().OfType<Button>()
                 .First(b => b.Name == "GalleryMenuButton");
             menuButton.Flyout!.ShowAt(menuButton);
@@ -583,7 +579,6 @@ public class ThemeCaptureTests
             window.Show();
             HeadlessTestHelpers.Render(3);
 
-            // Mark the first brush-type tab active so the capture shows the selected-tab treatment.
             ToggleButton solidTab = window.GetVisualDescendants().OfType<ToggleButton>()
                 .First(b => b.Name == "SolidBrushTabButton");
             solidTab.IsChecked = true;

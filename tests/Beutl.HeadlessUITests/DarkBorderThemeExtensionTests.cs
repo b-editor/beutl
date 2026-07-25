@@ -49,17 +49,16 @@ public class DarkBorderThemeExtensionTests
         Assert.That(loaded, Is.InstanceOf<IResourceProvider>());
     }
 
-    // The product default is this theme, and only this layer can compare the two: ViewConfig's default
-    // is the shared FirstPartyThemeIds id, the extension's descriptor is what registers under it.
+    // Only this layer can compare the two: ViewConfig's default is the shared FirstPartyThemeIds id,
+    // and the extension's descriptor is what registers under it.
     [AvaloniaTest]
     public void ViewConfigDefault_MatchesThemeId()
     {
         Assert.That(new ViewConfig().Theme, Is.EqualTo(DarkBorderThemeExtension.ThemeId));
     }
 
-    // The default theme ships as an extension, and in production the pass that loads extensions runs on
-    // a background thread — after the first apply. Unless Start registers it itself, the app renders
-    // classic dark and flashes to the near-black design once the pass lands (#2134).
+    // In production the extension pass runs on a background thread, after the first apply. Unless Start
+    // registers the default theme itself, the app renders classic dark and flashes to it (#2134).
     [AvaloniaTest]
     public void Start_ResolvesTheDefaultTheme_WithoutTheExtensionPass()
     {

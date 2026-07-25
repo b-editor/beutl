@@ -91,9 +91,8 @@
     </Styles.Resources>
 
     <!--
-        The stock splitter template is fully transparent, so adjacent panels show no boundary.
-        Draw a centered 1px divider inside the 4px grab area; the pseudo-class reflects the
-        parent panel's orientation (:horizontal panel => vertical divider bar).
+        The stock splitter template is fully transparent, so adjacent panels show no boundary. The
+        pseudo-class reflects the parent panel's orientation (:horizontal panel => vertical divider bar).
     -->
     <Style Selector="ProportionalStackPanelSplitter">
         <Setter Property="Template">

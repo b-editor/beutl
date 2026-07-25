@@ -210,9 +210,8 @@ public class ThemeServiceTests
         });
     }
 
-    // A ThemeExtension declares its accent on the descriptor because the host owns FluentAvalonia's
-    // accent, so OnApplied — the documented hook for apply-time resource recomputation — must run with
-    // that accent already seeded, not the outgoing theme's.
+    // OnApplied is the documented hook for apply-time resource recomputation, so it must run with this
+    // theme's accent already seeded, not the outgoing one's.
     [AvaloniaTest]
     public void ThemeAccent_IsSeededBeforeTheNewOwnersOnApplied()
     {
@@ -234,9 +233,7 @@ public class ThemeServiceTests
     }
 
     // The accent picker offers the whole named-color palette, so a light accent is one click away while
-    // the theme's text-on-accent tokens are authored for its own dark blue. Asserted on
-    // AccentButtonForeground rather than the color token, because that alias is what a control actually
-    // reads — it only follows if the theme's brush takes its color dynamically.
+    // the theme's text-on-accent tokens are authored for its own dark blue.
     [AvaloniaTest]
     public void TextOnAccent_StaysWhite_OnTheDesignAccent()
     {
@@ -346,8 +343,6 @@ public class ThemeServiceTests
         public int AppliedCount;
         public int RevertedCount;
 
-        // What FluentAvalonia's accent was while OnApplied ran — the state an extension recomputing
-        // accent-derived resources in that hook would observe.
         public Color? AccentAtApplied;
 
         public override ThemeDescriptor GetThemeDescriptor() => _descriptor;
@@ -388,8 +383,8 @@ public class ThemeServiceTests
             // The accent lands on the process-global FluentAvaloniaTheme; leaving it set would
             // bleed a test's accent into every later [AvaloniaTest] in the assembly.
             Theme.CustomAccentColor = null;
-            // So do the applied theme's overrides, which ThemeService drops only on its next apply —
-            // Dispose is not one, and the default theme's are flat colors that would retint Light too.
+            // So do the applied theme's overrides: ThemeService drops them only on its next apply, and
+            // Dispose is not one.
             IList<IResourceProvider> merged = Application.Current!.Resources.MergedDictionaries;
             foreach (IResourceProvider applied in merged.Except(_mergedOnEntry).ToArray())
             {

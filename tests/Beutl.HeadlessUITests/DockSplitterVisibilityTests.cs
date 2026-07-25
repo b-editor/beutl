@@ -6,10 +6,9 @@ using Beutl.Testing.Headless;
 
 namespace Beutl.HeadlessUITests;
 
-// The dock panel-splitter divider is a border-theme-only accent: only the "beutl.dark.border"
-// theme (the harness Dark variant) paints it. Light and Dark (Classic) must show no divider line.
-// Dark (Classic) is not reachable from this harness (see DarkBorderThemeColorTests), so Light
-// stands in as the non-border theme; both resolve through the same DockFluent Transparent entries.
+// The dock panel-splitter divider is a border-theme-only accent: only "beutl.dark.border" (the
+// harness Dark variant) paints it. Dark (Classic) is not reachable from this harness, so Light stands
+// in as the non-border theme; both resolve through the same DockFluent Transparent entries.
 [TestFixture]
 public class DockSplitterVisibilityTests
 {

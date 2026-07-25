@@ -24,8 +24,8 @@ internal sealed class ThemeService : IDisposable
 {
     private static readonly ILogger s_logger = Log.CreateLogger<ThemeService>();
 
-    // The text-on-accent tokens and the opacity each one carries. Alpha comes from here rather than from
-    // the theme's own value so the derived set is one scheme regardless of which theme authored it.
+    // Alpha comes from here rather than from the theme's own value, so the derived set is one scheme
+    // regardless of which theme authored it.
     private static readonly (string Key, byte Alpha)[] s_textOnAccentKeys =
     [
         ("TextOnAccentFillColorPrimary", 0xFF),
@@ -60,10 +60,9 @@ internal sealed class ThemeService : IDisposable
             ThemeRegistry.Register(descriptor);
         }
 
-        // The default theme is not a built-in but a first-party extension, and the primitive-extension
-        // pass loads on a background thread — after the first apply below. Loading it here is what lets
-        // the configured default resolve on the first try instead of rendering classic dark and
-        // flashing to it (#2134); LoadPrimitiveExtensionTask leaves this one to us.
+        // The default theme is an extension, and the primitive-extension pass loads on a background
+        // thread — after the first apply below. Without this the app renders classic dark and flashes
+        // to the design theme (#2134); LoadPrimitiveExtensionTask leaves this one to us.
         DarkBorderThemeExtension.Instance.Load();
 
         _themeSubscription = _viewConfig.GetObservable(ViewConfig.ThemeProperty)
@@ -80,8 +79,7 @@ internal sealed class ThemeService : IDisposable
     private static ThemeDescriptor[] GetBuiltinThemes() =>
     [
         new(BuiltinThemeIds.Light, SettingsStrings.Light, ThemeVariant.Light),
-        // "Classic" distinguishes FluentAvalonia's stock dark from the default DarkBorderThemeExtension,
-        // which also shows as "Dark" but ships the near-black design overrides.
+        // "Classic" distinguishes this from DarkBorderThemeExtension, which also shows as "Dark".
         new(BuiltinThemeIds.Dark, SettingsStrings.DarkClassic, ThemeVariant.Dark),
         new(BuiltinThemeIds.HighContrast, SettingsStrings.HighContrast, FluentAvaloniaTheme.HighContrastTheme),
         new(BuiltinThemeIds.System, SettingsStrings.FollowSystem, ThemeVariant.Default, IsSystemFollowing: true),
@@ -109,17 +107,15 @@ internal sealed class ThemeService : IDisposable
     {
         Interlocked.Exchange(ref _applyQueued, 0);
 
-        // A job posted before Dispose can still fire after it; Dispose only unsubscribes, so this
-        // guard is what keeps a dead service from mutating the app's theme/accent state.
+        // A job posted before Dispose can still fire after it; Dispose only unsubscribes.
         if (_disposed)
         {
             return;
         }
 
         ApplySelectedTheme();
-        // Unconditionally, even though ApplyCore already seeds a newly applied theme's accent: an
-        // accent-config trigger arrives with the applied descriptor unchanged, so nothing in
-        // ApplySelectedTheme would pick it up. Writes of an unchanged value are skipped.
+        // Unconditional, even though ApplyCore seeds a newly applied theme's accent: an accent-config
+        // trigger leaves the applied descriptor unchanged, so nothing above would pick it up.
         ApplyAccent();
     }
 
@@ -169,14 +165,10 @@ internal sealed class ThemeService : IDisposable
         ApplyTextOnAccent(accent);
     }
 
-    // A theme authors its text-on-accent tokens for the accent it declares, but accent fills follow
-    // whatever accent is configured, and the user can pick any color: white text on a near-white fill
-    // leaves accent-button labels and checked glyphs unreadable, and a dark accent does the same to the
-    // classic palette's black. Where Beutl resolves the accent itself, the tokens follow that accent's
-    // contrast. The OS-accent path is left to the theme's own values: FluentAvalonia resolves that color,
-    // so there is nothing here to measure. Written as app-level entries, which win over the merged theme
-    // dictionaries; the first-party dictionaries take these colors by DynamicResource, so every alias
-    // built on those brushes follows.
+    // A theme authors its text-on-accent tokens for its declared accent, but the user can configure any
+    // accent — white text on a near-white fill is unreadable. Beutl adjusts these only for accents it
+    // resolves; FluentAvalonia owns OS accents. App-level entries win over the merged theme
+    // dictionaries, whose brushes take these colors by DynamicResource.
     private void ApplyTextOnAccent(Color? accent)
     {
         Color? foreground = accent is { } value ? ResolveForegroundOn(value) : null;
@@ -200,8 +192,7 @@ internal sealed class ThemeService : IDisposable
         }
     }
 
-    // WCAG contrast against white and against black, whichever is higher. The design accent #2563EB
-    // lands on white, so the shipped look is unchanged.
+    // WCAG contrast against white and against black, whichever is higher.
     private static Color ResolveForegroundOn(Color accent)
     {
         double luminance = RelativeLuminance(accent);
@@ -272,8 +263,7 @@ internal sealed class ThemeService : IDisposable
             ThemeNotifier.NotifyReverted(previous, previousExtension);
         }
 
-        // Before OnApplied, and after the outgoing owner is reverted: an extension declares its accent
-        // on the descriptor instead of writing FluentAvalonia's, so a hook that recomputes
+        // Before OnApplied, and after the outgoing owner is reverted: a hook that recomputes
         // accent-derived resources has to see this theme's accent rather than the outgoing one's.
         ApplyAccent();
 

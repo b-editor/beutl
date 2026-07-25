@@ -11,7 +11,7 @@
         DarkBorderThemeExtension's AccentColor (the design blue). Never hardcode an accent hex here.
     -->
 
-    <!-- ===== Colors (darkened) ===== -->
+    <!-- ===== Colors ===== -->
     <Color x:Key="TextFillColorPrimary">#EAEBED</Color>
     <Color x:Key="TextFillColorSecondary">#9FA0A4</Color>
     <Color x:Key="TextFillColorTertiary">#63656A</Color>
@@ -292,10 +292,6 @@
     </LinearGradientBrush>
 
     <LinearGradientBrush x:Key="TabViewSelectedItemBorderBrush" StartPoint="0%,0%" EndPoint="0%,100%">
-    <!--MappingMode="Absolute"
-    <LinearGradientBrush.RelativeTransform>
-    <ScaleTransform ScaleY="-1" CenterY="0.5"/>
-    </LinearGradientBrush.RelativeTransform>-->
     <LinearGradientBrush.GradientStops>
     <GradientStop Offset="0.88" Color="{DynamicResource CardStrokeColorDefault}"/>
     <GradientStop Offset="0.88" Color="Transparent"/>
@@ -353,11 +349,10 @@
     <!--
         base/pointerover/pressed carry the accent-soft selected surface — the same values as
         ListViewItemBackgroundSelected* and TreeViewItemBackgroundSelected* below; kept in step by
-        DarkBorderThemeColorTests. Two ControlThemes read these for their checked state: the
-        picker/editor flyout tab row (ColorPickerTypeTransparentToggleButtonStyle) and the timeline
-        LayerHeaderToggleButtonStyle. They previously resolved to ControlFillColorTransparentBrush,
-        which is invisible on the near-black surface. Disabled stays transparent: no consumer reaches
-        the indeterminate-disabled state.
+        DarkBorderThemeColorTests. Two ControlThemes read these for their checked state, so an
+        invisible fill hides a selected tab: the picker/editor flyout tab row
+        (ColorPickerTypeTransparentToggleButtonStyle) and the timeline LayerHeaderToggleButtonStyle.
+        Disabled stays transparent: no consumer reaches the indeterminate-disabled state.
     -->
     <SolidColorBrush x:Key="ToggleButtonBackgroundIndeterminate" Color="{DynamicResource SystemAccentColorLight1}" Opacity="0.149" />
     <SolidColorBrush x:Key="ToggleButtonBackgroundIndeterminatePointerOver" Color="{DynamicResource SystemAccentColorLight1}" Opacity="0.2" />
@@ -1453,8 +1448,7 @@
     <!--
         ===== Dock surfaces =====
         DynamicResource-consumed, so these flat overrides win over Dock/DockFluent.axaml's Dark
-        ThemeDictionary. Every panel shares the flat base; the 1px divider (#222327) paints the
-        workbench and splitters.
+        ThemeDictionary.
     -->
     <SolidColorBrush x:Key="DockThemeBackgroundBrush" Color="#0E0E0F" />
     <SolidColorBrush x:Key="DockThemeControlBackgroundBrush" Color="#17181A" />

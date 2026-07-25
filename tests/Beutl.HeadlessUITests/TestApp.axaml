@@ -13,9 +13,9 @@
         <ResourceInclude Source="avares://Beutl.Controls/Styling/Fonts.axaml" />
       </ResourceDictionary.MergedDictionaries>
       <!--
-        Production applies the default "beutl.dark.border" theme's overrides at runtime via
-        ThemeService; the capture tests only flip RequestedThemeVariant, so mirror that theme here.
-        Scoped to Dark (not merged flat) so the Light captures still show the classic light theme.
+        Production applies the default "beutl.dark.border" theme's overrides via ThemeService; the
+        tests only flip RequestedThemeVariant, so mirror that theme here. Scoped to Dark (not merged
+        flat) so the Light captures still show the classic light theme.
       -->
       <ResourceDictionary.ThemeDictionaries>
         <ResourceDictionary x:Key="Dark">
@@ -40,8 +40,7 @@
   </Application.DataTemplates>
   <!--
     Must mirror src/Beutl/App.axaml's style list exactly (same entries, same order): headless shell
-    captures feed design review and must be faithful to production. Notably DockStyles.axaml
-    re-templates ToolControl to put dock tab strips at the TOP of each panel (Dock's default is bottom).
+    captures feed design review and must be faithful to production.
   -->
   <Application.Styles>
     <sty:FluentAvaloniaTheme PreferUserAccentColor="True" TextVerticalAlignmentOverrideBehavior="Disabled" />
@@ -55,7 +54,6 @@
       <Setter Property="Template">
         <ControlTemplate>
           <Grid>
-            <!--  CurrentImage will be rendered with codebehind, just as it is done in the Image  -->
             <Border HorizontalAlignment="Stretch"
                     VerticalAlignment="Stretch"
                     Classes.placeholder="{TemplateBinding IsLoading}"

@@ -55,7 +55,7 @@
             <SolidColorBrush x:Key="DockBorderSubtleBrush" Color="{DynamicResource ControlStrokeColorDefault}" />
             <SolidColorBrush x:Key="DockBorderStrongBrush" Color="{DynamicResource ControlStrongStrokeColorDefault}" />
             <SolidColorBrush x:Key="DockSeparatorBrush" Color="{DynamicResource ControlStrokeColorDefault}" />
-            <!--  Border-theme-only divider (see the Dark dictionary); Light shows no divider line.  -->
+            <!--  The panel-splitter divider is a border-theme accent; Light shows no divider line.  -->
             <SolidColorBrush x:Key="DockSplitterIdleBrush" Color="Transparent" />
             <SolidColorBrush x:Key="DockSplitterHoverBrush" Color="Transparent" />
 

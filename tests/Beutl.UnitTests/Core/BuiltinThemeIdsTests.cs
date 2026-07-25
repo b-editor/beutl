@@ -1,8 +1,5 @@
 ﻿namespace Beutl.UnitTests.Core;
 
-// The Try* pair exists so the caller owns the fallback: the product default is an app-layer theme id
-// that this class must never hand out, and ViewConfig is what substitutes it for a value naming no
-// theme. ViewConfigThemeMigrationTests covers that substitution; here only the null contract.
 [TestFixture]
 public class BuiltinThemeIdsTests
 {
@@ -15,7 +12,7 @@ public class BuiltinThemeIdsTests
     }
 
     // 1 (Dark) was the pre-2.0 default, so it marks a user who never chose a theme; 4+ was never a
-    // member. Both name no theme, and the caller decides where they land.
+    // member. Neither names a theme.
     [TestCase(1)]
     [TestCase(4)]
     [TestCase(-1)]
@@ -43,8 +40,8 @@ public class BuiltinThemeIdsTests
         Assert.That(BuiltinThemeIds.TryNormalize(raw), Is.Null);
     }
 
-    // ThemeRegistry rejects these: settings would rewrite the id on the next load, so an extension
-    // registering one would silently lose the user's selection.
+    // ThemeRegistry rejects these: settings would rewrite the id on the next load, silently losing an
+    // extension's theme.
     [TestCase("dark")]
     [TestCase("HighContrast")]
     [TestCase("0")]

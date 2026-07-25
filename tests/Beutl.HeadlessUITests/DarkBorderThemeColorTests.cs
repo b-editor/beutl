@@ -12,17 +12,14 @@ using FluentAvalonia.Styling;
 
 namespace Beutl.HeadlessUITests;
 
-// Color behaviour the "beutl.dark.border" theme has to hold. Every test here drives the Dark variant,
-// which IS the border theme in this harness: TestApp merges its overrides into Dark, mirroring how
-// ThemeService applies them in production. FluentAvalonia's own dark ("Dark (Classic)") is not
+// Every test here drives the Dark variant, which IS the border theme in this harness: TestApp merges
+// its overrides into Dark, mirroring ThemeService. FluentAvalonia's own dark ("Dark (Classic)") is not
 // reachable from this harness, so nothing here covers it.
 [TestFixture]
 public class DarkBorderThemeColorTests
 {
-    // Two complementary guards for the vanishing-checked-tab fix (the rationale lives on
-    // ToggleButtonBackgroundIndeterminate in BeutlDarkBorder.axaml): rendering the real style proves
-    // the checked state consumes that brush, and the raw-value test below guards the brush is visible.
-    // A revert of either half re-breaks it.
+    // Half of the vanishing-checked-tab guard: this proves the checked state consumes
+    // ToggleButtonBackgroundIndeterminate, the test below that the brush is visible. Both are needed.
     [AvaloniaTest]
     public void Selected_color_type_tab_paints_the_indeterminate_fill_under_the_border_theme()
     {
@@ -87,11 +84,9 @@ public class DarkBorderThemeColorTests
         }
     }
 
-    // The Indeterminate brushes are literal copies of the list/tree selected surface (the theme holds
-    // no shared token layer, so each key mirrors classic dark value-for-value). Nothing else keeps the
-    // copies equal, so tie them together here: change one selected-surface value and this catches the
-    // two it leaves behind. The state distinction lives in Opacity (the color is the shared accent
-    // shade), so both halves are compared.
+    // The Indeterminate brushes are literal copies of the list/tree selected surface — the theme holds
+    // no shared token layer, so nothing but this test keeps the copies equal. The state distinction
+    // lives in Opacity (the color is the shared accent shade), so both halves are compared.
     [AvaloniaTest]
     public void Indeterminate_toggle_fill_mirrors_the_list_and_tree_selected_surface()
     {
@@ -123,9 +118,8 @@ public class DarkBorderThemeColorTests
         }
     }
 
-    // The accent surfaces reference SystemAccentColor* dynamically; in production ThemeService seeds
-    // those shades (custom accent first, then the theme's design accent). This harness runs no
-    // ThemeService, so the FluentAvaloniaTheme property is set directly.
+    // The accent surfaces reference SystemAccentColor* dynamically. This harness runs no ThemeService
+    // to seed those shades, so the FluentAvaloniaTheme property is set directly.
     [AvaloniaTest]
     public void Custom_accent_retints_the_accent_fill_and_selected_surfaces()
     {
@@ -172,8 +166,8 @@ public class DarkBorderThemeColorTests
     }
 
     // The disabled text-input family (TextBox / NumberBox / AutoCompleteBox) must resolve the same
-    // disabled foreground/background/border as ComboBox — nothing in the theme dictionaries enforces
-    // that the two key families stay in step.
+    // disabled colors as ComboBox — nothing in the theme dictionaries keeps the two key families
+    // in step.
     [AvaloniaTest]
     public void Disabled_text_input_matches_disabled_combobox_under_dark_theme()
     {
@@ -215,7 +209,6 @@ public class DarkBorderThemeColorTests
                 Assert.That(ResolveColor(textBox, "TextControlBorderBrushDisabled", ThemeVariant.Dark), Is.EqualTo(comboBorder),
                     "TextControlBorderBrushDisabled must equal ComboBoxBorderBrushDisabled");
 
-                // The template must consume those keys, not just have them defined.
                 Assert.That(SolidColor(presenter.Foreground, "the rendered disabled TextBox foreground"), Is.EqualTo(comboForeground),
                     "rendered disabled TextBox foreground");
                 Assert.That(SolidColor(border.Background, "the rendered disabled TextBox background"), Is.EqualTo(comboBackground),
@@ -229,10 +222,9 @@ public class DarkBorderThemeColorTests
         }
     }
 
-    // The new dark theme paints the title-bar bottom border with the dock splitter's color so the two
-    // dividers read as one; Light and Dark (Classic) keep FluentAvalonia's stroke instead. Dark
-    // (Classic) is unreachable from this harness (see the class comment), so only the border-theme
-    // coupling and the presence of a non-border fallback are asserted here.
+    // The border theme paints the title-bar bottom border with the dock splitter's color so the two
+    // dividers read as one; other themes keep FluentAvalonia's stroke. Dark (Classic) is unreachable
+    // from this harness, so only the coupling and the presence of a fallback are asserted.
     [AvaloniaTest]
     public void Title_bar_bottom_border_matches_the_dock_splitter_under_the_border_theme()
     {

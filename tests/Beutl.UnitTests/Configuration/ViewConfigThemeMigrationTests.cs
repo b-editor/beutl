@@ -9,15 +9,15 @@ namespace Beutl.UnitTests.Configuration;
 [TestFixture]
 public class ViewConfigThemeMigrationTests
 {
-    // ViewConfig's own DefaultThemeId is private, but it is an alias of this shared id, so there is no
-    // literal to keep in sync.
+    // An alias of the same shared id ViewConfig's private DefaultThemeId uses, so no literal to keep
+    // in sync.
     private const string DefaultThemeId = FirstPartyThemeIds.DarkBorder;
 
     // Legacy <2.0 settings.json stored the old ViewTheme enum as an int (0-3) or PascalCase name.
     // The string id persisted by >=2.0 and unknown ids (custom themes) must round-trip unchanged.
     // Legacy Dark (1) is the exception: it was the pre-2.0 default, so it means "never chose a theme"
-    // and migrates onto the current default rather than pinning the user to the classic look. A name
-    // string is an id, not an enum, so "dark"/"Dark" is an explicit opt-in to classic and is kept.
+    // and migrates onto the current default. A name string is an id, not an enum, so "dark"/"Dark" is
+    // an explicit opt-in to classic and is kept.
     [TestCase("0", BuiltinThemeIds.Light)]
     [TestCase("1", DefaultThemeId)]
     [TestCase("2", BuiltinThemeIds.HighContrast)]
@@ -118,8 +118,8 @@ public class ViewConfigThemeMigrationTests
         Assert.That(config.Theme, Is.EqualTo(expected));
     }
 
-    // No persisted choice must land on the same theme a fresh install gets, or a settings.json written
-    // before the key existed would strand its user on a different look than ViewConfig's DefaultValue.
+    // No persisted choice must land where a fresh install does, or a settings.json written before the
+    // key existed would strand its user on a different look than ViewConfig's DefaultValue.
     [Test]
     public void UsesDefaultTheme_WhenThemeNull()
     {

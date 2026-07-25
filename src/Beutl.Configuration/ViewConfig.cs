@@ -23,8 +23,8 @@ public sealed class ViewConfig : ConfigurationBase
     private readonly CoreList<string> _recentProjects = [];
     private bool _showExactBoundaries = false;
 
-    // The default theme is the first-party design theme, not a built-in, so BuiltinThemeIds must never
-    // return this id: its normalization is what backs ThemeRegistry's reserved-id check.
+    // Not a built-in: BuiltinThemeIds must never return this id, since its normalization backs
+    // ThemeRegistry's reserved-id check.
     private const string DefaultThemeId = FirstPartyThemeIds.DarkBorder;
 
     static ViewConfig()
@@ -237,11 +237,8 @@ public sealed class ViewConfig : ConfigurationBase
 
     // Migrate legacy <2.0 ViewTheme enum values (a JSON number, or a PascalCase name) to the stable
     // lowercase id through BuiltinThemeIds — the same normalization ThemeRegistry validates extension
-    // ids against, so settings and the registry cannot drift. A value that names no theme resolves to
-    // DefaultThemeId: legacy Dark (1) was the pre-2.0 default, so it marks a user who never chose a
-    // theme and lands on the product's dark look like a fresh install does, and a missing or corrupt
-    // value must not diverge from an absent one. The classic look stays reachable by picking
-    // "Dark (Classic)", which persists the "dark" id and so takes the name path below.
+    // ids against, so settings and the registry cannot drift. A value that names no theme lands on
+    // DefaultThemeId, so a missing, corrupt or pre-2.0-default value cannot diverge from an absent one.
     private static string NormalizeThemeId(JsonNode? node)
     {
         if (node is not JsonValue value)
