@@ -12,12 +12,12 @@
     -->
 
     <!-- ===== Colors (darkened) ===== -->
-    <Color x:Key="TextFillColorPrimary">#E9EBF1</Color>
-    <Color x:Key="TextFillColorSecondary">#9BA0AD</Color>
-    <Color x:Key="TextFillColorTertiary">#5F6575</Color>
-    <Color x:Key="TextFillColorDisabled">#4B505C</Color>
+    <Color x:Key="TextFillColorPrimary">#EAEBED</Color>
+    <Color x:Key="TextFillColorSecondary">#9FA0A4</Color>
+    <Color x:Key="TextFillColorTertiary">#63656A</Color>
+    <Color x:Key="TextFillColorDisabled">#4F5054</Color>
     <Color x:Key="TextFillColorInverse">#E4000000</Color>
-    <Color x:Key="AccentTextFillColorDisabled">#4B505C</Color>
+    <Color x:Key="AccentTextFillColorDisabled">#4F5054</Color>
     <Color x:Key="TextOnAccentFillColorSelectedText">#FFFFFF</Color>
     <Color x:Key="TextOnAccentFillColorPrimary">#FFFFFF</Color>
     <Color x:Key="TextOnAccentFillColorSecondary">#C5FFFFFF</Color>
@@ -27,10 +27,10 @@
     <Color x:Key="ControlFillColorTertiary">#07FFFFFF</Color>
     <Color x:Key="ControlFillColorDisabled">#0BFFFFFF</Color>
     <Color x:Key="ControlFillColorTransparent">#00FFFFFF</Color>
-    <Color x:Key="ControlFillColorInputActive">#08090B</Color>
+    <Color x:Key="ControlFillColorInputActive">#09090A</Color>
     <Color x:Key="ControlStrongFillColorDefault">#8BFFFFFF</Color>
     <Color x:Key="ControlStrongFillColorDisabled">#3FFFFFFF</Color>
-    <Color x:Key="ControlSolidFillColorDefault">#16181D</Color>
+    <Color x:Key="ControlSolidFillColorDefault">#17181A</Color>
     <Color x:Key="SubtleFillColorTransparent">#00FFFFFF</Color>
     <Color x:Key="SubtleFillColorSecondary">#0BFFFFFF</Color>
     <Color x:Key="SubtleFillColorTertiary">#14FFFFFF</Color>
@@ -45,21 +45,21 @@
     <Color x:Key="ControlOnImageFillColorTertiary">#0F0F0F</Color>
     <Color x:Key="ControlOnImageFillColorDisabled">#1A1A1A</Color>
     <Color x:Key="AccentFillColorDisabled">#28FFFFFF</Color>
-    <Color x:Key="ControlStrokeColorDefault">#31343E</Color>
-    <Color x:Key="ControlStrokeColorSecondary">#31343E</Color>
+    <Color x:Key="ControlStrokeColorDefault">#333437</Color>
+    <Color x:Key="ControlStrokeColorSecondary">#333437</Color>
     <Color x:Key="ControlStrokeColorOnAccentDefault">#14FFFFFF</Color>
     <Color x:Key="ControlStrokeColorOnAccentSecondary">#23000000</Color>
     <Color x:Key="ControlStrokeColorOnAccentTertiary">#37000000</Color>
     <Color x:Key="ControlStrokeColorOnAccentDisabled">#33000000</Color>
     <Color x:Key="ControlStrokeColorForStrongFillWhenOnImage">#6B000000</Color>
-    <Color x:Key="CardStrokeColorDefault">#212330</Color>
-    <Color x:Key="CardStrokeColorDefaultSolid">#212330</Color>
-    <Color x:Key="ControlStrongStrokeColorDefault">#464A58</Color>
+    <Color x:Key="CardStrokeColorDefault">#222327</Color>
+    <Color x:Key="CardStrokeColorDefaultSolid">#222327</Color>
+    <Color x:Key="ControlStrongStrokeColorDefault">#494A4E</Color>
     <Color x:Key="ControlStrongStrokeColorDisabled">#28FFFFFF</Color>
-    <Color x:Key="SurfaceStrokeColorDefault">#31343E</Color>
-    <Color x:Key="SurfaceStrokeColorFlyout">#31343E</Color>
+    <Color x:Key="SurfaceStrokeColorDefault">#333437</Color>
+    <Color x:Key="SurfaceStrokeColorFlyout">#333437</Color>
     <Color x:Key="SurfaceStrokeColorInverse">#0F000000</Color>
-    <Color x:Key="DividerStrokeColorDefault">#212330</Color>
+    <Color x:Key="DividerStrokeColorDefault">#222327</Color>
     <!--
         A Color resource cannot follow the accent dynamically, so this stays the static design blue;
         every first-party consumer goes through FocusStrokeColorOuterBrush, which does follow it.
@@ -69,19 +69,19 @@
     <Color x:Key="CardBackgroundFillColorDefault">#00FFFFFF</Color>
     <Color x:Key="CardBackgroundFillColorSecondary">#0BFFFFFF</Color>
     <Color x:Key="SmokeFillColorDefault">#4D000000</Color>
-    <Color x:Key="LayerFillColorDefault">#0D0E12</Color>
-    <Color x:Key="LayerFillColorAlt">#0D0E12</Color>
+    <Color x:Key="LayerFillColorDefault">#0E0E0F</Color>
+    <Color x:Key="LayerFillColorAlt">#0E0E0F</Color>
     <Color x:Key="LayerOnAcrylicFillColorDefault">#00FFFFFF</Color>
     <Color x:Key="LayerOnAccentAcrylicFillColorDefault">#00FFFFFF</Color>
-    <Color x:Key="LayerOnMicaBaseAltFillColorDefault">#0D0E12</Color>
+    <Color x:Key="LayerOnMicaBaseAltFillColorDefault">#0E0E0F</Color>
     <Color x:Key="LayerOnMicaBaseAltFillColorSecondary">#0BFFFFFF</Color>
-    <Color x:Key="LayerOnMicaBaseAltFillColorTertiary">#16181D</Color>
+    <Color x:Key="LayerOnMicaBaseAltFillColorTertiary">#17181A</Color>
     <Color x:Key="LayerOnMicaBaseAltFillColorTransparent">#00FFFFFF</Color>
-    <Color x:Key="SolidBackgroundFillColorBase">#0D0E12</Color>
-    <Color x:Key="SolidBackgroundFillColorSecondary">#08090B</Color>
-    <Color x:Key="SolidBackgroundFillColorTertiary">#16181D</Color>
-    <Color x:Key="SolidBackgroundFillColorQuarternary">#16181D</Color>
-    <Color x:Key="SolidBackgroundFillColorTransparent">#000D0E12</Color>
+    <Color x:Key="SolidBackgroundFillColorBase">#0E0E0F</Color>
+    <Color x:Key="SolidBackgroundFillColorSecondary">#09090A</Color>
+    <Color x:Key="SolidBackgroundFillColorTertiary">#17181A</Color>
+    <Color x:Key="SolidBackgroundFillColorQuarternary">#17181A</Color>
+    <Color x:Key="SolidBackgroundFillColorTransparent">#000E0E0F</Color>
     <Color x:Key="SystemFillColorSuccess">#3FB76B</Color>
     <Color x:Key="SystemFillColorCaution">#E8A33D</Color>
     <Color x:Key="SystemFillColorCritical">#F0555C</Color>
@@ -198,12 +198,12 @@
     <SolidColorBrush x:Key="BreadcrumbBarBorderBrush" Color="Transparent" />
 
     <!-- ===== Acrylic / Direct-color SolidColorBrushes ===== -->
-    <SolidColorBrush x:Key="AcrylicBackgroundFillColorDefaultBrush" Color="#16181D" />
-    <SolidColorBrush x:Key="AcrylicInAppFillColorDefaultBrush" Color="#16181D" />
+    <SolidColorBrush x:Key="AcrylicBackgroundFillColorDefaultBrush" Color="#17181A" />
+    <SolidColorBrush x:Key="AcrylicInAppFillColorDefaultBrush" Color="#17181A" />
     <SolidColorBrush x:Key="AcrylicBackgroundFillColorDefaultInverseBrush" Color="#F9F9F9" />
     <SolidColorBrush x:Key="AcrylicInAppFillColorDefaultInverseBrush" Color="#F9F9F9" />
-    <SolidColorBrush x:Key="AcrylicBackgroundFillColorBaseBrush" Color="#0D0E12" />
-    <SolidColorBrush x:Key="AcrylicInAppFillColorBaseBrush" Color="#0D0E12" />
+    <SolidColorBrush x:Key="AcrylicBackgroundFillColorBaseBrush" Color="#0E0E0F" />
+    <SolidColorBrush x:Key="AcrylicInAppFillColorBaseBrush" Color="#0E0E0F" />
     <SolidColorBrush x:Key="DatePickerHeaderForegroundThemeBrush" Color="#FFFFFFFF" />
     <SolidColorBrush x:Key="DatePickerForegroundThemeBrush" Color="#FF000000" />
     <SolidColorBrush x:Key="TimePickerHeaderForegroundThemeBrush" Color="#FFFFFFFF" />
@@ -741,8 +741,8 @@
     <StaticResource x:Key="SliderThumbBorderBrush" ResourceKey="TextFillColorPrimaryBrush" />
     <StaticResource x:Key="SliderOuterThumbBackground" ResourceKey="AccentFillColorSecondaryBrush" />
     <StaticResource x:Key="SliderTrackFill" ResourceKey="ControlStrokeColorDefaultBrush" />
-    <SolidColorBrush x:Key="SliderTrackFillPointerOver" Color="#3A3D49" />
-    <SolidColorBrush x:Key="SliderTrackFillPressed" Color="#3A3D49" />
+    <SolidColorBrush x:Key="SliderTrackFillPointerOver" Color="#3C3D41" />
+    <SolidColorBrush x:Key="SliderTrackFillPressed" Color="#3C3D41" />
     <StaticResource x:Key="SliderTrackFillDisabled" ResourceKey="ControlStrongFillColorDisabledBrush" />
     <StaticResource x:Key="SliderTrackValueFill" ResourceKey="AccentFillColorSecondaryBrush" />
     <StaticResource x:Key="SliderTrackValueFillPointerOver" ResourceKey="AccentFillColorSecondaryBrush" />
@@ -753,8 +753,8 @@
     <StaticResource x:Key="SliderTickBarFill" ResourceKey="ControlStrongFillColorDefaultBrush" />
     <StaticResource x:Key="SliderTickBarFillDisabled" ResourceKey="ControlStrongFillColorDisabled" />
     <StaticResource x:Key="SliderInlineTickBarFill" ResourceKey="ControlFillColorInputActiveBrush" />
-    <SolidColorBrush x:Key="TextControlBackground" Color="#08090B" />
-    <SolidColorBrush x:Key="TextControlBackgroundPointerOver" Color="#0C0D11" />
+    <SolidColorBrush x:Key="TextControlBackground" Color="#09090A" />
+    <SolidColorBrush x:Key="TextControlBackgroundPointerOver" Color="#0D0D0E" />
     <StaticResource x:Key="TextControlBackgroundFocused" ResourceKey="ControlFillColorInputActiveBrush" />
     <StaticResource x:Key="TextControlBackgroundDisabled" ResourceKey="ControlFillColorTransparentBrush" />
     <StaticResource x:Key="TextControlBorderBrush" ResourceKey="ControlStrokeColorDefaultBrush" />
@@ -1448,29 +1448,29 @@
     <StaticResource x:Key="BreadcrumbBarItemThemeFontSize" ResourceKey="ControlContentThemeFontSize" />
 
     <!-- ===== Main window background ===== -->
-    <SolidColorBrush x:Key="MainWindowBackground" Color="#FF0D0E12" />
+    <SolidColorBrush x:Key="MainWindowBackground" Color="#FF0E0E0F" />
 
     <!--
         ===== Dock surfaces =====
         DynamicResource-consumed, so these flat overrides win over Dock/DockFluent.axaml's Dark
-        ThemeDictionary. Every panel shares the flat base; the 1px divider (#212330) paints the
+        ThemeDictionary. Every panel shares the flat base; the 1px divider (#222327) paints the
         workbench and splitters.
     -->
-    <SolidColorBrush x:Key="DockThemeBackgroundBrush" Color="#0D0E12" />
-    <SolidColorBrush x:Key="DockThemeControlBackgroundBrush" Color="#16181D" />
-    <SolidColorBrush x:Key="DockThemeBorderLowBrush" Color="#212330" />
+    <SolidColorBrush x:Key="DockThemeBackgroundBrush" Color="#0E0E0F" />
+    <SolidColorBrush x:Key="DockThemeControlBackgroundBrush" Color="#17181A" />
+    <SolidColorBrush x:Key="DockThemeBorderLowBrush" Color="#222327" />
 
-    <SolidColorBrush x:Key="DockSurfaceWorkbenchBrush" Color="#212330" />
-    <SolidColorBrush x:Key="DockSurfaceSidebarBrush" Color="#0D0E12" />
-    <SolidColorBrush x:Key="DockSurfaceEditorBrush" Color="#0D0E12" />
-    <SolidColorBrush x:Key="DockSurfacePanelBrush" Color="#0D0E12" />
-    <SolidColorBrush x:Key="DockSurfaceHeaderBrush" Color="#0D0E12" />
-    <SolidColorBrush x:Key="DockSurfaceHeaderActiveBrush" Color="#0D0E12" />
+    <SolidColorBrush x:Key="DockSurfaceWorkbenchBrush" Color="#222327" />
+    <SolidColorBrush x:Key="DockSurfaceSidebarBrush" Color="#0E0E0F" />
+    <SolidColorBrush x:Key="DockSurfaceEditorBrush" Color="#0E0E0F" />
+    <SolidColorBrush x:Key="DockSurfacePanelBrush" Color="#0E0E0F" />
+    <SolidColorBrush x:Key="DockSurfaceHeaderBrush" Color="#0E0E0F" />
+    <SolidColorBrush x:Key="DockSurfaceHeaderActiveBrush" Color="#0E0E0F" />
 
-    <SolidColorBrush x:Key="DockBorderSubtleBrush" Color="#212330" />
-    <SolidColorBrush x:Key="DockBorderStrongBrush" Color="#31343E" />
-    <SolidColorBrush x:Key="DockSeparatorBrush" Color="#212330" />
-    <SolidColorBrush x:Key="DockSplitterIdleBrush" Color="#212330" />
+    <SolidColorBrush x:Key="DockBorderSubtleBrush" Color="#222327" />
+    <SolidColorBrush x:Key="DockBorderStrongBrush" Color="#333437" />
+    <SolidColorBrush x:Key="DockSeparatorBrush" Color="#222327" />
+    <SolidColorBrush x:Key="DockSplitterIdleBrush" Color="#222327" />
     <SolidColorBrush x:Key="DockSplitterHoverBrush" Color="{DynamicResource SystemAccentColorLight1}" />
     <!--  The title-bar bottom border shares the dock splitter's color in this theme only.  -->
     <StaticResource x:Key="TitleBarBottomBorderBrush" ResourceKey="DockSplitterIdleBrush" />
