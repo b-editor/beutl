@@ -41,7 +41,7 @@ public sealed class DelayNode : AudioNode
         // Reset on the first call or any seek (a chunk not starting where the previous one ended).
         // The node is cached across Compose() calls, so stale delay-line content would otherwise
         // bleed in. Matches CompressorNode/EqualizerNode.
-        if (!_lastTimeRangeEnd.HasValue || _lastTimeRangeEnd.Value != context.TimeRange.Start)
+        if (!_lastTimeRangeEnd.HasValue || !context.ContinuesFrom(_lastTimeRangeEnd.Value))
         {
             Reset();
         }
