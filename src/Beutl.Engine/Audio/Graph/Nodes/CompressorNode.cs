@@ -8,35 +8,13 @@ using static Beutl.Audio.Effects.CompressorParameters;
 
 namespace Beutl.Audio.Graph.Nodes;
 
-public sealed class CompressorNode : AudioNode
+public sealed class CompressorNode : DynamicsNode
 {
     private static readonly ILogger s_logger = Log.CreateLogger<CompressorNode>();
 
-    private const float MinDb = -100f;
-
     private float _envelopeDb = MinDb;
-    private int _lastSampleRate;
-    private TimeSpan? _lastTimeRangeEnd;
 
-    // Cached per-channel buffer handles so the hot loops skip GetChannelData's checks/re-slicing.
-    // Memory<float> (not Span, a ref struct); arrays reused across Process(), reallocated only on
-    // channel-count change.
-    private Memory<float>[]? _inputChannelCache;
-    private Memory<float>[]? _outputChannelCache;
-
-    // Latched per node instance so each non-finite warning fires only once, not per sample.
     private bool _loggedNonFiniteEnvelope;
-    private bool _loggedNonFiniteSample;
-    // Per-parameter so a non-finite value on one parameter does not suppress diagnostics for another.
-    private readonly HashSet<string> _loggedNonFiniteParameters = new();
-    // Separate once-per-parameter latch for the "finite but out-of-[Range]" case, so clamp and
-    // non-finite warnings for the same parameter are not conflated.
-    private readonly HashSet<string> _loggedClampedParameters = new();
-
-    // Test-only counters (via InternalsVisibleTo) of warnings actually emitted, letting the latch
-    // re-arm semantics be asserted without a logger sink.
-    internal int NonFiniteSampleWarnings;
-    internal int ClampWarnings;
 
     public required IProperty<float> Threshold { get; init; }
 
@@ -50,60 +28,23 @@ public sealed class CompressorNode : AudioNode
 
     public required IProperty<float> MakeupGain { get; init; }
 
-    public override AudioBuffer Process(AudioProcessContext context)
-    {
-        if (Inputs.Count != 1)
-            throw new InvalidOperationException(
-                $"Compressor node requires exactly one input but got {Inputs.Count}.");
+    protected override ILogger Logger => s_logger;
 
-        // Every path emits a fresh buffer (no pass-through), so dispose the consumed input.
-        using var input = Inputs[0].Process(context);
+    protected override string DiagnosticName => "Compressor";
 
-        // A sample-rate change needs new coefficients, so treat it as a full session boundary:
-        // reset both the envelope and the one-shot diagnostic latches.
-        if (_lastSampleRate != context.SampleRate)
-        {
-            Reset();
-            _lastSampleRate = context.SampleRate;
-        }
+    // Expression-backed properties are deliberately not treated as animated: AnimationSampler does not
+    // yet evaluate expressions per-sample, so routing them to ProcessAnimated would just re-read the
+    // same CurrentValue every iteration. FIXME: once it does (see EqualizerEffect.IsNeutral), treat
+    // HasExpression as live here too, or such parameters stay frozen at build-time value.
+    protected override bool HasAnimatedParameters =>
+        Threshold.Animation != null ||
+        Ratio.Animation != null ||
+        Attack.Animation != null ||
+        Release.Animation != null ||
+        Knee.Animation != null ||
+        MakeupGain.Animation != null;
 
-        // Reset the envelope on the first call or whenever this chunk does not continue from the
-        // previous one. The node is cached across Compose() calls, so without this guard stale
-        // envelope state would bleed in after a seek/restart. Only DSP state resets here, NOT the
-        // diagnostic latches — re-arming them on every scrub discontinuity would let a persistent
-        // non-finite condition re-log per Process call. Diagnostics re-arm only on a sample-rate
-        // change or an explicit Reset().
-        if (!_lastTimeRangeEnd.HasValue || _lastTimeRangeEnd.Value != context.TimeRange.Start)
-        {
-            ResetEnvelope();
-        }
-        _lastTimeRangeEnd = context.TimeRange.Start + context.TimeRange.Duration;
-
-        if (input.SampleCount == 0)
-        {
-            return new AudioBuffer(input.SampleRate, input.ChannelCount, 0);
-        }
-
-        // Expression-backed properties are deliberately not checked: AnimationSampler does not yet
-        // evaluate expressions per-sample, so routing them to ProcessAnimated would just re-read the
-        // same CurrentValue every iteration. FIXME: once it does (see EqualizerEffect.IsNeutral),
-        // treat HasExpression as live here too, or such parameters stay frozen at build-time value.
-        bool hasAnimation = Threshold.Animation != null ||
-                            Ratio.Animation != null ||
-                            Attack.Animation != null ||
-                            Release.Animation != null ||
-                            Knee.Animation != null ||
-                            MakeupGain.Animation != null;
-
-        if (!hasAnimation)
-        {
-            return ProcessStatic(input, context);
-        }
-
-        return ProcessAnimated(input, context);
-    }
-
-    private AudioBuffer ProcessStatic(AudioBuffer input, AudioProcessContext context)
+    protected override AudioBuffer ProcessStatic(AudioBuffer input, AudioProcessContext context)
     {
         var output = new AudioBuffer(input.SampleRate, input.ChannelCount, input.SampleCount);
         try
@@ -180,7 +121,7 @@ public sealed class CompressorNode : AudioNode
         }
     }
 
-    private AudioBuffer ProcessAnimated(AudioBuffer input, AudioProcessContext context)
+    protected override AudioBuffer ProcessAnimated(AudioBuffer input, AudioProcessContext context)
     {
         var output = new AudioBuffer(input.SampleRate, input.ChannelCount, input.SampleCount);
         try
@@ -304,36 +245,16 @@ public sealed class CompressorNode : AudioNode
         }
     }
 
-    // Caches per-channel Memory handles, reusing the backing arrays across calls (reallocated only
-    // on a channel-count change) so the hot loops avoid per-sample GetChannelData. See field comment.
-    private (Memory<float>[] Inputs, Memory<float>[] Outputs) MapChannels(AudioBuffer input, AudioBuffer output)
-    {
-        int channels = input.ChannelCount;
-        if (_inputChannelCache is null || _inputChannelCache.Length != channels)
-        {
-            _inputChannelCache = new Memory<float>[channels];
-            _outputChannelCache = new Memory<float>[channels];
-        }
-
-        for (int ch = 0; ch < channels; ch++)
-        {
-            _inputChannelCache[ch] = input.GetChannelMemory(ch);
-            _outputChannelCache![ch] = output.GetChannelMemory(ch);
-        }
-
-        return (_inputChannelCache, _outputChannelCache!);
-    }
-
     private EffectiveParameters ReadStaticParameters()
     {
         return new EffectiveParameters
         {
-            Threshold = Sanitize(Threshold.CurrentValue, Threshold.DefaultValue, MinThresholdDb, MaxThresholdDb, nameof(Threshold)),
-            Ratio = Sanitize(Ratio.CurrentValue, Ratio.DefaultValue, MinRatio, MaxRatio, nameof(Ratio)),
-            Attack = Sanitize(Attack.CurrentValue, Attack.DefaultValue, MinAttackMs, MaxAttackMs, nameof(Attack)),
-            Release = Sanitize(Release.CurrentValue, Release.DefaultValue, MinReleaseMs, MaxReleaseMs, nameof(Release)),
-            Knee = Sanitize(Knee.CurrentValue, Knee.DefaultValue, MinKneeDb, MaxKneeDb, nameof(Knee)),
-            MakeupGain = Sanitize(MakeupGain.CurrentValue, MakeupGain.DefaultValue, MinMakeupGainDb, MaxMakeupGainDb, nameof(MakeupGain)),
+            Threshold = Sanitize(Threshold.CurrentValue, Threshold.DefaultValue, DefaultThresholdDb, MinThresholdDb, MaxThresholdDb, nameof(Threshold)),
+            Ratio = Sanitize(Ratio.CurrentValue, Ratio.DefaultValue, DefaultRatio, MinRatio, MaxRatio, nameof(Ratio)),
+            Attack = Sanitize(Attack.CurrentValue, Attack.DefaultValue, DefaultAttackMs, MinAttackMs, MaxAttackMs, nameof(Attack)),
+            Release = Sanitize(Release.CurrentValue, Release.DefaultValue, DefaultReleaseMs, MinReleaseMs, MaxReleaseMs, nameof(Release)),
+            Knee = Sanitize(Knee.CurrentValue, Knee.DefaultValue, DefaultKneeDb, MinKneeDb, MaxKneeDb, nameof(Knee)),
+            MakeupGain = Sanitize(MakeupGain.CurrentValue, MakeupGain.DefaultValue, DefaultMakeupGainDb, MinMakeupGainDb, MaxMakeupGainDb, nameof(MakeupGain)),
         };
     }
 
@@ -343,33 +264,13 @@ public sealed class CompressorNode : AudioNode
     {
         return new EffectiveParameters
         {
-            Threshold = Sanitize(threshold, fallback.Threshold, MinThresholdDb, MaxThresholdDb, nameof(Threshold)),
-            Ratio = Sanitize(ratio, fallback.Ratio, MinRatio, MaxRatio, nameof(Ratio)),
-            Attack = Sanitize(attack, fallback.Attack, MinAttackMs, MaxAttackMs, nameof(Attack)),
-            Release = Sanitize(release, fallback.Release, MinReleaseMs, MaxReleaseMs, nameof(Release)),
-            Knee = Sanitize(knee, fallback.Knee, MinKneeDb, MaxKneeDb, nameof(Knee)),
-            MakeupGain = Sanitize(makeup, fallback.MakeupGain, MinMakeupGainDb, MaxMakeupGainDb, nameof(MakeupGain)),
+            Threshold = Sanitize(threshold, fallback.Threshold, DefaultThresholdDb, MinThresholdDb, MaxThresholdDb, nameof(Threshold)),
+            Ratio = Sanitize(ratio, fallback.Ratio, DefaultRatio, MinRatio, MaxRatio, nameof(Ratio)),
+            Attack = Sanitize(attack, fallback.Attack, DefaultAttackMs, MinAttackMs, MaxAttackMs, nameof(Attack)),
+            Release = Sanitize(release, fallback.Release, DefaultReleaseMs, MinReleaseMs, MaxReleaseMs, nameof(Release)),
+            Knee = Sanitize(knee, fallback.Knee, DefaultKneeDb, MinKneeDb, MaxKneeDb, nameof(Knee)),
+            MakeupGain = Sanitize(makeup, fallback.MakeupGain, DefaultMakeupGainDb, MinMakeupGainDb, MaxMakeupGainDb, nameof(MakeupGain)),
         };
-    }
-
-    // Substitute fallback for NaN/Infinity, then clamp to the parameter's [Range]. The clamp stops
-    // an animated value (e.g. Attack of 1e9 ms) from bypassing the declared range and freezing the
-    // envelope. A finite-but-out-of-range value is a real authoring error distinct from the
-    // non-finite case, so it gets its own once-per-parameter warning as a breadcrumb.
-    private float Sanitize(float value, float fallback, float min, float max, string paramName)
-    {
-        float safe = SafeParameter(value, fallback, paramName);
-        float clamped = Math.Clamp(safe, min, max);
-        // Only finite values reach here as `safe != clamped` (non-finite was already replaced by the
-        // in-range fallback). Latch once per parameter; re-armed only by ResetDiagnostics.
-        if (clamped != safe && _loggedClampedParameters.Add(paramName))
-        {
-            ClampWarnings++;
-            s_logger.LogWarning(
-                "Compressor parameter '{Param}' value {Value} is outside its valid range [{Min}, {Max}]; clamping to {Clamped}. Further out-of-range occurrences for this parameter will be suppressed.",
-                paramName, safe, min, max, clamped);
-        }
-        return clamped;
     }
 
     // Without this, one non-finite envelope sample would poison the state until the next Reset().
@@ -379,38 +280,10 @@ public sealed class CompressorNode : AudioNode
         if (float.IsFinite(_envelopeDb)) return;
         _envelopeDb = MinDb;
         if (_loggedNonFiniteEnvelope) return;
-        s_logger.LogWarning(
+        Logger.LogWarning(
             "Compressor envelope became non-finite (input sample produced inf/NaN); resetting to {MinDb} dB. Further occurrences will be suppressed.",
             MinDb);
         _loggedNonFiniteEnvelope = true;
-    }
-
-    private float SafeParameter(float value, float fallback, string paramName)
-    {
-        if (float.IsFinite(value)) return value;
-        if (_loggedNonFiniteParameters.Add(paramName))
-        {
-            s_logger.LogWarning(
-                "Compressor parameter '{Param}' produced a non-finite value; falling back to {Fallback}. Further occurrences for this parameter will be suppressed.",
-                paramName, fallback);
-        }
-        return fallback;
-    }
-
-    private float SanitizeOutput(float sample)
-    {
-        if (float.IsFinite(sample)) return sample;
-        if (!_loggedNonFiniteSample)
-        {
-            NonFiniteSampleWarnings++;
-            // Parameters are clamped and the envelope recovered, so the gain cannot overflow — a
-            // non-finite sample here almost always came from upstream. Zero it to protect downstream
-            // nodes and point the breadcrumb at the likely culprit.
-            s_logger.LogWarning(
-                "Compressor encountered a non-finite (NaN/Infinity) sample — with all parameters clamped this almost certainly originates upstream — and replaced it with 0 to protect downstream nodes. Further occurrences will be suppressed.");
-            _loggedNonFiniteSample = true;
-        }
-        return 0f;
     }
 
     // Advances the envelope follower by one sample's peak and returns the linear gain. Shared by
@@ -433,13 +306,6 @@ public sealed class CompressorNode : AudioNode
     private static float ComputeGainLinear(float gainReductionDb, float makeupDb)
     {
         return AudioMath.ConvertDbToLinear(makeupDb - gainReductionDb);
-    }
-
-    // One-pole IIR smoothing coefficient for a 1/e settling time of `timeMs`: the envelope reaches
-    // ~63% of a step change after `timeMs`. dB-domain because that better matches perceived loudness.
-    private static float ComputeCoeff(float timeMs, int sampleRate)
-    {
-        return MathF.Exp(-1f / (timeMs * 0.001f * sampleRate));
     }
 
     // Soft-knee gain computer (Reece/Giannoulis): when kneeDb > 0, a C¹-continuous quadratic blends
@@ -468,46 +334,15 @@ public sealed class CompressorNode : AudioNode
         return envelopeDb > thresholdDb ? slope * (envelopeDb - thresholdDb) : 0f;
     }
 
-    /// <summary>
-    /// Resets the compressor to a clean "new render session" state: zeroes the envelope follower
-    /// and re-arms the one-shot non-finite diagnostic warnings.
-    /// </summary>
-    /// <remarks>
-    /// Do not call mid-buffer during playback — zeroing the envelope there clicks. This is for
-    /// genuine session boundaries (a deliberate re-render or an orchestrator-driven stop/seek);
-    /// <see cref="Process"/> already resets the envelope on a sample-rate change or time-range
-    /// discontinuity. Public to match the sibling stateful nodes <c>EqualizerNode</c> / <c>DelayNode</c>.
-    /// </remarks>
-    public void Reset()
-    {
-        ResetEnvelope();
-        ResetDiagnostics();
-    }
-
-    private void ResetEnvelope()
+    protected override void ResetDspState()
     {
         _envelopeDb = MinDb;
     }
 
-    private void ResetDiagnostics()
+    protected override void ResetDiagnostics()
     {
+        base.ResetDiagnostics();
         _loggedNonFiniteEnvelope = false;
-        _loggedNonFiniteSample = false;
-        _loggedNonFiniteParameters.Clear();
-        _loggedClampedParameters.Clear();
-    }
-
-    protected override void Dispose(bool disposing)
-    {
-        if (disposing)
-        {
-            // Drop the cached handles so we do not pin the last buffers' pooled memory after
-            // disposal; they are re-filled on the next Process() call.
-            _inputChannelCache = null;
-            _outputChannelCache = null;
-        }
-
-        base.Dispose(disposing);
     }
 
     // readonly + init-only: built once via object initializer, then only read (passed `in`), so

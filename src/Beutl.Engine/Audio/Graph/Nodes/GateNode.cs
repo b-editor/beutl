@@ -8,32 +8,13 @@ using static Beutl.Audio.Effects.GateParameters;
 
 namespace Beutl.Audio.Graph.Nodes;
 
-public sealed class GateNode : AudioNode
+public sealed class GateNode : DynamicsNode
 {
     private static readonly ILogger s_logger = Log.CreateLogger<GateNode>();
-
-    private const float MinDb = -100f;
-
-    // Independent TimeSpan rounding can shift adjacent sample boundaries by one tick.
-    private const long TimestampQuantizationToleranceTicks = 1;
 
     private float _gateGainDb = MinDb;
     private bool _gatePrimed;
     private int _holdCounter;
-    private int _lastSampleRate;
-    private TimeSpan? _lastTimeRangeEnd;
-
-    // Reuse channel views to avoid checks and slicing in the sample loops.
-    private Memory<float>[]? _inputChannelCache;
-    private Memory<float>[]? _outputChannelCache;
-
-    // Diagnostic warnings are emitted once per node, not once per sample.
-    private bool _loggedNonFiniteSample;
-    private readonly HashSet<string> _loggedNonFiniteParameters = new();
-    private readonly HashSet<string> _loggedClampedParameters = new();
-
-    internal int NonFiniteSampleWarnings;
-    internal int ClampWarnings;
 
     public required IProperty<float> Threshold { get; init; }
 
@@ -45,54 +26,19 @@ public sealed class GateNode : AudioNode
 
     public required IProperty<float> Range { get; init; }
 
-    public override AudioBuffer Process(AudioProcessContext context)
-    {
-        if (Inputs.Count != 1)
-            throw new InvalidOperationException(
-                $"Gate node requires exactly one input but got {Inputs.Count}.");
+    protected override ILogger Logger => s_logger;
 
-        using var input = Inputs[0].Process(context);
+    protected override string DiagnosticName => "Gate";
 
-        // A mismatch would mislabel samples because this node does not resample.
-        if (input.SampleRate != context.SampleRate)
-            throw new InvalidOperationException(
-                $"Gate node: sample rate mismatch. context={context.SampleRate}, input={input.SampleRate}.");
+    // AnimationSampler does not yet evaluate expressions per sample.
+    protected override bool HasAnimatedParameters =>
+        Threshold.Animation != null ||
+        Attack.Animation != null ||
+        Hold.Animation != null ||
+        Release.Animation != null ||
+        Range.Animation != null;
 
-        if (_lastSampleRate != context.SampleRate)
-        {
-            Reset();
-            _lastSampleRate = context.SampleRate;
-        }
-
-        // Returns before _lastTimeRangeEnd advances: an empty chunk would otherwise mask a discontinuity.
-        if (input.SampleCount == 0)
-        {
-            return new AudioBuffer(input.SampleRate, input.ChannelCount, 0);
-        }
-
-        // Cached nodes must not carry DSP state across seeks or restarts.
-        if (!_lastTimeRangeEnd.HasValue || !IsTimestampContiguous(_lastTimeRangeEnd.Value, context.TimeRange.Start))
-        {
-            ResetGate();
-        }
-        _lastTimeRangeEnd = context.TimeRange.Start + context.TimeRange.Duration;
-
-        // AnimationSampler does not yet evaluate expressions per sample.
-        bool hasAnimation = Threshold.Animation != null ||
-                            Attack.Animation != null ||
-                            Hold.Animation != null ||
-                            Release.Animation != null ||
-                            Range.Animation != null;
-
-        if (!hasAnimation)
-        {
-            return ProcessStatic(input, context);
-        }
-
-        return ProcessAnimated(input, context);
-    }
-
-    private AudioBuffer ProcessStatic(AudioBuffer input, AudioProcessContext context)
+    protected override AudioBuffer ProcessStatic(AudioBuffer input, AudioProcessContext context)
     {
         var output = new AudioBuffer(input.SampleRate, input.ChannelCount, input.SampleCount);
         try
@@ -168,7 +114,7 @@ public sealed class GateNode : AudioNode
         }
     }
 
-    private AudioBuffer ProcessAnimated(AudioBuffer input, AudioProcessContext context)
+    protected override AudioBuffer ProcessAnimated(AudioBuffer input, AudioProcessContext context)
     {
         var output = new AudioBuffer(input.SampleRate, input.ChannelCount, input.SampleCount);
         try
@@ -287,24 +233,6 @@ public sealed class GateNode : AudioNode
         }
     }
 
-    private (Memory<float>[] Inputs, Memory<float>[] Outputs) MapChannels(AudioBuffer input, AudioBuffer output)
-    {
-        int channels = input.ChannelCount;
-        if (_inputChannelCache is null || _inputChannelCache.Length != channels)
-        {
-            _inputChannelCache = new Memory<float>[channels];
-            _outputChannelCache = new Memory<float>[channels];
-        }
-
-        for (int ch = 0; ch < channels; ch++)
-        {
-            _inputChannelCache[ch] = input.GetChannelMemory(ch);
-            _outputChannelCache![ch] = output.GetChannelMemory(ch);
-        }
-
-        return (_inputChannelCache, _outputChannelCache!);
-    }
-
     private EffectiveParameters ReadStaticParameters()
     {
         return new EffectiveParameters
@@ -329,48 +257,6 @@ public sealed class GateNode : AudioNode
             Release = Sanitize(release, fallback.Release, DefaultReleaseMs, MinReleaseMs, MaxReleaseMs, nameof(Release)),
             Range = Sanitize(range, fallback.Range, DefaultRangeDb, MinRangeDb, MaxRangeDb, nameof(Range)),
         };
-    }
-
-    // Non-finite and out-of-range values have distinct once-per-parameter warnings.
-    private float Sanitize(float value, float fallback, float declaredDefault, float min, float max, string paramName)
-    {
-        float safe = SafeParameter(value, fallback, declaredDefault, paramName);
-        float clamped = Math.Clamp(safe, min, max);
-        if (clamped != safe && _loggedClampedParameters.Add(paramName))
-        {
-            ClampWarnings++;
-            s_logger.LogWarning(
-                "Gate parameter '{Param}' value {Value} is outside its valid range [{Min}, {Max}]; clamping to {Clamped}. Further out-of-range occurrences for this parameter will be suppressed.",
-                paramName, safe, min, max, clamped);
-        }
-        return clamped;
-    }
-
-    private float SafeParameter(float value, float fallback, float declaredDefault, string paramName)
-    {
-        if (float.IsFinite(value)) return value;
-        // IProperty implementations may expose non-finite defaults, which Math.Clamp cannot recover.
-        float safeFallback = float.IsFinite(fallback) ? fallback : declaredDefault;
-        if (_loggedNonFiniteParameters.Add(paramName))
-        {
-            s_logger.LogWarning(
-                "Gate parameter '{Param}' produced a non-finite value; falling back to {Fallback}. Further occurrences for this parameter will be suppressed.",
-                paramName, safeFallback);
-        }
-        return safeFallback;
-    }
-
-    private float SanitizeOutput(float sample)
-    {
-        if (float.IsFinite(sample)) return sample;
-        if (!_loggedNonFiniteSample)
-        {
-            NonFiniteSampleWarnings++;
-            s_logger.LogWarning(
-                "Gate encountered a non-finite (NaN/Infinity) sample — with all parameters clamped this almost certainly originates upstream — and replaced it with 0 to protect downstream nodes. Further occurrences will be suppressed.");
-            _loggedNonFiniteSample = true;
-        }
-        return 0f;
     }
 
     // Shared by static and animated processing to keep gate state transitions identical.
@@ -413,60 +299,17 @@ public sealed class GateNode : AudioNode
         return AudioMath.ConvertDbToLinear(_gateGainDb);
     }
 
-    // One-pole IIR coefficient with a 1/e settling time of timeMs.
-    private static float ComputeCoeff(float timeMs, int sampleRate)
-    {
-        return MathF.Exp(-1f / (timeMs * 0.001f * sampleRate));
-    }
-
     private static int HoldSamples(float holdMs, int sampleRate)
     {
         int samples = (int)(holdMs * 0.001f * sampleRate);
         return samples < 0 ? 0 : samples;
     }
 
-    /// <summary>
-    /// Resets all gate state for a new render session.
-    /// </summary>
-    /// <remarks>
-    /// Do not call during playback because closing the gate mid-buffer clicks.
-    /// <see cref="Process"/> handles sample-rate changes and time-range discontinuities.
-    /// </remarks>
-    public void Reset()
-    {
-        ResetGate();
-        ResetDiagnostics();
-    }
-
-    private void ResetGate()
+    protected override void ResetDspState()
     {
         _gateGainDb = MinDb;
         _holdCounter = 0;
         _gatePrimed = false;
-    }
-
-    private static bool IsTimestampContiguous(TimeSpan previousEnd, TimeSpan nextStart)
-    {
-        long difference = nextStart.Ticks - previousEnd.Ticks;
-        return difference is >= -TimestampQuantizationToleranceTicks and <= TimestampQuantizationToleranceTicks;
-    }
-
-    private void ResetDiagnostics()
-    {
-        _loggedNonFiniteSample = false;
-        _loggedNonFiniteParameters.Clear();
-        _loggedClampedParameters.Clear();
-    }
-
-    protected override void Dispose(bool disposing)
-    {
-        if (disposing)
-        {
-            _inputChannelCache = null;
-            _outputChannelCache = null;
-        }
-
-        base.Dispose(disposing);
     }
 
     private readonly struct EffectiveParameters

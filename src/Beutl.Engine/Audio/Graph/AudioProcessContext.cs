@@ -6,6 +6,8 @@ namespace Beutl.Audio.Graph;
 
 public sealed class AudioProcessContext
 {
+    private const long TimestampQuantizationToleranceTicks = 1;
+
     public AudioProcessContext(TimeRange timeRange, int sampleRate, AnimationSampler animationSampler, TimeRange? originalTimeRange)
     {
         ArgumentNullException.ThrowIfNull(animationSampler);
@@ -52,6 +54,21 @@ public sealed class AudioProcessContext
             throw new ArgumentOutOfRangeException(nameof(range), $"Sample count {samples} exceeds Int32.MaxValue at sampleRate={sampleRate}.");
 
         return (int)samples;
+    }
+
+    /// <summary>
+    /// Returns whether this chunk continues directly from a previous chunk that ended at <paramref name="previousEnd"/>.
+    /// </summary>
+    /// <remarks>
+    /// Independently rounded <see cref="TimeSpan"/> values can place adjacent sample boundaries one tick
+    /// apart, so a one-tick gap or overlap still counts as contiguous; two ticks or more is a real
+    /// seek/edit boundary. Every stateful node must route through this helper, or the same scrub would
+    /// reset some nodes in a chain and not others.
+    /// </remarks>
+    public bool ContinuesFrom(TimeSpan previousEnd)
+    {
+        long difference = TimeRange.Start.Ticks - previousEnd.Ticks;
+        return difference is >= -TimestampQuantizationToleranceTicks and <= TimestampQuantizationToleranceTicks;
     }
 
     public TimeSpan GetTimeForSample(int sampleIndex)

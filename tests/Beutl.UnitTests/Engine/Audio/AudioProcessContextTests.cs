@@ -119,4 +119,31 @@ public class AudioProcessContextTests
             () => AudioProcessContext.GetSampleCount(range, 44100));
         Assert.That(ex!.ParamName, Is.EqualTo("range"));
     }
+
+    [TestCase(0L, true)]
+    [TestCase(1L, true)]
+    [TestCase(-1L, true)]
+    [TestCase(2L, false)]
+    [TestCase(-2L, false)]
+    public void ContinuesFrom_ToleratesOneTickOfBoundaryRounding(long tickOffset, bool expected)
+    {
+        // Stateful nodes reset their DSP state when this returns false, so the tolerance decides whether
+        // a rounding artifact is heard as a click.
+        var previousEnd = TimeSpan.FromSeconds(1);
+        var context = new AudioProcessContext(
+            new TimeRange(previousEnd + TimeSpan.FromTicks(tickOffset), TimeSpan.FromSeconds(0.1)),
+            48000, new AnimationSampler(), null);
+
+        Assert.That(context.ContinuesFrom(previousEnd), Is.EqualTo(expected));
+    }
+
+    [Test]
+    public void ContinuesFrom_Seek_IsNotContiguous()
+    {
+        var context = new AudioProcessContext(
+            new TimeRange(TimeSpan.FromSeconds(5), TimeSpan.FromSeconds(0.1)),
+            48000, new AnimationSampler(), null);
+
+        Assert.That(context.ContinuesFrom(TimeSpan.FromSeconds(1)), Is.False);
+    }
 }

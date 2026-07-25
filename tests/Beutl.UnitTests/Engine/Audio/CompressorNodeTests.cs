@@ -7,6 +7,7 @@ using Beutl.Engine;
 using Beutl.Engine.Expressions;
 using Beutl.Media;
 
+using static Beutl.Audio.Effects.CompressorParameters;
 using static Beutl.UnitTests.Engine.Audio.AudioTestBuffers;
 
 namespace Beutl.UnitTests.Engine.Audio;
@@ -1296,5 +1297,127 @@ public class CompressorNodeTests
 
         Assert.That(node.ClampWarnings, Is.EqualTo(1),
             "An out-of-range animated Attack must warn exactly once for the whole chunk, not zero and not per-sample.");
+    }
+
+    [TestCase(-1L)]
+    [TestCase(1L)]
+    public void Process_OneTickBoundaryRounding_DoesNotResetEnvelope(long tickOffset)
+    {
+        // Independently rounded chunk boundaries can land one tick apart, which is not a seek: the
+        // warmed-up envelope must survive so the first sample stays quieter than a fresh node's.
+        const int chunkSamples = SampleRate / 10;
+        var chunkDuration = TimeSpan.FromSeconds(chunkSamples / (double)SampleRate);
+        var ctx1 = CreateContext(TimeSpan.Zero, chunkDuration);
+        var ctx2 = CreateContext(chunkDuration + TimeSpan.FromTicks(tickOffset), chunkDuration);
+
+        var node = CreateNode(release: 1000f);
+        using var warmupInput = CreateConstantBuffer(0.9f, chunkSamples);
+        node.AddInput(new BufferReplayNode(warmupInput));
+        using var warmup = node.Process(ctx1);
+        node.ClearInputs();
+        using var followInput = CreateConstantBuffer(0.9f, chunkSamples);
+        node.AddInput(new BufferReplayNode(followInput));
+        using var followOutput = node.Process(ctx2);
+
+        var nodeFresh = CreateNode(release: 1000f);
+        using var freshInput = CreateConstantBuffer(0.9f, chunkSamples);
+        nodeFresh.AddInput(new BufferReplayNode(freshInput));
+        using var freshOutput = nodeFresh.Process(ctx1);
+
+        float continuingFirst = MathF.Abs(followOutput.GetChannelData(0)[0]);
+        float freshFirst = MathF.Abs(freshOutput.GetChannelData(0)[0]);
+        Assert.That(continuingFirst, Is.LessThan(freshFirst),
+            $"A one-tick boundary rounding must not reset the envelope (continuing≈{continuingFirst:F4}, fresh≈{freshFirst:F4}).");
+    }
+
+    [Test]
+    public void Process_EmptyChunkWithDuration_DoesNotMaskLaterDiscontinuity()
+    {
+        // A chunk that spans time but carries no samples leaves a hole; the chunk after it is not
+        // contiguous with the chunk before it.
+        const int chunkSamples = SampleRate / 10;
+        var chunkDuration = TimeSpan.FromSeconds(chunkSamples / (double)SampleRate);
+
+        var node = CreateNode(release: 1000f);
+        using var warmupInput = CreateConstantBuffer(0.9f, chunkSamples);
+        node.AddInput(new BufferReplayNode(warmupInput));
+        using var warmup = node.Process(CreateContext(TimeSpan.Zero, chunkDuration));
+
+        node.ClearInputs();
+        using var emptyInput = new AudioBuffer(SampleRate, 2, 0);
+        node.AddInput(new BufferReplayNode(emptyInput));
+        using var emptyOutput = node.Process(CreateContext(chunkDuration, chunkDuration));
+        Assert.That(emptyOutput.SampleCount, Is.EqualTo(0));
+
+        node.ClearInputs();
+        using var afterHoleInput = CreateConstantBuffer(0.9f, chunkSamples);
+        node.AddInput(new BufferReplayNode(afterHoleInput));
+        using var afterHoleOutput = node.Process(CreateContext(chunkDuration + chunkDuration, chunkDuration));
+
+        var nodeFresh = CreateNode(release: 1000f);
+        using var freshInput = CreateConstantBuffer(0.9f, chunkSamples);
+        nodeFresh.AddInput(new BufferReplayNode(freshInput));
+        using var freshOutput = nodeFresh.Process(CreateContext(TimeSpan.Zero, chunkDuration));
+
+        Assert.That(
+            MathF.Abs(afterHoleOutput.GetChannelData(0)[0]),
+            Is.EqualTo(MathF.Abs(freshOutput.GetChannelData(0)[0])).Within(1e-4f),
+            "The chunk after an empty-but-timed chunk must start from a reset envelope.");
+    }
+
+    [Test]
+    public void Process_InputSampleRateMismatch_Throws()
+    {
+        // Coefficients come from the context rate while the buffer carries the input's, so a mismatched
+        // upstream buffer must be rejected rather than silently relabelled.
+        const int altSampleRate = 44100;
+        using var input = CreateConstantBuffer(0.9f, altSampleRate / 10, 2, altSampleRate);
+        var node = CreateNode();
+        node.AddInput(new BufferReplayNode(input));
+
+        Assert.Throws<InvalidOperationException>(
+            () => node.Process(CreateContext(TimeSpan.Zero, TimeSpan.FromSeconds(0.1))));
+    }
+
+    [Test]
+    public void Process_NonFinitePropertyDefault_FallsBackToDeclaredConstant()
+    {
+        // A library user can declare a property whose CurrentValue and DefaultValue are both non-finite.
+        // Returning the non-finite default would defeat the clamp (NaN clamps to NaN) and mute the node,
+        // so the declared CompressorParameters constants must take over.
+        const int sampleCount = SampleRate / 4;
+        using var input = CreateConstantBuffer(0.9f, sampleCount);
+
+        var node = new CompressorNode
+        {
+            Threshold = Property.CreateAnimatable(float.NaN),
+            Ratio = Property.CreateAnimatable(float.NaN),
+            Attack = Property.CreateAnimatable(float.NaN),
+            Release = Property.CreateAnimatable(float.NaN),
+            Knee = Property.CreateAnimatable(float.NaN),
+            MakeupGain = Property.CreateAnimatable(float.NaN)
+        };
+        node.AddInput(new BufferReplayNode(input));
+
+        using var output = node.Process(CreateContext(TimeSpan.Zero, TimeSpan.FromSeconds(0.25)));
+
+        for (int ch = 0; ch < output.ChannelCount; ch++)
+        {
+            var data = output.GetChannelData(ch);
+            for (int i = 0; i < output.SampleCount; i++)
+            {
+                Assert.That(float.IsFinite(data[i]), Is.True,
+                    $"Output sample [{ch}][{i}] = {data[i]} is not finite");
+            }
+        }
+
+        // Defaults compress 0.9 (≈-0.9 dB) against a -20 dB threshold at ratio 4, so the tail lands
+        // around -15 dB; a muted node would sit at the -100 dB floor instead.
+        float inputPeakDb = PeakDb(input, 0);
+        float slope = 1f - 1f / DefaultRatio;
+        float expectedDb = inputPeakDb - slope * (inputPeakDb - DefaultThresholdDb);
+        float steadyPeakDb = PeakDb(output, sampleCount / 2);
+        Assert.That(steadyPeakDb, Is.EqualTo(expectedDb).Within(3f),
+            $"With non-finite property defaults the declared constants must apply, but the tail measured {steadyPeakDb:F2} dB.");
     }
 }
