@@ -703,6 +703,53 @@ public class GateNodeTests
             $"Valid channel should open the gate and pass at unity despite NaN in the other channel; got {validPeakDb:F2} dB");
     }
 
+    [TestCase(1, false)]
+    [TestCase(4, false)]
+    [TestCase(4, true)]
+    public void Process_OneChannelInfinity_DoesNotOpenGateForValidChannels(int corruptSamples, bool animated)
+    {
+        // An Infinity in one channel was promoted to the linked peak, opening the gate and arming its
+        // hold latch, so every other channel passed audibly for the hold+release window even though
+        // all of them sit below the threshold. The probe covers exactly that window.
+        const int sampleCount = SampleRate / 2;
+        const int channels = 4;
+        const float quiet = 0.003f; // ≈-50 dB, below the -40 dB threshold
+        const int holdSamples = (int)(10f * 0.001f * SampleRate); // CreateNode's default 10 ms hold
+        var duration = TimeSpan.FromSeconds(sampleCount / (double)SampleRate);
+        using var input = CreateBuffer(channels, sampleCount, (_, _) => quiet);
+        for (int i = 0; i < corruptSamples; i++)
+        {
+            input.GetChannelData(0)[i] = float.PositiveInfinity;
+        }
+
+        var node = CreateNode();
+        if (animated)
+        {
+            var thresholdAnim = new KeyFrameAnimation<float>();
+            thresholdAnim.KeyFrames.Add(new KeyFrame<float> { Easing = new LinearEasing(), Value = -40f, KeyTime = TimeSpan.Zero });
+            thresholdAnim.KeyFrames.Add(new KeyFrame<float> { Easing = new LinearEasing(), Value = -40f, KeyTime = duration });
+            node.Threshold.Animation = thresholdAnim;
+        }
+        node.AddInput(new BufferReplayNode(input));
+        using var output = node.Process(CreateContext(TimeSpan.Zero, duration));
+
+        for (int ch = 0; ch < output.ChannelCount; ch++)
+        {
+            var data = output.GetChannelData(ch);
+            for (int i = 0; i < output.SampleCount; i++)
+            {
+                Assert.That(float.IsFinite(data[i]), Is.True,
+                    $"Output sample [{ch}][{i}] = {data[i]} is not finite");
+            }
+        }
+
+        float quietDb = 20f * MathF.Log10(quiet);
+        float peakDb = PeakDbInWindow(output, corruptSamples, holdSamples);
+        Assert.That(peakDb, Is.LessThan(quietDb - 40f),
+            $"Every finite channel is below the threshold, so the gate must stay shut after the corrupt " +
+            $"sample; the hold window peaked at {peakDb:F2} dB against a {quietDb:F2} dB input.");
+    }
+
     [Test]
     public void Process_MinThreshold_DigitalSilenceDoesNotOpenGate()
     {
