@@ -5,6 +5,11 @@ using Microsoft.Extensions.Logging;
 
 namespace Beutl.Graphics.Rendering.Cache;
 
+/// <summary>Stores reusable render outputs for one render node.</summary>
+/// <remarks>
+/// Cache access is serialized by the owning render lifetime and render thread.
+/// This type does not provide independent synchronization and must not be accessed concurrently.
+/// </remarks>
 public sealed class RenderNodeCache(RenderNode node) : IDisposable
 {
     private readonly WeakReference<RenderNode> _node = new(node);
@@ -80,7 +85,7 @@ public sealed class RenderNodeCache(RenderNode node) : IDisposable
     {
         if (_storage.Values.Length == 0)
         {
-            throw new Exception("キャッシュはありません");
+            throw new InvalidOperationException("No cached render target is available.");
         }
 
         RenderNodeCachedValue value = _storage.Values[0];

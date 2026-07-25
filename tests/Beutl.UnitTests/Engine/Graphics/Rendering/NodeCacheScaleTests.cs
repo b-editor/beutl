@@ -155,7 +155,7 @@ public class NodeCacheScaleTests
                         session.Publish(output);
                     });
                 },
-                bounds: RenderOperationBoundsContract.Source(s_bounds),
+                bounds: OpaqueRenderBoundsContract.Source(s_bounds),
                 hitTest: RenderHitTestContract.None,
                 valueCardinality: RenderValueCardinality.Single,
                 scale: RenderScaleContract.Custom(

@@ -790,7 +790,7 @@ internal sealed class RenderRequestExecutor
             var cacheHitFragmentIds = cacheResolution.Hits
                 .Select(static hit => hit.OriginalProducerId)
                 .ToHashSet();
-            _resourceUses = ResourcePlan.CreateUseSchedule(roots, cacheHitFragmentIds).BeginExecution();
+            _resourceUses = ResourcePlanUseSchedule.Create(roots, cacheHitFragmentIds).BeginExecution();
             _cacheResolution = cacheResolution;
             _roots = new HashSet<RenderFragmentReference>(
                 roots,

@@ -48,7 +48,9 @@ public class RenderNodeCacheTests
         using var cache = new RenderNodeCache(node);
 
         // Act & Assert
-        Assert.Catch<Exception>(() => cache.UseCache(out _));
+        InvalidOperationException? exception =
+            Assert.Throws<InvalidOperationException>(() => cache.UseCache(out _));
+        Assert.That(exception!.Message, Is.EqualTo("No cached render target is available."));
     }
 
     [Test]

@@ -725,7 +725,7 @@ internal sealed class ScaleProbeRenderNode(FilterEffect.Resource fe) : FilterEff
                     output.Canvas.Use(session.Inputs[0].Draw);
                     session.Publish(output);
                 },
-                bounds: RenderOperationBoundsContract.Map(RenderBoundsContract.Identity),
+                bounds: OpaqueRenderBoundsContract.Map(RenderBoundsContract.Identity),
                 hitTest: RenderHitTestContract.AnyInput,
                 valueCardinality: RenderValueCardinality.Single,
                 scale: RenderScaleContract.Custom(
@@ -1008,7 +1008,7 @@ internal sealed class CountingOpaqueSourceRenderNode(Rect bounds) : RenderNode
                 output.Canvas.Use(canvas => canvas.Clear(Colors.CornflowerBlue));
                 session.Publish(output);
             },
-            RenderOperationBoundsContract.Source(bounds),
+            OpaqueRenderBoundsContract.Source(bounds),
             RenderHitTestContract.OutputBounds,
             RenderValueCardinality.Single,
             RenderScaleContract.MaterializeAtWorkingScale,
@@ -1025,7 +1025,7 @@ internal sealed class EmptyZeroOrOneRenderNode(Rect bounds) : RenderNode
     {
         context.Publish(context.OpaqueSource(OpaqueRenderDescription.Create(
             _ => ExecutionCount++,
-            RenderOperationBoundsContract.Source(bounds),
+            OpaqueRenderBoundsContract.Source(bounds),
             RenderHitTestContract.OutputBounds,
             RenderValueCardinality.ZeroOrOne,
             RenderScaleContract.MaterializeAtWorkingScale,

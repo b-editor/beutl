@@ -490,7 +490,7 @@ public sealed class GpuPassFusionScaleRegionTests
                     output.Canvas.Use(static _ => { });
                     session.Publish(output);
                 },
-                bounds: RenderOperationBoundsContract.Source(bounds),
+                bounds: OpaqueRenderBoundsContract.Source(bounds),
                 hitTest: RenderHitTestContract.OutputBounds,
                 valueCardinality: RenderValueCardinality.Single,
                 scale: RenderScaleContract.Custom(static _ => 2, typeof(ShiftedCallbackNode)),
@@ -618,7 +618,7 @@ public sealed class GpuPassFusionScaleRegionTests
                     output.Canvas.Use(static canvas => canvas.Clear(Colors.CornflowerBlue));
                     session.Publish(output);
                 },
-                RenderOperationBoundsContract.Source(bounds),
+                OpaqueRenderBoundsContract.Source(bounds),
                 RenderHitTestContract.OutputBounds,
                 RenderValueCardinality.Single,
                 RenderScaleContract.Custom(static _ => 2, typeof(TargetReadbackRoiNode)),
@@ -679,7 +679,7 @@ public sealed class GpuPassFusionScaleRegionTests
                 output.Canvas.Use(static canvas => canvas.Clear(Colors.CornflowerBlue));
                 session.Publish(output);
             },
-            RenderOperationBoundsContract.Source(bounds),
+            OpaqueRenderBoundsContract.Source(bounds),
             RenderHitTestContract.OutputBounds,
             RenderValueCardinality.Single,
             RenderScaleContract.Custom(static _ => 2, key),
@@ -761,7 +761,7 @@ public sealed class GpuPassFusionScaleRegionTests
                     output.Canvas.Use(session.Inputs[0].Draw);
                     session.Publish(output);
                 },
-                bounds: RenderOperationBoundsContract.Map(RenderBoundsContract.Identity),
+                bounds: OpaqueRenderBoundsContract.Map(RenderBoundsContract.Identity),
                 hitTest: RenderHitTestContract.AnyInput,
                 valueCardinality: RenderValueCardinality.Single,
                 scale: RenderScaleContract.PreserveInputSupply,
@@ -832,7 +832,7 @@ public sealed class GpuPassFusionScaleRegionTests
                 });
                 session.Publish(output);
             },
-            bounds: RenderOperationBoundsContract.FullInputs(
+            bounds: OpaqueRenderBoundsContract.FullInputs(
                 static inputs => inputs.Aggregate(Rect.Empty, static (result, input) => result.Union(input)),
                 structuralKey),
             hitTest: RenderHitTestContract.AnyInput,

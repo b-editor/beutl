@@ -275,7 +275,7 @@ public sealed partial class DrawableGroup : Drawable, IFlowOperator
             {
                 OpaqueRenderDescription description = OpaqueRenderDescription.Create(
                     execute: session => ExecuteTransform(session, transform),
-                    bounds: RenderOperationBoundsContract.Map(
+                    bounds: OpaqueRenderBoundsContract.Map(
                         RenderBoundsContract.CreateFullInput(
                             metadataState.TransformBounds,
                             typeof(CustomTransformRenderNode))),

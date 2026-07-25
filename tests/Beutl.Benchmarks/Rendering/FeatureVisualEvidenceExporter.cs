@@ -1365,7 +1365,7 @@ internal sealed class FeatureAnalyticLineNode : RenderNode
                 session.Publish(output);
             },
             directReplay: static session => Draw(session.Canvas.Canvas),
-            bounds: RenderOperationBoundsContract.Source(s_bounds),
+            bounds: OpaqueRenderBoundsContract.Source(s_bounds),
             hitTest: RenderHitTestContract.OutputBounds,
             scale: RenderScaleContract.Vector,
             structuralKey: typeof(FeatureAnalyticLineNode),
@@ -1402,7 +1402,7 @@ internal sealed class FeatureAnalyticRoundRectNode : RenderNode
                 session.Publish(output);
             },
             directReplay: static session => Draw(session.Canvas.Canvas),
-            bounds: RenderOperationBoundsContract.Source(s_bounds),
+            bounds: OpaqueRenderBoundsContract.Source(s_bounds),
             hitTest: RenderHitTestContract.OutputBounds,
             scale: RenderScaleContract.Vector,
             structuralKey: typeof(FeatureAnalyticRoundRectNode),

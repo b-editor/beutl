@@ -14,7 +14,16 @@ internal sealed class RenderTargetPoolOptions
 
     public int MaximumIdleRequests { get; init; } = 120;
 
+    internal Action<RenderTargetPoolRegistrationStage>? AfterTargetRegistrationStep { get; init; }
+
     internal Action? BeforeLeaseRegistration { get; init; }
+}
+
+internal enum RenderTargetPoolRegistrationStage : byte
+{
+    OwnedSlot,
+    KnownTarget,
+    KnownSurface,
 }
 
 internal readonly record struct RenderTargetPoolStatistics(
@@ -84,6 +93,7 @@ internal sealed class RenderTargetPool : IDisposable
         {
             MaximumRetainedBytes = options.MaximumRetainedBytes,
             MaximumIdleRequests = options.MaximumIdleRequests,
+            AfterTargetRegistrationStep = options.AfterTargetRegistrationStep,
             BeforeLeaseRegistration = options.BeforeLeaseRegistration,
         };
     }
@@ -223,11 +233,26 @@ internal sealed class RenderTargetPool : IDisposable
         {
             SKSurface surface = ValidateFactoryTarget(target, deviceSize, request);
             long byteSize = GetByteSize(deviceSize);
+            long nextOwnedBytes = checked(_ownedBytes + byteSize);
             slot = new TargetSlot(target, surface, deviceSize, byteSize);
-            _ownedSlots.Add(slot);
-            _knownTargets.Add(target);
-            _knownSurfaces.Add(surface);
-            _ownedBytes = checked(_ownedBytes + byteSize);
+            try
+            {
+                _ownedSlots.Add(slot);
+                _options.AfterTargetRegistrationStep?.Invoke(RenderTargetPoolRegistrationStage.OwnedSlot);
+                _knownTargets.Add(target);
+                _options.AfterTargetRegistrationStep?.Invoke(RenderTargetPoolRegistrationStage.KnownTarget);
+                _knownSurfaces.Add(surface);
+                _options.AfterTargetRegistrationStep?.Invoke(RenderTargetPoolRegistrationStage.KnownSurface);
+            }
+            catch
+            {
+                _knownSurfaces.Remove(surface);
+                _knownTargets.Remove(target);
+                _ownedSlots.Remove(slot);
+                throw;
+            }
+
+            _ownedBytes = nextOwnedBytes;
             _creates++;
             accepted = true;
             return Lease(request, slot, wasReused: false);

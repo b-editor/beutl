@@ -106,7 +106,7 @@ internal sealed class ParticleRenderNode(ParticleEmitter.Resource particle) : Re
                 fillToken,
                 pen: null,
                 (canvas, currentFill, _) => canvas.DrawEllipse(bounds, currentFill, null)),
-            bounds: RenderOperationBoundsContract.Source(bounds),
+            bounds: OpaqueRenderBoundsContract.Source(bounds),
             hitTest: RenderHitTestContract.OutputBounds,
             valueCardinality: RenderValueCardinality.Single,
             scale: RenderScaleContract.Vector,

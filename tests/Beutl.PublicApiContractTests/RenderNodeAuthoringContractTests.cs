@@ -273,7 +273,7 @@ public sealed class RenderNodeAuthoringContractTests
             RenderFragmentHandle declaredResourceSource = context.OpaqueSource(
                 OpaqueRenderDescription.Create(
                     static _ => throw new AssertionException("Measure must not execute opaque callbacks."),
-                    RenderOperationBoundsContract.Source(new Rect(0, 0, 1, 1)),
+                    OpaqueRenderBoundsContract.Source(new Rect(0, 0, 1, 1)),
                     RenderHitTestContract.None,
                     RenderValueCardinality.Single,
                     RenderScaleContract.Vector,
@@ -552,7 +552,7 @@ public sealed class RenderNodeAuthoringContractTests
             Assert.That(
                 () => OpaqueRenderDescription.Create(
                     static _ => { },
-                    RenderOperationBoundsContract.Source(new Rect(0, 0, 1, 1)),
+                    OpaqueRenderBoundsContract.Source(new Rect(0, 0, 1, 1)),
                     RenderHitTestContract.None,
                     default,
                     RenderScaleContract.Vector),
@@ -595,7 +595,7 @@ public sealed class RenderNodeAuthoringContractTests
     {
         return OpaqueRenderDescription.Create(
             static _ => throw new AssertionException("Metadata queries must not execute opaque callbacks."),
-            RenderOperationBoundsContract.Source(bounds),
+            OpaqueRenderBoundsContract.Source(bounds),
             RenderHitTestContract.OutputBounds,
             cardinality,
             scale,
@@ -606,7 +606,7 @@ public sealed class RenderNodeAuthoringContractTests
     {
         return OpaqueRenderDescription.Create(
             static _ => throw new AssertionException("Metadata queries must not execute opaque callbacks."),
-            RenderOperationBoundsContract.Map(RenderBoundsContract.Identity),
+            OpaqueRenderBoundsContract.Map(RenderBoundsContract.Identity),
             RenderHitTestContract.AnyInput,
             cardinality,
             RenderScaleContract.PreserveInputSupply,
@@ -617,7 +617,7 @@ public sealed class RenderNodeAuthoringContractTests
     {
         return OpaqueRenderDescription.Create(
             static _ => throw new AssertionException("Metadata queries must not execute opaque callbacks."),
-            RenderOperationBoundsContract.FullInputs(UnionAll, "union-all"),
+            OpaqueRenderBoundsContract.FullInputs(UnionAll, "union-all"),
             RenderHitTestContract.AnyInput,
             cardinality,
             RenderScaleContract.MaterializeAtWorkingScale,
@@ -628,7 +628,7 @@ public sealed class RenderNodeAuthoringContractTests
     {
         return OpaqueRenderDescription.Create(
             static _ => throw new AssertionException("Metadata queries must not execute opaque callbacks."),
-            RenderOperationBoundsContract.FullInputs(
+            OpaqueRenderBoundsContract.FullInputs(
                 static _ => new Rect(40, 50, 3, 2),
                 "empty-input-bounds"),
             RenderHitTestContract.OutputBounds,

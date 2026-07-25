@@ -403,7 +403,7 @@ namespace Beutl.Graphics.Rendering;
 
 public sealed class OpaqueRenderDescription
 {
-    public RenderOperationBoundsContract Bounds { get; }
+    public OpaqueRenderBoundsContract Bounds { get; }
     public RenderHitTestContract HitTest { get; }
     public RenderValueCardinality ValueCardinality { get; }
     public RenderScaleContract Scale { get; }
@@ -414,7 +414,7 @@ public sealed class OpaqueRenderDescription
 
     public static OpaqueRenderDescription Create(
         Action<OpaqueRenderSession> execute,
-        RenderOperationBoundsContract bounds,
+        OpaqueRenderBoundsContract bounds,
         RenderHitTestContract hitTest,
         RenderValueCardinality valueCardinality,
         RenderScaleContract scale,
@@ -424,17 +424,17 @@ public sealed class OpaqueRenderDescription
         IEnumerable<RenderResource>? resources = null);
 }
 
-public sealed class RenderOperationBoundsContract
+public sealed class OpaqueRenderBoundsContract
 {
-    public static RenderOperationBoundsContract Source(Rect outputBounds);
-    public static RenderOperationBoundsContract Map(RenderBoundsContract bounds);
+    public static OpaqueRenderBoundsContract Source(Rect outputBounds);
+    public static OpaqueRenderBoundsContract Map(RenderBoundsContract bounds);
 
-    public static RenderOperationBoundsContract Combine(
+    public static OpaqueRenderBoundsContract Combine(
         Func<IReadOnlyList<Rect>, Rect> transformBounds,
         Func<Rect, IReadOnlyList<Rect>, IReadOnlyList<Rect>> getRequiredInputBounds,
         object? structuralKey = null);
 
-    public static RenderOperationBoundsContract FullInputs(
+    public static OpaqueRenderBoundsContract FullInputs(
         Func<IReadOnlyList<Rect>, Rect> transformBounds,
         object? structuralKey = null);
 }
@@ -544,7 +544,7 @@ public sealed class OpaqueRenderOutput : IDisposable
 }
 ```
 
-The topology is chosen by the context method, not by an author-supplied semantic flag. Every opaque form is a fusion barrier even when it declares identity bounds. `OpaqueSource` requires `RenderOperationBoundsContract.Source`; `OpaqueMap` requires `Map`; combine/expand require `Combine` or `FullInputs`. A custom multi-input backward mapper returns exactly one required region per input; `FullInputs` is the conservative alternative. Invalid counts or rectangles fail planning.
+The topology is chosen by the context method, not by an author-supplied semantic flag. Every opaque form is a fusion barrier even when it declares identity bounds. `OpaqueSource` requires `OpaqueRenderBoundsContract.Source`; `OpaqueMap` requires `Map`; combine/expand require `Combine` or `FullInputs`. A custom multi-input backward mapper returns exactly one required region per input; `FullInputs` is the conservative alternative. Invalid counts or rectangles fail planning.
 
 Hit testing is always the CPU-only description contract and is available before execution. `OutputBounds` tests the declared output union, `AnyInput` delegates to input metadata, and `Custom` receives only metadata-safe input views. A custom predicate must be pure, request-lifetime-safe, and must not capture a context, native callback object, or `RenderResource`; pixel-dependent tests use a conservative metadata result instead. Runtime `Publish` cannot replace this predicate.
 

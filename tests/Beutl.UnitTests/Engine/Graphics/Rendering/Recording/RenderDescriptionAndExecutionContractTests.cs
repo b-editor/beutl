@@ -15,7 +15,7 @@ public sealed class RenderDescriptionAndExecutionContractTests
         var value = new object();
         RenderResource<object> resource = registry.RegisterBorrowed(value, "resource", 3);
         Action<OpaqueRenderSession> execute = static _ => { };
-        RenderOperationBoundsContract bounds = RenderOperationBoundsContract.Source(new Rect(2, 3, 10, 20));
+        OpaqueRenderBoundsContract bounds = OpaqueRenderBoundsContract.Source(new Rect(2, 3, 10, 20));
         var runtimeIdentity = new RenderRuntimeIdentity(("pixels", 4));
 
         OpaqueRenderDescription description = OpaqueRenderDescription.Create(
@@ -86,16 +86,16 @@ public sealed class RenderDescriptionAndExecutionContractTests
         Rect first = new(0, 0, 10, 20);
         Rect second = new(30, 5, 10, 10);
         Rect requested = new(4, 5, 6, 7);
-        RenderOperationBoundsContract source = RenderOperationBoundsContract.Source(first);
-        RenderOperationBoundsContract map = RenderOperationBoundsContract.Map(
+        OpaqueRenderBoundsContract source = OpaqueRenderBoundsContract.Source(first);
+        OpaqueRenderBoundsContract map = OpaqueRenderBoundsContract.Map(
             RenderBoundsContract.Create(
                 static value => value.Translate(new Vector(3, 4)),
                 static value => value.Translate(new Vector(-3, -4))));
-        RenderOperationBoundsContract combine = RenderOperationBoundsContract.Combine(
+        OpaqueRenderBoundsContract combine = OpaqueRenderBoundsContract.Combine(
             static inputs => inputs.Aggregate(static (left, right) => left.Union(right)),
             static (output, inputs) => inputs.Select(_ => output).ToArray(),
             "combine");
-        RenderOperationBoundsContract full = RenderOperationBoundsContract.FullInputs(
+        OpaqueRenderBoundsContract full = OpaqueRenderBoundsContract.FullInputs(
             static inputs => inputs.Aggregate(static (left, right) => left.Union(right)));
 
         Assert.Multiple(() =>
@@ -118,7 +118,7 @@ public sealed class RenderDescriptionAndExecutionContractTests
                 Throws.Nothing);
         });
 
-        RenderOperationBoundsContract badCount = RenderOperationBoundsContract.Combine(
+        OpaqueRenderBoundsContract badCount = OpaqueRenderBoundsContract.Combine(
             static inputs => inputs.Aggregate(static (left, right) => left.Union(right)),
             static (_, _) => [Rect.Empty]);
         Assert.That(

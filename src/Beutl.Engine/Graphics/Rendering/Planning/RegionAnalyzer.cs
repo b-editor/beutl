@@ -958,7 +958,7 @@ internal sealed class RegionAnalyzer
     private static ImmutableArray<RequiredRegion> MapOpaque(
         RenderFragmentReference reference,
         RequiredRegion outputRequirement,
-        RenderOperationBoundsContract bounds)
+        OpaqueRenderBoundsContract bounds)
     {
         if (RequiresFullInputs(bounds))
             return FullInputs(reference);
@@ -977,14 +977,14 @@ internal sealed class RegionAnalyzer
         return result.MoveToImmutable();
     }
 
-    private static bool RequiresFullInputs(RenderOperationBoundsContract bounds)
+    private static bool RequiresFullInputs(OpaqueRenderBoundsContract bounds)
     {
-        if (bounds.Kind == RenderOperationBoundsKind.FullInputs)
+        if (bounds.Kind == OpaqueRenderBoundsKind.FullInputs)
             return true;
 
-        return bounds.StructuralIdentity is RenderOperationBoundsStructuralIdentity
+        return bounds.StructuralIdentity is OpaqueRenderBoundsStructuralIdentity
         {
-            Kind: RenderOperationBoundsKind.Map,
+            Kind: OpaqueRenderBoundsKind.Map,
             ForwardIdentity: RenderBoundsStructuralIdentity
             {
                 Kind: RenderBoundsContractKind.FullInput or RenderBoundsContractKind.CustomFullInput,
@@ -992,11 +992,11 @@ internal sealed class RegionAnalyzer
         };
     }
 
-    private static bool IsIdentityMap(RenderOperationBoundsContract bounds)
+    private static bool IsIdentityMap(OpaqueRenderBoundsContract bounds)
     {
-        return bounds.StructuralIdentity is RenderOperationBoundsStructuralIdentity
+        return bounds.StructuralIdentity is OpaqueRenderBoundsStructuralIdentity
         {
-            Kind: RenderOperationBoundsKind.Map,
+            Kind: OpaqueRenderBoundsKind.Map,
             ForwardIdentity: RenderBoundsStructuralIdentity
             {
                 Kind: RenderBoundsContractKind.Identity,

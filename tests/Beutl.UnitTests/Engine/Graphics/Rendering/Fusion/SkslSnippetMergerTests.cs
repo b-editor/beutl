@@ -191,6 +191,38 @@ public sealed class SkslSnippetMergerTests
     }
 
     [Test]
+    public void PortableBudget_ReservesOneSamplerAndChildForTheImplicitSource()
+    {
+        using var registry = new RenderRequestResourceRegistry();
+        SkslSnippetStage[] stages = Enumerable.Range(0, 8)
+            .Select(index =>
+            {
+                RenderResource<object> resource = registry.RegisterBorrowed(
+                    new object(),
+                    $"resource-{index}",
+                    1);
+                return new SkslSnippetStage(ResourceShader($"lookup{index}", resource));
+            })
+            .ToArray();
+
+        IReadOnlyList<SkslMergedProgram> programs = SkslSnippetMerger.MergeAndSplit(
+            stages,
+            SkslBackendBudgetResolver.Portable);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(programs.Select(static program => program.StageCount),
+                Is.EqualTo(new[] { 7, 1 }));
+            Assert.That(programs.Select(static program => program.SamplerCount),
+                Is.EqualTo(new[] { 8, 2 }));
+            Assert.That(programs.Select(static program => program.ChildCount),
+                Is.EqualTo(new[] { 8, 2 }));
+            Assert.That(programs, Has.All.Matches<SkslMergedProgram>(
+                static program => !program.RequiresStandaloneExecution));
+        });
+    }
+
+    [Test]
     public void MergeAndSplit_AccountsForGeneratedSourceLimit()
     {
         SkslSnippetStage first = new(ShaderDescription.CurrentPixel(Identity));

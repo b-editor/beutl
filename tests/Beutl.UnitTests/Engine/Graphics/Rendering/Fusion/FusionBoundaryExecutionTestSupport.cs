@@ -95,7 +95,7 @@ internal sealed class FusionBoundaryRuntimeNode(
                     [current],
                     OpaqueRenderDescription.Create(
                         CopySingleInput,
-                        RenderOperationBoundsContract.FullInputs(
+                        OpaqueRenderBoundsContract.FullInputs(
                             static inputs => inputs.Single(),
                             typeof(FusionBoundaryRuntimeNode)),
                         RenderHitTestContract.AnyInput,
@@ -128,7 +128,7 @@ internal sealed class FusionBoundaryRuntimeNode(
         {
             return OpaqueRenderDescription.Create(
                 CopySingleInput,
-                RenderOperationBoundsContract.Map(RenderBoundsContract.Identity),
+                OpaqueRenderBoundsContract.Map(RenderBoundsContract.Identity),
                 RenderHitTestContract.AnyInput,
                 cardinality,
                 RenderScaleContract.PreserveInputSupply,
@@ -139,7 +139,7 @@ internal sealed class FusionBoundaryRuntimeNode(
         return OpaqueRenderDescription.CreateBackendBoundary(
             backendBoundary,
             CopySingleInput,
-            RenderOperationBoundsContract.Map(RenderBoundsContract.Identity),
+            OpaqueRenderBoundsContract.Map(RenderBoundsContract.Identity),
             RenderHitTestContract.AnyInput,
             cardinality,
             RenderScaleContract.PreserveInputSupply,
@@ -176,7 +176,7 @@ internal sealed class AntialiasedCoverageBoundaryNode(Rect bounds) : RenderNode
                 });
                 session.Publish(output);
             },
-            RenderOperationBoundsContract.Source(bounds),
+            OpaqueRenderBoundsContract.Source(bounds),
             RenderHitTestContract.OutputBounds,
             RenderValueCardinality.Single,
             RenderScaleContract.MaterializeAtWorkingScale,

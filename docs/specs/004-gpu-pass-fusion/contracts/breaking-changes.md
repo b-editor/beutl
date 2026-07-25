@@ -157,7 +157,7 @@ private OpaqueRenderDescription CreateDescription()
             output.Canvas.Use(canvas => session.Inputs[0].Draw(canvas));
             session.Publish(output);
         },
-        bounds: RenderOperationBoundsContract.Map(RenderBoundsContract.Identity),
+        bounds: OpaqueRenderBoundsContract.Map(RenderBoundsContract.Identity),
         hitTest: RenderHitTestContract.AnyInput,
         valueCardinality: RenderValueCardinality.Single,
         scale: RenderScaleContract.PreserveInputSupply,
@@ -201,8 +201,8 @@ Each input must have `CanBeUsedAsValueInput == true`; a mixed painter stream mus
 ### Runtime N-to-M expansion
 
 ```csharp
-private readonly RenderOperationBoundsContract _operationBoundsContract =
-    RenderOperationBoundsContract.FullInputs(CalculateExpandedBounds);
+private readonly OpaqueRenderBoundsContract _operationBoundsContract =
+    OpaqueRenderBoundsContract.FullInputs(CalculateExpandedBounds);
 
 public override void Process(RenderNodeContext context)
 {

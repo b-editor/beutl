@@ -341,7 +341,7 @@ public sealed class ShaderAndAllocationFailureTests
                     output.Canvas.Use(canvas => canvas.Clear(Colors.CornflowerBlue));
                     session.Publish(output);
                 },
-                RenderOperationBoundsContract.Source(new Rect(0, 0, 8, 8)),
+                OpaqueRenderBoundsContract.Source(new Rect(0, 0, 8, 8)),
                 RenderHitTestContract.OutputBounds,
                 RenderValueCardinality.Single,
                 RenderScaleContract.MaterializeAtWorkingScale,
@@ -379,7 +379,7 @@ public sealed class ShaderAndAllocationFailureTests
                     output.Canvas.Use(canvas => canvas.Clear(Colors.CornflowerBlue));
                     session.Publish(output);
                 },
-                RenderOperationBoundsContract.Source(new Rect(0, 0, 8, 8)),
+                OpaqueRenderBoundsContract.Source(new Rect(0, 0, 8, 8)),
                 RenderHitTestContract.OutputBounds,
                 RenderValueCardinality.Single,
                 RenderScaleContract.MaterializeAtWorkingScale,
@@ -453,7 +453,7 @@ public sealed class ShaderAndAllocationFailureTests
                     output.Canvas.Use(canvas => canvas.Clear(Colors.CornflowerBlue));
                     throw failure;
                 },
-                RenderOperationBoundsContract.Source(new Rect(0, 0, 8, 8)),
+                OpaqueRenderBoundsContract.Source(new Rect(0, 0, 8, 8)),
                 RenderHitTestContract.OutputBounds,
                 RenderValueCardinality.Single,
                 RenderScaleContract.MaterializeAtWorkingScale,

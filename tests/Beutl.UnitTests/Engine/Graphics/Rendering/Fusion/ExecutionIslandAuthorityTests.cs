@@ -568,7 +568,7 @@ public sealed class ExecutionIslandAuthorityTests
                             output.Canvas.Use(input.Draw);
                             session.Publish(output);
                         },
-                        RenderOperationBoundsContract.Map(RenderBoundsContract.Identity),
+                        OpaqueRenderBoundsContract.Map(RenderBoundsContract.Identity),
                         RenderHitTestContract.AnyInput,
                         RenderValueCardinality.Single,
                         RenderScaleContract.PreserveInputSupply,

@@ -9,7 +9,7 @@ public sealed class OpaqueRenderDescription
 {
     private OpaqueRenderDescription(
         Action<OpaqueRenderSession> execute,
-        RenderOperationBoundsContract bounds,
+        OpaqueRenderBoundsContract bounds,
         RenderHitTestContract hitTest,
         RenderValueCardinality valueCardinality,
         RenderScaleContract scale,
@@ -33,7 +33,7 @@ public sealed class OpaqueRenderDescription
         DirectReplay = directReplay;
     }
 
-    public RenderOperationBoundsContract Bounds { get; }
+    public OpaqueRenderBoundsContract Bounds { get; }
 
     public RenderHitTestContract HitTest { get; }
 
@@ -118,7 +118,7 @@ public sealed class OpaqueRenderDescription
 
     public static OpaqueRenderDescription Create(
         Action<OpaqueRenderSession> execute,
-        RenderOperationBoundsContract bounds,
+        OpaqueRenderBoundsContract bounds,
         RenderHitTestContract hitTest,
         RenderValueCardinality valueCardinality,
         RenderScaleContract scale,
@@ -156,7 +156,7 @@ public sealed class OpaqueRenderDescription
     internal static OpaqueRenderDescription CreateEngineSource(
         Action<OpaqueRenderSession> execute,
         Action<EngineDirectRenderSession> directReplay,
-        RenderOperationBoundsContract bounds,
+        OpaqueRenderBoundsContract bounds,
         RenderHitTestContract hitTest,
         RenderScaleContract scale,
         object structuralKey,
@@ -189,7 +189,7 @@ public sealed class OpaqueRenderDescription
     internal static OpaqueRenderDescription CreateBackendBoundary(
         RenderBackendBoundary backendBoundary,
         Action<OpaqueRenderSession> execute,
-        RenderOperationBoundsContract bounds,
+        OpaqueRenderBoundsContract bounds,
         RenderHitTestContract hitTest,
         RenderValueCardinality valueCardinality,
         RenderScaleContract scale,
@@ -261,33 +261,33 @@ internal enum RenderBackendBoundary : byte
     Graphics3D,
 }
 
-public sealed class RenderOperationBoundsContract
+public sealed class OpaqueRenderBoundsContract
 {
     private readonly Rect _sourceBounds;
     private readonly RenderBoundsContract _mapBounds;
     private readonly Func<IReadOnlyList<Rect>, Rect>? _transformBounds;
     private readonly Func<Rect, IReadOnlyList<Rect>, IReadOnlyList<Rect>>? _getRequiredInputBounds;
 
-    private RenderOperationBoundsContract(Rect sourceBounds)
+    private OpaqueRenderBoundsContract(Rect sourceBounds)
     {
-        Kind = RenderOperationBoundsKind.Source;
+        Kind = OpaqueRenderBoundsKind.Source;
         _sourceBounds = sourceBounds;
-        StructuralIdentity = new RenderOperationBoundsStructuralIdentity(Kind, null, null, null);
+        StructuralIdentity = new OpaqueRenderBoundsStructuralIdentity(Kind, null, null, null);
     }
 
-    private RenderOperationBoundsContract(RenderBoundsContract mapBounds)
+    private OpaqueRenderBoundsContract(RenderBoundsContract mapBounds)
     {
-        Kind = RenderOperationBoundsKind.Map;
+        Kind = OpaqueRenderBoundsKind.Map;
         _mapBounds = mapBounds;
-        StructuralIdentity = new RenderOperationBoundsStructuralIdentity(
+        StructuralIdentity = new OpaqueRenderBoundsStructuralIdentity(
             Kind,
             mapBounds.StructuralIdentity,
             null,
             null);
     }
 
-    private RenderOperationBoundsContract(
-        RenderOperationBoundsKind kind,
+    private OpaqueRenderBoundsContract(
+        OpaqueRenderBoundsKind kind,
         Func<IReadOnlyList<Rect>, Rect> transformBounds,
         Func<Rect, IReadOnlyList<Rect>, IReadOnlyList<Rect>>? getRequiredInputBounds,
         object? structuralKey)
@@ -296,27 +296,27 @@ public sealed class RenderOperationBoundsContract
         _transformBounds = transformBounds;
         _getRequiredInputBounds = getRequiredInputBounds;
         StructuralIdentity = structuralKey is null
-            ? new RenderOperationBoundsStructuralIdentity(
+            ? new OpaqueRenderBoundsStructuralIdentity(
                 kind,
                 transformBounds.Method,
                 getRequiredInputBounds?.Method,
                 null)
-            : new RenderOperationBoundsStructuralIdentity(kind, null, null, structuralKey);
+            : new OpaqueRenderBoundsStructuralIdentity(kind, null, null, structuralKey);
     }
 
-    public static RenderOperationBoundsContract Source(Rect outputBounds)
+    public static OpaqueRenderBoundsContract Source(Rect outputBounds)
     {
         RenderRectValidation.ThrowIfInvalidInput(outputBounds, nameof(outputBounds));
-        return new RenderOperationBoundsContract(outputBounds);
+        return new OpaqueRenderBoundsContract(outputBounds);
     }
 
-    public static RenderOperationBoundsContract Map(RenderBoundsContract bounds)
+    public static OpaqueRenderBoundsContract Map(RenderBoundsContract bounds)
     {
         bounds.ThrowIfUninitialized(nameof(bounds));
-        return new RenderOperationBoundsContract(bounds);
+        return new OpaqueRenderBoundsContract(bounds);
     }
 
-    public static RenderOperationBoundsContract Combine(
+    public static OpaqueRenderBoundsContract Combine(
         Func<IReadOnlyList<Rect>, Rect> transformBounds,
         Func<Rect, IReadOnlyList<Rect>, IReadOnlyList<Rect>> getRequiredInputBounds,
         object? structuralKey = null)
@@ -332,14 +332,14 @@ public sealed class RenderOperationBoundsContract
             RenderIdentityKeyValidator.ThrowIfInvalid(structuralKey, nameof(structuralKey));
         }
 
-        return new RenderOperationBoundsContract(
-            RenderOperationBoundsKind.Combine,
+        return new OpaqueRenderBoundsContract(
+            OpaqueRenderBoundsKind.Combine,
             transformBounds,
             getRequiredInputBounds,
             structuralKey);
     }
 
-    public static RenderOperationBoundsContract FullInputs(
+    public static OpaqueRenderBoundsContract FullInputs(
         Func<IReadOnlyList<Rect>, Rect> transformBounds,
         object? structuralKey = null)
     {
@@ -350,14 +350,14 @@ public sealed class RenderOperationBoundsContract
             RenderIdentityKeyValidator.ThrowIfInvalid(structuralKey, nameof(structuralKey));
         }
 
-        return new RenderOperationBoundsContract(
-            RenderOperationBoundsKind.FullInputs,
+        return new OpaqueRenderBoundsContract(
+            OpaqueRenderBoundsKind.FullInputs,
             transformBounds,
             null,
             structuralKey);
     }
 
-    internal RenderOperationBoundsKind Kind { get; }
+    internal OpaqueRenderBoundsKind Kind { get; }
 
     internal object StructuralIdentity { get; }
 
@@ -368,19 +368,19 @@ public sealed class RenderOperationBoundsContract
 
         Rect result = Kind switch
         {
-            RenderOperationBoundsKind.Source when inputBounds.Count == 0 => _sourceBounds,
-            RenderOperationBoundsKind.Source => throw new InvalidOperationException(
+            OpaqueRenderBoundsKind.Source when inputBounds.Count == 0 => _sourceBounds,
+            OpaqueRenderBoundsKind.Source => throw new InvalidOperationException(
                 "A source bounds contract cannot receive input bounds."),
-            RenderOperationBoundsKind.Map when inputBounds.Count == 1 => _mapBounds.TransformBounds(inputBounds[0]),
-            RenderOperationBoundsKind.Map => throw new InvalidOperationException(
+            OpaqueRenderBoundsKind.Map when inputBounds.Count == 1 => _mapBounds.TransformBounds(inputBounds[0]),
+            OpaqueRenderBoundsKind.Map => throw new InvalidOperationException(
                 "A map bounds contract requires exactly one input bound."),
-            RenderOperationBoundsKind.Combine or RenderOperationBoundsKind.FullInputs => _transformBounds!(inputBounds),
-            _ => throw new InvalidOperationException("The operation bounds contract is invalid."),
+            OpaqueRenderBoundsKind.Combine or OpaqueRenderBoundsKind.FullInputs => _transformBounds!(inputBounds),
+            _ => throw new InvalidOperationException("The opaque render bounds contract is invalid."),
         };
 
         RenderRectValidation.ThrowIfInvalidResult(
             result,
-            "The operation forward bounds mapping returned an invalid rectangle.");
+            "The opaque render bounds forward mapping returned an invalid rectangle.");
         return result;
     }
 
@@ -392,7 +392,7 @@ public sealed class RenderOperationBoundsContract
         ArgumentNullException.ThrowIfNull(inputBounds);
         ValidateRectangles(inputBounds, nameof(inputBounds));
 
-        if (Kind == RenderOperationBoundsKind.Source)
+        if (Kind == OpaqueRenderBoundsKind.Source)
         {
             if (inputBounds.Count != 0)
                 throw new InvalidOperationException("A source bounds contract cannot receive input bounds.");
@@ -402,7 +402,7 @@ public sealed class RenderOperationBoundsContract
 
         bool emptyRequirement = requestedOutputBounds.Width == 0 || requestedOutputBounds.Height == 0;
         IReadOnlyList<Rect> result;
-        if (Kind == RenderOperationBoundsKind.Map)
+        if (Kind == OpaqueRenderBoundsKind.Map)
         {
             if (inputBounds.Count != 1)
                 throw new InvalidOperationException("A map bounds contract requires exactly one input bound.");
@@ -414,7 +414,7 @@ public sealed class RenderOperationBoundsContract
                     : _mapBounds.GetRequiredInputBounds(requestedOutputBounds);
             result = [required];
         }
-        else if (Kind == RenderOperationBoundsKind.FullInputs)
+        else if (Kind == OpaqueRenderBoundsKind.FullInputs)
         {
             result = emptyRequirement
                 ? Enumerable.Repeat(Rect.Empty, inputBounds.Count).ToArray()
@@ -423,13 +423,13 @@ public sealed class RenderOperationBoundsContract
         else
         {
             result = _getRequiredInputBounds!(requestedOutputBounds, inputBounds)
-                ?? throw new InvalidOperationException("The operation backward bounds mapping returned null.");
+                ?? throw new InvalidOperationException("The opaque render bounds backward mapping returned null.");
         }
 
         if (result.Count != inputBounds.Count)
         {
             throw new InvalidOperationException(
-                "The operation backward bounds mapping must return exactly one rectangle per input.");
+                "The opaque render bounds backward mapping must return exactly one rectangle per input.");
         }
 
         ValidateResultRectangles(result);
@@ -440,10 +440,10 @@ public sealed class RenderOperationBoundsContract
     {
         bool compatible = topology switch
         {
-            OpaqueRenderTopology.Source => Kind == RenderOperationBoundsKind.Source,
-            OpaqueRenderTopology.Map => Kind == RenderOperationBoundsKind.Map,
+            OpaqueRenderTopology.Source => Kind == OpaqueRenderBoundsKind.Source,
+            OpaqueRenderTopology.Map => Kind == OpaqueRenderBoundsKind.Map,
             OpaqueRenderTopology.Combine or OpaqueRenderTopology.Expand =>
-                Kind is RenderOperationBoundsKind.Combine or RenderOperationBoundsKind.FullInputs,
+                Kind is OpaqueRenderBoundsKind.Combine or OpaqueRenderBoundsKind.FullInputs,
             _ => false,
         };
 
@@ -475,7 +475,7 @@ public sealed class RenderOperationBoundsContract
             if (!RenderRectValidation.IsFiniteNonNegative(values[index]))
             {
                 throw new InvalidOperationException(
-                    $"The operation backward bounds mapping returned an invalid rectangle at index {index}.");
+                    $"The opaque render bounds backward mapping returned an invalid rectangle at index {index}.");
             }
         }
     }
@@ -1092,7 +1092,7 @@ internal enum OpaqueRenderTopology : byte
     Expand,
 }
 
-internal enum RenderOperationBoundsKind : byte
+internal enum OpaqueRenderBoundsKind : byte
 {
     Source,
     Map,
@@ -1127,8 +1127,8 @@ internal enum OpaqueRenderOutputState : byte
     Disposed,
 }
 
-internal readonly record struct RenderOperationBoundsStructuralIdentity(
-    RenderOperationBoundsKind Kind,
+internal readonly record struct OpaqueRenderBoundsStructuralIdentity(
+    OpaqueRenderBoundsKind Kind,
     object? ForwardIdentity,
     object? BackwardIdentity,
     object? ExplicitKey);

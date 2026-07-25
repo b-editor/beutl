@@ -46,7 +46,7 @@ internal static class BrushRecorder
         return new RecordedBrushPlan(brush, builder.Dependencies, builder.Resources);
     }
 
-    public static RenderOperationBoundsContract CreateSourceBounds(
+    public static OpaqueRenderBoundsContract CreateSourceBounds(
         RecordedPaint paint,
         Rect bounds,
         object structuralKey)
@@ -54,8 +54,8 @@ internal static class BrushRecorder
         ArgumentNullException.ThrowIfNull(paint);
         ArgumentNullException.ThrowIfNull(structuralKey);
         return paint.Dependencies.Count == 0
-            ? RenderOperationBoundsContract.Source(bounds)
-            : RenderOperationBoundsContract.FullInputs(
+            ? OpaqueRenderBoundsContract.Source(bounds)
+            : OpaqueRenderBoundsContract.FullInputs(
                 _ => bounds,
                 new BrushSourceBoundsIdentity(structuralKey, bounds, paint.Dependencies.Count));
     }

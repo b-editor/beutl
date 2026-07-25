@@ -15,9 +15,9 @@ public sealed class ResourcePlanUseScheduleTests
         RenderFragmentReference hitProducer = Fragment(RenderFragmentKind.Opacity, [sharedSource]);
         hitProducer.Id = new RenderFragmentId(requestId, 2);
 
-        ResourcePlanUseSchedule unpruned = ResourcePlan.CreateUseSchedule(
+        ResourcePlanUseSchedule unpruned = ResourcePlanUseSchedule.Create(
             [hitProducer, sharedSource]);
-        ResourcePlanUseSchedule pruned = ResourcePlan.CreateUseSchedule(
+        ResourcePlanUseSchedule pruned = ResourcePlanUseSchedule.Create(
             [hitProducer, sharedSource],
             new HashSet<RenderFragmentId> { hitProducer.Id.Value });
 
@@ -47,7 +47,7 @@ public sealed class ResourcePlanUseScheduleTests
         RenderFragmentReference hitProducer = Fragment(RenderFragmentKind.Opacity, [source]);
         hitProducer.Id = new RenderFragmentId(requestId, 2);
 
-        ResourcePlanUseSchedule schedule = ResourcePlan.CreateUseSchedule(
+        ResourcePlanUseSchedule schedule = ResourcePlanUseSchedule.Create(
             [hitProducer],
             new HashSet<RenderFragmentId> { hitProducer.Id.Value });
 

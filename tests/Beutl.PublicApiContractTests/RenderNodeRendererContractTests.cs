@@ -559,7 +559,7 @@ public sealed class RenderNodeRendererContractTests
                 using OpaqueRenderOutput output = session.CreateOutput(session.OutputBounds);
                 session.Publish(output);
             },
-            RenderOperationBoundsContract.Source(bounds),
+            OpaqueRenderBoundsContract.Source(bounds),
             RenderHitTestContract.OutputBounds,
             RenderValueCardinality.Single,
             RenderScaleContract.MaterializeAtWorkingScale,

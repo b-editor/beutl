@@ -1361,7 +1361,7 @@ public class SourceEffectiveScaleFlowTests
                     output.Canvas.Use(canvas => canvas.DrawRectangle(_bounds, currentFill, null));
                     session.Publish(output);
                 }),
-                RenderOperationBoundsContract.Source(_bounds),
+                OpaqueRenderBoundsContract.Source(_bounds),
                 RenderHitTestContract.None,
                 RenderValueCardinality.Single,
                 RenderScaleContract.Custom(
@@ -1756,7 +1756,7 @@ internal static class ScaleRecordingTestHelper
                     output.Canvas.Use(canvas => canvas.DrawRectangle(bounds, currentFill, null));
                     session.Publish(output);
                 }),
-                bounds: RenderOperationBoundsContract.Source(bounds),
+                bounds: OpaqueRenderBoundsContract.Source(bounds),
                 hitTest: RenderHitTestContract.None,
                 valueCardinality: RenderValueCardinality.Single,
                 scale: scaleContract,
@@ -1780,7 +1780,7 @@ internal static class ScaleRecordingTestHelper
                         output.Canvas.Use(session.Inputs[0].Draw);
                         session.Publish(output);
                     },
-                    bounds: RenderOperationBoundsContract.Map(RenderBoundsContract.Identity),
+                    bounds: OpaqueRenderBoundsContract.Map(RenderBoundsContract.Identity),
                     hitTest: RenderHitTestContract.AnyInput,
                     valueCardinality: RenderValueCardinality.Single,
                     scale: RenderScaleContract.MaterializeAtWorkingScale,

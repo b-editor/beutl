@@ -86,6 +86,89 @@ public sealed class CrossNodeShaderFusionTests
     }
 
     [Test]
+    public void CpuDestination_UsesPortableBudgetAndSplitsLongShaderChain()
+    {
+        int stageCount = SkslBackendBudgetResolver.Portable.MaxStages + 1;
+        var targetFactory = new CpuTargetFactory();
+        using var node = new LongShaderChainNode(stageCount);
+        using var renderer = new RenderNodeRenderer(
+            node,
+            new RenderNodeRendererOptions
+            {
+                Intent = RenderIntent.Preview,
+                UseRenderCache = false,
+                TargetFactory = targetFactory,
+                FusionMode = FusionMode.Enabled,
+                RenderPurpose = RenderRequestPurpose.Frame,
+            });
+        using RenderTarget destination = targetFactory.Create(new PixelSize(24, 16));
+        using var canvas = new ImmediateCanvas(destination, logicalSize: new Size(24, 16));
+
+        Assert.That(destination.Value.Context, Is.Null);
+        renderer.Render(canvas);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(renderer.LastExecutionStatistics.ShaderRunExecutions, Is.EqualTo(2));
+            Assert.That(renderer.LastExecutionStatistics.ShaderStageExecutions, Is.EqualTo(stageCount));
+            Assert.That(renderer.LastExecutionStatistics.FusedShaderRunExecutions, Is.EqualTo(1));
+        });
+    }
+
+    [Test]
+    [Category("GpuPassFusionGpu")]
+    public void ChangingFromCpuToGpuDestination_SelectsTheActualSurfaceCapabilityClass()
+    {
+        VulkanTestEnvironment.EnsureAvailable();
+        VulkanTestEnvironment.InvokeOnRenderThread(() =>
+        {
+            int stageCount = SkslBackendBudgetResolver.Portable.MaxStages + 1;
+            var cpuFactory = new CpuTargetFactory();
+            using var node = new LongShaderChainNode(stageCount);
+            using var renderer = new RenderNodeRenderer(
+                node,
+                new RenderNodeRendererOptions
+                {
+                    Intent = RenderIntent.Preview,
+                    UseRenderCache = false,
+                    FusionMode = FusionMode.Enabled,
+                    RenderPurpose = RenderRequestPurpose.Frame,
+                });
+            using RenderTarget cpuDestination = cpuFactory.Create(new PixelSize(24, 16));
+            using var cpuCanvas = new ImmediateCanvas(cpuDestination, logicalSize: new Size(24, 16));
+            using RenderTarget gpuDestination = RenderTarget.Create(24, 16)
+                ?? throw new InvalidOperationException("Could not create the GPU fusion-test surface.");
+            using var gpuCanvas = new ImmediateCanvas(gpuDestination, logicalSize: new Size(24, 16));
+
+            Assert.Multiple(() =>
+            {
+                Assert.That(cpuDestination.Value.Context, Is.Null);
+                Assert.That(
+                    gpuDestination.Value.Context?.Backend,
+                    Is.AnyOf(GRBackend.Vulkan, GRBackend.Metal));
+            });
+
+            renderer.Render(cpuCanvas);
+            StructuralPlanCacheStatistics cpuStatistics = renderer.StructuralPlanCacheStatistics;
+            renderer.Render(gpuCanvas);
+            StructuralPlanCacheStatistics firstGpuStatistics = renderer.StructuralPlanCacheStatistics;
+            renderer.Render(gpuCanvas);
+            StructuralPlanCacheStatistics warmedGpuStatistics = renderer.StructuralPlanCacheStatistics;
+
+            Assert.Multiple(() =>
+            {
+                Assert.That(cpuStatistics.Compilations, Is.EqualTo(1));
+                Assert.That(firstGpuStatistics.Compilations, Is.EqualTo(2));
+                Assert.That(firstGpuStatistics.Replacements, Is.EqualTo(1));
+                Assert.That(warmedGpuStatistics.Compilations, Is.EqualTo(2));
+                Assert.That(warmedGpuStatistics.Hits, Is.EqualTo(1));
+                Assert.That(renderer.LastExecutionStatistics.ShaderRunExecutions, Is.EqualTo(2));
+                Assert.That(renderer.LastExecutionStatistics.ShaderStageExecutions, Is.EqualTo(stageCount));
+            });
+        });
+    }
+
+    [Test]
     public void PublishedIntermediateFanOut_IsAnExplicitDeterministicBoundary()
     {
         using CompiledRenderRequest compiled = CompilePrimaryChain(
@@ -435,6 +518,61 @@ public sealed class CrossNodeShaderFusionTests
             Assert.That(context.Inputs, Has.Exactly(1).Items);
             context.Publish(context.Shader(context.Inputs[0], description));
         }
+    }
+
+    private sealed class LongShaderChainNode : RenderNode
+    {
+        private static readonly ShaderDescription s_shader = ShaderDescription.CurrentPixel(
+            "half4 apply(half4 color) { return color; }");
+
+        private readonly RectangleRenderNode _source = new(
+            new Rect(3, 5, 12, 8),
+            Brushes.Resource.White,
+            pen: null);
+        private readonly ShaderStageNode[] _stages;
+
+        public LongShaderChainNode(int stageCount)
+        {
+            _stages = Enumerable.Range(0, stageCount)
+                .Select(static _ => new ShaderStageNode(s_shader))
+                .ToArray();
+        }
+
+        public override void Process(RenderNodeContext context)
+        {
+            RenderFragmentHandle current = context.RecordNode(_source, []).Single();
+            foreach (ShaderStageNode stage in _stages)
+                current = context.RecordNode(stage, [current]).Single();
+            context.Publish(current);
+        }
+
+        protected override void OnDispose(bool disposing)
+        {
+            foreach (ShaderStageNode stage in _stages)
+                stage.Dispose();
+            _source.Dispose();
+            base.OnDispose(disposing);
+        }
+    }
+
+    private sealed class CpuTargetFactory : IRenderTargetFactory
+    {
+        public RenderTarget Create(PixelSize deviceSize)
+        {
+            SKSurface surface = SKSurface.Create(new SKImageInfo(
+                    deviceSize.Width,
+                    deviceSize.Height,
+                    SKColorType.RgbaF16,
+                    SKAlphaType.Premul,
+                    SKColorSpace.CreateSrgbLinear()))
+                ?? throw new InvalidOperationException("Could not create the CPU fusion-test surface.");
+            return new CpuRenderTarget(surface, deviceSize);
+        }
+    }
+
+    private sealed class CpuRenderTarget(SKSurface surface, PixelSize size)
+        : RenderTarget(surface, size.Width, size.Height)
+    {
     }
 
     private sealed class VectorTerminalShaderNode(bool publishTwice) : RenderNode

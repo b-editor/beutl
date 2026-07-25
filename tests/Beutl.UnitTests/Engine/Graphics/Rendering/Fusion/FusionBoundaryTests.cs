@@ -333,7 +333,7 @@ public sealed class FusionBoundaryTests
         OpaqueRenderDescription description = OpaqueRenderDescription.CreateBackendBoundary(
             RenderBackendBoundary.Graphics3D,
             static _ => { },
-            RenderOperationBoundsContract.Source(s_bounds),
+            OpaqueRenderBoundsContract.Source(s_bounds),
             RenderHitTestContract.OutputBounds,
             RenderValueCardinality.ZeroOrOne,
             RenderScaleContract.MaterializeAtWorkingScale,
@@ -404,6 +404,60 @@ public sealed class FusionBoundaryTests
                     .Where(static boundary => boundary.Reason == ExecutionIslandBoundaryReason.BackendLimit),
                 Has.All.Matches<ExecutionIslandBoundary>(static boundary =>
                     boundary.BackendLimits.Contains(SkslBackendLimit.StageCount)));
+        });
+    }
+
+    [Test]
+    public void DefaultCompiler_UsesFinitePortableBudgetAndSplitsBeforeOverflow()
+    {
+        SkslBackendBudget budget = SkslBackendBudgetResolver.Portable;
+        using CompiledRenderRequest compiled = CompileWithProductionDefaults(
+            (requestId, cache) => StageGraph(requestId, cache, budget.MaxStages + 1));
+
+        CompiledShaderRun[] runs = compiled.ExecutionPlan.ShaderRuns.ToArray();
+        ExecutionIslandBoundary[] backendBoundaries = compiled.ExecutionPlan.Boundaries
+            .Where(static boundary => boundary.Reason == ExecutionIslandBoundaryReason.BackendLimit)
+            .ToArray();
+        Assert.Multiple(() =>
+        {
+            Assert.That(runs.Select(static run => run.Stages.Length),
+                Is.EqualTo(new[] { budget.MaxStages, 1 }));
+            Assert.That(runs, Has.All.Matches<CompiledShaderRun>(
+                run => run.Program.Budget.Equals(budget)));
+            Assert.That(backendBoundaries, Has.Exactly(1).Items);
+            Assert.That(backendBoundaries[0].BackendLimits,
+                Does.Contain(SkslBackendLimit.StageCount));
+        });
+    }
+
+    [Test]
+    public void CompileAfterMetadata_UsesFinitePortableBudgetAndSplitsBeforeOverflow()
+    {
+        SkslBackendBudget budget = SkslBackendBudgetResolver.Portable;
+        var options = new RenderRequestOptions(
+            RenderIntent.Preview,
+            RenderRequestPurpose.Frame,
+            targetDomain: s_bounds,
+            fusionMode: FusionMode.Enabled);
+        var request = new RenderRequest(options);
+        var cache = new HashSet<RenderFragmentReference>(ReferenceEqualityComparer.Instance);
+        RecordedRenderGraph graph = StageGraph(request.Id, cache, budget.MaxStages + 1);
+        request.TransitionTo(RenderRequestState.Recording);
+        request.TransitionTo(RenderRequestState.Recorded);
+        var compiler = new RenderRequestCompiler();
+        RenderNodeMeasurement measurement = compiler.ResolveMetadata(request, graph);
+
+        using CompiledRenderRequest compiled = compiler.CompileAfterMetadata(
+            request,
+            graph,
+            measurement);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(compiled.ExecutionPlan.ShaderRuns.Select(static run => run.Stages.Length),
+                Is.EqualTo(new[] { budget.MaxStages, 1 }));
+            Assert.That(compiled.ExecutionPlan.ShaderRuns, Has.All.Matches<CompiledShaderRun>(
+                run => run.Program.Budget.Equals(budget)));
         });
     }
 
@@ -520,11 +574,17 @@ public sealed class FusionBoundaryTests
     private static RecordedRenderGraph FiveStageGraph(
         RenderRequestId requestId,
         HashSet<RenderFragmentReference> cache)
+        => StageGraph(requestId, cache, 5);
+
+    private static RecordedRenderGraph StageGraph(
+        RenderRequestId requestId,
+        HashSet<RenderFragmentReference> cache,
+        int stageCount)
     {
         RenderFragmentReference source = Fragment(RenderFragmentKind.MaterializedInput, payload: null);
         var references = new List<RenderFragmentReference> { source };
         RenderFragmentReference current = source;
-        for (int index = 0; index < 5; index++)
+        for (int index = 0; index < stageCount; index++)
         {
             current = CurrentPixel(current, $"return color * {index + 1}.0;");
             references.Add(current);
@@ -575,12 +635,12 @@ public sealed class FusionBoundaryTests
         OpaqueRenderTopology topology,
         RenderValueCardinality cardinality)
     {
-        RenderOperationBoundsContract bounds = topology switch
+        OpaqueRenderBoundsContract bounds = topology switch
         {
-            OpaqueRenderTopology.Source => RenderOperationBoundsContract.Source(s_bounds),
-            OpaqueRenderTopology.Map => RenderOperationBoundsContract.Map(RenderBoundsContract.Identity),
+            OpaqueRenderTopology.Source => OpaqueRenderBoundsContract.Source(s_bounds),
+            OpaqueRenderTopology.Map => OpaqueRenderBoundsContract.Map(RenderBoundsContract.Identity),
             OpaqueRenderTopology.Combine or OpaqueRenderTopology.Expand
-                => RenderOperationBoundsContract.FullInputs(static _ => s_bounds),
+                => OpaqueRenderBoundsContract.FullInputs(static _ => s_bounds),
             _ => throw new ArgumentOutOfRangeException(nameof(topology)),
         };
         OpaqueRenderDescription description = OpaqueRenderDescription.Create(
@@ -642,6 +702,22 @@ public sealed class FusionBoundaryTests
             request,
             graph,
             budget ?? SkslBackendBudget.Unlimited);
+    }
+
+    private static CompiledRenderRequest CompileWithProductionDefaults(
+        Func<RenderRequestId, HashSet<RenderFragmentReference>, RecordedRenderGraph> createGraph)
+    {
+        var options = new RenderRequestOptions(
+            RenderIntent.Preview,
+            RenderRequestPurpose.Frame,
+            targetDomain: s_bounds,
+            fusionMode: FusionMode.Enabled);
+        var request = new RenderRequest(options);
+        var cache = new HashSet<RenderFragmentReference>(ReferenceEqualityComparer.Instance);
+        RecordedRenderGraph graph = createGraph(request.Id, cache);
+        request.TransitionTo(RenderRequestState.Recording);
+        request.TransitionTo(RenderRequestState.Recorded);
+        return new RenderRequestCompiler().Compile(request, graph);
     }
 
     private static RecordedRenderGraph BuildGraph(

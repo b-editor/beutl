@@ -877,7 +877,7 @@ public sealed class RenderPipelineReconciliationTests
                     output.Canvas.Use(canvas => canvas.Clear(Colors.CornflowerBlue));
                     session.Publish(output);
                 },
-                RenderOperationBoundsContract.Source(new Rect(0, 0, 16, 16)),
+                OpaqueRenderBoundsContract.Source(new Rect(0, 0, 16, 16)),
                 RenderHitTestContract.OutputBounds,
                 RenderValueCardinality.Single,
                 RenderScaleContract.MaterializeAtWorkingScale,
@@ -894,7 +894,7 @@ public sealed class RenderPipelineReconciliationTests
         {
             context.Publish(context.OpaqueSource(OpaqueRenderDescription.Create(
                 _ => ExecuteCount++,
-                RenderOperationBoundsContract.Source(new Rect(0, 0, 16, 16)),
+                OpaqueRenderBoundsContract.Source(new Rect(0, 0, 16, 16)),
                 RenderHitTestContract.OutputBounds,
                 RenderValueCardinality.ZeroOrOne,
                 RenderScaleContract.MaterializeAtWorkingScale,
@@ -913,7 +913,7 @@ public sealed class RenderPipelineReconciliationTests
         {
             RenderFragmentHandle empty = context.OpaqueSource(OpaqueRenderDescription.Create(
                 _ => SourceExecutions++,
-                RenderOperationBoundsContract.Source(new Rect(0, 0, 16, 16)),
+                OpaqueRenderBoundsContract.Source(new Rect(0, 0, 16, 16)),
                 RenderHitTestContract.OutputBounds,
                 RenderValueCardinality.ZeroOrOne,
                 RenderScaleContract.MaterializeAtWorkingScale,
@@ -982,7 +982,7 @@ public sealed class RenderPipelineReconciliationTests
                     ExecuteCount++;
                     using OpaqueRenderOutput output = session.CreateOutput(session.OutputBounds);
                 },
-                RenderOperationBoundsContract.Source(new Rect(0, 0, 16, 16)),
+                OpaqueRenderBoundsContract.Source(new Rect(0, 0, 16, 16)),
                 RenderHitTestContract.OutputBounds,
                 RenderValueCardinality.ZeroOrOne,
                 RenderScaleContract.MaterializeAtWorkingScale,
@@ -1003,7 +1003,7 @@ public sealed class RenderPipelineReconciliationTests
                     using OpaqueRenderOutput output = session.CreateOutput(session.OutputBounds);
                     session.Publish(output);
                 },
-                RenderOperationBoundsContract.Source(new Rect(0, 0, 16, 16)),
+                OpaqueRenderBoundsContract.Source(new Rect(0, 0, 16, 16)),
                 RenderHitTestContract.OutputBounds,
                 RenderValueCardinality.Single,
                 RenderScaleContract.MaterializeAtWorkingScale,
@@ -1035,7 +1035,7 @@ public sealed class RenderPipelineReconciliationTests
         {
             RenderFragmentHandle source = context.OpaqueSource(OpaqueRenderDescription.Create(
                 _ => SourceExecutions++,
-                RenderOperationBoundsContract.Source(new Rect(4, 5, 0, 6)),
+                OpaqueRenderBoundsContract.Source(new Rect(4, 5, 0, 6)),
                 RenderHitTestContract.None,
                 RenderValueCardinality.ZeroOrOne,
                 RenderScaleContract.MaterializeAtWorkingScale,
@@ -1068,7 +1068,7 @@ public sealed class RenderPipelineReconciliationTests
                     output.Canvas.Use(canvas => canvas.Clear(Colors.CornflowerBlue));
                     session.Publish(output);
                 },
-                RenderOperationBoundsContract.Source(new Rect(0, 0, 16, 16)),
+                OpaqueRenderBoundsContract.Source(new Rect(0, 0, 16, 16)),
                 RenderHitTestContract.OutputBounds,
                 RenderValueCardinality.Single,
                 RenderScaleContract.MaterializeAtWorkingScale,
@@ -1100,7 +1100,7 @@ public sealed class RenderPipelineReconciliationTests
                     ExecuteCount++;
                     throw new InvalidOperationException("producer-fault");
                 },
-                RenderOperationBoundsContract.Source(new Rect(0, 0, 16, 16)),
+                OpaqueRenderBoundsContract.Source(new Rect(0, 0, 16, 16)),
                 RenderHitTestContract.OutputBounds,
                 RenderValueCardinality.Single,
                 RenderScaleContract.MaterializeAtWorkingScale,
@@ -1120,7 +1120,7 @@ public sealed class RenderPipelineReconciliationTests
                     output.Canvas.Use(canvas => canvas.Clear(Colors.CornflowerBlue));
                     session.Publish(output);
                 },
-                RenderOperationBoundsContract.Source(new Rect(0, 0, 16, 16)),
+                OpaqueRenderBoundsContract.Source(new Rect(0, 0, 16, 16)),
                 RenderHitTestContract.OutputBounds,
                 RenderValueCardinality.Single,
                 RenderScaleContract.MaterializeAtWorkingScale,
@@ -1172,7 +1172,7 @@ public sealed class RenderPipelineReconciliationTests
                     output.Canvas.Use(canvas => canvas.Clear(Colors.CornflowerBlue));
                     session.Publish(output);
                 },
-                RenderOperationBoundsContract.Source(new Rect(0, 0, 16, 16)),
+                OpaqueRenderBoundsContract.Source(new Rect(0, 0, 16, 16)),
                 RenderHitTestContract.OutputBounds,
                 RenderValueCardinality.Single,
                 RenderScaleContract.MaterializeAtWorkingScale,

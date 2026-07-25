@@ -45,7 +45,7 @@ internal sealed class RenderRequestCompiler
     public CompiledRenderRequest Compile(
         RenderRequest request,
         RecordedRenderGraph graph)
-        => Compile(request, graph, SkslBackendBudget.Unlimited);
+        => Compile(request, graph, SkslBackendBudgetResolver.Portable);
 
     internal CompiledRenderRequest Compile(
         RenderRequest request,
@@ -87,7 +87,7 @@ internal sealed class RenderRequestCompiler
             request,
             graph,
             measurement,
-            SkslBackendBudget.Unlimited);
+            SkslBackendBudgetResolver.Portable);
 
     internal CompiledRenderRequest CompileAfterMetadata(
         RenderRequest request,
@@ -241,6 +241,9 @@ internal sealed class RenderRequestCompiler
 
         RenderPipelineDiagnosticRecorder? diagnostics = RenderRequestDiagnostics.TryGet(request);
         ImmutableArray<RenderFragmentReference> roots = ResolveRoots(graph);
+        // Metadata resolution mutates symbolic fragment bounds used by target-scope lowering.
+        // Re-lower here so the final plan uses those resolved owning domains; the preliminary
+        // plan used to resolve metadata is not safe to reuse.
         TargetDependencyPlan targetDependencies = TargetDependencyLowerer.Lower(
             roots,
             request.Options.TargetDomain);

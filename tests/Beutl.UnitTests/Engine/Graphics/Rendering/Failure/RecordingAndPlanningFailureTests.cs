@@ -521,7 +521,7 @@ internal static class FailureTestSupport
         return backendBoundary == RenderBackendBoundary.None
             ? OpaqueRenderDescription.Create(
                 execute,
-                RenderOperationBoundsContract.Source(s_bounds),
+                OpaqueRenderBoundsContract.Source(s_bounds),
                 RenderHitTestContract.OutputBounds,
                 cardinality ?? RenderValueCardinality.Single,
                 RenderScaleContract.MaterializeAtWorkingScale,
@@ -530,7 +530,7 @@ internal static class FailureTestSupport
             : OpaqueRenderDescription.CreateBackendBoundary(
                 backendBoundary,
                 execute,
-                RenderOperationBoundsContract.Source(s_bounds),
+                OpaqueRenderBoundsContract.Source(s_bounds),
                 RenderHitTestContract.OutputBounds,
                 cardinality ?? RenderValueCardinality.Single,
                 RenderScaleContract.MaterializeAtWorkingScale,

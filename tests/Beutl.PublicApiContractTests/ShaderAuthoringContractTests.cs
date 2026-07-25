@@ -314,7 +314,7 @@ public sealed class ShaderAuthoringContractTests
     {
         return OpaqueRenderDescription.Create(
             static _ => throw new AssertionException("A metadata request must not execute the source."),
-            RenderOperationBoundsContract.Source(bounds),
+            OpaqueRenderBoundsContract.Source(bounds),
             RenderHitTestContract.OutputBounds,
             RenderValueCardinality.Single,
             RenderScaleContract.Vector,
@@ -330,7 +330,7 @@ public sealed class ShaderAuthoringContractTests
                 output.Canvas.Use(canvas => canvas.Clear(color));
                 session.Publish(output);
             },
-            RenderOperationBoundsContract.Source(bounds),
+            OpaqueRenderBoundsContract.Source(bounds),
             RenderHitTestContract.OutputBounds,
             RenderValueCardinality.Single,
             RenderScaleContract.MaterializeAtWorkingScale,

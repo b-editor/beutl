@@ -132,7 +132,7 @@ internal sealed class FixedOpsNode : RenderNode
                 execute: session => session.UseResource(
                     fillResource,
                     fill => RecordedOperation.Execute(spec, session, fill)),
-                bounds: RenderOperationBoundsContract.Source(spec.EffectiveBounds),
+                bounds: OpaqueRenderBoundsContract.Source(spec.EffectiveBounds),
                 hitTest: RenderHitTestContract.OutputBounds,
                 valueCardinality: RenderValueCardinality.Single,
                 scale: RenderScaleContract.Vector,

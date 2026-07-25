@@ -1,5 +1,6 @@
 ﻿using Beutl.Graphics;
 using Beutl.Graphics.Rendering;
+using Beutl.Graphics.Rendering.Cache;
 using Beutl.Media;
 
 using SkiaSharp;
@@ -199,6 +200,57 @@ public class RenderNodeRendererExceptionSafetyTests
             ex!.Message,
             Does.StartWith("The render-target factory could not allocate 4x4 pixels"));
         Assert.That(discharged, Is.EqualTo(new[] { "second", "first" }));
+    }
+
+    [Test]
+    public void Render_PreExecutionAllocationFailureRecordsTheFamilyOwnerWithoutDiagnostics()
+    {
+        using var node = new ExpandedReadbackNode();
+        var factory = new TrackingTargetFactory(_ => false, throwOnCreate: true);
+        using var renderer = CreateRenderer(node, factory);
+        using RenderTarget target = CreateCpuTarget(4, 4);
+        using var canvas = new ImmediateCanvas(target);
+
+        InvalidOperationException? failure = Assert.Throws<InvalidOperationException>(
+            () => renderer.Render(canvas));
+        RenderRequestOwner owner = node.NestedRequest!.Request.Options.Owner;
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(failure!.Message, Is.EqualTo("rt-create-fault"));
+            Assert.That(owner.PrimaryFailure?.SourceException, Is.SameAs(failure));
+            Assert.That(owner.SecondaryFailures, Is.Empty);
+            Assert.That(node.NestedRequest.Request.State, Is.EqualTo(RenderRequestState.Disposed));
+        });
+    }
+
+    [Test]
+    public void PreExecutionFailureWithoutDiagnostics_MarksRootAndNestedBeforeDisposal()
+    {
+        using var node = new ExpandedReadbackNode();
+        using var request = new RenderRequest(new RenderRequestOptions(
+            RenderIntent.Preview,
+            RenderRequestPurpose.Frame,
+            targetDomain: new Rect(0, 0, 4, 4),
+            cachePolicy: RenderCacheOptions.Disabled,
+            diagnostics: null));
+        RecordedRenderGraph graph = new RenderRequestRecorder(request).Record(node);
+        using CompiledRenderRequest compiled = new RenderRequestCompiler().Compile(request, graph);
+        var failure = new InvalidOperationException("pre-execution-fault");
+
+        bool completeDiagnostics = RenderNodeRenderer.FailRequestFamilyBeforeExecution(
+            compiled,
+            failure,
+            RenderPipelineFailurePhase.Allocation);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(completeDiagnostics, Is.False);
+            Assert.That(compiled.Request.State, Is.EqualTo(RenderRequestState.Failed));
+            Assert.That(node.NestedRequest!.Request.State, Is.EqualTo(RenderRequestState.Failed));
+            Assert.That(request.Options.Owner.PrimaryFailure?.SourceException, Is.SameAs(failure));
+            Assert.That(request.Options.Owner.SecondaryFailures, Is.Empty);
+        });
     }
 
     [TestCase(EntryPoint.Rasterize)]
@@ -472,6 +524,41 @@ public class RenderNodeRendererExceptionSafetyTests
                 shouldThrowOnDispose(CreatedTargets.Count));
             CreatedTargets.Add(target);
             return target;
+        }
+    }
+
+    private sealed class ExpandedReadbackNode : RenderNode
+    {
+        private static readonly Rect s_domain = new(0, 0, 4, 4);
+        private readonly EmptyNode _nested = new();
+
+        public RecordedNestedRenderTarget? NestedRequest { get; private set; }
+
+        public override void Process(RenderNodeContext context)
+        {
+            NestedRequest = context.RecordNestedTarget(_nested, s_domain);
+            context.Publish(context.TargetCommand(
+                [],
+                TargetCommandDescription.Create(
+                    session => session.UseSnapshot(static _ => { }),
+                    TargetRegion.Region(s_domain),
+                    Rect.Empty,
+                    RenderHitTestContract.None,
+                    TargetAccess.Readback,
+                    structuralKey: typeof(ExpandedReadbackNode))));
+        }
+
+        protected override void OnDispose(bool disposing)
+        {
+            if (disposing)
+                _nested.Dispose();
+        }
+    }
+
+    private sealed class EmptyNode : RenderNode
+    {
+        public override void Process(RenderNodeContext context)
+        {
         }
     }
 

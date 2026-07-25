@@ -1186,7 +1186,7 @@ public sealed class NestedTargetAndCleanupFailureTests
                     output.Canvas.Use(canvas => canvas.Clear(Colors.Red));
                     session.Publish(output);
                 },
-                RenderOperationBoundsContract.Source(bounds),
+                OpaqueRenderBoundsContract.Source(bounds),
                 RenderHitTestContract.OutputBounds,
                 RenderValueCardinality.Single,
                 RenderScaleContract.MaterializeAtWorkingScale,
@@ -1218,7 +1218,7 @@ public sealed class NestedTargetAndCleanupFailureTests
                         });
                         session.Publish(output);
                     }),
-                RenderOperationBoundsContract.Source(targetDomain),
+                OpaqueRenderBoundsContract.Source(targetDomain),
                 RenderHitTestContract.OutputBounds,
                 RenderValueCardinality.Single,
                 RenderScaleContract.MaterializeAtWorkingScale,

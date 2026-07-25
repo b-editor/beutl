@@ -486,7 +486,7 @@ public sealed class FilterEffectCompatibilityContractTests
     {
         return OpaqueRenderDescription.Create(
             static _ => throw new AssertionException("Measure must not execute opaque callbacks."),
-            RenderOperationBoundsContract.Source(bounds),
+            OpaqueRenderBoundsContract.Source(bounds),
             RenderHitTestContract.OutputBounds,
             RenderValueCardinality.Single,
             scale,
@@ -504,7 +504,7 @@ public sealed class FilterEffectCompatibilityContractTests
                     output.Canvas.Use(canvas => canvas.Clear(color));
                     session.Publish(output);
                 },
-                RenderOperationBoundsContract.Source(bounds),
+                OpaqueRenderBoundsContract.Source(bounds),
                 RenderHitTestContract.OutputBounds,
                 RenderValueCardinality.Single,
                 RenderScaleContract.MaterializeAtWorkingScale,

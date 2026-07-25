@@ -125,7 +125,7 @@ public sealed class ProductionResourceLifetimeTests
                 output.Canvas.Use(static canvas => canvas.Clear(Colors.CornflowerBlue));
                 session.Publish(output);
             },
-            RenderOperationBoundsContract.Source(s_bounds),
+            OpaqueRenderBoundsContract.Source(s_bounds),
             RenderHitTestContract.OutputBounds,
             RenderValueCardinality.Single,
             RenderScaleContract.MaterializeAtWorkingScale,
@@ -143,7 +143,7 @@ public sealed class ProductionResourceLifetimeTests
                 output.Canvas.Use(session.Inputs.Single().Draw);
                 session.Publish(output);
             },
-            RenderOperationBoundsContract.Map(RenderBoundsContract.Identity),
+            OpaqueRenderBoundsContract.Map(RenderBoundsContract.Identity),
             RenderHitTestContract.AnyInput,
             RenderValueCardinality.Single,
             RenderScaleContract.PreserveInputSupply,
@@ -165,7 +165,7 @@ public sealed class ProductionResourceLifetimeTests
                 });
                 session.Publish(output);
             },
-            RenderOperationBoundsContract.FullInputs(
+            OpaqueRenderBoundsContract.FullInputs(
                 static inputs => inputs.Aggregate(Rect.Empty, static (result, input) => result.Union(input)),
                 key),
             RenderHitTestContract.AnyInput,

@@ -529,7 +529,7 @@ public sealed class TargetAuthoringContractTests
     {
         return OpaqueRenderDescription.Create(
             static _ => throw new AssertionException("Measure must not execute opaque source callbacks."),
-            RenderOperationBoundsContract.Source(bounds),
+            OpaqueRenderBoundsContract.Source(bounds),
             RenderHitTestContract.OutputBounds,
             RenderValueCardinality.Single,
             RenderScaleContract.Vector,
@@ -549,7 +549,7 @@ public sealed class TargetAuthoringContractTests
                 using OpaqueRenderOutput output = session.CreateOutput(session.OutputBounds);
                 session.Publish(output);
             },
-            RenderOperationBoundsContract.Source(bounds),
+            OpaqueRenderBoundsContract.Source(bounds),
             RenderHitTestContract.OutputBounds,
             RenderValueCardinality.Single,
             scale ?? RenderScaleContract.MaterializeAtWorkingScale,
@@ -570,7 +570,7 @@ public sealed class TargetAuthoringContractTests
                 output.Canvas.Use(canvas => session.Inputs.Single().Draw(canvas));
                 session.Publish(output);
             },
-            RenderOperationBoundsContract.Map(RenderBoundsContract.Identity),
+            OpaqueRenderBoundsContract.Map(RenderBoundsContract.Identity),
             RenderHitTestContract.AnyInput,
             RenderValueCardinality.Single,
             scale,

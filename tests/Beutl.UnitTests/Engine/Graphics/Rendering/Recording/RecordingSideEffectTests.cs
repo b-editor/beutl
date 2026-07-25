@@ -77,7 +77,7 @@ public sealed class RecordingSideEffectTests
 
         OpaqueRenderDescription opaque = OpaqueRenderDescription.Create(
             _ => tripwire.TouchAll(),
-            RenderOperationBoundsContract.Source(bounds),
+            OpaqueRenderBoundsContract.Source(bounds),
             RenderHitTestContract.OutputBounds,
             RenderValueCardinality.Single,
             RenderScaleContract.Vector,

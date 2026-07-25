@@ -306,7 +306,7 @@ public sealed class RendererWideRecordingTests
                     output.Canvas.Use(session.Inputs.Single().Draw);
                     session.Publish(output);
                 },
-                RenderOperationBoundsContract.Map(RenderBoundsContract.Identity),
+                OpaqueRenderBoundsContract.Map(RenderBoundsContract.Identity),
                 RenderHitTestContract.AnyInput,
                 RenderValueCardinality.Single,
                 RenderScaleContract.PreserveInputSupply,
@@ -331,7 +331,7 @@ public sealed class RendererWideRecordingTests
                 draw(session, output);
                 session.Publish(output);
             },
-            RenderOperationBoundsContract.Source(new Rect(0, 0, 8, 8)),
+            OpaqueRenderBoundsContract.Source(new Rect(0, 0, 8, 8)),
             RenderHitTestContract.OutputBounds,
             RenderValueCardinality.Single,
             RenderScaleContract.MaterializeAtWorkingScale,
@@ -357,7 +357,7 @@ public sealed class RendererWideRecordingTests
                     output.Canvas.Use(canvas => canvas.Clear(new Color(255, 32, 64, 96)));
                     session.Publish(output);
                 },
-                RenderOperationBoundsContract.Source(new Rect(0, 0, 8, 8)),
+                OpaqueRenderBoundsContract.Source(new Rect(0, 0, 8, 8)),
                 RenderHitTestContract.OutputBounds,
                 RenderValueCardinality.Single,
                 RenderScaleContract.MaterializeAtWorkingScale,
@@ -466,7 +466,7 @@ internal sealed class ProductionTreeProbeNode(
                         : new Color(160, 16, 64, 128)));
                 session.Publish(output);
             },
-            RenderOperationBoundsContract.Source(new Rect(0, 0, 8, 8)),
+            OpaqueRenderBoundsContract.Source(new Rect(0, 0, 8, 8)),
             RenderHitTestContract.OutputBounds,
             RenderValueCardinality.Single,
             RenderScaleContract.MaterializeAtWorkingScale,
@@ -509,7 +509,7 @@ internal sealed class CacheMutationThreadProbeNode(
                 output.Canvas.Use(canvas => canvas.Clear(new Color(255, 32, 64, 96)));
                 session.Publish(output);
             },
-            RenderOperationBoundsContract.Source(new Rect(0, 0, 8, 8)),
+            OpaqueRenderBoundsContract.Source(new Rect(0, 0, 8, 8)),
             RenderHitTestContract.OutputBounds,
             RenderValueCardinality.Single,
             RenderScaleContract.MaterializeAtWorkingScale,

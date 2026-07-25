@@ -55,7 +55,7 @@ public sealed class SymbolicSupplyMappingTests
                 OpaqueRenderDescription description = OpaqueRenderDescription.Create(
                     execute: static _ => throw new AssertionException(
                         "Metadata analysis must not execute opaque callbacks."),
-                    bounds: RenderOperationBoundsContract.Map(RenderBoundsContract.Identity),
+                    bounds: OpaqueRenderBoundsContract.Map(RenderBoundsContract.Identity),
                     hitTest: RenderHitTestContract.AnyInput,
                     valueCardinality: RenderValueCardinality.Single,
                     scale: RenderScaleContract.MapInputSupply(

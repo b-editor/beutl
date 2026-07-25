@@ -59,66 +59,6 @@ public sealed class RenderTargetPoolTests
     }
 
     [Test]
-    public void LinearThreeAndTenStagePlans_HaveTheSameTwoTargetPeak()
-    {
-        ResourcePlan three = CreateLinearPlan(3, new PixelSize(8, 8));
-        ResourcePlan ten = CreateLinearPlan(10, new PixelSize(8, 8));
-
-        Assert.Multiple(() =>
-        {
-            Assert.That(three.PeakLiveIntermediates, Is.EqualTo(2));
-            Assert.That(ten.PeakLiveIntermediates, Is.EqualTo(2));
-            Assert.That(three.PhysicalSlotCount, Is.EqualTo(2));
-            Assert.That(ten.PhysicalSlotCount, Is.EqualTo(2));
-            Assert.That(
-                ten.Allocations.Select(static allocation => allocation.SlotId.Value),
-                Is.EqualTo(new[] { 1, 2, 1, 2, 1, 2, 1, 2, 1, 2 }));
-        });
-    }
-
-    [Test]
-    public void FanOut_KeepsValueLiveThroughItsLastConsumer()
-    {
-        PixelSize size = new(4, 4);
-        ResourcePlan plan = ResourcePlan.Create(
-        [
-            Requirement(1, size, 0, 1, 4),
-            Requirement(2, size, 1, 2),
-            Requirement(3, size, 5, 6),
-        ]);
-
-        ResourcePlanAllocation fanOut = plan.GetAllocation(new ResourcePlanValueId(1));
-        ResourcePlanAllocation overlapping = plan.GetAllocation(new ResourcePlanValueId(2));
-        ResourcePlanAllocation afterFanOut = plan.GetAllocation(new ResourcePlanValueId(3));
-        Assert.Multiple(() =>
-        {
-            Assert.That(fanOut.LastUsePosition, Is.EqualTo(4));
-            Assert.That(overlapping.SlotId, Is.Not.EqualTo(fanOut.SlotId));
-            Assert.That(afterFanOut.SlotId, Is.EqualTo(fanOut.SlotId));
-            Assert.That(plan.PeakLiveIntermediates, Is.EqualTo(2));
-        });
-    }
-
-    [Test]
-    public void Planning_NeverAliasesDifferentExactSizes()
-    {
-        ResourcePlan plan = ResourcePlan.Create(
-        [
-            Requirement(1, new PixelSize(4, 4), 0, 1),
-            Requirement(2, new PixelSize(5, 4), 2, 3),
-            Requirement(3, new PixelSize(4, 4), 2, 3),
-        ]);
-
-        Assert.Multiple(() =>
-        {
-            Assert.That(plan.GetAllocation(new ResourcePlanValueId(1)).SlotId,
-                Is.EqualTo(plan.GetAllocation(new ResourcePlanValueId(3)).SlotId));
-            Assert.That(plan.GetAllocation(new ResourcePlanValueId(2)).SlotId,
-                Is.Not.EqualTo(plan.GetAllocation(new ResourcePlanValueId(1)).SlotId));
-        });
-    }
-
-    [Test]
     public void ByteCap_EvictsTheLeastRecentlyReleasedTarget()
     {
         var factory = new TrackingTargetFactory();
@@ -346,6 +286,61 @@ public sealed class RenderTargetPoolTests
             Assert.That(pool.Statistics.RetainedBytes, Is.Zero);
         });
         Assert.DoesNotThrow(() => pool.Dispose());
+    }
+
+    [TestCase((int)RenderTargetPoolRegistrationStage.OwnedSlot)]
+    [TestCase((int)RenderTargetPoolRegistrationStage.KnownTarget)]
+    [TestCase((int)RenderTargetPoolRegistrationStage.KnownSurface)]
+    public void FreshTargetRegistrationFailure_RollsBackEveryBookkeepingStageAndAllowsRetry(
+        int failureStageValue)
+    {
+        var failureStage = (RenderTargetPoolRegistrationStage)failureStageValue;
+        var primary = new InvalidOperationException($"target-registration-{failureStage}");
+        bool failNextRegistration = true;
+        var factory = new TrackingTargetFactory();
+        using var pool = new RenderTargetPool(
+            factory,
+            new RenderTargetPoolOptions
+            {
+                AfterTargetRegistrationStep = stage =>
+                {
+                    if (failNextRegistration && stage == failureStage)
+                    {
+                        failNextRegistration = false;
+                        throw primary;
+                    }
+                },
+            });
+        using RenderTargetPoolRequest request = pool.BeginRequest();
+
+        InvalidOperationException? failure = Assert.Throws<InvalidOperationException>(
+            () => request.Acquire(new PixelSize(4, 4)));
+        var rejected = (TrackingRenderTarget)factory.Created.Single();
+        Assert.Multiple(() =>
+        {
+            Assert.That(failure, Is.SameAs(primary));
+            Assert.That(rejected.IsDisposed, Is.True);
+            Assert.That(rejected.DisposeCalls, Is.EqualTo(1));
+            Assert.That(pool.Statistics.Creates, Is.Zero);
+            Assert.That(pool.Statistics.Misses, Is.EqualTo(1));
+            Assert.That(pool.Statistics.Evictions, Is.Zero);
+            Assert.That(pool.Statistics.OwnedTargets, Is.Zero);
+            Assert.That(pool.Statistics.AvailableTargets, Is.Zero);
+            Assert.That(pool.Statistics.LeasedTargets, Is.Zero);
+            Assert.That(pool.Statistics.OwnedBytes, Is.Zero);
+            Assert.That(pool.Statistics.RetainedBytes, Is.Zero);
+            Assert.That(pool.Statistics.PeakLiveTargets, Is.Zero);
+        });
+
+        using PooledRenderTargetLease retry = request.Acquire(new PixelSize(4, 4));
+        Assert.Multiple(() =>
+        {
+            Assert.That(retry.Target, Is.Not.SameAs(rejected));
+            Assert.That(pool.Statistics.Creates, Is.EqualTo(1));
+            Assert.That(pool.Statistics.Misses, Is.EqualTo(2));
+            Assert.That(pool.Statistics.OwnedTargets, Is.EqualTo(1));
+            Assert.That(pool.Statistics.LeasedTargets, Is.EqualTo(1));
+        });
     }
 
     [Test]
@@ -715,103 +710,6 @@ public sealed class RenderTargetPoolTests
 
         Assert.DoesNotThrow(() => pool.Dispose());
     }
-
-    [Test]
-    public void ResourceExecution_ReusesAfterLastUse_AndTransfersOnlyAcceptedPayload()
-    {
-        PixelSize size = new(4, 4);
-        ResourcePlan plan = ResourcePlan.Create(
-        [
-            Requirement(1, size, 0, 1),
-            Requirement(2, size, 1, 2),
-            Requirement(3, size, 2, 2, transferToCache: true),
-        ]);
-        using var pool = new RenderTargetPool(new TrackingTargetFactory());
-        using RenderTargetPoolRequest request = pool.BeginRequest();
-        using ResourcePlanExecution execution = plan.BeginExecution(request);
-
-        execution.BeginPosition(0);
-        RenderTarget first = execution.GetTarget(new ResourcePlanValueId(1));
-        execution.CompletePosition(0);
-
-        execution.BeginPosition(1);
-        RenderTarget second = execution.GetTarget(new ResourcePlanValueId(2));
-        execution.CompletePosition(1);
-
-        execution.BeginPosition(2);
-        RenderTarget third = execution.GetTarget(new ResourcePlanValueId(3));
-        Assert.That(third, Is.SameAs(first));
-        execution.CompletePosition(2, static (_, _) => true);
-
-        Assert.Multiple(() =>
-        {
-            Assert.That(second, Is.Not.SameAs(first));
-            Assert.That(execution.PeakLiveIntermediates, Is.EqualTo(2));
-            Assert.That(execution.PeakLiveIntermediates, Is.EqualTo(plan.PeakLiveIntermediates));
-            Assert.That(execution.CacheTransfers.Select(static item => item.ValueId.Value), Is.EqualTo(new[] { 3 }));
-            Assert.That(pool.Statistics.Creates, Is.EqualTo(2));
-            Assert.That(pool.Statistics.Reuses, Is.EqualTo(1));
-            Assert.That(pool.Statistics.OwnedTargets, Is.EqualTo(1));
-        });
-
-        RenderTarget transferred = execution.CacheTransfers.Single().Target;
-        request.Dispose();
-        pool.Dispose();
-        Assert.That(transferred.IsDisposed, Is.False);
-        transferred.Dispose();
-    }
-
-    [Test]
-    public void ResourceExecution_RejectedCacheCaptureReturnsTargetToPool()
-    {
-        ResourcePlan plan = ResourcePlan.Create(
-        [
-            Requirement(1, new PixelSize(2, 2), 0, 0, transferToCache: true),
-        ]);
-        using var pool = new RenderTargetPool(new TrackingTargetFactory());
-        using RenderTargetPoolRequest request = pool.BeginRequest();
-        using ResourcePlanExecution execution = plan.BeginExecution(request);
-
-        execution.BeginPosition(0);
-        RenderTarget target = execution.GetTarget(new ResourcePlanValueId(1));
-        execution.CompletePosition(0, static (_, _) => false);
-
-        Assert.Multiple(() =>
-        {
-            Assert.That(execution.CacheTransfers, Is.Empty);
-            Assert.That(pool.Statistics.AvailableTargets, Is.EqualTo(1));
-            Assert.That(target.IsDisposed, Is.False);
-        });
-    }
-
-    private static ResourcePlan CreateLinearPlan(int stages, PixelSize size)
-        => ResourcePlan.Create(Enumerable.Range(0, stages)
-            .Select(index => Requirement(index + 1, size, index, index + 1)));
-
-    private static ResourcePlanRequirement Requirement(
-        int id,
-        PixelSize size,
-        int acquisition,
-        int consumer,
-        bool transferToCache = false)
-        => new(
-            new ResourcePlanValueId(id),
-            size,
-            acquisition,
-            [consumer],
-            transferToCache);
-
-    private static ResourcePlanRequirement Requirement(
-        int id,
-        PixelSize size,
-        int acquisition,
-        int firstConsumer,
-        int secondConsumer)
-        => new(
-            new ResourcePlanValueId(id),
-            size,
-            acquisition,
-            [firstConsumer, secondConsumer]);
 
     private sealed class TrackingTargetFactory(
         Func<PixelSize, int, RenderTarget>? create = null) : IRenderTargetFactory

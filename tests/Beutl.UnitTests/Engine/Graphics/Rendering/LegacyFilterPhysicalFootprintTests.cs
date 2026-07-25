@@ -1147,7 +1147,7 @@ public sealed class LegacyFilterPhysicalFootprintTests
                         output.Canvas.Use(source.Draw);
                         session.Publish(output);
                     },
-                    RenderOperationBoundsContract.Map(RenderBoundsContract.Identity),
+                    OpaqueRenderBoundsContract.Map(RenderBoundsContract.Identity),
                     RenderHitTestContract.AnyInput,
                     RenderValueCardinality.Single,
                     RenderScaleContract.PreserveInputSupply,
@@ -1183,7 +1183,7 @@ public sealed class LegacyFilterPhysicalFootprintTests
                     session.Publish(output);
                 },
                 directReplay: static session => Draw(session.Canvas.Canvas),
-                bounds: RenderOperationBoundsContract.Source(s_bounds),
+                bounds: OpaqueRenderBoundsContract.Source(s_bounds),
                 hitTest: RenderHitTestContract.OutputBounds,
                 scale: RenderScaleContract.Vector,
                 structuralKey: typeof(PixelExactLegacySourceNode),

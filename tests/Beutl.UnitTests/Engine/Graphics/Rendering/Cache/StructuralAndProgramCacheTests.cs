@@ -371,7 +371,7 @@ public sealed class StructuralAndProgramCacheTests
         {
             OpaqueRenderDescription source = OpaqueRenderDescription.Create(
                 static _ => { },
-                RenderOperationBoundsContract.Source(Bounds),
+                OpaqueRenderBoundsContract.Source(Bounds),
                 RenderHitTestContract.OutputBounds,
                 RenderValueCardinality.Single,
                 RenderScaleContract.MaterializeAtWorkingScale,

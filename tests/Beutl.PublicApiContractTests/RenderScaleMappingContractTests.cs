@@ -47,14 +47,14 @@ public sealed class RenderScaleMappingContractTests
                     structuralKey: (typeof(SupplyMappingNode), inputSupply));
             RenderFragmentHandle source = context.OpaqueSource(OpaqueRenderDescription.Create(
                 execute: static _ => throw new AssertionException("Measurement must not execute opaque callbacks."),
-                bounds: RenderOperationBoundsContract.Source(s_bounds),
+                bounds: OpaqueRenderBoundsContract.Source(s_bounds),
                 hitTest: RenderHitTestContract.None,
                 valueCardinality: RenderValueCardinality.Single,
                 scale: sourceScale,
                 structuralKey: (typeof(SupplyMappingNode), "source", inputSupply)));
             RenderFragmentHandle mapped = context.OpaqueMap(source, OpaqueRenderDescription.Create(
                 execute: static _ => throw new AssertionException("Measurement must not execute opaque callbacks."),
-                bounds: RenderOperationBoundsContract.Map(RenderBoundsContract.Identity),
+                bounds: OpaqueRenderBoundsContract.Map(RenderBoundsContract.Identity),
                 hitTest: RenderHitTestContract.None,
                 valueCardinality: RenderValueCardinality.Single,
                 scale: RenderScaleContract.MapInputSupply(

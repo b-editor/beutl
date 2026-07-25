@@ -103,7 +103,7 @@ internal sealed class Scene3DRenderNode(Scene3D.Resource scene) : RenderNode
             execute: session => session.UseResource(
                 sceneToken,
                 current => Render(session, current)),
-            bounds: RenderOperationBoundsContract.Source(bounds),
+            bounds: OpaqueRenderBoundsContract.Source(bounds),
             hitTest: RenderHitTestContract.OutputBounds,
             valueCardinality: RenderValueCardinality.Single,
             scale: RenderScaleContract.MaterializeAtWorkingScale,

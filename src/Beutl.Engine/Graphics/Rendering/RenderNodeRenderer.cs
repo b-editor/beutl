@@ -1,4 +1,5 @@
 ﻿using System.Runtime.ExceptionServices;
+using Beutl.Graphics.Effects;
 using Beutl.Graphics.Rendering.Cache;
 using Beutl.Media;
 using SkiaSharp;
@@ -169,13 +170,13 @@ public sealed class RenderNodeRenderer : IDisposable
                                          && (requested.Width == 0 || requested.Height == 0);
         float maxWorkingScale = MathF.Min(Options.MaxWorkingScale, destination.MaxWorkingScale);
         Rect targetDomain = ResolveDestinationTargetDomain(destination);
-        using RenderTargetLeaseSession targets = _targetRegistry.BeginSession(
+        RenderTargetLeaseSession targets = _targetRegistry.BeginSession(
             Options.Intent,
             destination._renderTarget);
         CompiledRenderRequest? request = null;
         RenderRequestOwner? owner = null;
         ExceptionDispatchInfo? primary = null;
-        bool failedBeforeExecution = false;
+        bool completeFailedDiagnostics = false;
         try
         {
             request = RecordAndCompile(
@@ -208,15 +209,10 @@ public sealed class RenderNodeRenderer : IDisposable
         catch (Exception ex)
         {
             primary = ExceptionDispatchInfo.Capture(ex);
-            if (request is not null
-                && request.Request.State == RenderRequestState.Planned
-                && RenderRequestDiagnostics.TryGet(request.Request) is not null)
-            {
-                failedBeforeExecution = true;
-                if (owner?.PrimaryFailure is null)
-                    owner?.RecordPrimaryFailure(ex);
-                MarkFamilyFailedBeforeExecution(request, RenderPipelineFailurePhase.Allocation);
-            }
+            completeFailedDiagnostics = FailRequestFamilyBeforeExecution(
+                request,
+                ex,
+                RenderPipelineFailurePhase.Allocation);
         }
         finally
         {
@@ -224,7 +220,7 @@ public sealed class RenderNodeRenderer : IDisposable
             DisposeAndCapture(targets, ref primary);
         }
 
-        if (request is not null && failedBeforeExecution)
+        if (request is not null && completeFailedDiagnostics)
         {
             CompleteFailedFamilyDiagnostics(
                 request,
@@ -588,11 +584,13 @@ public sealed class RenderNodeRenderer : IDisposable
                 targets.CacheDeviceContextIdentity,
                 allowPersistentLookup,
                 allowCapturePublication);
+            SkslBackendBudget shaderBudget = SkslBackendBudgetResolver.Resolve(
+                targets.ExternalTarget?.Value.Context?.Backend);
             return new RenderRequestCompiler(
                     _structuralPlanCache,
                     cacheContext,
                     allowPersistentLookup ? RenderNodeCacheLookup.Instance : null)
-                .Compile(request, graph);
+                .Compile(request, graph, shaderBudget);
         }
         catch (Exception ex)
         {
@@ -651,6 +649,23 @@ public sealed class RenderNodeRenderer : IDisposable
         {
             primary ??= ExceptionDispatchInfo.Capture(ex);
         }
+    }
+
+    internal static bool FailRequestFamilyBeforeExecution(
+        CompiledRenderRequest? request,
+        Exception exception,
+        RenderPipelineFailurePhase failurePhase)
+    {
+        ArgumentNullException.ThrowIfNull(exception);
+        if (request is null || request.Request.State != RenderRequestState.Planned)
+            return false;
+
+        bool completeDiagnostics = RenderRequestDiagnostics.TryGet(request.Request) is not null;
+        RenderRequestOwner owner = request.Request.Options.Owner;
+        if (owner.PrimaryFailure is null)
+            owner.RecordPrimaryFailure(exception);
+        MarkFamilyFailedBeforeExecution(request, failurePhase);
+        return completeDiagnostics;
     }
 
     private static void MarkFamilyFailedBeforeExecution(

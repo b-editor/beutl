@@ -825,7 +825,7 @@ public sealed class RenderCacheResolutionTests
 
             OpaqueRenderDescription description = OpaqueRenderDescription.Create(
                 _ => ExecuteCount++,
-                RenderOperationBoundsContract.Source(s_bounds),
+                OpaqueRenderBoundsContract.Source(s_bounds),
                 RenderHitTestContract.OutputBounds,
                 RenderValueCardinality.Single,
                 RenderScaleContract.MaterializeAtWorkingScale,
@@ -863,7 +863,7 @@ public sealed class RenderCacheResolutionTests
                         session.Publish(output);
                     });
                 },
-                RenderOperationBoundsContract.Source(s_bounds),
+                OpaqueRenderBoundsContract.Source(s_bounds),
                 RenderHitTestContract.OutputBounds,
                 RenderValueCardinality.Single,
                 RenderScaleContract.MaterializeAtWorkingScale,

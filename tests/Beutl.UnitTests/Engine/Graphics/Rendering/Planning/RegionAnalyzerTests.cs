@@ -278,7 +278,7 @@ public sealed class RegionAnalyzerTests
         {
             OpaqueRenderDescription description = OpaqueRenderDescription.Create(
                 static _ => { },
-                RenderOperationBoundsContract.Source(bounds),
+                OpaqueRenderBoundsContract.Source(bounds),
                 RenderHitTestContract.OutputBounds,
                 RenderValueCardinality.Single,
                 RenderScaleContract.MaterializeAtWorkingScale,
@@ -306,7 +306,7 @@ public sealed class RegionAnalyzerTests
             Rect outputBounds = recordedBounds ?? bounds.TransformBounds(input.Bounds);
             OpaqueRenderDescription description = OpaqueRenderDescription.Create(
                 static _ => { },
-                RenderOperationBoundsContract.Map(bounds),
+                OpaqueRenderBoundsContract.Map(bounds),
                 RenderHitTestContract.AnyInput,
                 RenderValueCardinality.Single,
                 RenderScaleContract.PreserveInputSupply,

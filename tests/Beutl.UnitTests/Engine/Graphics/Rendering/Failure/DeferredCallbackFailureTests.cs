@@ -468,7 +468,7 @@ public sealed class DeferredCallbackFailureTests
             {
                 context.Publish(context.OpaqueSource(OpaqueRenderDescription.Create(
                     Fail,
-                    RenderOperationBoundsContract.Source(s_bounds),
+                    OpaqueRenderBoundsContract.Source(s_bounds),
                     RenderHitTestContract.OutputBounds,
                     RenderValueCardinality.Single,
                     RenderScaleContract.MaterializeAtWorkingScale,
@@ -482,7 +482,7 @@ public sealed class DeferredCallbackFailureTests
             {
                 OpaqueRenderDescription map = OpaqueRenderDescription.Create(
                     Fail,
-                    RenderOperationBoundsContract.Map(RenderBoundsContract.Identity),
+                    OpaqueRenderBoundsContract.Map(RenderBoundsContract.Identity),
                     RenderHitTestContract.AnyInput,
                     RenderValueCardinality.Single,
                     RenderScaleContract.PreserveInputSupply,
@@ -495,7 +495,7 @@ public sealed class DeferredCallbackFailureTests
                 structuralKey: $"opaque-{topology}-input-b"));
             OpaqueRenderDescription many = OpaqueRenderDescription.Create(
                 Fail,
-                RenderOperationBoundsContract.FullInputs(
+                OpaqueRenderBoundsContract.FullInputs(
                     static bounds => bounds.Aggregate(default(Rect), static (result, value) => result.Union(value)),
                     $"opaque-{topology}-bounds"),
                 RenderHitTestContract.AnyInput,
@@ -537,7 +537,7 @@ public sealed class DeferredCallbackFailureTests
                             throw new ArgumentOutOfRangeException();
                     }
                 },
-                RenderOperationBoundsContract.Source(s_bounds),
+                OpaqueRenderBoundsContract.Source(s_bounds),
                 RenderHitTestContract.OutputBounds,
                 failurePoint == DynamicOutputFailure.ExceedsMaximum
                     ? RenderValueCardinality.Range(0, 1)
@@ -560,7 +560,7 @@ public sealed class DeferredCallbackFailureTests
                 0);
             OpaqueRenderDescription description = OpaqueRenderDescription.Create(
                 session => session.UseResource(borrowed, static _ => { }),
-                RenderOperationBoundsContract.Source(s_bounds),
+                OpaqueRenderBoundsContract.Source(s_bounds),
                 RenderHitTestContract.OutputBounds,
                 RenderValueCardinality.Single,
                 RenderScaleContract.MaterializeAtWorkingScale,
@@ -600,7 +600,7 @@ public sealed class DeferredCallbackFailureTests
                     });
                     session.Publish(output);
                 },
-                RenderOperationBoundsContract.Map(RenderBoundsContract.Identity),
+                OpaqueRenderBoundsContract.Map(RenderBoundsContract.Identity),
                 RenderHitTestContract.AnyInput,
                 RenderValueCardinality.Single,
                 RenderScaleContract.PreserveInputSupply,
