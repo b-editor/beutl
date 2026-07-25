@@ -11,6 +11,8 @@ internal static class GateParameters
     public const float MaxAttackMs = 500f;
     public const float DefaultAttackMs = 1f;
 
+    // Peak detection is unsmoothed, so Hold is what bridges a waveform's zero crossings: at 0 ms a
+    // low-frequency signal modulates the gain at twice its frequency unless Release is slow enough.
     public const float MinHoldMs = 0f;
     public const float MaxHoldMs = 5000f;
     public const float DefaultHoldMs = 10f;

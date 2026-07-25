@@ -6,6 +6,7 @@ using Beutl.Audio.Graph.Nodes;
 using Beutl.Engine;
 using Beutl.Media;
 
+using static Beutl.Audio.Effects.GateParameters;
 using static Beutl.UnitTests.Engine.Audio.AudioTestBuffers;
 
 namespace Beutl.UnitTests.Engine.Audio;
@@ -44,6 +45,44 @@ public class GateNodeTests
             }
         }
         return peak > 0f ? 20f * MathF.Log10(peak) : -100f;
+    }
+
+    private static float ChannelPeakDb(AudioBuffer buffer, int channel, int startSample)
+    {
+        var data = buffer.GetChannelData(channel);
+        float peak = 0f;
+        for (int i = startSample; i < buffer.SampleCount; i++)
+        {
+            float a = MathF.Abs(data[i]);
+            if (a > peak) peak = a;
+        }
+        return peak > 0f ? 20f * MathF.Log10(peak) : -100f;
+    }
+
+    private static AudioBuffer MakeInfinityHeadBuffer(int sampleCount, int sampleRate = SampleRate)
+    {
+        var buffer = CreateConstantBuffer(0.9f, sampleCount, 2, sampleRate);
+        for (int ch = 0; ch < buffer.ChannelCount; ch++)
+        {
+            buffer.GetChannelData(ch)[0] = float.PositiveInfinity;
+        }
+        return buffer;
+    }
+
+    private static float MinGainWhereInputIsAudible(
+        AudioBuffer input, AudioBuffer output, int startSample, float minInputAbs)
+    {
+        var inData = input.GetChannelData(0);
+        var outData = output.GetChannelData(0);
+        float min = float.MaxValue;
+        for (int i = startSample; i < input.SampleCount; i++)
+        {
+            float a = MathF.Abs(inData[i]);
+            if (a < minInputAbs) continue;
+            float gain = MathF.Abs(outData[i]) / a;
+            if (gain < min) min = gain;
+        }
+        return min;
     }
 
     private static GateNode CreateNode(
@@ -794,5 +833,246 @@ public class GateNodeTests
         float steadyPeakDb = PeakDb(output, sampleCount / 2);
         Assert.That(steadyPeakDb, Is.EqualTo(PeakDb(input, 0)).Within(1f),
             $"With non-finite property defaults the declared constants must apply, but the tail measured {steadyPeakDb:F2} dB.");
+    }
+
+    [Test]
+    public void Process_LinkedSurround_OpensEveryChannelFromLoudestChannel()
+    {
+        // Only channel 2 is above the threshold, so a detector that stops at channel 1 closes the gate.
+        const int sampleCount = SampleRate / 2;
+        const int channels = 4;
+        const float loud = 0.9f;
+        const float quiet = 0.0005f; // ≈-66 dB, below the -40 dB threshold
+        float[] amps = [quiet, quiet, loud, quiet];
+        using var input = CreateBuffer(channels, sampleCount, (ch, _) => amps[ch]);
+
+        var node = CreateNode();
+        node.AddInput(new BufferReplayNode(input));
+        using var output = node.Process(CreateContext(TimeSpan.Zero, TimeSpan.FromSeconds(0.5)));
+
+        Assert.That(output.ChannelCount, Is.EqualTo(channels));
+
+        int steadyStart = sampleCount / 2;
+        Assert.That(ChannelPeakDb(output, 2, steadyStart), Is.EqualTo(20f * MathF.Log10(loud)).Within(1f),
+            "The loudest channel must open the gate and pass at unity.");
+
+        float expectedQuietDb = 20f * MathF.Log10(quiet);
+        foreach (int ch in new[] { 0, 1, 3 })
+        {
+            Assert.That(ChannelPeakDb(output, ch, steadyStart), Is.EqualTo(expectedQuietDb).Within(1f),
+                $"Channel {ch} must pass at unity because channel 2 holds the linked gate open.");
+        }
+    }
+
+    [Test]
+    public void Process_StaticAndAnimatedPaths_MatchForSurroundBuffer()
+    {
+        // The >2-channel fallback is written out separately in each path. Only channel 2 crosses the
+        // threshold and every channel carries a distinct level, so a detector or channel mix-up in
+        // either loop diverges here.
+        const int loudSamples = SampleRate / 4;
+        const int sampleCount = SampleRate / 2;
+        const int channels = 4;
+        var duration = TimeSpan.FromSeconds(sampleCount / (double)SampleRate);
+        using var input = CreateBuffer(
+            channels, sampleCount,
+            (ch, i) => ch == 2 ? (i < loudSamples ? 0.9f : 0.003f) : 0.0002f * (ch + 1));
+
+        var staticNode = CreateNode(threshold: -40f, attack: 2f, hold: 5f, release: 30f, range: -50f);
+        staticNode.AddInput(new BufferReplayNode(input));
+        using var staticOut = staticNode.Process(CreateContext(TimeSpan.Zero, duration));
+
+        var thresholdAnim = new KeyFrameAnimation<float>();
+        thresholdAnim.KeyFrames.Add(new KeyFrame<float> { Easing = new LinearEasing(), Value = -40f, KeyTime = TimeSpan.Zero });
+        thresholdAnim.KeyFrames.Add(new KeyFrame<float> { Easing = new LinearEasing(), Value = -40f, KeyTime = duration });
+        var thresholdProperty = Property.CreateAnimatable(-40f);
+        thresholdProperty.Animation = thresholdAnim;
+
+        var animatedNode = new GateNode
+        {
+            Threshold = thresholdProperty,
+            Attack = Property.CreateAnimatable(2f),
+            Hold = Property.CreateAnimatable(5f),
+            Release = Property.CreateAnimatable(30f),
+            Range = Property.CreateAnimatable(-50f)
+        };
+        animatedNode.AddInput(new BufferReplayNode(input));
+        using var animatedOut = animatedNode.Process(CreateContext(TimeSpan.Zero, duration));
+
+        Assert.That(animatedOut.ChannelCount, Is.EqualTo(channels));
+        for (int ch = 0; ch < channels; ch++)
+        {
+            var s = staticOut.GetChannelData(ch);
+            var a = animatedOut.GetChannelData(ch);
+            for (int i = 0; i < sampleCount; i++)
+            {
+                Assert.That(a[i], Is.EqualTo(s[i]).Within(1e-4f),
+                    $"Static and animated surround paths diverged at [{ch}][{i}]: static={s[i]}, animated={a[i]}");
+            }
+        }
+    }
+
+    [Test]
+    public void Process_NonFiniteSampleLatch_SurvivesSeekDiscontinuity()
+    {
+        // A seek resets DSP state only; re-arming here would re-log a persistent fault on every scrub.
+        const int chunkSamples = SampleRate / 10;
+        var chunkDuration = TimeSpan.FromSeconds(chunkSamples / (double)SampleRate);
+        var node = CreateNode();
+
+        using var first = MakeInfinityHeadBuffer(chunkSamples);
+        node.AddInput(new BufferReplayNode(first));
+        using var firstOut = node.Process(CreateContext(TimeSpan.Zero, chunkDuration));
+        Assert.That(node.NonFiniteSampleWarnings, Is.EqualTo(1),
+            "The first non-finite sample must emit exactly one warning.");
+
+        node.ClearInputs();
+        using var second = MakeInfinityHeadBuffer(chunkSamples);
+        node.AddInput(new BufferReplayNode(second));
+        using var seekedOut = node.Process(CreateContext(TimeSpan.FromSeconds(5.0), chunkDuration));
+        Assert.That(node.NonFiniteSampleWarnings, Is.EqualTo(1),
+            "A seek discontinuity must not re-arm the latch, so no second warning should be emitted.");
+    }
+
+    [Test]
+    public void Process_NonFiniteSampleLatch_ReArmsOnSampleRateChange()
+    {
+        const int chunkSamples = SampleRate / 10;
+        var chunkDuration = TimeSpan.FromSeconds(chunkSamples / (double)SampleRate);
+        var node = CreateNode();
+
+        using var first = MakeInfinityHeadBuffer(chunkSamples);
+        node.AddInput(new BufferReplayNode(first));
+        using var firstOut = node.Process(CreateContext(TimeSpan.Zero, chunkDuration));
+        Assert.That(node.NonFiniteSampleWarnings, Is.EqualTo(1));
+
+        node.ClearInputs();
+        const int altSampleRate = 44100;
+        using var second = MakeInfinityHeadBuffer(altSampleRate / 10, altSampleRate);
+        node.AddInput(new BufferReplayNode(second));
+        using var secondOut = node.Process(new AudioProcessContext(
+            new TimeRange(chunkDuration, TimeSpan.FromSeconds(0.1)),
+            altSampleRate, new AnimationSampler(), null));
+        Assert.That(node.NonFiniteSampleWarnings, Is.EqualTo(2),
+            "A sample-rate change is a session boundary, so the recurring fault must warn again.");
+    }
+
+    [Test]
+    public void Reset_ReArmsNonFiniteSampleLatch()
+    {
+        // The second chunk stays time-contiguous so only the explicit Reset() can re-arm the latch.
+        const int chunkSamples = SampleRate / 10;
+        var chunkDuration = TimeSpan.FromSeconds(chunkSamples / (double)SampleRate);
+        var node = CreateNode();
+
+        using var first = MakeInfinityHeadBuffer(chunkSamples);
+        node.AddInput(new BufferReplayNode(first));
+        using var firstOut = node.Process(CreateContext(TimeSpan.Zero, chunkDuration));
+        Assert.That(node.NonFiniteSampleWarnings, Is.EqualTo(1));
+
+        node.Reset();
+        node.ClearInputs();
+        using var second = MakeInfinityHeadBuffer(chunkSamples);
+        node.AddInput(new BufferReplayNode(second));
+        using var secondOut = node.Process(CreateContext(chunkDuration, chunkDuration));
+        Assert.That(node.NonFiniteSampleWarnings, Is.EqualTo(2),
+            "Explicit Reset() re-arms the latch, so the recurring fault must warn a second time.");
+    }
+
+    [Test]
+    public void Process_AnimatedOutOfRangeParameter_LogsClampWarningOncePerParameter()
+    {
+        // Not zero times (a hidden misconfiguration) and not per sample (audio-thread spam).
+        const int sampleCount = SampleRate / 4;
+        using var input = CreateConstantBuffer(0.9f, sampleCount);
+
+        var attackAnim = new KeyFrameAnimation<float>();
+        attackAnim.KeyFrames.Add(new KeyFrame<float> { Easing = new LinearEasing(), Value = 1e9f, KeyTime = TimeSpan.Zero });
+        attackAnim.KeyFrames.Add(new KeyFrame<float> { Easing = new LinearEasing(), Value = 1e9f, KeyTime = TimeSpan.FromSeconds(0.25) });
+        var attackProperty = Property.CreateAnimatable(1f);
+        attackProperty.Animation = attackAnim;
+
+        var node = new GateNode
+        {
+            Threshold = Property.CreateAnimatable(-40f),
+            Attack = attackProperty,
+            Hold = Property.CreateAnimatable(10f),
+            Release = Property.CreateAnimatable(50f),
+            Range = Property.CreateAnimatable(-60f)
+        };
+        node.AddInput(new BufferReplayNode(input));
+
+        using var output = node.Process(CreateContext(TimeSpan.Zero, TimeSpan.FromSeconds(0.25)));
+
+        Assert.That(node.ClampWarnings, Is.EqualTo(1),
+            "An out-of-range animated Attack must warn exactly once for the whole chunk.");
+    }
+
+    [Test]
+    public void Process_EmptyChunkWithDuration_DoesNotMaskLaterDiscontinuity()
+    {
+        // A chunk that spans time but carries no samples leaves a hole; the chunk after it is not
+        // contiguous with the chunk before it.
+        const int chunkSamples = SampleRate / 10;
+        var chunkDuration = TimeSpan.FromSeconds(chunkSamples / (double)SampleRate);
+
+        var node = CreateNode();
+        using var warmupInput = CreateConstantBuffer(0.9f, chunkSamples);
+        node.AddInput(new BufferReplayNode(warmupInput));
+        using var warmup = node.Process(CreateContext(TimeSpan.Zero, chunkDuration));
+
+        node.ClearInputs();
+        using var emptyInput = new AudioBuffer(SampleRate, 2, 0);
+        node.AddInput(new BufferReplayNode(emptyInput));
+        using var emptyOutput = node.Process(CreateContext(chunkDuration, chunkDuration));
+        Assert.That(emptyOutput.SampleCount, Is.EqualTo(0));
+
+        node.ClearInputs();
+        using var afterHoleInput = CreateConstantBuffer(0.9f, chunkSamples);
+        node.AddInput(new BufferReplayNode(afterHoleInput));
+        using var afterHoleOutput = node.Process(CreateContext(chunkDuration + chunkDuration, chunkDuration));
+
+        var nodeFresh = CreateNode();
+        using var freshInput = CreateConstantBuffer(0.9f, chunkSamples);
+        nodeFresh.AddInput(new BufferReplayNode(freshInput));
+        using var freshOutput = nodeFresh.Process(CreateContext(TimeSpan.Zero, chunkDuration));
+
+        Assert.That(
+            MathF.Abs(afterHoleOutput.GetChannelData(0)[0]),
+            Is.EqualTo(MathF.Abs(freshOutput.GetChannelData(0)[0])).Within(1e-4f),
+            "The chunk after an empty-but-timed chunk must start from a reset gate, not the warmed-open one.");
+    }
+
+    [Test]
+    public void Process_ZeroHold_ModulatesLowFrequencyGainAcrossZeroCrossings()
+    {
+        // Characterizes the unsmoothed peak detector: Hold bridges a waveform's zero crossings, so at
+        // Hold = 0 with the fastest Release a tone that never leaves the open region still pumps.
+        const int sampleCount = SampleRate / 4;
+        const float amplitude = 0.1f; // ≈-20 dB, well above the -40 dB threshold
+        const float thresholdLinear = 0.01f; // the -40 dB threshold in linear terms
+        var duration = TimeSpan.FromSeconds(sampleCount / (double)SampleRate);
+        using var input = CreateSineBuffer(amplitude, 50f, sampleCount, channels: 1);
+
+        var fastNode = CreateNode(threshold: -40f, attack: 0.1f, hold: MinHoldMs, release: MinReleaseMs, range: -60f);
+        fastNode.AddInput(new BufferReplayNode(input));
+        using var fastOut = fastNode.Process(CreateContext(TimeSpan.Zero, duration));
+
+        var defaultNode = CreateNode(
+            threshold: DefaultThresholdDb, attack: DefaultAttackMs, hold: DefaultHoldMs,
+            release: DefaultReleaseMs, range: DefaultRangeDb);
+        defaultNode.AddInput(new BufferReplayNode(input));
+        using var defaultOut = defaultNode.Process(CreateContext(TimeSpan.Zero, duration));
+
+        int steadyStart = sampleCount / 2;
+        float fastMinGain = MinGainWhereInputIsAudible(input, fastOut, steadyStart, thresholdLinear);
+        float defaultMinGain = MinGainWhereInputIsAudible(input, defaultOut, steadyStart, thresholdLinear);
+
+        Assert.That(fastMinGain, Is.LessThan(0.2f),
+            $"Hold=0 with the fastest Release is expected to pump the gain near zero crossings, but the " +
+            $"minimum gain was {fastMinGain:F4} — if this rose, detector smoothing changed.");
+        Assert.That(defaultMinGain, Is.GreaterThan(0.99f),
+            $"The default Hold/Release must hold the gate fully open across zero crossings, but the " +
+            $"minimum gain was {defaultMinGain:F4}.");
     }
 }

@@ -28,7 +28,6 @@ public sealed class GateNode : AudioNode
     private Memory<float>[]? _outputChannelCache;
 
     // Diagnostic warnings are emitted once per node, not once per sample.
-    private bool _loggedNonFiniteGain;
     private bool _loggedNonFiniteSample;
     private readonly HashSet<string> _loggedNonFiniteParameters = new();
     private readonly HashSet<string> _loggedClampedParameters = new();
@@ -65,17 +64,18 @@ public sealed class GateNode : AudioNode
             _lastSampleRate = context.SampleRate;
         }
 
+        // Returns before _lastTimeRangeEnd advances: an empty chunk would otherwise mask a discontinuity.
+        if (input.SampleCount == 0)
+        {
+            return new AudioBuffer(input.SampleRate, input.ChannelCount, 0);
+        }
+
         // Cached nodes must not carry DSP state across seeks or restarts.
         if (!_lastTimeRangeEnd.HasValue || !IsTimestampContiguous(_lastTimeRangeEnd.Value, context.TimeRange.Start))
         {
             ResetGate();
         }
         _lastTimeRangeEnd = context.TimeRange.Start + context.TimeRange.Duration;
-
-        if (input.SampleCount == 0)
-        {
-            return new AudioBuffer(input.SampleRate, input.ChannelCount, 0);
-        }
 
         // AnimationSampler does not yet evaluate expressions per sample.
         bool hasAnimation = Threshold.Animation != null ||
@@ -346,18 +346,6 @@ public sealed class GateNode : AudioNode
         return clamped;
     }
 
-    // A non-finite gain would otherwise poison the state until Reset().
-    private void RecoverGainIfNonFinite()
-    {
-        if (float.IsFinite(_gateGainDb)) return;
-        _gateGainDb = MinDb;
-        if (_loggedNonFiniteGain) return;
-        s_logger.LogWarning(
-            "Gate gain became non-finite (input sample produced inf/NaN); resetting to {MinDb} dB. Further occurrences will be suppressed.",
-            MinDb);
-        _loggedNonFiniteGain = true;
-    }
-
     private float SafeParameter(float value, float fallback, float declaredDefault, string paramName)
     {
         if (float.IsFinite(value)) return value;
@@ -419,8 +407,8 @@ public sealed class GateNode : AudioNode
 
         float targetDb = aboveThreshold || heldOpen ? 0f : p.Range;
         float coeff = targetDb > _gateGainDb ? attackCoeff : releaseCoeff;
+        // Clamped targetDb and coeff in [0, 1) keep the follower finite without a recovery clamp.
         _gateGainDb = targetDb + coeff * (_gateGainDb - targetDb);
-        RecoverGainIfNonFinite();
 
         return AudioMath.ConvertDbToLinear(_gateGainDb);
     }
@@ -465,7 +453,6 @@ public sealed class GateNode : AudioNode
 
     private void ResetDiagnostics()
     {
-        _loggedNonFiniteGain = false;
         _loggedNonFiniteSample = false;
         _loggedNonFiniteParameters.Clear();
         _loggedClampedParameters.Clear();
