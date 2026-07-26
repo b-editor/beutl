@@ -66,16 +66,22 @@ public partial class FrameCacheManager
                 {
                     var newWidth = Math.Min(size.Width, newSize.Width);
                     var newHeight = Math.Min(size.Height, newSize.Height);
-                    var resized = current.SKBitmap.Resize(
-                        new SKImageInfo(newWidth, newHeight, SKColorType.Bgra8888, SKAlphaType.Premul, SKColorSpace.CreateSrgb()),
-                        new SKSamplingOptions(SKFilterMode.Linear));
-                    if (resized != null)
+                    var resized = new SKBitmap(new SKImageInfo(
+                        newWidth, newHeight, SKColorType.Bgra8888, SKAlphaType.Premul, SKColorSpace.CreateSrgb()));
+                    // SKBitmap.Resize takes no SKPaint, so it cannot dither the linear RgbaF16 preview
+                    // frames down to 8-bit; drawing through a canvas can.
+                    using (var canvas = new SKCanvas(resized))
+                    using (var image = SKImage.FromBitmap(current.SKBitmap))
+                    using (var paint = new SKPaint { BlendMode = SKBlendMode.Src, IsDither = true })
                     {
-                        var resizedBitmap = new Bitmap(resized);
-                        if (ownsCurrentBitmap) bitmapRef.Dispose();
-                        current = resizedBitmap;
-                        ownsCurrentBitmap = true;
+                        canvas.DrawImage(image, new SKRect(0, 0, newWidth, newHeight),
+                            new SKSamplingOptions(SKFilterMode.Linear), paint);
                     }
+
+                    var resizedBitmap = new Bitmap(resized);
+                    if (ownsCurrentBitmap) bitmapRef.Dispose();
+                    current = resizedBitmap;
+                    ownsCurrentBitmap = true;
                 }
 
                 if (options.ColorType == FrameCacheColorType.YUV)

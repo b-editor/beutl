@@ -221,7 +221,9 @@ public sealed class Bitmap : ICloneable, IDisposable
         var destInfo = new SKImageInfo(Width, Height, colorType.ToSKColorType(), destAlpha.ToSKAlphaType(), destColorSpace.SKColorSpace);
         var destBitmap = new SKBitmap(destInfo);
         using var canvas = new SKCanvas(destBitmap);
-        using var paint = new SKPaint { BlendMode = SKBlendMode.Src };
+        // Skia applies the dither only where the destination loses precision (e.g. the F16 linear
+        // render target down to 8-bit sRGB); conversions that keep or gain precision stay bit-exact.
+        using var paint = new SKPaint { BlendMode = SKBlendMode.Src, IsDither = true };
         canvas.DrawBitmap(_skBitmap, SKPoint.Empty, paint);
 
         return new Bitmap(destBitmap);
