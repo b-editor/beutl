@@ -37,6 +37,8 @@ internal sealed class ThemeService : IDisposable
     private bool _disposed;
     private int _applyQueued;
     private Color? _appliedTextOnAccent;
+    // The accent the active owner was last told about, through either OnApplied or OnAccentChanged.
+    private Color? _notifiedAccent;
 
     public ThemeService(FluentAvaloniaTheme theme, ViewConfig viewConfig)
     {
@@ -108,7 +110,15 @@ internal sealed class ThemeService : IDisposable
         ApplySelectedTheme();
         // Unconditional, even though ApplyCore seeds a newly applied theme's accent: an accent-config
         // trigger leaves the applied descriptor unchanged, so nothing above would pick it up.
-        ApplyAccent();
+        Color? accent = ApplyAccent();
+
+        // Only the accent-only path notifies. On the apply path ApplyCore already recorded this accent
+        // and handed it to the incoming owner through OnApplied, so the comparison is equal here.
+        if (_notifiedAccent != accent && _appliedDescriptor is { } applied)
+        {
+            _notifiedAccent = accent;
+            ThemeNotifier.NotifyAccentChanged(applied, _appliedExtension, accent);
+        }
     }
 
     private void ApplySelectedTheme()
@@ -140,9 +150,10 @@ internal sealed class ThemeService : IDisposable
         }
     }
 
-    // Skips writes of an unchanged value: every CustomAccentColor set makes FluentAvaloniaTheme
-    // regenerate its SystemAccentColor shade resources and invalidate dependents.
-    private void ApplyAccent()
+    // Returns the accent it resolved, so the caller can tell the active owner about a change. Skips
+    // writes of an unchanged value: every CustomAccentColor set makes FluentAvaloniaTheme regenerate
+    // its SystemAccentColor shade resources and invalidate dependents.
+    private Color? ApplyAccent()
     {
         Color? accent =
             _viewConfig.UseCustomAccentColor && Color.TryParse(_viewConfig.CustomAccentColor, out Color custom)
@@ -155,6 +166,7 @@ internal sealed class ThemeService : IDisposable
         }
 
         ApplyTextOnAccent(accent);
+        return accent;
     }
 
     // Two accents can derive the same foreground, so the cache is keyed on that rather than on the
@@ -228,9 +240,9 @@ internal sealed class ThemeService : IDisposable
 
         // Before OnApplied, and after the outgoing owner is reverted: a hook that recomputes
         // accent-derived resources has to see this theme's accent rather than the outgoing one's.
-        ApplyAccent();
+        _notifiedAccent = ApplyAccent();
 
-        ThemeNotifier.NotifyApplied(descriptor, extension);
+        ThemeNotifier.NotifyApplied(descriptor, extension, _notifiedAccent);
         return true;
     }
 

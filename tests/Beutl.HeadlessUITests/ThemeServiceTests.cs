@@ -338,20 +338,100 @@ public class ThemeServiceTests
             "disabling the custom accent must fall back to the theme's design accent");
     }
 
+    // An accent-only config change never re-enters ApplyCore, so without a dedicated hook the active
+    // owner would keep recomputing nothing and its accent-derived resources would go stale.
+    [AvaloniaTest]
+    public void CustomAccent_NotifiesTheActiveOwner_WithTheNewAccent()
+    {
+        using var scope = new ThemeScope();
+        scope.Service.Start();
+        Dispatcher.UIThread.RunJobs();
+
+        var themeAccent = Color.FromRgb(0x25, 0x63, 0xEB);
+        var custom = Color.FromRgb(0x10, 0x89, 0x3E);
+        var ext = new RecordingThemeExtension("test.accent.notify", "Notify", themeAccent);
+        ext.Load();
+        scope.Config.Theme = "test.accent.notify";
+        Dispatcher.UIThread.RunJobs();
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(ext.AppliedCount, Is.EqualTo(1), "precondition: the extension's theme was applied");
+            Assert.That(ext.ContextAccentAtApplied, Is.EqualTo(themeAccent),
+                "OnApplied must already carry the accent, so applying is not an accent change");
+            Assert.That(ext.AccentChangedCount, Is.Zero, "applying must not also report an accent change");
+        });
+
+        scope.Config.UseCustomAccentColor = true;
+        scope.Config.CustomAccentColor = custom.ToString();
+        Dispatcher.UIThread.RunJobs();
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(ext.AccentChangedCount, Is.EqualTo(1));
+            Assert.That(ext.AccentAtChanged, Is.EqualTo(custom));
+            Assert.That(ext.AppliedCount, Is.EqualTo(1), "an accent change must not re-apply the theme");
+        });
+
+        scope.Config.UseCustomAccentColor = false;
+        Dispatcher.UIThread.RunJobs();
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(ext.AccentChangedCount, Is.EqualTo(2), "yielding the custom accent back is a change too");
+            Assert.That(ext.AccentAtChanged, Is.EqualTo(themeAccent));
+        });
+    }
+
+    // The hook follows the applied theme, not the extension: an owner that has been reverted must not
+    // keep recomputing resources for a theme the app no longer shows.
+    [AvaloniaTest]
+    public void CustomAccent_DoesNotNotifyARevertedOwner()
+    {
+        using var scope = new ThemeScope();
+        scope.Service.Start();
+        Dispatcher.UIThread.RunJobs();
+
+        var ext = new RecordingThemeExtension("test.accent.reverted", "Reverted", Color.FromRgb(0x25, 0x63, 0xEB));
+        ext.Load();
+        scope.Config.Theme = "test.accent.reverted";
+        Dispatcher.UIThread.RunJobs();
+        scope.Config.Theme = BuiltinThemeIds.Dark;
+        Dispatcher.UIThread.RunJobs();
+        Assert.That(ext.RevertedCount, Is.EqualTo(1), "precondition: the extension's theme was reverted");
+        int changesBefore = ext.AccentChangedCount;
+
+        scope.Config.UseCustomAccentColor = true;
+        scope.Config.CustomAccentColor = Color.FromRgb(0xFF, 0xB9, 0x00).ToString();
+        Dispatcher.UIThread.RunJobs();
+
+        Assert.That(ext.AccentChangedCount, Is.EqualTo(changesBefore));
+    }
+
     private sealed class RecordingThemeExtension(string id, string name, Color? accentColor = null) : ThemeExtension
     {
         private readonly ThemeDescriptor _descriptor = new(id, name, ThemeVariant.Dark, AccentColor: accentColor);
         public int AppliedCount;
         public int RevertedCount;
+        public int AccentChangedCount;
 
         public Color? AccentAtApplied;
+        public Color? AccentAtChanged;
+        public Color? ContextAccentAtApplied;
 
         public override ThemeDescriptor GetThemeDescriptor() => _descriptor;
 
         public override void OnApplied(ThemeApplyContext context)
         {
             AppliedCount++;
+            ContextAccentAtApplied = context.Accent;
             AccentAtApplied = Application.Current!.Styles.OfType<FluentAvaloniaTheme>().Single().CustomAccentColor;
+        }
+
+        public override void OnAccentChanged(ThemeApplyContext context)
+        {
+            AccentChangedCount++;
+            AccentAtChanged = context.Accent;
         }
 
         public override void OnReverted() => RevertedCount++;

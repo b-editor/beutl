@@ -1,4 +1,6 @@
-﻿using Beutl.Logging;
+﻿using Avalonia.Media;
+
+using Beutl.Logging;
 
 using Microsoft.Extensions.Logging;
 
@@ -14,7 +16,7 @@ public static class ThemeNotifier
 {
     private static readonly ILogger s_logger = Log.CreateLogger(nameof(ThemeNotifier));
 
-    public static void NotifyApplied(ThemeDescriptor descriptor, ThemeExtension? extension)
+    public static void NotifyApplied(ThemeDescriptor descriptor, ThemeExtension? extension, Color? accent = null)
     {
         ArgumentNullException.ThrowIfNull(descriptor);
         if (extension == null)
@@ -24,11 +26,29 @@ public static class ThemeNotifier
 
         try
         {
-            extension.OnApplied(new ThemeApplyContext { Descriptor = descriptor });
+            extension.OnApplied(new ThemeApplyContext { Descriptor = descriptor, Accent = accent });
         }
         catch (Exception ex)
         {
             s_logger.LogWarning(ex, "ThemeExtension.OnApplied for '{Id}' threw; continuing.", descriptor.Id);
+        }
+    }
+
+    public static void NotifyAccentChanged(ThemeDescriptor descriptor, ThemeExtension? extension, Color? accent)
+    {
+        ArgumentNullException.ThrowIfNull(descriptor);
+        if (extension == null)
+        {
+            return;
+        }
+
+        try
+        {
+            extension.OnAccentChanged(new ThemeApplyContext { Descriptor = descriptor, Accent = accent });
+        }
+        catch (Exception ex)
+        {
+            s_logger.LogWarning(ex, "ThemeExtension.OnAccentChanged for '{Id}' threw; continuing.", descriptor.Id);
         }
     }
 
