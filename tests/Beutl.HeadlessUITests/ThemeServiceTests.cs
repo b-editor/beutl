@@ -247,6 +247,33 @@ public class ThemeServiceTests
         AssertAccentForeground(Color.FromRgb(0xFF, 0xB9, 0x00), Colors.Black);
     }
 
+    // Settings written while the picker still offered an alpha slider can carry one. Applying it as-is
+    // would paint a fill that lets the near-black surface through, under a foreground picked from the
+    // RGB channels alone — black on black. The applied accent is opaque, so the two agree again.
+    [AvaloniaTest]
+    public void CustomAccent_IsAppliedOpaque_SoTheForegroundMatchesWhatIsPainted()
+    {
+        using var scope = new ThemeScope();
+        scope.Service.Start();
+        Dispatcher.UIThread.RunJobs();
+
+        scope.Config.UseCustomAccentColor = true;
+        scope.Config.CustomAccentColor = Color.FromArgb(0x00, 0xFF, 0xFF, 0xFF).ToString();
+        Dispatcher.UIThread.RunJobs();
+
+        bool found = Application.Current!.TryGetResource(
+            "AccentButtonForeground", ThemeVariant.Dark, out object? foreground);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(scope.Theme.CustomAccentColor, Is.EqualTo(Colors.White),
+                "the accent Beutl applies must be opaque");
+            Assert.That(found, Is.True);
+            Assert.That(((ISolidColorBrush)foreground!).Color, Is.EqualTo(Colors.Black),
+                "black is right against the opaque white that is actually painted");
+        });
+    }
+
     private static void AssertAccentForeground(Color accent, Color expected)
     {
         using var scope = new ThemeScope();
@@ -485,7 +512,7 @@ public class ThemeServiceTests
         private static void ResetAccentState(FluentAvaloniaTheme theme)
         {
             theme.CustomAccentColor = null;
-            AccentTextResources.Apply(Application.Current!.Resources, null);
+            AccentResolution.ApplyTextOnAccent(Application.Current!.Resources, null);
         }
 
         private static void ClearRegistry()

@@ -288,7 +288,7 @@ public class DarkBorderThemeColorTests
             // and derives the text-on-accent tokens together, and only the second half decides the
             // glyph. Setting the accent alone would leave the theme's authored white in place.
             faTheme.CustomAccentColor = accent;
-            AccentTextResources.Apply(Application.Current.Resources, accent);
+            AccentResolution.ApplyTextOnAccent(Application.Current.Resources, accent);
             HeadlessTestHelpers.Render(1);
 
             Color background = ResolveColor(probe, "FocusStrokeColorOuterBrush", ThemeVariant.Dark);
@@ -308,7 +308,7 @@ public class DarkBorderThemeColorTests
         }
         finally
         {
-            AccentTextResources.Apply(Application.Current!.Resources, null);
+            AccentResolution.ApplyTextOnAccent(Application.Current!.Resources, null);
             faTheme.CustomAccentColor = null;
             window.Close();
             HeadlessTestHelpers.Settle();

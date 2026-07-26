@@ -152,7 +152,9 @@
                                            DockPanel.Dock="Left"
                                            Text="{x:Static lang:SettingsStrings.CustomColor}" />
 
+                                <!--  An accent names a color, not a translucent overlay: alpha would carry into every shade FluentAvalonia derives from it.  -->
                                 <ui:ColorPickerButton DockPanel.Dock="Right"
+                                                      IsAlphaEnabled="False"
                                                       IsCompact="True"
                                                       IsMoreButtonVisible="True"
                                                       ShowAcceptDismissButtons="True"

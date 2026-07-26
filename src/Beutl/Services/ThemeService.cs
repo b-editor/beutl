@@ -155,10 +155,10 @@ internal sealed class ThemeService : IDisposable
     // its SystemAccentColor shade resources and invalidate dependents.
     private Color? ApplyAccent()
     {
-        Color? accent =
+        Color? accent = AccentResolution.Normalize(
             _viewConfig.UseCustomAccentColor && Color.TryParse(_viewConfig.CustomAccentColor, out Color custom)
                 ? custom
-                : _appliedDescriptor?.AccentColor;
+                : _appliedDescriptor?.AccentColor);
 
         if (_theme.CustomAccentColor != accent)
         {
@@ -173,14 +173,14 @@ internal sealed class ThemeService : IDisposable
     // accent: it skips a rewrite that would invalidate every dependent for nothing.
     private void ApplyTextOnAccent(Color? accent)
     {
-        Color? foreground = accent is { } value ? AccentTextResources.ResolveForegroundOn(value) : null;
+        Color? foreground = accent is { } value ? AccentResolution.ResolveForegroundOn(value) : null;
         if (_appliedTextOnAccent == foreground)
         {
             return;
         }
 
         _appliedTextOnAccent = foreground;
-        AccentTextResources.Apply(Application.Current!.Resources, accent);
+        AccentResolution.ApplyTextOnAccent(Application.Current!.Resources, accent);
     }
 
     // False when the descriptor could not be applied and the caller should fall back; skipping an

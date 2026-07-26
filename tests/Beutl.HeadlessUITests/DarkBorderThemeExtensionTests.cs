@@ -136,7 +136,7 @@ public class DarkBorderThemeExtensionTests
             }
 
             theme.CustomAccentColor = null;
-            AccentTextResources.Apply(Application.Current.Resources, null);
+            AccentResolution.ApplyTextOnAccent(Application.Current.Resources, null);
             Application.Current.RequestedThemeVariant = ThemeVariant.Dark;
         }
     }

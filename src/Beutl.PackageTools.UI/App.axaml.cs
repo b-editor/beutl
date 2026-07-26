@@ -61,16 +61,17 @@ public partial class App : Application
         // Accent priority mirrors ThemeService, and so does the text-on-accent derivation: this shell
         // shows the same accent surfaces, so a light custom accent would leave the theme's white
         // labels on a near-white fill.
-        Color? accent = view.UseCustomAccentColor && Color.TryParse(view.CustomAccentColor, out Color customColor)
-            ? customColor
-            : designAccent;
+        Color? accent = AccentResolution.Normalize(
+            view.UseCustomAccentColor && Color.TryParse(view.CustomAccentColor, out Color customColor)
+                ? customColor
+                : designAccent);
 
         if (accent.HasValue)
         {
             theme.CustomAccentColor = accent;
         }
 
-        AccentTextResources.Apply(Resources, accent);
+        AccentResolution.ApplyTextOnAccent(Resources, accent);
     }
 
     public override void OnFrameworkInitializationCompleted()
