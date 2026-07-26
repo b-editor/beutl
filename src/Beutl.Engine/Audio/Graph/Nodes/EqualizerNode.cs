@@ -46,7 +46,7 @@ public sealed class EqualizerNode : AudioNode
         // Reset whenever the chunk does not continue directly from the previous one, because the
         // node instance is cached across Compose() calls and stale IIR state would otherwise bleed
         // into the first samples after a seek or stop/restart.
-        if (!_lastTimeRangeEnd.HasValue || _lastTimeRangeEnd.Value != context.TimeRange.Start)
+        if (!_lastTimeRangeEnd.HasValue || !context.ContinuesFrom(_lastTimeRangeEnd.Value))
         {
             Reset();
         }

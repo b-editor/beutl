@@ -14,7 +14,6 @@ public sealed class LimiterNode : AudioNode
     // Caps the per-chunk animation-sampling scratch at 4 parameters × 1024 floats = 16 KiB of
     // stackalloc per ProcessAnimated call, while still amortizing the per-chunk sampling overhead.
     private const int AnimationChunkSize = 1024;
-    private const long TimestampQuantizationToleranceTicks = 1;
 
     private static readonly ILogger s_logger = Log.CreateLogger<LimiterNode>();
 
@@ -100,7 +99,7 @@ public sealed class LimiterNode : AudioNode
         // The node is reused across chunks. When the next chunk doesn't continue from the previous
         // one (seek, loop, edit, restart), drop the delay line and gain state — otherwise the
         // previous segment leaks into the first lookahead window of output.
-        if (!_lastTimeRangeEnd.HasValue || !IsTimestampContiguous(_lastTimeRangeEnd.Value, context.TimeRange.Start))
+        if (!_lastTimeRangeEnd.HasValue || !context.ContinuesFrom(_lastTimeRangeEnd.Value))
         {
             if (_lastTimeRangeEnd.HasValue)
             {
@@ -130,14 +129,6 @@ public sealed class LimiterNode : AudioNode
         _lastTimeRangeEnd = context.TimeRange.Start + context.TimeRange.Duration;
 
         return output;
-    }
-
-    private static bool IsTimestampContiguous(TimeSpan previousEnd, TimeSpan nextStart)
-    {
-        // Adjacent sample boundaries can differ by one tick from independent TimeSpan rounding; a
-        // two-tick difference is a real seek/edit boundary and must reset the delay line.
-        long difference = nextStart.Ticks - previousEnd.Ticks;
-        return difference is >= -TimestampQuantizationToleranceTicks and <= TimestampQuantizationToleranceTicks;
     }
 
     private void InitializeBuffers(int sampleRate, int channelCount)

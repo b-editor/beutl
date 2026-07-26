@@ -73,6 +73,41 @@ public class DelayNodeTests
         return node;
     }
 
+    // A constant input prevents RampInputNode's time-dependent values from masking a reset.
+    private static DelayNode CreateNodeWithConstantInput(AudioBuffer input)
+    {
+        var node = new DelayNode
+        {
+            DelayTime = Property.Create(200f),
+            Feedback = Property.Create(50f),
+            DryMix = Property.Create(60f),
+            WetMix = Property.Create(40f),
+        };
+        node.AddInput(new BufferReplayNode(input));
+        return node;
+    }
+
+    // One-tick rounding must preserve the previous chunk's delay tail.
+    [TestCase(-1L)]
+    [TestCase(1L)]
+    public void Process_OneTickBoundaryRounding_PreservesDelayLines(long tickOffset)
+    {
+        using var input = AudioTestBuffers.CreateConstantBuffer(0.5f, SampleRate, 2, SampleRate);
+
+        using var continuing = CreateNodeWithConstantInput(input);
+        continuing.Process(ContextAt(0)).Dispose();
+        using AudioBuffer afterRounding = continuing.Process(new AudioProcessContext(
+            new TimeRange(TimeSpan.FromSeconds(1) + TimeSpan.FromTicks(tickOffset), TimeSpan.FromSeconds(1)),
+            SampleRate, new AnimationSampler(), null));
+
+        using var fresh = CreateNodeWithConstantInput(input);
+        using AudioBuffer freshRun = fresh.Process(ContextAt(1));
+
+        Assert.That(afterRounding.GetChannelData(0).ToArray(),
+            Is.Not.EqualTo(freshRun.GetChannelData(0).ToArray()).AsCollection,
+            "A one-tick boundary rounding must not reset the delay lines.");
+    }
+
     // A seek in either direction is a discontinuity: the delay lines must not carry audio from the
     // previous range. Regression for the tracker that only reset on backward seeks before its pinned
     // start, so forward seeks replayed stale delay-line content.

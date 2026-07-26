@@ -5,7 +5,9 @@ using Beutl.Audio.Effects.Equalizer;
 using Beutl.Audio.Graph;
 using Beutl.Audio.Graph.Nodes;
 using Beutl.Engine;
+using Beutl.Logging;
 using Beutl.Media;
+using Microsoft.Extensions.Logging;
 
 namespace Beutl.UnitTests.Engine.Audio;
 
@@ -76,6 +78,62 @@ public class AudioNodeBufferDisposalTests
         animation.KeyFrames.Add(new KeyFrame<float> { KeyTime = TimeSpan.FromSeconds(durationSeconds), Value = toPercent, Easing = new LinearEasing() });
         property.Animation = animation;
         return property;
+    }
+
+    // A derived hook that returns the input transfers ownership to the caller.
+    private sealed class PassThroughDynamicsNode : DynamicsNode
+    {
+        private static readonly ILogger s_logger = Log.CreateLogger<PassThroughDynamicsNode>();
+
+        protected override ILogger Logger => s_logger;
+
+        protected override string DiagnosticName => "PassThrough";
+
+        protected override bool HasAnimatedParameters => false;
+
+        protected override AudioBuffer ProcessStatic(AudioBuffer input, AudioProcessContext context) => input;
+
+        protected override AudioBuffer ProcessAnimated(AudioBuffer input, AudioProcessContext context) => input;
+
+        protected override void ResetDspState()
+        {
+        }
+    }
+
+    [Test]
+    public void DynamicsNode_PassThroughHook_DoesNotDisposeReturnedInput()
+    {
+        var inputNode = new CapturingInputNode(SampleRate, 2, SampleCount, 0.5f);
+        using var node = new PassThroughDynamicsNode();
+        node.AddInput(inputNode);
+
+        AudioBuffer result = node.Process(CreateContext());
+
+        Assert.That(ReferenceEquals(result, inputNode.Last), Is.True, "the hook returned the input, so it must reach the caller");
+        Assert.That(IsDisposed(result), Is.False, "pass-through must not dispose the buffer the caller now owns");
+        result.Dispose();
+    }
+
+    [Test]
+    public void GateNode_DisposesConsumedInput()
+    {
+        var inputNode = new CapturingInputNode(SampleRate, 2, SampleCount, 0.5f);
+        using var node = new GateNode
+        {
+            Threshold = Static(-40f),
+            Attack = Static(1f),
+            Hold = Static(10f),
+            Release = Static(100f),
+            Range = Static(-60f),
+        };
+        node.AddInput(inputNode);
+
+        using (AudioBuffer result = node.Process(CreateContext()))
+        {
+            Assert.That(ReferenceEquals(result, inputNode.Last), Is.False, "gate must emit a new buffer, not the input");
+        }
+
+        Assert.That(IsDisposed(inputNode.Last), Is.True, "consumed input buffer must be disposed");
     }
 
     [Test]

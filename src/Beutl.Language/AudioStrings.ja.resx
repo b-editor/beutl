@@ -148,4 +148,37 @@
   <data name="LimiterEffect_MakeupGain_Description" xml:space="preserve">
     <value>制限後に適用するゲイン。最終ピークは スレッショルド + メイクアップゲイン まで達することがあります。</value>
   </data>
+  <data name="GateEffect" xml:space="preserve">
+    <value>ゲート</value>
+  </data>
+  <data name="GateEffect_Threshold" xml:space="preserve">
+    <value>スレッショルド (dB)</value>
+  </data>
+  <data name="GateEffect_Attack" xml:space="preserve">
+    <value>アタック (ms)</value>
+  </data>
+  <data name="GateEffect_Hold" xml:space="preserve">
+    <value>ホールド (ms)</value>
+  </data>
+  <data name="GateEffect_Release" xml:space="preserve">
+    <value>リリース (ms)</value>
+  </data>
+  <data name="GateEffect_Range" xml:space="preserve">
+    <value>レンジ (dB)</value>
+  </data>
+  <data name="GateEffect_Threshold_Description" xml:space="preserve">
+    <value>これを下回るとゲートが閉じ、信号を減衰させるレベル。</value>
+  </data>
+  <data name="GateEffect_Attack_Description" xml:space="preserve">
+    <value>信号がスレッショルドを超えてからゲートが開くまでの速さ。</value>
+  </data>
+  <data name="GateEffect_Hold_Description" xml:space="preserve">
+    <value>信号がスレッショルドを下回ってからリリースを開始するまで、ゲートを開いたまま保持する時間。</value>
+  </data>
+  <data name="GateEffect_Release_Description" xml:space="preserve">
+    <value>ホールド時間の経過後にゲートが閉じるまでの速さ。</value>
+  </data>
+  <data name="GateEffect_Range_Description" xml:space="preserve">
+    <value>ゲートが閉じている間に適用する減衰量。0 でゲートを無効化し、値が小さいほど強く減衰します。</value>
+  </data>
 </root>

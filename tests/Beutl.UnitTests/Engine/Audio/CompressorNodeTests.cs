@@ -7,6 +7,7 @@ using Beutl.Engine;
 using Beutl.Engine.Expressions;
 using Beutl.Media;
 
+using static Beutl.Audio.Effects.CompressorParameters;
 using static Beutl.UnitTests.Engine.Audio.AudioTestBuffers;
 
 namespace Beutl.UnitTests.Engine.Audio;
@@ -509,11 +510,8 @@ public class CompressorNodeTests
     }
 
     [Test]
-    public void Process_InfinityInputSamples_RecoversAndDoesNotLeakNonFiniteOutput()
+    public void Process_InfinityInputSamples_DoesNotLeakNonFiniteOutput()
     {
-        // The first samples on every channel are +Infinity, polluting the envelope; the rest is a
-        // normal sine. The self-recovery clamp must reset the envelope and the sanitizer must keep
-        // any NaN/Infinity from escaping downstream.
         const int sampleCount = SampleRate / 4;
         using var input = CreateSineBuffer(0.9f, 1000f, sampleCount);
         for (int ch = 0; ch < input.ChannelCount; ch++)
@@ -545,6 +543,56 @@ public class CompressorNodeTests
         float steadyPeakDb = PeakDb(output, sampleCount / 2);
         Assert.That(steadyPeakDb, Is.GreaterThan(-30f));
         Assert.That(steadyPeakDb, Is.LessThan(0f));
+    }
+
+    // Covers linked-peak guards in the stereo/surround and static/animated paths.
+    [TestCase(2, false)]
+    [TestCase(2, true)]
+    [TestCase(4, false)]
+    [TestCase(4, true)]
+    public void Process_OneChannelInfinity_DoesNotReleaseCompressionOnValidChannels(int channels, bool animated)
+    {
+        // Without the guard, Infinity resets the envelope and valid channels briefly burst ~14 dB louder.
+        const int sampleCount = SampleRate / 2;
+        const float amplitude = 0.9f;
+        const float thresholdDb = -20f;
+        const float ratio = 4f;
+        int corruptIndex = sampleCount / 2;
+        var duration = TimeSpan.FromSeconds(sampleCount / (double)SampleRate);
+
+        using var input = CreateBuffer(channels, sampleCount, (_, _) => amplitude);
+        input.GetChannelData(0)[corruptIndex] = float.PositiveInfinity;
+
+        var node = CreateNode(threshold: thresholdDb, ratio: ratio);
+        if (animated)
+        {
+            var thresholdAnim = new KeyFrameAnimation<float>();
+            thresholdAnim.KeyFrames.Add(new KeyFrame<float> { Easing = new LinearEasing(), Value = thresholdDb, KeyTime = TimeSpan.Zero });
+            thresholdAnim.KeyFrames.Add(new KeyFrame<float> { Easing = new LinearEasing(), Value = thresholdDb, KeyTime = duration });
+            node.Threshold.Animation = thresholdAnim;
+        }
+        node.AddInput(new BufferReplayNode(input));
+
+        using var output = node.Process(CreateContext(TimeSpan.Zero, duration));
+
+        for (int ch = 0; ch < output.ChannelCount; ch++)
+        {
+            var data = output.GetChannelData(ch);
+            for (int i = 0; i < output.SampleCount; i++)
+            {
+                Assert.That(float.IsFinite(data[i]), Is.True,
+                    $"Output sample [{ch}][{i}] = {data[i]} is not finite");
+            }
+        }
+
+        float inputDb = 20f * MathF.Log10(amplitude);
+        float slope = 1f - 1f / ratio;
+        float compressedDb = inputDb - slope * (inputDb - thresholdDb);
+        float afterCorruptDb = ChannelPeakDb(output, 1, corruptIndex + 1);
+
+        Assert.That(afterCorruptDb, Is.LessThan(compressedDb + 3f),
+            $"A corrupt channel must not reset the shared envelope; channel 1 peaked at {afterCorruptDb:F2} dB " +
+            $"after the Infinity against a steady state of {compressedDb:F2} dB.");
     }
 
     [Test]
@@ -1296,5 +1344,120 @@ public class CompressorNodeTests
 
         Assert.That(node.ClampWarnings, Is.EqualTo(1),
             "An out-of-range animated Attack must warn exactly once for the whole chunk, not zero and not per-sample.");
+    }
+
+    [TestCase(-1L)]
+    [TestCase(1L)]
+    public void Process_OneTickBoundaryRounding_DoesNotResetEnvelope(long tickOffset)
+    {
+        // One-tick rounding must preserve the warmed-up envelope.
+        const int chunkSamples = SampleRate / 10;
+        var chunkDuration = TimeSpan.FromSeconds(chunkSamples / (double)SampleRate);
+        var ctx1 = CreateContext(TimeSpan.Zero, chunkDuration);
+        var ctx2 = CreateContext(chunkDuration + TimeSpan.FromTicks(tickOffset), chunkDuration);
+
+        var node = CreateNode(release: 1000f);
+        using var warmupInput = CreateConstantBuffer(0.9f, chunkSamples);
+        node.AddInput(new BufferReplayNode(warmupInput));
+        using var warmup = node.Process(ctx1);
+        node.ClearInputs();
+        using var followInput = CreateConstantBuffer(0.9f, chunkSamples);
+        node.AddInput(new BufferReplayNode(followInput));
+        using var followOutput = node.Process(ctx2);
+
+        var nodeFresh = CreateNode(release: 1000f);
+        using var freshInput = CreateConstantBuffer(0.9f, chunkSamples);
+        nodeFresh.AddInput(new BufferReplayNode(freshInput));
+        using var freshOutput = nodeFresh.Process(ctx1);
+
+        float continuingFirst = MathF.Abs(followOutput.GetChannelData(0)[0]);
+        float freshFirst = MathF.Abs(freshOutput.GetChannelData(0)[0]);
+        Assert.That(continuingFirst, Is.LessThan(freshFirst),
+            $"A one-tick boundary rounding must not reset the envelope (continuing≈{continuingFirst:F4}, fresh≈{freshFirst:F4}).");
+    }
+
+    [Test]
+    public void Process_EmptyChunkWithDuration_DoesNotMaskLaterDiscontinuity()
+    {
+        // An empty timed chunk leaves a discontinuity.
+        const int chunkSamples = SampleRate / 10;
+        var chunkDuration = TimeSpan.FromSeconds(chunkSamples / (double)SampleRate);
+
+        var node = CreateNode(release: 1000f);
+        using var warmupInput = CreateConstantBuffer(0.9f, chunkSamples);
+        node.AddInput(new BufferReplayNode(warmupInput));
+        using var warmup = node.Process(CreateContext(TimeSpan.Zero, chunkDuration));
+
+        node.ClearInputs();
+        using var emptyInput = new AudioBuffer(SampleRate, 2, 0);
+        node.AddInput(new BufferReplayNode(emptyInput));
+        using var emptyOutput = node.Process(CreateContext(chunkDuration, chunkDuration));
+        Assert.That(emptyOutput.SampleCount, Is.EqualTo(0));
+
+        node.ClearInputs();
+        using var afterHoleInput = CreateConstantBuffer(0.9f, chunkSamples);
+        node.AddInput(new BufferReplayNode(afterHoleInput));
+        using var afterHoleOutput = node.Process(CreateContext(chunkDuration + chunkDuration, chunkDuration));
+
+        var nodeFresh = CreateNode(release: 1000f);
+        using var freshInput = CreateConstantBuffer(0.9f, chunkSamples);
+        nodeFresh.AddInput(new BufferReplayNode(freshInput));
+        using var freshOutput = nodeFresh.Process(CreateContext(TimeSpan.Zero, chunkDuration));
+
+        Assert.That(
+            MathF.Abs(afterHoleOutput.GetChannelData(0)[0]),
+            Is.EqualTo(MathF.Abs(freshOutput.GetChannelData(0)[0])).Within(1e-4f),
+            "The chunk after an empty-but-timed chunk must start from a reset envelope.");
+    }
+
+    [Test]
+    public void Process_InputSampleRateMismatch_Throws()
+    {
+        // This node cannot resample a buffer whose rate differs from the processing context.
+        const int altSampleRate = 44100;
+        using var input = CreateConstantBuffer(0.9f, altSampleRate / 10, 2, altSampleRate);
+        var node = CreateNode();
+        node.AddInput(new BufferReplayNode(input));
+
+        Assert.Throws<InvalidOperationException>(
+            () => node.Process(CreateContext(TimeSpan.Zero, TimeSpan.FromSeconds(0.1))));
+    }
+
+    [Test]
+    public void Process_NonFinitePropertyDefault_FallsBackToDeclaredConstant()
+    {
+        // A non-finite property default cannot serve as the sanitization fallback.
+        const int sampleCount = SampleRate / 4;
+        using var input = CreateConstantBuffer(0.9f, sampleCount);
+
+        var node = new CompressorNode
+        {
+            Threshold = Property.CreateAnimatable(float.NaN),
+            Ratio = Property.CreateAnimatable(float.NaN),
+            Attack = Property.CreateAnimatable(float.NaN),
+            Release = Property.CreateAnimatable(float.NaN),
+            Knee = Property.CreateAnimatable(float.NaN),
+            MakeupGain = Property.CreateAnimatable(float.NaN)
+        };
+        node.AddInput(new BufferReplayNode(input));
+
+        using var output = node.Process(CreateContext(TimeSpan.Zero, TimeSpan.FromSeconds(0.25)));
+
+        for (int ch = 0; ch < output.ChannelCount; ch++)
+        {
+            var data = output.GetChannelData(ch);
+            for (int i = 0; i < output.SampleCount; i++)
+            {
+                Assert.That(float.IsFinite(data[i]), Is.True,
+                    $"Output sample [{ch}][{i}] = {data[i]} is not finite");
+            }
+        }
+
+        float inputPeakDb = PeakDb(input, 0);
+        float slope = 1f - 1f / DefaultRatio;
+        float expectedDb = inputPeakDb - slope * (inputPeakDb - DefaultThresholdDb);
+        float steadyPeakDb = PeakDb(output, sampleCount / 2);
+        Assert.That(steadyPeakDb, Is.EqualTo(expectedDb).Within(3f),
+            $"With non-finite property defaults the declared constants must apply, but the tail measured {steadyPeakDb:F2} dB.");
     }
 }

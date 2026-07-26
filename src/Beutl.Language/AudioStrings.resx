@@ -153,4 +153,37 @@
   <data name="LimiterEffect_MakeupGain_Description" xml:space="preserve">
     <value>Gain applied after limiting. The final peak can reach Threshold + Makeup Gain.</value>
   </data>
+  <data name="GateEffect" xml:space="preserve">
+    <value>Gate</value>
+  </data>
+  <data name="GateEffect_Threshold" xml:space="preserve">
+    <value>Threshold (dB)</value>
+  </data>
+  <data name="GateEffect_Attack" xml:space="preserve">
+    <value>Attack (ms)</value>
+  </data>
+  <data name="GateEffect_Hold" xml:space="preserve">
+    <value>Hold (ms)</value>
+  </data>
+  <data name="GateEffect_Release" xml:space="preserve">
+    <value>Release (ms)</value>
+  </data>
+  <data name="GateEffect_Range" xml:space="preserve">
+    <value>Range (dB)</value>
+  </data>
+  <data name="GateEffect_Threshold_Description" xml:space="preserve">
+    <value>The level below which the gate closes and attenuates the signal.</value>
+  </data>
+  <data name="GateEffect_Attack_Description" xml:space="preserve">
+    <value>How quickly the gate opens once the signal rises above the threshold.</value>
+  </data>
+  <data name="GateEffect_Hold_Description" xml:space="preserve">
+    <value>How long the gate stays open after the signal falls below the threshold, before releasing.</value>
+  </data>
+  <data name="GateEffect_Release_Description" xml:space="preserve">
+    <value>How quickly the gate closes after the hold time elapses.</value>
+  </data>
+  <data name="GateEffect_Range_Description" xml:space="preserve">
+    <value>Attenuation applied while the gate is closed. 0 disables gating; more negative values attenuate harder.</value>
+  </data>
 </root>
