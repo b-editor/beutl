@@ -1,4 +1,4 @@
-<UserControl x:Class="Beutl.Pages.SettingsPages.ViewSettingsPage"
+﻿<UserControl x:Class="Beutl.Pages.SettingsPages.ViewSettingsPage"
              xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:ctrls="using:Beutl.Controls"
@@ -112,9 +112,10 @@
                                                             Margin="0,2,2,0"
                                                             HorizontalAlignment="Right"
                                                             VerticalAlignment="Top"
-                                                            Background="{DynamicResource FocusStrokeColorOuter}">
+                                                            Background="{DynamicResource FocusStrokeColorOuterBrush}">
+                                                        <!--  The marker sits on an accent shade, so the glyph takes the accent's derived foreground; the accent itself would be a neighbouring shade.  -->
                                                         <icons:FluentIcon FontSize="18"
-                                                                          Foreground="{DynamicResource SystemAccentColor}"
+                                                                          Foreground="{DynamicResource TextOnAccentFillColorPrimaryBrush}"
                                                                           Icon="Checkmark" />
                                                     </Border>
                                                 </Panel>
@@ -125,11 +126,11 @@
                                             <Setter Property="IsVisible" Value="False" />
                                         </Style>
                                         <Style Selector="^:pointerover /template/ Border#Root">
-                                            <Setter Property="BorderBrush" Value="{DynamicResource FocusStrokeColorOuter}" />
+                                            <Setter Property="BorderBrush" Value="{DynamicResource FocusStrokeColorOuterBrush}" />
                                         </Style>
 
                                         <Style Selector="^:selected /template/ Border#Root">
-                                            <Setter Property="BorderBrush" Value="{DynamicResource FocusStrokeColorOuter}" />
+                                            <Setter Property="BorderBrush" Value="{DynamicResource FocusStrokeColorOuterBrush}" />
                                         </Style>
                                         <Style Selector="^:selected /template/ Border#Check">
                                             <Setter Property="IsVisible" Value="True" />
@@ -151,7 +152,9 @@
                                            DockPanel.Dock="Left"
                                            Text="{x:Static lang:SettingsStrings.CustomColor}" />
 
+                                <!--  An accent names a color, not a translucent overlay: alpha would carry into every shade FluentAvalonia derives from it.  -->
                                 <ui:ColorPickerButton DockPanel.Dock="Right"
+                                                      IsAlphaEnabled="False"
                                                       IsCompact="True"
                                                       IsMoreButtonVisible="True"
                                                       ShowAcceptDismissButtons="True"

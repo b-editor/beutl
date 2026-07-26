@@ -1,12 +1,16 @@
 ﻿using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Markup.Xaml;
+using Avalonia.Media;
+using Avalonia.Platform;
 using Avalonia.Styling;
 using Avalonia.Threading;
 using Beutl.Configuration;
+using Beutl.Controls.Styling;
 using Beutl.Extensibility;
 using Beutl.Language;
 using Beutl.Logging;
+using Beutl.Services.PrimitiveImpls;
 using FluentAvalonia.Styling;
 using Microsoft.Extensions.Logging;
 using Reactive.Bindings;
@@ -16,17 +20,26 @@ namespace Beutl.Services;
 // Applies the selected theme id to the running app: resolves it via ThemeRegistry, sets
 // RequestedThemeVariant (or PreferSystemTheme for the system theme), and merges the descriptor's
 // brush-override resources. Re-applies on ViewConfig.Theme changes and ThemeRegistry.Changed.
+// Also the sole writer of FluentAvaloniaTheme.CustomAccentColor: the user's custom accent (when
+// enabled) wins, then the applied descriptor's AccentColor, then null (the OS accent).
 internal sealed class ThemeService : IDisposable
 {
     private static readonly ILogger s_logger = Log.CreateLogger<ThemeService>();
+
     private readonly FluentAvaloniaTheme _theme;
     private readonly ViewConfig _viewConfig;
     private IResourceProvider? _currentResources;
     private ThemeDescriptor? _appliedDescriptor;
     private ThemeExtension? _appliedExtension;
     private IDisposable? _themeSubscription;
+    private IDisposable? _useCustomAccentSubscription;
+    private IDisposable? _customAccentColorSubscription;
+    private IPlatformSettings? _platformSettings;
     private bool _changedSubscribed;
+    private bool _disposed;
     private int _applyQueued;
+    private Color? _appliedTextOnAccent;
+    private Color? _notifiedAccent;
 
     public ThemeService(FluentAvaloniaTheme theme, ViewConfig viewConfig)
     {
@@ -41,17 +54,57 @@ internal sealed class ThemeService : IDisposable
             ThemeRegistry.Register(descriptor);
         }
 
+        // The default theme is an extension, and the primitive-extension pass loads on a background
+        // thread — after the first apply below. Without this the app renders classic dark and flashes
+        // to the design theme (#2134). That pass still loads it too; the descriptor instance is
+        // stable, so the second registration resolves to the same theme and applies nothing.
+        DarkBorderThemeExtension.Instance.Load();
+
         _themeSubscription = _viewConfig.GetObservable(ViewConfig.ThemeProperty)
+            .Subscribe(_ => ScheduleApply());
+        _useCustomAccentSubscription = _viewConfig.GetObservable(ViewConfig.UseCustomAccentColorProperty)
+            .Subscribe(_ => ScheduleApply());
+        _customAccentColorSubscription = _viewConfig.GetObservable(ViewConfig.CustomAccentColorProperty)
             .Subscribe(_ => ScheduleApply());
         ThemeRegistry.Changed += OnThemeRegistryChanged;
         _changedSubscribed = true;
+
+        // The OS accent is the one accent Beutl does not resolve, so no config or registry trigger
+        // ever reports it moving. FluentAvalonia refreshes SystemAccentColor* from this same event
+        // (PreferUserAccentColor is on), which covers a theme referencing those keys dynamically —
+        // but not an owner that recomputes from them in a callback.
+        if (Application.Current?.PlatformSettings is { } platformSettings)
+        {
+            _platformSettings = platformSettings;
+            platformSettings.ColorValuesChanged += OnPlatformColorValuesChanged;
+        }
+
         ScheduleApply();
     }
+
+    private void OnPlatformColorValuesChanged(object? sender, PlatformColorValues e) =>
+        NotifyOsAccentChanged();
+
+    // Posted rather than run inline: FluentAvalonia handles the same event, and only once this
+    // dispatch completes is its refresh guaranteed done regardless of subscription order.
+    internal void NotifyOsAccentChanged() => Dispatcher.UIThread.Post(() =>
+    {
+        // Only while Beutl resolves no accent of its own — a custom or theme accent overrides the OS
+        // one, so its movement changes nothing the owner can see. The context carries null for the
+        // same reason: the value lives in SystemAccentColor, which the owner reads itself.
+        if (_disposed || _notifiedAccent is not null || _appliedDescriptor is not { } applied)
+        {
+            return;
+        }
+
+        ThemeNotifier.NotifyAccentChanged(applied, _appliedExtension, null);
+    }, DispatcherPriority.Send);
 
     private static ThemeDescriptor[] GetBuiltinThemes() =>
     [
         new(BuiltinThemeIds.Light, SettingsStrings.Light, ThemeVariant.Light),
-        new(BuiltinThemeIds.Dark, SettingsStrings.Dark, ThemeVariant.Dark),
+        // "Classic" distinguishes this from DarkBorderThemeExtension, which also shows as "Dark".
+        new(BuiltinThemeIds.Dark, SettingsStrings.DarkClassic, ThemeVariant.Dark),
         new(BuiltinThemeIds.HighContrast, SettingsStrings.HighContrast, FluentAvaloniaTheme.HighContrastTheme),
         new(BuiltinThemeIds.System, SettingsStrings.FollowSystem, ThemeVariant.Default, IsSystemFollowing: true),
     ];
@@ -78,6 +131,28 @@ internal sealed class ThemeService : IDisposable
     {
         Interlocked.Exchange(ref _applyQueued, 0);
 
+        // A job posted before Dispose can still fire after it; Dispose only unsubscribes.
+        if (_disposed)
+        {
+            return;
+        }
+
+        ApplySelectedTheme();
+        // Unconditional, even though ApplyCore seeds a newly applied theme's accent: an accent-config
+        // trigger leaves the applied descriptor unchanged, so nothing above would pick it up.
+        Color? accent = ApplyAccent();
+
+        // Only the accent-only path notifies. On the apply path ApplyCore already recorded this accent
+        // and handed it to the incoming owner through OnApplied, so the comparison is equal here.
+        if (_notifiedAccent != accent && _appliedDescriptor is { } applied)
+        {
+            _notifiedAccent = accent;
+            ThemeNotifier.NotifyAccentChanged(applied, _appliedExtension, accent);
+        }
+    }
+
+    private void ApplySelectedTheme()
+    {
         if (ThemeRegistry.ResolveOrDefault(_viewConfig.Theme) is not { } descriptor)
         {
             return; // nothing registered yet (very early startup)
@@ -103,6 +178,36 @@ internal sealed class ThemeService : IDisposable
         {
             ApplyCore(fallback);
         }
+    }
+
+    // Avoid unchanged writes because FluentAvalonia regenerates and invalidates all accent resources.
+    private Color? ApplyAccent()
+    {
+        Color? accent = AccentResolution.Normalize(
+            _viewConfig.UseCustomAccentColor && Color.TryParse(_viewConfig.CustomAccentColor, out Color custom)
+                ? custom
+                : _appliedDescriptor?.AccentColor);
+
+        if (_theme.CustomAccentColor != accent)
+        {
+            _theme.CustomAccentColor = accent;
+        }
+
+        ApplyTextOnAccent(accent);
+        return accent;
+    }
+
+    // Cache the derived foreground because different accents can resolve to the same value.
+    private void ApplyTextOnAccent(Color? accent)
+    {
+        Color? foreground = accent is { } value ? AccentResolution.ResolveForegroundOn(value) : null;
+        if (_appliedTextOnAccent == foreground)
+        {
+            return;
+        }
+
+        _appliedTextOnAccent = foreground;
+        AccentResolution.ApplyTextOnAccent(Application.Current!.Resources, accent);
     }
 
     // False when the descriptor could not be applied and the caller should fall back; skipping an
@@ -160,7 +265,10 @@ internal sealed class ThemeService : IDisposable
             ThemeNotifier.NotifyReverted(previous, previousExtension);
         }
 
-        ThemeNotifier.NotifyApplied(descriptor, extension);
+        // OnApplied must observe the incoming theme's accent.
+        _notifiedAccent = ApplyAccent();
+
+        ThemeNotifier.NotifyApplied(descriptor, extension, _notifiedAccent);
         return true;
     }
 
@@ -203,7 +311,16 @@ internal sealed class ThemeService : IDisposable
 
     public void Dispose()
     {
+        _disposed = true;
         _themeSubscription?.Dispose();
+        _useCustomAccentSubscription?.Dispose();
+        _customAccentColorSubscription?.Dispose();
+        if (_platformSettings is { } platformSettings)
+        {
+            platformSettings.ColorValuesChanged -= OnPlatformColorValuesChanged;
+            _platformSettings = null;
+        }
+
         if (_changedSubscribed)
         {
             ThemeRegistry.Changed -= OnThemeRegistryChanged;

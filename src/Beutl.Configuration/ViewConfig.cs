@@ -23,10 +23,13 @@ public sealed class ViewConfig : ConfigurationBase
     private readonly CoreList<string> _recentProjects = [];
     private bool _showExactBoundaries = false;
 
+    // Extension ids must remain outside BuiltinThemeIds, whose normalization defines reserved ids.
+    private const string DefaultThemeId = FirstPartyThemeIds.DarkBorder;
+
     static ViewConfig()
     {
         ThemeProperty = ConfigureProperty<string, ViewConfig>(nameof(Theme))
-            .DefaultValue(BuiltinThemeIds.Dark)
+            .DefaultValue(DefaultThemeId)
             .Register();
 
         UICultureProperty = ConfigureProperty<CultureInfo, ViewConfig>(nameof(UICulture))
@@ -160,7 +163,7 @@ public sealed class ViewConfig : ConfigurationBase
         }
         else
         {
-            Theme = BuiltinThemeIds.Normalize(context.GetValue<string>(nameof(Theme)));
+            Theme = BuiltinThemeIds.TryNormalize(context.GetValue<string>(nameof(Theme))) ?? DefaultThemeId;
         }
 
         // 古い settings.json や手動編集後のファイルでこれらのキーが欠落していると
@@ -232,22 +235,21 @@ public sealed class ViewConfig : ConfigurationBase
     }
 
     // Migrate legacy <2.0 ViewTheme enum values (a JSON number, or a PascalCase name) to the stable
-    // lowercase id. The rule lives in BuiltinThemeIds because ThemeRegistry validates extension ids
-    // against it — the two must not drift.
+    // lowercase id. Missing, corrupt, and pre-2.0-default values use the current default.
     private static string NormalizeThemeId(JsonNode? node)
     {
         if (node is not JsonValue value)
         {
-            return BuiltinThemeIds.Dark;
+            return DefaultThemeId;
         }
 
         // A JSON number is only ever the legacy enum; ids are persisted as strings.
         if (value.TryGetValue(out int legacyEnum))
         {
-            return BuiltinThemeIds.FromLegacyEnum(legacyEnum);
+            return BuiltinThemeIds.TryFromLegacyEnum(legacyEnum) ?? DefaultThemeId;
         }
 
-        return value.TryGetValue(out string? raw) ? BuiltinThemeIds.Normalize(raw) : BuiltinThemeIds.Dark;
+        return BuiltinThemeIds.TryNormalize(value.TryGetValue(out string? raw) ? raw : null) ?? DefaultThemeId;
     }
 
     private record WindowPositionRecord(int X, int Y);

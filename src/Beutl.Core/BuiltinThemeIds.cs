@@ -19,26 +19,32 @@ public static class BuiltinThemeIds
     public static FrozenSet<string> All { get; } =
         FrozenSet.ToFrozenSet([Light, Dark, HighContrast, System], StringComparer.Ordinal);
 
-    // <2.0 persisted the ViewTheme enum, whose only members were 0-3.
-    public static string FromLegacyEnum(int value) => value switch
+    /// <summary>
+    /// The built-in id a legacy &lt;2.0 <c>ViewTheme</c> value names, or null when it names no theme:
+    /// 1 (Dark) was the pre-2.0 default, so it marks a user who never chose a theme, and anything
+    /// outside the enum's 0-3 is corrupt. The caller owns the fallback — the product default is an
+    /// app-layer id this class must never return, since <see cref="IsReserved"/> backs ThemeRegistry's
+    /// reserved-id check.
+    /// </summary>
+    public static string? TryFromLegacyEnum(int value) => value switch
     {
         0 => Light,
-        1 => Dark,
         2 => HighContrast,
         3 => System,
-        _ => Dark,
+        _ => null,
     };
 
     /// <summary>
     /// The canonical id for a persisted value: legacy &lt;2.0 forms (the enum as 0-3, or a PascalCase
-    /// name) become the stable id, anything else is a custom id returned trimmed, and an empty or
-    /// missing value falls back to <see cref="Dark"/>.
+    /// name) become the stable id and anything else is a custom id returned trimmed. Null when the
+    /// value names no theme — it is blank, or a legacy enum form
+    /// <see cref="TryFromLegacyEnum"/> rejects — leaving the fallback to the caller.
     /// </summary>
-    public static string Normalize(string? raw)
+    public static string? TryNormalize(string? raw)
     {
         if (string.IsNullOrWhiteSpace(raw))
         {
-            return Dark;
+            return null;
         }
 
         raw = raw.Trim();
@@ -48,7 +54,7 @@ public static class BuiltinThemeIds
         if (int.TryParse(raw, CultureInfo.InvariantCulture, out int legacyEnum)
             && legacyEnum is >= 0 and <= 3)
         {
-            return FromLegacyEnum(legacyEnum);
+            return TryFromLegacyEnum(legacyEnum);
         }
 
         return raw.ToLowerInvariant() switch
@@ -62,10 +68,14 @@ public static class BuiltinThemeIds
     }
 
     /// <summary>
-    /// True when <see cref="Normalize"/> would turn <paramref name="id"/> into a built-in — a
-    /// built-in id or one of its legacy aliases ("Dark", "2"). An extension must not register such an
-    /// id: settings would rewrite the user's selection to the built-in on the next load, silently
-    /// dropping the extension's theme.
+    /// True when settings normalization would not hand <paramref name="id"/> back as it is — a
+    /// built-in id, one of its legacy aliases ("Dark", "2"), a value that names no theme at all
+    /// ("1", ""), or one normalization rewrites in any other way, such as the surrounding whitespace
+    /// it trims. An extension must not register such an id: settings would rewrite the user's
+    /// selection on the next load, silently dropping the extension's theme.
     /// </summary>
-    public static bool IsReserved(string? id) => All.Contains(Normalize(id));
+    public static bool IsReserved(string? id) =>
+        TryNormalize(id) is not { } normalized
+        || !StringComparer.Ordinal.Equals(normalized, id)
+        || All.Contains(normalized);
 }

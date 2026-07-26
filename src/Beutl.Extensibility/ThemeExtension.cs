@@ -3,7 +3,9 @@
 // Register a ThemeDescriptor into ThemeRegistry at Load; an extension ships a theme by overriding
 // GetThemeDescriptor with its id, base variant, and optional brush-override ResourceDictionary Uri.
 // OnApplied/OnReverted are invoked by the host when this theme becomes active/inactive, so an
-// extension can add apply-time side effects (telemetry, dynamic accent, resource recomputation).
+// extension can add apply-time side effects, and OnAccentChanged reports later accent changes.
+// The host owns FluentAvalonia's accent; declare it through ThemeDescriptor.AccentColor or override
+// SystemAccentColor* keys in ResourceUri.
 public abstract class ThemeExtension : Extension
 {
     private ThemeDescriptor? _descriptor;
@@ -33,6 +35,11 @@ public abstract class ThemeExtension : Extension
 
     // Called by the host when this theme becomes the active theme. Default is a no-op.
     public virtual void OnApplied(ThemeApplyContext context)
+    {
+    }
+
+    // Called for accent changes while the theme remains active. OnApplied carries the initial accent.
+    public virtual void OnAccentChanged(ThemeApplyContext context)
     {
     }
 

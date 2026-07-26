@@ -220,17 +220,13 @@ public sealed class ViewSettingsPageViewModel : PageContext, IDisposable
             }
         });
 
+    // Config-only: ThemeService subscribes to these and is the sole writer of
+    // FluentAvaloniaTheme.CustomAccentColor.
     private static void UpdateAppAccentColor(Color? color)
     {
         ViewConfig viewConfig = GlobalConfiguration.Instance.ViewConfig;
         viewConfig.UseCustomAccentColor = color.HasValue;
         viewConfig.CustomAccentColor = color?.ToString();
-
-        FluentAvaloniaTheme? faTheme = App.GetFATheme();
-        if (faTheme != null)
-        {
-            faTheme.CustomAccentColor = color;
-        }
     }
 
     public void Dispose()

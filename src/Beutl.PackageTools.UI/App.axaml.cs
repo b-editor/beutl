@@ -1,12 +1,15 @@
 ﻿using System.Globalization;
 
 using Avalonia;
+using Avalonia.Controls;
 using Avalonia.Controls.ApplicationLifetimes;
 using Avalonia.Markup.Xaml;
 using Avalonia.Media;
 using Avalonia.Styling;
 
 using Beutl.Configuration;
+using Beutl.Controls.Styling;
+using Beutl.Controls.Styling.Themes;
 using Beutl.PackageTools.UI.Views;
 
 using FluentAvalonia.Styling;
@@ -24,6 +27,7 @@ public partial class App : Application
         AvaloniaXamlLoader.Load(this);
         var theme = (FluentAvaloniaTheme)Styles[0];
 
+        Color? designAccent = null;
         switch (view.Theme)
         {
             case BuiltinThemeIds.Light:
@@ -38,6 +42,14 @@ public partial class App : Application
             case BuiltinThemeIds.System:
                 theme.PreferSystemTheme = true;
                 break;
+            case FirstPartyThemeIds.DarkBorder:
+                // The default theme. Its ThemeExtension is out of reach here (no extensions load), so
+                // apply what ThemeService would: the Dark base variant plus the override dictionary.
+                RequestedThemeVariant = ThemeVariant.Dark;
+                Resources.MergedDictionaries.Add(
+                    (IResourceProvider)AvaloniaXamlLoader.Load(BeutlDarkBorderTheme.ResourceUri, null)!);
+                designAccent = BeutlDarkBorderTheme.AccentColor;
+                break;
             default:
                 // PackageTools.UI loads no extensions/ThemeRegistry, so a custom theme id can't be
                 // resolved here — fall back to Dark rather than carry an unknown variant.
@@ -46,10 +58,20 @@ public partial class App : Application
         }
 
 
-        if (view.UseCustomAccentColor && Color.TryParse(view.CustomAccentColor, out Color customColor))
+        // Accent priority mirrors ThemeService, and so does the text-on-accent derivation: this shell
+        // shows the same accent surfaces, so a light custom accent would leave the theme's white
+        // labels on a near-white fill.
+        Color? accent = AccentResolution.Normalize(
+            view.UseCustomAccentColor && Color.TryParse(view.CustomAccentColor, out Color customColor)
+                ? customColor
+                : designAccent);
+
+        if (accent.HasValue)
         {
-            theme.CustomAccentColor = customColor;
+            theme.CustomAccentColor = accent;
         }
+
+        AccentResolution.ApplyTextOnAccent(Resources, accent);
     }
 
     public override void OnFrameworkInitializationCompleted()

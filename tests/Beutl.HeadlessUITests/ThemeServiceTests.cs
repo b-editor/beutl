@@ -1,9 +1,12 @@
 ﻿using System.Linq;
 using Avalonia;
+using Avalonia.Controls;
 using Avalonia.Headless.NUnit;
+using Avalonia.Media;
 using Avalonia.Styling;
 using Avalonia.Threading;
 using Beutl.Configuration;
+using Beutl.Controls.Styling;
 using Beutl.Extensibility;
 using Beutl.Services;
 using FluentAvalonia.Styling;
@@ -179,15 +182,333 @@ public class ThemeServiceTests
         });
     }
 
-    private sealed class RecordingThemeExtension(string id, string name) : ThemeExtension
+    // A trigger can post an apply job that fires only after the service is disposed (e.g. a test
+    // failing between the trigger and its RunJobs); a dead service must not touch global state.
+    [AvaloniaTest]
+    public void PendingApplyJob_AfterDispose_MutatesNothing()
     {
-        private readonly ThemeDescriptor _descriptor = new(id, name, ThemeVariant.Dark);
+        using var scope = new ThemeScope();
+        Application.Current!.RequestedThemeVariant = ThemeVariant.Dark;
+        scope.Service.Start();
+        Dispatcher.UIThread.RunJobs();
+        // The default theme carries a design accent, so "untouched" is that accent rather than null.
+        Color? accentBeforeTrigger = scope.Theme.CustomAccentColor;
+
+        var custom = Color.FromRgb(0x10, 0x89, 0x3E);
+        scope.Config.Theme = BuiltinThemeIds.Light;
+        scope.Config.UseCustomAccentColor = true;
+        scope.Config.CustomAccentColor = custom.ToString();
+        scope.Service.Dispose();
+        Dispatcher.UIThread.RunJobs();
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(Application.Current.RequestedThemeVariant, Is.EqualTo(ThemeVariant.Dark),
+                "a pending apply job must not switch the theme after Dispose");
+            Assert.That(scope.Theme.CustomAccentColor, Is.Not.EqualTo(custom),
+                "a pending apply job must not seed the accent after Dispose");
+            Assert.That(scope.Theme.CustomAccentColor, Is.EqualTo(accentBeforeTrigger));
+        });
+    }
+
+    // OnApplied is the documented hook for apply-time resource recomputation, so it must run with this
+    // theme's accent already seeded, not the outgoing one's.
+    [AvaloniaTest]
+    public void ThemeAccent_IsSeededBeforeTheNewOwnersOnApplied()
+    {
+        using var scope = new ThemeScope();
+        scope.Service.Start();
+        Dispatcher.UIThread.RunJobs();
+
+        var accent = Color.FromRgb(0x8A, 0x2B, 0xE2);
+        var ext = new RecordingThemeExtension("test.accentorder", "AccentOrder", accent);
+        ext.Load();
+        scope.Config.Theme = "test.accentorder";
+        Dispatcher.UIThread.RunJobs();
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(ext.AppliedCount, Is.EqualTo(1), "precondition: the extension's theme was applied");
+            Assert.That(ext.AccentAtApplied, Is.EqualTo(accent));
+        });
+    }
+
+    // The accent picker offers the whole named-color palette, so a light accent is one click away while
+    // the theme's text-on-accent tokens are authored for its own dark blue.
+    [AvaloniaTest]
+    public void TextOnAccent_StaysWhite_OnTheDesignAccent()
+    {
+        AssertAccentForeground(Color.FromRgb(0x25, 0x63, 0xEB), Colors.White);
+    }
+
+    [AvaloniaTest]
+    public void TextOnAccent_TurnsBlack_OnALightAccent()
+    {
+        AssertAccentForeground(Color.FromRgb(0xFF, 0xB9, 0x00), Colors.Black);
+    }
+
+    // Settings written while the picker still offered an alpha slider can carry one. Applying it as-is
+    // would paint a fill that lets the near-black surface through, under a foreground picked from the
+    // RGB channels alone — black on black. The applied accent is opaque, so the two agree again.
+    [AvaloniaTest]
+    public void CustomAccent_IsAppliedOpaque_SoTheForegroundMatchesWhatIsPainted()
+    {
+        using var scope = new ThemeScope();
+        scope.Service.Start();
+        Dispatcher.UIThread.RunJobs();
+
+        scope.Config.UseCustomAccentColor = true;
+        scope.Config.CustomAccentColor = Color.FromArgb(0x00, 0xFF, 0xFF, 0xFF).ToString();
+        Dispatcher.UIThread.RunJobs();
+
+        bool found = Application.Current!.TryGetResource(
+            "AccentButtonForeground", ThemeVariant.Dark, out object? foreground);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(scope.Theme.CustomAccentColor, Is.EqualTo(Colors.White),
+                "the accent Beutl applies must be opaque");
+            Assert.That(found, Is.True);
+            Assert.That(((ISolidColorBrush)foreground!).Color, Is.EqualTo(Colors.Black),
+                "black is right against the opaque white that is actually painted");
+        });
+    }
+
+    private static void AssertAccentForeground(Color accent, Color expected)
+    {
+        using var scope = new ThemeScope();
+        scope.Service.Start();
+        Dispatcher.UIThread.RunJobs();
+
+        scope.Config.UseCustomAccentColor = true;
+        scope.Config.CustomAccentColor = accent.ToString();
+        Dispatcher.UIThread.RunJobs();
+
+        // AccentButtonForeground rather than the color token: that alias is what a control actually
+        // reads, and it only follows the token if the theme's brush takes its color dynamically.
+        bool found = Application.Current!.TryGetResource(
+            "AccentButtonForeground", ThemeVariant.Dark, out object? foreground);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(found, Is.True);
+            Assert.That(foreground, Is.InstanceOf<ISolidColorBrush>());
+            Assert.That(((ISolidColorBrush)foreground!).Color, Is.EqualTo(expected));
+        });
+    }
+
+    // Once Beutl stops resolving the accent, the theme's own tokens are the only defined answer again.
+    [AvaloniaTest]
+    public void TextOnAccent_ReturnsToTheThemesValue_WhenTheCustomAccentIsDisabled()
+    {
+        using var scope = new ThemeScope();
+        scope.Config.Theme = BuiltinThemeIds.Light;
+        scope.Service.Start();
+        scope.Config.UseCustomAccentColor = true;
+        scope.Config.CustomAccentColor = Color.FromRgb(0xFF, 0xB9, 0x00).ToString();
+        Dispatcher.UIThread.RunJobs();
+        Assert.That(Application.Current!.Resources.ContainsKey("TextOnAccentFillColorPrimary"), Is.True,
+            "precondition: the derived override is in place");
+
+        scope.Config.UseCustomAccentColor = false;
+        Dispatcher.UIThread.RunJobs();
+
+        Assert.That(Application.Current.Resources.ContainsKey("TextOnAccentFillColorPrimary"), Is.False);
+    }
+
+    [AvaloniaTest]
+    public void ThemeAccentColor_SeedsTheAccent_AndLeavesWithTheTheme()
+    {
+        using var scope = new ThemeScope();
+        scope.Service.Start();
+        Dispatcher.UIThread.RunJobs();
+
+        var accent = Color.FromRgb(0x25, 0x63, 0xEB);
+        var ext = new RecordingThemeExtension("test.accent", "Accent", accent);
+        ext.Load();
+        scope.Config.Theme = "test.accent";
+        Dispatcher.UIThread.RunJobs();
+
+        Assert.That(scope.Theme.CustomAccentColor, Is.EqualTo(accent),
+            "the applied theme's design accent should seed FluentAvalonia's accent");
+
+        scope.Config.Theme = BuiltinThemeIds.Dark;
+        Dispatcher.UIThread.RunJobs();
+
+        Assert.That(scope.Theme.CustomAccentColor, Is.Null,
+            "built-ins carry no design accent, so the OS accent must come back");
+    }
+
+    [AvaloniaTest]
+    public void UserCustomAccent_WinsOverThemeAccent_AndYieldsBackWhenDisabled()
+    {
+        using var scope = new ThemeScope();
+        scope.Service.Start();
+        Dispatcher.UIThread.RunJobs();
+
+        var themeAccent = Color.FromRgb(0x25, 0x63, 0xEB);
+        var custom = Color.FromRgb(0x10, 0x89, 0x3E);
+        var ext = new RecordingThemeExtension("test.accent.custom", "Accent", themeAccent);
+        ext.Load();
+        scope.Config.Theme = "test.accent.custom";
+        scope.Config.UseCustomAccentColor = true;
+        scope.Config.CustomAccentColor = custom.ToString();
+        Dispatcher.UIThread.RunJobs();
+
+        Assert.That(scope.Theme.CustomAccentColor, Is.EqualTo(custom),
+            "the user's custom accent must win over the theme's design accent");
+
+        scope.Config.UseCustomAccentColor = false;
+        Dispatcher.UIThread.RunJobs();
+
+        Assert.That(scope.Theme.CustomAccentColor, Is.EqualTo(themeAccent),
+            "disabling the custom accent must fall back to the theme's design accent");
+    }
+
+    // An accent-only config change never re-enters ApplyCore, so without a dedicated hook the active
+    // owner would keep recomputing nothing and its accent-derived resources would go stale.
+    [AvaloniaTest]
+    public void CustomAccent_NotifiesTheActiveOwner_WithTheNewAccent()
+    {
+        using var scope = new ThemeScope();
+        scope.Service.Start();
+        Dispatcher.UIThread.RunJobs();
+
+        var themeAccent = Color.FromRgb(0x25, 0x63, 0xEB);
+        var custom = Color.FromRgb(0x10, 0x89, 0x3E);
+        var ext = new RecordingThemeExtension("test.accent.notify", "Notify", themeAccent);
+        ext.Load();
+        scope.Config.Theme = "test.accent.notify";
+        Dispatcher.UIThread.RunJobs();
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(ext.AppliedCount, Is.EqualTo(1), "precondition: the extension's theme was applied");
+            Assert.That(ext.ContextAccentAtApplied, Is.EqualTo(themeAccent),
+                "OnApplied must already carry the accent, so applying is not an accent change");
+            Assert.That(ext.AccentChangedCount, Is.Zero, "applying must not also report an accent change");
+        });
+
+        scope.Config.UseCustomAccentColor = true;
+        scope.Config.CustomAccentColor = custom.ToString();
+        Dispatcher.UIThread.RunJobs();
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(ext.AccentChangedCount, Is.EqualTo(1));
+            Assert.That(ext.AccentAtChanged, Is.EqualTo(custom));
+            Assert.That(ext.AppliedCount, Is.EqualTo(1), "an accent change must not re-apply the theme");
+        });
+
+        scope.Config.UseCustomAccentColor = false;
+        Dispatcher.UIThread.RunJobs();
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(ext.AccentChangedCount, Is.EqualTo(2), "yielding the custom accent back is a change too");
+            Assert.That(ext.AccentAtChanged, Is.EqualTo(themeAccent));
+        });
+    }
+
+    // The OS accent is the one accent Beutl does not resolve, so no config or registry trigger reports
+    // it moving and the context has nothing to carry. The owner still has to hear about it, or an
+    // OnApplied that recomputed from SystemAccentColor keeps the old shade for as long as the theme
+    // stays applied. Driven through the seam rather than the platform: the headless IPlatformSettings
+    // is real, and a test cannot raise its event.
+    [AvaloniaTest]
+    public void OsAccentChange_NotifiesTheActiveOwner_WhileBeutlResolvesNoAccentOfItsOwn()
+    {
+        using var scope = new ThemeScope();
+        scope.Service.Start();
+        Dispatcher.UIThread.RunJobs();
+
+        var ext = new RecordingThemeExtension("test.osaccent", "OsAccent");
+        ext.Load();
+        scope.Config.Theme = "test.osaccent";
+        Dispatcher.UIThread.RunJobs();
+        Assert.That(ext.AccentChangedCount, Is.Zero, "precondition: applying is not an accent change");
+
+        scope.Service.NotifyOsAccentChanged();
+        Dispatcher.UIThread.RunJobs();
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(ext.AccentChangedCount, Is.EqualTo(1));
+            Assert.That(ext.AccentAtChanged, Is.Null,
+                "Beutl resolved no accent, so the value stays in SystemAccentColor for the owner to read");
+        });
+    }
+
+    // A custom accent overrides the OS one, so its movement changes nothing the owner can see.
+    [AvaloniaTest]
+    public void OsAccentChange_IsSilent_WhenBeutlResolvesAnAccent()
+    {
+        using var scope = new ThemeScope();
+        scope.Service.Start();
+        Dispatcher.UIThread.RunJobs();
+
+        var ext = new RecordingThemeExtension("test.osaccent.custom", "OsAccent", Color.FromRgb(0x25, 0x63, 0xEB));
+        ext.Load();
+        scope.Config.Theme = "test.osaccent.custom";
+        Dispatcher.UIThread.RunJobs();
+        int changesBefore = ext.AccentChangedCount;
+
+        scope.Service.NotifyOsAccentChanged();
+        Dispatcher.UIThread.RunJobs();
+
+        Assert.That(ext.AccentChangedCount, Is.EqualTo(changesBefore));
+    }
+
+    // The hook follows the applied theme, not the extension: an owner that has been reverted must not
+    // keep recomputing resources for a theme the app no longer shows.
+    [AvaloniaTest]
+    public void CustomAccent_DoesNotNotifyARevertedOwner()
+    {
+        using var scope = new ThemeScope();
+        scope.Service.Start();
+        Dispatcher.UIThread.RunJobs();
+
+        var ext = new RecordingThemeExtension("test.accent.reverted", "Reverted", Color.FromRgb(0x25, 0x63, 0xEB));
+        ext.Load();
+        scope.Config.Theme = "test.accent.reverted";
+        Dispatcher.UIThread.RunJobs();
+        scope.Config.Theme = BuiltinThemeIds.Dark;
+        Dispatcher.UIThread.RunJobs();
+        Assert.That(ext.RevertedCount, Is.EqualTo(1), "precondition: the extension's theme was reverted");
+        int changesBefore = ext.AccentChangedCount;
+
+        scope.Config.UseCustomAccentColor = true;
+        scope.Config.CustomAccentColor = Color.FromRgb(0xFF, 0xB9, 0x00).ToString();
+        Dispatcher.UIThread.RunJobs();
+
+        Assert.That(ext.AccentChangedCount, Is.EqualTo(changesBefore));
+    }
+
+    private sealed class RecordingThemeExtension(string id, string name, Color? accentColor = null) : ThemeExtension
+    {
+        private readonly ThemeDescriptor _descriptor = new(id, name, ThemeVariant.Dark, AccentColor: accentColor);
         public int AppliedCount;
         public int RevertedCount;
+        public int AccentChangedCount;
+
+        public Color? AccentAtApplied;
+        public Color? AccentAtChanged;
+        public Color? ContextAccentAtApplied;
 
         public override ThemeDescriptor GetThemeDescriptor() => _descriptor;
 
-        public override void OnApplied(ThemeApplyContext context) => AppliedCount++;
+        public override void OnApplied(ThemeApplyContext context)
+        {
+            AppliedCount++;
+            ContextAccentAtApplied = context.Accent;
+            AccentAtApplied = Application.Current!.Styles.OfType<FluentAvaloniaTheme>().Single().CustomAccentColor;
+        }
+
+        public override void OnAccentChanged(ThemeApplyContext context)
+        {
+            AccentChangedCount++;
+            AccentAtChanged = context.Accent;
+        }
 
         public override void OnReverted() => RevertedCount++;
     }
@@ -196,13 +517,24 @@ public class ThemeServiceTests
     // test both starts from and hands back an empty registry.
     private sealed class ThemeScope : IDisposable
     {
+        private readonly IResourceProvider[] _mergedOnEntry;
+
         public ThemeScope()
         {
             ClearRegistry();
-            FluentAvaloniaTheme theme = Application.Current!.Styles.OfType<FluentAvaloniaTheme>().Single();
+            Theme = Application.Current!.Styles.OfType<FluentAvaloniaTheme>().Single();
+            // Reset before the snapshot rather than trusting the previous scope's Dispose — a test
+            // that fails mid-body never reaches it, and the snapshot would then adopt the leak as
+            // this scope's baseline. Only the accent and its derived tokens need it: the merged
+            // dictionaries are restored by diffing against this snapshot, and the theme variant is
+            // overwritten by every apply.
+            ResetAccentState(Theme);
+            _mergedOnEntry = [.. Application.Current.Resources.MergedDictionaries];
             Config = new ViewConfig();
-            Service = new ThemeService(theme, Config);
+            Service = new ThemeService(Theme, Config);
         }
+
+        public FluentAvaloniaTheme Theme { get; }
 
         public ViewConfig Config { get; }
 
@@ -211,7 +543,25 @@ public class ThemeServiceTests
         public void Dispose()
         {
             Service.Dispose();
+            ResetAccentState(Theme);
+            // The applied theme's overrides outlive the service too: ThemeService drops them only on
+            // its next apply, and Dispose is not one.
+            IList<IResourceProvider> merged = Application.Current!.Resources.MergedDictionaries;
+            foreach (IResourceProvider applied in merged.Except(_mergedOnEntry).ToArray())
+            {
+                merged.Remove(applied);
+            }
+
             ClearRegistry();
+        }
+
+        // Both the accent and the tokens derived from it are process-global — the accent on the one
+        // FluentAvaloniaTheme, the tokens in the Application's own resources — so either would bleed
+        // into every later [AvaloniaTest] in the assembly.
+        private static void ResetAccentState(FluentAvaloniaTheme theme)
+        {
+            theme.CustomAccentColor = null;
+            AccentResolution.ApplyTextOnAccent(Application.Current!.Resources, null);
         }
 
         private static void ClearRegistry()

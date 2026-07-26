@@ -1,6 +1,7 @@
 <Application xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:aconverters="using:Avalonia.Markup.Xaml.Converters"
+             xmlns:asyncImageLoader="using:AsyncImageLoader"
              xmlns:sty="using:FluentAvalonia.Styling"
              xmlns:dockFluent="using:Dock.Avalonia.Themes.Fluent"
              xmlns:dockVm="using:Beutl.ViewModels.Dock"
@@ -11,6 +12,18 @@
       <ResourceDictionary.MergedDictionaries>
         <ResourceInclude Source="avares://Beutl.Controls/Styling/Fonts.axaml" />
       </ResourceDictionary.MergedDictionaries>
+      <!--
+        Production applies the default "beutl.dark.border" theme's overrides via ThemeService; the
+        tests only flip RequestedThemeVariant, so mirror that theme here. Scoped to Dark (not merged
+        flat) so the Light captures still show the classic light theme.
+      -->
+      <ResourceDictionary.ThemeDictionaries>
+        <ResourceDictionary x:Key="Dark">
+          <ResourceDictionary.MergedDictionaries>
+            <ResourceInclude Source="avares://Beutl.Controls/Styling/Themes/BeutlDarkBorder.axaml" />
+          </ResourceDictionary.MergedDictionaries>
+        </ResourceDictionary>
+      </ResourceDictionary.ThemeDictionaries>
 
       <!-- ElementView (timeline rows) binds through this StaticResource; only App.axaml defines it. -->
       <aconverters:ColorToBrushConverter x:Key="ColorToBrushConverter" />
@@ -25,11 +38,33 @@
       <views:PlayerView DataContext="{Binding Player}" />
     </DataTemplate>
   </Application.DataTemplates>
+  <!--
+    Must mirror src/Beutl/App.axaml's style list exactly (same entries, same order): headless shell
+    captures feed design review and must be faithful to production.
+  -->
   <Application.Styles>
-    <sty:FluentAvaloniaTheme />
+    <sty:FluentAvaloniaTheme PreferUserAccentColor="True" TextVerticalAlignmentOverrideBehavior="Disabled" />
     <dockFluent:DockFluentTheme />
     <StyleInclude Source="avares://Beutl.Controls/Styles.axaml" />
     <StyleInclude Source="avares://AsyncImageLoader.Avalonia/AdvancedImage.axaml" />
     <StyleInclude Source="avares://Beutl.Editor.Components/Styles.axaml" />
+    <StyleInclude Source="avares://Beutl/Views/Dock/DockStyles.axaml" />
+
+    <Style Selector="asyncImageLoader|AdvancedImage">
+      <Setter Property="Template">
+        <ControlTemplate>
+          <Grid>
+            <Border HorizontalAlignment="Stretch"
+                    VerticalAlignment="Stretch"
+                    Classes.placeholder="{TemplateBinding IsLoading}"
+                    IsVisible="{TemplateBinding IsLoading}" />
+          </Grid>
+        </ControlTemplate>
+      </Setter>
+    </Style>
+
+    <Style Selector="TextBox">
+      <Setter Property="(TextBoxAttachment.EnterDownBehavior)" Value="Auto" />
+    </Style>
   </Application.Styles>
 </Application>

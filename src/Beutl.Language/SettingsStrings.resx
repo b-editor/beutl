@@ -331,6 +331,9 @@
   <data name="Dark" xml:space="preserve">
     <value>Dark</value>
   </data>
+  <data name="DarkClassic" xml:space="preserve">
+    <value>Dark (Classic)</value>
+  </data>
   <data name="ExtensionsSettings" xml:space="preserve">
     <value>Extensions Settings</value>
   </data>

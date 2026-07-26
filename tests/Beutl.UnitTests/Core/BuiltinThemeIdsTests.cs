@@ -1,0 +1,66 @@
+﻿namespace Beutl.UnitTests.Core;
+
+[TestFixture]
+public class BuiltinThemeIdsTests
+{
+    [TestCase(0, BuiltinThemeIds.Light)]
+    [TestCase(2, BuiltinThemeIds.HighContrast)]
+    [TestCase(3, BuiltinThemeIds.System)]
+    public void TryFromLegacyEnum_MapsTheMembersThatNameATheme(int value, string expected)
+    {
+        Assert.That(BuiltinThemeIds.TryFromLegacyEnum(value), Is.EqualTo(expected));
+    }
+
+    // 1 (Dark) was the pre-2.0 default, so it marks a user who never chose a theme; 4+ was never a
+    // member. Neither names a theme.
+    [TestCase(1)]
+    [TestCase(4)]
+    [TestCase(-1)]
+    public void TryFromLegacyEnum_ReturnsNull_WhenTheValueNamesNoTheme(int value)
+    {
+        Assert.That(BuiltinThemeIds.TryFromLegacyEnum(value), Is.Null);
+    }
+
+    [TestCase("Dark", BuiltinThemeIds.Dark)]
+    [TestCase("  system  ", BuiltinThemeIds.System)]
+    [TestCase("2", BuiltinThemeIds.HighContrast)]
+    [TestCase("plugin.solarized", "plugin.solarized")]
+    [TestCase("2026", "2026")]
+    public void TryNormalize_CanonicalizesBuiltinsAndKeepsCustomIds(string raw, string expected)
+    {
+        Assert.That(BuiltinThemeIds.TryNormalize(raw), Is.EqualTo(expected));
+    }
+
+    [TestCase((string?)null)]
+    [TestCase("")]
+    [TestCase("   ")]
+    [TestCase("1")]
+    public void TryNormalize_ReturnsNull_WhenTheValueNamesNoTheme(string? raw)
+    {
+        Assert.That(BuiltinThemeIds.TryNormalize(raw), Is.Null);
+    }
+
+    // ThemeRegistry rejects these: settings would rewrite the id on the next load, silently losing an
+    // extension's theme. The padded ones normalize to a perfectly good custom id — just not the one
+    // the extension registered under, so the selection would resolve to nothing on the next start.
+    [TestCase("dark")]
+    [TestCase("HighContrast")]
+    [TestCase("0")]
+    [TestCase("1")]
+    [TestCase("")]
+    [TestCase("plugin.theme ")]
+    [TestCase(" plugin.theme")]
+    [TestCase("plugin.theme\t")]
+    public void IsReserved_CoversEveryIdSettingsWouldRewrite(string id)
+    {
+        Assert.That(BuiltinThemeIds.IsReserved(id), Is.True);
+    }
+
+    [TestCase(FirstPartyThemeIds.DarkBorder)]
+    [TestCase("darker")]
+    [TestCase("2026")]
+    public void IsReserved_LeavesIdsSettingsHandsBackUnchanged(string id)
+    {
+        Assert.That(BuiltinThemeIds.IsReserved(id), Is.False);
+    }
+}
