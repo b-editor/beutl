@@ -92,6 +92,32 @@ public class SceneCompositorTests
 
             Assert.That(frame.Objects.Length, Is.EqualTo(1));
             Assert.That(frame.Objects[0].GetOriginal(), Is.SameAs(enabled.Objects[0]));
+            Assert.That(frame.Eligibility.Contains(enabled.Objects[0]), Is.True);
+            Assert.That(frame.Eligibility.Contains(disabled.Objects[0]), Is.False);
+        }
+        finally
+        {
+            if (Directory.Exists(basePath)) Directory.Delete(basePath, recursive: true);
+        }
+    }
+
+    [Test]
+    public void EvaluateAudio_OutOfRangeElement_RemainsEligible()
+    {
+        string basePath = GetTempPath();
+        try
+        {
+            Scene scene = CreateScene(basePath);
+            Element element = CreateElement(basePath, isEnabled: true, new TestAudioObject());
+            scene.Children.Add(element);
+            using var compositor = new SceneCompositor(scene);
+
+            CompositionFrame frame = compositor.EvaluateAudio(
+                new TimeRange(TimeSpan.FromSeconds(2), TimeSpan.FromSeconds(1)));
+
+            Assert.That(frame.Objects, Is.Empty);
+            Assert.That(frame.Eligibility.Contains(element.Objects[0]), Is.True,
+                "Eligibility ignores time intersection so Composer can identify a natural clip end.");
         }
         finally
         {
@@ -314,11 +340,24 @@ public class SceneCompositorTests
 
             Assert.That(frame.Objects.Length, Is.EqualTo(1));
             Assert.That(frame.Objects[0].GetOriginal(), Is.SameAs(z1.Objects[0]));
+            Assert.That(frame.Eligibility.Contains(z0.Objects[0]), Is.False);
+            Assert.That(frame.Eligibility.Contains(z1.Objects[0]), Is.True);
         }
         finally
         {
             if (Directory.Exists(basePath)) Directory.Delete(basePath, recursive: true);
         }
+    }
+
+    [Test]
+    public void CompositionEligibility_UsesReferenceIdentity()
+    {
+        var first = new ValueEqualEligibilityObject();
+        var second = new ValueEqualEligibilityObject();
+        var eligibility = new CompositionEligibility([first]);
+
+        Assert.That(eligibility.Contains(first), Is.True);
+        Assert.That(eligibility.Contains(second), Is.False);
     }
 
     [Test]
@@ -638,6 +677,14 @@ public class SceneCompositorTests
     private class TestAudioObject : EngineObject
     {
         public override CompositionTarget GetCompositionTarget() => CompositionTarget.Audio;
+    }
+
+    [Beutl.Engine.SuppressResourceClassGeneration]
+    private sealed class ValueEqualEligibilityObject : EngineObject
+    {
+        public override bool Equals(object? obj) => obj is ValueEqualEligibilityObject;
+
+        public override int GetHashCode() => 0;
     }
 }
 

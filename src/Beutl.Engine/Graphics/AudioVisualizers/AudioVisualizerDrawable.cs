@@ -162,7 +162,11 @@ public abstract partial class AudioVisualizerDrawable : Drawable
                 _frameObjectsSource = _source;
             }
 
-            var frame = new CompositionFrame(_frameObjects, sound.TimeRange, default);
+            var frame = new CompositionFrame(
+                _frameObjects,
+                sound.TimeRange,
+                default,
+                new CompositionEligibility([sound]));
 
             AudioBuffer? buffer = _composer.Compose(targetRange, frame);
             try

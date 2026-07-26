@@ -77,6 +77,7 @@ public sealed class SceneCompositor : ICompositor
 
     public CompositionFrame EvaluateGraphics(TimeSpan time)
     {
+        CompositionEligibility eligibility = CollectEligibility(CompositionTarget.Graphics);
         using var currentElements = new PooledList<Element>();
         SortLayers(time, currentElements, CompositionTarget.Graphics);
 
@@ -95,11 +96,16 @@ public sealed class SceneCompositor : ICompositor
             allResources.AddRange(flow.Span);
         }
 
-        return new CompositionFrame([.. allResources], new(time, TimeSpan.FromTicks(1)), Scene.FrameSize);
+        return new CompositionFrame(
+            [.. allResources],
+            new(time, TimeSpan.FromTicks(1)),
+            Scene.FrameSize,
+            eligibility);
     }
 
     public CompositionFrame EvaluateAudio(TimeRange timeRange)
     {
+        CompositionEligibility eligibility = CollectEligibility(CompositionTarget.Audio);
         using var currentElements = new PooledList<Element>();
         SortLayers(timeRange, currentElements, CompositionTarget.Audio);
 
@@ -118,7 +124,22 @@ public sealed class SceneCompositor : ICompositor
             allResources.AddRange(flow.Span);
         }
 
-        return new CompositionFrame([.. allResources], timeRange, Scene.FrameSize);
+        return new CompositionFrame([.. allResources], timeRange, Scene.FrameSize, eligibility);
+    }
+
+    private CompositionEligibility CollectEligibility(CompositionTarget target)
+    {
+        using var eligibleObjects = new PooledList<EngineObject>();
+        LayerSnapshot snapshot = GetLayerSnapshot();
+
+        foreach (Element item in Scene.Children)
+        {
+            if (!item.IsEnabled) continue;
+            if (ShouldSkipLayer(item.ZIndex, target, snapshot.HasSolo, snapshot.ByZIndex)) continue;
+            item.CollectObjects(target, eligibleObjects);
+        }
+
+        return new CompositionEligibility(eligibleObjects);
     }
 
     private void CollectResourcesFromElement(

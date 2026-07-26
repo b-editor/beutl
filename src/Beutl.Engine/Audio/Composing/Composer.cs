@@ -27,6 +27,7 @@ public class Composer : IComposer
         public int Version { get; set; }
         public EventHandler? EditedHandler { get; set; }
         public TimeRange SoundRange { get; set; }
+        public required Sound Sound { get; init; }
 
         public void Dispose()
         {
@@ -86,7 +87,7 @@ public class Composer : IComposer
                 }
 
                 // Build final audio graph
-                var result = BuildFinalOutput(timeRange);
+                var result = BuildFinalOutput(timeRange, frame.Eligibility);
 
                 // Record this window's active set so the next window can flush sounds that just ended.
                 _previousEntry.Clear();
@@ -106,7 +107,7 @@ public class Composer : IComposer
         }
     }
 
-    private AudioBuffer? BuildFinalOutput(TimeRange range)
+    private AudioBuffer? BuildFinalOutput(TimeRange range, CompositionEligibility eligibility)
     {
         // Multiple contexts - need to mix
         var buffers = new List<AudioBuffer>();
@@ -125,7 +126,7 @@ public class Composer : IComposer
             }
 
             // Recover the latency tail of any sound that ended on the previous window boundary.
-            AppendEndedSoundTails(range, buffers);
+            AppendEndedSoundTails(range, eligibility, buffers);
 
             // Mix all buffers
             mixedBuffer = MixBuffers(buffers);
@@ -161,7 +162,10 @@ public class Composer : IComposer
     // a lookahead limiter's held samples land at the start of the window that follows the clip end (the
     // tail belongs at [windowStart, windowStart + latency)). The drain produces a window-length buffer —
     // tail at the front, silence after — so it mixes like any other branch.
-    private void AppendEndedSoundTails(TimeRange range, List<AudioBuffer> buffers)
+    private void AppendEndedSoundTails(
+        TimeRange range,
+        CompositionEligibility eligibility,
+        List<AudioBuffer> buffers)
     {
         // Only when this window continues sequentially from the previous one. After a seek/restart the
         // cached graph no longer abuts the new window (the limiter resets on the discontinuity anyway),
@@ -176,6 +180,8 @@ public class Composer : IComposer
             if (entry.OutputNodes is not { } outputNodes)
                 continue;
             if (!IsSameTimestamp(entry.SoundRange.End, previous.End))
+                continue;
+            if (!eligibility.Contains(entry.Sound))
                 continue;
 
             foreach (var outputNode in outputNodes)
@@ -272,7 +278,7 @@ public class Composer : IComposer
         // Get or create cache entry
         if (!_audioCache.TryGetValue(sound, out var entry))
         {
-            entry = new AudioNodeEntry();
+            entry = new AudioNodeEntry { Sound = sound };
             _audioCache.AddOrUpdate(sound, entry);
 
             // Register invalidation handler

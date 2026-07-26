@@ -65,7 +65,8 @@ public class RendererExceptionSafetyTests
         return new CompositionFrame(
             ImmutableArray.Create<EngineObject.Resource>(resource),
             new TimeRange(TimeSpan.Zero, TimeSpan.FromSeconds(1)),
-            new PixelSize(16, 16));
+            new PixelSize(16, 16),
+            new CompositionEligibility([drawable]));
     }
 
     private static RenderNodeOperation CreateOperation(

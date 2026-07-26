@@ -21,7 +21,11 @@ public class ComposerTests
         const int sampleRate = 44100;
         var oneSampleTicksFloor = TimeSpan.TicksPerSecond / sampleRate;
         var range = new TimeRange(TimeSpan.Zero, TimeSpan.FromTicks(oneSampleTicksFloor + 1));
-        var frame = new CompositionFrame(ImmutableArray<EngineObject.Resource>.Empty, range, default);
+        var frame = new CompositionFrame(
+            ImmutableArray<EngineObject.Resource>.Empty,
+            range,
+            default,
+            CompositionEligibility.Empty);
 
         using var composer = new Composer { SampleRate = sampleRate };
         using AudioBuffer? buffer = composer.Compose(range, frame);
@@ -38,7 +42,11 @@ public class ComposerTests
     {
         const int sampleRate = 48000;
         var range = new TimeRange(TimeSpan.Zero, TimeSpan.FromSeconds(1));
-        var frame = new CompositionFrame(ImmutableArray<EngineObject.Resource>.Empty, range, default);
+        var frame = new CompositionFrame(
+            ImmutableArray<EngineObject.Resource>.Empty,
+            range,
+            default,
+            CompositionEligibility.Empty);
 
         using var composer = new Composer { SampleRate = sampleRate };
         using AudioBuffer? buffer = composer.Compose(range, frame);

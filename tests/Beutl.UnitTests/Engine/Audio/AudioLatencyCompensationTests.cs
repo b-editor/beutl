@@ -803,11 +803,20 @@ public class AudioLatencyCompensationTests
         using var composer = new Composer { SampleRate = SampleRate };
 
         var window1 = new TimeRange(TimeSpan.Zero, oneSecond);
-        var frame1 = new CompositionFrame(ImmutableArray.Create<EngineObject.Resource>(resource), window1, default);
+        var eligibility = new CompositionEligibility([sound]);
+        var frame1 = new CompositionFrame(
+            ImmutableArray.Create<EngineObject.Resource>(resource),
+            window1,
+            default,
+            eligibility);
         using var buffer1 = composer.Compose(window1, frame1);
 
         var window2 = new TimeRange(oneSecond, oneSecond);
-        var frame2 = new CompositionFrame(ImmutableArray<EngineObject.Resource>.Empty, window2, default);
+        var frame2 = new CompositionFrame(
+            ImmutableArray<EngineObject.Resource>.Empty,
+            window2,
+            default,
+            eligibility);
         using var buffer2 = composer.Compose(window2, frame2);
 
         Assert.That(buffer2, Is.Not.Null);
@@ -820,6 +829,49 @@ public class AudioLatencyCompensationTests
 
         Assert.That(tailNonZero, Is.True,
             "A sound ending exactly at the window boundary must have its limiter tail flushed into the next window's start.");
+    }
+
+    [Test]
+    public void Composer_DoesNotFlushSoundThatBecomesIneligibleAtItsNaturalEnd()
+    {
+        const float lookaheadMs = 5f;
+        int L = LookaheadSamples(lookaheadMs);
+        var oneSecond = TimeSpan.FromSeconds(1);
+
+        var sound = new LimiterTailSound
+        {
+            LookaheadMs = lookaheadMs,
+            TimeRange = new TimeRange(TimeSpan.Zero, oneSecond),
+        };
+        var resource = sound.ToResource(CompositionContext.Default);
+
+        using var composer = new Composer { SampleRate = SampleRate };
+
+        var window1 = new TimeRange(TimeSpan.Zero, oneSecond);
+        var frame1 = new CompositionFrame(
+            ImmutableArray.Create<EngineObject.Resource>(resource),
+            window1,
+            default,
+            new CompositionEligibility([sound]));
+        using var buffer1 = composer.Compose(window1, frame1);
+
+        // The time boundary matches the captured natural end, but the sound is no longer eligible in
+        // the scene (removed, disabled, muted, or excluded by solo policy), so its cached tail must stop.
+        var window2 = new TimeRange(oneSecond, oneSecond);
+        var frame2 = new CompositionFrame(
+            ImmutableArray<EngineObject.Resource>.Empty,
+            window2,
+            default,
+            CompositionEligibility.Empty);
+        using var buffer2 = composer.Compose(window2, frame2);
+
+        Assert.That(buffer2, Is.Not.Null);
+        var output = buffer2!.GetChannelData(0);
+        for (int k = 0; k < L; k++)
+        {
+            Assert.That(MathF.Abs(output[k]), Is.LessThanOrEqualTo(1e-5f),
+                $"An ineligible sound must not leak a cached tail at its natural end (sample {k}).");
+        }
     }
 
     [Test]
@@ -840,13 +892,21 @@ public class AudioLatencyCompensationTests
         using var composer = new Composer { SampleRate = SampleRate };
 
         var window1 = new TimeRange(TimeSpan.Zero, oneSecond);
-        var frame1 = new CompositionFrame(ImmutableArray.Create<EngineObject.Resource>(resource), window1, default);
+        var frame1 = new CompositionFrame(
+            ImmutableArray.Create<EngineObject.Resource>(resource),
+            window1,
+            default,
+            new CompositionEligibility([sound]));
         using var buffer1 = composer.Compose(window1, frame1);
 
         // The sound is absent from the next contiguous frame even though its captured range continues.
         // This models a mute, disable, or removal rather than a natural clip end.
         var window2 = new TimeRange(oneSecond, oneSecond);
-        var frame2 = new CompositionFrame(ImmutableArray<EngineObject.Resource>.Empty, window2, default);
+        var frame2 = new CompositionFrame(
+            ImmutableArray<EngineObject.Resource>.Empty,
+            window2,
+            default,
+            CompositionEligibility.Empty);
         using var buffer2 = composer.Compose(window2, frame2);
 
         Assert.That(buffer2, Is.Not.Null);
@@ -879,12 +939,21 @@ public class AudioLatencyCompensationTests
         using var composer = new Composer { SampleRate = SampleRate };
 
         var window1 = new TimeRange(TimeSpan.Zero, oneSecond);
-        var frame1 = new CompositionFrame(ImmutableArray.Create<EngineObject.Resource>(resource), window1, default);
+        var eligibility = new CompositionEligibility([sound]);
+        var frame1 = new CompositionFrame(
+            ImmutableArray.Create<EngineObject.Resource>(resource),
+            window1,
+            default,
+            eligibility);
         using var buffer1 = composer.Compose(window1, frame1);
 
         // A forward jump far past the previous window end — not contiguous.
         var window2 = new TimeRange(TimeSpan.FromSeconds(3), oneSecond);
-        var frame2 = new CompositionFrame(ImmutableArray<EngineObject.Resource>.Empty, window2, default);
+        var frame2 = new CompositionFrame(
+            ImmutableArray<EngineObject.Resource>.Empty,
+            window2,
+            default,
+            eligibility);
         using var buffer2 = composer.Compose(window2, frame2);
 
         Assert.That(buffer2, Is.Not.Null);
@@ -916,14 +985,23 @@ public class AudioLatencyCompensationTests
         using var composer = new Composer { SampleRate = SampleRate };
 
         var window1 = new TimeRange(TimeSpan.Zero, oneSecond);
-        var frame1 = new CompositionFrame(ImmutableArray.Create<EngineObject.Resource>(resource), window1, default);
+        var eligibility = new CompositionEligibility([sound]);
+        var frame1 = new CompositionFrame(
+            ImmutableArray.Create<EngineObject.Resource>(resource),
+            window1,
+            default,
+            eligibility);
         using var buffer1 = composer.Compose(window1, frame1);
 
         composer.InvalidateCache();
 
         // Contiguous with window 1 — without InvalidateCache this window recovers the tail (boundary test).
         var window2 = new TimeRange(oneSecond, oneSecond);
-        var frame2 = new CompositionFrame(ImmutableArray<EngineObject.Resource>.Empty, window2, default);
+        var frame2 = new CompositionFrame(
+            ImmutableArray<EngineObject.Resource>.Empty,
+            window2,
+            default,
+            eligibility);
         using var buffer2 = composer.Compose(window2, frame2);
 
         Assert.That(buffer2, Is.Not.Null);
