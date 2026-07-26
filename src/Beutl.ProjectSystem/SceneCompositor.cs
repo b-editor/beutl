@@ -77,7 +77,6 @@ public sealed class SceneCompositor : ICompositor
 
     public CompositionFrame EvaluateGraphics(TimeSpan time)
     {
-        CompositionEligibility eligibility = CollectEligibility(CompositionTarget.Graphics);
         using var currentElements = new PooledList<Element>();
         SortLayers(time, currentElements, CompositionTarget.Graphics);
 
@@ -100,7 +99,7 @@ public sealed class SceneCompositor : ICompositor
             [.. allResources],
             new(time, TimeSpan.FromTicks(1)),
             Scene.FrameSize,
-            eligibility);
+            null);
     }
 
     public CompositionFrame EvaluateAudio(TimeRange timeRange)

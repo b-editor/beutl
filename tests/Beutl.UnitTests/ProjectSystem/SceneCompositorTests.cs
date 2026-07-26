@@ -89,11 +89,13 @@ public class SceneCompositorTests
 
             CompositionFrame frame = compositor.EvaluateAudio(
                 new TimeRange(TimeSpan.Zero, TimeSpan.FromSeconds(1)));
+            CompositionEligibility eligibility = frame.Eligibility
+                ?? throw new AssertionException("Audio evaluation must capture eligibility.");
 
             Assert.That(frame.Objects.Length, Is.EqualTo(1));
             Assert.That(frame.Objects[0].GetOriginal(), Is.SameAs(enabled.Objects[0]));
-            Assert.That(frame.Eligibility.Contains(enabled.Objects[0]), Is.True);
-            Assert.That(frame.Eligibility.Contains(disabled.Objects[0]), Is.False);
+            Assert.That(eligibility.Contains(enabled.Objects[0]), Is.True);
+            Assert.That(eligibility.Contains(disabled.Objects[0]), Is.False);
         }
         finally
         {
@@ -114,9 +116,11 @@ public class SceneCompositorTests
 
             CompositionFrame frame = compositor.EvaluateAudio(
                 new TimeRange(TimeSpan.FromSeconds(2), TimeSpan.FromSeconds(1)));
+            CompositionEligibility eligibility = frame.Eligibility
+                ?? throw new AssertionException("Audio evaluation must capture eligibility.");
 
             Assert.That(frame.Objects, Is.Empty);
-            Assert.That(frame.Eligibility.Contains(element.Objects[0]), Is.True,
+            Assert.That(eligibility.Contains(element.Objects[0]), Is.True,
                 "Eligibility ignores time intersection so Composer can identify a natural clip end.");
         }
         finally
@@ -337,11 +341,13 @@ public class SceneCompositorTests
 
             CompositionFrame frame = compositor.EvaluateAudio(
                 new TimeRange(TimeSpan.Zero, TimeSpan.FromSeconds(1)));
+            CompositionEligibility eligibility = frame.Eligibility
+                ?? throw new AssertionException("Audio evaluation must capture eligibility.");
 
             Assert.That(frame.Objects.Length, Is.EqualTo(1));
             Assert.That(frame.Objects[0].GetOriginal(), Is.SameAs(z1.Objects[0]));
-            Assert.That(frame.Eligibility.Contains(z0.Objects[0]), Is.False);
-            Assert.That(frame.Eligibility.Contains(z1.Objects[0]), Is.True);
+            Assert.That(eligibility.Contains(z0.Objects[0]), Is.False);
+            Assert.That(eligibility.Contains(z1.Objects[0]), Is.True);
         }
         finally
         {
@@ -377,6 +383,8 @@ public class SceneCompositorTests
 
             Assert.That(frame.Objects.Length, Is.EqualTo(1));
             Assert.That(frame.Objects[0].GetOriginal(), Is.SameAs(z0.Objects[0]));
+            Assert.That(frame.Eligibility, Is.Null,
+                "Graphics frames do not consume eligibility and must not allocate a scene-wide snapshot.");
         }
         finally
         {

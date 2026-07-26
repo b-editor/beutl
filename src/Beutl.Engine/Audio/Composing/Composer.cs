@@ -78,6 +78,9 @@ public class Composer : IComposer
             try
             {
                 IsAudioRendering = true;
+                CompositionEligibility eligibility = frame.Eligibility
+                    ?? throw new InvalidOperationException(
+                        "Audio composition requires an eligibility snapshot.");
 
                 _currentEntry.Clear();
                 foreach (var resource in frame.Objects)
@@ -87,7 +90,7 @@ public class Composer : IComposer
                 }
 
                 // Build final audio graph
-                var result = BuildFinalOutput(timeRange, frame.Eligibility);
+                var result = BuildFinalOutput(timeRange, eligibility);
 
                 // Record this window's active set so the next window can flush sounds that just ended.
                 _previousEntry.Clear();

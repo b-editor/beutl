@@ -11,6 +11,23 @@ namespace Beutl.UnitTests.Engine.Audio;
 public class ComposerTests
 {
     [Test]
+    public void Compose_EligibilityNotCaptured_Throws()
+    {
+        var range = new TimeRange(TimeSpan.Zero, TimeSpan.FromSeconds(1));
+        var frame = new CompositionFrame(
+            ImmutableArray<EngineObject.Resource>.Empty,
+            range,
+            default,
+            null);
+        using var composer = new Composer();
+
+        var exception = Assert.Throws<InvalidOperationException>(() => composer.Compose(range, frame));
+
+        Assert.That(exception!.Message, Does.Contain("eligibility snapshot"));
+        Assert.That(composer.IsAudioRendering, Is.False);
+    }
+
+    [Test]
     public void Compose_EmptyFrame_ReturnsSilentBufferWithCeilingSampleCount()
     {
         // Composer.BuildFinalOutput の silence fallback (mixedBuffer == null) が

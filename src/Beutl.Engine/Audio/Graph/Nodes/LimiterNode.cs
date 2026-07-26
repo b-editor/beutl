@@ -70,11 +70,11 @@ public sealed class LimiterNode : AudioNode
             throw new InvalidOperationException(
                 $"LimiterNode requires exactly one input but has {Inputs.Count}.");
 
-        // Every path emits a fresh buffer (no pass-through), so dispose the consumed input.
-        using var input = Inputs[0].Process(context)
-            ?? throw new InvalidOperationException("LimiterNode: upstream Process returned null.");
-
-        return ProcessTail(input, context, draining: false);
+        return ProcessTail(
+            Inputs[0].Process(context)
+                ?? throw new InvalidOperationException("LimiterNode: upstream Process returned null."),
+            context,
+            draining: false);
     }
 
     // Shared by Process (real upstream audio) and the base Flush (drained tail): the drained block
@@ -82,6 +82,9 @@ public sealed class LimiterNode : AudioNode
     // block abuts the terminal chunk, so the contiguity check below does not reset.
     protected override AudioBuffer ProcessTail(AudioBuffer input, AudioProcessContext context, bool draining)
     {
+        // ProcessTail owns its input on every path, including validation failures.
+        using var owned = input;
+
         if (input.SampleRate != context.SampleRate)
             throw new InvalidOperationException(
                 $"LimiterNode: sample rate mismatch. context={context.SampleRate}, input={input.SampleRate}.");

@@ -114,8 +114,10 @@ public abstract class AudioNode : IDisposable
     /// retained from the clip's terminal sample rather than re-sampling automation over the post-clip
     /// range — otherwise it reads the wrong tail. The default is pass-through (returns
     /// <paramref name="input"/> unchanged), keeping the zero-processing path byte-identical. A node that
-    /// returns a fresh buffer takes ownership of <paramref name="input"/> and disposes it, exactly as its
-    /// Process already does.
+    /// Ownership of <paramref name="input"/> transfers to this method on entry. An override that returns
+    /// a fresh buffer must dispose <paramref name="input"/> before returning, and an override that throws
+    /// must dispose it before propagating the exception. Returning <paramref name="input"/> transfers
+    /// that same buffer to the caller.
     /// </summary>
     protected virtual AudioBuffer ProcessTail(AudioBuffer input, AudioProcessContext context, bool draining) => input;
 
@@ -155,26 +157,7 @@ public abstract class AudioNode : IDisposable
 
         if (_inputs.Count == 1)
         {
-            AudioBuffer drained = _inputs[0].Flush(context);
-            AudioBuffer result;
-            try
-            {
-                result = ProcessTail(drained, context, draining: true);
-            }
-            catch
-            {
-                // ProcessTail threw before taking ownership; dispose the drain we pulled (Dispose is
-                // idempotent, so a transforming node that already consumed it is unaffected).
-                drained.Dispose();
-                throw;
-            }
-
-            // Pass-through ProcessTail hands back the same instance, which we must not dispose since we
-            // return it; a transforming ProcessTail already consumed `drained` and returns a fresh one.
-            if (!ReferenceEquals(result, drained))
-                drained.Dispose();
-
-            return result;
+            return ProcessTail(_inputs[0].Flush(context), context, draining: true);
         }
 
         throw new InvalidOperationException(
