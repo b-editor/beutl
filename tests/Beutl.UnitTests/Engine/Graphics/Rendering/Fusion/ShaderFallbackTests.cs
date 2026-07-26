@@ -70,6 +70,65 @@ public sealed class ShaderFallbackTests
                 .With.Message.StartsWith("SkSL program validation failed:"));
     }
 
+    [TestCase(ShaderDescriptionKind.WholeSource)]
+    [TestCase(ShaderDescriptionKind.CurrentPixel)]
+    public void CompatibilityShaderProgramCache_ColdMissThenWarmHit(
+        ShaderDescriptionKind kind)
+    {
+        using var source = new CpuRenderTarget(6, 4);
+        source.Value.Canvas.Clear(new SKColor(64, 128, 192, 160));
+        ShaderDescription description;
+        if (kind == ShaderDescriptionKind.WholeSource)
+        {
+            description = ShaderDescription.WholeSource(
+                "uniform shader src; half4 main(float2 p) { return src.eval(p).bgra; }",
+                RenderBoundsContract.Identity);
+        }
+        else
+        {
+            string currentPixelSource =
+                $"/*{new string('界', 22_000)}*/\n"
+                + "half4 apply(half4 color) { return color.bgra; }";
+            description = ShaderDescription.CurrentPixel(currentPixelSource);
+            SkslMergedProgram fallback = SkslSnippetMerger.MergeAndSplit(
+                [new SkslSnippetStage(description)],
+                SkslBackendBudgetResolver.Portable)[0];
+            Assert.That(
+                fallback.OverflowReasons,
+                Does.Contain(SkslBackendLimit.SourceBytes),
+                "the test must exercise the backend-overflow compatibility path");
+        }
+
+        using var node = new ShaderNode(source, description);
+        using var renderer = new RenderNodeRenderer(
+            node,
+            new RenderNodeRendererOptions
+            {
+                TargetDomain = s_bounds,
+                UseRenderCache = false,
+                TargetFactory = new CpuTargetFactory(),
+                FusionMode = FusionMode.Disabled,
+            });
+
+        using RenderNodeRasterization cold = renderer.Rasterize();
+        ProgramCacheStatistics coldStatistics = renderer.ProgramCacheStatistics;
+        using RenderNodeRasterization warm = renderer.Rasterize();
+        ProgramCacheStatistics warmStatistics = renderer.ProgramCacheStatistics;
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(SumAbsoluteChannels(cold.Bitmap!), Is.GreaterThan(1));
+            Assert.That(SumAbsoluteChannels(warm.Bitmap!), Is.GreaterThan(1));
+            Assert.That(coldStatistics.Creations, Is.EqualTo(1));
+            Assert.That(coldStatistics.Misses, Is.EqualTo(1));
+            Assert.That(coldStatistics.Hits, Is.Zero);
+            Assert.That(warmStatistics.Creations, Is.EqualTo(1));
+            Assert.That(warmStatistics.Misses, Is.EqualTo(1));
+            Assert.That(warmStatistics.Hits, Is.EqualTo(1));
+            Assert.That(renderer.LastExecutionStatistics.ProgramCacheHits, Is.EqualTo(1));
+        });
+    }
+
     private static double SumAbsoluteChannels(Bitmap bitmap)
     {
         double result = 0;

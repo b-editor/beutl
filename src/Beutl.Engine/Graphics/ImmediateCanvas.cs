@@ -53,6 +53,7 @@ public partial class ImmediateCanvas : IDisposable, IPopable
         Size logicalSize,
         bool flushOnDispose)
     {
+        ArgumentNullException.ThrowIfNull(renderTarget);
         if (density <= 0f || !float.IsFinite(density))
             throw new ArgumentOutOfRangeException(nameof(density), density,
                 "Density must be a positive finite value.");

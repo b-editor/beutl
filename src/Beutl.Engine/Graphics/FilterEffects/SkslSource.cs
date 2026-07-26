@@ -34,6 +34,7 @@ public sealed partial class SkslSource
     private static partial Regex WholeSourceEntryRegex();
 
     private readonly IReadOnlyDictionary<string, SkslUniformDeclaration> _uniforms;
+    private readonly IReadOnlySet<string>? _topLevelSymbols;
 
     internal SkslSource(string text, ShaderDescriptionKind kind)
     {
@@ -43,7 +44,9 @@ public sealed partial class SkslSource
         ValidateBalancedTokens(tokens);
         if (kind == ShaderDescriptionKind.CurrentPixel)
         {
-            _uniforms = new CurrentPixelValidator(tokens).Validate();
+            CurrentPixelValidationResult validation = new CurrentPixelValidator(tokens).Validate();
+            _uniforms = validation.Uniforms;
+            _topLevelSymbols = validation.TopLevelSymbols;
         }
         else
         {
@@ -63,6 +66,11 @@ public sealed partial class SkslSource
     public ShaderDescriptionKind Kind { get; }
 
     internal IReadOnlyDictionary<string, SkslUniformDeclaration> Uniforms => _uniforms;
+
+    internal IReadOnlySet<string> TopLevelSymbols
+        => _topLevelSymbols
+           ?? throw new InvalidOperationException(
+               "Top-level symbol metadata is available only for CurrentPixel sources.");
 
     private static string Normalize(string source)
     {
@@ -227,7 +235,7 @@ public sealed partial class SkslSource
             _tokens = tokens;
         }
 
-        internal IReadOnlyDictionary<string, SkslUniformDeclaration> Validate()
+        internal CurrentPixelValidationResult Validate()
         {
             ParseTopLevel();
             if (_applyCount != 1)
@@ -244,7 +252,9 @@ public sealed partial class SkslSource
             foreach (FunctionDeclaration function in _functions)
                 ValidateFunction(function);
 
-            return new ReadOnlyDictionary<string, SkslUniformDeclaration>(_uniforms);
+            return new CurrentPixelValidationResult(
+                new ReadOnlyDictionary<string, SkslUniformDeclaration>(_uniforms),
+                new HashSet<string>(_globals.Keys, StringComparer.Ordinal));
         }
 
         private void ParseTopLevel()
@@ -771,6 +781,10 @@ public sealed partial class SkslSource
 
         private sealed record FunctionDeclaration(int BodyStart, int BodyEnd, HashSet<string> Locals);
     }
+
+    private sealed record CurrentPixelValidationResult(
+        IReadOnlyDictionary<string, SkslUniformDeclaration> Uniforms,
+        IReadOnlySet<string> TopLevelSymbols);
 
     private static string ComputeHash(string source)
     {

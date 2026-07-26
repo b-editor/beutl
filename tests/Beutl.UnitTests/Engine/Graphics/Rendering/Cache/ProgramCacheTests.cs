@@ -226,6 +226,73 @@ public sealed class ProgramCacheTests
     }
 
     [Test]
+    public void GetOrCreate_SharedImmutableMode_ReusesOneProgramUntilTheLastLeaseReturns()
+    {
+        using var cache = new ProgramCache<FakeProgram>(
+            resetRuntimeBindings: static _ => { },
+            retainedByteSize: static program => program.RetainedBytes,
+            maxRetainedBytes: 64,
+            shareLeasedPrograms: true);
+        SkslMergedProgramIdentity identity = Identity(SourceA);
+        ProgramCacheContextKey context = Context("device-a", "context-a");
+        int creations = 0;
+
+        ProgramCacheLease<FakeProgram> outer = cache.GetOrCreate(
+            identity,
+            context,
+            () => new FakeProgram(++creations, 16));
+        ProgramCacheLease<FakeProgram> inner = cache.GetOrCreate(
+            identity,
+            context,
+            () => new FakeProgram(++creations, 16));
+        FakeProgram program = outer.Program;
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(inner.Program, Is.SameAs(program));
+            Assert.That(inner.IsCacheHit, Is.True);
+            Assert.That(inner.IsTransient, Is.False);
+            Assert.That(creations, Is.EqualTo(1));
+        });
+
+        Assert.That(cache.EvictContext("device-a", "context-a"), Is.EqualTo(1));
+        outer.Dispose();
+        Assert.That(program.DisposeCount, Is.Zero);
+        inner.Dispose();
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(program.DisposeCount, Is.EqualTo(1));
+            Assert.That(cache.Statistics.Creations, Is.EqualTo(1));
+            Assert.That(cache.Statistics.RetainedPrograms, Is.Zero);
+        });
+    }
+
+    [Test]
+    public void SynchronizeContext_EvictsProgramsFromThePreviousDestinationContext()
+    {
+        using var cache = CreateCache(maxRetainedBytes: 64);
+        SkslMergedProgramIdentity identity = Identity(SourceA);
+        ProgramCacheContextKey firstContext = Context("device-a", "context-a");
+        FakeProgram program;
+        using (ProgramCacheLease<FakeProgram> lease = cache.GetOrCreate(
+                   identity,
+                   firstContext,
+                   () => new FakeProgram(1, 16)))
+        {
+            program = lease.Program;
+        }
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(cache.SynchronizeContext("device-a", "context-a"), Is.Zero);
+            Assert.That(cache.SynchronizeContext("device-a", "context-b"), Is.EqualTo(1));
+            Assert.That(program.DisposeCount, Is.EqualTo(1));
+            Assert.That(cache.Statistics.RetainedPrograms, Is.Zero);
+        });
+    }
+
+    [Test]
     public void GetOrCreate_ContextCompileContract_IsPartOfTheFullKey()
     {
         using var cache = CreateCache(maxRetainedBytes: 128);

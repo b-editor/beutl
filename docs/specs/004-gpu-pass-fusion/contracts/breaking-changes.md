@@ -12,6 +12,8 @@ BREAKING CHANGE: Beutl.Engine, Beutl.Editor, Beutl.NodeGraph, Beutl.ProjectSyste
 BREAKING CHANGE: `RenderNodeCacheHelper.MakeCache`, `CreateDefaultCache`, and `CanCacheRecursiveChildrenOnly`, together with `RenderNodeCache.RejectCache` and `IsCacheRejected`, are removed. Cache lookup, miss capture, and atomic publication now occur only inside the complete request after dependency and region analysis; callers render through `RenderNodeRenderer`/the production `Renderer` and use `Invalidate` or `RenderNodeCacheHelper.ClearCache` to discard retained entries.
 
 BREAKING CHANGE: `SKSLShader.ApplyToNewTarget` is replaced by explicit legacy-custom allocation, input mapping, and rendering. Use `CustomFilterEffectContext.CreateTargetLike` for same-bounds output or `CreateTarget` for changed bounds, bind snapshot children through `CreateMappedInputShader`, and finish with `SKSLShader.RenderToTarget`. Uniforms must use the allocated destination's actual `Scale` and backing dimensions.
+
+BREAKING CHANGE: `IRenderer.GetBoundaries`, `IRenderer.GetBoundary`, and `Renderer.RecalculateBoundaries` are render-thread-affine queries. Bounds are resolved lazily from the recorded render graph after `Render` or `UpdateFrame`, so callers must dispatch these queries through `RenderThread.Dispatcher` instead of reading them from arbitrary threads.
 ```
 
 No `[Obsolete]` shim, returning overload, `V2` type, or executable compatibility wrapper remains after the same change.

@@ -39,6 +39,48 @@ public sealed class RendererWideRecordingTests
     }
 
     [Test]
+    [Category("GpuPassFusionGpu")]
+    public void ProductionFrameRenderer_DisablesDiagnosticsByDefault()
+    {
+        VulkanTestEnvironment.EnsureAvailable();
+        VulkanTestEnvironment.InvokeOnRenderThread(() =>
+        {
+            using var renderer = new Renderer(8, 8);
+
+            Assert.That(renderer.Diagnostics, Is.Null);
+        });
+    }
+
+    [Test]
+    public void ProductionFrameRenderer_UsesExplicitDiagnostics()
+    {
+        RenderThread.Dispatcher.Invoke(() =>
+        {
+            var diagnostics = new RenderPipelineDiagnosticsState();
+            using var renderer = new Renderer(
+                width: 8,
+                height: 8,
+                renderScale: 1,
+                maxWorkingScale: float.PositiveInfinity,
+                diagnostics: diagnostics,
+                surface: new CpuRenderTarget(8, 8));
+            var frame = new CompositionFrame(
+                ImmutableArray<EngineObject.Resource>.Empty,
+                new TimeRange(TimeSpan.Zero, TimeSpan.FromSeconds(1)),
+                new PixelSize(8, 8));
+
+            renderer.Render(frame);
+
+            Assert.Multiple(() =>
+            {
+                Assert.That(renderer.Diagnostics, Is.SameAs(diagnostics));
+                Assert.That(diagnostics.LatestFrame.Succeeded, Is.True);
+                Assert.That(diagnostics.LatestFrame.Purpose, Is.EqualTo(RenderRequestPurpose.Frame));
+            });
+        });
+    }
+
+    [Test]
     [NonParallelizable]
     [Category("GpuPassFusionGpu")]
     public void CacheMutations_FromCallerThread_DisposeCachedTreesOnRenderThread()
@@ -212,8 +254,9 @@ public sealed class RendererWideRecordingTests
             Assert.Multiple(() =>
             {
                 Assert.That(state.BuildCalls, Is.EqualTo(new[] { 1, 1 }));
-                Assert.That(state.RecordCalls, Is.EqualTo(new[] { 2, 2 }),
-                    "Each tree participates once in request-wide bounds analysis and once in frame recording.");
+                Assert.That(state.RecordCalls, Is.EqualTo(new[] { 1, 1 }),
+                    "Rendering must record each drawable tree only once in the complete frame request.");
+                Assert.That(state.FrameRecordCalls, Is.EqualTo(new[] { 1, 1 }));
                 Assert.That(state.ExecutionOrder, Is.EqualTo(new[] { 0, 1 }));
                 Assert.That(state.Nodes, Has.All.Not.Null);
                 Assert.That(state.Nodes, Has.All.Matches<ProductionTreeProbeNode>(
@@ -221,6 +264,101 @@ public sealed class RendererWideRecordingTests
                     "Successful complete-request execution must commit every tree's render-count/cache state.");
             });
         });
+    }
+
+    [Test]
+    public void ProductionRenderer_LazilyCachesBoundariesForCurrentFrame()
+    {
+        RenderThread.Dispatcher.Invoke(() =>
+        {
+            var state = new RendererWideTreeState(2);
+            var first = new RendererWideProbeDrawable(0, state);
+            var second = new RendererWideProbeDrawable(1, state);
+            using Drawable.Resource firstResource =
+                (Drawable.Resource)first.ToResource(CompositionContext.Default);
+            using Drawable.Resource secondResource =
+                (Drawable.Resource)second.ToResource(CompositionContext.Default);
+            var frame = new CompositionFrame(
+                ImmutableArray.Create<EngineObject.Resource>(firstResource, secondResource),
+                new TimeRange(TimeSpan.Zero, TimeSpan.FromSeconds(1)),
+                new PixelSize(8, 8));
+            using var renderer = new Renderer(
+                width: 8,
+                height: 8,
+                renderScale: 1,
+                maxWorkingScale: float.PositiveInfinity,
+                diagnostics: null,
+                surface: new CpuRenderTarget(8, 8))
+            {
+                CacheOptions = RenderCacheOptions.Disabled,
+            };
+            var expectedBounds = new Rect(0, 0, 8, 8);
+
+            renderer.Render(frame);
+            Assert.That(state.RecordCalls, Is.EqualTo(new[] { 1, 1 }));
+
+            Assert.That(renderer.GetBoundary(first), Is.EqualTo(expectedBounds));
+            Assert.That(state.RecordCalls, Is.EqualTo(new[] { 2, 1 }));
+            Assert.That(renderer.GetBoundary(first), Is.EqualTo(expectedBounds));
+            Assert.That(state.RecordCalls, Is.EqualTo(new[] { 2, 1 }),
+                "A repeated single-drawable query must reuse the current-frame bounds.");
+
+            Assert.That(renderer.GetBoundaries(0), Is.EqualTo(new[] { expectedBounds, expectedBounds }));
+            Assert.That(state.RecordCalls, Is.EqualTo(new[] { 2, 2 }));
+            Assert.That(renderer.GetBoundaries(0), Is.EqualTo(new[] { expectedBounds, expectedBounds }));
+            Assert.That(state.RecordCalls, Is.EqualTo(new[] { 2, 2 }),
+                "A repeated layer query must reuse every current-frame bound.");
+
+            renderer.UpdateFrame(frame);
+            Assert.That(state.RecordCalls, Is.EqualTo(new[] { 2, 2 }));
+            Assert.That(renderer.GetBoundaries(0), Is.EqualTo(new[] { expectedBounds, expectedBounds }));
+            Assert.That(state.RecordCalls, Is.EqualTo(new[] { 3, 3 }),
+                "Updating the current frame must invalidate every lazy bound.");
+
+            renderer.Render(frame);
+            Assert.That(state.RecordCalls, Is.EqualTo(new[] { 4, 4 }));
+            Assert.That(renderer.GetBoundary(first), Is.EqualTo(expectedBounds));
+            Assert.That(state.RecordCalls, Is.EqualTo(new[] { 5, 4 }),
+                "A successful render must invalidate every lazy bound.");
+            Assert.That(renderer.GetBoundary(first), Is.EqualTo(expectedBounds));
+            Assert.That(state.RecordCalls, Is.EqualTo(new[] { 5, 4 }));
+
+            Assert.That(renderer.RecalculateBoundaries(0), Is.EqualTo(new[] { expectedBounds, expectedBounds }));
+            Assert.That(state.RecordCalls, Is.EqualTo(new[] { 6, 5 }),
+                "Forced recalculation must record every matching drawable even when one bound is cached.");
+            Assert.That(state.ExecutionOrder, Is.EqualTo(new[] { 0, 1, 0, 1 }));
+
+            renderer.ClearAllCaches();
+            Assert.Multiple(() =>
+            {
+                Assert.That(renderer.GetBoundaries(0), Is.Empty);
+                Assert.That(renderer.GetBoundary(first), Is.Null);
+                Assert.That(state.RecordCalls, Is.EqualTo(new[] { 6, 5 }),
+                    "Clearing caches must not measure disposed current-frame entries.");
+            });
+        });
+    }
+
+    [Test]
+    public void BoundaryCollectionQueries_RequireRenderThreadAccess()
+    {
+        Renderer renderer = RenderThread.Dispatcher.Invoke(() => new Renderer(
+            width: 8,
+            height: 8,
+            renderScale: 1,
+            maxWorkingScale: float.PositiveInfinity,
+            diagnostics: null,
+            surface: new CpuRenderTarget(8, 8)));
+        try
+        {
+            Assert.That(RenderThread.Dispatcher.CheckAccess(), Is.False);
+            Assert.Throws<InvalidOperationException>(() => renderer.GetBoundaries(0));
+            Assert.Throws<InvalidOperationException>(() => renderer.RecalculateBoundaries(0));
+        }
+        finally
+        {
+            RenderThread.Dispatcher.Invoke(renderer.Dispose);
+        }
     }
 
     private sealed class RecordingRootNode(
@@ -418,6 +556,8 @@ internal sealed class RendererWideTreeState(int count)
 
     public int[] RecordCalls { get; } = new int[count];
 
+    public int[] FrameRecordCalls { get; } = new int[count];
+
     public List<int> ExecutionOrder { get; } = [];
 
     public ProductionTreeProbeNode?[] Nodes { get; } = new ProductionTreeProbeNode[count];
@@ -453,10 +593,17 @@ internal sealed class ProductionTreeProbeNode(
         Assert.That(state.BuildCalls, Is.All.EqualTo(1),
             "Every drawable tree must be built before the complete request starts recording.");
         state.RecordCalls[index]++;
+        if (context.Purpose == RenderRequestPurpose.Frame)
+        {
+            state.FrameRecordCalls[index]++;
+        }
+
         OpaqueRenderDescription description = OpaqueRenderDescription.Create(
             session =>
             {
-                Assert.That(state.RecordCalls, Is.All.EqualTo(2),
+                int completedFrameRecordCount = state.FrameRecordCalls[index];
+                Assert.That(completedFrameRecordCount, Is.GreaterThan(0));
+                Assert.That(state.FrameRecordCalls, Is.All.EqualTo(completedFrameRecordCount),
                     "Every top-level tree must be recorded before the first execution callback.");
                 state.ExecutionOrder.Add(index);
                 using OpaqueRenderOutput output = session.CreateOutput(session.OutputBounds);

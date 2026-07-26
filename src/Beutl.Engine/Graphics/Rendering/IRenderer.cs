@@ -64,8 +64,17 @@ public interface IRenderer : IDisposable
 
     void UpdateFrame(CompositionFrame frame);
 
+    /// <summary>Gets the current-frame bounds for drawables at the specified z-index.</summary>
+    /// <remarks>
+    /// Call this method on the render thread. Implementations may resolve and cache deferred render-graph metadata
+    /// when the bounds are first queried after <see cref="Render"/> or <see cref="UpdateFrame"/>.
+    /// </remarks>
+    /// <exception cref="InvalidOperationException">The caller does not have render-thread access.</exception>
     Rect[] GetBoundaries(int zIndex);
 
+    /// <summary>Gets the current-frame bounds for one drawable, or <see langword="null"/> when it is not present.</summary>
+    /// <remarks>Implementations that evaluate deferred metadata require render-thread access.</remarks>
+    /// <exception cref="InvalidOperationException">The caller does not have render-thread access.</exception>
     Rect? GetBoundary(Drawable drawable) => null;
 
     DrawableRenderNode? FindRenderNode(Drawable drawable);

@@ -17,8 +17,6 @@ internal readonly record struct RenderExecutionStatistics(
 
 internal sealed class RenderRequestExecutor
 {
-    private static readonly object s_defaultCompileOptions = new();
-
     private readonly RenderTargetLeaseSession _targets;
     private readonly ProgramCache<CachedSkRuntimeEffect>? _programCache;
     private readonly Action<RenderFragmentKind>? _afterCaptureAllocation;
@@ -61,6 +59,8 @@ internal sealed class RenderRequestExecutor
 
         try
         {
+            // Close the session early so cleanup failures are finalized before the family completes;
+            // the enclosing owner may dispose it again because session disposal is idempotent.
             _targets.Dispose();
             _targets.ThrowIfCleanupFailed();
         }
@@ -2041,7 +2041,11 @@ internal sealed class RenderRequestExecutor
                             _options.Purpose,
                             _options.OutputScale,
                             fragment.EffectiveScale.Value,
-                            _options.MaxWorkingScale);
+                            _options.MaxWorkingScale,
+                            (target, source) => AcquireStandaloneProgram(
+                                fragment.Id?.Value ?? 0,
+                                target,
+                                source));
                         activator.Apply(effectContext);
                         activator.Flush(force: payload.WorkingScalePolicy.HasValue);
 
@@ -2493,13 +2497,42 @@ internal sealed class RenderRequestExecutor
         }
 
         private ProgramCacheContextKey CreateProgramContextKey(SkslBackendBudget budget)
+            => SkRuntimeEffectProgramCache.CreateContextKey(_programCacheContext, budget);
+
+        private ProgramCacheLease<CachedSkRuntimeEffect> AcquireStandaloneProgram(
+            long subjectId,
+            EffectTarget target,
+            string source)
         {
-            return new ProgramCacheContextKey(
-                _programCacheContext.DeviceIdentity,
-                _programCacheContext.ContextIdentity,
-                budget.CapabilityClass,
-                "linear-premultiplied-rgba16f",
-                s_defaultCompileOptions);
+            ArgumentNullException.ThrowIfNull(target);
+            RenderTarget renderTarget = target.RenderTarget
+                ?? throw new InvalidOperationException(
+                    "A legacy shader program requires a materialized execution destination.");
+            return AcquireStandaloneProgram(subjectId, renderTarget, source);
+        }
+
+        private ProgramCacheLease<CachedSkRuntimeEffect> AcquireStandaloneProgram(
+            long subjectId,
+            RenderTarget target,
+            string source)
+        {
+            try
+            {
+                ProgramCacheLease<CachedSkRuntimeEffect> lease =
+                    SkRuntimeEffectProgramCache.AcquireForDestination(
+                        _programCache,
+                        target,
+                        source);
+                _diagnostics?.RecordProgramCacheDecision(subjectId, lease.IsCacheHit);
+                if (lease.IsCacheHit)
+                    _programCacheHits++;
+                return lease;
+            }
+            catch
+            {
+                RecordFailure(RenderPipelineFailurePhase.ProgramCompilation, subjectId);
+                throw;
+            }
         }
 
         private static void SetUniform(
@@ -2550,9 +2583,10 @@ internal sealed class RenderRequestExecutor
                 programSource = description.Source.Text;
             }
 
-            using SKRuntimeEffect effect = CreateRuntimeEffect(subjectId, programSource);
-
-            using var builder = new SKRuntimeShaderBuilder(effect);
+            using ProgramCacheLease<CachedSkRuntimeEffect> lease =
+                AcquireStandaloneProgram(subjectId, output.Target, programSource);
+            using var uniforms = new SKRuntimeEffectUniforms(lease.Program.Effect);
+            using var runtimeChildren = new SKRuntimeEffectChildren(lease.Program.Effect);
             var bindingToken = new RenderExecutionSessionToken();
             var context = new ShaderExecutionContext(
                 bindingToken,
@@ -2576,20 +2610,7 @@ internal sealed class RenderRequestExecutor
                         if (!description.Source.Uniforms.TryGetValue(binding.Name, out SkslUniformDeclaration declaration))
                             throw new InvalidOperationException($"Shader uniform '{binding.Name}' was not declared.");
                         ShaderUniformValue value = binding.Bind(declaration, context);
-                        if (value.IsInteger)
-                        {
-                            builder.Uniforms[binding.Name] = declaration.ArrayExtent is null
-                                && declaration.Type is "int" or "bool"
-                                    ? value.Integers![0]
-                                    : value.Integers!;
-                        }
-                        else
-                        {
-                            builder.Uniforms[binding.Name] = declaration.ArrayExtent is null
-                                && declaration.Type is "float" or "half"
-                                    ? value.Floats![0]
-                                    : value.Floats!;
-                        }
+                        SetUniform(uniforms, binding.Name, declaration, value);
                     }
 
                     SKShader inputShader = inputImage.ToShader(
@@ -2601,13 +2622,13 @@ internal sealed class RenderRequestExecutor
                             output.RasterBounds,
                             input.RasterBounds));
                     children.Add(inputShader);
-                    builder.Children[childName] = inputShader;
+                    runtimeChildren[childName] = inputShader;
 
                     foreach (ShaderResourceBinding binding in description.Resources)
                     {
                         SKShader child = binding.Bind(context);
                         children.Add(child);
-                        builder.Children[binding.Name] = child;
+                        runtimeChildren[binding.Name] = child;
                     }
                 }
                 catch
@@ -2620,7 +2641,7 @@ internal sealed class RenderRequestExecutor
                     bindingToken.Complete();
                 }
 
-                using SKShader shader = builder.Build();
+                using SKShader shader = lease.Program.Effect.ToShader(uniforms, runtimeChildren);
                 using var paint = new SKPaint { Shader = shader };
                 using var canvas = ImmediateCanvas.CreateExecutorManaged(
                     output.Target,
@@ -2640,28 +2661,6 @@ internal sealed class RenderRequestExecutor
             {
                 foreach (SKShader child in children.AsEnumerable().Reverse())
                     child.Dispose();
-            }
-        }
-
-        private SKRuntimeEffect CreateRuntimeEffect(long subjectId, string programSource)
-        {
-            try
-            {
-                SKRuntimeEffect? effect = SKRuntimeEffect.CreateShader(programSource, out string? errorText);
-                if (effect is null || !string.IsNullOrWhiteSpace(errorText))
-                {
-                    effect?.Dispose();
-                    throw new InvalidOperationException(
-                        $"SkSL program validation failed: {errorText ?? "the backend returned no program"}");
-                }
-
-                _diagnostics?.RecordProgramCacheDecision(subjectId, cacheHit: false);
-                return effect;
-            }
-            catch
-            {
-                RecordFailure(RenderPipelineFailurePhase.ProgramCompilation, subjectId);
-                throw;
             }
         }
 

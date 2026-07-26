@@ -763,7 +763,15 @@ internal static class TargetDependencyLowerer
         }
 
         private Rect? GetDomain(TargetScopeId scopeId)
-            => _scopes.Single(scope => scope.Id == scopeId).ResolvedDomain;
+        {
+            int index = scopeId.Value - 1;
+            if ((uint)index >= (uint)_scopes.Count || _scopes[index].Id != scopeId)
+            {
+                throw new InvalidOperationException("The target scope ID does not identify a created scope.");
+            }
+
+            return _scopes[index].ResolvedDomain;
+        }
 
         private static Rect? MapDomainIntoScope(
             RenderFragmentReference reference,

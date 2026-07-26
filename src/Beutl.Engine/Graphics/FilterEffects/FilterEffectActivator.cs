@@ -6,9 +6,15 @@ using SkiaSharp;
 
 namespace Beutl.Graphics.Effects;
 
+internal delegate ProgramCacheLease<CachedSkRuntimeEffect> SkRuntimeEffectProgramAcquirer(
+    EffectTarget target,
+    string source);
+
 public sealed class FilterEffectActivator : IDisposable
 {
     private static readonly ILogger s_logger = Log.CreateLogger("FilterEffectActivator");
+    private readonly SkRuntimeEffectProgramAcquirer? _injectedProgramAcquirer;
+    private ProgramCache<CachedSkRuntimeEffect>? _ownedProgramCache;
     private Dictionary<EffectTarget, PendingSkiaTarget>? _pendingSkiaTargets;
 
     public FilterEffectActivator(
@@ -19,6 +25,51 @@ public sealed class FilterEffectActivator : IDisposable
         float outputScale = 1f,
         float workingScale = 1f,
         float maxWorkingScale = float.PositiveInfinity)
+        : this(
+            targets,
+            builder,
+            intent,
+            purpose,
+            outputScale,
+            workingScale,
+            maxWorkingScale,
+            acquireProgram: null,
+            ownsProgramCache: true)
+    {
+    }
+
+    internal FilterEffectActivator(
+        EffectTargets targets,
+        SKImageFilterBuilder builder,
+        RenderIntent intent,
+        RenderRequestPurpose purpose,
+        float outputScale,
+        float workingScale,
+        float maxWorkingScale,
+        SkRuntimeEffectProgramAcquirer acquireProgram)
+        : this(
+            targets,
+            builder,
+            intent,
+            purpose,
+            outputScale,
+            workingScale,
+            maxWorkingScale,
+            acquireProgram ?? throw new ArgumentNullException(nameof(acquireProgram)),
+            ownsProgramCache: false)
+    {
+    }
+
+    private FilterEffectActivator(
+        EffectTargets targets,
+        SKImageFilterBuilder builder,
+        RenderIntent intent,
+        RenderRequestPurpose purpose,
+        float outputScale,
+        float workingScale,
+        float maxWorkingScale,
+        SkRuntimeEffectProgramAcquirer? acquireProgram,
+        bool ownsProgramCache)
     {
         ArgumentNullException.ThrowIfNull(targets);
         ArgumentNullException.ThrowIfNull(builder);
@@ -34,6 +85,11 @@ public sealed class FilterEffectActivator : IDisposable
         MaxWorkingScale = SanitizeCeiling(maxWorkingScale, nameof(maxWorkingScale));
         Intent = intent;
         Purpose = purpose;
+        if (!ownsProgramCache)
+        {
+            _injectedProgramAcquirer = acquireProgram
+                ?? throw new ArgumentNullException(nameof(acquireProgram));
+        }
     }
 
     public SKImageFilterBuilder Builder { get; }
@@ -81,8 +137,27 @@ public sealed class FilterEffectActivator : IDisposable
         return fallback;
     }
 
+    private ProgramCacheLease<CachedSkRuntimeEffect> AcquireOwnedProgram(
+        EffectTarget target,
+        string source)
+    {
+        ProgramCache<CachedSkRuntimeEffect> cache =
+            _ownedProgramCache ??= SkRuntimeEffectProgramCache.Create();
+        RenderTarget destination = target.RenderTarget
+            ?? throw new InvalidOperationException(
+                "A legacy shader program requires a materialized execution destination.");
+        return SkRuntimeEffectProgramCache.AcquireForDestination(
+            cache,
+            destination,
+            source);
+    }
+
+    private SkRuntimeEffectProgramAcquirer GetProgramAcquirer()
+        => _injectedProgramAcquirer ?? AcquireOwnedProgram;
+
     public void Dispose()
     {
+        _ownedProgramCache?.Dispose();
     }
 
     public void Flush(bool force = true)
@@ -383,7 +458,8 @@ public sealed class FilterEffectActivator : IDisposable
                             WorkingScale,
                             MaxWorkingScale,
                             Intent,
-                            Purpose);
+                            Purpose,
+                            GetProgramAcquirer());
                         break;
                     }
                 case FEItem_Geometry geometry:
@@ -430,7 +506,8 @@ public sealed class FilterEffectActivator : IDisposable
             Purpose,
             OutputScale,
             WorkingScale,
-            MaxWorkingScale);
+            MaxWorkingScale,
+            GetProgramAcquirer());
 
         activator.Apply(context);
         activator.Flush(false);

@@ -302,17 +302,20 @@ internal static class FeatureVisualEvidenceExporter
         using Drawable.Resource? second = includeSecond ? BuildCompositionRect(left: false) : null;
         ImmutableArray<EngineObject.Resource> objects = includeSecond ? [first, second!] : [first];
         var frame = new CompositionFrame(objects, new TimeRange(TimeSpan.Zero, TimeSpan.FromTicks(1)), s_frame);
-        using var renderer = new Renderer(s_frame.Width, s_frame.Height, 1, 2)
+        var diagnostics = new RenderPipelineDiagnosticsState();
+        using var renderer = new Renderer(
+            s_frame.Width,
+            s_frame.Height,
+            renderScale: 1,
+            maxWorkingScale: 2,
+            diagnostics: diagnostics,
+            surface: null)
         {
             CacheOptions = RenderCacheOptions.Disabled,
         };
         renderer.Render(frame);
         using Bitmap bitmap = renderer.Snapshot();
 
-        object diagnostics = typeof(Renderer)
-            .GetField("_diagnostics", BindingFlags.Instance | BindingFlags.NonPublic)!
-            .GetValue(renderer)
-            ?? throw new InvalidOperationException("Renderer diagnostics were unavailable.");
         SortedDictionary<string, long> counters =
             RenderPipelineInternalDiagnostics.CaptureLatestCounters(diagnostics, out bool succeeded);
         if (!succeeded)

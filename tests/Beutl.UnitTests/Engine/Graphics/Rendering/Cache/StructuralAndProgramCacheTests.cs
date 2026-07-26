@@ -174,6 +174,28 @@ public sealed class StructuralAndProgramCacheTests
     }
 
     [Test]
+    public void OpacityBoundsEligibilityChange_ReplacesStructuralPlan()
+    {
+        var inputBounds = new Rect(2, 3, 12, 8);
+        AssertOpacityEligibilityChangeReplacesStructuralPlan(
+            inputBounds,
+            new Rect(2, 3, 11, 8),
+            EffectiveScale.Unbounded,
+            EffectiveScale.Unbounded);
+    }
+
+    [Test]
+    public void OpacityScaleEligibilityChange_ReplacesStructuralPlan()
+    {
+        var bounds = new Rect(2, 3, 12, 8);
+        AssertOpacityEligibilityChangeReplacesStructuralPlan(
+            bounds,
+            bounds,
+            EffectiveScale.Unbounded,
+            EffectiveScale.At(1));
+    }
+
+    [Test]
     public void ForcedHashCollision_UsesFullIdentityAndThenWarmsReplacement()
     {
         using var cache = new StructuralPlanCache();
@@ -322,6 +344,109 @@ public sealed class StructuralAndProgramCacheTests
                 FusionMode.Enabled,
                 SkslBackendBudget.Unlimited),
             forcedBucket);
+    }
+
+    private static void AssertOpacityEligibilityChangeReplacesStructuralPlan(
+        Rect changedInputBounds,
+        Rect changedOpacityBounds,
+        EffectiveScale changedInputScale,
+        EffectiveScale changedOpacityScale)
+    {
+        var eligibleBounds = new Rect(2, 3, 12, 8);
+        using var cache = new StructuralPlanCache();
+        using RenderRequest eligibleRequest = CreateRequest(FusionMode.Enabled);
+        using RenderRequest changedRequest = CreateRequest(FusionMode.Enabled);
+        RecordedRenderGraph eligibleGraph = CreateOpacityGraph(
+            eligibleRequest.Id,
+            eligibleBounds,
+            eligibleBounds,
+            EffectiveScale.Unbounded,
+            EffectiveScale.Unbounded);
+        RecordedRenderGraph changedGraph = CreateOpacityGraph(
+            changedRequest.Id,
+            changedInputBounds,
+            changedOpacityBounds,
+            changedInputScale,
+            changedOpacityScale);
+        StructuralPlanIdentity eligibleIdentity = StructuralPlanIdentity.Create(
+            eligibleRequest.Options.PlanIdentity,
+            eligibleGraph,
+            SkslBackendBudget.Unlimited);
+        StructuralPlanIdentity changedIdentity = StructuralPlanIdentity.Create(
+            changedRequest.Options.PlanIdentity,
+            changedGraph,
+            SkslBackendBudget.Unlimited);
+        const int forcedBucket = 0x4f50;
+
+        _ = GetOrCompile(
+            cache,
+            eligibleIdentity,
+            eligibleGraph,
+            forcedBucket);
+        _ = GetOrCompile(
+            cache,
+            changedIdentity,
+            changedGraph,
+            forcedBucket);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(eligibleIdentity, Is.Not.EqualTo(changedIdentity));
+            Assert.That(cache.Statistics.Compilations, Is.EqualTo(2));
+            Assert.That(cache.Statistics.Misses, Is.EqualTo(2));
+            Assert.That(cache.Statistics.Replacements, Is.EqualTo(1));
+            Assert.That(cache.Statistics.Hits, Is.Zero);
+        });
+    }
+
+    private static RecordedRenderGraph CreateOpacityGraph(
+        RenderRequestId requestId,
+        Rect inputBounds,
+        Rect opacityBounds,
+        EffectiveScale inputScale,
+        EffectiveScale opacityScale)
+    {
+        var input = new RenderFragmentReference(
+            RenderFragmentKind.ContributeValues,
+            inputBounds,
+            inputScale,
+            RenderValueCardinality.Single,
+            contributesValuesToTarget: true,
+            canBeUsedAsValueInput: true,
+            hasTargetEffects: false,
+            hasOpaqueExternalWork: false,
+            [],
+            payload: null,
+            static _ => true);
+        var opacity = new RenderFragmentReference(
+            RenderFragmentKind.Opacity,
+            opacityBounds,
+            opacityScale,
+            RenderValueCardinality.Single,
+            contributesValuesToTarget: true,
+            canBeUsedAsValueInput: true,
+            hasTargetEffects: false,
+            hasOpaqueExternalWork: false,
+            [input],
+            new OpacityRenderFragmentPayload(
+                0.625f,
+                OpacityRenderNode.CreateFusionDescription(0.625f)),
+            static _ => true);
+        var builder = new RecordedRenderGraphBuilder(requestId);
+        RenderProvenanceId provenance = builder.AddProvenance(
+            typeof(StructuralAndProgramCacheTests),
+            "opacity-structural-cache-test");
+        foreach (RenderFragmentReference reference in new[] { input, opacity })
+        {
+            RenderValueId[] inputs = reference.Inputs
+                .SelectMany(static item => item.ValueIds)
+                .ToArray();
+            reference.ValueIds = [builder.AddValue(inputs, provenance, reference)];
+            reference.Id = builder.AddFragment(reference.ValueIds, provenance, reference);
+        }
+
+        builder.PublishRoot(opacity.Id!.Value);
+        return builder.Build();
     }
 
     private static CompiledRenderRequest Compile(

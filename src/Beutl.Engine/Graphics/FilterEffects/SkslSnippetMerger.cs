@@ -231,6 +231,11 @@ internal sealed class SkslMergedProgramIdentity : IEquatable<SkslMergedProgramId
 
     private SkslBackendBudget Budget { get; }
 
+    internal static SkslMergedProgramIdentity CreateStandalone(
+        string source,
+        SkslBackendBudget budget)
+        => new(source, [], budget);
+
     public bool Equals(SkslMergedProgramIdentity? other)
         => other is not null
            && BucketHash == other.BucketHash
@@ -267,124 +272,156 @@ internal static class SkslSnippetMerger
     public const string SourceChildName = "src";
 
     private const string GeneratedPixelName = "__beutl_pixel";
+    private const string SourceHeader = "uniform shader src;\n";
+    private const string MainHeader =
+        "half4 main(float2 coord) {\n"
+        + "    half4 __beutl_pixel = src.eval(coord);\n";
+    private const string MainFooter = "    return __beutl_pixel;\n}\n";
+    private static readonly int s_fixedSourceByteCount =
+        Encoding.UTF8.GetByteCount(SourceHeader)
+        + Encoding.UTF8.GetByteCount(MainHeader)
+        + Encoding.UTF8.GetByteCount(MainFooter);
+    private static readonly int s_fixedProgramTokenCount =
+        SkslLexer.Tokenize(SourceHeader).Count
+        + SkslLexer.Tokenize(MainHeader).Count
+        + SkslLexer.Tokenize(MainFooter).Count;
 
     public static SkslMergedProgram Merge(IReadOnlyList<SkslSnippetStage> stages)
     {
-        IndexedStage[] indexed = ValidateAndIndex(stages);
-        return CreateProgram(indexed, SkslBackendBudget.Unlimited);
+        PreparedStage[] prepared = ValidateAndPrepare(stages);
+        return CreateProgram(
+            prepared,
+            SkslBackendBudget.Unlimited,
+            CalculateMetrics(prepared));
     }
 
     public static IReadOnlyList<SkslMergedProgram> MergeAndSplit(
         IReadOnlyList<SkslSnippetStage> stages,
         SkslBackendBudget budget)
     {
-        IndexedStage[] indexed = ValidateAndIndex(stages);
         ArgumentNullException.ThrowIfNull(budget);
+        PreparedStage[] prepared = ValidateAndPrepare(stages);
 
         var result = new List<SkslMergedProgram>();
-        var current = new List<IndexedStage>();
-        foreach (IndexedStage stage in indexed)
+        var current = new List<PreparedStage>();
+        ProgramMetrics currentMetrics = ProgramMetrics.Empty;
+        foreach (PreparedStage stage in prepared)
         {
-            var candidate = new List<IndexedStage>(current.Count + 1);
-            candidate.AddRange(current);
-            candidate.Add(stage);
-            SkslMergedProgram candidateProgram = CreateProgram(candidate, budget);
-            if (!candidateProgram.RequiresStandaloneExecution)
+            ProgramMetrics candidateMetrics = currentMetrics.Add(stage);
+            if (FitsBudget(candidateMetrics, budget))
             {
                 current.Add(stage);
+                currentMetrics = candidateMetrics;
                 continue;
             }
 
             if (current.Count != 0)
             {
-                result.Add(CreateProgram(current, budget));
+                result.Add(CreateProgram(current, budget, currentMetrics));
                 current.Clear();
-                candidateProgram = CreateProgram([stage], budget);
+                currentMetrics = ProgramMetrics.Empty;
+                candidateMetrics = currentMetrics.Add(stage);
             }
 
-            if (candidateProgram.RequiresStandaloneExecution)
+            if (!FitsBudget(candidateMetrics, budget))
             {
-                result.Add(candidateProgram);
+                result.Add(CreateProgram([stage], budget, candidateMetrics));
             }
             else
             {
                 current.Add(stage);
+                currentMetrics = candidateMetrics;
             }
         }
 
         if (current.Count != 0)
-            result.Add(CreateProgram(current, budget));
+            result.Add(CreateProgram(current, budget, currentMetrics));
 
         return new ReadOnlyCollection<SkslMergedProgram>(result);
     }
 
-    private static IndexedStage[] ValidateAndIndex(IReadOnlyList<SkslSnippetStage> stages)
+    private static PreparedStage[] ValidateAndPrepare(IReadOnlyList<SkslSnippetStage> stages)
     {
         ArgumentNullException.ThrowIfNull(stages);
         if (stages.Count == 0)
             throw new ArgumentException("At least one CurrentPixel stage is required.", nameof(stages));
 
-        var result = new IndexedStage[stages.Count];
+        var result = new PreparedStage[stages.Count];
         for (int index = 0; index < stages.Count; index++)
         {
             SkslSnippetStage stage = stages[index]
                 ?? throw new ArgumentException("A CurrentPixel stage cannot be null.", nameof(stages));
-            result[index] = new IndexedStage(index, stage);
+            result[index] = Prepare(index, stage);
         }
         return result;
     }
 
+    private static PreparedStage Prepare(int index, SkslSnippetStage stage)
+    {
+        string prefix = GetPrefix(index);
+        RenameResult renamed = Rename(stage.Description.Source, prefix);
+        bool appendNewline = renamed.Source.Length == 0 || renamed.Source[^1] != '\n';
+        string invocation = CreateInvocation(prefix);
+        var bindings = new List<SkslMergedBindingLayout>(
+            stage.Description.Uniforms.Count + stage.Description.Resources.Count);
+        AddBindings(index, stage, prefix, bindings);
+        int sourceBytes = Encoding.UTF8.GetByteCount(renamed.Source);
+        if (appendNewline)
+            sourceBytes = SaturatingAdd(sourceBytes, 1);
+        sourceBytes = SaturatingAdd(sourceBytes, Encoding.UTF8.GetByteCount(invocation));
+        int programTokens = SaturatingAdd(
+            renamed.TokenCount,
+            SkslLexer.Tokenize(invocation).Count);
+        return new PreparedStage(
+            index,
+            stage,
+            prefix,
+            renamed.Source,
+            appendNewline,
+            invocation,
+            bindings.ToArray(),
+            GetUniformVectorCount(stage.Description.Source),
+            stage.Description.Resources.Count,
+            sourceBytes,
+            programTokens);
+    }
+
     private static SkslMergedProgram CreateProgram(
-        IReadOnlyList<IndexedStage> stages,
-        SkslBackendBudget budget)
+        IReadOnlyList<PreparedStage> stages,
+        SkslBackendBudget budget,
+        ProgramMetrics metrics)
     {
         var source = new StringBuilder();
-        source.Append("uniform shader ").Append(SourceChildName).Append(";\n");
+        source.Append(SourceHeader);
         var stageLayouts = new List<SkslMergedStageLayout>(stages.Count);
         var bindingLayouts = new List<SkslMergedBindingLayout>();
-        int uniformVectors = 0;
-        int childCount = 1;
-        int samplerCount = 1;
 
-        foreach (IndexedStage indexed in stages)
+        foreach (PreparedStage prepared in stages)
         {
-            string prefix = GetPrefix(indexed.Index);
-            source.Append(Rename(indexed.Stage.Description.Source.Text, prefix));
-            if (source.Length == 0 || source[^1] != '\n')
+            source.Append(prepared.Source);
+            if (prepared.AppendNewline)
                 source.Append('\n');
 
             stageLayouts.Add(new SkslMergedStageLayout(
-                indexed.Index,
-                prefix,
-                indexed.Stage.CoverageBehavior));
-            AddBindings(indexed, prefix, bindingLayouts);
-            uniformVectors = SaturatingAdd(
-                uniformVectors,
-                GetUniformVectorCount(indexed.Stage.Description.Source));
-            childCount = SaturatingAdd(childCount, indexed.Stage.Description.Resources.Count);
-            samplerCount = SaturatingAdd(samplerCount, indexed.Stage.Description.Resources.Count);
+                prepared.Index,
+                prepared.Prefix,
+                prepared.Stage.CoverageBehavior));
+            bindingLayouts.AddRange(prepared.Bindings);
         }
 
-        source.Append("half4 main(float2 coord) {\n")
-            .Append("    half4 ").Append(GeneratedPixelName).Append(" = ")
-            .Append(SourceChildName).Append(".eval(coord);\n");
-        foreach (SkslMergedStageLayout stage in stageLayouts)
-        {
-            source.Append("    ").Append(GeneratedPixelName).Append(" = ")
-                .Append(stage.Prefix).Append("apply(").Append(GeneratedPixelName).Append(");\n");
-        }
-        source.Append("    return ").Append(GeneratedPixelName).Append(";\n}\n");
+        source.Append(MainHeader);
+        foreach (PreparedStage prepared in stages)
+            source.Append(prepared.Invocation);
+        source.Append(MainFooter);
 
         string mergedSource = source.ToString();
-        int sourceBytes = Encoding.UTF8.GetByteCount(mergedSource);
-        int programTokens = SkslLexer.Tokenize(mergedSource).Count;
         IReadOnlyList<SkslBackendLimit> overflow = GetOverflowReasons(
-            stages.Count,
-            uniformVectors,
-            samplerCount,
-            childCount,
-            sourceBytes,
-            programTokens,
+            metrics.StageCount,
+            metrics.UniformVectorCount,
+            metrics.SamplerCount,
+            metrics.ChildCount,
+            metrics.SourceByteCount,
+            metrics.ProgramTokenCount,
             budget);
 
         return new SkslMergedProgram(
@@ -392,21 +429,24 @@ internal static class SkslSnippetMerger
             stageLayouts,
             bindingLayouts,
             budget,
-            uniformVectors,
-            samplerCount,
-            childCount,
-            sourceBytes,
-            programTokens,
+            metrics.UniformVectorCount,
+            metrics.SamplerCount,
+            metrics.ChildCount,
+            metrics.SourceByteCount,
+            metrics.ProgramTokenCount,
             overflow);
     }
 
     private static string GetPrefix(int stageIndex) => $"__beutl_s{stageIndex}_";
 
-    private static string Rename(string source, string prefix)
+    private static string CreateInvocation(string prefix)
+        => $"    {GeneratedPixelName} = {prefix}apply({GeneratedPixelName});\n";
+
+    private static RenameResult Rename(SkslSource source, string prefix)
     {
-        List<SkslToken> tokens = SkslLexer.Tokenize(source);
-        HashSet<string> names = CollectTopLevelNames(tokens);
-        var result = new StringBuilder(source.Length + (names.Count * prefix.Length));
+        List<SkslToken> tokens = SkslLexer.Tokenize(source.Text);
+        IReadOnlySet<string> names = source.TopLevelSymbols;
+        var result = new StringBuilder(source.Text.Length + (names.Count * prefix.Length));
         int copiedThrough = 0;
         for (int index = 0; index < tokens.Count; index++)
         {
@@ -418,58 +458,36 @@ internal static class SkslSnippetMerger
                 continue;
             }
 
-            result.Append(source, copiedThrough, token.Start - copiedThrough);
+            result.Append(source.Text, copiedThrough, token.Start - copiedThrough);
             result.Append(prefix).Append(token.Text);
             copiedThrough = token.Start + token.Length;
         }
 
-        result.Append(source, copiedThrough, source.Length - copiedThrough);
-        return result.ToString();
+        result.Append(source.Text, copiedThrough, source.Text.Length - copiedThrough);
+        return new RenameResult(result.ToString(), tokens.Count);
     }
 
-    private static HashSet<string> CollectTopLevelNames(IReadOnlyList<SkslToken> tokens)
+    private static ProgramMetrics CalculateMetrics(IReadOnlyList<PreparedStage> stages)
     {
-        var result = new HashSet<string>(StringComparer.Ordinal);
-        for (int index = 0; index < tokens.Count; index++)
-        {
-            SkslToken token = tokens[index];
-            if (!token.IsIdentifier || token.Depth != 0)
-                continue;
-
-            if (token.Text is "uniform" or "const")
-            {
-                int cursor = index + 1;
-                if (cursor < tokens.Count && tokens[cursor].Text is "lowp" or "mediump" or "highp")
-                    cursor++;
-                cursor++;
-                if (cursor < tokens.Count && tokens[cursor].IsIdentifier)
-                    result.Add(tokens[cursor].Text);
-                continue;
-            }
-
-            if (index + 2 < tokens.Count
-                && tokens[index + 1] is { IsIdentifier: true, Depth: 0 }
-                && tokens[index + 2].Text == "(")
-            {
-                result.Add(tokens[index + 1].Text);
-                index++;
-            }
-        }
+        ProgramMetrics result = ProgramMetrics.Empty;
+        foreach (PreparedStage stage in stages)
+            result = result.Add(stage);
         return result;
     }
 
     private static void AddBindings(
-        IndexedStage indexed,
+        int stageIndex,
+        SkslSnippetStage stage,
         string prefix,
         List<SkslMergedBindingLayout> result)
     {
-        ShaderDescription description = indexed.Stage.Description;
+        ShaderDescription description = stage.Description;
         for (int bindingIndex = 0; bindingIndex < description.Uniforms.Count; bindingIndex++)
         {
             ShaderUniformBinding binding = description.Uniforms[bindingIndex];
             SkslUniformDeclaration declaration = description.Source.Uniforms[binding.Name];
             result.Add(new SkslMergedBindingLayout(
-                indexed.Index,
+                stageIndex,
                 bindingIndex,
                 SkslBindingKind.Uniform,
                 binding.Name,
@@ -484,7 +502,7 @@ internal static class SkslSnippetMerger
             ShaderResourceBinding binding = description.Resources[bindingIndex];
             SkslUniformDeclaration declaration = description.Source.Uniforms[binding.Name];
             result.Add(new SkslMergedBindingLayout(
-                indexed.Index,
+                stageIndex,
                 bindingIndex,
                 SkslBindingKind.Resource,
                 binding.Name,
@@ -553,6 +571,14 @@ internal static class SkslSnippetMerger
         return result;
     }
 
+    private static bool FitsBudget(ProgramMetrics metrics, SkslBackendBudget budget)
+        => metrics.StageCount <= budget.MaxStages
+           && metrics.UniformVectorCount <= budget.MaxUniformVectors
+           && metrics.SamplerCount <= budget.MaxSamplers
+           && metrics.ChildCount <= budget.MaxChildren
+           && metrics.SourceByteCount <= budget.MaxSourceBytes
+           && metrics.ProgramTokenCount <= budget.MaxProgramTokens;
+
     private static int SaturatingAdd(int left, int right)
     {
         long result = (long)left + right;
@@ -565,5 +591,44 @@ internal static class SkslSnippetMerger
         return result >= int.MaxValue ? int.MaxValue : (int)result;
     }
 
-    private readonly record struct IndexedStage(int Index, SkslSnippetStage Stage);
+    private sealed record PreparedStage(
+        int Index,
+        SkslSnippetStage Stage,
+        string Prefix,
+        string Source,
+        bool AppendNewline,
+        string Invocation,
+        SkslMergedBindingLayout[] Bindings,
+        int UniformVectorCount,
+        int ResourceCount,
+        int SourceByteCount,
+        int ProgramTokenCount);
+
+    private readonly record struct RenameResult(string Source, int TokenCount);
+
+    private readonly record struct ProgramMetrics(
+        int StageCount,
+        int UniformVectorCount,
+        int SamplerCount,
+        int ChildCount,
+        int SourceByteCount,
+        int ProgramTokenCount)
+    {
+        public static ProgramMetrics Empty { get; } = new(
+            0,
+            0,
+            1,
+            1,
+            s_fixedSourceByteCount,
+            s_fixedProgramTokenCount);
+
+        public ProgramMetrics Add(PreparedStage stage)
+            => new(
+                SaturatingAdd(StageCount, 1),
+                SaturatingAdd(UniformVectorCount, stage.UniformVectorCount),
+                SaturatingAdd(SamplerCount, stage.ResourceCount),
+                SaturatingAdd(ChildCount, stage.ResourceCount),
+                SaturatingAdd(SourceByteCount, stage.SourceByteCount),
+                SaturatingAdd(ProgramTokenCount, stage.ProgramTokenCount));
+    }
 }

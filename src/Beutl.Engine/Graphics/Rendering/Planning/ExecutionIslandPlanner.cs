@@ -15,6 +15,12 @@ internal sealed class ExecutionIslandPlanner
         => predecessor.EffectiveScale.IsUnbounded
            || predecessor.EffectiveScale == successor.EffectiveScale;
 
+    internal static bool HasCompatibleOpacityFusionMetadata(
+        RenderFragmentReference input,
+        RenderFragmentReference opacity)
+        => input.Bounds == opacity.Bounds
+           && input.EffectiveScale == opacity.EffectiveScale;
+
     public ExecutionIslandPlan Plan(
         RecordedRenderGraph graph,
         ImmutableArray<RenderFragmentReference> roots,
@@ -559,8 +565,7 @@ internal sealed class ExecutionIslandPlanner
             if (payload is null
                 || payload.Opacity < 0
                 || payload.Opacity > 1
-                || fragment.Bounds != fragment.Inputs[0].Bounds
-                || fragment.EffectiveScale != fragment.Inputs[0].EffectiveScale)
+                || !HasCompatibleOpacityFusionMetadata(input, fragment))
             {
                 rejectionReason = ExecutionIslandBoundaryReason.UnsafeComposite;
                 return false;

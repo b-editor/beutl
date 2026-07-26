@@ -1,4 +1,5 @@
-﻿using Beutl.Graphics.Effects;
+﻿using System.Text;
+using Beutl.Graphics.Effects;
 using Beutl.Graphics.Rendering;
 using SkiaSharp;
 
@@ -45,6 +46,43 @@ public sealed class SkslSnippetMergerTests
                 .And.Not.Contain($"color.{secondPrefix}"));
             Assert.That(program.Source, Does.Contain("/* gain weights adjust */"),
                 "comments are copied verbatim rather than interpreted as identifiers");
+        });
+    }
+
+    [Test]
+    public void Merge_UsesValidatedPrecisionQualifiedTopLevelSymbols()
+    {
+        const string source =
+            "uniform highp float gain;\n"
+            + "const mediump float bias = 0.25;\n"
+            + "highp float4 helper(highp float4 value) { return value * gain + bias; }\n"
+            + "half4 apply(half4 color) { return half4(helper(float4(color))); }";
+        ShaderDescription description = ShaderDescription.CurrentPixel(
+            source,
+            static bindings => bindings.Uniform("gain", 0.5f));
+
+        SkslMergedProgram program = SkslSnippetMerger.Merge(
+            [new(description), new(description)]);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(
+                description.Source.TopLevelSymbols,
+                Is.EquivalentTo(new[] { "gain", "bias", "helper", "apply" }));
+            foreach (SkslMergedStageLayout stage in program.Stages)
+            {
+                Assert.That(program.Source, Does.Contain($"uniform highp float {stage.Prefix}gain;"));
+                Assert.That(program.Source, Does.Contain($"const mediump float {stage.Prefix}bias"));
+                Assert.That(program.Source, Does.Contain($"highp float4 {stage.Prefix}helper("));
+                Assert.That(program.Source, Does.Contain($"half4 {stage.Prefix}apply("));
+            }
+        });
+
+        using SKRuntimeEffect? effect = SKRuntimeEffect.CreateShader(program.Source, out string? error);
+        Assert.Multiple(() =>
+        {
+            Assert.That(error, Is.Null);
+            Assert.That(effect, Is.Not.Null);
         });
     }
 
@@ -267,6 +305,71 @@ public sealed class SkslSnippetMergerTests
             Assert.That(programs, Has.All.Matches<SkslMergedProgram>(program => program.ProgramTokenCount <= limit));
             Assert.That(programs.SelectMany(static program => program.Stages)
                 .Select(static stage => stage.StageIndex), Is.EqualTo(new[] { 0, 1 }));
+        });
+    }
+
+    [Test]
+    public void MergeAndSplit_UsesExactUtf8AndTokenMetricsAcrossStageIndexDigitBoundary()
+    {
+        const string source =
+            "// UTF-8 境界コメント\r\n"
+            + "const highp float gain = 1.0;\r\n"
+            + "half4 apply(half4 color) { return color * gain; }\r\n";
+        ShaderDescription description = ShaderDescription.CurrentPixel(source);
+        SkslSnippetStage[] stages = Enumerable.Range(0, 11)
+            .Select(_ => new SkslSnippetStage(description))
+            .ToArray();
+        SkslMergedProgram merged = SkslSnippetMerger.Merge(stages);
+
+        IReadOnlyList<SkslMergedProgram> atBoundary = SkslSnippetMerger.MergeAndSplit(
+            stages,
+            Budget(
+                maxSourceBytes: merged.SourceByteCount,
+                maxProgramTokens: merged.ProgramTokenCount));
+        IReadOnlyList<SkslMergedProgram> belowByteBoundary = SkslSnippetMerger.MergeAndSplit(
+            stages,
+            Budget(
+                maxSourceBytes: merged.SourceByteCount - 1,
+                maxProgramTokens: merged.ProgramTokenCount));
+        IReadOnlyList<SkslMergedProgram> belowTokenBoundary = SkslSnippetMerger.MergeAndSplit(
+            stages,
+            Budget(
+                maxSourceBytes: merged.SourceByteCount,
+                maxProgramTokens: merged.ProgramTokenCount - 1));
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(merged.Source, Does.Contain("__beutl_s9_apply")
+                .And.Contain("__beutl_s10_apply"));
+            Assert.That(merged.Source, Does.Not.Contain('\r'));
+            Assert.That(merged.SourceByteCount, Is.EqualTo(Encoding.UTF8.GetByteCount(merged.Source)));
+            Assert.That(merged.ProgramTokenCount, Is.EqualTo(SkslLexer.Tokenize(merged.Source).Count));
+            Assert.That(atBoundary, Has.Count.EqualTo(1));
+            Assert.That(belowByteBoundary, Has.Count.EqualTo(2));
+            Assert.That(belowTokenBoundary, Has.Count.EqualTo(2));
+        });
+
+        foreach (SkslMergedProgram program in atBoundary
+                     .Concat(belowByteBoundary)
+                     .Concat(belowTokenBoundary))
+        {
+            Assert.Multiple(() =>
+            {
+                Assert.That(program.SourceByteCount, Is.EqualTo(Encoding.UTF8.GetByteCount(program.Source)));
+                Assert.That(program.ProgramTokenCount, Is.EqualTo(SkslLexer.Tokenize(program.Source).Count));
+            });
+        }
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(
+                belowByteBoundary.SelectMany(static program => program.Stages)
+                    .Select(static stage => stage.StageIndex),
+                Is.EqualTo(Enumerable.Range(0, 11)));
+            Assert.That(
+                belowTokenBoundary.SelectMany(static program => program.Stages)
+                    .Select(static stage => stage.StageIndex),
+                Is.EqualTo(Enumerable.Range(0, 11)));
         });
     }
 

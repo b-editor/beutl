@@ -1,4 +1,6 @@
-﻿using System.Runtime.ExceptionServices;
+﻿using System.Runtime.CompilerServices;
+using System.Runtime.ExceptionServices;
+using System.Text;
 
 using Beutl.Graphics.Effects;
 
@@ -90,7 +92,18 @@ internal sealed class CachedSkRuntimeEffect : IDisposable
     public static CachedSkRuntimeEffect Create(SkslMergedProgram program)
     {
         ArgumentNullException.ThrowIfNull(program);
-        SKRuntimeEffect? effect = SKRuntimeEffect.CreateShader(program.Source, out string? errorText);
+        return Create(program.Source, program.SourceByteCount);
+    }
+
+    public static CachedSkRuntimeEffect Create(string source)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(source);
+        return Create(source, Encoding.UTF8.GetByteCount(source));
+    }
+
+    private static CachedSkRuntimeEffect Create(string source, int retainedBytes)
+    {
+        SKRuntimeEffect? effect = SKRuntimeEffect.CreateShader(source, out string? errorText);
         if (effect is null || !string.IsNullOrWhiteSpace(errorText))
         {
             effect?.Dispose();
@@ -98,7 +111,7 @@ internal sealed class CachedSkRuntimeEffect : IDisposable
                 $"SkSL program validation failed: {errorText ?? "the backend returned no program"}");
         }
 
-        return new CachedSkRuntimeEffect(effect, Math.Max(1, program.SourceByteCount));
+        return new CachedSkRuntimeEffect(effect, Math.Max(1, retainedBytes));
     }
 
     public void Dispose() => Effect.Dispose();
@@ -107,18 +120,76 @@ internal sealed class CachedSkRuntimeEffect : IDisposable
 internal static class SkRuntimeEffectProgramCache
 {
     private const long DefaultRetainedByteBudget = 16 * 1024 * 1024;
+    private const string ColorAlphaFormatContract = "linear-premultiplied-rgba16f";
+    private static readonly object s_cpuDestinationContext = new();
+    private static readonly object s_defaultCompileOptions = new();
+    private static readonly ConditionalWeakTable<GRRecordingContext, object> s_destinationContextIdentities = new();
 
     public static ProgramCache<CachedSkRuntimeEffect> Create()
         => new(
             resetRuntimeBindings: static _ => { },
             retainedByteSize: static program => program.RetainedBytes,
-            maxRetainedBytes: DefaultRetainedByteBudget);
+            maxRetainedBytes: DefaultRetainedByteBudget,
+            shareLeasedPrograms: true);
+
+    public static ProgramCacheContextKey CreateContextKey(
+        RenderCacheDeviceContextIdentity context,
+        SkslBackendBudget budget)
+    {
+        ArgumentNullException.ThrowIfNull(budget);
+        context.ThrowIfUninitialized(nameof(context));
+        return new ProgramCacheContextKey(
+            context.DeviceIdentity,
+            context.ContextIdentity,
+            budget.CapabilityClass,
+            ColorAlphaFormatContract,
+            s_defaultCompileOptions);
+    }
+
+    public static ProgramCacheLease<CachedSkRuntimeEffect> Acquire(
+        ProgramCache<CachedSkRuntimeEffect> cache,
+        string source,
+        SkslBackendBudget budget,
+        ProgramCacheContextKey context)
+    {
+        ArgumentNullException.ThrowIfNull(cache);
+        ArgumentException.ThrowIfNullOrWhiteSpace(source);
+        ArgumentNullException.ThrowIfNull(budget);
+        ArgumentNullException.ThrowIfNull(context);
+        SkslMergedProgramIdentity identity = SkslMergedProgramIdentity.CreateStandalone(
+            source,
+            budget);
+        return cache.GetOrCreate(
+            identity,
+            context,
+            source,
+            static value => CachedSkRuntimeEffect.Create(value));
+    }
+
+    public static ProgramCacheLease<CachedSkRuntimeEffect> AcquireForDestination(
+        ProgramCache<CachedSkRuntimeEffect> cache,
+        RenderTarget destination,
+        string source)
+    {
+        ArgumentNullException.ThrowIfNull(cache);
+        ArgumentNullException.ThrowIfNull(destination);
+        destination.VerifyAccess();
+        GRRecordingContext? graphicsContext = destination.Value.Context;
+        object contextIdentity = graphicsContext is null
+            ? s_cpuDestinationContext
+            : s_destinationContextIdentities.GetValue(
+                graphicsContext,
+                static _ => new object());
+        cache.SynchronizeContext(cache, contextIdentity);
+        SkslBackendBudget budget = SkslBackendBudgetResolver.Resolve(graphicsContext?.Backend);
+        ProgramCacheContextKey contextKey = CreateContextKey(
+            new RenderCacheDeviceContextIdentity(cache, contextIdentity),
+            budget);
+        return Acquire(cache, source, budget, contextKey);
+    }
 }
 
-/// <summary>
-/// A single mutable-program checkout. Cached instances are exclusive; a re-entrant checkout of the same full key
-/// receives a reset transient instance so it cannot overwrite the outer checkout's runtime bindings.
-/// </summary>
+/// <summary>A checkout that keeps one cached program alive until the lease is returned.</summary>
 internal sealed class ProgramCacheLease<TProgram> : IDisposable
     where TProgram : class, IDisposable
 {
@@ -161,8 +232,9 @@ internal sealed class ProgramCacheLease<TProgram> : IDisposable
 }
 
 /// <summary>
-/// Renderer-owned cache for mutable compiled shader programs. The merged-program hash selects a bucket only;
-/// exact <see cref="SkslMergedProgramIdentity"/> and backend-context equality select an entry.
+/// Renderer-owned cache for compiled shader programs. The merged-program hash selects a bucket only; exact
+/// <see cref="SkslMergedProgramIdentity"/> and backend-context equality select an entry. Mutable programs use
+/// exclusive leases, while immutable programs may opt into shared leases.
 /// </summary>
 internal sealed class ProgramCache<TProgram> : IDisposable
     where TProgram : class, IDisposable
@@ -171,7 +243,9 @@ internal sealed class ProgramCache<TProgram> : IDisposable
     private readonly Action<TProgram> _resetRuntimeBindings;
     private readonly Func<TProgram, long> _retainedByteSize;
     private readonly long _maxRetainedBytes;
+    private readonly bool _shareLeasedPrograms;
     private readonly Dictionary<int, List<Entry>> _buckets = [];
+    private readonly Dictionary<object, object> _activeContexts = [];
     private readonly LinkedList<Entry> _lru = [];
     private long _retainedBytes;
     private long _hits;
@@ -184,7 +258,8 @@ internal sealed class ProgramCache<TProgram> : IDisposable
     public ProgramCache(
         Action<TProgram> resetRuntimeBindings,
         Func<TProgram, long> retainedByteSize,
-        long maxRetainedBytes)
+        long maxRetainedBytes,
+        bool shareLeasedPrograms = false)
     {
         _resetRuntimeBindings = resetRuntimeBindings
             ?? throw new ArgumentNullException(nameof(resetRuntimeBindings));
@@ -192,6 +267,7 @@ internal sealed class ProgramCache<TProgram> : IDisposable
             ?? throw new ArgumentNullException(nameof(retainedByteSize));
         ArgumentOutOfRangeException.ThrowIfNegative(maxRetainedBytes);
         _maxRetainedBytes = maxRetainedBytes;
+        _shareLeasedPrograms = shareLeasedPrograms;
     }
 
     public ProgramCacheStatistics Statistics
@@ -222,7 +298,7 @@ internal sealed class ProgramCache<TProgram> : IDisposable
     {
         ArgumentNullException.ThrowIfNull(program);
         ArgumentNullException.ThrowIfNull(create);
-        return GetOrCreate(program.Identity, context, () => create(program));
+        return GetOrCreate(program.Identity, context, program, create);
     }
 
     /// <summary>
@@ -238,7 +314,35 @@ internal sealed class ProgramCache<TProgram> : IDisposable
         ArgumentNullException.ThrowIfNull(identity);
         ArgumentNullException.ThrowIfNull(context);
         ArgumentNullException.ThrowIfNull(create);
+        return GetOrCreateCore(
+            identity,
+            context,
+            create,
+            static factory => factory());
+    }
 
+    /// <summary>
+    /// Finds or creates a program using an explicit factory state. A static factory keeps warmed lookups from
+    /// allocating a capturing closure.
+    /// </summary>
+    public ProgramCacheLease<TProgram> GetOrCreate<TState>(
+        SkslMergedProgramIdentity identity,
+        ProgramCacheContextKey context,
+        TState factoryState,
+        Func<TState, TProgram> create)
+    {
+        ArgumentNullException.ThrowIfNull(identity);
+        ArgumentNullException.ThrowIfNull(context);
+        ArgumentNullException.ThrowIfNull(create);
+        return GetOrCreateCore(identity, context, factoryState, create);
+    }
+
+    private ProgramCacheLease<TProgram> GetOrCreateCore<TState>(
+        SkslMergedProgramIdentity identity,
+        ProgramCacheContextKey context,
+        TState factoryState,
+        Func<TState, TProgram> create)
+    {
         lock (_gate)
         {
             ObjectDisposedException.ThrowIf(_disposed, this);
@@ -247,22 +351,24 @@ internal sealed class ProgramCache<TProgram> : IDisposable
             {
                 _hits++;
                 Touch(entry);
-                if (!entry.IsLeased)
+                if (_shareLeasedPrograms || !entry.IsLeased)
                 {
-                    entry.IsLeased = true;
-                    try
+                    if (!_shareLeasedPrograms)
                     {
-                        _resetRuntimeBindings(entry.Program);
-                    }
-                    catch (Exception ex)
-                    {
-                        entry.IsLeased = false;
-                        RemoveEntry(entry, countEviction: true);
-                        RecordCleanupFailure(DisposeProgramsBestEffort([entry.Program]));
-                        ExceptionDispatchInfo.Capture(ex).Throw();
-                        throw;
+                        try
+                        {
+                            _resetRuntimeBindings(entry.Program);
+                        }
+                        catch (Exception ex)
+                        {
+                            RemoveEntry(entry, countEviction: true);
+                            RecordCleanupFailure(DisposeProgramsBestEffort([entry.Program]));
+                            ExceptionDispatchInfo.Capture(ex).Throw();
+                            throw;
+                        }
                     }
 
+                    entry.LeaseCount++;
                     return new ProgramCacheLease<TProgram>(
                         this,
                         entry,
@@ -271,7 +377,7 @@ internal sealed class ProgramCache<TProgram> : IDisposable
                         isTransient: false);
                 }
 
-                TProgram reentrant = CreateResetProgram(create, out _);
+                TProgram reentrant = CreateResetProgram(factoryState, create, out _);
                 return new ProgramCacheLease<TProgram>(
                     this,
                     entry: null,
@@ -281,7 +387,7 @@ internal sealed class ProgramCache<TProgram> : IDisposable
             }
 
             _misses++;
-            TProgram created = CreateResetProgram(create, out long retainedBytes);
+            TProgram created = CreateResetProgram(factoryState, create, out long retainedBytes);
             if (_maxRetainedBytes == 0 || retainedBytes > _maxRetainedBytes)
             {
                 return new ProgramCacheLease<TProgram>(
@@ -294,7 +400,7 @@ internal sealed class ProgramCache<TProgram> : IDisposable
 
             var inserted = new Entry(identity, context, created, retainedBytes)
             {
-                IsLeased = true,
+                LeaseCount = 1,
             };
             inserted.LruNode = _lru.AddFirst(inserted);
             if (!_buckets.TryGetValue(identity.BucketHash, out List<Entry>? bucket))
@@ -330,6 +436,45 @@ internal sealed class ProgramCache<TProgram> : IDisposable
     }
 
     /// <summary>
+    /// Sets the active context for one cache-owned device domain and evicts entries from its preceding context.
+    /// Leased entries are detached immediately and disposed after their last lease returns.
+    /// </summary>
+    public int SynchronizeContext(object deviceIdentity, object contextIdentity)
+    {
+        ArgumentNullException.ThrowIfNull(deviceIdentity);
+        ArgumentNullException.ThrowIfNull(contextIdentity);
+        List<TProgram> disposable;
+        int count;
+        lock (_gate)
+        {
+            ObjectDisposedException.ThrowIf(_disposed, this);
+            if (_activeContexts.TryGetValue(deviceIdentity, out object? current)
+                && Equals(current, contextIdentity))
+            {
+                return 0;
+            }
+
+            _activeContexts[deviceIdentity] = contextIdentity;
+            Entry[] matches = _lru
+                .Where(entry =>
+                    Equals(entry.Context.DeviceIdentity, deviceIdentity)
+                    && !Equals(entry.Context.ContextIdentity, contextIdentity))
+                .ToArray();
+            count = matches.Length;
+            disposable = new List<TProgram>(count);
+            foreach (Entry entry in matches)
+            {
+                RemoveEntry(entry, countEviction: true);
+                if (!entry.IsLeased)
+                    disposable.Add(entry.Program);
+            }
+        }
+
+        DisposeProgramsBestEffort(disposable)?.Throw();
+        return count;
+    }
+
+    /// <summary>
     /// Invalidates every program compiled for one device, including all of its context generations.
     /// </summary>
     public int EvictDevice(object deviceIdentity)
@@ -348,6 +493,7 @@ internal sealed class ProgramCache<TProgram> : IDisposable
                 return;
 
             _disposed = true;
+            _activeContexts.Clear();
             Entry[] entries = [.. _lru];
             disposable = new List<TProgram>(entries.Length);
             foreach (Entry entry in entries)
@@ -368,13 +514,16 @@ internal sealed class ProgramCache<TProgram> : IDisposable
     internal void Release(Entry? entry, TProgram program)
     {
         ExceptionDispatchInfo? primaryFailure = null;
-        try
+        if (!_shareLeasedPrograms)
         {
-            _resetRuntimeBindings(program);
-        }
-        catch (Exception ex)
-        {
-            primaryFailure = ExceptionDispatchInfo.Capture(ex);
+            try
+            {
+                _resetRuntimeBindings(program);
+            }
+            catch (Exception ex)
+            {
+                primaryFailure = ExceptionDispatchInfo.Capture(ex);
+            }
         }
 
         List<TProgram> disposable = [];
@@ -386,26 +535,27 @@ internal sealed class ProgramCache<TProgram> : IDisposable
             }
             else
             {
-                if (!ReferenceEquals(entry.Program, program) || !entry.IsLeased)
+                if (!ReferenceEquals(entry.Program, program) || entry.LeaseCount <= 0)
                 {
                     throw new InvalidOperationException(
                         "A program-cache lease does not match an active cached checkout.");
                 }
 
-                entry.IsLeased = false;
+                entry.LeaseCount--;
                 if (primaryFailure is not null)
                 {
                     if (!entry.IsEvicted)
                         RemoveEntry(entry, countEviction: true);
-                    disposable.Add(program);
+                    if (!entry.IsLeased)
+                        disposable.Add(program);
                 }
-                else if (entry.IsEvicted || _disposed)
+                else if (!entry.IsLeased && (entry.IsEvicted || _disposed))
                 {
                     if (!entry.IsEvicted)
                         RemoveEntry(entry, countEviction: true);
                     disposable.Add(program);
                 }
-                else
+                else if (!entry.IsLeased)
                 {
                     disposable.AddRange(TrimToBudget());
                 }
@@ -427,9 +577,12 @@ internal sealed class ProgramCache<TProgram> : IDisposable
         disposalFailure?.Throw();
     }
 
-    private TProgram CreateResetProgram(Func<TProgram> create, out long retainedBytes)
+    private TProgram CreateResetProgram<TState>(
+        TState factoryState,
+        Func<TState, TProgram> create,
+        out long retainedBytes)
     {
-        TProgram program = create()
+        TProgram program = create(factoryState)
             ?? throw new InvalidOperationException("The program factory returned null.");
         _creations++;
         try
@@ -587,7 +740,9 @@ internal sealed class ProgramCache<TProgram> : IDisposable
 
         public LinkedListNode<Entry>? LruNode { get; set; }
 
-        public bool IsLeased { get; set; }
+        public int LeaseCount { get; set; }
+
+        public bool IsLeased => LeaseCount != 0;
 
         public bool IsEvicted { get; set; }
     }

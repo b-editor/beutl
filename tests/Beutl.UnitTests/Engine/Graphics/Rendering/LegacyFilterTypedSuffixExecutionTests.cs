@@ -70,6 +70,84 @@ public sealed class LegacyFilterTypedSuffixExecutionTests
     }
 
     [Test]
+    public void ShaderAfterUnknownCustomEffect_UsesRendererProgramCacheAcrossFrames()
+    {
+        var effect = new LegacySuffixCallbackFilterEffect(static (context, _) =>
+        {
+            context.CustomEffect(0, static (_, _) => { });
+            context.Shader(ShaderDescription.CurrentPixel(BlueShader));
+        });
+        Rect bounds = new(0, 0, 8, 6);
+        using var root = new FilterEffectRenderNode(
+            effect.ToResource(CompositionContext.Default));
+        root.AddChild(new RectangleRenderNode(
+            bounds,
+            Brushes.Resource.Red,
+            null));
+        using var renderer = new RenderNodeRenderer(
+            root,
+            new RenderNodeRendererOptions
+            {
+                TargetDomain = bounds,
+                TargetFactory = new CpuTargetFactory(),
+                UseRenderCache = false,
+            });
+
+        using RenderNodeRasterization cold = renderer.Rasterize();
+        ProgramCacheStatistics coldStatistics = renderer.ProgramCacheStatistics;
+        using RenderNodeRasterization warm = renderer.Rasterize();
+        ProgramCacheStatistics warmStatistics = renderer.ProgramCacheStatistics;
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(cold.Bitmap, Is.Not.Null);
+            Assert.That(warm.Bitmap, Is.Not.Null);
+            Assert.That(coldStatistics.Creations, Is.EqualTo(1));
+            Assert.That(coldStatistics.Misses, Is.EqualTo(1));
+            Assert.That(coldStatistics.Hits, Is.Zero);
+            Assert.That(warmStatistics.Creations, Is.EqualTo(1));
+            Assert.That(warmStatistics.Misses, Is.EqualTo(1));
+            Assert.That(warmStatistics.Hits, Is.EqualTo(1));
+            Assert.That(renderer.LastExecutionStatistics.ProgramCacheHits, Is.EqualTo(1));
+        });
+    }
+
+    [Test]
+    public void CompatibilityShader_ProgramAcquirerReceivesExecutionDestination()
+    {
+        Rect bounds = new(0, 0, 8, 6);
+        using EffectTargets targets = CreateSolidTargets(bounds, Colors.Red);
+        EffectTarget input = targets[0];
+        using ProgramCache<CachedSkRuntimeEffect> cache = SkRuntimeEffectProgramCache.Create();
+        EffectTarget? observedTarget = null;
+
+        LegacyFilterEffectCompatibilityExecutor.ApplyShader(
+            targets,
+            ShaderDescription.CurrentPixel(BlueShader),
+            outputScale: 1,
+            workingScale: 1,
+            maxWorkingScale: 1,
+            RenderIntent.Preview,
+            RenderRequestPurpose.Auxiliary,
+            (target, source) =>
+            {
+                observedTarget = target;
+                return SkRuntimeEffectProgramCache.AcquireForDestination(
+                    cache,
+                    target.RenderTarget!,
+                    source);
+            });
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(observedTarget, Is.SameAs(targets[0]));
+            Assert.That(observedTarget, Is.Not.SameAs(input));
+            Assert.That(observedTarget!.RenderTarget, Is.Not.Null);
+            Assert.That(input.IsEmpty, Is.True);
+        });
+    }
+
+    [Test]
     public void GeometryAfterUnknownCustomEffect_UsesRuntimeBoundsAndPublishesShrink()
     {
         Rect runtimeBounds = new(30, 40, 8, 6);

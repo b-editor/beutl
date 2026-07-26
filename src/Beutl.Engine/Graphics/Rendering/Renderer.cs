@@ -23,6 +23,8 @@ public class Renderer : IRenderer
 
     private class Entry(DrawableRenderNode node, RenderNodeRenderer renderer) : IDisposable
     {
+        private Rect _bounds;
+
         ~Entry()
         {
             try
@@ -53,9 +55,33 @@ public class Renderer : IRenderer
 
         public RenderNodeRenderer Renderer { get; } = renderer;
 
-        public Rect Bounds { get; set; }
-
         public bool IsDisposed { get; private set; }
+
+        public void InvalidateBounds()
+        {
+            _bounds = default;
+            HasValidBounds = false;
+        }
+
+        public Rect GetBounds()
+        {
+            if (!HasValidBounds)
+            {
+                _bounds = Renderer.Measure().OutputBounds;
+                HasValidBounds = true;
+            }
+
+            return _bounds;
+        }
+
+        public Rect RecalculateBounds()
+        {
+            _bounds = Renderer.Measure().OutputBounds;
+            HasValidBounds = true;
+            return _bounds;
+        }
+
+        private bool HasValidBounds { get; set; }
 
         public void Dispose()
         {
@@ -95,7 +121,7 @@ public class Renderer : IRenderer
             height,
             renderScale,
             maxWorkingScale,
-            new RenderPipelineDiagnosticsState(),
+            diagnostics: null,
             surface: null)
     {
     }
@@ -265,6 +291,8 @@ public class Renderer : IRenderer
     internal RenderTargetPoolStatistics FrameTargetPoolStatistics
         => _frameRenderer.TargetPoolStatistics;
 
+    internal IRenderPipelineDiagnosticsState? Diagnostics => _diagnostics;
+
     public void Dispose()
     {
         if (!IsDisposed)
@@ -336,21 +364,14 @@ public class Renderer : IRenderer
             pendingEntries.Add(PrepareDrawable(drawableResource));
         }
 
-        var pendingBounds = new Rect[pendingEntries.Count];
-        for (int index = 0; index < pendingEntries.Count; index++)
-        {
-            pendingBounds[index] = pendingEntries[index].Renderer.Measure().OutputBounds;
-        }
-
         _completeTarget.UpdateRoots(pendingEntries.Select(static entry => (RenderNode)entry.Node));
         _frameRenderer.Render(_immediateCanvas);
 
         ClearFrame();
-        for (int index = 0; index < pendingEntries.Count; index++)
+        foreach (Entry entry in pendingEntries)
         {
-            Entry entry = pendingEntries[index];
-            entry.Bounds = pendingBounds[index];
             RevalidateAll(entry.Node);
+            entry.InvalidateBounds();
             _allCurrentEntries.Add(entry);
         }
     }
@@ -510,6 +531,7 @@ public class Renderer : IRenderer
             }
 
             RevalidateAll(entry.Node);
+            entry.InvalidateBounds();
             _allCurrentEntries.Add(entry);
         }
     }
@@ -534,7 +556,10 @@ public class Renderer : IRenderer
 
     public Rect[] GetBoundaries(int zIndex)
     {
-        return [.. _allCurrentEntries.Where(e => e.Node.Drawable?.Resource.GetOriginal().ZIndex == zIndex).Select(e => e.Bounds)];
+        RenderThread.Dispatcher.VerifyAccess();
+        return [.. _allCurrentEntries
+            .Where(e => e.Node.Drawable?.Resource.GetOriginal().ZIndex == zIndex)
+            .Select(e => e.GetBounds())];
     }
 
     public Rect? GetBoundary(Drawable drawable)
@@ -544,7 +569,7 @@ public class Renderer : IRenderer
         {
             if (_allCurrentEntries.Contains(entry))
             {
-                return entry.Bounds;
+                return entry.GetBounds();
             }
             // An entry exists but is not included in the current frame (stale). Suggests a draw-lifecycle mismatch.
             if (s_logger.IsEnabled(LogLevel.Debug))
@@ -566,14 +591,15 @@ public class Renderer : IRenderer
         return null;
     }
 
+    /// <summary>Recalculates and caches current-frame bounds for drawables at the specified z-index.</summary>
+    /// <remarks>This method must be called on the render thread.</remarks>
+    /// <exception cref="InvalidOperationException">The caller does not have render-thread access.</exception>
     public Rect[] RecalculateBoundaries(int zIndex)
     {
-        return [.. _allCurrentEntries.Where(e => e.Node.Drawable?.Resource.GetOriginal().ZIndex == zIndex).Select(e =>
-        {
-            Rect bounds = e.Renderer.Measure().OutputBounds;
-            e.Bounds = bounds;
-            return bounds;
-        })];
+        RenderThread.Dispatcher.VerifyAccess();
+        return [.. _allCurrentEntries
+            .Where(e => e.Node.Drawable?.Resource.GetOriginal().ZIndex == zIndex)
+            .Select(e => e.RecalculateBounds())];
     }
 
     public DrawableRenderNode? FindRenderNode(Drawable drawable)

@@ -17,10 +17,12 @@ internal static class LegacyFilterEffectCompatibilityExecutor
         float workingScale,
         float maxWorkingScale,
         RenderIntent intent,
-        RenderRequestPurpose purpose)
+        RenderRequestPurpose purpose,
+        SkRuntimeEffectProgramAcquirer acquireProgram)
     {
         ArgumentNullException.ThrowIfNull(targets);
         ArgumentNullException.ThrowIfNull(description);
+        ArgumentNullException.ThrowIfNull(acquireProgram);
         ReplaceTargets(
             targets,
             target => ExecuteShader(
@@ -30,7 +32,8 @@ internal static class LegacyFilterEffectCompatibilityExecutor
                 workingScale,
                 maxWorkingScale,
                 intent,
-                purpose));
+                purpose,
+                acquireProgram));
     }
 
     public static void ApplyGeometry(
@@ -63,7 +66,8 @@ internal static class LegacyFilterEffectCompatibilityExecutor
         float workingScale,
         float maxWorkingScale,
         RenderIntent intent,
-        RenderRequestPurpose purpose)
+        RenderRequestPurpose purpose,
+        SkRuntimeEffectProgramAcquirer acquireProgram)
     {
         using EffectTarget? input = NormalizeInput(
             source,
@@ -111,8 +115,9 @@ internal static class LegacyFilterEffectCompatibilityExecutor
                 programSource = description.Source.Text;
             }
 
-            using SKRuntimeEffect effect = CreateRuntimeEffect(programSource);
-            using var builder = new SKRuntimeShaderBuilder(effect);
+            using ProgramCacheLease<CachedSkRuntimeEffect> lease = acquireProgram(output, programSource);
+            using var uniforms = new SKRuntimeEffectUniforms(lease.Program.Effect);
+            using var runtimeChildren = new SKRuntimeEffectChildren(lease.Program.Effect);
             var bindingToken = new RenderExecutionSessionToken();
             var context = new ShaderExecutionContext(
                 bindingToken,
@@ -141,7 +146,7 @@ internal static class LegacyFilterEffectCompatibilityExecutor
                                 $"Shader uniform '{binding.Name}' was not declared.");
                         }
 
-                        SetUniform(builder.Uniforms, binding.Name, declaration, binding.Bind(declaration, context));
+                        SetUniform(uniforms, binding.Name, declaration, binding.Bind(declaration, context));
                     }
 
                     SKShader inputShader = inputImage.ToShader(
@@ -154,13 +159,13 @@ internal static class LegacyFilterEffectCompatibilityExecutor
                             output.RasterBounds,
                             input.RasterBounds));
                     children.Add(inputShader);
-                    builder.Children[childName] = inputShader;
+                    runtimeChildren[childName] = inputShader;
 
                     foreach (ShaderResourceBinding binding in description.Resources)
                     {
                         SKShader child = binding.Bind(context);
                         children.Add(child);
-                        builder.Children[binding.Name] = child;
+                        runtimeChildren[binding.Name] = child;
                     }
                 }
                 finally
@@ -168,7 +173,7 @@ internal static class LegacyFilterEffectCompatibilityExecutor
                     bindingToken.Complete();
                 }
 
-                using SKShader shader = builder.Build();
+                using SKShader shader = lease.Program.Effect.ToShader(uniforms, runtimeChildren);
                 using var paint = new SKPaint { Shader = shader };
                 using var canvas = ImmediateCanvas.CreateExecutorManaged(
                     outputTarget,
@@ -472,17 +477,6 @@ internal static class LegacyFilterEffectCompatibilityExecutor
             replacements.RemoveAt(0);
             targets.Add(replacement);
         }
-    }
-
-    private static SKRuntimeEffect CreateRuntimeEffect(string source)
-    {
-        SKRuntimeEffect? effect = SKRuntimeEffect.CreateShader(source, out string? errorText);
-        if (effect is not null && string.IsNullOrWhiteSpace(errorText))
-            return effect;
-
-        effect?.Dispose();
-        throw new InvalidOperationException(
-            $"SkSL program validation failed: {errorText ?? "the backend returned no program"}");
     }
 
     private static void SetUniform(

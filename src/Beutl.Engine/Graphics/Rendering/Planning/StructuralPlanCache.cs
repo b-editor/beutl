@@ -288,6 +288,12 @@ internal sealed class StructuralFragmentIdentity : IEquatable<StructuralFragment
             components.Add(ExecutionIslandPlanner.HasCompatibleMergeScale(
                 reference.Inputs[0],
                 reference));
+            if (reference.Kind == RenderFragmentKind.Opacity)
+            {
+                components.Add(ExecutionIslandPlanner.HasCompatibleOpacityFusionMetadata(
+                    reference.Inputs[0],
+                    reference));
+            }
         }
         AddPayloadComponents(reference, components);
         return new StructuralFragmentIdentity(reference, inputs, components.ToArray());
