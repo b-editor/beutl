@@ -316,7 +316,6 @@ public sealed class SpeedNode : AudioNode
         // between chunks, so the source must be fed as one unbroken stream — re-seeking every chunk
         // desynchronised the read position from that history and clicked at each boundary.
         private long _srcReadPos;        // absolute next source sample to feed, in the source timeline
-        private TimeSpan _nextSourceStart;
         private double _nextOutputStart; // expected output start (seconds) of the next contiguous chunk
         private bool _initialized;
         private bool _sourceCursorMatchesOutputTimeline;
@@ -341,7 +340,6 @@ public sealed class SpeedNode : AudioNode
             double outputStart = context.TimeRange.Start.TotalSeconds;
             _rs.Reset();
             _srcReadPos = (long)Math.Round(outputStart * _sampleRate) + sampleCount;
-            _nextSourceStart = context.TimeRange.End;
             _nextOutputStart = outputStart + (double)sampleCount / _sampleRate;
             _currentSpeed = 1f;
             _resamplingMode = ResamplingMode.Passthrough;
@@ -379,7 +377,6 @@ public sealed class SpeedNode : AudioNode
             {
                 _rs.Reset();
                 _srcReadPos = (long)Math.Round(sourceStartSeconds * _sampleRate);
-                _nextSourceStart = TimeSpan.FromSeconds((_srcReadPos + 0.5) / _sampleRate);
                 _initialized = true;
             }
 
@@ -399,11 +396,16 @@ public sealed class SpeedNode : AudioNode
             if (count <= 0)
                 return 0;
 
-            // Seeks initialize _nextSourceStart with a half-sample bias so a source that truncates
-            // TimeSpan back to an index lands on _srcReadPos, while contiguous reads retain the exact
-            // previous range end. A unity passthrough seeds it from the real upstream context end.
+            // Derive every timestamp from the exact sample cursor. Accumulating representable
+            // TimeSpan durations loses fractional ticks at rates such as 44.1 kHz and eventually
+            // repeats a source sample. Round up to the first representable tick inside this sample:
+            // a source that truncates TimeSpan lands on _srcReadPos, while the new range remains
+            // within one tick of the previous end so stateful upstream nodes see a continuation.
+            long sourceStartTicks = (long)Math.Ceiling(
+                _srcReadPos * (double)TimeSpan.TicksPerSecond / _sampleRate);
+            TimeSpan sourceStart = TimeSpan.FromTicks(sourceStartTicks);
             var range = new TimeRange(
-                _nextSourceStart,
+                sourceStart,
                 AudioProcessContext.GetDurationForSampleCount(count, _sampleRate));
             var subContext = new AudioProcessContext(
                 range,
@@ -427,8 +429,6 @@ public sealed class SpeedNode : AudioNode
             }
 
             _srcReadPos += samplesToRead;
-            _nextSourceStart = range.Start
-                + AudioProcessContext.GetDurationForSampleCount(samplesToRead, _sampleRate);
             return samplesToRead;
         }
 
