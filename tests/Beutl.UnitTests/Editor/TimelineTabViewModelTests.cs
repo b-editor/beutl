@@ -89,6 +89,39 @@ public class TimelineTabViewModelTests
         });
     }
 
+    // A new header's Height emits synchronously into CalculateLayerTop, which re-enters
+    // AddLayerHeaders — without the reentrancy guard this recursed once per layer.
+    [Test]
+    public void CalculateLayerTop_DeepLayer_GrowsHeadersWithoutRecursing()
+    {
+        using TimelineTabViewModel viewModel = CreateViewModel();
+
+        double top = viewModel.CalculateLayerTop(2000);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(viewModel.LayerHeaders, Has.Count.GreaterThanOrEqualTo(2001));
+            Assert.That(
+                top,
+                Is.EqualTo(viewModel.LayerHeaders.Take(2000).Sum(h => h.Height.Value)));
+        });
+    }
+
+    [Test]
+    public void ToLayerNumber_FarBelowLastHeader_GrowsHeadersWithoutRecursing()
+    {
+        using TimelineTabViewModel viewModel = CreateViewModel();
+        double deepOffset = viewModel.CalculateLayerTop(1) * 2000;
+
+        int layer = viewModel.ToLayerNumber(deepOffset);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(layer, Is.GreaterThanOrEqualTo(2000));
+            Assert.That(viewModel.LayerHeaders, Has.Count.GreaterThan(layer));
+        });
+    }
+
     private static TimelineTabViewModel CreateViewModel()
     {
         var scene = new Scene();

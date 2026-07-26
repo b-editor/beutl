@@ -10,8 +10,20 @@ public static class FrameNumberHelper
 
     static FrameNumberHelper()
     {
-        SecondWidth = (double)(Application.Current?.FindResource("SecondWidth") ?? 150);
-        LayerHeight = (double)(Application.Current?.FindResource("LayerHeight") ?? 25);
+        SecondWidth = ResolveDouble("SecondWidth", 150d);
+        LayerHeight = ResolveDouble("LayerHeight", 25d);
+    }
+
+    // FindResource boxes the resource as its declared type, so an int-typed resource (or a
+    // boxed int fallback) would make a direct (double) unbox throw.
+    private static double ResolveDouble(string key, double fallback)
+    {
+        return Application.Current?.FindResource(key) switch
+        {
+            double d => d,
+            int i => i,
+            _ => fallback,
+        };
     }
 
     public static int GetFrameRate(this Project? project)
