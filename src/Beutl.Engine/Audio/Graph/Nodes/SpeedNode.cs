@@ -29,6 +29,89 @@ public sealed class SpeedNode : AudioNode
     public override AudioBuffer Flush(AudioProcessContext context)
         => ProcessCore(context, draining: true);
 
+    /// <summary>
+    /// Converts upstream latency from source-domain samples to the output-domain samples that a caller
+    /// must reserve to drain it through this speed mapping. Static speed uses its current value;
+    /// keyframed speed uses each easing's conservative output range to bound every interval.
+    /// </summary>
+    public override int GetTotalLatencySamples(int sampleRate)
+    {
+        ArgumentOutOfRangeException.ThrowIfNegativeOrZero(sampleRate);
+
+        int upstreamLatency = 0;
+        foreach (AudioNode input in Inputs)
+        {
+            upstreamLatency = Math.Max(upstreamLatency, input.GetTotalLatencySamples(sampleRate));
+        }
+
+        if (upstreamLatency == 0)
+            return 0;
+        if (upstreamLatency == int.MaxValue)
+            return int.MaxValue;
+
+        if (!TryGetMinimumSpeedFactor(out double minimumSpeed)
+            || !double.IsFinite(minimumSpeed)
+            || minimumSpeed <= 0)
+        {
+            // A stopped or invalid speed has no finite output-domain duration in which every upstream
+            // sample is consumed. Saturate rather than under-report and silently truncate a held tail.
+            return int.MaxValue;
+        }
+
+        double scaled = Math.Ceiling(upstreamLatency / minimumSpeed);
+        return scaled >= int.MaxValue ? int.MaxValue : (int)scaled;
+    }
+
+    private bool TryGetMinimumSpeedFactor(out double minimumSpeed)
+    {
+        IAnimation<float>? speedAnimation = Speed?.Animation;
+        if (speedAnimation is null)
+        {
+            minimumSpeed = (Speed?.CurrentValue ?? 100f) / 100d;
+            return true;
+        }
+
+        if (speedAnimation is not KeyFrameAnimation<float> animation
+            || animation.KeyFrames.Count == 0)
+        {
+            minimumSpeed = default;
+            return false;
+        }
+
+        if (animation.KeyFrames[0] is not KeyFrame<float> first
+            || !float.IsFinite(first.Value))
+        {
+            minimumSpeed = default;
+            return false;
+        }
+
+        float minimumPercent = first.Value;
+        var previous = first;
+        for (int i = 1; i < animation.KeyFrames.Count; i++)
+        {
+            if (animation.KeyFrames[i] is not KeyFrame<float> next
+                || !float.IsFinite(next.Value)
+                || !next.Easing.TryGetOutputRange(out float easingMinimum, out float easingMaximum)
+                || !float.IsFinite(easingMinimum)
+                || !float.IsFinite(easingMaximum)
+                || easingMinimum > easingMaximum)
+            {
+                minimumSpeed = default;
+                return false;
+            }
+
+            float delta = next.Value - previous.Value;
+            float intervalMinimum = delta >= 0
+                ? previous.Value + easingMinimum * delta
+                : previous.Value + easingMaximum * delta;
+            minimumPercent = Math.Min(minimumPercent, Math.Min(next.Value, intervalMinimum));
+            previous = next;
+        }
+
+        minimumSpeed = minimumPercent / 100d;
+        return true;
+    }
+
     private AudioBuffer ProcessCore(AudioProcessContext context, bool draining)
     {
         ArgumentNullException.ThrowIfNull(context);

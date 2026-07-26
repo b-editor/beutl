@@ -66,6 +66,14 @@ public class SplineEasing : Easing
 
     private readonly KeySpline _internalKeySpline;
 
+    public override bool TryGetOutputRange(out float minimum, out float maximum)
+    {
+        // A cubic Bézier curve stays inside the convex hull of its control points.
+        minimum = Math.Min(0, Math.Min(Y1, Math.Min(Y2, 1)));
+        maximum = Math.Max(0, Math.Max(Y1, Math.Max(Y2, 1)));
+        return float.IsFinite(minimum) && float.IsFinite(maximum);
+    }
+
     public override float Ease(float progress)
     {
         return _internalKeySpline.GetSplineProgress(progress);

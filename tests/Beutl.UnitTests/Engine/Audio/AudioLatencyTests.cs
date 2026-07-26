@@ -1,4 +1,5 @@
 ﻿using Beutl.Animation;
+using Beutl.Animation.Easings;
 using Beutl.Audio;
 using Beutl.Audio.Effects;
 using Beutl.Audio.Graph;
@@ -7,6 +8,7 @@ using Beutl.Engine;
 using Beutl.Logging;
 using Beutl.Media;
 using Microsoft.Extensions.Logging;
+using Moq;
 
 using static Beutl.UnitTests.Engine.Audio.AudioTestBuffers;
 
@@ -271,6 +273,135 @@ public class AudioLatencyTests
         Assert.That(mixer.GetTotalLatencySamples(SampleRate), Is.EqualTo(slowest));
     }
 
+    [TestCase(50f)]
+    [TestCase(100f)]
+    [TestCase(200f)]
+    public void SpeedNode_GetTotalLatencySamples_ConvertsUpstreamLatencyToOutputDomain(float speedPercent)
+    {
+        using var limiter = CreateLimiterNode(5f);
+        using var speed = new SpeedNode { Speed = Property.CreateAnimatable(speedPercent) };
+        speed.AddInput(limiter);
+
+        int upstreamLatency = ExpectedLookaheadSamples(5f, SampleRate);
+        int expected = (int)Math.Ceiling(upstreamLatency / (speedPercent / 100d));
+
+        Assert.That(speed.GetTotalLatencySamples(SampleRate), Is.EqualTo(expected));
+    }
+
+    [Test]
+    public void SpeedNode_GetTotalLatencySamples_AnimatedSpeedUsesSlowestKeyFrame()
+    {
+        var speedProperty = Property.CreateAnimatable(200f);
+        speedProperty.Animation = new KeyFrameAnimation<float>
+        {
+            KeyFrames =
+            {
+                new KeyFrame<float> { KeyTime = TimeSpan.Zero, Value = 200f },
+                new KeyFrame<float> { KeyTime = TimeSpan.FromSeconds(1), Value = 50f },
+            },
+        };
+        using var limiter = CreateLimiterNode(5f);
+        using var speed = new SpeedNode { Speed = speedProperty };
+        speed.AddInput(limiter);
+
+        int upstreamLatency = ExpectedLookaheadSamples(5f, SampleRate);
+
+        Assert.That(speed.GetTotalLatencySamples(SampleRate), Is.EqualTo(upstreamLatency * 2));
+    }
+
+    [Test]
+    public void SpeedNode_GetTotalLatencySamples_BackEaseUsesItsOvershootBound()
+    {
+        var easing = new BackEaseIn();
+        var speedProperty = Property.CreateAnimatable(100f);
+        speedProperty.Animation = new KeyFrameAnimation<float>
+        {
+            KeyFrames =
+            {
+                new KeyFrame<float> { KeyTime = TimeSpan.Zero, Value = 100f },
+                new KeyFrame<float>
+                {
+                    KeyTime = TimeSpan.FromSeconds(1),
+                    Value = 200f,
+                    Easing = easing,
+                },
+            },
+        };
+        using var limiter = CreateLimiterNode(5f);
+        using var speed = new SpeedNode { Speed = speedProperty };
+        speed.AddInput(limiter);
+
+        float sampledMinimum = float.PositiveInfinity;
+        for (int i = 0; i <= 1000; i++)
+        {
+            float progress = i / 1000f;
+            sampledMinimum = Math.Min(sampledMinimum, 100f + easing.Ease(progress) * 100f);
+        }
+
+        int upstreamLatency = ExpectedLookaheadSamples(5f, SampleRate);
+        int requiredForObservedOvershoot = (int)Math.Ceiling(upstreamLatency / (sampledMinimum / 100d));
+
+        Assert.That(speed.GetTotalLatencySamples(SampleRate), Is.GreaterThanOrEqualTo(requiredForObservedOvershoot));
+    }
+
+    [Test]
+    public void SpeedNode_GetTotalLatencySamples_UnknownEasingSaturates()
+    {
+        var speedProperty = Property.CreateAnimatable(100f);
+        speedProperty.Animation = new KeyFrameAnimation<float>
+        {
+            KeyFrames =
+            {
+                new KeyFrame<float> { KeyTime = TimeSpan.Zero, Value = 100f },
+                new KeyFrame<float>
+                {
+                    KeyTime = TimeSpan.FromSeconds(1),
+                    Value = 200f,
+                    Easing = new UnknownRangeEasing(),
+                },
+            },
+        };
+        using var limiter = CreateLimiterNode(5f);
+        using var speed = new SpeedNode { Speed = speedProperty };
+        speed.AddInput(limiter);
+
+        Assert.That(speed.GetTotalLatencySamples(SampleRate), Is.EqualTo(int.MaxValue));
+    }
+
+    [Test]
+    public void SpeedNode_GetTotalLatencySamples_UnknownAnimationSaturates()
+    {
+        var speedProperty = Property.CreateAnimatable(100f);
+        speedProperty.Animation = new Mock<IAnimation<float>>().Object;
+        using var limiter = CreateLimiterNode(5f);
+        using var speed = new SpeedNode { Speed = speedProperty };
+        speed.AddInput(limiter);
+
+        Assert.That(speed.GetTotalLatencySamples(SampleRate), Is.EqualTo(int.MaxValue));
+    }
+
+    [Test]
+    public void SpeedNode_GetTotalLatencySamples_StoppedSpeedSaturates()
+    {
+        using var limiter = CreateLimiterNode(5f);
+        using var speed = new SpeedNode { Speed = Property.CreateAnimatable(0f) };
+        speed.AddInput(limiter);
+
+        Assert.That(speed.GetTotalLatencySamples(SampleRate), Is.EqualTo(int.MaxValue));
+    }
+
+    [Test]
+    public void GetTotalLatencySamples_DownstreamLatencyPreservesUpstreamSaturation()
+    {
+        using var upstreamLimiter = CreateLimiterNode(5f);
+        using var stopped = new SpeedNode { Speed = Property.CreateAnimatable(0f) };
+        using var downstreamLimiter = CreateLimiterNode(5f);
+        stopped.AddInput(upstreamLimiter);
+        downstreamLimiter.AddInput(stopped);
+
+        Assert.That(downstreamLimiter.GetTotalLatencySamples(SampleRate), Is.EqualTo(int.MaxValue));
+    }
+
     [TestCase(0)]
     [TestCase(-1)]
     public void GetLatencySamples_NonPositiveSampleRate_Throws(int sampleRate)
@@ -291,5 +422,12 @@ public class AudioLatencyTests
         // recursion before delegating still honors the contract.
         Assert.Throws<ArgumentOutOfRangeException>(() => gain.GetTotalLatencySamples(sampleRate));
         Assert.Throws<ArgumentOutOfRangeException>(() => limiterNode.GetTotalLatencySamples(sampleRate));
+        using var speed = new SpeedNode { Speed = Property.CreateAnimatable(50f) };
+        Assert.Throws<ArgumentOutOfRangeException>(() => speed.GetTotalLatencySamples(sampleRate));
+    }
+
+    private sealed class UnknownRangeEasing : Easing
+    {
+        public override float Ease(float progress) => progress;
     }
 }
