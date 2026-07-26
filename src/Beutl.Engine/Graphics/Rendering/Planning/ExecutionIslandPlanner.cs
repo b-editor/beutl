@@ -447,11 +447,19 @@ internal sealed class ExecutionIslandPlanner
         ExecutionIslandBoundaryReason reason;
         if (stages.ContainsKey(input))
         {
-            reason = consumerCounts[input] != 1
-                ? ExecutionIslandBoundaryReason.Branching
-                : !HasCompatibleMergeScale(input, first.Fragment)
-                    ? ExecutionIslandBoundaryReason.ScaleTransition
-                    : ExecutionIslandBoundaryReason.ScopeMismatch;
+            if (consumerCounts[input] != 1)
+            {
+                reason = ExecutionIslandBoundaryReason.Branching;
+            }
+            else if (!HasCompatibleMergeScale(input, first.Fragment))
+            {
+                reason = ExecutionIslandBoundaryReason.ScaleTransition;
+            }
+            else
+            {
+                throw new InvalidOperationException(
+                    "A mergeable Shader-stage input cannot begin a separate execution chain.");
+            }
         }
         else
         {

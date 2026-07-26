@@ -1035,35 +1035,34 @@ internal sealed class RenderRequestExecutor
                     fragment,
                     () =>
                     {
-                        var token = new RenderExecutionSessionToken();
                         var images = new List<SKImage>();
+                        var token = new RenderExecutionSessionToken();
                         try
                         {
-                            IReadOnlyList<RenderExecutionInput> executionInputs = CreateExecutionInputs(
-                                token,
-                                inputs,
-                                requiresReadback: false,
-                                readbackOwner: null,
-                                images);
-                            using (ObserveGpuPass(fragment))
-                            {
-                                replay(new EngineDirectRenderSession(
-                                    token,
-                                    destination,
-                                    executionInputs,
-                                    description.Resources));
-                            }
+                            token.RunAndComplete(
+                                () =>
+                                {
+                                    IReadOnlyList<RenderExecutionInput> executionInputs = CreateExecutionInputs(
+                                        token,
+                                        inputs,
+                                        requiresReadback: false,
+                                        readbackOwner: null,
+                                        images);
+                                    using (ObserveGpuPass(fragment))
+                                    {
+                                        replay(new EngineDirectRenderSession(
+                                            token,
+                                            destination,
+                                            executionInputs,
+                                            description.Resources));
+                                    }
+                                });
                         }
                         finally
                         {
-                            try
+                            foreach (SKImage image in images.AsEnumerable().Reverse())
                             {
-                                token.Complete();
-                            }
-                            finally
-                            {
-                                foreach (SKImage image in images.AsEnumerable().Reverse())
-                                    image.Dispose();
+                                image.Dispose();
                             }
                         }
                     });
@@ -1729,33 +1728,36 @@ internal sealed class RenderRequestExecutor
                     EffectiveScale.At(destination.Density)));
             }
 
-            var token = new RenderExecutionSessionToken();
             var images = new List<SKImage>();
+            var token = new RenderExecutionSessionToken();
             try
             {
-                IReadOnlyList<RenderExecutionInput> inputs = CreateExecutionInputs(
-                    token,
-                    values,
-                    requiresReadback: false,
-                    readbackOwner: null,
-                    images);
-                BrushExecutionResolver.UseBrush(
-                    token,
-                    payload.Resources,
-                    inputs,
-                    payload.Mask,
-                    mask =>
+                token.RunAndComplete(
+                    () =>
                     {
-                        using (ObserveGpuPass(fragment))
-                        using (destination.PushOpacityMask(mask, payload.BrushBounds, payload.Invert))
-                            Replay(fragment.Inputs[0], destination);
+                        IReadOnlyList<RenderExecutionInput> inputs = CreateExecutionInputs(
+                            token,
+                            values,
+                            requiresReadback: false,
+                            readbackOwner: null,
+                            images);
+                        BrushExecutionResolver.UseBrush(
+                            token,
+                            payload.Resources,
+                            inputs,
+                            payload.Mask,
+                            mask =>
+                            {
+                                using (ObserveGpuPass(fragment))
+                                using (destination.PushOpacityMask(mask, payload.BrushBounds, payload.Invert))
+                                    Replay(fragment.Inputs[0], destination);
+                            });
                     });
             }
             finally
             {
                 foreach (SKImage image in images)
                     image.Dispose();
-                token.Complete();
                 for (int index = 1; index < fragment.Inputs.Length; index++)
                     CompleteFragmentUse(fragment.Inputs[index]);
             }
@@ -1865,37 +1867,40 @@ internal sealed class RenderRequestExecutor
                                -value.RasterBounds.Y)))
                     {
                         var payload = (OpacityMaskRenderFragmentPayload)fragment.Payload!;
-                        var token = new RenderExecutionSessionToken();
                         var images = new List<SKImage>();
+                        var token = new RenderExecutionSessionToken();
                         try
                         {
-                            IReadOnlyList<RenderExecutionInput> inputs = CreateExecutionInputs(
-                                token,
-                                maskValues,
-                                requiresReadback: false,
-                                readbackOwner: null,
-                                images);
-                            BrushExecutionResolver.UseBrush(
-                                token,
-                                payload.Resources,
-                                inputs,
-                                payload.Mask,
-                                mask =>
+                            token.RunAndComplete(
+                                () =>
                                 {
-                                    using (canvas.PushOpacityMask(
-                                               mask,
-                                               payload.BrushBounds,
-                                               payload.Invert))
-                                    {
-                                        DrawValues(primaryValues, canvas);
-                                    }
+                                    IReadOnlyList<RenderExecutionInput> inputs = CreateExecutionInputs(
+                                        token,
+                                        maskValues,
+                                        requiresReadback: false,
+                                        readbackOwner: null,
+                                        images);
+                                    BrushExecutionResolver.UseBrush(
+                                        token,
+                                        payload.Resources,
+                                        inputs,
+                                        payload.Mask,
+                                        mask =>
+                                        {
+                                            using (canvas.PushOpacityMask(
+                                                       mask,
+                                                       payload.BrushBounds,
+                                                       payload.Invert))
+                                            {
+                                                DrawValues(primaryValues, canvas);
+                                            }
+                                        });
                                 });
                         }
                         finally
                         {
                             foreach (SKImage image in images)
                                 image.Dispose();
-                            token.Complete();
                         }
                     }
 
@@ -2342,64 +2347,68 @@ internal sealed class RenderRequestExecutor
             using ProgramCacheLease<CachedSkRuntimeEffect> lease = AcquireProgram(run, contextKey);
             using var uniforms = new SKRuntimeEffectUniforms(lease.Program.Effect);
             using var runtimeChildren = new SKRuntimeEffectChildren(lease.Program.Effect);
-            var bindingToken = new RenderExecutionSessionToken();
             var children = new List<SKShader>();
+            var bindingToken = new RenderExecutionSessionToken();
             try
             {
                 try
                 {
-                    SKShader inputShader = inputImage.ToShader(
-                        SKShaderTileMode.Decal,
-                        SKShaderTileMode.Decal,
-                        RasterShaderMapping.CreateLocalMatrix(
-                            outputScale,
-                            input.EffectiveScale.Value,
-                            outputDeviceBounds.ToRect(outputScale),
-                            input.RasterBounds));
-                    children.Add(inputShader);
-                    runtimeChildren[SkslSnippetMerger.SourceChildName] = inputShader;
-
-                    var stagesByMergedIndex = new Dictionary<int, CompiledShaderStage>();
-                    var contextsByMergedIndex = new Dictionary<int, ShaderExecutionContext>();
-                    for (int index = 0; index < run.Program.Stages.Count; index++)
-                    {
-                        int mergedIndex = run.Program.Stages[index].StageIndex;
-                        CompiledShaderStage stage = run.Stages[index];
-                        stagesByMergedIndex.Add(mergedIndex, stage);
-                        contextsByMergedIndex.Add(
-                            mergedIndex,
-                            CreateCompiledShaderStageContext(
-                                run,
-                                stage,
-                                index,
-                                bindingToken,
-                                input,
-                                outputBounds,
-                                requiredRegion,
-                                outputDeviceBounds,
-                                outputScale));
-                    }
-
-                    foreach (SkslMergedBindingLayout layout in run.Program.Bindings)
-                    {
-                        CompiledShaderStage stage = stagesByMergedIndex[layout.StageIndex];
-                        ShaderExecutionContext context = contextsByMergedIndex[layout.StageIndex];
-                        ShaderDescription description = stage.Description;
-                        if (layout.Kind == SkslBindingKind.Uniform)
+                    bindingToken.RunAndComplete(
+                        () =>
                         {
-                            ShaderUniformBinding binding = description.Uniforms[layout.BindingIndex];
-                            SkslUniformDeclaration declaration = description.Source.Uniforms[binding.Name];
-                            ShaderUniformValue value = binding.Bind(declaration, context);
-                            SetUniform(uniforms, layout.MergedName, declaration, value);
-                        }
-                        else
-                        {
-                            ShaderResourceBinding binding = description.Resources[layout.BindingIndex];
-                            SKShader child = binding.Bind(context);
-                            children.Add(child);
-                            runtimeChildren[layout.MergedName] = child;
-                        }
-                    }
+                            SKShader inputShader = inputImage.ToShader(
+                                SKShaderTileMode.Decal,
+                                SKShaderTileMode.Decal,
+                                RasterShaderMapping.CreateLocalMatrix(
+                                    outputScale,
+                                    input.EffectiveScale.Value,
+                                    outputDeviceBounds.ToRect(outputScale),
+                                    input.RasterBounds));
+                            children.Add(inputShader);
+                            runtimeChildren[SkslSnippetMerger.SourceChildName] = inputShader;
+
+                            var stagesByMergedIndex = new Dictionary<int, CompiledShaderStage>();
+                            var contextsByMergedIndex = new Dictionary<int, ShaderExecutionContext>();
+                            for (int index = 0; index < run.Program.Stages.Count; index++)
+                            {
+                                int mergedIndex = run.Program.Stages[index].StageIndex;
+                                CompiledShaderStage stage = run.Stages[index];
+                                stagesByMergedIndex.Add(mergedIndex, stage);
+                                contextsByMergedIndex.Add(
+                                    mergedIndex,
+                                    CreateCompiledShaderStageContext(
+                                        run,
+                                        stage,
+                                        index,
+                                        bindingToken,
+                                        input,
+                                        outputBounds,
+                                        requiredRegion,
+                                        outputDeviceBounds,
+                                        outputScale));
+                            }
+
+                            foreach (SkslMergedBindingLayout layout in run.Program.Bindings)
+                            {
+                                CompiledShaderStage stage = stagesByMergedIndex[layout.StageIndex];
+                                ShaderExecutionContext context = contextsByMergedIndex[layout.StageIndex];
+                                ShaderDescription description = stage.Description;
+                                if (layout.Kind == SkslBindingKind.Uniform)
+                                {
+                                    ShaderUniformBinding binding = description.Uniforms[layout.BindingIndex];
+                                    SkslUniformDeclaration declaration = description.Source.Uniforms[binding.Name];
+                                    ShaderUniformValue value = binding.Bind(declaration, context);
+                                    SetUniform(uniforms, layout.MergedName, declaration, value);
+                                }
+                                else
+                                {
+                                    ShaderResourceBinding binding = description.Resources[layout.BindingIndex];
+                                    SKShader child = binding.Bind(context);
+                                    children.Add(child);
+                                    runtimeChildren[layout.MergedName] = child;
+                                }
+                            }
+                        });
                 }
                 catch
                 {
@@ -2407,10 +2416,6 @@ internal sealed class RenderRequestExecutor
                         RenderPipelineFailurePhase.Binding,
                         run.Output.Id?.Value);
                     throw;
-                }
-                finally
-                {
-                    bindingToken.Complete();
                 }
 
                 using SKShader shader = lease.Program.Effect.ToShader(uniforms, runtimeChildren);
@@ -2587,58 +2592,64 @@ internal sealed class RenderRequestExecutor
                 AcquireStandaloneProgram(subjectId, output.Target, programSource);
             using var uniforms = new SKRuntimeEffectUniforms(lease.Program.Effect);
             using var runtimeChildren = new SKRuntimeEffectChildren(lease.Program.Effect);
-            var bindingToken = new RenderExecutionSessionToken();
-            var context = new ShaderExecutionContext(
-                bindingToken,
-                input.Bounds,
-                outputBounds,
-                requiredRegion,
-                output.DeviceBounds,
-                input.EffectiveScale,
-                _options.OutputScale,
-                output.EffectiveScale.Value,
-                _options.MaxWorkingScale,
-                _options.Intent,
-                _options.Purpose);
             var children = new List<SKShader>();
+            var bindingToken = new RenderExecutionSessionToken();
             try
             {
                 try
                 {
-                    foreach (ShaderUniformBinding binding in description.Uniforms)
-                    {
-                        if (!description.Source.Uniforms.TryGetValue(binding.Name, out SkslUniformDeclaration declaration))
-                            throw new InvalidOperationException($"Shader uniform '{binding.Name}' was not declared.");
-                        ShaderUniformValue value = binding.Bind(declaration, context);
-                        SetUniform(uniforms, binding.Name, declaration, value);
-                    }
+                    bindingToken.RunAndComplete(
+                        () =>
+                        {
+                            var context = new ShaderExecutionContext(
+                                bindingToken,
+                                input.Bounds,
+                                outputBounds,
+                                requiredRegion,
+                                output.DeviceBounds,
+                                input.EffectiveScale,
+                                _options.OutputScale,
+                                output.EffectiveScale.Value,
+                                _options.MaxWorkingScale,
+                                _options.Intent,
+                                _options.Purpose);
+                            foreach (ShaderUniformBinding binding in description.Uniforms)
+                            {
+                                if (!description.Source.Uniforms.TryGetValue(
+                                        binding.Name,
+                                        out SkslUniformDeclaration declaration))
+                                {
+                                    throw new InvalidOperationException(
+                                        $"Shader uniform '{binding.Name}' was not declared.");
+                                }
 
-                    SKShader inputShader = inputImage.ToShader(
-                        tileMode,
-                        tileMode,
-                        RasterShaderMapping.CreateLocalMatrix(
-                            output.EffectiveScale.Value,
-                            input.EffectiveScale.Value,
-                            output.RasterBounds,
-                            input.RasterBounds));
-                    children.Add(inputShader);
-                    runtimeChildren[childName] = inputShader;
+                                ShaderUniformValue value = binding.Bind(declaration, context);
+                                SetUniform(uniforms, binding.Name, declaration, value);
+                            }
 
-                    foreach (ShaderResourceBinding binding in description.Resources)
-                    {
-                        SKShader child = binding.Bind(context);
-                        children.Add(child);
-                        runtimeChildren[binding.Name] = child;
-                    }
+                            SKShader inputShader = inputImage.ToShader(
+                                tileMode,
+                                tileMode,
+                                RasterShaderMapping.CreateLocalMatrix(
+                                    output.EffectiveScale.Value,
+                                    input.EffectiveScale.Value,
+                                    output.RasterBounds,
+                                    input.RasterBounds));
+                            children.Add(inputShader);
+                            runtimeChildren[childName] = inputShader;
+
+                            foreach (ShaderResourceBinding binding in description.Resources)
+                            {
+                                SKShader child = binding.Bind(context);
+                                children.Add(child);
+                                runtimeChildren[binding.Name] = child;
+                            }
+                        });
                 }
                 catch
                 {
                     RecordFailure(RenderPipelineFailurePhase.Binding, subjectId);
                     throw;
-                }
-                finally
-                {
-                    bindingToken.Complete();
                 }
 
                 using SKShader shader = lease.Program.Effect.ToShader(uniforms, runtimeChildren);
@@ -2756,55 +2767,52 @@ internal sealed class RenderRequestExecutor
             Rect outputBounds,
             Rect requiredRegion)
         {
-            var token = new RenderExecutionSessionToken();
             using SKImage inputImage = input.Target.Value.Snapshot();
-            try
-            {
-                Func<Bitmap>? createSnapshot = description.RequiresReadback
-                    ? () => SnapshotInputForReadback(fragment, input)
-                    : null;
-                var executionInput = new RenderExecutionInput(
-                    token,
-                    input.Bounds,
-                    input.EffectiveScale,
-                    input.DeviceBounds,
-                    inputImage,
-                    createSnapshot,
-                    description.RequiresReadback);
-                var callbackCanvas = new RenderCallbackCanvas(
-                    token,
-                    output.EffectiveScale.Value,
-                    requiredRegion,
-                    output.DeviceBounds,
-                    () => ImmediateCanvas.CreateExecutorManaged(
-                        output.Target,
+            var token = new RenderExecutionSessionToken();
+            return token.RunAndComplete<Rect?>(
+                () =>
+                {
+                    Func<Bitmap>? createSnapshot = description.RequiresReadback
+                        ? () => SnapshotInputForReadback(fragment, input)
+                        : null;
+                    var executionInput = new RenderExecutionInput(
+                        token,
+                        input.Bounds,
+                        input.EffectiveScale,
+                        input.DeviceBounds,
+                        inputImage,
+                        createSnapshot,
+                        description.RequiresReadback);
+                    var callbackCanvas = new RenderCallbackCanvas(
+                        token,
+                        output.EffectiveScale.Value,
+                        requiredRegion,
+                        output.DeviceBounds,
+                        () => ImmediateCanvas.CreateExecutorManaged(
+                            output.Target,
+                            output.EffectiveScale.Value,
+                            _options.MaxWorkingScale,
+                            output.RasterBounds.Size),
+                        CallbackCanvasCapability.Draw);
+                    var session = new GeometrySession(
+                        token,
+                        executionInput,
+                        outputBounds,
+                        requiredRegion,
+                        output.DeviceBounds,
+                        _options.OutputScale,
                         output.EffectiveScale.Value,
                         _options.MaxWorkingScale,
-                        output.RasterBounds.Size),
-                    CallbackCanvasCapability.Draw);
-                var session = new GeometrySession(
-                    token,
-                    executionInput,
-                    outputBounds,
-                    requiredRegion,
-                    output.DeviceBounds,
-                    _options.OutputScale,
-                    output.EffectiveScale.Value,
-                    _options.MaxWorkingScale,
-                    _options.Intent,
-                    _options.Purpose,
-                    callbackCanvas,
-                    description.Resources);
-                description.Render(session);
-                if (session.IsOutputDiscarded)
-                    return null;
+                        _options.Intent,
+                        _options.Purpose,
+                        callbackCanvas,
+                        description.Resources);
+                    description.Render(session);
+                    if (session.IsOutputDiscarded)
+                        return null;
 
-                return session.OutputBounds.Intersect(requiredRegion);
-            }
-            finally
-            {
-                token.Complete();
-            }
+                    return session.OutputBounds.Intersect(requiredRegion);
+                });
         }
 
         private CompatibilityRenderValue CropValue(
@@ -2854,119 +2862,126 @@ internal sealed class RenderRequestExecutor
             if (requiredRegion.Width == 0 || requiredRegion.Height == 0)
                 return [];
 
-            var token = new RenderExecutionSessionToken();
             var inputImages = new List<SKImage>();
             var executionInputs = new List<RenderExecutionInput>(inputs.Count);
             var outputLeases = new Dictionary<OpaqueRenderOutput, CompatibilityRenderValue>(
                 ReferenceEqualityComparer.Instance);
             var published = new List<CompatibilityRenderValue>();
             bool succeeded = false;
+            bool callbackWasInvoked = false;
+            var token = new RenderExecutionSessionToken();
             try
             {
-                foreach (CompatibilityRenderValue input in inputs)
-                {
-                    SKImage image = input.Target.Value.Snapshot();
-                    inputImages.Add(image);
-                    Func<Bitmap>? createSnapshot = description.RequiresReadback
-                        ? () => SnapshotInputForReadback(fragment, input)
-                        : null;
-                    executionInputs.Add(new RenderExecutionInput(
-                        token,
-                        input.Bounds,
-                        input.EffectiveScale,
-                        input.DeviceBounds,
-                        image,
-                        createSnapshot,
-                        description.RequiresReadback));
-                }
-
-                float density = declaredScale.IsUnbounded
-                    ? RenderScaleUtilities.ResolveWorkingScale(
-                        inputs.Select(static value => value.EffectiveScale).ToArray(),
-                        _options.OutputScale,
-                        _options.MaxWorkingScale)
-                    : declaredScale.Value;
-                density = RenderScaleUtilities.ClampWorkingScaleToBufferBudget(
-                    outputBounds,
-                    density);
-                bool preserveRasterApron = description.DirectReplay is not null
-                                           && fragment.Kind == RenderFragmentKind.OpaqueSource;
-                density = RenderMaterializationDensityPolicy.Clamp(
-                    fragment,
-                    density);
-                EffectiveScale concreteScale = EffectiveScale.At(density);
-                OpaqueRenderSession? session = null;
-                session = new OpaqueRenderSession(
-                    token,
-                    executionInputs,
-                    outputBounds,
-                    requiredRegion,
-                    PixelRect.FromRect(requiredRegion, density),
-                    _options.OutputScale,
-                    density,
-                    _options.MaxWorkingScale,
-                    _options.Intent,
-                    _options.Purpose,
-                    description.Resources,
-                    (_, logicalBounds) =>
+                IReadOnlyList<CompatibilityRenderValue> result = token.RunAndComplete(
+                    () =>
                     {
-                        PixelRect? physicalDeviceBounds = preserveRasterApron
-                            ? RenderScaleUtilities.AddRasterApron(
-                                PixelRect.FromRect(logicalBounds, density))
-                            : null;
-                        CompatibilityRenderValue value = CreateOwnedValue(
-                            logicalBounds,
-                            concreteScale,
-                            outputBounds,
-                            physicalDeviceBounds);
-                        _diagnostics?.RecordGpuPassExecuted(fragment.Id?.Value ?? 0);
-                        var canvas = new RenderCallbackCanvas(
-                            token,
-                            density,
-                            logicalBounds,
-                            value.DeviceBounds,
-                            () => ImmediateCanvas.CreateExecutorManaged(
-                                value.Target,
-                                density,
-                                _options.MaxWorkingScale,
-                                value.RasterBounds.Size),
-                            CallbackCanvasCapability.Draw);
-                        var output = new OpaqueRenderOutput(
-                            token,
-                            session!,
-                            logicalBounds,
-                            concreteScale,
-                            canvas,
-                            _ => ReleaseUnpublished(value));
-                        outputLeases.Add(output, value);
-                        return output;
-                    },
-                    output =>
-                    {
-                        CompatibilityRenderValue value = outputLeases[output];
-                        if (value.Bounds != output.Bounds)
+                        foreach (CompatibilityRenderValue input in inputs)
                         {
-                            CompatibilityRenderValue cropped = CropValue(value, output.Bounds);
-                            ReleaseUnpublished(value);
-                            outputLeases[output] = cropped;
-                            value = cropped;
+                            SKImage image = input.Target.Value.Snapshot();
+                            inputImages.Add(image);
+                            Func<Bitmap>? createSnapshot = description.RequiresReadback
+                                ? () => SnapshotInputForReadback(fragment, input)
+                                : null;
+                            executionInputs.Add(new RenderExecutionInput(
+                                token,
+                                input.Bounds,
+                                input.EffectiveScale,
+                                input.DeviceBounds,
+                                image,
+                                createSnapshot,
+                                description.RequiresReadback));
                         }
-                        published.Add(value);
-                    });
 
-                callbackInvoked = true;
-                description.Execute(session);
-                ValidateOutputCount(cardinality, published.Count);
-                if (description.BackendBoundary != RenderBackendBoundary.None && published.Count != 0)
-                {
-                    RecordSynchronization(fragment);
-                    _diagnostics?.RecordBackendTransitionExecuted(fragment.Id?.Value ?? 0);
-                }
+                        float density = declaredScale.IsUnbounded
+                            ? RenderScaleUtilities.ResolveWorkingScale(
+                                inputs.Select(static value => value.EffectiveScale).ToArray(),
+                                _options.OutputScale,
+                                _options.MaxWorkingScale)
+                            : declaredScale.Value;
+                        density = RenderScaleUtilities.ClampWorkingScaleToBufferBudget(
+                            outputBounds,
+                            density);
+                        bool preserveRasterApron = description.DirectReplay is not null
+                                                   && fragment.Kind == RenderFragmentKind.OpaqueSource;
+                        density = RenderMaterializationDensityPolicy.Clamp(
+                            fragment,
+                            density);
+                        EffectiveScale concreteScale = EffectiveScale.At(density);
+                        OpaqueRenderSession? session = null;
+                        session = new OpaqueRenderSession(
+                            token,
+                            executionInputs,
+                            outputBounds,
+                            requiredRegion,
+                            PixelRect.FromRect(requiredRegion, density),
+                            _options.OutputScale,
+                            density,
+                            _options.MaxWorkingScale,
+                            _options.Intent,
+                            _options.Purpose,
+                            description.Resources,
+                            (_, logicalBounds) =>
+                            {
+                                PixelRect? physicalDeviceBounds = preserveRasterApron
+                                    ? RenderScaleUtilities.AddRasterApron(
+                                        PixelRect.FromRect(logicalBounds, density))
+                                    : null;
+                                CompatibilityRenderValue value = CreateOwnedValue(
+                                    logicalBounds,
+                                    concreteScale,
+                                    outputBounds,
+                                    physicalDeviceBounds);
+                                _diagnostics?.RecordGpuPassExecuted(fragment.Id?.Value ?? 0);
+                                var canvas = new RenderCallbackCanvas(
+                                    token,
+                                    density,
+                                    logicalBounds,
+                                    value.DeviceBounds,
+                                    () => ImmediateCanvas.CreateExecutorManaged(
+                                        value.Target,
+                                        density,
+                                        _options.MaxWorkingScale,
+                                        value.RasterBounds.Size),
+                                    CallbackCanvasCapability.Draw);
+                                var output = new OpaqueRenderOutput(
+                                    token,
+                                    session!,
+                                    logicalBounds,
+                                    concreteScale,
+                                    canvas,
+                                    _ => ReleaseUnpublished(value));
+                                outputLeases.Add(output, value);
+                                return output;
+                            },
+                            output =>
+                            {
+                                CompatibilityRenderValue value = outputLeases[output];
+                                if (value.Bounds != output.Bounds)
+                                {
+                                    CompatibilityRenderValue cropped = CropValue(value, output.Bounds);
+                                    ReleaseUnpublished(value);
+                                    outputLeases[output] = cropped;
+                                    value = cropped;
+                                }
+                                published.Add(value);
+                            });
+
+                        callbackWasInvoked = true;
+                        description.Execute(session);
+                        ValidateOutputCount(cardinality, published.Count);
+                        if (description.BackendBoundary != RenderBackendBoundary.None && published.Count != 0)
+                        {
+                            RecordSynchronization(fragment);
+                            _diagnostics?.RecordBackendTransitionExecuted(fragment.Id?.Value ?? 0);
+                        }
+                        return published.ToArray();
+                    });
                 succeeded = true;
-                return published.ToArray();
+                return result;
             }
             finally
             {
+                callbackInvoked = callbackWasInvoked;
                 foreach (SKImage image in inputImages)
                     image.Dispose();
 
@@ -2975,8 +2990,6 @@ internal sealed class RenderRequestExecutor
                     if (!succeeded || !published.Contains(value, ReferenceEqualityComparer.Instance))
                         ReleaseUnpublished(value);
                 }
-
-                token.Complete();
             }
         }
 
@@ -3010,73 +3023,76 @@ internal sealed class RenderRequestExecutor
             foreach (RenderFragmentReference input in fragment.Inputs)
                 values.AddRange(Materialize(input, destination));
 
-            var token = new RenderExecutionSessionToken();
             var images = new List<SKImage>(values.Count);
             Bitmap? targetSnapshot = null;
+            var token = new RenderExecutionSessionToken();
             try
             {
-                IReadOnlyList<RenderExecutionInput> inputs = CreateExecutionInputs(
-                    token,
-                    values,
-                    description.RequiresInputReadback,
-                    fragment,
-                    images);
-                Rect affectedBounds = ResolveTargetRegion(
-                    description.AffectedRegion,
-                    fragment,
-                    destination);
-                Rect requiredRegion = ResolveTargetAccessRequirement(fragment, affectedBounds);
-                if (description.Access == TargetAccess.Readback
-                    && (requiredRegion.Width == 0 || requiredRegion.Height == 0))
-                {
-                    // A readback-only root has no pixel-writing output requirement, but its
-                    // authored callback still consumes the immutable preceding target token.
-                    requiredRegion = affectedBounds;
-                }
-                CallbackCanvasCapability capability = description.AffectedRegion.Kind switch
-                {
-                    TargetRegionKind.Empty => CallbackCanvasCapability.TargetCommandEmpty,
-                    TargetRegionKind.Region => CallbackCanvasCapability.TargetCommandRegion,
-                    TargetRegionKind.Full => CallbackCanvasCapability.TargetCommandFull,
-                    _ => throw new InvalidOperationException("The target-command region is uninitialized."),
-                };
-                var callbackCanvas = new RenderCallbackCanvas(
-                    token,
-                    destination.Density,
-                    requiredRegion,
-                    destination.CreateExecutionView,
-                    capability,
-                    mapLogicalOrigin: false);
-                var session = new TargetCommandSession(
-                    token,
-                    inputs,
-                    affectedBounds,
-                    requiredRegion,
-                    _options.Intent,
-                    _options.Purpose,
-                    callbackCanvas,
-                    description.Resources,
-                    description.Access == TargetAccess.Readback,
-                    description.Access == TargetAccess.Readback
-                        ? () => TakeTargetSnapshot(ref targetSnapshot)
-                        : null);
-                if (description.Access == TargetAccess.Readback)
-                {
-                    RecordSynchronization(fragment);
-                    targetSnapshot = SnapshotTarget(destination, requiredRegion);
-                }
-                using (ObserveGpuPass(fragment))
-                {
-                    description.Execute(session);
-                    session.ValidateCompletion();
-                }
+                token.RunAndComplete(
+                    () =>
+                    {
+                        IReadOnlyList<RenderExecutionInput> inputs = CreateExecutionInputs(
+                            token,
+                            values,
+                            description.RequiresInputReadback,
+                            fragment,
+                            images);
+                        Rect affectedBounds = ResolveTargetRegion(
+                            description.AffectedRegion,
+                            fragment,
+                            destination);
+                        Rect requiredRegion = ResolveTargetAccessRequirement(fragment, affectedBounds);
+                        if (description.Access == TargetAccess.Readback
+                            && (requiredRegion.Width == 0 || requiredRegion.Height == 0))
+                        {
+                            // A readback-only root has no pixel-writing output requirement, but its
+                            // authored callback still consumes the immutable preceding target token.
+                            requiredRegion = affectedBounds;
+                        }
+                        CallbackCanvasCapability capability = description.AffectedRegion.Kind switch
+                        {
+                            TargetRegionKind.Empty => CallbackCanvasCapability.TargetCommandEmpty,
+                            TargetRegionKind.Region => CallbackCanvasCapability.TargetCommandRegion,
+                            TargetRegionKind.Full => CallbackCanvasCapability.TargetCommandFull,
+                            _ => throw new InvalidOperationException("The target-command region is uninitialized."),
+                        };
+                        var callbackCanvas = new RenderCallbackCanvas(
+                            token,
+                            destination.Density,
+                            requiredRegion,
+                            destination.CreateExecutionView,
+                            capability,
+                            mapLogicalOrigin: false);
+                        var session = new TargetCommandSession(
+                            token,
+                            inputs,
+                            affectedBounds,
+                            requiredRegion,
+                            _options.Intent,
+                            _options.Purpose,
+                            callbackCanvas,
+                            description.Resources,
+                            description.Access == TargetAccess.Readback,
+                            description.Access == TargetAccess.Readback
+                                ? () => TakeTargetSnapshot(ref targetSnapshot)
+                                : null);
+                        if (description.Access == TargetAccess.Readback)
+                        {
+                            RecordSynchronization(fragment);
+                            targetSnapshot = SnapshotTarget(destination, requiredRegion);
+                        }
+                        using (ObserveGpuPass(fragment))
+                        {
+                            description.Execute(session);
+                            session.ValidateCompletion();
+                        }
+                    });
             }
             finally
             {
                 targetSnapshot?.Dispose();
                 foreach (SKImage image in images)
                     image.Dispose();
-                token.Complete();
                 foreach (RenderFragmentReference input in fragment.Inputs)
                     CompleteFragmentUse(input);
             }
@@ -3088,27 +3104,24 @@ internal sealed class RenderRequestExecutor
         {
             RawTargetCommandDescription description =
                 ((RawTargetCommandRenderFragmentPayload)fragment.Payload!).Description;
-            var token = new RenderExecutionSessionToken();
             using ImmediateCanvas view = destination.CreateExecutionView();
-            try
-            {
-                token.UseRawCanvas(
-                    view,
-                    canvas =>
-                    {
-                        _diagnostics?.RecordOpaqueExecution(fragment.Id?.Value ?? 0);
-                        description.Execute(new RawTargetCommandSession(
-                            token,
-                            canvas,
-                            _options.Intent,
-                            _options.Purpose,
-                            description.Resources));
-                    });
-            }
-            finally
-            {
-                token.Complete();
-            }
+            var token = new RenderExecutionSessionToken();
+            token.RunAndComplete(
+                () =>
+                {
+                    token.UseRawCanvas(
+                        view,
+                        canvas =>
+                        {
+                            _diagnostics?.RecordOpaqueExecution(fragment.Id?.Value ?? 0);
+                            description.Execute(new RawTargetCommandSession(
+                                token,
+                                canvas,
+                                _options.Intent,
+                                _options.Purpose,
+                                description.Resources));
+                        });
+                });
         }
 
         private void ExecuteTargetScope(
@@ -3119,38 +3132,35 @@ internal sealed class RenderRequestExecutor
                 ((TargetScopeRenderFragmentPayload)fragment.Payload!).Description;
             RenderFragmentReference input = fragment.Inputs.Single();
             var token = new RenderExecutionSessionToken();
-            try
-            {
-                Rect? parentDomain = fragment.Id is { } id
-                    && _resolvedParentScopeDomains.TryGetValue(id, out Rect resolvedParent)
-                        ? resolvedParent
-                        : _options.TargetDomain;
-                Rect callbackBounds = TargetWriteMetadataResolver.Resolve(fragment, parentDomain)
-                    ?? fragment.Bounds;
-                Rect requiredRegion = ResolveFragmentRequirement(fragment, callbackBounds);
-                var callbackCanvas = new RenderCallbackCanvas(
-                    token,
-                    destination.Density,
-                    requiredRegion,
-                    destination.CreateExecutionView,
-                    CallbackCanvasCapability.TargetScope,
-                    mapLogicalOrigin: false);
-                var session = new TargetScopeSession(
-                    token,
-                    fragment.Bounds,
-                    requiredRegion,
-                    _options.Intent,
-                    _options.Purpose,
-                    callbackCanvas,
-                    description.Resources,
-                    canvas => Replay(input, canvas));
-                description.Execute(session);
-                session.ValidateCompletion();
-            }
-            finally
-            {
-                token.Complete();
-            }
+            token.RunAndComplete(
+                () =>
+                {
+                    Rect? parentDomain = fragment.Id is { } id
+                        && _resolvedParentScopeDomains.TryGetValue(id, out Rect resolvedParent)
+                            ? resolvedParent
+                            : _options.TargetDomain;
+                    Rect callbackBounds = TargetWriteMetadataResolver.Resolve(fragment, parentDomain)
+                        ?? fragment.Bounds;
+                    Rect requiredRegion = ResolveFragmentRequirement(fragment, callbackBounds);
+                    var callbackCanvas = new RenderCallbackCanvas(
+                        token,
+                        destination.Density,
+                        requiredRegion,
+                        destination.CreateExecutionView,
+                        CallbackCanvasCapability.TargetScope,
+                        mapLogicalOrigin: false);
+                    var session = new TargetScopeSession(
+                        token,
+                        fragment.Bounds,
+                        requiredRegion,
+                        _options.Intent,
+                        _options.Purpose,
+                        callbackCanvas,
+                        description.Resources,
+                        canvas => Replay(input, canvas));
+                    description.Execute(session);
+                    session.ValidateCompletion();
+                });
         }
 
         private IReadOnlyList<CompatibilityRenderValue> MaterializeValueReplayMap(
@@ -3222,31 +3232,28 @@ internal sealed class RenderRequestExecutor
             RawTargetScopeDescription description =
                 ((RawTargetScopeRenderFragmentPayload)fragment.Payload!).Description;
             RenderFragmentReference input = fragment.Inputs.Single();
-            var token = new RenderExecutionSessionToken();
             using ImmediateCanvas view = destination.CreateExecutionView();
-            try
-            {
-                token.UseRawCanvas(
-                    view,
-                    canvas =>
-                    {
-                        _diagnostics?.RecordOpaqueExecution(fragment.Id?.Value ?? 0);
-                        var session = new RawTargetScopeSession(
-                            token,
-                            canvas,
-                            fragment.Bounds,
-                            _options.Intent,
-                            _options.Purpose,
-                            description.Resources,
-                            replayCanvas => Replay(input, replayCanvas));
-                        description.Execute(session);
-                        session.ValidateCompletion();
-                    });
-            }
-            finally
-            {
-                token.Complete();
-            }
+            var token = new RenderExecutionSessionToken();
+            token.RunAndComplete(
+                () =>
+                {
+                    token.UseRawCanvas(
+                        view,
+                        canvas =>
+                        {
+                            _diagnostics?.RecordOpaqueExecution(fragment.Id?.Value ?? 0);
+                            var session = new RawTargetScopeSession(
+                                token,
+                                canvas,
+                                fragment.Bounds,
+                                _options.Intent,
+                                _options.Purpose,
+                                description.Resources,
+                                replayCanvas => Replay(input, replayCanvas));
+                            description.Execute(session);
+                            session.ValidateCompletion();
+                        });
+                });
         }
 
         private IReadOnlyList<RenderExecutionInput> CreateExecutionInputs(

@@ -1,4 +1,6 @@
-﻿using Beutl.Media;
+﻿using System.Runtime.ExceptionServices;
+
+using Beutl.Media;
 using SkiaSharp;
 
 namespace Beutl.Graphics.Rendering;
@@ -270,6 +272,46 @@ internal sealed class RenderExecutionSessionToken
         Interlocked.Exchange(ref _callbackGuard, null)?.Dispose();
         if (hasActiveCanvas)
             throw new InvalidOperationException("An execution canvas is still active.");
+    }
+
+    public void RunAndComplete(Action action)
+    {
+        ArgumentNullException.ThrowIfNull(action);
+        RunAndComplete(
+            () =>
+            {
+                action();
+                return true;
+            });
+    }
+
+    public T RunAndComplete<T>(Func<T> action)
+    {
+        ArgumentNullException.ThrowIfNull(action);
+        ExceptionDispatchInfo? primaryFailure = null;
+        T result = default!;
+        try
+        {
+            result = action();
+        }
+        catch (Exception ex)
+        {
+            primaryFailure = ExceptionDispatchInfo.Capture(ex);
+        }
+        finally
+        {
+            try
+            {
+                Complete();
+            }
+            catch when (primaryFailure is not null)
+            {
+                // The callback failure remains primary; session cleanup is best-effort on this path.
+            }
+        }
+
+        primaryFailure?.Throw();
+        return result;
     }
 
     public void EnterCanvas(ImmediateCanvas canvas, RenderCallbackCanvas? facade)

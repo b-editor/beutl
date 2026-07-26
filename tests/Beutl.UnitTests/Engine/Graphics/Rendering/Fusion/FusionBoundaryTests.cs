@@ -311,6 +311,40 @@ public sealed class FusionBoundaryTests
     }
 
     [Test]
+    public void ScopeMetadataMismatch_RemainsAnExplicitCompatibilityBoundary()
+    {
+        using CompiledRenderRequest compiled = Compile((requestId, cache) =>
+        {
+            RenderFragmentReference source = Fragment(RenderFragmentKind.MaterializedInput, payload: null);
+            RenderFragmentReference first = CurrentPixel(source, "return color * 0.75;");
+            ShaderDescription description = ShaderDescription.CurrentPixel(
+                "half4 apply(half4 color) { return color.bgra; }");
+            var mismatched = new RenderFragmentReference(
+                RenderFragmentKind.Shader,
+                s_bounds,
+                EffectiveScale.Unbounded,
+                RenderValueCardinality.Single,
+                contributesValuesToTarget: true,
+                canBeUsedAsValueInput: true,
+                hasTargetEffects: true,
+                hasOpaqueExternalWork: false,
+                [first],
+                new ShaderRenderFragmentPayload(description, description.CreateRuntimeIdentity()),
+                static _ => true);
+            return BuildGraph(requestId, [source, first, mismatched], [mismatched], cache);
+        });
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(compiled.ExecutionPlan.ShaderRuns, Has.Exactly(1).Items);
+            Assert.That(compiled.ExecutionPlan.ShaderRuns.Single().Output,
+                Is.SameAs(compiled.Graph.Fragments[1].Payload));
+            Assert.That(compiled.ExecutionPlan.Boundaries, Has.Some.Matches<ExecutionIslandBoundary>(
+                static boundary => boundary.Reason == ExecutionIslandBoundaryReason.ScopeMismatch));
+        });
+    }
+
+    [Test]
     public void WholeSourceGeometryAndTargetCaptureRemainExplicitBarriers()
     {
         AssertBarrier(

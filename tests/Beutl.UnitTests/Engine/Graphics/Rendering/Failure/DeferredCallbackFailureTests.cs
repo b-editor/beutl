@@ -109,6 +109,43 @@ public sealed class DeferredCallbackFailureTests
         Assert.That(() => _ = canvas.LogicalBounds, Throws.TypeOf<InvalidOperationException>());
     }
 
+    [Test]
+    public void SessionCompletion_PreservesBodyFailureWhenAnActiveCanvasAlsoFailsCompletion()
+    {
+        var primary = new InvalidOperationException("session-body-primary");
+        var token = new RenderExecutionSessionToken();
+        using RenderTarget target = RenderTarget.CreateNull(8, 8);
+        using var canvas = new ImmediateCanvas(target, logicalSize: s_bounds.Size);
+        token.EnterCanvas(canvas, facade: null);
+
+        InvalidOperationException? failure = Assert.Throws<InvalidOperationException>(
+            () => token.RunAndComplete(() => throw primary));
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(failure, Is.SameAs(primary));
+            Assert.That(token.ThrowIfInactive, Throws.TypeOf<InvalidOperationException>());
+        });
+    }
+
+    [Test]
+    public void SessionCompletion_SurfacesActiveCanvasFailureWithoutAPrimaryFailure()
+    {
+        var token = new RenderExecutionSessionToken();
+        using RenderTarget target = RenderTarget.CreateNull(8, 8);
+        using var canvas = new ImmediateCanvas(target, logicalSize: s_bounds.Size);
+        token.EnterCanvas(canvas, facade: null);
+
+        InvalidOperationException? failure = Assert.Throws<InvalidOperationException>(
+            () => token.RunAndComplete(static () => { }));
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(failure!.Message, Does.Contain("canvas is still active"));
+            Assert.That(token.ThrowIfInactive, Throws.TypeOf<InvalidOperationException>());
+        });
+    }
+
     [TestCase(OpaqueTopology.Source)]
     [TestCase(OpaqueTopology.Map)]
     [TestCase(OpaqueTopology.Combine)]

@@ -118,60 +118,57 @@ internal static class LegacyFilterEffectCompatibilityExecutor
             using ProgramCacheLease<CachedSkRuntimeEffect> lease = acquireProgram(output, programSource);
             using var uniforms = new SKRuntimeEffectUniforms(lease.Program.Effect);
             using var runtimeChildren = new SKRuntimeEffectChildren(lease.Program.Effect);
-            var bindingToken = new RenderExecutionSessionToken();
-            var context = new ShaderExecutionContext(
-                bindingToken,
-                input.Bounds,
-                outputBounds,
-                outputBounds,
-                output.DeviceBounds,
-                input.Scale,
-                outputScale,
-                output.Scale.Value,
-                maxWorkingScale,
-                intent,
-                purpose);
             var children = new List<SKShader>();
+            var bindingToken = new RenderExecutionSessionToken();
             try
             {
-                try
-                {
-                    foreach (ShaderUniformBinding binding in description.Uniforms)
+                bindingToken.RunAndComplete(
+                    () =>
                     {
-                        if (!description.Source.Uniforms.TryGetValue(
-                                binding.Name,
-                                out SkslUniformDeclaration declaration))
+                        var context = new ShaderExecutionContext(
+                            bindingToken,
+                            input.Bounds,
+                            outputBounds,
+                            outputBounds,
+                            output.DeviceBounds,
+                            input.Scale,
+                            outputScale,
+                            output.Scale.Value,
+                            maxWorkingScale,
+                            intent,
+                            purpose);
+                        foreach (ShaderUniformBinding binding in description.Uniforms)
                         {
-                            throw new InvalidOperationException(
-                                $"Shader uniform '{binding.Name}' was not declared.");
+                            if (!description.Source.Uniforms.TryGetValue(
+                                    binding.Name,
+                                    out SkslUniformDeclaration declaration))
+                            {
+                                throw new InvalidOperationException(
+                                    $"Shader uniform '{binding.Name}' was not declared.");
+                            }
+
+                            SetUniform(uniforms, binding.Name, declaration, binding.Bind(declaration, context));
                         }
 
-                        SetUniform(uniforms, binding.Name, declaration, binding.Bind(declaration, context));
-                    }
+                        SKShader inputShader = inputImage.ToShader(
+                            tileMode,
+                            tileMode,
+                            SKSamplingOptions.Default,
+                            RasterShaderMapping.CreateLocalMatrix(
+                                output.Scale.Value,
+                                input.Scale.Value,
+                                output.RasterBounds,
+                                input.RasterBounds));
+                        children.Add(inputShader);
+                        runtimeChildren[childName] = inputShader;
 
-                    SKShader inputShader = inputImage.ToShader(
-                        tileMode,
-                        tileMode,
-                        SKSamplingOptions.Default,
-                        RasterShaderMapping.CreateLocalMatrix(
-                            output.Scale.Value,
-                            input.Scale.Value,
-                            output.RasterBounds,
-                            input.RasterBounds));
-                    children.Add(inputShader);
-                    runtimeChildren[childName] = inputShader;
-
-                    foreach (ShaderResourceBinding binding in description.Resources)
-                    {
-                        SKShader child = binding.Bind(context);
-                        children.Add(child);
-                        runtimeChildren[binding.Name] = child;
-                    }
-                }
-                finally
-                {
-                    bindingToken.Complete();
-                }
+                        foreach (ShaderResourceBinding binding in description.Resources)
+                        {
+                            SKShader child = binding.Bind(context);
+                            children.Add(child);
+                            runtimeChildren[binding.Name] = child;
+                        }
+                    });
 
                 using SKShader shader = lease.Program.Effect.ToShader(uniforms, runtimeChildren);
                 using var paint = new SKPaint { Shader = shader };
@@ -239,55 +236,51 @@ internal static class LegacyFilterEffectCompatibilityExecutor
 
         try
         {
-            var token = new RenderExecutionSessionToken();
             using SKImage inputImage = inputTarget.Value.Snapshot();
-            Rect? selectedBounds;
-            try
-            {
-                Func<Bitmap>? createSnapshot = description.RequiresReadback
-                    ? inputTarget.Snapshot
-                    : null;
-                var executionInput = new RenderExecutionInput(
-                    token,
-                    input.Bounds,
-                    input.Scale,
-                    input.DeviceBounds,
-                    inputImage,
-                    createSnapshot,
-                    description.RequiresReadback);
-                var callbackCanvas = new RenderCallbackCanvas(
-                    token,
-                    output.Scale.Value,
-                    outputBounds,
-                    output.DeviceBounds,
-                    () => ImmediateCanvas.CreateExecutorManaged(
-                        outputTarget,
+            var token = new RenderExecutionSessionToken();
+            Rect? selectedBounds = token.RunAndComplete<Rect?>(
+                () =>
+                {
+                    Func<Bitmap>? createSnapshot = description.RequiresReadback
+                        ? inputTarget.Snapshot
+                        : null;
+                    var executionInput = new RenderExecutionInput(
+                        token,
+                        input.Bounds,
+                        input.Scale,
+                        input.DeviceBounds,
+                        inputImage,
+                        createSnapshot,
+                        description.RequiresReadback);
+                    var callbackCanvas = new RenderCallbackCanvas(
+                        token,
+                        output.Scale.Value,
+                        outputBounds,
+                        output.DeviceBounds,
+                        () => ImmediateCanvas.CreateExecutorManaged(
+                            outputTarget,
+                            output.Scale.Value,
+                            maxWorkingScale,
+                            output.RasterBounds.Size),
+                        CallbackCanvasCapability.Draw);
+                    var session = new GeometrySession(
+                        token,
+                        executionInput,
+                        outputBounds,
+                        outputBounds,
+                        output.DeviceBounds,
+                        outputScale,
                         output.Scale.Value,
                         maxWorkingScale,
-                        output.RasterBounds.Size),
-                    CallbackCanvasCapability.Draw);
-                var session = new GeometrySession(
-                    token,
-                    executionInput,
-                    outputBounds,
-                    outputBounds,
-                    output.DeviceBounds,
-                    outputScale,
-                    output.Scale.Value,
-                    maxWorkingScale,
-                    intent,
-                    purpose,
-                    callbackCanvas,
-                    description.Resources);
-                description.Render(session);
-                selectedBounds = session.IsOutputDiscarded
-                    ? null
-                    : session.OutputBounds.Intersect(outputBounds);
-            }
-            finally
-            {
-                token.Complete();
-            }
+                        intent,
+                        purpose,
+                        callbackCanvas,
+                        description.Resources);
+                    description.Render(session);
+                    return session.IsOutputDiscarded
+                        ? null
+                        : session.OutputBounds.Intersect(outputBounds);
+                });
 
             if (selectedBounds is not { Width: > 0, Height: > 0 } selected)
                 return null;

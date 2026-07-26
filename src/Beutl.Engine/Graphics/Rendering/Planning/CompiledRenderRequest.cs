@@ -669,6 +669,11 @@ internal sealed class CompiledShaderRun
 
     public SkslMergedProgram Program { get; }
 
+    /// <summary>
+    /// Gets the compile-time witness for the run input's coverage provenance. The executor still
+    /// consumes a materialized value for every run; this witness does not authorize bypassing that
+    /// runtime materialization.
+    /// </summary>
     public ShaderRunCoverageSource CoverageSource { get; }
 
     public bool IsFused => Stages.Length > 1;
