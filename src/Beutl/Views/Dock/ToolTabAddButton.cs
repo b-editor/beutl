@@ -1,4 +1,4 @@
-using Avalonia.Controls;
+﻿using Avalonia.Controls;
 using Beutl.ViewModels.Dock;
 using Dock.Model.Controls;
 
