@@ -1,4 +1,4 @@
-<UserControl x:Class="Beutl.Pages.SettingsPages.ViewSettingsPage"
+﻿<UserControl x:Class="Beutl.Pages.SettingsPages.ViewSettingsPage"
              xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:ctrls="using:Beutl.Controls"
@@ -113,8 +113,9 @@
                                                             HorizontalAlignment="Right"
                                                             VerticalAlignment="Top"
                                                             Background="{DynamicResource FocusStrokeColorOuterBrush}">
+                                                        <!--  The marker sits on an accent shade, so the glyph takes the accent's derived foreground; the accent itself would be a neighbouring shade.  -->
                                                         <icons:FluentIcon FontSize="18"
-                                                                          Foreground="{DynamicResource SystemAccentColor}"
+                                                                          Foreground="{DynamicResource TextOnAccentFillColorPrimaryBrush}"
                                                                           Icon="Checkmark" />
                                                     </Border>
                                                 </Panel>

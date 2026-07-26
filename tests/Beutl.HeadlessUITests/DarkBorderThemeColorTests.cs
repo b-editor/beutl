@@ -258,6 +258,63 @@ public class DarkBorderThemeColorTests
         }
     }
 
+    // The accent picker's selected-color marker (ViewSettingsPage.axaml) paints its background with
+    // FocusStrokeColorOuterBrush and its checkmark with TextOnAccentFillColorPrimaryBrush. Both are
+    // accent shades under this theme, so the glyph has to come from the derived text-on-accent set —
+    // the accent itself is the neighbouring shade of the background. This pins the resource pairing,
+    // not the markup: nothing here re-inflates the settings page.
+    [AvaloniaTest]
+    public void Accent_picker_marker_glyph_contrasts_with_its_background()
+    {
+        Application.Current!.RequestedThemeVariant = ThemeVariant.Dark;
+        FluentAvaloniaTheme faTheme = Application.Current.Styles.OfType<FluentAvaloniaTheme>().Single();
+
+        var probe = new Border();
+        var window = new Window { Content = probe, Width = 200, Height = 120 };
+        try
+        {
+            window.Show();
+            faTheme.CustomAccentColor = Color.FromRgb(0x25, 0x63, 0xEB);
+            HeadlessTestHelpers.Render(1);
+
+            Color background = ResolveColor(probe, "FocusStrokeColorOuterBrush", ThemeVariant.Dark);
+            Color glyph = ResolveColor(probe, "TextOnAccentFillColorPrimaryBrush", ThemeVariant.Dark);
+
+            Assert.That(probe.TryFindResource("SystemAccentColor", ThemeVariant.Dark, out object? accentObj), Is.True);
+            var accent = (Color)accentObj!;
+
+            Assert.Multiple(() =>
+            {
+                Assert.That(ContrastRatio(background, glyph), Is.GreaterThanOrEqualTo(3.0),
+                    "the checkmark must clear the 3:1 WCAG floor for a graphical object");
+                Assert.That(ContrastRatio(background, accent), Is.LessThan(3.0),
+                    "precondition for the fix: painting the glyph with the accent itself does not clear it");
+            });
+        }
+        finally
+        {
+            faTheme.CustomAccentColor = null;
+            window.Close();
+            HeadlessTestHelpers.Settle();
+        }
+    }
+
+    private static double ContrastRatio(Color a, Color b)
+    {
+        double la = RelativeLuminance(a);
+        double lb = RelativeLuminance(b);
+        return (Math.Max(la, lb) + 0.05) / (Math.Min(la, lb) + 0.05);
+    }
+
+    private static double RelativeLuminance(Color color) =>
+        (0.2126 * Linearize(color.R)) + (0.7152 * Linearize(color.G)) + (0.0722 * Linearize(color.B));
+
+    private static double Linearize(byte channel)
+    {
+        double value = channel / 255.0;
+        return value <= 0.03928 ? value / 12.92 : Math.Pow((value + 0.055) / 1.055, 2.4);
+    }
+
     private static Color ResolveColor(Control context, string key, ThemeVariant variant)
     {
         if (!context.TryFindResource(key, variant, out object? value) || value is not ISolidColorBrush brush)

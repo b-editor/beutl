@@ -24,10 +24,10 @@ public class AccentTextResourcesTests
         Assert.That(AccentTextResources.ResolveForegroundOn(Color.FromRgb(r, g, b)), Is.EqualTo(Colors.Black));
     }
 
-    // The four tokens share one foreground and differ only in alpha, so a control's primary label and
-    // its disabled variant cannot end up on opposite sides of the accent.
+    // The tokens share one foreground and differ only in alpha, so a control's label and its pressed
+    // variant cannot end up on opposite sides of the accent.
     [Test]
-    public void Apply_WritesAllFourTokens_WithOneForegroundAndDistinctAlphas()
+    public void Apply_WritesTheOnAccentTokens_WithOneForegroundAndDistinctAlphas()
     {
         var resources = new ResourceDictionary();
 
@@ -38,8 +38,20 @@ public class AccentTextResourcesTests
             Assert.That(Token(resources, "TextOnAccentFillColorPrimary"), Is.EqualTo(Color.FromArgb(0xFF, 0, 0, 0)));
             Assert.That(Token(resources, "TextOnAccentFillColorSelectedText"), Is.EqualTo(Color.FromArgb(0xFF, 0, 0, 0)));
             Assert.That(Token(resources, "TextOnAccentFillColorSecondary"), Is.EqualTo(Color.FromArgb(0xC5, 0, 0, 0)));
-            Assert.That(Token(resources, "TextOnAccentFillColorDisabled"), Is.EqualTo(Color.FromArgb(0x87, 0, 0, 0)));
         });
+    }
+
+    // Despite the name, the disabled token is never drawn on the accent: its consumers pair it with
+    // AccentFillColorDisabled, a fixed translucent white. Deriving it would put this light accent's
+    // black glyph on a near-black disabled fill.
+    [Test]
+    public void Apply_LeavesTheDisabledToken_ToTheTheme()
+    {
+        var resources = new ResourceDictionary();
+
+        AccentTextResources.Apply(resources, Color.FromRgb(0xFF, 0xB9, 0x00));
+
+        Assert.That(resources.ContainsKey("TextOnAccentFillColorDisabled"), Is.False);
     }
 
     // Removal, not a white/black default: once Beutl stops resolving the accent the theme's own tokens

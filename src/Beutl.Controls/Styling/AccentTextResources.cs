@@ -12,17 +12,22 @@ public static class AccentTextResources
 {
     // Alpha comes from here rather than from the theme's own value, so the derived set is one scheme
     // regardless of which theme authored it.
+    //
+    // TextOnAccentFillColorDisabled is deliberately absent. Despite the name it is never drawn on the
+    // accent: every consumer pairs it with AccentFillColorDisabled, a fixed translucent white that does
+    // not follow the accent, so deriving it would put a light accent's black glyph on a near-black
+    // disabled fill. It stays whatever the theme authored.
     private static readonly (string Key, byte Alpha)[] s_keys =
     [
         ("TextOnAccentFillColorPrimary", 0xFF),
         ("TextOnAccentFillColorSelectedText", 0xFF),
         ("TextOnAccentFillColorSecondary", 0xC5),
-        ("TextOnAccentFillColorDisabled", 0x87),
     ];
 
     /// <summary>
-    /// Overrides the four text-on-accent color tokens for <paramref name="accent"/>, or removes them
-    /// when it is null so the theme's own values apply again. Pass an application-level dictionary:
+    /// Overrides the text-on-accent color tokens that are actually drawn on the accent for
+    /// <paramref name="accent"/>, or removes them when it is null so the theme's own values apply
+    /// again. Pass an application-level dictionary:
     /// entries there win over the merged theme dictionaries, whose brushes take these colors by
     /// DynamicResource.
     /// </summary>
