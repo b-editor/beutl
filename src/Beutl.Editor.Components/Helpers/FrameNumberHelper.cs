@@ -14,16 +14,26 @@ public static class FrameNumberHelper
         LayerHeight = ResolveDouble("LayerHeight", 25d);
     }
 
-    // FindResource boxes the resource as its declared type, so an int-typed resource (or a
-    // boxed int fallback) would make a direct (double) unbox throw.
+    // FindResource boxes the resource as its declared type, so a direct (double) unbox throws for
+    // anything but x:Double. A theme extension may supply any numeric type, and silently falling
+    // back would desync these values from the DynamicResource the same key drives in XAML.
     private static double ResolveDouble(string key, double fallback)
+        => ToDouble(Application.Current?.FindResource(key), fallback);
+
+    internal static double ToDouble(object? resource, double fallback)
     {
-        return Application.Current?.FindResource(key) switch
+        if (resource is double d) return d;
+
+        try
         {
-            double d => d,
-            int i => i,
-            _ => fallback,
-        };
+            return resource is IConvertible convertible and not string and not bool and not char
+                ? convertible.ToDouble(CultureInfo.InvariantCulture)
+                : fallback;
+        }
+        catch (Exception ex) when (ex is FormatException or InvalidCastException or OverflowException)
+        {
+            return fallback;
+        }
     }
 
     public static int GetFrameRate(this Project? project)

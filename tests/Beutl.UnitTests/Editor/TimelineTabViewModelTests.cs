@@ -89,12 +89,13 @@ public class TimelineTabViewModelTests
         });
     }
 
-    // A new header's Height emits synchronously into CalculateLayerTop, which re-enters
-    // AddLayerHeaders — without the reentrancy guard this recursed once per layer.
+    // A live tracked-layer-top subscription is what closes the loop — without a subscriber the
+    // synchronous Height emits reach nothing and no re-entry happens at all.
     [Test]
-    public void CalculateLayerTop_DeepLayer_GrowsHeadersWithoutRecursing()
+    public void CalculateLayerTop_DeepLayer_WithTrackedSubscriber_GrowsWithoutRecursing()
     {
         using TimelineTabViewModel viewModel = CreateViewModel();
+        using IDisposable subscription = viewModel.GetTrackedLayerTopObservable(1).Subscribe(_ => { });
 
         double top = viewModel.CalculateLayerTop(2000);
 
@@ -107,10 +108,26 @@ public class TimelineTabViewModelTests
         });
     }
 
+    // The subscriber's own layer is above the growth, so every new header's height feeds it and
+    // it must still end holding the completed sum, not a partial one.
     [Test]
-    public void ToLayerNumber_FarBelowLastHeader_GrowsHeadersWithoutRecursing()
+    public void TrackedLayerTop_DeepSubscriber_EndsWithCompletedSum()
     {
         using TimelineTabViewModel viewModel = CreateViewModel();
+        double observed = double.NaN;
+        using IDisposable subscription = viewModel.GetTrackedLayerTopObservable(2000)
+            .Subscribe(v => observed = v);
+
+        viewModel.CalculateLayerTop(2000);
+
+        Assert.That(observed, Is.EqualTo(viewModel.LayerHeaders.Take(2000).Sum(h => h.Height.Value)));
+    }
+
+    [Test]
+    public void ToLayerNumber_FarBelowLastHeader_WithTrackedSubscriber_GrowsWithoutRecursing()
+    {
+        using TimelineTabViewModel viewModel = CreateViewModel();
+        using IDisposable subscription = viewModel.GetTrackedLayerTopObservable(1).Subscribe(_ => { });
         double deepOffset = viewModel.CalculateLayerTop(1) * 2000;
 
         int layer = viewModel.ToLayerNumber(deepOffset);
