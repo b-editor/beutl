@@ -1,7 +1,9 @@
+﻿using System.Diagnostics.CodeAnalysis;
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Headless;
 using Avalonia.Headless.NUnit;
+using Avalonia.Input;
 using Avalonia.Interactivity;
 using Avalonia.VisualTree;
 using Beutl.Editor.Components.ColorScopesTab;
@@ -71,11 +73,17 @@ public class DockTabAddButtonTests
             Grid header = playerControl.GetVisualDescendants()
                 .OfType<Grid>()
                 .Single(control => control.Name == "PART_TabHeader");
+            Border addButtonBorder = playerControl.GetVisualDescendants()
+                .OfType<Border>()
+                .Single(control => control.Name == "PART_AddButtonBorder");
 
             Assert.Multiple(() =>
             {
+                Assert.That(addButtonBorder.BorderBrush, Is.Not.Null);
+                Assert.That(addButtonBorder.BorderThickness.Bottom, Is.EqualTo(1));
                 Assert.That(button.Opacity, Is.EqualTo(0));
                 Assert.That(button.IsHitTestVisible, Is.False);
+                Assert.That(button.IsTabStop, Is.True);
             });
 
             window.MouseMove(Center(header, window));
@@ -87,6 +95,13 @@ public class DockTabAddButtonTests
                 Assert.That(button.IsHitTestVisible, Is.True);
             });
 
+            window.MouseMove(Center(button, window));
+            HeadlessTestHelpers.Settle();
+
+            Assert.That(
+                button.Background,
+                Is.SameAs(button.FindResource("DockChromeButtonHoverBackgroundBrush")));
+
             window.MouseMove(new Point(1, window.Bounds.Height - 1));
             HeadlessTestHelpers.Settle();
 
@@ -94,6 +109,15 @@ public class DockTabAddButtonTests
             {
                 Assert.That(button.Opacity, Is.EqualTo(0));
                 Assert.That(button.IsHitTestVisible, Is.False);
+            });
+
+            Assert.That(button.Focus(NavigationMethod.Tab), Is.True);
+            HeadlessTestHelpers.Settle();
+
+            Assert.Multiple(() =>
+            {
+                Assert.That(button.Opacity, Is.EqualTo(1));
+                Assert.That(button.IsHitTestVisible, Is.True);
             });
         }
         finally
@@ -122,7 +146,15 @@ public class DockTabAddButtonTests
                 .OfType<ToolControl>()
                 .Single(control => ReferenceEquals(control.DataContext, target));
             ToolTabAddButton button = FindAddButton(targetControl)!;
-            ContextMenu menu = button.CreateContextMenu()!;
+            Point buttonCenter = Center(button, window);
+            window.MouseMove(buttonCenter);
+            window.MouseDown(buttonCenter, MouseButton.Left);
+            window.MouseUp(buttonCenter, MouseButton.Left);
+            HeadlessTestHelpers.Settle();
+
+            ContextMenu? menu = button.ContextMenu;
+            Assert.That(menu, Is.Not.Null);
+            Assert.That(menu!.IsOpen, Is.True);
             MenuItem[] items = menu.ItemsSource!.Cast<MenuItem>().ToArray();
 
             MenuItem timelineItem = items.Single(
@@ -156,6 +188,18 @@ public class DockTabAddButtonTests
         }
     }
 
+    [AvaloniaTest]
+    public async Task Extension_returning_success_with_a_null_context_is_rejected()
+    {
+        await ResetProjectAsync();
+        EditViewModel editor = await OpenEditorForNewScene("dock-tab-add-null-context");
+        IToolDock target = editor.DockHost.Factory.GetAnchoredDock(DockAnchor.Left)!;
+
+        bool opened = editor.DockHost.OpenToolTabFromExtension(new NullContextToolTabExtension(), target);
+
+        Assert.That(opened, Is.False);
+    }
+
     private static ToolTabAddButton? FindAddButton(Visual root)
     {
         return root.GetVisualDescendants().OfType<ToolTabAddButton>().SingleOrDefault();
@@ -168,5 +212,26 @@ public class DockTabAddButtonTests
             relativeTo);
         Assert.That(point, Is.Not.Null);
         return point!.Value;
+    }
+
+    private sealed class NullContextToolTabExtension : ToolTabExtension
+    {
+        public override bool CanMultiple => true;
+
+        public override bool TryCreateContent(
+            IEditorContext editorContext,
+            [NotNullWhen(true)] out Control? control)
+        {
+            control = null;
+            return false;
+        }
+
+        public override bool TryCreateContext(
+            IEditorContext editorContext,
+            [NotNullWhen(true)] out IToolContext? context)
+        {
+            context = null!;
+            return true;
+        }
     }
 }

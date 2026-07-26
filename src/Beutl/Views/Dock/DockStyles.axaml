@@ -65,20 +65,22 @@
                                           ItemsSource="{Binding VisibleDockables}"
                                           ModifiedTemplate="{TemplateBinding ModifiedTemplate}"
                                           SelectedItem="{Binding ActiveDockable, Mode=TwoWay}" />
-                            <local:ToolTabAddButton x:Name="PART_AddButton"
-                                                    Grid.Column="1"
-                                                    Width="28"
-                                                    Height="28"
-                                                    Padding="0"
-                                                    AutomationProperties.Name="{x:Static lang:Strings.Add}"
-                                                    Background="Transparent"
-                                                    BorderThickness="0"
-                                                    IsHitTestVisible="False"
-                                                    IsTabStop="False"
-                                                    Opacity="0"
-                                                    ToolTip.Tip="{x:Static lang:Strings.Add}">
-                                <icons:FluentIcon Icon="Add" />
-                            </local:ToolTabAddButton>
+                            <Border x:Name="PART_AddButtonBorder"
+                                    Grid.Column="1"
+                                    BorderBrush="{DynamicResource DockThemeBorderLowBrush}"
+                                    BorderThickness="0,0,0,1">
+                                <local:ToolTabAddButton x:Name="PART_AddButton"
+                                                        Width="28"
+                                                        Height="28"
+                                                        Padding="0"
+                                                        AutomationProperties.Name="{x:Static lang:Strings.Add}"
+                                                        IsHitTestVisible="False"
+                                                        IsTabStop="True"
+                                                        Opacity="0"
+                                                        ToolTip.Tip="{x:Static lang:Strings.Add}">
+                                    <icons:FluentIcon Icon="Add" />
+                                </local:ToolTabAddButton>
+                            </Border>
                         </Grid>
                         <Border x:Name="PART_Border">
                             <DockableControl DataContext="{Binding ActiveDockable}" TrackingMode="Visible">
@@ -109,7 +111,25 @@
                 <Setter Property="BorderThickness" Value="0" />
             </Style>
 
+            <Style Selector="^/template/ local|ToolTabAddButton#PART_AddButton">
+                <Setter Property="Background" Value="Transparent" />
+                <Setter Property="BorderThickness" Value="0" />
+            </Style>
+
             <Style Selector="^/template/ Grid#PART_TabHeader:pointerover local|ToolTabAddButton#PART_AddButton">
+                <Setter Property="IsHitTestVisible" Value="True" />
+                <Setter Property="Opacity" Value="1" />
+            </Style>
+
+            <Style Selector="^/template/ local|ToolTabAddButton#PART_AddButton:pointerover">
+                <Setter Property="Background" Value="{DynamicResource DockChromeButtonHoverBackgroundBrush}" />
+            </Style>
+
+            <Style Selector="^/template/ local|ToolTabAddButton#PART_AddButton:pressed">
+                <Setter Property="Background" Value="{DynamicResource DockChromeButtonPressedBackgroundBrush}" />
+            </Style>
+
+            <Style Selector="^/template/ local|ToolTabAddButton#PART_AddButton:focus-visible">
                 <Setter Property="IsHitTestVisible" Value="True" />
                 <Setter Property="Opacity" Value="1" />
             </Style>
