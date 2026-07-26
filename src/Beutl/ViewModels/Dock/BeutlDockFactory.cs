@@ -179,6 +179,24 @@ public class BeutlDockFactory(EditViewModel editViewModel) : Factory
         }
     }
 
+    internal IEnumerable<ToolTabExtension> EnumerateToolTabExtensions()
+    {
+        return editViewModel.ExtensionProvider.AllExtensions
+            .OfType<ToolTabExtension>()
+            .Where(extension => extension.Header is not null)
+            .OrderBy(extension => extension.Name);
+    }
+
+    internal bool IsToolTabOpen(ToolTabExtension extension)
+    {
+        return EnumerateTools().Any(tool => tool.ToolContext.Extension == extension);
+    }
+
+    internal bool OpenToolTab(ToolTabExtension extension, IToolDock target)
+    {
+        return editViewModel.DockHost.OpenToolTabFromExtension(extension, target);
+    }
+
     internal void SetRootDock(IRootDock rootDock)
     {
         _rootDock = rootDock;

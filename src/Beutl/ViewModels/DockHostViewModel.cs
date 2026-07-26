@@ -145,10 +145,20 @@ public class DockHostViewModel : IDisposable, IJsonSerializable
             rightDock.ActiveDockable = rightDock.VisibleDockables?.FirstOrDefault();
     }
 
-    private void OpenToolTabFromExtension(ToolTabExtension ext, IToolDock? target)
+    internal bool OpenToolTabFromExtension(ToolTabExtension ext, IToolDock? target)
     {
-        if (ext.TryCreateContext(_editViewModel, out IToolContext? tab))
-            OpenToolTab(tab, target);
+        if (!ext.TryCreateContext(_editViewModel, out IToolContext? tab))
+        {
+            return false;
+        }
+
+        if (OpenToolTab(tab, target))
+        {
+            return true;
+        }
+
+        tab.Dispose();
+        return false;
     }
 
     private void EnsureDefaultLayout()

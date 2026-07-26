@@ -2,7 +2,10 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:acr="using:Avalonia.Controls.Recycling"
         xmlns:core="using:Dock.Model.Core"
-        xmlns:dmc="using:Dock.Model.Controls">
+        xmlns:dmc="using:Dock.Model.Controls"
+        xmlns:icons="using:FluentIcons.Avalonia.Fluent"
+        xmlns:lang="using:Beutl.Language"
+        xmlns:local="using:Beutl.Views.Dock">
     <Styles.Resources>
         <!--  The default Fluent theme hides PART_ItemsPresenter on :singleitem; keep the lone tab visible so it can be dragged to another zone.  -->
         <ControlTheme x:Key="{x:Type ToolTabStrip}"
@@ -49,16 +52,34 @@
                     <DockPanel x:Name="PART_DockPanel"
                                DockProperties.IsDockTarget="True"
                                DockProperties.IsDropArea="True">
-                        <ToolTabStrip x:Name="PART_TabStrip"
-                                      MinHeight="28"
-                                      DockPanel.Dock="Top"
-                                      DockProperties.DockAdornerHost="{Binding #PART_DockPanel}"
-                                      DockProperties.IsDropArea="True"
-                                      HeaderTemplate="{TemplateBinding HeaderTemplate}"
-                                      IconTemplate="{TemplateBinding IconTemplate}"
-                                      ItemsSource="{Binding VisibleDockables}"
-                                      ModifiedTemplate="{TemplateBinding ModifiedTemplate}"
-                                      SelectedItem="{Binding ActiveDockable, Mode=TwoWay}" />
+                        <Grid x:Name="PART_TabHeader"
+                              MinHeight="28"
+                              Background="Transparent"
+                              ColumnDefinitions="*,Auto"
+                              DockPanel.Dock="Top">
+                            <ToolTabStrip x:Name="PART_TabStrip"
+                                          DockProperties.DockAdornerHost="{Binding #PART_DockPanel}"
+                                          DockProperties.IsDropArea="True"
+                                          HeaderTemplate="{TemplateBinding HeaderTemplate}"
+                                          IconTemplate="{TemplateBinding IconTemplate}"
+                                          ItemsSource="{Binding VisibleDockables}"
+                                          ModifiedTemplate="{TemplateBinding ModifiedTemplate}"
+                                          SelectedItem="{Binding ActiveDockable, Mode=TwoWay}" />
+                            <local:ToolTabAddButton x:Name="PART_AddButton"
+                                                    Grid.Column="1"
+                                                    Width="28"
+                                                    Height="28"
+                                                    Padding="0"
+                                                    AutomationProperties.Name="{x:Static lang:Strings.Add}"
+                                                    Background="Transparent"
+                                                    BorderThickness="0"
+                                                    IsHitTestVisible="False"
+                                                    IsTabStop="False"
+                                                    Opacity="0"
+                                                    ToolTip.Tip="{x:Static lang:Strings.Add}">
+                                <icons:FluentIcon Icon="Add" />
+                            </local:ToolTabAddButton>
+                        </Grid>
                         <Border x:Name="PART_Border">
                             <DockableControl DataContext="{Binding ActiveDockable}" TrackingMode="Visible">
                                 <ContentControl x:Name="PART_ContentPresenter"
@@ -86,6 +107,11 @@
                 <Setter Property="Margin" Value="0" />
                 <Setter Property="BorderBrush" Value="Transparent" />
                 <Setter Property="BorderThickness" Value="0" />
+            </Style>
+
+            <Style Selector="^/template/ Grid#PART_TabHeader:pointerover local|ToolTabAddButton#PART_AddButton">
+                <Setter Property="IsHitTestVisible" Value="True" />
+                <Setter Property="Opacity" Value="1" />
             </Style>
         </ControlTheme>
     </Styles.Resources>
