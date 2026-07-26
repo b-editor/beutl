@@ -7,6 +7,7 @@ using Avalonia.Layout;
 using Avalonia.Media;
 using Avalonia.Styling;
 using Avalonia.VisualTree;
+using Beutl.Controls.Styling;
 using Beutl.Testing.Headless;
 using FluentAvalonia.Styling;
 
@@ -264,7 +265,16 @@ public class DarkBorderThemeColorTests
     // the accent itself is the neighbouring shade of the background. This pins the resource pairing,
     // not the markup: nothing here re-inflates the settings page.
     [AvaloniaTest]
-    public void Accent_picker_marker_glyph_contrasts_with_its_background()
+    public void Accent_picker_marker_glyph_contrasts_on_the_design_accent() =>
+        AssertMarkerGlyphContrasts(Color.FromRgb(0x25, 0x63, 0xEB), Colors.White);
+
+    // The light accent is the case that actually depends on the derivation: the theme authors this
+    // token white, so without the derived black the glyph would sit on a near-white marker.
+    [AvaloniaTest]
+    public void Accent_picker_marker_glyph_contrasts_on_a_light_accent() =>
+        AssertMarkerGlyphContrasts(Color.FromRgb(0xFF, 0xB9, 0x00), Colors.Black);
+
+    private static void AssertMarkerGlyphContrasts(Color accent, Color expectedGlyph)
     {
         Application.Current!.RequestedThemeVariant = ThemeVariant.Dark;
         FluentAvaloniaTheme faTheme = Application.Current.Styles.OfType<FluentAvaloniaTheme>().Single();
@@ -274,25 +284,31 @@ public class DarkBorderThemeColorTests
         try
         {
             window.Show();
-            faTheme.CustomAccentColor = Color.FromRgb(0x25, 0x63, 0xEB);
+            // Stand in for ThemeService, which this harness does not run: it seeds the accent shades
+            // and derives the text-on-accent tokens together, and only the second half decides the
+            // glyph. Setting the accent alone would leave the theme's authored white in place.
+            faTheme.CustomAccentColor = accent;
+            AccentTextResources.Apply(Application.Current.Resources, accent);
             HeadlessTestHelpers.Render(1);
 
             Color background = ResolveColor(probe, "FocusStrokeColorOuterBrush", ThemeVariant.Dark);
             Color glyph = ResolveColor(probe, "TextOnAccentFillColorPrimaryBrush", ThemeVariant.Dark);
 
             Assert.That(probe.TryFindResource("SystemAccentColor", ThemeVariant.Dark, out object? accentObj), Is.True);
-            var accent = (Color)accentObj!;
+            var resolvedAccent = (Color)accentObj!;
 
             Assert.Multiple(() =>
             {
+                Assert.That(glyph, Is.EqualTo(expectedGlyph), "the glyph must take the derived foreground");
                 Assert.That(ContrastRatio(background, glyph), Is.GreaterThanOrEqualTo(3.0),
                     "the checkmark must clear the 3:1 WCAG floor for a graphical object");
-                Assert.That(ContrastRatio(background, accent), Is.LessThan(3.0),
+                Assert.That(ContrastRatio(background, resolvedAccent), Is.LessThan(3.0),
                     "precondition for the fix: painting the glyph with the accent itself does not clear it");
             });
         }
         finally
         {
+            AccentTextResources.Apply(Application.Current!.Resources, null);
             faTheme.CustomAccentColor = null;
             window.Close();
             HeadlessTestHelpers.Settle();
