@@ -23,14 +23,14 @@ public sealed class ToolTabAddButton : Button
             return null;
         }
 
-        var items = factory.EnumerateToolTabExtensions()
-            .Select(extension => CreateMenuItem(factory, target, extension))
-            .ToArray();
-
-        return new ContextMenu
+        var menu = new ContextMenu();
+        menu.Opening += (_, _) =>
         {
-            ItemsSource = items,
+            menu.ItemsSource = factory.EnumerateToolTabExtensions()
+                .Select(extension => CreateMenuItem(factory, target, extension))
+                .ToArray();
         };
+        return menu;
     }
 
     private static MenuItem CreateMenuItem(

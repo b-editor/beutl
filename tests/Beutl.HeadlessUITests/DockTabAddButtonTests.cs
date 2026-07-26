@@ -82,7 +82,7 @@ public class DockTabAddButtonTests
                 Assert.That(addButtonBorder.BorderBrush, Is.Not.Null);
                 Assert.That(addButtonBorder.BorderThickness.Bottom, Is.EqualTo(1));
                 Assert.That(button.Opacity, Is.EqualTo(0));
-                Assert.That(button.IsHitTestVisible, Is.False);
+                Assert.That(button.IsHitTestVisible, Is.True);
                 Assert.That(button.IsTabStop, Is.True);
             });
 
@@ -108,7 +108,7 @@ public class DockTabAddButtonTests
             Assert.Multiple(() =>
             {
                 Assert.That(button.Opacity, Is.EqualTo(0));
-                Assert.That(button.IsHitTestVisible, Is.False);
+                Assert.That(button.IsHitTestVisible, Is.True);
             });
 
             Assert.That(button.Focus(NavigationMethod.Tab), Is.True);
@@ -147,7 +147,6 @@ public class DockTabAddButtonTests
                 .Single(control => ReferenceEquals(control.DataContext, target));
             ToolTabAddButton button = FindAddButton(targetControl)!;
             Point buttonCenter = Center(button, window);
-            window.MouseMove(buttonCenter);
             window.MouseDown(buttonCenter, MouseButton.Left);
             window.MouseUp(buttonCenter, MouseButton.Left);
             HeadlessTestHelpers.Settle();
@@ -180,6 +179,14 @@ public class DockTabAddButtonTests
                 Assert.That(added, Is.Not.Null);
                 Assert.That(target.ActiveDockable, Is.SameAs(added));
             });
+
+            menu.Open();
+            HeadlessTestHelpers.Settle();
+
+            MenuItem refreshedColorScopesItem = menu.ItemsSource!
+                .Cast<MenuItem>()
+                .Single(item => ReferenceEquals(item.DataContext, ColorScopesTabExtension.Instance));
+            Assert.That(refreshedColorScopesItem.IsEnabled, Is.False);
         }
         finally
         {
