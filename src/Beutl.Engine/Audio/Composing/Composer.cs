@@ -184,6 +184,8 @@ public class Composer : IComposer
                 continue;
             if (!IsSameTimestamp(entry.SoundRange.End, previous.End))
                 continue;
+            if (entry.Sound.TimeRange != entry.SoundRange)
+                continue;
             if (!eligibility.Contains(entry.Sound))
                 continue;
 

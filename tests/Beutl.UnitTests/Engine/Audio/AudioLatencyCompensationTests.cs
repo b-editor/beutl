@@ -1045,6 +1045,52 @@ public class AudioLatencyCompensationTests
     }
 
     [Test]
+    public void Composer_DoesNotFlushCachedTailAfterSoundMoves()
+    {
+        const float lookaheadMs = 5f;
+        int L = LookaheadSamples(lookaheadMs);
+        var oneSecond = TimeSpan.FromSeconds(1);
+
+        var sound = new LimiterTailSound
+        {
+            LookaheadMs = lookaheadMs,
+            TimeRange = new TimeRange(TimeSpan.Zero, oneSecond),
+        };
+        var resource = sound.ToResource(CompositionContext.Default);
+
+        using var composer = new Composer { SampleRate = SampleRate };
+
+        var window1 = new TimeRange(TimeSpan.Zero, oneSecond);
+        var eligibility = new CompositionEligibility([sound]);
+        var frame1 = new CompositionFrame(
+            ImmutableArray.Create<EngineObject.Resource>(resource),
+            window1,
+            default,
+            eligibility);
+        using var buffer1 = composer.Compose(window1, frame1);
+
+        // Moving the still-eligible sound outside the next window must invalidate the old boundary
+        // relationship. The cached graph contains audio from [0, 1s), but the sound now belongs at 10s.
+        sound.TimeRange = new TimeRange(TimeSpan.FromSeconds(10), oneSecond);
+
+        var window2 = new TimeRange(oneSecond, oneSecond);
+        var frame2 = new CompositionFrame(
+            ImmutableArray<EngineObject.Resource>.Empty,
+            window2,
+            default,
+            eligibility);
+        using var buffer2 = composer.Compose(window2, frame2);
+
+        Assert.That(buffer2, Is.Not.Null);
+        var output = buffer2!.GetChannelData(0);
+        for (int k = 0; k < L; k++)
+        {
+            Assert.That(MathF.Abs(output[k]), Is.LessThanOrEqualTo(1e-5f),
+                $"A moved sound must not flush a tail cached at its former range (sample {k}).");
+        }
+    }
+
+    [Test]
     public void Composer_DoesNotFlushSoundThatDisappearsBeforeItsNaturalEnd()
     {
         const float lookaheadMs = 5f;
