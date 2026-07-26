@@ -210,6 +210,21 @@ public abstract class DynamicsNode : AudioNode
     }
 
     /// <summary>
+    /// Folds one channel's sample into the running linked peak, ignoring non-finite values.
+    /// </summary>
+    /// <remarks>
+    /// A NaN already compares false, but an Infinity would become the peak for every channel, so one
+    /// corrupt channel would drive the gain shared by all of them — opening a gate, or collapsing a
+    /// compressor envelope to its floor — while <see cref="SanitizeOutput"/> only zeroes the corrupt
+    /// channel itself.
+    /// </remarks>
+    protected static float AccumulatePeak(float peak, float sample)
+    {
+        float abs = MathF.Abs(sample);
+        return float.IsFinite(abs) && abs > peak ? abs : peak;
+    }
+
+    /// <summary>
     /// Replaces a non-finite output sample with 0 so it cannot propagate downstream.
     /// </summary>
     protected float SanitizeOutput(float sample)

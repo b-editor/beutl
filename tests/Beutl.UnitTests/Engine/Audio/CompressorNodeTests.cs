@@ -510,11 +510,10 @@ public class CompressorNodeTests
     }
 
     [Test]
-    public void Process_InfinityInputSamples_RecoversAndDoesNotLeakNonFiniteOutput()
+    public void Process_InfinityInputSamples_DoesNotLeakNonFiniteOutput()
     {
-        // The first samples on every channel are +Infinity, polluting the envelope; the rest is a
-        // normal sine. The self-recovery clamp must reset the envelope and the sanitizer must keep
-        // any NaN/Infinity from escaping downstream.
+        // The first samples on every channel are +Infinity, the rest is a normal sine. The detector
+        // must skip them and the sanitizer must keep any NaN/Infinity from escaping downstream.
         const int sampleCount = SampleRate / 4;
         using var input = CreateSineBuffer(0.9f, 1000f, sampleCount);
         for (int ch = 0; ch < input.ChannelCount; ch++)
@@ -546,6 +545,60 @@ public class CompressorNodeTests
         float steadyPeakDb = PeakDb(output, sampleCount / 2);
         Assert.That(steadyPeakDb, Is.GreaterThan(-30f));
         Assert.That(steadyPeakDb, Is.LessThan(0f));
+    }
+
+    // Every peak-detection site is covered: the stereo fast path and the >2-channel fallback, in both
+    // the static and the animated loop. The four sites are written out separately, so one of them
+    // missing the guard is exactly the kind of gap this matrix has to catch.
+    [TestCase(2, false)]
+    [TestCase(2, true)]
+    [TestCase(4, false)]
+    [TestCase(4, true)]
+    public void Process_OneChannelInfinity_DoesNotReleaseCompressionOnValidChannels(int channels, bool animated)
+    {
+        // An Infinity promoted to the linked peak drives the envelope to NaN, and the recovery then
+        // drops it to the -100 dB floor: every other channel escapes compression and bursts ~14 dB
+        // louder while the envelope re-attacks. The probe covers that re-attack window.
+        const int sampleCount = SampleRate / 2;
+        const float amplitude = 0.9f;
+        const float thresholdDb = -20f;
+        const float ratio = 4f;
+        int corruptIndex = sampleCount / 2;
+        var duration = TimeSpan.FromSeconds(sampleCount / (double)SampleRate);
+
+        using var input = CreateBuffer(channels, sampleCount, (_, _) => amplitude);
+        input.GetChannelData(0)[corruptIndex] = float.PositiveInfinity;
+
+        var node = CreateNode(threshold: thresholdDb, ratio: ratio);
+        if (animated)
+        {
+            var thresholdAnim = new KeyFrameAnimation<float>();
+            thresholdAnim.KeyFrames.Add(new KeyFrame<float> { Easing = new LinearEasing(), Value = thresholdDb, KeyTime = TimeSpan.Zero });
+            thresholdAnim.KeyFrames.Add(new KeyFrame<float> { Easing = new LinearEasing(), Value = thresholdDb, KeyTime = duration });
+            node.Threshold.Animation = thresholdAnim;
+        }
+        node.AddInput(new BufferReplayNode(input));
+
+        using var output = node.Process(CreateContext(TimeSpan.Zero, duration));
+
+        for (int ch = 0; ch < output.ChannelCount; ch++)
+        {
+            var data = output.GetChannelData(ch);
+            for (int i = 0; i < output.SampleCount; i++)
+            {
+                Assert.That(float.IsFinite(data[i]), Is.True,
+                    $"Output sample [{ch}][{i}] = {data[i]} is not finite");
+            }
+        }
+
+        float inputDb = 20f * MathF.Log10(amplitude);
+        float slope = 1f - 1f / ratio;
+        float compressedDb = inputDb - slope * (inputDb - thresholdDb);
+        float afterCorruptDb = ChannelPeakDb(output, 1, corruptIndex + 1);
+
+        Assert.That(afterCorruptDb, Is.LessThan(compressedDb + 3f),
+            $"A corrupt channel must not reset the shared envelope; channel 1 peaked at {afterCorruptDb:F2} dB " +
+            $"after the Infinity against a steady state of {compressedDb:F2} dB.");
     }
 
     [Test]

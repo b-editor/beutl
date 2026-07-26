@@ -63,17 +63,12 @@ public sealed class GateNode : DynamicsNode
                 for (int i = 0; i < sampleCount; i++)
                 {
                     float s0 = in0[i];
-                    // A corrupt channel must not drive the linked peak: NaN already compares false,
-                    // and an Infinity would hold the gate open for every other channel.
-                    float peak = 0f;
-                    float a0 = MathF.Abs(s0);
-                    if (float.IsFinite(a0) && a0 > peak) peak = a0;
+                    float peak = AccumulatePeak(0f, s0);
                     float s1 = 0f;
                     if (channels == 2)
                     {
                         s1 = in1[i];
-                        float a1 = MathF.Abs(s1);
-                        if (float.IsFinite(a1) && a1 > peak) peak = a1;
+                        peak = AccumulatePeak(peak, s1);
                     }
 
                     float gainLinear = NextGain(peak, attackCoeff, releaseCoeff, p, holdSamples);
@@ -92,8 +87,7 @@ public sealed class GateNode : DynamicsNode
                     float peak = 0f;
                     for (int ch = 0; ch < channels; ch++)
                     {
-                        float a = MathF.Abs(inputChannels[ch].Span[i]);
-                        if (float.IsFinite(a) && a > peak) peak = a;
+                        peak = AccumulatePeak(peak, inputChannels[ch].Span[i]);
                     }
 
                     float gainLinear = NextGain(peak, attackCoeff, releaseCoeff, p, holdSamples);
@@ -183,17 +177,12 @@ public sealed class GateNode : DynamicsNode
                     if (channels <= 2)
                     {
                         float s0 = in0[idx];
-                        // A corrupt channel must not drive the linked peak: NaN already compares false,
-                        // and an Infinity would hold the gate open for every other channel.
-                        float peak = 0f;
-                        float a0 = MathF.Abs(s0);
-                        if (float.IsFinite(a0) && a0 > peak) peak = a0;
+                        float peak = AccumulatePeak(0f, s0);
                         float s1 = 0f;
                         if (channels == 2)
                         {
                             s1 = in1[idx];
-                            float a1 = MathF.Abs(s1);
-                            if (float.IsFinite(a1) && a1 > peak) peak = a1;
+                            peak = AccumulatePeak(peak, s1);
                         }
 
                         float gainLinear = NextGain(peak, attackCoeff, releaseCoeff, p, holdSamples);
@@ -209,8 +198,7 @@ public sealed class GateNode : DynamicsNode
                         float peak = 0f;
                         for (int ch = 0; ch < channels; ch++)
                         {
-                            float a = MathF.Abs(inputChannels[ch].Span[idx]);
-                            if (float.IsFinite(a) && a > peak) peak = a;
+                            peak = AccumulatePeak(peak, inputChannels[ch].Span[idx]);
                         }
 
                         float gainLinear = NextGain(peak, attackCoeff, releaseCoeff, p, holdSamples);
