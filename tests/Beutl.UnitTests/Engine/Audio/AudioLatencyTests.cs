@@ -237,6 +237,35 @@ public class AudioLatencyTests
         Assert.That(group.GetLatencySamples(SampleRate), Is.EqualTo(0));
     }
 
+    [TestCase(int.MaxValue, 1)]
+    [TestCase(int.MaxValue - 10, 20)]
+    public void AudioEffectGroup_GetLatencySamples_SaturatesUnboundedOrOverflowingTotals(
+        int firstLatency,
+        int secondLatency)
+    {
+        var group = new AudioEffectGroup();
+        group.Children.Add(new FixedLatencyEffect(firstLatency));
+        group.Children.Add(new FixedLatencyEffect(secondLatency));
+
+        Assert.That(group.GetLatencySamples(SampleRate), Is.EqualTo(int.MaxValue));
+    }
+
+    [TestCase(false)]
+    [TestCase(true)]
+    public void AudioEffectGroup_GetLatencySamples_NegativeChildThrows(bool followedByUnbounded)
+    {
+        var group = new AudioEffectGroup();
+        group.Children.Add(new FixedLatencyEffect(-1));
+        if (followedByUnbounded)
+        {
+            group.Children.Add(new FixedLatencyEffect(int.MaxValue));
+        }
+
+        InvalidOperationException? exception = Assert.Throws<InvalidOperationException>(
+            () => group.GetLatencySamples(SampleRate));
+        Assert.That(exception!.Message, Does.Contain(nameof(FixedLatencyEffect)).And.Contain("-1"));
+    }
+
     [Test]
     public void GetTotalLatencySamples_OverLinearCascade_Sums()
     {
@@ -430,4 +459,12 @@ public class AudioLatencyTests
     {
         public override float Ease(float progress) => progress;
     }
+
+}
+
+internal sealed partial class FixedLatencyEffect(int latencySamples) : AudioEffect
+{
+    public override AudioNode CreateNode(AudioContext context, AudioNode inputNode) => inputNode;
+
+    public override int GetLatencySamples(int sampleRate) => latencySamples;
 }

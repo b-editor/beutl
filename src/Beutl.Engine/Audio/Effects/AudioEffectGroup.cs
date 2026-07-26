@@ -29,7 +29,27 @@ public sealed partial class AudioEffectGroup : AudioEffect
         if (!IsEnabled)
             return 0;
 
-        return Children.Where(item => item.IsEnabled)
-            .Sum(item => item.GetLatencySamples(sampleRate));
+        long total = 0;
+        foreach (AudioEffect item in Children)
+        {
+            if (!item.IsEnabled)
+                continue;
+
+            int latency = item.GetLatencySamples(sampleRate);
+            if (latency < 0)
+            {
+                throw new InvalidOperationException(
+                    $"{item.GetType().Name} reported a negative latency ({latency} samples).");
+            }
+
+            if (latency == int.MaxValue)
+                return int.MaxValue;
+
+            total += latency;
+            if (total >= int.MaxValue)
+                return int.MaxValue;
+        }
+
+        return (int)total;
     }
 }

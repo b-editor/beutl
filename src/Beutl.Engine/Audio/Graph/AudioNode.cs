@@ -168,7 +168,9 @@ public abstract class AudioNode : IDisposable
     /// Reports the processing latency this node alone introduces at <paramref name="sampleRate"/>, in
     /// samples (a lookahead/delay-line node returns the samples its output lags its input; pass-through
     /// nodes return 0). Report-only: it never affects <see cref="Process"/> output. Pass the output
-    /// (post-resample) sample rate, since latency is rate-dependent.
+    /// (post-resample) sample rate, since latency is rate-dependent. Valid results are in the inclusive
+    /// range 0..<see cref="int.MaxValue"/>; <see cref="int.MaxValue"/> denotes an unbounded or saturated
+    /// latency budget.
     /// </summary>
     /// <exception cref="ArgumentOutOfRangeException"><paramref name="sampleRate"/> is not positive.</exception>
     public virtual int GetLatencySamples(int sampleRate)
