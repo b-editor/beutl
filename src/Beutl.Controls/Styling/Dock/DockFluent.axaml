@@ -25,7 +25,7 @@
             <SolidColorBrush x:Key="DockBorderSubtleBrush" Color="#2A2A2A" />
             <SolidColorBrush x:Key="DockBorderStrongBrush" Color="#3A3A3A" />
             <SolidColorBrush x:Key="DockSeparatorBrush" Color="#2A2A2A" />
-            <!--  The panel-splitter divider is a border-theme accent; classic dark shows no divider line.  -->
+            <!--  Splitter dividers are exclusive to the border theme.  -->
             <SolidColorBrush x:Key="DockSplitterIdleBrush" Color="Transparent" />
             <SolidColorBrush x:Key="DockSplitterHoverBrush" Color="Transparent" />
 
@@ -55,7 +55,7 @@
             <SolidColorBrush x:Key="DockBorderSubtleBrush" Color="{DynamicResource ControlStrokeColorDefault}" />
             <SolidColorBrush x:Key="DockBorderStrongBrush" Color="{DynamicResource ControlStrongStrokeColorDefault}" />
             <SolidColorBrush x:Key="DockSeparatorBrush" Color="{DynamicResource ControlStrokeColorDefault}" />
-            <!--  The panel-splitter divider is a border-theme accent; Light shows no divider line.  -->
+            <!--  Splitter dividers are exclusive to the border theme.  -->
             <SolidColorBrush x:Key="DockSplitterIdleBrush" Color="Transparent" />
             <SolidColorBrush x:Key="DockSplitterHoverBrush" Color="Transparent" />
 

@@ -4,8 +4,6 @@ using Beutl.Controls.Styling;
 
 namespace Beutl.E2ETests;
 
-// Both shells resolve their accent through here, so this fixture is the single place the opacity
-// rule, the contrast rule and the removal-on-null behavior are pinned.
 [TestFixture]
 public class AccentResolutionTests
 {

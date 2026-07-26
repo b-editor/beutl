@@ -9,8 +9,6 @@ namespace Beutl.UnitTests.Configuration;
 [TestFixture]
 public class ViewConfigThemeMigrationTests
 {
-    // An alias of the same shared id ViewConfig's private DefaultThemeId uses, so no literal to keep
-    // in sync.
     private const string DefaultThemeId = FirstPartyThemeIds.DarkBorder;
 
     // Legacy <2.0 settings.json stored the old ViewTheme enum as an int (0-3) or PascalCase name.

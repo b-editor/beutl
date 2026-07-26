@@ -39,7 +39,6 @@ internal sealed class ThemeService : IDisposable
     private bool _disposed;
     private int _applyQueued;
     private Color? _appliedTextOnAccent;
-    // The accent the active owner was last told about, through either OnApplied or OnAccentChanged.
     private Color? _notifiedAccent;
 
     public ThemeService(FluentAvaloniaTheme theme, ViewConfig viewConfig)
@@ -181,9 +180,7 @@ internal sealed class ThemeService : IDisposable
         }
     }
 
-    // Returns the accent it resolved, so the caller can tell the active owner about a change. Skips
-    // writes of an unchanged value: every CustomAccentColor set makes FluentAvaloniaTheme regenerate
-    // its SystemAccentColor shade resources and invalidate dependents.
+    // Avoid unchanged writes because FluentAvalonia regenerates and invalidates all accent resources.
     private Color? ApplyAccent()
     {
         Color? accent = AccentResolution.Normalize(
@@ -200,8 +197,7 @@ internal sealed class ThemeService : IDisposable
         return accent;
     }
 
-    // Two accents can derive the same foreground, so the cache is keyed on that rather than on the
-    // accent: it skips a rewrite that would invalidate every dependent for nothing.
+    // Cache the derived foreground because different accents can resolve to the same value.
     private void ApplyTextOnAccent(Color? accent)
     {
         Color? foreground = accent is { } value ? AccentResolution.ResolveForegroundOn(value) : null;
@@ -269,8 +265,7 @@ internal sealed class ThemeService : IDisposable
             ThemeNotifier.NotifyReverted(previous, previousExtension);
         }
 
-        // Before OnApplied, and after the outgoing owner is reverted: a hook that recomputes
-        // accent-derived resources has to see this theme's accent rather than the outgoing one's.
+        // OnApplied must observe the incoming theme's accent.
         _notifiedAccent = ApplyAccent();
 
         ThemeNotifier.NotifyApplied(descriptor, extension, _notifiedAccent);
