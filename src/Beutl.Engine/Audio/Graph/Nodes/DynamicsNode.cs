@@ -88,11 +88,13 @@ public abstract class DynamicsNode : AudioNode
             {
                 ResetDspState();
             }
-            _lastTimeRangeEnd = context.TimeRange.Start + context.TimeRange.Duration;
 
             AudioBuffer output = HasAnimatedParameters
                 ? ProcessAnimated(input, context)
                 : ProcessStatic(input, context);
+
+            // A chunk that threw must not look contiguous, or the next one inherits half-mutated state.
+            _lastTimeRangeEnd = context.TimeRange.Start + context.TimeRange.Duration;
 
             // A hook may hand the input straight back, as the neutral paths of GainNode / EqualizerNode
             // do; ownership then belongs to the caller and disposing it here would hand the next
