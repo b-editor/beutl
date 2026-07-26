@@ -80,6 +80,57 @@ public class AudioProcessContextTests
         Assert.That(AudioProcessContext.GetSampleCount(range, 44100), Is.EqualTo(1));
     }
 
+    [TestCase(1, 44100)]
+    [TestCase(128, 44100)]
+    [TestCase(3087, 44100)]
+    [TestCase(4096, 44100)]
+    [TestCase(128, 48000)]
+    [TestCase(4096, 48000)]
+    public void GetDurationForSampleCount_RoundTripsToTheExactSampleCount(int sampleCount, int sampleRate)
+    {
+        TimeSpan duration = AudioProcessContext.GetDurationForSampleCount(sampleCount, sampleRate);
+
+        Assert.That(
+            AudioProcessContext.GetSampleCount(new TimeRange(TimeSpan.Zero, duration), sampleRate),
+            Is.EqualTo(sampleCount));
+    }
+
+    [Test]
+    public void GetDurationForSampleCount_ZeroSamples_ReturnsZero()
+    {
+        Assert.That(
+            AudioProcessContext.GetDurationForSampleCount(0, 44100),
+            Is.EqualTo(TimeSpan.Zero));
+    }
+
+    [Test]
+    public void GetDurationForSampleCount_NegativeSampleCount_Throws()
+    {
+        var ex = Assert.Throws<ArgumentOutOfRangeException>(
+            () => AudioProcessContext.GetDurationForSampleCount(-1, 44100));
+
+        Assert.That(ex!.ParamName, Is.EqualTo("sampleCount"));
+    }
+
+    [TestCase(0)]
+    [TestCase(-1)]
+    public void GetDurationForSampleCount_NonPositiveSampleRate_Throws(int sampleRate)
+    {
+        var ex = Assert.Throws<ArgumentOutOfRangeException>(
+            () => AudioProcessContext.GetDurationForSampleCount(1, sampleRate));
+
+        Assert.That(ex!.ParamName, Is.EqualTo("sampleRate"));
+    }
+
+    [Test]
+    public void GetDurationForSampleCount_UnrepresentableRate_Throws()
+    {
+        var ex = Assert.Throws<ArgumentOutOfRangeException>(
+            () => AudioProcessContext.GetDurationForSampleCount(1, int.MaxValue));
+
+        Assert.That(ex!.ParamName, Is.EqualTo("sampleRate"));
+    }
+
     [TestCase(0)]
     [TestCase(-1)]
     [TestCase(int.MinValue)]

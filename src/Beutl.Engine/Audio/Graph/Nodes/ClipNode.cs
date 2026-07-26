@@ -126,7 +126,9 @@ public class ClipNode : AudioNode
             return;
 
         var drainContext = new AudioProcessContext(
-            new TimeRange(Duration, TimeSpan.FromSeconds((double)drainCount / context.SampleRate)),
+            new TimeRange(
+                Duration,
+                AudioProcessContext.GetDurationForSampleCount(drainCount, context.SampleRate)),
             context.SampleRate,
             context.AnimationSampler,
             context.OriginalTimeRange);

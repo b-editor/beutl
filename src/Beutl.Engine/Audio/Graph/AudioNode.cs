@@ -14,8 +14,18 @@ public abstract class AudioNode : IDisposable
         if (IndexOfInput(input) >= 0)
             return;
 
+        AudioNode[] previousInputs = [.. _inputs];
         _inputs.Add(input);
-        OnInputAdded(input, _inputs.Count - 1);
+        try
+        {
+            OnInputAdded(input, _inputs.Count - 1);
+        }
+        catch
+        {
+            _inputs.Clear();
+            _inputs.AddRange(previousInputs);
+            throw;
+        }
     }
 
     public void RemoveInput(AudioNode input)
@@ -26,31 +36,57 @@ public abstract class AudioNode : IDisposable
         if (index < 0)
             return;
 
+        AudioNode[] previousInputs = [.. _inputs];
         _inputs.RemoveAt(index);
-        OnInputRemoved(input, index);
+        try
+        {
+            OnInputRemoved(input, index);
+        }
+        catch
+        {
+            _inputs.Clear();
+            _inputs.AddRange(previousInputs);
+            throw;
+        }
     }
 
     public void ClearInputs()
     {
+        AudioNode[] previousInputs = [.. _inputs];
         _inputs.Clear();
-        OnInputsCleared();
+        try
+        {
+            OnInputsCleared();
+        }
+        catch
+        {
+            _inputs.Clear();
+            _inputs.AddRange(previousInputs);
+            throw;
+        }
     }
 
     /// <summary>Called after an input is appended, allowing derived nodes to keep connection metadata
-    /// aligned with <see cref="Inputs"/>.</summary>
+    /// aligned with <see cref="Inputs"/>. If this hook throws, the input list is restored to its
+    /// pre-call state. An override that mutates its own state must provide the same strong exception
+    /// guarantee by undoing those mutations before it propagates an exception.</summary>
     protected virtual void OnInputAdded(AudioNode input, int index)
     {
     }
 
     /// <summary>Called after an input is removed, with its former position in
-    /// <see cref="Inputs"/>.</summary>
+    /// <see cref="Inputs"/>. If this hook throws, the input list is restored to its pre-call
+    /// state. An override that mutates its own state must provide the same strong exception guarantee
+    /// by undoing those mutations before it propagates an exception.</summary>
     protected virtual void OnInputRemoved(AudioNode input, int index)
     {
     }
 
     /// <summary>Called whenever <see cref="ClearInputs"/> is invoked, including when there were no
     /// inputs. This hook is not part of disposal; derived nodes that own disposable connection
-    /// metadata must release it from <see cref="Dispose(bool)"/>.</summary>
+    /// metadata must release it from <see cref="Dispose(bool)"/>. If this hook throws, the input list
+    /// is restored to its pre-call state. An override that mutates its own state must provide the same
+    /// strong exception guarantee by undoing those mutations before it propagates an exception.</summary>
     protected virtual void OnInputsCleared()
     {
     }

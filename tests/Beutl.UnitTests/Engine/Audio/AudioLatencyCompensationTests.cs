@@ -245,6 +245,156 @@ public class AudioLatencyCompensationTests
         }
     }
 
+    [TestCase(false)]
+    [TestCase(true)]
+    public void SpeedNode_Flush_MapsTheDrainToTheUpstreamSourceTimeline(bool animated)
+    {
+        const float lookaheadMs = 5f;
+        const int sampleCount = 4096;
+        int L = LookaheadSamples(lookaheadMs);
+
+        var source = new RangeSineNode(SampleRate);
+        using var limiter = CreateTransparentLimiter(lookaheadMs);
+        limiter.AddInput(source);
+        var speedProperty = Property.CreateAnimatable(50f);
+        if (animated)
+        {
+            speedProperty.Animation = new KeyFrameAnimation<float>
+            {
+                KeyFrames =
+                {
+                    new KeyFrame<float>
+                    {
+                        KeyTime = TimeSpan.Zero,
+                        Value = 50f,
+                        Easing = new LinearEasing(),
+                    },
+                    new KeyFrame<float>
+                    {
+                        KeyTime = TimeSpan.FromSeconds(10),
+                        Value = 50f,
+                        Easing = new LinearEasing(),
+                    },
+                },
+            };
+        }
+
+        using var speed = new SpeedNode { Speed = speedProperty };
+        speed.AddInput(limiter);
+
+        using var processed = speed.Process(Context(TimeSpan.Zero, sampleCount));
+        using var tail = speed.Flush(
+            Context(TimeSpan.FromSeconds((double)sampleCount / SampleRate), sampleCount));
+
+        Assert.That(HasNonZero(tail.GetChannelData(0)[..(L * 2)]), Is.True,
+            "A non-unity SpeedNode must drain the upstream limiter at the resampler's source cursor, "
+            + "not forward the output-domain time and reset the limiter.");
+    }
+
+    [TestCase(50f)]
+    [TestCase(200f)]
+    public void SpeedNode_Flush_AfterUnityProcessAndSpeedChange_UsesTrackedSourceCursor(float drainSpeed)
+    {
+        const float lookaheadMs = 5f;
+        const int sampleCount = 4096;
+
+        var source = new RangeSineNode(SampleRate);
+        using var limiter = CreateTransparentLimiter(lookaheadMs);
+        limiter.AddInput(source);
+        var speedProperty = Property.CreateAnimatable(100f);
+        using var speed = new SpeedNode { Speed = speedProperty };
+        speed.AddInput(limiter);
+
+        using var processed = speed.Process(Context(TimeSpan.Zero, sampleCount));
+        speedProperty.CurrentValue = drainSpeed;
+        using var tail = speed.Flush(
+            Context(TimeSpan.FromSeconds((double)sampleCount / SampleRate), sampleCount));
+
+        Assert.That(HasNonZero(tail.GetChannelData(0)), Is.True,
+            "A SpeedNode that processed at unity must retain the upstream source cursor when the "
+            + "speed changes before its drain.");
+    }
+
+    [TestCase(50f)]
+    [TestCase(200f)]
+    public void SpeedNode_Flush_WhenSpeedChangesToUnity_KeepsTheMappedSourceCursor(float processSpeed)
+    {
+        const float lookaheadMs = 5f;
+        const int sampleCount = 4096;
+
+        var source = new RangeSineNode(SampleRate);
+        using var limiter = CreateTransparentLimiter(lookaheadMs);
+        limiter.AddInput(source);
+        var speedProperty = Property.CreateAnimatable(processSpeed);
+        using var speed = new SpeedNode { Speed = speedProperty };
+        speed.AddInput(limiter);
+
+        using var processed = speed.Process(Context(TimeSpan.Zero, sampleCount));
+        speedProperty.CurrentValue = 100f;
+        using var tail = speed.Flush(
+            Context(TimeSpan.FromSeconds((double)sampleCount / SampleRate), sampleCount));
+
+        Assert.That(HasNonZero(tail.GetChannelData(0)), Is.True,
+            "Switching to unity for the drain must not bypass the resampler's retained source cursor.");
+    }
+
+    [TestCase(50f)]
+    [TestCase(200f)]
+    public void SpeedNode_Flush_AfterAnimatedProcessAndStaticUnityTransition_RequestsUnityRate(
+        float animatedSpeed)
+    {
+        const int sampleCount = 4096;
+
+        using var input = new RecordingFlushRequestNode();
+        var speedProperty = Property.CreateAnimatable(animatedSpeed);
+        speedProperty.Animation = ConstantSpeedAnimation(animatedSpeed);
+        using var speed = new SpeedNode { Speed = speedProperty };
+        speed.AddInput(input);
+
+        using var processed = speed.Process(Context(TimeSpan.Zero, sampleCount));
+        speedProperty.Animation = null;
+        speedProperty.CurrentValue = 100f;
+        using var tail = speed.Flush(
+            Context(TimeSpan.FromSeconds((double)sampleCount / SampleRate), sampleCount));
+
+        Assert.That(input.TotalFlushedSamples, Is.InRange(sampleCount - 256, sampleCount + 256),
+            "Switching from animated speed to static unity must reconfigure the resampler to a "
+            + "one-source-sample-per-output-sample drain.");
+        Assert.That(input.FirstFlushStart, Is.Not.Null);
+        Assert.That(input.LastProcessedEnd, Is.Not.Null);
+        Assert.That(
+            Math.Abs((input.FirstFlushStart!.Value - input.LastProcessedEnd!.Value).Ticks),
+            Is.LessThanOrEqualTo(1),
+            "The animated-to-static transition must preserve the exact upstream source cursor; "
+            + "forwarding the output-domain start would reset a stateful upstream node.");
+    }
+
+    [Test]
+    public void SpeedNode_Flush_WhenReturningToPreviousStaticSpeed_ReconfiguresAfterAnimation()
+    {
+        const int sampleCount = 4096;
+        var chunkDuration = TimeSpan.FromSeconds((double)sampleCount / SampleRate);
+
+        using var input = new RecordingFlushRequestNode();
+        var speedProperty = Property.CreateAnimatable(50f);
+        using var speed = new SpeedNode { Speed = speedProperty };
+        speed.AddInput(input);
+
+        using var staticChunk = speed.Process(Context(TimeSpan.Zero, sampleCount));
+        speedProperty.Animation = ConstantSpeedAnimation(200f);
+        using var animatedChunk = speed.Process(Context(chunkDuration, sampleCount));
+        speedProperty.Animation = null;
+        speedProperty.CurrentValue = 50f;
+        using var tail = speed.Flush(Context(chunkDuration + chunkDuration, sampleCount));
+
+        int expectedSourceSamples = sampleCount / 2;
+        Assert.That(
+            input.TotalFlushedSamples,
+            Is.InRange(expectedSourceSamples - 256, expectedSourceSamples + 256),
+            "Returning to the same static value used before animation must still restore the static "
+            + "rate and filter instead of retaining the animated 200% configuration.");
+    }
+
     [Test]
     public void MixerNode_Flush_MergesBranchTails()
     {
@@ -639,6 +789,26 @@ public class AudioLatencyCompensationTests
         Assert.That(anyNonZero, Is.True,
             "After a partial tail append, the parent flush must continue from the advanced drain position "
             + "so the remaining held samples are recovered, not dropped by a backward-discontinuity reset.");
+    }
+
+    [Test]
+    public void NestedClipNode_PartialTailAppend_At44100Hz_DoesNotSkipASample()
+    {
+        const int sampleRate = 44100;
+        const int clipSamples = 4096;
+        const int pad = 3087;
+        const int latency = 4096;
+        var clipDuration = ExactDuration(clipSamples, sampleRate);
+
+        using var input = new RecordingLatencyNode(latency);
+        using var clip = new ClipNode { Start = TimeSpan.Zero, Duration = clipDuration };
+        clip.AddInput(input);
+
+        using var processed = clip.Process(ExactContext(TimeSpan.Zero, clipSamples + pad, sampleRate));
+
+        Assert.That(input.LastFlushSampleCount, Is.EqualTo(pad),
+            "The partial drain must request exactly 3087 samples; a rounded-up 3088th sample would be "
+            + "discarded while advancing a stateful input and shift the later flush by one.");
     }
 
     [Test]
@@ -1096,6 +1266,89 @@ public class AudioLatencyCompensationTests
 
             return buffer;
         }
+    }
+
+    private static AudioProcessContext ExactContext(TimeSpan start, int sampleCount, int sampleRate)
+        => new(
+            new TimeRange(start, ExactDuration(sampleCount, sampleRate)),
+            sampleRate,
+            new AnimationSampler(),
+            null);
+
+    private static TimeSpan ExactDuration(int sampleCount, int sampleRate)
+        => AudioProcessContext.GetDurationForSampleCount(sampleCount, sampleRate);
+
+    private static bool HasNonZero(ReadOnlySpan<float> samples)
+    {
+        foreach (float sample in samples)
+        {
+            if (MathF.Abs(sample) > 1e-6f)
+                return true;
+        }
+
+        return false;
+    }
+
+    private static KeyFrameAnimation<float> ConstantSpeedAnimation(float speed)
+        => new()
+        {
+            KeyFrames =
+            {
+                new KeyFrame<float>
+                {
+                    KeyTime = TimeSpan.Zero,
+                    Value = speed,
+                    Easing = new LinearEasing(),
+                },
+                new KeyFrame<float>
+                {
+                    KeyTime = TimeSpan.FromSeconds(10),
+                    Value = speed,
+                    Easing = new LinearEasing(),
+                },
+            },
+        };
+
+    private sealed class RecordingFlushRequestNode : AudioNode
+    {
+        public int TotalFlushedSamples { get; private set; }
+
+        public TimeSpan? LastProcessedEnd { get; private set; }
+
+        public TimeSpan? FirstFlushStart { get; private set; }
+
+        public override AudioBuffer Process(AudioProcessContext context)
+        {
+            LastProcessedEnd = context.TimeRange.End;
+            return new AudioBuffer(context.SampleRate, 2, context.GetSampleCount());
+        }
+
+        public override AudioBuffer Flush(AudioProcessContext context)
+        {
+            FirstFlushStart ??= context.TimeRange.Start;
+            int sampleCount = context.GetSampleCount();
+            TotalFlushedSamples += sampleCount;
+            var buffer = new AudioBuffer(context.SampleRate, 2, sampleCount);
+            buffer.GetChannelData(0).Fill(0.25f);
+            buffer.GetChannelData(1).Fill(0.25f);
+            return buffer;
+        }
+    }
+
+    private sealed class RecordingLatencyNode(int latencySamples) : AudioNode
+    {
+        public int LastFlushSampleCount { get; private set; } = -1;
+
+        public override AudioBuffer Process(AudioProcessContext context)
+            => new(context.SampleRate, 2, context.GetSampleCount());
+
+        public override AudioBuffer Flush(AudioProcessContext context)
+        {
+            LastFlushSampleCount = context.GetSampleCount();
+            return new AudioBuffer(context.SampleRate, 2, LastFlushSampleCount);
+        }
+
+        public override int GetLatencySamples(int sampleRate) => latencySamples;
     }
 
     [System.Runtime.CompilerServices.MethodImpl(
