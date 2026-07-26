@@ -2,6 +2,7 @@
 using Avalonia.Controls;
 using Avalonia.Markup.Xaml;
 using Avalonia.Media;
+using Avalonia.Platform;
 using Avalonia.Styling;
 using Avalonia.Threading;
 using Beutl.Configuration;
@@ -33,6 +34,7 @@ internal sealed class ThemeService : IDisposable
     private IDisposable? _themeSubscription;
     private IDisposable? _useCustomAccentSubscription;
     private IDisposable? _customAccentColorSubscription;
+    private IPlatformSettings? _platformSettings;
     private bool _changedSubscribed;
     private bool _disposed;
     private int _applyQueued;
@@ -67,8 +69,37 @@ internal sealed class ThemeService : IDisposable
             .Subscribe(_ => ScheduleApply());
         ThemeRegistry.Changed += OnThemeRegistryChanged;
         _changedSubscribed = true;
+
+        // The OS accent is the one accent Beutl does not resolve, so no config or registry trigger
+        // ever reports it moving. FluentAvalonia refreshes SystemAccentColor* from this same event
+        // (PreferUserAccentColor is on), which covers a theme referencing those keys dynamically —
+        // but not an owner that recomputes from them in a callback.
+        if (Application.Current?.PlatformSettings is { } platformSettings)
+        {
+            _platformSettings = platformSettings;
+            platformSettings.ColorValuesChanged += OnPlatformColorValuesChanged;
+        }
+
         ScheduleApply();
     }
+
+    private void OnPlatformColorValuesChanged(object? sender, PlatformColorValues e) =>
+        NotifyOsAccentChanged();
+
+    // Posted rather than run inline: FluentAvalonia handles the same event, and only once this
+    // dispatch completes is its refresh guaranteed done regardless of subscription order.
+    internal void NotifyOsAccentChanged() => Dispatcher.UIThread.Post(() =>
+    {
+        // Only while Beutl resolves no accent of its own — a custom or theme accent overrides the OS
+        // one, so its movement changes nothing the owner can see. The context carries null for the
+        // same reason: the value lives in SystemAccentColor, which the owner reads itself.
+        if (_disposed || _notifiedAccent is not null || _appliedDescriptor is not { } applied)
+        {
+            return;
+        }
+
+        ThemeNotifier.NotifyAccentChanged(applied, _appliedExtension, null);
+    }, DispatcherPriority.Send);
 
     private static ThemeDescriptor[] GetBuiltinThemes() =>
     [
@@ -289,6 +320,12 @@ internal sealed class ThemeService : IDisposable
         _themeSubscription?.Dispose();
         _useCustomAccentSubscription?.Dispose();
         _customAccentColorSubscription?.Dispose();
+        if (_platformSettings is { } platformSettings)
+        {
+            platformSettings.ColorValuesChanged -= OnPlatformColorValuesChanged;
+            _platformSettings = null;
+        }
+
         if (_changedSubscribed)
         {
             ThemeRegistry.Changed -= OnThemeRegistryChanged;

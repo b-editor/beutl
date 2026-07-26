@@ -410,6 +410,55 @@ public class ThemeServiceTests
         });
     }
 
+    // The OS accent is the one accent Beutl does not resolve, so no config or registry trigger reports
+    // it moving and the context has nothing to carry. The owner still has to hear about it, or an
+    // OnApplied that recomputed from SystemAccentColor keeps the old shade for as long as the theme
+    // stays applied. Driven through the seam rather than the platform: the headless IPlatformSettings
+    // is real, and a test cannot raise its event.
+    [AvaloniaTest]
+    public void OsAccentChange_NotifiesTheActiveOwner_WhileBeutlResolvesNoAccentOfItsOwn()
+    {
+        using var scope = new ThemeScope();
+        scope.Service.Start();
+        Dispatcher.UIThread.RunJobs();
+
+        var ext = new RecordingThemeExtension("test.osaccent", "OsAccent");
+        ext.Load();
+        scope.Config.Theme = "test.osaccent";
+        Dispatcher.UIThread.RunJobs();
+        Assert.That(ext.AccentChangedCount, Is.Zero, "precondition: applying is not an accent change");
+
+        scope.Service.NotifyOsAccentChanged();
+        Dispatcher.UIThread.RunJobs();
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(ext.AccentChangedCount, Is.EqualTo(1));
+            Assert.That(ext.AccentAtChanged, Is.Null,
+                "Beutl resolved no accent, so the value stays in SystemAccentColor for the owner to read");
+        });
+    }
+
+    // A custom accent overrides the OS one, so its movement changes nothing the owner can see.
+    [AvaloniaTest]
+    public void OsAccentChange_IsSilent_WhenBeutlResolvesAnAccent()
+    {
+        using var scope = new ThemeScope();
+        scope.Service.Start();
+        Dispatcher.UIThread.RunJobs();
+
+        var ext = new RecordingThemeExtension("test.osaccent.custom", "OsAccent", Color.FromRgb(0x25, 0x63, 0xEB));
+        ext.Load();
+        scope.Config.Theme = "test.osaccent.custom";
+        Dispatcher.UIThread.RunJobs();
+        int changesBefore = ext.AccentChangedCount;
+
+        scope.Service.NotifyOsAccentChanged();
+        Dispatcher.UIThread.RunJobs();
+
+        Assert.That(ext.AccentChangedCount, Is.EqualTo(changesBefore));
+    }
+
     // The hook follows the applied theme, not the extension: an owner that has been reverted must not
     // keep recomputing resources for a theme the app no longer shows.
     [AvaloniaTest]
