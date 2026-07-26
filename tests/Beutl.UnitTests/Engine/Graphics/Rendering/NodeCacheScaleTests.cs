@@ -115,22 +115,99 @@ public class NodeCacheScaleTests
         Assert.That(node.Cache.IsCached, Is.True);
     }
 
+    [Test]
+    public void ApronedDirectReplayCache_ColdAndWarmUsePlannedClampedDensity()
+    {
+        var bounds = new Rect(0, 0, RenderScaleUtilities.MaxBufferDimension, 1);
+        float expectedDensity =
+            RenderScaleUtilities.ClampWorkingScaleToRasterApronBudget(bounds, 1);
+        using var node = new RasterApronSourceNode(bounds);
+        node.Cache.ReportRenderCount(RenderNodeCache.Count);
+        var diagnostics = new RenderPipelineDiagnosticsState();
+        using var renderer = CreateFrameRenderer(
+            node,
+            outputScale: 1,
+            maxWorkingScale: 1,
+            targetDomain: bounds,
+            diagnostics: diagnostics);
+
+        using RenderNodeRasterization cold = renderer.Rasterize();
+        using RenderNodeRasterization warm = renderer.Rasterize();
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(expectedDensity, Is.LessThan(1));
+            Assert.That(cold.IsEmpty, Is.False);
+            Assert.That(warm.IsEmpty, Is.False);
+            Assert.That(node.Cache.IsCached, Is.True);
+            Assert.That(node.Cache.Density, Is.EqualTo(expectedDensity));
+            Assert.That(node.ExecuteCount, Is.EqualTo(1));
+            Assert.That(
+                diagnostics.Latest[RenderPipelineCounter.RenderCacheHits],
+                Is.EqualTo(1));
+        });
+    }
+
+    [Test]
+    public void BoundedValueReplayCache_PartialRoiUsesCompleteApronedDensity()
+    {
+        var bounds = new Rect(0, 0, RenderScaleUtilities.MaxBufferDimension, 1);
+        var requestedRegion = new Rect(
+            0,
+            0,
+            RenderScaleUtilities.MaxBufferDimension / 2,
+            1);
+        float expectedDensity =
+            RenderScaleUtilities.ClampWorkingScaleToRasterApronBudget(bounds, 1);
+        using var node = new BoundedValueReplayNode(bounds);
+        node.Cache.ReportRenderCount(RenderNodeCache.Count);
+        var diagnostics = new RenderPipelineDiagnosticsState();
+        using var renderer = CreateFrameRenderer(
+            node,
+            outputScale: 1,
+            maxWorkingScale: 1,
+            targetDomain: bounds,
+            requestedRegion: requestedRegion,
+            diagnostics: diagnostics);
+
+        using RenderNodeRasterization cold = renderer.Rasterize();
+        using RenderNodeRasterization warm = renderer.Rasterize();
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(expectedDensity, Is.LessThan(1));
+            Assert.That(cold.Bounds, Is.EqualTo(requestedRegion));
+            Assert.That(warm.Bounds, Is.EqualTo(requestedRegion));
+            Assert.That(node.Cache.IsCached, Is.True);
+            Assert.That(node.Cache.Density, Is.EqualTo(expectedDensity));
+            Assert.That(node.ExecuteCount, Is.EqualTo(1));
+            Assert.That(
+                diagnostics.Latest[RenderPipelineCounter.RenderCacheHits],
+                Is.EqualTo(1));
+        });
+    }
+
     private static RenderNodeRenderer CreateFrameRenderer(
         RenderNode node,
         float outputScale,
         float maxWorkingScale,
-        RenderCacheRules? cacheRules = null)
+        RenderCacheRules? cacheRules = null,
+        Rect? targetDomain = null,
+        Rect? requestedRegion = null,
+        IRenderPipelineDiagnosticsState? diagnostics = null)
         => new(
             node,
             new RenderNodeRendererOptions
             {
-                TargetDomain = s_bounds,
+                TargetDomain = targetDomain ?? s_bounds,
+                RequestedRegion = requestedRegion,
                 OutputScale = outputScale,
                 MaxWorkingScale = maxWorkingScale,
                 UseRenderCache = true,
                 CacheRules = cacheRules ?? RenderCacheRules.Default,
                 RenderPurpose = RenderRequestPurpose.Frame,
                 TargetFactory = new CpuTargetFactory(),
+                Diagnostics = diagnostics,
             });
 
     private sealed class ConcreteSourceNode : RenderNode
@@ -165,6 +242,64 @@ public class NodeCacheScaleTests
                 runtimeIdentity: new RenderRuntimeIdentity(4f),
                 resources: [fillResource]);
             context.Publish(context.OpaqueSource(description));
+        }
+    }
+
+    private sealed class RasterApronSourceNode(Rect bounds) : RenderNode
+    {
+        public int ExecuteCount { get; private set; }
+
+        public override void Process(RenderNodeContext context)
+        {
+            OpaqueRenderDescription description = OpaqueRenderDescription.CreateEngineSource(
+                execute: session =>
+                {
+                    ExecuteCount++;
+                    using OpaqueRenderOutput output = session.CreateOutput(bounds);
+                    output.Canvas.Use(static canvas => canvas.Clear());
+                    session.Publish(output);
+                },
+                directReplay: static session => session.Canvas.Clear(),
+                bounds: OpaqueRenderBoundsContract.Source(bounds),
+                hitTest: RenderHitTestContract.OutputBounds,
+                scale: RenderScaleContract.Vector,
+                structuralKey: typeof(RasterApronSourceNode),
+                runtimeIdentity: new RenderRuntimeIdentity(bounds));
+            context.Publish(context.OpaqueSource(description));
+        }
+    }
+
+    private sealed class BoundedValueReplayNode(Rect bounds) : RenderNode
+    {
+        public int ExecuteCount { get; private set; }
+
+        public override void Process(RenderNodeContext context)
+        {
+            OpaqueRenderDescription sourceDescription = OpaqueRenderDescription.Create(
+                execute: session =>
+                {
+                    ExecuteCount++;
+                    using OpaqueRenderOutput output = session.CreateOutput(bounds);
+                    output.Canvas.Use(static canvas => canvas.Clear());
+                    session.Publish(output);
+                },
+                bounds: OpaqueRenderBoundsContract.Source(bounds),
+                hitTest: RenderHitTestContract.OutputBounds,
+                valueCardinality: RenderValueCardinality.Single,
+                scale: RenderScaleContract.Custom(
+                    static _ => 1,
+                    structuralKey: typeof(BoundedValueReplayNode)),
+                structuralKey: typeof(BoundedValueReplayNode),
+                runtimeIdentity: new RenderRuntimeIdentity(bounds));
+            RenderFragmentHandle source = context.OpaqueSource(sourceDescription);
+            TargetScopeDescription replayDescription = TargetScopeDescription.CreateValueReplayMap(
+                static session => session.Canvas.Use(_ => session.ReplayInput()),
+                RenderBoundsContract.Identity,
+                RenderHitTestContract.AnyInput,
+                RenderScaleContract.PreserveInputSupply,
+                typeof(BoundedValueReplayNode),
+                runtimeIdentity: new RenderRuntimeIdentity(bounds));
+            context.Publish(context.TargetScope(source, replayDescription));
         }
     }
 

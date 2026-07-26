@@ -473,6 +473,23 @@ internal sealed class RenderPipelineDiagnosticRecorder
     internal void RecordCacheDecision(bool cacheHit)
         => RecordCacheDecision(subjectId: 0, cacheHit);
 
+    internal void RecordRenderCacheResolutionPasses(int passes)
+    {
+        if (_completed || _faulted)
+            return;
+
+        try
+        {
+            if (passes <= 0)
+                throw new ArgumentOutOfRangeException(nameof(passes));
+            Add(RenderPipelineCounter.RenderCacheResolutionPasses, passes);
+        }
+        catch (Exception)
+        {
+            _faulted = true;
+        }
+    }
+
     internal void RecordCacheDecision(long subjectId, bool cacheHit)
     {
         if (_completed || _faulted)
@@ -1859,6 +1876,7 @@ internal enum RenderPipelineCounter
     ProgramCreations,
     ProgramHits,
     ProgramMisses,
+    RenderCacheResolutionPasses,
     RenderCacheHits,
     RenderCacheMisses,
     RenderCacheCaptures,

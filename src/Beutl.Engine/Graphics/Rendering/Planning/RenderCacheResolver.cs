@@ -179,6 +179,10 @@ internal sealed class RenderCacheEntry
 
 internal interface IRenderCacheLookup
 {
+    /// <remarks>
+    /// One resolver call observes a stable lookup snapshot. Implementations must not change the result for the
+    /// same candidate and complete identity until that call returns.
+    /// </remarks>
     bool TryGet(
         RenderCacheCandidate candidate,
         RenderOutputCacheIdentity identity,
@@ -226,9 +230,11 @@ internal enum RenderCacheBypassReason : byte
     CapturePublicationDisabled,
     EmptyRequirement,
     OutsideCacheRules,
+    ExternalInputExceedsBufferBudget,
     TargetTokenDependency,
     RawTargetWork,
     NotMaterializable,
+    UnstableBoundaryPlan,
 }
 
 internal sealed record RenderCacheHitSubstitution(
@@ -259,12 +265,60 @@ internal sealed record RenderCacheDecision(
     RenderCacheMissCapture? MissCapture,
     RenderCacheCandidateId? SupersededBy);
 
+internal static class RenderMaterializationDensityPolicy
+{
+    public static float Clamp(
+        RenderFragmentReference fragment,
+        float density)
+    {
+        ArgumentNullException.ThrowIfNull(fragment);
+        if (fragment.Kind is RenderFragmentKind.MaterializedInput
+            or RenderFragmentKind.BuiltInBackdropCapture)
+        {
+            return density;
+        }
+        if (fragment.Kind == RenderFragmentKind.ContributeValues
+            && fragment.Inputs.Length == 1)
+        {
+            return Clamp(fragment.Inputs[0], density);
+        }
+
+        Rect logicalBounds = fragment.Kind == RenderFragmentKind.Layer
+                             && fragment.Payload is LayerRenderFragmentPayload layer
+            ? layer.Domain ?? fragment.Bounds
+            : fragment.Bounds;
+        return RequiresRasterApron(fragment)
+            ? RenderScaleUtilities.ClampWorkingScaleToRasterApronBudget(logicalBounds, density)
+            : RenderScaleUtilities.ClampWorkingScaleToBufferBudget(logicalBounds, density);
+    }
+
+    private static bool RequiresRasterApron(RenderFragmentReference fragment)
+    {
+        if (fragment.Kind == RenderFragmentKind.OpaqueSource
+            && fragment.Payload is OpaqueRenderFragmentPayload opaque)
+        {
+            return opaque.Description.DirectReplay is not null;
+        }
+
+        return fragment.Kind == RenderFragmentKind.TargetScope
+               && fragment.Payload is TargetScopeRenderFragmentPayload targetScope
+               && targetScope.Description.IsValueReplayMap;
+    }
+}
+
 internal static class RenderMaterializationDemandResolver
 {
+    private enum DemandUse : byte
+    {
+        ReplayTarget,
+        MaterializeValue,
+    }
+
     public static IReadOnlyDictionary<RenderFragmentReference, EffectiveScale> Resolve(
         IReadOnlyList<RenderFragmentReference> roots,
         float outputScale,
-        float maxWorkingScale)
+        float maxWorkingScale,
+        IReadOnlySet<RenderFragmentReference>? cacheBoundaries = null)
     {
         ArgumentNullException.ThrowIfNull(roots);
         if (!float.IsFinite(outputScale) || outputScale <= 0)
@@ -277,31 +331,239 @@ internal static class RenderMaterializationDemandResolver
 
         var result = new Dictionary<RenderFragmentReference, EffectiveScale>(
             ReferenceEqualityComparer.Instance);
-        var pending = new Stack<(RenderFragmentReference Fragment, float Demand)>();
+        var replayDemands = new Dictionary<RenderFragmentReference, float>(
+            ReferenceEqualityComparer.Instance);
+        var materializedDemands = new Dictionary<RenderFragmentReference, float>(
+            ReferenceEqualityComparer.Instance);
+        var materializedUses = new HashSet<RenderFragmentReference>(
+            ReferenceEqualityComparer.Instance);
+        var pending = new Stack<(
+            RenderFragmentReference Fragment,
+            float Demand,
+            DemandUse Use,
+            bool UseSupplyFallback)>();
         float rootDemand = MathF.Min(
             outputScale,
             RenderScaleUtilities.SanitizeMaxWorkingScale(maxWorkingScale));
         for (int index = roots.Count - 1; index >= 0; index--)
-            pending.Push((roots[index], rootDemand));
+        {
+            pending.Push((
+                roots[index],
+                rootDemand,
+                DemandUse.ReplayTarget,
+                UseSupplyFallback: false));
+        }
 
         while (pending.TryPop(out var item))
         {
             RenderFragmentReference fragment = item.Fragment;
-            float demand = fragment.EffectiveScale.IsUnbounded
-                ? item.Demand
-                : fragment.EffectiveScale.Value;
-            if (result.TryGetValue(fragment, out EffectiveScale existing)
-                && existing.Value >= demand)
+            if (item.Use == DemandUse.ReplayTarget
+                && cacheBoundaries?.Contains(fragment) == true)
             {
+                pending.Push((
+                    fragment,
+                    item.Demand,
+                    DemandUse.MaterializeValue,
+                    item.UseSupplyFallback));
                 continue;
             }
 
-            result[fragment] = EffectiveScale.At(demand);
-            for (int index = fragment.Inputs.Length - 1; index >= 0; index--)
-                pending.Push((fragment.Inputs[index], demand));
+            float demand = ResolveDemand(
+                fragment,
+                item.Demand,
+                item.UseSupplyFallback,
+                maxWorkingScale);
+            bool outputDemandChanged = MergeDemand(result, fragment, demand);
+            if (outputDemandChanged && materializedUses.Contains(fragment))
+            {
+                pending.Push((
+                    fragment,
+                    demand,
+                    DemandUse.MaterializeValue,
+                    UseSupplyFallback: false));
+            }
+
+            if (item.Use == DemandUse.MaterializeValue)
+            {
+                materializedUses.Add(fragment);
+                float selectedDemand = result[fragment].Value;
+                if (!MergeProcessedDemand(materializedDemands, fragment, selectedDemand))
+                    continue;
+
+                EnqueueMaterializedInputs(fragment, selectedDemand, pending);
+                continue;
+            }
+
+            if (!MergeProcessedDemand(replayDemands, fragment, item.Demand))
+                continue;
+
+            EnqueueReplayInputs(fragment, item.Demand, pending);
         }
 
         return result;
+    }
+
+    private static float ResolveDemand(
+        RenderFragmentReference fragment,
+        float requestedDemand,
+        bool useSupplyFallback,
+        float maxWorkingScale)
+    {
+        if (!fragment.EffectiveScale.IsUnbounded)
+            return fragment.EffectiveScale.Value;
+
+        float demand = requestedDemand;
+        // A target command does not provide a caller density. Preserve the legacy
+        // Layer contract by negotiating from its densest concrete child supply.
+        if (useSupplyFallback && fragment.Kind == RenderFragmentKind.Layer)
+        {
+            foreach (RenderFragmentReference input in fragment.Inputs)
+            {
+                if (!input.EffectiveScale.IsUnbounded)
+                    demand = MathF.Max(demand, input.EffectiveScale.Value);
+            }
+        }
+
+        demand = MathF.Min(
+            demand,
+            RenderScaleUtilities.SanitizeMaxWorkingScale(maxWorkingScale));
+        return RenderMaterializationDensityPolicy.Clamp(
+            fragment,
+            demand);
+    }
+
+    private static bool MergeDemand(
+        IDictionary<RenderFragmentReference, EffectiveScale> demands,
+        RenderFragmentReference fragment,
+        float demand)
+    {
+        if (demands.TryGetValue(fragment, out EffectiveScale existing)
+            && existing.Value >= demand)
+        {
+            return false;
+        }
+
+        demands[fragment] = EffectiveScale.At(demand);
+        return true;
+    }
+
+    private static bool MergeProcessedDemand(
+        IDictionary<RenderFragmentReference, float> demands,
+        RenderFragmentReference fragment,
+        float demand)
+    {
+        if (demands.TryGetValue(fragment, out float existing) && existing >= demand)
+            return false;
+
+        demands[fragment] = demand;
+        return true;
+    }
+
+    private static void EnqueueReplayInputs(
+        RenderFragmentReference fragment,
+        float targetDemand,
+        Stack<(
+            RenderFragmentReference Fragment,
+            float Demand,
+            DemandUse Use,
+            bool UseSupplyFallback)> pending)
+    {
+        switch (fragment.Kind)
+        {
+            case RenderFragmentKind.Opacity:
+            case RenderFragmentKind.Blend:
+            case RenderFragmentKind.TargetLayerScope:
+            case RenderFragmentKind.TargetScope:
+            case RenderFragmentKind.RawTargetScope:
+                EnqueueInputs(fragment, targetDemand, DemandUse.ReplayTarget, pending);
+                return;
+            case RenderFragmentKind.OpacityMask:
+                if (fragment.Inputs.Length > 0)
+                {
+                    for (int index = fragment.Inputs.Length - 1; index >= 1; index--)
+                    {
+                        pending.Push((
+                            fragment.Inputs[index],
+                            targetDemand,
+                            DemandUse.MaterializeValue,
+                            UseSupplyFallback: false));
+                    }
+
+                    pending.Push((
+                        fragment.Inputs[0],
+                        targetDemand,
+                        DemandUse.ReplayTarget,
+                        UseSupplyFallback: false));
+                }
+                return;
+            case RenderFragmentKind.TargetCommand:
+                for (int index = fragment.Inputs.Length - 1; index >= 0; index--)
+                {
+                    pending.Push((
+                        fragment.Inputs[index],
+                        targetDemand,
+                        DemandUse.MaterializeValue,
+                        UseSupplyFallback: true));
+                }
+                return;
+            case RenderFragmentKind.RawTargetCommand:
+                return;
+            case RenderFragmentKind.ContributeValues:
+                EnqueueInputs(fragment, targetDemand, DemandUse.MaterializeValue, pending);
+                return;
+            default:
+                pending.Push((
+                    fragment,
+                    targetDemand,
+                    DemandUse.MaterializeValue,
+                    UseSupplyFallback: false));
+                return;
+        }
+    }
+
+    private static void EnqueueMaterializedInputs(
+        RenderFragmentReference fragment,
+        float valueDemand,
+        Stack<(
+            RenderFragmentReference Fragment,
+            float Demand,
+            DemandUse Use,
+            bool UseSupplyFallback)> pending)
+    {
+        switch (fragment.Kind)
+        {
+            case RenderFragmentKind.Layer:
+            case RenderFragmentKind.TargetScope:
+                EnqueueInputs(fragment, valueDemand, DemandUse.ReplayTarget, pending);
+                return;
+            case RenderFragmentKind.MaterializedInput:
+            case RenderFragmentKind.TargetCapture:
+            case RenderFragmentKind.BuiltInBackdropCapture:
+                return;
+            default:
+                EnqueueInputs(fragment, valueDemand, DemandUse.MaterializeValue, pending);
+                return;
+        }
+    }
+
+    private static void EnqueueInputs(
+        RenderFragmentReference fragment,
+        float demand,
+        DemandUse use,
+        Stack<(
+            RenderFragmentReference Fragment,
+            float Demand,
+            DemandUse Use,
+            bool UseSupplyFallback)> pending)
+    {
+        for (int index = fragment.Inputs.Length - 1; index >= 0; index--)
+        {
+            pending.Push((
+                fragment.Inputs[index],
+                demand,
+                use,
+                UseSupplyFallback: false));
+        }
     }
 }
 
@@ -335,6 +597,11 @@ internal sealed class RenderCacheResolution
            ?? throw new KeyNotFoundException("The cache candidate is not part of this resolution.");
 }
 
+internal sealed record RenderCachePlanningResult(
+    RenderCacheResolution Resolution,
+    IReadOnlyDictionary<RenderFragmentReference, EffectiveScale> MaterializationDemands,
+    int ResolutionPasses);
+
 /// <summary>
 /// Resolves cache candidates only after target dependencies, metadata, and required regions are known. It does
 /// not mutate the recorded graph: substitutions and capture points refer back to the original producer/value and
@@ -342,120 +609,271 @@ internal sealed class RenderCacheResolution
 /// </summary>
 internal sealed class RenderCacheResolver
 {
-    public RenderCacheResolution Resolve(
+    private const int MaximumResolutionPasses = 4;
+
+    public RenderCachePlanningResult Resolve(
         RenderRequest request,
         RecordedRenderGraph graph,
         RegionAnalysis regions,
+        IReadOnlyList<RenderFragmentReference> roots,
         RenderCacheResolutionContext context,
         IRenderCacheLookup? lookup = null)
     {
         ArgumentNullException.ThrowIfNull(request);
         ArgumentNullException.ThrowIfNull(graph);
         ArgumentNullException.ThrowIfNull(regions);
+        ArgumentNullException.ThrowIfNull(roots);
         context.Format.ThrowIfUninitialized(nameof(context));
         context.DeviceContext.ThrowIfUninitialized(nameof(context));
-        if (request.Id != graph.RequestId)
-            throw new ArgumentException("The recorded graph belongs to a different render request.", nameof(graph));
-        if (request.State != RenderRequestState.RegionsResolved)
+        ValidateRequest(request, graph);
+
+        var index = new ResolverIndex(graph);
+        var lookupMemo = new LookupMemo(lookup);
+        var planningBoundaries = new HashSet<RenderFragmentReference>(
+            ReferenceEqualityComparer.Instance);
+        var visitedBoundarySets = new HashSet<HashSet<RenderFragmentReference>>(
+            RenderFragmentReferenceSetComparer.Instance)
         {
-            throw new InvalidOperationException(
-                "Render-cache resolution requires completed graph, target-dependency, metadata, and region discovery.");
+            planningBoundaries,
+        };
+        IReadOnlyDictionary<RenderFragmentReference, EffectiveScale>? uncachedDemands = null;
+        // Selecting a hit or miss changes a fragment from target replay to value
+        // materialization, which can change descendant density and therefore identity.
+        // Resolve every candidate independently while finding the fixed point. Parent-hit
+        // supersedence is an execution selection and must not remove a child from density
+        // planning before the ancestor identity that selected the hit is stable.
+        for (int pass = 1; pass <= MaximumResolutionPasses; pass++)
+        {
+            IReadOnlyDictionary<RenderFragmentReference, EffectiveScale> demands =
+                RenderMaterializationDemandResolver.Resolve(
+                    roots,
+                    request.Options.OutputScale,
+                    request.Options.MaxWorkingScale,
+                    planningBoundaries);
+            uncachedDemands ??= demands;
+            HashSet<RenderFragmentReference> nextPlanningBoundaries =
+                ResolvePlanningBoundaries(
+                    request,
+                    index,
+                    regions,
+                    demands,
+                    context,
+                    lookupMemo);
+            if (nextPlanningBoundaries.SetEquals(planningBoundaries))
+            {
+                RenderCacheResolution resolution = ResolveFinal(
+                    request,
+                    index,
+                    regions,
+                    demands,
+                    context,
+                    lookupMemo);
+                return new RenderCachePlanningResult(
+                    resolution,
+                    demands,
+                    pass);
+            }
+
+            if (!visitedBoundarySets.Add(nextPlanningBoundaries))
+            {
+                return CreateUnstableBoundaryFallback(
+                    graph,
+                    uncachedDemands,
+                    pass);
+            }
+
+            planningBoundaries = nextPlanningBoundaries;
         }
 
-        Dictionary<RenderFragmentId, RecordedRenderFragment> fragments = graph.Fragments
-            .ToDictionary(static item => item.Id);
-        IReadOnlyDictionary<RenderFragmentReference, EffectiveScale> materializationDemands =
-            RenderMaterializationDemandResolver.Resolve(
-                RenderRequestCompiler.ResolveRoots(graph),
-                request.Options.OutputScale,
-                request.Options.MaxWorkingScale);
-        Dictionary<RenderCacheCandidateId, HashSet<RenderCacheCandidateId>> descendants =
-            BuildCandidateDescendants(graph, fragments);
-        RenderCacheCandidate[] parentFirst = [.. graph.CacheCandidates
-            .OrderByDescending(candidate => descendants[candidate.Id].Count)
-            .ThenByDescending(static candidate => candidate.AuthoredOrder)];
+        return CreateUnstableBoundaryFallback(
+            graph,
+            uncachedDemands!,
+            MaximumResolutionPasses);
+    }
 
+    private static HashSet<RenderFragmentReference> ResolvePlanningBoundaries(
+        RenderRequest request,
+        ResolverIndex index,
+        RegionAnalysis regions,
+        IReadOnlyDictionary<RenderFragmentReference, EffectiveScale> materializationDemands,
+        RenderCacheResolutionContext context,
+        LookupMemo lookupMemo)
+    {
+        var result = new HashSet<RenderFragmentReference>(
+            ReferenceEqualityComparer.Instance);
+        Dictionary<RenderFragmentReference, RenderFragmentOutputIdentity>? identityMemo =
+            context.AllowCapturePublication
+                ? null
+                : new Dictionary<RenderFragmentReference, RenderFragmentOutputIdentity>(
+                    ReferenceEqualityComparer.Instance);
+        foreach (RenderCacheCandidate candidate in index.Graph.CacheCandidates)
+        {
+            RecordedRenderFragment recorded = index.Fragments[candidate.FragmentId];
+            RenderFragmentReference reference = index.References[candidate.FragmentId];
+            CandidateEvaluation evaluation = EvaluateCandidate(
+                request,
+                reference,
+                recorded,
+                regions,
+                context,
+                materializationDemands);
+            if (evaluation.BypassReason != RenderCacheBypassReason.None)
+                continue;
+
+            if (context.AllowCapturePublication)
+            {
+                result.Add(reference);
+                continue;
+            }
+
+            RenderOutputCacheIdentity identity = CreateIdentity(
+                request,
+                candidate,
+                reference,
+                evaluation,
+                context,
+                materializationDemands,
+                identityMemo!);
+            if (context.AllowPersistentLookup
+                && lookupMemo.TryGet(candidate, identity, out _))
+            {
+                result.Add(reference);
+            }
+        }
+
+        return result;
+    }
+
+    private static RenderCacheResolution ResolveFinal(
+        RenderRequest request,
+        ResolverIndex index,
+        RegionAnalysis regions,
+        IReadOnlyDictionary<RenderFragmentReference, EffectiveScale> materializationDemands,
+        RenderCacheResolutionContext context,
+        LookupMemo lookupMemo)
+    {
+        CandidateTopology? topology =
+            context.AllowPersistentLookup
+            && lookupMemo.HasLookup
+            && index.Graph.CacheCandidates.Length > 1
+                ? index.GetTopology()
+                : null;
+        IReadOnlyList<RenderCacheCandidate> candidates = topology is null
+            ? index.Graph.CacheCandidates
+            : topology.ParentFirst;
+        var identityMemo = new Dictionary<RenderFragmentReference, RenderFragmentOutputIdentity>(
+            ReferenceEqualityComparer.Instance);
         var decisions = new Dictionary<RenderCacheCandidateId, RenderCacheDecision>();
         var selectedHits = new List<RenderCacheCandidateId>();
-        foreach (RenderCacheCandidate candidate in parentFirst)
+        foreach (RenderCacheCandidate candidate in candidates)
         {
-            RenderCacheCandidateId superseding = selectedHits
-                .FirstOrDefault(parent => descendants[parent].Contains(candidate.Id));
-            if (superseding.Value > 0)
+            if (topology is not null)
             {
-                decisions.Add(
-                    candidate.Id,
-                    new RenderCacheDecision(
-                        candidate,
-                        RenderCacheResolutionKind.Superseded,
-                        RenderCacheBypassReason.None,
-                        null,
-                        null,
-                        null,
-                        superseding));
-                continue;
+                RenderCacheCandidateId superseding = selectedHits
+                    .FirstOrDefault(parent => topology.Descendants[parent].Contains(candidate.Id));
+                if (superseding.Value > 0)
+                {
+                    decisions.Add(
+                        candidate.Id,
+                        Superseded(candidate, superseding));
+                    continue;
+                }
             }
 
             RenderCacheDecision decision = ResolveCandidate(
                 request,
                 candidate,
-                fragments[candidate.FragmentId],
+                index.Fragments[candidate.FragmentId],
+                index.References[candidate.FragmentId],
                 regions,
                 context,
                 materializationDemands,
-                lookup);
+                lookupMemo,
+                identityMemo);
             decisions.Add(candidate.Id, decision);
             if (decision.Kind == RenderCacheResolutionKind.Hit)
                 selectedHits.Add(candidate.Id);
         }
 
         return new RenderCacheResolution(
-            [.. graph.CacheCandidates.Select(candidate => decisions[candidate.Id])]);
+            [.. index.Graph.CacheCandidates.Select(candidate => decisions[candidate.Id])]);
     }
+
+    private static void ValidateRequest(
+        RenderRequest request,
+        RecordedRenderGraph graph)
+    {
+        if (request.Id != graph.RequestId)
+        {
+            throw new ArgumentException(
+                "The recorded graph belongs to a different render request.",
+                nameof(graph));
+        }
+        if (request.State != RenderRequestState.RegionsResolved)
+        {
+            throw new InvalidOperationException(
+                "Render-cache resolution requires completed graph, target-dependency, metadata, and region discovery.");
+        }
+    }
+
+    private static RenderCachePlanningResult CreateUnstableBoundaryFallback(
+        RecordedRenderGraph graph,
+        IReadOnlyDictionary<RenderFragmentReference, EffectiveScale> uncachedDemands,
+        int resolutionPasses)
+    {
+        var resolution = new RenderCacheResolution(
+            [.. graph.CacheCandidates.Select(candidate =>
+                Bypass(candidate, RenderCacheBypassReason.UnstableBoundaryPlan))]);
+        return new RenderCachePlanningResult(
+            resolution,
+            uncachedDemands,
+            resolutionPasses);
+    }
+
+    private static RenderCacheDecision Superseded(
+        RenderCacheCandidate candidate,
+        RenderCacheCandidateId superseding)
+        => new(
+            candidate,
+            RenderCacheResolutionKind.Superseded,
+            RenderCacheBypassReason.None,
+            null,
+            null,
+            null,
+            superseding);
 
     private static RenderCacheDecision ResolveCandidate(
         RenderRequest request,
         RenderCacheCandidate candidate,
         RecordedRenderFragment recorded,
+        RenderFragmentReference reference,
         RegionAnalysis regions,
         RenderCacheResolutionContext context,
         IReadOnlyDictionary<RenderFragmentReference, EffectiveScale> materializationDemands,
-        IRenderCacheLookup? lookup)
+        LookupMemo lookupMemo,
+        IDictionary<RenderFragmentReference, RenderFragmentOutputIdentity> identityMemo)
     {
-        if (recorded.Payload is not RenderFragmentReference reference)
-            throw new InvalidOperationException("A cache candidate is missing its semantic fragment reference.");
-
-        RenderCacheBypassReason reason = GetBypassReason(
+        CandidateEvaluation evaluation = EvaluateCandidate(
             request,
             reference,
             recorded,
             regions,
             context,
             materializationDemands);
-        if (reason != RenderCacheBypassReason.None)
-            return Bypass(candidate, reason);
+        if (evaluation.BypassReason != RenderCacheBypassReason.None)
+            return Bypass(candidate, evaluation.BypassReason);
 
-        RequiredRegion coverage = regions.FragmentRequirements[candidate.FragmentId];
-        ResolvedFragmentMetadata metadata = regions.Metadata[candidate.FragmentId];
-        float density = ResolveMaterializationDensity(
+        RenderOutputCacheIdentity identity = CreateIdentity(
+            request,
+            candidate,
             reference,
-            metadata,
-            materializationDemands);
-        var identity = new RenderOutputCacheIdentity(
-            candidate.CacheKey,
-            RenderFragmentOutputIdentity.Create(reference, graphRequestId: request.Id),
-            metadata.Bounds,
-            coverage,
-            density,
-            context.Format,
-            request.Options.Intent,
-            request.Options.Purpose,
-            context.DeviceContext);
+            evaluation,
+            context,
+            materializationDemands,
+            identityMemo);
 
         if (context.AllowPersistentLookup
-            && lookup?.TryGet(candidate, identity, out RenderCacheEntry? entry) == true
-            && entry is not null
-            && entry.Identity.Equals(identity))
+            && lookupMemo.TryGet(candidate, identity, out RenderCacheEntry? entry))
         {
             return new RenderCacheDecision(
                 candidate,
@@ -468,7 +886,7 @@ internal sealed class RenderCacheResolver
                     recorded.Values,
                     recorded.ProvenanceId,
                     identity,
-                    entry),
+                    entry!),
                 null,
                 null);
         }
@@ -488,10 +906,33 @@ internal sealed class RenderCacheResolver
                 recorded.Values,
                 recorded.ProvenanceId,
                 identity),
-            null);
+                null);
     }
 
-    private static RenderCacheBypassReason GetBypassReason(
+    private static RenderOutputCacheIdentity CreateIdentity(
+        RenderRequest request,
+        RenderCacheCandidate candidate,
+        RenderFragmentReference reference,
+        CandidateEvaluation evaluation,
+        RenderCacheResolutionContext context,
+        IReadOnlyDictionary<RenderFragmentReference, EffectiveScale> materializationDemands,
+        IDictionary<RenderFragmentReference, RenderFragmentOutputIdentity> identityMemo)
+        => new(
+            candidate.CacheKey,
+            RenderFragmentOutputIdentity.Create(
+                reference,
+                graphRequestId: request.Id,
+                materializationDemands,
+                identityMemo),
+            evaluation.Metadata.Bounds,
+            evaluation.Coverage,
+            evaluation.Density,
+            context.Format,
+            request.Options.Intent,
+            request.Options.Purpose,
+            context.DeviceContext);
+
+    private static CandidateEvaluation EvaluateCandidate(
         RenderRequest request,
         RenderFragmentReference reference,
         RecordedRenderFragment recorded,
@@ -500,40 +941,129 @@ internal sealed class RenderCacheResolver
         IReadOnlyDictionary<RenderFragmentReference, EffectiveScale> materializationDemands)
     {
         if (!request.Options.CachePolicy.IsEnabled)
-            return RenderCacheBypassReason.CacheDisabled;
+            return CandidateEvaluation.Bypass(RenderCacheBypassReason.CacheDisabled);
         if (request.Options.Purpose is RenderRequestPurpose.Bounds or RenderRequestPurpose.HitTest)
-            return RenderCacheBypassReason.MetadataOnlyPurpose;
+            return CandidateEvaluation.Bypass(RenderCacheBypassReason.MetadataOnlyPurpose);
         if (!context.AllowPersistentLookup && !context.AllowCapturePublication)
-            return RenderCacheBypassReason.PersistentLookupDisabled;
+            return CandidateEvaluation.Bypass(RenderCacheBypassReason.PersistentLookupDisabled);
         if (ContainsRawTargetWork(reference))
-            return RenderCacheBypassReason.RawTargetWork;
+            return CandidateEvaluation.Bypass(RenderCacheBypassReason.RawTargetWork);
         if (RenderFragmentTargetDependency.HasExternalTargetDependency(reference))
-            return RenderCacheBypassReason.TargetTokenDependency;
+            return CandidateEvaluation.Bypass(RenderCacheBypassReason.TargetTokenDependency);
         if (!reference.CanBeUsedAsValueInput || recorded.Values.IsDefaultOrEmpty)
-            return RenderCacheBypassReason.NotMaterializable;
+            return CandidateEvaluation.Bypass(RenderCacheBypassReason.NotMaterializable);
+        if (reference.Kind == RenderFragmentKind.MaterializedInput
+            && reference.Payload is MaterializedInputRenderFragmentPayload input
+            && (input.Description.DeviceBounds.Width > RenderScaleUtilities.MaxBufferDimension
+                || input.Description.DeviceBounds.Height > RenderScaleUtilities.MaxBufferDimension))
+        {
+            return CandidateEvaluation.Bypass(
+                RenderCacheBypassReason.ExternalInputExceedsBufferBudget);
+        }
 
         if (!regions.FragmentRequirements.TryGetValue(recorded.Id, out RequiredRegion requirement)
             || !regions.Metadata.TryGetValue(recorded.Id, out ResolvedFragmentMetadata metadata))
         {
-            return RenderCacheBypassReason.EmptyRequirement;
+            return CandidateEvaluation.Bypass(RenderCacheBypassReason.EmptyRequirement);
         }
         if (requirement.IsEmpty)
-            return RenderCacheBypassReason.EmptyRequirement;
+            return CandidateEvaluation.Bypass(RenderCacheBypassReason.EmptyRequirement);
 
         float density = ResolveMaterializationDensity(
             reference,
-            metadata,
             materializationDemands);
-        Rect coverage = requirement.IsFull ? metadata.Bounds : requirement.Value;
-        PixelRect deviceCoverage = PixelRect.FromRect(coverage, density);
-        return request.Options.CachePolicy.Rules.Match(deviceCoverage.Size)
-            ? RenderCacheBypassReason.None
-            : RenderCacheBypassReason.OutsideCacheRules;
+        if (!TryResolveCacheCaptureSize(
+                reference,
+                regions,
+                metadata,
+                requirement,
+                density,
+                out PixelSize captureSize))
+        {
+            return CandidateEvaluation.Bypass(RenderCacheBypassReason.NotMaterializable);
+        }
+        if (!request.Options.CachePolicy.Rules.Match(captureSize))
+        {
+            return CandidateEvaluation.Bypass(RenderCacheBypassReason.OutsideCacheRules);
+        }
+
+        return CandidateEvaluation.Eligible(
+            metadata,
+            requirement,
+            density);
+    }
+
+    private static bool TryResolveCacheCaptureSize(
+        RenderFragmentReference reference,
+        RegionAnalysis regions,
+        ResolvedFragmentMetadata metadata,
+        RequiredRegion requirement,
+        float density,
+        out PixelSize result)
+    {
+        if (reference.Kind == RenderFragmentKind.ContributeValues
+            && !reference.Inputs.IsDefaultOrEmpty)
+        {
+            if (reference.Inputs.Length != 1
+                || reference.Inputs[0].Id is not { } inputId
+                || !regions.Metadata.TryGetValue(inputId, out ResolvedFragmentMetadata inputMetadata)
+                || !regions.FragmentRequirements.TryGetValue(inputId, out RequiredRegion inputRequirement))
+            {
+                result = default;
+                return false;
+            }
+
+            RenderFragmentReference input = reference.Inputs[0];
+            return TryResolveCacheCaptureSize(
+                input,
+                regions,
+                inputMetadata,
+                inputRequirement,
+                RenderMaterializationDensityPolicy.Clamp(input, density),
+                out result);
+        }
+
+        if (reference.Kind == RenderFragmentKind.MaterializedInput
+            && reference.Payload is MaterializedInputRenderFragmentPayload materializedInput)
+        {
+            result = materializedInput.Description.DeviceBounds.Size;
+            return true;
+        }
+
+        Rect captureBounds = reference.Kind == RenderFragmentKind.Layer
+                             && reference.Payload is LayerRenderFragmentPayload layer
+            ? layer.Domain ?? reference.Bounds
+            : reference.Kind is RenderFragmentKind.Opacity
+                or RenderFragmentKind.OpacityMask
+                or RenderFragmentKind.OpaqueSource
+                or RenderFragmentKind.OpaqueMap
+                or RenderFragmentKind.OpaqueCombine
+                or RenderFragmentKind.OpaqueExpand
+                or RenderFragmentKind.TargetCapture
+                or RenderFragmentKind.BuiltInBackdropCapture
+                ? reference.Bounds
+                : requirement.IsFull
+                    ? metadata.Bounds
+                    : requirement.Value;
+        PixelRect deviceBounds = PixelRect.FromRect(captureBounds, density);
+        bool requiresRasterApron =
+            reference.Kind == RenderFragmentKind.TargetScope
+            && reference.Payload is TargetScopeRenderFragmentPayload targetScope
+            && targetScope.Description.IsValueReplayMap
+            || reference.Kind == RenderFragmentKind.OpaqueSource
+            && reference.Payload is OpaqueRenderFragmentPayload opaque
+            && opaque.Description.DirectReplay is not null;
+        if (requiresRasterApron)
+        {
+            deviceBounds = RenderScaleUtilities.AddRasterApron(deviceBounds);
+        }
+
+        result = deviceBounds.Size;
+        return true;
     }
 
     private static float ResolveMaterializationDensity(
         RenderFragmentReference reference,
-        ResolvedFragmentMetadata metadata,
         IReadOnlyDictionary<RenderFragmentReference, EffectiveScale> materializationDemands)
     {
         if (!materializationDemands.TryGetValue(reference, out EffectiveScale demand))
@@ -543,7 +1073,7 @@ internal sealed class RenderCacheResolver
         }
 
         float density = demand.Value;
-        return RenderScaleUtilities.ClampWorkingScaleToBufferBudget(metadata.Bounds, density);
+        return RenderMaterializationDensityPolicy.Clamp(reference, density);
     }
 
     private static bool ContainsRawTargetWork(RenderFragmentReference reference)
@@ -581,18 +1111,123 @@ internal sealed class RenderCacheResolver
             null,
             null);
 
-    private static Dictionary<RenderCacheCandidateId, HashSet<RenderCacheCandidateId>> BuildCandidateDescendants(
-        RecordedRenderGraph graph,
-        IReadOnlyDictionary<RenderFragmentId, RecordedRenderFragment> fragments)
+    private readonly record struct CandidateEvaluation(
+        RenderCacheBypassReason BypassReason,
+        ResolvedFragmentMetadata Metadata,
+        RequiredRegion Coverage,
+        float Density)
     {
-        var references = new Dictionary<RenderFragmentId, RenderFragmentReference>();
-        foreach ((RenderFragmentId id, RecordedRenderFragment fragment) in fragments)
+        public static CandidateEvaluation Bypass(RenderCacheBypassReason reason)
+            => new(reason, default, default, default);
+
+        public static CandidateEvaluation Eligible(
+            ResolvedFragmentMetadata metadata,
+            RequiredRegion coverage,
+            float density)
+            => new(RenderCacheBypassReason.None, metadata, coverage, density);
+    }
+
+    private sealed class ResolverIndex
+    {
+        private CandidateTopology? _topology;
+
+        public ResolverIndex(RecordedRenderGraph graph)
         {
-            if (fragment.Payload is not RenderFragmentReference reference)
-                throw new InvalidOperationException("A cache candidate graph is missing a semantic fragment reference.");
-            references.Add(id, reference);
+            Graph = graph;
+            Fragments = new Dictionary<RenderFragmentId, RecordedRenderFragment>(
+                graph.Fragments.Length);
+            References = new Dictionary<RenderFragmentId, RenderFragmentReference>(
+                graph.Fragments.Length);
+            foreach (RecordedRenderFragment fragment in graph.Fragments)
+            {
+                if (fragment.Payload is not RenderFragmentReference reference)
+                {
+                    throw new InvalidOperationException(
+                        "A cache-planning fragment is missing its semantic reference.");
+                }
+
+                Fragments.Add(fragment.Id, fragment);
+                References.Add(fragment.Id, reference);
+            }
         }
 
+        public RecordedRenderGraph Graph { get; }
+
+        public Dictionary<RenderFragmentId, RecordedRenderFragment> Fragments { get; }
+
+        public Dictionary<RenderFragmentId, RenderFragmentReference> References { get; }
+
+        public CandidateTopology GetTopology()
+            => _topology ??= BuildCandidateTopology(Graph, References);
+    }
+
+    private sealed record CandidateTopology(
+        Dictionary<RenderCacheCandidateId, HashSet<RenderCacheCandidateId>> Descendants,
+        RenderCacheCandidate[] ParentFirst);
+
+    private sealed class LookupMemo(IRenderCacheLookup? lookup)
+    {
+        private readonly Dictionary<RenderCacheCandidateId,
+            Dictionary<RenderOutputCacheIdentity, RenderCacheEntry?>> _entries = [];
+
+        public bool HasLookup => lookup is not null;
+
+        public bool TryGet(
+            RenderCacheCandidate candidate,
+            RenderOutputCacheIdentity identity,
+            out RenderCacheEntry? entry)
+        {
+            if (lookup is null)
+            {
+                entry = null;
+                return false;
+            }
+
+            if (!_entries.TryGetValue(candidate.Id, out var candidates))
+            {
+                candidates = [];
+                _entries.Add(candidate.Id, candidates);
+            }
+            else if (candidates.TryGetValue(identity, out entry))
+            {
+                return entry is not null;
+            }
+
+            bool found = lookup.TryGet(candidate, identity, out RenderCacheEntry? candidateEntry)
+                         && candidateEntry is not null
+                         && candidateEntry.Identity.Equals(identity);
+            entry = found ? candidateEntry : null;
+            candidates.Add(identity, entry);
+            return found;
+        }
+    }
+
+    private sealed class RenderFragmentReferenceSetComparer
+        : IEqualityComparer<HashSet<RenderFragmentReference>>
+    {
+        public static RenderFragmentReferenceSetComparer Instance { get; } = new();
+
+        public bool Equals(
+            HashSet<RenderFragmentReference>? x,
+            HashSet<RenderFragmentReference>? y)
+            => ReferenceEquals(x, y)
+               || x is not null
+               && y is not null
+               && x.SetEquals(y);
+
+        public int GetHashCode(HashSet<RenderFragmentReference> set)
+        {
+            int hash = set.Count;
+            foreach (RenderFragmentReference reference in set)
+                hash ^= ReferenceEqualityComparer.Instance.GetHashCode(reference);
+            return hash;
+        }
+    }
+
+    private static CandidateTopology BuildCandidateTopology(
+        RecordedRenderGraph graph,
+        IReadOnlyDictionary<RenderFragmentId, RenderFragmentReference> references)
+    {
         var result = new Dictionary<RenderCacheCandidateId, HashSet<RenderCacheCandidateId>>();
         foreach (RenderCacheCandidate parent in graph.CacheCandidates)
         {
@@ -613,7 +1248,10 @@ internal sealed class RenderCacheResolver
             }
             result.Add(parent.Id, descendants);
         }
-        return result;
+        RenderCacheCandidate[] parentFirst = [.. graph.CacheCandidates
+            .OrderByDescending(candidate => result[candidate.Id].Count)
+            .ThenByDescending(static candidate => candidate.AuthoredOrder)];
+        return new CandidateTopology(result, parentFirst);
     }
 
     private static bool DependsOn(
@@ -640,6 +1278,7 @@ internal sealed class RenderFragmentOutputIdentity : IEquatable<RenderFragmentOu
     private readonly RenderFragmentKind _kind;
     private readonly Rect _bounds;
     private readonly int? _scaleBits;
+    private readonly int? _materializationScaleBits;
     private readonly RenderValueCardinality _cardinality;
     private readonly bool _contributes;
     private readonly object[] _runtimeComponents;
@@ -647,6 +1286,7 @@ internal sealed class RenderFragmentOutputIdentity : IEquatable<RenderFragmentOu
 
     private RenderFragmentOutputIdentity(
         RenderFragmentReference reference,
+        EffectiveScale? materializationDemand,
         object[] runtimeComponents,
         RenderFragmentOutputIdentity[] inputs)
     {
@@ -655,6 +1295,9 @@ internal sealed class RenderFragmentOutputIdentity : IEquatable<RenderFragmentOu
         _scaleBits = reference.EffectiveScale.IsUnbounded
             ? null
             : BitConverter.SingleToInt32Bits(reference.EffectiveScale.Value);
+        _materializationScaleBits = materializationDemand is { } demand
+            ? BitConverter.SingleToInt32Bits(demand.Value)
+            : null;
         _cardinality = reference.ValueCardinality;
         _contributes = reference.ContributesValuesToTarget;
         _runtimeComponents = runtimeComponents;
@@ -663,12 +1306,24 @@ internal sealed class RenderFragmentOutputIdentity : IEquatable<RenderFragmentOu
 
     public static RenderFragmentOutputIdentity Create(
         RenderFragmentReference reference,
-        RenderRequestId graphRequestId)
+        RenderRequestId graphRequestId,
+        IReadOnlyDictionary<RenderFragmentReference, EffectiveScale>? materializationDemands = null)
     {
         ArgumentNullException.ThrowIfNull(reference);
         var memo = new Dictionary<RenderFragmentReference, RenderFragmentOutputIdentity>(
             ReferenceEqualityComparer.Instance);
-        return CreateCore(reference, graphRequestId, memo);
+        return CreateCore(reference, graphRequestId, materializationDemands, memo);
+    }
+
+    internal static RenderFragmentOutputIdentity Create(
+        RenderFragmentReference reference,
+        RenderRequestId graphRequestId,
+        IReadOnlyDictionary<RenderFragmentReference, EffectiveScale>? materializationDemands,
+        IDictionary<RenderFragmentReference, RenderFragmentOutputIdentity> memo)
+    {
+        ArgumentNullException.ThrowIfNull(reference);
+        ArgumentNullException.ThrowIfNull(memo);
+        return CreateCore(reference, graphRequestId, materializationDemands, memo);
     }
 
     public bool Equals(RenderFragmentOutputIdentity? other)
@@ -677,6 +1332,7 @@ internal sealed class RenderFragmentOutputIdentity : IEquatable<RenderFragmentOu
             || _kind != other._kind
             || !_bounds.Equals(other._bounds)
             || _scaleBits != other._scaleBits
+            || _materializationScaleBits != other._materializationScaleBits
             || !_cardinality.Equals(other._cardinality)
             || _contributes != other._contributes
             || _runtimeComponents.Length != other._runtimeComponents.Length
@@ -702,6 +1358,7 @@ internal sealed class RenderFragmentOutputIdentity : IEquatable<RenderFragmentOu
         hash.Add(_kind);
         hash.Add(_bounds);
         hash.Add(_scaleBits);
+        hash.Add(_materializationScaleBits);
         hash.Add(_cardinality);
         hash.Add(_contributes);
         foreach (object component in _runtimeComponents)
@@ -714,17 +1371,27 @@ internal sealed class RenderFragmentOutputIdentity : IEquatable<RenderFragmentOu
     private static RenderFragmentOutputIdentity CreateCore(
         RenderFragmentReference reference,
         RenderRequestId requestId,
+        IReadOnlyDictionary<RenderFragmentReference, EffectiveScale>? materializationDemands,
         IDictionary<RenderFragmentReference, RenderFragmentOutputIdentity> memo)
     {
         if (memo.TryGetValue(reference, out RenderFragmentOutputIdentity? cached))
             return cached;
 
         RenderFragmentOutputIdentity[] inputs = reference.Inputs
-            .Select(input => CreateCore(input, requestId, memo))
+            .Select(input => CreateCore(input, requestId, materializationDemands, memo))
             .ToArray();
         var components = new List<object>();
         AddRuntimeComponents(reference, requestId, components);
-        var identity = new RenderFragmentOutputIdentity(reference, components.ToArray(), inputs);
+        EffectiveScale? demand = materializationDemands?.TryGetValue(
+            reference,
+            out EffectiveScale selectedDemand) == true
+            ? selectedDemand
+            : null;
+        var identity = new RenderFragmentOutputIdentity(
+            reference,
+            demand,
+            components.ToArray(),
+            inputs);
         memo.Add(reference, identity);
         return identity;
     }

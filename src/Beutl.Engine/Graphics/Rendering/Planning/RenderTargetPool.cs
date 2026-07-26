@@ -140,20 +140,6 @@ internal sealed class RenderTargetPool : IDisposable
         return BeginRequestCore(contextIdentity, expectedContextHandle, externalTarget);
     }
 
-    public void ResetContext()
-    {
-        ObjectDisposedException.ThrowIf(_disposed, this);
-        if (_activeRequest is not null)
-            throw new InvalidOperationException("The render-target pool context cannot change during an active request.");
-
-        List<Exception> failures = [];
-        EvictAllAvailable(failures);
-        _contextIdentity = null;
-        _contextHandle = 0;
-        _hasContext = false;
-        ThrowCleanupFailures(failures);
-    }
-
     public void Dispose()
     {
         if (_disposed)
@@ -821,19 +807,6 @@ internal sealed class RenderTargetPoolRequest : IDisposable
         }
 
         primary?.Throw();
-    }
-
-    public void ThrowAfterCleanup(ExceptionDispatchInfo? primaryFailure)
-    {
-        primaryFailure?.Throw();
-        if (_cleanupFailures.Count == 1)
-            ExceptionDispatchInfo.Capture(_cleanupFailures[0]).Throw();
-        if (_cleanupFailures.Count > 1)
-        {
-            throw new AggregateException(
-                "One or more pooled render targets failed to discharge.",
-                _cleanupFailures);
-        }
     }
 
     internal void Register(PooledRenderTargetLease lease)

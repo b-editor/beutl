@@ -619,52 +619,6 @@ public sealed class RenderTargetPoolTests
     }
 
     [Test]
-    public void ProgramCacheContextIdentity_IsStableUntilPoolContextReset()
-    {
-        using var pool = new RenderTargetPool(factory: null);
-        object backendContext = new();
-        object deviceIdentity = new();
-        object capabilityClass = new();
-        object compileOptions = new();
-
-        ProgramCacheContextKey first;
-        using (RenderTargetPoolRequest request = pool.BeginRequestForContext(backendContext, 0))
-        {
-            first = CreateProgramContextKey(request);
-        }
-
-        ProgramCacheContextKey sameGeneration;
-        using (RenderTargetPoolRequest request = pool.BeginRequestForContext(backendContext, 0))
-        {
-            sameGeneration = CreateProgramContextKey(request);
-        }
-
-        pool.ResetContext();
-        ProgramCacheContextKey nextGeneration;
-        using (RenderTargetPoolRequest request = pool.BeginRequestForContext(backendContext, 0))
-        {
-            nextGeneration = CreateProgramContextKey(request);
-        }
-
-        Assert.Multiple(() =>
-        {
-            Assert.That(sameGeneration, Is.EqualTo(first));
-            Assert.That(nextGeneration, Is.Not.EqualTo(first));
-            Assert.That(nextGeneration.DeviceIdentity, Is.SameAs(deviceIdentity));
-        });
-
-        ProgramCacheContextKey CreateProgramContextKey(RenderTargetPoolRequest request)
-            => new(
-                deviceIdentity,
-                new RenderTargetCacheContextIdentity(
-                    request.ContextIdentity,
-                    request.ContextGeneration),
-                capabilityClass,
-                "linear-premultiplied-rgba16f",
-                compileOptions);
-    }
-
-    [Test]
     public void FactoryTarget_MustMatchSizeAndRgba16fContract()
     {
         var wrongSizeFactory = new TrackingTargetFactory(
@@ -751,35 +705,6 @@ public sealed class RenderTargetPoolTests
         pool.Dispose();
         Assert.That(target.IsDisposed, Is.False);
         target.Dispose();
-    }
-
-    [Test]
-    public void CleanupFailure_IsRecordedWithoutReplacingPrimaryFailure()
-    {
-        var cleanup = new InvalidOperationException("dispose-failure");
-        var factory = new TrackingTargetFactory(
-            (size, _) => new TrackingRenderTarget(size.Width, size.Height, disposeFailure: cleanup));
-        using var pool = new RenderTargetPool(
-            factory,
-            new RenderTargetPoolOptions
-            {
-                MaximumRetainedBytes = 0,
-                MaximumIdleRequests = int.MaxValue,
-            });
-        var primary = new InvalidOperationException("primary-failure");
-        using RenderTargetPoolRequest request = pool.BeginRequest();
-        PooledRenderTargetLease lease = request.Acquire(new PixelSize(4, 4));
-        lease.Dispose();
-        request.Dispose();
-
-        InvalidOperationException? thrown = Assert.Throws<InvalidOperationException>(
-            () => request.ThrowAfterCleanup(ExceptionDispatchInfo.Capture(primary)));
-        Assert.Multiple(() =>
-        {
-            Assert.That(thrown, Is.SameAs(primary));
-            Assert.That(request.CleanupFailures, Is.EqualTo(new[] { cleanup }));
-            Assert.That(lease.State, Is.EqualTo(PooledRenderTargetLeaseState.Evicted));
-        });
     }
 
     [Test]

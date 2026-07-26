@@ -56,9 +56,9 @@ public sealed class RenderPipelineMigrationCensusTests
     private static readonly IReadOnlyDictionary<string, int> s_testOverrideBaseline =
         new Dictionary<string, int>(StringComparer.Ordinal)
         {
-            ["tests/Beutl.UnitTests/Engine/Graphics/Rendering/NodeCacheScaleTests.cs"] = 1,
+            ["tests/Beutl.UnitTests/Engine/Graphics/Rendering/NodeCacheScaleTests.cs"] = 3,
             ["tests/Beutl.UnitTests/Engine/Graphics/Rendering/RendererExceptionSafetyTests.cs"] = 1,
-            ["tests/Beutl.UnitTests/Engine/Graphics/Rendering/SourceEffectiveScaleFlowTests.cs"] = 12,
+            ["tests/Beutl.UnitTests/Engine/Graphics/Rendering/SourceEffectiveScaleFlowTests.cs"] = 13,
             ["tests/Beutl.UnitTests/NodeGraph/NodeGraphFilterEffectRenderNodeTests.cs"] = 5,
         };
 
@@ -110,7 +110,7 @@ public sealed class RenderPipelineMigrationCensusTests
             AssertDeclaredBaseline("production", 29, s_startingProductionOverrideBaseline);
             AssertDeclaredBaseline("test", 7, s_startingTestOverrideBaseline);
             AssertBaselineInventory("production", 28, s_productionOverrideBaseline, overrides);
-            AssertBaselineInventory("test", 19, s_testOverrideBaseline, overrides);
+            AssertBaselineInventory("test", 22, s_testOverrideBaseline, overrides);
         }
     }
 

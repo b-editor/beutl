@@ -10,6 +10,7 @@ internal sealed class CompiledRenderRequest : IDisposable
         RecordedRenderGraph graph,
         RegionAnalysis regions,
         ImmutableArray<RenderFragmentReference> roots,
+        IReadOnlyDictionary<RenderFragmentReference, EffectiveScale> materializationDemands,
         TargetDependencyPlan targetDependencies,
         RenderCacheResolution cacheResolution,
         ExecutionIslandPlan executionPlan,
@@ -23,6 +24,8 @@ internal sealed class CompiledRenderRequest : IDisposable
         SelectedOutputBounds = regions.FinalCommitBounds;
         ExecutionTargetBounds = ResolveExecutionTargetBounds(graph, regions, TargetDependencies);
         Roots = roots;
+        MaterializationDemands = materializationDemands
+            ?? throw new ArgumentNullException(nameof(materializationDemands));
         CacheResolution = cacheResolution ?? throw new ArgumentNullException(nameof(cacheResolution));
         ExecutionPlan = executionPlan ?? throw new ArgumentNullException(nameof(executionPlan));
         NestedRequests = nestedRequests.IsDefault ? [] : nestedRequests;
@@ -41,6 +44,8 @@ internal sealed class CompiledRenderRequest : IDisposable
     public Rect ExecutionTargetBounds { get; }
 
     public ImmutableArray<RenderFragmentReference> Roots { get; }
+
+    public IReadOnlyDictionary<RenderFragmentReference, EffectiveScale> MaterializationDemands { get; }
 
     public TargetDependencyPlan TargetDependencies { get; }
 

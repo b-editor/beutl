@@ -1,4 +1,5 @@
-﻿using Beutl.Graphics;
+﻿using System.Collections.Immutable;
+using Beutl.Graphics;
 using Beutl.Graphics.Effects;
 using Beutl.Graphics.Rendering;
 using Beutl.Graphics.Rendering.Cache;
@@ -127,6 +128,9 @@ public sealed class RenderCacheResolutionTests
         Assert.Multiple(() =>
         {
             Assert.That(renderer.TargetPoolStatistics.LeasedTargets, Is.Zero);
+            Assert.That(
+                publication[RenderPipelineCounter.RenderCacheResolutionPasses],
+                Is.InRange(1, 2));
             Assert.That(publication[RenderPipelineCounter.RenderCacheCaptures], Is.EqualTo(1));
             Assert.That(publication[RenderPipelineCounter.RejectedRenderCacheCaptures], Is.Zero);
             Assert.That(publication[RenderPipelineCounter.IntermediateAcquires], Is.EqualTo(2));
@@ -333,6 +337,494 @@ public sealed class RenderCacheResolutionTests
     }
 
     [Test]
+    public void MaterializationDemands_OpacityMaskDependencyUsesActiveTargetDensity()
+    {
+        RenderFragmentReference primary = Pure(scale: EffectiveScale.At(0.5f));
+        RenderFragmentReference maskDependency = Pure();
+        var opacityMask = new RenderFragmentReference(
+            RenderFragmentKind.OpacityMask,
+            s_bounds,
+            EffectiveScale.At(0.5f),
+            RenderValueCardinality.Single,
+            contributesValuesToTarget: true,
+            canBeUsedAsValueInput: true,
+            hasTargetEffects: false,
+            hasOpaqueExternalWork: false,
+            [primary, maskDependency],
+            payload: null,
+            static _ => true);
+
+        IReadOnlyDictionary<RenderFragmentReference, EffectiveScale> demands =
+            RenderMaterializationDemandResolver.Resolve(
+                [opacityMask],
+                outputScale: 1,
+                maxWorkingScale: float.PositiveInfinity);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(demands[opacityMask], Is.EqualTo(EffectiveScale.At(0.5f)));
+            Assert.That(demands[primary], Is.EqualTo(EffectiveScale.At(0.5f)));
+            Assert.That(demands[maskDependency], Is.EqualTo(EffectiveScale.At(1)));
+        });
+    }
+
+    [Test]
+    public void MaterializationDemands_CachedOpacityMaskDependencyUsesValueDensity()
+    {
+        RenderFragmentReference primary = Pure(scale: EffectiveScale.At(0.5f));
+        RenderFragmentReference maskDependency = Pure();
+        var opacityMask = new RenderFragmentReference(
+            RenderFragmentKind.OpacityMask,
+            s_bounds,
+            EffectiveScale.At(0.5f),
+            RenderValueCardinality.Single,
+            contributesValuesToTarget: true,
+            canBeUsedAsValueInput: true,
+            hasTargetEffects: false,
+            hasOpaqueExternalWork: false,
+            [primary, maskDependency],
+            payload: null,
+            static _ => true);
+        var boundaries = new HashSet<RenderFragmentReference>(
+            ReferenceEqualityComparer.Instance)
+        {
+            opacityMask,
+        };
+
+        IReadOnlyDictionary<RenderFragmentReference, EffectiveScale> demands =
+            RenderMaterializationDemandResolver.Resolve(
+                [opacityMask],
+                outputScale: 1,
+                maxWorkingScale: float.PositiveInfinity,
+                boundaries);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(demands[opacityMask], Is.EqualTo(EffectiveScale.At(0.5f)));
+            Assert.That(demands[primary], Is.EqualTo(EffectiveScale.At(0.5f)));
+            Assert.That(demands[maskDependency], Is.EqualTo(EffectiveScale.At(0.5f)));
+        });
+    }
+
+    [Test]
+    public void OpacityMaskIdentity_IncludesUnboundedDependencyMaterializationDemand()
+    {
+        using Scenario unitScale = OpacityMaskCandidate(outputScale: 1);
+        using Scenario doubleScale = OpacityMaskCandidate(outputScale: 2);
+        ImmutableArray<RenderFragmentReference> unitRoots =
+            RenderRequestCompiler.ResolveRoots(unitScale.Graph);
+        ImmutableArray<RenderFragmentReference> doubleRoots =
+            RenderRequestCompiler.ResolveRoots(doubleScale.Graph);
+        IReadOnlyDictionary<RenderFragmentReference, EffectiveScale> unitDemands =
+            RenderMaterializationDemandResolver.Resolve(
+                unitRoots,
+                outputScale: 1,
+                maxWorkingScale: float.PositiveInfinity);
+        IReadOnlyDictionary<RenderFragmentReference, EffectiveScale> doubleDemands =
+            RenderMaterializationDemandResolver.Resolve(
+                doubleRoots,
+                outputScale: 2,
+                maxWorkingScale: float.PositiveInfinity);
+
+        RenderFragmentOutputIdentity unitIdentity = RenderFragmentOutputIdentity.Create(
+            unitRoots.Single(),
+            unitScale.Graph.RequestId,
+            unitDemands);
+        RenderFragmentOutputIdentity doubleIdentity = RenderFragmentOutputIdentity.Create(
+            doubleRoots.Single(),
+            doubleScale.Graph.RequestId,
+            doubleDemands);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(
+                unitDemands[unitScale.Named("dependency")],
+                Is.EqualTo(EffectiveScale.At(1)));
+            Assert.That(
+                doubleDemands[doubleScale.Named("dependency")],
+                Is.EqualTo(EffectiveScale.At(2)));
+            Assert.That(doubleIdentity, Is.Not.EqualTo(unitIdentity));
+        });
+    }
+
+    [Test]
+    public void SingleCandidate_ColdAndWarmConvergeWithinTwoPassesAndProbeLookupOnce()
+    {
+        using Scenario scenario = SingleCandidate();
+        var lookup = new RecordingLookup();
+
+        RenderCachePlanningResult cold = ResolvePlanning(scenario, lookup);
+        Assert.Multiple(() =>
+        {
+            Assert.That(cold.ResolutionPasses, Is.InRange(1, 2));
+            Assert.That(cold.Resolution.MissCaptures, Has.Length.EqualTo(1));
+            Assert.That(lookup.RequestedKeys, Is.EqualTo(new object[] { "source" }));
+        });
+
+        lookup.Add(cold.Resolution.MissCaptures.Single());
+        lookup.RequestedKeys.Clear();
+        RenderCachePlanningResult warm = ResolvePlanning(scenario, lookup);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(warm.ResolutionPasses, Is.InRange(1, 2));
+            Assert.That(warm.Resolution.Hits, Has.Length.EqualTo(1));
+            Assert.That(lookup.RequestedKeys, Is.EqualTo(new object[] { "source" }));
+        });
+    }
+
+    [Test]
+    public void LookupOnlyStableHit_ConvergesInTwoPassesWithOneUnderlyingProbe()
+    {
+        using Scenario scenario = SingleCandidate();
+        RenderCachePlanningResult cold = ResolvePlanning(scenario);
+        var lookup = new RecordingLookup();
+        lookup.Add(cold.Resolution.MissCaptures.Single());
+        var lookupOnlyContext = new RenderCacheResolutionContext(
+            s_context.Format,
+            s_context.DeviceContext,
+            allowPersistentLookup: true,
+            allowCapturePublication: false);
+
+        RenderCachePlanningResult result = ResolvePlanning(
+            scenario,
+            lookup,
+            lookupOnlyContext);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(result.ResolutionPasses, Is.EqualTo(2));
+            Assert.That(result.Resolution.Hits, Has.Length.EqualTo(1));
+            Assert.That(result.Resolution.MissCaptures, Is.Empty);
+            Assert.That(lookup.RequestedKeys, Is.EqualTo(new object[] { "source" }));
+        });
+    }
+
+    [Test]
+    public void FourPassBoundaryCascade_FallsBackWithUncachedDemandsAndReportsTheCap()
+    {
+        RenderFragmentReference source = Pure();
+        RenderFragmentReference fourth = ValueReplayMap(
+            source,
+            EffectiveScale.At(0.0625f),
+            "fourth-runtime");
+        RenderFragmentReference third = ValueReplayMap(
+            fourth,
+            EffectiveScale.At(0.125f),
+            "third-runtime");
+        RenderFragmentReference second = ValueReplayMap(
+            third,
+            EffectiveScale.At(0.25f),
+            "second-runtime");
+        RenderFragmentReference first = ValueReplayMap(
+            second,
+            EffectiveScale.At(0.5f),
+            "first-runtime");
+        using Scenario scenario = Build(
+            [source, fourth, third, second, first],
+            [first],
+            [
+                (fourth, "fourth"),
+                (third, "third"),
+                (second, "second"),
+                (first, "first"),
+            ],
+            names: new Dictionary<string, RenderFragmentReference>
+            {
+                ["source"] = source,
+            });
+        var lookup = new DelayedIdentityHitLookup(
+            new Dictionary<object, int>
+            {
+                ["first"] = 1,
+                ["second"] = 2,
+                ["third"] = 3,
+                ["fourth"] = 4,
+            });
+        var lookupOnlyContext = new RenderCacheResolutionContext(
+            s_context.Format,
+            s_context.DeviceContext,
+            allowPersistentLookup: true,
+            allowCapturePublication: false);
+
+        RenderCachePlanningResult result = ResolvePlanning(
+            scenario,
+            lookup,
+            lookupOnlyContext);
+        var diagnostics = new RenderPipelineDiagnosticsState();
+        RenderPipelineDiagnosticRecorder recorder = RenderPipelineDiagnosticRecorder.Start(
+            diagnostics,
+            RenderIntent.Preview,
+            RenderRequestPurpose.Frame,
+            "FourPassBoundaryCascade")!;
+        recorder.RecordRenderCacheResolutionPasses(result.ResolutionPasses);
+        recorder.Complete();
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(result.ResolutionPasses, Is.EqualTo(4));
+            Assert.That(
+                result.Resolution.Decisions,
+                Has.All.Property(nameof(RenderCacheDecision.BypassReason))
+                    .EqualTo(RenderCacheBypassReason.UnstableBoundaryPlan));
+            Assert.That(
+                result.MaterializationDemands[scenario.Named("source")],
+                Is.EqualTo(EffectiveScale.At(1)));
+            Assert.That(
+                diagnostics.Latest[RenderPipelineCounter.RenderCacheResolutionPasses],
+                Is.EqualTo(4));
+        });
+    }
+
+    [Test]
+    public void OpacityMaskCacheBoundary_ColdAndWarmCrossDensityUseStableValueDemand()
+    {
+        using Scenario coldScenario = OpacityMaskCandidate(outputScale: 1);
+        RenderCachePlanningResult cold = ResolvePlanning(coldScenario);
+        var lookup = new RecordingLookup();
+        lookup.Add(cold.Resolution.MissCaptures.Single());
+
+        using Scenario warmScenario = OpacityMaskCandidate(outputScale: 2);
+        RenderCachePlanningResult warm = ResolvePlanning(warmScenario, lookup);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(
+                cold.MaterializationDemands[coldScenario.Named("dependency")],
+                Is.EqualTo(EffectiveScale.At(0.5f)));
+            Assert.That(
+                warm.MaterializationDemands[warmScenario.Named("dependency")],
+                Is.EqualTo(EffectiveScale.At(0.5f)));
+            Assert.That(warm.Resolution.Hits.Length, Is.EqualTo(1));
+            Assert.That(
+                warm.Resolution.Hits.Single().Identity,
+                Is.EqualTo(cold.Resolution.MissCaptures.Single().Identity));
+        });
+    }
+
+    [Test]
+    public void LookupOnlyBoundaryCycle_FallsBackToUncachedReplayDemands()
+    {
+        using Scenario scenario = OpacityMaskCandidate(outputScale: 1);
+        var lookup = new FirstIdentityOnlyLookup();
+        var lookupOnlyContext = new RenderCacheResolutionContext(
+            s_context.Format,
+            s_context.DeviceContext,
+            allowPersistentLookup: true,
+            allowCapturePublication: false);
+
+        RenderCachePlanningResult result = ResolvePlanning(
+            scenario,
+            lookup,
+            lookupOnlyContext);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(result.Resolution.Hits, Is.Empty);
+            Assert.That(result.Resolution.MissCaptures, Is.Empty);
+            Assert.That(result.ResolutionPasses, Is.EqualTo(2));
+            Assert.That(
+                result.Resolution.Decisions.Single().BypassReason,
+                Is.EqualTo(RenderCacheBypassReason.UnstableBoundaryPlan));
+            Assert.That(
+                result.MaterializationDemands[scenario.Named("dependency")],
+                Is.EqualTo(EffectiveScale.At(1)));
+        });
+    }
+
+    [Test]
+    public void NestedValueReplayCaches_WarmParentHitUsesRawPlanningBoundaries()
+    {
+        RenderFragmentReference dependency = Pure();
+        RenderFragmentReference child = ValueReplayMap(dependency, EffectiveScale.At(1), "child");
+        RenderFragmentReference parent = ValueReplayMap(child, EffectiveScale.At(0.5f), "parent");
+        using Scenario scenario = Build(
+            [dependency, child, parent],
+            [parent],
+            [(child, "child"), (parent, "parent")],
+            names: new Dictionary<string, RenderFragmentReference>
+            {
+                ["dependency"] = dependency,
+                ["child"] = child,
+                ["parent"] = parent,
+            });
+        RenderCachePlanningResult cold = ResolvePlanning(scenario);
+        var lookup = new RecordingLookup();
+        lookup.AddRange(cold.Resolution.MissCaptures);
+
+        RenderCachePlanningResult warm = ResolvePlanning(scenario, lookup);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(
+                warm.Resolution.GetDecision(scenario.Candidate("parent")).Kind,
+                Is.EqualTo(RenderCacheResolutionKind.Hit));
+            Assert.That(
+                warm.Resolution.GetDecision(scenario.Candidate("child")).Kind,
+                Is.EqualTo(RenderCacheResolutionKind.Superseded));
+            Assert.That(
+                warm.MaterializationDemands[scenario.Named("dependency")],
+                Is.EqualTo(EffectiveScale.At(1)));
+        });
+    }
+
+    [Test]
+    public void PlanningBoundaryThatBecomesIneligible_IsRemovedFromFinalDemands()
+    {
+        var expandedBounds = new Rect(0, 0, 12_000, 1);
+        var parentBounds = new Rect(0, 0, 32, 32);
+        RenderFragmentReference dependency = Pure();
+        RenderBoundsContract expandChild = RenderBoundsContract.Create(
+            static _ => new Rect(0, 0, 12_000, 1),
+            static _ => s_bounds,
+            "expand-child");
+        RenderFragmentReference child = ValueReplayMap(
+            dependency,
+            EffectiveScale.Unbounded,
+            "expanding-child",
+            expandedBounds,
+            expandChild);
+        RenderBoundsContract shrinkToParent = RenderBoundsContract.CreateFullInput(
+            static _ => new Rect(0, 0, 32, 32),
+            "shrink-parent");
+        RenderFragmentReference parent = ValueReplayMap(
+            child,
+            EffectiveScale.At(2),
+            "shrink-parent",
+            parentBounds,
+            shrinkToParent);
+        using Scenario scenario = Build(
+            [dependency, child, parent],
+            [parent],
+            [(child, "child"), (parent, "parent")],
+            names: new Dictionary<string, RenderFragmentReference>
+            {
+                ["dependency"] = dependency,
+                ["child"] = child,
+                ["parent"] = parent,
+            },
+            cacheRules: new RenderCacheRules(MaxPixels: 20_000, MinPixels: 1));
+
+        RenderCachePlanningResult result = ResolvePlanning(scenario);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(
+                result.Resolution.GetDecision(scenario.Candidate("parent")).Kind,
+                Is.EqualTo(RenderCacheResolutionKind.MissCapture));
+            Assert.That(
+                result.Resolution.GetDecision(scenario.Candidate("child")).BypassReason,
+                Is.EqualTo(RenderCacheBypassReason.OutsideCacheRules));
+            Assert.That(
+                result.MaterializationDemands[scenario.Named("dependency")],
+                Is.EqualTo(EffectiveScale.At(2)));
+        });
+    }
+
+    [Test]
+    public void MaterializationDemands_TargetCommandLayerUsesConcreteInputSupply()
+    {
+        RenderFragmentReference denseInput = Pure(scale: EffectiveScale.At(2));
+        var layer = new RenderFragmentReference(
+            RenderFragmentKind.Layer,
+            s_bounds,
+            EffectiveScale.Unbounded,
+            RenderValueCardinality.Single,
+            contributesValuesToTarget: true,
+            canBeUsedAsValueInput: true,
+            hasTargetEffects: true,
+            hasOpaqueExternalWork: false,
+            [denseInput],
+            payload: null,
+            static _ => true);
+        var command = new RenderFragmentReference(
+            RenderFragmentKind.TargetCommand,
+            s_bounds,
+            EffectiveScale.Unbounded,
+            RenderValueCardinality.None,
+            contributesValuesToTarget: false,
+            canBeUsedAsValueInput: false,
+            hasTargetEffects: true,
+            hasOpaqueExternalWork: false,
+            [layer],
+            payload: null,
+            static _ => false);
+
+        IReadOnlyDictionary<RenderFragmentReference, EffectiveScale> demands =
+            RenderMaterializationDemandResolver.Resolve(
+                [command],
+                outputScale: 1,
+                maxWorkingScale: float.PositiveInfinity);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(demands[layer], Is.EqualTo(EffectiveScale.At(2)));
+            Assert.That(demands[denseInput], Is.EqualTo(EffectiveScale.At(2)));
+        });
+    }
+
+    [Test]
+    public void ContributeValuesCache_DelegatesDensityAndFootprintToLargeLayerInput()
+    {
+        var inputBounds = new Rect(0, 0, 64, 1);
+        var layerDomain = new Rect(0, 0, 10_000, 1);
+        var requestedRegion = new Rect(0, 0, 1, 1);
+        const float outputScale = 2;
+        float expectedDensity = RenderScaleUtilities.ClampWorkingScaleToBufferBudget(
+            layerDomain,
+            outputScale);
+        RenderFragmentReference leaf = Pure(bounds: inputBounds);
+        var layer = new RenderFragmentReference(
+            RenderFragmentKind.Layer,
+            inputBounds,
+            EffectiveScale.Unbounded,
+            RenderValueCardinality.Single,
+            contributesValuesToTarget: false,
+            canBeUsedAsValueInput: true,
+            hasTargetEffects: true,
+            hasOpaqueExternalWork: false,
+            [leaf],
+            new LayerRenderFragmentPayload(layerDomain),
+            static _ => false);
+        var contributing = new RenderFragmentReference(
+            RenderFragmentKind.ContributeValues,
+            inputBounds,
+            EffectiveScale.Unbounded,
+            RenderValueCardinality.Single,
+            contributesValuesToTarget: true,
+            canBeUsedAsValueInput: true,
+            hasTargetEffects: true,
+            hasOpaqueExternalWork: false,
+            [layer],
+            payload: null,
+            static _ => true);
+        using Scenario scenario = Build(
+            [leaf, layer, contributing],
+            [contributing],
+            [(contributing, "contributing")],
+            requestedRegion,
+            outputScale,
+            cacheRules: new RenderCacheRules(MaxPixels: 1_000, MinPixels: 1));
+
+        RenderCachePlanningResult planning = ResolvePlanning(scenario);
+        IReadOnlyDictionary<RenderFragmentReference, EffectiveScale> demands =
+            planning.MaterializationDemands;
+        RenderCacheDecision decision = planning.Resolution
+            .GetDecision(scenario.Candidate(contributing));
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(demands[contributing], Is.EqualTo(EffectiveScale.At(expectedDensity)));
+            Assert.That(demands[layer], Is.EqualTo(EffectiveScale.At(expectedDensity)));
+            Assert.That(
+                (long)PixelRect.FromRect(layerDomain, expectedDensity).Width,
+                Is.GreaterThan(1_000));
+            Assert.That(decision.Kind, Is.EqualTo(RenderCacheResolutionKind.Bypass));
+            Assert.That(decision.BypassReason, Is.EqualTo(RenderCacheBypassReason.OutsideCacheRules));
+        });
+    }
+
+    [Test]
     public void FullHashCollision_NeverSubstitutesAnUnequalEntry()
     {
         using Scenario first = SingleCandidate(candidateKey: new CollidingKey("first"));
@@ -499,8 +991,28 @@ public sealed class RenderCacheResolutionTests
                 scenario.Request,
                 scenario.Graph,
                 scenario.Regions,
+                RenderRequestCompiler.ResolveRoots(scenario.Graph),
                 s_context),
             Throws.InvalidOperationException);
+    }
+
+    [Test]
+    public void Resolve_DefaultContextWithoutCandidates_IsRejected()
+    {
+        RenderFragmentReference source = Pure();
+        using Scenario scenario = Build(
+            [source],
+            [source],
+            []);
+
+        Assert.That(
+            () => new RenderCacheResolver().Resolve(
+                scenario.Request,
+                scenario.Graph,
+                scenario.Regions,
+                RenderRequestCompiler.ResolveRoots(scenario.Graph),
+                default),
+            Throws.ArgumentException);
     }
 
     private static Scenario PrefixAndTail(int frame)
@@ -560,6 +1072,60 @@ public sealed class RenderCacheResolutionTests
             [(geometry, "geometry")]);
     }
 
+    private static Scenario OpacityMaskCandidate(float outputScale)
+    {
+        RenderFragmentReference primary = Pure(scale: EffectiveScale.At(0.5f));
+        RenderFragmentReference dependency = Pure();
+        var opacityMask = new RenderFragmentReference(
+            RenderFragmentKind.OpacityMask,
+            s_bounds,
+            EffectiveScale.At(0.5f),
+            RenderValueCardinality.Single,
+            contributesValuesToTarget: true,
+            canBeUsedAsValueInput: true,
+            hasTargetEffects: false,
+            hasOpaqueExternalWork: false,
+            [primary, dependency],
+            payload: null,
+            static _ => true);
+        return Build(
+            [primary, dependency, opacityMask],
+            [opacityMask],
+            [(opacityMask, "mask")],
+            outputScale: outputScale,
+            names: new Dictionary<string, RenderFragmentReference>
+            {
+                ["dependency"] = dependency,
+            });
+    }
+
+    private static RenderFragmentReference ValueReplayMap(
+        RenderFragmentReference input,
+        EffectiveScale scale,
+        string key,
+        Rect? bounds = null,
+        RenderBoundsContract? boundsContract = null)
+    {
+        TargetScopeDescription description = TargetScopeDescription.CreateValueReplayMap(
+            static session => session.Canvas.Use(_ => session.ReplayInput()),
+            boundsContract ?? RenderBoundsContract.Identity,
+            RenderHitTestContract.AnyInput,
+            RenderScaleContract.PreserveInputSupply,
+            key);
+        return new RenderFragmentReference(
+            RenderFragmentKind.TargetScope,
+            bounds ?? input.Bounds,
+            scale,
+            RenderValueCardinality.Single,
+            contributesValuesToTarget: true,
+            canBeUsedAsValueInput: true,
+            hasTargetEffects: true,
+            hasOpaqueExternalWork: false,
+            [input],
+            new TargetScopeRenderFragmentPayload(description),
+            static _ => true);
+    }
+
     private static RenderRequest NewRequest()
         => new(new RenderRequestOptions(
             RenderIntent.Preview,
@@ -617,10 +1183,17 @@ public sealed class RenderCacheResolutionTests
         Scenario scenario,
         IRenderCacheLookup? lookup = null,
         RenderCacheResolutionContext? context = null)
+        => ResolvePlanning(scenario, lookup, context).Resolution;
+
+    private static RenderCachePlanningResult ResolvePlanning(
+        Scenario scenario,
+        IRenderCacheLookup? lookup = null,
+        RenderCacheResolutionContext? context = null)
         => new RenderCacheResolver().Resolve(
             scenario.Request,
             scenario.Graph,
             scenario.Regions,
+            RenderRequestCompiler.ResolveRoots(scenario.Graph),
             context ?? s_context,
             lookup);
 
@@ -633,7 +1206,8 @@ public sealed class RenderCacheResolutionTests
         RenderRequestPurpose purpose = RenderRequestPurpose.Frame,
         IReadOnlyDictionary<string, RenderFragmentReference>? names = null,
         bool stopAtMetadata = false,
-        float maxWorkingScale = float.PositiveInfinity)
+        float maxWorkingScale = float.PositiveInfinity,
+        RenderCacheRules? cacheRules = null)
     {
         var options = new RenderRequestOptions(
             RenderIntent.Preview,
@@ -641,7 +1215,10 @@ public sealed class RenderCacheResolutionTests
             targetDomain: s_bounds,
             requestedRegion: requestedRegion,
             outputScale: outputScale,
-            maxWorkingScale: maxWorkingScale);
+            maxWorkingScale: maxWorkingScale,
+            cachePolicy: new RenderCacheOptions(
+                IsEnabled: true,
+                cacheRules ?? RenderCacheRules.Default));
         var request = new RenderRequest(options);
         var builder = new RecordedRenderGraphBuilder(request.Id);
         var provenance = new Dictionary<RenderFragmentReference, RenderProvenanceId>(
@@ -684,13 +1261,14 @@ public sealed class RenderCacheResolutionTests
     private static RenderFragmentReference Pure(
         IReadOnlyList<RenderFragmentReference>? inputs = null,
         object? payload = null,
-        Rect? bounds = null)
+        Rect? bounds = null,
+        EffectiveScale? scale = null)
     {
         inputs ??= [];
         return new RenderFragmentReference(
             RenderFragmentKind.ContributeValues,
             bounds ?? s_bounds,
-            EffectiveScale.Unbounded,
+            scale ?? EffectiveScale.Unbounded,
             RenderValueCardinality.Single,
             contributesValuesToTarget: true,
             canBeUsedAsValueInput: true,
@@ -828,6 +1406,9 @@ public sealed class RenderCacheResolutionTests
         public RenderCacheCandidateId Candidate(string name)
             => Candidate(_names![name]);
 
+        public RenderFragmentReference Named(string name)
+            => _names![name];
+
         public void Dispose() => Request.Dispose();
     }
 
@@ -866,6 +1447,64 @@ public sealed class RenderCacheResolutionTests
         {
             result = entry;
             return true;
+        }
+    }
+
+    private sealed class FirstIdentityOnlyLookup : IRenderCacheLookup
+    {
+        private RenderOutputCacheIdentity? _firstIdentity;
+
+        public bool TryGet(
+            RenderCacheCandidate candidate,
+            RenderOutputCacheIdentity identity,
+            out RenderCacheEntry? result)
+        {
+            if (_firstIdentity is null)
+            {
+                _firstIdentity = identity;
+                result = new RenderCacheEntry(identity, new object());
+                return true;
+            }
+
+            if (_firstIdentity.Equals(identity))
+            {
+                result = new RenderCacheEntry(identity, new object());
+                return true;
+            }
+
+            result = null;
+            return false;
+        }
+    }
+
+    private sealed class DelayedIdentityHitLookup(IReadOnlyDictionary<object, int> hitThresholds)
+        : IRenderCacheLookup
+    {
+        private readonly Dictionary<object, List<RenderOutputCacheIdentity>> _identities = [];
+
+        public bool TryGet(
+            RenderCacheCandidate candidate,
+            RenderOutputCacheIdentity identity,
+            out RenderCacheEntry? result)
+        {
+            if (!_identities.TryGetValue(candidate.CacheKey, out var identities))
+            {
+                identities = [];
+                _identities.Add(candidate.CacheKey, identities);
+            }
+
+            int identityIndex = identities.FindIndex(item => item.Equals(identity));
+            if (identityIndex < 0)
+            {
+                identities.Add(identity);
+                identityIndex = identities.Count - 1;
+            }
+
+            bool hit = identityIndex + 1 >= hitThresholds[candidate.CacheKey];
+            result = hit
+                ? new RenderCacheEntry(identity, new object())
+                : null;
+            return hit;
         }
     }
 

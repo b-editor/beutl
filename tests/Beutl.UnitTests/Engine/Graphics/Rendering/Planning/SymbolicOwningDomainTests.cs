@@ -477,6 +477,51 @@ public sealed class SymbolicOwningDomainTests
         });
     }
 
+    [Test]
+    public void BuiltInBackdrop_ExternalTargetDensityMatchesPlannedDemandAndCapturedBitmap()
+    {
+        var domain = new Rect(0, 0, 10_000, 1);
+        const float density = 2;
+        var probe = new BuiltInCaptureProbeNode();
+        using (CompiledRenderRequest compiled = Compile(probe, domain, outputScale: density))
+        {
+            RenderFragmentReference capture = References(compiled.Graph).Values
+                .Single(static reference =>
+                    reference.Kind == RenderFragmentKind.BuiltInBackdropCapture);
+            Assert.That(
+                compiled.MaterializationDemands[capture],
+                Is.EqualTo(EffectiveScale.At(density)));
+        }
+
+        using var renderer = new RenderNodeRenderer(
+            probe,
+            new RenderNodeRendererOptions
+            {
+                TargetDomain = domain,
+                OutputScale = density,
+                MaxWorkingScale = 4,
+                TargetFactory = new CpuTargetFactory(),
+                UseRenderCache = false,
+            });
+        PixelSize deviceSize = PixelRect.FromRect(domain, density).Size;
+        using var target = new CpuRenderTarget(deviceSize.Width, deviceSize.Height);
+        using var canvas = new ImmediateCanvas(
+            target,
+            density,
+            maxWorkingScale: 4,
+            domain.Size);
+
+        renderer.Render(canvas);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(deviceSize.Width, Is.GreaterThan(RenderScaleUtilities.MaxBufferDimension));
+            Assert.That(probe.CaptureCount, Is.EqualTo(1));
+            Assert.That(probe.CapturedDeviceSize, Is.EqualTo(deviceSize));
+            Assert.That(probe.CapturedDensity, Is.EqualTo(density));
+        });
+    }
+
     private static FilterEffectRenderNode CreateFilter(
         SymbolicDomainFilterEffect effect,
         Rect inputBounds)

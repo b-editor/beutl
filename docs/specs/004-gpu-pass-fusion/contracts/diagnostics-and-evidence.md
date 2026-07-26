@@ -154,6 +154,7 @@ internal enum RenderPipelineCounter
     ProgramCreations,
     ProgramHits,
     ProgramMisses,
+    RenderCacheResolutionPasses,
     RenderCacheHits,
     RenderCacheMisses,
     RenderCacheCaptures,
@@ -208,6 +209,7 @@ Snapshots, dictionaries, and event lists are immutable and contain numeric/strin
 | `StructuralPlanHits` / `Misses` | Structural-plan cache outcomes. |
 | `ProgramCreations` | Native Shader program compilations/creations. |
 | `ProgramHits` / `Misses` | Program-cache outcomes after full-key equality. |
+| `RenderCacheResolutionPasses` | Actual cache-boundary fixed-point evaluations for the request. The ordinary single-candidate cold and warm paths converge within two passes; evaluation is capped at four before conservative uncached fallback. |
 | `RenderCacheHits` / `Misses` | Selected output-cache island outcomes, not merely lookup attempts. |
 | `RenderCacheCaptures` | Successfully published captures. Failed/staged-only captures are separate. |
 | `RejectedRenderCacheCaptures` | Staged captures rejected because the complete request, validation, or cleanup did not succeed. |

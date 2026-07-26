@@ -209,12 +209,19 @@ public sealed class CrossNodeShaderFusionTests
                     Is.Not.EqualTo(secondDestination.Value.Context?.Handle));
                 Assert.That(firstCold.Creations, Is.EqualTo(1));
                 Assert.That(firstCold.Hits, Is.Zero);
+                Assert.That(firstCold.RetainedPrograms, Is.EqualTo(1));
                 Assert.That(firstWarm.Creations, Is.EqualTo(1));
                 Assert.That(firstWarm.Hits, Is.EqualTo(1));
+                Assert.That(firstWarm.RetainedPrograms, Is.EqualTo(1));
                 Assert.That(secondCold.Creations, Is.EqualTo(2));
                 Assert.That(secondCold.Hits, Is.EqualTo(1));
+                Assert.That(secondCold.Evictions, Is.EqualTo(1));
+                Assert.That(secondCold.RetainedPrograms, Is.EqualTo(1),
+                    "switching contexts must eagerly discharge the old context's program");
                 Assert.That(secondWarm.Creations, Is.EqualTo(2));
                 Assert.That(secondWarm.Hits, Is.EqualTo(2));
+                Assert.That(secondWarm.Evictions, Is.EqualTo(1));
+                Assert.That(secondWarm.RetainedPrograms, Is.EqualTo(1));
             });
         });
     }

@@ -542,43 +542,150 @@ public static class AvaloniaTypeConverter
             Avalonia.Media.Stretch stretch,
             UpdateState update)
         {
-            WriteableBitmap? previous = null;
-            bool published = false;
+            // Avalonia property notifications are synchronous and may re-enter Dispose.
+            // Reserve the old owner first, update the brush without the gate, then commit ownership.
+            WriteableBitmap? previous;
+            lock (_gate)
+            {
+                if (_disposed
+                    || update.Cancellation.IsCancellationRequested
+                    || !_activeUpdates.Contains(update))
+                {
+                    bitmap.Dispose();
+                    return;
+                }
+
+                previous = _bitmap;
+            }
+
+            Avalonia.Media.Stretch previousStretch = _imageBrush.Stretch;
+            bool stretchTouched = false;
+            bool sourceTouched = false;
+            bool committed = false;
+            Exception? failure = null;
             try
             {
-                lock (_gate)
+                if (CanContinueBitmapPublication(previous, update))
                 {
-                    if (_disposed || update.Cancellation.IsCancellationRequested)
+                    stretchTouched = true;
+                    _imageBrush.Stretch = stretch;
+                    if (CanContinueBitmapPublication(previous, update))
                     {
-                        bitmap.Dispose();
-                        return;
-                    }
-
-                    previous = _bitmap;
-                    _bitmap = bitmap;
-                    try
-                    {
-                        _imageBrush.Stretch = stretch;
+                        sourceTouched = true;
                         _imageBrush.Source = bitmap;
-                        published = true;
-                    }
-                    catch
-                    {
-                        _bitmap = previous;
-                        throw;
+
+                        lock (_gate)
+                        {
+                            if (!_disposed
+                                && !update.Cancellation.IsCancellationRequested
+                                && _activeUpdates.Contains(update)
+                                && ReferenceEquals(_bitmap, previous)
+                                && ReferenceEquals(_imageBrush.Source, bitmap))
+                            {
+                                _bitmap = bitmap;
+                                committed = true;
+                            }
+                        }
                     }
                 }
             }
-            catch
-            {
-                bitmap.Dispose();
-                throw;
-            }
             finally
             {
-                if (published)
+                if (committed)
+                {
                     previous?.Dispose();
+                }
+                else
+                {
+                    try
+                    {
+                        RollBackBitmapPublication(
+                            bitmap,
+                            previous,
+                            previousStretch,
+                            stretchTouched,
+                            sourceTouched);
+                    }
+                    catch (Exception ex)
+                    {
+                        failure = ex;
+                    }
+                    finally
+                    {
+                        bitmap.Dispose();
+                    }
+                }
             }
+
+            if (failure is not null)
+                System.Runtime.ExceptionServices.ExceptionDispatchInfo.Capture(failure).Throw();
+        }
+
+        private bool CanContinueBitmapPublication(
+            WriteableBitmap? previous,
+            UpdateState update)
+        {
+            lock (_gate)
+            {
+                return !_disposed
+                       && !update.Cancellation.IsCancellationRequested
+                       && _activeUpdates.Contains(update)
+                       && ReferenceEquals(_bitmap, previous);
+            }
+        }
+
+        private void RollBackBitmapPublication(
+            WriteableBitmap bitmap,
+            WriteableBitmap? previous,
+            Avalonia.Media.Stretch previousStretch,
+            bool stretchTouched,
+            bool sourceTouched)
+        {
+            Exception? rollbackFailure = null;
+
+            if (sourceTouched && ReferenceEquals(_imageBrush.Source, bitmap))
+            {
+                bool restorePrevious;
+                lock (_gate)
+                {
+                    restorePrevious = !_disposed && ReferenceEquals(_bitmap, previous);
+                }
+
+                try
+                {
+                    _imageBrush.Source = restorePrevious ? previous : null;
+                }
+                catch (Exception ex)
+                {
+                    rollbackFailure = ex;
+                }
+            }
+
+            bool restoreStretch;
+            lock (_gate)
+            {
+                restoreStretch = !_disposed && ReferenceEquals(_bitmap, previous);
+            }
+
+            if (stretchTouched && restoreStretch)
+            {
+                try
+                {
+                    _imageBrush.Stretch = previousStretch;
+                }
+                catch (Exception ex)
+                {
+                    rollbackFailure = rollbackFailure is null
+                        ? ex
+                        : new AggregateException(
+                            "Bitmap publication rollback failed.",
+                            rollbackFailure,
+                            ex);
+                }
+            }
+
+            if (rollbackFailure is not null)
+                System.Runtime.ExceptionServices.ExceptionDispatchInfo.Capture(rollbackFailure).Throw();
         }
 
         private void CompleteUpdate(UpdateState update)

@@ -1,8 +1,10 @@
 ﻿using Beutl.Graphics.Effects;
 using Beutl.Graphics.Transformation;
+using Beutl.Logging;
 using Beutl.Media;
 using Beutl.Media.Source;
 using Beutl.Media.TextFormatting;
+using Microsoft.Extensions.Logging;
 
 namespace Beutl.Graphics.Rendering;
 
@@ -59,9 +61,10 @@ public sealed class GraphicsContext2D(
             {
                 node.Dispose();
             }
-            catch
+            catch (Exception cleanupFailure)
             {
                 // Preserve the recording failure that prevented ownership transfer.
+                ReportCleanupFailure(cleanupFailure, "disposing a rejected render node");
             }
 
             throw;
@@ -139,9 +142,10 @@ public sealed class GraphicsContext2D(
             container.HasChanges = true;
             _hasChanges = true;
         }
-        catch
+        catch (Exception cleanupFailure)
         {
             // Recording cleanup must not replace an exception already leaving the caller.
+            ReportCleanupFailure(cleanupFailure, "detaching trailing render nodes");
             return;
         }
 
@@ -151,19 +155,36 @@ public sealed class GraphicsContext2D(
             {
                 node.Dispose();
             }
-            catch
+            catch (Exception cleanupFailure)
             {
                 // Continue discharging every detached node.
+                ReportCleanupFailure(cleanupFailure, "disposing a detached render node");
             }
 
             try
             {
                 Untracked(node);
             }
-            catch
+            catch (Exception cleanupFailure)
             {
                 // Untracking notifications are cleanup and must not escape Dispose/Pop.
+                ReportCleanupFailure(cleanupFailure, "notifying a detached render node");
             }
+        }
+    }
+
+    private static void ReportCleanupFailure(Exception exception, string operation)
+    {
+        try
+        {
+            Log.CreateLogger<GraphicsContext2D>().LogWarning(
+                exception,
+                "GraphicsContext2D cleanup failed while {Operation}; continuing cleanup.",
+                operation);
+        }
+        catch
+        {
+            // Logging must not replace either the recording failure or the cleanup failure being suppressed.
         }
     }
 

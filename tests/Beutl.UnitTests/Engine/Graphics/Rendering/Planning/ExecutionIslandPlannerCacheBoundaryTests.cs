@@ -14,6 +14,7 @@ public sealed class ExecutionIslandPlannerCacheBoundaryTests
     [TestCase((int)RenderCacheBypassReason.CacheDisabled)]
     [TestCase((int)RenderCacheBypassReason.CapturePublicationDisabled)]
     [TestCase((int)RenderCacheBypassReason.OutsideCacheRules)]
+    [TestCase((int)RenderCacheBypassReason.UnstableBoundaryPlan)]
     public void BypassedCandidate_DoesNotSplitMaximalCompatibleRun(
         int bypassReasonValue)
     {

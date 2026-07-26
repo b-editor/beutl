@@ -174,9 +174,9 @@ public class RenderNodeCacheHelperTest
         });
     }
 
-    [TestCase(10_000, true)]
-    [TestCase(9_999, false)]
-    public void FrameRequest_ShouldApplyConfiguredCacheRules(int maxPixels, bool expectedCached)
+    [TestCase(10_404, true)]
+    [TestCase(10_403, false)]
+    public void FrameRequest_ShouldApplyConfiguredCacheRulesToPhysicalCapture(int maxPixels, bool expectedCached)
     {
         using var containerNode = new ContainerRenderNode();
         var childNode = new EllipseRenderNode(new Rect(0, 0, 100, 100), Brushes.Resource.White, null);

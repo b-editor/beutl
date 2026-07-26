@@ -3,6 +3,7 @@ using Beutl.Engine;
 using Beutl.Graphics;
 using Beutl.Graphics.Effects;
 using Beutl.Graphics.Rendering;
+using Beutl.Graphics.Rendering.Cache;
 using Beutl.Graphics.Transformation;
 using Beutl.Media;
 using Beutl.UnitTests.Engine.Graphics.Backend;
@@ -722,6 +723,320 @@ public class SourceEffectiveScaleFlowTests
     }
 
     [Test]
+    public void TargetCommand_UnboundedLayerUsesDensestConcreteInputSupply()
+    {
+        EffectiveScale observedScale = EffectiveScale.Unbounded;
+        Rect bounds = new(0, 0, 12, 8);
+        using var pipeline = ScaleRecordingTestHelper.Pipeline(
+            ScaleRecordingTestHelper.Source(EffectiveScale.At(2), bounds),
+            new LayerTargetCommandProbeNode(
+                bounds,
+                scale => observedScale = scale));
+        using var renderer = new RenderNodeRenderer(
+            pipeline,
+            new RenderNodeRendererOptions
+            {
+                UseRenderCache = false,
+                OutputScale = 1,
+                TargetDomain = bounds,
+                TargetFactory = new CpuTargetFactory(),
+            });
+
+        using RenderNodeRasterization result = renderer.Rasterize();
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(result.IsEmpty, Is.False);
+            Assert.That(observedScale, Is.EqualTo(EffectiveScale.At(2)));
+        });
+    }
+
+    [Test]
+    public void FiniteLayerCache_LargeDomainUsesAllocationClampedDensityAcrossColdAndWarmFrames()
+    {
+        var childBounds = new Rect(0, 0, 64, 1);
+        var layerDomain = new Rect(0, 0, 10_000, 1);
+        const float requestedDensity = 2;
+        float expectedDensity = RenderScaleUtilities.ClampWorkingScaleToBufferBudget(
+            layerDomain,
+            requestedDensity);
+        var observedWorkingScales = new List<float>();
+        RenderNode source = ScaleRecordingTestHelper.Source(
+            EffectiveScale.Unbounded,
+            childBounds,
+            session => observedWorkingScales.Add(session.WorkingScale));
+        RenderNode layer = ScaleRecordingTestHelper.Layer(layerDomain);
+        layer.Cache.ReportRenderCount(RenderNodeCache.Count);
+        using var pipeline = ScaleRecordingTestHelper.Pipeline(source, layer);
+        var diagnostics = new RenderPipelineDiagnosticsState();
+        using var renderer = new RenderNodeRenderer(
+            pipeline,
+            new RenderNodeRendererOptions
+            {
+                UseRenderCache = true,
+                OutputScale = requestedDensity,
+                MaxWorkingScale = requestedDensity,
+                TargetDomain = childBounds,
+                TargetFactory = new CpuTargetFactory(),
+                RenderPurpose = RenderRequestPurpose.Frame,
+                Diagnostics = diagnostics,
+            });
+
+        using RenderNodeRasterization cold = renderer.Rasterize();
+        using RenderNodeRasterization warm = renderer.Rasterize();
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(expectedDensity, Is.LessThan(requestedDensity));
+            Assert.That(cold.IsEmpty, Is.False);
+            Assert.That(warm.IsEmpty, Is.False);
+            Assert.That(observedWorkingScales, Has.Count.EqualTo(1));
+            Assert.That(observedWorkingScales.Single(), Is.EqualTo(expectedDensity).Within(1e-4));
+            Assert.That(layer.Cache.IsCached, Is.True);
+            Assert.That(layer.Cache.Density, Is.EqualTo(expectedDensity));
+            Assert.That(
+                diagnostics.Latest[RenderPipelineCounter.RenderCacheHits],
+                Is.EqualTo(1));
+        });
+    }
+
+    [Test]
+    public void FiniteLayerCache_SmallRoiUsesFullDomainForCacheRules()
+    {
+        var childBounds = new Rect(0, 0, 64, 1);
+        var layerDomain = new Rect(0, 0, 10_000, 1);
+        var requestedRegion = new Rect(0, 0, 1, 1);
+        const float requestedDensity = 2;
+        int executeCount = 0;
+        RenderNode source = ScaleRecordingTestHelper.Source(
+            EffectiveScale.Unbounded,
+            childBounds,
+            _ => executeCount++);
+        RenderNode layer = ScaleRecordingTestHelper.Layer(layerDomain);
+        layer.Cache.ReportRenderCount(RenderNodeCache.Count);
+        using var pipeline = ScaleRecordingTestHelper.Pipeline(source, layer);
+        var diagnostics = new RenderPipelineDiagnosticsState();
+        using var renderer = new RenderNodeRenderer(
+            pipeline,
+            new RenderNodeRendererOptions
+            {
+                UseRenderCache = true,
+                CacheRules = new RenderCacheRules(MaxPixels: 1_000, MinPixels: 1),
+                OutputScale = requestedDensity,
+                MaxWorkingScale = requestedDensity,
+                TargetDomain = childBounds,
+                RequestedRegion = requestedRegion,
+                TargetFactory = new CpuTargetFactory(),
+                RenderPurpose = RenderRequestPurpose.Frame,
+                Diagnostics = diagnostics,
+            });
+
+        using RenderNodeRasterization first = renderer.Rasterize();
+        using RenderNodeRasterization second = renderer.Rasterize();
+
+        float expectedDensity = RenderScaleUtilities.ClampWorkingScaleToBufferBudget(
+            layerDomain,
+            requestedDensity);
+        PixelSize allocationSize = PixelRect.FromRect(layerDomain, expectedDensity).Size;
+        Assert.Multiple(() =>
+        {
+            Assert.That(requestedRegion.Width * requestedRegion.Height, Is.LessThan(1_000));
+            Assert.That((long)allocationSize.Width * allocationSize.Height, Is.GreaterThan(1_000));
+            Assert.That(first.Bounds, Is.EqualTo(requestedRegion));
+            Assert.That(second.Bounds, Is.EqualTo(requestedRegion));
+            Assert.That(executeCount, Is.EqualTo(2));
+            Assert.That(layer.Cache.IsCached, Is.False);
+            Assert.That(
+                diagnostics.Latest[RenderPipelineCounter.RenderCacheCaptures],
+                Is.Zero);
+        });
+    }
+
+    [Test]
+    public void MaterializedInputCache_InBudgetTargetUsesActualDensityOnWarmHit()
+    {
+        var bounds = new Rect(0, 0, 8_000, 1);
+        EffectiveScale sourceScale = EffectiveScale.At(2);
+        PixelRect sourceDeviceBounds = PixelRect.FromRect(bounds, sourceScale.Value);
+        using RenderTarget source = new CpuRenderTarget(
+            sourceDeviceBounds.Width,
+            sourceDeviceBounds.Height);
+        using var node = new MaterializedSourceRenderNode(source, bounds, sourceScale);
+        node.Cache.ReportRenderCount(RenderNodeCache.Count);
+        var diagnostics = new RenderPipelineDiagnosticsState();
+        using var renderer = new RenderNodeRenderer(
+            node,
+            new RenderNodeRendererOptions
+            {
+                UseRenderCache = true,
+                OutputScale = 1,
+                MaxWorkingScale = 4,
+                TargetDomain = bounds,
+                TargetFactory = new CpuTargetFactory(),
+                RenderPurpose = RenderRequestPurpose.Frame,
+                Diagnostics = diagnostics,
+            });
+
+        using RenderNodeRasterization cold = renderer.Rasterize();
+        using RenderNodeRasterization warm = renderer.Rasterize();
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(sourceDeviceBounds.Width, Is.LessThanOrEqualTo(RenderScaleUtilities.MaxBufferDimension));
+            Assert.That(cold.IsEmpty, Is.False);
+            Assert.That(warm.IsEmpty, Is.False);
+            Assert.That(node.Cache.IsCached, Is.True);
+            Assert.That(node.Cache.Density, Is.EqualTo(sourceScale.Value));
+            Assert.That(
+                diagnostics.Latest[RenderPipelineCounter.RenderCacheHits],
+                Is.EqualTo(1));
+            Assert.That(
+                warm.Bitmap!.GetPixelSpan().SequenceEqual(cold.Bitmap!.GetPixelSpan()),
+                Is.True);
+        });
+    }
+
+    [Test]
+    public void MaterializedInputOpacityCache_NormalizesOversizedSupplyBeforeColdWarmCapture()
+    {
+        var bounds = new Rect(0, 0, 10_000, 1);
+        EffectiveScale sourceScale = EffectiveScale.At(2);
+        float expectedDensity = RenderScaleUtilities.ClampWorkingScaleToBufferBudget(
+            bounds,
+            sourceScale.Value);
+        PixelRect sourceDeviceBounds = PixelRect.FromRect(bounds, sourceScale.Value);
+        using RenderTarget source = new CpuRenderTarget(
+            sourceDeviceBounds.Width,
+            sourceDeviceBounds.Height);
+        var materializedInput = new MaterializedSourceRenderNode(source, bounds, sourceScale);
+        var opacity = new OpacityRenderNode(2);
+        opacity.Cache.ReportRenderCount(RenderNodeCache.Count);
+        using var pipeline = ScaleRecordingTestHelper.Pipeline(materializedInput, opacity);
+        var diagnostics = new RenderPipelineDiagnosticsState();
+        using var renderer = new RenderNodeRenderer(
+            pipeline,
+            new RenderNodeRendererOptions
+            {
+                UseRenderCache = true,
+                OutputScale = 1,
+                MaxWorkingScale = 4,
+                TargetDomain = bounds,
+                TargetFactory = new CpuTargetFactory(),
+                RenderPurpose = RenderRequestPurpose.Frame,
+                Diagnostics = diagnostics,
+            });
+
+        using RenderNodeRasterization cold = renderer.Rasterize();
+        using RenderNodeRasterization warm = renderer.Rasterize();
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(sourceDeviceBounds.Width, Is.GreaterThan(RenderScaleUtilities.MaxBufferDimension));
+            Assert.That(expectedDensity, Is.LessThan(sourceScale.Value));
+            Assert.That(cold.IsEmpty, Is.False);
+            Assert.That(warm.IsEmpty, Is.False);
+            Assert.That(opacity.Cache.IsCached, Is.True);
+            Assert.That(opacity.Cache.Density, Is.EqualTo(expectedDensity));
+            Assert.That(
+                diagnostics.Latest[RenderPipelineCounter.RenderCacheHits],
+                Is.EqualTo(1));
+            Assert.That(
+                warm.Bitmap!.GetPixelSpan().SequenceEqual(cold.Bitmap!.GetPixelSpan()),
+                Is.True);
+        });
+    }
+
+    [Test]
+    public void MaterializedInputCache_OversizedTargetBypassesCaptureAcrossRepeatedFrames()
+    {
+        var bounds = new Rect(0, 0, 10_000, 1);
+        EffectiveScale sourceScale = EffectiveScale.At(2);
+        PixelRect sourceDeviceBounds = PixelRect.FromRect(bounds, sourceScale.Value);
+        using RenderTarget source = new CpuRenderTarget(
+            sourceDeviceBounds.Width,
+            sourceDeviceBounds.Height);
+        using var node = new MaterializedSourceRenderNode(source, bounds, sourceScale);
+        node.Cache.ReportRenderCount(RenderNodeCache.Count);
+        var diagnostics = new RenderPipelineDiagnosticsState();
+        using var renderer = new RenderNodeRenderer(
+            node,
+            new RenderNodeRendererOptions
+            {
+                UseRenderCache = true,
+                OutputScale = 1,
+                MaxWorkingScale = 4,
+                TargetDomain = bounds,
+                TargetFactory = new CpuTargetFactory(),
+                RenderPurpose = RenderRequestPurpose.Frame,
+                Diagnostics = diagnostics,
+            });
+
+        using RenderNodeRasterization first = renderer.Rasterize();
+        using RenderNodeRasterization second = renderer.Rasterize();
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(sourceDeviceBounds.Width, Is.GreaterThan(RenderScaleUtilities.MaxBufferDimension));
+            Assert.That(first.IsEmpty, Is.False);
+            Assert.That(second.IsEmpty, Is.False);
+            Assert.That(node.Cache.IsCached, Is.False);
+            Assert.That(
+                diagnostics.Latest[RenderPipelineCounter.RenderCacheHits],
+                Is.Zero);
+            Assert.That(
+                diagnostics.Latest[RenderPipelineCounter.RenderCacheCaptures],
+                Is.Zero);
+            Assert.That(
+                second.Bitmap!.GetPixelSpan().SequenceEqual(first.Bitmap!.GetPixelSpan()),
+                Is.True);
+        });
+    }
+
+    [Test]
+    public void MaterializedInputCache_SmallRoiUsesFullCaptureFootprintForCacheRules()
+    {
+        var bounds = new Rect(0, 0, 64, 64);
+        var requestedRegion = new Rect(0, 0, 1, 1);
+        EffectiveScale sourceScale = EffectiveScale.At(1);
+        PixelRect sourceDeviceBounds = PixelRect.FromRect(bounds, sourceScale.Value);
+        using RenderTarget source = new CpuRenderTarget(
+            sourceDeviceBounds.Width,
+            sourceDeviceBounds.Height);
+        using var node = new MaterializedSourceRenderNode(source, bounds, sourceScale);
+        node.Cache.ReportRenderCount(RenderNodeCache.Count);
+        var diagnostics = new RenderPipelineDiagnosticsState();
+        using var renderer = new RenderNodeRenderer(
+            node,
+            new RenderNodeRendererOptions
+            {
+                UseRenderCache = true,
+                CacheRules = new RenderCacheRules(MaxPixels: 1_000, MinPixels: 1),
+                OutputScale = 1,
+                MaxWorkingScale = 1,
+                TargetDomain = bounds,
+                RequestedRegion = requestedRegion,
+                TargetFactory = new CpuTargetFactory(),
+                RenderPurpose = RenderRequestPurpose.Frame,
+                Diagnostics = diagnostics,
+            });
+
+        using RenderNodeRasterization first = renderer.Rasterize();
+        using RenderNodeRasterization second = renderer.Rasterize();
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(requestedRegion.Width * requestedRegion.Height, Is.LessThan(1_000));
+            Assert.That(sourceDeviceBounds.Width * sourceDeviceBounds.Height, Is.GreaterThan(1_000));
+            Assert.That(first.Bounds, Is.EqualTo(requestedRegion));
+            Assert.That(second.Bounds, Is.EqualTo(requestedRegion));
+            Assert.That(node.Cache.IsCached, Is.False);
+            Assert.That(
+                diagnostics.Latest[RenderPipelineCounter.RenderCacheCaptures],
+                Is.Zero);
+        });
+    }
+
+    [Test]
     public void CustomWorkingScale_LegacyOperationPreservesSubOutputScale()
     {
         float observedWorkingScale = 0;
@@ -1318,6 +1633,28 @@ public class SourceEffectiveScaleFlowTests
                 structuralKey: new TargetCommandSourceIdentity(bounds, owningTargetDomain),
                 runtimeIdentity: new RenderRuntimeIdentity(
                     new TargetCommandSourceIdentity(bounds, owningTargetDomain)))));
+        }
+    }
+
+    private sealed class LayerTargetCommandProbeNode(
+        Rect bounds,
+        Action<EffectiveScale> observe) : RenderNode
+    {
+        public override void Process(RenderNodeContext context)
+        {
+            RenderFragmentHandle layer = context.Layer(context.Inputs, bounds);
+            TargetCommandDescription command = TargetCommandDescription.Create(
+                session =>
+                {
+                    observe(session.Inputs.Single().EffectiveScale);
+                    session.Canvas.Use(static _ => { });
+                },
+                TargetRegion.Region(bounds),
+                bounds,
+                RenderHitTestContract.None,
+                TargetAccess.ReadWrite,
+                structuralKey: typeof(LayerTargetCommandProbeNode));
+            context.Publish(context.TargetCommand([layer], command));
         }
     }
 

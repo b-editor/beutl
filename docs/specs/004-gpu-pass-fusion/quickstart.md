@@ -246,10 +246,12 @@ BEUTL_REQUIRE_GPU=1 dotnet test tests/Beutl.Graphics3DTests/Beutl.Graphics3DTest
 Run the paired persistent-lifetime benchmark in the pinned baseline and feature worktrees on the same system:
 
 ```bash
-dotnet run -c Release --project tests/Beutl.Benchmarks -- \
-  --filter '*RenderPipelineBenchmarks*'
+docs/specs/004-gpu-pass-fusion/evidence/run-paired-benchmarks.sh \
+  /absolute/path/to/starting-sha-worktree \
+  /absolute/path/to/feature-worktree \
+  /absolute/path/to/new-empty-output-directory
 ```
 
-Record raw results, SHAs, environment, controls, confidence intervals, and request counters. The primary warmed post/pre median ratio's 95% confidence interval must lie below 1.0; donor percentages are not acceptance thresholds.
+The runner records raw results, SHAs, environment, controls, confidence intervals, and request counters. The primary warmed post/pre median ratio's 95% confidence interval must lie below 1.0; donor percentages are not acceptance thresholds.
 
 Finally run the public-design and repository boundary reviews. The public migration commit must be breaking and name `Beutl.Engine`, `Beutl.Editor`, `Beutl.NodeGraph`, `Beutl.ProjectSystem`, `Beutl.AgentToolkit`, the application, and downstream custom render-node authors in its `BREAKING CHANGE:` footer.

@@ -468,6 +468,7 @@ internal sealed class RenderRequestExecutor
             request.TargetDependencies,
             request.Regions,
             request.Roots,
+            request.MaterializationDemands,
             request.CacheResolution,
             _targets,
             programCache,
@@ -778,6 +779,7 @@ internal sealed class RenderRequestExecutor
             TargetDependencyPlan targetDependencies,
             RegionAnalysis regions,
             ImmutableArray<RenderFragmentReference> roots,
+            IReadOnlyDictionary<RenderFragmentReference, EffectiveScale> materializationDemands,
             RenderCacheResolution cacheResolution,
             RenderTargetLeaseSession targets,
             ProgramCache<CachedSkRuntimeEffect> programCache,
@@ -793,10 +795,8 @@ internal sealed class RenderRequestExecutor
                 .ToHashSet();
             _resourceUses = ResourcePlanUseSchedule.Create(roots, cacheHitFragmentIds).BeginExecution();
             _cacheResolution = cacheResolution;
-            _materializationDemands = RenderMaterializationDemandResolver.Resolve(
-                roots,
-                options.OutputScale,
-                options.MaxWorkingScale);
+            _materializationDemands = materializationDemands
+                ?? throw new ArgumentNullException(nameof(materializationDemands));
             _roots = new HashSet<RenderFragmentReference>(
                 roots,
                 ReferenceEqualityComparer.Instance);
@@ -1472,6 +1472,21 @@ internal sealed class RenderRequestExecutor
                         "An executable fragment is not reachable from the request publication roots.");
                 }
 
+                if (requestedScale is { } callerRequest)
+                {
+                    float callerDensity = MathF.Min(
+                        callerRequest.Value,
+                        RenderScaleUtilities.SanitizeMaxWorkingScale(_options.MaxWorkingScale));
+                    callerDensity = RenderMaterializationDensityPolicy.Clamp(
+                        fragment,
+                        callerDensity);
+                    if (callerDensity > demand.Value)
+                    {
+                        throw new InvalidOperationException(
+                            "The compiled materialization demand does not cover its contextual caller.");
+                    }
+                }
+
                 requestedScale = demand;
             }
 
@@ -1597,6 +1612,14 @@ internal sealed class RenderRequestExecutor
             {
                 foreach (RenderNodeCachedValue cached in cachedOutput.Values)
                 {
+                    if (cached.EffectiveScale.IsUnbounded
+                        || BitConverter.SingleToInt32Bits(cached.EffectiveScale.Value)
+                        != BitConverter.SingleToInt32Bits(hit.Identity.Density))
+                    {
+                        throw new InvalidOperationException(
+                            "A render-cache hit payload does not match its planned materialization density.");
+                    }
+
                     CompatibilityRenderValue value = CreateOwnedShallowCopy(
                         cached.Target,
                         cached.Bounds,
@@ -1634,6 +1657,13 @@ internal sealed class RenderRequestExecutor
                 {
                     foreach (CompatibilityRenderValue value in values)
                     {
+                        if (BitConverter.SingleToInt32Bits(value.EffectiveScale.Value)
+                            != BitConverter.SingleToInt32Bits(miss.Identity.Density))
+                        {
+                            throw new InvalidOperationException(
+                                "A render-cache capture does not match its planned materialization density.");
+                        }
+
                         value.PreferPixelExactComposite = true;
                         CompatibilityRenderValue capture = CopyForCacheCapture(value);
                         capture.PreferPixelExactComposite = true;
@@ -1745,7 +1775,7 @@ internal sealed class RenderRequestExecutor
                 return [];
             }
 
-            EffectiveScale scale = requestedScale ?? ResolveConcreteScale(fragment, fragment.Bounds);
+            EffectiveScale scale = requestedScale ?? ResolveConcreteScale(fragment);
             RenderFragmentReference input = fragment.Inputs[0];
             IReadOnlyList<CompatibilityRenderValue> values = Materialize(
                 input,
@@ -1798,7 +1828,7 @@ internal sealed class RenderRequestExecutor
                 return [];
             }
 
-            EffectiveScale scale = requestedScale ?? ResolveConcreteScale(fragment, fragment.Bounds);
+            EffectiveScale scale = requestedScale ?? ResolveConcreteScale(fragment);
             var maskValues = new List<CompatibilityRenderValue>();
             int materializedDependencyCount = 0;
             bool primaryMaterialized = false;
@@ -2852,21 +2882,19 @@ internal sealed class RenderRequestExecutor
                 }
 
                 float density = declaredScale.IsUnbounded
-                    ? RenderScaleUtilities.ClampWorkingScaleToBufferBudget(
-                        outputBounds,
-                        RenderScaleUtilities.ResolveWorkingScale(
-                            inputs.Select(static value => value.EffectiveScale).ToArray(),
-                            _options.OutputScale,
-                            _options.MaxWorkingScale))
+                    ? RenderScaleUtilities.ResolveWorkingScale(
+                        inputs.Select(static value => value.EffectiveScale).ToArray(),
+                        _options.OutputScale,
+                        _options.MaxWorkingScale)
                     : declaredScale.Value;
+                density = RenderScaleUtilities.ClampWorkingScaleToBufferBudget(
+                    outputBounds,
+                    density);
                 bool preserveRasterApron = description.DirectReplay is not null
                                            && fragment.Kind == RenderFragmentKind.OpaqueSource;
-                if (preserveRasterApron)
-                {
-                    density = RenderScaleUtilities.ClampWorkingScaleToRasterApronBudget(
-                        outputBounds,
-                        density);
-                }
+                density = RenderMaterializationDensityPolicy.Clamp(
+                    fragment,
+                    density);
                 EffectiveScale concreteScale = EffectiveScale.At(density);
                 OpaqueRenderSession? session = null;
                 session = new OpaqueRenderSession(
@@ -3150,8 +3178,8 @@ internal sealed class RenderRequestExecutor
                 ?? (fragment.EffectiveScale.IsUnbounded
                     ? currentTarget.Density
                     : fragment.EffectiveScale.Value);
-            float density = RenderScaleUtilities.ClampWorkingScaleToRasterApronBudget(
-                requiredRegion,
+            float density = RenderMaterializationDensityPolicy.Clamp(
+                fragment,
                 requestedDensity);
             EffectiveScale scale = EffectiveScale.At(density);
             PixelRect deviceBounds = RenderScaleUtilities.AddRasterApron(
@@ -3327,7 +3355,7 @@ internal sealed class RenderRequestExecutor
 
             Rect domain = ((LayerRenderFragmentPayload)fragment.Payload!).Domain
                 ?? fragment.Bounds;
-            EffectiveScale scale = requestedScale ?? ResolveConcreteScale(fragment, domain);
+            EffectiveScale scale = requestedScale ?? ResolveConcreteScale(fragment);
             CompatibilityRenderValue value = CreateOwnedValue(domain, scale);
             bool succeeded = false;
             try
@@ -3371,7 +3399,7 @@ internal sealed class RenderRequestExecutor
                 : description.Bounds;
             EffectiveScale scale = fragment.Kind == RenderFragmentKind.BuiltInBackdropCapture
                 ? EffectiveScale.At(currentTarget.Density)
-                : ResolveConcreteScale(fragment, bounds);
+                : ResolveConcreteScale(fragment);
             CompatibilityRenderValue value = CreateOwnedValue(bounds, scale);
             bool succeeded = false;
             try
@@ -3605,17 +3633,15 @@ internal sealed class RenderRequestExecutor
             }
         }
 
-        private EffectiveScale ResolveConcreteScale(
-            RenderFragmentReference fragment,
-            Rect bounds)
+        private EffectiveScale ResolveConcreteScale(RenderFragmentReference fragment)
         {
-            if (!fragment.EffectiveScale.IsUnbounded)
-                return fragment.EffectiveScale;
-            float scale = RenderScaleUtilities.ResolveWorkingScale(
-                fragment.Inputs.Select(static input => input.EffectiveScale).ToArray(),
-                _options.OutputScale,
-                _options.MaxWorkingScale);
-            scale = RenderScaleUtilities.ClampWorkingScaleToBufferBudget(bounds, scale);
+            float scale = fragment.EffectiveScale.IsUnbounded
+                ? RenderScaleUtilities.ResolveWorkingScale(
+                    fragment.Inputs.Select(static input => input.EffectiveScale).ToArray(),
+                    _options.OutputScale,
+                    _options.MaxWorkingScale)
+                : fragment.EffectiveScale.Value;
+            scale = RenderMaterializationDensityPolicy.Clamp(fragment, scale);
             return EffectiveScale.At(scale);
         }
 

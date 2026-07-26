@@ -87,6 +87,7 @@ public sealed class RenderNodeRenderer : IDisposable
     private readonly RenderTargetLeaseRegistry _targetRegistry;
     private readonly StructuralPlanCache _structuralPlanCache;
     private readonly ProgramCache<CachedSkRuntimeEffect> _programCache;
+    private RenderCacheDeviceContextIdentity? _programCacheContext;
 
     /// <summary>Creates a renderer for a caller-owned root node.</summary>
     /// <param name="root">The non-null caller-owned root recorded for every request.</param>
@@ -561,6 +562,7 @@ public sealed class RenderNodeRenderer : IDisposable
         RenderRequest request = CreateRequest(purpose, outputScale, maxWorkingScale, targetDomain);
         try
         {
+            SynchronizeProgramCacheContext(targets);
             var recorder = new RenderRequestRecorder(request);
             RecordedRenderGraph graph = recorder.Record(Root);
             bool allowPersistentLookup = Options.UseRenderCache
@@ -587,6 +589,19 @@ public sealed class RenderNodeRenderer : IDisposable
             primary!.Throw();
             throw;
         }
+    }
+
+    private void SynchronizeProgramCacheContext(RenderTargetLeaseSession targets)
+    {
+        RenderCacheDeviceContextIdentity current = targets.CacheDeviceContextIdentity;
+        if (_programCacheContext is { } previous && previous != current)
+        {
+            _programCache.EvictContext(
+                previous.DeviceIdentity,
+                previous.ContextIdentity);
+        }
+
+        _programCacheContext = current;
     }
 
     private RenderRequest CreateRequest(

@@ -265,12 +265,17 @@ internal sealed class RenderRequestCompiler
                 new RenderCacheDeviceContextIdentity(request, request),
                 allowPersistentLookup: false,
                 allowCapturePublication: false);
-        RenderCacheResolution cacheResolution = new RenderCacheResolver().Resolve(
+        RenderCachePlanningResult cachePlanning = new RenderCacheResolver().Resolve(
             request,
             graph,
             regions,
+            roots,
             cacheContext,
             _renderCacheLookup);
+        IReadOnlyDictionary<RenderFragmentReference, EffectiveScale> materializationDemands =
+            cachePlanning.MaterializationDemands;
+        RenderCacheResolution cacheResolution = cachePlanning.Resolution;
+        diagnostics?.RecordRenderCacheResolutionPasses(cachePlanning.ResolutionPasses);
         RecordCacheDecisions(diagnostics, cacheResolution);
         request.TransitionTo(RenderRequestState.CachesResolved);
         context.Set(request, RenderPipelineFailurePhase.Planning);
@@ -316,6 +321,7 @@ internal sealed class RenderRequestCompiler
             graph,
             regions,
             roots,
+            materializationDemands,
             targetDependencies,
             cacheResolution,
             executionPlan,
