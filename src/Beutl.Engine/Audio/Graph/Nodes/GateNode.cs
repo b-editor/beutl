@@ -249,7 +249,6 @@ public sealed class GateNode : DynamicsNode
         };
     }
 
-    // Shared by static and animated processing to keep gate state transitions identical.
     private float NextGain(float peak, float attackCoeff, float releaseCoeff, in EffectiveParameters p, int holdSamples)
     {
         // Digital silence must remain closed even at the -100 dB minimum threshold.

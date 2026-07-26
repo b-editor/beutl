@@ -7,17 +7,14 @@ namespace Beutl.Audio.Graph.Nodes;
 /// across all channels and apply it to every channel.
 /// </summary>
 /// <remarks>
-/// Covers chunk validation, session/seek state resets, the per-channel buffer view cache, parameter
-/// sanitization and the warn-once diagnostics. Derived nodes supply the parameter set and the gain
-/// math. <c>LimiterNode</c> deliberately does not derive from this: its lookahead delay lines and
-/// per-parameter error-severity diagnostics are a different contract, not a variation of this one.
+/// Derived nodes supply parameter sampling and gain math. <c>LimiterNode</c> remains separate because
+/// its lookahead delay lines and error-severity diagnostics require a different lifecycle.
 /// </remarks>
 public abstract class DynamicsNode : AudioNode
 {
     protected const float MinDb = -100f;
 
-    // Cached per-channel buffer handles so the hot loops skip GetChannelData's checks/re-slicing;
-    // arrays reused across Process(), reallocated only on a channel-count change.
+    // Cache channel views across Process calls to avoid repeated slicing in hot loops.
     private Memory<float>[]? _inputChannelCache;
     private Memory<float>[]? _outputChannelCache;
 
@@ -25,13 +22,9 @@ public abstract class DynamicsNode : AudioNode
     private TimeSpan? _lastTimeRangeEnd;
 
     private bool _loggedNonFiniteSample;
-    // Per-parameter so a fault on one parameter does not suppress diagnostics for another.
     private readonly HashSet<string> _loggedNonFiniteParameters = new();
-    // Separate from the non-finite latch so clamp and non-finite faults are not conflated.
     private readonly HashSet<string> _loggedClampedParameters = new();
 
-    // Test-only counters (via InternalsVisibleTo) of warnings actually emitted, letting the latch
-    // re-arm semantics be asserted without a logger sink.
     internal int NonFiniteSampleWarnings;
     internal int ClampWarnings;
 
@@ -61,8 +54,7 @@ public abstract class DynamicsNode : AudioNode
         bool ownsInput = true;
         try
         {
-            // Coefficients come from context.SampleRate while the output carries input.SampleRate, so a
-            // mismatch would mislabel samples; this node does not resample.
+            // This node does not resample; mismatched rates would produce mislabeled output.
             if (input.SampleRate != context.SampleRate)
                 throw new InvalidOperationException(
                     $"{DiagnosticName} node: sample rate mismatch. context={context.SampleRate}, input={input.SampleRate}.");
@@ -81,9 +73,7 @@ public abstract class DynamicsNode : AudioNode
                 return new AudioBuffer(input.SampleRate, input.ChannelCount, 0);
             }
 
-            // Nodes are cached across Compose() calls, so stale DSP state must not survive a seek or
-            // restart. Diagnostics latches are deliberately kept — re-arming them on every scrub would let
-            // a persistent fault re-log once per Process call.
+            // Reset DSP state across seeks without re-arming warnings for persistent faults.
             if (!_lastTimeRangeEnd.HasValue || !context.ContinuesFrom(_lastTimeRangeEnd.Value))
             {
                 ResetDspState();
@@ -96,9 +86,7 @@ public abstract class DynamicsNode : AudioNode
             // A chunk that threw must not look contiguous, or the next one inherits half-mutated state.
             _lastTimeRangeEnd = context.TimeRange.Start + context.TimeRange.Duration;
 
-            // A hook may hand the input straight back, as the neutral paths of GainNode / EqualizerNode
-            // do; ownership then belongs to the caller and disposing it here would hand the next
-            // consumer a returned pooled buffer.
+            // If a hook returns the input, ownership transfers to the caller.
             ownsInput = !ReferenceEquals(output, input);
             return output;
         }
@@ -150,9 +138,8 @@ public abstract class DynamicsNode : AudioNode
     /// Caches per-channel <see cref="Memory{T}"/> handles for the input and output buffers.
     /// </summary>
     /// <remarks>
-    /// The backing arrays are reused across calls (reallocated only on a channel-count change) so the
-    /// hot loops avoid per-sample GetChannelData. <see cref="Memory{T}"/> rather than <see cref="Span{T}"/>
-    /// because a ref struct cannot live in an array.
+    /// Backing arrays are reused across calls. <see cref="Memory{T}"/> is required because ref structs
+    /// cannot live in arrays.
     /// </remarks>
     protected (Memory<float>[] Inputs, Memory<float>[] Outputs) MapChannels(AudioBuffer input, AudioBuffer output)
     {
@@ -213,10 +200,8 @@ public abstract class DynamicsNode : AudioNode
     /// Folds one channel's sample into the running linked peak, ignoring non-finite values.
     /// </summary>
     /// <remarks>
-    /// A NaN already compares false, but an Infinity would become the peak for every channel, so one
-    /// corrupt channel would drive the gain shared by all of them — opening a gate, or collapsing a
-    /// compressor envelope to its floor — while <see cref="SanitizeOutput"/> only zeroes the corrupt
-    /// channel itself.
+    /// Infinity would become the shared peak and alter every channel's gain, while
+    /// <see cref="SanitizeOutput"/> only zeroes the corrupt channel.
     /// </remarks>
     protected static float AccumulatePeak(float peak, float sample)
     {
@@ -256,8 +241,7 @@ public abstract class DynamicsNode : AudioNode
     {
         if (disposing)
         {
-            // Drop the cached handles so we do not pin the last buffers' pooled memory after disposal;
-            // they are re-filled on the next Process() call.
+            // Do not pin the last buffers' pooled memory after disposal.
             _inputChannelCache = null;
             _outputChannelCache = null;
         }

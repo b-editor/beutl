@@ -32,10 +32,8 @@ public sealed class CompressorNode : DynamicsNode
 
     protected override string DiagnosticName => "Compressor";
 
-    // Expression-backed properties are deliberately not treated as animated: AnimationSampler does not
-    // yet evaluate expressions per-sample, so routing them to ProcessAnimated would just re-read the
-    // same CurrentValue every iteration. FIXME: once it does (see EqualizerEffect.IsNeutral), treat
-    // HasExpression as live here too, or such parameters stay frozen at build-time value.
+    // AnimationSampler does not evaluate expressions per sample, so expression-backed properties
+    // remain at CurrentValue.
     protected override bool HasAnimatedParameters =>
         Threshold.Animation != null ||
         Ratio.Animation != null ||
@@ -269,8 +267,7 @@ public sealed class CompressorNode : DynamicsNode
         };
     }
 
-    // Unreachable while AccumulatePeak keeps the detector peak finite. Kept so that a change breaking
-    // that invariant surfaces as one warning instead of an envelope poisoned until the next Reset().
+    // Defensive fallback if the finite detector-peak invariant is broken.
     private void RecoverEnvelopeIfNonFinite()
     {
         if (float.IsFinite(_envelopeDb)) return;
@@ -286,8 +283,7 @@ public sealed class CompressorNode : DynamicsNode
     // ProcessStatic and ProcessAnimated so the envelope/gain math cannot drift between the paths.
     private float NextGain(float peak, float attackCoeff, float releaseCoeff, in EffectiveParameters p, float slope)
     {
-        // peak == 0 (silence) collapses inputDb to MinDb; AccumulatePeak keeps peak finite, so the
-        // envelope stays finite as well.
+        // Silence maps to MinDb; AccumulatePeak guarantees a finite envelope input.
         float inputDb = peak > 0f ? 20f * MathF.Log10(peak) : MinDb;
         float coeff = inputDb > _envelopeDb ? attackCoeff : releaseCoeff;
         _envelopeDb = inputDb + coeff * (_envelopeDb - inputDb);

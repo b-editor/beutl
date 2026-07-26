@@ -52,8 +52,7 @@ public class EqualizerNodeTests
         return output.GetChannelData(0)[0];
     }
 
-    // Independently rounded chunk boundaries can land one tick apart, which is not a seek: the IIR
-    // state must survive, or the biquad restarts from zero and clicks.
+    // One-tick rounding must preserve IIR state to avoid restarting the biquad.
     [TestCase(-1L)]
     [TestCase(1L)]
     public void Process_OneTickBoundaryRounding_PreservesFilterState(long tickOffset)

@@ -191,7 +191,7 @@ public class GateNodeTests
         // After one attack time constant, gain covers 1 - 1/e of the distance to 0 dB.
         const float attackMs = 50f;
         const int sampleCount = SampleRate;
-        const int stepAt = SampleRate / 10; // step to loud at 100 ms
+        const int stepAt = SampleRate / 10;
         using var input = CreateBuffer(1, sampleCount, (_, i) => i < stepAt ? 0f : 0.9f);
         var node = CreateNode(threshold: -40f, attack: attackMs, hold: 0f, release: 100f, range: -100f);
         node.AddInput(new BufferReplayNode(input));
@@ -210,8 +210,8 @@ public class GateNodeTests
     [Test]
     public void Process_Hold_KeepsGateOpenAfterSignalDrops()
     {
-        const int loudSamples = SampleRate / 10;  // 100 ms loud
-        const int quietSamples = SampleRate / 10;  // 100 ms quiet tail
+        const int loudSamples = SampleRate / 10;
+        const int quietSamples = SampleRate / 10;
         const int total = loudSamples + quietSamples;
         using var input = MakeTwoPhaseBuffer(0.9f, 0.005f, loudSamples, total); // quiet ≈-46 dB < -40
 
@@ -703,9 +703,7 @@ public class GateNodeTests
             $"Valid channel should open the gate and pass at unity despite NaN in the other channel; got {validPeakDb:F2} dB");
     }
 
-    // Every peak-detection site is covered: the stereo fast path and the >2-channel fallback, in both
-    // the static and the animated loop. The four sites are written out separately, so one of them
-    // missing the guard is exactly the kind of gap this matrix has to catch.
+    // Covers linked-peak guards in the stereo/surround and static/animated paths.
     [TestCase(2, 1, false)]
     [TestCase(2, 4, false)]
     [TestCase(2, 4, true)]
@@ -713,12 +711,10 @@ public class GateNodeTests
     [TestCase(4, 4, true)]
     public void Process_OneChannelInfinity_DoesNotOpenGateForValidChannels(int channels, int corruptSamples, bool animated)
     {
-        // An Infinity in one channel was promoted to the linked peak, opening the gate and arming its
-        // hold latch, so every other channel passed audibly for the hold+release window even though
-        // all of them sit below the threshold. The probe covers exactly that window.
+        // Without the guard, Infinity opens the linked gate for the hold and release window.
         const int sampleCount = SampleRate / 2;
         const float quiet = 0.003f; // ≈-50 dB, below the -40 dB threshold
-        const int holdSamples = (int)(10f * 0.001f * SampleRate); // CreateNode's default 10 ms hold
+        const int holdSamples = (int)(10f * 0.001f * SampleRate);
         var duration = TimeSpan.FromSeconds(sampleCount / (double)SampleRate);
         using var input = CreateBuffer(channels, sampleCount, (_, _) => quiet);
         for (int i = 0; i < corruptSamples; i++)
@@ -757,7 +753,7 @@ public class GateNodeTests
     [Test]
     public void Process_MinThreshold_DigitalSilenceDoesNotOpenGate()
     {
-        const int silenceSamples = SampleRate / 5; // 200 ms
+        const int silenceSamples = SampleRate / 5;
         const int sampleCount = SampleRate / 2;
         using var input = CreateBuffer(1, sampleCount, (_, i) => i < silenceSamples ? 0f : 0.9f);
         var node = CreateNode(threshold: -100f, attack: 50f, hold: 0f, release: 100f, range: -60f);
@@ -889,7 +885,6 @@ public class GateNodeTests
     [Test]
     public void Process_LinkedSurround_OpensEveryChannelFromLoudestChannel()
     {
-        // Only channel 2 is above the threshold, so a detector that stops at channel 1 closes the gate.
         const int sampleCount = SampleRate / 2;
         const int channels = 4;
         const float loud = 0.9f;
@@ -918,9 +913,7 @@ public class GateNodeTests
     [Test]
     public void Process_StaticAndAnimatedPaths_MatchForSurroundBuffer()
     {
-        // The >2-channel fallback is written out separately in each path. Only channel 2 crosses the
-        // threshold and every channel carries a distinct level, so a detector or channel mix-up in
-        // either loop diverges here.
+        // Distinct channel levels expose detector or channel mix-ups in either surround path.
         const int loudSamples = SampleRate / 4;
         const int sampleCount = SampleRate / 2;
         const int channels = 4;
@@ -1033,7 +1026,6 @@ public class GateNodeTests
     [Test]
     public void Process_AnimatedOutOfRangeParameter_LogsClampWarningOncePerParameter()
     {
-        // Not zero times (a hidden misconfiguration) and not per sample (audio-thread spam).
         const int sampleCount = SampleRate / 4;
         using var input = CreateConstantBuffer(0.9f, sampleCount);
 
@@ -1062,8 +1054,7 @@ public class GateNodeTests
     [Test]
     public void Process_EmptyChunkWithDuration_DoesNotMaskLaterDiscontinuity()
     {
-        // A chunk that spans time but carries no samples leaves a hole; the chunk after it is not
-        // contiguous with the chunk before it.
+        // An empty timed chunk leaves a discontinuity.
         const int chunkSamples = SampleRate / 10;
         var chunkDuration = TimeSpan.FromSeconds(chunkSamples / (double)SampleRate);
 
@@ -1097,8 +1088,7 @@ public class GateNodeTests
     [Test]
     public void Process_ZeroHold_ModulatesLowFrequencyGainAcrossZeroCrossings()
     {
-        // Characterizes the unsmoothed peak detector: Hold bridges a waveform's zero crossings, so at
-        // Hold = 0 with the fastest Release a tone that never leaves the open region still pumps.
+        // With an unsmoothed detector, zero Hold and fast Release pump near zero crossings.
         const int sampleCount = SampleRate / 4;
         const float amplitude = 0.1f; // ≈-20 dB, well above the -40 dB threshold
         const float thresholdLinear = 0.01f; // the -40 dB threshold in linear terms

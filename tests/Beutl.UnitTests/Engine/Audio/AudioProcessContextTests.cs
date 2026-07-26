@@ -127,8 +127,7 @@ public class AudioProcessContextTests
     [TestCase(-2L, false)]
     public void ContinuesFrom_ToleratesOneTickOfBoundaryRounding(long tickOffset, bool expected)
     {
-        // Stateful nodes reset their DSP state when this returns false, so the tolerance decides whether
-        // a rounding artifact is heard as a click.
+        // The tolerance prevents stateful nodes from treating rounding artifacts as seeks.
         var previousEnd = TimeSpan.FromSeconds(1);
         var context = new AudioProcessContext(
             new TimeRange(previousEnd + TimeSpan.FromTicks(tickOffset), TimeSpan.FromSeconds(0.1)),

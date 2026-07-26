@@ -10,7 +10,6 @@ using static Beutl.UnitTests.Engine.Audio.AudioTestBuffers;
 
 namespace Beutl.UnitTests.Engine.Audio;
 
-// Pins the DynamicsNode base-class contract that no single derived node can cover on its own.
 [TestFixture]
 public class DynamicsNodeTests
 {
@@ -57,8 +56,7 @@ public class DynamicsNodeTests
         using var node = new RecordingDynamicsNode();
         node.AddInput(new BufferReplayNode(input));
 
-        // Counted as a delta: the opening chunk resets for both the sample-rate and the no-predecessor
-        // reason, which is an implementation detail this test must not depend on.
+        // Compare the delta because the opening chunk resets for two independent reasons.
         node.Process(CreateContext(TimeSpan.Zero)).Dispose();
         int afterFirstChunk = node.ResetCount;
 

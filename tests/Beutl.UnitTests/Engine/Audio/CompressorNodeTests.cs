@@ -512,8 +512,6 @@ public class CompressorNodeTests
     [Test]
     public void Process_InfinityInputSamples_DoesNotLeakNonFiniteOutput()
     {
-        // The first samples on every channel are +Infinity, the rest is a normal sine. The detector
-        // must skip them and the sanitizer must keep any NaN/Infinity from escaping downstream.
         const int sampleCount = SampleRate / 4;
         using var input = CreateSineBuffer(0.9f, 1000f, sampleCount);
         for (int ch = 0; ch < input.ChannelCount; ch++)
@@ -547,18 +545,14 @@ public class CompressorNodeTests
         Assert.That(steadyPeakDb, Is.LessThan(0f));
     }
 
-    // Every peak-detection site is covered: the stereo fast path and the >2-channel fallback, in both
-    // the static and the animated loop. The four sites are written out separately, so one of them
-    // missing the guard is exactly the kind of gap this matrix has to catch.
+    // Covers linked-peak guards in the stereo/surround and static/animated paths.
     [TestCase(2, false)]
     [TestCase(2, true)]
     [TestCase(4, false)]
     [TestCase(4, true)]
     public void Process_OneChannelInfinity_DoesNotReleaseCompressionOnValidChannels(int channels, bool animated)
     {
-        // An Infinity promoted to the linked peak drives the envelope to NaN, and the recovery then
-        // drops it to the -100 dB floor: every other channel escapes compression and bursts ~14 dB
-        // louder while the envelope re-attacks. The probe covers that re-attack window.
+        // Without the guard, Infinity resets the envelope and valid channels briefly burst ~14 dB louder.
         const int sampleCount = SampleRate / 2;
         const float amplitude = 0.9f;
         const float thresholdDb = -20f;
@@ -1356,8 +1350,7 @@ public class CompressorNodeTests
     [TestCase(1L)]
     public void Process_OneTickBoundaryRounding_DoesNotResetEnvelope(long tickOffset)
     {
-        // Independently rounded chunk boundaries can land one tick apart, which is not a seek: the
-        // warmed-up envelope must survive so the first sample stays quieter than a fresh node's.
+        // One-tick rounding must preserve the warmed-up envelope.
         const int chunkSamples = SampleRate / 10;
         var chunkDuration = TimeSpan.FromSeconds(chunkSamples / (double)SampleRate);
         var ctx1 = CreateContext(TimeSpan.Zero, chunkDuration);
@@ -1386,8 +1379,7 @@ public class CompressorNodeTests
     [Test]
     public void Process_EmptyChunkWithDuration_DoesNotMaskLaterDiscontinuity()
     {
-        // A chunk that spans time but carries no samples leaves a hole; the chunk after it is not
-        // contiguous with the chunk before it.
+        // An empty timed chunk leaves a discontinuity.
         const int chunkSamples = SampleRate / 10;
         var chunkDuration = TimeSpan.FromSeconds(chunkSamples / (double)SampleRate);
 
@@ -1421,8 +1413,7 @@ public class CompressorNodeTests
     [Test]
     public void Process_InputSampleRateMismatch_Throws()
     {
-        // Coefficients come from the context rate while the buffer carries the input's, so a mismatched
-        // upstream buffer must be rejected rather than silently relabelled.
+        // This node cannot resample a buffer whose rate differs from the processing context.
         const int altSampleRate = 44100;
         using var input = CreateConstantBuffer(0.9f, altSampleRate / 10, 2, altSampleRate);
         var node = CreateNode();
@@ -1435,9 +1426,7 @@ public class CompressorNodeTests
     [Test]
     public void Process_NonFinitePropertyDefault_FallsBackToDeclaredConstant()
     {
-        // A library user can declare a property whose CurrentValue and DefaultValue are both non-finite.
-        // Returning the non-finite default would defeat the clamp (NaN clamps to NaN) and mute the node,
-        // so the declared CompressorParameters constants must take over.
+        // A non-finite property default cannot serve as the sanitization fallback.
         const int sampleCount = SampleRate / 4;
         using var input = CreateConstantBuffer(0.9f, sampleCount);
 
@@ -1464,8 +1453,6 @@ public class CompressorNodeTests
             }
         }
 
-        // Defaults compress 0.9 (≈-0.9 dB) against a -20 dB threshold at ratio 4, so the tail lands
-        // around -15 dB; a muted node would sit at the -100 dB floor instead.
         float inputPeakDb = PeakDb(input, 0);
         float slope = 1f - 1f / DefaultRatio;
         float expectedDb = inputPeakDb - slope * (inputPeakDb - DefaultThresholdDb);

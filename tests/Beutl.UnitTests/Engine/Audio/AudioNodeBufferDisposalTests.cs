@@ -80,8 +80,7 @@ public class AudioNodeBufferDisposalTests
         return property;
     }
 
-    // DynamicsNode consumes the input in the base class, so the pass-through half of the contract above
-    // has to be honoured there: a derived hook that hands the input straight back transfers ownership.
+    // A derived hook that returns the input transfers ownership to the caller.
     private sealed class PassThroughDynamicsNode : DynamicsNode
     {
         private static readonly ILogger s_logger = Log.CreateLogger<PassThroughDynamicsNode>();

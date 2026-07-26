@@ -60,10 +60,9 @@ public sealed class AudioProcessContext
     /// Returns whether this chunk continues directly from a previous chunk that ended at <paramref name="previousEnd"/>.
     /// </summary>
     /// <remarks>
-    /// Independently rounded <see cref="TimeSpan"/> values can place adjacent sample boundaries one tick
-    /// apart, so a one-tick gap or overlap still counts as contiguous; two ticks or more is a real
-    /// seek/edit boundary. Every stateful node must route through this helper, or the same scrub would
-    /// reset some nodes in a chain and not others.
+    /// Independently rounded sample boundaries may differ by one tick. A one-tick gap or overlap is
+    /// contiguous; two ticks or more is a seek/edit boundary. Stateful nodes must use this helper so
+    /// a chain resets consistently.
     /// </remarks>
     public bool ContinuesFrom(TimeSpan previousEnd)
     {

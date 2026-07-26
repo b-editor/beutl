@@ -73,9 +73,7 @@ public class DelayNodeTests
         return node;
     }
 
-    // A constant input keeps the signal independent of the chunk's start time, so only a reset can
-    // change the output. RampInputNode derives its values from the start time, and at 100 Hz one tick
-    // of offset would shift the ramp by a whole sample and mask what this asserts.
+    // A constant input prevents RampInputNode's time-dependent values from masking a reset.
     private static DelayNode CreateNodeWithConstantInput(AudioBuffer input)
     {
         var node = new DelayNode
@@ -89,8 +87,7 @@ public class DelayNodeTests
         return node;
     }
 
-    // Independently rounded chunk boundaries can land one tick apart, which is not a seek: the delay
-    // lines must survive so the second chunk still replays the first one's tail.
+    // One-tick rounding must preserve the previous chunk's delay tail.
     [TestCase(-1L)]
     [TestCase(1L)]
     public void Process_OneTickBoundaryRounding_PreservesDelayLines(long tickOffset)

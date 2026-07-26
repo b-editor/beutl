@@ -1,6 +1,5 @@
 ﻿namespace Beutl.Audio.Effects;
 
-// Shared ranges and defaults keep validation and per-sample clamps aligned.
 internal static class GateParameters
 {
     public const float MinThresholdDb = -100f;
