@@ -57,39 +57,56 @@ public abstract class DynamicsNode : AudioNode
             throw new InvalidOperationException(
                 $"{DiagnosticName} node requires exactly one input but got {Inputs.Count}.");
 
-        // Every path emits a fresh buffer (no pass-through), so dispose the consumed input.
-        using var input = Inputs[0].Process(context);
-
-        // Coefficients come from context.SampleRate while the output carries input.SampleRate, so a
-        // mismatch would mislabel samples; this node does not resample.
-        if (input.SampleRate != context.SampleRate)
-            throw new InvalidOperationException(
-                $"{DiagnosticName} node: sample rate mismatch. context={context.SampleRate}, input={input.SampleRate}.");
-
-        // A sample-rate change needs new coefficients, so treat it as a full session boundary and
-        // re-arm the diagnostics too.
-        if (_lastSampleRate != context.SampleRate)
+        AudioBuffer input = Inputs[0].Process(context);
+        bool ownsInput = true;
+        try
         {
-            Reset();
-            _lastSampleRate = context.SampleRate;
-        }
+            // Coefficients come from context.SampleRate while the output carries input.SampleRate, so a
+            // mismatch would mislabel samples; this node does not resample.
+            if (input.SampleRate != context.SampleRate)
+                throw new InvalidOperationException(
+                    $"{DiagnosticName} node: sample rate mismatch. context={context.SampleRate}, input={input.SampleRate}.");
 
-        // Returns before _lastTimeRangeEnd advances: an empty chunk would otherwise mask a discontinuity.
-        if (input.SampleCount == 0)
+            // A sample-rate change needs new coefficients, so treat it as a full session boundary and
+            // re-arm the diagnostics too.
+            if (_lastSampleRate != context.SampleRate)
+            {
+                Reset();
+                _lastSampleRate = context.SampleRate;
+            }
+
+            // Returns before _lastTimeRangeEnd advances: an empty chunk would otherwise mask a discontinuity.
+            if (input.SampleCount == 0)
+            {
+                return new AudioBuffer(input.SampleRate, input.ChannelCount, 0);
+            }
+
+            // Nodes are cached across Compose() calls, so stale DSP state must not survive a seek or
+            // restart. Diagnostics latches are deliberately kept — re-arming them on every scrub would let
+            // a persistent fault re-log once per Process call.
+            if (!_lastTimeRangeEnd.HasValue || !context.ContinuesFrom(_lastTimeRangeEnd.Value))
+            {
+                ResetDspState();
+            }
+            _lastTimeRangeEnd = context.TimeRange.Start + context.TimeRange.Duration;
+
+            AudioBuffer output = HasAnimatedParameters
+                ? ProcessAnimated(input, context)
+                : ProcessStatic(input, context);
+
+            // A hook may hand the input straight back, as the neutral paths of GainNode / EqualizerNode
+            // do; ownership then belongs to the caller and disposing it here would hand the next
+            // consumer a returned pooled buffer.
+            ownsInput = !ReferenceEquals(output, input);
+            return output;
+        }
+        finally
         {
-            return new AudioBuffer(input.SampleRate, input.ChannelCount, 0);
+            if (ownsInput)
+            {
+                input.Dispose();
+            }
         }
-
-        // Nodes are cached across Compose() calls, so stale DSP state must not survive a seek or
-        // restart. Diagnostics latches are deliberately kept — re-arming them on every scrub would let
-        // a persistent fault re-log once per Process call.
-        if (!_lastTimeRangeEnd.HasValue || !context.ContinuesFrom(_lastTimeRangeEnd.Value))
-        {
-            ResetDspState();
-        }
-        _lastTimeRangeEnd = context.TimeRange.Start + context.TimeRange.Duration;
-
-        return HasAnimatedParameters ? ProcessAnimated(input, context) : ProcessStatic(input, context);
     }
 
     protected abstract AudioBuffer ProcessStatic(AudioBuffer input, AudioProcessContext context);

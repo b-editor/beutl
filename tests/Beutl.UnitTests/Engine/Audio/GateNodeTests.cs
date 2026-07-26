@@ -703,16 +703,20 @@ public class GateNodeTests
             $"Valid channel should open the gate and pass at unity despite NaN in the other channel; got {validPeakDb:F2} dB");
     }
 
-    [TestCase(1, false)]
-    [TestCase(4, false)]
-    [TestCase(4, true)]
-    public void Process_OneChannelInfinity_DoesNotOpenGateForValidChannels(int corruptSamples, bool animated)
+    // Every peak-detection site is covered: the stereo fast path and the >2-channel fallback, in both
+    // the static and the animated loop. The four sites are written out separately, so one of them
+    // missing the guard is exactly the kind of gap this matrix has to catch.
+    [TestCase(2, 1, false)]
+    [TestCase(2, 4, false)]
+    [TestCase(2, 4, true)]
+    [TestCase(4, 4, false)]
+    [TestCase(4, 4, true)]
+    public void Process_OneChannelInfinity_DoesNotOpenGateForValidChannels(int channels, int corruptSamples, bool animated)
     {
         // An Infinity in one channel was promoted to the linked peak, opening the gate and arming its
         // hold latch, so every other channel passed audibly for the hold+release window even though
         // all of them sit below the threshold. The probe covers exactly that window.
         const int sampleCount = SampleRate / 2;
-        const int channels = 4;
         const float quiet = 0.003f; // ≈-50 dB, below the -40 dB threshold
         const int holdSamples = (int)(10f * 0.001f * SampleRate); // CreateNode's default 10 ms hold
         var duration = TimeSpan.FromSeconds(sampleCount / (double)SampleRate);

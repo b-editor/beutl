@@ -63,16 +63,17 @@ public sealed class GateNode : DynamicsNode
                 for (int i = 0; i < sampleCount; i++)
                 {
                     float s0 = in0[i];
-                    // Comparisons against NaN stay false, preserving a finite channel's peak.
+                    // A corrupt channel must not drive the linked peak: NaN already compares false,
+                    // and an Infinity would hold the gate open for every other channel.
                     float peak = 0f;
                     float a0 = MathF.Abs(s0);
-                    if (a0 > peak) peak = a0;
+                    if (float.IsFinite(a0) && a0 > peak) peak = a0;
                     float s1 = 0f;
                     if (channels == 2)
                     {
                         s1 = in1[i];
                         float a1 = MathF.Abs(s1);
-                        if (a1 > peak) peak = a1;
+                        if (float.IsFinite(a1) && a1 > peak) peak = a1;
                     }
 
                     float gainLinear = NextGain(peak, attackCoeff, releaseCoeff, p, holdSamples);
