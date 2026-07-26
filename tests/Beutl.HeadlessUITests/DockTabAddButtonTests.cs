@@ -6,7 +6,6 @@ using Avalonia.Headless.NUnit;
 using Avalonia.Input;
 using Avalonia.Interactivity;
 using Avalonia.VisualTree;
-using Beutl.Editor.Components.ColorScopesTab;
 using Beutl.Extensibility;
 using Beutl.ProjectSystem;
 using Beutl.Services.PrimitiveImpls;
@@ -158,21 +157,21 @@ public class DockTabAddButtonTests
 
             MenuItem timelineItem = items.Single(
                 item => ReferenceEquals(item.DataContext, TimelineTabExtension.Instance));
-            MenuItem colorScopesItem = items.Single(
-                item => ReferenceEquals(item.DataContext, ColorScopesTabExtension.Instance));
+            MenuItem historyItem = items.Single(
+                item => ReferenceEquals(item.DataContext, HistoryTabExtension.Instance));
 
             Assert.Multiple(() =>
             {
                 Assert.That(timelineItem.IsEnabled, Is.False);
-                Assert.That(colorScopesItem.IsEnabled, Is.True);
+                Assert.That(historyItem.IsEnabled, Is.True);
             });
 
-            colorScopesItem.RaiseEvent(new RoutedEventArgs(MenuItem.ClickEvent));
+            historyItem.RaiseEvent(new RoutedEventArgs(MenuItem.ClickEvent));
             HeadlessTestHelpers.Settle();
 
             BeutlToolDockable? added = target.VisibleDockables?
                 .OfType<BeutlToolDockable>()
-                .SingleOrDefault(dockable => dockable.ToolContext.Extension == ColorScopesTabExtension.Instance);
+                .SingleOrDefault(dockable => dockable.ToolContext.Extension == HistoryTabExtension.Instance);
 
             Assert.Multiple(() =>
             {
@@ -180,13 +179,16 @@ public class DockTabAddButtonTests
                 Assert.That(target.ActiveDockable, Is.SameAs(added));
             });
 
-            menu.Open();
+            menu.Close();
+            HeadlessTestHelpers.Settle();
+            window.MouseDown(buttonCenter, MouseButton.Right);
+            window.MouseUp(buttonCenter, MouseButton.Right);
             HeadlessTestHelpers.Settle();
 
-            MenuItem refreshedColorScopesItem = menu.ItemsSource!
+            MenuItem refreshedHistoryItem = menu.ItemsSource!
                 .Cast<MenuItem>()
-                .Single(item => ReferenceEquals(item.DataContext, ColorScopesTabExtension.Instance));
-            Assert.That(refreshedColorScopesItem.IsEnabled, Is.False);
+                .Single(item => ReferenceEquals(item.DataContext, HistoryTabExtension.Instance));
+            Assert.That(refreshedHistoryItem.IsEnabled, Is.False);
         }
         finally
         {
