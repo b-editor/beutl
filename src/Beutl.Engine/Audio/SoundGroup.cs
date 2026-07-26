@@ -78,10 +78,6 @@ public sealed partial class SoundGroup : Sound, IFlowOperator
         // SoundGroupの処理を加える
         var mixerNode = context.CreateMixerNode();
 
-        // Group-local clip end of each mixer branch, in connect order. A child that ends before the
-        // group lets the mixer skip it on flush so its already-recovered tail is not re-emitted late.
-        var branchEndTimes = new List<TimeSpan>();
-
         foreach (var child in r.Children)
         {
             var original = child.GetOriginal();
@@ -99,11 +95,11 @@ public sealed partial class SoundGroup : Sound, IFlowOperator
                 var shiftNode = context.CreateShiftNode(TimeRange.Start);
                 context.Connect(outputNode, shiftNode);
                 context.Connect(shiftNode, mixerNode);
-                branchEndTimes.Add(original.TimeRange.End - TimeRange.Start);
+                // A child that ends before the group lets the mixer skip its already-recovered tail
+                // instead of re-emitting it late during the group's terminal flush.
+                mixerNode.SetBranchEndTime(shiftNode, original.TimeRange.End - TimeRange.Start);
             }
         }
-
-        mixerNode.BranchEndTimes = [.. branchEndTimes];
 
         AudioNode currentNode = mixerNode;
 

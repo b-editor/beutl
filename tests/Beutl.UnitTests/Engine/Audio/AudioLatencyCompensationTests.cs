@@ -300,7 +300,8 @@ public class AudioLatencyCompensationTests
         using var mixer = new MixerNode();
         mixer.AddInput(limiterA);
         mixer.AddInput(limiterB);
-        mixer.BranchEndTimes = [earlyEnd, groupEnd];
+        mixer.SetBranchEndTime(limiterA, earlyEnd);
+        mixer.SetBranchEndTime(limiterB, groupEnd);
 
         using var processed = mixer.Process(Context(TimeSpan.Zero, sampleCount));
         using var tail = mixer.Flush(Context(groupEnd, sampleCount));
@@ -311,6 +312,219 @@ public class AudioLatencyCompensationTests
             Assert.That(tailData[k], Is.EqualTo(0f).Within(1e-6f),
                 $"Branch A ended before the terminal slice; its stale tail must not be mixed into the group pad (sample {k}).");
         }
+    }
+
+    [Test]
+    public void MixerNode_RemoveInput_KeepsBranchEndTimeAligned()
+    {
+        const float lookaheadMs = 5f;
+        const int sampleCount = 1024;
+        int L = LookaheadSamples(lookaheadMs);
+        var groupEnd = TimeSpan.FromSeconds((double)sampleCount / SampleRate);
+        var earlyEnd = TimeSpan.FromSeconds((double)(sampleCount / 2) / SampleRate);
+
+        using var inputA = CreateConstantBuffer(0f, sampleCount);
+        using var limiterA = CreateTransparentLimiter(lookaheadMs);
+        limiterA.AddInput(new BufferReplayNode(inputA));
+        using var inputB = CreateBuffer(2, sampleCount, (_, i) =>
+            0.25f * MathF.Sin(2f * MathF.PI * 440f * i / SampleRate));
+        using var limiterB = CreateTransparentLimiter(lookaheadMs);
+        limiterB.AddInput(new BufferReplayNode(inputB));
+
+        using var mixer = new MixerNode();
+        mixer.AddInput(limiterA);
+        mixer.AddInput(limiterB);
+        mixer.SetBranchEndTime(limiterA, earlyEnd);
+        mixer.SetBranchEndTime(limiterB, groupEnd);
+
+        using var processed = mixer.Process(Context(TimeSpan.Zero, sampleCount));
+        mixer.RemoveInput(limiterA);
+        using var tail = mixer.Flush(Context(groupEnd, sampleCount));
+
+        Assert.That(tail.GetChannelData(0)[..L].ToArray(), Has.Some.Not.EqualTo(0f),
+            "Removing branch A must move branch B's end time with it so B remains live during flush.");
+    }
+
+    [Test]
+    public void MixerNode_ClearInputs_DropsStaleBranchEndTimes()
+    {
+        const float lookaheadMs = 5f;
+        const int sampleCount = 1024;
+        int L = LookaheadSamples(lookaheadMs);
+        var groupEnd = TimeSpan.FromSeconds((double)sampleCount / SampleRate);
+        var earlyEnd = TimeSpan.FromSeconds((double)(sampleCount / 2) / SampleRate);
+
+        using var staleInput = CreateConstantBuffer(0f, sampleCount);
+        using var staleLimiter = CreateTransparentLimiter(lookaheadMs);
+        staleLimiter.AddInput(new BufferReplayNode(staleInput));
+
+        using var liveInput = CreateBuffer(2, sampleCount, (_, i) =>
+            0.25f * MathF.Sin(2f * MathF.PI * 440f * i / SampleRate));
+        using var liveLimiter = CreateTransparentLimiter(lookaheadMs);
+        liveLimiter.AddInput(new BufferReplayNode(liveInput));
+
+        using var mixer = new MixerNode();
+        mixer.AddInput(staleLimiter);
+        mixer.SetBranchEndTime(staleLimiter, earlyEnd);
+        mixer.ClearInputs();
+        mixer.AddInput(liveLimiter);
+
+        using var processed = mixer.Process(Context(TimeSpan.Zero, sampleCount));
+        using var tail = mixer.Flush(Context(groupEnd, sampleCount));
+
+        Assert.That(tail.GetChannelData(0)[..L].ToArray(), Has.Some.Not.EqualTo(0f),
+            "A branch added after ClearInputs must not inherit liveness metadata from the old topology.");
+    }
+
+    [Test]
+    public void MixerNode_AddInput_WithoutBranchEndTime_RemainsLive()
+    {
+        const float lookaheadMs = 5f;
+        const int sampleCount = 1024;
+        int L = LookaheadSamples(lookaheadMs);
+        var groupEnd = TimeSpan.FromSeconds((double)sampleCount / SampleRate);
+
+        using var staleInput = CreateConstantBuffer(0f, sampleCount);
+        using var staleLimiter = CreateTransparentLimiter(lookaheadMs);
+        staleLimiter.AddInput(new BufferReplayNode(staleInput));
+
+        using var liveInput = CreateBuffer(2, sampleCount, (_, i) =>
+            0.25f * MathF.Sin(2f * MathF.PI * 440f * i / SampleRate));
+        using var liveLimiter = CreateTransparentLimiter(lookaheadMs);
+        liveLimiter.AddInput(new BufferReplayNode(liveInput));
+
+        using var mixer = new MixerNode();
+        mixer.AddInput(staleLimiter);
+        mixer.SetBranchEndTime(staleLimiter, TimeSpan.Zero);
+        mixer.AddInput(liveLimiter);
+
+        using var processed = mixer.Process(Context(TimeSpan.Zero, sampleCount));
+        using var tail = mixer.Flush(Context(groupEnd, sampleCount));
+
+        Assert.That(tail.GetChannelData(0)[..L].ToArray(), Has.Some.Not.EqualTo(0f),
+            "A dynamically added branch without an end time must remain live during flush.");
+    }
+
+    [Test]
+    public void MixerNode_ClearBranchEndTime_MakesBranchLiveAgain()
+    {
+        const float lookaheadMs = 5f;
+        const int sampleCount = 1024;
+        int L = LookaheadSamples(lookaheadMs);
+        var groupEnd = TimeSpan.FromSeconds((double)sampleCount / SampleRate);
+
+        using var input = CreateBuffer(2, sampleCount, (_, i) =>
+            0.25f * MathF.Sin(2f * MathF.PI * 440f * i / SampleRate));
+        using var limiter = CreateTransparentLimiter(lookaheadMs);
+        limiter.AddInput(new BufferReplayNode(input));
+
+        using var mixer = new MixerNode();
+        mixer.AddInput(limiter);
+        mixer.SetBranchEndTime(limiter, TimeSpan.Zero);
+
+        Assert.That(mixer.ClearBranchEndTime(limiter), Is.True);
+
+        using var processed = mixer.Process(Context(TimeSpan.Zero, sampleCount));
+        using var tail = mixer.Flush(Context(groupEnd, sampleCount));
+
+        Assert.That(tail.GetChannelData(0)[..L].ToArray(), Has.Some.Not.EqualTo(0f),
+            "Clearing a branch end time must return the connected branch to the live state.");
+    }
+
+    [Test]
+    public void MixerNode_ClearInputs_WhenEmpty_DropsStaleGains()
+    {
+        const int sampleCount = 64;
+
+        using var input = CreateConstantBuffer(0.25f, sampleCount);
+        using var inputNode = new BufferReplayNode(input);
+        using var mixer = new MixerNode { Gains = [0f] };
+
+        mixer.ClearInputs();
+        mixer.AddInput(inputNode);
+
+        using var processed = mixer.Process(Context(TimeSpan.Zero, sampleCount));
+
+        Assert.That(processed.GetChannelData(0)[0], Is.EqualTo(0.25f).Within(1e-6f),
+            "ClearInputs must clear connection metadata even when the mixer is already empty.");
+    }
+
+    [Test]
+    public void MixerNode_SetBranchEndTime_RejectsDisconnectedInput()
+    {
+        using var buffer = CreateConstantBuffer(0f, 64);
+        using var input = new BufferReplayNode(buffer);
+        using var mixer = new MixerNode();
+
+        Assert.That(
+            () => mixer.SetBranchEndTime(input, TimeSpan.Zero),
+            Throws.ArgumentException.With.Property(nameof(ArgumentException.ParamName)).EqualTo("input"));
+    }
+
+    [Test]
+    public void AudioContext_Topology_UsesReferenceIdentityForValueEqualNodes()
+    {
+        using var first = new ValueEqualAudioNode();
+        using var second = new ValueEqualAudioNode();
+        using var mixer = new MixerNode();
+        using var context = new AudioContext(SampleRate, 2);
+
+        context.AddNode(first);
+        context.AddNode(second);
+        context.Connect(first, mixer);
+        context.Connect(second, mixer);
+
+        Assert.That(context.Nodes, Has.Count.EqualTo(3));
+        Assert.That(mixer.Inputs, Has.Count.EqualTo(2));
+        Assert.That(mixer.Inputs[0], Is.SameAs(first));
+        Assert.That(mixer.Inputs[1], Is.SameAs(second));
+
+        context.RemoveNode(second);
+
+        Assert.That(context.Nodes, Has.Count.EqualTo(2));
+        Assert.That(mixer.Inputs, Has.Count.EqualTo(1));
+        Assert.That(mixer.Inputs[0], Is.SameAs(first));
+    }
+
+    [Test]
+    public void MixerNode_Dispose_ReleasesBranchEndMetadata()
+    {
+        (MixerNode mixer, WeakReference inputReference) = CreateDisposedMixerWithBranchEndMetadata();
+
+        GC.Collect();
+        GC.WaitForPendingFinalizers();
+        GC.Collect();
+
+        Assert.That(inputReference.IsAlive, Is.False);
+        GC.KeepAlive(mixer);
+    }
+
+    [Test]
+    public void MixerNode_AllDeadFlush_PreservesProcessedChannelLayout()
+    {
+        const float lookaheadMs = 5f;
+        const int sampleCount = 1024;
+        int L = LookaheadSamples(lookaheadMs);
+        var groupEnd = TimeSpan.FromSeconds((double)sampleCount / SampleRate);
+
+        using var input = CreateBuffer(1, sampleCount, (_, i) =>
+            0.25f * MathF.Sin(2f * MathF.PI * 440f * i / SampleRate));
+        using var inputNode = new BufferReplayNode(input);
+        using var mixer = new MixerNode();
+        mixer.AddInput(inputNode);
+        mixer.SetBranchEndTime(inputNode, TimeSpan.Zero);
+
+        using var limiter = CreateTransparentLimiter(lookaheadMs);
+        limiter.AddInput(mixer);
+
+        using var processed = limiter.Process(Context(TimeSpan.Zero, sampleCount));
+        using var tail = limiter.Flush(Context(groupEnd, sampleCount));
+
+        Assert.That(processed.ChannelCount, Is.EqualTo(1));
+        Assert.That(tail.ChannelCount, Is.EqualTo(1),
+            "An all-dead mixer flush must keep the mono layout seen by the downstream limiter.");
+        Assert.That(tail.GetChannelData(0)[..L].ToArray(), Has.Some.Not.EqualTo(0f),
+            "Preserving the layout must keep the downstream limiter from resetting and dropping its tail.");
     }
 
     [Test]
@@ -524,6 +738,51 @@ public class AudioLatencyCompensationTests
     }
 
     [Test]
+    public void Flush_AnimatedMakeupGain_StaysLiveWithStaticLookahead()
+    {
+        const float lookaheadMs = 5f;
+        const float makeupDb = 6f;
+        const int sampleCount = 4096;
+        int L = LookaheadSamples(lookaheadMs);
+        var clipDuration = TimeSpan.FromSeconds((double)sampleCount / SampleRate);
+        var oneSample = TimeSpan.FromSeconds(1.0 / SampleRate);
+
+        using var input = CreateConstantBuffer(0.1f, sampleCount);
+
+        var animation = new KeyFrameAnimation<float>
+        {
+            KeyFrames =
+            {
+                new KeyFrame<float> { KeyTime = TimeSpan.Zero, Value = 0f, Easing = new LinearEasing() },
+                new KeyFrame<float> { KeyTime = clipDuration - oneSample, Value = 0f, Easing = new LinearEasing() },
+                new KeyFrame<float> { KeyTime = clipDuration, Value = makeupDb, Easing = new LinearEasing() },
+            },
+        };
+        var makeup = Property.CreateAnimatable(0f);
+        makeup.Animation = animation;
+
+        using var node = new LimiterNode
+        {
+            Threshold = Property.CreateAnimatable(LimiterParameters.MaxThresholdDb),
+            Release = Property.CreateAnimatable(LimiterParameters.DefaultReleaseMs),
+            Lookahead = Property.CreateAnimatable(lookaheadMs),
+            MakeupGain = makeup,
+        };
+        node.AddInput(new BufferReplayNode(input));
+
+        using var processed = node.Process(Context(TimeSpan.Zero, sampleCount));
+        using var tail = node.Flush(Context(clipDuration, sampleCount));
+
+        float expected = 0.1f * AudioMath.ConvertDbToLinear(makeupDb);
+        var tailData = tail.GetChannelData(0);
+        for (int k = 0; k < L; k++)
+        {
+            Assert.That(tailData[k], Is.EqualTo(expected).Within(1e-5f),
+                $"Flush sample {k} must use the drain-range makeup automation while retaining the terminal lookahead.");
+        }
+    }
+
+    [Test]
     public void Composer_FlushesSoundEndingExactlyAtTheWindowBoundary()
     {
         const float lookaheadMs = 5f;
@@ -561,6 +820,42 @@ public class AudioLatencyCompensationTests
 
         Assert.That(tailNonZero, Is.True,
             "A sound ending exactly at the window boundary must have its limiter tail flushed into the next window's start.");
+    }
+
+    [Test]
+    public void Composer_DoesNotFlushSoundThatDisappearsBeforeItsNaturalEnd()
+    {
+        const float lookaheadMs = 5f;
+        int L = LookaheadSamples(lookaheadMs);
+        var oneSecond = TimeSpan.FromSeconds(1);
+        var twoSeconds = TimeSpan.FromSeconds(2);
+
+        var sound = new LimiterTailSound
+        {
+            LookaheadMs = lookaheadMs,
+            TimeRange = new TimeRange(TimeSpan.Zero, twoSeconds),
+        };
+        var resource = sound.ToResource(CompositionContext.Default);
+
+        using var composer = new Composer { SampleRate = SampleRate };
+
+        var window1 = new TimeRange(TimeSpan.Zero, oneSecond);
+        var frame1 = new CompositionFrame(ImmutableArray.Create<EngineObject.Resource>(resource), window1, default);
+        using var buffer1 = composer.Compose(window1, frame1);
+
+        // The sound is absent from the next contiguous frame even though its captured range continues.
+        // This models a mute, disable, or removal rather than a natural clip end.
+        var window2 = new TimeRange(oneSecond, oneSecond);
+        var frame2 = new CompositionFrame(ImmutableArray<EngineObject.Resource>.Empty, window2, default);
+        using var buffer2 = composer.Compose(window2, frame2);
+
+        Assert.That(buffer2, Is.Not.Null);
+        var output = buffer2!.GetChannelData(0);
+        for (int k = 0; k < L; k++)
+        {
+            Assert.That(MathF.Abs(output[k]), Is.LessThanOrEqualTo(1e-5f),
+                $"A sound removed before its natural end must not leak a cached limiter tail (sample {k}).");
+        }
     }
 
     // Guard path 1: a non-contiguous window (seek/scrub/restart) must suppress the ended-sound flush.
@@ -723,5 +1018,27 @@ public class AudioLatencyCompensationTests
 
             return buffer;
         }
+    }
+
+    [System.Runtime.CompilerServices.MethodImpl(
+        System.Runtime.CompilerServices.MethodImplOptions.NoInlining)]
+    private static (MixerNode Mixer, WeakReference InputReference) CreateDisposedMixerWithBranchEndMetadata()
+    {
+        var input = new ValueEqualAudioNode();
+        var mixer = new MixerNode();
+        mixer.AddInput(input);
+        mixer.SetBranchEndTime(input, TimeSpan.Zero);
+        mixer.Dispose();
+        return (mixer, new WeakReference(input));
+    }
+
+    private sealed class ValueEqualAudioNode : AudioNode
+    {
+        public override AudioBuffer Process(AudioProcessContext context)
+            => new(context.SampleRate, 2, context.GetSampleCount());
+
+        public override bool Equals(object? obj) => obj is ValueEqualAudioNode;
+
+        public override int GetHashCode() => 0;
     }
 }

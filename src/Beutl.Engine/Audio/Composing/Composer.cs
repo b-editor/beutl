@@ -12,10 +12,10 @@ public class Composer : IComposer
     private readonly ConditionalWeakTable<Sound, AudioNodeEntry> _audioCache = [];
     private readonly List<AudioNodeEntry> _currentEntry = new();
 
-    // The entries active in the previous Compose window and that window's range. A sound active last
-    // window but not this one ended at the boundary; its graph still holds the latency tail, which the
-    // next window flushes (a sound ending exactly on the boundary cannot self-recover — its terminal
-    // clip window is full, so ClipNode.AppendFlushedTail has no room).
+    // The entries active in the previous Compose window and that window's range. A sound whose captured
+    // range ended at the boundary still holds its latency tail, which the next window flushes (a sound
+    // ending exactly on the boundary cannot self-recover — its terminal clip window is full, so
+    // ClipNode.AppendFlushedTail has no room). An entry absent for any other reason is discarded.
     private readonly List<AudioNodeEntry> _previousEntry = new();
     private TimeRange? _previousRange;
 
@@ -26,6 +26,7 @@ public class Composer : IComposer
         public bool IsDirty { get; set; } = true;
         public int Version { get; set; }
         public EventHandler? EditedHandler { get; set; }
+        public TimeRange SoundRange { get; set; }
 
         public void Dispose()
         {
@@ -174,6 +175,8 @@ public class Composer : IComposer
                 continue;
             if (entry.OutputNodes is not { } outputNodes)
                 continue;
+            if (!IsSameTimestamp(entry.SoundRange.End, previous.End))
+                continue;
 
             foreach (var outputNode in outputNodes)
             {
@@ -188,6 +191,9 @@ public class Composer : IComposer
 
     private static bool IsContiguous(TimeSpan previousEnd, TimeSpan nextStart)
         => Math.Abs((nextStart - previousEnd).Ticks) <= TimeSpan.TicksPerMillisecond;
+
+    private static bool IsSameTimestamp(TimeSpan first, TimeSpan second)
+        => Math.Abs((first - second).Ticks) <= 1;
 
     private AudioBuffer? MixBuffers(List<AudioBuffer> buffers)
     {
@@ -300,6 +306,7 @@ public class Composer : IComposer
             entry.IsDirty = false;
         }
 
+        entry.SoundRange = sound.TimeRange;
         _currentEntry.Add(entry);
     }
 

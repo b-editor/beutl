@@ -37,8 +37,9 @@ public sealed class LimiterNode : AudioNode
     private long _globalPos;
 
     // The coefficients the last real-audio sample was processed with. A drain (Flush) following the
-    // clip end reuses these instead of re-sampling automation over the post-clip range, so the held
-    // tail is read at the lookahead it was buffered at. Invalid after Reset/format change (cold state).
+    // clip end keeps its lookahead offset so the held tail is read where it was buffered, while the
+    // other animated parameters continue sampling over the drain range. Invalid after Reset/format
+    // change (cold state).
     private DerivedCoefficients _lastDerived;
     private bool _hasLastDerived;
 
@@ -131,14 +132,13 @@ public sealed class LimiterNode : AudioNode
                             || MakeupGain.Animation != null;
 
         AudioBuffer output;
-        if (draining && hasAnimation && _hasLastDerived)
+        if (draining && Lookahead.Animation != null && _hasLastDerived)
         {
-            // Re-sampling animated parameters over the post-clip drain range reads the wrong delay
-            // offset: the held tail was buffered at the lookahead in effect at the clip end, but the
-            // automation may have moved off it (a keyframe back to 0 at Duration would read Read(0), the
-            // flush silence, and drop the tail). Drain at the coefficients retained from the terminal
-            // sample so the held samples are read out at the offset they were stored.
-            output = DrainFrozen(input, context, _lastDerived);
+            // Re-sampling Lookahead over the post-clip drain range reads the wrong delay offset: the held
+            // tail was buffered at the lookahead in effect at the clip end, but the automation may have
+            // moved off it. Keep only that offset fixed; Threshold, Release, and MakeupGain still sample
+            // at their drain-range times so their automation remains live.
+            output = DrainWithFrozenLookahead(input, context, _lastDerived.LookaheadSamples);
         }
         else
         {
@@ -277,18 +277,30 @@ public sealed class LimiterNode : AudioNode
 
     private DerivedCoefficients Derive(float thresholdDbRaw, float releaseMsRaw, float lookaheadMsRaw, float makeupDbRaw, int sampleRate)
     {
+        float lookaheadMs = ClampFinite(lookaheadMsRaw, MinLookaheadMs, MaxLookaheadMs, MinLookaheadMs, nameof(Lookahead), ref _warnedNonFiniteLookahead);
+        int lookaheadSamples = Math.Clamp((int)(lookaheadMs / 1000f * sampleRate), 0, _maxLookaheadSamples - 1);
+        return DeriveWithLookaheadSamples(
+            thresholdDbRaw, releaseMsRaw, makeupDbRaw, sampleRate, lookaheadSamples);
+    }
+
+    private DerivedCoefficients DeriveWithLookaheadSamples(
+        float thresholdDbRaw,
+        float releaseMsRaw,
+        float makeupDbRaw,
+        int sampleRate,
+        int lookaheadSamples)
+    {
         // Threshold falls back to the default (-1 dB), not MaxThresholdDb (0 dB): 0 dB would
         // silently disable limiting for the rest of the session — the exact silent failure this
         // guard prevents. -1 dB still limits, peaking just under unity so the issue stays audible.
         float thresholdDb = ClampFinite(thresholdDbRaw, MinThresholdDb, MaxThresholdDb, DefaultThresholdDb, nameof(Threshold), ref _warnedNonFiniteThreshold);
         float releaseMs = ClampFinite(releaseMsRaw, MinReleaseMs, MaxReleaseMs, MinReleaseMs, nameof(Release), ref _warnedNonFiniteRelease);
-        float lookaheadMs = ClampFinite(lookaheadMsRaw, MinLookaheadMs, MaxLookaheadMs, MinLookaheadMs, nameof(Lookahead), ref _warnedNonFiniteLookahead);
         float makeupDb = ClampFinite(makeupDbRaw, MinMakeupGainDb, MaxMakeupGainDb, 0f, nameof(MakeupGain), ref _warnedNonFiniteMakeup);
 
         return new DerivedCoefficients(
             ThresholdLin: AudioMath.ConvertDbToLinear(thresholdDb),
             MakeupLin: AudioMath.ConvertDbToLinear(makeupDb),
-            LookaheadSamples: Math.Clamp((int)(lookaheadMs / 1000f * sampleRate), 0, _maxLookaheadSamples - 1),
+            LookaheadSamples: Math.Clamp(lookaheadSamples, 0, _maxLookaheadSamples - 1),
             ReleaseCoef: MathF.Exp(-1f / (releaseMs * 0.001f * sampleRate)));
     }
 
@@ -395,16 +407,24 @@ public sealed class LimiterNode : AudioNode
         }
     }
 
-    // Drains the held tail at fixed coefficients (the clip's terminal sample), bypassing automation
-    // re-sampling. Mirrors the animated path's per-sample emit but with constant c, so the delay line
-    // is read at the lookahead the tail was buffered at. Used only on the Flush path with animation.
-    private AudioBuffer DrainFrozen(AudioBuffer input, AudioProcessContext context, DerivedCoefficients c)
+    // Drains the held tail at the clip's terminal lookahead while keeping the other parameters
+    // sample-accurate over the drain range. The fixed offset reads the delay line where the tail was
+    // buffered; live Threshold, Release, and MakeupGain preserve their normal automation semantics.
+    private AudioBuffer DrainWithFrozenLookahead(
+        AudioBuffer input,
+        AudioProcessContext context,
+        int lookaheadSamples)
     {
         var output = new AudioBuffer(input.SampleRate, input.ChannelCount, input.SampleCount);
         try
         {
-            // The deque tracks no fixed lookahead across this block (it reads via ScanWindowPeak like
-            // the animated path), so invalidate it for a later static chunk to rebuild.
+            int scratchSize = Math.Min(AnimationChunkSize, input.SampleCount);
+            Span<float> thresholds = stackalloc float[scratchSize];
+            Span<float> releases = stackalloc float[scratchSize];
+            Span<float> makeups = stackalloc float[scratchSize];
+
+            // The deque does not track this drain block (it reads via ScanWindowPeak like the animated
+            // path), so invalidate it for a later static chunk to rebuild.
             _dequeLookahead = -1;
 
             int channelCount = _delayLines!.Length;
@@ -412,11 +432,38 @@ public sealed class LimiterNode : AudioNode
             ReadOnlySpan<float> inRaw = input.GetRawSpan();
             Span<float> outRaw = output.GetRawSpan();
 
-            for (int idx = 0; idx < sampleCount; idx++)
+            int processed = 0;
+            while (processed < sampleCount)
             {
-                _ = IngestSample(inRaw, sampleCount, channelCount, idx);
-                float windowPeak = ScanWindowPeak(c.LookaheadSamples);
-                EmitSample(outRaw, sampleCount, channelCount, idx, windowPeak, c.ThresholdLin, c.MakeupLin, c.LookaheadSamples, c.ReleaseCoef);
+                int chunkSize = Math.Min(AnimationChunkSize, sampleCount - processed);
+                var chunkStart = context.GetTimeForSample(processed);
+                var chunkEnd = context.GetTimeForSample(processed + chunkSize);
+                var chunkRange = new TimeRange(chunkStart, chunkEnd - chunkStart);
+
+                context.AnimationSampler.SampleBuffer(Threshold, chunkRange, context.SampleRate, thresholds[..chunkSize]);
+                context.AnimationSampler.SampleBuffer(Release, chunkRange, context.SampleRate, releases[..chunkSize]);
+                context.AnimationSampler.SampleBuffer(MakeupGain, chunkRange, context.SampleRate, makeups[..chunkSize]);
+
+                for (int i = 0; i < chunkSize; i++)
+                {
+                    var c = DeriveWithLookaheadSamples(
+                        thresholds[i], releases[i], makeups[i], context.SampleRate, lookaheadSamples);
+                    int idx = processed + i;
+                    _ = IngestSample(inRaw, sampleCount, channelCount, idx);
+                    float windowPeak = ScanWindowPeak(c.LookaheadSamples);
+                    EmitSample(
+                        outRaw,
+                        sampleCount,
+                        channelCount,
+                        idx,
+                        windowPeak,
+                        c.ThresholdLin,
+                        c.MakeupLin,
+                        c.LookaheadSamples,
+                        c.ReleaseCoef);
+                }
+
+                processed += chunkSize;
             }
 
             return output;

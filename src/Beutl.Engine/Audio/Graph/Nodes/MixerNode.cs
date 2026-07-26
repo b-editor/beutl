@@ -1,5 +1,4 @@
 ﻿using System;
-using System.Linq;
 
 namespace Beutl.Audio.Graph.Nodes;
 
@@ -8,7 +7,8 @@ public sealed class MixerNode : AudioNode
     private const long BranchLivenessToleranceTicks = TimeSpan.TicksPerMillisecond;
 
     private float[] _gains = Array.Empty<float>();
-    private TimeSpan[] _branchEndTimes = Array.Empty<TimeSpan>();
+    private readonly Dictionary<AudioNode, TimeSpan> _branchEndTimes =
+        new(ReferenceEqualityComparer.Instance);
 
     public float[] Gains
     {
@@ -16,27 +16,36 @@ public sealed class MixerNode : AudioNode
         set => _gains = value ?? Array.Empty<float>();
     }
 
-    // Group-local end time of each input branch, parallel to Inputs (empty = every branch live, so all
-    // drain — the back-compat default). A branch whose clip ended before the flush block is dead: its
-    // tail was recovered at its own clip end, so Flush must skip it instead of re-emitting it late.
-    public TimeSpan[] BranchEndTimes
+    /// <summary>
+    /// Records the group-local time when a connected input branch ends. A branch without an end time is
+    /// considered live, so dynamically added inputs keep draining until explicitly configured.
+    /// </summary>
+    /// <exception cref="ArgumentException"><paramref name="input"/> is not connected to this mixer.</exception>
+    public void SetBranchEndTime(AudioNode input, TimeSpan endTime)
     {
-        get => _branchEndTimes;
-        set => _branchEndTimes = value ?? Array.Empty<TimeSpan>();
+        EnsureConnectedInput(input);
+
+        _branchEndTimes[input] = endTime;
+    }
+
+    /// <summary>
+    /// Removes the recorded end time for a connected input so the branch is considered live again.
+    /// </summary>
+    /// <returns><see langword="true"/> when an end time was removed; otherwise, <see langword="false"/>.</returns>
+    /// <exception cref="ArgumentException"><paramref name="input"/> is not connected to this mixer.</exception>
+    public bool ClearBranchEndTime(AudioNode input)
+    {
+        EnsureConnectedInput(input);
+        return _branchEndTimes.Remove(input);
     }
 
     public override AudioBuffer Process(AudioProcessContext context)
         => Mix(context, drain: false);
 
     // Fan-in flush: drain every branch and mix the held tails with the same gain fold as Process, so a
-    // lookahead tail in any branch is recovered (the base Flush's single-input path cannot reach here).
-    //
-    // Known limitation: branches are drained unconditionally. A branch whose clip ended before the
-    // group's terminal slice — and whose own terminal block landed exactly on its clip boundary (the
-    // chunk-alignment edge where ClipNode could not self-recover) — still holds a stale tail that this
-    // emits into the group pad seconds late. Skipping only the branches live through the terminal slice
-    // needs per-branch clip-liveness the mixer does not track today; recovering at the child's own end is
-    // the chunk-alignment follow-up.
+    // lookahead tail in any live branch is recovered (the base Flush's single-input path cannot reach
+    // here). A branch that ended before this drain block is skipped because its tail was already
+    // recovered at the child's own clip end.
     public override AudioBuffer Flush(AudioProcessContext context)
     {
         ArgumentNullException.ThrowIfNull(context);
@@ -124,6 +133,7 @@ public sealed class MixerNode : AudioNode
                     }
                 }
 
+                RecordProcessedChannelCount(output.ChannelCount);
                 return output;
             }
             catch
@@ -147,11 +157,79 @@ public sealed class MixerNode : AudioNode
 
     private bool IsBranchDead(int index, AudioProcessContext context)
     {
-        if (index >= _branchEndTimes.Length)
+        if (!_branchEndTimes.TryGetValue(Inputs[index], out TimeSpan branchEndTime))
             return false;
 
         // Dead = the branch's clip ended before this drain block. The tolerance absorbs sample-tick
         // rounding so a branch ending exactly at the group end stays live and its tail still drains.
-        return _branchEndTimes[index].Ticks + BranchLivenessToleranceTicks < context.TimeRange.Start.Ticks;
+        // Subtract from the block start with saturation instead of adding to the branch end, so even
+        // TimeSpan.MaxValue cannot overflow into a negative tick count.
+        long blockStartTicks = context.TimeRange.Start.Ticks;
+        long deadBeforeTicks = blockStartTicks < TimeSpan.MinValue.Ticks + BranchLivenessToleranceTicks
+            ? TimeSpan.MinValue.Ticks
+            : blockStartTicks - BranchLivenessToleranceTicks;
+        return branchEndTime.Ticks < deadBeforeTicks;
+    }
+
+    protected override void OnInputAdded(AudioNode input, int index)
+    {
+        AppendDefaultIfConfigured(ref _gains, index, 1f);
+    }
+
+    protected override void OnInputRemoved(AudioNode input, int index)
+    {
+        _gains = RemoveAt(_gains, index);
+        _branchEndTimes.Remove(input);
+    }
+
+    protected override void OnInputsCleared()
+    {
+        _gains = Array.Empty<float>();
+        _branchEndTimes.Clear();
+    }
+
+    protected override void Dispose(bool disposing)
+    {
+        if (disposing)
+        {
+            _gains = Array.Empty<float>();
+            _branchEndTimes.Clear();
+        }
+
+        base.Dispose(disposing);
+    }
+
+    private void EnsureConnectedInput(AudioNode input)
+    {
+        ArgumentNullException.ThrowIfNull(input);
+
+        foreach (AudioNode connectedInput in Inputs)
+        {
+            if (ReferenceEquals(connectedInput, input))
+                return;
+        }
+
+        throw new ArgumentException("The input must be connected before configuring its branch end time.", nameof(input));
+    }
+
+    private static void AppendDefaultIfConfigured<T>(ref T[] values, int index, T defaultValue)
+    {
+        if (values.Length == 0 || values.Length > index)
+            return;
+
+        int oldLength = values.Length;
+        Array.Resize(ref values, index + 1);
+        Array.Fill(values, defaultValue, oldLength, values.Length - oldLength);
+    }
+
+    private static T[] RemoveAt<T>(T[] values, int index)
+    {
+        if (index >= values.Length)
+            return values;
+
+        var result = new T[values.Length - 1];
+        values.AsSpan(0, index).CopyTo(result);
+        values.AsSpan(index + 1).CopyTo(result.AsSpan(index));
+        return result;
     }
 }
