@@ -90,6 +90,11 @@ public abstract class DynamicsNode : AudioNode
             ownsInput = !ReferenceEquals(output, input);
             return output;
         }
+        catch
+        {
+            _lastTimeRangeEnd = null;
+            throw;
+        }
         finally
         {
             if (ownsInput)

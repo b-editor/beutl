@@ -71,6 +71,26 @@ public class DynamicsNodeTests
     }
 
     [Test]
+    public void Process_HookThrows_RetryingSameChunkResetsDspState()
+    {
+        using var input = CreateConstantBuffer(0.5f, ChunkSamples);
+        using var node = new RecordingDynamicsNode();
+        node.AddInput(new BufferReplayNode(input));
+
+        node.Process(CreateContext(TimeSpan.Zero)).Dispose();
+        int afterFirstChunk = node.ResetCount;
+
+        node.ThrowFromHook = true;
+        Assert.Throws<InvalidOperationException>(() => node.Process(CreateContext(s_chunk)));
+
+        node.ThrowFromHook = false;
+        node.Process(CreateContext(s_chunk)).Dispose();
+
+        Assert.That(node.ResetCount, Is.EqualTo(afterFirstChunk + 1),
+            "retrying a failed chunk must reset rather than inherit state mutated before the exception");
+    }
+
+    [Test]
     public void Process_HookSucceeds_KeepsTheNextChunkContiguous()
     {
         using var input = CreateConstantBuffer(0.5f, ChunkSamples);
