@@ -69,10 +69,13 @@ public static class BuiltinThemeIds
 
     /// <summary>
     /// True when settings normalization would not hand <paramref name="id"/> back as it is — a
-    /// built-in id, one of its legacy aliases ("Dark", "2"), or a value that names no theme at all
-    /// ("1", ""). An extension must not register such an id: settings would rewrite the user's
+    /// built-in id, one of its legacy aliases ("Dark", "2"), a value that names no theme at all
+    /// ("1", ""), or one normalization rewrites in any other way, such as the surrounding whitespace
+    /// it trims. An extension must not register such an id: settings would rewrite the user's
     /// selection on the next load, silently dropping the extension's theme.
     /// </summary>
     public static bool IsReserved(string? id) =>
-        TryNormalize(id) is not { } normalized || All.Contains(normalized);
+        TryNormalize(id) is not { } normalized
+        || !StringComparer.Ordinal.Equals(normalized, id)
+        || All.Contains(normalized);
 }

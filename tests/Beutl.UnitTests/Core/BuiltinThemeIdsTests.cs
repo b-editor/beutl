@@ -41,12 +41,16 @@ public class BuiltinThemeIdsTests
     }
 
     // ThemeRegistry rejects these: settings would rewrite the id on the next load, silently losing an
-    // extension's theme.
+    // extension's theme. The padded ones normalize to a perfectly good custom id — just not the one
+    // the extension registered under, so the selection would resolve to nothing on the next start.
     [TestCase("dark")]
     [TestCase("HighContrast")]
     [TestCase("0")]
     [TestCase("1")]
     [TestCase("")]
+    [TestCase("plugin.theme ")]
+    [TestCase(" plugin.theme")]
+    [TestCase("plugin.theme\t")]
     public void IsReserved_CoversEveryIdSettingsWouldRewrite(string id)
     {
         Assert.That(BuiltinThemeIds.IsReserved(id), Is.True);

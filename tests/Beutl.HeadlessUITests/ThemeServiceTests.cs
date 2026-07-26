@@ -6,6 +6,7 @@ using Avalonia.Media;
 using Avalonia.Styling;
 using Avalonia.Threading;
 using Beutl.Configuration;
+using Beutl.Controls.Styling;
 using Beutl.Extensibility;
 using Beutl.Services;
 using FluentAvalonia.Styling;
@@ -366,6 +367,12 @@ public class ThemeServiceTests
         {
             ClearRegistry();
             Theme = Application.Current!.Styles.OfType<FluentAvaloniaTheme>().Single();
+            // Reset before the snapshot rather than trusting the previous scope's Dispose — a test
+            // that fails mid-body never reaches it, and the snapshot would then adopt the leak as
+            // this scope's baseline. Only the accent and its derived tokens need it: the merged
+            // dictionaries are restored by diffing against this snapshot, and the theme variant is
+            // overwritten by every apply.
+            ResetAccentState(Theme);
             _mergedOnEntry = [.. Application.Current.Resources.MergedDictionaries];
             Config = new ViewConfig();
             Service = new ThemeService(Theme, Config);
@@ -380,30 +387,25 @@ public class ThemeServiceTests
         public void Dispose()
         {
             Service.Dispose();
-            // The accent lands on the process-global FluentAvaloniaTheme; leaving it set would
-            // bleed a test's accent into every later [AvaloniaTest] in the assembly.
-            Theme.CustomAccentColor = null;
-            // So do the applied theme's overrides: ThemeService drops them only on its next apply, and
-            // Dispose is not one.
+            ResetAccentState(Theme);
+            // The applied theme's overrides outlive the service too: ThemeService drops them only on
+            // its next apply, and Dispose is not one.
             IList<IResourceProvider> merged = Application.Current!.Resources.MergedDictionaries;
             foreach (IResourceProvider applied in merged.Except(_mergedOnEntry).ToArray())
             {
                 merged.Remove(applied);
             }
 
-            // The accent-derived text-on-accent entries land in the Application's own resources, where
-            // they outlive both the merged dictionaries and the service.
-            foreach (string key in
-                     new[]
-                     {
-                         "TextOnAccentFillColorPrimary", "TextOnAccentFillColorSelectedText",
-                         "TextOnAccentFillColorSecondary", "TextOnAccentFillColorDisabled"
-                     })
-            {
-                Application.Current.Resources.Remove(key);
-            }
-
             ClearRegistry();
+        }
+
+        // Both the accent and the tokens derived from it are process-global — the accent on the one
+        // FluentAvaloniaTheme, the tokens in the Application's own resources — so either would bleed
+        // into every later [AvaloniaTest] in the assembly.
+        private static void ResetAccentState(FluentAvaloniaTheme theme)
+        {
+            theme.CustomAccentColor = null;
+            AccentTextResources.Apply(Application.Current!.Resources, null);
         }
 
         private static void ClearRegistry()
