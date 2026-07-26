@@ -1460,8 +1460,14 @@ public sealed class TimelineTabViewModel : IToolContext, IContextCommandHandler,
         SilenceSplitMode mode,
         CancellationToken cancellationToken = default)
     {
-        if (EditorContext.GetService<IEditorSelection>()?.SelectedObject.Value is not Element element
-            || FindAudioThumbnailsProvider(element) is not { } provider)
+        if (EditorContext.GetService<IEditorSelection>()?.SelectedObject.Value is not Element element)
+        {
+            NotificationService.ShowWarning(Strings.AutoSplitBySilence, MessageStrings.AutoSplitBySilence_NoAudioElement);
+            return;
+        }
+
+        IReadOnlyList<IThumbnailsProvider> providers = SilenceWaveformAnalysis.FindAudioProviders(element);
+        if (providers.Count == 0)
         {
             NotificationService.ShowWarning(Strings.AutoSplitBySilence, MessageStrings.AutoSplitBySilence_NoAudioElement);
             return;
@@ -1477,15 +1483,10 @@ public sealed class TimelineTabViewModel : IToolContext, IContextCommandHandler,
         SilenceSplitOutcome outcome;
         try
         {
-            const int SamplesPerChunk = 4096;
             int chunkCount = Math.Clamp((int)(duration.TotalSeconds * 20), 200, 8000);
 
-            var chunks = new List<WaveformChunk>();
-            await foreach (WaveformChunk chunk in provider.GetWaveformChunksAsync(chunkCount, SamplesPerChunk, ThumbnailCacheService.Instance, cancellationToken))
-            {
-                chunks.Add(chunk);
-            }
-
+            IReadOnlyList<WaveformChunk> chunks = await SilenceWaveformAnalysis
+                .CollectConservativeChunksAsync(providers, chunkCount, cancellationToken);
             IReadOnlyList<SilenceRegion> localRegions = SilenceDetector.Detect(chunks, duration, chunkCount, options);
             if (localRegions.Count == 0)
             {
@@ -1526,17 +1527,6 @@ public sealed class TimelineTabViewModel : IToolContext, IContextCommandHandler,
         NotificationService.ShowSuccess(
             Strings.AutoSplitBySilence,
             string.Format(MessageStrings.AutoSplitBySilence_Completed, outcome.SplitCount, outcome.DeletedCount));
-    }
-
-    private static IThumbnailsProvider? FindAudioThumbnailsProvider(Element element)
-    {
-        foreach (EngineObject obj in element.Objects)
-        {
-            if (obj is IThumbnailsProvider { ThumbnailsKind: ThumbnailsKind.Audio } provider)
-                return provider;
-        }
-
-        return null;
     }
 
     private sealed class TrackedLayerTopObservable(int layerNum, TimelineTabViewModel timeline)
