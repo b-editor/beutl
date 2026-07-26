@@ -132,6 +132,43 @@ public class BitmapConvertDitherTests
         }
     }
 
+    [Test]
+    public void Convert_ToAlpha8_PreservesTheContourMask()
+    {
+        // ContourTracer converts to Alpha8 and thresholds it at `alpha > 0`, so a dither that nudged
+        // a near-zero alpha across that boundary would silently reshape traced geometry.
+        var info = new SKImageInfo(256, 128, SKColorType.RgbaF16, SKAlphaType.Premul,
+            SKColorSpace.CreateSrgbLinear());
+        var skBitmap = new SKBitmap(info);
+        using (var canvas = new SKCanvas(skBitmap))
+        using (var shape = new SKPaint { Color = SKColors.White, IsAntialias = true })
+        using (var faint = new SKPaint { Color = new SKColor(255, 255, 255, 1), IsAntialias = false })
+        {
+            canvas.Clear(SKColors.Transparent);
+            canvas.DrawOval(new SKRect(16, 16, 240, 112), shape);
+            canvas.DrawRect(new SKRect(0, 0, 256, 8), faint);
+        }
+
+        using var source = new Bitmap(skBitmap);
+        using Bitmap alpha = source.Convert(BitmapColorType.Alpha8);
+
+        var expectedInfo = new SKImageInfo(256, 128, SKColorType.Alpha8, SKAlphaType.Premul);
+        using var expected = new SKBitmap(expectedInfo);
+        using (var canvas = new SKCanvas(expected))
+        using (var paint = new SKPaint { BlendMode = SKBlendMode.Src, IsDither = false })
+        {
+            canvas.DrawBitmap(skBitmap, SKPoint.Empty, paint);
+        }
+
+        ReadOnlySpan<byte> actualPixels = alpha.GetPixelSpan();
+        ReadOnlySpan<byte> expectedPixels = expected.GetPixelSpan();
+        for (int i = 0; i < expectedPixels.Length; i++)
+        {
+            Assert.That(actualPixels[i] > 0, Is.EqualTo(expectedPixels[i] > 0),
+                $"foreground mask flipped at pixel {i}");
+        }
+    }
+
     [TestCase(BitmapColorType.RgbaF16, true)]
     [TestCase(BitmapColorType.RgbaF32, true)]
     [TestCase(BitmapColorType.Rgba16161616, false)]
