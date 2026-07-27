@@ -134,6 +134,18 @@ public class Renderer : IRenderer
         IRenderPipelineDiagnosticsState? diagnostics,
         RenderTarget? surface)
     {
+        static void DisposePreservingPrimaryFailure(IDisposable? value)
+        {
+            try
+            {
+                value?.Dispose();
+            }
+            catch
+            {
+                // Constructor cleanup must not replace the failure that triggered it.
+            }
+        }
+
         float outputScale = float.IsFinite(renderScale) && renderScale > 0f ? renderScale : 1f;
         float maxScale = RenderScaleUtilities.SanitizeMaxWorkingScale(maxWorkingScale);
         FrameSize = new PixelSize(width, height);
@@ -173,15 +185,7 @@ public class Renderer : IRenderer
                 }
                 catch
                 {
-                    try
-                    {
-                        actualSurface?.Dispose();
-                    }
-                    catch
-                    {
-                        // Preserve the constructor failure while completing the ownership transfer.
-                    }
-
+                    DisposePreservingPrimaryFailure(actualSurface);
                     throw;
                 }
             });
@@ -190,29 +194,9 @@ public class Renderer : IRenderer
         {
             // Construction transferred ownership of these helpers before the surface was created.
             // Release all of them, but never replace the constructor's primary failure.
-            try
-            {
-                _frameRenderer.Dispose();
-            }
-            catch
-            {
-            }
-
-            try
-            {
-                _completeTarget.Dispose();
-            }
-            catch
-            {
-            }
-
-            try
-            {
-                _frameClear.Dispose();
-            }
-            catch
-            {
-            }
+            DisposePreservingPrimaryFailure(_frameRenderer);
+            DisposePreservingPrimaryFailure(_completeTarget);
+            DisposePreservingPrimaryFailure(_frameClear);
 
             throw;
         }

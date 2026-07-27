@@ -6,13 +6,34 @@ using SkiaSharp;
 
 namespace Beutl.Graphics.Effects;
 
+/// <summary>Declares how coordinates passed to a child shader are interpreted.</summary>
+/// <remarks>
+/// The resource binder uses its <see cref="ShaderExecutionContext"/> to create a shader or local matrix that matches
+/// the declared space. The binder must not retain its writer, context, or callback-provided raw resource and must not
+/// dispose the raw resource; disposal ownership remains defined by the original owned or borrowed registration.
+/// </remarks>
 public enum ShaderResourceCoordinateSpace
 {
+    /// <summary>Interprets coordinates as author-defined value coordinates without an output-space conversion.</summary>
+    /// <remarks>This is the only coordinate space accepted by <see cref="ShaderDescriptionKind.CurrentPixel"/>.</remarks>
     Value,
+
+    /// <summary>Interprets coordinates in logical composition units.</summary>
     OutputLogical,
+
+    /// <summary>
+    /// Interprets coordinates in local output-device pixels, matching the <c>coord</c> argument of a whole-source
+    /// shader.
+    /// </summary>
+    /// <remarks>
+    /// For a coordinate <c>coord</c>, the corresponding logical point is
+    /// <c>LogicalOrigin + coord / WorkingScale</c>.
+    /// </remarks>
     OutputDevice,
 }
 
+/// <summary>Describes one immutable uniform binding declared for a shader.</summary>
+/// <remarks>Instances are created through <see cref="ShaderBindingBuilder"/>.</remarks>
 public sealed class ShaderUniformBinding
 {
     private readonly Action<ShaderUniformWriter, ShaderExecutionContext> _bind;
@@ -41,10 +62,21 @@ public sealed class ShaderUniformBinding
         _requestUniqueRuntimeIdentity = requestUniqueRuntimeIdentity;
     }
 
+    /// <summary>Gets the non-null SkSL uniform declaration name.</summary>
     public string Name { get; }
 
+    /// <summary>Gets the equality-stable key that identifies the binding's structural behavior.</summary>
+    /// <remarks>
+    /// Runtime values are excluded from this key. A custom binder must supply an explicit structural key when
+    /// captured state changes the generated binding shape.
+    /// </remarks>
     public object StructuralKey { get; }
 
+    /// <summary>Gets the optional identity for pixel-affecting runtime state read by a custom binder.</summary>
+    /// <remarks>
+    /// Direct bindings supply a canonical identity automatically. For custom bindings, <see langword="null"/> makes
+    /// the binding request-unique and therefore disables cross-request output-cache reuse.
+    /// </remarks>
     public RenderRuntimeIdentity? RuntimeIdentity { get; }
 
     internal void ValidateDeclaration(SkslUniformDeclaration declaration) => _validate(declaration);
@@ -75,6 +107,8 @@ public sealed class ShaderUniformBinding
     }
 }
 
+/// <summary>Describes one immutable child-shader resource binding declared for a shader.</summary>
+/// <remarks>Instances are created through <see cref="ShaderBindingBuilder"/>.</remarks>
 public sealed class ShaderResourceBinding
 {
     private readonly Action<ShaderResourceWriter, object, ShaderExecutionContext> _bind;
@@ -101,14 +135,30 @@ public sealed class ShaderResourceBinding
         _requestUniqueRuntimeIdentity = requestUniqueRuntimeIdentity;
     }
 
+    /// <summary>Gets the non-null SkSL child-shader declaration name.</summary>
     public string Name { get; }
 
+    /// <summary>Gets how coordinates passed to the child shader are interpreted.</summary>
     public ShaderResourceCoordinateSpace CoordinateSpace { get; }
 
+    /// <summary>Gets the request-scoped resource token used by the execution-time binder.</summary>
+    /// <remarks>
+    /// The token scopes access to the raw resource without changing whether the request or the caller owns it.
+    /// </remarks>
     public RenderResource Resource { get; }
 
+    /// <summary>Gets the equality-stable key that identifies the binding's structural behavior.</summary>
+    /// <remarks>
+    /// Resource contents and other runtime values are excluded. Supply an explicit key when captured state changes
+    /// the generated binding shape.
+    /// </remarks>
     public object StructuralKey { get; }
 
+    /// <summary>Gets the optional identity for pixel-affecting runtime state read by the binder.</summary>
+    /// <remarks>
+    /// <see langword="null"/> makes the binding request-unique and therefore disables cross-request output-cache
+    /// reuse. The resource token's cache identity is tracked independently.
+    /// </remarks>
     public RenderRuntimeIdentity? RuntimeIdentity { get; }
 
     internal object CreateRuntimeIdentity()
@@ -142,6 +192,14 @@ public sealed class ShaderResourceBinding
     }
 }
 
+/// <summary>Declares uniform and child-shader bindings while a <see cref="ShaderDescription"/> is created.</summary>
+/// <remarks>
+/// The description invokes its builder callback synchronously and snapshots the declared bindings before returning.
+/// Registered execution binders run later. Their writers, contexts, and callback-provided raw resources must not be
+/// retained, and binders must not dispose raw resources. Disposal ownership continues to follow each resource's owned
+/// or borrowed registration. Every binding name must be a unique SkSL identifier matching a declaration in the
+/// source.
+/// </remarks>
 public sealed class ShaderBindingBuilder
 {
     private readonly List<ShaderUniformBinding> _uniforms = [];
@@ -152,6 +210,16 @@ public sealed class ShaderBindingBuilder
     {
     }
 
+    /// <summary>Declares a direct uniform whose canonical value is written without an execution callback.</summary>
+    /// <typeparam name="T">An unmanaged type in the supported canonical scalar, vector, or matrix allowlist.</typeparam>
+    /// <param name="name">The unique non-null SkSL uniform declaration name.</param>
+    /// <param name="value">The value copied into the immutable description and its runtime cache identity.</param>
+    /// <exception cref="ArgumentNullException"><paramref name="name"/> is <see langword="null"/>.</exception>
+    /// <exception cref="ArgumentException">
+    /// <paramref name="name"/> is invalid or duplicated, or <typeparamref name="T"/> is not a supported canonical
+    /// uniform type.
+    /// </exception>
+    /// <exception cref="ArgumentOutOfRangeException">An unsigned value cannot be represented by its SkSL type.</exception>
     public void Uniform<T>(string name, T value)
         where T : unmanaged
     {
@@ -166,6 +234,13 @@ public sealed class ShaderBindingBuilder
             canonical.Identity));
     }
 
+    /// <summary>Declares a direct floating-point uniform from a sequence copied during description creation.</summary>
+    /// <param name="name">The unique non-null SkSL uniform declaration name.</param>
+    /// <param name="values">A non-empty sequence whose contents are copied immediately and are never retained.</param>
+    /// <exception cref="ArgumentNullException"><paramref name="name"/> is <see langword="null"/>.</exception>
+    /// <exception cref="ArgumentException">
+    /// <paramref name="name"/> is invalid or duplicated, or <paramref name="values"/> is empty.
+    /// </exception>
     public void Uniform(string name, ReadOnlySpan<float> values)
     {
         ValidateName(name);
@@ -182,6 +257,34 @@ public sealed class ShaderBindingBuilder
             identity));
     }
 
+    /// <summary>Declares a uniform whose value is produced by an execution-time binder.</summary>
+    /// <typeparam name="T">An unmanaged type in the supported canonical scalar, vector, or matrix allowlist.</typeparam>
+    /// <param name="name">The unique non-null SkSL uniform declaration name.</param>
+    /// <param name="value">
+    /// The author value passed to <paramref name="bind"/> and automatically included in runtime cache identity.
+    /// </param>
+    /// <param name="bind">
+    /// The non-null execution callback. It must call <see cref="ShaderUniformWriter.Set{T}(T)"/> or
+    /// <see cref="ShaderUniformWriter.Set(ReadOnlySpan{float})"/> exactly once and must not retain the writer or
+    /// context. The unmanaged <paramref name="value"/> is passed by value.
+    /// </param>
+    /// <param name="structuralKey">
+    /// An optional immutable, equality-stable key for captured state that changes binding shape. When
+    /// <see langword="null"/>, the binder method identifies the shape.
+    /// </param>
+    /// <param name="runtimeIdentity">
+    /// An optional complete, equality-stable identity for any additional pixel-affecting state read by the binder.
+    /// When <see langword="null"/>, the binding is request-unique and cannot reuse output cache entries across
+    /// requests.
+    /// </param>
+    /// <exception cref="ArgumentNullException">
+    /// <paramref name="name"/> or <paramref name="bind"/> is <see langword="null"/>.
+    /// </exception>
+    /// <exception cref="ArgumentException">
+    /// <paramref name="name"/> is invalid or duplicated, an identity is invalid, or <typeparamref name="T"/> is not
+    /// a supported canonical uniform type.
+    /// </exception>
+    /// <exception cref="ArgumentOutOfRangeException">An unsigned value cannot be represented by its SkSL type.</exception>
     public void Uniform<T>(
         string name,
         T value,
@@ -210,6 +313,34 @@ public sealed class ShaderBindingBuilder
             requestUniqueRuntimeIdentity: runtimeIdentity is null));
     }
 
+    /// <summary>Declares a child-shader resource produced by an execution-time binder.</summary>
+    /// <typeparam name="T">The raw request-scoped resource type.</typeparam>
+    /// <param name="name">The unique non-null SkSL child-shader declaration name.</param>
+    /// <param name="resource">A non-null resource token registered with the request family.</param>
+    /// <param name="coordinateSpace">How the returned child shader interprets coordinates passed to its <c>eval</c>.</param>
+    /// <param name="bind">
+    /// The non-null execution callback. It must call <see cref="ShaderResourceWriter.Set"/> exactly once with a newly
+    /// created shader. It must not retain the writer, context, or callback-provided resource and must not dispose the
+    /// resource. A borrowed resource remains caller-owned and its pixel-affecting state must remain read-only
+    /// throughout the executing request; an owned resource remains request-owned.
+    /// </param>
+    /// <param name="structuralKey">
+    /// An optional immutable, equality-stable key for captured state that changes binding shape. When
+    /// <see langword="null"/>, the binder method identifies the shape.
+    /// </param>
+    /// <param name="runtimeIdentity">
+    /// An optional complete, equality-stable identity for additional pixel-affecting state read by the binder. When
+    /// <see langword="null"/>, the binding is request-unique and cannot reuse output cache entries across requests.
+    /// </param>
+    /// <exception cref="ArgumentNullException">
+    /// <paramref name="name"/>, <paramref name="resource"/>, or <paramref name="bind"/> is <see langword="null"/>.
+    /// </exception>
+    /// <exception cref="ArgumentException">
+    /// <paramref name="name"/> is invalid or duplicated, or an identity is invalid.
+    /// </exception>
+    /// <exception cref="ArgumentOutOfRangeException">
+    /// <paramref name="coordinateSpace"/> is not a defined <see cref="ShaderResourceCoordinateSpace"/> value.
+    /// </exception>
     public void Resource<T>(
         string name,
         RenderResource<T> resource,
@@ -271,6 +402,11 @@ public sealed class ShaderBindingBuilder
     }
 }
 
+/// <summary>Writes the single value produced by an execution-time uniform binder.</summary>
+/// <remarks>
+/// A binder must call one <c>Set</c> overload exactly once. The writer is valid only during that binder invocation
+/// and must not be retained.
+/// </remarks>
 public sealed class ShaderUniformWriter
 {
     private readonly SkslUniformDeclaration _declaration;
@@ -282,6 +418,14 @@ public sealed class ShaderUniformWriter
         _declaration = declaration;
     }
 
+    /// <summary>Sets the binder result from a supported canonical scalar, vector, or matrix value.</summary>
+    /// <typeparam name="T">An unmanaged type in the supported canonical uniform allowlist.</typeparam>
+    /// <param name="value">The value to validate against the parsed SkSL declaration.</param>
+    /// <exception cref="InvalidOperationException">
+    /// The writer is inactive, a value was already set, or the value is incompatible with the SkSL declaration.
+    /// </exception>
+    /// <exception cref="ArgumentException"><typeparamref name="T"/> is not a supported canonical uniform type.</exception>
+    /// <exception cref="ArgumentOutOfRangeException">An unsigned value cannot be represented by its SkSL type.</exception>
     public void Set<T>(T value)
         where T : unmanaged
     {
@@ -293,6 +437,11 @@ public sealed class ShaderUniformWriter
         _value = new ShaderUniformValue(canonical.Values, canonical.Integers, canonical.IsInteger);
     }
 
+    /// <summary>Sets the binder result from a floating-point sequence copied during the call.</summary>
+    /// <param name="values">The values to validate and copy; the caller's memory is not retained.</param>
+    /// <exception cref="InvalidOperationException">
+    /// The writer is inactive, a value was already set, or the sequence is incompatible with the SkSL declaration.
+    /// </exception>
     public void Set(ReadOnlySpan<float> values)
     {
         ThrowIfInactive();
@@ -319,6 +468,11 @@ public sealed class ShaderUniformWriter
     }
 }
 
+/// <summary>Transfers the single child shader produced by an execution-time resource binder to the renderer.</summary>
+/// <remarks>
+/// A binder must call <see cref="Set"/> exactly once. The writer is valid only during that binder invocation and
+/// must not be retained.
+/// </remarks>
 public sealed class ShaderResourceWriter
 {
     private SKShader? _shader;
@@ -328,6 +482,15 @@ public sealed class ShaderResourceWriter
     {
     }
 
+    /// <summary>Sets the binder result and transfers ownership of the shader to the renderer.</summary>
+    /// <param name="shader">A non-null, non-disposed shader newly created for this binding invocation.</param>
+    /// <remarks>
+    /// The renderer disposes <paramref name="shader"/> after binding and program execution, or if binding fails. The
+    /// binder must not retain, use, or dispose it after this method returns.
+    /// </remarks>
+    /// <exception cref="ArgumentNullException"><paramref name="shader"/> is <see langword="null"/>.</exception>
+    /// <exception cref="ObjectDisposedException"><paramref name="shader"/> is already disposed.</exception>
+    /// <exception cref="InvalidOperationException">The writer is inactive or a shader was already set.</exception>
     public void Set(SKShader shader)
     {
         ThrowIfInactive();
@@ -360,6 +523,11 @@ public sealed class ShaderResourceWriter
     }
 }
 
+/// <summary>Exposes resolved, stage-local metadata to an execution-time shader binder.</summary>
+/// <remarks>
+/// The context is valid only during the current compiled shader run's binding phase and must not be retained. Every
+/// property throws <see cref="InvalidOperationException"/> after that phase completes.
+/// </remarks>
 public sealed class ShaderExecutionContext
 {
     private readonly RenderExecutionSessionToken _token;
@@ -401,31 +569,48 @@ public sealed class ShaderExecutionContext
         _purpose = purpose;
     }
 
+    /// <summary>Gets the stage's complete logical input bounds.</summary>
+    /// <exception cref="InvalidOperationException">The shader binding phase has completed.</exception>
     public Rect InputBounds
     {
         get { _token.ThrowIfInactive(); return _inputBounds; }
     }
 
+    /// <summary>Gets the stage's complete logical output bounds.</summary>
+    /// <exception cref="InvalidOperationException">The shader binding phase has completed.</exception>
     public Rect OutputBounds
     {
         get { _token.ThrowIfInactive(); return _outputBounds; }
     }
 
+    /// <summary>Gets the stage-local logical output region required by the current request.</summary>
+    /// <exception cref="InvalidOperationException">The shader binding phase has completed.</exception>
     public Rect RequiredRegion
     {
         get { _token.ThrowIfInactive(); return _requiredRegion; }
     }
 
+    /// <summary>Gets the canonical destination footprint in output-device pixels.</summary>
+    /// <remarks>The footprint reflects the actual runtime-clamped <see cref="WorkingScale"/>.</remarks>
+    /// <exception cref="InvalidOperationException">The shader binding phase has completed.</exception>
     public PixelRect DeviceBounds
     {
         get { _token.ThrowIfInactive(); return _deviceBounds; }
     }
 
+    /// <summary>Gets the destination footprint size, equal to <see cref="DeviceBounds"/>.<c>Size</c>.</summary>
+    /// <exception cref="InvalidOperationException">The shader binding phase has completed.</exception>
     public PixelSize DeviceSize
     {
         get { _token.ThrowIfInactive(); return _deviceBounds.Size; }
     }
 
+    /// <summary>Gets the logical point represented by local output-device coordinate <c>(0, 0)</c>.</summary>
+    /// <remarks>
+    /// A local device coordinate <c>coord</c> represents
+    /// <c>LogicalOrigin + coord / WorkingScale</c>.
+    /// </remarks>
+    /// <exception cref="InvalidOperationException">The shader binding phase has completed.</exception>
     public Point LogicalOrigin
     {
         get
@@ -437,31 +622,50 @@ public sealed class ShaderExecutionContext
         }
     }
 
+    /// <summary>Gets the effective-scale supply resolved for the stage input.</summary>
+    /// <remarks>
+    /// The first fused stage receives the materialized input scale; later stages receive the fused run's
+    /// <see cref="WorkingScale"/>.
+    /// </remarks>
+    /// <exception cref="InvalidOperationException">The shader binding phase has completed.</exception>
     public EffectiveScale InputEffectiveScale
     {
         get { _token.ThrowIfInactive(); return _inputEffectiveScale; }
     }
 
+    /// <summary>Gets the final output density requested for the render, in device pixels per logical unit.</summary>
+    /// <remarks>This value is not an intermediate allocation ceiling; use <see cref="WorkingScale"/> for execution.</remarks>
+    /// <exception cref="InvalidOperationException">The shader binding phase has completed.</exception>
     public float OutputScale
     {
         get { _token.ThrowIfInactive(); return _outputScale; }
     }
 
+    /// <summary>
+    /// Gets the positive finite density selected for this stage after working-scale and allocation-limit clamping.
+    /// </summary>
+    /// <exception cref="InvalidOperationException">The shader binding phase has completed.</exception>
     public float WorkingScale
     {
         get { _token.ThrowIfInactive(); return _workingScale; }
     }
 
+    /// <summary>Gets the sanitized maximum working density allowed by the render request.</summary>
+    /// <exception cref="InvalidOperationException">The shader binding phase has completed.</exception>
     public float MaxWorkingScale
     {
         get { _token.ThrowIfInactive(); return _maxWorkingScale; }
     }
 
+    /// <summary>Gets whether the request targets interactive preview or delivery-quality rendering.</summary>
+    /// <exception cref="InvalidOperationException">The shader binding phase has completed.</exception>
     public RenderIntent Intent
     {
         get { _token.ThrowIfInactive(); return _intent; }
     }
 
+    /// <summary>Gets the high-level operation that caused this render request.</summary>
+    /// <exception cref="InvalidOperationException">The shader binding phase has completed.</exception>
     public RenderRequestPurpose Purpose
     {
         get { _token.ThrowIfInactive(); return _purpose; }
@@ -512,6 +716,10 @@ internal readonly record struct ShaderCanonicalValue(
             double current => Float([(float)current]),
             int current => Integer([current]),
             uint current when current <= int.MaxValue => Integer([(int)current]),
+            uint current => throw new ArgumentOutOfRangeException(
+                nameof(value),
+                current,
+                "A UInt32 shader uniform value cannot exceed Int32.MaxValue."),
             short current => Integer([current]),
             ushort current => Integer([current]),
             byte current => Integer([current]),

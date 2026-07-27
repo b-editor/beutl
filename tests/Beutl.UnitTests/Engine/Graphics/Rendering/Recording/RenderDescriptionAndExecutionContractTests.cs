@@ -278,8 +278,17 @@ public sealed class RenderDescriptionAndExecutionContractTests
             Assert.That(rawCommand.QueryBounds, Is.EqualTo(bounds));
         });
 
+        ArgumentException emptyReadback = Assert.Throws<ArgumentException>(
+            () => TargetCommandDescription.Create(
+                static _ => { },
+                TargetRegion.Empty,
+                Rect.Empty,
+                RenderHitTestContract.None,
+                TargetAccess.Readback))!;
+
         Assert.Multiple(() =>
         {
+            Assert.That(emptyReadback.ParamName, Is.EqualTo("affectedRegion"));
             Assert.That(
                 () => TargetCaptureDescription.Create(
                     TargetRegion.Empty, bounds, RenderHitTestContract.None, RenderScaleContract.MaterializeAtWorkingScale),
@@ -298,14 +307,6 @@ public sealed class RenderDescriptionAndExecutionContractTests
                     bounds,
                     RenderHitTestContract.None,
                     RenderScaleContract.MaterializeAtWorkingScale),
-                Throws.TypeOf<ArgumentException>());
-            Assert.That(
-                () => TargetCommandDescription.Create(
-                    static _ => { },
-                    TargetRegion.Empty,
-                    Rect.Empty,
-                    RenderHitTestContract.None,
-                    TargetAccess.Readback),
                 Throws.TypeOf<ArgumentException>());
             Assert.That(
                 () => TargetCommandDescription.Create(

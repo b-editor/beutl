@@ -5,12 +5,33 @@ using System.Text.RegularExpressions;
 
 namespace Beutl.Graphics.Effects;
 
+/// <summary>Identifies the execution model and entry-point contract of a shader description.</summary>
 public enum ShaderDescriptionKind
 {
+    /// <summary>
+    /// Transforms one coverage-resolved, premultiplied linear-light pixel through
+    /// <c>half4 apply(half4 color)</c>.
+    /// </summary>
+    /// <remarks>
+    /// Current-pixel stages have no output-position coordinate and may fuse only with structurally compatible
+    /// adjacent stages after analytic or antialiased coverage has been resolved.
+    /// </remarks>
     CurrentPixel,
+
+    /// <summary>
+    /// Materializes a complete source through <c>half4 main(float2 coord)</c> and may sample arbitrary upstream
+    /// locations.
+    /// </summary>
+    /// <remarks>Whole-source stages execute unfused and must declare the implicit <c>src</c> child shader.</remarks>
     WholeSource,
 }
 
+/// <summary>Provides normalized SkSL source that passed Beutl's description-level contract checks.</summary>
+/// <remarks>
+/// Instances are created by <see cref="ShaderDescription.CurrentPixel"/> and
+/// <see cref="ShaderDescription.WholeSource"/>. The source model is immutable. These checks are not a complete SkSL
+/// compiler; backend program validation may still reject a source during execution.
+/// </remarks>
 public sealed partial class SkslSource
 {
     [GeneratedRegex(
@@ -59,10 +80,17 @@ public sealed partial class SkslSource
         IdentityHash = ComputeHash(normalized);
     }
 
+    /// <summary>Gets the contract-checked source normalized to LF line endings with one trailing newline.</summary>
     public string Text { get; }
 
+    /// <summary>Gets a deterministic, non-cryptographic hash of the normalized source.</summary>
+    /// <remarks>
+    /// The hash is a convenience value, not a unique identity. Do not use it as the sole equality key; the renderer's
+    /// own reuse contract compares the complete normalized source and the remaining structural metadata.
+    /// </remarks>
     public string IdentityHash { get; }
 
+    /// <summary>Gets the entry-point and execution contract validated for this source.</summary>
     public ShaderDescriptionKind Kind { get; }
 
     internal IReadOnlyDictionary<string, SkslUniformDeclaration> Uniforms => _uniforms;

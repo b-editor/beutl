@@ -217,6 +217,22 @@ public sealed class ShaderDescriptionTests
     }
 
     [Test]
+    public void DirectUniform_UInt32AboveInt32MaxValueReportsRangeError()
+    {
+        ArgumentOutOfRangeException exception = Assert.Throws<ArgumentOutOfRangeException>(
+            () => ShaderDescription.CurrentPixel(
+                "uniform int value; half4 apply(half4 color) { return color; }",
+                bindings => bindings.Uniform("value", uint.MaxValue)))!;
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(exception.ParamName, Is.EqualTo("value"));
+            Assert.That(exception.ActualValue, Is.EqualTo(uint.MaxValue));
+            Assert.That(exception.Message, Does.Contain("Int32.MaxValue"));
+        });
+    }
+
+    [Test]
     public void ResourceBindings_EnforceCoordinateSpaceAndDeclaredType()
     {
         using var registry = new RenderRequestResourceRegistry();

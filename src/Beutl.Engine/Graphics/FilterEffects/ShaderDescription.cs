@@ -49,7 +49,8 @@ public sealed class ShaderDescription
     /// <summary>Gets whether the stage transforms only the current pixel or samples the complete upstream source.</summary>
     public ShaderDescriptionKind Kind { get; }
 
-    /// <summary>Gets the non-null normalized and validated SkSL source.</summary>
+    /// <summary>Gets the non-null normalized source that passed Beutl's description-level contract checks.</summary>
+    /// <remarks>Backend program validation may still reject the source during execution.</remarks>
     public SkslSource Source { get; }
 
     /// <summary>Gets the pure mapping from complete input bounds to complete output bounds.</summary>
