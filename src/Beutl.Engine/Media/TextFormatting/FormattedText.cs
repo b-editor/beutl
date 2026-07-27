@@ -23,7 +23,7 @@ public class FormattedText : IEquatable<FormattedText>, IDisposable
     private Rect _actualBounds;
     private bool _isDirty = false;
     private Pen.Resource? _pen;
-    private SKTextBlob? _textBlob;
+    private SKTextBlob? _colorGlyphBlob;
     private SKPath? _fillPath;
     private SKPath? _strokePath;
     private List<SKPathGeometry.Resource> _pathList = [];
@@ -31,7 +31,7 @@ public class FormattedText : IEquatable<FormattedText>, IDisposable
 
     public FormattedText()
     {
-        _scaledCache = new ScaledTextCache(MeasureScaledText);
+        _scaledCache = new ScaledTextCache(MeasureColorGlyphBlob);
     }
 
     public bool IsDisposed { get; private set; }
@@ -50,14 +50,14 @@ public class FormattedText : IEquatable<FormattedText>, IDisposable
         if (IsDisposed) return;
 
         _scaledCache.Dispose();
-        (_textBlob, _fillPath, _strokePath).DisposeAll();
+        (_colorGlyphBlob, _fillPath, _strokePath).DisposeAll();
         foreach (SKPathGeometry.Resource? resource in _pathList)
         {
             DisposePathListEntry(resource);
         }
 
         _pathList = [];
-        _textBlob = null;
+        _colorGlyphBlob = null;
         _fillPath = null;
         _strokePath = null;
         IsDisposed = true;
@@ -212,34 +212,28 @@ public class FormattedText : IEquatable<FormattedText>, IDisposable
         return _strokePath;
     }
 
-    internal SKPath? GetStrokePath(float density)
+    /// <summary>
+    /// The glyphs the font has no outline for — colour and bitmap glyphs such as emoji. They cannot
+    /// join <see cref="GetFillPath"/> and so remain on Skia's glyph-rasterizer path, which is why
+    /// this one accessor is still density-dependent.
+    /// </summary>
+    internal SKTextBlob? GetColorGlyphBlob()
+    {
+        MeasureAndSetField();
+        return _colorGlyphBlob;
+    }
+
+    /// <inheritdoc cref="GetColorGlyphBlob()"/>
+    internal SKTextBlob? GetColorGlyphBlob(float density)
     {
         density = NormalizeDensity(density);
         if (density == 1f)
         {
-            return GetStrokePath();
+            return GetColorGlyphBlob();
         }
 
         MeasureAndSetField();
-        return _scaledCache.Get(density).StrokePath;
-    }
-
-    internal SKTextBlob? GetTextBlob()
-    {
-        MeasureAndSetField();
-        return _textBlob;
-    }
-
-    internal SKTextBlob? GetTextBlob(float density)
-    {
-        density = NormalizeDensity(density);
-        if (density == 1f)
-        {
-            return GetTextBlob();
-        }
-
-        MeasureAndSetField();
-        return _scaledCache.Get(density).TextBlob;
+        return _scaledCache.Get(density);
     }
 
     internal SKFont ToSKFont(float density = 1f)
@@ -250,7 +244,10 @@ public class FormattedText : IEquatable<FormattedText>, IDisposable
         {
             Edging = SKFontEdging.Antialias,
             Subpixel = true,
-            Hinting = SKFontHinting.Full
+            Hinting = SKFontHinting.Full,
+            // Baseline snapping quantizes vertical placement to whole device pixels, which makes an
+            // animated transform advance the text in 1 px jumps.
+            BaselineSnap = false
         };
 
         return font;
@@ -264,123 +261,157 @@ public class FormattedText : IEquatable<FormattedText>, IDisposable
 
     private void Measure()
     {
-        (SKTextBlob? textBlob, SKPath fillPath, SKPath? strokePath, FontMetrics metrics, Rect bounds, Rect actualBounds)
-            = MeasureCore(1f, updatePathList: true);
+        (SKTextBlob? colorGlyphBlob, SKPath fillPath, SKPath? strokePath, FontMetrics metrics, Rect bounds, Rect actualBounds)
+            = MeasureCore(1f);
 
         (_metrics, _bounds, _actualBounds) = (metrics, bounds, actualBounds);
 
-        (_textBlob, _fillPath, _strokePath).DisposeAll();
-        (_textBlob, _fillPath, _strokePath) = (textBlob, fillPath, strokePath);
+        (_colorGlyphBlob, _fillPath, _strokePath).DisposeAll();
+        (_colorGlyphBlob, _fillPath, _strokePath) = (colorGlyphBlob, fillPath, strokePath);
         _scaledCache.Clear();
     }
 
-    private (SKTextBlob? TextBlob, SKPath FillPath, SKPath? StrokePath, FontMetrics Metrics, Rect Bounds, Rect ActualBounds)
-        MeasureCore(float density, bool updatePathList)
+    /// <summary>
+    /// The logical measure. Owns every vector artifact — the glyph path list, the fill path and the
+    /// stroke path — which are resolution independent and therefore measured once at density 1.
+    /// </summary>
+    private (SKTextBlob? ColorGlyphBlob, SKPath FillPath, SKPath? StrokePath, FontMetrics Metrics, Rect Bounds, Rect ActualBounds)
+        MeasureCore(float density)
     {
         density = NormalizeDensity(density);
         float spacing = Spacing * density;
 
         using SKFont font = ToSKFont(density);
+        SKShaper.Result result = Shape(font);
+        int glyphCount = result.Codepoints.Length;
 
+        // SetCount truncates trailing entries without disposing them; release them first so their
+        // owned glyph SKPaths don't leak to finalizers.
+        for (int i = glyphCount; i < _pathList.Count; i++)
+        {
+            DisposePathListEntry(_pathList[i]);
+        }
+
+        CollectionsMarshal.SetCount(_pathList, glyphCount);
+        Span<SKPathGeometry.Resource> pathList = CollectionsMarshal.AsSpan(_pathList);
+
+        var fillPath = new SKPath();
+        ColorGlyphCollector colorGlyphs = default;
+
+        for (int i = 0; i < glyphCount; i++)
+        {
+            ushort glyph = (ushort)result.Codepoints[i];
+            SKPoint point = result.Points[i];
+            point.X += i * spacing;
+
+            SKPath? tmp = font.GetGlyphPath(glyph);
+            if (tmp != null)
+            {
+                fillPath.AddPath(tmp, point.X, point.Y);
+                tmp.Transform(SKMatrix.CreateTranslation(point.X, point.Y));
+            }
+            else
+            {
+                colorGlyphs.Add(glyph, point);
+            }
+
+            ref SKPathGeometry.Resource? exist = ref pathList[i]!;
+            if (exist is null)
+            {
+                var geom = new SKPathGeometry();
+                geom.SetSKPath(tmp, false);
+                exist = geom.ToResource(CompositionContext.Default);
+            }
+            else
+            {
+                // SetSKPath reuses the slot without bumping Version, so invalidate the caches explicitly.
+                exist.GetOriginal().SetSKPath(tmp, false);
+                exist.InvalidateCachedPaths();
+            }
+        }
+
+        SKTextBlob? colorGlyphBlob = colorGlyphs.Build(font);
+
+        SKPath? strokePath = null;
+        // 空白で開始または、終了した場合
+        var bounds = new Rect(0, 0, Math.Max(0, glyphCount - 1) * spacing + result.Width,
+            InkBounds(fillPath, colorGlyphBlob).Height);
+        Rect actualBounds = InkBounds(fillPath, colorGlyphBlob);
+
+        if (glyphCount > 0 && Pen != null && Pen.Thickness > 0)
+        {
+            strokePath = PenHelper.CreateStrokePath(fillPath, Pen, actualBounds, density);
+            actualBounds = actualBounds.Union(strokePath.TightBounds.ToGraphicsRect());
+        }
+
+        return (colorGlyphBlob, fillPath, strokePath, font.Metrics.ToFontMetrics(), bounds, actualBounds);
+    }
+
+    /// <summary>Re-shapes only the density-dependent colour-glyph blob; the vector artifacts are reused.</summary>
+    private SKTextBlob? MeasureColorGlyphBlob(float density)
+    {
+        density = NormalizeDensity(density);
+        float spacing = Spacing * density;
+
+        using SKFont font = ToSKFont(density);
+        SKShaper.Result result = Shape(font);
+
+        ColorGlyphCollector colorGlyphs = default;
+        for (int i = 0; i < result.Codepoints.Length; i++)
+        {
+            ushort glyph = (ushort)result.Codepoints[i];
+            using SKPath? outline = font.GetGlyphPath(glyph);
+            if (outline != null) continue;
+
+            SKPoint point = result.Points[i];
+            point.X += i * spacing;
+            colorGlyphs.Add(glyph, point);
+        }
+
+        return colorGlyphs.Build(font);
+    }
+
+    private SKShaper.Result Shape(SKFont font)
+    {
         using var shaper = new SKShaper(font.Typeface);
         using var buffer = new HarfBuzzSharp.Buffer();
         buffer.AddUtf16(Text.AsSpan());
         buffer.GuessSegmentProperties();
+        return shaper.Shape(buffer, font);
+    }
 
-        SKShaper.Result result = shaper.Shape(buffer, font);
+    private static Rect InkBounds(SKPath fillPath, SKTextBlob? colorGlyphBlob)
+    {
+        Rect fill = fillPath.IsEmpty ? default : fillPath.TightBounds.ToGraphicsRect();
+        if (colorGlyphBlob is null) return fill;
 
-        // create the text blob
-        using var builder = new SKTextBlobBuilder();
-        SKPositionedRunBuffer run = builder.AllocatePositionedRun(font, result.Codepoints.Length);
+        Rect color = colorGlyphBlob.Bounds.ToGraphicsRect();
+        return fill.IsEmpty ? color : fill.Union(color);
+    }
 
-        var fillPath = new SKPath();
-        Span<ushort> glyphs = run.Glyphs;
-        Span<SKPoint> positions = run.Positions;
-        Span<SKPathGeometry.Resource> pathList = default;
-        if (updatePathList)
+    // Accumulates the glyphs that have no outline. Kept as a struct so the common all-outline case
+    // allocates nothing.
+    private struct ColorGlyphCollector
+    {
+        private List<ushort>? _glyphs;
+        private List<SKPoint>? _positions;
+
+        public void Add(ushort glyph, SKPoint position)
         {
-            // SetCount truncates trailing entries without disposing them; release them first so their
-            // owned glyph SKPaths don't leak to finalizers.
-            int glyphCount = result.Codepoints.Length;
-            for (int i = glyphCount; i < _pathList.Count; i++)
-            {
-                DisposePathListEntry(_pathList[i]);
-            }
-
-            CollectionsMarshal.SetCount(_pathList, glyphCount);
-            pathList = CollectionsMarshal.AsSpan(_pathList);
+            (_glyphs ??= []).Add(glyph);
+            (_positions ??= []).Add(position);
         }
 
-        for (int i = 0; i < result.Codepoints.Length; i++)
+        public readonly SKTextBlob? Build(SKFont font)
         {
-            glyphs[i] = (ushort)result.Codepoints[i];
+            if (_glyphs is not { Count: > 0 }) return null;
 
-            SKPoint point = result.Points[i];
-            point.X += i * spacing;
-            positions[i] = point;
-
-            SKPath? tmp = font.GetGlyphPath(glyphs[i]);
-            if (tmp != null)
-            {
-                fillPath.AddPath(tmp, point.X, point.Y);
-
-                if (updatePathList)
-                {
-                    tmp.Transform(SKMatrix.CreateTranslation(point.X, point.Y));
-
-                    ref SKPathGeometry.Resource? exist = ref pathList[i]!;
-                    if (exist is null)
-                    {
-                        var geom = new SKPathGeometry();
-                        geom.SetSKPath(tmp, false);
-                        exist = geom.ToResource(CompositionContext.Default);
-                    }
-                    else
-                    {
-                        // SetSKPath reuses the slot without bumping Version, so invalidate the caches explicitly.
-                        exist.GetOriginal().SetSKPath(tmp, false);
-                        exist.InvalidateCachedPaths();
-                    }
-                }
-                else
-                {
-                    tmp.Dispose();
-                }
-            }
-            else if (updatePathList)
-            {
-                ref SKPathGeometry.Resource? exist = ref pathList[i]!;
-                if (exist is null)
-                {
-                    var geom = new SKPathGeometry();
-                    geom.SetSKPath(tmp, false);
-                    exist = geom.ToResource(CompositionContext.Default);
-                }
-                else
-                {
-                    // Empty glyph: invalidate the caches so the reused slot stops serving the old path.
-                    exist.GetOriginal().SetSKPath(tmp, false);
-                    exist.InvalidateCachedPaths();
-                }
-            }
+            using var builder = new SKTextBlobBuilder();
+            SKPositionedRunBuffer run = builder.AllocatePositionedRun(font, _glyphs.Count);
+            CollectionsMarshal.AsSpan(_glyphs).CopyTo(run.Glyphs);
+            CollectionsMarshal.AsSpan(_positions!).CopyTo(run.Positions);
+            return builder.Build();
         }
-
-        SKPath? strokePath = null;
-        // 空白で開始または、終了した場合
-        var bounds = new Rect(0, 0, Math.Max(0, glyphs.Length - 1) * spacing + result.Width, fillPath.TightBounds.Height);
-        Rect actualBounds = fillPath.TightBounds.ToGraphicsRect();
-        SKTextBlob? textBlob = builder.Build();
-
-        if (result.Codepoints.Length > 0)
-        {
-            if (Pen != null && Pen.Thickness > 0)
-            {
-                strokePath = PenHelper.CreateStrokePath(fillPath, Pen, actualBounds, density);
-                actualBounds = strokePath.TightBounds.ToGraphicsRect();
-            }
-        }
-
-        return (textBlob, fillPath, strokePath, font.Metrics.ToFontMetrics(), bounds, actualBounds);
     }
 
     private void SetProperty<T>(ref T field, T value)
@@ -402,13 +433,6 @@ public class FormattedText : IEquatable<FormattedText>, IDisposable
         }
     }
 
-    private (SKTextBlob? TextBlob, SKPath? StrokePath) MeasureScaledText(float density)
-    {
-        (SKTextBlob? textBlob, SKPath fillPath, SKPath? strokePath, _, _, _) =
-            MeasureCore(density, updatePathList: false);
-        fillPath.Dispose();
-        return (textBlob, strokePath);
-    }
 
     private static float NormalizeDensity(float density)
     {

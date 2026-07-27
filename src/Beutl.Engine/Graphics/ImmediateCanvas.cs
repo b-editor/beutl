@@ -372,51 +372,57 @@ public partial class ImmediateCanvas : IDisposable, IPopable
     public void DrawText(FormattedText text, Brush.Resource? fill, Pen.Resource? pen)
     {
         VerifyAccess();
-        float density = _currentDensity;
-        SKTextBlob? textBlob = text.GetTextBlob(density);
-        if (textBlob is null)
+
+        // Outline glyphs go through the path rasterizer rather than Skia's glyph cache: the glyph
+        // cache places a mask at a quantized device position (whole pixels vertically), which turns
+        // an animated transform into visible 1 px jumps.
+        SKPath fillPath = text.GetFillPath();
+        if (!fillPath.IsEmpty)
         {
-            // Empty text shapes to no glyphs, so there is nothing to fill or stroke.
+            ConfigureFillPaint(text.Bounds, fill);
+            Canvas.DrawPath(fillPath, _sharedFillPaint);
+        }
+
+        DrawColorGlyphs(text, fill);
+
+        if (pen != null
+            && pen.Thickness > 0
+            && text.GetStrokePath() is { } stroke)
+        {
+            ConfigureStrokePaint(new(text.Bounds.Size), pen);
+            Canvas.DrawPath(stroke, _sharedStrokePaint);
+        }
+    }
+
+    private void DrawColorGlyphs(FormattedText text, Brush.Resource? fill)
+    {
+        float density = _currentDensity;
+        SKTextBlob? blob = text.GetColorGlyphBlob(density);
+        if (blob is null)
+        {
             return;
         }
 
         if (density == 1f)
         {
             ConfigureFillPaint(text.Bounds, fill);
-            Canvas.DrawText(textBlob, 0, 0, _sharedFillPaint);
-
-            if (pen != null
-                && pen.Thickness > 0
-                && text.GetStrokePath() is { } stroke)
-            {
-                ConfigureStrokePaint(new(text.Bounds.Size), pen);
-                Canvas.DrawPath(stroke, _sharedStrokePaint);
-            }
+            Canvas.DrawText(blob, 0, 0, _sharedFillPaint);
+            return;
         }
-        else
+
+        int count = Canvas.Save();
+        try
         {
-            int count = Canvas.Save();
-            try
-            {
-                Canvas.SetMatrix((SKMatrix44)CreateDensityScaledContentTransform(density).ToSKMatrix());
+            Canvas.SetMatrix((SKMatrix44)CreateDensityScaledContentTransform(density).ToSKMatrix());
 
-                // The blob is shaped at device density, so its glyphs already span Bounds * density
-                // under this CTM. Pass scale 1 so the density isn't applied twice to brush patterns.
-                ConfigureFillPaint(text.Bounds * density, fill, scale: 1f);
-                Canvas.DrawText(textBlob, 0, 0, _sharedFillPaint);
-
-                if (pen != null
-                    && pen.Thickness > 0
-                    && text.GetStrokePath(density) is { } stroke)
-                {
-                    ConfigureStrokePaint(new(text.Bounds.Size * density), pen, scale: 1f);
-                    Canvas.DrawPath(stroke, _sharedStrokePaint);
-                }
-            }
-            finally
-            {
-                Canvas.RestoreToCount(count);
-            }
+            // The blob is shaped at device density, so its glyphs already span Bounds * density
+            // under this CTM. Pass scale 1 so the density isn't applied twice to brush patterns.
+            ConfigureFillPaint(text.Bounds * density, fill, scale: 1f);
+            Canvas.DrawText(blob, 0, 0, _sharedFillPaint);
+        }
+        finally
+        {
+            Canvas.RestoreToCount(count);
         }
     }
 
