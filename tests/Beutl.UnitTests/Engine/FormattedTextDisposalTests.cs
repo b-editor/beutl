@@ -74,7 +74,7 @@ public class FormattedTextDisposalTests
             Assert.Throws<ObjectDisposedException>(() => _ = ft.Bounds);
             Assert.Throws<ObjectDisposedException>(() => _ = ft.ActualBounds);
             Assert.Throws<ObjectDisposedException>(() => _ = ft.Metrics);
-            Assert.Throws<ObjectDisposedException>(() => ft.GetColorGlyphBlob());
+            Assert.Throws<ObjectDisposedException>(() => ft.GetTextBlob());
             Assert.Throws<ObjectDisposedException>(() => ft.GetFillPath());
             Assert.Throws<ObjectDisposedException>(() => ft.GetStrokePath());
             Assert.Throws<ObjectDisposedException>(() => ft.ToGeometies());
@@ -93,7 +93,8 @@ public class FormattedTextDisposalTests
 
         Assert.Multiple(() =>
         {
-            Assert.Throws<ObjectDisposedException>(() => ft.GetColorGlyphBlob(2f));
+            Assert.Throws<ObjectDisposedException>(() => ft.GetTextBlob(2f));
+            Assert.Throws<ObjectDisposedException>(() => ft.GetStrokePath(2f));
         });
     }
 

@@ -24,11 +24,11 @@ public class ScaledTextCacheTests
         _font.Dispose();
     }
 
-    // A fresh, live blob per density so disposing one entry can't disturb another; it is a real
-    // Skia handle so Handle == IntPtr.Zero observes actual native disposal.
-    private SKTextBlob? CreateScaledText(float density)
+    // A fresh, live (blob, stroke) pair per density so disposing one entry can't disturb another;
+    // both are real Skia handles so Handle == IntPtr.Zero observes actual native disposal.
+    private (SKTextBlob? TextBlob, SKPath? StrokePath) CreateScaledText(float density)
     {
-        return SKTextBlob.Create("A", _font);
+        return (SKTextBlob.Create("A", _font), new SKPath());
     }
 
     [Test]
@@ -37,9 +37,11 @@ public class ScaledTextCacheTests
         using var cache = new ScaledTextCache(CreateScaledText);
 
         SKTextBlob? capturedBlob = null;
-        cache.CommitFaultHook = (SKTextBlob? blob) =>
+        SKPath? capturedStroke = null;
+        cache.CommitFaultHook = (SKTextBlob? blob, SKPath? stroke) =>
         {
             capturedBlob = blob;
+            capturedStroke = stroke;
             throw new InvalidOperationException("commit-fault");
         };
 
@@ -50,6 +52,9 @@ public class ScaledTextCacheTests
         Assert.That(capturedBlob, Is.Not.Null, "the scaled blob should have been produced before the fault");
         Assert.That(capturedBlob!.Handle, Is.EqualTo(IntPtr.Zero),
             "the uncommitted scaled textBlob must be disposed when the cache insert fails");
+        Assert.That(capturedStroke, Is.Not.Null, "the stub supplies a strokePath");
+        Assert.That(capturedStroke!.Handle, Is.EqualTo(IntPtr.Zero),
+            "the uncommitted scaled strokePath must be disposed when the cache insert fails");
     }
 
     [Test]
@@ -57,7 +62,7 @@ public class ScaledTextCacheTests
     {
         using var cache = new ScaledTextCache(CreateScaledText);
 
-        cache.CommitFaultHook = (SKTextBlob? _) => throw new InvalidOperationException("commit-fault");
+        cache.CommitFaultHook = (SKTextBlob? _, SKPath? _) => throw new InvalidOperationException("commit-fault");
         Assert.Throws<InvalidOperationException>(() => cache.Get(2f));
 
         // The failed insert must roll back the LRU node it speculatively added; otherwise a phantom
@@ -69,7 +74,7 @@ public class ScaledTextCacheTests
 
         // A later access at the same density still succeeds and produces a fresh, live blob.
         cache.CommitFaultHook = null;
-        SKTextBlob? blob = cache.Get(2f);
+        (SKTextBlob? blob, _) = cache.Get(2f);
         Assert.That(blob, Is.Not.Null);
         Assert.That(blob!.Handle, Is.Not.EqualTo(IntPtr.Zero));
     }
@@ -84,7 +89,7 @@ public class ScaledTextCacheTests
         for (int i = 1; i <= 12; i++)
         {
             float density = 1f + i * 0.25f;
-            SKTextBlob? blob = cache.Get(density);
+            (SKTextBlob? blob, _) = cache.Get(density);
             Assert.That(blob, Is.Not.Null, $"density {density} should produce a scaled blob");
             Assert.That(blob!.Handle, Is.Not.EqualTo(IntPtr.Zero));
         }
