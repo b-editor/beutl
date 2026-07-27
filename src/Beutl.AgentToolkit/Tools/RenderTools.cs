@@ -63,9 +63,9 @@ public sealed class RenderTools(
     private const string AllowRectDominanceDescription =
         "When true, suppresses the non-background RectShape-dominance advisory. Rect dominance is already advisory (it never blocks the gate).";
     private const string RelaxAestheticsDescription =
-        "When true, relax the non-blocking aesthetic and pacing advisories in one switch (ambiguous decorative shapes, Material-UI card look, RectShape dominance, hard cuts, and high-tempo long-hold/short-segment pacing), so expressive shape-rich or kinetic-typography briefs are not nudged toward a plainer look. Blocking checks (read time, element structure, motion, and supplied-plan density violation) are unaffected.";
+        "When true, drops the aesthetic and pacing advisories in one switch (ambiguous decorative shapes, Material-UI card look, RectShape dominance, hard cuts, and high-tempo long-hold/short-segment pacing) to keep the response focused. None of them affect the gate either way; the blocking checks (text read time, rendered text contrast, Element structure) are unchanged.";
     private const string AllowStillnessDescription =
-        "When true, deliberate stillness / held-frame / negative-space composition is allowed: the low motion-continuity blocker is downgraded from major to advisory instead of failing the gate. Tagging an element/object [role:still] (or naming it 'hold frame', 'negative space', etc.) opts in the same way without this flag.";
+        "When true, records that stillness / a held frame / negative space is deliberate, so the motion-continuity finding reads as expected rather than as a warning. Motion never fails the gate either way. Tagging an element/object [role:still] (or naming it 'hold frame', 'negative space', etc.) opts in the same way without this flag.";
     private const string AllowDenseTextDescription =
         "When true, brief-justified dense or long copy on a short-lived text element is allowed: the read-time blocker is downgraded from major to advisory. Tagging the text [role:reading]/[role:manifesto]/[role:credits] (or so naming it) opts in the same way without this flag.";
     private const string AllowMultiObjectElementsDescription =
@@ -73,9 +73,9 @@ public sealed class RenderTools(
     private const string AllowMonochromeDescription =
         "When true, an intentional monochrome / low-contrast palette is allowed: the low luma-separation advisory is suppressed. Tagging an element/object [role:monochrome]/[role:low-contrast] (or so naming it) opts in the same way without this flag.";
     private const string AllowMinimalDensityDescription =
-        "When true, deliberate minimal / sparse / negative-space density is allowed: a motion-graphics density plan violation is downgraded from major to advisory. Tagging an element/object [role:minimal] or [role:negative-space] opts in the same way without this flag.";
+        "When true, records that minimal / sparse / negative-space density is deliberate, so the density findings read as expected rather than as omissions. Density never fails the gate either way. Tagging an element/object [role:minimal] or [role:negative-space] opts in the same way without this flag.";
     private const string PlannedForegroundElementsPerShotDescription =
-        "Optional quantitativePlanSheet target for planned foreground elements per shot. When > 0 and a motion-graphics scene authors fewer than half this foreground layer count in any measured time band, layerDensity can fail the gate unless allowMinimalDensity or a minimal role tag is present.";
+        "Optional quantitativePlanSheet target for planned foreground elements per shot. When > 0, layerDensity reports which measured time bands author fewer than half this foreground layer count, so you can tell an omission from an intended sparser cut. Advisory only; it never fails the gate.";
     private const string SampleCountDescription =
         "Number of evenly spaced samples when timeSeconds is omitted. Clamped to 2..8.";
     private const string BeatTimesSecondsDescription =
@@ -358,7 +358,7 @@ public sealed class RenderTools(
     }
 
     [McpServerTool(Name = "evaluate_edit_quality")]
-    [Description("Reviews the current scene for deterministic AI-editing quality risks: all-caps typography, visual hierarchy overload, short text read time, rendered text contrast, RectShape overuse, ambiguous decorative light shapes, hard gradient falloff, flat background richness, unclear foreground shapes, missing motion intent, invalid multi-object Element structure, layer density/depth coverage, high-tempo rhythm density/gaps, audio beat sync, text backing alignment, palette harmony, arbitrary dense effect stacks, dated card/shadow styling, all-linear easing monotony, uniform motion clusters, logo-intro motion-arc gaps, low motion continuity, chopped-up cut rhythm, and video-type timeline coverage. Run after render_still and evaluate_motion_variation; resolve critical/major issues before export_video. Gate-failing checks are limited to the typography blocker family (short read time and rendered text contrast), multi-object Element structure, low motion continuity, and motion-graphics layer density below half of a supplied quantitative plan. A deliberate, brief-justified deviation is allowed and downgraded to advisory via its intent flag (allowStillness, allowDenseText, allowMultiObjectElements, allowMonochrome, allowMinimalDensity), videoType profile, or an equivalent [role:...] tag on the element, so the gate blocks likely accidents, not intentional creative choices.")]
+    [Description("Measures the current scene and reports what it finds: all-caps typography, visual hierarchy, text read time, rendered text contrast, RectShape usage, decorative light shapes, gradient falloff, background richness, foreground shape clarity, motion intent, multi-object Element structure, layer density/depth coverage, rhythm density/gaps, audio beat sync, text backing alignment, palette harmony, effect stacking, card/shadow styling, easing variety, motion clusters, motion-arc shape, motion continuity, cut rhythm, and timeline coverage. Only two families fail the gate, because only they mark a result nobody can use: text a viewer cannot read (short read time, rendered contrast below the large-text floor) and malformed multi-object Element structure. Everything else — density, motion, palette, background, tempo, shape vocabulary — is advisory: it describes the scene, it does not prescribe one. A sparse, still, monochrome, or unconventional piece is a legitimate result, so read the advisories, act on the ones that contradict your own intent, and ignore the rest. The intent flags (allowStillness, allowDenseText, allowMultiObjectElements, allowMonochrome, allowMinimalDensity) and [role:...] tags reword findings as expected rather than unexpected, and downgrade the two gate families where the choice is deliberate.")]
     public ValueTask<ToolResult<QualityReviewResponse>> EvaluateEditQuality(
         [Description(VideoTypeDescription)]
         string? videoType = null,
@@ -587,7 +587,7 @@ public sealed class RenderTools(
     }
 
     [McpServerTool(Name = "final_preflight")]
-    [Description("Runs the normal final verification bundle before export_video: representative render_still files, evaluate_motion_variation, and evaluate_edit_quality. Returns ReadyForExport plus blockers and still paths.")]
+    [Description("Runs the final verification bundle before export_video: representative render_still files, evaluate_motion_variation, and evaluate_edit_quality. Returns ReadyForExport plus blockers, advisories, and still paths. Blockers are limited to unreadable text, malformed Element structure, and any check you explicitly requested (requireAnimatedProperties). Low motion, sparse density, and still-visibility warnings arrive as advisories, so a deliberately still or minimal piece still reports ReadyForExport. export_video never consults this result; it is a report, not a permission check.")]
     public ValueTask<ToolResult<FinalPreflightResponse>> FinalPreflight(
         [Description(VideoTypeDescription)]
         string? videoType = null,
@@ -717,24 +717,27 @@ public sealed class RenderTools(
             }
 
             List<string> blockers = [];
+            List<string> advisories = [];
             if (!staticLayout && motion is not null && !motion.PassesMinimumMotion)
             {
-                blockers.Add($"Motion variation did not pass: {motion.Verdict}.");
+                advisories.Add($"Motion variation did not pass: {motion.Verdict}. A deliberate held frame or slow piece is a valid result; revise only if the stillness is unintended.");
             }
 
             if (!quality.PassesQualityGate)
             {
-                blockers.Add("evaluate_edit_quality reported critical or major issues.");
+                blockers.Add("evaluate_edit_quality reported critical or major issues (unreadable text or malformed Element structure).");
             }
 
+            // The caller opted into this check by passing requireAnimatedProperties, so it
+            // blocks on their own terms rather than the toolkit's.
             if (!staticLayout && requireAnimatedProperties && quality.Metrics.MotionContinuity.AnimatedPropertyCount == 0)
             {
-                blockers.Add("animatedPropertyCount is 0; add explicit transform, opacity, brush, effect, or typography animation before exporting motion graphics.");
+                blockers.Add("animatedPropertyCount is 0 and requireAnimatedProperties was requested; add explicit transform, opacity, brush, effect, or typography animation, or drop the flag.");
             }
 
             if (stills.Any(item => item.Warnings.Count > 0))
             {
-                blockers.Add("One or more representative still renders returned visibility warnings.");
+                advisories.Add("One or more representative still renders returned visibility warnings. Check whether the affected objects are off-frame by intent.");
             }
 
             bool ready = blockers.Count == 0;
@@ -746,7 +749,8 @@ public sealed class RenderTools(
                 quality,
                 ready ? (staticLayout ? "render_storyboard" : "export_video") : "suggest_quality_fixes")
             {
-                ReadyForStoryboard = staticLayout && ready
+                ReadyForStoryboard = staticLayout && ready,
+                Advisories = advisories
             };
         });
     }

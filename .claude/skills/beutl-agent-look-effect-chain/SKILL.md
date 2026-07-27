@@ -5,86 +5,75 @@ description: Apply a consistent look or effect chain to Beutl elements through t
 
 # Beutl Agent Look Effect Chain
 
-Use this skill when an agent needs to apply color, blur, shadow, stylization, or other effect chains consistently across Beutl elements.
+Use this skill when applying color, blur, shadow, stylization, or other effect chains across Beutl elements.
 
-## Workflow
+This skill is a capability guide, not a rulebook. The mechanics sections describe how the toolkit actually behaves — get those wrong and the patch fails or renders something you did not author. The craft sections describe what tends to happen visually; they are observations you are free to overrule, and nothing in them is checked anywhere in the toolkit.
 
-1. Derive the look direction before changing colors or effects.
-   - Record why the subject, existing scene, audience, mood, and delivery surface lead to this hue family, tonal seed, material vocabulary, and motion/effect vocabulary. Unjustified choices are disallowed; if a hue, tone, or effect language cannot be explained, derive again.
-   - For original or broad look changes, call `list_creative_directions` and compare `recentToAvoid`; the look must differ in palette family, structure, and motion/effect vocabulary unless the repeat is intentional and recorded.
-2. Call `derive_palette` with `baseHueDegrees`, `tonalSeed`, `harmonyScheme`, the recorded `derivationReason`, and the look's `structuralSignature`. Resolve any hue-band or structural repeat warning by revising the look direction, or record why the repeat is intentional before patching.
-3. If the look touches a background, surface, atmospheric layer, glow field, vignette, or depth treatment, call `get_background_grammar` and record the chosen base/depth/motion slots. The minimum depth contract is background/midground/foreground; missing a band requires a recorded reason.
-4. Call `get_schema` for the target effect/drawable category and read parameter ranges, defaults, animatable flags, and expression support.
-5. Call `read_document` and identify the element/object handles to modify.
-6. If source-code reading is allowed, use `beutl-agent-source-grounding` before changing effect-unit, transform, bounds, text measurement, backing-plate alignment, render-scale, or live-session behavior.
-   - Read `.claude/skills/beutl-agent-source-grounding/SKILL.md`, then use narrow `rg`/read passes over the source and tests it identifies.
-   - Record a `sourceGrounding` note with `assumption`, `evidence`, `rule`, and `uncertainty` before the first relevant `apply_edit`.
-   - If the user explicitly forbids source reading, skip this step and record that limitation.
-7. Before changing the look, record the look brief in notes or the response:
-   - `directionContract`: objective, audience, emotional temperature, brand posture, delivery surface, one-sentence look promise, and the recorded reason for hue, tone, material, and motion/effect vocabulary.
-   - `paletteRoles`: derived `bg-base`, `bg-accent`, `foreground`, `text-primary`, and `accent`; include the `derive_palette` contrast checks and warnings.
-   - `backgroundGrammarPlan`: if applicable, the selected base layer, depth layer A, optional depth layer B, motion slot, and the Elements that satisfy background/midground/foreground.
-   - `deviationReason`: required for any hand-picked color, skipped `derive_palette`, skipped background grammar, ignored repeat warning, missing depth band, or static background.
-   - `contrastPlan`: how text, backing plates, and focal objects stay readable.
-   - `hierarchyPlan`: what remains the primary focal point after the look change.
-   - `effectIntentPlan`: the job of each effect chain, such as material texture, hierarchy separation, transition energy, color grade, or text legibility.
-   - `roleTagPlan`: preserve or add intent tags such as `[role:background]`, `[role:text-backing]`, and `[role:decorative]` when the look change touches plates, decorative rectangles, or text readability.
-   - `structurePreservationPlan`: keep ordinary Elements to one EngineObject; do not add extra Objects to an Element unless it is an intentional `IFlowOperator` chain such as `DrawableGroup`, `DrawableDecorator`, `SoundGroup`, or `Scene3D`.
-   - `shapeMotionIntentPlan`: if the look change adds or animates foreground shapes, name their role, purpose, and motion intent before patching. Do not add abstract glint/glow/aperture/lens ellipses as foreground decoration; use parseable strokes, particles, letter fragments, editor/timeline marks, masks, media, `GeometryShape` vector figures, or procedural texture instead.
-   - `gradientFalloffPlan`: when changing ambient/aperture/glow backgrounds, use at least three falloff stops, wider alpha/color transitions, a real Blur/SKSL texture, or procedural texture so color boundaries do not read as hard bands.
-   - `transformPreservationPlan`: if a target object has animated transform children plus static rotation/skew/scale, state whether the motion is screen-space or local/rotated-space and preserve the existing `TransformGroup.Children` order unless the change explicitly fixes it.
-8. Prefer a merge-patch for look changes:
-   - Preserve existing element timing and unrelated properties.
-   - Patch only the target `Objects`, effect collections, and property values.
-9. Call `apply_edit` in the smallest useful look/effect stage and inspect `valid`, `changes`, `validation`, and `createdIds` before continuing.
-10. Resolve all `validation_rejected`, `unknown_type`, fallback-object, and stale-handle errors from `apply_edit` by reading `get_schema`/`read_document` and retrying only that small stage.
-11. For file sessions, call `save_project` after a successful major look stage. For LiveEditor sessions, record the `save_project`/`read_operation_status` message that saving is not required or supported by the toolkit.
-12. Run `preview_quality_risks` when the look change adds/removes plates, changes text/background contrast, introduces foreground `RectShape` objects, adds abstract decorative light shapes, changes ambient/glow gradients, or changes short-lived typography.
-13. Render stills before and after the most visible transition points. Confirm the primary focal point, text contrast, backing plate fit, and whether each visible effect still serves its named job.
-14. Run `evaluate_edit_quality`; resolve all critical/major issues introduced by the look change before export. Prefer `final_preflight` before export when available.
+## Mechanics
 
-## Contrast Exemplars - derive, don't copy
+How to make the edit land:
 
-These examples describe relationships to derive with `derive_palette`; they are not literal palettes to reuse.
+1. **Read the surface first.** `get_schema` for the effect/drawable category gives parameter ranges, defaults, animatable flags, and expression support. `read_document` gives the element/object handles to modify. Values outside the schema range come back coerced — that is a signal to retry the same small stage with the accepted value.
+2. **Use PascalCase property keys exactly as `get_schema` exposes them.** Treat effect arrays as id-keyed when entries have `Id`. Reorder with `$index`, `$after`, or `$before` rather than deleting and reinserting, which mints a new `Id` and loses identity.
+3. **Copy object shapes, don't invent them.** For `Pen`, brush, transform, animation, and effect values, copy the shape from `get_schema`/`read_document` with a concrete `$type` discriminator instead of a shorthand field you guessed.
+4. **Prefer a merge-patch** so existing element timing and unrelated properties survive. Patch only the target `Objects`, effect collections, and property values.
+5. **Apply in small stages.** Call `apply_edit` per coherent look stage and inspect `valid`, `changes`, `validation`, and `createdIds` before continuing. Resolve `validation_rejected`, `unknown_type`, fallback-object, and stale-handle errors by re-reading `get_schema`/`read_document` and retrying only that stage. `unknown_type` means the effect is not installed in this runtime and cannot be used at all.
+6. **Save when the session is file-backed.** Call `save_project` after a successful major stage. LiveEditor sessions do not need it; `save_project`/`read_operation_status` will say so.
+7. **Verify by rendering.** `render_still` before and after the most visible transition points. A look cannot be judged from the JSON document.
 
-- Good: `text-primary` clears 4.5:1 against both `bg-base` and `bg-accent`; the accent is saturated but small and clears 3.0:1 against `bg-base`.
-- Good: a light-toned look uses dark low-saturation text, a calmer foreground material color, and one small high-chroma motion accent.
-- Bad: changing only hue while keeping text and background at similar luma fails readability even when the colors feel different.
-- Bad: stacking several saturated glows at the same lightness creates competition; lower support saturation or make one role clearly dominant.
-- Bad: dark teal plus cyan/magenta neon is a repeat-prone default and needs an explicit brief reason before use.
+### Coordinate and transform semantics
 
-## Effect Chain Rules
+- Default `Drawable` alignment is centered: `TranslateTransform(0, 0)` means centered, and `(x, y)` offsets the object center from the scene center unless `AlignmentX=Left`/`AlignmentY=Top` is set deliberately.
+- Use `measure_object_bounds` for text/backing-plate or shape alignment before judging alignment from a still.
+- `TransformGroup.Children` order is behavior, not formatting. For screen-space drift on a tilted object, static orientation transforms precede the animated `TranslateTransform`; for local-axis motion the reverse. When you change a moving rotated object, decide which you meant and preserve the existing order unless the change is specifically fixing it.
+- If a target has animated transform children plus a static rotation/skew/scale, verify the result with a still or motion sample rather than assuming the order composed as intended.
 
-- Use PascalCase property keys exactly as exposed by `get_schema`.
-- Treat effect arrays as id-keyed arrays when entries have `Id`.
-- Reorder effects with `$index`, `$after`, or `$before`; never delete and reinsert just to move an existing effect.
-- Use in-range values from the schema. A coerced value is a signal to retry the same small `apply_edit` stage with the exact accepted value.
-- Use concrete serialized color values such as `#ffffb34d` only after deriving them from `derive_palette`; do not use palette names such as `Amber`.
-- Any color outside the derived palette roles requires a recorded reason and a contrast check against the affected background role.
-- For `Pen`, brush, transform, animation, and effect values, copy the schema/read-document object shape with a concrete `$type` discriminator instead of inventing shorthand fields.
-- When editing a moving rotated object, treat `TransformGroup.Children` order as behavior, not formatting. For screen-space drift with a tilted object, static orientation transforms should precede the animated `TranslateTransform`; for local-axis motion, record that intent and verify the result with still/motion samples.
-- Keep effect types installed and discoverable; `unknown_type` means the effect cannot be used in this runtime.
-- Call `list_effects` early and pick by intent instead of collapsing the vocabulary to blur/shadow/`ColorShift`: `DisplacementMapEffect` (warp/heat-haze/ripple), `PathFollowEffect` (move a drawable along a path), `StrokeEffect` (outline any drawable/text), `Lighting`, `PerlinNoise` (procedural texture), `LutEffect`/`ColorGrading`/`Curves` (grades), `MosaicEffect`, `InnerShadow`/`FlatShadow`. Confirm the exact property surface with `get_schema` before authoring.
-- For masked reveals, knockouts, and alpha mattes, use `Drawable.BlendMode` Porter-Duff modes (`SrcIn`, `DstIn`, `SrcOut`, `DstOut`, `Modulate`) against the content below in the same flow (scope the matte with a `DrawableGroup`/`DrawableDecorator` so it does not affect the whole frame), and the `Clipping` FilterEffect (animatable `Left`/`Top`/`Right`/`Bottom`) for rectangular wipes/crops. Source-ground the compositing rule and verify with `render_still` before relying on it.
-- Do not stack effects decoratively. Every effect must serve material texture, hierarchy separation, transition energy, color grade, or text legibility.
-- Avoid three or more foreground objects with dense three-effect stacks unless the brief explicitly asks for a maximal or degraded look and the reason is recorded.
-- Do not create foreground `RectShape` accents for glints, slashes, or rhythm marks unless the plain rectangular shape is intentional. Prefer non-rectangular accents, strokes, procedural texture, or tag them `[role:decorative]` and keep them shot-limited.
-- Do not introduce unclear decorative shapes as a look fix. Any large or animated foreground shape must be named with a role and motion job such as beat sweep, scan texture, pulse reveal, transition wipe, or text backing.
-- Do not introduce abstract foreground light blobs named only as glint, glow, aperture, lens, glass, reflection, or refraction. If viewers cannot parse what the shape represents without reading the layer name, replace it with a concrete visual system or move the light into the background with soft falloff.
-- For ambient/aperture/glow gradients, avoid hard two-stop falloff. Use at least three gradient stops, wider offsets, Blur/SKSL texture, or a procedural surface treatment.
-- Do not add a second Object to an ordinary Element while applying a look. Split the visual into its own Element unless the target Element is an intentional `IFlowOperator` chain.
-- Prefer restrained color grading, texture, and subtle depth before heavy glow, blur, or card-like shadows.
-- Avoid creating the dark teal plus cyan/magenta palette unless the user explicitly asks for that look and the recorded derivation reason justifies it.
+### Effect vocabulary
 
-## Consistency Rules
+Call `list_effects` early and pick by intent rather than collapsing to blur/shadow/`ColorShift`: `DisplacementMapEffect` (warp, heat-haze, ripple), `PathFollowEffect` (move a drawable along a path), `StrokeEffect` (outline any drawable or text), `Lighting`, `PerlinNoise` (procedural texture), `LutEffect`/`ColorGrading`/`Curves` (grades), `MosaicEffect`, `InnerShadow`/`FlatShadow`. Confirm the exact property surface with `get_schema` before authoring.
 
-- For a shared look, use the same property values across matching shots unless the brief names exceptions.
-- Preserve source media and audio bindings unless the user asks to replace them.
-- Verify with `render_still`; do not judge a look only from the JSON document.
-- Preserve the designed visual hierarchy. A look change should not make supporting effects, panels, or labels compete with the primary focal point.
-- Preserve Element/Object structure by default. Of the quality categories, only `typographyReadTime`, `elementStructure`, `motionContinuity`, and `layerDensity` when authored motion-graphics foreground density falls below half of a supplied `quantitativePlanSheet` target can fail the gate; `shapeIntent`, `motionIntent`, `decorativeShapeClarity`, `gradientFalloff`, `tempoRhythm`, `paletteHarmony`, `backgroundRichness`, and non-plan-violation `layerDensity` are advisory guidance. A deliberate, brief-justified deviation (stillness, negative space, monochrome / low-contrast, hard cuts, glow / atmospheric shapes, minimal density) is allowed: record the intent and set the matching intent flag (`allowStillness`, `allowDenseText`, `allowMultiObjectElements`, `allowMonochrome`, `allowMinimalDensity`) or `[role:...]` tag so the check downgrades to advisory. Pass `relaxAesthetics` to suppress the non-blocking aesthetic/pacing advisories in bulk when the brief is deliberately minimal — it does not clear the blocking checks (`typographyReadTime`, `elementStructure`, `motionContinuity`, supplied-plan `layerDensity`). Block only genuine accidents: unreadable text, structural errors with no recorded intent, low motion with no recorded intent, or a gate failure with no documented justification.
-- If text uses a backing plate, keep text and `[role:text-backing]` plate timing, center, and padding aligned after the look change.
-- For default-aligned text and shape backing plates, use the source-grounded center-offset coordinate rule: `TranslateTransform(0, 0)` means centered, and `(x, y)` offsets the object center from the scene center unless `AlignmentX=Left`/`AlignmentY=Top` is deliberately set.
-- Use `measure_object_bounds` for text/backing-plate or shape alignment changes before judging the result from still renders.
-- Before exporting or finishing a look change, run a transform-order audit on any object whose summary shows nested transform animation and a static rotation/skew/scale. If the order does not match the recorded motion intent, patch only the transform child ordering and rerun the representative still/motion check.
-- Do not leave `preview_quality_risks`, `evaluate_edit_quality`, or `final_preflight` critical/major blockers unresolved.
+For masked reveals, knockouts, and alpha mattes: `Drawable.BlendMode` Porter-Duff modes (`SrcIn`, `DstIn`, `SrcOut`, `DstOut`, `Modulate`) composite against the content below in the same flow — scope the matte with a `DrawableGroup`/`DrawableDecorator` so it does not affect the whole frame. The `Clipping` FilterEffect (animatable `Left`/`Top`/`Right`/`Bottom`) is the rectangular wipe primitive. Source-ground the compositing rule and verify with `render_still` before relying on it.
+
+### Element structure
+
+Keep ordinary Elements to one EngineObject. Multiple Objects in one Element are structurally valid only when the Element contains an `IFlowOperator` — `DrawableGroup`, `DrawableDecorator`, `SoundGroup`, or `Scene3D`. This is one of the two findings that fails `evaluate_edit_quality`, because a multi-object Element without a flow operator is a malformed document rather than an unusual one. Split the visual into its own Element, or add the flow operator you meant.
+
+### Source grounding
+
+When an edit depends on effect-unit semantics, transform composition, bounds, text measurement, backing-plate alignment, render scale, or live-session behavior, read `.claude/skills/beutl-agent-source-grounding/SKILL.md` and do narrow `rg`/read passes over the source and tests it points at. Note what you verified before the first dependent `apply_edit`. Skip this if the user has forbidden source reading.
+
+## Deriving the look
+
+`derive_palette` returns role-tagged colors (`bg-base`, `bg-accent`, `foreground`, `text-primary`, `accent`) with contrast relationships already solved — `text-primary` clears 4.5:1 against both background roles by construction. Hand-picking colors is equally valid; it just leaves the contrast checks to you. Use concrete serialized values such as `#ffffb34d` rather than palette names such as `Amber`.
+
+`list_creative_directions` reports what recent runs in this workspace looked like. If the point is that this piece should not resemble the last one, that list is the cheapest way to know. If a repeat is what the brief wants, ignore it.
+
+`get_background_grammar` lists background slots, options, and parameter ranges when the look touches a background, surface, atmospheric layer, glow field, vignette, or depth treatment. Background plus midground plus foreground is the combination that reads as depth; fewer bands read as deliberately flat.
+
+## Craft notes
+
+Observations about what viewers tend to see. Treat them as knowledge, not permission:
+
+- **Contrast survives on luma, not hue.** Changing hue while keeping text and background at similar luma fails readability even when the colors feel different.
+- **Saturation needs a hierarchy.** Several saturated glows at the same lightness compete; one dominant role plus quieter support reads as deliberate.
+- **Dark teal with cyan/magenta neon** is the combination most generators reach for, so it reads as a default rather than a choice.
+- **A two-stop gradient shows its boundary as a band.** Three or more stops, wider offsets, a real Blur/SKSL texture, or a procedural surface hide it — relevant for ambient, aperture, and glow fields.
+- **Effects that serve nothing read as noise.** Material texture, hierarchy separation, transition energy, color grade, and text legibility are what an effect chain usually buys. Three or more foreground objects each carrying dense three-effect stacks reads as maximal, which is a look you can want.
+- **Rectangles read as rectangles.** `RectShape` works as a full-frame plate or as deliberately plain geometry; as a foreground glint or slash it reads as a placeholder. Non-rectangular accents, strokes, and procedural texture read as form.
+- **Abstract light blobs describe the render, not the idea.** A shape named only glint, glow, aperture, lens, glass, reflection, or refraction gives the viewer nothing to parse — it reads as haze. A concrete visual system, or the same light moved into the background with soft falloff, reads as authored.
+- **Naming carries intent forward.** `[role:background]`, `[role:text-backing]`, and `[role:decorative]` tags, plus role/motion-purpose names, are what let a later pass — yours or the quality tools' — tell a designed accent from a leftover.
+- **Hierarchy is a zero-sum budget.** A look change that makes supporting effects, panels, or labels compete with the primary focal point has moved the focal point, whether or not that was the intent.
+
+## Consistency
+
+- For a shared look across shots, the same property values across matching shots is what makes it read as one piece; brief-named exceptions are the point of the exceptions.
+- Preserve source media and audio bindings unless the user asked to replace them.
+- If text uses a backing plate, keep the text and `[role:text-backing]` plate timing, center, and padding aligned after the look change.
+
+## Checking the result
+
+`preview_quality_risks` (document-only) and `evaluate_edit_quality` (rendered) measure the scene and report what they find. Only two families fail the gate — unreadable text (read time, rendered contrast) and malformed Element structure — because only those mark a result nobody can use. Density, motion, palette, background, tempo, and shape findings are advisory: they describe the scene, they do not prescribe one.
+
+Read the advisories, act on the ones that contradict your own intent, and ignore the rest. Setting an intent flag (`allowStillness`, `allowDenseText`, `allowMultiObjectElements`, `allowMonochrome`, `allowMinimalDensity`) or a `[role:...]` tag rewords a finding as expected rather than unexpected, which is useful when a later pass reads the report. `relaxAesthetics` drops the advisory block wholesale when you already know what the piece is.
+
+`final_preflight` bundles the pre-export checks. `export_video` never consults any of them.

@@ -217,18 +217,13 @@ public sealed class QualityAnalyzer(MotionVariationAnalyzer motionVariationAnaly
     private const double TextColorDistanceThreshold = 36;
     private const int TextBackgroundSamplePaddingPixels = 4;
 
-    // Advisory issues never fail the quality gate; only Critical/Major do. Aesthetic
-    // opinions use this so they surface as guidance without blocking export.
+    // Advisory issues never fail the quality gate; only Critical/Major do.
     private const string Advisory = Minor;
 
-    // Gate policy: typographyReadTime and rendered typographyContrast, elementStructure,
-    // and motionContinuity are the standing deterministic blockers. layerDensity can
-    // also block only when a motion-graphics caller supplies a quantitative plan and
-    // authored foreground density falls below half of that plan; palette/background
-    // aesthetics remain advisory.
-
-    // A deviation the brief explicitly opted into is guidance, not an accident: Advisory
-    // instead of a gate-failing Major. An unsignalled deviation still blocks.
+    // Gate policy: only unreadable text (typographyReadTime, rendered typographyContrast)
+    // and malformed Element/Object structure (elementStructure) block. Density, motion,
+    // palette, background, tempo, and shape vocabulary are measured and reported but never
+    // blocked — sparse, still, monochrome, and unconventional are authorial choices.
     private static string IntentSeverity(bool intentPresent) => intentPresent ? Advisory : Major;
 
     public async ValueTask<QualityReviewResponse> AnalyzeAsync(
@@ -365,8 +360,9 @@ public sealed class QualityAnalyzer(MotionVariationAnalyzer motionVariationAnaly
             List<string> notes =
             [
                 hasBlockingIssue
-                    ? "Resolve all critical and major quality issues before exporting a final preview."
+                    ? "Critical/major issues are limited to unreadable text and malformed Element structure; these are usually accidents worth fixing before export."
                     : "No critical or major deterministic quality issues were found.",
+                "Advisory issues describe what the scene measures, not what it should be. Density, motion, palette, background, tempo, and shape findings never block export; act on the ones that contradict your intent and ignore the rest.",
                 "This review uses deterministic document, color, geometry, and rendered-motion heuristics; it does not use OCR or generative image judging."
             ];
 
@@ -1185,12 +1181,12 @@ public sealed class QualityAnalyzer(MotionVariationAnalyzer motionVariationAnaly
         {
             issues.Add(new QualityIssue(
                 "layerDensity",
-                IntentSeverity(minimalIntent),
+                Advisory,
                 "Authored foreground density falls below half of the quantitative plan.",
                 $"{bandsBelowHalfPlan}/{bandCount} time bands have fewer than {halfFloor:F1} foreground layers; planned foreground elements per shot {plannedForeground:F1}, minimum authored foreground layers {minimumForegroundLayers}.",
                 minimalIntent
-                    ? "Intentional sparse/minimal density is allowed; record why the authored result intentionally departs from the quantitativePlanSheet before export."
-                    : "Add the missing foreground layers or revise the quantitativePlanSheet. Do not export a motion-graphics scene whose authored density shrank below half of the plan.",
+                    ? "The authored result is sparser than the plan, which matches the recorded minimal-density intent."
+                    : "The authored result is sparser than the plan. Add the missing foreground layers if the gap is an omission, or revise the quantitativePlanSheet if the sparser cut is the intended one.",
                 null,
                 scene.Children.Select(element => element.Id.ToString()).ToArray(),
                 objects.Select(item => item.Object.Id.ToString()).ToArray()));
@@ -2917,14 +2913,14 @@ public sealed class QualityAnalyzer(MotionVariationAnalyzer motionVariationAnaly
             bool stillnessIntent = allowStillness || AnyStillnessIntent(objects);
             issues.Add(new QualityIssue(
                 "motionContinuity",
-                IntentSeverity(stillnessIntent),
+                Advisory,
                 motion.Verdict == "low-motion-variation"
-                    ? "Rendered samples have too little temporal change."
-                    : "Rendered samples keep visible content too sparse or confined.",
+                    ? "Rendered samples have little temporal change."
+                    : "Rendered samples keep visible content sparse or confined.",
                 $"Motion verdict {motion.Verdict}; minimum changed-pixel ratio {motion.MinimumChangedPixelRatio:P2}.",
                 stillnessIntent
-                    ? "Intentional stillness/held frame is allowed; confirm the held composition reads as deliberate (negative space, single focal point) rather than a stalled render."
-                    : "Revise with connected phase changes across transform, opacity, brush/effect parameters, and foreground/background motion before export.",
+                    ? "The measured stillness matches the recorded held-frame intent."
+                    : "If the stillness is unintended, add connected phase changes across transform, opacity, brush/effect parameters, and foreground/background motion; a deliberate held frame needs no change.",
                 null,
                 scene.Children.Select(element => element.Id.ToString()).ToArray(),
                 []));

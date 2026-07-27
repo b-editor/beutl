@@ -732,7 +732,7 @@ public sealed class QualityAnalyzerTests
     }
 
     [Test]
-    public async Task Density_plan_violation_blocks_when_authored_density_falls_below_half_of_plan()
+    public async Task Density_plan_violation_is_reported_but_never_blocks()
     {
         Scene scene = CreateScene(durationSeconds: 4);
         AddRect(scene, "[role:background] flat field", zIndex: 0, width: 1920, height: 1080, color: Color.Parse("#ff10141e"));
@@ -746,18 +746,18 @@ public sealed class QualityAnalyzerTests
 
         Assert.Multiple(() =>
         {
-            Assert.That(result.PassesQualityGate, Is.False);
+            Assert.That(result.PassesQualityGate, Is.True, QualityDebug(result));
             Assert.That(result.Metrics.LayerDensity.DensityPlanViolation, Is.True);
             Assert.That(result.Metrics.LayerDensity.BandsBelowHalfPlannedForegroundLayerCount, Is.EqualTo(result.Metrics.LayerDensity.TimeBandCount));
             Assert.That(result.Issues, Has.Some.Matches<QualityIssue>(issue =>
                 issue.Category == "layerDensity"
-                && issue.Severity == "major"
+                && issue.Severity == "minor"
                 && issue.Message.Contains("quantitative plan", StringComparison.OrdinalIgnoreCase)));
         });
     }
 
     [Test]
-    public async Task Minimal_density_intent_downgrades_density_plan_violation_to_advisory()
+    public async Task Minimal_density_intent_rewords_the_density_plan_advisory()
     {
         Scene scene = CreateScene(durationSeconds: 4);
         AddRect(scene, "[role:background] flat field", zIndex: 0, width: 1920, height: 1080, color: Color.Parse("#ff10141e"));
@@ -777,7 +777,8 @@ public sealed class QualityAnalyzerTests
             Assert.That(result.Issues, Has.Some.Matches<QualityIssue>(issue =>
                 issue.Category == "layerDensity"
                 && issue.Severity == "minor"
-                && issue.Message.Contains("quantitative plan", StringComparison.OrdinalIgnoreCase)));
+                && issue.Message.Contains("quantitative plan", StringComparison.OrdinalIgnoreCase)
+                && issue.SuggestedFix.Contains("matches the recorded minimal-density intent", StringComparison.OrdinalIgnoreCase)));
             Assert.That(result.Issues, Has.None.Matches<QualityIssue>(issue =>
                 issue.Category == "layerDensity"
                 && issue.Severity == "major"));
@@ -1061,7 +1062,7 @@ public sealed class QualityAnalyzerTests
     }
 
     [Test]
-    public async Task Low_motion_variation_is_included_in_quality_review()
+    public async Task Low_motion_variation_is_reported_but_never_blocks()
     {
         Scene scene = CreateScene(durationSeconds: 3);
         AddRect(scene, "Static field", zIndex: 0, width: 1920, height: 1080, color: Colors.Black);
@@ -1072,8 +1073,8 @@ public sealed class QualityAnalyzerTests
         Assert.Multiple(() =>
         {
             Assert.That(result.Issues, Has.Some.Matches<QualityIssue>(issue =>
-                issue.Category == "motionContinuity" && issue.Severity == "major"));
-            Assert.That(result.PassesQualityGate, Is.False);
+                issue.Category == "motionContinuity" && issue.Severity == "minor"));
+            Assert.That(result.PassesQualityGate, Is.True, QualityDebug(result));
             Assert.That(result.Metrics.MotionContinuity.MotionVerdict, Is.EqualTo("low-motion-variation"));
         });
     }
@@ -1126,7 +1127,7 @@ public sealed class QualityAnalyzerTests
     }
 
     [Test]
-    public async Task Stillness_intent_flag_downgrades_low_motion_blocker_to_advisory()
+    public async Task Stillness_intent_flag_rewords_the_low_motion_advisory()
     {
         Scene accidental = CreateScene(durationSeconds: 3);
         AddRect(accidental, "Static field", zIndex: 0, width: 1920, height: 1080, color: Colors.Black);
@@ -1142,13 +1143,17 @@ public sealed class QualityAnalyzerTests
 
         Assert.Multiple(() =>
         {
-            Assert.That(blocked.PassesQualityGate, Is.False);
+            Assert.That(blocked.PassesQualityGate, Is.True, QualityDebug(blocked));
             Assert.That(blocked.Issues, Has.Some.Matches<QualityIssue>(issue =>
-                issue.Category == "motionContinuity" && issue.Severity == "major"));
+                issue.Category == "motionContinuity"
+                && issue.Severity == "minor"
+                && issue.SuggestedFix.Contains("If the stillness is unintended", StringComparison.Ordinal)));
 
             Assert.That(allowed.PassesQualityGate, Is.True, QualityDebug(allowed));
             Assert.That(allowed.Issues, Has.Some.Matches<QualityIssue>(issue =>
-                issue.Category == "motionContinuity" && issue.Severity == "minor"));
+                issue.Category == "motionContinuity"
+                && issue.Severity == "minor"
+                && issue.SuggestedFix.Contains("matches the recorded held-frame intent", StringComparison.Ordinal)));
             Assert.That(allowed.Issues, Has.None.Matches<QualityIssue>(issue =>
                 issue.Category == "motionContinuity" && issue.Severity == "major"));
         });
@@ -1173,7 +1178,33 @@ public sealed class QualityAnalyzerTests
     }
 
     [Test]
-    public async Task Existing_gate_blockers_remain_typography_structure_and_motion()
+    public async Task Deliberately_minimal_still_monochrome_scene_passes_the_gate_without_intent_flags()
+    {
+        // Sparse, motionless, and low-chroma at once with no intent flag and no role
+        // tag: none of those make a result unusable, so only advisories may fire.
+        Scene scene = CreateScene(durationSeconds: 6);
+        AddRect(scene, "Tonal field", zIndex: 0, width: 1920, height: 1080, color: Color.Parse("#ff1c1c1c"));
+        AddText(scene, "Quiet", zIndex: 10, size: 96, fill: Color.Parse("#ffe8e8e8"));
+
+        QualityReviewResponse result = await AnalyzeAsync(
+            scene,
+            styleProfile: "motion-graphics promo",
+            plannedForegroundElementsPerShot: 5);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(result.PassesQualityGate, Is.True, QualityDebug(result));
+            Assert.That(result.Issues.Where(issue => issue.Severity is "critical" or "major"), Is.Empty);
+            Assert.That(result.Issues, Has.Some.Matches<QualityIssue>(issue =>
+                issue.Category == "motionContinuity" && issue.Severity == "minor"));
+            Assert.That(result.Issues, Has.Some.Matches<QualityIssue>(issue =>
+                issue.Category == "layerDensity" && issue.Severity == "minor"));
+            Assert.That(result.ReviewNotes, Has.Some.Contains("Advisory issues describe what the scene measures"));
+        });
+    }
+
+    [Test]
+    public async Task Gate_blocks_only_unreadable_text_and_malformed_structure()
     {
         Scene denseCopy = CreateScene(durationSeconds: 4);
         Element denseText = AddText(
@@ -1205,9 +1236,9 @@ public sealed class QualityAnalyzerTests
             Assert.That(multiObjectResult.Issues, Has.Some.Matches<QualityIssue>(issue =>
                 issue.Category == "elementStructure" && issue.Severity == "major"));
 
-            Assert.That(stillResult.PassesQualityGate, Is.False);
+            Assert.That(stillResult.PassesQualityGate, Is.True, QualityDebug(stillResult));
             Assert.That(stillResult.Issues, Has.Some.Matches<QualityIssue>(issue =>
-                issue.Category == "motionContinuity" && issue.Severity == "major"));
+                issue.Category == "motionContinuity" && issue.Severity == "minor"));
         });
     }
 
@@ -1325,11 +1356,11 @@ public sealed class QualityAnalyzerTests
 
         Assert.Multiple(() =>
         {
-            Assert.That(defaultResult.PassesQualityGate, Is.False);
+            Assert.That(defaultResult.PassesQualityGate, Is.True, QualityDebug(defaultResult));
             Assert.That(defaultResult.Issues, Has.Some.Matches<QualityIssue>(issue =>
-                issue.Category == "motionContinuity" && issue.Severity == "major"));
+                issue.Category == "motionContinuity" && issue.Severity == "minor"));
             Assert.That(defaultResult.Issues, Has.Some.Matches<QualityIssue>(issue =>
-                issue.Category == "layerDensity" && issue.Severity == "major"));
+                issue.Category == "layerDensity" && issue.Severity == "minor"));
 
             Assert.That(slideshowResult.PassesQualityGate, Is.True);
             Assert.That(slideshowResult.Issues, Has.Some.Matches<QualityIssue>(issue =>
@@ -1444,7 +1475,7 @@ public sealed class QualityAnalyzerTests
         string[] expected =
         [
             "backgroundRichness:minor:The full-frame background is a flat single layer.",
-            "layerDensity:major:Authored foreground density falls below half of the quantitative plan.",
+            "layerDensity:minor:Authored foreground density falls below half of the quantitative plan.",
             "layerDensity:minor:The motion-graphics scene has thin layer density or incomplete depth coverage.",
             "tempoRhythm:minor:Foreground event gaps are too long for a high-tempo brief.",
             "tempoRhythm:minor:Foreground scene changes are too sparse for the requested BPM.",

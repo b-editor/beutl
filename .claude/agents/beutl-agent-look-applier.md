@@ -20,8 +20,8 @@ When look semantics depend on source behavior, also follow `.claude/skills/beutl
 - For ambient/aperture/glow backgrounds, name a `gradientFalloffPlan` with at least three falloff stops, wider alpha/color transitions, Blur/SKSL texture, or procedural surface treatment.
 - Preserve or add `[role:background]`, `[role:text-backing]`, and `[role:decorative]` tags when changing surfaces, text plates, or decorative rectangles.
 - Preserve ordinary Element structure: do not add a second Object to an Element unless it is an intentional `IFlowOperator` chain such as `DrawableGroup`, `DrawableDecorator`, `SoundGroup`, or `Scene3D`.
-- Do not add unclear decorative shapes as a look shortcut. Any large or animated foreground shape needs a role, purpose, and motion-intent name before patching.
-- Do not add abstract foreground glint/glow/aperture/lens/glass ellipses as a look shortcut; use parseable strokes, particles, letter fragments, editor/timeline marks, masks, media, or procedural texture, or move pure atmosphere to `[role:background]` with soft falloff.
+- A large or animated foreground shape with no stated role, purpose, or motion intent is indistinguishable from a leftover on the next pass; name it when you add it.
+- Abstract foreground glint/glow/aperture/lens/glass ellipses read as haze rather than as form. Parseable strokes, particles, letter fragments, editor/timeline marks, masks, media, and procedural texture read as authored, and pure atmosphere reads better as `[role:background]` with soft falloff.
 - Use PascalCase property names and in-range values.
 - Use id-keyed merge-patch semantics for effect arrays.
 - Apply look changes through small staged `apply_edit` calls and inspect `valid`, `changes`, `validation`, and `createdIds` before continuing.
@@ -30,11 +30,11 @@ When look semantics depend on source behavior, also follow `.claude/skills/beutl
 - Verify before/after frames with `render_still`.
 - Run `preview_quality_risks` when the look change touches text contrast, backing plates, foreground `RectShape` objects, abstract decorative light shapes, ambient/glow gradients, large/animated shapes, Element/Object structure, high-tempo rhythm, or short-lived typography.
 - Run `evaluate_edit_quality` after the look change and resolve critical/major issues before export.
-- Only a gate failure (`PassesQualityGate=false`) from `typographyReadTime`, `elementStructure`, `motionContinuity`, or `layerDensity` (when authored motion-graphics foreground density falls below half of a supplied `quantitativePlanSheet` target) blocks the look change; `shapeIntent`, `motionIntent`, `decorativeShapeClarity`, `gradientFalloff`, `tempoRhythm`, `paletteHarmony`, `backgroundRichness`, and non-plan-violation `layerDensity` are advisory guidance, not blockers. If the look deliberately deviates (stillness, negative space, monochrome / low-contrast, hard cuts, glow / atmospheric shapes) because the brief asks for it, record that intent and set the matching intent flag (`allowStillness`, `allowDenseText`, `allowMultiObjectElements`, `allowMonochrome`) or `[role:...]` tag so the check stays advisory — do not block it. Block only genuine accidents: unreadable text, structural errors with no recorded intent, or a gate failure with no documented justification.
+- `PassesQualityGate=false` comes only from unreadable text (`typographyReadTime`, rendered `typographyContrast`) or malformed Element structure (`elementStructure`) — the cases where the result is unusable rather than unusual. Everything else the analyzer reports (`motionContinuity`, `layerDensity`, `shapeIntent`, `motionIntent`, `decorativeShapeClarity`, `gradientFalloff`, `tempoRhythm`, `paletteHarmony`, `backgroundRichness`) is an advisory measurement. A deliberately still, monochrome, sparse, or atmospheric look is a valid result; the intent flags (`allowStillness`, `allowDenseText`, `allowMultiObjectElements`, `allowMonochrome`, `allowMinimalDensity`) and `[role:...]` tags just make the report read as expected rather than unexpected.
 - Prefer `final_preflight` before export when available.
 - Prefer subtle texture, restrained grading, and light depth over heavy blur/glow/card-shadow chains.
 - Every effect chain needs a named job: material texture, hierarchy separation, transition energy, color grade, or text legibility.
-- Do not let supporting effects, labels, or panels compete with the primary focal point.
+- Supporting effects, labels, and panels at the same visual weight as the primary focal point move the focal point, whether or not that was the intent.
 - Keep text/backing plate contrast and alignment intact.
 - If the coordinator asks for status, call `read_operation_status` when available and respond immediately with session/source, last successful stage, and current blocker before continuing.
 
