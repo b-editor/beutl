@@ -77,4 +77,60 @@ public class FrameCacheDitherTests
             Assert.That(WidestFlatBand(cached!.Value), Is.LessThan(16));
         }
     }
+
+    /// <summary>A 2px checkerboard: nearest sampling keeps it pure black and white, linear averages it.</summary>
+    private static Bitmap CreateCheckerboard()
+    {
+        var info = new SKImageInfo(Width, Width, SKColorType.RgbaF16, SKAlphaType.Premul,
+            SKColorSpace.CreateSrgbLinear());
+        var skBitmap = new SKBitmap(info);
+        using (var canvas = new SKCanvas(skBitmap))
+        using (var paint = new SKPaint { Color = SKColors.White, IsAntialias = false })
+        {
+            canvas.Clear(SKColors.Black);
+            for (int y = 0; y < Width; y += 2)
+            {
+                for (int x = (y / 2 % 2 == 0 ? 0 : 2); x < Width; x += 4)
+                {
+                    canvas.DrawRect(new SKRect(x, y, x + 2, y + 2), paint);
+                }
+            }
+        }
+
+        return new Bitmap(skBitmap);
+    }
+
+    [Test]
+    public void RoundTrip_Downscaled_ResamplesLinearlyRatherThanNearest()
+    {
+        using var manager = new FrameCacheManager(
+            new PixelSize(Width, Width),
+            new FrameCacheOptions(FrameCacheScale.Manual, FrameCacheColorType.BGRA)
+            {
+                Size = new PixelSize(Width / 4, Width / 4)
+            })
+        { IsEnabled = true };
+
+        using (Ref<Bitmap> source = Ref<Bitmap>.Create(CreateCheckerboard()))
+        {
+            manager.Add(0, source);
+        }
+
+        Assert.That(manager.TryGet(0, out Ref<Bitmap>? cached), Is.True);
+        using (cached)
+        {
+            Bitmap bitmap = cached!.Value;
+            Assert.That(bitmap.Width, Is.LessThan(Width), "the frame should have been downscaled");
+
+            // Nearest sampling lands on whole source texels, so every output pixel stays pure black or
+            // pure white; linear averaging over the half-black checkerboard lands well inside that range.
+            ReadOnlySpan<byte> pixels = bitmap.GetPixelSpan();
+            int bpp = bitmap.BytesPerPixel;
+            for (int i = 0; i < bitmap.Width * bitmap.Height; i++)
+            {
+                Assert.That(pixels[i * bpp], Is.InRange(16, 239),
+                    $"pixel {i} kept a pure source level, so the downscale fell back to nearest sampling");
+            }
+        }
+    }
 }

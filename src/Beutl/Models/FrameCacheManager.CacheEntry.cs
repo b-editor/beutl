@@ -68,13 +68,19 @@ public partial class FrameCacheManager
                     var newHeight = Math.Min(size.Height, newSize.Height);
                     var resized = new SKBitmap(new SKImageInfo(
                         newWidth, newHeight, SKColorType.Bgra8888, SKAlphaType.Premul, SKColorSpace.CreateSrgb()));
-                    // SKBitmap.Resize takes no SKPaint, so it cannot dither the linear RgbaF16 preview
-                    // frames down to 8-bit; drawing through a canvas can. Draw the bitmap directly
-                    // rather than via SKImage.FromBitmap, which would copy the whole mutable source.
+                    // SKBitmap.Resize cannot dither (it takes no SKPaint) and only DrawImage takes
+                    // SKSamplingOptions, so the linear downscale has to go through an SKImage.
+                    // Wrapping the pixmap avoids the full-frame copy SKImage.FromBitmap would make
+                    // of this mutable source.
                     using (var canvas = new SKCanvas(resized))
                     using (var paint = new SKPaint { BlendMode = SKBlendMode.Src, IsDither = true })
+                    using (var pixmap = current.SKBitmap.PeekPixels())
+                    using (var image = pixmap is not null
+                               ? SKImage.FromPixels(pixmap)
+                               : SKImage.FromBitmap(current.SKBitmap))
                     {
-                        canvas.DrawBitmap(current.SKBitmap, new SKRect(0, 0, newWidth, newHeight), paint);
+                        canvas.DrawImage(image, new SKRect(0, 0, newWidth, newHeight),
+                            new SKSamplingOptions(SKFilterMode.Linear), paint);
                     }
 
                     var resizedBitmap = new Bitmap(resized);
