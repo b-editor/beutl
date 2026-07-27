@@ -30,7 +30,7 @@ How to make the edit land:
 
 ### Effect vocabulary
 
-Call `list_effects` early and pick by intent rather than collapsing to blur/shadow/`ColorShift`: `DisplacementMapEffect` (warp, heat-haze, ripple), `PathFollowEffect` (move a drawable along a path), `StrokeEffect` (outline any drawable or text), `Lighting`, `PerlinNoise` (procedural texture), `LutEffect`/`ColorGrading`/`Curves` (grades), `MosaicEffect`, `InnerShadow`/`FlatShadow`. Confirm the exact property surface with `get_schema` before authoring.
+Call `list_effects` early and pick by intent rather than collapsing to blur/shadow/`ColorShift`: `DisplacementMapEffect` (warp, heat-haze, ripple), `PathFollowEffect` (move a drawable along a path), `StrokeEffect` (outline any drawable or text), `Lighting`, `PerlinNoise` (procedural texture), `LutEffect`/`ColorGrading`/`Curves` (grades), `MosaicEffect`, `InnerShadow`/`FlatShadow`. For bespoke vector accents, `GeometryShape` figures beat stacking rectangles and ellipses. Confirm the exact property surface with `get_schema` before authoring.
 
 For masked reveals, knockouts, and alpha mattes: `Drawable.BlendMode` Porter-Duff modes (`SrcIn`, `DstIn`, `SrcOut`, `DstOut`, `Modulate`) composite against the content below in the same flow — scope the matte with a `DrawableGroup`/`DrawableDecorator` so it does not affect the whole frame. The `Clipping` FilterEffect (animatable `Left`/`Top`/`Right`/`Bottom`) is the rectangular wipe primitive. Source-ground the compositing rule and verify with `render_still` before relying on it.
 
@@ -44,7 +44,7 @@ When an edit depends on effect-unit semantics, transform composition, bounds, te
 
 ## Deriving the look
 
-`derive_palette` returns role-tagged colors (`bg-base`, `bg-accent`, `foreground`, `text-primary`, `accent`) with contrast relationships already solved — `text-primary` clears 4.5:1 against both background roles by construction. Hand-picking colors is equally valid; it just leaves the contrast checks to you. Use concrete serialized values such as `#ffffb34d` rather than palette names such as `Amber`.
+`derive_palette` takes `baseHueDegrees`, `tonalSeed` (dark/light/balanced), `harmonyScheme` (analogous, complementary, split-complementary, triadic, tetradic, monochromatic), an optional `saturation`, an optional `derivationReason`, and an optional `structuralSignature`. It returns role-tagged colors (`bg-base`, `bg-accent`, `foreground`, `text-primary`, `accent`) with contrast relationships already solved — `text-primary` clears 4.5:1 against both background roles by construction. Hand-picking colors is equally valid; it just leaves the contrast checks to you. Use concrete serialized values such as `#ffffb34d` rather than palette names such as `Amber`.
 
 `list_creative_directions` reports what recent runs in this workspace looked like. If the point is that this piece should not resemble the last one, that list is the cheapest way to know. If a repeat is what the brief wants, ignore it.
 
