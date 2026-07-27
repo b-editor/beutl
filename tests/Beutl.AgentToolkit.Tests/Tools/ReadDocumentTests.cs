@@ -28,34 +28,38 @@ public sealed class ReadDocumentTests
         var tools = new QueryTools(new AgentSessionManager());
 
         ToolResult<GettingStartedResponse> result = tools.GetStarted();
+        GettingStartedResponse guidance = tools.GetStarted(includeGuidance: true).Value!;
 
         Assert.Multiple(() =>
         {
             Assert.That(result.IsSuccess, Is.True, result.Error?.Message);
-            Assert.That(result.Value!.RecommendedCalls, Has.Some.Contains("attach_active_editor for an open editor scene"));
-            Assert.That(result.Value.RecommendedCalls, Has.Some.Contains("create_project or open_project"));
-            Assert.That(result.Value.RecommendedCalls, Has.Some.Contains("file-backed session"));
-            Assert.That(result.Value.RecommendedCalls, Has.Some.Contains("measure_object_bounds"));
-            Assert.That(result.Value.RecommendedCalls, Has.Some.Contains("list_creative_directions"));
-            Assert.That(result.Value.RecommendedCalls, Has.Some.Contains("custom declarative patch"));
-            Assert.That(result.Value.RecommendedCalls, Has.Some.Contains("Orbit, radar, map, signal, and dashboard motifs"));
-            Assert.That(result.Value.RecommendedCalls, Has.Some.Contains("objective, audience"));
-            Assert.That(result.Value.RecommendedCalls, Has.Some.Contains("what a viewer looks at first"));
-            Assert.That(result.Value.RecommendedCalls, Has.Some.Contains("read time"));
-            Assert.That(result.Value.RecommendedCalls, Has.Some.Contains("effect purpose"));
-            Assert.That(result.Value.RecommendedCalls, Has.Some.Contains("list_compositions"));
-            Assert.That(result.Value.RecommendedCalls, Has.Some.Contains("explicitly asks for a reusable template"));
-            Assert.That(result.Value.RecommendedCalls, Has.Some.Contains("specific returned name"));
-            Assert.That(result.Value.RecommendedCalls, Has.None.Contains("first returned composition"));
-            Assert.That(result.Value.RecommendedCalls, Has.Some.Contains("planId"));
-            Assert.That(result.Value.RecommendedCalls, Has.Some.Contains("list_effects"));
-            Assert.That(result.Value.RecommendedCalls, Has.Some.Contains("list_effect_recipes"));
-            Assert.That(result.Value.RecommendedCalls, Has.Some.Contains("full-scene starters are hidden by default"));
-            Assert.That(result.Value.RecommendedCalls, Has.Some.Contains("[Beutl.ProjectSystem]:Element"));
-            Assert.That(result.Value.RecommendedCalls, Has.Some.Contains("insert-new-element-skeleton"));
-            Assert.That(result.Value.RecommendedCalls, Has.Some.Contains("SKSLScriptEffect"));
-            Assert.That(result.Value.RecommendedCalls, Has.Some.Contains("UseGlobalClock=false uses Element-local KeyTime values"));
-            Assert.That(result.Value.RecommendedCalls, Has.Some.Contains("evaluate_motion_variation"));
+            // The craft notes cost most of the payload, so first contact must not carry them.
+            Assert.That(result.Value!.Guidance, Is.Empty);
+            Assert.That(guidance.Guidance, Is.Not.Empty);
+            Assert.That(result.Value!.Essentials, Has.Some.Contains("attach_active_editor for an open editor scene"));
+            Assert.That(result.Value.Essentials, Has.Some.Contains("create_project or open_project"));
+            Assert.That(result.Value.Essentials, Has.Some.Contains("file-backed session"));
+            Assert.That(result.Value.Essentials, Has.Some.Contains("measure_object_bounds"));
+            Assert.That(result.Value.Essentials, Has.Some.Contains("list_creative_directions"));
+            Assert.That(result.Value.Essentials, Has.Some.Contains("custom declarative patch"));
+            Assert.That(guidance.Guidance, Has.Some.Contains("Orbit, radar, map, signal, and dashboard motifs"));
+            Assert.That(guidance.Guidance, Has.Some.Contains("objective, audience"));
+            Assert.That(guidance.Guidance, Has.Some.Contains("what a viewer looks at first"));
+            Assert.That(result.Value.Essentials, Has.Some.Contains("read time"));
+            Assert.That(guidance.Guidance, Has.Some.Contains("effect purpose"));
+            Assert.That(guidance.Guidance, Has.Some.Contains("list_compositions"));
+            Assert.That(guidance.Guidance, Has.Some.Contains("explicitly asks for a reusable template"));
+            Assert.That(guidance.Guidance, Has.Some.Contains("specific returned name"));
+            Assert.That(guidance.Guidance, Has.None.Contains("first returned composition"));
+            Assert.That(guidance.Guidance, Has.Some.Contains("planId"));
+            Assert.That(result.Value.Essentials, Has.Some.Contains("list_effects"));
+            Assert.That(result.Value.Essentials, Has.Some.Contains("list_effect_recipes"));
+            Assert.That(result.Value.Essentials, Has.Some.Contains("full-scene starters are hidden by default"));
+            Assert.That(result.Value.Essentials, Has.Some.Contains("[Beutl.ProjectSystem]:Element"));
+            Assert.That(result.Value.Essentials, Has.Some.Contains("insert-new-element-skeleton"));
+            Assert.That(result.Value.Essentials, Has.Some.Contains("SKSLScriptEffect"));
+            Assert.That(result.Value.Essentials, Has.Some.Contains("UseGlobalClock=false uses Element-local KeyTime values"));
+            Assert.That(result.Value.Essentials, Has.Some.Contains("evaluate_motion_variation"));
             Assert.That(result.Value.CategoryAliases["visualEffect"], Is.EqualTo("FilterEffect"));
             Assert.That(result.Value.RawHttpNote, Does.Contain("Server-Sent Events"));
             Assert.That(result.Value.RawHttpNote, Does.Contain("content[0].text"));

@@ -14,7 +14,7 @@ This is a lens, not a gate. The rubric gives you a vocabulary for saying what is
 - Rendered still PNGs from `render_still`, preferably with `returnImageContent=true` when the MCP client supports image blocks.
 - A storyboard contact sheet from `render_storyboard`, preferably with `returnImageContent=true` on a synchronous call. For motion review, a subdivided storyboard (`subdivisionLevel:1`, or `2` for suspicious gaps) exposes cut continuity that anchor frames hide.
 - The brief, target duration, mood, and any stated constraints.
-- Existing results from `preview_quality_risks`, `evaluate_motion_variation`, `evaluate_edit_quality`, or `final_preflight` when available.
+- Existing results from `evaluate_edit_quality(staticLayout:true)`, `evaluate_motion_variation`, `evaluate_edit_quality`, or `final_preflight` when available.
 - `compare_revisions` results after a revision pass when a cached rendered quality baseline exists.
 
 If image content blocks are unavailable, read the PNG files from the returned paths. Scoring from JSON alone measures the document, not the frame.
@@ -57,7 +57,7 @@ Not useful: "Make it more premium." / "Improve the colors." / "The motion feels 
 
 ## Workflow
 
-1. Check the deterministic results first. `evaluate_edit_quality` fails only on unreadable text and malformed Element structure; those are usually accidents and worth fixing before spending a visual pass. Everything else it reports is advisory and overlaps with what you are about to score yourself.
+1. Check the deterministic results first. `evaluate_edit_quality` fails only on unreadable text and malformed Element structure; those are usually accidents and worth fixing before spending a visual pass. It no longer forms opinions about palette harmony, background richness, shape clarity, gradient falloff, or motion arc — those axes are yours alone now, which is why looking at the frames is not optional.
 2. Inspect the rendered images directly — image content block when present, otherwise the PNG paths.
 3. Score all six axes with a one-sentence evidence note per score tied to a visible frame or contact-sheet region.
 4. Write concrete edit directives for the scores you think are wrong. A 4 may carry optional polish; a 5 should not request edits. For `motionArc`, convert weak in-between frames or exceeded `cutEyeTrace` displacement into bridge-animation directives: carry an element across the cut, add a camera-rig move (an eased push-in inside the shot, or a whip-pan translate across the cut), add a sweep or wipe, preserve shared background motion, realign the focal point, or overlap transform/opacity ramps. When the cause is a locked viewpoint rather than a missing element bridge, direct a `[role:camera-rig]` `DrawableGroup` transform animation rather than more element-level accents.

@@ -1008,7 +1008,7 @@ public sealed class RenderToolsStoryboardTests
             allowStillness: true,
             paletteRoleColors: CreateRevisionPaletteRolesJson(),
             cancellationToken: CancellationToken.None);
-        SetRevisionTextColor(scene, Colors.White);
+        FixRevisionElementStructure(scene);
         AddRevisionAccentFlood(scene, workspace);
 
         CallToolResult call = await tools.CompareRevisions(returnImageContent: true, cancellationToken: CancellationToken.None);
@@ -1017,9 +1017,9 @@ public sealed class RenderToolsStoryboardTests
         Assert.Multiple(() =>
         {
             Assert.That(baseline.IsSuccess, Is.True, baseline.Error?.Message);
-            Assert.That(baseline.Value!.Issues, Has.Some.Matches<QualityIssue>(issue => issue.Category == "typographyContrast"));
+            Assert.That(baseline.Value!.Issues, Has.Some.Matches<QualityIssue>(issue => issue.Category == "elementStructure"));
             Assert.That(result.IsSuccess, Is.True, result.Error?.Message);
-            Assert.That(result.Value!.IssuesResolved, Has.Some.Matches<QualityIssue>(issue => issue.Category == "typographyContrast"));
+            Assert.That(result.Value!.IssuesResolved, Has.Some.Matches<QualityIssue>(issue => issue.Category == "elementStructure"));
             Assert.That(result.Value.IssuesIntroduced, Has.Some.Matches<QualityIssue>(issue => issue.Category == "paletteBalance"));
             Assert.That(result.Value.Regression, Is.True);
             Assert.That(result.Value.MetricDeltas.Select(delta => delta.Metric), Does.Contain("paletteBalance.roleShare.accent"));
@@ -1173,6 +1173,9 @@ public sealed class RenderToolsStoryboardTests
             Fill = { CurrentValue = new SolidColorBrush(Color.Parse("#ff1a2028")) }
         };
         AddElement(scene, workspace, "revision text", TimeSpan.Zero, TimeSpan.FromSeconds(2), 10, block);
+        // A multi-object Element with no flow operator: the revision fixes this while the
+        // accent flood worsens palette balance, which is what the regression flag detects.
+        scene.Children[^1].AddObject(new EllipseShape { Name = "stray accent" });
         return scene;
     }
 
@@ -1202,6 +1205,12 @@ public sealed class RenderToolsStoryboardTests
             }
         };
         AddElement(scene, workspace, "accent flood", TimeSpan.Zero, TimeSpan.FromSeconds(2), 5, rect);
+    }
+
+    private static void FixRevisionElementStructure(Scene scene)
+    {
+        Element element = scene.Children.Single(item => item.Objects.Count > 1);
+        element.RemoveObject(element.Objects.OfType<EllipseShape>().Single());
     }
 
     private static PaletteRoleColor[] CreateRevisionPaletteRoles()

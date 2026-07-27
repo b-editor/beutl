@@ -42,11 +42,11 @@ public sealed class GetStartedSkillPointerTests
         GettingStartedResponse response = queryTools.GetStarted().Value!;
 
         Assert.That(
-            response.RecommendedCalls.Any(c =>
+            response.Essentials.Any(c =>
                 c.Contains("recommendedSkills", StringComparison.OrdinalIgnoreCase)
                 && c.Contains("beutl-agent-timeline-from-shotlist", StringComparison.Ordinal)),
             Is.True,
-            "RecommendedCalls should carry a lead pointer to the skills for clients that ignore the structured field");
+            "Essentials should carry a lead pointer to the skills for clients that ignore the structured field");
     }
 
     [Test]
@@ -61,8 +61,8 @@ public sealed class GetStartedSkillPointerTests
             Assert.That(response.VideoTypes, Is.Not.Null);
             Assert.That(response.VideoTypes!, Has.Count.EqualTo(5));
             Assert.That(response.SelectedVideoType, Is.Null);
-            Assert.That(response.RecommendedCalls[0], Does.Contain("Classifying the brief against videoTypes"));
-            Assert.That(response.RecommendedCalls, Has.Some.Contains("derive_palette"));
+            Assert.That(response.Essentials[0], Does.Contain("Classifying the brief against videoTypes"));
+            Assert.That(response.Essentials, Has.Some.Contains("derive_palette"));
             Assert.That(response.VideoTypes!.Select(item => item.Name), Is.EquivalentTo(new[]
             {
                 "motion-graphics",
@@ -86,12 +86,12 @@ public sealed class GetStartedSkillPointerTests
             Assert.That(response.SelectedVideoType, Is.Not.Null);
             Assert.That(response.SelectedVideoType!.Name, Is.EqualTo("slideshow"));
             Assert.That(response.VideoTypes, Is.Null);
-            Assert.That(response.RecommendedCalls, Has.Some.Contains("per-photo duration grid"));
-            Assert.That(response.RecommendedCalls, Has.Some.Contains("Ken Burns"));
-            Assert.That(response.RecommendedCalls, Has.Some.Contains("videoType:\"slideshow\""));
-            Assert.That(response.RecommendedCalls, Has.Some.Contains("beutl-agent-asset-sourcing"));
-            Assert.That(response.RecommendedCalls, Has.None.Contains("BPM"));
-            Assert.That(response.RecommendedCalls, Has.None.Contains("beat grid"));
+            Assert.That(response.Essentials, Has.Some.Contains("per-photo duration grid"));
+            Assert.That(response.Essentials, Has.Some.Contains("Ken Burns"));
+            Assert.That(response.Essentials, Has.Some.Contains("videoType:\"slideshow\""));
+            Assert.That(response.Essentials, Has.Some.Contains("beutl-agent-asset-sourcing"));
+            Assert.That(response.Essentials, Has.None.Contains("BPM"));
+            Assert.That(response.Essentials, Has.None.Contains("beat grid"));
         });
     }
 
@@ -104,7 +104,7 @@ public sealed class GetStartedSkillPointerTests
 
         GettingStartedResponse response = queryTools.GetStarted(videoType).Value!;
 
-        Assert.That(response.RecommendedCalls, Has.Some.Contains("beutl-agent-asset-sourcing"));
+        Assert.That(response.Essentials, Has.Some.Contains("beutl-agent-asset-sourcing"));
     }
 
     [Test]
@@ -132,7 +132,7 @@ public sealed class GetStartedSkillPointerTests
         GettingStartedResponse response = queryTools.GetStarted().Value!;
 
         Assert.That(
-            response.RecommendedCalls.Any(call =>
+            response.Essentials.Any(call =>
                 call.Contains("subdivisionLevel:1", StringComparison.Ordinal)
                 && call.Contains("subdivisionLevel:2", StringComparison.Ordinal)
                 && call.Contains("bridge animations", StringComparison.Ordinal)),

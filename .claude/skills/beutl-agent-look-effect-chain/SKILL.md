@@ -72,7 +72,7 @@ Observations about what viewers tend to see. Treat them as knowledge, not permis
 
 ## Checking the result
 
-`preview_quality_risks` (document-only) and `evaluate_edit_quality` (rendered) measure the scene and report what they find. Only two families fail the gate — unreadable text (read time, rendered contrast) and malformed Element structure — because only those mark a result nobody can use. Density, motion, palette, background, tempo, and shape findings are advisory: they describe the scene, they do not prescribe one.
+`evaluate_edit_quality(staticLayout:true)` (document-only) and `evaluate_edit_quality` (rendered) measure the scene and report what they find. Only two families fail the gate — unreadable text (read time, rendered contrast) and malformed Element structure — because only those mark a result nobody can use. Density, motion, palette, background, tempo, and shape findings are advisory: they describe the scene, they do not prescribe one.
 
 Read the advisories, act on the ones that contradict your own intent, and ignore the rest. Setting an intent flag (`allowStillness`, `allowDenseText`, `allowMultiObjectElements`, `allowMonochrome`, `allowMinimalDensity`) or a `[role:...]` tag rewords a finding as expected rather than unexpected, which is useful when a later pass reads the report. `relaxAesthetics` drops the advisory block wholesale when you already know what the piece is.
 

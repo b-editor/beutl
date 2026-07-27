@@ -84,7 +84,8 @@ public sealed record RecommendedSkill(
 
 public sealed record GettingStartedResponse(
     string SchemaVersion,
-    IReadOnlyList<string> RecommendedCalls,
+    IReadOnlyList<string> Essentials,
+    IReadOnlyList<string> Guidance,
     IReadOnlyList<RecommendedSkill> RecommendedSkills,
     IReadOnlyDictionary<string, string> CategoryAliases,
     string RawHttpNote,
@@ -225,10 +226,36 @@ public sealed class QueryTools(AgentSessionManager sessions) : ToolBase
     private readonly SchemaGenerator _schemaGenerator = new();
     private readonly CompositionTemplateCatalog _compositionCatalog = new();
 
+    private static IReadOnlyList<string> CreateGuidanceNotes()
+        =>
+        [
+        "For original creative briefs, list_creative_directions reports what recent runs already looked like, which is the cheapest way to avoid repeating yourself. derive_palette and get_background_grammar offer colors and background vocabulary with the relationships pre-solved; authoring either by hand is equally valid.",
+        "derive_palette takes a base hue, tonal seed, harmony scheme, optional derivation reason, and structural signature. Its repeat warnings say the result resembles recent work; that is information about your own history, not a verdict on the piece.",
+        "get_background_grammar lists background slots, options, and parameter ranges. A base layer plus one or two depth layers plus a motion slot is the combination that reads as full depth; a flatter background is a legitimate choice.",
+        "For a one-call original starting point, call plan_original_scaffold to get a gate-clean skeleton patch (background role, headline/subtitle, placeholder foreground) with a generated palette and seed-varied layout, then customize every placeholder and apply it with apply_edit. This is an original skeleton, not a named template like apply_composition.",
+        "Orbit, radar, map, signal, and dashboard motifs are the defaults most generators reach for, so they read as generic when the brief did not ask for them.",
+        "Deciding objective, audience, emotional temperature, message hierarchy, palette roles, typography roles, motion phases, and effect purpose up front makes later edits cheaper, in whatever form suits you.",
+        "At high-tempo 1.5s beats a viewer reads roughly 1-3 hero words and 2-4 word labels; past that the text is present but not read. Non-text density (nodes, particles, strokes, texture, accent motion) carries the beat without that cost.",
+        "For 120-140 BPM briefs, convert the tempo into a beat grid before authoring: around 130 BPM, 1 beat is about 462 ms, 2 beats about 923 ms, and visible foreground beats should change every 1-2 beats with no long foreground event gaps.",
+        "Grouping, alignment, scale contrast, color contrast, and repetition are the levers that decide what a viewer looks at first; a shot with several equal candidates leaves that ordering to chance.",
+        "Several hero-scale text roles in one beat compete for the same attention. Making captions, labels, and texture text visibly quieter is the usual resolution; deliberate competition is its own effect.",
+        "RectShape reads naturally as a full-frame or background plate; as a foreground accent it reads as a rectangle, where EllipseShape, RoundedRectShape, GeometryShape, media, strokes, or procedural texture read as form. Tags like [role:background], [role:text-backing], or [role:decorative] let the quality tools classify plates correctly.",
+        "Naming a large or animated foreground shape with its role and motion intent is what lets a later pass tell a designed accent from a leftover; unnamed moving shapes are indistinguishable from accidents.",
+        "Abstract glint/glow/aperture ellipses are the cheapest way to add foreground activity, which is why they read as filler. Strokes, particles, letter fragments, editor/timeline marks, masks, media, and procedural texture give a viewer something to parse.",
+        "A two-stop gradient falloff shows its boundary as a band. Three or more stops, wider transitions, Blur/SKSL texture, or a procedural surface hide it.",
+        "Effects earn their render cost through material texture, hierarchy separation, transition energy, or text legibility; a stack where no layer has a job usually reads as noise.",
+        "For visible progress, apply large scenes in stages that follow your synthesized pitch: background/surface first, then motion elements, then text/effects.",
+        "For unconstrained creative briefs, keep project/video/still basenames neutral and record the synthesized pitch in notes instead of filenames.",
+        "Use list_compositions, get_composition, and plan_composition only when the user explicitly asks for a reusable template, starter, or named composition style.",
+        "When using a composition template, call list_compositions, choose a specific returned name that matches the user's request, then pass that name to plan_composition and apply_composition with the returned planId.",
+        "Use render_composition_patch only when the client explicitly needs the generated template patch JSON."
+        ];
+
     private static GettingStartedResponse CreateVideoTypeGettingStartedResponse(VideoTypeProfile profile)
         => new(
             SchemaVersion.Current,
             CreateVideoTypeWorkflow(profile),
+            [],
             CreateRecommendedSkills(),
             CreateCategoryAliases(),
             RawHttpNote,
@@ -297,10 +324,12 @@ public sealed class QueryTools(AgentSessionManager sessions) : ToolBase
         };
 
     [McpServerTool(Name = "get_started")]
-    [Description("Returns a compact, low-context guide for using the Beutl Agent Editing Toolkit. Use this first when an agent only has the MCP endpoint URL.")]
+    [Description("Returns a compact, low-context guide for using the Beutl Agent Editing Toolkit. Use this first when an agent only has the MCP endpoint URL. `essentials` covers the mechanics — sessions, schema, patch shape, history, verification, export — and is what you need to author correctly. `guidance` holds the longer craft notes on palette, typography, density, tempo, and shape choices; it is omitted by default to keep first contact cheap, so pass includeGuidance:true when you want it.")]
     public ToolResult<GettingStartedResponse> GetStarted(
         [Description("Optional video workflow profile. Supported values: motion-graphics, footage-cut, slideshow, lyric-captions, logo-intro. Omit to receive the classification-first default guide.")]
-        string? videoType = null)
+        string? videoType = null,
+        [Description("When true, also return the craft-notes block. Default false keeps the response to the mechanics.")]
+        bool includeGuidance = false)
     {
         return Execute(() =>
         {
@@ -318,50 +347,33 @@ public sealed class QueryTools(AgentSessionManager sessions) : ToolBase
                 "Call attach_active_editor for an open editor scene; if no editor scene is open, call create_project or open_project instead of writing a one-off generator. In the in-app host these open the project in the Beutl editor (single open project, LiveEditor session; a different project cannot be opened while one is open); in the stdio host they create a file-backed session.",
                 "Call read_document_summary to inspect progress without the full document.",
                 "Call measure_object_bounds before positioning text, backing plates, or centered objects; default Drawable alignment is centered, so TranslateTransform(0, 0) means the object's center is at the frame center.",
-                "For original creative briefs, list_creative_directions reports what recent runs already looked like, which is the cheapest way to avoid repeating yourself. derive_palette and get_background_grammar offer colors and background vocabulary with the relationships pre-solved; authoring either by hand is equally valid.",
-                "derive_palette takes a base hue, tonal seed, harmony scheme, optional derivation reason, and structural signature. Its repeat warnings say the result resembles recent work; that is information about your own history, not a verdict on the piece.",
-                "get_background_grammar lists background slots, options, and parameter ranges. A base layer plus one or two depth layers plus a motion slot is the combination that reads as full depth; a flatter background is a legitimate choice.",
+                "undo(steps) reverts your own last apply_edit transactions exactly, and read_history names what the next step would revert. Backing out an experiment that way is cheaper and more accurate than authoring a compensating patch. In a LiveEditor session the stack is shared with the editor, so a step can revert a human edit.",
                 "After deriving palette and background grammar, read_document and get_schema only for the drawable/effect types you need, then author a custom declarative patch instead of cloning a starter.",
-                "For a one-call original starting point, call plan_original_scaffold to get a gate-clean skeleton patch (background role, headline/subtitle, placeholder foreground) with a generated palette and seed-varied layout, then customize every placeholder and apply it with apply_edit. This is an original skeleton, not a named template like apply_composition.",
                 "Call list_effects and list_effect_recipes to discover Beutl's visual effect palette before choosing a repeated look; for organic heat/ink/glass/noise fields, consider an SKSLScriptEffect shader recipe instead of stacking only blurred gradients.",
                 "For SKSL/GLSL/CSharp script effects, read the default script and uniform list from get_schema(type=<effect>), then call validate_shader to compile-check an edited script before apply_edit; for SKSL, a compile error makes the effect a no-op and the source passes through unchanged.",
-                "Orbit, radar, map, signal, and dashboard motifs are the defaults most generators reach for, so they read as generic when the brief did not ask for them.",
-                "Deciding objective, audience, emotional temperature, message hierarchy, palette roles, typography roles, motion phases, and effect purpose up front makes later edits cheaper, in whatever form suits you.",
-                "At high-tempo 1.5s beats a viewer reads roughly 1-3 hero words and 2-4 word labels; past that the text is present but not read. Non-text density (nodes, particles, strokes, texture, accent motion) carries the beat without that cost.",
                 "For particle-like density (sparks, dust, confetti, glyph debris), use the real ParticleEmitter drawable (get_schema type=ParticleEmitter: EmitterShape point/line/circle, EmissionRate, Lifetime, Speed/Direction/Spread, Gravity, TurbulenceScale, and ParticleDrawable to emit any Drawable as the sprite) instead of faking a swarm with many ellipse Elements; for music-driven briefs, AudioWaveformDrawable / AudioSpectrumDrawable / AudioSpectrogramDrawable render real audio-reactive motion with bar/radial/mirrored/line/filled/dots/block shape styles.",
                 "For masked reveals, knockouts, and wipes, use real masking: Drawable.BlendMode Porter-Duff modes (SrcIn/DstIn/SrcOut/DstOut/Modulate) matte a drawable against the content below it in the same flow (scope the matte inside a DrawableGroup/DrawableDecorator so it does not knock out the whole frame), and the Clipping FilterEffect (animatable Left/Top/Right/Bottom) is the rectangular wipe primitive; verify the composite with render_still.",
                 "For kinetic type, set TextBlock.SplitByCharacters=true (per-glyph compositing — the enabler for per-character effects and PartsSplitEffect shatter) and animate TextBlock.Spacing; for perspective card flips use Rotation3DTransform (RotationX/Y/Z, Depth); for line-drawing reveals animate Pen.TrimStart/TrimEnd (0-100), or set Pen.DashArray (static float list) and animate Pen.DashOffset for marching dashes; widen easing beyond cubic ease-out with BackEase*/ElasticEase* overshoot, BounceEase* settles, and SplineEasing custom bezier curves on accents.",
                 "Audio is authorable, not analysis-only: keyframe Sound.Gain (percent: 100 = unity, values above 100 amplify) for fade-ins/outs and ducking under narration, set Sound.Effect to an AudioEffectGroup with DelayEffect/EqualizerEffect/CompressorEffect/LimiterEffect children, and use SoundGroup (an IFlowOperator — the PortalObject pairing rule applies) to submix audio Elements.",
-                "For 120-140 BPM briefs, convert the tempo into a beat grid before authoring: around 130 BPM, 1 beat is about 462 ms, 2 beats about 923 ms, and visible foreground beats should change every 1-2 beats with no long foreground event gaps.",
-                "Grouping, alignment, scale contrast, color contrast, and repetition are the levers that decide what a viewer looks at first; a shot with several equal candidates leaves that ordering to chance.",
                 "Move the viewpoint, not just the elements. Beutl 2D has no scene camera, so plan per-shot camera treatments (push-in, pull-back, pan, whip-pan bridge, parallax) and author them as animated transforms on a named [role:camera-rig] DrawableGroup that parents the shot's content; a motion-graphics piece whose shots are static compositions swapped by hard cuts reads as a slide deck.",
                 "Flow operators (DrawableGroup, DrawableDecorator, SoundGroup, Scene3D) need a PortalObject immediately before them in Element.Objects. PortalObject.Count is an inclusive ZIndex span, not an element count: every active Element with ZIndex in rig+1..rig+Count is pulled into the operator while keeping per-Element timing; Count=0 pulls no timeline rows, so with the portal as the Element's first object the operator consumes only its nested Children (set Clear=true to explicitly discard earlier same-Element flow). See get_examples insert-camera-rig-portal and insert-camera-rig-push-in.",
-                "Several hero-scale text roles in one beat compete for the same attention. Making captions, labels, and texture text visibly quieter is the usual resolution; deliberate competition is its own effect.",
-                "RectShape reads naturally as a full-frame or background plate; as a foreground accent it reads as a rectangle, where EllipseShape, RoundedRectShape, GeometryShape, media, strokes, or procedural texture read as form. Tags like [role:background], [role:text-backing], or [role:decorative] let the quality tools classify plates correctly.",
                 "RectShape and EllipseShape cover two figures; the rest need geometry. For bespoke vector shapes (arrows, chevrons, brackets, crop marks, icons, letter fragments) use GeometryShape; call get_examples for 'insert-new-geometry-shape-path' to copy the typed PathGeometry/PathFigure/segment shape (paths are typed segment objects, not SVG strings, and GeometryShape sizes to its geometry bounds). Author path coordinates with the artwork's top-left at (0, 0): the drawn center lands at the alignment-resolved center plus the path bounds origin, so paths centered on (0, 0) shift up-left by half their size.",
                 "Keep ordinary timeline Elements to one EngineObject. Multiple Objects in one Element are allowed only when the Element contains an IFlowOperator such as DrawableGroup, DrawableDecorator, SoundGroup, or Scene3D.",
-                "Naming a large or animated foreground shape with its role and motion intent is what lets a later pass tell a designed accent from a leftover; unnamed moving shapes are indistinguishable from accidents.",
-                "Abstract glint/glow/aperture ellipses are the cheapest way to add foreground activity, which is why they read as filler. Strokes, particles, letter fragments, editor/timeline marks, masks, media, and procedural texture give a viewer something to parse.",
-                "A two-stop gradient falloff shows its boundary as a band. Three or more stops, wider transitions, Blur/SKSL texture, or a procedural surface hide it.",
                 "For readable type, keep copy short or extend duration; verify contrast, explicit [role:text-backing] plates, and read time with render_still and evaluate_edit_quality.",
-                "Effects earn their render cost through material texture, hierarchy separation, transition energy, or text legibility; a stack where no layer has a job usually reads as noise.",
-                "For visible progress, apply large scenes in stages that follow your synthesized pitch: background/surface first, then motion elements, then text/effects.",
-                "Before a large edit or after an intermediate stage, call preview_quality_risks to catch document-only risks early; call suggest_quality_fixes when you need a minimal repair plan.",
-                "For unconstrained creative briefs, keep project/video/still basenames neutral and record the synthesized pitch in notes instead of filenames.",
+                "Before a large edit or after an intermediate stage, call evaluate_edit_quality(staticLayout:true) to catch document-only risks early; call suggest_quality_fixes when you need a minimal repair plan.",
                 "New timeline Elements need '$type': '[Beutl.ProjectSystem]:Element'. Existing Elements keep Id; genuinely new Elements and Objects omit Id. If you need structure only, fetch the targeted insert-new-element-skeleton example instead of a full-scene starter.",
                 "Choose animation clock mode explicitly: UseGlobalClock=false uses Element-local KeyTime values in 00:00:00..Element.Length; UseGlobalClock=true uses scene timeline KeyTime values that should intersect the visible Element range.",
                 "For explicit keyframes, call get_examples for animate-float-property-keyframes or insert-new-animated-text-keyframes and copy the concrete KeyFrameAnimation<T> and KeyFrame<T> discriminators instead of inventing animation type names.",
                 "Call apply_edit with the custom patch and schemaVersion=1.",
                 "For file-backed sessions, call save_project after each major successful apply_edit so partial progress is durable.",
                 "For synthesized creative pitches, verify read_document_summary contains your own planned element names before rendering or exporting.",
-                "Use list_compositions, get_composition, and plan_composition only when the user explicitly asks for a reusable template, starter, or named composition style.",
-                "When using a composition template, call list_compositions, choose a specific returned name that matches the user's request, then pass that name to plan_composition and apply_composition with the returned planId.",
-                "Use render_composition_patch only when the client explicitly needs the generated template patch JSON.",
                 "Call list_examples/get_examples for small schema snippets or as a fallback when a user asks for an example; full-scene starters are hidden by default.",
                 "final_preflight bundles the pre-export checks; otherwise call render_still for representative frames, run evaluate_motion_variation, then evaluate_edit_quality. Its critical/major findings are limited to unreadable text and malformed Element structure, which are usually accidents; the advisories describe the scene and are yours to accept or act on. export_video never consults either.",
                 "After authoring motion, re-render the storyboard with subdivisionLevel:1; raise to subdivisionLevel:2 for suspicious gaps. Review the in-between frames for cut continuity, and add bridge animations when hard cuts have no shared motion, camera move (matched push-in or whip-pan), sweep, overlap, opacity ramp, or background continuity.",
-                "For visual review in multimodal clients, call render_still or render_storyboard with returnImageContent=true, then apply the beutl-agent-visual-review rubric for advisory concrete edit directives."
+                "For visual review in multimodal clients, call render_still or render_storyboard with returnImageContent=true, then apply the beutl-agent-visual-review rubric for advisory concrete edit directives.",
+                "derive_palette, get_background_grammar, and list_creative_directions cover palette derivation with contrast pre-solved, background vocabulary, and what recent runs in this workspace looked like. Call get_started with includeGuidance:true for the longer craft notes on those and on typography, density, tempo, and shape choices."
             ],
+            includeGuidance ? CreateGuidanceNotes() : [],
             CreateRecommendedSkills(),
             CreateCategoryAliases(),
             RawHttpNote,

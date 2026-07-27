@@ -322,7 +322,7 @@ public sealed class RenderTools(
     }
 
     [McpServerTool(Name = "evaluate_edit_quality")]
-    [Description("Measures the current scene and reports what it finds: all-caps typography, visual hierarchy, text read time, rendered text contrast, RectShape usage, decorative light shapes, gradient falloff, background richness, foreground shape clarity, motion intent, multi-object Element structure, layer density/depth coverage, rhythm density/gaps, audio beat sync, text backing alignment, palette harmony, effect stacking, card/shadow styling, easing variety, motion clusters, motion-arc shape, motion continuity, cut rhythm, and timeline coverage. Only two families fail the gate, because only they mark a result nobody can use: text a viewer cannot read (short read time, rendered contrast below the large-text floor) and malformed multi-object Element structure. Everything else — density, motion, palette, background, tempo, shape vocabulary — is advisory: it describes the scene, it does not prescribe one. A sparse, still, monochrome, or unconventional piece is a legitimate result, so read the advisories, act on the ones that contradict your own intent, and ignore the rest. The intent flags (allowStillness, allowDenseText, allowMultiObjectElements, allowMonochrome, allowMinimalDensity) and [role:...] tags reword findings as expected rather than unexpected, and downgrade the two gate families where the choice is deliberate.")]
+    [Description("Measures the current scene and reports what it finds: all-caps typography, text read time, rendered text contrast, multi-object Element structure, layer density/depth coverage, rhythm density/gaps, cut rhythm, audio beat sync, text backing alignment, rendered palette balance, easing variety, motion clusters, motion continuity, and timeline coverage. Pass staticLayout:true for the document-only pass (no rendering, no motion checks) — that is the cheap early check while authoring. Only two families fail the gate, because only they mark a result nobody can use: text a viewer cannot read (short read time, rendered contrast below the large-text floor) and malformed multi-object Element structure. Everything else is advisory: it describes the scene, it does not prescribe one. Judgments about palette harmony, background richness, shape clarity, gradient falloff, and motion arc are deliberately not made here — read a render_still and decide those yourself. The intent flags (allowStillness, allowDenseText, allowMultiObjectElements, allowMonochrome, allowMinimalDensity) and [role:...] tags reword findings as expected rather than unexpected, and downgrade the two gate families where the choice is deliberate.")]
     public ValueTask<ToolResult<QualityReviewResponse>> EvaluateEditQuality(
         [Description("Optional video workflow profile. Supported values: motion-graphics, footage-cut, slideshow, lyric-captions, logo-intro. Omit for exactly the legacy motion-graphics behavior.")]
         string? videoType = null,
@@ -338,8 +338,6 @@ public sealed class RenderTools(
         bool allowAllCaps = false,
         [Description("When true, suppresses the repeated hard-cut cadence advisory. Hard cuts are already advisory (they never block the gate); this flag removes the note.")]
         bool allowHardCuts = false,
-        [Description("When true, suppresses the non-background RectShape-dominance advisory. Rect dominance is already advisory (it never blocks the gate).")]
-        bool allowRectDominance = false,
         [Description("When true, drops the aesthetic and pacing advisories in one switch (ambiguous decorative shapes, Material-UI card look, RectShape dominance, hard cuts, and high-tempo long-hold/short-segment pacing) to keep the response focused. None of them affect the gate either way; the blocking checks (text read time, rendered text contrast, Element structure) are unchanged.")]
         bool relaxAesthetics = false,
         [Description("When true, records that stillness / a held frame / negative space is deliberate, so the motion-continuity finding reads as expected rather than as a warning. Motion never fails the gate either way. Tagging an element/object [role:still] (or naming it 'hold frame', 'negative space', etc.) opts in the same way without this flag.")]
@@ -380,7 +378,6 @@ public sealed class RenderTools(
                 renderScale,
                 allowAllCaps,
                 allowHardCuts,
-                allowRectDominance,
                 relaxAesthetics,
                 allowStillness,
                 allowDenseText,
@@ -398,7 +395,6 @@ public sealed class RenderTools(
                 options.StyleProfile,
                 options.AllowAllCaps,
                 options.AllowHardCuts,
-                options.AllowRectDominance,
                 options.RelaxAesthetics,
                 options.AllowStillness,
                 options.AllowDenseText,
@@ -426,63 +422,8 @@ public sealed class RenderTools(
         });
     }
 
-    [McpServerTool(Name = "preview_quality_risks")]
-    [Description("Runs document-only deterministic quality risk checks without rendering. Use before or immediately after authoring a large apply_edit patch to catch text-density, RectShape, ambiguous decorative light shapes, hard gradient falloff, flat background richness, unclear-shape, missing-motion-intent, layer-density/depth, multi-object Element, high-tempo rhythm/gaps, backing-plate, palette, effect-stack, easing/motion-uniformity, logo-intro motion-arc, video-type timeline coverage, and timeline-structure risks early.")]
-    public ValueTask<ToolResult<QualityReviewResponse>> PreviewQualityRisks(
-        [Description("Optional video workflow profile. Supported values: motion-graphics, footage-cut, slideshow, lyric-captions, logo-intro. Omit for exactly the legacy motion-graphics behavior.")]
-        string? videoType = null,
-        [Description("Optional profile label recorded in the review notes, such as kinetic-type, high-tempo-promo, editorial, or minimal.")]
-        string? styleProfile = "preview-risks",
-        [Description("When true, tailors the intentional all-caps suggested fix. All-caps typography is already advisory (it never blocks the gate); this flag adjusts guidance, not severity.")]
-        bool allowAllCaps = false,
-        [Description("When true, suppresses the repeated hard-cut cadence advisory. Hard cuts are already advisory (they never block the gate); this flag removes the note.")]
-        bool allowHardCuts = false,
-        [Description("When true, suppresses the non-background RectShape-dominance advisory. Rect dominance is already advisory (it never blocks the gate).")]
-        bool allowRectDominance = false,
-        [Description("When true, drops the aesthetic and pacing advisories in one switch (ambiguous decorative shapes, Material-UI card look, RectShape dominance, hard cuts, and high-tempo long-hold/short-segment pacing) to keep the response focused. None of them affect the gate either way; the blocking checks (text read time, rendered text contrast, Element structure) are unchanged.")]
-        bool relaxAesthetics = false,
-        [Description("When true, records that stillness / a held frame / negative space is deliberate, so the motion-continuity finding reads as expected rather than as a warning. Motion never fails the gate either way. Tagging an element/object [role:still] (or naming it 'hold frame', 'negative space', etc.) opts in the same way without this flag.")]
-        bool allowStillness = false,
-        [Description("When true, brief-justified dense or long copy on a short-lived text element is allowed: the read-time blocker is downgraded from major to advisory. Tagging the text [role:reading]/[role:manifesto]/[role:credits] (or so naming it) opts in the same way without this flag.")]
-        bool allowDenseText = false,
-        [Description("When true, an intentional composite Element holding multiple EngineObjects without an IFlowOperator is allowed: the element-structure blocker is downgraded from major to advisory. Tagging the Element [role:composite] opts in the same way without this flag.")]
-        bool allowMultiObjectElements = false,
-        [Description("When true, an intentional monochrome / low-contrast palette is allowed: the low luma-separation advisory is suppressed. Tagging an element/object [role:monochrome]/[role:low-contrast] (or so naming it) opts in the same way without this flag.")]
-        bool allowMonochrome = false,
-        [Description("When true, records that minimal / sparse / negative-space density is deliberate, so the density findings read as expected rather than as omissions. Density never fails the gate either way. Tagging an element/object [role:minimal] or [role:negative-space] opts in the same way without this flag.")]
-        bool allowMinimalDensity = false,
-        [Description("Optional target for planned foreground elements per shot. When > 0, layerDensity reports which measured time bands author fewer than half this foreground layer count, so you can tell an omission from an intended sparser cut. Advisory only; it never fails the gate.")]
-        double plannedForegroundElementsPerShot = 0,
-        CancellationToken cancellationToken = default)
-    {
-        return ExecuteAsync(async () =>
-        {
-            ValidateVideoType(videoType);
-            Scene scene = RequireSceneSnapshot();
-            return await qualityAnalyzer.AnalyzeAsync(
-                scene,
-                timeSeconds: null,
-                sampleCount: 2,
-                renderScale: 1,
-                styleProfile,
-                allowAllCaps,
-                allowHardCuts,
-                allowRectDominance,
-                relaxAesthetics,
-                allowStillness,
-                allowDenseText,
-                allowMultiObjectElements,
-                allowMonochrome,
-                allowMinimalDensity,
-                plannedForegroundElementsPerShot,
-                evaluateMotion: false,
-                videoType: videoType,
-                cancellationToken: cancellationToken).ConfigureAwait(false);
-        });
-    }
-
     [McpServerTool(Name = "suggest_quality_fixes")]
-    [Description("Groups current quality issues into minimal, patch-oriented fix suggestions. Use after preview_quality_risks or evaluate_edit_quality when an agent needs the smallest repair plan instead of raw issue rows.")]
+    [Description("Groups current quality issues into minimal, patch-oriented fix suggestions. Use after evaluate_edit_quality(staticLayout:true) or evaluate_edit_quality when an agent needs the smallest repair plan instead of raw issue rows.")]
     public ValueTask<ToolResult<QualityFixSuggestionsResponse>> SuggestQualityFixes(
         [Description("Optional video workflow profile. Supported values: motion-graphics, footage-cut, slideshow, lyric-captions, logo-intro. Omit for exactly the legacy motion-graphics behavior.")]
         string? videoType = null,
@@ -502,8 +443,6 @@ public sealed class RenderTools(
         bool allowAllCaps = false,
         [Description("When true, suppresses the repeated hard-cut cadence advisory. Hard cuts are already advisory (they never block the gate); this flag removes the note.")]
         bool allowHardCuts = false,
-        [Description("When true, suppresses the non-background RectShape-dominance advisory. Rect dominance is already advisory (it never blocks the gate).")]
-        bool allowRectDominance = false,
         [Description("When true, drops the aesthetic and pacing advisories in one switch (ambiguous decorative shapes, Material-UI card look, RectShape dominance, hard cuts, and high-tempo long-hold/short-segment pacing) to keep the response focused. None of them affect the gate either way; the blocking checks (text read time, rendered text contrast, Element structure) are unchanged.")]
         bool relaxAesthetics = false,
         [Description("When true, records that stillness / a held frame / negative space is deliberate, so the motion-continuity finding reads as expected rather than as a warning. Motion never fails the gate either way. Tagging an element/object [role:still] (or naming it 'hold frame', 'negative space', etc.) opts in the same way without this flag.")]
@@ -535,7 +474,6 @@ public sealed class RenderTools(
                 styleProfile,
                 allowAllCaps,
                 allowHardCuts,
-                allowRectDominance,
                 relaxAesthetics,
                 allowStillness,
                 allowDenseText,
@@ -581,8 +519,6 @@ public sealed class RenderTools(
         bool allowAllCaps = false,
         [Description("When true, suppresses the repeated hard-cut cadence advisory. Hard cuts are already advisory (they never block the gate); this flag removes the note.")]
         bool allowHardCuts = false,
-        [Description("When true, suppresses the non-background RectShape-dominance advisory. Rect dominance is already advisory (it never blocks the gate).")]
-        bool allowRectDominance = false,
         [Description("When true, drops the aesthetic and pacing advisories in one switch (ambiguous decorative shapes, Material-UI card look, RectShape dominance, hard cuts, and high-tempo long-hold/short-segment pacing) to keep the response focused. None of them affect the gate either way; the blocking checks (text read time, rendered text contrast, Element structure) are unchanged.")]
         bool relaxAesthetics = false,
         [Description("When true, records that stillness / a held frame / negative space is deliberate, so the motion-continuity finding reads as expected rather than as a warning. Motion never fails the gate either way. Tagging an element/object [role:still] (or naming it 'hold frame', 'negative space', etc.) opts in the same way without this flag.")]
@@ -663,7 +599,6 @@ public sealed class RenderTools(
                 styleProfile,
                 allowAllCaps,
                 allowHardCuts,
-                allowRectDominance,
                 relaxAesthetics,
                 allowStillness,
                 allowDenseText,
@@ -688,7 +623,6 @@ public sealed class RenderTools(
                         renderScale,
                         allowAllCaps,
                         allowHardCuts,
-                        allowRectDominance,
                         relaxAesthetics,
                         allowStillness,
                         allowDenseText,
@@ -771,7 +705,6 @@ public sealed class RenderTools(
                 baseline.Options.StyleProfile,
                 baseline.Options.AllowAllCaps,
                 baseline.Options.AllowHardCuts,
-                baseline.Options.AllowRectDominance,
                 baseline.Options.RelaxAesthetics,
                 baseline.Options.AllowStillness,
                 baseline.Options.AllowDenseText,
@@ -1194,7 +1127,6 @@ public sealed class RenderTools(
         float renderScale,
         bool allowAllCaps,
         bool allowHardCuts,
-        bool allowRectDominance,
         bool relaxAesthetics,
         bool allowStillness,
         bool allowDenseText,
@@ -1211,7 +1143,6 @@ public sealed class RenderTools(
             float.IsFinite(renderScale) && renderScale > 0 ? renderScale : 1,
             allowAllCaps,
             allowHardCuts,
-            allowRectDominance,
             relaxAesthetics,
             allowStillness,
             allowDenseText,
@@ -1302,10 +1233,6 @@ public sealed class RenderTools(
         var deltas = new List<QualityMetricDelta>();
         AddDelta(deltas, "typography.textObjectCount", previous.Metrics.Typography.TextObjectCount, current.Metrics.Typography.TextObjectCount);
         AddDelta(deltas, "typography.lowContrastTextCount", previous.Metrics.Typography.LowContrastTextCount, current.Metrics.Typography.LowContrastTextCount);
-        AddDelta(deltas, "palette.harmonyScore", previous.Metrics.Palette.HarmonyScore, current.Metrics.Palette.HarmonyScore);
-        AddDelta(deltas, "palette.hueRelationshipScore", previous.Metrics.Palette.HueRelationshipScore, current.Metrics.Palette.HueRelationshipScore);
-        AddDelta(deltas, "backgroundRichness.fullFrameBackgroundLayerCount", previous.Metrics.BackgroundRichness.FullFrameBackgroundLayerCount, current.Metrics.BackgroundRichness.FullFrameBackgroundLayerCount);
-        AddDelta(deltas, "backgroundRichness.flatSingleLayerBackgroundCount", previous.Metrics.BackgroundRichness.FlatSingleLayerBackgroundCount, current.Metrics.BackgroundRichness.FlatSingleLayerBackgroundCount);
         AddDelta(deltas, "layerDensity.averageVisibleLayerCount", previous.Metrics.LayerDensity.AverageVisibleLayerCount, current.Metrics.LayerDensity.AverageVisibleLayerCount);
         AddDelta(deltas, "layerDensity.averageForegroundLayerCount", previous.Metrics.LayerDensity.AverageForegroundLayerCount, current.Metrics.LayerDensity.AverageForegroundLayerCount);
         AddDelta(deltas, "tempo.timelineEventsPerSecond", previous.Metrics.Tempo.TimelineEventsPerSecond, current.Metrics.Tempo.TimelineEventsPerSecond);
@@ -2064,20 +1991,11 @@ public sealed class RenderTools(
         return category switch
         {
             "typographyReadTime" => "For 1.5s beats, replace sentences with 1-3 word hero text and 2-4 word supporting tokens, or split copy into separate Elements.",
-            "shapeDiversity" => "Delete or replace foreground RectShape accents with EllipseShape, RoundedRectShape, GeometryShape, strokes, media, or procedural texture; keep RectShape for full-frame [role:background] surfaces.",
-            "decorativeShapeClarity" => "Replace abstract glint/glow/aperture ellipses with concrete, parseable visual systems such as strokes, particles, letter fragments, editor/timeline marks, masks, media, or procedural texture; move pure atmosphere to [role:background].",
-            "gradientFalloff" => "For ambient/aperture/glow gradients, use at least three falloff stops, widen abrupt stop offsets, add Blur/SKSL texture when appropriate, or replace the shape with procedural surface texture.",
-            "backgroundRichness" => "Replace the flat single-layer background with a 3+ stop gradient or shader base, then add a midground texture/depth layer and subtle drift/parallax.",
-            "shapeIntent" => "Rename/tag each large or animated foreground shape with a clear role and purpose, or remove it if it does not serve the shot.",
-            "motionIntent" => "Rename/tag animated foreground shapes with a concrete motion job such as beat slide, scan sweep, pulse reveal, wipe transition, or impact burst.",
             "elementStructure" => "Split ordinary content into one Element per EngineObject; keep multi-object Elements only for IFlowOperator chains such as DrawableGroup, DrawableDecorator, SoundGroup, or Scene3D.",
             "layerDensity" => "Use metrics.layerDensity to find the sparse time bands, then add missing background/midground/foreground layers, or revise the density target when the sparser cut is the intended one.",
             "tempoRhythm" => "Convert the BPM target into a beat grid, add visible foreground boundaries every 1-2 beats, close long foreground event gaps, and keep normal foreground holds near 2-4 beats.",
             "textBackgroundFit" => "Use an explicit [role:text-backing] shape only for real text plates, match its Start/Length to the text Element, then verify with measure_object_bounds.",
-            "visualHierarchy" => "Keep one hero-scale text object per beat and reduce supporting labels below hero size and contrast.",
-            "paletteHarmony" => "Re-derive the palette from one base hue with derive_palette; use a recognized harmony scheme, one saturated accent, and clear text/background luma separation.",
             "paletteBalance" => "Pass derive_palette role colors as paletteRoleColors, then reduce large accent-colored areas and restore the bg-base/background dominant role to carry most of the frame.",
-            "effectIntent" => "Remove repeated decorative effect stacks or rename and keep only chains with one job: texture, hierarchy, transition energy, grade, or legibility.",
             "motionContinuity" => "Add bridged opacity/transform/spacing/brush/effect keyframes across cut boundaries and keep animatedPropertyCount above zero for motion graphics.",
             "cutRhythm" => "Bridge adjacent Elements with short overlaps, opacity fades, or transform continuation instead of pure hard boundaries.",
             "transitionVocabulary" => "Choose one continuity-editing transition vocabulary for the sequence, then revise outlier boundaries so dissolves, sweeps, dips, or hard cuts do not alternate without a clear reason.",
