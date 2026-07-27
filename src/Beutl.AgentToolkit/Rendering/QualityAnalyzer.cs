@@ -1186,7 +1186,7 @@ public sealed class QualityAnalyzer(MotionVariationAnalyzer motionVariationAnaly
                 $"{bandsBelowHalfPlan}/{bandCount} time bands have fewer than {halfFloor:F1} foreground layers; planned foreground elements per shot {plannedForeground:F1}, minimum authored foreground layers {minimumForegroundLayers}.",
                 minimalIntent
                     ? "The authored result is sparser than the plan, which matches the recorded minimal-density intent."
-                    : "The authored result is sparser than the plan. Add the missing foreground layers if the gap is an omission, or revise the quantitativePlanSheet if the sparser cut is the intended one.",
+                    : "The authored result is sparser than the plan. Add the missing foreground layers if the gap is an omission, or revise the plannedForegroundElementsPerShot target if the sparser cut is the intended one.",
                 null,
                 scene.Children.Select(element => element.Id.ToString()).ToArray(),
                 objects.Select(item => item.Object.Id.ToString()).ToArray()));
