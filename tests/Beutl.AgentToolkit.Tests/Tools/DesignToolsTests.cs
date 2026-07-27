@@ -128,13 +128,14 @@ public sealed class DesignToolsTests
     {
         var tools = new QueryTools(new AgentSessionManager());
 
-        GettingStartedResponse response = tools.GetStarted().Value!;
+        GettingStartedResponse core = tools.GetStarted().Value!;
+        GettingStartedResponse withGuidance = tools.GetStarted(includeGuidance: true).Value!;
 
         Assert.Multiple(() =>
         {
-            Assert.That(response.RecommendedCalls, Has.Some.Contains("derive_palette"));
-            Assert.That(response.RecommendedCalls, Has.Some.Contains("get_background_grammar"));
-            Assert.That(response.RecommendedCalls, Has.Some.Contains("base hue, tonal seed, harmony scheme"));
+            Assert.That(core.Essentials, Has.Some.Contains("derive_palette"));
+            Assert.That(core.Essentials, Has.Some.Contains("get_background_grammar"));
+            Assert.That(withGuidance.Guidance, Has.Some.Contains("base hue, tonal seed, harmony scheme"));
         });
     }
 }

@@ -77,7 +77,6 @@ public sealed class PlanOriginalScaffoldTests
                 styleProfile: null,
                 allowAllCaps: false,
                 allowHardCuts: false,
-                allowRectDominance: false,
                 relaxAesthetics: false,
                 allowStillness: false,
                 allowDenseText: false,

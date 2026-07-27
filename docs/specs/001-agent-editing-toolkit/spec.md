@@ -295,7 +295,7 @@ The toolkit shipped five design extensions after the original spec was approved.
 
 **Problem**: the original single workflow assumed motion-graphics (BPM beat grids, background grammar, 2-3 foreground layers); other video types tripped inapplicable gates or missed type-specific steps.
 
-**Delivered**: `VideoTypeCatalog` (`src/Beutl.AgentToolkit/Design/VideoTypeCatalog.cs`, 288 lines) — five first-class `videoType` profiles (`motion-graphics`, `footage-cut`, `slideshow`, `lyric-captions`, `logo-intro`). The one `beutl-agent-timeline-from-shotlist` skill gained a Phase -1 classification step and a per-type flow matrix; no per-type skill forks. The `videoType` parameter threads through `evaluate_edit_quality`, `preview_quality_risks`, `suggest_quality_fixes`, `final_preflight`, and `get_started`, applying implied intent flags + analyzer applicability. A new advisory `timelineCoverage` reports gaps for footage-cut/slideshow. Backward compatibility: omitted `videoType` is byte-for-byte `motion-graphics` (characterized by tests).
+**Delivered**: `VideoTypeCatalog` (`src/Beutl.AgentToolkit/Design/VideoTypeCatalog.cs`, 288 lines) — five first-class `videoType` profiles (`motion-graphics`, `footage-cut`, `slideshow`, `lyric-captions`, `logo-intro`). The one `beutl-agent-timeline-from-shotlist` skill gained a Phase -1 classification step and a per-type flow matrix; no per-type skill forks. The `videoType` parameter threads through `evaluate_edit_quality`, `evaluate_edit_quality(staticLayout:true)`, `suggest_quality_fixes`, `final_preflight`, and `get_started`, applying implied intent flags + analyzer applicability. A new advisory `timelineCoverage` reports gaps for footage-cut/slideshow. Backward compatibility: omitted `videoType` is byte-for-byte `motion-graphics` (characterized by tests).
 
 ### Autonomous Asset Sourcing (2026-07-03)
 
@@ -347,6 +347,19 @@ A theory-grounded backlog of ten tasks (T1–T10), each naming the film/motion-d
 - **Intent flags still exist** (`allowStillness`, `allowDenseText`, `allowMultiObjectElements`, `allowMonochrome`, `allowMinimalDensity`, `relaxAesthetics`, `[role:...]` tags), but for the now-advisory families they reword a finding as expected rather than changing severity.
 
 **Unchanged**: `WorkspaceGuard`/`DestructiveGuard` write boundaries, `apply_edit` schema validation, and the `beutl-agent-asset-sourcing` license/provenance contract — those are safety, correctness, and rights boundaries rather than creative constraints.
+
+### Capability-First Toolkit Pass (2026-07-28)
+
+**Problem**: with the gate narrowed to readability and structure, the remaining shape of the toolkit still assumed an agent that needed scaffolding — it had no way to undo its own edit, first contact spent 12.6 KB of prose, and roughly a third of the analyzer produced opinions about a rendered frame that a multimodal agent forms better by looking.
+
+**Delivered**:
+
+- **History is reachable.** `undo`, `redo`, and `read_history` expose the per-session `HistoryManager` that the reconciliation pipeline already wrote to. Backing out an experiment is now one exact call instead of a hand-authored compensating patch. `undo(steps)` walks back multiple transactions and reports what it reverted; in a LiveEditor session the stack is the editor's own, so `read_history` names the next entry first. This does not reintroduce imperative per-property editing — the authoring surface stays declarative.
+- **`get_started` split into `essentials` and `guidance`.** Mechanics (sessions, schema, patch shape, history, verification, export) are returned by default at ~8.5 KB; the craft notes on palette, typography, density, tempo, and shape moved behind `includeGuidance:true`. Payload down ~33% on first contact.
+- **The analyzer stopped forming opinions it cannot win.** Removed `shapeDiversity`, `decorativeShapeClarity`, `shapeIntent`, `motionIntent`, `effectIntent`, `visualHierarchy`, `paletteHarmony`, `backgroundRichness`, `materialUiLook`, `gradientFalloff`, and `motionArc`, along with `ShapeDiversityMetrics`, `BackgroundRichnessMetrics`, `MotionArcMetrics`, and the palette harmony-scoring fields — about 600 lines, including every site that inferred intent from Element/Object name strings. What remains is what an agent cannot compute by looking: contrast ratios, read time, structure validity, changed-pixel deltas, event density, 60-30-10 area share, beat alignment, bounds math, and easing/uniformity statistics. Look judgments belong to `render_still` plus `beutl-agent-visual-review`.
+- **One fewer analysis entry point.** `preview_quality_risks` was exactly `evaluate_edit_quality(staticLayout:true)` with a different default style profile, so it was removed and its callers repointed. `allowRectDominance` went with the check it controlled.
+
+**Not done**: the composition-template surface (`list_compositions`, `get_composition`, `plan_composition`, `apply_composition`, `render_composition_patch` over ~2,300 lines of catalog) is still five entry points to one feature that the guidance now steers away from. Removing it is a product decision — a user can legitimately ask for a template — so it awaits an explicit call. The flat `allow*` parameter blocks were also left flat rather than collapsed into an options object, because the existing `paletteRoleColors` JSON-string fallback is evidence that some MCP clients handle complex arguments poorly.
 
 ## Dependencies
 

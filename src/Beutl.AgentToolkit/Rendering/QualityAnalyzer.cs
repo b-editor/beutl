@@ -33,11 +33,9 @@ public sealed record QualityIssue(
 
 public sealed record QualityMetrics(
     TypographyMetrics Typography,
-    ShapeDiversityMetrics ShapeDiversity,
     PaletteMetrics Palette,
     StructureMetrics Structure,
     TempoMetrics Tempo,
-    BackgroundRichnessMetrics BackgroundRichness,
     LayerDensityMetrics LayerDensity,
     MotionCraftMetrics MotionCraft,
     MotionContinuityMetrics MotionContinuity,
@@ -65,36 +63,11 @@ public sealed record TypographyContrastSample(
     string Time,
     double ContrastRatio);
 
-public sealed record ShapeDiversityMetrics(
-    int RectShapeCount,
-    int BackgroundRectShapeCount,
-    int NonBackgroundRectShapeCount,
-    int RoundedRectShapeCount,
-    int EllipseShapeCount,
-    double RectDominanceRatio,
-    int AmbiguousDecorativeShapeCount);
-
 public sealed record PaletteMetrics(
     int ColorCount,
     double AverageSaturation,
     double MaxSaturation,
-    double LumaRange,
-    bool HasDarkTealCyanMagentaPalette,
-    bool HasOversaturatedPalette,
-    bool HasLowContrastPalette,
-    int HardGradientObjectCount,
-    int HardGradientTransitionCount,
-    double HarmonyScore,
-    string HarmonyScheme,
-    double HueRelationshipScore,
-    double SaturationBalanceScore,
-    double LumaBalanceScore,
-    bool HasLowHarmonyScore);
-
-public sealed record BackgroundRichnessMetrics(
-    int FullFrameBackgroundLayerCount,
-    int FlatSingleLayerBackgroundCount,
-    int RichBackgroundLayerCount);
+    double LumaRange);
 
 public sealed record StructureMetrics(
     int ElementCount,
@@ -159,8 +132,7 @@ public sealed record MotionContinuityMetrics(
 
 public sealed record MotionCraftMetrics(
     EasingDiversityMetrics EasingDiversity,
-    MotionUniformityMetrics MotionUniformity,
-    MotionArcMetrics MotionArc);
+    MotionUniformityMetrics MotionUniformity);
 
 public sealed record EasingDiversityMetrics(
     int AnimatedTransitionCount,
@@ -174,13 +146,6 @@ public sealed record MotionUniformityMetrics(
     double? LargestClusterStartSeconds,
     double? LargestClusterDurationSeconds,
     string? LargestClusterDirection);
-
-public sealed record MotionArcMetrics(
-    bool Evaluated,
-    int DominantAnimatedElementCount,
-    bool HasAnticipation,
-    bool HasSettle,
-    double HoldSeconds);
 
 public sealed record TransitionVocabularyMetrics(
     IReadOnlyDictionary<string, int> Histogram,
@@ -234,7 +199,6 @@ public sealed class QualityAnalyzer(MotionVariationAnalyzer motionVariationAnaly
         string? styleProfile,
         bool allowAllCaps,
         bool allowHardCuts,
-        bool allowRectDominance,
         bool relaxAesthetics,
         bool allowStillness,
         bool allowDenseText,
@@ -257,7 +221,6 @@ public sealed class QualityAnalyzer(MotionVariationAnalyzer motionVariationAnaly
 
         // relaxAesthetics only suppresses non-blocking aesthetic/pacing advisories; the
         // blocking checks (read time, element structure, motion) still run regardless.
-        bool relaxRectDominance = allowRectDominance || relaxAesthetics;
         bool relaxHardCuts = allowHardCuts || relaxAesthetics;
         bool resolvedAllowStillness = allowStillness || gateProfile.ImpliedAllowStillness;
         bool resolvedAllowMinimalDensity = allowMinimalDensity || gateProfile.ImpliedAllowMinimalDensity;
@@ -266,17 +229,10 @@ public sealed class QualityAnalyzer(MotionVariationAnalyzer motionVariationAnaly
         SceneObjectInfo[] objects = EnumerateObjects(scene).ToArray();
         List<QualityIssue> issues = [];
         TypographyMetrics typography = AnalyzeTypography(objects, allowAllCaps, issues);
-        ShapeDiversityMetrics shapeDiversity = AnalyzeShapeDiversity(scene, objects, relaxRectDominance, relaxAesthetics, issues);
         StructureMetrics structure = AnalyzeStructure(scene, objects, allowMultiObjectElements, issues);
         int textPlateMismatchCount = AnalyzeTextBackgroundFit(scene, objects, issues);
         typography = typography with { TextPlateMismatchCount = textPlateMismatchCount };
         PaletteMetrics palette = AnalyzePalette(scene, objects, allowMonochrome, issues);
-        BackgroundRichnessMetrics backgroundRichness = AnalyzeBackgroundRichness(
-            scene,
-            objects,
-            gateProfile.SuppressBackgroundRichness,
-            issues);
-        AnalyzeMaterialUiLook(objects, relaxAesthetics, issues);
         AnalyzeDesignStructure(
             scene,
             objects,
@@ -380,7 +336,7 @@ public sealed class QualityAnalyzer(MotionVariationAnalyzer motionVariationAnaly
                 !hasBlockingIssue,
                 verdict,
                 issues,
-                new QualityMetrics(typography, shapeDiversity, palette, structure, tempo, backgroundRichness, layerDensity, motionCraft, motion, transitionVocabulary, paletteBalance),
+                new QualityMetrics(typography, palette, structure, tempo, layerDensity, motionCraft, motion, transitionVocabulary, paletteBalance),
                 notes);
         }
         finally
@@ -461,19 +417,6 @@ public sealed class QualityAnalyzer(MotionVariationAnalyzer motionVariationAnaly
             .ToArray();
 
         SceneObjectInfo[] concurrentDominantTextObjects = FindMaxConcurrentDominantText(dominantTextObjects);
-        if (concurrentDominantTextObjects.Length >= 4
-            && (!suppressCaptionRoleHierarchy || !concurrentDominantTextObjects.All(IsCaptionRoleText)))
-        {
-            issues.Add(new QualityIssue(
-                "visualHierarchy",
-                Advisory,
-                "Too many text elements are styled as dominant focal points.",
-                $"{concurrentDominantTextObjects.Length} simultaneously visible text objects use size 88 or larger.",
-                "Limit hero-scale type to one primary message and one secondary emphasis; make supporting copy smaller, quieter, or grouped.",
-                null,
-                concurrentDominantTextObjects.Select(item => item.Element.Id.ToString()).ToArray(),
-                concurrentDominantTextObjects.Select(item => item.Object.Id.ToString()).ToArray()));
-        }
 
         foreach (SceneObjectInfo info in textObjects)
         {
@@ -508,18 +451,6 @@ public sealed class QualityAnalyzer(MotionVariationAnalyzer motionVariationAnaly
             .Where(item => item.Object is Drawable drawable
                            && FlattenEffects(drawable.FilterEffect.CurrentValue).Count() >= 3)
             .ToArray();
-        if (effectHeavyObjects.Length >= 3)
-        {
-            issues.Add(new QualityIssue(
-                "effectIntent",
-                Advisory,
-                "Several foreground objects carry dense effect stacks, which can make the look feel arbitrary.",
-                $"{effectHeavyObjects.Length} foreground objects have three or more filter effects.",
-                "Assign each effect a job such as material texture, hierarchy separation, transition energy, or text legibility; remove decorative repeats.",
-                null,
-                effectHeavyObjects.Select(item => item.Element.Id.ToString()).ToArray(),
-                effectHeavyObjects.Select(item => item.Object.Id.ToString()).ToArray()));
-        }
     }
 
     private static Rect? GetGeometryLocalBounds(GeometryShape shape)
@@ -615,18 +546,6 @@ public sealed class QualityAnalyzer(MotionVariationAnalyzer motionVariationAnaly
             .Where(item => !HasShapeIntent(item))
             .Where(item => IsLargeForegroundShape(scene, item) || CountAnimatedProperties(item.Object) > 0)
             .ToArray();
-        if (unclearShapes.Length > 0)
-        {
-            issues.Add(new QualityIssue(
-                "shapeIntent",
-                Advisory,
-                "Foreground shapes need a visible role or purpose before they become large or animated.",
-                $"{unclearShapes.Length} large or animated foreground shapes have no recognizable role/purpose naming.",
-                "Rename or tag each foreground shape with an explicit role and purpose, such as [role:decorative] beat sweep, [role:text-backing] title plate, or [role:background] surface; delete shapes that do not serve the shot.",
-                null,
-                unclearShapes.Select(item => item.Element.Id.ToString()).ToArray(),
-                unclearShapes.Select(item => item.Object.Id.ToString()).ToArray()));
-        }
 
         SceneObjectInfo[] animatedShapesWithoutMotionIntent = objects
             .Where(item => item.Object is Shape)
@@ -634,18 +553,6 @@ public sealed class QualityAnalyzer(MotionVariationAnalyzer motionVariationAnaly
             .Where(item => CountAnimatedProperties(item.Object) > 0)
             .Where(item => !HasMotionIntent(item))
             .ToArray();
-        if (animatedShapesWithoutMotionIntent.Length > 0)
-        {
-            issues.Add(new QualityIssue(
-                "motionIntent",
-                Advisory,
-                "Animated foreground shapes need an explicit motion intent.",
-                $"{animatedShapesWithoutMotionIntent.Length} animated foreground shapes do not expose motion intent in their Element/Object names.",
-                "Name the motion job before export, such as beat slide, scan sweep, pulse reveal, wipe transition, drift texture, or impact burst; remove arbitrary animated shapes.",
-                null,
-                animatedShapesWithoutMotionIntent.Select(item => item.Element.Id.ToString()).ToArray(),
-                animatedShapesWithoutMotionIntent.Select(item => item.Object.Id.ToString()).ToArray()));
-        }
 
         return new StructureMetrics(
             scene.Children.Count,
@@ -817,65 +724,6 @@ public sealed class QualityAnalyzer(MotionVariationAnalyzer motionVariationAnaly
             longestForegroundHoldSeconds);
     }
 
-    private static ShapeDiversityMetrics AnalyzeShapeDiversity(
-        Scene scene,
-        IReadOnlyList<SceneObjectInfo> objects,
-        bool allowRectDominance,
-        bool relaxDecorativeShapes,
-        List<QualityIssue> issues)
-    {
-        SceneObjectInfo[] rects = objects.Where(item => item.Object is RectShape).ToArray();
-        int backgroundRects = rects.Count(item => IsBackgroundRect(scene, item));
-        int nonBackgroundRects = rects.Length - backgroundRects;
-        int roundedRects = objects.Count(item => item.Object is RoundedRectShape);
-        int ellipses = objects.Count(item => item.Object is EllipseShape);
-        int geometricCount = objects.Count(item => item.Object is Shape);
-        double dominance = geometricCount == 0 ? 0 : rects.Length / (double)geometricCount;
-        SceneObjectInfo[] ambiguousDecorativeShapes = objects
-            .Where(item => item.Object is Shape)
-            .Where(item => !IsBackgroundObject(scene, item))
-            .Where(item => IsLargeForegroundShape(scene, item) || CountAnimatedProperties(item.Object) > 0)
-            .Where(IsAmbiguousDecorativeShape)
-            .ToArray();
-
-        if (!allowRectDominance
-            && nonBackgroundRects >= 3
-            && dominance >= 0.6)
-        {
-            issues.Add(new QualityIssue(
-                "shapeDiversity",
-                Advisory,
-                "The scene relies on too many plain RectShape objects outside background use.",
-                $"{nonBackgroundRects} non-background RectShape objects; rect dominance {dominance:P0}.",
-                "Keep full-frame plates as RectShape, but switch foreground panels to RoundedRectShape, EllipseShape, GeometryShape, media, strokes, or procedural texture.",
-                null,
-                rects.Select(item => item.Element.Id.ToString()).ToArray(),
-                rects.Select(item => item.Object.Id.ToString()).ToArray()));
-        }
-
-        if (!relaxDecorativeShapes && ambiguousDecorativeShapes.Length > 0)
-        {
-            issues.Add(new QualityIssue(
-                "decorativeShapeClarity",
-                Advisory,
-                "Abstract decorative light shapes are too ambiguous to read as intentional content.",
-                $"{ambiguousDecorativeShapes.Length} large or animated foreground shapes use abstract light/material naming such as glint, glow, bloom, aperture, lens, or glass.",
-                "Replace these with concrete visual systems the viewer can parse, such as strokes, particles, letter fragments, UI/editor marks, masks, media, or procedural texture; move purely atmospheric light to [role:background] with soft falloff.",
-                null,
-                ambiguousDecorativeShapes.Select(item => item.Element.Id.ToString()).ToArray(),
-                ambiguousDecorativeShapes.Select(item => item.Object.Id.ToString()).ToArray()));
-        }
-
-        return new ShapeDiversityMetrics(
-            rects.Length,
-            backgroundRects,
-            nonBackgroundRects,
-            roundedRects,
-            ellipses,
-            dominance,
-            ambiguousDecorativeShapes.Length);
-    }
-
     private static int AnalyzeTextBackgroundFit(
         Scene scene,
         IReadOnlyList<SceneObjectInfo> objects,
@@ -950,23 +798,7 @@ public sealed class QualityAnalyzer(MotionVariationAnalyzer motionVariationAnaly
 
         if (colors.Length == 0)
         {
-            (int emptyHardObjects, int emptyHardTransitions) = AnalyzeGradientFalloff(scene, objects, issues);
-            return new PaletteMetrics(
-                0,
-                0,
-                0,
-                0,
-                false,
-                false,
-                false,
-                emptyHardObjects,
-                emptyHardTransitions,
-                1,
-                "monochromatic",
-                1,
-                1,
-                1,
-                false);
+            return new PaletteMetrics(0, 0, 0, 0);
         }
 
         Hsv[] hsv = colors.Select(color => color.ToHsv()).ToArray();
@@ -983,121 +815,16 @@ public sealed class QualityAnalyzer(MotionVariationAnalyzer motionVariationAnaly
         bool oversaturated = colors.Length >= 3 && averageSaturation >= 68 && maxSaturation >= 88;
         bool lowContrast = colors.Length >= 2 && lumaRange < 0.18;
 
-        if (darkTealCyanMagenta)
-        {
-            issues.Add(new QualityIssue(
-                "paletteHarmony",
-                Advisory,
-                "The palette repeats the dark teal plus cyan/magenta look that the guidance marks as overused.",
-                "Detected a dark teal base with saturated cyan and magenta accents.",
-                "Use a neutral base, one restrained accent, and a separate text color with clear luma contrast.",
-                null,
-                [],
-                []));
-        }
-        else if (oversaturated)
-        {
-            issues.Add(new QualityIssue(
-                "paletteHarmony",
-                Advisory,
-                "The palette has too many saturated colors competing for attention.",
-                $"Average saturation {averageSaturation:F1}, max saturation {maxSaturation:F1}.",
-                "Reduce to one saturated accent and use muted support colors for background and plates.",
-                null,
-                [],
-                []));
-        }
 
         bool monochromeIntent = allowMonochrome || AnyMonochromeIntent(objects);
-        if (lowContrast && !monochromeIntent)
-        {
-            issues.Add(new QualityIssue(
-                "paletteHarmony",
-                Advisory,
-                "The sampled object colors have low luma separation, which risks unreadable text and muddy layers.",
-                $"Luma range {lumaRange:F2}.",
-                "Separate background, text, and accent roles with stronger luma contrast.",
-                null,
-                [],
-                []));
-        }
 
         bool lowHarmony = !harmony.IsHarmonious && !monochromeIntent;
-        if (lowHarmony)
-        {
-            issues.Add(new QualityIssue(
-                "paletteHarmony",
-                Advisory,
-                "The palette does not land cleanly on a recognized hue-wheel relationship.",
-                $"Harmony score {harmony.Score:F2} ({harmony.BestScheme}); hue {harmony.HueRelationshipScore:F2}, saturation {harmony.SaturationBalanceScore:F2}, luma {harmony.LumaBalanceScore:F2}.",
-                "Re-derive the palette from a clear base hue using analogous, complementary, split-complementary, triadic, tetradic, or monochromatic roles; keep one saturated accent and preserve text/background luma separation.",
-                null,
-                [],
-                []));
-        }
-
-        (int hardGradientObjectCount, int hardGradientTransitionCount) = AnalyzeGradientFalloff(scene, objects, issues);
 
         return new PaletteMetrics(
             colors.Length,
             averageSaturation,
             maxSaturation,
-            lumaRange,
-            darkTealCyanMagenta,
-            oversaturated,
-            lowContrast,
-            hardGradientObjectCount,
-            hardGradientTransitionCount,
-            harmony.Score,
-            harmony.BestScheme,
-            harmony.HueRelationshipScore,
-            harmony.SaturationBalanceScore,
-            harmony.LumaBalanceScore,
-            lowHarmony);
-    }
-
-    private static BackgroundRichnessMetrics AnalyzeBackgroundRichness(
-        Scene scene,
-        IReadOnlyList<SceneObjectInfo> objects,
-        bool suppressIssue,
-        List<QualityIssue> issues)
-    {
-        SceneObjectInfo[] fullFrameBackgrounds = objects
-            .Where(item => IsFullFrameBackground(scene, item))
-            .ToArray();
-        if (fullFrameBackgrounds.Length == 0)
-        {
-            return new BackgroundRichnessMetrics(0, 0, 0);
-        }
-
-        SceneObjectInfo[] flatSingleLayerBackgrounds = fullFrameBackgrounds
-            .GroupBy(item => item.Element)
-            .Where(group => group.Count() == 1)
-            .Select(group => group.Single())
-            .Where(item => CountGradientStops(item.Object) <= 2)
-            .Where(item => CountAnimatedProperties(item.Object) == 0)
-            .Where(item => !HasProceduralBackgroundTexture(item.Object))
-            .ToArray();
-        if (!suppressIssue && fullFrameBackgrounds.Length == 1 && flatSingleLayerBackgrounds.Length == 1)
-        {
-            SceneObjectInfo info = flatSingleLayerBackgrounds[0];
-            int stops = CountGradientStops(info.Object);
-            issues.Add(new QualityIssue(
-                "backgroundRichness",
-                Advisory,
-                "The full-frame background is a flat single layer.",
-                $"One full-frame background layer uses {stops} gradient stops and has no animated background property or procedural texture.",
-                "Add at least one derived depth layer, use a 3+ stop gradient or shader texture, and animate subtle drift/parallax unless the brief explicitly calls for a still minimal field.",
-                null,
-                [info.Element.Id.ToString()],
-                [info.Object.Id.ToString()]));
-        }
-
-        int richCount = fullFrameBackgrounds.Length - flatSingleLayerBackgrounds.Length;
-        return new BackgroundRichnessMetrics(
-            fullFrameBackgrounds.Length,
-            flatSingleLayerBackgrounds.Length,
-            richCount);
+            lumaRange);
     }
 
     private static LayerDensityMetrics AnalyzeLayerDensity(
@@ -1899,12 +1626,7 @@ public sealed class QualityAnalyzer(MotionVariationAnalyzer motionVariationAnaly
     {
         EasingDiversityMetrics easingDiversity = AnalyzeEasingDiversity(scene, objects, issues);
         MotionUniformityMetrics motionUniformity = AnalyzeMotionUniformity(scene, objects, issues);
-        MotionArcMetrics motionArc = AnalyzeLogoIntroMotionArc(
-            scene,
-            objects,
-            gateProfile.RunLogoIntroMotionArc,
-            issues);
-        return new MotionCraftMetrics(easingDiversity, motionUniformity, motionArc);
+        return new MotionCraftMetrics(easingDiversity, motionUniformity);
     }
 
     private static EasingDiversityMetrics AnalyzeEasingDiversity(
@@ -2009,112 +1731,6 @@ public sealed class QualityAnalyzer(MotionVariationAnalyzer motionVariationAnaly
             largestCluster.Key.StartBucket,
             largestCluster.Key.DurationBucket,
             largestCluster.Key.Direction);
-    }
-
-    private static MotionArcMetrics AnalyzeLogoIntroMotionArc(
-        Scene scene,
-        IReadOnlyList<SceneObjectInfo> objects,
-        bool enabled,
-        List<QualityIssue> issues)
-    {
-        if (!enabled)
-        {
-            return new MotionArcMetrics(false, 0, false, false, 0);
-        }
-
-        MotionArcSegment[] allSegments = objects
-            .Where(item => IsVisibleForegroundObject(scene, item))
-            .SelectMany(CreateMotionArcSegments)
-            .OrderBy(item => item.StartSeconds)
-            .ThenBy(item => item.EndSeconds)
-            .ToArray();
-        MotionArcSegment[] movingSegments = allSegments
-            .Where(item => item.Magnitude > 0.01)
-            .ToArray();
-        if (movingSegments.Length == 0)
-        {
-            return new MotionArcMetrics(true, 0, false, false, 0);
-        }
-
-        MotionArcSegment largest = movingSegments.MaxBy(item => item.Magnitude)!;
-        MotionArcSegment[] dominantSegments = allSegments
-            .Where(item => item.Info.Element == largest.Info.Element && item.Info.Object == largest.Info.Object)
-            .OrderBy(item => item.StartSeconds)
-            .ThenBy(item => item.EndSeconds)
-            .ToArray();
-        MotionArcSegment[] dominantMovingSegments = dominantSegments
-            .Where(item => item.Magnitude > 0.01)
-            .ToArray();
-        int dominantElementCount = movingSegments
-            .Where(item => item.Magnitude >= largest.Magnitude * 0.80)
-            .Select(item => item.Info.Element)
-            .Distinct()
-            .Count();
-
-        bool hasAnticipation = dominantSegments.Any(segment =>
-            segment.EndSeconds <= largest.StartSeconds + 0.001
-            && segment.DurationSeconds >= 0.10
-            && (segment.Magnitude <= largest.Magnitude * 0.55
-                || IsCounterMove(segment, largest)));
-
-        MotionArcSegment finalSegment = dominantMovingSegments
-            .OrderBy(item => item.EndSeconds)
-            .Last();
-        // Segment times come from ResolveKeyFrameTime (absolute axis), so the scene end must be
-        // absolute too: scene.Start + Duration, not Duration alone.
-        double sceneEnd = scene.Duration > TimeSpan.Zero
-            ? (scene.Start + scene.Duration).TotalSeconds
-            : finalSegment.EndSeconds;
-        double elementEnd = finalSegment.Info.Element.Length > TimeSpan.Zero
-            ? (finalSegment.Info.Element.Start + finalSegment.Info.Element.Length).TotalSeconds
-            : sceneEnd;
-        double holdEnd = Math.Min(sceneEnd, elementEnd);
-        double holdSeconds = Math.Max(0, holdEnd - finalSegment.EndSeconds);
-        bool hasSettle = holdSeconds >= 1.0
-                         && (IsEaseOutLike(finalSegment.Easing)
-                             || HasOvershootReturn(dominantMovingSegments, finalSegment));
-
-        if (!hasAnticipation)
-        {
-            issues.Add(CreateMotionArcIssue(
-                "The logo-intro motion arc is missing a detectable anticipation phase before the main reveal.",
-                $"Largest {largest.PropertyPath} change runs {FormatSeconds(largest.StartSeconds - scene.Start.TotalSeconds)}-{FormatSeconds(largest.EndSeconds - scene.Start.TotalSeconds)} with no earlier smaller counter-move or hold segment.",
-                "Add a brief anticipation before the reveal: a smaller counter-move, compression, opacity breath, or held pre-beat before the largest transform/opacity change.",
-                largest));
-        }
-
-        if (!hasSettle)
-        {
-            issues.Add(CreateMotionArcIssue(
-                "The logo-intro motion arc is missing a clear settle into the final hold.",
-                $"Final {finalSegment.PropertyPath} segment ends at {FormatSeconds(finalSegment.EndSeconds - scene.Start.TotalSeconds)} with {holdSeconds:F2}s of hold and easing {finalSegment.Easing.GetType().Name}.",
-                "End with a non-linear ease-out or overshoot-then-return settle, then keep the final keyframe stable for at least 1 second before the element or scene ends.",
-                finalSegment));
-        }
-
-        return new MotionArcMetrics(
-            true,
-            dominantElementCount,
-            hasAnticipation,
-            hasSettle,
-            Math.Round(holdSeconds, 3, MidpointRounding.AwayFromZero));
-    }
-
-    private static QualityIssue CreateMotionArcIssue(
-        string message,
-        string evidence,
-        string suggestedFix,
-        MotionArcSegment segment)
-    {
-        return new QualityIssue(
-            "motionArc",
-            Advisory,
-            message,
-            evidence,
-            suggestedFix,
-            null,
-            [segment.Info.Element.Id.ToString()],
-            [segment.Info.Object.Id.ToString()]);
     }
 
     private static AnimatedElementMotion? AnalyzeElementMotion(
@@ -2492,41 +2108,6 @@ public sealed class QualityAnalyzer(MotionVariationAnalyzer motionVariationAnaly
 
     private static bool IsLinearEasing(Easing easing) => easing is LinearEasing;
 
-    private static bool IsEaseOutLike(Easing easing)
-    {
-        if (easing is LinearEasing or HoldEasing)
-        {
-            return false;
-        }
-
-        string typeName = easing.GetType().Name;
-        return typeName.Contains("EaseOut", StringComparison.Ordinal)
-               || typeName.Contains("EaseInOut", StringComparison.Ordinal);
-    }
-
-    private static bool IsCounterMove(MotionArcSegment segment, MotionArcSegment largest)
-    {
-        if (segment.Magnitude <= 0.01 || largest.Magnitude <= 0.01)
-        {
-            return false;
-        }
-
-        return Math.Sign(segment.Delta) != Math.Sign(largest.Delta)
-               && segment.Magnitude <= largest.Magnitude * 0.75;
-    }
-
-    private static bool HasOvershootReturn(
-        IReadOnlyList<MotionArcSegment> movingSegments,
-        MotionArcSegment finalSegment)
-    {
-        MotionArcSegment? previous = movingSegments
-            .Where(item => item.EndSeconds <= finalSegment.StartSeconds + 0.001)
-            .OrderBy(item => item.EndSeconds)
-            .LastOrDefault();
-        return previous is not null
-               && Math.Sign(previous.Delta) != Math.Sign(finalSegment.Delta);
-    }
-
     private static string BucketDirection(double x, double y)
     {
         string[] buckets = ["E", "SE", "S", "SW", "W", "NW", "N", "NE"];
@@ -2787,37 +2368,6 @@ public sealed class QualityAnalyzer(MotionVariationAnalyzer motionVariationAnaly
         }
 
         return (0.2126 * Linearize(r)) + (0.7152 * Linearize(g)) + (0.0722 * Linearize(b));
-    }
-
-    private static void AnalyzeMaterialUiLook(
-        IReadOnlyList<SceneObjectInfo> objects,
-        bool relaxAesthetics,
-        List<QualityIssue> issues)
-    {
-        if (relaxAesthetics)
-        {
-            return;
-        }
-
-        SceneObjectInfo[] cardLikeObjects = objects
-            .Where(item => item.Object is RectShape or RoundedRectShape)
-            .Where(item => HasHeavyCardEffects(item.Object))
-            .ToArray();
-
-        if (cardLikeObjects.Length < 2)
-        {
-            return;
-        }
-
-        issues.Add(new QualityIssue(
-            "materialUiLook",
-            Advisory,
-            "Multiple rounded or rectangular cards use heavy shadow/blur styling, which reads like outdated Material UI.",
-            $"{cardLikeObjects.Length} card-like shapes have heavy DropShadow or Blur effects.",
-            "Use flatter editorial plates, texture, line work, image masks, or subtle single shadows instead of repeated card surfaces.",
-            null,
-            cardLikeObjects.Select(item => item.Element.Id.ToString()).ToArray(),
-            cardLikeObjects.Select(item => item.Object.Id.ToString()).ToArray()));
     }
 
     private async ValueTask<MotionContinuityMetrics> AnalyzeMotionAsync(
@@ -3113,22 +2663,6 @@ public sealed class QualityAnalyzer(MotionVariationAnalyzer motionVariationAnaly
                    && bounds.Height >= scene.FrameSize.Height * 0.90);
     }
 
-    private static int CountGradientStops(EngineObject obj)
-    {
-        return obj switch
-        {
-            Shape shape when shape.Fill.CurrentValue is GradientBrush gradient => gradient.GradientStops.Count,
-            TextBlock text when text.Fill.CurrentValue is GradientBrush gradient => gradient.GradientStops.Count,
-            _ => 0
-        };
-    }
-
-    private static bool HasProceduralBackgroundTexture(EngineObject obj)
-    {
-        return obj is Drawable drawable
-               && FlattenEffects(drawable.FilterEffect.CurrentValue).Any(effect => effect is SKSLScriptEffect);
-    }
-
     private static bool HasMotionGraphicsIntent(
         Scene scene,
         IReadOnlyList<SceneObjectInfo> objects,
@@ -3278,14 +2812,6 @@ public sealed class QualityAnalyzer(MotionVariationAnalyzer motionVariationAnaly
                || ContainsAny(info.Object.Name, "manifesto", "credits", "legal", "long read", "long-read", "dense copy", "reading block", "paragraph");
     }
 
-    private static bool IsCaptionRoleText(SceneObjectInfo info)
-    {
-        return info.Object is TextBlock
-               && (HasRole(info, "caption", "captions", "subtitle", "subtitles", "lyric", "lyrics", "line", "echo", "secondary", "credit")
-                   || ContainsAny(info.Element.Name, "caption", "subtitle", "lyric", "line", "echo", "secondary", "credit")
-                   || ContainsAny(info.Object.Name, "caption", "subtitle", "lyric", "line", "echo", "secondary", "credit"));
-    }
-
     private static bool HasCompositeIntent(Element element)
     {
         return HasRole(element.Name, "composite")
@@ -3303,43 +2829,6 @@ public sealed class QualityAnalyzer(MotionVariationAnalyzer motionVariationAnaly
         return HasRole(info, "monochrome", "monochromatic", "low-contrast", "grayscale", "greyscale", "tonal", "duotone")
                || ContainsAny(info.Element.Name, "monochrome", "monochromatic", "low contrast", "low-contrast", "grayscale", "greyscale", "tonal", "duotone")
                || ContainsAny(info.Object.Name, "monochrome", "monochromatic", "low contrast", "low-contrast", "grayscale", "greyscale", "tonal", "duotone");
-    }
-
-    private static bool IsAmbiguousDecorativeShape(SceneObjectInfo info)
-    {
-        string name = $"{info.Element.Name} {info.Object.Name}";
-        bool decorative = HasRole(info, "decorative", "accent")
-                          || ContainsAny(name, "glint", "glow", "bloom", "aperture", "lens", "flare", "halo", "shimmer", "glass", "reflection", "refraction", "gold");
-        if (!decorative)
-        {
-            return false;
-        }
-
-        bool abstractLight = ContainsAny(name, "glint", "glow", "bloom", "aperture", "lens", "flare", "halo", "shimmer", "glass", "reflection", "refraction", "gold");
-        bool concreteVisualSystem = ContainsAny(
-            name,
-            "stroke",
-            "line",
-            "particle",
-            "node",
-            "grid",
-            "letter",
-            "type",
-            "glyph",
-            "cursor",
-            "underline",
-            "divider",
-            "mask",
-            "matte",
-            "wipe",
-            "editor",
-            "timeline",
-            "keyframe",
-            "handle",
-            "logo");
-
-        return abstractLight
-               && (info.Object is EllipseShape || !concreteVisualSystem);
     }
 
     private static bool ContainsIntentToken(string? value)
@@ -3679,29 +3168,6 @@ public sealed class QualityAnalyzer(MotionVariationAnalyzer motionVariationAnaly
                || ContainsAny(info.Object.Name, "text backing", "title backing", "caption backing", "label backing", "backing plate");
     }
 
-    private static bool HasHeavyCardEffects(EngineObject obj)
-    {
-        if (obj is not Drawable drawable)
-        {
-            return false;
-        }
-
-        FilterEffect? effect = drawable.FilterEffect.CurrentValue;
-        int heavyEffects = FlattenEffects(effect).Count(IsHeavyCardEffect);
-        return heavyEffects >= 1;
-    }
-
-    private static bool IsHeavyCardEffect(FilterEffect effect)
-    {
-        return effect switch
-        {
-            DropShadow dropShadow => Math.Max(dropShadow.Sigma.CurrentValue.Width, dropShadow.Sigma.CurrentValue.Height) >= 10
-                                     || Math.Abs(dropShadow.Position.CurrentValue.X) + Math.Abs(dropShadow.Position.CurrentValue.Y) >= 16,
-            Blur blur => Math.Max(blur.Sigma.CurrentValue.Width, blur.Sigma.CurrentValue.Height) >= 1,
-            _ => false
-        };
-    }
-
     private static IEnumerable<FilterEffect> FlattenEffects(FilterEffect? effect)
     {
         if (effect is null)
@@ -3788,97 +3254,6 @@ public sealed class QualityAnalyzer(MotionVariationAnalyzer motionVariationAnaly
 
                 break;
         }
-    }
-
-    private static (int ObjectCount, int TransitionCount) AnalyzeGradientFalloff(
-        Scene scene,
-        IReadOnlyList<SceneObjectInfo> objects,
-        List<QualityIssue> issues)
-    {
-        List<SceneObjectInfo> hardGradientObjects = [];
-        int hardTransitionCount = 0;
-        foreach (SceneObjectInfo info in objects)
-        {
-            if (info.Object is not Shape shape
-                || shape.Fill.CurrentValue is not GradientBrush gradient)
-            {
-                continue;
-            }
-
-            int transitions = CountHardGradientTransitions(gradient);
-            bool largeAmbientFalloff = IsLargeAmbientGradient(scene, info)
-                                       && gradient.GradientStops.Count <= 2
-                                       && !HasSoftFalloffEffect(info.Object);
-            if (transitions == 0 && !largeAmbientFalloff)
-            {
-                continue;
-            }
-
-            hardGradientObjects.Add(info);
-            hardTransitionCount += Math.Max(1, transitions);
-        }
-
-        if (hardGradientObjects.Count > 0)
-        {
-            issues.Add(new QualityIssue(
-                "gradientFalloff",
-                Advisory,
-                "Large ambient gradients have abrupt color or alpha boundaries.",
-                $"{hardGradientObjects.Count} gradient-filled shapes have hard stop transitions or two-stop ambient falloff without a softening effect; detected {hardTransitionCount} hard transitions.",
-                "Use at least three falloff stops, spread color/alpha transitions over wider offsets, add a real Blur/SKSL texture when appropriate, or replace the shape with procedural surface texture.",
-                null,
-                hardGradientObjects.Select(item => item.Element.Id.ToString()).ToArray(),
-                hardGradientObjects.Select(item => item.Object.Id.ToString()).ToArray()));
-        }
-
-        return (hardGradientObjects.Count, hardTransitionCount);
-    }
-
-    private static int CountHardGradientTransitions(GradientBrush gradient)
-    {
-        GradientStop[] stops = gradient.GradientStops
-            .OrderBy(stop => stop.Offset.CurrentValue)
-            .ToArray();
-        int count = 0;
-        for (int i = 1; i < stops.Length; i++)
-        {
-            GradientStop previous = stops[i - 1];
-            GradientStop current = stops[i];
-            double offsetGap = Math.Max(0.001, current.Offset.CurrentValue - previous.Offset.CurrentValue);
-            double lumaDelta = Math.Abs(RelativeLuma(current.Color.CurrentValue) - RelativeLuma(previous.Color.CurrentValue));
-            double alphaDelta = Math.Abs(current.Color.CurrentValue.A - previous.Color.CurrentValue.A) / 255d;
-            double saturationDelta = Math.Abs(current.Color.CurrentValue.ToHsv().S - previous.Color.CurrentValue.ToHsv().S) / 100d;
-            bool abruptOffset = offsetGap <= 0.12
-                                && (lumaDelta >= 0.25 || alphaDelta >= 0.35 || saturationDelta >= 0.35);
-            if (abruptOffset)
-            {
-                count++;
-            }
-        }
-
-        return count;
-    }
-
-    private static bool IsLargeAmbientGradient(Scene scene, SceneObjectInfo info)
-    {
-        ObjectBounds bounds = GetBounds(scene, info);
-        double sceneArea = Math.Max(1, scene.FrameSize.Width * scene.FrameSize.Height);
-        string name = $"{info.Element.Name} {info.Object.Name}";
-        return bounds.Width * bounds.Height >= sceneArea * 0.10
-               && ContainsAny(name, "ambient", "aperture", "glow", "bloom", "flare", "halo", "light");
-    }
-
-    private static bool HasSoftFalloffEffect(EngineObject obj)
-    {
-        if (obj is not Drawable drawable)
-        {
-            return false;
-        }
-
-        return FlattenEffects(drawable.FilterEffect.CurrentValue).Any(effect =>
-            (effect is Blur blur
-                && Math.Max(blur.Sigma.CurrentValue.Width, blur.Sigma.CurrentValue.Height) >= 6)
-            || effect is SKSLScriptEffect);
     }
 
     private static int CountAnimatedProperties(EngineObject obj)

@@ -39,6 +39,7 @@ builder.Services
     .WithTools<QueryTools>()
     .WithTools<DesignTools>()
     .WithTools<EditTools>()
+    .WithTools<HistoryTools>()
     .WithTools<RenderTools>();
 
 var host = builder.Build();
