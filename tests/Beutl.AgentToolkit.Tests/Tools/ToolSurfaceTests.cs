@@ -32,6 +32,7 @@ public sealed class ToolSurfaceTests
                 "get_background_grammar",
                 "plan_original_scaffold",
                 "get_schema",
+                "list_fonts",
                 "list_effects",
                 "list_effect_recipes",
                 "get_effect_recipe",

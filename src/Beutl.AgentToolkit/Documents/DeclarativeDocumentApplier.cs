@@ -385,6 +385,11 @@ internal sealed class DeclarativeDocumentApplier
 
     private void ApplyAnimation(IProperty property, JsonObject animationJson)
     {
+        if (KeyFrameShorthand.IsShorthand(animationJson))
+        {
+            animationJson = KeyFrameShorthand.Expand(animationJson, property.ValueType);
+        }
+
         IAnimation? current = property.Animation;
         if (current is CoreObject currentObject
             && IdentityMatches(currentObject, animationJson)
