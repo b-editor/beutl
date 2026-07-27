@@ -14,16 +14,15 @@ public abstract class AudioNode : IDisposable
         if (IndexOfInput(input) >= 0)
             return;
 
-        AudioNode[] previousInputs = [.. _inputs];
+        int index = _inputs.Count;
         _inputs.Add(input);
         try
         {
-            OnInputAdded(input, _inputs.Count - 1);
+            OnInputAdded(input, index);
         }
         catch
         {
-            _inputs.Clear();
-            _inputs.AddRange(previousInputs);
+            _inputs.RemoveAt(index);
             throw;
         }
     }

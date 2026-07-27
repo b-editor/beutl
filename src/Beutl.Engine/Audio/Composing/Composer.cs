@@ -180,6 +180,8 @@ public class Composer : IComposer
         {
             if (_currentEntry.Contains(entry))
                 continue;
+            if (entry.IsDirty)
+                continue;
             if (entry.OutputNodes is not { } outputNodes)
                 continue;
             if (!IsSameTimestamp(entry.SoundRange.End, previous.End))

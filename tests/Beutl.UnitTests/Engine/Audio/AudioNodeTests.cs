@@ -9,19 +9,27 @@ public class AudioNodeTests
     [Test]
     public void AddInput_WhenHookThrows_RestoresTopologyAndAllowsRetry()
     {
-        using var node = new ThrowingHookNode { ThrowOnAdd = true };
+        using var node = new ThrowingHookNode();
+        using var existing = new ValueNode();
         using var input = new ValueNode();
+        node.AddInput(existing);
+        node.ThrowOnAdd = true;
 
         Assert.Throws<InvalidOperationException>(() => node.AddInput(input));
-        Assert.That(node.Inputs, Is.Empty);
-        Assert.That(node.MetadataInputs, Is.Empty);
+        Assert.That(node.Inputs, Has.Count.EqualTo(1));
+        Assert.That(node.Inputs[0], Is.SameAs(existing));
+        Assert.That(node.MetadataInputs, Has.Count.EqualTo(1));
+        Assert.That(node.MetadataInputs[0], Is.SameAs(existing));
 
         node.ThrowOnAdd = false;
         node.AddInput(input);
 
-        Assert.That(node.Inputs, Has.Count.EqualTo(1));
-        Assert.That(node.Inputs[0], Is.SameAs(input));
-        Assert.That(node.MetadataInputs[0], Is.SameAs(input));
+        Assert.That(node.Inputs, Has.Count.EqualTo(2));
+        Assert.That(node.Inputs[0], Is.SameAs(existing));
+        Assert.That(node.Inputs[1], Is.SameAs(input));
+        Assert.That(node.MetadataInputs, Has.Count.EqualTo(2));
+        Assert.That(node.MetadataInputs[0], Is.SameAs(existing));
+        Assert.That(node.MetadataInputs[1], Is.SameAs(input));
     }
 
     [Test]

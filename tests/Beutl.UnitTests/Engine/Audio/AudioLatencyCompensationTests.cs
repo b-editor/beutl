@@ -1091,6 +1091,52 @@ public class AudioLatencyCompensationTests
     }
 
     [Test]
+    public void Composer_DoesNotFlushCachedTailAfterSoundIsEdited()
+    {
+        const float lookaheadMs = 5f;
+        int L = LookaheadSamples(lookaheadMs);
+        var oneSecond = TimeSpan.FromSeconds(1);
+
+        var sound = new LimiterTailSound
+        {
+            LookaheadMs = lookaheadMs,
+            TimeRange = new TimeRange(TimeSpan.Zero, oneSecond),
+        };
+        var resource = sound.ToResource(CompositionContext.Default);
+
+        using var composer = new Composer { SampleRate = SampleRate };
+
+        var window1 = new TimeRange(TimeSpan.Zero, oneSecond);
+        var eligibility = new CompositionEligibility([sound]);
+        var frame1 = new CompositionFrame(
+            ImmutableArray.Create<EngineObject.Resource>(resource),
+            window1,
+            default,
+            eligibility);
+        using var buffer1 = composer.Compose(window1, frame1);
+
+        // Any tracked sound edit invalidates its cached graph. Because the sound ended at the window
+        // boundary, it is absent from the next frame and cannot be rebuilt before the tail decision.
+        sound.Gain.CurrentValue = 50f;
+
+        var window2 = new TimeRange(oneSecond, oneSecond);
+        var frame2 = new CompositionFrame(
+            ImmutableArray<EngineObject.Resource>.Empty,
+            window2,
+            default,
+            eligibility);
+        using var buffer2 = composer.Compose(window2, frame2);
+
+        Assert.That(buffer2, Is.Not.Null);
+        var output = buffer2!.GetChannelData(0);
+        for (int k = 0; k < L; k++)
+        {
+            Assert.That(MathF.Abs(output[k]), Is.LessThanOrEqualTo(1e-5f),
+                $"An edited sound must not flush a tail from its dirty cached graph (sample {k}).");
+        }
+    }
+
+    [Test]
     public void Composer_DoesNotFlushSoundThatDisappearsBeforeItsNaturalEnd()
     {
         const float lookaheadMs = 5f;
