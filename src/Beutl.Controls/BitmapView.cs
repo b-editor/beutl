@@ -159,6 +159,16 @@ public class BitmapView : Avalonia.Controls.Control
         }
     }
 
+    /// <summary>
+    /// Builds a paint for drawing a preview frame onto the screen surface. Dithering is mandatory:
+    /// the surface is 8-bit while frames are linear RgbaF16, and this path never passes through
+    /// <see cref="BtlBitmap.Convert"/>, so without it gradients band on screen.
+    /// </summary>
+    internal static SKPaint CreatePreviewPaint(SKColorFilter? colorFilter)
+    {
+        return new SKPaint { ColorFilter = colorFilter, IsDither = true };
+    }
+
     private sealed class BitmapDrawOperation(
         Rect bounds,
         Ref<BtlBitmap> bitmap,
@@ -169,9 +179,10 @@ public class BitmapView : Avalonia.Controls.Control
         float tmExposure)
         : ICustomDrawOperation
     {
-        private static readonly SKPaint s_linearPaint = new() { ColorFilter = SKColorFilter.CreateLinearToSrgbGamma() };
+        private static readonly SKPaint s_linearPaint =
+            CreatePreviewPaint(SKColorFilter.CreateLinearToSrgbGamma());
 
-        private static readonly SKPaint s_gammaPaint = new();
+        private static readonly SKPaint s_gammaPaint = CreatePreviewPaint(null);
 
         private static readonly SKRuntimeEffect? s_toneMappingEffect;
 
@@ -300,7 +311,7 @@ public class BitmapView : Avalonia.Controls.Control
                 builder.Uniforms["tmOperator"] = (int)tmOperator;
 
                 using var finalShader = builder.Build();
-                using var paint = new SKPaint();
+                using var paint = CreatePreviewPaint(null);
                 paint.Shader = finalShader;
                 canvas.DrawRect(destRect, paint);
             }
