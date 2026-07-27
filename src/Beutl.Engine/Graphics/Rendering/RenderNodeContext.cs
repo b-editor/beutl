@@ -334,7 +334,7 @@ public sealed class RenderNodeContext
                 [reference.EffectiveScale],
                 OutputScale,
                 MaxWorkingScale);
-            workingScale = RenderScaleUtilities.ClampWorkingScaleToBufferBudget(bounds, workingScale);
+            workingScale = RenderScaleUtilities.ClampWorkingScaleToExactBufferBudget(bounds, workingScale);
             scale = EffectiveScale.At(workingScale);
         }
         else
@@ -401,7 +401,7 @@ public sealed class RenderNodeContext
                 [reference.EffectiveScale],
                 OutputScale,
                 MaxWorkingScale);
-            workingScale = RenderScaleUtilities.ClampWorkingScaleToBufferBudget(bounds, workingScale);
+            workingScale = RenderScaleUtilities.ClampWorkingScaleToExactBufferBudget(bounds, workingScale);
             scale = EffectiveScale.At(workingScale);
         }
 
@@ -787,7 +787,8 @@ public sealed class RenderNodeContext
             hasOpaqueExternalWork: references.Any(static item => item.HasOpaqueExternalWork),
             references,
             new TargetLayerScopeRenderFragmentPayload(region),
-            point => references.Any(item => item.HitTest(point)));
+            point => references.Any(item => item.HitTest(point)),
+            hasDirectSymbolicBoundsDependency: region.Kind == TargetRegionKind.Full);
     }
 
     /// <summary>Records a guarded target scope around one input.</summary>
@@ -949,12 +950,25 @@ public sealed class RenderNodeContext
                 nestedOptions);
             return new RecordedNestedRenderTarget(recording, bindingResource, binding);
         }
-        catch
+        catch (Exception ex)
         {
             if (bindingResource is not null)
-                transaction.RollbackResources([bindingResource]);
+            {
+                _ = transaction.RollbackResourcesAndCapture([bindingResource], ex);
+            }
             else
-                binding.Dispose();
+            {
+                transaction.Request.Options.Owner.RecordPrimaryFailure(ex);
+                try
+                {
+                    binding.Dispose();
+                }
+                catch (Exception cleanupFailure)
+                {
+                    transaction.Request.Options.Owner.RecordCleanupFailure(cleanupFailure);
+                }
+            }
+
             throw;
         }
     }
@@ -991,6 +1005,11 @@ public sealed class RenderNodeContext
 
     internal void RollbackResources(IReadOnlyList<RenderResource> resources)
         => GetTransaction().RollbackResources(resources);
+
+    internal Exception? RollbackResourcesAndCapture(
+        IReadOnlyList<RenderResource> resources,
+        Exception primaryFailure)
+        => GetTransaction().RollbackResourcesAndCapture(resources, primaryFailure);
 
     internal RenderFragmentMetadata GetRecordedMetadataHint(RenderFragmentHandle fragment)
     {

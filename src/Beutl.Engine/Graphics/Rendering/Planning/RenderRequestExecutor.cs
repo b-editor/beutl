@@ -86,7 +86,8 @@ internal sealed class RenderRequestExecutor
         CompiledRenderRequest request,
         ImmediateCanvas destination,
         Action? finalizeOutput = null,
-        Rect? replayBounds = null)
+        Rect? replayBounds = null,
+        Action? finalizeExternalResources = null)
     {
         ArgumentNullException.ThrowIfNull(request);
         ArgumentNullException.ThrowIfNull(destination);
@@ -105,6 +106,7 @@ internal sealed class RenderRequestExecutor
         ExceptionDispatchInfo? primaryFailure = null;
         RenderPipelineFailurePhase failurePhase = RenderPipelineFailurePhase.Execution;
         int nestedRootAcquisitions = 0;
+        RenderRequestOwner owner = request.Request.Options.Owner;
         try
         {
             try
@@ -130,6 +132,37 @@ internal sealed class RenderRequestExecutor
                 primaryFailure = ExceptionDispatchInfo.Capture(ex);
             }
 
+            if (finalizeExternalResources is not null)
+            {
+                try
+                {
+                    finalizeExternalResources();
+                }
+                catch (Exception ex)
+                {
+                    EnsureOwnerPrimary(owner, primaryFailure?.SourceException);
+                    IEnumerable<Exception> externalCleanupFailures = ex is AggregateException aggregate
+                        ? aggregate.Flatten().InnerExceptions
+                        : [ex];
+                    Exception? firstExternalCleanupFailure = null;
+                    foreach (Exception failure in externalCleanupFailures)
+                    {
+                        firstExternalCleanupFailure ??= failure;
+                        bool alreadyRecorded = cleanupFailures.Any(
+                            existing => ReferenceEquals(existing, failure));
+                        AddCleanupFailure(cleanupFailures, rootDiagnostics, failure);
+                        if (!alreadyRecorded)
+                            owner.RecordCleanupFailure(failure);
+                    }
+
+                    if (primaryFailure is null && firstExternalCleanupFailure is not null)
+                    {
+                        primaryFailure = ExceptionDispatchInfo.Capture(firstExternalCleanupFailure);
+                        failurePhase = RenderPipelineFailurePhase.Cleanup;
+                    }
+                }
+            }
+
             if (localProgramCache is not null)
             {
                 try
@@ -151,7 +184,6 @@ internal sealed class RenderRequestExecutor
             if (primaryFailure is not null)
                 RejectNestedBindings(request);
 
-            RenderRequestOwner owner = request.Request.Options.Owner;
             EnsureOwnerPrimary(owner, primaryFailure?.SourceException);
             int ownerCleanupStart = owner.CleanupFailures.Length;
             owner.Cleanup();
@@ -2191,7 +2223,7 @@ internal sealed class RenderRequestExecutor
                     float density = !fragment.EffectiveScale.IsUnbounded
                         ? fragment.EffectiveScale.Value
                         : inputRequestScale.Value;
-                    density = RenderScaleUtilities.ClampWorkingScaleToBufferBudget(outputBounds, density);
+                    density = RenderScaleUtilities.ClampWorkingScaleToExactBufferBudget(outputBounds, density);
                     EffectiveScale outputScale = EffectiveScale.At(density);
                     CompatibilityRenderValue output = CreateOwnedValue(
                         requiredRegion,
@@ -2276,7 +2308,7 @@ internal sealed class RenderRequestExecutor
             }
 
             CompatibilityRenderValue input = inputs[0];
-            float density = RenderScaleUtilities.ClampWorkingScaleToBufferBudget(
+            float density = RenderScaleUtilities.ClampWorkingScaleToExactBufferBudget(
                 outputBounds,
                 outputRequestScale.Value);
             CompatibilityRenderValue output = CreateOwnedValue(
@@ -2705,7 +2737,7 @@ internal sealed class RenderRequestExecutor
                         continue;
 
                     float density = requestScale.Value;
-                    density = RenderScaleUtilities.ClampWorkingScaleToBufferBudget(outputBounds, density);
+                    density = RenderScaleUtilities.ClampWorkingScaleToExactBufferBudget(outputBounds, density);
                     EffectiveScale outputScale = EffectiveScale.At(density);
                     CompatibilityRenderValue output = CreateOwnedValue(
                         requiredRegion,
@@ -2898,7 +2930,7 @@ internal sealed class RenderRequestExecutor
                                 _options.OutputScale,
                                 _options.MaxWorkingScale)
                             : declaredScale.Value;
-                        density = RenderScaleUtilities.ClampWorkingScaleToBufferBudget(
+                        density = RenderScaleUtilities.ClampWorkingScaleToExactBufferBudget(
                             outputBounds,
                             density);
                         bool preserveRasterApron = description.DirectReplay is not null

@@ -39,6 +39,34 @@ public sealed class RecordingAndPlanningFailureTests
         });
     }
 
+    [Test]
+    public void RecordingFailure_ReportsCleanupFaultWithoutReplacingThePrimary()
+    {
+        var cleanupFailure = new InvalidOperationException("recording-cleanup");
+        var resource = new FailureTestDisposable(cleanupFailure);
+        var primaryFailure = new InvalidOperationException("recording-primary");
+        var diagnostics = new RenderPipelineDiagnosticsState();
+        var factory = new FailureTestTargetFactory();
+        using var node = new RecordingFailureNode(resource, primaryFailure);
+        using var renderer = FailureTestSupport.CreateRenderer(
+            node,
+            factory,
+            diagnostics: diagnostics);
+
+        InvalidOperationException? thrown = Assert.Throws<InvalidOperationException>(
+            () => renderer.Rasterize());
+
+        RenderPipelineDiagnosticSnapshot snapshot = diagnostics.Latest;
+        Assert.Multiple(() =>
+        {
+            Assert.That(thrown, Is.SameAs(primaryFailure));
+            Assert.That(resource.DisposeCalls, Is.EqualTo(1));
+            Assert.That(factory.CreateCalls, Is.Zero);
+            Assert.That(snapshot.FailurePhase, Is.EqualTo(RenderPipelineFailurePhase.Recording));
+            Assert.That(snapshot[RenderPipelineCounter.CleanupFailures], Is.EqualTo(1));
+        });
+    }
+
     [TestCase(ResourceConflict.DuplicateOwn)]
     [TestCase(ResourceConflict.OwnThenBorrow)]
     [TestCase(ResourceConflict.BorrowThenOwn)]

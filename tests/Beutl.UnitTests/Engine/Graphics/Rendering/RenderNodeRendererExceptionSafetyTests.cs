@@ -1,4 +1,5 @@
-﻿using Beutl.Graphics;
+﻿using System.Runtime.ExceptionServices;
+using Beutl.Graphics;
 using Beutl.Graphics.Rendering;
 using Beutl.Graphics.Rendering.Cache;
 using Beutl.Media;
@@ -51,6 +52,37 @@ public class RenderNodeRendererExceptionSafetyTests
 
         Assert.That(ex!.InnerExceptions.Single().Message, Is.EqualTo("fault"));
         Assert.That(discharged, Is.EqualTo(new[] { "remaining", "fault", "first" }));
+    }
+
+    [Test]
+    public void ExpandedTargetCleanup_PreservesPrimaryAndAttemptsEveryResource()
+    {
+        var primaryFailure = new InvalidOperationException("expanded-primary");
+        var firstFailure = new InvalidOperationException("expanded-first-cleanup");
+        var secondFailure = new InvalidOperationException("expanded-second-cleanup");
+        var thirdFailure = new InvalidOperationException("expanded-third-cleanup");
+        var first = new FailureTestDisposable(firstFailure);
+        var second = new FailureTestDisposable(secondFailure);
+        var third = new FailureTestDisposable(thirdFailure);
+        using var owner = new RenderRequestOwner();
+        ExceptionDispatchInfo? primary = ExceptionDispatchInfo.Capture(primaryFailure);
+
+        RenderNodeRenderer.DisposeExecutionResourcesAndCapture(
+            owner,
+            ref primary,
+            first,
+            second,
+            third);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(primary?.SourceException, Is.SameAs(primaryFailure));
+            Assert.That(owner.PrimaryFailure?.SourceException, Is.SameAs(primaryFailure));
+            Assert.That(owner.CleanupFailures, Is.EqualTo(new[] { firstFailure, secondFailure, thirdFailure }));
+            Assert.That(first.DisposeCalls, Is.EqualTo(1));
+            Assert.That(second.DisposeCalls, Is.EqualTo(1));
+            Assert.That(third.DisposeCalls, Is.EqualTo(1));
+        });
     }
 
     [Test]

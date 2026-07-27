@@ -259,6 +259,8 @@ public sealed class FilterEffectRecordingTransactionTests
             Assert.That(
                 primary.Data["FilterEffectResourceRollbackFailure"],
                 Is.TypeOf<AggregateException>());
+            Assert.That(owner.CleanupFailures, Has.Length.EqualTo(1));
+            Assert.That(owner.CleanupFailures[0].Message, Is.EqualTo("cleanup-failure"));
         });
 
         Assert.That(() => transaction.Commit(), Throws.Nothing);

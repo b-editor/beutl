@@ -178,6 +178,7 @@ public sealed class RenderNodeRenderer : IDisposable
         RenderRequestOwner? owner = null;
         ExceptionDispatchInfo? primary = null;
         bool completeFailedDiagnostics = false;
+        RenderPipelineFailurePhase preExecutionFailurePhase = RenderPipelineFailurePhase.Allocation;
         try
         {
             request = RecordAndCompile(
@@ -190,10 +191,12 @@ public sealed class RenderNodeRenderer : IDisposable
             var executor = new RenderRequestExecutor(targets, _programCache);
             if (hasExplicitEmptySelection)
             {
+                preExecutionFailurePhase = RenderPipelineFailurePhase.Execution;
                 executor.CompleteEmptySelection(request);
             }
             else if (request.ExecutionTargetBounds == request.SelectedOutputBounds)
             {
+                preExecutionFailurePhase = RenderPipelineFailurePhase.Execution;
                 executor.Execute(request, destination);
             }
             else
@@ -203,7 +206,8 @@ public sealed class RenderNodeRenderer : IDisposable
                     destination,
                     targets,
                     executor,
-                    maxWorkingScale);
+                    maxWorkingScale,
+                    ref preExecutionFailurePhase);
             }
             LastExecutionStatistics = executor.Statistics;
         }
@@ -213,7 +217,7 @@ public sealed class RenderNodeRenderer : IDisposable
             completeFailedDiagnostics = FailRequestFamilyBeforeExecution(
                 request,
                 ex,
-                RenderPipelineFailurePhase.Allocation);
+                preExecutionFailurePhase);
         }
         finally
         {
@@ -237,10 +241,22 @@ public sealed class RenderNodeRenderer : IDisposable
         ImmediateCanvas destination,
         RenderTargetLeaseSession targets,
         RenderRequestExecutor executor,
-        float maxWorkingScale)
+        float maxWorkingScale,
+        ref RenderPipelineFailurePhase preExecutionFailurePhase)
     {
         RenderTargetLease? executionLease = null;
         ImmediateCanvas? executionCanvas = null;
+        ExceptionDispatchInfo? primary = null;
+
+        void FinalizeExternalResources()
+        {
+            ImmediateCanvas? canvasToDispose = executionCanvas;
+            executionCanvas = null;
+            RenderTargetLease? leaseToDispose = executionLease;
+            executionLease = null;
+            DisposeExecutionResources(canvasToDispose, leaseToDispose);
+        }
+
         try
         {
             executionLease = targets.Acquire(destination.DeviceSize);
@@ -262,6 +278,7 @@ public sealed class RenderNodeRenderer : IDisposable
             executionCanvas.Transform = destination.Transform;
             executionCanvas.Opacity = destination.Opacity;
             executionCanvas.BlendMode = destination.BlendMode;
+            preExecutionFailurePhase = RenderPipelineFailurePhase.Execution;
             executor.Execute(
                 request,
                 executionCanvas,
@@ -269,13 +286,23 @@ public sealed class RenderNodeRenderer : IDisposable
                     executionCanvas,
                     destination,
                     request.SelectedOutputBounds),
-                request.ExecutionTargetBounds);
+                request.ExecutionTargetBounds,
+                FinalizeExternalResources);
+        }
+        catch (Exception ex)
+        {
+            primary = ExceptionDispatchInfo.Capture(ex);
         }
         finally
         {
-            executionCanvas?.Dispose();
-            executionLease?.Dispose();
+            DisposeExecutionResourcesAndCapture(
+                request.Request.Options.Owner,
+                ref primary,
+                executionCanvas,
+                executionLease);
         }
+
+        primary?.Throw();
     }
 
     private static void CommitExpandedTarget(
@@ -315,6 +342,7 @@ public sealed class RenderNodeRenderer : IDisposable
         Rect selectedBounds = default;
         ExceptionDispatchInfo? primary = null;
         bool completeFailedDiagnostics = false;
+        RenderPipelineFailurePhase preExecutionFailurePhase = RenderPipelineFailurePhase.Allocation;
         try
         {
             targets = _targetRegistry.BeginSession(Options.Intent);
@@ -341,16 +369,40 @@ public sealed class RenderNodeRenderer : IDisposable
 
                 IDisposable? transform = canvas.PushTransform(
                     Matrix.CreateTranslation(-rasterBounds.X, -rasterBounds.Y));
+
+                IDisposable?[] TakeExternalResources()
+                {
+                    IDisposable? transformToDispose = transform;
+                    transform = null;
+                    ImmediateCanvas? canvasToDispose = canvas;
+                    canvas = null;
+                    RenderTargetLease? leaseToDispose = rootLease;
+                    rootLease = null;
+                    return [transformToDispose, canvasToDispose, leaseToDispose];
+                }
+
+                void FinalizeExternalResources()
+                    => DisposeExecutionResources(TakeExternalResources());
+
+                void FinalizeExternalResourcesAndCapture(ref ExceptionDispatchInfo? failure)
+                    => DisposeExecutionResourcesAndCapture(
+                        owner!,
+                        ref failure,
+                        TakeExternalResources());
+
+                ExceptionDispatchInfo? executionPrimary = null;
                 try
                 {
                     var executor = new RenderRequestExecutor(targets, _programCache);
+                    preExecutionFailurePhase = RenderPipelineFailurePhase.Execution;
                     executor.Execute(
                         request,
                         canvas,
                         () =>
                         {
-                            transform.Dispose();
+                            IDisposable? transformToDispose = transform;
                             transform = null;
+                            transformToDispose?.Dispose();
                             using Bitmap complete = rootLease.Target.Snapshot();
                             PixelRect selectedDeviceBounds = PixelRect.FromRect(
                                 selectedBounds,
@@ -361,22 +413,26 @@ public sealed class RenderNodeRenderer : IDisposable
                                 selectedDeviceBounds.Width,
                                 selectedDeviceBounds.Height);
                             bitmap = complete.ExtractSubset(selectedSubset);
-                            canvas.Dispose();
-                            canvas = null;
-                            rootLease.Dispose();
-                            rootLease = null;
                         },
-                        request.ExecutionTargetBounds);
+                        request.ExecutionTargetBounds,
+                        FinalizeExternalResources);
                     LastExecutionStatistics = executor.Statistics;
+                }
+                catch (Exception ex)
+                {
+                    executionPrimary = ExceptionDispatchInfo.Capture(ex);
                 }
                 finally
                 {
-                    transform?.Dispose();
+                    FinalizeExternalResourcesAndCapture(ref executionPrimary);
                 }
+
+                executionPrimary?.Throw();
             }
             else
             {
                 var executor = new RenderRequestExecutor(targets, _programCache);
+                preExecutionFailurePhase = RenderPipelineFailurePhase.Execution;
                 executor.CompleteEmptySelection(request);
                 LastExecutionStatistics = executor.Statistics;
             }
@@ -387,12 +443,19 @@ public sealed class RenderNodeRenderer : IDisposable
             completeFailedDiagnostics = FailRequestFamilyBeforeExecution(
                 request,
                 ex,
-                RenderPipelineFailurePhase.Allocation);
+                preExecutionFailurePhase);
         }
         finally
         {
-            DisposeAndCapture(canvas, ref primary);
-            DisposeAndCapture(rootLease, ref primary);
+            if (owner is not null)
+            {
+                DisposeExecutionResourcesAndCapture(owner, ref primary, canvas, rootLease);
+            }
+            else
+            {
+                DisposeAndCapture(canvas, ref primary);
+                DisposeAndCapture(rootLease, ref primary);
+            }
             DisposeAndCapture(request, ref primary);
             DisposeAndCapture(targets, ref primary);
         }
@@ -652,6 +715,53 @@ public sealed class RenderNodeRenderer : IDisposable
         {
             primary ??= ExceptionDispatchInfo.Capture(ex);
         }
+    }
+
+    internal static void DisposeExecutionResourcesAndCapture(
+        RenderRequestOwner owner,
+        ref ExceptionDispatchInfo? primary,
+        params IDisposable?[] resources)
+    {
+        ArgumentNullException.ThrowIfNull(owner);
+        if (primary is not null)
+            owner.RecordPrimaryFailure(primary.SourceException);
+
+        try
+        {
+            DisposeExecutionResources(resources);
+        }
+        catch (Exception ex)
+        {
+            IEnumerable<Exception> cleanupFailures = ex is AggregateException aggregate
+                ? aggregate.Flatten().InnerExceptions
+                : [ex];
+            foreach (Exception failure in cleanupFailures)
+            {
+                owner.RecordCleanupFailure(failure);
+                primary ??= ExceptionDispatchInfo.Capture(failure);
+            }
+        }
+    }
+
+    private static void DisposeExecutionResources(params IDisposable?[] resources)
+    {
+        List<Exception>? failures = null;
+        foreach (IDisposable? resource in resources)
+        {
+            try
+            {
+                resource?.Dispose();
+            }
+            catch (Exception ex)
+            {
+                (failures ??= []).Add(ex);
+            }
+        }
+
+        if (failures is [var failure])
+            ExceptionDispatchInfo.Capture(failure).Throw();
+        if (failures is { Count: > 1 })
+            throw new AggregateException(failures);
     }
 
     internal static bool FailRequestFamilyBeforeExecution(

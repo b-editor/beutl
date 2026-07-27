@@ -71,7 +71,7 @@ public sealed class GpuPassFusionScaleRegionTests
             });
 
         RenderNodeMeasurement measurement = renderer.Measure();
-        float expected = RenderScaleUtilities.ClampWorkingScaleToBufferBudget(completeBounds, 4);
+        float expected = RenderScaleUtilities.ClampWorkingScaleToExactBufferBudget(completeBounds, 4);
 
         Assert.Multiple(() =>
         {

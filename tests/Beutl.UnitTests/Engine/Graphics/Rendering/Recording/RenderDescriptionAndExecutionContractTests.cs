@@ -196,6 +196,56 @@ public sealed class RenderDescriptionAndExecutionContractTests
     }
 
     [Test]
+    public void ScaleContracts_ClampTheExactFractionalDeviceFootprint()
+    {
+        var positiveOrigin = new Rect(
+            0.25f,
+            0,
+            RenderScaleUtilities.MaxBufferDimension,
+            1);
+        var exactFitAtNegativeOrigin = new Rect(
+            -0.5f,
+            0,
+            RenderScaleUtilities.MaxBufferDimension + 0.5f,
+            1);
+        EffectiveScale[] resolved =
+        [
+            RenderScaleContract.MaterializeAtWorkingScale.Resolve(
+                [EffectiveScale.At(1)],
+                positiveOrigin,
+                outputScale: 1,
+                maxWorkingScale: 1),
+            RenderScaleContract.Custom(
+                    static _ => 1,
+                    "exact-custom-scale")
+                .Resolve([], positiveOrigin, outputScale: 1, maxWorkingScale: 1),
+            RenderScaleContract.MapInputSupply(
+                    static _ => EffectiveScale.At(1),
+                    "exact-mapped-scale")
+                .Resolve([EffectiveScale.At(1)], positiveOrigin, outputScale: 1, maxWorkingScale: 1),
+        ];
+
+        Assert.Multiple(() =>
+        {
+            foreach (EffectiveScale scale in resolved)
+            {
+                Assert.That(scale.Value, Is.LessThan(1));
+                Assert.That(
+                    PixelRect.FromRect(positiveOrigin, scale.Value).Width,
+                    Is.LessThanOrEqualTo(RenderScaleUtilities.MaxBufferDimension));
+            }
+
+            Assert.That(
+                RenderScaleContract.MaterializeAtWorkingScale.Resolve(
+                    [EffectiveScale.At(1)],
+                    exactFitAtNegativeOrigin,
+                    outputScale: 1,
+                    maxWorkingScale: 1),
+                Is.EqualTo(EffectiveScale.At(1)));
+        });
+    }
+
+    [Test]
     public void MaterializedInput_RequiresConcreteMatchingBackingAndSourceHitTest()
     {
         using var registry = new RenderRequestResourceRegistry();

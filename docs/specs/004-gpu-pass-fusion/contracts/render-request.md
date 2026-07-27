@@ -79,7 +79,7 @@ If a `FilterEffectRenderNode` receives symbolic value-input metadata, its public
 
 ### Recording side-effect guard
 
-Tests install counters/fakes at the engine's GPU context, render-target factory, surface snapshot, media frame read/decode, nested renderer, flush/synchronization, and readback seams. Every public node shape and every migrated eager path must leave all counters at zero during recording. Debug builds may maintain a request-local recording guard checked by engine allocation/execution entry points.
+Tests combine an exhaustive source census of every production `Process` override with runtime recording probes. The census rejects direct GPU-context, render-target, snapshot, media read/decode, nested-renderer, flush/synchronization, and readback work outside deferred callbacks. Runtime probes execute callback-backed public shapes through the metadata-only renderer with deferred-callback tripwires, a counting render-target factory, and execution diagnostics; every callback, allocation, GPU execution, synchronization, readback-capable opaque execution, and program-creation counter remains zero. Debug builds may additionally maintain a request-local recording guard checked by engine allocation/execution entry points.
 
 ## Recorded IR
 

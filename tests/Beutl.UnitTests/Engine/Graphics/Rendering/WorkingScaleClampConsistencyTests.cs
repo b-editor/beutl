@@ -48,6 +48,44 @@ public class WorkingScaleClampConsistencyTests
     }
 
     [Test]
+    public void MaterializationPolicy_PreservesExactFitAtNegativeOrigin()
+    {
+        var bounds = new Rect(
+            -0.5f,
+            0,
+            RenderScaleUtilities.MaxBufferDimension + 0.5f,
+            1);
+        using var owner = new RenderRequestOwner();
+        using var request = new RenderRequest(new RenderRequestOptions(
+            RenderIntent.Preview,
+            RenderRequestPurpose.Auxiliary,
+            targetDomain: bounds,
+            owner: owner));
+        var transaction = new NodeRecordingTransaction(
+            new RenderRequestRecorder(request),
+            new object(),
+            []);
+        var context = new RenderNodeContext(transaction);
+        RenderFragmentHandle handle = context.OpaqueSource(OpaqueRenderDescription.Create(
+            static _ => { },
+            OpaqueRenderBoundsContract.Source(bounds),
+            RenderHitTestContract.None,
+            RenderValueCardinality.Single,
+            RenderScaleContract.MaterializeAtWorkingScale,
+            structuralKey: "negative-origin-materialization-policy"));
+        RenderFragmentReference reference = transaction.GetReference(handle);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(reference.EffectiveScale, Is.EqualTo(EffectiveScale.At(1)));
+            Assert.That(RenderMaterializationDensityPolicy.Clamp(reference, 1), Is.EqualTo(1));
+            Assert.That(
+                PixelRect.FromRect(reference.Bounds, 1).Width,
+                Is.EqualTo(RenderScaleUtilities.MaxBufferDimension));
+        });
+    }
+
+    [Test]
     public void RasterApronClamp_PreservesDensityWhenExactApronedFootprintFits()
     {
         var bounds = new Rect(

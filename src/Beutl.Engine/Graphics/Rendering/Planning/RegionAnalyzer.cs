@@ -708,7 +708,7 @@ internal sealed class RegionAnalyzer
             inputScales,
             options.OutputScale,
             options.MaxWorkingScale);
-        workingScale = RenderScaleUtilities.ClampWorkingScaleToBufferBudget(
+        workingScale = RenderScaleUtilities.ClampWorkingScaleToExactBufferBudget(
             resolvedBounds,
             workingScale);
         return EffectiveScale.At(workingScale);

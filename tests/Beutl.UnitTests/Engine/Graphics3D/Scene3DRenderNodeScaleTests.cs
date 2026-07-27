@@ -103,6 +103,53 @@ public class Scene3DRenderNodeScaleTests
     }
 
     [Test]
+    public void Recording_OversizedDrawableTextureClampsTheNestedTargetDensity()
+    {
+        var drawable = new RectShape();
+        drawable.Width.CurrentValue = 1;
+        drawable.Height.CurrentValue = 1;
+        drawable.Fill.CurrentValue = Brushes.Red;
+        var texture = new DrawableTextureSource();
+        texture.Drawable.CurrentValue = drawable;
+        texture.TextureWidth.CurrentValue = 8192;
+        texture.TextureHeight.CurrentValue = 1;
+        var material = new BasicMaterial();
+        material.DiffuseMap.CurrentValue = texture;
+        var cube = new Cube3D();
+        cube.Material.CurrentValue = material;
+
+        var scene = new Scene3D();
+        scene.RenderWidth.CurrentValue = 32;
+        scene.RenderHeight.CurrentValue = 24;
+        using var resource = (Scene3D.Resource)scene.ToResource(CompositionContext.Default);
+        resource.Objects.Add((Object3D.Resource)cube.ToResource(CompositionContext.Default));
+        using var node = new Scene3DRenderNode(resource);
+        using var owner = new RenderRequestOwner();
+        using var request = new RenderRequest(new RenderRequestOptions(
+            RenderIntent.Delivery,
+            RenderRequestPurpose.Frame,
+            targetDomain: new Rect(0, 0, 32, 24),
+            outputScale: 4,
+            maxWorkingScale: 4,
+            cachePolicy: RenderCacheOptions.Disabled,
+            owner: owner));
+
+        RecordedRenderGraph graph = new RenderRequestRecorder(request).Record(node);
+        RecordedNestedRenderRequest nested = graph.NestedRequests.Single();
+        float expectedDensity = RenderScaleUtilities.MaxBufferDimension / 8192f;
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(nested.Request.Options.TargetDomain, Is.EqualTo(new Rect(0, 0, 8192, 1)));
+            Assert.That(nested.Request.Options.OutputScale, Is.EqualTo(expectedDensity));
+            Assert.That(nested.Request.Options.MaxWorkingScale, Is.EqualTo(expectedDensity));
+            Assert.That(
+                PixelRect.FromRect(nested.Request.Options.TargetDomain!.Value, expectedDensity).Width,
+                Is.EqualTo(RenderScaleUtilities.MaxBufferDimension));
+        });
+    }
+
+    [Test]
     public void Recording_DrawableTextureThatReferencesItsSceneFailsWithAnExplicitCycleAndRollsBack()
     {
         var scene = new Scene3D();

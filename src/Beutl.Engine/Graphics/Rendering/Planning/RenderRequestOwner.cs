@@ -133,7 +133,7 @@ internal sealed class RenderRequestOwner : IDisposable
         Cleanup();
     }
 
-    private void RecordCleanupFailure(Exception exception)
+    internal void RecordCleanupFailure(Exception exception)
     {
         _cleanupFailures.Add(exception);
         if (_primaryFailure is null)

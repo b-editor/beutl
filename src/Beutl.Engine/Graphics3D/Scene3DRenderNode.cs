@@ -133,14 +133,15 @@ internal sealed class Scene3DRenderNode(Scene3D.Resource scene) : RenderNode
             {
                 if (!seen.Add(source))
                     continue;
-                DrawableRenderNode? root = source.RecordDrawable(outputScale);
+                float textureDensity = source.ResolveDensity(outputScale);
+                DrawableRenderNode? root = source.RecordDrawable(textureDensity);
                 if (root is null)
                     continue;
 
                 RecordedNestedRenderTarget nested = context.RecordNestedTargetAtScale(
                     root,
                     source.TextureDomain,
-                    outputScale);
+                    textureDensity);
                 result.Add(new SceneTextureBinding(source, nested.Binding));
             }
         }

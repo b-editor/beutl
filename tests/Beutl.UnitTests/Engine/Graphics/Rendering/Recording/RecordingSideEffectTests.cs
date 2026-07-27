@@ -1,5 +1,7 @@
 ﻿using Beutl.Graphics;
+using Beutl.Graphics.Effects;
 using Beutl.Graphics.Rendering;
+using Beutl.Media;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
@@ -70,54 +72,40 @@ public sealed class RecordingSideEffectTests
     }
 
     [Test]
-    public void DescriptionConstruction_DefersEveryExecutionCapability()
+    public void RecordingDeferredShapes_LeavesEveryExecutionProbeAtZero()
     {
         var tripwire = new SideEffectTripwire();
-        var bounds = new Rect(0, 0, 64, 36);
+        var targetFactory = new CountingTargetFactory();
+        var diagnostics = new RenderPipelineDiagnosticsState();
+        using var node = new DeferredShapeProbeNode(tripwire);
+        using var renderer = new RenderNodeRenderer(node, new RenderNodeRendererOptions
+        {
+            TargetDomain = DeferredShapeProbeNode.Bounds,
+            TargetFactory = targetFactory,
+            Diagnostics = diagnostics,
+            UseRenderCache = false,
+        });
 
-        OpaqueRenderDescription opaque = OpaqueRenderDescription.Create(
-            _ => tripwire.TouchAll(),
-            OpaqueRenderBoundsContract.Source(bounds),
-            RenderHitTestContract.OutputBounds,
-            RenderValueCardinality.Single,
-            RenderScaleContract.Vector,
-            structuralKey: "opaque-recording-probe",
-            requiresReadback: true);
-        TargetCommandDescription command = TargetCommandDescription.Create(
-            _ => tripwire.TouchAll(),
-            TargetRegion.Full,
-            bounds,
-            RenderHitTestContract.OutputBounds,
-            TargetAccess.Readback,
-            requiresInputReadback: true,
-            structuralKey: "target-command-recording-probe");
-        TargetScopeDescription scope = TargetScopeDescription.Create(
-            _ => tripwire.TouchAll(),
-            RenderBoundsContract.Identity,
-            RenderHitTestContract.AnyInput,
-            RenderScaleContract.PreserveInputSupply,
-            structuralKey: "target-scope-recording-probe");
-        RawTargetScopeDescription rawScope = RawTargetScopeDescription.Create(
-            _ => tripwire.TouchAll(),
-            RenderBoundsContract.Identity,
-            RenderHitTestContract.AnyInput,
-            RenderScaleContract.PreserveInputSupply,
-            structuralKey: "raw-target-scope-recording-probe");
-        RawTargetCommandDescription rawCommand = RawTargetCommandDescription.Create(
-            _ => tripwire.TouchAll(),
-            bounds,
-            RenderHitTestContract.OutputBounds,
-            structuralKey: "raw-target-command-recording-probe");
+        RenderNodeMeasurement measurement = renderer.Measure();
+        RenderPipelineDiagnosticSnapshot snapshot = diagnostics.Latest;
+        RenderPipelineCounter[] executionCounters =
+        [
+            RenderPipelineCounter.ExecutedGpuPasses,
+            RenderPipelineCounter.IntermediateAcquires,
+            RenderPipelineCounter.IntermediateCreates,
+            RenderPipelineCounter.Synchronizations,
+            RenderPipelineCounter.ProgramCreations,
+            RenderPipelineCounter.OpaqueExternalExecutions,
+        ];
 
         Assert.Multiple(() =>
         {
-            Assert.That(opaque, Is.Not.Null);
-            Assert.That(command, Is.Not.Null);
-            Assert.That(scope, Is.Not.Null);
-            Assert.That(rawScope, Is.Not.Null);
-            Assert.That(rawCommand, Is.Not.Null);
+            Assert.That(measurement.HasFragments, Is.True);
             Assert.That(tripwire.Counts.Values, Is.All.Zero,
-                "Description creation/recording must not execute a deferred callback.");
+                "Recording and metadata resolution must not execute any deferred callback.");
+            Assert.That(targetFactory.CreateCalls, Is.Zero);
+            foreach (RenderPipelineCounter counter in executionCounters)
+                Assert.That(snapshot[counter], Is.Zero, $"{counter} must remain zero during recording.");
         });
     }
 
@@ -313,6 +301,127 @@ public sealed class RecordingSideEffectTests
         int Line,
         string Detail,
         string Snippet);
+
+    private sealed class DeferredShapeProbeNode(SideEffectTripwire tripwire) : RenderNode
+    {
+        public static Rect Bounds { get; } = new(0, 0, 64, 36);
+
+        public override void Process(RenderNodeContext context)
+        {
+            RenderFragmentHandle source = context.OpaqueSource(CreateOpaque(
+                OpaqueRenderBoundsContract.Source(Bounds),
+                RenderValueCardinality.Single,
+                RenderScaleContract.MaterializeAtWorkingScale,
+                "source"));
+            RenderFragmentHandle mapped = context.OpaqueMap(
+                source,
+                CreateOpaque(
+                    OpaqueRenderBoundsContract.Map(RenderBoundsContract.Identity),
+                    RenderValueCardinality.Single,
+                    RenderScaleContract.PreserveInputSupply,
+                    "map"));
+            RenderFragmentHandle combined = context.OpaqueCombine(
+                [source, mapped],
+                CreateOpaque(
+                    OpaqueRenderBoundsContract.Combine(
+                        static inputs => inputs.Aggregate(static (left, right) => left.Union(right)),
+                        static (output, inputs) => inputs.Select(_ => output).ToArray(),
+                        "recording-probe-combine-bounds"),
+                    RenderValueCardinality.Single,
+                    RenderScaleContract.MaterializeAtWorkingScale,
+                    "combine"));
+            RenderFragmentHandle expanded = context.OpaqueExpand(
+                [source],
+                CreateOpaque(
+                    OpaqueRenderBoundsContract.FullInputs(
+                        static inputs => inputs.Aggregate(static (left, right) => left.Union(right)),
+                        "recording-probe-expand-bounds"),
+                    RenderValueCardinality.Dynamic,
+                    RenderScaleContract.MaterializeAtWorkingScale,
+                    "expand"));
+            RenderFragmentHandle shader = context.Shader(
+                source,
+                ShaderDescription.CurrentPixel(
+                    "half4 apply(half4 color) { return color; }"));
+            RenderFragmentHandle geometry = context.Geometry(
+                source,
+                GeometryDescription.Create(
+                    _ => tripwire.TouchAll(),
+                    RenderBoundsContract.Identity,
+                    RenderHitTestContract.AnyInput,
+                    structuralKey: "geometry-recording-probe",
+                    requiresReadback: true));
+            RenderFragmentHandle capture = context.TargetCapture(
+                TargetCaptureDescription.Create(
+                    TargetRegion.Full,
+                    Bounds,
+                    RenderHitTestContract.OutputBounds,
+                    RenderScaleContract.MaterializeAtWorkingScale));
+            RenderFragmentHandle command = context.TargetCommand(
+                [],
+                TargetCommandDescription.Create(
+                    _ => tripwire.TouchAll(),
+                    TargetRegion.Full,
+                    Bounds,
+                    RenderHitTestContract.OutputBounds,
+                    TargetAccess.Readback,
+                    requiresInputReadback: true,
+                    structuralKey: "target-command-recording-probe"));
+            RenderFragmentHandle scope = context.TargetScope(
+                source,
+                TargetScopeDescription.Create(
+                    _ => tripwire.TouchAll(),
+                    RenderBoundsContract.Identity,
+                    RenderHitTestContract.AnyInput,
+                    RenderScaleContract.PreserveInputSupply,
+                    structuralKey: "target-scope-recording-probe"));
+            RenderFragmentHandle rawScope = context.RawTargetScope(
+                source,
+                RawTargetScopeDescription.Create(
+                    _ => tripwire.TouchAll(),
+                    RenderBoundsContract.Identity,
+                    RenderHitTestContract.AnyInput,
+                    RenderScaleContract.PreserveInputSupply,
+                    structuralKey: "raw-target-scope-recording-probe"));
+            RenderFragmentHandle rawCommand = context.RawTargetCommand(
+                RawTargetCommandDescription.Create(
+                    _ => tripwire.TouchAll(),
+                    Bounds,
+                    RenderHitTestContract.OutputBounds,
+                    structuralKey: "raw-target-command-recording-probe"));
+
+            context.PublishRange(
+                [source, mapped, combined, expanded, shader, geometry, capture, command, scope, rawScope, rawCommand]);
+        }
+
+        private OpaqueRenderDescription CreateOpaque(
+            OpaqueRenderBoundsContract bounds,
+            RenderValueCardinality cardinality,
+            RenderScaleContract scale,
+            string key)
+        {
+            return OpaqueRenderDescription.Create(
+                _ => tripwire.TouchAll(),
+                bounds,
+                RenderHitTestContract.OutputBounds,
+                cardinality,
+                scale,
+                structuralKey: $"opaque-recording-probe-{key}",
+                requiresReadback: true);
+        }
+    }
+
+    private sealed class CountingTargetFactory : IRenderTargetFactory
+    {
+        public int CreateCalls { get; private set; }
+
+        public RenderTarget Create(PixelSize deviceSize)
+        {
+            CreateCalls++;
+            throw new AssertionException(
+                $"Recording unexpectedly requested a {deviceSize.Width}x{deviceSize.Height} render target.");
+        }
+    }
 
     private sealed class SideEffectTripwire
     {

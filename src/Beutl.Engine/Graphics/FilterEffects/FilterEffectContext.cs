@@ -677,7 +677,7 @@ public sealed class FilterEffectContext : IDisposable
             Bounds = bounds;
             try
             {
-                _resourceState.RollbackTo(resourceCount);
+                _resourceState.RollbackTo(resourceCount, ex);
             }
             catch (Exception cleanupFailure)
             {
@@ -790,7 +790,7 @@ internal sealed class FilterEffectResourceState
         }
     }
 
-    public void RollbackTo(int count)
+    public void RollbackTo(int count, Exception? primaryFailure = null)
     {
         if (count < 0 || count > _resources.Count)
             throw new ArgumentOutOfRangeException(nameof(count));
@@ -801,7 +801,16 @@ internal sealed class FilterEffectResourceState
         _resources.RemoveRange(count, _resources.Count - count);
         if (_renderContext is not null)
         {
-            _renderContext.RollbackResources(removed);
+            if (primaryFailure is null)
+                _renderContext.RollbackResources(removed);
+            else
+            {
+                Exception? cleanupFailure =
+                    _renderContext.RollbackResourcesAndCapture(removed, primaryFailure);
+                if (cleanupFailure is not null)
+                    throw cleanupFailure;
+            }
+
             return;
         }
 

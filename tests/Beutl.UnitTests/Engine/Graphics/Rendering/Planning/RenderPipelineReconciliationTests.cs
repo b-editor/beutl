@@ -398,6 +398,114 @@ public sealed class RenderPipelineReconciliationTests
     }
 
     [Test]
+    public void DestinationInvalidatedDuringRecording_IsClassifiedAsExecutionValidation()
+    {
+        var diagnostics = new RenderPipelineDiagnosticsState();
+        using RenderTarget target = RenderTarget.CreateNull(16, 16);
+        using var destination = new ImmediateCanvas(target);
+        using var node = new DestinationInvalidatingNode(destination);
+        using var renderer = new RenderNodeRenderer(node, new RenderNodeRendererOptions
+        {
+            TargetDomain = new Rect(0, 0, 16, 16),
+            Diagnostics = diagnostics,
+            UseRenderCache = false,
+        });
+
+        ObjectDisposedException exception = Assert.Throws<ObjectDisposedException>(
+            () => renderer.Render(destination))!;
+
+        RenderPipelineDiagnosticSnapshot snapshot = diagnostics.Latest;
+        Assert.Multiple(() =>
+        {
+            Assert.That(exception.ObjectName, Is.Not.Empty);
+            Assert.That(node.ExecuteCount, Is.Zero);
+            Assert.That(snapshot.FailurePhase, Is.EqualTo(RenderPipelineFailurePhase.Execution));
+            Assert.That(snapshot[RenderPipelineCounter.IntermediateAcquires], Is.Zero);
+        });
+    }
+
+    [Test]
+    public void ExternalRootCleanupFailure_IsPublishedBeforeFamilyDiagnosticsComplete()
+    {
+        var diagnostics = new RenderPipelineDiagnosticsState();
+        var cleanupFailure = new InvalidOperationException("external-root-cleanup");
+        using var owner = new RenderRequestOwner();
+        var options = new RenderRequestOptions(
+            RenderIntent.Preview,
+            RenderRequestPurpose.Frame,
+            targetDomain: new Rect(0, 0, 16, 16),
+            cachePolicy: RenderCacheOptions.Disabled,
+            owner: owner,
+            diagnostics: diagnostics);
+        using var request = new RenderRequest(options);
+        using var node = new CacheableWorkNode();
+        RecordedRenderGraph graph = new RenderRequestRecorder(request).Record(node);
+        using CompiledRenderRequest compiled = new RenderRequestCompiler().Compile(request, graph);
+        using RenderTarget destination = RenderTarget.CreateNull(16, 16);
+        using var canvas = new ImmediateCanvas(destination);
+        using var registry = new RenderTargetLeaseRegistry(factory: null);
+        using RenderTargetLeaseSession targets = registry.BeginSession(RenderIntent.Preview, destination);
+
+        InvalidOperationException exception = Assert.Throws<InvalidOperationException>(
+            () => new RenderRequestExecutor(targets).Execute(
+                compiled,
+                canvas,
+                finalizeExternalResources: () => throw cleanupFailure))!;
+
+        RenderPipelineDiagnosticSnapshot snapshot = diagnostics.Latest;
+        Assert.Multiple(() =>
+        {
+            Assert.That(exception, Is.SameAs(cleanupFailure));
+            Assert.That(request.State, Is.EqualTo(RenderRequestState.Failed));
+            Assert.That(owner.PrimaryFailure?.SourceException, Is.SameAs(cleanupFailure));
+            Assert.That(owner.CleanupFailures, Is.EqualTo(new[] { cleanupFailure }));
+            Assert.That(snapshot.Succeeded, Is.False);
+            Assert.That(snapshot.FailurePhase, Is.EqualTo(RenderPipelineFailurePhase.Cleanup));
+            Assert.That(snapshot[RenderPipelineCounter.CleanupFailures], Is.EqualTo(1));
+        });
+    }
+
+    [Test]
+    public void ExternalRootCleanupFailure_DoesNotReplaceTheExecutionPrimary()
+    {
+        var diagnostics = new RenderPipelineDiagnosticsState();
+        var cleanupFailure = new InvalidOperationException("external-root-cleanup");
+        using var owner = new RenderRequestOwner();
+        var options = new RenderRequestOptions(
+            RenderIntent.Preview,
+            RenderRequestPurpose.Frame,
+            targetDomain: new Rect(0, 0, 16, 16),
+            cachePolicy: RenderCacheOptions.Disabled,
+            owner: owner,
+            diagnostics: diagnostics);
+        using var request = new RenderRequest(options);
+        using var node = new ThrowingCacheableWorkNode();
+        RecordedRenderGraph graph = new RenderRequestRecorder(request).Record(node);
+        using CompiledRenderRequest compiled = new RenderRequestCompiler().Compile(request, graph);
+        using RenderTarget destination = RenderTarget.CreateNull(16, 16);
+        using var canvas = new ImmediateCanvas(destination);
+        using var registry = new RenderTargetLeaseRegistry(factory: null);
+        using RenderTargetLeaseSession targets = registry.BeginSession(RenderIntent.Preview, destination);
+
+        InvalidOperationException exception = Assert.Throws<InvalidOperationException>(
+            () => new RenderRequestExecutor(targets).Execute(
+                compiled,
+                canvas,
+                finalizeExternalResources: () => throw cleanupFailure))!;
+
+        RenderPipelineDiagnosticSnapshot snapshot = diagnostics.Latest;
+        Assert.Multiple(() =>
+        {
+            Assert.That(exception.Message, Is.EqualTo("producer-fault"));
+            Assert.That(owner.PrimaryFailure?.SourceException, Is.SameAs(exception));
+            Assert.That(owner.CleanupFailures, Is.EqualTo(new[] { cleanupFailure }));
+            Assert.That(snapshot.Succeeded, Is.False);
+            Assert.That(snapshot.FailurePhase, Is.EqualTo(RenderPipelineFailurePhase.Execution));
+            Assert.That(snapshot[RenderPipelineCounter.CleanupFailures], Is.EqualTo(1));
+        });
+    }
+
+    [Test]
     public void RecordingFailure_PreservesOriginalExceptionAndPublishesRecordingPhase()
     {
         var diagnostics = new RenderPipelineDiagnosticsState();
@@ -861,6 +969,23 @@ public sealed class RenderPipelineReconciliationTests
     {
         public override void Process(RenderNodeContext context)
             => throw new InvalidOperationException("recording-fault");
+    }
+
+    private sealed class DestinationInvalidatingNode(ImmediateCanvas destination) : RenderNode
+    {
+        public int ExecuteCount { get; private set; }
+
+        public override void Process(RenderNodeContext context)
+        {
+            destination.Dispose();
+            context.Publish(context.OpaqueSource(OpaqueRenderDescription.Create(
+                _ => ExecuteCount++,
+                OpaqueRenderBoundsContract.Source(new Rect(0, 0, 16, 16)),
+                RenderHitTestContract.OutputBounds,
+                RenderValueCardinality.Single,
+                RenderScaleContract.MaterializeAtWorkingScale,
+                structuralKey: typeof(DestinationInvalidatingNode))));
+        }
     }
 
     private sealed class CacheableWorkNode : RenderNode

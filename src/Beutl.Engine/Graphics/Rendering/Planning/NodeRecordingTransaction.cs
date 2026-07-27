@@ -61,7 +61,8 @@ internal sealed class NodeRecordingTransaction : IRenderFragmentHandleOwner
         IEnumerable<RenderFragmentReference>? inputs,
         object? payload,
         Func<Point, bool>? hitTest,
-        RenderFragmentBoundsRequirement boundsRequirement = RenderFragmentBoundsRequirement.Finite)
+        RenderFragmentBoundsRequirement boundsRequirement = RenderFragmentBoundsRequirement.Finite,
+        bool hasDirectSymbolicBoundsDependency = false)
     {
         VerifyActive();
         ImmutableArray<RenderFragmentReference> inputCopy = inputs is null ? [] : [.. inputs];
@@ -82,7 +83,8 @@ internal sealed class NodeRecordingTransaction : IRenderFragmentHandleOwner
             inputCopy,
             payload,
             hitTest,
-            boundsRequirement);
+            boundsRequirement,
+            hasDirectSymbolicBoundsDependency);
         _ownedReferences.Add(reference);
         _fragments.Add(new RecordedRenderFragmentEntry(reference, _origin, "RenderNode.Process"));
         return new RenderFragmentHandle(this, reference);
@@ -214,6 +216,31 @@ internal sealed class NodeRecordingTransaction : IRenderFragmentHandleOwner
             throw new AggregateException("One or more render resources failed to roll back.", failures);
     }
 
+    public Exception? RollbackResourcesAndCapture(
+        IReadOnlyList<RenderResource> resources,
+        Exception primaryFailure)
+    {
+        ArgumentNullException.ThrowIfNull(primaryFailure);
+        Request.Options.Owner.RecordPrimaryFailure(primaryFailure);
+        try
+        {
+            RollbackResources(resources);
+        }
+        catch (AggregateException ex)
+        {
+            foreach (Exception cleanupFailure in ex.InnerExceptions)
+                Request.Options.Owner.RecordCleanupFailure(cleanupFailure);
+            return ex;
+        }
+        catch (Exception ex)
+        {
+            Request.Options.Owner.RecordCleanupFailure(ex);
+            return ex;
+        }
+
+        return null;
+    }
+
     public IReadOnlyList<RenderFragmentHandle> RecordNode(
         RenderNode node,
         IReadOnlyList<RenderFragmentHandle> inputs,
@@ -327,7 +354,7 @@ internal sealed class NodeRecordingTransaction : IRenderFragmentHandleOwner
             }
             catch (Exception ex)
             {
-                Request.Options.Owner.RecordPrimaryFailure(ex);
+                Request.Options.Owner.RecordCleanupFailure(ex);
             }
         }
 
@@ -340,7 +367,7 @@ internal sealed class NodeRecordingTransaction : IRenderFragmentHandleOwner
             }
             catch (Exception ex)
             {
-                Request.Options.Owner.RecordPrimaryFailure(ex);
+                Request.Options.Owner.RecordCleanupFailure(ex);
             }
         }
 

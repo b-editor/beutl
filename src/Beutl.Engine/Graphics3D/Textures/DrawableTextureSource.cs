@@ -39,15 +39,20 @@ public sealed partial class DrawableTextureSource : TextureSource
         internal Rect TextureDomain
             => new(0, 0, TextureWidth, TextureHeight);
 
+        internal float ResolveDensity(float density)
+        {
+            float sanitizedDensity = float.IsFinite(density) && density > 0f ? density : 1f;
+            return RenderScaleUtilities.ClampWorkingScaleToBufferBudget(
+                TextureDomain,
+                sanitizedDensity);
+        }
+
         internal DrawableRenderNode? RecordDrawable(float density)
         {
             if (Drawable is null || TextureWidth <= 0 || TextureHeight <= 0)
                 return null;
 
-            float sanitizedDensity = float.IsFinite(density) && density > 0f ? density : 1f;
-            sanitizedDensity = RenderScaleUtilities.ClampWorkingScaleToBufferBudget(
-                TextureDomain,
-                sanitizedDensity);
+            float sanitizedDensity = ResolveDensity(density);
             _drawableNode ??= new DrawableRenderNode(Drawable);
             _drawableNode.Update(Drawable);
             using var context = new GraphicsContext2D(
@@ -62,7 +67,7 @@ public sealed partial class DrawableTextureSource : TextureSource
         {
             ArgumentNullException.ThrowIfNull(graphicsContext);
             if (NestedRenderTargetBindingScope.TryGet(this, out NestedRenderTargetBinding nestedBinding))
-                return nestedBinding.GetTexture(TextureDomain, surfaceDensity);
+                return nestedBinding.GetTexture(TextureDomain, ResolveDensity(surfaceDensity));
             if (RenderExecutionCallbackGuard.IsActive)
             {
                 throw new InvalidOperationException(
@@ -78,9 +83,7 @@ public sealed partial class DrawableTextureSource : TextureSource
             // Rasterize at surfaceDensity so vector content stays crisp.
             int textureWidth = TextureWidth;
             int textureHeight = TextureHeight;
-            float density = float.IsFinite(surfaceDensity) && surfaceDensity > 0f ? surfaceDensity : 1f;
-            density = RenderScaleUtilities.ClampWorkingScaleToBufferBudget(
-                new Rect(0, 0, textureWidth, textureHeight), density);
+            float density = ResolveDensity(surfaceDensity);
             int deviceWidth = Math.Max(1, (int)Math.Ceiling(textureWidth * (double)density));
             int deviceHeight = Math.Max(1, (int)Math.Ceiling(textureHeight * (double)density));
 

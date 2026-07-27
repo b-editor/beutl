@@ -146,6 +146,9 @@ public sealed class RenderNodeAuthoringContractTests
     {
         var bounds = new Rect(4, 6, 20, 10);
         var observed = new Dictionary<string, FragmentSnapshot>();
+        var fallbackBrush = new FallbackBrush();
+        using Brush.Resource fallbackMask =
+            (Brush.Resource)fallbackBrush.ToResource(CompositionContext.Default);
 
         using var node = new DelegateNode(context =>
         {
@@ -169,6 +172,10 @@ public sealed class RenderNodeAuthoringContractTests
             RenderFragmentHandle maskCommand = context.OpacityMask(
                 command,
                 Brushes.Resource.White,
+                bounds);
+            RenderFragmentHandle maskFallback = context.OpacityMask(
+                source,
+                fallbackMask,
                 bounds);
             RenderFragmentHandle blend = context.Blend(source, BlendMode.SrcOver);
             RenderFragmentHandle targetScope = context.TargetScope(
@@ -202,6 +209,7 @@ public sealed class RenderNodeAuthoringContractTests
             observed["opacity-command"] = FragmentSnapshot.From(opacityCommand);
             observed["mask-value"] = FragmentSnapshot.From(maskValue);
             observed["mask-command"] = FragmentSnapshot.From(maskCommand);
+            observed["mask-fallback"] = FragmentSnapshot.From(maskFallback);
             observed["blend"] = FragmentSnapshot.From(blend);
             observed["target-scope"] = FragmentSnapshot.From(targetScope);
             observed["raw-scope"] = FragmentSnapshot.From(rawScope);
@@ -215,7 +223,8 @@ public sealed class RenderNodeAuthoringContractTests
                 Throws.TypeOf<ArgumentException>());
             Assert.That(() => context.ContributeValues(command), Throws.TypeOf<ArgumentException>());
 
-            context.PublishRange([opacityValue, maskValue, blend, targetScope, rawScope, rawCommand, layer]);
+            context.PublishRange(
+                [opacityValue, maskValue, maskFallback, blend, targetScope, rawScope, rawCommand, layer]);
         });
 
         _ = Measure(node, targetDomain: bounds);
@@ -226,6 +235,7 @@ public sealed class RenderNodeAuthoringContractTests
             Assert.That(observed["opacity-command"].CanBeUsedAsValueInput, Is.False);
             Assert.That(observed["mask-value"].CanBeUsedAsValueInput, Is.True);
             Assert.That(observed["mask-command"].CanBeUsedAsValueInput, Is.False);
+            Assert.That(observed["mask-fallback"].CanBeUsedAsValueInput, Is.False);
             Assert.That(observed["blend"].CanBeUsedAsValueInput, Is.False);
             Assert.That(observed["target-scope"].CanBeUsedAsValueInput, Is.False);
             Assert.That(observed["raw-scope"].CanBeUsedAsValueInput, Is.False);

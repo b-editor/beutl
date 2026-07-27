@@ -152,7 +152,8 @@ internal sealed class RenderFragmentReference
         IEnumerable<RenderFragmentReference>? inputs,
         object? payload,
         Func<Point, bool>? hitTest,
-        RenderFragmentBoundsRequirement boundsRequirement = RenderFragmentBoundsRequirement.Finite)
+        RenderFragmentBoundsRequirement boundsRequirement = RenderFragmentBoundsRequirement.Finite,
+        bool hasDirectSymbolicBoundsDependency = false)
     {
         valueCardinality.ThrowIfUninitialized(nameof(valueCardinality));
         if (!Enum.IsDefined(boundsRequirement))
@@ -176,10 +177,12 @@ internal sealed class RenderFragmentReference
         HasTargetEffects = hasTargetEffects;
         HasOpaqueExternalWork = hasOpaqueExternalWork;
         Inputs = inputs is null ? [] : [.. inputs];
-        HasConcreteRecordingMetadata = boundsRequirement == RenderFragmentBoundsRequirement.Finite
+        HasConcreteRecordingMetadata = !hasDirectSymbolicBoundsDependency
+            && boundsRequirement == RenderFragmentBoundsRequirement.Finite
             && (kind == RenderFragmentKind.Layer
                 || Inputs.All(static input => input.HasConcreteRecordingMetadata));
-        HasSymbolicBoundsDependency = boundsRequirement == RenderFragmentBoundsRequirement.OwningTargetDomain
+        HasSymbolicBoundsDependency = hasDirectSymbolicBoundsDependency
+            || boundsRequirement == RenderFragmentBoundsRequirement.OwningTargetDomain
             || Inputs.Any(static input => input.HasSymbolicBoundsDependency);
         Payload = payload;
         PotentiallyWritesTarget = ComputePotentiallyWritesTarget();

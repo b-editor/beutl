@@ -99,7 +99,7 @@ public sealed class TargetAuthoringContractTests
                     structuralKey: "raw-scope"));
             RenderFragmentHandle targetLayer = context.TargetLayerScope(
                 [source, command],
-                TargetRegion.Full);
+                TargetRegion.Region(bounds));
             RenderFragmentHandle finiteLayerCommand = context.TargetCommand(
                 [source],
                 TargetCommandDescription.Create(
@@ -161,11 +161,56 @@ public sealed class TargetAuthoringContractTests
     }
 
     [Test]
+    public void FiniteTargetLayerScope_SeparatesAffectedRegionFromChildQueryMetadata()
+    {
+        var region = new Rect(0, 0, 100, 80);
+        var childBounds = new Rect(20, 25, 12, 8);
+        FragmentSnapshot scopeSnapshot = default;
+        bool hitInsideChild = false;
+        bool hitOutsideChild = true;
+
+        using var node = new DelegateNode(context =>
+        {
+            RenderFragmentHandle source = context.OpaqueSource(MetadataSource(childBounds));
+            RenderFragmentHandle scope = context.TargetLayerScope(
+                [source],
+                TargetRegion.Region(region));
+            scopeSnapshot = FragmentSnapshot.From(scope);
+            Assert.That(scope.TryHitTest(new Point(21, 26), out hitInsideChild), Is.True);
+            Assert.That(scope.TryHitTest(new Point(1, 1), out hitOutsideChild), Is.True);
+            context.Publish(scope);
+        });
+
+        RenderNodeMeasurement measurement = Measure(node, targetDomain: region);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(scopeSnapshot.Bounds, Is.EqualTo(childBounds));
+            Assert.That(hitInsideChild, Is.True);
+            Assert.That(hitOutsideChild, Is.False);
+            Assert.That(measurement.OutputBounds, Is.EqualTo(region));
+            Assert.That(measurement.QueryBounds, Is.EqualTo(childBounds));
+        });
+    }
+
+    [Test]
     public void SymbolicFullTargetAccess_RequiresARealTargetDomain_AndKeepsQueryBoundsSeparate()
     {
         var domain = new Rect(10, 20, 100, 60);
         var query = new Rect(30, 35, 8, 9);
         bool recorded = false;
+        bool fullScopeMetadataAvailable = true;
+        RenderFragmentMetadata fullScopeMetadata = default;
+        bool fullScopeHitTestAvailable = true;
+        bool fullScopeHit = true;
+        bool descendantMetadataAvailable = true;
+        RenderFragmentMetadata descendantMetadata = default;
+        bool descendantHitTestAvailable = true;
+        bool descendantHit = true;
+        bool finiteLayerMetadataAvailable = false;
+        RenderFragmentMetadata finiteLayerMetadata = default;
+        bool finiteLayerHitTestAvailable = false;
+        bool finiteLayerHit = false;
 
         using var commandNode = new DelegateNode(context =>
         {
@@ -203,14 +248,66 @@ public sealed class TargetAuthoringContractTests
         using var scopeNode = new DelegateNode(context =>
         {
             RenderFragmentHandle source = context.OpaqueSource(MetadataSource(query));
-            context.Publish(context.TargetLayerScope([source], TargetRegion.Full));
+            RenderFragmentHandle scope = context.TargetLayerScope([source], TargetRegion.Full);
+            fullScopeMetadataAvailable = scope.TryGetMetadata(out fullScopeMetadata);
+            fullScopeHitTestAvailable = scope.TryHitTest(new Point(31, 36), out fullScopeHit);
+
+            RenderFragmentHandle descendant = context.Opacity(scope, 0.5f);
+            descendantMetadataAvailable = descendant.TryGetMetadata(out descendantMetadata);
+            descendantHitTestAvailable = descendant.TryHitTest(new Point(31, 36), out descendantHit);
+
+            RenderFragmentHandle finiteLayer = context.Layer([scope], domain);
+            finiteLayerMetadataAvailable = finiteLayer.TryGetMetadata(out finiteLayerMetadata);
+            finiteLayerHitTestAvailable = finiteLayer.TryHitTest(new Point(11, 21), out finiteLayerHit);
+            context.Publish(scope);
         });
         RenderNodeMeasurement scopeMeasurement = Measure(scopeNode, targetDomain: domain);
         Assert.Multiple(() =>
         {
+            Assert.That(fullScopeMetadataAvailable, Is.False);
+            Assert.That(fullScopeMetadata, Is.EqualTo(default(RenderFragmentMetadata)));
+            Assert.That(fullScopeHitTestAvailable, Is.False);
+            Assert.That(fullScopeHit, Is.False);
+            Assert.That(descendantMetadataAvailable, Is.False);
+            Assert.That(descendantMetadata, Is.EqualTo(default(RenderFragmentMetadata)));
+            Assert.That(descendantHitTestAvailable, Is.False);
+            Assert.That(descendantHit, Is.False);
+            Assert.That(finiteLayerMetadataAvailable, Is.True);
+            Assert.That(finiteLayerMetadata.Bounds, Is.EqualTo(domain));
+            Assert.That(finiteLayerHitTestAvailable, Is.True);
+            Assert.That(finiteLayerHit, Is.True);
             Assert.That(scopeMeasurement.OutputBounds, Is.EqualTo(domain));
             Assert.That(scopeMeasurement.QueryBounds, Is.EqualTo(query));
             Assert.That(scopeMeasurement.HasTargetEffects, Is.True);
+        });
+    }
+
+    [Test]
+    public void SymbolicFullTargetScope_RemainsUnavailableToParentInputQueries()
+    {
+        var domain = new Rect(10, 20, 100, 60);
+        var query = new Rect(30, 35, 8, 9);
+        bool inputBoundsAvailable = true;
+        Rect inputBounds = domain;
+        using var parent = new DelegateContainerNode(context =>
+        {
+            inputBoundsAvailable = context.TryCalculateInputBounds(out inputBounds);
+            context.PassThrough();
+        });
+        parent.AddChild(new DelegateNode(context =>
+        {
+            RenderFragmentHandle source = context.OpaqueSource(MetadataSource(query));
+            context.Publish(context.TargetLayerScope([source], TargetRegion.Full));
+        }));
+
+        RenderNodeMeasurement measurement = Measure(parent, targetDomain: domain);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(inputBoundsAvailable, Is.False);
+            Assert.That(inputBounds, Is.EqualTo(default(Rect)));
+            Assert.That(measurement.OutputBounds, Is.EqualTo(domain));
+            Assert.That(measurement.QueryBounds, Is.EqualTo(query));
         });
     }
 
@@ -618,6 +715,11 @@ public sealed class TargetAuthoringContractTests
     }
 
     private sealed class DelegateNode(Action<RenderNodeContext> process) : RenderNode
+    {
+        public override void Process(RenderNodeContext context) => process(context);
+    }
+
+    private sealed class DelegateContainerNode(Action<RenderNodeContext> process) : ContainerRenderNode
     {
         public override void Process(RenderNodeContext context) => process(context);
     }

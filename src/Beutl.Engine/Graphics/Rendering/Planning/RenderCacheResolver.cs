@@ -289,7 +289,7 @@ internal static class RenderMaterializationDensityPolicy
             : fragment.Bounds;
         return RequiresRasterApron(fragment)
             ? RenderScaleUtilities.ClampWorkingScaleToRasterApronBudget(logicalBounds, density)
-            : RenderScaleUtilities.ClampWorkingScaleToBufferBudget(logicalBounds, density);
+            : RenderScaleUtilities.ClampWorkingScaleToExactBufferBudget(logicalBounds, density);
     }
 
     private static bool RequiresRasterApron(RenderFragmentReference fragment)
