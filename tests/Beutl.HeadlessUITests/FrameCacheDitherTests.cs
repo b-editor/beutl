@@ -120,16 +120,20 @@ public class FrameCacheDitherTests
         using (cached)
         {
             Bitmap bitmap = cached!.Value;
-            Assert.That(bitmap.Width, Is.LessThan(Width), "the frame should have been downscaled");
+            Assert.That(bitmap.Width, Is.EqualTo(Width / 4));
+            Assert.That(bitmap.Height, Is.EqualTo(Width / 4));
 
-            // Nearest sampling lands on whole source texels, so every output pixel stays pure black or
-            // pure white; linear averaging over the half-black checkerboard lands well inside that range.
+            // The checkerboard is exactly half white, so a linear average lands on 0.5 in the linear
+            // space the frames are rendered in, which is 187.5 once encoded to 8-bit sRGB. Nearest
+            // sampling would instead land on whole source texels and return 0 or 255. The tolerance
+            // covers the dither, which moves each pixel to one of the two levels bracketing 187.5.
+            const double ExpectedLevel = 187.5;
             ReadOnlySpan<byte> pixels = bitmap.GetPixelSpan();
             int bpp = bitmap.BytesPerPixel;
             for (int i = 0; i < bitmap.Width * bitmap.Height; i++)
             {
-                Assert.That(pixels[i * bpp], Is.InRange(16, 239),
-                    $"pixel {i} kept a pure source level, so the downscale fell back to nearest sampling");
+                Assert.That((double)pixels[i * bpp], Is.EqualTo(ExpectedLevel).Within(1.0),
+                    $"pixel {i} is not the linear blend of the checkerboard");
             }
         }
     }
