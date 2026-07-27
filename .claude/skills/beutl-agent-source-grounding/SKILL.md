@@ -35,7 +35,7 @@ If the user explicitly forbids source-code reading, do not use this skill. Recor
 | Render-node transform and bounds behavior | `src/Beutl.Engine/Graphics/Rendering/TransformRenderNode.cs`, `src/Beutl.Engine/Graphics/Rendering/RenderNodeProcessor.cs`, `src/Beutl.Engine/Graphics/Rendering/RenderNodeContext.cs` | Operation bounds aggregation, bounds transformation, hit-test inversion, and density rescale. |
 | Toolkit examples and generated snippets | `src/Beutl.AgentToolkit/Schema/SchemaGenerator.cs`, `CompositionTemplates.cs` | How toolkit examples choose translate values, animation discriminators, and reusable object shapes. |
 | Quality analyzer assumptions | `src/Beutl.AgentToolkit/Rendering/QualityAnalyzer.cs` | How text/plate bounds, centers, foreground rect dominance, and typography overload are estimated. |
-| Still and motion verification | `src/Beutl.AgentToolkit/Rendering/StillRenderer.cs`, `MotionVariationAnalyzer.cs` | Which warnings should block export and how frame coverage is computed. |
+| Still and motion verification | `src/Beutl.AgentToolkit/Rendering/StillRenderer.cs`, `MotionVariationAnalyzer.cs` | What each warning actually measures and how frame coverage is computed. Neither blocks export. |
 | Declarative document and reconciliation | `src/Beutl.AgentToolkit/Documents/DocumentAdapter.cs`, `DeclarativeDocumentApplier.cs` | Identity matching, merge-patch behavior, fallback objects, and schema-version handling. |
 | Live/file session tools | `src/Beutl.AgentToolkit/Tools`, `tests/Beutl.AgentToolkit.Tests/Tools` | Tool result semantics, status messages, and save/export limitations. |
 

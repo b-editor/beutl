@@ -309,7 +309,7 @@ The toolkit shipped five design extensions after the original spec was approved.
 
 **Delivered**: three accepted directions (B/D/E); preset libraries, template scaffolds, and creative-memory defaulting were **rejected by the user** for converging every run onto the same look.
 
-- **B — Brief expansion**: `beutl-agent-brief-expansion` skill. Trigger: terse prompt missing two or more of subject/duration/mood/style/asset inventory. Mechanism: record literal constraints, sketch three structurally divergent concept candidates (checked against `recentToAvoid`), emit an Expanded Brief block feeding `derive_palette`/background grammar/plan sheets.
+- **B — Brief expansion**: `beutl-agent-brief-expansion` skill. Trigger: terse prompt missing two or more of subject/duration/mood/style/asset inventory. Mechanism: record literal constraints, sketch three structurally divergent concept candidates (checked against `recentDirections`), emit an Expanded Brief block feeding `derive_palette`/background grammar/plan sheets.
 - **E — Reference-based direction**: same skill, second intake path. User-supplied reference images/video are fetched, stored under `references/` with a `use: "direction-only"` manifest, and abstract attributes (hue family, tonal seed, layer-density profile, motion vocabulary, ...) are extracted via vision. Prohibited: reproducing logos/marks/characters/illustrations or reconstructing the composition wholesale.
 - **D — Quality convergence loop**: `beutl-agent-visual-review` extension. Loop: score six axes → concrete directives → smallest coherent revision pass → re-render → `compare_revisions` → rescore. Exit: every axis ≥ 3 or `maxPasses` (default 3) exhausted. Anti-genericization (directives phrased in the piece's own concept vocabulary; stock-particle/glow/grain purely to raise a score is forbidden) and anti-oscillation (an axis ≥ 4 is only edited to repair a regression) guardrails.
 
@@ -333,6 +333,20 @@ A theory-grounded backlog of ten tasks (T1–T10), each naming the film/motion-d
 | T10 Export QC (decode-back + loudness) | EBU R128 / ITU-R BS.1770 broadcast QC | ⏳ Backlog — `export_video` does not yet decode-back or compute integrated loudness |
 
 **Non-goals across the backlog**: no new blocking gates except T3 (folded into the existing read-time/typography family); no ML-trained aesthetic scorers in-process; no beat-tracking research project (T2 is peak-picking on a novelty curve).
+
+### Advisory-First Quality Policy (2026-07-28)
+
+**Problem**: the toolkit had accumulated a house style. `evaluate_edit_quality` failed the gate on low motion continuity and on motion-graphics density below half a supplied plan; `derive_palette`, `get_background_grammar`, `get_started`, and `list_creative_directions` phrased their output as rules ("disallowed", "requires a recorded reason", "must"); and the bundled skills carried dozens of aesthetic prohibitions plus roughly a dozen mandatory notes blocks per run. A deliberately spare, still, or unconventional piece had to argue its way past the toolkit before it could be exported.
+
+**Delivered**: the gate now speaks only where a result is unusable rather than unusual.
+
+- **Blocking is limited to two families**: unreadable text (`typographyReadTime`, rendered `typographyContrast`) and malformed Element structure (`elementStructure`). `motionContinuity` and the `layerDensity` plan comparison were downgraded to advisory; everything else was already advisory. `export_video` consults none of them — it never did.
+- **`final_preflight` separates `Blockers` from a new `Advisories` list.** Low motion variation and still-visibility warnings moved to `Advisories`, so a deliberately still or minimal piece reports `ReadyForExport`. `requireAnimatedProperties` still blocks, because the caller opted into that check.
+- **Normative wording became measurement.** `CreativeDirectionResponse`'s `CombinationRules`/`OriginalityConstraints`/`StyleGuardrails`/`Palette|Typography|MotionGuidelines`/`RecentToAvoid` were renamed to `…Notes`/`RecentDirections`, and `BackgroundGrammarResponse`'s `MinimumDepthBands`/`DerivationRules`/`DeviationRules` to `DepthBands`/`DerivationNotes`/`DeviationNotes`, with the contents rewritten from prohibitions into observations about what viewers tend to see.
+- **The bundled skills were rewritten from rulebooks into capability guides**, separating mechanics (engine and toolkit behavior, where being wrong breaks the patch) from craft (observations the agent may overrule). The mandatory per-run plan blocks and the plan-conformance rework blocker were removed; the storyboard-first order remains as a recommendation with its rationale.
+- **Intent flags still exist** (`allowStillness`, `allowDenseText`, `allowMultiObjectElements`, `allowMonochrome`, `allowMinimalDensity`, `relaxAesthetics`, `[role:...]` tags), but for the now-advisory families they reword a finding as expected rather than changing severity.
+
+**Unchanged**: `WorkspaceGuard`/`DestructiveGuard` write boundaries, `apply_edit` schema validation, and the `beutl-agent-asset-sourcing` license/provenance contract — those are safety, correctness, and rights boundaries rather than creative constraints.
 
 ## Dependencies
 

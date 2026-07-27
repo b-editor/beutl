@@ -891,7 +891,7 @@ public sealed class RenderToolsStoryboardTests
     }
 
     [Test]
-    public async Task Evaluate_edit_quality_static_layout_false_reports_major_motion_continuity_blocker()
+    public async Task Evaluate_edit_quality_static_layout_false_reports_motion_continuity_as_advisory()
     {
         string workspace = CreateWorkspace();
         using var session = new AgentToolkitTestSession(CreateStaticQualityScene(workspace));
@@ -905,9 +905,9 @@ public sealed class RenderToolsStoryboardTests
         Assert.Multiple(() =>
         {
             Assert.That(result.IsSuccess, Is.True, result.Error?.Message);
-            Assert.That(result.Value!.PassesQualityGate, Is.False);
+            Assert.That(result.Value!.PassesQualityGate, Is.True);
             Assert.That(result.Value.Issues, Has.Some.Matches<QualityIssue>(issue =>
-                issue.Category == "motionContinuity" && issue.Severity == "major"));
+                issue.Category == "motionContinuity" && issue.Severity == "minor"));
         });
     }
 
@@ -937,7 +937,7 @@ public sealed class RenderToolsStoryboardTests
     }
 
     [Test]
-    public async Task Final_preflight_static_layout_false_is_not_ready_and_reports_motion_blockers()
+    public async Task Final_preflight_reports_low_motion_as_advisory_and_blocks_only_on_the_requested_check()
     {
         string workspace = CreateWorkspace();
         using var session = new AgentToolkitTestSession(CreateStaticQualityScene(workspace));
@@ -956,7 +956,8 @@ public sealed class RenderToolsStoryboardTests
             Assert.That(result.Value!.ReadyForExport, Is.False);
             Assert.That(result.Value.ReadyForStoryboard, Is.False);
             Assert.That(result.Value.Motion, Is.Not.Null);
-            Assert.That(result.Value.Blockers, Has.Some.Contains("Motion variation did not pass"));
+            Assert.That(result.Value.Advisories, Has.Some.Contains("Motion variation did not pass"));
+            Assert.That(result.Value.Blockers, Has.None.Contains("Motion variation did not pass"));
             Assert.That(result.Value.Blockers, Has.Some.Contains("animatedPropertyCount is 0"));
         });
     }

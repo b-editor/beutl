@@ -38,9 +38,9 @@ public sealed class ReadDocumentTests
             Assert.That(result.Value.RecommendedCalls, Has.Some.Contains("measure_object_bounds"));
             Assert.That(result.Value.RecommendedCalls, Has.Some.Contains("list_creative_directions"));
             Assert.That(result.Value.RecommendedCalls, Has.Some.Contains("custom declarative patch"));
-            Assert.That(result.Value.RecommendedCalls, Has.Some.Contains("avoid overused orbit/radar/map/signal/dashboard motifs"));
+            Assert.That(result.Value.RecommendedCalls, Has.Some.Contains("Orbit, radar, map, signal, and dashboard motifs"));
             Assert.That(result.Value.RecommendedCalls, Has.Some.Contains("objective, audience"));
-            Assert.That(result.Value.RecommendedCalls, Has.Some.Contains("one primary focal point"));
+            Assert.That(result.Value.RecommendedCalls, Has.Some.Contains("what a viewer looks at first"));
             Assert.That(result.Value.RecommendedCalls, Has.Some.Contains("read time"));
             Assert.That(result.Value.RecommendedCalls, Has.Some.Contains("effect purpose"));
             Assert.That(result.Value.RecommendedCalls, Has.Some.Contains("list_compositions"));
@@ -163,28 +163,28 @@ public sealed class ReadDocumentTests
             Assert.That(result.Value.InspirationSeeds.Select(seed => seed.Category), Does.Contain("typography"));
             Assert.That(result.Value.InspirationSeeds.Select(seed => seed.Category), Does.Contain("procedural surface"));
             Assert.That(result.Value.InspirationSeeds.SelectMany(seed => seed.UsefulTools), Does.Contain("SKSLScriptEffect"));
-            Assert.That(result.Value.CombinationRules, Has.Some.Contains("Author the concept"));
-            Assert.That(result.Value.CombinationRules, Has.Some.Contains("direction contract"));
-            Assert.That(result.Value.OriginalityConstraints, Has.Some.Contains("Do not implement any returned seed as a complete scene"));
-            Assert.That(result.Value.OriginalityConstraints, Has.Some.Contains("Do not use returned seed names"));
+            Assert.That(result.Value.CombinationNotes, Has.Some.Contains("Seeds combine better"));
+            Assert.That(result.Value.CombinationNotes, Has.Some.Contains("direction contract"));
+            Assert.That(result.Value.OriginalityNotes, Has.Some.Contains("A seed implemented whole"));
+            Assert.That(result.Value.OriginalityNotes, Has.Some.Contains("Seed names as the concept name"));
             Assert.That(result.Value.VariationPrompts, Has.Some.Contains("Invert the seed relationship"));
             Assert.That(result.Value.OverusedMotifs, Has.Some.Contains("orbit rings"));
             Assert.That(result.Value.OverusedMotifs, Has.Some.Contains("radar sweeps"));
             Assert.That(result.Value.OverusedMotifs, Has.Some.Contains("dark teal background with cyan/magenta neon"));
-            Assert.That(result.Value.WorkflowHints, Has.Some.Contains("Do not pick a returned seed"));
+            Assert.That(result.Value.WorkflowHints, Has.Some.Contains("Seeds read as stimulus"));
             Assert.That(result.Value.WorkflowHints, Has.Some.Contains("record_creative_direction"));
             Assert.That(result.Value.WorkflowHints, Has.Some.Contains("evaluate_motion_variation"));
             Assert.That(result.Value.WorkflowHints, Has.Some.Contains("SKSLScriptEffect"));
-            Assert.That(result.Value.WorkflowHints, Has.Some.Contains("one primary focal point"));
+            Assert.That(result.Value.WorkflowHints, Has.Some.Contains("visible and readable"));
             Assert.That(result.Value.WorkflowHints, Has.Some.Contains("effect chain"));
             Assert.That(result.Value.WorkflowHints, Has.Some.Contains("UseGlobalClock=false uses Element-local KeyTime values"));
             Assert.That(result.Value.DirectionAxes, Has.Some.Contains("procedural surface"));
-            Assert.That(result.Value.SelectionHint, Does.Contain("author your own direction"));
+            Assert.That(result.Value.SelectionHint, Does.Contain("the direction is yours"));
             Assert.That(result.Value.SelectionHint, Does.Contain("make a short motion graphic"));
             Assert.That(result.Value.SelectionTrace, Is.Not.Null);
             Assert.That(result.Value.SelectionTrace!.RequestIndex, Is.EqualTo(0));
             Assert.That(result.Value.SelectionTrace.ReturnedSeedOrder, Is.EqualTo(result.Value.InspirationSeeds.Select(seed => seed.Name)));
-            Assert.That(result.Value.SelectionTrace.RecordHint, Does.Contain("recentToAvoid"));
+            Assert.That(result.Value.SelectionTrace.RecordHint, Does.Contain("structural signature"));
         });
     }
 
@@ -212,9 +212,9 @@ public sealed class ReadDocumentTests
             Assert.That(first.Value!.InspirationSeeds.Select(seed => seed.Name), Is.Not.EqualTo(second.Value!.InspirationSeeds.Select(seed => seed.Name)));
             Assert.That(first.Value.SelectionTrace!.RequestIndex, Is.EqualTo(0));
             Assert.That(second.Value!.SelectionTrace!.RequestIndex, Is.EqualTo(1));
-            Assert.That(first.Value.RecentToAvoid, Has.Count.EqualTo(1));
-            Assert.That(first.Value.RecentToAvoid[0].ConceptLabel, Is.EqualTo("Paper archive resolve"));
-            Assert.That(first.Value.SelectionHint, Does.Contain("recentToAvoid"));
+            Assert.That(first.Value.RecentDirections, Has.Count.EqualTo(1));
+            Assert.That(first.Value.RecentDirections[0].ConceptLabel, Is.EqualTo("Paper archive resolve"));
+            Assert.That(first.Value.SelectionHint, Does.Contain("recentDirections"));
         });
     }
 

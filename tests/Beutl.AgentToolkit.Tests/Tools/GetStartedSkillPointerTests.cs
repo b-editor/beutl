@@ -61,7 +61,7 @@ public sealed class GetStartedSkillPointerTests
             Assert.That(response.VideoTypes, Is.Not.Null);
             Assert.That(response.VideoTypes!, Has.Count.EqualTo(5));
             Assert.That(response.SelectedVideoType, Is.Null);
-            Assert.That(response.RecommendedCalls[0], Does.Contain("Classify the brief"));
+            Assert.That(response.RecommendedCalls[0], Does.Contain("Classifying the brief against videoTypes"));
             Assert.That(response.RecommendedCalls, Has.Some.Contains("derive_palette"));
             Assert.That(response.VideoTypes!.Select(item => item.Name), Is.EquivalentTo(new[]
             {
