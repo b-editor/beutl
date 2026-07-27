@@ -19,24 +19,44 @@ public sealed class ToolTabContent : ContentControl
             return;
         }
 
-        if (DataContext is not BeutlToolDockable dockable ||
-            !dockable.ToolContext.Extension.TryCreateContent(dockable.EditViewModel, out Control? control))
+        if (DataContext is not BeutlToolDockable dockable)
         {
-            control = new TextBlock
-            {
-                Text = $"""
-                        Error:
-                            {MessageStrings.CannotDisplayContext}
-                        """
-            };
+            Content = CreateErrorContent();
+            return;
         }
-        else
+
+        if (dockable.ToolContent is not { } control)
         {
+            if (!dockable.ToolContext.Extension.TryCreateContent(dockable.EditViewModel, out control))
+            {
+                Content = CreateErrorContent();
+                return;
+            }
+
             var cm = AppHelper.GetContextCommandManager?.Invoke();
             cm?.Attach(control, dockable.ToolContext.Extension);
             control.DataContext = dockable.ToolContext;
+            dockable.ToolContent = control;
+        }
+
+        if (control.Parent is ContentControl previousOwner
+            && !ReferenceEquals(previousOwner, this)
+            && ReferenceEquals(previousOwner.Content, control))
+        {
+            previousOwner.Content = null;
         }
 
         Content = control;
+    }
+
+    private static TextBlock CreateErrorContent()
+    {
+        return new TextBlock
+        {
+            Text = $"""
+                    Error:
+                        {MessageStrings.CannotDisplayContext}
+                    """
+        };
     }
 }
