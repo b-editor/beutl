@@ -34,6 +34,8 @@ public sealed class TimelineTabViewModel : IToolContext, IContextCommandHandler,
     private readonly Dictionary<int, TrackedLayerTopObservable> _trackerCache = [];
     private bool _isDisposed;
     private bool _updatingToolMode;
+    private bool _addingLayerHeaders;
+    private int _pendingLayerHeaderCount;
 
     public TimelineTabViewModel(IEditorContext editorContext)
     {
@@ -579,23 +581,42 @@ public sealed class TimelineTabViewModel : IToolContext, IContextCommandHandler,
     private void AddLayerHeaders(int count)
     {
         _logger.LogDebug("Adding layer headers up to count {Count}.", count);
-        if (LayerHeaders.Count != 0)
+
+        // A new header's Height emits synchronously, reaching CalculateLayerTop and re-entering
+        // here; fold that request into the running loop's bound rather than recursing.
+        if (_addingLayerHeaders)
         {
-            LayerHeaderViewModel last = LayerHeaders[LayerHeaders.Count - 1];
+            _pendingLayerHeaderCount = Math.Max(_pendingLayerHeaderCount, count);
+            return;
+        }
 
-            for (int i = last.Number.Value + 1; i < count; i++)
+        _addingLayerHeaders = true;
+        try
+        {
+            _pendingLayerHeaderCount = count;
+            for (int next = NextLayerNumber(); next < _pendingLayerHeaderCount; next = NextLayerNumber())
             {
-                LayerHeaders.Add(new LayerHeaderViewModel(i, this));
-            }
-
-            if (Options.Value.MaxLayerCount != LayerHeaders.Count)
-            {
-                Options.Value = Options.Value with { MaxLayerCount = LayerHeaders.Count };
-
-                _logger.LogDebug("The number of layers has been changed. ({Count})", count);
+                LayerHeaders.Add(new LayerHeaderViewModel(next, this));
             }
         }
+        finally
+        {
+            _addingLayerHeaders = false;
+            _pendingLayerHeaderCount = 0;
+        }
+
+        if (Options.Value.MaxLayerCount != LayerHeaders.Count)
+        {
+            Options.Value = Options.Value with { MaxLayerCount = LayerHeaders.Count };
+
+            _logger.LogDebug("The number of layers has been changed. ({Count})", count);
+        }
     }
+
+    // Headers can be renumbered by a layer move, so the next row follows the last header's
+    // Number rather than the list index.
+    private int NextLayerNumber()
+        => LayerHeaders.Count == 0 ? 0 : LayerHeaders[^1].Number.Value + 1;
 
     private void TryApplyLayerCount(int count)
     {
@@ -871,8 +892,11 @@ public sealed class TimelineTabViewModel : IToolContext, IContextCommandHandler,
     {
         AddLayerHeaders(layer + 1);
 
+        // Reentrant calls from AddLayerHeaders see a partially grown list, so clamp rather than
+        // index past the end.
         double sum = 0;
-        for (int i = 0; i < layer; i++)
+        int count = Math.Min(layer, LayerHeaders.Count);
+        for (int i = 0; i < count; i++)
         {
             sum += LayerHeaders[i].Height.Value;
         }
