@@ -1,4 +1,5 @@
 ﻿using System.Collections;
+using System.Collections.Immutable;
 using System.ComponentModel;
 using System.Text.Json.Nodes;
 using Beutl.AgentToolkit.Common;
@@ -91,6 +92,17 @@ public sealed record GettingStartedResponse(
     string RawHttpNote,
     IReadOnlyList<VideoTypeSummary>? VideoTypes = null,
     VideoTypeSummary? SelectedVideoType = null);
+
+public sealed record FontListResponse(
+    string SchemaVersion,
+    int FamilyCount,
+    IReadOnlyList<FontFamilySummary> Families,
+    string UsageHint);
+
+public sealed record FontFamilySummary(
+    string Name,
+    IReadOnlyList<string> Weights,
+    IReadOnlyList<string> Styles);
 
 public sealed record CreativeDirectionResponse(
     string SchemaVersion,
@@ -632,6 +644,36 @@ public sealed class QueryTools(AgentSessionManager sessions) : ToolBase
             string.IsNullOrWhiteSpace(name) && !includeStarters
                 ? "Full-scene starters are hidden by default. Pass name for an explicit starter, or includeStarters=true when the user asks for starters."
                 : "If more than one example is returned, the order is shuffled and recently used composition styles are moved to the end. Use name to fetch a single snippet or explicit starter; for original briefs, build a custom patch instead of cloning an empty-scene example."));
+    }
+
+    [McpServerTool(Name = "list_fonts")]
+    [Description("Returns the font families this Beutl runtime has actually registered, with the weights and styles each one provides. Font family resolution is by typographic family name: a subfamily such as \"Inter 28pt\" is not a family and will not match, and a family that is present may still lack the weight you asked for. Call this before setting FontFamily/FontWeight rather than guessing from what is installed on the machine.")]
+    public ToolResult<FontListResponse> ListFonts(
+        [Description("Optional case-insensitive substring filter on the family name.")]
+        string? nameFilter = null)
+    {
+        return Execute(() =>
+        {
+            FontFamilySummary[] families = FontManager.Instance.FontFamilies
+                .Where(family => string.IsNullOrWhiteSpace(nameFilter)
+                                 || family.Name.Contains(nameFilter, StringComparison.OrdinalIgnoreCase))
+                .OrderBy(family => family.Name, StringComparer.OrdinalIgnoreCase)
+                .Select(family =>
+                {
+                    ImmutableArray<Typeface> typefaces = FontManager.Instance.GetTypefaces(family);
+                    return new FontFamilySummary(
+                        family.Name,
+                        typefaces.Select(item => item.Weight.ToString()).Distinct(StringComparer.Ordinal).Order(StringComparer.Ordinal).ToArray(),
+                        typefaces.Select(item => item.Style.ToString()).Distinct(StringComparer.Ordinal).Order(StringComparer.Ordinal).ToArray());
+                })
+                .ToArray();
+
+            return new FontListResponse(
+                SchemaVersion.Current,
+                families.Length,
+                families,
+                "Use the family Name verbatim as FontFamily and one of the listed Weights as FontWeight (the enum name, e.g. SemiBold). A weight this list does not show resolves to the nearest available face rather than failing, so a missing weight renders quietly at the wrong thickness.");
+        });
     }
 
     [McpServerTool(Name = "list_effects")]

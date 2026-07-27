@@ -665,8 +665,8 @@ public sealed class QualityAnalyzer(MotionVariationAnalyzer motionVariationAnaly
                 $"Detected {timelineEvents.Count} foreground start/end events over {durationSeconds:F1}s ({timelineEventsPerSecond:F2}/s); required at least {requiredTimelineEventsPerSecond:F2}/s for target {targetBpm:F0} BPM.",
                 "Add visible foreground boundaries every 1-2 beats with short typography, strokes, particles, wipes, or other concrete accent Elements. Do not rely on background motion or hidden keyframes to satisfy a fast brief.",
                 null,
-                scene.Children.Select(element => element.Id.ToString()).ToArray(),
-                objects.Select(item => item.Object.Id.ToString()).ToArray()));
+                [],
+                []));
         }
 
         if (highTempoProfile && totalEventsPerSecond < requiredTotalEventsPerSecond)
@@ -678,8 +678,8 @@ public sealed class QualityAnalyzer(MotionVariationAnalyzer motionVariationAnaly
                 $"Detected {(timelineEvents.Count + keyFrameEvents.Count)} foreground timing/keyframe events over {durationSeconds:F1}s ({totalEventsPerSecond:F2}/s); required at least {requiredTotalEventsPerSecond:F2}/s for target {targetBpm:F0} BPM.",
                 "For 120-140 BPM promos, plan beat-grid events around every 1-2 beats: split long shots, add short accent Elements, and add explicit keyframes on transform, opacity, brush, effect, or typography spacing.",
                 null,
-                scene.Children.Select(element => element.Id.ToString()).ToArray(),
-                objects.Select(item => item.Object.Id.ToString()).ToArray()));
+                [],
+                []));
         }
 
         if (highTempoProfile && longForegroundGapCount > 0)
@@ -691,8 +691,8 @@ public sealed class QualityAnalyzer(MotionVariationAnalyzer motionVariationAnaly
                 $"{longForegroundGapCount} foreground event gaps exceed the {maxForegroundEventGapSeconds:F2}s beat-grid target; longest gap {longestForegroundEventGapSeconds:F2}s.",
                 "Close long gaps with visible foreground cuts, accent hits, typography swaps, or animated property changes. Background-only drift does not count as fast foreground pacing.",
                 null,
-                scene.Children.Select(element => element.Id.ToString()).ToArray(),
-                objects.Select(item => item.Object.Id.ToString()).ToArray()));
+                [],
+                []));
         }
 
         if (!relaxLongHolds && slowHoldObjects.Length > 0)
@@ -734,8 +734,13 @@ public sealed class QualityAnalyzer(MotionVariationAnalyzer motionVariationAnaly
             .Where(item => item.Object is RectShape or RoundedRectShape)
             .Where(item => !IsBackgroundObject(scene, item))
             .Where(IsTextBackingPlate)
+            .Where(item => !HasRole(item, "surface", "card", "panel", "container"))
             .ToArray();
 
+        // One plate behind several texts is a container, not a per-text backing plate: checking it
+        // 1:1 against every text it covers turns one card into one finding per line.
+        var platesByText = new Dictionary<Guid, SceneObjectInfo>();
+        var textsByPlate = new Dictionary<Guid, int>();
         foreach (SceneObjectInfo textInfo in objects.Where(item => item.Object is TextBlock))
         {
             ObjectBounds textBounds = GetBounds(scene, textInfo);
@@ -754,7 +759,19 @@ public sealed class QualityAnalyzer(MotionVariationAnalyzer motionVariationAnaly
                 continue;
             }
 
-            SceneObjectInfo backingPlate = plateCandidates[0].Info;
+            platesByText[textInfo.Object.Id] = plateCandidates[0].Info;
+            textsByPlate[plateCandidates[0].Info.Object.Id] = textsByPlate.GetValueOrDefault(plateCandidates[0].Info.Object.Id) + 1;
+        }
+
+        foreach (SceneObjectInfo textInfo in objects.Where(item => item.Object is TextBlock))
+        {
+            if (!platesByText.TryGetValue(textInfo.Object.Id, out SceneObjectInfo backingPlate)
+                || textsByPlate.GetValueOrDefault(backingPlate.Object.Id) > 1)
+            {
+                continue;
+            }
+
+            ObjectBounds textBounds = GetBounds(scene, textInfo);
             ObjectBounds plateBounds = GetBounds(scene, backingPlate);
             double centerDistance = Distance(plateBounds.CenterX, plateBounds.CenterY, textBounds.CenterX, textBounds.CenterY);
             double requiredPadX = Math.Max(36, textBounds.Width * 0.12);
@@ -900,8 +917,8 @@ public sealed class QualityAnalyzer(MotionVariationAnalyzer motionVariationAnaly
                     ? "Intentional minimal density is allowed; verify the negative space is part of the brief and not an omitted layer stack."
                     : "Add visible background, midground, and foreground layers per shot, such as surface texture, depth accents, typography, particles, strokes, or concrete UI/editor marks.",
                 null,
-                scene.Children.Select(element => element.Id.ToString()).ToArray(),
-                objects.Select(item => item.Object.Id.ToString()).ToArray()));
+                [],
+                []));
         }
 
         if (densityPlanViolation)
@@ -915,8 +932,8 @@ public sealed class QualityAnalyzer(MotionVariationAnalyzer motionVariationAnaly
                     ? "The authored result is sparser than the plan, which matches the recorded minimal-density intent."
                     : "The authored result is sparser than the plan. Add the missing foreground layers if the gap is an omission, or revise the plannedForegroundElementsPerShot target if the sparser cut is the intended one.",
                 null,
-                scene.Children.Select(element => element.Id.ToString()).ToArray(),
-                objects.Select(item => item.Object.Id.ToString()).ToArray()));
+                [],
+                []));
         }
 
         return new LayerDensityMetrics(
@@ -1766,7 +1783,7 @@ public sealed class QualityAnalyzer(MotionVariationAnalyzer motionVariationAnaly
         double duration = RoundToTenth(element.Length.TotalSeconds);
         return new AnimatedElementMotion(
             element,
-            objects.Select(item => item.Object.Id.ToString()).ToArray(),
+            [],
             new MotionUniformityClusterKey(start, duration, direction));
     }
 
@@ -2403,7 +2420,7 @@ public sealed class QualityAnalyzer(MotionVariationAnalyzer motionVariationAnaly
                     ? "Use a consistent transition vocabulary with short overlaps, opacity ramps, transform continuation, or a documented clean-cut photo change."
                     : "Bridge cuts with short overlap, opacity animation, transform continuation, or an intentional rhythm note in the brief.",
                 null,
-                scene.Children.Select(element => element.Id.ToString()).ToArray(),
+                [],
                 []));
         }
 
@@ -2472,7 +2489,7 @@ public sealed class QualityAnalyzer(MotionVariationAnalyzer motionVariationAnaly
                     ? "The measured stillness matches the recorded held-frame intent."
                     : "If the stillness is unintended, add connected phase changes across transform, opacity, brush/effect parameters, and foreground/background motion; a deliberate held frame needs no change.",
                 null,
-                scene.Children.Select(element => element.Id.ToString()).ToArray(),
+                [],
                 []));
         }
         else if (animatedPropertyCount == 0 && scene.Duration >= TimeSpan.FromSeconds(2))
@@ -2484,7 +2501,7 @@ public sealed class QualityAnalyzer(MotionVariationAnalyzer motionVariationAnaly
                 "The edit may rely only on timeline cuts instead of continuous motion.",
                 "Add at least one intentional animated property family, such as transform, opacity, brush, effect, or text spacing.",
                 null,
-                scene.Children.Select(element => element.Id.ToString()).ToArray(),
+                [],
                 []));
         }
 

@@ -82,7 +82,7 @@ public sealed class SchemaGenerator
         (typeFilter, categoryFilter) = NormalizeFilters(typeFilter, categoryFilter);
 
         List<TypeDescriptor> types = [];
-        foreach ((string category, Type type) in EnumerateRegisteredTypes().DistinctBy(item => (item.Category, item.Type)))
+        foreach ((string category, Type type) in EnumerateRegisteredTypes().DistinctBy(item => item.Type))
         {
             string discriminator = IdentityHelper.WriteDiscriminator(type);
             if (!Matches(typeFilter, type, discriminator) || !MatchesCategory(categoryFilter, category))
@@ -1127,6 +1127,7 @@ public sealed class SchemaGenerator
         string[] notes = type == typeof(SKSLScriptEffect)
             ? metadata.Notes
                 .Append("This recipe is a blank pass-through SKSL scaffold for authoring your own shader; use organic-shader-field for a ready-made organic field and fine-film-grain-field for grain.")
+                .Append("Colour space: the shader runs in LINEAR, premultiplied-alpha space. src.eval() returns linear premultiplied values and main must return the same; the sRGB encode happens after the effect. An sRGB constant pasted straight into the shader therefore reads far brighter than intended — convert it (roughly pow(c, 2.2)) before mixing, and un-premultiply before any operation that assumes straight alpha.")
                 .Distinct(StringComparer.Ordinal)
                 .ToArray()
             : metadata.Notes.ToArray();

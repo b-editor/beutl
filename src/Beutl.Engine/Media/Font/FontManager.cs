@@ -216,7 +216,29 @@ public sealed class FontManager
     {
         lock (_gate)
         {
-            return _fonts[typeface.FontFamily].Get(typeface);
+            // An unregistered family is ordinary input (uninstalled font, or a subfamily name such
+            // as "Inter 28pt"), so this runs inside the render pass and must not throw.
+            if (_fonts.TryGetValue(typeface.FontFamily, out FrozenDictionary<Typeface, SKTypeface>? typefaces))
+            {
+                return typefaces.Get(typeface);
+            }
+
+            _logger.LogWarning(
+                "Font family '{FontFamily}' is not registered; falling back to '{Fallback}'",
+                typeface.FontFamily.Name,
+                DefaultTypeface.FontFamily.Name);
+
+            return _fonts.TryGetValue(DefaultTypeface.FontFamily, out FrozenDictionary<Typeface, SKTypeface>? fallback)
+                ? fallback.Get(new Typeface(DefaultTypeface.FontFamily, typeface.Style, typeface.Weight))
+                : SKTypeface.Default;
+        }
+    }
+
+    public bool IsRegistered(FontFamily fontFamily)
+    {
+        lock (_gate)
+        {
+            return _fonts.ContainsKey(fontFamily);
         }
     }
 }
