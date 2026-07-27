@@ -250,7 +250,10 @@ public class FormattedText : IEquatable<FormattedText>, IDisposable
         {
             Edging = SKFontEdging.Antialias,
             Subpixel = true,
-            Hinting = SKFontHinting.Full
+            Hinting = SKFontHinting.Full,
+            // Baseline snapping quantizes vertical placement to whole device pixels, which makes an
+            // animated transform advance the text in 1 px jumps.
+            BaselineSnap = false
         };
 
         return font;
