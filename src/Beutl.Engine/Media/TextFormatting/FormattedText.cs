@@ -233,6 +233,13 @@ public class FormattedText : IEquatable<FormattedText>, IDisposable
         }
 
         MeasureAndSetField();
+        if (_colorGlyphBlob is null)
+        {
+            // Whether a glyph has an outline is a font property, not a size one, so text that
+            // produced no colour glyphs at density 1 produces none at any density either.
+            return null;
+        }
+
         return _scaledCache.Get(density);
     }
 
@@ -333,10 +340,10 @@ public class FormattedText : IEquatable<FormattedText>, IDisposable
         SKTextBlob? colorGlyphBlob = colorGlyphs.Build(font);
 
         SKPath? strokePath = null;
+        Rect actualBounds = InkBounds(fillPath, colorGlyphBlob);
         // 空白で開始または、終了した場合
         var bounds = new Rect(0, 0, Math.Max(0, glyphCount - 1) * spacing + result.Width,
-            InkBounds(fillPath, colorGlyphBlob).Height);
-        Rect actualBounds = InkBounds(fillPath, colorGlyphBlob);
+            actualBounds.Height);
 
         if (glyphCount > 0 && Pen != null && Pen.Thickness > 0)
         {

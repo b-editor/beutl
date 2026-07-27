@@ -16,7 +16,7 @@ public class FormattedTextGlyphRoutingTests
     [Test]
     public void OutlineFont_RoutesEveryGlyphToTheFillPath()
     {
-        FormattedText text = CreateText();
+        using FormattedText text = CreateText();
 
         Assert.Multiple(() =>
         {
@@ -31,7 +31,7 @@ public class FormattedTextGlyphRoutingTests
     [Test]
     public void FillPath_IsDensityIndependent()
     {
-        FormattedText text = CreateText();
+        using FormattedText text = CreateText();
         Rect bounds = text.Bounds;
 
         SKPath first = text.GetFillPath();
@@ -47,9 +47,11 @@ public class FormattedTextGlyphRoutingTests
     }
 
     [Test]
-    public void StrokePath_IsBuiltInLogicalUnits()
+    public void StrokePath_WidensTheInkBoundsAndCoversThem()
     {
-        FormattedText text = CreateText();
+        using FormattedText text = CreateText();
+        Rect unstroked = text.ActualBounds;
+
         text.Pen = new Pen
         {
             Thickness = { CurrentValue = 2f },
@@ -59,14 +61,22 @@ public class FormattedTextGlyphRoutingTests
         SKPath? stroke = text.GetStrokePath();
 
         Assert.That(stroke, Is.Not.Null);
-        Assert.That(text.ActualBounds.Width, Is.GreaterThanOrEqualTo(text.Bounds.Width),
-            "the stroke must widen the ink bounds it is measured into");
+        Assert.Multiple(() =>
+        {
+            Assert.That(text.ActualBounds.Width, Is.GreaterThan(unstroked.Width),
+                "adding a pen must widen the ink bounds");
+            Assert.That(text.ActualBounds.Height, Is.GreaterThan(unstroked.Height),
+                "adding a pen must heighten the ink bounds");
+            Assert.That(text.ActualBounds.Width,
+                Is.GreaterThanOrEqualTo(stroke!.TightBounds.Width).Within(0.001f),
+                "the ink bounds must cover the stroke path they were measured from");
+        });
     }
 
     [Test]
     public void EmptyText_ProducesNoGlyphsOnEitherRoute()
     {
-        FormattedText text = CreateText();
+        using FormattedText text = CreateText();
         text.Text = string.Empty;
 
         Assert.Multiple(() =>
@@ -80,7 +90,7 @@ public class FormattedTextGlyphRoutingTests
     [Test]
     public void PropertyChange_RemeasuresTheFillPath()
     {
-        FormattedText text = CreateText();
+        using FormattedText text = CreateText();
         float beforeWidth = text.GetFillPath().TightBounds.Width;
 
         text.Size = 48f;
