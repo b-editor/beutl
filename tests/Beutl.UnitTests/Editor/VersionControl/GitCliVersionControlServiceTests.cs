@@ -1,5 +1,5 @@
+﻿using Beutl.Configuration;
 using Beutl.Editor.VersionControl;
-using Beutl.Configuration;
 using Microsoft.Extensions.Time.Testing;
 
 namespace Beutl.UnitTests.Editor.VersionControl;
@@ -7,6 +7,198 @@ namespace Beutl.UnitTests.Editor.VersionControl;
 [TestFixture]
 public class GitCliVersionControlServiceTests : RealGitTestRepository
 {
+    [Test]
+    public async Task InitializeAsync_creates_repository_files_and_initial_snapshot()
+    {
+        string projectRoot = Path.Combine(Root, "new-project");
+        Directory.CreateDirectory(projectRoot);
+        await File.WriteAllTextAsync(Path.Combine(projectRoot, "project.bep"), "{}\n");
+        using var service = new GitCliVersionControlService(
+            CreateInstalledLocator(),
+            repository: null,
+            watcher: null,
+            _ => CreateRunner());
+
+        Assert.ThrowsAsync<GitIdentityRequiredException>(
+            async () => await service.InitializeAsync(
+                new InitOptions(projectRoot, UseLfsWhenAvailable: false),
+                CancellationToken.None));
+
+        Assert.That(service.Repository, Is.EqualTo(new RepositoryInfo(projectRoot, projectRoot)));
+        await service.SetLocalIdentityAsync(
+            new GitIdentity("Beutl Test", "beutl-test@example.invalid"),
+            CancellationToken.None);
+        await service.InitializeAsync(
+            new InitOptions(projectRoot, UseLfsWhenAvailable: false),
+            CancellationToken.None);
+
+        var projectRepository = new RepositoryInfo(projectRoot, projectRoot);
+        GitCommandResult branch = await Runner.RunAsync(
+            projectRepository,
+            ["branch", "--show-current"],
+            networkOperation: false,
+            CancellationToken.None);
+        GitCommandResult log = await Runner.RunAsync(
+            projectRepository,
+            ["log", "-1", "--format=%s%n%b"],
+            networkOperation: false,
+            CancellationToken.None);
+        GitCommandResult count = await Runner.RunAsync(
+            projectRepository,
+            ["rev-list", "--count", "HEAD"],
+            networkOperation: false,
+            CancellationToken.None);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(branch.Stdout.Trim(), Is.EqualTo("main"));
+            Assert.That(count.Stdout.Trim(), Is.EqualTo("1"));
+            Assert.That(log.Stdout, Does.StartWith("beutl: initialize version control\n"));
+            Assert.That(log.Stdout, Does.Contain("Beutl-Snapshot: init"));
+            Assert.That(
+                File.ReadAllText(Path.Combine(projectRoot, ".gitignore")),
+                Is.EqualTo("**/.beutl/\n*.tmp\n"));
+            Assert.That(
+                File.ReadAllText(Path.Combine(projectRoot, ".gitattributes")),
+                Does.Contain("*.bep text eol=lf\n"));
+            Assert.That(
+                File.ReadAllText(Path.Combine(projectRoot, ".gitattributes")),
+                Does.Contain(".gitattributes text eol=lf\n"));
+        });
+    }
+
+    [Test]
+    public async Task InitializeAsync_installs_local_lfs_and_writes_media_patterns_when_active()
+    {
+        string projectRoot = Path.Combine(Root, "lfs-project");
+        Directory.CreateDirectory(projectRoot);
+        var runner = new RecordingInitializationRunner();
+        using var service = new GitCliVersionControlService(
+            CreateInstalledLocator(lfsInstalled: true),
+            repository: null,
+            watcher: null,
+            _ => runner);
+
+        await service.InitializeAsync(
+            new InitOptions(projectRoot, UseLfsWhenAvailable: true),
+            CancellationToken.None);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(
+                runner.Commands,
+                Does.Contain("lfs install --local"));
+            Assert.That(
+                File.ReadAllText(Path.Combine(projectRoot, ".gitattributes")),
+                Does.Contain("resources/**/*.mp4 filter=lfs diff=lfs merge=lfs -text\n"));
+            Assert.That(
+                File.ReadAllText(Path.Combine(projectRoot, ".gitattributes")),
+                Does.Contain("resources/**/*.png filter=lfs diff=lfs merge=lfs -text\n"));
+        });
+    }
+
+    [Test]
+    public async Task CommitAllAsync_creates_one_snapshot_and_skips_a_clean_tree()
+    {
+        await File.WriteAllTextAsync(Path.Combine(Root, "project.bep"), "{}\n");
+        using var service = CreateService();
+
+        CommitResult first = await service.CommitAllAsync(
+            "beutl: snapshot on save",
+            SnapshotKind.Save,
+            CancellationToken.None);
+        CommitResult second = await service.CommitAllAsync(
+            "beutl: snapshot on save",
+            SnapshotKind.Save,
+            CancellationToken.None);
+        GitCommandResult log = await RunGitAsync("log", "-1", "--format=%s%n%b");
+        GitCommandResult count = await RunGitAsync("rev-list", "--count", "HEAD");
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(first, Is.TypeOf<CommitResult.Committed>());
+            Assert.That(second, Is.TypeOf<CommitResult.NoChanges>());
+            Assert.That(count.Stdout.Trim(), Is.EqualTo("1"));
+            Assert.That(log.Stdout, Does.StartWith("beutl: snapshot on save\n"));
+            Assert.That(log.Stdout, Does.Contain("Beutl-Snapshot: save"));
+        });
+    }
+
+    [Test]
+    public async Task CommitAllAsync_skips_unattended_snapshot_without_staging_when_identity_is_missing()
+    {
+        await RunGitAsync("config", "--unset", "user.name");
+        await RunGitAsync("config", "--unset", "user.email");
+        await File.WriteAllTextAsync(Path.Combine(Root, "project.bep"), "{}\n");
+        using var service = CreateService();
+
+        CommitResult result = await service.CommitAllAsync(
+            "beutl: snapshot on close",
+            SnapshotKind.Close,
+            CancellationToken.None);
+        GitCommandResult staged = await RunGitAsync("diff", "--cached", "--name-only");
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(result, Is.TypeOf<CommitResult.SkippedNoIdentity>());
+            Assert.That(staged.Stdout, Is.Empty);
+        });
+    }
+
+    [Test]
+    public async Task Identity_is_read_and_written_in_repository_local_config()
+    {
+        await RunGitAsync("config", "--unset", "user.name");
+        await RunGitAsync("config", "--unset", "user.email");
+        using var service = CreateService();
+
+        Assert.That(await service.GetIdentityAsync(CancellationToken.None), Is.Null);
+
+        var expected = new GitIdentity("Local User", "local@example.invalid");
+        await service.SetLocalIdentityAsync(expected, CancellationToken.None);
+        GitIdentity? actual = await service.GetIdentityAsync(CancellationToken.None);
+        GitCommandResult localName = await RunGitAsync("config", "--local", "--get", "user.name");
+        GitCommandResult localEmail = await RunGitAsync("config", "--local", "--get", "user.email");
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(actual, Is.EqualTo(expected));
+            Assert.That(localName.Stdout.Trim(), Is.EqualTo(expected.Name));
+            Assert.That(localEmail.Stdout.Trim(), Is.EqualTo(expected.Email));
+        });
+    }
+
+    [Test]
+    public async Task CommitAllAsync_scopes_staging_to_the_project_pathspec()
+    {
+        await CommitFileAsync("baseline.txt", "baseline\n", "baseline");
+        string projectRoot = Path.Combine(Root, "nested-project");
+        Directory.CreateDirectory(projectRoot);
+        await File.WriteAllTextAsync(Path.Combine(projectRoot, "project.bep"), "{}\n");
+        await File.WriteAllTextAsync(Path.Combine(Root, "foreign.txt"), "foreign\n");
+        var repository = new RepositoryInfo(Root, projectRoot);
+        using var service = new GitCliVersionControlService(
+            CreateInstalledLocator(),
+            repository,
+            watcher: null,
+            _ => CreateRunner());
+
+        CommitResult result = await service.CommitAllAsync(
+            "beutl: snapshot on save",
+            SnapshotKind.Save,
+            CancellationToken.None);
+        GitCommandResult committed = await RunGitAsync("show", "--format=", "--name-only", "HEAD");
+        GitCommandResult status = await RunGitAsync("status", "--porcelain", "--", "foreign.txt");
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(result, Is.TypeOf<CommitResult.Committed>());
+            Assert.That(committed.Stdout, Does.Contain("nested-project/project.bep"));
+            Assert.That(committed.Stdout, Does.Not.Contain("foreign.txt"));
+            Assert.That(status.Stdout, Does.StartWith("?? foreign.txt"));
+        });
+    }
+
     [Test]
     public void Porcelain_v2_parser_reads_branch_counts_renames_and_conflicts()
     {
@@ -199,6 +391,39 @@ public class GitCliVersionControlServiceTests : RealGitTestRepository
             CancellationToken cancellationToken)
         {
             return Task.FromResult(new GitCommandResult(0, "# branch.head main\0", ""));
+        }
+    }
+
+    private sealed class RecordingInitializationRunner : IGitCliRunner
+    {
+        public List<string> Commands { get; } = [];
+
+        public Task<GitCommandResult> RunAsync(
+            RepositoryInfo repository,
+            IReadOnlyList<string> arguments,
+            bool networkOperation,
+            CancellationToken cancellationToken)
+        {
+            Commands.Add(string.Join(' ', arguments));
+            if (arguments.SequenceEqual(["config", "--get", "user.name"]))
+            {
+                return Task.FromResult(new GitCommandResult(0, "Beutl Test\n", ""));
+            }
+
+            if (arguments.SequenceEqual(["config", "--get", "user.email"]))
+            {
+                return Task.FromResult(new GitCommandResult(0, "beutl-test@example.invalid\n", ""));
+            }
+
+            if (arguments.FirstOrDefault() == "status")
+            {
+                return Task.FromResult(new GitCommandResult(
+                    0,
+                    "# branch.head main\0? .gitignore\0? .gitattributes\0",
+                    ""));
+            }
+
+            return Task.FromResult(new GitCommandResult(0, "", ""));
         }
     }
 

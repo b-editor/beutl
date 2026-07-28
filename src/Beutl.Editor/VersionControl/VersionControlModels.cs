@@ -1,4 +1,4 @@
-namespace Beutl.Editor.VersionControl;
+﻿namespace Beutl.Editor.VersionControl;
 
 public enum GitAvailabilityState
 {
@@ -134,6 +134,8 @@ public sealed record RemoteInfo(string Name, string Url);
 
 public sealed record GitIdentity(string Name, string Email);
 
+public sealed record InitOptions(string ProjectRoot, bool UseLfsWhenAvailable = true);
+
 public sealed class GitOperationException : Exception
 {
     public GitOperationException(int exitCode, string stderr)
@@ -156,6 +158,14 @@ public sealed class GitOperationException : Exception
         return string.IsNullOrEmpty(stderr)
             ? $"Git exited with code {exitCode}."
             : $"Git exited with code {exitCode}: {stderr}";
+    }
+}
+
+public sealed class GitIdentityRequiredException : InvalidOperationException
+{
+    public GitIdentityRequiredException()
+        : base("A Git user name and email address are required to create this commit.")
+    {
     }
 }
 

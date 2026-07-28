@@ -1,4 +1,4 @@
-using System.ComponentModel;
+﻿using System.ComponentModel;
 using System.Diagnostics;
 using Beutl.Editor.VersionControl;
 
@@ -61,11 +61,11 @@ public abstract class RealGitTestRepository
         await RunGitAsync("commit", "-m", message);
     }
 
-    protected GitInstallationLocator CreateInstalledLocator()
+    protected GitInstallationLocator CreateInstalledLocator(bool lfsInstalled = false)
     {
         return new GitInstallationLocator(
             new Beutl.Configuration.VersionControlConfig(),
-            new InstalledGitProbe(GitPath),
+            new InstalledGitProbe(GitPath, lfsInstalled),
             GitHostPlatform.Linux);
     }
 
@@ -106,7 +106,7 @@ public abstract class RealGitTestRepository
         }
     }
 
-    private sealed class InstalledGitProbe(string gitPath) : IGitInstallationProbe
+    private sealed class InstalledGitProbe(string gitPath, bool lfsInstalled) : IGitInstallationProbe
     {
         public Task<IReadOnlyList<string>> FindOnPathAsync(
             string executableName,
@@ -122,9 +122,12 @@ public abstract class RealGitTestRepository
             CancellationToken cancellationToken)
         {
             string joined = string.Join(' ', arguments);
-            return Task.FromResult(joined == "--version"
-                ? new GitProbeResult(0, "git version 2.50.0", "")
-                : new GitProbeResult(1, "", "git-lfs unavailable"));
+            return Task.FromResult(joined switch
+            {
+                "--version" => new GitProbeResult(0, "git version 2.50.0", ""),
+                "lfs version" when lfsInstalled => new GitProbeResult(0, "git-lfs/3.7.0", ""),
+                _ => new GitProbeResult(1, "", "git-lfs unavailable"),
+            });
         }
 
         public bool FileExists(string path) => false;
