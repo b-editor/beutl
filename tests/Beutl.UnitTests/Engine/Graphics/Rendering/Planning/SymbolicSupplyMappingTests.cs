@@ -19,7 +19,7 @@ public sealed class SymbolicSupplyMappingTests
             new Rect(5, 6, 20, 12),
             Brushes.Resource.White,
             null));
-        Transform.Resource scale = new ScaleTransform(50, 50)
+        using Transform.Resource scale = new ScaleTransform(50, 50)
             .ToResource(CompositionContext.Default);
         using var root = ScaleRecordingTestHelper.SubtreePipeline(
             filter,
@@ -36,7 +36,8 @@ public sealed class SymbolicSupplyMappingTests
             root,
             outputScale: 2,
             targetDomain: targetDomain);
-        float expected = RenderScaleUtilities.ClampWorkingScaleToBufferBudget(targetDomain, 2);
+        Rect inputDomain = targetDomain.TransformToAABB(scale.Matrix.Invert());
+        float expected = RenderScaleUtilities.ClampWorkingScaleToBufferBudget(inputDomain, 2);
 
         Assert.Multiple(() =>
         {

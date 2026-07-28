@@ -271,38 +271,40 @@ public sealed partial class DrawableGroup : Drawable, IFlowOperator
             bool hasInverse = transform.HasInverse;
             Matrix inverse = hasInverse ? transform.Invert() : Matrix.Identity;
             var metadataState = new CustomTransformMetadataState(transform, hasInverse, inverse);
+            RenderBoundsContract boundsContract = hasInverse
+                ? RenderBoundsContract.Create(
+                    metadataState.TransformBounds,
+                    metadataState.GetRequiredInputBounds,
+                    structuralKey: (typeof(CustomTransformRenderNode), "invertible-bounds"))
+                : RenderBoundsContract.CreateFullInput(
+                    metadataState.TransformBounds,
+                    structuralKey: (typeof(CustomTransformRenderNode), "singular-bounds"));
+            TargetScopeDescription description = TargetScopeDescription.CreateValueReplayMap(
+                execute: session => ExecuteTransform(session, transform),
+                bounds: boundsContract,
+                hitTest: RenderHitTestContract.Custom(
+                    metadataState.HitTest,
+                    typeof(CustomTransformRenderNode)),
+                scale: RenderScaleContract.MapInputSupply(
+                    new TransformScaleMapper(transform).Map,
+                    typeof(CustomTransformRenderNode)),
+                structuralKey: typeof(CustomTransformRenderNode),
+                runtimeIdentity: new RenderRuntimeIdentity(transform));
             foreach (RenderFragmentHandle input in context.Inputs)
             {
-                OpaqueRenderDescription description = OpaqueRenderDescription.Create(
-                    execute: session => ExecuteTransform(session, transform),
-                    bounds: OpaqueRenderBoundsContract.Map(
-                        RenderBoundsContract.CreateFullInput(
-                            metadataState.TransformBounds,
-                            typeof(CustomTransformRenderNode))),
-                    hitTest: RenderHitTestContract.Custom(
-                        metadataState.HitTest,
-                        typeof(CustomTransformRenderNode)),
-                    valueCardinality: RenderValueCardinality.Single,
-                    scale: RenderScaleContract.MapInputSupply(
-                        new TransformScaleMapper(transform).Map,
-                        typeof(CustomTransformRenderNode)),
-                    structuralKey: typeof(CustomTransformRenderNode),
-                    runtimeIdentity: new RenderRuntimeIdentity(transform));
-                context.Publish(context.OpaqueMap(input, description));
+                context.Publish(context.TargetScope(input, description));
             }
         }
 
-        private static void ExecuteTransform(OpaqueRenderSession session, Matrix transform)
+        private static void ExecuteTransform(TargetScopeSession session, Matrix transform)
         {
-            using OpaqueRenderOutput output = session.CreateOutput(session.OutputBounds);
-            output.Canvas.Use(canvas =>
+            session.Canvas.Use(canvas =>
             {
                 using (canvas.PushTransform(transform))
                 {
-                    session.Inputs[0].Draw(canvas);
+                    session.ReplayInput();
                 }
             });
-            session.Publish(output);
         }
 
         private readonly record struct CustomTransformMetadataState(
@@ -311,6 +313,8 @@ public sealed partial class DrawableGroup : Drawable, IFlowOperator
             Matrix Inverse)
         {
             public Rect TransformBounds(Rect inputBounds) => inputBounds.TransformToAABB(Transform);
+
+            public Rect GetRequiredInputBounds(Rect outputBounds) => outputBounds.TransformToAABB(Inverse);
 
             public bool HitTest(RenderHitTestContext context, Point point)
             {

@@ -232,6 +232,120 @@ public class SourceEffectiveScaleFlowTests
             "a vector child must stay Unbounded through the group/decorator transform");
     }
 
+    [Test]
+    public void CustomTransformRenderNode_TargetScopeChild_ReplaysInsideTransform()
+    {
+        var domain = new Rect(0, 0, 120, 90);
+        var clip = new RectClipRenderNode(domain, ClipOperation.Intersect);
+        clip.AddChild(ScaleRecordingTestHelper.Source(EffectiveScale.At(1), domain));
+        using var transform = new DrawableGroup.CustomTransformRenderNode(
+            null,
+            default,
+            domain.Size,
+            AlignmentX.Left,
+            AlignmentY.Top,
+            new MemoryNode<Rect>(domain));
+        transform.AddChild(clip);
+
+        RenderNodeMeasurement measurement = ScaleRecordingTestHelper.Measure(
+            transform,
+            targetDomain: domain);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(measurement.OutputBounds, Is.EqualTo(domain));
+            Assert.That(measurement.HasContributingValues, Is.True);
+            Assert.That(measurement.HasTargetEffects, Is.True);
+        });
+    }
+
+    [Test]
+    public void CustomTransformRenderNode_FullTargetLayerChild_ReplaysInsideTransform()
+    {
+        var domain = new Rect(0, 0, 120, 90);
+        using Transform.Resource translation = new TranslateTransform(10, 0)
+            .ToResource(CompositionContext.Default);
+        var layer = new LayerRenderNode(default);
+        layer.AddChild(new ClearRenderNode(Colors.White));
+        using var transform = new DrawableGroup.CustomTransformRenderNode(
+            translation,
+            default,
+            domain.Size,
+            AlignmentX.Left,
+            AlignmentY.Top,
+            new MemoryNode<Rect>(domain));
+        transform.AddChild(layer);
+
+        RenderNodeMeasurement measurement = ScaleRecordingTestHelper.Measure(
+            transform,
+            targetDomain: domain);
+
+        using var request = new RenderRequest(new RenderRequestOptions(
+            RenderIntent.Preview,
+            RenderRequestPurpose.Auxiliary,
+            targetDomain: domain,
+            cachePolicy: RenderCacheOptions.Disabled));
+        RecordedRenderGraph graph = new RenderRequestRecorder(request).Record(transform);
+        using (CompiledRenderRequest compiled = new RenderRequestCompiler().Compile(request, graph))
+        {
+            IReadOnlyDictionary<RenderFragmentId, RenderFragmentReference> references = graph.Fragments
+                .ToDictionary(
+                    static fragment => fragment.Id,
+                    static fragment => (RenderFragmentReference)fragment.Payload!);
+            RenderFragmentReference root = references[graph.PublicationRoots.Single()];
+            RenderFragmentReference targetLayer = root.Inputs.Single();
+            TargetScopePlan transformedScope = compiled.TargetDependencies.Scopes.Single(
+                scope => scope.OwnerFragmentId == root.Id);
+            TargetScopePlan targetLayerScope = compiled.TargetDependencies.Scopes.Single(
+                scope => scope.OwnerFragmentId == targetLayer.Id);
+
+            Assert.Multiple(() =>
+            {
+                Assert.That(root.Kind, Is.EqualTo(RenderFragmentKind.TargetScope));
+                Assert.That(
+                    ((TargetScopeRenderFragmentPayload)root.Payload!).Description.IsValueReplayMap,
+                    Is.True);
+                Assert.That(root.CanBeUsedAsValueInput, Is.False);
+                Assert.That(root.ContributesValuesToTarget, Is.False);
+                Assert.That(targetLayer.Kind, Is.EqualTo(RenderFragmentKind.TargetLayerScope));
+                Assert.That(
+                    references.Values.Any(static reference =>
+                        reference.Kind is RenderFragmentKind.Layer or RenderFragmentKind.OpaqueMap),
+                    Is.False);
+                Assert.That(targetLayerScope.ParentId, Is.EqualTo(transformedScope.Id));
+                Assert.That(targetLayerScope.ResolvedDomain, Is.EqualTo(new Rect(-10, 0, 120, 90)));
+            });
+        }
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(measurement.OutputBounds, Is.EqualTo(domain));
+            Assert.That(measurement.HasContributingValues, Is.False);
+            Assert.That(measurement.HasTargetEffects, Is.True);
+        });
+
+        using var renderer = new RenderNodeRenderer(
+            transform,
+            new RenderNodeRendererOptions
+            {
+                TargetDomain = domain,
+                TargetFactory = new CpuTargetFactory(),
+                UseRenderCache = false,
+            });
+        using RenderNodeRasterization rasterization = renderer.Rasterize();
+        Bitmap bitmap = rasterization.Bitmap!;
+        Span<ushort> row = bitmap.GetRow<ushort>((int)domain.Height / 2);
+        float leftAlpha = (float)BitConverter.UInt16BitsToHalf(row[3]);
+        float rightAlpha = (float)BitConverter.UInt16BitsToHalf(row[(((int)domain.Width - 1) * 4) + 3]);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(rasterization.Bounds, Is.EqualTo(domain));
+            Assert.That(leftAlpha, Is.GreaterThan(0.99f));
+            Assert.That(rightAlpha, Is.GreaterThan(0.99f));
+        });
+    }
+
     [TestCase(0.5f, 1.0f)]
     [TestCase(1.0f, 1.0f)]
     [TestCase(2.0f, 2.0f)]
