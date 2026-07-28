@@ -1525,6 +1525,12 @@ GetProperty&lt;T&gt;("path") または GetProperty&lt;T&gt;(guid, "propertyName"
   <data name="VersionControl_Enable" xml:space="preserve">
     <value>バージョン管理を有効化…</value>
   </data>
+  <data name="VersionControl_UntrackedExplanation" xml:space="preserve">
+    <value>このプロジェクトを Git で管理すると、保存時にバージョンが自動的に記録されます。</value>
+  </data>
+  <data name="VersionControl_DownloadGit" xml:space="preserve">
+    <value>Git をダウンロード</value>
+  </data>
   <data name="VersionControl_TrackHistory" xml:space="preserve">
     <value>Git で履歴を記録</value>
   </data>
@@ -1545,6 +1551,9 @@ GetProperty&lt;T&gt;("path") または GetProperty&lt;T&gt;(guid, "propertyName"
   </data>
   <data name="VersionControl_NewBranch" xml:space="preserve">
     <value>新しいブランチ…</value>
+  </data>
+  <data name="VersionControl_Switch" xml:space="preserve">
+    <value>切り替え</value>
   </data>
   <data name="VersionControl_History" xml:space="preserve">
     <value>バージョン履歴</value>
@@ -1655,6 +1664,36 @@ GetProperty&lt;T&gt;("path") または GetProperty&lt;T&gt;(guid, "propertyName"
   <data name="VersionControl_NoHistory" xml:space="preserve">
     <value>記録されたバージョンはありません。</value>
   </data>
+  <data name="VersionControl_HistoryEmptyHint" xml:space="preserve">
+    <value>バージョンはまだありません — プロジェクトを保存すると自動的に記録されます</value>
+  </data>
+  <data name="VersionControl_ChangedFilesEmptyHint" xml:space="preserve">
+    <value>変更内容を表示するバージョンを選択してください</value>
+  </data>
+  <data name="VersionControl_DiffEmptyHint" xml:space="preserve">
+    <value>差分を表示するファイルを選択してください</value>
+  </data>
+  <data name="VersionControl_TimeJustNow" xml:space="preserve">
+    <value>たった今</value>
+  </data>
+  <data name="VersionControl_TimeMinuteAgo" xml:space="preserve">
+    <value>1分前</value>
+  </data>
+  <data name="VersionControl_TimeMinutesAgoFormat" xml:space="preserve">
+    <value>{0}分前</value>
+  </data>
+  <data name="VersionControl_TimeHourAgo" xml:space="preserve">
+    <value>1時間前</value>
+  </data>
+  <data name="VersionControl_TimeHoursAgoFormat" xml:space="preserve">
+    <value>{0}時間前</value>
+  </data>
+  <data name="VersionControl_TimeDayAgo" xml:space="preserve">
+    <value>1日前</value>
+  </data>
+  <data name="VersionControl_TimeDaysAgoFormat" xml:space="preserve">
+    <value>{0}日前</value>
+  </data>
   <data name="VersionControl_BranchName" xml:space="preserve">
     <value>ブランチ名</value>
   </data>
@@ -1678,6 +1717,9 @@ GetProperty&lt;T&gt;("path") または GetProperty&lt;T&gt;(guid, "propertyName"
   </data>
   <data name="VersionControl_RemoteUrl" xml:space="preserve">
     <value>リモート URL</value>
+  </data>
+  <data name="VersionControl_Remote" xml:space="preserve">
+    <value>リモート</value>
   </data>
   <data name="VersionControl_SetRemote" xml:space="preserve">
     <value>接続</value>

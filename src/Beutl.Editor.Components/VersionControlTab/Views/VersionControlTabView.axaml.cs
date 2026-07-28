@@ -1,7 +1,7 @@
 ﻿using Avalonia.Controls;
 using Avalonia.Interactivity;
 using Beutl.Editor.Components.VersionControlTab.ViewModels;
-using Beutl.Editor.VersionControl;
+using Beutl.Extensibility;
 
 namespace Beutl.Editor.Components.VersionControlTab.Views;
 
@@ -10,6 +10,8 @@ public sealed partial class VersionControlTabView : UserControl
     public VersionControlTabView()
     {
         InitializeComponent();
+        DataContextChanged += OnDataContextChanged;
+        ConfigureCallbacks();
     }
 
     private async void OnCommitSelectionChanged(object? sender, SelectionChangedEventArgs e)
@@ -32,12 +34,37 @@ public sealed partial class VersionControlTabView : UserControl
         }
     }
 
-    private async void OnBranchSelectionChanged(object? sender, SelectionChangedEventArgs e)
+    private void OnDataContextChanged(object? sender, EventArgs e)
     {
-        if (DataContext is VersionControlTabViewModel viewModel
-            && sender is ComboBox comboBox)
+        ConfigureCallbacks();
+    }
+
+    private void ConfigureCallbacks()
+    {
+        if (DataContext is VersionControlTabViewModel viewModel)
         {
-            await viewModel.SelectBranchAsync(comboBox.SelectedItem as BranchInfo);
+            viewModel.RequestEnableVersionControlAsync = ExecuteEnableVersionControlAsync;
+            viewModel.LaunchUriAsync = LaunchUriAsync;
         }
+    }
+
+    private Task ExecuteEnableVersionControlAsync()
+    {
+        if (TopLevel.GetTopLevel(this)?.DataContext is IContextCommandHandler handler)
+        {
+            var execution = new ContextCommandExecution("EnableVersionControl");
+            if (handler.CanExecute(execution))
+            {
+                handler.Execute(execution);
+            }
+        }
+
+        return Task.CompletedTask;
+    }
+
+    private Task<bool> LaunchUriAsync(Uri uri)
+    {
+        return TopLevel.GetTopLevel(this)?.Launcher.LaunchUriAsync(uri)
+               ?? Task.FromResult(false);
     }
 }

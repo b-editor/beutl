@@ -1,6 +1,7 @@
 ﻿using System.Collections.ObjectModel;
 using System.Globalization;
 using System.Reactive.Disposables;
+using System.Resources;
 using System.Text.Json.Nodes;
 using Avalonia.Controls;
 using Avalonia.Threading;
@@ -16,12 +17,14 @@ namespace Beutl.Editor.Components.VersionControlTab.ViewModels;
 public sealed class VersionControlTabViewModel : IToolContext
 {
     internal const int HistoryPageSize = 50;
+    private static readonly Uri s_gitDownloadsUri = new("https://git-scm.com/downloads");
 
     private readonly IEditorContext _editorContext;
     private readonly IProjectVersionControlService? _service;
     private readonly IRepositoryLockRecoveryService? _lockRecoveryService;
     private readonly IProjectVersionControlCoordinator? _versionControlCoordinator;
     private readonly Action<Action> _postToUi;
+    private readonly VersionControlRelativeTimeFormatter _relativeTimeFormatter;
     private readonly CompositeDisposable _disposables = [];
     private readonly SemaphoreSlim _historyGate = new(1, 1);
     private CancellationTokenSource? _selectionCancellation;
@@ -39,7 +42,9 @@ public sealed class VersionControlTabViewModel : IToolContext
                 as IProjectVersionControlService,
             editorContext.GetService(typeof(IProjectVersionControlCoordinator))
                 as IProjectVersionControlCoordinator,
-            PostToUiThread)
+            PostToUiThread,
+            timeProvider: null,
+            culture: null)
     {
     }
 
@@ -48,7 +53,9 @@ public sealed class VersionControlTabViewModel : IToolContext
         IEditorContext editorContext,
         IProjectVersionControlService? service,
         IProjectVersionControlCoordinator? versionControlCoordinator,
-        Action<Action> postToUi)
+        Action<Action> postToUi,
+        TimeProvider? timeProvider = null,
+        CultureInfo? culture = null)
     {
         Extension = extension ?? throw new ArgumentNullException(nameof(extension));
         _editorContext = editorContext ?? throw new ArgumentNullException(nameof(editorContext));
@@ -56,8 +63,13 @@ public sealed class VersionControlTabViewModel : IToolContext
         _lockRecoveryService = service as IRepositoryLockRecoveryService;
         _versionControlCoordinator = versionControlCoordinator;
         _postToUi = postToUi ?? throw new ArgumentNullException(nameof(postToUi));
+        _relativeTimeFormatter = new VersionControlRelativeTimeFormatter(
+            timeProvider ?? TimeProvider.System,
+            culture ?? CultureInfo.CurrentUICulture);
 
         IsTracked = new ReactivePropertySlim<bool>(service?.Repository is not null)
+            .DisposeWith(_disposables);
+        IsGitAvailable = new ReactivePropertySlim<bool>()
             .DisposeWith(_disposables);
         IsUnavailable = new ReactivePropertySlim<bool>()
             .DisposeWith(_disposables);
@@ -72,6 +84,14 @@ public sealed class VersionControlTabViewModel : IToolContext
             .DisposeWith(_disposables);
         AheadBehindText = new ReactivePropertySlim<string>()
             .DisposeWith(_disposables);
+        AheadBadgeText = new ReactivePropertySlim<string>()
+            .DisposeWith(_disposables);
+        BehindBadgeText = new ReactivePropertySlim<string>()
+            .DisposeWith(_disposables);
+        HasAhead = new ReactivePropertySlim<bool>()
+            .DisposeWith(_disposables);
+        HasBehind = new ReactivePropertySlim<bool>()
+            .DisposeWith(_disposables);
         DirtySummary = new ReactivePropertySlim<string>()
             .DisposeWith(_disposables);
         StatusMessage = new ReactivePropertySlim<string>(
@@ -83,13 +103,33 @@ public sealed class VersionControlTabViewModel : IToolContext
             .DisposeWith(_disposables);
         HasMoreHistory = new ReactivePropertySlim<bool>(IsTracked.Value)
             .DisposeWith(_disposables);
+        IsHistoryEmpty = new ReactivePropertySlim<bool>(true)
+            .DisposeWith(_disposables);
         SelectedCommit = new ReactivePropertySlim<VersionControlCommitViewModel?>()
             .DisposeWith(_disposables);
         SelectedFile = new ReactivePropertySlim<VersionControlFileChangeViewModel?>()
             .DisposeWith(_disposables);
+        HasSelectedCommit = SelectedCommit
+            .Select(static commit => commit is not null)
+            .ToReadOnlyReactivePropertySlim()
+            .DisposeWith(_disposables);
+        HasSelectedFile = SelectedFile
+            .Select(static file => file is not null)
+            .ToReadOnlyReactivePropertySlim()
+            .DisposeWith(_disposables);
         CommitMessage = new ReactivePropertySlim<string>()
             .DisposeWith(_disposables);
+        CurrentBranch = new ReactivePropertySlim<BranchInfo?>()
+            .DisposeWith(_disposables);
         SelectedBranch = new ReactivePropertySlim<BranchInfo?>()
+            .DisposeWith(_disposables);
+        IsBranchSwitchPending = SelectedBranch.CombineLatest(
+                CurrentBranch,
+                static (selected, current) =>
+                    selected is not null
+                    && current is not null
+                    && !string.Equals(selected.Name, current.Name, StringComparison.Ordinal))
+            .ToReadOnlyReactivePropertySlim()
             .DisposeWith(_disposables);
         RemoteUrl = new ReactivePropertySlim<string>()
             .DisposeWith(_disposables);
@@ -98,6 +138,8 @@ public sealed class VersionControlTabViewModel : IToolContext
         RemoteProgress = new ReactivePropertySlim<string>()
             .DisposeWith(_disposables);
         IsRemoteOperationRunning = new ReactivePropertySlim<bool>()
+            .DisposeWith(_disposables);
+        IsRemoteExpanded = new ReactivePropertySlim<bool>()
             .DisposeWith(_disposables);
         IsNestedRepository = new ReactivePropertySlim<bool>(
                 service?.Repository?.IsNestedInForeignRepo == true)
@@ -110,9 +152,20 @@ public sealed class VersionControlTabViewModel : IToolContext
                         repository.RepoRoot)
                     : string.Empty)
             .DisposeWith(_disposables);
+        CanEnableVersionControl = IsGitAvailable.CombineLatest(
+                IsTracked,
+                static (available, tracked) => available && !tracked)
+            .ToReadOnlyReactivePropertySlim()
+            .DisposeWith(_disposables);
 
         LoadMoreCommand = new AsyncReactiveCommand()
             .WithSubscribe(LoadMoreAsync)
+            .DisposeWith(_disposables);
+        EnableVersionControlCommand = new AsyncReactiveCommand(CanEnableVersionControl)
+            .WithSubscribe(EnableVersionControlAsync)
+            .DisposeWith(_disposables);
+        DownloadGitCommand = new AsyncReactiveCommand(IsUnavailable)
+            .WithSubscribe(DownloadGitAsync)
             .DisposeWith(_disposables);
         RemoveStaleLockCommand = new AsyncReactiveCommand(HasRecoverableLock)
             .WithSubscribe(RemoveStaleLockAsync)
@@ -128,6 +181,12 @@ public sealed class VersionControlTabViewModel : IToolContext
             .DisposeWith(_disposables);
         CreateBranchCommand = new AsyncReactiveCommand(canMutate)
             .WithSubscribe(CreateBranchAsync)
+            .DisposeWith(_disposables);
+        SwitchBranchCommand = new AsyncReactiveCommand(
+                canMutate.CombineLatest(
+                    IsBranchSwitchPending,
+                    static (canRun, pending) => canRun && pending))
+            .WithSubscribe(SwitchSelectedBranchAsync)
             .DisposeWith(_disposables);
         SetRemoteCommand = new AsyncReactiveCommand(
                 canMutate.CombineLatest(
@@ -152,6 +211,22 @@ public sealed class VersionControlTabViewModel : IToolContext
         RequestBranchNameAsync = ShowBranchNameDialogAsync;
         RequestNewBranchNameAsync = ShowNewBranchDialogAsync;
         ShowRemoteResultAsync = ShowRemoteResultDialogAsync;
+        RequestEnableVersionControlAsync = static () => Task.CompletedTask;
+        LaunchUriAsync = static _ => Task.FromResult(false);
+        IsRemoteOperationRunning
+            .Where(static running => running)
+            .Subscribe(_ => IsRemoteExpanded.Value = true)
+            .DisposeWith(_disposables);
+        IsRemoteExpanded
+            .Where(static expanded => !expanded)
+            .Subscribe(_ =>
+            {
+                if (IsRemoteOperationRunning.Value)
+                {
+                    IsRemoteExpanded.Value = true;
+                }
+            })
+            .DisposeWith(_disposables);
 
         if (_service is not null)
         {
@@ -174,6 +249,8 @@ public sealed class VersionControlTabViewModel : IToolContext
 
     public ReactivePropertySlim<bool> IsTracked { get; }
 
+    public ReactivePropertySlim<bool> IsGitAvailable { get; }
+
     public ReactivePropertySlim<bool> IsUnavailable { get; }
 
     public ReactivePropertySlim<bool> IsConflicted { get; }
@@ -186,6 +263,14 @@ public sealed class VersionControlTabViewModel : IToolContext
 
     public ReactivePropertySlim<string> AheadBehindText { get; }
 
+    public ReactivePropertySlim<string> AheadBadgeText { get; }
+
+    public ReactivePropertySlim<string> BehindBadgeText { get; }
+
+    public ReactivePropertySlim<bool> HasAhead { get; }
+
+    public ReactivePropertySlim<bool> HasBehind { get; }
+
     public ReactivePropertySlim<string> DirtySummary { get; }
 
     public ReactivePropertySlim<string> StatusMessage { get; }
@@ -193,6 +278,8 @@ public sealed class VersionControlTabViewModel : IToolContext
     public ReactivePropertySlim<bool> IsLoading { get; }
 
     public ReactivePropertySlim<bool> HasMoreHistory { get; }
+
+    public ReactivePropertySlim<bool> IsHistoryEmpty { get; }
 
     public ObservableCollection<VersionControlCommitViewModel> Commits { get; } = [];
 
@@ -206,9 +293,17 @@ public sealed class VersionControlTabViewModel : IToolContext
 
     public ReactivePropertySlim<VersionControlFileChangeViewModel?> SelectedFile { get; }
 
+    public ReadOnlyReactivePropertySlim<bool> HasSelectedCommit { get; }
+
+    public ReadOnlyReactivePropertySlim<bool> HasSelectedFile { get; }
+
     public ReactivePropertySlim<string> CommitMessage { get; }
 
+    public ReactivePropertySlim<BranchInfo?> CurrentBranch { get; }
+
     public ReactivePropertySlim<BranchInfo?> SelectedBranch { get; }
+
+    public ReadOnlyReactivePropertySlim<bool> IsBranchSwitchPending { get; }
 
     public ReactivePropertySlim<string> RemoteUrl { get; }
 
@@ -218,17 +313,27 @@ public sealed class VersionControlTabViewModel : IToolContext
 
     public ReactivePropertySlim<bool> IsRemoteOperationRunning { get; }
 
+    public ReactivePropertySlim<bool> IsRemoteExpanded { get; }
+
     public ReactivePropertySlim<bool> IsNestedRepository { get; }
 
     public ReactivePropertySlim<string> RepositoryScopeText { get; }
 
+    public ReadOnlyReactivePropertySlim<bool> CanEnableVersionControl { get; }
+
     public AsyncReactiveCommand LoadMoreCommand { get; }
+
+    public AsyncReactiveCommand EnableVersionControlCommand { get; }
+
+    public AsyncReactiveCommand DownloadGitCommand { get; }
 
     public AsyncReactiveCommand RemoveStaleLockCommand { get; }
 
     public AsyncReactiveCommand CommitCommand { get; }
 
     public AsyncReactiveCommand CreateBranchCommand { get; }
+
+    public AsyncReactiveCommand SwitchBranchCommand { get; }
 
     public AsyncReactiveCommand SetRemoteCommand { get; }
 
@@ -245,6 +350,32 @@ public sealed class VersionControlTabViewModel : IToolContext
     public Func<Task<string?>> RequestNewBranchNameAsync { get; set; }
 
     public Func<RemoteOpResult, Task> ShowRemoteResultAsync { get; set; }
+
+    public Func<Task> RequestEnableVersionControlAsync { get; set; }
+
+    public Func<Uri, Task<bool>> LaunchUriAsync { get; set; }
+
+    public async Task EnableVersionControlAsync()
+    {
+        if (!CanEnableVersionControl.Value)
+        {
+            return;
+        }
+
+        await RequestEnableVersionControlAsync();
+        if (_service?.Repository is not null)
+        {
+            IsTracked.Value = true;
+        }
+    }
+
+    public async Task DownloadGitAsync()
+    {
+        if (IsUnavailable.Value)
+        {
+            await LaunchUriAsync(s_gitDownloadsUri);
+        }
+    }
 
     public async Task LoadMoreAsync()
     {
@@ -292,24 +423,34 @@ public sealed class VersionControlTabViewModel : IToolContext
         }
     }
 
-    public async Task SelectBranchAsync(BranchInfo? branch)
+    public async Task SwitchSelectedBranchAsync()
     {
-        SelectedBranch.Value = branch;
-        if (_versionControlCoordinator is null || branch is null || branch.IsCurrent)
+        BranchInfo? branch = SelectedBranch.Value;
+        if (_versionControlCoordinator is null
+            || branch is null
+            || !IsBranchSwitchPending.Value)
         {
             return;
         }
 
-        bool switched = await _versionControlCoordinator.SwitchBranchAsync(
-            branch.Name,
-            CancellationToken.None);
-        if (switched)
+        try
         {
-            await RefreshRepositoryMetadataAsync();
+            bool switched = await _versionControlCoordinator.SwitchBranchAsync(
+                branch.Name,
+                CancellationToken.None);
+            if (switched)
+            {
+                await RefreshRepositoryMetadataAsync();
+            }
+            else
+            {
+                RevertBranchSelection();
+            }
         }
-        else
+        catch
         {
-            SelectedBranch.Value = Branches.FirstOrDefault(item => item.IsCurrent);
+            RevertBranchSelection();
+            throw;
         }
     }
 
@@ -513,6 +654,7 @@ public sealed class VersionControlTabViewModel : IToolContext
         }
 
         GitAvailability availability = await _service.GetAvailabilityAsync(CancellationToken.None);
+        IsGitAvailable.Value = availability.State == GitAvailabilityState.Installed;
         if (availability.State != GitAvailabilityState.Installed)
         {
             IsUnavailable.Value = true;
@@ -576,6 +718,7 @@ public sealed class VersionControlTabViewModel : IToolContext
             Commits.Clear();
             ChangedFiles.Clear();
             DiffLines.Clear();
+            IsHistoryEmpty.Value = true;
             SelectedCommit.Value = null;
             SelectedFile.Value = null;
             _nextHistoryOffset = 0;
@@ -603,6 +746,9 @@ public sealed class VersionControlTabViewModel : IToolContext
             return;
         }
 
+        string? pendingBranchName = IsBranchSwitchPending.Value
+            ? SelectedBranch.Value?.Name
+            : null;
         IReadOnlyList<BranchInfo> branches = await _service.GetBranchesAsync(
             CancellationToken.None);
         Branches.Clear();
@@ -611,7 +757,13 @@ public sealed class VersionControlTabViewModel : IToolContext
             Branches.Add(branch);
         }
 
-        SelectedBranch.Value = Branches.FirstOrDefault(branch => branch.IsCurrent);
+        BranchInfo? currentBranch = Branches.FirstOrDefault(branch => branch.IsCurrent);
+        CurrentBranch.Value = currentBranch;
+        SelectedBranch.Value = pendingBranchName is null
+            ? currentBranch
+            : Branches.FirstOrDefault(branch =>
+                string.Equals(branch.Name, pendingBranchName, StringComparison.Ordinal))
+              ?? currentBranch;
         await RefreshRemotesAsync();
     }
 
@@ -647,13 +799,17 @@ public sealed class VersionControlTabViewModel : IToolContext
                 CancellationToken.None);
             foreach (CommitInfo commit in page)
             {
-                Commits.Add(new VersionControlCommitViewModel(this, commit));
+                Commits.Add(new VersionControlCommitViewModel(
+                    this,
+                    commit,
+                    _relativeTimeFormatter));
             }
 
             _nextHistoryOffset += page.Count;
             HasMoreHistory.Value = page.Count == HistoryPageSize;
+            IsHistoryEmpty.Value = Commits.Count == 0;
             StatusMessage.Value = Commits.Count == 0
-                ? Strings.VersionControl_NoHistory
+                ? Strings.VersionControl_HistoryEmptyHint
                 : string.Empty;
         }
         finally
@@ -694,6 +850,7 @@ public sealed class VersionControlTabViewModel : IToolContext
 
     private void ApplyStatus(WorkspaceStatus status)
     {
+        IsTracked.Value = _service?.Repository is not null;
         IsConflicted.Value = status.HasConflicts;
         HasBlockingGuidance.Value = IsUnavailable.Value || status.HasConflicts;
         if (status.HasConflicts)
@@ -711,12 +868,21 @@ public sealed class VersionControlTabViewModel : IToolContext
             Strings.VersionControl_AheadBehindFormat,
             status.Ahead,
             status.Behind);
+        HasAhead.Value = status.Ahead > 0;
+        HasBehind.Value = status.Behind > 0;
+        AheadBadgeText.Value = $"↑{status.Ahead.ToString(CultureInfo.CurrentCulture)}";
+        BehindBadgeText.Value = $"↓{status.Behind.ToString(CultureInfo.CurrentCulture)}";
         DirtySummary.Value = status.IsClean
             ? Strings.VersionControl_WorktreeClean
             : string.Format(
                 CultureInfo.CurrentCulture,
                 Strings.VersionControl_DirtySummaryFormat,
                 status.Changes.Count);
+    }
+
+    private void RevertBranchSelection()
+    {
+        SelectedBranch.Value = CurrentBranch.Value;
     }
 
     private CancellationToken ReplaceSelectionCancellation()
@@ -863,23 +1029,90 @@ public sealed class VersionControlTabViewModel : IToolContext
     }
 }
 
+internal sealed class VersionControlRelativeTimeFormatter
+{
+    private static readonly ResourceManager s_resourceManager =
+        new("Beutl.Language.Strings", typeof(Strings).Assembly);
+
+    private readonly TimeProvider _timeProvider;
+    private readonly CultureInfo _culture;
+
+    public VersionControlRelativeTimeFormatter(
+        TimeProvider timeProvider,
+        CultureInfo culture)
+    {
+        _timeProvider = timeProvider ?? throw new ArgumentNullException(nameof(timeProvider));
+        _culture = culture ?? throw new ArgumentNullException(nameof(culture));
+    }
+
+    public string Format(DateTimeOffset timestamp)
+    {
+        TimeSpan elapsed = _timeProvider.GetUtcNow() - timestamp.ToUniversalTime();
+        if (elapsed < TimeSpan.FromMinutes(1))
+        {
+            return GetString("VersionControl_TimeJustNow");
+        }
+
+        int minutes = (int)Math.Floor(elapsed.TotalMinutes);
+        if (minutes < 60)
+        {
+            return minutes == 1
+                ? GetString("VersionControl_TimeMinuteAgo")
+                : FormatCount("VersionControl_TimeMinutesAgoFormat", minutes);
+        }
+
+        int hours = (int)Math.Floor(elapsed.TotalHours);
+        if (hours < 24)
+        {
+            return hours == 1
+                ? GetString("VersionControl_TimeHourAgo")
+                : FormatCount("VersionControl_TimeHoursAgoFormat", hours);
+        }
+
+        int days = (int)Math.Floor(elapsed.TotalDays);
+        return days == 1
+            ? GetString("VersionControl_TimeDayAgo")
+            : FormatCount("VersionControl_TimeDaysAgoFormat", days);
+    }
+
+    public string FormatAbsoluteLocal(DateTimeOffset timestamp)
+    {
+        return TimeZoneInfo.ConvertTime(timestamp, _timeProvider.LocalTimeZone)
+            .ToString("g", _culture);
+    }
+
+    private string FormatCount(string key, int value)
+    {
+        return string.Format(_culture, GetString(key), value);
+    }
+
+    private string GetString(string key)
+    {
+        return s_resourceManager.GetString(key, _culture)
+               ?? throw new MissingManifestResourceException(
+                   $"The localized resource '{key}' is missing.");
+    }
+}
+
 public sealed class VersionControlCommitViewModel : IDisposable
 {
     private readonly VersionControlTabViewModel _owner;
 
     internal VersionControlCommitViewModel(
         VersionControlTabViewModel owner,
-        CommitInfo commit)
+        CommitInfo commit,
+        VersionControlRelativeTimeFormatter relativeTimeFormatter)
     {
         _owner = owner;
         Commit = commit;
         KindText = GetKindText(commit.Kind);
         DisplayMessage = commit.Subject;
-        AuthorAndDate = string.Format(
+        AuthorAndRelativeDate = string.Format(
             CultureInfo.CurrentCulture,
-            "{0} · {1:g}",
+            "{0} · {1}",
             commit.AuthorName,
-            commit.AuthorDate);
+            relativeTimeFormatter.Format(commit.AuthorDate));
+        AbsoluteLocalDate = relativeTimeFormatter.FormatAbsoluteLocal(commit.AuthorDate);
         RestoreCommand = new AsyncReactiveCommand()
             .WithSubscribe(() => _owner.RestoreAsync(Commit));
         RestoreToNewBranchCommand = new AsyncReactiveCommand()
@@ -892,9 +1125,21 @@ public sealed class VersionControlCommitViewModel : IDisposable
 
     public bool IsManual => Commit.Kind == SnapshotKind.Manual;
 
+    public bool IsSave => Commit.Kind == SnapshotKind.Save;
+
+    public bool IsClose => Commit.Kind == SnapshotKind.Close;
+
+    public bool IsSafety => Commit.Kind == SnapshotKind.Safety;
+
+    public bool IsRestore => Commit.Kind == SnapshotKind.Restore;
+
+    public bool IsInit => Commit.Kind == SnapshotKind.Init;
+
     public string DisplayMessage { get; }
 
-    public string AuthorAndDate { get; }
+    public string AuthorAndRelativeDate { get; }
+
+    public string AbsoluteLocalDate { get; }
 
     public AsyncReactiveCommand RestoreCommand { get; }
 

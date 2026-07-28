@@ -30,6 +30,27 @@
         <Style Selector="Border.kindBadge.manual">
             <Setter Property="Background" Value="{DynamicResource AccentFillColorSecondaryBrush}" />
         </Style>
+        <Style Selector="Border.kindBadge.close">
+            <Setter Property="Background" Value="{DynamicResource SubtleFillColorSecondaryBrush}" />
+        </Style>
+        <Style Selector="Border.kindBadge.init">
+            <Setter Property="Background" Value="{DynamicResource SubtleFillColorSecondaryBrush}" />
+        </Style>
+        <Style Selector="Border.kindBadge.restore">
+            <Setter Property="Background" Value="{DynamicResource SystemFillColorSuccessBackgroundBrush}" />
+        </Style>
+        <Style Selector="Border.kindBadge.safety">
+            <Setter Property="Background" Value="{DynamicResource SystemFillColorCautionBackgroundBrush}" />
+        </Style>
+        <Style Selector="Border.kindBadge.save">
+            <Setter Property="Background" Value="{DynamicResource SubtleFillColorSecondaryBrush}" />
+        </Style>
+        <Style Selector="Border.branchBadge">
+            <Setter Property="MinWidth" Value="28" />
+            <Setter Property="Padding" Value="5,2" />
+            <Setter Property="Background" Value="{DynamicResource SubtleFillColorSecondaryBrush}" />
+            <Setter Property="CornerRadius" Value="8" />
+        </Style>
         <Style Selector="TextBlock.diffLine">
             <Setter Property="FontFamily" Value="Consolas, Menlo, monospace" />
             <Setter Property="FontSize" Value="12" />
@@ -47,228 +68,335 @@
     </UserControl.Styles>
 
     <Grid>
-        <TextBlock Margin="20"
-                   HorizontalAlignment="Center"
-                   VerticalAlignment="Center"
-                   IsVisible="{Binding HasBlockingGuidance.Value}"
-                   Text="{Binding StatusMessage.Value}"
-                   TextAlignment="Center"
-                   TextWrapping="Wrap" />
+        <Border Margin="20"
+                HorizontalAlignment="Center"
+                VerticalAlignment="Center"
+                IsVisible="{Binding HasBlockingGuidance.Value}">
+            <StackPanel HorizontalAlignment="Center" Spacing="12">
+                <TextBlock MaxWidth="360"
+                           Text="{Binding StatusMessage.Value}"
+                           TextAlignment="Center"
+                           TextWrapping="Wrap" />
+                <HyperlinkButton x:Name="DownloadGitButton"
+                                 HorizontalAlignment="Center"
+                                 Command="{Binding DownloadGitCommand}"
+                                 Content="{x:Static lang:Strings.VersionControl_DownloadGit}"
+                                 IsVisible="{Binding IsUnavailable.Value}" />
+            </StackPanel>
+        </Border>
 
         <Grid IsVisible="{Binding !HasBlockingGuidance.Value}"
               RowDefinitions="Auto,Auto,*">
-        <Border Grid.Row="0"
-                Padding="10,8"
-                BorderBrush="{DynamicResource DividerStrokeColorDefaultBrush}"
-                BorderThickness="0,0,0,1">
-            <Grid ColumnDefinitions="*,Auto" RowDefinitions="Auto,Auto,Auto">
-                <ComboBox ItemsSource="{Binding Branches}"
-                          SelectedItem="{Binding SelectedBranch.Value}"
-                          SelectionChanged="OnBranchSelectionChanged">
-                    <ComboBox.ItemTemplate>
-                        <DataTemplate x:DataType="vc:BranchInfo">
-                            <TextBlock Text="{Binding Name}" TextTrimming="CharacterEllipsis" />
-                        </DataTemplate>
-                    </ComboBox.ItemTemplate>
-                </ComboBox>
-                <Button Grid.Column="1"
-                        Margin="6,0,0,0"
-                        Command="{Binding CreateBranchCommand}"
-                        Content="{x:Static lang:Strings.VersionControl_NewBranch}" />
-                <TextBlock Grid.Row="1"
-                           Classes="secondary"
-                           Text="{Binding AheadBehindText.Value}" />
-                <TextBlock Grid.Row="1"
-                           Grid.Column="1"
-                           Margin="0,4,0,0"
-                           Classes="secondary"
-                           Text="{Binding DirtySummary.Value}" />
-                <TextBlock Grid.Row="2"
-                           Grid.ColumnSpan="2"
-                           Margin="0,4,0,0"
-                           Classes="secondary"
-                           IsVisible="{Binding IsNestedRepository.Value}"
-                           Text="{Binding RepositoryScopeText.Value}"
-                           TextWrapping="Wrap" />
-            </Grid>
-        </Border>
+            <Border Grid.Row="0"
+                    Padding="10,8"
+                    BorderBrush="{DynamicResource DividerStrokeColorDefaultBrush}"
+                    BorderThickness="0,0,0,1"
+                    IsVisible="{Binding IsTracked.Value}">
+                <Grid ColumnDefinitions="*,Auto,Auto,Auto"
+                      RowDefinitions="Auto,Auto,Auto">
+                    <ComboBox x:Name="BranchComboBox"
+                              ItemsSource="{Binding Branches}"
+                              SelectedItem="{Binding SelectedBranch.Value, Mode=TwoWay}">
+                        <ComboBox.ItemTemplate>
+                            <DataTemplate x:DataType="vc:BranchInfo">
+                                <TextBlock Text="{Binding Name}" TextTrimming="CharacterEllipsis" />
+                            </DataTemplate>
+                        </ComboBox.ItemTemplate>
+                    </ComboBox>
+                    <StackPanel Grid.Column="1"
+                                Margin="6,0,0,0"
+                                VerticalAlignment="Center"
+                                Orientation="Horizontal"
+                                Spacing="4"
+                                ToolTip.Tip="{Binding AheadBehindText.Value}">
+                        <Border x:Name="AheadBadge"
+                                Classes="branchBadge"
+                                IsVisible="{Binding HasAhead.Value}">
+                            <TextBlock FontSize="11"
+                                       Text="{Binding AheadBadgeText.Value}"
+                                       TextAlignment="Center" />
+                        </Border>
+                        <Border x:Name="BehindBadge"
+                                Classes="branchBadge"
+                                IsVisible="{Binding HasBehind.Value}">
+                            <TextBlock FontSize="11"
+                                       Text="{Binding BehindBadgeText.Value}"
+                                       TextAlignment="Center" />
+                        </Border>
+                    </StackPanel>
+                    <Button x:Name="SwitchBranchButton"
+                            Grid.Column="2"
+                            Margin="6,0,0,0"
+                            Command="{Binding SwitchBranchCommand}"
+                            Content="{x:Static lang:Strings.VersionControl_Switch}" />
+                    <Button Grid.Column="3"
+                            Margin="6,0,0,0"
+                            Command="{Binding CreateBranchCommand}"
+                            Content="{x:Static lang:Strings.VersionControl_NewBranch}" />
+                    <TextBlock Grid.Row="1"
+                               Grid.ColumnSpan="4"
+                               Margin="0,4,0,0"
+                               Classes="secondary"
+                               Text="{Binding DirtySummary.Value}" />
+                    <TextBlock Grid.Row="2"
+                               Grid.ColumnSpan="4"
+                               Margin="0,4,0,0"
+                               Classes="secondary"
+                               IsVisible="{Binding IsNestedRepository.Value}"
+                               Text="{Binding RepositoryScopeText.Value}"
+                               TextWrapping="Wrap" />
+                </Grid>
+            </Border>
 
-        <Border Grid.Row="1"
-                Margin="8"
-                Padding="10"
-                Background="{DynamicResource SystemFillColorCautionBackgroundBrush}"
-                CornerRadius="4"
-                IsVisible="{Binding HasRecoverableLock.Value}">
-            <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
-                <TextBlock VerticalAlignment="Center"
-                           Text="{x:Static lang:Strings.VersionControl_StaleLockGuidance}"
-                           TextWrapping="Wrap" />
-                <Button Grid.Column="1"
-                        Command="{Binding RemoveStaleLockCommand}"
-                        Content="{x:Static lang:Strings.VersionControl_RemoveStaleLock}" />
-            </Grid>
-        </Border>
+            <Border Grid.Row="1"
+                    Margin="8"
+                    Padding="10"
+                    Background="{DynamicResource SystemFillColorCautionBackgroundBrush}"
+                    CornerRadius="4"
+                    IsVisible="{Binding HasRecoverableLock.Value}">
+                <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
+                    <TextBlock VerticalAlignment="Center"
+                               Text="{x:Static lang:Strings.VersionControl_StaleLockGuidance}"
+                               TextWrapping="Wrap" />
+                    <Button Grid.Column="1"
+                            Command="{Binding RemoveStaleLockCommand}"
+                            Content="{x:Static lang:Strings.VersionControl_RemoveStaleLock}" />
+                </Grid>
+            </Border>
 
-        <Grid Grid.Row="2">
-            <TextBlock Margin="20"
-                       HorizontalAlignment="Center"
-                       VerticalAlignment="Center"
-                       IsVisible="{Binding !IsTracked.Value}"
-                       Text="{Binding StatusMessage.Value}"
-                       TextAlignment="Center"
-                       TextWrapping="Wrap" />
-
-            <Grid IsVisible="{Binding IsTracked.Value}"
-                  RowDefinitions="Auto,*">
-                <Border Margin="8,8,8,0"
-                        Padding="8"
-                        BorderBrush="{DynamicResource DividerStrokeColorDefaultBrush}"
+            <Grid Grid.Row="2">
+                <Border x:Name="UntrackedProjectPanel"
+                        Margin="20"
+                        Padding="20"
+                        HorizontalAlignment="Center"
+                        VerticalAlignment="Center"
+                        BorderBrush="{DynamicResource CardStrokeColorDefaultBrush}"
                         BorderThickness="1"
-                        CornerRadius="4">
-                    <Grid RowDefinitions="Auto,Auto,Auto" RowSpacing="6">
-                        <Grid ColumnDefinitions="*,Auto" ColumnSpacing="6">
-                            <TextBox Text="{Binding CommitMessage.Value}"
-                                     Watermark="{x:Static lang:Strings.VersionControl_CommitMessage}" />
-                            <Button Grid.Column="1"
-                                    Command="{Binding CommitCommand}"
-                                    Content="{x:Static lang:Strings.VersionControl_CommitNow}" />
-                        </Grid>
-                        <Grid Grid.Row="1"
-                              ColumnDefinitions="*,Auto,Auto,Auto,Auto"
-                              ColumnSpacing="6">
-                            <TextBox Text="{Binding RemoteUrl.Value}"
-                                     Watermark="{x:Static lang:Strings.VersionControl_RemoteUrl}" />
-                            <Button Grid.Column="1"
-                                    Command="{Binding SetRemoteCommand}"
-                                    Content="{x:Static lang:Strings.VersionControl_SetRemote}" />
-                            <Button Grid.Column="2"
-                                    Command="{Binding PushCommand}"
-                                    Content="{x:Static lang:Strings.VersionControl_Push}" />
-                            <Button Grid.Column="3"
-                                    Command="{Binding PullCommand}"
-                                    Content="{x:Static lang:Strings.VersionControl_Pull}" />
-                            <Button Grid.Column="4"
-                                    Command="{Binding CancelRemoteOperationCommand}"
-                                    Content="{x:Static lang:Strings.Cancel}"
-                                    IsVisible="{Binding IsRemoteOperationRunning.Value}" />
-                        </Grid>
-                        <TextBlock Grid.Row="2"
-                                   Classes="secondary"
-                                   IsVisible="{Binding IsRemoteOperationRunning.Value}"
-                                   Text="{Binding RemoteProgress.Value}"
-                                   TextTrimming="CharacterEllipsis" />
-                    </Grid>
+                        CornerRadius="8"
+                        IsVisible="{Binding !IsTracked.Value}">
+                    <StackPanel MaxWidth="340" HorizontalAlignment="Center" Spacing="10">
+                        <TextBlock FontSize="16"
+                                   FontWeight="SemiBold"
+                                   Text="{x:Static lang:Strings.VersionControl_NoRepository}"
+                                   TextAlignment="Center"
+                                   TextWrapping="Wrap" />
+                        <TextBlock Classes="secondary"
+                                   Text="{x:Static lang:Strings.VersionControl_UntrackedExplanation}"
+                                   TextAlignment="Center"
+                                   TextWrapping="Wrap" />
+                        <Button x:Name="EnableVersionControlButton"
+                                HorizontalAlignment="Center"
+                                Command="{Binding EnableVersionControlCommand}"
+                                Content="{x:Static lang:Strings.VersionControl_Enable}"
+                                IsVisible="{Binding CanEnableVersionControl.Value}" />
+                    </StackPanel>
                 </Border>
 
-                <Grid Grid.Row="1"
-                      ColumnDefinitions="2*,5,3*">
-                <Grid Grid.Column="0"
-                      Margin="8"
-                      RowDefinitions="Auto,*,Auto"
-                      RowSpacing="6">
-                    <TextBlock Classes="sectionHeader"
-                               Text="{x:Static lang:Strings.VersionControl_History}" />
-                    <ListBox x:Name="CommitList"
-                             Grid.Row="1"
-                             ItemsSource="{Binding Commits}"
-                             SelectionChanged="OnCommitSelectionChanged">
-                        <ListBox.ItemTemplate>
-                            <DataTemplate x:DataType="vm:VersionControlCommitViewModel">
-                                <Border Padding="8,6">
-                                    <Border.ContextMenu>
-                                        <ContextMenu>
-                                            <MenuItem Command="{Binding RestoreCommand}"
-                                                      Header="{x:Static lang:Strings.VersionControl_Restore}" />
-                                            <MenuItem Command="{Binding RestoreToNewBranchCommand}"
-                                                      Header="{x:Static lang:Strings.VersionControl_RestoreToNewBranch}" />
-                                        </ContextMenu>
-                                    </Border.ContextMenu>
-                                    <Grid ColumnDefinitions="*,Auto"
-                                          RowDefinitions="Auto,Auto,Auto"
-                                          ColumnSpacing="6">
-                                        <TextBlock FontWeight="SemiBold"
-                                                   Text="{Binding DisplayMessage}"
-                                                   TextTrimming="CharacterEllipsis" />
-                                        <Border Grid.Column="1"
-                                                Classes="kindBadge"
-                                                Classes.manual="{Binding IsManual}">
-                                            <TextBlock FontSize="10" Text="{Binding KindText}" />
-                                        </Border>
-                                        <TextBlock Grid.Row="1"
-                                                   Grid.ColumnSpan="2"
-                                                   Margin="0,3,0,0"
-                                                   Classes="secondary"
-                                                   Text="{Binding AuthorAndDate}" />
-                                        <TextBlock Grid.Row="2"
-                                                   Grid.ColumnSpan="2"
-                                                   Classes="secondary"
-                                                   Text="{Binding Commit.ShortSha}" />
+                <Grid IsVisible="{Binding IsTracked.Value}"
+                      RowDefinitions="Auto,*">
+                    <Border Margin="8,8,8,0"
+                            Padding="8"
+                            BorderBrush="{DynamicResource DividerStrokeColorDefaultBrush}"
+                            BorderThickness="1"
+                            CornerRadius="4">
+                        <Grid RowDefinitions="Auto,Auto" RowSpacing="6">
+                            <Grid ColumnDefinitions="*,Auto" ColumnSpacing="6">
+                                <TextBox Text="{Binding CommitMessage.Value}"
+                                         Watermark="{x:Static lang:Strings.VersionControl_CommitMessage}" />
+                                <Button Grid.Column="1"
+                                        Command="{Binding CommitCommand}"
+                                        Content="{x:Static lang:Strings.VersionControl_CommitNow}" />
+                            </Grid>
+                            <Expander x:Name="RemoteExpander"
+                                      Grid.Row="1"
+                                      Header="{x:Static lang:Strings.VersionControl_Remote}"
+                                      IsExpanded="{Binding IsRemoteExpanded.Value, Mode=TwoWay}">
+                                <Grid RowDefinitions="Auto,Auto,Auto" RowSpacing="6">
+                                    <Grid ColumnDefinitions="*,Auto" ColumnSpacing="6">
+                                        <TextBox Text="{Binding RemoteUrl.Value}"
+                                                 Watermark="{x:Static lang:Strings.VersionControl_RemoteUrl}" />
+                                        <Button Grid.Column="1"
+                                                Command="{Binding SetRemoteCommand}"
+                                                Content="{x:Static lang:Strings.VersionControl_SetRemote}" />
                                     </Grid>
-                                </Border>
-                            </DataTemplate>
-                        </ListBox.ItemTemplate>
-                    </ListBox>
-                    <Button Grid.Row="2"
-                            HorizontalAlignment="Stretch"
-                            Command="{Binding LoadMoreCommand}"
-                            Content="{x:Static lang:Strings.VersionControl_LoadMore}"
-                            IsEnabled="{Binding !IsLoading.Value}"
-                            IsVisible="{Binding HasMoreHistory.Value}" />
-                </Grid>
-
-                <GridSplitter Grid.Column="1"
-                              Background="{DynamicResource DividerStrokeColorDefaultBrush}"
-                              ResizeDirection="Columns" />
-
-                <Grid Grid.Column="2"
-                      Margin="8"
-                      RowDefinitions="Auto,2*,Auto,3*"
-                      RowSpacing="6">
-                    <TextBlock Classes="sectionHeader"
-                               Text="{x:Static lang:Strings.VersionControl_ChangedFiles}" />
-                    <ListBox x:Name="ChangedFileList"
-                             Grid.Row="1"
-                             ItemsSource="{Binding ChangedFiles}"
-                             SelectionChanged="OnChangedFileSelectionChanged">
-                        <ListBox.ItemTemplate>
-                            <DataTemplate x:DataType="vm:VersionControlFileChangeViewModel">
-                                <Grid Margin="6,4"
-                                      ColumnDefinitions="24,*"
-                                      ColumnSpacing="4">
-                                    <TextBlock FontFamily="Consolas, Menlo, monospace"
-                                               FontWeight="SemiBold"
-                                               Text="{Binding StatusText}" />
-                                    <TextBlock Grid.Column="1"
-                                               Text="{Binding PathText}"
-                                               TextTrimming="CharacterEllipsis"
-                                               ToolTip.Tip="{Binding PathText}" />
+                                    <StackPanel Grid.Row="1"
+                                                HorizontalAlignment="Right"
+                                                Orientation="Horizontal"
+                                                Spacing="6">
+                                        <Button Command="{Binding PushCommand}"
+                                                Content="{x:Static lang:Strings.VersionControl_Push}" />
+                                        <Button Command="{Binding PullCommand}"
+                                                Content="{x:Static lang:Strings.VersionControl_Pull}" />
+                                        <Button Command="{Binding CancelRemoteOperationCommand}"
+                                                Content="{x:Static lang:Strings.Cancel}"
+                                                IsVisible="{Binding IsRemoteOperationRunning.Value}" />
+                                    </StackPanel>
+                                    <TextBlock Grid.Row="2"
+                                               Classes="secondary"
+                                               IsVisible="{Binding IsRemoteOperationRunning.Value}"
+                                               Text="{Binding RemoteProgress.Value}"
+                                               TextTrimming="CharacterEllipsis" />
                                 </Grid>
-                            </DataTemplate>
-                        </ListBox.ItemTemplate>
-                    </ListBox>
+                            </Expander>
+                        </Grid>
+                    </Border>
 
-                    <TextBlock Grid.Row="2"
-                               Classes="sectionHeader"
-                               Text="{x:Static lang:Strings.VersionControl_Diff}" />
-                    <ScrollViewer Grid.Row="3"
-                                  HorizontalScrollBarVisibility="Auto"
-                                  VerticalScrollBarVisibility="Auto">
-                        <ItemsControl ItemsSource="{Binding DiffLines}">
-                            <ItemsControl.ItemTemplate>
-                                <DataTemplate x:DataType="vm:VersionControlDiffLineViewModel">
-                                    <TextBlock Classes="diffLine"
-                                               Classes.added="{Binding IsAdded}"
-                                               Classes.header="{Binding IsHeader}"
-                                               Classes.removed="{Binding IsRemoved}"
-                                               Text="{Binding Text}" />
-                                </DataTemplate>
-                            </ItemsControl.ItemTemplate>
-                        </ItemsControl>
-                    </ScrollViewer>
-                </Grid>
+                    <Grid Grid.Row="1"
+                          ColumnDefinitions="2*,5,3*">
+                        <Grid Grid.Column="0"
+                              Margin="8"
+                              RowDefinitions="Auto,*,Auto"
+                              RowSpacing="6">
+                            <TextBlock Classes="sectionHeader"
+                                       Text="{x:Static lang:Strings.VersionControl_History}" />
+                            <Grid Grid.Row="1">
+                                <ListBox x:Name="CommitList"
+                                         ItemsSource="{Binding Commits}"
+                                         SelectionChanged="OnCommitSelectionChanged">
+                                    <ListBox.ItemTemplate>
+                                        <DataTemplate x:DataType="vm:VersionControlCommitViewModel">
+                                            <Border Padding="8,6">
+                                                <Border.ContextMenu>
+                                                    <ContextMenu>
+                                                        <MenuItem Command="{Binding RestoreCommand}"
+                                                                  Header="{x:Static lang:Strings.VersionControl_Restore}" />
+                                                        <MenuItem Command="{Binding RestoreToNewBranchCommand}"
+                                                                  Header="{x:Static lang:Strings.VersionControl_RestoreToNewBranch}" />
+                                                    </ContextMenu>
+                                                </Border.ContextMenu>
+                                                <Grid ColumnDefinitions="*,Auto"
+                                                      RowDefinitions="Auto,Auto,Auto"
+                                                      ColumnSpacing="6">
+                                                    <TextBlock FontWeight="SemiBold"
+                                                               Text="{Binding DisplayMessage}"
+                                                               TextTrimming="CharacterEllipsis" />
+                                                    <Border Grid.Column="1"
+                                                            Classes="kindBadge"
+                                                            Classes.close="{Binding IsClose}"
+                                                            Classes.init="{Binding IsInit}"
+                                                            Classes.manual="{Binding IsManual}"
+                                                            Classes.restore="{Binding IsRestore}"
+                                                            Classes.safety="{Binding IsSafety}"
+                                                            Classes.save="{Binding IsSave}">
+                                                        <TextBlock FontSize="10" Text="{Binding KindText}" />
+                                                    </Border>
+                                                    <TextBlock Grid.Row="1"
+                                                               Grid.ColumnSpan="2"
+                                                               Margin="0,3,0,0"
+                                                               Classes="secondary"
+                                                               Text="{Binding AuthorAndRelativeDate}"
+                                                               ToolTip.Tip="{Binding AbsoluteLocalDate}" />
+                                                    <TextBlock Grid.Row="2"
+                                                               Grid.ColumnSpan="2"
+                                                               Classes="secondary"
+                                                               Text="{Binding Commit.ShortSha}" />
+                                                </Grid>
+                                            </Border>
+                                        </DataTemplate>
+                                    </ListBox.ItemTemplate>
+                                </ListBox>
+                                <TextBlock x:Name="HistoryEmptyHint"
+                                           Margin="12"
+                                           HorizontalAlignment="Center"
+                                           VerticalAlignment="Center"
+                                           Classes="secondary"
+                                           IsVisible="{Binding IsHistoryEmpty.Value}"
+                                           Text="{x:Static lang:Strings.VersionControl_HistoryEmptyHint}"
+                                           TextAlignment="Center"
+                                           TextWrapping="Wrap" />
+                            </Grid>
+                            <Button Grid.Row="2"
+                                    HorizontalAlignment="Stretch"
+                                    Command="{Binding LoadMoreCommand}"
+                                    Content="{x:Static lang:Strings.VersionControl_LoadMore}"
+                                    IsEnabled="{Binding !IsLoading.Value}"
+                                    IsVisible="{Binding HasMoreHistory.Value}" />
+                        </Grid>
+
+                        <GridSplitter Grid.Column="1"
+                                      Background="{DynamicResource DividerStrokeColorDefaultBrush}"
+                                      ResizeDirection="Columns" />
+
+                        <Grid Grid.Column="2"
+                              Margin="8"
+                              RowDefinitions="Auto,Auto,2*,Auto,3*"
+                              RowSpacing="6">
+                            <TextBlock Classes="sectionHeader"
+                                       Text="{x:Static lang:Strings.VersionControl_ChangedFiles}" />
+                            <WrapPanel x:Name="SelectedCommitActionBar"
+                                       Grid.Row="1"
+                                       IsVisible="{Binding HasSelectedCommit.Value}"
+                                       Orientation="Horizontal">
+                                <Button Margin="0,0,6,6"
+                                        Command="{Binding SelectedCommit.Value.RestoreCommand}"
+                                        Content="{x:Static lang:Strings.VersionControl_Restore}" />
+                                <Button Margin="0,0,0,6"
+                                        Command="{Binding SelectedCommit.Value.RestoreToNewBranchCommand}"
+                                        Content="{x:Static lang:Strings.VersionControl_RestoreToNewBranch}" />
+                            </WrapPanel>
+                            <Grid Grid.Row="2">
+                                <ListBox x:Name="ChangedFileList"
+                                         ItemsSource="{Binding ChangedFiles}"
+                                         SelectionChanged="OnChangedFileSelectionChanged">
+                                    <ListBox.ItemTemplate>
+                                        <DataTemplate x:DataType="vm:VersionControlFileChangeViewModel">
+                                            <Grid Margin="6,4"
+                                                  ColumnDefinitions="24,*"
+                                                  ColumnSpacing="4">
+                                                <TextBlock FontFamily="Consolas, Menlo, monospace"
+                                                           FontWeight="SemiBold"
+                                                           Text="{Binding StatusText}" />
+                                                <TextBlock Grid.Column="1"
+                                                           Text="{Binding PathText}"
+                                                           TextTrimming="CharacterEllipsis"
+                                                           ToolTip.Tip="{Binding PathText}" />
+                                            </Grid>
+                                        </DataTemplate>
+                                    </ListBox.ItemTemplate>
+                                </ListBox>
+                                <TextBlock x:Name="ChangedFilesEmptyHint"
+                                           Margin="12"
+                                           HorizontalAlignment="Center"
+                                           VerticalAlignment="Center"
+                                           Classes="secondary"
+                                           IsVisible="{Binding !HasSelectedCommit.Value}"
+                                           Text="{x:Static lang:Strings.VersionControl_ChangedFilesEmptyHint}"
+                                           TextAlignment="Center"
+                                           TextWrapping="Wrap" />
+                            </Grid>
+
+                            <TextBlock Grid.Row="3"
+                                       Classes="sectionHeader"
+                                       Text="{x:Static lang:Strings.VersionControl_Diff}" />
+                            <Grid Grid.Row="4">
+                                <ScrollViewer HorizontalScrollBarVisibility="Auto"
+                                              VerticalScrollBarVisibility="Auto">
+                                    <ItemsControl ItemsSource="{Binding DiffLines}">
+                                        <ItemsControl.ItemTemplate>
+                                            <DataTemplate x:DataType="vm:VersionControlDiffLineViewModel">
+                                                <TextBlock Classes="diffLine"
+                                                           Classes.added="{Binding IsAdded}"
+                                                           Classes.header="{Binding IsHeader}"
+                                                           Classes.removed="{Binding IsRemoved}"
+                                                           Text="{Binding Text}" />
+                                            </DataTemplate>
+                                        </ItemsControl.ItemTemplate>
+                                    </ItemsControl>
+                                </ScrollViewer>
+                                <TextBlock x:Name="DiffEmptyHint"
+                                           Margin="12"
+                                           HorizontalAlignment="Center"
+                                           VerticalAlignment="Center"
+                                           Classes="secondary"
+                                           IsVisible="{Binding !HasSelectedFile.Value}"
+                                           Text="{x:Static lang:Strings.VersionControl_DiffEmptyHint}"
+                                           TextAlignment="Center"
+                                           TextWrapping="Wrap" />
+                            </Grid>
+                        </Grid>
+                    </Grid>
                 </Grid>
             </Grid>
-        </Grid>
         </Grid>
     </Grid>
 </UserControl>

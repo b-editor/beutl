@@ -1,7 +1,9 @@
-﻿using Beutl.Editor.Components.VersionControlTab.ViewModels;
+﻿using System.Globalization;
+using Beutl.Editor.Components.VersionControlTab.ViewModels;
 using Beutl.Editor.VersionControl;
 using Beutl.Extensibility;
 using Beutl.Language;
+using Microsoft.Extensions.Time.Testing;
 using Moq;
 
 namespace Beutl.UnitTests.Editor.VersionControl;
@@ -21,9 +23,11 @@ public class VersionControlTabViewModelTests
 
         Assert.Multiple(() =>
         {
+            Assert.That(viewModel.IsGitAvailable.Value, Is.False);
             Assert.That(viewModel.IsUnavailable.Value, Is.True);
             Assert.That(viewModel.HasBlockingGuidance.Value, Is.True);
             Assert.That(viewModel.IsTracked.Value, Is.False);
+            Assert.That(viewModel.CanEnableVersionControl.Value, Is.False);
             Assert.That(viewModel.StatusMessage.Value, Does.Contain(Strings.VersionControl_GitNotInstalled));
             Assert.That(viewModel.StatusMessage.Value, Does.Contain(GetPlatformInstallGuidance()));
         });
@@ -54,8 +58,10 @@ public class VersionControlTabViewModelTests
 
         Assert.Multiple(() =>
         {
+            Assert.That(viewModel.IsGitAvailable.Value, Is.False);
             Assert.That(viewModel.IsUnavailable.Value, Is.True);
             Assert.That(viewModel.HasBlockingGuidance.Value, Is.True);
+            Assert.That(viewModel.CanEnableVersionControl.Value, Is.False);
             Assert.That(viewModel.StatusMessage.Value, Does.Contain("2.22.1"));
             Assert.That(viewModel.StatusMessage.Value, Does.Contain(GetPlatformInstallGuidance()));
         });
@@ -72,10 +78,65 @@ public class VersionControlTabViewModelTests
 
         Assert.Multiple(() =>
         {
+            Assert.That(viewModel.IsGitAvailable.Value, Is.True);
             Assert.That(viewModel.IsUnavailable.Value, Is.False);
             Assert.That(viewModel.IsTracked.Value, Is.False);
+            Assert.That(viewModel.CanEnableVersionControl.Value, Is.True);
+            Assert.That(viewModel.IsHistoryEmpty.Value, Is.True);
+            Assert.That(viewModel.HasSelectedCommit.Value, Is.False);
+            Assert.That(viewModel.HasSelectedFile.Value, Is.False);
             Assert.That(viewModel.StatusMessage.Value, Is.EqualTo(Strings.VersionControl_NoRepository));
         });
+    }
+
+    [Test]
+    public async Task Enable_action_runs_injected_shell_flow_and_updates_the_tracked_state()
+    {
+        RepositoryInfo? repository = null;
+        Mock<IProjectVersionControlService> service = CreateServiceMock();
+        service.SetupGet(x => x.Repository).Returns(() => repository);
+        using VersionControlTabViewModel viewModel = CreateViewModel(service.Object);
+        int requestCount = 0;
+        viewModel.RequestEnableVersionControlAsync = () =>
+        {
+            requestCount++;
+            repository = new RepositoryInfo(
+                Path.Combine(Path.GetTempPath(), "beutl-version-control-tab"),
+                Path.Combine(Path.GetTempPath(), "beutl-version-control-tab"));
+            return Task.CompletedTask;
+        };
+        await viewModel.Initialization;
+
+        await viewModel.EnableVersionControlAsync();
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(requestCount, Is.EqualTo(1));
+            Assert.That(viewModel.IsTracked.Value, Is.True);
+            Assert.That(viewModel.CanEnableVersionControl.Value, Is.False);
+        });
+    }
+
+    [Test]
+    public async Task Download_action_uses_the_injected_launcher_with_the_git_downloads_uri()
+    {
+        Mock<IProjectVersionControlService> service = CreateServiceMock();
+        service.Setup(x => x.GetAvailabilityAsync(It.IsAny<CancellationToken>()))
+            .ReturnsAsync(GitAvailability.NotInstalled);
+        using VersionControlTabViewModel viewModel = CreateViewModel(service.Object);
+        Uri? launchedUri = null;
+        viewModel.LaunchUriAsync = uri =>
+        {
+            launchedUri = uri;
+            return Task.FromResult(true);
+        };
+        await viewModel.Initialization;
+
+        await viewModel.DownloadGitAsync();
+
+        Assert.That(
+            launchedUri,
+            Is.EqualTo(new Uri("https://git-scm.com/downloads")));
     }
 
     [Test]
@@ -132,6 +193,9 @@ public class VersionControlTabViewModelTests
 
         Assert.Multiple(() =>
         {
+            Assert.That(viewModel.IsTracked.Value, Is.True);
+            Assert.That(viewModel.CanEnableVersionControl.Value, Is.False);
+            Assert.That(viewModel.IsHistoryEmpty.Value, Is.False);
             Assert.That(viewModel.Commits, Has.Count.EqualTo(50));
             Assert.That(viewModel.HasMoreHistory.Value, Is.True);
             Assert.That(viewModel.BranchText.Value, Does.Contain("main"));
@@ -152,6 +216,34 @@ public class VersionControlTabViewModelTests
         service.Verify(
             x => x.GetHistoryAsync(50, 50, It.IsAny<CancellationToken>()),
             Times.Once);
+    }
+
+    [TestCase(0, 0, false, false)]
+    [TestCase(2, 0, true, false)]
+    [TestCase(0, 3, false, true)]
+    [TestCase(2, 3, true, true)]
+    public async Task Ahead_and_behind_badges_are_independently_visible(
+        int ahead,
+        int behind,
+        bool hasAhead,
+        bool hasBehind)
+    {
+        Mock<IProjectVersionControlService> service = CreateServiceMock();
+        service.Setup(x => x.GetStatusAsync(It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new WorkspaceStatus("main", ahead, behind, [], false));
+        using VersionControlTabViewModel viewModel = CreateViewModel(service.Object);
+
+        await viewModel.Initialization;
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(viewModel.HasAhead.Value, Is.EqualTo(hasAhead));
+            Assert.That(viewModel.HasBehind.Value, Is.EqualTo(hasBehind));
+            Assert.That(viewModel.AheadBadgeText.Value, Is.EqualTo($"↑{ahead}"));
+            Assert.That(viewModel.BehindBadgeText.Value, Is.EqualTo($"↓{behind}"));
+            Assert.That(viewModel.AheadBehindText.Value, Does.Contain(ahead.ToString()));
+            Assert.That(viewModel.AheadBehindText.Value, Does.Contain(behind.ToString()));
+        });
     }
 
     [Test]
@@ -281,12 +373,27 @@ public class VersionControlTabViewModelTests
         await viewModel.Initialization;
 
         VersionControlCommitViewModel commitViewModel = viewModel.Commits.Single();
+        Assert.Multiple(() =>
+        {
+            Assert.That(viewModel.IsHistoryEmpty.Value, Is.False);
+            Assert.That(viewModel.HasSelectedCommit.Value, Is.False);
+            Assert.That(viewModel.HasSelectedFile.Value, Is.False);
+        });
+
         await viewModel.SelectCommitAsync(commitViewModel);
+        Assert.Multiple(() =>
+        {
+            Assert.That(viewModel.HasSelectedCommit.Value, Is.True);
+            Assert.That(viewModel.HasSelectedFile.Value, Is.False);
+        });
+
         await viewModel.SelectFileAsync(viewModel.ChangedFiles.Single());
 
         Assert.Multiple(() =>
         {
             Assert.That(commitViewModel.KindText, Is.EqualTo(Strings.VersionControl_SnapshotRestore));
+            Assert.That(viewModel.HasSelectedCommit.Value, Is.True);
+            Assert.That(viewModel.HasSelectedFile.Value, Is.True);
             Assert.That(viewModel.ChangedFiles.Single().PathText, Is.EqualTo("project.bep"));
             Assert.That(
                 viewModel.DiffLines.Count(x => x.Kind == VersionControlDiffLineKind.Header),
@@ -297,6 +404,15 @@ public class VersionControlTabViewModelTests
             Assert.That(
                 viewModel.DiffLines.Any(line => line.Text == "+new" && line.IsAdded),
                 Is.True);
+        });
+
+        await viewModel.SelectFileAsync(null);
+        await viewModel.SelectCommitAsync(null);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(viewModel.HasSelectedCommit.Value, Is.False);
+            Assert.That(viewModel.HasSelectedFile.Value, Is.False);
         });
     }
 
@@ -401,25 +517,188 @@ public class VersionControlTabViewModelTests
     }
 
     [Test]
-    public async Task Branch_selection_and_creation_use_the_coordinator_cycles()
+    public async Task Every_snapshot_kind_exposes_exactly_one_badge_class_state()
+    {
+        SnapshotKind[] kinds =
+        [
+            SnapshotKind.Manual,
+            SnapshotKind.Save,
+            SnapshotKind.Close,
+            SnapshotKind.Safety,
+            SnapshotKind.Restore,
+            SnapshotKind.Init,
+        ];
+        Mock<IProjectVersionControlService> service = CreateServiceMock();
+        service.Setup(x => x.GetHistoryAsync(
+                It.IsAny<int>(),
+                It.IsAny<int>(),
+                It.IsAny<CancellationToken>()))
+            .ReturnsAsync(kinds.Select((kind, index) => CreateCommit(index, kind)).ToArray());
+        using VersionControlTabViewModel viewModel = CreateViewModel(service.Object);
+
+        await viewModel.Initialization;
+
+        Assert.Multiple(() =>
+        {
+            foreach (VersionControlCommitViewModel commit in viewModel.Commits)
+            {
+                int activeClasses = new[]
+                {
+                    commit.IsManual,
+                    commit.IsSave,
+                    commit.IsClose,
+                    commit.IsSafety,
+                    commit.IsRestore,
+                    commit.IsInit,
+                }.Count(static value => value);
+                Assert.That(activeClasses, Is.EqualTo(1), commit.Commit.Kind.ToString());
+            }
+        });
+    }
+
+    [TestCase("en-US", 0, "Just now")]
+    [TestCase("en-US", 59, "Just now")]
+    [TestCase("en-US", 60, "1 minute ago")]
+    [TestCase("en-US", 120, "2 minutes ago")]
+    [TestCase("en-US", 3600, "1 hour ago")]
+    [TestCase("en-US", 7200, "2 hours ago")]
+    [TestCase("en-US", 86400, "1 day ago")]
+    [TestCase("en-US", 172800, "2 days ago")]
+    [TestCase("ja-JP", 0, "たった今")]
+    [TestCase("ja-JP", 59, "たった今")]
+    [TestCase("ja-JP", 60, "1分前")]
+    [TestCase("ja-JP", 120, "2分前")]
+    [TestCase("ja-JP", 3600, "1時間前")]
+    [TestCase("ja-JP", 7200, "2時間前")]
+    [TestCase("ja-JP", 86400, "1日前")]
+    [TestCase("ja-JP", 172800, "2日前")]
+    public void Relative_time_formatter_uses_localized_thresholds(
+        string cultureName,
+        int elapsedSeconds,
+        string expected)
+    {
+        var now = new DateTimeOffset(2026, 7, 28, 12, 0, 0, TimeSpan.Zero);
+        var timeProvider = new FakeTimeProvider(now);
+        var formatter = new VersionControlRelativeTimeFormatter(
+            timeProvider,
+            CultureInfo.GetCultureInfo(cultureName));
+
+        string result = formatter.Format(now - TimeSpan.FromSeconds(elapsedSeconds));
+
+        Assert.That(result, Is.EqualTo(expected));
+    }
+
+    [Test]
+    public async Task Branch_selection_waits_for_the_explicit_switch_action()
     {
         var main = new BranchInfo("main", true, null);
         var alternate = new BranchInfo("alternate", false, null);
         var mainAfterSwitch = new BranchInfo("main", false, null);
         var alternateAfterSwitch = new BranchInfo("alternate", true, null);
-        var experiment = new BranchInfo("experiment", true, null);
         Mock<IProjectVersionControlService> service = CreateServiceMock();
-        service.Setup(x => x.GetBranchesAsync(It.IsAny<CancellationToken>()))
-            .ReturnsAsync([main, alternate]);
         service.SetupSequence(x => x.GetBranchesAsync(It.IsAny<CancellationToken>()))
             .ReturnsAsync([main, alternate])
-            .ReturnsAsync([mainAfterSwitch, alternateAfterSwitch])
-            .ReturnsAsync([mainAfterSwitch, alternate, experiment]);
+            .ReturnsAsync([mainAfterSwitch, alternateAfterSwitch]);
         var coordinator = new Mock<IProjectVersionControlCoordinator>();
         coordinator.Setup(x => x.SwitchBranchAsync(
                 alternate.Name,
                 It.IsAny<CancellationToken>()))
             .ReturnsAsync(true);
+        using var viewModel = CreateViewModel(service.Object, coordinator.Object);
+        await viewModel.Initialization;
+
+        viewModel.SelectedBranch.Value = alternate;
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(viewModel.IsBranchSwitchPending.Value, Is.True);
+            Assert.That(viewModel.CurrentBranch.Value, Is.EqualTo(main));
+        });
+        coordinator.Verify(
+            x => x.SwitchBranchAsync(
+                It.IsAny<string>(),
+                It.IsAny<CancellationToken>()),
+            Times.Never);
+
+        await viewModel.SwitchSelectedBranchAsync();
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(viewModel.CurrentBranch.Value, Is.EqualTo(alternateAfterSwitch));
+            Assert.That(viewModel.SelectedBranch.Value, Is.EqualTo(alternateAfterSwitch));
+            Assert.That(viewModel.IsBranchSwitchPending.Value, Is.False);
+        });
+        coordinator.Verify(
+            x => x.SwitchBranchAsync("alternate", It.IsAny<CancellationToken>()),
+            Times.Once);
+    }
+
+    [Test]
+    public async Task Canceled_branch_switch_reverts_selection_to_the_current_branch()
+    {
+        var main = new BranchInfo("main", true, null);
+        var alternate = new BranchInfo("alternate", false, null);
+        Mock<IProjectVersionControlService> service = CreateServiceMock();
+        service.Setup(x => x.GetBranchesAsync(It.IsAny<CancellationToken>()))
+            .ReturnsAsync([main, alternate]);
+        var coordinator = new Mock<IProjectVersionControlCoordinator>();
+        coordinator.Setup(x => x.SwitchBranchAsync(
+                alternate.Name,
+                It.IsAny<CancellationToken>()))
+            .ReturnsAsync(false);
+        using var viewModel = CreateViewModel(service.Object, coordinator.Object);
+        await viewModel.Initialization;
+        viewModel.SelectedBranch.Value = alternate;
+
+        await viewModel.SwitchSelectedBranchAsync();
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(viewModel.SelectedBranch.Value, Is.EqualTo(main));
+            Assert.That(viewModel.CurrentBranch.Value, Is.EqualTo(main));
+            Assert.That(viewModel.IsBranchSwitchPending.Value, Is.False);
+        });
+    }
+
+    [Test]
+    public async Task Failed_branch_switch_reverts_selection_to_the_current_branch()
+    {
+        var main = new BranchInfo("main", true, null);
+        var alternate = new BranchInfo("alternate", false, null);
+        Mock<IProjectVersionControlService> service = CreateServiceMock();
+        service.Setup(x => x.GetBranchesAsync(It.IsAny<CancellationToken>()))
+            .ReturnsAsync([main, alternate]);
+        var coordinator = new Mock<IProjectVersionControlCoordinator>();
+        coordinator.Setup(x => x.SwitchBranchAsync(
+                alternate.Name,
+                It.IsAny<CancellationToken>()))
+            .ThrowsAsync(new InvalidOperationException("switch failed"));
+        using var viewModel = CreateViewModel(service.Object, coordinator.Object);
+        await viewModel.Initialization;
+        viewModel.SelectedBranch.Value = alternate;
+
+        Assert.That(
+            async () => await viewModel.SwitchSelectedBranchAsync(),
+            Throws.TypeOf<InvalidOperationException>());
+        Assert.Multiple(() =>
+        {
+            Assert.That(viewModel.SelectedBranch.Value, Is.EqualTo(main));
+            Assert.That(viewModel.CurrentBranch.Value, Is.EqualTo(main));
+            Assert.That(viewModel.IsBranchSwitchPending.Value, Is.False);
+        });
+    }
+
+    [Test]
+    public async Task Branch_creation_uses_the_existing_coordinator_cycle()
+    {
+        var main = new BranchInfo("main", true, null);
+        var mainAfterCreation = new BranchInfo("main", false, null);
+        var experiment = new BranchInfo("experiment", true, null);
+        Mock<IProjectVersionControlService> service = CreateServiceMock();
+        service.SetupSequence(x => x.GetBranchesAsync(It.IsAny<CancellationToken>()))
+            .ReturnsAsync([main])
+            .ReturnsAsync([mainAfterCreation, experiment]);
+        var coordinator = new Mock<IProjectVersionControlCoordinator>();
         coordinator.Setup(x => x.CreateBranchAsync(
                 "experiment",
                 It.IsAny<CancellationToken>()))
@@ -428,13 +707,9 @@ public class VersionControlTabViewModelTests
         viewModel.RequestNewBranchNameAsync = () => Task.FromResult<string?>(" experiment ");
         await viewModel.Initialization;
 
-        await viewModel.SelectBranchAsync(alternate);
         await viewModel.CreateBranchAsync();
 
         Assert.That(viewModel.SelectedBranch.Value, Is.EqualTo(experiment));
-        coordinator.Verify(
-            x => x.SwitchBranchAsync("alternate", It.IsAny<CancellationToken>()),
-            Times.Once);
         coordinator.Verify(
             x => x.CreateBranchAsync("experiment", It.IsAny<CancellationToken>()),
             Times.Once);
@@ -471,7 +746,32 @@ public class VersionControlTabViewModelTests
             Assert.That(shownResult, Is.TypeOf<RemoteOpResult.Offline>());
             Assert.That(viewModel.RemoteProgress.Value, Is.EqualTo("Writing objects: 50%"));
             Assert.That(viewModel.IsRemoteOperationRunning.Value, Is.False);
+            Assert.That(viewModel.IsRemoteExpanded.Value, Is.True);
         });
+    }
+
+    [Test]
+    public async Task Remote_expander_opens_for_operations_and_otherwise_keeps_manual_state()
+    {
+        Mock<IProjectVersionControlService> service = CreateServiceMock();
+        using VersionControlTabViewModel viewModel = CreateViewModel(service.Object);
+        await viewModel.Initialization;
+
+        Assert.That(viewModel.IsRemoteExpanded.Value, Is.False);
+
+        viewModel.IsRemoteExpanded.Value = true;
+        viewModel.IsRemoteExpanded.Value = false;
+        Assert.That(viewModel.IsRemoteExpanded.Value, Is.False);
+
+        viewModel.IsRemoteOperationRunning.Value = true;
+        Assert.That(viewModel.IsRemoteExpanded.Value, Is.True);
+
+        viewModel.IsRemoteExpanded.Value = false;
+        Assert.That(viewModel.IsRemoteExpanded.Value, Is.True);
+
+        viewModel.IsRemoteOperationRunning.Value = false;
+        viewModel.IsRemoteExpanded.Value = false;
+        Assert.That(viewModel.IsRemoteExpanded.Value, Is.False);
     }
 
     [Test]

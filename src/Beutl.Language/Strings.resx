@@ -1531,6 +1531,12 @@ Example: GetProperty&lt;double&gt;("{GUID}.Opacity")</value>
   <data name="VersionControl_Enable" xml:space="preserve">
     <value>Enable Version Control…</value>
   </data>
+  <data name="VersionControl_UntrackedExplanation" xml:space="preserve">
+    <value>Track this project with Git to record versions automatically when you save.</value>
+  </data>
+  <data name="VersionControl_DownloadGit" xml:space="preserve">
+    <value>Download Git</value>
+  </data>
   <data name="VersionControl_TrackHistory" xml:space="preserve">
     <value>Track history with Git</value>
   </data>
@@ -1551,6 +1557,9 @@ Example: GetProperty&lt;double&gt;("{GUID}.Opacity")</value>
   </data>
   <data name="VersionControl_NewBranch" xml:space="preserve">
     <value>New Branch…</value>
+  </data>
+  <data name="VersionControl_Switch" xml:space="preserve">
+    <value>Switch</value>
   </data>
   <data name="VersionControl_History" xml:space="preserve">
     <value>Version History</value>
@@ -1661,6 +1670,36 @@ Resolve the conflicts with an external Git tool before editing. The project may 
   <data name="VersionControl_NoHistory" xml:space="preserve">
     <value>No versions have been recorded yet.</value>
   </data>
+  <data name="VersionControl_HistoryEmptyHint" xml:space="preserve">
+    <value>No versions yet — saving the project records one automatically</value>
+  </data>
+  <data name="VersionControl_ChangedFilesEmptyHint" xml:space="preserve">
+    <value>Select a version to see its changes</value>
+  </data>
+  <data name="VersionControl_DiffEmptyHint" xml:space="preserve">
+    <value>Select a file to see its diff</value>
+  </data>
+  <data name="VersionControl_TimeJustNow" xml:space="preserve">
+    <value>Just now</value>
+  </data>
+  <data name="VersionControl_TimeMinuteAgo" xml:space="preserve">
+    <value>1 minute ago</value>
+  </data>
+  <data name="VersionControl_TimeMinutesAgoFormat" xml:space="preserve">
+    <value>{0} minutes ago</value>
+  </data>
+  <data name="VersionControl_TimeHourAgo" xml:space="preserve">
+    <value>1 hour ago</value>
+  </data>
+  <data name="VersionControl_TimeHoursAgoFormat" xml:space="preserve">
+    <value>{0} hours ago</value>
+  </data>
+  <data name="VersionControl_TimeDayAgo" xml:space="preserve">
+    <value>1 day ago</value>
+  </data>
+  <data name="VersionControl_TimeDaysAgoFormat" xml:space="preserve">
+    <value>{0} days ago</value>
+  </data>
   <data name="VersionControl_BranchName" xml:space="preserve">
     <value>Branch name</value>
   </data>
@@ -1684,6 +1723,9 @@ Resolve the conflicts with an external Git tool before editing. The project may 
   </data>
   <data name="VersionControl_RemoteUrl" xml:space="preserve">
     <value>Remote URL</value>
+  </data>
+  <data name="VersionControl_Remote" xml:space="preserve">
+    <value>Remote</value>
   </data>
   <data name="VersionControl_SetRemote" xml:space="preserve">
     <value>Connect</value>
