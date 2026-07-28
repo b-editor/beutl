@@ -96,6 +96,13 @@
                                     Header="{x:Static lang:Strings.Exit}" />
                 </NativeMenu>
             </NativeMenuItem>
+            <NativeMenuItem Header="{x:Static lang:Strings.Project}">
+                <NativeMenu>
+                    <NativeMenuItem Command="{CompiledBinding MenuBar.EnableVersionControl}"
+                                    Header="{x:Static lang:Strings.VersionControl_Enable}"
+                                    IsEnabled="{CompiledBinding IsProjectOpened.Value}" />
+                </NativeMenu>
+            </NativeMenuItem>
             <!--  編集  -->
             <NativeMenuItem Header="{x:Static lang:Strings.Edit}">
                 <NativeMenu>

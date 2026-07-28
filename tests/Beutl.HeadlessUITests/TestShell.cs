@@ -15,5 +15,7 @@ internal static class TestShell
 
     public static EditorService Editor => MainViewModel.EditorService;
 
+    public static VersionControlCoordinator VersionControl => MainViewModel.VersionControlCoordinator;
+
     public static ExtensionProvider Extensions => MainViewModel.ExtensionProvider;
 }

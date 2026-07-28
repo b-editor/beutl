@@ -9,6 +9,7 @@ public partial class MenuBarViewModel
     public IEnumerable<PaletteMenuCommand> EnumeratePaletteCommands()
     {
         yield return new("MenuBar.NewScene", Strings.CreateNewScene, NewScene);
+        yield return new("MenuBar.EnableVersionControl", Strings.VersionControl_Enable, EnableVersionControl);
         yield return new("MenuBar.ExportProject", Strings.ExportProject, ExportProject);
         yield return new("MenuBar.ImportProject", Strings.ImportProject, ImportProject);
         yield return new("MenuBar.DeleteLayer", Strings.Delete, DeleteLayer);

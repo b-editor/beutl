@@ -23,6 +23,7 @@ public sealed class MainViewModel : BasePageViewModel, IContextCommandHandler
     private readonly HttpClient _authHttpClient;
     private readonly ProjectService _projectService;
     private readonly EditorService _editorService;
+    private readonly VersionControlCoordinator _versionControlCoordinator;
     private readonly ExtensionProvider _extensionProvider;
     private readonly AgentHostEndpoint _agentHostEndpoint;
     private readonly ILogger _logger = Log.CreateLogger<MainViewModel>();
@@ -35,11 +36,12 @@ public sealed class MainViewModel : BasePageViewModel, IContextCommandHandler
         _extensionProvider = new ExtensionProvider();
         _projectService = new ProjectService();
         _editorService = new EditorService(_extensionProvider);
+        _versionControlCoordinator = new VersionControlCoordinator(_projectService, _editorService);
         _agentHostEndpoint = new AgentHostEndpoint(_projectService, _editorService);
         _beutlClients = new BeutlApiApplication(_authHttpClient, _extensionProvider);
         ContextCommandManager = _beutlClients.GetResource<ContextCommandManager>();
 
-        MenuBar = new MenuBarViewModel(_projectService, _editorService);
+        MenuBar = new MenuBarViewModel(_projectService, _editorService, _versionControlCoordinator);
 
         IsProjectOpened = _projectService.IsOpened;
         NameOfOpenProject = _projectService.CurrentProject.Select(v =>
@@ -106,6 +108,8 @@ public sealed class MainViewModel : BasePageViewModel, IContextCommandHandler
 
     internal EditorService EditorService => _editorService;
 
+    internal VersionControlCoordinator VersionControlCoordinator => _versionControlCoordinator;
+
     internal ExtensionProvider ExtensionProvider => _extensionProvider;
 
     internal AgentHostEndpoint AgentHostEndpoint => _agentHostEndpoint;
@@ -150,7 +154,9 @@ public sealed class MainViewModel : BasePageViewModel, IContextCommandHandler
     {
         CommandPalette.Dispose();
         _agentHostEndpoint.RequestStop();
-        _projectService.CloseProject();
+        _versionControlCoordinator.NotifyClosingAsync().GetAwaiter().GetResult();
+        _projectService.CloseProjectImmediately();
+        _versionControlCoordinator.Dispose();
         BeutlApplication.Current.Items.Clear();
     }
 

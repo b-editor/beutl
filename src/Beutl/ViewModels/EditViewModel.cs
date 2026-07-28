@@ -9,6 +9,7 @@ using Beutl.Configuration;
 using Beutl.Editor;
 using Beutl.Editor.Observers;
 using Beutl.Editor.Operations;
+using Beutl.Editor.VersionControl;
 using Beutl.Graphics.Rendering.Cache;
 using Beutl.Helpers;
 using Beutl.Logging;
@@ -899,6 +900,9 @@ public sealed partial class EditViewModel : IEditorContext, ISupportAutoSaveEdit
 
         if (serviceType == typeof(HistoryManager))
             return HistoryManager;
+
+        if (serviceType == typeof(IProjectVersionControlService))
+            return EditorService.ProjectVersionControlService;
 
         if (serviceType.IsAssignableTo(typeof(ITimelineOptionsProvider)))
             return _timelineOptionsProvider;

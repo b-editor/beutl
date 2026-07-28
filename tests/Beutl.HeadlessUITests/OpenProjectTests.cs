@@ -30,7 +30,7 @@ public class OpenProjectTests
         Guid originalSceneId = created.Items.OfType<Scene>().First().Id;
         Assert.That(File.Exists(projectFile), Is.True);
 
-        TestShell.Project.CloseProject();
+        await TestShell.Project.CloseProject();
         HeadlessTestHelpers.Settle();
         Assert.That(TestShell.Project.IsOpened.Value, Is.False);
         Assert.That(BeutlApplication.Current.Project, Is.Null);
@@ -58,7 +58,7 @@ public class OpenProjectTests
         HeadlessTestHelpers.Settle();
         string projectFile = created.Uri!.LocalPath;
 
-        TestShell.Project.CloseProject();
+        await TestShell.Project.CloseProject();
         await TestShell.Project.OpenProject(projectFile);
         HeadlessTestHelpers.Settle();
 
@@ -78,7 +78,7 @@ public class OpenProjectTests
         HeadlessTestHelpers.Settle();
         string projectFile = created.Uri!.LocalPath;
 
-        TestShell.Project.CloseProject();
+        await TestShell.Project.CloseProject();
         await TestShell.Project.OpenProject(projectFile);
         HeadlessTestHelpers.Settle();
 

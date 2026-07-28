@@ -9,6 +9,7 @@ using Beutl.Api.Services;
 using Beutl.Configuration;
 using Beutl.Editor;
 using Beutl.Editor.Services;
+using Beutl.Editor.VersionControl;
 using Beutl.Models;
 using Beutl.ProjectSystem;
 using Beutl.Services;
@@ -33,12 +34,17 @@ public partial class MainView
         viewModel.MenuBar.CreateNewProject.Subscribe(async () =>
         {
             var dialog = new CreateNewProject();
-            dialog.DataContext = new CreateNewProjectViewModel(viewModel.ProjectService);
+            dialog.DataContext = new CreateNewProjectViewModel(
+                viewModel.ProjectService,
+                viewModel.VersionControlCoordinator,
+                RequestGitIdentityAsync);
             await dialog.ShowAsync();
         }).AddTo(_disposables);
 
         viewModel.MenuBar.OpenProject.Subscribe(OnOpenProject).AddTo(_disposables);
         viewModel.MenuBar.OpenFile.Subscribe(OnOpenFile).AddTo(_disposables);
+        viewModel.MenuBar.EnableVersionControl.Subscribe(
+            () => EnableVersionControlAsync(viewModel)).AddTo(_disposables);
 
         viewModel.MenuBar.RemoveFromProject.Subscribe(OnRemoveFromProject).AddTo(_disposables);
 
@@ -61,6 +67,42 @@ public partial class MainView
 
         viewModel.MenuBar.ExportProject.Subscribe(OnExportProject).AddTo(_disposables);
         viewModel.MenuBar.ImportProject.Subscribe(OnImportProject).AddTo(_disposables);
+    }
+
+    private static async Task EnableVersionControlAsync(MainViewModel viewModel)
+    {
+        try
+        {
+            GitAvailability availability = await viewModel.VersionControlCoordinator.GetAvailabilityAsync();
+            if (availability.State != GitAvailabilityState.Installed)
+            {
+                NotificationService.ShowInformation(
+                    Strings.Project,
+                    Strings.VersionControl_GitNotInstalled);
+                return;
+            }
+
+            await viewModel.VersionControlCoordinator.InitializeCurrentProjectAsync(
+                RequestGitIdentityAsync);
+        }
+        catch (Exception ex)
+        {
+            await ex.Handle();
+        }
+    }
+
+    private static async Task<bool> RequestGitIdentityAsync(
+        IProjectVersionControlService versionControlService)
+    {
+        var viewModel = new GitIdentityDialogViewModel(versionControlService);
+        var dialog = new GitIdentityDialog { DataContext = viewModel };
+        if (await dialog.ShowAsync() != ContentDialogResult.Primary)
+        {
+            return false;
+        }
+
+        await viewModel.SaveAsync();
+        return true;
     }
 
     private void InitializeRecentItems(MainViewModel viewModel)

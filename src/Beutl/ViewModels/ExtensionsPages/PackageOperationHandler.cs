@@ -176,13 +176,13 @@ internal class PackageOperationHandler
         if (result == ContentDialogResult.Secondary)
         {
             await SaveAll();
-            _projectService.CloseProject();
+            await _projectService.CloseProject();
             return true;
         }
 
         if (result == ContentDialogResult.Primary)
         {
-            _projectService.CloseProject();
+            await _projectService.CloseProject();
             return true;
         }
 

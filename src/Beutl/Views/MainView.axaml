@@ -145,6 +145,11 @@
                               InputGesture="{h:GetCommandGesture Exit,
                                                                  ExtensionType={x:Type p:MainViewExtension}}" />
                 </MenuItem>
+                <MenuItem Header="{x:Static lang:Strings.Project}">
+                    <MenuItem Command="{CompiledBinding MenuBar.EnableVersionControl}"
+                              Header="{x:Static lang:Strings.VersionControl_Enable}"
+                              IsEnabled="{CompiledBinding IsProjectOpened.Value}" />
+                </MenuItem>
                 <!--  編集  -->
                 <MenuItem Header="{x:Static lang:Strings.Edit}">
                     <!--  元に戻す  -->

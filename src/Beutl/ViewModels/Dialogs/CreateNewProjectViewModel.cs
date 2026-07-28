@@ -1,6 +1,7 @@
 ﻿using Avalonia;
 
 using Beutl.Configuration;
+using Beutl.Editor.VersionControl;
 using Beutl.Services;
 
 using Reactive.Bindings;
@@ -10,12 +11,26 @@ namespace Beutl.ViewModels.Dialogs;
 public sealed class CreateNewProjectViewModel
 {
     private readonly ProjectService _projectService;
+    private readonly VersionControlCoordinator? _versionControlCoordinator;
+    private readonly Func<IProjectVersionControlService, Task<bool>>? _requestIdentityAsync;
 
     public CreateNewProjectViewModel(ProjectService projectService)
+        : this(projectService, versionControlCoordinator: null, requestIdentityAsync: null)
+    {
+    }
+
+    public CreateNewProjectViewModel(
+        ProjectService projectService,
+        VersionControlCoordinator? versionControlCoordinator,
+        Func<IProjectVersionControlService, Task<bool>>? requestIdentityAsync)
     {
         _projectService = projectService;
+        _versionControlCoordinator = versionControlCoordinator;
+        _requestIdentityAsync = requestIdentityAsync;
         Location.Value = GetDefaultLocation();
         Name.Value = GenProjectName(Location.Value);
+        TrackHistory.Value = GlobalConfiguration.Instance.VersionControlConfig.EnableForNewProjects;
+        _ = DetectGitAsync();
 
         Name.SetValidateNotifyError(n =>
         {
@@ -87,11 +102,19 @@ public sealed class CreateNewProjectViewModel
         Create.Subscribe(async () =>
         {
             // CreateProject surfaces failures to the user itself, so no fallback notification here.
-            await _projectService.CreateProject(
+            Project? project = await _projectService.CreateProject(
                 Size.Value.Width, Size.Value.Height,
                 FrameRate.Value, SampleRate.Value,
                 Name.Value,
                 Location.Value);
+            if (project is not null
+                && TrackHistory.Value
+                && IsGitAvailable.Value
+                && _versionControlCoordinator is not null
+                && _requestIdentityAsync is not null)
+            {
+                await _versionControlCoordinator.InitializeCurrentProjectAsync(_requestIdentityAsync);
+            }
         });
     }
 
@@ -108,6 +131,21 @@ public sealed class CreateNewProjectViewModel
     public ReadOnlyReactivePropertySlim<bool> CanCreate { get; }
 
     public AsyncReactiveCommand Create { get; }
+
+    public ReactivePropertySlim<bool> TrackHistory { get; } = new();
+
+    public ReactivePropertySlim<bool> IsGitAvailable { get; } = new();
+
+    private async Task DetectGitAsync()
+    {
+        if (_versionControlCoordinator is null)
+        {
+            return;
+        }
+
+        GitAvailability availability = await _versionControlCoordinator.GetAvailabilityAsync();
+        IsGitAvailable.Value = availability.State == GitAvailabilityState.Installed;
+    }
 
     private static string GetDefaultLocation()
     {

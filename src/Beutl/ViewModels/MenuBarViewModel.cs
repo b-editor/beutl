@@ -12,12 +12,17 @@ public sealed partial class MenuBarViewModel
     private readonly ILogger _logger = Log.CreateLogger<MenuBarViewModel>();
     private readonly ProjectService _projectService;
     private readonly EditorService _editorService;
+    private readonly VersionControlCoordinator _versionControlCoordinator;
 
 #pragma warning disable CS8618
-    public MenuBarViewModel(ProjectService projectService, EditorService editorService)
+    public MenuBarViewModel(
+        ProjectService projectService,
+        EditorService editorService,
+        VersionControlCoordinator versionControlCoordinator)
     {
         _projectService = projectService;
         _editorService = editorService;
+        _versionControlCoordinator = versionControlCoordinator;
         IsProjectOpened = _projectService.IsOpened;
 
         IObservable<bool> isSceneOpened = _editorService.SelectedTabItem

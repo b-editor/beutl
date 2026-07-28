@@ -3,6 +3,7 @@ using System.Runtime.InteropServices;
 using System.Security.Cryptography;
 using Beutl.Api.Services;
 using Beutl.Configuration;
+using Beutl.Editor.VersionControl;
 using Reactive.Bindings;
 
 namespace Beutl.Services;
@@ -83,6 +84,8 @@ public sealed class EditorService
     public ICoreList<EditorTabItem> TabItems => _tabItems;
 
     public IReactiveProperty<EditorTabItem?> SelectedTabItem { get; } = new ReactivePropertySlim<EditorTabItem?>();
+
+    internal IProjectVersionControlService? ProjectVersionControlService { get; set; }
 
     public bool TryGetTabItem(CoreObject obj, [NotNullWhen(true)] out EditorTabItem? result)
     {

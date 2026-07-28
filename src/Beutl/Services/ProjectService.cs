@@ -30,6 +30,8 @@ public sealed class ProjectService
 
     public IObservable<(Project? New, Project? Old)> ProjectObservable => _projectObservable;
 
+    internal event Func<CancellationToken, Task>? Closing;
+
     public IReadOnlyReactiveProperty<Project?> CurrentProject { get; }
 
     public IReadOnlyReactiveProperty<bool> IsOpened => _isOpened;
@@ -55,7 +57,7 @@ public sealed class ProjectService
         using Activity? activity = Telemetry.StartActivity();
         try
         {
-            CloseProject();
+            await CloseProject();
 
             (NuGetVersion appVersion, NuGetVersion minVersion) = await GetProjectVersion(file);
             activity?.SetTag(nameof(appVersion), appVersion.ToString());
@@ -90,7 +92,25 @@ public sealed class ProjectService
         }
     }
 
-    public void CloseProject()
+    public async Task CloseProject(CancellationToken cancellationToken = default)
+    {
+        if (_app.Project is null)
+        {
+            return;
+        }
+
+        if (Closing is { } closing)
+        {
+            foreach (Func<CancellationToken, Task> handler in closing.GetInvocationList())
+            {
+                await handler(cancellationToken);
+            }
+        }
+
+        CloseProjectImmediately();
+    }
+
+    internal void CloseProjectImmediately()
     {
         if (_app.Project is { } project)
         {
@@ -113,7 +133,7 @@ public sealed class ProjectService
         activity?.SetTag(nameof(samplerate), samplerate);
         try
         {
-            CloseProject();
+            await CloseProject();
 
             location = Path.Combine(location, name);
             var scene = new Scene(width, height, name)

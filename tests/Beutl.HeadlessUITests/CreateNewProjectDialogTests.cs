@@ -1,7 +1,10 @@
 ﻿using Avalonia.Controls;
 using Avalonia.Headless.NUnit;
 
+using Beutl.Configuration;
+using Beutl.Language;
 using Beutl.Services;
+using Beutl.ViewModels;
 using Beutl.ViewModels.Dialogs;
 using Beutl.Views.Dialogs;
 
@@ -33,5 +36,56 @@ public class CreateNewProjectDialogTests
 
         Assert.That(units, Is.EqualTo(new[] { "px", "fps", "Hz" }),
             "Size, FrameRate and SampleRate inputs should carry their unit suffixes in order");
+    }
+
+    [AvaloniaTest]
+    public void Track_history_uses_the_configured_default_and_is_present_in_the_dialog()
+    {
+        VersionControlConfig config = GlobalConfiguration.Instance.VersionControlConfig;
+        bool oldValue = config.EnableForNewProjects;
+        try
+        {
+            config.EnableForNewProjects = false;
+            var vm = new CreateNewProjectViewModel(new ProjectService());
+            var dialog = new CreateNewProject { DataContext = vm };
+            var carousel = (Carousel)dialog.Content!;
+            var optionsPage = (Panel)carousel.Items[1]!;
+            CheckBox checkbox = optionsPage.Children.OfType<CheckBox>().Single();
+
+            Assert.Multiple(() =>
+            {
+                Assert.That(vm.TrackHistory.Value, Is.False);
+                Assert.That(checkbox.Content, Is.EqualTo(Strings.VersionControl_TrackHistory));
+            });
+        }
+        finally
+        {
+            config.EnableForNewProjects = oldValue;
+        }
+    }
+
+    [AvaloniaTest]
+    public async Task Enable_version_control_command_is_gated_by_the_open_project_state_and_listed_in_the_palette()
+    {
+        await TestReset.ResetShellAsync();
+        var command = TestShell.MainViewModel.MenuBar.EnableVersionControl;
+        Assert.That(((System.Windows.Input.ICommand)command).CanExecute(null), Is.False);
+
+        string location = Path.Combine(Beutl.Testing.Headless.BeutlHomeIsolation.CurrentHome!, "command-gating");
+        Directory.CreateDirectory(location);
+        await TestShell.Project.CreateProject(640, 480, 30, 44100, "project", location);
+        Beutl.Testing.Headless.HeadlessTestHelpers.Settle();
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(((System.Windows.Input.ICommand)command).CanExecute(null), Is.True);
+            Assert.That(
+                TestShell.MainViewModel.MenuBar.EnumeratePaletteCommands(),
+                Has.Some.Matches<MenuBarViewModel.PaletteMenuCommand>(
+                    item => item.Id == "MenuBar.EnableVersionControl"
+                            && ReferenceEquals(item.Command, command)));
+        });
+
+        await TestReset.ResetShellAsync();
     }
 }

@@ -137,10 +137,10 @@ public sealed partial class MacWindow : Window
         try
         {
             var rootMenu = NativeMenu.GetMenu(this)!;
-            viewMenuItem = (NativeMenuItem)rootMenu.Items[2];
+            viewMenuItem = (NativeMenuItem)rootMenu.Items[3];
             editorTabMenu = ((NativeMenuItem)viewMenuItem.Menu!.Items[0]).Menu;
             toolTabMenu = ((NativeMenuItem)viewMenuItem.Menu!.Items[1]).Menu;
-            toolWindowMenu = ((NativeMenuItem)rootMenu.Items[3]).Menu;
+            toolWindowMenu = ((NativeMenuItem)rootMenu.Items[4]).Menu;
         }
         catch
         {

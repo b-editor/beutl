@@ -9,7 +9,13 @@ namespace Beutl.ViewModels;
 
 public partial class MenuBarViewModel
 {
-    [MemberNotNull(nameof(CloseFile), nameof(CloseProject), nameof(Save), nameof(SaveAll), nameof(ExportProject))]
+    [MemberNotNull(
+        nameof(CloseFile),
+        nameof(CloseProject),
+        nameof(Save),
+        nameof(SaveAll),
+        nameof(EnableVersionControl),
+        nameof(ExportProject))]
     private void InitializeFilesCommands()
     {
         CloseFile = new ReactiveCommandSlim(_editorService.SelectedTabItem.Select(i => i != null))
@@ -18,14 +24,16 @@ public partial class MenuBarViewModel
         CloseFileCore = new ReactiveCommandSlim<EditorTabItem>()
             .WithSubscribe(OnCloseFileCore);
 
-        CloseProject = new ReactiveCommandSlim(IsProjectOpened)
-            .WithSubscribe(_projectService.CloseProject);
+        CloseProject = new AsyncReactiveCommand(IsProjectOpened)
+            .WithSubscribe(() => _versionControlCoordinator.CloseCurrentProjectAsync());
 
         Save = new AsyncReactiveCommand(IsProjectOpened)
             .WithSubscribe(OnSave);
 
         SaveAll = new AsyncReactiveCommand(IsProjectOpened)
             .WithSubscribe(OnSaveAll);
+
+        EnableVersionControl = new AsyncReactiveCommand(IsProjectOpened);
 
         ExportProject = new AsyncReactiveCommand(IsProjectOpened);
 
@@ -81,11 +89,13 @@ public partial class MenuBarViewModel
 
     public ReactiveCommandSlim CloseFile { get; private set; }
 
-    public ReactiveCommandSlim CloseProject { get; private set; }
+    public AsyncReactiveCommand CloseProject { get; private set; }
 
     public AsyncReactiveCommand Save { get; private set; }
 
     public AsyncReactiveCommand SaveAll { get; private set; }
+
+    public AsyncReactiveCommand EnableVersionControl { get; private set; }
 
     public ReactiveCommandSlim<string> OpenRecentFile { get; } = new();
 
@@ -141,6 +151,8 @@ public partial class MenuBarViewModel
             {
                 NotificationService.ShowInformation(string.Empty, MessageStrings.FilesAutoSaved);
             }
+
+            await _versionControlCoordinator.NotifySavedAsync();
         }
         catch (Exception ex)
         {
@@ -175,6 +187,8 @@ public partial class MenuBarViewModel
                     {
                         NotificationService.ShowInformation(string.Empty, MessageStrings.FilesAutoSaved);
                     }
+
+                    await _versionControlCoordinator.NotifySavedAsync();
                 }
                 else
                 {

@@ -22,7 +22,7 @@ internal static class TestReset
         // which needs a window the headless host lacks. SkipVersionCheck removes that branch.
         Preferences.Default.Set("ProjectService.SkipVersionCheck", true);
 
-        TestShell.Project.CloseProject();
+        await TestShell.Project.CloseProject();
         BeutlApplication.Current.Items.Clear();
         HeadlessTestHelpers.Settle();
     }
