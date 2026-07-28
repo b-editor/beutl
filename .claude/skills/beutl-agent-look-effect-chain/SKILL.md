@@ -54,6 +54,7 @@ When an edit depends on effect-unit semantics, transform composition, bounds, te
 
 Observations about what viewers tend to see. Treat them as knowledge, not permission:
 
+- **Measure the black rather than eyeballing it.** Dark-mode work is decided by how tight the blacks are, and a first shader pass routinely lands far brighter than intended — SKSL runs in linear, premultiplied space, so an sRGB constant pasted into a shader reads roughly 4× too bright. Compare against a reference and rebuild the value rather than nudging it.
 - **Contrast survives on luma, not hue.** Changing hue while keeping text and background at similar luma fails readability even when the colors feel different.
 - **Saturation needs a hierarchy.** Several saturated glows at the same lightness compete; one dominant role plus quieter support reads as deliberate.
 - **Dark teal with cyan/magenta neon** is the combination most generators reach for, so it reads as a default rather than a choice.

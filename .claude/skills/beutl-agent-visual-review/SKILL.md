@@ -9,6 +9,8 @@ Use this skill after a Beutl Agent Editing Toolkit scene has rendered stills or 
 
 This is a lens, not a gate. The rubric gives you a vocabulary for saying what is actually wrong with a frame instead of "make it better" — which is the difference between a finding you can act on and a taste note you cannot. A low score is an observation about the frame, not a verdict on the piece: a deliberately spare, still, or monochrome result can score 2 on several axes and be exactly right.
 
+Why this pass exists at all: the deterministic gate catches accidents, not broken promises. It never read the plan, so it cannot tell that four act boundaries cut to black when the plan called for bridged cuts — that happened in a real run, after `passesQualityGate: true`, and only the contact sheet showed it. Looking at the frames is not a formality on top of the numbers; it is the only thing checking whether the piece is the one that was designed.
+
 ## Inputs
 
 - Rendered still PNGs from `render_still`, preferably with `returnImageContent=true` when the MCP client supports image blocks.
@@ -79,7 +81,7 @@ Use this when the coordinator explicitly asks for convergence, or when the run s
 
 Return:
 
-- `imagesReviewed`: still paths, contact-sheet path, or image-content note.
+- `imagesReviewed`: still paths, contact-sheet path, or image-content note. When reviewing a finished piece rather than a work in progress, review frames pulled back out of the exported file — the deliverable is the file, and encoding, frame rate, duration, and audio all happen after the last render.
 - `scores`: the six axis scores with brief visual evidence.
 - `deterministicFindings`: what `evaluate_edit_quality` reported, separated into its gate-failing findings (unreadable text, malformed structure) and its advisories, or an empty list.
 - `advisoryFindings`: your visual findings, each with axis, score, evidence, and a concrete edit directive.
