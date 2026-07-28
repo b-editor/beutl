@@ -22,7 +22,14 @@ public class InstalledPackageRepositoryTests
     }
 
     [TearDown]
-    public void TearDown() => File.Delete(InstalledPackagesFile);
+    public void TearDown()
+    {
+        Assert.That(
+            Helper.AppRoot,
+            Is.EqualTo(BeutlHomeIsolation.CurrentHome));
+
+        File.Delete(InstalledPackagesFile);
+    }
 
     [Test]
     public void GetPackageObservable_EmitsNull_WhenNotInstalled()
