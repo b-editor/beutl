@@ -33,9 +33,15 @@ public sealed class GpuPassFusion3DBoundaryTests
 
             using (CompiledRenderRequest compiled = Compile(root))
             {
+                RenderFragmentReference sceneBoundary = compiled.Graph.Fragments
+                    .Select(static fragment => (RenderFragmentReference)fragment.Payload!)
+                    .Single(static fragment => fragment.Kind == RenderFragmentKind.OpaqueSource);
                 CompiledShaderRun[] shaderRuns = compiled.ExecutionPlan.ShaderRuns.ToArray();
                 Assert.Multiple(() =>
                 {
+                    Assert.That(
+                        sceneBoundary.ValueCardinality,
+                        Is.EqualTo(RenderValueCardinality.ZeroOrOne));
                     Assert.That(compiled.ExecutionPlan.Boundaries.Count(static item =>
                         item.Reason == ExecutionIslandBoundaryReason.ThreeD), Is.EqualTo(1));
                     Assert.That(compiled.ExecutionPlan.Boundaries.Count(static item =>

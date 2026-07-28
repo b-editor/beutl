@@ -10,6 +10,7 @@ public sealed class RenderCallbackCanvas
     private readonly Rect _logicalBounds;
     private readonly Point _logicalOrigin;
     private readonly PixelRect _deviceBounds;
+    private readonly PixelPoint _backingDeviceOrigin;
     private readonly Rect _rasterBounds;
     private readonly Func<ImmediateCanvas> _openCanvas;
     private readonly CallbackCanvasCapability _capability;
@@ -22,7 +23,8 @@ public sealed class RenderCallbackCanvas
         Rect logicalBounds,
         Func<ImmediateCanvas> openCanvas,
         CallbackCanvasCapability capability,
-        bool mapLogicalOrigin = true)
+        bool mapLogicalOrigin = true,
+        PixelPoint? backingDeviceOrigin = null)
         : this(
             token,
             density,
@@ -30,7 +32,8 @@ public sealed class RenderCallbackCanvas
             PixelRect.FromRect(logicalBounds, density),
             openCanvas,
             capability,
-            mapLogicalOrigin)
+            mapLogicalOrigin,
+            backingDeviceOrigin)
     {
     }
 
@@ -41,7 +44,8 @@ public sealed class RenderCallbackCanvas
         PixelRect deviceBounds,
         Func<ImmediateCanvas> openCanvas,
         CallbackCanvasCapability capability,
-        bool mapLogicalOrigin = true)
+        bool mapLogicalOrigin = true,
+        PixelPoint? backingDeviceOrigin = null)
     {
         ArgumentNullException.ThrowIfNull(token);
         if (!float.IsFinite(density) || density <= 0)
@@ -59,6 +63,9 @@ public sealed class RenderCallbackCanvas
         _density = density;
         _logicalBounds = logicalBounds;
         _deviceBounds = ValidateDeviceBounds(logicalBounds, density, deviceBounds);
+        _backingDeviceOrigin = mapLogicalOrigin
+            ? _deviceBounds.Position
+            : backingDeviceOrigin ?? default;
         _rasterBounds = _deviceBounds.ToRect(density);
         _logicalOrigin = new Point(_deviceBounds.X / density, _deviceBounds.Y / density);
         _openCanvas = openCanvas;
@@ -95,7 +102,7 @@ public sealed class RenderCallbackCanvas
         get { _token.ThrowIfInactive(); return _rasterBounds; }
     }
 
-    internal PixelRect DeviceBoundsUnchecked => _deviceBounds;
+    internal PixelPoint DeviceOriginUnchecked => _backingDeviceOrigin;
 
     public void Use(Action<ImmediateCanvas> draw)
     {

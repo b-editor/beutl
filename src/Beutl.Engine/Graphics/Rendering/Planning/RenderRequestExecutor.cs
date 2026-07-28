@@ -412,7 +412,8 @@ internal sealed class RenderRequestExecutor
                     target,
                     request.Request.Options.OutputScale,
                     request.Request.Options.MaxWorkingScale,
-                    rasterBounds.Size);
+                    rasterBounds.Size,
+                    deviceBounds.Position);
                 canvas.Clear();
             }
             catch (Exception ex)
@@ -1557,7 +1558,10 @@ internal sealed class RenderRequestExecutor
                 return cached;
 
             IReadOnlyList<CompatibilityRenderValue> result;
-            if (TryMaterializeCacheHit(fragment, out IReadOnlyList<CompatibilityRenderValue>? hitValues))
+            bool cacheHit = TryMaterializeCacheHit(
+                fragment,
+                out IReadOnlyList<CompatibilityRenderValue>? hitValues);
+            if (cacheHit)
             {
                 result = hitValues!;
             }
@@ -1582,7 +1586,7 @@ internal sealed class RenderRequestExecutor
             StageCacheCaptures(fragment, result);
             _values.Add(fragment, result);
             AddValueReferences(result);
-            if (fragment.Kind == RenderFragmentKind.ContributeValues)
+            if (fragment.Kind == RenderFragmentKind.ContributeValues && !cacheHit)
                 CompleteFragmentUse(fragment.Inputs.Single());
             return result;
         }
@@ -1731,7 +1735,8 @@ internal sealed class RenderRequestExecutor
                     capture.Target,
                     capture.EffectiveScale.Value,
                     _options.MaxWorkingScale,
-                    capture.RasterBounds.Size);
+                    capture.RasterBounds.Size,
+                    capture.DeviceBounds.Position);
                 canvas.DrawRenderTargetPixelsWithoutFlush(source.Target, 0, 0);
                 succeeded = true;
                 return capture;
@@ -1826,7 +1831,8 @@ internal sealed class RenderRequestExecutor
                         value.Target,
                         scale.Value,
                         _options.MaxWorkingScale,
-                        value.RasterBounds.Size);
+                        value.RasterBounds.Size,
+                        value.DeviceBounds.Position);
                     using (canvas.PushTransform(Matrix.CreateTranslation(
                                -value.RasterBounds.X,
                                -value.RasterBounds.Y)))
@@ -1893,7 +1899,8 @@ internal sealed class RenderRequestExecutor
                         value.Target,
                         scale.Value,
                         _options.MaxWorkingScale,
-                        value.RasterBounds.Size);
+                        value.RasterBounds.Size,
+                        value.DeviceBounds.Position);
                     using (canvas.PushTransform(Matrix.CreateTranslation(
                                -value.RasterBounds.X,
                                -value.RasterBounds.Y)))
@@ -2164,7 +2171,8 @@ internal sealed class RenderRequestExecutor
                     normalized.Target,
                     normalized.EffectiveScale.Value,
                     _options.MaxWorkingScale,
-                    normalized.RasterBounds.Size);
+                    normalized.RasterBounds.Size,
+                    normalized.DeviceBounds.Position);
                 using (canvas.PushTransform(Matrix.CreateTranslation(
                            -normalized.RasterBounds.X,
                            -normalized.RasterBounds.Y)))
@@ -2361,7 +2369,8 @@ internal sealed class RenderRequestExecutor
                         output.Target,
                         output.EffectiveScale.Value,
                         _options.MaxWorkingScale,
-                        output.RasterBounds.Size);
+                        output.RasterBounds.Size,
+                        output.DeviceBounds.Position);
                     canvas.Clear();
                     using (canvas.PushDeviceSpace())
                     {
@@ -2489,7 +2498,9 @@ internal sealed class RenderRequestExecutor
             bool isLast = stageIndex == run.Stages.Length - 1;
             RenderFragmentReference fragment = stage.Fragment;
             RenderFragmentReference fragmentInput = fragment.Inputs.Single();
-            Rect inputBounds = isFirst ? runInput.Bounds : fragmentInput.Bounds;
+            Rect inputBounds = isFirst
+                ? runInput.Bounds
+                : ResolveFragmentRequirement(fragmentInput, fragmentInput.Bounds);
             Rect outputBounds = isLast ? runOutputBounds : fragment.Bounds;
             Rect requiredRegion = isLast
                 ? runRequiredRegion
@@ -2696,7 +2707,8 @@ internal sealed class RenderRequestExecutor
                     output.Target,
                     output.EffectiveScale.Value,
                     _options.MaxWorkingScale,
-                    output.RasterBounds.Size);
+                    output.RasterBounds.Size,
+                    output.DeviceBounds.Position);
                 canvas.Clear();
                 using (canvas.PushDeviceSpace())
                 {
@@ -2830,7 +2842,8 @@ internal sealed class RenderRequestExecutor
                             output.Target,
                             output.EffectiveScale.Value,
                             _options.MaxWorkingScale,
-                            output.RasterBounds.Size),
+                            output.RasterBounds.Size,
+                            output.DeviceBounds.Position),
                         CallbackCanvasCapability.Draw);
                     var session = new GeometrySession(
                         token,
@@ -2868,7 +2881,8 @@ internal sealed class RenderRequestExecutor
                     cropped.Target,
                     cropped.EffectiveScale.Value,
                     _options.MaxWorkingScale,
-                    cropped.RasterBounds.Size);
+                    cropped.RasterBounds.Size,
+                    cropped.DeviceBounds.Position);
                 using (canvas.PushTransform(Matrix.CreateTranslation(
                            -cropped.RasterBounds.X,
                            -cropped.RasterBounds.Y)))
@@ -2979,7 +2993,8 @@ internal sealed class RenderRequestExecutor
                                         value.Target,
                                         density,
                                         _options.MaxWorkingScale,
-                                        value.RasterBounds.Size),
+                                        value.RasterBounds.Size,
+                                        value.DeviceBounds.Position),
                                     CallbackCanvasCapability.Draw);
                                 var output = new OpaqueRenderOutput(
                                     token,
@@ -3101,7 +3116,8 @@ internal sealed class RenderRequestExecutor
                             requiredRegion,
                             destination.CreateExecutionView,
                             capability,
-                            mapLogicalOrigin: false);
+                            mapLogicalOrigin: false,
+                            backingDeviceOrigin: destination.DeviceOrigin);
                         var session = new TargetCommandSession(
                             token,
                             inputs,
@@ -3187,7 +3203,8 @@ internal sealed class RenderRequestExecutor
                         requiredRegion,
                         destination.CreateExecutionView,
                         CallbackCanvasCapability.TargetScope,
-                        mapLogicalOrigin: false);
+                        mapLogicalOrigin: false,
+                        backingDeviceOrigin: destination.DeviceOrigin);
                     var session = new TargetScopeSession(
                         token,
                         fragment.Bounds,
@@ -3245,7 +3262,8 @@ internal sealed class RenderRequestExecutor
                     output.Target,
                     density,
                     _options.MaxWorkingScale,
-                    output.RasterBounds.Size);
+                    output.RasterBounds.Size,
+                    output.DeviceBounds.Position);
                 canvas.Clear();
                 using (canvas.PushTransform(Matrix.CreateTranslation(
                            -output.RasterBounds.X,
@@ -3410,7 +3428,8 @@ internal sealed class RenderRequestExecutor
                            value.Target,
                            scale.Value,
                            _options.MaxWorkingScale,
-                           value.RasterBounds.Size))
+                           value.RasterBounds.Size,
+                           value.DeviceBounds.Position))
                 using (canvas.PushTransform(Matrix.CreateTranslation(
                            -value.RasterBounds.X,
                            -value.RasterBounds.Y)))
@@ -3455,13 +3474,15 @@ internal sealed class RenderRequestExecutor
                            value.Target,
                            scale.Value,
                            _options.MaxWorkingScale,
-                           value.RasterBounds.Size))
+                           value.RasterBounds.Size,
+                           value.DeviceBounds.Position))
                 using (canvas.PushTransform(Matrix.CreateTranslation(
                            -value.RasterBounds.X,
                            -value.RasterBounds.Y)))
                 {
                     using RenderTarget source = RenderTarget.GetRenderTarget(currentTarget);
-                    canvas.DrawRenderTargetScaledWithoutFlush(source, bounds);
+                    canvas.ClipRect(bounds);
+                    canvas.DrawRenderTargetScaledWithoutFlush(source, currentTarget.RasterBounds);
                 }
 
                 succeeded = true;
@@ -3505,7 +3526,8 @@ internal sealed class RenderRequestExecutor
                            value.Target,
                            scale.Value,
                            _options.MaxWorkingScale,
-                           value.RasterBounds.Size))
+                           value.RasterBounds.Size,
+                           value.DeviceBounds.Position))
                 using (canvas.PushTransform(Matrix.CreateTranslation(
                            -value.RasterBounds.X,
                            -value.RasterBounds.Y)))

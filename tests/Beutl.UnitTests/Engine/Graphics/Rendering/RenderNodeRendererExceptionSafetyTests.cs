@@ -240,7 +240,7 @@ public class RenderNodeRendererExceptionSafetyTests
     public void PreExecutionAllocationFailureRecordsTheFamilyOwnerWithoutDiagnostics(
         EntryPoint entryPoint)
     {
-        using var node = new ExpandedReadbackNode(
+        using var node = new ExpandedCaptureNode(
             publishRasterOutput: entryPoint == EntryPoint.Rasterize);
         var factory = new TrackingTargetFactory(_ => false, throwOnCreate: true);
         using var renderer = CreateRenderer(node, factory);
@@ -261,7 +261,7 @@ public class RenderNodeRendererExceptionSafetyTests
     [Test]
     public void PreExecutionFailureWithoutDiagnostics_MarksRootAndNestedBeforeDisposal()
     {
-        using var node = new ExpandedReadbackNode();
+        using var node = new ExpandedCaptureNode();
         using var request = new RenderRequest(new RenderRequestOptions(
             RenderIntent.Preview,
             RenderRequestPurpose.Frame,
@@ -561,7 +561,7 @@ public class RenderNodeRendererExceptionSafetyTests
         }
     }
 
-    private sealed class ExpandedReadbackNode(bool publishRasterOutput = false) : RenderNode
+    private sealed class ExpandedCaptureNode(bool publishRasterOutput = false) : RenderNode
     {
         private static readonly Rect s_domain = new(0, 0, 4, 4);
         private readonly EmptyNode _nested = new();
@@ -571,15 +571,11 @@ public class RenderNodeRendererExceptionSafetyTests
         public override void Process(RenderNodeContext context)
         {
             NestedRequest = context.RecordNestedTarget(_nested, s_domain);
-            context.Publish(context.TargetCommand(
-                [],
-                TargetCommandDescription.Create(
-                    session => session.UseSnapshot(static _ => { }),
-                    TargetRegion.Region(s_domain),
-                    Rect.Empty,
-                    RenderHitTestContract.None,
-                    TargetAccess.Readback,
-                    structuralKey: typeof(ExpandedReadbackNode))));
+            context.Publish(context.TargetCapture(TargetCaptureDescription.Create(
+                TargetRegion.Region(s_domain),
+                s_domain,
+                RenderHitTestContract.None,
+                RenderScaleContract.MaterializeAtWorkingScale)));
             if (publishRasterOutput)
             {
                 context.Publish(context.OpaqueSource(

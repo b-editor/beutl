@@ -149,7 +149,13 @@ public partial class CubeFile : IEquatable<CubeFile>
         while (i < length)
         {
             string? line = reader.ReadLine();
-            if (line is not null && !line.StartsWith('#'))
+            if (line is null)
+            {
+                throw new InvalidDataException(
+                    $"The LUT declares {length} data rows, but the stream ended after {i} rows.");
+            }
+
+            if (!line.StartsWith('#'))
             {
                 string[] values = line.Split(' ');
                 if (values.Length != 3) continue;

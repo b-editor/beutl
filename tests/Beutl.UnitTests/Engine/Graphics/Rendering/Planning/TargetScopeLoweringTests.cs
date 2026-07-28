@@ -78,6 +78,36 @@ public sealed class TargetScopeLoweringTests
     }
 
     [Test]
+    public void FiniteLayerFanOutAcrossTargetDomains_ExecutesWithOneResolvedOwningScope()
+    {
+        var layerDomain = new Rect(0, 0, 24, 16);
+        var secondTargetDomain = new Rect(8, 4, 40, 24);
+        using var root = new LayerFanOutNode(layerDomain, secondTargetDomain);
+        using CompiledRenderRequest compiled = Compile(root, s_rootDomain);
+        int owningScopeCount = compiled.TargetDependencies.Scopes.Count(scope =>
+            scope.OwnerFragmentId is { } owner
+            && References(compiled.Graph)[owner].Kind == RenderFragmentKind.Layer);
+        using var renderer = new RenderNodeRenderer(
+            root,
+            new RenderNodeRendererOptions
+            {
+                TargetDomain = s_rootDomain,
+                TargetFactory = new CpuTargetFactory(),
+                UseRenderCache = false,
+            });
+
+        using RenderNodeRasterization raster = renderer.Rasterize();
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(raster.Bitmap, Is.Not.Null);
+            Assert.That(owningScopeCount, Is.EqualTo(1));
+            Assert.That(root.SourceExecutionCount, Is.EqualTo(1));
+            Assert.That(AlphaAt(raster.Bitmap!, 4, 4), Is.GreaterThan(0.99f));
+        });
+    }
+
+    [Test]
     public void TransformedFullTargetLayer_ResolvesAgainstMappedCurrentTargetDomain()
     {
         using var root = new ContainerRenderNode();
@@ -206,7 +236,7 @@ public sealed class TargetScopeLoweringTests
 
         Assert.Multiple(() =>
         {
-            Assert.That(compiled.SelectedOutputBounds, Is.EqualTo(Rect.Empty));
+            Assert.That(compiled.SelectedOutputBounds, Is.EqualTo(new Rect(15, 7, 20, 11)));
             Assert.That(
                 compiled.Regions.GetTargetAccessRequirement(readback).Resolve(s_rootDomain),
                 Is.EqualTo(localAccess));
@@ -214,6 +244,25 @@ public sealed class TargetScopeLoweringTests
                 compiled.ExecutionTargetBounds,
                 Is.EqualTo(new Rect(15, 7, 20, 11)));
         });
+    }
+
+    [Test]
+    public void FiniteReadbackRequirement_CrossesAnUnresolvedTargetScope()
+    {
+        var localAccess = new Rect(5, 7, 20, 11);
+        using var root = new ContainerRenderNode();
+        root.AddChild(new OrderOnlyCommandNode());
+        var transform = new TransformRenderNode(
+            Matrix.CreateTranslation(10, 0),
+            TransformOperator.Prepend);
+        transform.AddChild(new ReadbackCommandNode(localAccess));
+        root.AddChild(transform);
+
+        using CompiledRenderRequest compiled = Compile(root, targetDomain: null);
+
+        Assert.That(
+            compiled.ExecutionTargetBounds,
+            Is.EqualTo(new Rect(15, 7, 20, 11)));
     }
 
     [TestCase("opacity")]
@@ -494,6 +543,24 @@ public sealed class TargetScopeLoweringTests
     }
 
     [Test]
+    public void FullTargetCaptureBoundsOutsideFiniteLayer_AreRejectedDuringLowering()
+    {
+        var layerDomain = new Rect(10, 20, 30, 20);
+        var captureBounds = new Rect(5, 20, 10, 10);
+        using var root = new OutOfDomainCaptureLayerNode(layerDomain, captureBounds);
+
+        InvalidOperationException? error = Assert.Throws<InvalidOperationException>(
+            () =>
+            {
+                using CompiledRenderRequest _ = Compile(root, targetDomain: null);
+            });
+
+        Assert.That(
+            error!.Message,
+            Does.Contain("capture bounds").And.Contain("target domain").IgnoreCase);
+    }
+
+    [Test]
     public void RequestedRegionDoesNotSupplyMissingTargetDomain_ButFiniteLayerDoes()
     {
         using var command = new FullCommandNode();
@@ -538,6 +605,30 @@ public sealed class TargetScopeLoweringTests
 
         using RenderNodeRasterization raster = renderer.Rasterize();
         Assert.That(AlphaAt(raster.Bitmap!, 20, 15), Is.GreaterThan(0.99f));
+    }
+
+    [Test]
+    public void ReadbackCommandWrites_AreIncludedInOutputPlanning()
+    {
+        using var root = new WritingReadbackCommandNode();
+        using var renderer = new RenderNodeRenderer(
+            root,
+            new RenderNodeRendererOptions
+            {
+                TargetDomain = s_rootDomain,
+                TargetFactory = new CpuTargetFactory(),
+                UseRenderCache = false,
+            });
+
+        using RenderNodeRasterization raster = renderer.Rasterize();
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(root.ExecutionCount, Is.EqualTo(1));
+            Assert.That(raster.Bounds, Is.EqualTo(s_rootDomain));
+            Assert.That(raster.Bitmap, Is.Not.Null);
+            Assert.That(AlphaAt(raster.Bitmap!, 50, 30), Is.GreaterThan(0.99f));
+        });
     }
 
     [Test]
@@ -676,6 +767,29 @@ public sealed class TargetScopeLoweringTests
         }
     }
 
+    private sealed class WritingReadbackCommandNode : RenderNode
+    {
+        public int ExecutionCount { get; private set; }
+
+        public override void Process(RenderNodeContext context)
+        {
+            context.Publish(context.TargetCommand(
+                [],
+                TargetCommandDescription.Create(
+                    session =>
+                    {
+                        ExecutionCount++;
+                        session.UseSnapshot(static _ => { });
+                        session.Canvas.Use(static canvas => canvas.Clear(Colors.White));
+                    },
+                    TargetRegion.Full,
+                    Rect.Empty,
+                    RenderHitTestContract.None,
+                    TargetAccess.Readback,
+                    structuralKey: typeof(WritingReadbackCommandNode))));
+        }
+    }
+
     private sealed class OrderOnlyCommandNode : RenderNode
     {
         public override void Process(RenderNodeContext context)
@@ -714,6 +828,52 @@ public sealed class TargetScopeLoweringTests
 
         public override void Process(RenderNodeContext context)
             => context.Publish(context.TargetLayerScope(context.Inputs, _region));
+    }
+
+    private sealed class LayerFanOutNode : RenderNode
+    {
+        private readonly Rect _layerDomain;
+        private readonly Rect _secondTargetDomain;
+        private readonly SourceNode _source;
+
+        public LayerFanOutNode(Rect layerDomain, Rect secondTargetDomain)
+        {
+            _layerDomain = layerDomain;
+            _secondTargetDomain = secondTargetDomain;
+            _source = new SourceNode(layerDomain, "layer-fan-out", execute: true);
+        }
+
+        public int SourceExecutionCount => _source.ExecuteCount;
+
+        public override void Process(RenderNodeContext context)
+        {
+            RenderFragmentHandle source = context.RecordNode(_source, []).Single();
+            RenderFragmentHandle layer = context.Layer([source], _layerDomain);
+            context.Publish(layer);
+            context.Publish(context.TargetLayerScope(
+                [layer],
+                TargetRegion.Region(_secondTargetDomain)));
+        }
+
+        protected override void OnDispose(bool disposing)
+        {
+            _source.Dispose();
+            base.OnDispose(disposing);
+        }
+    }
+
+    private sealed class OutOfDomainCaptureLayerNode(Rect layerDomain, Rect captureBounds) : RenderNode
+    {
+        public override void Process(RenderNodeContext context)
+        {
+            RenderFragmentHandle capture = context.TargetCapture(TargetCaptureDescription.Create(
+                TargetRegion.Full,
+                captureBounds,
+                RenderHitTestContract.OutputBounds,
+                RenderScaleContract.MaterializeAtWorkingScale));
+            RenderFragmentHandle contributing = context.ContributeValues(capture);
+            context.Publish(context.Layer([contributing], layerDomain));
+        }
     }
 
     private sealed class SourceNode(Rect bounds, string key, bool execute = false) : RenderNode

@@ -267,7 +267,8 @@ public sealed class RenderNodeRenderer : IDisposable
                 executionLease.Target,
                 destination.Density,
                 maxWorkingScale,
-                executionLogicalSize);
+                executionLogicalSize,
+                destination.DeviceOrigin);
             using (executionCanvas.PushDeviceSpace())
             using (SKImage priorTarget = destination._renderTarget.Value.Snapshot())
             using (var copyPaint = new SKPaint { BlendMode = SKBlendMode.Src })
@@ -364,7 +365,8 @@ public sealed class RenderNodeRenderer : IDisposable
                     rootLease.Target,
                     Options.OutputScale,
                     Options.MaxWorkingScale,
-                    rasterBounds.Size);
+                    rasterBounds.Size,
+                    deviceBounds.Position);
                 canvas.Clear();
 
                 IDisposable? transform = canvas.PushTransform(

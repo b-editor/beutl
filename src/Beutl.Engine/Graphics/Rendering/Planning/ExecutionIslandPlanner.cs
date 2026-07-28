@@ -538,13 +538,22 @@ internal sealed class ExecutionIslandPlanner
         rejectionReason = ExecutionIslandBoundaryReason.UnsafeComposite;
         if (fragment.Kind is not (RenderFragmentKind.Shader or RenderFragmentKind.Opacity))
             return false;
-        if (fragment.Inputs.Length != 1
-            || !fragment.ValueCardinality.Equals(RenderValueCardinality.Single))
+        if (fragment.Inputs.Length != 1)
         {
             rejectionReason = ExecutionIslandBoundaryReason.DynamicTopology;
             return false;
         }
         RenderFragmentReference input = fragment.Inputs[0];
+        bool isOptionalBackendStage =
+            fragment.ValueCardinality.Equals(RenderValueCardinality.ZeroOrOne)
+            && input.Payload is OpaqueRenderFragmentPayload opaque
+            && opaque.Description.BackendBoundary != RenderBackendBoundary.None;
+        if (!fragment.ValueCardinality.Equals(RenderValueCardinality.Single)
+            && !isOptionalBackendStage)
+        {
+            rejectionReason = ExecutionIslandBoundaryReason.DynamicTopology;
+            return false;
+        }
         if (!fragment.CanBeUsedAsValueInput
             || !input.CanBeUsedAsValueInput
             || fragment.HasTargetEffects != input.HasTargetEffects

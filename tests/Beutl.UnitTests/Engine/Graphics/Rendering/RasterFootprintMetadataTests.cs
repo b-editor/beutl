@@ -90,6 +90,36 @@ public sealed class RasterFootprintMetadataTests
     }
 
     [Test]
+    public void TargetAttachedCallback_DrawDeviceSpaceUsesTheBackingSurfaceOrigin()
+    {
+        var callbackBounds = new Rect(10, 12, 8, 6);
+        var token = new RenderExecutionSessionToken();
+        Point? observedLocalPoint = null;
+        var input = new RenderExecutionInput(
+            token,
+            new Rect(0, 0, 2, 2),
+            EffectiveScale.At(1),
+            draw: static (_, _) => { },
+            drawDeviceSpace: (_, point) => observedLocalPoint = point,
+            createShader: null,
+            createSnapshot: null,
+            readbackDeclared: false);
+        using RenderTarget target = RenderTarget.CreateNull(64, 48);
+        var facade = new RenderCallbackCanvas(
+            token,
+            density: 1,
+            callbackBounds,
+            () => new ImmediateCanvas(target, logicalSize: new Size(64, 48)),
+            CallbackCanvasCapability.TargetCommandRegion,
+            mapLogicalOrigin: false);
+
+        facade.Use(canvas => input.DrawDeviceSpace(canvas, new Point(20, 30)));
+
+        Assert.That(observedLocalPoint, Is.EqualTo(new Point(20, 30)));
+        token.Complete();
+    }
+
+    [Test]
     public void CachedValue_PreservesThePhysicalFootprintIndependentlyOfSemanticBounds()
     {
         const float density = 2;

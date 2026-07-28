@@ -37,6 +37,40 @@ public sealed class TargetCaptureValueWrapperTests
         });
     }
 
+    [Test]
+    public void TargetCapture_CropsTheDeclaredRegionWithoutResamplingTheWholeTarget()
+    {
+        var captureBounds = new Rect(8, 0, 8, 12);
+        using Brush.Resource red = Brushes.Red.ToResource(CompositionContext.Default);
+        using Brush.Resource blue = Brushes.Blue.ToResource(CompositionContext.Default);
+        using var root = new ContainerRenderNode();
+        root.AddChild(new RectangleRenderNode(new Rect(0, 0, 8, 12), red, null));
+        root.AddChild(new RectangleRenderNode(captureBounds, blue, null));
+        root.AddChild(new ContributingTargetCaptureNode(captureBounds));
+        using var renderer = new RenderNodeRenderer(
+            root,
+            new RenderNodeRendererOptions
+            {
+                TargetDomain = s_bounds,
+                TargetFactory = new CpuTargetFactory(),
+                UseRenderCache = false,
+                FusionMode = FusionMode.Disabled,
+            });
+
+        using RenderNodeRasterization raster = renderer.Rasterize();
+        (float leftRed, float leftBlue) = RedBlueAt(raster.Bitmap!, 2, 6);
+        (float capturedLeftRed, float capturedLeftBlue) = RedBlueAt(raster.Bitmap!, 9, 6);
+        (float capturedRightRed, float capturedRightBlue) = RedBlueAt(raster.Bitmap!, 14, 6);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(leftRed, Is.GreaterThan(leftBlue));
+            Assert.That(capturedLeftBlue, Is.GreaterThan(capturedLeftRed),
+                "the left edge of the capture must come from the declared right-half source region");
+            Assert.That(capturedRightBlue, Is.GreaterThan(capturedRightRed));
+        });
+    }
+
     private static RenderNodeRasterization Render(ValueWrapper wrapper)
     {
         using Brush.Resource fill = new SolidColorBrush(new Color(128, 255, 0, 0))
@@ -61,6 +95,15 @@ public sealed class TargetCaptureValueWrapperTests
     {
         Span<ushort> row = bitmap.GetRow<ushort>(y);
         return (float)BitConverter.UInt16BitsToHalf(row[(x * 4) + 3]);
+    }
+
+    private static (float Red, float Blue) RedBlueAt(Bitmap bitmap, int x, int y)
+    {
+        Span<ushort> row = bitmap.GetRow<ushort>(y);
+        int offset = x * 4;
+        return (
+            (float)BitConverter.UInt16BitsToHalf(row[offset]),
+            (float)BitConverter.UInt16BitsToHalf(row[offset + 2]));
     }
 
     private enum ValueWrapper
@@ -96,6 +139,19 @@ public sealed class TargetCaptureValueWrapperTests
             };
             RenderFragmentHandle materialized = context.Geometry(wrapped, s_identityGeometry);
             context.Publish(context.ContributeValues(materialized));
+        }
+    }
+
+    private sealed class ContributingTargetCaptureNode(Rect bounds) : RenderNode
+    {
+        public override void Process(RenderNodeContext context)
+        {
+            RenderFragmentHandle capture = context.TargetCapture(TargetCaptureDescription.Create(
+                TargetRegion.Region(bounds),
+                bounds,
+                RenderHitTestContract.OutputBounds,
+                RenderScaleContract.MaterializeAtWorkingScale));
+            context.Publish(context.ContributeValues(capture));
         }
     }
 

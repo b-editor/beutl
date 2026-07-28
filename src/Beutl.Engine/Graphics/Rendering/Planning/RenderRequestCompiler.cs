@@ -553,6 +553,9 @@ internal static class TargetDependencyLowerer
             TargetScopeId parentScope,
             bool compositeOutput)
         {
+            if (!_scheduledEffects.Add(reference))
+                return;
+
             Rect domain = ((LayerRenderFragmentPayload)reference.Payload!).Domain
                 ?? reference.Bounds;
             TargetScopeId childScope = CreateScope(
@@ -577,6 +580,9 @@ internal static class TargetDependencyLowerer
             RenderFragmentReference reference,
             TargetScopeId parentScope)
         {
+            if (!_scheduledEffects.Add(reference))
+                return;
+
             TargetRegion region = ((TargetLayerScopeRenderFragmentPayload)reference.Payload!).Region;
             Rect domain = ResolveRegion(region, GetDomain(parentScope), reference);
             bool isOrderOnly = region.Kind == TargetRegionKind.Empty;
@@ -604,6 +610,9 @@ internal static class TargetDependencyLowerer
             TargetScopeId scopeId,
             bool compositeOutput)
         {
+            if (!_scheduledEffects.Add(reference))
+                return;
+
             Rect? authoredDomain = MapDomainIntoScope(reference, GetDomain(scopeId));
             TargetScopeId authoredScope = CreateScope(
                 scopeId,
@@ -633,6 +642,9 @@ internal static class TargetDependencyLowerer
             TargetScopeId scopeId,
             bool compositeOutput)
         {
+            if (!_scheduledEffects.Add(reference))
+                return;
+
             for (int i = 1; i < reference.Inputs.Length; i++)
             {
                 RenderFragmentReference dependency = reference.Inputs[i];
@@ -669,13 +681,20 @@ internal static class TargetDependencyLowerer
             RenderFragmentReference reference,
             TargetScopeId scopeId)
         {
+            Rect? targetDomain = GetDomain(scopeId);
             TargetRegion region = reference.Payload switch
             {
                 TargetCaptureRenderFragmentPayload capture => capture.Description.SourceRegion,
                 BuiltInBackdropCaptureRenderFragmentPayload capture => capture.Description.SourceRegion,
                 _ => throw new InvalidOperationException("The target-capture payload is invalid."),
             };
-            _ = ResolveRegion(region, GetDomain(scopeId), reference);
+            Rect resolvedSourceRegion = ResolveRegion(region, targetDomain, reference);
+            if (reference.Payload is TargetCaptureRenderFragmentPayload publicCapture)
+            {
+                publicCapture.Description.ValidateResolvedBounds(
+                    resolvedSourceRegion,
+                    targetDomain ?? resolvedSourceRegion);
+            }
         }
 
         private void ValidateCommandDomain(

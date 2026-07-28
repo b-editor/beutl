@@ -271,7 +271,6 @@ internal sealed class RenderFragmentReference
         {
             RenderFragmentKind.TargetCommand
                 => Payload is TargetCommandRenderFragmentPayload command
-                   && command.Description.Access != TargetAccess.Readback
                    && command.Description.AffectedRegion.Kind != TargetRegionKind.Empty,
             RenderFragmentKind.RawTargetCommand => true,
             RenderFragmentKind.TargetCapture or RenderFragmentKind.BuiltInBackdropCapture => false,

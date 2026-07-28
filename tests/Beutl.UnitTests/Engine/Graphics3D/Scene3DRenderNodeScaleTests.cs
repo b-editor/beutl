@@ -42,6 +42,31 @@ public class Scene3DRenderNodeScaleTests
     }
 
     [Test]
+    public void Recording_AllowsTheBackendToDropAFrameValue()
+    {
+        var scene = new Scene3D();
+        scene.RenderWidth.CurrentValue = 32;
+        scene.RenderHeight.CurrentValue = 24;
+        using var resource = (Scene3D.Resource)scene.ToResource(CompositionContext.Default);
+        using var node = new Scene3DRenderNode(resource);
+        using var request = new RenderRequest(new RenderRequestOptions(
+            RenderIntent.Preview,
+            RenderRequestPurpose.Frame,
+            targetDomain: new Rect(0, 0, 32, 24),
+            cachePolicy: RenderCacheOptions.Disabled));
+
+        RecordedRenderGraph graph = new RenderRequestRecorder(request).Record(node);
+        RenderFragmentReference reference = graph.Fragments
+            .Select(static fragment => (RenderFragmentReference)fragment.Payload!)
+            .Single(static fragment => fragment.Kind == RenderFragmentKind.OpaqueSource);
+        var payload = (OpaqueRenderFragmentPayload)reference.Payload!;
+
+        Assert.That(
+            payload.Description.ValueCardinality,
+            Is.EqualTo(RenderValueCardinality.ZeroOrOne));
+    }
+
+    [Test]
     public void Recording_DrawableMaterialTextureUsesSceneWorkingScaleAndFullDomain()
     {
         var drawable = new RectShape();

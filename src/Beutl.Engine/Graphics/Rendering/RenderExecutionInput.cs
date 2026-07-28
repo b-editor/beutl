@@ -183,10 +183,10 @@ public sealed class RenderExecutionInput
         if (!float.IsFinite(devicePoint.X) || !float.IsFinite(devicePoint.Y))
             throw new ArgumentException("The device-space point must be finite.", nameof(devicePoint));
 
-        PixelRect canvasBounds = _token.GetActiveCanvasDeviceBounds(canvas);
+        PixelPoint canvasOrigin = _token.GetActiveCanvasDeviceOrigin(canvas);
         _drawDeviceSpace(
             canvas,
-            new Point(devicePoint.X - canvasBounds.X, devicePoint.Y - canvasBounds.Y));
+            new Point(devicePoint.X - canvasOrigin.X, devicePoint.Y - canvasOrigin.Y));
     }
 
     public void UseShader(
@@ -383,10 +383,10 @@ internal sealed class RenderExecutionSessionToken
         }
     }
 
-    public PixelRect GetActiveCanvasDeviceBounds(ImmediateCanvas canvas)
+    public PixelPoint GetActiveCanvasDeviceOrigin(ImmediateCanvas canvas)
     {
         VerifyActiveCanvas(canvas);
-        return _activeFacade!.DeviceBoundsUnchecked;
+        return _activeFacade!.DeviceOriginUnchecked;
     }
 
     public void AuthorizeResource(object resource, Action use)

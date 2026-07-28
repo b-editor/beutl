@@ -222,10 +222,12 @@ internal sealed class RegionAnalyzer
             return requirement;
 
         TargetScopePlan sourceScope = scopes[sourceScopeId];
-        Rect sourceDomain = sourceScope.ResolvedDomain
-            ?? throw new InvalidOperationException(
-                "A target-token requirement cannot cross an unresolved target scope.");
-        Rect mapped = requirement.Resolve(sourceDomain);
+        Rect mapped = requirement.IsFull
+            ? requirement.Resolve(
+                sourceScope.ResolvedDomain
+                ?? throw new InvalidOperationException(
+                    "A Full target-token requirement cannot cross an unresolved target scope."))
+            : requirement.Value;
 
         var sourceAncestors = new Dictionary<TargetScopeId, int>();
         TargetScopeId? cursor = sourceScopeId;

@@ -220,4 +220,29 @@ public class CubeFileTests
             Assert.That(cube.Max, Is.EqualTo(new Vector3(1f, 1f, 1f)));
         });
     }
+
+    [Test]
+    public void FromStream_TruncatedDataThrowsInsteadOfLoopingAtEndOfStream()
+    {
+        const string content =
+            """
+            TITLE "Truncated"
+            LUT_1D_SIZE 4
+            DOMAIN_MIN 0 0 0
+            DOMAIN_MAX 1 1 1
+            0.0 0.0 0.0
+            0.33 0.33 0.33
+            """;
+        byte[] bytes = System.Text.Encoding.UTF8.GetBytes(content);
+        Task<CubeFile> parse = Task.Run(() =>
+        {
+            using var stream = new MemoryStream(bytes);
+            return CubeFile.FromStream(stream);
+        });
+
+        InvalidDataException? error = Assert.ThrowsAsync<InvalidDataException>(
+            async () => await parse.WaitAsync(TimeSpan.FromSeconds(2)));
+
+        Assert.That(error!.Message, Does.Contain("4").And.Contain("2"));
+    }
 }

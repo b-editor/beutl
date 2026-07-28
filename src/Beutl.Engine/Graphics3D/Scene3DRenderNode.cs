@@ -105,7 +105,7 @@ internal sealed class Scene3DRenderNode(Scene3D.Resource scene) : RenderNode
                 current => Render(session, current)),
             bounds: OpaqueRenderBoundsContract.Source(bounds),
             hitTest: RenderHitTestContract.OutputBounds,
-            valueCardinality: RenderValueCardinality.Single,
+            valueCardinality: RenderValueCardinality.ZeroOrOne,
             scale: RenderScaleContract.MaterializeAtWorkingScale,
             structuralKey: typeof(Scene3DRenderNode),
             runtimeIdentity: new RenderRuntimeIdentity(

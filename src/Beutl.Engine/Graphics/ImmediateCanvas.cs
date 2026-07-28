@@ -42,7 +42,7 @@ public partial class ImmediateCanvas : IDisposable, IPopable
 
     public ImmediateCanvas(RenderTarget renderTarget, float density = 1f,
         float maxWorkingScale = float.PositiveInfinity, Size logicalSize = default)
-        : this(renderTarget, density, maxWorkingScale, logicalSize, flushOnDispose: true)
+        : this(renderTarget, density, maxWorkingScale, logicalSize, flushOnDispose: true, deviceOrigin: default)
     {
     }
 
@@ -51,7 +51,8 @@ public partial class ImmediateCanvas : IDisposable, IPopable
         float density,
         float maxWorkingScale,
         Size logicalSize,
-        bool flushOnDispose)
+        bool flushOnDispose,
+        PixelPoint deviceOrigin)
     {
         ArgumentNullException.ThrowIfNull(renderTarget);
         if (density <= 0f || !float.IsFinite(density))
@@ -63,6 +64,7 @@ public partial class ImmediateCanvas : IDisposable, IPopable
         _renderTargetValue = renderTarget;
         Canvas = _renderTarget.Value.Canvas;
         DeviceSize = new PixelSize(renderTarget.Width, renderTarget.Height);
+        DeviceOrigin = deviceOrigin;
         LogicalSize = logicalSize.IsDefault ? DeviceSize.ToSize(density) : logicalSize;
         SurfaceDensity = density;
         _currentDensity = density;
@@ -94,6 +96,7 @@ public partial class ImmediateCanvas : IDisposable, IPopable
         _renderTargetValue = parent._renderTargetValue;
         Canvas = parent.Canvas;
         DeviceSize = parent.DeviceSize;
+        DeviceOrigin = parent.DeviceOrigin;
         LogicalSize = parent.LogicalSize;
         SurfaceDensity = parent.SurfaceDensity;
         _currentDensity = parent._currentDensity;
@@ -132,6 +135,11 @@ public partial class ImmediateCanvas : IDisposable, IPopable
     /// <summary>The physical backing-surface size in device pixels (<c>ceil(LogicalSize × SurfaceDensity)</c>).</summary>
     public PixelSize DeviceSize { get; }
 
+    internal PixelPoint DeviceOrigin { get; }
+
+    internal Rect RasterBounds
+        => new PixelRect(DeviceOrigin, DeviceSize).ToRect(SurfaceDensity);
+
     /// <summary>
     /// Pixel density of the current coordinate space. Equals <see cref="SurfaceDensity"/> normally;
     /// 1 inside a <see cref="PushDeviceSpace"/> block.
@@ -167,8 +175,15 @@ public partial class ImmediateCanvas : IDisposable, IPopable
         RenderTarget renderTarget,
         float density = 1f,
         float maxWorkingScale = float.PositiveInfinity,
-        Size logicalSize = default)
-        => new(renderTarget, density, maxWorkingScale, logicalSize, flushOnDispose: false);
+        Size logicalSize = default,
+        PixelPoint deviceOrigin = default)
+        => new(
+            renderTarget,
+            density,
+            maxWorkingScale,
+            logicalSize,
+            flushOnDispose: false,
+            deviceOrigin);
 
     internal static IDisposable ObserveFlushes(Action<ImmediateCanvasFlushKind> observer)
     {
