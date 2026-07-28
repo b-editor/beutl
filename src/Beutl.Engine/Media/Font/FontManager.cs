@@ -17,6 +17,7 @@ public sealed class FontManager
     private readonly Lock _gate = new();
     internal readonly Dictionary<FontFamily, FrozenDictionary<Typeface, SKTypeface>> _fonts = [];
     internal readonly Dictionary<FontFamily, FontName> _fontNames = [];
+    private readonly HashSet<FontFamily> _reportedMissingFamilies = [];
     private readonly string[] _fontDirs;
 
     private FontManager()
@@ -223,10 +224,15 @@ public sealed class FontManager
                 return typefaces.Get(typeface);
             }
 
-            _logger.LogWarning(
-                "Font family '{FontFamily}' is not registered; falling back to '{Fallback}'",
-                typeface.FontFamily.Name,
-                DefaultTypeface.FontFamily.Name);
+            // ToSkia() runs per text layout, so an unregistered family in a multi-frame render
+            // would log once per frame per layout; report each missing family once.
+            if (_reportedMissingFamilies.Add(typeface.FontFamily))
+            {
+                _logger.LogWarning(
+                    "Font family '{FontFamily}' is not registered; falling back to '{Fallback}'",
+                    typeface.FontFamily.Name,
+                    DefaultTypeface.FontFamily.Name);
+            }
 
             return _fonts.TryGetValue(DefaultTypeface.FontFamily, out FrozenDictionary<Typeface, SKTypeface>? fallback)
                 ? fallback.Get(new Typeface(DefaultTypeface.FontFamily, typeface.Style, typeface.Weight))

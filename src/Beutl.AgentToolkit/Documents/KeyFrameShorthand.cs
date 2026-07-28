@@ -41,6 +41,13 @@ internal static class KeyFrameShorthand
         for (int i = 0; i < entries.Count; i++)
         {
             (double seconds, JsonNode? value, string? easing) = ReadEntry(entries[i], i);
+            if (!double.IsFinite(seconds) || seconds < TimeSpan.MinValue.TotalSeconds || seconds > TimeSpan.MaxValue.TotalSeconds)
+            {
+                throw Rejected(
+                    $"Keyframe {i} in '{PropertyName}' has a time outside the representable range.",
+                    "Give the time in seconds within TimeSpan range; 1e20 and NaN are not times.");
+            }
+
             var keyFrame = new JsonObject
             {
                 ["$type"] = keyFrameType,
@@ -81,7 +88,7 @@ internal static class KeyFrameShorthand
         switch (entry)
         {
             case JsonArray tuple when tuple.Count is 2 or 3:
-                return (ReadSeconds(tuple[0], index), tuple[1], tuple.Count == 3 ? tuple[2]?.GetValue<string>() : null);
+                return (ReadSeconds(tuple[0], index), tuple[1], tuple.Count == 3 ? ReadEasing(tuple[2], index) : null);
             case JsonObject obj:
                 JsonNode? time = obj["t"] ?? obj["keyTime"] ?? obj["KeyTime"];
                 JsonNode? value = obj.TryGetPropertyValue("v", out JsonNode? shortValue)
@@ -90,12 +97,31 @@ internal static class KeyFrameShorthand
                         ? longValue
                         : obj["Value"];
                 JsonNode? easing = obj["easing"] ?? obj["Easing"];
-                return (ReadSeconds(time, index), value, easing?.GetValue<string>());
+                return (ReadSeconds(time, index), value, ReadEasing(easing, index));
             default:
                 throw Rejected(
                     $"Keyframe {index} in '{PropertyName}' is neither a [seconds, value, easing?] array nor an object.",
                     "Use [[0, 0, \"CubicEaseOut\"], [0.4, 100]] or [{\"t\": 0, \"v\": 0, \"easing\": \"CubicEaseOut\"}].");
         }
+    }
+
+    private static string? ReadEasing(JsonNode? node, int index)
+    {
+        if (node is null)
+        {
+            return null;
+        }
+
+        // GetValue<string>() throws on a number or object, and an unexpected exception is mapped to
+        // internal_error — which drops the keyframe index and the accepted-form hint.
+        if (node is JsonValue value && value.TryGetValue(out string? text))
+        {
+            return text;
+        }
+
+        throw Rejected(
+            $"Keyframe {index} in '{PropertyName}' has a non-string easing.",
+            "Give the easing as a bare type name string such as \"CubicEaseOut\", or omit it for linear.");
     }
 
     private static double ReadSeconds(JsonNode? node, int index)

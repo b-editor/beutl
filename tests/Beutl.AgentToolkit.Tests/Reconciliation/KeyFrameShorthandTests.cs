@@ -146,6 +146,42 @@ public sealed class KeyFrameShorthandTests
         });
     }
 
+    [TestCase(1e20)]
+    [TestCase(double.NaN)]
+    public void An_unrepresentable_time_is_rejected_rather_than_thrown(double seconds)
+    {
+        (EditTools tools, _, Element element) = CreateSceneWithRect();
+
+        ToolResult<ApplyEditResponse> apply = tools.ApplyEdit(
+            patch: OpacityPatch(element, new JsonArray(new JsonArray(seconds, 0))),
+            schemaVersion: SchemaVersion.Current);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(apply.IsSuccess, Is.False);
+            Assert.That(apply.Error!.Code, Is.EqualTo(ErrorCode.ValidationRejected));
+            Assert.That(apply.Error.Message, Does.Contain("Keyframe 0"));
+        });
+    }
+
+    [Test]
+    public void A_non_string_easing_is_rejected_with_the_keyframe_index()
+    {
+        (EditTools tools, _, Element element) = CreateSceneWithRect();
+
+        ToolResult<ApplyEditResponse> apply = tools.ApplyEdit(
+            patch: OpacityPatch(element, new JsonArray(new JsonArray(0, 0), new JsonArray(1, 100, 3))),
+            schemaVersion: SchemaVersion.Current);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(apply.IsSuccess, Is.False);
+            Assert.That(apply.Error!.Code, Is.EqualTo(ErrorCode.ValidationRejected));
+            Assert.That(apply.Error.Message, Does.Contain("Keyframe 1"));
+            Assert.That(apply.Error.Hint, Does.Contain("bare type name"));
+        });
+    }
+
     private static IAnimation RequireOpacityAnimation(Scene scene)
     {
         var shape = (RectShape)scene.Children.Single().Objects.Single();
