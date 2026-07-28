@@ -25,7 +25,11 @@ public sealed class ToolTabContent : ContentControl
             return;
         }
 
-        if (dockable.ToolContent is not { } control)
+        Control? control = dockable.ToolContext.Extension.ReuseContentAcrossActivation
+            ? dockable.ToolContent
+            : null;
+
+        if (control is null)
         {
             if (!dockable.ToolContext.Extension.TryCreateContent(dockable.EditViewModel, out control))
             {
@@ -36,7 +40,10 @@ public sealed class ToolTabContent : ContentControl
             var cm = AppHelper.GetContextCommandManager?.Invoke();
             cm?.Attach(control, dockable.ToolContext.Extension);
             control.DataContext = dockable.ToolContext;
-            dockable.ToolContent = control;
+            if (dockable.ToolContext.Extension.ReuseContentAcrossActivation)
+            {
+                dockable.ToolContent = control;
+            }
         }
 
         if (control.Parent is ContentControl previousOwner

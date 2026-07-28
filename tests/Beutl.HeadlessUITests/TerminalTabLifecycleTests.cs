@@ -1,11 +1,16 @@
-﻿using Avalonia.Controls;
+﻿using System.Diagnostics.CodeAnalysis;
+using System.Text.Json.Nodes;
+
+using Avalonia.Controls;
 using Avalonia.Headless.NUnit;
 using Avalonia.VisualTree;
 
 using Beutl.Editor.Components.TerminalTab.ViewModels;
 using Beutl.Editor.Components.TerminalTab.Views;
+using Beutl.Editor.Components.TimelineTab.Views;
 using Beutl.Extensibility;
 using Beutl.ProjectSystem;
+using Beutl.Services.PrimitiveImpls;
 using Beutl.Testing.Headless;
 using Beutl.ViewModels;
 using Beutl.ViewModels.Dock;
@@ -14,6 +19,8 @@ using Beutl.Views;
 using Dock.Model.Controls;
 
 using Iciclecreek.Terminal;
+
+using Reactive.Bindings;
 
 namespace Beutl.HeadlessUITests;
 
@@ -44,12 +51,13 @@ public class TerminalTabLifecycleTests
     [AvaloniaTest]
     public async Task SwitchingToolTabs_ReusesTerminalViewAndShell()
     {
+        await ResetProjectAsync();
+
         if (OperatingSystem.IsWindows())
         {
             Assert.Ignore("The Windows ConPTY path is not exercised by this headless test.");
         }
 
-        await ResetProjectAsync();
         EditViewModel editor = await OpenEditorForNewScene("terminal-tab-lifecycle");
         IToolDock bottomDock = editor.DockHost.Factory.GetAnchoredDock(DockAnchor.Bottom)!;
         var terminalContext = new TerminalTabViewModel(editor);
@@ -103,6 +111,48 @@ public class TerminalTabLifecycleTests
         }
     }
 
+    [AvaloniaTest]
+    public async Task SwitchingToolTabs_RecreatesNonPersistentToolContent()
+    {
+        await ResetProjectAsync();
+        EditViewModel editor = await OpenEditorForNewScene("tool-tab-content-lifecycle");
+        IToolDock bottomDock = editor.DockHost.Factory.GetAnchoredDock(DockAnchor.Bottom)!;
+        var transientContext = new TransientToolContext();
+        Assert.That(editor.DockHost.OpenToolTab(transientContext, bottomDock), Is.True);
+        BeutlToolDockable timelineDockable = editor.DockHost.Factory.EnumerateTools()
+            .Single(item => ReferenceEquals(item.ToolContext.Extension, TimelineTabExtension.Instance));
+        BeutlToolDockable transientDockable = editor.DockHost.Factory.EnumerateTools()
+            .Single(item => ReferenceEquals(item.ToolContext, transientContext));
+        var view = new EditView { DataContext = editor };
+        var window = new Window { Content = view, Width = 900, Height = 700 };
+
+        try
+        {
+            window.Show();
+            editor.DockHost.Factory.SetActiveDockable(timelineDockable);
+            HeadlessTestHelpers.Render();
+            TimelineTabView firstTimeline = view.GetVisualDescendants()
+                .OfType<TimelineTabView>()
+                .Single();
+
+            editor.DockHost.Factory.SetActiveDockable(transientDockable);
+            HeadlessTestHelpers.Render();
+            editor.DockHost.Factory.SetActiveDockable(timelineDockable);
+            HeadlessTestHelpers.Render();
+
+            TimelineTabView secondTimeline = view.GetVisualDescendants()
+                .OfType<TimelineTabView>()
+                .Single();
+            Assert.That(secondTimeline, Is.Not.SameAs(firstTimeline));
+        }
+        finally
+        {
+            editor.CloseToolTab(transientContext);
+            window.Close();
+            HeadlessTestHelpers.Settle();
+        }
+    }
+
     private static TerminalControl FindTerminal(EditView view)
     {
         return view.GetVisualDescendants()
@@ -125,5 +175,52 @@ public class TerminalTabLifecycleTests
         }
 
         Assert.Fail(failureMessage);
+    }
+
+    private sealed class TransientToolContext : IToolContext
+    {
+        public ToolTabExtension Extension => TransientToolExtension.Instance;
+
+        public IReactiveProperty<bool> IsSelected { get; } = new ReactivePropertySlim<bool>();
+
+        public string Header => "Transient";
+
+        public void Dispose()
+        {
+            IsSelected.Dispose();
+        }
+
+        public object? GetService(Type serviceType) => null;
+
+        public void ReadFromJson(JsonObject json)
+        {
+        }
+
+        public void WriteToJson(JsonObject json)
+        {
+        }
+    }
+
+    private sealed class TransientToolExtension : ToolTabExtension
+    {
+        public static readonly TransientToolExtension Instance = new();
+
+        public override bool CanMultiple => false;
+
+        public override bool TryCreateContent(
+            IEditorContext editorContext,
+            [NotNullWhen(true)] out Control? control)
+        {
+            control = new Border();
+            return true;
+        }
+
+        public override bool TryCreateContext(
+            IEditorContext editorContext,
+            [NotNullWhen(true)] out IToolContext? context)
+        {
+            context = new TransientToolContext();
+            return true;
+        }
     }
 }
