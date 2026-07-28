@@ -2,8 +2,11 @@
 
 namespace Beutl.Editor.VersionControl;
 
-public sealed class GitCliVersionControlService : IProjectVersionControlService
+internal sealed class GitCliVersionControlService : IProjectVersionControlService
 {
+    internal const int MaxDiffBytes = 1024 * 1024;
+    internal const string DiffTruncationMarker = "\n--- Diff truncated at 1 MB ---\n";
+
     private static readonly string[] s_gitIgnoreLines =
     [
         "**/.beutl/",
@@ -48,6 +51,7 @@ public sealed class GitCliVersionControlService : IProjectVersionControlService
 
     private readonly GitInstallationLocator _installationLocator;
     private readonly Func<string, IGitCliRunner> _runnerFactory;
+    private readonly Func<bool> _isWorktreeMutationAllowed;
     private readonly bool _createWatcherWhenRepositoryAvailable;
     private readonly SemaphoreSlim _operationGate = new(1, 1);
     private readonly object _runtimeSync = new();
@@ -65,7 +69,22 @@ public sealed class GitCliVersionControlService : IProjectVersionControlService
             repository,
             repository is null ? null : new RepositoryWatcher(repository.RepoRoot),
             static gitPath => new GitCliRunner(gitPath),
-            createWatcherWhenRepositoryAvailable: true)
+            createWatcherWhenRepositoryAvailable: true,
+            isWorktreeMutationAllowed: static () => true)
+    {
+    }
+
+    internal GitCliVersionControlService(
+        GitInstallationLocator installationLocator,
+        RepositoryInfo? repository,
+        Func<bool> isWorktreeMutationAllowed)
+        : this(
+            installationLocator,
+            repository,
+            repository is null ? null : new RepositoryWatcher(repository.RepoRoot),
+            static gitPath => new GitCliRunner(gitPath),
+            createWatcherWhenRepositoryAvailable: true,
+            isWorktreeMutationAllowed: isWorktreeMutationAllowed)
     {
     }
 
@@ -79,7 +98,8 @@ public sealed class GitCliVersionControlService : IProjectVersionControlService
             repository,
             watcher,
             runnerFactory,
-            createWatcherWhenRepositoryAvailable: false)
+            createWatcherWhenRepositoryAvailable: false,
+            isWorktreeMutationAllowed: static () => true)
     {
     }
 
@@ -88,7 +108,8 @@ public sealed class GitCliVersionControlService : IProjectVersionControlService
         RepositoryInfo? repository,
         RepositoryWatcher? watcher,
         Func<string, IGitCliRunner> runnerFactory,
-        bool createWatcherWhenRepositoryAvailable)
+        bool createWatcherWhenRepositoryAvailable,
+        Func<bool> isWorktreeMutationAllowed)
     {
         _installationLocator = installationLocator
                                ?? throw new ArgumentNullException(nameof(installationLocator));
@@ -102,6 +123,9 @@ public sealed class GitCliVersionControlService : IProjectVersionControlService
         Repository = repository;
         _watcher = watcher;
         _runnerFactory = runnerFactory ?? throw new ArgumentNullException(nameof(runnerFactory));
+        _isWorktreeMutationAllowed = isWorktreeMutationAllowed
+                                     ?? throw new ArgumentNullException(
+                                         nameof(isWorktreeMutationAllowed));
         _createWatcherWhenRepositoryAvailable = createWatcherWhenRepositoryAvailable;
         if (_watcher is not null)
         {
@@ -149,6 +173,77 @@ public sealed class GitCliVersionControlService : IProjectVersionControlService
         ThrowIfDisposed();
         return RunSerializedAsync(
             () => GetStatusCoreAsync(cancellationToken),
+            cancellationToken);
+    }
+
+    public Task<IReadOnlyList<CommitInfo>> GetHistoryAsync(
+        int skip,
+        int take,
+        CancellationToken cancellationToken)
+    {
+        ThrowIfDisposed();
+        ArgumentOutOfRangeException.ThrowIfNegative(skip);
+        ArgumentOutOfRangeException.ThrowIfLessThan(take, 1);
+        return RunSerializedAsync(
+            () => GetHistoryCoreAsync(skip, take, cancellationToken),
+            cancellationToken);
+    }
+
+    public Task<IReadOnlyList<FileChange>> GetCommitFilesAsync(
+        string sha,
+        CancellationToken cancellationToken)
+    {
+        ThrowIfDisposed();
+        ArgumentException.ThrowIfNullOrWhiteSpace(sha);
+        return RunSerializedAsync(
+            () => GetCommitFilesCoreAsync(sha, cancellationToken),
+            cancellationToken);
+    }
+
+    public Task<string> GetDiffAsync(
+        string sha,
+        string? path,
+        CancellationToken cancellationToken)
+    {
+        ThrowIfDisposed();
+        ArgumentException.ThrowIfNullOrWhiteSpace(sha);
+        return RunSerializedAsync(
+            () => GetDiffCoreAsync(sha, path, cancellationToken),
+            cancellationToken);
+    }
+
+    public Task RestoreWorktreeFromAsync(
+        string sha,
+        CancellationToken cancellationToken)
+    {
+        ThrowIfDisposed();
+        ArgumentException.ThrowIfNullOrWhiteSpace(sha);
+        return RunSerializedAsync(
+            () => RestoreWorktreeFromCoreAsync(sha, cancellationToken),
+            cancellationToken);
+    }
+
+    public Task CreateBranchFromAsync(
+        string name,
+        string sha,
+        CancellationToken cancellationToken)
+    {
+        ThrowIfDisposed();
+        ArgumentException.ThrowIfNullOrWhiteSpace(name);
+        ArgumentException.ThrowIfNullOrWhiteSpace(sha);
+        return RunSerializedAsync(
+            () => CreateBranchFromCoreAsync(name, sha, cancellationToken),
+            cancellationToken);
+    }
+
+    public Task SwitchBranchAsync(
+        string name,
+        CancellationToken cancellationToken)
+    {
+        ThrowIfDisposed();
+        ArgumentException.ThrowIfNullOrWhiteSpace(name);
+        return RunSerializedAsync(
+            () => SwitchBranchCoreAsync(name, cancellationToken),
             cancellationToken);
     }
 
@@ -278,6 +373,73 @@ public sealed class GitCliVersionControlService : IProjectVersionControlService
         return new WorkspaceStatus(branch, ahead, behind, changes, hasConflicts);
     }
 
+    internal static IReadOnlyList<CommitInfo> ParseHistory(string output)
+    {
+        string[] fields = output.Split('\0');
+        var commits = new List<CommitInfo>(fields.Length / 6);
+        int index = 0;
+        while (index + 5 < fields.Length)
+        {
+            if (!DateTimeOffset.TryParse(
+                    fields[index + 3],
+                    System.Globalization.CultureInfo.InvariantCulture,
+                    System.Globalization.DateTimeStyles.RoundtripKind,
+                    out DateTimeOffset authorDate))
+            {
+                break;
+            }
+
+            commits.Add(new CommitInfo(
+                fields[index],
+                fields[index + 1],
+                fields[index + 4],
+                fields[index + 2],
+                authorDate,
+                ParseSnapshotKind(fields[index + 5])));
+            index += 6;
+            while (index < fields.Length && fields[index].Length == 0)
+            {
+                index++;
+            }
+        }
+
+        return commits;
+    }
+
+    internal static IReadOnlyList<FileChange> ParseCommitFiles(string output)
+    {
+        IReadOnlyList<string> fields = GitCliRunner.SplitNullSeparated(output);
+        var changes = new List<FileChange>();
+        for (int index = 0; index < fields.Count;)
+        {
+            string status = fields[index++].Trim();
+            if (status.Length == 0 || index >= fields.Count)
+            {
+                break;
+            }
+
+            char statusCode = status[0];
+            if (statusCode is 'R' or 'C')
+            {
+                if (index + 1 >= fields.Count)
+                {
+                    break;
+                }
+
+                string oldPath = fields[index++];
+                string path = fields[index++];
+                changes.Add(new FileChange(path, FileChangeStatus.Renamed, oldPath));
+            }
+            else
+            {
+                string path = fields[index++];
+                changes.Add(new FileChange(path, MapNameStatus(statusCode)));
+            }
+        }
+
+        return changes;
+    }
+
     private static string GetField(string record, int fieldIndex)
     {
         string[] fields = record.Split(' ', fieldIndex + 2, StringSplitOptions.None);
@@ -330,6 +492,122 @@ public sealed class GitCliVersionControlService : IProjectVersionControlService
             networkOperation: false,
             cancellationToken).ConfigureAwait(false);
         return ParseStatus(result.Stdout);
+    }
+
+    private async Task<IReadOnlyList<CommitInfo>> GetHistoryCoreAsync(
+        int skip,
+        int take,
+        CancellationToken cancellationToken)
+    {
+        RepositoryInfo repository = GetRepository();
+        IGitCliRunner runner = await GetInstalledRunnerCoreAsync(cancellationToken).ConfigureAwait(false);
+        GitCommandResult result = await runner.RunAsync(
+            repository,
+            [
+                "log",
+                "--format=%H%x00%h%x00%an%x00%aI%x00%s%x00%(trailers:key=Beutl-Snapshot,valueonly)%x00",
+                "-z",
+                $"--skip={skip}",
+                "-n",
+                take.ToString(System.Globalization.CultureInfo.InvariantCulture),
+                "--",
+                repository.Pathspec,
+            ],
+            networkOperation: false,
+            cancellationToken).ConfigureAwait(false);
+        return ParseHistory(result.Stdout);
+    }
+
+    private async Task<IReadOnlyList<FileChange>> GetCommitFilesCoreAsync(
+        string sha,
+        CancellationToken cancellationToken)
+    {
+        RepositoryInfo repository = GetRepository();
+        IGitCliRunner runner = await GetInstalledRunnerCoreAsync(cancellationToken).ConfigureAwait(false);
+        GitCommandResult result = await runner.RunAsync(
+            repository,
+            ["show", "--name-status", "--format=", "-z", sha, "--", repository.Pathspec],
+            networkOperation: false,
+            cancellationToken).ConfigureAwait(false);
+        return ParseCommitFiles(result.Stdout);
+    }
+
+    private async Task<string> GetDiffCoreAsync(
+        string sha,
+        string? path,
+        CancellationToken cancellationToken)
+    {
+        RepositoryInfo repository = GetRepository();
+        IGitCliRunner runner = await GetInstalledRunnerCoreAsync(cancellationToken).ConfigureAwait(false);
+        string pathspec = path is null
+            ? repository.Pathspec
+            : ValidateDiffPath(repository, path);
+        GitCommandResult result = await runner.RunAsync(
+            repository,
+            ["show", "--format=", "--no-ext-diff", "--unified=3", sha, "--", pathspec],
+            networkOperation: false,
+            cancellationToken).ConfigureAwait(false);
+        return TruncateDiff(result.Stdout);
+    }
+
+    private async Task RestoreWorktreeFromCoreAsync(
+        string sha,
+        CancellationToken cancellationToken)
+    {
+        EnsureWorktreeMutationAllowed();
+        RepositoryInfo repository = GetRepository();
+        IGitCliRunner runner = await GetInstalledRunnerCoreAsync(cancellationToken).ConfigureAwait(false);
+        await runner.RunAsync(
+            repository,
+            ["restore", $"--source={sha}", "--worktree", "--", repository.Pathspec],
+            networkOperation: false,
+            cancellationToken).ConfigureAwait(false);
+        await runner.RunAsync(
+            repository,
+            ["clean", "-fd", "--", repository.Pathspec],
+            networkOperation: false,
+            cancellationToken).ConfigureAwait(false);
+        // A path present in the source commit but absent from the current index is considered
+        // untracked after a worktree-only restore, so clean removes it. Reapply the source tree
+        // after cleaning to make restores symmetric without changing the index before the
+        // coordinator records the restore commit.
+        await runner.RunAsync(
+            repository,
+            ["restore", $"--source={sha}", "--worktree", "--", repository.Pathspec],
+            networkOperation: false,
+            cancellationToken).ConfigureAwait(false);
+        await QueueStatusChangedCoreAsync(cancellationToken).ConfigureAwait(false);
+    }
+
+    private async Task CreateBranchFromCoreAsync(
+        string name,
+        string sha,
+        CancellationToken cancellationToken)
+    {
+        EnsureWorktreeMutationAllowed();
+        RepositoryInfo repository = GetRepository();
+        IGitCliRunner runner = await GetInstalledRunnerCoreAsync(cancellationToken).ConfigureAwait(false);
+        await runner.RunAsync(
+            repository,
+            ["switch", "-c", name, sha],
+            networkOperation: false,
+            cancellationToken).ConfigureAwait(false);
+        await QueueStatusChangedCoreAsync(cancellationToken).ConfigureAwait(false);
+    }
+
+    private async Task SwitchBranchCoreAsync(
+        string name,
+        CancellationToken cancellationToken)
+    {
+        EnsureWorktreeMutationAllowed();
+        RepositoryInfo repository = GetRepository();
+        IGitCliRunner runner = await GetInstalledRunnerCoreAsync(cancellationToken).ConfigureAwait(false);
+        await runner.RunAsync(
+            repository,
+            ["switch", name],
+            networkOperation: false,
+            cancellationToken).ConfigureAwait(false);
+        await QueueStatusChangedCoreAsync(cancellationToken).ConfigureAwait(false);
     }
 
     private async Task InitializeCoreAsync(
@@ -474,6 +752,94 @@ public sealed class GitCliVersionControlService : IProjectVersionControlService
 
         await QueueStatusChangedCoreAsync(cancellationToken).ConfigureAwait(false);
         return new CommitResult.Committed(revParse.Stdout.Trim());
+    }
+
+    private static SnapshotKind ParseSnapshotKind(string trailer)
+    {
+        return trailer.Trim().ToLowerInvariant() switch
+        {
+            "save" => SnapshotKind.Save,
+            "close" => SnapshotKind.Close,
+            "safety" => SnapshotKind.Safety,
+            "restore" => SnapshotKind.Restore,
+            "init" => SnapshotKind.Init,
+            _ => SnapshotKind.Manual,
+        };
+    }
+
+    private static FileChangeStatus MapNameStatus(char status)
+    {
+        return status switch
+        {
+            'A' => FileChangeStatus.Added,
+            'D' => FileChangeStatus.Deleted,
+            _ => FileChangeStatus.Modified,
+        };
+    }
+
+    private static string ValidateDiffPath(RepositoryInfo repository, string path)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(path);
+        string normalized = path.Replace('\\', '/');
+        if (Path.IsPathFullyQualified(path)
+            || normalized.StartsWith("/", StringComparison.Ordinal)
+            || normalized.Split('/').Any(static segment => segment == ".."))
+        {
+            throw new ArgumentException("The diff path must be repository-relative.", nameof(path));
+        }
+
+        if (repository.Pathspec != "."
+            && !string.Equals(normalized, repository.Pathspec, StringComparison.Ordinal)
+            && !normalized.StartsWith($"{repository.Pathspec}/", StringComparison.Ordinal))
+        {
+            throw new ArgumentException(
+                "The diff path must be inside the project pathspec.",
+                nameof(path));
+        }
+
+        return normalized;
+    }
+
+    private static string TruncateDiff(string diff)
+    {
+        if (Encoding.UTF8.GetByteCount(diff) <= MaxDiffBytes)
+        {
+            return diff;
+        }
+
+        int low = 0;
+        int high = diff.Length;
+        while (low < high)
+        {
+            int middle = low + ((high - low + 1) / 2);
+            if (Encoding.UTF8.GetByteCount(diff.AsSpan(0, middle)) <= MaxDiffBytes)
+            {
+                low = middle;
+            }
+            else
+            {
+                high = middle - 1;
+            }
+        }
+
+        if (low > 0
+            && low < diff.Length
+            && char.IsHighSurrogate(diff[low - 1])
+            && char.IsLowSurrogate(diff[low]))
+        {
+            low--;
+        }
+
+        return string.Concat(diff.AsSpan(0, low), DiffTruncationMarker);
+    }
+
+    private void EnsureWorktreeMutationAllowed()
+    {
+        if (!_isWorktreeMutationAllowed())
+        {
+            throw new InvalidOperationException(
+                "The project must be closed before changing version-controlled project files.");
+        }
     }
 
     private async Task<IGitCliRunner> GetInstalledRunnerCoreAsync(CancellationToken cancellationToken)

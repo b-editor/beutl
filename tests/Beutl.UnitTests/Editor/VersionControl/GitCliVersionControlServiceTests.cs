@@ -200,6 +200,266 @@ public class GitCliVersionControlServiceTests : RealGitTestRepository
     }
 
     [Test]
+    public async Task GetHistoryAsync_pages_commits_and_parses_snapshot_trailers()
+    {
+        await CommitFileAsync("project.bep", "one\n", "manual baseline");
+        using var service = CreateService();
+
+        await File.WriteAllTextAsync(Path.Combine(Root, "project.bep"), "two\n");
+        await service.CommitAllAsync(
+            "beutl: snapshot on save",
+            SnapshotKind.Save,
+            CancellationToken.None);
+        await File.WriteAllTextAsync(Path.Combine(Root, "project.bep"), "three\n");
+        await service.CommitAllAsync(
+            "beutl: snapshot on close",
+            SnapshotKind.Close,
+            CancellationToken.None);
+
+        IReadOnlyList<CommitInfo> firstPage = await service.GetHistoryAsync(
+            0,
+            2,
+            CancellationToken.None);
+        IReadOnlyList<CommitInfo> secondPage = await service.GetHistoryAsync(
+            2,
+            2,
+            CancellationToken.None);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(firstPage, Has.Count.EqualTo(2));
+            Assert.That(firstPage[0].Kind, Is.EqualTo(SnapshotKind.Close));
+            Assert.That(firstPage[0].Subject, Is.EqualTo("beutl: snapshot on close"));
+            Assert.That(firstPage[0].AuthorName, Is.EqualTo("Beutl Test"));
+            Assert.That(firstPage[0].Sha, Has.Length.EqualTo(40));
+            Assert.That(firstPage[1].Kind, Is.EqualTo(SnapshotKind.Save));
+            Assert.That(secondPage, Has.Count.EqualTo(1));
+            Assert.That(secondPage[0].Kind, Is.EqualTo(SnapshotKind.Manual));
+            Assert.That(secondPage[0].Subject, Is.EqualTo("manual baseline"));
+        });
+    }
+
+    [Test]
+    public async Task GetCommitFilesAsync_reports_added_modified_deleted_and_renamed_paths()
+    {
+        await File.WriteAllTextAsync(Path.Combine(Root, "project.bep"), "one\n");
+        await File.WriteAllTextAsync(Path.Combine(Root, "delete.belm"), "delete\n");
+        await File.WriteAllTextAsync(Path.Combine(Root, "old.scene"), "rename\n");
+        await RunGitAsync("add", "-A");
+        await RunGitAsync("commit", "-m", "baseline");
+
+        await File.WriteAllTextAsync(Path.Combine(Root, "project.bep"), "two\n");
+        File.Delete(Path.Combine(Root, "delete.belm"));
+        File.Move(Path.Combine(Root, "old.scene"), Path.Combine(Root, "new.scene"));
+        await File.WriteAllTextAsync(Path.Combine(Root, "added.belm"), "added\n");
+        using var service = CreateService();
+        var commit = (CommitResult.Committed)await service.CommitAllAsync(
+            "beutl: snapshot on save",
+            SnapshotKind.Save,
+            CancellationToken.None);
+
+        IReadOnlyList<FileChange> files = await service.GetCommitFilesAsync(
+            commit.Sha,
+            CancellationToken.None);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(files, Does.Contain(new FileChange("project.bep", FileChangeStatus.Modified)));
+            Assert.That(files, Does.Contain(new FileChange("delete.belm", FileChangeStatus.Deleted)));
+            Assert.That(files, Does.Contain(new FileChange("added.belm", FileChangeStatus.Added)));
+            Assert.That(
+                files,
+                Does.Contain(new FileChange("new.scene", FileChangeStatus.Renamed, "old.scene")));
+        });
+    }
+
+    [Test]
+    public async Task GetDiffAsync_returns_unified_text_for_one_file()
+    {
+        await CommitFileAsync("project.bep", "old value\n", "baseline");
+        await File.WriteAllTextAsync(Path.Combine(Root, "project.bep"), "new value\n");
+        using var service = CreateService();
+        var commit = (CommitResult.Committed)await service.CommitAllAsync(
+            "beutl: snapshot on save",
+            SnapshotKind.Save,
+            CancellationToken.None);
+
+        string diff = await service.GetDiffAsync(
+            commit.Sha,
+            "project.bep",
+            CancellationToken.None);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(diff, Does.Contain("--- a/project.bep"));
+            Assert.That(diff, Does.Contain("+++ b/project.bep"));
+            Assert.That(diff, Does.Contain("-old value"));
+            Assert.That(diff, Does.Contain("+new value"));
+            Assert.That(diff, Does.Not.Contain(GitCliVersionControlService.DiffTruncationMarker));
+        });
+    }
+
+    [Test]
+    public async Task GetDiffAsync_caps_output_at_one_megabyte_and_appends_marker()
+    {
+        await CommitFileAsync("large.belm", "old\n", "baseline");
+        string largeContents = string.Concat(
+            Enumerable.Repeat("a changed line that remains text\n", 40000));
+        await File.WriteAllTextAsync(Path.Combine(Root, "large.belm"), largeContents);
+        using var service = CreateService();
+        var commit = (CommitResult.Committed)await service.CommitAllAsync(
+            "beutl: snapshot on save",
+            SnapshotKind.Save,
+            CancellationToken.None);
+
+        string diff = await service.GetDiffAsync(
+            commit.Sha,
+            "large.belm",
+            CancellationToken.None);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(diff, Does.EndWith(GitCliVersionControlService.DiffTruncationMarker));
+            Assert.That(
+                System.Text.Encoding.UTF8.GetByteCount(
+                    diff[..^GitCliVersionControlService.DiffTruncationMarker.Length]),
+                Is.LessThanOrEqualTo(GitCliVersionControlService.MaxDiffBytes));
+        });
+    }
+
+    [Test]
+    public async Task RestoreWorktreeFromAsync_matches_target_and_preserves_ignored_files()
+    {
+        byte[] targetProject = [0x7b, 0x0a, 0x7d, 0x0a];
+        byte[] targetElement = [0x31, 0x32, 0x33, 0x0a];
+        await File.WriteAllTextAsync(
+            Path.Combine(Root, ".gitignore"),
+            "**/.beutl/\n*.tmp\n");
+        await File.WriteAllBytesAsync(Path.Combine(Root, "project.bep"), targetProject);
+        Directory.CreateDirectory(Path.Combine(Root, "elements"));
+        await File.WriteAllBytesAsync(Path.Combine(Root, "elements", "base.belm"), targetElement);
+        await RunGitAsync("add", "-A");
+        await RunGitAsync("commit", "-m", "target");
+        string targetSha = (await RunGitAsync("rev-parse", "HEAD")).Stdout.Trim();
+
+        await File.WriteAllTextAsync(Path.Combine(Root, "project.bep"), "later\n");
+        await File.WriteAllTextAsync(Path.Combine(Root, "elements", "base.belm"), "changed\n");
+        await File.WriteAllTextAsync(Path.Combine(Root, "elements", "later.belm"), "later\n");
+        await RunGitAsync("add", "-A");
+        await RunGitAsync("commit", "-m", "later");
+        string laterSha = (await RunGitAsync("rev-parse", "HEAD")).Stdout.Trim();
+        string stateDirectory = Path.Combine(Root, ".beutl");
+        Directory.CreateDirectory(stateDirectory);
+        await File.WriteAllTextAsync(Path.Combine(stateDirectory, "view.json"), "keep\n");
+        await File.WriteAllTextAsync(Path.Combine(Root, "atomic.tmp"), "keep\n");
+
+        using var service = CreateService();
+        await service.RestoreWorktreeFromAsync(targetSha, CancellationToken.None);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(File.ReadAllBytes(Path.Combine(Root, "project.bep")), Is.EqualTo(targetProject));
+            Assert.That(
+                File.ReadAllBytes(Path.Combine(Root, "elements", "base.belm")),
+                Is.EqualTo(targetElement));
+            Assert.That(File.Exists(Path.Combine(Root, "elements", "later.belm")), Is.False);
+            Assert.That(File.ReadAllText(Path.Combine(stateDirectory, "view.json")), Is.EqualTo("keep\n"));
+            Assert.That(File.ReadAllText(Path.Combine(Root, "atomic.tmp")), Is.EqualTo("keep\n"));
+        });
+
+        await RunGitAsync("add", "-A");
+        await RunGitAsync("commit", "-m", "record restore");
+        await service.RestoreWorktreeFromAsync(laterSha, CancellationToken.None);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(File.ReadAllText(Path.Combine(Root, "project.bep")), Is.EqualTo("later\n"));
+            Assert.That(
+                File.ReadAllText(Path.Combine(Root, "elements", "base.belm")),
+                Is.EqualTo("changed\n"));
+            Assert.That(
+                File.ReadAllText(Path.Combine(Root, "elements", "later.belm")),
+                Is.EqualTo("later\n"));
+            Assert.That(File.ReadAllText(Path.Combine(stateDirectory, "view.json")), Is.EqualTo("keep\n"));
+            Assert.That(File.ReadAllText(Path.Combine(Root, "atomic.tmp")), Is.EqualTo("keep\n"));
+        });
+    }
+
+    [Test]
+    public async Task CreateBranchFromAsync_switches_to_a_new_branch_at_the_selected_commit()
+    {
+        await CommitFileAsync("project.bep", "target\n", "target");
+        string targetSha = (await RunGitAsync("rev-parse", "HEAD")).Stdout.Trim();
+        await CommitFileAsync("project.bep", "current\n", "current");
+        string mainSha = (await RunGitAsync("rev-parse", "HEAD")).Stdout.Trim();
+        using var service = CreateService();
+
+        await service.CreateBranchFromAsync(
+            "restored-state",
+            targetSha,
+            CancellationToken.None);
+
+        GitCommandResult branch = await RunGitAsync("branch", "--show-current");
+        GitCommandResult newBranchSha = await RunGitAsync("rev-parse", "HEAD");
+        GitCommandResult originalBranchSha = await RunGitAsync("rev-parse", "main");
+        Assert.Multiple(() =>
+        {
+            Assert.That(branch.Stdout.Trim(), Is.EqualTo("restored-state"));
+            Assert.That(newBranchSha.Stdout.Trim(), Is.EqualTo(targetSha));
+            Assert.That(originalBranchSha.Stdout.Trim(), Is.EqualTo(mainSha));
+            Assert.That(File.ReadAllText(Path.Combine(Root, "project.bep")), Is.EqualTo("target\n"));
+        });
+
+        await service.SwitchBranchAsync("main", CancellationToken.None);
+        GitCommandResult switchedBack = await RunGitAsync("branch", "--show-current");
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(switchedBack.Stdout.Trim(), Is.EqualTo("main"));
+            Assert.That(
+                File.ReadAllText(Path.Combine(Root, "project.bep")),
+                Is.EqualTo("current\n"));
+        });
+    }
+
+    [Test]
+    public async Task Worktree_mutations_are_rejected_until_the_project_is_closed()
+    {
+        await CommitFileAsync("project.bep", "current\n", "current");
+        string head = (await RunGitAsync("rev-parse", "HEAD")).Stdout.Trim();
+        using var service = new GitCliVersionControlService(
+            CreateInstalledLocator(),
+            Repository,
+            isWorktreeMutationAllowed: static () => false);
+
+        Assert.Multiple(() =>
+        {
+            Assert.ThrowsAsync<InvalidOperationException>(
+                async () => await service.RestoreWorktreeFromAsync(
+                    head,
+                    CancellationToken.None));
+            Assert.ThrowsAsync<InvalidOperationException>(
+                async () => await service.CreateBranchFromAsync(
+                    "blocked-branch",
+                    head,
+                    CancellationToken.None));
+            Assert.ThrowsAsync<InvalidOperationException>(
+                async () => await service.SwitchBranchAsync(
+                    "main",
+                    CancellationToken.None));
+        });
+
+        GitCommandResult branch = await RunGitAsync("branch", "--show-current");
+        Assert.Multiple(() =>
+        {
+            Assert.That(branch.Stdout.Trim(), Is.EqualTo("main"));
+            Assert.That(
+                File.ReadAllText(Path.Combine(Root, "project.bep")),
+                Is.EqualTo("current\n"));
+        });
+    }
+
+    [Test]
     public void Porcelain_v2_parser_reads_branch_counts_renames_and_conflicts()
     {
         string output = string.Join('\0',

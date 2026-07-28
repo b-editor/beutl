@@ -15,6 +15,33 @@ public interface IProjectVersionControlService : IDisposable
 
     Task<WorkspaceStatus> GetStatusAsync(CancellationToken cancellationToken);
 
+    Task<IReadOnlyList<CommitInfo>> GetHistoryAsync(
+        int skip,
+        int take,
+        CancellationToken cancellationToken);
+
+    Task<IReadOnlyList<FileChange>> GetCommitFilesAsync(
+        string sha,
+        CancellationToken cancellationToken);
+
+    Task<string> GetDiffAsync(
+        string sha,
+        string? path,
+        CancellationToken cancellationToken);
+
+    Task RestoreWorktreeFromAsync(
+        string sha,
+        CancellationToken cancellationToken);
+
+    Task CreateBranchFromAsync(
+        string name,
+        string sha,
+        CancellationToken cancellationToken);
+
+    Task SwitchBranchAsync(
+        string name,
+        CancellationToken cancellationToken);
+
     Task<GitIdentity?> GetIdentityAsync(CancellationToken cancellationToken);
 
     Task SetLocalIdentityAsync(
