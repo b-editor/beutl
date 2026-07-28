@@ -1,4 +1,4 @@
-using System.Collections.ObjectModel;
+﻿using System.Collections.ObjectModel;
 using System.Globalization;
 using System.Reactive.Disposables;
 using System.Text.Json.Nodes;
@@ -19,6 +19,7 @@ public sealed class VersionControlTabViewModel : IToolContext
 
     private readonly IEditorContext _editorContext;
     private readonly IProjectVersionControlService? _service;
+    private readonly IRepositoryLockRecoveryService? _lockRecoveryService;
     private readonly IVersionControlRestoreCoordinator? _restoreCoordinator;
     private readonly Action<Action> _postToUi;
     private readonly CompositeDisposable _disposables = [];
@@ -51,10 +52,20 @@ public sealed class VersionControlTabViewModel : IToolContext
         Extension = extension ?? throw new ArgumentNullException(nameof(extension));
         _editorContext = editorContext ?? throw new ArgumentNullException(nameof(editorContext));
         _service = service;
+        _lockRecoveryService = service as IRepositoryLockRecoveryService;
         _restoreCoordinator = restoreCoordinator;
         _postToUi = postToUi ?? throw new ArgumentNullException(nameof(postToUi));
 
         IsTracked = new ReactivePropertySlim<bool>(service?.Repository is not null)
+            .DisposeWith(_disposables);
+        IsUnavailable = new ReactivePropertySlim<bool>()
+            .DisposeWith(_disposables);
+        IsConflicted = new ReactivePropertySlim<bool>()
+            .DisposeWith(_disposables);
+        HasBlockingGuidance = new ReactivePropertySlim<bool>()
+            .DisposeWith(_disposables);
+        HasRecoverableLock = new ReactivePropertySlim<bool>(
+                _lockRecoveryService?.RecoverableLock is not null)
             .DisposeWith(_disposables);
         BranchText = new ReactivePropertySlim<string>()
             .DisposeWith(_disposables);
@@ -79,11 +90,19 @@ public sealed class VersionControlTabViewModel : IToolContext
         LoadMoreCommand = new AsyncReactiveCommand()
             .WithSubscribe(LoadMoreAsync)
             .DisposeWith(_disposables);
+        RemoveStaleLockCommand = new AsyncReactiveCommand(HasRecoverableLock)
+            .WithSubscribe(RemoveStaleLockAsync)
+            .DisposeWith(_disposables);
         RequestBranchNameAsync = ShowBranchNameDialogAsync;
 
         if (_service is not null)
         {
             _service.StatusChanged += OnStatusChanged;
+        }
+
+        if (_lockRecoveryService is not null)
+        {
+            _lockRecoveryService.RecoverableLockAvailable += OnRecoverableLockAvailable;
         }
 
         Initialization = InitializeAsync();
@@ -96,6 +115,14 @@ public sealed class VersionControlTabViewModel : IToolContext
     public string Header => Strings.VersionControl;
 
     public ReactivePropertySlim<bool> IsTracked { get; }
+
+    public ReactivePropertySlim<bool> IsUnavailable { get; }
+
+    public ReactivePropertySlim<bool> IsConflicted { get; }
+
+    public ReactivePropertySlim<bool> HasBlockingGuidance { get; }
+
+    public ReactivePropertySlim<bool> HasRecoverableLock { get; }
 
     public ReactivePropertySlim<string> BranchText { get; }
 
@@ -120,6 +147,8 @@ public sealed class VersionControlTabViewModel : IToolContext
     public ReactivePropertySlim<VersionControlFileChangeViewModel?> SelectedFile { get; }
 
     public AsyncReactiveCommand LoadMoreCommand { get; }
+
+    public AsyncReactiveCommand RemoveStaleLockCommand { get; }
 
     public Task Initialization { get; }
 
@@ -220,6 +249,11 @@ public sealed class VersionControlTabViewModel : IToolContext
             _service.StatusChanged -= OnStatusChanged;
         }
 
+        if (_lockRecoveryService is not null)
+        {
+            _lockRecoveryService.RecoverableLockAvailable -= OnRecoverableLockAvailable;
+        }
+
         _selectionCancellation?.Cancel();
         _selectionCancellation?.Dispose();
         foreach (VersionControlCommitViewModel commit in Commits)
@@ -265,16 +299,66 @@ public sealed class VersionControlTabViewModel : IToolContext
             CancellationToken.None);
     }
 
+    internal async Task RemoveStaleLockAsync()
+    {
+        if (_lockRecoveryService is null)
+        {
+            return;
+        }
+
+        await _lockRecoveryService.RemoveRecoverableLockAsync(CancellationToken.None);
+        HasRecoverableLock.Value = _lockRecoveryService.RecoverableLock is not null;
+    }
+
     private async Task InitializeAsync()
     {
-        if (_service?.Repository is null)
+        if (_service is null)
         {
+            return;
+        }
+
+        GitAvailability availability = await _service.GetAvailabilityAsync(CancellationToken.None);
+        if (availability.State != GitAvailabilityState.Installed)
+        {
+            IsUnavailable.Value = true;
+            HasBlockingGuidance.Value = true;
+            IsTracked.Value = false;
+            HasMoreHistory.Value = false;
+            StatusMessage.Value = GetAvailabilityMessage(availability);
+            return;
+        }
+
+        if (_service.Repository is null)
+        {
+            StatusMessage.Value = Strings.VersionControl_NoRepository;
             return;
         }
 
         WorkspaceStatus status = await _service.GetStatusAsync(CancellationToken.None);
         ApplyStatus(status);
-        await RefreshHistoryAsync();
+        if (!status.HasConflicts)
+        {
+            await RefreshHistoryAsync();
+        }
+    }
+
+    internal static string GetAvailabilityMessage(GitAvailability availability)
+    {
+        ArgumentNullException.ThrowIfNull(availability);
+        string stateMessage = availability.State switch
+        {
+            GitAvailabilityState.VersionTooOld => string.Format(
+                CultureInfo.CurrentCulture,
+                Strings.VersionControl_GitTooOldFormat,
+                availability.Version?.ToString() ?? "—"),
+            _ => Strings.VersionControl_GitNotInstalled,
+        };
+        string installMessage = OperatingSystem.IsWindows()
+            ? Strings.VersionControl_InstallGitWindows
+            : OperatingSystem.IsMacOS()
+                ? Strings.VersionControl_InstallGitMacOS
+                : Strings.VersionControl_InstallGitLinux;
+        return $"{stateMessage}\n\n{installMessage}";
     }
 
     private async Task RefreshHistoryAsync()
@@ -357,12 +441,35 @@ public sealed class VersionControlTabViewModel : IToolContext
             }
 
             ApplyStatus(status);
-            _ = RefreshHistoryAsync();
+            if (!status.HasConflicts)
+            {
+                _ = RefreshHistoryAsync();
+            }
+        });
+    }
+
+    private void OnRecoverableLockAvailable(object? sender, RepositoryLockInfo lockInfo)
+    {
+        _postToUi(() =>
+        {
+            if (!_disposed
+                && Equals(_lockRecoveryService?.RecoverableLock, lockInfo))
+            {
+                HasRecoverableLock.Value = true;
+            }
         });
     }
 
     private void ApplyStatus(WorkspaceStatus status)
     {
+        IsConflicted.Value = status.HasConflicts;
+        HasBlockingGuidance.Value = IsUnavailable.Value || status.HasConflicts;
+        if (status.HasConflicts)
+        {
+            StatusMessage.Value = Strings.VersionControl_ConflictGuidance;
+            HasMoreHistory.Value = false;
+        }
+
         BranchText.Value = string.Format(
             CultureInfo.CurrentCulture,
             Strings.VersionControl_BranchFormat,

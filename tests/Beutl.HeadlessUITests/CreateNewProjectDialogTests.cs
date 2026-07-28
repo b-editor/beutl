@@ -2,6 +2,7 @@
 using Avalonia.Headless.NUnit;
 
 using Beutl.Configuration;
+using Beutl.Editor.VersionControl;
 using Beutl.Language;
 using Beutl.Services;
 using Beutl.ViewModels;
@@ -87,5 +88,40 @@ public class CreateNewProjectDialogTests
         });
 
         await TestReset.ResetShellAsync();
+    }
+
+    [AvaloniaTest]
+    public async Task Enable_version_control_command_is_disabled_when_git_is_unavailable()
+    {
+        await TestReset.ResetShellAsync();
+        VersionControlConfig config = GlobalConfiguration.Instance.VersionControlConfig;
+        string? previousPath = config.GitExecutablePath;
+        try
+        {
+            config.GitExecutablePath = Path.Combine(
+                Beutl.Testing.Headless.BeutlHomeIsolation.CurrentHome!,
+                "missing-git");
+            GitAvailability availability
+                = await TestShell.VersionControl.GetAvailabilityAsync();
+            Assert.That(availability.State, Is.EqualTo(GitAvailabilityState.NotInstalled));
+
+            string location = Path.Combine(
+                Beutl.Testing.Headless.BeutlHomeIsolation.CurrentHome!,
+                "unavailable-command-gating");
+            Directory.CreateDirectory(location);
+            await TestShell.Project.CreateProject(640, 480, 30, 44100, "project", location);
+            Beutl.Testing.Headless.HeadlessTestHelpers.Settle();
+
+            Assert.That(
+                ((System.Windows.Input.ICommand)TestShell.MainViewModel.MenuBar.EnableVersionControl)
+                .CanExecute(null),
+                Is.False);
+        }
+        finally
+        {
+            config.GitExecutablePath = previousPath;
+            await TestShell.VersionControl.GetAvailabilityAsync();
+            await TestReset.ResetShellAsync();
+        }
     }
 }

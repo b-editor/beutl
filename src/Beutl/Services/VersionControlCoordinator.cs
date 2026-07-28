@@ -1,8 +1,10 @@
-﻿using Beutl.Configuration;
+﻿using Avalonia.Threading;
+using Beutl.Configuration;
 using Beutl.Editor.VersionControl;
 using Beutl.Logging;
 using FluentAvalonia.UI.Controls;
 using Microsoft.Extensions.Logging;
+using Reactive.Bindings;
 
 namespace Beutl.Services;
 
@@ -19,7 +21,13 @@ public sealed class VersionControlCoordinator : IVersionControlRestoreCoordinato
     private readonly IDisposable _projectSubscription;
     private readonly ILogger _logger = Log.CreateLogger<VersionControlCoordinator>();
     private readonly SemaphoreSlim _lifecycleGate = new(1, 1);
+    private readonly SemaphoreSlim _lockRecoveryGate = new(1, 1);
+    private readonly ReactivePropertySlim<bool> _isGitAvailable = new();
+    private CancellationTokenSource? _activationCancellation;
+    private Task _activationTask = Task.CompletedTask;
     private IProjectVersionControlService? _currentService;
+    private int _activationRevision;
+    private int _availabilityRevision;
     private int _lifecycleUsers;
     private bool _preserveServiceAcrossClose;
     private bool _disposed;
@@ -46,10 +54,16 @@ public sealed class VersionControlCoordinator : IVersionControlRestoreCoordinato
         _config = config ?? throw new ArgumentNullException(nameof(config));
         _installationLocator = installationLocator ?? new GitInstallationLocator(config);
         ConfirmRestoreAsync = ShowRestoreConfirmationAsync;
+        ConfirmUseEnclosingRepositoryAsync = ShowEnclosingRepositoryConfirmationAsync;
+        ConfirmRemoveStaleLockAsync = ShowStaleLockConfirmationAsync;
+        WarnConflictMarkersAsync = ShowConflictMarkerWarningAsync;
+        _config.ConfigurationChanged += OnVersionControlConfigChanged;
+        _projectService.Opening += WarnBeforeOpeningConflictedProjectAsync;
         _projectService.Closing += NotifyClosingAsync;
         _projectSubscription = _projectService.ProjectObservable.Subscribe(
             change => OnProjectChanged(change.New));
         _editorService.VersionControlRestoreCoordinator = this;
+        _ = RefreshAvailabilityAsync();
 
         if (_projectService.CurrentProject.Value is { } project)
         {
@@ -59,12 +73,32 @@ public sealed class VersionControlCoordinator : IVersionControlRestoreCoordinato
 
     public IProjectVersionControlService? CurrentService => _currentService;
 
+    public IReadOnlyReactiveProperty<bool> IsGitAvailable => _isGitAvailable;
+
     internal Func<CancellationToken, Task<bool>> ConfirmRestoreAsync { get; set; }
 
-    public Task<GitAvailability> GetAvailabilityAsync(CancellationToken cancellationToken = default)
+    internal Func<RepositoryInfo, CancellationToken, Task<bool>>
+        ConfirmUseEnclosingRepositoryAsync
+    { get; set; }
+
+    internal Func<RepositoryLockInfo, CancellationToken, Task<bool>>
+        ConfirmRemoveStaleLockAsync
+    { get; set; }
+
+    internal Func<string, Task> WarnConflictMarkersAsync { get; set; }
+
+    public async Task<GitAvailability> GetAvailabilityAsync(
+        CancellationToken cancellationToken = default)
     {
         ObjectDisposedException.ThrowIf(_disposed, this);
-        return _installationLocator.LocateAsync(cancellationToken);
+        int revision = Interlocked.Increment(ref _availabilityRevision);
+        GitAvailability availability = await _installationLocator.LocateAsync(cancellationToken);
+        if (!_disposed && revision == Volatile.Read(ref _availabilityRevision))
+        {
+            _isGitAvailable.Value = availability.State == GitAvailabilityState.Installed;
+        }
+
+        return availability;
     }
 
     public async Task<bool> InitializeCurrentProjectAsync(
@@ -76,23 +110,42 @@ public sealed class VersionControlCoordinator : IVersionControlRestoreCoordinato
 
         Project project = _projectService.CurrentProject.Value
                           ?? throw new InvalidOperationException("No project is open.");
+        await _activationTask.WaitAsync(cancellationToken);
         IProjectVersionControlService service = _currentService
                                                 ?? throw new InvalidOperationException(
                                                     "The version control service is not available.");
         string projectRoot = GetProjectRoot(project);
-        var options = new InitOptions(projectRoot, _config.UseLfsWhenAvailable);
+        RepositoryInfo? targetRepository = service.Repository
+                                           ?? await SelectRepositoryForInitializationAsync(
+                                               service,
+                                               projectRoot,
+                                               cancellationToken);
+        if (targetRepository is null)
+        {
+            return false;
+        }
+
+        var options = new InitOptions(targetRepository, _config.UseLfsWhenAvailable);
         try
         {
-            await service.InitializeAsync(options, cancellationToken);
-        }
-        catch (GitIdentityRequiredException)
-        {
-            if (!await requestIdentityAsync(service))
+            try
             {
-                return false;
+                await service.InitializeAsync(options, cancellationToken);
             }
+            catch (GitIdentityRequiredException)
+            {
+                if (!await requestIdentityAsync(service))
+                {
+                    return false;
+                }
 
-            await service.InitializeAsync(options, cancellationToken);
+                await service.InitializeAsync(options, cancellationToken);
+            }
+        }
+        catch (VersionControlConflictedException ex)
+        {
+            NotificationService.ShowWarning(Strings.VersionControl, ex.Guidance);
+            return false;
         }
 
         return true;
@@ -147,6 +200,10 @@ public sealed class VersionControlCoordinator : IVersionControlRestoreCoordinato
         }
 
         _disposed = true;
+        _activationCancellation?.Cancel();
+        _activationCancellation?.Dispose();
+        _config.ConfigurationChanged -= OnVersionControlConfigChanged;
+        _projectService.Opening -= WarnBeforeOpeningConflictedProjectAsync;
         _projectService.Closing -= NotifyClosingAsync;
         _projectSubscription.Dispose();
         if (ReferenceEquals(_editorService.VersionControlRestoreCoordinator, this))
@@ -158,6 +215,8 @@ public sealed class VersionControlCoordinator : IVersionControlRestoreCoordinato
         {
             ReplaceService(null);
         }
+
+        _isGitAvailable.Dispose();
     }
 
     private async Task<bool> RunRestoreCycleAsync(
@@ -182,11 +241,6 @@ public sealed class VersionControlCoordinator : IVersionControlRestoreCoordinato
                 return false;
             }
 
-            if (!await ConfirmRestoreAsync(cancellationToken))
-            {
-                return false;
-            }
-
             Project project = _projectService.CurrentProject.Value
                               ?? throw new InvalidOperationException("No project is open.");
             string projectFile = project.Uri?.LocalPath
@@ -202,6 +256,19 @@ public sealed class VersionControlCoordinator : IVersionControlRestoreCoordinato
             }
 
             WorkspaceStatus status = await service.GetStatusAsync(cancellationToken);
+            if (status.HasConflicts)
+            {
+                NotificationService.ShowWarning(
+                    Strings.VersionControl,
+                    Strings.VersionControl_ConflictGuidance);
+                return false;
+            }
+
+            if (!await ConfirmRestoreAsync(cancellationToken))
+            {
+                return false;
+            }
+
             if (!status.IsClean)
             {
                 CommitResult result = await service.CommitAllAsync(
@@ -405,6 +472,65 @@ public sealed class VersionControlCoordinator : IVersionControlRestoreCoordinato
         return result == ContentDialogResult.Primary;
     }
 
+    private static async Task<bool> ShowEnclosingRepositoryConfirmationAsync(
+        RepositoryInfo repository,
+        CancellationToken cancellationToken)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        var dialog = new ContentDialog
+        {
+            Title = Strings.VersionControl,
+            Content = $"{Strings.VersionControl_EnclosingRepositoryFound}\n\n{repository.RepoRoot}",
+            PrimaryButtonText = Strings.VersionControl_UseEnclosingRepository,
+            CloseButtonText = Strings.VersionControl_LeaveUnmanaged,
+            DefaultButton = ContentDialogButton.Close,
+        };
+        ContentDialogResult result = await dialog.ShowAsync();
+        return result == ContentDialogResult.Primary;
+    }
+
+    private static async Task<bool> ShowStaleLockConfirmationAsync(
+        RepositoryLockInfo lockInfo,
+        CancellationToken cancellationToken)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        var dialog = new ContentDialog
+        {
+            Title = Strings.VersionControl,
+            Content = $"{Strings.VersionControl_StaleLockConfirmation}\n\n{lockInfo.LockPath}",
+            PrimaryButtonText = Strings.VersionControl_RemoveStaleLock,
+            CloseButtonText = Strings.Cancel,
+            DefaultButton = ContentDialogButton.Close,
+        };
+        ContentDialogResult result = await dialog.ShowAsync();
+        return result == ContentDialogResult.Primary;
+    }
+
+    private async Task WarnBeforeOpeningConflictedProjectAsync(string projectFile)
+    {
+        string? markerFile = await ProjectConflictMarkerScanner.FindFirstAsync(
+            projectFile,
+            CancellationToken.None);
+        if (markerFile is not null)
+        {
+            await WarnConflictMarkersAsync(markerFile);
+        }
+    }
+
+    private static async Task ShowConflictMarkerWarningAsync(string markerFile)
+    {
+        var dialog = new ContentDialog
+        {
+            Title = Strings.VersionControl_ConflictMarkerWarningTitle,
+            Content = string.Format(
+                Strings.VersionControl_ConflictMarkerWarning,
+                markerFile),
+            CloseButtonText = Strings.Close,
+            DefaultButton = ContentDialogButton.Close,
+        };
+        await dialog.ShowAsync();
+    }
+
     private async Task CommitSnapshotAsync(
         bool enabled,
         string message,
@@ -463,18 +589,26 @@ public sealed class VersionControlCoordinator : IVersionControlRestoreCoordinato
 
             if (project is null)
             {
+                CancelActivation();
                 ReplaceService(null);
                 return;
             }
 
             string projectRoot = GetProjectRoot(project);
-            RepositoryInfo? repository = Directory.Exists(Path.Combine(projectRoot, ".git"))
-                ? new RepositoryInfo(projectRoot, projectRoot)
-                : null;
-            ReplaceService(new GitCliVersionControlService(
+            CancelActivation();
+            var service = new GitCliVersionControlService(
                 _installationLocator,
-                repository,
-                () => _projectService.CurrentProject.Value is null));
+                repository: null,
+                () => _projectService.CurrentProject.Value is null);
+            ReplaceService(service);
+            int revision = ++_activationRevision;
+            var activationCancellation = new CancellationTokenSource();
+            _activationCancellation = activationCancellation;
+            _activationTask = ActivateRepositoryAsync(
+                service,
+                projectRoot,
+                revision,
+                activationCancellation.Token);
         }
         catch (Exception ex)
         {
@@ -483,11 +617,118 @@ public sealed class VersionControlCoordinator : IVersionControlRestoreCoordinato
         }
     }
 
+    private async Task ActivateRepositoryAsync(
+        GitCliVersionControlService service,
+        string projectRoot,
+        int revision,
+        CancellationToken cancellationToken)
+    {
+        try
+        {
+            GitAvailability availability = await service.GetAvailabilityAsync(cancellationToken);
+            if (availability.State != GitAvailabilityState.Installed)
+            {
+                return;
+            }
+
+            RepositoryInfo? repository = await service.DiscoverRepositoryAsync(
+                projectRoot,
+                cancellationToken);
+            if (repository is null)
+            {
+                return;
+            }
+
+            if (repository.IsNestedInForeignRepo
+                && !await ConfirmUseEnclosingRepositoryAsync(repository, cancellationToken))
+            {
+                return;
+            }
+
+            if (revision != _activationRevision
+                || !ReferenceEquals(_currentService, service)
+                || cancellationToken.IsCancellationRequested)
+            {
+                return;
+            }
+
+            ReplaceService(new GitCliVersionControlService(
+                _installationLocator,
+                repository,
+                () => _projectService.CurrentProject.Value is null));
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to discover version control for the open project.");
+        }
+    }
+
+    private async Task<RepositoryInfo?> SelectRepositoryForInitializationAsync(
+        IProjectVersionControlService service,
+        string projectRoot,
+        CancellationToken cancellationToken)
+    {
+        RepositoryInfo? discovered = await service.DiscoverRepositoryAsync(
+            projectRoot,
+            cancellationToken);
+        if (discovered is not { IsNestedInForeignRepo: true })
+        {
+            return discovered ?? new RepositoryInfo(projectRoot, projectRoot);
+        }
+
+        return await ConfirmUseEnclosingRepositoryAsync(discovered, cancellationToken)
+            ? discovered
+            : null;
+    }
+
+    private void CancelActivation()
+    {
+        _activationRevision++;
+        _activationCancellation?.Cancel();
+        _activationCancellation?.Dispose();
+        _activationCancellation = null;
+        _activationTask = Task.CompletedTask;
+    }
+
+    private void OnVersionControlConfigChanged(object? sender, EventArgs e)
+    {
+        _ = RefreshAvailabilityAsync();
+    }
+
+    private async Task RefreshAvailabilityAsync()
+    {
+        try
+        {
+            await GetAvailabilityAsync();
+        }
+        catch (Exception ex) when (!_disposed)
+        {
+            _isGitAvailable.Value = false;
+            _logger.LogWarning(ex, "Failed to refresh Git availability.");
+        }
+        catch (Exception) when (_disposed)
+        {
+        }
+    }
+
     private void ReplaceService(IProjectVersionControlService? service)
     {
         IProjectVersionControlService? previous = _currentService;
+        if (previous is IRepositoryLockRecoveryService previousRecovery)
+        {
+            previousRecovery.RecoverableLockAvailable -= OnRecoverableLockAvailable;
+        }
+
         _currentService = service;
         _editorService.ProjectVersionControlService = service;
+        if (service is IRepositoryLockRecoveryService recovery)
+        {
+            recovery.RecoverableLockAvailable += OnRecoverableLockAvailable;
+        }
+
         try
         {
             previous?.Dispose();
@@ -495,6 +736,58 @@ public sealed class VersionControlCoordinator : IVersionControlRestoreCoordinato
         catch (Exception ex)
         {
             _logger.LogError(ex, "Failed to dispose the previous project version control service.");
+        }
+    }
+
+    private void OnRecoverableLockAvailable(object? sender, RepositoryLockInfo lockInfo)
+    {
+        void StartRecovery()
+        {
+            _ = OfferLockRecoveryAsync(sender, lockInfo);
+        }
+
+        if (Dispatcher.UIThread.CheckAccess())
+        {
+            StartRecovery();
+        }
+        else
+        {
+            Dispatcher.UIThread.Post(StartRecovery);
+        }
+    }
+
+    private async Task OfferLockRecoveryAsync(object? sender, RepositoryLockInfo lockInfo)
+    {
+        await _lockRecoveryGate.WaitAsync();
+        try
+        {
+            if (_disposed
+                || sender is not IRepositoryLockRecoveryService recovery
+                || !ReferenceEquals(_currentService, sender)
+                || !Equals(recovery.RecoverableLock, lockInfo)
+                || !await ConfirmRemoveStaleLockAsync(lockInfo, CancellationToken.None))
+            {
+                return;
+            }
+
+            if (await recovery.RemoveRecoverableLockAsync(CancellationToken.None))
+            {
+                _logger.LogWarning(
+                    "Removed stale Git repository lock with user consent. Lock: {LockPath}, LastWriteTimeUtc: {LastWriteTimeUtc}",
+                    lockInfo.LockPath,
+                    lockInfo.LastWriteTimeUtc);
+                NotificationService.ShowInformation(
+                    Strings.VersionControl,
+                    Strings.VersionControl_StaleLockRemoved);
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to recover a stale Git repository lock.");
+        }
+        finally
+        {
+            _lockRecoveryGate.Release();
         }
     }
 

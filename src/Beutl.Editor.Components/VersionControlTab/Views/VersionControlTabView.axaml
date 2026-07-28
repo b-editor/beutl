@@ -42,7 +42,17 @@
         </Style>
     </UserControl.Styles>
 
-    <Grid RowDefinitions="Auto,*">
+    <Grid>
+        <TextBlock Margin="20"
+                   HorizontalAlignment="Center"
+                   VerticalAlignment="Center"
+                   IsVisible="{Binding HasBlockingGuidance.Value}"
+                   Text="{Binding StatusMessage.Value}"
+                   TextAlignment="Center"
+                   TextWrapping="Wrap" />
+
+        <Grid IsVisible="{Binding !HasBlockingGuidance.Value}"
+              RowDefinitions="Auto,Auto,*">
         <Border Grid.Row="0"
                 Padding="10,8"
                 BorderBrush="{DynamicResource DividerStrokeColorDefaultBrush}"
@@ -62,7 +72,23 @@
             </Grid>
         </Border>
 
-        <Grid Grid.Row="1">
+        <Border Grid.Row="1"
+                Margin="8"
+                Padding="10"
+                Background="{DynamicResource SystemFillColorCautionBackgroundBrush}"
+                CornerRadius="4"
+                IsVisible="{Binding HasRecoverableLock.Value}">
+            <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
+                <TextBlock VerticalAlignment="Center"
+                           Text="{x:Static lang:Strings.VersionControl_StaleLockGuidance}"
+                           TextWrapping="Wrap" />
+                <Button Grid.Column="1"
+                        Command="{Binding RemoveStaleLockCommand}"
+                        Content="{x:Static lang:Strings.VersionControl_RemoveStaleLock}" />
+            </Grid>
+        </Border>
+
+        <Grid Grid.Row="2">
             <TextBlock Margin="20"
                        HorizontalAlignment="Center"
                        VerticalAlignment="Center"
@@ -176,6 +202,7 @@
                     </ScrollViewer>
                 </Grid>
             </Grid>
+        </Grid>
         </Grid>
     </Grid>
 </UserControl>

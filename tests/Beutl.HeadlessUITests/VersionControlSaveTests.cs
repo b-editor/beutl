@@ -296,6 +296,11 @@ public class VersionControlSaveTests
         public Task<GitAvailability> GetAvailabilityAsync(CancellationToken cancellationToken)
             => Task.FromResult(GitAvailability.NotInstalled);
 
+        public Task<RepositoryInfo?> DiscoverRepositoryAsync(
+            string projectRoot,
+            CancellationToken cancellationToken)
+            => Task.FromResult<RepositoryInfo?>(null);
+
         public Task InitializeAsync(InitOptions options, CancellationToken cancellationToken)
             => Task.CompletedTask;
 

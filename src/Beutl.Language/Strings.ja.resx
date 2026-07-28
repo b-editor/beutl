@@ -1597,6 +1597,16 @@ GetProperty&lt;T&gt;("path") または GetProperty&lt;T&gt;(guid, "propertyName"
   <data name="VersionControl_ConflictGuidance" xml:space="preserve">
     <value>このリポジトリには未解決の競合があります。続行する前に外部の Git ツールで解決してください。</value>
   </data>
+  <data name="VersionControl_ConflictMarkerWarningTitle" xml:space="preserve">
+    <value>競合マーカーが検出されました</value>
+  </data>
+  <data name="VersionControl_ConflictMarkerWarning" xml:space="preserve">
+    <value>プロジェクト内の次のファイルに未解決の競合マーカーがあります:
+
+{0}
+
+編集する前に外部の Git ツールで競合を解決してください。プロジェクトを正しく開けない場合があります。</value>
+  </data>
   <data name="VersionControl_IdentityTitle" xml:space="preserve">
     <value>コミット作成者の設定</value>
   </data>
@@ -1662,5 +1672,17 @@ GetProperty&lt;T&gt;("path") または GetProperty&lt;T&gt;(guid, "propertyName"
   </data>
   <data name="VersionControl_Offline" xml:space="preserve">
     <value>リモートに接続できませんでした。ネットワーク接続を確認して再試行してください。</value>
+  </data>
+  <data name="VersionControl_StaleLockGuidance" xml:space="preserve">
+    <value>古い Git インデックスロックにより、バージョン管理操作が妨げられています。</value>
+  </data>
+  <data name="VersionControl_RemoveStaleLock" xml:space="preserve">
+    <value>古いロックを削除</value>
+  </data>
+  <data name="VersionControl_StaleLockConfirmation" xml:space="preserve">
+    <value>Git のインデックスロックが作成から 10 分以上経過しており、Beutl が実行中の Git プロセスはありません。この古いロックを削除しますか？</value>
+  </data>
+  <data name="VersionControl_StaleLockRemoved" xml:space="preserve">
+    <value>古い Git インデックスロックを削除しました。バージョン管理操作を再試行してください。</value>
   </data>
 </root>

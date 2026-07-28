@@ -33,7 +33,10 @@ public partial class MenuBarViewModel
         SaveAll = new AsyncReactiveCommand(IsProjectOpened)
             .WithSubscribe(OnSaveAll);
 
-        EnableVersionControl = new AsyncReactiveCommand(IsProjectOpened);
+        IObservable<bool> canEnableVersionControl = IsProjectOpened.CombineLatest(
+            _versionControlCoordinator.IsGitAvailable,
+            static (isOpened, isGitAvailable) => isOpened && isGitAvailable);
+        EnableVersionControl = new AsyncReactiveCommand(canEnableVersionControl);
 
         ExportProject = new AsyncReactiveCommand(IsProjectOpened);
 

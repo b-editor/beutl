@@ -32,6 +32,8 @@ public sealed class ProjectService
 
     internal event Func<CancellationToken, Task>? Closing;
 
+    internal event Func<string, Task>? Opening;
+
     public IReadOnlyReactiveProperty<Project?> CurrentProject { get; }
 
     public IReadOnlyReactiveProperty<bool> IsOpened => _isOpened;
@@ -57,6 +59,14 @@ public sealed class ProjectService
         using Activity? activity = Telemetry.StartActivity();
         try
         {
+            if (Opening is { } opening)
+            {
+                foreach (Func<string, Task> handler in opening.GetInvocationList())
+                {
+                    await handler(file);
+                }
+            }
+
             await CloseProject();
 
             (NuGetVersion appVersion, NuGetVersion minVersion) = await GetProjectVersion(file);

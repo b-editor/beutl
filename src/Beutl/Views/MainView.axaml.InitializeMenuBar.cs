@@ -76,9 +76,6 @@ public partial class MainView
             GitAvailability availability = await viewModel.VersionControlCoordinator.GetAvailabilityAsync();
             if (availability.State != GitAvailabilityState.Installed)
             {
-                NotificationService.ShowInformation(
-                    Strings.Project,
-                    Strings.VersionControl_GitNotInstalled);
                 return;
             }
 

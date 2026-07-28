@@ -1603,6 +1603,16 @@ Example: GetProperty&lt;double&gt;("{GUID}.Opacity")</value>
   <data name="VersionControl_ConflictGuidance" xml:space="preserve">
     <value>This repository has unresolved conflicts. Resolve them with an external Git tool before continuing.</value>
   </data>
+  <data name="VersionControl_ConflictMarkerWarningTitle" xml:space="preserve">
+    <value>Conflict Markers Detected</value>
+  </data>
+  <data name="VersionControl_ConflictMarkerWarning" xml:space="preserve">
+    <value>The project contains unresolved conflict markers in:
+
+{0}
+
+Resolve the conflicts with an external Git tool before editing. The project may not open correctly.</value>
+  </data>
   <data name="VersionControl_IdentityTitle" xml:space="preserve">
     <value>Set Commit Identity</value>
   </data>
@@ -1668,5 +1678,17 @@ Example: GetProperty&lt;double&gt;("{GUID}.Opacity")</value>
   </data>
   <data name="VersionControl_Offline" xml:space="preserve">
     <value>The remote could not be reached. Check your network connection and try again.</value>
+  </data>
+  <data name="VersionControl_StaleLockGuidance" xml:space="preserve">
+    <value>A stale Git index lock is blocking version control operations.</value>
+  </data>
+  <data name="VersionControl_RemoveStaleLock" xml:space="preserve">
+    <value>Remove Stale Lock</value>
+  </data>
+  <data name="VersionControl_StaleLockConfirmation" xml:space="preserve">
+    <value>Git left an index lock more than 10 minutes ago, and Beutl has no active Git process. Remove the stale lock?</value>
+  </data>
+  <data name="VersionControl_StaleLockRemoved" xml:space="preserve">
+    <value>The stale Git index lock was removed. Retry the version control operation.</value>
   </data>
 </root>
