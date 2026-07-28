@@ -98,6 +98,29 @@ public sealed class KeyFrameShorthandTests
         });
     }
 
+    [Test]
+    public void Keyframes_do_not_inflate_createdIds()
+    {
+        (EditTools tools, _, Element element) = CreateSceneWithRect();
+
+        ToolResult<ApplyEditResponse> apply = tools.ApplyEdit(
+            patch: OpacityPatch(element, new JsonArray(
+                new JsonArray(0, 0),
+                new JsonArray(0.5, 50),
+                new JsonArray(1.0, 100),
+                new JsonArray(1.5, 0))),
+            schemaVersion: SchemaVersion.Current);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(apply.IsSuccess, Is.True, apply.Error?.Message);
+            // Four keyframes plus their animation would previously appear here with full paths,
+            // none of which can be used as a follow-up handle.
+            Assert.That(apply.Value!.CreatedIds.Select(item => item.Path), Has.None.Contains("KeyFrames"));
+            Assert.That(apply.Value.CreatedIds.Select(item => item.Path), Has.None.Contains("Animations"));
+        });
+    }
+
     private static IAnimation RequireOpacityAnimation(Scene scene)
     {
         var shape = (RectShape)scene.Children.Single().Objects.Single();
