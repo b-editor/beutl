@@ -80,7 +80,7 @@ The handle denotes one ordered render-fragment stream, not necessarily one runti
 
 An `OwningTargetDomain` fragment has symbolic recording metadata even when its internal reference temporarily carries finite placeholder bounds or scale. Every ordinary descendant of such a fragment remains symbolic, including handles returned by nested `RecordNode` or `RecordSubtree`; placeholder values are never exposed as authoritative metadata. A finite public `Layer` is the explicit resolution barrier: if every input is concrete it preserves the normal tight child-derived bounds and hit test, while any symbolic input makes the Layer publish its complete finite domain as conservative bounds and use domain containment as its conservative hit test. The Layer remains internally connected to symbolic dependencies for final graph-wide resolution and fan-out analysis. `ValueCardinality`, `ContributesValuesToTarget`, and `CanBeUsedAsValueInput` remain readable whether metadata is concrete or symbolic. Every public member validates that the handle is still active in its owning recording transaction.
 
-`CanBeUsedAsValueInput` is conservative transaction-memoized metadata. It is true only when the fragment exposes every possible runtime value as a materializable value stream without replaying a target-state scope or an effect-only fragment. A target capture is true even though its explicit preceding-token dependency remains scheduled, so this property does not promise purity or request-independent execution. The result is fixed at recording by these rules:
+`CanBeUsedAsValueInput` is conservative transaction-memoized metadata. Public recording APIs return true only when the fragment exposes every possible runtime value as a materializable value stream without replaying a target-state scope or an effect-only fragment. The engine-owned value-replay-map exception below is restricted mechanically rather than exposed as a general authoring capability. A target capture is true even though its explicit preceding-token dependency remains scheduled, so this property does not promise purity or request-independent execution. The result is fixed at recording by these rules:
 
 | Recorder/result | Input requirement | Result |
 |---|---|---|
@@ -91,10 +91,16 @@ An `OwningTargetDomain` fragment has symbolic recording metadata even when its i
 | `Opacity` | Any fragment may be wrapped | `true` only for a value-input-eligible child; otherwise `false` |
 | `OpacityMask` | Any fragment may be wrapped | `true` only when the primary child and every lowered mask dependency are value-input eligible and no `LegacyRawCanvas` fallback is required; otherwise `false` |
 | `Blend` | Any fragment may be wrapped | `false`, because the result retains a dependency on the current destination even for a pure child |
-| `TargetLayerScope`, `TargetScope`, `RawTargetScope`, `TargetCommand`, `RawTargetCommand` | As declared by their APIs | `false` |
+| `TargetLayerScope`, public `TargetScope`, `RawTargetScope`, `TargetCommand`, `RawTargetCommand` | As declared by their public APIs | `false` |
+| engine-owned TargetScope value-replay map | One contributing, self-contained `Single` input that is already `true` | preserves `true` |
 | nested `RecordSubtree`/`RecordNode` result | Child-defined | preserves each returned handle's recorded value |
 
-A mixed command/value fragment is therefore false until an explicit `Layer` localizes and materializes its painter result. It is legal to publish the same handle more than once as explicit fan-out when the fragment is pure; effectful fragment fan-out is rejected except for a target capture, whose one scheduled materialization may feed multiple pure consumers. Non-friend public-contract tests MUST assert every table row, including a `Shader -> Opacity -> Shader` chain whose opacity result remains true and a pure-child `Blend` result that remains false.
+The `TargetScope` row describes the public `TargetScopeDescription.Create` path. An engine-owned scope may use the
+internal value-replay-map descriptor only when its callback is mechanically restricted to allocation-free target
+state plus one replay. That internal result is eligible only for one contributing, value-eligible, self-contained
+input with `Single` cardinality; it does not relax the public authoring rule.
+
+A mixed command/value fragment is therefore false until an explicit `Layer` localizes and materializes its painter result. It is legal to publish the same handle more than once as explicit fan-out when the fragment is pure; effectful fragment fan-out is rejected except for a target capture, whose one scheduled materialization may feed multiple pure consumers. Non-friend public-contract tests MUST assert every public table row, including a `Shader -> Opacity -> Shader` chain whose opacity result remains true and a pure-child `Blend` result that remains false.
 
 ## Request classifications
 

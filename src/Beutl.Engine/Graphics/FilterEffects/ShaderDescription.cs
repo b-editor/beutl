@@ -166,6 +166,13 @@ public sealed class ShaderDescription
 
         foreach (ShaderResourceBinding resource in resources)
         {
+            if (kind == ShaderDescriptionKind.WholeSource && resource.Name == "src")
+            {
+                throw new ArgumentException(
+                    "The implicit WholeSource input 'src' cannot be supplied as an explicit resource binding.",
+                    nameof(resources));
+            }
+
             if (!source.Uniforms.TryGetValue(resource.Name, out SkslUniformDeclaration declaration))
                 throw new ArgumentException($"The shader does not declare resource '{resource.Name}'.", nameof(resources));
             if (!declaration.IsShader)

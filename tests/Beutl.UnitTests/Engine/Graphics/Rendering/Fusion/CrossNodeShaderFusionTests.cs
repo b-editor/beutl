@@ -303,11 +303,13 @@ public sealed class CrossNodeShaderFusionTests
             RgbaMaximumError warmedParity = ImageMetrics.MaximumAbsoluteErrorPerChannel(
                 enabledRaster.Bitmap!,
                 warmedRaster.Bitmap!);
+            double ssim = ImageMetrics.Ssim(disabledRaster.Bitmap!, enabledRaster.Bitmap!);
             double energy = SumAbsoluteChannels(enabledRaster.Bitmap!);
 
             Assert.Multiple(() =>
             {
                 Assert.That(energy, Is.GreaterThan(1), "the execution oracle must not be transparent or vacuous");
+                Assert.That(ssim, Is.GreaterThanOrEqualTo(0.99));
                 Assert.That(parity.Maximum, Is.LessThanOrEqualTo(0.0025));
                 Assert.That(warmedParity.Maximum, Is.Zero);
                 Assert.That(enabled.LastExecutionStatistics.ShaderRunExecutions, Is.EqualTo(1));

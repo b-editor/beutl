@@ -80,6 +80,36 @@ public sealed class NodeRecordingTransactionTests
     }
 
     [Test]
+    public void RecordedBrushPlan_ValueEligibilityRequiresEveryDependencyAndNoRawFallback()
+    {
+        using var owner = new RenderRequestOwner();
+        using var request = CreateRequest(owner);
+        var host = new RecordingHost(request);
+        var transaction = new NodeRecordingTransaction(host, new object(), []);
+        var context = new RenderNodeContext(transaction);
+        var bounds = new Rect(0, 0, 10, 10);
+        RenderFragmentHandle source = CreateSource(transaction, bounds);
+        RenderFragmentHandle targetDependent = context.TargetLayerScope(
+            [source],
+            TargetRegion.Region(bounds));
+        var drawable = new RecordedBrush(RecordedBrushKind.Drawable, null, 0);
+        var raw = new RecordedBrush(RecordedBrushKind.RawExternal, null, -1);
+        var eligible = new RecordedBrushPlan(drawable, [source], []);
+        var ineligibleDependency = new RecordedBrushPlan(drawable, [source, targetDependent], []);
+        var rawFallback = new RecordedBrushPlan(raw, [], []);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(eligible.CanBeUsedAsValueInput, Is.True);
+            Assert.That(ineligibleDependency.CanBeUsedAsValueInput, Is.False);
+            Assert.That(rawFallback.CanBeUsedAsValueInput, Is.False);
+        });
+
+        transaction.Publish(source);
+        transaction.Commit();
+    }
+
+    [Test]
     public void Rollback_DiscardsEveryPartialEffectAndRestoresCacheDisablement()
     {
         using var owner = new RenderRequestOwner();

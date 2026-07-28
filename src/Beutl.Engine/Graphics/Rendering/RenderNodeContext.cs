@@ -275,7 +275,7 @@ public sealed class RenderNodeContext
             reference.EffectiveScale,
             reference.ValueCardinality,
             reference.ContributesValuesToTarget,
-            reference.CanBeUsedAsValueInput && !maskPlan.IsRawExternal,
+            reference.CanBeUsedAsValueInput && maskPlan.CanBeUsedAsValueInput,
             reference.HasTargetEffects
                 || dependencies.Any(static dependency => dependency.HasTargetEffects),
             reference.HasOpaqueExternalWork || maskPlan.IsRawExternal,

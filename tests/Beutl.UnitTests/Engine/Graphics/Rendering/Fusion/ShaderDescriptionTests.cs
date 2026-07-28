@@ -176,6 +176,29 @@ public sealed class ShaderDescriptionTests
     }
 
     [Test]
+    public void WholeSource_RejectsAnExplicitBindingForItsImplicitSource()
+    {
+        using var registry = new RenderRequestResourceRegistry();
+        RenderResource<object> resource = registry.RegisterBorrowed(new object(), "explicit-src", 1);
+
+        ArgumentException? exception = Assert.Throws<ArgumentException>(
+            () => ShaderDescription.WholeSource(
+                "uniform shader src; half4 main(float2 coord) { return src.eval(coord); }",
+                RenderBoundsContract.Identity,
+                bindings => bindings.Resource(
+                    "src",
+                    resource,
+                    ShaderResourceCoordinateSpace.Value,
+                    static (writer, _, _) => writer.Set(SKShader.CreateColor(SKColors.White)))));
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(exception!.ParamName, Is.EqualTo("resources"));
+            Assert.That(exception.Message, Does.Contain("implicit WholeSource input 'src'"));
+        });
+    }
+
+    [Test]
     public void DirectUniforms_AreCanonicalAndValidatedAgainstDeclarations()
     {
         ShaderDescription description = ShaderDescription.CurrentPixel(

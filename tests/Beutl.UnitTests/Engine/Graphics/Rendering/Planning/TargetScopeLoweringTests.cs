@@ -294,6 +294,8 @@ public sealed class TargetScopeLoweringTests
         {
             Assert.That(maskRoot.Kind, Is.EqualTo(RenderFragmentKind.OpacityMask));
             Assert.That(maskDependency.Kind, Is.EqualTo(RenderFragmentKind.Layer));
+            Assert.That(maskDependency.CanBeUsedAsValueInput, Is.True);
+            Assert.That(maskRoot.CanBeUsedAsValueInput, Is.True);
             Assert.That(maskDependency.Bounds.Intersects(subjectBounds), Is.False,
                 "The test mask dependency must stay remote from the subject bounds.");
             Assert.That(dependencyStepIndices, Is.Not.Empty,

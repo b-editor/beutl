@@ -42,6 +42,10 @@ internal sealed class RecordedBrushPlan(
     public IReadOnlyList<RenderResource> Resources { get; } = resources;
 
     public bool IsRawExternal => Brush.IsRawExternal;
+
+    public bool CanBeUsedAsValueInput
+        => !IsRawExternal
+           && Dependencies.All(static dependency => dependency.CanBeUsedAsValueInput);
 }
 
 internal sealed class RecordedPaint(
