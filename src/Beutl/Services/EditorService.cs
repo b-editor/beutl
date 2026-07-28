@@ -72,6 +72,7 @@ public sealed class EditorService
 {
     private readonly CoreList<EditorTabItem> _tabItems;
     private readonly ExtensionProvider _extensionProvider;
+    private int _activeOutputOperations;
 
     public EditorService(ExtensionProvider extensionProvider)
     {
@@ -86,6 +87,31 @@ public sealed class EditorService
     public IReactiveProperty<EditorTabItem?> SelectedTabItem { get; } = new ReactivePropertySlim<EditorTabItem?>();
 
     internal IProjectVersionControlService? ProjectVersionControlService { get; set; }
+
+    internal IVersionControlRestoreCoordinator? VersionControlRestoreCoordinator { get; set; }
+
+    internal bool IsExportRunning => Volatile.Read(ref _activeOutputOperations) > 0;
+
+    internal void NotifyOutputStarted()
+    {
+        Interlocked.Increment(ref _activeOutputOperations);
+    }
+
+    internal void NotifyOutputFinished()
+    {
+        while (true)
+        {
+            int current = Volatile.Read(ref _activeOutputOperations);
+            if (current == 0
+                || Interlocked.CompareExchange(
+                    ref _activeOutputOperations,
+                    current - 1,
+                    current) == current)
+            {
+                return;
+            }
+        }
+    }
 
     public bool TryGetTabItem(CoreObject obj, [NotNullWhen(true)] out EditorTabItem? result)
     {

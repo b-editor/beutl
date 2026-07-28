@@ -1609,6 +1609,42 @@ GetProperty&lt;T&gt;("path") または GetProperty&lt;T&gt;(guid, "propertyName"
   <data name="VersionControl_RestoreConfirmation" xml:space="preserve">
     <value>プロジェクトを閉じて再度開くため、現在の取り消し履歴は消去されます。続行しますか？</value>
   </data>
+  <data name="VersionControl_ExportInProgress" xml:space="preserve">
+    <value>書き出しの実行中は復元できません。</value>
+  </data>
+  <data name="VersionControl_RecoveryFailed" xml:space="preserve">
+    <value>操作に失敗し、元のプロジェクト状態も復元できませんでした。操作エラー: {0} 復旧エラー: {1}</value>
+  </data>
+  <data name="VersionControl_BranchFormat" xml:space="preserve">
+    <value>ブランチ: {0}</value>
+  </data>
+  <data name="VersionControl_AheadBehindFormat" xml:space="preserve">
+    <value>{0} 先行、{1} 遅延</value>
+  </data>
+  <data name="VersionControl_DirtySummaryFormat" xml:space="preserve">
+    <value>変更されたファイル: {0}</value>
+  </data>
+  <data name="VersionControl_WorktreeClean" xml:space="preserve">
+    <value>作業ツリーに変更はありません</value>
+  </data>
+  <data name="VersionControl_LoadMore" xml:space="preserve">
+    <value>さらに読み込む</value>
+  </data>
+  <data name="VersionControl_Diff" xml:space="preserve">
+    <value>差分</value>
+  </data>
+  <data name="VersionControl_NoRepository" xml:space="preserve">
+    <value>このプロジェクトは Git で管理されていません。</value>
+  </data>
+  <data name="VersionControl_NoHistory" xml:space="preserve">
+    <value>記録されたバージョンはありません。</value>
+  </data>
+  <data name="VersionControl_BranchName" xml:space="preserve">
+    <value>ブランチ名</value>
+  </data>
+  <data name="VersionControl_CreateBranchTitle" xml:space="preserve">
+    <value>新しいブランチに復元</value>
+  </data>
   <data name="VersionControl_EnclosingRepositoryFound" xml:space="preserve">
     <value>このプロジェクトは既存の Git リポジトリ内にあります。</value>
   </data>

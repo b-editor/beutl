@@ -308,6 +308,39 @@ public class VersionControlSaveTests
         public Task<WorkspaceStatus> GetStatusAsync(CancellationToken cancellationToken)
             => Task.FromResult(new WorkspaceStatus(null, 0, 0, [], false));
 
+        public Task<IReadOnlyList<CommitInfo>> GetHistoryAsync(
+            int skip,
+            int take,
+            CancellationToken cancellationToken)
+            => Task.FromResult<IReadOnlyList<CommitInfo>>([]);
+
+        public Task<IReadOnlyList<FileChange>> GetCommitFilesAsync(
+            string sha,
+            CancellationToken cancellationToken)
+            => Task.FromResult<IReadOnlyList<FileChange>>([]);
+
+        public Task<string> GetDiffAsync(
+            string sha,
+            string? path,
+            CancellationToken cancellationToken)
+            => Task.FromResult(string.Empty);
+
+        public Task RestoreWorktreeFromAsync(
+            string sha,
+            CancellationToken cancellationToken)
+            => Task.CompletedTask;
+
+        public Task CreateBranchFromAsync(
+            string name,
+            string sha,
+            CancellationToken cancellationToken)
+            => Task.CompletedTask;
+
+        public Task SwitchBranchAsync(
+            string name,
+            CancellationToken cancellationToken)
+            => Task.CompletedTask;
+
         public Task<GitIdentity?> GetIdentityAsync(CancellationToken cancellationToken)
             => Task.FromResult(Identity);
 

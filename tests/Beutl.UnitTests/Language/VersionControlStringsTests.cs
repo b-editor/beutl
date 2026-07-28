@@ -1,4 +1,4 @@
-using System.Globalization;
+﻿using System.Globalization;
 using System.Resources;
 using Beutl.Language;
 
@@ -18,6 +18,18 @@ public class VersionControlStringsTests
         "VersionControl_GitNotInstalled",
         "VersionControl_ConflictGuidance",
         "VersionControl_RestoreConfirmation",
+        "VersionControl_ExportInProgress",
+        "VersionControl_RecoveryFailed",
+        "VersionControl_BranchFormat",
+        "VersionControl_AheadBehindFormat",
+        "VersionControl_DirtySummaryFormat",
+        "VersionControl_WorktreeClean",
+        "VersionControl_LoadMore",
+        "VersionControl_Diff",
+        "VersionControl_NoRepository",
+        "VersionControl_NoHistory",
+        "VersionControl_BranchName",
+        "VersionControl_CreateBranchTitle",
     ];
 
     [TestCase("en-US")]

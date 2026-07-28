@@ -904,6 +904,9 @@ public sealed partial class EditViewModel : IEditorContext, ISupportAutoSaveEdit
         if (serviceType == typeof(IProjectVersionControlService))
             return EditorService.ProjectVersionControlService;
 
+        if (serviceType == typeof(IVersionControlRestoreCoordinator))
+            return EditorService.VersionControlRestoreCoordinator;
+
         if (serviceType.IsAssignableTo(typeof(ITimelineOptionsProvider)))
             return _timelineOptionsProvider;
 

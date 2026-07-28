@@ -1615,6 +1615,42 @@ Example: GetProperty&lt;double&gt;("{GUID}.Opacity")</value>
   <data name="VersionControl_RestoreConfirmation" xml:space="preserve">
     <value>The project will close and reopen, and the current undo history will be cleared. Continue?</value>
   </data>
+  <data name="VersionControl_ExportInProgress" xml:space="preserve">
+    <value>Restore is unavailable while an export is running.</value>
+  </data>
+  <data name="VersionControl_RecoveryFailed" xml:space="preserve">
+    <value>The operation failed, and the original project state could not be recovered. Operation error: {0} Recovery error: {1}</value>
+  </data>
+  <data name="VersionControl_BranchFormat" xml:space="preserve">
+    <value>Branch: {0}</value>
+  </data>
+  <data name="VersionControl_AheadBehindFormat" xml:space="preserve">
+    <value>{0} ahead, {1} behind</value>
+  </data>
+  <data name="VersionControl_DirtySummaryFormat" xml:space="preserve">
+    <value>{0} changed file(s)</value>
+  </data>
+  <data name="VersionControl_WorktreeClean" xml:space="preserve">
+    <value>Working tree clean</value>
+  </data>
+  <data name="VersionControl_LoadMore" xml:space="preserve">
+    <value>Load More</value>
+  </data>
+  <data name="VersionControl_Diff" xml:space="preserve">
+    <value>Diff</value>
+  </data>
+  <data name="VersionControl_NoRepository" xml:space="preserve">
+    <value>This project is not tracked with Git.</value>
+  </data>
+  <data name="VersionControl_NoHistory" xml:space="preserve">
+    <value>No versions have been recorded yet.</value>
+  </data>
+  <data name="VersionControl_BranchName" xml:space="preserve">
+    <value>Branch name</value>
+  </data>
+  <data name="VersionControl_CreateBranchTitle" xml:space="preserve">
+    <value>Restore to a New Branch</value>
+  </data>
   <data name="VersionControl_EnclosingRepositoryFound" xml:space="preserve">
     <value>This project is inside an existing Git repository.</value>
   </data>
