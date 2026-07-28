@@ -134,7 +134,13 @@ public sealed record RemoteInfo(string Name, string Url);
 
 public sealed record GitIdentity(string Name, string Email);
 
-public sealed record InitOptions(string ProjectRoot, bool UseLfsWhenAvailable = true);
+public sealed record RepositoryLockInfo(
+    string LockPath,
+    DateTimeOffset LastWriteTimeUtc);
+
+public sealed record InitOptions(
+    RepositoryInfo TargetRepository,
+    bool UseLfsWhenAvailable = true);
 
 public sealed class GitOperationException : Exception
 {
@@ -167,6 +173,26 @@ public sealed class GitIdentityRequiredException : InvalidOperationException
         : base("A Git user name and email address are required to create this commit.")
     {
     }
+}
+
+public sealed class EnclosingRepositoryConsentRequiredException : InvalidOperationException
+{
+    public EnclosingRepositoryConsentRequiredException(RepositoryInfo repository)
+        : base(
+            $"The project is inside the Git repository at '{repository.RepoRoot}'. "
+            + "Explicit consent is required before Beutl can use that repository.")
+    {
+        if (!repository.IsNestedInForeignRepo)
+        {
+            throw new ArgumentException(
+                "The repository must enclose the project root.",
+                nameof(repository));
+        }
+
+        Repository = repository;
+    }
+
+    public RepositoryInfo Repository { get; }
 }
 
 public sealed class VersionControlConflictedException : InvalidOperationException

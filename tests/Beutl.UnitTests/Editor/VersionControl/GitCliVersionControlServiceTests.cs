@@ -1,5 +1,6 @@
 ﻿using Beutl.Configuration;
 using Beutl.Editor.VersionControl;
+using Beutl.Language;
 using Microsoft.Extensions.Time.Testing;
 
 namespace Beutl.UnitTests.Editor.VersionControl;
@@ -10,8 +11,7 @@ public class GitCliVersionControlServiceTests : RealGitTestRepository
     [Test]
     public async Task InitializeAsync_creates_repository_files_and_initial_snapshot()
     {
-        string projectRoot = Path.Combine(Root, "new-project");
-        Directory.CreateDirectory(projectRoot);
+        string projectRoot = CreateTemporaryDirectory();
         await File.WriteAllTextAsync(Path.Combine(projectRoot, "project.bep"), "{}\n");
         using var service = new GitCliVersionControlService(
             CreateInstalledLocator(),
@@ -21,7 +21,9 @@ public class GitCliVersionControlServiceTests : RealGitTestRepository
 
         Assert.ThrowsAsync<GitIdentityRequiredException>(
             async () => await service.InitializeAsync(
-                new InitOptions(projectRoot, UseLfsWhenAvailable: false),
+                new InitOptions(
+                    new RepositoryInfo(projectRoot, projectRoot),
+                    UseLfsWhenAvailable: false),
                 CancellationToken.None));
 
         Assert.That(service.Repository, Is.EqualTo(new RepositoryInfo(projectRoot, projectRoot)));
@@ -29,7 +31,9 @@ public class GitCliVersionControlServiceTests : RealGitTestRepository
             new GitIdentity("Beutl Test", "beutl-test@example.invalid"),
             CancellationToken.None);
         await service.InitializeAsync(
-            new InitOptions(projectRoot, UseLfsWhenAvailable: false),
+            new InitOptions(
+                new RepositoryInfo(projectRoot, projectRoot),
+                UseLfsWhenAvailable: false),
             CancellationToken.None);
 
         var projectRepository = new RepositoryInfo(projectRoot, projectRoot);
@@ -70,8 +74,7 @@ public class GitCliVersionControlServiceTests : RealGitTestRepository
     [Test]
     public async Task InitializeAsync_installs_local_lfs_and_writes_media_patterns_when_active()
     {
-        string projectRoot = Path.Combine(Root, "lfs-project");
-        Directory.CreateDirectory(projectRoot);
+        string projectRoot = CreateTemporaryDirectory();
         var runner = new RecordingInitializationRunner();
         using var service = new GitCliVersionControlService(
             CreateInstalledLocator(lfsInstalled: true),
@@ -80,7 +83,9 @@ public class GitCliVersionControlServiceTests : RealGitTestRepository
             _ => runner);
 
         await service.InitializeAsync(
-            new InitOptions(projectRoot, UseLfsWhenAvailable: true),
+            new InitOptions(
+                new RepositoryInfo(projectRoot, projectRoot),
+                UseLfsWhenAvailable: true),
             CancellationToken.None);
 
         Assert.Multiple(() =>
@@ -197,6 +202,46 @@ public class GitCliVersionControlServiceTests : RealGitTestRepository
             Assert.That(committed.Stdout, Does.Not.Contain("foreign.txt"));
             Assert.That(status.Stdout, Does.StartWith("?? foreign.txt"));
         });
+    }
+
+    [Test]
+    public async Task Stale_lock_failure_is_exposed_and_removed_only_on_request()
+    {
+        await File.WriteAllTextAsync(Path.Combine(Root, "project.bep"), "{}\n");
+        string lockPath = Path.Combine(Root, ".git", "index.lock");
+        await File.WriteAllTextAsync(lockPath, "");
+        File.SetLastWriteTimeUtc(
+            lockPath,
+            DateTime.UtcNow - GitCliRunner.StaleLockAge - TimeSpan.FromMinutes(1));
+        using GitCliVersionControlService service = CreateService();
+        var completion = new TaskCompletionSource<RepositoryLockInfo>(
+            TaskCreationOptions.RunContinuationsAsynchronously);
+        service.RecoverableLockAvailable += (_, lockInfo) =>
+            completion.TrySetResult(lockInfo);
+
+        Assert.ThrowsAsync<GitOperationException>(
+            async () => await service.CommitAllAsync(
+                "beutl: snapshot on save",
+                SnapshotKind.Save,
+                CancellationToken.None));
+        RepositoryLockInfo lockInfo = await completion.Task.WaitAsync(TimeSpan.FromSeconds(5));
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(service.RecoverableLock, Is.EqualTo(lockInfo));
+            Assert.That(File.Exists(lockPath), Is.True);
+        });
+
+        Assert.That(
+            await service.RemoveRecoverableLockAsync(CancellationToken.None),
+            Is.True);
+        Assert.That(File.Exists(lockPath), Is.False);
+        Assert.That(
+            await service.CommitAllAsync(
+                "beutl: snapshot on save",
+                SnapshotKind.Save,
+                CancellationToken.None),
+            Is.TypeOf<CommitResult.Committed>());
     }
 
     [Test]
@@ -535,6 +580,88 @@ public class GitCliVersionControlServiceTests : RealGitTestRepository
     }
 
     [Test]
+    public async Task Conflicted_repository_keeps_reads_available_and_blocks_every_mutation()
+    {
+        await CommitFileAsync("project.bep", "base\n", "base");
+        await RunGitAsync("switch", "-c", "alternate");
+        await CommitFileAsync("project.bep", "alternate\n", "alternate");
+        await RunGitAsync("switch", "main");
+        await CommitFileAsync("project.bep", "main\n", "main");
+        Assert.ThrowsAsync<GitOperationException>(
+            async () => await RunGitAsync("merge", "alternate"));
+        using var service = CreateService();
+
+        GitAvailability availability = await service.GetAvailabilityAsync(CancellationToken.None);
+        RepositoryInfo? discovered = await service.DiscoverRepositoryAsync(
+            Root,
+            CancellationToken.None);
+        WorkspaceStatus status = await service.GetStatusAsync(CancellationToken.None);
+        IReadOnlyList<CommitInfo> history = await service.GetHistoryAsync(
+            0,
+            10,
+            CancellationToken.None);
+        IReadOnlyList<FileChange> files = await service.GetCommitFilesAsync(
+            history[0].Sha,
+            CancellationToken.None);
+        string diff = await service.GetDiffAsync(
+            history[0].Sha,
+            path: null,
+            CancellationToken.None);
+        GitIdentity? identity = await service.GetIdentityAsync(CancellationToken.None);
+
+        VersionControlConflictedException[] exceptions =
+        [
+            Assert.ThrowsAsync<VersionControlConflictedException>(
+                async () => await service.CommitAllAsync(
+                    "blocked",
+                    SnapshotKind.Manual,
+                    CancellationToken.None))!,
+            Assert.ThrowsAsync<VersionControlConflictedException>(
+                async () => await service.RestoreWorktreeFromAsync(
+                    history[0].Sha,
+                    CancellationToken.None))!,
+            Assert.ThrowsAsync<VersionControlConflictedException>(
+                async () => await service.CreateBranchFromAsync(
+                    "blocked-branch",
+                    history[0].Sha,
+                    CancellationToken.None))!,
+            Assert.ThrowsAsync<VersionControlConflictedException>(
+                async () => await service.SwitchBranchAsync(
+                    "alternate",
+                    CancellationToken.None))!,
+            Assert.ThrowsAsync<VersionControlConflictedException>(
+                async () => await service.InitializeAsync(
+                    new InitOptions(Repository, UseLfsWhenAvailable: false),
+                    CancellationToken.None))!,
+            Assert.ThrowsAsync<VersionControlConflictedException>(
+                async () => await service.SetLocalIdentityAsync(
+                    new GitIdentity("Blocked", "blocked@example.invalid"),
+                    CancellationToken.None))!,
+        ];
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(availability.State, Is.EqualTo(GitAvailabilityState.Installed));
+            Assert.That(discovered, Is.EqualTo(Repository));
+            Assert.That(status.HasConflicts, Is.True);
+            Assert.That(history, Is.Not.Empty);
+            Assert.That(files, Is.Not.Null);
+            Assert.That(diff, Is.Not.Null);
+            Assert.That(
+                identity,
+                Is.EqualTo(new GitIdentity(
+                    "Beutl Test",
+                    "beutl-test@example.invalid")));
+            Assert.That(
+                exceptions.Select(exception => exception.Guidance),
+                Is.All.EqualTo(Strings.VersionControl_ConflictGuidance));
+        });
+
+        GitCommandResult unmerged = await RunGitAsync("ls-files", "-u");
+        Assert.That(unmerged.Stdout, Does.Contain("project.bep"));
+    }
+
+    [Test]
     public async Task Concurrent_status_calls_are_serialized()
     {
         var runner = new ConcurrencyTrackingRunner();
@@ -620,6 +747,8 @@ public class GitCliVersionControlServiceTests : RealGitTestRepository
     {
         private int _concurrency;
 
+        public bool HasActiveProcess => _concurrency > 0;
+
         public int MaxConcurrency { get; private set; }
 
         public async Task<GitCommandResult> RunAsync(
@@ -640,10 +769,20 @@ public class GitCliVersionControlServiceTests : RealGitTestRepository
                 Interlocked.Decrement(ref _concurrency);
             }
         }
+
+        public RepositoryLockInfo? GetRecoverableRepositoryLock(RepositoryInfo repository)
+            => null;
+
+        public bool RemoveRecoverableRepositoryLock(
+            RepositoryInfo repository,
+            RepositoryLockInfo lockInfo)
+            => false;
     }
 
     private sealed class StaticStatusRunner : IGitCliRunner
     {
+        public bool HasActiveProcess => false;
+
         public Task<GitCommandResult> RunAsync(
             RepositoryInfo repository,
             IReadOnlyList<string> arguments,
@@ -652,11 +791,21 @@ public class GitCliVersionControlServiceTests : RealGitTestRepository
         {
             return Task.FromResult(new GitCommandResult(0, "# branch.head main\0", ""));
         }
+
+        public RepositoryLockInfo? GetRecoverableRepositoryLock(RepositoryInfo repository)
+            => null;
+
+        public bool RemoveRecoverableRepositoryLock(
+            RepositoryInfo repository,
+            RepositoryLockInfo lockInfo)
+            => false;
     }
 
     private sealed class RecordingInitializationRunner : IGitCliRunner
     {
         public List<string> Commands { get; } = [];
+
+        public bool HasActiveProcess => false;
 
         public Task<GitCommandResult> RunAsync(
             RepositoryInfo repository,
@@ -665,6 +814,13 @@ public class GitCliVersionControlServiceTests : RealGitTestRepository
             CancellationToken cancellationToken)
         {
             Commands.Add(string.Join(' ', arguments));
+            if (arguments.FirstOrDefault() == "rev-parse")
+            {
+                throw new GitOperationException(
+                    128,
+                    "fatal: not a git repository (or any of the parent directories): .git\n");
+            }
+
             if (arguments.SequenceEqual(["config", "--get", "user.name"]))
             {
                 return Task.FromResult(new GitCommandResult(0, "Beutl Test\n", ""));
@@ -685,6 +841,14 @@ public class GitCliVersionControlServiceTests : RealGitTestRepository
 
             return Task.FromResult(new GitCommandResult(0, "", ""));
         }
+
+        public RepositoryLockInfo? GetRecoverableRepositoryLock(RepositoryInfo repository)
+            => null;
+
+        public bool RemoveRecoverableRepositoryLock(
+            RepositoryInfo repository,
+            RepositoryLockInfo lockInfo)
+            => false;
     }
 
     private sealed class RuntimeProbe : IGitInstallationProbe

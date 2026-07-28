@@ -1,8 +1,11 @@
 ﻿using System.Text;
+using Beutl.Language;
 
 namespace Beutl.Editor.VersionControl;
 
-internal sealed class GitCliVersionControlService : IProjectVersionControlService
+internal sealed class GitCliVersionControlService :
+    IProjectVersionControlService,
+    IRepositoryLockRecoveryService
 {
     internal const int MaxDiffBytes = 1024 * 1024;
     internal const string DiffTruncationMarker = "\n--- Diff truncated at 1 MB ---\n";
@@ -137,13 +140,34 @@ internal sealed class GitCliVersionControlService : IProjectVersionControlServic
 
     public RepositoryInfo? Repository { get; private set; }
 
+    public RepositoryLockInfo? RecoverableLock { get; private set; }
+
     public event EventHandler<WorkspaceStatus>? StatusChanged;
+
+    public event EventHandler<RepositoryLockInfo>? RecoverableLockAvailable;
 
     public Task<GitAvailability> GetAvailabilityAsync(CancellationToken cancellationToken)
     {
         ThrowIfDisposed();
         return RunSerializedAsync(
             async () => (await GetGitRuntimeCoreAsync(cancellationToken).ConfigureAwait(false)).Availability,
+            cancellationToken);
+    }
+
+    public Task<RepositoryInfo?> DiscoverRepositoryAsync(
+        string projectRoot,
+        CancellationToken cancellationToken)
+    {
+        ThrowIfDisposed();
+        ArgumentException.ThrowIfNullOrWhiteSpace(projectRoot);
+        return RunSerializedAsync(
+            async () =>
+            {
+                IGitCliRunner runner = await GetInstalledRunnerCoreAsync(cancellationToken)
+                    .ConfigureAwait(false);
+                return await DiscoverRepositoryCoreAsync(projectRoot, runner, cancellationToken)
+                    .ConfigureAwait(false);
+            },
             cancellationToken);
     }
 
@@ -271,6 +295,7 @@ internal sealed class GitCliVersionControlService : IProjectVersionControlServic
         return RunSerializedAsync(
             async () =>
             {
+                await EnsureNotConflictedCoreAsync(cancellationToken).ConfigureAwait(false);
                 RepositoryInfo repository = GetRepository();
                 IGitCliRunner runner = await GetInstalledRunnerCoreAsync(cancellationToken).ConfigureAwait(false);
                 await runner.RunAsync(
@@ -283,6 +308,32 @@ internal sealed class GitCliVersionControlService : IProjectVersionControlServic
                     ["config", "--local", "user.email", identity.Email],
                     networkOperation: false,
                     cancellationToken).ConfigureAwait(false);
+            },
+            cancellationToken);
+    }
+
+    public Task<bool> RemoveRecoverableLockAsync(CancellationToken cancellationToken)
+    {
+        ThrowIfDisposed();
+        return RunSerializedAsync(
+            async () =>
+            {
+                RepositoryInfo repository = GetRepository();
+                IGitCliRunner runner = await GetInstalledRunnerCoreAsync(cancellationToken)
+                    .ConfigureAwait(false);
+                RepositoryLockInfo? lockInfo = RecoverableLock;
+                if (lockInfo is null)
+                {
+                    return false;
+                }
+
+                bool removed = runner.RemoveRecoverableRepositoryLock(repository, lockInfo);
+                if (removed)
+                {
+                    RecoverableLock = null;
+                }
+
+                return removed;
             },
             cancellationToken);
     }
@@ -485,7 +536,14 @@ internal sealed class GitCliVersionControlService : IProjectVersionControlServic
     {
         RepositoryInfo repository = GetRepository();
         IGitCliRunner runner = await GetInstalledRunnerCoreAsync(cancellationToken).ConfigureAwait(false);
+        return await GetStatusCoreAsync(repository, runner, cancellationToken).ConfigureAwait(false);
+    }
 
+    private static async Task<WorkspaceStatus> GetStatusCoreAsync(
+        RepositoryInfo repository,
+        IGitCliRunner runner,
+        CancellationToken cancellationToken)
+    {
         GitCommandResult result = await runner.RunAsync(
             repository,
             ["status", "--porcelain=v2", "--branch", "-z", "--", repository.Pathspec],
@@ -554,6 +612,7 @@ internal sealed class GitCliVersionControlService : IProjectVersionControlServic
         string sha,
         CancellationToken cancellationToken)
     {
+        await EnsureNotConflictedCoreAsync(cancellationToken).ConfigureAwait(false);
         EnsureWorktreeMutationAllowed();
         RepositoryInfo repository = GetRepository();
         IGitCliRunner runner = await GetInstalledRunnerCoreAsync(cancellationToken).ConfigureAwait(false);
@@ -584,6 +643,7 @@ internal sealed class GitCliVersionControlService : IProjectVersionControlServic
         string sha,
         CancellationToken cancellationToken)
     {
+        await EnsureNotConflictedCoreAsync(cancellationToken).ConfigureAwait(false);
         EnsureWorktreeMutationAllowed();
         RepositoryInfo repository = GetRepository();
         IGitCliRunner runner = await GetInstalledRunnerCoreAsync(cancellationToken).ConfigureAwait(false);
@@ -599,6 +659,7 @@ internal sealed class GitCliVersionControlService : IProjectVersionControlServic
         string name,
         CancellationToken cancellationToken)
     {
+        await EnsureNotConflictedCoreAsync(cancellationToken).ConfigureAwait(false);
         EnsureWorktreeMutationAllowed();
         RepositoryInfo repository = GetRepository();
         IGitCliRunner runner = await GetInstalledRunnerCoreAsync(cancellationToken).ConfigureAwait(false);
@@ -614,8 +675,8 @@ internal sealed class GitCliVersionControlService : IProjectVersionControlServic
         InitOptions options,
         CancellationToken cancellationToken)
     {
-        ArgumentException.ThrowIfNullOrWhiteSpace(options.ProjectRoot);
-        string projectRoot = Path.TrimEndingDirectorySeparator(Path.GetFullPath(options.ProjectRoot));
+        ArgumentNullException.ThrowIfNull(options.TargetRepository);
+        string projectRoot = options.TargetRepository.ProjectRoot;
         Directory.CreateDirectory(projectRoot);
 
         (GitAvailability availability, IGitCliRunner? nullableRunner)
@@ -626,7 +687,42 @@ internal sealed class GitCliVersionControlService : IProjectVersionControlServic
         }
 
         IGitCliRunner runner = nullableRunner;
-        var repository = new RepositoryInfo(projectRoot, projectRoot);
+        RepositoryInfo? discoveredRepository = await DiscoverRepositoryCoreAsync(
+                projectRoot,
+                runner,
+                cancellationToken)
+            .ConfigureAwait(false);
+        RepositoryInfo repository;
+        if (discoveredRepository is { IsNestedInForeignRepo: true })
+        {
+            if (!Equals(discoveredRepository, options.TargetRepository))
+            {
+                throw new EnclosingRepositoryConsentRequiredException(discoveredRepository);
+            }
+
+            repository = discoveredRepository;
+        }
+        else if (discoveredRepository is not null)
+        {
+            if (!Equals(discoveredRepository, options.TargetRepository))
+            {
+                throw new InvalidOperationException(
+                    "The selected repository does not match the repository containing the project.");
+            }
+
+            repository = discoveredRepository;
+        }
+        else
+        {
+            if (options.TargetRepository.IsNestedInForeignRepo)
+            {
+                throw new InvalidOperationException(
+                    "The selected existing repository no longer contains the project.");
+            }
+
+            repository = options.TargetRepository;
+        }
+
         if (Repository is not null
             && !string.Equals(Repository.ProjectRoot, projectRoot, PathComparison))
         {
@@ -634,7 +730,17 @@ internal sealed class GitCliVersionControlService : IProjectVersionControlServic
                 "This service is already associated with a different project.");
         }
 
-        if (!Directory.Exists(Path.Combine(projectRoot, ".git")))
+        if (discoveredRepository is not null)
+        {
+            WorkspaceStatus existingStatus = await GetStatusCoreAsync(
+                    repository,
+                    runner,
+                    cancellationToken)
+                .ConfigureAwait(false);
+            ThrowIfConflicted(existingStatus);
+        }
+
+        if (discoveredRepository is null)
         {
             await runner.RunAsync(
                 repository,
@@ -696,6 +802,63 @@ internal sealed class GitCliVersionControlService : IProjectVersionControlServic
         await QueueStatusChangedCoreAsync(cancellationToken).ConfigureAwait(false);
     }
 
+    private static async Task<RepositoryInfo?> DiscoverRepositoryCoreAsync(
+        string projectRoot,
+        IGitCliRunner runner,
+        CancellationToken cancellationToken)
+    {
+        string normalizedProjectRoot = Path.TrimEndingDirectorySeparator(
+            Path.GetFullPath(projectRoot));
+        var discoveryContext = new RepositoryInfo(normalizedProjectRoot, normalizedProjectRoot);
+        try
+        {
+            GitCommandResult result = await runner.RunAsync(
+                discoveryContext,
+                ["rev-parse", "--show-toplevel", "--show-prefix"],
+                networkOperation: false,
+                cancellationToken).ConfigureAwait(false);
+            string[] lines = result.Stdout
+                .Replace("\r\n", "\n", StringComparison.Ordinal)
+                .Split('\n');
+            if (lines.Length == 0 || string.IsNullOrWhiteSpace(lines[0]))
+            {
+                throw new InvalidOperationException(
+                    "Git repository discovery returned an empty repository root.");
+            }
+
+            string repoRoot = GetLexicalRepositoryRoot(
+                normalizedProjectRoot,
+                lines.Length > 1 ? lines[1] : string.Empty);
+            return new RepositoryInfo(repoRoot, normalizedProjectRoot);
+        }
+        catch (GitOperationException ex) when (IsNotRepositoryFailure(ex))
+        {
+            return null;
+        }
+    }
+
+    private static string GetLexicalRepositoryRoot(string projectRoot, string prefix)
+    {
+        string repoRoot = projectRoot;
+        string[] segments = prefix
+            .Replace('\\', '/')
+            .Split('/', StringSplitOptions.RemoveEmptyEntries);
+        foreach (string segment in segments)
+        {
+            if (segment == "..")
+            {
+                throw new InvalidOperationException(
+                    "Git repository discovery returned an invalid project prefix.");
+            }
+
+            repoRoot = Path.GetDirectoryName(repoRoot)
+                       ?? throw new InvalidOperationException(
+                           "Git repository discovery returned a prefix outside the file-system root.");
+        }
+
+        return repoRoot;
+    }
+
     private async Task<CommitResult> CommitAllCoreAsync(
         string message,
         SnapshotKind kind,
@@ -704,6 +867,7 @@ internal sealed class GitCliVersionControlService : IProjectVersionControlServic
         RepositoryInfo repository = GetRepository();
         IGitCliRunner runner = await GetInstalledRunnerCoreAsync(cancellationToken).ConfigureAwait(false);
         WorkspaceStatus status = await GetStatusCoreAsync(cancellationToken).ConfigureAwait(false);
+        ThrowIfConflicted(status);
         if (status.IsClean)
         {
             return new CommitResult.NoChanges();
@@ -754,6 +918,20 @@ internal sealed class GitCliVersionControlService : IProjectVersionControlServic
         return new CommitResult.Committed(revParse.Stdout.Trim());
     }
 
+    private async Task EnsureNotConflictedCoreAsync(CancellationToken cancellationToken)
+    {
+        WorkspaceStatus status = await GetStatusCoreAsync(cancellationToken).ConfigureAwait(false);
+        ThrowIfConflicted(status);
+    }
+
+    private static void ThrowIfConflicted(WorkspaceStatus status)
+    {
+        if (status.HasConflicts)
+        {
+            throw new VersionControlConflictedException(Strings.VersionControl_ConflictGuidance);
+        }
+    }
+
     private static SnapshotKind ParseSnapshotKind(string trailer)
     {
         return trailer.Trim().ToLowerInvariant() switch
@@ -765,6 +943,16 @@ internal sealed class GitCliVersionControlService : IProjectVersionControlServic
             "init" => SnapshotKind.Init,
             _ => SnapshotKind.Manual,
         };
+    }
+
+    private static bool IsNotRepositoryFailure(GitOperationException exception)
+    {
+        return exception.Stderr.Contains(
+                   "not a git repository",
+                   StringComparison.OrdinalIgnoreCase)
+               || exception.Stderr.Contains(
+                   "not in a git directory",
+                   StringComparison.OrdinalIgnoreCase);
     }
 
     private static FileChangeStatus MapNameStatus(char status)
@@ -1013,6 +1201,11 @@ internal sealed class GitCliVersionControlService : IProjectVersionControlServic
             ThrowIfDisposed();
             return await Task.Run(operation, cancellationToken).ConfigureAwait(false);
         }
+        catch (GitOperationException ex)
+        {
+            CaptureRecoverableLock(ex);
+            throw;
+        }
         finally
         {
             _operationGate.Release();
@@ -1029,6 +1222,11 @@ internal sealed class GitCliVersionControlService : IProjectVersionControlServic
             ThrowIfDisposed();
             await Task.Run(operation, cancellationToken).ConfigureAwait(false);
         }
+        catch (GitOperationException ex)
+        {
+            CaptureRecoverableLock(ex);
+            throw;
+        }
         finally
         {
             _operationGate.Release();
@@ -1038,6 +1236,40 @@ internal sealed class GitCliVersionControlService : IProjectVersionControlServic
     private void OnRepositoryChanged(object? sender, EventArgs e)
     {
         _ = RefreshStatusFromWatcherAsync();
+    }
+
+    private void CaptureRecoverableLock(GitOperationException exception)
+    {
+        if (!exception.IsRepositoryLockFailure
+            || Repository is null
+            || _runner is null)
+        {
+            return;
+        }
+
+        RepositoryLockInfo? lockInfo = _runner.GetRecoverableRepositoryLock(Repository);
+        if (lockInfo is null)
+        {
+            return;
+        }
+
+        RecoverableLock = lockInfo;
+        ThreadPool.UnsafeQueueUserWorkItem(
+            static state =>
+            {
+                var payload = ((
+                    GitCliVersionControlService Service,
+                    RepositoryLockInfo LockInfo))state!;
+                if (!payload.Service._disposed
+                    && Equals(payload.Service.RecoverableLock, payload.LockInfo))
+                {
+                    payload.Service.RecoverableLockAvailable?.Invoke(
+                        payload.Service,
+                        payload.LockInfo);
+                }
+            },
+            (this, lockInfo),
+            preferLocal: false);
     }
 
     private void OnVersionControlConfigChanged(object? sender, EventArgs e)

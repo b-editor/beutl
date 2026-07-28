@@ -6,6 +6,10 @@ public interface IProjectVersionControlService : IDisposable
 
     Task<GitAvailability> GetAvailabilityAsync(CancellationToken cancellationToken);
 
+    Task<RepositoryInfo?> DiscoverRepositoryAsync(
+        string projectRoot,
+        CancellationToken cancellationToken);
+
     Task InitializeAsync(InitOptions options, CancellationToken cancellationToken);
 
     Task<CommitResult> CommitAllAsync(
@@ -49,4 +53,13 @@ public interface IProjectVersionControlService : IDisposable
         CancellationToken cancellationToken);
 
     event EventHandler<WorkspaceStatus>? StatusChanged;
+}
+
+public interface IRepositoryLockRecoveryService
+{
+    RepositoryLockInfo? RecoverableLock { get; }
+
+    Task<bool> RemoveRecoverableLockAsync(CancellationToken cancellationToken);
+
+    event EventHandler<RepositoryLockInfo>? RecoverableLockAvailable;
 }

@@ -1,10 +1,10 @@
-using System.Diagnostics;
+﻿using System.Diagnostics;
 
 namespace Beutl.Editor.VersionControl;
 
-public sealed record GitCommandResult(int ExitCode, string Stdout, string Stderr);
+internal sealed record GitCommandResult(int ExitCode, string Stdout, string Stderr);
 
-public sealed class GitRepositoryLockEventArgs(
+internal sealed class GitRepositoryLockEventArgs(
     RepositoryInfo repository,
     GitOperationException exception) : EventArgs
 {
@@ -15,30 +15,45 @@ public sealed class GitRepositoryLockEventArgs(
 
 internal interface IGitCliRunner
 {
+    bool HasActiveProcess { get; }
+
     Task<GitCommandResult> RunAsync(
         RepositoryInfo repository,
         IReadOnlyList<string> arguments,
         bool networkOperation,
         CancellationToken cancellationToken);
+
+    RepositoryLockInfo? GetRecoverableRepositoryLock(RepositoryInfo repository);
+
+    bool RemoveRecoverableRepositoryLock(
+        RepositoryInfo repository,
+        RepositoryLockInfo lockInfo);
 }
 
-public sealed class GitCliRunner : IGitCliRunner
+internal sealed class GitCliRunner : IGitCliRunner
 {
     private static readonly TimeSpan s_defaultLocalTimeout = TimeSpan.FromSeconds(30);
+    internal static readonly TimeSpan StaleLockAge = TimeSpan.FromMinutes(10);
     private readonly string _gitPath;
     private readonly TimeSpan _localTimeout;
     private readonly IReadOnlyDictionary<string, string>? _environmentOverrides;
+    private readonly TimeProvider _timeProvider;
     private int _activeProcesses;
 
-    public GitCliRunner(string gitPath)
-        : this(gitPath, s_defaultLocalTimeout, environmentOverrides: null)
+    internal GitCliRunner(string gitPath)
+        : this(
+            gitPath,
+            s_defaultLocalTimeout,
+            environmentOverrides: null,
+            timeProvider: null)
     {
     }
 
     internal GitCliRunner(
         string gitPath,
         TimeSpan localTimeout,
-        IReadOnlyDictionary<string, string>? environmentOverrides)
+        IReadOnlyDictionary<string, string>? environmentOverrides,
+        TimeProvider? timeProvider = null)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(gitPath);
         if (localTimeout <= TimeSpan.Zero)
@@ -49,6 +64,7 @@ public sealed class GitCliRunner : IGitCliRunner
         _gitPath = gitPath;
         _localTimeout = localTimeout;
         _environmentOverrides = environmentOverrides;
+        _timeProvider = timeProvider ?? TimeProvider.System;
     }
 
     public event EventHandler<GitRepositoryLockEventArgs>? RepositoryLockFailed;
@@ -133,6 +149,49 @@ public sealed class GitCliRunner : IGitCliRunner
         return output.Split('\0', StringSplitOptions.RemoveEmptyEntries);
     }
 
+    public RepositoryLockInfo? GetRecoverableRepositoryLock(RepositoryInfo repository)
+    {
+        ArgumentNullException.ThrowIfNull(repository);
+        if (HasActiveProcess)
+        {
+            return null;
+        }
+
+        string lockPath = GetIndexLockPath(repository);
+        if (!File.Exists(lockPath))
+        {
+            return null;
+        }
+
+        var lastWriteTime = new DateTimeOffset(
+            File.GetLastWriteTimeUtc(lockPath),
+            TimeSpan.Zero);
+        return _timeProvider.GetUtcNow() - lastWriteTime > StaleLockAge
+            ? new RepositoryLockInfo(lockPath, lastWriteTime)
+            : null;
+    }
+
+    public bool RemoveRecoverableRepositoryLock(
+        RepositoryInfo repository,
+        RepositoryLockInfo lockInfo)
+    {
+        ArgumentNullException.ThrowIfNull(repository);
+        ArgumentNullException.ThrowIfNull(lockInfo);
+        RepositoryLockInfo? current = GetRecoverableRepositoryLock(repository);
+        if (current is null
+            || !string.Equals(
+                current.LockPath,
+                Path.GetFullPath(lockInfo.LockPath),
+                PathComparison)
+            || current.LastWriteTimeUtc != lockInfo.LastWriteTimeUtc)
+        {
+            return false;
+        }
+
+        File.Delete(current.LockPath);
+        return true;
+    }
+
     internal ProcessStartInfo CreateStartInfo(
         RepositoryInfo repository,
         IReadOnlyList<string> arguments,
@@ -186,4 +245,34 @@ public sealed class GitCliRunner : IGitCliRunner
         {
         }
     }
+
+    private static string GetIndexLockPath(RepositoryInfo repository)
+    {
+        string dotGitPath = Path.Combine(repository.RepoRoot, ".git");
+        if (Directory.Exists(dotGitPath))
+        {
+            return Path.Combine(dotGitPath, "index.lock");
+        }
+
+        if (File.Exists(dotGitPath))
+        {
+            const string prefix = "gitdir:";
+            string contents = File.ReadAllText(dotGitPath).Trim();
+            if (contents.StartsWith(prefix, StringComparison.OrdinalIgnoreCase))
+            {
+                string gitDirectory = contents[prefix.Length..].Trim();
+                if (!Path.IsPathFullyQualified(gitDirectory))
+                {
+                    gitDirectory = Path.Combine(repository.RepoRoot, gitDirectory);
+                }
+
+                return Path.Combine(Path.GetFullPath(gitDirectory), "index.lock");
+            }
+        }
+
+        return Path.Combine(dotGitPath, "index.lock");
+    }
+
+    private static StringComparison PathComparison
+        => OperatingSystem.IsWindows() ? StringComparison.OrdinalIgnoreCase : StringComparison.Ordinal;
 }

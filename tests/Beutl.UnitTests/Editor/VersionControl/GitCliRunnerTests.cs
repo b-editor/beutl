@@ -1,4 +1,5 @@
-using Beutl.Editor.VersionControl;
+﻿using Beutl.Editor.VersionControl;
+using Microsoft.Extensions.Time.Testing;
 
 namespace Beutl.UnitTests.Editor.VersionControl;
 
@@ -72,12 +73,21 @@ public class GitCliRunnerTests : RealGitTestRepository
     }
 
     [Test]
-    public async Task Repository_lock_failure_raises_detection_hook_without_retrying()
+    public async Task Stale_repository_lock_is_recoverable_only_after_explicit_removal()
     {
+        var now = new DateTimeOffset(2026, 1, 2, 12, 0, 0, TimeSpan.Zero);
+        var timeProvider = new FakeTimeProvider(now);
         await File.WriteAllTextAsync(Path.Combine(Root, "locked.txt"), "locked");
         string lockPath = Path.Combine(Root, ".git", "index.lock");
         await File.WriteAllTextAsync(lockPath, "");
-        var runner = CreateRunner();
+        File.SetLastWriteTimeUtc(
+            lockPath,
+            (now - GitCliRunner.StaleLockAge - TimeSpan.FromMinutes(1)).UtcDateTime);
+        var runner = new GitCliRunner(
+            GitPath,
+            TimeSpan.FromSeconds(10),
+            IsolatedGitEnvironment,
+            timeProvider);
         GitRepositoryLockEventArgs? eventArgs = null;
         runner.RepositoryLockFailed += (_, e) => eventArgs = e;
 
@@ -87,13 +97,57 @@ public class GitCliRunnerTests : RealGitTestRepository
                 ["add", "--", "locked.txt"],
                 networkOperation: false,
                 CancellationToken.None));
+        RepositoryLockInfo? recoverable = runner.GetRecoverableRepositoryLock(Repository);
 
         Assert.Multiple(() =>
         {
             Assert.That(exception!.IsRepositoryLockFailure, Is.True);
             Assert.That(eventArgs, Is.Not.Null);
             Assert.That(eventArgs!.Repository, Is.EqualTo(Repository));
+            Assert.That(recoverable, Is.Not.Null);
             Assert.That(File.Exists(lockPath), Is.True);
         });
+
+        Assert.That(
+            runner.RemoveRecoverableRepositoryLock(Repository, recoverable!),
+            Is.True);
+        Assert.That(File.Exists(lockPath), Is.False);
+    }
+
+    [Test]
+    public async Task Recent_or_active_repository_lock_is_not_recoverable()
+    {
+        var now = new DateTimeOffset(2026, 1, 2, 12, 0, 0, TimeSpan.Zero);
+        var timeProvider = new FakeTimeProvider(now);
+        string lockPath = Path.Combine(Root, ".git", "index.lock");
+        await File.WriteAllTextAsync(lockPath, "");
+        var runner = new GitCliRunner(
+            GitPath,
+            TimeSpan.FromSeconds(10),
+            IsolatedGitEnvironment,
+            timeProvider);
+
+        Assert.That(runner.GetRecoverableRepositoryLock(Repository), Is.Null);
+
+        File.SetLastWriteTimeUtc(
+            lockPath,
+            (now - GitCliRunner.StaleLockAge - TimeSpan.FromMinutes(1)).UtcDateTime);
+        using var cancellation = new CancellationTokenSource();
+        Task<GitCommandResult> activeCommand = runner.RunAsync(
+            Repository,
+            ["cat-file", "--batch"],
+            networkOperation: false,
+            cancellation.Token);
+        for (int attempt = 0; attempt < 100 && !runner.HasActiveProcess; attempt++)
+        {
+            await Task.Delay(10);
+        }
+
+        Assert.That(runner.HasActiveProcess, Is.True);
+        Assert.That(runner.GetRecoverableRepositoryLock(Repository), Is.Null);
+
+        cancellation.Cancel();
+        Assert.ThrowsAsync<OperationCanceledException>(async () => await activeCommand);
+        Assert.That(runner.GetRecoverableRepositoryLock(Repository), Is.Not.Null);
     }
 }

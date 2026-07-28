@@ -6,6 +6,8 @@ namespace Beutl.UnitTests.Editor.VersionControl;
 
 public abstract class RealGitTestRepository
 {
+    private readonly List<string> _additionalTemporaryDirectories = [];
+
     protected static readonly IReadOnlyDictionary<string, string> IsolatedGitEnvironment
         = new Dictionary<string, string>
         {
@@ -21,7 +23,7 @@ public abstract class RealGitTestRepository
 
     protected RepositoryInfo Repository { get; private set; } = null!;
 
-    protected GitCliRunner Runner { get; private set; } = null!;
+    private protected GitCliRunner Runner { get; private set; } = null!;
 
     [SetUp]
     public async Task SetUpRealGitRepository()
@@ -44,12 +46,32 @@ public abstract class RealGitTestRepository
         {
             Directory.Delete(Root, recursive: true);
         }
+
+        foreach (string directory in _additionalTemporaryDirectories)
+        {
+            if (Directory.Exists(directory))
+            {
+                Directory.Delete(directory, recursive: true);
+            }
+        }
+
+        _additionalTemporaryDirectories.Clear();
     }
 
-    protected GitCliRunner CreateRunner(TimeSpan? timeout = null)
+    private protected GitCliRunner CreateRunner(TimeSpan? timeout = null)
         => new(GitPath, timeout ?? TimeSpan.FromSeconds(10), IsolatedGitEnvironment);
 
-    protected Task<GitCommandResult> RunGitAsync(params string[] arguments)
+    protected string CreateTemporaryDirectory()
+    {
+        string directory = Path.Combine(
+            Path.GetTempPath(),
+            $"beutl-git-extra-{Guid.NewGuid():N}");
+        Directory.CreateDirectory(directory);
+        _additionalTemporaryDirectories.Add(directory);
+        return directory;
+    }
+
+    private protected Task<GitCommandResult> RunGitAsync(params string[] arguments)
         => Runner.RunAsync(Repository, arguments, networkOperation: false, CancellationToken.None);
 
     protected async Task CommitFileAsync(string relativePath, string contents, string message)
