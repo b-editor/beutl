@@ -385,6 +385,7 @@ public class VersionControlTabViewModelTests
         {
             Assert.That(viewModel.HasSelectedCommit.Value, Is.True);
             Assert.That(viewModel.HasSelectedFile.Value, Is.False);
+            Assert.That(viewModel.ShowingDetail.Value, Is.False);
         });
 
         await viewModel.SelectFileAsync(viewModel.ChangedFiles.Single());
@@ -413,6 +414,55 @@ public class VersionControlTabViewModelTests
         {
             Assert.That(viewModel.HasSelectedCommit.Value, Is.False);
             Assert.That(viewModel.HasSelectedFile.Value, Is.False);
+        });
+    }
+
+    [Test]
+    public async Task Narrow_drill_down_opens_detail_and_back_preserves_the_selection()
+    {
+        CommitInfo commit = CreateCommit(1, SnapshotKind.Save);
+        var file = new FileChange("elements/one.belm", FileChangeStatus.Modified);
+        Mock<IProjectVersionControlService> service = CreateServiceMock();
+        service.Setup(x => x.GetHistoryAsync(
+                It.IsAny<int>(),
+                It.IsAny<int>(),
+                It.IsAny<CancellationToken>()))
+            .ReturnsAsync([commit]);
+        service.Setup(x => x.GetCommitFilesAsync(
+                commit.Sha,
+                It.IsAny<CancellationToken>()))
+            .ReturnsAsync([file]);
+        using VersionControlTabViewModel viewModel = CreateViewModel(service.Object);
+        await viewModel.Initialization;
+        VersionControlCommitViewModel selected = viewModel.Commits.Single();
+
+        await viewModel.OpenCommitDetailAsync(selected);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(viewModel.ShowingDetail.Value, Is.True);
+            Assert.That(viewModel.SelectedCommit.Value, Is.SameAs(selected));
+            Assert.That(viewModel.ChangedFiles, Has.Count.EqualTo(1));
+            Assert.That(viewModel.BackToHistoryCommand.CanExecute(), Is.True);
+        });
+
+        viewModel.BackToHistoryCommand.Execute();
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(viewModel.ShowingDetail.Value, Is.False);
+            Assert.That(viewModel.SelectedCommit.Value, Is.SameAs(selected));
+            Assert.That(viewModel.ChangedFiles, Has.Count.EqualTo(1));
+            Assert.That(viewModel.BackToHistoryCommand.CanExecute(), Is.False);
+        });
+
+        viewModel.ShowSelectedCommitDetail();
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(viewModel.ShowingDetail.Value, Is.True);
+            Assert.That(viewModel.SelectedCommit.Value, Is.SameAs(selected));
+            Assert.That(viewModel.ChangedFiles, Has.Count.EqualTo(1));
         });
     }
 

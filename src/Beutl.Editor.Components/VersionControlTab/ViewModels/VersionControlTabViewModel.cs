@@ -27,6 +27,7 @@ public sealed class VersionControlTabViewModel : IToolContext
     private readonly VersionControlRelativeTimeFormatter _relativeTimeFormatter;
     private readonly CompositeDisposable _disposables = [];
     private readonly SemaphoreSlim _historyGate = new(1, 1);
+    private readonly ReactivePropertySlim<bool> _showingDetail;
     private CancellationTokenSource? _selectionCancellation;
     private CancellationTokenSource? _remoteOperationCancellation;
     private int _nextHistoryOffset;
@@ -105,6 +106,11 @@ public sealed class VersionControlTabViewModel : IToolContext
             .DisposeWith(_disposables);
         IsHistoryEmpty = new ReactivePropertySlim<bool>(true)
             .DisposeWith(_disposables);
+        _showingDetail = new ReactivePropertySlim<bool>()
+            .DisposeWith(_disposables);
+        ShowingDetail = _showingDetail
+            .ToReadOnlyReactivePropertySlim()
+            .DisposeWith(_disposables);
         SelectedCommit = new ReactivePropertySlim<VersionControlCommitViewModel?>()
             .DisposeWith(_disposables);
         SelectedFile = new ReactivePropertySlim<VersionControlFileChangeViewModel?>()
@@ -160,6 +166,9 @@ public sealed class VersionControlTabViewModel : IToolContext
 
         LoadMoreCommand = new AsyncReactiveCommand()
             .WithSubscribe(LoadMoreAsync)
+            .DisposeWith(_disposables);
+        BackToHistoryCommand = new ReactiveCommandSlim(ShowingDetail)
+            .WithSubscribe(ShowHistory)
             .DisposeWith(_disposables);
         EnableVersionControlCommand = new AsyncReactiveCommand(CanEnableVersionControl)
             .WithSubscribe(EnableVersionControlAsync)
@@ -281,6 +290,8 @@ public sealed class VersionControlTabViewModel : IToolContext
 
     public ReactivePropertySlim<bool> IsHistoryEmpty { get; }
 
+    public ReadOnlyReactivePropertySlim<bool> ShowingDetail { get; }
+
     public ObservableCollection<VersionControlCommitViewModel> Commits { get; } = [];
 
     public ObservableCollection<VersionControlFileChangeViewModel> ChangedFiles { get; } = [];
@@ -322,6 +333,8 @@ public sealed class VersionControlTabViewModel : IToolContext
     public ReadOnlyReactivePropertySlim<bool> CanEnableVersionControl { get; }
 
     public AsyncReactiveCommand LoadMoreCommand { get; }
+
+    public ReactiveCommandSlim BackToHistoryCommand { get; }
 
     public AsyncReactiveCommand EnableVersionControlCommand { get; }
 
@@ -508,6 +521,11 @@ public sealed class VersionControlTabViewModel : IToolContext
     public async Task SelectCommitAsync(VersionControlCommitViewModel? commit)
     {
         SelectedCommit.Value = commit;
+        if (commit is null)
+        {
+            _showingDetail.Value = false;
+        }
+
         SelectedFile.Value = null;
         ChangedFiles.Clear();
         DiffLines.Clear();
@@ -529,6 +547,26 @@ public sealed class VersionControlTabViewModel : IToolContext
         {
             ChangedFiles.Add(new VersionControlFileChangeViewModel(file));
         }
+    }
+
+    internal async Task OpenCommitDetailAsync(VersionControlCommitViewModel commit)
+    {
+        ArgumentNullException.ThrowIfNull(commit);
+        _showingDetail.Value = true;
+        await SelectCommitAsync(commit);
+    }
+
+    internal void ShowSelectedCommitDetail()
+    {
+        if (SelectedCommit.Value is not null)
+        {
+            _showingDetail.Value = true;
+        }
+    }
+
+    private void ShowHistory()
+    {
+        _showingDetail.Value = false;
     }
 
     public async Task SelectFileAsync(VersionControlFileChangeViewModel? file)
@@ -726,11 +764,23 @@ public sealed class VersionControlTabViewModel : IToolContext
             await LoadNextPageCoreAsync();
             if (selectedSha is not null)
             {
-                SelectedCommit.Value = Commits.FirstOrDefault(
+                VersionControlCommitViewModel? restoredCommit = Commits.FirstOrDefault(
                     item => string.Equals(
                         item.Commit.Sha,
                         selectedSha,
                         StringComparison.Ordinal));
+                if (restoredCommit is null)
+                {
+                    _showingDetail.Value = false;
+                }
+                else
+                {
+                    await SelectCommitAsync(restoredCommit);
+                }
+            }
+            else
+            {
+                _showingDetail.Value = false;
             }
         }
         finally

@@ -1,5 +1,5 @@
-﻿using Avalonia.Controls;
-using Avalonia.Interactivity;
+﻿using Avalonia;
+using Avalonia.Controls;
 using Beutl.Editor.Components.VersionControlTab.ViewModels;
 using Beutl.Extensibility;
 
@@ -7,31 +7,28 @@ namespace Beutl.Editor.Components.VersionControlTab.Views;
 
 public sealed partial class VersionControlTabView : UserControl
 {
+    public static readonly StyledProperty<bool> IsNarrowLayoutProperty =
+        AvaloniaProperty.Register<VersionControlTabView, bool>(
+            nameof(IsNarrowLayout),
+            defaultValue: true);
+
     public VersionControlTabView()
     {
         InitializeComponent();
         DataContextChanged += OnDataContextChanged;
+        SizeChanged += OnSizeChanged;
         ConfigureCallbacks();
     }
 
-    private async void OnCommitSelectionChanged(object? sender, SelectionChangedEventArgs e)
+    public bool IsNarrowLayout
     {
-        if (DataContext is VersionControlTabViewModel viewModel
-            && sender is ListBox listBox)
-        {
-            await viewModel.SelectCommitAsync(
-                listBox.SelectedItem as VersionControlCommitViewModel);
-        }
+        get => GetValue(IsNarrowLayoutProperty);
+        private set => SetValue(IsNarrowLayoutProperty, value);
     }
 
-    private async void OnChangedFileSelectionChanged(object? sender, SelectionChangedEventArgs e)
+    private void OnSizeChanged(object? sender, SizeChangedEventArgs e)
     {
-        if (DataContext is VersionControlTabViewModel viewModel
-            && sender is ListBox listBox)
-        {
-            await viewModel.SelectFileAsync(
-                listBox.SelectedItem as VersionControlFileChangeViewModel);
-        }
+        UpdateLayoutMode(e.NewSize.Width);
     }
 
     private void OnDataContextChanged(object? sender, EventArgs e)
@@ -46,6 +43,13 @@ public sealed partial class VersionControlTabView : UserControl
             viewModel.RequestEnableVersionControlAsync = ExecuteEnableVersionControlAsync;
             viewModel.LaunchUriAsync = LaunchUriAsync;
         }
+
+        UpdateLayoutMode(Bounds.Width);
+    }
+
+    private void UpdateLayoutMode(double availableWidth)
+    {
+        IsNarrowLayout = VersionControlTabLayout.IsNarrow(availableWidth);
     }
 
     private Task ExecuteEnableVersionControlAsync()

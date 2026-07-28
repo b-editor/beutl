@@ -1,7 +1,10 @@
 ﻿using System.ComponentModel;
 using System.Diagnostics;
+using Avalonia;
 using Avalonia.Controls;
+using Avalonia.Headless;
 using Avalonia.Headless.NUnit;
+using Avalonia.Input;
 using Beutl.Configuration;
 using Beutl.Editor.Components.VersionControlTab.ViewModels;
 using Beutl.Editor.Components.VersionControlTab.Views;
@@ -17,7 +20,7 @@ namespace Beutl.HeadlessUITests;
 public class VersionControlTabViewTests
 {
     [AvaloniaTest]
-    public async Task Untracked_onboarding_and_explicit_branch_controls_are_wired()
+    public async Task Adaptive_layout_supports_onboarding_wide_and_narrow_drill_down()
     {
         await TestReset.ResetShellAsync();
         using var gitEnvironment = new IsolatedGitEnvironment();
@@ -75,16 +78,47 @@ public class VersionControlTabViewTests
             HeadlessTestHelpers.Settle();
             Assert.That(handler.LastExecution?.CommandName, Is.EqualTo("EnableVersionControl"));
 
-            var main = new BranchInfo("main", true, null);
+            bool initialized = await TestShell.VersionControl.InitializeCurrentProjectAsync(
+                async service =>
+                {
+                    await service.SetLocalIdentityAsync(
+                        new GitIdentity(
+                            "Beutl Headless Test",
+                            "headless@example.invalid"),
+                        CancellationToken.None);
+                    return true;
+                });
+            Assert.That(initialized, Is.True);
+            await WaitUntilAsync(
+                () => viewModel.IsTracked.Value && viewModel.Commits.Count > 0);
+
+            BranchInfo main = viewModel.CurrentBranch.Value
+                              ?? new BranchInfo("main", true, null);
             var alternate = new BranchInfo("alternate", false, null);
-            viewModel.IsTracked.Value = true;
-            viewModel.Branches.Add(main);
+            if (viewModel.CurrentBranch.Value is null)
+            {
+                viewModel.Branches.Add(main);
+                viewModel.CurrentBranch.Value = main;
+            }
+
             viewModel.Branches.Add(alternate);
-            viewModel.CurrentBranch.Value = main;
             viewModel.SelectedBranch.Value = alternate;
             viewModel.HasAhead.Value = true;
             viewModel.AheadBadgeText.Value = "↑2";
             HeadlessTestHelpers.Render();
+
+            Grid wideLayout = view.FindControl<Grid>("WideLayoutRoot")!;
+            Grid narrowLayout = view.FindControl<Grid>("NarrowLayoutRoot")!;
+            UserControl wideHistory =
+                view.FindControl<UserControl>("WideHistoryView")!;
+            UserControl narrowHistory =
+                view.FindControl<UserControl>("NarrowHistoryRoot")!;
+            UserControl wideChanges =
+                view.FindControl<UserControl>("WideChangesView")!;
+            UserControl narrowChanges =
+                view.FindControl<UserControl>("NarrowChangesView")!;
+            UserControl detailHeader =
+                view.FindControl<UserControl>("NarrowDetailHeader")!;
 
             Assert.Multiple(() =>
             {
@@ -95,12 +129,95 @@ public class VersionControlTabViewTests
                 Assert.That(view.FindControl<Border>("AheadBadge")!.IsVisible, Is.True);
                 Assert.That(view.FindControl<Border>("BehindBadge")!.IsVisible, Is.False);
                 Assert.That(view.FindControl<Expander>("RemoteExpander")!.IsExpanded, Is.False);
-                Assert.That(view.FindControl<TextBlock>("HistoryEmptyHint")!.IsVisible, Is.True);
-                Assert.That(view.FindControl<WrapPanel>("SelectedCommitActionBar")!.IsVisible,
-                    Is.False);
-                Assert.That(view.FindControl<TextBlock>("ChangedFilesEmptyHint")!.IsVisible,
+                Assert.That(view.IsNarrowLayout, Is.False);
+                Assert.That(wideLayout.IsVisible, Is.True);
+                Assert.That(narrowLayout.IsVisible, Is.False);
+                Assert.That(
+                    wideHistory.FindControl<TextBlock>("HistoryEmptyHint")!.Text,
+                    Is.EqualTo(
+                        narrowHistory.FindControl<TextBlock>("HistoryEmptyHint")!.Text));
+                Assert.That(
+                    wideChanges.FindControl<TextBlock>("ChangedFilesEmptyHint")!.Text,
+                    Is.EqualTo(
+                        narrowChanges.FindControl<TextBlock>("ChangedFilesEmptyHint")!.Text));
+                Assert.That(
+                    wideChanges.FindControl<TextBlock>("DiffEmptyHint")!.Text,
+                    Is.EqualTo(narrowChanges.FindControl<TextBlock>("DiffEmptyHint")!.Text));
+            });
+
+            window.Width = 500;
+            HeadlessTestHelpers.Render();
+
+            Grid narrowDetail = view.FindControl<Grid>("NarrowDetailRoot")!;
+            Assert.Multiple(() =>
+            {
+                Assert.That(view.IsNarrowLayout, Is.True);
+                Assert.That(wideLayout.IsVisible, Is.False);
+                Assert.That(narrowLayout.IsVisible, Is.True);
+                Assert.That(narrowHistory.IsVisible, Is.True);
+                Assert.That(narrowDetail.IsVisible, Is.False);
+            });
+
+            ListBox commitList = narrowHistory.FindControl<ListBox>("CommitList")!;
+            ListBox wideCommitList = wideHistory.FindControl<ListBox>("CommitList")!;
+            VersionControlCommitViewModel selectedCommit = viewModel.Commits[0];
+            commitList.SelectedItem = selectedCommit;
+            await WaitUntilAsync(() => viewModel.ShowingDetail.Value);
+            HeadlessTestHelpers.Render();
+
+            Assert.Multiple(() =>
+            {
+                Assert.That(narrowHistory.IsVisible, Is.False);
+                Assert.That(narrowDetail.IsVisible, Is.True);
+                Assert.That(viewModel.SelectedCommit.Value, Is.SameAs(selectedCommit));
+                Assert.That(wideCommitList.SelectedItem, Is.SameAs(selectedCommit));
+                Assert.That(
+                    narrowChanges.FindControl<WrapPanel>("SelectedCommitActionBar")!.IsVisible,
                     Is.True);
-                Assert.That(view.FindControl<TextBlock>("DiffEmptyHint")!.IsVisible, Is.True);
+                Assert.That(
+                    detailHeader.FindControl<Button>("BackButton")!.IsVisible,
+                    Is.True);
+            });
+
+            detailHeader.FindControl<Button>("BackButton")!.Command!.Execute(null);
+            HeadlessTestHelpers.Render();
+
+            Assert.Multiple(() =>
+            {
+                Assert.That(viewModel.ShowingDetail.Value, Is.False);
+                Assert.That(narrowHistory.IsVisible, Is.True);
+                Assert.That(narrowDetail.IsVisible, Is.False);
+                Assert.That(viewModel.SelectedCommit.Value, Is.SameAs(selectedCommit));
+                Assert.That(commitList.SelectedItem, Is.SameAs(selectedCommit));
+            });
+
+            var selectedItem = (ListBoxItem)commitList.ContainerFromIndex(0)!;
+            Point selectedItemCenter = selectedItem.TranslatePoint(
+                new Point(
+                    selectedItem.Bounds.Width / 2,
+                    selectedItem.Bounds.Height / 2),
+                window)!.Value;
+            window.MouseDown(selectedItemCenter, MouseButton.Left);
+            window.MouseUp(selectedItemCenter, MouseButton.Left);
+            await WaitUntilAsync(() => viewModel.ShowingDetail.Value);
+            HeadlessTestHelpers.Render();
+
+            Assert.That(narrowDetail.IsVisible, Is.True);
+
+            detailHeader.FindControl<Button>("BackButton")!.Command!.Execute(null);
+            HeadlessTestHelpers.Render();
+            window.Width = 900;
+            HeadlessTestHelpers.Render();
+
+            Assert.Multiple(() =>
+            {
+                Assert.That(view.IsNarrowLayout, Is.False);
+                Assert.That(wideLayout.IsVisible, Is.True);
+                Assert.That(narrowLayout.IsVisible, Is.False);
+                Assert.That(wideCommitList.SelectedItem, Is.SameAs(selectedCommit));
+                Assert.That(
+                    wideChanges.FindControl<WrapPanel>("SelectedCommitActionBar")!.IsVisible,
+                    Is.True);
             });
         }
         finally
@@ -109,6 +226,18 @@ public class VersionControlTabViewTests
             config.GitExecutablePath = previousGitPath;
             await TestReset.ResetShellAsync();
         }
+    }
+
+    private static async Task WaitUntilAsync(Func<bool> condition)
+    {
+        var timeout = Stopwatch.StartNew();
+        while (!condition() && timeout.Elapsed < TimeSpan.FromSeconds(5))
+        {
+            HeadlessTestHelpers.Settle();
+            await Task.Delay(25);
+        }
+
+        Assert.That(condition(), Is.True, "The expected UI state was not reached.");
     }
 
     private static string ProbeGitOrIgnore()

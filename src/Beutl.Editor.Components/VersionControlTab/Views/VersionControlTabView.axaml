@@ -1,10 +1,12 @@
-<UserControl x:Class="Beutl.Editor.Components.VersionControlTab.Views.VersionControlTabView"
+<UserControl x:Name="Root"
+             x:Class="Beutl.Editor.Components.VersionControlTab.Views.VersionControlTabView"
              xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
              xmlns:lang="using:Beutl.Language"
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
              xmlns:vc="using:Beutl.Editor.VersionControl"
+             xmlns:views="using:Beutl.Editor.Components.VersionControlTab.Views"
              xmlns:vm="using:Beutl.Editor.Components.VersionControlTab.ViewModels"
              d:DesignHeight="640"
              d:DesignWidth="420"
@@ -241,158 +243,35 @@
                         </Grid>
                     </Border>
 
-                    <Grid Grid.Row="1"
-                          ColumnDefinitions="2*,5,3*">
-                        <Grid Grid.Column="0"
-                              Margin="8"
-                              RowDefinitions="Auto,*,Auto"
-                              RowSpacing="6">
-                            <TextBlock Classes="sectionHeader"
-                                       Text="{x:Static lang:Strings.VersionControl_History}" />
-                            <Grid Grid.Row="1">
-                                <ListBox x:Name="CommitList"
-                                         ItemsSource="{Binding Commits}"
-                                         SelectionChanged="OnCommitSelectionChanged">
-                                    <ListBox.ItemTemplate>
-                                        <DataTemplate x:DataType="vm:VersionControlCommitViewModel">
-                                            <Border Padding="8,6">
-                                                <Border.ContextMenu>
-                                                    <ContextMenu>
-                                                        <MenuItem Command="{Binding RestoreCommand}"
-                                                                  Header="{x:Static lang:Strings.VersionControl_Restore}" />
-                                                        <MenuItem Command="{Binding RestoreToNewBranchCommand}"
-                                                                  Header="{x:Static lang:Strings.VersionControl_RestoreToNewBranch}" />
-                                                    </ContextMenu>
-                                                </Border.ContextMenu>
-                                                <Grid ColumnDefinitions="*,Auto"
-                                                      RowDefinitions="Auto,Auto,Auto"
-                                                      ColumnSpacing="6">
-                                                    <TextBlock FontWeight="SemiBold"
-                                                               Text="{Binding DisplayMessage}"
-                                                               TextTrimming="CharacterEllipsis" />
-                                                    <Border Grid.Column="1"
-                                                            Classes="kindBadge"
-                                                            Classes.close="{Binding IsClose}"
-                                                            Classes.init="{Binding IsInit}"
-                                                            Classes.manual="{Binding IsManual}"
-                                                            Classes.restore="{Binding IsRestore}"
-                                                            Classes.safety="{Binding IsSafety}"
-                                                            Classes.save="{Binding IsSave}">
-                                                        <TextBlock FontSize="10" Text="{Binding KindText}" />
-                                                    </Border>
-                                                    <TextBlock Grid.Row="1"
-                                                               Grid.ColumnSpan="2"
-                                                               Margin="0,3,0,0"
-                                                               Classes="secondary"
-                                                               Text="{Binding AuthorAndRelativeDate}"
-                                                               ToolTip.Tip="{Binding AbsoluteLocalDate}" />
-                                                    <TextBlock Grid.Row="2"
-                                                               Grid.ColumnSpan="2"
-                                                               Classes="secondary"
-                                                               Text="{Binding Commit.ShortSha}" />
-                                                </Grid>
-                                            </Border>
-                                        </DataTemplate>
-                                    </ListBox.ItemTemplate>
-                                </ListBox>
-                                <TextBlock x:Name="HistoryEmptyHint"
-                                           Margin="12"
-                                           HorizontalAlignment="Center"
-                                           VerticalAlignment="Center"
-                                           Classes="secondary"
-                                           IsVisible="{Binding IsHistoryEmpty.Value}"
-                                           Text="{x:Static lang:Strings.VersionControl_HistoryEmptyHint}"
-                                           TextAlignment="Center"
-                                           TextWrapping="Wrap" />
-                            </Grid>
-                            <Button Grid.Row="2"
-                                    HorizontalAlignment="Stretch"
-                                    Command="{Binding LoadMoreCommand}"
-                                    Content="{x:Static lang:Strings.VersionControl_LoadMore}"
-                                    IsEnabled="{Binding !IsLoading.Value}"
-                                    IsVisible="{Binding HasMoreHistory.Value}" />
-                        </Grid>
-
+                    <Grid x:Name="WideLayoutRoot"
+                          Grid.Row="1"
+                          ColumnDefinitions="2*,5,3*"
+                          IsVisible="{Binding !#Root.IsNarrowLayout}">
+                        <views:VersionControlHistoryView x:Name="WideHistoryView"
+                                                         Grid.Column="0"
+                                                         Margin="8" />
                         <GridSplitter Grid.Column="1"
                                       Background="{DynamicResource DividerStrokeColorDefaultBrush}"
                                       ResizeDirection="Columns" />
+                        <views:VersionControlChangesView x:Name="WideChangesView"
+                                                         Grid.Column="2"
+                                                         Margin="8" />
+                    </Grid>
 
-                        <Grid Grid.Column="2"
-                              Margin="8"
-                              RowDefinitions="Auto,Auto,2*,Auto,3*"
-                              RowSpacing="6">
-                            <TextBlock Classes="sectionHeader"
-                                       Text="{x:Static lang:Strings.VersionControl_ChangedFiles}" />
-                            <WrapPanel x:Name="SelectedCommitActionBar"
-                                       Grid.Row="1"
-                                       IsVisible="{Binding HasSelectedCommit.Value}"
-                                       Orientation="Horizontal">
-                                <Button Margin="0,0,6,6"
-                                        Command="{Binding SelectedCommit.Value.RestoreCommand}"
-                                        Content="{x:Static lang:Strings.VersionControl_Restore}" />
-                                <Button Margin="0,0,0,6"
-                                        Command="{Binding SelectedCommit.Value.RestoreToNewBranchCommand}"
-                                        Content="{x:Static lang:Strings.VersionControl_RestoreToNewBranch}" />
-                            </WrapPanel>
-                            <Grid Grid.Row="2">
-                                <ListBox x:Name="ChangedFileList"
-                                         ItemsSource="{Binding ChangedFiles}"
-                                         SelectionChanged="OnChangedFileSelectionChanged">
-                                    <ListBox.ItemTemplate>
-                                        <DataTemplate x:DataType="vm:VersionControlFileChangeViewModel">
-                                            <Grid Margin="6,4"
-                                                  ColumnDefinitions="24,*"
-                                                  ColumnSpacing="4">
-                                                <TextBlock FontFamily="Consolas, Menlo, monospace"
-                                                           FontWeight="SemiBold"
-                                                           Text="{Binding StatusText}" />
-                                                <TextBlock Grid.Column="1"
-                                                           Text="{Binding PathText}"
-                                                           TextTrimming="CharacterEllipsis"
-                                                           ToolTip.Tip="{Binding PathText}" />
-                                            </Grid>
-                                        </DataTemplate>
-                                    </ListBox.ItemTemplate>
-                                </ListBox>
-                                <TextBlock x:Name="ChangedFilesEmptyHint"
-                                           Margin="12"
-                                           HorizontalAlignment="Center"
-                                           VerticalAlignment="Center"
-                                           Classes="secondary"
-                                           IsVisible="{Binding !HasSelectedCommit.Value}"
-                                           Text="{x:Static lang:Strings.VersionControl_ChangedFilesEmptyHint}"
-                                           TextAlignment="Center"
-                                           TextWrapping="Wrap" />
-                            </Grid>
-
-                            <TextBlock Grid.Row="3"
-                                       Classes="sectionHeader"
-                                       Text="{x:Static lang:Strings.VersionControl_Diff}" />
-                            <Grid Grid.Row="4">
-                                <ScrollViewer HorizontalScrollBarVisibility="Auto"
-                                              VerticalScrollBarVisibility="Auto">
-                                    <ItemsControl ItemsSource="{Binding DiffLines}">
-                                        <ItemsControl.ItemTemplate>
-                                            <DataTemplate x:DataType="vm:VersionControlDiffLineViewModel">
-                                                <TextBlock Classes="diffLine"
-                                                           Classes.added="{Binding IsAdded}"
-                                                           Classes.header="{Binding IsHeader}"
-                                                           Classes.removed="{Binding IsRemoved}"
-                                                           Text="{Binding Text}" />
-                                            </DataTemplate>
-                                        </ItemsControl.ItemTemplate>
-                                    </ItemsControl>
-                                </ScrollViewer>
-                                <TextBlock x:Name="DiffEmptyHint"
-                                           Margin="12"
-                                           HorizontalAlignment="Center"
-                                           VerticalAlignment="Center"
-                                           Classes="secondary"
-                                           IsVisible="{Binding !HasSelectedFile.Value}"
-                                           Text="{x:Static lang:Strings.VersionControl_DiffEmptyHint}"
-                                           TextAlignment="Center"
-                                           TextWrapping="Wrap" />
-                            </Grid>
+                    <Grid x:Name="NarrowLayoutRoot"
+                          Grid.Row="1"
+                          IsVisible="{Binding #Root.IsNarrowLayout}">
+                        <views:VersionControlHistoryView x:Name="NarrowHistoryRoot"
+                                                         Margin="8"
+                                                         DrillDownOnSelection="True"
+                                                         IsVisible="{Binding !ShowingDetail.Value}" />
+                        <Grid x:Name="NarrowDetailRoot"
+                              IsVisible="{Binding ShowingDetail.Value}"
+                              RowDefinitions="Auto,*">
+                            <views:VersionControlDetailHeaderView x:Name="NarrowDetailHeader" />
+                            <views:VersionControlChangesView x:Name="NarrowChangesView"
+                                                             Grid.Row="1"
+                                                             Margin="8" />
                         </Grid>
                     </Grid>
                 </Grid>

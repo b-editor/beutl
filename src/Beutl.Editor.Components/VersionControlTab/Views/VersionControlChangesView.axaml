@@ -1,0 +1,88 @@
+<UserControl x:Class="Beutl.Editor.Components.VersionControlTab.Views.VersionControlChangesView"
+             xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:lang="using:Beutl.Language"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:vm="using:Beutl.Editor.Components.VersionControlTab.ViewModels"
+             d:DesignHeight="480"
+             d:DesignWidth="360"
+             x:CompileBindings="True"
+             x:DataType="vm:VersionControlTabViewModel"
+             mc:Ignorable="d">
+    <Grid RowDefinitions="Auto,Auto,2*,Auto,3*" RowSpacing="6">
+        <TextBlock Classes="sectionHeader"
+                   Text="{x:Static lang:Strings.VersionControl_ChangedFiles}" />
+        <WrapPanel x:Name="SelectedCommitActionBar"
+                   Grid.Row="1"
+                   IsVisible="{Binding HasSelectedCommit.Value}"
+                   Orientation="Horizontal">
+            <Button Margin="0,0,6,6"
+                    Command="{Binding SelectedCommit.Value.RestoreCommand}"
+                    Content="{x:Static lang:Strings.VersionControl_Restore}" />
+            <Button Margin="0,0,0,6"
+                    Command="{Binding SelectedCommit.Value.RestoreToNewBranchCommand}"
+                    Content="{x:Static lang:Strings.VersionControl_RestoreToNewBranch}" />
+        </WrapPanel>
+        <Grid Grid.Row="2">
+            <ListBox x:Name="ChangedFileList"
+                     ItemsSource="{Binding ChangedFiles}"
+                     SelectedItem="{Binding SelectedFile.Value, Mode=TwoWay}"
+                     SelectionChanged="OnChangedFileSelectionChanged">
+                <ListBox.ItemTemplate>
+                    <DataTemplate x:DataType="vm:VersionControlFileChangeViewModel">
+                        <Grid Margin="6,4"
+                              ColumnDefinitions="24,*"
+                              ColumnSpacing="4">
+                            <TextBlock FontFamily="Consolas, Menlo, monospace"
+                                       FontWeight="SemiBold"
+                                       Text="{Binding StatusText}" />
+                            <TextBlock Grid.Column="1"
+                                       Text="{Binding PathText}"
+                                       TextTrimming="CharacterEllipsis"
+                                       ToolTip.Tip="{Binding PathText}" />
+                        </Grid>
+                    </DataTemplate>
+                </ListBox.ItemTemplate>
+            </ListBox>
+            <TextBlock x:Name="ChangedFilesEmptyHint"
+                       Margin="12"
+                       HorizontalAlignment="Center"
+                       VerticalAlignment="Center"
+                       Classes="secondary"
+                       IsVisible="{Binding !HasSelectedCommit.Value}"
+                       Text="{x:Static lang:Strings.VersionControl_ChangedFilesEmptyHint}"
+                       TextAlignment="Center"
+                       TextWrapping="Wrap" />
+        </Grid>
+
+        <TextBlock Grid.Row="3"
+                   Classes="sectionHeader"
+                   Text="{x:Static lang:Strings.VersionControl_Diff}" />
+        <Grid Grid.Row="4">
+            <ScrollViewer HorizontalScrollBarVisibility="Auto"
+                          VerticalScrollBarVisibility="Auto">
+                <ItemsControl ItemsSource="{Binding DiffLines}">
+                    <ItemsControl.ItemTemplate>
+                        <DataTemplate x:DataType="vm:VersionControlDiffLineViewModel">
+                            <TextBlock Classes="diffLine"
+                                       Classes.added="{Binding IsAdded}"
+                                       Classes.header="{Binding IsHeader}"
+                                       Classes.removed="{Binding IsRemoved}"
+                                       Text="{Binding Text}" />
+                        </DataTemplate>
+                    </ItemsControl.ItemTemplate>
+                </ItemsControl>
+            </ScrollViewer>
+            <TextBlock x:Name="DiffEmptyHint"
+                       Margin="12"
+                       HorizontalAlignment="Center"
+                       VerticalAlignment="Center"
+                       Classes="secondary"
+                       IsVisible="{Binding !HasSelectedFile.Value}"
+                       Text="{x:Static lang:Strings.VersionControl_DiffEmptyHint}"
+                       TextAlignment="Center"
+                       TextWrapping="Wrap" />
+        </Grid>
+    </Grid>
+</UserControl>
