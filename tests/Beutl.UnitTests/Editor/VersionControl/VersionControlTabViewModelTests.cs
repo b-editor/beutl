@@ -170,7 +170,7 @@ public class VersionControlTabViewModelTests
             Mock.Of<ToolTabExtension>(),
             Mock.Of<IEditorContext>(),
             service.Object,
-            restoreCoordinator: null,
+            versionControlCoordinator: null,
             action => pendingUiAction = action);
         await viewModel.Initialization;
 
@@ -226,7 +226,7 @@ public class VersionControlTabViewModelTests
             Mock.Of<ToolTabExtension>(),
             Mock.Of<IEditorContext>(),
             service.Object,
-            restoreCoordinator: null,
+            versionControlCoordinator: null,
             action => pendingUiAction = action);
         await viewModel.Initialization;
         currentLock = new RepositoryLockInfo(
@@ -312,7 +312,7 @@ public class VersionControlTabViewModelTests
                 It.IsAny<int>(),
                 It.IsAny<CancellationToken>()))
             .ReturnsAsync([commit]);
-        var coordinator = new Mock<IVersionControlRestoreCoordinator>();
+        var coordinator = new Mock<IProjectVersionControlCoordinator>();
         coordinator.Setup(x => x.RestoreToNewBranchAsync(
                 commit.Sha,
                 "restored-version",
@@ -340,14 +340,209 @@ public class VersionControlTabViewModelTests
             Times.Once);
     }
 
+    [Test]
+    public async Task Manual_commit_reports_no_changes_and_preserves_the_message()
+    {
+        Mock<IProjectVersionControlService> service = CreateServiceMock();
+        var coordinator = new Mock<IProjectVersionControlCoordinator>();
+        coordinator.Setup(x => x.CommitManualAsync(
+                "rough cut",
+                It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new CommitResult.NoChanges());
+        using var viewModel = CreateViewModel(service.Object, coordinator.Object);
+        await viewModel.Initialization;
+        viewModel.CommitMessage.Value = " rough cut ";
+
+        await viewModel.CommitManualAsync();
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(viewModel.StatusMessage.Value,
+                Is.EqualTo(Strings.VersionControl_NothingToCommit));
+            Assert.That(viewModel.CommitMessage.Value, Is.EqualTo(" rough cut "));
+        });
+        coordinator.Verify(
+            x => x.CommitManualAsync("rough cut", It.IsAny<CancellationToken>()),
+            Times.Once);
+    }
+
+    [Test]
+    public async Task Manual_commit_clears_the_message_and_manual_history_has_a_distinct_badge_state()
+    {
+        CommitInfo manual = CreateCommit(1, SnapshotKind.Manual);
+        CommitInfo automatic = CreateCommit(2, SnapshotKind.Save);
+        Mock<IProjectVersionControlService> service = CreateServiceMock();
+        service.Setup(x => x.GetHistoryAsync(
+                It.IsAny<int>(),
+                It.IsAny<int>(),
+                It.IsAny<CancellationToken>()))
+            .ReturnsAsync([manual, automatic]);
+        var coordinator = new Mock<IProjectVersionControlCoordinator>();
+        coordinator.Setup(x => x.CommitManualAsync(
+                "milestone",
+                It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new CommitResult.Committed(manual.Sha));
+        using var viewModel = CreateViewModel(service.Object, coordinator.Object);
+        await viewModel.Initialization;
+        viewModel.CommitMessage.Value = "milestone";
+
+        await viewModel.CommitManualAsync();
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(viewModel.CommitMessage.Value, Is.Empty);
+            Assert.That(viewModel.StatusMessage.Value,
+                Is.EqualTo(Strings.VersionControl_CommitCreated));
+            Assert.That(viewModel.Commits[0].IsManual, Is.True);
+            Assert.That(viewModel.Commits[1].IsManual, Is.False);
+            Assert.That(viewModel.Commits[0].KindText,
+                Is.EqualTo(Strings.VersionControl_SnapshotManual));
+        });
+    }
+
+    [Test]
+    public async Task Branch_selection_and_creation_use_the_coordinator_cycles()
+    {
+        var main = new BranchInfo("main", true, null);
+        var alternate = new BranchInfo("alternate", false, null);
+        var mainAfterSwitch = new BranchInfo("main", false, null);
+        var alternateAfterSwitch = new BranchInfo("alternate", true, null);
+        var experiment = new BranchInfo("experiment", true, null);
+        Mock<IProjectVersionControlService> service = CreateServiceMock();
+        service.Setup(x => x.GetBranchesAsync(It.IsAny<CancellationToken>()))
+            .ReturnsAsync([main, alternate]);
+        service.SetupSequence(x => x.GetBranchesAsync(It.IsAny<CancellationToken>()))
+            .ReturnsAsync([main, alternate])
+            .ReturnsAsync([mainAfterSwitch, alternateAfterSwitch])
+            .ReturnsAsync([mainAfterSwitch, alternate, experiment]);
+        var coordinator = new Mock<IProjectVersionControlCoordinator>();
+        coordinator.Setup(x => x.SwitchBranchAsync(
+                alternate.Name,
+                It.IsAny<CancellationToken>()))
+            .ReturnsAsync(true);
+        coordinator.Setup(x => x.CreateBranchAsync(
+                "experiment",
+                It.IsAny<CancellationToken>()))
+            .ReturnsAsync(true);
+        using var viewModel = CreateViewModel(service.Object, coordinator.Object);
+        viewModel.RequestNewBranchNameAsync = () => Task.FromResult<string?>(" experiment ");
+        await viewModel.Initialization;
+
+        await viewModel.SelectBranchAsync(alternate);
+        await viewModel.CreateBranchAsync();
+
+        Assert.That(viewModel.SelectedBranch.Value, Is.EqualTo(experiment));
+        coordinator.Verify(
+            x => x.SwitchBranchAsync("alternate", It.IsAny<CancellationToken>()),
+            Times.Once);
+        coordinator.Verify(
+            x => x.CreateBranchAsync("experiment", It.IsAny<CancellationToken>()),
+            Times.Once);
+    }
+
+    [Test]
+    public async Task Remote_push_reports_progress_and_maps_expected_failure_to_the_dialog()
+    {
+        Mock<IProjectVersionControlService> service = CreateServiceMock();
+        service.Setup(x => x.GetRemotesAsync(It.IsAny<CancellationToken>()))
+            .ReturnsAsync([new RemoteInfo("origin", "https://example.invalid/repo.git")]);
+        var coordinator = new Mock<IProjectVersionControlCoordinator>();
+        coordinator.Setup(x => x.PushAsync(
+                It.IsAny<IProgress<string>>(),
+                It.IsAny<CancellationToken>()))
+            .Returns<IProgress<string>, CancellationToken>((progress, _) =>
+            {
+                progress.Report("Writing objects: 50%");
+                return Task.FromResult<RemoteOpResult>(new RemoteOpResult.Offline());
+            });
+        RemoteOpResult? shownResult = null;
+        using var viewModel = CreateViewModel(service.Object, coordinator.Object);
+        viewModel.ShowRemoteResultAsync = result =>
+        {
+            shownResult = result;
+            return Task.CompletedTask;
+        };
+        await viewModel.Initialization;
+
+        await viewModel.PushAsync();
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(shownResult, Is.TypeOf<RemoteOpResult.Offline>());
+            Assert.That(viewModel.RemoteProgress.Value, Is.EqualTo("Writing objects: 50%"));
+            Assert.That(viewModel.IsRemoteOperationRunning.Value, Is.False);
+        });
+    }
+
+    [Test]
+    public void Remote_results_have_distinct_actionable_messages()
+    {
+        const string authGuidance = "Configure a credential helper or SSH agent.";
+        const string stderr = "fatal: unexpected remote failure";
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(
+                VersionControlTabViewModel.GetRemoteResultMessage(
+                    new RemoteOpResult.AuthFailed(authGuidance)),
+                Is.EqualTo(authGuidance));
+            Assert.That(
+                VersionControlTabViewModel.GetRemoteResultMessage(
+                    new RemoteOpResult.Diverged()),
+                Is.EqualTo(Strings.VersionControl_Diverged));
+            Assert.That(
+                VersionControlTabViewModel.GetRemoteResultMessage(
+                    new RemoteOpResult.Offline()),
+                Is.EqualTo(Strings.VersionControl_Offline));
+            Assert.That(
+                VersionControlTabViewModel.GetRemoteResultMessage(
+                    new RemoteOpResult.Failed(stderr)),
+                Is.EqualTo(stderr));
+            Assert.That(
+                VersionControlTabViewModel.GetRemoteResultMessage(
+                    new RemoteOpResult.Success()),
+                Is.Empty);
+        });
+    }
+
+    [Test]
+    public async Task Remote_pull_can_be_canceled()
+    {
+        Mock<IProjectVersionControlService> service = CreateServiceMock();
+        service.Setup(x => x.GetRemotesAsync(It.IsAny<CancellationToken>()))
+            .ReturnsAsync([new RemoteInfo("origin", "https://example.invalid/repo.git")]);
+        var coordinator = new Mock<IProjectVersionControlCoordinator>();
+        coordinator.Setup(x => x.PullAsync(It.IsAny<CancellationToken>()))
+            .Returns<CancellationToken>(async cancellationToken =>
+            {
+                await Task.Delay(Timeout.InfiniteTimeSpan, cancellationToken);
+                return new RemoteOpResult.Success();
+            });
+        using var viewModel = CreateViewModel(service.Object, coordinator.Object);
+        await viewModel.Initialization;
+
+        Task pull = viewModel.PullAsync();
+        await Task.Delay(20);
+        viewModel.CancelRemoteOperationCommand.Execute();
+        await pull;
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(viewModel.IsRemoteOperationRunning.Value, Is.False);
+            Assert.That(viewModel.StatusMessage.Value,
+                Is.EqualTo(Strings.VersionControl_RemoteOperationCanceled));
+        });
+    }
+
     private static VersionControlTabViewModel CreateViewModel(
-        IProjectVersionControlService service)
+        IProjectVersionControlService service,
+        IProjectVersionControlCoordinator? coordinator = null)
     {
         return new VersionControlTabViewModel(
             Mock.Of<ToolTabExtension>(),
             Mock.Of<IEditorContext>(),
             service,
-            restoreCoordinator: null,
+            versionControlCoordinator: coordinator,
             action => action());
     }
 
@@ -364,6 +559,17 @@ public class VersionControlTabViewModelTests
                 "git",
                 new Version(2, 50, 0),
                 LfsInstalled: false));
+        service.Setup(x => x.GetStatusAsync(It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new WorkspaceStatus("main", 0, 0, [], false));
+        service.Setup(x => x.GetHistoryAsync(
+                It.IsAny<int>(),
+                It.IsAny<int>(),
+                It.IsAny<CancellationToken>()))
+            .ReturnsAsync([]);
+        service.Setup(x => x.GetBranchesAsync(It.IsAny<CancellationToken>()))
+            .ReturnsAsync([new BranchInfo("main", true, null)]);
+        service.Setup(x => x.GetRemotesAsync(It.IsAny<CancellationToken>()))
+            .ReturnsAsync([]);
         return service;
     }
 

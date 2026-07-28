@@ -83,10 +83,12 @@ public abstract class RealGitTestRepository
         await RunGitAsync("commit", "-m", message);
     }
 
-    protected GitInstallationLocator CreateInstalledLocator(bool lfsInstalled = false)
+    protected GitInstallationLocator CreateInstalledLocator(
+        bool lfsInstalled = false,
+        Beutl.Configuration.VersionControlConfig? config = null)
     {
         return new GitInstallationLocator(
-            new Beutl.Configuration.VersionControlConfig(),
+            config ?? new Beutl.Configuration.VersionControlConfig(),
             new InstalledGitProbe(GitPath, lfsInstalled),
             GitHostPlatform.Linux);
     }

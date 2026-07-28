@@ -44,6 +44,30 @@ public class GitCliRunnerTests : RealGitTestRepository
     }
 
     [Test]
+    public async Task Progress_reader_reports_carriage_return_updates_and_preserves_stderr()
+    {
+        const string stderr = "Counting objects: 10%\rCounting objects: 100%\r\nDone\n";
+        var progress = new RecordingProgress();
+
+        string captured = await GitCliRunner.ReadStandardErrorAsync(
+            new StringReader(stderr),
+            progress);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(captured, Is.EqualTo(stderr));
+            Assert.That(
+                progress.Messages,
+                Is.EqualTo(new[]
+                {
+                    "Counting objects: 10%",
+                    "Counting objects: 100%",
+                    "Done",
+                }));
+        });
+    }
+
+    [Test]
     public void Nonzero_exit_throws_typed_error_with_verbatim_stderr()
     {
         GitOperationException? exception = Assert.ThrowsAsync<GitOperationException>(
@@ -149,5 +173,15 @@ public class GitCliRunnerTests : RealGitTestRepository
         cancellation.Cancel();
         Assert.ThrowsAsync<OperationCanceledException>(async () => await activeCommand);
         Assert.That(runner.GetRecoverableRepositoryLock(Repository), Is.Not.Null);
+    }
+
+    private sealed class RecordingProgress : IProgress<string>
+    {
+        public List<string> Messages { get; } = [];
+
+        public void Report(string value)
+        {
+            Messages.Add(value);
+        }
     }
 }

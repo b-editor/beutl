@@ -134,6 +134,17 @@ public sealed record RemoteInfo(string Name, string Url);
 
 public sealed record GitIdentity(string Name, string Email);
 
+public enum VersionControlPolicyNoticeKind
+{
+    LfsRemoteQuota,
+    LargeMediaWithoutLfs,
+}
+
+public sealed record VersionControlPolicyNotice(
+    VersionControlPolicyNoticeKind Kind,
+    string? Path = null,
+    long? SizeBytes = null);
+
 public sealed record RepositoryLockInfo(
     string LockPath,
     DateTimeOffset LastWriteTimeUtc);

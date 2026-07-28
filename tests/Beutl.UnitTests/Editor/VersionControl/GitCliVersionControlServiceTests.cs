@@ -431,7 +431,7 @@ public class GitCliVersionControlServiceTests : RealGitTestRepository
     }
 
     [Test]
-    public async Task CreateBranchFromAsync_switches_to_a_new_branch_at_the_selected_commit()
+    public async Task CreateBranchAsync_switches_to_a_new_branch_at_the_selected_commit()
     {
         await CommitFileAsync("project.bep", "target\n", "target");
         string targetSha = (await RunGitAsync("rev-parse", "HEAD")).Stdout.Trim();
@@ -439,7 +439,7 @@ public class GitCliVersionControlServiceTests : RealGitTestRepository
         string mainSha = (await RunGitAsync("rev-parse", "HEAD")).Stdout.Trim();
         using var service = CreateService();
 
-        await service.CreateBranchFromAsync(
+        await service.CreateBranchAsync(
             "restored-state",
             targetSha,
             CancellationToken.None);
@@ -468,6 +468,57 @@ public class GitCliVersionControlServiceTests : RealGitTestRepository
     }
 
     [Test]
+    public async Task Branches_can_be_listed_created_and_switched_after_diverging()
+    {
+        await CommitFileAsync("project.bep", "base\n", "base");
+        string baseSha = (await RunGitAsync("rev-parse", "HEAD")).Stdout.Trim();
+        using var service = CreateService();
+
+        await service.CreateBranchAsync("alternate", "HEAD", CancellationToken.None);
+        IReadOnlyList<BranchInfo> afterCreate = await service.GetBranchesAsync(
+            CancellationToken.None);
+        await CommitFileAsync("project.bep", "alternate\n", "alternate");
+        string alternateSha = (await RunGitAsync("rev-parse", "HEAD")).Stdout.Trim();
+
+        await service.SwitchBranchAsync("main", CancellationToken.None);
+        await CommitFileAsync("project.bep", "main\n", "main");
+        string mainSha = (await RunGitAsync("rev-parse", "HEAD")).Stdout.Trim();
+        IReadOnlyList<BranchInfo> onMain = await service.GetBranchesAsync(
+            CancellationToken.None);
+
+        await service.SwitchBranchAsync("alternate", CancellationToken.None);
+        string mergeBase = (await RunGitAsync(
+            "merge-base",
+            "main",
+            "alternate")).Stdout.Trim();
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(afterCreate.Single(branch => branch.Name == "alternate").IsCurrent, Is.True);
+            Assert.That(mergeBase, Is.EqualTo(baseSha));
+            Assert.That(mainSha, Is.Not.EqualTo(alternateSha));
+            Assert.That(onMain.Single(branch => branch.Name == "main").IsCurrent, Is.True);
+            Assert.That(onMain.Single(branch => branch.Name == "alternate").IsCurrent, Is.False);
+            Assert.That(File.ReadAllText(Path.Combine(Root, "project.bep")), Is.EqualTo("alternate\n"));
+        });
+    }
+
+    [Test]
+    public void Branch_parser_reads_current_and_upstream_fields()
+    {
+        IReadOnlyList<BranchInfo> branches = GitCliVersionControlService.ParseBranches(
+            "alternate\0 \0\0\nmain\0*\0origin/main\n");
+
+        Assert.That(
+            branches,
+            Is.EqualTo(new[]
+            {
+                new BranchInfo("alternate", false, null),
+                new BranchInfo("main", true, "origin/main"),
+            }));
+    }
+
+    [Test]
     public async Task Worktree_mutations_are_rejected_until_the_project_is_closed()
     {
         await CommitFileAsync("project.bep", "current\n", "current");
@@ -484,7 +535,7 @@ public class GitCliVersionControlServiceTests : RealGitTestRepository
                     head,
                     CancellationToken.None));
             Assert.ThrowsAsync<InvalidOperationException>(
-                async () => await service.CreateBranchFromAsync(
+                async () => await service.CreateBranchAsync(
                     "blocked-branch",
                     head,
                     CancellationToken.None));
@@ -608,6 +659,10 @@ public class GitCliVersionControlServiceTests : RealGitTestRepository
             path: null,
             CancellationToken.None);
         GitIdentity? identity = await service.GetIdentityAsync(CancellationToken.None);
+        IReadOnlyList<BranchInfo> branches = await service.GetBranchesAsync(
+            CancellationToken.None);
+        IReadOnlyList<RemoteInfo> remotes = await service.GetRemotesAsync(
+            CancellationToken.None);
 
         VersionControlConflictedException[] exceptions =
         [
@@ -621,7 +676,7 @@ public class GitCliVersionControlServiceTests : RealGitTestRepository
                     history[0].Sha,
                     CancellationToken.None))!,
             Assert.ThrowsAsync<VersionControlConflictedException>(
-                async () => await service.CreateBranchFromAsync(
+                async () => await service.CreateBranchAsync(
                     "blocked-branch",
                     history[0].Sha,
                     CancellationToken.None))!,
@@ -637,6 +692,17 @@ public class GitCliVersionControlServiceTests : RealGitTestRepository
                 async () => await service.SetLocalIdentityAsync(
                     new GitIdentity("Blocked", "blocked@example.invalid"),
                     CancellationToken.None))!,
+            Assert.ThrowsAsync<VersionControlConflictedException>(
+                async () => await service.SetRemoteAsync(
+                    "https://example.invalid/repository.git",
+                    CancellationToken.None))!,
+            Assert.ThrowsAsync<VersionControlConflictedException>(
+                async () => await service.PushAsync(
+                    progress: null,
+                    CancellationToken.None))!,
+            Assert.ThrowsAsync<VersionControlConflictedException>(
+                async () => await service.PullFastForwardAsync(
+                    CancellationToken.None))!,
         ];
 
         Assert.Multiple(() =>
@@ -647,6 +713,8 @@ public class GitCliVersionControlServiceTests : RealGitTestRepository
             Assert.That(history, Is.Not.Empty);
             Assert.That(files, Is.Not.Null);
             Assert.That(diff, Is.Not.Null);
+            Assert.That(branches, Is.Not.Empty);
+            Assert.That(remotes, Is.Empty);
             Assert.That(
                 identity,
                 Is.EqualTo(new GitIdentity(
@@ -755,7 +823,8 @@ public class GitCliVersionControlServiceTests : RealGitTestRepository
             RepositoryInfo repository,
             IReadOnlyList<string> arguments,
             bool networkOperation,
-            CancellationToken cancellationToken)
+            CancellationToken cancellationToken,
+            IProgress<string>? stderrProgress = null)
         {
             int concurrency = Interlocked.Increment(ref _concurrency);
             MaxConcurrency = Math.Max(MaxConcurrency, concurrency);
@@ -787,7 +856,8 @@ public class GitCliVersionControlServiceTests : RealGitTestRepository
             RepositoryInfo repository,
             IReadOnlyList<string> arguments,
             bool networkOperation,
-            CancellationToken cancellationToken)
+            CancellationToken cancellationToken,
+            IProgress<string>? stderrProgress = null)
         {
             return Task.FromResult(new GitCommandResult(0, "# branch.head main\0", ""));
         }
@@ -811,7 +881,8 @@ public class GitCliVersionControlServiceTests : RealGitTestRepository
             RepositoryInfo repository,
             IReadOnlyList<string> arguments,
             bool networkOperation,
-            CancellationToken cancellationToken)
+            CancellationToken cancellationToken,
+            IProgress<string>? stderrProgress = null)
         {
             Commands.Add(string.Join(' ', arguments));
             if (arguments.FirstOrDefault() == "rev-parse")

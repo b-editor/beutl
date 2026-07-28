@@ -9,6 +9,8 @@ internal sealed class GitCliVersionControlService :
 {
     internal const int MaxDiffBytes = 1024 * 1024;
     internal const string DiffTruncationMarker = "\n--- Diff truncated at 1 MB ---\n";
+    private const string LfsQuotaNoticeConfigKeyPrefix = "beutl.lfsQuotaNoticeShown-";
+    private const string LargeMediaNoticeConfigKeyPrefix = "beutl.largeMediaNoticeShown-";
 
     private static readonly string[] s_gitIgnoreLines =
     [
@@ -52,9 +54,15 @@ internal sealed class GitCliVersionControlService :
         "resources/**/*.tif filter=lfs diff=lfs merge=lfs -text",
     ];
 
+    private static readonly HashSet<string> s_mediaExtensions = new(
+        s_lfsAttributeLines.Select(static line =>
+            Path.GetExtension(line.Split(' ', 2)[0])),
+        StringComparer.OrdinalIgnoreCase);
+
     private readonly GitInstallationLocator _installationLocator;
     private readonly Func<string, IGitCliRunner> _runnerFactory;
     private readonly Func<bool> _isWorktreeMutationAllowed;
+    private readonly Func<VersionControlPolicyNotice, CancellationToken, Task>? _policyNoticeSink;
     private readonly bool _createWatcherWhenRepositoryAvailable;
     private readonly SemaphoreSlim _operationGate = new(1, 1);
     private readonly object _runtimeSync = new();
@@ -73,21 +81,24 @@ internal sealed class GitCliVersionControlService :
             repository is null ? null : new RepositoryWatcher(repository.RepoRoot),
             static gitPath => new GitCliRunner(gitPath),
             createWatcherWhenRepositoryAvailable: true,
-            isWorktreeMutationAllowed: static () => true)
+            isWorktreeMutationAllowed: static () => true,
+            policyNoticeSink: null)
     {
     }
 
     internal GitCliVersionControlService(
         GitInstallationLocator installationLocator,
         RepositoryInfo? repository,
-        Func<bool> isWorktreeMutationAllowed)
+        Func<bool> isWorktreeMutationAllowed,
+        Func<VersionControlPolicyNotice, CancellationToken, Task>? policyNoticeSink = null)
         : this(
             installationLocator,
             repository,
             repository is null ? null : new RepositoryWatcher(repository.RepoRoot),
             static gitPath => new GitCliRunner(gitPath),
             createWatcherWhenRepositoryAvailable: true,
-            isWorktreeMutationAllowed: isWorktreeMutationAllowed)
+            isWorktreeMutationAllowed: isWorktreeMutationAllowed,
+            policyNoticeSink: policyNoticeSink)
     {
     }
 
@@ -102,7 +113,8 @@ internal sealed class GitCliVersionControlService :
             watcher,
             runnerFactory,
             createWatcherWhenRepositoryAvailable: false,
-            isWorktreeMutationAllowed: static () => true)
+            isWorktreeMutationAllowed: static () => true,
+            policyNoticeSink: null)
     {
     }
 
@@ -112,7 +124,8 @@ internal sealed class GitCliVersionControlService :
         RepositoryWatcher? watcher,
         Func<string, IGitCliRunner> runnerFactory,
         bool createWatcherWhenRepositoryAvailable,
-        Func<bool> isWorktreeMutationAllowed)
+        Func<bool> isWorktreeMutationAllowed,
+        Func<VersionControlPolicyNotice, CancellationToken, Task>? policyNoticeSink)
     {
         _installationLocator = installationLocator
                                ?? throw new ArgumentNullException(nameof(installationLocator));
@@ -129,6 +142,7 @@ internal sealed class GitCliVersionControlService :
         _isWorktreeMutationAllowed = isWorktreeMutationAllowed
                                      ?? throw new ArgumentNullException(
                                          nameof(isWorktreeMutationAllowed));
+        _policyNoticeSink = policyNoticeSink;
         _createWatcherWhenRepositoryAvailable = createWatcherWhenRepositoryAvailable;
         if (_watcher is not null)
         {
@@ -247,16 +261,25 @@ internal sealed class GitCliVersionControlService :
             cancellationToken);
     }
 
-    public Task CreateBranchFromAsync(
+    public Task<IReadOnlyList<BranchInfo>> GetBranchesAsync(
+        CancellationToken cancellationToken)
+    {
+        ThrowIfDisposed();
+        return RunSerializedAsync(
+            () => GetBranchesCoreAsync(cancellationToken),
+            cancellationToken);
+    }
+
+    public Task CreateBranchAsync(
         string name,
-        string sha,
+        string startPoint,
         CancellationToken cancellationToken)
     {
         ThrowIfDisposed();
         ArgumentException.ThrowIfNullOrWhiteSpace(name);
-        ArgumentException.ThrowIfNullOrWhiteSpace(sha);
+        ArgumentException.ThrowIfNullOrWhiteSpace(startPoint);
         return RunSerializedAsync(
-            () => CreateBranchFromCoreAsync(name, sha, cancellationToken),
+            () => CreateBranchCoreAsync(name, startPoint, cancellationToken),
             cancellationToken);
     }
 
@@ -268,6 +291,45 @@ internal sealed class GitCliVersionControlService :
         ArgumentException.ThrowIfNullOrWhiteSpace(name);
         return RunSerializedAsync(
             () => SwitchBranchCoreAsync(name, cancellationToken),
+            cancellationToken);
+    }
+
+    public Task<IReadOnlyList<RemoteInfo>> GetRemotesAsync(
+        CancellationToken cancellationToken)
+    {
+        ThrowIfDisposed();
+        return RunSerializedAsync(
+            () => GetRemotesCoreAsync(cancellationToken),
+            cancellationToken);
+    }
+
+    public Task SetRemoteAsync(
+        string url,
+        CancellationToken cancellationToken)
+    {
+        ThrowIfDisposed();
+        ArgumentException.ThrowIfNullOrWhiteSpace(url);
+        return RunSerializedAsync(
+            () => SetRemoteCoreAsync(url, cancellationToken),
+            cancellationToken);
+    }
+
+    public Task<RemoteOpResult> PushAsync(
+        IProgress<string>? progress,
+        CancellationToken cancellationToken)
+    {
+        ThrowIfDisposed();
+        return RunSerializedAsync(
+            () => PushCoreAsync(progress, cancellationToken),
+            cancellationToken);
+    }
+
+    public Task<RemoteOpResult> PullFastForwardAsync(
+        CancellationToken cancellationToken)
+    {
+        ThrowIfDisposed();
+        return RunSerializedAsync(
+            () => PullFastForwardCoreAsync(cancellationToken),
             cancellationToken);
     }
 
@@ -491,6 +553,29 @@ internal sealed class GitCliVersionControlService :
         return changes;
     }
 
+    internal static IReadOnlyList<BranchInfo> ParseBranches(string output)
+    {
+        var branches = new List<BranchInfo>();
+        foreach (string record in output
+                     .Replace("\r\n", "\n", StringComparison.Ordinal)
+                     .Split('\n', StringSplitOptions.RemoveEmptyEntries))
+        {
+            string[] fields = record.Split('\0');
+            if (fields.Length < 3 || string.IsNullOrWhiteSpace(fields[0]))
+            {
+                continue;
+            }
+
+            string upstream = fields[2].Trim();
+            branches.Add(new BranchInfo(
+                fields[0],
+                fields[1].Trim() == "*",
+                string.IsNullOrEmpty(upstream) ? null : upstream));
+        }
+
+        return branches;
+    }
+
     private static string GetField(string record, int fieldIndex)
     {
         string[] fields = record.Split(' ', fieldIndex + 2, StringSplitOptions.None);
@@ -608,6 +693,40 @@ internal sealed class GitCliVersionControlService :
         return TruncateDiff(result.Stdout);
     }
 
+    private async Task<IReadOnlyList<BranchInfo>> GetBranchesCoreAsync(
+        CancellationToken cancellationToken)
+    {
+        RepositoryInfo repository = GetRepository();
+        IGitCliRunner runner = await GetInstalledRunnerCoreAsync(cancellationToken).ConfigureAwait(false);
+        GitCommandResult result = await runner.RunAsync(
+            repository,
+            [
+                "for-each-ref",
+                "--format=%(refname:short)%00%(HEAD)%00%(upstream:short)",
+                "refs/heads",
+            ],
+            networkOperation: false,
+            cancellationToken).ConfigureAwait(false);
+        return ParseBranches(result.Stdout);
+    }
+
+    private async Task CreateBranchCoreAsync(
+        string name,
+        string startPoint,
+        CancellationToken cancellationToken)
+    {
+        await EnsureNotConflictedCoreAsync(cancellationToken).ConfigureAwait(false);
+        EnsureWorktreeMutationAllowed();
+        RepositoryInfo repository = GetRepository();
+        IGitCliRunner runner = await GetInstalledRunnerCoreAsync(cancellationToken).ConfigureAwait(false);
+        await runner.RunAsync(
+            repository,
+            ["switch", "-c", name, startPoint],
+            networkOperation: false,
+            cancellationToken).ConfigureAwait(false);
+        await QueueStatusChangedCoreAsync(cancellationToken).ConfigureAwait(false);
+    }
+
     private async Task RestoreWorktreeFromCoreAsync(
         string sha,
         CancellationToken cancellationToken)
@@ -638,23 +757,6 @@ internal sealed class GitCliVersionControlService :
         await QueueStatusChangedCoreAsync(cancellationToken).ConfigureAwait(false);
     }
 
-    private async Task CreateBranchFromCoreAsync(
-        string name,
-        string sha,
-        CancellationToken cancellationToken)
-    {
-        await EnsureNotConflictedCoreAsync(cancellationToken).ConfigureAwait(false);
-        EnsureWorktreeMutationAllowed();
-        RepositoryInfo repository = GetRepository();
-        IGitCliRunner runner = await GetInstalledRunnerCoreAsync(cancellationToken).ConfigureAwait(false);
-        await runner.RunAsync(
-            repository,
-            ["switch", "-c", name, sha],
-            networkOperation: false,
-            cancellationToken).ConfigureAwait(false);
-        await QueueStatusChangedCoreAsync(cancellationToken).ConfigureAwait(false);
-    }
-
     private async Task SwitchBranchCoreAsync(
         string name,
         CancellationToken cancellationToken)
@@ -669,6 +771,101 @@ internal sealed class GitCliVersionControlService :
             networkOperation: false,
             cancellationToken).ConfigureAwait(false);
         await QueueStatusChangedCoreAsync(cancellationToken).ConfigureAwait(false);
+    }
+
+    private async Task<IReadOnlyList<RemoteInfo>> GetRemotesCoreAsync(
+        CancellationToken cancellationToken)
+    {
+        RepositoryInfo repository = GetRepository();
+        IGitCliRunner runner = await GetInstalledRunnerCoreAsync(cancellationToken).ConfigureAwait(false);
+        try
+        {
+            GitCommandResult result = await runner.RunAsync(
+                repository,
+                ["remote", "get-url", "origin"],
+                networkOperation: false,
+                cancellationToken).ConfigureAwait(false);
+            string url = result.Stdout.Trim();
+            return string.IsNullOrEmpty(url) ? [] : [new RemoteInfo("origin", url)];
+        }
+        catch (GitOperationException ex) when (IsMissingRemoteFailure(ex))
+        {
+            return [];
+        }
+    }
+
+    private async Task SetRemoteCoreAsync(
+        string url,
+        CancellationToken cancellationToken)
+    {
+        await EnsureNotConflictedCoreAsync(cancellationToken).ConfigureAwait(false);
+        RepositoryInfo repository = GetRepository();
+        IGitCliRunner runner = await GetInstalledRunnerCoreAsync(cancellationToken).ConfigureAwait(false);
+        bool isFirstRemote = (await GetRemotesCoreAsync(cancellationToken).ConfigureAwait(false)).Count == 0;
+        await runner.RunAsync(
+            repository,
+            isFirstRemote
+                ? ["remote", "add", "origin", url]
+                : ["remote", "set-url", "origin", url],
+            networkOperation: false,
+            cancellationToken).ConfigureAwait(false);
+
+        if (isFirstRemote)
+        {
+            await RaiseLfsQuotaNoticeIfNeededAsync(
+                repository,
+                runner,
+                cancellationToken).ConfigureAwait(false);
+        }
+
+        await QueueStatusChangedCoreAsync(cancellationToken).ConfigureAwait(false);
+    }
+
+    private async Task<RemoteOpResult> PushCoreAsync(
+        IProgress<string>? progress,
+        CancellationToken cancellationToken)
+    {
+        await EnsureNotConflictedCoreAsync(cancellationToken).ConfigureAwait(false);
+        RepositoryInfo repository = GetRepository();
+        IGitCliRunner runner = await GetInstalledRunnerCoreAsync(cancellationToken).ConfigureAwait(false);
+        try
+        {
+            await runner.RunAsync(
+                repository,
+                ["push", "--progress", "-u", "origin", "HEAD"],
+                networkOperation: true,
+                cancellationToken,
+                progress).ConfigureAwait(false);
+            await QueueStatusChangedCoreAsync(cancellationToken).ConfigureAwait(false);
+            return new RemoteOpResult.Success();
+        }
+        catch (GitOperationException ex)
+        {
+            return MapRemoteFailure(ex);
+        }
+    }
+
+    private async Task<RemoteOpResult> PullFastForwardCoreAsync(
+        CancellationToken cancellationToken)
+    {
+        await EnsureNotConflictedCoreAsync(cancellationToken).ConfigureAwait(false);
+        EnsureWorktreeMutationAllowed();
+        RepositoryInfo repository = GetRepository();
+        IGitCliRunner runner = await GetInstalledRunnerCoreAsync(cancellationToken).ConfigureAwait(false);
+        try
+        {
+            await runner.RunAsync(
+                repository,
+                ["pull", "--ff-only"],
+                networkOperation: true,
+                cancellationToken).ConfigureAwait(false);
+            await QueueStatusChangedCoreAsync(cancellationToken).ConfigureAwait(false);
+            return new RemoteOpResult.Success();
+        }
+        catch (GitOperationException ex)
+        {
+            return MapRemoteFailure(ex);
+        }
     }
 
     private async Task InitializeCoreAsync(
@@ -885,6 +1082,12 @@ internal sealed class GitCliVersionControlService :
             throw new GitIdentityRequiredException();
         }
 
+        await RaiseLargeMediaNoticeIfNeededAsync(
+            repository,
+            runner,
+            status,
+            cancellationToken).ConfigureAwait(false);
+
         await runner.RunAsync(
             repository,
             ["add", "-A", "--", repository.Pathspec],
@@ -953,6 +1156,70 @@ internal sealed class GitCliVersionControlService :
                || exception.Stderr.Contains(
                    "not in a git directory",
                    StringComparison.OrdinalIgnoreCase);
+    }
+
+    private static bool IsMissingRemoteFailure(GitOperationException exception)
+    {
+        return exception.Stderr.Contains(
+                   "No such remote",
+                   StringComparison.OrdinalIgnoreCase)
+               || exception.Stderr.Contains(
+                   "does not appear to be a git repository",
+                   StringComparison.OrdinalIgnoreCase);
+    }
+
+    internal static RemoteOpResult MapRemoteFailure(GitOperationException exception)
+    {
+        string stderr = exception.Stderr;
+        if (ContainsAny(
+                stderr,
+                "non-fast-forward",
+                "not possible to fast-forward",
+                "fetch first",
+                "divergent branches",
+                "[rejected]"))
+        {
+            return new RemoteOpResult.Diverged();
+        }
+
+        if (ContainsAny(
+                stderr,
+                "authentication failed",
+                "permission denied",
+                "could not read username",
+                "publickey",
+                "access denied",
+                "authorization failed"))
+        {
+            return new RemoteOpResult.AuthFailed(Strings.VersionControl_AuthenticationFailed);
+        }
+
+        if (ContainsAny(
+                stderr,
+                "could not resolve host",
+                "failed to connect",
+                "network is unreachable",
+                "connection timed out",
+                "connection refused",
+                "could not read from remote repository"))
+        {
+            return new RemoteOpResult.Offline();
+        }
+
+        return new RemoteOpResult.Failed(stderr);
+    }
+
+    private static bool ContainsAny(string value, params string[] candidates)
+    {
+        foreach (string candidate in candidates)
+        {
+            if (value.Contains(candidate, StringComparison.OrdinalIgnoreCase))
+            {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     private static FileChangeStatus MapNameStatus(char status)
@@ -1060,6 +1327,216 @@ internal sealed class GitCliVersionControlService :
         return string.IsNullOrWhiteSpace(name) || string.IsNullOrWhiteSpace(email)
             ? null
             : new GitIdentity(name, email);
+    }
+
+    private async Task RaiseLfsQuotaNoticeIfNeededAsync(
+        RepositoryInfo repository,
+        IGitCliRunner runner,
+        CancellationToken cancellationToken)
+    {
+        IReadOnlyList<RemoteInfo> remotes = await GetRemotesCoreAsync(cancellationToken)
+            .ConfigureAwait(false);
+        string? remoteUrl = remotes.FirstOrDefault()?.Url;
+        if (remoteUrl is null)
+        {
+            return;
+        }
+
+        string acknowledgementKey = LfsQuotaNoticeConfigKeyPrefix
+                                    + GetConfigKeyHash(repository.Pathspec);
+        if (!await IsLfsActiveAsync(repository, cancellationToken).ConfigureAwait(false)
+            || await GetLocalBooleanConfigAsync(
+                repository,
+                runner,
+                acknowledgementKey,
+                cancellationToken).ConfigureAwait(false))
+        {
+            return;
+        }
+
+        if (!await PresentPolicyNoticeAsync(
+                new VersionControlPolicyNotice(
+                    VersionControlPolicyNoticeKind.LfsRemoteQuota),
+                cancellationToken).ConfigureAwait(false))
+        {
+            return;
+        }
+
+        await SetLocalConfigValueAsync(
+            repository,
+            runner,
+            acknowledgementKey,
+            "true",
+            cancellationToken).ConfigureAwait(false);
+    }
+
+    private async Task RaiseLargeMediaNoticeIfNeededAsync(
+        RepositoryInfo repository,
+        IGitCliRunner runner,
+        WorkspaceStatus status,
+        CancellationToken cancellationToken)
+    {
+        string acknowledgementKey = LargeMediaNoticeConfigKeyPrefix
+                                    + GetConfigKeyHash(repository.Pathspec);
+        if (await IsLfsActiveAsync(repository, cancellationToken).ConfigureAwait(false)
+            || await GetLocalBooleanConfigAsync(
+                repository,
+                runner,
+                acknowledgementKey,
+                cancellationToken).ConfigureAwait(false))
+        {
+            return;
+        }
+
+        long thresholdBytes = Math.Max(
+            0L,
+            (long)_installationLocator.Config.LargeMediaWarningThresholdMb * 1024 * 1024);
+        foreach (FileChange change in status.Changes)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            string? path = GetLargeMediaPath(repository, change.Path, thresholdBytes);
+            if (path is null)
+            {
+                continue;
+            }
+
+            long sizeBytes = new FileInfo(path).Length;
+            if (!await PresentPolicyNoticeAsync(
+                    new VersionControlPolicyNotice(
+                        VersionControlPolicyNoticeKind.LargeMediaWithoutLfs,
+                        Path.GetRelativePath(repository.ProjectRoot, path).Replace('\\', '/'),
+                        sizeBytes),
+                    cancellationToken).ConfigureAwait(false))
+            {
+                return;
+            }
+
+            await SetLocalConfigValueAsync(
+                repository,
+                runner,
+                acknowledgementKey,
+                "true",
+                cancellationToken).ConfigureAwait(false);
+            return;
+        }
+    }
+
+    private async Task<bool> PresentPolicyNoticeAsync(
+        VersionControlPolicyNotice notice,
+        CancellationToken cancellationToken)
+    {
+        if (_policyNoticeSink is null)
+        {
+            return false;
+        }
+
+        try
+        {
+            await _policyNoticeSink(notice, cancellationToken).ConfigureAwait(false);
+            return true;
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            throw;
+        }
+        catch
+        {
+            return false;
+        }
+    }
+
+    private static string GetConfigKeyHash(string value)
+    {
+        byte[] hash = System.Security.Cryptography.SHA256.HashData(
+            Encoding.UTF8.GetBytes(value));
+        return Convert.ToHexString(hash.AsSpan(0, 8)).ToLowerInvariant();
+    }
+
+    private async Task<bool> IsLfsActiveAsync(
+        RepositoryInfo repository,
+        CancellationToken cancellationToken)
+    {
+        (GitAvailability availability, _) = await GetGitRuntimeCoreAsync(cancellationToken)
+            .ConfigureAwait(false);
+        if (!availability.LfsInstalled)
+        {
+            return false;
+        }
+
+        string attributesPath = Path.Combine(repository.ProjectRoot, ".gitattributes");
+        if (!File.Exists(attributesPath))
+        {
+            return false;
+        }
+
+        string contents = await File.ReadAllTextAsync(attributesPath, cancellationToken)
+            .ConfigureAwait(false);
+        return contents.Contains("filter=lfs", StringComparison.Ordinal);
+    }
+
+    private static string? GetLargeMediaPath(
+        RepositoryInfo repository,
+        string repoRelativePath,
+        long thresholdBytes)
+    {
+        string normalizedPath = repoRelativePath.Replace('\\', '/');
+        string projectRelativePath;
+        if (repository.Pathspec == ".")
+        {
+            projectRelativePath = normalizedPath;
+        }
+        else if (normalizedPath.StartsWith($"{repository.Pathspec}/", StringComparison.Ordinal))
+        {
+            projectRelativePath = normalizedPath[(repository.Pathspec.Length + 1)..];
+        }
+        else
+        {
+            return null;
+        }
+
+        if (!projectRelativePath.StartsWith("resources/", StringComparison.OrdinalIgnoreCase)
+            || !s_mediaExtensions.Contains(Path.GetExtension(projectRelativePath)))
+        {
+            return null;
+        }
+
+        string path = Path.GetFullPath(Path.Combine(
+            repository.ProjectRoot,
+            projectRelativePath.Replace('/', Path.DirectorySeparatorChar)));
+        if (!File.Exists(path) || new FileInfo(path).Length <= thresholdBytes)
+        {
+            return null;
+        }
+
+        return path;
+    }
+
+    private static async Task<bool> GetLocalBooleanConfigAsync(
+        RepositoryInfo repository,
+        IGitCliRunner runner,
+        string key,
+        CancellationToken cancellationToken)
+    {
+        string? value = await TryGetConfigValueAsync(
+            repository,
+            runner,
+            key,
+            cancellationToken).ConfigureAwait(false);
+        return bool.TryParse(value, out bool parsed) && parsed;
+    }
+
+    private static async Task SetLocalConfigValueAsync(
+        RepositoryInfo repository,
+        IGitCliRunner runner,
+        string key,
+        string value,
+        CancellationToken cancellationToken)
+    {
+        await runner.RunAsync(
+            repository,
+            ["config", "--local", key, value],
+            networkOperation: false,
+            cancellationToken).ConfigureAwait(false);
     }
 
     private static async Task<string?> TryGetConfigValueAsync(

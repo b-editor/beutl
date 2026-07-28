@@ -37,13 +37,30 @@ public interface IProjectVersionControlService : IDisposable
         string sha,
         CancellationToken cancellationToken);
 
-    Task CreateBranchFromAsync(
+    Task<IReadOnlyList<BranchInfo>> GetBranchesAsync(
+        CancellationToken cancellationToken);
+
+    Task CreateBranchAsync(
         string name,
-        string sha,
+        string startPoint,
         CancellationToken cancellationToken);
 
     Task SwitchBranchAsync(
         string name,
+        CancellationToken cancellationToken);
+
+    Task<IReadOnlyList<RemoteInfo>> GetRemotesAsync(
+        CancellationToken cancellationToken);
+
+    Task SetRemoteAsync(
+        string url,
+        CancellationToken cancellationToken);
+
+    Task<RemoteOpResult> PushAsync(
+        IProgress<string>? progress,
+        CancellationToken cancellationToken);
+
+    Task<RemoteOpResult> PullFastForwardAsync(
         CancellationToken cancellationToken);
 
     Task<GitIdentity?> GetIdentityAsync(CancellationToken cancellationToken);

@@ -21,7 +21,8 @@ internal interface IGitCliRunner
         RepositoryInfo repository,
         IReadOnlyList<string> arguments,
         bool networkOperation,
-        CancellationToken cancellationToken);
+        CancellationToken cancellationToken,
+        IProgress<string>? stderrProgress = null);
 
     RepositoryLockInfo? GetRecoverableRepositoryLock(RepositoryInfo repository);
 
@@ -75,7 +76,8 @@ internal sealed class GitCliRunner : IGitCliRunner
         RepositoryInfo repository,
         IReadOnlyList<string> arguments,
         bool networkOperation = false,
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken = default,
+        IProgress<string>? stderrProgress = null)
     {
         ArgumentNullException.ThrowIfNull(repository);
         ArgumentNullException.ThrowIfNull(arguments);
@@ -95,7 +97,9 @@ internal sealed class GitCliRunner : IGitCliRunner
         try
         {
             Task<string> stdoutTask = process.StandardOutput.ReadToEndAsync();
-            Task<string> stderrTask = process.StandardError.ReadToEndAsync();
+            Task<string> stderrTask = stderrProgress is null
+                ? process.StandardError.ReadToEndAsync()
+                : ReadStandardErrorAsync(process.StandardError, stderrProgress);
             using var timeoutCts = networkOperation
                 ? null
                 : new CancellationTokenSource(_localTimeout);
@@ -244,6 +248,43 @@ internal sealed class GitCliRunner : IGitCliRunner
                                    or NotSupportedException)
         {
         }
+    }
+
+    internal static async Task<string> ReadStandardErrorAsync(
+        TextReader reader,
+        IProgress<string> progress)
+    {
+        var output = new System.Text.StringBuilder();
+        var progressLine = new System.Text.StringBuilder();
+        var buffer = new char[256];
+        int count;
+        while ((count = await reader.ReadAsync(buffer).ConfigureAwait(false)) > 0)
+        {
+            output.Append(buffer, 0, count);
+            for (int i = 0; i < count; i++)
+            {
+                char value = buffer[i];
+                if (value is '\r' or '\n')
+                {
+                    if (progressLine.Length > 0)
+                    {
+                        progress.Report(progressLine.ToString());
+                        progressLine.Clear();
+                    }
+                }
+                else
+                {
+                    progressLine.Append(value);
+                }
+            }
+        }
+
+        if (progressLine.Length > 0)
+        {
+            progress.Report(progressLine.ToString());
+        }
+
+        return output.ToString();
     }
 
     private static string GetIndexLockPath(RepositoryInfo repository)
