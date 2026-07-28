@@ -1724,11 +1724,23 @@ Resolve the conflicts with an external Git tool before editing. The project may 
   <data name="VersionControl_RemoteUrl" xml:space="preserve">
     <value>Remote URL</value>
   </data>
-  <data name="VersionControl_Remote" xml:space="preserve">
-    <value>Remote</value>
-  </data>
   <data name="VersionControl_SetRemote" xml:space="preserve">
-    <value>Connect</value>
+    <value>Set remote…</value>
+  </data>
+  <data name="VersionControl_SetRemoteTitle" xml:space="preserve">
+    <value>Set Remote</value>
+  </data>
+  <data name="VersionControl_UpToDate" xml:space="preserve">
+    <value>Up to date</value>
+  </data>
+  <data name="VersionControl_PublishBranch" xml:space="preserve">
+    <value>Publish branch…</value>
+  </data>
+  <data name="VersionControl_PullCountFormat" xml:space="preserve">
+    <value>Pull ↓{0}</value>
+  </data>
+  <data name="VersionControl_PushCountFormat" xml:space="preserve">
+    <value>Push ↑{0}</value>
   </data>
   <data name="VersionControl_RemoteConnected" xml:space="preserve">
     <value>The remote was connected.</value>

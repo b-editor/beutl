@@ -2,6 +2,8 @@
 using Avalonia.Controls;
 using Beutl.Editor.Components.VersionControlTab.ViewModels;
 using Beutl.Extensibility;
+using Beutl.Language;
+using FluentAvalonia.UI.Controls;
 
 namespace Beutl.Editor.Components.VersionControlTab.Views;
 
@@ -41,6 +43,7 @@ public sealed partial class VersionControlTabView : UserControl
         if (DataContext is VersionControlTabViewModel viewModel)
         {
             viewModel.RequestEnableVersionControlAsync = ExecuteEnableVersionControlAsync;
+            viewModel.RequestRemoteUrlAsync = RequestRemoteUrlAsync;
             viewModel.LaunchUriAsync = LaunchUriAsync;
         }
 
@@ -70,5 +73,29 @@ public sealed partial class VersionControlTabView : UserControl
     {
         return TopLevel.GetTopLevel(this)?.Launcher.LaunchUriAsync(uri)
                ?? Task.FromResult(false);
+    }
+
+    private static async Task<string?> RequestRemoteUrlAsync(string? currentRemoteUrl)
+    {
+        var textBox = new TextBox
+        {
+            Text = currentRemoteUrl,
+            Watermark = Strings.VersionControl_RemoteUrl,
+        };
+        var dialog = new ContentDialog
+        {
+            Title = Strings.VersionControl_SetRemoteTitle,
+            Content = textBox,
+            PrimaryButtonText = Strings.OK,
+            CloseButtonText = Strings.Cancel,
+            DefaultButton = ContentDialogButton.Primary,
+        };
+        dialog[!ContentDialog.IsPrimaryButtonEnabledProperty] =
+            textBox.GetObservable(TextBox.TextProperty)
+                .Select(static value => !string.IsNullOrWhiteSpace(value))
+                .ToBinding();
+
+        ContentDialogResult result = await dialog.ShowAsync();
+        return result == ContentDialogResult.Primary ? textBox.Text : null;
     }
 }

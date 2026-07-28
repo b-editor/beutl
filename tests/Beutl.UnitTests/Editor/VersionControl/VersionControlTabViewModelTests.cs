@@ -247,6 +247,169 @@ public class VersionControlTabViewModelTests
     }
 
     [Test]
+    public async Task Primary_action_follows_the_complete_priority_matrix()
+    {
+        (
+            string Name,
+            bool HasChanges,
+            int Ahead,
+            int Behind,
+            bool HasRemote,
+            bool IsRunning,
+            string CommitMessage,
+            VersionControlPrimaryActionKind ExpectedKind,
+            string ExpectedLabel,
+            bool ExpectedCanExecute)[] cases =
+        [
+            (
+                "uncommitted changes",
+                true,
+                0,
+                0,
+                false,
+                false,
+                "checkpoint",
+                VersionControlPrimaryActionKind.Commit,
+                Strings.VersionControl_CommitNow,
+                true),
+            (
+                "commit requires a message",
+                true,
+                0,
+                0,
+                false,
+                false,
+                string.Empty,
+                VersionControlPrimaryActionKind.Commit,
+                Strings.VersionControl_CommitNow,
+                false),
+            (
+                "behind remote",
+                false,
+                0,
+                3,
+                true,
+                false,
+                string.Empty,
+                VersionControlPrimaryActionKind.Pull,
+                string.Format(Strings.VersionControl_PullCountFormat, 3),
+                true),
+            (
+                "ahead remote",
+                false,
+                2,
+                0,
+                true,
+                false,
+                string.Empty,
+                VersionControlPrimaryActionKind.Push,
+                string.Format(Strings.VersionControl_PushCountFormat, 2),
+                true),
+            (
+                "clean remote",
+                false,
+                0,
+                0,
+                true,
+                false,
+                string.Empty,
+                VersionControlPrimaryActionKind.UpToDate,
+                Strings.VersionControl_UpToDate,
+                false),
+            (
+                "clean unpublished branch",
+                false,
+                0,
+                0,
+                false,
+                false,
+                string.Empty,
+                VersionControlPrimaryActionKind.PublishBranch,
+                Strings.VersionControl_PublishBranch,
+                true),
+            (
+                "remote operation",
+                false,
+                0,
+                0,
+                true,
+                true,
+                string.Empty,
+                VersionControlPrimaryActionKind.Cancel,
+                Strings.Cancel,
+                true),
+            (
+                "changes win over behind",
+                true,
+                0,
+                4,
+                true,
+                false,
+                "checkpoint",
+                VersionControlPrimaryActionKind.Commit,
+                Strings.VersionControl_CommitNow,
+                true),
+        ];
+
+        foreach (var testCase in cases)
+        {
+            Mock<IProjectVersionControlService> service = CreateServiceMock();
+            service.Setup(x => x.GetStatusAsync(It.IsAny<CancellationToken>()))
+                .ReturnsAsync(new WorkspaceStatus(
+                    "main",
+                    testCase.Ahead,
+                    testCase.Behind,
+                    testCase.HasChanges
+                        ? [new FileChange("project.bep", FileChangeStatus.Modified)]
+                        : [],
+                    false));
+            service.Setup(x => x.GetRemotesAsync(It.IsAny<CancellationToken>()))
+                .ReturnsAsync(testCase.HasRemote
+                    ? [new RemoteInfo("origin", "https://example.invalid/repo.git")]
+                    : []);
+            using VersionControlTabViewModel viewModel = CreateViewModel(
+                service.Object,
+                Mock.Of<IProjectVersionControlCoordinator>());
+            await viewModel.Initialization;
+            viewModel.CommitMessage.Value = testCase.CommitMessage;
+            viewModel.IsRemoteOperationRunning.Value = testCase.IsRunning;
+
+            VersionControlPrimaryAction action = viewModel.PrimaryAction.Value;
+            Assert.Multiple(() =>
+            {
+                Assert.That(
+                    action.Kind,
+                    Is.EqualTo(testCase.ExpectedKind),
+                    testCase.Name);
+                Assert.That(
+                    action.Label,
+                    Is.EqualTo(testCase.ExpectedLabel),
+                    testCase.Name);
+                Assert.That(
+                    action.Command.CanExecute(null),
+                    Is.EqualTo(testCase.ExpectedCanExecute),
+                    testCase.Name);
+                Assert.That(
+                    viewModel.IsPrimaryActionEnabled.Value,
+                    Is.EqualTo(testCase.ExpectedCanExecute),
+                    testCase.Name);
+            });
+
+            if (testCase.IsRunning)
+            {
+                Assert.Multiple(() =>
+                {
+                    Assert.That(viewModel.CommitCommand.CanExecute(), Is.False);
+                    Assert.That(viewModel.PushCommand.CanExecute(), Is.False);
+                    Assert.That(viewModel.PullCommand.CanExecute(), Is.False);
+                    Assert.That(viewModel.SetRemoteCommand.CanExecute(), Is.False);
+                    Assert.That(viewModel.CancelRemoteOperationCommand.CanExecute(), Is.True);
+                });
+            }
+        }
+    }
+
+    [Test]
     public async Task Background_status_event_is_marshaled_before_view_model_state_changes()
     {
         Mock<IProjectVersionControlService> service = CreateServiceMock();
@@ -796,32 +959,81 @@ public class VersionControlTabViewModelTests
             Assert.That(shownResult, Is.TypeOf<RemoteOpResult.Offline>());
             Assert.That(viewModel.RemoteProgress.Value, Is.EqualTo("Writing objects: 50%"));
             Assert.That(viewModel.IsRemoteOperationRunning.Value, Is.False);
-            Assert.That(viewModel.IsRemoteExpanded.Value, Is.True);
         });
     }
 
     [Test]
-    public async Task Remote_expander_opens_for_operations_and_otherwise_keeps_manual_state()
+    public async Task Set_remote_prompt_prefills_the_current_url_and_updates_origin()
     {
         Mock<IProjectVersionControlService> service = CreateServiceMock();
-        using VersionControlTabViewModel viewModel = CreateViewModel(service.Object);
+        service.Setup(x => x.GetRemotesAsync(It.IsAny<CancellationToken>()))
+            .ReturnsAsync([new RemoteInfo("origin", "https://example.invalid/old.git")]);
+        var coordinator = new Mock<IProjectVersionControlCoordinator>();
+        using VersionControlTabViewModel viewModel = CreateViewModel(
+            service.Object,
+            coordinator.Object);
+        string? prefilledUrl = null;
+        viewModel.RequestRemoteUrlAsync = currentUrl =>
+        {
+            prefilledUrl = currentUrl;
+            return Task.FromResult<string?>(" https://example.invalid/new.git ");
+        };
         await viewModel.Initialization;
 
-        Assert.That(viewModel.IsRemoteExpanded.Value, Is.False);
+        await viewModel.SetRemoteAsync();
 
-        viewModel.IsRemoteExpanded.Value = true;
-        viewModel.IsRemoteExpanded.Value = false;
-        Assert.That(viewModel.IsRemoteExpanded.Value, Is.False);
+        Assert.Multiple(() =>
+        {
+            Assert.That(prefilledUrl, Is.EqualTo("https://example.invalid/old.git"));
+            Assert.That(
+                viewModel.RemoteUrl.Value,
+                Is.EqualTo("https://example.invalid/new.git"));
+            Assert.That(viewModel.HasRemote.Value, Is.True);
+        });
+        coordinator.Verify(
+            x => x.SetRemoteAsync(
+                "https://example.invalid/new.git",
+                It.IsAny<CancellationToken>()),
+            Times.Once);
+    }
 
-        viewModel.IsRemoteOperationRunning.Value = true;
-        Assert.That(viewModel.IsRemoteExpanded.Value, Is.True);
+    [Test]
+    public async Task Publish_branch_sets_the_remote_then_pushes()
+    {
+        Mock<IProjectVersionControlService> service = CreateServiceMock();
+        var coordinator = new Mock<IProjectVersionControlCoordinator>();
+        coordinator.Setup(x => x.PushAsync(
+                It.IsAny<IProgress<string>>(),
+                It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new RemoteOpResult.Success());
+        using VersionControlTabViewModel viewModel = CreateViewModel(
+            service.Object,
+            coordinator.Object);
+        string? prefilledUrl = "not requested";
+        viewModel.RequestRemoteUrlAsync = currentUrl =>
+        {
+            prefilledUrl = currentUrl;
+            return Task.FromResult<string?>("https://example.invalid/new.git");
+        };
+        await viewModel.Initialization;
 
-        viewModel.IsRemoteExpanded.Value = false;
-        Assert.That(viewModel.IsRemoteExpanded.Value, Is.True);
+        await viewModel.PublishBranchAsync();
 
-        viewModel.IsRemoteOperationRunning.Value = false;
-        viewModel.IsRemoteExpanded.Value = false;
-        Assert.That(viewModel.IsRemoteExpanded.Value, Is.False);
+        Assert.Multiple(() =>
+        {
+            Assert.That(prefilledUrl, Is.Null);
+            Assert.That(viewModel.IsRemoteOperationRunning.Value, Is.False);
+        });
+        coordinator.Verify(
+            x => x.SetRemoteAsync(
+                "https://example.invalid/new.git",
+                It.IsAny<CancellationToken>()),
+            Times.Once);
+        coordinator.Verify(
+            x => x.PushAsync(
+                It.IsAny<IProgress<string>>(),
+                It.IsAny<CancellationToken>()),
+            Times.Once);
     }
 
     [Test]

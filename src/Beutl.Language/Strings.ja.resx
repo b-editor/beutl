@@ -1718,11 +1718,23 @@ GetProperty&lt;T&gt;("path") または GetProperty&lt;T&gt;(guid, "propertyName"
   <data name="VersionControl_RemoteUrl" xml:space="preserve">
     <value>リモート URL</value>
   </data>
-  <data name="VersionControl_Remote" xml:space="preserve">
-    <value>リモート</value>
-  </data>
   <data name="VersionControl_SetRemote" xml:space="preserve">
-    <value>接続</value>
+    <value>リモートを設定…</value>
+  </data>
+  <data name="VersionControl_SetRemoteTitle" xml:space="preserve">
+    <value>リモートの設定</value>
+  </data>
+  <data name="VersionControl_UpToDate" xml:space="preserve">
+    <value>最新です</value>
+  </data>
+  <data name="VersionControl_PublishBranch" xml:space="preserve">
+    <value>ブランチを公開…</value>
+  </data>
+  <data name="VersionControl_PullCountFormat" xml:space="preserve">
+    <value>プル ↓{0}</value>
+  </data>
+  <data name="VersionControl_PushCountFormat" xml:space="preserve">
+    <value>プッシュ ↑{0}</value>
   </data>
   <data name="VersionControl_RemoteConnected" xml:space="preserve">
     <value>リモートに接続しました。</value>

@@ -10,6 +10,7 @@ using Beutl.Editor.Components.VersionControlTab.ViewModels;
 using Beutl.Editor.Components.VersionControlTab.Views;
 using Beutl.Editor.VersionControl;
 using Beutl.Extensibility;
+using Beutl.Language;
 using Beutl.ProjectSystem;
 using Beutl.Services.PrimitiveImpls;
 using Beutl.Testing.Headless;
@@ -92,6 +93,19 @@ public class VersionControlTabViewTests
             await WaitUntilAsync(
                 () => viewModel.IsTracked.Value && viewModel.Commits.Count > 0);
 
+            SplitButton primaryAction =
+                view.FindControl<SplitButton>("PrimaryActionSplitButton")!;
+            Assert.Multiple(() =>
+            {
+                Assert.That(
+                    primaryAction.Content,
+                    Is.EqualTo(Strings.VersionControl_PublishBranch));
+                Assert.That(primaryAction.IsEnabled, Is.True);
+                Assert.That(
+                    ((MenuFlyout)primaryAction.Flyout!).Items,
+                    Has.Count.EqualTo(5));
+            });
+
             BranchInfo main = viewModel.CurrentBranch.Value
                               ?? new BranchInfo("main", true, null);
             var alternate = new BranchInfo("alternate", false, null);
@@ -128,7 +142,6 @@ public class VersionControlTabViewTests
                     Is.True);
                 Assert.That(view.FindControl<Border>("AheadBadge")!.IsVisible, Is.True);
                 Assert.That(view.FindControl<Border>("BehindBadge")!.IsVisible, Is.False);
-                Assert.That(view.FindControl<Expander>("RemoteExpander")!.IsExpanded, Is.False);
                 Assert.That(view.IsNarrowLayout, Is.False);
                 Assert.That(wideLayout.IsVisible, Is.True);
                 Assert.That(narrowLayout.IsVisible, Is.False);

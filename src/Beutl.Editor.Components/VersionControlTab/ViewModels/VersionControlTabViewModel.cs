@@ -3,6 +3,7 @@ using System.Globalization;
 using System.Reactive.Disposables;
 using System.Resources;
 using System.Text.Json.Nodes;
+using System.Windows.Input;
 using Avalonia.Controls;
 using Avalonia.Threading;
 using Beutl.Editor.VersionControl;
@@ -28,9 +29,16 @@ public sealed class VersionControlTabViewModel : IToolContext
     private readonly CompositeDisposable _disposables = [];
     private readonly SemaphoreSlim _historyGate = new(1, 1);
     private readonly ReactivePropertySlim<bool> _showingDetail;
+    private readonly ReactivePropertySlim<VersionControlPrimaryAction> _primaryAction;
+    private readonly ReactiveCommandSlim _disabledPrimaryActionCommand;
+    private readonly ReactivePropertySlim<bool> _isPrimaryActionEnabled;
+    private ICommand? _observedPrimaryActionCommand;
     private CancellationTokenSource? _selectionCancellation;
     private CancellationTokenSource? _remoteOperationCancellation;
     private int _nextHistoryOffset;
+    private int _aheadCount;
+    private int _behindCount;
+    private bool _hasUncommittedChanges;
     private bool _disposed;
 
     public VersionControlTabViewModel(
@@ -145,8 +153,6 @@ public sealed class VersionControlTabViewModel : IToolContext
             .DisposeWith(_disposables);
         IsRemoteOperationRunning = new ReactivePropertySlim<bool>()
             .DisposeWith(_disposables);
-        IsRemoteExpanded = new ReactivePropertySlim<bool>()
-            .DisposeWith(_disposables);
         IsNestedRepository = new ReactivePropertySlim<bool>(
                 service?.Repository?.IsNestedInForeignRepo == true)
             .DisposeWith(_disposables);
@@ -181,7 +187,8 @@ public sealed class VersionControlTabViewModel : IToolContext
             .DisposeWith(_disposables);
         IObservable<bool> canMutate = IsTracked.CombineLatest(
             HasBlockingGuidance,
-            static (tracked, blocked) => tracked && !blocked);
+            IsRemoteOperationRunning,
+            static (tracked, blocked, isRunning) => tracked && !blocked && !isRunning);
         CommitCommand = new AsyncReactiveCommand(
                 canMutate.CombineLatest(
                     CommitMessage.Select(static message => !string.IsNullOrWhiteSpace(message)),
@@ -197,11 +204,14 @@ public sealed class VersionControlTabViewModel : IToolContext
                     static (canRun, pending) => canRun && pending))
             .WithSubscribe(SwitchSelectedBranchAsync)
             .DisposeWith(_disposables);
-        SetRemoteCommand = new AsyncReactiveCommand(
-                canMutate.CombineLatest(
-                    RemoteUrl.Select(static url => !string.IsNullOrWhiteSpace(url)),
-                    static (canRun, hasUrl) => canRun && hasUrl))
+        SetRemoteCommand = new AsyncReactiveCommand(canMutate)
             .WithSubscribe(SetRemoteAsync)
+            .DisposeWith(_disposables);
+        PublishBranchCommand = new AsyncReactiveCommand(
+                canMutate.CombineLatest(
+                    HasRemote,
+                    static (canRun, hasRemote) => canRun && !hasRemote))
+            .WithSubscribe(PublishBranchAsync)
             .DisposeWith(_disposables);
         IObservable<bool> canRunRemoteOperation = canMutate.CombineLatest(
             HasRemote,
@@ -217,24 +227,36 @@ public sealed class VersionControlTabViewModel : IToolContext
                 IsRemoteOperationRunning)
             .WithSubscribe(CancelRemoteOperation)
             .DisposeWith(_disposables);
+        _disabledPrimaryActionCommand = new ReactiveCommandSlim(Observable.Return(false))
+            .DisposeWith(_disposables);
+        _primaryAction = new ReactivePropertySlim<VersionControlPrimaryAction>(
+                new(
+                    VersionControlPrimaryActionKind.UpToDate,
+                    Strings.VersionControl_UpToDate,
+                    _disabledPrimaryActionCommand))
+            .DisposeWith(_disposables);
+        PrimaryAction = _primaryAction
+            .ToReadOnlyReactivePropertySlim(_primaryAction.Value)!
+            .DisposeWith(_disposables);
+        _isPrimaryActionEnabled = new ReactivePropertySlim<bool>()
+            .DisposeWith(_disposables);
+        IsPrimaryActionEnabled = _isPrimaryActionEnabled
+            .ToReadOnlyReactivePropertySlim()
+            .DisposeWith(_disposables);
+        InvokePrimaryActionCommand = new ReactiveCommandSlim()
+            .WithSubscribe(InvokePrimaryAction)
+            .DisposeWith(_disposables);
         RequestBranchNameAsync = ShowBranchNameDialogAsync;
         RequestNewBranchNameAsync = ShowNewBranchDialogAsync;
+        RequestRemoteUrlAsync = static _ => Task.FromResult<string?>(null);
         ShowRemoteResultAsync = ShowRemoteResultDialogAsync;
         RequestEnableVersionControlAsync = static () => Task.CompletedTask;
         LaunchUriAsync = static _ => Task.FromResult(false);
         IsRemoteOperationRunning
-            .Where(static running => running)
-            .Subscribe(_ => IsRemoteExpanded.Value = true)
+            .Subscribe(_ => UpdatePrimaryAction())
             .DisposeWith(_disposables);
-        IsRemoteExpanded
-            .Where(static expanded => !expanded)
-            .Subscribe(_ =>
-            {
-                if (IsRemoteOperationRunning.Value)
-                {
-                    IsRemoteExpanded.Value = true;
-                }
-            })
+        HasRemote
+            .Subscribe(_ => UpdatePrimaryAction())
             .DisposeWith(_disposables);
 
         if (_service is not null)
@@ -324,8 +346,6 @@ public sealed class VersionControlTabViewModel : IToolContext
 
     public ReactivePropertySlim<bool> IsRemoteOperationRunning { get; }
 
-    public ReactivePropertySlim<bool> IsRemoteExpanded { get; }
-
     public ReactivePropertySlim<bool> IsNestedRepository { get; }
 
     public ReactivePropertySlim<string> RepositoryScopeText { get; }
@@ -350,17 +370,27 @@ public sealed class VersionControlTabViewModel : IToolContext
 
     public AsyncReactiveCommand SetRemoteCommand { get; }
 
+    public AsyncReactiveCommand PublishBranchCommand { get; }
+
     public AsyncReactiveCommand PushCommand { get; }
 
     public AsyncReactiveCommand PullCommand { get; }
 
     public ReactiveCommandSlim CancelRemoteOperationCommand { get; }
 
+    internal ReadOnlyReactivePropertySlim<VersionControlPrimaryAction> PrimaryAction { get; }
+
+    internal ReadOnlyReactivePropertySlim<bool> IsPrimaryActionEnabled { get; }
+
+    internal ReactiveCommandSlim InvokePrimaryActionCommand { get; }
+
     public Task Initialization { get; }
 
     public Func<CommitInfo, Task<string?>> RequestBranchNameAsync { get; set; }
 
     public Func<Task<string?>> RequestNewBranchNameAsync { get; set; }
+
+    public Func<string?, Task<string?>> RequestRemoteUrlAsync { get; set; }
 
     public Func<RemoteOpResult, Task> ShowRemoteResultAsync { get; set; }
 
@@ -490,16 +520,40 @@ public sealed class VersionControlTabViewModel : IToolContext
 
     public async Task SetRemoteAsync()
     {
-        if (_versionControlCoordinator is null || string.IsNullOrWhiteSpace(RemoteUrl.Value))
+        await ConfigureRemoteAsync();
+    }
+
+    public async Task PublishBranchAsync()
+    {
+        if (await ConfigureRemoteAsync())
         {
-            return;
+            await PushAsync();
+        }
+    }
+
+    private async Task<bool> ConfigureRemoteAsync()
+    {
+        if (_versionControlCoordinator is null || IsRemoteOperationRunning.Value)
+        {
+            return false;
         }
 
+        string? remoteUrl = await RequestRemoteUrlAsync(
+            HasRemote.Value ? RemoteUrl.Value : null);
+        if (string.IsNullOrWhiteSpace(remoteUrl))
+        {
+            return false;
+        }
+
+        string normalizedUrl = remoteUrl.Trim();
         await _versionControlCoordinator.SetRemoteAsync(
-            RemoteUrl.Value.Trim(),
+            normalizedUrl,
             CancellationToken.None);
         await RefreshRemotesAsync();
+        RemoteUrl.Value = normalizedUrl;
+        HasRemote.Value = true;
         StatusMessage.Value = Strings.VersionControl_RemoteConnected;
+        return true;
     }
 
     public Task PushAsync()
@@ -629,6 +683,13 @@ public sealed class VersionControlTabViewModel : IToolContext
         _selectionCancellation?.Dispose();
         _remoteOperationCancellation?.Cancel();
         _remoteOperationCancellation?.Dispose();
+        if (_observedPrimaryActionCommand is not null)
+        {
+            _observedPrimaryActionCommand.CanExecuteChanged -=
+                OnPrimaryActionCanExecuteChanged;
+            _observedPrimaryActionCommand = null;
+        }
+
         foreach (VersionControlCommitViewModel commit in Commits)
         {
             commit.Dispose();
@@ -920,6 +981,9 @@ public sealed class VersionControlTabViewModel : IToolContext
             status.Behind);
         HasAhead.Value = status.Ahead > 0;
         HasBehind.Value = status.Behind > 0;
+        _aheadCount = status.Ahead;
+        _behindCount = status.Behind;
+        _hasUncommittedChanges = !status.IsClean;
         AheadBadgeText.Value = $"↑{status.Ahead.ToString(CultureInfo.CurrentCulture)}";
         BehindBadgeText.Value = $"↓{status.Behind.ToString(CultureInfo.CurrentCulture)}";
         DirtySummary.Value = status.IsClean
@@ -928,6 +992,82 @@ public sealed class VersionControlTabViewModel : IToolContext
                 CultureInfo.CurrentCulture,
                 Strings.VersionControl_DirtySummaryFormat,
                 status.Changes.Count);
+        UpdatePrimaryAction();
+    }
+
+    private void UpdatePrimaryAction()
+    {
+        VersionControlPrimaryAction action = IsRemoteOperationRunning.Value
+            ? new(
+                VersionControlPrimaryActionKind.Cancel,
+                Strings.Cancel,
+                CancelRemoteOperationCommand)
+            : _hasUncommittedChanges
+                ? new(
+                    VersionControlPrimaryActionKind.Commit,
+                    Strings.VersionControl_CommitNow,
+                    CommitCommand)
+                : _behindCount > 0
+                    ? new(
+                        VersionControlPrimaryActionKind.Pull,
+                        string.Format(
+                            CultureInfo.CurrentCulture,
+                            Strings.VersionControl_PullCountFormat,
+                            _behindCount),
+                        PullCommand)
+                    : _aheadCount > 0
+                        ? new(
+                            VersionControlPrimaryActionKind.Push,
+                            string.Format(
+                                CultureInfo.CurrentCulture,
+                                Strings.VersionControl_PushCountFormat,
+                                _aheadCount),
+                            PushCommand)
+                        : HasRemote.Value
+                            ? new(
+                                VersionControlPrimaryActionKind.UpToDate,
+                                Strings.VersionControl_UpToDate,
+                                _disabledPrimaryActionCommand)
+                            : new(
+                                VersionControlPrimaryActionKind.PublishBranch,
+                                Strings.VersionControl_PublishBranch,
+                                PublishBranchCommand);
+        ObservePrimaryAction(action);
+    }
+
+    private void ObservePrimaryAction(VersionControlPrimaryAction action)
+    {
+        if (_observedPrimaryActionCommand is not null)
+        {
+            _observedPrimaryActionCommand.CanExecuteChanged -=
+                OnPrimaryActionCanExecuteChanged;
+        }
+
+        _primaryAction.Value = action;
+        _observedPrimaryActionCommand = action.Command;
+        _observedPrimaryActionCommand.CanExecuteChanged +=
+            OnPrimaryActionCanExecuteChanged;
+        UpdatePrimaryActionCanExecute();
+    }
+
+    private void OnPrimaryActionCanExecuteChanged(object? sender, EventArgs e)
+    {
+        UpdatePrimaryActionCanExecute();
+    }
+
+    private void UpdatePrimaryActionCanExecute()
+    {
+        _isPrimaryActionEnabled.Value =
+            PrimaryAction.Value.Command.CanExecute(null);
+    }
+
+    private void InvokePrimaryAction()
+    {
+        VersionControlPrimaryAction action = PrimaryAction.Value;
+        if (action.Command.CanExecute(null))
+        {
+            action.Command.Execute(null);
+        }
     }
 
     private void RevertBranchSelection()
