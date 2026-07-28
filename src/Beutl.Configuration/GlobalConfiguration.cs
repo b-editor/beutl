@@ -45,6 +45,8 @@ public sealed class GlobalConfiguration
 
     public ProxyStoreConfig ProxyStoreConfig { get; } = new();
 
+    public VersionControlConfig VersionControlConfig { get; } = new();
+
     [AllowNull]
     public string LastStartedVersion { get; private set; } = BeutlApplication.Version;
 
@@ -84,6 +86,8 @@ public sealed class GlobalConfiguration
             json["AiAgent"] = CoreSerializer.SerializeToJsonObject(AiAgentConfig);
 
             json["ProxyStore"] = CoreSerializer.SerializeToJsonObject(ProxyStoreConfig);
+
+            json["VersionControl"] = CoreSerializer.SerializeToJsonObject(VersionControlConfig);
 
             json.JsonSave(file);
         }
@@ -144,6 +148,9 @@ public sealed class GlobalConfiguration
                 if (json["ProxyStore"] is JsonObject proxyStore)
                     Deserialize(ProxyStoreConfig, proxyStore);
 
+                if (json["VersionControl"] is JsonObject versionControl)
+                    Deserialize(VersionControlConfig, versionControl);
+
                 if (json["Version"] is JsonValue version
                     && version.TryGetValue(out string? versionString))
                 {
@@ -169,6 +176,7 @@ public sealed class GlobalConfiguration
         TutorialConfig.ConfigurationChanged += OnConfigurationChanged;
         AiAgentConfig.ConfigurationChanged += OnConfigurationChanged;
         ProxyStoreConfig.ConfigurationChanged += OnConfigurationChanged;
+        VersionControlConfig.ConfigurationChanged += OnConfigurationChanged;
     }
 
     private void RemoveHandlers()
@@ -183,6 +191,7 @@ public sealed class GlobalConfiguration
         TutorialConfig.ConfigurationChanged -= OnConfigurationChanged;
         AiAgentConfig.ConfigurationChanged -= OnConfigurationChanged;
         ProxyStoreConfig.ConfigurationChanged -= OnConfigurationChanged;
+        VersionControlConfig.ConfigurationChanged -= OnConfigurationChanged;
     }
 
     private void OnConfigurationChanged(object? sender, EventArgs e)

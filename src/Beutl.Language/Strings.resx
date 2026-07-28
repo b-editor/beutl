@@ -1525,4 +1525,112 @@ Example: GetProperty&lt;double&gt;("{GUID}.Opacity")</value>
   <data name="ProxyJobStatusWithMessageFormat" xml:space="preserve">
     <value>{0}: {1}</value>
   </data>
+  <data name="VersionControl" xml:space="preserve">
+    <value>Version Control</value>
+  </data>
+  <data name="VersionControl_Enable" xml:space="preserve">
+    <value>Enable Version Control…</value>
+  </data>
+  <data name="VersionControl_TrackHistory" xml:space="preserve">
+    <value>Track history with Git</value>
+  </data>
+  <data name="VersionControl_Commit" xml:space="preserve">
+    <value>Commit Version…</value>
+  </data>
+  <data name="VersionControl_Push" xml:space="preserve">
+    <value>Push</value>
+  </data>
+  <data name="VersionControl_Pull" xml:space="preserve">
+    <value>Pull</value>
+  </data>
+  <data name="VersionControl_Restore" xml:space="preserve">
+    <value>Restore</value>
+  </data>
+  <data name="VersionControl_RestoreToNewBranch" xml:space="preserve">
+    <value>Restore to New Branch…</value>
+  </data>
+  <data name="VersionControl_NewBranch" xml:space="preserve">
+    <value>New Branch…</value>
+  </data>
+  <data name="VersionControl_History" xml:space="preserve">
+    <value>Version History</value>
+  </data>
+  <data name="VersionControl_ChangedFiles" xml:space="preserve">
+    <value>Changed Files</value>
+  </data>
+  <data name="VersionControl_CommitMessage" xml:space="preserve">
+    <value>Commit message</value>
+  </data>
+  <data name="VersionControl_SnapshotManual" xml:space="preserve">
+    <value>Manual</value>
+  </data>
+  <data name="VersionControl_SnapshotSave" xml:space="preserve">
+    <value>Saved</value>
+  </data>
+  <data name="VersionControl_SnapshotClose" xml:space="preserve">
+    <value>Closed</value>
+  </data>
+  <data name="VersionControl_SnapshotSafety" xml:space="preserve">
+    <value>Safety Snapshot</value>
+  </data>
+  <data name="VersionControl_SnapshotRestore" xml:space="preserve">
+    <value>Restored</value>
+  </data>
+  <data name="VersionControl_SnapshotInit" xml:space="preserve">
+    <value>Initialized</value>
+  </data>
+  <data name="VersionControl_NothingToCommit" xml:space="preserve">
+    <value>There is nothing new to record.</value>
+  </data>
+  <data name="VersionControl_GitNotInstalled" xml:space="preserve">
+    <value>Git is required to track project history.</value>
+  </data>
+  <data name="VersionControl_GitTooOldFormat" xml:space="preserve">
+    <value>Git 2.23 or later is required. The installed version is {0}.</value>
+  </data>
+  <data name="VersionControl_InstallGitWindows" xml:space="preserve">
+    <value>Install Git for Windows, then restart Beutl.</value>
+  </data>
+  <data name="VersionControl_InstallGitMacOS" xml:space="preserve">
+    <value>Install the Xcode Command Line Tools or Git with Homebrew, then restart Beutl.</value>
+  </data>
+  <data name="VersionControl_InstallGitLinux" xml:space="preserve">
+    <value>Install Git with your distribution's package manager, then restart Beutl.</value>
+  </data>
+  <data name="VersionControl_ErrorTitle" xml:space="preserve">
+    <value>Version Control Error</value>
+  </data>
+  <data name="VersionControl_ConflictGuidance" xml:space="preserve">
+    <value>This repository has unresolved conflicts. Resolve them with an external Git tool before continuing.</value>
+  </data>
+  <data name="VersionControl_IdentityTitle" xml:space="preserve">
+    <value>Set Commit Identity</value>
+  </data>
+  <data name="VersionControl_IdentityName" xml:space="preserve">
+    <value>Name</value>
+  </data>
+  <data name="VersionControl_IdentityEmail" xml:space="preserve">
+    <value>Email</value>
+  </data>
+  <data name="VersionControl_RestoreConfirmation" xml:space="preserve">
+    <value>The project will close and reopen, and the current undo history will be cleared. Continue?</value>
+  </data>
+  <data name="VersionControl_EnclosingRepositoryFound" xml:space="preserve">
+    <value>This project is inside an existing Git repository.</value>
+  </data>
+  <data name="VersionControl_UseEnclosingRepository" xml:space="preserve">
+    <value>Use Enclosing Repository</value>
+  </data>
+  <data name="VersionControl_LeaveUnmanaged" xml:space="preserve">
+    <value>Leave Unmanaged</value>
+  </data>
+  <data name="VersionControl_AuthenticationFailed" xml:space="preserve">
+    <value>Authentication failed. Check your Git credential helper or SSH agent.</value>
+  </data>
+  <data name="VersionControl_Diverged" xml:space="preserve">
+    <value>The local and remote histories have diverged. Resolve this with an external Git tool.</value>
+  </data>
+  <data name="VersionControl_Offline" xml:space="preserve">
+    <value>The remote could not be reached. Check your network connection and try again.</value>
+  </data>
 </root>

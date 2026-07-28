@@ -1519,4 +1519,112 @@ GetProperty&lt;T&gt;("path") または GetProperty&lt;T&gt;(guid, "propertyName"
   <data name="ProxyJobStatusWithMessageFormat" xml:space="preserve">
     <value>{0}: {1}</value>
   </data>
+  <data name="VersionControl" xml:space="preserve">
+    <value>バージョン管理</value>
+  </data>
+  <data name="VersionControl_Enable" xml:space="preserve">
+    <value>バージョン管理を有効化…</value>
+  </data>
+  <data name="VersionControl_TrackHistory" xml:space="preserve">
+    <value>Git で履歴を記録</value>
+  </data>
+  <data name="VersionControl_Commit" xml:space="preserve">
+    <value>バージョンをコミット…</value>
+  </data>
+  <data name="VersionControl_Push" xml:space="preserve">
+    <value>プッシュ</value>
+  </data>
+  <data name="VersionControl_Pull" xml:space="preserve">
+    <value>プル</value>
+  </data>
+  <data name="VersionControl_Restore" xml:space="preserve">
+    <value>復元</value>
+  </data>
+  <data name="VersionControl_RestoreToNewBranch" xml:space="preserve">
+    <value>新しいブランチに復元…</value>
+  </data>
+  <data name="VersionControl_NewBranch" xml:space="preserve">
+    <value>新しいブランチ…</value>
+  </data>
+  <data name="VersionControl_History" xml:space="preserve">
+    <value>バージョン履歴</value>
+  </data>
+  <data name="VersionControl_ChangedFiles" xml:space="preserve">
+    <value>変更されたファイル</value>
+  </data>
+  <data name="VersionControl_CommitMessage" xml:space="preserve">
+    <value>コミットメッセージ</value>
+  </data>
+  <data name="VersionControl_SnapshotManual" xml:space="preserve">
+    <value>手動</value>
+  </data>
+  <data name="VersionControl_SnapshotSave" xml:space="preserve">
+    <value>保存</value>
+  </data>
+  <data name="VersionControl_SnapshotClose" xml:space="preserve">
+    <value>終了時</value>
+  </data>
+  <data name="VersionControl_SnapshotSafety" xml:space="preserve">
+    <value>安全スナップショット</value>
+  </data>
+  <data name="VersionControl_SnapshotRestore" xml:space="preserve">
+    <value>復元</value>
+  </data>
+  <data name="VersionControl_SnapshotInit" xml:space="preserve">
+    <value>初期化</value>
+  </data>
+  <data name="VersionControl_NothingToCommit" xml:space="preserve">
+    <value>記録する新しい変更はありません。</value>
+  </data>
+  <data name="VersionControl_GitNotInstalled" xml:space="preserve">
+    <value>プロジェクト履歴を記録するには Git が必要です。</value>
+  </data>
+  <data name="VersionControl_GitTooOldFormat" xml:space="preserve">
+    <value>Git 2.23 以降が必要です。インストール済みのバージョンは {0} です。</value>
+  </data>
+  <data name="VersionControl_InstallGitWindows" xml:space="preserve">
+    <value>Git for Windows をインストールしてから Beutl を再起動してください。</value>
+  </data>
+  <data name="VersionControl_InstallGitMacOS" xml:space="preserve">
+    <value>Xcode コマンドラインツール、または Homebrew で Git をインストールしてから Beutl を再起動してください。</value>
+  </data>
+  <data name="VersionControl_InstallGitLinux" xml:space="preserve">
+    <value>ディストリビューションのパッケージマネージャーで Git をインストールしてから Beutl を再起動してください。</value>
+  </data>
+  <data name="VersionControl_ErrorTitle" xml:space="preserve">
+    <value>バージョン管理エラー</value>
+  </data>
+  <data name="VersionControl_ConflictGuidance" xml:space="preserve">
+    <value>このリポジトリには未解決の競合があります。続行する前に外部の Git ツールで解決してください。</value>
+  </data>
+  <data name="VersionControl_IdentityTitle" xml:space="preserve">
+    <value>コミット作成者の設定</value>
+  </data>
+  <data name="VersionControl_IdentityName" xml:space="preserve">
+    <value>名前</value>
+  </data>
+  <data name="VersionControl_IdentityEmail" xml:space="preserve">
+    <value>メールアドレス</value>
+  </data>
+  <data name="VersionControl_RestoreConfirmation" xml:space="preserve">
+    <value>プロジェクトを閉じて再度開くため、現在の取り消し履歴は消去されます。続行しますか？</value>
+  </data>
+  <data name="VersionControl_EnclosingRepositoryFound" xml:space="preserve">
+    <value>このプロジェクトは既存の Git リポジトリ内にあります。</value>
+  </data>
+  <data name="VersionControl_UseEnclosingRepository" xml:space="preserve">
+    <value>親リポジトリを使用</value>
+  </data>
+  <data name="VersionControl_LeaveUnmanaged" xml:space="preserve">
+    <value>管理しない</value>
+  </data>
+  <data name="VersionControl_AuthenticationFailed" xml:space="preserve">
+    <value>認証に失敗しました。Git の資格情報ヘルパーまたは SSH エージェントを確認してください。</value>
+  </data>
+  <data name="VersionControl_Diverged" xml:space="preserve">
+    <value>ローカルとリモートの履歴が分岐しています。外部の Git ツールで解決してください。</value>
+  </data>
+  <data name="VersionControl_Offline" xml:space="preserve">
+    <value>リモートに接続できませんでした。ネットワーク接続を確認して再試行してください。</value>
+  </data>
 </root>
