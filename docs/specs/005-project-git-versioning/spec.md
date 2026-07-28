@@ -14,6 +14,15 @@ A Beutl editing project is already a self-contained directory of small, human-re
 
 Version history is powered by the Git tooling installed on the user's machine. When Git is not installed, the feature quietly steps aside: the editor remains fully functional and the versioning surface shows installation guidance instead of errors.
 
+## Clarifications
+
+### Session 2026-07-28
+
+- Q: Default state of the "track history with Git" option on project creation (shown only when Git is detected)? → A: Enabled by default; the default is adjustable in application settings.
+- Q: Automatic snapshot triggers — explicit save/close only, or additionally timer-based checkpoints? → A: Explicit save / save-all / project close only; no timer-based checkpoints.
+- Q: Does a Save As copy carry the original's history or start fresh? → A: The copy starts a fresh, independent history; the original keeps its history. Copying the repository would silently duplicate history size and remote configuration.
+- Q: Default for the large-file extension (Git LFS) on in-project media? → A: Used automatically when detected (configurable off); a one-time quota notice is shown when a remote is first connected with LFS active.
+
 ## Scope
 
 ### In scope (this feature)
@@ -221,7 +230,7 @@ The user connects the project to a remote repository, pushes their history for b
 **Media policy**
 
 - **FR-034**: Media files located inside the project directory MUST be included in versions by default; media referenced from outside the project stays untracked by nature.
-- **FR-035**: When the large-file extension is available, it MUST be used automatically for media in the project (configurable); when unavailable, committing media past a size threshold MUST trigger a one-time warning that history growth is permanent — and MUST NOT block.
+- **FR-035**: When the large-file extension is available, it MUST be used automatically for media in the project (configurable); when unavailable, committing media past a size threshold MUST trigger a one-time warning that history growth is permanent — and MUST NOT block. When a remote is first connected while the large-file extension is active, a one-time notice MUST explain that remote hosting quotas may apply to large-file storage and bandwidth.
 
 **Settings & degradation**
 
@@ -260,11 +269,11 @@ The user connects the project to a remote repository, pushes their history for b
 ## Assumptions
 
 - **Git tooling is the user's responsibility in v1.** The feature relies on an installed Git (with a minimum supported version); the app guides installation but does not bundle it.
-- **The tracking option on project creation defaults to enabled when Git is detected**, so most users accumulate history passively; the default is adjustable in settings. *(To be confirmed in clarification.)*
-- **Automatic snapshots fire on explicit save/save-all/close only** — not on autosave ticks and not on a timer. Continuous autosave already keeps files current; versions mark user-intent points. *(Timer-based checkpoints to be confirmed in clarification.)*
+- **The tracking option on project creation defaults to enabled when Git is detected**, so most users accumulate history passively; the default is adjustable in settings.
+- **Automatic snapshots fire on explicit save/save-all/close only** — not on autosave ticks and not on a timer. Continuous autosave already keeps files current; versions mark user-intent points.
 - **Repository content is language-independent**: automatic messages are stored in stable English with a machine-readable kind and localized only for display, so repositories survive locale changes and external tools.
-- **Save As starts a fresh history for the copy** rather than duplicating the original's repository; the original project keeps its history. *(To be confirmed in clarification.)*
-- **Media inside the project (`resources/`) is committed by default**; the large-file extension is used when available, and a size-threshold warning covers its absence. *(LFS default to be confirmed in clarification.)*
+- **Save As starts a fresh history for the copy** rather than duplicating the original's repository; the original project keeps its history.
+- **Media inside the project (`resources/`) is committed by default**; the large-file extension is used automatically when available, and a size-threshold warning covers its absence.
 - **Restore, branch switch, and pull operate on a closed project.** The editor's in-memory state and undo history are per-session; the close/reopen cycle is the only correct way to change files underneath the editor, and undo history loss on reopen is accepted and disclosed.
 - **A single writer is assumed per project** at a time; concurrent external writers (e.g. a headless agent session) are outside the safety guarantees beyond snapshot atomicity.
 
