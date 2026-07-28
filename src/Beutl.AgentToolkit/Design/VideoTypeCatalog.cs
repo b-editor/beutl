@@ -148,7 +148,7 @@ public static class VideoTypeCatalog
                 "Use read_document_summary after each cut-list stage to confirm narrative order, timing, and one EngineObject per ordinary Element.",
                 "Handle audio explicitly in notes and apply_edit: source audio vs music bed, intended levels, and where overlays must not mask speech.",
                 "Use measure_object_bounds for sparse text overlays, then keep overlay copy short enough for evaluate_edit_quality read-time checks.",
-                "Call evaluate_edit_quality, evaluate_edit_quality, and final_preflight with videoType:\"footage-cut\".",
+                "Call evaluate_edit_quality(staticLayout:true) while the layout is still static, then suggest_quality_fixes, evaluate_edit_quality, and final_preflight with videoType:\"footage-cut\".",
                 "Review the timelineCoverage advisory from quality tools and close unintended empty visible gaps before export_video.",
                 "Skip derive_palette and get_background_grammar unless authored graphic overlays are requested; record that reason when you skip them."
             ],
@@ -177,7 +177,7 @@ public static class VideoTypeCatalog
                 "Add minimal Ken Burns-style motion with one slow scale or translate direction per photo, alternating direction deliberately.",
                 "Use measure_object_bounds for captions and backing plates, and keep captions within evaluate_edit_quality read-time rules.",
                 "Call derive_palette only when caption/backing colors need palette support, not as a default background-grammar step.",
-                "Call evaluate_edit_quality, evaluate_edit_quality, and final_preflight with videoType:\"slideshow\".",
+                "Call evaluate_edit_quality(staticLayout:true) while the layout is still static, then suggest_quality_fixes, evaluate_edit_quality, and final_preflight with videoType:\"slideshow\".",
                 "Review timelineCoverage and transition-consistency findings on the subdivided render_storyboard contact sheet before export_video."
             ],
             new VideoTypeGateProfile(
@@ -208,7 +208,7 @@ public static class VideoTypeCatalog
                 "Use measure_object_bounds on representative lines and backing plates before relying on render_still readability.",
                 "Verify per-line read time and contrast with evaluate_edit_quality(staticLayout:true) or evaluate_edit_quality before adding extra motion.",
                 "A background that outcompetes the timed text costs readability, so a consistent loop is the usual choice; AudioSpectrumDrawable or AudioWaveformDrawable render a genuinely music-reactive backdrop from the music bed.",
-                "Call evaluate_edit_quality, evaluate_edit_quality, and final_preflight with videoType:\"lyric-captions\"."
+                "Call evaluate_edit_quality(staticLayout:true) while the layout is still static, then suggest_quality_fixes, evaluate_edit_quality, and final_preflight with videoType:\"lyric-captions\"."
             ],
             new VideoTypeGateProfile(
                 ImpliedAllowMinimalDensity: true,
@@ -233,7 +233,7 @@ public static class VideoTypeCatalog
                 "Invest in easing quality and secondary detail such as particles, strokes, texture, or subtle material effects.",
                 "End on a stable hold frame of at least 1 second and verify it with render_still.",
                 "Call render_storyboard with subdivisionLevel:2 or 3 to review the arc inside the single shot.",
-                "Call evaluate_edit_quality, evaluate_edit_quality, and final_preflight with videoType:\"logo-intro\".",
+                "Call evaluate_edit_quality(staticLayout:true) while the layout is still static, then suggest_quality_fixes, evaluate_edit_quality, and final_preflight with videoType:\"logo-intro\".",
                 "Pass allowStillness when a static logo hold is the intended ending, so the motionContinuity finding reads as expected. Motion never fails the gate either way."
             ],
             new VideoTypeGateProfile(

@@ -108,7 +108,10 @@ public sealed class VideoExporter(EncoderRegistration encoders)
             using IDisposable frameProgressSubscription = onFrameProgress is null
                 ? Disposable.Empty
                 : frameProgress.Subscribe(time => onFrameProgress(
-                    (long)(time.TotalSeconds * ratePerSecond),
+                    // The provider derives frame times from integer ticks, so the product lands
+                    // just under the frame number; round rather than truncate, and report the
+                    // count completed (index + 1) so a finished export reaches total.
+                    Math.Min((long)Math.Round(time.TotalSeconds * ratePerSecond) + 1, frameProvider.FrameCount),
                     frameProvider.FrameCount));
             using var composer = CreateExportComposer(scene, normalizedSampleRate);
             using var sampleProgress = new Subject<TimeSpan>();

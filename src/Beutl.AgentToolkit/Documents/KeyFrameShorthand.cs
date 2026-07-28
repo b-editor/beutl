@@ -63,9 +63,11 @@ internal static class KeyFrameShorthand
         };
 
         // Anything the caller set alongside the shorthand (UseGlobalClock, Id, ...) still applies.
+        // KeyFrames is excluded: a merge-patch over an existing animation retains the old array
+        // next to $kf, and copying it here would silently reinstate the animation being replaced.
         foreach ((string key, JsonNode? node) in animationJson)
         {
-            if (key != PropertyName && key != "$type")
+            if (key != PropertyName && key != "$type" && key != nameof(KeyFrameAnimation.KeyFrames))
             {
                 expanded[key] = node?.DeepClone();
             }

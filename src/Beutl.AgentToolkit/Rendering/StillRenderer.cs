@@ -798,12 +798,15 @@ public sealed class StillRenderer
                     float red = (float)BitConverter.ToHalf(row.Slice(pixelOffset, 2));
                     float green = (float)BitConverter.ToHalf(row.Slice(pixelOffset + 2, 2));
                     float blue = (float)BitConverter.ToHalf(row.Slice(pixelOffset + 4, 2));
-                    float alpha = (float)BitConverter.ToHalf(row.Slice(pixelOffset + 6, 2));
-                    if (Premultiplied && alpha > 0.0001f)
+                    if (!Premultiplied)
                     {
-                        red /= alpha;
-                        green /= alpha;
-                        blue /= alpha;
+                        // Straight alpha: weight by coverage so a barely-visible pixel does not
+                        // register as fully lit. Premultiplied values already carry that weight,
+                        // which is what compositing the frame over black produces.
+                        float alpha = (float)BitConverter.ToHalf(row.Slice(pixelOffset + 6, 2));
+                        red *= alpha;
+                        green *= alpha;
+                        blue *= alpha;
                     }
 
                     r = LinearToSrgbByte(red);

@@ -82,10 +82,12 @@ public sealed class SchemaGenerator
         (typeFilter, categoryFilter) = NormalizeFilters(typeFilter, categoryFilter);
 
         List<TypeDescriptor> types = [];
-        foreach ((string category, Type type) in EnumerateRegisteredTypes().DistinctBy(item => item.Type))
+        foreach ((string category, Type type) in EnumerateRegisteredTypes()
+                     .Where(item => MatchesCategory(categoryFilter, item.Category))
+                     .DistinctBy(item => item.Type))
         {
             string discriminator = IdentityHelper.WriteDiscriminator(type);
-            if (!Matches(typeFilter, type, discriminator) || !MatchesCategory(categoryFilter, category))
+            if (!Matches(typeFilter, type, discriminator))
             {
                 continue;
             }

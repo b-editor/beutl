@@ -263,11 +263,13 @@ public sealed class QueryTools(AgentSessionManager sessions) : ToolBase
         "Use render_composition_patch only when the client explicitly needs the generated template patch JSON."
         ];
 
-    private static GettingStartedResponse CreateVideoTypeGettingStartedResponse(VideoTypeProfile profile)
+    private static GettingStartedResponse CreateVideoTypeGettingStartedResponse(
+        VideoTypeProfile profile,
+        bool includeGuidance)
         => new(
             SchemaVersion.Current,
             CreateVideoTypeWorkflow(profile),
-            [],
+            includeGuidance ? CreateGuidanceNotes() : [],
             CreateRecommendedSkills(),
             CreateCategoryAliases(),
             RawHttpNote,
@@ -347,7 +349,7 @@ public sealed class QueryTools(AgentSessionManager sessions) : ToolBase
         {
             if (!string.IsNullOrWhiteSpace(videoType))
             {
-                return CreateVideoTypeGettingStartedResponse(VideoTypeCatalog.Resolve(videoType));
+                return CreateVideoTypeGettingStartedResponse(VideoTypeCatalog.Resolve(videoType), includeGuidance);
             }
 
             return new GettingStartedResponse(

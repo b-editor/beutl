@@ -14,7 +14,8 @@ public sealed class HistoryToolsTests
     public void Undo_reverts_the_last_apply_edit_and_redo_restores_it()
     {
         Scene scene = CreateSceneWithElement(out Element element);
-        (EditTools edits, HistoryTools history) = CreateTools(scene);
+        (AgentToolkitTestSession session, EditTools edits, HistoryTools history) = CreateTools(scene);
+        using AgentToolkitTestSession ownedSession = session;
         TimeSpan original = element.Start;
 
         ToolResult<ApplyEditResponse> apply = edits.ApplyEdit(
@@ -45,7 +46,8 @@ public sealed class HistoryToolsTests
     public void Undo_walks_back_multiple_transactions_and_stops_when_the_stack_empties()
     {
         Scene scene = CreateSceneWithElement(out Element element);
-        (EditTools edits, HistoryTools history) = CreateTools(scene);
+        (AgentToolkitTestSession session, EditTools edits, HistoryTools history) = CreateTools(scene);
+        using AgentToolkitTestSession ownedSession = session;
         TimeSpan original = element.Start;
 
         foreach (int seconds in new[] { 4, 5, 6 })
@@ -75,7 +77,8 @@ public sealed class HistoryToolsTests
     public void Undo_on_an_empty_history_succeeds_and_reports_that_nothing_moved()
     {
         Scene scene = CreateSceneWithElement(out _);
-        (_, HistoryTools history) = CreateTools(scene);
+        (AgentToolkitTestSession session, _, HistoryTools history) = CreateTools(scene);
+        using AgentToolkitTestSession ownedSession = session;
 
         ToolResult<HistoryStateResponse> undo = history.Undo();
 
@@ -92,7 +95,8 @@ public sealed class HistoryToolsTests
     public void Read_history_names_the_next_undo_without_changing_the_scene()
     {
         Scene scene = CreateSceneWithElement(out Element element);
-        (EditTools edits, HistoryTools history) = CreateTools(scene);
+        (AgentToolkitTestSession session, EditTools edits, HistoryTools history) = CreateTools(scene);
+        using AgentToolkitTestSession ownedSession = session;
 
         edits.ApplyEdit(patch: StartPatch(element, TimeSpan.FromSeconds(9)), schemaVersion: SchemaVersion.Current);
 
@@ -113,7 +117,8 @@ public sealed class HistoryToolsTests
     public void A_new_edit_after_undo_clears_the_redo_stack()
     {
         Scene scene = CreateSceneWithElement(out Element element);
-        (EditTools edits, HistoryTools history) = CreateTools(scene);
+        (AgentToolkitTestSession session, EditTools edits, HistoryTools history) = CreateTools(scene);
+        using AgentToolkitTestSession ownedSession = session;
 
         edits.ApplyEdit(patch: StartPatch(element, TimeSpan.FromSeconds(4)), schemaVersion: SchemaVersion.Current);
         history.Undo();
@@ -130,12 +135,12 @@ public sealed class HistoryToolsTests
         });
     }
 
-    private static (EditTools Edits, HistoryTools History) CreateTools(Scene scene)
+    private static (AgentToolkitTestSession Session, EditTools Edits, HistoryTools History) CreateTools(Scene scene)
     {
         var session = new AgentToolkitTestSession(scene);
         var manager = new AgentSessionManager();
         manager.UseSource(new AgentToolkitTestSessionSource(session));
-        return (new EditTools(manager), new HistoryTools(manager));
+        return (session, new EditTools(manager), new HistoryTools(manager));
     }
 
     private static JsonObject StartPatch(Element element, TimeSpan start)
