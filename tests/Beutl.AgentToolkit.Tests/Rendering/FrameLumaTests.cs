@@ -48,6 +48,41 @@ public sealed class FrameLumaTests
             Is.EqualTo(StillRenderer.AnalyzeFrameVisibility(opaque).MeanLuma).Within(0.001));
     }
 
+    [Test]
+    public void A_barely_visible_half_float_pixel_does_not_read_as_fully_lit()
+    {
+        // Premultiplied half-floats carry their own coverage; un-premultiplying them would turn a
+        // 1%-alpha edge into a full-brightness pixel and inflate the foreground metrics.
+        using Bitmap faint = CreateUniformHalf(0.01f, 0.01f, 0.01f, 0.01f);
+        using Bitmap opaque = CreateUniformHalf(1f, 1f, 1f, 1f);
+
+        double faintLuma = StillRenderer.AnalyzeFrameVisibility(faint).MeanLuma;
+        double opaqueLuma = StillRenderer.AnalyzeFrameVisibility(opaque).MeanLuma;
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(opaqueLuma, Is.EqualTo(255).Within(1));
+            Assert.That(faintLuma, Is.LessThan(40));
+        });
+    }
+
+    private static Bitmap CreateUniformHalf(float r, float g, float b, float a)
+    {
+        var bitmap = new Bitmap(16, 16, BitmapColorType.RgbaF16, BitmapAlphaType.Premul);
+        Span<byte> data = bitmap.GetPixelSpan();
+        Span<byte> pixel = stackalloc byte[8];
+        BitConverter.TryWriteBytes(pixel[..2], (Half)r);
+        BitConverter.TryWriteBytes(pixel[2..4], (Half)g);
+        BitConverter.TryWriteBytes(pixel[4..6], (Half)b);
+        BitConverter.TryWriteBytes(pixel[6..8], (Half)a);
+        for (int offset = 0; offset + 8 <= data.Length; offset += 8)
+        {
+            pixel.CopyTo(data.Slice(offset, 8));
+        }
+
+        return bitmap;
+    }
+
     private static Bitmap CreateUniform(Bgra8888 pixel)
     {
         var bitmap = new Bitmap(16, 16);

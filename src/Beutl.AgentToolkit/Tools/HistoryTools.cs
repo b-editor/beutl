@@ -49,7 +49,11 @@ public sealed class HistoryTools(AgentSessionManager sessions) : ToolBase
         return Execute(() =>
         {
             IEditingSession session = sessions.RequireSession();
-            return session.ReadOnSession(() => CreateState(session, [], "History state only; nothing was changed."));
+            return session.ReadOnSession(() =>
+            {
+                session.History.FlushPendingMutations();
+                return CreateState(session, [], "History state only; nothing was changed.");
+            });
         });
     }
 
@@ -62,6 +66,10 @@ public sealed class HistoryTools(AgentSessionManager sessions) : ToolBase
         session.InvokeOnSession(() =>
         {
             HistoryManager history = session.History;
+            // A debounced editor edit is still pending until BeforeMutation fires. Undo fires it
+            // itself, so peeking first would name the transaction that precedes the pending one —
+            // or report an empty stack while an uncommitted edit is waiting to be pushed.
+            history.FlushPendingMutations();
             for (int i = 0; i < requested; i++)
             {
                 // Peek first: Undo/Redo pops the transaction, so this is the last point it can be named.

@@ -63,7 +63,7 @@ public sealed class RenderTools(
     private const string AllowHardCutsDescription =
         "When true, suppresses the repeated hard-cut cadence advisory. Hard cuts are already advisory (they never block the gate); this flag removes the note.";
     private const string RelaxAestheticsDescription =
-        "When true, drops the aesthetic and pacing advisories in one switch (ambiguous decorative shapes, Material-UI card look, RectShape dominance, hard cuts, and high-tempo long-hold/short-segment pacing) to keep the response focused. None of them affect the gate either way; the blocking checks (text read time, rendered text contrast, Element structure) are unchanged.";
+        "When true, drops the remaining pacing advisories in one switch (repeated hard cuts, transition-vocabulary inconsistency, and high-tempo long-hold/short-segment pacing) to keep the response focused. They do not affect the gate either way; the blocking checks (text read time, rendered text contrast, Element structure) are unchanged. The shape, card-look, and rect-dominance advisories this flag used to cover no longer exist — those judgments are yours to make from a rendered still.";
     private const string AllowStillnessDescription =
         "When true, records that stillness / a held frame / negative space is deliberate, so the motion-continuity finding reads as expected rather than as a warning. Motion never fails the gate either way. Tagging an element/object [role:still] (or naming it 'hold frame', 'negative space', etc.) opts in the same way without this flag.";
     private const string AllowDenseTextDescription =
@@ -207,6 +207,7 @@ public sealed class RenderTools(
                 progress.Report(0, plannedShots.Count, "rendering shots");
                 foreach ((ResolvedStoryboardFrame shot, string resolvedPath) in plannedShots)
                 {
+                    progress.Report(renderedShots.Count, plannedShots.Count, "rendering shots");
                     using RenderedFrameAnalysis frame = await stillRenderer.RenderFrameAnalysisAsync(
                         scene,
                         shot.Time,
@@ -238,6 +239,7 @@ public sealed class RenderTools(
                     }
                 }
 
+                progress.Report(plannedShots.Count, plannedShots.Count, "contact sheet");
                 storyboardRenderer.RenderContactSheet(contactSheetFrames, resolvedContactSheetPath);
                 CutEyeTrace[] cutEyeTrace = BuildCutEyeTrace(eyeTraceFrames);
                 List<string> reviewNotes = [];

@@ -121,6 +121,31 @@ public sealed class KeyFrameShorthandTests
         });
     }
 
+    [Test]
+    public void Shorthand_replaces_an_existing_animation_rather_than_merging_into_it()
+    {
+        (EditTools tools, Scene scene, Element element) = CreateSceneWithRect();
+
+        tools.ApplyEdit(
+            patch: OpacityPatch(element, new JsonArray(new JsonArray(0, 0), new JsonArray(1.0, 100))),
+            schemaVersion: SchemaVersion.Current);
+
+        // A merge-patch over the existing animation retains its KeyFrames member next to $kf.
+        // The expansion must win, or apply_edit reports success while keeping the old envelope.
+        ToolResult<ApplyEditResponse> second = tools.ApplyEdit(
+            patch: OpacityPatch(element, new JsonArray(new JsonArray(0, 100), new JsonArray(0.5, 25))),
+            schemaVersion: SchemaVersion.Current);
+
+        var animation = (KeyFrameAnimation)RequireOpacityAnimation(scene);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(second.IsSuccess, Is.True, second.Error?.Message);
+            Assert.That(animation.KeyFrames, Has.Count.EqualTo(2));
+            Assert.That(animation.KeyFrames[^1].KeyTime, Is.EqualTo(TimeSpan.FromSeconds(0.5)));
+        });
+    }
+
     private static IAnimation RequireOpacityAnimation(Scene scene)
     {
         var shape = (RectShape)scene.Children.Single().Objects.Single();
