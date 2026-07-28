@@ -66,7 +66,7 @@ public class CreateNewProjectDialogTests
     }
 
     [AvaloniaTest]
-    public async Task Enable_version_control_command_is_gated_by_the_open_project_state_and_listed_in_the_palette()
+    public async Task Enable_version_control_command_is_gated_by_the_open_project_state_and_mapped_as_a_context_command()
     {
         await TestReset.ResetShellAsync();
         var command = TestShell.MainViewModel.MenuBar.EnableVersionControl;
@@ -81,10 +81,8 @@ public class CreateNewProjectDialogTests
         {
             Assert.That(((System.Windows.Input.ICommand)command).CanExecute(null), Is.True);
             Assert.That(
-                TestShell.MainViewModel.MenuBar.EnumeratePaletteCommands(),
-                Has.Some.Matches<MenuBarViewModel.PaletteMenuCommand>(
-                    item => item.Id == "MenuBar.EnableVersionControl"
-                            && ReferenceEquals(item.Command, command)));
+                TestShell.MainViewModel.MenuBar.FindContextCommand("EnableVersionControl"),
+                Is.SameAs(command));
         });
 
         await TestReset.ResetShellAsync();

@@ -137,7 +137,7 @@
 - [X] T036 [P] R-8 stress test: scripted 1000-edit burst against a tracked temp project asserts a bounded number of `git status` invocations (watcher debounce + `GIT_OPTIONAL_LOCKS=0` hold) in tests/Beutl.UnitTests/Editor/VersionControl/RepositoryWatcherStressTests.cs
 - [X] T037 [P] macOS native menu mirror for the new commands in src/Beutl/Views/MacWindow.axaml.cs and shortcut/palette completeness via `ContextCommandDefinition` in src/Beutl/Services/PrimitiveImpls/MainViewExtension.cs
 - [X] T038 Verify SC-002/SC-003 measurably: one-property edit + save touches exactly one `.belm` (assert in a service test); snapshot timing on a 500-element fixture ≤ 2 s; history load ≤ 1 s for 200 commits (timed tests, generous CI margins)
-- [ ] T039 `dotnet format Beutl.slnx` + `dotnet build Beutl.slnx` + `dotnet test Beutl.slnx -f net10.0 --settings coverlet.runsettings` all green; fix fallout
+- [X] T039 `dotnet format Beutl.slnx` + `dotnet build Beutl.slnx` + `dotnet test Beutl.slnx -f net10.0 --settings coverlet.runsettings` all green; fix fallout (2026-07-28: format 0 violations after encoding/import fixes; build 0 errors; per-project runs — UnitTests 5,010 pass/7 skip, HeadlessUI 198/198, E2E 80/80, AgentToolkit 527/527, FFmpegIpc 56/56, SourceGenerator 11/11, Graphics3D 5/5, FFmpegWorker 1/1, AVFoundation 12/12, MediaFoundation 55/55; one pre-existing flaky proxy-timing unit test passed on rerun)
 - [ ] T040 Run the quickstart.md manual verification matrix (network/credential/LFS/macOS-discovery/notarization rows) and record results in the PR description; include the release-notes callout for the one-time Windows newline diff (R-10.4)
 
 ---
