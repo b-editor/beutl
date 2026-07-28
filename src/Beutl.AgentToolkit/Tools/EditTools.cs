@@ -8,6 +8,7 @@ using Beutl.AgentToolkit.Common;
 using Beutl.AgentToolkit.Reconciliation;
 using Beutl.AgentToolkit.Schema;
 using Beutl.AgentToolkit.Sessions;
+using Beutl.Animation;
 using Beutl.Engine;
 using Beutl.Graphics;
 using Beutl.ProjectSystem;
@@ -58,6 +59,7 @@ public sealed record ApplyEditResponse(
     IReadOnlyDictionary<string, int> ValidationStatuses,
     int ValidationCount,
     IReadOnlyList<AppliedEntityId> CreatedIds,
+    int CreatedIdCount,
     [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     IReadOnlyList<ChangeSetEntry>? Changes = null,
     [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
@@ -89,7 +91,7 @@ public sealed class EditTools(AgentSessionManager sessions) : ToolBase
     private readonly CompositionTemplateCatalog _compositionCatalog = new();
 
     [McpServerTool(Name = "apply_edit")]
-    [Description("Atomically applies a declarative desired document or JSON Merge Patch through Beutl history. In the in-app host, call attach_active_editor first. Supply exactly one of desired or patch; prefer patch for targeted edits. For file-backed sessions, call save_project after each major successful apply_edit. The response is compact by default: appliedChangeSet plus createdIds for follow-up edits. Set includeDocument=true only when you need the full updated document. Keyframes accept a shorthand: Animations.<Property> = {\"$kf\": [[seconds, value, easing?], ...]} or [{\"t\": seconds, \"v\": value, \"easing\": name}, ...]. The animation and keyframe $type discriminators are inferred from the property's value type and the easing takes a bare name such as CubicEaseOut, so a four-key envelope costs a line instead of ~800 characters. Sibling members (UseGlobalClock, Id) still apply, and the long explicit form keeps working.")]
+    [Description("Atomically applies a declarative desired document or JSON Merge Patch through Beutl history. In the in-app host, call attach_active_editor first. Supply exactly one of desired or patch; prefer patch for targeted edits. For file-backed sessions, call save_project after each major successful apply_edit. The response is compact by default: appliedChangeSet plus createdIds for follow-up edits. createdIds lists only entities you can address later — animations and keyframes are reached through their owning property, never by Id, so they are excluded; pass quiet:true to narrow it further to named entities. createdIdCount always carries the true total. Set includeDocument=true only when you need the full updated document. Keyframes accept a shorthand: Animations.<Property> = {\"$kf\": [[seconds, value, easing?], ...]} or [{\"t\": seconds, \"v\": value, \"easing\": name}, ...]. The animation and keyframe $type discriminators are inferred from the property's value type and the easing takes a bare name such as CubicEaseOut, so a four-key envelope costs a line instead of ~800 characters. Sibling members (UseGlobalClock, Id) still apply, and the long explicit form keeps working.")]
     public ToolResult<ApplyEditResponse> ApplyEdit(
         [Description("Full desired declarative document. Uses PascalCase properties, $type discriminators, stable Id fields, typed properties for transforms/geometry/pens/brushes/effects, Animations.<Property>.KeyFrames for keyframes, and schemaVersion. Full desired documents are authoritative: omitted child arrays such as Elements or Objects can delete existing content, so use patch for partial edits.")]
         JsonObject? desired = null,
@@ -99,7 +101,7 @@ public sealed class EditTools(AgentSessionManager sessions) : ToolBase
         string? schemaVersion = null,
         [Description("Return the full updated document. Defaults to false to keep apply_edit responses compact; prefer createdIds or read_document_summary for follow-up edits.")]
         bool includeDocument = false,
-        [Description("When true, return only validity, operation/validation counts, and createdIds. Set false when you need detailed changes, validation, or appliedChangeSet.")]
+        [Description("When true, return only validity, operation/validation counts, and the named entries of createdIds. Set false when you need detailed changes, validation, or appliedChangeSet. createdIdCount always reports how many entities were created, so a trimmed list never hides the total.")]
         bool quiet = false)
     {
         return Execute(() =>
@@ -354,20 +356,22 @@ public sealed class EditTools(AgentSessionManager sessions) : ToolBase
 
     private static ApplyEditResponse CreateApplyEditResponse(ReconcileResult result, bool includeDocument, bool quiet)
     {
+        IReadOnlyList<AppliedEntityId> created = CreateCreatedIdSummary(result.Plan);
         return new ApplyEditResponse(
             result.Plan.Valid,
             result.Plan.Operations,
             result.Plan.ChangeCount,
             result.Plan.ValidationStatuses,
             result.Plan.ValidationCount,
-            CreateCreatedIdSummary(result.Plan),
+            quiet ? created.Where(item => !string.IsNullOrWhiteSpace(item.Name)).ToArray() : created,
+            created.Count,
             quiet ? null : result.Plan.Changes,
             quiet ? null : result.Plan.Validation,
             quiet ? null : result.Plan.ExpectedChangeSet,
             includeDocument ? result.Document : null);
     }
 
-    private static IReadOnlyList<AppliedEntityId> CreateCreatedIdSummary(ReconcilePlan plan)
+    private static List<AppliedEntityId> CreateCreatedIdSummary(ReconcilePlan plan)
     {
         var ids = new List<AppliedEntityId>();
         var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
@@ -409,6 +413,13 @@ public sealed class EditTools(AgentSessionManager sessions) : ToolBase
 
             foreach (KeyValuePair<string, JsonNode?> pair in obj.ToArray())
             {
+                // Animations and their keyframes carry Ids, but nothing addresses them by Id later —
+                // they are reached through the owning property — so listing them is pure payload.
+                if (pair.Key is "Animations" or nameof(KeyFrameAnimation.KeyFrames))
+                {
+                    continue;
+                }
+
                 AddCreatedIds(pair.Value, $"{currentPath}/{pair.Key}", ids, seen);
             }
         }

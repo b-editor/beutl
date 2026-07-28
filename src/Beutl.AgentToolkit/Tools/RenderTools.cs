@@ -43,6 +43,8 @@ public sealed class RenderTools(
     VideoExporter videoExporter,
     RenderJobManager renderJobs) : ToolBase
 {
+    private static readonly RenderJobProgressReporter NullProgress = RenderJobProgressReporter.Ignored;
+
     private static readonly JsonSerializerOptions s_jobResultOptions = new(JsonSerializerDefaults.Web);
     private static readonly JsonSerializerOptions s_toolResultOptions = new(JsonSerializerDefaults.Web);
     private static readonly string s_processOutputToken = CreateProcessOutputToken();
@@ -155,7 +157,7 @@ public sealed class RenderTools(
             string resolvedContactSheetPath = workspace.ResolveForWrite(contactSheetPath);
             destructiveGuard.EnsureOverwriteAllowed(resolvedContactSheetPath, confirmOverwrite);
 
-            async Task<RenderStoryboardResponse> RunStoryboardAsync(CancellationToken token)
+            async Task<RenderStoryboardResponse> RunStoryboardAsync(RenderJobProgressReporter progress, CancellationToken token)
             {
                 // Re-verify the overwrite guards at write time: background jobs are serialized, so a
                 // preceding job may have created these files after the pre-flight check passed.
@@ -169,6 +171,7 @@ public sealed class RenderTools(
                 var renderedShots = new List<RenderStoryboardShot>(plannedShots.Count);
                 var contactSheetFrames = new List<StoryboardContactSheetFrame>(plannedShots.Count);
                 var eyeTraceFrames = new List<StoryboardEyeTraceFrame>(plannedShots.Count);
+                progress.Report(0, plannedShots.Count, "rendering shots");
                 foreach ((ResolvedStoryboardFrame shot, string resolvedPath) in plannedShots)
                 {
                     using RenderedFrameAnalysis frame = await stillRenderer.RenderFrameAnalysisAsync(
@@ -217,13 +220,13 @@ public sealed class RenderTools(
             {
                 string jobId = renderJobs.Enqueue(
                     "storyboard",
-                    async token => JsonSerializer.SerializeToNode(
-                        await RunStoryboardAsync(token).ConfigureAwait(false),
+                    async (progress, token) => JsonSerializer.SerializeToNode(
+                        await RunStoryboardAsync(progress, token).ConfigureAwait(false),
                         s_jobResultOptions)!);
                 return (new RenderStoryboardResult("running", jobId, null), (ImageContentBlock?)null);
             }
 
-            RenderStoryboardResponse response = await RunStoryboardAsync(cancellationToken).ConfigureAwait(false);
+            RenderStoryboardResponse response = await RunStoryboardAsync(NullProgress, cancellationToken).ConfigureAwait(false);
             ImageContentBlock? image = returnImageContent
                 ? ImageContentBlock.FromBytes(
                     storyboardRenderer.RenderContactSheetPng(
@@ -813,7 +816,7 @@ public sealed class RenderTools(
             string resolvedPath = workspace.ResolveForWrite(NormalizeOutputPath(outputPath));
             destructiveGuard.EnsureOverwriteAllowed(resolvedPath, confirmOverwrite);
 
-            async Task<ExportVideoResponse> RunExportAsync(CancellationToken token)
+            async Task<ExportVideoResponse> RunExportAsync(RenderJobProgressReporter progress, CancellationToken token)
             {
                 // Re-verify at write time: background jobs are serialized, so a preceding job may
                 // have created this file after the pre-flight overwrite check passed.
@@ -826,7 +829,8 @@ public sealed class RenderTools(
                     renderScale,
                     token,
                     crf,
-                    bitrate).ConfigureAwait(false);
+                    bitrate,
+                    (encoded, total) => progress.Report((int)Math.Min(encoded, int.MaxValue), (int)Math.Min(total, int.MaxValue), "encoding")).ConfigureAwait(false);
                 sessions.RecordCreativeDirection(CreateExportCreativeFingerprint(scene, resolvedPath));
                 return exported;
             }
@@ -835,19 +839,19 @@ public sealed class RenderTools(
             {
                 string jobId = renderJobs.Enqueue(
                     "export",
-                    async token => JsonSerializer.SerializeToNode(
-                        await RunExportAsync(token).ConfigureAwait(false),
+                    async (progress, token) => JsonSerializer.SerializeToNode(
+                        await RunExportAsync(progress, token).ConfigureAwait(false),
                         s_jobResultOptions)!);
                 return new ExportVideoResult("running", jobId, null);
             }
 
-            ExportVideoResponse response = await RunExportAsync(cancellationToken).ConfigureAwait(false);
+            ExportVideoResponse response = await RunExportAsync(NullProgress, cancellationToken).ConfigureAwait(false);
             return new ExportVideoResult("completed", null, response);
         });
     }
 
     [McpServerTool(Name = "read_render_job")]
-    [Description("Reports the status of a background render/export job started with background:true on render_storyboard or export_video. Poll until state is 'completed' (result holds the render_storyboard/export_video payload), 'failed' (error explains why), or 'cancelled'.")]
+    [Description("Reports the status of a background render/export job started with background:true on render_storyboard or export_video. Poll until state is 'completed' (result holds the render_storyboard/export_video payload), 'failed' (error explains why), or 'cancelled'. While it runs, progress carries {completed, total, ratio, stage} — shots rendered for a storyboard, frames encoded for an export — so a slow job can be told apart from a hung one without watching the output file grow. stage is 'queued' while another job holds the single render slot.")]
     public ToolResult<RenderJobSnapshot> ReadRenderJob(
         [Description("Job id returned by a background render_storyboard/export_video call.")]
         string jobId)
