@@ -42,11 +42,13 @@ public static class JsonHelper
     {
         Encoder = JavaScriptEncoder.UnsafeRelaxedJsonEscaping,
         Indented = true,
+        NewLine = "\n",
     };
 
     public static JsonSerializerOptions SerializerOptions { get; } = new()
     {
         WriteIndented = true,
+        NewLine = "\n",
         Encoder = JavaScriptEncoder.UnsafeRelaxedJsonEscaping,
         TypeInfoResolver = null,
         NumberHandling = JsonNumberHandling.AllowNamedFloatingPointLiterals | JsonNumberHandling.AllowReadingFromString,
