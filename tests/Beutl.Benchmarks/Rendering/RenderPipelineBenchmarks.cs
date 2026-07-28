@@ -46,9 +46,9 @@ public class RenderPipelineBenchmarks
     }
 
     /// <summary>
-    /// Renders one complete requested surface. Output and diagnostic validation intentionally live in
-    /// <see cref="Setup"/> so the measured body contains only production frame-state update, render, readback,
-    /// and result disposal.
+    /// Renders one complete requested surface. Output validation lives in <see cref="Setup"/>, and request-wide
+    /// counters come from a separate untimed session during cleanup, so the measured body contains only production
+    /// frame-state update, render, readback, and result disposal.
     /// </summary>
     [Benchmark]
     public ulong RenderCompleteTargetRequest()
@@ -97,7 +97,6 @@ internal sealed class RenderPipelineBenchmarkSession : IDisposable
     private readonly RenderPipelineBenchmarkSceneDefinition _scene;
     private readonly RenderNode _root;
     private readonly RenderNodeRenderer _renderer;
-    private readonly object _diagnostics;
     private readonly IReadOnlyList<IFrameStateConsumer> _animatedNodes;
     private readonly RenderPipelineEvidenceFingerprint _fingerprint;
     private int _nextFrame;
@@ -116,16 +115,8 @@ internal sealed class RenderPipelineBenchmarkSession : IDisposable
         var animatedNodes = new List<IFrameStateConsumer>();
         _root = CreateScene(_scene, animatedNodes);
         _animatedNodes = animatedNodes.AsReadOnly();
-        _diagnostics = RenderPipelineInternalDiagnostics.CreateState();
-        var options = new RenderNodeRendererOptions
-        {
-            Intent = RenderIntent.Preview,
-            TargetDomain = s_targetDomain,
-            OutputScale = 1,
-            MaxWorkingScale = 1,
-            UseRenderCache = _scene.HasStaticPrefixCache,
-        };
-        RenderPipelineInternalDiagnostics.Attach(options, _diagnostics, RenderRequestPurpose.Frame);
+        RenderNodeRendererOptions options = CreateRendererOptions(_scene);
+        RenderPipelineInternalDiagnostics.SetPurpose(options, RenderRequestPurpose.Frame);
         _renderer = new RenderNodeRenderer(_root, options);
     }
 
@@ -134,12 +125,10 @@ internal sealed class RenderPipelineBenchmarkSession : IDisposable
         ThrowIfDisposed();
         RenderThread.Dispatcher.VerifyAccess();
 
-        int[] frames = _scene.Animation == RenderPipelineBenchmarkAnimation.StructuralToggle
-            ? [0, 1, 7, 8, 9]
-            : Enumerable.Range(0, RenderPipelineBenchmarkConfig.SetupWarmupFrameCount).ToArray();
+        int[] frames = GetSetupFrames(_scene);
         var observed = new List<RenderPipelineObservedFrame>(frames.Length);
         foreach (int frame in frames)
-            observed.Add(RenderAndObserve(frame, verifyOutput: true));
+            observed.Add(RenderAndObserve(frame));
 
         RenderPipelineObservedFrame first = observed[0];
         if (first.IsEmpty || first.Width <= 0 || first.Height <= 0 || first.Energy <= 1)
@@ -164,10 +153,6 @@ internal sealed class RenderPipelineBenchmarkSession : IDisposable
             throw new InvalidOperationException(
                 $"Benchmark scene '{_scene.Name}' output stability did not match its declared animation mode.");
         }
-
-        foreach (RenderPipelineObservedFrame frame in observed)
-            ValidateRequestCounters(frame.RequestCounters);
-        ValidateSceneCounters(observed[^1].RequestCounters);
 
         _lastSetupFrame = observed[^1];
         _nextFrame = checked(frames[^1] + 1);
@@ -198,11 +183,9 @@ internal sealed class RenderPipelineBenchmarkSession : IDisposable
         RenderThread.Dispatcher.VerifyAccess();
         RenderPipelineObservedFrame setup = _lastSetupFrame
             ?? throw new InvalidOperationException("Benchmark setup verification did not complete.");
-        SortedDictionary<string, long> measuredCounters =
-            RenderPipelineInternalDiagnostics.CaptureLatestCounters(_diagnostics, out bool succeeded);
-        if (!succeeded)
-            throw new InvalidOperationException($"The final measured '{_scene.Name}' request did not succeed.");
-        ValidateRequestCounters(measuredCounters);
+        using var diagnosticSession = new DiagnosticSession(_scene);
+        DiagnosticCapture diagnostics = diagnosticSession.Capture(_nextFrame);
+        AssertMatchingDiagnosticOutput(setup, diagnostics.SetupOutput);
 
         return new RenderPipelineBenchmarkCounterRecord
         {
@@ -218,20 +201,12 @@ internal sealed class RenderPipelineBenchmarkSession : IDisposable
             OutputChecksum = setup.Checksum.ToString("x16"),
             OutputBounds = setup.Bounds,
             Fingerprint = _fingerprint,
-            SetupLastRequestCounters = setup.RequestCounters,
-            MeasuredLastRequestCounters = measuredCounters,
-            LastExecutionStatistics = RenderPipelineInternalDiagnostics.CaptureNumericProperties(
-                _renderer,
-                "LastExecutionStatistics"),
-            StructuralPlanCacheStatistics = RenderPipelineInternalDiagnostics.CaptureNumericProperties(
-                _renderer,
-                "StructuralPlanCacheStatistics"),
-            ProgramCacheStatistics = RenderPipelineInternalDiagnostics.CaptureNumericProperties(
-                _renderer,
-                "ProgramCacheStatistics"),
-            TargetPoolStatistics = RenderPipelineInternalDiagnostics.CaptureNumericProperties(
-                _renderer,
-                "TargetPoolStatistics"),
+            SetupLastRequestCounters = diagnostics.SetupCounters,
+            MeasuredLastRequestCounters = diagnostics.MeasuredCounters,
+            LastExecutionStatistics = diagnostics.LastExecutionStatistics,
+            StructuralPlanCacheStatistics = diagnostics.StructuralPlanCacheStatistics,
+            ProgramCacheStatistics = diagnostics.ProgramCacheStatistics,
+            TargetPoolStatistics = diagnostics.TargetPoolStatistics,
         };
     }
 
@@ -246,15 +221,15 @@ internal sealed class RenderPipelineBenchmarkSession : IDisposable
         _disposed = true;
     }
 
-    private RenderPipelineObservedFrame RenderAndObserve(int frameIndex, bool verifyOutput)
+    private RenderPipelineObservedFrame RenderAndObserve(int frameIndex)
     {
         ApplyFrameState(frameIndex);
         using RenderNodeRasterization rasterization = _renderer.Rasterize();
-        SortedDictionary<string, long> counters =
-            RenderPipelineInternalDiagnostics.CaptureLatestCounters(_diagnostics, out bool succeeded);
-        if (!succeeded)
-            throw new InvalidOperationException($"Setup render {frameIndex} for '{_scene.Name}' failed.");
+        return Observe(rasterization);
+    }
 
+    private static RenderPipelineObservedFrame Observe(RenderNodeRasterization rasterization)
+    {
         Bitmap? bitmap = rasterization.Bitmap;
         if (bitmap is null)
         {
@@ -265,12 +240,8 @@ internal sealed class RenderPipelineBenchmarkSession : IDisposable
                 0,
                 0,
                 string.Empty,
-                0,
-                counters);
+                0);
         }
-
-        if (!verifyOutput)
-            throw new InvalidOperationException("Observed frames must perform setup output verification.");
 
         Span<byte> bytes = bitmap.GetPixelSpan();
         string sha256 = Convert.ToHexString(SHA256.HashData(bytes)).ToLowerInvariant();
@@ -287,8 +258,7 @@ internal sealed class RenderPipelineBenchmarkSession : IDisposable
             bitmap.Height,
             checksum,
             sha256,
-            energy,
-            counters);
+            energy);
     }
 
     private void ApplyFrameState(int frameIndex)
@@ -298,28 +268,30 @@ internal sealed class RenderPipelineBenchmarkSession : IDisposable
             node.Apply(state);
     }
 
-    private void ValidateSceneCounters(IReadOnlyDictionary<string, long> counters)
+    private static void ValidateSceneCounters(
+        RenderPipelineBenchmarkSceneDefinition scene,
+        IReadOnlyDictionary<string, long> counters)
     {
-        if (_scene.Name == "ShaderOpacityShader"
+        if (scene.Name == "ShaderOpacityShader"
             && counters.GetValueOrDefault("FusedStages") < 3)
         {
             throw new InvalidOperationException("The primary workload did not execute its fused three-stage chain.");
         }
 
-        if (_scene.Barrier is RenderPipelineBenchmarkBarrier.WholeSourceShader
+        if (scene.Barrier is RenderPipelineBenchmarkBarrier.WholeSourceShader
             or RenderPipelineBenchmarkBarrier.SpatialEffect
             && counters.GetValueOrDefault("ExecutionIslands") < 2)
         {
-            throw new InvalidOperationException($"Barrier workload '{_scene.Name}' did not retain a hard island boundary.");
+            throw new InvalidOperationException($"Barrier workload '{scene.Name}' did not retain a hard island boundary.");
         }
 
-        if (_scene.HasStaticPrefixCache && counters.GetValueOrDefault("RenderCacheHits") < 1)
+        if (scene.HasStaticPrefixCache && counters.GetValueOrDefault("RenderCacheHits") < 1)
         {
             throw new InvalidOperationException("The static-prefix workload did not reach its persistent render cache.");
         }
 
-        if (_scene.HasTargetDependencies
-            && counters.GetValueOrDefault("RecordedTargetCommands") < _scene.TopLevelDrawableCount)
+        if (scene.HasTargetDependencies
+            && counters.GetValueOrDefault("RecordedTargetCommands") < scene.TopLevelDrawableCount)
         {
             throw new InvalidOperationException("The multi-root workload did not record every target dependency.");
         }
@@ -361,6 +333,37 @@ internal sealed class RenderPipelineBenchmarkSession : IDisposable
             result *= prime;
         }
         return result;
+    }
+
+    private static int[] GetSetupFrames(RenderPipelineBenchmarkSceneDefinition scene)
+        => scene.Animation == RenderPipelineBenchmarkAnimation.StructuralToggle
+            ? [0, 1, 7, 8, 9]
+            : Enumerable.Range(0, RenderPipelineBenchmarkConfig.SetupWarmupFrameCount).ToArray();
+
+    private static RenderNodeRendererOptions CreateRendererOptions(RenderPipelineBenchmarkSceneDefinition scene)
+        => new()
+        {
+            Intent = RenderIntent.Preview,
+            TargetDomain = s_targetDomain,
+            OutputScale = 1,
+            MaxWorkingScale = 1,
+            UseRenderCache = scene.HasStaticPrefixCache,
+        };
+
+    private static void AssertMatchingDiagnosticOutput(
+        RenderPipelineObservedFrame production,
+        RenderPipelineObservedFrame diagnostic)
+    {
+        if (production.IsEmpty != diagnostic.IsEmpty
+            || production.Bounds != diagnostic.Bounds
+            || production.Width != diagnostic.Width
+            || production.Height != diagnostic.Height
+            || production.Checksum != diagnostic.Checksum
+            || !string.Equals(production.Sha256, diagnostic.Sha256, StringComparison.Ordinal))
+        {
+            throw new InvalidOperationException(
+                "The untimed diagnostic session did not reproduce the production benchmark setup output.");
+        }
     }
 
     private static RenderNode CreateScene(
@@ -534,6 +537,126 @@ internal sealed class RenderPipelineBenchmarkSession : IDisposable
         return node;
     }
 
+    private sealed class DiagnosticSession : IDisposable
+    {
+        private readonly RenderPipelineBenchmarkSceneDefinition _scene;
+        private readonly RenderNode _root;
+        private readonly RenderNodeRenderer _renderer;
+        private readonly object _diagnostics;
+        private readonly IReadOnlyList<IFrameStateConsumer> _animatedNodes;
+        private bool _disposed;
+
+        public DiagnosticSession(RenderPipelineBenchmarkSceneDefinition scene)
+        {
+            _scene = scene;
+            var animatedNodes = new List<IFrameStateConsumer>();
+            _root = CreateScene(scene, animatedNodes);
+            _animatedNodes = animatedNodes.AsReadOnly();
+            _diagnostics = RenderPipelineInternalDiagnostics.CreateState();
+            RenderNodeRendererOptions options = CreateRendererOptions(scene);
+            RenderPipelineInternalDiagnostics.Attach(options, _diagnostics, RenderRequestPurpose.Frame);
+            _renderer = new RenderNodeRenderer(_root, options);
+        }
+
+        public DiagnosticCapture Capture(int productionNextFrame)
+        {
+            ObjectDisposedException.ThrowIf(_disposed, this);
+            int[] setupFrames = GetSetupFrames(_scene);
+            RenderPipelineObservedFrame? setupOutput = null;
+            SortedDictionary<string, long>? setupCounters = null;
+            for (int index = 0; index < setupFrames.Length; index++)
+            {
+                ApplyFrameState(setupFrames[index]);
+                using RenderNodeRasterization rasterization = _renderer.Rasterize();
+                SortedDictionary<string, long> counters = CaptureCounters(setupFrames[index], "setup");
+                ValidateRequestCounters(counters);
+                if (index == setupFrames.Length - 1)
+                {
+                    setupOutput = Observe(rasterization);
+                    setupCounters = counters;
+                }
+            }
+
+            SortedDictionary<string, long> verifiedSetupCounters = setupCounters
+                ?? throw new InvalidOperationException("The untimed diagnostic setup did not render a request.");
+            ValidateSceneCounters(_scene, verifiedSetupCounters);
+
+            int firstMeasuredFrame = checked(setupFrames[^1] + 1);
+            if (productionNextFrame <= firstMeasuredFrame)
+                throw new InvalidOperationException("The production benchmark completed without a measured request.");
+
+            SortedDictionary<string, long>? measuredCounters = null;
+            for (int frameIndex = firstMeasuredFrame; frameIndex < productionNextFrame; frameIndex++)
+            {
+                ApplyFrameState(frameIndex);
+                using RenderNodeRasterization rasterization = _renderer.Rasterize();
+                SortedDictionary<string, long> counters = CaptureCounters(frameIndex, "measured-shape");
+                ValidateRequestCounters(counters);
+                if (frameIndex == productionNextFrame - 1)
+                    measuredCounters = counters;
+            }
+            SortedDictionary<string, long> verifiedMeasuredCounters = measuredCounters
+                ?? throw new InvalidOperationException(
+                    "The untimed diagnostic session did not replay the final measured request.");
+
+            return new DiagnosticCapture(
+                setupOutput
+                    ?? throw new InvalidOperationException("The untimed diagnostic setup produced no output."),
+                verifiedSetupCounters,
+                verifiedMeasuredCounters,
+                RenderPipelineInternalDiagnostics.CaptureNumericProperties(
+                    _renderer,
+                    "LastExecutionStatistics"),
+                RenderPipelineInternalDiagnostics.CaptureNumericProperties(
+                    _renderer,
+                    "StructuralPlanCacheStatistics"),
+                RenderPipelineInternalDiagnostics.CaptureNumericProperties(
+                    _renderer,
+                    "ProgramCacheStatistics"),
+                RenderPipelineInternalDiagnostics.CaptureNumericProperties(
+                    _renderer,
+                    "TargetPoolStatistics"));
+        }
+
+        public void Dispose()
+        {
+            if (_disposed)
+                return;
+
+            _renderer.Dispose();
+            _root.Dispose();
+            _disposed = true;
+        }
+
+        private SortedDictionary<string, long> CaptureCounters(int frameIndex, string phase)
+        {
+            SortedDictionary<string, long> counters =
+                RenderPipelineInternalDiagnostics.CaptureLatestCounters(_diagnostics, out bool succeeded);
+            if (!succeeded)
+            {
+                throw new InvalidOperationException(
+                    $"Untimed {phase} diagnostic render {frameIndex} for '{_scene.Name}' failed.");
+            }
+            return counters;
+        }
+
+        private void ApplyFrameState(int frameIndex)
+        {
+            RenderPipelineBenchmarkFrameState state = _scene.GetFrameState(frameIndex);
+            foreach (IFrameStateConsumer node in _animatedNodes)
+                node.Apply(state);
+        }
+    }
+
+    private sealed record DiagnosticCapture(
+        RenderPipelineObservedFrame SetupOutput,
+        SortedDictionary<string, long> SetupCounters,
+        SortedDictionary<string, long> MeasuredCounters,
+        SortedDictionary<string, long> LastExecutionStatistics,
+        SortedDictionary<string, long> StructuralPlanCacheStatistics,
+        SortedDictionary<string, long> ProgramCacheStatistics,
+        SortedDictionary<string, long> TargetPoolStatistics);
+
     private void ThrowIfDisposed() => ObjectDisposedException.ThrowIf(_disposed, this);
 }
 
@@ -656,8 +779,7 @@ internal sealed record RenderPipelineObservedFrame(
     int Height,
     ulong Checksum,
     string Sha256,
-    double Energy,
-    SortedDictionary<string, long> RequestCounters);
+    double Energy);
 
 internal static class RenderPipelineInternalDiagnostics
 {
@@ -678,8 +800,11 @@ internal static class RenderPipelineInternalDiagnostics
         RenderRequestPurpose purpose)
     {
         SetProperty(options, "Diagnostics", state);
-        SetProperty(options, "RenderPurpose", purpose);
+        SetPurpose(options, purpose);
     }
+
+    public static void SetPurpose(RenderNodeRendererOptions options, RenderRequestPurpose purpose)
+        => SetProperty(options, "RenderPurpose", purpose);
 
     public static SortedDictionary<string, long> CaptureLatestCounters(object state, out bool succeeded)
     {

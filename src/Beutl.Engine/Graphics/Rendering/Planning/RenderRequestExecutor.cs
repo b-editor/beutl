@@ -3041,6 +3041,7 @@ internal sealed class RenderRequestExecutor
                         description.EffectiveScale,
                         description.DeviceBounds);
                 });
+            value.PreferPixelExactComposite = true;
             _ownedValues.Add(value);
             return [value];
         }

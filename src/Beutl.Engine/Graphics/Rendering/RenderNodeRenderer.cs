@@ -403,7 +403,6 @@ public sealed class RenderNodeRenderer : IDisposable
                             IDisposable? transformToDispose = transform;
                             transform = null;
                             transformToDispose?.Dispose();
-                            using Bitmap complete = rootLease.Target.Snapshot();
                             PixelRect selectedDeviceBounds = PixelRect.FromRect(
                                 selectedBounds,
                                 Options.OutputScale);
@@ -412,7 +411,8 @@ public sealed class RenderNodeRenderer : IDisposable
                                 selectedDeviceBounds.Y - deviceBounds.Y,
                                 selectedDeviceBounds.Width,
                                 selectedDeviceBounds.Height);
-                            bitmap = complete.ExtractSubset(selectedSubset);
+                            Bitmap complete = rootLease.Target.Snapshot();
+                            bitmap = TakeRasterizationBitmap(complete, selectedSubset);
                         },
                         request.ExecutionTargetBounds,
                         FinalizeExternalResources);
@@ -479,6 +479,24 @@ public sealed class RenderNodeRenderer : IDisposable
         }
 
         return new RenderNodeRasterization(selectedBounds, Options.OutputScale, bitmap);
+    }
+
+    internal static Bitmap TakeRasterizationBitmap(Bitmap complete, PixelRect selectedSubset)
+    {
+        ArgumentNullException.ThrowIfNull(complete);
+        complete.ThrowIfDisposed();
+
+        if (selectedSubset == new PixelRect(0, 0, complete.Width, complete.Height))
+            return complete;
+
+        try
+        {
+            return complete.ExtractSubset(selectedSubset);
+        }
+        finally
+        {
+            complete.Dispose();
+        }
     }
 
     /// <summary>Resolves request-wide output and query metadata without executing deferred work.</summary>

@@ -8,6 +8,7 @@ internal static class PairedBenchmarkAnalyzer
     internal const int DefaultBootstrapIterations = 100_000;
     private const int BootstrapSeed = RenderPipelineBenchmarkScenes.SourceSeed;
     private const string PrimaryCaseName = "ShaderOpacityShader";
+    private const string ExactOutputControlCaseName = "NoEffectControl";
     private const string SourceProvenanceField = "beutlEngineAssemblyVersion";
     private const double MaximumBaselineRepeatSymmetricToleranceFactor = 1.20;
 
@@ -187,6 +188,51 @@ internal static class PairedBenchmarkAnalyzer
             }
             if (!invalidSamplesRejected)
                 throw new InvalidOperationException("Invalid samples were accepted by the bootstrap implementation.");
+
+            var exactOutput = new CounterOutputContract(
+                384,
+                216,
+                "{\"height\":216,\"width\":384,\"x\":0,\"y\":0}",
+                new string('a', 64),
+                new string('b', 16));
+            CounterOutputContract[] mismatchedOutputs =
+            [
+                exactOutput with { Width = 385 },
+                exactOutput with { Height = 217 },
+                exactOutput with { Bounds = "{\"height\":216,\"width\":384,\"x\":1,\"y\":0}" },
+                exactOutput with { Sha256 = new string('c', 64) },
+                exactOutput with { Checksum = new string('d', 16) },
+            ];
+            foreach (CounterOutputContract mismatch in mismatchedOutputs)
+            {
+                bool outputMismatchRejected = false;
+                try
+                {
+                    ValidateExactOutputContract(ExactOutputControlCaseName, exactOutput, mismatch);
+                }
+                catch (InvalidDataException)
+                {
+                    outputMismatchRejected = true;
+                }
+                if (!outputMismatchRejected)
+                {
+                    throw new InvalidOperationException(
+                        "An exact NoEffectControl output-contract mismatch was accepted.");
+                }
+            }
+            ValidateExactOutputContract(ExactOutputControlCaseName, exactOutput, exactOutput);
+
+            using JsonDocument stringBounds = JsonDocument.Parse("\"0, 0, 384, 216\"");
+            using JsonDocument objectBounds = JsonDocument.Parse(
+                "{\"x\":0,\"y\":0,\"width\":384,\"height\":216}");
+            using JsonDocument emptyBounds = JsonDocument.Parse("\"\"");
+            if (!CounterRun.IsValidOutputBounds(stringBounds.RootElement)
+                || !CounterRun.IsValidOutputBounds(objectBounds.RootElement)
+                || CounterRun.IsValidOutputBounds(emptyBounds.RootElement))
+            {
+                throw new InvalidOperationException(
+                    "The output-bounds counter contract did not accept supported serialized forms.");
+            }
 
             output.WriteLine("Paired benchmark analyzer self-test passed.");
             return 0;
@@ -649,6 +695,37 @@ internal static class PairedBenchmarkAnalyzer
                 throw new InvalidDataException(
                     $"Paired counter contract mismatch for '{caseName}': {string.Join(", ", mismatches)}.");
             }
+
+            if (string.Equals(caseName, ExactOutputControlCaseName, StringComparison.Ordinal))
+            {
+                ValidateExactOutputContract(
+                    caseName,
+                    baseline.Cases[caseName].OutputContract,
+                    feature.Cases[caseName].OutputContract);
+            }
+        }
+    }
+
+    private static void ValidateExactOutputContract(
+        string caseName,
+        CounterOutputContract baseline,
+        CounterOutputContract feature)
+    {
+        var mismatches = new List<string>(5);
+        if (baseline.Width != feature.Width)
+            mismatches.Add("width");
+        if (baseline.Height != feature.Height)
+            mismatches.Add("height");
+        if (!string.Equals(baseline.Bounds, feature.Bounds, StringComparison.Ordinal))
+            mismatches.Add("outputBounds");
+        if (!string.Equals(baseline.Sha256, feature.Sha256, StringComparison.Ordinal))
+            mismatches.Add("outputSha256");
+        if (!string.Equals(baseline.Checksum, feature.Checksum, StringComparison.Ordinal))
+            mismatches.Add("outputChecksum");
+        if (mismatches.Count != 0)
+        {
+            throw new InvalidDataException(
+                $"Paired exact output contract mismatch for '{caseName}': {string.Join(", ", mismatches)}.");
         }
     }
 
@@ -797,12 +874,12 @@ internal static class PairedBenchmarkAnalyzer
                 contract.Add(name, CanonicalJson(value));
             }
 
-            foreach (string name in new[] { "outputSha256", "outputChecksum" })
+            string outputSha256 = ReadHexOutput(root, "outputSha256", 64, path);
+            string outputChecksum = ReadHexOutput(root, "outputChecksum", 16, path);
+            if (!root.TryGetProperty("outputBounds", out JsonElement outputBounds)
+                || !IsValidOutputBounds(outputBounds))
             {
-                string text = root.GetProperty(name).GetString()
-                    ?? throw new InvalidDataException($"Counter output field '{name}' is missing: {path}");
-                if (string.IsNullOrWhiteSpace(text) || text.Any(static item => !Uri.IsHexDigit(item)))
-                    throw new InvalidDataException($"Counter output field '{name}' is invalid: {path}");
+                throw new InvalidDataException($"Counter output field 'outputBounds' is invalid: {path}");
             }
 
             foreach (string name in new[] { "setupLastRequestCounters", "measuredLastRequestCounters" })
@@ -812,13 +889,40 @@ internal static class PairedBenchmarkAnalyzer
                     throw new InvalidDataException($"Counter snapshot '{name}' is empty: {path}");
             }
 
-            if (root.GetProperty("width").GetInt32() <= 0
-                || root.GetProperty("height").GetInt32() <= 0
+            int width = root.GetProperty("width").GetInt32();
+            int height = root.GetProperty("height").GetInt32();
+            if (width <= 0
+                || height <= 0
                 || root.GetProperty("setupWarmupFrames").GetInt32() <= 0)
             {
                 throw new InvalidDataException($"Counter dimensions or warm-up count are invalid: {path}");
             }
-            return new CounterCase(root.Clone(), contract);
+            return new CounterCase(
+                root.Clone(),
+                contract,
+                new CounterOutputContract(
+                    width,
+                    height,
+                    CanonicalJson(outputBounds),
+                    outputSha256,
+                    outputChecksum));
+        }
+
+        internal static bool IsValidOutputBounds(JsonElement outputBounds)
+            => outputBounds.ValueKind switch
+            {
+                JsonValueKind.String => !string.IsNullOrWhiteSpace(outputBounds.GetString()),
+                JsonValueKind.Object => outputBounds.EnumerateObject().Any(),
+                _ => false,
+            };
+
+        private static string ReadHexOutput(JsonElement root, string name, int length, string path)
+        {
+            string text = root.GetProperty(name).GetString()
+                ?? throw new InvalidDataException($"Counter output field '{name}' is missing: {path}");
+            if (text.Length != length || text.Any(static item => !Uri.IsHexDigit(item)))
+                throw new InvalidDataException($"Counter output field '{name}' is invalid: {path}");
+            return text.ToLowerInvariant();
         }
 
         private static void ValidateFingerprintValue(JsonProperty property, string path)
@@ -856,9 +960,27 @@ internal static class PairedBenchmarkAnalyzer
             return element.ValueKind switch
             {
                 JsonValueKind.String => JsonSerializer.Serialize(element.GetString()),
-                JsonValueKind.Array => JsonSerializer.Serialize(
-                    element.EnumerateArray().Select(static item => item.GetString()).ToArray()),
-                _ => element.GetRawText(),
+                JsonValueKind.Object => "{"
+                                        + string.Join(
+                                            ",",
+                                            element.EnumerateObject()
+                                                .OrderBy(static item => item.Name, StringComparer.Ordinal)
+                                                .Select(
+                                                    static item => JsonSerializer.Serialize(item.Name)
+                                                                   + ":"
+                                                                   + CanonicalJson(item.Value)))
+                                        + "}",
+                JsonValueKind.Array => "["
+                                       + string.Join(
+                                           ",",
+                                           element.EnumerateArray().Select(static item => CanonicalJson(item)))
+                                       + "]",
+                JsonValueKind.Number => element.GetRawText(),
+                JsonValueKind.True => "true",
+                JsonValueKind.False => "false",
+                JsonValueKind.Null => "null",
+                _ => throw new InvalidDataException(
+                    $"Unsupported JSON value kind '{element.ValueKind}' in a benchmark contract."),
             };
         }
 
@@ -869,7 +991,15 @@ internal static class PairedBenchmarkAnalyzer
 
     private sealed record CounterCase(
         JsonElement Record,
-        SortedDictionary<string, string> Contract);
+        SortedDictionary<string, string> Contract,
+        CounterOutputContract OutputContract);
+
+    private sealed record CounterOutputContract(
+        int Width,
+        int Height,
+        string Bounds,
+        string Sha256,
+        string Checksum);
 
     private sealed record BenchmarkResultRun(
         SortedDictionary<string, double[]> Samples,
