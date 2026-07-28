@@ -1,6 +1,7 @@
-using Avalonia.Controls;
+﻿using Avalonia.Controls;
 using Avalonia.Interactivity;
 using Beutl.Editor.Components.VersionControlTab.ViewModels;
+using Beutl.Editor.VersionControl;
 
 namespace Beutl.Editor.Components.VersionControlTab.Views;
 
@@ -28,6 +29,15 @@ public sealed partial class VersionControlTabView : UserControl
         {
             await viewModel.SelectFileAsync(
                 listBox.SelectedItem as VersionControlFileChangeViewModel);
+        }
+    }
+
+    private async void OnBranchSelectionChanged(object? sender, SelectionChangedEventArgs e)
+    {
+        if (DataContext is VersionControlTabViewModel viewModel
+            && sender is ComboBox comboBox)
+        {
+            await viewModel.SelectBranchAsync(comboBox.SelectedItem as BranchInfo);
         }
     }
 }

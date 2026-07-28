@@ -31,6 +31,7 @@ public partial class MainView
 
     private void InitializeCommands(MainViewModel viewModel)
     {
+        viewModel.VersionControlCoordinator.RequestIdentityAsync = RequestGitIdentityAsync;
         viewModel.MenuBar.CreateNewProject.Subscribe(async () =>
         {
             var dialog = new CreateNewProject();
@@ -45,6 +46,8 @@ public partial class MainView
         viewModel.MenuBar.OpenFile.Subscribe(OnOpenFile).AddTo(_disposables);
         viewModel.MenuBar.EnableVersionControl.Subscribe(
             () => EnableVersionControlAsync(viewModel)).AddTo(_disposables);
+        viewModel.MenuBar.CommitVersion.Subscribe(
+            () => CommitVersionAsync(viewModel)).AddTo(_disposables);
 
         viewModel.MenuBar.RemoveFromProject.Subscribe(OnRemoveFromProject).AddTo(_disposables);
 
@@ -100,6 +103,45 @@ public partial class MainView
 
         await viewModel.SaveAsync();
         return true;
+    }
+
+    private static async Task CommitVersionAsync(MainViewModel viewModel)
+    {
+        var textBox = new TextBox
+        {
+            Watermark = Strings.VersionControl_CommitMessage,
+        };
+        var dialog = new ContentDialog
+        {
+            Title = Strings.VersionControl_Commit,
+            Content = textBox,
+            PrimaryButtonText = Strings.VersionControl_CommitNow,
+            CloseButtonText = Strings.Cancel,
+            DefaultButton = ContentDialogButton.Primary,
+        };
+        if (await dialog.ShowAsync() != ContentDialogResult.Primary
+            || string.IsNullOrWhiteSpace(textBox.Text))
+        {
+            return;
+        }
+
+        try
+        {
+            CommitResult result = await viewModel.VersionControlCoordinator.CommitManualAsync(
+                textBox.Text.Trim());
+            NotificationService.ShowInformation(
+                Strings.VersionControl,
+                result is CommitResult.NoChanges
+                    ? Strings.VersionControl_NothingToCommit
+                    : Strings.VersionControl_CommitCreated);
+        }
+        catch (GitIdentityRequiredException)
+        {
+        }
+        catch (Exception ex)
+        {
+            await ex.Handle();
+        }
     }
 
     private void InitializeRecentItems(MainViewModel viewModel)

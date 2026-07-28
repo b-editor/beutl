@@ -56,6 +56,6 @@ public sealed class VersionControlTabExtension : ToolTabExtension
     private static bool SupportsVersionControl(IEditorContext editorContext)
         => editorContext.GetService(typeof(IProjectVersionControlService))
                is IProjectVersionControlService
-           && editorContext.GetService(typeof(IVersionControlRestoreCoordinator))
-               is IVersionControlRestoreCoordinator;
+           && editorContext.GetService(typeof(IProjectVersionControlCoordinator))
+               is IProjectVersionControlCoordinator;
 }

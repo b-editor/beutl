@@ -20,11 +20,12 @@ public sealed class VersionControlTabViewModel : IToolContext
     private readonly IEditorContext _editorContext;
     private readonly IProjectVersionControlService? _service;
     private readonly IRepositoryLockRecoveryService? _lockRecoveryService;
-    private readonly IVersionControlRestoreCoordinator? _restoreCoordinator;
+    private readonly IProjectVersionControlCoordinator? _versionControlCoordinator;
     private readonly Action<Action> _postToUi;
     private readonly CompositeDisposable _disposables = [];
     private readonly SemaphoreSlim _historyGate = new(1, 1);
     private CancellationTokenSource? _selectionCancellation;
+    private CancellationTokenSource? _remoteOperationCancellation;
     private int _nextHistoryOffset;
     private bool _disposed;
 
@@ -36,8 +37,8 @@ public sealed class VersionControlTabViewModel : IToolContext
             editorContext,
             editorContext.GetService(typeof(IProjectVersionControlService))
                 as IProjectVersionControlService,
-            editorContext.GetService(typeof(IVersionControlRestoreCoordinator))
-                as IVersionControlRestoreCoordinator,
+            editorContext.GetService(typeof(IProjectVersionControlCoordinator))
+                as IProjectVersionControlCoordinator,
             PostToUiThread)
     {
     }
@@ -46,14 +47,14 @@ public sealed class VersionControlTabViewModel : IToolContext
         ToolTabExtension extension,
         IEditorContext editorContext,
         IProjectVersionControlService? service,
-        IVersionControlRestoreCoordinator? restoreCoordinator,
+        IProjectVersionControlCoordinator? versionControlCoordinator,
         Action<Action> postToUi)
     {
         Extension = extension ?? throw new ArgumentNullException(nameof(extension));
         _editorContext = editorContext ?? throw new ArgumentNullException(nameof(editorContext));
         _service = service;
         _lockRecoveryService = service as IRepositoryLockRecoveryService;
-        _restoreCoordinator = restoreCoordinator;
+        _versionControlCoordinator = versionControlCoordinator;
         _postToUi = postToUi ?? throw new ArgumentNullException(nameof(postToUi));
 
         IsTracked = new ReactivePropertySlim<bool>(service?.Repository is not null)
@@ -86,6 +87,29 @@ public sealed class VersionControlTabViewModel : IToolContext
             .DisposeWith(_disposables);
         SelectedFile = new ReactivePropertySlim<VersionControlFileChangeViewModel?>()
             .DisposeWith(_disposables);
+        CommitMessage = new ReactivePropertySlim<string>()
+            .DisposeWith(_disposables);
+        SelectedBranch = new ReactivePropertySlim<BranchInfo?>()
+            .DisposeWith(_disposables);
+        RemoteUrl = new ReactivePropertySlim<string>()
+            .DisposeWith(_disposables);
+        HasRemote = new ReactivePropertySlim<bool>()
+            .DisposeWith(_disposables);
+        RemoteProgress = new ReactivePropertySlim<string>()
+            .DisposeWith(_disposables);
+        IsRemoteOperationRunning = new ReactivePropertySlim<bool>()
+            .DisposeWith(_disposables);
+        IsNestedRepository = new ReactivePropertySlim<bool>(
+                service?.Repository?.IsNestedInForeignRepo == true)
+            .DisposeWith(_disposables);
+        RepositoryScopeText = new ReactivePropertySlim<string>(
+                service?.Repository is { IsNestedInForeignRepo: true } repository
+                    ? string.Format(
+                        CultureInfo.CurrentCulture,
+                        Strings.VersionControl_EnclosingRepositoryScopeFormat,
+                        repository.RepoRoot)
+                    : string.Empty)
+            .DisposeWith(_disposables);
 
         LoadMoreCommand = new AsyncReactiveCommand()
             .WithSubscribe(LoadMoreAsync)
@@ -93,7 +117,41 @@ public sealed class VersionControlTabViewModel : IToolContext
         RemoveStaleLockCommand = new AsyncReactiveCommand(HasRecoverableLock)
             .WithSubscribe(RemoveStaleLockAsync)
             .DisposeWith(_disposables);
+        IObservable<bool> canMutate = IsTracked.CombineLatest(
+            HasBlockingGuidance,
+            static (tracked, blocked) => tracked && !blocked);
+        CommitCommand = new AsyncReactiveCommand(
+                canMutate.CombineLatest(
+                    CommitMessage.Select(static message => !string.IsNullOrWhiteSpace(message)),
+                    static (canRun, hasMessage) => canRun && hasMessage))
+            .WithSubscribe(CommitManualAsync)
+            .DisposeWith(_disposables);
+        CreateBranchCommand = new AsyncReactiveCommand(canMutate)
+            .WithSubscribe(CreateBranchAsync)
+            .DisposeWith(_disposables);
+        SetRemoteCommand = new AsyncReactiveCommand(
+                canMutate.CombineLatest(
+                    RemoteUrl.Select(static url => !string.IsNullOrWhiteSpace(url)),
+                    static (canRun, hasUrl) => canRun && hasUrl))
+            .WithSubscribe(SetRemoteAsync)
+            .DisposeWith(_disposables);
+        IObservable<bool> canRunRemoteOperation = canMutate.CombineLatest(
+            HasRemote,
+            IsRemoteOperationRunning,
+            static (canRun, hasRemote, isRunning) => canRun && hasRemote && !isRunning);
+        PushCommand = new AsyncReactiveCommand(canRunRemoteOperation)
+            .WithSubscribe(PushAsync)
+            .DisposeWith(_disposables);
+        PullCommand = new AsyncReactiveCommand(canRunRemoteOperation)
+            .WithSubscribe(PullAsync)
+            .DisposeWith(_disposables);
+        CancelRemoteOperationCommand = new ReactiveCommandSlim(
+                IsRemoteOperationRunning)
+            .WithSubscribe(CancelRemoteOperation)
+            .DisposeWith(_disposables);
         RequestBranchNameAsync = ShowBranchNameDialogAsync;
+        RequestNewBranchNameAsync = ShowNewBranchDialogAsync;
+        ShowRemoteResultAsync = ShowRemoteResultDialogAsync;
 
         if (_service is not null)
         {
@@ -142,17 +200,51 @@ public sealed class VersionControlTabViewModel : IToolContext
 
     public ObservableCollection<VersionControlDiffLineViewModel> DiffLines { get; } = [];
 
+    public ObservableCollection<BranchInfo> Branches { get; } = [];
+
     public ReactivePropertySlim<VersionControlCommitViewModel?> SelectedCommit { get; }
 
     public ReactivePropertySlim<VersionControlFileChangeViewModel?> SelectedFile { get; }
+
+    public ReactivePropertySlim<string> CommitMessage { get; }
+
+    public ReactivePropertySlim<BranchInfo?> SelectedBranch { get; }
+
+    public ReactivePropertySlim<string> RemoteUrl { get; }
+
+    public ReactivePropertySlim<bool> HasRemote { get; }
+
+    public ReactivePropertySlim<string> RemoteProgress { get; }
+
+    public ReactivePropertySlim<bool> IsRemoteOperationRunning { get; }
+
+    public ReactivePropertySlim<bool> IsNestedRepository { get; }
+
+    public ReactivePropertySlim<string> RepositoryScopeText { get; }
 
     public AsyncReactiveCommand LoadMoreCommand { get; }
 
     public AsyncReactiveCommand RemoveStaleLockCommand { get; }
 
+    public AsyncReactiveCommand CommitCommand { get; }
+
+    public AsyncReactiveCommand CreateBranchCommand { get; }
+
+    public AsyncReactiveCommand SetRemoteCommand { get; }
+
+    public AsyncReactiveCommand PushCommand { get; }
+
+    public AsyncReactiveCommand PullCommand { get; }
+
+    public ReactiveCommandSlim CancelRemoteOperationCommand { get; }
+
     public Task Initialization { get; }
 
     public Func<CommitInfo, Task<string?>> RequestBranchNameAsync { get; set; }
+
+    public Func<Task<string?>> RequestNewBranchNameAsync { get; set; }
+
+    public Func<RemoteOpResult, Task> ShowRemoteResultAsync { get; set; }
 
     public async Task LoadMoreAsync()
     {
@@ -170,6 +262,106 @@ public sealed class VersionControlTabViewModel : IToolContext
         {
             _historyGate.Release();
         }
+    }
+
+    public async Task CommitManualAsync()
+    {
+        if (_versionControlCoordinator is null || string.IsNullOrWhiteSpace(CommitMessage.Value))
+        {
+            return;
+        }
+
+        try
+        {
+            CommitResult result = await _versionControlCoordinator.CommitManualAsync(
+                CommitMessage.Value.Trim(),
+                CancellationToken.None);
+            switch (result)
+            {
+                case CommitResult.NoChanges:
+                    StatusMessage.Value = Strings.VersionControl_NothingToCommit;
+                    break;
+                case CommitResult.Committed:
+                    CommitMessage.Value = string.Empty;
+                    StatusMessage.Value = Strings.VersionControl_CommitCreated;
+                    break;
+            }
+        }
+        catch (GitIdentityRequiredException)
+        {
+        }
+    }
+
+    public async Task SelectBranchAsync(BranchInfo? branch)
+    {
+        SelectedBranch.Value = branch;
+        if (_versionControlCoordinator is null || branch is null || branch.IsCurrent)
+        {
+            return;
+        }
+
+        bool switched = await _versionControlCoordinator.SwitchBranchAsync(
+            branch.Name,
+            CancellationToken.None);
+        if (switched)
+        {
+            await RefreshRepositoryMetadataAsync();
+        }
+        else
+        {
+            SelectedBranch.Value = Branches.FirstOrDefault(item => item.IsCurrent);
+        }
+    }
+
+    public async Task CreateBranchAsync()
+    {
+        if (_versionControlCoordinator is null)
+        {
+            return;
+        }
+
+        string? branchName = await RequestNewBranchNameAsync();
+        if (string.IsNullOrWhiteSpace(branchName))
+        {
+            return;
+        }
+
+        if (await _versionControlCoordinator.CreateBranchAsync(
+                branchName.Trim(),
+                CancellationToken.None))
+        {
+            await RefreshRepositoryMetadataAsync();
+        }
+    }
+
+    public async Task SetRemoteAsync()
+    {
+        if (_versionControlCoordinator is null || string.IsNullOrWhiteSpace(RemoteUrl.Value))
+        {
+            return;
+        }
+
+        await _versionControlCoordinator.SetRemoteAsync(
+            RemoteUrl.Value.Trim(),
+            CancellationToken.None);
+        await RefreshRemotesAsync();
+        StatusMessage.Value = Strings.VersionControl_RemoteConnected;
+    }
+
+    public Task PushAsync()
+    {
+        return RunRemoteOperationAsync(
+            (progress, cancellationToken) => _versionControlCoordinator!.PushAsync(
+                progress,
+                cancellationToken),
+            Strings.VersionControl_Pushing);
+    }
+
+    public Task PullAsync()
+    {
+        return RunRemoteOperationAsync(
+            (_, cancellationToken) => _versionControlCoordinator!.PullAsync(cancellationToken),
+            Strings.VersionControl_Pulling);
     }
 
     public async Task SelectCommitAsync(VersionControlCommitViewModel? commit)
@@ -256,6 +448,8 @@ public sealed class VersionControlTabViewModel : IToolContext
 
         _selectionCancellation?.Cancel();
         _selectionCancellation?.Dispose();
+        _remoteOperationCancellation?.Cancel();
+        _remoteOperationCancellation?.Dispose();
         foreach (VersionControlCommitViewModel commit in Commits)
         {
             commit.Dispose();
@@ -264,25 +458,26 @@ public sealed class VersionControlTabViewModel : IToolContext
         Commits.Clear();
         ChangedFiles.Clear();
         DiffLines.Clear();
+        Branches.Clear();
         IsSelected.Dispose();
         _disposables.Dispose();
     }
 
     internal async Task<bool> RestoreAsync(CommitInfo commit)
     {
-        if (_restoreCoordinator is null)
+        if (_versionControlCoordinator is null)
         {
             return false;
         }
 
-        return await _restoreCoordinator.RestoreAsync(
+        return await _versionControlCoordinator.RestoreAsync(
             commit.Sha,
             CancellationToken.None);
     }
 
     internal async Task<bool> RestoreToNewBranchAsync(CommitInfo commit)
     {
-        if (_restoreCoordinator is null)
+        if (_versionControlCoordinator is null)
         {
             return false;
         }
@@ -293,7 +488,7 @@ public sealed class VersionControlTabViewModel : IToolContext
             return false;
         }
 
-        return await _restoreCoordinator.RestoreToNewBranchAsync(
+        return await _versionControlCoordinator.RestoreToNewBranchAsync(
             commit.Sha,
             branchName.Trim(),
             CancellationToken.None);
@@ -338,6 +533,7 @@ public sealed class VersionControlTabViewModel : IToolContext
         ApplyStatus(status);
         if (!status.HasConflicts)
         {
+            await RefreshRepositoryMetadataAsync();
             await RefreshHistoryAsync();
         }
     }
@@ -400,6 +596,41 @@ public sealed class VersionControlTabViewModel : IToolContext
         }
     }
 
+    private async Task RefreshRepositoryMetadataAsync()
+    {
+        if (_service?.Repository is null)
+        {
+            return;
+        }
+
+        IReadOnlyList<BranchInfo> branches = await _service.GetBranchesAsync(
+            CancellationToken.None);
+        Branches.Clear();
+        foreach (BranchInfo branch in branches)
+        {
+            Branches.Add(branch);
+        }
+
+        SelectedBranch.Value = Branches.FirstOrDefault(branch => branch.IsCurrent);
+        await RefreshRemotesAsync();
+    }
+
+    private async Task RefreshRemotesAsync()
+    {
+        if (_service?.Repository is null)
+        {
+            return;
+        }
+
+        RemoteInfo? remote = (await _service.GetRemotesAsync(CancellationToken.None))
+            .FirstOrDefault();
+        HasRemote.Value = remote is not null;
+        if (remote is not null)
+        {
+            RemoteUrl.Value = remote.Url;
+        }
+    }
+
     private async Task LoadNextPageCoreAsync()
     {
         if (_service is null)
@@ -443,6 +674,7 @@ public sealed class VersionControlTabViewModel : IToolContext
             ApplyStatus(status);
             if (!status.HasConflicts)
             {
+                _ = RefreshRepositoryMetadataAsync();
                 _ = RefreshHistoryAsync();
             }
         });
@@ -495,6 +727,53 @@ public sealed class VersionControlTabViewModel : IToolContext
         return _selectionCancellation.Token;
     }
 
+    private async Task RunRemoteOperationAsync(
+        Func<IProgress<string>, CancellationToken, Task<RemoteOpResult>> operation,
+        string initialProgress)
+    {
+        if (_versionControlCoordinator is null || IsRemoteOperationRunning.Value)
+        {
+            return;
+        }
+
+        _remoteOperationCancellation?.Dispose();
+        _remoteOperationCancellation = new CancellationTokenSource();
+        IsRemoteOperationRunning.Value = true;
+        RemoteProgress.Value = initialProgress;
+        var progress = new CallbackProgress<string>(value =>
+            _postToUi(() => RemoteProgress.Value = value));
+        try
+        {
+            RemoteOpResult result = await operation(
+                progress,
+                _remoteOperationCancellation.Token);
+            if (result is RemoteOpResult.Success)
+            {
+                StatusMessage.Value = Strings.VersionControl_RemoteOperationSucceeded;
+                await RefreshRepositoryMetadataAsync();
+            }
+            else if (result is not RemoteOpResult.Failed { Stderr.Length: 0 })
+            {
+                await ShowRemoteResultAsync(result);
+            }
+        }
+        catch (OperationCanceledException) when (_remoteOperationCancellation.IsCancellationRequested)
+        {
+            StatusMessage.Value = Strings.VersionControl_RemoteOperationCanceled;
+        }
+        finally
+        {
+            IsRemoteOperationRunning.Value = false;
+            _remoteOperationCancellation.Dispose();
+            _remoteOperationCancellation = null;
+        }
+    }
+
+    private void CancelRemoteOperation()
+    {
+        _remoteOperationCancellation?.Cancel();
+    }
+
     private static void PostToUiThread(Action action)
     {
         if (Dispatcher.UIThread.CheckAccess())
@@ -525,6 +804,63 @@ public sealed class VersionControlTabViewModel : IToolContext
         ContentDialogResult result = await dialog.ShowAsync();
         return result == ContentDialogResult.Primary ? textBox.Text : null;
     }
+
+    private static async Task<string?> ShowNewBranchDialogAsync()
+    {
+        var textBox = new TextBox
+        {
+            Watermark = Strings.VersionControl_BranchName,
+        };
+        var dialog = new ContentDialog
+        {
+            Title = Strings.VersionControl_NewBranch,
+            Content = textBox,
+            PrimaryButtonText = Strings.VersionControl_CreateBranch,
+            CloseButtonText = Strings.Cancel,
+            DefaultButton = ContentDialogButton.Primary,
+        };
+        ContentDialogResult result = await dialog.ShowAsync();
+        return result == ContentDialogResult.Primary ? textBox.Text : null;
+    }
+
+    private static async Task ShowRemoteResultDialogAsync(RemoteOpResult result)
+    {
+        string message = GetRemoteResultMessage(result);
+        if (string.IsNullOrWhiteSpace(message))
+        {
+            return;
+        }
+
+        var dialog = new ContentDialog
+        {
+            Title = Strings.VersionControl_ErrorTitle,
+            Content = message,
+            CloseButtonText = Strings.Close,
+            DefaultButton = ContentDialogButton.Close,
+        };
+        await dialog.ShowAsync();
+    }
+
+    internal static string GetRemoteResultMessage(RemoteOpResult result)
+    {
+        ArgumentNullException.ThrowIfNull(result);
+        return result switch
+        {
+            RemoteOpResult.AuthFailed authFailed => authFailed.Guidance,
+            RemoteOpResult.Diverged => Strings.VersionControl_Diverged,
+            RemoteOpResult.Offline => Strings.VersionControl_Offline,
+            RemoteOpResult.Failed failed => failed.Stderr,
+            _ => string.Empty,
+        };
+    }
+
+    private sealed class CallbackProgress<T>(Action<T> callback) : IProgress<T>
+    {
+        public void Report(T value)
+        {
+            callback(value);
+        }
+    }
 }
 
 public sealed class VersionControlCommitViewModel : IDisposable
@@ -553,6 +889,8 @@ public sealed class VersionControlCommitViewModel : IDisposable
     public CommitInfo Commit { get; }
 
     public string KindText { get; }
+
+    public bool IsManual => Commit.Kind == SnapshotKind.Manual;
 
     public string DisplayMessage { get; }
 

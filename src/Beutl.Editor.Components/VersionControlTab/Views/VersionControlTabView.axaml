@@ -4,6 +4,7 @@
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
              xmlns:lang="using:Beutl.Language"
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:vc="using:Beutl.Editor.VersionControl"
              xmlns:vm="using:Beutl.Editor.Components.VersionControlTab.ViewModels"
              d:DesignHeight="640"
              d:DesignWidth="420"
@@ -25,6 +26,9 @@
             <Setter Property="Padding" Value="6,2" />
             <Setter Property="Background" Value="{DynamicResource SubtleFillColorSecondaryBrush}" />
             <Setter Property="CornerRadius" Value="8" />
+        </Style>
+        <Style Selector="Border.kindBadge.manual">
+            <Setter Property="Background" Value="{DynamicResource AccentFillColorSecondaryBrush}" />
         </Style>
         <Style Selector="TextBlock.diffLine">
             <Setter Property="FontFamily" Value="Consolas, Menlo, monospace" />
@@ -57,18 +61,35 @@
                 Padding="10,8"
                 BorderBrush="{DynamicResource DividerStrokeColorDefaultBrush}"
                 BorderThickness="0,0,0,1">
-            <Grid ColumnDefinitions="*,Auto" RowDefinitions="Auto,Auto">
-                <TextBlock FontWeight="SemiBold"
-                           Text="{Binding BranchText.Value}"
-                           TextTrimming="CharacterEllipsis" />
-                <TextBlock Grid.Column="1"
+            <Grid ColumnDefinitions="*,Auto" RowDefinitions="Auto,Auto,Auto">
+                <ComboBox ItemsSource="{Binding Branches}"
+                          SelectedItem="{Binding SelectedBranch.Value}"
+                          SelectionChanged="OnBranchSelectionChanged">
+                    <ComboBox.ItemTemplate>
+                        <DataTemplate x:DataType="vc:BranchInfo">
+                            <TextBlock Text="{Binding Name}" TextTrimming="CharacterEllipsis" />
+                        </DataTemplate>
+                    </ComboBox.ItemTemplate>
+                </ComboBox>
+                <Button Grid.Column="1"
+                        Margin="6,0,0,0"
+                        Command="{Binding CreateBranchCommand}"
+                        Content="{x:Static lang:Strings.VersionControl_NewBranch}" />
+                <TextBlock Grid.Row="1"
                            Classes="secondary"
                            Text="{Binding AheadBehindText.Value}" />
                 <TextBlock Grid.Row="1"
-                           Grid.ColumnSpan="2"
+                           Grid.Column="1"
                            Margin="0,4,0,0"
                            Classes="secondary"
                            Text="{Binding DirtySummary.Value}" />
+                <TextBlock Grid.Row="2"
+                           Grid.ColumnSpan="2"
+                           Margin="0,4,0,0"
+                           Classes="secondary"
+                           IsVisible="{Binding IsNestedRepository.Value}"
+                           Text="{Binding RepositoryScopeText.Value}"
+                           TextWrapping="Wrap" />
             </Grid>
         </Border>
 
@@ -97,8 +118,50 @@
                        TextAlignment="Center"
                        TextWrapping="Wrap" />
 
-            <Grid ColumnDefinitions="2*,5,3*"
-                  IsVisible="{Binding IsTracked.Value}">
+            <Grid IsVisible="{Binding IsTracked.Value}"
+                  RowDefinitions="Auto,*">
+                <Border Margin="8,8,8,0"
+                        Padding="8"
+                        BorderBrush="{DynamicResource DividerStrokeColorDefaultBrush}"
+                        BorderThickness="1"
+                        CornerRadius="4">
+                    <Grid RowDefinitions="Auto,Auto,Auto" RowSpacing="6">
+                        <Grid ColumnDefinitions="*,Auto" ColumnSpacing="6">
+                            <TextBox Text="{Binding CommitMessage.Value}"
+                                     Watermark="{x:Static lang:Strings.VersionControl_CommitMessage}" />
+                            <Button Grid.Column="1"
+                                    Command="{Binding CommitCommand}"
+                                    Content="{x:Static lang:Strings.VersionControl_CommitNow}" />
+                        </Grid>
+                        <Grid Grid.Row="1"
+                              ColumnDefinitions="*,Auto,Auto,Auto,Auto"
+                              ColumnSpacing="6">
+                            <TextBox Text="{Binding RemoteUrl.Value}"
+                                     Watermark="{x:Static lang:Strings.VersionControl_RemoteUrl}" />
+                            <Button Grid.Column="1"
+                                    Command="{Binding SetRemoteCommand}"
+                                    Content="{x:Static lang:Strings.VersionControl_SetRemote}" />
+                            <Button Grid.Column="2"
+                                    Command="{Binding PushCommand}"
+                                    Content="{x:Static lang:Strings.VersionControl_Push}" />
+                            <Button Grid.Column="3"
+                                    Command="{Binding PullCommand}"
+                                    Content="{x:Static lang:Strings.VersionControl_Pull}" />
+                            <Button Grid.Column="4"
+                                    Command="{Binding CancelRemoteOperationCommand}"
+                                    Content="{x:Static lang:Strings.Cancel}"
+                                    IsVisible="{Binding IsRemoteOperationRunning.Value}" />
+                        </Grid>
+                        <TextBlock Grid.Row="2"
+                                   Classes="secondary"
+                                   IsVisible="{Binding IsRemoteOperationRunning.Value}"
+                                   Text="{Binding RemoteProgress.Value}"
+                                   TextTrimming="CharacterEllipsis" />
+                    </Grid>
+                </Border>
+
+                <Grid Grid.Row="1"
+                      ColumnDefinitions="2*,5,3*">
                 <Grid Grid.Column="0"
                       Margin="8"
                       RowDefinitions="Auto,*,Auto"
@@ -126,7 +189,9 @@
                                         <TextBlock FontWeight="SemiBold"
                                                    Text="{Binding DisplayMessage}"
                                                    TextTrimming="CharacterEllipsis" />
-                                        <Border Grid.Column="1" Classes="kindBadge">
+                                        <Border Grid.Column="1"
+                                                Classes="kindBadge"
+                                                Classes.manual="{Binding IsManual}">
                                             <TextBlock FontSize="10" Text="{Binding KindText}" />
                                         </Border>
                                         <TextBlock Grid.Row="1"
@@ -200,6 +265,7 @@
                             </ItemsControl.ItemTemplate>
                         </ItemsControl>
                     </ScrollViewer>
+                </Grid>
                 </Grid>
             </Grid>
         </Grid>

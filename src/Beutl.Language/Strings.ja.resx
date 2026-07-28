@@ -1576,6 +1576,12 @@ GetProperty&lt;T&gt;("path") または GetProperty&lt;T&gt;(guid, "propertyName"
   <data name="VersionControl_NothingToCommit" xml:space="preserve">
     <value>記録する新しい変更はありません。</value>
   </data>
+  <data name="VersionControl_CommitNow" xml:space="preserve">
+    <value>コミット</value>
+  </data>
+  <data name="VersionControl_CommitCreated" xml:space="preserve">
+    <value>バージョンを記録しました。</value>
+  </data>
   <data name="VersionControl_GitNotInstalled" xml:space="preserve">
     <value>プロジェクト履歴を記録するには Git が必要です。</value>
   </data>
@@ -1620,7 +1626,7 @@ GetProperty&lt;T&gt;("path") または GetProperty&lt;T&gt;(guid, "propertyName"
     <value>プロジェクトを閉じて再度開くため、現在の取り消し履歴は消去されます。続行しますか？</value>
   </data>
   <data name="VersionControl_ExportInProgress" xml:space="preserve">
-    <value>書き出しの実行中は復元できません。</value>
+    <value>書き出しの実行中は、このバージョン管理操作を実行できません。</value>
   </data>
   <data name="VersionControl_RecoveryFailed" xml:space="preserve">
     <value>操作に失敗し、元のプロジェクト状態も復元できませんでした。操作エラー: {0} 復旧エラー: {1}</value>
@@ -1654,6 +1660,48 @@ GetProperty&lt;T&gt;("path") または GetProperty&lt;T&gt;(guid, "propertyName"
   </data>
   <data name="VersionControl_CreateBranchTitle" xml:space="preserve">
     <value>新しいブランチに復元</value>
+  </data>
+  <data name="VersionControl_CreateBranch" xml:space="preserve">
+    <value>ブランチを作成</value>
+  </data>
+  <data name="VersionControl_SwitchBranch" xml:space="preserve">
+    <value>ブランチを切り替え</value>
+  </data>
+  <data name="VersionControl_SwitchBranchConfirmation" xml:space="preserve">
+    <value>プロジェクトを閉じてブランチ「{0}」で開き直すため、現在の取り消し履歴は消去されます。保存済みの変更は、最初に安全スナップショットへ記録されます。続行しますか？</value>
+  </data>
+  <data name="VersionControl_PullConfirmation" xml:space="preserve">
+    <value>fast-forward 更新のプル後にプロジェクトを閉じて開き直すため、現在の取り消し履歴は消去されます。保存済みの変更は、最初に安全スナップショットへ記録されます。続行しますか？</value>
+  </data>
+  <data name="VersionControl_EnclosingRepositoryScopeFormat" xml:space="preserve">
+    <value>ブランチとリモートの操作は親リポジトリ全体に適用されます: {0}</value>
+  </data>
+  <data name="VersionControl_RemoteUrl" xml:space="preserve">
+    <value>リモート URL</value>
+  </data>
+  <data name="VersionControl_SetRemote" xml:space="preserve">
+    <value>接続</value>
+  </data>
+  <data name="VersionControl_RemoteConnected" xml:space="preserve">
+    <value>リモートに接続しました。</value>
+  </data>
+  <data name="VersionControl_Pushing" xml:space="preserve">
+    <value>バージョンをプッシュしています…</value>
+  </data>
+  <data name="VersionControl_Pulling" xml:space="preserve">
+    <value>バージョンをプルしています…</value>
+  </data>
+  <data name="VersionControl_RemoteOperationSucceeded" xml:space="preserve">
+    <value>リモート操作が完了しました。</value>
+  </data>
+  <data name="VersionControl_RemoteOperationCanceled" xml:space="preserve">
+    <value>リモート操作をキャンセルしました。</value>
+  </data>
+  <data name="VersionControl_LfsQuotaNotice" xml:space="preserve">
+    <value>大きなメディアは Git LFS で保存されます。リモートホスティングでは、LFS のストレージ容量と帯域幅に上限が適用される場合があります。</value>
+  </data>
+  <data name="VersionControl_LargeMediaWarningFormat" xml:space="preserve">
+    <value>{0} は大きなファイルですが、Git LFS が有効ではありません。コミットするとリポジトリ履歴のサイズが恒久的に増える可能性があります。コミットは続行されます。</value>
   </data>
   <data name="VersionControl_EnclosingRepositoryFound" xml:space="preserve">
     <value>このプロジェクトは既存の Git リポジトリ内にあります。</value>

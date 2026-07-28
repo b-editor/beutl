@@ -1582,6 +1582,12 @@ Example: GetProperty&lt;double&gt;("{GUID}.Opacity")</value>
   <data name="VersionControl_NothingToCommit" xml:space="preserve">
     <value>There is nothing new to record.</value>
   </data>
+  <data name="VersionControl_CommitNow" xml:space="preserve">
+    <value>Commit</value>
+  </data>
+  <data name="VersionControl_CommitCreated" xml:space="preserve">
+    <value>The version was recorded.</value>
+  </data>
   <data name="VersionControl_GitNotInstalled" xml:space="preserve">
     <value>Git is required to track project history.</value>
   </data>
@@ -1626,7 +1632,7 @@ Resolve the conflicts with an external Git tool before editing. The project may 
     <value>The project will close and reopen, and the current undo history will be cleared. Continue?</value>
   </data>
   <data name="VersionControl_ExportInProgress" xml:space="preserve">
-    <value>Restore is unavailable while an export is running.</value>
+    <value>This version control operation is unavailable while an export is running.</value>
   </data>
   <data name="VersionControl_RecoveryFailed" xml:space="preserve">
     <value>The operation failed, and the original project state could not be recovered. Operation error: {0} Recovery error: {1}</value>
@@ -1660,6 +1666,48 @@ Resolve the conflicts with an external Git tool before editing. The project may 
   </data>
   <data name="VersionControl_CreateBranchTitle" xml:space="preserve">
     <value>Restore to a New Branch</value>
+  </data>
+  <data name="VersionControl_CreateBranch" xml:space="preserve">
+    <value>Create Branch</value>
+  </data>
+  <data name="VersionControl_SwitchBranch" xml:space="preserve">
+    <value>Switch Branch</value>
+  </data>
+  <data name="VersionControl_SwitchBranchConfirmation" xml:space="preserve">
+    <value>The project will close and reopen on branch "{0}", and the current undo history will be cleared. Any saved changes will be recorded in a safety snapshot first. Continue?</value>
+  </data>
+  <data name="VersionControl_PullConfirmation" xml:space="preserve">
+    <value>The project will close and reopen after pulling fast-forward updates, and the current undo history will be cleared. Any saved changes will be recorded in a safety snapshot first. Continue?</value>
+  </data>
+  <data name="VersionControl_EnclosingRepositoryScopeFormat" xml:space="preserve">
+    <value>Branch and remote operations apply to the enclosing repository: {0}</value>
+  </data>
+  <data name="VersionControl_RemoteUrl" xml:space="preserve">
+    <value>Remote URL</value>
+  </data>
+  <data name="VersionControl_SetRemote" xml:space="preserve">
+    <value>Connect</value>
+  </data>
+  <data name="VersionControl_RemoteConnected" xml:space="preserve">
+    <value>The remote was connected.</value>
+  </data>
+  <data name="VersionControl_Pushing" xml:space="preserve">
+    <value>Pushing versions…</value>
+  </data>
+  <data name="VersionControl_Pulling" xml:space="preserve">
+    <value>Pulling versions…</value>
+  </data>
+  <data name="VersionControl_RemoteOperationSucceeded" xml:space="preserve">
+    <value>The remote operation completed.</value>
+  </data>
+  <data name="VersionControl_RemoteOperationCanceled" xml:space="preserve">
+    <value>The remote operation was canceled.</value>
+  </data>
+  <data name="VersionControl_LfsQuotaNotice" xml:space="preserve">
+    <value>Large media is stored with Git LFS. Remote hosting quotas may apply to LFS storage and bandwidth.</value>
+  </data>
+  <data name="VersionControl_LargeMediaWarningFormat" xml:space="preserve">
+    <value>{0} is large and Git LFS is not active. Committing it can permanently increase repository history size. The commit will continue.</value>
   </data>
   <data name="VersionControl_EnclosingRepositoryFound" xml:space="preserve">
     <value>This project is inside an existing Git repository.</value>

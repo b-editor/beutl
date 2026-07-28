@@ -88,7 +88,7 @@ public sealed class EditorService
 
     internal IProjectVersionControlService? ProjectVersionControlService { get; set; }
 
-    internal IVersionControlRestoreCoordinator? VersionControlRestoreCoordinator { get; set; }
+    internal IProjectVersionControlCoordinator? ProjectVersionControlCoordinator { get; set; }
 
     internal bool IsExportRunning => Volatile.Read(ref _activeOutputOperations) > 0;
 

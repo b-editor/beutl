@@ -15,6 +15,7 @@ public partial class MenuBarViewModel
         nameof(Save),
         nameof(SaveAll),
         nameof(EnableVersionControl),
+        nameof(CommitVersion),
         nameof(ExportProject))]
     private void InitializeFilesCommands()
     {
@@ -37,6 +38,12 @@ public partial class MenuBarViewModel
             _versionControlCoordinator.IsGitAvailable,
             static (isOpened, isGitAvailable) => isOpened && isGitAvailable);
         EnableVersionControl = new AsyncReactiveCommand(canEnableVersionControl);
+        IObservable<bool> canCommitVersion = IsProjectOpened.CombineLatest(
+            _versionControlCoordinator.IsGitAvailable,
+            _versionControlCoordinator.IsTracked,
+            static (isOpened, isGitAvailable, isTracked) =>
+                isOpened && isGitAvailable && isTracked);
+        CommitVersion = new AsyncReactiveCommand(canCommitVersion);
 
         ExportProject = new AsyncReactiveCommand(IsProjectOpened);
 
@@ -99,6 +106,8 @@ public partial class MenuBarViewModel
     public AsyncReactiveCommand SaveAll { get; private set; }
 
     public AsyncReactiveCommand EnableVersionControl { get; private set; }
+
+    public AsyncReactiveCommand CommitVersion { get; private set; }
 
     public ReactiveCommandSlim<string> OpenRecentFile { get; } = new();
 

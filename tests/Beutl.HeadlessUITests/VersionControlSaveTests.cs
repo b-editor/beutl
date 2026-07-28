@@ -335,9 +335,13 @@ public class VersionControlSaveTests
             CancellationToken cancellationToken)
             => Task.CompletedTask;
 
-        public Task CreateBranchFromAsync(
+        public Task<IReadOnlyList<BranchInfo>> GetBranchesAsync(
+            CancellationToken cancellationToken)
+            => Task.FromResult<IReadOnlyList<BranchInfo>>([]);
+
+        public Task CreateBranchAsync(
             string name,
-            string sha,
+            string startPoint,
             CancellationToken cancellationToken)
             => Task.CompletedTask;
 
@@ -345,6 +349,24 @@ public class VersionControlSaveTests
             string name,
             CancellationToken cancellationToken)
             => Task.CompletedTask;
+
+        public Task<IReadOnlyList<RemoteInfo>> GetRemotesAsync(
+            CancellationToken cancellationToken)
+            => Task.FromResult<IReadOnlyList<RemoteInfo>>([]);
+
+        public Task SetRemoteAsync(
+            string url,
+            CancellationToken cancellationToken)
+            => Task.CompletedTask;
+
+        public Task<RemoteOpResult> PushAsync(
+            IProgress<string>? progress,
+            CancellationToken cancellationToken)
+            => Task.FromResult<RemoteOpResult>(new RemoteOpResult.Success());
+
+        public Task<RemoteOpResult> PullFastForwardAsync(
+            CancellationToken cancellationToken)
+            => Task.FromResult<RemoteOpResult>(new RemoteOpResult.Success());
 
         public Task<GitIdentity?> GetIdentityAsync(CancellationToken cancellationToken)
             => Task.FromResult(Identity);

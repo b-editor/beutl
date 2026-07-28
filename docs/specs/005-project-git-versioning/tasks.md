@@ -99,7 +99,7 @@
 
 **Independent Test**: commit with a message between auto snapshots → appears with the message and a distinct badge; clean-tree commit reports "nothing to record" (spec US4 scenarios)
 
-- [ ] T030 [US4] Manual commit UI: message box + Commit button in src/Beutl.Editor.Components/VersionControlTab/ (uses `CommitAllAsync(message, Manual)`, `NoChanges` feedback, triggers the identity flow when unset), a "Commit Version…" palette/menu command in src/Beutl/ViewModels/MenuBarViewModel.Files.cs + MenuBarViewModel.Palette.cs, and Manual-vs-auto badge distinction in the history list; ViewModel tests
+- [X] T030 [US4] Manual commit UI: message box + Commit button in src/Beutl.Editor.Components/VersionControlTab/ (uses `CommitAllAsync(message, Manual)`, `NoChanges` feedback, triggers the identity flow when unset), a "Commit Version…" palette/menu command in src/Beutl/ViewModels/MenuBarViewModel.Files.cs + MenuBarViewModel.Palette.cs, and Manual-vs-auto badge distinction in the history list; ViewModel tests
 
 **Checkpoint**: US4 done — history becomes navigable by milestones
 
@@ -111,8 +111,8 @@
 
 **Independent Test**: create a branch, diverge both branches, switch back and forth → each reopens with exactly its own state (spec US5 scenarios)
 
-- [ ] T031 [US5] Implement `GetBranchesAsync` (`for-each-ref`), `CreateBranchAsync`, `SwitchBranchAsync` in src/Beutl.Editor/VersionControl/GitCliVersionControlService.cs; branch create/switch/divergence tests in the service suite
-- [ ] T032 [US5] Branch UI + cycle: branch dropdown/list + "New branch" dialog in src/Beutl.Editor.Components/VersionControlTab/, coordinator switch cycle (dirty prompt → safety snapshot → close → `git switch` → reopen; failure surfaces stderr and reopens the original branch) in src/Beutl/Services/VersionControlCoordinator.cs; ViewModel tests
+- [X] T031 [US5] Implement `GetBranchesAsync` (`for-each-ref`), `CreateBranchAsync`, `SwitchBranchAsync` in src/Beutl.Editor/VersionControl/GitCliVersionControlService.cs; branch create/switch/divergence tests in the service suite
+- [X] T032 [US5] Branch UI + cycle: branch dropdown/list + "New branch" dialog in src/Beutl.Editor.Components/VersionControlTab/, coordinator switch cycle (dirty prompt → safety snapshot → close → `git switch` → reopen; failure surfaces stderr and reopens the original branch) in src/Beutl/Services/VersionControlCoordinator.cs; ViewModel tests
 
 **Checkpoint**: US5 done — no merge surface exists beyond fast-forward (FR-028 guardrail holds)
 
@@ -124,9 +124,9 @@
 
 **Independent Test**: push to a local bare "remote", clone elsewhere, open, pull new versions; divergence and auth failures produce the specified guidance (spec US6 scenarios)
 
-- [ ] T033 [US6] Implement `GetRemotesAsync`/`SetRemoteAsync`/`PushAsync` (progress from stderr, cancelable)/`PullFastForwardAsync` with `RemoteOpResult` mapping (`Success`/`AuthFailed`/`Diverged`/`Offline`/`Failed`) in src/Beutl.Editor/VersionControl/GitCliVersionControlService.cs; local-bare-remote tests (push, ff pull, divergence) in tests/Beutl.UnitTests/Editor/VersionControl/RemoteOperationsTests.cs
-- [ ] T034 [US6] Remote UI: URL field, Push/Pull commands with progress + cancel, divergence/auth/offline guidance dialogs, pull via the coordinator cycle, in src/Beutl.Editor.Components/VersionControlTab/ + src/Beutl/Services/VersionControlCoordinator.cs; ViewModel tests
-- [ ] T035 [P] [US6] LFS + large-media policy: auto-track `resources/**` patterns when LFS active (`UseLfsWhenAvailable`), one-time quota notice on first remote connect with LFS, one-time `LargeMediaWarningThresholdMb` warning without LFS — never blocking; tests for attribute generation and the warning triggers
+- [X] T033 [US6] Implement `GetRemotesAsync`/`SetRemoteAsync`/`PushAsync` (progress from stderr, cancelable)/`PullFastForwardAsync` with `RemoteOpResult` mapping (`Success`/`AuthFailed`/`Diverged`/`Offline`/`Failed`) in src/Beutl.Editor/VersionControl/GitCliVersionControlService.cs; local-bare-remote tests (push, ff pull, divergence) in tests/Beutl.UnitTests/Editor/VersionControl/RemoteOperationsTests.cs
+- [X] T034 [US6] Remote UI: URL field, Push/Pull commands with progress + cancel, divergence/auth/offline guidance dialogs, pull via the coordinator cycle, in src/Beutl.Editor.Components/VersionControlTab/ + src/Beutl/Services/VersionControlCoordinator.cs; ViewModel tests
+- [X] T035 [P] [US6] LFS + large-media policy: auto-track `resources/**` patterns when LFS active (`UseLfsWhenAvailable`), one-time quota notice on first remote connect with LFS, one-time `LargeMediaWarningThresholdMb` warning without LFS — never blocking; tests for attribute generation and the warning triggers
 
 **Checkpoint**: all six stories functional
 

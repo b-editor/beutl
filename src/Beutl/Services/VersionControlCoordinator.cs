@@ -8,11 +8,13 @@ using Reactive.Bindings;
 
 namespace Beutl.Services;
 
-public sealed class VersionControlCoordinator : IVersionControlRestoreCoordinator, IDisposable
+public sealed class VersionControlCoordinator : IProjectVersionControlCoordinator, IDisposable
 {
     private const string SaveSnapshotMessage = "beutl: snapshot on save";
     private const string CloseSnapshotMessage = "beutl: snapshot on close";
     private const string RestoreSafetySnapshotMessage = "beutl: safety snapshot before restore";
+    private const string SwitchSafetySnapshotMessage = "beutl: safety snapshot before switch";
+    private const string PullSafetySnapshotMessage = "beutl: safety snapshot before pull";
 
     private readonly ProjectService _projectService;
     private readonly EditorService _editorService;
@@ -23,6 +25,7 @@ public sealed class VersionControlCoordinator : IVersionControlRestoreCoordinato
     private readonly SemaphoreSlim _lifecycleGate = new(1, 1);
     private readonly SemaphoreSlim _lockRecoveryGate = new(1, 1);
     private readonly ReactivePropertySlim<bool> _isGitAvailable = new();
+    private readonly ReactivePropertySlim<bool> _isTracked = new();
     private CancellationTokenSource? _activationCancellation;
     private Task _activationTask = Task.CompletedTask;
     private IProjectVersionControlService? _currentService;
@@ -54,15 +57,19 @@ public sealed class VersionControlCoordinator : IVersionControlRestoreCoordinato
         _config = config ?? throw new ArgumentNullException(nameof(config));
         _installationLocator = installationLocator ?? new GitInstallationLocator(config);
         ConfirmRestoreAsync = ShowRestoreConfirmationAsync;
+        ConfirmSwitchBranchAsync = ShowSwitchBranchConfirmationAsync;
+        ConfirmPullAsync = ShowPullConfirmationAsync;
         ConfirmUseEnclosingRepositoryAsync = ShowEnclosingRepositoryConfirmationAsync;
         ConfirmRemoveStaleLockAsync = ShowStaleLockConfirmationAsync;
         WarnConflictMarkersAsync = ShowConflictMarkerWarningAsync;
+        RequestIdentityAsync = static _ => Task.FromResult(false);
+        PresentPolicyNoticeAsync = ShowPolicyNoticeAsync;
         _config.ConfigurationChanged += OnVersionControlConfigChanged;
         _projectService.Opening += WarnBeforeOpeningConflictedProjectAsync;
         _projectService.Closing += NotifyClosingAsync;
         _projectSubscription = _projectService.ProjectObservable.Subscribe(
             change => OnProjectChanged(change.New));
-        _editorService.VersionControlRestoreCoordinator = this;
+        _editorService.ProjectVersionControlCoordinator = this;
         _ = RefreshAvailabilityAsync();
 
         if (_projectService.CurrentProject.Value is { } project)
@@ -75,7 +82,13 @@ public sealed class VersionControlCoordinator : IVersionControlRestoreCoordinato
 
     public IReadOnlyReactiveProperty<bool> IsGitAvailable => _isGitAvailable;
 
+    public IReadOnlyReactiveProperty<bool> IsTracked => _isTracked;
+
     internal Func<CancellationToken, Task<bool>> ConfirmRestoreAsync { get; set; }
+
+    internal Func<string, CancellationToken, Task<bool>> ConfirmSwitchBranchAsync { get; set; }
+
+    internal Func<CancellationToken, Task<bool>> ConfirmPullAsync { get; set; }
 
     internal Func<RepositoryInfo, CancellationToken, Task<bool>>
         ConfirmUseEnclosingRepositoryAsync
@@ -86,6 +99,14 @@ public sealed class VersionControlCoordinator : IVersionControlRestoreCoordinato
     { get; set; }
 
     internal Func<string, Task> WarnConflictMarkersAsync { get; set; }
+
+    internal Func<IProjectVersionControlService, Task<bool>> RequestIdentityAsync { get; set; }
+
+    internal Func<VersionControlPolicyNotice, CancellationToken, Task> PresentPolicyNoticeAsync
+    {
+        get;
+        set;
+    }
 
     public async Task<GitAvailability> GetAvailabilityAsync(
         CancellationToken cancellationToken = default)
@@ -192,6 +213,70 @@ public sealed class VersionControlCoordinator : IVersionControlRestoreCoordinato
         return RunRestoreCycleAsync(sha, branchName, cancellationToken);
     }
 
+    public async Task<CommitResult> CommitManualAsync(
+        string message,
+        CancellationToken cancellationToken = default)
+    {
+        ObjectDisposedException.ThrowIf(_disposed, this);
+        ArgumentException.ThrowIfNullOrWhiteSpace(message);
+        IProjectVersionControlService service = GetTrackedService();
+        try
+        {
+            return await service.CommitAllAsync(
+                message.Trim(),
+                SnapshotKind.Manual,
+                cancellationToken);
+        }
+        catch (GitIdentityRequiredException)
+        {
+            if (!await RequestIdentityAsync(service))
+            {
+                throw;
+            }
+
+            return await service.CommitAllAsync(
+                message.Trim(),
+                SnapshotKind.Manual,
+                cancellationToken);
+        }
+    }
+
+    public Task<bool> CreateBranchAsync(
+        string branchName,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(branchName);
+        return RunBranchCycleAsync(branchName.Trim(), create: true, cancellationToken);
+    }
+
+    public Task<bool> SwitchBranchAsync(
+        string branchName,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(branchName);
+        return RunBranchCycleAsync(branchName.Trim(), create: false, cancellationToken);
+    }
+
+    public Task SetRemoteAsync(
+        string url,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(url);
+        return GetTrackedService().SetRemoteAsync(url.Trim(), cancellationToken);
+    }
+
+    public Task<RemoteOpResult> PushAsync(
+        IProgress<string>? progress,
+        CancellationToken cancellationToken = default)
+    {
+        return GetTrackedService().PushAsync(progress, cancellationToken);
+    }
+
+    public Task<RemoteOpResult> PullAsync(CancellationToken cancellationToken = default)
+    {
+        return RunPullCycleAsync(cancellationToken);
+    }
+
     public void Dispose()
     {
         if (_disposed)
@@ -206,9 +291,9 @@ public sealed class VersionControlCoordinator : IVersionControlRestoreCoordinato
         _projectService.Opening -= WarnBeforeOpeningConflictedProjectAsync;
         _projectService.Closing -= NotifyClosingAsync;
         _projectSubscription.Dispose();
-        if (ReferenceEquals(_editorService.VersionControlRestoreCoordinator, this))
+        if (ReferenceEquals(_editorService.ProjectVersionControlCoordinator, this))
         {
-            _editorService.VersionControlRestoreCoordinator = null;
+            _editorService.ProjectVersionControlCoordinator = null;
         }
 
         if (Volatile.Read(ref _lifecycleUsers) == 0)
@@ -217,6 +302,196 @@ public sealed class VersionControlCoordinator : IVersionControlRestoreCoordinato
         }
 
         _isGitAvailable.Dispose();
+        _isTracked.Dispose();
+    }
+
+    private async Task<bool> RunBranchCycleAsync(
+        string branchName,
+        bool create,
+        CancellationToken cancellationToken)
+    {
+        ObjectDisposedException.ThrowIf(_disposed, this);
+        Interlocked.Increment(ref _lifecycleUsers);
+        bool gateEntered = false;
+        try
+        {
+            await _lifecycleGate.WaitAsync(cancellationToken);
+            gateEntered = true;
+            ObjectDisposedException.ThrowIf(_disposed, this);
+            if (!EnsureWorktreeOperationAllowed())
+            {
+                return false;
+            }
+
+            Project project = GetOpenProject();
+            string projectFile = GetProjectFile(project);
+            IProjectVersionControlService service = GetTrackedService();
+            WorkspaceStatus status = await service.GetStatusAsync(cancellationToken);
+            if (!EnsureRepositoryIsNotConflicted(status))
+            {
+                return false;
+            }
+
+            if (!create
+                && string.Equals(status.Branch, branchName, StringComparison.Ordinal))
+            {
+                return true;
+            }
+
+            if (!await ConfirmSwitchBranchAsync(branchName, cancellationToken))
+            {
+                return false;
+            }
+
+            if (!status.IsClean)
+            {
+                CommitResult result = await service.CommitAllAsync(
+                    SwitchSafetySnapshotMessage,
+                    SnapshotKind.Safety,
+                    cancellationToken);
+                EnsureAutomaticSnapshotWasNotSkipped(result);
+            }
+
+            CommitInfo originalHead = await GetHeadAsync(service, cancellationToken);
+            string? originalBranch = status.Branch;
+            bool projectClosed = false;
+            _preserveServiceAcrossClose = true;
+            try
+            {
+                await CloseProjectForOperationAsync(cancellationToken);
+                projectClosed = true;
+                if (create)
+                {
+                    await service.CreateBranchAsync(
+                        branchName,
+                        "HEAD",
+                        cancellationToken);
+                }
+                else
+                {
+                    await service.SwitchBranchAsync(branchName, cancellationToken);
+                }
+
+                await ReopenProjectAsync(projectFile);
+                return true;
+            }
+            catch (Exception ex)
+            {
+                Exception? recoveryFailure = projectClosed
+                    ? await TryRestoreOriginalStateAsync(
+                        service,
+                        originalHead.Sha,
+                        originalBranch,
+                        branchMayHaveChanged: true,
+                        projectFile)
+                    : null;
+                return HandleCycleFailure(
+                    ex,
+                    recoveryFailure,
+                    $"branch '{branchName}'",
+                    cancellationToken);
+            }
+            finally
+            {
+                FinishPreservedClose();
+            }
+        }
+        finally
+        {
+            FinishLifecycleOperation(gateEntered);
+        }
+    }
+
+    private async Task<RemoteOpResult> RunPullCycleAsync(CancellationToken cancellationToken)
+    {
+        ObjectDisposedException.ThrowIf(_disposed, this);
+        Interlocked.Increment(ref _lifecycleUsers);
+        bool gateEntered = false;
+        try
+        {
+            await _lifecycleGate.WaitAsync(cancellationToken);
+            gateEntered = true;
+            ObjectDisposedException.ThrowIf(_disposed, this);
+            if (!EnsureWorktreeOperationAllowed())
+            {
+                return new RemoteOpResult.Failed(Strings.VersionControl_ExportInProgress);
+            }
+
+            Project project = GetOpenProject();
+            string projectFile = GetProjectFile(project);
+            IProjectVersionControlService service = GetTrackedService();
+            WorkspaceStatus status = await service.GetStatusAsync(cancellationToken);
+            if (!EnsureRepositoryIsNotConflicted(status))
+            {
+                return new RemoteOpResult.Failed(Strings.VersionControl_ConflictGuidance);
+            }
+
+            if (!await ConfirmPullAsync(cancellationToken))
+            {
+                return new RemoteOpResult.Failed(string.Empty);
+            }
+
+            if (!status.IsClean)
+            {
+                CommitResult result = await service.CommitAllAsync(
+                    PullSafetySnapshotMessage,
+                    SnapshotKind.Safety,
+                    cancellationToken);
+                EnsureAutomaticSnapshotWasNotSkipped(result);
+            }
+
+            CommitInfo originalHead = await GetHeadAsync(service, cancellationToken);
+            string? originalBranch = status.Branch;
+            bool projectClosed = false;
+            _preserveServiceAcrossClose = true;
+            try
+            {
+                await CloseProjectForOperationAsync(cancellationToken);
+                projectClosed = true;
+                RemoteOpResult result = await service.PullFastForwardAsync(cancellationToken);
+                await ReopenProjectAsync(projectFile);
+                return result;
+            }
+            catch (Exception ex)
+            {
+                Exception? recoveryFailure = projectClosed
+                    ? await TryRestoreOriginalStateAsync(
+                        service,
+                        originalHead.Sha,
+                        originalBranch,
+                        branchMayHaveChanged: false,
+                        projectFile)
+                    : null;
+                if (ex is OperationCanceledException && cancellationToken.IsCancellationRequested)
+                {
+                    throw;
+                }
+
+                if (recoveryFailure is not null)
+                {
+                    HandleCycleFailure(
+                        ex,
+                        recoveryFailure,
+                        "pull",
+                        cancellationToken);
+                    return new RemoteOpResult.Failed(string.Format(
+                        Strings.VersionControl_RecoveryFailed,
+                        GetErrorText(ex),
+                        GetErrorText(recoveryFailure)));
+                }
+
+                _logger.LogError(ex, "Failed to pull project versions.");
+                return new RemoteOpResult.Failed(GetErrorText(ex));
+            }
+            finally
+            {
+                FinishPreservedClose();
+            }
+        }
+        finally
+        {
+            FinishLifecycleOperation(gateEntered);
+        }
     }
 
     private async Task<bool> RunRestoreCycleAsync(
@@ -309,7 +584,7 @@ public sealed class VersionControlCoordinator : IVersionControlRestoreCoordinato
                 }
                 else
                 {
-                    await service.CreateBranchFromAsync(branchName, sha, cancellationToken);
+                    await service.CreateBranchAsync(branchName, sha, cancellationToken);
                 }
 
                 await _projectService.OpenProject(projectFile);
@@ -436,6 +711,146 @@ public sealed class VersionControlCoordinator : IVersionControlRestoreCoordinato
         }
     }
 
+    private IProjectVersionControlService GetTrackedService()
+    {
+        ObjectDisposedException.ThrowIf(_disposed, this);
+        IProjectVersionControlService service = _currentService
+                                                ?? throw new InvalidOperationException(
+                                                    "Version control is not available.");
+        if (service.Repository is null)
+        {
+            throw new InvalidOperationException(
+                "The open project is not tracked with Git.");
+        }
+
+        return service;
+    }
+
+    private Project GetOpenProject()
+    {
+        return _projectService.CurrentProject.Value
+               ?? throw new InvalidOperationException("No project is open.");
+    }
+
+    private static string GetProjectFile(Project project)
+    {
+        return project.Uri?.LocalPath
+               ?? throw new InvalidOperationException("The project has no file path.");
+    }
+
+    private bool EnsureWorktreeOperationAllowed()
+    {
+        if (!_editorService.IsExportRunning)
+        {
+            return true;
+        }
+
+        NotificationService.ShowWarning(
+            Strings.VersionControl,
+            Strings.VersionControl_ExportInProgress);
+        return false;
+    }
+
+    private static bool EnsureRepositoryIsNotConflicted(WorkspaceStatus status)
+    {
+        if (!status.HasConflicts)
+        {
+            return true;
+        }
+
+        NotificationService.ShowWarning(
+            Strings.VersionControl,
+            Strings.VersionControl_ConflictGuidance);
+        return false;
+    }
+
+    private static async Task<CommitInfo> GetHeadAsync(
+        IProjectVersionControlService service,
+        CancellationToken cancellationToken)
+    {
+        return (await service.GetHistoryAsync(0, 1, cancellationToken)).FirstOrDefault()
+               ?? throw new InvalidOperationException(
+                   "The repository does not contain a version to preserve.");
+    }
+
+    private async Task CloseProjectForOperationAsync(CancellationToken cancellationToken)
+    {
+        await _projectService.CloseProject(cancellationToken);
+        if (_projectService.CurrentProject.Value is not null)
+        {
+            throw new InvalidOperationException(
+                "The project could not be closed before changing version-controlled files.");
+        }
+    }
+
+    private async Task ReopenProjectAsync(string projectFile)
+    {
+        await _projectService.OpenProject(projectFile);
+        EnsureProjectReopened(projectFile);
+    }
+
+    private bool HandleCycleFailure(
+        Exception exception,
+        Exception? recoveryFailure,
+        string operation,
+        CancellationToken cancellationToken)
+    {
+        if (recoveryFailure is not null)
+        {
+            var combined = new AggregateException(
+                "The version-control operation and recovery both failed.",
+                exception,
+                recoveryFailure);
+            _logger.LogError(
+                combined,
+                "Failed to complete version-control operation {Operation}, and the original state could not be recovered.",
+                operation);
+            NotificationService.ShowError(
+                Strings.VersionControl_ErrorTitle,
+                string.Format(
+                    Strings.VersionControl_RecoveryFailed,
+                    GetErrorText(exception),
+                    GetErrorText(recoveryFailure)));
+            return false;
+        }
+
+        if (exception is OperationCanceledException && cancellationToken.IsCancellationRequested)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+        }
+
+        _logger.LogError(
+            exception,
+            "Failed to complete version-control operation {Operation}.",
+            operation);
+        NotificationService.ShowError(
+            Strings.VersionControl_ErrorTitle,
+            GetErrorText(exception));
+        return false;
+    }
+
+    private void FinishPreservedClose()
+    {
+        _preserveServiceAcrossClose = false;
+        if (_projectService.CurrentProject.Value is null)
+        {
+            ReplaceService(null);
+        }
+    }
+
+    private void FinishLifecycleOperation(bool gateEntered)
+    {
+        if (gateEntered)
+        {
+            _lifecycleGate.Release();
+        }
+
+        if (Interlocked.Decrement(ref _lifecycleUsers) == 0 && _disposed)
+        {
+            ReplaceService(null);
+        }
+    }
+
     private static void EnsureAutomaticSnapshotWasNotSkipped(CommitResult result)
     {
         if (result is CommitResult.SkippedNoIdentity)
@@ -465,6 +880,41 @@ public sealed class VersionControlCoordinator : IVersionControlRestoreCoordinato
             Title = Strings.VersionControl_Restore,
             Content = Strings.VersionControl_RestoreConfirmation,
             PrimaryButtonText = Strings.VersionControl_Restore,
+            CloseButtonText = Strings.Cancel,
+            DefaultButton = ContentDialogButton.Close,
+        };
+        ContentDialogResult result = await dialog.ShowAsync();
+        return result == ContentDialogResult.Primary;
+    }
+
+    private static async Task<bool> ShowSwitchBranchConfirmationAsync(
+        string branchName,
+        CancellationToken cancellationToken)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        var dialog = new ContentDialog
+        {
+            Title = Strings.VersionControl_SwitchBranch,
+            Content = string.Format(
+                Strings.VersionControl_SwitchBranchConfirmation,
+                branchName),
+            PrimaryButtonText = Strings.VersionControl_SwitchBranch,
+            CloseButtonText = Strings.Cancel,
+            DefaultButton = ContentDialogButton.Close,
+        };
+        ContentDialogResult result = await dialog.ShowAsync();
+        return result == ContentDialogResult.Primary;
+    }
+
+    private static async Task<bool> ShowPullConfirmationAsync(
+        CancellationToken cancellationToken)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        var dialog = new ContentDialog
+        {
+            Title = Strings.VersionControl_Pull,
+            Content = Strings.VersionControl_PullConfirmation,
+            PrimaryButtonText = Strings.VersionControl_Pull,
             CloseButtonText = Strings.Cancel,
             DefaultButton = ContentDialogButton.Close,
         };
@@ -529,6 +979,26 @@ public sealed class VersionControlCoordinator : IVersionControlRestoreCoordinato
             DefaultButton = ContentDialogButton.Close,
         };
         await dialog.ShowAsync();
+    }
+
+    private static async Task ShowPolicyNoticeAsync(
+        VersionControlPolicyNotice notice,
+        CancellationToken cancellationToken)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        string message = notice.Kind switch
+        {
+            VersionControlPolicyNoticeKind.LfsRemoteQuota
+                => Strings.VersionControl_LfsQuotaNotice,
+            VersionControlPolicyNoticeKind.LargeMediaWithoutLfs
+                => string.Format(
+                    Strings.VersionControl_LargeMediaWarningFormat,
+                    notice.Path ?? string.Empty),
+            _ => throw new ArgumentOutOfRangeException(nameof(notice)),
+        };
+
+        await Dispatcher.UIThread.InvokeAsync(() =>
+            NotificationService.ShowWarning(Strings.VersionControl, message));
     }
 
     private async Task CommitSnapshotAsync(
@@ -599,7 +1069,8 @@ public sealed class VersionControlCoordinator : IVersionControlRestoreCoordinato
             var service = new GitCliVersionControlService(
                 _installationLocator,
                 repository: null,
-                () => _projectService.CurrentProject.Value is null);
+                () => _projectService.CurrentProject.Value is null,
+                PresentPolicyNoticeAsync);
             ReplaceService(service);
             int revision = ++_activationRevision;
             var activationCancellation = new CancellationTokenSource();
@@ -655,7 +1126,8 @@ public sealed class VersionControlCoordinator : IVersionControlRestoreCoordinato
             ReplaceService(new GitCliVersionControlService(
                 _installationLocator,
                 repository,
-                () => _projectService.CurrentProject.Value is null));
+                () => _projectService.CurrentProject.Value is null,
+                PresentPolicyNoticeAsync));
         }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
         {
@@ -723,6 +1195,7 @@ public sealed class VersionControlCoordinator : IVersionControlRestoreCoordinato
         }
 
         _currentService = service;
+        _isTracked.Value = service?.Repository is not null;
         _editorService.ProjectVersionControlService = service;
         if (service is IRepositoryLockRecoveryService recovery)
         {
