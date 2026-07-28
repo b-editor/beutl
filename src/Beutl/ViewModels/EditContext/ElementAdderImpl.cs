@@ -42,13 +42,14 @@ internal sealed class ElementAdderImpl(EditViewModel context) : IElementAdder
         {
             _logger.LogDebug("Creating new element with start: {Start}, length: {Length}, layer: {Layer}", desc.Start,
                 desc.Length, desc.Layer);
-            return new Element()
+            var element = new Element
             {
                 Start = desc.Start,
                 Length = desc.Length,
                 ZIndex = desc.Layer,
-                Uri = RandomFileNameGenerator.GenerateUri(scene.Uri!, EditorConstants.ElementFileExtension)
             };
+            element.Uri = ElementFileNaming.GetUri(scene.Uri!, element.Id);
+            return element;
         }
 
         void SetAccentColor(Element element, string str)
@@ -295,7 +296,7 @@ internal sealed class ElementAdderImpl(EditViewModel context) : IElementAdder
             return;
         }
 
-        newElement.Uri = RandomFileNameGenerator.GenerateUri(scene.Uri!, EditorConstants.ElementFileExtension);
+        newElement.Uri = ElementFileNaming.GetUri(scene.Uri!, newElement.Id);
 
         CoreSerializer.StoreToUri(newElement, newElement.Uri!);
         scene.AddChild(newElement);
