@@ -696,6 +696,9 @@ public sealed class FilterEffectContext : IDisposable
 
     internal void TransferResources() => _resourceState.Transfer();
 
+    internal void PrepareStandaloneResourcesForExecution()
+        => _resourceState.CommitStandaloneResources();
+
     internal static FilterEffectContext CreateLegacySegment(
         Rect bounds,
         float outputScale,
@@ -837,6 +840,18 @@ internal sealed class FilterEffectResourceState
         _transferred = true;
     }
 
+    public void CommitStandaloneResources()
+    {
+        if (_standaloneRegistry is null)
+            return;
+
+        foreach (RenderResource resource in _resources)
+        {
+            if (resource.RegistrationState == RenderResourceRegistrationState.Pending)
+                _standaloneRegistry.Commit(resource);
+        }
+    }
+
     public void ReleaseReference()
     {
         if (_references <= 0)
@@ -845,15 +860,14 @@ internal sealed class FilterEffectResourceState
         if (_references != 0)
             return;
 
-        try
+        if (_standaloneRegistry is not null)
         {
-            if (!_transferred)
-                RollbackTo(0);
+            _standaloneRegistry.Dispose();
+            return;
         }
-        finally
-        {
-            _standaloneRegistry?.Dispose();
-        }
+
+        if (!_transferred)
+            RollbackTo(0);
     }
 
     private void ThrowIfTransferred()

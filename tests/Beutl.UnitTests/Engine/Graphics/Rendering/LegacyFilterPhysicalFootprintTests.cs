@@ -159,56 +159,18 @@ public sealed class LegacyFilterPhysicalFootprintTests
     }
 
     [Test]
-    public void InvertIdentity_ApronBackedInput_PreservesCompleteBacking()
+    public void InvertIdentity_ApronBackedInput_PreservesSemanticPixels()
     {
-        var bounds = new Rect(1, 1, 10, 10);
-        var deviceBounds = new PixelRect(0, 0, 12, 12);
-        using var backing = new CpuRenderTarget(deviceBounds.Width, deviceBounds.Height);
-        DrawTestContent(backing.Value.Canvas, 1, 1, 1, separatedParts: true);
-        backing.Value.Canvas.Flush();
-        using Bitmap before = backing.Snapshot();
-        ushort[] expected = before.GetPixelSpan<ushort>().ToArray();
-        using EffectTargets targets = CreateTargets(backing, bounds, deviceBounds);
         var effect = new Invert();
         effect.Amount.CurrentValue = 0;
 
-        ApplyCustomDirect(effect, bounds, targets);
-
-        EffectTarget actual = targets.Single();
-        using Bitmap after = actual.RenderTarget!.Snapshot();
-        Assert.Multiple(() =>
-        {
-            Assert.That(actual.DeviceBounds, Is.EqualTo(deviceBounds));
-            Assert.That(actual.RasterBounds, Is.EqualTo(deviceBounds.ToRect(1)));
-            Assert.That(after.GetPixelSpan<ushort>().SequenceEqual(expected), Is.True,
-                "a same-bounds SKSL effect must preserve and map the complete apron backing");
-        });
+        AssertSameBoundsEffectApronInteriorMatches(effect, inset: 0);
     }
 
     [Test]
-    public void ColorShiftZeroOffsets_ApronBackedInput_PreservesCompleteBacking()
+    public void ColorShiftZeroOffsets_ApronBackedInput_PreservesSemanticPixels()
     {
-        var bounds = new Rect(1, 1, 10, 10);
-        var deviceBounds = new PixelRect(0, 0, 12, 12);
-        using var backing = new CpuRenderTarget(deviceBounds.Width, deviceBounds.Height);
-        DrawTestContent(backing.Value.Canvas, 1, 1, 1, separatedParts: true);
-        backing.Value.Canvas.Flush();
-        using Bitmap before = backing.Snapshot();
-        ushort[] expected = before.GetPixelSpan<ushort>().ToArray();
-        using EffectTargets targets = CreateTargets(backing, bounds, deviceBounds);
-
-        ApplyCustomDirect(new ColorShift(), bounds, targets);
-
-        EffectTarget actual = targets.Single();
-        using Bitmap after = actual.RenderTarget!.Snapshot();
-        Assert.Multiple(() =>
-        {
-            Assert.That(actual.Bounds, Is.EqualTo(bounds));
-            Assert.That(actual.DeviceBounds, Is.EqualTo(deviceBounds));
-            Assert.That(actual.RasterBounds, Is.EqualTo(deviceBounds.ToRect(1)));
-            Assert.That(after.GetPixelSpan<ushort>().SequenceEqual(expected), Is.True,
-                "zero offsets must take the same-bounds path and preserve the complete backing");
-        });
+        AssertSameBoundsEffectApronInteriorMatches(new ColorShift(), inset: 0);
     }
 
     [Test]
@@ -272,6 +234,24 @@ public sealed class LegacyFilterPhysicalFootprintTests
 
         Assert.That(throughLegacyEffect.SequenceEqual(direct), Is.True,
             "a pixel-aligned scale-1 legacy output must not be Mitchell-resampled");
+    }
+
+    [Test]
+    public void MaterializeLegacyTarget_MovedLegacyOutputBeforeWholeSource_IsPixelExact()
+    {
+        var translation = new Vector(20, 30);
+        (Rect Bounds, ushort[] Pixels) origin = RasterizeMaterializedLegacyTranslation(default);
+        (Rect Bounds, ushort[] Pixels) translated = RasterizeMaterializedLegacyTranslation(translation);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(translated.Bounds, Is.EqualTo(origin.Bounds.Translate(translation)));
+            Assert.That(translated.Pixels, Has.Length.EqualTo(origin.Pixels.Length));
+            Assert.That(translated.Pixels.SequenceEqual(origin.Pixels), Is.True,
+                "production legacy materialization must copy a translated pixel-aligned backing without resampling; "
+                + DescribePixelDifference(origin.Pixels, translated.Pixels));
+            Assert.That(origin.Pixels, Has.Some.Not.Zero);
+        });
     }
 
     [TestCase(false)]
@@ -402,7 +382,54 @@ public sealed class LegacyFilterPhysicalFootprintTests
             Assert.That(translated.Bounds, Is.EqualTo(origin.Bounds.Translate(translation)));
             Assert.That(translated.RasterBounds, Is.EqualTo(origin.RasterBounds.Translate(translation)));
             Assert.That(translated.Pixels.SequenceEqual(origin.Pixels), Is.True,
-                "mapped SKSL input coordinates must follow current RasterBounds rather than immutable DeviceBounds");
+                "mapped SKSL input coordinates must follow current RasterBounds rather than immutable DeviceBounds; "
+                + DescribePixelDifference(origin.Pixels, translated.Pixels));
+        });
+    }
+
+    [Test]
+    public void WholeSourceIdentity_MovedSource_PreservesPixelAlignedBacking()
+    {
+        const string shader =
+            """
+            uniform shader src;
+
+            half4 main(float2 coord) {
+                return src.eval(coord);
+            }
+            """;
+        var allocationBounds = new Rect(5.25f, 6.5f, 10, 10);
+        var translation = new Vector(20, 30);
+        PixelRect deviceBounds = PixelRect.FromRect(allocationBounds, 1);
+        using CpuRenderTarget backing = CreatePatternRenderTarget(
+            deviceBounds.Width,
+            deviceBounds.Height);
+        var effect = new WorkingScaleProbeEffect(static context =>
+            context.Shader(ShaderDescription.WholeSource(
+                shader,
+                RenderBoundsContract.Identity)));
+
+        TargetSnapshot origin = ApplyMovedEffect(
+            effect,
+            allocationBounds,
+            allocationBounds,
+            backing,
+            deviceBounds);
+        TargetSnapshot translated = ApplyMovedEffect(
+            effect,
+            allocationBounds,
+            allocationBounds.Translate(translation),
+            backing,
+            deviceBounds);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(translated.Bounds, Is.EqualTo(origin.Bounds.Translate(translation)));
+            Assert.That(translated.RasterBounds, Is.EqualTo(origin.RasterBounds.Translate(translation)));
+            Assert.That(translated.Pixels.SequenceEqual(origin.Pixels), Is.True,
+                "normalizing a translated pixel-aligned input must copy its backing without resampling; "
+                + DescribePixelDifference(origin.Pixels, translated.Pixels));
+            Assert.That(origin.Pixels, Has.Some.Not.Zero);
         });
     }
 
@@ -705,6 +732,50 @@ public sealed class LegacyFilterPhysicalFootprintTests
         }
     }
 
+    private static (Rect Bounds, ushort[] Pixels) RasterizeMaterializedLegacyTranslation(
+        Vector translation)
+    {
+        var effect = new WorkingScaleProbeEffect(context =>
+        {
+            context.CustomEffect(
+                translation,
+                static (offset, execution) =>
+                {
+                    foreach (EffectTarget target in execution.Targets)
+                        target.Bounds = target.Bounds.Translate(offset);
+                },
+                static (offset, bounds) => bounds.Translate(offset));
+            context.Shader(ShaderDescription.WholeSource(
+                """
+                uniform shader src;
+
+                half4 main(float2 coord) {
+                    return src.eval(coord);
+                }
+                """,
+                RenderBoundsContract.Identity));
+        });
+        using FilterEffect.Resource resource = effect.ToResource(CompositionContext.Default);
+        using var pipeline = ScaleRecordingTestHelper.Pipeline(
+            new PixelExactLegacySourceNode(),
+            new FilterEffectRenderNode(resource));
+        using var renderer = new RenderNodeRenderer(
+            pipeline,
+            new RenderNodeRendererOptions
+            {
+                Intent = RenderIntent.Delivery,
+                OutputScale = 1,
+                MaxWorkingScale = 1,
+                UseRenderCache = false,
+                TargetFactory = new TrackingTargetFactory(),
+            });
+
+        using RenderNodeRasterization rasterization = renderer.Rasterize();
+        return (
+            rasterization.Bounds,
+            rasterization.Bitmap!.GetPixelSpan<ushort>().ToArray());
+    }
+
     private static void AssertApronEffectMatchesTight(
         FilterEffect effect,
         bool separatedParts = false,
@@ -824,7 +895,8 @@ public sealed class LegacyFilterPhysicalFootprintTests
         {
             Assert.That(tight.Bounds, Is.EqualTo(apron.Bounds));
             Assert.That(tight.DeviceBounds, Is.EqualTo(tightDeviceBounds));
-            Assert.That(apron.DeviceBounds, Is.EqualTo(apronDeviceBounds));
+            Assert.That(apron.DeviceBounds, Is.EqualTo(tightDeviceBounds));
+            Assert.That(apron.RasterBounds, Is.EqualTo(tight.RasterBounds));
             Assert.That(equal, Is.True, difference);
         });
     }
@@ -862,7 +934,7 @@ public sealed class LegacyFilterPhysicalFootprintTests
         float workingScale = 1)
     {
         using EffectTargets targets = CreateTargets(backing, bounds, deviceBounds, sourceScale);
-        ApplyCustomDirect(effect, bounds, targets, workingScale);
+        ApplyDirect(effect, bounds, targets, workingScale);
 
         var result = new TargetSnapshot[targets.Count];
         for (int index = 0; index < targets.Count; index++)
@@ -888,7 +960,7 @@ public sealed class LegacyFilterPhysicalFootprintTests
     {
         using EffectTargets targets = CreateTargets(backing, allocationBounds, deviceBounds);
         targets[0].Bounds = currentBounds;
-        ApplyCustomDirect(effect, currentBounds, targets);
+        ApplyDirect(effect, currentBounds, targets);
 
         EffectTarget target = targets.Single();
         using Bitmap bitmap = target.RenderTarget!.Snapshot();
@@ -922,10 +994,14 @@ public sealed class LegacyFilterPhysicalFootprintTests
             bitmap.GetPixelSpan<ushort>().ToArray());
     }
 
-    private static void ApplyDirect(FilterEffect effect, Rect bounds, EffectTargets targets)
+    private static void ApplyDirect(
+        FilterEffect effect,
+        Rect bounds,
+        EffectTargets targets,
+        float workingScale = 1)
     {
         using FilterEffect.Resource resource = effect.ToResource(CompositionContext.Default);
-        using var context = new FilterEffectContext(bounds, outputScale: 1, workingScale: 1);
+        using var context = new FilterEffectContext(bounds, outputScale: 1, workingScale);
         context.ApplyTransactional(effect, resource);
         using var builder = new SKImageFilterBuilder();
         using var activator = new FilterEffectActivator(
@@ -934,7 +1010,7 @@ public sealed class LegacyFilterPhysicalFootprintTests
             RenderIntent.Preview,
             RenderRequestPurpose.Auxiliary,
             outputScale: 1,
-            workingScale: 1,
+            workingScale,
             maxWorkingScale: 1);
         activator.Apply(context);
         activator.Flush(false);

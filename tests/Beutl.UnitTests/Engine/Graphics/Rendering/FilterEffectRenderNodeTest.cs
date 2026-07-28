@@ -3,6 +3,7 @@ using Beutl.Graphics;
 using Beutl.Graphics.Effects;
 using Beutl.Graphics.Rendering;
 using Beutl.Media;
+using SkiaSharp;
 
 namespace Beutl.UnitTests.Engine.Graphics.Rendering;
 
@@ -51,6 +52,30 @@ public class FilterEffectRenderNodeTest
     }
 
     [Test]
+    public void CurrentPixelBuiltIns_ExecuteAsOneFusedShaderRun()
+    {
+        var diagnostics = new RenderPipelineDiagnosticsState();
+        using Bitmap disabled = RenderCurrentPixelBuiltIns(
+            FusionMode.Disabled,
+            diagnostics: null,
+            out _);
+        using Bitmap enabled = RenderCurrentPixelBuiltIns(
+            FusionMode.Enabled,
+            diagnostics,
+            out RenderExecutionStatistics statistics);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(enabled.GetPixelSpan().SequenceEqual(disabled.GetPixelSpan()), Is.True);
+            Assert.That(enabled.GetPixelSpan().ToArray(), Has.Some.Not.Zero);
+            Assert.That(statistics.ShaderRunExecutions, Is.EqualTo(1));
+            Assert.That(statistics.ShaderStageExecutions, Is.EqualTo(2));
+            Assert.That(statistics.FusedShaderRunExecutions, Is.EqualTo(1));
+            Assert.That(diagnostics.Latest.HasOpaqueExternalWork, Is.False);
+        });
+    }
+
+    [Test]
     public void Update_ShouldReturnFalseForSameFilterEffect()
     {
         var effect = new Blur();
@@ -94,4 +119,52 @@ public class FilterEffectRenderNodeTest
 
     private static RenderNodeRenderer CreateRenderer(RenderNode node)
         => new(node, new RenderNodeRendererOptions { UseRenderCache = false });
+
+    private static Bitmap RenderCurrentPixelBuiltIns(
+        FusionMode fusionMode,
+        RenderPipelineDiagnosticsState? diagnostics,
+        out RenderExecutionStatistics statistics)
+    {
+        var group = new FilterEffectGroup
+        {
+            Children =
+            {
+                new Gamma(),
+                new Invert(),
+            },
+        };
+        using var node = CreateNode(group.ToResource(CompositionContext.Default));
+        using var renderer = new RenderNodeRenderer(
+            node,
+            new RenderNodeRendererOptions
+            {
+                UseRenderCache = false,
+                TargetFactory = new CpuTargetFactory(),
+                FusionMode = fusionMode,
+                RenderPurpose = RenderRequestPurpose.Frame,
+                Diagnostics = diagnostics,
+            });
+        using RenderNodeRasterization rasterization = renderer.Rasterize();
+        statistics = renderer.LastExecutionStatistics;
+        return rasterization.Bitmap?.Clone()
+               ?? throw new InvalidOperationException("The filter-effect render produced no bitmap.");
+    }
+
+    private sealed class CpuTargetFactory : IRenderTargetFactory
+    {
+        public RenderTarget Create(PixelSize deviceSize)
+        {
+            SKSurface surface = SKSurface.Create(new SKImageInfo(
+                    deviceSize.Width,
+                    deviceSize.Height,
+                    SKColorType.RgbaF16,
+                    SKAlphaType.Premul,
+                    SKColorSpace.CreateSrgbLinear()))
+                ?? throw new InvalidOperationException("Could not create the CPU filter-effect test surface.");
+            return new CpuRenderTarget(surface, deviceSize);
+        }
+    }
+
+    private sealed class CpuRenderTarget(SKSurface surface, PixelSize size)
+        : RenderTarget(surface, size.Width, size.Height);
 }

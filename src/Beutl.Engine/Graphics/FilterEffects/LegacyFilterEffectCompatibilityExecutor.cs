@@ -343,7 +343,13 @@ internal static class LegacyFilterEffectCompatibilityExecutor
                        -normalized.RasterBounds.X,
                        -normalized.RasterBounds.Y)))
             {
-                canvas.DrawRenderTargetScaledWithoutFlush(sourceTarget, source.RasterBounds);
+                if (!canvas.TryDrawRenderTargetPixelAlignedWithoutFlush(
+                        sourceTarget,
+                        source.RasterBounds,
+                        source.Scale.Value))
+                {
+                    canvas.DrawRenderTargetScaledWithoutFlush(sourceTarget, source.RasterBounds);
+                }
             }
 
             normalized.OriginalBounds = source.Bounds;

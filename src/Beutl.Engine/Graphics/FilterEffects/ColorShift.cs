@@ -1,10 +1,9 @@
 ﻿using System.ComponentModel.DataAnnotations;
+using System.Numerics;
 using Beutl.Engine;
 using Beutl.Graphics.Rendering;
 using Beutl.Language;
-using Beutl.Logging;
 using Beutl.Media;
-using Microsoft.Extensions.Logging;
 using SkiaSharp;
 
 namespace Beutl.Graphics.Effects;
@@ -12,42 +11,28 @@ namespace Beutl.Graphics.Effects;
 [Display(Name = nameof(GraphicsStrings.ColorShift), ResourceType = typeof(GraphicsStrings))]
 public partial class ColorShift : FilterEffect
 {
-    private static readonly ILogger s_logger = Log.CreateLogger<ColorShift>();
-    private static readonly SKSLShader? s_shader;
+    private const string ShaderSource =
+        """
+        uniform shader src;
+        uniform float2 redOffset;
+        uniform float2 greenOffset;
+        uniform float2 blueOffset;
+        uniform float2 alphaOffset;
 
-    static ColorShift()
-    {
-        string sksl =
-            """
-            uniform shader src;
-            uniform float2 redOffset;
-            uniform float2 greenOffset;
-            uniform float2 blueOffset;
-            uniform float2 alphaOffset;
+        half4 main(float2 fragCoord) {
+            float2 redCoord   = fragCoord - redOffset;
+            float2 greenCoord = fragCoord - greenOffset;
+            float2 blueCoord  = fragCoord - blueOffset;
+            float2 alphaCoord = fragCoord - alphaOffset;
 
-            half4 main(float2 fragCoord) {
-                // 出力画素座標 fragCoord に対し、各色成分のサンプル位置を計算
-                float2 redCoord   = fragCoord - redOffset;
-                float2 greenCoord = fragCoord - greenOffset;
-                float2 blueCoord  = fragCoord - blueOffset;
-                float2 alphaCoord = fragCoord - alphaOffset;
+            float red   = src.eval(redCoord).r;
+            float green = src.eval(greenCoord).g;
+            float blue  = src.eval(blueCoord).b;
+            float alpha = src.eval(alphaCoord).a;
 
-                // 各色成分をそれぞれのオフセット位置からサンプル
-                // ※ サンプラーは通常 RGBA 順で色成分を返します
-                float red   = src.eval(redCoord).r;
-                float green = src.eval(greenCoord).g;
-                float blue  = src.eval(blueCoord).b;
-                float alpha = src.eval(alphaCoord).a;
-
-                return half4(red, green, blue, alpha);
-            }
-            """;
-
-        if (!SKSLShader.TryCreate(sksl, out s_shader, out string? errorText))
-        {
-            s_logger.LogError("Failed to compile SKSL: {ErrorText}", errorText);
+            return half4(red, green, blue, alpha);
         }
-    }
+        """;
 
     public ColorShift()
     {
@@ -69,89 +54,63 @@ public partial class ColorShift : FilterEffect
     public override void ApplyTo(FilterEffectContext context, FilterEffect.Resource resource)
     {
         var r = (Resource)resource;
-        if (s_shader is null)
-        {
-            throw new InvalidOperationException("Failed to compile SKSL.");
-        }
+        var boundsState = new ColorShiftBoundsState(
+            r.RedOffset,
+            r.GreenOffset,
+            r.BlueOffset,
+            r.AlphaOffset);
+        RenderBoundsContract bounds = RenderBoundsContract.Create(
+            boundsState.TransformBounds,
+            boundsState.GetRequiredInputBounds,
+            structuralKey: typeof(ColorShiftBoundsState));
 
-        context.CustomEffect(
-            (r.RedOffset, r.GreenOffset, r.BlueOffset, r.AlphaOffset),
-            OnApply,
-            TransformBoundsCore);
+        context.Shader(ShaderDescription.WholeSource(
+            ShaderSource,
+            bounds,
+            bindings =>
+            {
+                BindOffset(bindings, "redOffset", r.RedOffset);
+                BindOffset(bindings, "greenOffset", r.GreenOffset);
+                BindOffset(bindings, "blueOffset", r.BlueOffset);
+                BindOffset(bindings, "alphaOffset", r.AlphaOffset);
+            },
+            SKShaderTileMode.Decal));
     }
 
-    private static Rect TransformBoundsCore(
-        (PixelPoint RedOffset, PixelPoint GreenOffset, PixelPoint BlueOffset, PixelPoint AlphaOffset) data,
-        Rect bounds)
+    private static void BindOffset(ShaderBindingBuilder bindings, string name, PixelPoint value)
     {
-        return bounds.Translate(data.RedOffset.ToPoint(1))
-            .Union(bounds.Translate(data.GreenOffset.ToPoint(1)))
-            .Union(bounds.Translate(data.BlueOffset.ToPoint(1)))
-            .Union(bounds.Translate(data.AlphaOffset.ToPoint(1)));
+        bindings.Uniform(
+            name,
+            new Vector2(value.X, value.Y),
+            BindScaledOffset,
+            structuralKey: typeof(ColorShift),
+            runtimeIdentity: new RenderRuntimeIdentity("ColorShift.offset"));
     }
 
-    private static void OnApply(
-        (PixelPoint RedOffset, PixelPoint GreenOffset, PixelPoint BlueOffset, PixelPoint AlphaOffset) data,
-        CustomFilterEffectContext context)
+    private static void BindScaledOffset(
+        ShaderUniformWriter writer,
+        Vector2 value,
+        ShaderExecutionContext context)
+        => writer.Set(value * context.WorkingScale);
+
+    private readonly record struct ColorShiftBoundsState(
+        PixelPoint RedOffset,
+        PixelPoint GreenOffset,
+        PixelPoint BlueOffset,
+        PixelPoint AlphaOffset)
     {
-        if (s_shader is null) return;
-        for (int i = 0; i < context.Targets.Count; i++)
-        {
-            // Not `using`: the skip paths below keep this target in context.Targets[i], so it must
-            // only be disposed after the slot is replaced with the shifted output.
-            EffectTarget effectTarget = context.Targets[i];
-            RenderTarget? renderTarget = effectTarget.RenderTarget;
-            if (renderTarget is null)
-            {
-                continue;
-            }
+        public Rect TransformBounds(Rect bounds)
+            => bounds.Translate(RedOffset.ToPoint(1))
+                .Union(bounds.Translate(GreenOffset.ToPoint(1)))
+                .Union(bounds.Translate(BlueOffset.ToPoint(1)))
+                .Union(bounds.Translate(AlphaOffset.ToPoint(1)));
 
-            var bounds = TransformBoundsCore(data, effectTarget.Bounds);
+        public Rect GetRequiredInputBounds(Rect bounds)
+            => bounds.Translate(ToInverseOffset(RedOffset))
+                .Union(bounds.Translate(ToInverseOffset(GreenOffset)))
+                .Union(bounds.Translate(ToInverseOffset(BlueOffset)))
+                .Union(bounds.Translate(ToInverseOffset(AlphaOffset)));
 
-            using var image = renderTarget.Value.Snapshot();
-            if (image is null)
-            {
-                // Delivery (MaxWorkingScale == +inf) must not silently ship an unshifted layer;
-                // preview keeps the source pixels.
-                if (float.IsPositiveInfinity(context.MaxWorkingScale))
-                {
-                    throw new InvalidOperationException(
-                        $"ColorShift snapshot failed for target {i}; the GPU surface could not be read back.");
-                }
-
-                continue;
-            }
-
-            using var baseShader = image.ToShader(SKShaderTileMode.Decal, SKShaderTileMode.Decal);
-
-            EffectTarget output = bounds == effectTarget.Bounds
-                ? context.CreateTargetLike(effectTarget)
-                : context.CreateTarget(bounds);
-            try
-            {
-                var builder = s_shader.CreateBuilder();
-                float w = output.Scale.Value;
-                builder.Uniforms["redOffset"] =
-                    new SKPoint(data.RedOffset.X * w, data.RedOffset.Y * w);
-                builder.Uniforms["greenOffset"] =
-                    new SKPoint(data.GreenOffset.X * w, data.GreenOffset.Y * w);
-                builder.Uniforms["blueOffset"] =
-                    new SKPoint(data.BlueOffset.X * w, data.BlueOffset.Y * w);
-                builder.Uniforms["alphaOffset"] =
-                    new SKPoint(data.AlphaOffset.X * w, data.AlphaOffset.Y * w);
-
-                using SKShader mappedSource =
-                    context.CreateMappedInputShader(effectTarget, output, baseShader);
-                builder.Children["src"] = mappedSource;
-                s_shader.RenderToTarget(context, builder, output);
-                context.Targets[i] = output;
-                effectTarget.Dispose();
-            }
-            catch
-            {
-                output.Dispose();
-                throw;
-            }
-        }
+        private static Point ToInverseOffset(PixelPoint value) => new(-value.X, -value.Y);
     }
 }

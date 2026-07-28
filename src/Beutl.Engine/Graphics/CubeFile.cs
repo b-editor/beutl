@@ -245,6 +245,7 @@ public partial class CubeFile : IEquatable<CubeFile>
             }
         }
 
+        reader.DiscardBufferedData();
         reader.BaseStream.Position = 0;
     }
 

@@ -407,6 +407,7 @@ public sealed class FilterEffectActivator : IDisposable
     public void Apply(FilterEffectContext context)
     {
         if (CurrentTargets.Count == 0) return;
+        context.PrepareStandaloneResourcesForExecution();
 
         foreach (IFEItem item in context._items)
         {

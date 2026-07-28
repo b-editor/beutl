@@ -212,6 +212,10 @@ public class CubeFileTests
             Assert.That(cube.Dimention, Is.EqualTo(CubeFileDimension.OneDimension));
             Assert.That(cube.Size, Is.EqualTo(4));
             Assert.That(cube.Data, Has.Length.EqualTo(4));
+            Assert.That(cube.Data[0], Is.EqualTo(Vector3.Zero));
+            Assert.That(cube.Data[1], Is.EqualTo(new Vector3(0.33f)));
+            Assert.That(cube.Data[2], Is.EqualTo(new Vector3(0.66f)));
+            Assert.That(cube.Data[3], Is.EqualTo(Vector3.One));
             Assert.That(cube.Min, Is.EqualTo(Vector3.Zero));
             Assert.That(cube.Max, Is.EqualTo(new Vector3(1f, 1f, 1f)));
         });

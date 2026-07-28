@@ -2169,7 +2169,13 @@ internal sealed class RenderRequestExecutor
                            -normalized.RasterBounds.X,
                            -normalized.RasterBounds.Y)))
                 {
-                    canvas.DrawRenderTargetScaledWithoutFlush(renderTarget, target.RasterBounds);
+                    if (!canvas.TryDrawRenderTargetPixelAlignedWithoutFlush(
+                            renderTarget,
+                            target.RasterBounds,
+                            target.Scale.Value))
+                    {
+                        canvas.DrawRenderTargetScaledWithoutFlush(renderTarget, target.RasterBounds);
+                    }
                 }
 
                 succeeded = true;

@@ -1,47 +1,31 @@
 ﻿using System.ComponentModel.DataAnnotations;
-using System.Reactive;
+using System.Numerics;
 
 using Beutl.Engine;
 using Beutl.Language;
-using Beutl.Logging;
 using Beutl.Media;
-using Microsoft.Extensions.Logging;
-using SkiaSharp;
 
 namespace Beutl.Graphics.Effects;
 
 [Display(Name = nameof(GraphicsStrings.Negaposi), ResourceType = typeof(GraphicsStrings))]
 public partial class Negaposi : FilterEffect
 {
-    private static readonly ILogger s_logger = Log.CreateLogger<Negaposi>();
-    private static readonly SKSLShader? s_shader;
+    private const string ShaderSource =
+        """
+        uniform float3 negaColor;
+        uniform float strength;
 
-    static Negaposi()
-    {
-        string sksl =
-            """
-            uniform shader src;
-            uniform float3 negaColor;
-            uniform float strength;
+        half4 apply(half4 color) {
+            float alpha = color.a;
+            if (alpha <= 0.0001) return half4(0.0);
+            float3 rgb = color.rgb / alpha;
 
-            half4 main(float2 coord) {
-                half4 c = src.eval(coord);
-                float alpha = c.a;
-                if (alpha <= 0.0001) return half4(0.0);
-                float3 rgb = c.rgb / alpha;
+            float3 negated = negaColor - rgb;
+            float3 result = mix(rgb, negated, strength);
 
-                float3 negated = negaColor - rgb;
-                float3 result = mix(rgb, negated, strength);
-
-                return half4(half3(result * alpha), half(alpha));
-            }
-            """;
-
-        if (!SKSLShader.TryCreate(sksl, out s_shader, out string? errorText))
-        {
-            s_logger.LogError("Failed to compile negaposi shader: {ErrorText}", errorText);
+            return half4(half3(result * alpha), half(alpha));
         }
-    }
+        """;
 
     public Negaposi()
     {
@@ -63,53 +47,18 @@ public partial class Negaposi : FilterEffect
 
     public override void ApplyTo(FilterEffectContext context, FilterEffect.Resource resource)
     {
-        if (s_shader is null)
-        {
-            throw new InvalidOperationException("Failed to compile SKSL.");
-        }
-
         var r = (Resource)resource;
-        context.CustomEffect(
-            (r, Unit.Default),
-            (t, c) => OnApply(t.r, c),
-            static (_, rect) => rect);
-    }
-
-    private static void OnApply(Resource data, CustomFilterEffectContext context)
-    {
-        if (s_shader is null) return;
-
-        float negR = Color.SrgbToLinear(data.Red / 255f);
-        float negG = Color.SrgbToLinear(data.Green / 255f);
-        float negB = Color.SrgbToLinear(data.Blue / 255f);
-        float strength = data.Strength / 100f;
-
-        for (int i = 0; i < context.Targets.Count; i++)
-        {
-            using var target = context.Targets[i];
-            var renderTarget = target.RenderTarget!;
-
-            using SKImage image = renderTarget.Value.Snapshot();
-            using SKShader baseShader = image.ToShader(SKShaderTileMode.Decal, SKShaderTileMode.Decal);
-            var builder = s_shader.CreateBuilder();
-
-            builder.Uniforms["negaColor"] = new SKColorF(negR, negG, negB);
-            builder.Uniforms["strength"] = strength;
-
-            EffectTarget output = context.CreateTargetLike(target);
-            try
+        context.Shader(ShaderDescription.CurrentPixel(
+            ShaderSource,
+            bindings =>
             {
-                using SKShader mappedSource =
-                    context.CreateMappedInputShader(target, output, baseShader);
-                builder.Children["src"] = mappedSource;
-                s_shader.RenderToTarget(context, builder, output);
-                context.Targets[i] = output;
-            }
-            catch
-            {
-                output.Dispose();
-                throw;
-            }
-        }
+                bindings.Uniform(
+                    "negaColor",
+                    new Vector3(
+                        Color.SrgbToLinear(r.Red / 255f),
+                        Color.SrgbToLinear(r.Green / 255f),
+                        Color.SrgbToLinear(r.Blue / 255f)));
+                bindings.Uniform("strength", r.Strength / 100f);
+            }));
     }
 }
