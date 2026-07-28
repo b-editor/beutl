@@ -187,13 +187,14 @@ public sealed class FilterEffectActivator : IDisposable
                 continue;
 
             flushTargets.Add(target, flushTarget);
+            Rect budgetBounds = ResolveDeviceRoundingSource(target, flushTarget, hasFilter);
             float fit = RenderScaleUtilities.ClampWorkingScaleToExactBufferBudget(
-                flushTarget.PhysicalBounds, WorkingScale);
+                budgetBounds, WorkingScale);
             if (fit < WorkingScale)
             {
                 s_logger.LogWarning(
                     "Working scale clamped {From} -> {To} to keep an effect buffer within the GPU axis limit (bounds {Bounds}).",
-                    WorkingScale, fit, flushTarget.PhysicalBounds);
+                    WorkingScale, fit, budgetBounds);
                 WorkingScale = fit;
             }
         }
@@ -232,15 +233,14 @@ public sealed class FilterEffectActivator : IDisposable
             if (!hasFilter && CanReuseWithoutFilter(target, w))
                 continue;
 
-            PixelRect allocationDeviceBounds = CustomFilterEffectContext.DeviceBufferBounds(
-                flushTarget.PhysicalBounds, w);
-            PixelRect deviceBounds = hasFilter
-                ? PublishFilteredDeviceBounds(target, allocationDeviceBounds, w)
-                : allocationDeviceBounds;
+            PixelRect deviceBounds = CustomFilterEffectContext.DeviceBufferBounds(
+                ResolveDeviceRoundingSource(target, flushTarget, hasFilter), w);
+            if (hasFilter)
+                VerifyFilteredDeviceBounds(target, deviceBounds, w);
             Rect rasterBounds = deviceBounds.ToRect(w);
             using RenderTarget? surface = RenderTarget.Create(
-                allocationDeviceBounds.Width,
-                allocationDeviceBounds.Height);
+                deviceBounds.Width,
+                deviceBounds.Height);
 
             if (surface != null)
             {
@@ -324,24 +324,31 @@ public sealed class FilterEffectActivator : IDisposable
                 .Union(localSemanticBounds));
     }
 
-    private static PixelRect PublishFilteredDeviceBounds(
+    // The filtered union is built in OriginalBounds' local space, but device rounding must happen once
+    // in global space: a locally rounded rect re-anchored by a separately rounded offset cannot reproduce
+    // the rounding the semantic device bounds use. The explicit Bounds union keeps containment exact
+    // instead of relying on the local round trip being bit-exact in float.
+    private static Rect ResolveDeviceRoundingSource(
         EffectTarget target,
-        PixelRect localDeviceBounds,
+        FlushTarget flushTarget,
+        bool hasFilter)
+        => hasFilter
+            ? flushTarget.PhysicalBounds
+                .Translate(target.Bounds.Position - target.OriginalBounds.Position)
+                .Union(target.Bounds)
+            : flushTarget.PhysicalBounds;
+
+    private static void VerifyFilteredDeviceBounds(
+        EffectTarget target,
+        PixelRect deviceBounds,
         float density)
     {
         PixelRect semanticDeviceBounds = PixelRect.FromRect(target.Bounds, density);
-        Vector localToGlobalOffset = target.Bounds.Position - target.OriginalBounds.Position;
-        PixelPoint publishedOrigin = localDeviceBounds.Position + new PixelPoint(
-            (int)MathF.Floor(localToGlobalOffset.X * density),
-            (int)MathF.Floor(localToGlobalOffset.Y * density));
-        var result = new PixelRect(publishedOrigin, localDeviceBounds.Size);
-        if (!Contains(result, semanticDeviceBounds))
+        if (!Contains(deviceBounds, semanticDeviceBounds))
         {
             throw new InvalidOperationException(
                 "A filtered physical footprint must contain its semantic device bounds.");
         }
-
-        return result;
     }
 
     private static bool CanReuseWithoutFilter(EffectTarget target, float density)

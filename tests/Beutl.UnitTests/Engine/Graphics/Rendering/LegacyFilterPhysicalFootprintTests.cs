@@ -1061,6 +1061,35 @@ public sealed class LegacyFilterPhysicalFootprintTests
         return renderTarget;
     }
 
+    // OriginalBounds' origin is barely negative, so device rounding truncates it toward zero and the
+    // local footprint starts a pixel inside the content. The filter must expand by less than that pixel,
+    // and the local-to-global offset must be a whole number, for the re-anchored footprint to land past
+    // the semantic origin instead of covering it.
+    [Test]
+    public void NegativeLocalOrigin_FilteredFootprintStillContainsSemanticDeviceBounds()
+    {
+        var originalBounds = new Rect(-0.02f, -0.02f, 4, 4);
+        var bounds = new Rect(9.98f, 9.98f, 4, 4);
+        using CpuRenderTarget backing = CreatePatternRenderTarget(5, 5);
+        using var targets = new EffectTargets
+        {
+            new EffectTarget(backing, bounds, EffectiveScale.At(1), PixelRect.FromRect(bounds, 1))
+            {
+                OriginalBounds = originalBounds,
+            },
+        };
+
+        var effect = new WorkingScaleProbeEffect(static context => context.Blur(new Size(0.1f, 0.1f)));
+        ApplyDirect(effect, bounds, targets);
+
+        EffectTarget target = targets.Single();
+        PixelRect semantic = PixelRect.FromRect(target.Bounds, 1);
+        Assert.That(
+            Contains(target.DeviceBounds, semantic),
+            Is.True,
+            $"published {target.DeviceBounds} must contain semantic {semantic}");
+    }
+
     private static EffectTargets CreateTargets(
         RenderTarget backing,
         Rect bounds,
