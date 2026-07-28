@@ -134,9 +134,9 @@
 
 ## Phase 9: Polish & Cross-Cutting Concerns
 
-- [ ] T036 [P] R-8 stress test: scripted 1000-edit burst against a tracked temp project asserts a bounded number of `git status` invocations (watcher debounce + `GIT_OPTIONAL_LOCKS=0` hold) in tests/Beutl.UnitTests/Editor/VersionControl/RepositoryWatcherStressTests.cs
-- [ ] T037 [P] macOS native menu mirror for the new commands in src/Beutl/Views/MacWindow.axaml.cs and shortcut/palette completeness via `ContextCommandDefinition` in src/Beutl/Services/PrimitiveImpls/MainViewExtension.cs
-- [ ] T038 Verify SC-002/SC-003 measurably: one-property edit + save touches exactly one `.belm` (assert in a service test); snapshot timing on a 500-element fixture ≤ 2 s; history load ≤ 1 s for 200 commits (timed tests, generous CI margins)
+- [X] T036 [P] R-8 stress test: scripted 1000-edit burst against a tracked temp project asserts a bounded number of `git status` invocations (watcher debounce + `GIT_OPTIONAL_LOCKS=0` hold) in tests/Beutl.UnitTests/Editor/VersionControl/RepositoryWatcherStressTests.cs
+- [X] T037 [P] macOS native menu mirror for the new commands in src/Beutl/Views/MacWindow.axaml.cs and shortcut/palette completeness via `ContextCommandDefinition` in src/Beutl/Services/PrimitiveImpls/MainViewExtension.cs
+- [X] T038 Verify SC-002/SC-003 measurably: one-property edit + save touches exactly one `.belm` (assert in a service test); snapshot timing on a 500-element fixture ≤ 2 s; history load ≤ 1 s for 200 commits (timed tests, generous CI margins)
 - [ ] T039 `dotnet format Beutl.slnx` + `dotnet build Beutl.slnx` + `dotnet test Beutl.slnx -f net10.0 --settings coverlet.runsettings` all green; fix fallout
 - [ ] T040 Run the quickstart.md manual verification matrix (network/credential/LFS/macOS-discovery/notarization rows) and record results in the PR description; include the release-notes callout for the one-time Windows newline diff (R-10.4)
 
