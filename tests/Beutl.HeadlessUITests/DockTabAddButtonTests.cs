@@ -78,7 +78,9 @@ public class DockTabAddButtonTests
 
             Assert.Multiple(() =>
             {
-                Assert.That(addButtonBorder.BorderBrush, Is.Not.Null);
+                Assert.That(
+                    addButtonBorder.BorderBrush,
+                    Is.SameAs(addButtonBorder.FindResource("DockBorderSubtleBrush")));
                 Assert.That(addButtonBorder.BorderThickness.Bottom, Is.EqualTo(1));
                 Assert.That(button.Opacity, Is.EqualTo(0));
                 Assert.That(button.IsHitTestVisible, Is.True);
