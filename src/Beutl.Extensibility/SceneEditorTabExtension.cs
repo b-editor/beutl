@@ -18,6 +18,17 @@ public abstract class ToolTabExtension : ViewExtension
 {
     public abstract bool CanMultiple { get; }
 
+    /// <summary>
+    /// Gets whether the host reuses the same content control when this tool is deactivated and
+    /// activated again.
+    /// </summary>
+    /// <remarks>
+    /// Reused controls can still be unloaded from and loaded into the visual tree. State and
+    /// resources that must survive those transitions and require deterministic cleanup should be
+    /// owned by the <see cref="IToolContext"/>, which is disposed when its dockable closes.
+    /// </remarks>
+    public virtual bool ReuseContentAcrossActivation => false;
+
     public virtual string? Header => null;
 
     public virtual DockAnchor DefaultAnchor => DockAnchor.None;

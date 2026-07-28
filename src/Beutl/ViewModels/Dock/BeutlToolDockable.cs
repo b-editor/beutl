@@ -1,4 +1,5 @@
 ﻿using System.ComponentModel;
+using Avalonia.Controls;
 using Dock.Model.Inpc.Controls;
 using FluentAvalonia.UI.Controls;
 
@@ -39,6 +40,8 @@ public class BeutlToolDockable : Tool, IDisposable
 
     public EditViewModel EditViewModel { get; }
 
+    internal Control? ToolContent { get; set; }
+
     private void OnPropertyChanged(object? sender, PropertyChangedEventArgs e)
     {
         if (_isDisposed) return;
@@ -55,6 +58,7 @@ public class BeutlToolDockable : Tool, IDisposable
         PropertyChanged -= OnPropertyChanged;
         _isSelectedSubscription.Dispose();
         ToolContext.Dispose();
+        ToolContent = null;
     }
 
     private static string CreateId(IToolContext context)
