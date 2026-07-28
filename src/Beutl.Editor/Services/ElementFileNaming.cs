@@ -1,4 +1,4 @@
-namespace Beutl.Editor.Services;
+﻿namespace Beutl.Editor.Services;
 
 public static class ElementFileNaming
 {

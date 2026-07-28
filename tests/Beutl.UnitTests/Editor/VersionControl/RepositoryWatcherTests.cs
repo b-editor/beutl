@@ -1,4 +1,4 @@
-using Beutl.Editor.VersionControl;
+﻿using Beutl.Editor.VersionControl;
 using Microsoft.Extensions.Time.Testing;
 
 namespace Beutl.UnitTests.Editor.VersionControl;

@@ -1,4 +1,4 @@
-using System.Diagnostics;
+﻿using System.Diagnostics;
 using System.Text.RegularExpressions;
 using Beutl.Configuration;
 
@@ -96,26 +96,26 @@ public sealed partial class GitInstallationLocator
         switch (_platform)
         {
             case GitHostPlatform.MacOS:
-            {
-                bool commandLineToolsInstalled
-                    = await _probe.HasMacCommandLineToolsAsync(cancellationToken).ConfigureAwait(false);
-                foreach (string path in await _probe.FindOnPathAsync("git", cancellationToken).ConfigureAwait(false))
                 {
-                    if (!IsMacSystemGit(path) || commandLineToolsInstalled)
+                    bool commandLineToolsInstalled
+                        = await _probe.HasMacCommandLineToolsAsync(cancellationToken).ConfigureAwait(false);
+                    foreach (string path in await _probe.FindOnPathAsync("git", cancellationToken).ConfigureAwait(false))
                     {
-                        candidates.Add(path);
+                        if (!IsMacSystemGit(path) || commandLineToolsInstalled)
+                        {
+                            candidates.Add(path);
+                        }
                     }
-                }
 
-                if (commandLineToolsInstalled && _probe.FileExists("/usr/bin/git"))
-                {
-                    candidates.Add("/usr/bin/git");
-                }
+                    if (commandLineToolsInstalled && _probe.FileExists("/usr/bin/git"))
+                    {
+                        candidates.Add("/usr/bin/git");
+                    }
 
-                AddIfExists(candidates, "/opt/homebrew/bin/git");
-                AddIfExists(candidates, "/usr/local/bin/git");
-                break;
-            }
+                    AddIfExists(candidates, "/opt/homebrew/bin/git");
+                    AddIfExists(candidates, "/usr/local/bin/git");
+                    break;
+                }
 
             case GitHostPlatform.Windows:
                 candidates.AddRange(await _probe.FindOnPathAsync("git", cancellationToken).ConfigureAwait(false));

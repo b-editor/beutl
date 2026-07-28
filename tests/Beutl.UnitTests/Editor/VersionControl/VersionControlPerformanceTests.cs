@@ -1,4 +1,4 @@
-using System.Diagnostics;
+﻿using System.Diagnostics;
 using Beutl.Editor.VersionControl;
 
 namespace Beutl.UnitTests.Editor.VersionControl;

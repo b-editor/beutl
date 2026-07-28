@@ -1,4 +1,4 @@
-namespace Beutl.Editor.VersionControl;
+﻿namespace Beutl.Editor.VersionControl;
 
 public sealed class RepositoryWatcher : IDisposable
 {
