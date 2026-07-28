@@ -45,5 +45,7 @@ Return:
 - Concrete visual fix directives grouped into at most one next revision pass, or `human_advisory` after 2 revise iterations.
 - Minimal repair recommendations grouped by category.
 - Explicit statement of what, if anything, is actually blocking export (unreadable text or malformed structure only), kept separate from what you would change if it were your piece.
+- Whether the coordinator's own plan was kept: the deterministic gate never read it, so a piece can pass every check and still fail a promise it made to itself. Compare the contact sheet against the recorded cut-continuity and camera treatments by name.
+- When reviewing a finished piece, say whether you inspected frames pulled back out of the exported file rather than re-rendered from the scene. The deliverable is the file; encoding, frame rate, duration, and audio all happen after the last render.
 
 Do not provide general aesthetic feedback without tying it to a rendered still, storyboard contact sheet, motion metric, quality issue, or explicit user requirement.

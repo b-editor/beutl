@@ -75,7 +75,7 @@ Return:
 - Any source-grounding assumptions used, including evidence paths and resulting editing rule.
 - Motion variation verdict, including temporal and frame-coverage results, and any revision made after a failed result.
 - Tempo-rhythm verdict for high-tempo/BPM briefs, including required/actual event density, long foreground gap count, longest foreground gap, and any long-hold repair.
-- Plan-conformance summary: for each `quantitativePlanSheet` axis (shot count, edits per second, hold seconds per shot, foreground elements per shot), the planned target, the measured actual, and pass/fail, plus any rework done to close a shortfall.
+- Plan-conformance summary: per axis you planned (shot count, edits per second, hold seconds per shot, foreground elements per shot), the planned target, the measured actual, and the gap — plus whether you closed it or revised the plan. Include the cut-continuity and camera treatments you promised in Phase 0 and whether the contact sheet shows them; the gate never read your plan, so this is the only place a broken promise surfaces.
 - Decorative-shape and gradient-falloff verdicts, including any abstract light shapes or hard ambient gradients removed or repaired.
 - Element/Object structure verdict, including whether every ordinary Element has exactly one EngineObject.
 - Quality review verdict from `evaluate_edit_quality`, including any critical/major issues resolved or explicitly accepted.
