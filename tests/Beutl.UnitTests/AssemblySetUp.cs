@@ -1,4 +1,4 @@
-using Beutl.Configuration;
+﻿using Beutl.Configuration;
 using Beutl.Testing.Headless;
 
 namespace Beutl.UnitTests;
