@@ -67,7 +67,7 @@
                                           SelectedItem="{Binding ActiveDockable, Mode=TwoWay}" />
                             <Border x:Name="PART_AddButtonBorder"
                                     Grid.Column="1"
-                                    BorderBrush="{DynamicResource DockThemeBorderLowBrush}"
+                                    BorderBrush="{DynamicResource DockBorderSubtleBrush}"
                                     BorderThickness="0,0,0,1">
                                 <local:ToolTabAddButton x:Name="PART_AddButton"
                                                         Width="28"
