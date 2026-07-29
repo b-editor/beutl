@@ -90,7 +90,7 @@ internal class PackageOperationHandler
     {
         foreach (PackageIdentity item in _installedPackageRepository.GetLocalPackages(packageName))
         {
-            string? directory = Helper.PackagePathResolver.GetInstalledPath(item);
+            string directory = Helper.ResolveInstalledDirectory(item);
             if (Directory.Exists(directory))
             {
                 PackageUninstallContext ctx = _packageInstaller.PrepareForUninstall(directory);
@@ -106,7 +106,7 @@ internal class PackageOperationHandler
         {
             try
             {
-                string? directory = Helper.PackagePathResolver.GetInstalledPath(item);
+                string directory = Helper.ResolveInstalledDirectory(item);
                 if (Directory.Exists(directory))
                 {
                     var ctx = _packageInstaller.PrepareForUninstall(directory);
