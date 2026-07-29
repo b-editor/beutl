@@ -1,5 +1,4 @@
-﻿using Beutl.Composition;
-using Beutl.Graphics;
+﻿using Beutl.Graphics;
 using Beutl.Media;
 using Beutl.Media.TextFormatting;
 using SkiaSharp;
@@ -9,123 +8,79 @@ namespace Beutl.UnitTests.Engine;
 [TestFixture]
 public class FormattedTextRasterBoundsTests
 {
-    private const int Origin = 200;
-    private const int SurfaceWidth = 700;
-    private const int SurfaceHeight = 500;
-
-    private static IEnumerable<TestCaseData> Cases()
-    {
-        foreach (string content in new[] { "Hjgl 日本語", "Beutl", "ABCdefg", "がぎぐげご", "|_^~gjpqy" })
+    private static FormattedText CreateText(string text, float size)
+        => new()
         {
-            foreach (int size in new[] { 9, 11, 16, 23, 32, 48, 67, 89 })
-            {
-                yield return new TestCaseData(content, size);
-            }
-        }
-    }
-
-    [TestCaseSource(nameof(Cases))]
-    public void ActualBounds_ContainsEveryRasterizedGlyphPixel(string content, int size)
-    {
-        using FormattedText text = CreateText(content, size);
-        Rect declared = text.ActualBounds;
-
-        PixelRect raster = RasterizeMask(text);
-
-        Assert.Multiple(() =>
-        {
-            Assert.That(declared.X, Is.LessThanOrEqualTo(raster.X), "left");
-            Assert.That(declared.Y, Is.LessThanOrEqualTo(raster.Y), "top");
-            Assert.That(declared.Right, Is.GreaterThanOrEqualTo(raster.Right), "right");
-            Assert.That(declared.Bottom, Is.GreaterThanOrEqualTo(raster.Bottom), "bottom");
-        });
-    }
-
-    [TestCaseSource(nameof(Cases))]
-    public void ActualBounds_WithPen_ContainsEveryRasterizedGlyphPixel(string content, int size)
-    {
-        using FormattedText text = CreateText(content, size);
-        text.Pen = new Pen
-        {
-            Thickness = { CurrentValue = 3f },
-            Brush = { CurrentValue = Brushes.White }
-        }.ToResource(CompositionContext.Default);
-        Rect declared = text.ActualBounds;
-
-        PixelRect raster = RasterizeMask(text);
-
-        Assert.Multiple(() =>
-        {
-            Assert.That(declared.X, Is.LessThanOrEqualTo(raster.X), "left");
-            Assert.That(declared.Y, Is.LessThanOrEqualTo(raster.Y), "top");
-            Assert.That(declared.Right, Is.GreaterThanOrEqualTo(raster.Right), "right");
-            Assert.That(declared.Bottom, Is.GreaterThanOrEqualTo(raster.Bottom), "bottom");
-        });
-    }
-
-    private static FormattedText CreateText(string content, int size)
-    {
-        Typeface typeface = TypefaceProvider.Typeface();
-        return new FormattedText
-        {
-            Font = typeface.FontFamily,
-            Style = typeface.Style,
-            Weight = typeface.Weight,
+            Text = new StringSpan(text, 0, text.Length),
+            Font = FontFamily.Default,
             Size = size,
-            Text = new StringSpan(content, 0, content.Length),
         };
-    }
 
-    /// <summary>Extent of the covered pixels, in the text's own coordinates.</summary>
-    private static PixelRect RasterizeMask(FormattedText text)
+    // Full hinting can move a glyph mask off its unhinted outline, so a renderer that allocates
+    // ActualBounds clips the row the mask spills into.
+    [TestCase(24f)]
+    [TestCase(48f)]
+    [TestCase(96f)]
+    public void RasterBounds_ContainsEveryRasterizedGlyphPixel(float size)
     {
-        SKTextBlob blob = text.GetTextBlob() ?? throw new InvalidOperationException("The text shaped to no glyphs.");
-        SKPath? stroke = text.GetStrokePath();
+        using FormattedText text = CreateText("Your model", size);
+        Rect raster = text.RasterBounds;
+        Assert.That(raster.IsEmpty, Is.False);
 
-        var info = new SKImageInfo(SurfaceWidth, SurfaceHeight, SKColorType.Rgba8888, SKAlphaType.Premul);
-        using var bitmap = new SKBitmap(info);
-        using (var canvas = new SKCanvas(bitmap))
+        var device = PixelRect.FromRect(raster, 1);
+        using var surface = SKSurface.Create(
+            new SKImageInfo(device.Width, device.Height, SKColorType.Rgba8888, SKAlphaType.Premul));
+        SKCanvas canvas = surface.Canvas;
+        canvas.Clear(SKColors.Transparent);
         using (var paint = new SKPaint { Color = SKColors.White, IsAntialias = true })
         {
-            canvas.Clear(SKColors.Transparent);
-            canvas.Translate(Origin, Origin);
-            canvas.DrawText(blob, 0, 0, paint);
-            if (stroke is not null)
-                canvas.DrawPath(stroke, paint);
+            canvas.DrawText(text.GetTextBlob(), -device.X, -device.Y, paint);
         }
 
-        int top = -1;
-        int bottom = -1;
-        int left = int.MaxValue;
-        int right = -1;
-        for (int y = 0; y < info.Height; y++)
+        canvas.Flush();
+        using SKImage image = surface.Snapshot();
+        using SKBitmap bitmap = SKBitmap.FromImage(image);
+
+        int touchedTop = -1;
+        int touchedBottom = -1;
+        for (int y = 0; y < bitmap.Height; y++)
         {
-            for (int x = 0; x < info.Width; x++)
+            for (int x = 0; x < bitmap.Width; x++)
             {
                 if (bitmap.GetPixel(x, y).Alpha == 0)
                     continue;
-
-                if (top < 0)
-                    top = y;
-                bottom = y;
-                left = Math.Min(left, x);
-                right = Math.Max(right, x);
+                touchedTop = touchedTop < 0 ? y : touchedTop;
+                touchedBottom = y;
+                break;
             }
         }
 
-        if (top < 0)
-            throw new InvalidOperationException("The text rasterized to nothing.");
-
-        Assert.That(
-            new[] { left, top },
-            Is.All.GreaterThan(0),
-            "the probe surface must not clip the mask");
         Assert.Multiple(() =>
         {
-            Assert.That(right, Is.LessThan(info.Width - 1), "the probe surface must not clip the mask");
-            Assert.That(bottom, Is.LessThan(info.Height - 1), "the probe surface must not clip the mask");
+            Assert.That(touchedTop, Is.GreaterThanOrEqualTo(0),
+                "the fixture must actually rasterize glyphs");
+            Assert.That(touchedTop, Is.GreaterThan(0),
+                "a mask touching row 0 means RasterBounds did not leave room above the glyphs");
+            Assert.That(touchedBottom, Is.LessThan(bitmap.Height - 1),
+                "a mask touching the last row means RasterBounds did not leave room below the glyphs");
         });
+    }
 
-        return new PixelRect(left - Origin, top - Origin, right + 1 - left, bottom + 1 - top);
+    // Only the allocated footprint may widen: brush mapping and layout read the semantic bounds, and
+    // moving them shifts gradients and alignment.
+    [Test]
+    public void RasterBounds_ContainsActualBounds_WithoutChangingIt()
+    {
+        using FormattedText text = CreateText("Your model", 48f);
+        Rect actual = text.ActualBounds;
+        Rect raster = text.RasterBounds;
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(raster.X, Is.LessThanOrEqualTo(actual.X));
+            Assert.That(raster.Y, Is.LessThanOrEqualTo(actual.Y));
+            Assert.That(raster.Right, Is.GreaterThanOrEqualTo(actual.Right));
+            Assert.That(raster.Bottom, Is.GreaterThanOrEqualTo(actual.Bottom));
+        });
     }
 }

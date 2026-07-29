@@ -68,7 +68,7 @@ public sealed class TextRenderNode(FormattedText text, Brush.Resource? fill, Pen
                 paint,
                 static (canvas, currentText, currentFill, currentPen) =>
                     canvas.DrawText(currentText, currentFill, currentPen)),
-            bounds: BrushRecorder.CreateSourceBounds(paint, bounds, typeof(TextRenderNode)),
+            bounds: BrushRecorder.CreateSourceBounds(paint, text.RasterBounds, typeof(TextRenderNode)),
             hitTest: RenderHitTestContract.FromResource(
                 textResource,
                 (currentText, point) => HitTest(currentText, hasFill, point),

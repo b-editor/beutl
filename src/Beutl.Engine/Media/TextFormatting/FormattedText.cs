@@ -22,6 +22,7 @@ public class FormattedText : IEquatable<FormattedText>, IDisposable
     private FontMetrics _metrics = default;
     private Rect _bounds = default;
     private Rect _actualBounds;
+    private Rect _rasterBounds;
     private bool _isDirty = false;
     private Pen.Resource? _pen;
     private SKTextBlob? _textBlob;
@@ -158,6 +159,23 @@ public class FormattedText : IEquatable<FormattedText>, IDisposable
         }
     }
 
+    /// <summary>
+    /// Bounds of the glyph masks this text rasterizes, which contain <see cref="ActualBounds"/>.
+    /// </summary>
+    /// <remarks>
+    /// Full hinting moves a mask off its unhinted outline, so a renderer must allocate this rather than
+    /// <see cref="ActualBounds"/> or it clips what it draws. Only the allocated footprint may use it:
+    /// brush mapping and layout stay on the semantic bounds.
+    /// </remarks>
+    public Rect RasterBounds
+    {
+        get
+        {
+            MeasureAndSetField();
+            return _rasterBounds;
+        }
+    }
+
     // テスト用
     internal Point AddToSKPath(SKPath path, Point point)
     {
@@ -268,17 +286,17 @@ public class FormattedText : IEquatable<FormattedText>, IDisposable
 
     private void Measure()
     {
-        (SKTextBlob? textBlob, SKPath fillPath, SKPath? strokePath, FontMetrics metrics, Rect bounds, Rect actualBounds)
+        (SKTextBlob? textBlob, SKPath fillPath, SKPath? strokePath, FontMetrics metrics, Rect bounds, Rect actualBounds, Rect rasterBounds)
             = MeasureCore(1f, updatePathList: true);
 
-        (_metrics, _bounds, _actualBounds) = (metrics, bounds, actualBounds);
+        (_metrics, _bounds, _actualBounds, _rasterBounds) = (metrics, bounds, actualBounds, rasterBounds);
 
         (_textBlob, _fillPath, _strokePath).DisposeAll();
         (_textBlob, _fillPath, _strokePath) = (textBlob, fillPath, strokePath);
         _scaledCache.Clear();
     }
 
-    private (SKTextBlob? TextBlob, SKPath FillPath, SKPath? StrokePath, FontMetrics Metrics, Rect Bounds, Rect ActualBounds)
+    private (SKTextBlob? TextBlob, SKPath FillPath, SKPath? StrokePath, FontMetrics Metrics, Rect Bounds, Rect ActualBounds, Rect RasterBounds)
         MeasureCore(float density, bool updatePathList)
     {
         density = NormalizeDensity(density);
@@ -373,7 +391,6 @@ public class FormattedText : IEquatable<FormattedText>, IDisposable
         // 空白で開始または、終了した場合
         var bounds = new Rect(0, 0, Math.Max(0, glyphs.Length - 1) * spacing + result.Width, fillPath.TightBounds.Height);
         Rect actualBounds = fillPath.TightBounds.ToGraphicsRect();
-        Rect rasterBounds = MeasureGlyphMaskBounds(font, glyphs, positions);
         SKTextBlob? textBlob = builder.Build();
 
         if (result.Codepoints.Length > 0)
@@ -382,20 +399,17 @@ public class FormattedText : IEquatable<FormattedText>, IDisposable
             {
                 strokePath = PenHelper.CreateStrokePath(fillPath, Pen, actualBounds, density);
                 actualBounds = strokePath.TightBounds.ToGraphicsRect();
-                rasterBounds = rasterBounds.Union(InflateToRaster(strokePath.TightBounds).ToGraphicsRect());
             }
         }
 
-        actualBounds = rasterBounds.IsEmpty ? actualBounds : actualBounds.Union(rasterBounds);
+        Rect rasterBounds = MeasureGlyphMaskBounds(font, glyphs, positions);
+        if (strokePath is not null)
+            rasterBounds = rasterBounds.Union(InflateToRaster(strokePath.TightBounds).ToGraphicsRect());
+        rasterBounds = rasterBounds.IsEmpty ? actualBounds : rasterBounds.Union(actualBounds);
 
-        return (textBlob, fillPath, strokePath, font.Metrics.ToFontMetrics(), bounds, actualBounds);
+        return (textBlob, fillPath, strokePath, font.Metrics.ToFontMetrics(), bounds, actualBounds, rasterBounds);
     }
 
-    /// <summary>
-    /// Bounds of the glyph masks the blob rasterizes. Full hinting moves a mask off the unhinted outline,
-    /// so the fill path's tight bounds do not contain what
-    /// <see cref="SKCanvas.DrawText(SKTextBlob, float, float, SKPaint)"/> draws.
-    /// </summary>
     private static Rect MeasureGlyphMaskBounds(SKFont font, ReadOnlySpan<ushort> glyphs, ReadOnlySpan<SKPoint> positions)
     {
         if (glyphs.Length == 0)
@@ -429,13 +443,11 @@ public class FormattedText : IEquatable<FormattedText>, IDisposable
         }
     }
 
-    // Antialiasing samples the pixel an edge touches, and glyph strikes are measured at subpixel phase
-    // zero while they are drawn at the phase their position falls in, so coverage reaches one pixel past
-    // the geometry.
+    // A glyph strike is measured at subpixel phase zero but drawn at the phase its position falls in,
+    // and antialiasing samples the pixel an edge touches, so coverage reaches one pixel past the mask.
     private static SKRect InflateToRaster(SKRect bounds)
     {
-        const float Allowance = 1f;
-        bounds.Inflate(Allowance, Allowance);
+        bounds.Inflate(1f, 1f);
         return bounds;
     }
 
@@ -460,7 +472,7 @@ public class FormattedText : IEquatable<FormattedText>, IDisposable
 
     private (SKTextBlob? TextBlob, SKPath? StrokePath) MeasureScaledText(float density)
     {
-        (SKTextBlob? textBlob, SKPath fillPath, SKPath? strokePath, _, _, _) =
+        (SKTextBlob? textBlob, SKPath fillPath, SKPath? strokePath, _, _, _, _) =
             MeasureCore(density, updatePathList: false);
         fillPath.Dispose();
         return (textBlob, strokePath);
