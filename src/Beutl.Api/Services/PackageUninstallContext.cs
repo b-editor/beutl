@@ -10,7 +10,10 @@ public class PackageUninstallContext
         Id = packageIdentity;
         PackageId = Id.Id;
         Version = Id.Version.ToString();
-        InstalledPath = installedPath ?? Helper.PackagePathResolver.GetInstalledPath(packageIdentity);
+        InstalledPath = installedPath
+                        ?? Helper.PackagePathResolver.GetInstalledPath(packageIdentity)
+                        ?? throw new ArgumentException(
+                            $"Package '{packageIdentity}' is not installed.", nameof(packageIdentity));
     }
 
     public PackageIdentity Id { get; }

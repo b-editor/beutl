@@ -24,7 +24,7 @@ public partial class PackageInstaller
 
         foreach (PackageIdentity packageId in installedPackages)
         {
-            string directory = Helper.PackagePathResolver.GetInstalledPath(packageId);
+            string? directory = Helper.PackagePathResolver.GetInstalledPath(packageId);
             if (directory != null)
             {
                 var reader = new PackageFolderReader(directory);
@@ -61,7 +61,13 @@ public partial class PackageInstaller
         long size = 0;
         foreach (PackageIdentity package in unnecessaryPackages)
         {
-            string directory = Helper.PackagePathResolver.GetInstalledPath(package);
+            string? directory = Helper.PackagePathResolver.GetInstalledPath(package);
+            if (directory is null)
+            {
+                _logger.LogWarning("Installed directory not found for package: {PackageId}", package.Id);
+                continue;
+            }
+
             foreach (string file in Directory.GetFiles(directory, "*.*", SearchOption.AllDirectories))
             {
                 size += new FileInfo(file).Length;
@@ -84,7 +90,14 @@ public partial class PackageInstaller
         long totalSize = 0;
         foreach (PackageIdentity package in context.UnnecessaryPackages)
         {
-            string directory = Helper.PackagePathResolver.GetInstalledPath(package);
+            string? directory = Helper.PackagePathResolver.GetInstalledPath(package);
+            if (directory is null)
+            {
+                _logger.LogWarning("Installed directory not found for package: {PackageId}", package.Id);
+                _installedPackageRepository.RemovePackage(package);
+                continue;
+            }
+
             bool hasAnyFailures = false;
             foreach (string file in Directory.GetFiles(directory, "*.*", SearchOption.AllDirectories))
             {

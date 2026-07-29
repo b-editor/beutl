@@ -19,7 +19,7 @@ public class BeutlDarkBorderThemeResourceTests
     {
         var resources = (IResourceProvider)AvaloniaXamlLoader.Load(BeutlDarkBorderTheme.ResourceUri, null)!;
         IList<IResourceProvider> merged = Application.Current!.Resources.MergedDictionaries;
-        ThemeVariant previousVariant = Application.Current.RequestedThemeVariant;
+        ThemeVariant? previousVariant = Application.Current.RequestedThemeVariant;
         try
         {
             Application.Current.RequestedThemeVariant = ThemeVariant.Dark;

@@ -120,19 +120,16 @@ public sealed class ProxiesTabViewModel : IDisposable, IToolContext
         // Media can be added, removed, or replaced while the tab is open; Scene.Edited fires for
         // both structural child changes and forwarded element edits, so Generate All / Delete never
         // act on a stale clip list. ScheduleRefresh coalesces an edit burst into one rebuild.
-        if (_scene != null)
-        {
-            _sceneEditedSubscriptions.DisposeWith(_disposables);
-            RefreshSceneSubscriptions();
+        _sceneEditedSubscriptions.DisposeWith(_disposables);
+        RefreshSceneSubscriptions();
 
-            // Project-wide totals / Generate All / Delete scan every project scene, so a media edit
-            // in another open scene must also refresh; watch the project's scene set for add/remove.
-            if (_scene.FindHierarchicalParent<Project>() is { } project)
-            {
-                project.Items.CollectionChanged += OnProjectItemsChanged;
-                Disposable.Create(() => project.Items.CollectionChanged -= OnProjectItemsChanged)
-                    .DisposeWith(_disposables);
-            }
+        // Project-wide totals / Generate All / Delete scan every project scene, so a media edit
+        // in another open scene must also refresh; watch the project's scene set for add/remove.
+        if (_scene.FindHierarchicalParent<Project>() is { } project)
+        {
+            project.Items.CollectionChanged += OnProjectItemsChanged;
+            Disposable.Create(() => project.Items.CollectionChanged -= OnProjectItemsChanged)
+                .DisposeWith(_disposables);
         }
 
         _config.PropertyChanged += OnProxyConfigPropertyChanged;

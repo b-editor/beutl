@@ -143,7 +143,7 @@ public sealed class DeclarativeAnimationTests
             Assert.That(createdFrames, Has.Length.EqualTo(2));
             Assert.That(createdValues, Is.EqualTo(new[] { 0f, 100f }));
             Assert.That(updateApply.IsSuccess, Is.True);
-            Assert.That(updateApply.Value!.Changes.Select(change => change.Operation), Does.Contain(ChangeOperations.RemoveChild));
+            Assert.That(updateApply.Value!.Changes!.Select(change => change.Operation), Does.Contain(ChangeOperations.RemoveChild));
             Assert.That(remaining.Id, Is.EqualTo(createdFrames[1].Id));
             Assert.That(remaining.KeyTime, Is.EqualTo(TimeSpan.FromSeconds(1.5)));
             Assert.That(remaining.Value, Is.EqualTo(80f));
@@ -325,9 +325,9 @@ public sealed class DeclarativeAnimationTests
         {
             Assert.That(apply.IsSuccess, Is.True, apply.Error?.Message);
             Assert.That(apply.Value!.Valid, Is.True);
-            Assert.That(apply.Value.Validation.Select(item => item.Status), Does.Contain(ValidationStatus.Warning));
-            Assert.That(apply.Value.Validation.Single(item => item.Status == ValidationStatus.Warning).Message, Does.Contain("UseGlobalClock=false"));
-            Assert.That(apply.Value.Validation.Single(item => item.Status == ValidationStatus.Warning).Hint, Does.Contain("UseGlobalClock=true"));
+            Assert.That(apply.Value.Validation!.Select(item => item.Status), Does.Contain(ValidationStatus.Warning));
+            Assert.That(apply.Value.Validation!.Single(item => item.Status == ValidationStatus.Warning).Message, Does.Contain("UseGlobalClock=false"));
+            Assert.That(apply.Value.Validation!.Single(item => item.Status == ValidationStatus.Warning).Hint, Does.Contain("UseGlobalClock=true"));
             Assert.That(text.Opacity.Animation, Is.Not.Null);
         });
     }
@@ -370,10 +370,10 @@ public sealed class DeclarativeAnimationTests
         Assert.Multiple(() =>
         {
             Assert.That(createApply.IsSuccess, Is.True, createApply.Error?.Message);
-            Assert.That(createApply.Value!.Validation.Select(item => item.Status), Does.Not.Contain(ValidationStatus.Warning));
+            Assert.That(createApply.Value!.Validation!.Select(item => item.Status), Does.Not.Contain(ValidationStatus.Warning));
             Assert.That(retimeApply.IsSuccess, Is.True, retimeApply.Error?.Message);
             Assert.That(retimeApply.Value!.Valid, Is.True);
-            Assert.That(retimeApply.Value.Validation.Select(item => item.Status), Does.Contain(ValidationStatus.Warning));
+            Assert.That(retimeApply.Value.Validation!.Select(item => item.Status), Does.Contain(ValidationStatus.Warning));
             Assert.That(element.Length, Is.EqualTo(TimeSpan.FromSeconds(2)));
         });
     }

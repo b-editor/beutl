@@ -127,14 +127,12 @@ internal sealed class PluginDependencyResolver
             .SelectMany(x => x.Packages))
         {
             var dependentPackage = new PackageIdentity(dependency.Id, dependency.VersionRange.MinVersion);
-            path = Helper.PackagePathResolver.GetInstalledPath(dependentPackage);
-            if (path != null)
+            string? dependentPath = Helper.PackagePathResolver.GetInstalledPath(dependentPackage);
+            if (dependentPath != null)
             {
-                reader = new PackageFolderReader(path);
-
                 GetPackageDependencies(
-                    path,
-                    reader,
+                    dependentPath,
+                    new PackageFolderReader(dependentPath),
                     dependentPackage,
                     framework, logger, availablePackages);
             }
