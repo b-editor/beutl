@@ -1646,14 +1646,8 @@ GetProperty&lt;T&gt;("path") または GetProperty&lt;T&gt;(guid, "propertyName"
   <data name="VersionControl_CurrentBranch" xml:space="preserve">
     <value>現在のブランチ</value>
   </data>
-  <data name="VersionControl_SearchBranches" xml:space="preserve">
-    <value>ブランチを検索</value>
-  </data>
   <data name="VersionControl_Branches" xml:space="preserve">
     <value>ブランチ</value>
-  </data>
-  <data name="VersionControl_NoMatchingBranches" xml:space="preserve">
-    <value>一致するブランチはありません</value>
   </data>
   <data name="VersionControl_AheadBehindFormat" xml:space="preserve">
     <value>{0} 先行、{1} 遅延</value>

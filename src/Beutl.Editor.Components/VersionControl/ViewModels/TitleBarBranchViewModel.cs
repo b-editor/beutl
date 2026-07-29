@@ -15,7 +15,6 @@ internal sealed class TitleBarBranchViewModel : IDisposable
     private readonly CompositeDisposable _disposables = [];
     private readonly CancellationTokenSource _lifetimeCancellation = new();
     private readonly ObservableCollection<TitleBarBranchItemViewModel> _branches = [];
-    private readonly ObservableCollection<TitleBarBranchItemViewModel> _filteredBranches = [];
     private IProjectVersionControlService? _service;
     private CancellationTokenSource? _serviceBindingCancellation;
     private int _serviceRevision;
@@ -47,9 +46,9 @@ internal sealed class TitleBarBranchViewModel : IDisposable
         _postToUi = postToUi ?? throw new ArgumentNullException(nameof(postToUi));
         _coordinatorGitAvailable = gitAvailabilitySource.Value;
 
-        FilteredBranches =
+        Branches =
             new ReadOnlyObservableCollection<TitleBarBranchItemViewModel>(
-                _filteredBranches);
+                _branches);
         IsVisible = new ReactivePropertySlim<bool>()
             .DisposeWith(_disposables);
         IsBusy = new ReactivePropertySlim<bool>()
@@ -68,13 +67,6 @@ internal sealed class TitleBarBranchViewModel : IDisposable
             .DisposeWith(_disposables);
         HasBehind = new ReactivePropertySlim<bool>()
             .DisposeWith(_disposables);
-        BranchFilter = new ReactivePropertySlim<string>(string.Empty)
-            .DisposeWith(_disposables);
-        HasNoMatchingBranches = new ReactivePropertySlim<bool>()
-            .DisposeWith(_disposables);
-        BranchFilter
-            .Subscribe(_ => ApplyBranchFilter())
-            .DisposeWith(_disposables);
         CreateBranchCommand = new AsyncReactiveCommand(
                 IsVisible.CombineLatest(
                     IsBusy,
@@ -92,7 +84,7 @@ internal sealed class TitleBarBranchViewModel : IDisposable
             .DisposeWith(_disposables);
     }
 
-    internal ReadOnlyObservableCollection<TitleBarBranchItemViewModel> FilteredBranches { get; }
+    internal ReadOnlyObservableCollection<TitleBarBranchItemViewModel> Branches { get; }
 
     internal ReactivePropertySlim<bool> IsVisible { get; }
 
@@ -112,10 +104,6 @@ internal sealed class TitleBarBranchViewModel : IDisposable
 
     internal ReactivePropertySlim<bool> HasBehind { get; }
 
-    internal ReactivePropertySlim<string> BranchFilter { get; }
-
-    internal ReactivePropertySlim<bool> HasNoMatchingBranches { get; }
-
     internal AsyncReactiveCommand CreateBranchCommand { get; }
 
     internal Func<Task<string?>> RequestNewBranchNameAsync { get; set; }
@@ -130,7 +118,6 @@ internal sealed class TitleBarBranchViewModel : IDisposable
             return;
         }
 
-        BranchFilter.Value = string.Empty;
         await RefreshAsync(cancellationToken);
     }
 
@@ -442,8 +429,6 @@ internal sealed class TitleBarBranchViewModel : IDisposable
                 branch,
                 IsBusy));
         }
-
-        ApplyBranchFilter();
     }
 
     private void OnStatusChanged(object? sender, WorkspaceStatus status)
@@ -517,7 +502,6 @@ internal sealed class TitleBarBranchViewModel : IDisposable
         HasAhead.Value = false;
         HasBehind.Value = false;
         ClearBranches();
-        BranchFilter.Value = string.Empty;
     }
 
     private void DetachService()
@@ -531,14 +515,12 @@ internal sealed class TitleBarBranchViewModel : IDisposable
 
     private void ClearBranches()
     {
-        _filteredBranches.Clear();
         foreach (TitleBarBranchItemViewModel branch in _branches)
         {
             branch.Dispose();
         }
 
         _branches.Clear();
-        HasNoMatchingBranches.Value = false;
     }
 
     private void ApplyBranchSummary(
@@ -557,25 +539,6 @@ internal sealed class TitleBarBranchViewModel : IDisposable
         BehindCount.Value = behind;
         HasAhead.Value = ahead > 0;
         HasBehind.Value = behind > 0;
-    }
-
-    private void ApplyBranchFilter()
-    {
-        _filteredBranches.Clear();
-        string filter = BranchFilter.Value;
-        foreach (TitleBarBranchItemViewModel branch in _branches)
-        {
-            if (string.IsNullOrEmpty(filter)
-                || branch.Name.Contains(
-                    filter,
-                    StringComparison.OrdinalIgnoreCase))
-            {
-                _filteredBranches.Add(branch);
-            }
-        }
-
-        HasNoMatchingBranches.Value =
-            _branches.Count > 0 && _filteredBranches.Count == 0;
     }
 
     private bool TryGetLifetimeToken(out CancellationToken cancellationToken)

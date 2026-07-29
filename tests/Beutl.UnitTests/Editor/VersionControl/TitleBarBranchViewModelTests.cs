@@ -52,7 +52,7 @@ public class TitleBarBranchViewModelTests
         {
             Assert.That(viewModel.IsVisible.Value, Is.True);
             Assert.That(viewModel.DisplayText.Value, Is.EqualTo("main"));
-            Assert.That(viewModel.FilteredBranches, Has.Count.EqualTo(2));
+            Assert.That(viewModel.Branches, Has.Count.EqualTo(2));
         });
     }
 
@@ -210,7 +210,7 @@ public class TitleBarBranchViewModelTests
         await viewModel.RefreshAsync();
 
         Assert.That(
-            viewModel.FilteredBranches.Select(branch => branch.Name),
+            viewModel.Branches.Select(branch => branch.Name),
             Is.EqualTo(["main", "feature"]));
         service.Verify(
             item => item.GetBranchesAsync(It.IsAny<CancellationToken>()),
@@ -218,7 +218,7 @@ public class TitleBarBranchViewModelTests
     }
 
     [Test]
-    public async Task Filter_projects_case_insensitive_substring_matches()
+    public async Task Preparing_the_flyout_refreshes_branches()
     {
         Mock<IProjectVersionControlService> service = CreateServiceMock();
         using var serviceSource =
@@ -229,76 +229,13 @@ public class TitleBarBranchViewModelTests
             Mock.Of<IProjectVersionControlCoordinator>(),
             action => action());
         await viewModel.Initialization;
-
-        viewModel.BranchFilter.Value = "EAT";
-
-        Assert.Multiple(() =>
-        {
-            Assert.That(
-                viewModel.FilteredBranches.Select(branch => branch.Name),
-                Is.EqualTo(["feature"]));
-            Assert.That(viewModel.HasNoMatchingBranches.Value, Is.False);
-        });
-    }
-
-    [Test]
-    public async Task Preparing_the_flyout_resets_the_filter_and_refreshes_branches()
-    {
-        Mock<IProjectVersionControlService> service = CreateServiceMock();
-        using var serviceSource =
-            new ReactivePropertySlim<IProjectVersionControlService?>(service.Object);
-        using var viewModel = new TitleBarBranchViewModel(
-            serviceSource,
-            CreateGitAvailabilitySource(),
-            Mock.Of<IProjectVersionControlCoordinator>(),
-            action => action());
-        await viewModel.Initialization;
-        viewModel.BranchFilter.Value = "feature";
-        Assert.That(viewModel.FilteredBranches, Has.Count.EqualTo(1));
 
         await viewModel.PrepareFlyoutAsync();
 
-        Assert.Multiple(() =>
-        {
-            Assert.That(viewModel.BranchFilter.Value, Is.Empty);
-            Assert.That(viewModel.FilteredBranches, Has.Count.EqualTo(2));
-            Assert.That(viewModel.HasNoMatchingBranches.Value, Is.False);
-        });
+        Assert.That(viewModel.Branches, Has.Count.EqualTo(2));
         service.Verify(
             item => item.GetBranchesAsync(It.IsAny<CancellationToken>()),
             Times.Exactly(2));
-    }
-
-    [Test]
-    public async Task Filter_exposes_and_clears_the_empty_result_state()
-    {
-        Mock<IProjectVersionControlService> service = CreateServiceMock();
-        using var serviceSource =
-            new ReactivePropertySlim<IProjectVersionControlService?>(service.Object);
-        using var viewModel = new TitleBarBranchViewModel(
-            serviceSource,
-            CreateGitAvailabilitySource(),
-            Mock.Of<IProjectVersionControlCoordinator>(),
-            action => action());
-        await viewModel.Initialization;
-
-        viewModel.BranchFilter.Value = "missing";
-
-        Assert.Multiple(() =>
-        {
-            Assert.That(viewModel.FilteredBranches, Is.Empty);
-            Assert.That(viewModel.HasNoMatchingBranches.Value, Is.True);
-        });
-
-        viewModel.BranchFilter.Value = "main";
-
-        Assert.Multiple(() =>
-        {
-            Assert.That(
-                viewModel.FilteredBranches.Select(branch => branch.Name),
-                Is.EqualTo(["main"]));
-            Assert.That(viewModel.HasNoMatchingBranches.Value, Is.False);
-        });
     }
 
     [Test]
@@ -384,7 +321,7 @@ public class TitleBarBranchViewModelTests
             Assert.That(viewModel.IsBusy.Value, Is.False);
             Assert.That(viewModel.DisplayText.Value, Is.EqualTo("feature ↑1"));
             Assert.That(
-                viewModel.FilteredBranches.Single(branch => branch.Name == "feature")
+                viewModel.Branches.Single(branch => branch.Name == "feature")
                     .IsCurrent,
                 Is.True);
         });

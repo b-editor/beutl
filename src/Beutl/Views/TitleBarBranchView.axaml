@@ -63,7 +63,7 @@
         <Button.Flyout>
             <Flyout FlyoutPresenterTheme="{StaticResource BranchFlyoutPresenterTheme}"
                     Opening="OnBranchFlyoutOpening">
-                <Grid RowDefinitions="Auto,1,Auto,Auto,Auto,1,Auto">
+                <Grid RowDefinitions="Auto,1,Auto,Auto,1,Auto">
                     <Border Padding="12,10,12,8">
                         <StackPanel Spacing="5">
                             <TextBlock FontSize="11"
@@ -106,73 +106,49 @@
                             Height="1"
                             Background="{DynamicResource DividerStrokeColorDefaultBrush}" />
 
-                    <TextBox x:Name="BranchFilterTextBox"
-                             Grid.Row="2"
-                             Height="30"
-                             Margin="8,8,8,2"
-                             Text="{Binding BranchFilter.Value, Mode=TwoWay}"
-                             Watermark="{x:Static lang:Strings.VersionControl_SearchBranches}">
-                        <TextBox.InnerLeftContent>
-                            <icons:FluentIcon Margin="8,0,0,0"
-                                              VerticalAlignment="Center"
-                                              FontSize="14"
-                                              Foreground="{DynamicResource TextFillColorSecondaryBrush}"
-                                              Icon="Search" />
-                        </TextBox.InnerLeftContent>
-                    </TextBox>
-
-                    <TextBlock Grid.Row="3"
+                    <TextBlock Grid.Row="2"
                                Margin="12,6,12,2"
                                FontSize="11"
                                Foreground="{DynamicResource TextFillColorSecondaryBrush}"
                                Text="{x:Static lang:Strings.VersionControl_Branches}" />
 
-                    <Grid Grid.Row="4">
-                        <ScrollViewer MaxHeight="320"
-                                      HorizontalScrollBarVisibility="Disabled"
-                                      IsVisible="{Binding !HasNoMatchingBranches.Value}"
-                                      VerticalScrollBarVisibility="Auto">
-                            <ItemsControl x:Name="BranchList"
-                                          ItemsSource="{Binding FilteredBranches}">
-                                <ItemsControl.ItemTemplate>
-                                    <DataTemplate x:DataType="vm:TitleBarBranchItemViewModel">
-                                        <Button Classes="branchRow"
-                                                Click="OnBranchClick"
-                                                IsEnabled="{Binding CanSwitch.Value}">
-                                            <Grid ColumnDefinitions="20,*">
-                                                <icons:FluentIcon x:Name="CurrentBranchMark"
-                                                                  HorizontalAlignment="Center"
-                                                                  VerticalAlignment="Center"
-                                                                  FontSize="13"
-                                                                  Foreground="{DynamicResource AccentTextFillColorPrimaryBrush}"
-                                                                  Icon="Checkmark"
-                                                                  IsVisible="{Binding IsCurrent}" />
-                                                <TextBlock Grid.Column="1"
-                                                           VerticalAlignment="Center"
-                                                           Classes.current="{Binding IsCurrent}"
-                                                           Classes="branchName"
-                                                           Text="{Binding Name}"
-                                                           TextTrimming="CharacterEllipsis" />
-                                            </Grid>
-                                        </Button>
-                                    </DataTemplate>
-                                </ItemsControl.ItemTemplate>
-                            </ItemsControl>
-                        </ScrollViewer>
+                    <ScrollViewer Grid.Row="3"
+                                  MaxHeight="320"
+                                  HorizontalScrollBarVisibility="Disabled"
+                                  VerticalScrollBarVisibility="Auto">
+                        <ItemsControl x:Name="BranchList"
+                                      ItemsSource="{Binding Branches}">
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate x:DataType="vm:TitleBarBranchItemViewModel">
+                                    <Button Classes="branchRow"
+                                            Click="OnBranchClick"
+                                            IsEnabled="{Binding CanSwitch.Value}">
+                                        <Grid ColumnDefinitions="20,*">
+                                            <icons:FluentIcon x:Name="CurrentBranchMark"
+                                                              HorizontalAlignment="Center"
+                                                              VerticalAlignment="Center"
+                                                              FontSize="13"
+                                                              Foreground="{DynamicResource AccentTextFillColorPrimaryBrush}"
+                                                              Icon="Checkmark"
+                                                              IsVisible="{Binding IsCurrent}" />
+                                            <TextBlock Grid.Column="1"
+                                                       VerticalAlignment="Center"
+                                                       Classes.current="{Binding IsCurrent}"
+                                                       Classes="branchName"
+                                                       Text="{Binding Name}"
+                                                       TextTrimming="CharacterEllipsis" />
+                                        </Grid>
+                                    </Button>
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+                    </ScrollViewer>
 
-                        <TextBlock x:Name="NoMatchingBranchesText"
-                                   Margin="12,10,12,12"
-                                   HorizontalAlignment="Center"
-                                   Foreground="{DynamicResource TextFillColorSecondaryBrush}"
-                                   IsVisible="{Binding HasNoMatchingBranches.Value}"
-                                   Text="{x:Static lang:Strings.VersionControl_NoMatchingBranches}" />
-                    </Grid>
-
-                    <Border Grid.Row="5"
+                    <Border Grid.Row="4"
                             Height="1"
                             Background="{DynamicResource DividerStrokeColorDefaultBrush}" />
 
-                    <Button Grid.Row="6"
+                    <Button Grid.Row="5"
                             Classes="branchRow"
                             Command="{Binding CreateBranchCommand}">
                         <Grid ColumnDefinitions="20,*">

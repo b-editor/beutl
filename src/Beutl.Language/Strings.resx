@@ -1652,14 +1652,8 @@ Resolve the conflicts with an external Git tool before editing. The project may 
   <data name="VersionControl_CurrentBranch" xml:space="preserve">
     <value>Current branch</value>
   </data>
-  <data name="VersionControl_SearchBranches" xml:space="preserve">
-    <value>Search branches</value>
-  </data>
   <data name="VersionControl_Branches" xml:space="preserve">
     <value>Branches</value>
-  </data>
-  <data name="VersionControl_NoMatchingBranches" xml:space="preserve">
-    <value>No matching branches</value>
   </data>
   <data name="VersionControl_AheadBehindFormat" xml:space="preserve">
     <value>{0} ahead, {1} behind</value>

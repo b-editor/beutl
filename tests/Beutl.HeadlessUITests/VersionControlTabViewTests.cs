@@ -102,19 +102,16 @@ public class VersionControlTabViewTests
                 "branch",
                 "flyout-refresh");
             Assert.That(
-                viewModel.FilteredBranches.Select(branch => branch.Name),
+                viewModel.Branches.Select(branch => branch.Name),
                 Does.Not.Contain("flyout-refresh"));
 
-            viewModel.BranchFilter.Value = "stale filter";
             branchButton.Flyout!.ShowAt(branchButton);
-            await WaitUntilAsync(() =>
-                viewModel.BranchFilter.Value.Length == 0
-                && viewModel.FilteredBranches.Count == 3);
+            await WaitUntilAsync(() => viewModel.Branches.Count == 3);
             HeadlessTestHelpers.Render();
 
             ItemsControl branchList =
                 view.FindControl<ItemsControl>("BranchList")!;
-            int currentIndex = viewModel.FilteredBranches
+            int currentIndex = viewModel.Branches
                 .Select((branch, index) => (branch, index))
                 .Single(item => item.branch.IsCurrent)
                 .index;
@@ -129,38 +126,14 @@ public class VersionControlTabViewTests
             {
                 Assert.That(branchList.Items, Has.Count.EqualTo(3));
                 Assert.That(
-                    viewModel.FilteredBranches.Select(branch => branch.Name),
+                    viewModel.Branches.Select(branch => branch.Name),
                     Does.Contain("feature"));
                 Assert.That(
-                    viewModel.FilteredBranches.Select(branch => branch.Name),
+                    viewModel.Branches.Select(branch => branch.Name),
                     Does.Contain("flyout-refresh"));
                 Assert.That(currentMark.Icon.ToString(), Is.EqualTo("Checkmark"));
                 Assert.That(currentMark.IsVisible, Is.True);
             });
-
-            TextBox filterTextBox =
-                view.FindControl<TextBox>("BranchFilterTextBox")!;
-            filterTextBox.Text = "FLYOUT";
-            await WaitUntilAsync(() => viewModel.FilteredBranches.Count == 1);
-            HeadlessTestHelpers.Render();
-
-            Assert.Multiple(() =>
-            {
-                Assert.That(
-                    viewModel.FilteredBranches.Single().Name,
-                    Is.EqualTo("flyout-refresh"));
-                Assert.That(branchList.Items, Has.Count.EqualTo(1));
-                Assert.That(
-                    view.FindControl<TextBlock>("NoMatchingBranchesText")!.IsVisible,
-                    Is.False);
-            });
-
-            filterTextBox.Text = "missing";
-            await WaitUntilAsync(() => viewModel.HasNoMatchingBranches.Value);
-            HeadlessTestHelpers.Render();
-            Assert.That(
-                view.FindControl<TextBlock>("NoMatchingBranchesText")!.IsVisible,
-                Is.True);
         }
         finally
         {
