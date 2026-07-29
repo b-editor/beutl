@@ -5,7 +5,6 @@
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
              xmlns:lang="using:Beutl.Language"
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
-             xmlns:vc="using:Beutl.Editor.VersionControl"
              xmlns:views="using:Beutl.Editor.Components.VersionControlTab.Views"
              xmlns:vm="using:Beutl.Editor.Components.VersionControlTab.ViewModels"
              d:DesignHeight="640"
@@ -46,12 +45,6 @@
         </Style>
         <Style Selector="Border.kindBadge.save">
             <Setter Property="Background" Value="{DynamicResource SubtleFillColorSecondaryBrush}" />
-        </Style>
-        <Style Selector="Border.branchBadge">
-            <Setter Property="MinWidth" Value="28" />
-            <Setter Property="Padding" Value="5,2" />
-            <Setter Property="Background" Value="{DynamicResource SubtleFillColorSecondaryBrush}" />
-            <Setter Property="CornerRadius" Value="8" />
         </Style>
         <Style Selector="TextBlock.diffLine">
             <Setter Property="FontFamily" Value="Consolas, Menlo, monospace" />
@@ -97,54 +90,10 @@
                     BorderBrush="{DynamicResource DividerStrokeColorDefaultBrush}"
                     BorderThickness="0,0,0,1"
                     IsVisible="{Binding IsTracked.Value}">
-                <Grid ColumnDefinitions="*,Auto,Auto,Auto"
-                      RowDefinitions="Auto,Auto,Auto">
-                    <ComboBox x:Name="BranchComboBox"
-                              ItemsSource="{Binding Branches}"
-                              SelectedItem="{Binding SelectedBranch.Value, Mode=TwoWay}">
-                        <ComboBox.ItemTemplate>
-                            <DataTemplate x:DataType="vc:BranchInfo">
-                                <TextBlock Text="{Binding Name}" TextTrimming="CharacterEllipsis" />
-                            </DataTemplate>
-                        </ComboBox.ItemTemplate>
-                    </ComboBox>
-                    <StackPanel Grid.Column="1"
-                                Margin="6,0,0,0"
-                                VerticalAlignment="Center"
-                                Orientation="Horizontal"
-                                Spacing="4"
-                                ToolTip.Tip="{Binding AheadBehindText.Value}">
-                        <Border x:Name="AheadBadge"
-                                Classes="branchBadge"
-                                IsVisible="{Binding HasAhead.Value}">
-                            <TextBlock FontSize="11"
-                                       Text="{Binding AheadBadgeText.Value}"
-                                       TextAlignment="Center" />
-                        </Border>
-                        <Border x:Name="BehindBadge"
-                                Classes="branchBadge"
-                                IsVisible="{Binding HasBehind.Value}">
-                            <TextBlock FontSize="11"
-                                       Text="{Binding BehindBadgeText.Value}"
-                                       TextAlignment="Center" />
-                        </Border>
-                    </StackPanel>
-                    <Button x:Name="SwitchBranchButton"
-                            Grid.Column="2"
-                            Margin="6,0,0,0"
-                            Command="{Binding SwitchBranchCommand}"
-                            Content="{x:Static lang:Strings.VersionControl_Switch}" />
-                    <Button Grid.Column="3"
-                            Margin="6,0,0,0"
-                            Command="{Binding CreateBranchCommand}"
-                            Content="{x:Static lang:Strings.VersionControl_NewBranch}" />
-                    <TextBlock Grid.Row="1"
-                               Grid.ColumnSpan="4"
-                               Margin="0,4,0,0"
-                               Classes="secondary"
+                <Grid RowDefinitions="Auto,Auto">
+                    <TextBlock Classes="secondary"
                                Text="{Binding DirtySummary.Value}" />
-                    <TextBlock Grid.Row="2"
-                               Grid.ColumnSpan="4"
+                    <TextBlock Grid.Row="1"
                                Margin="0,4,0,0"
                                Classes="secondary"
                                IsVisible="{Binding IsNestedRepository.Value}"

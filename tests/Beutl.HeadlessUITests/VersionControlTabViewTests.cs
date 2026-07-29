@@ -5,7 +5,9 @@ using Avalonia.Controls;
 using Avalonia.Headless;
 using Avalonia.Headless.NUnit;
 using Avalonia.Input;
+using Avalonia.VisualTree;
 using Beutl.Configuration;
+using Beutl.Editor.Components.VersionControl.ViewModels;
 using Beutl.Editor.Components.VersionControlTab.ViewModels;
 using Beutl.Editor.Components.VersionControlTab.Views;
 using Beutl.Editor.VersionControl;
@@ -14,12 +16,134 @@ using Beutl.Language;
 using Beutl.ProjectSystem;
 using Beutl.Services.PrimitiveImpls;
 using Beutl.Testing.Headless;
+using Beutl.Views;
 
 namespace Beutl.HeadlessUITests;
 
 [TestFixture]
 public class VersionControlTabViewTests
 {
+    [AvaloniaTest]
+    public async Task Title_bar_branch_widget_is_hidden_until_a_tracked_project_is_ready()
+    {
+        await TestReset.ResetShellAsync();
+        using var gitEnvironment = new IsolatedGitEnvironment();
+        VersionControlConfig config = GlobalConfiguration.Instance.VersionControlConfig;
+        string? previousGitPath = config.GitExecutablePath;
+        Func<string, CancellationToken, Task<bool>> previousBranchConfirmation =
+            TestShell.VersionControl.ConfirmSwitchBranchAsync;
+        var window = new Window { Width = 420, Height = 120 };
+        try
+        {
+            config.GitExecutablePath = ProbeGitOrIgnore();
+            TitleBarBranchViewModel viewModel =
+                TestShell.MainViewModel.TitleBarBranch;
+            var view = new TitleBarBranchView { DataContext = viewModel };
+            window.Content = view;
+            window.Show();
+            await viewModel.Initialization;
+            HeadlessTestHelpers.Render();
+
+            Assert.That(view.IsVisible, Is.False);
+
+            string location = Path.Combine(
+                BeutlHomeIsolation.CurrentHome!,
+                "title-bar-branch-widget");
+            Directory.CreateDirectory(location);
+            await TestShell.Project.CreateProject(
+                640,
+                480,
+                30,
+                44100,
+                "title-bar-branch-widget",
+                location);
+            bool initialized = await TestShell.VersionControl.InitializeCurrentProjectAsync(
+                async service =>
+                {
+                    await service.SetLocalIdentityAsync(
+                        new GitIdentity(
+                            "Beutl Headless Test",
+                            "headless@example.invalid"),
+                        CancellationToken.None);
+                    return true;
+                });
+            Assert.That(initialized, Is.True);
+            await WaitUntilAsync(() => viewModel.IsVisible.Value);
+
+            TestShell.VersionControl.ConfirmSwitchBranchAsync =
+                static (_, _) => Task.FromResult(true);
+            bool branchCreated = await TestShell.VersionControl.CreateBranchAsync(
+                "feature",
+                CancellationToken.None);
+            Assert.That(branchCreated, Is.True);
+            await WaitUntilAsync(() =>
+                viewModel.IsVisible.Value
+                && viewModel.DisplayText.Value.StartsWith(
+                    "feature",
+                    StringComparison.Ordinal));
+            HeadlessTestHelpers.Render();
+
+            Button branchButton =
+                view.FindControl<Button>("TitleBarBranchButton")!;
+            Assert.Multiple(() =>
+            {
+                Assert.That(view.IsVisible, Is.True);
+                Assert.That(branchButton.IsVisible, Is.True);
+                Assert.That(branchButton.Bounds.Width, Is.GreaterThan(32));
+                Assert.That(viewModel.DisplayText.Value, Does.StartWith("feature"));
+            });
+
+            IProjectVersionControlService service =
+                TestShell.VersionControl.CurrentService!;
+            RunGit(
+                config.GitExecutablePath!,
+                service.Repository!.RepoRoot,
+                "branch",
+                "flyout-refresh");
+            Assert.That(
+                viewModel.Branches.Select(branch => branch.Name),
+                Does.Not.Contain("flyout-refresh"));
+
+            branchButton.Flyout!.ShowAt(branchButton);
+            await WaitUntilAsync(() => viewModel.Branches.Count == 3);
+            HeadlessTestHelpers.Render();
+
+            ItemsControl branchList =
+                view.FindControl<ItemsControl>("BranchList")!;
+            int currentIndex = viewModel.Branches
+                .Select((branch, index) => (branch, index))
+                .Single(item => item.branch.IsCurrent)
+                .index;
+            Control currentContainer =
+                (Control)branchList.ContainerFromIndex(currentIndex)!;
+            TextBlock currentMark = currentContainer
+                .GetVisualDescendants()
+                .OfType<TextBlock>()
+                .Single(text => text.Name == "CurrentBranchMark");
+
+            Assert.Multiple(() =>
+            {
+                Assert.That(branchList.Items, Has.Count.EqualTo(3));
+                Assert.That(
+                    viewModel.Branches.Select(branch => branch.Name),
+                    Does.Contain("feature"));
+                Assert.That(
+                    viewModel.Branches.Select(branch => branch.Name),
+                    Does.Contain("flyout-refresh"));
+                Assert.That(currentMark.Text, Is.EqualTo("✓"));
+                Assert.That(currentMark.IsVisible, Is.True);
+            });
+        }
+        finally
+        {
+            window.Close();
+            config.GitExecutablePath = previousGitPath;
+            TestShell.VersionControl.ConfirmSwitchBranchAsync =
+                previousBranchConfirmation;
+            await TestReset.ResetShellAsync();
+        }
+    }
+
     [AvaloniaTest]
     public async Task Restored_tab_observes_the_service_published_after_view_creation()
     {
@@ -194,21 +318,6 @@ public class VersionControlTabViewTests
                     Has.Count.EqualTo(5));
             });
 
-            BranchInfo main = viewModel.CurrentBranch.Value
-                              ?? new BranchInfo("main", true, null);
-            var alternate = new BranchInfo("alternate", false, null);
-            if (viewModel.CurrentBranch.Value is null)
-            {
-                viewModel.Branches.Add(main);
-                viewModel.CurrentBranch.Value = main;
-            }
-
-            viewModel.Branches.Add(alternate);
-            viewModel.SelectedBranch.Value = alternate;
-            viewModel.HasAhead.Value = true;
-            viewModel.AheadBadgeText.Value = "↑2";
-            HeadlessTestHelpers.Render();
-
             Grid wideLayout = view.FindControl<Grid>("WideLayoutRoot")!;
             Grid narrowLayout = view.FindControl<Grid>("NarrowLayoutRoot")!;
             UserControl wideHistory =
@@ -224,12 +333,6 @@ public class VersionControlTabViewTests
 
             Assert.Multiple(() =>
             {
-                Assert.That(view.FindControl<ComboBox>("BranchComboBox")!.SelectedItem,
-                    Is.EqualTo(alternate));
-                Assert.That(view.FindControl<Button>("SwitchBranchButton")!.IsEnabled,
-                    Is.True);
-                Assert.That(view.FindControl<Border>("AheadBadge")!.IsVisible, Is.True);
-                Assert.That(view.FindControl<Border>("BehindBadge")!.IsVisible, Is.False);
                 Assert.That(view.IsNarrowLayout, Is.False);
                 Assert.That(wideLayout.IsVisible, Is.True);
                 Assert.That(narrowLayout.IsVisible, Is.False);
@@ -400,6 +503,35 @@ public class VersionControlTabViewTests
         }
 
         return path;
+    }
+
+    private static void RunGit(
+        string executable,
+        string workingDirectory,
+        params string[] arguments)
+    {
+        var startInfo = new ProcessStartInfo(executable)
+        {
+            WorkingDirectory = workingDirectory,
+            UseShellExecute = false,
+            CreateNoWindow = true,
+            RedirectStandardOutput = true,
+            RedirectStandardError = true,
+        };
+        startInfo.Environment["GIT_CONFIG_GLOBAL"] = "/dev/null";
+        startInfo.Environment["GIT_CONFIG_NOSYSTEM"] = "1";
+        foreach (string argument in arguments)
+        {
+            startInfo.ArgumentList.Add(argument);
+        }
+
+        using Process process = Process.Start(startInfo)!;
+        string stderr = process.StandardError.ReadToEnd();
+        process.WaitForExit();
+        Assert.That(
+            process.ExitCode,
+            Is.Zero,
+            $"git {string.Join(' ', arguments)} failed: {stderr}");
     }
 
     private sealed class RecordingCommandHandler : IContextCommandHandler

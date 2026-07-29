@@ -127,7 +127,6 @@ public class VersionControlTabViewModelTests
             Assert.That(viewModel.IsGitAvailable.Value, Is.True);
             Assert.That(viewModel.Commits.Select(item => item.Commit),
                 Is.EqualTo([commit]));
-            Assert.That(viewModel.BranchText.Value, Does.Contain("main"));
         });
     }
 
@@ -167,9 +166,11 @@ public class VersionControlTabViewModelTests
 
         Assert.Multiple(() =>
         {
-            Assert.That(viewModel.BranchText.Value, Does.Contain("project-b"));
             Assert.That(viewModel.Commits.Select(item => item.Commit),
                 Is.EqualTo([commitB]));
+            Assert.That(
+                viewModel.DirtySummary.Value,
+                Is.EqualTo(Strings.VersionControl_WorktreeClean));
         });
         serviceA.VerifyRemove(
             x => x.StatusChanged -= It.IsAny<EventHandler<WorkspaceStatus>>(),
@@ -181,14 +182,29 @@ public class VersionControlTabViewModelTests
         serviceA.Raise(
             x => x.StatusChanged += null,
             serviceA.Object,
-            new WorkspaceStatus("stale-project-a", 0, 0, [], false));
-        Assert.That(viewModel.BranchText.Value, Does.Contain("project-b"));
+            new WorkspaceStatus(
+                "stale-project-a",
+                0,
+                0,
+                [new FileChange("stale.bep", FileChangeStatus.Modified)],
+                false));
+        Assert.That(
+            viewModel.DirtySummary.Value,
+            Is.EqualTo(Strings.VersionControl_WorktreeClean));
 
         serviceB.Raise(
             x => x.StatusChanged += null,
             serviceB.Object,
-            new WorkspaceStatus("project-b-updated", 0, 0, [], false));
-        Assert.That(viewModel.BranchText.Value, Does.Contain("project-b-updated"));
+            new WorkspaceStatus(
+                "project-b-updated",
+                0,
+                0,
+                [
+                    new FileChange("one.bep", FileChangeStatus.Modified),
+                    new FileChange("two.bep", FileChangeStatus.Modified),
+                ],
+                false));
+        Assert.That(viewModel.DirtySummary.Value, Does.Contain("2"));
     }
 
     [Test]
@@ -300,8 +316,6 @@ public class VersionControlTabViewModelTests
             Assert.That(viewModel.IsHistoryEmpty.Value, Is.False);
             Assert.That(viewModel.Commits, Has.Count.EqualTo(50));
             Assert.That(viewModel.HasMoreHistory.Value, Is.True);
-            Assert.That(viewModel.BranchText.Value, Does.Contain("main"));
-            Assert.That(viewModel.AheadBehindText.Value, Does.Contain("2"));
             Assert.That(viewModel.DirtySummary.Value, Is.Not.Empty);
         });
 
@@ -318,34 +332,6 @@ public class VersionControlTabViewModelTests
         service.Verify(
             x => x.GetHistoryAsync(50, 50, It.IsAny<CancellationToken>()),
             Times.Once);
-    }
-
-    [TestCase(0, 0, false, false)]
-    [TestCase(2, 0, true, false)]
-    [TestCase(0, 3, false, true)]
-    [TestCase(2, 3, true, true)]
-    public async Task Ahead_and_behind_badges_are_independently_visible(
-        int ahead,
-        int behind,
-        bool hasAhead,
-        bool hasBehind)
-    {
-        Mock<IProjectVersionControlService> service = CreateServiceMock();
-        service.Setup(x => x.GetStatusAsync(It.IsAny<CancellationToken>()))
-            .ReturnsAsync(new WorkspaceStatus("main", ahead, behind, [], false));
-        using VersionControlTabViewModel viewModel = CreateViewModel(service.Object);
-
-        await viewModel.Initialization;
-
-        Assert.Multiple(() =>
-        {
-            Assert.That(viewModel.HasAhead.Value, Is.EqualTo(hasAhead));
-            Assert.That(viewModel.HasBehind.Value, Is.EqualTo(hasBehind));
-            Assert.That(viewModel.AheadBadgeText.Value, Is.EqualTo($"↑{ahead}"));
-            Assert.That(viewModel.BehindBadgeText.Value, Is.EqualTo($"↓{behind}"));
-            Assert.That(viewModel.AheadBehindText.Value, Does.Contain(ahead.ToString()));
-            Assert.That(viewModel.AheadBehindText.Value, Does.Contain(behind.ToString()));
-        });
     }
 
     [Test]
@@ -543,7 +529,9 @@ public class VersionControlTabViewModelTests
 
         Assert.Multiple(() =>
         {
-            Assert.That(viewModel.BranchText.Value, Does.Contain("main"));
+            Assert.That(
+                viewModel.DirtySummary.Value,
+                Is.EqualTo(Strings.VersionControl_WorktreeClean));
             Assert.That((object?)pendingUiAction, Is.Not.Null);
         });
 
@@ -551,8 +539,6 @@ public class VersionControlTabViewModelTests
 
         Assert.Multiple(() =>
         {
-            Assert.That(viewModel.BranchText.Value, Does.Contain("external"));
-            Assert.That(viewModel.AheadBehindText.Value, Does.Contain("3"));
             Assert.That(viewModel.DirtySummary.Value, Does.Contain("1"));
         });
     }
@@ -904,133 +890,6 @@ public class VersionControlTabViewModelTests
     }
 
     [Test]
-    public async Task Branch_selection_waits_for_the_explicit_switch_action()
-    {
-        var main = new BranchInfo("main", true, null);
-        var alternate = new BranchInfo("alternate", false, null);
-        var mainAfterSwitch = new BranchInfo("main", false, null);
-        var alternateAfterSwitch = new BranchInfo("alternate", true, null);
-        Mock<IProjectVersionControlService> service = CreateServiceMock();
-        service.SetupSequence(x => x.GetBranchesAsync(It.IsAny<CancellationToken>()))
-            .ReturnsAsync([main, alternate])
-            .ReturnsAsync([mainAfterSwitch, alternateAfterSwitch]);
-        var coordinator = new Mock<IProjectVersionControlCoordinator>();
-        coordinator.Setup(x => x.SwitchBranchAsync(
-                alternate.Name,
-                It.IsAny<CancellationToken>()))
-            .ReturnsAsync(true);
-        using var viewModel = CreateViewModel(service.Object, coordinator.Object);
-        await viewModel.Initialization;
-
-        viewModel.SelectedBranch.Value = alternate;
-
-        Assert.Multiple(() =>
-        {
-            Assert.That(viewModel.IsBranchSwitchPending.Value, Is.True);
-            Assert.That(viewModel.CurrentBranch.Value, Is.EqualTo(main));
-        });
-        coordinator.Verify(
-            x => x.SwitchBranchAsync(
-                It.IsAny<string>(),
-                It.IsAny<CancellationToken>()),
-            Times.Never);
-
-        await viewModel.SwitchSelectedBranchAsync();
-
-        Assert.Multiple(() =>
-        {
-            Assert.That(viewModel.CurrentBranch.Value, Is.EqualTo(alternateAfterSwitch));
-            Assert.That(viewModel.SelectedBranch.Value, Is.EqualTo(alternateAfterSwitch));
-            Assert.That(viewModel.IsBranchSwitchPending.Value, Is.False);
-        });
-        coordinator.Verify(
-            x => x.SwitchBranchAsync("alternate", It.IsAny<CancellationToken>()),
-            Times.Once);
-    }
-
-    [Test]
-    public async Task Canceled_branch_switch_reverts_selection_to_the_current_branch()
-    {
-        var main = new BranchInfo("main", true, null);
-        var alternate = new BranchInfo("alternate", false, null);
-        Mock<IProjectVersionControlService> service = CreateServiceMock();
-        service.Setup(x => x.GetBranchesAsync(It.IsAny<CancellationToken>()))
-            .ReturnsAsync([main, alternate]);
-        var coordinator = new Mock<IProjectVersionControlCoordinator>();
-        coordinator.Setup(x => x.SwitchBranchAsync(
-                alternate.Name,
-                It.IsAny<CancellationToken>()))
-            .ReturnsAsync(false);
-        using var viewModel = CreateViewModel(service.Object, coordinator.Object);
-        await viewModel.Initialization;
-        viewModel.SelectedBranch.Value = alternate;
-
-        await viewModel.SwitchSelectedBranchAsync();
-
-        Assert.Multiple(() =>
-        {
-            Assert.That(viewModel.SelectedBranch.Value, Is.EqualTo(main));
-            Assert.That(viewModel.CurrentBranch.Value, Is.EqualTo(main));
-            Assert.That(viewModel.IsBranchSwitchPending.Value, Is.False);
-        });
-    }
-
-    [Test]
-    public async Task Failed_branch_switch_reverts_selection_to_the_current_branch()
-    {
-        var main = new BranchInfo("main", true, null);
-        var alternate = new BranchInfo("alternate", false, null);
-        Mock<IProjectVersionControlService> service = CreateServiceMock();
-        service.Setup(x => x.GetBranchesAsync(It.IsAny<CancellationToken>()))
-            .ReturnsAsync([main, alternate]);
-        var coordinator = new Mock<IProjectVersionControlCoordinator>();
-        coordinator.Setup(x => x.SwitchBranchAsync(
-                alternate.Name,
-                It.IsAny<CancellationToken>()))
-            .ThrowsAsync(new InvalidOperationException("switch failed"));
-        using var viewModel = CreateViewModel(service.Object, coordinator.Object);
-        await viewModel.Initialization;
-        viewModel.SelectedBranch.Value = alternate;
-
-        Assert.That(
-            async () => await viewModel.SwitchSelectedBranchAsync(),
-            Throws.TypeOf<InvalidOperationException>());
-        Assert.Multiple(() =>
-        {
-            Assert.That(viewModel.SelectedBranch.Value, Is.EqualTo(main));
-            Assert.That(viewModel.CurrentBranch.Value, Is.EqualTo(main));
-            Assert.That(viewModel.IsBranchSwitchPending.Value, Is.False);
-        });
-    }
-
-    [Test]
-    public async Task Branch_creation_uses_the_existing_coordinator_cycle()
-    {
-        var main = new BranchInfo("main", true, null);
-        var mainAfterCreation = new BranchInfo("main", false, null);
-        var experiment = new BranchInfo("experiment", true, null);
-        Mock<IProjectVersionControlService> service = CreateServiceMock();
-        service.SetupSequence(x => x.GetBranchesAsync(It.IsAny<CancellationToken>()))
-            .ReturnsAsync([main])
-            .ReturnsAsync([mainAfterCreation, experiment]);
-        var coordinator = new Mock<IProjectVersionControlCoordinator>();
-        coordinator.Setup(x => x.CreateBranchAsync(
-                "experiment",
-                It.IsAny<CancellationToken>()))
-            .ReturnsAsync(true);
-        using var viewModel = CreateViewModel(service.Object, coordinator.Object);
-        viewModel.RequestNewBranchNameAsync = () => Task.FromResult<string?>(" experiment ");
-        await viewModel.Initialization;
-
-        await viewModel.CreateBranchAsync();
-
-        Assert.That(viewModel.SelectedBranch.Value, Is.EqualTo(experiment));
-        coordinator.Verify(
-            x => x.CreateBranchAsync("experiment", It.IsAny<CancellationToken>()),
-            Times.Once);
-    }
-
-    [Test]
     public async Task Remote_push_reports_progress_and_maps_expected_failure_to_the_dialog()
     {
         Mock<IProjectVersionControlService> service = CreateServiceMock();
@@ -1236,8 +1095,6 @@ public class VersionControlTabViewModelTests
                 It.IsAny<int>(),
                 It.IsAny<CancellationToken>()))
             .ReturnsAsync([]);
-        service.Setup(x => x.GetBranchesAsync(It.IsAny<CancellationToken>()))
-            .ReturnsAsync([new BranchInfo("main", true, null)]);
         service.Setup(x => x.GetRemotesAsync(It.IsAny<CancellationToken>()))
             .ReturnsAsync([]);
         return service;

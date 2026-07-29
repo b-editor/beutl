@@ -94,18 +94,6 @@ public sealed class VersionControlTabViewModel : IToolContext
         HasRecoverableLock = new ReactivePropertySlim<bool>(
                 _lockRecoveryService?.RecoverableLock is not null)
             .DisposeWith(_disposables);
-        BranchText = new ReactivePropertySlim<string>()
-            .DisposeWith(_disposables);
-        AheadBehindText = new ReactivePropertySlim<string>()
-            .DisposeWith(_disposables);
-        AheadBadgeText = new ReactivePropertySlim<string>()
-            .DisposeWith(_disposables);
-        BehindBadgeText = new ReactivePropertySlim<string>()
-            .DisposeWith(_disposables);
-        HasAhead = new ReactivePropertySlim<bool>()
-            .DisposeWith(_disposables);
-        HasBehind = new ReactivePropertySlim<bool>()
-            .DisposeWith(_disposables);
         DirtySummary = new ReactivePropertySlim<string>()
             .DisposeWith(_disposables);
         StatusMessage = new ReactivePropertySlim<string>(
@@ -137,18 +125,6 @@ public sealed class VersionControlTabViewModel : IToolContext
             .ToReadOnlyReactivePropertySlim()
             .DisposeWith(_disposables);
         CommitMessage = new ReactivePropertySlim<string>()
-            .DisposeWith(_disposables);
-        CurrentBranch = new ReactivePropertySlim<BranchInfo?>()
-            .DisposeWith(_disposables);
-        SelectedBranch = new ReactivePropertySlim<BranchInfo?>()
-            .DisposeWith(_disposables);
-        IsBranchSwitchPending = SelectedBranch.CombineLatest(
-                CurrentBranch,
-                static (selected, current) =>
-                    selected is not null
-                    && current is not null
-                    && !string.Equals(selected.Name, current.Name, StringComparison.Ordinal))
-            .ToReadOnlyReactivePropertySlim()
             .DisposeWith(_disposables);
         RemoteUrl = new ReactivePropertySlim<string>()
             .DisposeWith(_disposables);
@@ -200,15 +176,6 @@ public sealed class VersionControlTabViewModel : IToolContext
                     static (canRun, hasMessage) => canRun && hasMessage))
             .WithSubscribe(CommitManualAsync)
             .DisposeWith(_disposables);
-        CreateBranchCommand = new AsyncReactiveCommand(canMutate)
-            .WithSubscribe(CreateBranchAsync)
-            .DisposeWith(_disposables);
-        SwitchBranchCommand = new AsyncReactiveCommand(
-                canMutate.CombineLatest(
-                    IsBranchSwitchPending,
-                    static (canRun, pending) => canRun && pending))
-            .WithSubscribe(SwitchSelectedBranchAsync)
-            .DisposeWith(_disposables);
         SetRemoteCommand = new AsyncReactiveCommand(canMutate)
             .WithSubscribe(SetRemoteAsync)
             .DisposeWith(_disposables);
@@ -252,7 +219,6 @@ public sealed class VersionControlTabViewModel : IToolContext
             .WithSubscribe(InvokePrimaryAction)
             .DisposeWith(_disposables);
         RequestBranchNameAsync = ShowBranchNameDialogAsync;
-        RequestNewBranchNameAsync = ShowNewBranchDialogAsync;
         RequestRemoteUrlAsync = static _ => Task.FromResult<string?>(null);
         ShowRemoteResultAsync = ShowRemoteResultDialogAsync;
         RequestEnableVersionControlAsync = static () => Task.CompletedTask;
@@ -294,18 +260,6 @@ public sealed class VersionControlTabViewModel : IToolContext
 
     public ReactivePropertySlim<bool> HasRecoverableLock { get; }
 
-    public ReactivePropertySlim<string> BranchText { get; }
-
-    public ReactivePropertySlim<string> AheadBehindText { get; }
-
-    public ReactivePropertySlim<string> AheadBadgeText { get; }
-
-    public ReactivePropertySlim<string> BehindBadgeText { get; }
-
-    public ReactivePropertySlim<bool> HasAhead { get; }
-
-    public ReactivePropertySlim<bool> HasBehind { get; }
-
     public ReactivePropertySlim<string> DirtySummary { get; }
 
     public ReactivePropertySlim<string> StatusMessage { get; }
@@ -324,8 +278,6 @@ public sealed class VersionControlTabViewModel : IToolContext
 
     public ObservableCollection<VersionControlDiffLineViewModel> DiffLines { get; } = [];
 
-    public ObservableCollection<BranchInfo> Branches { get; } = [];
-
     public ReactivePropertySlim<VersionControlCommitViewModel?> SelectedCommit { get; }
 
     public ReactivePropertySlim<VersionControlFileChangeViewModel?> SelectedFile { get; }
@@ -335,12 +287,6 @@ public sealed class VersionControlTabViewModel : IToolContext
     public ReadOnlyReactivePropertySlim<bool> HasSelectedFile { get; }
 
     public ReactivePropertySlim<string> CommitMessage { get; }
-
-    public ReactivePropertySlim<BranchInfo?> CurrentBranch { get; }
-
-    public ReactivePropertySlim<BranchInfo?> SelectedBranch { get; }
-
-    public ReadOnlyReactivePropertySlim<bool> IsBranchSwitchPending { get; }
 
     public ReactivePropertySlim<string> RemoteUrl { get; }
 
@@ -368,10 +314,6 @@ public sealed class VersionControlTabViewModel : IToolContext
 
     public AsyncReactiveCommand CommitCommand { get; }
 
-    public AsyncReactiveCommand CreateBranchCommand { get; }
-
-    public AsyncReactiveCommand SwitchBranchCommand { get; }
-
     public AsyncReactiveCommand SetRemoteCommand { get; }
 
     public AsyncReactiveCommand PublishBranchCommand { get; }
@@ -391,8 +333,6 @@ public sealed class VersionControlTabViewModel : IToolContext
     public Task Initialization { get; private set; }
 
     public Func<CommitInfo, Task<string?>> RequestBranchNameAsync { get; set; }
-
-    public Func<Task<string?>> RequestNewBranchNameAsync { get; set; }
 
     public Func<string?, Task<string?>> RequestRemoteUrlAsync { get; set; }
 
@@ -488,58 +428,6 @@ public sealed class VersionControlTabViewModel : IToolContext
         }
         catch (GitIdentityRequiredException)
         {
-        }
-    }
-
-    public async Task SwitchSelectedBranchAsync()
-    {
-        BranchInfo? branch = SelectedBranch.Value;
-        if (_versionControlCoordinator is null
-            || branch is null
-            || !IsBranchSwitchPending.Value)
-        {
-            return;
-        }
-
-        try
-        {
-            bool switched = await _versionControlCoordinator.SwitchBranchAsync(
-                branch.Name,
-                CancellationToken.None);
-            if (switched)
-            {
-                await RefreshRepositoryMetadataAsync();
-            }
-            else
-            {
-                RevertBranchSelection();
-            }
-        }
-        catch
-        {
-            RevertBranchSelection();
-            throw;
-        }
-    }
-
-    public async Task CreateBranchAsync()
-    {
-        if (_versionControlCoordinator is null)
-        {
-            return;
-        }
-
-        string? branchName = await RequestNewBranchNameAsync();
-        if (string.IsNullOrWhiteSpace(branchName))
-        {
-            return;
-        }
-
-        if (await _versionControlCoordinator.CreateBranchAsync(
-                branchName.Trim(),
-                CancellationToken.None))
-        {
-            await RefreshRepositoryMetadataAsync();
         }
     }
 
@@ -717,7 +605,6 @@ public sealed class VersionControlTabViewModel : IToolContext
         Commits.Clear();
         ChangedFiles.Clear();
         DiffLines.Clear();
-        Branches.Clear();
         IsSelected.Dispose();
         _disposables.Dispose();
     }
@@ -831,11 +718,8 @@ public sealed class VersionControlTabViewModel : IToolContext
         Commits.Clear();
         ChangedFiles.Clear();
         DiffLines.Clear();
-        Branches.Clear();
         SelectedCommit.Value = null;
         SelectedFile.Value = null;
-        CurrentBranch.Value = null;
-        SelectedBranch.Value = null;
         _showingDetail.Value = false;
         _nextHistoryOffset = 0;
         _aheadCount = 0;
@@ -849,12 +733,6 @@ public sealed class VersionControlTabViewModel : IToolContext
         IsConflicted.Value = false;
         HasBlockingGuidance.Value = false;
         HasRecoverableLock.Value = _lockRecoveryService?.RecoverableLock is not null;
-        BranchText.Value = string.Empty;
-        AheadBehindText.Value = string.Empty;
-        AheadBadgeText.Value = string.Empty;
-        BehindBadgeText.Value = string.Empty;
-        HasAhead.Value = false;
-        HasBehind.Value = false;
         DirtySummary.Value = string.Empty;
         StatusMessage.Value = isTracked
             ? string.Empty
@@ -947,7 +825,7 @@ public sealed class VersionControlTabViewModel : IToolContext
         {
             try
             {
-                await RefreshRepositoryMetadataAsync(service, cancellationToken);
+                await RefreshRemotesAsync(service, cancellationToken);
                 await RefreshHistoryAsync(service, cancellationToken);
             }
             catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
@@ -1062,49 +940,6 @@ public sealed class VersionControlTabViewModel : IToolContext
         }
     }
 
-    private async Task RefreshRepositoryMetadataAsync(
-        IProjectVersionControlService? expectedService = null,
-        CancellationToken cancellationToken = default)
-    {
-        IProjectVersionControlService? service = expectedService ?? _service;
-        if (service?.Repository is null)
-        {
-            return;
-        }
-
-        if (expectedService is null && !cancellationToken.CanBeCanceled)
-        {
-            cancellationToken =
-                _serviceBindingCancellation?.Token ?? CancellationToken.None;
-        }
-
-        string? pendingBranchName = IsBranchSwitchPending.Value
-            ? SelectedBranch.Value?.Name
-            : null;
-        IReadOnlyList<BranchInfo> branches = await service.GetBranchesAsync(
-            cancellationToken);
-        if (cancellationToken.IsCancellationRequested
-            || !ReferenceEquals(service, _service))
-        {
-            return;
-        }
-
-        Branches.Clear();
-        foreach (BranchInfo branch in branches)
-        {
-            Branches.Add(branch);
-        }
-
-        BranchInfo? currentBranch = Branches.FirstOrDefault(branch => branch.IsCurrent);
-        CurrentBranch.Value = currentBranch;
-        SelectedBranch.Value = pendingBranchName is null
-            ? currentBranch
-            : Branches.FirstOrDefault(branch =>
-                string.Equals(branch.Name, pendingBranchName, StringComparison.Ordinal))
-              ?? currentBranch;
-        await RefreshRemotesAsync(service, cancellationToken);
-    }
-
     private async Task RefreshRemotesAsync()
     {
         IProjectVersionControlService? service = _service;
@@ -1210,7 +1045,7 @@ public sealed class VersionControlTabViewModel : IToolContext
     {
         try
         {
-            await RefreshRepositoryMetadataAsync(service, cancellationToken);
+            await RefreshRemotesAsync(service, cancellationToken);
             await RefreshHistoryAsync(service, cancellationToken);
         }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
@@ -1250,22 +1085,9 @@ public sealed class VersionControlTabViewModel : IToolContext
             HasMoreHistory.Value = false;
         }
 
-        BranchText.Value = string.Format(
-            CultureInfo.CurrentCulture,
-            Strings.VersionControl_BranchFormat,
-            status.Branch ?? "—");
-        AheadBehindText.Value = string.Format(
-            CultureInfo.CurrentCulture,
-            Strings.VersionControl_AheadBehindFormat,
-            status.Ahead,
-            status.Behind);
-        HasAhead.Value = status.Ahead > 0;
-        HasBehind.Value = status.Behind > 0;
         _aheadCount = status.Ahead;
         _behindCount = status.Behind;
         _hasUncommittedChanges = !status.IsClean;
-        AheadBadgeText.Value = $"↑{status.Ahead.ToString(CultureInfo.CurrentCulture)}";
-        BehindBadgeText.Value = $"↓{status.Behind.ToString(CultureInfo.CurrentCulture)}";
         DirtySummary.Value = status.IsClean
             ? Strings.VersionControl_WorktreeClean
             : string.Format(
@@ -1350,11 +1172,6 @@ public sealed class VersionControlTabViewModel : IToolContext
         }
     }
 
-    private void RevertBranchSelection()
-    {
-        SelectedBranch.Value = CurrentBranch.Value;
-    }
-
     private CancellationToken ReplaceSelectionCancellation()
     {
         _selectionCancellation?.Cancel();
@@ -1386,7 +1203,7 @@ public sealed class VersionControlTabViewModel : IToolContext
             if (result is RemoteOpResult.Success)
             {
                 StatusMessage.Value = Strings.VersionControl_RemoteOperationSucceeded;
-                await RefreshRepositoryMetadataAsync();
+                await RefreshRemotesAsync();
             }
             else if (result is not RemoteOpResult.Failed { Stderr.Length: 0 })
             {
@@ -1434,24 +1251,6 @@ public sealed class VersionControlTabViewModel : IToolContext
             Title = Strings.VersionControl_CreateBranchTitle,
             Content = textBox,
             PrimaryButtonText = Strings.VersionControl_RestoreToNewBranch,
-            CloseButtonText = Strings.Cancel,
-            DefaultButton = ContentDialogButton.Primary,
-        };
-        ContentDialogResult result = await dialog.ShowAsync();
-        return result == ContentDialogResult.Primary ? textBox.Text : null;
-    }
-
-    private static async Task<string?> ShowNewBranchDialogAsync()
-    {
-        var textBox = new TextBox
-        {
-            Watermark = Strings.VersionControl_BranchName,
-        };
-        var dialog = new ContentDialog
-        {
-            Title = Strings.VersionControl_NewBranch,
-            Content = textBox,
-            PrimaryButtonText = Strings.VersionControl_CreateBranch,
             CloseButtonText = Strings.Cancel,
             DefaultButton = ContentDialogButton.Primary,
         };

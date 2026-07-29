@@ -4,6 +4,7 @@ using Avalonia.Controls.ApplicationLifetimes;
 using Beutl.AgentHost;
 using Beutl.Api;
 using Beutl.Api.Services;
+using Beutl.Editor.Components.VersionControl.ViewModels;
 using Beutl.Helpers;
 using Beutl.Logging;
 using Beutl.Services;
@@ -50,6 +51,10 @@ public sealed class MainViewModel : BasePageViewModel, IContextCommandHandler
         WindowTitle = NameOfOpenProject.Select(v => string.IsNullOrWhiteSpace(v) ? "Beutl" : $"Beutl - {v}")
             .ToReadOnlyReactivePropertySlim("Beutl");
         TitleBreadcrumbBar = new TitleBreadcrumbBarViewModel(this, _editorService);
+        TitleBarBranch = new TitleBarBranchViewModel(
+            _editorService.ProjectVersionControlService,
+            _versionControlCoordinator.IsGitAvailable,
+            _versionControlCoordinator);
 
         EditorHost = new EditorHostViewModel(_projectService, _editorService);
 
@@ -99,6 +104,8 @@ public sealed class MainViewModel : BasePageViewModel, IContextCommandHandler
     public MenuBarViewModel MenuBar { get; }
 
     public TitleBreadcrumbBarViewModel TitleBreadcrumbBar { get; }
+
+    internal TitleBarBranchViewModel TitleBarBranch { get; }
 
     public EditorHostViewModel EditorHost { get; }
 
@@ -153,6 +160,7 @@ public sealed class MainViewModel : BasePageViewModel, IContextCommandHandler
     public override void Dispose()
     {
         CommandPalette.Dispose();
+        TitleBarBranch.Dispose();
         _agentHostEndpoint.RequestStop();
         _versionControlCoordinator.NotifyClosingAsync().GetAwaiter().GetResult();
         _projectService.CloseProjectImmediately();
