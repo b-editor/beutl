@@ -38,6 +38,7 @@
                 <ResourceInclude Source="avares://Beutl.Controls/Styling/Fonts.axaml" />
                 <ResourceInclude Source="avares://Beutl.Controls/Styling/ButtonStyles.axaml" />
                 <ResourceInclude Source="avares://Beutl.Controls/Styling/ProgressRing.axaml" />
+                <ResourceInclude Source="avares://Beutl.Controls/Styling/CornerRadius.axaml" />
             </ResourceDictionary.MergedDictionaries>
 
             <ControlTheme x:Key="{x:Type SelectableTextBlock}" TargetType="SelectableTextBlock">

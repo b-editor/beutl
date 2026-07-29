@@ -61,7 +61,7 @@
                                 </Style>
                                 <Style Selector="Border.value-badge">
                                     <Setter Property="Background" Value="{DynamicResource SubtleFillColorTertiaryBrush}" />
-                                    <Setter Property="CornerRadius" Value="4" />
+                                    <Setter Property="CornerRadius" Value="{DynamicResource ControlCornerRadius}" />
                                     <Setter Property="Padding" Value="6,1,6,1" />
                                     <Setter Property="VerticalAlignment" Value="Center" />
                                     <Setter Property="MinWidth" Value="48" />

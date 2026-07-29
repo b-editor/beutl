@@ -98,7 +98,8 @@
     <sys:Double x:Key="DockFontSizeNormal">12</sys:Double>
 
     <!--  ===== Geometry / density =====  -->
-    <sys:Double x:Key="DockCornerRadiusSmall">4</sys:Double>
+    <!--  The radii below mirror ControlCornerRadius; upstream Dock keys take a Double or only some corners.  -->
+    <sys:Double x:Key="DockCornerRadiusSmall">8</sys:Double>
     <sys:Double x:Key="DockHeaderHeight">28</sys:Double>
     <sys:Double x:Key="DockTabHeight">28</sys:Double>
     <sys:Double x:Key="DockTabItemMinHeight">26</sys:Double>
@@ -111,8 +112,8 @@
     <Thickness x:Key="DockDocumentTabItemPadding">10,4,10,4</Thickness>
     <Thickness x:Key="DockToolTabItemPadding">8,2,8,2</Thickness>
     <Thickness x:Key="DockToolTabItemSelectedPadding">8,2,8,2</Thickness>
-    <CornerRadius x:Key="DockDocumentTabItemCornerRadius">4,4,0,0</CornerRadius>
-    <CornerRadius x:Key="DockDocumentTabCreateButtonCornerRadius">4</CornerRadius>
+    <CornerRadius x:Key="DockDocumentTabItemCornerRadius">8,8,0,0</CornerRadius>
+    <CornerRadius x:Key="DockDocumentTabCreateButtonCornerRadius">8</CornerRadius>
 
     <sys:Double x:Key="DockIconSizeSmall">12</sys:Double>
     <sys:Double x:Key="DockIconSizeNormal">14</sys:Double>

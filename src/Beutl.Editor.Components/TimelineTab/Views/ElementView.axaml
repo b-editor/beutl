@@ -30,7 +30,7 @@
             Background="{Binding Color.Value, Converter={StaticResource ColorToBrushConverter}}"
             BorderThickness="1"
             ClipToBounds="True"
-            CornerRadius="4"
+            CornerRadius="{DynamicResource TimelineElementCornerRadius}"
             Classes.elm-disabled="{Binding !IsEnabled.Value}"
             Classes.elm-locked="{Binding !IsEditable.Value}"
             Classes.selected="{Binding IsSelected.Value}">
@@ -198,6 +198,7 @@
             </ui:FAMenuFlyout>
         </Border.ContextFlyout>
         <Panel>
+            <!--  One pixel tighter than TimelineElementCornerRadius, so it sits flush inside the element's stroke.  -->
             <Border x:Name="mediaClip"
                     ClipToBounds="True"
                     CornerRadius="3">

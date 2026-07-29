@@ -194,7 +194,9 @@ public partial class TutorialOverlay : UserControl
             {
                 BorderBrush = Application.Current?.FindResource("AccentFillColorDefaultBrush") as IBrush,
                 BorderThickness = new Thickness(2),
-                CornerRadius = new CornerRadius(4),
+                CornerRadius = Application.Current?.FindResource("ControlCornerRadius") is CornerRadius cornerRadius
+                    ? cornerRadius
+                    : new CornerRadius(8),
                 IsVisible = false
             };
             _highlightBorders.Add(border);

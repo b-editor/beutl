@@ -56,7 +56,7 @@
             <Border Padding="4"
                     Background="Transparent"
                     Classes="file-item"
-                    CornerRadius="4"
+                    CornerRadius="{DynamicResource ControlCornerRadius}"
                     DoubleTapped="OnItemDoubleTapped"
                     ToolTip.Tip="{Binding MediaInfoText.Value}">
                 <Interaction.Behaviors>

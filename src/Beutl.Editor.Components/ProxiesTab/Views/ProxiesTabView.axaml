@@ -38,7 +38,7 @@
             <Setter Property="Background" Value="{DynamicResource CardBackgroundFillColorDefaultBrush}" />
             <Setter Property="BorderBrush" Value="{DynamicResource CardStrokeColorDefaultBrush}" />
             <Setter Property="BorderThickness" Value="1" />
-            <Setter Property="CornerRadius" Value="6" />
+            <Setter Property="CornerRadius" Value="{DynamicResource ControlCornerRadius}" />
         </Style>
         <Style Selector="Border.proxyItem.ready">
             <Setter Property="BorderBrush" Value="{DynamicResource SystemFillColorSuccessBrush}" />

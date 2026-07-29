@@ -23,13 +23,13 @@
                         Height="32"
                         VerticalAlignment="Center"
                         Background="{DynamicResource SubtleFillColorSecondaryBrush}"
-                        CornerRadius="4"
+                        CornerRadius="{DynamicResource ControlCornerRadius}"
                         IsVisible="{Binding LogoUrl, Converter={x:Static StringConverters.IsNullOrEmpty}}" />
 
                 <asyncImageLoader:AdvancedImage Width="32"
                                                 Height="32"
                                                 VerticalAlignment="Center"
-                                                ImageClipping.CornerRadius="4"
+                                                ImageClipping.CornerRadius="{DynamicResource ControlCornerRadius}"
                                                 IsVisible="{Binding LogoUrl, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"
                                                 RenderOptions.BitmapInterpolationMode="HighQuality"
                                                 Source="{Binding LogoUrl}" />
