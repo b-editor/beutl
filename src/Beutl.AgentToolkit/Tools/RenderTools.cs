@@ -2109,18 +2109,18 @@ public sealed class RenderTools(
         PixelSize frameSize = scene.FrameSize;
         double requestedWidth = GetRootDeviceExtent(frameSize.Width, normalizedScale);
         double requestedHeight = GetRootDeviceExtent(frameSize.Height, normalizedScale);
-        if (requestedWidth <= RenderNodeContext.MaxBufferDimension
-            && requestedHeight <= RenderNodeContext.MaxBufferDimension)
+        if (requestedWidth <= RenderScaleUtilities.MaxBufferDimension
+            && requestedHeight <= RenderScaleUtilities.MaxBufferDimension)
         {
             return normalizedScale;
         }
 
         double maximumScaleLimit = Math.Min(
             frameSize.Width > 0
-                ? RenderNodeContext.MaxBufferDimension / (double)frameSize.Width
+                ? RenderScaleUtilities.MaxBufferDimension / (double)frameSize.Width
                 : double.PositiveInfinity,
             frameSize.Height > 0
-                ? RenderNodeContext.MaxBufferDimension / (double)frameSize.Height
+                ? RenderScaleUtilities.MaxBufferDimension / (double)frameSize.Height
                 : double.PositiveInfinity);
         float maximumScale = (float)maximumScaleLimit;
         while (!RootOutputExtentFits(frameSize, maximumScale))
@@ -2140,7 +2140,7 @@ public sealed class RenderTools(
         throw new ReconcileException(new ToolError(
             ErrorCode.ValidationRejected,
             $"{toolName} renderScale {normalizedScale.ToString("G9", CultureInfo.InvariantCulture)} requests an output extent of {requestedExtent} pixels. "
-            + $"Each output axis is limited to {RenderNodeContext.MaxBufferDimension} pixels; "
+            + $"Each output axis is limited to {RenderScaleUtilities.MaxBufferDimension} pixels; "
             + $"the maximum usable renderScale for frame {frameSize.Width}x{frameSize.Height} is {maximumScaleText}.",
             "renderScale",
             $"Use renderScale <= {maximumScaleText} for this frame size."));
@@ -2148,8 +2148,8 @@ public sealed class RenderTools(
 
     private static bool RootOutputExtentFits(PixelSize frameSize, float renderScale)
     {
-        return GetRootDeviceExtent(frameSize.Width, renderScale) <= RenderNodeContext.MaxBufferDimension
-               && GetRootDeviceExtent(frameSize.Height, renderScale) <= RenderNodeContext.MaxBufferDimension;
+        return GetRootDeviceExtent(frameSize.Width, renderScale) <= RenderScaleUtilities.MaxBufferDimension
+               && GetRootDeviceExtent(frameSize.Height, renderScale) <= RenderScaleUtilities.MaxBufferDimension;
     }
 
     private static float GetRootDeviceExtent(int logicalExtent, float renderScale)
