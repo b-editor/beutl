@@ -1,5 +1,6 @@
 ﻿using System.ComponentModel.DataAnnotations;
 using Beutl.Engine;
+using Beutl.Graphics.Rendering;
 using Beutl.Language;
 
 namespace Beutl.Graphics.Effects;
@@ -20,5 +21,23 @@ public sealed partial class Blur : FilterEffect
     {
         var r = (Resource)resource;
         context.Blur(r.Sigma);
+    }
+
+    public partial class Resource
+    {
+        public override FilterEffectRenderNode CreateRenderNode()
+        {
+            return new BlurRenderNode(this);
+        }
+    }
+
+    private sealed class BlurRenderNode(Resource effect) : FilterEffectRenderNode(effect)
+    {
+        protected override RenderScaleContract? GetWorkingScaleContract()
+        {
+            Size sigma = ((Resource)FilterEffect!.Value.Resource).Sigma;
+            return new GaussianBlurWorkingScaleResolver(MathF.Max(sigma.Width, sigma.Height))
+                .CreateContract();
+        }
     }
 }

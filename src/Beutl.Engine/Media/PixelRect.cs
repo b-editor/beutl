@@ -401,13 +401,18 @@ public readonly struct PixelRect
     /// <returns>The covering device-pixel rect.</returns>
     public static PixelRect FromRect(Rect rect, Vector scale)
     {
-        PixelPoint topLeft = FromPointFloor(rect.Position, scale);
-        PixelPoint bottomRight = FromPointCeiling(rect.BottomRight, scale);
-        return new PixelRect(
-            topLeft,
-            new PixelPoint(
-                CoverEnd(topLeft.X, bottomRight.X, rect.Width * scale.X),
-                CoverEnd(topLeft.Y, bottomRight.Y, rect.Height * scale.Y)));
+        double leftEdge = (double)rect.X * scale.X;
+        double topEdge = (double)rect.Y * scale.Y;
+        double rightEdge = ((double)rect.X + rect.Width) * scale.X;
+        double bottomEdge = ((double)rect.Y + rect.Height) * scale.Y;
+        double deviceWidth = (double)rect.Width * scale.X;
+        double deviceHeight = (double)rect.Height * scale.Y;
+
+        int left = (int)Math.Floor(leftEdge);
+        int top = (int)Math.Floor(topEdge);
+        int right = CoverEnd(left, (int)Math.Ceiling(rightEdge), deviceWidth);
+        int bottom = CoverEnd(top, (int)Math.Ceiling(bottomEdge), deviceHeight);
+        return new PixelRect(new PixelPoint(left, top), new PixelPoint(right, bottom));
     }
 
     /// <summary>
@@ -497,23 +502,9 @@ public readonly struct PixelRect
         return TryParse(s, out result);
     }
 
-    private static PixelPoint FromPointCeiling(Point point, Vector scale)
-    {
-        return new PixelPoint(
-            (int)Math.Ceiling(point.X * scale.X),
-            (int)Math.Ceiling(point.Y * scale.Y));
-    }
-
-    private static PixelPoint FromPointFloor(Point point, Vector scale)
-    {
-        return new PixelPoint(
-            (int)Math.Floor(point.X * scale.X),
-            (int)Math.Floor(point.Y * scale.Y));
-    }
-
     // A positive extent always overlaps a device pixel, even where float rounding of a large co-ordinate
     // collapses the scaled edges onto one another.
-    private static int CoverEnd(int start, int end, float deviceExtent)
+    private static int CoverEnd(int start, int end, double deviceExtent)
     {
         return end <= start && deviceExtent > 0 ? start + 1 : end;
     }

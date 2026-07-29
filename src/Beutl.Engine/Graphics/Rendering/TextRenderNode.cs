@@ -27,9 +27,11 @@ public sealed class TextRenderNode(FormattedText text, Brush.Resource? fill, Pen
     public override void Process(RenderNodeContext context)
     {
         FormattedText text = Text;
-        Rect bounds = text.ActualBounds;
-        if (bounds.Width == 0 || bounds.Height == 0)
+        Rect rasterBounds = text.RasterBounds;
+        if (rasterBounds.Width == 0 || rasterBounds.Height == 0)
             return;
+
+        Rect bounds = text.ActualBounds;
 
         (Brush.Resource Resource, int Version)? fillSnapshot = Fill;
         (Pen.Resource Resource, int Version)? penSnapshot = Pen;
@@ -68,7 +70,7 @@ public sealed class TextRenderNode(FormattedText text, Brush.Resource? fill, Pen
                 paint,
                 static (canvas, currentText, currentFill, currentPen) =>
                     canvas.DrawText(currentText, currentFill, currentPen)),
-            bounds: BrushRecorder.CreateSourceBounds(paint, text.RasterBounds, typeof(TextRenderNode)),
+            bounds: BrushRecorder.CreateSourceBounds(paint, rasterBounds, typeof(TextRenderNode)),
             hitTest: RenderHitTestContract.FromResource(
                 textResource,
                 (currentText, point) => HitTest(currentText, hasFill, point),

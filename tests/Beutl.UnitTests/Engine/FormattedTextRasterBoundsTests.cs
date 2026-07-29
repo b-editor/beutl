@@ -83,4 +83,37 @@ public class FormattedTextRasterBoundsTests
             Assert.That(raster.Bottom, Is.GreaterThanOrEqualTo(actual.Bottom));
         });
     }
+
+    // The current SkiaSharp runtime leaves SKTextBlobBuilder run storage readable after Build(), so the
+    // lifetime hazard this guards is not observably red before the production reorder. Repeated measurement
+    // still verifies that moving mask-bound calculation before Build() preserves the published footprint.
+    [Test]
+    public void RasterBounds_RemainsStableAcrossRepeatedMeasurement()
+    {
+        using FormattedText text = CreateText("Builder span lifetime", 48f);
+        Rect expected = text.RasterBounds;
+
+        for (int i = 0; i < 8; i++)
+        {
+            text.Size = 49f;
+            _ = text.RasterBounds;
+            text.Size = 48f;
+
+            Assert.That(text.RasterBounds, Is.EqualTo(expected), $"RasterBounds changed after measurement cycle {i + 1}.");
+        }
+    }
+
+    [Test]
+    public void AddToSKPath_RemainsStableWhenRunStorageIsConsumedBeforeBuild()
+    {
+        using FormattedText text = CreateText("Outline", 48f);
+        using var first = new SKPath();
+        using var second = new SKPath();
+
+        text.AddToSKPath(first, new Point(10, 20));
+        text.AddToSKPath(second, new Point(10, 20));
+
+        Assert.That(second.TightBounds, Is.EqualTo(first.TightBounds));
+    }
+
 }

@@ -203,9 +203,6 @@ public class FormattedText : IEquatable<FormattedText>, IDisposable
             positions[i] = p;
         }
 
-        // build
-        using SKTextBlob? textBlob = builder.Build();
-
         for (int i = 0; i < glyphs.Length; i++)
         {
             ushort glyph = glyphs[i];
@@ -216,6 +213,7 @@ public class FormattedText : IEquatable<FormattedText>, IDisposable
                 path.AddPath(glyphPath, p.X, p.Y);
         }
 
+        using SKTextBlob? textBlob = builder.Build();
         return point;
     }
 
@@ -391,6 +389,7 @@ public class FormattedText : IEquatable<FormattedText>, IDisposable
         // 空白で開始または、終了した場合
         var bounds = new Rect(0, 0, Math.Max(0, glyphs.Length - 1) * spacing + result.Width, fillPath.TightBounds.Height);
         Rect actualBounds = fillPath.TightBounds.ToGraphicsRect();
+        Rect rasterBounds = MeasureGlyphMaskBounds(font, glyphs, positions);
         SKTextBlob? textBlob = builder.Build();
 
         if (result.Codepoints.Length > 0)
@@ -402,7 +401,6 @@ public class FormattedText : IEquatable<FormattedText>, IDisposable
             }
         }
 
-        Rect rasterBounds = MeasureGlyphMaskBounds(font, glyphs, positions);
         if (strokePath is not null)
             rasterBounds = rasterBounds.Union(InflateToRaster(strokePath.TightBounds).ToGraphicsRect());
         rasterBounds = rasterBounds.IsEmpty ? actualBounds : rasterBounds.Union(actualBounds);

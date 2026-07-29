@@ -1,5 +1,6 @@
 ﻿using System.ComponentModel.DataAnnotations;
 using Beutl.Engine;
+using Beutl.Graphics.Rendering;
 using Beutl.Language;
 using Beutl.Media;
 
@@ -36,6 +37,24 @@ public sealed partial class DropShadow : FilterEffect
         else
         {
             context.DropShadow(r.Position, r.Sigma, r.Color);
+        }
+    }
+
+    public partial class Resource
+    {
+        public override FilterEffectRenderNode CreateRenderNode()
+        {
+            return new DropShadowRenderNode(this);
+        }
+    }
+
+    private sealed class DropShadowRenderNode(Resource effect) : FilterEffectRenderNode(effect)
+    {
+        protected override RenderScaleContract? GetWorkingScaleContract()
+        {
+            Size sigma = ((Resource)FilterEffect!.Value.Resource).Sigma;
+            return new GaussianBlurWorkingScaleResolver(MathF.Max(sigma.Width, sigma.Height))
+                .CreateContract();
         }
     }
 }

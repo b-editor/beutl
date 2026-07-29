@@ -214,6 +214,86 @@ public class PixelRectTests
         });
     }
 
+    [TestCase(100_000f)]
+    [TestCase(1_000_000f)]
+    [TestCase(10_000_000f)]
+    public void FromRect_CoverOfLargeCoordinateSuperset_ContainsSubsetCover(float coordinate)
+    {
+        var subset = new Rect(coordinate, coordinate, 0.001f, 0.001f);
+        var superset = new Rect(coordinate - 5f, coordinate - 5f, 5.001f, 5.001f);
+
+        PixelRect subsetCover = PixelRect.FromRect(subset, 1f);
+        PixelRect supersetCover = PixelRect.FromRect(superset, 1f);
+
+        Assert.That(
+            supersetCover.Contains(subsetCover),
+            Is.True,
+            $"The cover of {superset} ({supersetCover}) did not contain the cover of {subset} ({subsetCover}).");
+    }
+
+    [Test]
+    public void FromRect_CoverMapping_IsMonotoneForRandomContainedRects()
+    {
+        var random = new Random(0x50495845);
+        int verified = 0;
+
+        for (int attempt = 0; attempt < 20_000 && verified < 5_000; attempt++)
+        {
+            float outerX = RandomCoordinate(random);
+            float outerY = RandomCoordinate(random);
+            float outerWidth = RandomExtent(random);
+            float outerHeight = RandomExtent(random);
+            var outer = new Rect(outerX, outerY, outerWidth, outerHeight);
+
+            float innerX = (float)((double)outerX + outerWidth * random.NextDouble());
+            float innerY = (float)((double)outerY + outerHeight * random.NextDouble());
+            double remainingWidth = (double)outerX + outerWidth - innerX;
+            double remainingHeight = (double)outerY + outerHeight - innerY;
+            if (remainingWidth <= 0 || remainingHeight <= 0)
+                continue;
+
+            float innerWidth = (float)(remainingWidth * random.NextDouble());
+            float innerHeight = (float)(remainingHeight * random.NextDouble());
+            if (innerWidth <= 0 || innerHeight <= 0)
+                continue;
+
+            var inner = new Rect(innerX, innerY, innerWidth, innerHeight);
+            if (!ContainsInDouble(outer, inner))
+                continue;
+
+            float scale = 0.1f + (float)(random.NextDouble() * 3.9);
+            PixelRect outerCover = PixelRect.FromRect(outer, scale);
+            PixelRect innerCover = PixelRect.FromRect(inner, scale);
+
+            Assert.That(
+                outerCover.Contains(innerCover),
+                Is.True,
+                $"Scale {scale}: cover of {outer} ({outerCover}) did not contain cover of {inner} ({innerCover}).");
+            verified++;
+        }
+
+        Assert.That(verified, Is.EqualTo(5_000), "The seeded sweep did not generate enough valid contained rectangles.");
+    }
+
+    private static float RandomCoordinate(Random random)
+    {
+        double magnitude = Math.Pow(10, 2 + random.NextDouble() * 5);
+        return (float)((random.Next(2) == 0 ? -1 : 1) * magnitude);
+    }
+
+    private static float RandomExtent(Random random)
+    {
+        return (float)Math.Pow(10, -3 + random.NextDouble() * 5);
+    }
+
+    private static bool ContainsInDouble(Rect outer, Rect inner)
+    {
+        return (double)inner.X >= outer.X
+               && (double)inner.Y >= outer.Y
+               && (double)inner.X + inner.Width <= (double)outer.X + outer.Width
+               && (double)inner.Y + inner.Height <= (double)outer.Y + outer.Height;
+    }
+
     private static void AssertCovers(PixelRect actual, Rect logical, Vector scale)
     {
         var device = new Rect(
