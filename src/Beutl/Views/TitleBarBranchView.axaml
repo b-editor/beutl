@@ -12,6 +12,49 @@
              x:DataType="vm:TitleBarBranchViewModel"
              IsVisible="{Binding IsVisible.Value}"
              mc:Ignorable="d">
+    <UserControl.Resources>
+        <ControlTheme x:Key="BranchFlyoutPresenterTheme"
+                      BasedOn="{StaticResource {x:Type FlyoutPresenter}}"
+                      TargetType="FlyoutPresenter">
+            <Setter Property="MinWidth" Value="260" />
+            <Setter Property="MaxWidth" Value="320" />
+            <Setter Property="Padding" Value="4" />
+        </ControlTheme>
+    </UserControl.Resources>
+
+    <UserControl.Styles>
+        <Style Selector="Button.branchRow">
+            <Setter Property="MinHeight" Value="32" />
+            <Setter Property="Margin" Value="4,1" />
+            <Setter Property="Padding" Value="8,6" />
+            <Setter Property="HorizontalAlignment" Value="Stretch" />
+            <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+            <Setter Property="Background" Value="{DynamicResource SubtleFillColorTransparentBrush}" />
+            <Setter Property="BorderBrush" Value="{DynamicResource SubtleFillColorTransparentBrush}" />
+            <Setter Property="BorderThickness" Value="0" />
+            <Setter Property="CornerRadius" Value="4" />
+            <Setter Property="Theme" Value="{StaticResource TransparentButton}" />
+            <Style Selector="^:pointerover">
+                <Setter Property="Background" Value="{DynamicResource SubtleFillColorSecondaryBrush}" />
+            </Style>
+            <Style Selector="^:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+                <Setter Property="Background" Value="{DynamicResource SubtleFillColorSecondaryBrush}" />
+            </Style>
+            <Style Selector="^:pressed">
+                <Setter Property="Background" Value="{DynamicResource SubtleFillColorTertiaryBrush}" />
+            </Style>
+            <Style Selector="^:pressed /template/ ContentPresenter#PART_ContentPresenter">
+                <Setter Property="Background" Value="{DynamicResource SubtleFillColorTertiaryBrush}" />
+            </Style>
+            <Style Selector="^:disabled">
+                <Setter Property="Opacity" Value="0.5" />
+            </Style>
+        </Style>
+        <Style Selector="TextBlock.branchName.current">
+            <Setter Property="FontWeight" Value="SemiBold" />
+        </Style>
+    </UserControl.Styles>
+
     <Button x:Name="TitleBarBranchButton"
             Width="NaN"
             MinWidth="0"
@@ -20,39 +63,131 @@
             Theme="{StaticResource TitleBarButtonStyle}"
             ToolTip.Tip="{Binding AheadBehindText.Value}">
         <Button.Flyout>
-            <Flyout Opening="OnBranchFlyoutOpening">
-                <StackPanel MinWidth="220" MaxWidth="360" Spacing="4">
-                    <TextBlock x:Name="CurrentBranchHeader"
-                               Margin="8,4"
-                               FontWeight="SemiBold"
-                               Text="{Binding CurrentBranchText.Value}"
-                               TextTrimming="CharacterEllipsis" />
-                    <ItemsControl x:Name="BranchList" ItemsSource="{Binding Branches}">
-                        <ItemsControl.ItemTemplate>
-                            <DataTemplate x:DataType="vm:TitleBarBranchItemViewModel">
-                                <Button HorizontalContentAlignment="Stretch"
-                                        Click="OnBranchClick"
-                                        IsEnabled="{Binding CanSwitch.Value}">
-                                    <Grid ColumnDefinitions="20,*">
-                                        <TextBlock x:Name="CurrentBranchMark"
-                                                   HorizontalAlignment="Center"
-                                                   VerticalAlignment="Center"
-                                                   IsVisible="{Binding IsCurrent}"
-                                                   Text="✓" />
-                                        <TextBlock Grid.Column="1"
-                                                   VerticalAlignment="Center"
-                                                   Text="{Binding Name}"
-                                                   TextTrimming="CharacterEllipsis" />
-                                    </Grid>
-                                </Button>
-                            </DataTemplate>
-                        </ItemsControl.ItemTemplate>
-                    </ItemsControl>
-                    <Separator Margin="0,4" />
-                    <Button HorizontalContentAlignment="Left"
-                            Command="{Binding CreateBranchCommand}"
-                            Content="{x:Static lang:Strings.VersionControl_NewBranch}" />
-                </StackPanel>
+            <Flyout FlyoutPresenterTheme="{StaticResource BranchFlyoutPresenterTheme}"
+                    Opening="OnBranchFlyoutOpening">
+                <Grid RowDefinitions="Auto,1,Auto,Auto,Auto,1,Auto">
+                    <Border Padding="12,10,12,8">
+                        <StackPanel Spacing="5">
+                            <TextBlock FontSize="11"
+                                       Foreground="{DynamicResource TextFillColorSecondaryBrush}"
+                                       Text="{x:Static lang:Strings.VersionControl_CurrentBranch}" />
+                            <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="8">
+                                <icons:FluentIcon VerticalAlignment="Center"
+                                                  FontSize="16"
+                                                  Icon="BranchFork" />
+                                <TextBlock x:Name="CurrentBranchHeader"
+                                           Grid.Column="1"
+                                           VerticalAlignment="Center"
+                                           FontWeight="SemiBold"
+                                           Text="{Binding CurrentBranchName.Value}"
+                                           TextTrimming="CharacterEllipsis" />
+                                <StackPanel Grid.Column="2"
+                                            VerticalAlignment="Center"
+                                            Orientation="Horizontal"
+                                            Spacing="4">
+                                    <Border Padding="6,1"
+                                            Background="{DynamicResource SubtleFillColorSecondaryBrush}"
+                                            CornerRadius="8"
+                                            IsVisible="{Binding HasAhead.Value}">
+                                        <TextBlock FontSize="10"
+                                                   Text="{Binding AheadCount.Value, StringFormat='↑{0}'}" />
+                                    </Border>
+                                    <Border Padding="6,1"
+                                            Background="{DynamicResource SubtleFillColorSecondaryBrush}"
+                                            CornerRadius="8"
+                                            IsVisible="{Binding HasBehind.Value}">
+                                        <TextBlock FontSize="10"
+                                                   Text="{Binding BehindCount.Value, StringFormat='↓{0}'}" />
+                                    </Border>
+                                </StackPanel>
+                            </Grid>
+                        </StackPanel>
+                    </Border>
+
+                    <Border Grid.Row="1"
+                            Height="1"
+                            Background="{DynamicResource DividerStrokeColorDefaultBrush}" />
+
+                    <TextBox x:Name="BranchFilterTextBox"
+                             Grid.Row="2"
+                             Height="30"
+                             Margin="8,8,8,2"
+                             Text="{Binding BranchFilter.Value, Mode=TwoWay}"
+                             Watermark="{x:Static lang:Strings.VersionControl_SearchBranches}">
+                        <TextBox.InnerLeftContent>
+                            <icons:FluentIcon Margin="8,0,0,0"
+                                              VerticalAlignment="Center"
+                                              FontSize="14"
+                                              Foreground="{DynamicResource TextFillColorSecondaryBrush}"
+                                              Icon="Search" />
+                        </TextBox.InnerLeftContent>
+                    </TextBox>
+
+                    <TextBlock Grid.Row="3"
+                               Margin="12,6,12,2"
+                               FontSize="11"
+                               Foreground="{DynamicResource TextFillColorSecondaryBrush}"
+                               Text="{x:Static lang:Strings.VersionControl_Branches}" />
+
+                    <Grid Grid.Row="4">
+                        <ScrollViewer MaxHeight="320"
+                                      HorizontalScrollBarVisibility="Disabled"
+                                      IsVisible="{Binding !HasNoMatchingBranches.Value}"
+                                      VerticalScrollBarVisibility="Auto">
+                            <ItemsControl x:Name="BranchList"
+                                          ItemsSource="{Binding FilteredBranches}">
+                                <ItemsControl.ItemTemplate>
+                                    <DataTemplate x:DataType="vm:TitleBarBranchItemViewModel">
+                                        <Button Classes="branchRow"
+                                                Click="OnBranchClick"
+                                                IsEnabled="{Binding CanSwitch.Value}">
+                                            <Grid ColumnDefinitions="20,*">
+                                                <icons:FluentIcon x:Name="CurrentBranchMark"
+                                                                  HorizontalAlignment="Center"
+                                                                  VerticalAlignment="Center"
+                                                                  FontSize="13"
+                                                                  Foreground="{DynamicResource AccentTextFillColorPrimaryBrush}"
+                                                                  Icon="Checkmark"
+                                                                  IsVisible="{Binding IsCurrent}" />
+                                                <TextBlock Grid.Column="1"
+                                                           VerticalAlignment="Center"
+                                                           Classes.current="{Binding IsCurrent}"
+                                                           Classes="branchName"
+                                                           Text="{Binding Name}"
+                                                           TextTrimming="CharacterEllipsis" />
+                                            </Grid>
+                                        </Button>
+                                    </DataTemplate>
+                                </ItemsControl.ItemTemplate>
+                            </ItemsControl>
+                        </ScrollViewer>
+
+                        <TextBlock x:Name="NoMatchingBranchesText"
+                                   Margin="12,10,12,12"
+                                   HorizontalAlignment="Center"
+                                   Foreground="{DynamicResource TextFillColorSecondaryBrush}"
+                                   IsVisible="{Binding HasNoMatchingBranches.Value}"
+                                   Text="{x:Static lang:Strings.VersionControl_NoMatchingBranches}" />
+                    </Grid>
+
+                    <Border Grid.Row="5"
+                            Height="1"
+                            Background="{DynamicResource DividerStrokeColorDefaultBrush}" />
+
+                    <Button Grid.Row="6"
+                            Classes="branchRow"
+                            Command="{Binding CreateBranchCommand}">
+                        <Grid ColumnDefinitions="20,*">
+                            <icons:FluentIcon HorizontalAlignment="Center"
+                                              VerticalAlignment="Center"
+                                              FontSize="14"
+                                              Icon="Add" />
+                            <TextBlock Grid.Column="1"
+                                       VerticalAlignment="Center"
+                                       Text="{x:Static lang:Strings.VersionControl_NewBranch}" />
+                        </Grid>
+                    </Button>
+                </Grid>
             </Flyout>
         </Button.Flyout>
         <StackPanel Orientation="Horizontal" Spacing="5">

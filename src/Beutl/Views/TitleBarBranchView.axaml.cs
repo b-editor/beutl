@@ -28,7 +28,7 @@ public sealed partial class TitleBarBranchView : UserControl
     {
         if (DataContext is TitleBarBranchViewModel viewModel)
         {
-            await viewModel.RefreshAsync();
+            await viewModel.PrepareFlyoutAsync();
         }
     }
 
