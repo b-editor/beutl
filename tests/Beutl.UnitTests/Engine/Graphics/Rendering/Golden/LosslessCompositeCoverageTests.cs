@@ -356,6 +356,68 @@ public sealed class LosslessCompositeCoverageTests
     }
 
     [Test]
+    public void DrawableBrush_DelayWrappedMosaic_PreservesNestedAlpha()
+    {
+        VulkanTestEnvironment.EnsureAvailable();
+        VulkanTestEnvironment.InvokeOnRenderThread(() =>
+        {
+            var frame = new PixelSize(192, 108);
+            using Drawable.Resource plain = CreateNestedDrawableBrush(applyMosaic: false, delayWrapped: false);
+            using Drawable.Resource direct = CreateNestedDrawableBrush(applyMosaic: true, delayWrapped: false);
+            using Drawable.Resource delayed = CreateNestedDrawableBrush(applyMosaic: true, delayWrapped: true);
+            using Bitmap expected = RenderThroughPipeline(plain, density: 1, frame);
+            using Bitmap directBitmap = RenderThroughPipeline(direct, density: 1, frame);
+            using Bitmap delayedBitmap = RenderThroughPipeline(delayed, density: 1, frame);
+
+            ReadOnlySpan<ushort> expectedPixels = expected.GetPixelSpan<ushort>();
+            ReadOnlySpan<ushort> directPixels = directBitmap.GetPixelSpan<ushort>();
+            ReadOnlySpan<ushort> delayedPixels = delayedBitmap.GetPixelSpan<ushort>();
+            int directAlphaDifferences = 0;
+            int delayedAlphaDifferences = 0;
+            int wrappedPixelDifferences = 0;
+            float maximumWrappedDelta = 0;
+            for (int offset = 3; offset < expectedPixels.Length; offset += 4)
+            {
+                if (expectedPixels[offset] != directPixels[offset])
+                    directAlphaDifferences++;
+                if (expectedPixels[offset] != delayedPixels[offset])
+                    delayedAlphaDifferences++;
+            }
+            for (int offset = 0; offset < directPixels.Length; offset++)
+            {
+                if (directPixels[offset] != delayedPixels[offset])
+                {
+                    wrappedPixelDifferences++;
+                    maximumWrappedDelta = Math.Max(
+                        maximumWrappedDelta,
+                        Math.Abs(
+                            (float)BitConverter.UInt16BitsToHalf(directPixels[offset])
+                            - (float)BitConverter.UInt16BitsToHalf(delayedPixels[offset])));
+                }
+            }
+
+            TestContext.WriteLine(
+                $"nested brush alpha differences: direct={directAlphaDifferences}, delayed={delayedAlphaDifferences}; "
+                + $"direct-vs-delayed channel differences={wrappedPixelDifferences}, "
+                + $"max delta={maximumWrappedDelta:R}");
+            TestContext.WriteLine(
+                $"nested brush alpha bounds: plain={MeasureAlphaBounds(expected)}, "
+                + $"direct={MeasureAlphaBounds(directBitmap)}, delayed={MeasureAlphaBounds(delayedBitmap)}");
+            using (Assert.EnterMultipleScope())
+            {
+                Assert.That(
+                    directAlphaDifferences,
+                    Is.Zero,
+                    "A direct Clamp-sampled Mosaic must not introduce transparent padding.");
+                Assert.That(
+                    delayedAlphaDifferences,
+                    Is.Zero,
+                    "A zero-delay wrapped Clamp-sampled Mosaic must not introduce transparent padding.");
+            }
+        });
+    }
+
+    [Test]
     public void DrawableRotation_RotatesDropShadowOffsetInLocalSpace()
     {
         VulkanTestEnvironment.EnsureAvailable();
@@ -621,6 +683,61 @@ public sealed class LosslessCompositeCoverageTests
         if (effect is not null)
             shape.FilterEffect.CurrentValue = effect;
         return shape.ToResource(CompositionContext.Default);
+    }
+
+    private static Drawable.Resource CreateNestedDrawableBrush(bool applyMosaic, bool delayWrapped)
+    {
+        var stripes = new RectShape
+        {
+            AlignmentX = { CurrentValue = AlignmentX.Center },
+            AlignmentY = { CurrentValue = AlignmentY.Center },
+            Width = { CurrentValue = 100 },
+            Height = { CurrentValue = 70 },
+        };
+        var gradient = new LinearGradientBrush
+        {
+            StartPoint = { CurrentValue = new RelativePoint(0, 0, RelativeUnit.Absolute) },
+            EndPoint = { CurrentValue = new RelativePoint(13, 8, RelativeUnit.Absolute) },
+            SpreadMethod = { CurrentValue = GradientSpreadMethod.Repeat },
+        };
+        gradient.GradientStops.Add(new GradientStop(Colors.OrangeRed, 0));
+        gradient.GradientStops.Add(new GradientStop(Colors.OrangeRed, 0.48f));
+        gradient.GradientStops.Add(new GradientStop(Colors.CornflowerBlue, 0.52f));
+        gradient.GradientStops.Add(new GradientStop(Colors.CornflowerBlue, 1));
+        stripes.Fill.CurrentValue = gradient;
+        if (applyMosaic)
+        {
+            var mosaic = new MosaicEffect
+            {
+                TileSize = { CurrentValue = new Size(9, 7) },
+            };
+            stripes.FilterEffect.CurrentValue = delayWrapped
+                ? new DelayAnimationEffect
+                {
+                    Delay = { CurrentValue = 0 },
+                    Effect = { CurrentValue = mosaic },
+                }
+                : mosaic;
+        }
+
+        var drawableBrush = new DrawableBrush(stripes)
+        {
+            Stretch = { CurrentValue = Stretch.Fill },
+            TileMode = { CurrentValue = TileMode.Tile },
+            DestinationRect =
+            {
+                CurrentValue = new RelativeRect(0, 0, 0.5f, 0.5f, RelativeUnit.Relative),
+            },
+        };
+        var host = new EllipseShape
+        {
+            AlignmentX = { CurrentValue = AlignmentX.Center },
+            AlignmentY = { CurrentValue = AlignmentY.Center },
+            Width = { CurrentValue = 154 },
+            Height = { CurrentValue = 88 },
+            Fill = { CurrentValue = drawableBrush },
+        };
+        return host.ToResource(new CompositionContext(TimeSpan.FromMilliseconds(250)));
     }
 
     private static Drawable.Resource Configure(Shape shape, FilterEffect? effect)

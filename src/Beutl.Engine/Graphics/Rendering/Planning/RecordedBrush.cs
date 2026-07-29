@@ -14,7 +14,8 @@ internal enum RecordedBrushKind : byte
 internal sealed record RecordedBrush(
     RecordedBrushKind Kind,
     RenderResource<Brush.Resource>? Resource,
-    int DependencyIndex)
+    int DependencyIndex,
+    Rect? ContentBoundsHint = null)
 {
     public static RecordedBrush Empty { get; } = new(RecordedBrushKind.Empty, null, -1);
 

@@ -32,6 +32,9 @@ public class ParticleRenderNodeScaleTests
 
         var emitter = new ParticleEmitter();
         emitter.ParticleDrawable.CurrentValue = particle;
+        emitter.MaxParticles.CurrentValue = 1;
+        emitter.Speed.CurrentValue = 0;
+        emitter.Gravity.CurrentValue = 0;
 
         var ctx = new CompositionContext(TimeSpan.FromSeconds(1.0));
         return (ParticleEmitter.Resource)emitter.ToResource(ctx);
@@ -85,6 +88,6 @@ public class ParticleRenderNodeScaleTests
         Assert.That(measurement.EffectiveScale.Value, Is.LessThan(8),
             "the materialized particle output must report the clamped buffer density, not the nominal output scale");
         Assert.That(measurement.EffectiveScale.Value, Is.EqualTo(
-            RenderScaleUtilities.ClampWorkingScaleToBufferBudget(measurement.OutputBounds, 8)).Within(1e-3));
+            RenderScaleUtilities.ClampWorkingScaleToBufferBudget(new Rect(0, 0, 4000, 10), 8)).Within(1e-3));
     }
 }

@@ -146,6 +146,9 @@ internal static class BrushExecutionResolver
         RenderExecutionInput input = inputs[brush.DependencyIndex];
         input.UseShader(shader => use(new ResolvedBrush(
             resource,
-            new BrushTileContent(shader, input.Bounds, input.EffectiveScale))));
+            new BrushTileContent(
+                shader,
+                brush.ContentBoundsHint ?? input.Bounds,
+                input.EffectiveScale))));
     }
 }

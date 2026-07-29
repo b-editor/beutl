@@ -129,8 +129,12 @@ internal static class BrushRecorder
 
             if (brush is DrawableBrush.Resource drawableBrush)
             {
-                int dependencyIndex = RecordDrawableBrush(drawableBrush);
-                return new RecordedBrush(RecordedBrushKind.Drawable, resource, dependencyIndex);
+                int dependencyIndex = RecordDrawableBrush(drawableBrush, out Rect? contentBoundsHint);
+                return new RecordedBrush(
+                    RecordedBrushKind.Drawable,
+                    resource,
+                    dependencyIndex,
+                    contentBoundsHint);
             }
 
             if (brush is SolidColorBrush.Resource
@@ -145,8 +149,9 @@ internal static class BrushRecorder
             return new RecordedBrush(RecordedBrushKind.RawExternal, resource, -1);
         }
 
-        private int RecordDrawableBrush(DrawableBrush.Resource brush)
+        private int RecordDrawableBrush(DrawableBrush.Resource brush, out Rect? contentBoundsHint)
         {
+            contentBoundsHint = null;
             Drawable.Resource? drawable = brush.Drawable;
             if (drawable is null)
                 return -1;
@@ -164,20 +169,29 @@ internal static class BrushRecorder
                 return -1;
 
             Rect contentBounds = default;
+            Rect recordedBoundsHint = default;
             bool hasConcreteMetadata = true;
             foreach (RenderFragmentHandle output in outputs)
             {
+                recordedBoundsHint = recordedBoundsHint.Union(
+                    context.GetRecordedMetadataHint(output).Bounds);
                 if (!output.TryGetMetadata(out RenderFragmentMetadata metadata))
                 {
                     hasConcreteMetadata = false;
-                    break;
+                    continue;
                 }
 
                 contentBounds = contentBounds.Union(metadata.Bounds);
             }
 
             if (!hasConcreteMetadata)
+            {
+                // Keep the enclosing brush as the conservative Layer domain, but do not let that
+                // fallback replace the nested drawable's natural size in TileBrushCalculator.
+                if (recordedBoundsHint.Width > 0 && recordedBoundsHint.Height > 0)
+                    contentBoundsHint = recordedBoundsHint;
                 contentBounds = new Rect(default, brushBounds.Size);
+            }
             if (contentBounds.Width == 0 || contentBounds.Height == 0)
                 return -1;
 
