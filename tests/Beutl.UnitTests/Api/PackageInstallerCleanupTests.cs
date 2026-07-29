@@ -119,6 +119,17 @@ public class PackageInstallerCleanupTests
     }
 
     [Test]
+    public void PackageUninstallContext_ResolvesTheDirectory_WhenTheNupkgIsMissing()
+    {
+        var package = new PackageIdentity("Beutl.Package.ContextTest.NoNupkg", NuGetVersion.Parse("1.0.0"));
+        (string directory, _) = CreateInstalledDirectory(package);
+
+        var context = new PackageUninstallContext(package);
+
+        Assert.That(context.InstalledPath, Is.EqualTo(directory));
+    }
+
+    [Test]
     public void PackageUninstallContext_Throws_WhenThePackageIsNotInstalled()
     {
         var package = new PackageIdentity("Beutl.Package.UninstallTest.Unknown", NuGetVersion.Parse("1.0.0"));

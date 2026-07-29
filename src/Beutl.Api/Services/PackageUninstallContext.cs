@@ -10,10 +10,21 @@ public class PackageUninstallContext
         Id = packageIdentity;
         PackageId = Id.Id;
         Version = Id.Version.ToString();
-        InstalledPath = installedPath
-                        ?? Helper.PackagePathResolver.GetInstalledPath(packageIdentity)
-                        ?? throw new ArgumentException(
-                            $"Package '{packageIdentity}' is not installed.", nameof(packageIdentity));
+        InstalledPath = installedPath ?? ResolveInstalledPath(packageIdentity);
+    }
+
+    // Must recognise the same installations Clean / Uninstall do, which reach a package whose .nupkg
+    // is gone but whose extracted files remain.
+    private static string ResolveInstalledPath(PackageIdentity packageIdentity)
+    {
+        string directory = Helper.ResolveInstalledDirectory(packageIdentity);
+        if (!Directory.Exists(directory))
+        {
+            throw new ArgumentException(
+                $"Package '{packageIdentity}' is not installed.", nameof(packageIdentity));
+        }
+
+        return directory;
     }
 
     public PackageIdentity Id { get; }
