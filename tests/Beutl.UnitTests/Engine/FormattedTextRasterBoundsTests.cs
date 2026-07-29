@@ -1,4 +1,5 @@
-﻿using Beutl.Graphics;
+﻿using Beutl.Composition;
+using Beutl.Graphics;
 using Beutl.Media;
 using Beutl.Media.TextFormatting;
 using SkiaSharp;
@@ -8,22 +9,36 @@ namespace Beutl.UnitTests.Engine;
 [TestFixture]
 public class FormattedTextRasterBoundsTests
 {
-    private static FormattedText CreateText(string text, float size)
+    private static readonly float[] s_sizes = [12f, 16f, 20f, 24f, 32f, 40f, 48f, 64f, 96f, 144f];
+
+    private static IEnumerable<TestCaseData> RasterBoundsCases()
+    {
+        foreach (float size in s_sizes)
+        {
+            yield return new TestCaseData(size, false)
+                .SetName($"RasterBounds_FillOnly_{size:g}_ContainsMaskWithFourSideHeadroom");
+            yield return new TestCaseData(size, true)
+                .SetName($"RasterBounds_ThickStroke_{size:g}_ContainsMaskWithFourSideHeadroom");
+        }
+    }
+
+    private static FormattedText CreateText(string text, float size, Pen.Resource? pen = null)
         => new()
         {
             Text = new StringSpan(text, 0, text.Length),
             Font = FontFamily.Default,
             Size = size,
+            Pen = pen,
         };
 
-    // Full hinting can move a glyph mask off its unhinted outline, so a renderer that allocates
-    // ActualBounds clips the row the mask spills into.
-    [TestCase(24f)]
-    [TestCase(48f)]
-    [TestCase(96f)]
-    public void RasterBounds_ContainsEveryRasterizedGlyphPixel(float size)
+    [TestCaseSource(nameof(RasterBoundsCases))]
+    public void RasterBounds_ContainsEveryRasterizedGlyphPixelWithHeadroom(
+        float size,
+        bool useThickStroke)
     {
-        using FormattedText text = CreateText("Your model", size);
+        using Pen.Resource? pen = useThickStroke ? CreateThickPen(size) : null;
+        using FormattedText text = CreateText("AV glyph jog", size, pen);
+        Rect actual = text.ActualBounds;
         Rect raster = text.RasterBounds;
         Assert.That(raster.IsEmpty, Is.False);
 
@@ -34,14 +49,30 @@ public class FormattedTextRasterBoundsTests
         canvas.Clear(SKColors.Transparent);
         using (var paint = new SKPaint { Color = SKColors.White, IsAntialias = true })
         {
-            canvas.DrawText(text.GetTextBlob(), -device.X, -device.Y, paint);
+            canvas.Save();
+            canvas.Translate(-device.X, -device.Y);
+            if (useThickStroke)
+            {
+                canvas.DrawPath(
+                    text.GetStrokePath()
+                    ?? throw new InvalidOperationException("The thick-stroke fixture did not create a stroke path."),
+                    paint);
+            }
+            else
+            {
+                canvas.DrawText(text.GetTextBlob(), 0, 0, paint);
+            }
+
+            canvas.Restore();
         }
 
         canvas.Flush();
         using SKImage image = surface.Snapshot();
         using SKBitmap bitmap = SKBitmap.FromImage(image);
 
-        int touchedTop = -1;
+        int touchedLeft = bitmap.Width;
+        int touchedTop = bitmap.Height;
+        int touchedRight = -1;
         int touchedBottom = -1;
         for (int y = 0; y < bitmap.Height; y++)
         {
@@ -49,20 +80,30 @@ public class FormattedTextRasterBoundsTests
             {
                 if (bitmap.GetPixel(x, y).Alpha == 0)
                     continue;
-                touchedTop = touchedTop < 0 ? y : touchedTop;
+
+                touchedLeft = Math.Min(touchedLeft, x);
+                touchedTop = Math.Min(touchedTop, y);
+                touchedRight = Math.Max(touchedRight, x);
                 touchedBottom = y;
-                break;
             }
         }
 
         Assert.Multiple(() =>
         {
-            Assert.That(touchedTop, Is.GreaterThanOrEqualTo(0),
+            Assert.That(touchedRight, Is.GreaterThanOrEqualTo(0),
                 "the fixture must actually rasterize glyphs");
+            Assert.That(touchedLeft, Is.GreaterThan(0),
+                "a mask touching column 0 means RasterBounds did not leave room left of the glyphs");
             Assert.That(touchedTop, Is.GreaterThan(0),
                 "a mask touching row 0 means RasterBounds did not leave room above the glyphs");
+            Assert.That(touchedRight, Is.LessThan(bitmap.Width - 1),
+                "a mask touching the last column means RasterBounds did not leave room right of the glyphs");
             Assert.That(touchedBottom, Is.LessThan(bitmap.Height - 1),
                 "a mask touching the last row means RasterBounds did not leave room below the glyphs");
+            Assert.That(raster.X, Is.LessThanOrEqualTo(actual.X));
+            Assert.That(raster.Y, Is.LessThanOrEqualTo(actual.Y));
+            Assert.That(raster.Right, Is.GreaterThanOrEqualTo(actual.Right));
+            Assert.That(raster.Bottom, Is.GreaterThanOrEqualTo(actual.Bottom));
         });
     }
 
@@ -116,4 +157,12 @@ public class FormattedTextRasterBoundsTests
         Assert.That(second.TightBounds, Is.EqualTo(first.TightBounds));
     }
 
+    private static Pen.Resource CreateThickPen(float textSize)
+    {
+        var pen = new Pen();
+        pen.Brush.CurrentValue = Brushes.White;
+        pen.Thickness.CurrentValue = MathF.Max(4, textSize / 3);
+        pen.StrokeAlignment.CurrentValue = StrokeAlignment.Outside;
+        return pen.ToResource(CompositionContext.Default);
+    }
 }
