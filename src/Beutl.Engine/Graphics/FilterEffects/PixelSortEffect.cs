@@ -311,6 +311,9 @@ public sealed partial class PixelSortEffect : FilterEffect
             RenderTarget? renderTarget = target.RenderTarget;
             if (renderTarget?.Texture == null) continue;
 
+            // RenderTarget-level: the texture-level transition alone leaves pending Skia work unwritten.
+            renderTarget.PrepareForSampling();
+
             ITexture2D originalTexture = renderTarget.Texture;
             int width = originalTexture.Width;
             int height = originalTexture.Height;
