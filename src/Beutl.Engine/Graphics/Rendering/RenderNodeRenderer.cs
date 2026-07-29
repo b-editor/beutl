@@ -186,7 +186,8 @@ public sealed class RenderNodeRenderer : IDisposable
                 destination.Density,
                 maxWorkingScale,
                 targetDomain,
-                targets);
+                targets,
+                DeviceGridAlignment.ResolveLogicalOffset(destination));
             owner = request.Request.Options.Owner;
             var executor = new RenderRequestExecutor(targets, _programCache);
             if (hasExplicitEmptySelection)
@@ -644,7 +645,8 @@ public sealed class RenderNodeRenderer : IDisposable
         float outputScale,
         float maxWorkingScale,
         Rect? targetDomain,
-        RenderTargetLeaseSession targets)
+        RenderTargetLeaseSession targets,
+        Vector deviceGridOffset = default)
     {
         ArgumentNullException.ThrowIfNull(targets);
         RenderRequest request = CreateRequest(purpose, outputScale, maxWorkingScale, targetDomain);
@@ -661,7 +663,8 @@ public sealed class RenderNodeRenderer : IDisposable
                 RenderCacheFormatIdentity.LinearPremultipliedRgba16Float,
                 targets.CacheDeviceContextIdentity,
                 allowPersistentLookup,
-                allowCapturePublication);
+                allowCapturePublication,
+                deviceGridOffset);
             SkslBackendBudget shaderBudget = SkslBackendBudgetResolver.Resolve(
                 targets.ExternalTarget?.Value.Context?.Backend);
             return new RenderRequestCompiler(

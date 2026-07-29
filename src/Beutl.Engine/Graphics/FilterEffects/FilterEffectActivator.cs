@@ -14,6 +14,7 @@ public sealed class FilterEffectActivator : IDisposable
 {
     private static readonly ILogger s_logger = Log.CreateLogger("FilterEffectActivator");
     private readonly SkRuntimeEffectProgramAcquirer? _injectedProgramAcquirer;
+    private readonly Vector? _deviceGridOffset;
     private ProgramCache<CachedSkRuntimeEffect>? _ownedProgramCache;
     private Dictionary<EffectTarget, PendingSkiaTarget>? _pendingSkiaTargets;
 
@@ -34,6 +35,7 @@ public sealed class FilterEffectActivator : IDisposable
             workingScale,
             maxWorkingScale,
             acquireProgram: null,
+            deviceGridOffset: null,
             ownsProgramCache: true)
     {
     }
@@ -46,6 +48,7 @@ public sealed class FilterEffectActivator : IDisposable
         float outputScale,
         float workingScale,
         float maxWorkingScale,
+        Vector deviceGridOffset,
         SkRuntimeEffectProgramAcquirer acquireProgram)
         : this(
             targets,
@@ -56,6 +59,7 @@ public sealed class FilterEffectActivator : IDisposable
             workingScale,
             maxWorkingScale,
             acquireProgram ?? throw new ArgumentNullException(nameof(acquireProgram)),
+            deviceGridOffset,
             ownsProgramCache: false)
     {
     }
@@ -69,6 +73,7 @@ public sealed class FilterEffectActivator : IDisposable
         float workingScale,
         float maxWorkingScale,
         SkRuntimeEffectProgramAcquirer? acquireProgram,
+        Vector? deviceGridOffset,
         bool ownsProgramCache)
     {
         ArgumentNullException.ThrowIfNull(targets);
@@ -85,6 +90,7 @@ public sealed class FilterEffectActivator : IDisposable
         MaxWorkingScale = SanitizeCeiling(maxWorkingScale, nameof(maxWorkingScale));
         Intent = intent;
         Purpose = purpose;
+        _deviceGridOffset = deviceGridOffset;
         if (!ownsProgramCache)
         {
             _injectedProgramAcquirer = acquireProgram
@@ -189,7 +195,8 @@ public sealed class FilterEffectActivator : IDisposable
             flushTargets.Add(target, flushTarget);
             Rect budgetBounds = ResolveDeviceRoundingSource(target, flushTarget, hasFilter);
             float fit = RenderScaleUtilities.ClampWorkingScaleToExactBufferBudget(
-                budgetBounds, WorkingScale);
+                budgetBounds.Translate(target.DeviceGridOffset),
+                WorkingScale);
             if (fit < WorkingScale)
             {
                 s_logger.LogWarning(
@@ -233,25 +240,32 @@ public sealed class FilterEffectActivator : IDisposable
             if (!hasFilter && CanReuseWithoutFilter(target, w))
                 continue;
 
+            Rect deviceRoundingSource = ResolveDeviceRoundingSource(target, flushTarget, hasFilter);
             PixelRect deviceBounds = CustomFilterEffectContext.DeviceBufferBounds(
-                ResolveDeviceRoundingSource(target, flushTarget, hasFilter), w);
+                deviceRoundingSource.Translate(target.DeviceGridOffset), w);
             if (hasFilter)
                 VerifyFilteredDeviceBounds(target, deviceBounds, w);
-            Rect rasterBounds = deviceBounds.ToRect(w);
+            Rect rasterBounds = deviceBounds
+                .ToRect(w)
+                .Translate(-target.DeviceGridOffset);
             using RenderTarget? surface = RenderTarget.Create(
                 deviceBounds.Width,
                 deviceBounds.Height);
 
             if (surface != null)
             {
+                Vector rasterTranslation = DeviceGridAlignment.ResolveRasterTranslation(
+                    deviceBounds,
+                    target.DeviceGridOffset,
+                    w);
                 using (var canvas = new ImmediateCanvas(surface, w, MaxWorkingScale,
                            logicalSize: rasterBounds.Size))
                 {
                     canvas.Clear();
                     using (canvas.PushTransform(
                                Matrix.CreateTranslation(
-                                   flushTarget.InputBounds.X - rasterBounds.X,
-                                   flushTarget.InputBounds.Y - rasterBounds.Y)))
+                                   flushTarget.InputBounds.X + rasterTranslation.X,
+                                   flushTarget.InputBounds.Y + rasterTranslation.Y)))
                     using (paint != null ? canvas.PushPaint(paint) : default)
                     {
                         target.Draw(canvas);
@@ -262,7 +276,8 @@ public sealed class FilterEffectActivator : IDisposable
                     surface,
                     target.Bounds,
                     EffectiveScale.At(w),
-                    deviceBounds)
+                    deviceBounds,
+                    target.DeviceGridOffset)
                 {
                     OriginalBounds = target.OriginalBounds
                 };
@@ -343,7 +358,9 @@ public sealed class FilterEffectActivator : IDisposable
         PixelRect deviceBounds,
         float density)
     {
-        PixelRect semanticDeviceBounds = PixelRect.FromRect(target.Bounds, density);
+        PixelRect semanticDeviceBounds = PixelRect.FromRect(
+            target.Bounds.Translate(target.DeviceGridOffset),
+            density);
         if (!Contains(deviceBounds, semanticDeviceBounds))
         {
             throw new InvalidOperationException(
@@ -356,8 +373,13 @@ public sealed class FilterEffectActivator : IDisposable
         if (target.Scale.IsUnbounded || target.Scale.Value != density)
             return false;
 
-        PixelRect semanticDeviceBounds = PixelRect.FromRect(target.Bounds, density);
-        return target.RasterBounds == target.DeviceBounds.ToRect(density)
+        PixelRect semanticDeviceBounds = PixelRect.FromRect(
+            target.Bounds.Translate(target.DeviceGridOffset),
+            density);
+        return target.RasterBounds
+                   == target.DeviceBounds
+                       .ToRect(density)
+                       .Translate(-target.DeviceGridOffset)
                && Contains(target.DeviceBounds, semanticDeviceBounds)
                && target.DeviceBounds.Width <= RenderScaleUtilities.MaxBufferDimension
                && target.DeviceBounds.Height <= RenderScaleUtilities.MaxBufferDimension;
@@ -445,7 +467,8 @@ public sealed class FilterEffectActivator : IDisposable
                             Purpose,
                             OutputScale,
                             WorkingScale,
-                            MaxWorkingScale);
+                            MaxWorkingScale,
+                            _deviceGridOffset);
                         custom.Accepts(customContext);
 
                         foreach (EffectTarget t in CurrentTargets)
@@ -515,6 +538,8 @@ public sealed class FilterEffectActivator : IDisposable
             OutputScale,
             WorkingScale,
             MaxWorkingScale,
+            _deviceGridOffset
+                ?? (cloned.Count > 0 ? cloned[0].DeviceGridOffset : default),
             GetProgramAcquirer());
 
         activator.Apply(context);

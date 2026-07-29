@@ -17,7 +17,8 @@ public sealed class EffectTarget : IDisposable
             CreateDeviceBounds(
                 renderTarget,
                 originalBounds,
-                scale.IsUnbounded ? EffectiveScale.At(1f) : scale))
+                scale.IsUnbounded ? EffectiveScale.At(1f) : scale),
+            default)
     {
     }
 
@@ -25,7 +26,8 @@ public sealed class EffectTarget : IDisposable
         RenderTarget renderTarget,
         Rect originalBounds,
         EffectiveScale scale,
-        PixelRect deviceBounds)
+        PixelRect deviceBounds,
+        Vector deviceGridOffset = default)
     {
         ArgumentNullException.ThrowIfNull(renderTarget);
         if (scale.IsUnbounded)
@@ -39,11 +41,14 @@ public sealed class EffectTarget : IDisposable
 
         _target = renderTarget.ShallowCopy();
         _allocationBounds = originalBounds;
-        _allocationRasterBounds = deviceBounds.ToRect(scale.Value);
+        _allocationRasterBounds = deviceBounds
+            .ToRect(scale.Value)
+            .Translate(-deviceGridOffset);
         OriginalBounds = originalBounds;
         Bounds = originalBounds;
         Scale = scale;
         DeviceBounds = deviceBounds;
+        DeviceGridOffset = deviceGridOffset;
     }
 
     public EffectTarget()
@@ -60,16 +65,40 @@ public sealed class EffectTarget : IDisposable
     public EffectiveScale Scale { get; init; }
 
     /// <summary>
-    /// Gets the immutable device-pixel footprint used to allocate the backing target.
+    /// Gets the immutable composition-device footprint used to allocate the backing target.
     /// </summary>
+    /// <remarks>
+    /// Convert this footprint to effect-local coordinates with
+    /// <c>DeviceBounds.ToRect(Scale.Value).Translate(-DeviceGridOffset)</c>.
+    /// </remarks>
     public PixelRect DeviceBounds { get; }
 
     /// <summary>
-    /// Gets the current pixel-aligned logical footprint. Moving <see cref="Bounds"/> translates
-    /// this footprint without stretching the backing pixels.
+    /// Gets the translation from effect-local logical coordinates to the composition-device grid
+    /// used to round the backing target.
+    /// </summary>
+    public Vector DeviceGridOffset { get; }
+
+    /// <summary>
+    /// Gets the current effect-local, pixel-aligned logical footprint. Moving <see cref="Bounds"/>
+    /// translates this footprint without stretching the backing pixels.
     /// </summary>
     public Rect RasterBounds
         => _allocationRasterBounds.Translate(Bounds.Position - _allocationBounds.Position);
+
+    internal Vector RasterOriginTranslation
+    {
+        get
+        {
+            Vector translation = DeviceGridAlignment.ResolveRasterTranslation(
+                DeviceBounds,
+                DeviceGridOffset,
+                Scale.Value);
+            return new Vector(
+                _allocationBounds.X + translation.X,
+                _allocationBounds.Y + translation.Y);
+        }
+    }
 
     public RenderTarget? RenderTarget => _target as RenderTarget;
 
@@ -89,7 +118,12 @@ public sealed class EffectTarget : IDisposable
 
     internal EffectTarget CreateReplacement(RenderTarget renderTarget)
     {
-        return new EffectTarget(renderTarget, _allocationBounds, Scale, DeviceBounds)
+        return new EffectTarget(
+            renderTarget,
+            _allocationBounds,
+            Scale,
+            DeviceBounds,
+            DeviceGridOffset)
         {
             Bounds = Bounds,
             OriginalBounds = OriginalBounds,

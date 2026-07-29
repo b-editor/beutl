@@ -3,9 +3,12 @@ using Beutl.Graphics.Effects;
 using Beutl.Graphics.Rendering;
 using Beutl.Graphics.Rendering.Cache;
 using Beutl.Media;
+using Beutl.UnitTests.Engine.Graphics.Backend;
+using SkiaSharp;
 
 namespace Beutl.UnitTests.Engine.Graphics.Rendering;
 
+[NonParallelizable]
 [TestFixture]
 public sealed class RasterFootprintMetadataTests
 {
@@ -120,6 +123,108 @@ public sealed class RasterFootprintMetadataTests
     }
 
     [Test]
+    public void TargetAttachedCallback_ReportsTheAmbientTranslationDeviceGrid()
+    {
+        var callbackBounds = new Rect(10, 12, 8, 6);
+        var expectedOffset = new Vector(0.25f, 0.75f);
+        var token = new RenderExecutionSessionToken();
+        using RenderTarget target = RenderTarget.CreateNull(64, 48);
+        using var destination = new ImmediateCanvas(target, logicalSize: new Size(64, 48));
+        using (destination.PushTransform(Matrix.CreateTranslation(expectedOffset)))
+        {
+            RenderCallbackCanvas facade = RenderCallbackCanvas.CreateTargetAttached(
+                token,
+                callbackBounds,
+                destination,
+                CallbackCanvasCapability.TargetCommandRegion);
+
+            Assert.Multiple(() =>
+            {
+                Assert.That(facade.DeviceGridOffset, Is.EqualTo(expectedOffset));
+                Assert.That(
+                    facade.RasterBounds,
+                    Is.EqualTo(facade.DeviceBounds.ToRect(facade.Density).Translate(-expectedOffset)));
+                Assert.That(facade.RasterBounds.Contains(callbackBounds), Is.True);
+            });
+        }
+
+        token.Complete();
+    }
+
+    [Test]
+    public void TargetAttachedCallback_AcceptsRoundingNoiseAcrossLargeDeviceTranslation()
+    {
+        var callbackBounds = new Rect(
+            -0.025896728f,
+            -3.2809492E-06f,
+            150.05179f,
+            110);
+        var translation = new Vector(49.97410583f, 70);
+        var token = new RenderExecutionSessionToken();
+        using RenderTarget target = RenderTarget.CreateNull(256, 192);
+        using var destination = new ImmediateCanvas(target, logicalSize: new Size(256, 192));
+        using (destination.PushTransform(Matrix.CreateTranslation(translation)))
+        {
+            RenderCallbackCanvas facade = RenderCallbackCanvas.CreateTargetAttached(
+                token,
+                callbackBounds,
+                destination,
+                CallbackCanvasCapability.TargetScope);
+
+            PixelRect alignedLogicalBounds = PixelRect.FromRect(
+                callbackBounds.Translate(facade.DeviceGridOffset),
+                facade.Density);
+            Assert.That(facade.DeviceBounds.Contains(alignedLogicalBounds), Is.True);
+        }
+
+        token.Complete();
+    }
+
+    [Test]
+    public void TargetAttachedTargetScope_ClipsTheRasterApronOnTheAmbientDeviceGrid()
+    {
+        VulkanTestEnvironment.EnsureAvailable();
+        VulkanTestEnvironment.InvokeOnRenderThread(() =>
+        {
+            var callbackBounds = new Rect(10, 4, 4, 4);
+            var gridOffset = new Vector(0.25f, 0.75f);
+            var token = new RenderExecutionSessionToken();
+            using RenderTarget target = RenderTarget.Create(32, 16)
+                ?? throw new InvalidOperationException("RenderTarget.Create returned null.");
+            using var destination = new ImmediateCanvas(target, logicalSize: new Size(32, 16));
+            destination.Clear();
+            PixelRect expectedBounds;
+            using (destination.PushTransform(Matrix.CreateTranslation(gridOffset)))
+            {
+                RenderCallbackCanvas facade = RenderCallbackCanvas.CreateTargetAttached(
+                    token,
+                    callbackBounds,
+                    destination,
+                    CallbackCanvasCapability.TargetScope);
+                expectedBounds = RenderScaleUtilities.AddRasterApron(facade.DeviceBounds);
+                using var paint = new SKPaint { Color = SKColors.White };
+                var session = new TargetScopeSession(
+                    token,
+                    callbackBounds,
+                    callbackBounds,
+                    RenderIntent.Preview,
+                    RenderRequestPurpose.Frame,
+                    facade,
+                    [],
+                    canvas => canvas.Canvas.DrawRect(SKRect.Create(32, 16), paint));
+
+                facade.Use(_ => session.ReplayInput());
+                session.ValidateCompletion();
+            }
+
+            token.Complete();
+            using Bitmap bitmap = target.Snapshot();
+
+            Assert.That(MeasureAlphaBounds(bitmap), Is.EqualTo(expectedBounds));
+        });
+    }
+
+    [Test]
     public void CachedValue_PreservesThePhysicalFootprintIndependentlyOfSemanticBounds()
     {
         const float density = 2;
@@ -207,5 +312,152 @@ public sealed class RasterFootprintMetadataTests
                 CustomFilterEffectContext.DeviceBufferSize(bounds, density),
                 Is.EqualTo((actual.Width, actual.Height)));
         });
+    }
+
+    [Test]
+    public void ResolveTargetDensity_ClampsTheGridAdjustedPhysicalFootprint()
+    {
+        var sourceBounds = new Rect(0, 0, 1, 1);
+        var gridOffset = new Vector(0.5f, 0);
+        PixelRect sourceDeviceBounds = PixelRect.FromRect(
+            sourceBounds.Translate(gridOffset),
+            1);
+        using RenderTarget backing = RenderTarget.CreateNull(
+            sourceDeviceBounds.Width,
+            sourceDeviceBounds.Height);
+        using var source = new EffectTarget(
+            backing,
+            sourceBounds,
+            EffectiveScale.At(1),
+            sourceDeviceBounds,
+            gridOffset);
+        using var targets = new EffectTargets { source.Clone() };
+        var context = new CustomFilterEffectContext(
+            targets,
+            RenderIntent.Preview,
+            RenderRequestPurpose.Frame);
+        var requestedBounds = new Rect(
+            0,
+            0,
+            RenderScaleUtilities.MaxBufferDimension,
+            1);
+
+        float density = context.ResolveTargetDensity(requestedBounds);
+        PixelRect allocated = PixelRect.FromRect(
+            requestedBounds.Translate(context.DeviceGridOffset),
+            density);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(density, Is.LessThan(1));
+            Assert.That(allocated.Width, Is.LessThanOrEqualTo(RenderScaleUtilities.MaxBufferDimension));
+            Assert.That(allocated.Height, Is.LessThanOrEqualTo(RenderScaleUtilities.MaxBufferDimension));
+        });
+    }
+
+    [Test]
+    public void CustomFilterContext_AllowsInputsFromDifferentDeviceGrids()
+    {
+        var bounds = new Rect(0, 0, 8, 6);
+        var firstOffset = new Vector(0.25f, 0);
+        var secondOffset = new Vector(0.75f, 0);
+        var ambientOffset = new Vector(0.5f, 0.5f);
+        PixelRect firstDeviceBounds = PixelRect.FromRect(bounds.Translate(firstOffset), 1);
+        PixelRect secondDeviceBounds = PixelRect.FromRect(bounds.Translate(secondOffset), 1);
+        using RenderTarget firstBacking = RenderTarget.CreateNull(
+            firstDeviceBounds.Width,
+            firstDeviceBounds.Height);
+        using RenderTarget secondBacking = RenderTarget.CreateNull(
+            secondDeviceBounds.Width,
+            secondDeviceBounds.Height);
+        using var targets = new EffectTargets
+        {
+            new EffectTarget(
+                firstBacking,
+                bounds,
+                EffectiveScale.At(1),
+                firstDeviceBounds,
+                firstOffset),
+            new EffectTarget(
+                secondBacking,
+                bounds,
+                EffectiveScale.At(1),
+                secondDeviceBounds,
+                secondOffset),
+        };
+
+        var context = new CustomFilterEffectContext(
+            targets,
+            RenderIntent.Preview,
+            RenderRequestPurpose.Frame,
+            deviceGridOffset: ambientOffset);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(context.DeviceGridOffset, Is.EqualTo(ambientOffset));
+            Assert.That(context.Targets[0].DeviceGridOffset, Is.EqualTo(firstOffset));
+            Assert.That(context.Targets[1].DeviceGridOffset, Is.EqualTo(secondOffset));
+        });
+    }
+
+    [Test]
+    public void CustomFilterContext_WrapsReplacementOnTheSourceDeviceGrid()
+    {
+        var bounds = new Rect(10, 12, 8, 6);
+        var gridOffset = new Vector(0.25f, 0.75f);
+        PixelRect deviceBounds = PixelRect.FromRect(bounds.Translate(gridOffset), 1);
+        using RenderTarget sourceBacking = RenderTarget.CreateNull(
+            deviceBounds.Width,
+            deviceBounds.Height);
+        using var source = new EffectTarget(
+            sourceBacking,
+            bounds,
+            EffectiveScale.At(1),
+            deviceBounds,
+            gridOffset);
+        using var targets = new EffectTargets { source.Clone() };
+        var context = new CustomFilterEffectContext(
+            targets,
+            RenderIntent.Preview,
+            RenderRequestPurpose.Frame);
+        using RenderTarget replacementBacking = RenderTarget.CreateNull(
+            deviceBounds.Width,
+            deviceBounds.Height);
+
+        using EffectTarget replacement = context.CreateReplacement(
+            source,
+            replacementBacking);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(replacement.DeviceGridOffset, Is.EqualTo(gridOffset));
+            Assert.That(replacement.DeviceBounds, Is.EqualTo(deviceBounds));
+            Assert.That(replacement.RasterBounds, Is.EqualTo(source.RasterBounds));
+            Assert.That(replacement.Bounds, Is.EqualTo(source.Bounds));
+        });
+    }
+
+    private static PixelRect MeasureAlphaBounds(Bitmap bitmap)
+    {
+        ReadOnlySpan<ushort> pixels = bitmap.GetPixelSpan<ushort>();
+        int left = bitmap.Width;
+        int top = bitmap.Height;
+        int right = 0;
+        int bottom = 0;
+        for (int y = 0; y < bitmap.Height; y++)
+        {
+            for (int x = 0; x < bitmap.Width; x++)
+            {
+                int offset = ((y * bitmap.Width) + x) * 4;
+                if ((float)BitConverter.UInt16BitsToHalf(pixels[offset + 3]) <= 0)
+                    continue;
+                left = Math.Min(left, x);
+                top = Math.Min(top, y);
+                right = Math.Max(right, x + 1);
+                bottom = Math.Max(bottom, y + 1);
+            }
+        }
+
+        return new PixelRect(left, top, right - left, bottom - top);
     }
 }

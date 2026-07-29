@@ -443,6 +443,18 @@ public sealed class LegacyFilterPhysicalFootprintTests
         AssertSameBoundsEffectApronInteriorMatches(effect, inset: 2);
     }
 
+    [Test]
+    public void Mosaic_CenterOrigin_ApronBackedInput_PreservesSemanticEdges()
+    {
+        var effect = new MosaicEffect();
+        effect.TileSize.CurrentValue = new Size(20, 20);
+        effect.Origin.CurrentValue = RelativePoint.Center;
+
+        AssertApronEffectMatchesTight(
+            effect,
+            bounds: new Rect(0, 0, 180, 180));
+    }
+
     [TestCaseSource(nameof(DisplacementTransforms))]
     public void DisplacementMap_ApronBackedInput_MatchesTightInterior(
         DisplacementMapTransform transform)

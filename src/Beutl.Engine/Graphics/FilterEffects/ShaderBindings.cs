@@ -535,6 +535,8 @@ public sealed class ShaderExecutionContext
     private readonly Rect _outputBounds;
     private readonly Rect _requiredRegion;
     private readonly PixelRect _deviceBounds;
+    private readonly Point _logicalOrigin;
+    private readonly Vector _deviceGridOffset;
     private readonly EffectiveScale _inputEffectiveScale;
     private readonly float _outputScale;
     private readonly float _workingScale;
@@ -554,6 +556,35 @@ public sealed class ShaderExecutionContext
         float maxWorkingScale,
         RenderIntent intent,
         RenderRequestPurpose purpose)
+        : this(
+            token,
+            inputBounds,
+            outputBounds,
+            requiredRegion,
+            deviceBounds,
+            deviceBounds.ToRect(workingScale),
+            inputEffectiveScale,
+            outputScale,
+            workingScale,
+            maxWorkingScale,
+            intent,
+            purpose)
+    {
+    }
+
+    internal ShaderExecutionContext(
+        RenderExecutionSessionToken token,
+        Rect inputBounds,
+        Rect outputBounds,
+        Rect requiredRegion,
+        PixelRect deviceBounds,
+        Rect rasterBounds,
+        EffectiveScale inputEffectiveScale,
+        float outputScale,
+        float workingScale,
+        float maxWorkingScale,
+        RenderIntent intent,
+        RenderRequestPurpose purpose)
     {
         ArgumentNullException.ThrowIfNull(token);
         _token = token;
@@ -561,6 +592,10 @@ public sealed class ShaderExecutionContext
         _outputBounds = outputBounds;
         _requiredRegion = requiredRegion;
         _deviceBounds = deviceBounds;
+        _logicalOrigin = rasterBounds.Position;
+        _deviceGridOffset = new Vector(
+            (deviceBounds.X / workingScale) - rasterBounds.X,
+            (deviceBounds.Y / workingScale) - rasterBounds.Y);
         _inputEffectiveScale = inputEffectiveScale;
         _outputScale = outputScale;
         _workingScale = workingScale;
@@ -590,8 +625,12 @@ public sealed class ShaderExecutionContext
         get { _token.ThrowIfInactive(); return _requiredRegion; }
     }
 
-    /// <summary>Gets the canonical destination footprint in output-device pixels.</summary>
-    /// <remarks>The footprint reflects the actual runtime-clamped <see cref="WorkingScale"/>.</remarks>
+    /// <summary>Gets the destination footprint in composition-device pixels.</summary>
+    /// <remarks>
+    /// The footprint reflects the actual runtime-clamped <see cref="WorkingScale"/>.
+    /// Subtract <see cref="DeviceGridOffset"/> after converting it to logical units to obtain
+    /// the stage-local footprint.
+    /// </remarks>
     /// <exception cref="InvalidOperationException">The shader binding phase has completed.</exception>
     public PixelRect DeviceBounds
     {
@@ -605,6 +644,15 @@ public sealed class ShaderExecutionContext
         get { _token.ThrowIfInactive(); return _deviceBounds.Size; }
     }
 
+    /// <summary>
+    /// Gets the translation from stage-local coordinates to the composition-device grid used to
+    /// round <see cref="DeviceBounds"/>.
+    /// </summary>
+    public Vector DeviceGridOffset
+    {
+        get { _token.ThrowIfInactive(); return _deviceGridOffset; }
+    }
+
     /// <summary>Gets the logical point represented by local output-device coordinate <c>(0, 0)</c>.</summary>
     /// <remarks>
     /// A local device coordinate <c>coord</c> represents
@@ -616,9 +664,7 @@ public sealed class ShaderExecutionContext
         get
         {
             _token.ThrowIfInactive();
-            return new Point(
-                _deviceBounds.X / _workingScale,
-                _deviceBounds.Y / _workingScale);
+            return _logicalOrigin;
         }
     }
 

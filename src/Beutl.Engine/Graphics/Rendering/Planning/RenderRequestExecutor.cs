@@ -800,6 +800,7 @@ internal sealed class RenderRequestExecutor
         private int _intermediateTargetAcquisitions;
         private int _programCacheHits;
         private int _synchronizations;
+        private Vector _activeDeviceGridOffset;
 
         public long? ActiveSubjectId { get; private set; }
 
@@ -1180,6 +1181,7 @@ internal sealed class RenderRequestExecutor
                         outputBounds,
                         requiredRegion,
                         outputDeviceBounds,
+                        rasterBounds,
                         density,
                         shader =>
                         {
@@ -1298,7 +1300,8 @@ internal sealed class RenderRequestExecutor
                         target,
                         value.Bounds,
                         value.EffectiveScale,
-                        value.DeviceBounds)
+                        value.DeviceBounds,
+                        value.DeviceGridOffset)
                     {
                         CompleteBounds = value.CompleteBounds,
                     });
@@ -1660,6 +1663,7 @@ internal sealed class RenderRequestExecutor
                         cached.Bounds,
                         cached.EffectiveScale,
                         cached.DeviceBounds,
+                        cached.DeviceGridOffset,
                         completeBounds: cached.CompleteBounds);
                     _ownedValues.Add(value);
                     acquired.Add(value);
@@ -1724,7 +1728,9 @@ internal sealed class RenderRequestExecutor
                 source.Bounds,
                 source.EffectiveScale,
                 source.CompleteBounds,
-                source.DeviceBounds);
+                source.DeviceBounds,
+                source.DeviceGridOffset,
+                physicalDeviceBoundsAreAligned: true);
             bool succeeded = false;
             try
             {
@@ -1811,7 +1817,9 @@ internal sealed class RenderRequestExecutor
                 return [];
             }
 
-            EffectiveScale scale = requestedScale ?? ResolveConcreteScale(fragment);
+            EffectiveScale scale = ClampToActiveDeviceGrid(
+                fragment.Bounds,
+                requestedScale ?? ResolveConcreteScale(fragment));
             RenderFragmentReference input = fragment.Inputs[0];
             IReadOnlyList<CompatibilityRenderValue> values = Materialize(
                 input,
@@ -1824,6 +1832,10 @@ internal sealed class RenderRequestExecutor
                 bool succeeded = false;
                 try
                 {
+                    Vector rasterTranslation = DeviceGridAlignment.ResolveRasterTranslation(
+                        value.DeviceBounds,
+                        value.DeviceGridOffset,
+                        scale.Value);
                     using var canvas = ImmediateCanvas.CreateExecutorManaged(
                         value.Target,
                         scale.Value,
@@ -1831,8 +1843,8 @@ internal sealed class RenderRequestExecutor
                         value.RasterBounds.Size,
                         value.DeviceBounds.Position);
                     using (canvas.PushTransform(Matrix.CreateTranslation(
-                               -value.RasterBounds.X,
-                               -value.RasterBounds.Y)))
+                               rasterTranslation.X,
+                               rasterTranslation.Y)))
                     using (canvas.PushOpacity(((OpacityRenderFragmentPayload)fragment.Payload!).Opacity))
                         DrawValues(values, canvas);
                     succeeded = true;
@@ -1865,7 +1877,9 @@ internal sealed class RenderRequestExecutor
                 return [];
             }
 
-            EffectiveScale scale = requestedScale ?? ResolveConcreteScale(fragment);
+            EffectiveScale scale = ClampToActiveDeviceGrid(
+                fragment.Bounds,
+                requestedScale ?? ResolveConcreteScale(fragment));
             var maskValues = new List<CompatibilityRenderValue>();
             int materializedDependencyCount = 0;
             bool primaryMaterialized = false;
@@ -1892,6 +1906,10 @@ internal sealed class RenderRequestExecutor
                 bool succeeded = false;
                 try
                 {
+                    Vector rasterTranslation = DeviceGridAlignment.ResolveRasterTranslation(
+                        value.DeviceBounds,
+                        value.DeviceGridOffset,
+                        scale.Value);
                     using var canvas = ImmediateCanvas.CreateExecutorManaged(
                         value.Target,
                         scale.Value,
@@ -1899,8 +1917,8 @@ internal sealed class RenderRequestExecutor
                         value.RasterBounds.Size,
                         value.DeviceBounds.Position);
                     using (canvas.PushTransform(Matrix.CreateTranslation(
-                               -value.RasterBounds.X,
-                               -value.RasterBounds.Y)))
+                               rasterTranslation.X,
+                               rasterTranslation.Y)))
                     {
                         var payload = (OpacityMaskRenderFragmentPayload)fragment.Payload!;
                         var images = new List<SKImage>();
@@ -2039,6 +2057,13 @@ internal sealed class RenderRequestExecutor
         private IReadOnlyList<CompatibilityRenderValue> ExecuteLegacyFilter(
             RenderFragmentReference fragment,
             ImmediateCanvas currentTarget)
+            => ExecuteOnDeviceGrid(
+                currentTarget,
+                () => ExecuteLegacyFilterCore(fragment, currentTarget));
+
+        private IReadOnlyList<CompatibilityRenderValue> ExecuteLegacyFilterCore(
+            RenderFragmentReference fragment,
+            ImmediateCanvas currentTarget)
         {
             Rect requiredRegion = ResolveFragmentRequirement(fragment, fragment.Bounds);
             var inputs = new List<CompatibilityRenderValue>();
@@ -2068,7 +2093,8 @@ internal sealed class RenderRequestExecutor
                                 input.Target,
                                 input.Bounds,
                                 input.EffectiveScale,
-                                input.DeviceBounds)
+                                input.DeviceBounds,
+                                input.DeviceGridOffset)
                             {
                                 OriginalBounds = new Rect(default, input.Bounds.Size),
                                 Bounds = input.Bounds,
@@ -2084,6 +2110,7 @@ internal sealed class RenderRequestExecutor
                             _options.OutputScale,
                             fragment.EffectiveScale.Value,
                             _options.MaxWorkingScale,
+                            _activeDeviceGridOffset,
                             (target, source) => AcquireStandaloneProgram(
                                 fragment.Id?.Value ?? 0,
                                 target,
@@ -2137,8 +2164,12 @@ internal sealed class RenderRequestExecutor
             RenderTarget renderTarget,
             Rect completeBounds)
         {
-            Rect canonicalRasterBounds = target.DeviceBounds.ToRect(target.Scale.Value);
-            PixelRect semanticDeviceBounds = PixelRect.FromRect(target.Bounds, target.Scale.Value);
+            Rect canonicalRasterBounds = target.DeviceBounds
+                .ToRect(target.Scale.Value)
+                .Translate(-target.DeviceGridOffset);
+            PixelRect semanticDeviceBounds = PixelRect.FromRect(
+                target.Bounds.Translate(target.DeviceGridOffset),
+                target.Scale.Value);
             if (target.RasterBounds == canonicalRasterBounds
                 && Contains(target.DeviceBounds, semanticDeviceBounds))
             {
@@ -2147,12 +2178,13 @@ internal sealed class RenderRequestExecutor
                     target.Bounds,
                     target.Scale,
                     target.DeviceBounds,
+                    target.DeviceGridOffset,
                     completeBounds: completeBounds);
             }
 
             Rect physicalBounds = target.RasterBounds.Union(target.Bounds);
             float density = RenderScaleUtilities.ClampWorkingScaleToExactBufferBudget(
-                physicalBounds,
+                physicalBounds.Translate(target.DeviceGridOffset),
                 target.Scale.Value);
             EffectiveScale normalizedScale = EffectiveScale.At(density);
             PixelRect normalizedDeviceBounds = PixelRect.FromRect(physicalBounds, density);
@@ -2160,10 +2192,15 @@ internal sealed class RenderRequestExecutor
                 target.Bounds,
                 normalizedScale,
                 completeBounds,
-                physicalDeviceBounds: normalizedDeviceBounds);
+                physicalDeviceBounds: normalizedDeviceBounds,
+                deviceGridOffset: target.DeviceGridOffset);
             bool succeeded = false;
             try
             {
+                Vector rasterTranslation = DeviceGridAlignment.ResolveRasterTranslation(
+                    normalized.DeviceBounds,
+                    normalized.DeviceGridOffset,
+                    normalized.EffectiveScale.Value);
                 using var canvas = ImmediateCanvas.CreateExecutorManaged(
                     normalized.Target,
                     normalized.EffectiveScale.Value,
@@ -2171,8 +2208,8 @@ internal sealed class RenderRequestExecutor
                     normalized.RasterBounds.Size,
                     normalized.DeviceBounds.Position);
                 using (canvas.PushTransform(Matrix.CreateTranslation(
-                           -normalized.RasterBounds.X,
-                           -normalized.RasterBounds.Y)))
+                           rasterTranslation.X,
+                           rasterTranslation.Y)))
                 {
                     if (!canvas.TryDrawRenderTargetPixelAlignedWithoutFlush(
                             renderTarget,
@@ -2200,6 +2237,14 @@ internal sealed class RenderRequestExecutor
                && outer.Bottom >= inner.Bottom;
 
         private IReadOnlyList<CompatibilityRenderValue> ExecuteShader(
+            RenderFragmentReference fragment,
+            ImmediateCanvas currentTarget,
+            EffectiveScale? requestedScale)
+            => ExecuteOnDeviceGrid(
+                currentTarget,
+                () => ExecuteShaderCore(fragment, currentTarget, requestedScale));
+
+        private IReadOnlyList<CompatibilityRenderValue> ExecuteShaderCore(
             RenderFragmentReference fragment,
             ImmediateCanvas currentTarget,
             EffectiveScale? requestedScale)
@@ -2234,7 +2279,9 @@ internal sealed class RenderRequestExecutor
                     float density = !fragment.EffectiveScale.IsUnbounded
                         ? fragment.EffectiveScale.Value
                         : inputRequestScale.Value;
-                    density = RenderScaleUtilities.ClampWorkingScaleToExactBufferBudget(outputBounds, density);
+                    density = RenderScaleUtilities.ClampWorkingScaleToExactBufferBudget(
+                        outputBounds.Translate(_activeDeviceGridOffset),
+                        density);
                     EffectiveScale outputScale = EffectiveScale.At(density);
                     CompatibilityRenderValue output = CreateOwnedValue(
                         requiredRegion,
@@ -2281,6 +2328,14 @@ internal sealed class RenderRequestExecutor
             CompiledShaderRun run,
             ImmediateCanvas currentTarget,
             EffectiveScale? requestedScale)
+            => ExecuteOnDeviceGrid(
+                currentTarget,
+                () => ExecuteCompiledShaderRunCore(run, currentTarget, requestedScale));
+
+        private IReadOnlyList<CompatibilityRenderValue> ExecuteCompiledShaderRunCore(
+            CompiledShaderRun run,
+            ImmediateCanvas currentTarget,
+            EffectiveScale? requestedScale)
         {
             Rect outputBounds = run.Output.Bounds;
             if (outputBounds.Width == 0 || outputBounds.Height == 0)
@@ -2320,7 +2375,7 @@ internal sealed class RenderRequestExecutor
 
             CompatibilityRenderValue input = inputs[0];
             float density = RenderScaleUtilities.ClampWorkingScaleToExactBufferBudget(
-                outputBounds,
+                outputBounds.Translate(_activeDeviceGridOffset),
                 outputRequestScale.Value);
             CompatibilityRenderValue output = CreateOwnedValue(
                 requiredRegion,
@@ -2358,6 +2413,7 @@ internal sealed class RenderRequestExecutor
                 outputBounds,
                 requiredRegion,
                 output.DeviceBounds,
+                output.RasterBounds,
                 output.EffectiveScale.Value,
                 shader =>
                 {
@@ -2383,6 +2439,7 @@ internal sealed class RenderRequestExecutor
             Rect outputBounds,
             Rect requiredRegion,
             PixelRect outputDeviceBounds,
+            Rect outputRasterBounds,
             float outputScale,
             Action<SKShader> draw)
         {
@@ -2406,7 +2463,7 @@ internal sealed class RenderRequestExecutor
                                 RasterShaderMapping.CreateLocalMatrix(
                                     outputScale,
                                     input.EffectiveScale.Value,
-                                    outputDeviceBounds.ToRect(outputScale),
+                                    outputRasterBounds,
                                     input.RasterBounds));
                             children.Add(inputShader);
                             runtimeChildren[SkslSnippetMerger.SourceChildName] = inputShader;
@@ -2429,6 +2486,7 @@ internal sealed class RenderRequestExecutor
                                         outputBounds,
                                         requiredRegion,
                                         outputDeviceBounds,
+                                        outputRasterBounds,
                                         outputScale));
                             }
 
@@ -2489,6 +2547,7 @@ internal sealed class RenderRequestExecutor
             Rect runOutputBounds,
             Rect runRequiredRegion,
             PixelRect runOutputDeviceBounds,
+            Rect runOutputRasterBounds,
             float runWorkingScale)
         {
             bool isFirst = stageIndex == 0;
@@ -2506,15 +2565,24 @@ internal sealed class RenderRequestExecutor
                 ? runInput.EffectiveScale
                 : EffectiveScale.At(runWorkingScale);
             float workingScale = runWorkingScale;
+            Vector deviceGridOffset = new(
+                (runOutputDeviceBounds.X / workingScale) - runOutputRasterBounds.X,
+                (runOutputDeviceBounds.Y / workingScale) - runOutputRasterBounds.Y);
             PixelRect deviceBounds = isLast
                 ? runOutputDeviceBounds
-                : PixelRect.FromRect(requiredRegion, workingScale);
+                : PixelRect.FromRect(
+                    requiredRegion.Translate(deviceGridOffset),
+                    workingScale);
+            Rect rasterBounds = deviceBounds
+                .ToRect(workingScale)
+                .Translate(-deviceGridOffset);
             return new ShaderExecutionContext(
                 bindingToken,
                 inputBounds,
                 outputBounds,
                 requiredRegion,
                 deviceBounds,
+                rasterBounds,
                 inputEffectiveScale,
                 _options.OutputScale,
                 workingScale,
@@ -2653,6 +2721,7 @@ internal sealed class RenderRequestExecutor
                                 outputBounds,
                                 requiredRegion,
                                 output.DeviceBounds,
+                                output.RasterBounds,
                                 input.EffectiveScale,
                                 _options.OutputScale,
                                 output.EffectiveScale.Value,
@@ -2673,14 +2742,16 @@ internal sealed class RenderRequestExecutor
                                 SetUniform(uniforms, binding.Name, declaration, value);
                             }
 
-                            SKShader inputShader = inputImage.ToShader(
-                                tileMode,
-                                tileMode,
-                                RasterShaderMapping.CreateLocalMatrix(
-                                    output.EffectiveScale.Value,
-                                    input.EffectiveScale.Value,
-                                    output.RasterBounds,
-                                    input.RasterBounds));
+                            SKShader inputShader = RasterShaderMapping.CreateSemanticImageShader(
+                                inputImage,
+                                input.Target.Value.Context,
+                                input.Bounds,
+                                input.EffectiveScale.Value,
+                                input.DeviceBounds,
+                                input.RasterBounds,
+                                output.EffectiveScale.Value,
+                                output.RasterBounds,
+                                tileMode);
                             children.Add(inputShader);
                             runtimeChildren[childName] = inputShader;
 
@@ -2725,6 +2796,13 @@ internal sealed class RenderRequestExecutor
         private IReadOnlyList<CompatibilityRenderValue> ExecuteGeometry(
             RenderFragmentReference fragment,
             ImmediateCanvas currentTarget)
+            => ExecuteOnDeviceGrid(
+                currentTarget,
+                () => ExecuteGeometryCore(fragment, currentTarget));
+
+        private IReadOnlyList<CompatibilityRenderValue> ExecuteGeometryCore(
+            RenderFragmentReference fragment,
+            ImmediateCanvas currentTarget)
         {
             if (fragment.Inputs.Length != 1)
                 throw new InvalidOperationException("A Geometry fragment requires exactly one input stream.");
@@ -2752,7 +2830,9 @@ internal sealed class RenderRequestExecutor
                         continue;
 
                     float density = requestScale.Value;
-                    density = RenderScaleUtilities.ClampWorkingScaleToExactBufferBudget(outputBounds, density);
+                    density = RenderScaleUtilities.ClampWorkingScaleToExactBufferBudget(
+                        outputBounds.Translate(_activeDeviceGridOffset),
+                        density);
                     EffectiveScale outputScale = EffectiveScale.At(density);
                     CompatibilityRenderValue output = CreateOwnedValue(
                         requiredRegion,
@@ -2827,6 +2907,7 @@ internal sealed class RenderRequestExecutor
                         input.Bounds,
                         input.EffectiveScale,
                         input.DeviceBounds,
+                        input.RasterBounds,
                         inputImage,
                         createSnapshot,
                         description.RequiresReadback);
@@ -2841,7 +2922,8 @@ internal sealed class RenderRequestExecutor
                             _options.MaxWorkingScale,
                             output.RasterBounds.Size,
                             output.DeviceBounds.Position),
-                        CallbackCanvasCapability.Draw);
+                        CallbackCanvasCapability.Draw,
+                        rasterBounds: output.RasterBounds);
                     var session = new GeometrySession(
                         token,
                         executionInput,
@@ -2870,10 +2952,15 @@ internal sealed class RenderRequestExecutor
             CompatibilityRenderValue cropped = CreateOwnedValue(
                 selectedBounds,
                 source.EffectiveScale,
-                source.CompleteBounds);
+                source.CompleteBounds,
+                deviceGridOffset: source.DeviceGridOffset);
             bool succeeded = false;
             try
             {
+                Vector rasterTranslation = DeviceGridAlignment.ResolveRasterTranslation(
+                    cropped.DeviceBounds,
+                    cropped.DeviceGridOffset,
+                    cropped.EffectiveScale.Value);
                 using var canvas = ImmediateCanvas.CreateExecutorManaged(
                     cropped.Target,
                     cropped.EffectiveScale.Value,
@@ -2881,8 +2968,8 @@ internal sealed class RenderRequestExecutor
                     cropped.RasterBounds.Size,
                     cropped.DeviceBounds.Position);
                 using (canvas.PushTransform(Matrix.CreateTranslation(
-                           -cropped.RasterBounds.X,
-                           -cropped.RasterBounds.Y)))
+                           rasterTranslation.X,
+                           rasterTranslation.Y)))
                 {
                     canvas.ClipRect(selectedBounds);
                     canvas.DrawRenderTargetScaledWithoutFlush(source.Target, source.RasterBounds);
@@ -2936,6 +3023,7 @@ internal sealed class RenderRequestExecutor
                                 input.Bounds,
                                 input.EffectiveScale,
                                 input.DeviceBounds,
+                                input.RasterBounds,
                                 image,
                                 createSnapshot,
                                 description.RequiresReadback));
@@ -2948,13 +3036,20 @@ internal sealed class RenderRequestExecutor
                                 _options.MaxWorkingScale)
                             : declaredScale.Value;
                         density = RenderScaleUtilities.ClampWorkingScaleToExactBufferBudget(
-                            outputBounds,
+                            outputBounds.Translate(_activeDeviceGridOffset),
                             density);
                         bool preserveRasterApron = description.DirectReplay is not null
                                                    && fragment.Kind == RenderFragmentKind.OpaqueSource;
                         density = RenderMaterializationDensityPolicy.Clamp(
                             fragment,
                             density);
+                        if (preserveRasterApron)
+                        {
+                            density = RenderScaleUtilities.ClampWorkingScaleToRasterApronBudget(
+                                outputBounds.Translate(_activeDeviceGridOffset),
+                                density);
+                        }
+
                         EffectiveScale concreteScale = EffectiveScale.At(density);
                         OpaqueRenderSession? session = null;
                         session = new OpaqueRenderSession(
@@ -2962,7 +3057,9 @@ internal sealed class RenderRequestExecutor
                             executionInputs,
                             outputBounds,
                             requiredRegion,
-                            PixelRect.FromRect(requiredRegion, density),
+                            PixelRect.FromRect(
+                                requiredRegion.Translate(_activeDeviceGridOffset),
+                                density),
                             _options.OutputScale,
                             density,
                             _options.MaxWorkingScale,
@@ -2992,7 +3089,8 @@ internal sealed class RenderRequestExecutor
                                         _options.MaxWorkingScale,
                                         value.RasterBounds.Size,
                                         value.DeviceBounds.Position),
-                                    CallbackCanvasCapability.Draw);
+                                    CallbackCanvasCapability.Draw,
+                                    rasterBounds: value.RasterBounds);
                                 var output = new OpaqueRenderOutput(
                                     token,
                                     session!,
@@ -3106,14 +3204,11 @@ internal sealed class RenderRequestExecutor
                             TargetRegionKind.Full => CallbackCanvasCapability.TargetCommandFull,
                             _ => throw new InvalidOperationException("The target-command region is uninitialized."),
                         };
-                        var callbackCanvas = new RenderCallbackCanvas(
+                        RenderCallbackCanvas callbackCanvas = RenderCallbackCanvas.CreateTargetAttached(
                             token,
-                            destination.Density,
                             requiredRegion,
-                            destination.CreateExecutionView,
-                            capability,
-                            mapLogicalOrigin: false,
-                            backingDeviceOrigin: destination.DeviceOrigin);
+                            destination,
+                            capability);
                         var session = new TargetCommandSession(
                             token,
                             inputs,
@@ -3193,14 +3288,11 @@ internal sealed class RenderRequestExecutor
                     Rect callbackBounds = TargetWriteMetadataResolver.Resolve(fragment, parentDomain)
                         ?? fragment.Bounds;
                     Rect requiredRegion = ResolveFragmentRequirement(fragment, callbackBounds);
-                    var callbackCanvas = new RenderCallbackCanvas(
+                    RenderCallbackCanvas callbackCanvas = RenderCallbackCanvas.CreateTargetAttached(
                         token,
-                        destination.Density,
                         requiredRegion,
-                        destination.CreateExecutionView,
-                        CallbackCanvasCapability.TargetScope,
-                        mapLogicalOrigin: false,
-                        backingDeviceOrigin: destination.DeviceOrigin);
+                        destination,
+                        CallbackCanvasCapability.TargetScope);
                     var session = new TargetScopeSession(
                         token,
                         fragment.Bounds,
@@ -3242,6 +3334,11 @@ internal sealed class RenderRequestExecutor
             float density = RenderMaterializationDensityPolicy.Clamp(
                 fragment,
                 requestedDensity);
+            density = ClampToActiveDeviceGrid(
+                    fragment.Bounds,
+                    EffectiveScale.At(density),
+                    requiresRasterApron: true)
+                .Value;
             EffectiveScale scale = EffectiveScale.At(density);
             PixelRect deviceBounds = RenderScaleUtilities.AddRasterApron(
                 PixelRect.FromRect(requiredRegion, density));
@@ -3254,6 +3351,10 @@ internal sealed class RenderRequestExecutor
             bool succeeded = false;
             try
             {
+                Vector rasterTranslation = DeviceGridAlignment.ResolveRasterTranslation(
+                    output.DeviceBounds,
+                    output.DeviceGridOffset,
+                    density);
                 using var canvas = ImmediateCanvas.CreateExecutorManaged(
                     output.Target,
                     density,
@@ -3262,8 +3363,8 @@ internal sealed class RenderRequestExecutor
                     output.DeviceBounds.Position);
                 canvas.Clear();
                 using (canvas.PushTransform(Matrix.CreateTranslation(
-                           -output.RasterBounds.X,
-                           -output.RasterBounds.Y)))
+                           rasterTranslation.X,
+                           rasterTranslation.Y)))
                 {
                     ExecuteTargetScope(fragment, canvas);
                 }
@@ -3329,6 +3430,7 @@ internal sealed class RenderRequestExecutor
                     value.Bounds,
                     value.EffectiveScale,
                     value.DeviceBounds,
+                    value.RasterBounds,
                     image,
                     createSnapshot,
                     requiresReadback));
@@ -3414,12 +3516,18 @@ internal sealed class RenderRequestExecutor
 
             Rect domain = ((LayerRenderFragmentPayload)fragment.Payload!).Domain
                 ?? fragment.Bounds;
-            EffectiveScale scale = requestedScale ?? ResolveConcreteScale(fragment);
+            EffectiveScale scale = ClampToActiveDeviceGrid(
+                fragment.Bounds,
+                requestedScale ?? ResolveConcreteScale(fragment));
             CompatibilityRenderValue value = CreateOwnedValue(domain, scale);
             bool succeeded = false;
             try
             {
                 _diagnostics?.RecordGpuPassExecuted(fragment.Id?.Value ?? 0);
+                Vector rasterTranslation = DeviceGridAlignment.ResolveRasterTranslation(
+                    value.DeviceBounds,
+                    value.DeviceGridOffset,
+                    scale.Value);
                 using (var canvas = ImmediateCanvas.CreateExecutorManaged(
                            value.Target,
                            scale.Value,
@@ -3427,8 +3535,8 @@ internal sealed class RenderRequestExecutor
                            value.RasterBounds.Size,
                            value.DeviceBounds.Position))
                 using (canvas.PushTransform(Matrix.CreateTranslation(
-                           -value.RasterBounds.X,
-                           -value.RasterBounds.Y)))
+                           rasterTranslation.X,
+                           rasterTranslation.Y)))
                 {
                     foreach (RenderFragmentReference input in fragment.Inputs)
                         Replay(input, canvas);
@@ -3460,12 +3568,17 @@ internal sealed class RenderRequestExecutor
             EffectiveScale scale = fragment.Kind == RenderFragmentKind.BuiltInBackdropCapture
                 ? EffectiveScale.At(currentTarget.Density)
                 : ResolveConcreteScale(fragment);
+            scale = ClampToActiveDeviceGrid(bounds, scale);
             CompatibilityRenderValue value = CreateOwnedValue(bounds, scale);
             bool succeeded = false;
             try
             {
                 _afterCaptureAllocation?.Invoke(fragment.Kind);
                 _diagnostics?.RecordGpuPassExecuted(fragment.Id?.Value ?? 0);
+                Vector rasterTranslation = DeviceGridAlignment.ResolveRasterTranslation(
+                    value.DeviceBounds,
+                    value.DeviceGridOffset,
+                    scale.Value);
                 using (var canvas = ImmediateCanvas.CreateExecutorManaged(
                            value.Target,
                            scale.Value,
@@ -3473,8 +3586,8 @@ internal sealed class RenderRequestExecutor
                            value.RasterBounds.Size,
                            value.DeviceBounds.Position))
                 using (canvas.PushTransform(Matrix.CreateTranslation(
-                           -value.RasterBounds.X,
-                           -value.RasterBounds.Y)))
+                           rasterTranslation.X,
+                           rasterTranslation.Y)))
                 {
                     using RenderTarget source = RenderTarget.GetRenderTarget(currentTarget);
                     canvas.ClipRect(bounds);
@@ -3513,11 +3626,17 @@ internal sealed class RenderRequestExecutor
                 return;
             }
 
-            EffectiveScale scale = EffectiveScale.At(destination.Density);
+            EffectiveScale scale = ClampToActiveDeviceGrid(
+                domain,
+                EffectiveScale.At(destination.Density));
             CompatibilityRenderValue value = CreateOwnedValue(domain, scale);
             try
             {
                 _diagnostics?.RecordGpuPassExecuted(fragment.Id?.Value ?? 0);
+                Vector rasterTranslation = DeviceGridAlignment.ResolveRasterTranslation(
+                    value.DeviceBounds,
+                    value.DeviceGridOffset,
+                    scale.Value);
                 using (var canvas = ImmediateCanvas.CreateExecutorManaged(
                            value.Target,
                            scale.Value,
@@ -3525,8 +3644,8 @@ internal sealed class RenderRequestExecutor
                            value.RasterBounds.Size,
                            value.DeviceBounds.Position))
                 using (canvas.PushTransform(Matrix.CreateTranslation(
-                           -value.RasterBounds.X,
-                           -value.RasterBounds.Y)))
+                           rasterTranslation.X,
+                           rasterTranslation.Y)))
                 {
                     foreach (RenderFragmentReference input in fragment.Inputs)
                         Replay(input, canvas);
@@ -3606,17 +3725,56 @@ internal sealed class RenderRequestExecutor
             domains[fragmentId] = domain;
         }
 
+        private T ExecuteOnDeviceGrid<T>(ImmediateCanvas currentTarget, Func<T> execute)
+        {
+            Vector previous = _activeDeviceGridOffset;
+            _activeDeviceGridOffset = DeviceGridAlignment.ResolveLogicalOffset(currentTarget);
+            try
+            {
+                return execute();
+            }
+            finally
+            {
+                _activeDeviceGridOffset = previous;
+            }
+        }
+
         private CompatibilityRenderValue CreateOwnedValue(
             Rect bounds,
             EffectiveScale scale,
             Rect? completeBounds = null,
-            PixelRect? physicalDeviceBounds = null)
+            PixelRect? physicalDeviceBounds = null,
+            Vector? deviceGridOffset = null,
+            bool physicalDeviceBoundsAreAligned = false)
         {
             if (scale.IsUnbounded)
                 throw new InvalidOperationException("An allocated render value requires a concrete density.");
-            PixelRect deviceBounds = physicalDeviceBounds
-                ?? PixelRect.FromRect(bounds, scale.Value);
-            PixelRect semanticDeviceBounds = PixelRect.FromRect(bounds, scale.Value);
+            Vector gridOffset = deviceGridOffset ?? _activeDeviceGridOffset;
+            PixelRect semanticDeviceBounds = PixelRect.FromRect(
+                bounds.Translate(gridOffset),
+                scale.Value);
+            PixelRect deviceBounds;
+            if (physicalDeviceBounds is not { } requestedPhysicalBounds)
+            {
+                deviceBounds = semanticDeviceBounds;
+            }
+            else if (physicalDeviceBoundsAreAligned || gridOffset == default)
+            {
+                deviceBounds = requestedPhysicalBounds;
+            }
+            else
+            {
+                PixelRect localSemanticBounds = PixelRect.FromRect(bounds, scale.Value);
+                int leftApron = localSemanticBounds.X - requestedPhysicalBounds.X;
+                int topApron = localSemanticBounds.Y - requestedPhysicalBounds.Y;
+                int rightApron = requestedPhysicalBounds.Right - localSemanticBounds.Right;
+                int bottomApron = requestedPhysicalBounds.Bottom - localSemanticBounds.Bottom;
+                deviceBounds = new PixelRect(
+                    semanticDeviceBounds.X - leftApron,
+                    semanticDeviceBounds.Y - topApron,
+                    semanticDeviceBounds.Width + leftApron + rightApron,
+                    semanticDeviceBounds.Height + topApron + bottomApron);
+            }
             if (deviceBounds.Width <= 0
                 || deviceBounds.Height <= 0
                 || deviceBounds.X > semanticDeviceBounds.X
@@ -3656,6 +3814,7 @@ internal sealed class RenderRequestExecutor
                     bounds,
                     scale,
                     deviceBounds,
+                    gridOffset,
                     completeBounds);
                 _ownedValues.Add(value);
                 _diagnosticIntermediates.Add(value);
@@ -3708,6 +3867,25 @@ internal sealed class RenderRequestExecutor
             return EffectiveScale.At(scale);
         }
 
+        private EffectiveScale ClampToActiveDeviceGrid(
+            Rect completeBounds,
+            EffectiveScale scale,
+            bool requiresRasterApron = false)
+        {
+            if (_activeDeviceGridOffset == default)
+                return scale;
+
+            Rect alignedBounds = completeBounds.Translate(_activeDeviceGridOffset);
+            float density = requiresRasterApron
+                ? RenderScaleUtilities.ClampWorkingScaleToRasterApronBudget(
+                    alignedBounds,
+                    scale.Value)
+                : RenderScaleUtilities.ClampWorkingScaleToExactBufferBudget(
+                    alignedBounds,
+                    scale.Value);
+            return EffectiveScale.At(density);
+        }
+
         private static void DrawValues(
             IReadOnlyList<CompatibilityRenderValue> values,
             ImmediateCanvas destination)
@@ -3739,6 +3917,7 @@ internal sealed class RenderRequestExecutor
             Rect bounds,
             EffectiveScale effectiveScale,
             PixelRect deviceBounds,
+            Vector deviceGridOffset = default,
             Rect? completeBounds = null)
         {
             RenderTarget copy = target.ShallowCopy();
@@ -3750,6 +3929,7 @@ internal sealed class RenderRequestExecutor
                     effectiveScale,
                     deviceBounds,
                     ownsTarget: true,
+                    deviceGridOffset: deviceGridOffset,
                     completeBounds: completeBounds);
             }
             catch
@@ -3786,15 +3966,22 @@ internal sealed class RenderRequestExecutor
             EffectiveScale effectiveScale,
             PixelRect deviceBounds,
             bool ownsTarget,
+            Vector deviceGridOffset = default,
             Rect? completeBounds = null)
         {
             ArgumentNullException.ThrowIfNull(target);
-            ValidatePhysicalFootprint(target, bounds, effectiveScale, deviceBounds);
+            ValidatePhysicalFootprint(
+                target,
+                bounds,
+                effectiveScale,
+                deviceBounds,
+                deviceGridOffset);
             Target = target;
             Bounds = bounds;
             CompleteBounds = completeBounds ?? bounds;
             EffectiveScale = effectiveScale;
             DeviceBounds = deviceBounds;
+            DeviceGridOffset = deviceGridOffset;
             OwnsTarget = ownsTarget;
         }
 
@@ -3803,16 +3990,23 @@ internal sealed class RenderRequestExecutor
             Rect bounds,
             EffectiveScale effectiveScale,
             PixelRect deviceBounds,
+            Vector deviceGridOffset = default,
             Rect? completeBounds = null)
         {
             ArgumentNullException.ThrowIfNull(lease);
-            ValidatePhysicalFootprint(lease.Target, bounds, effectiveScale, deviceBounds);
+            ValidatePhysicalFootprint(
+                lease.Target,
+                bounds,
+                effectiveScale,
+                deviceBounds,
+                deviceGridOffset);
             _lease = lease;
             Target = lease.Target;
             Bounds = bounds;
             CompleteBounds = completeBounds ?? bounds;
             EffectiveScale = effectiveScale;
             DeviceBounds = deviceBounds;
+            DeviceGridOffset = deviceGridOffset;
             OwnsTarget = true;
         }
 
@@ -3826,7 +4020,12 @@ internal sealed class RenderRequestExecutor
 
         public PixelRect DeviceBounds { get; }
 
-        public Rect RasterBounds => DeviceBounds.ToRect(EffectiveScale.Value);
+        public Vector DeviceGridOffset { get; }
+
+        public Rect RasterBounds
+            => DeviceBounds
+                .ToRect(EffectiveScale.Value)
+                .Translate(-DeviceGridOffset);
 
         public bool OwnsTarget { get; }
 
@@ -3853,7 +4052,8 @@ internal sealed class RenderRequestExecutor
             RenderTarget target,
             Rect bounds,
             EffectiveScale effectiveScale,
-            PixelRect deviceBounds)
+            PixelRect deviceBounds,
+            Vector deviceGridOffset)
         {
             if (effectiveScale.IsUnbounded)
                 throw new ArgumentException("A materialized value requires a concrete density.", nameof(effectiveScale));
@@ -3864,7 +4064,9 @@ internal sealed class RenderRequestExecutor
                     nameof(deviceBounds));
             }
 
-            PixelRect semanticDeviceBounds = PixelRect.FromRect(bounds, effectiveScale.Value);
+            PixelRect semanticDeviceBounds = PixelRect.FromRect(
+                bounds.Translate(deviceGridOffset),
+                effectiveScale.Value);
             if (deviceBounds.X > semanticDeviceBounds.X
                 || deviceBounds.Y > semanticDeviceBounds.Y
                 || deviceBounds.Right < semanticDeviceBounds.Right

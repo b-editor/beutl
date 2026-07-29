@@ -113,6 +113,74 @@ public sealed class LegacyFilterTypedSuffixExecutionTests
     }
 
     [Test]
+    public void MaterializedInput_CustomEffect_UsesAmbientGridWithoutReanchoringInput()
+    {
+        var translation = new Vector(0.25f, 0.75f);
+        Vector observedAmbientGrid = default;
+        Vector observedInputGrid = default;
+        var effect = new LegacySuffixCallbackFilterEffect((context, _) =>
+            context.CustomEffect(
+                0,
+                (_, execution) =>
+                {
+                    observedAmbientGrid = execution.DeviceGridOffset;
+                    observedInputGrid = execution.Targets.Single().DeviceGridOffset;
+                },
+                static (_, bounds) => bounds));
+
+        RenderMaterializedEffect(effect, translation);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(observedAmbientGrid, Is.EqualTo(translation));
+            Assert.That(observedInputGrid, Is.EqualTo(default(Vector)));
+        });
+    }
+
+    [Test]
+    public void SourceGridReplacement_FlowsIntoFollowingCustomStage()
+    {
+        var translation = new Vector(0.25f, 0.75f);
+        Vector replacementGrid = new(float.NaN, float.NaN);
+        Vector followingAmbientGrid = default;
+        Vector followingInputGrid = new(float.NaN, float.NaN);
+        var effect = new LegacySuffixCallbackFilterEffect((context, _) =>
+        {
+            context.CustomEffect(
+                0,
+                (_, execution) =>
+                {
+                    EffectTarget source = execution.Targets.Single();
+                    using RenderTarget replacementBacking = source.RenderTarget!.ShallowCopy();
+                    EffectTarget replacement = execution.CreateReplacement(
+                        source,
+                        replacementBacking);
+                    source.Dispose();
+                    execution.Targets[0] = replacement;
+                    replacementGrid = replacement.DeviceGridOffset;
+                },
+                static (_, bounds) => bounds);
+            context.CustomEffect(
+                1,
+                (_, execution) =>
+                {
+                    followingAmbientGrid = execution.DeviceGridOffset;
+                    followingInputGrid = execution.Targets.Single().DeviceGridOffset;
+                },
+                static (_, bounds) => bounds);
+        });
+
+        RenderMaterializedEffect(effect, translation);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(replacementGrid, Is.EqualTo(default(Vector)));
+            Assert.That(followingAmbientGrid, Is.EqualTo(translation));
+            Assert.That(followingInputGrid, Is.EqualTo(default(Vector)));
+        });
+    }
+
+    [Test]
     public void CompatibilityShader_ProgramAcquirerReceivesExecutionDestination()
     {
         Rect bounds = new(0, 0, 8, 6);
@@ -369,6 +437,36 @@ public sealed class LegacyFilterTypedSuffixExecutionTests
         return bitmap.SKBitmap.GetPixel(bitmap.Width / 2, bitmap.Height / 2);
     }
 
+    private static void RenderMaterializedEffect(FilterEffect effect, Vector translation)
+    {
+        var bounds = new Rect(8, 6, 12, 10);
+        using var source = new CpuRenderTarget(12, 10);
+        source.Value.Canvas.Clear(SKColors.White);
+        source.Value.Flush();
+        using var root = new FilterEffectRenderNode(
+            effect.ToResource(CompositionContext.Default));
+        root.AddChild(new MaterializedInputNode(source, bounds));
+        using var renderer = new RenderNodeRenderer(
+            root,
+            new RenderNodeRendererOptions
+            {
+                TargetDomain = new Rect(0, 0, 32, 24),
+                TargetFactory = new CpuTargetFactory(),
+                UseRenderCache = false,
+                OutputScale = 1,
+                MaxWorkingScale = 1,
+            });
+        using var destination = new CpuRenderTarget(32, 24);
+        using var canvas = new ImmediateCanvas(
+            destination,
+            logicalSize: new Size(32, 24));
+        canvas.Clear();
+        using (canvas.PushTransform(Matrix.CreateTranslation(translation)))
+        {
+            renderer.Render(canvas);
+        }
+    }
+
     private sealed class ThrowingDisposable : IDisposable
     {
         public int DisposeCount { get; private set; }
@@ -396,6 +494,23 @@ public sealed class LegacyFilterTypedSuffixExecutionTests
                 SKColorSpace.CreateSrgbLinear())),
             width,
             height);
+
+    private sealed class MaterializedInputNode(RenderTarget source, Rect bounds) : RenderNode
+    {
+        public override void Process(RenderNodeContext context)
+        {
+            RenderResource<RenderTarget> target = context.Borrow(
+                source,
+                "legacy-custom-materialized-input",
+                version: 1);
+            context.Publish(context.MaterializedInput(
+                MaterializedInputDescription.FromRenderTarget(
+                    target,
+                    bounds,
+                    EffectiveScale.At(1),
+                    RenderHitTestContract.OutputBounds)));
+        }
+    }
 }
 
 [SuppressResourceClassGeneration]

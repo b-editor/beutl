@@ -306,7 +306,8 @@ internal sealed record RenderNodeCachedValue
         RenderTarget target,
         Rect bounds,
         EffectiveScale effectiveScale,
-        PixelRect deviceBounds)
+        PixelRect deviceBounds,
+        Vector deviceGridOffset = default)
     {
         ArgumentNullException.ThrowIfNull(target);
         if (!RenderRectValidation.IsFiniteNonNegative(bounds))
@@ -321,7 +322,9 @@ internal sealed record RenderNodeCachedValue
                 "Cached value device bounds must match the backing target size.",
                 nameof(deviceBounds));
         }
-        PixelRect semanticDeviceBounds = PixelRect.FromRect(bounds, effectiveScale.Value);
+        PixelRect semanticDeviceBounds = PixelRect.FromRect(
+            bounds.Translate(deviceGridOffset),
+            effectiveScale.Value);
         if (deviceBounds.X > semanticDeviceBounds.X
             || deviceBounds.Y > semanticDeviceBounds.Y
             || deviceBounds.Right < semanticDeviceBounds.Right
@@ -337,6 +340,7 @@ internal sealed record RenderNodeCachedValue
         CompleteBounds = bounds;
         EffectiveScale = effectiveScale;
         DeviceBounds = deviceBounds;
+        DeviceGridOffset = deviceGridOffset;
     }
 
     public RenderTarget Target { get; }
@@ -349,7 +353,12 @@ internal sealed record RenderNodeCachedValue
 
     public PixelRect DeviceBounds { get; }
 
-    public Rect RasterBounds => DeviceBounds.ToRect(EffectiveScale.Value);
+    public Vector DeviceGridOffset { get; }
+
+    public Rect RasterBounds
+        => DeviceBounds
+            .ToRect(EffectiveScale.Value)
+            .Translate(-DeviceGridOffset);
 
     private static PixelRect CreateDeviceBounds(
         RenderTarget target,

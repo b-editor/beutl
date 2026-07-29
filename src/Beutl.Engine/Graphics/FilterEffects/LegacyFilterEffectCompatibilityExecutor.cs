@@ -87,8 +87,15 @@ internal static class LegacyFilterEffectCompatibilityExecutor
                 [input.Scale],
                 outputScale,
                 maxWorkingScale);
-        density = RenderScaleUtilities.ClampWorkingScaleToExactBufferBudget(outputBounds, density);
-        EffectTarget? output = AllocateTarget(outputBounds, density, maxWorkingScale, intent);
+        density = RenderScaleUtilities.ClampWorkingScaleToExactBufferBudget(
+            outputBounds.Translate(input.DeviceGridOffset),
+            density);
+        EffectTarget? output = AllocateTarget(
+            outputBounds,
+            density,
+            maxWorkingScale,
+            intent,
+            deviceGridOffset: input.DeviceGridOffset);
         if (output?.RenderTarget is not { } outputTarget)
         {
             output?.Dispose();
@@ -131,6 +138,7 @@ internal static class LegacyFilterEffectCompatibilityExecutor
                             outputBounds,
                             outputBounds,
                             output.DeviceBounds,
+                            output.RasterBounds,
                             input.Scale,
                             outputScale,
                             output.Scale.Value,
@@ -150,15 +158,16 @@ internal static class LegacyFilterEffectCompatibilityExecutor
                             SetUniform(uniforms, binding.Name, declaration, binding.Bind(declaration, context));
                         }
 
-                        SKShader inputShader = inputImage.ToShader(
-                            tileMode,
-                            tileMode,
-                            SKSamplingOptions.Default,
-                            RasterShaderMapping.CreateLocalMatrix(
-                                output.Scale.Value,
-                                input.Scale.Value,
-                                output.RasterBounds,
-                                input.RasterBounds));
+                        SKShader inputShader = RasterShaderMapping.CreateSemanticImageShader(
+                            inputImage,
+                            inputTarget.Value.Context,
+                            input.Bounds,
+                            input.Scale.Value,
+                            input.DeviceBounds,
+                            input.RasterBounds,
+                            output.Scale.Value,
+                            output.RasterBounds,
+                            tileMode);
                         children.Add(inputShader);
                         runtimeChildren[childName] = inputShader;
 
@@ -226,8 +235,15 @@ internal static class LegacyFilterEffectCompatibilityExecutor
             [input.Scale],
             outputScale,
             maxWorkingScale);
-        density = RenderScaleUtilities.ClampWorkingScaleToExactBufferBudget(outputBounds, density);
-        EffectTarget? output = AllocateTarget(outputBounds, density, maxWorkingScale, intent);
+        density = RenderScaleUtilities.ClampWorkingScaleToExactBufferBudget(
+            outputBounds.Translate(input.DeviceGridOffset),
+            density);
+        EffectTarget? output = AllocateTarget(
+            outputBounds,
+            density,
+            maxWorkingScale,
+            intent,
+            deviceGridOffset: input.DeviceGridOffset);
         if (output?.RenderTarget is not { } outputTarget)
         {
             output?.Dispose();
@@ -249,6 +265,7 @@ internal static class LegacyFilterEffectCompatibilityExecutor
                         input.Bounds,
                         input.Scale,
                         input.DeviceBounds,
+                        input.RasterBounds,
                         inputImage,
                         createSnapshot,
                         description.RequiresReadback);
@@ -261,8 +278,10 @@ internal static class LegacyFilterEffectCompatibilityExecutor
                             outputTarget,
                             output.Scale.Value,
                             maxWorkingScale,
-                            output.RasterBounds.Size),
-                        CallbackCanvasCapability.Draw);
+                            output.RasterBounds.Size,
+                            output.DeviceBounds.Position),
+                        CallbackCanvasCapability.Draw,
+                        rasterBounds: output.RasterBounds);
                     var session = new GeometrySession(
                         token,
                         executionInput,
@@ -310,22 +329,30 @@ internal static class LegacyFilterEffectCompatibilityExecutor
             return null;
 
         float density = source.Scale.IsUnbounded ? workingScale : source.Scale.Value;
-        PixelRect semanticDeviceBounds = PixelRect.FromRect(source.Bounds, density);
-        if (source.RasterBounds == source.DeviceBounds.ToRect(density)
+        PixelRect semanticDeviceBounds = PixelRect.FromRect(
+            source.Bounds.Translate(source.DeviceGridOffset),
+            density);
+        if (source.RasterBounds
+                == source.DeviceBounds
+                    .ToRect(density)
+                    .Translate(-source.DeviceGridOffset)
             && Contains(source.DeviceBounds, semanticDeviceBounds))
         {
             return source.Clone();
         }
 
         Rect physicalBounds = source.RasterBounds.Union(source.Bounds);
-        density = RenderScaleUtilities.ClampWorkingScaleToExactBufferBudget(physicalBounds, density);
+        density = RenderScaleUtilities.ClampWorkingScaleToExactBufferBudget(
+            physicalBounds.Translate(source.DeviceGridOffset),
+            density);
         PixelRect physicalDeviceBounds = PixelRect.FromRect(physicalBounds, density);
         EffectTarget? normalized = AllocateTarget(
             source.Bounds,
             density,
             maxWorkingScale,
             intent,
-            physicalDeviceBounds);
+            physicalDeviceBounds,
+            source.DeviceGridOffset);
         if (normalized?.RenderTarget is not { } normalizedTarget)
         {
             normalized?.Dispose();
@@ -334,14 +361,18 @@ internal static class LegacyFilterEffectCompatibilityExecutor
 
         try
         {
+            Vector rasterTranslation = DeviceGridAlignment.ResolveRasterTranslation(
+                normalized.DeviceBounds,
+                normalized.DeviceGridOffset,
+                normalized.Scale.Value);
             using var canvas = ImmediateCanvas.CreateExecutorManaged(
                 normalizedTarget,
                 normalized.Scale.Value,
                 maxWorkingScale,
                 normalized.RasterBounds.Size);
             using (canvas.PushTransform(Matrix.CreateTranslation(
-                       -normalized.RasterBounds.X,
-                       -normalized.RasterBounds.Y)))
+                       rasterTranslation.X,
+                       rasterTranslation.Y)))
             {
                 if (!canvas.TryDrawRenderTargetPixelAlignedWithoutFlush(
                         sourceTarget,
@@ -375,7 +406,8 @@ internal static class LegacyFilterEffectCompatibilityExecutor
             selectedBounds,
             source.Scale.Value,
             maxWorkingScale,
-            intent);
+            intent,
+            deviceGridOffset: source.DeviceGridOffset);
         if (cropped?.RenderTarget is not { } croppedTarget)
         {
             cropped?.Dispose();
@@ -384,14 +416,18 @@ internal static class LegacyFilterEffectCompatibilityExecutor
 
         try
         {
+            Vector rasterTranslation = DeviceGridAlignment.ResolveRasterTranslation(
+                cropped.DeviceBounds,
+                cropped.DeviceGridOffset,
+                cropped.Scale.Value);
             using var canvas = ImmediateCanvas.CreateExecutorManaged(
                 croppedTarget,
                 cropped.Scale.Value,
                 maxWorkingScale,
                 cropped.RasterBounds.Size);
             using (canvas.PushTransform(Matrix.CreateTranslation(
-                       -cropped.RasterBounds.X,
-                       -cropped.RasterBounds.Y)))
+                       rasterTranslation.X,
+                       rasterTranslation.Y)))
             {
                 canvas.ClipRect(selectedBounds);
                 canvas.DrawRenderTargetScaledWithoutFlush(sourceTarget, source.RasterBounds);
@@ -411,14 +447,43 @@ internal static class LegacyFilterEffectCompatibilityExecutor
         float density,
         float maxWorkingScale,
         RenderIntent intent,
-        PixelRect? physicalDeviceBounds = null)
+        PixelRect? physicalDeviceBounds = null,
+        Vector deviceGridOffset = default)
     {
         if (IsEmpty(bounds))
             return null;
 
         if (physicalDeviceBounds is null)
-            density = RenderScaleUtilities.ClampWorkingScaleToExactBufferBudget(bounds, density);
-        PixelRect deviceBounds = physicalDeviceBounds ?? PixelRect.FromRect(bounds, density);
+        {
+            density = RenderScaleUtilities.ClampWorkingScaleToExactBufferBudget(
+                bounds.Translate(deviceGridOffset),
+                density);
+        }
+        PixelRect semanticDeviceBounds = PixelRect.FromRect(
+            bounds.Translate(deviceGridOffset),
+            density);
+        PixelRect deviceBounds;
+        if (physicalDeviceBounds is not { } requestedPhysicalBounds)
+        {
+            deviceBounds = semanticDeviceBounds;
+        }
+        else if (deviceGridOffset == default)
+        {
+            deviceBounds = requestedPhysicalBounds;
+        }
+        else
+        {
+            PixelRect localSemanticBounds = PixelRect.FromRect(bounds, density);
+            int leftApron = localSemanticBounds.X - requestedPhysicalBounds.X;
+            int topApron = localSemanticBounds.Y - requestedPhysicalBounds.Y;
+            int rightApron = requestedPhysicalBounds.Right - localSemanticBounds.Right;
+            int bottomApron = requestedPhysicalBounds.Bottom - localSemanticBounds.Bottom;
+            deviceBounds = new PixelRect(
+                semanticDeviceBounds.X - leftApron,
+                semanticDeviceBounds.Y - topApron,
+                semanticDeviceBounds.Width + leftApron + rightApron,
+                semanticDeviceBounds.Height + topApron + bottomApron);
+        }
         using RenderTarget? renderTarget = RenderTarget.Create(deviceBounds.Width, deviceBounds.Height);
         if (renderTarget is null)
         {
@@ -437,14 +502,16 @@ internal static class LegacyFilterEffectCompatibilityExecutor
             renderTarget,
             bounds,
             EffectiveScale.At(density),
-            deviceBounds);
+            deviceBounds,
+            deviceGridOffset);
         try
         {
             using var canvas = ImmediateCanvas.CreateExecutorManaged(
                 result.RenderTarget!,
                 density,
                 maxWorkingScale,
-                result.RasterBounds.Size);
+                result.RasterBounds.Size,
+                result.DeviceBounds.Position);
             canvas.Clear();
             return result;
         }

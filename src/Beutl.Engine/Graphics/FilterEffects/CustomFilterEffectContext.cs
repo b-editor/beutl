@@ -9,6 +9,7 @@ namespace Beutl.Graphics.Effects;
 public class CustomFilterEffectContext
 {
     private static readonly ILogger s_logger = Log.CreateLogger("CustomFilterEffectContext");
+    private readonly Vector _deviceGridOffset;
 
     internal CustomFilterEffectContext(
         EffectTargets targets,
@@ -16,7 +17,8 @@ public class CustomFilterEffectContext
         RenderRequestPurpose purpose,
         float outputScale = 1f,
         float workingScale = 1f,
-        float maxWorkingScale = float.PositiveInfinity)
+        float maxWorkingScale = float.PositiveInfinity,
+        Vector? deviceGridOffset = null)
     {
         if (!Enum.IsDefined(intent))
             throw new ArgumentOutOfRangeException(nameof(intent), intent, "The render intent is invalid.");
@@ -24,6 +26,8 @@ public class CustomFilterEffectContext
             throw new ArgumentOutOfRangeException(nameof(purpose), purpose, "The render request purpose is invalid.");
 
         Targets = targets;
+        _deviceGridOffset = deviceGridOffset
+            ?? (targets.Count > 0 ? targets[0].DeviceGridOffset : default);
         OutputScale = outputScale;
         WorkingScale = workingScale;
         MaxWorkingScale = RenderScaleUtilities.SanitizeMaxWorkingScale(maxWorkingScale);
@@ -38,13 +42,19 @@ public class CustomFilterEffectContext
 
     /// <summary>
     /// The working density <c>w</c> this effect's buffers are allocated at: <see cref="CreateTarget"/>
-    /// uses the canonical near-edge/far-edge device footprint from <see cref="DeviceBufferBounds"/>.
+    /// uses the near-edge/far-edge device footprint after applying <see cref="DeviceGridOffset"/>.
     /// Absolute-length pixel parameters must be multiplied by this.
     /// </summary>
     public float WorkingScale { get; }
 
     /// <summary>Working-scale ceiling forwarded into canvases from <see cref="Open"/>. <c>+Inf</c> = no ceiling.</summary>
     public float MaxWorkingScale { get; }
+
+    /// <summary>
+    /// Gets the translation from effect-local coordinates to the composition-device grid used
+    /// for intermediate allocation.
+    /// </summary>
+    public Vector DeviceGridOffset => _deviceGridOffset;
 
     /// <summary>Gets the explicit preview or delivery classification for this execution.</summary>
     public RenderIntent Intent { get; }
@@ -91,7 +101,7 @@ public class CustomFilterEffectContext
     /// <summary>
     /// Device-buffer dimensions for a logical <paramref name="bounds"/> at density <paramref name="w"/>.
     /// This is <see cref="DeviceBufferBounds"/>'s size, including any extra rounding pixel caused by
-    /// a fractional logical origin. Shared so shader resolution uniforms match <see cref="CreateTarget"/>'s allocation.
+    /// a fractional logical origin.
     /// </summary>
     public static (int Width, int Height) DeviceBufferSize(Rect bounds, float w)
     {
@@ -115,12 +125,13 @@ public class CustomFilterEffectContext
     }
 
     /// <summary>
-    /// The density <see cref="CreateTarget"/> will allocate for <paramref name="bounds"/>
-    /// (working scale after per-buffer dimension clamp). Call on the same bounds passed to
-    /// <see cref="CreateTarget"/> so shader uniforms match the actual buffer.
+    /// The density <see cref="CreateTarget"/> will allocate for <paramref name="bounds"/>,
+    /// after applying <see cref="DeviceGridOffset"/> and the per-buffer dimension clamp.
     /// </summary>
     public float ResolveTargetDensity(Rect bounds)
-        => RenderScaleUtilities.ClampWorkingScaleToExactBufferBudget(bounds, WorkingScale);
+        => RenderScaleUtilities.ClampWorkingScaleToExactBufferBudget(
+            bounds.Translate(_deviceGridOffset),
+            WorkingScale);
 
     public EffectTarget CreateTarget(Rect bounds)
     {
@@ -135,8 +146,8 @@ public class CustomFilterEffectContext
             w = fit;
         }
 
-        PixelRect deviceBounds = DeviceBufferBounds(bounds, w);
-        return CreateTargetCore(bounds, w, deviceBounds);
+        PixelRect deviceBounds = DeviceBufferBounds(bounds.Translate(_deviceGridOffset), w);
+        return CreateTargetCore(bounds, w, deviceBounds, _deviceGridOffset);
     }
 
     /// <summary>
@@ -165,6 +176,30 @@ public class CustomFilterEffectContext
                 source.Bounds);
             return new EffectTarget();
         }
+    }
+
+    /// <summary>
+    /// Wraps a caller-created target as a replacement with the source's logical placement,
+    /// density, physical footprint, and device-grid alignment.
+    /// </summary>
+    /// <remarks>
+    /// The returned effect target owns a shallow copy; the caller retains ownership of
+    /// <paramref name="renderTarget"/>.
+    /// </remarks>
+    public EffectTarget CreateReplacement(
+        EffectTarget source,
+        RenderTarget renderTarget)
+    {
+        ArgumentNullException.ThrowIfNull(source);
+        ArgumentNullException.ThrowIfNull(renderTarget);
+        if (source.RenderTarget is null || source.Scale.IsUnbounded)
+        {
+            throw new ArgumentException(
+                "The source must have a materialized target and concrete scale.",
+                nameof(source));
+        }
+
+        return source.CreateReplacement(renderTarget);
     }
 
     /// <summary>
@@ -197,12 +232,21 @@ public class CustomFilterEffectContext
                 source.RasterBounds));
     }
 
-    private static EffectTarget CreateTargetCore(Rect bounds, float density, PixelRect deviceBounds)
+    private static EffectTarget CreateTargetCore(
+        Rect bounds,
+        float density,
+        PixelRect deviceBounds,
+        Vector deviceGridOffset)
     {
         using var renderTarget = RenderTarget.Create(deviceBounds.Width, deviceBounds.Height);
         if (renderTarget != null)
         {
-            return new EffectTarget(renderTarget, bounds, EffectiveScale.At(density), deviceBounds);
+            return new EffectTarget(
+                renderTarget,
+                bounds,
+                EffectiveScale.At(density),
+                deviceBounds,
+                deviceGridOffset);
         }
         else
         {
@@ -230,14 +274,15 @@ public class CustomFilterEffectContext
         // Prefer the target's concrete Scale (may be clamped below WorkingScale by CreateTarget).
         float density = target.Scale.IsUnbounded ? WorkingScale : target.Scale.Value;
         Rect rasterBounds = target.RasterBounds;
+        Vector rasterOriginTranslation = target.RasterOriginTranslation;
         var canvas = new ImmediateCanvas(
             target.RenderTarget,
             density,
             MaxWorkingScale,
             logicalSize: rasterBounds.Size);
         canvas.PushTransform(Matrix.CreateTranslation(
-            target.Bounds.X - rasterBounds.X,
-            target.Bounds.Y - rasterBounds.Y));
+            rasterOriginTranslation.X,
+            rasterOriginTranslation.Y));
         return canvas;
     }
 }

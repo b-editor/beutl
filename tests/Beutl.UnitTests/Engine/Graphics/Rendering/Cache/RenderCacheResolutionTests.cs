@@ -305,6 +305,42 @@ public sealed class RenderCacheResolutionTests
         AssertMiss(SingleCandidate(bounds: new Rect(0, 0, 63, 64)), s_context, lookup);
     }
 
+    [Test]
+    public void GridSensitiveIdentity_DistinguishesIntegralDestinationTranslations()
+    {
+        ShaderDescription description = ShaderDescription.CurrentPixel(
+            "half4 apply(half4 color) { return color; }");
+        var firstContext = new RenderCacheResolutionContext(
+            s_context.Format,
+            s_context.DeviceContext,
+            deviceGridOffset: new Vector(1, 1));
+        var secondContext = new RenderCacheResolutionContext(
+            s_context.Format,
+            s_context.DeviceContext,
+            deviceGridOffset: new Vector(2, 2));
+        var lookup = new RecordingLookup();
+        using (Scenario first = ShaderCandidate(description))
+        {
+            RenderCacheResolution cold = Resolve(first, context: firstContext);
+            lookup.AddRange(cold.MissCaptures);
+            Assert.That(
+                cold.MissCaptures.Single().Identity.DeviceGridOffset,
+                Is.EqualTo(new Vector(1, 1)));
+        }
+
+        using Scenario second = ShaderCandidate(description);
+        RenderCacheResolution moved = Resolve(second, lookup, secondContext);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(moved.Hits, Is.Empty);
+            Assert.That(moved.MissCaptures, Has.Length.EqualTo(1));
+            Assert.That(
+                moved.MissCaptures.Single().Identity.DeviceGridOffset,
+                Is.EqualTo(new Vector(2, 2)));
+        });
+    }
+
     [TestCase(2f, 2f)]
     [TestCase(1.5f, 1.5f)]
     public void DivergentFanOut_ColdAndWarmCacheUseHighestCappedDensity(

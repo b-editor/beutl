@@ -72,6 +72,11 @@ public sealed class RasterFootprintContractTests
                 Is.Not.Null);
             Assert.That(
                 contextType.GetMethod(
+                    nameof(CustomFilterEffectContext.CreateReplacement),
+                    [typeof(EffectTarget), typeof(RenderTarget)]),
+                Is.Not.Null);
+            Assert.That(
+                contextType.GetMethod(
                     nameof(CustomFilterEffectContext.CreateMappedInputShader),
                     [typeof(EffectTarget), typeof(EffectTarget), typeof(SKShader)]),
                 Is.Not.Null);
@@ -82,6 +87,33 @@ public sealed class RasterFootprintContractTests
                 Is.Not.Null);
             Assert.That(shaderType.GetMethod("ApplyToNewTarget"), Is.Null,
                 "the allocation-owning compatibility overload must not remain public");
+        });
+    }
+
+    [Test]
+    public void GridAwareRasterFacades_ExposeTheCompositionDeviceTranslation()
+    {
+        Assert.Multiple(() =>
+        {
+            Assert.That(
+                typeof(EffectTarget).GetProperty(nameof(EffectTarget.DeviceGridOffset)),
+                Is.Not.Null);
+            Assert.That(
+                typeof(CustomFilterEffectContext).GetProperty(
+                    nameof(CustomFilterEffectContext.DeviceGridOffset)),
+                Is.Not.Null);
+            Assert.That(
+                typeof(RenderExecutionInput).GetProperty(
+                    nameof(RenderExecutionInput.DeviceGridOffset)),
+                Is.Not.Null);
+            Assert.That(
+                typeof(RenderCallbackCanvas).GetProperty(
+                    nameof(RenderCallbackCanvas.DeviceGridOffset)),
+                Is.Not.Null);
+            Assert.That(
+                typeof(ShaderExecutionContext).GetProperty(
+                    nameof(ShaderExecutionContext.DeviceGridOffset)),
+                Is.Not.Null);
         });
     }
 }

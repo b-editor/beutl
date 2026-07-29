@@ -46,7 +46,8 @@ internal readonly record struct RenderCacheResolutionContext
         RenderCacheFormatIdentity format,
         RenderCacheDeviceContextIdentity deviceContext,
         bool allowPersistentLookup = true,
-        bool allowCapturePublication = true)
+        bool allowCapturePublication = true,
+        Vector deviceGridOffset = default)
     {
         format.ThrowIfUninitialized(nameof(format));
         deviceContext.ThrowIfUninitialized(nameof(deviceContext));
@@ -54,6 +55,7 @@ internal readonly record struct RenderCacheResolutionContext
         DeviceContext = deviceContext;
         AllowPersistentLookup = allowPersistentLookup;
         AllowCapturePublication = allowCapturePublication;
+        DeviceGridOffset = deviceGridOffset;
     }
 
     public RenderCacheFormatIdentity Format { get; }
@@ -63,6 +65,8 @@ internal readonly record struct RenderCacheResolutionContext
     public bool AllowPersistentLookup { get; }
 
     public bool AllowCapturePublication { get; }
+
+    public Vector DeviceGridOffset { get; }
 }
 
 /// <summary>
@@ -80,6 +84,7 @@ internal sealed class RenderOutputCacheIdentity : IEquatable<RenderOutputCacheId
     private readonly RenderIntent _intent;
     private readonly RenderRequestPurpose _purpose;
     private readonly RenderCacheDeviceContextIdentity _deviceContext;
+    private readonly Vector _deviceGridOffset;
 
     public RenderOutputCacheIdentity(
         object candidateKey,
@@ -90,7 +95,8 @@ internal sealed class RenderOutputCacheIdentity : IEquatable<RenderOutputCacheId
         RenderCacheFormatIdentity format,
         RenderIntent intent,
         RenderRequestPurpose purpose,
-        RenderCacheDeviceContextIdentity deviceContext)
+        RenderCacheDeviceContextIdentity deviceContext,
+        Vector deviceGridOffset = default)
     {
         ArgumentNullException.ThrowIfNull(candidateKey);
         ArgumentNullException.ThrowIfNull(fragment);
@@ -114,6 +120,7 @@ internal sealed class RenderOutputCacheIdentity : IEquatable<RenderOutputCacheId
         _intent = intent;
         _purpose = purpose;
         _deviceContext = deviceContext;
+        _deviceGridOffset = deviceGridOffset;
     }
 
     public object CandidateKey => _candidateKey;
@@ -132,6 +139,8 @@ internal sealed class RenderOutputCacheIdentity : IEquatable<RenderOutputCacheId
 
     public RenderCacheDeviceContextIdentity DeviceContext => _deviceContext;
 
+    public Vector DeviceGridOffset => _deviceGridOffset;
+
     public bool Equals(RenderOutputCacheIdentity? other)
         => other is not null
            && Equals(_candidateKey, other._candidateKey)
@@ -142,7 +151,8 @@ internal sealed class RenderOutputCacheIdentity : IEquatable<RenderOutputCacheId
            && _format.Equals(other._format)
            && _intent == other._intent
            && _purpose == other._purpose
-           && _deviceContext.Equals(other._deviceContext);
+           && _deviceContext.Equals(other._deviceContext)
+           && _deviceGridOffset.Equals(other._deviceGridOffset);
 
     public override bool Equals(object? obj)
         => obj is RenderOutputCacheIdentity other && Equals(other);
@@ -155,7 +165,7 @@ internal sealed class RenderOutputCacheIdentity : IEquatable<RenderOutputCacheId
             _coverage,
             _densityBits,
             _format,
-            HashCode.Combine(_intent, _purpose, _deviceContext));
+            HashCode.Combine(_intent, _purpose, _deviceContext, _deviceGridOffset));
 }
 
 /// <summary>
@@ -233,6 +243,7 @@ internal enum RenderCacheBypassReason : byte
     ExternalInputExceedsBufferBudget,
     TargetTokenDependency,
     RawTargetWork,
+    DeviceGridDependentOutput,
     NotMaterializable,
     UnstableBoundaryPlan,
 }
@@ -716,7 +727,9 @@ internal sealed class RenderCacheResolver
                 recorded,
                 regions,
                 context,
-                materializationDemands);
+                materializationDemands,
+                index.DeviceGridAffectedReferences,
+                index.TransformDependentReferences);
             if (evaluation.BypassReason != RenderCacheBypassReason.None)
                 continue;
 
@@ -789,7 +802,9 @@ internal sealed class RenderCacheResolver
                 context,
                 materializationDemands,
                 lookupMemo,
-                identityMemo);
+                identityMemo,
+                index.DeviceGridAffectedReferences,
+                index.TransformDependentReferences);
             decisions.Add(candidate.Id, decision);
             if (decision.Kind == RenderCacheResolutionKind.Hit)
                 selectedHits.Add(candidate.Id);
@@ -851,7 +866,9 @@ internal sealed class RenderCacheResolver
         RenderCacheResolutionContext context,
         IReadOnlyDictionary<RenderFragmentReference, EffectiveScale> materializationDemands,
         LookupMemo lookupMemo,
-        IDictionary<RenderFragmentReference, RenderFragmentOutputIdentity> identityMemo)
+        IDictionary<RenderFragmentReference, RenderFragmentOutputIdentity> identityMemo,
+        IReadOnlySet<RenderFragmentReference> deviceGridAffectedReferences,
+        IReadOnlySet<RenderFragmentReference> transformDependentReferences)
     {
         CandidateEvaluation evaluation = EvaluateCandidate(
             request,
@@ -859,7 +876,9 @@ internal sealed class RenderCacheResolver
             recorded,
             regions,
             context,
-            materializationDemands);
+            materializationDemands,
+            deviceGridAffectedReferences,
+            transformDependentReferences);
         if (evaluation.BypassReason != RenderCacheBypassReason.None)
             return Bypass(candidate, evaluation.BypassReason);
 
@@ -930,7 +949,8 @@ internal sealed class RenderCacheResolver
             context.Format,
             request.Options.Intent,
             request.Options.Purpose,
-            context.DeviceContext);
+            context.DeviceContext,
+            evaluation.DeviceGridOffset);
 
     private static CandidateEvaluation EvaluateCandidate(
         RenderRequest request,
@@ -938,7 +958,9 @@ internal sealed class RenderCacheResolver
         RecordedRenderFragment recorded,
         RegionAnalysis regions,
         RenderCacheResolutionContext context,
-        IReadOnlyDictionary<RenderFragmentReference, EffectiveScale> materializationDemands)
+        IReadOnlyDictionary<RenderFragmentReference, EffectiveScale> materializationDemands,
+        IReadOnlySet<RenderFragmentReference> deviceGridAffectedReferences,
+        IReadOnlySet<RenderFragmentReference> transformDependentReferences)
     {
         if (!request.Options.CachePolicy.IsEnabled)
             return CandidateEvaluation.Bypass(RenderCacheBypassReason.CacheDisabled);
@@ -972,6 +994,13 @@ internal sealed class RenderCacheResolver
         float density = ResolveMaterializationDensity(
             reference,
             materializationDemands);
+        if (transformDependentReferences.Contains(reference)
+            || (deviceGridAffectedReferences.Contains(reference)
+                && DeviceGridAlignment.NormalizePhase(context.DeviceGridOffset, density) != default))
+        {
+            return CandidateEvaluation.Bypass(RenderCacheBypassReason.DeviceGridDependentOutput);
+        }
+
         if (!TryResolveCacheCaptureSize(
                 reference,
                 regions,
@@ -990,7 +1019,10 @@ internal sealed class RenderCacheResolver
         return CandidateEvaluation.Eligible(
             metadata,
             requirement,
-            density);
+            density,
+            deviceGridAffectedReferences.Contains(reference)
+                ? context.DeviceGridOffset
+                : default);
     }
 
     private static bool TryResolveCacheCaptureSize(
@@ -1115,16 +1147,18 @@ internal sealed class RenderCacheResolver
         RenderCacheBypassReason BypassReason,
         ResolvedFragmentMetadata Metadata,
         RequiredRegion Coverage,
-        float Density)
+        float Density,
+        Vector DeviceGridOffset)
     {
         public static CandidateEvaluation Bypass(RenderCacheBypassReason reason)
-            => new(reason, default, default, default);
+            => new(reason, default, default, default, default);
 
         public static CandidateEvaluation Eligible(
             ResolvedFragmentMetadata metadata,
             RequiredRegion coverage,
-            float density)
-            => new(RenderCacheBypassReason.None, metadata, coverage, density);
+            float density,
+            Vector deviceGridOffset = default)
+            => new(RenderCacheBypassReason.None, metadata, coverage, density, deviceGridOffset);
     }
 
     private sealed class ResolverIndex
@@ -1149,6 +1183,10 @@ internal sealed class RenderCacheResolver
                 Fragments.Add(fragment.Id, fragment);
                 References.Add(fragment.Id, reference);
             }
+
+            var deviceGridReferences = ResolveDeviceGridReferences(References.Values);
+            DeviceGridAffectedReferences = deviceGridReferences.Affected;
+            TransformDependentReferences = deviceGridReferences.TransformDependent;
         }
 
         public RecordedRenderGraph Graph { get; }
@@ -1157,8 +1195,114 @@ internal sealed class RenderCacheResolver
 
         public Dictionary<RenderFragmentId, RenderFragmentReference> References { get; }
 
+        public HashSet<RenderFragmentReference> DeviceGridAffectedReferences { get; }
+
+        public HashSet<RenderFragmentReference> TransformDependentReferences { get; }
+
         public CandidateTopology GetTopology()
             => _topology ??= BuildCandidateTopology(Graph, References);
+
+        private static (
+            HashSet<RenderFragmentReference> Affected,
+            HashSet<RenderFragmentReference> TransformDependent) ResolveDeviceGridReferences(
+                IEnumerable<RenderFragmentReference> references)
+        {
+            RenderFragmentReference[] all = references.ToArray();
+            var consumers = new Dictionary<RenderFragmentReference, List<RenderFragmentReference>>(
+                ReferenceEqualityComparer.Instance);
+            foreach (RenderFragmentReference reference in all)
+                consumers.Add(reference, []);
+            foreach (RenderFragmentReference reference in all)
+            {
+                foreach (RenderFragmentReference input in reference.Inputs)
+                    consumers[input].Add(reference);
+            }
+
+            RenderFragmentReference[] sensitive = [.. all.Where(IsDeviceGridSensitive)];
+            HashSet<RenderFragmentReference> affected = ExpandConnectedReferences(
+                sensitive,
+                consumers);
+            RenderFragmentReference[] transformRoots =
+            [
+                .. sensitive.Where(reference => HasNonIdentityValueReplayAncestor(reference, consumers)),
+            ];
+            HashSet<RenderFragmentReference> transformDependent = ExpandConnectedReferences(
+                transformRoots,
+                consumers);
+            return (affected, transformDependent);
+        }
+
+        private static HashSet<RenderFragmentReference> ExpandConnectedReferences(
+            IEnumerable<RenderFragmentReference> roots,
+            IReadOnlyDictionary<RenderFragmentReference, List<RenderFragmentReference>> consumers)
+        {
+            var result = new HashSet<RenderFragmentReference>(
+                ReferenceEqualityComparer.Instance);
+            var pending = new Stack<RenderFragmentReference>(roots);
+            while (pending.TryPop(out RenderFragmentReference? current))
+            {
+                if (!result.Add(current))
+                    continue;
+                foreach (RenderFragmentReference input in current.Inputs)
+                    pending.Push(input);
+            }
+
+            var visitedAncestors = new HashSet<RenderFragmentReference>(
+                ReferenceEqualityComparer.Instance);
+            pending = new Stack<RenderFragmentReference>(roots);
+            while (pending.TryPop(out RenderFragmentReference? current))
+            {
+                if (!visitedAncestors.Add(current))
+                    continue;
+                result.Add(current);
+                foreach (RenderFragmentReference consumer in consumers[current])
+                    pending.Push(consumer);
+            }
+
+            return result;
+        }
+
+        private static bool IsDeviceGridSensitive(RenderFragmentReference reference)
+            => reference.Kind is RenderFragmentKind.LegacyFilterEffect
+                or RenderFragmentKind.Shader
+                or RenderFragmentKind.Geometry;
+
+        private static bool HasNonIdentityValueReplayAncestor(
+            RenderFragmentReference reference,
+            IReadOnlyDictionary<RenderFragmentReference, List<RenderFragmentReference>> consumers)
+        {
+            var visited = new HashSet<RenderFragmentReference>(
+                ReferenceEqualityComparer.Instance);
+            var pending = new Stack<RenderFragmentReference>(consumers[reference]);
+            while (pending.TryPop(out RenderFragmentReference? current))
+            {
+                if (!visited.Add(current))
+                    continue;
+                if (current.Kind == RenderFragmentKind.TargetScope
+                    && current.Payload is TargetScopeRenderFragmentPayload scope
+                    && scope.Description.IsValueReplayMap
+                    && IsNonIdentityTransform(scope.Description.RuntimeIdentity?.Key))
+                {
+                    return true;
+                }
+
+                foreach (RenderFragmentReference consumer in consumers[current])
+                    pending.Push(consumer);
+            }
+
+            return false;
+        }
+
+        private static bool IsNonIdentityTransform(object? runtimeIdentity)
+        {
+            return runtimeIdentity switch
+            {
+                Matrix matrix => !matrix.IsIdentity,
+                ValueTuple<Matrix, TransformOperator> tuple
+                    when tuple.Item2 == TransformOperator.Prepend => !tuple.Item1.IsIdentity,
+                _ => false,
+            };
+        }
     }
 
     private sealed record CandidateTopology(

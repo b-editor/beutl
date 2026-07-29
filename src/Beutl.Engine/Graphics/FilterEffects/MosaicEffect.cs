@@ -87,10 +87,22 @@ public partial class MosaicEffect : FilterEffect
         Vector2 value,
         ShaderExecutionContext context)
     {
-        PixelRect completeDeviceBounds = PixelRect.FromRect(context.OutputBounds, context.WorkingScale);
+        Rect outputBounds = context.OutputBounds;
+        Point logicalOrigin = context.LogicalOrigin;
+        PixelRect destinationDeviceBounds = context.DeviceBounds;
+        var deviceGridOffset = new Vector(
+            (destinationDeviceBounds.X / context.WorkingScale) - logicalOrigin.X,
+            (destinationDeviceBounds.Y / context.WorkingScale) - logicalOrigin.Y);
+        PixelRect completeDeviceBounds = PixelRect.FromRect(
+            outputBounds.Translate(deviceGridOffset),
+            context.WorkingScale);
         writer.Set(new Vector2(
-            completeDeviceBounds.X - context.DeviceBounds.X + value.X * completeDeviceBounds.Width,
-            completeDeviceBounds.Y - context.DeviceBounds.Y + value.Y * completeDeviceBounds.Height));
+            completeDeviceBounds.X
+            - destinationDeviceBounds.X
+            + (value.X * completeDeviceBounds.Width),
+            completeDeviceBounds.Y
+            - destinationDeviceBounds.Y
+            + (value.Y * completeDeviceBounds.Height)));
     }
 
     private static void BindAbsoluteOrigin(

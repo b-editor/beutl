@@ -24,7 +24,8 @@ public sealed class RenderCallbackCanvas
         Func<ImmediateCanvas> openCanvas,
         CallbackCanvasCapability capability,
         bool mapLogicalOrigin = true,
-        PixelPoint? backingDeviceOrigin = null)
+        PixelPoint? backingDeviceOrigin = null,
+        Rect? rasterBounds = null)
         : this(
             token,
             density,
@@ -33,7 +34,8 @@ public sealed class RenderCallbackCanvas
             openCanvas,
             capability,
             mapLogicalOrigin,
-            backingDeviceOrigin)
+            backingDeviceOrigin,
+            rasterBounds)
     {
     }
 
@@ -45,7 +47,8 @@ public sealed class RenderCallbackCanvas
         Func<ImmediateCanvas> openCanvas,
         CallbackCanvasCapability capability,
         bool mapLogicalOrigin = true,
-        PixelPoint? backingDeviceOrigin = null)
+        PixelPoint? backingDeviceOrigin = null,
+        Rect? rasterBounds = null)
     {
         ArgumentNullException.ThrowIfNull(token);
         if (!float.IsFinite(density) || density <= 0)
@@ -62,15 +65,45 @@ public sealed class RenderCallbackCanvas
         _token = token;
         _density = density;
         _logicalBounds = logicalBounds;
-        _deviceBounds = ValidateDeviceBounds(logicalBounds, density, deviceBounds);
+        _rasterBounds = rasterBounds ?? deviceBounds.ToRect(density);
+        _deviceBounds = ValidateDeviceBounds(
+            logicalBounds,
+            density,
+            deviceBounds,
+            _rasterBounds);
         _backingDeviceOrigin = mapLogicalOrigin
             ? _deviceBounds.Position
             : backingDeviceOrigin ?? default;
-        _rasterBounds = _deviceBounds.ToRect(density);
-        _logicalOrigin = new Point(_deviceBounds.X / density, _deviceBounds.Y / density);
+        _logicalOrigin = _rasterBounds.Position;
         _openCanvas = openCanvas;
         _capability = capability;
         _mapLogicalOrigin = mapLogicalOrigin;
+    }
+
+    internal static RenderCallbackCanvas CreateTargetAttached(
+        RenderExecutionSessionToken token,
+        Rect logicalBounds,
+        ImmediateCanvas destination,
+        CallbackCanvasCapability capability)
+    {
+        ArgumentNullException.ThrowIfNull(destination);
+        Vector deviceGridOffset = DeviceGridAlignment.ResolveLogicalOffset(destination);
+        PixelRect deviceBounds = PixelRect.FromRect(
+            logicalBounds.Translate(deviceGridOffset),
+            destination.Density);
+        Rect rasterBounds = deviceBounds
+            .ToRect(destination.Density)
+            .Translate(-deviceGridOffset);
+        return new RenderCallbackCanvas(
+            token,
+            destination.Density,
+            logicalBounds,
+            deviceBounds,
+            destination.CreateExecutionView,
+            capability,
+            mapLogicalOrigin: false,
+            backingDeviceOrigin: destination.DeviceOrigin,
+            rasterBounds: rasterBounds);
     }
 
     public float Density
@@ -91,6 +124,21 @@ public sealed class RenderCallbackCanvas
     public PixelRect DeviceBounds
     {
         get { _token.ThrowIfInactive(); return _deviceBounds; }
+    }
+
+    /// <summary>
+    /// Gets the translation from callback-local coordinates to the composition-device grid used
+    /// to round <see cref="DeviceBounds"/>.
+    /// </summary>
+    public Vector DeviceGridOffset
+    {
+        get
+        {
+            _token.ThrowIfInactive();
+            return new Vector(
+                (_deviceBounds.X / _density) - _rasterBounds.X,
+                (_deviceBounds.Y / _density) - _rasterBounds.Y);
+        }
     }
 
     /// <summary>
@@ -129,7 +177,9 @@ public sealed class RenderCallbackCanvas
             else if (_capability == CallbackCanvasCapability.TargetScope)
             {
                 canvas.ClipRect(
-                    RenderScaleUtilities.AddRasterApron(_deviceBounds).ToRect(_density));
+                    RenderScaleUtilities.AddRasterApron(_deviceBounds)
+                        .ToRect(_density)
+                        .Translate(-DeviceGridOffset));
             }
             else
             {
@@ -162,7 +212,11 @@ public sealed class RenderCallbackCanvas
         primaryFailure?.Throw();
     }
 
-    private static PixelRect ValidateDeviceBounds(Rect bounds, float density, PixelRect deviceBounds)
+    private static PixelRect ValidateDeviceBounds(
+        Rect bounds,
+        float density,
+        PixelRect deviceBounds,
+        Rect rasterBounds)
     {
         bool logicalBoundsAreEmpty = bounds.Width == 0 || bounds.Height == 0;
         if (deviceBounds.Width < 0
@@ -174,14 +228,21 @@ public sealed class RenderCallbackCanvas
                 nameof(deviceBounds));
         }
 
-        PixelRect semanticDeviceBounds = PixelRect.FromRect(bounds, density);
-        if (deviceBounds.X > semanticDeviceBounds.X
+        Vector deviceGridOffset = new(
+            (deviceBounds.X / density) - rasterBounds.X,
+            (deviceBounds.Y / density) - rasterBounds.Y);
+        PixelRect semanticDeviceBounds = PixelRect.FromRect(
+            bounds.Translate(deviceGridOffset),
+            density);
+        if (Math.Abs((rasterBounds.Width * density) - deviceBounds.Width) > 0.0001
+            || Math.Abs((rasterBounds.Height * density) - deviceBounds.Height) > 0.0001
+            || deviceBounds.X > semanticDeviceBounds.X
             || deviceBounds.Y > semanticDeviceBounds.Y
             || deviceBounds.Right < semanticDeviceBounds.Right
             || deviceBounds.Bottom < semanticDeviceBounds.Bottom)
         {
             throw new ArgumentException(
-                "Callback canvas device bounds must contain its logical bounds at the active density.",
+                "Callback canvas raster bounds must match the backing size and contain its logical bounds.",
                 nameof(deviceBounds));
         }
 

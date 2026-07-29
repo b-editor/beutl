@@ -51,6 +51,31 @@ public sealed class RenderExecutionInput
         Func<SKShaderTileMode, SKShaderTileMode, SKShader>? createShader,
         Func<Bitmap>? createSnapshot,
         bool readbackDeclared)
+        : this(
+            token,
+            bounds,
+            effectiveScale,
+            deviceBounds,
+            deviceBounds.ToRect(effectiveScale.Value),
+            draw,
+            drawDeviceSpace,
+            createShader,
+            createSnapshot,
+            readbackDeclared)
+    {
+    }
+
+    internal RenderExecutionInput(
+        RenderExecutionSessionToken token,
+        Rect bounds,
+        EffectiveScale effectiveScale,
+        PixelRect deviceBounds,
+        Rect rasterBounds,
+        Action<ImmediateCanvas, Rect> draw,
+        Action<ImmediateCanvas, Point> drawDeviceSpace,
+        Func<SKShaderTileMode, SKShaderTileMode, SKShader>? createShader,
+        Func<Bitmap>? createSnapshot,
+        bool readbackDeclared)
     {
         ArgumentNullException.ThrowIfNull(token);
         RenderDescriptionValidation.ThrowIfFiniteNonEmpty(bounds, nameof(bounds));
@@ -73,8 +98,12 @@ public sealed class RenderExecutionInput
         _token = token;
         _bounds = bounds;
         _effectiveScale = effectiveScale;
-        _deviceBounds = ValidateDeviceBounds(bounds, effectiveScale.Value, deviceBounds);
-        _rasterBounds = _deviceBounds.ToRect(effectiveScale.Value);
+        _deviceBounds = ValidateDeviceBounds(
+            bounds,
+            effectiveScale.Value,
+            deviceBounds,
+            rasterBounds);
+        _rasterBounds = rasterBounds;
         _draw = draw;
         _drawDeviceSpace = drawDeviceSpace;
         _createShader = createShader;
@@ -130,6 +159,38 @@ public sealed class RenderExecutionInput
         ArgumentNullException.ThrowIfNull(image);
     }
 
+    internal RenderExecutionInput(
+        RenderExecutionSessionToken token,
+        Rect bounds,
+        EffectiveScale effectiveScale,
+        PixelRect deviceBounds,
+        Rect rasterBounds,
+        SKImage image,
+        Func<Bitmap>? createSnapshot,
+        bool readbackDeclared)
+        : this(
+            token,
+            bounds,
+            effectiveScale,
+            deviceBounds,
+            rasterBounds,
+            (canvas, destination) => canvas.DrawExecutionInput(image, destination),
+            (canvas, point) => canvas.DrawExecutionInputDeviceSpace(image, point),
+            (x, y) => image.ToShader(
+                x,
+                y,
+                SKSamplingOptions.Default,
+                SKMatrix.CreateScaleTranslation(
+                    1f / effectiveScale.Value,
+                    1f / effectiveScale.Value,
+                    (float)rasterBounds.X,
+                    (float)rasterBounds.Y)),
+            createSnapshot,
+            readbackDeclared)
+    {
+        ArgumentNullException.ThrowIfNull(image);
+    }
+
     public Rect Bounds
     {
         get { _token.ThrowIfInactive(); return _bounds; }
@@ -151,6 +212,21 @@ public sealed class RenderExecutionInput
     }
 
     /// <summary>
+    /// Gets the translation from input-local coordinates to the composition-device grid used to
+    /// round <see cref="DeviceBounds"/>.
+    /// </summary>
+    public Vector DeviceGridOffset
+    {
+        get
+        {
+            _token.ThrowIfInactive();
+            return new Vector(
+                (_deviceBounds.X / _effectiveScale.Value) - _rasterBounds.X,
+                (_deviceBounds.Y / _effectiveScale.Value) - _rasterBounds.Y);
+        }
+    }
+
+    /// <summary>
     /// Gets the pixel-aligned logical footprint represented by the complete backing image.
     /// This can conservatively extend beyond <see cref="Bounds"/> because of device-pixel rounding.
     /// </summary>
@@ -164,9 +240,7 @@ public sealed class RenderExecutionInput
         get
         {
             _token.ThrowIfInactive();
-            return new Point(
-                _deviceBounds.X / _effectiveScale.Value,
-                _deviceBounds.Y / _effectiveScale.Value);
+            return _rasterBounds.Position;
         }
     }
 
@@ -223,7 +297,11 @@ public sealed class RenderExecutionInput
         _token.AuthorizeResource(snapshot, () => use(snapshot));
     }
 
-    private static PixelRect ValidateDeviceBounds(Rect bounds, float density, PixelRect deviceBounds)
+    private static PixelRect ValidateDeviceBounds(
+        Rect bounds,
+        float density,
+        PixelRect deviceBounds,
+        Rect rasterBounds)
     {
         if (deviceBounds.Width <= 0 || deviceBounds.Height <= 0)
         {
@@ -232,14 +310,15 @@ public sealed class RenderExecutionInput
                 nameof(deviceBounds));
         }
 
-        PixelRect semanticDeviceBounds = PixelRect.FromRect(bounds, density);
-        if (deviceBounds.X > semanticDeviceBounds.X
-            || deviceBounds.Y > semanticDeviceBounds.Y
-            || deviceBounds.Right < semanticDeviceBounds.Right
-            || deviceBounds.Bottom < semanticDeviceBounds.Bottom)
+        if (Math.Abs((rasterBounds.Width * density) - deviceBounds.Width) > 0.0001
+            || Math.Abs((rasterBounds.Height * density) - deviceBounds.Height) > 0.0001
+            || rasterBounds.X > bounds.X
+            || rasterBounds.Y > bounds.Y
+            || rasterBounds.Right < bounds.Right
+            || rasterBounds.Bottom < bounds.Bottom)
         {
             throw new ArgumentException(
-                "Execution input device bounds must contain the semantic bounds at the effective scale.",
+                "Execution input raster bounds must match the backing size and contain the semantic bounds.",
                 nameof(deviceBounds));
         }
 
