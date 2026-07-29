@@ -163,7 +163,7 @@ public sealed class GpuPassFusionScaleRegionTests
             Assert.That(node.ObservedCanvasDeviceBounds, Is.EqualTo(expectedDeviceBounds));
             Assert.That(node.ObservedCanvasOrigin, Is.EqualTo(expectedOrigin));
             Assert.That(node.ObservedDensity, Is.EqualTo(2));
-            Assert.That(rasterization.Bounds, Is.EqualTo(requestedRegion));
+            Assert.That(rasterization.Bounds, Is.EqualTo(PixelRect.FromRect(requestedRegion, 1).ToRect(1)));
             Assert.That(rasterization.Bitmap, Is.Not.Null);
         });
     }

@@ -1,6 +1,9 @@
 ﻿using System.Runtime.ExceptionServices;
 
+using Beutl.Logging;
 using Beutl.Media;
+
+using Microsoft.Extensions.Logging;
 
 namespace Beutl.Graphics.Rendering;
 
@@ -11,6 +14,8 @@ namespace Beutl.Graphics.Rendering;
 /// </summary>
 internal sealed class RenderTargetLeaseRegistry : IDisposable
 {
+    private static readonly ILogger s_logger = Log.CreateLogger<RenderTargetLeaseRegistry>();
+
     private readonly RenderTargetPool _pool;
     private RenderTargetLeaseSession? _activeSession;
     private bool _disposed;
@@ -73,10 +78,37 @@ internal sealed class RenderTargetLeaseRegistry : IDisposable
         }
     }
 
+    /// <summary>Evicts every unleased retained target and reports the released byte count.</summary>
+    /// <remarks>Disposes backend resources, so it must run on the renderer's thread.</remarks>
+    public long ReleaseRetainedTargets()
+    {
+        ObjectDisposedException.ThrowIf(_disposed, this);
+        return _pool.ReleaseRetainedTargets();
+    }
+
     internal RenderTargetLease Acquire(RenderTargetLeaseSession session, PixelSize deviceSize)
+        => TryAcquire(session, deviceSize)
+           ?? throw RenderTargetPool.CreateAllocationFailure(deviceSize);
+
+    /// <summary>
+    /// Leases an intermediate target, returning <see langword="null"/> when a
+    /// <see cref="RenderIntent.Preview"/> session may drop the caller's contribution instead.
+    /// </summary>
+    /// <remarks>A <see cref="RenderIntent.Delivery"/> session never degrades: it throws.</remarks>
+    internal RenderTargetLease? TryAcquire(RenderTargetLeaseSession session, PixelSize deviceSize)
     {
         VerifyActive(session);
-        PooledRenderTargetLease pooled = session.Request.Acquire(deviceSize);
+        if (!session.Request.TryAcquire(deviceSize, out PooledRenderTargetLease? pooled))
+        {
+            s_logger.LogWarning(
+                "Intermediate render-target allocation failed ({Width}x{Height} px); preview drops this target, delivery render fails fast.",
+                deviceSize.Width,
+                deviceSize.Height);
+            if (session.Intent == RenderIntent.Delivery)
+                throw RenderTargetPool.CreateAllocationFailure(deviceSize);
+            return null;
+        }
+
         var lease = new RenderTargetLease(session, pooled);
         session.Register(lease);
         return lease;
@@ -200,6 +232,12 @@ internal sealed class RenderTargetLeaseSession : IDisposable
     {
         ObjectDisposedException.ThrowIf(IsDisposed, this);
         return _registry.Acquire(this, deviceSize);
+    }
+
+    public RenderTargetLease? TryAcquire(PixelSize deviceSize)
+    {
+        ObjectDisposedException.ThrowIf(IsDisposed, this);
+        return _registry.TryAcquire(this, deviceSize);
     }
 
     public void Dispose()

@@ -1,4 +1,5 @@
-﻿using System.Diagnostics;
+﻿using System.Buffers;
+using System.Diagnostics;
 using System.Runtime.InteropServices;
 using Beutl.Composition;
 using Beutl.Graphics;
@@ -372,6 +373,7 @@ public class FormattedText : IEquatable<FormattedText>, IDisposable
         // 空白で開始または、終了した場合
         var bounds = new Rect(0, 0, Math.Max(0, glyphs.Length - 1) * spacing + result.Width, fillPath.TightBounds.Height);
         Rect actualBounds = fillPath.TightBounds.ToGraphicsRect();
+        Rect rasterBounds = MeasureGlyphMaskBounds(font, glyphs, positions);
         SKTextBlob? textBlob = builder.Build();
 
         if (result.Codepoints.Length > 0)
@@ -380,10 +382,61 @@ public class FormattedText : IEquatable<FormattedText>, IDisposable
             {
                 strokePath = PenHelper.CreateStrokePath(fillPath, Pen, actualBounds, density);
                 actualBounds = strokePath.TightBounds.ToGraphicsRect();
+                rasterBounds = rasterBounds.Union(InflateToRaster(strokePath.TightBounds).ToGraphicsRect());
             }
         }
 
+        actualBounds = rasterBounds.IsEmpty ? actualBounds : actualBounds.Union(rasterBounds);
+
         return (textBlob, fillPath, strokePath, font.Metrics.ToFontMetrics(), bounds, actualBounds);
+    }
+
+    /// <summary>
+    /// Bounds of the glyph masks the blob rasterizes. Full hinting moves a mask off the unhinted outline,
+    /// so the fill path's tight bounds do not contain what
+    /// <see cref="SKCanvas.DrawText(SKTextBlob, float, float, SKPaint)"/> draws.
+    /// </summary>
+    private static Rect MeasureGlyphMaskBounds(SKFont font, ReadOnlySpan<ushort> glyphs, ReadOnlySpan<SKPoint> positions)
+    {
+        if (glyphs.Length == 0)
+            return default;
+
+        float[] widths = ArrayPool<float>.Shared.Rent(glyphs.Length);
+        SKRect[] glyphBounds = ArrayPool<SKRect>.Shared.Rent(glyphs.Length);
+        try
+        {
+            font.GetGlyphWidths(glyphs, widths.AsSpan(0, glyphs.Length), glyphBounds.AsSpan(0, glyphs.Length), null);
+
+            var union = SKRect.Empty;
+            bool any = false;
+            for (int i = 0; i < glyphs.Length; i++)
+            {
+                SKRect glyph = glyphBounds[i];
+                if (glyph.IsEmpty)
+                    continue;
+
+                glyph.Offset(positions[i]);
+                union = any ? SKRect.Union(union, glyph) : glyph;
+                any = true;
+            }
+
+            return any ? InflateToRaster(union).ToGraphicsRect() : default;
+        }
+        finally
+        {
+            ArrayPool<float>.Shared.Return(widths);
+            ArrayPool<SKRect>.Shared.Return(glyphBounds);
+        }
+    }
+
+    // Antialiasing samples the pixel an edge touches, and glyph strikes are measured at subpixel phase
+    // zero while they are drawn at the phase their position falls in, so coverage reaches one pixel past
+    // the geometry.
+    private static SKRect InflateToRaster(SKRect bounds)
+    {
+        const float Allowance = 1f;
+        bounds.Inflate(Allowance, Allowance);
+        return bounds;
     }
 
     private void SetProperty<T>(ref T field, T value)

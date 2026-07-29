@@ -130,6 +130,93 @@ public sealed class RenderTargetPoolTests
     }
 
     [Test]
+    public void PreviewAllocationPressure_ReclaimsRetainedTargets_AndKeepsRenderingTheFrame()
+    {
+        var factory = new BudgetedTargetFactory(budgetBytes: 640);
+        using var registry = new RenderTargetLeaseRegistry(factory);
+        using (RenderTargetLeaseSession warmup = registry.BeginSession(RenderIntent.Preview))
+        {
+            warmup.Acquire(new PixelSize(4, 4)).Dispose();
+            warmup.Acquire(new PixelSize(2, 2)).Dispose();
+        }
+
+        Assert.That(registry.Statistics.RetainedBytes, Is.EqualTo(160));
+
+        using RenderTargetLeaseSession frame = registry.BeginSession(RenderIntent.Preview);
+        RenderTargetLease pressured = frame.Acquire(new PixelSize(8, 8));
+        RenderTargetLease rest = frame.Acquire(new PixelSize(4, 4));
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(pressured.Target.Width, Is.EqualTo(8));
+            Assert.That(rest.Target.Width, Is.EqualTo(4));
+            Assert.That(factory.DeclinedRequests, Is.EqualTo(1));
+            Assert.That(registry.Statistics.RetainedBytes, Is.Zero);
+            Assert.That(registry.Statistics.Evictions, Is.EqualTo(2));
+        });
+    }
+
+    [Test]
+    public void DeclinedAllocation_DegradesForPreview_AndFailsFastForDelivery()
+    {
+        using var registry = new RenderTargetLeaseRegistry(new SizeRejectingTargetFactory(rejectedWidth: 9));
+
+        using (RenderTargetLeaseSession preview = registry.BeginSession(RenderIntent.Preview))
+        {
+            Assert.That(preview.TryAcquire(new PixelSize(9, 9)), Is.Null);
+            using RenderTargetLease rest = preview.Acquire(new PixelSize(4, 4));
+            Assert.That(rest.Target.Width, Is.EqualTo(4));
+        }
+
+        using RenderTargetLeaseSession delivery = registry.BeginSession(RenderIntent.Delivery);
+        Assert.Multiple(() =>
+        {
+            Assert.That(
+                () => delivery.TryAcquire(new PixelSize(9, 9)),
+                Throws.InvalidOperationException.With.Message.Contains("could not allocate 9x9 pixels"));
+            Assert.DoesNotThrow(() => delivery.Acquire(new PixelSize(4, 4)).Dispose());
+        });
+    }
+
+    [Test]
+    public void IdleReclamation_ReleasesRetainedTargetsWithoutARequest_AndKeepsLeasedOnes()
+    {
+        var factory = new TrackingTargetFactory();
+        using var registry = new RenderTargetLeaseRegistry(factory);
+        TrackingRenderTarget idleTarget;
+        using (RenderTargetLeaseSession session = registry.BeginSession(RenderIntent.Preview))
+        {
+            RenderTargetLease lease = session.Acquire(new PixelSize(4, 4));
+            idleTarget = (TrackingRenderTarget)lease.Target;
+            lease.Dispose();
+        }
+
+        Assert.That(registry.Statistics.RetainedBytes, Is.EqualTo(4 * 4 * 8));
+
+        long releasedBytes = registry.ReleaseRetainedTargets();
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(releasedBytes, Is.EqualTo(4 * 4 * 8));
+            Assert.That(idleTarget.IsDisposed, Is.True);
+            Assert.That(idleTarget.DisposeCalls, Is.EqualTo(1));
+            Assert.That(registry.Statistics.RetainedBytes, Is.Zero);
+            Assert.That(registry.Statistics.OwnedTargets, Is.Zero);
+        });
+
+        using RenderTargetLeaseSession active = registry.BeginSession(RenderIntent.Preview);
+        using RenderTargetLease leased = active.Acquire(new PixelSize(2, 2));
+        var leasedTarget = (TrackingRenderTarget)leased.Target;
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(registry.ReleaseRetainedTargets(), Is.Zero);
+            Assert.That(leasedTarget.IsDisposed, Is.False);
+            Assert.That(registry.Statistics.LeasedTargets, Is.EqualTo(1));
+        });
+    }
+
+    [Test]
     public void Reuse_IncrementsGeneration_AndOldOrDoubleReleaseFails()
     {
         using var pool = new RenderTargetPool(new TrackingTargetFactory());
@@ -746,6 +833,37 @@ public sealed class RenderTargetPoolTests
                 ?? new TrackingRenderTarget(deviceSize.Width, deviceSize.Height);
             Created.Add(target);
             return target;
+        }
+    }
+
+    private sealed class SizeRejectingTargetFactory(int rejectedWidth) : IRenderTargetFactory
+    {
+        public RenderTarget? Create(PixelSize deviceSize)
+            => deviceSize.Width == rejectedWidth
+                ? null
+                : new TrackingRenderTarget(deviceSize.Width, deviceSize.Height);
+    }
+
+    private sealed class BudgetedTargetFactory(long budgetBytes) : IRenderTargetFactory
+    {
+        private readonly List<TrackingRenderTarget> _live = [];
+
+        public int DeclinedRequests { get; private set; }
+
+        public RenderTarget? Create(PixelSize deviceSize)
+        {
+            _live.RemoveAll(static target => target.IsDisposed);
+            long requested = (long)deviceSize.Width * deviceSize.Height * 8;
+            long live = _live.Sum(static target => (long)target.Width * target.Height * 8);
+            if (live + requested > budgetBytes)
+            {
+                DeclinedRequests++;
+                return null;
+            }
+
+            var created = new TrackingRenderTarget(deviceSize.Width, deviceSize.Height);
+            _live.Add(created);
+            return created;
         }
     }
 

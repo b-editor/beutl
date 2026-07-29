@@ -20,7 +20,7 @@ public class WorkingScaleClampConsistencyTests
         var bounds = new Rect(
             -0.5f,
             0,
-            RenderScaleUtilities.MaxBufferDimension + 0.5f,
+            RenderScaleUtilities.MaxBufferDimension - 0.5f,
             1);
         PixelSize deviceSize = PixelRect.FromRect(bounds, 1).Size;
         float coarse = RenderScaleUtilities.ClampWorkingScaleToBufferBudget(bounds, 1);
@@ -39,11 +39,44 @@ public class WorkingScaleClampConsistencyTests
 
         Assert.Multiple(() =>
         {
-            Assert.That(coarse, Is.LessThan(1), "the logical-width estimate must reproduce the false overflow");
             Assert.That(deviceSize.Width, Is.EqualTo(RenderScaleUtilities.MaxBufferDimension));
+            Assert.That(coarse, Is.EqualTo(1));
             Assert.That(exact, Is.EqualTo(1));
             Assert.That(planned, Is.EqualTo(EffectiveScale.At(1)));
             Assert.That(context.ResolveTargetDensity(bounds), Is.EqualTo(1));
+        });
+    }
+
+    [Test]
+    public void ExactClamp_TightensBelowTheCoarseEstimateWhenANegativeOriginAddsADevicePixel()
+    {
+        var bounds = new Rect(
+            -0.5f,
+            0,
+            RenderScaleUtilities.MaxBufferDimension,
+            1);
+        PixelSize deviceSize = PixelRect.FromRect(bounds, 1).Size;
+        float coarse = RenderScaleUtilities.ClampWorkingScaleToBufferBudget(bounds, 1);
+        float exact = RenderScaleUtilities.ClampWorkingScaleToExactBufferBudget(bounds, 1);
+        EffectiveScale planned = FilterEffectWorkingScalePolicy.ResolveMaterialized(
+            [EffectiveScale.At(1)],
+            [bounds],
+            outputScale: 1,
+            maxWorkingScale: 1);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(deviceSize.Width, Is.EqualTo(RenderScaleUtilities.MaxBufferDimension + 1));
+            Assert.That(coarse, Is.LessThan(1), "the estimate must account for the straddled pixel");
+            Assert.That(exact, Is.LessThan(1));
+            Assert.That(exact, Is.LessThanOrEqualTo(coarse));
+            Assert.That(
+                PixelRect.FromRect(bounds, coarse).Width,
+                Is.LessThanOrEqualTo(RenderScaleUtilities.MaxBufferDimension));
+            Assert.That(
+                PixelRect.FromRect(bounds, exact).Width,
+                Is.LessThanOrEqualTo(RenderScaleUtilities.MaxBufferDimension));
+            Assert.That(planned.Value, Is.LessThan(1));
         });
     }
 
@@ -53,7 +86,7 @@ public class WorkingScaleClampConsistencyTests
         var bounds = new Rect(
             -0.5f,
             0,
-            RenderScaleUtilities.MaxBufferDimension + 0.5f,
+            RenderScaleUtilities.MaxBufferDimension - 0.5f,
             1);
         using var owner = new RenderRequestOwner();
         using var request = new RenderRequest(new RenderRequestOptions(
@@ -91,7 +124,7 @@ public class WorkingScaleClampConsistencyTests
         var bounds = new Rect(
             -0.5f,
             0,
-            RenderScaleUtilities.MaxBufferDimension - 1.5f,
+            RenderScaleUtilities.MaxBufferDimension - 2.5f,
             1);
         PixelRect footprint = RenderScaleUtilities.AddRasterApron(PixelRect.FromRect(bounds, 1));
 

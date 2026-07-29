@@ -1061,10 +1061,9 @@ public sealed class LegacyFilterPhysicalFootprintTests
         return renderTarget;
     }
 
-    // OriginalBounds' origin is barely negative, so device rounding truncates it toward zero and the
-    // local footprint starts a pixel inside the content. The filter must expand by less than that pixel,
-    // and the local-to-global offset must be a whole number, for the re-anchored footprint to land past
-    // the semantic origin instead of covering it.
+    // OriginalBounds' origin is barely negative, so its device cover starts one pixel before the content
+    // and the local-to-global offset must stay a whole number for the re-anchored footprint to keep
+    // covering the semantic origin.
     [Test]
     public void NegativeLocalOrigin_FilteredFootprintStillContainsSemanticDeviceBounds()
     {

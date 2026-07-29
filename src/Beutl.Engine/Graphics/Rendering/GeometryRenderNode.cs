@@ -143,7 +143,7 @@ internal static class DeferredOpaqueSource
         Action<ImmediateCanvas, T, Brush.Resource?, Pen.Resource?> draw)
         where T : class
     {
-        using OpaqueRenderOutput output = session.CreateOutput(session.OutputBounds);
+        using OpaqueRenderOutput output = session.CreateOutput(session.RequiredRegion);
         output.Canvas.Use(canvas =>
             session.UseResource(primary, value =>
                 UseBrushResources(
@@ -161,7 +161,7 @@ internal static class DeferredOpaqueSource
         Action<ImmediateCanvas, T, ResolvedBrush, ResolvedPen> draw)
         where T : class
     {
-        using OpaqueRenderOutput output = session.CreateOutput(session.OutputBounds);
+        using OpaqueRenderOutput output = session.CreateOutput(session.RequiredRegion);
         output.Canvas.Use(canvas =>
             session.UseResource(primary, value =>
                 BrushExecutionResolver.UsePaint(
@@ -191,7 +191,7 @@ internal static class DeferredOpaqueSource
         RenderResource<Pen.Resource>? pen,
         Action<ImmediateCanvas, Brush.Resource?, Pen.Resource?> draw)
     {
-        using OpaqueRenderOutput output = session.CreateOutput(session.OutputBounds);
+        using OpaqueRenderOutput output = session.CreateOutput(session.RequiredRegion);
         output.Canvas.Use(canvas =>
             UseBrushResources(
                 session,
@@ -206,7 +206,7 @@ internal static class DeferredOpaqueSource
         RecordedPaint paint,
         Action<ImmediateCanvas, ResolvedBrush, ResolvedPen> draw)
     {
-        using OpaqueRenderOutput output = session.CreateOutput(session.OutputBounds);
+        using OpaqueRenderOutput output = session.CreateOutput(session.RequiredRegion);
         output.Canvas.Use(canvas =>
             BrushExecutionResolver.UsePaint(
                 session,

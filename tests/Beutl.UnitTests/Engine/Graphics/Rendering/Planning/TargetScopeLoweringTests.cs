@@ -632,7 +632,7 @@ public sealed class TargetScopeLoweringTests
     }
 
     [Test]
-    public void Rasterize_PreservesShiftedSelection_AndEmptySelectionDoesNotAllocate()
+    public void Rasterize_ReportsTheDeviceCoverOfAShiftedSelection_AndEmptySelectionDoesNotAllocate()
     {
         var factory = new CpuTargetFactory();
         var shifted = new Rect(10.25f, 20.25f, 3.5f, 2.5f);
@@ -650,7 +650,8 @@ public sealed class TargetScopeLoweringTests
         {
             Assert.Multiple(() =>
             {
-                Assert.That(raster.Bounds, Is.EqualTo(shifted));
+                Assert.That(raster.Bounds, Is.EqualTo(PixelRect.FromRect(shifted, 2).ToRect(2)));
+                Assert.That(raster.Bounds.Contains(shifted), Is.True);
                 Assert.That(raster.Bitmap, Is.Not.Null);
                 Assert.That(raster.OutputScale, Is.EqualTo(2));
             });

@@ -264,7 +264,7 @@ public sealed class RenderNodeRendererContractTests
     }
 
     [Test]
-    public void Rasterize_PreservesShiftedBoundsAndTransfersBitmapOwnershipToTheResult()
+    public void Rasterize_ReportsTheDeviceCoverOfShiftedBoundsAndTransfersBitmapOwnershipToTheResult()
     {
         var bounds = new Rect(10.25f, 20.25f, 3.5f, 2.5f);
         PixelRect expectedDeviceBounds = PixelRect.FromRect(bounds, 2);
@@ -285,7 +285,8 @@ public sealed class RenderNodeRendererContractTests
 
         Assert.Multiple(() =>
         {
-            Assert.That(rasterization.Bounds, Is.EqualTo(bounds));
+            Assert.That(rasterization.Bounds, Is.EqualTo(expectedDeviceBounds.ToRect(2)));
+            Assert.That(rasterization.Bounds.Contains(bounds), Is.True);
             Assert.That(rasterization.OutputScale, Is.EqualTo(2));
             Assert.That(rasterization.IsEmpty, Is.False);
             Assert.That(bitmap.Width, Is.EqualTo(expectedDeviceBounds.Width));

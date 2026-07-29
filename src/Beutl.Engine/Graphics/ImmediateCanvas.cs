@@ -19,6 +19,11 @@ public partial class ImmediateCanvas : IDisposable, IPopable
 {
     private static readonly AsyncLocal<FlushObserverScope?> s_flushObserver = new();
     private static readonly AsyncLocal<PixelOperationObserverScope?> s_pixelOperationObserver = new();
+
+    // A tent kernel has no negative lobe, so a resampled composite cannot emit a value outside the
+    // range of the samples it interpolated.
+    private static readonly SKSamplingOptions s_compositeSampling = new(SKFilterMode.Linear, SKMipmapMode.None);
+
     private readonly RenderTarget _renderTargetValue;
     private readonly Dispatcher? _dispatcher;
     private readonly SKPaint _sharedFillPaint = new();
@@ -293,7 +298,7 @@ public partial class ImmediateCanvas : IDisposable, IPopable
         RecordFlush(ImmediateCanvasFlushKind.SourceSurface);
     }
 
-    // Draw a buffer into a logical destination rect (Mitchell resample).
+    // Draw a buffer into a logical destination rect.
     public void DrawRenderTargetScaled(RenderTarget renderTarget, Rect dest)
         => DrawRenderTargetScaledCore(renderTarget, dest, flushSource: true);
 
@@ -398,14 +403,58 @@ public partial class ImmediateCanvas : IDisposable, IPopable
         }
     }
 
+    /// <summary>
+    /// Maps <paramref name="dest"/> through the active transform and reports the device origin when the
+    /// mapping lands a <paramref name="sourceSize"/> buffer on exact device pixels, so a copy is lossless.
+    /// </summary>
+    private bool TryGetLosslessDeviceOrigin(Rect dest, PixelSize sourceSize, out PixelPoint deviceOrigin)
+    {
+        deviceOrigin = default;
+        Matrix transform = _currentTransform;
+        if (transform.M12 != 0
+            || transform.M13 != 0
+            || transform.M21 != 0
+            || transform.M23 != 0
+            || transform.M33 != 1)
+        {
+            return false;
+        }
+
+        Point mappedOrigin = dest.Position * transform;
+        Point mappedFar = new Point(dest.Right, dest.Bottom) * transform;
+        int x = (int)MathF.Round(mappedOrigin.X);
+        int y = (int)MathF.Round(mappedOrigin.Y);
+        if (MathF.Abs(mappedOrigin.X - x) > 0.0001f
+            || MathF.Abs(mappedOrigin.Y - y) > 0.0001f
+            || MathF.Abs(mappedFar.X - (x + sourceSize.Width)) > 0.0001f
+            || MathF.Abs(mappedFar.Y - (y + sourceSize.Height)) > 0.0001f)
+        {
+            return false;
+        }
+
+        deviceOrigin = new PixelPoint(x, y);
+        return true;
+    }
+
     private void DrawRenderTargetScaledCore(RenderTarget renderTarget, Rect dest, bool flushSource)
     {
         VerifyAccess();
         VerifyNativeTargetOperation();
         renderTarget.VerifyAccess();
 
-        using SKImage image = renderTarget.Value.Snapshot();
-        DrawImageScaled(image, dest);
+        // Resampling a buffer that already lands on exact device pixels only softens and rings it.
+        if (TryGetLosslessDeviceOrigin(
+                dest,
+                new PixelSize(renderTarget.Width, renderTarget.Height),
+                out PixelPoint deviceOrigin))
+        {
+            DrawRenderTargetPixelsWithoutFlush(renderTarget, deviceOrigin.X, deviceOrigin.Y);
+        }
+        else
+        {
+            using SKImage image = renderTarget.Value.Snapshot();
+            DrawImageScaled(image, dest);
+        }
 
         if (flushSource)
         {
@@ -414,7 +463,7 @@ public partial class ImmediateCanvas : IDisposable, IPopable
         }
     }
 
-    // Draw a pre-snapshotted image into a logical destination rect (Mitchell resample).
+    // Draw a pre-snapshotted image into a logical destination rect.
     public void DrawImageScaled(SKImage image, Rect dest)
     {
         VerifyPixelOperation();
@@ -424,7 +473,7 @@ public partial class ImmediateCanvas : IDisposable, IPopable
 
         var src = SKRect.Create(image.Width, image.Height);
         RecordPixelOperation();
-        Canvas.DrawImage(image, src, dest.ToSKRect(), new SKSamplingOptions(SKCubicResampler.Mitchell), _sharedFillPaint);
+        Canvas.DrawImage(image, src, dest.ToSKRect(), s_compositeSampling, _sharedFillPaint);
     }
 
     // Draw a surface into its own logical footprint (pixel size / density) at the given origin.
@@ -439,7 +488,7 @@ public partial class ImmediateCanvas : IDisposable, IPopable
         var src = SKRect.Create(image.Width, image.Height);
         var dest = SKRect.Create((float)origin.X, (float)origin.Y, image.Width / scale, image.Height / scale);
         RecordPixelOperation();
-        Canvas.DrawImage(image, src, dest, new SKSamplingOptions(SKCubicResampler.Mitchell), _sharedFillPaint);
+        Canvas.DrawImage(image, src, dest, s_compositeSampling, _sharedFillPaint);
 
         surface.Flush(true, true);
         RecordFlush(ImmediateCanvasFlushKind.SourceSurface);
@@ -1050,9 +1099,18 @@ public partial class ImmediateCanvas : IDisposable, IPopable
         VerifyHiddenLayerOperation();
         float oldOpacity = Opacity;
         Opacity *= opacity;
-        var paint = new SKPaint();
 
         RecordPixelOperation();
+        if (oldOpacity == 1f && opacity == 1f)
+        {
+            // Skia sizes an isolation layer from the active clip, and rasterizing into that smaller
+            // surface changes antialiased coverage. A fully opaque group is SrcOver-associative, so
+            // the layer would only be an identity pass that perturbs coverage.
+            _states.Push(new CanvasPushedState.SKCanvasPushedState(Canvas.Save()));
+            return new PushedState(this, _states.Count);
+        }
+
+        var paint = new SKPaint();
         int count = Canvas.SaveLayer(paint);
         paint.Color = new SKColor(0, 0, 0, (byte)(Opacity * 255));
         _states.Push(new CanvasPushedState.OpacityPushedState(oldOpacity, count, paint));

@@ -371,41 +371,43 @@ public readonly struct PixelRect
     }
 
     /// <summary>
-    /// Converts a <see cref="Rect"/> to device pixels.
+    /// Converts a <see cref="Rect"/> to the smallest device-pixel rectangle that covers it.
     /// </summary>
     /// <param name="rect">The rect.</param>
-    /// <returns>The device-independent rect.</returns>
+    /// <returns>The covering device-pixel rect.</returns>
     public static PixelRect FromRect(Rect rect)
     {
-        return new PixelRect(
-            PixelPoint.FromPoint(rect.Position),
-            FromPointCeiling(rect.BottomRight));
+        return FromRect(rect, new Vector(1, 1));
     }
 
     /// <summary>
-    /// Converts a <see cref="Rect"/> to device pixels using the specified scaling factor.
+    /// Converts a <see cref="Rect"/> to the smallest device-pixel rectangle that covers it, using the
+    /// specified scaling factor.
     /// </summary>
     /// <param name="rect">The rect.</param>
     /// <param name="scale">The scaling factor.</param>
-    /// <returns>The device-independent rect.</returns>
+    /// <returns>The covering device-pixel rect.</returns>
     public static PixelRect FromRect(Rect rect, float scale)
     {
-        return new PixelRect(
-            PixelPoint.FromPoint(rect.Position, scale),
-            FromPointCeiling(rect.BottomRight, new Vector(scale, scale)));
+        return FromRect(rect, new Vector(scale, scale));
     }
 
     /// <summary>
-    /// Converts a <see cref="Rect"/> to device pixels using the specified scaling factor.
+    /// Converts a <see cref="Rect"/> to the smallest device-pixel rectangle that covers it, using the
+    /// specified scaling factor.
     /// </summary>
     /// <param name="rect">The rect.</param>
     /// <param name="scale">The scaling factor.</param>
-    /// <returns>The device-independent point.</returns>
+    /// <returns>The covering device-pixel rect.</returns>
     public static PixelRect FromRect(Rect rect, Vector scale)
     {
+        PixelPoint topLeft = FromPointFloor(rect.Position, scale);
+        PixelPoint bottomRight = FromPointCeiling(rect.BottomRight, scale);
         return new PixelRect(
-            PixelPoint.FromPoint(rect.Position, scale),
-            FromPointCeiling(rect.BottomRight, scale));
+            topLeft,
+            new PixelPoint(
+                CoverEnd(topLeft.X, bottomRight.X, rect.Width * scale.X),
+                CoverEnd(topLeft.Y, bottomRight.Y, rect.Height * scale.Y)));
     }
 
     /// <summary>
@@ -502,11 +504,18 @@ public readonly struct PixelRect
             (int)Math.Ceiling(point.Y * scale.Y));
     }
 
-    private static PixelPoint FromPointCeiling(Point point)
+    private static PixelPoint FromPointFloor(Point point, Vector scale)
     {
         return new PixelPoint(
-            (int)Math.Ceiling(point.X),
-            (int)Math.Ceiling(point.Y));
+            (int)Math.Floor(point.X * scale.X),
+            (int)Math.Floor(point.Y * scale.Y));
+    }
+
+    // A positive extent always overlaps a device pixel, even where float rounding of a large co-ordinate
+    // collapses the scaled edges onto one another.
+    private static int CoverEnd(int start, int end, float deviceExtent)
+    {
+        return end <= start && deviceExtent > 0 ? start + 1 : end;
     }
 
     static void ITupleConvertible<PixelRect, int>.ConvertTo(PixelRect self, Span<int> tuple)

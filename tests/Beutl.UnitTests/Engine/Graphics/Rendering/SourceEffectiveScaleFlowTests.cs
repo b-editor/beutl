@@ -649,6 +649,8 @@ public class SourceEffectiveScaleFlowTests
             negativeFractionalFootprints,
             outputScale: 1,
             maxWorkingScale: 4);
+        PixelRect negativeFractionalRaster = PixelRect.FromRect(negativeFractionalInputBounds, 1);
+        float negativeFractionalOffsetX = negativeFractionalRaster.X - negativeFractionalInputBounds.X;
 
         EffectiveScale localOriginScale = policy.Resolve(
             [EffectiveScale.At(1)],
@@ -692,8 +694,9 @@ public class SourceEffectiveScaleFlowTests
                 "a Skia operation after Custom must transform the retained physical backing, not only semantics");
             Assert.That(retainedThenInflatedScale.Value, Is.LessThan(1),
                 "the transformed retained backing must participate in the device-axis clamp");
-            Assert.That(negativeFractionalFootprints, Has.Some.Matches<Rect>(static bounds =>
-                    bounds.X == 0.25 && bounds.Width == RenderScaleUtilities.MaxBufferDimension),
+            Assert.That(negativeFractionalFootprints, Has.Some.Matches<Rect>(bounds =>
+                    bounds.X == integerMovedSemanticBounds.X + negativeFractionalOffsetX
+                    && bounds.Width == negativeFractionalRaster.Width),
                 "reanchoring a retained backing must preserve its raster-to-semantic origin offset");
             Assert.That(negativeFractionalScale.Value, Is.LessThan(1),
                 "a retained fractional raster offset can add one pixel after Custom repositions semantics");
@@ -1285,15 +1288,12 @@ public class SourceEffectiveScaleFlowTests
             Assert.That(measurement.OutputBounds, Is.EqualTo(firstBounds.Union(secondBounds)));
             Assert.That(measurement.EffectiveScale, Is.EqualTo(EffectiveScale.At(2)),
                 "the empty gap between independent buffers must not consume the dimension budget");
-            Assert.That(observedSources, Has.Count.EqualTo(2));
+            Assert.That(observedSources, Has.Count.EqualTo(1),
+                "the backward region excludes the buffer that cannot reach the requested region");
             Assert.That(observedSources.Select(static item => item.WorkingScale), Is.All.EqualTo(2));
             Assert.That(
                 observedSources.Select(static item => item.DeviceBounds),
-                Is.EqualTo(new[]
-                {
-                    PixelRect.FromRect(firstBounds, 2),
-                    PixelRect.FromRect(secondBounds, 2),
-                }));
+                Is.EqualTo(new[] { PixelRect.FromRect(firstBounds, 2) }));
         });
     }
 

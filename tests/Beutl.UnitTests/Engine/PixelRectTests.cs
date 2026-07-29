@@ -5,6 +5,15 @@ namespace Beutl.UnitTests.Engine;
 
 public class PixelRectTests
 {
+    private static readonly Rect[] s_fractionalRects =
+    [
+        new(0.25f, 0.25f, 4, 4),
+        new(-0.25f, -0.25f, 4, 4),
+        new(-0.02f, -0.02f, 4, 4),
+        new(-1.5f, -1.5f, 3, 3),
+        new(-3.5f, -3.5f, 0.25f, 0.25f),
+    ];
+
     [Test]
     public void Parse()
     {
@@ -178,6 +187,47 @@ public class PixelRectTests
             Is.EqualTo(new PixelRect(0, 0, 2, 3)));
         Assert.That(PixelRect.FromRect(r, new Vector(2, 4)),
             Is.EqualTo(new PixelRect(0, 0, 3, 10)));
+    }
+
+    [Test]
+    public void FromRect_CoversEveryLogicalCorner([ValueSource(nameof(s_fractionalRects))] Rect rect)
+    {
+        Assert.Multiple(() =>
+        {
+            AssertCovers(PixelRect.FromRect(rect), rect, new Vector(1, 1));
+            AssertCovers(PixelRect.FromRect(rect, 2f), rect, new Vector(2, 2));
+            AssertCovers(PixelRect.FromRect(rect, new Vector(2, 4)), rect, new Vector(2, 4));
+        });
+    }
+
+    [Test]
+    public void FromRect_FloorsTheTopLeftAtNegativeOrigins()
+    {
+        Assert.Multiple(() =>
+        {
+            Assert.That(PixelRect.FromRect(new Rect(-0.25f, -0.25f, 4, 4)),
+                Is.EqualTo(new PixelRect(-1, -1, 5, 5)));
+            Assert.That(PixelRect.FromRect(new Rect(-1.5f, -1.5f, 3, 3)),
+                Is.EqualTo(new PixelRect(-2, -2, 4, 4)));
+            Assert.That(PixelRect.FromRect(new Rect(-0.25f, -0.25f, 4, 4), 2f),
+                Is.EqualTo(new PixelRect(-1, -1, 9, 9)));
+        });
+    }
+
+    private static void AssertCovers(PixelRect actual, Rect logical, Vector scale)
+    {
+        var device = new Rect(
+            logical.X * scale.X,
+            logical.Y * scale.Y,
+            logical.Width * scale.X,
+            logical.Height * scale.Y);
+
+        Assert.That(actual.X, Is.LessThanOrEqualTo(device.X), $"{actual} misses the left of {device}");
+        Assert.That(actual.Y, Is.LessThanOrEqualTo(device.Y), $"{actual} misses the top of {device}");
+        Assert.That(actual.Right, Is.GreaterThanOrEqualTo(device.Right), $"{actual} misses the right of {device}");
+        Assert.That(actual.Bottom, Is.GreaterThanOrEqualTo(device.Bottom), $"{actual} misses the bottom of {device}");
+        Assert.That(actual.Width, Is.GreaterThan(0), $"{actual} has no width for {device}");
+        Assert.That(actual.Height, Is.GreaterThan(0), $"{actual} has no height for {device}");
     }
 
     [Test]

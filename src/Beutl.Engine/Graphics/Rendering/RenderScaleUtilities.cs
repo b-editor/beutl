@@ -9,6 +9,8 @@ public static class RenderScaleUtilities
 {
     public const int MaxBufferDimension = 16384;
 
+    private const int RasterApronPixels = 2;
+
     public static float SanitizeMaxWorkingScale(float maxWorkingScale)
         => float.IsNaN(maxWorkingScale) || maxWorkingScale <= 0f
             ? float.PositiveInfinity
@@ -32,35 +34,24 @@ public static class RenderScaleUtilities
         return MathF.Min(supply, SanitizeMaxWorkingScale(maxWorkingScale));
     }
 
+    /// <summary>
+    /// Reduces <paramref name="workingScale"/> until the device footprint
+    /// <see cref="PixelRect.FromRect(Rect, float)"/> would allocate for <paramref name="logicalBounds"/>
+    /// fits <paramref name="maxDimension"/> on both axes. The scale is never raised, and the logical
+    /// extents alone are also kept within the budget so the result stays independent of where the
+    /// caller finally places the buffer.
+    /// </summary>
     public static float ClampWorkingScaleToBufferBudget(
         Rect logicalBounds,
         float workingScale,
         int maxDimension = MaxBufferDimension)
     {
-        if (maxDimension <= 0)
-        {
-            throw new ArgumentOutOfRangeException(
-                nameof(maxDimension), maxDimension, "The maximum buffer dimension must be positive.");
-        }
+        ValidateMaxDimension(maxDimension);
 
         if (!float.IsFinite(workingScale) || workingScale <= 0f)
             return workingScale;
 
-        double maxAxis = Math.Max(
-            Math.Abs((double)logicalBounds.Width),
-            Math.Abs((double)logicalBounds.Height));
-        if (!double.IsFinite(maxAxis) || maxAxis <= 0)
-            return workingScale;
-
-        double largestAxisPixels = Math.Ceiling(maxAxis * workingScale);
-        if (largestAxisPixels <= maxDimension || largestAxisPixels <= 0)
-            return workingScale;
-
-        float fit = (float)(workingScale * (maxDimension / largestAxisPixels));
-        while (fit > 0f && Math.Ceiling(maxAxis * fit) > maxDimension)
-            fit = MathF.BitDecrement(fit);
-
-        return MathF.Max(MathF.Min(workingScale, fit), 0f);
+        return FitScaleToDeviceFootprint(logicalBounds, workingScale, maxDimension, apronPixels: 0);
     }
 
     internal static float ClampWorkingScaleToExactBufferBudget(
@@ -71,7 +62,7 @@ public static class RenderScaleUtilities
             logicalBounds,
             workingScale,
             maxDimension,
-            includeRasterApron: false);
+            apronPixels: 0);
 
     internal static PixelRect AddRasterApron(PixelRect bounds)
         => new(
@@ -88,60 +79,99 @@ public static class RenderScaleUtilities
             logicalBounds,
             workingScale,
             maxDimension,
-            includeRasterApron: true);
+            RasterApronPixels);
 
     private static float ClampWorkingScaleToExactFootprintBudget(
         Rect logicalBounds,
         float workingScale,
         int maxDimension,
-        bool includeRasterApron)
+        int apronPixels)
+    {
+        ValidateMaxDimension(maxDimension);
+
+        if (!float.IsFinite(workingScale) || workingScale <= 0f)
+            return workingScale;
+
+        if (HasFiniteBounds(logicalBounds)
+            && FitsDeviceFootprint(logicalBounds, workingScale, maxDimension, apronPixels))
+        {
+            return workingScale;
+        }
+
+        return FitScaleToDeviceFootprint(logicalBounds, workingScale, maxDimension, apronPixels);
+    }
+
+    private static float FitScaleToDeviceFootprint(
+        Rect logicalBounds,
+        float workingScale,
+        int maxDimension,
+        int apronPixels)
+    {
+        double maxAxis = MaxLogicalAxis(logicalBounds);
+
+        // A fractional origin can push the footprint one device pixel past ceil(extent * scale), so the
+        // extent estimate is only a seed: give a pixel back until the footprint itself fits.
+        for (int budget = maxDimension - apronPixels; budget > 0; budget--)
+        {
+            float candidate = FitScaleToLogicalExtent(maxAxis, workingScale, budget);
+            if (candidate <= 0f)
+                break;
+
+            if (FitsDeviceFootprint(logicalBounds, candidate, maxDimension, apronPixels))
+                return candidate;
+
+            // Without a finite positive extent, a lower scale cannot shrink the footprint any further.
+            if (!double.IsFinite(maxAxis) || maxAxis <= 0)
+                return workingScale;
+        }
+
+        return 0f;
+    }
+
+    private static float FitScaleToLogicalExtent(double maxAxis, float workingScale, int budget)
+    {
+        if (!double.IsFinite(maxAxis) || maxAxis <= 0)
+            return workingScale;
+
+        double largestAxisPixels = Math.Ceiling(maxAxis * workingScale);
+        if (largestAxisPixels <= budget || largestAxisPixels <= 0)
+            return workingScale;
+
+        float fit = (float)(workingScale * (budget / largestAxisPixels));
+        while (fit > 0f && Math.Ceiling(maxAxis * fit) > budget)
+            fit = MathF.BitDecrement(fit);
+
+        return MathF.Max(MathF.Min(workingScale, fit), 0f);
+    }
+
+    private static bool FitsDeviceFootprint(
+        Rect logicalBounds,
+        float workingScale,
+        int maxDimension,
+        int apronPixels)
+    {
+        PixelRect footprint = PixelRect.FromRect(logicalBounds, workingScale);
+        int budget = maxDimension - apronPixels;
+
+        return footprint.Width <= budget && footprint.Height <= budget;
+    }
+
+    private static double MaxLogicalAxis(Rect bounds)
+        => Math.Max(Math.Abs((double)bounds.Width), Math.Abs((double)bounds.Height));
+
+    private static bool HasFiniteBounds(Rect bounds)
+        => !bounds.IsInvalid
+            && float.IsFinite(bounds.X)
+            && float.IsFinite(bounds.Y)
+            && float.IsFinite(bounds.Width)
+            && float.IsFinite(bounds.Height);
+
+    private static void ValidateMaxDimension(int maxDimension)
     {
         if (maxDimension <= 0)
         {
             throw new ArgumentOutOfRangeException(
                 nameof(maxDimension), maxDimension, "The maximum buffer dimension must be positive.");
         }
-
-        if (!float.IsFinite(workingScale)
-            || workingScale <= 0f
-            || !HasFinitePositiveArea(logicalBounds))
-        {
-            return ClampWorkingScaleToBufferBudget(logicalBounds, workingScale, maxDimension);
-        }
-
-        if (FitsExactFootprint(logicalBounds, workingScale, maxDimension, includeRasterApron))
-            return workingScale;
-
-        float fit = ClampWorkingScaleToBufferBudget(logicalBounds, workingScale, maxDimension);
-        while (fit > 0f)
-        {
-            if (FitsExactFootprint(logicalBounds, fit, maxDimension, includeRasterApron))
-                return fit;
-            fit = MathF.BitDecrement(fit);
-        }
-
-        return fit;
     }
-
-    private static bool FitsExactFootprint(
-        Rect logicalBounds,
-        float workingScale,
-        int maxDimension,
-        bool includeRasterApron)
-    {
-        PixelRect footprint = PixelRect.FromRect(logicalBounds, workingScale);
-        if (includeRasterApron)
-            footprint = AddRasterApron(footprint);
-
-        return footprint.Width <= maxDimension && footprint.Height <= maxDimension;
-    }
-
-    private static bool HasFinitePositiveArea(Rect bounds)
-        => !bounds.IsInvalid
-            && float.IsFinite(bounds.X)
-            && float.IsFinite(bounds.Y)
-            && float.IsFinite(bounds.Width)
-            && float.IsFinite(bounds.Height)
-            && bounds.Width > 0
-            && bounds.Height > 0;
 }

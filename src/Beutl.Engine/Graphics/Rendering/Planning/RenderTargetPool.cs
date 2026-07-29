@@ -1,4 +1,5 @@
-﻿using System.Runtime.ExceptionServices;
+﻿using System.Diagnostics.CodeAnalysis;
+using System.Runtime.ExceptionServices;
 
 using Beutl.Media;
 
@@ -170,9 +171,36 @@ internal sealed class RenderTargetPool : IDisposable
         ThrowCleanupFailures(failures);
     }
 
+    /// <summary>Evicts every unleased retained target and reports the released byte count.</summary>
+    /// <remarks>Disposes backend resources, so it must run on the renderer's thread.</remarks>
+    internal long ReleaseRetainedTargets()
+    {
+        ObjectDisposedException.ThrowIf(_disposed, this);
+        long released = _retainedBytes;
+        List<Exception> failures = [];
+        EvictAllAvailable(_activeRequest, failures);
+        ThrowCleanupFailures(failures);
+        return released;
+    }
+
     internal PooledRenderTargetLease Acquire(
         RenderTargetPoolRequest request,
         PixelSize deviceSize)
+    {
+        if (TryAcquire(request, deviceSize, out PooledRenderTargetLease? lease))
+            return lease;
+        throw CreateAllocationFailure(deviceSize);
+    }
+
+    internal static InvalidOperationException CreateAllocationFailure(PixelSize deviceSize)
+        => new($"The render-target factory could not allocate {deviceSize.Width}x{deviceSize.Height} pixels.");
+
+    /// <summary>Leases an exact-size target, reporting <see langword="false"/> only when the allocator declines.</summary>
+    /// <remarks>Every other failure — a stale slot, a contract-violating factory return — still throws.</remarks>
+    internal bool TryAcquire(
+        RenderTargetPoolRequest request,
+        PixelSize deviceSize,
+        [NotNullWhen(true)] out PooledRenderTargetLease? lease)
     {
         VerifyActive(request);
         if (deviceSize.Width <= 0 || deviceSize.Height <= 0)
@@ -198,16 +226,22 @@ internal sealed class RenderTargetPool : IDisposable
             }
 
             _reuses++;
-            return Lease(request, reusable, wasReused: true);
+            lease = Lease(request, reusable, wasReused: true);
+            return true;
         }
 
         _misses++;
-        RenderTarget? target = _factory?.Create(deviceSize)
-            ?? (_factory is null ? CreateDefaultTarget(deviceSize, request) : null);
+        RenderTarget? target = CreateTarget(deviceSize, request);
+        if (target is null && _retainedBytes > 0)
+        {
+            EvictAllAvailable(request, failures: null);
+            target = CreateTarget(deviceSize, request);
+        }
+
         if (target is null)
         {
-            throw new InvalidOperationException(
-                $"The render-target factory could not allocate {deviceSize.Width}x{deviceSize.Height} pixels.");
+            lease = null;
+            return false;
         }
 
         bool accepted = false;
@@ -239,7 +273,8 @@ internal sealed class RenderTargetPool : IDisposable
             _ownedBytes = nextOwnedBytes;
             _creates++;
             accepted = true;
-            return Lease(request, slot, wasReused: false);
+            lease = Lease(request, slot, wasReused: false);
+            return true;
         }
         catch (Exception primary)
         {
@@ -327,7 +362,7 @@ internal sealed class RenderTargetPool : IDisposable
 
         List<Exception> failures = [];
         if (_hasContext && !ReferenceEquals(_contextIdentity, contextIdentity))
-            EvictAllAvailable(failures);
+            EvictAllAvailable(request: null, failures);
 
         if (!_hasContext || !ReferenceEquals(_contextIdentity, contextIdentity))
         {
@@ -338,7 +373,7 @@ internal sealed class RenderTargetPool : IDisposable
         }
         else if (expectedContextHandle.HasValue && _contextHandle != expectedContextHandle.Value)
         {
-            EvictAllAvailable(failures);
+            EvictAllAvailable(request: null, failures);
             _contextHandle = expectedContextHandle.Value;
             _hasContext = true;
             _contextGeneration = NextGeneration(_contextGeneration);
@@ -455,10 +490,10 @@ internal sealed class RenderTargetPool : IDisposable
         }
     }
 
-    private void EvictAllAvailable(List<Exception> failures)
+    private void EvictAllAvailable(RenderTargetPoolRequest? request, List<Exception>? failures)
     {
         while (_availableLru.First is { } node)
-            Evict(node.Value, request: null, failures);
+            Evict(node.Value, request, failures);
     }
 
     private void Evict(
@@ -659,6 +694,11 @@ internal sealed class RenderTargetPool : IDisposable
         }
     }
 
+    private RenderTarget? CreateTarget(PixelSize deviceSize, RenderTargetPoolRequest request)
+        => _factory is null
+            ? CreateDefaultTarget(deviceSize, request)
+            : _factory.Create(deviceSize);
+
     private static RenderTarget? CreateDefaultTarget(
         PixelSize deviceSize,
         RenderTargetPoolRequest request)
@@ -766,6 +806,12 @@ internal sealed class RenderTargetPoolRequest : IDisposable
     {
         ObjectDisposedException.ThrowIf(IsDisposed, this);
         return _pool.Acquire(this, deviceSize);
+    }
+
+    public bool TryAcquire(PixelSize deviceSize, [NotNullWhen(true)] out PooledRenderTargetLease? lease)
+    {
+        ObjectDisposedException.ThrowIf(IsDisposed, this);
+        return _pool.TryAcquire(this, deviceSize, out lease);
     }
 
     public void Dispose()

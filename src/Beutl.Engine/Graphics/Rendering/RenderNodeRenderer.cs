@@ -328,7 +328,12 @@ public sealed class RenderNodeRenderer : IDisposable
     /// A non-null disposable result. Its bitmap is null only for a successful empty selection and remains valid
     /// after this renderer is disposed.
     /// </returns>
-    /// <remarks>The result exclusively owns its bitmap; callers dispose the result rather than the bitmap.</remarks>
+    /// <remarks>
+    /// The result exclusively owns its bitmap; callers dispose the result rather than the bitmap. A non-empty
+    /// result reports the device-pixel-aligned cover of the selected output, so its bounds scaled by
+    /// <see cref="RenderNodeRendererOptions.OutputScale"/> are exactly the returned bitmap's pixel extent and
+    /// origin.
+    /// </remarks>
     /// <exception cref="ObjectDisposedException">This renderer is disposed.</exception>
     public RenderNodeRasterization Rasterize()
     {
@@ -357,8 +362,11 @@ public sealed class RenderNodeRenderer : IDisposable
             selectedBounds = request.SelectedOutputBounds;
             if (selectedBounds.Width != 0 && selectedBounds.Height != 0)
             {
-                Rect executionBounds = request.ExecutionTargetBounds;
-                PixelRect deviceBounds = PixelRect.FromRect(executionBounds, Options.OutputScale);
+                PixelRect deviceBounds = PixelRect.FromRect(
+                    request.ExecutionTargetBounds,
+                    Options.OutputScale);
+                PixelRect selectedDeviceBounds = PixelRect.FromRect(selectedBounds, Options.OutputScale);
+                selectedBounds = selectedDeviceBounds.ToRect(Options.OutputScale);
                 Rect rasterBounds = deviceBounds.ToRect(Options.OutputScale);
                 rootLease = targets.Acquire(deviceBounds.Size);
                 canvas = ImmediateCanvas.CreateExecutorManaged(
@@ -405,9 +413,6 @@ public sealed class RenderNodeRenderer : IDisposable
                             IDisposable? transformToDispose = transform;
                             transform = null;
                             transformToDispose?.Dispose();
-                            PixelRect selectedDeviceBounds = PixelRect.FromRect(
-                                selectedBounds,
-                                Options.OutputScale);
                             var selectedSubset = new PixelRect(
                                 selectedDeviceBounds.X - deviceBounds.X,
                                 selectedDeviceBounds.Y - deviceBounds.Y,

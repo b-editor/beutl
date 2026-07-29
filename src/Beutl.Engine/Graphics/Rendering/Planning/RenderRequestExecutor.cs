@@ -1661,7 +1661,6 @@ internal sealed class RenderRequestExecutor
                         cached.EffectiveScale,
                         cached.DeviceBounds,
                         completeBounds: cached.CompleteBounds);
-                    value.PreferPixelExactComposite = true;
                     _ownedValues.Add(value);
                     acquired.Add(value);
                 }
@@ -1699,9 +1698,7 @@ internal sealed class RenderRequestExecutor
                                 "A render-cache capture does not match its planned materialization density.");
                         }
 
-                        value.PreferPixelExactComposite = true;
                         CompatibilityRenderValue capture = CopyForCacheCapture(value);
-                        capture.PreferPixelExactComposite = true;
                         _cacheCaptureValues.Add(capture);
                         captures.Add(capture);
                     }
@@ -2043,6 +2040,7 @@ internal sealed class RenderRequestExecutor
             RenderFragmentReference fragment,
             ImmediateCanvas currentTarget)
         {
+            Rect requiredRegion = ResolveFragmentRequirement(fragment, fragment.Bounds);
             var inputs = new List<CompatibilityRenderValue>();
             EffectiveScale inputRequestScale = fragment.EffectiveScale.IsUnbounded
                 ? EffectiveScale.At(currentTarget.Density)
@@ -2105,7 +2103,9 @@ internal sealed class RenderRequestExecutor
                                 fragment.Bounds);
                             _ownedValues.Add(value);
 
-                            Rect selectedBounds = value.Bounds.Intersect(fragment.Bounds);
+                            // Cropping the input to the backward region leaves the surrounding output
+                            // undefined, so the published value must not claim it.
+                            Rect selectedBounds = value.Bounds.Intersect(requiredRegion);
                             if (selectedBounds.Width == 0 || selectedBounds.Height == 0)
                             {
                                 ReleaseUnpublished(value);
@@ -2119,9 +2119,6 @@ internal sealed class RenderRequestExecutor
                                 value = cropped;
                             }
 
-                            // Scale-1 legacy EffectTarget output used a direct surface blit. Preserve that
-                            // coverage when the guarded destination check proves an exact device-pixel mapping.
-                            value.PreferPixelExactComposite = value.EffectiveScale.Value == 1f;
                             result.Add(value);
                         }
 
@@ -3062,7 +3059,6 @@ internal sealed class RenderRequestExecutor
                         description.EffectiveScale,
                         description.DeviceBounds);
                 });
-            value.PreferPixelExactComposite = true;
             _ownedValues.Add(value);
             return [value];
         }
@@ -3723,16 +3719,7 @@ internal sealed class RenderRequestExecutor
         private static void DrawValue(
             CompatibilityRenderValue value,
             ImmediateCanvas destination)
-        {
-            if (!value.PreferPixelExactComposite
-                || !destination.TryDrawRenderTargetPixelAlignedWithoutFlush(
-                    value.Target,
-                    value.RasterBounds,
-                    value.EffectiveScale.Value))
-            {
-                destination.DrawRenderTargetScaledWithoutFlush(value.Target, value.RasterBounds);
-            }
-        }
+            => destination.DrawRenderTargetScaledWithoutFlush(value.Target, value.RasterBounds);
 
         private static void ValidateOutputCount(
             RenderValueCardinality cardinality,
@@ -3842,8 +3829,6 @@ internal sealed class RenderRequestExecutor
         public Rect RasterBounds => DeviceBounds.ToRect(EffectiveScale.Value);
 
         public bool OwnsTarget { get; }
-
-        public bool PreferPixelExactComposite { get; set; }
 
         public RenderTarget TransferToAcceptedCache()
         {

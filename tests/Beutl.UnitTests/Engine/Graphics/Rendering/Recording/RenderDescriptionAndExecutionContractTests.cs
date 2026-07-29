@@ -206,7 +206,7 @@ public sealed class RenderDescriptionAndExecutionContractTests
         var exactFitAtNegativeOrigin = new Rect(
             -0.5f,
             0,
-            RenderScaleUtilities.MaxBufferDimension + 0.5f,
+            RenderScaleUtilities.MaxBufferDimension - 0.5f,
             1);
         EffectiveScale[] resolved =
         [
@@ -235,6 +235,9 @@ public sealed class RenderDescriptionAndExecutionContractTests
                     Is.LessThanOrEqualTo(RenderScaleUtilities.MaxBufferDimension));
             }
 
+            Assert.That(
+                PixelRect.FromRect(exactFitAtNegativeOrigin, 1).Width,
+                Is.EqualTo(RenderScaleUtilities.MaxBufferDimension));
             Assert.That(
                 RenderScaleContract.MaterializeAtWorkingScale.Resolve(
                     [EffectiveScale.At(1)],

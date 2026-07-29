@@ -219,21 +219,30 @@ public readonly struct PixelPoint(int x, int y)
     }
 
     /// <summary>
-    /// Converts a <see cref="Point"/> to device pixels.
+    /// Converts a <see cref="Point"/> to device pixels, truncating each co-ordinate toward zero.
     /// </summary>
     /// <param name="point">The point.</param>
-    /// <returns>The device-independent point.</returns>
+    /// <returns>The device pixel point.</returns>
+    /// <remarks>
+    /// Truncation is not a floor: negative co-ordinates round up. Use <see cref="PixelRect.FromRect(Rect)"/>
+    /// when a conservative device-pixel cover is required.
+    /// </remarks>
     public static PixelPoint FromPoint(Point point)
     {
         return new PixelPoint((int)point.X, (int)point.Y);
     }
 
     /// <summary>
-    /// Converts a <see cref="Point"/> to device pixels using the specified scaling factor.
+    /// Converts a <see cref="Point"/> to device pixels using the specified scaling factor, truncating each
+    /// co-ordinate toward zero.
     /// </summary>
     /// <param name="point">The point.</param>
     /// <param name="scale">The scaling factor.</param>
-    /// <returns>The device-independent point.</returns>
+    /// <returns>The device pixel point.</returns>
+    /// <remarks>
+    /// Truncation is not a floor: negative co-ordinates round up. Use
+    /// <see cref="PixelRect.FromRect(Rect, float)"/> when a conservative device-pixel cover is required.
+    /// </remarks>
     public static PixelPoint FromPoint(Point point, float scale)
     {
         return new PixelPoint(
@@ -242,11 +251,16 @@ public readonly struct PixelPoint(int x, int y)
     }
 
     /// <summary>
-    /// Converts a <see cref="Point"/> to device pixels using the specified scaling factor.
+    /// Converts a <see cref="Point"/> to device pixels using the specified scaling factor, truncating each
+    /// co-ordinate toward zero.
     /// </summary>
     /// <param name="point">The point.</param>
     /// <param name="scale">The scaling factor.</param>
-    /// <returns>The device-independent point.</returns>
+    /// <returns>The device pixel point.</returns>
+    /// <remarks>
+    /// Truncation is not a floor: negative co-ordinates round up. Use
+    /// <see cref="PixelRect.FromRect(Rect, Vector)"/> when a conservative device-pixel cover is required.
+    /// </remarks>
     public static PixelPoint FromPoint(Point point, Vector scale)
     {
         return new PixelPoint(

@@ -883,8 +883,8 @@ internal sealed class RegionAnalyzer
                 => MapOpaque(reference, outputRequirement, opaque.Description.Bounds),
             TargetCommandRenderFragmentPayload or RawTargetCommandRenderFragmentPayload
                 => FullInputs(reference),
-            LegacyFilterEffectRenderFragmentPayload
-                => FullInputs(reference),
+            LegacyFilterEffectRenderFragmentPayload legacy
+                => MapLegacyFilter(reference, outputRequirement, legacy, targetDomain),
             OpacityRenderFragmentPayload or BlendRenderFragmentPayload
                 => MapScopedIdentityInputs(reference, outputRequirement, targetDomain),
             OpacityMaskRenderFragmentPayload
@@ -1014,6 +1014,28 @@ internal sealed class RegionAnalyzer
         var result = ImmutableArray.CreateBuilder<RequiredRegion>(reference.Inputs.Length);
         foreach (RenderFragmentReference input in reference.Inputs)
             result.Add(RestrictToSemanticCoverage(input, outputRequirement, targetDomain));
+        return result.MoveToImmutable();
+    }
+
+    private static ImmutableArray<RequiredRegion> MapLegacyFilter(
+        RenderFragmentReference reference,
+        RequiredRegion outputRequirement,
+        LegacyFilterEffectRenderFragmentPayload payload,
+        Rect? targetDomain)
+    {
+        if (outputRequirement.IsFull
+            || reference.BoundsRequirement != RenderFragmentBoundsRequirement.Finite
+            || !LegacyFilterSamplingSupport.TryResolve(payload.BoundsItems, out Thickness support))
+        {
+            return FullInputs(reference);
+        }
+
+        Rect requested = outputRequirement
+            .Resolve(ResolveSemanticBounds(reference, targetDomain))
+            .Inflate(support);
+        var result = ImmutableArray.CreateBuilder<RequiredRegion>(reference.Inputs.Length);
+        foreach (RenderFragmentReference input in reference.Inputs)
+            result.Add(RestrictToSemanticCoverage(input, RequiredRegion.Region(requested), targetDomain));
         return result.MoveToImmutable();
     }
 
