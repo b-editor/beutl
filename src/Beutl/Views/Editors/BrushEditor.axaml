@@ -39,8 +39,9 @@
                             Click="OpenFlyout_Click"
                             Theme="{StaticResource TransparentButton}">
                         <Panel>
-                            <Border Background="{StaticResource ColorControlCheckeredBackgroundBrush}" CornerRadius="3.5" />
-                            <Border Background="{Binding AvaloniaBrush.Value}" CornerRadius="3.5" />
+                            <!--  Half a pixel tighter than ControlCornerRadius: the swatch sits inside the button's 1px padding.  -->
+                            <Border Background="{StaticResource ColorControlCheckeredBackgroundBrush}" CornerRadius="7.5" />
+                            <Border Background="{Binding AvaloniaBrush.Value}" CornerRadius="7.5" />
                         </Panel>
                     </Button>
 

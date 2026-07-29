@@ -253,10 +253,15 @@ public class ElementViewLayoutTests
         {
             // A real filmstrip/waveform never renders in this headless layout pass (both need async
             // media decode), so the rounding is asserted structurally: the wrapper Border rounds to
-            // the clip's inner radius (3px = 4px outer - 1px stroke) and clips its children.
+            // the clip's inner radius (3px = TimelineElementCornerRadius 4px outer - 1px stroke) and
+            // clips its children. An element is only LayerHeight tall, so it deliberately rounds less
+            // than the shell's ControlCornerRadius (8px) — pin that, or the exception drifts back.
+            var outer = (Border)element.GetVisualDescendants().OfType<Control>().First(c => c.Name == "border");
             var mediaClip = (Border)element.GetVisualDescendants().OfType<Control>().First(c => c.Name == "mediaClip");
             Assert.Multiple(() =>
             {
+                Assert.That(outer.CornerRadius, Is.EqualTo(new CornerRadius(4)),
+                    "Elements must keep the timeline's tighter rounding.");
                 Assert.That(mediaClip.CornerRadius, Is.EqualTo(new CornerRadius(3)),
                     "Media host must round to the clip's inner radius.");
                 Assert.That(mediaClip.ClipToBounds, Is.True,

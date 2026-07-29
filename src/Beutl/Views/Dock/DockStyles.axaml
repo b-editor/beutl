@@ -258,7 +258,8 @@
         </Style>
 
         <Style Selector="^ /template/ Border">
-            <Setter Property="CornerRadius" Value="4,4,0,0" />
+            <!--  Top corners only, so it tracks ControlCornerRadius by hand.  -->
+            <Setter Property="CornerRadius" Value="8,8,0,0" />
         </Style>
     </Style>
 

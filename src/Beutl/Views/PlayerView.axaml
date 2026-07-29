@@ -169,7 +169,7 @@
                             Background="{DynamicResource SystemFillColorCriticalBackgroundBrush}"
                             BorderBrush="{DynamicResource SystemFillColorCriticalBrush}"
                             BorderThickness="1"
-                            CornerRadius="4">
+                            CornerRadius="{DynamicResource ControlCornerRadius}">
                         <StackPanel Spacing="8">
                             <TextBlock HorizontalAlignment="Center"
                                        FontSize="18"

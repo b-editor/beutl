@@ -27,7 +27,7 @@
                 Background="{DynamicResource SolidBackgroundFillColorBaseBrush}"
                 BorderBrush="{DynamicResource ControlStrokeColorDefaultBrush}"
                 BorderThickness="1"
-                CornerRadius="8"
+                CornerRadius="{DynamicResource OverlayCornerRadius}"
                 IsHitTestVisible="True"
                 BoxShadow="0 8 32 0 #40000000">
             <StackPanel Spacing="12">

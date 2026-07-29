@@ -11,7 +11,7 @@
                   BasedOn="{StaticResource TransparentToggleButton}"
                   TargetType="ToggleButton">
         <Setter Property="Padding" Value="6,5,6,6" />
-        <Setter Property="CornerRadius" Value="8" />
+        <Setter Property="CornerRadius" Value="{DynamicResource ControlCornerRadius}" />
     </ControlTheme>
 
     <ControlTheme x:Key="LibraryItemPicker_ListBoxItem" TargetType="ListBoxItem">
