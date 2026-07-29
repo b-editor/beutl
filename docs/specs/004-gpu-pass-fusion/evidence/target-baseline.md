@@ -47,8 +47,8 @@ mismatch.
 
 | Item | SHA-256 |
 |---|---|
-| Visual manifest | `e3a1a6821715c88f927422c1f2bc9fa0f3e74c887bab2f85ac13b15e9b822618` |
-| Benchmark manifest | `e04534c05ca58386251c6f793ea94c96f4df287e3cc65dbc52d1126c3d9a2a2f` |
+| Visual manifest | `f7d685c4ce1ee480024cc28d6ddf1b9b0cd9e012459669226b50b68805f67792` |
+| Benchmark manifest | `5100126ac5264364224c82be2ccdc66f780f884dc1f4a9626cc812401f17ea8b` |
 | Generator patch / applied diff | `037315804fa9531bdef1b79e2db405e8a3813e4bc137527690f9f2d5cb4e728c` |
 | Generator script | `05d33410a06cdd3a6fee91911b25a348fdc480ed249916e45fe75c653b40c4f7` |
 | Paired visual runner | `1ac369986cf888ec32f39060f5d96d3c6758f881ecdb40f21f469926e253d413` |

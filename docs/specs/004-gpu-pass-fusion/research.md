@@ -12,6 +12,65 @@ This document resolves the implementation decisions needed to replace the curren
 
 There are no unresolved design questions in this planning phase.
 
+## Phase 4 backend and evidence adjudication
+
+The solid-brush experiment that supplied a linear-sRGB `SKColorF` shader did not
+remove CurrentPixel quantization on the authoritative MoltenVK backend. An authored
+sRGB red byte of 51 reached both an identity CurrentPixel stage and a two-Invert
+chain as linear `8 / 255` (`0.03137207`), which encodes back to sRGB byte 49.
+Because the identity and double-Invert paths agree, the loss occurs at the backend
+materialization boundary before the CurrentPixel operations, not in Invert or
+fusion. A brush shader cannot bypass that boundary, so solid brushes retain their
+plain `SKColor` path. The regression compares double-Invert with an identity stage
+that crosses the same materialization boundary instead of imposing a
+backend-dependent direct-draw byte.
+
+The live Scene3D evidence failure was a benchmark-harness defect. The feature
+exporter appended a custom `FeatureEvidenceShaderNode` directly to the opaque
+Scene3D fragment. That helper requires a materializable value and therefore
+correctly triggered the planner guardrail. Production `FilterEffectRenderNode`
+inserts the finite Layer required to convert that backend fragment into a 2D value.
+The workload now attaches the original `Invert(65%)` filter to `Scene3D`, matching
+the pinned generator and exercising the production boundary. Repairing the harness
+also exposed that the frozen tail blob is entirely transparent: the legacy
+generator recorded the old executor dropping the filtered 3D output. The live
+nonempty result is required by FR-005 and T102, which explicitly make the 3D
+surface available to downstream 2D work, so this newly visible blob also requires
+semantic refresh.
+
+The large `nested-drawable-brush-delay` divergence was a planner defect, not an
+intentional Mosaic change. The delayed Mosaic itself produced a fully populated
+100 by 70 output, but `DelayAnimationEffect` deliberately keeps an unknown bounds
+contract. `BrushRecorder` therefore used the enclosing 154 by 88 brush rectangle
+as both the finite isolation domain and the tile content size. The latter changed
+`TileBrushCalculator`'s natural source size and shrank the pattern. DrawableBrush
+now retains the fragment's finite recorded-bounds hint solely for tile mapping
+while keeping the larger finite Layer as the conservative isolation domain. The
+live workload again passes its frozen reference, and a regression proves that the
+direct and delayed Mosaic paths preserve the same complete alpha footprint.
+
+Two other authoritative live renders intentionally differ from their frozen
+blobs:
+
+- `geometry-stroke` previously interpreted a contour from the physical backing as
+  though it started at the semantic origin and used the context density.
+  `StrokeEffect` now maps the contour with `EffectTarget.Scale` and the difference
+  between `RasterBounds.Position` and `Bounds.Position`, matching
+  `EffectTarget.Draw`.
+- `split-expansion` formerly omitted the bounds expansion created by inter-tile
+  spacing. `SplitEffect.TransformBounds` now inflates by
+  `abs(spacing) * (divisionCount - 1) / 2` on each axis, so the requested output no
+  longer clips the first and last tiles.
+
+Those two parity artifacts and the separately justified
+`scene3d-with-2d-tail` artifact are approved for semantic refresh. Run
+`docs/specs/004-gpu-pass-fusion/evidence/refresh-intentional-visual-baselines.sh`
+on the authoritative Apple M3/MoltenVK environment. The script renders the complete
+workload table, requires an exact environment fingerprint match, copies exactly the
+three approved blobs, updates only their artifact hashes and non-vacuity records,
+updates the visual manifest trust anchor, and keeps the benchmark manifest's visual
+evidence linkage consistent. It never selects or truncates the live workload set.
+
 ## R1. Plan one complete target-surface request
 
 **Decision**: `Renderer` updates every participating drawable tree first, then records all top-level roots and target contributions into one `RenderRequest` before any planner-controlled 2D GPU work executes. The pipeline order is:

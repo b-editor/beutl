@@ -14,9 +14,9 @@ internal static class GpuPassFusionBaselineEvidence
     public const int ExpectedGeneratorSeed = 20040719;
     public const string ExpectedBaselineCodeSha = "43a38e665d9bf52548161a3917e748bd1457ff55";
 
-    // This is the trust anchor for the immutable manifest. Update it only when the
-    // pinned-SHA evidence is deliberately regenerated and reviewed.
-    public const string ExpectedManifestSha256 = "e3a1a6821715c88f927422c1f2bc9fa0f3e74c887bab2f85ac13b15e9b822618";
+    // This is the trust anchor for the pinned manifest and its documented semantic refreshes.
+    // Update it only through an explicitly approved evidence regeneration and review.
+    public const string ExpectedManifestSha256 = "f7d685c4ce1ee480024cc28d6ddf1b9b0cd9e012459669226b50b68805f67792";
 
     public const double NonVacuityParityTolerance = 0.02;
 
@@ -510,12 +510,30 @@ internal static class GpuPassFusionBaselineEvidence
             GpuPassFusionNonVacuityRecord? nonVacuity =
                 ReadNullableNonVacuity(item.GetProperty("nonVacuity"), $"{context}.nonVacuity");
 
-            ValidateObject(item.GetProperty("parameters"), $"{context}.parameters");
+            JsonElement parameters = item.GetProperty("parameters");
+            ValidateObject(parameters, $"{context}.parameters");
+            GpuPassFusionPixelRegion? edgeCrop = ReadOptionalEdgeCrop(
+                parameters,
+                $"{context}.parameters");
             ValidateCounterObject(item.GetProperty("legacyCounters"), $"{context}.legacyCounters");
             ValidateStringArray(item.GetProperty("legacyEvents"), $"{context}.legacyEvents");
             ValidateNullOrObject(item.GetProperty("query"), $"{context}.query");
-            ValidateNullOrObject(item.GetProperty("requestedRegion"), $"{context}.requestedRegion");
-            ReadString(item, "maxWorkingScale", context);
+            JsonElement requestedRegionElement = item.GetProperty("requestedRegion");
+            ValidateNullOrObject(requestedRegionElement, $"{context}.requestedRegion");
+            GpuPassFusionPixelRegion? requestedRegion =
+                ReadNullablePixelRegion(requestedRegionElement, $"{context}.requestedRegion");
+            string maxWorkingScaleText = ReadString(item, "maxWorkingScale", context);
+            if (!float.TryParse(
+                    maxWorkingScaleText,
+                    NumberStyles.Float,
+                    CultureInfo.InvariantCulture,
+                    out float maxWorkingScale)
+                || !float.IsFinite(maxWorkingScale)
+                || maxWorkingScale <= 0)
+            {
+                throw new InvalidDataException(
+                    $"Scene '{id}' has invalid maxWorkingScale '{maxWorkingScaleText}'.");
+            }
             ReadBoolean(item, "empty", context);
 
             result.Add(new GpuPassFusionEvidenceScene(
@@ -526,6 +544,12 @@ internal static class GpuPassFusionBaselineEvidence
                 blob,
                 blobWidth,
                 blobHeight,
+                logicalWidth,
+                logicalHeight,
+                (float)outputScale,
+                maxWorkingScale,
+                requestedRegion,
+                edgeCrop,
                 nonVacuityMode,
                 nonVacuityRegion,
                 nonVacuity));
@@ -534,6 +558,30 @@ internal static class GpuPassFusionBaselineEvidence
         if (result.Count == 0)
             throw new InvalidDataException("manifest.scenes must not be empty.");
         return result;
+    }
+
+    private static GpuPassFusionPixelRegion? ReadOptionalEdgeCrop(
+        JsonElement parameters,
+        string context)
+    {
+        if (!parameters.TryGetProperty("edgeCrop", out JsonElement value))
+            return null;
+
+        string text = ReadStringValue(value, $"{context}.edgeCrop");
+        string[] parts = text.Split(',');
+        if (parts.Length != 4
+            || !int.TryParse(parts[0], NumberStyles.Integer, CultureInfo.InvariantCulture, out int x)
+            || !int.TryParse(parts[1], NumberStyles.Integer, CultureInfo.InvariantCulture, out int y)
+            || !int.TryParse(parts[2], NumberStyles.Integer, CultureInfo.InvariantCulture, out int width)
+            || !int.TryParse(parts[3], NumberStyles.Integer, CultureInfo.InvariantCulture, out int height)
+            || width <= 0
+            || height <= 0)
+        {
+            throw new InvalidDataException(
+                $"{context}.edgeCrop must be 'x,y,width,height' with a positive extent.");
+        }
+
+        return new GpuPassFusionPixelRegion(x, y, width, height);
     }
 
     private static GpuPassFusionNonVacuityRecord? ReadNullableNonVacuity(
@@ -1110,6 +1158,12 @@ internal sealed record GpuPassFusionEvidenceScene(
     string? Blob,
     int BlobWidth,
     int BlobHeight,
+    int LogicalWidth,
+    int LogicalHeight,
+    float OutputScale,
+    float MaxWorkingScale,
+    GpuPassFusionPixelRegion? RequestedRegion,
+    GpuPassFusionPixelRegion? EdgeCrop,
     string NonVacuityMode,
     GpuPassFusionPixelRegion? NonVacuityRegion,
     GpuPassFusionNonVacuityRecord? NonVacuity);

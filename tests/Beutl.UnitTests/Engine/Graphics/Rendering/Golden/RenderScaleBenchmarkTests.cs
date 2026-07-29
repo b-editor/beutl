@@ -85,10 +85,20 @@ public class RenderScaleBenchmarkTests
             double ratio = half / full;
             TestContext.WriteLine(
                 $"render median: 1.0={full:F2}ms 0.5={half:F2}ms ratio={ratio:F3} faster-pairs={fasterPairs}/11");
-            Assert.That(
-                fasterPairs,
-                Is.GreaterThanOrEqualTo(9),
-                $"0.5x was faster in only {fasterPairs}/11 pairs; a one-sided exact sign test requires at least 9/11 for p < 0.05");
+            using (Assert.EnterMultipleScope())
+            {
+                Assert.That(
+                    fasterPairs,
+                    Is.GreaterThanOrEqualTo(9),
+                    $"0.5x was faster in only {fasterPairs}/11 pairs; a one-sided exact sign test requires at least 9/11 for p < 0.05");
+                // Half scale shades one quarter as many pixels, but this short benchmark also includes
+                // fixed planner and readback cost. Requiring a 15% median reduction rejects a nominal
+                // 0.99x result while remaining stable when fixed work dominates the measured interval.
+                Assert.That(
+                    ratio,
+                    Is.LessThan(0.85),
+                    $"the half-scale median was {ratio:F3}x full scale, which is not a material reduction");
+            }
         });
     }
 

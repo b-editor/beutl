@@ -101,5 +101,5 @@
   "runStartedUtc": "2026-07-19T07:58:07.936284+00:00",
   "schemaVersion": 1,
   "scope": "minimum starting-SHA baseline; the 11-case paired confidence gate remains T112-T115",
-  "visualManifestSha256": "e3a1a6821715c88f927422c1f2bc9fa0f3e74c887bab2f85ac13b15e9b822618"
+  "visualManifestSha256": "f7d685c4ce1ee480024cc28d6ddf1b9b0cd9e012459669226b50b68805f67792"
 }

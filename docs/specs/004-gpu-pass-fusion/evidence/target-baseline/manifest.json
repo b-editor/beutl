@@ -1,7 +1,7 @@
 {
   "schemaVersion": 1,
   "baselineCodeSha": "43a38e665d9bf52548161a3917e748bd1457ff55",
-  "baselineCommitTimestamp": "2026-07-18T19:49:48\u002B09:00",
+  "baselineCommitTimestamp": "2026-07-18T19:49:48+09:00",
   "prePatchRepositoryState": "clean",
   "patchedDiffSha256": "037315804fa9531bdef1b79e2db405e8a3813e4bc137527690f9f2d5cb4e728c",
   "generatorSeed": 20040719,
@@ -50,10 +50,10 @@
     "metalRegistryId": "0x0000000100000462",
     "metalFeatureFamily": "spdisplays_metal4",
     "metalDriver": "Apple Metal shipped with macOS build 25F84",
-    "skiaSharpManagedVersion": "3.119.4\u002Brelease-3.119.4.f568ac94dd768ef9a2f593537cfde2dd0d348ef5.f568ac94dd768ef9a2f593537cfde2dd0d348ef5",
+    "skiaSharpManagedVersion": "3.119.4+release-3.119.4.f568ac94dd768ef9a2f593537cfde2dd0d348ef5.f568ac94dd768ef9a2f593537cfde2dd0d348ef5",
     "skiaSharpNativeVersion": "119.0",
-    "silkNetVulkanVersion": "2.23.0\u002B94605142f7b7bd6e69c9201e8e721d245c69eb7e",
-    "beutlEngineAssemblyVersion": "2.99.99\u002B43a38e665d9bf52548161a3917e748bd1457ff55"
+    "silkNetVulkanVersion": "2.23.0+94605142f7b7bd6e69c9201e8e721d245c69eb7e",
+    "beutlEngineAssemblyVersion": "2.99.99+43a38e665d9bf52548161a3917e748bd1457ff55"
   },
   "pixelFormat": {
     "colorType": "RGBA16F",
@@ -76,7 +76,7 @@
     "external-materialized-source-control.rgba16f": "3b441cdd9ba74563ae6e64cb1d8ec906e622a658dec10f0a91a5493d629cadbd",
     "external-materialized-source.rgba16f": "7b63ace1452ad254c8498faa9e387c8bc29d7f79d1e7ecac3c3ba79006b30eca",
     "geometry-stroke-control.rgba16f": "307622f4daf91c91fbd9e3e3b7ef7063a9bfca21606497b9558a86ea97103947",
-    "geometry-stroke.rgba16f": "37e7c40d349c52a1a9bb8a7bec12e838e9b1ca2565b902230bc9262a8317ee45",
+    "geometry-stroke.rgba16f": "047982d1f4ffecbf46706fa3bd93a4e9c09502e4d991591b6b8b2f02de4a11be",
     "mixed-spatial-color-lut-control.rgba16f": "7b63ace1452ad254c8498faa9e387c8bc29d7f79d1e7ecac3c3ba79006b30eca",
     "mixed-spatial-color-lut.rgba16f": "1a2aef2471c25cbb81ef072a83d06cd9da79171b3b8503ce9138862a287c5e0c",
     "multiple-composition-roots-control.rgba16f": "cb4ddea0ba9b75bbe91e8a213d066847667c83b9862ccc1727c71d0b52769edc",
@@ -99,13 +99,13 @@
     "scale-two-control.rgba16f": "cbead9fc00eeaf50e18da6ed9cf732e0dd11821296c10d30f4cd01ee7624a1bf",
     "scale-two.rgba16f": "22177c2e8ae7e2a254db2266abe8583a3e60549ec02d49ba7a6525089eff7c70",
     "scene3d-no-2d-tail-control.rgba16f": "c0f0b149055981ecbabb32a3d9cf80c4b64b8116e93e153c9270ca7da994c2fb",
-    "scene3d-with-2d-tail.rgba16f": "89d111e13da934fd2c233e48ca07bcae7c41da0d26b6423c0c47d40dca38bede",
+    "scene3d-with-2d-tail.rgba16f": "8908d30de25b882368b3d9f7e3d355c783ef5f0026b10f1c108e577f067331f6",
     "shifted-roi-control.rgba16f": "a27f1fbeba3ba7aaad9808bb05d0978a018f61bc6fe52d98b2fb71f505cf2f5b",
     "shifted-roi.rgba16f": "b4db39df5398b09d469524e742ab9db13382c0a1412b09af00ced19cea7e105b",
     "snapshot-clear-draw-backdrop.rgba16f": "e9d7e659d6da7e74783432d006824ddce3fbea29c36d166b8ac81fd82aa4615c",
     "snapshot-draw-backdrop-no-clear-control.rgba16f": "751f64965bd8615a5fee509ba9e34063aeabd1f6b87e922096b0f4f9a12460cf",
     "split-expansion-control.rgba16f": "7b63ace1452ad254c8498faa9e387c8bc29d7f79d1e7ecac3c3ba79006b30eca",
-    "split-expansion.rgba16f": "028a6a61e1aa448a8d11337ccd6d0d73652e621507ebe71bd744e9ede814e8fc",
+    "split-expansion.rgba16f": "ac694c8d884a68077b5504000213bc47007ed5b09b82bafaa2d205e9eee28230",
     "whole-source-coordinate-control.rgba16f": "7b63ace1452ad254c8498faa9e387c8bc29d7f79d1e7ecac3c3ba79006b30eca",
     "whole-source-coordinate-shader.rgba16f": "6092f5ba974be5bfe8bc891d008b8234c288737773f28460eca643dd508e0c49"
   },
@@ -689,7 +689,7 @@
       "nonVacuityRegion": null,
       "empty": false,
       "parameters": {
-        "shaderCoordinates": "source.eval(fc \u002B float2(5*sin(fc.y/9),0))"
+        "shaderCoordinates": "source.eval(fc + float2(5*sin(fc.y/9),0))"
       },
       "legacyCounters": {
         "CanvasCloseFlushes": 4,
@@ -837,14 +837,14 @@
       ],
       "query": null,
       "nonVacuity": {
-        "linearRgbMae": 0.04435536168025109,
-        "alphaMae": 0.10949119962291953,
+        "linearRgbMae": 0.043542045877610215,
+        "alphaMae": 0.10669340174875142,
         "maximumChannelError": 1,
         "sampleCount": 20736,
         "metricMode": "full-frame",
         "metricRegion": null,
         "parityTolerance": 0.02,
-        "marginAboveTolerance": 0.08949119962291953
+        "marginAboveTolerance": 0.08669340174875141
       }
     },
     {
@@ -1019,7 +1019,7 @@
       "nonVacuityRegion": null,
       "empty": false,
       "parameters": {
-        "chain": "Blur(3)-\u003EGamma(145)-\u003EDropShadow-\u003EInvertLUT",
+        "chain": "Blur(3)->Gamma(145)->DropShadow->InvertLUT",
         "lut": "non-identity-2x2x2"
       },
       "legacyCounters": {
@@ -1187,14 +1187,14 @@
       ],
       "query": null,
       "nonVacuity": {
-        "linearRgbMae": 0.06243007200379155,
-        "alphaMae": 0.135278917297169,
+        "linearRgbMae": 0.06147165492238331,
+        "alphaMae": 0.13159820179880402,
         "maximumChannelError": 0.99462890625,
         "sampleCount": 20736,
         "metricMode": "full-frame",
         "metricRegion": null,
         "parityTolerance": 0.02,
-        "marginAboveTolerance": 0.115278917297169
+        "marginAboveTolerance": 0.11159820179880402
       }
     },
     {
@@ -1643,7 +1643,7 @@
       "empty": false,
       "parameters": {
         "delayMilliseconds": "0",
-        "nested": "DrawableBrush-\u003EDelayAnimationEffect-\u003EMosaic"
+        "nested": "DrawableBrush->DelayAnimationEffect->Mosaic"
       },
       "legacyCounters": {
         "CanvasCloseFlushes": 7,
@@ -2634,14 +2634,14 @@
       ],
       "query": null,
       "nonVacuity": {
-        "linearRgbMae": 0.025955698372405252,
-        "alphaMae": 1,
-        "maximumChannelError": 1,
+        "linearRgbMae": 0.6176422262878575,
+        "alphaMae": 0,
+        "maximumChannelError": 0.64990234375,
         "sampleCount": 20736,
         "metricMode": "full-frame",
         "metricRegion": null,
         "parityTolerance": 0.02,
-        "marginAboveTolerance": 0.98
+        "marginAboveTolerance": 0.5976422262878575
       }
     },
     {
@@ -2898,7 +2898,7 @@
     {
       "intent": "delivery",
       "injectionPoint": "next EffectMaterialization RenderTarget.Create",
-      "maxWorkingScale": "\u002BInfinity",
+      "maxWorkingScale": "+Infinity",
       "outcome": "threw",
       "exceptionType": "System.InvalidOperationException",
       "exceptionMessage": "Effect flush buffer allocation failed (172x92 px, w 1, bounds 10, 8, 172, 92).",

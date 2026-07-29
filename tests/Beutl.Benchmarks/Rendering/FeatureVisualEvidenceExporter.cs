@@ -196,9 +196,9 @@ internal static class FeatureVisualEvidenceExporter
             "nested-drawable-brush-delay-control" => RenderDrawable(
                 BuildNestedControl(), outputScale, maxWorkingScale),
             "scene3d-with-2d-tail" => RenderDrawable(
-                BuildThreeDScene(), outputScale, maxWorkingScale, FeatureEvidenceShaders.Invert(65)),
+                BuildThreeDScene(includeFilterEffect: true), outputScale, maxWorkingScale),
             "scene3d-no-2d-tail-control" => RenderDrawable(
-                BuildThreeDScene(), outputScale, maxWorkingScale),
+                BuildThreeDScene(includeFilterEffect: false), outputScale, maxWorkingScale),
             "cache-cold" => RenderCacheScene(warm: false, drawContent: true),
             "cache-warm-hit" => RenderCacheScene(warm: true, drawContent: true),
             "cache-control-empty" => RenderCacheScene(warm: false, drawContent: false),
@@ -208,6 +208,30 @@ internal static class FeatureVisualEvidenceExporter
                 maxWorkingScale,
                 requestedRegion),
         };
+    }
+
+    internal static FeatureVisualCapture CaptureVisualSceneForTest(
+        string id,
+        float outputScale,
+        float maxWorkingScale,
+        PixelRect? requestedRegion)
+    {
+        RenderThread.Dispatcher.VerifyAccess();
+        var scene = new JsonObject
+        {
+            ["outputScale"] = outputScale,
+            ["maxWorkingScale"] = maxWorkingScale.ToString("R", CultureInfo.InvariantCulture),
+            ["requestedRegion"] = requestedRegion is { } region
+                ? new JsonObject
+                {
+                    ["x"] = region.X,
+                    ["y"] = region.Y,
+                    ["width"] = region.Width,
+                    ["height"] = region.Height,
+                }
+                : null,
+        };
+        return CaptureVisualScene(id, scene);
     }
 
     private static FeatureVisualCapture RenderManual(
@@ -230,25 +254,20 @@ internal static class FeatureVisualEvidenceExporter
     private static FeatureVisualCapture RenderDrawable(
         Drawable.Resource resource,
         float outputScale,
-        float maxWorkingScale,
-        ShaderDescription? tail = null)
+        float maxWorkingScale)
     {
         using (resource)
         {
-            var drawable = new DrawableRenderNode(resource);
-            RenderNode root = drawable;
-            if (tail is not null)
-            {
-                var shader = new FeatureEvidenceShaderNode(tail);
-                shader.AddChild(drawable);
-                root = shader;
-            }
-
-            using (root)
+            using (var drawable = new DrawableRenderNode(resource))
             {
                 using (var graphics = new GraphicsContext2D(drawable, s_frame.ToSize(1), outputScale))
                     resource.GetOriginal().Render(graphics, resource);
-                return RenderExistingNode(root, outputScale, maxWorkingScale, useCache: false, requestedRegion: null);
+                return RenderExistingNode(
+                    drawable,
+                    outputScale,
+                    maxWorkingScale,
+                    useCache: false,
+                    requestedRegion: null);
             }
         }
     }
@@ -699,7 +718,7 @@ internal static class FeatureVisualEvidenceExporter
         return host.ToResource(CompositionContext.Default);
     }
 
-    private static Drawable.Resource BuildThreeDScene()
+    private static Drawable.Resource BuildThreeDScene(bool includeFilterEffect)
     {
         var scene = new Scene3D();
         scene.RenderWidth.CurrentValue = s_frame.Width;
@@ -733,6 +752,14 @@ internal static class FeatureVisualEvidenceExporter
         light.Intensity.CurrentValue = 1.25f;
         light.IsEnabled = true;
         scene.Lights.Add(light);
+        if (includeFilterEffect)
+        {
+            scene.FilterEffect.CurrentValue = new Invert
+            {
+                Amount = { CurrentValue = 65 },
+            };
+        }
+
         return scene.ToResource(CompositionContext.Default);
     }
 
