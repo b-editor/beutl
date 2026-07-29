@@ -24,8 +24,11 @@ public partial class PackageInstaller
 
         foreach (PackageIdentity packageId in installedPackages)
         {
-            string? directory = Helper.PackagePathResolver.GetInstalledPath(packageId);
-            if (directory != null)
+            // Must resolve like the deletion pass below: a package whose .nupkg is gone would
+            // otherwise contribute no dependency metadata yet still be deletable, which would
+            // classify a live dependency as unnecessary.
+            string directory = Helper.ResolveInstalledDirectory(packageId);
+            if (Directory.Exists(directory))
             {
                 var reader = new PackageFolderReader(directory);
 

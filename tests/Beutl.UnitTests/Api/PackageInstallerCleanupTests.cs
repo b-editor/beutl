@@ -105,6 +105,19 @@ public class PackageInstallerCleanupTests
         Assert.That(_repository.ExistsPackage(package), Is.False);
     }
 
+    // Both the dependency scan (UnnecessaryPackages / Helper.GetPackageDependencies) and the deletion
+    // pass go through this, so the two agree on which directories exist. The scan itself cannot be
+    // unit-tested: it reaches CoreLibraries, which loads Beutl.dll from AppContext.BaseDirectory, and
+    // this assembly must not reference the app project.
+    [Test]
+    public void ResolveInstalledDirectory_FallsBackToTheInstallPath_WhenTheNupkgIsMissing()
+    {
+        var package = new PackageIdentity("Beutl.Package.ResolveTest.NoNupkg", NuGetVersion.Parse("1.0.0"));
+        (string directory, _) = CreateInstalledDirectory(package);
+
+        Assert.That(Helper.ResolveInstalledDirectory(package), Is.EqualTo(directory));
+    }
+
     [Test]
     public void PackageUninstallContext_Throws_WhenThePackageIsNotInstalled()
     {

@@ -109,8 +109,8 @@ internal static class Helper
         foreach (var dependency in package.Dependencies)
         {
             var dependentPackage = new PackageIdentity(dependency.Id, dependency.VersionRange.MinVersion);
-            var path = PackagePathResolver.GetInstalledPath(dependentPackage);
-            if (path != null)
+            string path = ResolveInstalledDirectory(dependentPackage);
+            if (Directory.Exists(path))
             {
                 var reader = new PackageFolderReader(path);
 
