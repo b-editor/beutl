@@ -224,21 +224,24 @@
                 </MenuItem>
             </Menu>
 
-            <views:TitleBreadcrumbBar Name="TitleBreadcrumbBar"
-                                      Grid.Column="2"
-                                      wnd:AppWindow.AllowInteractionInTitleBar="True"
-                                      DataContext="{Binding TitleBreadcrumbBar}" />
+            <StackPanel Grid.Column="2"
+                        Orientation="Horizontal"
+                        Spacing="8">
+                <views:TitleBreadcrumbBar Name="TitleBreadcrumbBar"
+                                          Margin="8,0,0,0"
+                                          wnd:AppWindow.AllowInteractionInTitleBar="True"
+                                          DataContext="{Binding TitleBreadcrumbBar}" />
+                <views:TitleBarBranchView x:Name="TitleBarBranchWidget"
+                                          VerticalAlignment="Center"
+                                          wnd:AppWindow.AllowInteractionInTitleBar="True"
+                                          DataContext="{Binding TitleBarBranch}" />
+            </StackPanel>
 
             <StackPanel Grid.Column="3"
                         Margin="0,0,4,0"
                         HorizontalAlignment="Right"
                         Orientation="Horizontal"
                         Spacing="8">
-
-                <views:TitleBarBranchView x:Name="TitleBarBranchWidget"
-                                          wnd:AppWindow.AllowInteractionInTitleBar="True"
-                                          DataContext="{Binding TitleBarBranch}" />
-
                 <TextBlock VerticalAlignment="Center"
                            Foreground="{DynamicResource TextFillColorSecondaryBrush}"
                            IsVisible="{CompiledBinding IsDebuggerAttached}"

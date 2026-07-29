@@ -16,19 +16,20 @@
         <ControlTheme x:Key="BranchFlyoutPresenterTheme"
                       BasedOn="{StaticResource {x:Type FlyoutPresenter}}"
                       TargetType="FlyoutPresenter">
-            <Setter Property="MinWidth" Value="260" />
-            <Setter Property="MaxWidth" Value="320" />
             <Setter Property="Padding" Value="4" />
+            <Setter Property="MinWidth" Value="240" />
+            <Setter Property="MaxWidth" Value="320" />
         </ControlTheme>
     </UserControl.Resources>
 
     <UserControl.Styles>
         <Style Selector="Button.branchRow">
             <Setter Property="MinHeight" Value="32" />
-            <Setter Property="Margin" Value="4,1" />
-            <Setter Property="Padding" Value="8,6" />
+            <Setter Property="Margin" Value="2,0" />
+            <Setter Property="Padding" Value="8,0" />
             <Setter Property="HorizontalAlignment" Value="Stretch" />
             <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+            <Setter Property="VerticalContentAlignment" Value="Center" />
             <Setter Property="Background" Value="{DynamicResource SubtleFillColorTransparentBrush}" />
             <Setter Property="BorderBrush" Value="{DynamicResource SubtleFillColorTransparentBrush}" />
             <Setter Property="BorderThickness" Value="0" />
@@ -56,11 +57,8 @@
     </UserControl.Styles>
 
     <Button x:Name="TitleBarBranchButton"
-            Width="NaN"
-            MinWidth="0"
-            Padding="8,4"
-            HorizontalContentAlignment="Stretch"
-            Theme="{StaticResource TitleBarButtonStyle}"
+            VerticalAlignment="Center"
+            Theme="{StaticResource LiteButtonStyle}"
             ToolTip.Tip="{Binding AheadBehindText.Value}">
         <Button.Flyout>
             <Flyout FlyoutPresenterTheme="{StaticResource BranchFlyoutPresenterTheme}"
