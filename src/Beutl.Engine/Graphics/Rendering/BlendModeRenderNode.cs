@@ -29,4 +29,16 @@ public sealed class BlendModeRenderNode(BlendMode blendMode) : ContainerRenderNo
                 : context.Blend(input, blendMode));
         }
     }
+
+    internal static bool RequiresFullTargetRegion(BlendMode blendMode)
+    {
+        return blendMode is BlendMode.Clear
+            or BlendMode.Src
+            or BlendMode.SrcIn
+            or BlendMode.DstIn
+            or BlendMode.SrcOut
+            or BlendMode.DstOut
+            or BlendMode.DstATop
+            or BlendMode.Modulate;
+    }
 }

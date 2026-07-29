@@ -531,6 +531,10 @@ internal static class TargetDependencyLowerer
                             null);
                     }
                     return;
+                case RenderFragmentKind.Blend
+                    when RequiresFullTargetRegion(reference):
+                    LowerDestructiveBlend(reference, scopeId);
+                    return;
                 case RenderFragmentKind.Blend:
                 case RenderFragmentKind.Opacity:
                     LowerScopeWrapper(reference, scopeId, compositeOutput);
@@ -547,6 +551,29 @@ internal static class TargetDependencyLowerer
         }
 
         public TargetDependencyPlan Build() => new([.. _steps], [.. _scopes]);
+
+        private static bool RequiresFullTargetRegion(RenderFragmentReference reference)
+        {
+            return BlendModeRenderNode.RequiresFullTargetRegion(
+                ((BlendRenderFragmentPayload)reference.Payload!).BlendMode);
+        }
+
+        private void LowerDestructiveBlend(
+            RenderFragmentReference reference,
+            TargetScopeId scopeId)
+        {
+            if (!_scheduledEffects.Add(reference))
+                return;
+
+            ValidateFullDomain(reference, scopeId);
+            LowerDependencies(reference, scopeId);
+            AddStep(
+                reference,
+                scopeId,
+                TargetDependencyKind.Command,
+                FirstInputValue(reference),
+                null);
+        }
 
         private void LowerFiniteLayer(
             RenderFragmentReference reference,

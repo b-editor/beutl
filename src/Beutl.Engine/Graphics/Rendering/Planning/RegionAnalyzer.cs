@@ -885,6 +885,9 @@ internal sealed class RegionAnalyzer
                 => FullInputs(reference),
             LegacyFilterEffectRenderFragmentPayload legacy
                 => MapLegacyFilter(reference, outputRequirement, legacy, targetDomain),
+            BlendRenderFragmentPayload blend
+                when BlendModeRenderNode.RequiresFullTargetRegion(blend.BlendMode)
+                => MapDestructiveBlendInput(reference, outputRequirement),
             OpacityRenderFragmentPayload or BlendRenderFragmentPayload
                 => MapScopedIdentityInputs(reference, outputRequirement, targetDomain),
             OpacityMaskRenderFragmentPayload
@@ -1017,6 +1020,19 @@ internal sealed class RegionAnalyzer
         return result.MoveToImmutable();
     }
 
+    private static ImmutableArray<RequiredRegion> MapDestructiveBlendInput(
+        RenderFragmentReference reference,
+        RequiredRegion outputRequirement)
+    {
+        if (reference.Inputs.Length != 1)
+        {
+            throw new InvalidOperationException(
+                "A destructive blend command requires exactly one source input.");
+        }
+
+        return [outputRequirement.Intersect(reference.Inputs[0].Bounds)];
+    }
+
     private static ImmutableArray<RequiredRegion> MapLegacyFilter(
         RenderFragmentReference reference,
         RequiredRegion outputRequirement,
@@ -1139,6 +1155,9 @@ internal sealed class RegionAnalyzer
                 => MapTargetAccess(RequiredRegion.Full, command.Description.AffectedRegion, targetDomain),
             TargetCommandRenderFragmentPayload command
                 => MapTargetAccess(outputRequirement, command.Description.AffectedRegion, targetDomain),
+            BlendRenderFragmentPayload blend
+                when BlendModeRenderNode.RequiresFullTargetRegion(blend.BlendMode)
+                => MapTargetAccess(outputRequirement, TargetRegion.Full, targetDomain),
             RawTargetCommandRenderFragmentPayload
                 => outputRequirement.IsEmpty ? RequiredRegion.Empty : RequiredRegion.Full,
             RawTargetScopeRenderFragmentPayload

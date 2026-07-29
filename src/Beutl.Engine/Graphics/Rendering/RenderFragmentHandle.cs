@@ -327,6 +327,12 @@ internal static class TargetWriteMetadataResolver
             case RenderFragmentKind.TargetScope:
                 return TryResolveFiniteTargetScope(reference, out affectedBounds);
             case RenderFragmentKind.Blend:
+                if (RequiresFullTargetRegion(reference))
+                {
+                    affectedBounds = null;
+                    return false;
+                }
+                return TryResolveFiniteReplay(reference, out affectedBounds);
             case RenderFragmentKind.Opacity:
             case RenderFragmentKind.OpacityMask:
                 return TryResolveFiniteReplay(reference, out affectedBounds);
@@ -359,11 +365,20 @@ internal static class TargetWriteMetadataResolver
             RenderFragmentKind.TargetScope
                 => ResolveTargetScope(reference, targetDomain),
             RenderFragmentKind.Blend
+                when RequiresFullTargetRegion(reference)
+                => ResolveRegion(TargetRegion.Full, targetDomain),
+            RenderFragmentKind.Blend
                 or RenderFragmentKind.Opacity
                 or RenderFragmentKind.OpacityMask
                 => ResolveReplayBounds(reference, targetDomain),
             _ => null,
         };
+    }
+
+    private static bool RequiresFullTargetRegion(RenderFragmentReference reference)
+    {
+        return BlendModeRenderNode.RequiresFullTargetRegion(
+            ((BlendRenderFragmentPayload)reference.Payload!).BlendMode);
     }
 
     private static bool TryResolveFiniteTargetScope(

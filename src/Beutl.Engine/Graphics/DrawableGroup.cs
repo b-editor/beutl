@@ -42,6 +42,7 @@ public sealed partial class DrawableGroup : Drawable, IFlowOperator
                            Media.AlignmentX.Left, Media.AlignmentY.Top, b.boundsMemory)))
             using (context.PushOpacity(resource.Opacity / 100f))
             using (r.FilterEffect == null ? new() : context.PushFilterEffect(r.FilterEffect))
+            using (context.PushLayer())
             using (context.PushNode(
                        boundsMemory,
                        b => new BoundsObserveNode(b),

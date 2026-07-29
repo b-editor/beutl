@@ -301,6 +301,77 @@ public sealed class TargetScopeLoweringTests
     }
 
     [Test]
+    public void DestructiveBlend_LowersAsFullDomainTargetCommand()
+    {
+        var sourceBounds = new Rect(20, 10, 30, 20);
+        using var root = new BlendModeRenderNode(BlendMode.DstIn);
+        root.AddChild(new SourceNode(sourceBounds, "dst-in-source"));
+
+        using CompiledRenderRequest compiled = Compile(root, s_rootDomain);
+        RenderFragmentReference blend = References(compiled.Graph).Values.Single(reference =>
+            reference.Kind == RenderFragmentKind.Blend);
+        TargetDependencyStep step = compiled.TargetDependencies.Steps.Single(item =>
+            item.FragmentId == blend.Id);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(step.Kind, Is.EqualTo(TargetDependencyKind.Command));
+            Assert.That(compiled.Measurement.OutputBounds, Is.EqualTo(s_rootDomain));
+            Assert.That(compiled.Measurement.QueryBounds, Is.EqualTo(sourceBounds));
+            Assert.That(
+                compiled.Regions.GetTargetAccessRequirement(blend).Resolve(s_rootDomain),
+                Is.EqualTo(s_rootDomain));
+            Assert.That(
+                compiled.Regions.GetFragmentRequirement(blend).Resolve(s_rootDomain),
+                Is.EqualTo(s_rootDomain));
+        });
+    }
+
+    [Test]
+    public void NonDestructiveBlend_KeepsChildBoundsComposite()
+    {
+        var sourceBounds = new Rect(20, 10, 30, 20);
+        using var root = new BlendModeRenderNode(BlendMode.Multiply);
+        root.AddChild(new SourceNode(sourceBounds, "multiply-source"));
+
+        using CompiledRenderRequest compiled = Compile(root, s_rootDomain);
+        RenderFragmentReference blend = References(compiled.Graph).Values.Single(reference =>
+            reference.Kind == RenderFragmentKind.Blend);
+        TargetDependencyStep step = compiled.TargetDependencies.Steps.Single(item =>
+            item.FragmentId == blend.Id);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(step.Kind, Is.EqualTo(TargetDependencyKind.Composite));
+            Assert.That(compiled.Measurement.OutputBounds, Is.EqualTo(sourceBounds));
+            Assert.That(compiled.Measurement.QueryBounds, Is.EqualTo(sourceBounds));
+            Assert.That(compiled.Regions.GetTargetAccessRequirement(blend).IsEmpty, Is.True);
+        });
+    }
+
+    [TestCase(BlendMode.Clear, true)]
+    [TestCase(BlendMode.Src, true)]
+    [TestCase(BlendMode.SrcIn, true)]
+    [TestCase(BlendMode.DstIn, true)]
+    [TestCase(BlendMode.SrcOut, true)]
+    [TestCase(BlendMode.DstOut, true)]
+    [TestCase(BlendMode.DstATop, true)]
+    [TestCase(BlendMode.Modulate, true)]
+    [TestCase(BlendMode.SrcOver, false)]
+    [TestCase(BlendMode.Plus, false)]
+    [TestCase(BlendMode.Screen, false)]
+    [TestCase(BlendMode.Multiply, false)]
+    [TestCase(BlendMode.Darken, false)]
+    public void BlendMode_FullTargetRegionClassificationMatchesTransparentSourceSemantics(
+        BlendMode blendMode,
+        bool expected)
+    {
+        Assert.That(
+            BlendModeRenderNode.RequiresFullTargetRegion(blendMode),
+            Is.EqualTo(expected));
+    }
+
+    [Test]
     public void OpacityMask_DrawableBrushDependency_RemainsValueOnlyInTargetPlan()
     {
         var subjectBounds = new Rect(5, 6, 12, 8);

@@ -116,6 +116,10 @@ Lowering preserves these invariants:
 - `TargetCommand` is guarded and region/access declared. `Readback` snapshots the immutable pre-command target before invoking the callback; writes during that callback are absent from `UseSnapshot`. `RawTargetCommand` is a zero-input conservative Full/ReadWrite opaque-external effect.
 - Built-in SnapshotBackdrop records the capture above plus a request-local identity binding. A later DrawBackdrop consumes that value after any intervening Clear and inside its authored blend/transform/filter scopes; no separate untracked backdrop snapshot exists.
 
+`DrawableGroup` is a required isolation scope. It records all children inside `TargetLayerScope(inputs, Full)`, applies its filter to that isolated composite, and applies group opacity once to the filtered composite. The scope remains present at opacity 100%, so a destination-dependent child blend reads preceding group content rather than the outer backdrop. Nested groups independently isolate and their output opacities multiply. Leaf drawable opacity keeps its existing one-input behavior.
+
+The following blend modes have transparent-source destination effects and therefore lower as typed target commands whose affected region is the complete enclosing scope domain: `Clear`, `Src`, `SrcIn`, `DstIn`, `SrcOut`, `DstOut`, `DstATop`, and `Modulate`. Their source-value requirement is still cropped to the intersection of the requested output region and the source bounds, but the ordered target-token write covers Full so transparent source pixels can clear or retain preceding group content. All other blend modes keep child-bounds target coverage. A destructive child inside a group can therefore mask the entire group isolation target, while the outer backdrop remains untouched when that transparent group result is composited.
+
 ### Provenance
 
 Each renderer entry has a provenance group with its published fragment IDs, embedded value IDs, node/cache candidate tree, and top-level painter index. Cache substitution changes only eligible execution producers. Bounds and hit testing continue to use original metadata and provenance.
