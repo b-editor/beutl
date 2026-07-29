@@ -21,8 +21,6 @@ public sealed class VersionControlTabViewModel : IToolContext
     private static readonly Uri s_gitDownloadsUri = new("https://git-scm.com/downloads");
 
     private readonly IEditorContext _editorContext;
-    private readonly IProjectVersionControlService? _service;
-    private readonly IRepositoryLockRecoveryService? _lockRecoveryService;
     private readonly IProjectVersionControlCoordinator? _versionControlCoordinator;
     private readonly Action<Action> _postToUi;
     private readonly VersionControlRelativeTimeFormatter _relativeTimeFormatter;
@@ -33,8 +31,12 @@ public sealed class VersionControlTabViewModel : IToolContext
     private readonly ReactiveCommandSlim _disabledPrimaryActionCommand;
     private readonly ReactivePropertySlim<bool> _isPrimaryActionEnabled;
     private ICommand? _observedPrimaryActionCommand;
+    private IProjectVersionControlService? _service;
+    private IRepositoryLockRecoveryService? _lockRecoveryService;
+    private CancellationTokenSource? _serviceBindingCancellation;
     private CancellationTokenSource? _selectionCancellation;
     private CancellationTokenSource? _remoteOperationCancellation;
+    private int _serviceRevision;
     private int _nextHistoryOffset;
     private int _aheadCount;
     private int _behindCount;
@@ -47,8 +49,11 @@ public sealed class VersionControlTabViewModel : IToolContext
         : this(
             extension,
             editorContext,
-            editorContext.GetService(typeof(IProjectVersionControlService))
-                as IProjectVersionControlService,
+            editorContext.GetService(
+                    typeof(IReadOnlyReactiveProperty<IProjectVersionControlService?>))
+                as IReadOnlyReactiveProperty<IProjectVersionControlService?>
+                ?? throw new InvalidOperationException(
+                    "The editor context does not provide the version-control service observable."),
             editorContext.GetService(typeof(IProjectVersionControlCoordinator))
                 as IProjectVersionControlCoordinator,
             PostToUiThread,
@@ -60,7 +65,7 @@ public sealed class VersionControlTabViewModel : IToolContext
     internal VersionControlTabViewModel(
         ToolTabExtension extension,
         IEditorContext editorContext,
-        IProjectVersionControlService? service,
+        IReadOnlyReactiveProperty<IProjectVersionControlService?> serviceSource,
         IProjectVersionControlCoordinator? versionControlCoordinator,
         Action<Action> postToUi,
         TimeProvider? timeProvider = null,
@@ -68,8 +73,8 @@ public sealed class VersionControlTabViewModel : IToolContext
     {
         Extension = extension ?? throw new ArgumentNullException(nameof(extension));
         _editorContext = editorContext ?? throw new ArgumentNullException(nameof(editorContext));
-        _service = service;
-        _lockRecoveryService = service as IRepositoryLockRecoveryService;
+        ArgumentNullException.ThrowIfNull(serviceSource);
+        IProjectVersionControlService? service = serviceSource.Value;
         _versionControlCoordinator = versionControlCoordinator;
         _postToUi = postToUi ?? throw new ArgumentNullException(nameof(postToUi));
         _relativeTimeFormatter = new VersionControlRelativeTimeFormatter(
@@ -259,17 +264,16 @@ public sealed class VersionControlTabViewModel : IToolContext
             .Subscribe(_ => UpdatePrimaryAction())
             .DisposeWith(_disposables);
 
-        if (_service is not null)
-        {
-            _service.StatusChanged += OnStatusChanged;
-        }
-
-        if (_lockRecoveryService is not null)
-        {
-            _lockRecoveryService.RecoverableLockAvailable += OnRecoverableLockAvailable;
-        }
-
-        Initialization = InitializeAsync();
+        Initialization = RebindServiceAsync(service);
+        serviceSource
+            .Subscribe(publishedService =>
+            {
+                if (!ReferenceEquals(publishedService, _service))
+                {
+                    OnServicePublished(publishedService);
+                }
+            })
+            .DisposeWith(_disposables);
     }
 
     public ToolTabExtension Extension { get; }
@@ -384,7 +388,7 @@ public sealed class VersionControlTabViewModel : IToolContext
 
     internal ReactiveCommandSlim InvokePrimaryActionCommand { get; }
 
-    public Task Initialization { get; }
+    public Task Initialization { get; private set; }
 
     public Func<CommitInfo, Task<string?>> RequestBranchNameAsync { get; set; }
 
@@ -422,15 +426,36 @@ public sealed class VersionControlTabViewModel : IToolContext
 
     public async Task LoadMoreAsync()
     {
-        if (_service?.Repository is null || !HasMoreHistory.Value)
+        IProjectVersionControlService? service = _service;
+        if (service?.Repository is null || !HasMoreHistory.Value)
         {
             return;
         }
 
-        await _historyGate.WaitAsync();
+        CancellationToken cancellationToken =
+            _serviceBindingCancellation?.Token ?? CancellationToken.None;
         try
         {
-            await LoadNextPageCoreAsync();
+            await _historyGate.WaitAsync(cancellationToken);
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            return;
+        }
+        catch (ObjectDisposedException) when (cancellationToken.IsCancellationRequested)
+        {
+            return;
+        }
+
+        try
+        {
+            await LoadNextPageCoreAsync(service, cancellationToken);
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+        }
+        catch (ObjectDisposedException) when (cancellationToken.IsCancellationRequested)
+        {
         }
         finally
         {
@@ -669,15 +694,9 @@ public sealed class VersionControlTabViewModel : IToolContext
         }
 
         _disposed = true;
-        if (_service is not null)
-        {
-            _service.StatusChanged -= OnStatusChanged;
-        }
-
-        if (_lockRecoveryService is not null)
-        {
-            _lockRecoveryService.RecoverableLockAvailable -= OnRecoverableLockAvailable;
-        }
+        DetachServiceEvents();
+        _serviceBindingCancellation?.Cancel();
+        _serviceBindingCancellation?.Dispose();
 
         _selectionCancellation?.Cancel();
         _selectionCancellation?.Dispose();
@@ -745,14 +764,148 @@ public sealed class VersionControlTabViewModel : IToolContext
         HasRecoverableLock.Value = _lockRecoveryService.RecoverableLock is not null;
     }
 
-    private async Task InitializeAsync()
+    private void OnServicePublished(IProjectVersionControlService? service)
     {
-        if (_service is null)
+        _serviceBindingCancellation?.Cancel();
+        _postToUi(() =>
+        {
+            if (!_disposed)
+            {
+                Initialization = RebindServiceAsync(service);
+            }
+        });
+    }
+
+    private Task RebindServiceAsync(IProjectVersionControlService? service)
+    {
+        _serviceBindingCancellation?.Cancel();
+        _serviceBindingCancellation?.Dispose();
+        _serviceBindingCancellation = new CancellationTokenSource();
+        int revision = ++_serviceRevision;
+
+        DetachServiceEvents();
+        _service = service;
+        _lockRecoveryService = service as IRepositoryLockRecoveryService;
+        if (_service is not null)
+        {
+            _service.StatusChanged += OnStatusChanged;
+        }
+
+        if (_lockRecoveryService is not null)
+        {
+            _lockRecoveryService.RecoverableLockAvailable += OnRecoverableLockAvailable;
+        }
+
+        ResetRepositoryState();
+        return InitializeAsync(
+            service,
+            revision,
+            _serviceBindingCancellation.Token);
+    }
+
+    private void DetachServiceEvents()
+    {
+        if (_service is not null)
+        {
+            _service.StatusChanged -= OnStatusChanged;
+        }
+
+        if (_lockRecoveryService is not null)
+        {
+            _lockRecoveryService.RecoverableLockAvailable -= OnRecoverableLockAvailable;
+        }
+    }
+
+    private void ResetRepositoryState()
+    {
+        _selectionCancellation?.Cancel();
+        _selectionCancellation?.Dispose();
+        _selectionCancellation = null;
+        _remoteOperationCancellation?.Cancel();
+
+        foreach (VersionControlCommitViewModel commit in Commits)
+        {
+            commit.Dispose();
+        }
+
+        Commits.Clear();
+        ChangedFiles.Clear();
+        DiffLines.Clear();
+        Branches.Clear();
+        SelectedCommit.Value = null;
+        SelectedFile.Value = null;
+        CurrentBranch.Value = null;
+        SelectedBranch.Value = null;
+        _showingDetail.Value = false;
+        _nextHistoryOffset = 0;
+        _aheadCount = 0;
+        _behindCount = 0;
+        _hasUncommittedChanges = false;
+
+        bool isTracked = _service?.Repository is not null;
+        IsTracked.Value = isTracked;
+        IsGitAvailable.Value = false;
+        IsUnavailable.Value = false;
+        IsConflicted.Value = false;
+        HasBlockingGuidance.Value = false;
+        HasRecoverableLock.Value = _lockRecoveryService?.RecoverableLock is not null;
+        BranchText.Value = string.Empty;
+        AheadBehindText.Value = string.Empty;
+        AheadBadgeText.Value = string.Empty;
+        BehindBadgeText.Value = string.Empty;
+        HasAhead.Value = false;
+        HasBehind.Value = false;
+        DirtySummary.Value = string.Empty;
+        StatusMessage.Value = isTracked
+            ? string.Empty
+            : Strings.VersionControl_NoRepository;
+        IsLoading.Value = false;
+        HasMoreHistory.Value = isTracked;
+        IsHistoryEmpty.Value = true;
+        CommitMessage.Value = string.Empty;
+        RemoteUrl.Value = string.Empty;
+        HasRemote.Value = false;
+        RemoteProgress.Value = string.Empty;
+        IsNestedRepository.Value = _service?.Repository?.IsNestedInForeignRepo == true;
+        RepositoryScopeText.Value =
+            _service?.Repository is { IsNestedInForeignRepo: true } repository
+                ? string.Format(
+                    CultureInfo.CurrentCulture,
+                    Strings.VersionControl_EnclosingRepositoryScopeFormat,
+                    repository.RepoRoot)
+                : string.Empty;
+        UpdatePrimaryAction();
+    }
+
+    private async Task InitializeAsync(
+        IProjectVersionControlService? service,
+        int revision,
+        CancellationToken cancellationToken)
+    {
+        if (service is null)
         {
             return;
         }
 
-        GitAvailability availability = await _service.GetAvailabilityAsync(CancellationToken.None);
+        GitAvailability availability;
+        try
+        {
+            availability = await service.GetAvailabilityAsync(cancellationToken);
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            return;
+        }
+        catch (ObjectDisposedException) when (cancellationToken.IsCancellationRequested)
+        {
+            return;
+        }
+
+        if (!IsCurrentService(service, revision, cancellationToken))
+        {
+            return;
+        }
+
         IsGitAvailable.Value = availability.State == GitAvailabilityState.Installed;
         if (availability.State != GitAvailabilityState.Installed)
         {
@@ -764,19 +917,57 @@ public sealed class VersionControlTabViewModel : IToolContext
             return;
         }
 
-        if (_service.Repository is null)
+        if (service.Repository is null)
         {
             StatusMessage.Value = Strings.VersionControl_NoRepository;
             return;
         }
 
-        WorkspaceStatus status = await _service.GetStatusAsync(CancellationToken.None);
+        WorkspaceStatus status;
+        try
+        {
+            status = await service.GetStatusAsync(cancellationToken);
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            return;
+        }
+        catch (ObjectDisposedException) when (cancellationToken.IsCancellationRequested)
+        {
+            return;
+        }
+
+        if (!IsCurrentService(service, revision, cancellationToken))
+        {
+            return;
+        }
+
         ApplyStatus(status);
         if (!status.HasConflicts)
         {
-            await RefreshRepositoryMetadataAsync();
-            await RefreshHistoryAsync();
+            try
+            {
+                await RefreshRepositoryMetadataAsync(service, cancellationToken);
+                await RefreshHistoryAsync(service, cancellationToken);
+            }
+            catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+            {
+            }
+            catch (ObjectDisposedException) when (cancellationToken.IsCancellationRequested)
+            {
+            }
         }
+    }
+
+    private bool IsCurrentService(
+        IProjectVersionControlService service,
+        int revision,
+        CancellationToken cancellationToken)
+    {
+        return !_disposed
+               && !cancellationToken.IsCancellationRequested
+               && revision == _serviceRevision
+               && ReferenceEquals(service, _service);
     }
 
     internal static string GetAvailabilityMessage(GitAvailability availability)
@@ -798,16 +989,31 @@ public sealed class VersionControlTabViewModel : IToolContext
         return $"{stateMessage}\n\n{installMessage}";
     }
 
-    private async Task RefreshHistoryAsync()
+    private async Task RefreshHistoryAsync(
+        IProjectVersionControlService? expectedService = null,
+        CancellationToken cancellationToken = default)
     {
-        if (_service?.Repository is null)
+        IProjectVersionControlService? service = expectedService ?? _service;
+        if (service?.Repository is null)
         {
             return;
         }
 
-        await _historyGate.WaitAsync();
+        if (expectedService is null && !cancellationToken.CanBeCanceled)
+        {
+            cancellationToken =
+                _serviceBindingCancellation?.Token ?? CancellationToken.None;
+        }
+
+        await _historyGate.WaitAsync(cancellationToken);
         try
         {
+            if (cancellationToken.IsCancellationRequested
+                || !ReferenceEquals(service, _service))
+            {
+                return;
+            }
+
             string? selectedSha = SelectedCommit.Value?.Commit.Sha;
             foreach (VersionControlCommitViewModel commit in Commits)
             {
@@ -822,7 +1028,13 @@ public sealed class VersionControlTabViewModel : IToolContext
             SelectedFile.Value = null;
             _nextHistoryOffset = 0;
             HasMoreHistory.Value = true;
-            await LoadNextPageCoreAsync();
+            await LoadNextPageCoreAsync(service, cancellationToken);
+            if (cancellationToken.IsCancellationRequested
+                || !ReferenceEquals(service, _service))
+            {
+                return;
+            }
+
             if (selectedSha is not null)
             {
                 VersionControlCommitViewModel? restoredCommit = Commits.FirstOrDefault(
@@ -850,18 +1062,33 @@ public sealed class VersionControlTabViewModel : IToolContext
         }
     }
 
-    private async Task RefreshRepositoryMetadataAsync()
+    private async Task RefreshRepositoryMetadataAsync(
+        IProjectVersionControlService? expectedService = null,
+        CancellationToken cancellationToken = default)
     {
-        if (_service?.Repository is null)
+        IProjectVersionControlService? service = expectedService ?? _service;
+        if (service?.Repository is null)
         {
             return;
+        }
+
+        if (expectedService is null && !cancellationToken.CanBeCanceled)
+        {
+            cancellationToken =
+                _serviceBindingCancellation?.Token ?? CancellationToken.None;
         }
 
         string? pendingBranchName = IsBranchSwitchPending.Value
             ? SelectedBranch.Value?.Name
             : null;
-        IReadOnlyList<BranchInfo> branches = await _service.GetBranchesAsync(
-            CancellationToken.None);
+        IReadOnlyList<BranchInfo> branches = await service.GetBranchesAsync(
+            cancellationToken);
+        if (cancellationToken.IsCancellationRequested
+            || !ReferenceEquals(service, _service))
+        {
+            return;
+        }
+
         Branches.Clear();
         foreach (BranchInfo branch in branches)
         {
@@ -875,28 +1102,43 @@ public sealed class VersionControlTabViewModel : IToolContext
             : Branches.FirstOrDefault(branch =>
                 string.Equals(branch.Name, pendingBranchName, StringComparison.Ordinal))
               ?? currentBranch;
-        await RefreshRemotesAsync();
+        await RefreshRemotesAsync(service, cancellationToken);
     }
 
     private async Task RefreshRemotesAsync()
     {
-        if (_service?.Repository is null)
+        IProjectVersionControlService? service = _service;
+        if (service?.Repository is null)
         {
             return;
         }
 
-        RemoteInfo? remote = (await _service.GetRemotesAsync(CancellationToken.None))
-            .FirstOrDefault();
-        HasRemote.Value = remote is not null;
-        if (remote is not null)
-        {
-            RemoteUrl.Value = remote.Url;
-        }
+        CancellationToken cancellationToken =
+            _serviceBindingCancellation?.Token ?? CancellationToken.None;
+        await RefreshRemotesAsync(service, cancellationToken);
     }
 
-    private async Task LoadNextPageCoreAsync()
+    private async Task RefreshRemotesAsync(
+        IProjectVersionControlService service,
+        CancellationToken cancellationToken)
     {
-        if (_service is null)
+        RemoteInfo? remote = (await service.GetRemotesAsync(cancellationToken))
+            .FirstOrDefault();
+        if (cancellationToken.IsCancellationRequested
+            || !ReferenceEquals(service, _service))
+        {
+            return;
+        }
+
+        HasRemote.Value = remote is not null;
+        RemoteUrl.Value = remote?.Url ?? string.Empty;
+    }
+
+    private async Task LoadNextPageCoreAsync(
+        IProjectVersionControlService service,
+        CancellationToken cancellationToken)
+    {
+        if (!ReferenceEquals(service, _service))
         {
             return;
         }
@@ -904,10 +1146,16 @@ public sealed class VersionControlTabViewModel : IToolContext
         IsLoading.Value = true;
         try
         {
-            IReadOnlyList<CommitInfo> page = await _service.GetHistoryAsync(
+            IReadOnlyList<CommitInfo> page = await service.GetHistoryAsync(
                 _nextHistoryOffset,
                 HistoryPageSize,
-                CancellationToken.None);
+                cancellationToken);
+            if (cancellationToken.IsCancellationRequested
+                || !ReferenceEquals(service, _service))
+            {
+                return;
+            }
+
             foreach (CommitInfo commit in page)
             {
                 Commits.Add(new VersionControlCommitViewModel(
@@ -931,9 +1179,15 @@ public sealed class VersionControlTabViewModel : IToolContext
 
     private void OnStatusChanged(object? sender, WorkspaceStatus status)
     {
+        if (sender is not IProjectVersionControlService eventService
+            || !ReferenceEquals(eventService, _service))
+        {
+            return;
+        }
+
         _postToUi(() =>
         {
-            if (_disposed)
+            if (_disposed || !ReferenceEquals(eventService, _service))
             {
                 return;
             }
@@ -941,17 +1195,43 @@ public sealed class VersionControlTabViewModel : IToolContext
             ApplyStatus(status);
             if (!status.HasConflicts)
             {
-                _ = RefreshRepositoryMetadataAsync();
-                _ = RefreshHistoryAsync();
+                CancellationToken cancellationToken =
+                    _serviceBindingCancellation?.Token ?? CancellationToken.None;
+                _ = RefreshAfterStatusChangedAsync(
+                    eventService,
+                    cancellationToken);
             }
         });
     }
 
+    private async Task RefreshAfterStatusChangedAsync(
+        IProjectVersionControlService service,
+        CancellationToken cancellationToken)
+    {
+        try
+        {
+            await RefreshRepositoryMetadataAsync(service, cancellationToken);
+            await RefreshHistoryAsync(service, cancellationToken);
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+        }
+        catch (ObjectDisposedException) when (cancellationToken.IsCancellationRequested)
+        {
+        }
+    }
+
     private void OnRecoverableLockAvailable(object? sender, RepositoryLockInfo lockInfo)
     {
+        if (!ReferenceEquals(sender, _service))
+        {
+            return;
+        }
+
         _postToUi(() =>
         {
             if (!_disposed
+                && ReferenceEquals(sender, _service)
                 && Equals(_lockRecoveryService?.RecoverableLock, lockInfo))
             {
                 HasRecoverableLock.Value = true;

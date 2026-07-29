@@ -1041,7 +1041,7 @@ public sealed class VersionControlCoordinator : IProjectVersionControlCoordinato
             {
                 if (project is null)
                 {
-                    _editorService.ProjectVersionControlService = null;
+                    _editorService.PublishProjectVersionControlService(null);
                     return;
                 }
 
@@ -1052,7 +1052,7 @@ public sealed class VersionControlCoordinator : IProjectVersionControlCoordinato
                         preservedRoot,
                         PathComparison))
                 {
-                    _editorService.ProjectVersionControlService = _currentService;
+                    _editorService.PublishProjectVersionControlService(_currentService);
                     return;
                 }
             }
@@ -1196,7 +1196,7 @@ public sealed class VersionControlCoordinator : IProjectVersionControlCoordinato
 
         _currentService = service;
         _isTracked.Value = service?.Repository is not null;
-        _editorService.ProjectVersionControlService = service;
+        _editorService.PublishProjectVersionControlService(service);
         if (service is IRepositoryLockRecoveryService recovery)
         {
             recovery.RecoverableLockAvailable += OnRecoverableLockAvailable;

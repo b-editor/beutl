@@ -3,6 +3,7 @@ using Avalonia.Controls;
 using Beutl.Editor.Components.VersionControlTab.ViewModels;
 using Beutl.Editor.Components.VersionControlTab.Views;
 using Beutl.Editor.VersionControl;
+using Reactive.Bindings;
 
 namespace Beutl.Services.PrimitiveImpls;
 
@@ -54,8 +55,9 @@ public sealed class VersionControlTabExtension : ToolTabExtension
     }
 
     private static bool SupportsVersionControl(IEditorContext editorContext)
-        => editorContext.GetService(typeof(IProjectVersionControlService))
-               is IProjectVersionControlService
+        => editorContext.GetService(
+               typeof(IReadOnlyReactiveProperty<IProjectVersionControlService?>))
+               is IReadOnlyReactiveProperty<IProjectVersionControlService?>
            && editorContext.GetService(typeof(IProjectVersionControlCoordinator))
                is IProjectVersionControlCoordinator;
 }

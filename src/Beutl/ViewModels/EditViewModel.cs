@@ -902,6 +902,9 @@ public sealed partial class EditViewModel : IEditorContext, ISupportAutoSaveEdit
             return HistoryManager;
 
         if (serviceType == typeof(IProjectVersionControlService))
+            return EditorService.ProjectVersionControlService.Value;
+
+        if (serviceType == typeof(IReadOnlyReactiveProperty<IProjectVersionControlService?>))
             return EditorService.ProjectVersionControlService;
 
         if (serviceType == typeof(IProjectVersionControlCoordinator))

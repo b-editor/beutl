@@ -21,6 +21,94 @@ namespace Beutl.HeadlessUITests;
 public class VersionControlTabViewTests
 {
     [AvaloniaTest]
+    public async Task Restored_tab_observes_the_service_published_after_view_creation()
+    {
+        await TestReset.ResetShellAsync();
+        using var gitEnvironment = new IsolatedGitEnvironment();
+        VersionControlConfig config = GlobalConfiguration.Instance.VersionControlConfig;
+        string? previousGitPath = config.GitExecutablePath;
+        var window = new Window { Width = 900, Height = 700 };
+        try
+        {
+            config.GitExecutablePath = ProbeGitOrIgnore();
+            string location = Path.Combine(
+                BeutlHomeIsolation.CurrentHome!,
+                "version-control-tab-startup-race");
+            Directory.CreateDirectory(location);
+            Project project = (await TestShell.Project.CreateProject(
+                640,
+                480,
+                30,
+                44100,
+                "tracked-before-tab",
+                location))!;
+            bool initialized = await TestShell.VersionControl.InitializeCurrentProjectAsync(
+                async service =>
+                {
+                    await service.SetLocalIdentityAsync(
+                        new GitIdentity(
+                            "Beutl Headless Test",
+                            "headless@example.invalid"),
+                        CancellationToken.None);
+                    return true;
+                });
+            Assert.That(initialized, Is.True);
+
+            IProjectVersionControlService readyService =
+                TestShell.VersionControl.CurrentService!;
+            TestShell.Editor.PublishProjectVersionControlService(null);
+            Scene scene = project.Items.OfType<Scene>().Single();
+            TestShell.Editor.ActivateTabItem(scene);
+            HeadlessTestHelpers.Settle();
+            IEditorContext editorContext =
+                TestShell.Editor.SelectedTabItem.Value!.Context.Value;
+            Assert.That(
+                VersionControlTabExtension.Instance.TryCreateContext(
+                    editorContext,
+                    out IToolContext? context),
+                Is.True);
+            using var viewModel = (VersionControlTabViewModel)context!;
+            var view = new VersionControlTabView { DataContext = viewModel };
+            window.Content = view;
+            window.Show();
+            await viewModel.Initialization;
+            HeadlessTestHelpers.Render();
+
+            Assert.Multiple(() =>
+            {
+                Assert.That(viewModel.IsTracked.Value, Is.False);
+                Assert.That(
+                    view.FindControl<Border>("UntrackedProjectPanel")!.IsVisible,
+                    Is.True);
+            });
+
+            TestShell.Editor.PublishProjectVersionControlService(readyService);
+            await WaitUntilAsync(
+                () => viewModel.IsTracked.Value && viewModel.Commits.Count > 0);
+            HeadlessTestHelpers.Render();
+
+            Assert.Multiple(() =>
+            {
+                Assert.That(window.Content, Is.SameAs(view));
+                Assert.That(viewModel.IsTracked.Value, Is.True);
+                Assert.That(viewModel.Commits, Is.Not.Empty);
+                Assert.That(
+                    view.FindControl<Border>("UntrackedProjectPanel")!.IsVisible,
+                    Is.False);
+                Assert.That(
+                    view.FindControl<Grid>("WideLayoutRoot")!.IsVisible,
+                    Is.True);
+            });
+        }
+        finally
+        {
+            window.Close();
+            config.GitExecutablePath = previousGitPath;
+            await TestReset.ResetShellAsync();
+        }
+    }
+
+    [AvaloniaTest]
     public async Task Adaptive_layout_supports_onboarding_wide_and_narrow_drill_down()
     {
         await TestReset.ResetShellAsync();

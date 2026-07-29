@@ -72,6 +72,8 @@ public sealed class EditorService
 {
     private readonly CoreList<EditorTabItem> _tabItems;
     private readonly ExtensionProvider _extensionProvider;
+    private readonly ReactivePropertySlim<IProjectVersionControlService?>
+        _projectVersionControlService = new();
     private int _activeOutputOperations;
 
     public EditorService(ExtensionProvider extensionProvider)
@@ -80,17 +82,27 @@ public sealed class EditorService
 
         _extensionProvider = extensionProvider;
         _tabItems = new() { ResetBehavior = ResetBehavior.Remove };
+        ProjectVersionControlService = _projectVersionControlService
+            .ToReadOnlyReactivePropertySlim();
     }
 
     public ICoreList<EditorTabItem> TabItems => _tabItems;
 
     public IReactiveProperty<EditorTabItem?> SelectedTabItem { get; } = new ReactivePropertySlim<EditorTabItem?>();
 
-    internal IProjectVersionControlService? ProjectVersionControlService { get; set; }
+    internal IReadOnlyReactiveProperty<IProjectVersionControlService?>
+        ProjectVersionControlService
+    { get; }
 
     internal IProjectVersionControlCoordinator? ProjectVersionControlCoordinator { get; set; }
 
     internal bool IsExportRunning => Volatile.Read(ref _activeOutputOperations) > 0;
+
+    internal void PublishProjectVersionControlService(
+        IProjectVersionControlService? service)
+    {
+        _projectVersionControlService.Value = service;
+    }
 
     internal void NotifyOutputStarted()
     {

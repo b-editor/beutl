@@ -5,6 +5,7 @@ using Beutl.Extensibility;
 using Beutl.Language;
 using Microsoft.Extensions.Time.Testing;
 using Moq;
+using Reactive.Bindings;
 
 namespace Beutl.UnitTests.Editor.VersionControl;
 
@@ -87,6 +88,107 @@ public class VersionControlTabViewModelTests
             Assert.That(viewModel.HasSelectedFile.Value, Is.False);
             Assert.That(viewModel.StatusMessage.Value, Is.EqualTo(Strings.VersionControl_NoRepository));
         });
+    }
+
+    [Test]
+    public async Task Publishing_a_ready_service_after_construction_rebuilds_the_tracked_state()
+    {
+        CommitInfo commit = CreateCommit(101, SnapshotKind.Save);
+        Mock<IProjectVersionControlService> service = CreateServiceMock();
+        service.Setup(x => x.GetHistoryAsync(
+                It.IsAny<int>(),
+                It.IsAny<int>(),
+                It.IsAny<CancellationToken>()))
+            .ReturnsAsync([commit]);
+        using var serviceSource =
+            new ReactivePropertySlim<IProjectVersionControlService?>(null);
+        using var viewModel = new VersionControlTabViewModel(
+            Mock.Of<ToolTabExtension>(),
+            Mock.Of<IEditorContext>(),
+            serviceSource,
+            versionControlCoordinator: null,
+            action => action());
+        await viewModel.Initialization;
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(viewModel.IsTracked.Value, Is.False);
+            Assert.That(viewModel.Commits, Is.Empty);
+            Assert.That(viewModel.StatusMessage.Value,
+                Is.EqualTo(Strings.VersionControl_NoRepository));
+        });
+
+        serviceSource.Value = service.Object;
+        await viewModel.Initialization;
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(viewModel.IsTracked.Value, Is.True);
+            Assert.That(viewModel.IsGitAvailable.Value, Is.True);
+            Assert.That(viewModel.Commits.Select(item => item.Commit),
+                Is.EqualTo([commit]));
+            Assert.That(viewModel.BranchText.Value, Does.Contain("main"));
+        });
+    }
+
+    [Test]
+    public async Task Replacing_the_service_rebuilds_state_and_resubscribes_status_events()
+    {
+        CommitInfo commitA = CreateCommit(102, SnapshotKind.Save);
+        CommitInfo commitB = CreateCommit(103, SnapshotKind.Manual);
+        Mock<IProjectVersionControlService> serviceA = CreateServiceMock();
+        serviceA.Setup(x => x.GetStatusAsync(It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new WorkspaceStatus("project-a", 0, 0, [], false));
+        serviceA.Setup(x => x.GetHistoryAsync(
+                It.IsAny<int>(),
+                It.IsAny<int>(),
+                It.IsAny<CancellationToken>()))
+            .ReturnsAsync([commitA]);
+        Mock<IProjectVersionControlService> serviceB = CreateServiceMock();
+        serviceB.Setup(x => x.GetStatusAsync(It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new WorkspaceStatus("project-b", 0, 0, [], false));
+        serviceB.Setup(x => x.GetHistoryAsync(
+                It.IsAny<int>(),
+                It.IsAny<int>(),
+                It.IsAny<CancellationToken>()))
+            .ReturnsAsync([commitB]);
+        using var serviceSource =
+            new ReactivePropertySlim<IProjectVersionControlService?>(serviceA.Object);
+        using var viewModel = new VersionControlTabViewModel(
+            Mock.Of<ToolTabExtension>(),
+            Mock.Of<IEditorContext>(),
+            serviceSource,
+            versionControlCoordinator: null,
+            action => action());
+        await viewModel.Initialization;
+
+        serviceSource.Value = serviceB.Object;
+        await viewModel.Initialization;
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(viewModel.BranchText.Value, Does.Contain("project-b"));
+            Assert.That(viewModel.Commits.Select(item => item.Commit),
+                Is.EqualTo([commitB]));
+        });
+        serviceA.VerifyRemove(
+            x => x.StatusChanged -= It.IsAny<EventHandler<WorkspaceStatus>>(),
+            Times.Once);
+        serviceB.VerifyAdd(
+            x => x.StatusChanged += It.IsAny<EventHandler<WorkspaceStatus>>(),
+            Times.Once);
+
+        serviceA.Raise(
+            x => x.StatusChanged += null,
+            serviceA.Object,
+            new WorkspaceStatus("stale-project-a", 0, 0, [], false));
+        Assert.That(viewModel.BranchText.Value, Does.Contain("project-b"));
+
+        serviceB.Raise(
+            x => x.StatusChanged += null,
+            serviceB.Object,
+            new WorkspaceStatus("project-b-updated", 0, 0, [], false));
+        Assert.That(viewModel.BranchText.Value, Does.Contain("project-b-updated"));
     }
 
     [Test]
@@ -424,7 +526,7 @@ public class VersionControlTabViewModelTests
         using var viewModel = new VersionControlTabViewModel(
             Mock.Of<ToolTabExtension>(),
             Mock.Of<IEditorContext>(),
-            service.Object,
+            CreateServiceSource(service.Object),
             versionControlCoordinator: null,
             action => pendingUiAction = action);
         await viewModel.Initialization;
@@ -480,7 +582,7 @@ public class VersionControlTabViewModelTests
         using var viewModel = new VersionControlTabViewModel(
             Mock.Of<ToolTabExtension>(),
             Mock.Of<IEditorContext>(),
-            service.Object,
+            CreateServiceSource(service.Object),
             versionControlCoordinator: null,
             action => pendingUiAction = action);
         await viewModel.Initialization;
@@ -650,7 +752,7 @@ public class VersionControlTabViewModelTests
         using var viewModel = new VersionControlTabViewModel(
             Mock.Of<ToolTabExtension>(),
             Mock.Of<IEditorContext>(),
-            service.Object,
+            CreateServiceSource(service.Object),
             coordinator.Object,
             action => action())
         {
@@ -1103,9 +1205,15 @@ public class VersionControlTabViewModelTests
         return new VersionControlTabViewModel(
             Mock.Of<ToolTabExtension>(),
             Mock.Of<IEditorContext>(),
-            service,
+            CreateServiceSource(service),
             versionControlCoordinator: coordinator,
             action => action());
+    }
+
+    private static ReactivePropertySlim<IProjectVersionControlService?> CreateServiceSource(
+        IProjectVersionControlService? service)
+    {
+        return new ReactivePropertySlim<IProjectVersionControlService?>(service);
     }
 
     private static Mock<IProjectVersionControlService> CreateServiceMock()
