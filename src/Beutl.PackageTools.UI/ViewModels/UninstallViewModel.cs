@@ -33,21 +33,14 @@ public class UninstallViewModel(BeutlApiApplication app, ChangesModel changesMod
             if (!package.HasVersion)
             {
                 installeds = repos.GetLocalPackages(package.Id)
-                    .Select(x => Helper.PackagePathResolver.GetInstalledPath(x))
-                    .Where(x => x != null)
+                    .Select(Helper.ResolveInstalledDirectory)
+                    .Where(Directory.Exists)
                     .ToArray();
             }
             else
             {
-                string installed = Helper.PackagePathResolver.GetInstalledPath(package);
-                if (installed != null)
-                {
-                    installeds = [installed];
-                }
-                else
-                {
-                    installeds = [];
-                }
+                string installed = Helper.ResolveInstalledDirectory(package);
+                installeds = Directory.Exists(installed) ? [installed] : [];
             }
 
             if (installeds.Length <= 0)

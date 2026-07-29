@@ -78,16 +78,6 @@ public sealed class ElementViewModel : IDisposable, IContextCommandHandler
         Name = element.GetObservable(CoreObject.NameProperty)
             .ToReactiveProperty()
             .AddTo(_disposables)!;
-        // Skip(1) drops the initial sync emit (IsEditable is assigned later in this ctor). While
-        // locked, a rename must not persist and the display must not diverge from the persisted
-        // name, so snap Name.Value back to Model.Name instead of writing it.
-        Name.Skip(1)
-            .Subscribe(v =>
-            {
-                if (IsEditable.Value) Model.Name = v;
-                else if (v != Model.Name) Name.Value = Model.Name;
-            })
-            .AddTo(_disposables);
 
         IObservable<int> zIndexSubject = element.GetObservable(Element.ZIndexProperty);
         Margin = Timeline.GetTrackedLayerTopObservable(zIndexSubject)
@@ -176,6 +166,16 @@ public sealed class ElementViewModel : IDisposable, IContextCommandHandler
             .ToReadOnlyReactivePropertySlim()
             .AddTo(_disposables);
 
+        // Must stay after IsEditable is assigned — the handler reads it. Skip(1) drops the initial
+        // sync emit; while locked a rename must not persist, so snap Name.Value back to Model.Name.
+        Name.Skip(1)
+            .Subscribe(v =>
+            {
+                if (IsEditable.Value) Model.Name = v;
+                else if (v != Model.Name) Name.Value = Model.Name;
+            })
+            .AddTo(_disposables);
+
         Scope = new ElementScopeViewModel(Model, this);
 
         // プレビュー関連の初期化
@@ -193,11 +193,11 @@ public sealed class ElementViewModel : IDisposable, IContextCommandHandler
         ProxyIndicatorBrush = ProxyIndicatorState
             .Select(GetProxyStateBrush)
             .ToReadOnlyReactivePropertySlim()
-            .AddTo(_disposables);
+            .AddTo(_disposables)!;
         ProxyIndicatorTooltip = ProxyIndicatorState
             .Select(GetProxyStateText)
             .ToReadOnlyReactivePropertySlim()
-            .AddTo(_disposables);
+            .AddTo(_disposables)!;
         InitializeProxyIndicator();
     }
 

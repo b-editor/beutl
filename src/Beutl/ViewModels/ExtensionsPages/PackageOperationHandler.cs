@@ -46,7 +46,9 @@ internal class PackageOperationHandler
 
         _installedPackageRepository.UpgradePackages(packageId);
 
-        string directory = Helper.PackagePathResolver.GetInstalledPath(packageId);
+        string directory = Helper.PackagePathResolver.GetInstalledPath(packageId)
+                           ?? throw new InvalidOperationException(
+                               $"Package '{packageId}' was not found under the install directory after installation.");
         PackageFolderReader reader = new(directory);
         var localPackage = new LocalPackage(reader.NuspecReader) { InstalledPath = directory };
         _packageManager.Load(localPackage);
@@ -61,7 +63,9 @@ internal class PackageOperationHandler
 
         _installedPackageRepository.UpgradePackages(packageId);
 
-        string directory = Helper.PackagePathResolver.GetInstalledPath(packageId);
+        string directory = Helper.PackagePathResolver.GetInstalledPath(packageId)
+                           ?? throw new InvalidOperationException(
+                               $"Package '{packageId}' was not found under the install directory after installation.");
         PackageFolderReader reader = new(directory);
         var localPackage = new LocalPackage(reader.NuspecReader) { InstalledPath = directory };
         _packageManager.Load(localPackage);
@@ -86,7 +90,7 @@ internal class PackageOperationHandler
     {
         foreach (PackageIdentity item in _installedPackageRepository.GetLocalPackages(packageName))
         {
-            string directory = Helper.PackagePathResolver.GetInstalledPath(item);
+            string directory = Helper.ResolveInstalledDirectory(item);
             if (Directory.Exists(directory))
             {
                 PackageUninstallContext ctx = _packageInstaller.PrepareForUninstall(directory);
@@ -102,7 +106,7 @@ internal class PackageOperationHandler
         {
             try
             {
-                string directory = Helper.PackagePathResolver.GetInstalledPath(item);
+                string directory = Helper.ResolveInstalledDirectory(item);
                 if (Directory.Exists(directory))
                 {
                     var ctx = _packageInstaller.PrepareForUninstall(directory);

@@ -109,8 +109,8 @@ internal static class Helper
         foreach (var dependency in package.Dependencies)
         {
             var dependentPackage = new PackageIdentity(dependency.Id, dependency.VersionRange.MinVersion);
-            var path = PackagePathResolver.GetInstalledPath(dependentPackage);
-            if (path != null)
+            string path = ResolveInstalledDirectory(dependentPackage);
+            if (Directory.Exists(path))
             {
                 var reader = new PackageFolderReader(path);
 
@@ -137,6 +137,15 @@ internal static class Helper
     public static string GetNuspecFilePath(string packageId, string version)
     {
         return Path.Combine(InstallPath, $"{packageId}.{version}", $"{packageId}.{version}.nuspec");
+    }
+
+    // GetInstalledPath keys off the package's .nupkg file, so a directory whose .nupkg was deleted
+    // resolves to null even though its extracted files remain. Fall back to the deterministic install
+    // path so cleanup still reaches them; callers use Directory.Exists to tell gone from still-there.
+    public static string ResolveInstalledDirectory(PackageIdentity package)
+    {
+        return PackagePathResolver.GetInstalledPath(package)
+               ?? PackagePathResolver.GetInstallPath(package);
     }
 
     public static T? TryGetOrDefault<T>(Func<T> func)

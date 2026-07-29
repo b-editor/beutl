@@ -162,7 +162,7 @@ public sealed class PackageManager(
 
             foreach (PackageIdentity packageId in packages)
             {
-                string directory = Helper.PackagePathResolver.GetInstalledPath(packageId);
+                string? directory = Helper.PackagePathResolver.GetInstalledPath(packageId);
                 if (Directory.Exists(directory))
                 {
                     var reader = new PackageFolderReader(directory);

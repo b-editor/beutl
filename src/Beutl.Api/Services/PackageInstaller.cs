@@ -345,7 +345,7 @@ public partial class PackageInstaller : IBeutlApiResource
                         continue;
                     }
 
-                    string installedPath = Helper.PackagePathResolver.GetInstalledPath(packageToInstall);
+                    string? installedPath = Helper.PackagePathResolver.GetInstalledPath(packageToInstall);
                     if (installedPath != null)
                     {
                         installedPaths.Add(installedPath);
