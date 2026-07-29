@@ -61,8 +61,8 @@ public partial class PackageInstaller
         long size = 0;
         foreach (PackageIdentity package in unnecessaryPackages)
         {
-            string? directory = Helper.PackagePathResolver.GetInstalledPath(package);
-            if (directory is null)
+            string directory = Helper.ResolveInstalledDirectory(package);
+            if (!Directory.Exists(directory))
             {
                 _logger.LogWarning("Installed directory not found for package: {PackageId}", package.Id);
                 continue;
@@ -90,9 +90,10 @@ public partial class PackageInstaller
         long totalSize = 0;
         foreach (PackageIdentity package in context.UnnecessaryPackages)
         {
-            string? directory = Helper.PackagePathResolver.GetInstalledPath(package);
-            if (directory is null)
+            string directory = Helper.ResolveInstalledDirectory(package);
+            if (!Directory.Exists(directory))
             {
+                // The files are already gone, so the repository entry would outlive them.
                 _logger.LogWarning("Installed directory not found for package: {PackageId}", package.Id);
                 _installedPackageRepository.RemovePackage(package);
                 continue;

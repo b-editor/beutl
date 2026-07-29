@@ -39,8 +39,8 @@ public class CleanViewModel : IProgress<double>
         _logger.LogDebug("Condition changed for package {PackageId} to {Condition}.", package.Id, condition);
         long size = SizeToBeReleased.Value;
 
-        string? directory = Helper.PackagePathResolver.GetInstalledPath(package);
-        if (directory is null)
+        string directory = Helper.ResolveInstalledDirectory(package);
+        if (!Directory.Exists(directory))
         {
             _logger.LogWarning("Installed directory not found for package {PackageId}.", package.Id);
             return;

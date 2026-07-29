@@ -139,6 +139,15 @@ internal static class Helper
         return Path.Combine(InstallPath, $"{packageId}.{version}", $"{packageId}.{version}.nuspec");
     }
 
+    // GetInstalledPath keys off the package's .nupkg file, so a directory whose .nupkg was deleted
+    // resolves to null even though its extracted files remain. Fall back to the deterministic install
+    // path so cleanup still reaches them; callers use Directory.Exists to tell gone from still-there.
+    public static string ResolveInstalledDirectory(PackageIdentity package)
+    {
+        return PackagePathResolver.GetInstalledPath(package)
+               ?? PackagePathResolver.GetInstallPath(package);
+    }
+
     public static T? TryGetOrDefault<T>(Func<T> func)
     {
         try
