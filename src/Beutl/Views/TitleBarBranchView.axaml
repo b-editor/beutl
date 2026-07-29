@@ -12,45 +12,7 @@
              x:DataType="vm:TitleBarBranchViewModel"
              IsVisible="{Binding IsVisible.Value}"
              mc:Ignorable="d">
-    <UserControl.Resources>
-        <ControlTheme x:Key="BranchFlyoutPresenterTheme"
-                      BasedOn="{StaticResource {x:Type FlyoutPresenter}}"
-                      TargetType="FlyoutPresenter">
-            <Setter Property="Padding" Value="4" />
-            <Setter Property="MinWidth" Value="240" />
-            <Setter Property="MaxWidth" Value="320" />
-        </ControlTheme>
-    </UserControl.Resources>
-
     <UserControl.Styles>
-        <Style Selector="Button.branchRow">
-            <Setter Property="MinHeight" Value="32" />
-            <Setter Property="Margin" Value="2,0" />
-            <Setter Property="Padding" Value="8,0" />
-            <Setter Property="HorizontalAlignment" Value="Stretch" />
-            <Setter Property="HorizontalContentAlignment" Value="Stretch" />
-            <Setter Property="VerticalContentAlignment" Value="Center" />
-            <Setter Property="Background" Value="{DynamicResource SubtleFillColorTransparentBrush}" />
-            <Setter Property="BorderBrush" Value="{DynamicResource SubtleFillColorTransparentBrush}" />
-            <Setter Property="BorderThickness" Value="0" />
-            <Setter Property="CornerRadius" Value="4" />
-            <Setter Property="Theme" Value="{StaticResource TransparentButton}" />
-            <Style Selector="^:pointerover">
-                <Setter Property="Background" Value="{DynamicResource SubtleFillColorSecondaryBrush}" />
-            </Style>
-            <Style Selector="^:pointerover /template/ ContentPresenter#PART_ContentPresenter">
-                <Setter Property="Background" Value="{DynamicResource SubtleFillColorSecondaryBrush}" />
-            </Style>
-            <Style Selector="^:pressed">
-                <Setter Property="Background" Value="{DynamicResource SubtleFillColorTertiaryBrush}" />
-            </Style>
-            <Style Selector="^:pressed /template/ ContentPresenter#PART_ContentPresenter">
-                <Setter Property="Background" Value="{DynamicResource SubtleFillColorTertiaryBrush}" />
-            </Style>
-            <Style Selector="^:disabled">
-                <Setter Property="Opacity" Value="0.5" />
-            </Style>
-        </Style>
         <Style Selector="TextBlock.branchName.current">
             <Setter Property="FontWeight" Value="SemiBold" />
         </Style>
@@ -61,11 +23,11 @@
             Theme="{StaticResource LiteButtonStyle}"
             ToolTip.Tip="{Binding AheadBehindText.Value}">
         <Button.Flyout>
-            <Flyout FlyoutPresenterTheme="{StaticResource BranchFlyoutPresenterTheme}"
+            <Flyout FlyoutPresenterTheme="{StaticResource CompactFlyoutPresenterTheme}"
                     Opening="OnBranchFlyoutOpening">
-                <Grid RowDefinitions="Auto,1,Auto,Auto,1,Auto">
-                    <Border Padding="12,10,12,8">
-                        <StackPanel Spacing="5">
+                <StackPanel MaxWidth="320" Spacing="4">
+                    <Border Padding="16,4">
+                        <StackPanel Spacing="4">
                             <TextBlock FontSize="11"
                                        Foreground="{DynamicResource TextFillColorSecondaryBrush}"
                                        Text="{x:Static lang:Strings.VersionControl_CurrentBranch}" />
@@ -102,41 +64,38 @@
                         </StackPanel>
                     </Border>
 
-                    <Border Grid.Row="1"
-                            Height="1"
-                            Background="{DynamicResource DividerStrokeColorDefaultBrush}" />
+                    <Separator Height="1" Background="{DynamicResource DividerStrokeColorDefaultBrush}" />
 
-                    <TextBlock Grid.Row="2"
-                               Margin="12,6,12,2"
+                    <TextBlock Margin="16,4,16,0"
                                FontSize="11"
                                Foreground="{DynamicResource TextFillColorSecondaryBrush}"
                                Text="{x:Static lang:Strings.VersionControl_Branches}" />
 
-                    <ScrollViewer Grid.Row="3"
-                                  MaxHeight="320"
+                    <ScrollViewer MaxHeight="320"
                                   HorizontalScrollBarVisibility="Disabled"
                                   VerticalScrollBarVisibility="Auto">
                         <ItemsControl x:Name="BranchList"
                                       ItemsSource="{Binding Branches}">
                             <ItemsControl.ItemTemplate>
                                 <DataTemplate x:DataType="vm:TitleBarBranchItemViewModel">
-                                    <Button Classes="branchRow"
+                                    <Button HorizontalContentAlignment="Stretch"
                                             Click="OnBranchClick"
-                                            IsEnabled="{Binding CanSwitch.Value}">
-                                        <Grid ColumnDefinitions="20,*">
+                                            IsEnabled="{Binding CanSwitch.Value}"
+                                            Theme="{StaticResource CompactFlyoutItemButtonTheme}">
+                                        <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
+                                            <TextBlock VerticalAlignment="Center"
+                                                       Classes.current="{Binding IsCurrent}"
+                                                       Classes="branchName"
+                                                       Text="{Binding Name}"
+                                                       TextTrimming="CharacterEllipsis" />
                                             <icons:FluentIcon x:Name="CurrentBranchMark"
-                                                              HorizontalAlignment="Center"
+                                                              Grid.Column="1"
+                                                              HorizontalAlignment="Right"
                                                               VerticalAlignment="Center"
                                                               FontSize="13"
                                                               Foreground="{DynamicResource AccentTextFillColorPrimaryBrush}"
                                                               Icon="Checkmark"
                                                               IsVisible="{Binding IsCurrent}" />
-                                            <TextBlock Grid.Column="1"
-                                                       VerticalAlignment="Center"
-                                                       Classes.current="{Binding IsCurrent}"
-                                                       Classes="branchName"
-                                                       Text="{Binding Name}"
-                                                       TextTrimming="CharacterEllipsis" />
                                         </Grid>
                                     </Button>
                                 </DataTemplate>
@@ -144,24 +103,22 @@
                         </ItemsControl>
                     </ScrollViewer>
 
-                    <Border Grid.Row="4"
-                            Height="1"
-                            Background="{DynamicResource DividerStrokeColorDefaultBrush}" />
+                    <Separator Height="1" Background="{DynamicResource DividerStrokeColorDefaultBrush}" />
 
-                    <Button Grid.Row="5"
-                            Classes="branchRow"
-                            Command="{Binding CreateBranchCommand}">
-                        <Grid ColumnDefinitions="20,*">
-                            <icons:FluentIcon HorizontalAlignment="Center"
+                    <Button HorizontalContentAlignment="Stretch"
+                            Command="{Binding CreateBranchCommand}"
+                            Theme="{StaticResource CompactFlyoutItemButtonTheme}">
+                        <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
+                            <TextBlock VerticalAlignment="Center"
+                                       Text="{x:Static lang:Strings.VersionControl_NewBranch}" />
+                            <icons:FluentIcon Grid.Column="1"
+                                              HorizontalAlignment="Right"
                                               VerticalAlignment="Center"
                                               FontSize="14"
                                               Icon="Add" />
-                            <TextBlock Grid.Column="1"
-                                       VerticalAlignment="Center"
-                                       Text="{x:Static lang:Strings.VersionControl_NewBranch}" />
                         </Grid>
                     </Button>
-                </Grid>
+                </StackPanel>
             </Flyout>
         </Button.Flyout>
         <StackPanel Orientation="Horizontal" Spacing="5">
