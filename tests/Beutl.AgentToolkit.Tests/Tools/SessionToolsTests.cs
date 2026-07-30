@@ -57,6 +57,8 @@ public sealed class SessionToolsTests
         SessionTools sessionTools = CreateSessionTools(source, manager, root);
 
         ToolResult<OpenProjectResponse> opened = await sessionTools.OpenProject(projectPath);
+        Assert.That(opened.IsSuccess, Is.True, opened.Error?.Message);
+        Assert.That(opened.Value, Is.Not.Null, opened.Error?.Message);
         JsonObject responseJson = JsonSerializer.SerializeToNode(opened.Value)!.AsObject();
 
         var stillRenderer = new StillRenderer();
@@ -83,6 +85,86 @@ public sealed class SessionToolsTests
             Assert.That(
                 responseJson["Warnings"]?.AsArray().Select(static item => item!.GetValue<string>()),
                 Has.Some.Contains(Path.GetFileName(elementPath)).And.Some.Contains("could not be converted"));
+            Assert.That(rendered.IsError, Is.Not.True);
+            Assert.That(File.Exists(outputPath), Is.True);
+        });
+    }
+
+    [Test]
+    public async Task Open_project_warns_about_malformed_element_json_and_keeps_healthy_elements()
+    {
+        string root = CreateWorkspace();
+        string projectPath = Path.Combine(root, "malformed-element.bep");
+        Project project = ProjectOperations.CreateProject(new ProjectCreateOptions(
+            projectPath,
+            64,
+            64,
+            30,
+            TimeSpan.FromSeconds(1)));
+        Scene scene = project.Items.OfType<Scene>().Single();
+        string sceneDirectory = Path.GetDirectoryName(scene.Uri!.LocalPath)!;
+        var healthy = new Element
+        {
+            Name = "Healthy element",
+            Length = TimeSpan.FromSeconds(1),
+            Uri = new Uri(Path.Combine(sceneDirectory, "healthy-element.belm")),
+        };
+        healthy.AddObject(new RectShape
+        {
+            Width = { CurrentValue = 32 },
+            Height = { CurrentValue = 32 },
+            Fill = { CurrentValue = Brushes.White },
+        });
+        var malformed = new Element
+        {
+            Name = "Malformed element",
+            Length = TimeSpan.FromSeconds(1),
+            Uri = new Uri(Path.Combine(sceneDirectory, "malformed-element.belm")),
+        };
+        malformed.AddObject(new RectShape
+        {
+            Width = { CurrentValue = 16 },
+            Height = { CurrentValue = 16 },
+            Fill = { CurrentValue = Brushes.Red },
+        });
+        scene.Children.Add(healthy);
+        scene.Children.Add(malformed);
+        ProjectOperations.Save(project);
+        File.WriteAllText(malformed.Uri!.LocalPath, "{ this is not valid JSON");
+
+        var manager = new AgentSessionManager();
+        using var source = new FileSessionSource();
+        SessionTools sessionTools = CreateSessionTools(source, manager, root);
+
+        ToolResult<OpenProjectResponse> opened = await sessionTools.OpenProject(projectPath);
+        JsonObject responseJson = JsonSerializer.SerializeToNode(opened.Value)!.AsObject();
+
+        var stillRenderer = new StillRenderer();
+        var motionAnalyzer = new MotionVariationAnalyzer(stillRenderer);
+        var renderTools = new RenderTools(
+            manager,
+            new WorkspaceGuard(root),
+            new DestructiveGuard(),
+            stillRenderer,
+            new StoryboardRenderer(),
+            motionAnalyzer,
+            new AudioRhythmAnalyzer(),
+            new QualityAnalyzer(motionAnalyzer, stillRenderer),
+            new VideoExporter(new EncoderRegistration()),
+            new RenderJobManager());
+        string outputPath = Path.Combine(root, "malformed-element.png");
+        var rendered = await renderTools.RenderStill(
+            outputPath,
+            cancellationToken: CancellationToken.None);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(opened.Value!.Summary.Scenes.Single().Elements, Is.EqualTo(2));
+            Assert.That(
+                responseJson["Warnings"]?.AsArray().Select(static item => item!.GetValue<string>()),
+                Has.Some.Contains(Path.GetFileName(malformed.Uri.LocalPath))
+                    .And.Some.Contains("JsonReaderException")
+                    .And.Some.Contains("invalid start"));
             Assert.That(rendered.IsError, Is.Not.True);
             Assert.That(File.Exists(outputPath), Is.True);
         });

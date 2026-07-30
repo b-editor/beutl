@@ -7,6 +7,7 @@ using System.Text.Json;
 using System.Text.Json.Nodes;
 using Beutl.Collections;
 using Beutl.Configuration;
+using Beutl.Engine;
 using Beutl.Language;
 using Beutl.Media;
 using Beutl.Serialization;
@@ -670,11 +671,37 @@ public class Scene : ProjectItem, INotifyEdited
             Children.Remove(item);
         }
 
-        Children.AddRange(urisAdd.AsParallel().Select(CoreSerializer.RestoreFromUri<Element>));
+        Children.AddRange(urisAdd.AsParallel().Select(RestoreElementOrFallback));
 
         activity?.SetTag("addCount", urisAdd.Length);
         activity?.SetTag("removeCount", elementsRemove.Length);
         activity?.SetTag("childrenCount", Children.Count);
+    }
+
+    private static Element RestoreElementOrFallback(Uri uri)
+    {
+        try
+        {
+            return CoreSerializer.RestoreFromUri<Element>(uri);
+        }
+        catch (JsonException ex)
+        {
+            var fallback = new FallbackEngineObject
+            {
+                Name = "Unreadable element data",
+                Json = new JsonObject(),
+                Reason = FallbackReason.DeserializationFailed,
+                ErrorMessage = $"{ex.GetType().Name}: {ex.Message}",
+            };
+            var element = new Element
+            {
+                Name = Path.GetFileNameWithoutExtension(uri.LocalPath),
+                Uri = uri,
+                IsEnabled = false,
+            };
+            element.AddObject(fallback);
+            return element;
+        }
     }
 
     private void UpdateInclude()
