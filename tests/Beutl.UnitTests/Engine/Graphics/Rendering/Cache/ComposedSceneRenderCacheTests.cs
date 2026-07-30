@@ -6,10 +6,12 @@ using Beutl.Graphics.Rendering.Cache;
 using Beutl.Graphics.Shapes;
 using Beutl.Graphics.Transformation;
 using Beutl.Media;
+using Beutl.UnitTests.Engine.Graphics.Backend;
 using SkiaSharp;
 
 namespace Beutl.UnitTests.Engine.Graphics.Rendering.Cache;
 
+[NonParallelizable]
 [TestFixture]
 public sealed class ComposedSceneRenderCacheTests
 {
@@ -82,7 +84,7 @@ public sealed class ComposedSceneRenderCacheTests
     }
 
     [Test]
-    public void Text_CacheAdmissionAndHitAreByteIdenticalToDisabledRender()
+    public void Text_DeviceGridDependentCacheCandidateIsBypassedAndMatchesDisabledRender()
     {
         RenderThread.Dispatcher.Invoke(() =>
         {
@@ -92,32 +94,135 @@ public sealed class ComposedSceneRenderCacheTests
                 Size = { CurrentValue = 72 },
                 Fill = { CurrentValue = Brushes.White },
                 Text = { CurrentValue = "ab" },
+                AlignmentX = { CurrentValue = AlignmentX.Left },
+                AlignmentY = { CurrentValue = AlignmentY.Top },
             };
             using Drawable.Resource resource = text.ToResource(CompositionContext.Default);
 
-            AssertCacheAdmissionParity<TextRenderNode>(resource);
+            AssertCacheAdmissionParity<TextRenderNode>(resource, expectCacheHit: false);
         });
     }
 
     [Test]
-    public void FractionalDrawableBrush_CacheAdmissionAndHitAreByteIdenticalToDisabledRender()
+    public void FractionalDrawableBrush_DeviceGridDependentCacheCandidateIsBypassed()
     {
         RenderThread.Dispatcher.Invoke(() =>
         {
             using Drawable.Resource resource = CreateDrawableBrushHost(0.5f);
 
-            AssertCacheAdmissionParity<GeometryRenderNode>(resource);
+            AssertCacheAdmissionParity<GeometryRenderNode>(resource, expectCacheHit: false);
         });
     }
 
-    private static Drawable.Resource CreateDrawableBrushHost(float translation)
+    [Test]
+    public void IntegerPhaseText_CacheAdmissionAndReplayAreByteIdenticalToDisabledRender()
     {
-        var content = new EllipseShape
+        VulkanTestEnvironment.EnsureAvailable();
+        VulkanTestEnvironment.InvokeOnRenderThread(() =>
         {
-            Width = { CurrentValue = 40 },
-            Height = { CurrentValue = 30 },
-            Fill = { CurrentValue = Brushes.White },
-        };
+            var text = new TextBlock
+            {
+                FontFamily = { CurrentValue = FontFamily.Default },
+                Size = { CurrentValue = 72 },
+                Fill = { CurrentValue = Brushes.White },
+                Text = { CurrentValue = "ab" },
+                Transform = { CurrentValue = new TranslateTransform(0, 0) },
+            };
+            using Drawable.Resource resource = text.ToResource(CompositionContext.Default);
+
+            AssertProductionCacheSequenceParity(resource);
+        });
+    }
+
+    [Test]
+    public void DstInCircle_CacheAdmissionAndReplayAreByteIdenticalToDisabledRender()
+    {
+        VulkanTestEnvironment.EnsureAvailable();
+        VulkanTestEnvironment.InvokeOnRenderThread(() =>
+        {
+            var group = new DrawableGroup();
+            group.Children.Add(new RectShape
+            {
+                Width = { CurrentValue = 160 },
+                Height = { CurrentValue = 160 },
+                Fill = { CurrentValue = Brushes.White },
+            });
+            group.Children.Add(new EllipseShape
+            {
+                Width = { CurrentValue = 90 },
+                Height = { CurrentValue = 90 },
+                Fill = { CurrentValue = Brushes.White },
+                BlendMode = { CurrentValue = BlendMode.DstIn },
+            });
+            using Drawable.Resource resource = group.ToResource(CompositionContext.Default);
+
+            AssertProductionCacheSequenceParity(resource);
+        });
+    }
+
+    [Test]
+    public void FractionalDrawableBrush_UncachedRenderPreservesAnalyticRectangleCoverage()
+    {
+        VulkanTestEnvironment.EnsureAvailable();
+        VulkanTestEnvironment.InvokeOnRenderThread(() =>
+        {
+            using Drawable.Resource resource = CreateDrawableBrushHost(
+                translation: 0.25f,
+                width: 120,
+                height: 120,
+                rectangularContent: true);
+            using Bitmap bitmap = RenderComposedFrame(resource, useRenderCache: false);
+
+            Rgba leftEdge = ReadPixel(bitmap, 60, 80);
+            Rgba topEdge = ReadPixel(bitmap, 120, 20);
+            Assert.Multiple(() =>
+            {
+                Assert.That(
+                    leftEdge.Alpha,
+                    Is.EqualTo(0.75f).Within(0.01f),
+                    "The leading edge must retain 75% device-pixel coverage.");
+                Assert.That(
+                    topEdge.Alpha,
+                    Is.EqualTo(0.75f).Within(0.01f),
+                    "The top edge must retain 75% device-pixel coverage.");
+            });
+        });
+    }
+
+    [Test]
+    public void FractionalDrawableBrush_HasNoCacheAdmissionFrameFlicker()
+    {
+        VulkanTestEnvironment.EnsureAvailable();
+        VulkanTestEnvironment.InvokeOnRenderThread(() =>
+        {
+            using Drawable.Resource resource = CreateDrawableBrushHost(
+                translation: 0.25f,
+                width: 120,
+                height: 120);
+
+            AssertProductionCacheSequenceParity(resource);
+        });
+    }
+
+    private static Drawable.Resource CreateDrawableBrushHost(
+        float translation,
+        float width = 40,
+        float height = 30,
+        bool rectangularContent = false)
+    {
+        Drawable content = rectangularContent
+            ? new RectShape
+            {
+                Width = { CurrentValue = width },
+                Height = { CurrentValue = height },
+                Fill = { CurrentValue = Brushes.White },
+            }
+            : new EllipseShape
+            {
+                Width = { CurrentValue = width },
+                Height = { CurrentValue = height },
+                Fill = { CurrentValue = Brushes.White },
+            };
         var brush = new DrawableBrush(content)
         {
             Stretch = { CurrentValue = Stretch.Fill },
@@ -126,15 +231,17 @@ public sealed class ComposedSceneRenderCacheTests
         };
         var host = new RectShape
         {
-            Width = { CurrentValue = 40 },
-            Height = { CurrentValue = 30 },
+            Width = { CurrentValue = width },
+            Height = { CurrentValue = height },
             Fill = { CurrentValue = brush },
             Transform = { CurrentValue = new TranslateTransform(translation, translation) },
         };
         return host.ToResource(CompositionContext.Default);
     }
 
-    private static void AssertCacheAdmissionParity<TNode>(Drawable.Resource resource)
+    private static void AssertCacheAdmissionParity<TNode>(
+        Drawable.Resource resource,
+        bool expectCacheHit)
         where TNode : RenderNode
     {
         using var root = new DrawableRenderNode(resource);
@@ -172,8 +279,10 @@ public sealed class ComposedSceneRenderCacheTests
                 + DescribeDifference(controlPixels, hitPixels));
             Assert.That(
                 diagnostics.Latest[RenderPipelineCounter.RenderCacheHits],
-                Is.GreaterThan(0),
-                "the second enabled render must exercise a persistent render-cache hit");
+                expectCacheHit ? Is.GreaterThan(0) : Is.EqualTo(0),
+                expectCacheHit
+                    ? "the second enabled render must exercise a persistent render-cache hit"
+                    : "a transformed device-grid-dependent source must bypass persistent caching");
         });
     }
 
@@ -192,6 +301,50 @@ public sealed class ComposedSceneRenderCacheTests
                 TargetFactory = new CpuTargetFactory(),
                 Diagnostics = diagnostics,
             });
+    }
+
+    private static void AssertProductionCacheSequenceParity(Drawable.Resource resource)
+    {
+        using var cachedRenderer = new Renderer(s_frameSize.Width, s_frameSize.Height)
+        {
+            CacheOptions = RenderCacheOptions.Default,
+        };
+        using var uncachedRenderer = new Renderer(s_frameSize.Width, s_frameSize.Height)
+        {
+            CacheOptions = RenderCacheOptions.Disabled,
+        };
+        var frameData = new CompositionFrame(
+            [resource],
+            new TimeRange(TimeSpan.Zero, TimeSpan.FromSeconds(1)),
+            s_frameSize);
+        for (int frame = 0; frame < 6; frame++)
+        {
+            cachedRenderer.Render(frameData);
+            uncachedRenderer.Render(frameData);
+            using Bitmap actual = cachedRenderer.Snapshot();
+            using Bitmap control = uncachedRenderer.Snapshot();
+            byte[] expected = control.GetPixelSpan().ToArray();
+            byte[] actualPixels = actual.GetPixelSpan().ToArray();
+            Assert.That(
+                actualPixels,
+                Is.EqualTo(expected),
+                $"cache policy changed frame {frame}. {DescribeDifference(expected, actualPixels)}");
+        }
+    }
+
+    private static Bitmap RenderComposedFrame(Drawable.Resource resource, bool useRenderCache)
+    {
+        using var renderer = new Renderer(s_frameSize.Width, s_frameSize.Height)
+        {
+            CacheOptions = useRenderCache
+                ? RenderCacheOptions.Default
+                : RenderCacheOptions.Disabled,
+        };
+        renderer.Render(new CompositionFrame(
+            [resource],
+            new TimeRange(TimeSpan.Zero, TimeSpan.FromSeconds(1)),
+            s_frameSize));
+        return renderer.Snapshot();
     }
 
     private static IEnumerable<RenderNode> Descendants(RenderNode node)
@@ -213,6 +366,17 @@ public sealed class ComposedSceneRenderCacheTests
     {
         Assert.That(rasterization.IsEmpty, Is.False);
         return rasterization.Bitmap!.GetPixelSpan().ToArray();
+    }
+
+    private static Rgba ReadPixel(Bitmap bitmap, int x, int y)
+    {
+        ReadOnlySpan<ushort> pixels = bitmap.GetPixelSpan<ushort>();
+        int offset = ((y * bitmap.Width) + x) * 4;
+        return new Rgba(
+            (float)BitConverter.UInt16BitsToHalf(pixels[offset]),
+            (float)BitConverter.UInt16BitsToHalf(pixels[offset + 1]),
+            (float)BitConverter.UInt16BitsToHalf(pixels[offset + 2]),
+            (float)BitConverter.UInt16BitsToHalf(pixels[offset + 3]));
     }
 
     private static string DescribeDifference(ReadOnlySpan<byte> expected, ReadOnlySpan<byte> actual)
@@ -292,4 +456,6 @@ public sealed class ComposedSceneRenderCacheTests
                 SKColorSpace.CreateSrgbLinear())),
             width,
             height);
+
+    private readonly record struct Rgba(float Red, float Green, float Blue, float Alpha);
 }

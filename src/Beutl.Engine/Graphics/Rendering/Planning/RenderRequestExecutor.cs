@@ -1043,13 +1043,6 @@ internal sealed class RenderRequestExecutor
         private bool TryReplayEngineSourceDirect(
             RenderFragmentReference fragment,
             ImmediateCanvas destination)
-            => ExecuteOnDeviceGrid(
-                destination,
-                () => TryReplayEngineSourceDirectCore(fragment, destination));
-
-        private bool TryReplayEngineSourceDirectCore(
-            RenderFragmentReference fragment,
-            ImmediateCanvas destination)
         {
             OpaqueRenderDescription description =
                 ((OpaqueRenderFragmentPayload)fragment.Payload!).Description;
@@ -3672,10 +3665,15 @@ internal sealed class RenderRequestExecutor
                 return;
             }
 
-            EffectiveScale scale = ClampToActiveDeviceGrid(
+            EffectiveScale scale = EffectiveScale.At(destination.Density);
+            Vector deviceGridOffset = ContainsDestructiveBlend(fragment)
+                ? default
+                : DeviceGridAlignment.ResolveLogicalOffset(destination);
+            scale = ClampToDeviceGrid(domain, scale, deviceGridOffset);
+            CompatibilityRenderValue value = CreateOwnedValue(
                 domain,
-                EffectiveScale.At(destination.Density));
-            CompatibilityRenderValue value = CreateOwnedValue(domain, scale);
+                scale,
+                deviceGridOffset: deviceGridOffset);
             try
             {
                 _diagnostics?.RecordGpuPassExecuted(fragment.Id?.Value ?? 0);
@@ -3968,10 +3966,23 @@ internal sealed class RenderRequestExecutor
             EffectiveScale scale,
             bool requiresRasterApron = false)
         {
-            if (_activeDeviceGridOffset == default)
+            return ClampToDeviceGrid(
+                completeBounds,
+                scale,
+                _activeDeviceGridOffset,
+                requiresRasterApron);
+        }
+
+        private static EffectiveScale ClampToDeviceGrid(
+            Rect completeBounds,
+            EffectiveScale scale,
+            Vector deviceGridOffset,
+            bool requiresRasterApron = false)
+        {
+            if (deviceGridOffset == default)
                 return scale;
 
-            Rect alignedBounds = completeBounds.Translate(_activeDeviceGridOffset);
+            Rect alignedBounds = completeBounds.Translate(deviceGridOffset);
             float density = requiresRasterApron
                 ? RenderScaleUtilities.ClampWorkingScaleToRasterApronBudget(
                     alignedBounds,

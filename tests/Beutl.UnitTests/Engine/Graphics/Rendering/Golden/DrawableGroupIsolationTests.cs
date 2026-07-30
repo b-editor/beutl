@@ -197,6 +197,59 @@ public sealed class DrawableGroupIsolationTests
     }
 
     [Test]
+    public void FractionalDstOutEdges_IdentityEffectDoesNotChangeCoverage()
+    {
+        VulkanTestEnvironment.EnsureAvailable();
+        VulkanTestEnvironment.InvokeOnRenderThread(() =>
+        {
+            using Drawable.Resource plain = CreateTranslatedDstOutGroup(effect: null);
+            var identity = new Brightness();
+            identity.Amount.CurrentValue = 100;
+            using Drawable.Resource filtered = CreateTranslatedDstOutGroup(identity);
+
+            using Bitmap expected = RenderScene(plain);
+            using Bitmap actual = RenderScene(filtered);
+
+            AssertByteIdentical(
+                expected,
+                actual,
+                "fractionally translated DstOut mask with and without an identity group effect");
+        });
+    }
+
+    [Test]
+    public void DstOutChild_RemovesOnlyItsIntersectionWithGroupContent()
+    {
+        VulkanTestEnvironment.EnsureAvailable();
+        VulkanTestEnvironment.InvokeOnRenderThread(() =>
+        {
+            using Drawable.Resource backdrop = CreateRectangle(400, 400, Brushes.Blue)
+                .ToResource(CompositionContext.Default);
+            using Drawable.Resource group = CreateTranslatedDstOutGroup(effect: null);
+            using Bitmap actual = RenderScene(backdrop, group);
+
+            Rgba backdropOnly = ReadPixel(actual, 20, 20);
+            Rgba content = ReadPixel(actual, 80, 200);
+            Rgba erased = ReadPixel(actual, 200, 200);
+            Assert.Multiple(() =>
+            {
+                Assert.That(
+                    backdropOnly,
+                    Is.EqualTo(new Rgba(0, 0, 1, 1)),
+                    "The isolated group must not modify the outer backdrop.");
+                Assert.That(
+                    content,
+                    Is.EqualTo(new Rgba(1, 1, 1, 1)),
+                    "Group content outside the DstOut child bounds must remain opaque.");
+                Assert.That(
+                    erased,
+                    Is.EqualTo(backdropOnly),
+                    "The DstOut child must reveal the backdrop inside its intersection with group content.");
+            });
+        });
+    }
+
+    [Test]
     public void NestedGroupOpacity_MultipliesCompositeOpacity()
     {
         VulkanTestEnvironment.EnsureAvailable();
@@ -316,6 +369,19 @@ public sealed class DrawableGroupIsolationTests
         group.Transform.CurrentValue = new TranslateTransform(0.25f, 0.25f);
         group.Children.Add(CreateRectangle(200, 200, Brushes.Blue));
         group.Children.Add(CreateRectangle(100, 100, Brushes.White, blendMode: BlendMode.DstIn));
+        return group.ToResource(CompositionContext.Default);
+    }
+
+    private static Drawable.Resource CreateTranslatedDstOutGroup(FilterEffect? effect)
+    {
+        var eraser = CreateRectangle(160, 160, Brushes.White, blendMode: BlendMode.DstOut);
+        eraser.Transform.CurrentValue = new TranslateTransform(0.25f, 0.25f);
+
+        var group = new DrawableGroup();
+        group.FilterEffect.CurrentValue = effect;
+        group.Transform.CurrentValue = new TranslateTransform(0.25f, 0);
+        group.Children.Add(CreateRectangle(320, 320, Brushes.White));
+        group.Children.Add(eraser);
         return group.ToResource(CompositionContext.Default);
     }
 

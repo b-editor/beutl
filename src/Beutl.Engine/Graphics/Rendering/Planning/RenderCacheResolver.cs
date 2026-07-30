@@ -1218,7 +1218,15 @@ internal sealed class RenderCacheResolver
                     consumers[input].Add(reference);
             }
 
-            RenderFragmentReference[] sensitive = [.. all.Where(IsDeviceGridSensitive)];
+            RenderFragmentReference[] phaseUnsafeMaskScopes =
+            [
+                .. all.Where(IsPhaseUnsafeMaskScope),
+            ];
+            RenderFragmentReference[] sensitive =
+            [
+                .. all.Where(IsDeviceGridSensitive),
+                .. phaseUnsafeMaskScopes,
+            ];
             HashSet<RenderFragmentReference> affected = ExpandConnectedReferences(
                 sensitive,
                 consumers);
@@ -1229,6 +1237,9 @@ internal sealed class RenderCacheResolver
             HashSet<RenderFragmentReference> transformDependent = ExpandConnectedReferences(
                 transformRoots,
                 consumers);
+            transformDependent.UnionWith(ExpandConnectedReferences(
+                phaseUnsafeMaskScopes,
+                consumers));
             return (affected, transformDependent);
         }
 
@@ -1263,9 +1274,53 @@ internal sealed class RenderCacheResolver
         }
 
         private static bool IsDeviceGridSensitive(RenderFragmentReference reference)
-            => reference.Kind is RenderFragmentKind.LegacyFilterEffect
+        {
+            if (reference.Kind is RenderFragmentKind.LegacyFilterEffect
                 or RenderFragmentKind.Shader
-                or RenderFragmentKind.Geometry;
+                or RenderFragmentKind.Geometry)
+            {
+                return true;
+            }
+
+            if (reference.Payload is OpaqueRenderFragmentPayload opaque)
+            {
+                bool isText = opaque.Description.StructuralKey is Type type
+                              && type == typeof(TextRenderNode);
+                bool isDrawableBrushHost = reference.Kind == RenderFragmentKind.OpaqueCombine
+                                           && opaque.Description.DirectReplay is not null;
+                if (isText || isDrawableBrushHost)
+                    return true;
+            }
+
+            return false;
+        }
+
+        private static bool IsPhaseUnsafeMaskScope(RenderFragmentReference reference)
+        {
+            if (reference.Kind != RenderFragmentKind.TargetLayerScope)
+                return false;
+
+            var visited = new HashSet<RenderFragmentReference>(
+                ReferenceEqualityComparer.Instance);
+            var pending = new Stack<RenderFragmentReference>();
+            pending.Push(reference);
+            while (pending.TryPop(out RenderFragmentReference? current))
+            {
+                if (!visited.Add(current))
+                    continue;
+                if (current.Kind == RenderFragmentKind.Blend
+                    && ((BlendRenderFragmentPayload)current.Payload!).BlendMode
+                    is BlendMode.DstIn or BlendMode.SrcIn or BlendMode.DstATop)
+                {
+                    return true;
+                }
+
+                foreach (RenderFragmentReference input in current.Inputs)
+                    pending.Push(input);
+            }
+
+            return false;
+        }
 
         private static bool HasNonIdentityValueReplayAncestor(
             RenderFragmentReference reference,
