@@ -310,8 +310,8 @@ public sealed class RenderExecutionInput
                 nameof(deviceBounds));
         }
 
-        if (Math.Abs((rasterBounds.Width * density) - deviceBounds.Width) > 0.0001
-            || Math.Abs((rasterBounds.Height * density) - deviceBounds.Height) > 0.0001
+        if (!DeviceBoundsValidation.MatchesExtent(rasterBounds.Width, density, deviceBounds.Width)
+            || !DeviceBoundsValidation.MatchesExtent(rasterBounds.Height, density, deviceBounds.Height)
             || rasterBounds.X > bounds.X
             || rasterBounds.Y > bounds.Y
             || rasterBounds.Right < bounds.Right

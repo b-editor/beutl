@@ -180,6 +180,124 @@ public sealed class RasterFootprintMetadataTests
         token.Complete();
     }
 
+    [TestCase(1.7f)]
+    [TestCase(1.3333333f)]
+    [TestCase(1.06f)]
+    public void CallbackCanvas_AcceptsLargeCanonicalDeviceFootprints(float density)
+    {
+        var logicalBounds = new Rect(0, 0, 1920, 1080);
+        PixelRect deviceBounds = PixelRect.FromRect(logicalBounds, density);
+        Rect rasterBounds = deviceBounds.ToRect(density);
+        var token = new RenderExecutionSessionToken();
+        try
+        {
+            Assert.That(
+                () => new RenderCallbackCanvas(
+                    token,
+                    density,
+                    logicalBounds,
+                    deviceBounds,
+                    static () => throw new InvalidOperationException("The constructor must not open a canvas."),
+                    CallbackCanvasCapability.Draw,
+                    rasterBounds: rasterBounds),
+                Throws.Nothing);
+        }
+        finally
+        {
+            token.Complete();
+        }
+    }
+
+    [TestCase(1.7f)]
+    [TestCase(1.3333333f)]
+    [TestCase(1.06f)]
+    public void ExecutionInput_AcceptsLargeCanonicalDeviceFootprints(float density)
+    {
+        var logicalBounds = new Rect(0, 0, 1920, 1080);
+        PixelRect deviceBounds = PixelRect.FromRect(logicalBounds, density);
+        Rect rasterBounds = deviceBounds.ToRect(density);
+        var token = new RenderExecutionSessionToken();
+        try
+        {
+            Assert.That(
+                () => new RenderExecutionInput(
+                    token,
+                    logicalBounds,
+                    EffectiveScale.At(density),
+                    deviceBounds,
+                    rasterBounds,
+                    draw: static (_, _) => { },
+                    drawDeviceSpace: static (_, _) => { },
+                    createShader: null,
+                    createSnapshot: null,
+                    readbackDeclared: false),
+                Throws.Nothing);
+        }
+        finally
+        {
+            token.Complete();
+        }
+    }
+
+    [Test]
+    public void CallbackCanvas_RejectsAnOffByOneBackingExtent()
+    {
+        const float density = 1.7f;
+        var logicalBounds = new Rect(0, 0, 1920, 1080);
+        PixelRect canonical = PixelRect.FromRect(logicalBounds, density);
+        Rect rasterBounds = canonical.ToRect(density);
+        var mismatched = new PixelRect(
+            canonical.X,
+            canonical.Y,
+            canonical.Width + 1,
+            canonical.Height);
+        var token = new RenderExecutionSessionToken();
+        try
+        {
+            Assert.That(
+                () => new RenderCallbackCanvas(
+                    token,
+                    density,
+                    logicalBounds,
+                    mismatched,
+                    static () => throw new InvalidOperationException("The constructor must not open a canvas."),
+                    CallbackCanvasCapability.Draw,
+                    rasterBounds: rasterBounds),
+                Throws.ArgumentException.With.Message.Contains("backing size"));
+        }
+        finally
+        {
+            token.Complete();
+        }
+    }
+
+    [Test]
+    public void RenderNodeRenderer_TargetScopeRendersAtScaleOnePointSeven()
+    {
+        const float density = 1.7f;
+        var logicalBounds = new Rect(0, 0, 1920, 1080);
+        using var root = new TransformRenderNode(Matrix.Identity, TransformOperator.Prepend);
+        root.AddChild(new RectangleRenderNode(logicalBounds, Brushes.Resource.White, pen: null));
+        using var target = new CpuRenderTarget(
+            (int)Math.Ceiling(logicalBounds.Width * density),
+            (int)Math.Ceiling(logicalBounds.Height * density));
+        using var destination = new ImmediateCanvas(
+            target,
+            density,
+            logicalSize: logicalBounds.Size);
+        using var renderer = new RenderNodeRenderer(
+            root,
+            new RenderNodeRendererOptions
+            {
+                TargetDomain = logicalBounds,
+                OutputScale = density,
+                MaxWorkingScale = density,
+                UseRenderCache = false,
+            });
+
+        Assert.That(() => renderer.Render(destination), Throws.Nothing);
+    }
+
     [Test]
     public void TargetAttachedTargetScope_ClipsTheRasterApronOnTheAmbientDeviceGrid()
     {
@@ -460,4 +578,15 @@ public sealed class RasterFootprintMetadataTests
 
         return new PixelRect(left, top, right - left, bottom - top);
     }
+
+    private sealed class CpuRenderTarget(int width, int height)
+        : RenderTarget(
+            SKSurface.Create(new SKImageInfo(
+                width,
+                height,
+                SKColorType.RgbaF16,
+                SKAlphaType.Premul,
+                SKColorSpace.CreateSrgbLinear())),
+            width,
+            height);
 }

@@ -775,6 +775,7 @@ internal sealed class RenderRequestExecutor
         private readonly ProgramCache<CachedSkRuntimeEffect> _programCache;
         private readonly RenderPipelineDiagnosticRecorder? _diagnostics;
         private readonly Action<RenderFragmentKind>? _afterCaptureAllocation;
+        private readonly HashSet<ExecutionIslandId> _regionEmptyIslands;
         private readonly Dictionary<RenderFragmentId, Rect> _resolvedScopeDomains = [];
         private readonly Dictionary<RenderFragmentId, Rect> _resolvedParentScopeDomains = [];
         private readonly Dictionary<RenderFragmentId, Rect> _resolvedAccessDomains = [];
@@ -824,6 +825,10 @@ internal sealed class RenderRequestExecutor
             _executionPlan = executionPlan;
             _executionLedger = executionPlan.CreateExecutionLedger(graph, roots, cacheResolution);
             _regions = regions;
+            _regionEmptyIslands = executionPlan.Islands
+                .Where(island => IsRegionEmpty(island, regions))
+                .Select(static island => island.Id)
+                .ToHashSet();
             var cacheHitFragmentIds = cacheResolution.Hits
                 .Select(static hit => hit.OriginalProducerId)
                 .ToHashSet();
@@ -1402,7 +1407,29 @@ internal sealed class RenderRequestExecutor
                 _synchronizations);
 
         public void ValidateExecutionCompleted(bool allowSkippedIslands)
-            => _executionLedger.ValidateCompleted(allowSkippedIslands);
+            => _executionLedger.ValidateCompleted(allowSkippedIslands, _regionEmptyIslands);
+
+        private static bool IsRegionEmpty(ExecutionIsland island, RegionAnalysis regions)
+        {
+            foreach (RenderFragmentId fragmentId in island.Fragments)
+            {
+                if (!regions.FragmentRequirements.TryGetValue(fragmentId, out RequiredRegion requirement)
+                    || !requirement.IsEmpty)
+                {
+                    return false;
+                }
+
+                if (regions.TargetAccessRequirements.TryGetValue(
+                        fragmentId,
+                        out RequiredRegion targetRequirement)
+                    && !targetRequirement.IsEmpty)
+                {
+                    return false;
+                }
+            }
+
+            return true;
+        }
 
         public void PrepareBuiltInBackdropCaptures()
         {

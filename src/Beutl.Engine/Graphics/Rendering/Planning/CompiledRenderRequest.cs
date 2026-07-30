@@ -477,11 +477,19 @@ internal sealed class ExecutionIslandExecutionLedger
         _lastCompletedOrder = order;
     }
 
-    public void ValidateCompleted(bool allowSkippedIslands = false)
+    public void ValidateCompleted(
+        bool allowSkippedIslands = false,
+        IReadOnlySet<ExecutionIslandId>? regionEmptyIslands = null)
     {
         if (_active.Count != 0)
             throw new InvalidOperationException("An execution island was left active at request completion.");
-        if (!allowSkippedIslands && _completed.Count != _expectedCompletionOrder.Count)
+        if (allowSkippedIslands)
+            return;
+
+        bool hasIncompleteIsland = _expectedCompletionOrder.Keys.Any(
+            id => !_completed.Contains(id)
+                  && (regionEmptyIslands is null || !regionEmptyIslands.Contains(id)));
+        if (hasIncompleteIsland)
         {
             throw new InvalidOperationException(
                 "Every scheduled execution island must complete before request publication.");
