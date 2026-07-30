@@ -130,12 +130,17 @@ public sealed class ComposedSceneRenderCacheTests
             };
             using Drawable.Resource resource = text.ToResource(CompositionContext.Default);
 
-            AssertProductionCacheSequenceParity(resource);
+            AssertProductionCacheSequenceParity(
+                resource,
+                RenderCacheOptions.Enabled,
+                expectCacheHit: false);
         });
     }
 
-    [Test]
-    public void DstInCircle_CacheAdmissionAndReplayAreByteIdenticalToDisabledRender()
+    [TestCase(BlendMode.DstIn)]
+    [TestCase(BlendMode.SrcIn)]
+    [TestCase(BlendMode.DstATop)]
+    public void PhaseUnsafeMaskScope_IsBypassedAndMatchesDisabledRender(BlendMode blendMode)
     {
         VulkanTestEnvironment.EnsureAvailable();
         VulkanTestEnvironment.InvokeOnRenderThread(() =>
@@ -152,11 +157,58 @@ public sealed class ComposedSceneRenderCacheTests
                 Width = { CurrentValue = 90 },
                 Height = { CurrentValue = 90 },
                 Fill = { CurrentValue = Brushes.White },
-                BlendMode = { CurrentValue = BlendMode.DstIn },
+                BlendMode = { CurrentValue = blendMode },
             });
             using Drawable.Resource resource = group.ToResource(CompositionContext.Default);
 
-            AssertProductionCacheSequenceParity(resource);
+            AssertProductionCacheSequenceParity(
+                resource,
+                RenderCacheOptions.Enabled,
+                expectCacheHit: false);
+        });
+    }
+
+    [Test]
+    public void PlainGroup_IsAdmittedWhenCacheIsExplicitlyEnabled()
+    {
+        VulkanTestEnvironment.EnsureAvailable();
+        VulkanTestEnvironment.InvokeOnRenderThread(() =>
+        {
+            var group = new DrawableGroup();
+            group.Children.Add(new RectShape
+            {
+                Width = { CurrentValue = 160 },
+                Height = { CurrentValue = 160 },
+                Fill = { CurrentValue = Brushes.White },
+            });
+            using Drawable.Resource resource = group.ToResource(CompositionContext.Default);
+
+            AssertProductionCacheSequence(
+                resource,
+                RenderCacheOptions.Enabled,
+                expectCacheHit: true,
+                assertPixelParity: false);
+        });
+    }
+
+    [Test]
+    public void DefaultPolicy_DoesNotAdmitPlainAntialiasedGeometryOnGpu()
+    {
+        VulkanTestEnvironment.EnsureAvailable();
+        VulkanTestEnvironment.InvokeOnRenderThread(() =>
+        {
+            var ellipse = new EllipseShape
+            {
+                Width = { CurrentValue = 91 },
+                Height = { CurrentValue = 73 },
+                Fill = { CurrentValue = Brushes.White },
+            };
+            using Drawable.Resource resource = ellipse.ToResource(CompositionContext.Default);
+
+            AssertProductionCacheSequenceParity(
+                resource,
+                RenderCacheOptions.Default,
+                expectCacheHit: false);
         });
     }
 
@@ -200,7 +252,10 @@ public sealed class ComposedSceneRenderCacheTests
                 width: 120,
                 height: 120);
 
-            AssertProductionCacheSequenceParity(resource);
+            AssertProductionCacheSequenceParity(
+                resource,
+                RenderCacheOptions.Enabled,
+                expectCacheHit: false);
         });
     }
 
@@ -303,11 +358,34 @@ public sealed class ComposedSceneRenderCacheTests
             });
     }
 
-    private static void AssertProductionCacheSequenceParity(Drawable.Resource resource)
+    private static void AssertProductionCacheSequenceParity(
+        Drawable.Resource resource,
+        RenderCacheOptions cacheOptions,
+        bool expectCacheHit)
+        => AssertProductionCacheSequence(
+            resource,
+            cacheOptions,
+            expectCacheHit,
+            assertPixelParity: true);
+
+    private static void AssertProductionCacheSequence(
+        Drawable.Resource resource,
+        RenderCacheOptions cacheOptions,
+        bool expectCacheHit,
+        bool assertPixelParity)
     {
-        using var cachedRenderer = new Renderer(s_frameSize.Width, s_frameSize.Height)
+        var diagnostics = new RenderPipelineDiagnosticsState();
+        var completedRequests = new List<RenderPipelineDiagnosticSnapshot>();
+        diagnostics.RequestCompleted += completedRequests.Add;
+        using var cachedRenderer = new Renderer(
+            s_frameSize.Width,
+            s_frameSize.Height,
+            renderScale: 1,
+            maxWorkingScale: float.PositiveInfinity,
+            diagnostics: diagnostics,
+            surface: null)
         {
-            CacheOptions = RenderCacheOptions.Default,
+            CacheOptions = cacheOptions,
         };
         using var uncachedRenderer = new Renderer(s_frameSize.Width, s_frameSize.Height)
         {
@@ -325,11 +403,23 @@ public sealed class ComposedSceneRenderCacheTests
             using Bitmap control = uncachedRenderer.Snapshot();
             byte[] expected = control.GetPixelSpan().ToArray();
             byte[] actualPixels = actual.GetPixelSpan().ToArray();
-            Assert.That(
-                actualPixels,
-                Is.EqualTo(expected),
-                $"cache policy changed frame {frame}. {DescribeDifference(expected, actualPixels)}");
+            if (assertPixelParity)
+            {
+                Assert.That(
+                    actualPixels,
+                    Is.EqualTo(expected),
+                    $"cache policy changed frame {frame}. {DescribeDifference(expected, actualPixels)}");
+            }
         }
+
+        long hits = completedRequests.Sum(
+            static snapshot => snapshot[RenderPipelineCounter.RenderCacheHits]);
+        Assert.That(
+            hits,
+            expectCacheHit ? Is.GreaterThan(0) : Is.EqualTo(0),
+            expectCacheHit
+                ? "The explicitly enabled cached arm must execute a persistent cache hit."
+                : "The default-disabled or phase-unsafe arm must not execute a cache hit.");
     }
 
     private static Bitmap RenderComposedFrame(Drawable.Resource resource, bool useRenderCache)
@@ -337,7 +427,7 @@ public sealed class ComposedSceneRenderCacheTests
         using var renderer = new Renderer(s_frameSize.Width, s_frameSize.Height)
         {
             CacheOptions = useRenderCache
-                ? RenderCacheOptions.Default
+                ? RenderCacheOptions.Enabled
                 : RenderCacheOptions.Disabled,
         };
         renderer.Render(new CompositionFrame(

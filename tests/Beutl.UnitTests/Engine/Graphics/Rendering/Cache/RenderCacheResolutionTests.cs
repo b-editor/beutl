@@ -1166,6 +1166,7 @@ public sealed class RenderCacheResolutionTests
         => new(new RenderRequestOptions(
             RenderIntent.Preview,
             RenderRequestPurpose.Frame,
+            cachePolicy: RenderCacheOptions.Enabled,
             targetDomain: s_bounds));
 
     private static RenderNodeRenderer CreateFrameRenderer(

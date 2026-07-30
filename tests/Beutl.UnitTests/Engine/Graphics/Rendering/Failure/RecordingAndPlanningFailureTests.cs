@@ -531,7 +531,7 @@ internal static class FailureTestSupport
             requestedRegion: s_bounds,
             outputScale: 1,
             maxWorkingScale: 1,
-            cachePolicy: useRenderCache ? RenderCacheOptions.Default : RenderCacheOptions.Disabled));
+            cachePolicy: useRenderCache ? RenderCacheOptions.Enabled : RenderCacheOptions.Disabled));
 
     public static OpaqueRenderDescription SourceDescription(
         Action<OpaqueRenderSession>? execute = null,

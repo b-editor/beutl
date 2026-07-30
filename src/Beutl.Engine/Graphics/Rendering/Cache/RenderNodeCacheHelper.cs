@@ -48,8 +48,9 @@ public static class RenderNodeCacheHelper
 [JsonSerializable(typeof(RenderCacheOptions))]
 public record RenderCacheOptions(bool IsEnabled, RenderCacheRules Rules)
 {
-    public static readonly RenderCacheOptions Default = new(true, RenderCacheRules.Default);
     public static readonly RenderCacheOptions Disabled = new(false, RenderCacheRules.Default);
+    public static readonly RenderCacheOptions Enabled = new(true, RenderCacheRules.Default);
+    public static readonly RenderCacheOptions Default = Disabled;
 
     public static RenderCacheOptions CreateFromGlobalConfiguration()
     {

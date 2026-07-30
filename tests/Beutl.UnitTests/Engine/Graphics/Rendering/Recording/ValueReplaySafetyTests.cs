@@ -90,7 +90,7 @@ public sealed class ValueReplaySafetyTests
             targetDomain: new Rect(0, 0, 64, 64),
             outputScale: 1,
             maxWorkingScale: 1,
-            cachePolicy: cacheEnabled ? RenderCacheOptions.Default : RenderCacheOptions.Disabled));
+            cachePolicy: cacheEnabled ? RenderCacheOptions.Enabled : RenderCacheOptions.Disabled));
 
     private static RenderFragmentReference GetSingleRoot(RecordedRenderGraph graph)
     {

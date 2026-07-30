@@ -71,6 +71,47 @@ three approved blobs, updates only their artifact hashes and non-vacuity records
 updates the visual manifest trust anchor, and keeps the benchmark manifest's visual
 evidence linkage consistent. It never selects or truncates the live workload set.
 
+## Phase 6 render-cache default
+
+The node render cache remains available as an explicit experimental option, but it
+is disabled by default. Authoritative Apple M3/MoltenVK measurements found that
+admitted antialiased geometry changed GPU pixels at admission and replay: an
+ellipse rim differed by up to 0.48 in linear light, and an ordinary SrcOver group
+could lose its outermost antialiasing apron. The same warm-cache path was
+1.7–2.6 times slower than direct rendering for admitted content, including an
+observed 7.1 ms/frame regression at 1080p. Expensive blur content did not become
+eligible yet still paid 1.02–1.2 times the planning cost.
+
+`RenderCacheOptions.Default` therefore matches `Disabled`;
+`RenderCacheOptions.Enabled` is the deliberate opt-in used by cache-specific
+tests and experiments. The machinery is retained because its planning, failure,
+and CPU parity contracts remain useful, but it must not affect ordinary rendering
+until a backend-exact admission path and a cheaper hit path are demonstrated.
+
+## Phase 6 particle seek investigation
+
+The reported export/still probe still showed scattered particle displacement
+differences at frames 30, 45, and 80 (respectively 299, 992, and 1482 pixels above
+the codec threshold), but the simulator-level state did not reproduce that
+divergence. A `ParticleEmitter.Resource` with the reported seed, emission,
+lifetime, and turbulence settings produced byte-identical particle arrays when
+evaluated sequentially and from a cold seek at 1, 3, 10, 60, 300, and 600 seconds,
+at both 30 and 60 fps. `ParticleSimulator` has no accumulating turbulence phase or
+fractional emission carry: each canonical 60 Hz step derives turbulence from
+particle position and absolute step time, and RNG position is restored from the
+checkpoint call count.
+
+One precision defect was independently reproducible: the production resource
+converted the exact `TimeSpan` to `float` before resolving its canonical step.
+That representation cannot distinguish the 2.5e-5-step NTSC snapping boundary at
+long durations. The resource now retains time as `double`, and the double step
+resolver caps snapping at 2.5e-5 steps while retaining the 1.5e-5 tick-truncation
+floor. Ten-minute 30000/1001 and 60000/1001 sweeps are exact. If the authoritative
+MCP pixel probe still diverges after this precision fix, its remaining mechanism
+is downstream of `ParticleSimulator` state and requires a frame-level capture of
+the evaluated `ParticleEmitter.Resource` plus its render-node inputs; the current
+evidence does not justify changing deterministic simulation or RNG semantics.
+
 ## R1. Plan one complete target-surface request
 
 **Decision**: `Renderer` updates every participating drawable tree first, then records all top-level roots and target contributions into one `RenderRequest` before any planner-controlled 2D GPU work executes. The pipeline order is:

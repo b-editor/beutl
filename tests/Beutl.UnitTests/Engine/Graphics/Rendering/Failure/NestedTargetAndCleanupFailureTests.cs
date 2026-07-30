@@ -165,7 +165,7 @@ public sealed class NestedTargetAndCleanupFailureTests
             requestedRegion: s_bounds,
             outputScale: 1,
             maxWorkingScale: 1,
-            cachePolicy: RenderCacheOptions.Default,
+            cachePolicy: RenderCacheOptions.Enabled,
             owner: owner,
             diagnostics: diagnostics);
         using var child = new NestedRegionAnalysisFailureNode();
@@ -439,7 +439,7 @@ public sealed class NestedTargetAndCleanupFailureTests
             requestedRegion: s_bounds,
             outputScale: 1,
             maxWorkingScale: 1,
-            cachePolicy: RenderCacheOptions.Default,
+            cachePolicy: RenderCacheOptions.Enabled,
             owner: owner,
             diagnostics: diagnostics);
         var primary = new InvalidOperationException("nested-parent-primary");
@@ -756,7 +756,7 @@ public sealed class NestedTargetAndCleanupFailureTests
             requestedRegion: s_bounds,
             outputScale: 1,
             maxWorkingScale: 1,
-            cachePolicy: RenderCacheOptions.Default,
+            cachePolicy: RenderCacheOptions.Enabled,
             owner: owner,
             diagnostics: diagnostics);
         var oldDisposalFailure = new InvalidOperationException("nested-old-cache-dispose-primary");

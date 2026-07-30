@@ -9,6 +9,17 @@ namespace Beutl.UnitTests.Engine.Graphics.Rendering.Cache;
 public class RenderNodeCacheHelperTest
 {
     [Test]
+    public void DefaultPolicy_IsDisabledAndCacheRequiresExplicitOptIn()
+    {
+        Assert.Multiple(() =>
+        {
+            Assert.That(RenderCacheOptions.Default.IsEnabled, Is.False);
+            Assert.That(RenderCacheOptions.Default, Is.SameAs(RenderCacheOptions.Disabled));
+            Assert.That(RenderCacheOptions.Enabled.IsEnabled, Is.True);
+        });
+    }
+
+    [Test]
     public void CanCacheRecursive_ShouldReturnFalse_WhenCacheCannotCache()
     {
         // Arrange
