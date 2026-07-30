@@ -19,6 +19,9 @@ public class LargeSigmaBlurCoverageTests
 
     private static readonly float[] s_sigmas = [130, 250, 480, 500, 512, 520, 600];
     private static readonly float[] s_outputScales = [1, 1.02f, 1.03f, 2, 4];
+    private static readonly float[] s_shadowSigmas = [460, 500, 540, 700, 2000];
+    private static readonly int[] s_smallSourceExtents = [25, 50, 100, 200];
+    private static readonly float[] s_smallSourceSigmas = [127, 128, 250, 500];
 
     public static IEnumerable<TestCaseData> LargeSigmaCases()
     {
@@ -39,6 +42,21 @@ public class LargeSigmaBlurCoverageTests
                     .SetName($"Blur_DeviceSigmaThreshold_Sigma{sigma}_Scale{outputScale}");
             }
         }
+    }
+
+    public static IEnumerable<TestCaseData> SmallSourceBlurCases()
+    {
+        foreach (int sourceExtent in s_smallSourceExtents)
+        {
+            foreach (float sigma in s_smallSourceSigmas)
+            {
+                yield return new TestCaseData(sourceExtent, sigma)
+                    .SetName($"Blur_SmallSourceGaussianResponse_Extent{sourceExtent}_Sigma{sigma}");
+            }
+        }
+
+        yield return new TestCaseData(200, 2000f)
+            .SetName("Blur_SmallSourceGaussianResponse_Extent200_Sigma2000");
     }
 
     [TestCase("Blur")]
@@ -97,6 +115,97 @@ public class LargeSigmaBlurCoverageTests
                 actualSrgb,
                 Is.EqualTo(expectedSrgb).Within(3f / 255f),
                 "Large Gaussian blur coverage must be continuous and resolution-independent.");
+        });
+    }
+
+    [TestCaseSource(nameof(s_shadowSigmas))]
+    public void DropShadowOnly_CenterCoverageMatchesGaussianModel(float sigma)
+    {
+        VulkanTestEnvironment.EnsureAvailable();
+        VulkanTestEnvironment.InvokeOnRenderThread(() =>
+        {
+            using Drawable.Resource drawable = CreateSquareDropShadowOnly(200, sigma);
+            using Bitmap bitmap = GoldenImageHarness.RenderAtScale(
+                drawable,
+                s_largeSigmaFrame,
+                1);
+
+            float actualLinear = ReadRed(bitmap, bitmap.Width / 2, bitmap.Height / 2);
+            double expectedLinear = Math.Pow(GaussianIntervalCoverage(200, sigma), 2);
+            float actualSrgb = Color.LinearToSrgb(actualLinear);
+            float expectedSrgb = Color.LinearToSrgb((float)expectedLinear);
+            TestContext.WriteLine(
+                $"DropShadow sigma={sigma}: center={actualSrgb * 255:F3}, "
+                + $"Gaussian model={expectedSrgb * 255:F3}");
+
+            Assert.That(
+                actualSrgb,
+                Is.EqualTo(expectedSrgb).Within(3f / 255f),
+                "ShadowOnly must use the same stable Gaussian response as Blur.");
+        });
+    }
+
+    [Test]
+    public void DropShadowOnly_CenterCoverageIsMonotoneAcrossLargeSigmas()
+    {
+        VulkanTestEnvironment.EnsureAvailable();
+        VulkanTestEnvironment.InvokeOnRenderThread(() =>
+        {
+            float previous = float.PositiveInfinity;
+            foreach (float sigma in new[] { 400f, 460f, 470f, 490f, 500f, 540f, 700f })
+            {
+                using Drawable.Resource drawable = CreateSquareDropShadowOnly(200, sigma);
+                using Bitmap bitmap = GoldenImageHarness.RenderAtScale(
+                    drawable,
+                    s_largeSigmaFrame,
+                    1);
+                float actual = ReadRed(bitmap, bitmap.Width / 2, bitmap.Height / 2);
+
+                Assert.That(
+                    actual,
+                    Is.LessThanOrEqualTo(previous + (1f / 255f)),
+                    $"Gaussian centre coverage increased at sigma {sigma}.");
+                previous = actual;
+            }
+        });
+    }
+
+    [TestCaseSource(nameof(SmallSourceBlurCases))]
+    public void Blur_SmallSourceCenterCoverageMatchesGaussianModel(
+        int sourceExtent,
+        float sigma)
+    {
+        VulkanTestEnvironment.EnsureAvailable();
+        VulkanTestEnvironment.InvokeOnRenderThread(() =>
+        {
+            using Drawable.Resource drawable = CreateSquareBlur(sourceExtent, sigma);
+            using Bitmap bitmap = GoldenImageHarness.RenderAtScale(
+                drawable,
+                s_largeSigmaFrame,
+                1);
+
+            float actualLinear = ReadRed(bitmap, bitmap.Width / 2, bitmap.Height / 2);
+            double expectedLinear = Math.Pow(
+                GaussianIntervalCoverage(sourceExtent, sigma),
+                2);
+            float actualSrgb = Color.LinearToSrgb(actualLinear);
+            float expectedSrgb = Color.LinearToSrgb((float)expectedLinear);
+            double ratio = actualLinear / expectedLinear;
+            TestContext.WriteLine(
+                $"extent={sourceExtent}, sigma={sigma}: center={actualSrgb * 255:F3}, "
+                + $"Gaussian model={expectedSrgb * 255:F3}, linear ratio={ratio:F4}");
+
+            Assert.Multiple(() =>
+            {
+                Assert.That(
+                    actualSrgb,
+                    Is.EqualTo(expectedSrgb).Within(3f / 255f),
+                    "Encoded centre coverage must match the analytic Gaussian.");
+                Assert.That(
+                    ratio,
+                    Is.InRange(0.85, 1.15),
+                    "Linear centre coverage must not resonate with the reduced source footprint.");
+            });
         });
     }
 
@@ -196,24 +305,43 @@ public class LargeSigmaBlurCoverageTests
 
     private static Drawable.Resource CreateSquareBlur(float sigma)
     {
-        return CreateSharpSquare(new Blur
+        return CreateSquareBlur(200, sigma);
+    }
+
+    private static Drawable.Resource CreateSquareBlur(float extent, float sigma)
+    {
+        return CreateSharpSquare(extent, new Blur
         {
             Sigma = { CurrentValue = new Size(sigma, sigma) },
         });
     }
 
     private static Drawable.Resource CreateSharpSquare(FilterEffect? effect)
+        => CreateSharpSquare(200, effect);
+
+    private static Drawable.Resource CreateSharpSquare(float extent, FilterEffect? effect)
     {
         var shape = new RectShape
         {
-            Width = { CurrentValue = 200 },
-            Height = { CurrentValue = 200 },
+            Width = { CurrentValue = extent },
+            Height = { CurrentValue = extent },
             Fill = { CurrentValue = Brushes.White },
             AlignmentX = { CurrentValue = AlignmentX.Center },
             AlignmentY = { CurrentValue = AlignmentY.Center },
             FilterEffect = { CurrentValue = effect },
         };
         return shape.ToResource(CompositionContext.Default);
+    }
+
+    private static Drawable.Resource CreateSquareDropShadowOnly(float extent, float sigma)
+    {
+        return CreateSharpSquare(extent, new DropShadow
+        {
+            Sigma = { CurrentValue = new Size(sigma, sigma) },
+            Position = { CurrentValue = default },
+            Color = { CurrentValue = Colors.White },
+            ShadowOnly = { CurrentValue = true },
+        });
     }
 
     private static Drawable.Resource CreateDropShadowGammaChain(FilterEffect shadow)

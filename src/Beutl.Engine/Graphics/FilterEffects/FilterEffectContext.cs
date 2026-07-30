@@ -26,7 +26,9 @@ internal sealed class ArrayPooledObjectPolicy<T>(int length) : IPooledObjectPoli
 
 public sealed class FilterEffectContext : IDisposable
 {
-    private const float MultipassDeviceSigmaThreshold = 128f;
+    private const float GaussianDeviceSigmaPassTarget = 32f;
+    private const int MaximumNestedGaussianPassCount = 32;
+    private const float MaximumGaussianDeviceSigmaPerStage = 185f;
     internal const float MaximumLogicalSigma = RenderScaleUtilities.MaxBufferDimension / 8f;
 
     internal readonly PooledList<IFEItem> _items;
@@ -277,7 +279,7 @@ public sealed class FilterEffectContext : IDisposable
         sigma = NormalizeGaussianSigma(sigma);
         float maximumSigma = MathF.Max(sigma.Width, sigma.Height);
         if (TryGetWorkingScale(out float workingScale)
-            && maximumSigma * workingScale <= GaussianBlurWorkingScaleResolver.MaxDeviceSigma)
+            && maximumSigma * workingScale <= GaussianDeviceSigmaPassTarget)
         {
             AppendSkiaFilter(
                 data: (position, sigma, color, shadowOnly),
@@ -324,74 +326,27 @@ public sealed class FilterEffectContext : IDisposable
                     float sourceDensity = source.Scale.IsUnbounded
                         ? context.WorkingScale
                         : source.Scale.Value;
-
-                    if (maximumDensity >= sourceDensity)
-                    {
-                        EffectTarget output = context.CreateTargetAtMost(outputBounds, sourceDensity);
-                        bool directSucceeded = false;
-                        try
-                        {
-                            using ImmediateCanvas canvas = context.Open(output);
-                            canvas.Clear();
-                            using SKImageFilter filter = data.shadowOnly
-                                ? SKImageFilter.CreateDropShadowOnly(
-                                    data.position.X,
-                                    data.position.Y,
-                                    data.sigma.Width,
-                                    data.sigma.Height,
-                                    data.color.ToSKColor())
-                                : SKImageFilter.CreateDropShadow(
-                                    data.position.X,
-                                    data.position.Y,
-                                    data.sigma.Width,
-                                    data.sigma.Height,
-                                    data.color.ToSKColor());
-                            using var paint = new SKPaint { ImageFilter = filter };
-                            using (canvas.PushPaint(paint))
-                            using (canvas.PushTransform(Matrix.CreateTranslation(
-                                       source.Bounds.X - output.Bounds.X,
-                                       source.Bounds.Y - output.Bounds.Y)))
-                            {
-                                source.Draw(canvas);
-                            }
-
-                            source.Dispose();
-                            context.Targets[i] = output;
-                            directSucceeded = true;
-                        }
-                        finally
-                        {
-                            if (!directSucceeded)
-                                output.Dispose();
-                        }
-
-                        continue;
-                    }
-
-                    EffectTarget shadow = context.CreateTargetAtMost(shadowBounds, maximumDensity);
-                    EffectTarget merged = context.CreateTargetAtMost(outputBounds, sourceDensity);
+                    EffectTarget shadow = MaterializeGaussianBlur(
+                        context,
+                        source,
+                        shadowBounds,
+                        data.sigma,
+                        MathF.Min(sourceDensity, maximumDensity),
+                        data.position,
+                        data.color);
+                    EffectTarget? merged = null;
                     bool succeeded = false;
                     try
                     {
+                        if (data.shadowOnly)
                         {
-                            using ImmediateCanvas canvas = context.Open(shadow);
-                            canvas.Clear();
-                            using var filter = SKImageFilter.CreateDropShadowOnly(
-                                data.position.X,
-                                data.position.Y,
-                                data.sigma.Width,
-                                data.sigma.Height,
-                                data.color.ToSKColor());
-                            using var paint = new SKPaint { ImageFilter = filter };
-                            using (canvas.PushPaint(paint))
-                            using (canvas.PushTransform(Matrix.CreateTranslation(
-                                       source.Bounds.X - shadow.Bounds.X,
-                                       source.Bounds.Y - shadow.Bounds.Y)))
-                            {
-                                source.Draw(canvas);
-                            }
+                            source.Dispose();
+                            context.Targets[i] = shadow;
+                            succeeded = true;
+                            continue;
                         }
 
+                        merged = context.CreateTargetAtMost(outputBounds, sourceDensity);
                         {
                             using ImmediateCanvas canvas = context.Open(merged);
                             canvas.Clear();
@@ -402,20 +357,17 @@ public sealed class FilterEffectContext : IDisposable
                                 shadow.Draw(canvas);
                             }
 
-                            if (!data.shadowOnly)
+                            using (canvas.PushTransform(Matrix.CreateTranslation(
+                                       source.Bounds.X - merged.Bounds.X,
+                                       source.Bounds.Y - merged.Bounds.Y)))
                             {
-                                using (canvas.PushTransform(Matrix.CreateTranslation(
-                                           source.Bounds.X - merged.Bounds.X,
-                                           source.Bounds.Y - merged.Bounds.Y)))
-                                {
-                                    source.Draw(canvas);
-                                }
+                                source.Draw(canvas);
                             }
                         }
 
                         source.Dispose();
                         shadow.Dispose();
-                        context.Targets[i] = merged;
+                        context.Targets[i] = merged!;
                         succeeded = true;
                     }
                     finally
@@ -423,7 +375,7 @@ public sealed class FilterEffectContext : IDisposable
                         if (!succeeded)
                         {
                             shadow.Dispose();
-                            merged.Dispose();
+                            merged?.Dispose();
                         }
                     }
                 }
@@ -438,41 +390,161 @@ public sealed class FilterEffectContext : IDisposable
     {
         sigma = NormalizeGaussianSigma(sigma);
 
+        float maximumSigma = MathF.Max(sigma.Width, sigma.Height);
+        if (!TryGetWorkingScale(out float workingScale)
+            || maximumSigma * workingScale > MaximumGaussianDeviceSigmaPerStage)
+        {
+            CustomEffect(
+                data: sigma,
+                action: static (sigma, context) =>
+                {
+                    for (int i = 0; i < context.Targets.Count; i++)
+                    {
+                        EffectTarget source = context.Targets[i];
+                        Rect outputBounds = source.Bounds.Inflate(
+                            new Thickness(sigma.Width * 3, sigma.Height * 3));
+                        float sourceDensity = source.Scale.IsUnbounded
+                            ? context.WorkingScale
+                            : source.Scale.Value;
+                        EffectTarget output = MaterializeGaussianBlur(
+                            context,
+                            source,
+                            outputBounds,
+                            sigma,
+                            sourceDensity,
+                            default,
+                            color: null);
+                        source.Dispose();
+                        context.Targets[i] = output;
+                    }
+                },
+                transformBounds: static (sigma, bounds) =>
+                    bounds.Inflate(new Thickness(sigma.Width * 3, sigma.Height * 3)));
+            return;
+        }
+
         AppendSkiaFilter(
             data: sigma,
             factory: static (sigma, input, activator) =>
-            {
-                if (sigma.Width == 0 && sigma.Height == 0)
-                    return null;
-
-                // Gaussian variances add under convolution. Keeping each large-blur subpass well
-                // below Skia's unstable high-sigma branch avoids its discontinuity without changing
-                // the authored total variance.
-                float maximumDeviceSigma = MathF.Max(sigma.Width, sigma.Height)
-                                           * activator.WorkingScale;
-                int passCount = maximumDeviceSigma >= MultipassDeviceSigmaThreshold
-                    ? 16
-                    : 1;
-                if (passCount == 1)
-                    return SKImageFilter.CreateBlur(sigma.Width, sigma.Height, input);
-
-                float divisor = MathF.Sqrt(passCount);
-                SKImageFilter? current = input;
-                for (int i = 0; i < passCount; i++)
-                {
-                    SKImageFilter next = SKImageFilter.CreateBlur(
-                        sigma.Width / divisor,
-                        sigma.Height / divisor,
-                        current);
-                    if (current != input)
-                        current?.Dispose();
-                    current = next;
-                }
-
-                return current;
-            },
+                CreateGaussianBlurFilter(sigma, activator.WorkingScale, input),
             transformBounds: static (sigma, bounds) =>
                 bounds.Inflate(new Thickness(sigma.Width * 3, sigma.Height * 3)));
+    }
+
+    private static SKImageFilter? CreateGaussianBlurFilter(
+        Size sigma,
+        float workingScale,
+        SKImageFilter? input)
+    {
+        if (sigma.Width == 0 && sigma.Height == 0)
+            return null;
+
+        int passCount = ResolveGaussianPassCount(sigma, workingScale);
+        if (passCount == 1)
+            return SKImageFilter.CreateBlur(sigma.Width, sigma.Height, input);
+
+        // Gaussian variances add under convolution. Keep each nested subpass near the
+        // stable device-sigma target, but cap graph depth because deeply nested Skia
+        // image-filter graphs can collapse to transparent on GPU backends.
+        float divisor = MathF.Sqrt(passCount);
+        SKImageFilter? current = input;
+        for (int i = 0; i < passCount; i++)
+        {
+            SKImageFilter next = SKImageFilter.CreateBlur(
+                sigma.Width / divisor,
+                sigma.Height / divisor,
+                current);
+            if (current != input)
+                current?.Dispose();
+            current = next;
+        }
+
+        return current;
+    }
+
+    private static EffectTarget MaterializeGaussianBlur(
+        CustomFilterEffectContext context,
+        EffectTarget source,
+        Rect outputBounds,
+        Size sigma,
+        float maximumDensity,
+        Point firstPassOffset,
+        Color? color)
+    {
+        EffectTarget? intermediate = null;
+        try
+        {
+            EffectTarget firstOutput = context.CreateTargetAtMost(outputBounds, maximumDensity);
+            float maximumDeviceSigma = MathF.Max(sigma.Width, sigma.Height)
+                                       * firstOutput.Scale.Value;
+            float stageRatio = maximumDeviceSigma / MaximumGaussianDeviceSigmaPerStage;
+            int stageCount = Math.Max(
+                1,
+                (int)MathF.Ceiling(stageRatio * stageRatio));
+            // Materialized stages also add in variance space. The boundary prevents Skia
+            // from seeing the unstable total sigma while preserving one authored Gaussian.
+            Size stageSigma = sigma / MathF.Sqrt(stageCount);
+
+            for (int stage = 0; stage < stageCount; stage++)
+            {
+                EffectTarget output = stage == 0
+                    ? firstOutput
+                    : context.CreateTargetAtMost(outputBounds, maximumDensity);
+                EffectTarget input = intermediate ?? source;
+                try
+                {
+                    using ImmediateCanvas canvas = context.Open(output);
+                    canvas.Clear();
+                    using SKImageFilter? blur = CreateGaussianBlurFilter(
+                        stageSigma,
+                        output.Scale.Value,
+                        input: null);
+                    using SKColorFilter? tint = stage == stageCount - 1 && color.HasValue
+                        ? SKColorFilter.CreateBlendMode(
+                            color.Value.ToSKColor(),
+                            SKBlendMode.SrcIn)
+                        : null;
+                    using SKImageFilter? filter = tint is not null
+                        ? SKImageFilter.CreateColorFilter(tint, blur)
+                        : null;
+                    using var paint = new SKPaint { ImageFilter = filter ?? blur };
+                    Point offset = stage == 0 ? firstPassOffset : default;
+                    using (canvas.PushPaint(paint))
+                    using (canvas.PushTransform(Matrix.CreateTranslation(
+                               input.Bounds.X + offset.X - output.Bounds.X,
+                               input.Bounds.Y + offset.Y - output.Bounds.Y)))
+                    {
+                        input.Draw(canvas);
+                    }
+                }
+                catch
+                {
+                    output.Dispose();
+                    throw;
+                }
+
+                intermediate?.Dispose();
+                intermediate = output;
+            }
+
+            return intermediate!;
+        }
+        catch
+        {
+            intermediate?.Dispose();
+            throw;
+        }
+    }
+
+    private static int ResolveGaussianPassCount(Size sigma, float workingScale)
+    {
+        float maximumDeviceSigma = MathF.Max(sigma.Width, sigma.Height) * workingScale;
+        int passesPerAxis = Math.Max(
+            1,
+            (int)MathF.Ceiling(maximumDeviceSigma / GaussianDeviceSigmaPassTarget));
+        return Math.Min(
+            checked(passesPerAxis * passesPerAxis),
+            MaximumNestedGaussianPassCount);
     }
 
     internal static Size NormalizeGaussianSigma(Size sigma)
