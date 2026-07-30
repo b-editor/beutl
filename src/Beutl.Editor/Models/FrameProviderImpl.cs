@@ -12,6 +12,7 @@ namespace Beutl.Models;
 
 public sealed class FrameProviderImpl : IFrameProvider, IDisposable
 {
+    private const int RetainedTargetReleaseInterval = 30;
     private readonly ILogger _logger = Log.CreateLogger<FrameProviderImpl>();
     private readonly Scene _scene;
     private readonly Rational _rate;
@@ -20,6 +21,7 @@ public sealed class FrameProviderImpl : IFrameProvider, IDisposable
     private readonly Channel<(long Frame, Bitmap Bitmap)> _channel;
     private readonly CancellationTokenSource _cts = new();
     private readonly Task _producerTask;
+    private int _renderedFrameCount;
     private bool _disposed;
 
     public FrameProviderImpl(Scene scene, Rational rate, SceneRenderer renderer, Subject<TimeSpan> progress)
@@ -66,6 +68,20 @@ public sealed class FrameProviderImpl : IFrameProvider, IDisposable
             throw new InvalidOperationException(
                 $"Encode buffer {actual} must equal the output frame size {_renderer.FrameSize}; " +
                 "SupersampleDownscaler failed to normalize the supersampled render to the output resolution.");
+        }
+
+        _renderedFrameCount++;
+        if (_renderedFrameCount % RetainedTargetReleaseInterval == 0)
+        {
+            try
+            {
+                _renderer.ReleaseRetainedRenderTargets();
+            }
+            catch
+            {
+                normalized.Dispose();
+                throw;
+            }
         }
 
         return normalized;

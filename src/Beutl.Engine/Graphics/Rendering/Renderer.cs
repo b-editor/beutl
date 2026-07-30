@@ -1,5 +1,6 @@
 ﻿using System.Runtime.CompilerServices;
 using Beutl.Composition;
+using Beutl.Graphics.Backend;
 using Beutl.Graphics.Rendering.Cache;
 using Beutl.Logging;
 using Beutl.Media;
@@ -274,6 +275,10 @@ public class Renderer : IRenderer
 
     internal RenderTargetPoolStatistics FrameTargetPoolStatistics
         => _frameRenderer.TargetPoolStatistics;
+
+    internal long RetainedRenderTargetBytes
+        => _frameRenderer.TargetPoolStatistics.RetainedBytes
+           + _nodeCache.Sum(static pair => pair.Value.Renderer.TargetPoolStatistics.RetainedBytes);
 
     internal IRenderPipelineDiagnosticsState? Diagnostics => _diagnostics;
 
@@ -647,6 +652,44 @@ public class Renderer : IRenderer
     /// destination for <see cref="SnapshotInto(Bitmap)"/>. See <see cref="RenderTarget.CreateSnapshotBitmap()"/>.
     /// </summary>
     public Bitmap CreateSnapshotBitmap() => _surface.CreateSnapshotBitmap();
+
+    /// <summary>
+    /// Releases reusable intermediate render targets retained by this renderer.
+    /// </summary>
+    /// <returns>The number of pooled target bytes released.</returns>
+    /// <remarks>
+    /// Call this between frames on long-running delivery renders to bound backend memory. The current
+    /// output surface and compiled render plans remain intact, so the next frame only recreates the
+    /// intermediate targets it needs.
+    /// </remarks>
+    public long ReleaseRetainedRenderTargets()
+    {
+        ObjectDisposedException.ThrowIf(IsDisposed, this);
+        return RenderThread.Dispatcher.CheckAccess()
+            ? ReleaseRetainedRenderTargetsCore()
+            : RenderThread.Dispatcher.Invoke(ReleaseRetainedRenderTargetsCore);
+    }
+
+    private long ReleaseRetainedRenderTargetsCore()
+    {
+        RenderThread.Dispatcher.VerifyAccess();
+        long released = _frameRenderer.ReleaseRetainedTargets();
+        foreach (KeyValuePair<Drawable, Entry> pair in _nodeCache)
+        {
+            released = checked(released + pair.Value.Renderer.ReleaseRetainedTargets());
+        }
+
+        if (released > 0 && GraphicsContextFactory.SharedContext is { } context)
+        {
+            // Disposing an SKSurface only unlocks its backing allocation; Ganesh may retain that allocation
+            // in the shared resource cache. Submit completed work before purging the released scratch bytes
+            // so Metal/Vulkan can actually return them instead of growing once per delivery frame.
+            context.SkiaContext.Flush(submit: true, synchronous: true);
+            context.SkiaContext.PurgeUnlockedResources(released, preferScratchResources: true);
+        }
+
+        return released;
+    }
 
     public void ClearAllCaches()
     {

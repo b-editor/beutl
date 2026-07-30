@@ -152,6 +152,12 @@ public sealed class RenderNodeRenderer : IDisposable
 
     internal RenderTargetPoolStatistics TargetPoolStatistics => _targetRegistry.Statistics;
 
+    internal long ReleaseRetainedTargets()
+    {
+        ThrowIfDisposed();
+        return _targetRegistry.ReleaseRetainedTargets();
+    }
+
     /// <summary>Synchronously renders the complete root stream into a borrowed destination.</summary>
     /// <param name="destination">The non-null caller-owned destination canvas.</param>
     /// <remarks>
