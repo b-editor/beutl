@@ -968,9 +968,19 @@ internal sealed class RenderRequestExecutor
                         fragment,
                         () =>
                         {
+                            BlendMode blendMode =
+                                ((BlendRenderFragmentPayload)fragment.Payload!).BlendMode;
                             using (ObserveGpuPass(fragment))
-                            using (destination.PushBlendMode(((BlendRenderFragmentPayload)fragment.Payload!).BlendMode))
+                            // DstOut leaves the destination unchanged for a transparent source,
+                            // so a replay-safe source can erase directly without a coverage-changing
+                            // intermediate layer. Other destructive modes still require the scope layer.
+                            using (blendMode == BlendMode.DstOut
+                                   && CanReplayWithDirectDstOut(fragment.Inputs.Single())
+                                ? destination.PushDirectBlendMode(blendMode)
+                                : destination.PushBlendMode(blendMode))
+                            {
                                 Replay(fragment.Inputs.Single(), destination);
+                            }
                         });
                     return;
                 case RenderFragmentKind.OpacityMask:
@@ -3554,7 +3564,7 @@ internal sealed class RenderRequestExecutor
             EffectiveScale scale = ClampToActiveDeviceGrid(
                 fragment.Bounds,
                 requestedScale ?? ResolveConcreteScale(fragment));
-            Vector? deviceGridOffset = ContainsDestructiveBlend(fragment)
+            Vector? deviceGridOffset = RequiresLocalDestructiveDeviceGrid(fragment)
                 ? default(Vector)
                 : null;
             CompatibilityRenderValue value = CreateOwnedValue(
@@ -3666,7 +3676,7 @@ internal sealed class RenderRequestExecutor
             }
 
             EffectiveScale scale = EffectiveScale.At(destination.Density);
-            Vector deviceGridOffset = ContainsDestructiveBlend(fragment)
+            Vector deviceGridOffset = RequiresLocalDestructiveDeviceGrid(fragment)
                 ? default
                 : DeviceGridAlignment.ResolveLogicalOffset(destination);
             scale = ClampToDeviceGrid(domain, scale, deviceGridOffset);
@@ -3741,16 +3751,35 @@ internal sealed class RenderRequestExecutor
                 });
         }
 
-        private static bool ContainsDestructiveBlend(RenderFragmentReference fragment)
+        private static bool RequiresLocalDestructiveDeviceGrid(RenderFragmentReference fragment)
         {
             if (fragment.Kind == RenderFragmentKind.Blend
-                && BlendModeRenderNode.RequiresFullTargetRegion(
-                    ((BlendRenderFragmentPayload)fragment.Payload!).BlendMode))
+                && fragment.Payload is BlendRenderFragmentPayload payload
+                && BlendModeRenderNode.RequiresFullTargetRegion(payload.BlendMode))
             {
-                return true;
+                return payload.BlendMode switch
+                {
+                    BlendMode.DstIn => fragment.Inputs.Any(RequiresLocalDestructiveDeviceGrid),
+                    BlendMode.DstOut => !CanReplayWithDirectDstOut(fragment.Inputs.Single()),
+                    _ => true,
+                };
             }
 
-            return fragment.Inputs.Any(ContainsDestructiveBlend);
+            return fragment.Inputs.Any(RequiresLocalDestructiveDeviceGrid);
+        }
+
+        private static bool CanReplayWithDirectDstOut(RenderFragmentReference fragment)
+        {
+            return fragment.Kind switch
+            {
+                RenderFragmentKind.OpaqueSource => true,
+                RenderFragmentKind.TargetScope
+                    => fragment.Inputs.All(CanReplayWithDirectDstOut),
+                RenderFragmentKind.Opacity
+                    => ((OpacityRenderFragmentPayload)fragment.Payload!).Opacity == 1f
+                       && fragment.Inputs.All(CanReplayWithDirectDstOut),
+                _ => false,
+            };
         }
 
         private void AddValueReferences(IEnumerable<CompatibilityRenderValue> values)

@@ -19,6 +19,7 @@ public partial class ImmediateCanvas : IDisposable, IPopable
 {
     private static readonly AsyncLocal<FlushObserverScope?> s_flushObserver = new();
     private static readonly AsyncLocal<PixelOperationObserverScope?> s_pixelOperationObserver = new();
+    private static readonly Lazy<SKRuntimeEffect> s_rectCoverageEffect = new(CreateRectCoverageEffect);
 
     // A tent kernel has no negative lobe, so a resampled composite cannot emit a value outside the
     // range of the samples it interpolated.
@@ -42,6 +43,8 @@ public partial class ImmediateCanvas : IDisposable, IPopable
     private RenderExecutionSessionToken? _executionToken;
     private CallbackCanvasCapability? _callbackCapability;
     private bool _isReplayingTargetScope;
+    private BlendMode? _directBlendMode;
+    private bool _productRectangleCoverage;
     private int _callbackStateFloor;
     private readonly bool _flushOnDispose;
 
@@ -105,6 +108,8 @@ public partial class ImmediateCanvas : IDisposable, IPopable
         LogicalSize = parent.LogicalSize;
         SurfaceDensity = parent.SurfaceDensity;
         _currentDensity = parent._currentDensity;
+        _directBlendMode = parent._directBlendMode;
+        _productRectangleCoverage = parent._productRectangleCoverage;
         MaxWorkingScale = parent.MaxWorkingScale;
         _baseTransform = parent._currentBaseTransform;
         _currentBaseTransform = parent._currentBaseTransform;
@@ -273,6 +278,7 @@ public partial class ImmediateCanvas : IDisposable, IPopable
         VerifyAccess();
         VerifyNativeTargetOperation();
         _sharedFillPaint.Reset();
+        ApplyDirectBlendMode(_sharedFillPaint);
         _sharedFillPaint.IsAntialias = true;
 
         RecordPixelOperation();
@@ -289,6 +295,7 @@ public partial class ImmediateCanvas : IDisposable, IPopable
         // NOTE: renderTargetを保持しておいて次回Flushされたときに開放すると効率的
         renderTarget.VerifyAccess();
         _sharedFillPaint.Reset();
+        ApplyDirectBlendMode(_sharedFillPaint);
         _sharedFillPaint.IsAntialias = true;
 
         RecordPixelOperation();
@@ -388,6 +395,7 @@ public partial class ImmediateCanvas : IDisposable, IPopable
 
         using SKImage image = renderTarget.Value.Snapshot();
         _sharedFillPaint.Reset();
+        ApplyDirectBlendMode(_sharedFillPaint);
         _sharedFillPaint.IsAntialias = false;
         var source = SKRect.Create(image.Width, image.Height);
         var destination = SKRect.Create(x, y, image.Width, image.Height);
@@ -469,6 +477,7 @@ public partial class ImmediateCanvas : IDisposable, IPopable
         VerifyPixelOperation();
         VerifyCallbackResource(image, nameof(image));
         _sharedFillPaint.Reset();
+        ApplyDirectBlendMode(_sharedFillPaint);
         _sharedFillPaint.IsAntialias = true;
 
         var src = SKRect.Create(image.Width, image.Height);
@@ -482,6 +491,7 @@ public partial class ImmediateCanvas : IDisposable, IPopable
         VerifyAccess();
         VerifyNativeTargetOperation();
         _sharedFillPaint.Reset();
+        ApplyDirectBlendMode(_sharedFillPaint);
         _sharedFillPaint.IsAntialias = true;
 
         using SKImage image = surface.Snapshot();
@@ -962,7 +972,8 @@ public partial class ImmediateCanvas : IDisposable, IPopable
 
         ConfigureFillPaint(geometry.Bounds, fill);
         RecordPixelOperation();
-        Canvas.DrawPath(skPath, _sharedFillPaint);
+        if (!TryDrawProductCoverageRectangle(geometry, _sharedFillPaint))
+            Canvas.DrawPath(skPath, _sharedFillPaint);
 
         if (pen != null && pen.Thickness > 0)
         {
@@ -984,7 +995,8 @@ public partial class ImmediateCanvas : IDisposable, IPopable
         Rect rect = geometry.Bounds;
         ConfigureFillPaint(rect, fill);
         RecordPixelOperation();
-        Canvas.DrawPath(path, _sharedFillPaint);
+        if (!TryDrawProductCoverageRectangle(geometry, _sharedFillPaint))
+            Canvas.DrawPath(path, _sharedFillPaint);
 
         if (pen.Resource is { Thickness: > 0 } resource)
         {
@@ -1203,13 +1215,34 @@ public partial class ImmediateCanvas : IDisposable, IPopable
         VerifyAccess();
         VerifyHiddenLayerOperation();
         BlendMode tmp = BlendMode;
+        bool previousProductRectangleCoverage = _productRectangleCoverage;
         BlendMode = blendMode;
+        _productRectangleCoverage = blendMode == BlendMode.DstIn;
         var paint = new SKPaint();
         paint.BlendMode = (SKBlendMode)blendMode;
 
         RecordPixelOperation();
         int count = Canvas.SaveLayer(paint);
-        _states.Push(new CanvasPushedState.BlendModePushedState(tmp, count, paint));
+        _states.Push(new CanvasPushedState.BlendModePushedState(
+            tmp,
+            previousProductRectangleCoverage,
+            count,
+            paint));
+        return new PushedState(this, _states.Count);
+    }
+
+    internal PushedState PushDirectBlendMode(BlendMode blendMode)
+    {
+        VerifyAccess();
+        int count = Canvas.Save();
+        BlendMode previousBlendMode = BlendMode;
+        BlendMode? previousDirectBlendMode = _directBlendMode;
+        BlendMode = blendMode;
+        _directBlendMode = blendMode;
+        _states.Push(new CanvasPushedState.DirectBlendModePushedState(
+            previousBlendMode,
+            previousDirectBlendMode,
+            count));
         return new PushedState(this, _states.Count);
     }
 
@@ -1290,6 +1323,7 @@ public partial class ImmediateCanvas : IDisposable, IPopable
         ArgumentNullException.ThrowIfNull(image);
         VerifyPixelOperation();
         _sharedFillPaint.Reset();
+        ApplyDirectBlendMode(_sharedFillPaint);
         _sharedFillPaint.IsAntialias = true;
         RecordPixelOperation();
         Canvas.DrawImage(
@@ -1307,6 +1341,7 @@ public partial class ImmediateCanvas : IDisposable, IPopable
         using (PushDeviceSpace())
         {
             _sharedFillPaint.Reset();
+            ApplyDirectBlendMode(_sharedFillPaint);
             _sharedFillPaint.IsAntialias = true;
             RecordPixelOperation();
             Canvas.DrawImage(
@@ -1524,7 +1559,12 @@ public partial class ImmediateCanvas : IDisposable, IPopable
         if (pen != null && pen.Thickness != 0)
         {
             _sharedStrokePaint.IsStroke = false;
-            new BrushConstructor(bounds, pen.Brush, blendMode, scale ?? _currentDensity, MaxWorkingScale).ConfigurePaint(_sharedStrokePaint);
+            new BrushConstructor(
+                bounds,
+                pen.Brush,
+                ResolvePaintBlendMode(blendMode),
+                scale ?? _currentDensity,
+                MaxWorkingScale).ConfigurePaint(_sharedStrokePaint);
         }
     }
 
@@ -1541,7 +1581,7 @@ public partial class ImmediateCanvas : IDisposable, IPopable
             new BrushConstructor(
                 bounds,
                 pen.Brush,
-                blendMode,
+                ResolvePaintBlendMode(blendMode),
                 scale ?? _currentDensity,
                 MaxWorkingScale).ConfigurePaint(_sharedStrokePaint);
         }
@@ -1550,7 +1590,12 @@ public partial class ImmediateCanvas : IDisposable, IPopable
     private void ConfigureFillPaint(Rect bounds, Brush.Resource? brush, BlendMode blendMode = BlendMode.SrcOver, float? scale = null)
     {
         _sharedFillPaint.Reset();
-        new BrushConstructor(bounds, brush, blendMode, scale ?? _currentDensity, MaxWorkingScale).ConfigurePaint(_sharedFillPaint);
+        new BrushConstructor(
+            bounds,
+            brush,
+            ResolvePaintBlendMode(blendMode),
+            scale ?? _currentDensity,
+            MaxWorkingScale).ConfigurePaint(_sharedFillPaint);
     }
 
     private void ConfigureFillPaint(
@@ -1563,8 +1608,93 @@ public partial class ImmediateCanvas : IDisposable, IPopable
         new BrushConstructor(
             bounds,
             brush,
-            blendMode,
+            ResolvePaintBlendMode(blendMode),
             scale ?? _currentDensity,
             MaxWorkingScale).ConfigurePaint(_sharedFillPaint);
+    }
+
+    private BlendMode ResolvePaintBlendMode(BlendMode fallback)
+        => _directBlendMode ?? fallback;
+
+    private void ApplyDirectBlendMode(SKPaint paint)
+    {
+        if (_directBlendMode is { } blendMode)
+            paint.BlendMode = (SKBlendMode)blendMode;
+    }
+
+    private bool TryDrawProductCoverageRectangle(Geometry.Resource geometry, SKPaint paint)
+    {
+        // Skia's path antialiasing may publish one-axis coverage at a fractional rectangle corner.
+        // A Porter-Duff mask needs the geometric area product, because the same coverage is later
+        // applied to every pixel in the isolated target-layer domain.
+        if ((_directBlendMode != BlendMode.DstOut && !_productRectangleCoverage)
+            || geometry.GetOriginal() is not RectGeometry
+            || _currentTransform.M12 != 0
+            || _currentTransform.M13 != 0
+            || _currentTransform.M21 != 0
+            || _currentTransform.M23 != 0
+            || _currentTransform.M33 != 1)
+        {
+            return false;
+        }
+
+        using SKShader? ownedSourceShader = paint.Shader is null
+            ? SKShader.CreateColor(paint.Color)
+            : null;
+        SKShader sourceShader = paint.Shader ?? ownedSourceShader!;
+        using var uniforms = new SKRuntimeEffectUniforms(s_rectCoverageEffect.Value);
+        using var children = new SKRuntimeEffectChildren(s_rectCoverageEffect.Value);
+        uniforms["left"] = (float)geometry.Bounds.Left;
+        uniforms["top"] = (float)geometry.Bounds.Top;
+        uniforms["right"] = (float)geometry.Bounds.Right;
+        uniforms["bottom"] = (float)geometry.Bounds.Bottom;
+        uniforms["scaleX"] = MathF.Abs(_currentTransform.M11);
+        uniforms["scaleY"] = MathF.Abs(_currentTransform.M22);
+        children["src"] = sourceShader;
+        using SKShader coverageShader = s_rectCoverageEffect.Value.ToShader(uniforms, children);
+        SKColor previousColor = paint.Color;
+        SKShader? previousShader = paint.Shader;
+        bool previousAntialias = paint.IsAntialias;
+        try
+        {
+            paint.Color = SKColors.White;
+            paint.Shader = coverageShader;
+            paint.IsAntialias = false;
+            Canvas.DrawPaint(paint);
+        }
+        finally
+        {
+            paint.Shader = previousShader;
+            paint.Color = previousColor;
+            paint.IsAntialias = previousAntialias;
+        }
+
+        return true;
+    }
+
+    private static SKRuntimeEffect CreateRectCoverageEffect()
+    {
+        const string source =
+            """
+            uniform shader src;
+            uniform float left;
+            uniform float top;
+            uniform float right;
+            uniform float bottom;
+            uniform float scaleX;
+            uniform float scaleY;
+
+            half4 main(float2 p)
+            {
+                float x = clamp((p.x - left) * scaleX + 0.5, 0.0, 1.0)
+                    * clamp((right - p.x) * scaleX + 0.5, 0.0, 1.0);
+                float y = clamp((p.y - top) * scaleY + 0.5, 0.0, 1.0)
+                    * clamp((bottom - p.y) * scaleY + 0.5, 0.0, 1.0);
+                return src.eval(p) * half(x * y);
+            }
+            """;
+        return SKRuntimeEffect.CreateShader(source, out string? errorText)
+               ?? throw new InvalidOperationException(
+                   $"Failed to compile the rectangle coverage shader: {errorText}");
     }
 }

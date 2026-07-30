@@ -41,34 +41,31 @@ public sealed class OffFrameFilterEffectExecutionTests
     [Test]
     public void StraddlingBlur_StillRendersItsVisibleFootprint()
     {
-        using SceneGraph scene = CreateScene(visibleCount: 0, includeOffFrameEffect: true, offFrameX: -40);
-        using SceneGraph reference = CreateScene(visibleCount: 0, includeOffFrameEffect: true, offFrameX: 40);
+        const float sigma = 4;
+        const int sampleX = 3;
+        using SceneGraph scene = CreateScene(visibleCount: 0, includeOffFrameEffect: true, offFrameX: -78);
 
         byte[] rendered = Render(scene.Root);
-        byte[] expected = Render(reference.Root);
 
-        // The body occupies x=-40..40, so x=41..51 contains only its on-frame blur tail.
-        float tailMaximum = 0;
-        for (int y = 48; y < 96; y++)
-        {
-            for (int x = 41; x <= 51; x++)
-            {
-                tailMaximum = Math.Max(tailMaximum, ReadAlpha(rendered, x, y));
-            }
-        }
-
-        // The reference is the same drawable shifted 80 logical/device pixels onto the frame.
-        // A near-tail column must therefore retain the same Gaussian coverage after clipping.
-        float actualBorder = MaximumAlphaInColumn(rendered, x: 49, yStart: 48, yEnd: 96);
-        float expectedBorder = MaximumAlphaInColumn(expected, x: 129, yStart: 48, yEnd: 96);
+        // The source body occupies x=-78..2. Column 3 is an on-frame tail sample less than
+        // one sigma from the frame edge and contains no unblurred source coverage.
+        float actualTail = MaximumAlphaInColumn(rendered, sampleX, yStart: 56, yEnd: 88);
+        double sampleCenter = sampleX + 0.5;
+        double expectedTail = GaussianIntervalCoverage(
+            sourceStart: -78,
+            sourceEnd: 2,
+            sampleCenter,
+            sigma);
         Assert.Multiple(() =>
         {
-            Assert.That(tailMaximum, Is.GreaterThan(0.001f), "The visible blur tail was dropped.");
-            Assert.That(expectedBorder, Is.GreaterThan(0.001f), "The reference column must sample the blur tail.");
             Assert.That(
-                actualBorder,
-                Is.EqualTo(expectedBorder).Within(0.0005f),
-                "Clipping a straddling blur must preserve its on-frame tail coverage.");
+                actualTail,
+                Is.GreaterThan(0.05f),
+                "The visible blur tail inside one sigma of the frame edge was dropped.");
+            Assert.That(
+                actualTail,
+                Is.EqualTo(expectedTail).Within(0.04),
+                "The clipped on-frame tail must follow the Gaussian interval profile.");
         });
     }
 
@@ -163,6 +160,38 @@ public sealed class OffFrameFilterEffectExecutionTests
         }
 
         return maximum;
+    }
+
+    private static double GaussianIntervalCoverage(
+        double sourceStart,
+        double sourceEnd,
+        double sampleCenter,
+        double sigma)
+    {
+        static double NormalCdf(double value)
+            => 0.5 * (1 + ErrorFunction(value / Math.Sqrt(2)));
+
+        return NormalCdf((sourceEnd - sampleCenter) / sigma)
+               - NormalCdf((sourceStart - sampleCenter) / sigma);
+    }
+
+    private static double ErrorFunction(double value)
+    {
+        const double p = 0.3275911;
+        const double a1 = 0.254829592;
+        const double a2 = -0.284496736;
+        const double a3 = 1.421413741;
+        const double a4 = -1.453152027;
+        const double a5 = 1.061405429;
+
+        double sign = Math.Sign(value);
+        double x = Math.Abs(value);
+        double t = 1 / (1 + p * x);
+        double approximation = 1
+                               - (((((a5 * t + a4) * t) + a3) * t + a2) * t + a1)
+                               * t
+                               * Math.Exp(-x * x);
+        return sign * approximation;
     }
 
     private static float ReadAlpha(byte[] pixels, int x, int y)

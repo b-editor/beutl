@@ -210,10 +210,64 @@ public sealed class DrawableGroupIsolationTests
             using Bitmap expected = RenderScene(plain);
             using Bitmap actual = RenderScene(filtered);
 
-            AssertByteIdentical(
-                expected,
-                actual,
-                "fractionally translated DstOut mask with and without an identity group effect");
+            Assert.Multiple(() =>
+            {
+                AssertByteIdentical(
+                    expected,
+                    actual,
+                    "fractionally translated DstOut mask with and without an identity group effect");
+                Assert.That(
+                    ReadPixel(expected, 120, 200).Alpha,
+                    Is.EqualTo(0.5f).Within(0.003f),
+                    "The leading vertical eraser edge must preserve its absolute half-pixel coverage.");
+                Assert.That(
+                    ReadPixel(expected, 200, 120).Alpha,
+                    Is.EqualTo(0.25f).Within(0.003f),
+                    "The leading horizontal eraser edge must retain one minus 75% eraser coverage.");
+                Assert.That(
+                    ReadPixel(expected, 120, 120).Alpha,
+                    Is.EqualTo(1 - (0.5f * 0.75f)).Within(0.003f),
+                    "The leading corner must use the product of both eraser coverage axes.");
+                Assert.That(
+                    ReadPixel(expected, 280, 280).Alpha,
+                    Is.EqualTo(1 - (0.5f * 0.25f)).Within(0.003f),
+                    "The trailing corner must use the product of both eraser coverage axes.");
+            });
+        });
+    }
+
+    [Test]
+    public void QuarterScaleDstInMask_IdentityEffectDoesNotCreateADevicePixelFringe()
+    {
+        VulkanTestEnvironment.EnsureAvailable();
+        VulkanTestEnvironment.InvokeOnRenderThread(() =>
+        {
+            using Drawable.Resource plain = CreateTranslatedMaskGroup(effect: null);
+            var identity = new Brightness();
+            identity.Amount.CurrentValue = 100;
+            using Drawable.Resource filtered = CreateTranslatedMaskGroup(identity);
+            using Bitmap expected = RenderScene(0.25f, plain);
+            using Bitmap actual = RenderScene(0.25f, filtered);
+
+            Assert.Multiple(() =>
+            {
+                AssertByteIdentical(
+                    expected,
+                    actual,
+                    "quarter-scale DstIn mask with and without an identity group effect");
+                Assert.That(
+                    ReadPixel(expected, 37, 50).Alpha,
+                    Is.GreaterThan(0),
+                    "The first covered device column must remain present.");
+                Assert.That(
+                    ReadPixel(expected, 36, 50).Alpha,
+                    Is.Zero.Within(0.001f),
+                    "No leading one-device-pixel fringe may escape the mask footprint.");
+                Assert.That(
+                    ReadPixel(expected, 63, 50).Alpha,
+                    Is.Zero.Within(0.001f),
+                    "No trailing one-device-pixel fringe may escape the mask footprint.");
+            });
         });
     }
 

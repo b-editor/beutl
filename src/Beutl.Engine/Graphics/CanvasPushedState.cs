@@ -57,13 +57,32 @@ public partial class ImmediateCanvas
             }
         }
 
-        internal record BlendModePushedState(BlendMode BlendMode, int Count, SKPaint Paint) : CanvasPushedState
+        internal record BlendModePushedState(
+            BlendMode BlendMode,
+            bool ProductRectangleCoverage,
+            int Count,
+            SKPaint Paint) : CanvasPushedState
         {
             public override void Pop(ImmediateCanvas canvas)
             {
                 canvas.Canvas.RestoreToCount(Count);
                 canvas.BlendMode = BlendMode;
+                canvas._productRectangleCoverage = ProductRectangleCoverage;
                 Paint.Dispose();
+            }
+        }
+
+        internal record DirectBlendModePushedState(
+            BlendMode BlendMode,
+            BlendMode? DirectBlendMode,
+            int Count) : CanvasPushedState
+        {
+            public override void Pop(ImmediateCanvas canvas)
+            {
+                canvas.Canvas.RestoreToCount(Count);
+                canvas._currentTransform = canvas.Canvas.TotalMatrix.ToMatrix();
+                canvas.BlendMode = BlendMode;
+                canvas._directBlendMode = DirectBlendMode;
             }
         }
 

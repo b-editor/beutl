@@ -118,6 +118,13 @@ public class LargeSigmaBlurCoverageTests
         AssertBlurCoverage(sigma: 500, outputScale: 1);
     }
 
+    [TestCase(127f)]
+    [TestCase(128f)]
+    public void Blur_UnitScaleSinglePassMultipassSeamMatchesGaussianModel(float sigma)
+    {
+        AssertBlurCoverage(sigma, outputScale: 1);
+    }
+
     [TestCaseSource(nameof(s_shadowSigmas))]
     [Explicit(
         "Orchestrator gate: dotnet test tests/Beutl.UnitTests -f net10.0 "
