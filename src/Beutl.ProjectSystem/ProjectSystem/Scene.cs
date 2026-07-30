@@ -1,10 +1,14 @@
-﻿using System.Collections.Immutable;
+﻿using System.Collections.Concurrent;
+using System.Collections.Immutable;
 using System.Collections.Specialized;
 using System.ComponentModel;
 using System.ComponentModel.DataAnnotations;
 using System.Diagnostics;
+using System.Security.Cryptography;
+using System.Text;
 using System.Text.Json;
 using System.Text.Json.Nodes;
+using System.Text.RegularExpressions;
 using Beutl.Collections;
 using Beutl.Configuration;
 using Beutl.Engine;
@@ -44,6 +48,10 @@ public enum ElementOverlapHandling
 
 public class Scene : ProjectItem, INotifyEdited
 {
+    private static readonly Guid s_recoveredElementNamespace = new("dfad2f76-1d04-5593-ae3b-f371fb1f42ee");
+    private static readonly Regex s_idPattern = new(
+        "\"Id\"\\s*:\\s*\"(?<id>[0-9a-fA-F-]{36})\"",
+        RegexOptions.CultureInvariant);
     public static readonly CoreProperty<PixelSize> FrameSizeProperty;
     public static readonly CoreProperty<Elements> ChildrenProperty;
     public static readonly CoreProperty<TimeSpan> StartProperty;
@@ -53,6 +61,8 @@ public class Scene : ProjectItem, INotifyEdited
     public static readonly CoreProperty<CoreList<SceneMarker>> MarkersProperty;
     private readonly List<string> _includeElements = ["**/*.belm"];
     private readonly List<string> _excludeElements = [];
+    private readonly ConcurrentDictionary<Element, RecoveredElementSource> _recoveredElements
+        = new(ReferenceEqualityComparer.Instance);
     private readonly Elements _children;
     private readonly HierarchicalList<TimelineLayer> _layers;
     private readonly HierarchicalList<SceneMarker> _markers;
@@ -545,7 +555,10 @@ public class Scene : ProjectItem, INotifyEdited
         {
             foreach (Element item in Children)
             {
-                CoreSerializer.StoreToUri(item, item.Uri!);
+                if (!_recoveredElements.ContainsKey(item))
+                {
+                    CoreSerializer.StoreToUri(item, item.Uri!);
+                }
             }
         }
 
@@ -678,31 +691,110 @@ public class Scene : ProjectItem, INotifyEdited
         activity?.SetTag("childrenCount", Children.Count);
     }
 
-    private static Element RestoreElementOrFallback(Uri uri)
+    private Element RestoreElementOrFallback(Uri uri)
     {
+        string rawText = File.ReadAllText(uri.LocalPath);
         try
         {
-            return CoreSerializer.RestoreFromUri<Element>(uri);
+            Element element = CoreSerializer.RestoreFromUri<Element>(uri);
+            IFallback[] fallbacks = element.EnumerateAllChildren<IFallback>().ToArray();
+            if (fallbacks.Length > 0)
+            {
+                foreach (IFallback fallback in fallbacks)
+                {
+                    EnsureFallbackProjection(fallback);
+                }
+
+                _recoveredElements[element] = new RecoveredElementSource(rawText);
+            }
+
+            return element;
         }
         catch (JsonException ex)
         {
-            var fallback = new FallbackEngineObject
-            {
-                Name = "Unreadable element data",
-                Json = new JsonObject(),
-                Reason = FallbackReason.DeserializationFailed,
-                ErrorMessage = $"{ex.GetType().Name}: {ex.Message}",
-            };
             var element = new Element
             {
+                Id = ResolveRecoveredElementId(rawText, uri),
                 Name = Path.GetFileNameWithoutExtension(uri.LocalPath),
                 Uri = uri,
                 IsEnabled = false,
             };
+            var fallback = new FallbackEngineObject
+            {
+                Name = "Unreadable element data",
+                Reason = FallbackReason.DeserializationFailed,
+                ErrorMessage = $"{ex.GetType().Name}: {ex.Message}",
+            };
+            fallback.Json = CreateFallbackProjection(fallback);
             element.AddObject(fallback);
+            _recoveredElements[element] = new RecoveredElementSource(rawText);
             return element;
         }
     }
+
+    private static void EnsureFallbackProjection(IFallback fallback)
+    {
+        if (fallback is not CoreObject coreObject)
+        {
+            return;
+        }
+
+        JsonObject json = fallback.Json ?? new JsonObject();
+        json.WriteDiscriminator(coreObject.GetType());
+        json[nameof(CoreObject.Id)] = coreObject.Id.ToString();
+        fallback.Json = json;
+    }
+
+    private static JsonObject CreateFallbackProjection(FallbackEngineObject fallback)
+    {
+        var json = new JsonObject
+        {
+            [nameof(CoreObject.Id)] = fallback.Id.ToString(),
+            [nameof(CoreObject.Name)] = fallback.Name,
+        };
+        json.WriteDiscriminator(typeof(FallbackEngineObject));
+        return json;
+    }
+
+    private Guid ResolveRecoveredElementId(string rawText, Uri uri)
+    {
+        Match match = s_idPattern.Match(rawText);
+        if (match.Success && Guid.TryParse(match.Groups["id"].Value, out Guid id))
+        {
+            return id;
+        }
+
+        string sceneDirectory = Path.GetDirectoryName(Uri!.LocalPath)!;
+        string relativePath = Path.GetRelativePath(sceneDirectory, uri.LocalPath);
+        return CreateVersion5Guid(s_recoveredElementNamespace, relativePath);
+    }
+
+    private static Guid CreateVersion5Guid(Guid namespaceId, string name)
+    {
+        byte[] namespaceBytes = namespaceId.ToByteArray();
+        SwapGuidByteOrder(namespaceBytes);
+        byte[] nameBytes = Encoding.UTF8.GetBytes(name);
+        byte[] source = new byte[namespaceBytes.Length + nameBytes.Length];
+        namespaceBytes.CopyTo(source, 0);
+        nameBytes.CopyTo(source, namespaceBytes.Length);
+
+        byte[] hash = SHA1.HashData(source);
+        hash[6] = (byte)((hash[6] & 0x0f) | 0x50);
+        hash[8] = (byte)((hash[8] & 0x3f) | 0x80);
+        Array.Resize(ref hash, 16);
+        SwapGuidByteOrder(hash);
+        return new Guid(hash);
+    }
+
+    private static void SwapGuidByteOrder(Span<byte> bytes)
+    {
+        (bytes[0], bytes[3]) = (bytes[3], bytes[0]);
+        (bytes[1], bytes[2]) = (bytes[2], bytes[1]);
+        (bytes[4], bytes[5]) = (bytes[5], bytes[4]);
+        (bytes[6], bytes[7]) = (bytes[7], bytes[6]);
+    }
+
+    private sealed record RecoveredElementSource(string RawText);
 
     private void UpdateInclude()
     {
