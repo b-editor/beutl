@@ -211,6 +211,23 @@ public sealed class RasterFootprintMetadataTests
         }
     }
 
+    [Test]
+    public void DeviceBoundsValidation_RejectsOffByOneExtentAboveFloatPrecisionBoundary()
+    {
+        const int deviceExtent = 8_388_610;
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(
+                DeviceBoundsValidation.MatchesExtent(deviceExtent, density: 1, deviceExtent),
+                Is.True);
+            Assert.That(
+                DeviceBoundsValidation.MatchesExtent(deviceExtent + 1, density: 1, deviceExtent),
+                Is.False,
+                "An off-by-one backing extent must not be accepted when float ULPs exceed one pixel.");
+        });
+    }
+
     [TestCase(1.7f)]
     [TestCase(1.3333333f)]
     [TestCase(1.06f)]

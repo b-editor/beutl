@@ -78,13 +78,28 @@ public sealed class FilterEffectCrashSafetyTests
         Assert.That(IsFinite(context.Bounds), Is.True, $"Effect bounds must stay finite; got {context.Bounds}.");
     }
 
-    [TestCase(100, 0)]
+    [Test]
+    public void ColorShift_representative_offset_beyond_source_has_no_decal_fringe_at_quarter_scale()
+    {
+        AssertColorShiftHasNoDecalFringe(offsetX: 100, offsetY: 0);
+    }
+
+    // The other directions stay in the Explicit orchestrator gate named below; the default suite
+    // retains the positive-horizontal case that originally exposed the decal fringe.
     [TestCase(-100, 0)]
     [TestCase(0, 100)]
     [TestCase(0, -100)]
-    public void ColorShift_channel_offset_beyond_source_has_no_decal_fringe_at_quarter_scale(
+    [Explicit(
+        "Orchestrator gate: dotnet test tests/Beutl.UnitTests -f net10.0 "
+        + "--filter \"FullyQualifiedName~FilterEffectCrashSafetyTests.ColorShift_dense_offsets_beyond_source_have_no_decal_fringe_at_quarter_scale\"")]
+    public void ColorShift_dense_offsets_beyond_source_have_no_decal_fringe_at_quarter_scale(
         int offsetX,
         int offsetY)
+    {
+        AssertColorShiftHasNoDecalFringe(offsetX, offsetY);
+    }
+
+    private static void AssertColorShiftHasNoDecalFringe(int offsetX, int offsetY)
     {
         VulkanTestEnvironment.EnsureAvailable();
         VulkanTestEnvironment.InvokeOnRenderThread(() =>

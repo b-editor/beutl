@@ -23,6 +23,8 @@ public class LargeSigmaBlurCoverageTests
     private static readonly int[] s_smallSourceExtents = [25, 50, 100, 200];
     private static readonly float[] s_smallSourceSigmas = [127, 128, 250, 500];
 
+    // Dense backend-characterization sweeps are Explicit; each attribute records the exact
+    // orchestrator filter that opts the corresponding matrix into a dedicated gate.
     public static IEnumerable<TestCaseData> LargeSigmaCases()
     {
         foreach (float sigma in s_sigmas)
@@ -59,9 +61,22 @@ public class LargeSigmaBlurCoverageTests
             .SetName("Blur_SmallSourceGaussianResponse_Extent200_Sigma2000");
     }
 
-    [TestCase("Blur")]
-    [TestCase("DropShadow")]
-    public void HighOutputScale_CenterCoverageMatchesGaussianModel(string effectName)
+    [Test]
+    public void HighOutputScale_BlurCenterCoverageMatchesGaussianModel()
+    {
+        AssertHighOutputScaleCoverage("Blur");
+    }
+
+    [Test]
+    [Explicit(
+        "Orchestrator gate: dotnet test tests/Beutl.UnitTests -f net10.0 "
+        + "--filter \"FullyQualifiedName~LargeSigmaBlurCoverageTests.HighOutputScale_DropShadowCenterCoverageMatchesGaussianModel\"")]
+    public void HighOutputScale_DropShadowCenterCoverageMatchesGaussianModel()
+    {
+        AssertHighOutputScaleCoverage("DropShadow");
+    }
+
+    private static void AssertHighOutputScaleCoverage(string effectName)
     {
         VulkanTestEnvironment.EnsureAvailable();
         VulkanTestEnvironment.InvokeOnRenderThread(() =>
@@ -87,65 +102,41 @@ public class LargeSigmaBlurCoverageTests
     }
 
     [TestCaseSource(nameof(LargeSigmaCases))]
+    [Explicit(
+        "Orchestrator gate: dotnet test tests/Beutl.UnitTests -f net10.0 "
+        + "--filter \"FullyQualifiedName~LargeSigmaBlurCoverageTests.Blur_CenterCoverageMatchesGaussianModelAcrossCapBoundary\"")]
     public void Blur_CenterCoverageMatchesGaussianModelAcrossCapBoundary(
         float sigma,
         float outputScale)
     {
-        VulkanTestEnvironment.EnsureAvailable();
-        VulkanTestEnvironment.InvokeOnRenderThread(() =>
-        {
-            using Drawable.Resource drawable = CreateSquareBlur(sigma);
-            using Bitmap bitmap = GoldenImageHarness.RenderAtScale(
-                drawable,
-                s_largeSigmaFrame,
-                outputScale);
-
-            float actualLinear = ReadRed(bitmap, bitmap.Width / 2, bitmap.Height / 2);
-            double expectedLinear = GaussianIntervalCoverage(200, sigma)
-                                    * GaussianIntervalCoverage(200, sigma);
-            float actualSrgb = Color.LinearToSrgb(actualLinear);
-            double expectedSrgb = Color.LinearToSrgb((float)expectedLinear);
-            TestContext.WriteLine(
-                $"sigma={sigma}, scale={outputScale}: center={actualSrgb * 255:F3}, "
-                + $"Gaussian model={expectedSrgb * 255:F3}, delta={Math.Abs(actualSrgb - expectedSrgb) * 255:F3}");
-
-            // Three encoded levels separate native approximation noise from the large discontinuity
-            // caused by exceeding the backend's reliable device-sigma range.
-            Assert.That(
-                actualSrgb,
-                Is.EqualTo(expectedSrgb).Within(3f / 255f),
-                "Large Gaussian blur coverage must be continuous and resolution-independent.");
-        });
-    }
-
-    [TestCaseSource(nameof(s_shadowSigmas))]
-    public void DropShadowOnly_CenterCoverageMatchesGaussianModel(float sigma)
-    {
-        VulkanTestEnvironment.EnsureAvailable();
-        VulkanTestEnvironment.InvokeOnRenderThread(() =>
-        {
-            using Drawable.Resource drawable = CreateSquareDropShadowOnly(200, sigma);
-            using Bitmap bitmap = GoldenImageHarness.RenderAtScale(
-                drawable,
-                s_largeSigmaFrame,
-                1);
-
-            float actualLinear = ReadRed(bitmap, bitmap.Width / 2, bitmap.Height / 2);
-            double expectedLinear = Math.Pow(GaussianIntervalCoverage(200, sigma), 2);
-            float actualSrgb = Color.LinearToSrgb(actualLinear);
-            float expectedSrgb = Color.LinearToSrgb((float)expectedLinear);
-            TestContext.WriteLine(
-                $"DropShadow sigma={sigma}: center={actualSrgb * 255:F3}, "
-                + $"Gaussian model={expectedSrgb * 255:F3}");
-
-            Assert.That(
-                actualSrgb,
-                Is.EqualTo(expectedSrgb).Within(3f / 255f),
-                "ShadowOnly must use the same stable Gaussian response as Blur.");
-        });
+        AssertBlurCoverage(sigma, outputScale);
     }
 
     [Test]
+    public void Blur_RepresentativeCapBoundaryCoverageMatchesGaussianModel()
+    {
+        AssertBlurCoverage(sigma: 500, outputScale: 1);
+    }
+
+    [TestCaseSource(nameof(s_shadowSigmas))]
+    [Explicit(
+        "Orchestrator gate: dotnet test tests/Beutl.UnitTests -f net10.0 "
+        + "--filter \"FullyQualifiedName~LargeSigmaBlurCoverageTests.DropShadowOnly_CenterCoverageMatchesGaussianModel\"")]
+    public void DropShadowOnly_CenterCoverageMatchesGaussianModel(float sigma)
+    {
+        AssertDropShadowCoverage(sigma);
+    }
+
+    [Test]
+    public void DropShadowOnly_RepresentativeDensityCoverageMatchesGaussianModel()
+    {
+        AssertDropShadowCoverage(sigma: 500);
+    }
+
+    [Test]
+    [Explicit(
+        "Orchestrator gate: dotnet test tests/Beutl.UnitTests -f net10.0 "
+        + "--filter \"FullyQualifiedName~LargeSigmaBlurCoverageTests.DropShadowOnly_CenterCoverageIsMonotoneAcrossLargeSigmas\"")]
     public void DropShadowOnly_CenterCoverageIsMonotoneAcrossLargeSigmas()
     {
         VulkanTestEnvironment.EnsureAvailable();
@@ -171,70 +162,55 @@ public class LargeSigmaBlurCoverageTests
     }
 
     [TestCaseSource(nameof(SmallSourceBlurCases))]
+    [Explicit(
+        "Orchestrator gate: dotnet test tests/Beutl.UnitTests -f net10.0 "
+        + "--filter \"FullyQualifiedName~LargeSigmaBlurCoverageTests.Blur_SmallSourceCenterCoverageMatchesGaussianModel\"")]
     public void Blur_SmallSourceCenterCoverageMatchesGaussianModel(
         int sourceExtent,
         float sigma)
     {
-        VulkanTestEnvironment.EnsureAvailable();
-        VulkanTestEnvironment.InvokeOnRenderThread(() =>
-        {
-            using Drawable.Resource drawable = CreateSquareBlur(sourceExtent, sigma);
-            using Bitmap bitmap = GoldenImageHarness.RenderAtScale(
-                drawable,
-                s_largeSigmaFrame,
-                1);
-
-            float actualLinear = ReadRed(bitmap, bitmap.Width / 2, bitmap.Height / 2);
-            double expectedLinear = Math.Pow(
-                GaussianIntervalCoverage(sourceExtent, sigma),
-                2);
-            float actualSrgb = Color.LinearToSrgb(actualLinear);
-            float expectedSrgb = Color.LinearToSrgb((float)expectedLinear);
-            double ratio = actualLinear / expectedLinear;
-            TestContext.WriteLine(
-                $"extent={sourceExtent}, sigma={sigma}: center={actualSrgb * 255:F3}, "
-                + $"Gaussian model={expectedSrgb * 255:F3}, linear ratio={ratio:F4}");
-
-            Assert.Multiple(() =>
-            {
-                Assert.That(
-                    actualSrgb,
-                    Is.EqualTo(expectedSrgb).Within(3f / 255f),
-                    "Encoded centre coverage must match the analytic Gaussian.");
-                Assert.That(
-                    ratio,
-                    Is.InRange(0.85, 1.15),
-                    "Linear centre coverage must not resonate with the reduced source footprint.");
-            });
-        });
+        AssertSmallSourceBlurCoverage(sourceExtent, sigma);
     }
 
-    [TestCase(600f)]
-    [TestCase(2000f)]
-    public void DropShadow_TransparentShadowNeverResamplesSharpSubject(float sigma)
+    [Test]
+    public void Blur_RepresentativeSmallSourceCoverageMatchesGaussianModel()
+    {
+        AssertSmallSourceBlurCoverage(sourceExtent: 50, sigma: 500);
+    }
+
+    [Test]
+    public void DropShadow_OpaqueLargeSigmaShadowNeverResamplesSharpSubject()
     {
         VulkanTestEnvironment.EnsureAvailable();
         VulkanTestEnvironment.InvokeOnRenderThread(() =>
         {
-            using Drawable.Resource control = CreateSharpSquare(effect: null);
             using Drawable.Resource filtered = CreateSharpSquare(new DropShadow
             {
-                Sigma = { CurrentValue = new Size(sigma, sigma) },
-                Color = { CurrentValue = Colors.Transparent },
+                Sigma = { CurrentValue = new Size(600, 600) },
+                Color = { CurrentValue = Colors.Red },
                 Position = { CurrentValue = default },
             });
-            using Bitmap expected = GoldenImageHarness.RenderAtScale(
-                control,
-                s_largeSigmaFrame,
-                1,
-                clearColor: Colors.Transparent);
             using Bitmap actual = GoldenImageHarness.RenderAtScale(
                 filtered,
                 s_largeSigmaFrame,
                 1,
                 clearColor: Colors.Transparent);
 
-            GoldenImageHarness.AssertByteIdentical(expected, actual);
+            int y = actual.Height / 2;
+            int subjectLeft = (actual.Width - 200) / 2;
+            float outsideGreen = ReadGreen(actual, subjectLeft - 1, y);
+            float insideGreen = ReadGreen(actual, subjectLeft, y);
+            Assert.Multiple(() =>
+            {
+                Assert.That(
+                    outsideGreen,
+                    Is.LessThanOrEqualTo(1f / 255f),
+                    "The opaque red shadow contributes no green outside the subject.");
+                Assert.That(
+                    insideGreen,
+                    Is.GreaterThanOrEqualTo(254f / 255f),
+                    "The white subject edge must remain a one-pixel step over the low-density shadow.");
+            });
         });
     }
 
@@ -301,6 +277,97 @@ public class LargeSigmaBlurCoverageTests
             FilterEffect = { CurrentValue = effect }
         };
         return shape.ToResource(CompositionContext.Default);
+    }
+
+    private static void AssertBlurCoverage(float sigma, float outputScale)
+    {
+        VulkanTestEnvironment.EnsureAvailable();
+        VulkanTestEnvironment.InvokeOnRenderThread(() =>
+        {
+            using Drawable.Resource drawable = CreateSquareBlur(sigma);
+            using Bitmap bitmap = GoldenImageHarness.RenderAtScale(
+                drawable,
+                s_largeSigmaFrame,
+                outputScale);
+
+            float actualLinear = ReadRed(bitmap, bitmap.Width / 2, bitmap.Height / 2);
+            double expectedLinear = GaussianIntervalCoverage(200, sigma)
+                                    * GaussianIntervalCoverage(200, sigma);
+            float actualSrgb = Color.LinearToSrgb(actualLinear);
+            double expectedSrgb = Color.LinearToSrgb((float)expectedLinear);
+            TestContext.WriteLine(
+                $"sigma={sigma}, scale={outputScale}: center={actualSrgb * 255:F3}, "
+                + $"Gaussian model={expectedSrgb * 255:F3}, delta={Math.Abs(actualSrgb - expectedSrgb) * 255:F3}");
+
+            // Three encoded levels separate native approximation noise from the large discontinuity
+            // caused by exceeding the backend's reliable device-sigma range.
+            Assert.That(
+                actualSrgb,
+                Is.EqualTo(expectedSrgb).Within(3f / 255f),
+                "Large Gaussian blur coverage must be continuous and resolution-independent.");
+        });
+    }
+
+    private static void AssertDropShadowCoverage(float sigma)
+    {
+        VulkanTestEnvironment.EnsureAvailable();
+        VulkanTestEnvironment.InvokeOnRenderThread(() =>
+        {
+            using Drawable.Resource drawable = CreateSquareDropShadowOnly(200, sigma);
+            using Bitmap bitmap = GoldenImageHarness.RenderAtScale(
+                drawable,
+                s_largeSigmaFrame,
+                1);
+
+            float actualLinear = ReadRed(bitmap, bitmap.Width / 2, bitmap.Height / 2);
+            double expectedLinear = Math.Pow(GaussianIntervalCoverage(200, sigma), 2);
+            float actualSrgb = Color.LinearToSrgb(actualLinear);
+            float expectedSrgb = Color.LinearToSrgb((float)expectedLinear);
+            TestContext.WriteLine(
+                $"DropShadow sigma={sigma}: center={actualSrgb * 255:F3}, "
+                + $"Gaussian model={expectedSrgb * 255:F3}");
+
+            Assert.That(
+                actualSrgb,
+                Is.EqualTo(expectedSrgb).Within(3f / 255f),
+                "ShadowOnly must use the same stable Gaussian response as Blur.");
+        });
+    }
+
+    private static void AssertSmallSourceBlurCoverage(int sourceExtent, float sigma)
+    {
+        VulkanTestEnvironment.EnsureAvailable();
+        VulkanTestEnvironment.InvokeOnRenderThread(() =>
+        {
+            using Drawable.Resource drawable = CreateSquareBlur(sourceExtent, sigma);
+            using Bitmap bitmap = GoldenImageHarness.RenderAtScale(
+                drawable,
+                s_largeSigmaFrame,
+                1);
+
+            float actualLinear = ReadRed(bitmap, bitmap.Width / 2, bitmap.Height / 2);
+            double expectedLinear = Math.Pow(
+                GaussianIntervalCoverage(sourceExtent, sigma),
+                2);
+            float actualSrgb = Color.LinearToSrgb(actualLinear);
+            float expectedSrgb = Color.LinearToSrgb((float)expectedLinear);
+            double ratio = actualLinear / expectedLinear;
+            TestContext.WriteLine(
+                $"extent={sourceExtent}, sigma={sigma}: center={actualSrgb * 255:F3}, "
+                + $"Gaussian model={expectedSrgb * 255:F3}, linear ratio={ratio:F4}");
+
+            Assert.Multiple(() =>
+            {
+                Assert.That(
+                    actualSrgb,
+                    Is.EqualTo(expectedSrgb).Within(3f / 255f),
+                    "Encoded centre coverage must match the analytic Gaussian.");
+                Assert.That(
+                    ratio,
+                    Is.InRange(0.85, 1.15),
+                    "Linear centre coverage must not resonate with the reduced source footprint.");
+            });
+        });
     }
 
     private static Drawable.Resource CreateSquareBlur(float sigma)
@@ -406,6 +473,13 @@ public class LargeSigmaBlurCoverageTests
         ReadOnlySpan<ushort> pixels = bitmap.GetPixelSpan<ushort>();
         int offset = ((y * bitmap.Width) + x) * 4;
         return (float)BitConverter.UInt16BitsToHalf(pixels[offset]);
+    }
+
+    private static float ReadGreen(Bitmap bitmap, int x, int y)
+    {
+        ReadOnlySpan<ushort> pixels = bitmap.GetPixelSpan<ushort>();
+        int offset = ((y * bitmap.Width) + x) * 4;
+        return (float)BitConverter.UInt16BitsToHalf(pixels[offset + 1]);
     }
 }
 

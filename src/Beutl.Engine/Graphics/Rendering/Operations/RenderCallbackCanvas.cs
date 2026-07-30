@@ -271,7 +271,7 @@ internal static class DeviceBoundsValidation
         float ulp = Math.Max(
             Math.Abs(MathF.BitIncrement(expected) - expected),
             Math.Abs(expected - MathF.BitDecrement(expected)));
-        float tolerance = Math.Max(0.0001f, ulp * 2f);
+        float tolerance = Math.Min(0.75f, Math.Max(0.0001f, ulp * 2f));
         return Math.Abs((double)reconstructed - deviceExtent) <= tolerance;
     }
 }
