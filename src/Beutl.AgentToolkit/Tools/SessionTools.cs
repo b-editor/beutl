@@ -1,4 +1,5 @@
-﻿using System.ComponentModel;
+﻿using System.Collections;
+using System.ComponentModel;
 using System.Globalization;
 using Beutl.AgentToolkit.Common;
 using Beutl.AgentToolkit.Reconciliation;
@@ -6,7 +7,9 @@ using Beutl.AgentToolkit.Rendering;
 using Beutl.AgentToolkit.Sessions;
 using Beutl.AgentToolkit.Workspace;
 using Beutl.Editor;
+using Beutl.Engine;
 using Beutl.ProjectSystem;
+using Beutl.Serialization;
 using ModelContextProtocol.Server;
 
 namespace Beutl.AgentToolkit.Tools;
@@ -15,7 +18,10 @@ public sealed record SceneSummary(string SceneId, string Name, int Width, int He
 
 public sealed record SessionSummary(IReadOnlyList<SceneSummary> Scenes);
 
-public sealed record OpenProjectResponse(string Session, string Source, SessionSummary Summary);
+public sealed record OpenProjectResponse(string Session, string Source, SessionSummary Summary)
+{
+    public IReadOnlyList<string> Warnings { get; init; } = [];
+}
 
 public sealed record CreateProjectResponse(string Session, string SavedPath, SessionSummary Summary);
 
@@ -71,8 +77,73 @@ public sealed class SessionTools(
             return new OpenProjectResponse(
                 result.Session.SessionId,
                 result.Session.Source.ToString(),
-                CreateSummary(result.Session, result.Project));
+                CreateSummary(result.Session, result.Project))
+            {
+                Warnings = CollectDeserializationWarnings(result.Project)
+            };
         });
+    }
+
+    private static IReadOnlyList<string> CollectDeserializationWarnings(Project project)
+    {
+        var warnings = new List<string>();
+        foreach (Scene scene in project.Items.OfType<Scene>())
+        {
+            foreach (Element element in scene.Children)
+            {
+                var fallbacks = new List<IFallback>();
+                var visited = new HashSet<object>(ReferenceEqualityComparer.Instance);
+                foreach (EngineObject obj in element.Objects)
+                {
+                    CollectFallbacks(obj, visited, fallbacks);
+                }
+
+                string elementFile = element.Uri is { IsFile: true } uri
+                    ? Path.GetFileName(uri.LocalPath)
+                    : element.Name;
+                foreach (IFallback fallback in fallbacks)
+                {
+                    string error = string.IsNullOrWhiteSpace(fallback.ErrorMessage)
+                        ? fallback.Reason.ToString()
+                        : fallback.ErrorMessage;
+                    warnings.Add(
+                        $"Element file '{elementFile}' contains content that could not be deserialized: {error}");
+                }
+            }
+        }
+
+        return warnings;
+    }
+
+    private static void CollectFallbacks(
+        object? value,
+        ISet<object> visited,
+        ICollection<IFallback> fallbacks)
+    {
+        if (value is null or string || !visited.Add(value))
+            return;
+
+        if (value is IFallback fallback)
+        {
+            fallbacks.Add(fallback);
+            return;
+        }
+
+        if (value is EngineObject engineObject)
+        {
+            foreach (IProperty property in engineObject.Properties)
+            {
+                CollectFallbacks(property.CurrentValue, visited, fallbacks);
+            }
+        }
+
+        if (value is IEnumerable enumerable)
+        {
+            foreach (object? item in enumerable)
+            {
+                CollectFallbacks(item, visited, fallbacks);
+            }
+        }
     }
 
     [McpServerTool(Name = "create_project")]

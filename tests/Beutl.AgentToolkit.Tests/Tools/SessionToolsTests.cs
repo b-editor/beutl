@@ -1,4 +1,6 @@
-﻿using Beutl.AgentToolkit.Common;
+﻿using System.Text.Json;
+using System.Text.Json.Nodes;
+using Beutl.AgentToolkit.Common;
 using Beutl.AgentToolkit.Documents;
 using Beutl.AgentToolkit.Rendering;
 using Beutl.AgentToolkit.Sessions;
@@ -6,12 +8,86 @@ using Beutl.AgentToolkit.Tests.Helpers;
 using Beutl.AgentToolkit.Tools;
 using Beutl.AgentToolkit.Workspace;
 using Beutl.Editor;
+using Beutl.Graphics;
+using Beutl.Graphics.Shapes;
+using Beutl.Media;
 using Beutl.ProjectSystem;
 
 namespace Beutl.AgentToolkit.Tests.Tools;
 
 public sealed class SessionToolsTests
 {
+    [Test]
+    public async Task Open_project_warns_about_corrupt_element_and_render_still_remains_available()
+    {
+        string root = CreateWorkspace();
+        string projectPath = Path.Combine(root, "corrupt-element.bep");
+        Project project = ProjectOperations.CreateProject(new ProjectCreateOptions(
+            projectPath,
+            64,
+            64,
+            30,
+            TimeSpan.FromSeconds(1)));
+        Scene scene = project.Items.OfType<Scene>().Single();
+        var element = new Element
+        {
+            Name = "Corrupt element",
+            Length = TimeSpan.FromSeconds(1),
+            Uri = new Uri(Path.Combine(
+                Path.GetDirectoryName(scene.Uri!.LocalPath)!,
+                "corrupt-element.belm"))
+        };
+        element.AddObject(new RectShape
+        {
+            Width = { CurrentValue = 32 },
+            Height = { CurrentValue = 32 },
+            Fill = { CurrentValue = Brushes.White }
+        });
+        scene.Children.Add(element);
+        ProjectOperations.Save(project);
+
+        string elementPath = element.Uri!.LocalPath;
+        JsonObject elementJson = JsonNode.Parse(File.ReadAllText(elementPath))!.AsObject();
+        JsonObject drawableJson = elementJson[nameof(Element.Objects)]!.AsArray()[0]!.AsObject();
+        drawableJson[nameof(RectShape.Width)] = "not-a-number";
+        File.WriteAllText(elementPath, elementJson.ToJsonString());
+
+        var manager = new AgentSessionManager();
+        using var source = new FileSessionSource();
+        SessionTools sessionTools = CreateSessionTools(source, manager, root);
+
+        ToolResult<OpenProjectResponse> opened = await sessionTools.OpenProject(projectPath);
+        JsonObject responseJson = JsonSerializer.SerializeToNode(opened.Value)!.AsObject();
+
+        var stillRenderer = new StillRenderer();
+        var motionAnalyzer = new MotionVariationAnalyzer(stillRenderer);
+        var renderTools = new RenderTools(
+            manager,
+            new WorkspaceGuard(root),
+            new DestructiveGuard(),
+            stillRenderer,
+            new StoryboardRenderer(),
+            motionAnalyzer,
+            new AudioRhythmAnalyzer(),
+            new QualityAnalyzer(motionAnalyzer, stillRenderer),
+            new VideoExporter(new EncoderRegistration()),
+            new RenderJobManager());
+        string outputPath = Path.Combine(root, "corrupt-element.png");
+        var rendered = await renderTools.RenderStill(
+            outputPath,
+            cancellationToken: CancellationToken.None);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(opened.IsSuccess, Is.True, opened.Error?.Message);
+            Assert.That(
+                responseJson["Warnings"]?.AsArray().Select(static item => item!.GetValue<string>()),
+                Has.Some.Contains(Path.GetFileName(elementPath)).And.Some.Contains("could not be converted"));
+            Assert.That(rendered.IsError, Is.Not.True);
+            Assert.That(File.Exists(outputPath), Is.True);
+        });
+    }
+
     [Test]
     public async Task Create_project_starts_file_backed_session_for_document_tools()
     {
