@@ -134,10 +134,26 @@ public class CustomFilterEffectContext
             WorkingScale);
 
     public EffectTarget CreateTarget(Rect bounds)
+        => CreateTargetCore(bounds, WorkingScale);
+
+    internal EffectTarget CreateTargetAtMost(Rect bounds, float maximumDensity)
     {
-        float w = WorkingScale;
+        if (!float.IsFinite(maximumDensity) || maximumDensity <= 0)
+            throw new ArgumentOutOfRangeException(
+                nameof(maximumDensity),
+                maximumDensity,
+                "The target density ceiling must be positive and finite.");
+
+        return CreateTargetCore(bounds, MathF.Min(WorkingScale, maximumDensity));
+    }
+
+    private EffectTarget CreateTargetCore(Rect bounds, float requestedDensity)
+    {
+        float w = requestedDensity;
         // Re-clamp at allocation site: bounds may exceed what node-level clamps saw.
-        float fit = ResolveTargetDensity(bounds);
+        float fit = RenderScaleUtilities.ClampWorkingScaleToExactBufferBudget(
+            bounds.Translate(_deviceGridOffset),
+            w);
         if (fit < w)
         {
             s_logger.LogWarning(
@@ -147,7 +163,7 @@ public class CustomFilterEffectContext
         }
 
         PixelRect deviceBounds = DeviceBufferBounds(bounds.Translate(_deviceGridOffset), w);
-        return CreateTargetCore(bounds, w, deviceBounds, _deviceGridOffset);
+        return AllocateTarget(bounds, w, deviceBounds, _deviceGridOffset);
     }
 
     /// <summary>
@@ -232,7 +248,7 @@ public class CustomFilterEffectContext
                 source.RasterBounds));
     }
 
-    private static EffectTarget CreateTargetCore(
+    private static EffectTarget AllocateTarget(
         Rect bounds,
         float density,
         PixelRect deviceBounds,

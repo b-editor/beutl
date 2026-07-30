@@ -44,17 +44,7 @@ public sealed partial class DropShadow : FilterEffect
     {
         public override FilterEffectRenderNode CreateRenderNode()
         {
-            return new DropShadowRenderNode(this);
-        }
-    }
-
-    private sealed class DropShadowRenderNode(Resource effect) : FilterEffectRenderNode(effect)
-    {
-        protected override RenderScaleContract? GetWorkingScaleContract()
-        {
-            Size sigma = ((Resource)FilterEffect!.Value.Resource).Sigma;
-            return new GaussianBlurWorkingScaleResolver(MathF.Max(sigma.Width, sigma.Height))
-                .CreateContract();
+            return new FilterEffectRenderNode(this);
         }
     }
 }

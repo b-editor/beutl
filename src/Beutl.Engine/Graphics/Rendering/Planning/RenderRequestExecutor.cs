@@ -1043,6 +1043,13 @@ internal sealed class RenderRequestExecutor
         private bool TryReplayEngineSourceDirect(
             RenderFragmentReference fragment,
             ImmediateCanvas destination)
+            => ExecuteOnDeviceGrid(
+                destination,
+                () => TryReplayEngineSourceDirectCore(fragment, destination));
+
+        private bool TryReplayEngineSourceDirectCore(
+            RenderFragmentReference fragment,
+            ImmediateCanvas destination)
         {
             OpaqueRenderDescription description =
                 ((OpaqueRenderFragmentPayload)fragment.Payload!).Description;
@@ -2004,6 +2011,14 @@ internal sealed class RenderRequestExecutor
         }
 
         private IReadOnlyList<CompatibilityRenderValue> ExecuteOpaque(
+            RenderFragmentReference fragment,
+            ImmediateCanvas currentTarget,
+            EffectiveScale? requestedScale)
+            => ExecuteOnDeviceGrid(
+                currentTarget,
+                () => ExecuteOpaqueCore(fragment, currentTarget, requestedScale));
+
+        private IReadOnlyList<CompatibilityRenderValue> ExecuteOpaqueCore(
             RenderFragmentReference fragment,
             ImmediateCanvas currentTarget,
             EffectiveScale? requestedScale)
@@ -3546,7 +3561,13 @@ internal sealed class RenderRequestExecutor
             EffectiveScale scale = ClampToActiveDeviceGrid(
                 fragment.Bounds,
                 requestedScale ?? ResolveConcreteScale(fragment));
-            CompatibilityRenderValue value = CreateOwnedValue(domain, scale);
+            Vector? deviceGridOffset = ContainsDestructiveBlend(fragment)
+                ? default(Vector)
+                : null;
+            CompatibilityRenderValue value = CreateOwnedValue(
+                domain,
+                scale,
+                deviceGridOffset: deviceGridOffset);
             bool succeeded = false;
             try
             {
@@ -3565,8 +3586,17 @@ internal sealed class RenderRequestExecutor
                            rasterTranslation.X,
                            rasterTranslation.Y)))
                 {
-                    foreach (RenderFragmentReference input in fragment.Inputs)
-                        Replay(input, canvas);
+                    if (fragment.Inputs.Length == 1
+                        && IsMatchingTargetLayerScope(fragment.Inputs[0], canvas, domain))
+                    {
+                        // The finite Layer already provides the target-layer isolation surface.
+                        ReplayTargetLayerScopeIntoExistingLayer(fragment.Inputs[0], canvas);
+                    }
+                    else
+                    {
+                        foreach (RenderFragmentReference input in fragment.Inputs)
+                            Replay(input, canvas);
+                    }
                 }
 
                 succeeded = true;
@@ -3635,18 +3665,7 @@ internal sealed class RenderRequestExecutor
             RenderFragmentReference fragment,
             ImmediateCanvas destination)
         {
-            TargetRegion region = ((TargetLayerScopeRenderFragmentPayload)fragment.Payload!).Region;
-            Rect domain = region.Kind switch
-            {
-                TargetRegionKind.Empty => Rect.Empty,
-                TargetRegionKind.Region => region.Value,
-                TargetRegionKind.Full
-                    when fragment.Id is { } id
-                         && _resolvedScopeDomains.TryGetValue(id, out Rect resolved) => resolved,
-                TargetRegionKind.Full when _options.TargetDomain is { } targetDomain => targetDomain,
-                TargetRegionKind.Full => new Rect(default, destination.LogicalSize),
-                _ => throw new InvalidOperationException("The target-layer region is uninitialized."),
-            };
+            Rect domain = ResolveTargetLayerScopeDomain(fragment, destination);
             if (domain.Width == 0 || domain.Height == 0)
             {
                 MarkExecutionSkipped(fragment);
@@ -3684,6 +3703,56 @@ internal sealed class RenderRequestExecutor
             {
                 ReleaseUnpublished(value);
             }
+        }
+
+        private Rect ResolveTargetLayerScopeDomain(
+            RenderFragmentReference fragment,
+            ImmediateCanvas destination)
+        {
+            TargetRegion region = ((TargetLayerScopeRenderFragmentPayload)fragment.Payload!).Region;
+            return region.Kind switch
+            {
+                TargetRegionKind.Empty => Rect.Empty,
+                TargetRegionKind.Region => region.Value,
+                TargetRegionKind.Full
+                    when fragment.Id is { } id
+                         && _resolvedScopeDomains.TryGetValue(id, out Rect resolved) => resolved,
+                TargetRegionKind.Full when _options.TargetDomain is { } targetDomain => targetDomain,
+                TargetRegionKind.Full => new Rect(default, destination.LogicalSize),
+                _ => throw new InvalidOperationException("The target-layer region is uninitialized."),
+            };
+        }
+
+        private bool IsMatchingTargetLayerScope(
+            RenderFragmentReference fragment,
+            ImmediateCanvas destination,
+            Rect domain)
+            => fragment.Kind == RenderFragmentKind.TargetLayerScope
+               && ResolveTargetLayerScopeDomain(fragment, destination) == domain;
+
+        private void ReplayTargetLayerScopeIntoExistingLayer(
+            RenderFragmentReference scope,
+            ImmediateCanvas destination)
+        {
+            ExecuteReplayIsland(
+                scope,
+                () =>
+                {
+                    foreach (RenderFragmentReference input in scope.Inputs)
+                        Replay(input, destination);
+                });
+        }
+
+        private static bool ContainsDestructiveBlend(RenderFragmentReference fragment)
+        {
+            if (fragment.Kind == RenderFragmentKind.Blend
+                && BlendModeRenderNode.RequiresFullTargetRegion(
+                    ((BlendRenderFragmentPayload)fragment.Payload!).BlendMode))
+            {
+                return true;
+            }
+
+            return fragment.Inputs.Any(ContainsDestructiveBlend);
         }
 
         private void AddValueReferences(IEnumerable<CompatibilityRenderValue> values)

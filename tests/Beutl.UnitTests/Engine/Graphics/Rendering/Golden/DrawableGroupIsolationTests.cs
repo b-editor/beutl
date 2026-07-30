@@ -3,6 +3,7 @@ using Beutl.Graphics;
 using Beutl.Graphics.Effects;
 using Beutl.Graphics.Rendering;
 using Beutl.Graphics.Shapes;
+using Beutl.Graphics.Transformation;
 using Beutl.Media;
 using Beutl.UnitTests.Engine.Graphics.Backend;
 
@@ -164,6 +165,38 @@ public sealed class DrawableGroupIsolationTests
     }
 
     [Test]
+    public void FractionalDstInCorners_IdentityEffectPreservesTwoDimensionalCoverage()
+    {
+        VulkanTestEnvironment.EnsureAvailable();
+        VulkanTestEnvironment.InvokeOnRenderThread(() =>
+        {
+            using Drawable.Resource plain = CreateTranslatedMaskGroup(effect: null);
+            var identity = new Brightness();
+            identity.Amount.CurrentValue = 100;
+            using Drawable.Resource filtered = CreateTranslatedMaskGroup(identity);
+
+            using Bitmap expected = RenderScene(plain);
+            using Bitmap actual = RenderScene(filtered);
+
+            Assert.Multiple(() =>
+            {
+                AssertByteIdentical(
+                    expected,
+                    actual,
+                    "fractionally translated DstIn mask with an identity group effect");
+                Assert.That(
+                    ReadPixel(expected, 150, 150).Alpha,
+                    Is.EqualTo(0.75f * 0.75f).Within(0.003f),
+                    "A corner pixel must contain the product of the horizontal and vertical mask coverage.");
+                Assert.That(
+                    ReadPixel(actual, 150, 150).Alpha,
+                    Is.EqualTo(0.75f * 0.75f).Within(0.003f),
+                    "The effect path must preserve two-dimensional mask coverage.");
+            });
+        });
+    }
+
+    [Test]
     public void NestedGroupOpacity_MultipliesCompositeOpacity()
     {
         VulkanTestEnvironment.EnsureAvailable();
@@ -273,6 +306,16 @@ public sealed class DrawableGroupIsolationTests
         group.FilterEffect.CurrentValue = effect;
         foreach (Drawable child in children)
             group.Children.Add(child);
+        return group.ToResource(CompositionContext.Default);
+    }
+
+    private static Drawable.Resource CreateTranslatedMaskGroup(FilterEffect? effect)
+    {
+        var group = new DrawableGroup();
+        group.FilterEffect.CurrentValue = effect;
+        group.Transform.CurrentValue = new TranslateTransform(0.25f, 0.25f);
+        group.Children.Add(CreateRectangle(200, 200, Brushes.Blue));
+        group.Children.Add(CreateRectangle(100, 100, Brushes.White, blendMode: BlendMode.DstIn));
         return group.ToResource(CompositionContext.Default);
     }
 

@@ -9,11 +9,10 @@ namespace Beutl.UnitTests.Engine.Graphics.Rendering;
 [TestFixture]
 public class LargeSigmaWorkingScaleTests
 {
-    [TestCase("Blur")]
-    [TestCase("DropShadow")]
-    public void LargeSigma_CapsDeviceSigmaAtSafeCeiling(string effectName)
+    [Test]
+    public void LargeSigmaBlur_CapsDeviceSigmaAtSafeCeiling()
     {
-        using FilterEffect.Resource resource = CreateEffect(effectName, sigma: 250f);
+        using FilterEffect.Resource resource = CreateEffect("Blur", sigma: 250f);
         using FilterEffectRenderNode node = resource.CreateRenderNode();
 
         RenderNodeMeasurement measurement = ScaleRecordingTestHelper.MeasureThrough(
@@ -21,7 +20,21 @@ public class LargeSigmaWorkingScaleTests
             EffectiveScale.At(4f),
             outputScale: 4f);
 
-        Assert.That(measurement.EffectiveScale.Value, Is.EqualTo(512f / 250f).Within(0.0001f));
+        Assert.That(measurement.EffectiveScale.Value, Is.EqualTo(500f / 250f).Within(0.0001f));
+    }
+
+    [Test]
+    public void LargeSigmaDropShadow_KeepsSubjectAtStandardWorkingScale()
+    {
+        using FilterEffect.Resource resource = CreateEffect("DropShadow", sigma: 250f);
+        using FilterEffectRenderNode node = resource.CreateRenderNode();
+
+        RenderNodeMeasurement measurement = ScaleRecordingTestHelper.MeasureThrough(
+            node,
+            EffectiveScale.At(4f),
+            outputScale: 4f);
+
+        Assert.That(measurement.EffectiveScale.Value, Is.EqualTo(4f).Within(0.0001f));
     }
 
     [TestCase("Blur")]

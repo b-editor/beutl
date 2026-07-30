@@ -81,6 +81,102 @@ public sealed class ComposedSceneRenderCacheTests
         });
     }
 
+    [Test]
+    public void Text_CacheAdmissionAndHitAreByteIdenticalToDisabledRender()
+    {
+        RenderThread.Dispatcher.Invoke(() =>
+        {
+            var text = new TextBlock
+            {
+                FontFamily = { CurrentValue = FontFamily.Default },
+                Size = { CurrentValue = 72 },
+                Fill = { CurrentValue = Brushes.White },
+                Text = { CurrentValue = "ab" },
+            };
+            using Drawable.Resource resource = text.ToResource(CompositionContext.Default);
+
+            AssertCacheAdmissionParity<TextRenderNode>(resource);
+        });
+    }
+
+    [Test]
+    public void FractionalDrawableBrush_CacheAdmissionAndHitAreByteIdenticalToDisabledRender()
+    {
+        RenderThread.Dispatcher.Invoke(() =>
+        {
+            using Drawable.Resource resource = CreateDrawableBrushHost(0.5f);
+
+            AssertCacheAdmissionParity<GeometryRenderNode>(resource);
+        });
+    }
+
+    private static Drawable.Resource CreateDrawableBrushHost(float translation)
+    {
+        var content = new EllipseShape
+        {
+            Width = { CurrentValue = 40 },
+            Height = { CurrentValue = 30 },
+            Fill = { CurrentValue = Brushes.White },
+        };
+        var brush = new DrawableBrush(content)
+        {
+            Stretch = { CurrentValue = Stretch.Fill },
+            TileMode = { CurrentValue = TileMode.None },
+            DestinationRect = { CurrentValue = RelativeRect.Fill },
+        };
+        var host = new RectShape
+        {
+            Width = { CurrentValue = 40 },
+            Height = { CurrentValue = 30 },
+            Fill = { CurrentValue = brush },
+            Transform = { CurrentValue = new TranslateTransform(translation, translation) },
+        };
+        return host.ToResource(CompositionContext.Default);
+    }
+
+    private static void AssertCacheAdmissionParity<TNode>(Drawable.Resource resource)
+        where TNode : RenderNode
+    {
+        using var root = new DrawableRenderNode(resource);
+        using (var context = new GraphicsContext2D(root, s_frameSize.ToSize(1)))
+        {
+            context.Clear();
+            context.DrawDrawable(resource);
+        }
+
+        TNode? cacheable = Descendants(root).OfType<TNode>().FirstOrDefault();
+        Assert.That(cacheable, Is.Not.Null, $"the fixture must contain a {typeof(TNode).Name}");
+        cacheable!.Cache.ReportRenderCount(RenderNodeCache.Count);
+
+        var diagnostics = new RenderPipelineDiagnosticsState();
+        using var cachedRenderer = CreateRenderer(root, useRenderCache: true, diagnostics);
+        using RenderNodeRasterization admission = cachedRenderer.Rasterize();
+        using RenderNodeRasterization hit = cachedRenderer.Rasterize();
+        using var uncachedRenderer = CreateRenderer(root, useRenderCache: false);
+        using RenderNodeRasterization control = uncachedRenderer.Rasterize();
+
+        byte[] admissionPixels = GetPixels(admission);
+        byte[] hitPixels = GetPixels(hit);
+        byte[] controlPixels = GetPixels(control);
+        Assert.Multiple(() =>
+        {
+            Assert.That(
+                admissionPixels,
+                Is.EqualTo(controlPixels),
+                "cache admission must not change output. "
+                + DescribeDifference(controlPixels, admissionPixels));
+            Assert.That(
+                hitPixels,
+                Is.EqualTo(controlPixels),
+                "cache replay must not change output. "
+                + DescribeDifference(controlPixels, hitPixels));
+            Assert.That(
+                diagnostics.Latest[RenderPipelineCounter.RenderCacheHits],
+                Is.GreaterThan(0),
+                "the second enabled render must exercise a persistent render-cache hit");
+        });
+    }
+
     private static RenderNodeRenderer CreateRenderer(
         RenderNode root,
         bool useRenderCache,

@@ -2,7 +2,7 @@
 
 internal readonly record struct GaussianBlurWorkingScaleResolver(float MaxLogicalSigma)
 {
-    public const float MaxDeviceSigma = 512f;
+    public const float MaxDeviceSigma = 500f;
 
     public RenderScaleContract CreateContract()
     {
