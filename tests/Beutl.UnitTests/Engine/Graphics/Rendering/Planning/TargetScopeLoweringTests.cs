@@ -349,26 +349,37 @@ public sealed class TargetScopeLoweringTests
         });
     }
 
-    [TestCase(BlendMode.Clear, true)]
-    [TestCase(BlendMode.Src, true)]
-    [TestCase(BlendMode.SrcIn, true)]
-    [TestCase(BlendMode.DstIn, true)]
-    [TestCase(BlendMode.SrcOut, true)]
-    [TestCase(BlendMode.DstOut, true)]
-    [TestCase(BlendMode.DstATop, true)]
-    [TestCase(BlendMode.Modulate, true)]
-    [TestCase(BlendMode.SrcOver, false)]
-    [TestCase(BlendMode.Plus, false)]
-    [TestCase(BlendMode.Screen, false)]
-    [TestCase(BlendMode.Multiply, false)]
-    [TestCase(BlendMode.Darken, false)]
+    [TestCaseSource(nameof(AllBlendModes))]
     public void BlendMode_FullTargetRegionClassificationMatchesTransparentSourceSemantics(
-        BlendMode blendMode,
-        bool expected)
+        BlendMode blendMode)
     {
+        bool transparentSourceChangesDestination = TransparentSourceChangesDestination(blendMode);
+
         Assert.That(
             BlendModeRenderNode.RequiresFullTargetRegion(blendMode),
-            Is.EqualTo(expected));
+            Is.EqualTo(transparentSourceChangesDestination));
+    }
+
+    private static IEnumerable<BlendMode> AllBlendModes()
+        => Enum.GetValues<BlendMode>();
+
+    private static bool TransparentSourceChangesDestination(BlendMode blendMode)
+    {
+        var destination = new SKColor(53, 107, 181, 199);
+        using var bitmap = new SKBitmap(
+            new SKImageInfo(1, 1, SKColorType.Rgba8888, SKAlphaType.Premul));
+        using var canvas = new SKCanvas(bitmap);
+        canvas.Clear(destination);
+        SKColor before = bitmap.GetPixel(0, 0);
+        using var paint = new SKPaint
+        {
+            Color = SKColors.Transparent,
+            BlendMode = (SKBlendMode)blendMode,
+        };
+
+        canvas.DrawRect(SKRect.Create(1, 1), paint);
+
+        return bitmap.GetPixel(0, 0) != before;
     }
 
     [Test]

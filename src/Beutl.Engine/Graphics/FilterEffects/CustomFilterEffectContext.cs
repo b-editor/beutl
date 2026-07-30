@@ -214,6 +214,14 @@ public class CustomFilterEffectContext
                 "The source must have a materialized target and concrete scale.",
                 nameof(source));
         }
+        if (renderTarget.Width != source.DeviceBounds.Width
+            || renderTarget.Height != source.DeviceBounds.Height)
+        {
+            throw new ArgumentException(
+                $"The replacement render target must match the source device footprint "
+                + $"{source.DeviceBounds.Width}x{source.DeviceBounds.Height}.",
+                nameof(renderTarget));
+        }
 
         return source.CreateReplacement(renderTarget);
     }

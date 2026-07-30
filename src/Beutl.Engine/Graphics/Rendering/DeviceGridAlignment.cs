@@ -41,10 +41,6 @@ internal static class DeviceGridAlignment
             ((logicalOffset.Y * density) - deviceBounds.Y) / density);
     }
 
-    public static bool IsNonZeroLogicalTranslation(Matrix transform)
-        => HasTranslationOnlyLinearPart(transform, 1)
-           && (transform.M31 != 0 || transform.M32 != 0);
-
     private static bool HasTranslationOnlyLinearPart(Matrix transform, float linearScale)
         => transform.M11 == linearScale
            && transform.M12 == 0

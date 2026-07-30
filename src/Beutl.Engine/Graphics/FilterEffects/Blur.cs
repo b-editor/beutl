@@ -35,7 +35,8 @@ public sealed partial class Blur : FilterEffect
     {
         protected override RenderScaleContract? GetWorkingScaleContract()
         {
-            Size sigma = ((Resource)FilterEffect!.Value.Resource).Sigma;
+            Size sigma = FilterEffectContext.NormalizeGaussianSigma(
+                ((Resource)FilterEffect!.Value.Resource).Sigma);
             return new GaussianBlurWorkingScaleResolver(MathF.Max(sigma.Width, sigma.Height))
                 .CreateContract();
         }

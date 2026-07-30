@@ -52,6 +52,45 @@ public class LargeSigmaWorkingScaleTests
         Assert.That(measurement.EffectiveScale.Value, Is.EqualTo(4f).Within(0.0001f));
     }
 
+    [Test]
+    public void AnimatedBlurSigma_ReusesStructuralPlanAcrossWorkingScaleThreshold()
+    {
+        using FilterEffect.Resource first = CreateEffect("Blur", sigma: 100);
+        using var node = first.CreateRenderNode();
+        node.AddChild(new RectangleRenderNode(
+            new Rect(0, 0, 64, 64),
+            Brushes.Resource.White,
+            pen: null));
+        using var renderer = new RenderNodeRenderer(
+            node,
+            new RenderNodeRendererOptions
+            {
+                TargetDomain = new Rect(0, 0, 64, 64),
+                OutputScale = 1,
+                MaxWorkingScale = 1,
+                UseRenderCache = false,
+            });
+
+        using (renderer.Rasterize())
+        {
+        }
+
+        using FilterEffect.Resource second = CreateEffect("Blur", sigma: 600);
+        node.Update(second);
+        using (renderer.Rasterize())
+        {
+        }
+
+        StructuralPlanCacheStatistics statistics = renderer.StructuralPlanCacheStatistics;
+        Assert.Multiple(() =>
+        {
+            Assert.That(statistics.Compilations, Is.EqualTo(1));
+            Assert.That(statistics.Misses, Is.EqualTo(1));
+            Assert.That(statistics.Hits, Is.EqualTo(1));
+            Assert.That(statistics.Replacements, Is.Zero);
+        });
+    }
+
     private static FilterEffect.Resource CreateEffect(string effectName, float sigma)
     {
         FilterEffect effect = effectName switch

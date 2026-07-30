@@ -27,6 +27,7 @@ internal sealed class ArrayPooledObjectPolicy<T>(int length) : IPooledObjectPoli
 public sealed class FilterEffectContext : IDisposable
 {
     private const float MultipassDeviceSigmaThreshold = 128f;
+    internal const float MaximumLogicalSigma = RenderScaleUtilities.MaxBufferDimension / 8f;
 
     internal readonly PooledList<IFEItem> _items;
     internal readonly PooledList<IFEItem> _renderTimeItems;
@@ -273,7 +274,7 @@ public sealed class FilterEffectContext : IDisposable
 
     private void AppendDropShadow(Point position, Size sigma, Color color, bool shadowOnly)
     {
-        sigma = new Size(Math.Max(0, sigma.Width), Math.Max(0, sigma.Height));
+        sigma = NormalizeGaussianSigma(sigma);
         float maximumSigma = MathF.Max(sigma.Width, sigma.Height);
         if (TryGetWorkingScale(out float workingScale)
             && maximumSigma * workingScale <= GaussianBlurWorkingScaleResolver.MaxDeviceSigma)
@@ -435,10 +436,7 @@ public sealed class FilterEffectContext : IDisposable
 
     public void Blur(Size sigma)
     {
-        if (sigma.Width < 0)
-            sigma = sigma.WithWidth(0);
-        if (sigma.Height < 0)
-            sigma = sigma.WithHeight(0);
+        sigma = NormalizeGaussianSigma(sigma);
 
         AppendSkiaFilter(
             data: sigma,
@@ -475,6 +473,19 @@ public sealed class FilterEffectContext : IDisposable
             },
             transformBounds: static (sigma, bounds) =>
                 bounds.Inflate(new Thickness(sigma.Width * 3, sigma.Height * 3)));
+    }
+
+    internal static Size NormalizeGaussianSigma(Size sigma)
+    {
+        static float Normalize(float value)
+        {
+            if (float.IsNaN(value) || value <= 0)
+                return 0;
+
+            return MathF.Min(value, MaximumLogicalSigma);
+        }
+
+        return new Size(Normalize(sigma.Width), Normalize(sigma.Height));
     }
 
     // https://github.com/Shopify/react-native-skia/blob/c7740e30234e6b0a49721ab954c4a848e42d7edb/package/src/dom/nodes/paint/ImageFilters.ts#L25

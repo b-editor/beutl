@@ -6,7 +6,7 @@ internal readonly record struct GaussianBlurWorkingScaleResolver(float MaxLogica
 
     public RenderScaleContract CreateContract()
     {
-        return RenderScaleContract.Custom(Resolve, this);
+        return RenderScaleContract.Custom(Resolve, typeof(GaussianBlurWorkingScaleResolver));
     }
 
     private float Resolve(RenderScaleContext context)

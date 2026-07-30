@@ -171,10 +171,13 @@ public sealed class RasterFootprintMetadataTests
                 destination,
                 CallbackCanvasCapability.TargetScope);
 
-            PixelRect alignedLogicalBounds = PixelRect.FromRect(
-                callbackBounds.Translate(facade.DeviceGridOffset),
-                facade.Density);
-            Assert.That(facade.DeviceBounds.Contains(alignedLogicalBounds), Is.True);
+            Assert.Multiple(() =>
+            {
+                Assert.That(facade.Density, Is.EqualTo(1));
+                Assert.That(facade.DeviceGridOffset, Is.EqualTo(translation));
+                Assert.That(facade.DeviceBounds, Is.EqualTo(new PixelRect(49, 70, 151, 110)));
+                Assert.That(facade.RasterBounds, Is.EqualTo(new Rect(-0.97410583f, 0, 151, 110)));
+            });
         }
 
         token.Complete();
@@ -552,6 +555,39 @@ public sealed class RasterFootprintMetadataTests
             Assert.That(replacement.DeviceBounds, Is.EqualTo(deviceBounds));
             Assert.That(replacement.RasterBounds, Is.EqualTo(source.RasterBounds));
             Assert.That(replacement.Bounds, Is.EqualTo(source.Bounds));
+        });
+    }
+
+    [Test]
+    public void CustomFilterContext_ReplacementFootprintFailureNamesPublicArgument()
+    {
+        var bounds = new Rect(10, 12, 8, 6);
+        PixelRect deviceBounds = PixelRect.FromRect(bounds, 1);
+        using RenderTarget sourceBacking = RenderTarget.CreateNull(
+            deviceBounds.Width,
+            deviceBounds.Height);
+        using var source = new EffectTarget(
+            sourceBacking,
+            bounds,
+            EffectiveScale.At(1),
+            deviceBounds);
+        using var targets = new EffectTargets { source.Clone() };
+        var context = new CustomFilterEffectContext(
+            targets,
+            RenderIntent.Preview,
+            RenderRequestPurpose.Frame);
+        using RenderTarget wrongSize = RenderTarget.CreateNull(
+            deviceBounds.Width + 1,
+            deviceBounds.Height);
+
+        ArgumentException exception = Assert.Throws<ArgumentException>(
+            () => context.CreateReplacement(source, wrongSize))!;
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(exception.ParamName, Is.EqualTo("renderTarget"));
+            Assert.That(exception.Message, Does.Contain("footprint"));
+            Assert.That(exception.Message, Does.Contain($"{deviceBounds.Width}x{deviceBounds.Height}"));
         });
     }
 

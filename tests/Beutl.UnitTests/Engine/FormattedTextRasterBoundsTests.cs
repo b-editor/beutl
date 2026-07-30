@@ -125,6 +125,21 @@ public class FormattedTextRasterBoundsTests
         });
     }
 
+    [Test]
+    public void Bounds_ExtremeNegativeSpacingNeverPublishesNegativeWidth()
+    {
+        using FormattedText text = CreateText("Spacing", 48f);
+        text.Spacing = -10_000;
+
+        Rect bounds = text.Bounds;
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(bounds.Width, Is.GreaterThanOrEqualTo(0));
+            Assert.That(bounds.IsInvalid, Is.False);
+        });
+    }
+
     // The current SkiaSharp runtime leaves SKTextBlobBuilder run storage readable after Build(), so the
     // lifetime hazard this guards is not observably red before the production reorder. Repeated measurement
     // still verifies that moving mask-bound calculation before Build() preserves the published footprint.

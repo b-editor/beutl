@@ -37,7 +37,6 @@ public sealed class BlendModeRenderNode(BlendMode blendMode) : ContainerRenderNo
             or BlendMode.SrcIn
             or BlendMode.DstIn
             or BlendMode.SrcOut
-            or BlendMode.DstOut
             or BlendMode.DstATop
             or BlendMode.Modulate;
     }
