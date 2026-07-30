@@ -71,7 +71,7 @@
     <PackageVersion Include="PanelExtension" Version="1.0.0" />
     <PackageVersion Include="ReactiveProperty" Version="9.9.0" />
     <PackageVersion Include="Dock.Avalonia" Version="11.3.12.1" />
-    <PackageVersion Include="Dock.Model.Inpc" Version="11.3.12.1" />
+    <PackageVersion Include="Dock.Model.Inpc" Version="12.1.0" />
     <PackageVersion Include="Dock.Avalonia.Themes.Fluent" Version="11.3.12.1" />
     <PackageVersion Include="Refit" Version="14.0.1" />
     <PackageVersion Include="Roslynator.Analyzers" Version="4.15.0" />
