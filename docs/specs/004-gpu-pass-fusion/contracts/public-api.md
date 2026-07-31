@@ -154,7 +154,7 @@ public sealed class RenderNodeRendererOptions
     public Rect? RequestedRegion { get; init; }
     public float OutputScale { get; init; } = 1f;
     public float MaxWorkingScale { get; init; } = float.PositiveInfinity;
-    public bool UseRenderCache { get; init; } = true;
+    public bool UseRenderCache { get; init; } = Cache.RenderCacheOptions.Default.IsEnabled;
     public IRenderTargetFactory? TargetFactory { get; init; }
 }
 

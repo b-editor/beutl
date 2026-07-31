@@ -128,6 +128,101 @@ public sealed class DrawableGroupIsolationTests
     }
 
     [Test]
+    public void HalfOpacityGradientDstIn_MasksTheGroupCompositeAtHalfStrength()
+    {
+        VulkanTestEnvironment.EnsureAvailable();
+        VulkanTestEnvironment.InvokeOnRenderThread(() =>
+        {
+            var gradient = new LinearGradientBrush();
+            gradient.Opacity.CurrentValue = 50;
+            gradient.GradientStops.Add(new GradientStop(Colors.White, 0));
+            gradient.GradientStops.Add(new GradientStop(Colors.White, 1));
+            using Drawable.Resource group = CreateGroup(
+                opacity: 100,
+                effect: null,
+                CreateRectangle(240, 240, Brushes.White),
+                CreateRectangle(240, 240, gradient, blendMode: BlendMode.DstIn));
+            using Bitmap actual = RenderScene(group);
+
+            Rgba center = ReadPixel(actual, 200, 200);
+            Assert.Multiple(() =>
+            {
+                Assert.That(center.Alpha, Is.EqualTo(0.5f).Within(0.003f));
+                Assert.That(center.Red, Is.EqualTo(center.Alpha).Within(0.003f));
+            });
+        });
+    }
+
+    [TestCase(BlendMode.DstIn, 0f, 120f)]
+    [TestCase(BlendMode.DstIn, 120f, 0f)]
+    [TestCase(BlendMode.DstOut, 0f, 120f)]
+    [TestCase(BlendMode.DstOut, 120f, 0f)]
+    public void FractionalZeroAreaDestructiveRectangle_HasNoEffect(
+        BlendMode blendMode,
+        float width,
+        float height)
+    {
+        VulkanTestEnvironment.EnsureAvailable();
+        VulkanTestEnvironment.InvokeOnRenderThread(() =>
+        {
+            var geometry = new RectGeometry
+            {
+                Width = { CurrentValue = width },
+                Height = { CurrentValue = height },
+            };
+            using Geometry.Resource geometryResource = geometry.ToResource(CompositionContext.Default);
+            var nonEmptyGeometry = new RectGeometry
+            {
+                Width = { CurrentValue = 4 },
+                Height = { CurrentValue = 4 },
+            };
+            using Geometry.Resource nonEmptyGeometryResource =
+                nonEmptyGeometry.ToResource(CompositionContext.Default);
+
+            Bitmap Render(bool includeZeroAreaRectangle)
+            {
+                using RenderTarget target = RenderTarget.Create(32, 32)
+                                            ?? throw new InvalidOperationException(
+                                                "RenderTarget.Create returned null.");
+                using var canvas = new ImmediateCanvas(target);
+                canvas.Clear(Colors.White);
+                using PushedState blend = blendMode == BlendMode.DstOut
+                    ? canvas.PushDirectBlendMode(blendMode)
+                    : canvas.PushBlendMode(blendMode);
+
+                if (blendMode == BlendMode.DstIn)
+                {
+                    using (canvas.PushTransform(Matrix.CreateTranslation(2, 2)))
+                    {
+                        canvas.DrawGeometry(
+                            nonEmptyGeometryResource,
+                            Brushes.Resource.White,
+                            pen: null);
+                    }
+                }
+
+                if (includeZeroAreaRectangle)
+                {
+                    using (canvas.PushTransform(Matrix.CreateTranslation(16.5f, 8.5f)))
+                    {
+                        canvas.DrawGeometry(geometryResource, Brushes.Resource.White, pen: null);
+                    }
+                }
+
+                return target.Snapshot();
+            }
+
+            using Bitmap expected = Render(includeZeroAreaRectangle: false);
+            using Bitmap actual = Render(includeZeroAreaRectangle: true);
+
+            AssertByteIdentical(
+                expected,
+                actual,
+                $"fractional {width}x{height} {blendMode} rectangle");
+        });
+    }
+
+    [Test]
     public void WindowDstIn_RemovesGroupContentOutsideTheWindow()
     {
         VulkanTestEnvironment.EnsureAvailable();

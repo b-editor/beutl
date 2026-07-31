@@ -192,6 +192,63 @@ public sealed class ComposedSceneRenderCacheTests
     }
 
     [Test]
+    public void PlainGroup_DefaultRenderNodeRendererOptionsDoNotUsePersistentCache()
+    {
+        RenderThread.Dispatcher.Invoke(() =>
+        {
+            var group = new DrawableGroup();
+            group.Children.Add(new RectShape
+            {
+                Width = { CurrentValue = 160 },
+                Height = { CurrentValue = 160 },
+                Fill = { CurrentValue = Brushes.White },
+            });
+            using Drawable.Resource resource = group.ToResource(CompositionContext.Default);
+            using var root = new DrawableRenderNode(resource);
+            using (var context = new GraphicsContext2D(root, s_frameSize.ToSize(1)))
+            {
+                context.Clear();
+                context.DrawDrawable(resource);
+            }
+
+            GeometryRenderNode? cacheable = Descendants(root)
+                .OfType<GeometryRenderNode>()
+                .FirstOrDefault();
+            Assert.That(cacheable, Is.Not.Null, "the plain group must contain an eligible geometry node");
+            cacheable!.Cache.ReportRenderCount(RenderNodeCache.Count);
+
+            var diagnostics = new RenderPipelineDiagnosticsState();
+            var completedRequests = new List<RenderPipelineDiagnosticSnapshot>();
+            diagnostics.RequestCompleted += completedRequests.Add;
+            using var renderer = new RenderNodeRenderer(
+                root,
+                new RenderNodeRendererOptions
+                {
+                    TargetDomain = s_frameBounds,
+                    RenderPurpose = RenderRequestPurpose.Frame,
+                    TargetFactory = new CpuTargetFactory(),
+                    Diagnostics = diagnostics,
+                });
+            using RenderNodeRasterization first = renderer.Rasterize();
+            using RenderNodeRasterization second = renderer.Rasterize();
+
+            Assert.Multiple(() =>
+            {
+                Assert.That(
+                    completedRequests.Sum(
+                        static snapshot => snapshot[RenderPipelineCounter.RenderCacheCaptures]),
+                    Is.Zero,
+                    "default renderer options must not publish persistent cache entries");
+                Assert.That(
+                    completedRequests.Sum(
+                        static snapshot => snapshot[RenderPipelineCounter.RenderCacheHits]),
+                    Is.Zero,
+                    "default renderer options must not read persistent cache entries");
+            });
+        });
+    }
+
+    [Test]
     public void DefaultPolicy_DoesNotAdmitPlainAntialiasedGeometryOnGpu()
     {
         VulkanTestEnvironment.EnsureAvailable();

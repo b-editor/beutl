@@ -705,7 +705,7 @@ public class Scene : ProjectItem, INotifyEdited
                     EnsureFallbackProjection(fallback);
                 }
 
-                _recoveredElements[element] = new RecoveredElementSource(rawText);
+                MarkRecoveredElement(element, rawText);
             }
 
             return element;
@@ -727,9 +727,15 @@ public class Scene : ProjectItem, INotifyEdited
             };
             fallback.Json = CreateFallbackProjection(fallback);
             element.AddObject(fallback);
-            _recoveredElements[element] = new RecoveredElementSource(rawText);
+            MarkRecoveredElement(element, rawText);
             return element;
         }
+    }
+
+    private void MarkRecoveredElement(Element element, string rawText)
+    {
+        element.IsStorageWriteSuppressed = true;
+        _recoveredElements[element] = new RecoveredElementSource(rawText);
     }
 
     private static void EnsureFallbackProjection(IFallback fallback)
@@ -758,15 +764,76 @@ public class Scene : ProjectItem, INotifyEdited
 
     private Guid ResolveRecoveredElementId(string rawText, Uri uri)
     {
-        Match match = s_idPattern.Match(rawText);
-        if (match.Success && Guid.TryParse(match.Groups["id"].Value, out Guid id))
+        MatchCollection matches = s_idPattern.Matches(rawText);
+        Match? topLevelMatch = FindTopLevelIdMatch(rawText, matches);
+        if (topLevelMatch != null
+            && Guid.TryParse(topLevelMatch.Groups["id"].Value, out Guid topLevelId))
         {
-            return id;
+            return topLevelId;
+        }
+
+        if (matches.Count > 0
+            && Guid.TryParse(matches[0].Groups["id"].Value, out Guid firstId))
+        {
+            return firstId;
         }
 
         string sceneDirectory = Path.GetDirectoryName(Uri!.LocalPath)!;
         string relativePath = Path.GetRelativePath(sceneDirectory, uri.LocalPath);
         return CreateVersion5Guid(s_recoveredElementNamespace, relativePath);
+    }
+
+    private static Match? FindTopLevelIdMatch(string rawText, MatchCollection matches)
+    {
+        int matchIndex = 0;
+        int objectDepth = 0;
+        bool inString = false;
+        bool escaped = false;
+
+        for (int i = 0; i < rawText.Length && matchIndex < matches.Count; i++)
+        {
+            Match match = matches[matchIndex];
+            if (i == match.Index)
+            {
+                if (!inString && objectDepth == 1)
+                {
+                    return match;
+                }
+
+                matchIndex++;
+            }
+
+            char current = rawText[i];
+            if (inString)
+            {
+                if (escaped)
+                {
+                    escaped = false;
+                }
+                else if (current == '\\')
+                {
+                    escaped = true;
+                }
+                else if (current == '"')
+                {
+                    inString = false;
+                }
+            }
+            else if (current == '"')
+            {
+                inString = true;
+            }
+            else if (current == '{')
+            {
+                objectDepth++;
+            }
+            else if (current == '}' && objectDepth > 0)
+            {
+                objectDepth--;
+            }
+        }
+
+        return null;
     }
 
     private static Guid CreateVersion5Guid(Guid namespaceId, string name)

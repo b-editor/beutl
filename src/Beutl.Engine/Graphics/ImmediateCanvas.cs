@@ -1638,10 +1638,22 @@ public partial class ImmediateCanvas : IDisposable, IPopable
             return false;
         }
 
-        using SKShader? ownedSourceShader = paint.Shader is null
-            ? SKShader.CreateColor(paint.Color)
+        var rectangle = (RectGeometry.Resource)geometry;
+        if (rectangle.Width <= 0 || rectangle.Height <= 0)
+        {
+            return true;
+        }
+
+        SKColor previousColor = paint.Color;
+        SKShader? previousShader = paint.Shader;
+        using SKShader? ownedSourceShader = previousShader is null
+            ? SKShader.CreateColor(new SKColor(
+                previousColor.Red,
+                previousColor.Green,
+                previousColor.Blue,
+                255))
             : null;
-        SKShader sourceShader = paint.Shader ?? ownedSourceShader!;
+        SKShader sourceShader = previousShader ?? ownedSourceShader!;
         using var uniforms = new SKRuntimeEffectUniforms(s_rectCoverageEffect.Value);
         using var children = new SKRuntimeEffectChildren(s_rectCoverageEffect.Value);
         uniforms["left"] = (float)geometry.Bounds.Left;
@@ -1652,12 +1664,10 @@ public partial class ImmediateCanvas : IDisposable, IPopable
         uniforms["scaleY"] = MathF.Abs(_currentTransform.M22);
         children["src"] = sourceShader;
         using SKShader coverageShader = s_rectCoverageEffect.Value.ToShader(uniforms, children);
-        SKColor previousColor = paint.Color;
-        SKShader? previousShader = paint.Shader;
         bool previousAntialias = paint.IsAntialias;
         try
         {
-            paint.Color = SKColors.White;
+            paint.Color = new SKColor(255, 255, 255, previousColor.Alpha);
             paint.Shader = coverageShader;
             paint.IsAntialias = false;
             Canvas.DrawPaint(paint);

@@ -44,7 +44,7 @@ public sealed class RenderNodeRendererOptions
     public float MaxWorkingScale { get; init; } = float.PositiveInfinity;
 
     /// <summary>Gets whether eligible persistent render-node cache entries may be read or published.</summary>
-    public bool UseRenderCache { get; init; } = true;
+    public bool UseRenderCache { get; init; } = RenderCacheOptions.Default.IsEnabled;
 
     /// <summary>Gets the optional caller-owned factory for renderer-owned intermediate targets.</summary>
     /// <remarks><see langword="null"/> selects the engine's current-backend RGBA16F allocator.</remarks>
