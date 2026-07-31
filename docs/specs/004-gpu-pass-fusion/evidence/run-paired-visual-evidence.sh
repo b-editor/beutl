@@ -4,6 +4,7 @@ set -euo pipefail
 
 script_dir=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
 target_generator="$script_dir/generate-target-baseline.sh"
+committed_target_root="$script_dir/target-baseline"
 feature_worktree=""
 feature_command=${BEUTL_GPU_PASS_FEATURE_EXPORT_COMMAND:-}
 result_root=""
@@ -60,6 +61,10 @@ done
     printf 'Target generator is missing or not executable: %s\n' "$target_generator" >&2
     exit 1
 }
+[[ -f $committed_target_root/manifest.json ]] || {
+    printf 'Committed target baseline manifest is missing: %s/manifest.json\n' "$committed_target_root" >&2
+    exit 1
+}
 for command_name in git python3 bash; do
     command -v "$command_name" >/dev/null 2>&1 || {
         printf 'Required command is unavailable: %s\n' "$command_name" >&2
@@ -79,8 +84,161 @@ mkdir "$result_root"
 
 target_output="$result_root/target"
 feature_output="$result_root/feature"
+reconciliation_record="$result_root/.semantic-refresh-reconciliation.json"
 
 "$target_generator" --output-dir "$target_output"
+
+python3 - "$target_output" "$committed_target_root" "$reconciliation_record" <<'PY'
+import hashlib
+import json
+import pathlib
+import shutil
+import sys
+
+regenerated_root = pathlib.Path(sys.argv[1])
+committed_root = pathlib.Path(sys.argv[2])
+record_path = pathlib.Path(sys.argv[3])
+
+# Approved explicitly by docs/specs/004-gpu-pass-fusion/research.md; never infer
+# this set from artifact hash differences because that would self-approve regressions.
+APPROVED_SEMANTIC_REFRESH_SCENE_IDS = (
+    "geometry-stroke",
+    "scene3d-with-2d-tail",
+    "split-expansion",
+)
+
+def sha256(payload):
+    return hashlib.sha256(payload).hexdigest()
+
+def load_and_validate(root, label):
+    manifest_path = root / "manifest.json"
+    try:
+        manifest_bytes = manifest_path.read_bytes()
+        manifest = json.loads(manifest_bytes)
+    except (OSError, json.JSONDecodeError) as error:
+        raise SystemExit(f"{label} manifest cannot be read: {error}") from error
+    if not isinstance(manifest, dict):
+        raise SystemExit(f"{label} manifest root must be an object")
+
+    hashes = manifest.get("artifactSha256")
+    scenes = manifest.get("scenes")
+    if not isinstance(hashes, dict) or not hashes or not isinstance(scenes, list):
+        raise SystemExit(f"{label} artifact or scene table is missing")
+    expected_files = {"manifest.json", *hashes}
+    actual_files = {path.name for path in root.iterdir() if path.is_file()}
+    if actual_files != expected_files:
+        raise SystemExit(f"{label} file set differs from its manifest")
+
+    scene_by_id = {}
+    blob_to_scene_id = {}
+    for scene in scenes:
+        if not isinstance(scene, dict):
+            raise SystemExit(f"{label} contains a non-object scene")
+        scene_id = scene.get("id")
+        if not isinstance(scene_id, str) or not scene_id or scene_id in scene_by_id:
+            raise SystemExit(f"{label} has a missing or duplicate scene id")
+        scene_by_id[scene_id] = scene
+        blob = scene.get("blob")
+        if blob is not None:
+            if not isinstance(blob, str) or blob in blob_to_scene_id:
+                raise SystemExit(f"{label} has an invalid or duplicate scene blob: {scene_id}")
+            blob_to_scene_id[blob] = scene_id
+    if set(blob_to_scene_id) != set(hashes):
+        raise SystemExit(f"{label} scene blob set differs from its artifact hash table")
+
+    payloads = {}
+    for name, expected_hash in hashes.items():
+        if (not isinstance(name, str) or "/" in name or "\\" in name
+                or not name.endswith(".rgba16f")):
+            raise SystemExit(f"{label} contains an unsafe artifact name: {name}")
+        path = root / name
+        try:
+            payload = path.read_bytes()
+        except OSError as error:
+            raise SystemExit(f"{label} artifact cannot be read: {name}: {error}") from error
+        if sha256(payload) != expected_hash:
+            raise SystemExit(f"{label} artifact hash mismatch: {name}")
+        payloads[name] = payload
+    return manifest, manifest_bytes, hashes, scene_by_id, payloads
+
+(
+    regenerated,
+    regenerated_manifest_bytes,
+    regenerated_hashes,
+    regenerated_scenes,
+    regenerated_payloads,
+) = load_and_validate(regenerated_root, "regenerated target")
+(
+    committed,
+    committed_manifest_bytes,
+    committed_hashes,
+    committed_scenes,
+    committed_payloads,
+) = load_and_validate(committed_root, "committed target baseline")
+
+if set(regenerated_scenes) != set(committed_scenes):
+    raise SystemExit("Regenerated and committed target scene-id sets differ")
+if set(regenerated_hashes) != set(committed_hashes):
+    raise SystemExit("Regenerated and committed target artifact sets differ")
+for scene_id in sorted(regenerated_scenes):
+    if regenerated_scenes[scene_id].get("blob") != committed_scenes[scene_id].get("blob"):
+        raise SystemExit(f"Regenerated and committed target scene blobs differ: {scene_id}")
+
+approved_blobs = {}
+for scene_id in APPROVED_SEMANTIC_REFRESH_SCENE_IDS:
+    regenerated_scene = regenerated_scenes.get(scene_id)
+    committed_scene = committed_scenes.get(scene_id)
+    if regenerated_scene is None or committed_scene is None:
+        raise SystemExit(f"Approved semantic-refresh scene is missing: {scene_id}")
+    regenerated_blob = regenerated_scene.get("blob")
+    committed_blob = committed_scene.get("blob")
+    if not isinstance(regenerated_blob, str) or regenerated_blob != committed_blob:
+        raise SystemExit(f"Approved semantic-refresh scene blob differs: {scene_id}")
+    approved_blobs[regenerated_blob] = scene_id
+if len(approved_blobs) != len(APPROVED_SEMANTIC_REFRESH_SCENE_IDS):
+    raise SystemExit("Approved semantic-refresh scenes do not map to distinct artifacts")
+
+for blob_name in sorted(regenerated_hashes):
+    if blob_name not in approved_blobs and regenerated_payloads[blob_name] != committed_payloads[blob_name]:
+        scene_id = next(
+            scene["id"] for scene in regenerated_scenes.values() if scene.get("blob") == blob_name)
+        raise SystemExit(
+            f"Unapproved target artifact differs from the committed baseline: {scene_id} ({blob_name})")
+
+refresh_records = []
+for blob_name, scene_id in sorted(approved_blobs.items(), key=lambda item: item[1]):
+    legacy_hash = sha256(regenerated_payloads[blob_name])
+    refreshed_hash = committed_hashes[blob_name]
+    if refreshed_hash == legacy_hash:
+        raise SystemExit(
+            f"Approved semantic refresh is absent for {scene_id}; run "
+            "docs/specs/004-gpu-pass-fusion/evidence/"
+            "refresh-intentional-visual-baselines.sh before paired evidence")
+    shutil.copyfile(committed_root / blob_name, regenerated_root / blob_name)
+    regenerated_hashes[blob_name] = refreshed_hash
+    refresh_records.append({
+        "sceneId": scene_id,
+        "artifact": blob_name,
+        "legacyArtifactSha256": legacy_hash,
+        "refreshedArtifactSha256": refreshed_hash,
+    })
+
+(regenerated_root / "manifest.json").write_text(
+    json.dumps(regenerated, indent=2, ensure_ascii=True) + "\n",
+    encoding="utf-8",
+)
+record = {
+    "schemaVersion": 1,
+    "regeneratedTargetManifestSha256": sha256(regenerated_manifest_bytes),
+    "committedTargetBaselineManifestSha256": sha256(committed_manifest_bytes),
+    "artifacts": refresh_records,
+}
+record_path.write_text(
+    json.dumps(record, indent=2, sort_keys=True) + "\n",
+    encoding="utf-8",
+)
+print("Reconciled approved semantic refreshes from the committed target baseline")
+PY
 
 BEUTL_GPU_PASS_EVIDENCE_OUTPUT_DIR="$feature_output" \
 BEUTL_GPU_PASS_TARGET_OUTPUT_DIR="$target_output" \
@@ -95,7 +253,8 @@ bash -c 'cd "$1" && exec bash -c "$2"' bash "$feature_worktree" "$feature_comman
 }
 
 FEATURE_SHA="$feature_sha" FEATURE_COMMAND="$feature_command" \
-python3 - "$target_output" "$feature_output" "$result_root/paired-result.json" <<'PY'
+python3 - "$target_output" "$feature_output" "$result_root/paired-result.json" \
+    "$reconciliation_record" <<'PY'
 import datetime
 import hashlib
 import json
@@ -108,6 +267,7 @@ import sys
 target_root = pathlib.Path(sys.argv[1])
 feature_root = pathlib.Path(sys.argv[2])
 result_path = pathlib.Path(sys.argv[3])
+reconciliation_path = pathlib.Path(sys.argv[4])
 
 required_environment_fingerprint_fields = {
     "osDescription", "osVersion", "osBuild", "osArchitecture", "processArchitecture",
@@ -218,6 +378,31 @@ if set(target_scenes) != set(feature_scenes):
     raise SystemExit("Target and feature scene-id sets differ")
 if target.get("pixelFormat") != feature.get("pixelFormat"):
     raise SystemExit("Target and feature pixel formats differ")
+
+try:
+    reconciliation = json.loads(reconciliation_path.read_text(encoding="utf-8"))
+except (OSError, json.JSONDecodeError) as error:
+    raise SystemExit(f"Semantic-refresh reconciliation record cannot be read: {error}") from error
+refresh_artifacts = reconciliation.get("artifacts")
+if not isinstance(refresh_artifacts, list) or len(refresh_artifacts) != 3:
+    raise SystemExit("Semantic-refresh reconciliation record must contain exactly three artifacts")
+refresh_scene_ids = set()
+for item in refresh_artifacts:
+    if not isinstance(item, dict):
+        raise SystemExit("Semantic-refresh reconciliation contains a non-object artifact")
+    scene_id = item.get("sceneId")
+    blob = item.get("artifact")
+    legacy_hash = item.get("legacyArtifactSha256")
+    refreshed_hash = item.get("refreshedArtifactSha256")
+    if not isinstance(scene_id, str) or scene_id in refresh_scene_ids or scene_id not in target_scenes:
+        raise SystemExit("Semantic-refresh reconciliation contains an invalid scene id")
+    refresh_scene_ids.add(scene_id)
+    if target_scenes[scene_id].get("blob") != blob:
+        raise SystemExit(f"Semantic-refresh artifact does not match its target scene: {scene_id}")
+    if target.get("artifactSha256", {}).get(blob) != refreshed_hash:
+        raise SystemExit(f"Semantic-refresh hash does not match the reconciled target: {scene_id}")
+    if legacy_hash == refreshed_hash:
+        raise SystemExit(f"Semantic-refresh record has identical legacy and refreshed hashes: {scene_id}")
 
 semantic_fields = (
     "category", "role", "controlSceneId", "blobWidth", "blobHeight", "logicalWidth",
@@ -357,6 +542,16 @@ result = {
     "featureCommand": os.environ["FEATURE_COMMAND"],
     "targetManifestSha256": hashlib.sha256((target_root / "manifest.json").read_bytes()).hexdigest(),
     "featureManifestSha256": hashlib.sha256((feature_root / "manifest.json").read_bytes()).hexdigest(),
+    "semanticRefresh": {
+        "regeneratedTargetManifestSha256": reconciliation["regeneratedTargetManifestSha256"],
+        "committedTargetBaselineManifestSha256": reconciliation[
+            "committedTargetBaselineManifestSha256"
+        ],
+        "artifacts": [
+            {**item, "parityRanAgainstRefreshedArtifact": True}
+            for item in sorted(refresh_artifacts, key=lambda value: value["sceneId"])
+        ],
+    },
     "environmentFingerprint": target_environment_fingerprint,
     "sourceAssemblyVersions": {
         "target": target_fingerprint[source_provenance_field],
@@ -371,5 +566,6 @@ result = {
     "scenes": results,
 }
 result_path.write_text(json.dumps(result, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+reconciliation_path.unlink()
 print(f"Paired visual evidence passed and was recorded at {result_path}")
 PY

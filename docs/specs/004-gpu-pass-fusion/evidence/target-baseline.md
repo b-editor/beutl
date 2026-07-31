@@ -43,15 +43,20 @@ separately: each engine assembly version must contain its own worktree SHA, so t
 expected target/feature code-version difference cannot be mistaken for an environment
 mismatch.
 
+The paired runner reconciles the semantic refreshes approved in `research.md` from
+the committed baseline before parity: `geometry-stroke`, `split-expansion`, and
+`scene3d-with-2d-tail`. Every other regenerated legacy artifact must remain
+byte-identical to its committed counterpart.
+
 ## Immutable provenance
 
 | Item | SHA-256 |
 |---|---|
-| Visual manifest | `f7d685c4ce1ee480024cc28d6ddf1b9b0cd9e012459669226b50b68805f67792` |
-| Benchmark manifest | `5100126ac5264364224c82be2ccdc66f780f884dc1f4a9626cc812401f17ea8b` |
+| Visual manifest | `59f2e1cc0d29b9562c58b2632d5ee045a860a852a524357cf8fea6f17982451a` |
+| Benchmark manifest | `1e7b57c00aabb392d431061a23297f96da8ff201e7dde7e7b37008559363bd6e` |
 | Generator patch / applied diff | `037315804fa9531bdef1b79e2db405e8a3813e4bc137527690f9f2d5cb4e728c` |
 | Generator script | `05d33410a06cdd3a6fee91911b25a348fdc480ed249916e45fe75c653b40c4f7` |
-| Paired visual runner | `1ac369986cf888ec32f39060f5d96d3c6758f881ecdb40f21f469926e253d413` |
+| Paired visual runner | `4263352f519686b9de89047ee0c55dbb999935412db05419464ca81387939af9` |
 | Generator source bundle | `d6e5f339d5d7214b0cb879aa5cf2cd717896879b942400928e77b38c9a62a19e` |
 
 The visual manifest is

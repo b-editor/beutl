@@ -50,7 +50,7 @@
     "generatorPatchSha256": "037315804fa9531bdef1b79e2db405e8a3813e4bc137527690f9f2d5cb4e728c",
     "generatorScriptSha256": "05d33410a06cdd3a6fee91911b25a348fdc480ed249916e45fe75c653b40c4f7",
     "generatorSourceBundleSha256": "d6e5f339d5d7214b0cb879aa5cf2cd717896879b942400928e77b38c9a62a19e",
-    "pairedRunnerSha256": "1ac369986cf888ec32f39060f5d96d3c6758f881ecdb40f21f469926e253d413"
+    "pairedRunnerSha256": "4263352f519686b9de89047ee0c55dbb999935412db05419464ca81387939af9"
   },
   "fingerprint": {
     "beutlEngineAssemblyVersion": "2.99.99+43a38e665d9bf52548161a3917e748bd1457ff55",
@@ -101,5 +101,5 @@
   "runStartedUtc": "2026-07-19T07:58:07.936284+00:00",
   "schemaVersion": 1,
   "scope": "minimum starting-SHA baseline; the 11-case paired confidence gate remains T112-T115",
-  "visualManifestSha256": "f7d685c4ce1ee480024cc28d6ddf1b9b0cd9e012459669226b50b68805f67792"
+  "visualManifestSha256": "59f2e1cc0d29b9562c58b2632d5ee045a860a852a524357cf8fea6f17982451a"
 }
