@@ -699,7 +699,7 @@ public class Scene : ProjectItem, INotifyEdited
                     EnsureFallbackProjection(fallback);
                 }
 
-                MarkRecoveredElement(element, File.ReadAllText(uri.LocalPath), uri);
+                MarkRecoveredElement(element, File.ReadAllBytes(uri.LocalPath), uri);
             }
 
             return element;
@@ -712,10 +712,13 @@ public class Scene : ProjectItem, INotifyEdited
                                        or InvalidOperationException
                                        or NotSupportedException)
         {
-            string rawText = File.ReadAllText(uri.LocalPath);
+            // Raw bytes, not text: the sidecar must survive rehoming byte-identically even when it
+            // holds a BOM, another encoding, or undecodable bytes. The lossy decode is only scanned
+            // for a top-level Id.
+            byte[] rawBytes = File.ReadAllBytes(uri.LocalPath);
             var element = new Element
             {
-                Id = ResolveRecoveredElementId(rawText, uri),
+                Id = ResolveRecoveredElementId(Encoding.UTF8.GetString(rawBytes), uri),
                 Name = Path.GetFileNameWithoutExtension(uri.LocalPath),
                 Uri = uri,
                 IsEnabled = false,
@@ -728,14 +731,14 @@ public class Scene : ProjectItem, INotifyEdited
             };
             fallback.Json = CreateFallbackProjection(fallback);
             element.AddObject(fallback);
-            MarkRecoveredElement(element, rawText, uri);
+            MarkRecoveredElement(element, rawBytes, uri);
             return element;
         }
     }
 
-    private static void MarkRecoveredElement(Element element, string rawText, Uri uri)
+    private static void MarkRecoveredElement(Element element, byte[] rawBytes, Uri uri)
     {
-        element.SuppressedStorageSource = new SuppressedStorageSource(rawText, uri);
+        element.SuppressedStorageSource = new SuppressedStorageSource(rawBytes, uri);
     }
 
     private static void EnsureFallbackProjection(IFallback fallback)

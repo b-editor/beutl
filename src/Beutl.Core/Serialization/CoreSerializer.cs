@@ -158,7 +158,10 @@ public static class CoreSerializer
         // 互換性処理
         // 1.x で作成されたファイルでは一部のオブジェクトに $type が付与されないため、
         // 期待される型に基づいてディスクリミネータを補完する。
-        if (!node.TryGetDiscriminator(out Type? _))
+        // Presence is checked on the raw string: a present-but-unparsable discriminator must fail
+        // as an unknown type, not silently deserialize as the legacy default and overwrite the
+        // original data on the next save.
+        if (!node.TryGetDiscriminator(out string? _))
         {
             if (type == typeof(ProjectItem))
             {
@@ -174,6 +177,14 @@ public static class CoreSerializer
         if (actualType == null)
         {
             throw new InvalidOperationException("Discriminator not found in JSON object.");
+        }
+
+        if (!type.IsAssignableFrom(actualType))
+        {
+            // Reject before instantiating: deserializing the declared type first would run its own
+            // load side effects (e.g. a Scene declared in a .belm globs and reopens element files).
+            throw new InvalidCastException(
+                $"Discriminator type '{actualType}' is not assignable to the expected type '{type}'.");
         }
 
         try
@@ -235,7 +246,8 @@ public static class CoreSerializer
             }
 
             // Rehomed (save-as): the retained bytes move verbatim so the new project copy keeps the
-            // element, while the original file stays untouched.
+            // element. The suppression record is never mutated — the source location stays
+            // skip-protected even if a failed multi-file save rolls Uri back afterwards.
             string rehomedPath = uri.LocalPath;
             string? rehomedDirectory = Path.GetDirectoryName(rehomedPath);
             if (rehomedDirectory != null)
@@ -243,9 +255,8 @@ public static class CoreSerializer
                 Directory.CreateDirectory(rehomedDirectory);
             }
 
-            File.WriteAllText(rehomedPath, suppressed.RawText);
+            File.WriteAllBytes(rehomedPath, suppressed.RawBytes);
             suppressedObj.Uri = uri;
-            suppressedObj.SuppressedStorageSource = suppressed with { SourceUri = uri };
             return;
         }
 

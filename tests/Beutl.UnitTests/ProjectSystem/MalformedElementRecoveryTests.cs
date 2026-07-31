@@ -96,6 +96,91 @@ public sealed class MalformedElementRecoveryTests
     }
 
     [Test]
+    public void Restore_UnparsableDiscriminator_RecoversInsteadOfFailing()
+    {
+        (Uri sceneUri, string elementPath) = CreatePersistedScene();
+        File.WriteAllText(
+            elementPath,
+            """{"$type":"x","Id":"85f4d478-e16d-4cb1-ab71-ee1a90a03fe0"}""");
+        byte[] originalBytes = File.ReadAllBytes(elementPath);
+
+        Scene recovered = CoreSerializer.RestoreFromUri<Scene>(sceneUri);
+        CoreSerializer.StoreToUri(recovered, sceneUri);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(recovered.Children.Single().IsEnabled, Is.False);
+            Assert.That(File.ReadAllBytes(elementPath), Is.EqualTo(originalBytes));
+        });
+    }
+
+    [Test]
+    public void Restore_SceneDiscriminatorWithSelfInclude_RecoversWithoutRecursing()
+    {
+        (Uri sceneUri, string elementPath) = CreatePersistedScene();
+        File.WriteAllText(
+            elementPath,
+            """{"$type":"[Beutl.ProjectSystem]:Scene","Id":"85f4d478-e16d-4cb1-ab71-ee1a90a03fe0","Elements":{"Include":["element.belm"]}}""");
+        byte[] originalBytes = File.ReadAllBytes(elementPath);
+
+        Scene recovered = CoreSerializer.RestoreFromUri<Scene>(sceneUri);
+        CoreSerializer.StoreToUri(recovered, sceneUri);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(recovered.Children.Single().IsEnabled, Is.False);
+            Assert.That(File.ReadAllBytes(elementPath), Is.EqualTo(originalBytes));
+        });
+    }
+
+    [Test]
+    public void SaveAs_PreservesBomAndNonUtf8SidecarBytes()
+    {
+        (Uri sceneUri, string elementPath) = CreatePersistedScene();
+        byte[] corruptBytes =
+        [
+            0xEF, 0xBB, 0xBF,
+            .. "{\"Id\":\"85f4d478-e16d-4cb1-ab71-ee1a90a03fe0\",\"Objects\":["u8,
+            0xFF, 0xFE, 0x00,
+        ];
+        File.WriteAllBytes(elementPath, corruptBytes);
+
+        Element recovered = CoreSerializer.RestoreFromUri<Scene>(sceneUri).Children.Single();
+        string rehomedPath = Path.Combine(_root, "rehomed", Path.GetFileName(elementPath));
+        CoreSerializer.StoreToUri(recovered, new Uri(rehomedPath));
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(recovered.Id, Is.EqualTo(new Guid("85f4d478-e16d-4cb1-ab71-ee1a90a03fe0")));
+            Assert.That(File.ReadAllBytes(rehomedPath), Is.EqualTo(corruptBytes));
+            Assert.That(File.ReadAllBytes(elementPath), Is.EqualTo(corruptBytes));
+        });
+    }
+
+    [Test]
+    public void StoreToUri_AfterRehome_KeepsTheOriginalSkipProtected()
+    {
+        (Uri sceneUri, string elementPath) = CreatePersistedScene();
+        byte[] corruptBytes = "{\"Id\":\"85f4d478-e16d-4cb1-ab71-ee1a90a03fe0\",\"Objects\":["u8.ToArray();
+        File.WriteAllBytes(elementPath, corruptBytes);
+
+        Element recovered = CoreSerializer.RestoreFromUri<Scene>(sceneUri).Children.Single();
+        string rehomedPath = Path.Combine(_root, "rehomed", Path.GetFileName(elementPath));
+        CoreSerializer.StoreToUri(recovered, new Uri(rehomedPath));
+
+        // A failed multi-file save-as rolls Uri back to the original; the next ordinary save must
+        // still treat the original sidecar as the protected source, not a rehome target.
+        File.Delete(elementPath);
+        CoreSerializer.StoreToUri(recovered, new Uri(elementPath));
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(File.Exists(elementPath), Is.False);
+            Assert.That(File.ReadAllBytes(rehomedPath), Is.EqualTo(corruptBytes));
+        });
+    }
+
+    [Test]
     public void SaveAs_CopiesRecoveredSidecarBytesToTheNewLocation()
     {
         (Uri sceneUri, string elementPath) = CreatePersistedScene();
