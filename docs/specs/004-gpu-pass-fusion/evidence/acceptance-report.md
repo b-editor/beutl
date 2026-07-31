@@ -25,7 +25,7 @@ measurement methodology.
 
 ## Paired visual evidence (passed)
 
-- Target: legacy renderer regenerated from `43a38e665d9bf52548161a3917e748bd1457ff55`; feature: `458905b9bbbbb0847b9a98f8fa65c626b3e9989f`.
+- Target: legacy renderer regenerated from `43a38e665d9bf52548161a3917e748bd1457ff55`; feature: `dc90279b8a4125e85dc85b82281c6d3661e9137c`.
 - Environment fingerprint gate: exact match required and satisfied before any parity metric.
 - Result: **all 44 scenes passed** — thresholds SSIM ≥ 0.99,
   linear-RGB MAE ≤ 0.02, alpha MAE ≤ 0.02.
@@ -39,8 +39,8 @@ measurement methodology.
   `PreviewAllocationDrops` counter); the recorded outcomes now match the baseline
   (`dropped-output-without-throw` / `threw`).
 - Raw result: [`paired-visual-result.json`](paired-visual-result.json)
-  (SHA-256 `849f050880e28ec543a88d34c33d0ce79d5dd6088916c447e9e3d09850c7af7e`);
-  run-regenerated target manifest `9a95e4b486909b60220c4becef6768ede4e8bf285e48d62a8c76040891f950e8`, feature manifest `98fdbb16feb347e9df3a100036149ed63567ec286a31818e0649bcaac55fe31d`.
+  (SHA-256 `9eedd40be659092aa0f9058e671b68ab5bcf1804bbf68c400ab029e6fefe6d3b`);
+  run-regenerated target manifest `38ff5b736ca9e6b94dcdbea1c103a01c212fb95b2d28f6b72add995d509c1ab2`, feature manifest `16185209804f4d8ecd4058a95b5637f752ac03c1e22be354f8b040a443e33ec0`.
 
 ### Paired exact-fingerprint AA edge bound
 
@@ -205,7 +205,7 @@ methodology are unchanged.
 | `paired-benchmark-run/feature/raw-benchmark-stdout.txt` | `a174be2deafef47e6c0b355d292d34432a974c74cfa95c02e29616e786c2c283` |
 | `paired-benchmark-run/manifest.json` | `129725e6281c7bbda17a7e6f087c0d7632c24a3619412b02b59ed9ee94e92894` |
 
-Visual evidence regenerated 2026-07-31T22:41:27Z on the fingerprinted machine
+Visual evidence regenerated 2026-07-31T23:56:24Z on the fingerprinted machine
 (benchmark run recorded 2026-07-31T18:35:08Z on the same machine). The paired
 benchmark analyzer has since been tightened to require the configured 15 samples
 per case with matching counts across all three runs; the recorded run satisfies
