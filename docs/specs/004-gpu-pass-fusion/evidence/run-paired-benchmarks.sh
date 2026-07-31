@@ -116,10 +116,13 @@ baseline_engine_project="$baseline_worktree/src/Beutl.Engine/Beutl.Engine.csproj
     exit 66
 }
 printf -v quoted_baseline_engine '%q' "$baseline_engine_project"
+printf -v quoted_baseline_harness '%q' "$baseline_harness"
 printf -v quoted_baseline_harness_project '%q' "$baseline_harness_project"
 printf -v quoted_baseline_build '%q' "$temporary_build_root/baseline"
 printf -v quoted_feature_build '%q' "$temporary_build_root/feature"
-default_baseline_command="BEUTL_BASELINE_ENGINE_PROJECT=$quoted_baseline_engine dotnet run -c Release --artifacts-path $quoted_baseline_build --project $quoted_baseline_harness_project -p:BaselineEngineProject=$quoted_baseline_engine -- --filter '*TargetRenderPipelineBenchmarks*'"
+# BenchmarkDotNet locates the harness .csproj by searching the working directory's subfolders,
+# so the baseline run must execute inside the harness directory rather than the baseline worktree.
+default_baseline_command="cd $quoted_baseline_harness && BEUTL_BASELINE_ENGINE_PROJECT=$quoted_baseline_engine dotnet run -c Release --artifacts-path $quoted_baseline_build --project $quoted_baseline_harness_project -p:BaselineEngineProject=$quoted_baseline_engine -- --filter '*TargetRenderPipelineBenchmarks*'"
 default_feature_command="dotnet run -c Release --artifacts-path $quoted_feature_build --project tests/Beutl.Benchmarks/Beutl.Benchmarks.csproj -- --filter '*RenderPipelineBenchmarks*'"
 baseline_command="${BEUTL_BASELINE_BENCHMARK_COMMAND:-$default_baseline_command}"
 feature_command="${BEUTL_FEATURE_BENCHMARK_COMMAND:-$default_feature_command}"
