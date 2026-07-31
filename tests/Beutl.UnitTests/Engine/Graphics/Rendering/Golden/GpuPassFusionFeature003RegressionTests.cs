@@ -139,8 +139,8 @@ public sealed class GpuPassFusionFeature003RegressionTests
             using Bitmap second = RenderRepresentative(content, 1);
 
             GoldenImageHarness.AssertByteIdentical(first, second);
-            Assert.That(SumAbsoluteChannels(first), Is.GreaterThan(1),
-                "a byte-stable transparent result is not a useful golden anchor");
+            Assert.That(SumAbsoluteRgb(first), Is.GreaterThan(1),
+                "a byte-stable opaque-black result is not a useful golden anchor");
         });
     }
 
@@ -347,11 +347,16 @@ public sealed class GpuPassFusionFeature003RegressionTests
         };
     }
 
-    private static double SumAbsoluteChannels(Bitmap bitmap)
+    private static double SumAbsoluteRgb(Bitmap bitmap)
     {
         double result = 0;
-        foreach (ushort bits in bitmap.GetPixelSpan<ushort>())
-            result += Math.Abs((float)BitConverter.UInt16BitsToHalf(bits));
+        ReadOnlySpan<ushort> pixels = bitmap.GetPixelSpan<ushort>();
+        for (int offset = 0; offset < pixels.Length; offset += 4)
+        {
+            for (int channel = 0; channel < 3; channel++)
+                result += Math.Abs((float)BitConverter.UInt16BitsToHalf(pixels[offset + channel]));
+        }
+
         return result;
     }
 

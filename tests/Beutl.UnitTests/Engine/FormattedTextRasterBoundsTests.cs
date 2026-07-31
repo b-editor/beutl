@@ -115,9 +115,12 @@ public class FormattedTextRasterBoundsTests
         using FormattedText text = CreateText("Your model", 48f);
         Rect actual = text.ActualBounds;
         Rect raster = text.RasterBounds;
+        Rect expectedActual = text.GetFillPath().TightBounds.ToGraphicsRect();
 
         Assert.Multiple(() =>
         {
+            Assert.That(actual, Is.EqualTo(expectedActual),
+                "ActualBounds must remain the semantic fill-path bounds without the raster apron.");
             Assert.That(raster.X, Is.LessThanOrEqualTo(actual.X));
             Assert.That(raster.Y, Is.LessThanOrEqualTo(actual.Y));
             Assert.That(raster.Right, Is.GreaterThanOrEqualTo(actual.Right));

@@ -223,7 +223,7 @@ internal static class GpuPassFusionBaselineEvidence
             ValidateAllocationFailures(root.GetProperty("allocationFailures"));
             ValidateBenchmark(root.GetProperty("benchmark"));
 
-            return new GpuPassFusionEvidenceManifest(
+            var manifest = new GpuPassFusionEvidenceManifest(
                 paths,
                 schemaVersion,
                 baselineCodeSha,
@@ -233,6 +233,8 @@ internal static class GpuPassFusionBaselineEvidence
                 fingerprint,
                 artifactHashes,
                 scenes);
+            VerifyRecordedNonVacuity(manifest);
+            return manifest;
         }
     }
 
@@ -388,6 +390,25 @@ internal static class GpuPassFusionBaselineEvidence
             maximumChannelError,
             sampleCount,
             margin);
+    }
+
+    private static void VerifyRecordedNonVacuity(GpuPassFusionEvidenceManifest manifest)
+    {
+        const double tolerance = 1e-12;
+        foreach (GpuPassFusionEvidenceScene scene in manifest.Scenes.Where(scene => scene.NonVacuity is not null))
+        {
+            GpuPassFusionNonVacuityRecord recorded = scene.NonVacuity!;
+            GpuPassFusionNonVacuityDelta actual = RecomputeNonVacuity(manifest, scene);
+            if (Math.Abs(actual.LinearRgbMae - recorded.LinearRgbMae) > tolerance
+                || Math.Abs(actual.AlphaMae - recorded.AlphaMae) > tolerance
+                || Math.Abs(actual.MaximumChannelError - recorded.MaximumChannelError) > tolerance
+                || actual.SampleCount != recorded.SampleCount
+                || Math.Abs(actual.MarginAboveTolerance - recorded.MarginAboveTolerance) > tolerance)
+            {
+                throw new InvalidDataException(
+                    $"Scene '{scene.Id}' has stale non-vacuity evidence that does not match its pinned blobs.");
+            }
+        }
     }
 
     private static GpuPassFusionEvidenceTools ReadEvidenceTools(JsonElement element)
@@ -964,6 +985,7 @@ internal static class GpuPassFusionBaselineEvidence
 internal static class GpuPassFusionSameProcessParityHarness
 {
     public const double MinimumSsim = 0.99;
+    public const double MinimumWindowedSsim = 0.95;
     public const double MaximumLinearRgbMae = 0.02;
     public const double MaximumAlphaMae = 0.02;
     public const double MaximumAaEdgeChannelError = 0.02;
@@ -1037,6 +1059,7 @@ internal static class GpuPassFusionSameProcessParityHarness
     {
         return new GpuPassFusionParityMetrics(
             ImageMetrics.Ssim(disabled, enabled),
+            ImageMetrics.WindowedSsim(disabled, enabled, 16),
             ImageMetrics.MeanAbsoluteError(disabled, enabled),
             ImageMetrics.AlphaMeanAbsoluteError(disabled, enabled));
     }
@@ -1044,6 +1067,10 @@ internal static class GpuPassFusionSameProcessParityHarness
     private static void AssertMetrics(GpuPassFusionParityMetrics metrics, string region)
     {
         Assert.That(metrics.Ssim, Is.GreaterThanOrEqualTo(MinimumSsim), $"{region} SSIM was too low.");
+        Assert.That(
+            metrics.WindowedSsim,
+            Is.GreaterThanOrEqualTo(MinimumWindowedSsim),
+            $"{region} minimum-window SSIM was too low.");
         Assert.That(
             metrics.LinearRgbMae,
             Is.LessThanOrEqualTo(MaximumLinearRgbMae),
@@ -1210,6 +1237,7 @@ internal readonly record struct GpuPassFusionPixelRegion(int X, int Y, int Width
 
 internal readonly record struct GpuPassFusionParityMetrics(
     double Ssim,
+    double WindowedSsim,
     double LinearRgbMae,
     double AlphaMae);
 

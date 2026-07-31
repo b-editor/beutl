@@ -147,10 +147,12 @@ public sealed class GpuPassFusionBaselineTests
                 Is.EqualTo(new[] { typeof(Func<FusionMode, Bitmap>), typeof(PixelRect?) }),
                 "The normal-CI harness must not accept a manifest, historical blob, or configurable bound.");
             Assert.That(GpuPassFusionSameProcessParityHarness.MinimumSsim, Is.EqualTo(0.99));
+            Assert.That(GpuPassFusionSameProcessParityHarness.MinimumWindowedSsim, Is.EqualTo(0.95));
             Assert.That(GpuPassFusionSameProcessParityHarness.MaximumLinearRgbMae, Is.EqualTo(0.02));
             Assert.That(GpuPassFusionSameProcessParityHarness.MaximumAlphaMae, Is.EqualTo(0.02));
             Assert.That(GpuPassFusionSameProcessParityHarness.MaximumAaEdgeChannelError, Is.EqualTo(0.02));
             Assert.That(result.FullImage.Ssim, Is.EqualTo(1));
+            Assert.That(result.FullImage.WindowedSsim, Is.EqualTo(1));
             Assert.That(result.FullImage.LinearRgbMae, Is.Zero);
             Assert.That(result.FullImage.AlphaMae, Is.Zero);
             Assert.That(result.AaEdge, Is.Not.Null);
@@ -174,6 +176,46 @@ public sealed class GpuPassFusionBaselineTests
             Throws.TypeOf<MultipleAssertException>()
                 .With.Message.Contains("AA edge red-channel maximum error exceeded"),
             "The fixed AA per-channel maximum must reject an error above 0.02 even when mean RGB error passes.");
+    }
+
+    [Test]
+    public void SameProcessParityHarness_RejectsLocalizedDefectThatPassesWholeFrameMetrics()
+    {
+        Assert.That(
+            () => GpuPassFusionSameProcessParityHarness.AssertParity(
+                mode => CreateCheckerboardBitmap(withLocalizedDefect: mode == FusionMode.Enabled)),
+            Throws.TypeOf<MultipleAssertException>()
+                .With.Message.Contains("minimum-window SSIM was too low"),
+            "A localized defect must not hide inside acceptable whole-frame SSIM and MAE values.");
+    }
+
+    private static Bitmap CreateCheckerboardBitmap(bool withLocalizedDefect)
+    {
+        const int size = 128;
+        var bitmap = new Bitmap(
+            size,
+            size,
+            BitmapColorType.RgbaF16,
+            BitmapAlphaType.Premul,
+            BitmapColorSpace.LinearSrgb);
+        Span<ushort> pixels = bitmap.GetPixelSpan<ushort>();
+        ushort one = BitConverter.HalfToUInt16Bits((Half)1f);
+        ushort zero = BitConverter.HalfToUInt16Bits((Half)0f);
+        ushort gray = BitConverter.HalfToUInt16Bits((Half)0.5f);
+        for (int y = 0; y < size; y++)
+        {
+            for (int x = 0; x < size; x++)
+            {
+                int offset = ((y * size) + x) * 4;
+                ushort value = withLocalizedDefect && x < 14 && y < 14
+                    ? gray
+                    : ((x + y) & 1) == 0 ? one : zero;
+                pixels[offset] = pixels[offset + 1] = pixels[offset + 2] = value;
+                pixels[offset + 3] = one;
+            }
+        }
+
+        return bitmap;
     }
 
     private static Bitmap CreateUniformBitmap(

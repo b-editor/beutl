@@ -1,10 +1,13 @@
-﻿using Beutl.Composition;
+﻿using System.Numerics;
+
+using Beutl.Composition;
 using Beutl.Graphics;
 using Beutl.Graphics.Effects;
 using Beutl.Graphics.Rendering;
 using Beutl.Graphics.Rendering.Cache;
 using Beutl.Graphics.Shapes;
 using Beutl.Graphics3D;
+using Beutl.Graphics3D.Lighting;
 using Beutl.Graphics3D.Materials;
 using Beutl.Graphics3D.Primitives;
 using Beutl.Graphics3D.Textures;
@@ -138,23 +141,13 @@ public sealed class GpuPassFusion3DBoundaryTests
             var drawable = new RectShape();
             drawable.Width.CurrentValue = 12;
             drawable.Height.CurrentValue = 8;
-            drawable.Fill.CurrentValue = Brushes.Red;
+            drawable.Fill.CurrentValue = new SolidColorBrush(new Color(255, 192, 0, 0));
             var texture = new DrawableTextureSource();
             texture.Drawable.CurrentValue = drawable;
             texture.TextureWidth.CurrentValue = 12;
             texture.TextureHeight.CurrentValue = 8;
             Material3D material = CreateMaterial(dependency, texture);
-            var cube = new Cube3D();
-            cube.Material.CurrentValue = material;
-
-            var scene = new Scene3D();
-            scene.RenderWidth.CurrentValue = 48;
-            scene.RenderHeight.CurrentValue = 36;
-            scene.BackgroundColor.CurrentValue = Colors.Black;
-            scene.AmbientColor.CurrentValue = Colors.White;
-            scene.AmbientIntensity.CurrentValue = 1;
-            using var resource = (Scene3D.Resource)scene.ToResource(CompositionContext.Default);
-            resource.Objects.Add((Object3D.Resource)cube.ToResource(CompositionContext.Default));
+            using var resource = CreateSceneResource(material);
             using var sceneNode = new Scene3DRenderNode(resource);
 
             var targetDomain = new Rect(0, 0, 48, 36);
@@ -200,11 +193,13 @@ public sealed class GpuPassFusion3DBoundaryTests
                 renderedPixels = rendered.GetPixelSpan<ushort>().ToArray();
             }
 
+            ushort[] controlPixels = RenderScene(CreateMaterial(dependency, texture: null));
+            double maximumRgbDifference = MaximumRgbDifference(renderedPixels, controlPixels);
             Assert.Multiple(() =>
             {
                 Assert.That(statistics.IntermediateTargetAcquisitions, Is.GreaterThanOrEqualTo(1));
-                Assert.That(renderedPixels, Has.Some.Not.Zero,
-                    "The textured scene must consume the prepared drawable target and publish pixels.");
+                Assert.That(maximumRgbDifference, Is.GreaterThan(0.01),
+                    "The textured scene must differ from the no-texture control in RGB content.");
                 Assert.That(binding.Density, Is.EqualTo(0.75f),
                     "The planned drawable target must match the 3D surface density passed to GetTexture.");
                 Assert.That(binding.DeviceBounds, Is.EqualTo(new PixelRect(0, 0, 9, 6)));
@@ -214,9 +209,80 @@ public sealed class GpuPassFusion3DBoundaryTests
         });
     }
 
+    private static Scene3D.Resource CreateSceneResource(Material3D material)
+    {
+        var cube = new Cube3D();
+        cube.Material.CurrentValue = material;
+        var light = new DirectionalLight3D();
+        light.Direction.CurrentValue = new Vector3(0, 0, -1);
+        light.Intensity.CurrentValue = 1;
+        light.IsEnabled = true;
+
+        var scene = new Scene3D();
+        scene.RenderWidth.CurrentValue = 48;
+        scene.RenderHeight.CurrentValue = 36;
+        scene.BackgroundColor.CurrentValue = Colors.Black;
+        scene.AmbientColor.CurrentValue = Colors.White;
+        // Full white ambient saturates the clamped output, hiding every additive/specular
+        // contribution and zeroing the emissive/normal/metallic-roughness RGB differences.
+        scene.AmbientIntensity.CurrentValue = 0.2f;
+        var resource = (Scene3D.Resource)scene.ToResource(CompositionContext.Default);
+        resource.Objects.Add((Object3D.Resource)cube.ToResource(CompositionContext.Default));
+        resource.Lights.Add((Light3D.Resource)light.ToResource(CompositionContext.Default));
+        return resource;
+    }
+
+    private static ushort[] RenderScene(Material3D material)
+    {
+        using var resource = CreateSceneResource(material);
+        using var sceneNode = new Scene3DRenderNode(resource);
+        var targetDomain = new Rect(0, 0, 48, 36);
+        using CompiledRenderRequest compiled = Compile(
+            sceneNode,
+            targetDomain,
+            outputScale: 1.75f,
+            maxWorkingScale: 0.75f);
+        using var registry = new RenderTargetLeaseRegistry(factory: null);
+        using RenderTargetLeaseSession targets = registry.BeginSession(RenderIntent.Preview);
+        using RenderTargetLease root = targets.Acquire(
+            PixelRect.FromRect(compiled.ExecutionTargetBounds, 1.75f).Size);
+        using var canvas = new ImmediateCanvas(
+            root.Target,
+            density: 1.75f,
+            maxWorkingScale: 0.75f,
+            logicalSize: compiled.ExecutionTargetBounds.Size);
+        using (canvas.PushTransform(Matrix.CreateTranslation(
+                   -compiled.ExecutionTargetBounds.X,
+                   -compiled.ExecutionTargetBounds.Y)))
+        {
+            canvas.Clear();
+            var executor = new RenderRequestExecutor(targets);
+            executor.Execute(compiled, canvas, replayBounds: compiled.ExecutionTargetBounds);
+            using Bitmap rendered = root.Target.Snapshot();
+            return rendered.GetPixelSpan<ushort>().ToArray();
+        }
+    }
+
+    private static double MaximumRgbDifference(ushort[] textured, ushort[] control)
+    {
+        Assert.That(textured, Has.Length.EqualTo(control.Length));
+        double maximum = 0;
+        for (int offset = 0; offset < textured.Length; offset += 4)
+        {
+            for (int channel = 0; channel < 3; channel++)
+            {
+                float texturedValue = (float)BitConverter.UInt16BitsToHalf(textured[offset + channel]);
+                float controlValue = (float)BitConverter.UInt16BitsToHalf(control[offset + channel]);
+                maximum = Math.Max(maximum, Math.Abs(texturedValue - controlValue));
+            }
+        }
+
+        return maximum;
+    }
+
     private static Material3D CreateMaterial(
         MaterialTextureDependency dependency,
-        TextureSource texture)
+        TextureSource? texture)
     {
         if (dependency == MaterialTextureDependency.BasicDiffuseMap)
         {
@@ -233,6 +299,8 @@ public sealed class GpuPassFusion3DBoundaryTests
         }
 
         var pbrMaterial = new PBRMaterial();
+        if (dependency == MaterialTextureDependency.PbrEmissiveMap)
+            pbrMaterial.Emissive.CurrentValue = Colors.White;
         switch (dependency)
         {
             case MaterialTextureDependency.PbrAlbedoMap:
@@ -242,6 +310,9 @@ public sealed class GpuPassFusion3DBoundaryTests
                 pbrMaterial.NormalMap.CurrentValue = texture;
                 break;
             case MaterialTextureDependency.PbrMetallicRoughnessMap:
+                // The map multiplies the base factors, so zero bases would make it unobservable.
+                pbrMaterial.Metallic.CurrentValue = 1f;
+                pbrMaterial.Roughness.CurrentValue = 1f;
                 pbrMaterial.MetallicRoughnessMap.CurrentValue = texture;
                 break;
             case MaterialTextureDependency.PbrEmissiveMap:

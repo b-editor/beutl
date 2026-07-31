@@ -39,8 +39,11 @@ public class PixelSortEffectContentTests
 
             double energy = 0;
             ReadOnlySpan<ushort> pixels = sorted.GetPixelSpan<ushort>();
-            for (int i = 3; i < pixels.Length; i += 4)
-                energy += (float)BitConverter.UInt16BitsToHalf(pixels[i]);
+            for (int offset = 0; offset < pixels.Length; offset += 4)
+            {
+                for (int channel = 0; channel < 3; channel++)
+                    energy += (float)BitConverter.UInt16BitsToHalf(pixels[offset + channel]);
+            }
 
             Assert.That(energy, Is.GreaterThan(1000),
                 "PixelSortEffect returned an empty frame; the source surface was sampled unflushed.");
