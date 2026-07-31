@@ -727,6 +727,21 @@ internal sealed class RenderPipelineDiagnosticRecorder
         }
     }
 
+    internal void RecordPreviewAllocationDrop()
+    {
+        if (_completed || _faulted)
+            return;
+
+        try
+        {
+            Increment(RenderPipelineCounter.PreviewAllocationDrops);
+        }
+        catch (Exception)
+        {
+            _faulted = true;
+        }
+    }
+
     internal void RecordIntermediateDischarged()
     {
         if (_completed || _faulted || _liveIntermediates <= 0)
@@ -1892,4 +1907,5 @@ internal enum RenderPipelineCounter
     Failures,
     CleanupFailures,
     ExternalRootResources,
+    PreviewAllocationDrops,
 }

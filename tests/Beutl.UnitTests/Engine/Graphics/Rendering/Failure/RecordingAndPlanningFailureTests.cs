@@ -509,11 +509,13 @@ internal static class FailureTestSupport
         IRenderTargetFactory? factory = null,
         bool useRenderCache = false,
         RenderRequestPurpose purpose = RenderRequestPurpose.Auxiliary,
-        IRenderPipelineDiagnosticsState? diagnostics = null)
+        IRenderPipelineDiagnosticsState? diagnostics = null,
+        RenderIntent intent = RenderIntent.Preview)
         => new(
             node,
             new RenderNodeRendererOptions
             {
+                Intent = intent,
                 TargetDomain = s_bounds,
                 OutputScale = 1,
                 MaxWorkingScale = 1,

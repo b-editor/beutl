@@ -71,7 +71,8 @@ public sealed class DeferredCallbackFailureTests
     {
         using var node = new GeometryFailureNode(GeometryFailure.Callback);
         var factory = new FailureTestTargetFactory(failAt: 2);
-        using var renderer = FailureTestSupport.CreateRenderer(node, factory, useRenderCache: false);
+        using var renderer = FailureTestSupport.CreateRenderer(
+            node, factory, useRenderCache: false, intent: RenderIntent.Delivery);
 
         InvalidOperationException? failure = Assert.Throws<InvalidOperationException>(() => renderer.Rasterize());
 
@@ -82,6 +83,28 @@ public sealed class DeferredCallbackFailureTests
             Assert.That(factory.CreateCalls, Is.EqualTo(3));
             Assert.That(renderer.TargetPoolStatistics.LeasedTargets, Is.Zero);
             Assert.That(node.Cache.IsCached, Is.False);
+        });
+    }
+
+    [Test]
+    public void GeometryOutputAcquisitionFailure_DropsInPreviewWithoutEnteringTheCallback()
+    {
+        using var node = new GeometryFailureNode(GeometryFailure.Callback);
+        var factory = new FailureTestTargetFactory(failAt: 2);
+        var diagnostics = new RenderPipelineDiagnosticsState();
+        using var renderer = FailureTestSupport.CreateRenderer(
+            node, factory, useRenderCache: false, diagnostics: diagnostics);
+
+        using RenderNodeRasterization rasterization = renderer.Rasterize();
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(node.CallbackEntries, Is.Zero);
+            Assert.That(factory.CreateCalls, Is.EqualTo(3));
+            Assert.That(renderer.TargetPoolStatistics.LeasedTargets, Is.Zero);
+            Assert.That(node.Cache.IsCached, Is.False);
+            Assert.That(diagnostics.Latest.Succeeded, Is.True);
+            Assert.That(diagnostics.Latest[RenderPipelineCounter.PreviewAllocationDrops], Is.EqualTo(1));
         });
     }
 

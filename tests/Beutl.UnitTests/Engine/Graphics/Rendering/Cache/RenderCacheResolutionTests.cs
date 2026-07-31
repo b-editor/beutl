@@ -394,7 +394,7 @@ public sealed class RenderCacheResolutionTests
             RenderMaterializationDemandResolver.Resolve(
                 [opacityMask],
                 outputScale: 1,
-                maxWorkingScale: float.PositiveInfinity);
+                maxWorkingScale: float.PositiveInfinity).Demands;
 
         Assert.Multiple(() =>
         {
@@ -432,7 +432,7 @@ public sealed class RenderCacheResolutionTests
                 [opacityMask],
                 outputScale: 1,
                 maxWorkingScale: float.PositiveInfinity,
-                boundaries);
+                boundaries).Demands;
 
         Assert.Multiple(() =>
         {
@@ -440,6 +440,71 @@ public sealed class RenderCacheResolutionTests
             Assert.That(demands[primary], Is.EqualTo(EffectiveScale.At(0.5f)));
             Assert.That(demands[maskDependency], Is.EqualTo(EffectiveScale.At(0.5f)));
         });
+    }
+
+    [TestCase("LegacyFilterEffect")]
+    [TestCase("Shader")]
+    [TestCase("Geometry")]
+    public void PreviewDropEligibility_EffectClassConsumerMakesExclusiveInputEligible(
+        string consumerClass)
+    {
+        RenderFragmentKind consumerKind = consumerClass switch
+        {
+            "LegacyFilterEffect" => RenderFragmentKind.LegacyFilterEffect,
+            "Shader" => RenderFragmentKind.Shader,
+            "Geometry" => RenderFragmentKind.Geometry,
+            _ => throw new ArgumentOutOfRangeException(nameof(consumerClass)),
+        };
+        RenderFragmentReference source = Pure();
+        RenderFragmentReference consumer = EffectClassConsumer(consumerKind, source);
+
+        RenderMaterializationDemandResolution resolution =
+            RenderMaterializationDemandResolver.Resolve(
+                [consumer],
+                outputScale: 1,
+                maxWorkingScale: float.PositiveInfinity);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(resolution.PreviewDropEligibleMaterializations, Does.Contain(source));
+            Assert.That(resolution.PreviewDropEligibleMaterializations, Does.Not.Contain(consumer));
+        });
+    }
+
+    [Test]
+    public void PreviewDropEligibility_AnyGenericConsumerExcludesInput()
+    {
+        RenderFragmentReference source = Pure();
+        RenderFragmentReference effectConsumer = EffectClassConsumer(RenderFragmentKind.Shader, source);
+        RenderFragmentReference genericConsumer = Pure([source]);
+
+        RenderMaterializationDemandResolution resolution =
+            RenderMaterializationDemandResolver.Resolve(
+                [effectConsumer, genericConsumer],
+                outputScale: 1,
+                maxWorkingScale: float.PositiveInfinity);
+
+        Assert.That(resolution.PreviewDropEligibleMaterializations, Does.Not.Contain(source));
+    }
+
+    [Test]
+    public void PreviewDropEligibility_CacheBoundaryExcludesInput()
+    {
+        RenderFragmentReference source = Pure();
+        RenderFragmentReference effectConsumer = EffectClassConsumer(RenderFragmentKind.Shader, source);
+        var boundaries = new HashSet<RenderFragmentReference>(ReferenceEqualityComparer.Instance)
+        {
+            source,
+        };
+
+        RenderMaterializationDemandResolution resolution =
+            RenderMaterializationDemandResolver.Resolve(
+                [effectConsumer, source],
+                outputScale: 1,
+                maxWorkingScale: float.PositiveInfinity,
+                boundaries);
+
+        Assert.That(resolution.PreviewDropEligibleMaterializations, Does.Not.Contain(source));
     }
 
     [Test]
@@ -455,12 +520,12 @@ public sealed class RenderCacheResolutionTests
             RenderMaterializationDemandResolver.Resolve(
                 unitRoots,
                 outputScale: 1,
-                maxWorkingScale: float.PositiveInfinity);
+                maxWorkingScale: float.PositiveInfinity).Demands;
         IReadOnlyDictionary<RenderFragmentReference, EffectiveScale> doubleDemands =
             RenderMaterializationDemandResolver.Resolve(
                 doubleRoots,
                 outputScale: 2,
-                maxWorkingScale: float.PositiveInfinity);
+                maxWorkingScale: float.PositiveInfinity).Demands;
 
         RenderFragmentOutputIdentity unitIdentity = RenderFragmentOutputIdentity.Create(
             unitRoots.Single(),
@@ -790,7 +855,7 @@ public sealed class RenderCacheResolutionTests
             RenderMaterializationDemandResolver.Resolve(
                 [command],
                 outputScale: 1,
-                maxWorkingScale: float.PositiveInfinity);
+                maxWorkingScale: float.PositiveInfinity).Demands;
 
         Assert.Multiple(() =>
         {
@@ -1314,6 +1379,49 @@ public sealed class RenderCacheResolutionTests
             inputs,
             payload,
             static _ => true);
+    }
+
+    private static RenderFragmentReference EffectClassConsumer(
+        RenderFragmentKind kind,
+        RenderFragmentReference input)
+    {
+        object payload = kind switch
+        {
+            RenderFragmentKind.LegacyFilterEffect => new LegacyFilterEffectRenderFragmentPayload(
+                null!,
+                []),
+            RenderFragmentKind.Shader => CreateShaderPayload(),
+            RenderFragmentKind.Geometry => CreateGeometryPayload(),
+            _ => throw new ArgumentOutOfRangeException(nameof(kind)),
+        };
+        return new RenderFragmentReference(
+            kind,
+            s_bounds,
+            EffectiveScale.Unbounded,
+            RenderValueCardinality.Single,
+            contributesValuesToTarget: true,
+            canBeUsedAsValueInput: true,
+            hasTargetEffects: false,
+            hasOpaqueExternalWork: kind == RenderFragmentKind.LegacyFilterEffect,
+            [input],
+            payload,
+            static _ => true);
+    }
+
+    private static ShaderRenderFragmentPayload CreateShaderPayload()
+    {
+        ShaderDescription description = ShaderDescription.CurrentPixel(
+            "half4 apply(half4 color) { return color; }");
+        return new ShaderRenderFragmentPayload(description, description.CreateRuntimeIdentity());
+    }
+
+    private static GeometryRenderFragmentPayload CreateGeometryPayload()
+    {
+        GeometryDescription description = GeometryDescription.Create(
+            static _ => { },
+            RenderBoundsContract.Identity,
+            RenderHitTestContract.OutputBounds);
+        return new GeometryRenderFragmentPayload(description, new object());
     }
 
     private static RenderFragmentReference FixedScaleMap(

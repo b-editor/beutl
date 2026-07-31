@@ -502,6 +502,7 @@ internal sealed class RenderRequestExecutor
             request.Regions,
             request.Roots,
             request.MaterializationDemands,
+            request.PreviewDropEligibleMaterializations,
             request.CacheResolution,
             _targets,
             programCache,
@@ -716,6 +717,10 @@ internal sealed class RenderRequestExecutor
         public IReadOnlyList<Exception> CleanupFailures { get; } = cleanupFailures;
     }
 
+    private sealed class PreviewAllocationDropException : Exception
+    {
+    }
+
     private static void AppendCleanupFailures(
         ICollection<Exception> failures,
         RenderPipelineDiagnosticRecorder? diagnostics,
@@ -769,6 +774,7 @@ internal sealed class RenderRequestExecutor
         private readonly ResourcePlanUseTracker _resourceUses;
         private readonly RenderCacheResolution _cacheResolution;
         private readonly IReadOnlyDictionary<RenderFragmentReference, EffectiveScale> _materializationDemands;
+        private readonly IReadOnlySet<RenderFragmentReference> _previewDropEligibleMaterializations;
         private readonly HashSet<RenderFragmentReference> _roots;
         private readonly RenderTargetLeaseSession _targets;
         private readonly RenderCacheDeviceContextIdentity _programCacheContext;
@@ -801,6 +807,8 @@ internal sealed class RenderRequestExecutor
         private int _intermediateTargetAcquisitions;
         private int _programCacheHits;
         private int _synchronizations;
+        private int _replayDepth;
+        private bool _previewAllocationDropObserved;
         private Vector _activeDeviceGridOffset;
 
         public long? ActiveSubjectId { get; private set; }
@@ -815,6 +823,7 @@ internal sealed class RenderRequestExecutor
             RegionAnalysis regions,
             ImmutableArray<RenderFragmentReference> roots,
             IReadOnlyDictionary<RenderFragmentReference, EffectiveScale> materializationDemands,
+            IReadOnlySet<RenderFragmentReference> previewDropEligibleMaterializations,
             RenderCacheResolution cacheResolution,
             RenderTargetLeaseSession targets,
             ProgramCache<CachedSkRuntimeEffect> programCache,
@@ -836,6 +845,8 @@ internal sealed class RenderRequestExecutor
             _cacheResolution = cacheResolution;
             _materializationDemands = materializationDemands
                 ?? throw new ArgumentNullException(nameof(materializationDemands));
+            _previewDropEligibleMaterializations = previewDropEligibleMaterializations
+                ?? throw new ArgumentNullException(nameof(previewDropEligibleMaterializations));
             _roots = new HashSet<RenderFragmentReference>(
                 roots,
                 ReferenceEqualityComparer.Instance);
@@ -887,6 +898,7 @@ internal sealed class RenderRequestExecutor
 
         public void Replay(RenderFragmentReference fragment, ImmediateCanvas destination)
         {
+            _replayDepth++;
             long? previous = ActiveSubjectId;
             ActiveSubjectId = fragment.Id?.Value;
             try
@@ -900,6 +912,17 @@ internal sealed class RenderRequestExecutor
                 }
                 CompleteFragmentUse(fragment);
             }
+            catch (PreviewAllocationDropException) when (_replayDepth == 1)
+            {
+                _previewAllocationDropObserved = true;
+                _executionLedger.AbandonActive();
+                MarkExecutionSkipped(fragment);
+                CompleteFragmentUse(fragment);
+            }
+            catch (PreviewAllocationDropException)
+            {
+                throw;
+            }
             catch
             {
                 RecordFailure(RenderPipelineFailurePhase.Execution, fragment.Id?.Value);
@@ -908,6 +931,7 @@ internal sealed class RenderRequestExecutor
             finally
             {
                 ActiveSubjectId = previous;
+                _replayDepth--;
             }
         }
 
@@ -1273,6 +1297,8 @@ internal sealed class RenderRequestExecutor
         public void ValidateCacheCaptures(ISet<RenderNodeCache> seenCaches)
         {
             ArgumentNullException.ThrowIfNull(seenCaches);
+            if (_previewAllocationDropObserved)
+                return;
             if (_pendingCacheCaptures.Count != _cacheResolution.MissCaptures.Length)
             {
                 throw new InvalidOperationException(
@@ -1301,6 +1327,8 @@ internal sealed class RenderRequestExecutor
         {
             ArgumentNullException.ThrowIfNull(publications);
             ArgumentNullException.ThrowIfNull(transferredTargets);
+            if (_previewAllocationDropObserved)
+                return;
             var byCandidate = _pendingCacheCaptures.ToDictionary(static item => item.Descriptor.CandidateId);
             foreach (RenderCacheMissCapture descriptor in _cacheResolution.MissCaptures)
             {
@@ -1335,6 +1363,12 @@ internal sealed class RenderRequestExecutor
 
         public void AcceptCacheCaptures()
         {
+            if (_previewAllocationDropObserved)
+            {
+                RejectCacheCaptures();
+                return;
+            }
+
             _pendingCacheCaptures.Clear();
             _diagnostics?.CommitAcceptedCacheCaptures();
         }
@@ -1417,7 +1451,9 @@ internal sealed class RenderRequestExecutor
                 _synchronizations);
 
         public void ValidateExecutionCompleted(bool allowSkippedIslands)
-            => _executionLedger.ValidateCompleted(allowSkippedIslands, _regionEmptyIslands);
+            => _executionLedger.ValidateCompleted(
+                allowSkippedIslands || _previewAllocationDropObserved,
+                _regionEmptyIslands);
 
         private static bool IsRegionEmpty(ExecutionIsland island, RegionAnalysis regions)
         {
@@ -1578,6 +1614,10 @@ internal sealed class RenderRequestExecutor
                 }
                 return result;
             }
+            catch (PreviewAllocationDropException)
+            {
+                throw;
+            }
             catch
             {
                 RecordFailure(RenderPipelineFailurePhase.Execution, fragment.Id?.Value);
@@ -1722,6 +1762,8 @@ internal sealed class RenderRequestExecutor
             RenderFragmentReference fragment,
             IReadOnlyList<CompatibilityRenderValue> values)
         {
+            if (_previewAllocationDropObserved)
+                return;
             if (fragment.Id is not { } id || !_cacheMisses.TryGetValue(id, out var misses))
                 return;
 
@@ -1864,7 +1906,10 @@ internal sealed class RenderRequestExecutor
                 input.EffectiveScale.IsUnbounded ? scale : null);
             try
             {
-                CompatibilityRenderValue value = CreateOwnedValue(fragment.Bounds, scale);
+                CompatibilityRenderValue value = CreateOwnedValue(
+                    fragment.Bounds,
+                    scale,
+                    allowPreviewDrop: _previewDropEligibleMaterializations.Contains(fragment));
                 _diagnostics?.RecordGpuPassExecuted(fragment.Id?.Value ?? 0);
                 bool succeeded = false;
                 try
@@ -1938,7 +1983,10 @@ internal sealed class RenderRequestExecutor
                     currentTarget,
                     primary.EffectiveScale.IsUnbounded ? scale : null);
                 primaryMaterialized = true;
-                CompatibilityRenderValue value = CreateOwnedValue(fragment.Bounds, scale);
+                CompatibilityRenderValue value = CreateOwnedValue(
+                    fragment.Bounds,
+                    scale,
+                    allowPreviewDrop: _previewDropEligibleMaterializations.Contains(fragment));
                 _diagnostics?.RecordGpuPassExecuted(fragment.Id?.Value ?? 0);
                 bool succeeded = false;
                 try
@@ -2186,7 +2234,10 @@ internal sealed class RenderRequestExecutor
 
                             if (selectedBounds != value.Bounds)
                             {
-                                CompatibilityRenderValue cropped = CropValue(value, selectedBounds);
+                                CompatibilityRenderValue cropped = CropValue(
+                                    fragment,
+                                    value,
+                                    selectedBounds);
                                 ReleaseUnpublished(value);
                                 value = cropped;
                             }
@@ -2238,7 +2289,8 @@ internal sealed class RenderRequestExecutor
                 normalizedScale,
                 completeBounds,
                 physicalDeviceBounds: normalizedDeviceBounds,
-                deviceGridOffset: target.DeviceGridOffset);
+                deviceGridOffset: target.DeviceGridOffset,
+                allowPreviewDrop: true);
             bool succeeded = false;
             try
             {
@@ -2331,7 +2383,8 @@ internal sealed class RenderRequestExecutor
                     CompatibilityRenderValue output = CreateOwnedValue(
                         requiredRegion,
                         outputScale,
-                        outputBounds);
+                        outputBounds,
+                        allowPreviewDrop: true);
                     bool succeeded = false;
                     try
                     {
@@ -2425,7 +2478,8 @@ internal sealed class RenderRequestExecutor
             CompatibilityRenderValue output = CreateOwnedValue(
                 requiredRegion,
                 EffectiveScale.At(density),
-                outputBounds);
+                outputBounds,
+                allowPreviewDrop: true);
             bool succeeded = false;
             try
             {
@@ -2882,7 +2936,8 @@ internal sealed class RenderRequestExecutor
                     CompatibilityRenderValue output = CreateOwnedValue(
                         requiredRegion,
                         outputScale,
-                        outputBounds);
+                        outputBounds,
+                        allowPreviewDrop: true);
                     _diagnostics?.RecordGpuPassExecuted(fragment.Id?.Value ?? 0);
                     bool keepOutput = false;
                     try
@@ -2900,7 +2955,10 @@ internal sealed class RenderRequestExecutor
 
                         if (selectedBounds != requiredRegion)
                         {
-                            CompatibilityRenderValue cropped = CropValue(output, selectedBounds);
+                            CompatibilityRenderValue cropped = CropValue(
+                                fragment,
+                                output,
+                                selectedBounds);
                             ReleaseUnpublished(output);
                             output = cropped;
                         }
@@ -2991,6 +3049,7 @@ internal sealed class RenderRequestExecutor
         }
 
         private CompatibilityRenderValue CropValue(
+            RenderFragmentReference fragment,
             CompatibilityRenderValue source,
             Rect selectedBounds)
         {
@@ -2998,7 +3057,8 @@ internal sealed class RenderRequestExecutor
                 selectedBounds,
                 source.EffectiveScale,
                 source.CompleteBounds,
-                deviceGridOffset: source.DeviceGridOffset);
+                deviceGridOffset: source.DeviceGridOffset,
+                allowPreviewDrop: _previewDropEligibleMaterializations.Contains(fragment));
             bool succeeded = false;
             try
             {
@@ -3121,7 +3181,8 @@ internal sealed class RenderRequestExecutor
                                     logicalBounds,
                                     concreteScale,
                                     outputBounds,
-                                    physicalDeviceBounds);
+                                    physicalDeviceBounds,
+                                    allowPreviewDrop: _previewDropEligibleMaterializations.Contains(fragment));
                                 _diagnostics?.RecordGpuPassExecuted(fragment.Id?.Value ?? 0);
                                 var canvas = new RenderCallbackCanvas(
                                     token,
@@ -3151,7 +3212,10 @@ internal sealed class RenderRequestExecutor
                                 CompatibilityRenderValue value = outputLeases[output];
                                 if (value.Bounds != output.Bounds)
                                 {
-                                    CompatibilityRenderValue cropped = CropValue(value, output.Bounds);
+                                    CompatibilityRenderValue cropped = CropValue(
+                                        fragment,
+                                        value,
+                                        output.Bounds);
                                     ReleaseUnpublished(value);
                                     outputLeases[output] = cropped;
                                     value = cropped;
@@ -3391,7 +3455,8 @@ internal sealed class RenderRequestExecutor
                 requiredRegion,
                 scale,
                 fragment.Bounds,
-                deviceBounds);
+                deviceBounds,
+                allowPreviewDrop: _previewDropEligibleMaterializations.Contains(fragment));
             _diagnostics?.RecordGpuPassExecuted(fragment.Id?.Value ?? 0);
             bool succeeded = false;
             try
@@ -3570,7 +3635,8 @@ internal sealed class RenderRequestExecutor
             CompatibilityRenderValue value = CreateOwnedValue(
                 domain,
                 scale,
-                deviceGridOffset: deviceGridOffset);
+                deviceGridOffset: deviceGridOffset,
+                allowPreviewDrop: _previewDropEligibleMaterializations.Contains(fragment));
             bool succeeded = false;
             try
             {
@@ -3629,7 +3695,10 @@ internal sealed class RenderRequestExecutor
                 ? EffectiveScale.At(currentTarget.Density)
                 : ResolveConcreteScale(fragment);
             scale = ClampToActiveDeviceGrid(bounds, scale);
-            CompatibilityRenderValue value = CreateOwnedValue(bounds, scale);
+            CompatibilityRenderValue value = CreateOwnedValue(
+                bounds,
+                scale,
+                allowPreviewDrop: _previewDropEligibleMaterializations.Contains(fragment));
             bool succeeded = false;
             try
             {
@@ -3868,7 +3937,8 @@ internal sealed class RenderRequestExecutor
             Rect? completeBounds = null,
             PixelRect? physicalDeviceBounds = null,
             Vector? deviceGridOffset = null,
-            bool physicalDeviceBoundsAreAligned = false)
+            bool physicalDeviceBoundsAreAligned = false,
+            bool allowPreviewDrop = false)
         {
             if (scale.IsUnbounded)
                 throw new InvalidOperationException("An allocated render value requires a concrete density.");
@@ -3909,11 +3979,13 @@ internal sealed class RenderRequestExecutor
                     "An allocated render value's physical device bounds must contain its semantic bounds.",
                     nameof(physicalDeviceBounds));
             }
-            RenderTargetLease lease;
+            RenderTargetLease? lease;
             RenderTargetPoolStatistics beforeAcquire = _targets.PoolStatistics;
             try
             {
-                lease = _targets.Acquire(deviceBounds.Size);
+                lease = allowPreviewDrop
+                    ? _targets.TryAcquire(deviceBounds.Size)
+                    : _targets.Acquire(deviceBounds.Size);
             }
             catch
             {
@@ -3922,6 +3994,14 @@ internal sealed class RenderRequestExecutor
                     afterFailure.Misses - beforeAcquire.Misses);
                 RecordFailure(RenderPipelineFailurePhase.Allocation, ActiveSubjectId);
                 throw;
+            }
+            if (lease is null)
+            {
+                RenderTargetPoolStatistics afterFailure = _targets.PoolStatistics;
+                _diagnostics?.RecordPoolMissWithoutAcquisition(
+                    afterFailure.Misses - beforeAcquire.Misses);
+                _diagnostics?.RecordPreviewAllocationDrop();
+                throw new PreviewAllocationDropException();
             }
             _intermediateTargetAcquisitions++;
             _diagnostics?.RecordIntermediateAcquired(

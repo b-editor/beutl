@@ -11,6 +11,7 @@ internal sealed class CompiledRenderRequest : IDisposable
         RegionAnalysis regions,
         ImmutableArray<RenderFragmentReference> roots,
         IReadOnlyDictionary<RenderFragmentReference, EffectiveScale> materializationDemands,
+        IReadOnlySet<RenderFragmentReference> previewDropEligibleMaterializations,
         TargetDependencyPlan targetDependencies,
         RenderCacheResolution cacheResolution,
         ExecutionIslandPlan executionPlan,
@@ -26,6 +27,8 @@ internal sealed class CompiledRenderRequest : IDisposable
         Roots = roots;
         MaterializationDemands = materializationDemands
             ?? throw new ArgumentNullException(nameof(materializationDemands));
+        PreviewDropEligibleMaterializations = previewDropEligibleMaterializations
+            ?? throw new ArgumentNullException(nameof(previewDropEligibleMaterializations));
         CacheResolution = cacheResolution ?? throw new ArgumentNullException(nameof(cacheResolution));
         ExecutionPlan = executionPlan ?? throw new ArgumentNullException(nameof(executionPlan));
         NestedRequests = nestedRequests.IsDefault ? [] : nestedRequests;
@@ -46,6 +49,8 @@ internal sealed class CompiledRenderRequest : IDisposable
     public ImmutableArray<RenderFragmentReference> Roots { get; }
 
     public IReadOnlyDictionary<RenderFragmentReference, EffectiveScale> MaterializationDemands { get; }
+
+    public IReadOnlySet<RenderFragmentReference> PreviewDropEligibleMaterializations { get; }
 
     public TargetDependencyPlan TargetDependencies { get; }
 
@@ -475,6 +480,11 @@ internal sealed class ExecutionIslandExecutionLedger
                 "Execution islands completed outside dependency and painter order.");
         }
         _lastCompletedOrder = order;
+    }
+
+    public void AbandonActive()
+    {
+        _active.Clear();
     }
 
     public void ValidateCompleted(

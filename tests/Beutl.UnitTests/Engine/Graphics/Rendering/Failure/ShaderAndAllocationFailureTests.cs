@@ -164,12 +164,12 @@ public sealed class ShaderAndAllocationFailureTests
     }
 
     [Test]
-    public void TargetAcquisitionFailure_DischargesTheAlreadyAcceptedRootWithoutPartialOutput()
+    public void DeliveryTargetAcquisitionFailure_DischargesTheAlreadyAcceptedRootWithoutPartialOutput()
     {
         using var node = new ShaderNode(ShaderDescription.CurrentPixel(
             "half4 apply(half4 color) { return color; }"));
         var factory = new TrackingTargetFactory(failAt: 1);
-        var renderer = CreateRenderer(node, factory);
+        var renderer = CreateRenderer(node, factory, RenderIntent.Delivery);
 
         InvalidOperationException? failure = Assert.Throws<InvalidOperationException>(
             () => renderer.Rasterize());
@@ -318,11 +318,15 @@ public sealed class ShaderAndAllocationFailureTests
         DuplicateResource,
     }
 
-    private static RenderNodeRenderer CreateRenderer(RenderNode root, IRenderTargetFactory factory)
+    private static RenderNodeRenderer CreateRenderer(
+        RenderNode root,
+        IRenderTargetFactory factory,
+        RenderIntent intent = RenderIntent.Preview)
         => new(
             root,
             new RenderNodeRendererOptions
             {
+                Intent = intent,
                 TargetDomain = new Rect(0, 0, 8, 8),
                 OutputScale = 1,
                 MaxWorkingScale = 1,

@@ -317,6 +317,10 @@ internal static class RenderMaterializationDensityPolicy
     }
 }
 
+internal sealed record RenderMaterializationDemandResolution(
+    IReadOnlyDictionary<RenderFragmentReference, EffectiveScale> Demands,
+    IReadOnlySet<RenderFragmentReference> PreviewDropEligibleMaterializations);
+
 internal static class RenderMaterializationDemandResolver
 {
     private enum DemandUse : byte
@@ -325,7 +329,14 @@ internal static class RenderMaterializationDemandResolver
         MaterializeValue,
     }
 
-    public static IReadOnlyDictionary<RenderFragmentReference, EffectiveScale> Resolve(
+    private readonly record struct PendingDemand(
+        RenderFragmentReference Fragment,
+        float Demand,
+        DemandUse Use,
+        bool UseSupplyFallback,
+        bool? IsEffectClassConsumer);
+
+    public static RenderMaterializationDemandResolution Resolve(
         IReadOnlyList<RenderFragmentReference> roots,
         float outputScale,
         float maxWorkingScale,
@@ -348,21 +359,22 @@ internal static class RenderMaterializationDemandResolver
             ReferenceEqualityComparer.Instance);
         var materializedUses = new HashSet<RenderFragmentReference>(
             ReferenceEqualityComparer.Instance);
-        var pending = new Stack<(
-            RenderFragmentReference Fragment,
-            float Demand,
-            DemandUse Use,
-            bool UseSupplyFallback)>();
+        var effectClassUses = new HashSet<RenderFragmentReference>(
+            ReferenceEqualityComparer.Instance);
+        var otherUses = new HashSet<RenderFragmentReference>(
+            ReferenceEqualityComparer.Instance);
+        var pending = new Stack<PendingDemand>();
         float rootDemand = MathF.Min(
             outputScale,
             RenderScaleUtilities.SanitizeMaxWorkingScale(maxWorkingScale));
         for (int index = roots.Count - 1; index >= 0; index--)
         {
-            pending.Push((
+            pending.Push(new PendingDemand(
                 roots[index],
                 rootDemand,
                 DemandUse.ReplayTarget,
-                UseSupplyFallback: false));
+                UseSupplyFallback: false,
+                IsEffectClassConsumer: null));
         }
 
         while (pending.TryPop(out var item))
@@ -371,11 +383,12 @@ internal static class RenderMaterializationDemandResolver
             if (item.Use == DemandUse.ReplayTarget
                 && cacheBoundaries?.Contains(fragment) == true)
             {
-                pending.Push((
+                pending.Push(new PendingDemand(
                     fragment,
                     item.Demand,
                     DemandUse.MaterializeValue,
-                    item.UseSupplyFallback));
+                    item.UseSupplyFallback,
+                    IsEffectClassConsumer: false));
                 continue;
             }
 
@@ -387,16 +400,21 @@ internal static class RenderMaterializationDemandResolver
             bool outputDemandChanged = MergeDemand(result, fragment, demand);
             if (outputDemandChanged && materializedUses.Contains(fragment))
             {
-                pending.Push((
+                pending.Push(new PendingDemand(
                     fragment,
                     demand,
                     DemandUse.MaterializeValue,
-                    UseSupplyFallback: false));
+                    UseSupplyFallback: false,
+                    IsEffectClassConsumer: null));
             }
 
             if (item.Use == DemandUse.MaterializeValue)
             {
                 materializedUses.Add(fragment);
+                if (item.IsEffectClassConsumer is true)
+                    effectClassUses.Add(fragment);
+                else if (item.IsEffectClassConsumer is false)
+                    otherUses.Add(fragment);
                 float selectedDemand = result[fragment].Value;
                 if (!MergeProcessedDemand(materializedDemands, fragment, selectedDemand))
                     continue;
@@ -411,7 +429,8 @@ internal static class RenderMaterializationDemandResolver
             EnqueueReplayInputs(fragment, item.Demand, pending);
         }
 
-        return result;
+        effectClassUses.ExceptWith(otherUses);
+        return new RenderMaterializationDemandResolution(result, effectClassUses);
     }
 
     private static float ResolveDemand(
@@ -473,11 +492,7 @@ internal static class RenderMaterializationDemandResolver
     private static void EnqueueReplayInputs(
         RenderFragmentReference fragment,
         float targetDemand,
-        Stack<(
-            RenderFragmentReference Fragment,
-            float Demand,
-            DemandUse Use,
-            bool UseSupplyFallback)> pending)
+        Stack<PendingDemand> pending)
     {
         switch (fragment.Kind)
         {
@@ -493,41 +508,50 @@ internal static class RenderMaterializationDemandResolver
                 {
                     for (int index = fragment.Inputs.Length - 1; index >= 1; index--)
                     {
-                        pending.Push((
+                        pending.Push(new PendingDemand(
                             fragment.Inputs[index],
                             targetDemand,
                             DemandUse.MaterializeValue,
-                            UseSupplyFallback: false));
+                            UseSupplyFallback: false,
+                            IsEffectClassConsumer: IsEffectClassConsumer(fragment)));
                     }
 
-                    pending.Push((
+                    pending.Push(new PendingDemand(
                         fragment.Inputs[0],
                         targetDemand,
                         DemandUse.ReplayTarget,
-                        UseSupplyFallback: false));
+                        UseSupplyFallback: false,
+                        IsEffectClassConsumer: null));
                 }
                 return;
             case RenderFragmentKind.TargetCommand:
                 for (int index = fragment.Inputs.Length - 1; index >= 0; index--)
                 {
-                    pending.Push((
+                    pending.Push(new PendingDemand(
                         fragment.Inputs[index],
                         targetDemand,
                         DemandUse.MaterializeValue,
-                        UseSupplyFallback: true));
+                        UseSupplyFallback: true,
+                        IsEffectClassConsumer: IsEffectClassConsumer(fragment)));
                 }
                 return;
             case RenderFragmentKind.RawTargetCommand:
                 return;
             case RenderFragmentKind.ContributeValues:
-                EnqueueInputs(fragment, targetDemand, DemandUse.MaterializeValue, pending);
-                return;
-            default:
-                pending.Push((
+                EnqueueInputs(
                     fragment,
                     targetDemand,
                     DemandUse.MaterializeValue,
-                    UseSupplyFallback: false));
+                    pending,
+                    IsEffectClassConsumer(fragment));
+                return;
+            default:
+                pending.Push(new PendingDemand(
+                    fragment,
+                    targetDemand,
+                    DemandUse.MaterializeValue,
+                    UseSupplyFallback: false,
+                    IsEffectClassConsumer: false));
                 return;
         }
     }
@@ -535,11 +559,7 @@ internal static class RenderMaterializationDemandResolver
     private static void EnqueueMaterializedInputs(
         RenderFragmentReference fragment,
         float valueDemand,
-        Stack<(
-            RenderFragmentReference Fragment,
-            float Demand,
-            DemandUse Use,
-            bool UseSupplyFallback)> pending)
+        Stack<PendingDemand> pending)
     {
         switch (fragment.Kind)
         {
@@ -552,7 +572,12 @@ internal static class RenderMaterializationDemandResolver
             case RenderFragmentKind.BuiltInBackdropCapture:
                 return;
             default:
-                EnqueueInputs(fragment, valueDemand, DemandUse.MaterializeValue, pending);
+                EnqueueInputs(
+                    fragment,
+                    valueDemand,
+                    DemandUse.MaterializeValue,
+                    pending,
+                    IsEffectClassConsumer(fragment));
                 return;
         }
     }
@@ -561,21 +586,24 @@ internal static class RenderMaterializationDemandResolver
         RenderFragmentReference fragment,
         float demand,
         DemandUse use,
-        Stack<(
-            RenderFragmentReference Fragment,
-            float Demand,
-            DemandUse Use,
-            bool UseSupplyFallback)> pending)
+        Stack<PendingDemand> pending,
+        bool? isEffectClassConsumer = null)
     {
         for (int index = fragment.Inputs.Length - 1; index >= 0; index--)
         {
-            pending.Push((
+            pending.Push(new PendingDemand(
                 fragment.Inputs[index],
                 demand,
                 use,
-                UseSupplyFallback: false));
+                UseSupplyFallback: false,
+                IsEffectClassConsumer: isEffectClassConsumer));
         }
     }
+
+    private static bool IsEffectClassConsumer(RenderFragmentReference fragment)
+        => fragment.Payload is LegacyFilterEffectRenderFragmentPayload
+            or ShaderRenderFragmentPayload
+            or GeometryRenderFragmentPayload;
 }
 
 internal sealed class RenderCacheResolution
@@ -611,6 +639,7 @@ internal sealed class RenderCacheResolution
 internal sealed record RenderCachePlanningResult(
     RenderCacheResolution Resolution,
     IReadOnlyDictionary<RenderFragmentReference, EffectiveScale> MaterializationDemands,
+    IReadOnlySet<RenderFragmentReference> PreviewDropEligibleMaterializations,
     int ResolutionPasses);
 
 /// <summary>
@@ -647,7 +676,7 @@ internal sealed class RenderCacheResolver
         {
             planningBoundaries,
         };
-        IReadOnlyDictionary<RenderFragmentReference, EffectiveScale>? uncachedDemands = null;
+        RenderMaterializationDemandResolution? uncachedDemandResolution = null;
         // Selecting a hit or miss changes a fragment from target replay to value
         // materialization, which can change descendant density and therefore identity.
         // Resolve every candidate independently while finding the fixed point. Parent-hit
@@ -655,13 +684,14 @@ internal sealed class RenderCacheResolver
         // planning before the ancestor identity that selected the hit is stable.
         for (int pass = 1; pass <= MaximumResolutionPasses; pass++)
         {
-            IReadOnlyDictionary<RenderFragmentReference, EffectiveScale> demands =
+            RenderMaterializationDemandResolution demandResolution =
                 RenderMaterializationDemandResolver.Resolve(
                     roots,
                     request.Options.OutputScale,
                     request.Options.MaxWorkingScale,
                     planningBoundaries);
-            uncachedDemands ??= demands;
+            IReadOnlyDictionary<RenderFragmentReference, EffectiveScale> demands = demandResolution.Demands;
+            uncachedDemandResolution ??= demandResolution;
             HashSet<RenderFragmentReference> nextPlanningBoundaries =
                 ResolvePlanningBoundaries(
                     request,
@@ -682,6 +712,7 @@ internal sealed class RenderCacheResolver
                 return new RenderCachePlanningResult(
                     resolution,
                     demands,
+                    demandResolution.PreviewDropEligibleMaterializations,
                     pass);
             }
 
@@ -689,7 +720,7 @@ internal sealed class RenderCacheResolver
             {
                 return CreateUnstableBoundaryFallback(
                     graph,
-                    uncachedDemands,
+                    uncachedDemandResolution!,
                     pass);
             }
 
@@ -698,7 +729,7 @@ internal sealed class RenderCacheResolver
 
         return CreateUnstableBoundaryFallback(
             graph,
-            uncachedDemands!,
+            uncachedDemandResolution!,
             MaximumResolutionPasses);
     }
 
@@ -833,7 +864,7 @@ internal sealed class RenderCacheResolver
 
     private static RenderCachePlanningResult CreateUnstableBoundaryFallback(
         RecordedRenderGraph graph,
-        IReadOnlyDictionary<RenderFragmentReference, EffectiveScale> uncachedDemands,
+        RenderMaterializationDemandResolution uncachedDemandResolution,
         int resolutionPasses)
     {
         var resolution = new RenderCacheResolution(
@@ -841,7 +872,8 @@ internal sealed class RenderCacheResolver
                 Bypass(candidate, RenderCacheBypassReason.UnstableBoundaryPlan))]);
         return new RenderCachePlanningResult(
             resolution,
-            uncachedDemands,
+            uncachedDemandResolution.Demands,
+            uncachedDemandResolution.PreviewDropEligibleMaterializations,
             resolutionPasses);
     }
 

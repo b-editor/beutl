@@ -274,6 +274,8 @@ internal sealed class RenderRequestCompiler
             _renderCacheLookup);
         IReadOnlyDictionary<RenderFragmentReference, EffectiveScale> materializationDemands =
             cachePlanning.MaterializationDemands;
+        IReadOnlySet<RenderFragmentReference> previewDropEligibleMaterializations =
+            cachePlanning.PreviewDropEligibleMaterializations;
         RenderCacheResolution cacheResolution = cachePlanning.Resolution;
         diagnostics?.RecordRenderCacheResolutionPasses(cachePlanning.ResolutionPasses);
         RecordCacheDecisions(diagnostics, cacheResolution);
@@ -322,6 +324,7 @@ internal sealed class RenderRequestCompiler
             regions,
             roots,
             materializationDemands,
+            previewDropEligibleMaterializations,
             targetDependencies,
             cacheResolution,
             executionPlan,
