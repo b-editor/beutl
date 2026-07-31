@@ -200,21 +200,18 @@
                           ColumnDefinitions="2*,5,3*"
                           IsVisible="{Binding !#Root.IsNarrowLayout}">
                         <views:VersionControlHistoryView x:Name="WideHistoryView"
-                                                         Grid.Column="0"
-                                                         Margin="8" />
+                                                         Grid.Column="0" />
                         <GridSplitter Grid.Column="1"
                                       Background="{DynamicResource DividerStrokeColorDefaultBrush}"
                                       ResizeDirection="Columns" />
                         <views:VersionControlChangesView x:Name="WideChangesView"
-                                                         Grid.Column="2"
-                                                         Margin="8" />
+                                                         Grid.Column="2" />
                     </Grid>
 
                     <Grid x:Name="NarrowLayoutRoot"
                           Grid.Row="1"
                           IsVisible="{Binding #Root.IsNarrowLayout}">
                         <views:VersionControlHistoryView x:Name="NarrowHistoryRoot"
-                                                         Margin="8"
                                                          DrillDownOnSelection="True"
                                                          IsVisible="{Binding !ShowingDetail.Value}" />
                         <Grid x:Name="NarrowDetailRoot"
@@ -222,8 +219,7 @@
                               RowDefinitions="Auto,*">
                             <views:VersionControlDetailHeaderView x:Name="NarrowDetailHeader" />
                             <views:VersionControlChangesView x:Name="NarrowChangesView"
-                                                             Grid.Row="1"
-                                                             Margin="8" />
+                                                             Grid.Row="1" />
                         </Grid>
                     </Grid>
                 </Grid>

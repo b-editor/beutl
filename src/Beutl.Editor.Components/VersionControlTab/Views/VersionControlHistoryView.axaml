@@ -11,11 +11,13 @@
              x:DataType="vm:VersionControlTabViewModel"
              mc:Ignorable="d">
     <Grid RowDefinitions="Auto,*,Auto" RowSpacing="6">
-        <TextBlock Classes="sectionHeader"
+        <TextBlock Margin="8,8,8,0"
+                   Classes="sectionHeader"
                    Text="{x:Static lang:Strings.VersionControl_History}" />
         <Grid Grid.Row="1">
             <ListBox x:Name="CommitList"
                      ItemsSource="{Binding Commits}"
+                     Padding="8"
                      SelectedItem="{Binding SelectedCommit.Value, Mode=TwoWay}"
                      SelectionChanged="OnCommitSelectionChanged"
                      Tapped="OnCommitListTapped">
@@ -72,6 +74,7 @@
                        TextWrapping="Wrap" />
         </Grid>
         <Button Grid.Row="2"
+                Margin="8,0,8,8"
                 HorizontalAlignment="Stretch"
                 Command="{Binding LoadMoreCommand}"
                 Content="{x:Static lang:Strings.VersionControl_LoadMore}"

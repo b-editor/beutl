@@ -399,6 +399,8 @@ public class VersionControlTabViewTests
 
             ListBox changedFileList =
                 narrowChanges.FindControl<ListBox>("ChangedFileList")!;
+            ScrollViewer diffScrollViewer =
+                narrowChanges.FindControl<ScrollViewer>("DiffScrollViewer")!;
             var changedFileItem = (ListBoxItem)changedFileList.ContainerFromIndex(0)!;
             VersionControlFileChangeViewModel changedFile = viewModel.ChangedFiles[0];
             TextBlock changeStatusText = changedFileItem
@@ -415,6 +417,13 @@ public class VersionControlTabViewTests
                 Assert.That(narrowDetail.IsVisible, Is.True);
                 Assert.That(viewModel.SelectedCommit.Value, Is.SameAs(selectedCommit));
                 Assert.That(wideCommitList.SelectedItem, Is.SameAs(selectedCommit));
+                Assert.That(wideHistory.Margin, Is.EqualTo(default(Thickness)));
+                Assert.That(wideChanges.Margin, Is.EqualTo(default(Thickness)));
+                Assert.That(narrowHistory.Margin, Is.EqualTo(default(Thickness)));
+                Assert.That(narrowChanges.Margin, Is.EqualTo(default(Thickness)));
+                Assert.That(commitList.Padding, Is.EqualTo(new Thickness(8)));
+                Assert.That(changedFileList.Padding, Is.EqualTo(new Thickness(8)));
+                Assert.That(diffScrollViewer.Padding, Is.EqualTo(new Thickness(8)));
                 Assert.That(changeStatusText.VerticalAlignment, Is.EqualTo(VerticalAlignment.Center));
                 Assert.That(changePathText.VerticalAlignment, Is.EqualTo(VerticalAlignment.Center));
                 Assert.That(
