@@ -978,6 +978,9 @@
   <data name="Duplicate_FallbackFailed" xml:space="preserve">
     <value>移動のフォールバックも失敗しました。タイムラインの状態と表示が一致しない可能性があります。</value>
   </data>
+  <data name="ElementAdder_ProjectNotSaved" xml:space="preserve">
+    <value>クリップを追加する前にプロジェクトを保存してください。</value>
+  </data>
   <data name="AboutBeutl" xml:space="preserve">
     <value>Beutlについて</value>
   </data>

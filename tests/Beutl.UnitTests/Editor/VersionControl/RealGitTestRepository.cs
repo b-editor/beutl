@@ -37,6 +37,8 @@ public abstract class RealGitTestRepository
         await RunGitAsync("config", "user.name", "Beutl Test");
         await RunGitAsync("config", "user.email", "beutl-test@example.invalid");
         await RunGitAsync("config", "commit.gpgsign", "false");
+        await RunGitAsync("config", "gc.auto", "0");
+        await RunGitAsync("config", "maintenance.auto", "false");
     }
 
     [TearDown]

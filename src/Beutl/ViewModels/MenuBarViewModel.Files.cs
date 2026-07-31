@@ -36,7 +36,9 @@ public partial class MenuBarViewModel
 
         IObservable<bool> canEnableVersionControl = IsProjectOpened.CombineLatest(
             _versionControlCoordinator.IsGitAvailable,
-            static (isOpened, isGitAvailable) => isOpened && isGitAvailable);
+            _versionControlCoordinator.IsTracked,
+            static (isOpened, isGitAvailable, isTracked) =>
+                isOpened && isGitAvailable && !isTracked);
         EnableVersionControl = new AsyncReactiveCommand(canEnableVersionControl);
         IObservable<bool> canCommitVersion = IsProjectOpened.CombineLatest(
             _versionControlCoordinator.IsGitAvailable,

@@ -1,5 +1,7 @@
 ﻿using System.Text;
 using Beutl.Language;
+using Beutl.Logging;
+using Microsoft.Extensions.Logging;
 
 namespace Beutl.Editor.VersionControl;
 
@@ -63,14 +65,16 @@ internal sealed class GitCliVersionControlService :
     private readonly Func<string, IGitCliRunner> _runnerFactory;
     private readonly Func<bool> _isWorktreeMutationAllowed;
     private readonly Func<VersionControlPolicyNotice, CancellationToken, Task>? _policyNoticeSink;
+    private readonly ILogger _logger;
     private readonly bool _createWatcherWhenRepositoryAvailable;
     private readonly SemaphoreSlim _operationGate = new(1, 1);
+    private readonly object _lifetimeSync = new();
     private readonly object _runtimeSync = new();
     private RepositoryWatcher? _watcher;
     private GitAvailability? _cachedAvailability;
     private IGitCliRunner? _runner;
     private int _configurationRevision;
-    private bool _disposed;
+    private int _disposed;
 
     public GitCliVersionControlService(
         GitInstallationLocator installationLocator,
@@ -82,7 +86,8 @@ internal sealed class GitCliVersionControlService :
             static gitPath => new GitCliRunner(gitPath),
             createWatcherWhenRepositoryAvailable: true,
             isWorktreeMutationAllowed: static () => true,
-            policyNoticeSink: null)
+            policyNoticeSink: null,
+            logger: null)
     {
     }
 
@@ -98,7 +103,8 @@ internal sealed class GitCliVersionControlService :
             static gitPath => new GitCliRunner(gitPath),
             createWatcherWhenRepositoryAvailable: true,
             isWorktreeMutationAllowed: isWorktreeMutationAllowed,
-            policyNoticeSink: policyNoticeSink)
+            policyNoticeSink: policyNoticeSink,
+            logger: null)
     {
     }
 
@@ -106,7 +112,8 @@ internal sealed class GitCliVersionControlService :
         GitInstallationLocator installationLocator,
         RepositoryInfo? repository,
         RepositoryWatcher? watcher,
-        Func<string, IGitCliRunner> runnerFactory)
+        Func<string, IGitCliRunner> runnerFactory,
+        ILogger? logger = null)
         : this(
             installationLocator,
             repository,
@@ -114,7 +121,8 @@ internal sealed class GitCliVersionControlService :
             runnerFactory,
             createWatcherWhenRepositoryAvailable: false,
             isWorktreeMutationAllowed: static () => true,
-            policyNoticeSink: null)
+            policyNoticeSink: null,
+            logger: logger)
     {
     }
 
@@ -125,7 +133,8 @@ internal sealed class GitCliVersionControlService :
         Func<string, IGitCliRunner> runnerFactory,
         bool createWatcherWhenRepositoryAvailable,
         Func<bool> isWorktreeMutationAllowed,
-        Func<VersionControlPolicyNotice, CancellationToken, Task>? policyNoticeSink)
+        Func<VersionControlPolicyNotice, CancellationToken, Task>? policyNoticeSink,
+        ILogger? logger)
     {
         _installationLocator = installationLocator
                                ?? throw new ArgumentNullException(nameof(installationLocator));
@@ -143,6 +152,7 @@ internal sealed class GitCliVersionControlService :
                                      ?? throw new ArgumentNullException(
                                          nameof(isWorktreeMutationAllowed));
         _policyNoticeSink = policyNoticeSink;
+        _logger = logger ?? Log.CreateLogger<GitCliVersionControlService>();
         _createWatcherWhenRepositoryAvailable = createWatcherWhenRepositoryAvailable;
         if (_watcher is not null)
         {
@@ -402,18 +412,23 @@ internal sealed class GitCliVersionControlService :
 
     public void Dispose()
     {
-        if (_disposed)
+        RepositoryWatcher? watcher;
+        lock (_lifetimeSync)
         {
-            return;
+            if (Interlocked.Exchange(ref _disposed, 1) != 0)
+            {
+                return;
+            }
+
+            watcher = _watcher;
+            _watcher = null;
+            if (watcher is not null)
+            {
+                watcher.Changed -= OnRepositoryChanged;
+            }
         }
 
-        _disposed = true;
-        if (_watcher is not null)
-        {
-            _watcher.Changed -= OnRepositoryChanged;
-            _watcher.Dispose();
-        }
-
+        watcher?.Dispose();
         _installationLocator.Config.ConfigurationChanged -= OnVersionControlConfigChanged;
     }
 
@@ -631,7 +646,15 @@ internal sealed class GitCliVersionControlService :
     {
         GitCommandResult result = await runner.RunAsync(
             repository,
-            ["status", "--porcelain=v2", "--branch", "-z", "--", repository.Pathspec],
+            [
+                "status",
+                "--porcelain=v2",
+                "--branch",
+                "--untracked-files=all",
+                "-z",
+                "--",
+                repository.Pathspec,
+            ],
             networkOperation: false,
             cancellationToken).ConfigureAwait(false);
         return ParseStatus(result.Stdout);
@@ -892,7 +915,7 @@ internal sealed class GitCliVersionControlService :
         RepositoryInfo repository;
         if (discoveredRepository is { IsNestedInForeignRepo: true })
         {
-            if (!Equals(discoveredRepository, options.TargetRepository))
+            if (!MatchesRepositorySelection(discoveredRepository, options.TargetRepository))
             {
                 throw new EnclosingRepositoryConsentRequiredException(discoveredRepository);
             }
@@ -901,7 +924,7 @@ internal sealed class GitCliVersionControlService :
         }
         else if (discoveredRepository is not null)
         {
-            if (!Equals(discoveredRepository, options.TargetRepository))
+            if (!MatchesRepositorySelection(discoveredRepository, options.TargetRepository))
             {
                 throw new InvalidOperationException(
                     "The selected repository does not match the repository containing the project.");
@@ -921,7 +944,8 @@ internal sealed class GitCliVersionControlService :
         }
 
         if (Repository is not null
-            && !string.Equals(Repository.ProjectRoot, projectRoot, PathComparison))
+            && !string.Equals(Repository.ProjectRoot, projectRoot, PathComparison)
+            && !IsSameRepository(Repository, repository))
         {
             throw new InvalidOperationException(
                 "This service is already associated with a different project.");
@@ -941,7 +965,12 @@ internal sealed class GitCliVersionControlService :
         {
             await runner.RunAsync(
                 repository,
-                ["init", "-b", "main"],
+                ["init"],
+                networkOperation: false,
+                cancellationToken).ConfigureAwait(false);
+            await runner.RunAsync(
+                repository,
+                ["symbolic-ref", "HEAD", "refs/heads/main"],
                 networkOperation: false,
                 cancellationToken).ConfigureAwait(false);
         }
@@ -990,6 +1019,8 @@ internal sealed class GitCliVersionControlService :
                     "beutl: initialize version control",
                     "-m",
                     "Beutl-Snapshot: init",
+                    "--",
+                    repository.Pathspec,
                 ],
                 networkOperation: false,
                 cancellationToken).ConfigureAwait(false);
@@ -1023,10 +1054,11 @@ internal sealed class GitCliVersionControlService :
                     "Git repository discovery returned an empty repository root.");
             }
 
-            string repoRoot = GetLexicalRepositoryRoot(
-                normalizedProjectRoot,
+            string repoRoot = Path.TrimEndingDirectorySeparator(Path.GetFullPath(lines[0]));
+            string resolvedProjectRoot = GetDiscoveredProjectRoot(
+                repoRoot,
                 lines.Length > 1 ? lines[1] : string.Empty);
-            return new RepositoryInfo(repoRoot, normalizedProjectRoot);
+            return new RepositoryInfo(repoRoot, resolvedProjectRoot);
         }
         catch (GitOperationException ex) when (IsNotRepositoryFailure(ex))
         {
@@ -1034,26 +1066,42 @@ internal sealed class GitCliVersionControlService :
         }
     }
 
-    private static string GetLexicalRepositoryRoot(string projectRoot, string prefix)
+    private static string GetDiscoveredProjectRoot(string repoRoot, string prefix)
     {
-        string repoRoot = projectRoot;
-        string[] segments = prefix
-            .Replace('\\', '/')
-            .Split('/', StringSplitOptions.RemoveEmptyEntries);
-        foreach (string segment in segments)
+        string normalizedPrefix = prefix.Replace('\\', '/');
+        if (Path.IsPathFullyQualified(normalizedPrefix)
+            || normalizedPrefix
+                .Split('/', StringSplitOptions.RemoveEmptyEntries)
+                .Contains("..", StringComparer.Ordinal))
         {
-            if (segment == "..")
-            {
-                throw new InvalidOperationException(
-                    "Git repository discovery returned an invalid project prefix.");
-            }
-
-            repoRoot = Path.GetDirectoryName(repoRoot)
-                       ?? throw new InvalidOperationException(
-                           "Git repository discovery returned a prefix outside the file-system root.");
+            throw new InvalidOperationException(
+                "Git repository discovery returned an invalid project prefix.");
         }
 
-        return repoRoot;
+        string platformPrefix = normalizedPrefix.Replace('/', Path.DirectorySeparatorChar);
+        return Path.TrimEndingDirectorySeparator(Path.GetFullPath(
+            Path.Combine(repoRoot, platformPrefix)));
+    }
+
+    private static bool MatchesRepositorySelection(
+        RepositoryInfo discovered,
+        RepositoryInfo selected)
+    {
+        return discovered.IsNestedInForeignRepo == selected.IsNestedInForeignRepo
+               && string.Equals(discovered.Pathspec, selected.Pathspec, PathComparison)
+               && RepositoryPathComparer.AreEquivalent(
+                   discovered.RepoRoot,
+                   selected.RepoRoot)
+               && RepositoryPathComparer.AreEquivalent(
+                   discovered.ProjectRoot,
+                   selected.ProjectRoot);
+    }
+
+    private static bool IsSameRepository(RepositoryInfo left, RepositoryInfo right)
+    {
+        return RepositoryPathComparer.AreEquivalent(left.RepoRoot, right.RepoRoot)
+               && RepositoryPathComparer.AreEquivalent(left.ProjectRoot, right.ProjectRoot)
+               && string.Equals(left.Pathspec, right.Pathspec, PathComparison);
     }
 
     private async Task<CommitResult> CommitAllCoreAsync(
@@ -1106,6 +1154,8 @@ internal sealed class GitCliVersionControlService :
             arguments.Add($"Beutl-Snapshot: {kind.ToString().ToLowerInvariant()}");
         }
 
+        arguments.Add("--");
+        arguments.Add(repository.Pathspec);
         await runner.RunAsync(
             repository,
             arguments,
@@ -1603,7 +1653,7 @@ internal sealed class GitCliVersionControlService :
             static state =>
             {
                 var payload = ((GitCliVersionControlService Service, WorkspaceStatus Status))state!;
-                if (!payload.Service._disposed)
+                if (!payload.Service.IsDisposed)
                 {
                     payload.Service.StatusChanged?.Invoke(payload.Service, payload.Status);
                 }
@@ -1621,13 +1671,19 @@ internal sealed class GitCliVersionControlService :
 
     private void EnsureWatcher()
     {
-        if (!_createWatcherWhenRepositoryAvailable || _watcher is not null || Repository is null)
+        lock (_lifetimeSync)
         {
-            return;
-        }
+            if (IsDisposed
+                || !_createWatcherWhenRepositoryAvailable
+                || _watcher is not null
+                || Repository is null)
+            {
+                return;
+            }
 
-        _watcher = new RepositoryWatcher(Repository.RepoRoot);
-        _watcher.Changed += OnRepositoryChanged;
+            _watcher = new RepositoryWatcher(Repository.RepoRoot);
+            _watcher.Changed += OnRepositoryChanged;
+        }
     }
 
     private async Task<(GitAvailability Availability, IGitCliRunner? Runner)> GetGitRuntimeCoreAsync(
@@ -1712,7 +1768,10 @@ internal sealed class GitCliVersionControlService :
 
     private void OnRepositoryChanged(object? sender, EventArgs e)
     {
-        _ = RefreshStatusFromWatcherAsync();
+        if (!IsDisposed)
+        {
+            _ = RefreshStatusFromWatcherAsync();
+        }
     }
 
     private void CaptureRecoverableLock(GitOperationException exception)
@@ -1737,7 +1796,7 @@ internal sealed class GitCliVersionControlService :
                 var payload = ((
                     GitCliVersionControlService Service,
                     RepositoryLockInfo LockInfo))state!;
-                if (!payload.Service._disposed
+                if (!payload.Service.IsDisposed
                     && Equals(payload.Service.RecoverableLock, payload.LockInfo))
                 {
                     payload.Service.RecoverableLockAvailable?.Invoke(
@@ -1751,6 +1810,11 @@ internal sealed class GitCliVersionControlService :
 
     private void OnVersionControlConfigChanged(object? sender, EventArgs e)
     {
+        if (IsDisposed)
+        {
+            return;
+        }
+
         lock (_runtimeSync)
         {
             _configurationRevision++;
@@ -1766,21 +1830,23 @@ internal sealed class GitCliVersionControlService :
             WorkspaceStatus status = await GetStatusAsync(CancellationToken.None).ConfigureAwait(false);
             QueueStatusChanged(status);
         }
-        catch (Exception) when (_disposed)
+        catch (Exception) when (IsDisposed)
         {
         }
-        catch (GitOperationException)
+        catch (Exception ex)
         {
-        }
-        catch (InvalidOperationException)
-        {
+            _logger.LogWarning(
+                ex,
+                "Failed to refresh version-control status after a repository change.");
         }
     }
 
     private void ThrowIfDisposed()
     {
-        ObjectDisposedException.ThrowIf(_disposed, this);
+        ObjectDisposedException.ThrowIf(IsDisposed, this);
     }
+
+    private bool IsDisposed => Volatile.Read(ref _disposed) != 0;
 
     private static StringComparison PathComparison
         => OperatingSystem.IsWindows() ? StringComparison.OrdinalIgnoreCase : StringComparison.Ordinal;

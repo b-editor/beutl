@@ -1124,10 +1124,13 @@ public class VersionControlTabViewModelTests
         Mock<IProjectVersionControlService> service = CreateServiceMock();
         service.Setup(x => x.GetRemotesAsync(It.IsAny<CancellationToken>()))
             .ReturnsAsync([new RemoteInfo("origin", "https://example.invalid/repo.git")]);
+        var pullStarted = new TaskCompletionSource(
+            TaskCreationOptions.RunContinuationsAsynchronously);
         var coordinator = new Mock<IProjectVersionControlCoordinator>();
         coordinator.Setup(x => x.PullAsync(It.IsAny<CancellationToken>()))
             .Returns<CancellationToken>(async cancellationToken =>
             {
+                pullStarted.TrySetResult();
                 await Task.Delay(Timeout.InfiniteTimeSpan, cancellationToken);
                 return new RemoteOpResult.Success();
             });
@@ -1135,7 +1138,7 @@ public class VersionControlTabViewModelTests
         await viewModel.Initialization;
 
         Task pull = viewModel.PullAsync();
-        await Task.Delay(20);
+        await pullStarted.Task.WaitAsync(TimeSpan.FromSeconds(2));
         viewModel.CancelRemoteOperationCommand.Execute();
         await pull;
 

@@ -39,7 +39,7 @@ Guard: the cycle refuses to start while an export/render job is reading project 
 
 ## Enablement flows (FR-001/FR-002/FR-003)
 
-- **Create dialog**: "Track history with Git" checkbox, visible when `GetAvailabilityAsync` = `Installed`, default from `VersionControlConfig.EnableForNewProjects` (default true). Checked ⇒ `InitializeAsync` right after project creation.
+- **Create dialog**: `CreateNewProjectViewModel` depends on `IProjectVersionControlInitializer`, which exposes availability and project initialization without coupling the dialog to the app coordinator. "Track history with Git" is visible when `GetAvailabilityAsync` = `Installed`, defaults from `VersionControlConfig.EnableForNewProjects` (default true), and calls `InitializeCurrentProjectAsync` after project creation when checked.
 - **Existing project**: "Enable Version Control…" command (Project menu + command palette, gated on `ProjectService.IsOpened`).
 - **Nested repo detected**: consent dialog with "use enclosing repository" (pathspec scoping, project-local `.gitignore`) / "leave unmanaged". Never `git init` inside a foreign work tree.
 - **Save As**: never copies `.git`; the copy is offered fresh enablement per the creation default (clarification #3).

@@ -1,6 +1,7 @@
 ﻿using System.ComponentModel;
 using System.Diagnostics;
 using Avalonia.Headless.NUnit;
+using Beutl.Api.Services;
 using Beutl.Configuration;
 using Beutl.Editor.Models;
 using Beutl.Editor.Services;
@@ -8,6 +9,7 @@ using Beutl.Editor.VersionControl;
 using Beutl.Graphics.Shapes;
 using Beutl.ProjectSystem;
 using Beutl.Serialization;
+using Beutl.Services;
 using Beutl.Testing.Headless;
 using Beutl.ViewModels;
 
@@ -29,6 +31,7 @@ public class VersionControlRestoreTests
         bool oldAutoCommitOnSave = config.AutoCommitOnSave;
         bool oldAutoCommitOnClose = config.AutoCommitOnClose;
         bool oldUseLfs = config.UseLfsWhenAvailable;
+        var oldRequestIdentityAsync = TestShell.VersionControl.RequestIdentityAsync;
 
         try
         {
@@ -74,10 +77,65 @@ public class VersionControlRestoreTests
         }
         finally
         {
+            TestShell.VersionControl.RequestIdentityAsync = oldRequestIdentityAsync;
             await TestReset.ResetShellAsync();
             config.GitExecutablePath = oldGitPath;
             config.AutoCommitOnSave = oldAutoCommitOnSave;
             config.AutoCommitOnClose = oldAutoCommitOnClose;
+            config.UseLfsWhenAvailable = oldUseLfs;
+        }
+    }
+
+    [AvaloniaTest]
+    public async Task Disposal_during_a_lifecycle_operation_cleans_up_the_service_after_completion()
+    {
+        await TestReset.ResetShellAsync();
+        using var environment = new IsolatedGitEnvironment();
+        string gitPath = ProbeGitOrIgnore();
+        VersionControlConfig config = GlobalConfiguration.Instance.VersionControlConfig;
+        string? oldGitPath = config.GitExecutablePath;
+        bool oldUseLfs = config.UseLfsWhenAvailable;
+        var confirmationStarted = new TaskCompletionSource(
+            TaskCreationOptions.RunContinuationsAsynchronously);
+        var releaseConfirmation = new TaskCompletionSource<bool>(
+            TaskCreationOptions.RunContinuationsAsynchronously);
+        VersionControlCoordinator? coordinator = null;
+
+        try
+        {
+            config.GitExecutablePath = gitPath;
+            config.UseLfsWhenAvailable = false;
+            await CreateTrackedProjectAsync("version-control-coordinator-disposal");
+
+            var editorService = new EditorService(new ExtensionProvider());
+            coordinator = new VersionControlCoordinator(TestShell.Project, editorService);
+            await WaitUntilAsync(() => coordinator.CurrentService?.Repository is not null);
+            coordinator.ConfirmSwitchBranchAsync = (_, _) =>
+            {
+                confirmationStarted.TrySetResult();
+                return releaseConfirmation.Task;
+            };
+
+            Task<bool> operation = coordinator.CreateBranchAsync("blocked-branch");
+            await confirmationStarted.Task.WaitAsync(TimeSpan.FromSeconds(5));
+            coordinator.Dispose();
+            releaseConfirmation.TrySetResult(false);
+
+            bool result = await operation;
+
+            Assert.Multiple(() =>
+            {
+                Assert.That(result, Is.False);
+                Assert.That(coordinator.CurrentService, Is.Null);
+                Assert.That(editorService.ProjectVersionControlService.Value, Is.Null);
+            });
+        }
+        finally
+        {
+            releaseConfirmation.TrySetResult(false);
+            coordinator?.Dispose();
+            await TestReset.ResetShellAsync();
+            config.GitExecutablePath = oldGitPath;
             config.UseLfsWhenAvailable = oldUseLfs;
         }
     }
@@ -93,6 +151,8 @@ public class VersionControlRestoreTests
         bool oldAutoCommitOnSave = config.AutoCommitOnSave;
         bool oldAutoCommitOnClose = config.AutoCommitOnClose;
         bool oldUseLfs = config.UseLfsWhenAvailable;
+        var oldConfirmSwitchBranchAsync =
+            TestShell.VersionControl.ConfirmSwitchBranchAsync;
 
         try
         {
@@ -182,6 +242,8 @@ public class VersionControlRestoreTests
         }
         finally
         {
+            TestShell.VersionControl.ConfirmSwitchBranchAsync =
+                oldConfirmSwitchBranchAsync;
             await TestReset.ResetShellAsync();
             config.GitExecutablePath = oldGitPath;
             config.AutoCommitOnSave = oldAutoCommitOnSave;
@@ -201,6 +263,7 @@ public class VersionControlRestoreTests
         bool oldAutoCommitOnSave = config.AutoCommitOnSave;
         bool oldAutoCommitOnClose = config.AutoCommitOnClose;
         bool oldUseLfs = config.UseLfsWhenAvailable;
+        var oldConfirmPullAsync = TestShell.VersionControl.ConfirmPullAsync;
 
         try
         {
@@ -296,6 +359,7 @@ public class VersionControlRestoreTests
         }
         finally
         {
+            TestShell.VersionControl.ConfirmPullAsync = oldConfirmPullAsync;
             await TestReset.ResetShellAsync();
             config.GitExecutablePath = oldGitPath;
             config.AutoCommitOnSave = oldAutoCommitOnSave;
@@ -315,6 +379,8 @@ public class VersionControlRestoreTests
         bool oldAutoCommitOnSave = config.AutoCommitOnSave;
         bool oldAutoCommitOnClose = config.AutoCommitOnClose;
         bool oldUseLfs = config.UseLfsWhenAvailable;
+        var oldConfirmRestoreAsync =
+            TestShell.VersionControl.ConfirmRestoreAsync;
 
         try
         {
@@ -462,6 +528,7 @@ public class VersionControlRestoreTests
         }
         finally
         {
+            TestShell.VersionControl.ConfirmRestoreAsync = oldConfirmRestoreAsync;
             await TestReset.ResetShellAsync();
             config.GitExecutablePath = oldGitPath;
             config.AutoCommitOnSave = oldAutoCommitOnSave;
@@ -499,6 +566,18 @@ public class VersionControlRestoreTests
         HeadlessTestHelpers.Settle();
         var editor = (EditViewModel)TestShell.Editor.SelectedTabItem.Value!.Context.Value;
         return (project, editor);
+    }
+
+    private static async Task WaitUntilAsync(Func<bool> condition)
+    {
+        var timeout = Stopwatch.StartNew();
+        while (!condition() && timeout.Elapsed < TimeSpan.FromSeconds(5))
+        {
+            HeadlessTestHelpers.Settle();
+            await Task.Delay(25);
+        }
+
+        Assert.That(condition(), Is.True, "The expected state was not reached.");
     }
 
     private static void AddRectangle(IElementAdder adder, int layer)

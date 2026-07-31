@@ -248,11 +248,7 @@ internal sealed class ProcessGitInstallationProbe : IGitInstallationProbe
             }
             catch (OperationCanceledException)
             {
-                if (!process.HasExited)
-                {
-                    process.Kill(entireProcessTree: true);
-                }
-
+                TryKillProcessTree(process);
                 throw;
             }
 
@@ -270,4 +266,20 @@ internal sealed class ProcessGitInstallationProbe : IGitInstallationProbe
     public bool FileExists(string path) => File.Exists(path);
 
     public string? GetEnvironmentVariable(string name) => Environment.GetEnvironmentVariable(name);
+
+    internal static void TryKillProcessTree(Process process)
+    {
+        try
+        {
+            if (!process.HasExited)
+            {
+                process.Kill(entireProcessTree: true);
+            }
+        }
+        catch (Exception ex) when (ex is InvalidOperationException
+                                   or System.ComponentModel.Win32Exception
+                                   or NotSupportedException)
+        {
+        }
+    }
 }

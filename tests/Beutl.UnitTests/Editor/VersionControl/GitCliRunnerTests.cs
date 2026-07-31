@@ -68,6 +68,29 @@ public class GitCliRunnerTests : RealGitTestRepository
     }
 
     [Test]
+    public async Task Progress_reader_redacts_url_credentials_before_reporting_or_returning_stderr()
+    {
+        const string secret = "super-secret-token";
+        string stderr =
+            $"fatal: Authentication failed for 'https://user:{secret}@example.invalid/repo.git/'\n";
+        var progress = new RecordingProgress();
+
+        string captured = await GitCliRunner.ReadStandardErrorAsync(
+            new StringReader(stderr),
+            progress);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(captured, Does.Not.Contain(secret));
+            Assert.That(progress.Messages, Has.Count.EqualTo(1));
+            Assert.That(progress.Messages[0], Does.Not.Contain(secret));
+            Assert.That(
+                progress.Messages[0],
+                Does.Contain("https://***@example.invalid/repo.git/"));
+        });
+    }
+
+    [Test]
     public void Nonzero_exit_throws_typed_error_with_verbatim_stderr()
     {
         GitOperationException? exception = Assert.ThrowsAsync<GitOperationException>(
@@ -173,6 +196,50 @@ public class GitCliRunnerTests : RealGitTestRepository
         cancellation.Cancel();
         Assert.ThrowsAsync<OperationCanceledException>(async () => await activeCommand);
         Assert.That(runner.GetRecoverableRepositoryLock(Repository), Is.Not.Null);
+    }
+
+    [Test]
+    public void Unreadable_git_file_does_not_hide_the_original_git_failure()
+    {
+        string worktreeRoot = CreateTemporaryDirectory();
+        File.WriteAllText(
+            Path.Combine(worktreeRoot, ".git"),
+            $"gitdir: {Path.Combine(Root, ".git")}");
+        var worktree = new RepositoryInfo(worktreeRoot, worktreeRoot);
+        var runner = new GitCliRunner(
+            GitPath,
+            TimeSpan.FromSeconds(10),
+            IsolatedGitEnvironment,
+            readAllText: _ => throw new IOException("simulated read failure"));
+
+        Assert.That(runner.GetRecoverableRepositoryLock(worktree), Is.Null);
+    }
+
+    [Test]
+    public async Task Failed_stale_lock_deletion_is_reported_without_throwing()
+    {
+        var now = new DateTimeOffset(2026, 1, 2, 12, 0, 0, TimeSpan.Zero);
+        var timeProvider = new FakeTimeProvider(now);
+        string lockPath = Path.Combine(Root, ".git", "index.lock");
+        await File.WriteAllTextAsync(lockPath, "");
+        File.SetLastWriteTimeUtc(
+            lockPath,
+            (now - GitCliRunner.StaleLockAge - TimeSpan.FromMinutes(1)).UtcDateTime);
+        var runner = new GitCliRunner(
+            GitPath,
+            TimeSpan.FromSeconds(10),
+            IsolatedGitEnvironment,
+            timeProvider,
+            deleteFile: _ => throw new IOException("simulated delete failure"));
+        RepositoryLockInfo lockInfo = runner.GetRecoverableRepositoryLock(Repository)!;
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(
+                runner.RemoveRecoverableRepositoryLock(Repository, lockInfo),
+                Is.False);
+            Assert.That(File.Exists(lockPath), Is.True);
+        });
     }
 
     private sealed class RecordingProgress : IProgress<string>

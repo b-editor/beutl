@@ -63,6 +63,31 @@ public class VersionControlTabViewTests
         });
     }
 
+    [Test]
+    public async Task Version_control_view_event_boundary_reports_unexpected_failures()
+    {
+        var expected = new InvalidOperationException("simulated failure");
+        Exception? reported = null;
+
+        await VersionControlViewEventBoundary.RunSafelyAsync(
+            () => Task.FromException(expected),
+            exception => reported = exception);
+
+        Assert.That(reported, Is.SameAs(expected));
+    }
+
+    [Test]
+    public async Task Version_control_view_event_boundary_ignores_cancellation()
+    {
+        Exception? reported = null;
+
+        await VersionControlViewEventBoundary.RunSafelyAsync(
+            () => Task.FromCanceled(new CancellationToken(canceled: true)),
+            exception => reported = exception);
+
+        Assert.That(reported, Is.Null);
+    }
+
     private sealed class RecordingCommand(bool canExecute) : ICommand
     {
         public event EventHandler? CanExecuteChanged

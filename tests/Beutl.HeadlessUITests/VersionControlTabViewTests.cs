@@ -108,9 +108,6 @@ public class VersionControlTabViewTests
                 service.Repository!.RepoRoot,
                 "branch",
                 "flyout-refresh");
-            Assert.That(
-                viewModel.Branches.Select(branch => branch.Name),
-                Does.Not.Contain("flyout-refresh"));
 
             branchButton.Flyout!.ShowAt(branchButton);
             await WaitUntilAsync(() => viewModel.Branches.Count == 3);
@@ -189,6 +186,95 @@ public class VersionControlTabViewTests
             config.GitExecutablePath = previousGitPath;
             TestShell.VersionControl.ConfirmSwitchBranchAsync =
                 previousBranchConfirmation;
+            await TestReset.ResetShellAsync();
+        }
+    }
+
+    [AvaloniaTest]
+    public async Task Title_bar_branch_handlers_surface_async_failures_as_notifications()
+    {
+        await TestReset.ResetShellAsync();
+        using var gitEnvironment = new IsolatedGitEnvironment();
+        VersionControlConfig config = GlobalConfiguration.Instance.VersionControlConfig;
+        string? previousGitPath = config.GitExecutablePath;
+        INotificationServiceHandler previousNotificationHandler =
+            NotificationService.Handler;
+        var notifications = new CaptureNotificationHandler();
+        var window = new Window { Width = 420, Height = 120 };
+        string? gitDirectory = null;
+        string? disabledGitDirectory = null;
+
+        try
+        {
+            config.GitExecutablePath = ProbeGitOrIgnore();
+            string location = Path.Combine(
+                BeutlHomeIsolation.CurrentHome!,
+                "title-bar-branch-handler-errors");
+            Directory.CreateDirectory(location);
+            await TestShell.Project.CreateProject(
+                640,
+                480,
+                30,
+                44100,
+                "title-bar-branch-handler-errors",
+                location);
+            bool initialized = await TestShell.VersionControl.InitializeCurrentProjectAsync(
+                async service =>
+                {
+                    await service.SetLocalIdentityAsync(
+                        new GitIdentity(
+                            "Beutl Headless Test",
+                            "headless@example.invalid"),
+                        CancellationToken.None);
+                    return true;
+                });
+            Assert.That(initialized, Is.True);
+
+            TitleBarBranchViewModel viewModel =
+                TestShell.MainViewModel.TitleBarBranch;
+            var view = new TitleBarBranchView { DataContext = viewModel };
+            window.Content = view;
+            window.Show();
+            await WaitUntilAsync(() => viewModel.IsVisible.Value);
+
+            IProjectVersionControlService service =
+                TestShell.VersionControl.CurrentService!;
+            gitDirectory = Path.Combine(service.Repository!.RepoRoot, ".git");
+            disabledGitDirectory = Path.Combine(
+                service.Repository.RepoRoot,
+                ".git-disabled-for-handler-test");
+            Directory.Move(gitDirectory, disabledGitDirectory);
+            NotificationService.Handler = notifications;
+
+            await view.HandleBranchFlyoutOpeningAsync();
+            using var invalidBranch = new TitleBarBranchItemViewModel(
+                new BranchInfo(string.Empty, false, null),
+                viewModel.IsBusy);
+            var invalidBranchButton = new Button { DataContext = invalidBranch };
+            await view.HandleBranchClickAsync(invalidBranchButton);
+
+            Assert.Multiple(() =>
+            {
+                Assert.That(notifications.Notifications, Has.Count.EqualTo(2));
+                Assert.That(
+                    notifications.Notifications.All(notification =>
+                        notification.Type == NotificationType.Error),
+                    Is.True);
+            });
+        }
+        finally
+        {
+            NotificationService.Handler = previousNotificationHandler;
+            if (gitDirectory is not null
+                && disabledGitDirectory is not null
+                && Directory.Exists(disabledGitDirectory)
+                && !Directory.Exists(gitDirectory))
+            {
+                Directory.Move(disabledGitDirectory, gitDirectory);
+            }
+
+            window.Close();
+            config.GitExecutablePath = previousGitPath;
             await TestReset.ResetShellAsync();
         }
     }

@@ -9,6 +9,8 @@ public sealed class NestedRepositoryTests : RealGitTestRepository
     public async Task Discovery_finds_the_enclosing_repository_and_builds_a_scoped_pathspec()
     {
         string projectRoot = CreateProjectDirectory();
+        string expectedRepoRoot = await GetRepositoryTopLevelAsync();
+        string expectedProjectRoot = Path.Combine(expectedRepoRoot, "nested", "project");
         using GitCliVersionControlService service = CreateUnassociatedService();
 
         RepositoryInfo? discovered = await service.DiscoverRepositoryAsync(
@@ -18,10 +20,63 @@ public sealed class NestedRepositoryTests : RealGitTestRepository
         Assert.Multiple(() =>
         {
             Assert.That(discovered, Is.Not.Null);
-            Assert.That(discovered!.RepoRoot, Is.EqualTo(Root));
-            Assert.That(discovered.ProjectRoot, Is.EqualTo(projectRoot));
+            Assert.That(discovered!.RepoRoot, Is.EqualTo(expectedRepoRoot));
+            Assert.That(discovered.ProjectRoot, Is.EqualTo(expectedProjectRoot));
             Assert.That(discovered.IsNestedInForeignRepo, Is.True);
             Assert.That(discovered.Pathspec, Is.EqualTo("nested/project"));
+        });
+    }
+
+    [Test]
+    public async Task Discovery_uses_git_paths_for_a_symbolic_linked_project_directory()
+    {
+        string projectRoot = CreateProjectDirectory();
+        string expectedRepoRoot = await GetRepositoryTopLevelAsync();
+        string expectedProjectRoot = Path.Combine(expectedRepoRoot, "nested", "project");
+        string linkRoot = CreateTemporaryDirectory();
+        string linkedProjectRoot = Path.Combine(linkRoot, "linked-project");
+        CreateDirectorySymbolicLinkOrIgnore(linkedProjectRoot, projectRoot);
+        using GitCliVersionControlService service = CreateUnassociatedService();
+
+        RepositoryInfo? discovered = await service.DiscoverRepositoryAsync(
+            linkedProjectRoot,
+            CancellationToken.None);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(discovered, Is.Not.Null);
+            Assert.That(discovered!.RepoRoot, Is.EqualTo(expectedRepoRoot));
+            Assert.That(discovered.ProjectRoot, Is.EqualTo(expectedProjectRoot));
+            Assert.That(discovered.IsNestedInForeignRepo, Is.True);
+            Assert.That(discovered.Pathspec, Is.EqualTo("nested/project"));
+        });
+    }
+
+    [Test]
+    public async Task Initialize_accepts_a_selection_that_aliases_the_same_repository()
+    {
+        string projectRoot = CreateProjectDirectory();
+        await File.WriteAllTextAsync(Path.Combine(projectRoot, "project.bep"), "{}\n");
+        string linkRoot = CreateTemporaryDirectory();
+        string linkedRepositoryRoot = Path.Combine(linkRoot, "linked-repository");
+        CreateDirectorySymbolicLinkOrIgnore(linkedRepositoryRoot, Root);
+        string linkedProjectRoot = Path.Combine(linkedRepositoryRoot, "nested", "project");
+        using GitCliVersionControlService service = CreateUnassociatedService();
+
+        await service.InitializeAsync(
+            new InitOptions(
+                new RepositoryInfo(linkedRepositoryRoot, linkedProjectRoot),
+                UseLfsWhenAvailable: false),
+            CancellationToken.None);
+
+        string expectedRepoRoot = await GetRepositoryTopLevelAsync();
+        Assert.Multiple(() =>
+        {
+            Assert.That(service.Repository!.RepoRoot, Is.EqualTo(expectedRepoRoot));
+            Assert.That(
+                service.Repository.ProjectRoot,
+                Is.EqualTo(Path.Combine(expectedRepoRoot, "nested", "project")));
+            Assert.That(service.Repository.Pathspec, Is.EqualTo("nested/project"));
         });
     }
 
@@ -29,10 +84,12 @@ public sealed class NestedRepositoryTests : RealGitTestRepository
     public async Task Initialize_requires_consent_and_commits_only_the_nested_project()
     {
         string projectRoot = CreateProjectDirectory();
+        string expectedRepoRoot = await GetRepositoryTopLevelAsync();
         string projectFile = Path.Combine(projectRoot, "project.bep");
         string foreignFile = Path.Combine(Root, "foreign.txt");
         await File.WriteAllTextAsync(projectFile, "{}\n");
         await File.WriteAllTextAsync(foreignFile, "foreign\n");
+        await RunGitAsync("add", "--", "foreign.txt");
         using GitCliVersionControlService service = CreateUnassociatedService();
 
         EnclosingRepositoryConsentRequiredException? exception
@@ -45,7 +102,7 @@ public sealed class NestedRepositoryTests : RealGitTestRepository
 
         Assert.Multiple(() =>
         {
-            Assert.That(exception!.Repository.RepoRoot, Is.EqualTo(Root));
+            Assert.That(exception!.Repository.RepoRoot, Is.EqualTo(expectedRepoRoot));
             Assert.That(Directory.Exists(Path.Combine(projectRoot, ".git")), Is.False);
             Assert.That(File.Exists(Path.Combine(projectRoot, ".gitignore")), Is.False);
         });
@@ -62,11 +119,7 @@ public sealed class NestedRepositoryTests : RealGitTestRepository
             "--format=",
             "--name-only",
             "HEAD");
-        GitCommandResult foreignStatus = await RunGitAsync(
-            "status",
-            "--porcelain",
-            "--",
-            "foreign.txt");
+        GitCommandResult staged = await RunGitAsync("diff", "--cached", "--name-only");
         Assert.Multiple(() =>
         {
             Assert.That(service.Repository, Is.EqualTo(selectedRepository));
@@ -75,7 +128,7 @@ public sealed class NestedRepositoryTests : RealGitTestRepository
             Assert.That(committed.Stdout, Does.Contain("nested/project/project.bep"));
             Assert.That(committed.Stdout, Does.Contain("nested/project/.gitignore"));
             Assert.That(committed.Stdout, Does.Not.Contain("foreign.txt"));
-            Assert.That(foreignStatus.Stdout, Does.StartWith("?? foreign.txt"));
+            Assert.That(staged.Stdout.Trim(), Is.EqualTo("foreign.txt"));
         });
     }
 
@@ -139,6 +192,100 @@ public sealed class NestedRepositoryTests : RealGitTestRepository
         });
     }
 
+    [Test]
+    public async Task Branch_push_and_pull_apply_to_the_whole_enclosing_repository()
+    {
+        string projectRoot = CreateProjectDirectory();
+        await File.WriteAllTextAsync(Path.Combine(projectRoot, "project.bep"), "{}\n");
+        await File.WriteAllTextAsync(Path.Combine(Root, "foreign.txt"), "foreign\n");
+        await RunGitAsync("add", "-A");
+        await RunGitAsync("commit", "-m", "whole repository baseline");
+
+        var repository = new RepositoryInfo(Root, projectRoot);
+        using var service = new GitCliVersionControlService(
+            CreateInstalledLocator(),
+            repository,
+            watcher: null,
+            _ => CreateRunner());
+        await service.CreateBranchAsync(
+            "whole-repository",
+            "HEAD",
+            CancellationToken.None);
+        GitCommandResult branchFiles = await RunGitAsync(
+            "ls-tree",
+            "-r",
+            "--name-only",
+            "whole-repository");
+
+        string remoteRoot = CreateTemporaryDirectory();
+        var remoteRepository = new RepositoryInfo(remoteRoot, remoteRoot);
+        GitCliRunner runner = CreateRunner();
+        await runner.RunAsync(
+            remoteRepository,
+            ["init", "--bare"],
+            networkOperation: false,
+            CancellationToken.None);
+        await service.SetRemoteAsync(remoteRoot, CancellationToken.None);
+        RemoteOpResult push = await service.PushAsync(
+            progress: null,
+            CancellationToken.None);
+        GitCommandResult remoteFiles = await runner.RunAsync(
+            remoteRepository,
+            ["ls-tree", "-r", "--name-only", "whole-repository"],
+            networkOperation: false,
+            CancellationToken.None);
+
+        string peerRoot = CreateTemporaryDirectory();
+        await RunGitAsync(
+            "clone",
+            "--branch",
+            "whole-repository",
+            remoteRoot,
+            peerRoot);
+        var peerRepository = new RepositoryInfo(peerRoot, peerRoot);
+        await runner.RunAsync(
+            peerRepository,
+            ["config", "user.name", "Beutl Test Peer"],
+            networkOperation: false,
+            CancellationToken.None);
+        await runner.RunAsync(
+            peerRepository,
+            ["config", "user.email", "peer@example.invalid"],
+            networkOperation: false,
+            CancellationToken.None);
+        await File.WriteAllTextAsync(
+            Path.Combine(peerRoot, "foreign-from-peer.txt"),
+            "whole repository pull\n");
+        await runner.RunAsync(
+            peerRepository,
+            ["add", "--", "foreign-from-peer.txt"],
+            networkOperation: false,
+            CancellationToken.None);
+        await runner.RunAsync(
+            peerRepository,
+            ["commit", "-m", "foreign peer update"],
+            networkOperation: false,
+            CancellationToken.None);
+        await runner.RunAsync(
+            peerRepository,
+            ["push"],
+            networkOperation: true,
+            CancellationToken.None);
+
+        RemoteOpResult pull = await service.PullFastForwardAsync(CancellationToken.None);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(branchFiles.Stdout, Does.Contain("foreign.txt"));
+            Assert.That(push, Is.TypeOf<RemoteOpResult.Success>());
+            Assert.That(remoteFiles.Stdout, Does.Contain("foreign.txt"));
+            Assert.That(pull, Is.TypeOf<RemoteOpResult.Success>());
+            Assert.That(
+                File.ReadAllText(Path.Combine(Root, "foreign-from-peer.txt")),
+                Is.EqualTo("whole repository pull\n"));
+        });
+    }
+
     private string CreateProjectDirectory()
     {
         string projectRoot = Path.Combine(Root, "nested", "project");
@@ -153,5 +300,24 @@ public sealed class NestedRepositoryTests : RealGitTestRepository
             repository: null,
             watcher: null,
             _ => CreateRunner());
+    }
+
+    private async Task<string> GetRepositoryTopLevelAsync()
+    {
+        GitCommandResult topLevel = await RunGitAsync("rev-parse", "--show-toplevel");
+        return Path.TrimEndingDirectorySeparator(Path.GetFullPath(topLevel.Stdout.Trim()));
+    }
+
+    private static void CreateDirectorySymbolicLinkOrIgnore(string linkPath, string target)
+    {
+        try
+        {
+            Directory.CreateSymbolicLink(linkPath, target);
+        }
+        catch (Exception ex)
+            when (ex is UnauthorizedAccessException or IOException or PlatformNotSupportedException)
+        {
+            Assert.Ignore($"Symbolic links are not creatable in this environment: {ex.Message}");
+        }
     }
 }

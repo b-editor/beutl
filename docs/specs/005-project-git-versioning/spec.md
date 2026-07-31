@@ -90,12 +90,12 @@ A user without Git installed keeps using Beutl exactly as before; the versioning
 
 **Why this priority**: The feature must never make the editor worse for users who don't use it, and must never corrupt a user's existing repository. Both are launch-blocking safety properties.
 
-**Independent Test**: On a machine without Git, exercise the full editor surface and verify zero versioning errors; then place a project inside an existing repository and verify enable/commit/restore only ever touch the project's own directory.
+**Independent Test**: On a machine without Git, exercise the full editor surface and verify zero versioning errors; then place a project inside an existing repository and verify snapshots and restore touch only the project's own directory while disclosed branch, push, and pull operations affect the whole enclosing repository.
 
 **Acceptance Scenarios**:
 
 1. **Given** Git is not installed (or is older than the supported floor), **When** the user opens any project, **Then** the editor is fully functional, the versioning surface shows installation guidance, and no error dialogs appear.
-2. **Given** a project directory already inside an existing repository, **When** the user enables version tracking, **Then** the app detects the enclosing repository, never creates a nested repository without explicit consent, and offers to use the enclosing repository with all operations scoped to the project's directory.
+2. **Given** a project directory already inside an existing repository, **When** the user enables version tracking, **Then** the app detects the enclosing repository, never creates a nested repository without explicit consent, and offers to use it while disclosing that branch and remote operations affect the whole enclosing repository.
 3. **Given** a project in a shared (enclosing) repository, **When** a snapshot is recorded, **Then** only files under the project directory are ever included in the version.
 4. **Given** a previous app crash left a stale repository lock, **When** the project is next opened, **Then** versioning recovers automatically or offers a one-click recovery, and never wedges permanently.
 
@@ -153,10 +153,10 @@ The user connects the project to a remote repository, pushes their history for b
 
 ### Edge Cases
 
-- **Project inside the user's own existing repository**: detected before enabling; no nested repository is created without explicit consent; all versioning operations are scoped to the project directory and can never sweep unrelated files of the enclosing repository into a version.
+- **Project inside the user's own existing repository**: detected before enabling; no nested repository is created without explicit consent; snapshots, status, history, and restore are scoped to the project directory, while branch, push, and pull operations affect the whole enclosing repository and are disclosed as such.
 - **Git missing, broken, or below the version floor**: versioning UI degrades to guidance; every other editor feature is unaffected; the probe never blocks startup.
 - **Snapshot concurrent with export/render/proxy generation**: version operations are serialized against each other, and a restore/branch switch/pull is refused while an export is reading project files; a snapshot only captures fully written files (never a half-written save).
-- **Restore or branch switch with unsaved in-memory state**: the user is prompted; a safety snapshot is always recorded first; the close/reopen cycle is the only path that changes files under the editor.
+- **Restore or branch switch with unsaved in-memory state**: the user is prompted; dirty on-disk project state is recorded in a safety snapshot first, while a clean project creates no empty snapshot; the close/reopen cycle is the only path that changes files under the editor.
 - **Editing after restoring an old version**: the restore itself is a new version on the current branch, so subsequent saves continue linearly — no detached or orphaned states are ever created.
 - **Huge media files committed into the project**: when the large-file extension is unavailable, a one-time warning explains that history size is permanent before large media is first committed; the operation is never blocked.
 - **Cross-platform round-trip**: path separators are normalized in stored file lists, line endings are pinned identically on all platforms, and case-only filename differences are avoided by the app's own file naming; a project committed on one OS opens cleanly on the others.
@@ -252,7 +252,7 @@ The user connects the project to a remote repository, pushes their history for b
 - **Branch**: a named line of history; exactly one is active per project.
 - **Remote**: a single associated backup/collaboration endpoint per project.
 - **Ignore/attribute rules**: generated repository configuration that excludes per-user state and pins cross-platform text policies.
-- **Safety snapshot**: the always-taken pre-operation version that makes restore/switch/pull non-destructive.
+- **Safety snapshot**: the pre-operation version taken when project state is dirty, making restore/switch/pull non-destructive without creating empty commits for clean state.
 
 ## Success Criteria *(mandatory)*
 
@@ -261,7 +261,7 @@ The user connects the project to a remote repository, pushes their history for b
 - **SC-001** (integrity): Restoring any version from a 50-version history reopens the project with zero load errors, and the reopened project renders frame-identically to the state that was saved at that version.
 - **SC-002** (diff minimality): Changing one property of one element and saving produces a version that touches exactly that element's file (plus the scene file for structural edits) — never the project file, per-user state, or unrelated files.
 - **SC-003** (performance): Recording a snapshot of a 500-element project completes within 2 seconds without blocking the UI; the history view opens within 1 second for a 200-version history.
-- **SC-004** (safety): 100% of restore, branch-switch, and pull flows record a reachable safety version first; no sequence of in-app versioning operations can lose committed work or the currently saved project state.
+- **SC-004** (safety): 100% of restore, branch-switch, and pull flows with dirty project state record a reachable safety version first; clean flows create no empty safety version, and no sequence of in-app versioning operations can lose committed work or the currently saved project state.
 - **SC-005** (discoverability): A user new to the feature can enable tracking, find the history view, and restore a prior version within 2 minutes using only in-app UI.
 - **SC-006** (portability): A project committed on Windows, pushed, and cloned on macOS or Linux opens with zero path or line-ending errors and renders identically.
 - **SC-007** (degradation): With Git absent, a full pass over the editor's feature surface produces zero versioning-related errors or dialogs beyond the single guidance state.

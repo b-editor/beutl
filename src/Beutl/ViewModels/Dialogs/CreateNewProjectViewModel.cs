@@ -2,35 +2,39 @@
 
 using Beutl.Configuration;
 using Beutl.Editor.VersionControl;
+using Beutl.Logging;
 using Beutl.Services;
 
+using Microsoft.Extensions.Logging;
 using Reactive.Bindings;
 
 namespace Beutl.ViewModels.Dialogs;
 
 public sealed class CreateNewProjectViewModel
 {
+    private readonly ILogger _logger = Log.CreateLogger<CreateNewProjectViewModel>();
     private readonly ProjectService _projectService;
-    private readonly VersionControlCoordinator? _versionControlCoordinator;
+    private readonly IProjectVersionControlInitializer? _versionControlInitializer;
     private readonly Func<IProjectVersionControlService, Task<bool>>? _requestIdentityAsync;
+    private readonly Task _gitDetectionTask;
 
     public CreateNewProjectViewModel(ProjectService projectService)
-        : this(projectService, versionControlCoordinator: null, requestIdentityAsync: null)
+        : this(projectService, versionControlInitializer: null, requestIdentityAsync: null)
     {
     }
 
     public CreateNewProjectViewModel(
         ProjectService projectService,
-        VersionControlCoordinator? versionControlCoordinator,
+        IProjectVersionControlInitializer? versionControlInitializer,
         Func<IProjectVersionControlService, Task<bool>>? requestIdentityAsync)
     {
         _projectService = projectService;
-        _versionControlCoordinator = versionControlCoordinator;
+        _versionControlInitializer = versionControlInitializer;
         _requestIdentityAsync = requestIdentityAsync;
         Location.Value = GetDefaultLocation();
         Name.Value = GenProjectName(Location.Value);
         TrackHistory.Value = GlobalConfiguration.Instance.VersionControlConfig.EnableForNewProjects;
-        _ = DetectGitAsync();
+        _gitDetectionTask = DetectGitAsync();
 
         Name.SetValidateNotifyError(n =>
         {
@@ -109,11 +113,17 @@ public sealed class CreateNewProjectViewModel
                 Location.Value);
             if (project is not null
                 && TrackHistory.Value
-                && IsGitAvailable.Value
-                && _versionControlCoordinator is not null
+                && _versionControlInitializer is not null
                 && _requestIdentityAsync is not null)
             {
-                await _versionControlCoordinator.InitializeCurrentProjectAsync(_requestIdentityAsync);
+                await _gitDetectionTask;
+                await DetectGitAsync();
+                if (IsGitAvailable.Value)
+                {
+                    await _versionControlInitializer.InitializeCurrentProjectAsync(
+                        _requestIdentityAsync,
+                        CancellationToken.None);
+                }
             }
         });
     }
@@ -138,13 +148,26 @@ public sealed class CreateNewProjectViewModel
 
     private async Task DetectGitAsync()
     {
-        if (_versionControlCoordinator is null)
+        if (_versionControlInitializer is null)
         {
             return;
         }
 
-        GitAvailability availability = await _versionControlCoordinator.GetAvailabilityAsync();
-        IsGitAvailable.Value = availability.State == GitAvailabilityState.Installed;
+        try
+        {
+            GitAvailability availability = await _versionControlInitializer.GetAvailabilityAsync(
+                CancellationToken.None);
+            IsGitAvailable.Value = availability.State == GitAvailabilityState.Installed;
+        }
+        catch (OperationCanceledException)
+        {
+            throw;
+        }
+        catch (Exception ex)
+        {
+            IsGitAvailable.Value = false;
+            _logger.LogWarning(ex, "Failed to detect Git while creating a project.");
+        }
     }
 
     private static string GetDefaultLocation()

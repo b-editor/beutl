@@ -1,4 +1,62 @@
-﻿namespace Beutl.Editor.VersionControl;
+﻿using System.Text.RegularExpressions;
+
+namespace Beutl.Editor.VersionControl;
+
+internal static class RepositoryPathComparer
+{
+    private static StringComparison PathComparison
+        => OperatingSystem.IsWindows() ? StringComparison.OrdinalIgnoreCase : StringComparison.Ordinal;
+
+    internal static bool AreEquivalent(string left, string right)
+    {
+        return string.Equals(
+            ResolveExistingDirectoryPath(left),
+            ResolveExistingDirectoryPath(right),
+            PathComparison);
+    }
+
+    private static string ResolveExistingDirectoryPath(string path)
+    {
+        string fullPath = Path.TrimEndingDirectorySeparator(Path.GetFullPath(path));
+        string root = Path.GetPathRoot(fullPath) ?? fullPath;
+        var components = new Stack<string>();
+        string? current = fullPath;
+        while (current is not null
+               && !string.Equals(current, root, PathComparison))
+        {
+            string name = Path.GetFileName(current);
+            if (!string.IsNullOrEmpty(name))
+            {
+                components.Push(name);
+            }
+
+            current = Path.GetDirectoryName(current);
+        }
+
+        string resolved = root;
+        while (components.Count > 0)
+        {
+            string candidate = Path.Combine(resolved, components.Pop());
+            try
+            {
+                FileSystemInfo? target = new DirectoryInfo(candidate)
+                    .ResolveLinkTarget(returnFinalTarget: true);
+                resolved = target is null
+                    ? candidate
+                    : ResolveExistingDirectoryPath(target.FullName);
+            }
+            catch (Exception ex)
+                when (ex is IOException
+                      or UnauthorizedAccessException
+                      or NotSupportedException)
+            {
+                resolved = candidate;
+            }
+        }
+
+        return Path.TrimEndingDirectorySeparator(Path.GetFullPath(resolved));
+    }
+}
 
 public enum GitAvailabilityState
 {
@@ -48,6 +106,9 @@ public sealed record RepositoryInfo
     private static StringComparison PathComparison
         => OperatingSystem.IsWindows() ? StringComparison.OrdinalIgnoreCase : StringComparison.Ordinal;
 
+    private static StringComparer PathComparer
+        => OperatingSystem.IsWindows() ? StringComparer.OrdinalIgnoreCase : StringComparer.Ordinal;
+
     public string RepoRoot { get; }
 
     public string ProjectRoot { get; }
@@ -55,6 +116,20 @@ public sealed record RepositoryInfo
     public bool IsNestedInForeignRepo { get; }
 
     public string Pathspec { get; }
+
+    public bool Equals(RepositoryInfo? other)
+    {
+        return other is not null
+               && PathComparer.Equals(RepoRoot, other.RepoRoot)
+               && PathComparer.Equals(ProjectRoot, other.ProjectRoot);
+    }
+
+    public override int GetHashCode()
+    {
+        return HashCode.Combine(
+            PathComparer.GetHashCode(RepoRoot),
+            PathComparer.GetHashCode(ProjectRoot));
+    }
 }
 
 public enum SnapshotKind
@@ -153,13 +228,28 @@ public sealed record InitOptions(
     RepositoryInfo TargetRepository,
     bool UseLfsWhenAvailable = true);
 
+internal static partial class GitDiagnosticSanitizer
+{
+    internal static string RedactCredentials(string value)
+    {
+        return string.IsNullOrEmpty(value)
+            ? value
+            : CredentialUrlRegex().Replace(value, "${scheme}***@");
+    }
+
+    [GeneratedRegex(
+        @"(?<scheme>[a-z][a-z0-9+.-]*://)[^/\s@]+@",
+        RegexOptions.IgnoreCase | RegexOptions.CultureInvariant)]
+    private static partial Regex CredentialUrlRegex();
+}
+
 public sealed class GitOperationException : Exception
 {
     public GitOperationException(int exitCode, string stderr)
-        : base(CreateMessage(exitCode, stderr))
+        : base(CreateMessage(exitCode, GitDiagnosticSanitizer.RedactCredentials(stderr)))
     {
         ExitCode = exitCode;
-        Stderr = stderr;
+        Stderr = GitDiagnosticSanitizer.RedactCredentials(stderr);
     }
 
     public int ExitCode { get; }
@@ -176,6 +266,7 @@ public sealed class GitOperationException : Exception
             ? $"Git exited with code {exitCode}."
             : $"Git exited with code {exitCode}: {stderr}";
     }
+
 }
 
 public sealed class GitIdentityRequiredException : InvalidOperationException

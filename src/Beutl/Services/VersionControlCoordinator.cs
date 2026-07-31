@@ -12,7 +12,10 @@ using Reactive.Bindings;
 
 namespace Beutl.Services;
 
-public sealed class VersionControlCoordinator : IProjectVersionControlCoordinator, IDisposable
+public sealed class VersionControlCoordinator :
+    IProjectVersionControlCoordinator,
+    IProjectVersionControlInitializer,
+    IDisposable
 {
     private const string SaveSnapshotMessage = "beutl: snapshot on save";
     private const string CloseSnapshotMessage = "beutl: snapshot on close";
@@ -26,6 +29,7 @@ public sealed class VersionControlCoordinator : IProjectVersionControlCoordinato
     private readonly GitInstallationLocator _installationLocator;
     private readonly IDisposable _projectSubscription;
     private readonly ILogger _logger = Log.CreateLogger<VersionControlCoordinator>();
+    private readonly object _stateGate = new();
     private readonly SemaphoreSlim _lifecycleGate = new(1, 1);
     private readonly SemaphoreSlim _lockRecoveryGate = new(1, 1);
     private readonly ReactivePropertySlim<bool> _isGitAvailable = new();
@@ -37,7 +41,7 @@ public sealed class VersionControlCoordinator : IProjectVersionControlCoordinato
     private int _availabilityRevision;
     private int _lifecycleUsers;
     private bool _preserveServiceAcrossClose;
-    private bool _disposed;
+    private volatile bool _disposed;
 
     public VersionControlCoordinator(
         ProjectService projectService,
@@ -118,9 +122,12 @@ public sealed class VersionControlCoordinator : IProjectVersionControlCoordinato
         ObjectDisposedException.ThrowIf(_disposed, this);
         int revision = Interlocked.Increment(ref _availabilityRevision);
         GitAvailability availability = await _installationLocator.LocateAsync(cancellationToken);
-        if (!_disposed && revision == Volatile.Read(ref _availabilityRevision))
+        lock (_stateGate)
         {
-            _isGitAvailable.Value = availability.State == GitAvailabilityState.Installed;
+            if (!_disposed && revision == Volatile.Read(ref _availabilityRevision))
+            {
+                _isGitAvailable.Value = availability.State == GitAvailabilityState.Installed;
+            }
         }
 
         return availability;
@@ -171,6 +178,14 @@ public sealed class VersionControlCoordinator : IProjectVersionControlCoordinato
         {
             NotificationService.ShowWarning(Strings.VersionControl, ex.Guidance);
             return false;
+        }
+
+        lock (_stateGate)
+        {
+            if (!_disposed && ReferenceEquals(_currentService, service))
+            {
+                _isTracked.Value = service.Repository is not null;
+            }
         }
 
         return true;
@@ -283,12 +298,16 @@ public sealed class VersionControlCoordinator : IProjectVersionControlCoordinato
 
     public void Dispose()
     {
-        if (_disposed)
+        lock (_stateGate)
         {
-            return;
+            if (_disposed)
+            {
+                return;
+            }
+
+            _disposed = true;
         }
 
-        _disposed = true;
         _activationCancellation?.Cancel();
         _activationCancellation?.Dispose();
         _config.ConfigurationChanged -= OnVersionControlConfigChanged;
@@ -305,8 +324,11 @@ public sealed class VersionControlCoordinator : IProjectVersionControlCoordinato
             ReplaceService(null);
         }
 
-        _isGitAvailable.Dispose();
-        _isTracked.Dispose();
+        lock (_stateGate)
+        {
+            _isGitAvailable.Dispose();
+            _isTracked.Dispose();
+        }
     }
 
     private async Task<bool> RunBranchCycleAsync(
@@ -1063,10 +1085,9 @@ public sealed class VersionControlCoordinator : IProjectVersionControlCoordinato
 
                 string preservedRoot = GetProjectRoot(project);
                 if (_currentService?.Repository is { } preservedRepository
-                    && string.Equals(
+                    && RepositoryPathComparer.AreEquivalent(
                         preservedRepository.ProjectRoot,
-                        preservedRoot,
-                        PathComparison))
+                        preservedRoot))
                 {
                     _editorService.PublishProjectVersionControlService(_currentService);
                     return;
@@ -1192,39 +1213,72 @@ public sealed class VersionControlCoordinator : IProjectVersionControlCoordinato
         {
             await GetAvailabilityAsync();
         }
-        catch (Exception ex) when (!_disposed)
+        catch (Exception ex)
         {
-            _isGitAvailable.Value = false;
+            lock (_stateGate)
+            {
+                if (_disposed)
+                {
+                    return;
+                }
+
+                _isGitAvailable.Value = false;
+            }
+
             _logger.LogWarning(ex, "Failed to refresh Git availability.");
-        }
-        catch (Exception) when (_disposed)
-        {
         }
     }
 
     private void ReplaceService(IProjectVersionControlService? service)
     {
-        IProjectVersionControlService? previous = _currentService;
-        if (previous is IRepositoryLockRecoveryService previousRecovery)
+        IProjectVersionControlService? serviceToDispose;
+        lock (_stateGate)
         {
-            previousRecovery.RecoverableLockAvailable -= OnRecoverableLockAvailable;
+            if (_disposed && service is not null)
+            {
+                serviceToDispose = service;
+            }
+            else
+            {
+                IProjectVersionControlService? previous = _currentService;
+                if (ReferenceEquals(previous, service))
+                {
+                    return;
+                }
+
+                if (previous is IRepositoryLockRecoveryService previousRecovery)
+                {
+                    previousRecovery.RecoverableLockAvailable -= OnRecoverableLockAvailable;
+                }
+
+                _currentService = service;
+                if (!_disposed)
+                {
+                    _isTracked.Value = service?.Repository is not null;
+                }
+
+                _editorService.PublishProjectVersionControlService(service);
+                if (service is IRepositoryLockRecoveryService recovery)
+                {
+                    recovery.RecoverableLockAvailable += OnRecoverableLockAvailable;
+                }
+
+                serviceToDispose = previous;
+            }
         }
 
-        _currentService = service;
-        _isTracked.Value = service?.Repository is not null;
-        _editorService.PublishProjectVersionControlService(service);
-        if (service is IRepositoryLockRecoveryService recovery)
-        {
-            recovery.RecoverableLockAvailable += OnRecoverableLockAvailable;
-        }
+        DisposeService(serviceToDispose);
+    }
 
+    private void DisposeService(IProjectVersionControlService? service)
+    {
         try
         {
-            previous?.Dispose();
+            service?.Dispose();
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Failed to dispose the previous project version control service.");
+            _logger.LogError(ex, "Failed to dispose a project version control service.");
         }
     }
 

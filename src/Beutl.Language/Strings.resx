@@ -983,6 +983,9 @@
   <data name="Duplicate_FallbackFailed" xml:space="preserve">
     <value>The move fallback also failed; the timeline state may not match what you see.</value>
   </data>
+  <data name="ElementAdder_ProjectNotSaved" xml:space="preserve">
+    <value>Save the project before adding clips.</value>
+  </data>
   <data name="AboutBeutl" xml:space="preserve">
     <value>About Beutl</value>
   </data>

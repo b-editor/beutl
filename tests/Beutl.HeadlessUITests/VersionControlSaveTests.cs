@@ -114,6 +114,78 @@ public class VersionControlSaveTests
     }
 
     [AvaloniaTest]
+    public async Task Initialization_publishes_tracked_state_and_disables_the_enable_command()
+    {
+        await TestReset.ResetShellAsync();
+        using var environment = new IsolatedGitEnvironment();
+        string gitPath = ProbeGitOrIgnore();
+        VersionControlConfig config = GlobalConfiguration.Instance.VersionControlConfig;
+        string? oldGitPath = config.GitExecutablePath;
+        bool oldUseLfs = config.UseLfsWhenAvailable;
+
+        try
+        {
+            config.GitExecutablePath = gitPath;
+            config.UseLfsWhenAvailable = false;
+            GitAvailability availability =
+                await TestShell.VersionControl.GetAvailabilityAsync();
+            Assert.That(
+                availability.State,
+                Is.EqualTo(GitAvailabilityState.Installed));
+
+            string location = Path.Combine(
+                BeutlHomeIsolation.CurrentHome!,
+                "version-control-tracked-state");
+            Directory.CreateDirectory(location);
+            await TestShell.Project.CreateProject(
+                640,
+                480,
+                30,
+                44100,
+                "tracked-state",
+                location);
+            HeadlessTestHelpers.Settle();
+
+            var enableCommand =
+                (System.Windows.Input.ICommand)TestShell.MainViewModel.MenuBar.EnableVersionControl;
+            Assert.Multiple(() =>
+            {
+                Assert.That(TestShell.VersionControl.IsTracked.Value, Is.False);
+                Assert.That(enableCommand.CanExecute(null), Is.True);
+            });
+
+            bool initialized = await TestShell.VersionControl.InitializeCurrentProjectAsync(
+                async service =>
+                {
+                    await service.SetLocalIdentityAsync(
+                        new GitIdentity(
+                            "Beutl Headless Test",
+                            "headless@example.invalid"),
+                        CancellationToken.None);
+                    return true;
+                });
+            HeadlessTestHelpers.Settle();
+
+            Assert.Multiple(() =>
+            {
+                Assert.That(initialized, Is.True);
+                Assert.That(TestShell.VersionControl.IsTracked.Value, Is.True);
+                Assert.That(enableCommand.CanExecute(null), Is.False);
+                Assert.That(
+                    ((System.Windows.Input.ICommand)TestShell.MainViewModel.MenuBar.CommitVersion)
+                    .CanExecute(null),
+                    Is.True);
+            });
+        }
+        finally
+        {
+            await TestReset.ResetShellAsync();
+            config.GitExecutablePath = oldGitPath;
+            config.UseLfsWhenAvailable = oldUseLfs;
+        }
+    }
+
+    [AvaloniaTest]
     public async Task Identity_view_model_prefills_the_os_user_and_writes_the_repository_identity()
     {
         var service = new RecordingVersionControlService();

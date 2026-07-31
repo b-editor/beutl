@@ -32,6 +32,11 @@ internal sealed class ElementAdderImpl(EditViewModel context) : IElementAdder
         _logger.LogInformation("Adding new element with description: {Description}", desc);
 
         Scene scene = _context.Scene;
+        if (!EnsureSceneIsSaved(scene))
+        {
+            return;
+        }
+
         if (scene.IsLayerLocked(desc.Layer))
         {
             NotificationService.ShowWarning(Strings.Lock, Strings.LayerIsLocked);
@@ -257,6 +262,11 @@ internal sealed class ElementAdderImpl(EditViewModel context) : IElementAdder
         _logger.LogInformation("Adding element from template: {TemplateName}", template.Name.Value);
 
         Scene scene = _context.Scene;
+        if (!EnsureSceneIsSaved(scene))
+        {
+            return;
+        }
+
         if (scene.IsLayerLocked(layer))
         {
             NotificationService.ShowWarning(Strings.Lock, Strings.LayerIsLocked);
@@ -306,6 +316,20 @@ internal sealed class ElementAdderImpl(EditViewModel context) : IElementAdder
         timeline?.ScrollTo.Execute((newElement.Range, newElement.ZIndex));
 
         _logger.LogInformation("Element from template added successfully.");
+    }
+
+    private bool EnsureSceneIsSaved(Scene scene)
+    {
+        if (scene.Uri is not null)
+        {
+            return true;
+        }
+
+        _logger.LogWarning("Cannot add an element before the scene is saved.");
+        NotificationService.ShowWarning(
+            Strings.File,
+            Strings.ElementAdder_ProjectNotSaved);
+        return false;
     }
 
     private static bool MatchFileExtensions(string filePath, IEnumerable<string> extensions)

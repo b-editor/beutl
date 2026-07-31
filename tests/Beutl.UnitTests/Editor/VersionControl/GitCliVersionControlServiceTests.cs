@@ -1,6 +1,7 @@
 ﻿using Beutl.Configuration;
 using Beutl.Editor.VersionControl;
 using Beutl.Language;
+using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Time.Testing;
 
 namespace Beutl.UnitTests.Editor.VersionControl;
@@ -52,9 +53,19 @@ public class GitCliVersionControlServiceTests : RealGitTestRepository
             ["rev-list", "--count", "HEAD"],
             networkOperation: false,
             CancellationToken.None);
+        GitCommandResult topLevel = await Runner.RunAsync(
+            projectRepository,
+            ["rev-parse", "--show-toplevel"],
+            networkOperation: false,
+            CancellationToken.None);
+        string expectedRoot = Path.TrimEndingDirectorySeparator(
+            Path.GetFullPath(topLevel.Stdout.Trim()));
 
         Assert.Multiple(() =>
         {
+            Assert.That(service.Repository!.RepoRoot, Is.EqualTo(expectedRoot));
+            Assert.That(service.Repository.ProjectRoot, Is.EqualTo(expectedRoot));
+            Assert.That(service.Repository.Pathspec, Is.EqualTo("."));
             Assert.That(branch.Stdout.Trim(), Is.EqualTo("main"));
             Assert.That(count.Stdout.Trim(), Is.EqualTo("1"));
             Assert.That(log.Stdout, Does.StartWith("beutl: initialize version control\n"));
@@ -69,6 +80,48 @@ public class GitCliVersionControlServiceTests : RealGitTestRepository
                 File.ReadAllText(Path.Combine(projectRoot, ".gitattributes")),
                 Does.Contain(".gitattributes text eol=lf\n"));
         });
+    }
+
+    [Test]
+    public async Task InitializeAsync_does_not_reassociate_a_service_with_another_repository()
+    {
+        string otherRoot = CreateTemporaryDirectory();
+        var otherRepository = new RepositoryInfo(otherRoot, otherRoot);
+        await Runner.RunAsync(
+            otherRepository,
+            ["init"],
+            networkOperation: false,
+            CancellationToken.None);
+        using GitCliVersionControlService service = CreateService();
+
+        Assert.ThrowsAsync<InvalidOperationException>(
+            async () => await service.InitializeAsync(
+                new InitOptions(otherRepository, UseLfsWhenAvailable: false),
+                CancellationToken.None));
+
+        Assert.That(service.Repository, Is.SameAs(Repository));
+    }
+
+    [Test]
+    public void InitializeAsync_rejects_discovery_from_a_different_repository()
+    {
+        string projectRoot = CreateTemporaryDirectory();
+        string discoveredRoot = CreateTemporaryDirectory();
+        var runner = new MismatchedDiscoveryRunner(discoveredRoot);
+        using var service = new GitCliVersionControlService(
+            CreateInstalledLocator(),
+            repository: null,
+            watcher: null,
+            _ => runner);
+
+        Assert.ThrowsAsync<InvalidOperationException>(
+            async () => await service.InitializeAsync(
+                new InitOptions(
+                    new RepositoryInfo(projectRoot, projectRoot),
+                    UseLfsWhenAvailable: false),
+                CancellationToken.None));
+
+        Assert.That(runner.Commands, Does.Not.Contain("init"));
     }
 
     [Test]
@@ -99,6 +152,33 @@ public class GitCliVersionControlServiceTests : RealGitTestRepository
             Assert.That(
                 File.ReadAllText(Path.Combine(projectRoot, ".gitattributes")),
                 Does.Contain("resources/**/*.png filter=lfs diff=lfs merge=lfs -text\n"));
+        });
+    }
+
+    [Test]
+    public async Task InitializeAsync_sets_main_with_git_2_23_compatible_commands()
+    {
+        string projectRoot = CreateTemporaryDirectory();
+        var runner = new RecordingInitializationRunner();
+        using var service = new GitCliVersionControlService(
+            CreateInstalledLocator(),
+            repository: null,
+            watcher: null,
+            _ => runner);
+
+        await service.InitializeAsync(
+            new InitOptions(
+                new RepositoryInfo(projectRoot, projectRoot),
+                UseLfsWhenAvailable: false),
+            CancellationToken.None);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(runner.Commands, Does.Contain("init"));
+            Assert.That(
+                runner.Commands,
+                Does.Contain("symbolic-ref HEAD refs/heads/main"));
+            Assert.That(runner.Commands, Does.Not.Contain("init -b main"));
         });
     }
 
@@ -174,13 +254,14 @@ public class GitCliVersionControlServiceTests : RealGitTestRepository
     }
 
     [Test]
-    public async Task CommitAllAsync_scopes_staging_to_the_project_pathspec()
+    public async Task CommitAllAsync_scopes_commit_and_preserves_foreign_staged_changes()
     {
         await CommitFileAsync("baseline.txt", "baseline\n", "baseline");
         string projectRoot = Path.Combine(Root, "nested-project");
         Directory.CreateDirectory(projectRoot);
         await File.WriteAllTextAsync(Path.Combine(projectRoot, "project.bep"), "{}\n");
         await File.WriteAllTextAsync(Path.Combine(Root, "foreign.txt"), "foreign\n");
+        await RunGitAsync("add", "--", "foreign.txt");
         var repository = new RepositoryInfo(Root, projectRoot);
         using var service = new GitCliVersionControlService(
             CreateInstalledLocator(),
@@ -193,14 +274,14 @@ public class GitCliVersionControlServiceTests : RealGitTestRepository
             SnapshotKind.Save,
             CancellationToken.None);
         GitCommandResult committed = await RunGitAsync("show", "--format=", "--name-only", "HEAD");
-        GitCommandResult status = await RunGitAsync("status", "--porcelain", "--", "foreign.txt");
+        GitCommandResult staged = await RunGitAsync("diff", "--cached", "--name-only");
 
         Assert.Multiple(() =>
         {
             Assert.That(result, Is.TypeOf<CommitResult.Committed>());
             Assert.That(committed.Stdout, Does.Contain("nested-project/project.bep"));
             Assert.That(committed.Stdout, Does.Not.Contain("foreign.txt"));
-            Assert.That(status.Stdout, Does.StartWith("?? foreign.txt"));
+            Assert.That(staged.Stdout.Trim(), Is.EqualTo("foreign.txt"));
         });
     }
 
@@ -608,6 +689,29 @@ public class GitCliVersionControlServiceTests : RealGitTestRepository
     }
 
     [Test]
+    public async Task GetStatusAsync_reports_files_inside_untracked_directories()
+    {
+        string mediaPath = Path.Combine(Root, "resources", "nested", "large.mp4");
+        Directory.CreateDirectory(Path.GetDirectoryName(mediaPath)!);
+        await File.WriteAllTextAsync(mediaPath, "media");
+        using var service = CreateService();
+
+        WorkspaceStatus status = await service.GetStatusAsync(CancellationToken.None);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(
+                status.Changes,
+                Does.Contain(new FileChange(
+                    "resources/nested/large.mp4",
+                    FileChangeStatus.Added)));
+            Assert.That(
+                status.Changes.Select(change => change.Path),
+                Does.Not.Contain("resources/"));
+        });
+    }
+
+    [Test]
     public async Task GetStatusAsync_detects_real_unmerged_paths()
     {
         await CommitFileAsync("project.bep", "base\n", "base");
@@ -646,6 +750,9 @@ public class GitCliVersionControlServiceTests : RealGitTestRepository
         RepositoryInfo? discovered = await service.DiscoverRepositoryAsync(
             Root,
             CancellationToken.None);
+        GitCommandResult topLevel = await RunGitAsync("rev-parse", "--show-toplevel");
+        string expectedRepoRoot = Path.TrimEndingDirectorySeparator(
+            Path.GetFullPath(topLevel.Stdout.Trim()));
         WorkspaceStatus status = await service.GetStatusAsync(CancellationToken.None);
         IReadOnlyList<CommitInfo> history = await service.GetHistoryAsync(
             0,
@@ -708,7 +815,10 @@ public class GitCliVersionControlServiceTests : RealGitTestRepository
         Assert.Multiple(() =>
         {
             Assert.That(availability.State, Is.EqualTo(GitAvailabilityState.Installed));
-            Assert.That(discovered, Is.EqualTo(Repository));
+            Assert.That(discovered, Is.Not.Null);
+            Assert.That(discovered!.RepoRoot, Is.EqualTo(expectedRepoRoot));
+            Assert.That(discovered.ProjectRoot, Is.EqualTo(expectedRepoRoot));
+            Assert.That(discovered.Pathspec, Is.EqualTo("."));
             Assert.That(status.HasConflicts, Is.True);
             Assert.That(history, Is.Not.Empty);
             Assert.That(files, Is.Not.Null);
@@ -744,6 +854,36 @@ public class GitCliVersionControlServiceTests : RealGitTestRepository
         await Task.WhenAll(first, second);
 
         Assert.That(runner.MaxConcurrency, Is.EqualTo(1));
+    }
+
+    [Test]
+    public async Task Dispose_allows_an_in_flight_operation_to_release_the_gate()
+    {
+        var runner = new BlockingStatusRunner();
+        var service = new GitCliVersionControlService(
+            CreateInstalledLocator(),
+            Repository,
+            watcher: null,
+            _ => runner);
+
+        Task<WorkspaceStatus> operation = service.GetStatusAsync(CancellationToken.None);
+        await runner.Started.WaitAsync(TimeSpan.FromSeconds(5));
+        service.Dispose();
+        runner.Complete();
+
+        Assert.DoesNotThrowAsync(async () => await operation);
+        Assert.ThrowsAsync<ObjectDisposedException>(
+            async () => await service.GetStatusAsync(CancellationToken.None));
+    }
+
+    [Test]
+    public void Dispose_is_safe_when_called_concurrently()
+    {
+        GitCliVersionControlService service = CreateService();
+
+        Assert.DoesNotThrow(() => Parallel.For(0, 64, _ => service.Dispose()));
+        Assert.ThrowsAsync<ObjectDisposedException>(
+            async () => await service.GetStatusAsync(CancellationToken.None));
     }
 
     [Test]
@@ -802,6 +942,34 @@ public class GitCliVersionControlServiceTests : RealGitTestRepository
         });
     }
 
+    [Test]
+    public async Task Watcher_refresh_logs_unexpected_failures()
+    {
+        var timeProvider = new FakeTimeProvider();
+        var watcher = new RepositoryWatcher(Root, timeProvider, startWatching: false);
+        var logger = new RecordingLogger();
+        var expected = new IOException("status failed");
+        using var service = new GitCliVersionControlService(
+            CreateInstalledLocator(),
+            Repository,
+            watcher,
+            _ => new ThrowingStatusRunner(expected),
+            logger);
+
+        watcher.NotifyPathChanged(Path.Combine(Root, "changed.bep"));
+        timeProvider.Advance(RepositoryWatcher.DebounceInterval);
+        LogEntry entry = await logger.Entry.WaitAsync(TimeSpan.FromSeconds(5));
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(entry.Level, Is.EqualTo(LogLevel.Warning));
+            Assert.That(entry.Exception, Is.SameAs(expected));
+            Assert.That(
+                entry.Message,
+                Is.EqualTo("Failed to refresh version-control status after a repository change."));
+        });
+    }
+
     private GitCliVersionControlService CreateService(RepositoryWatcher? watcher = null)
     {
         return new GitCliVersionControlService(
@@ -837,6 +1005,66 @@ public class GitCliVersionControlServiceTests : RealGitTestRepository
             {
                 Interlocked.Decrement(ref _concurrency);
             }
+        }
+
+        public RepositoryLockInfo? GetRecoverableRepositoryLock(RepositoryInfo repository)
+            => null;
+
+        public bool RemoveRecoverableRepositoryLock(
+            RepositoryInfo repository,
+            RepositoryLockInfo lockInfo)
+            => false;
+    }
+
+    private sealed class BlockingStatusRunner : IGitCliRunner
+    {
+        private readonly TaskCompletionSource<bool> _started =
+            new(TaskCreationOptions.RunContinuationsAsynchronously);
+        private readonly TaskCompletionSource<bool> _completion =
+            new(TaskCreationOptions.RunContinuationsAsynchronously);
+
+        public bool HasActiveProcess => !_completion.Task.IsCompleted;
+
+        public Task Started => _started.Task;
+
+        public void Complete()
+        {
+            _completion.TrySetResult(true);
+        }
+
+        public async Task<GitCommandResult> RunAsync(
+            RepositoryInfo repository,
+            IReadOnlyList<string> arguments,
+            bool networkOperation,
+            CancellationToken cancellationToken,
+            IProgress<string>? stderrProgress = null)
+        {
+            _started.TrySetResult(true);
+            await _completion.Task.WaitAsync(cancellationToken);
+            return new GitCommandResult(0, "# branch.head main\0", "");
+        }
+
+        public RepositoryLockInfo? GetRecoverableRepositoryLock(RepositoryInfo repository)
+            => null;
+
+        public bool RemoveRecoverableRepositoryLock(
+            RepositoryInfo repository,
+            RepositoryLockInfo lockInfo)
+            => false;
+    }
+
+    private sealed class ThrowingStatusRunner(Exception exception) : IGitCliRunner
+    {
+        public bool HasActiveProcess => false;
+
+        public Task<GitCommandResult> RunAsync(
+            RepositoryInfo repository,
+            IReadOnlyList<string> arguments,
+            bool networkOperation,
+            CancellationToken cancellationToken,
+            IProgress<string>? stderrProgress = null)
+        {
+            return Task.FromException<GitCommandResult>(exception);
         }
 
         public RepositoryLockInfo? GetRecoverableRepositoryLock(RepositoryInfo repository)
@@ -920,6 +1148,67 @@ public class GitCliVersionControlServiceTests : RealGitTestRepository
             RepositoryInfo repository,
             RepositoryLockInfo lockInfo)
             => false;
+    }
+
+    private sealed class MismatchedDiscoveryRunner(string discoveredRoot) : IGitCliRunner
+    {
+        public List<string> Commands { get; } = [];
+
+        public bool HasActiveProcess => false;
+
+        public Task<GitCommandResult> RunAsync(
+            RepositoryInfo repository,
+            IReadOnlyList<string> arguments,
+            bool networkOperation,
+            CancellationToken cancellationToken,
+            IProgress<string>? stderrProgress = null)
+        {
+            Commands.Add(string.Join(' ', arguments));
+            return Task.FromResult(
+                arguments.FirstOrDefault() == "rev-parse"
+                    ? new GitCommandResult(0, $"{discoveredRoot}\n\n", "")
+                    : new GitCommandResult(0, "", ""));
+        }
+
+        public RepositoryLockInfo? GetRecoverableRepositoryLock(RepositoryInfo repository)
+            => null;
+
+        public bool RemoveRecoverableRepositoryLock(
+            RepositoryInfo repository,
+            RepositoryLockInfo lockInfo)
+            => false;
+    }
+
+    private sealed record LogEntry(LogLevel Level, Exception? Exception, string Message);
+
+    private sealed class RecordingLogger : ILogger
+    {
+        private readonly TaskCompletionSource<LogEntry> _entry =
+            new(TaskCreationOptions.RunContinuationsAsynchronously);
+
+        public Task<LogEntry> Entry => _entry.Task;
+
+        public IDisposable? BeginScope<TState>(TState state)
+            where TState : notnull
+        {
+            return null;
+        }
+
+        public bool IsEnabled(LogLevel logLevel)
+        {
+            return true;
+        }
+
+        public void Log<TState>(
+            LogLevel logLevel,
+            EventId eventId,
+            TState state,
+            Exception? exception,
+            Func<TState, Exception?, string> formatter)
+        {
+            _entry.TrySetResult(
+                new LogEntry(logLevel, exception, formatter(state, exception)));
+        }
     }
 
     private sealed class RuntimeProbe : IGitInstallationProbe

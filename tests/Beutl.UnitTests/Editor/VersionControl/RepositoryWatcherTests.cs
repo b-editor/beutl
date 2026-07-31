@@ -73,4 +73,21 @@ public class RepositoryWatcherTests
 
         Assert.That(eventThread, Is.Not.EqualTo(callerThread));
     }
+
+    [Test]
+    public async Task Rename_from_tracked_path_to_excluded_path_still_schedules_a_change()
+    {
+        var timeProvider = new FakeTimeProvider();
+        using var watcher = new RepositoryWatcher(_tempDirectory, timeProvider, startWatching: false);
+        var completion = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        watcher.Changed += (_, _) => completion.TrySetResult();
+
+        watcher.NotifyPathRenamed(
+            Path.Combine(_tempDirectory, "scene.belm"),
+            Path.Combine(_tempDirectory, "scene.belm.tmp"));
+        timeProvider.Advance(RepositoryWatcher.DebounceInterval);
+
+        await completion.Task.WaitAsync(TimeSpan.FromSeconds(2));
+        Assert.That(completion.Task.IsCompletedSuccessfully, Is.True);
+    }
 }

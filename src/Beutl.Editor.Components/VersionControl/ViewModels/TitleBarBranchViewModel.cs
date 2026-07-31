@@ -348,7 +348,7 @@ internal sealed class TitleBarBranchViewModel : IDisposable
             return;
         }
 
-        if (!IsCurrentService(service, revision, cancellationToken))
+        if (!IsCurrentServiceBinding(service, revision, cancellationToken))
         {
             return;
         }
@@ -359,7 +359,7 @@ internal sealed class TitleBarBranchViewModel : IDisposable
         {
             _postToUi(() =>
             {
-                if (IsCurrentService(service, revision, cancellationToken))
+                if (IsCurrentServiceBinding(service, revision, cancellationToken))
                 {
                     _gitAvailable =
                         availability.State == GitAvailabilityState.Installed;
@@ -404,8 +404,16 @@ internal sealed class TitleBarBranchViewModel : IDisposable
         int revision,
         CancellationToken cancellationToken)
     {
+        return _coordinatorGitAvailable
+               && IsCurrentServiceBinding(service, revision, cancellationToken);
+    }
+
+    private bool IsCurrentServiceBinding(
+        IProjectVersionControlService service,
+        int revision,
+        CancellationToken cancellationToken)
+    {
         return !_disposed
-               && _coordinatorGitAvailable
                && !cancellationToken.IsCancellationRequested
                && revision == _serviceRevision
                && ReferenceEquals(service, _service);

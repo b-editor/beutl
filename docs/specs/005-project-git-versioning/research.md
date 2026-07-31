@@ -42,7 +42,7 @@ Each entry records a decision that resolves an unknown from the Technical Contex
 - macOS: `git` on PATH → `/usr/bin/git` only if Xcode CLT is actually installed (`xcode-select -p` succeeds; the bare stub otherwise triggers Apple's CLT install dialog) → `/opt/homebrew/bin/git` → `/usr/local/bin/git`.
 - Windows: `where.exe git` → `%ProgramFiles%\Git\cmd\git.exe`.
 - Linux: `git` on PATH.
-- Validate with `git --version` and enforce a minimum version floor (2.23+, for `git switch`/`git restore`).
+- Validate with `git --version` and enforce a minimum version floor (2.23+, for `git switch`/`git restore`). Repository initialization uses `git init` followed by `git symbolic-ref HEAD refs/heads/main`, because `git init -b` is only available from Git 2.28.
 
 **Rationale**: macOS GUI apps launch with a minimal PATH; the CLT stub is a well-known trap that would pop an OS dialog from inside Beutl.
 
@@ -115,7 +115,7 @@ Each entry records a decision that resolves an unknown from the Technical Contex
 
 ## R-11. Nested / pre-existing repository handling
 
-**Decision**: Before init, `git rev-parse --show-toplevel` from the project directory. If an enclosing repo exists: never nested-init without consent; offer "use enclosing repository" (all status/commit/log/restore calls scoped with pathspec `-- <projectRelDir>`; a project-local `.gitignore` is written inside the project directory) or "leave unmanaged". Branch/push/pull act on the whole enclosing repo, disclosed in the UI ("repository root: …").
+**Decision**: Before init, `git rev-parse --show-toplevel` from the project directory. If an enclosing repo exists: never nested-init without consent; offer "use enclosing repository" (all path-touching and project-history calls are scoped with pathspec `-- <projectRelDir>`; a project-local `.gitignore` is written inside the project directory) or "leave unmanaged". Repository-level branch, push, and pull operations act on the whole enclosing repository, disclosed in the UI ("repository root: …").
 
 **Rationale**: users keep projects in their own monorepos; sweeping unrelated files into a Beutl snapshot (or nesting repos silently) is corruption of *their* repository (FR-003). Pathspec scoping also defuses the pathological "home directory is a repo" case.
 

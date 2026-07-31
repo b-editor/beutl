@@ -64,6 +64,17 @@ public sealed class RepositoryWatcher : IDisposable
         ScheduleChanged();
     }
 
+    internal void NotifyPathRenamed(string oldPath, string newPath)
+    {
+        if (ShouldExcludePath(_repoRoot, oldPath)
+            && ShouldExcludePath(_repoRoot, newPath))
+        {
+            return;
+        }
+
+        ScheduleChanged();
+    }
+
     public void Dispose()
     {
         lock (_sync)
@@ -105,7 +116,14 @@ public sealed class RepositoryWatcher : IDisposable
 
     private void OnFileSystemChanged(object sender, FileSystemEventArgs e)
     {
-        NotifyPathChanged(e.FullPath);
+        if (e is RenamedEventArgs renamed)
+        {
+            NotifyPathRenamed(renamed.OldFullPath, renamed.FullPath);
+        }
+        else
+        {
+            NotifyPathChanged(e.FullPath);
+        }
     }
 
     private void OnWatcherError(object sender, ErrorEventArgs e)

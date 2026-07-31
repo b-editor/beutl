@@ -1,4 +1,5 @@
-﻿using Beutl.Configuration;
+﻿using System.Diagnostics;
+using Beutl.Configuration;
 using Beutl.Editor.VersionControl;
 
 namespace Beutl.UnitTests.Editor.VersionControl;
@@ -88,6 +89,14 @@ public class GitInstallationLocatorTests
             Assert.That(parsed, Is.True);
             Assert.That(version, Is.EqualTo(new Version(major, minor, patch)));
         });
+    }
+
+    [Test]
+    public void Cancellation_cleanup_ignores_a_process_without_an_active_association()
+    {
+        using var process = new Process();
+
+        Assert.DoesNotThrow(() => ProcessGitInstallationProbe.TryKillProcessTree(process));
     }
 
     private sealed class FakeProbe : IGitInstallationProbe

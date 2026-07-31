@@ -120,6 +120,34 @@ public class TitleBarBranchViewModelTests
     }
 
     [Test]
+    public async Task Refresh_clears_stale_state_when_coordinator_reports_git_unavailable()
+    {
+        Mock<IProjectVersionControlService> service = CreateServiceMock();
+        using var serviceSource =
+            new ReactivePropertySlim<IProjectVersionControlService?>(service.Object);
+        using var gitAvailabilitySource = CreateGitAvailabilitySource(false);
+        using var viewModel = new TitleBarBranchViewModel(
+            serviceSource,
+            gitAvailabilitySource,
+            Mock.Of<IProjectVersionControlCoordinator>(),
+            action => action());
+        await viewModel.Initialization;
+        viewModel.IsVisible.Value = true;
+        viewModel.DisplayText.Value = "stale";
+        viewModel.CurrentBranchName.Value = "stale";
+
+        await viewModel.RefreshAsync();
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(viewModel.IsVisible.Value, Is.False);
+            Assert.That(viewModel.DisplayText.Value, Is.Empty);
+            Assert.That(viewModel.CurrentBranchName.Value, Is.Empty);
+            Assert.That(viewModel.Branches, Is.Empty);
+        });
+    }
+
+    [Test]
     public async Task Service_publication_is_marshaled_before_rebinding_ui_state()
     {
         Mock<IProjectVersionControlService> service = CreateServiceMock();

@@ -104,10 +104,11 @@ public class RepositoryWatcherStressTests : RealGitTestRepository
             if (arguments.FirstOrDefault() == "status")
             {
                 Interlocked.Increment(ref _statusCallCount);
-                string? optionalLocks = inner
+                bool foundOptionalLocks = inner
                     .CreateStartInfo(repository, arguments, networkOperation)
-                    .Environment["GIT_OPTIONAL_LOCKS"];
-                if (optionalLocks != "0")
+                    .Environment
+                    .TryGetValue("GIT_OPTIONAL_LOCKS", out string? optionalLocks);
+                if (!foundOptionalLocks || optionalLocks != "0")
                 {
                     Interlocked.Increment(ref _statusCallsWithoutOptionalLocks);
                 }

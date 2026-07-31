@@ -40,8 +40,9 @@ public class CreateNewProjectDialogTests
     }
 
     [AvaloniaTest]
-    public void Track_history_uses_the_configured_default_and_is_present_in_the_dialog()
+    public async Task Track_history_uses_the_configured_default_and_is_present_in_the_dialog()
     {
+        await TestReset.ResetShellAsync();
         VersionControlConfig config = GlobalConfiguration.Instance.VersionControlConfig;
         bool oldValue = config.EnableForNewProjects;
         try
@@ -62,6 +63,7 @@ public class CreateNewProjectDialogTests
         finally
         {
             config.EnableForNewProjects = oldValue;
+            await TestReset.ResetShellAsync();
         }
     }
 
@@ -69,23 +71,30 @@ public class CreateNewProjectDialogTests
     public async Task Enable_version_control_command_is_gated_by_the_open_project_state_and_mapped_as_a_context_command()
     {
         await TestReset.ResetShellAsync();
-        var command = TestShell.MainViewModel.MenuBar.EnableVersionControl;
-        Assert.That(((System.Windows.Input.ICommand)command).CanExecute(null), Is.False);
-
-        string location = Path.Combine(Beutl.Testing.Headless.BeutlHomeIsolation.CurrentHome!, "command-gating");
-        Directory.CreateDirectory(location);
-        await TestShell.Project.CreateProject(640, 480, 30, 44100, "project", location);
-        Beutl.Testing.Headless.HeadlessTestHelpers.Settle();
-
-        Assert.Multiple(() =>
+        try
         {
-            Assert.That(((System.Windows.Input.ICommand)command).CanExecute(null), Is.True);
-            Assert.That(
-                TestShell.MainViewModel.MenuBar.FindContextCommand("EnableVersionControl"),
-                Is.SameAs(command));
-        });
+            var command = TestShell.MainViewModel.MenuBar.EnableVersionControl;
+            Assert.That(((System.Windows.Input.ICommand)command).CanExecute(null), Is.False);
 
-        await TestReset.ResetShellAsync();
+            string location = Path.Combine(
+                Beutl.Testing.Headless.BeutlHomeIsolation.CurrentHome!,
+                "command-gating");
+            Directory.CreateDirectory(location);
+            await TestShell.Project.CreateProject(640, 480, 30, 44100, "project", location);
+            Beutl.Testing.Headless.HeadlessTestHelpers.Settle();
+
+            Assert.Multiple(() =>
+            {
+                Assert.That(((System.Windows.Input.ICommand)command).CanExecute(null), Is.True);
+                Assert.That(
+                    TestShell.MainViewModel.MenuBar.FindContextCommand("EnableVersionControl"),
+                    Is.SameAs(command));
+            });
+        }
+        finally
+        {
+            await TestReset.ResetShellAsync();
+        }
     }
 
     [AvaloniaTest]
@@ -120,6 +129,155 @@ public class CreateNewProjectDialogTests
             config.GitExecutablePath = previousPath;
             await TestShell.VersionControl.GetAvailabilityAsync();
             await TestReset.ResetShellAsync();
+        }
+    }
+
+    [AvaloniaTest]
+    public async Task Creating_a_tracked_project_refreshes_git_availability_before_initializing()
+    {
+        await TestReset.ResetShellAsync();
+        var initialAvailabilitySource = new TaskCompletionSource<GitAvailability>(
+            TaskCreationOptions.RunContinuationsAsynchronously);
+        var refreshedAvailabilitySource = new TaskCompletionSource<GitAvailability>(
+            TaskCreationOptions.RunContinuationsAsynchronously);
+        var initializationSource = new TaskCompletionSource(
+            TaskCreationOptions.RunContinuationsAsynchronously);
+        int availabilityRequests = 0;
+        Task? createTask = null;
+        try
+        {
+            var initializer = new TestVersionControlInitializer(
+                _ => Interlocked.Increment(ref availabilityRequests) == 1
+                    ? initialAvailabilitySource.Task
+                    : refreshedAvailabilitySource.Task,
+                (_, _) =>
+                {
+                    initializationSource.TrySetResult();
+                    return Task.FromResult(true);
+                });
+            var viewModel = new CreateNewProjectViewModel(
+                TestShell.Project,
+                initializer,
+                _ => Task.FromResult(true));
+            string location = Path.Combine(
+                Beutl.Testing.Headless.BeutlHomeIsolation.CurrentHome!,
+                "create-detection-race");
+            Directory.CreateDirectory(location);
+            viewModel.Location.Value = location;
+            viewModel.Name.Value = "tracked-project";
+            viewModel.TrackHistory.Value = true;
+            Beutl.Testing.Headless.HeadlessTestHelpers.Settle();
+            Assert.That(viewModel.CanCreate.Value, Is.True);
+
+            createTask = viewModel.Create.ExecuteAsync();
+            await WaitUntilAsync(() => TestShell.Project.CurrentProject.Value is not null);
+            Assert.Multiple(() =>
+            {
+                Assert.That(Volatile.Read(ref availabilityRequests), Is.EqualTo(1));
+                Assert.That(initializationSource.Task.IsCompleted, Is.False);
+            });
+
+            initialAvailabilitySource.SetResult(GitAvailability.NotInstalled);
+            await WaitUntilAsync(() => Volatile.Read(ref availabilityRequests) == 2);
+            Assert.That(initializationSource.Task.IsCompleted, Is.False);
+
+            refreshedAvailabilitySource.SetResult(new GitAvailability(
+                GitAvailabilityState.Installed,
+                "git",
+                new Version(2, 50, 0),
+                LfsInstalled: false));
+            await createTask.WaitAsync(TimeSpan.FromSeconds(10));
+
+            Assert.That(initializationSource.Task.IsCompletedSuccessfully, Is.True);
+        }
+        finally
+        {
+            initialAvailabilitySource.TrySetResult(GitAvailability.NotInstalled);
+            refreshedAvailabilitySource.TrySetResult(GitAvailability.NotInstalled);
+            try
+            {
+                if (createTask is not null)
+                {
+                    await createTask.WaitAsync(TimeSpan.FromSeconds(10));
+                }
+            }
+            finally
+            {
+                await TestReset.ResetShellAsync();
+            }
+        }
+    }
+
+    [AvaloniaTest]
+    public async Task Git_detection_failure_does_not_fail_project_creation()
+    {
+        await TestReset.ResetShellAsync();
+        int initializationRequests = 0;
+        try
+        {
+            var initializer = new TestVersionControlInitializer(
+                _ => Task.FromException<GitAvailability>(
+                    new IOException("simulated Git probe failure")),
+                (_, _) =>
+                {
+                    Interlocked.Increment(ref initializationRequests);
+                    return Task.FromResult(true);
+                });
+            var viewModel = new CreateNewProjectViewModel(
+                TestShell.Project,
+                initializer,
+                _ => Task.FromResult(true));
+            string location = Path.Combine(
+                Beutl.Testing.Headless.BeutlHomeIsolation.CurrentHome!,
+                "create-detection-failure");
+            Directory.CreateDirectory(location);
+            viewModel.Location.Value = location;
+            viewModel.Name.Value = "untracked-project";
+            viewModel.TrackHistory.Value = true;
+            Beutl.Testing.Headless.HeadlessTestHelpers.Settle();
+
+            await viewModel.Create.ExecuteAsync();
+            Assert.Multiple(() =>
+            {
+                Assert.That(TestShell.Project.CurrentProject.Value, Is.Not.Null);
+                Assert.That(viewModel.IsGitAvailable.Value, Is.False);
+                Assert.That(Volatile.Read(ref initializationRequests), Is.Zero);
+            });
+        }
+        finally
+        {
+            await TestReset.ResetShellAsync();
+        }
+    }
+
+    private static async Task WaitUntilAsync(Func<bool> predicate)
+    {
+        using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(10));
+        while (!predicate())
+        {
+            await Task.Delay(10, timeout.Token);
+        }
+    }
+
+    private sealed class TestVersionControlInitializer(
+        Func<CancellationToken, Task<GitAvailability>> getAvailabilityAsync,
+        Func<
+            Func<IProjectVersionControlService, Task<bool>>,
+            CancellationToken,
+            Task<bool>> initializeCurrentProjectAsync)
+        : IProjectVersionControlInitializer
+    {
+        public Task<GitAvailability> GetAvailabilityAsync(
+            CancellationToken cancellationToken)
+        {
+            return getAvailabilityAsync(cancellationToken);
+        }
+
+        public Task<bool> InitializeCurrentProjectAsync(
+            Func<IProjectVersionControlService, Task<bool>> requestIdentityAsync,
+            CancellationToken cancellationToken)
+        {
+            return initializeCurrentProjectAsync(requestIdentityAsync, cancellationToken);
         }
     }
 }

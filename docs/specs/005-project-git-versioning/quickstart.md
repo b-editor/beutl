@@ -8,7 +8,7 @@ This walkthrough doubles as the SC-005 discoverability check (enable → history
 
 **New project**: File → New Project → the "Track history with Git" checkbox is visible (Git detected) and pre-checked → Create. The project directory is now a repository with an initial version; `.beutl/` state and `*.tmp` are excluded automatically.
 
-**Existing project**: Project → Enable Version Control…. If the project already sits inside one of your own repositories, Beutl asks whether to use that repository (operations stay scoped to the project folder) or leave the project unmanaged — it never creates a nested repository on its own.
+**Existing project**: Project → Enable Version Control…. If the project already sits inside one of your own repositories, Beutl asks whether to use that repository or leave the project unmanaged — it never creates a nested repository on its own. Snapshots, status, history, and restore stay scoped to the project folder; branch, push, and pull actions apply to the whole enclosing repository and the UI shows its root.
 
 **No Git installed?** The Version Control tab shows a single guidance panel with per-OS install instructions; everything else in Beutl works as usual.
 

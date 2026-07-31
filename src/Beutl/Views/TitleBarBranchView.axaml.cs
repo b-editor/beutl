@@ -3,6 +3,7 @@ using Avalonia.Interactivity;
 using Beutl.Editor.Components.VersionControl.ViewModels;
 using Beutl.Editor.Components.VersionControl.Views;
 using Beutl.Language;
+using Beutl.Services;
 
 namespace Beutl.Views;
 
@@ -28,22 +29,46 @@ public sealed partial class TitleBarBranchView : UserControl
         object? sender,
         EventArgs e)
     {
-        if (DataContext is TitleBarBranchViewModel viewModel)
+        await HandleBranchFlyoutOpeningAsync();
+    }
+
+    internal async Task HandleBranchFlyoutOpeningAsync()
+    {
+        try
         {
-            await viewModel.PrepareFlyoutAsync();
+            if (DataContext is TitleBarBranchViewModel viewModel)
+            {
+                await viewModel.PrepareFlyoutAsync();
+            }
+        }
+        catch (Exception ex)
+        {
+            await ex.Handle();
         }
     }
 
     private async void OnBranchClick(object? sender, RoutedEventArgs e)
     {
-        if (DataContext is TitleBarBranchViewModel viewModel
-            && sender is Button
-            {
-                DataContext: TitleBarBranchItemViewModel branch,
-            })
+        await HandleBranchClickAsync(sender);
+    }
+
+    internal async Task HandleBranchClickAsync(object? sender)
+    {
+        try
         {
-            TitleBarBranchButton.Flyout?.Hide();
-            await viewModel.SwitchBranchAsync(branch.Name);
+            if (DataContext is TitleBarBranchViewModel viewModel
+                && sender is Button
+                {
+                    DataContext: TitleBarBranchItemViewModel branch,
+                })
+            {
+                TitleBarBranchButton.Flyout?.Hide();
+                await viewModel.SwitchBranchAsync(branch.Name);
+            }
+        }
+        catch (Exception ex)
+        {
+            await ex.Handle();
         }
     }
 

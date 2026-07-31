@@ -115,4 +115,4 @@ VersionControlTabViewModel (src/Beutl.Editor.Components/)
 
 ## Element file naming (prerequisite fix, `Beutl.Editor`)
 
-`ElementFileNaming.GetUri(sceneUri, elementId)` → `{Id:N}.belm`; on collision append `-{index}` (matches `DeclarativeDocumentApplier`). Replaces `RandomFileNameGenerator` at the five GUI call sites (R-10.1). Existing files are never renamed.
+`ElementFileNaming.GetUri(sceneUri, elementId)` → `{Id:N}.belm`; on collision append `-{index}` (matches `DeclarativeDocumentApplier`). Replaces `RandomFileNameGenerator` at the six GUI call sites (R-10.1). Existing files are never renamed.

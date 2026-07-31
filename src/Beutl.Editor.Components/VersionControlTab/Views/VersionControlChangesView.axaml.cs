@@ -1,6 +1,8 @@
 ﻿using Avalonia.Controls;
 using Avalonia.Interactivity;
 using Beutl.Editor.Components.VersionControlTab.ViewModels;
+using Beutl.Language;
+using Beutl.Services;
 
 namespace Beutl.Editor.Components.VersionControlTab.Views;
 
@@ -17,8 +19,8 @@ internal sealed partial class VersionControlChangesView : UserControl
             && DataContext is VersionControlTabViewModel viewModel
             && sender is ListBox listBox)
         {
-            await viewModel.SelectFileAsync(
-                listBox.SelectedItem as VersionControlFileChangeViewModel);
+            await VersionControlViewEventBoundary.RunSafelyAsync(() => viewModel.SelectFileAsync(
+                listBox.SelectedItem as VersionControlFileChangeViewModel));
         }
     }
 
@@ -29,7 +31,8 @@ internal sealed partial class VersionControlChangesView : UserControl
                 SelectedCommit.Value: { } selectedCommit,
             } viewModel)
         {
-            await viewModel.RestoreAsync(selectedCommit.Commit);
+            await VersionControlViewEventBoundary.RunSafelyAsync(
+                () => viewModel.RestoreAsync(selectedCommit.Commit));
         }
     }
 
@@ -40,7 +43,37 @@ internal sealed partial class VersionControlChangesView : UserControl
                 SelectedCommit.Value: { } selectedCommit,
             } viewModel)
         {
-            await viewModel.RestoreToNewBranchAsync(selectedCommit.Commit);
+            await VersionControlViewEventBoundary.RunSafelyAsync(
+                () => viewModel.RestoreToNewBranchAsync(selectedCommit.Commit));
+        }
+    }
+}
+
+internal static class VersionControlViewEventBoundary
+{
+    internal static Task RunSafelyAsync(Func<Task> operation)
+    {
+        return RunSafelyAsync(
+            operation,
+            static exception => NotificationService.ShowError(
+                Strings.VersionControl_ErrorTitle,
+                exception.Message));
+    }
+
+    internal static async Task RunSafelyAsync(
+        Func<Task> operation,
+        Action<Exception> reportException)
+    {
+        try
+        {
+            await operation();
+        }
+        catch (OperationCanceledException)
+        {
+        }
+        catch (Exception ex)
+        {
+            reportException(ex);
         }
     }
 }

@@ -33,12 +33,10 @@ public class VersionControlConflictTests
         Func<string, Task> previousWarning
             = TestShell.VersionControl.WarnConflictMarkersAsync;
         string? warnedFile = null;
+        bool projectWasClosedAtWarning = false;
         TestShell.VersionControl.WarnConflictMarkersAsync = file =>
         {
-            Assert.That(
-                TestShell.Project.CurrentProject.Value,
-                Is.Null,
-                "the warning must run before project loading starts");
+            projectWasClosedAtWarning = TestShell.Project.CurrentProject.Value is null;
             warnedFile = file;
             return Task.CompletedTask;
         };
@@ -49,6 +47,10 @@ public class VersionControlConflictTests
             Assert.Multiple(() =>
             {
                 Assert.That(warnedFile, Is.EqualTo(markerFile));
+                Assert.That(
+                    projectWasClosedAtWarning,
+                    Is.True,
+                    "the warning must run before project loading starts");
                 Assert.That(
                     TestShell.Project.CurrentProject.Value?.Uri?.LocalPath,
                     Is.EqualTo(projectFile));

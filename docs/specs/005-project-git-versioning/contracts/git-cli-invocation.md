@@ -26,7 +26,7 @@ The runner must **not** set `GIT_CONFIG_GLOBAL`/`GIT_CONFIG_NOSYSTEM` in product
   - history: `git log --format=%H%x00%h%x00%an%x00%aI%x00%s%x00%(trailers:key=Beutl-Snapshot,valueonly)%x00 -z --skip=<n> -n <take> -- <pathspec>`
   - commit files: `git show --name-status --format= -z <sha> -- <pathspec>`
   - refs: `git for-each-ref --format=...` / `git rev-parse`
-- Human-facing output is never parsed. `stderr` is captured verbatim and preserved on `GitOperationException` for error dialogs.
+- Human-facing output is never parsed. `stderr` is captured and preserved on `GitOperationException` for error dialogs after credentials embedded in URLs are redacted.
 - stdout/stderr are read concurrently with process execution (no deadlock on full pipes); output size for diff display is capped (1 MB) with a truncation marker.
 
 ## Lifecycle
