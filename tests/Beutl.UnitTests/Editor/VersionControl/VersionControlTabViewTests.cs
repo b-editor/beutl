@@ -1,4 +1,4 @@
-using System.Windows.Input;
+﻿using System.Windows.Input;
 using Avalonia.Input;
 using Beutl.Editor.Components.VersionControlTab.Views;
 
