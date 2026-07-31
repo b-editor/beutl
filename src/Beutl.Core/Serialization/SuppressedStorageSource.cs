@@ -5,4 +5,7 @@
 /// location those bytes came from. The source location is never rewritten; any other location
 /// receives a verbatim copy.
 /// </summary>
-internal sealed record SuppressedStorageSource(byte[] RawBytes, Uri SourceUri);
+internal sealed record SuppressedStorageSource(
+    byte[] RawBytes,
+    Uri SourceUri,
+    bool HasNonFallbackIncidents = false);

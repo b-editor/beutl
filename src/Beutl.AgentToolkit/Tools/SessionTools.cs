@@ -143,6 +143,21 @@ public sealed class SessionTools(
                     warnings.Add(
                         $"Element file '{elementFile}' contains content that could not be deserialized: {error}");
                 }
+
+                if (fallbacks.Count == 0
+                    && element.SuppressedStorageSource is { HasNonFallbackIncidents: true })
+                {
+                    const string message
+                        = "A value was replaced during load, and the original element file is preserved.";
+                    incidents.Add(new RecoveryIncident(
+                        scene.Id.ToString(),
+                        scene.Name,
+                        elementFile,
+                        nameof(FallbackReason.DeserializationFailed),
+                        null,
+                        message));
+                    warnings.Add($"Element file '{elementFile}' could not be loaded without replacement: {message}");
+                }
             }
         }
 

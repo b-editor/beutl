@@ -24,6 +24,16 @@ public sealed class MalformedElementRecoveryTests
         }
     }
 
+    public sealed class ElementReferenceHolder : EngineObject
+    {
+        public ElementReferenceHolder()
+        {
+            ScanProperties<ElementReferenceHolder>();
+        }
+
+        public IProperty<Reference<Element>> Target { get; } = Property.Create<Reference<Element>>();
+    }
+
     [SetUp]
     public void SetUp()
     {
@@ -99,6 +109,51 @@ public sealed class MalformedElementRecoveryTests
         Assert.Multiple(() =>
         {
             Assert.That(recoveredAnimation.KeyFrames.Single().Easing, Is.InstanceOf<LinearEasing>());
+            Assert.That(File.ReadAllBytes(elementPath), Is.EqualTo(originalBytes));
+        });
+    }
+
+    [Test]
+    public void Save_RepairedFallbackWithUnresolvableKeyFrameEasing_PreservesSidecarBytes()
+    {
+        (Uri sceneUri, string elementPath) = CreatePersistedScene();
+        Element element = CoreSerializer.RestoreFromUri<Element>(new Uri(elementPath));
+        var shape = (RectShape)element.Objects.Single();
+        var animation = new KeyFrameAnimation<float>();
+        animation.KeyFrames.Add(new KeyFrame<float>
+        {
+            KeyTime = TimeSpan.Zero,
+            Value = 32,
+        });
+        shape.Width.Animation = animation;
+        element.AddObject(new RectShape());
+        CoreSerializer.StoreToUri(element, element.Uri!);
+
+        JsonObject json = JsonNode.Parse(File.ReadAllText(elementPath))!.AsObject();
+        JsonObject keyFrameJson = FindObjectWithProperty(json, nameof(KeyFrame.Easing))!;
+        keyFrameJson[nameof(KeyFrame.Easing)] = "[Missing.Assembly]Missing.Namespace:MissingEasing";
+        json[nameof(Element.Objects)]!.AsArray()[1]!.AsObject()["$type"]
+            = "[Beutl.Engine]Beutl.Graphics.Shapes:MissingShape";
+        File.WriteAllText(elementPath, json.ToJsonString());
+        byte[] originalBytes = File.ReadAllBytes(elementPath);
+
+        Scene recovered = CoreSerializer.RestoreFromUri<Scene>(sceneUri);
+        Element recoveredElement = recovered.Children.Single();
+        var recoveredShape = (RectShape)recoveredElement.Objects[0];
+        var recoveredAnimation = (KeyFrameAnimation<float>)recoveredShape.Width.Animation!;
+        Assert.That(recoveredElement.Objects[1], Is.InstanceOf<IFallback>());
+
+        recoveredElement.Objects[1] = new RectShape();
+        SuppressedStorageSource? resumed = Scene.TryResumeElementPersistence(recoveredElement);
+        CoreSerializer.StoreToUri(recovered, sceneUri);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(recoveredAnimation.KeyFrames.Single().Easing, Is.InstanceOf<LinearEasing>());
+            Assert.That(resumed, Is.Null);
+            Assert.That(recoveredElement.SuppressedStorageSource, Is.Not.Null);
+            Assert.That(recoveredElement.SuppressedStorageSource!.HasNonFallbackIncidents, Is.True);
+            Assert.That(recoveredElement.Objects.OfType<IFallback>(), Is.Empty);
             Assert.That(File.ReadAllBytes(elementPath), Is.EqualTo(originalBytes));
         });
     }
@@ -616,6 +671,9 @@ public sealed class MalformedElementRecoveryTests
         Element healthy = recoveredScene.Children.Single(
             child => child.Uri!.LocalPath == elementPaths[1]);
         recoveredScene.Groups.Add(ImmutableHashSet.Create(placeholder.Id, healthy.Id));
+        var referenceHolder = new ElementReferenceHolder();
+        referenceHolder.Target.CurrentValue = new Reference<Element>(placeholder.Id);
+        healthy.AddObject(referenceHolder);
         CoreSerializer.StoreToUri(recoveredScene, sceneUri);
 
         Guid repairedId = Guid.NewGuid();
@@ -631,14 +689,23 @@ public sealed class MalformedElementRecoveryTests
         CoreSerializer.StoreToUri(repaired, repaired.Uri!);
 
         Scene reloaded = CoreSerializer.RestoreFromUri<Scene>(sceneUri);
+        Element reloadedRepaired = reloaded.Children.Single(
+            child => child.Uri!.LocalPath == elementPaths[0]);
+        Element reloadedHealthy = reloaded.Children.Single(
+            child => child.Uri!.LocalPath == elementPaths[1]);
+        Reference<Element> migratedReference = reloadedHealthy.Objects
+            .OfType<ElementReferenceHolder>()
+            .Single()
+            .Target.CurrentValue;
 
         Assert.Multiple(() =>
         {
-            Assert.That(reloaded.Children.Single(child => child.Uri!.LocalPath == elementPaths[0]).Id,
-                Is.EqualTo(repairedId));
+            Assert.That(reloadedRepaired.Id, Is.EqualTo(repairedId));
             Assert.That(reloaded.Groups, Has.Count.EqualTo(1));
             Assert.That(reloaded.Groups.Single(),
                 Is.EqualTo(ImmutableHashSet.Create(repairedId, healthy.Id)));
+            Assert.That(migratedReference.Id, Is.EqualTo(repairedId));
+            Assert.That(migratedReference.Value, Is.SameAs(reloadedRepaired));
         });
     }
 
@@ -710,6 +777,7 @@ public sealed class MalformedElementRecoveryTests
         Element firstRecovered = firstLoad.Children.Single(child => child.Uri!.LocalPath == elementPaths[1]);
         Guid[] firstAssignedIds = firstRecovered.Objects.Select(static obj => obj.Id).ToArray();
         Guid[] firstGraphIds = EnumerateElementGraphs(firstLoad).Select(static obj => obj.Id).ToArray();
+        firstRecovered.Objects.Move(0, 1);
         CoreSerializer.StoreToUri(firstLoad, sceneUri);
 
         JsonObject persistedScene = JsonNode.Parse(File.ReadAllText(sceneUri.LocalPath))!.AsObject();
@@ -726,8 +794,12 @@ public sealed class MalformedElementRecoveryTests
             Assert.That(firstAssignedIds, Has.Length.EqualTo(2));
             Assert.That(firstAssignedIds, Does.Not.Contain(claimantId));
             Assert.That(secondAssignedIds, Is.EqualTo(firstAssignedIds));
-            Assert.That(persistedIds.ContainsKey($"recovered.belm!{claimantId:D}#0"), Is.True);
-            Assert.That(persistedIds.ContainsKey($"recovered.belm!{claimantId:D}#1"), Is.True);
+            Assert.That(
+                persistedIds[$"recovered.belm!{claimantId:D}#0"]!.GetValue<string>(),
+                Is.EqualTo(firstAssignedIds[0].ToString()));
+            Assert.That(
+                persistedIds[$"recovered.belm!{claimantId:D}#1"]!.GetValue<string>(),
+                Is.EqualTo(firstAssignedIds[1].ToString()));
         });
     }
 

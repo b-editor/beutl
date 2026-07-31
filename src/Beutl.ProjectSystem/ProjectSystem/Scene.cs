@@ -73,7 +73,7 @@ public class Scene : ProjectItem, INotifyEdited
     private readonly HierarchicalList<TimelineLayer> _layers;
     private readonly HierarchicalList<SceneMarker> _markers;
     private readonly Dictionary<string, Guid> _recoveredDescendantIds = new(StringComparer.Ordinal);
-    private readonly Dictionary<CoreObject, (Guid OriginalId, Guid AssignedId)> _recoveredDescendantRemaps
+    private readonly Dictionary<CoreObject, (Guid OriginalId, Guid AssignedId, int Occurrence)> _recoveredDescendantRemaps
         = new(ReferenceEqualityComparer.Instance);
     private readonly Dictionary<string, Guid> _recoveredElementIds = new(StringComparer.Ordinal);
     private readonly Dictionary<Guid, Guid> _pendingRecoveredElementIdMigrations = [];
@@ -749,6 +749,7 @@ public class Scene : ProjectItem, INotifyEdited
 
         Children.AddRange(urisAdd.AsParallel().Select(RestoreElementOrFallback));
         ReassignDuplicateRecoveredIds();
+        MigrateRecoveredElementReferences();
 
         activity?.SetTag("addCount", urisAdd.Length);
         activity?.SetTag("removeCount", elementsRemove.Length);
@@ -793,7 +794,7 @@ public class Scene : ProjectItem, INotifyEdited
         _recoveredDescendantIds.Clear();
         _recoveredDescendantRemaps.Clear();
         var pendingDescendantRemaps
-            = new Dictionary<CoreObject, (string RemapKey, Guid OriginalId)>(
+            = new Dictionary<CoreObject, (string RemapKey, Guid OriginalId, int Occurrence)>(
                 ReferenceEqualityComparer.Instance);
         foreach ((Element child, string relativePath) in recoveredChildren)
         {
@@ -814,15 +815,20 @@ public class Scene : ProjectItem, INotifyEdited
                     if (claimedIds.Add(persistedId))
                     {
                         descendant.Id = persistedId;
-                        RecordRecoveredDescendantRemap(descendant, remapKey, originalId, persistedId);
+                        RecordRecoveredDescendantRemap(
+                            descendant,
+                            remapKey,
+                            originalId,
+                            persistedId,
+                            occurrence);
                         continue;
                     }
 
-                    pendingDescendantRemaps[descendant] = (remapKey, originalId);
+                    pendingDescendantRemaps[descendant] = (remapKey, originalId, occurrence);
                 }
                 else if (!claimedIds.Add(originalId))
                 {
-                    pendingDescendantRemaps[descendant] = (remapKey, originalId);
+                    pendingDescendantRemaps[descendant] = (remapKey, originalId, occurrence);
                 }
             }
         }
@@ -908,7 +914,7 @@ public class Scene : ProjectItem, INotifyEdited
             {
                 if (!pendingDescendantRemaps.Remove(
                         descendant,
-                        out (string RemapKey, Guid OriginalId) remap))
+                        out (string RemapKey, Guid OriginalId, int Occurrence) remap))
                 {
                     continue;
                 }
@@ -927,7 +933,8 @@ public class Scene : ProjectItem, INotifyEdited
                             descendant,
                             remap.RemapKey,
                             remap.OriginalId,
-                            candidate);
+                            candidate,
+                            remap.Occurrence);
                         assigned = true;
                         break;
                     }
@@ -951,10 +958,11 @@ public class Scene : ProjectItem, INotifyEdited
         CoreObject descendant,
         string remapKey,
         Guid originalId,
-        Guid assignedId)
+        Guid assignedId,
+        int occurrence)
     {
         _recoveredDescendantIds[remapKey] = assignedId;
-        _recoveredDescendantRemaps[descendant] = (originalId, assignedId);
+        _recoveredDescendantRemaps[descendant] = (originalId, assignedId, occurrence);
         if (descendant is IFallback fallback)
         {
             EnsureFallbackProjection(fallback);
@@ -968,15 +976,20 @@ public class Scene : ProjectItem, INotifyEdited
         {
             Element element = CoreSerializer.RestoreFromUri<Element>(uri);
             IFallback[] fallbacks = EnumerateSerializedGraphFallbacks(element).ToArray();
+            int incidentCount = DeserializationIncidents.FallbackCount - fallbackCountBefore;
 
-            if (fallbacks.Length > 0 || DeserializationIncidents.FallbackCount != fallbackCountBefore)
+            if (fallbacks.Length > 0 || incidentCount > 0)
             {
                 foreach (IFallback fallback in fallbacks)
                 {
                     EnsureFallbackProjection(fallback);
                 }
 
-                MarkRecoveredElement(element, File.ReadAllBytes(uri.LocalPath), uri);
+                MarkRecoveredElement(
+                    element,
+                    File.ReadAllBytes(uri.LocalPath),
+                    uri,
+                    incidentCount > fallbacks.Length);
             }
 
             return element;
@@ -1011,14 +1024,22 @@ public class Scene : ProjectItem, INotifyEdited
         }
     }
 
-    private static void MarkRecoveredElement(Element element, byte[] rawBytes, Uri uri)
+    private static void MarkRecoveredElement(
+        Element element,
+        byte[] rawBytes,
+        Uri uri,
+        bool hasNonFallbackIncidents = false)
     {
-        element.SuppressedStorageSource = new SuppressedStorageSource(rawBytes, uri);
+        element.SuppressedStorageSource = new SuppressedStorageSource(
+            rawBytes,
+            uri,
+            hasNonFallbackIncidents);
     }
 
     internal static SuppressedStorageSource? TryResumeElementPersistence(Element element)
     {
         if (element.SuppressedStorageSource is not { } source
+            || source.HasNonFallbackIncidents
             || EnumerateSerializedGraphFallbacks(element).Any())
         {
             return null;
@@ -1071,6 +1092,34 @@ public class Scene : ProjectItem, INotifyEdited
         return EnumerateSerializedGraphObjects(element)
             .OfType<CoreObject>()
             .Where(value => !ReferenceEquals(value, element));
+    }
+
+    private void MigrateRecoveredElementReferences()
+    {
+        if (_pendingRecoveredElementIdMigrations.Count == 0)
+        {
+            return;
+        }
+
+        foreach (Element element in Children)
+        {
+            foreach (EngineObject engineObject in EnumerateSerializedGraphObjects(element).OfType<EngineObject>())
+            {
+                foreach (IProperty property in engineObject.Properties)
+                {
+                    if (property.CurrentValue is not IReference reference
+                        || !_pendingRecoveredElementIdMigrations.TryGetValue(reference.Id, out Guid migratedId))
+                    {
+                        continue;
+                    }
+
+                    Element? target = Children.FirstOrDefault(child => child.Id == migratedId);
+                    property.CurrentValue = target is not null && reference.ObjectType.IsInstanceOfType(target)
+                        ? reference.Resolved(target)
+                        : Activator.CreateInstance(reference.GetType(), migratedId)!;
+                }
+            }
+        }
     }
 
     private static IEnumerable<object> EnumerateSerializedGraphObjects(Element element)
@@ -1220,7 +1269,7 @@ public class Scene : ProjectItem, INotifyEdited
         }
 
         string sceneDirectory = Path.GetDirectoryName(Uri.LocalPath)!;
-        var descendantRemaps = new Dictionary<CoreObject, (Guid OriginalId, Guid AssignedId)>(
+        var descendantRemaps = new Dictionary<CoreObject, (Guid OriginalId, Guid AssignedId, int Occurrence)>(
             _recoveredDescendantRemaps,
             ReferenceEqualityComparer.Instance);
         _recoveredDescendantIds.Clear();
@@ -1231,22 +1280,17 @@ public class Scene : ProjectItem, INotifyEdited
             string relativePath = NormalizeRelativePath(
                 Path.GetRelativePath(sceneDirectory, child.Uri!.LocalPath));
             _recoveredElementIds[relativePath] = child.Id;
-            var occurrences = new Dictionary<Guid, int>();
             foreach (CoreObject descendant in EnumerateSerializedGraphDescendants(child))
             {
-                Guid originalId = descendantRemaps.TryGetValue(
-                    descendant,
-                    out (Guid OriginalId, Guid AssignedId) remap)
-                    ? remap.OriginalId
-                    : descendant.Id;
-                int occurrence = occurrences.GetValueOrDefault(originalId);
-                occurrences[originalId] = occurrence + 1;
                 if (descendantRemaps.TryGetValue(
                         descendant,
-                        out remap)
+                        out (Guid OriginalId, Guid AssignedId, int Occurrence) remap)
                     && descendant.Id == remap.AssignedId)
                 {
-                    string remapKey = CreateRecoveredDescendantKey(relativePath, remap.OriginalId, occurrence);
+                    string remapKey = CreateRecoveredDescendantKey(
+                        relativePath,
+                        remap.OriginalId,
+                        remap.Occurrence);
                     _recoveredDescendantIds[remapKey] = remap.AssignedId;
                     _recoveredDescendantRemaps[descendant] = remap;
                 }

@@ -243,6 +243,27 @@ public class ElementObjectServiceTests
     }
 
     [Test]
+    public void PasteOver_LastFallbackWithNonFallbackIncident_KeepsPersistenceSuppressionAndPreservesSidecar()
+    {
+        _service.Add(_element, new FallbackEngineObject());
+        byte[] originalBytes = "{ preserved lossy bytes"u8.ToArray();
+        File.WriteAllBytes(_element.Uri!.LocalPath, originalBytes);
+        var suppression = new SuppressedStorageSource(originalBytes, _element.Uri, true);
+        _element.SuppressedStorageSource = suppression;
+        string json = CoreSerializer.SerializeToJsonString(new TestEngineObject());
+
+        ObjectPasteOutcome outcome = _service.PasteOver(_element, 0, json);
+        CoreSerializer.StoreToUri(_element, _element.Uri);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(outcome, Is.EqualTo(ObjectPasteOutcome.Pasted));
+            Assert.That(_element.SuppressedStorageSource, Is.SameAs(suppression));
+            Assert.That(File.ReadAllBytes(_element.Uri.LocalPath), Is.EqualTo(originalBytes));
+        });
+    }
+
+    [Test]
     public void PasteOver_WhenAnotherFallbackRemains_KeepsPersistenceSuppression()
     {
         _service.Add(_element, new FallbackEngineObject());

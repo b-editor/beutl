@@ -163,6 +163,71 @@ public sealed class SessionToolsTests
     }
 
     [Test]
+    public async Task Open_project_warns_about_unresolvable_keyframe_easing_without_fallback()
+    {
+        string root = CreateWorkspace();
+        string projectPath = Path.Combine(root, "easing-replacement.bep");
+        Project project = ProjectOperations.CreateProject(new ProjectCreateOptions(
+            projectPath,
+            64,
+            64,
+            30,
+            TimeSpan.FromSeconds(1)));
+        Scene scene = project.Items.OfType<Scene>().Single();
+        var shape = new RectShape();
+        var animation = new KeyFrameAnimation<float>();
+        animation.KeyFrames.Add(new KeyFrame<float>
+        {
+            KeyTime = TimeSpan.Zero,
+            Value = 32,
+        });
+        shape.Width.Animation = animation;
+        var element = new Element
+        {
+            Name = "Easing replacement",
+            Length = TimeSpan.FromSeconds(1),
+            Uri = new Uri(Path.Combine(
+                Path.GetDirectoryName(scene.Uri!.LocalPath)!,
+                "easing-replacement.belm")),
+        };
+        element.AddObject(shape);
+        scene.Children.Add(element);
+        ProjectOperations.Save(project);
+
+        string elementPath = element.Uri!.LocalPath;
+        string elementRelativePath = Path.GetRelativePath(
+            Path.GetDirectoryName(scene.Uri!.LocalPath)!,
+            elementPath).Replace('\\', '/');
+        JsonObject elementJson = JsonNode.Parse(File.ReadAllText(elementPath))!.AsObject();
+        JsonObject objectJson = elementJson[nameof(Element.Objects)]!.AsArray()[0]!.AsObject();
+        JsonObject animationJson = objectJson["Animations"]![nameof(RectShape.Width)]!.AsObject();
+        JsonObject keyFrameJson = animationJson[nameof(KeyFrameAnimation.KeyFrames)]!.AsArray()[0]!.AsObject();
+        keyFrameJson[nameof(KeyFrame.Easing)] = "[Missing.Assembly]Missing.Namespace:MissingEasing";
+        File.WriteAllText(elementPath, elementJson.ToJsonString());
+
+        var manager = new AgentSessionManager();
+        using var source = new FileSessionSource();
+        SessionTools sessionTools = CreateSessionTools(source, manager, root);
+
+        ToolResult<OpenProjectResponse> opened = await sessionTools.OpenProject(projectPath);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(opened.IsSuccess, Is.True, opened.Error?.Message);
+            Assert.That(
+                opened.Value!.Warnings,
+                Has.Some.Contains(elementRelativePath).And.Some.Contains("replaced during load"));
+            Assert.That(opened.Value.RecoveryIncidents, Has.Count.EqualTo(1));
+            Assert.That(opened.Value.RecoveryIncidents[0].ElementFile, Is.EqualTo(elementRelativePath));
+            Assert.That(opened.Value.RecoveryIncidents[0].Reason,
+                Is.EqualTo(nameof(FallbackReason.DeserializationFailed)));
+            Assert.That(opened.Value.RecoveryIncidents[0].TypeName, Is.Null);
+            Assert.That(opened.Value.RecoveryIncidents[0].Message,
+                Does.Contain("value was replaced during load").And.Contain("original element file is preserved"));
+        });
+    }
+
+    [Test]
     public async Task Open_project_warns_about_malformed_element_json_and_keeps_healthy_elements()
     {
         string root = CreateWorkspace();
