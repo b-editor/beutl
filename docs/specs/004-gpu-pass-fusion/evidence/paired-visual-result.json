@@ -57,10 +57,10 @@
     ],
     "vulkanVendorId": "0x0000106b"
   },
-  "featureCodeSha": "f8c486518a9fbf028a9abb588034e7068ce4d56a",
+  "featureCodeSha": "458905b9bbbbb0847b9a98f8fa65c626b3e9989f",
   "featureCommand": "dotnet run -c Release --no-build --project tests/Beutl.Benchmarks/Beutl.Benchmarks.csproj -- feature-visual-export",
-  "featureManifestSha256": "f9e1e1bfc5219b0c6a233317ccfebc42e7773e8d2b2604f30ae5ac7ba419997e",
-  "generatedAtUtc": "2026-07-31T20:49:12.043452+00:00",
+  "featureManifestSha256": "98fdbb16feb347e9df3a100036149ed63567ec286a31818e0649bcaac55fe31d",
+  "generatedAtUtc": "2026-07-31T22:41:27.060639+00:00",
   "scenes": [
     {
       "edgeCrop": {
@@ -484,7 +484,7 @@
     "regeneratedTargetManifestSha256": "4e7b4b2669d620c61f9ff42b223d69298b2628f29e963284c4f66eadf992caf2"
   },
   "sourceAssemblyVersions": {
-    "feature": "2.99.99+f8c486518a9fbf028a9abb588034e7068ce4d56a",
+    "feature": "2.99.99+458905b9bbbbb0847b9a98f8fa65c626b3e9989f",
     "target": "2.99.99+43a38e665d9bf52548161a3917e748bd1457ff55"
   },
   "status": "passed",
