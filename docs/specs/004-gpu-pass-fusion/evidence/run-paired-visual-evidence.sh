@@ -412,13 +412,25 @@ for item in refresh_artifacts:
 
 semantic_fields = (
     "category", "role", "controlSceneId", "blobWidth", "blobHeight", "logicalWidth",
-    "logicalHeight", "outputScale", "maxWorkingScale", "requestedRegion", "empty", "parameters", "query",
+    "logicalHeight", "outputScale", "maxWorkingScale", "requestedRegion", "empty", "parameters",
 )
+# The query record carries pipeline-specific advisory keys on each side (the legacy
+# generator notes pull execution, the feature exporter notes deferred work), so only
+# the shared measured semantics are compared.
+query_semantic_fields = ("bounds", "insidePoint", "insideHit", "outsidePoint", "outsideHit")
 for scene_id, target_scene in target_scenes.items():
     feature_scene = feature_scenes[scene_id]
     for name in semantic_fields:
         if target_scene.get(name) != feature_scene.get(name):
             raise SystemExit(f"Scene parameter mismatch before parity comparison: {scene_id}.{name}")
+    target_query = target_scene.get("query")
+    feature_query = feature_scene.get("query")
+    if (target_query is None) != (feature_query is None):
+        raise SystemExit(f"Scene query presence differs: {scene_id}")
+    if target_query is not None:
+        for name in query_semantic_fields:
+            if target_query.get(name) != feature_query.get(name):
+                raise SystemExit(f"Scene parameter mismatch before parity comparison: {scene_id}.query.{name}")
     if (target_scene.get("blob") is None) != (feature_scene.get("blob") is None):
         raise SystemExit(f"Scene blob presence differs: {scene_id}")
 
