@@ -155,6 +155,7 @@ internal static class FeatureVisualEvidenceExporter
 
         AddNonVacuityMetrics(scenes, artifacts);
         JsonObject sameProcessFusionParity = CaptureSameProcessFusionParity(baselineScenes);
+        JsonArray allocationFailures = CaptureAllocationFailures();
 
         var hashes = new JsonObject();
         foreach ((string name, byte[] bytes) in artifacts)
@@ -173,9 +174,94 @@ internal static class FeatureVisualEvidenceExporter
                 ?? throw new InvalidDataException("The baseline pixel-format contract is missing."),
             ["artifactSha256"] = hashes,
             ["scenes"] = scenes,
+            ["allocationFailures"] = allocationFailures,
             ["sameProcessFusionParity"] = sameProcessFusionParity,
         };
         return new FeatureVisualGeneration(manifest, artifacts);
+    }
+
+    private static JsonArray CaptureAllocationFailures()
+    {
+        return
+        [
+            CaptureAllocationFailure(RenderIntent.Preview, maxWorkingScale: 2),
+            CaptureAllocationFailure(RenderIntent.Delivery, maxWorkingScale: float.PositiveInfinity),
+        ];
+    }
+
+    private static JsonObject CaptureAllocationFailure(RenderIntent intent, float maxWorkingScale)
+    {
+        FeatureAllocationFailureCapture first = RunAllocationFailure(intent, maxWorkingScale);
+        FeatureAllocationFailureCapture second = RunAllocationFailure(intent, maxWorkingScale);
+        if (first with { Counters = second.Counters } != second
+            || !DictionariesEqual(first.Counters, second.Counters))
+            throw new InvalidOperationException($"Feature {intent} allocation-failure evidence is not stable.");
+
+        bool expectThrow = intent == RenderIntent.Delivery;
+        if (first.Threw != expectThrow || first.FailureConsumed is false)
+        {
+            throw new InvalidOperationException(
+                $"Feature {intent} allocation-failure behavior did not match the render-intent contract.");
+        }
+
+        return new JsonObject
+        {
+            ["intent"] = intent == RenderIntent.Preview ? "preview" : "delivery",
+            ["injectionPoint"] = "next EffectMaterialization RenderTarget.Create",
+            ["maxWorkingScale"] = float.IsPositiveInfinity(maxWorkingScale)
+                ? "+Infinity"
+                : maxWorkingScale.ToString("R", CultureInfo.InvariantCulture),
+            ["outcome"] = expectThrow ? "threw" : "dropped-output-without-throw",
+            ["exceptionType"] = first.ExceptionType,
+            ["exceptionMessage"] = first.ExceptionMessage,
+            ["requestSucceeded"] = first.RequestSucceeded,
+            ["featureCounters"] = JsonSerializer.SerializeToNode(first.Counters, s_jsonOptions),
+            ["targetFactoryCreateCalls"] = first.TargetFactoryCreateCalls,
+        };
+    }
+
+    private static FeatureAllocationFailureCapture RunAllocationFailure(
+        RenderIntent intent,
+        float maxWorkingScale)
+    {
+        using FeatureSceneFixture fixture = BuildStrokeEffectScene(applyEffect: true);
+        var factory = new FailSecondTargetFactory();
+        object diagnostics = RenderPipelineInternalDiagnostics.CreateState();
+        var options = new RenderNodeRendererOptions
+        {
+            Intent = intent,
+            TargetDomain = s_domain,
+            OutputScale = 1,
+            MaxWorkingScale = maxWorkingScale,
+            UseRenderCache = false,
+            TargetFactory = factory,
+        };
+        RenderPipelineInternalDiagnostics.Attach(options, diagnostics, RenderRequestPurpose.Frame);
+        string? exceptionType = null;
+        string? exceptionMessage = null;
+        using (var renderer = new RenderNodeRenderer(fixture.Root, options))
+        {
+            try
+            {
+                using RenderNodeRasterization rasterization = renderer.Rasterize();
+            }
+            catch (Exception exception)
+            {
+                exceptionType = exception.GetType().FullName;
+                exceptionMessage = exception.Message;
+            }
+        }
+
+        SortedDictionary<string, long> counters =
+            RenderPipelineInternalDiagnostics.CaptureLatestCounters(diagnostics, out bool requestSucceeded);
+        return new FeatureAllocationFailureCapture(
+            exceptionType is not null,
+            exceptionType,
+            exceptionMessage,
+            requestSucceeded,
+            factory.FailureConsumed,
+            factory.CreateCalls,
+            counters);
     }
 
     private static FeatureVisualCapture CaptureVisualScene(string id, JsonObject scene)
@@ -1208,6 +1294,36 @@ internal static class FeatureVisualEvidenceExporter
     {
         public Rect ToRect() => new(X, Y, Width, Height);
     }
+
+    private sealed class FailSecondTargetFactory : IRenderTargetFactory
+    {
+        public int CreateCalls { get; private set; }
+
+        public bool FailureConsumed { get; private set; }
+
+        public RenderTarget? Create(PixelSize deviceSize)
+        {
+            int index = CreateCalls++;
+            if (index == 1)
+            {
+                FailureConsumed = true;
+                return null;
+            }
+
+            return RenderTarget.Create(deviceSize.Width, deviceSize.Height)
+                   ?? throw new InvalidOperationException(
+                       $"Could not allocate the feature allocation-probe target {deviceSize.Width}x{deviceSize.Height}.");
+        }
+    }
+
+    private sealed record FeatureAllocationFailureCapture(
+        bool Threw,
+        string? ExceptionType,
+        string? ExceptionMessage,
+        bool RequestSucceeded,
+        bool FailureConsumed,
+        int TargetFactoryCreateCalls,
+        SortedDictionary<string, long> Counters);
 }
 
 internal sealed class FeatureSceneFixture : IDisposable

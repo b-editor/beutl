@@ -16,7 +16,7 @@ internal static class GpuPassFusionBaselineEvidence
 
     // This is the trust anchor for the pinned manifest and its documented semantic refreshes.
     // Update it only through an explicitly approved evidence regeneration and review.
-    public const string ExpectedManifestSha256 = "b232bb400981ee9c4feac19ae20def779603afd6ba3724ca02fdf8c4f1082c00";
+    public const string ExpectedManifestSha256 = "7a977cb40472f78951ef5f627f495e5150a1d422c1f9897c9ecdd8e4a4e92e06";
 
     public const double NonVacuityParityTolerance = 0.02;
 
@@ -44,6 +44,7 @@ internal static class GpuPassFusionBaselineEvidence
         "generatorScriptSha256",
         "generatorSourceBundleSha256",
         "pairedRunnerSha256",
+        "refreshScriptSha256",
     ];
 
     private static readonly string[] s_expectedFingerprintProperties =
@@ -203,6 +204,7 @@ internal static class GpuPassFusionBaselineEvidence
             VerifyFileHash(paths.GeneratorPatchPath, tools.GeneratorPatchSha256, "target baseline generator patch");
             VerifyFileHash(paths.GeneratorScriptPath, tools.GeneratorScriptSha256, "target baseline generator script");
             VerifyFileHash(paths.PairedRunnerPath, tools.PairedRunnerSha256, "paired visual-evidence runner");
+            VerifyFileHash(paths.RefreshScriptPath, tools.RefreshScriptSha256, "intentional visual-baseline refresh script");
 
             IReadOnlyDictionary<string, IReadOnlyList<string>> fingerprint =
                 ReadFingerprint(root.GetProperty("fingerprint"));
@@ -395,6 +397,7 @@ internal static class GpuPassFusionBaselineEvidence
             ReadSha256(element, "generatorPatchSha256", "manifest.evidenceTools"),
             ReadSha256(element, "generatorScriptSha256", "manifest.evidenceTools"),
             ReadSha256(element, "pairedRunnerSha256", "manifest.evidenceTools"),
+            ReadSha256(element, "refreshScriptSha256", "manifest.evidenceTools"),
             ReadSha256(element, "generatorSourceBundleSha256", "manifest.evidenceTools"));
     }
 
@@ -1111,7 +1114,8 @@ internal sealed record GpuPassFusionEvidencePaths(
     string ManifestPath,
     string GeneratorPatchPath,
     string GeneratorScriptPath,
-    string PairedRunnerPath)
+    string PairedRunnerPath,
+    string RefreshScriptPath)
 {
     public static GpuPassFusionEvidencePaths Discover()
     {
@@ -1140,7 +1144,8 @@ internal sealed record GpuPassFusionEvidencePaths(
             Path.Combine(baselineDirectory, "manifest.json"),
             Path.Combine(evidenceDirectory, "target-baseline-generator.patch"),
             Path.Combine(evidenceDirectory, "generate-target-baseline.sh"),
-            Path.Combine(evidenceDirectory, "run-paired-visual-evidence.sh"));
+            Path.Combine(evidenceDirectory, "run-paired-visual-evidence.sh"),
+            Path.Combine(evidenceDirectory, "refresh-intentional-visual-baselines.sh"));
     }
 }
 
@@ -1148,6 +1153,7 @@ internal sealed record GpuPassFusionEvidenceTools(
     string GeneratorPatchSha256,
     string GeneratorScriptSha256,
     string PairedRunnerSha256,
+    string RefreshScriptSha256,
     string GeneratorSourceBundleSha256);
 
 internal sealed record GpuPassFusionEvidenceScene(

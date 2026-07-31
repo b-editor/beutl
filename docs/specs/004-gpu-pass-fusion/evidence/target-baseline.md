@@ -52,11 +52,12 @@ byte-identical to its committed counterpart.
 
 | Item | SHA-256 |
 |---|---|
-| Visual manifest | `59f2e1cc0d29b9562c58b2632d5ee045a860a852a524357cf8fea6f17982451a` |
-| Benchmark manifest | `1e7b57c00aabb392d431061a23297f96da8ff201e7dde7e7b37008559363bd6e` |
+| Visual manifest | `7a977cb40472f78951ef5f627f495e5150a1d422c1f9897c9ecdd8e4a4e92e06` |
+| Benchmark manifest | `a52762454bea0c6374b360bc672c225ba247c48a05cb176986e6610d5ce84c42` |
 | Generator patch / applied diff | `037315804fa9531bdef1b79e2db405e8a3813e4bc137527690f9f2d5cb4e728c` |
-| Generator script | `05d33410a06cdd3a6fee91911b25a348fdc480ed249916e45fe75c653b40c4f7` |
-| Paired visual runner | `4263352f519686b9de89047ee0c55dbb999935412db05419464ca81387939af9` |
+| Generator script | `fb0bf369aff9b017c82edf74e8423e83fd13156d3e1a569267447fa4fdf5df03` |
+| Paired visual runner | `23ac79c99363a3f57024f1520c16ca48f75bb7e9bf39d059107e18ee8c00d92b` |
+| Intentional refresh script | `5057b76ae3d4c1bc4474e424cc3119c5ce52aa8c203fcc0cac874d38cd8c74d8` |
 | Generator source bundle | `d6e5f339d5d7214b0cb879aa5cf2cd717896879b942400928e77b38c9a62a19e` |
 
 The visual manifest is

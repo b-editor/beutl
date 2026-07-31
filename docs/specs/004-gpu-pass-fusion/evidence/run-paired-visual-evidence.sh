@@ -74,6 +74,12 @@ done
 
 feature_worktree=$(git -C "$feature_worktree" rev-parse --show-toplevel)
 feature_sha=$(git -C "$feature_worktree" rev-parse HEAD)
+feature_status=$(git -C "$feature_worktree" status --porcelain=v1 --untracked-files=all)
+[[ -z $feature_status ]] || {
+    printf 'Feature worktree must be clean before paired visual capture: %s\n%s\n' \
+        "$feature_worktree" "$feature_status" >&2
+    exit 1
+}
 result_root=$(python3 -c 'import os,sys; print(os.path.abspath(sys.argv[1]))' "$result_root")
 [[ ! -e $result_root ]] || {
     printf 'Create-only paired result directory already exists: %s\n' "$result_root" >&2
@@ -406,7 +412,7 @@ for item in refresh_artifacts:
 
 semantic_fields = (
     "category", "role", "controlSceneId", "blobWidth", "blobHeight", "logicalWidth",
-    "logicalHeight", "outputScale", "maxWorkingScale", "requestedRegion", "empty", "parameters",
+    "logicalHeight", "outputScale", "maxWorkingScale", "requestedRegion", "empty", "parameters", "query",
 )
 for scene_id, target_scene in target_scenes.items():
     feature_scene = feature_scenes[scene_id]
@@ -415,6 +421,35 @@ for scene_id, target_scene in target_scenes.items():
             raise SystemExit(f"Scene parameter mismatch before parity comparison: {scene_id}.{name}")
     if (target_scene.get("blob") is None) != (feature_scene.get("blob") is None):
         raise SystemExit(f"Scene blob presence differs: {scene_id}")
+
+def allocation_failures_by_intent(manifest, label):
+    records = manifest.get("allocationFailures")
+    if not isinstance(records, list) or len(records) != 2:
+        raise SystemExit(f"{label} allocation-failure evidence must contain exactly two records")
+    by_intent = {}
+    for record in records:
+        if not isinstance(record, dict):
+            raise SystemExit(f"{label} allocation-failure evidence contains a non-object record")
+        intent = record.get("intent")
+        if intent not in {"preview", "delivery"} or intent in by_intent:
+            raise SystemExit(f"{label} allocation-failure evidence has an invalid or duplicate intent")
+        by_intent[intent] = record
+    return by_intent
+
+target_failures = allocation_failures_by_intent(target, "target")
+feature_failures = allocation_failures_by_intent(feature, "feature")
+allocation_semantic_fields = (
+    "intent", "injectionPoint", "maxWorkingScale", "outcome", "exceptionType",
+)
+for intent, target_failure in target_failures.items():
+    feature_failure = feature_failures[intent]
+    for name in allocation_semantic_fields:
+        if target_failure.get(name) != feature_failure.get(name):
+            raise SystemExit(f"Allocation-failure outcome mismatch: {intent}.{name}")
+    target_message = target_failure.get("exceptionMessage")
+    feature_message = feature_failure.get("exceptionMessage")
+    if (target_message is None) != (feature_message is None):
+        raise SystemExit(f"Allocation-failure exception-message presence differs: {intent}")
 
 def decode_rgba16f(path, width, height):
     data = path.read_bytes()
@@ -556,6 +591,13 @@ result = {
     "sourceAssemblyVersions": {
         "target": target_fingerprint[source_provenance_field],
         "feature": feature_fingerprint[source_provenance_field],
+    },
+    "allocationFailures": {
+        intent: {
+            name: feature_failures[intent].get(name)
+            for name in allocation_semantic_fields
+        }
+        for intent in sorted(feature_failures)
     },
     "thresholds": {
         "minimumLinearLightSsim": 0.99,

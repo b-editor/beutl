@@ -68,24 +68,25 @@ Bounds, supply, and CPU hit testing are no longer unconditional handle propertie
 ```csharp
 public override void Process(RenderNodeContext context)
 {
-    if (!context.TryCalculateInputBounds(out Rect inputBounds))
-    {
-        // The inputs still depend on an owning target domain. Record without
-        // authoritative bounds, or establish an explicit finite Layer below.
-        context.PassThrough();
-        return;
-    }
+    bool hasInputBounds = context.TryCalculateInputBounds(out Rect inputBounds);
+    var outputs = new List<RenderFragmentHandle>(context.Inputs.Count);
 
     foreach (RenderFragmentHandle input in context.Inputs)
     {
-        if (!input.TryGetMetadata(out RenderFragmentMetadata metadata))
-            continue;
-
-        bool containsPoint = input.TryHitTest(_point, out bool hit) && hit;
-        RecordUsingConcreteMetadata(input, inputBounds, metadata, containsPoint);
+        bool hasMetadata = input.TryGetMetadata(out RenderFragmentMetadata metadata);
+        bool hasHitTest = input.TryHitTest(_point, out bool containsPoint);
+        outputs.Add(RecordUsingDeclarativeContracts(
+            input,
+            hasInputBounds ? inputBounds : null,
+            hasMetadata ? metadata : null,
+            hasHitTest ? containsPoint : null));
     }
+
+    context.PublishRange(outputs);
 }
 ```
+
+`RecordUsingDeclarativeContracts` in this migration sketch records the operation with bounds, scale, and hit-test contracts that can be reevaluated after owning-target resolution; nullable observations are optional author-time facts, not permission to discard an input. This is the same shape used by `FilterEffectRenderNode`: it records isolation and effect descriptions even when public input metadata is symbolic, and the forward analysis resolves them later. It passes through only when the effect is disabled, authors no operations, or an explicitly finite isolation domain is empty. Do not convert an unavailable aggregate into `PassThrough`, and do not `continue` past one input whose metadata is unavailable.
 
 `TryGetMetadata` returns `Bounds` and `EffectiveScale` together only when both are concrete. `TryGetMetadata`, `TryHitTest`, and `TryCalculateInputBounds` return `false` with default out values for an `OwningTargetDomain` fragment and every ordinary descendant, including handles returned through nested recording; internal finite hints are not public metadata. `ValueCardinality`, `ContributesValuesToTarget`, and `CanBeUsedAsValueInput` remain directly readable. `TryCalculateInputBounds` succeeds for an empty input list with `default(Rect)`.
 
@@ -485,7 +486,7 @@ Use `RenderScaleContract.MapInputSupply(Func<EffectiveScale, EffectiveScale> map
 
 ### Custom working-scale render node
 
-`FilterEffect.Resource.CreateRenderNode()` remains. A custom `FilterEffectRenderNode` that only changes working-scale semantics overrides the protected `GetWorkingScaleContract()` hook and retains the base `Process` lowering. Returning `null` selects the standard `MaterializeAtWorkingScale` policy and its `s_out` floor; an explicit `Custom` result may intentionally be below `s_out`. After the base identifies finite or owner-relative isolation for mixed/value-ineligible inputs, it folds that standard or custom policy into the first surviving Shader, Geometry, or legacy operation. The callback is evaluated for each surviving branch with exactly one input supply and that branch's isolated effect-input bounds. Legacy multi-input work takes the densest concrete mapped result and falls back to `OutputScale` only when every branch is `Unbounded`. Allocation footprints are independent of callback count: before an opaque Custom callback they retain each branch's local-origin transforms and every intermediate/forced Flush, while the first Custom callback unions those transformed branch results and collapses later analysis to that aggregate domain because its implementation may combine or split targets. The largest known pre-callback backing footprint is carried forward at the transformed semantic position because Custom may retain the backing while moving or shrinking only `EffectTarget.Bounds`. No identity fragment or extra opaque/pass boundary is recorded. A no-item effect publishes the original inputs, commits no provisional isolation, and rolls back untransferred resources; its hook/resolver remains lazy unless `ApplyTo` probes the author-time scale. With a concrete single input, `FilterEffectContext.TryGetWorkingScale` returns the nominal effect-input density and `WorkingScale` remains readable; a later expanding operation can still clamp its own buffer. With symbolic or branch-dependent inputs, `TryGetWorkingScale` returns `false` and the getter throws rather than exposing a provisional/aggregate value. Forward analysis reevaluates the pure contract only after the owning scope is resolved. The contract cannot depend on the later ROI. Opaque runtime bounds that exceed the pure declaration are defensively exact-clamped during normalization, resampled at the reduced density, and published with that actual `EffectiveScale`/`DeviceBounds`; existing pixels are never retagged at a different density.
+`FilterEffect.Resource.CreateRenderNode()` remains. A custom `FilterEffectRenderNode` that only changes working-scale semantics overrides the protected `GetWorkingScaleContract()` hook and retains the base `Process` lowering. Returning `null` selects the standard supply-driven `MaterializeAtWorkingScale` contract: concrete supply determines density, and `OutputScale` is used only when every surviving branch is `Unbounded`. It does not impose a global `s_out` floor on concrete supply. An explicit `Custom` result may intentionally choose another positive finite density. After the base identifies finite or owner-relative isolation for mixed/value-ineligible inputs, it folds that standard or custom policy into the first surviving Shader, Geometry, or legacy operation. The callback is evaluated for each surviving branch with exactly one input supply and that branch's isolated effect-input bounds. Legacy multi-input work takes the densest concrete mapped result and falls back to `OutputScale` only when every branch is `Unbounded`. Allocation footprints are independent of callback count: before an opaque Custom callback they retain each branch's local-origin transforms and every intermediate/forced Flush, while the first Custom callback unions those transformed branch results and collapses later analysis to that aggregate domain because its implementation may combine or split targets. The largest known pre-callback backing footprint is carried forward at the transformed semantic position because Custom may retain the backing while moving or shrinking only `EffectTarget.Bounds`. No identity fragment or extra opaque/pass boundary is recorded. A no-item effect publishes the original inputs, commits no provisional isolation, and rolls back untransferred resources; its hook/resolver remains lazy unless `ApplyTo` probes the author-time scale. With a concrete single input, `FilterEffectContext.TryGetWorkingScale` returns the nominal effect-input density and `WorkingScale` remains readable; a later expanding operation can still clamp its own buffer. With symbolic or branch-dependent inputs, `TryGetWorkingScale` returns `false` and the getter throws rather than exposing a provisional/aggregate value. Forward analysis reevaluates the pure contract only after the owning scope is resolved. The contract cannot depend on the later ROI. Opaque runtime bounds that exceed the pure declaration are defensively exact-clamped during normalization, resampled at the reduced density, and published with that actual `EffectiveScale`/`DeviceBounds`; existing pixels are never retagged at a different density.
 
 Custom nodes must not use `OutputScale` as an implicit intermediate ceiling or floor. A non-supply custom scale choice must be declared in its operation's scale contract and bounded by `MaxWorkingScale` plus the per-buffer dimension clamp against complete concrete allocation footprints. A `Custom` resolver must return a finite value greater than zero; a throw, NaN, infinity, zero, or negative value fails rather than falling back to `OutputScale`. With a symbolic dependency, provisional evaluation is not author-readable and the resolver is evaluated again after resolution. Later ROI crops allocation bounds without changing the final valid density. Current-pixel stages separated by a concrete density change now form an explicit `ScaleTransition`; equal-density edges and an `Unbounded` predecessor adopting its successor density remain fusible. Merged binders observe stage-local logical bounds, while all stages use the actual runtime-clamped run density and later stages receive that density as their input effective scale, matching disabled execution.
 

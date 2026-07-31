@@ -8,6 +8,7 @@ script_dir=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
 repository_root=$(git -C "$script_dir" rev-parse --show-toplevel)
 patch_file="$script_dir/target-baseline-generator.patch"
 paired_runner="$script_dir/run-paired-visual-evidence.sh"
+refresh_script="$script_dir/refresh-intentional-visual-baselines.sh"
 destination="$script_dir/target-baseline"
 benchmark_destination="$script_dir/target-benchmark"
 capture_benchmark=true
@@ -57,7 +58,7 @@ if [[ $capture_benchmark == true ]]; then
         }
 
         python3 - "$benchmark_run" "$benchmark_staging" "$destination/manifest.json" \
-            "$BASELINE_SHA" "$patch_sha" "$script_sha" "$paired_runner_sha" "$source_bundle_sha" \
+            "$BASELINE_SHA" "$patch_sha" "$script_sha" "$paired_runner_sha" "$refresh_script_sha" "$source_bundle_sha" \
             "$patched_diff_sha" "$run_started_utc" "$run_completed_utc" <<'PY'
 import hashlib
 import json
@@ -74,6 +75,7 @@ import sys
     patch_sha,
     script_sha,
     runner_sha,
+    refresh_sha,
     source_sha,
     diff_sha,
     started_utc,
@@ -170,6 +172,7 @@ manifest = {
         "generatorPatchSha256": patch_sha,
         "generatorScriptSha256": script_sha,
         "pairedRunnerSha256": runner_sha,
+        "refreshScriptSha256": refresh_sha,
         "generatorSourceBundleSha256": source_sha,
     },
     "configuration": {
@@ -207,7 +210,7 @@ PY
     fi
 
     python3 - "$benchmark_destination" "$destination/manifest.json" "$BASELINE_SHA" \
-        "$patch_sha" "$script_sha" "$paired_runner_sha" "$source_bundle_sha" "$patched_diff_sha" <<'PY'
+        "$patch_sha" "$script_sha" "$paired_runner_sha" "$refresh_script_sha" "$source_bundle_sha" "$patched_diff_sha" <<'PY'
 import hashlib
 import json
 import pathlib
@@ -215,7 +218,7 @@ import sys
 
 root = pathlib.Path(sys.argv[1])
 visual_path = pathlib.Path(sys.argv[2])
-baseline_sha, patch_sha, script_sha, runner_sha, source_sha, diff_sha = sys.argv[3:]
+baseline_sha, patch_sha, script_sha, runner_sha, refresh_sha, source_sha, diff_sha = sys.argv[3:]
 if not root.is_dir():
     raise SystemExit(f"Immutable benchmark destination is not a directory: {root}")
 manifest_path = root / "manifest.json"
@@ -238,6 +241,7 @@ expected_tools = {
     "generatorPatchSha256": patch_sha,
     "generatorScriptSha256": script_sha,
     "pairedRunnerSha256": runner_sha,
+    "refreshScriptSha256": refresh_sha,
     "generatorSourceBundleSha256": source_sha,
 }
 for name, value in expected_tools.items():
@@ -280,6 +284,7 @@ done
 
 [[ -f $patch_file ]] || { printf 'Missing generator patch: %s\n' "$patch_file" >&2; exit 1; }
 [[ -f $paired_runner ]] || { printf 'Missing paired runner: %s\n' "$paired_runner" >&2; exit 1; }
+[[ -f $refresh_script ]] || { printf 'Missing intentional-refresh script: %s\n' "$refresh_script" >&2; exit 1; }
 
 sha256_file() {
     if command -v sha256sum >/dev/null 2>&1; then
@@ -360,6 +365,7 @@ done <<< "$staged_paths" > "$source_index"
 patch_sha=$(sha256_file "$patch_file")
 script_sha=$(sha256_file "$script_dir/generate-target-baseline.sh")
 paired_runner_sha=$(sha256_file "$paired_runner")
+refresh_script_sha=$(sha256_file "$refresh_script")
 source_bundle_sha=$(sha256_file "$source_index")
 
 dotnet restore "$baseline_worktree/.gpu-pass-baseline/Beutl.GpuPassTargetBaselineGenerator.csproj"
@@ -389,15 +395,29 @@ dotnet run -c Release --no-build \
     --project "$baseline_worktree/.gpu-pass-baseline/Beutl.GpuPassTargetBaselineGenerator.csproj" \
     -- --output-dir "$staging_output"
 
+python3 - "$staging_output/manifest.json" "$refresh_script_sha" <<'PY'
+import json
+import pathlib
+import sys
+
+path = pathlib.Path(sys.argv[1])
+manifest = json.loads(path.read_text(encoding="utf-8"))
+tools = manifest.get("evidenceTools")
+if not isinstance(tools, dict):
+    raise SystemExit("Generated manifest evidenceTools is missing")
+tools["refreshScriptSha256"] = sys.argv[2]
+path.write_text(json.dumps(manifest, indent=2, ensure_ascii=True) + "\n", encoding="utf-8")
+PY
+
 python3 - "$staging_output" "$BASELINE_SHA" "$patch_sha" "$script_sha" "$paired_runner_sha" \
-    "$source_bundle_sha" "$patched_diff_sha" <<'PY'
+    "$refresh_script_sha" "$source_bundle_sha" "$patched_diff_sha" <<'PY'
 import hashlib
 import json
 import pathlib
 import sys
 
 root = pathlib.Path(sys.argv[1])
-baseline_sha, patch_sha, script_sha, runner_sha, source_sha, diff_sha = sys.argv[2:]
+baseline_sha, patch_sha, script_sha, runner_sha, refresh_sha, source_sha, diff_sha = sys.argv[2:]
 manifest_path = root / "manifest.json"
 if not manifest_path.is_file():
     raise SystemExit("Generated manifest.json is missing")
@@ -417,6 +437,7 @@ expected_tools = {
     "generatorPatchSha256": patch_sha,
     "generatorScriptSha256": script_sha,
     "pairedRunnerSha256": runner_sha,
+    "refreshScriptSha256": refresh_sha,
     "generatorSourceBundleSha256": source_sha,
 }
 for name, expected in expected_tools.items():

@@ -267,12 +267,13 @@ Before scheduling behavior changes, create a new target-specific golden/provenan
 
 - `docs/specs/004-gpu-pass-fusion/evidence/target-baseline-generator.patch`;
 - `docs/specs/004-gpu-pass-fusion/evidence/generate-target-baseline.sh`;
-- `docs/specs/004-gpu-pass-fusion/evidence/run-paired-visual-evidence.sh`.
+- `docs/specs/004-gpu-pass-fusion/evidence/run-paired-visual-evidence.sh`;
+- `docs/specs/004-gpu-pass-fusion/evidence/refresh-intentional-visual-baselines.sh`.
 
 The script creates a temporary clean worktree pinned to the exact baseline SHA, applies the generator patch there, runs it, and copies only immutable raw linear premultiplied RGBA16F blobs plus their manifest into the evidence set. The generator source is never added to or compiled from `tests/` on the feature branch. The manifest contains:
 
 - baseline code SHA and clean repository state;
-- SHA-256 hashes of the generator patch, generator script, paired visual-evidence driver, and every blob;
+- SHA-256 hashes of the generator patch, generator script, paired visual-evidence driver, intentional-refresh script, and every blob;
 - scene name, dimensions, scale, requested region, seed, and parameter values;
 - an exact evidence fingerprint containing OS and version, architecture, graphics backend/API, device vendor/model/identifier, driver, graphics-stack versions, and .NET runtime version;
 - request-wide counter snapshot;

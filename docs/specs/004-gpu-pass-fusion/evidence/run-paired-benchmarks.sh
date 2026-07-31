@@ -1,6 +1,8 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+readonly BASELINE_SHA="43a38e665d9bf52548161a3917e748bd1457ff55"
+
 usage() {
     echo "Usage: $0 <baseline-worktree> <feature-worktree> <empty-output-directory>" >&2
     echo "Both worktrees must be clean. The feature worktree supplies both the feature benchmark and the external starting-SHA harness." >&2
@@ -94,6 +96,11 @@ baseline_worktree="$(resolve_existing_directory "$1")"
 feature_worktree="$(resolve_existing_directory "$2")"
 require_clean_worktree "$baseline_worktree" "Baseline"
 require_clean_worktree "$feature_worktree" "Feature"
+baseline_sha="$(git -C "$baseline_worktree" rev-parse HEAD)"
+if [[ "$baseline_sha" != "$BASELINE_SHA" ]]; then
+    echo "Baseline worktree must be pinned to $BASELINE_SHA; found $baseline_sha: $baseline_worktree" >&2
+    exit 65
+fi
 
 mkdir -p "$3"
 output_root="$(resolve_existing_directory "$3")"
@@ -126,7 +133,6 @@ default_baseline_command="cd $quoted_baseline_harness && BEUTL_BASELINE_ENGINE_P
 default_feature_command="dotnet run -c Release --artifacts-path $quoted_feature_build --project tests/Beutl.Benchmarks/Beutl.Benchmarks.csproj -- --filter '*RenderPipelineBenchmarks*'"
 baseline_command="${BEUTL_BASELINE_BENCHMARK_COMMAND:-$default_baseline_command}"
 feature_command="${BEUTL_FEATURE_BENCHMARK_COMMAND:-$default_feature_command}"
-baseline_sha="$(git -C "$baseline_worktree" rev-parse HEAD)"
 feature_sha="$(git -C "$feature_worktree" rev-parse HEAD)"
 runner_path="$(cd "$(dirname "$0")" && pwd -P)/$(basename "$0")"
 runner_sha256="$(sha256_file "$runner_path")"

@@ -48,9 +48,10 @@
   },
   "evidenceTools": {
     "generatorPatchSha256": "037315804fa9531bdef1b79e2db405e8a3813e4bc137527690f9f2d5cb4e728c",
-    "generatorScriptSha256": "8ecd36f3589eaaaa891578eb2b1cd1a5ca5a271ea5b8f440e5be7bcd1f671aec",
+    "generatorScriptSha256": "fb0bf369aff9b017c82edf74e8423e83fd13156d3e1a569267447fa4fdf5df03",
     "generatorSourceBundleSha256": "d6e5f339d5d7214b0cb879aa5cf2cd717896879b942400928e77b38c9a62a19e",
-    "pairedRunnerSha256": "4263352f519686b9de89047ee0c55dbb999935412db05419464ca81387939af9"
+    "pairedRunnerSha256": "23ac79c99363a3f57024f1520c16ca48f75bb7e9bf39d059107e18ee8c00d92b",
+    "refreshScriptSha256": "5057b76ae3d4c1bc4474e424cc3119c5ce52aa8c203fcc0cac874d38cd8c74d8"
   },
   "fingerprint": {
     "beutlEngineAssemblyVersion": "2.99.99+43a38e665d9bf52548161a3917e748bd1457ff55",
@@ -101,5 +102,5 @@
   "runStartedUtc": "2026-07-19T07:58:07.936284+00:00",
   "schemaVersion": 1,
   "scope": "minimum starting-SHA baseline; the 11-case paired confidence gate remains T112-T115",
-  "visualManifestSha256": "b232bb400981ee9c4feac19ae20def779603afd6ba3724ca02fdf8c4f1082c00"
+  "visualManifestSha256": "7a977cb40472f78951ef5f627f495e5150a1d422c1f9897c9ecdd8e4a4e92e06"
 }

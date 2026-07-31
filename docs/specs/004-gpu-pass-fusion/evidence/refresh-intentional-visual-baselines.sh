@@ -125,6 +125,13 @@ if feature.get("featureCodeSha") != expected_feature_code_sha:
 if baseline.get("pixelFormat") != feature.get("pixelFormat"):
     raise SystemExit("Feature and target pixel formats differ")
 
+baseline_tools = baseline.get("evidenceTools")
+benchmark_tools = benchmark.get("evidenceTools")
+if not isinstance(baseline_tools, dict) or not isinstance(benchmark_tools, dict):
+    raise SystemExit("An evidence-tool hash table is missing")
+baseline_tools["refreshScriptSha256"] = refresh_script_sha
+benchmark_tools["refreshScriptSha256"] = refresh_script_sha
+
 baseline_fingerprint = baseline.get("fingerprint")
 feature_fingerprint = feature.get("fingerprint")
 if not isinstance(baseline_fingerprint, dict) or not isinstance(feature_fingerprint, dict):

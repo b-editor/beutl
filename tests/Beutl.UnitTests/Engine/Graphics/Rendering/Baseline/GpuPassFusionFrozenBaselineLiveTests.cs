@@ -2,6 +2,8 @@
 using Beutl.Media;
 using Beutl.UnitTests.Engine.Graphics.Backend;
 
+using System.Text.Json;
+
 namespace Beutl.UnitTests.Engine.Graphics.Rendering.Baseline;
 
 [NonParallelizable]
@@ -24,13 +26,42 @@ public sealed class GpuPassFusionFrozenBaselineLiveTests
     public void FrozenBaseline_LiveRenderMatchesReference(string sceneId)
     {
         var graphicsContext = VulkanTestEnvironment.EnsureAvailable();
+        GpuPassFusionEvidenceManifest manifest = s_manifest.Value;
+        RenderPipelineEvidenceFingerprint currentFingerprint = VulkanTestEnvironment.InvokeOnRenderThread(
+            () => RenderPipelineEvidenceFingerprint.Capture(graphicsContext));
+        using JsonDocument currentFingerprintDocument = JsonDocument.Parse(
+            JsonSerializer.Serialize(
+                currentFingerprint,
+                new JsonSerializerOptions { PropertyNamingPolicy = JsonNamingPolicy.CamelCase }));
+        // Boot-scoped identifiers (IOKit registry ids and the UUIDs MoltenVK derives from
+        // them) change across reboots of the same machine; gating on them would skip the
+        // authoritative host too. Code provenance is checked by the paired pipeline instead.
+        string[] volatileFingerprintFields =
+        [
+            "beutlEngineAssemblyVersion",
+            "metalRegistryId",
+            "vulkanDeviceUuid",
+            "vulkanDriverUuid",
+        ];
+        string[] fingerprintMismatches = manifest.Fingerprint.Keys
+            .Where(name => !volatileFingerprintFields.Contains(name, StringComparer.Ordinal))
+            .Where(name => !FingerprintValues(currentFingerprintDocument.RootElement.GetProperty(name))
+                .SequenceEqual(manifest.Fingerprint[name], StringComparer.Ordinal))
+            .Order(StringComparer.Ordinal)
+            .ToArray();
+        if (fingerprintMismatches.Length != 0)
+        {
+            Assert.Ignore(
+                "The current environment differs from the frozen visual-baseline fingerprint: "
+                + string.Join(", ", fingerprintMismatches));
+        }
+
         if (sceneId.StartsWith("scene3d-", StringComparison.Ordinal)
             && !graphicsContext.Supports3DRendering)
         {
             Assert.Ignore("The selected Vulkan device does not support the manifest's Scene3D workloads.");
         }
 
-        GpuPassFusionEvidenceManifest manifest = s_manifest.Value;
         GpuPassFusionEvidenceScene scene = manifest.GetScene(sceneId);
         PixelRect? requestedRegion = scene.RequestedRegion is { } requested
             ? new PixelRect(requested.X, requested.Y, requested.Width, requested.Height)
@@ -124,6 +155,14 @@ public sealed class GpuPassFusionFrozenBaselineLiveTests
                 Has.Some.Not.Zero,
                 "The production FilterEffectRenderNode boundary must materialize the Scene3D surface for its 2D tail.");
         }
+    }
+
+    private static IEnumerable<string> FingerprintValues(JsonElement element)
+    {
+        if (element.ValueKind == JsonValueKind.Array)
+            return element.EnumerateArray().Select(static item => item.GetString()!);
+
+        return [element.GetString()!];
     }
 
     private static void AssertParity(Rgba16fParityMetrics metrics, string sceneId, string region)

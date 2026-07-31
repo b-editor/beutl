@@ -313,10 +313,15 @@ Existing preview/delivery allocation-failure behavior is characterized before mi
 
 ## Nested requests
 
-Two cases are distinct:
+Three cases are distinct:
 
-1. **Same target / same request**: referenced child and NodeGraph output use `RecordNode`/`RecordSubtree` and remain in the same graph, transaction, cache policy, diagnostics, ROI, and scale analysis.
-2. **Separate target**: drawable brush/texture, scene drawable, thumbnail, particle child, and similar work records a `NestedRenderRequest`. It has its own complete fragment/value graph, scoped target tokens, and island plan but inherits allocator owner, diagnostics, intent, purpose, requested-region policy, scale limits, cache policy, and primary-failure owner.
+1. **Same target / same request**: drawable-brush content, referenced-scene children, particle drawable sources, and NodeGraph output use `RecordNode`/`RecordSubtree` and remain in the same graph, transaction, cache policy, diagnostics, ROI, and scale analysis.
+2. **Separate target**: work such as a Scene3D drawable texture records a `NestedRenderRequest`. It has its own complete fragment/value graph, scoped target tokens, and island plan but inherits allocator owner, diagnostics, intent, purpose, scale limits, cache policy, and primary-failure owner. Its requested region is selected in child coordinates as described below.
+3. **Independent auxiliary render**: thumbnail and legacy immediate-canvas rendering create a separate `RenderNodeRenderer` with their own destination domain instead of inheriting a parent request.
+
+`RequestedRegion` is never copied blindly from parent coordinates into a separate target. `RegionAnalyzer` applies only the request's own region, in that request's logical coordinate space, by intersecting it with that request's `RootOutputExtent`. The production `RenderNodeContext.RecordNestedTarget*` path passes the finite child `targetDomain` as the child requested region when no explicit child region is supplied, so a planned separate target renders its complete local domain. `RenderRequestOptions.CreateNested*` inherits the parent's region only for a lower-level caller that supplies neither a child target domain nor an explicit child region.
+
+The current built-ins follow that rule by topology. DrawableBrush content, referenced-scene children, and particle drawable sources use `RecordSubtree` plus a finite `Layer`, so they remain in the parent request and receive ordinary backward ROI mapping rather than a separate child region. Scene3D drawable textures use a planned nested request and select the full texture domain at the texture density. Thumbnail rendering creates an independent `RenderNodeRenderer` with its own thumbnail `TargetDomain` and a null `RequestedRegion`, so it renders the full thumbnail-local output and has no parent request to map. Legacy `ImmediateCanvas.DrawDrawable`/`DrawNode` likewise creates an independent renderer over the destination viewport; guarded deferred callbacks reject that path, so it cannot smuggle an unmapped parent ROI into planned execution.
 
 An opaque callback that needs nested drawing records the nested request before parent GPU execution. It does not start an unplanned renderer from inside a running pass.
 
