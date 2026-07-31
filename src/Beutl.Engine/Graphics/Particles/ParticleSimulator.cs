@@ -8,7 +8,9 @@ namespace Beutl.Graphics.Particles;
 internal sealed class ParticleSimulator
 {
     private const float FixedDeltaTime = 1f / 60f;
-    private const float CheckpointInterval = 0.5f;
+    private const double TickTruncationStepTolerance = 1.5e-5d;
+    private const double MaximumSnapTolerance = 2.5e-5d;
+    private const int CheckpointIntervalSteps = 30;
     private const int MaxCheckpoints = 120;
 
     private readonly PerlinNoise _noise = new();
@@ -17,7 +19,7 @@ internal sealed class ParticleSimulator
     private int _aliveCount;
 
     // Checkpoint cache
-    private readonly List<(float Time, Particle[] Snapshot, int AliveCount, int RngCallCount)> _checkpoints = [];
+    private readonly List<(int Step, float Time, Particle[] Snapshot, int AliveCount, int RngCallCount)> _checkpoints = [];
     private long _parameterVersion;
     private long _lastCachedVersion;
 
@@ -27,7 +29,7 @@ internal sealed class ParticleSimulator
     }
 
     public void Simulate(
-        float time,
+        double time,
         int seed,
         EmitterShape emitterShape,
         float emitterWidth,
@@ -70,48 +72,49 @@ internal sealed class ParticleSimulator
             _lastCachedVersion = _parameterVersion;
         }
 
-        // Find nearest checkpoint before requested time
-        float startTime = 0;
+        int targetStep = ResolveTargetStep(time);
+
+        // Find the nearest canonical fixed-step checkpoint before the requested time.
+        int currentStep = 0;
+        float currentTime = 0;
         _aliveCount = 0;
         int rngSkipCount = 0;
+        int checkpointIndex = -1;
 
         for (int i = _checkpoints.Count - 1; i >= 0; i--)
         {
-            if (_checkpoints[i].Time <= time)
+            if (_checkpoints[i].Step <= targetStep)
             {
-                startTime = _checkpoints[i].Time;
+                checkpointIndex = i;
+                currentStep = _checkpoints[i].Step;
+                currentTime = _checkpoints[i].Time;
                 Particle[] snapshot = _checkpoints[i].Snapshot;
                 _aliveCount = _checkpoints[i].AliveCount;
                 rngSkipCount = _checkpoints[i].RngCallCount;
                 EnsureCapacity(snapshot.Length);
                 Array.Copy(snapshot, _particles, snapshot.Length);
-                // Remove checkpoints after this time (in case of scrub back)
-                _checkpoints.RemoveRange(i + 1, _checkpoints.Count - i - 1);
                 break;
             }
         }
 
-        // Simulate from startTime to time in fixed steps
-        var rng = new CountingRandom(seed, rngSkipCount);
-
-        float currentTime = startTime;
-        float nextCheckpoint = startTime + CheckpointInterval;
-        if (_checkpoints.Count > 0)
+        if (checkpointIndex >= 0)
         {
-            nextCheckpoint = _checkpoints[^1].Time + CheckpointInterval;
+            // Remove checkpoints after this step in case of a backward seek.
+            _checkpoints.RemoveRange(checkpointIndex + 1, _checkpoints.Count - checkpointIndex - 1);
         }
+        else if (_checkpoints.Count > 0)
+        {
+            // The requested time predates the oldest retained checkpoint.
+            _checkpoints.Clear();
+        }
+
+        var rng = new CountingRandom(seed, rngSkipCount);
 
         float dirRad = direction * MathF.PI / 180f;
         float spreadRad = spread * MathF.PI / 180f;
 
-        while (currentTime < time)
+        void Advance(float dt)
         {
-            float dt = FixedDeltaTime;
-            if (currentTime + dt > time)
-            {
-                dt = time - currentTime;
-            }
-
             // Emit particles
             float emitCount = emissionRate * dt;
             int toEmit = (int)emitCount;
@@ -222,16 +225,22 @@ internal sealed class ParticleSimulator
                     p.CurrentColor = p.BaseColor;
                 }
             }
+        }
 
-            currentTime += dt;
-
-            // Save checkpoint
-            if (currentTime >= nextCheckpoint)
+        while (currentStep < targetStep)
+        {
+            Advance(FixedDeltaTime);
+            currentTime += FixedDeltaTime;
+            currentStep++;
+            if (currentStep % CheckpointIntervalSteps == 0)
             {
-                SaveCheckpoint(currentTime, rng.CallCount);
-                nextCheckpoint = currentTime + CheckpointInterval;
+                SaveCheckpoint(currentStep, currentTime, rng.CallCount);
             }
         }
+
+        // Particle state is defined only at canonical fixed steps. Advancing a query-specific
+        // remainder would make equivalent frame timestamps such as 89 / 30 and 2.9667 produce
+        // different state and consume an extra random sample.
     }
 
     public ReadOnlyMemory<Particle> GetAliveParticles()
@@ -239,11 +248,56 @@ internal sealed class ParticleSimulator
         return _particles.AsMemory(0, _aliveCount);
     }
 
-    private void SaveCheckpoint(float time, int rngCallCount)
+    internal static int ResolveTargetStep(float time)
+    {
+        double stepPosition = (double)time * 60d;
+        double nearestStep = Math.Round(stepPosition);
+        double timeUlp = Math.Max(
+            Math.Abs((double)MathF.BitIncrement(time) - time),
+            Math.Abs((double)time - MathF.BitDecrement(time)));
+        double arithmeticUlp = Math.Abs(Math.BitIncrement(stepPosition) - stepPosition);
+        // Frame timestamps are truncated to 100 ns ticks before they reach the simulator.
+        // One tick is at most 6e-6 of a 60 Hz step; keep a fixed margin in addition to
+        // the float-relative tolerance so early timestamps snap as reliably as later ones.
+        double snapTolerance = Math.Min(
+            0.25d,
+            Math.Max(
+                TickTruncationStepTolerance,
+                (timeUlp * 60d) + (arithmeticUlp * 2d)));
+        if (Math.Abs(stepPosition - nearestStep) <= snapTolerance)
+        {
+            stepPosition = nearestStep;
+        }
+
+        return checked((int)Math.Floor(stepPosition));
+    }
+
+    internal static int ResolveTargetStep(double time)
+    {
+        double stepPosition = time * 60d;
+        double nearestStep = Math.Round(stepPosition);
+        double timeUlp = Math.Max(
+            Math.Abs(Math.BitIncrement(time) - time),
+            Math.Abs(time - Math.BitDecrement(time)));
+        double arithmeticUlp = Math.Abs(Math.BitIncrement(stepPosition) - stepPosition);
+        double snapTolerance = Math.Min(
+            MaximumSnapTolerance,
+            Math.Max(
+                TickTruncationStepTolerance,
+                (timeUlp * 60d) + (arithmeticUlp * 2d)));
+        if (Math.Abs(stepPosition - nearestStep) <= snapTolerance)
+        {
+            stepPosition = nearestStep;
+        }
+
+        return checked((int)Math.Floor(stepPosition));
+    }
+
+    private void SaveCheckpoint(int step, float time, int rngCallCount)
     {
         var snapshot = new Particle[_aliveCount];
         Array.Copy(_particles, snapshot, _aliveCount);
-        _checkpoints.Add((time, snapshot, _aliveCount, rngCallCount));
+        _checkpoints.Add((step, time, snapshot, _aliveCount, rngCallCount));
 
         if (_checkpoints.Count > MaxCheckpoints)
         {
