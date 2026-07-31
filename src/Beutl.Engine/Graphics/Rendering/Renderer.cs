@@ -717,6 +717,7 @@ public class Renderer : IRenderer
         RenderThread.Dispatcher.VerifyAccess();
         var entries = _nodeCache.ToArray();
         _nodeCache.Clear();
+        _allCurrentEntries.Clear();
         Exception? primary = null;
         foreach (var item in entries)
         {

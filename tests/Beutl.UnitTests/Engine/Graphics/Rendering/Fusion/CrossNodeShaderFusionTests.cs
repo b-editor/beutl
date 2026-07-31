@@ -620,6 +620,8 @@ public sealed class CrossNodeShaderFusionTests
                     target,
                     bounds,
                     EffectiveScale.At(1),
+                    PixelRect.FromRect(bounds, 1),
+                    default,
                     RenderHitTestContract.OutputBounds)));
         }
     }

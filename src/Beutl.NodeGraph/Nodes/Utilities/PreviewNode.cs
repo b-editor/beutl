@@ -34,9 +34,23 @@ public partial class PreviewNode : GraphNode
             }
             else if (Input is RenderNode renderNode)
             {
-                using var renderer = new RenderNodeRenderer(renderNode);
-                using RenderNodeRasterization rasterization = renderer.Rasterize();
-                node.ReplacePreview(rasterization.Bitmap?.Clone());
+                // A TargetDomain also widens the output extent, so it serves only as a fallback
+                // owner for graphs whose Full target access cannot resolve without one.
+                try
+                {
+                    using var renderer = new RenderNodeRenderer(renderNode);
+                    using RenderNodeRasterization rasterization = renderer.Rasterize();
+                    node.ReplacePreview(rasterization.Bitmap?.Clone());
+                }
+                catch (InvalidOperationException) when (context.TargetDomain is { } domain)
+                {
+                    using var renderer = new RenderNodeRenderer(renderNode, new RenderNodeRendererOptions
+                    {
+                        TargetDomain = domain,
+                    });
+                    using RenderNodeRasterization rasterization = renderer.Rasterize();
+                    node.ReplacePreview(rasterization.Bitmap?.Clone());
+                }
             }
             else
             {

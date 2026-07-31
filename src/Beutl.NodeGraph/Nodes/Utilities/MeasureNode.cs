@@ -38,8 +38,21 @@ public partial class MeasureNode : GraphNode
                 }
                 else
                 {
-                    using var renderer = new RenderNodeRenderer(renderNode);
-                    rect = renderer.Measure().QueryBounds;
+                    // A TargetDomain also widens the measured extent, so it serves only as a
+                    // fallback owner for graphs whose Full target access cannot resolve without one.
+                    try
+                    {
+                        using var renderer = new RenderNodeRenderer(renderNode);
+                        rect = renderer.Measure().QueryBounds;
+                    }
+                    catch (InvalidOperationException) when (context.TargetDomain is { } domain)
+                    {
+                        using var renderer = new RenderNodeRenderer(renderNode, new RenderNodeRendererOptions
+                        {
+                            TargetDomain = domain,
+                        });
+                        rect = renderer.Measure().QueryBounds;
+                    }
                 }
             }
 

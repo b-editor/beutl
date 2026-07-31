@@ -8,29 +8,40 @@ public sealed class MaterializedInputDescription
         RenderResource<RenderTarget> target,
         Rect bounds,
         EffectiveScale effectiveScale,
+        PixelRect deviceBounds,
+        Vector deviceGridOffset,
         RenderHitTestContract hitTest)
     {
         Target = target;
         Bounds = bounds;
         EffectiveScale = effectiveScale;
+        DeviceBounds = deviceBounds;
+        DeviceGridOffset = deviceGridOffset;
         HitTest = hitTest;
-        DeviceBounds = PixelRect.FromRect(bounds, effectiveScale.Value);
     }
 
     public Rect Bounds { get; }
 
     public EffectiveScale EffectiveScale { get; }
 
+    public PixelRect DeviceBounds { get; }
+
+    public Vector DeviceGridOffset { get; }
+
+    public Rect RasterBounds => DeviceBounds
+        .ToRect(EffectiveScale.Value)
+        .Translate(-DeviceGridOffset);
+
     internal RenderResource<RenderTarget> Target { get; }
 
     internal RenderHitTestContract HitTest { get; }
-
-    internal PixelRect DeviceBounds { get; }
 
     public static MaterializedInputDescription FromRenderTarget(
         RenderResource<RenderTarget> target,
         Rect bounds,
         EffectiveScale effectiveScale,
+        PixelRect deviceBounds,
+        Vector deviceGridOffset,
         RenderHitTestContract hitTest)
     {
         ArgumentNullException.ThrowIfNull(target);
@@ -53,15 +64,32 @@ public sealed class MaterializedInputDescription
                 nameof(hitTest));
         }
 
-        PixelRect deviceBounds = PixelRect.FromRect(bounds, effectiveScale.Value);
         if (deviceBounds.Width <= 0 || deviceBounds.Height <= 0)
         {
             throw new ArgumentException(
                 "A materialized input must resolve to a non-empty device allocation.",
-                nameof(bounds));
+                nameof(deviceBounds));
+        }
+        if (!float.IsFinite(deviceGridOffset.X) || !float.IsFinite(deviceGridOffset.Y))
+            throw new ArgumentException("A materialized input requires a finite device-grid offset.", nameof(deviceGridOffset));
+
+        Rect rasterBounds = deviceBounds
+            .ToRect(effectiveScale.Value)
+            .Translate(-deviceGridOffset);
+        if (!RenderDescriptionValidation.Contains(rasterBounds, bounds))
+        {
+            throw new ArgumentException(
+                "The materialized input's physical footprint must contain its semantic bounds on the declared device grid.",
+                nameof(deviceBounds));
         }
 
-        return new MaterializedInputDescription(target, bounds, effectiveScale, hitTest);
+        return new MaterializedInputDescription(
+            target,
+            bounds,
+            effectiveScale,
+            deviceBounds,
+            deviceGridOffset,
+            hitTest);
     }
 
     internal void ValidateTargetDeviceSize(RenderTarget target)
@@ -70,7 +98,7 @@ public sealed class MaterializedInputDescription
         if (target.Width != DeviceBounds.Width || target.Height != DeviceBounds.Height)
         {
             throw new ArgumentException(
-                "The render target device size must exactly match the materialized input's canonical device bounds.",
+                "The render target device size must exactly match the materialized input's declared device bounds.",
                 nameof(target));
         }
     }

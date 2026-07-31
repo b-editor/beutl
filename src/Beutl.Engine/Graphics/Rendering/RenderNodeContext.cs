@@ -18,6 +18,7 @@ public sealed class RenderNodeContext
     private readonly IReadOnlyList<RenderFragmentHandle> _inputs;
     private readonly RenderIntent _intent;
     private readonly RenderRequestPurpose _purpose;
+    private readonly Rect? _targetDomain;
     private readonly float _outputScale;
     private readonly float _maxWorkingScale;
 
@@ -27,6 +28,7 @@ public sealed class RenderNodeContext
         _inputs = transaction.Inputs;
         _intent = transaction.Request.Options.Intent;
         _purpose = transaction.Request.Options.Purpose;
+        _targetDomain = transaction.Request.Options.TargetDomain;
         _outputScale = transaction.Request.Options.OutputScale;
         _maxWorkingScale = transaction.Request.Options.MaxWorkingScale;
     }
@@ -47,6 +49,12 @@ public sealed class RenderNodeContext
     public RenderRequestPurpose Purpose
     {
         get { VerifyActive(); return _purpose; }
+    }
+
+    /// <summary>Gets the optional finite logical domain available to root target accesses.</summary>
+    public Rect? TargetDomain
+    {
+        get { VerifyActive(); return _targetDomain; }
     }
 
     /// <summary>Gets whether the current transaction remains eligible for persistent render caching.</summary>

@@ -193,6 +193,7 @@ public class RenderNodeCacheTests
             RenderCacheFormatIdentity.LinearPremultipliedRgba16Float,
             RenderIntent.Preview,
             RenderRequestPurpose.Frame,
+            FusionMode.Enabled,
             new RenderCacheDeviceContextIdentity("finalizer-device", "finalizer-context"));
         RenderNodeCache.PublishAtomically(
         [

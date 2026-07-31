@@ -546,7 +546,9 @@ public class NodeGraphFilterEffectRenderNodeTests
     public void Measure_WithoutFilterBinding_PreservesStandaloneGraphBehavior()
     {
         var bounds = new Rect(3, 5, 24, 18);
-        using var renderNode = new CountingOpaqueSourceRenderNode(bounds);
+        var source = new CountingOpaqueSourceRenderNode(bounds);
+        using var renderNode = new LayerRenderNode(default);
+        renderNode.AddChild(source);
         var model = new GraphModel();
         var sourceNode = new FixedRenderNodeGraphNode(renderNode);
         var measureNode = new MeasureNode();
@@ -561,21 +563,27 @@ public class NodeGraphFilterEffectRenderNodeTests
         model.Connect(captureNode.Height, measureNode.Height);
         using var snapshot = new GraphSnapshot();
 
-        snapshot.Build(model, CompositionContext.Default);
-        snapshot.Evaluate(CompositionTarget.Graphics, CompositionContext.Default);
+        var context = new CompositionContext(TimeSpan.Zero)
+        {
+            TargetDomain = new Rect(0, 0, 64, 48),
+        };
+        snapshot.Build(model, context);
+        snapshot.Evaluate(CompositionTarget.Graphics, context);
 
         Assert.Multiple(() =>
         {
             Assert.That(captureNode.Value, Is.EqualTo(bounds));
-            Assert.That(renderNode.ExecutionCount, Is.Zero,
-                "Standalone Measure should record metadata without executing deferred work.");
+            Assert.That(source.ExecutionCount, Is.Zero,
+                "Standalone Measure should resolve a Full target layer without executing deferred work.");
         });
     }
 
     [Test]
-    public void Preview_WithoutFilterBinding_PreservesStandaloneGraphBehavior()
+    public void Preview_WithoutFilterBinding_RendersTheCompositionDomainForFullScopes()
     {
-        using var renderNode = new CountingOpaqueSourceRenderNode(new Rect(0, 0, 14, 9));
+        var source = new CountingOpaqueSourceRenderNode(new Rect(0, 0, 14, 9));
+        using var renderNode = new LayerRenderNode(default);
+        renderNode.AddChild(source);
         var model = new GraphModel();
         var sourceNode = new FixedRenderNodeGraphNode(renderNode);
         var previewNode = new PreviewNode();
@@ -586,15 +594,22 @@ public class NodeGraphFilterEffectRenderNodeTests
         monitor.IsEnabled = true;
         using var snapshot = new GraphSnapshot();
 
-        snapshot.Build(model, CompositionContext.Default);
-        snapshot.Evaluate(CompositionTarget.Graphics, CompositionContext.Default);
+        var context = new CompositionContext(TimeSpan.Zero)
+        {
+            TargetDomain = new Rect(0, 0, 64, 48),
+        };
+        snapshot.Build(model, context);
+        snapshot.Evaluate(CompositionTarget.Graphics, context);
 
         Assert.Multiple(() =>
         {
-            Assert.That(renderNode.ExecutionCount, Is.EqualTo(1));
+            Assert.That(source.ExecutionCount, Is.EqualTo(1));
             Assert.That(monitor.Value, Is.Not.Null);
-            Assert.That(monitor.Value!.Value.Width, Is.EqualTo(14));
-            Assert.That(monitor.Value.Value.Height, Is.EqualTo(9));
+            // A Full isolation scope makes the composition domain the root output extent
+            // (RootOutputExtent covers conservative final writes; only Measure/HitTest
+            // report the tight query bounds).
+            Assert.That(monitor.Value!.Value.Width, Is.EqualTo(64));
+            Assert.That(monitor.Value.Value.Height, Is.EqualTo(48));
         });
 
         monitor.Value?.Dispose();

@@ -277,6 +277,8 @@ public sealed class RenderNodeAuthoringContractTests
                     targetToken,
                     bounds,
                     EffectiveScale.At(2),
+                    PixelRect.FromRect(bounds, 2),
+                    default,
                     RenderHitTestContract.OutputBounds));
             materialized = FragmentSnapshot.From(input);
 

@@ -11,10 +11,10 @@ identified by its SHA-256.
 |---|---|
 | `target-baseline-generator.patch` | `037315804fa9531bdef1b79e2db405e8a3813e4bc137527690f9f2d5cb4e728c` |
 | `generate-target-baseline.sh` | `fb0bf369aff9b017c82edf74e8423e83fd13156d3e1a569267447fa4fdf5df03` |
-| `run-paired-visual-evidence.sh` | `9248461402bc7a8aaceb856e9214759e8c8bee27013be487935bb044460241c0` |
+| `run-paired-visual-evidence.sh` | `9ecba22a3dc90b8c62cddf667899cc387dd04aa22e079dc9ffa20f06821534f3` |
 | `refresh-intentional-visual-baselines.sh` | `5057b76ae3d4c1bc4474e424cc3119c5ce52aa8c203fcc0cac874d38cd8c74d8` |
 | generator source bundle | `d6e5f339d5d7214b0cb879aa5cf2cd717896879b942400928e77b38c9a62a19e` |
-| `run-paired-benchmarks.sh` | `809e4b813074592927e586429ccf5cae426485a32fd09a56eafab5b856ab2123` |
+| `run-paired-benchmarks.sh` | `104bf644269de78bded892ab38377a027743ad09585c60e283978bccde89579a` |
 
 These hashes match the committed scripts and the `evidenceTools` records in both
 frozen manifests. The recorded benchmark run predates the later review-driven

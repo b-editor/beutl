@@ -293,6 +293,38 @@ public sealed class GpuPassFusionScaleRegionTests
         });
     }
 
+    [Test]
+    public void ExpandedExecution_RejectsAnActiveCanvasSaveLayerBeforeCopyingStalePixels()
+    {
+        var declaredBounds = new Rect(10, 20, 12, 8);
+        var requestedRegion = new Rect(12, 22, 4, 3);
+        using var node = new TargetReadbackRoiNode(declaredBounds);
+        using var renderer = new RenderNodeRenderer(
+            node,
+            new RenderNodeRendererOptions
+            {
+                RequestedRegion = requestedRegion,
+                UseRenderCache = false,
+                TargetFactory = new CpuTargetFactory(),
+            });
+        using var target = new CpuRenderTarget(80, 80);
+        using var canvas = new ImmediateCanvas(
+            target,
+            density: 2,
+            logicalSize: new Size(40, 40));
+        using var opacity = canvas.PushOpacity(0.5f);
+
+        InvalidOperationException? failure = Assert.Throws<InvalidOperationException>(
+            () => renderer.Render(canvas));
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(failure!.Message, Does.Contain("SaveLayer scope is active"));
+            Assert.That(node.CallbackCount, Is.Zero,
+                "the request must fail before it copies or executes against a stale root-surface snapshot");
+        });
+    }
+
     [TestCase(CaptureContainer.FiniteLayer)]
     [TestCase(CaptureContainer.TargetLayerScope)]
     public void DeclaredTargetCaptureResamplesWhileBackdropLateBindsToDenserScopeAndCacheIdentity(

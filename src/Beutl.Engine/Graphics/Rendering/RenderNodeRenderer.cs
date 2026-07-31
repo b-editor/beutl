@@ -253,6 +253,12 @@ public sealed class RenderNodeRenderer : IDisposable
             }
             else
             {
+                if (destination.HasActiveSaveLayer)
+                {
+                    throw new InvalidOperationException(
+                        "Expanded render execution cannot copy a destination while an ImmediateCanvas SaveLayer scope is active. Close the layer before rendering the expanded request.");
+                }
+
                 ExecuteWithExpandedTarget(
                     request,
                     destination,

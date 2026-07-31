@@ -30,6 +30,12 @@ public partial class ImmediateCanvas : IDisposable, IPopable
     private readonly SKPaint _sharedFillPaint = new();
     private readonly SKPaint _sharedStrokePaint = new();
     private readonly Stack<CanvasPushedState> _states = new();
+
+    internal bool HasActiveSaveLayer => _states.Any(static state => state is
+        CanvasPushedState.LayerPushedState
+        or CanvasPushedState.MaskPushedState
+        or CanvasPushedState.BlendModePushedState
+        or CanvasPushedState.OpacityPushedState);
     private Matrix _currentTransform;
     // Base CTM = CreateScale(SurfaceDensity); identity when density == 1.
     private readonly Matrix _baseTransform;
@@ -1060,7 +1066,7 @@ public partial class ImmediateCanvas : IDisposable, IPopable
             }
         }
 
-        _states.Push(new CanvasPushedState.SKCanvasPushedState(count));
+        _states.Push(new CanvasPushedState.LayerPushedState(count));
         return new PushedState(this, _states.Count);
     }
 
@@ -1080,7 +1086,7 @@ public partial class ImmediateCanvas : IDisposable, IPopable
             count = Canvas.SaveLayer(paint);
         }
 
-        _states.Push(new CanvasPushedState.SKCanvasPushedState(count));
+        _states.Push(new CanvasPushedState.LayerPushedState(count));
         return new PushedState(this, _states.Count);
     }
 

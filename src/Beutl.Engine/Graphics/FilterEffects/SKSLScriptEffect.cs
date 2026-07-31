@@ -83,11 +83,6 @@ public sealed partial class SKSLScriptEffect : FilterEffect, IScriptCompilableEf
         for (int i = 0; i < c.Targets.Count; i++)
         {
             using var effectTarget = c.Targets[i];
-            var renderTarget = effectTarget.RenderTarget!;
-
-            using var image = renderTarget.Value.Snapshot();
-            using var baseShader = image.ToShader();
-
             EffectTarget output = c.CreateTargetLike(effectTarget);
             try
             {
@@ -117,10 +112,11 @@ public sealed partial class SKSLScriptEffect : FilterEffect, IScriptCompilableEf
 
                 if (effect.Children.Contains("src"))
                 {
-                    using SKShader mappedSource =
-                        c.CreateMappedInputShader(effectTarget, output, baseShader);
-                    builder.Children["src"] = mappedSource;
-                    data.shader.RenderToTarget(c, builder, output);
+                    c.UseMappedInputShader(effectTarget, output, mappedSource =>
+                    {
+                        builder.Children["src"] = mappedSource;
+                        data.shader.RenderToTarget(c, builder, output);
+                    });
                 }
                 else
                 {

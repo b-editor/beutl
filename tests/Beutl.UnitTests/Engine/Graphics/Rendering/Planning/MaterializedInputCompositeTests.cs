@@ -83,18 +83,61 @@ public sealed class MaterializedInputCompositeTests
             "A fractional device mapping must retain the transformed scaled fallback.");
     }
 
+    [Test]
+    public void ExternalInput_PreservesDeclaredDeviceGridPlacementAndApron()
+    {
+        var bounds = new Rect(2.25f, 1.5f, 7, 5);
+        var deviceGridOffset = new Vector(0.5f, 0.25f);
+        PixelRect deviceBounds = PixelRect.FromRect(bounds.Translate(deviceGridOffset), 1);
+        Rect rasterBounds = deviceBounds.ToRect(1).Translate(-deviceGridOffset);
+        using var source = new CpuRenderTarget(deviceBounds.Width, deviceBounds.Height);
+        FillHighFrequencyPattern(source);
+        var destinationSize = new PixelSize(12, 9);
+
+        using Bitmap expected = RenderScaledReference(
+            source,
+            destinationDensity: 1,
+            destinationSize,
+            transform: Matrix.Identity,
+            rasterBounds);
+        using Bitmap actual = RenderExternalInput(
+            source,
+            sourceDensity: 1,
+            destinationDensity: 1,
+            destinationSize,
+            transform: Matrix.Identity,
+            bounds,
+            deviceBounds,
+            deviceGridOffset);
+
+        Assert.That(
+            actual.GetPixelSpan().SequenceEqual(expected.GetPixelSpan()),
+            Is.True,
+            "Materialization must preserve the supplied physical footprint and fractional device-grid phase.");
+    }
+
     private static Bitmap RenderExternalInput(
         RenderTarget source,
         float sourceDensity,
         float destinationDensity,
         PixelSize destinationSize,
-        Matrix transform)
+        Matrix transform,
+        Rect? bounds = null,
+        PixelRect? deviceBounds = null,
+        Vector deviceGridOffset = default)
     {
-        using var node = new MaterializedInputNode(source, s_sourceBounds, sourceDensity);
+        Rect sourceBounds = bounds ?? s_sourceBounds;
+        PixelRect sourceDeviceBounds = deviceBounds ?? PixelRect.FromRect(sourceBounds, sourceDensity);
+        using var node = new MaterializedInputNode(
+            source,
+            sourceBounds,
+            sourceDensity,
+            sourceDeviceBounds,
+            deviceGridOffset);
         var options = new RenderRequestOptions(
             RenderIntent.Preview,
             RenderRequestPurpose.Frame,
-            targetDomain: s_sourceBounds,
+            targetDomain: sourceBounds,
             outputScale: destinationDensity,
             maxWorkingScale: destinationDensity,
             cachePolicy: RenderCacheOptions.Disabled);
@@ -123,7 +166,8 @@ public sealed class MaterializedInputCompositeTests
         RenderTarget source,
         float destinationDensity,
         PixelSize destinationSize,
-        Matrix transform)
+        Matrix transform,
+        Rect? rasterBounds = null)
     {
         using var destination = new CpuRenderTarget(destinationSize.Width, destinationSize.Height);
         using var canvas = new ImmediateCanvas(
@@ -134,7 +178,7 @@ public sealed class MaterializedInputCompositeTests
         canvas.Clear();
         using (canvas.PushTransform(transform))
         {
-            canvas.DrawRenderTargetScaledWithoutFlush(source, s_sourceBounds);
+            canvas.DrawRenderTargetScaledWithoutFlush(source, rasterBounds ?? s_sourceBounds);
         }
 
         return destination.Snapshot();
@@ -162,7 +206,9 @@ public sealed class MaterializedInputCompositeTests
     private sealed class MaterializedInputNode(
         RenderTarget source,
         Rect bounds,
-        float density) : RenderNode
+        float density,
+        PixelRect deviceBounds,
+        Vector deviceGridOffset) : RenderNode
     {
         public override void Process(RenderNodeContext context)
         {
@@ -175,6 +221,8 @@ public sealed class MaterializedInputCompositeTests
                     resource,
                     bounds,
                     EffectiveScale.At(density),
+                    deviceBounds,
+                    deviceGridOffset,
                     RenderHitTestContract.OutputBounds)));
         }
     }

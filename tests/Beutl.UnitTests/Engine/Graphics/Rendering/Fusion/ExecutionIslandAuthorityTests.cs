@@ -3,6 +3,7 @@ using System.Collections.Immutable;
 using Beutl.Graphics;
 using Beutl.Graphics.Effects;
 using Beutl.Graphics.Rendering;
+using Beutl.Media;
 using Beutl.Graphics.Rendering.Cache;
 using Beutl.UnitTests.Engine.Graphics.Backend;
 
@@ -516,6 +517,8 @@ public sealed class ExecutionIslandAuthorityTests
                     resource,
                     s_bounds,
                     EffectiveScale.At(1),
+                    PixelRect.FromRect(s_bounds, 1),
+                    default,
                     RenderHitTestContract.OutputBounds));
             current = context.Shader(current, s_shader);
             current = context.Opacity(current, 0.625f);
@@ -536,6 +539,8 @@ public sealed class ExecutionIslandAuthorityTests
                     resource,
                     s_bounds,
                     EffectiveScale.At(1),
+                    PixelRect.FromRect(s_bounds, 1),
+                    default,
                     RenderHitTestContract.OutputBounds));
             current = context.Opacity(current, 0.625f);
             context.Publish(current);
@@ -555,6 +560,8 @@ public sealed class ExecutionIslandAuthorityTests
                     resource,
                     s_bounds,
                     EffectiveScale.At(1),
+                    PixelRect.FromRect(s_bounds, 1),
+                    default,
                     RenderHitTestContract.OutputBounds));
             current = opaque
                 ? context.OpaqueMap(

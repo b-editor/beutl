@@ -219,6 +219,8 @@ public sealed class ShaderFallbackTests
                     resource,
                     s_bounds,
                     EffectiveScale.At(1),
+                    PixelRect.FromRect(s_bounds, 1),
+                    default,
                     RenderHitTestContract.OutputBounds));
             context.Publish(context.Shader(input, description));
         }
@@ -250,6 +252,8 @@ public sealed class ShaderFallbackTests
                     resource,
                     s_bounds,
                     EffectiveScale.At(1),
+                    PixelRect.FromRect(s_bounds, 1),
+                    default,
                     RenderHitTestContract.OutputBounds));
             foreach (ShaderDescription stage in _stages)
                 current = context.Shader(current, stage);

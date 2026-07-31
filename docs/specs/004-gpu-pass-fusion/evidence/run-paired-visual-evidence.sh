@@ -25,6 +25,17 @@ The command may instead be supplied through BEUTL_GPU_PASS_FEATURE_EXPORT_COMMAN
 EOF
 }
 
+require_clean_worktree() {
+    local path=$1
+    local label=$2
+    local status
+    status=$(git -C "$path" status --porcelain=v1 --untracked-files=all)
+    [[ -z $status ]] || {
+        printf '%s worktree must remain clean: %s\n%s\n' "$label" "$path" "$status" >&2
+        exit 1
+    }
+}
+
 while (( $# > 0 )); do
     case "$1" in
         --feature-worktree)
@@ -74,12 +85,7 @@ done
 
 feature_worktree=$(git -C "$feature_worktree" rev-parse --show-toplevel)
 feature_sha=$(git -C "$feature_worktree" rev-parse HEAD)
-feature_status=$(git -C "$feature_worktree" status --porcelain=v1 --untracked-files=all)
-[[ -z $feature_status ]] || {
-    printf 'Feature worktree must be clean before paired visual capture: %s\n%s\n' \
-        "$feature_worktree" "$feature_status" >&2
-    exit 1
-}
+require_clean_worktree "$feature_worktree" "Feature before paired visual capture"
 result_root=$(python3 -c 'import os,sys; print(os.path.abspath(sys.argv[1]))' "$result_root")
 [[ ! -e $result_root ]] || {
     printf 'Create-only paired result directory already exists: %s\n' "$result_root" >&2
@@ -252,6 +258,8 @@ BEUTL_GPU_PASS_BASELINE_MANIFEST="$target_output/manifest.json" \
 BEUTL_GPU_PASS_EVIDENCE_MODE=feature \
 BEUTL_REQUIRE_GPU=1 \
 bash -c 'cd "$1" && exec bash -c "$2"' bash "$feature_worktree" "$feature_command"
+
+require_clean_worktree "$feature_worktree" "Feature after visual export"
 
 [[ -f $feature_output/manifest.json ]] || {
     printf 'Feature exporter did not create %s/manifest.json\n' "$feature_output" >&2

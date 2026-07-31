@@ -3264,7 +3264,8 @@ internal sealed class RenderRequestExecutor
                         target,
                         description.Bounds,
                         description.EffectiveScale,
-                        description.DeviceBounds);
+                        description.DeviceBounds,
+                        description.DeviceGridOffset);
                 });
             _ownedValues.Add(value);
             return [value];

@@ -976,6 +976,32 @@ public sealed class RenderCacheResolutionTests
     }
 
     [Test]
+    public void FusionMode_IsPartOfRenderOutputCacheIdentity()
+    {
+        var lookup = new RecordingLookup();
+        RenderOutputCacheIdentity enabledIdentity;
+        using (Scenario enabled = SingleCandidate(fusionMode: FusionMode.Enabled))
+        {
+            RenderCacheResolution cold = Resolve(enabled, lookup);
+            RenderCacheMissCapture capture = cold.MissCaptures.Single();
+            enabledIdentity = capture.Identity;
+            lookup.Add(capture);
+        }
+
+        using Scenario disabled = SingleCandidate(fusionMode: FusionMode.Disabled);
+        RenderCacheResolution resolution = Resolve(disabled, lookup);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(resolution.Hits, Is.Empty);
+            Assert.That(resolution.MissCaptures, Has.Length.EqualTo(1));
+            Assert.That(resolution.MissCaptures.Single().Identity, Is.Not.EqualTo(enabledIdentity));
+            Assert.That(enabledIdentity.FusionMode, Is.EqualTo(FusionMode.Enabled));
+            Assert.That(resolution.MissCaptures.Single().Identity.FusionMode, Is.EqualTo(FusionMode.Disabled));
+        });
+    }
+
+    [Test]
     public void ShaderIdentity_DifferentStructureWithSameRuntimeIdentityDoesNotHit()
     {
         ShaderDescription firstDescription = ShaderDescription.CurrentPixel(
@@ -1256,7 +1282,8 @@ public sealed class RenderCacheResolutionTests
         float outputScale = 1,
         RenderRequestPurpose purpose = RenderRequestPurpose.Frame,
         Rect? bounds = null,
-        object? candidateKey = null)
+        object? candidateKey = null,
+        FusionMode fusionMode = FusionMode.Enabled)
     {
         RenderFragmentReference source = Pure(bounds: bounds);
         return Build(
@@ -1265,7 +1292,8 @@ public sealed class RenderCacheResolutionTests
             [(source, candidateKey ?? "source")],
             requestedRegion,
             outputScale,
-            purpose);
+            purpose,
+            fusionMode: fusionMode);
     }
 
     private static void AssertMiss(
@@ -1309,7 +1337,8 @@ public sealed class RenderCacheResolutionTests
         IReadOnlyDictionary<string, RenderFragmentReference>? names = null,
         bool stopAtMetadata = false,
         float maxWorkingScale = float.PositiveInfinity,
-        RenderCacheRules? cacheRules = null)
+        RenderCacheRules? cacheRules = null,
+        FusionMode fusionMode = FusionMode.Enabled)
     {
         var options = new RenderRequestOptions(
             RenderIntent.Preview,
@@ -1320,7 +1349,8 @@ public sealed class RenderCacheResolutionTests
             maxWorkingScale: maxWorkingScale,
             cachePolicy: new RenderCacheOptions(
                 IsEnabled: true,
-                cacheRules ?? RenderCacheRules.Default));
+                cacheRules ?? RenderCacheRules.Default),
+            fusionMode: fusionMode);
         var request = new RenderRequest(options);
         var builder = new RecordedRenderGraphBuilder(request.Id);
         var provenance = new Dictionary<RenderFragmentReference, RenderProvenanceId>(

@@ -384,15 +384,56 @@ internal static class FeatureVisualEvidenceExporter
             SetInternalFusionMode(options, fusionMode);
         RenderPipelineInternalDiagnostics.Attach(options, diagnostics, RenderRequestPurpose.Frame);
         using var renderer = new RenderNodeRenderer(root, options);
+        byte[]? initializedPixels = null;
+        PixelRect? requestedDeviceRegion = null;
+        if (requestedRegion is { } region)
+        {
+            requestedDeviceRegion = ResolveRequestedPixelRegion(
+                width,
+                height,
+                outputScale,
+                region);
+            SKCanvas nativeCanvas = target.Value.Canvas;
+            nativeCanvas.Clear(new SKColor(23, 47, 89, 255));
+            using (var clearPaint = new SKPaint
+                   {
+                       BlendMode = SKBlendMode.Src,
+                       Color = SKColors.Transparent,
+                   })
+            {
+                PixelRect initializedRegion = requestedDeviceRegion.Value;
+                nativeCanvas.DrawRect(
+                    initializedRegion.X,
+                    initializedRegion.Y,
+                    initializedRegion.Width,
+                    initializedRegion.Height,
+                    clearPaint);
+            }
+            target.Value.Flush();
+            using Bitmap initialized = target.Snapshot();
+            initializedPixels = Rgba16fEvidenceWriter.Encode(initialized);
+        }
         using (var canvas = new ImmediateCanvas(target, outputScale, maxWorkingScale, s_frame.ToSize(1)))
         {
-            canvas.Clear();
+            if (requestedRegion is null)
+                canvas.Clear();
             renderer.Render(canvas);
         }
 
         Bitmap? selected;
         using (Bitmap full = target.Snapshot())
+        {
+            if (initializedPixels is not null)
+            {
+                AssertOutsideRequestedRegionUnchanged(
+                    initializedPixels,
+                    Rgba16fEvidenceWriter.Encode(full),
+                    width,
+                    height,
+                    requestedDeviceRegion!.Value);
+            }
             selected = SelectRequestedRegion(full, outputScale, requestedRegion);
+        }
         if (selected is null)
             throw new InvalidOperationException("A visual scene unexpectedly produced an empty requested region.");
         using (selected)
@@ -469,7 +510,16 @@ internal static class FeatureVisualEvidenceExporter
         }
 
         using Bitmap bitmap = target.Snapshot();
-        return CaptureBitmap(bitmap, renderer, diagnostics);
+        FeatureVisualCapture capture = CaptureBitmap(bitmap, renderer, diagnostics);
+        if (warm
+            && (!capture.RequestCounters.TryGetValue(nameof(RenderPipelineCounter.RenderCacheHits), out long hits)
+                || hits != 1))
+        {
+            throw new InvalidOperationException(
+                $"The warm-cache evidence scene must record exactly one render-cache hit; observed {hits}.");
+        }
+
+        return capture;
     }
 
     private static FeatureVisualCapture CaptureBitmap(
@@ -905,6 +955,9 @@ internal static class FeatureVisualEvidenceExporter
         RequestedRegion region = ParseRequestedRegion(scene["requestedRegion"])
             ?? throw new InvalidDataException("The empty-region scene has no requested region.");
         using FeatureSceneFixture fixture = BuildPrimaryChain(165, 0.62f, 72);
+        var executionProbe = new FeatureExecutionProbeNode();
+        executionProbe.AddChild(fixture.Root);
+        fixture.Root = executionProbe;
         object diagnostics = RenderPipelineInternalDiagnostics.CreateState();
         var options = new RenderNodeRendererOptions
         {
@@ -924,6 +977,36 @@ internal static class FeatureVisualEvidenceExporter
             RenderPipelineInternalDiagnostics.CaptureLatestCounters(diagnostics, out bool succeeded);
         if (!succeeded)
             throw new InvalidOperationException("The empty requested-region request failed.");
+        string[] zeroExecutionCounters =
+        [
+            nameof(RenderPipelineCounter.ExecutedOutcomes),
+            nameof(RenderPipelineCounter.ExecutedGpuPasses),
+            nameof(RenderPipelineCounter.IntermediateAcquires),
+            nameof(RenderPipelineCounter.IntermediateCreates),
+            nameof(RenderPipelineCounter.OpaqueExternalExecutions),
+        ];
+        foreach (string counter in zeroExecutionCounters)
+        {
+            // An absent counter means the recorder never observed the event, which is
+            // the same zero-execution evidence as an explicit zero.
+            if (counters.TryGetValue(counter, out long value) && value != 0)
+            {
+                throw new InvalidOperationException(
+                    $"Empty-region pruning requires {counter}=0; observed "
+                    + value.ToString(CultureInfo.InvariantCulture) + ".");
+            }
+        }
+        if (executionProbe.CallbackEntries != 0)
+        {
+            throw new InvalidOperationException(
+                $"Empty-region pruning invoked {executionProbe.CallbackEntries} deferred callbacks.");
+        }
+        if (renderer.TargetPoolStatistics.Creates != 0
+            || renderer.TargetPoolStatistics.LeasedTargets != 0)
+        {
+            throw new InvalidOperationException(
+                "Empty-region pruning allocated or retained an intermediate render target.");
+        }
         return new FeatureMetadataCapture(counters, null);
     }
 
@@ -934,22 +1017,65 @@ internal static class FeatureVisualEvidenceExporter
     {
         if (requestedRegion is null)
             return full.Clone();
-        RequestedRegion value = requestedRegion.Value;
+        PixelRect selected = ResolveRequestedPixelRegion(
+            full.Width,
+            full.Height,
+            outputScale,
+            requestedRegion.Value);
+        if (selected.Width <= 0 || selected.Height <= 0)
+            return null;
+        return full.ExtractSubset(selected);
+    }
+
+    private static PixelRect ResolveRequestedPixelRegion(
+        int width,
+        int height,
+        float outputScale,
+        RequestedRegion value)
+    {
         int x = (int)MathF.Floor(value.X * outputScale);
         int y = (int)MathF.Floor(value.Y * outputScale);
         int right = (int)MathF.Ceiling((value.X + value.Width) * outputScale);
         int bottom = (int)MathF.Ceiling((value.Y + value.Height) * outputScale);
-        int clippedX = Math.Clamp(x, 0, full.Width);
-        int clippedY = Math.Clamp(y, 0, full.Height);
-        int clippedRight = Math.Clamp(right, 0, full.Width);
-        int clippedBottom = Math.Clamp(bottom, 0, full.Height);
-        if (clippedRight <= clippedX || clippedBottom <= clippedY)
-            return null;
-        return full.ExtractSubset(new PixelRect(
+        int clippedX = Math.Clamp(x, 0, width);
+        int clippedY = Math.Clamp(y, 0, height);
+        int clippedRight = Math.Clamp(right, 0, width);
+        int clippedBottom = Math.Clamp(bottom, 0, height);
+        return new PixelRect(
             clippedX,
             clippedY,
             clippedRight - clippedX,
-            clippedBottom - clippedY));
+            clippedBottom - clippedY);
+    }
+
+    private static void AssertOutsideRequestedRegionUnchanged(
+        ReadOnlySpan<byte> initialized,
+        ReadOnlySpan<byte> completed,
+        int width,
+        int height,
+        PixelRect requestedRegion)
+    {
+        if (initialized.Length != completed.Length || initialized.Length != checked(width * height * 8))
+            throw new InvalidOperationException("Requested-region sentinel buffers have inconsistent dimensions.");
+
+        for (int y = 0; y < height; y++)
+        {
+            for (int x = 0; x < width; x++)
+            {
+                if (x >= requestedRegion.X && x < requestedRegion.Right
+                    && y >= requestedRegion.Y && y < requestedRegion.Bottom)
+                {
+                    continue;
+                }
+
+                int offset = checked((y * width + x) * 8);
+                if (!initialized.Slice(offset, 8).SequenceEqual(completed.Slice(offset, 8)))
+                {
+                    throw new InvalidOperationException(
+                        $"Requested-region rendering modified sentinel pixel ({x}, {y}) outside {requestedRegion}.");
+                }
+            }
+        }
     }
 
     private static JsonObject CaptureSameProcessFusionParity(JsonArray baselineScenes)
@@ -1368,6 +1494,30 @@ internal sealed class FeatureEvidenceShaderNode(ShaderDescription description) :
     }
 }
 
+internal sealed class FeatureExecutionProbeNode : ContainerRenderNode
+{
+    public int CallbackEntries { get; private set; }
+
+    public override void Process(RenderNodeContext context)
+    {
+        OpaqueRenderDescription description = OpaqueRenderDescription.Create(
+            session =>
+            {
+                CallbackEntries++;
+                using OpaqueRenderOutput output = session.CreateOutput(session.OutputBounds);
+                output.Canvas.Use(session.Inputs.Single().Draw);
+                session.Publish(output);
+            },
+            OpaqueRenderBoundsContract.Map(RenderBoundsContract.Identity),
+            RenderHitTestContract.AnyInput,
+            RenderValueCardinality.Single,
+            RenderScaleContract.PreserveInputSupply,
+            structuralKey: typeof(FeatureExecutionProbeNode));
+        foreach (RenderFragmentHandle input in context.Inputs)
+            context.Publish(context.OpaqueMap(input, description));
+    }
+}
+
 internal static class FeatureEvidenceShaders
 {
     public static ShaderDescription ColorTimesAlpha { get; } = ShaderDescription.CurrentPixel(
@@ -1431,6 +1581,8 @@ internal sealed class FeatureMaterializedSourceNode(
             resource,
             bounds,
             EffectiveScale.At(1),
+            PixelRect.FromRect(bounds, 1),
+            default,
             RenderHitTestContract.OutputBounds)));
     }
 
@@ -1591,6 +1743,8 @@ internal sealed class FeatureColoredRectNode : RenderNode
             resource,
             new Rect(0, 0, 192, 108),
             EffectiveScale.At(1),
+            new PixelRect(0, 0, 192, 108),
+            default,
             RenderHitTestContract.OutputBounds)));
     }
 

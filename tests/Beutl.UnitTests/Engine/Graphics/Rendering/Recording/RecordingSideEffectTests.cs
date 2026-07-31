@@ -6,12 +6,15 @@ using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
 using Microsoft.CodeAnalysis.Text;
+using SkiaSharp;
 
 namespace Beutl.UnitTests.Engine.Graphics.Rendering.Recording;
 
 [TestFixture]
 public sealed class RecordingSideEffectTests
 {
+    private static readonly MetadataReference[] s_semanticReferences = CreateSemanticReferences();
+
     private static readonly string[] s_forbiddenEagerInvocations =
     [
         "Acquire",
@@ -119,16 +122,22 @@ public sealed class RecordingSideEffectTests
                 continue;
 
             SourceText text = SourceText.From(File.ReadAllText(path));
-            CompilationUnitSyntax root = CSharpSyntaxTree.ParseText(
-                    text,
-                    CSharpParseOptions.Default.WithDocumentationMode(DocumentationMode.Parse),
-                    relativePath)
-                .GetCompilationUnitRoot();
+            SyntaxTree tree = CSharpSyntaxTree.ParseText(
+                text,
+                CSharpParseOptions.Default.WithDocumentationMode(DocumentationMode.Parse),
+                relativePath);
+            CompilationUnitSyntax root = tree.GetCompilationUnitRoot();
+            SemanticModel semanticModel = CSharpCompilation.Create(
+                    $"RecordingSideEffectProbe_{Path.GetFileNameWithoutExtension(path)}",
+                    [tree],
+                    s_semanticReferences,
+                    new CSharpCompilationOptions(OutputKind.DynamicallyLinkedLibrary))
+                .GetSemanticModel(tree, ignoreAccessibility: true);
             foreach (MethodDeclarationSyntax method in root.DescendantNodes()
                          .OfType<MethodDeclarationSyntax>()
                          .Where(IsRenderNodeProcessOverride))
             {
-                yield return new SourceMethod(relativePath, text, method);
+                yield return new SourceMethod(relativePath, text, method, semanticModel);
             }
         }
     }
@@ -154,7 +163,7 @@ public sealed class RecordingSideEffectTests
                     $"eager invocation '{name}'");
             }
 
-            if (name == "Snapshot" && IsNativeSnapshotReceiver(invocation.Expression))
+            if (name == "Snapshot" && IsNativeSnapshotInvocation(invocation, source.SemanticModel))
             {
                 yield return source.ToFinding(invocation, "eager surface/target snapshot");
             }
@@ -215,15 +224,46 @@ public sealed class RecordingSideEffectTests
         };
     }
 
-    private static bool IsNativeSnapshotReceiver(ExpressionSyntax expression)
+    private static bool IsNativeSnapshotInvocation(
+        InvocationExpressionSyntax invocation,
+        SemanticModel semanticModel)
     {
-        if (expression is not MemberAccessExpressionSyntax member)
-            return false;
+        IMethodSymbol? method = semanticModel.GetSymbolInfo(invocation).Symbol as IMethodSymbol;
+        ITypeSymbol? type = method?.ContainingType;
+        if (type is null && invocation.Expression is MemberAccessExpressionSyntax member)
+            type = semanticModel.GetTypeInfo(member.Expression).Type;
 
-        string receiver = member.Expression.ToString();
-        return receiver.Contains("canvas", StringComparison.OrdinalIgnoreCase)
-               || receiver.Contains("surface", StringComparison.OrdinalIgnoreCase)
-               || receiver.Contains("target", StringComparison.OrdinalIgnoreCase);
+        for (INamedTypeSymbol? current = type as INamedTypeSymbol;
+             current is not null;
+             current = current.BaseType)
+        {
+            string name = current.ToDisplayString();
+            if (name is "Beutl.Graphics.Rendering.RenderTarget"
+                or "Beutl.Graphics.Rendering.Renderer"
+                or "SkiaSharp.SKSurface")
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private static MetadataReference[] CreateSemanticReferences()
+    {
+        var paths = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        if (AppContext.GetData("TRUSTED_PLATFORM_ASSEMBLIES") is string trustedPlatformAssemblies)
+        {
+            foreach (string path in trustedPlatformAssemblies.Split(Path.PathSeparator))
+                paths.Add(path);
+        }
+
+        paths.Add(typeof(RenderNode).Assembly.Location);
+        paths.Add(typeof(SKSurface).Assembly.Location);
+        return paths
+            .Where(static path => !string.IsNullOrEmpty(path) && File.Exists(path))
+            .Select(static path => MetadataReference.CreateFromFile(path))
+            .ToArray();
     }
 
     private static bool IsTargetFactoryInvocation(ExpressionSyntax expression)
@@ -286,7 +326,8 @@ public sealed class RecordingSideEffectTests
     private sealed record SourceMethod(
         string RelativePath,
         SourceText Text,
-        MethodDeclarationSyntax Method)
+        MethodDeclarationSyntax Method,
+        SemanticModel SemanticModel)
     {
         public SourceFinding ToFinding(SyntaxNode node, string detail)
         {

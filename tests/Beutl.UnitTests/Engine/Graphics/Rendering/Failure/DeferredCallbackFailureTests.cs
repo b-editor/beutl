@@ -206,9 +206,23 @@ public sealed class DeferredCallbackFailureTests
 
         Exception? failure = Assert.Catch(() => renderer.Rasterize());
 
+        Type expectedType = failurePoint == DynamicOutputFailure.OutOfDeclaredBounds
+            ? typeof(ArgumentException)
+            : typeof(InvalidOperationException);
+        string expectedMessage = failurePoint switch
+        {
+            DynamicOutputFailure.MissingRequiredOutput => "published 0 values outside its declared cardinality [1, 1]",
+            DynamicOutputFailure.ExceedsMaximum => "published 2 values outside its declared cardinality [0, 1]",
+            DynamicOutputFailure.OutOfDeclaredBounds => "contained by the declared output bounds",
+            _ => throw new ArgumentOutOfRangeException(nameof(failurePoint), failurePoint, null),
+        };
+
         Assert.Multiple(() =>
         {
-            Assert.That(failure, Is.Not.Null);
+            Assert.That(failure!.GetType(), Is.EqualTo(expectedType));
+            Assert.That(failure!.Message, Does.Contain(expectedMessage));
+            Assert.That(node.CallbackEntries, Is.EqualTo(1));
+            Assert.That(node.ReachedFailurePoint, Is.EqualTo(failurePoint));
             Assert.That(renderer.TargetPoolStatistics.LeasedTargets, Is.Zero);
             Assert.That(node.Cache.IsCached, Is.False);
         });
@@ -576,11 +590,17 @@ public sealed class DeferredCallbackFailureTests
 
     private sealed class DynamicOutputFailureNode(DynamicOutputFailure failurePoint) : RenderNode
     {
+        public int CallbackEntries { get; private set; }
+
+        public DynamicOutputFailure? ReachedFailurePoint { get; private set; }
+
         public override void Process(RenderNodeContext context)
         {
             OpaqueRenderDescription description = OpaqueRenderDescription.Create(
                 session =>
                 {
+                    CallbackEntries++;
+                    ReachedFailurePoint = failurePoint;
                     switch (failurePoint)
                     {
                         case DynamicOutputFailure.MissingRequiredOutput:

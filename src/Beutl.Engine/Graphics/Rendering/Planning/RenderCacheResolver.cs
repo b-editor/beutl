@@ -83,6 +83,7 @@ internal sealed class RenderOutputCacheIdentity : IEquatable<RenderOutputCacheId
     private readonly RenderCacheFormatIdentity _format;
     private readonly RenderIntent _intent;
     private readonly RenderRequestPurpose _purpose;
+    private readonly FusionMode _fusionMode;
     private readonly RenderCacheDeviceContextIdentity _deviceContext;
     private readonly Vector _deviceGridOffset;
 
@@ -95,6 +96,7 @@ internal sealed class RenderOutputCacheIdentity : IEquatable<RenderOutputCacheId
         RenderCacheFormatIdentity format,
         RenderIntent intent,
         RenderRequestPurpose purpose,
+        FusionMode fusionMode,
         RenderCacheDeviceContextIdentity deviceContext,
         Vector deviceGridOffset = default)
     {
@@ -110,6 +112,8 @@ internal sealed class RenderOutputCacheIdentity : IEquatable<RenderOutputCacheId
             throw new ArgumentOutOfRangeException(nameof(intent));
         if (!Enum.IsDefined(purpose))
             throw new ArgumentOutOfRangeException(nameof(purpose));
+        if (!Enum.IsDefined(fusionMode))
+            throw new ArgumentOutOfRangeException(nameof(fusionMode));
 
         _candidateKey = candidateKey;
         _fragment = fragment;
@@ -119,6 +123,7 @@ internal sealed class RenderOutputCacheIdentity : IEquatable<RenderOutputCacheId
         _format = format;
         _intent = intent;
         _purpose = purpose;
+        _fusionMode = fusionMode;
         _deviceContext = deviceContext;
         _deviceGridOffset = deviceGridOffset;
     }
@@ -137,6 +142,8 @@ internal sealed class RenderOutputCacheIdentity : IEquatable<RenderOutputCacheId
 
     public RenderRequestPurpose Purpose => _purpose;
 
+    public FusionMode FusionMode => _fusionMode;
+
     public RenderCacheDeviceContextIdentity DeviceContext => _deviceContext;
 
     public Vector DeviceGridOffset => _deviceGridOffset;
@@ -151,6 +158,7 @@ internal sealed class RenderOutputCacheIdentity : IEquatable<RenderOutputCacheId
            && _format.Equals(other._format)
            && _intent == other._intent
            && _purpose == other._purpose
+           && _fusionMode == other._fusionMode
            && _deviceContext.Equals(other._deviceContext)
            && _deviceGridOffset.Equals(other._deviceGridOffset);
 
@@ -165,7 +173,7 @@ internal sealed class RenderOutputCacheIdentity : IEquatable<RenderOutputCacheId
             _coverage,
             _densityBits,
             _format,
-            HashCode.Combine(_intent, _purpose, _deviceContext, _deviceGridOffset));
+            HashCode.Combine(_intent, _purpose, _fusionMode, _deviceContext, _deviceGridOffset));
 }
 
 /// <summary>
@@ -981,6 +989,7 @@ internal sealed class RenderCacheResolver
             context.Format,
             request.Options.Intent,
             request.Options.Purpose,
+            request.Options.FusionMode,
             context.DeviceContext,
             evaluation.DeviceGridOffset);
 
@@ -1677,6 +1686,8 @@ internal sealed class RenderFragmentOutputIdentity : IEquatable<RenderFragmentOu
                 return;
             case MaterializedInputRenderFragmentPayload input:
                 components.Add(input.Description.Target.CacheIdentity);
+                components.Add(input.Description.DeviceBounds);
+                components.Add(input.Description.DeviceGridOffset);
                 return;
             case TargetCaptureRenderFragmentPayload capture:
                 components.Add(capture.Description.SourceRegion);

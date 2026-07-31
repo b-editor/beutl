@@ -201,6 +201,7 @@ public sealed class ExecutionIslandPlannerCacheBoundaryTests
             RenderCacheFormatIdentity.LinearPremultipliedRgba16Float,
             RenderIntent.Preview,
             RenderRequestPurpose.Frame,
+            FusionMode.Enabled,
             new RenderCacheDeviceContextIdentity("planner-test-device", "planner-test-context"));
 
         RenderCacheDecision decision = kind switch

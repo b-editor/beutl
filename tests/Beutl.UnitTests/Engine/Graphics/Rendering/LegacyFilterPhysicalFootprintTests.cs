@@ -1171,6 +1171,8 @@ public sealed class LegacyFilterPhysicalFootprintTests
         {
             float expectedValue = (float)BitConverter.UInt16BitsToHalf(expected[index]);
             float actualValue = (float)BitConverter.UInt16BitsToHalf(actual[index]);
+            if (!float.IsFinite(expectedValue) || !float.IsFinite(actualValue))
+                return false;
             if (MathF.Abs(expectedValue - actualValue) > tolerance)
                 return false;
         }
@@ -1203,6 +1205,19 @@ public sealed class LegacyFilterPhysicalFootprintTests
                         (float)BitConverter.UInt16BitsToHalf(expected.Pixels[expectedBase + channel]);
                     float actualValue =
                         (float)BitConverter.UInt16BitsToHalf(actual.Pixels[actualBase + channel]);
+                    if (!float.IsFinite(expectedValue) || !float.IsFinite(actualValue))
+                    {
+                        if (firstChannel < 0)
+                        {
+                            firstPixel = new PixelPoint(x, y);
+                            firstChannel = channel;
+                        }
+
+                        differingValues++;
+                        maxDelta = float.PositiveInfinity;
+                        continue;
+                    }
+
                     float delta = MathF.Abs(expectedValue - actualValue);
                     if (delta <= tolerance)
                         continue;

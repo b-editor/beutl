@@ -1799,6 +1799,8 @@ public class SourceEffectiveScaleFlowTests
                 target,
                 bounds,
                 scale,
+                PixelRect.FromRect(bounds, scale.Value),
+                default,
                 RenderHitTestContract.OutputBounds)));
         }
     }

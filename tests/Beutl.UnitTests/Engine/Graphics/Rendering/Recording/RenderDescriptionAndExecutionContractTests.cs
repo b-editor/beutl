@@ -252,33 +252,61 @@ public sealed class RenderDescriptionAndExecutionContractTests
     public void MaterializedInput_RequiresConcreteMatchingBackingAndSourceHitTest()
     {
         using var registry = new RenderRequestResourceRegistry();
-        using RenderTarget target = RenderTarget.CreateNull(20, 40);
-        using RenderTarget wrongSize = RenderTarget.CreateNull(22, 40);
+        var bounds = new Rect(10.25f, 20.25f, 10, 20);
+        var deviceGridOffset = new Vector(0.25f, 0.5f);
+        PixelRect deviceBounds = PixelRect.FromRect(bounds.Translate(deviceGridOffset), 2);
+        using RenderTarget target = RenderTarget.CreateNull(deviceBounds.Width, deviceBounds.Height);
+        using RenderTarget wrongSize = RenderTarget.CreateNull(deviceBounds.Width + 1, deviceBounds.Height);
         RenderResource<RenderTarget> token = registry.RegisterBorrowed(target, "target", 1);
-        var bounds = new Rect(10, 20, 10, 20);
 
         MaterializedInputDescription description = MaterializedInputDescription.FromRenderTarget(
             token,
             bounds,
             EffectiveScale.At(2),
+            deviceBounds,
+            deviceGridOffset,
             RenderHitTestContract.OutputBounds);
 
         Assert.Multiple(() =>
         {
             Assert.That(description.Bounds, Is.EqualTo(bounds));
             Assert.That(description.EffectiveScale, Is.EqualTo(EffectiveScale.At(2)));
+            Assert.That(description.DeviceBounds, Is.EqualTo(deviceBounds));
+            Assert.That(description.DeviceGridOffset, Is.EqualTo(deviceGridOffset));
+            Assert.That(
+                description.RasterBounds,
+                Is.EqualTo(deviceBounds.ToRect(2).Translate(-deviceGridOffset)));
             Assert.That(description.Target, Is.SameAs(token));
             Assert.That(description.HitTest, Is.EqualTo(RenderHitTestContract.OutputBounds));
             Assert.That(
                 () => MaterializedInputDescription.FromRenderTarget(
-                    token, bounds, EffectiveScale.Unbounded, RenderHitTestContract.None),
+                    token,
+                    bounds,
+                    EffectiveScale.Unbounded,
+                    deviceBounds,
+                    deviceGridOffset,
+                    RenderHitTestContract.None),
                 Throws.TypeOf<ArgumentException>());
             Assert.That(
                 () => description.ValidateTargetDeviceSize(wrongSize),
                 Throws.TypeOf<ArgumentException>());
             Assert.That(
                 () => MaterializedInputDescription.FromRenderTarget(
-                    token, bounds, EffectiveScale.At(2), RenderHitTestContract.AnyInput),
+                    token,
+                    bounds,
+                    EffectiveScale.At(2),
+                    deviceBounds,
+                    deviceGridOffset,
+                    RenderHitTestContract.AnyInput),
+                Throws.TypeOf<ArgumentException>());
+            Assert.That(
+                () => MaterializedInputDescription.FromRenderTarget(
+                    token,
+                    bounds,
+                    EffectiveScale.At(2),
+                    new PixelRect(0, 0, deviceBounds.Width, deviceBounds.Height),
+                    deviceGridOffset,
+                    RenderHitTestContract.None),
                 Throws.TypeOf<ArgumentException>());
         });
     }

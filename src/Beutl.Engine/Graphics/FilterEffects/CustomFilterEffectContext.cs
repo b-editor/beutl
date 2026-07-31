@@ -256,6 +256,41 @@ public class CustomFilterEffectContext
                 source.RasterBounds));
     }
 
+    /// <summary>
+    /// Supplies a borrowed GPU-backed snapshot shader for a materialized source, mapped into the
+    /// destination's backing-buffer coordinates.
+    /// </summary>
+    /// <remarks>
+    /// The shader and its backing image are valid only during <paramref name="use"/>. The callback must
+    /// complete every draw that references the shader and must not retain or dispose it.
+    /// </remarks>
+    public void UseMappedInputShader(
+        EffectTarget source,
+        EffectTarget destination,
+        Action<SKShader> use,
+        SKShaderTileMode x = SKShaderTileMode.Decal,
+        SKShaderTileMode y = SKShaderTileMode.Decal)
+    {
+        ArgumentNullException.ThrowIfNull(source);
+        ArgumentNullException.ThrowIfNull(destination);
+        ArgumentNullException.ThrowIfNull(use);
+        if (!Enum.IsDefined(x))
+            throw new ArgumentOutOfRangeException(nameof(x), x, "The shader tile mode is invalid.");
+        if (!Enum.IsDefined(y))
+            throw new ArgumentOutOfRangeException(nameof(y), y, "The shader tile mode is invalid.");
+        if (source.RenderTarget is null || source.Scale.IsUnbounded)
+            throw new ArgumentException("The source must have a materialized target and concrete scale.", nameof(source));
+        if (source.RenderTarget.Value is null)
+            throw new ArgumentException("The source target has no backing surface to sample.", nameof(source));
+
+        source.RenderTarget.PrepareForSampling();
+        using SKImage image = source.RenderTarget.Value.Snapshot()
+            ?? throw new InvalidOperationException("The source surface could not be snapshotted for sampling.");
+        using SKShader sourceShader = image.ToShader(x, y);
+        using SKShader mappedShader = CreateMappedInputShader(source, destination, sourceShader);
+        use(mappedShader);
+    }
+
     private static EffectTarget AllocateTarget(
         Rect bounds,
         float density,

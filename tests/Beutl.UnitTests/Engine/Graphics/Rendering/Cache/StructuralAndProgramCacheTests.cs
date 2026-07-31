@@ -568,6 +568,8 @@ public sealed class StructuralAndProgramCacheTests
                     target,
                     new Rect(0, 0, 8, 8),
                     EffectiveScale.At(1),
+                    new PixelRect(0, 0, 8, 8),
+                    default,
                     RenderHitTestContract.OutputBounds));
             ShaderDescription shader = ShaderDescription.CurrentPixel(
                 FirstSource,

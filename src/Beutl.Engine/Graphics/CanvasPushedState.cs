@@ -15,6 +15,8 @@ public partial class ImmediateCanvas
             }
         }
 
+        internal sealed record LayerPushedState(int Count) : SKCanvasPushedState(Count);
+
         // No-op pop for PushDeviceSpace when the canvas is already in device space.
         internal sealed record NoOpPushedState : CanvasPushedState
         {

@@ -248,6 +248,8 @@ public sealed class RenderNodeRendererSnapshotFastPathTests
                     target,
                     bounds,
                     EffectiveScale.At(1),
+                    PixelRect.FromRect(bounds, 1),
+                    default,
                     RenderHitTestContract.OutputBounds)));
 
             if (!requireFullReadback)

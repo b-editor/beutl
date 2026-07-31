@@ -236,6 +236,8 @@ public sealed class RenderNodeRendererLifetimeTests
                     target,
                     bounds,
                     EffectiveScale.At(1),
+                    PixelRect.FromRect(bounds, 1),
+                    default,
                     RenderHitTestContract.OutputBounds));
             ShaderDescription shader = ShaderDescription.CurrentPixel(
                 "uniform float gain; half4 apply(half4 color) { return color * gain; }",

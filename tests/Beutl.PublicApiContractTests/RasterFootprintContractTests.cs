@@ -81,6 +81,17 @@ public sealed class RasterFootprintContractTests
                     [typeof(EffectTarget), typeof(EffectTarget), typeof(SKShader)]),
                 Is.Not.Null);
             Assert.That(
+                contextType.GetMethod(
+                    nameof(CustomFilterEffectContext.UseMappedInputShader),
+                    [
+                        typeof(EffectTarget),
+                        typeof(EffectTarget),
+                        typeof(Action<SKShader>),
+                        typeof(SKShaderTileMode),
+                        typeof(SKShaderTileMode),
+                    ]),
+                Is.Not.Null);
+            Assert.That(
                 shaderType.GetMethod(
                     nameof(SKSLShader.RenderToTarget),
                     [typeof(CustomFilterEffectContext), typeof(SKRuntimeShaderBuilder), typeof(EffectTarget)]),

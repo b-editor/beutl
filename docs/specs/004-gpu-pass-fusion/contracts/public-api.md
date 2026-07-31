@@ -228,6 +228,7 @@ public sealed class RenderNodeContext
     public IReadOnlyList<RenderFragmentHandle> Inputs { get; }
     public RenderIntent Intent { get; }
     public RenderRequestPurpose Purpose { get; }
+    public Rect? TargetDomain { get; }
     public float OutputScale { get; }
     public float MaxWorkingScale { get; }
     public bool IsRenderCacheEnabled { get; }
@@ -327,6 +328,17 @@ public static class RenderScaleUtilities
         int maxDimension = MaxBufferDimension);
 }
 ```
+
+```csharp
+namespace Beutl.Composition;
+
+public class CompositionContext
+{
+    public Rect? TargetDomain { get; set; }
+}
+```
+
+`CompositionContext.TargetDomain` carries the finite scene-frame domain into auxiliary composition consumers. `GraphSnapshot` copies and refreshes it on every evaluation, and standalone `PreviewNode`/`MeasureNode` pass it to `RenderNodeRendererOptions.TargetDomain`. `RenderNodeContext.TargetDomain` exposes the same request value to nested semantic consumers without resolving an owning-target-dependent handle early.
 
 `RenderScaleUtilities` owns feature 003's pure density calculations because they are also used by 3D, brushes, export policy, and planner code outside a node-recording transaction. The old static members on `RenderNodeContext` are removed and all in-tree callers migrate in the same breaking change; no forwarding compatibility members remain on the context.
 
@@ -607,16 +619,21 @@ public sealed class MaterializedInputDescription
 {
     public Rect Bounds { get; }
     public EffectiveScale EffectiveScale { get; }
+    public PixelRect DeviceBounds { get; }
+    public Vector DeviceGridOffset { get; }
+    public Rect RasterBounds { get; }
 
     public static MaterializedInputDescription FromRenderTarget(
         RenderResource<RenderTarget> target,
         Rect bounds,
         EffectiveScale effectiveScale,
+        PixelRect deviceBounds,
+        Vector deviceGridOffset,
         RenderHitTestContract hitTest);
 }
 ```
 
-A materialized input is already a fusion/cache island boundary. Its `RenderTarget` must be represented by an explicit token: `Borrow` for a repeatable externally owned target or `Own` for a one-shot transfer. Authors cannot wrap a raw target with ambiguous lifetime. `effectiveScale` must be finite, positive, and concrete. Let `deviceBounds = PixelRect.FromRect(bounds, effectiveScale.Value)`; the target's device size must equal `deviceBounds.Size`, and its format/backend/device/context must be compatible with the request's linear premultiplied RGBA16F pipeline. Backing pixel `(0, 0)` represents `deviceBounds.Position`, so mismatched targets are rejected rather than silently stretched, cropped, or sampled out of range. Hit testing uses the same mandatory CPU-only `RenderHitTestContract` as other descriptions. For a source with no logical inputs, authors normally choose `OutputBounds`, `None`, or a pure `Custom`; `AnyInput` is rejected. A custom predicate cannot capture/read the target, a resource token, native state, or an execution/context facade. Internal overloads may represent render-cache, 3D, and decoder sources without widening this public contract.
+A materialized input is already a fusion/cache island boundary. Its `RenderTarget` must be represented by an explicit token: `Borrow` for a repeatable externally owned target or `Own` for a one-shot transfer. Authors cannot wrap a raw target with ambiguous lifetime. `effectiveScale` must be finite, positive, and concrete; `deviceBounds` and `deviceGridOffset` carry the source target's original physical footprint and composition-device phase rather than deriving a new grid from semantic bounds. `RasterBounds == deviceBounds.ToRect(effectiveScale.Value).Translate(-deviceGridOffset)` must contain `bounds`, and the target's device size must equal `deviceBounds.Size`; its format/backend/device/context must be compatible with the request's linear premultiplied RGBA16F pipeline. Backing pixel `(0, 0)` represents `deviceBounds.Position`, so translated, fractional-grid, and apron-bearing targets retain their physical placement across execution and cache reuse. Mismatched targets are rejected rather than silently stretched, cropped, or sampled out of phase. Hit testing uses the same mandatory CPU-only `RenderHitTestContract` as other descriptions. For a source with no logical inputs, authors normally choose `OutputBounds`, `None`, or a pure `Custom`; `AnyInput` is rejected. A custom predicate cannot capture/read the target, a resource token, native state, or an execution/context facade. Internal overloads may represent render-cache, 3D, and decoder sources without widening this public contract.
 
 ## Target capture description
 
@@ -1111,10 +1128,21 @@ public class CustomFilterEffectContext
         EffectTarget source,
         EffectTarget destination,
         SKShader sourceShader);
+    public void UseMappedInputShader(
+        EffectTarget source,
+        EffectTarget destination,
+        Action<SKShader> use,
+        SKShaderTileMode x = SKShaderTileMode.Decal,
+        SKShaderTileMode y = SKShaderTileMode.Decal);
 }
 
 public sealed class EffectTarget : IDisposable
 {
+    public EffectTarget();
+    public EffectTarget(
+        RenderTarget renderTarget,
+        Rect originalBounds,
+        EffectiveScale scale = default);
     public Rect OriginalBounds { get; set; }
     public Rect Bounds { get; set; }
     public EffectiveScale Scale { get; init; }
@@ -1134,6 +1162,8 @@ public sealed class SKSLShader : IDisposable
         EffectTarget target);
 }
 ```
+
+`EffectTarget()` and the materialized `EffectTarget(RenderTarget, Rect, EffectiveScale)` constructor remain public for source-less and caller-materialized legacy effects. Only the operation-backed constructor is removed. The materialized constructor takes a shallow copy and derives the canonical zero-offset footprint; callers replacing an existing target while preserving a non-zero grid use `CreateReplacement`.
 
 Direct legacy activation remains available, but request classification is explicit and independent from scale:
 

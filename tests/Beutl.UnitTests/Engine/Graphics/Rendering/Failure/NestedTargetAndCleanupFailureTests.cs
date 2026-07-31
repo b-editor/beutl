@@ -29,11 +29,12 @@ public sealed class NestedTargetAndCleanupFailureTests
         using var node = new TargetCallbackFailureNode(failurePoint);
         using var renderer = FailureTestSupport.CreateRenderer(node, useRenderCache: false);
 
-        Exception? failure = Assert.Catch(() => renderer.Rasterize());
+        InvalidOperationException? failure = Assert.Throws<InvalidOperationException>(
+            () => renderer.Rasterize());
 
         Assert.Multiple(() =>
         {
-            Assert.That(failure, Is.Not.Null);
+            Assert.That(failure!.Message, Does.Contain(ExpectedTargetCallbackFailureMessage(failurePoint)));
             Assert.That(node.CallbackEntries, Is.EqualTo(1));
             Assert.That(renderer.TargetPoolStatistics.LeasedTargets, Is.Zero);
             Assert.That(node.Cache.IsCached, Is.False);
@@ -43,6 +44,24 @@ public sealed class NestedTargetAndCleanupFailureTests
             ?? throw new AssertionException("The deferred callback did not expose its retained-session probe.");
         Assert.That(verifyRetainedSession, Throws.TypeOf<InvalidOperationException>());
     }
+
+    private static string ExpectedTargetCallbackFailureMessage(TargetCallbackFailure failurePoint)
+        => failurePoint switch
+        {
+            TargetCallbackFailure.CommandCallback => "target-command-primary",
+            TargetCallbackFailure.UndeclaredTargetReadback => "did not declare target readback",
+            TargetCallbackFailure.MissingTargetReadback => "consume its snapshot exactly once",
+            TargetCallbackFailure.UndeclaredInputReadback => "CPU readback was not declared",
+            TargetCallbackFailure.DuplicateInputReadback => "snapshot is a one-shot lease",
+            TargetCallbackFailure.ScopeCallback => "target-scope-primary",
+            TargetCallbackFailure.ScopeMissingReplay or TargetCallbackFailure.ScopeDoubleReplay
+                => "A target scope input must be replayed exactly once",
+            TargetCallbackFailure.RawCommandCallback => "raw-command-primary",
+            TargetCallbackFailure.RawScopeCallback => "raw-scope-primary",
+            TargetCallbackFailure.RawScopeMissingReplay or TargetCallbackFailure.RawScopeDoubleReplay
+                => "A raw target scope input must be replayed exactly once",
+            _ => throw new ArgumentOutOfRangeException(nameof(failurePoint), failurePoint, null),
+        };
 
     [Test]
     public void TargetCaptureAllocationFailure_DischargesTheRootAndPublishesNoCapture()
@@ -694,6 +713,7 @@ public sealed class NestedTargetAndCleanupFailureTests
                 RenderCacheFormatIdentity.LinearPremultipliedRgba16Float,
                 RenderIntent.Preview,
                 RenderRequestPurpose.Frame,
+                FusionMode.Enabled,
                 new RenderCacheDeviceContextIdentity("stale-device", "stale-context"));
             RenderNodeCache.PublishAtomically(
             [
@@ -818,6 +838,7 @@ public sealed class NestedTargetAndCleanupFailureTests
             RenderCacheFormatIdentity.LinearPremultipliedRgba16Float,
             RenderIntent.Preview,
             RenderRequestPurpose.Frame,
+            FusionMode.Enabled,
             new RenderCacheDeviceContextIdentity("nested-stale-device", "nested-stale-context"));
         RenderNodeCache.PublishAtomically(
         [

@@ -576,6 +576,63 @@ public sealed class RasterFootprintMetadataTests
     }
 
     [Test]
+    public void CustomFilterContext_ScopesGpuBackedMappedInputShader()
+    {
+        var bounds = new Rect(0, 0, 8, 6);
+        PixelRect deviceBounds = PixelRect.FromRect(bounds, 1);
+        RenderTarget? createdSource = RenderTarget.Create(deviceBounds.Width, deviceBounds.Height);
+        RenderTarget? createdDestination = RenderTarget.Create(deviceBounds.Width, deviceBounds.Height);
+        Assume.That(createdSource, Is.Not.Null, "no render target backend is available in this environment");
+        Assume.That(createdDestination, Is.Not.Null, "no render target backend is available in this environment");
+        using RenderTarget sourceBacking = createdSource!;
+        using RenderTarget destinationBacking = createdDestination!;
+        using var source = new EffectTarget(
+            sourceBacking,
+            bounds,
+            EffectiveScale.At(1),
+            deviceBounds);
+        using var destination = new EffectTarget(
+            destinationBacking,
+            bounds,
+            EffectiveScale.At(1),
+            deviceBounds);
+        using var targets = new EffectTargets { source.Clone() };
+        var context = new CustomFilterEffectContext(
+            targets,
+            RenderIntent.Preview,
+            RenderRequestPurpose.Frame);
+        int callbackEntries = 0;
+
+        context.UseMappedInputShader(
+            source,
+            destination,
+            shader =>
+            {
+                callbackEntries++;
+                using SKShader remapped = shader.WithLocalMatrix(SKMatrix.Identity);
+                Assert.That(remapped, Is.Not.Null);
+            },
+            SKShaderTileMode.Repeat,
+            SKShaderTileMode.Mirror);
+
+        Assert.That(callbackEntries, Is.EqualTo(1));
+
+        Assert.Multiple(() =>
+        {
+            Assert.Throws<ArgumentOutOfRangeException>(() => context.UseMappedInputShader(
+                source,
+                destination,
+                _ => { },
+                (SKShaderTileMode)(-1)));
+            Assert.Throws<ArgumentOutOfRangeException>(() => context.UseMappedInputShader(
+                source,
+                destination,
+                _ => { },
+                y: (SKShaderTileMode)(-1)));
+        });
+    }
+
+    [Test]
     public void CustomFilterContext_ReplacementFootprintFailureNamesPublicArgument()
     {
         var bounds = new Rect(10, 12, 8, 6);

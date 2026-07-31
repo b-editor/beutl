@@ -41,6 +41,8 @@ internal sealed class FusionBoundaryRuntimeNode(
                 resource,
                 bounds,
                 EffectiveScale.At(1),
+                PixelRect.FromRect(bounds, 1),
+                default,
                 RenderHitTestContract.OutputBounds));
         current = context.Shader(current, s_firstShader);
 
@@ -209,6 +211,8 @@ internal sealed class CachedBoundaryRoot(RenderTarget source, Rect bounds) : Ren
                 resource,
                 bounds,
                 EffectiveScale.At(1),
+                PixelRect.FromRect(bounds, 1),
+                default,
                 RenderHitTestContract.OutputBounds));
         current = context.RecordNode(_cached, [current]).Single();
         current = context.RecordNode(_after, [current]).Single();
@@ -255,6 +259,8 @@ internal sealed class BackendOverflowBoundaryNode(RenderTarget source, Rect boun
                 resource,
                 bounds,
                 EffectiveScale.At(1),
+                PixelRect.FromRect(bounds, 1),
+                default,
                 RenderHitTestContract.OutputBounds));
         ShaderDescription description = ShaderDescription.CurrentPixel(
             "uniform float gain; half4 apply(half4 color) { return color * gain; }",

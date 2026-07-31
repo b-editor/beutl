@@ -254,6 +254,7 @@ public sealed class GpuPassFusionFeature003RegressionTests
             RenderCacheFormatIdentity.LinearPremultipliedRgba16Float,
             RenderIntent.Preview,
             RenderRequestPurpose.Frame,
+            FusionMode.Enabled,
             new RenderCacheDeviceContextIdentity("device", "context"));
     }
 
@@ -374,6 +375,8 @@ public sealed class GpuPassFusionFeature003RegressionTests
                 target,
                 s_bounds,
                 EffectiveScale.At(1),
+                PixelRect.FromRect(s_bounds, 1),
+                default,
                 RenderHitTestContract.OutputBounds)));
         }
     }

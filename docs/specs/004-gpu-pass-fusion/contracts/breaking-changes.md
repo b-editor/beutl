@@ -11,7 +11,7 @@ BREAKING CHANGE: Beutl.Engine, Beutl.Editor, Beutl.NodeGraph, Beutl.ProjectSyste
 
 BREAKING CHANGE: `RenderNodeCacheHelper.MakeCache`, `CreateDefaultCache`, and `CanCacheRecursiveChildrenOnly`, together with `RenderNodeCache.RejectCache` and `IsCacheRejected`, are removed. Cache lookup, miss capture, and atomic publication now occur only inside the complete request after dependency and region analysis; callers render through `RenderNodeRenderer`/the production `Renderer` and use `Invalidate` or `RenderNodeCacheHelper.ClearCache` to discard retained entries.
 
-BREAKING CHANGE: `SKSLShader.ApplyToNewTarget` is replaced by explicit legacy-custom allocation, input mapping, and rendering. Use `CustomFilterEffectContext.CreateTargetLike` for same-bounds output or `CreateTarget` for changed bounds, bind snapshot children through `CreateMappedInputShader`, and finish with `SKSLShader.RenderToTarget`. Uniforms must use the allocated destination's actual `Scale` and backing dimensions.
+BREAKING CHANGE: `SKSLShader.ApplyToNewTarget` is replaced by explicit legacy-custom allocation, input mapping, and rendering. Use `CustomFilterEffectContext.CreateTargetLike` for same-bounds output or `CreateTarget` for changed bounds, borrow a GPU-backed mapped input through `UseMappedInputShader`, and finish with `SKSLShader.RenderToTarget` inside that scope. Uniforms must use the allocated destination's actual `Scale` and backing dimensions.
 
 BREAKING CHANGE: `IRenderer.GetBoundaries`, `IRenderer.GetBoundary`, and `Renderer.RecalculateBoundaries` are render-thread-affine queries. Bounds are resolved lazily from the recorded render graph after `Render` or `UpdateFrame`, so callers must dispatch these queries through `RenderThread.Dispatcher` instead of reading them from arbitrary threads.
 ```
@@ -33,7 +33,7 @@ The following public model is removed:
 - static scale helpers on `RenderNodeContext`; `MaxBufferDimension`, `SanitizeMaxWorkingScale`, `ResolveWorkingScale`, and `ClampWorkingScaleToBufferBudget` move to the independent `RenderScaleUtilities` type;
 - public `RenderNodeProcessor`, including `Pull`/`PullToRoot` operation arrays and the protected `CreateRenderTarget` override seam; it is replaced by `RenderNodeRenderer` plus injected `IRenderTargetFactory`;
 - public `OperationWrapperRenderNode`/`SetOperations(RenderNodeOperation[])` retention across recording/request boundaries;
-- `EffectTarget(RenderNodeOperation)` and `EffectTarget.NodeOperation`; `EffectTarget` remains an execution-time materialized-target type and no longer renders or disposes an operation handle.
+- `EffectTarget(RenderNodeOperation)` and `EffectTarget.NodeOperation`; `EffectTarget()` and `EffectTarget(RenderTarget, Rect, EffectiveScale)` remain public for source-less and caller-materialized legacy effects. `EffectTarget` no longer renders or disposes an operation handle; callers that replace an existing source footprint use `CustomFilterEffectContext.CreateReplacement`.
 
 The replacement is `void Process`, `RenderNodeContext.Inputs`, availability-checked recording metadata, explicit fragment/value/target-scope recording, unified ordered publication, monotonic `DisableRenderCache`, nested recording, and high-level render/single-result-rasterize/measure/hit-test entry points. `RenderNodeRasterization` owns the one optional bitmap together with its logical bounds and output density, so shifted and empty output domains are not lost.
 
@@ -256,12 +256,14 @@ public override void Process(RenderNodeContext context)
         borrowed,
         _bounds,
         _effectiveScale,
+        _deviceBounds,
+        _deviceGridOffset,
         RenderHitTestContract.OutputBounds);
     context.Publish(context.MaterializedInput(description));
 }
 ```
 
-`Borrow` leaves disposal with the node/producer, requires a stable identity/version, and requires the target to remain alive and unmodified through each executing request. A genuinely one-shot producer instead calls `context.Own(detachedTarget, cacheKey, version)`; that request disposes the raw value on rollback/teardown, so it must not be used for a repeatable node that will also service `Measure` or `HitTest`. In-tree cache/3D/decoder sources may use internal leases with the same explicit lifetime model. Raw targets are never wrapped with ambiguous ownership.
+`_deviceBounds` and `_deviceGridOffset` are the borrowed target's exact physical footprint and composition-grid phase; they must not be re-derived from `_bounds`. `Borrow` leaves disposal with the node/producer, requires a stable identity/version, and requires the target to remain alive and unmodified through each executing request. A genuinely one-shot producer instead calls `context.Own(detachedTarget, cacheKey, version)`; that request disposes the raw value on rollback/teardown, so it must not be used for a repeatable node that will also service `Measure` or `HitTest`. In-tree cache/3D/decoder sources may use internal leases with the same explicit lifetime model. Raw targets are never wrapped with ambiguous ownership.
 
 ### Target command, capture, and scope
 
@@ -408,32 +410,17 @@ using EffectTarget source = context.Targets[index];
 EffectTarget destination = context.CreateTargetLike(source);
 try
 {
-    using Bitmap bitmap = source.RenderTarget!.Snapshot();
-    using SKColorSpace colorSpace = SKColorSpace.CreateSrgbLinear();
-    var imageInfo = new SKImageInfo(
-        bitmap.Width,
-        bitmap.Height,
-        SKColorType.RgbaF16,
-        SKAlphaType.Premul,
-        colorSpace);
-    using SKImage image = SKImage.FromPixelCopy(
-        imageInfo,
-        bitmap.GetPixelSpan(),
-        bitmap.RowBytes);
-    using SKShader snapshot = image.ToShader(
-        SKShaderTileMode.Decal,
-        SKShaderTileMode.Decal);
-    using SKShader mapped =
-        context.CreateMappedInputShader(source, destination, snapshot);
-
     SKRuntimeShaderBuilder builder = shader.CreateBuilder();
-    builder.Children["src"] = mapped;
     builder.Uniforms["iScale"] = destination.Scale.Value;
     builder.Uniforms["iResolution"] = new SKPoint(
         destination.RenderTarget!.Width,
         destination.RenderTarget.Height);
 
-    shader.RenderToTarget(context, builder, destination);
+    context.UseMappedInputShader(source, destination, mapped =>
+    {
+        builder.Children["src"] = mapped;
+        shader.RenderToTarget(context, builder, destination);
+    });
     context.Targets[index] = destination;
 }
 catch
@@ -443,7 +430,7 @@ catch
 }
 ```
 
-The example uses only the landed public surface: `RenderTarget.Snapshot` returns a CPU `Bitmap`, `SKImage.FromPixelCopy` creates the Skia input image, `CreateTargetLike` allocates the destination, `CreateMappedInputShader` maps the input footprint, and `RenderToTarget` performs the final draw. For expanded, cropped, or otherwise changed logical bounds, replace `CreateTargetLike(source)` with `CreateTarget(newBounds)`. A generator shader with no materialized input omits `CreateMappedInputShader`. The mapping uses the current `RasterBounds`, not immutable `DeviceBounds`, so translated targets, fractional origins, raster aprons, and differing input/output densities remain aligned. `RenderToTarget` borrows its arguments and always draws the complete destination backing; callers own unpublished destinations and dispose them on failure.
+`CreateTargetLike` allocates the destination, and `UseMappedInputShader` supplies a borrowed GPU-backed surface snapshot with the input footprint mapping already applied; optional `x`/`y` tile modes default to `Decal` and permit clamp, repeat, or mirror sampling without a CPU readback. `RenderToTarget` must run inside that scope so neither the shader nor its backing image is retained. This avoids the CPU `RenderTarget.Snapshot`/`SKImage.FromPixelCopy` synchronization path. For expanded, cropped, or otherwise changed logical bounds, replace `CreateTargetLike(source)` with `CreateTarget(newBounds)`. A generator shader with no materialized input omits the mapped-input scope. The mapping uses the current `RasterBounds`, not immutable `DeviceBounds`, so translated targets, fractional origins, raster aprons, and differing input/output densities remain aligned. `RenderToTarget` borrows its arguments and always draws the complete destination backing; callers own unpublished destinations and dispose them on failure.
 
 `OperationWrapperRenderNode.SetOperations` cannot retain transaction handles and is removed with the wrapper's public executable role. NodeGraph input nodes receive fresh request-local facade handles through `RecordNode` binding and publish only while that nested transaction is active. A downstream custom wrapper follows the same pattern instead of storing handles in fields.
 

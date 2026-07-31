@@ -712,6 +712,8 @@ internal sealed class BenchmarkMaterializedSourceNode(
             resource,
             bounds,
             EffectiveScale.At(1),
+            PixelRect.FromRect(bounds, 1),
+            default,
             RenderHitTestContract.OutputBounds)));
     }
 
