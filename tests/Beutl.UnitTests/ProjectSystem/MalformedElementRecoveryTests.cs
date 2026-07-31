@@ -1,4 +1,6 @@
-﻿using System.Text.Json.Nodes;
+﻿using System.Collections;
+using System.Text.Json.Nodes;
+using Beutl.Animation;
 using Beutl.Editor;
 using Beutl.Engine;
 using Beutl.Graphics.Shapes;
@@ -576,6 +578,60 @@ public sealed class MalformedElementRecoveryTests
     }
 
     [Test]
+    public void Restore_RecoveredNestedFallbackDuplicateId_IsReassignedStably()
+    {
+        (Uri sceneUri, string[] elementPaths) =
+            CreatePersistedSceneWithElements("healthy.belm", "recovered.belm");
+        Scene source = CoreSerializer.RestoreFromUri<Scene>(sceneUri);
+        Element healthySource = source.Children.Single(child => child.Uri!.LocalPath == elementPaths[0]);
+        Element recoveredSource = source.Children.Single(child => child.Uri!.LocalPath == elementPaths[1]);
+        Guid healthyId = healthySource.Id;
+        var recoveredShapeSource = (RectShape)recoveredSource.Objects.Single();
+        recoveredShapeSource.Transform.CurrentValue = new RotationTransform { Id = healthyId };
+        CoreSerializer.StoreToUri(recoveredSource, recoveredSource.Uri!);
+
+        JsonObject json = JsonNode.Parse(File.ReadAllText(elementPaths[1]))!.AsObject();
+        JsonObject transformJson = FindObjectByDiscriminator(json, "RotationTransform")!;
+        transformJson["$type"] = "[Beutl.Engine]Beutl.Graphics.Transformation:DoesNotExist";
+        transformJson[nameof(CoreObject.Id)] = healthyId.ToString();
+        File.WriteAllText(elementPaths[1], json.ToJsonString());
+        byte[] originalBytes = File.ReadAllBytes(elementPaths[1]);
+
+        Scene firstLoad = CoreSerializer.RestoreFromUri<Scene>(sceneUri);
+        Element healthy = firstLoad.Children.Single(child => child.Uri!.LocalPath == elementPaths[0]);
+        IFallback fallback = GetTransformFallback(firstLoad, elementPaths[1]);
+        var fallbackObject = (CoreObject)fallback;
+        Guid reassignedId = fallbackObject.Id;
+        Guid[] firstIds = EnumerateElementGraphs(firstLoad).Select(obj => obj.Id).ToArray();
+
+        CoreSerializer.StoreToUri(firstLoad, sceneUri);
+        Scene secondLoad = CoreSerializer.RestoreFromUri<Scene>(sceneUri);
+        Element healthyAgain = secondLoad.Children.Single(child => child.Uri!.LocalPath == elementPaths[0]);
+        IFallback fallbackAgain = GetTransformFallback(secondLoad, elementPaths[1]);
+        var fallbackObjectAgain = (CoreObject)fallbackAgain;
+        Guid[] secondIds = EnumerateElementGraphs(secondLoad).Select(obj => obj.Id).ToArray();
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(healthy.Id, Is.EqualTo(healthyId));
+            Assert.That(firstIds, Is.Unique);
+            Assert.That(firstIds, Does.Not.Contain(Guid.Empty));
+            Assert.That(secondIds, Is.Unique);
+            Assert.That(secondIds, Does.Not.Contain(Guid.Empty));
+            Assert.That(reassignedId, Is.Not.EqualTo(healthyId));
+            Assert.That(healthyAgain.Id, Is.EqualTo(healthyId));
+            Assert.That(fallbackObjectAgain.Id, Is.EqualTo(reassignedId));
+            Assert.That(
+                fallback.Json![nameof(CoreObject.Id)]!.GetValue<string>(),
+                Is.EqualTo(reassignedId.ToString()));
+            Assert.That(
+                fallbackAgain.Json![nameof(CoreObject.Id)]!.GetValue<string>(),
+                Is.EqualTo(reassignedId.ToString()));
+            Assert.That(File.ReadAllBytes(elementPaths[1]), Is.EqualTo(originalBytes));
+        });
+    }
+
+    [Test]
     public void Restore_RootArrayId_DoesNotAdoptInnerIdAndRemainsStable()
     {
         (Uri sceneUri, string elementPath) = CreatePersistedScene();
@@ -781,6 +837,78 @@ public sealed class MalformedElementRecoveryTests
         }
 
         return null;
+    }
+
+    private static IFallback GetTransformFallback(Scene scene, string elementPath)
+    {
+        Element element = scene.Children.Single(child => child.Uri!.LocalPath == elementPath);
+        var shape = (RectShape)element.Objects.Single();
+        return (IFallback)shape.Transform.CurrentValue!;
+    }
+
+    private static IEnumerable<CoreObject> EnumerateElementGraphs(Scene scene)
+    {
+        foreach (Element element in scene.Children)
+        {
+            var objects = new List<CoreObject>();
+            CollectElementGraphObjects(
+                element,
+                new HashSet<object>(ReferenceEqualityComparer.Instance),
+                objects);
+
+            foreach (CoreObject obj in objects)
+            {
+                yield return obj;
+            }
+        }
+    }
+
+    private static void CollectElementGraphObjects(
+        object? value,
+        ISet<object> visited,
+        ICollection<CoreObject> objects)
+    {
+        if (value is null or string
+            || (!value.GetType().IsValueType && !visited.Add(value)))
+        {
+            return;
+        }
+
+        if (value is CoreObject coreObject)
+        {
+            objects.Add(coreObject);
+        }
+
+        if (value is IHierarchical hierarchical)
+        {
+            foreach (IHierarchical child in hierarchical.HierarchicalChildren)
+            {
+                CollectElementGraphObjects(child, visited, objects);
+            }
+        }
+
+        if (value is EngineObject engineObject)
+        {
+            foreach (IProperty property in engineObject.Properties)
+            {
+                CollectElementGraphObjects(property.CurrentValue, visited, objects);
+                if (property.Animation is IKeyFrameAnimation animation)
+                {
+                    foreach (IKeyFrame keyFrame in animation.KeyFrames)
+                    {
+                        CollectElementGraphObjects(keyFrame.Value, visited, objects);
+                    }
+                }
+            }
+        }
+
+        if (value is IEnumerable enumerable)
+        {
+            foreach (object? item in enumerable)
+            {
+                CollectElementGraphObjects(item, visited, objects);
+            }
+        }
     }
 
     private (Uri SceneUri, string ElementPath) CreatePersistedScene()

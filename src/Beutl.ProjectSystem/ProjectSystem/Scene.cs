@@ -719,19 +719,6 @@ public class Scene : ProjectItem, INotifyEdited
 
     private void ReassignDuplicateRecoveredIds()
     {
-        var claimedIds = new HashSet<Guid> { Guid.Empty, Id };
-        foreach (Element child in Children)
-        {
-            if (child.SuppressedStorageSource is null)
-            {
-                claimedIds.Add(child.Id);
-                foreach (CoreObject descendant in child.EnumerateAllChildren<CoreObject>())
-                {
-                    claimedIds.Add(descendant.Id);
-                }
-            }
-        }
-
         string sceneDirectory = Path.GetDirectoryName(Uri!.LocalPath)!;
         var recoveredChildren = Children
             .Where(static child => child.SuppressedStorageSource is not null)
@@ -741,6 +728,32 @@ public class Scene : ProjectItem, INotifyEdited
                     Path.GetRelativePath(sceneDirectory, child.Uri!.LocalPath))))
             .OrderBy(static item => item.RelativePath, StringComparer.Ordinal)
             .ToArray();
+
+        var claimedIds = new HashSet<Guid> { Guid.Empty, Id };
+        var seenDescendants = new HashSet<CoreObject>(ReferenceEqualityComparer.Instance);
+        foreach (Element child in Children.Where(
+                     static child => child.SuppressedStorageSource is null))
+        {
+            claimedIds.Add(child.Id);
+            foreach (CoreObject descendant in EnumerateSerializedGraphDescendants(child))
+            {
+                seenDescendants.Add(descendant);
+                claimedIds.Add(descendant.Id);
+            }
+        }
+
+        var duplicateRecoveredDescendants = new HashSet<CoreObject>(ReferenceEqualityComparer.Instance);
+        foreach ((Element child, string _) in recoveredChildren)
+        {
+            foreach (CoreObject descendant in EnumerateSerializedGraphDescendants(child))
+            {
+                if (seenDescendants.Add(descendant) && !claimedIds.Add(descendant.Id))
+                {
+                    duplicateRecoveredDescendants.Add(descendant);
+                }
+            }
+        }
+
         var recoveredPaths = recoveredChildren
             .Select(static item => item.RelativePath)
             .ToHashSet(StringComparer.Ordinal);
@@ -806,6 +819,42 @@ public class Scene : ProjectItem, INotifyEdited
         {
             _recoveredElementIds[relativePath] = child.Id;
         }
+
+        foreach ((Element child, string relativePath) in recoveredChildren)
+        {
+            foreach (CoreObject descendant in EnumerateSerializedGraphDescendants(child))
+            {
+                if (!duplicateRecoveredDescendants.Remove(descendant))
+                {
+                    continue;
+                }
+
+                Guid originalId = descendant.Id;
+                bool assigned = false;
+                for (int attempt = 0; attempt < MaxRecoveredIdCollisionAttempts; attempt++)
+                {
+                    string candidateName = $"{relativePath}!{originalId:D}#{attempt}";
+                    Guid candidate = CreateVersion5Guid(s_recoveredElementNamespace, candidateName);
+                    if (claimedIds.Add(candidate))
+                    {
+                        descendant.Id = candidate;
+                        assigned = true;
+                        break;
+                    }
+                }
+
+                if (!assigned)
+                {
+                    throw new InvalidOperationException(
+                        $"Could not assign a unique recovered descendant Id for '{relativePath}'.");
+                }
+
+                if (descendant is IFallback fallback)
+                {
+                    EnsureFallbackProjection(fallback);
+                }
+            }
+        }
     }
 
     private Element RestoreElementOrFallback(Uri uri)
@@ -864,16 +913,28 @@ public class Scene : ProjectItem, INotifyEdited
 
     private static IEnumerable<IFallback> EnumerateSerializedGraphFallbacks(Element element)
     {
-        var fallbacks = new List<IFallback>();
-        var visited = new HashSet<object>(ReferenceEqualityComparer.Instance);
-        CollectSerializedGraphFallbacks(element, visited, fallbacks);
-        return fallbacks;
+        return EnumerateSerializedGraphObjects(element).OfType<IFallback>();
     }
 
-    private static void CollectSerializedGraphFallbacks(
+    private static IEnumerable<CoreObject> EnumerateSerializedGraphDescendants(Element element)
+    {
+        return EnumerateSerializedGraphObjects(element)
+            .OfType<CoreObject>()
+            .Where(value => !ReferenceEquals(value, element));
+    }
+
+    private static IEnumerable<object> EnumerateSerializedGraphObjects(Element element)
+    {
+        var objects = new List<object>();
+        var visited = new HashSet<object>(ReferenceEqualityComparer.Instance);
+        CollectSerializedGraphObjects(element, visited, objects);
+        return objects;
+    }
+
+    private static void CollectSerializedGraphObjects(
         object? value,
         ISet<object> visited,
-        ICollection<IFallback> fallbacks)
+        ICollection<object> objects)
     {
         if (value is null or string
             || (!value.GetType().IsValueType && !visited.Add(value)))
@@ -881,16 +942,16 @@ public class Scene : ProjectItem, INotifyEdited
             return;
         }
 
-        if (value is IFallback fallback)
+        if (value is CoreObject or IFallback)
         {
-            fallbacks.Add(fallback);
+            objects.Add(value);
         }
 
         if (value is IHierarchical hierarchical)
         {
             foreach (IHierarchical child in hierarchical.HierarchicalChildren)
             {
-                CollectSerializedGraphFallbacks(child, visited, fallbacks);
+                CollectSerializedGraphObjects(child, visited, objects);
             }
         }
 
@@ -898,12 +959,12 @@ public class Scene : ProjectItem, INotifyEdited
         {
             foreach (IProperty property in engineObject.Properties)
             {
-                CollectSerializedGraphFallbacks(property.CurrentValue, visited, fallbacks);
+                CollectSerializedGraphObjects(property.CurrentValue, visited, objects);
                 if (property.Animation is IKeyFrameAnimation animation)
                 {
                     foreach (IKeyFrame keyFrame in animation.KeyFrames)
                     {
-                        CollectSerializedGraphFallbacks(keyFrame.Value, visited, fallbacks);
+                        CollectSerializedGraphObjects(keyFrame.Value, visited, objects);
                     }
                 }
             }
@@ -913,7 +974,7 @@ public class Scene : ProjectItem, INotifyEdited
         {
             foreach (object? item in enumerable)
             {
-                CollectSerializedGraphFallbacks(item, visited, fallbacks);
+                CollectSerializedGraphObjects(item, visited, objects);
             }
         }
     }
