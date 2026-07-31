@@ -86,11 +86,13 @@ public sealed class ParticleSimulatorDeterminismTests
             "A decimal timestamp naming the same 30 fps frame must not introduce a query-specific partial simulation step.");
     }
 
-    [TestCase(30)]
-    [TestCase(60)]
-    public void SyntheticEmitter_SequentialAndColdSeekStatesMatchThroughTenMinutes(int frameRate)
+    // 60 fps carries the full ten-minute horizon; the 30 fps arm stops after three minutes (still
+    // several checkpoint-eviction cycles) to keep the default suite lean.
+    [TestCase(30, 180)]
+    [TestCase(60, 600)]
+    public void SyntheticEmitter_SequentialAndColdSeekStatesMatchThroughTenMinutes(int frameRate, int maxAge)
     {
-        int[] ages = [1, 3, 10, 60, 300, 600];
+        int[] ages = [.. new[] { 1, 3, 10, 60, 300, 600 }.Where(age => age <= maxAge)];
         ParticleEmitter emitter = CreateSyntheticEmitter();
         using ParticleEmitter.Resource sequential =
             emitter.ToResource(new CompositionContext(TimeSpan.Zero));

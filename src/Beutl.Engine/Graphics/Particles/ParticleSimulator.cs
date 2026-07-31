@@ -8,7 +8,10 @@ namespace Beutl.Graphics.Particles;
 internal sealed class ParticleSimulator
 {
     private const float FixedDeltaTime = 1f / 60f;
-    private const double TickTruncationStepTolerance = 1.5e-5d;
+    // One TimeSpan tick (100 ns) is at most 6e-6 of a 60 Hz step, so 8e-6 absorbs frame-grid
+    // truncation while genuine near-boundary timestamps from off-60 rational rates (a 60001/1000
+    // fps frame sits ~1.7e-5 steps early) are never snapped.
+    private const double TickTruncationStepTolerance = 8e-6d;
     private const double MaximumSnapTolerance = 2.5e-5d;
     private const int CheckpointIntervalSteps = 30;
     private const int MaxCheckpoints = 120;
@@ -230,8 +233,10 @@ internal sealed class ParticleSimulator
         while (currentStep < targetStep)
         {
             Advance(FixedDeltaTime);
-            currentTime += FixedDeltaTime;
             currentStep++;
+            // Deriving the time from the step keeps birth times and turbulence phases on the
+            // canonical timeline; accumulating float deltas drifts ~102 ms over ten minutes.
+            currentTime = (float)(currentStep * (double)FixedDeltaTime);
             if (currentStep % CheckpointIntervalSteps == 0)
             {
                 SaveCheckpoint(currentStep, currentTime, rng.CallCount);

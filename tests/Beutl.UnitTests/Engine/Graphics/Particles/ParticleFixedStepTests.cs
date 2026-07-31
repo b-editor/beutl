@@ -105,4 +105,26 @@ public sealed class ParticleFixedStepTests
                 + "must resolve against the canonical 60 Hz timeline");
         }
     }
+    [Test]
+    public void OffSixtyRationalRate_KeepsGenuineNearBoundaryTimestampsUnsnapped()
+    {
+        // 60001/1000 fps frames land ~1.7e-5 steps before each integer step — a genuine offset the
+        // tick-truncation tolerance (8e-6) must not swallow, or consecutive frames duplicate steps.
+        const long numerator = 60001;
+        const long denominator = 1000;
+        int previous = ParticleSimulator.ResolveTargetStep(0d);
+        for (int frame = 1; frame <= 240; frame++)
+        {
+            long ticks = frame * denominator * TimeSpan.TicksPerSecond / numerator;
+            double time = TimeSpan.FromTicks(ticks).TotalSeconds;
+            int actual = ParticleSimulator.ResolveTargetStep(time);
+            int expected = (int)(frame * 60L * denominator / numerator);
+            Assert.That(
+                actual,
+                Is.EqualTo(expected),
+                $"frame {frame} at {numerator}/{denominator} fps must floor against the true timeline");
+            Assert.That(actual - previous, Is.InRange(0, 1));
+            previous = actual;
+        }
+    }
 }
