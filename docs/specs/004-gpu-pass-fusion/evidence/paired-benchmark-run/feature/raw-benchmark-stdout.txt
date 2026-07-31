@@ -1,0 +1,2862 @@
+Identity added: /Users/teradatakeshishou/.ssh/id_ed25519 (teradatakeshishou@teradatakeshishounonotobukkukonpyuta.local)
+// Validating benchmarks:
+// ***** BenchmarkRunner: Start   *****
+// ***** Found 11 benchmark(s) in total *****
+// ***** Building 1 exe(s) in Parallel: Start   *****
+// start dotnet  restore --nodeReuse:false /p:UseSharedCompilation=false /p:Deterministic=true /p:Optimize=true /p:ArtifactsPath="/private/var/folders/nl/kd31xyh169n3x8wb6g0dpw_m0000gn/T/beutl-gpu-pass-benchmark-build.Xp00DQ/feature/bin/Beutl.Benchmarks/release/Beutl.Benchmarks-RenderPipeline-1/" /p:OutDir="/private/var/folders/nl/kd31xyh169n3x8wb6g0dpw_m0000gn/T/beutl-gpu-pass-benchmark-build.Xp00DQ/feature/bin/Beutl.Benchmarks/release/Beutl.Benchmarks-RenderPipeline-1/bin/Release/net10.0/" /p:OutputPath="/private/var/folders/nl/kd31xyh169n3x8wb6g0dpw_m0000gn/T/beutl-gpu-pass-benchmark-build.Xp00DQ/feature/bin/Beutl.Benchmarks/release/Beutl.Benchmarks-RenderPipeline-1/bin/Release/net10.0/" /p:PublishDir="/private/var/folders/nl/kd31xyh169n3x8wb6g0dpw_m0000gn/T/beutl-gpu-pass-benchmark-build.Xp00DQ/feature/bin/Beutl.Benchmarks/release/Beutl.Benchmarks-RenderPipeline-1/publish/" in /private/var/folders/nl/kd31xyh169n3x8wb6g0dpw_m0000gn/T/beutl-gpu-pass-benchmark-build.Xp00DQ/feature/bin/Beutl.Benchmarks/release/Beutl.Benchmarks-RenderPipeline-1
+// command took 1.09 sec and exited with 0
+// start dotnet  build -c Release --no-restore --nodeReuse:false /p:UseSharedCompilation=false /p:Deterministic=true /p:Optimize=true /p:ArtifactsPath="/private/var/folders/nl/kd31xyh169n3x8wb6g0dpw_m0000gn/T/beutl-gpu-pass-benchmark-build.Xp00DQ/feature/bin/Beutl.Benchmarks/release/Beutl.Benchmarks-RenderPipeline-1/" /p:OutDir="/private/var/folders/nl/kd31xyh169n3x8wb6g0dpw_m0000gn/T/beutl-gpu-pass-benchmark-build.Xp00DQ/feature/bin/Beutl.Benchmarks/release/Beutl.Benchmarks-RenderPipeline-1/bin/Release/net10.0/" /p:OutputPath="/private/var/folders/nl/kd31xyh169n3x8wb6g0dpw_m0000gn/T/beutl-gpu-pass-benchmark-build.Xp00DQ/feature/bin/Beutl.Benchmarks/release/Beutl.Benchmarks-RenderPipeline-1/bin/Release/net10.0/" /p:PublishDir="/private/var/folders/nl/kd31xyh169n3x8wb6g0dpw_m0000gn/T/beutl-gpu-pass-benchmark-build.Xp00DQ/feature/bin/Beutl.Benchmarks/release/Beutl.Benchmarks-RenderPipeline-1/publish/" --output "/private/var/folders/nl/kd31xyh169n3x8wb6g0dpw_m0000gn/T/beutl-gpu-pass-benchmark-build.Xp00DQ/feature/bin/Beutl.Benchmarks/release/Beutl.Benchmarks-RenderPipeline-1/bin/Release/net10.0/" in /private/var/folders/nl/kd31xyh169n3x8wb6g0dpw_m0000gn/T/beutl-gpu-pass-benchmark-build.Xp00DQ/feature/bin/Beutl.Benchmarks/release/Beutl.Benchmarks-RenderPipeline-1
+// command took 13.21 sec and exited with 0
+// ***** Done, took 00:00:21 (21.85 sec)   *****
+// Found 11 benchmarks:
+//   RenderPipelineBenchmarks.RenderCompleteTargetRequest: RenderPipeline(InvocationCount=1, IterationCount=15, LaunchCount=1, RunStrategy=Monitoring, UnrollFactor=1, WarmupCount=3) [CaseName=LongInvariantChain]
+//   RenderPipelineBenchmarks.RenderCompleteTargetRequest: RenderPipeline(InvocationCount=1, IterationCount=15, LaunchCount=1, RunStrategy=Monitoring, UnrollFactor=1, WarmupCount=3) [CaseName=MixedSpatialColor]
+//   RenderPipelineBenchmarks.RenderCompleteTargetRequest: RenderPipeline(InvocationCount=1, IterationCount=15, LaunchCount=1, RunStrategy=Monitoring, UnrollFactor=1, WarmupCount=3) [CaseName=Multi(...)ncies [35]]
+//   RenderPipelineBenchmarks.RenderCompleteTargetRequest: RenderPipeline(InvocationCount=1, IterationCount=15, LaunchCount=1, RunStrategy=Monitoring, UnrollFactor=1, WarmupCount=3) [CaseName=NoEffectControl]
+//   RenderPipelineBenchmarks.RenderCompleteTargetRequest: RenderPipeline(InvocationCount=1, IterationCount=15, LaunchCount=1, RunStrategy=Monitoring, UnrollFactor=1, WarmupCount=3) [CaseName=Param(...)ation [22]]
+//   RenderPipelineBenchmarks.RenderCompleteTargetRequest: RenderPipeline(InvocationCount=1, IterationCount=15, LaunchCount=1, RunStrategy=Monitoring, UnrollFactor=1, WarmupCount=3) [CaseName=ShaderOpacityShader]
+//   RenderPipelineBenchmarks.RenderCompleteTargetRequest: RenderPipeline(InvocationCount=1, IterationCount=15, LaunchCount=1, RunStrategy=Monitoring, UnrollFactor=1, WarmupCount=3) [CaseName=Shade(...)rrier [26]]
+//   RenderPipelineBenchmarks.RenderCompleteTargetRequest: RenderPipeline(InvocationCount=1, IterationCount=15, LaunchCount=1, RunStrategy=Monitoring, UnrollFactor=1, WarmupCount=3) [CaseName=SingleShader]
+//   RenderPipelineBenchmarks.RenderCompleteTargetRequest: RenderPipeline(InvocationCount=1, IterationCount=15, LaunchCount=1, RunStrategy=Monitoring, UnrollFactor=1, WarmupCount=3) [CaseName=Small(...)rhead [24]]
+//   RenderPipelineBenchmarks.RenderCompleteTargetRequest: RenderPipeline(InvocationCount=1, IterationCount=15, LaunchCount=1, RunStrategy=Monitoring, UnrollFactor=1, WarmupCount=3) [CaseName=Stati(...)dTail [24]]
+//   RenderPipelineBenchmarks.RenderCompleteTargetRequest: RenderPipeline(InvocationCount=1, IterationCount=15, LaunchCount=1, RunStrategy=Monitoring, UnrollFactor=1, WarmupCount=3) [CaseName=StructuralToggle]
+
+// **************************
+// Benchmark: RenderPipelineBenchmarks.RenderCompleteTargetRequest: RenderPipeline(InvocationCount=1, IterationCount=15, LaunchCount=1, RunStrategy=Monitoring, UnrollFactor=1, WarmupCount=3) [CaseName=LongInvariantChain]
+// *** Execute ***
+// Launch: 1 / 1
+// Execute: dotnet Beutl.Benchmarks-RenderPipeline-1.dll --anonymousPipes 114 115 --benchmarkName "Beutl.Benchmarks.Rendering.RenderPipelineBenchmarks.RenderCompleteTargetRequest(CaseName: \"LongInvariantChain\")" --job RenderPipeline --benchmarkId 0 in /private/var/folders/nl/kd31xyh169n3x8wb6g0dpw_m0000gn/T/beutl-gpu-pass-benchmark-build.Xp00DQ/feature/bin/Beutl.Benchmarks/release/Beutl.Benchmarks-RenderPipeline-1/bin/Release/net10.0
+// Failed to set up high priority (Permission denied). In order to run benchmarks with high priority, make sure you have the right permissions.
+// BeforeAnythingElse
+
+// Benchmark Process Environment Information:
+// BenchmarkDotNet v0.15.8
+// Runtime=.NET 10.0.9 (10.0.9, 10.0.926.27113), Arm64 RyuJIT armv8.0-a
+// GC=Concurrent Workstation
+// HardwareIntrinsics=ArmBase+AdvSimd,AES,CRC32,DP,RDM,SHA1,SHA256 VectorSize=128
+// Job: RenderPipeline(InvocationCount=1, IterationCount=15, LaunchCount=1, RunStrategy=Monitoring, UnrollFactor=1, WarmupCount=3)
+
+[mvk-info] MoltenVK version 1.4.0, supporting Vulkan version 1.4.323.
+	The following 145 Vulkan extensions are supported:
+	VK_KHR_16bit_storage v1
+	VK_KHR_8bit_storage v1
+	VK_KHR_bind_memory2 v1
+	VK_KHR_buffer_device_address v1
+	VK_KHR_calibrated_timestamps v1
+	VK_KHR_copy_commands2 v1
+	VK_KHR_create_renderpass2 v1
+	VK_KHR_dedicated_allocation v3
+	VK_KHR_deferred_host_operations v4
+	VK_KHR_depth_stencil_resolve v1
+	VK_KHR_descriptor_update_template v1
+	VK_KHR_device_group v4
+	VK_KHR_device_group_creation v1
+	VK_KHR_driver_properties v1
+	VK_KHR_dynamic_rendering v1
+	VK_KHR_dynamic_rendering_local_read v1
+	VK_KHR_external_fence v1
+	VK_KHR_external_fence_capabilities v1
+	VK_KHR_external_memory v1
+	VK_KHR_external_memory_capabilities v1
+	VK_KHR_external_semaphore v1
+	VK_KHR_external_semaphore_capabilities v1
+	VK_KHR_format_feature_flags2 v2
+	VK_KHR_fragment_shader_barycentric v1
+	VK_KHR_get_memory_requirements2 v1
+	VK_KHR_get_physical_device_properties2 v2
+	VK_KHR_get_surface_capabilities2 v1
+	VK_KHR_global_priority v1
+	VK_KHR_image_format_list v1
+	VK_KHR_imageless_framebuffer v1
+	VK_KHR_incremental_present v2
+	VK_KHR_index_type_uint8 v1
+	VK_KHR_line_rasterization v1
+	VK_KHR_load_store_op_none v1
+	VK_KHR_maintenance1 v2
+	VK_KHR_maintenance2 v1
+	VK_KHR_maintenance3 v1
+	VK_KHR_maintenance4 v2
+	VK_KHR_maintenance5 v1
+	VK_KHR_maintenance6 v1
+	VK_KHR_maintenance7 v1
+	VK_KHR_maintenance8 v1
+	VK_KHR_map_memory2 v1
+	VK_KHR_multiview v1
+	VK_KHR_portability_subset v1
+	VK_KHR_present_id v1
+	VK_KHR_present_id2 v1
+	VK_KHR_present_wait v1
+	VK_KHR_present_wait2 v1
+	VK_KHR_push_descriptor v2
+	VK_KHR_relaxed_block_layout v1
+	VK_KHR_robustness2 v1
+	VK_KHR_sampler_mirror_clamp_to_edge v3
+	VK_KHR_sampler_ycbcr_conversion v14
+	VK_KHR_separate_depth_stencil_layouts v1
+	VK_KHR_shader_draw_parameters v1
+	VK_KHR_shader_expect_assume v1
+	VK_KHR_shader_float_controls v4
+	VK_KHR_shader_float_controls2 v1
+	VK_KHR_shader_float16_int8 v1
+	VK_KHR_shader_integer_dot_product v1
+	VK_KHR_shader_maximal_reconvergence v1
+	VK_KHR_shader_non_semantic_info v1
+	VK_KHR_shader_quad_control v1
+	VK_KHR_shader_relaxed_extended_instruction v1
+	VK_KHR_shader_subgroup_extended_types v1
+	VK_KHR_shader_subgroup_rotate v2
+	VK_KHR_shader_subgroup_uniform_control_flow v1
+	VK_KHR_shader_terminate_invocation v1
+	VK_KHR_spirv_1_4 v1
+	VK_KHR_storage_buffer_storage_class v1
+	VK_KHR_surface v25
+	VK_KHR_surface_protected_capabilities v1
+	VK_KHR_swapchain v70
+	VK_KHR_swapchain_mutable_format v1
+	VK_KHR_synchronization2 v1
+	VK_KHR_timeline_semaphore v2
+	VK_KHR_uniform_buffer_standard_layout v1
+	VK_KHR_variable_pointers v1
+	VK_KHR_vertex_attribute_divisor v1
+	VK_KHR_vulkan_memory_model v3
+	VK_KHR_zero_initialize_workgroup_memory v1
+	VK_EXT_4444_formats v1
+	VK_EXT_buffer_device_address v2
+	VK_EXT_calibrated_timestamps v2
+	VK_EXT_debug_marker v4
+	VK_EXT_debug_report v10
+	VK_EXT_debug_utils v2
+	VK_EXT_depth_clip_control v1
+	VK_EXT_descriptor_indexing v2
+	VK_EXT_extended_dynamic_state v1
+	VK_EXT_extended_dynamic_state2 v1
+	VK_EXT_extended_dynamic_state3 v2
+	VK_EXT_external_memory_host v1
+	VK_EXT_external_memory_metal v1
+	VK_EXT_fragment_shader_interlock v1
+	VK_EXT_global_priority v2
+	VK_EXT_global_priority_query v1
+	VK_EXT_hdr_metadata v3
+	VK_EXT_headless_surface v1
+	VK_EXT_host_image_copy v1
+	VK_EXT_host_query_reset v1
+	VK_EXT_image_2d_view_of_3d v1
+	VK_EXT_image_robustness v1
+	VK_EXT_index_type_uint8 v1
+	VK_EXT_inline_uniform_block v1
+	VK_EXT_layer_settings v2
+	VK_EXT_line_rasterization v1
+	VK_EXT_load_store_op_none v1
+	VK_EXT_memory_budget v1
+	VK_EXT_metal_objects v2
+	VK_EXT_metal_surface v1
+	VK_EXT_pipeline_creation_cache_control v3
+	VK_EXT_pipeline_creation_feedback v1
+	VK_EXT_pipeline_robustness v1
+	VK_EXT_post_depth_coverage v1
+	VK_EXT_private_data v1
+	VK_EXT_robustness2 v1
+	VK_EXT_sample_locations v1
+	VK_EXT_scalar_block_layout v1
+	VK_EXT_separate_stencil_usage v1
+	VK_EXT_shader_atomic_float v1
+	VK_EXT_shader_demote_to_helper_invocation v1
+	VK_EXT_shader_stencil_export v1
+	VK_EXT_shader_subgroup_ballot v1
+	VK_EXT_shader_subgroup_vote v1
+	VK_EXT_shader_viewport_index_layer v1
+	VK_EXT_subgroup_size_control v2
+	VK_EXT_surface_maintenance1 v1
+	VK_EXT_swapchain_colorspace v5
+	VK_EXT_swapchain_maintenance1 v1
+	VK_EXT_texel_buffer_alignment v1
+	VK_EXT_texture_compression_astc_hdr v1
+	VK_EXT_tooling_info v1
+	VK_EXT_vertex_attribute_divisor v3
+	VK_AMD_gpu_shader_half_float v2
+	VK_AMD_negative_viewport_height v1
+	VK_AMD_shader_image_load_store_lod v1
+	VK_AMD_shader_trinary_minmax v1
+	VK_GOOGLE_display_timing v1
+	VK_IMG_format_pvrtc v1
+	VK_INTEL_shader_integer_functions2 v1
+	VK_MVK_macos_surface v3
+	VK_MVK_moltenvk v37
+	VK_NV_fragment_shader_barycentric v1
+[mvk-info] GPU device:
+	model: Apple M3
+	type: Integrated
+	vendorID: 0x106b
+	deviceID: 0x1a050209
+	pipelineCacheUUID: 45887054-1A05-0209-0000-000100000000
+	GPU memory available: 12124 MB
+	GPU memory used: 0 MB
+	Metal Shading Language 3.2
+	supports the following GPU Features:
+		GPU Family Metal 3
+		GPU Family Apple 9
+		GPU Family Mac 2
+		Read-Write Texture Tier 2
+[mvk-info] Created VkInstance for Vulkan version 1.2.323, as requested by app, with the following 4 Vulkan extensions enabled:
+	VK_KHR_get_physical_device_properties2 v2
+	VK_KHR_surface v25
+	VK_EXT_metal_surface v1
+	VK_EXT_swapchain_colorspace v5
+[mvk-info] Vulkan semaphores using MTLEvent.
+[mvk-info] Descriptor sets binding resources using Metal3 argument buffers.
+[mvk-info] Created VkDevice to run on GPU Apple M3 with the following 3 Vulkan extensions enabled:
+	VK_KHR_portability_subset v1
+	VK_KHR_swapchain v70
+	VK_EXT_metal_objects v2
+WorkloadWarmup   1: 1 op, 1574208.00 ns, 1.5742 ms/op
+WorkloadWarmup   2: 1 op, 1103750.00 ns, 1.1038 ms/op
+WorkloadWarmup   3: 1 op, 1050000.00 ns, 1.0500 ms/op
+
+// BeforeActualRun
+WorkloadActual   1: 1 op, 1001167.00 ns, 1.0012 ms/op
+WorkloadActual   2: 1 op, 1066375.00 ns, 1.0664 ms/op
+WorkloadActual   3: 1 op, 1052583.00 ns, 1.0526 ms/op
+WorkloadActual   4: 1 op, 1020750.00 ns, 1.0208 ms/op
+WorkloadActual   5: 1 op, 1078042.00 ns, 1.0780 ms/op
+WorkloadActual   6: 1 op, 1047250.00 ns, 1.0473 ms/op
+WorkloadActual   7: 1 op, 1041125.00 ns, 1.0411 ms/op
+WorkloadActual   8: 1 op, 1036458.00 ns, 1.0365 ms/op
+WorkloadActual   9: 1 op, 1079917.00 ns, 1.0799 ms/op
+WorkloadActual  10: 1 op, 1018625.00 ns, 1.0186 ms/op
+WorkloadActual  11: 1 op, 1032584.00 ns, 1.0326 ms/op
+WorkloadActual  12: 1 op, 1038791.00 ns, 1.0388 ms/op
+WorkloadActual  13: 1 op, 1013459.00 ns, 1.0135 ms/op
+WorkloadActual  14: 1 op, 1010000.00 ns, 1.0100 ms/op
+WorkloadActual  15: 1 op, 1017459.00 ns, 1.0175 ms/op
+
+// AfterActualRun
+WorkloadResult   1: 1 op, 1001167.00 ns, 1.0012 ms/op
+WorkloadResult   2: 1 op, 1066375.00 ns, 1.0664 ms/op
+WorkloadResult   3: 1 op, 1052583.00 ns, 1.0526 ms/op
+WorkloadResult   4: 1 op, 1020750.00 ns, 1.0208 ms/op
+WorkloadResult   5: 1 op, 1078042.00 ns, 1.0780 ms/op
+WorkloadResult   6: 1 op, 1047250.00 ns, 1.0473 ms/op
+WorkloadResult   7: 1 op, 1041125.00 ns, 1.0411 ms/op
+WorkloadResult   8: 1 op, 1036458.00 ns, 1.0365 ms/op
+WorkloadResult   9: 1 op, 1079917.00 ns, 1.0799 ms/op
+WorkloadResult  10: 1 op, 1018625.00 ns, 1.0186 ms/op
+WorkloadResult  11: 1 op, 1032584.00 ns, 1.0326 ms/op
+WorkloadResult  12: 1 op, 1038791.00 ns, 1.0388 ms/op
+WorkloadResult  13: 1 op, 1013459.00 ns, 1.0135 ms/op
+WorkloadResult  14: 1 op, 1010000.00 ns, 1.0100 ms/op
+WorkloadResult  15: 1 op, 1017459.00 ns, 1.0175 ms/op
+// GC:  0 0 0 133480 1
+// Threading:  0 0 1
+
+// AfterAll
+// Benchmark Process 67780 has exited with code 0.
+
+Mean = 1.037 ms, StdErr = 0.006 ms (0.61%), N = 15, StdDev = 0.024 ms
+Min = 1.001 ms, Q1 = 1.018 ms, Median = 1.036 ms, Q3 = 1.050 ms, Max = 1.080 ms
+IQR = 0.032 ms, LowerFence = 0.970 ms, UpperFence = 1.098 ms
+ConfidenceInterval = [1.011 ms; 1.063 ms] (CI 99.9%), Margin = 0.026 ms (2.51% of Mean)
+Skewness = 0.38, Kurtosis = 1.86, MValue = 2
+
+// ** Remained 10 (90.9%) benchmark(s) to run. Estimated finish 2026-08-01 1:44 (0h 0m from now) **
+// **************************
+// Benchmark: RenderPipelineBenchmarks.RenderCompleteTargetRequest: RenderPipeline(InvocationCount=1, IterationCount=15, LaunchCount=1, RunStrategy=Monitoring, UnrollFactor=1, WarmupCount=3) [CaseName=MixedSpatialColor]
+// *** Execute ***
+// Launch: 1 / 1
+// Execute: dotnet Beutl.Benchmarks-RenderPipeline-1.dll --anonymousPipes 114 115 --benchmarkName "Beutl.Benchmarks.Rendering.RenderPipelineBenchmarks.RenderCompleteTargetRequest(CaseName: \"MixedSpatialColor\")" --job RenderPipeline --benchmarkId 1 in /private/var/folders/nl/kd31xyh169n3x8wb6g0dpw_m0000gn/T/beutl-gpu-pass-benchmark-build.Xp00DQ/feature/bin/Beutl.Benchmarks/release/Beutl.Benchmarks-RenderPipeline-1/bin/Release/net10.0
+// Failed to set up high priority (Permission denied). In order to run benchmarks with high priority, make sure you have the right permissions.
+// BeforeAnythingElse
+
+// Benchmark Process Environment Information:
+// BenchmarkDotNet v0.15.8
+// Runtime=.NET 10.0.9 (10.0.9, 10.0.926.27113), Arm64 RyuJIT armv8.0-a
+// GC=Concurrent Workstation
+// HardwareIntrinsics=ArmBase+AdvSimd,AES,CRC32,DP,RDM,SHA1,SHA256 VectorSize=128
+// Job: RenderPipeline(InvocationCount=1, IterationCount=15, LaunchCount=1, RunStrategy=Monitoring, UnrollFactor=1, WarmupCount=3)
+
+[mvk-info] MoltenVK version 1.4.0, supporting Vulkan version 1.4.323.
+	The following 145 Vulkan extensions are supported:
+	VK_KHR_16bit_storage v1
+	VK_KHR_8bit_storage v1
+	VK_KHR_bind_memory2 v1
+	VK_KHR_buffer_device_address v1
+	VK_KHR_calibrated_timestamps v1
+	VK_KHR_copy_commands2 v1
+	VK_KHR_create_renderpass2 v1
+	VK_KHR_dedicated_allocation v3
+	VK_KHR_deferred_host_operations v4
+	VK_KHR_depth_stencil_resolve v1
+	VK_KHR_descriptor_update_template v1
+	VK_KHR_device_group v4
+	VK_KHR_device_group_creation v1
+	VK_KHR_driver_properties v1
+	VK_KHR_dynamic_rendering v1
+	VK_KHR_dynamic_rendering_local_read v1
+	VK_KHR_external_fence v1
+	VK_KHR_external_fence_capabilities v1
+	VK_KHR_external_memory v1
+	VK_KHR_external_memory_capabilities v1
+	VK_KHR_external_semaphore v1
+	VK_KHR_external_semaphore_capabilities v1
+	VK_KHR_format_feature_flags2 v2
+	VK_KHR_fragment_shader_barycentric v1
+	VK_KHR_get_memory_requirements2 v1
+	VK_KHR_get_physical_device_properties2 v2
+	VK_KHR_get_surface_capabilities2 v1
+	VK_KHR_global_priority v1
+	VK_KHR_image_format_list v1
+	VK_KHR_imageless_framebuffer v1
+	VK_KHR_incremental_present v2
+	VK_KHR_index_type_uint8 v1
+	VK_KHR_line_rasterization v1
+	VK_KHR_load_store_op_none v1
+	VK_KHR_maintenance1 v2
+	VK_KHR_maintenance2 v1
+	VK_KHR_maintenance3 v1
+	VK_KHR_maintenance4 v2
+	VK_KHR_maintenance5 v1
+	VK_KHR_maintenance6 v1
+	VK_KHR_maintenance7 v1
+	VK_KHR_maintenance8 v1
+	VK_KHR_map_memory2 v1
+	VK_KHR_multiview v1
+	VK_KHR_portability_subset v1
+	VK_KHR_present_id v1
+	VK_KHR_present_id2 v1
+	VK_KHR_present_wait v1
+	VK_KHR_present_wait2 v1
+	VK_KHR_push_descriptor v2
+	VK_KHR_relaxed_block_layout v1
+	VK_KHR_robustness2 v1
+	VK_KHR_sampler_mirror_clamp_to_edge v3
+	VK_KHR_sampler_ycbcr_conversion v14
+	VK_KHR_separate_depth_stencil_layouts v1
+	VK_KHR_shader_draw_parameters v1
+	VK_KHR_shader_expect_assume v1
+	VK_KHR_shader_float_controls v4
+	VK_KHR_shader_float_controls2 v1
+	VK_KHR_shader_float16_int8 v1
+	VK_KHR_shader_integer_dot_product v1
+	VK_KHR_shader_maximal_reconvergence v1
+	VK_KHR_shader_non_semantic_info v1
+	VK_KHR_shader_quad_control v1
+	VK_KHR_shader_relaxed_extended_instruction v1
+	VK_KHR_shader_subgroup_extended_types v1
+	VK_KHR_shader_subgroup_rotate v2
+	VK_KHR_shader_subgroup_uniform_control_flow v1
+	VK_KHR_shader_terminate_invocation v1
+	VK_KHR_spirv_1_4 v1
+	VK_KHR_storage_buffer_storage_class v1
+	VK_KHR_surface v25
+	VK_KHR_surface_protected_capabilities v1
+	VK_KHR_swapchain v70
+	VK_KHR_swapchain_mutable_format v1
+	VK_KHR_synchronization2 v1
+	VK_KHR_timeline_semaphore v2
+	VK_KHR_uniform_buffer_standard_layout v1
+	VK_KHR_variable_pointers v1
+	VK_KHR_vertex_attribute_divisor v1
+	VK_KHR_vulkan_memory_model v3
+	VK_KHR_zero_initialize_workgroup_memory v1
+	VK_EXT_4444_formats v1
+	VK_EXT_buffer_device_address v2
+	VK_EXT_calibrated_timestamps v2
+	VK_EXT_debug_marker v4
+	VK_EXT_debug_report v10
+	VK_EXT_debug_utils v2
+	VK_EXT_depth_clip_control v1
+	VK_EXT_descriptor_indexing v2
+	VK_EXT_extended_dynamic_state v1
+	VK_EXT_extended_dynamic_state2 v1
+	VK_EXT_extended_dynamic_state3 v2
+	VK_EXT_external_memory_host v1
+	VK_EXT_external_memory_metal v1
+	VK_EXT_fragment_shader_interlock v1
+	VK_EXT_global_priority v2
+	VK_EXT_global_priority_query v1
+	VK_EXT_hdr_metadata v3
+	VK_EXT_headless_surface v1
+	VK_EXT_host_image_copy v1
+	VK_EXT_host_query_reset v1
+	VK_EXT_image_2d_view_of_3d v1
+	VK_EXT_image_robustness v1
+	VK_EXT_index_type_uint8 v1
+	VK_EXT_inline_uniform_block v1
+	VK_EXT_layer_settings v2
+	VK_EXT_line_rasterization v1
+	VK_EXT_load_store_op_none v1
+	VK_EXT_memory_budget v1
+	VK_EXT_metal_objects v2
+	VK_EXT_metal_surface v1
+	VK_EXT_pipeline_creation_cache_control v3
+	VK_EXT_pipeline_creation_feedback v1
+	VK_EXT_pipeline_robustness v1
+	VK_EXT_post_depth_coverage v1
+	VK_EXT_private_data v1
+	VK_EXT_robustness2 v1
+	VK_EXT_sample_locations v1
+	VK_EXT_scalar_block_layout v1
+	VK_EXT_separate_stencil_usage v1
+	VK_EXT_shader_atomic_float v1
+	VK_EXT_shader_demote_to_helper_invocation v1
+	VK_EXT_shader_stencil_export v1
+	VK_EXT_shader_subgroup_ballot v1
+	VK_EXT_shader_subgroup_vote v1
+	VK_EXT_shader_viewport_index_layer v1
+	VK_EXT_subgroup_size_control v2
+	VK_EXT_surface_maintenance1 v1
+	VK_EXT_swapchain_colorspace v5
+	VK_EXT_swapchain_maintenance1 v1
+	VK_EXT_texel_buffer_alignment v1
+	VK_EXT_texture_compression_astc_hdr v1
+	VK_EXT_tooling_info v1
+	VK_EXT_vertex_attribute_divisor v3
+	VK_AMD_gpu_shader_half_float v2
+	VK_AMD_negative_viewport_height v1
+	VK_AMD_shader_image_load_store_lod v1
+	VK_AMD_shader_trinary_minmax v1
+	VK_GOOGLE_display_timing v1
+	VK_IMG_format_pvrtc v1
+	VK_INTEL_shader_integer_functions2 v1
+	VK_MVK_macos_surface v3
+	VK_MVK_moltenvk v37
+	VK_NV_fragment_shader_barycentric v1
+[mvk-info] GPU device:
+	model: Apple M3
+	type: Integrated
+	vendorID: 0x106b
+	deviceID: 0x1a050209
+	pipelineCacheUUID: 45887054-1A05-0209-0000-000100000000
+	GPU memory available: 12124 MB
+	GPU memory used: 0 MB
+	Metal Shading Language 3.2
+	supports the following GPU Features:
+		GPU Family Metal 3
+		GPU Family Apple 9
+		GPU Family Mac 2
+		Read-Write Texture Tier 2
+[mvk-info] Created VkInstance for Vulkan version 1.2.323, as requested by app, with the following 4 Vulkan extensions enabled:
+	VK_KHR_get_physical_device_properties2 v2
+	VK_KHR_surface v25
+	VK_EXT_metal_surface v1
+	VK_EXT_swapchain_colorspace v5
+[mvk-info] Vulkan semaphores using MTLEvent.
+[mvk-info] Descriptor sets binding resources using Metal3 argument buffers.
+[mvk-info] Created VkDevice to run on GPU Apple M3 with the following 3 Vulkan extensions enabled:
+	VK_KHR_portability_subset v1
+	VK_KHR_swapchain v70
+	VK_EXT_metal_objects v2
+WorkloadWarmup   1: 1 op, 2142291.00 ns, 2.1423 ms/op
+WorkloadWarmup   2: 1 op, 1511541.00 ns, 1.5115 ms/op
+WorkloadWarmup   3: 1 op, 1420666.00 ns, 1.4207 ms/op
+
+// BeforeActualRun
+WorkloadActual   1: 1 op, 1604458.00 ns, 1.6045 ms/op
+WorkloadActual   2: 1 op, 1554416.00 ns, 1.5544 ms/op
+WorkloadActual   3: 1 op, 1421042.00 ns, 1.4210 ms/op
+WorkloadActual   4: 1 op, 1320042.00 ns, 1.3200 ms/op
+WorkloadActual   5: 1 op, 1373917.00 ns, 1.3739 ms/op
+WorkloadActual   6: 1 op, 1355000.00 ns, 1.3550 ms/op
+WorkloadActual   7: 1 op, 1411334.00 ns, 1.4113 ms/op
+WorkloadActual   8: 1 op, 1677500.00 ns, 1.6775 ms/op
+WorkloadActual   9: 1 op, 1353916.00 ns, 1.3539 ms/op
+WorkloadActual  10: 1 op, 1303250.00 ns, 1.3033 ms/op
+WorkloadActual  11: 1 op, 1356875.00 ns, 1.3569 ms/op
+WorkloadActual  12: 1 op, 1758625.00 ns, 1.7586 ms/op
+WorkloadActual  13: 1 op, 1431500.00 ns, 1.4315 ms/op
+WorkloadActual  14: 1 op, 1287916.00 ns, 1.2879 ms/op
+WorkloadActual  15: 1 op, 1304667.00 ns, 1.3047 ms/op
+
+// AfterActualRun
+WorkloadResult   1: 1 op, 1604458.00 ns, 1.6045 ms/op
+WorkloadResult   2: 1 op, 1554416.00 ns, 1.5544 ms/op
+WorkloadResult   3: 1 op, 1421042.00 ns, 1.4210 ms/op
+WorkloadResult   4: 1 op, 1320042.00 ns, 1.3200 ms/op
+WorkloadResult   5: 1 op, 1373917.00 ns, 1.3739 ms/op
+WorkloadResult   6: 1 op, 1355000.00 ns, 1.3550 ms/op
+WorkloadResult   7: 1 op, 1411334.00 ns, 1.4113 ms/op
+WorkloadResult   8: 1 op, 1677500.00 ns, 1.6775 ms/op
+WorkloadResult   9: 1 op, 1353916.00 ns, 1.3539 ms/op
+WorkloadResult  10: 1 op, 1303250.00 ns, 1.3033 ms/op
+WorkloadResult  11: 1 op, 1356875.00 ns, 1.3569 ms/op
+WorkloadResult  12: 1 op, 1758625.00 ns, 1.7586 ms/op
+WorkloadResult  13: 1 op, 1431500.00 ns, 1.4315 ms/op
+WorkloadResult  14: 1 op, 1287916.00 ns, 1.2879 ms/op
+WorkloadResult  15: 1 op, 1304667.00 ns, 1.3047 ms/op
+// GC:  0 0 0 97800 1
+// Threading:  0 0 1
+
+// AfterAll
+// Benchmark Process 68092 has exited with code 0.
+
+Mean = 1.434 ms, StdErr = 0.038 ms (2.63%), N = 15, StdDev = 0.146 ms
+Min = 1.288 ms, Q1 = 1.337 ms, Median = 1.374 ms, Q3 = 1.493 ms, Max = 1.759 ms
+IQR = 0.156 ms, LowerFence = 1.103 ms, UpperFence = 1.727 ms
+ConfidenceInterval = [1.278 ms; 1.591 ms] (CI 99.9%), Margin = 0.156 ms (10.90% of Mean)
+Skewness = 0.95, Kurtosis = 2.47, MValue = 2.6
+
+// ** Remained 9 (81.8%) benchmark(s) to run. Estimated finish 2026-08-01 1:44 (0h 0m from now) **
+// **************************
+// Benchmark: RenderPipelineBenchmarks.RenderCompleteTargetRequest: RenderPipeline(InvocationCount=1, IterationCount=15, LaunchCount=1, RunStrategy=Monitoring, UnrollFactor=1, WarmupCount=3) [CaseName=Multi(...)ncies [35]]
+// *** Execute ***
+// Launch: 1 / 1
+// Execute: dotnet Beutl.Benchmarks-RenderPipeline-1.dll --anonymousPipes 114 115 --benchmarkName "Beutl.Benchmarks.Rendering.RenderPipelineBenchmarks.RenderCompleteTargetRequest(CaseName: \"MultipleDrawablesTargetDependencies\")" --job RenderPipeline --benchmarkId 2 in /private/var/folders/nl/kd31xyh169n3x8wb6g0dpw_m0000gn/T/beutl-gpu-pass-benchmark-build.Xp00DQ/feature/bin/Beutl.Benchmarks/release/Beutl.Benchmarks-RenderPipeline-1/bin/Release/net10.0
+// Failed to set up high priority (Permission denied). In order to run benchmarks with high priority, make sure you have the right permissions.
+// BeforeAnythingElse
+
+// Benchmark Process Environment Information:
+// BenchmarkDotNet v0.15.8
+// Runtime=.NET 10.0.9 (10.0.9, 10.0.926.27113), Arm64 RyuJIT armv8.0-a
+// GC=Concurrent Workstation
+// HardwareIntrinsics=ArmBase+AdvSimd,AES,CRC32,DP,RDM,SHA1,SHA256 VectorSize=128
+// Job: RenderPipeline(InvocationCount=1, IterationCount=15, LaunchCount=1, RunStrategy=Monitoring, UnrollFactor=1, WarmupCount=3)
+
+[mvk-info] MoltenVK version 1.4.0, supporting Vulkan version 1.4.323.
+	The following 145 Vulkan extensions are supported:
+	VK_KHR_16bit_storage v1
+	VK_KHR_8bit_storage v1
+	VK_KHR_bind_memory2 v1
+	VK_KHR_buffer_device_address v1
+	VK_KHR_calibrated_timestamps v1
+	VK_KHR_copy_commands2 v1
+	VK_KHR_create_renderpass2 v1
+	VK_KHR_dedicated_allocation v3
+	VK_KHR_deferred_host_operations v4
+	VK_KHR_depth_stencil_resolve v1
+	VK_KHR_descriptor_update_template v1
+	VK_KHR_device_group v4
+	VK_KHR_device_group_creation v1
+	VK_KHR_driver_properties v1
+	VK_KHR_dynamic_rendering v1
+	VK_KHR_dynamic_rendering_local_read v1
+	VK_KHR_external_fence v1
+	VK_KHR_external_fence_capabilities v1
+	VK_KHR_external_memory v1
+	VK_KHR_external_memory_capabilities v1
+	VK_KHR_external_semaphore v1
+	VK_KHR_external_semaphore_capabilities v1
+	VK_KHR_format_feature_flags2 v2
+	VK_KHR_fragment_shader_barycentric v1
+	VK_KHR_get_memory_requirements2 v1
+	VK_KHR_get_physical_device_properties2 v2
+	VK_KHR_get_surface_capabilities2 v1
+	VK_KHR_global_priority v1
+	VK_KHR_image_format_list v1
+	VK_KHR_imageless_framebuffer v1
+	VK_KHR_incremental_present v2
+	VK_KHR_index_type_uint8 v1
+	VK_KHR_line_rasterization v1
+	VK_KHR_load_store_op_none v1
+	VK_KHR_maintenance1 v2
+	VK_KHR_maintenance2 v1
+	VK_KHR_maintenance3 v1
+	VK_KHR_maintenance4 v2
+	VK_KHR_maintenance5 v1
+	VK_KHR_maintenance6 v1
+	VK_KHR_maintenance7 v1
+	VK_KHR_maintenance8 v1
+	VK_KHR_map_memory2 v1
+	VK_KHR_multiview v1
+	VK_KHR_portability_subset v1
+	VK_KHR_present_id v1
+	VK_KHR_present_id2 v1
+	VK_KHR_present_wait v1
+	VK_KHR_present_wait2 v1
+	VK_KHR_push_descriptor v2
+	VK_KHR_relaxed_block_layout v1
+	VK_KHR_robustness2 v1
+	VK_KHR_sampler_mirror_clamp_to_edge v3
+	VK_KHR_sampler_ycbcr_conversion v14
+	VK_KHR_separate_depth_stencil_layouts v1
+	VK_KHR_shader_draw_parameters v1
+	VK_KHR_shader_expect_assume v1
+	VK_KHR_shader_float_controls v4
+	VK_KHR_shader_float_controls2 v1
+	VK_KHR_shader_float16_int8 v1
+	VK_KHR_shader_integer_dot_product v1
+	VK_KHR_shader_maximal_reconvergence v1
+	VK_KHR_shader_non_semantic_info v1
+	VK_KHR_shader_quad_control v1
+	VK_KHR_shader_relaxed_extended_instruction v1
+	VK_KHR_shader_subgroup_extended_types v1
+	VK_KHR_shader_subgroup_rotate v2
+	VK_KHR_shader_subgroup_uniform_control_flow v1
+	VK_KHR_shader_terminate_invocation v1
+	VK_KHR_spirv_1_4 v1
+	VK_KHR_storage_buffer_storage_class v1
+	VK_KHR_surface v25
+	VK_KHR_surface_protected_capabilities v1
+	VK_KHR_swapchain v70
+	VK_KHR_swapchain_mutable_format v1
+	VK_KHR_synchronization2 v1
+	VK_KHR_timeline_semaphore v2
+	VK_KHR_uniform_buffer_standard_layout v1
+	VK_KHR_variable_pointers v1
+	VK_KHR_vertex_attribute_divisor v1
+	VK_KHR_vulkan_memory_model v3
+	VK_KHR_zero_initialize_workgroup_memory v1
+	VK_EXT_4444_formats v1
+	VK_EXT_buffer_device_address v2
+	VK_EXT_calibrated_timestamps v2
+	VK_EXT_debug_marker v4
+	VK_EXT_debug_report v10
+	VK_EXT_debug_utils v2
+	VK_EXT_depth_clip_control v1
+	VK_EXT_descriptor_indexing v2
+	VK_EXT_extended_dynamic_state v1
+	VK_EXT_extended_dynamic_state2 v1
+	VK_EXT_extended_dynamic_state3 v2
+	VK_EXT_external_memory_host v1
+	VK_EXT_external_memory_metal v1
+	VK_EXT_fragment_shader_interlock v1
+	VK_EXT_global_priority v2
+	VK_EXT_global_priority_query v1
+	VK_EXT_hdr_metadata v3
+	VK_EXT_headless_surface v1
+	VK_EXT_host_image_copy v1
+	VK_EXT_host_query_reset v1
+	VK_EXT_image_2d_view_of_3d v1
+	VK_EXT_image_robustness v1
+	VK_EXT_index_type_uint8 v1
+	VK_EXT_inline_uniform_block v1
+	VK_EXT_layer_settings v2
+	VK_EXT_line_rasterization v1
+	VK_EXT_load_store_op_none v1
+	VK_EXT_memory_budget v1
+	VK_EXT_metal_objects v2
+	VK_EXT_metal_surface v1
+	VK_EXT_pipeline_creation_cache_control v3
+	VK_EXT_pipeline_creation_feedback v1
+	VK_EXT_pipeline_robustness v1
+	VK_EXT_post_depth_coverage v1
+	VK_EXT_private_data v1
+	VK_EXT_robustness2 v1
+	VK_EXT_sample_locations v1
+	VK_EXT_scalar_block_layout v1
+	VK_EXT_separate_stencil_usage v1
+	VK_EXT_shader_atomic_float v1
+	VK_EXT_shader_demote_to_helper_invocation v1
+	VK_EXT_shader_stencil_export v1
+	VK_EXT_shader_subgroup_ballot v1
+	VK_EXT_shader_subgroup_vote v1
+	VK_EXT_shader_viewport_index_layer v1
+	VK_EXT_subgroup_size_control v2
+	VK_EXT_surface_maintenance1 v1
+	VK_EXT_swapchain_colorspace v5
+	VK_EXT_swapchain_maintenance1 v1
+	VK_EXT_texel_buffer_alignment v1
+	VK_EXT_texture_compression_astc_hdr v1
+	VK_EXT_tooling_info v1
+	VK_EXT_vertex_attribute_divisor v3
+	VK_AMD_gpu_shader_half_float v2
+	VK_AMD_negative_viewport_height v1
+	VK_AMD_shader_image_load_store_lod v1
+	VK_AMD_shader_trinary_minmax v1
+	VK_GOOGLE_display_timing v1
+	VK_IMG_format_pvrtc v1
+	VK_INTEL_shader_integer_functions2 v1
+	VK_MVK_macos_surface v3
+	VK_MVK_moltenvk v37
+	VK_NV_fragment_shader_barycentric v1
+[mvk-info] GPU device:
+	model: Apple M3
+	type: Integrated
+	vendorID: 0x106b
+	deviceID: 0x1a050209
+	pipelineCacheUUID: 45887054-1A05-0209-0000-000100000000
+	GPU memory available: 12124 MB
+	GPU memory used: 0 MB
+	Metal Shading Language 3.2
+	supports the following GPU Features:
+		GPU Family Metal 3
+		GPU Family Apple 9
+		GPU Family Mac 2
+		Read-Write Texture Tier 2
+[mvk-info] Created VkInstance for Vulkan version 1.2.323, as requested by app, with the following 4 Vulkan extensions enabled:
+	VK_KHR_get_physical_device_properties2 v2
+	VK_KHR_surface v25
+	VK_EXT_metal_surface v1
+	VK_EXT_swapchain_colorspace v5
+[mvk-info] Vulkan semaphores using MTLEvent.
+[mvk-info] Descriptor sets binding resources using Metal3 argument buffers.
+[mvk-info] Created VkDevice to run on GPU Apple M3 with the following 3 Vulkan extensions enabled:
+	VK_KHR_portability_subset v1
+	VK_KHR_swapchain v70
+	VK_EXT_metal_objects v2
+WorkloadWarmup   1: 1 op, 2177125.00 ns, 2.1771 ms/op
+WorkloadWarmup   2: 1 op, 1694333.00 ns, 1.6943 ms/op
+WorkloadWarmup   3: 1 op, 1775375.00 ns, 1.7754 ms/op
+
+// BeforeActualRun
+WorkloadActual   1: 1 op, 1713417.00 ns, 1.7134 ms/op
+WorkloadActual   2: 1 op, 1840500.00 ns, 1.8405 ms/op
+WorkloadActual   3: 1 op, 1623667.00 ns, 1.6237 ms/op
+WorkloadActual   4: 1 op, 1726833.00 ns, 1.7268 ms/op
+WorkloadActual   5: 1 op, 1566584.00 ns, 1.5666 ms/op
+WorkloadActual   6: 1 op, 1728542.00 ns, 1.7285 ms/op
+WorkloadActual   7: 1 op, 1676333.00 ns, 1.6763 ms/op
+WorkloadActual   8: 1 op, 1655125.00 ns, 1.6551 ms/op
+WorkloadActual   9: 1 op, 1623625.00 ns, 1.6236 ms/op
+WorkloadActual  10: 1 op, 1711167.00 ns, 1.7112 ms/op
+WorkloadActual  11: 1 op, 1634416.00 ns, 1.6344 ms/op
+WorkloadActual  12: 1 op, 1589708.00 ns, 1.5897 ms/op
+WorkloadActual  13: 1 op, 1724250.00 ns, 1.7243 ms/op
+WorkloadActual  14: 1 op, 1566416.00 ns, 1.5664 ms/op
+WorkloadActual  15: 1 op, 1568083.00 ns, 1.5681 ms/op
+
+// AfterActualRun
+WorkloadResult   1: 1 op, 1713417.00 ns, 1.7134 ms/op
+WorkloadResult   2: 1 op, 1840500.00 ns, 1.8405 ms/op
+WorkloadResult   3: 1 op, 1623667.00 ns, 1.6237 ms/op
+WorkloadResult   4: 1 op, 1726833.00 ns, 1.7268 ms/op
+WorkloadResult   5: 1 op, 1566584.00 ns, 1.5666 ms/op
+WorkloadResult   6: 1 op, 1728542.00 ns, 1.7285 ms/op
+WorkloadResult   7: 1 op, 1676333.00 ns, 1.6763 ms/op
+WorkloadResult   8: 1 op, 1655125.00 ns, 1.6551 ms/op
+WorkloadResult   9: 1 op, 1623625.00 ns, 1.6236 ms/op
+WorkloadResult  10: 1 op, 1711167.00 ns, 1.7112 ms/op
+WorkloadResult  11: 1 op, 1634416.00 ns, 1.6344 ms/op
+WorkloadResult  12: 1 op, 1589708.00 ns, 1.5897 ms/op
+WorkloadResult  13: 1 op, 1724250.00 ns, 1.7243 ms/op
+WorkloadResult  14: 1 op, 1566416.00 ns, 1.5664 ms/op
+WorkloadResult  15: 1 op, 1568083.00 ns, 1.5681 ms/op
+// GC:  0 0 0 184768 1
+// Threading:  0 0 1
+
+// AfterAll
+// Benchmark Process 68102 has exited with code 0.
+
+Mean = 1.663 ms, StdErr = 0.020 ms (1.21%), N = 15, StdDev = 0.078 ms
+Min = 1.566 ms, Q1 = 1.607 ms, Median = 1.655 ms, Q3 = 1.719 ms, Max = 1.841 ms
+IQR = 0.112 ms, LowerFence = 1.438 ms, UpperFence = 1.887 ms
+ConfidenceInterval = [1.580 ms; 1.747 ms] (CI 99.9%), Margin = 0.084 ms (5.03% of Mean)
+Skewness = 0.47, Kurtosis = 2.39, MValue = 2.29
+
+// ** Remained 8 (72.7%) benchmark(s) to run. Estimated finish 2026-08-01 1:44 (0h 0m from now) **
+// **************************
+// Benchmark: RenderPipelineBenchmarks.RenderCompleteTargetRequest: RenderPipeline(InvocationCount=1, IterationCount=15, LaunchCount=1, RunStrategy=Monitoring, UnrollFactor=1, WarmupCount=3) [CaseName=NoEffectControl]
+// *** Execute ***
+// Launch: 1 / 1
+// Execute: dotnet Beutl.Benchmarks-RenderPipeline-1.dll --anonymousPipes 114 115 --benchmarkName "Beutl.Benchmarks.Rendering.RenderPipelineBenchmarks.RenderCompleteTargetRequest(CaseName: \"NoEffectControl\")" --job RenderPipeline --benchmarkId 3 in /private/var/folders/nl/kd31xyh169n3x8wb6g0dpw_m0000gn/T/beutl-gpu-pass-benchmark-build.Xp00DQ/feature/bin/Beutl.Benchmarks/release/Beutl.Benchmarks-RenderPipeline-1/bin/Release/net10.0
+// Failed to set up high priority (Permission denied). In order to run benchmarks with high priority, make sure you have the right permissions.
+// BeforeAnythingElse
+
+// Benchmark Process Environment Information:
+// BenchmarkDotNet v0.15.8
+// Runtime=.NET 10.0.9 (10.0.9, 10.0.926.27113), Arm64 RyuJIT armv8.0-a
+// GC=Concurrent Workstation
+// HardwareIntrinsics=ArmBase+AdvSimd,AES,CRC32,DP,RDM,SHA1,SHA256 VectorSize=128
+// Job: RenderPipeline(InvocationCount=1, IterationCount=15, LaunchCount=1, RunStrategy=Monitoring, UnrollFactor=1, WarmupCount=3)
+
+[mvk-info] MoltenVK version 1.4.0, supporting Vulkan version 1.4.323.
+	The following 145 Vulkan extensions are supported:
+	VK_KHR_16bit_storage v1
+	VK_KHR_8bit_storage v1
+	VK_KHR_bind_memory2 v1
+	VK_KHR_buffer_device_address v1
+	VK_KHR_calibrated_timestamps v1
+	VK_KHR_copy_commands2 v1
+	VK_KHR_create_renderpass2 v1
+	VK_KHR_dedicated_allocation v3
+	VK_KHR_deferred_host_operations v4
+	VK_KHR_depth_stencil_resolve v1
+	VK_KHR_descriptor_update_template v1
+	VK_KHR_device_group v4
+	VK_KHR_device_group_creation v1
+	VK_KHR_driver_properties v1
+	VK_KHR_dynamic_rendering v1
+	VK_KHR_dynamic_rendering_local_read v1
+	VK_KHR_external_fence v1
+	VK_KHR_external_fence_capabilities v1
+	VK_KHR_external_memory v1
+	VK_KHR_external_memory_capabilities v1
+	VK_KHR_external_semaphore v1
+	VK_KHR_external_semaphore_capabilities v1
+	VK_KHR_format_feature_flags2 v2
+	VK_KHR_fragment_shader_barycentric v1
+	VK_KHR_get_memory_requirements2 v1
+	VK_KHR_get_physical_device_properties2 v2
+	VK_KHR_get_surface_capabilities2 v1
+	VK_KHR_global_priority v1
+	VK_KHR_image_format_list v1
+	VK_KHR_imageless_framebuffer v1
+	VK_KHR_incremental_present v2
+	VK_KHR_index_type_uint8 v1
+	VK_KHR_line_rasterization v1
+	VK_KHR_load_store_op_none v1
+	VK_KHR_maintenance1 v2
+	VK_KHR_maintenance2 v1
+	VK_KHR_maintenance3 v1
+	VK_KHR_maintenance4 v2
+	VK_KHR_maintenance5 v1
+	VK_KHR_maintenance6 v1
+	VK_KHR_maintenance7 v1
+	VK_KHR_maintenance8 v1
+	VK_KHR_map_memory2 v1
+	VK_KHR_multiview v1
+	VK_KHR_portability_subset v1
+	VK_KHR_present_id v1
+	VK_KHR_present_id2 v1
+	VK_KHR_present_wait v1
+	VK_KHR_present_wait2 v1
+	VK_KHR_push_descriptor v2
+	VK_KHR_relaxed_block_layout v1
+	VK_KHR_robustness2 v1
+	VK_KHR_sampler_mirror_clamp_to_edge v3
+	VK_KHR_sampler_ycbcr_conversion v14
+	VK_KHR_separate_depth_stencil_layouts v1
+	VK_KHR_shader_draw_parameters v1
+	VK_KHR_shader_expect_assume v1
+	VK_KHR_shader_float_controls v4
+	VK_KHR_shader_float_controls2 v1
+	VK_KHR_shader_float16_int8 v1
+	VK_KHR_shader_integer_dot_product v1
+	VK_KHR_shader_maximal_reconvergence v1
+	VK_KHR_shader_non_semantic_info v1
+	VK_KHR_shader_quad_control v1
+	VK_KHR_shader_relaxed_extended_instruction v1
+	VK_KHR_shader_subgroup_extended_types v1
+	VK_KHR_shader_subgroup_rotate v2
+	VK_KHR_shader_subgroup_uniform_control_flow v1
+	VK_KHR_shader_terminate_invocation v1
+	VK_KHR_spirv_1_4 v1
+	VK_KHR_storage_buffer_storage_class v1
+	VK_KHR_surface v25
+	VK_KHR_surface_protected_capabilities v1
+	VK_KHR_swapchain v70
+	VK_KHR_swapchain_mutable_format v1
+	VK_KHR_synchronization2 v1
+	VK_KHR_timeline_semaphore v2
+	VK_KHR_uniform_buffer_standard_layout v1
+	VK_KHR_variable_pointers v1
+	VK_KHR_vertex_attribute_divisor v1
+	VK_KHR_vulkan_memory_model v3
+	VK_KHR_zero_initialize_workgroup_memory v1
+	VK_EXT_4444_formats v1
+	VK_EXT_buffer_device_address v2
+	VK_EXT_calibrated_timestamps v2
+	VK_EXT_debug_marker v4
+	VK_EXT_debug_report v10
+	VK_EXT_debug_utils v2
+	VK_EXT_depth_clip_control v1
+	VK_EXT_descriptor_indexing v2
+	VK_EXT_extended_dynamic_state v1
+	VK_EXT_extended_dynamic_state2 v1
+	VK_EXT_extended_dynamic_state3 v2
+	VK_EXT_external_memory_host v1
+	VK_EXT_external_memory_metal v1
+	VK_EXT_fragment_shader_interlock v1
+	VK_EXT_global_priority v2
+	VK_EXT_global_priority_query v1
+	VK_EXT_hdr_metadata v3
+	VK_EXT_headless_surface v1
+	VK_EXT_host_image_copy v1
+	VK_EXT_host_query_reset v1
+	VK_EXT_image_2d_view_of_3d v1
+	VK_EXT_image_robustness v1
+	VK_EXT_index_type_uint8 v1
+	VK_EXT_inline_uniform_block v1
+	VK_EXT_layer_settings v2
+	VK_EXT_line_rasterization v1
+	VK_EXT_load_store_op_none v1
+	VK_EXT_memory_budget v1
+	VK_EXT_metal_objects v2
+	VK_EXT_metal_surface v1
+	VK_EXT_pipeline_creation_cache_control v3
+	VK_EXT_pipeline_creation_feedback v1
+	VK_EXT_pipeline_robustness v1
+	VK_EXT_post_depth_coverage v1
+	VK_EXT_private_data v1
+	VK_EXT_robustness2 v1
+	VK_EXT_sample_locations v1
+	VK_EXT_scalar_block_layout v1
+	VK_EXT_separate_stencil_usage v1
+	VK_EXT_shader_atomic_float v1
+	VK_EXT_shader_demote_to_helper_invocation v1
+	VK_EXT_shader_stencil_export v1
+	VK_EXT_shader_subgroup_ballot v1
+	VK_EXT_shader_subgroup_vote v1
+	VK_EXT_shader_viewport_index_layer v1
+	VK_EXT_subgroup_size_control v2
+	VK_EXT_surface_maintenance1 v1
+	VK_EXT_swapchain_colorspace v5
+	VK_EXT_swapchain_maintenance1 v1
+	VK_EXT_texel_buffer_alignment v1
+	VK_EXT_texture_compression_astc_hdr v1
+	VK_EXT_tooling_info v1
+	VK_EXT_vertex_attribute_divisor v3
+	VK_AMD_gpu_shader_half_float v2
+	VK_AMD_negative_viewport_height v1
+	VK_AMD_shader_image_load_store_lod v1
+	VK_AMD_shader_trinary_minmax v1
+	VK_GOOGLE_display_timing v1
+	VK_IMG_format_pvrtc v1
+	VK_INTEL_shader_integer_functions2 v1
+	VK_MVK_macos_surface v3
+	VK_MVK_moltenvk v37
+	VK_NV_fragment_shader_barycentric v1
+[mvk-info] GPU device:
+	model: Apple M3
+	type: Integrated
+	vendorID: 0x106b
+	deviceID: 0x1a050209
+	pipelineCacheUUID: 45887054-1A05-0209-0000-000100000000
+	GPU memory available: 12124 MB
+	GPU memory used: 0 MB
+	Metal Shading Language 3.2
+	supports the following GPU Features:
+		GPU Family Metal 3
+		GPU Family Apple 9
+		GPU Family Mac 2
+		Read-Write Texture Tier 2
+[mvk-info] Created VkInstance for Vulkan version 1.2.323, as requested by app, with the following 4 Vulkan extensions enabled:
+	VK_KHR_get_physical_device_properties2 v2
+	VK_KHR_surface v25
+	VK_EXT_metal_surface v1
+	VK_EXT_swapchain_colorspace v5
+[mvk-info] Vulkan semaphores using MTLEvent.
+[mvk-info] Descriptor sets binding resources using Metal3 argument buffers.
+[mvk-info] Created VkDevice to run on GPU Apple M3 with the following 3 Vulkan extensions enabled:
+	VK_KHR_portability_subset v1
+	VK_KHR_swapchain v70
+	VK_EXT_metal_objects v2
+WorkloadWarmup   1: 1 op, 1518458.00 ns, 1.5185 ms/op
+WorkloadWarmup   2: 1 op, 1096292.00 ns, 1.0963 ms/op
+WorkloadWarmup   3: 1 op, 998042.00 ns, 998.0420 us/op
+
+// BeforeActualRun
+WorkloadActual   1: 1 op, 964042.00 ns, 964.0420 us/op
+WorkloadActual   2: 1 op, 1007625.00 ns, 1.0076 ms/op
+WorkloadActual   3: 1 op, 960459.00 ns, 960.4590 us/op
+WorkloadActual   4: 1 op, 961417.00 ns, 961.4170 us/op
+WorkloadActual   5: 1 op, 947959.00 ns, 947.9590 us/op
+WorkloadActual   6: 1 op, 1036167.00 ns, 1.0362 ms/op
+WorkloadActual   7: 1 op, 993375.00 ns, 993.3750 us/op
+WorkloadActual   8: 1 op, 865166.00 ns, 865.1660 us/op
+WorkloadActual   9: 1 op, 851000.00 ns, 851.0000 us/op
+WorkloadActual  10: 1 op, 803625.00 ns, 803.6250 us/op
+WorkloadActual  11: 1 op, 1051500.00 ns, 1.0515 ms/op
+WorkloadActual  12: 1 op, 1007958.00 ns, 1.0080 ms/op
+WorkloadActual  13: 1 op, 963500.00 ns, 963.5000 us/op
+WorkloadActual  14: 1 op, 966916.00 ns, 966.9160 us/op
+WorkloadActual  15: 1 op, 893542.00 ns, 893.5420 us/op
+
+// AfterActualRun
+WorkloadResult   1: 1 op, 964042.00 ns, 964.0420 us/op
+WorkloadResult   2: 1 op, 1007625.00 ns, 1.0076 ms/op
+WorkloadResult   3: 1 op, 960459.00 ns, 960.4590 us/op
+WorkloadResult   4: 1 op, 961417.00 ns, 961.4170 us/op
+WorkloadResult   5: 1 op, 947959.00 ns, 947.9590 us/op
+WorkloadResult   6: 1 op, 1036167.00 ns, 1.0362 ms/op
+WorkloadResult   7: 1 op, 993375.00 ns, 993.3750 us/op
+WorkloadResult   8: 1 op, 865166.00 ns, 865.1660 us/op
+WorkloadResult   9: 1 op, 851000.00 ns, 851.0000 us/op
+WorkloadResult  10: 1 op, 803625.00 ns, 803.6250 us/op
+WorkloadResult  11: 1 op, 1051500.00 ns, 1.0515 ms/op
+WorkloadResult  12: 1 op, 1007958.00 ns, 1.0080 ms/op
+WorkloadResult  13: 1 op, 963500.00 ns, 963.5000 us/op
+WorkloadResult  14: 1 op, 966916.00 ns, 966.9160 us/op
+WorkloadResult  15: 1 op, 893542.00 ns, 893.5420 us/op
+// GC:  0 0 0 37464 1
+// Threading:  0 0 1
+
+// AfterAll
+// Benchmark Process 68108 has exited with code 0.
+
+Mean = 951.617 us, StdErr = 18.096 us (1.90%), N = 15, StdDev = 70.086 us
+Min = 803.625 us, Q1 = 920.750 us, Median = 963.500 us, Q3 = 1,000.500 us, Max = 1,051.500 us
+IQR = 79.749 us, LowerFence = 801.126 us, UpperFence = 1,120.124 us
+ConfidenceInterval = [876.690 us; 1,026.543 us] (CI 99.9%), Margin = 74.927 us (7.87% of Mean)
+Skewness = -0.59, Kurtosis = 2.27, MValue = 2.67
+
+// ** Remained 7 (63.6%) benchmark(s) to run. Estimated finish 2026-08-01 1:44 (0h 0m from now) **
+// **************************
+// Benchmark: RenderPipelineBenchmarks.RenderCompleteTargetRequest: RenderPipeline(InvocationCount=1, IterationCount=15, LaunchCount=1, RunStrategy=Monitoring, UnrollFactor=1, WarmupCount=3) [CaseName=Param(...)ation [22]]
+// *** Execute ***
+// Launch: 1 / 1
+// Execute: dotnet Beutl.Benchmarks-RenderPipeline-1.dll --anonymousPipes 114 115 --benchmarkName "Beutl.Benchmarks.Rendering.RenderPipelineBenchmarks.RenderCompleteTargetRequest(CaseName: \"ParameterOnlyAnimation\")" --job RenderPipeline --benchmarkId 4 in /private/var/folders/nl/kd31xyh169n3x8wb6g0dpw_m0000gn/T/beutl-gpu-pass-benchmark-build.Xp00DQ/feature/bin/Beutl.Benchmarks/release/Beutl.Benchmarks-RenderPipeline-1/bin/Release/net10.0
+// Failed to set up high priority (Permission denied). In order to run benchmarks with high priority, make sure you have the right permissions.
+// BeforeAnythingElse
+
+// Benchmark Process Environment Information:
+// BenchmarkDotNet v0.15.8
+// Runtime=.NET 10.0.9 (10.0.9, 10.0.926.27113), Arm64 RyuJIT armv8.0-a
+// GC=Concurrent Workstation
+// HardwareIntrinsics=ArmBase+AdvSimd,AES,CRC32,DP,RDM,SHA1,SHA256 VectorSize=128
+// Job: RenderPipeline(InvocationCount=1, IterationCount=15, LaunchCount=1, RunStrategy=Monitoring, UnrollFactor=1, WarmupCount=3)
+
+[mvk-info] MoltenVK version 1.4.0, supporting Vulkan version 1.4.323.
+	The following 145 Vulkan extensions are supported:
+	VK_KHR_16bit_storage v1
+	VK_KHR_8bit_storage v1
+	VK_KHR_bind_memory2 v1
+	VK_KHR_buffer_device_address v1
+	VK_KHR_calibrated_timestamps v1
+	VK_KHR_copy_commands2 v1
+	VK_KHR_create_renderpass2 v1
+	VK_KHR_dedicated_allocation v3
+	VK_KHR_deferred_host_operations v4
+	VK_KHR_depth_stencil_resolve v1
+	VK_KHR_descriptor_update_template v1
+	VK_KHR_device_group v4
+	VK_KHR_device_group_creation v1
+	VK_KHR_driver_properties v1
+	VK_KHR_dynamic_rendering v1
+	VK_KHR_dynamic_rendering_local_read v1
+	VK_KHR_external_fence v1
+	VK_KHR_external_fence_capabilities v1
+	VK_KHR_external_memory v1
+	VK_KHR_external_memory_capabilities v1
+	VK_KHR_external_semaphore v1
+	VK_KHR_external_semaphore_capabilities v1
+	VK_KHR_format_feature_flags2 v2
+	VK_KHR_fragment_shader_barycentric v1
+	VK_KHR_get_memory_requirements2 v1
+	VK_KHR_get_physical_device_properties2 v2
+	VK_KHR_get_surface_capabilities2 v1
+	VK_KHR_global_priority v1
+	VK_KHR_image_format_list v1
+	VK_KHR_imageless_framebuffer v1
+	VK_KHR_incremental_present v2
+	VK_KHR_index_type_uint8 v1
+	VK_KHR_line_rasterization v1
+	VK_KHR_load_store_op_none v1
+	VK_KHR_maintenance1 v2
+	VK_KHR_maintenance2 v1
+	VK_KHR_maintenance3 v1
+	VK_KHR_maintenance4 v2
+	VK_KHR_maintenance5 v1
+	VK_KHR_maintenance6 v1
+	VK_KHR_maintenance7 v1
+	VK_KHR_maintenance8 v1
+	VK_KHR_map_memory2 v1
+	VK_KHR_multiview v1
+	VK_KHR_portability_subset v1
+	VK_KHR_present_id v1
+	VK_KHR_present_id2 v1
+	VK_KHR_present_wait v1
+	VK_KHR_present_wait2 v1
+	VK_KHR_push_descriptor v2
+	VK_KHR_relaxed_block_layout v1
+	VK_KHR_robustness2 v1
+	VK_KHR_sampler_mirror_clamp_to_edge v3
+	VK_KHR_sampler_ycbcr_conversion v14
+	VK_KHR_separate_depth_stencil_layouts v1
+	VK_KHR_shader_draw_parameters v1
+	VK_KHR_shader_expect_assume v1
+	VK_KHR_shader_float_controls v4
+	VK_KHR_shader_float_controls2 v1
+	VK_KHR_shader_float16_int8 v1
+	VK_KHR_shader_integer_dot_product v1
+	VK_KHR_shader_maximal_reconvergence v1
+	VK_KHR_shader_non_semantic_info v1
+	VK_KHR_shader_quad_control v1
+	VK_KHR_shader_relaxed_extended_instruction v1
+	VK_KHR_shader_subgroup_extended_types v1
+	VK_KHR_shader_subgroup_rotate v2
+	VK_KHR_shader_subgroup_uniform_control_flow v1
+	VK_KHR_shader_terminate_invocation v1
+	VK_KHR_spirv_1_4 v1
+	VK_KHR_storage_buffer_storage_class v1
+	VK_KHR_surface v25
+	VK_KHR_surface_protected_capabilities v1
+	VK_KHR_swapchain v70
+	VK_KHR_swapchain_mutable_format v1
+	VK_KHR_synchronization2 v1
+	VK_KHR_timeline_semaphore v2
+	VK_KHR_uniform_buffer_standard_layout v1
+	VK_KHR_variable_pointers v1
+	VK_KHR_vertex_attribute_divisor v1
+	VK_KHR_vulkan_memory_model v3
+	VK_KHR_zero_initialize_workgroup_memory v1
+	VK_EXT_4444_formats v1
+	VK_EXT_buffer_device_address v2
+	VK_EXT_calibrated_timestamps v2
+	VK_EXT_debug_marker v4
+	VK_EXT_debug_report v10
+	VK_EXT_debug_utils v2
+	VK_EXT_depth_clip_control v1
+	VK_EXT_descriptor_indexing v2
+	VK_EXT_extended_dynamic_state v1
+	VK_EXT_extended_dynamic_state2 v1
+	VK_EXT_extended_dynamic_state3 v2
+	VK_EXT_external_memory_host v1
+	VK_EXT_external_memory_metal v1
+	VK_EXT_fragment_shader_interlock v1
+	VK_EXT_global_priority v2
+	VK_EXT_global_priority_query v1
+	VK_EXT_hdr_metadata v3
+	VK_EXT_headless_surface v1
+	VK_EXT_host_image_copy v1
+	VK_EXT_host_query_reset v1
+	VK_EXT_image_2d_view_of_3d v1
+	VK_EXT_image_robustness v1
+	VK_EXT_index_type_uint8 v1
+	VK_EXT_inline_uniform_block v1
+	VK_EXT_layer_settings v2
+	VK_EXT_line_rasterization v1
+	VK_EXT_load_store_op_none v1
+	VK_EXT_memory_budget v1
+	VK_EXT_metal_objects v2
+	VK_EXT_metal_surface v1
+	VK_EXT_pipeline_creation_cache_control v3
+	VK_EXT_pipeline_creation_feedback v1
+	VK_EXT_pipeline_robustness v1
+	VK_EXT_post_depth_coverage v1
+	VK_EXT_private_data v1
+	VK_EXT_robustness2 v1
+	VK_EXT_sample_locations v1
+	VK_EXT_scalar_block_layout v1
+	VK_EXT_separate_stencil_usage v1
+	VK_EXT_shader_atomic_float v1
+	VK_EXT_shader_demote_to_helper_invocation v1
+	VK_EXT_shader_stencil_export v1
+	VK_EXT_shader_subgroup_ballot v1
+	VK_EXT_shader_subgroup_vote v1
+	VK_EXT_shader_viewport_index_layer v1
+	VK_EXT_subgroup_size_control v2
+	VK_EXT_surface_maintenance1 v1
+	VK_EXT_swapchain_colorspace v5
+	VK_EXT_swapchain_maintenance1 v1
+	VK_EXT_texel_buffer_alignment v1
+	VK_EXT_texture_compression_astc_hdr v1
+	VK_EXT_tooling_info v1
+	VK_EXT_vertex_attribute_divisor v3
+	VK_AMD_gpu_shader_half_float v2
+	VK_AMD_negative_viewport_height v1
+	VK_AMD_shader_image_load_store_lod v1
+	VK_AMD_shader_trinary_minmax v1
+	VK_GOOGLE_display_timing v1
+	VK_IMG_format_pvrtc v1
+	VK_INTEL_shader_integer_functions2 v1
+	VK_MVK_macos_surface v3
+	VK_MVK_moltenvk v37
+	VK_NV_fragment_shader_barycentric v1
+[mvk-info] GPU device:
+	model: Apple M3
+	type: Integrated
+	vendorID: 0x106b
+	deviceID: 0x1a050209
+	pipelineCacheUUID: 45887054-1A05-0209-0000-000100000000
+	GPU memory available: 12124 MB
+	GPU memory used: 0 MB
+	Metal Shading Language 3.2
+	supports the following GPU Features:
+		GPU Family Metal 3
+		GPU Family Apple 9
+		GPU Family Mac 2
+		Read-Write Texture Tier 2
+[mvk-info] Created VkInstance for Vulkan version 1.2.323, as requested by app, with the following 4 Vulkan extensions enabled:
+	VK_KHR_get_physical_device_properties2 v2
+	VK_KHR_surface v25
+	VK_EXT_metal_surface v1
+	VK_EXT_swapchain_colorspace v5
+[mvk-info] Vulkan semaphores using MTLEvent.
+[mvk-info] Descriptor sets binding resources using Metal3 argument buffers.
+[mvk-info] Created VkDevice to run on GPU Apple M3 with the following 3 Vulkan extensions enabled:
+	VK_KHR_portability_subset v1
+	VK_KHR_swapchain v70
+	VK_EXT_metal_objects v2
+WorkloadWarmup   1: 1 op, 1632875.00 ns, 1.6329 ms/op
+WorkloadWarmup   2: 1 op, 988166.00 ns, 988.1660 us/op
+WorkloadWarmup   3: 1 op, 1131375.00 ns, 1.1314 ms/op
+
+// BeforeActualRun
+WorkloadActual   1: 1 op, 1099542.00 ns, 1.0995 ms/op
+WorkloadActual   2: 1 op, 1083625.00 ns, 1.0836 ms/op
+WorkloadActual   3: 1 op, 1123375.00 ns, 1.1234 ms/op
+WorkloadActual   4: 1 op, 1073959.00 ns, 1.0740 ms/op
+WorkloadActual   5: 1 op, 1057292.00 ns, 1.0573 ms/op
+WorkloadActual   6: 1 op, 980375.00 ns, 980.3750 us/op
+WorkloadActual   7: 1 op, 1122500.00 ns, 1.1225 ms/op
+WorkloadActual   8: 1 op, 967333.00 ns, 967.3330 us/op
+WorkloadActual   9: 1 op, 1365167.00 ns, 1.3652 ms/op
+WorkloadActual  10: 1 op, 1048791.00 ns, 1.0488 ms/op
+WorkloadActual  11: 1 op, 1039917.00 ns, 1.0399 ms/op
+WorkloadActual  12: 1 op, 1056208.00 ns, 1.0562 ms/op
+WorkloadActual  13: 1 op, 925875.00 ns, 925.8750 us/op
+WorkloadActual  14: 1 op, 1058458.00 ns, 1.0585 ms/op
+WorkloadActual  15: 1 op, 937875.00 ns, 937.8750 us/op
+
+// AfterActualRun
+WorkloadResult   1: 1 op, 1099542.00 ns, 1.0995 ms/op
+WorkloadResult   2: 1 op, 1083625.00 ns, 1.0836 ms/op
+WorkloadResult   3: 1 op, 1123375.00 ns, 1.1234 ms/op
+WorkloadResult   4: 1 op, 1073959.00 ns, 1.0740 ms/op
+WorkloadResult   5: 1 op, 1057292.00 ns, 1.0573 ms/op
+WorkloadResult   6: 1 op, 980375.00 ns, 980.3750 us/op
+WorkloadResult   7: 1 op, 1122500.00 ns, 1.1225 ms/op
+WorkloadResult   8: 1 op, 967333.00 ns, 967.3330 us/op
+WorkloadResult   9: 1 op, 1365167.00 ns, 1.3652 ms/op
+WorkloadResult  10: 1 op, 1048791.00 ns, 1.0488 ms/op
+WorkloadResult  11: 1 op, 1039917.00 ns, 1.0399 ms/op
+WorkloadResult  12: 1 op, 1056208.00 ns, 1.0562 ms/op
+WorkloadResult  13: 1 op, 925875.00 ns, 925.8750 us/op
+WorkloadResult  14: 1 op, 1058458.00 ns, 1.0585 ms/op
+WorkloadResult  15: 1 op, 937875.00 ns, 937.8750 us/op
+// GC:  0 0 0 79432 1
+// Threading:  0 0 1
+
+// AfterAll
+// Benchmark Process 68112 has exited with code 0.
+
+Mean = 1.063 ms, StdErr = 0.027 ms (2.53%), N = 15, StdDev = 0.104 ms
+Min = 0.926 ms, Q1 = 1.010 ms, Median = 1.057 ms, Q3 = 1.092 ms, Max = 1.365 ms
+IQR = 0.081 ms, LowerFence = 0.888 ms, UpperFence = 1.214 ms
+ConfidenceInterval = [0.951 ms; 1.174 ms] (CI 99.9%), Margin = 0.111 ms (10.47% of Mean)
+Skewness = 1.31, Kurtosis = 5.18, MValue = 3
+
+// ** Remained 6 (54.5%) benchmark(s) to run. Estimated finish 2026-08-01 1:44 (0h 0m from now) **
+// **************************
+// Benchmark: RenderPipelineBenchmarks.RenderCompleteTargetRequest: RenderPipeline(InvocationCount=1, IterationCount=15, LaunchCount=1, RunStrategy=Monitoring, UnrollFactor=1, WarmupCount=3) [CaseName=ShaderOpacityShader]
+// *** Execute ***
+// Launch: 1 / 1
+// Execute: dotnet Beutl.Benchmarks-RenderPipeline-1.dll --anonymousPipes 114 115 --benchmarkName "Beutl.Benchmarks.Rendering.RenderPipelineBenchmarks.RenderCompleteTargetRequest(CaseName: \"ShaderOpacityShader\")" --job RenderPipeline --benchmarkId 5 in /private/var/folders/nl/kd31xyh169n3x8wb6g0dpw_m0000gn/T/beutl-gpu-pass-benchmark-build.Xp00DQ/feature/bin/Beutl.Benchmarks/release/Beutl.Benchmarks-RenderPipeline-1/bin/Release/net10.0
+// Failed to set up high priority (Permission denied). In order to run benchmarks with high priority, make sure you have the right permissions.
+// BeforeAnythingElse
+
+// Benchmark Process Environment Information:
+// BenchmarkDotNet v0.15.8
+// Runtime=.NET 10.0.9 (10.0.9, 10.0.926.27113), Arm64 RyuJIT armv8.0-a
+// GC=Concurrent Workstation
+// HardwareIntrinsics=ArmBase+AdvSimd,AES,CRC32,DP,RDM,SHA1,SHA256 VectorSize=128
+// Job: RenderPipeline(InvocationCount=1, IterationCount=15, LaunchCount=1, RunStrategy=Monitoring, UnrollFactor=1, WarmupCount=3)
+
+[mvk-info] MoltenVK version 1.4.0, supporting Vulkan version 1.4.323.
+	The following 145 Vulkan extensions are supported:
+	VK_KHR_16bit_storage v1
+	VK_KHR_8bit_storage v1
+	VK_KHR_bind_memory2 v1
+	VK_KHR_buffer_device_address v1
+	VK_KHR_calibrated_timestamps v1
+	VK_KHR_copy_commands2 v1
+	VK_KHR_create_renderpass2 v1
+	VK_KHR_dedicated_allocation v3
+	VK_KHR_deferred_host_operations v4
+	VK_KHR_depth_stencil_resolve v1
+	VK_KHR_descriptor_update_template v1
+	VK_KHR_device_group v4
+	VK_KHR_device_group_creation v1
+	VK_KHR_driver_properties v1
+	VK_KHR_dynamic_rendering v1
+	VK_KHR_dynamic_rendering_local_read v1
+	VK_KHR_external_fence v1
+	VK_KHR_external_fence_capabilities v1
+	VK_KHR_external_memory v1
+	VK_KHR_external_memory_capabilities v1
+	VK_KHR_external_semaphore v1
+	VK_KHR_external_semaphore_capabilities v1
+	VK_KHR_format_feature_flags2 v2
+	VK_KHR_fragment_shader_barycentric v1
+	VK_KHR_get_memory_requirements2 v1
+	VK_KHR_get_physical_device_properties2 v2
+	VK_KHR_get_surface_capabilities2 v1
+	VK_KHR_global_priority v1
+	VK_KHR_image_format_list v1
+	VK_KHR_imageless_framebuffer v1
+	VK_KHR_incremental_present v2
+	VK_KHR_index_type_uint8 v1
+	VK_KHR_line_rasterization v1
+	VK_KHR_load_store_op_none v1
+	VK_KHR_maintenance1 v2
+	VK_KHR_maintenance2 v1
+	VK_KHR_maintenance3 v1
+	VK_KHR_maintenance4 v2
+	VK_KHR_maintenance5 v1
+	VK_KHR_maintenance6 v1
+	VK_KHR_maintenance7 v1
+	VK_KHR_maintenance8 v1
+	VK_KHR_map_memory2 v1
+	VK_KHR_multiview v1
+	VK_KHR_portability_subset v1
+	VK_KHR_present_id v1
+	VK_KHR_present_id2 v1
+	VK_KHR_present_wait v1
+	VK_KHR_present_wait2 v1
+	VK_KHR_push_descriptor v2
+	VK_KHR_relaxed_block_layout v1
+	VK_KHR_robustness2 v1
+	VK_KHR_sampler_mirror_clamp_to_edge v3
+	VK_KHR_sampler_ycbcr_conversion v14
+	VK_KHR_separate_depth_stencil_layouts v1
+	VK_KHR_shader_draw_parameters v1
+	VK_KHR_shader_expect_assume v1
+	VK_KHR_shader_float_controls v4
+	VK_KHR_shader_float_controls2 v1
+	VK_KHR_shader_float16_int8 v1
+	VK_KHR_shader_integer_dot_product v1
+	VK_KHR_shader_maximal_reconvergence v1
+	VK_KHR_shader_non_semantic_info v1
+	VK_KHR_shader_quad_control v1
+	VK_KHR_shader_relaxed_extended_instruction v1
+	VK_KHR_shader_subgroup_extended_types v1
+	VK_KHR_shader_subgroup_rotate v2
+	VK_KHR_shader_subgroup_uniform_control_flow v1
+	VK_KHR_shader_terminate_invocation v1
+	VK_KHR_spirv_1_4 v1
+	VK_KHR_storage_buffer_storage_class v1
+	VK_KHR_surface v25
+	VK_KHR_surface_protected_capabilities v1
+	VK_KHR_swapchain v70
+	VK_KHR_swapchain_mutable_format v1
+	VK_KHR_synchronization2 v1
+	VK_KHR_timeline_semaphore v2
+	VK_KHR_uniform_buffer_standard_layout v1
+	VK_KHR_variable_pointers v1
+	VK_KHR_vertex_attribute_divisor v1
+	VK_KHR_vulkan_memory_model v3
+	VK_KHR_zero_initialize_workgroup_memory v1
+	VK_EXT_4444_formats v1
+	VK_EXT_buffer_device_address v2
+	VK_EXT_calibrated_timestamps v2
+	VK_EXT_debug_marker v4
+	VK_EXT_debug_report v10
+	VK_EXT_debug_utils v2
+	VK_EXT_depth_clip_control v1
+	VK_EXT_descriptor_indexing v2
+	VK_EXT_extended_dynamic_state v1
+	VK_EXT_extended_dynamic_state2 v1
+	VK_EXT_extended_dynamic_state3 v2
+	VK_EXT_external_memory_host v1
+	VK_EXT_external_memory_metal v1
+	VK_EXT_fragment_shader_interlock v1
+	VK_EXT_global_priority v2
+	VK_EXT_global_priority_query v1
+	VK_EXT_hdr_metadata v3
+	VK_EXT_headless_surface v1
+	VK_EXT_host_image_copy v1
+	VK_EXT_host_query_reset v1
+	VK_EXT_image_2d_view_of_3d v1
+	VK_EXT_image_robustness v1
+	VK_EXT_index_type_uint8 v1
+	VK_EXT_inline_uniform_block v1
+	VK_EXT_layer_settings v2
+	VK_EXT_line_rasterization v1
+	VK_EXT_load_store_op_none v1
+	VK_EXT_memory_budget v1
+	VK_EXT_metal_objects v2
+	VK_EXT_metal_surface v1
+	VK_EXT_pipeline_creation_cache_control v3
+	VK_EXT_pipeline_creation_feedback v1
+	VK_EXT_pipeline_robustness v1
+	VK_EXT_post_depth_coverage v1
+	VK_EXT_private_data v1
+	VK_EXT_robustness2 v1
+	VK_EXT_sample_locations v1
+	VK_EXT_scalar_block_layout v1
+	VK_EXT_separate_stencil_usage v1
+	VK_EXT_shader_atomic_float v1
+	VK_EXT_shader_demote_to_helper_invocation v1
+	VK_EXT_shader_stencil_export v1
+	VK_EXT_shader_subgroup_ballot v1
+	VK_EXT_shader_subgroup_vote v1
+	VK_EXT_shader_viewport_index_layer v1
+	VK_EXT_subgroup_size_control v2
+	VK_EXT_surface_maintenance1 v1
+	VK_EXT_swapchain_colorspace v5
+	VK_EXT_swapchain_maintenance1 v1
+	VK_EXT_texel_buffer_alignment v1
+	VK_EXT_texture_compression_astc_hdr v1
+	VK_EXT_tooling_info v1
+	VK_EXT_vertex_attribute_divisor v3
+	VK_AMD_gpu_shader_half_float v2
+	VK_AMD_negative_viewport_height v1
+	VK_AMD_shader_image_load_store_lod v1
+	VK_AMD_shader_trinary_minmax v1
+	VK_GOOGLE_display_timing v1
+	VK_IMG_format_pvrtc v1
+	VK_INTEL_shader_integer_functions2 v1
+	VK_MVK_macos_surface v3
+	VK_MVK_moltenvk v37
+	VK_NV_fragment_shader_barycentric v1
+[mvk-info] GPU device:
+	model: Apple M3
+	type: Integrated
+	vendorID: 0x106b
+	deviceID: 0x1a050209
+	pipelineCacheUUID: 45887054-1A05-0209-0000-000100000000
+	GPU memory available: 12124 MB
+	GPU memory used: 0 MB
+	Metal Shading Language 3.2
+	supports the following GPU Features:
+		GPU Family Metal 3
+		GPU Family Apple 9
+		GPU Family Mac 2
+		Read-Write Texture Tier 2
+[mvk-info] Created VkInstance for Vulkan version 1.2.323, as requested by app, with the following 4 Vulkan extensions enabled:
+	VK_KHR_get_physical_device_properties2 v2
+	VK_KHR_surface v25
+	VK_EXT_metal_surface v1
+	VK_EXT_swapchain_colorspace v5
+[mvk-info] Vulkan semaphores using MTLEvent.
+[mvk-info] Descriptor sets binding resources using Metal3 argument buffers.
+[mvk-info] Created VkDevice to run on GPU Apple M3 with the following 3 Vulkan extensions enabled:
+	VK_KHR_portability_subset v1
+	VK_KHR_swapchain v70
+	VK_EXT_metal_objects v2
+WorkloadWarmup   1: 1 op, 1807834.00 ns, 1.8078 ms/op
+WorkloadWarmup   2: 1 op, 1139792.00 ns, 1.1398 ms/op
+WorkloadWarmup   3: 1 op, 1161875.00 ns, 1.1619 ms/op
+
+// BeforeActualRun
+WorkloadActual   1: 1 op, 1144125.00 ns, 1.1441 ms/op
+WorkloadActual   2: 1 op, 1066958.00 ns, 1.0670 ms/op
+WorkloadActual   3: 1 op, 1104542.00 ns, 1.1045 ms/op
+WorkloadActual   4: 1 op, 1062417.00 ns, 1.0624 ms/op
+WorkloadActual   5: 1 op, 1059459.00 ns, 1.0595 ms/op
+WorkloadActual   6: 1 op, 1121167.00 ns, 1.1212 ms/op
+WorkloadActual   7: 1 op, 988541.00 ns, 988.5410 us/op
+WorkloadActual   8: 1 op, 943875.00 ns, 943.8750 us/op
+WorkloadActual   9: 1 op, 1026375.00 ns, 1.0264 ms/op
+WorkloadActual  10: 1 op, 1049584.00 ns, 1.0496 ms/op
+WorkloadActual  11: 1 op, 1065208.00 ns, 1.0652 ms/op
+WorkloadActual  12: 1 op, 1064209.00 ns, 1.0642 ms/op
+WorkloadActual  13: 1 op, 1107875.00 ns, 1.1079 ms/op
+WorkloadActual  14: 1 op, 948416.00 ns, 948.4160 us/op
+WorkloadActual  15: 1 op, 1042834.00 ns, 1.0428 ms/op
+
+// AfterActualRun
+WorkloadResult   1: 1 op, 1144125.00 ns, 1.1441 ms/op
+WorkloadResult   2: 1 op, 1066958.00 ns, 1.0670 ms/op
+WorkloadResult   3: 1 op, 1104542.00 ns, 1.1045 ms/op
+WorkloadResult   4: 1 op, 1062417.00 ns, 1.0624 ms/op
+WorkloadResult   5: 1 op, 1059459.00 ns, 1.0595 ms/op
+WorkloadResult   6: 1 op, 1121167.00 ns, 1.1212 ms/op
+WorkloadResult   7: 1 op, 988541.00 ns, 988.5410 us/op
+WorkloadResult   8: 1 op, 943875.00 ns, 943.8750 us/op
+WorkloadResult   9: 1 op, 1026375.00 ns, 1.0264 ms/op
+WorkloadResult  10: 1 op, 1049584.00 ns, 1.0496 ms/op
+WorkloadResult  11: 1 op, 1065208.00 ns, 1.0652 ms/op
+WorkloadResult  12: 1 op, 1064209.00 ns, 1.0642 ms/op
+WorkloadResult  13: 1 op, 1107875.00 ns, 1.1079 ms/op
+WorkloadResult  14: 1 op, 948416.00 ns, 948.4160 us/op
+WorkloadResult  15: 1 op, 1042834.00 ns, 1.0428 ms/op
+// GC:  0 0 0 76440 1
+// Threading:  0 0 1
+
+// AfterAll
+// Benchmark Process 68118 has exited with code 0.
+
+Mean = 1.053 ms, StdErr = 0.015 ms (1.42%), N = 15, StdDev = 0.058 ms
+Min = 0.944 ms, Q1 = 1.035 ms, Median = 1.062 ms, Q3 = 1.086 ms, Max = 1.144 ms
+IQR = 0.051 ms, LowerFence = 0.958 ms, UpperFence = 1.162 ms
+ConfidenceInterval = [0.991 ms; 1.115 ms] (CI 99.9%), Margin = 0.062 ms (5.88% of Mean)
+Skewness = -0.46, Kurtosis = 2.28, MValue = 3
+
+// ** Remained 5 (45.5%) benchmark(s) to run. Estimated finish 2026-08-01 1:44 (0h 0m from now) **
+// **************************
+// Benchmark: RenderPipelineBenchmarks.RenderCompleteTargetRequest: RenderPipeline(InvocationCount=1, IterationCount=15, LaunchCount=1, RunStrategy=Monitoring, UnrollFactor=1, WarmupCount=3) [CaseName=Shade(...)rrier [26]]
+// *** Execute ***
+// Launch: 1 / 1
+// Execute: dotnet Beutl.Benchmarks-RenderPipeline-1.dll --anonymousPipes 114 115 --benchmarkName "Beutl.Benchmarks.Rendering.RenderPipelineBenchmarks.RenderCompleteTargetRequest(CaseName: \"ShaderOpacityShaderBarrier\")" --job RenderPipeline --benchmarkId 6 in /private/var/folders/nl/kd31xyh169n3x8wb6g0dpw_m0000gn/T/beutl-gpu-pass-benchmark-build.Xp00DQ/feature/bin/Beutl.Benchmarks/release/Beutl.Benchmarks-RenderPipeline-1/bin/Release/net10.0
+// Failed to set up high priority (Permission denied). In order to run benchmarks with high priority, make sure you have the right permissions.
+// BeforeAnythingElse
+
+// Benchmark Process Environment Information:
+// BenchmarkDotNet v0.15.8
+// Runtime=.NET 10.0.9 (10.0.9, 10.0.926.27113), Arm64 RyuJIT armv8.0-a
+// GC=Concurrent Workstation
+// HardwareIntrinsics=ArmBase+AdvSimd,AES,CRC32,DP,RDM,SHA1,SHA256 VectorSize=128
+// Job: RenderPipeline(InvocationCount=1, IterationCount=15, LaunchCount=1, RunStrategy=Monitoring, UnrollFactor=1, WarmupCount=3)
+
+[mvk-info] MoltenVK version 1.4.0, supporting Vulkan version 1.4.323.
+	The following 145 Vulkan extensions are supported:
+	VK_KHR_16bit_storage v1
+	VK_KHR_8bit_storage v1
+	VK_KHR_bind_memory2 v1
+	VK_KHR_buffer_device_address v1
+	VK_KHR_calibrated_timestamps v1
+	VK_KHR_copy_commands2 v1
+	VK_KHR_create_renderpass2 v1
+	VK_KHR_dedicated_allocation v3
+	VK_KHR_deferred_host_operations v4
+	VK_KHR_depth_stencil_resolve v1
+	VK_KHR_descriptor_update_template v1
+	VK_KHR_device_group v4
+	VK_KHR_device_group_creation v1
+	VK_KHR_driver_properties v1
+	VK_KHR_dynamic_rendering v1
+	VK_KHR_dynamic_rendering_local_read v1
+	VK_KHR_external_fence v1
+	VK_KHR_external_fence_capabilities v1
+	VK_KHR_external_memory v1
+	VK_KHR_external_memory_capabilities v1
+	VK_KHR_external_semaphore v1
+	VK_KHR_external_semaphore_capabilities v1
+	VK_KHR_format_feature_flags2 v2
+	VK_KHR_fragment_shader_barycentric v1
+	VK_KHR_get_memory_requirements2 v1
+	VK_KHR_get_physical_device_properties2 v2
+	VK_KHR_get_surface_capabilities2 v1
+	VK_KHR_global_priority v1
+	VK_KHR_image_format_list v1
+	VK_KHR_imageless_framebuffer v1
+	VK_KHR_incremental_present v2
+	VK_KHR_index_type_uint8 v1
+	VK_KHR_line_rasterization v1
+	VK_KHR_load_store_op_none v1
+	VK_KHR_maintenance1 v2
+	VK_KHR_maintenance2 v1
+	VK_KHR_maintenance3 v1
+	VK_KHR_maintenance4 v2
+	VK_KHR_maintenance5 v1
+	VK_KHR_maintenance6 v1
+	VK_KHR_maintenance7 v1
+	VK_KHR_maintenance8 v1
+	VK_KHR_map_memory2 v1
+	VK_KHR_multiview v1
+	VK_KHR_portability_subset v1
+	VK_KHR_present_id v1
+	VK_KHR_present_id2 v1
+	VK_KHR_present_wait v1
+	VK_KHR_present_wait2 v1
+	VK_KHR_push_descriptor v2
+	VK_KHR_relaxed_block_layout v1
+	VK_KHR_robustness2 v1
+	VK_KHR_sampler_mirror_clamp_to_edge v3
+	VK_KHR_sampler_ycbcr_conversion v14
+	VK_KHR_separate_depth_stencil_layouts v1
+	VK_KHR_shader_draw_parameters v1
+	VK_KHR_shader_expect_assume v1
+	VK_KHR_shader_float_controls v4
+	VK_KHR_shader_float_controls2 v1
+	VK_KHR_shader_float16_int8 v1
+	VK_KHR_shader_integer_dot_product v1
+	VK_KHR_shader_maximal_reconvergence v1
+	VK_KHR_shader_non_semantic_info v1
+	VK_KHR_shader_quad_control v1
+	VK_KHR_shader_relaxed_extended_instruction v1
+	VK_KHR_shader_subgroup_extended_types v1
+	VK_KHR_shader_subgroup_rotate v2
+	VK_KHR_shader_subgroup_uniform_control_flow v1
+	VK_KHR_shader_terminate_invocation v1
+	VK_KHR_spirv_1_4 v1
+	VK_KHR_storage_buffer_storage_class v1
+	VK_KHR_surface v25
+	VK_KHR_surface_protected_capabilities v1
+	VK_KHR_swapchain v70
+	VK_KHR_swapchain_mutable_format v1
+	VK_KHR_synchronization2 v1
+	VK_KHR_timeline_semaphore v2
+	VK_KHR_uniform_buffer_standard_layout v1
+	VK_KHR_variable_pointers v1
+	VK_KHR_vertex_attribute_divisor v1
+	VK_KHR_vulkan_memory_model v3
+	VK_KHR_zero_initialize_workgroup_memory v1
+	VK_EXT_4444_formats v1
+	VK_EXT_buffer_device_address v2
+	VK_EXT_calibrated_timestamps v2
+	VK_EXT_debug_marker v4
+	VK_EXT_debug_report v10
+	VK_EXT_debug_utils v2
+	VK_EXT_depth_clip_control v1
+	VK_EXT_descriptor_indexing v2
+	VK_EXT_extended_dynamic_state v1
+	VK_EXT_extended_dynamic_state2 v1
+	VK_EXT_extended_dynamic_state3 v2
+	VK_EXT_external_memory_host v1
+	VK_EXT_external_memory_metal v1
+	VK_EXT_fragment_shader_interlock v1
+	VK_EXT_global_priority v2
+	VK_EXT_global_priority_query v1
+	VK_EXT_hdr_metadata v3
+	VK_EXT_headless_surface v1
+	VK_EXT_host_image_copy v1
+	VK_EXT_host_query_reset v1
+	VK_EXT_image_2d_view_of_3d v1
+	VK_EXT_image_robustness v1
+	VK_EXT_index_type_uint8 v1
+	VK_EXT_inline_uniform_block v1
+	VK_EXT_layer_settings v2
+	VK_EXT_line_rasterization v1
+	VK_EXT_load_store_op_none v1
+	VK_EXT_memory_budget v1
+	VK_EXT_metal_objects v2
+	VK_EXT_metal_surface v1
+	VK_EXT_pipeline_creation_cache_control v3
+	VK_EXT_pipeline_creation_feedback v1
+	VK_EXT_pipeline_robustness v1
+	VK_EXT_post_depth_coverage v1
+	VK_EXT_private_data v1
+	VK_EXT_robustness2 v1
+	VK_EXT_sample_locations v1
+	VK_EXT_scalar_block_layout v1
+	VK_EXT_separate_stencil_usage v1
+	VK_EXT_shader_atomic_float v1
+	VK_EXT_shader_demote_to_helper_invocation v1
+	VK_EXT_shader_stencil_export v1
+	VK_EXT_shader_subgroup_ballot v1
+	VK_EXT_shader_subgroup_vote v1
+	VK_EXT_shader_viewport_index_layer v1
+	VK_EXT_subgroup_size_control v2
+	VK_EXT_surface_maintenance1 v1
+	VK_EXT_swapchain_colorspace v5
+	VK_EXT_swapchain_maintenance1 v1
+	VK_EXT_texel_buffer_alignment v1
+	VK_EXT_texture_compression_astc_hdr v1
+	VK_EXT_tooling_info v1
+	VK_EXT_vertex_attribute_divisor v3
+	VK_AMD_gpu_shader_half_float v2
+	VK_AMD_negative_viewport_height v1
+	VK_AMD_shader_image_load_store_lod v1
+	VK_AMD_shader_trinary_minmax v1
+	VK_GOOGLE_display_timing v1
+	VK_IMG_format_pvrtc v1
+	VK_INTEL_shader_integer_functions2 v1
+	VK_MVK_macos_surface v3
+	VK_MVK_moltenvk v37
+	VK_NV_fragment_shader_barycentric v1
+[mvk-info] GPU device:
+	model: Apple M3
+	type: Integrated
+	vendorID: 0x106b
+	deviceID: 0x1a050209
+	pipelineCacheUUID: 45887054-1A05-0209-0000-000100000000
+	GPU memory available: 12124 MB
+	GPU memory used: 0 MB
+	Metal Shading Language 3.2
+	supports the following GPU Features:
+		GPU Family Metal 3
+		GPU Family Apple 9
+		GPU Family Mac 2
+		Read-Write Texture Tier 2
+[mvk-info] Created VkInstance for Vulkan version 1.2.323, as requested by app, with the following 4 Vulkan extensions enabled:
+	VK_KHR_get_physical_device_properties2 v2
+	VK_KHR_surface v25
+	VK_EXT_metal_surface v1
+	VK_EXT_swapchain_colorspace v5
+[mvk-info] Vulkan semaphores using MTLEvent.
+[mvk-info] Descriptor sets binding resources using Metal3 argument buffers.
+[mvk-info] Created VkDevice to run on GPU Apple M3 with the following 3 Vulkan extensions enabled:
+	VK_KHR_portability_subset v1
+	VK_KHR_swapchain v70
+	VK_EXT_metal_objects v2
+WorkloadWarmup   1: 1 op, 2109167.00 ns, 2.1092 ms/op
+WorkloadWarmup   2: 1 op, 1669167.00 ns, 1.6692 ms/op
+WorkloadWarmup   3: 1 op, 1681792.00 ns, 1.6818 ms/op
+
+// BeforeActualRun
+WorkloadActual   1: 1 op, 1290000.00 ns, 1.2900 ms/op
+WorkloadActual   2: 1 op, 1245167.00 ns, 1.2452 ms/op
+WorkloadActual   3: 1 op, 1528208.00 ns, 1.5282 ms/op
+WorkloadActual   4: 1 op, 1268291.00 ns, 1.2683 ms/op
+WorkloadActual   5: 1 op, 1245208.00 ns, 1.2452 ms/op
+WorkloadActual   6: 1 op, 1324875.00 ns, 1.3249 ms/op
+WorkloadActual   7: 1 op, 1512125.00 ns, 1.5121 ms/op
+WorkloadActual   8: 1 op, 1518916.00 ns, 1.5189 ms/op
+WorkloadActual   9: 1 op, 1287833.00 ns, 1.2878 ms/op
+WorkloadActual  10: 1 op, 1539875.00 ns, 1.5399 ms/op
+WorkloadActual  11: 1 op, 1355208.00 ns, 1.3552 ms/op
+WorkloadActual  12: 1 op, 1185833.00 ns, 1.1858 ms/op
+WorkloadActual  13: 1 op, 1229125.00 ns, 1.2291 ms/op
+WorkloadActual  14: 1 op, 1534417.00 ns, 1.5344 ms/op
+WorkloadActual  15: 1 op, 1344625.00 ns, 1.3446 ms/op
+
+// AfterActualRun
+WorkloadResult   1: 1 op, 1290000.00 ns, 1.2900 ms/op
+WorkloadResult   2: 1 op, 1245167.00 ns, 1.2452 ms/op
+WorkloadResult   3: 1 op, 1528208.00 ns, 1.5282 ms/op
+WorkloadResult   4: 1 op, 1268291.00 ns, 1.2683 ms/op
+WorkloadResult   5: 1 op, 1245208.00 ns, 1.2452 ms/op
+WorkloadResult   6: 1 op, 1324875.00 ns, 1.3249 ms/op
+WorkloadResult   7: 1 op, 1512125.00 ns, 1.5121 ms/op
+WorkloadResult   8: 1 op, 1518916.00 ns, 1.5189 ms/op
+WorkloadResult   9: 1 op, 1287833.00 ns, 1.2878 ms/op
+WorkloadResult  10: 1 op, 1539875.00 ns, 1.5399 ms/op
+WorkloadResult  11: 1 op, 1355208.00 ns, 1.3552 ms/op
+WorkloadResult  12: 1 op, 1185833.00 ns, 1.1858 ms/op
+WorkloadResult  13: 1 op, 1229125.00 ns, 1.2291 ms/op
+WorkloadResult  14: 1 op, 1534417.00 ns, 1.5344 ms/op
+WorkloadResult  15: 1 op, 1344625.00 ns, 1.3446 ms/op
+// GC:  0 0 0 91576 1
+// Threading:  0 0 1
+
+// AfterAll
+// Benchmark Process 68123 has exited with code 0.
+
+Mean = 1.361 ms, StdErr = 0.033 ms (2.45%), N = 15, StdDev = 0.129 ms
+Min = 1.186 ms, Q1 = 1.257 ms, Median = 1.325 ms, Q3 = 1.516 ms, Max = 1.540 ms
+IQR = 0.259 ms, LowerFence = 0.869 ms, UpperFence = 1.904 ms
+ConfidenceInterval = [1.223 ms; 1.499 ms] (CI 99.9%), Margin = 0.138 ms (10.14% of Mean)
+Skewness = 0.34, Kurtosis = 1.34, MValue = 3.11
+
+// ** Remained 4 (36.4%) benchmark(s) to run. Estimated finish 2026-08-01 1:44 (0h 0m from now) **
+// **************************
+// Benchmark: RenderPipelineBenchmarks.RenderCompleteTargetRequest: RenderPipeline(InvocationCount=1, IterationCount=15, LaunchCount=1, RunStrategy=Monitoring, UnrollFactor=1, WarmupCount=3) [CaseName=SingleShader]
+// *** Execute ***
+// Launch: 1 / 1
+// Execute: dotnet Beutl.Benchmarks-RenderPipeline-1.dll --anonymousPipes 114 115 --benchmarkName "Beutl.Benchmarks.Rendering.RenderPipelineBenchmarks.RenderCompleteTargetRequest(CaseName: \"SingleShader\")" --job RenderPipeline --benchmarkId 7 in /private/var/folders/nl/kd31xyh169n3x8wb6g0dpw_m0000gn/T/beutl-gpu-pass-benchmark-build.Xp00DQ/feature/bin/Beutl.Benchmarks/release/Beutl.Benchmarks-RenderPipeline-1/bin/Release/net10.0
+// Failed to set up high priority (Permission denied). In order to run benchmarks with high priority, make sure you have the right permissions.
+// BeforeAnythingElse
+
+// Benchmark Process Environment Information:
+// BenchmarkDotNet v0.15.8
+// Runtime=.NET 10.0.9 (10.0.9, 10.0.926.27113), Arm64 RyuJIT armv8.0-a
+// GC=Concurrent Workstation
+// HardwareIntrinsics=ArmBase+AdvSimd,AES,CRC32,DP,RDM,SHA1,SHA256 VectorSize=128
+// Job: RenderPipeline(InvocationCount=1, IterationCount=15, LaunchCount=1, RunStrategy=Monitoring, UnrollFactor=1, WarmupCount=3)
+
+[mvk-info] MoltenVK version 1.4.0, supporting Vulkan version 1.4.323.
+	The following 145 Vulkan extensions are supported:
+	VK_KHR_16bit_storage v1
+	VK_KHR_8bit_storage v1
+	VK_KHR_bind_memory2 v1
+	VK_KHR_buffer_device_address v1
+	VK_KHR_calibrated_timestamps v1
+	VK_KHR_copy_commands2 v1
+	VK_KHR_create_renderpass2 v1
+	VK_KHR_dedicated_allocation v3
+	VK_KHR_deferred_host_operations v4
+	VK_KHR_depth_stencil_resolve v1
+	VK_KHR_descriptor_update_template v1
+	VK_KHR_device_group v4
+	VK_KHR_device_group_creation v1
+	VK_KHR_driver_properties v1
+	VK_KHR_dynamic_rendering v1
+	VK_KHR_dynamic_rendering_local_read v1
+	VK_KHR_external_fence v1
+	VK_KHR_external_fence_capabilities v1
+	VK_KHR_external_memory v1
+	VK_KHR_external_memory_capabilities v1
+	VK_KHR_external_semaphore v1
+	VK_KHR_external_semaphore_capabilities v1
+	VK_KHR_format_feature_flags2 v2
+	VK_KHR_fragment_shader_barycentric v1
+	VK_KHR_get_memory_requirements2 v1
+	VK_KHR_get_physical_device_properties2 v2
+	VK_KHR_get_surface_capabilities2 v1
+	VK_KHR_global_priority v1
+	VK_KHR_image_format_list v1
+	VK_KHR_imageless_framebuffer v1
+	VK_KHR_incremental_present v2
+	VK_KHR_index_type_uint8 v1
+	VK_KHR_line_rasterization v1
+	VK_KHR_load_store_op_none v1
+	VK_KHR_maintenance1 v2
+	VK_KHR_maintenance2 v1
+	VK_KHR_maintenance3 v1
+	VK_KHR_maintenance4 v2
+	VK_KHR_maintenance5 v1
+	VK_KHR_maintenance6 v1
+	VK_KHR_maintenance7 v1
+	VK_KHR_maintenance8 v1
+	VK_KHR_map_memory2 v1
+	VK_KHR_multiview v1
+	VK_KHR_portability_subset v1
+	VK_KHR_present_id v1
+	VK_KHR_present_id2 v1
+	VK_KHR_present_wait v1
+	VK_KHR_present_wait2 v1
+	VK_KHR_push_descriptor v2
+	VK_KHR_relaxed_block_layout v1
+	VK_KHR_robustness2 v1
+	VK_KHR_sampler_mirror_clamp_to_edge v3
+	VK_KHR_sampler_ycbcr_conversion v14
+	VK_KHR_separate_depth_stencil_layouts v1
+	VK_KHR_shader_draw_parameters v1
+	VK_KHR_shader_expect_assume v1
+	VK_KHR_shader_float_controls v4
+	VK_KHR_shader_float_controls2 v1
+	VK_KHR_shader_float16_int8 v1
+	VK_KHR_shader_integer_dot_product v1
+	VK_KHR_shader_maximal_reconvergence v1
+	VK_KHR_shader_non_semantic_info v1
+	VK_KHR_shader_quad_control v1
+	VK_KHR_shader_relaxed_extended_instruction v1
+	VK_KHR_shader_subgroup_extended_types v1
+	VK_KHR_shader_subgroup_rotate v2
+	VK_KHR_shader_subgroup_uniform_control_flow v1
+	VK_KHR_shader_terminate_invocation v1
+	VK_KHR_spirv_1_4 v1
+	VK_KHR_storage_buffer_storage_class v1
+	VK_KHR_surface v25
+	VK_KHR_surface_protected_capabilities v1
+	VK_KHR_swapchain v70
+	VK_KHR_swapchain_mutable_format v1
+	VK_KHR_synchronization2 v1
+	VK_KHR_timeline_semaphore v2
+	VK_KHR_uniform_buffer_standard_layout v1
+	VK_KHR_variable_pointers v1
+	VK_KHR_vertex_attribute_divisor v1
+	VK_KHR_vulkan_memory_model v3
+	VK_KHR_zero_initialize_workgroup_memory v1
+	VK_EXT_4444_formats v1
+	VK_EXT_buffer_device_address v2
+	VK_EXT_calibrated_timestamps v2
+	VK_EXT_debug_marker v4
+	VK_EXT_debug_report v10
+	VK_EXT_debug_utils v2
+	VK_EXT_depth_clip_control v1
+	VK_EXT_descriptor_indexing v2
+	VK_EXT_extended_dynamic_state v1
+	VK_EXT_extended_dynamic_state2 v1
+	VK_EXT_extended_dynamic_state3 v2
+	VK_EXT_external_memory_host v1
+	VK_EXT_external_memory_metal v1
+	VK_EXT_fragment_shader_interlock v1
+	VK_EXT_global_priority v2
+	VK_EXT_global_priority_query v1
+	VK_EXT_hdr_metadata v3
+	VK_EXT_headless_surface v1
+	VK_EXT_host_image_copy v1
+	VK_EXT_host_query_reset v1
+	VK_EXT_image_2d_view_of_3d v1
+	VK_EXT_image_robustness v1
+	VK_EXT_index_type_uint8 v1
+	VK_EXT_inline_uniform_block v1
+	VK_EXT_layer_settings v2
+	VK_EXT_line_rasterization v1
+	VK_EXT_load_store_op_none v1
+	VK_EXT_memory_budget v1
+	VK_EXT_metal_objects v2
+	VK_EXT_metal_surface v1
+	VK_EXT_pipeline_creation_cache_control v3
+	VK_EXT_pipeline_creation_feedback v1
+	VK_EXT_pipeline_robustness v1
+	VK_EXT_post_depth_coverage v1
+	VK_EXT_private_data v1
+	VK_EXT_robustness2 v1
+	VK_EXT_sample_locations v1
+	VK_EXT_scalar_block_layout v1
+	VK_EXT_separate_stencil_usage v1
+	VK_EXT_shader_atomic_float v1
+	VK_EXT_shader_demote_to_helper_invocation v1
+	VK_EXT_shader_stencil_export v1
+	VK_EXT_shader_subgroup_ballot v1
+	VK_EXT_shader_subgroup_vote v1
+	VK_EXT_shader_viewport_index_layer v1
+	VK_EXT_subgroup_size_control v2
+	VK_EXT_surface_maintenance1 v1
+	VK_EXT_swapchain_colorspace v5
+	VK_EXT_swapchain_maintenance1 v1
+	VK_EXT_texel_buffer_alignment v1
+	VK_EXT_texture_compression_astc_hdr v1
+	VK_EXT_tooling_info v1
+	VK_EXT_vertex_attribute_divisor v3
+	VK_AMD_gpu_shader_half_float v2
+	VK_AMD_negative_viewport_height v1
+	VK_AMD_shader_image_load_store_lod v1
+	VK_AMD_shader_trinary_minmax v1
+	VK_GOOGLE_display_timing v1
+	VK_IMG_format_pvrtc v1
+	VK_INTEL_shader_integer_functions2 v1
+	VK_MVK_macos_surface v3
+	VK_MVK_moltenvk v37
+	VK_NV_fragment_shader_barycentric v1
+[mvk-info] GPU device:
+	model: Apple M3
+	type: Integrated
+	vendorID: 0x106b
+	deviceID: 0x1a050209
+	pipelineCacheUUID: 45887054-1A05-0209-0000-000100000000
+	GPU memory available: 12124 MB
+	GPU memory used: 0 MB
+	Metal Shading Language 3.2
+	supports the following GPU Features:
+		GPU Family Metal 3
+		GPU Family Apple 9
+		GPU Family Mac 2
+		Read-Write Texture Tier 2
+[mvk-info] Created VkInstance for Vulkan version 1.2.323, as requested by app, with the following 4 Vulkan extensions enabled:
+	VK_KHR_get_physical_device_properties2 v2
+	VK_KHR_surface v25
+	VK_EXT_metal_surface v1
+	VK_EXT_swapchain_colorspace v5
+[mvk-info] Vulkan semaphores using MTLEvent.
+[mvk-info] Descriptor sets binding resources using Metal3 argument buffers.
+[mvk-info] Created VkDevice to run on GPU Apple M3 with the following 3 Vulkan extensions enabled:
+	VK_KHR_portability_subset v1
+	VK_KHR_swapchain v70
+	VK_EXT_metal_objects v2
+WorkloadWarmup   1: 1 op, 1602625.00 ns, 1.6026 ms/op
+WorkloadWarmup   2: 1 op, 1123958.00 ns, 1.1240 ms/op
+WorkloadWarmup   3: 1 op, 1128667.00 ns, 1.1287 ms/op
+
+// BeforeActualRun
+WorkloadActual   1: 1 op, 1202792.00 ns, 1.2028 ms/op
+WorkloadActual   2: 1 op, 1086417.00 ns, 1.0864 ms/op
+WorkloadActual   3: 1 op, 1106458.00 ns, 1.1065 ms/op
+WorkloadActual   4: 1 op, 1018333.00 ns, 1.0183 ms/op
+WorkloadActual   5: 1 op, 976291.00 ns, 976.2910 us/op
+WorkloadActual   6: 1 op, 1042500.00 ns, 1.0425 ms/op
+WorkloadActual   7: 1 op, 859042.00 ns, 859.0420 us/op
+WorkloadActual   8: 1 op, 903333.00 ns, 903.3330 us/op
+WorkloadActual   9: 1 op, 989583.00 ns, 989.5830 us/op
+WorkloadActual  10: 1 op, 984083.00 ns, 984.0830 us/op
+WorkloadActual  11: 1 op, 995875.00 ns, 995.8750 us/op
+WorkloadActual  12: 1 op, 1072292.00 ns, 1.0723 ms/op
+WorkloadActual  13: 1 op, 967167.00 ns, 967.1670 us/op
+WorkloadActual  14: 1 op, 1021000.00 ns, 1.0210 ms/op
+WorkloadActual  15: 1 op, 914375.00 ns, 914.3750 us/op
+
+// AfterActualRun
+WorkloadResult   1: 1 op, 1202792.00 ns, 1.2028 ms/op
+WorkloadResult   2: 1 op, 1086417.00 ns, 1.0864 ms/op
+WorkloadResult   3: 1 op, 1106458.00 ns, 1.1065 ms/op
+WorkloadResult   4: 1 op, 1018333.00 ns, 1.0183 ms/op
+WorkloadResult   5: 1 op, 976291.00 ns, 976.2910 us/op
+WorkloadResult   6: 1 op, 1042500.00 ns, 1.0425 ms/op
+WorkloadResult   7: 1 op, 859042.00 ns, 859.0420 us/op
+WorkloadResult   8: 1 op, 903333.00 ns, 903.3330 us/op
+WorkloadResult   9: 1 op, 989583.00 ns, 989.5830 us/op
+WorkloadResult  10: 1 op, 984083.00 ns, 984.0830 us/op
+WorkloadResult  11: 1 op, 995875.00 ns, 995.8750 us/op
+WorkloadResult  12: 1 op, 1072292.00 ns, 1.0723 ms/op
+WorkloadResult  13: 1 op, 967167.00 ns, 967.1670 us/op
+WorkloadResult  14: 1 op, 1021000.00 ns, 1.0210 ms/op
+WorkloadResult  15: 1 op, 914375.00 ns, 914.3750 us/op
+// GC:  0 0 0 50320 1
+// Threading:  0 0 1
+
+// AfterAll
+// Benchmark Process 68130 has exited with code 0.
+
+Mean = 1.009 ms, StdErr = 0.022 ms (2.22%), N = 15, StdDev = 0.087 ms
+Min = 0.859 ms, Q1 = 0.972 ms, Median = 0.996 ms, Q3 = 1.057 ms, Max = 1.203 ms
+IQR = 0.086 ms, LowerFence = 0.843 ms, UpperFence = 1.186 ms
+ConfidenceInterval = [0.917 ms; 1.102 ms] (CI 99.9%), Margin = 0.093 ms (9.17% of Mean)
+Skewness = 0.34, Kurtosis = 2.68, MValue = 2.75
+
+// ** Remained 3 (27.3%) benchmark(s) to run. Estimated finish 2026-08-01 1:44 (0h 0m from now) **
+// **************************
+// Benchmark: RenderPipelineBenchmarks.RenderCompleteTargetRequest: RenderPipeline(InvocationCount=1, IterationCount=15, LaunchCount=1, RunStrategy=Monitoring, UnrollFactor=1, WarmupCount=3) [CaseName=Small(...)rhead [24]]
+// *** Execute ***
+// Launch: 1 / 1
+// Execute: dotnet Beutl.Benchmarks-RenderPipeline-1.dll --anonymousPipes 114 115 --benchmarkName "Beutl.Benchmarks.Rendering.RenderPipelineBenchmarks.RenderCompleteTargetRequest(CaseName: \"SmallObjectFixedOverhead\")" --job RenderPipeline --benchmarkId 8 in /private/var/folders/nl/kd31xyh169n3x8wb6g0dpw_m0000gn/T/beutl-gpu-pass-benchmark-build.Xp00DQ/feature/bin/Beutl.Benchmarks/release/Beutl.Benchmarks-RenderPipeline-1/bin/Release/net10.0
+// Failed to set up high priority (Permission denied). In order to run benchmarks with high priority, make sure you have the right permissions.
+// BeforeAnythingElse
+
+// Benchmark Process Environment Information:
+// BenchmarkDotNet v0.15.8
+// Runtime=.NET 10.0.9 (10.0.9, 10.0.926.27113), Arm64 RyuJIT armv8.0-a
+// GC=Concurrent Workstation
+// HardwareIntrinsics=ArmBase+AdvSimd,AES,CRC32,DP,RDM,SHA1,SHA256 VectorSize=128
+// Job: RenderPipeline(InvocationCount=1, IterationCount=15, LaunchCount=1, RunStrategy=Monitoring, UnrollFactor=1, WarmupCount=3)
+
+[mvk-info] MoltenVK version 1.4.0, supporting Vulkan version 1.4.323.
+	The following 145 Vulkan extensions are supported:
+	VK_KHR_16bit_storage v1
+	VK_KHR_8bit_storage v1
+	VK_KHR_bind_memory2 v1
+	VK_KHR_buffer_device_address v1
+	VK_KHR_calibrated_timestamps v1
+	VK_KHR_copy_commands2 v1
+	VK_KHR_create_renderpass2 v1
+	VK_KHR_dedicated_allocation v3
+	VK_KHR_deferred_host_operations v4
+	VK_KHR_depth_stencil_resolve v1
+	VK_KHR_descriptor_update_template v1
+	VK_KHR_device_group v4
+	VK_KHR_device_group_creation v1
+	VK_KHR_driver_properties v1
+	VK_KHR_dynamic_rendering v1
+	VK_KHR_dynamic_rendering_local_read v1
+	VK_KHR_external_fence v1
+	VK_KHR_external_fence_capabilities v1
+	VK_KHR_external_memory v1
+	VK_KHR_external_memory_capabilities v1
+	VK_KHR_external_semaphore v1
+	VK_KHR_external_semaphore_capabilities v1
+	VK_KHR_format_feature_flags2 v2
+	VK_KHR_fragment_shader_barycentric v1
+	VK_KHR_get_memory_requirements2 v1
+	VK_KHR_get_physical_device_properties2 v2
+	VK_KHR_get_surface_capabilities2 v1
+	VK_KHR_global_priority v1
+	VK_KHR_image_format_list v1
+	VK_KHR_imageless_framebuffer v1
+	VK_KHR_incremental_present v2
+	VK_KHR_index_type_uint8 v1
+	VK_KHR_line_rasterization v1
+	VK_KHR_load_store_op_none v1
+	VK_KHR_maintenance1 v2
+	VK_KHR_maintenance2 v1
+	VK_KHR_maintenance3 v1
+	VK_KHR_maintenance4 v2
+	VK_KHR_maintenance5 v1
+	VK_KHR_maintenance6 v1
+	VK_KHR_maintenance7 v1
+	VK_KHR_maintenance8 v1
+	VK_KHR_map_memory2 v1
+	VK_KHR_multiview v1
+	VK_KHR_portability_subset v1
+	VK_KHR_present_id v1
+	VK_KHR_present_id2 v1
+	VK_KHR_present_wait v1
+	VK_KHR_present_wait2 v1
+	VK_KHR_push_descriptor v2
+	VK_KHR_relaxed_block_layout v1
+	VK_KHR_robustness2 v1
+	VK_KHR_sampler_mirror_clamp_to_edge v3
+	VK_KHR_sampler_ycbcr_conversion v14
+	VK_KHR_separate_depth_stencil_layouts v1
+	VK_KHR_shader_draw_parameters v1
+	VK_KHR_shader_expect_assume v1
+	VK_KHR_shader_float_controls v4
+	VK_KHR_shader_float_controls2 v1
+	VK_KHR_shader_float16_int8 v1
+	VK_KHR_shader_integer_dot_product v1
+	VK_KHR_shader_maximal_reconvergence v1
+	VK_KHR_shader_non_semantic_info v1
+	VK_KHR_shader_quad_control v1
+	VK_KHR_shader_relaxed_extended_instruction v1
+	VK_KHR_shader_subgroup_extended_types v1
+	VK_KHR_shader_subgroup_rotate v2
+	VK_KHR_shader_subgroup_uniform_control_flow v1
+	VK_KHR_shader_terminate_invocation v1
+	VK_KHR_spirv_1_4 v1
+	VK_KHR_storage_buffer_storage_class v1
+	VK_KHR_surface v25
+	VK_KHR_surface_protected_capabilities v1
+	VK_KHR_swapchain v70
+	VK_KHR_swapchain_mutable_format v1
+	VK_KHR_synchronization2 v1
+	VK_KHR_timeline_semaphore v2
+	VK_KHR_uniform_buffer_standard_layout v1
+	VK_KHR_variable_pointers v1
+	VK_KHR_vertex_attribute_divisor v1
+	VK_KHR_vulkan_memory_model v3
+	VK_KHR_zero_initialize_workgroup_memory v1
+	VK_EXT_4444_formats v1
+	VK_EXT_buffer_device_address v2
+	VK_EXT_calibrated_timestamps v2
+	VK_EXT_debug_marker v4
+	VK_EXT_debug_report v10
+	VK_EXT_debug_utils v2
+	VK_EXT_depth_clip_control v1
+	VK_EXT_descriptor_indexing v2
+	VK_EXT_extended_dynamic_state v1
+	VK_EXT_extended_dynamic_state2 v1
+	VK_EXT_extended_dynamic_state3 v2
+	VK_EXT_external_memory_host v1
+	VK_EXT_external_memory_metal v1
+	VK_EXT_fragment_shader_interlock v1
+	VK_EXT_global_priority v2
+	VK_EXT_global_priority_query v1
+	VK_EXT_hdr_metadata v3
+	VK_EXT_headless_surface v1
+	VK_EXT_host_image_copy v1
+	VK_EXT_host_query_reset v1
+	VK_EXT_image_2d_view_of_3d v1
+	VK_EXT_image_robustness v1
+	VK_EXT_index_type_uint8 v1
+	VK_EXT_inline_uniform_block v1
+	VK_EXT_layer_settings v2
+	VK_EXT_line_rasterization v1
+	VK_EXT_load_store_op_none v1
+	VK_EXT_memory_budget v1
+	VK_EXT_metal_objects v2
+	VK_EXT_metal_surface v1
+	VK_EXT_pipeline_creation_cache_control v3
+	VK_EXT_pipeline_creation_feedback v1
+	VK_EXT_pipeline_robustness v1
+	VK_EXT_post_depth_coverage v1
+	VK_EXT_private_data v1
+	VK_EXT_robustness2 v1
+	VK_EXT_sample_locations v1
+	VK_EXT_scalar_block_layout v1
+	VK_EXT_separate_stencil_usage v1
+	VK_EXT_shader_atomic_float v1
+	VK_EXT_shader_demote_to_helper_invocation v1
+	VK_EXT_shader_stencil_export v1
+	VK_EXT_shader_subgroup_ballot v1
+	VK_EXT_shader_subgroup_vote v1
+	VK_EXT_shader_viewport_index_layer v1
+	VK_EXT_subgroup_size_control v2
+	VK_EXT_surface_maintenance1 v1
+	VK_EXT_swapchain_colorspace v5
+	VK_EXT_swapchain_maintenance1 v1
+	VK_EXT_texel_buffer_alignment v1
+	VK_EXT_texture_compression_astc_hdr v1
+	VK_EXT_tooling_info v1
+	VK_EXT_vertex_attribute_divisor v3
+	VK_AMD_gpu_shader_half_float v2
+	VK_AMD_negative_viewport_height v1
+	VK_AMD_shader_image_load_store_lod v1
+	VK_AMD_shader_trinary_minmax v1
+	VK_GOOGLE_display_timing v1
+	VK_IMG_format_pvrtc v1
+	VK_INTEL_shader_integer_functions2 v1
+	VK_MVK_macos_surface v3
+	VK_MVK_moltenvk v37
+	VK_NV_fragment_shader_barycentric v1
+[mvk-info] GPU device:
+	model: Apple M3
+	type: Integrated
+	vendorID: 0x106b
+	deviceID: 0x1a050209
+	pipelineCacheUUID: 45887054-1A05-0209-0000-000100000000
+	GPU memory available: 12124 MB
+	GPU memory used: 0 MB
+	Metal Shading Language 3.2
+	supports the following GPU Features:
+		GPU Family Metal 3
+		GPU Family Apple 9
+		GPU Family Mac 2
+		Read-Write Texture Tier 2
+[mvk-info] Created VkInstance for Vulkan version 1.2.323, as requested by app, with the following 4 Vulkan extensions enabled:
+	VK_KHR_get_physical_device_properties2 v2
+	VK_KHR_surface v25
+	VK_EXT_metal_surface v1
+	VK_EXT_swapchain_colorspace v5
+[mvk-info] Vulkan semaphores using MTLEvent.
+[mvk-info] Descriptor sets binding resources using Metal3 argument buffers.
+[mvk-info] Created VkDevice to run on GPU Apple M3 with the following 3 Vulkan extensions enabled:
+	VK_KHR_portability_subset v1
+	VK_KHR_swapchain v70
+	VK_EXT_metal_objects v2
+WorkloadWarmup   1: 1 op, 1581459.00 ns, 1.5815 ms/op
+WorkloadWarmup   2: 1 op, 1101083.00 ns, 1.1011 ms/op
+WorkloadWarmup   3: 1 op, 1067333.00 ns, 1.0673 ms/op
+
+// BeforeActualRun
+WorkloadActual   1: 1 op, 1050125.00 ns, 1.0501 ms/op
+WorkloadActual   2: 1 op, 1089042.00 ns, 1.0890 ms/op
+WorkloadActual   3: 1 op, 876667.00 ns, 876.6670 us/op
+WorkloadActual   4: 1 op, 850542.00 ns, 850.5420 us/op
+WorkloadActual   5: 1 op, 1011000.00 ns, 1.0110 ms/op
+WorkloadActual   6: 1 op, 983125.00 ns, 983.1250 us/op
+WorkloadActual   7: 1 op, 892875.00 ns, 892.8750 us/op
+WorkloadActual   8: 1 op, 838208.00 ns, 838.2080 us/op
+WorkloadActual   9: 1 op, 819250.00 ns, 819.2500 us/op
+WorkloadActual  10: 1 op, 856375.00 ns, 856.3750 us/op
+WorkloadActual  11: 1 op, 864083.00 ns, 864.0830 us/op
+WorkloadActual  12: 1 op, 829333.00 ns, 829.3330 us/op
+WorkloadActual  13: 1 op, 859416.00 ns, 859.4160 us/op
+WorkloadActual  14: 1 op, 820500.00 ns, 820.5000 us/op
+WorkloadActual  15: 1 op, 842042.00 ns, 842.0420 us/op
+
+// AfterActualRun
+WorkloadResult   1: 1 op, 1050125.00 ns, 1.0501 ms/op
+WorkloadResult   2: 1 op, 1089042.00 ns, 1.0890 ms/op
+WorkloadResult   3: 1 op, 876667.00 ns, 876.6670 us/op
+WorkloadResult   4: 1 op, 850542.00 ns, 850.5420 us/op
+WorkloadResult   5: 1 op, 1011000.00 ns, 1.0110 ms/op
+WorkloadResult   6: 1 op, 983125.00 ns, 983.1250 us/op
+WorkloadResult   7: 1 op, 892875.00 ns, 892.8750 us/op
+WorkloadResult   8: 1 op, 838208.00 ns, 838.2080 us/op
+WorkloadResult   9: 1 op, 819250.00 ns, 819.2500 us/op
+WorkloadResult  10: 1 op, 856375.00 ns, 856.3750 us/op
+WorkloadResult  11: 1 op, 864083.00 ns, 864.0830 us/op
+WorkloadResult  12: 1 op, 829333.00 ns, 829.3330 us/op
+WorkloadResult  13: 1 op, 859416.00 ns, 859.4160 us/op
+WorkloadResult  14: 1 op, 820500.00 ns, 820.5000 us/op
+WorkloadResult  15: 1 op, 842042.00 ns, 842.0420 us/op
+// GC:  0 0 0 76544 1
+// Threading:  0 0 1
+
+// AfterAll
+// Benchmark Process 68134 has exited with code 0.
+
+Mean = 898.839 us, StdErr = 22.926 us (2.55%), N = 15, StdDev = 88.793 us
+Min = 819.250 us, Q1 = 840.125 us, Median = 859.416 us, Q3 = 938.000 us, Max = 1,089.042 us
+IQR = 97.875 us, LowerFence = 693.312 us, UpperFence = 1,084.812 us
+ConfidenceInterval = [803.914 us; 993.764 us] (CI 99.9%), Margin = 94.925 us (10.56% of Mean)
+Skewness = 0.98, Kurtosis = 2.34, MValue = 2.55
+
+// ** Remained 2 (18.2%) benchmark(s) to run. Estimated finish 2026-08-01 1:44 (0h 0m from now) **
+// **************************
+// Benchmark: RenderPipelineBenchmarks.RenderCompleteTargetRequest: RenderPipeline(InvocationCount=1, IterationCount=15, LaunchCount=1, RunStrategy=Monitoring, UnrollFactor=1, WarmupCount=3) [CaseName=Stati(...)dTail [24]]
+// *** Execute ***
+// Launch: 1 / 1
+// Execute: dotnet Beutl.Benchmarks-RenderPipeline-1.dll --anonymousPipes 114 115 --benchmarkName "Beutl.Benchmarks.Rendering.RenderPipelineBenchmarks.RenderCompleteTargetRequest(CaseName: \"StaticPrefixAnimatedTail\")" --job RenderPipeline --benchmarkId 9 in /private/var/folders/nl/kd31xyh169n3x8wb6g0dpw_m0000gn/T/beutl-gpu-pass-benchmark-build.Xp00DQ/feature/bin/Beutl.Benchmarks/release/Beutl.Benchmarks-RenderPipeline-1/bin/Release/net10.0
+// Failed to set up high priority (Permission denied). In order to run benchmarks with high priority, make sure you have the right permissions.
+// BeforeAnythingElse
+
+// Benchmark Process Environment Information:
+// BenchmarkDotNet v0.15.8
+// Runtime=.NET 10.0.9 (10.0.9, 10.0.926.27113), Arm64 RyuJIT armv8.0-a
+// GC=Concurrent Workstation
+// HardwareIntrinsics=ArmBase+AdvSimd,AES,CRC32,DP,RDM,SHA1,SHA256 VectorSize=128
+// Job: RenderPipeline(InvocationCount=1, IterationCount=15, LaunchCount=1, RunStrategy=Monitoring, UnrollFactor=1, WarmupCount=3)
+
+[mvk-info] MoltenVK version 1.4.0, supporting Vulkan version 1.4.323.
+	The following 145 Vulkan extensions are supported:
+	VK_KHR_16bit_storage v1
+	VK_KHR_8bit_storage v1
+	VK_KHR_bind_memory2 v1
+	VK_KHR_buffer_device_address v1
+	VK_KHR_calibrated_timestamps v1
+	VK_KHR_copy_commands2 v1
+	VK_KHR_create_renderpass2 v1
+	VK_KHR_dedicated_allocation v3
+	VK_KHR_deferred_host_operations v4
+	VK_KHR_depth_stencil_resolve v1
+	VK_KHR_descriptor_update_template v1
+	VK_KHR_device_group v4
+	VK_KHR_device_group_creation v1
+	VK_KHR_driver_properties v1
+	VK_KHR_dynamic_rendering v1
+	VK_KHR_dynamic_rendering_local_read v1
+	VK_KHR_external_fence v1
+	VK_KHR_external_fence_capabilities v1
+	VK_KHR_external_memory v1
+	VK_KHR_external_memory_capabilities v1
+	VK_KHR_external_semaphore v1
+	VK_KHR_external_semaphore_capabilities v1
+	VK_KHR_format_feature_flags2 v2
+	VK_KHR_fragment_shader_barycentric v1
+	VK_KHR_get_memory_requirements2 v1
+	VK_KHR_get_physical_device_properties2 v2
+	VK_KHR_get_surface_capabilities2 v1
+	VK_KHR_global_priority v1
+	VK_KHR_image_format_list v1
+	VK_KHR_imageless_framebuffer v1
+	VK_KHR_incremental_present v2
+	VK_KHR_index_type_uint8 v1
+	VK_KHR_line_rasterization v1
+	VK_KHR_load_store_op_none v1
+	VK_KHR_maintenance1 v2
+	VK_KHR_maintenance2 v1
+	VK_KHR_maintenance3 v1
+	VK_KHR_maintenance4 v2
+	VK_KHR_maintenance5 v1
+	VK_KHR_maintenance6 v1
+	VK_KHR_maintenance7 v1
+	VK_KHR_maintenance8 v1
+	VK_KHR_map_memory2 v1
+	VK_KHR_multiview v1
+	VK_KHR_portability_subset v1
+	VK_KHR_present_id v1
+	VK_KHR_present_id2 v1
+	VK_KHR_present_wait v1
+	VK_KHR_present_wait2 v1
+	VK_KHR_push_descriptor v2
+	VK_KHR_relaxed_block_layout v1
+	VK_KHR_robustness2 v1
+	VK_KHR_sampler_mirror_clamp_to_edge v3
+	VK_KHR_sampler_ycbcr_conversion v14
+	VK_KHR_separate_depth_stencil_layouts v1
+	VK_KHR_shader_draw_parameters v1
+	VK_KHR_shader_expect_assume v1
+	VK_KHR_shader_float_controls v4
+	VK_KHR_shader_float_controls2 v1
+	VK_KHR_shader_float16_int8 v1
+	VK_KHR_shader_integer_dot_product v1
+	VK_KHR_shader_maximal_reconvergence v1
+	VK_KHR_shader_non_semantic_info v1
+	VK_KHR_shader_quad_control v1
+	VK_KHR_shader_relaxed_extended_instruction v1
+	VK_KHR_shader_subgroup_extended_types v1
+	VK_KHR_shader_subgroup_rotate v2
+	VK_KHR_shader_subgroup_uniform_control_flow v1
+	VK_KHR_shader_terminate_invocation v1
+	VK_KHR_spirv_1_4 v1
+	VK_KHR_storage_buffer_storage_class v1
+	VK_KHR_surface v25
+	VK_KHR_surface_protected_capabilities v1
+	VK_KHR_swapchain v70
+	VK_KHR_swapchain_mutable_format v1
+	VK_KHR_synchronization2 v1
+	VK_KHR_timeline_semaphore v2
+	VK_KHR_uniform_buffer_standard_layout v1
+	VK_KHR_variable_pointers v1
+	VK_KHR_vertex_attribute_divisor v1
+	VK_KHR_vulkan_memory_model v3
+	VK_KHR_zero_initialize_workgroup_memory v1
+	VK_EXT_4444_formats v1
+	VK_EXT_buffer_device_address v2
+	VK_EXT_calibrated_timestamps v2
+	VK_EXT_debug_marker v4
+	VK_EXT_debug_report v10
+	VK_EXT_debug_utils v2
+	VK_EXT_depth_clip_control v1
+	VK_EXT_descriptor_indexing v2
+	VK_EXT_extended_dynamic_state v1
+	VK_EXT_extended_dynamic_state2 v1
+	VK_EXT_extended_dynamic_state3 v2
+	VK_EXT_external_memory_host v1
+	VK_EXT_external_memory_metal v1
+	VK_EXT_fragment_shader_interlock v1
+	VK_EXT_global_priority v2
+	VK_EXT_global_priority_query v1
+	VK_EXT_hdr_metadata v3
+	VK_EXT_headless_surface v1
+	VK_EXT_host_image_copy v1
+	VK_EXT_host_query_reset v1
+	VK_EXT_image_2d_view_of_3d v1
+	VK_EXT_image_robustness v1
+	VK_EXT_index_type_uint8 v1
+	VK_EXT_inline_uniform_block v1
+	VK_EXT_layer_settings v2
+	VK_EXT_line_rasterization v1
+	VK_EXT_load_store_op_none v1
+	VK_EXT_memory_budget v1
+	VK_EXT_metal_objects v2
+	VK_EXT_metal_surface v1
+	VK_EXT_pipeline_creation_cache_control v3
+	VK_EXT_pipeline_creation_feedback v1
+	VK_EXT_pipeline_robustness v1
+	VK_EXT_post_depth_coverage v1
+	VK_EXT_private_data v1
+	VK_EXT_robustness2 v1
+	VK_EXT_sample_locations v1
+	VK_EXT_scalar_block_layout v1
+	VK_EXT_separate_stencil_usage v1
+	VK_EXT_shader_atomic_float v1
+	VK_EXT_shader_demote_to_helper_invocation v1
+	VK_EXT_shader_stencil_export v1
+	VK_EXT_shader_subgroup_ballot v1
+	VK_EXT_shader_subgroup_vote v1
+	VK_EXT_shader_viewport_index_layer v1
+	VK_EXT_subgroup_size_control v2
+	VK_EXT_surface_maintenance1 v1
+	VK_EXT_swapchain_colorspace v5
+	VK_EXT_swapchain_maintenance1 v1
+	VK_EXT_texel_buffer_alignment v1
+	VK_EXT_texture_compression_astc_hdr v1
+	VK_EXT_tooling_info v1
+	VK_EXT_vertex_attribute_divisor v3
+	VK_AMD_gpu_shader_half_float v2
+	VK_AMD_negative_viewport_height v1
+	VK_AMD_shader_image_load_store_lod v1
+	VK_AMD_shader_trinary_minmax v1
+	VK_GOOGLE_display_timing v1
+	VK_IMG_format_pvrtc v1
+	VK_INTEL_shader_integer_functions2 v1
+	VK_MVK_macos_surface v3
+	VK_MVK_moltenvk v37
+	VK_NV_fragment_shader_barycentric v1
+[mvk-info] GPU device:
+	model: Apple M3
+	type: Integrated
+	vendorID: 0x106b
+	deviceID: 0x1a050209
+	pipelineCacheUUID: 45887054-1A05-0209-0000-000100000000
+	GPU memory available: 12124 MB
+	GPU memory used: 0 MB
+	Metal Shading Language 3.2
+	supports the following GPU Features:
+		GPU Family Metal 3
+		GPU Family Apple 9
+		GPU Family Mac 2
+		Read-Write Texture Tier 2
+[mvk-info] Created VkInstance for Vulkan version 1.2.323, as requested by app, with the following 4 Vulkan extensions enabled:
+	VK_KHR_get_physical_device_properties2 v2
+	VK_KHR_surface v25
+	VK_EXT_metal_surface v1
+	VK_EXT_swapchain_colorspace v5
+[mvk-info] Vulkan semaphores using MTLEvent.
+[mvk-info] Descriptor sets binding resources using Metal3 argument buffers.
+[mvk-info] Created VkDevice to run on GPU Apple M3 with the following 3 Vulkan extensions enabled:
+	VK_KHR_portability_subset v1
+	VK_KHR_swapchain v70
+	VK_EXT_metal_objects v2
+WorkloadWarmup   1: 1 op, 1600667.00 ns, 1.6007 ms/op
+WorkloadWarmup   2: 1 op, 1129292.00 ns, 1.1293 ms/op
+WorkloadWarmup   3: 1 op, 1232167.00 ns, 1.2322 ms/op
+
+// BeforeActualRun
+WorkloadActual   1: 1 op, 1173958.00 ns, 1.1740 ms/op
+WorkloadActual   2: 1 op, 1146333.00 ns, 1.1463 ms/op
+WorkloadActual   3: 1 op, 1136791.00 ns, 1.1368 ms/op
+WorkloadActual   4: 1 op, 1013459.00 ns, 1.0135 ms/op
+WorkloadActual   5: 1 op, 1002000.00 ns, 1.0020 ms/op
+WorkloadActual   6: 1 op, 1024084.00 ns, 1.0241 ms/op
+WorkloadActual   7: 1 op, 1016167.00 ns, 1.0162 ms/op
+WorkloadActual   8: 1 op, 1041333.00 ns, 1.0413 ms/op
+WorkloadActual   9: 1 op, 1096791.00 ns, 1.0968 ms/op
+WorkloadActual  10: 1 op, 1008334.00 ns, 1.0083 ms/op
+WorkloadActual  11: 1 op, 1007375.00 ns, 1.0074 ms/op
+WorkloadActual  12: 1 op, 1009583.00 ns, 1.0096 ms/op
+WorkloadActual  13: 1 op, 982333.00 ns, 982.3330 us/op
+WorkloadActual  14: 1 op, 996042.00 ns, 996.0420 us/op
+WorkloadActual  15: 1 op, 1038125.00 ns, 1.0381 ms/op
+
+// AfterActualRun
+WorkloadResult   1: 1 op, 1173958.00 ns, 1.1740 ms/op
+WorkloadResult   2: 1 op, 1146333.00 ns, 1.1463 ms/op
+WorkloadResult   3: 1 op, 1136791.00 ns, 1.1368 ms/op
+WorkloadResult   4: 1 op, 1013459.00 ns, 1.0135 ms/op
+WorkloadResult   5: 1 op, 1002000.00 ns, 1.0020 ms/op
+WorkloadResult   6: 1 op, 1024084.00 ns, 1.0241 ms/op
+WorkloadResult   7: 1 op, 1016167.00 ns, 1.0162 ms/op
+WorkloadResult   8: 1 op, 1041333.00 ns, 1.0413 ms/op
+WorkloadResult   9: 1 op, 1096791.00 ns, 1.0968 ms/op
+WorkloadResult  10: 1 op, 1008334.00 ns, 1.0083 ms/op
+WorkloadResult  11: 1 op, 1007375.00 ns, 1.0074 ms/op
+WorkloadResult  12: 1 op, 1009583.00 ns, 1.0096 ms/op
+WorkloadResult  13: 1 op, 982333.00 ns, 982.3330 us/op
+WorkloadResult  14: 1 op, 996042.00 ns, 996.0420 us/op
+WorkloadResult  15: 1 op, 1038125.00 ns, 1.0381 ms/op
+// GC:  0 0 0 115168 1
+// Threading:  0 0 1
+
+// AfterAll
+// Benchmark Process 68143 has exited with code 0.
+
+Mean = 1.046 ms, StdErr = 0.016 ms (1.51%), N = 15, StdDev = 0.061 ms
+Min = 0.982 ms, Q1 = 1.008 ms, Median = 1.016 ms, Q3 = 1.069 ms, Max = 1.174 ms
+IQR = 0.061 ms, LowerFence = 0.916 ms, UpperFence = 1.161 ms
+ConfidenceInterval = [0.981 ms; 1.112 ms] (CI 99.9%), Margin = 0.065 ms (6.26% of Mean)
+Skewness = 0.95, Kurtosis = 2.26, MValue = 2.6
+
+// ** Remained 1 (9.1%) benchmark(s) to run. Estimated finish 2026-08-01 1:44 (0h 0m from now) **
+// **************************
+// Benchmark: RenderPipelineBenchmarks.RenderCompleteTargetRequest: RenderPipeline(InvocationCount=1, IterationCount=15, LaunchCount=1, RunStrategy=Monitoring, UnrollFactor=1, WarmupCount=3) [CaseName=StructuralToggle]
+// *** Execute ***
+// Launch: 1 / 1
+// Execute: dotnet Beutl.Benchmarks-RenderPipeline-1.dll --anonymousPipes 114 115 --benchmarkName "Beutl.Benchmarks.Rendering.RenderPipelineBenchmarks.RenderCompleteTargetRequest(CaseName: \"StructuralToggle\")" --job RenderPipeline --benchmarkId 10 in /private/var/folders/nl/kd31xyh169n3x8wb6g0dpw_m0000gn/T/beutl-gpu-pass-benchmark-build.Xp00DQ/feature/bin/Beutl.Benchmarks/release/Beutl.Benchmarks-RenderPipeline-1/bin/Release/net10.0
+// Failed to set up high priority (Permission denied). In order to run benchmarks with high priority, make sure you have the right permissions.
+// BeforeAnythingElse
+
+// Benchmark Process Environment Information:
+// BenchmarkDotNet v0.15.8
+// Runtime=.NET 10.0.9 (10.0.9, 10.0.926.27113), Arm64 RyuJIT armv8.0-a
+// GC=Concurrent Workstation
+// HardwareIntrinsics=ArmBase+AdvSimd,AES,CRC32,DP,RDM,SHA1,SHA256 VectorSize=128
+// Job: RenderPipeline(InvocationCount=1, IterationCount=15, LaunchCount=1, RunStrategy=Monitoring, UnrollFactor=1, WarmupCount=3)
+
+[mvk-info] MoltenVK version 1.4.0, supporting Vulkan version 1.4.323.
+	The following 145 Vulkan extensions are supported:
+	VK_KHR_16bit_storage v1
+	VK_KHR_8bit_storage v1
+	VK_KHR_bind_memory2 v1
+	VK_KHR_buffer_device_address v1
+	VK_KHR_calibrated_timestamps v1
+	VK_KHR_copy_commands2 v1
+	VK_KHR_create_renderpass2 v1
+	VK_KHR_dedicated_allocation v3
+	VK_KHR_deferred_host_operations v4
+	VK_KHR_depth_stencil_resolve v1
+	VK_KHR_descriptor_update_template v1
+	VK_KHR_device_group v4
+	VK_KHR_device_group_creation v1
+	VK_KHR_driver_properties v1
+	VK_KHR_dynamic_rendering v1
+	VK_KHR_dynamic_rendering_local_read v1
+	VK_KHR_external_fence v1
+	VK_KHR_external_fence_capabilities v1
+	VK_KHR_external_memory v1
+	VK_KHR_external_memory_capabilities v1
+	VK_KHR_external_semaphore v1
+	VK_KHR_external_semaphore_capabilities v1
+	VK_KHR_format_feature_flags2 v2
+	VK_KHR_fragment_shader_barycentric v1
+	VK_KHR_get_memory_requirements2 v1
+	VK_KHR_get_physical_device_properties2 v2
+	VK_KHR_get_surface_capabilities2 v1
+	VK_KHR_global_priority v1
+	VK_KHR_image_format_list v1
+	VK_KHR_imageless_framebuffer v1
+	VK_KHR_incremental_present v2
+	VK_KHR_index_type_uint8 v1
+	VK_KHR_line_rasterization v1
+	VK_KHR_load_store_op_none v1
+	VK_KHR_maintenance1 v2
+	VK_KHR_maintenance2 v1
+	VK_KHR_maintenance3 v1
+	VK_KHR_maintenance4 v2
+	VK_KHR_maintenance5 v1
+	VK_KHR_maintenance6 v1
+	VK_KHR_maintenance7 v1
+	VK_KHR_maintenance8 v1
+	VK_KHR_map_memory2 v1
+	VK_KHR_multiview v1
+	VK_KHR_portability_subset v1
+	VK_KHR_present_id v1
+	VK_KHR_present_id2 v1
+	VK_KHR_present_wait v1
+	VK_KHR_present_wait2 v1
+	VK_KHR_push_descriptor v2
+	VK_KHR_relaxed_block_layout v1
+	VK_KHR_robustness2 v1
+	VK_KHR_sampler_mirror_clamp_to_edge v3
+	VK_KHR_sampler_ycbcr_conversion v14
+	VK_KHR_separate_depth_stencil_layouts v1
+	VK_KHR_shader_draw_parameters v1
+	VK_KHR_shader_expect_assume v1
+	VK_KHR_shader_float_controls v4
+	VK_KHR_shader_float_controls2 v1
+	VK_KHR_shader_float16_int8 v1
+	VK_KHR_shader_integer_dot_product v1
+	VK_KHR_shader_maximal_reconvergence v1
+	VK_KHR_shader_non_semantic_info v1
+	VK_KHR_shader_quad_control v1
+	VK_KHR_shader_relaxed_extended_instruction v1
+	VK_KHR_shader_subgroup_extended_types v1
+	VK_KHR_shader_subgroup_rotate v2
+	VK_KHR_shader_subgroup_uniform_control_flow v1
+	VK_KHR_shader_terminate_invocation v1
+	VK_KHR_spirv_1_4 v1
+	VK_KHR_storage_buffer_storage_class v1
+	VK_KHR_surface v25
+	VK_KHR_surface_protected_capabilities v1
+	VK_KHR_swapchain v70
+	VK_KHR_swapchain_mutable_format v1
+	VK_KHR_synchronization2 v1
+	VK_KHR_timeline_semaphore v2
+	VK_KHR_uniform_buffer_standard_layout v1
+	VK_KHR_variable_pointers v1
+	VK_KHR_vertex_attribute_divisor v1
+	VK_KHR_vulkan_memory_model v3
+	VK_KHR_zero_initialize_workgroup_memory v1
+	VK_EXT_4444_formats v1
+	VK_EXT_buffer_device_address v2
+	VK_EXT_calibrated_timestamps v2
+	VK_EXT_debug_marker v4
+	VK_EXT_debug_report v10
+	VK_EXT_debug_utils v2
+	VK_EXT_depth_clip_control v1
+	VK_EXT_descriptor_indexing v2
+	VK_EXT_extended_dynamic_state v1
+	VK_EXT_extended_dynamic_state2 v1
+	VK_EXT_extended_dynamic_state3 v2
+	VK_EXT_external_memory_host v1
+	VK_EXT_external_memory_metal v1
+	VK_EXT_fragment_shader_interlock v1
+	VK_EXT_global_priority v2
+	VK_EXT_global_priority_query v1
+	VK_EXT_hdr_metadata v3
+	VK_EXT_headless_surface v1
+	VK_EXT_host_image_copy v1
+	VK_EXT_host_query_reset v1
+	VK_EXT_image_2d_view_of_3d v1
+	VK_EXT_image_robustness v1
+	VK_EXT_index_type_uint8 v1
+	VK_EXT_inline_uniform_block v1
+	VK_EXT_layer_settings v2
+	VK_EXT_line_rasterization v1
+	VK_EXT_load_store_op_none v1
+	VK_EXT_memory_budget v1
+	VK_EXT_metal_objects v2
+	VK_EXT_metal_surface v1
+	VK_EXT_pipeline_creation_cache_control v3
+	VK_EXT_pipeline_creation_feedback v1
+	VK_EXT_pipeline_robustness v1
+	VK_EXT_post_depth_coverage v1
+	VK_EXT_private_data v1
+	VK_EXT_robustness2 v1
+	VK_EXT_sample_locations v1
+	VK_EXT_scalar_block_layout v1
+	VK_EXT_separate_stencil_usage v1
+	VK_EXT_shader_atomic_float v1
+	VK_EXT_shader_demote_to_helper_invocation v1
+	VK_EXT_shader_stencil_export v1
+	VK_EXT_shader_subgroup_ballot v1
+	VK_EXT_shader_subgroup_vote v1
+	VK_EXT_shader_viewport_index_layer v1
+	VK_EXT_subgroup_size_control v2
+	VK_EXT_surface_maintenance1 v1
+	VK_EXT_swapchain_colorspace v5
+	VK_EXT_swapchain_maintenance1 v1
+	VK_EXT_texel_buffer_alignment v1
+	VK_EXT_texture_compression_astc_hdr v1
+	VK_EXT_tooling_info v1
+	VK_EXT_vertex_attribute_divisor v3
+	VK_AMD_gpu_shader_half_float v2
+	VK_AMD_negative_viewport_height v1
+	VK_AMD_shader_image_load_store_lod v1
+	VK_AMD_shader_trinary_minmax v1
+	VK_GOOGLE_display_timing v1
+	VK_IMG_format_pvrtc v1
+	VK_INTEL_shader_integer_functions2 v1
+	VK_MVK_macos_surface v3
+	VK_MVK_moltenvk v37
+	VK_NV_fragment_shader_barycentric v1
+[mvk-info] GPU device:
+	model: Apple M3
+	type: Integrated
+	vendorID: 0x106b
+	deviceID: 0x1a050209
+	pipelineCacheUUID: 45887054-1A05-0209-0000-000100000000
+	GPU memory available: 12124 MB
+	GPU memory used: 0 MB
+	Metal Shading Language 3.2
+	supports the following GPU Features:
+		GPU Family Metal 3
+		GPU Family Apple 9
+		GPU Family Mac 2
+		Read-Write Texture Tier 2
+[mvk-info] Created VkInstance for Vulkan version 1.2.323, as requested by app, with the following 4 Vulkan extensions enabled:
+	VK_KHR_get_physical_device_properties2 v2
+	VK_KHR_surface v25
+	VK_EXT_metal_surface v1
+	VK_EXT_swapchain_colorspace v5
+[mvk-info] Vulkan semaphores using MTLEvent.
+[mvk-info] Descriptor sets binding resources using Metal3 argument buffers.
+[mvk-info] Created VkDevice to run on GPU Apple M3 with the following 3 Vulkan extensions enabled:
+	VK_KHR_portability_subset v1
+	VK_KHR_swapchain v70
+	VK_EXT_metal_objects v2
+WorkloadWarmup   1: 1 op, 1666708.00 ns, 1.6667 ms/op
+WorkloadWarmup   2: 1 op, 1045041.00 ns, 1.0450 ms/op
+WorkloadWarmup   3: 1 op, 1001625.00 ns, 1.0016 ms/op
+
+// BeforeActualRun
+WorkloadActual   1: 1 op, 1077375.00 ns, 1.0774 ms/op
+WorkloadActual   2: 1 op, 1188708.00 ns, 1.1887 ms/op
+WorkloadActual   3: 1 op, 1139000.00 ns, 1.1390 ms/op
+WorkloadActual   4: 1 op, 1009834.00 ns, 1.0098 ms/op
+WorkloadActual   5: 1 op, 1398417.00 ns, 1.3984 ms/op
+WorkloadActual   6: 1 op, 972500.00 ns, 972.5000 us/op
+WorkloadActual   7: 1 op, 934166.00 ns, 934.1660 us/op
+WorkloadActual   8: 1 op, 908875.00 ns, 908.8750 us/op
+WorkloadActual   9: 1 op, 935958.00 ns, 935.9580 us/op
+WorkloadActual  10: 1 op, 1044334.00 ns, 1.0443 ms/op
+WorkloadActual  11: 1 op, 1161084.00 ns, 1.1611 ms/op
+WorkloadActual  12: 1 op, 1050333.00 ns, 1.0503 ms/op
+WorkloadActual  13: 1 op, 914875.00 ns, 914.8750 us/op
+WorkloadActual  14: 1 op, 916125.00 ns, 916.1250 us/op
+WorkloadActual  15: 1 op, 942000.00 ns, 942.0000 us/op
+
+// AfterActualRun
+WorkloadResult   1: 1 op, 1077375.00 ns, 1.0774 ms/op
+WorkloadResult   2: 1 op, 1188708.00 ns, 1.1887 ms/op
+WorkloadResult   3: 1 op, 1139000.00 ns, 1.1390 ms/op
+WorkloadResult   4: 1 op, 1009834.00 ns, 1.0098 ms/op
+WorkloadResult   5: 1 op, 1398417.00 ns, 1.3984 ms/op
+WorkloadResult   6: 1 op, 972500.00 ns, 972.5000 us/op
+WorkloadResult   7: 1 op, 934166.00 ns, 934.1660 us/op
+WorkloadResult   8: 1 op, 908875.00 ns, 908.8750 us/op
+WorkloadResult   9: 1 op, 935958.00 ns, 935.9580 us/op
+WorkloadResult  10: 1 op, 1044334.00 ns, 1.0443 ms/op
+WorkloadResult  11: 1 op, 1161084.00 ns, 1.1611 ms/op
+WorkloadResult  12: 1 op, 1050333.00 ns, 1.0503 ms/op
+WorkloadResult  13: 1 op, 914875.00 ns, 914.8750 us/op
+WorkloadResult  14: 1 op, 916125.00 ns, 916.1250 us/op
+WorkloadResult  15: 1 op, 942000.00 ns, 942.0000 us/op
+// GC:  0 0 0 69584 1
+// Threading:  0 0 1
+
+// AfterAll
+// Benchmark Process 68148 has exited with code 0.
+
+Mean = 1.040 ms, StdErr = 0.035 ms (3.40%), N = 15, StdDev = 0.137 ms
+Min = 0.909 ms, Q1 = 0.935 ms, Median = 1.010 ms, Q3 = 1.108 ms, Max = 1.398 ms
+IQR = 0.173 ms, LowerFence = 0.675 ms, UpperFence = 1.368 ms
+ConfidenceInterval = [0.893 ms; 1.186 ms] (CI 99.9%), Margin = 0.146 ms (14.06% of Mean)
+Skewness = 1.11, Kurtosis = 3.53, MValue = 2
+
+// ** Remained 0 (0.0%) benchmark(s) to run. Estimated finish 2026-08-01 1:44 (0h 0m from now) **
+// ***** BenchmarkRunner: Finish  *****
+
+// * Export *
+  private/tmp/claude-501/-Volumes-Transcend-source-beutl-worktrees-speckit-004-gpu-pass-fusion/058041f1-b6d5-4743-8ab6-39807ae0c750/scratchpad/paired-bench-5/feature/bdn/results/Beutl.Benchmarks.Rendering.RenderPipelineBenchmarks-report.csv
+  private/tmp/claude-501/-Volumes-Transcend-source-beutl-worktrees-speckit-004-gpu-pass-fusion/058041f1-b6d5-4743-8ab6-39807ae0c750/scratchpad/paired-bench-5/feature/bdn/results/Beutl.Benchmarks.Rendering.RenderPipelineBenchmarks-report-github.md
+  private/tmp/claude-501/-Volumes-Transcend-source-beutl-worktrees-speckit-004-gpu-pass-fusion/058041f1-b6d5-4743-8ab6-39807ae0c750/scratchpad/paired-bench-5/feature/bdn/results/Beutl.Benchmarks.Rendering.RenderPipelineBenchmarks-report.html
+  private/tmp/claude-501/-Volumes-Transcend-source-beutl-worktrees-speckit-004-gpu-pass-fusion/058041f1-b6d5-4743-8ab6-39807ae0c750/scratchpad/paired-bench-5/feature/bdn/results/Beutl.Benchmarks.Rendering.RenderPipelineBenchmarks-report-full.json
+
+// * Detailed results *
+RenderPipelineBenchmarks.RenderCompleteTargetRequest: RenderPipeline(InvocationCount=1, IterationCount=15, LaunchCount=1, RunStrategy=Monitoring, UnrollFactor=1, WarmupCount=3) [CaseName=LongInvariantChain]
+Runtime = .NET 10.0.9 (10.0.9, 10.0.926.27113), Arm64 RyuJIT armv8.0-a; GC = Concurrent Workstation
+Mean = 1.037 ms, StdErr = 0.006 ms (0.61%), N = 15, StdDev = 0.024 ms
+Min = 1.001 ms, Q1 = 1.018 ms, Median = 1.036 ms, Q3 = 1.050 ms, Max = 1.080 ms
+IQR = 0.032 ms, LowerFence = 0.970 ms, UpperFence = 1.098 ms
+ConfidenceInterval = [1.011 ms; 1.063 ms] (CI 99.9%), Margin = 0.026 ms (2.51% of Mean)
+Skewness = 0.38, Kurtosis = 1.86, MValue = 2
+-------------------- Histogram --------------------
+[0.988 ms ; 1.016 ms) | @@@
+[1.016 ms ; 1.042 ms) | @@@@@@@
+[1.042 ms ; 1.086 ms) | @@@@@
+---------------------------------------------------
+
+RenderPipelineBenchmarks.RenderCompleteTargetRequest: RenderPipeline(InvocationCount=1, IterationCount=15, LaunchCount=1, RunStrategy=Monitoring, UnrollFactor=1, WarmupCount=3) [CaseName=MixedSpatialColor]
+Runtime = .NET 10.0.9 (10.0.9, 10.0.926.27113), Arm64 RyuJIT armv8.0-a; GC = Concurrent Workstation
+Mean = 1.434 ms, StdErr = 0.038 ms (2.63%), N = 15, StdDev = 0.146 ms
+Min = 1.288 ms, Q1 = 1.337 ms, Median = 1.374 ms, Q3 = 1.493 ms, Max = 1.759 ms
+IQR = 0.156 ms, LowerFence = 1.103 ms, UpperFence = 1.727 ms
+ConfidenceInterval = [1.278 ms; 1.591 ms] (CI 99.9%), Margin = 0.156 ms (10.90% of Mean)
+Skewness = 0.95, Kurtosis = 2.47, MValue = 2.6
+-------------------- Histogram --------------------
+[1.282 ms ; 1.438 ms) | @@@@@@@@@@@
+[1.438 ms ; 1.538 ms) | 
+[1.538 ms ; 1.694 ms) | @@@
+[1.694 ms ; 1.836 ms) | @
+---------------------------------------------------
+
+RenderPipelineBenchmarks.RenderCompleteTargetRequest: RenderPipeline(InvocationCount=1, IterationCount=15, LaunchCount=1, RunStrategy=Monitoring, UnrollFactor=1, WarmupCount=3) [CaseName=Multi(...)ncies [35]]
+Runtime = .NET 10.0.9 (10.0.9, 10.0.926.27113), Arm64 RyuJIT armv8.0-a; GC = Concurrent Workstation
+Mean = 1.663 ms, StdErr = 0.020 ms (1.21%), N = 15, StdDev = 0.078 ms
+Min = 1.566 ms, Q1 = 1.607 ms, Median = 1.655 ms, Q3 = 1.719 ms, Max = 1.841 ms
+IQR = 0.112 ms, LowerFence = 1.438 ms, UpperFence = 1.887 ms
+ConfidenceInterval = [1.580 ms; 1.747 ms] (CI 99.9%), Margin = 0.084 ms (5.03% of Mean)
+Skewness = 0.47, Kurtosis = 2.39, MValue = 2.29
+-------------------- Histogram --------------------
+[1.559 ms ; 1.642 ms) | @@@@@@@
+[1.642 ms ; 1.733 ms) | @@@@@@@
+[1.733 ms ; 1.799 ms) | 
+[1.799 ms ; 1.882 ms) | @
+---------------------------------------------------
+
+RenderPipelineBenchmarks.RenderCompleteTargetRequest: RenderPipeline(InvocationCount=1, IterationCount=15, LaunchCount=1, RunStrategy=Monitoring, UnrollFactor=1, WarmupCount=3) [CaseName=NoEffectControl]
+Runtime = .NET 10.0.9 (10.0.9, 10.0.926.27113), Arm64 RyuJIT armv8.0-a; GC = Concurrent Workstation
+Mean = 951.617 us, StdErr = 18.096 us (1.90%), N = 15, StdDev = 70.086 us
+Min = 803.625 us, Q1 = 920.750 us, Median = 963.500 us, Q3 = 1,000.500 us, Max = 1,051.500 us
+IQR = 79.749 us, LowerFence = 801.126 us, UpperFence = 1,120.124 us
+ConfidenceInterval = [876.690 us; 1,026.543 us] (CI 99.9%), Margin = 74.927 us (7.87% of Mean)
+Skewness = -0.59, Kurtosis = 2.27, MValue = 2.67
+-------------------- Histogram --------------------
+[  766.326 us ;   834.972 us) | @
+[  834.972 us ;   909.570 us) | @@@
+[  909.570 us ;   940.659 us) | 
+[  940.659 us ; 1,015.258 us) | @@@@@@@@@
+[1,015.258 us ; 1,088.799 us) | @@
+---------------------------------------------------
+
+RenderPipelineBenchmarks.RenderCompleteTargetRequest: RenderPipeline(InvocationCount=1, IterationCount=15, LaunchCount=1, RunStrategy=Monitoring, UnrollFactor=1, WarmupCount=3) [CaseName=Param(...)ation [22]]
+Runtime = .NET 10.0.9 (10.0.9, 10.0.926.27113), Arm64 RyuJIT armv8.0-a; GC = Concurrent Workstation
+Mean = 1.063 ms, StdErr = 0.027 ms (2.53%), N = 15, StdDev = 0.104 ms
+Min = 0.926 ms, Q1 = 1.010 ms, Median = 1.057 ms, Q3 = 1.092 ms, Max = 1.365 ms
+IQR = 0.081 ms, LowerFence = 0.888 ms, UpperFence = 1.214 ms
+ConfidenceInterval = [0.951 ms; 1.174 ms] (CI 99.9%), Margin = 0.111 ms (10.47% of Mean)
+Skewness = 1.31, Kurtosis = 5.18, MValue = 3
+-------------------- Histogram --------------------
+[0.898 ms ; 1.026 ms) | @@@@
+[1.026 ms ; 1.137 ms) | @@@@@@@@@@
+[1.137 ms ; 1.248 ms) | 
+[1.248 ms ; 1.310 ms) | 
+[1.310 ms ; 1.421 ms) | @
+---------------------------------------------------
+
+RenderPipelineBenchmarks.RenderCompleteTargetRequest: RenderPipeline(InvocationCount=1, IterationCount=15, LaunchCount=1, RunStrategy=Monitoring, UnrollFactor=1, WarmupCount=3) [CaseName=ShaderOpacityShader]
+Runtime = .NET 10.0.9 (10.0.9, 10.0.926.27113), Arm64 RyuJIT armv8.0-a; GC = Concurrent Workstation
+Mean = 1.053 ms, StdErr = 0.015 ms (1.42%), N = 15, StdDev = 0.058 ms
+Min = 0.944 ms, Q1 = 1.035 ms, Median = 1.062 ms, Q3 = 1.086 ms, Max = 1.144 ms
+IQR = 0.051 ms, LowerFence = 0.958 ms, UpperFence = 1.162 ms
+ConfidenceInterval = [0.991 ms; 1.115 ms] (CI 99.9%), Margin = 0.062 ms (5.88% of Mean)
+Skewness = -0.46, Kurtosis = 2.28, MValue = 3
+-------------------- Histogram --------------------
+[0.935 ms ; 0.997 ms) | @@@
+[0.997 ms ; 1.078 ms) | @@@@@@@@
+[1.078 ms ; 1.155 ms) | @@@@
+---------------------------------------------------
+
+RenderPipelineBenchmarks.RenderCompleteTargetRequest: RenderPipeline(InvocationCount=1, IterationCount=15, LaunchCount=1, RunStrategy=Monitoring, UnrollFactor=1, WarmupCount=3) [CaseName=Shade(...)rrier [26]]
+Runtime = .NET 10.0.9 (10.0.9, 10.0.926.27113), Arm64 RyuJIT armv8.0-a; GC = Concurrent Workstation
+Mean = 1.361 ms, StdErr = 0.033 ms (2.45%), N = 15, StdDev = 0.129 ms
+Min = 1.186 ms, Q1 = 1.257 ms, Median = 1.325 ms, Q3 = 1.516 ms, Max = 1.540 ms
+IQR = 0.259 ms, LowerFence = 0.869 ms, UpperFence = 1.904 ms
+ConfidenceInterval = [1.223 ms; 1.499 ms] (CI 99.9%), Margin = 0.138 ms (10.14% of Mean)
+Skewness = 0.34, Kurtosis = 1.34, MValue = 3.11
+-------------------- Histogram --------------------
+[1.117 ms ; 1.223 ms) | @
+[1.223 ms ; 1.361 ms) | @@@@@@@@@
+[1.361 ms ; 1.457 ms) | 
+[1.457 ms ; 1.609 ms) | @@@@@
+---------------------------------------------------
+
+RenderPipelineBenchmarks.RenderCompleteTargetRequest: RenderPipeline(InvocationCount=1, IterationCount=15, LaunchCount=1, RunStrategy=Monitoring, UnrollFactor=1, WarmupCount=3) [CaseName=SingleShader]
+Runtime = .NET 10.0.9 (10.0.9, 10.0.926.27113), Arm64 RyuJIT armv8.0-a; GC = Concurrent Workstation
+Mean = 1.009 ms, StdErr = 0.022 ms (2.22%), N = 15, StdDev = 0.087 ms
+Min = 0.859 ms, Q1 = 0.972 ms, Median = 0.996 ms, Q3 = 1.057 ms, Max = 1.203 ms
+IQR = 0.086 ms, LowerFence = 0.843 ms, UpperFence = 1.186 ms
+ConfidenceInterval = [0.917 ms; 1.102 ms] (CI 99.9%), Margin = 0.093 ms (9.17% of Mean)
+Skewness = 0.34, Kurtosis = 2.68, MValue = 2.75
+-------------------- Histogram --------------------
+[0.841 ms ; 0.933 ms) | @@@
+[0.933 ms ; 1.051 ms) | @@@@@@@@
+[1.051 ms ; 1.157 ms) | @@@
+[1.157 ms ; 1.249 ms) | @
+---------------------------------------------------
+
+RenderPipelineBenchmarks.RenderCompleteTargetRequest: RenderPipeline(InvocationCount=1, IterationCount=15, LaunchCount=1, RunStrategy=Monitoring, UnrollFactor=1, WarmupCount=3) [CaseName=Small(...)rhead [24]]
+Runtime = .NET 10.0.9 (10.0.9, 10.0.926.27113), Arm64 RyuJIT armv8.0-a; GC = Concurrent Workstation
+Mean = 898.839 us, StdErr = 22.926 us (2.55%), N = 15, StdDev = 88.793 us
+Min = 819.250 us, Q1 = 840.125 us, Median = 859.416 us, Q3 = 938.000 us, Max = 1,089.042 us
+IQR = 97.875 us, LowerFence = 693.312 us, UpperFence = 1,084.812 us
+ConfidenceInterval = [803.914 us; 993.764 us] (CI 99.9%), Margin = 94.925 us (10.56% of Mean)
+Skewness = 0.98, Kurtosis = 2.34, MValue = 2.55
+-------------------- Histogram --------------------
+[  808.808 us ;   903.317 us) | @@@@@@@@@@@
+[  903.317 us ;   969.370 us) | 
+[  969.370 us ; 1,063.880 us) | @@@
+[1,063.880 us ; 1,136.297 us) | @
+---------------------------------------------------
+
+RenderPipelineBenchmarks.RenderCompleteTargetRequest: RenderPipeline(InvocationCount=1, IterationCount=15, LaunchCount=1, RunStrategy=Monitoring, UnrollFactor=1, WarmupCount=3) [CaseName=Stati(...)dTail [24]]
+Runtime = .NET 10.0.9 (10.0.9, 10.0.926.27113), Arm64 RyuJIT armv8.0-a; GC = Concurrent Workstation
+Mean = 1.046 ms, StdErr = 0.016 ms (1.51%), N = 15, StdDev = 0.061 ms
+Min = 0.982 ms, Q1 = 1.008 ms, Median = 1.016 ms, Q3 = 1.069 ms, Max = 1.174 ms
+IQR = 0.061 ms, LowerFence = 0.916 ms, UpperFence = 1.161 ms
+ConfidenceInterval = [0.981 ms; 1.112 ms] (CI 99.9%), Margin = 0.065 ms (6.26% of Mean)
+Skewness = 0.95, Kurtosis = 2.26, MValue = 2.6
+-------------------- Histogram --------------------
+[0.979 ms ; 1.044 ms) | @@@@@@@@@@@
+[1.044 ms ; 1.123 ms) | @
+[1.123 ms ; 1.188 ms) | @@@
+---------------------------------------------------
+
+RenderPipelineBenchmarks.RenderCompleteTargetRequest: RenderPipeline(InvocationCount=1, IterationCount=15, LaunchCount=1, RunStrategy=Monitoring, UnrollFactor=1, WarmupCount=3) [CaseName=StructuralToggle]
+Runtime = .NET 10.0.9 (10.0.9, 10.0.926.27113), Arm64 RyuJIT armv8.0-a; GC = Concurrent Workstation
+Mean = 1.040 ms, StdErr = 0.035 ms (3.40%), N = 15, StdDev = 0.137 ms
+Min = 0.909 ms, Q1 = 0.935 ms, Median = 1.010 ms, Q3 = 1.108 ms, Max = 1.398 ms
+IQR = 0.173 ms, LowerFence = 0.675 ms, UpperFence = 1.368 ms
+ConfidenceInterval = [0.893 ms; 1.186 ms] (CI 99.9%), Margin = 0.146 ms (14.06% of Mean)
+Skewness = 1.11, Kurtosis = 3.53, MValue = 2
+-------------------- Histogram --------------------
+[0.907 ms ; 1.052 ms) | @@@@@@@@@@
+[1.052 ms ; 1.206 ms) | @@@@
+[1.206 ms ; 1.326 ms) | 
+[1.326 ms ; 1.471 ms) | @
+---------------------------------------------------
+
+// * Summary *
+
+BenchmarkDotNet v0.15.8, macOS Tahoe 26.5.2 (25F84) [Darwin 25.5.0]
+Apple M3, 1 CPU, 8 logical and 8 physical cores
+.NET SDK 10.0.301
+  [Host]         : .NET 10.0.9 (10.0.9, 10.0.926.27113), Arm64 RyuJIT armv8.0-a
+  RenderPipeline : .NET 10.0.9 (10.0.9, 10.0.926.27113), Arm64 RyuJIT armv8.0-a
+
+Job=RenderPipeline  InvocationCount=1  IterationCount=15  
+LaunchCount=1  RunStrategy=Monitoring  UnrollFactor=1  
+WarmupCount=3  
+
+| Method                      | CaseName             | Mean       | Error     | StdDev    | Allocated |
+|---------------------------- |--------------------- |-----------:|----------:|----------:|----------:|
+| RenderCompleteTargetRequest | LongInvariantChain   | 1,037.0 us |  26.07 us |  24.39 us | 130.35 KB |
+| RenderCompleteTargetRequest | MixedSpatialColor    | 1,434.3 us | 156.31 us | 146.21 us |  95.51 KB |
+| RenderCompleteTargetRequest | Multi(...)ncies [35] | 1,663.2 us |  83.62 us |  78.22 us | 180.44 KB |
+| RenderCompleteTargetRequest | NoEffectControl      |   951.6 us |  74.93 us |  70.09 us |  36.59 KB |
+| RenderCompleteTargetRequest | Param(...)ation [22] | 1,062.7 us | 111.26 us | 104.07 us |  77.57 KB |
+| RenderCompleteTargetRequest | ShaderOpacityShader  | 1,053.0 us |  61.97 us |  57.97 us |  74.65 KB |
+| RenderCompleteTargetRequest | Shade(...)rrier [26] | 1,360.6 us | 138.00 us | 129.09 us |  89.43 KB |
+| RenderCompleteTargetRequest | SingleShader         | 1,009.3 us |  92.58 us |  86.60 us |  49.14 KB |
+| RenderCompleteTargetRequest | Small(...)rhead [24] |   898.8 us |  94.92 us |  88.79 us |  74.75 KB |
+| RenderCompleteTargetRequest | Stati(...)dTail [24] | 1,046.2 us |  65.46 us |  61.24 us | 112.47 KB |
+| RenderCompleteTargetRequest | StructuralToggle     | 1,039.6 us | 146.21 us | 136.76 us |  67.95 KB |
+
+// * Warnings *
+MinIterationTime
+  RenderPipelineBenchmarks.RenderCompleteTargetRequest: RenderPipeline -> The minimum observed iteration time is 1.001ms which is very small. It's recommended to increase it to at least 100ms using more operations.
+  RenderPipelineBenchmarks.RenderCompleteTargetRequest: RenderPipeline -> The minimum observed iteration time is 1.288ms which is very small. It's recommended to increase it to at least 100ms using more operations.
+  RenderPipelineBenchmarks.RenderCompleteTargetRequest: RenderPipeline -> The minimum observed iteration time is 1.566ms which is very small. It's recommended to increase it to at least 100ms using more operations.
+  RenderPipelineBenchmarks.RenderCompleteTargetRequest: RenderPipeline -> The minimum observed iteration time is 803.625us which is very small. It's recommended to increase it to at least 100ms using more operations.
+  RenderPipelineBenchmarks.RenderCompleteTargetRequest: RenderPipeline -> The minimum observed iteration time is 925.875us which is very small. It's recommended to increase it to at least 100ms using more operations.
+  RenderPipelineBenchmarks.RenderCompleteTargetRequest: RenderPipeline -> The minimum observed iteration time is 943.875us which is very small. It's recommended to increase it to at least 100ms using more operations.
+  RenderPipelineBenchmarks.RenderCompleteTargetRequest: RenderPipeline -> The minimum observed iteration time is 1.186ms which is very small. It's recommended to increase it to at least 100ms using more operations.
+  RenderPipelineBenchmarks.RenderCompleteTargetRequest: RenderPipeline -> The minimum observed iteration time is 859.042us which is very small. It's recommended to increase it to at least 100ms using more operations.
+  RenderPipelineBenchmarks.RenderCompleteTargetRequest: RenderPipeline -> The minimum observed iteration time is 819.25us which is very small. It's recommended to increase it to at least 100ms using more operations.
+  RenderPipelineBenchmarks.RenderCompleteTargetRequest: RenderPipeline -> The minimum observed iteration time is 982.333us which is very small. It's recommended to increase it to at least 100ms using more operations.
+  RenderPipelineBenchmarks.RenderCompleteTargetRequest: RenderPipeline -> The minimum observed iteration time is 908.875us which is very small. It's recommended to increase it to at least 100ms using more operations.
+MultimodalDistribution
+  RenderPipelineBenchmarks.RenderCompleteTargetRequest: RenderPipeline -> It seems that the distribution can have several modes (mValue = 3)
+  RenderPipelineBenchmarks.RenderCompleteTargetRequest: RenderPipeline -> It seems that the distribution can have several modes (mValue = 3.11)
+
+// * Hints *
+Outliers
+  RenderPipelineBenchmarks.RenderCompleteTargetRequest: RenderPipeline -> 1 outlier  was  detected (1.76 ms)
+  RenderPipelineBenchmarks.RenderCompleteTargetRequest: RenderPipeline -> 1 outlier  was  detected (1.37 ms)
+  RenderPipelineBenchmarks.RenderCompleteTargetRequest: RenderPipeline -> 2 outliers were detected (943.88 us, 948.42 us)
+  RenderPipelineBenchmarks.RenderCompleteTargetRequest: RenderPipeline -> 1 outlier  was  detected (1.20 ms)
+  RenderPipelineBenchmarks.RenderCompleteTargetRequest: RenderPipeline -> 1 outlier  was  detected (1.09 ms)
+  RenderPipelineBenchmarks.RenderCompleteTargetRequest: RenderPipeline -> 1 outlier  was  detected (1.17 ms)
+  RenderPipelineBenchmarks.RenderCompleteTargetRequest: RenderPipeline -> 1 outlier  was  detected (1.40 ms)
+
+// * Legends *
+  CaseName  : Value of the 'CaseName' parameter
+  Mean      : Arithmetic mean of all measurements
+  Error     : Half of 99.9% confidence interval
+  StdDev    : Standard deviation of all measurements
+  Allocated : Allocated memory per single operation (managed only, inclusive, 1KB = 1024B)
+  1 us      : 1 Microsecond (0.000001 sec)
+
+// * Diagnostic Output - MemoryDiagnoser *
+
+
+// ***** BenchmarkRunner: End *****
+Run time: 00:00:08 (8.5 sec), executed benchmarks: 11
+
+Global total time: 00:00:30 (30.55 sec), executed benchmarks: 11
+// * Artifacts cleanup *
+Artifacts cleanup is finished

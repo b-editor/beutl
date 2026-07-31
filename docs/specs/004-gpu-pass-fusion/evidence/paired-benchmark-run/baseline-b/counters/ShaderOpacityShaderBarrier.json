@@ -1,0 +1,86 @@
+{
+  "schemaVersion": 2,
+  "caseName": "ShaderOpacityShaderBarrier",
+  "seed": 20040722,
+  "width": 384,
+  "height": 216,
+  "setupWarmupFrames": 5,
+  "lifetime": "persistent-root-pipeline-and-version-available-structural-program-render-cache-target-pool-state",
+  "requestShape": "complete-target-surface-request-with-rgba16f-readback",
+  "outputSha256": "f19c347b8ce69a121eb8097666d4b852c36e7b8f0ca2d206c9ef84de9eb63db7",
+  "outputChecksum": "ba9613236a07bfde",
+  "outputBounds": "0, 0, 384, 216",
+  "fingerprint": {
+    "osDescription": "macOS 26.5.2",
+    "osVersion": "Unix 26.5.2",
+    "osBuild": "25F84",
+    "osArchitecture": "Arm64",
+    "processArchitecture": "Arm64",
+    "runtimeIdentifier": "osx-arm64",
+    "frameworkDescription": ".NET 10.0.9",
+    "environmentVersion": "10.0.9",
+    "rendererBackend": "Metal",
+    "skiaBackend": "Metal",
+    "deviceSelection": "automatic-no-preferred-device",
+    "vulkanApiVersion": "1.2.323",
+    "vulkanVendorId": "0x0000106b",
+    "vulkanDeviceId": "0x1a050209",
+    "vulkanDeviceType": "IntegratedGpu",
+    "vulkanDeviceName": "Apple M3",
+    "vulkanDeviceUuid": "0000106b1a0502090000000000000000",
+    "vulkanDriverUuid": "4d564b00000028a01a05020900000000",
+    "vulkanDriverId": "DriverIDMoltenvk",
+    "vulkanDriverName": "MoltenVK",
+    "vulkanDriverInfo": "1.4.0",
+    "vulkanDriverVersionRaw": "10400",
+    "vulkanDriverVersionDecoded": "0.2.2208",
+    "vulkanEnabledExtensions": [
+      "VK_EXT_metal_objects",
+      "VK_EXT_metal_surface",
+      "VK_EXT_swapchain_colorspace",
+      "VK_KHR_get_physical_device_properties2",
+      "VK_KHR_portability_enumeration",
+      "VK_KHR_portability_subset",
+      "VK_KHR_surface",
+      "VK_KHR_swapchain"
+    ],
+    "metalDeviceName": "Apple M3",
+    "metalRegistryId": "0x00000001000003a8",
+    "metalFeatureFamily": "spdisplays_metal4",
+    "metalDriver": "Apple Metal shipped with macOS build 25F84",
+    "skiaSharpManagedVersion": "3.119.4\u002Brelease-3.119.4.f568ac94dd768ef9a2f593537cfde2dd0d348ef5.f568ac94dd768ef9a2f593537cfde2dd0d348ef5",
+    "skiaSharpNativeVersion": "119.0",
+    "silkNetVulkanVersion": "2.23.0\u002B94605142f7b7bd6e69c9201e8e721d245c69eb7e",
+    "beutlEngineAssemblyVersion": "2.99.99\u002B43a38e665d9bf52548161a3917e748bd1457ff55"
+  },
+  "setupLastRequestCounters": {
+    "CompletedRequests": 1,
+    "Failures": 0,
+    "LegacyOperationExecutions": 1,
+    "RenderCacheHits": 0,
+    "SemanticStages": 4,
+    "TargetDependencies": 0,
+    "TopLevelDrawables": 1
+  },
+  "measuredLastRequestCounters": {
+    "CompletedRequests": 1,
+    "Failures": 0,
+    "LegacyOperationExecutions": 1,
+    "RenderCacheHits": 0,
+    "SemanticStages": 4,
+    "TargetDependencies": 0,
+    "TopLevelDrawables": 1
+  },
+  "lastExecutionStatistics": {
+    "LegacyOperationExecutions": 1
+  },
+  "structuralPlanCacheStatistics": {
+    "UnavailableOnStartingSha": 1
+  },
+  "programCacheStatistics": {
+    "UnavailableOnStartingSha": 1
+  },
+  "targetPoolStatistics": {
+    "UnavailableOnStartingSha": 1
+  }
+}

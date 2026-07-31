@@ -1,0 +1,483 @@
+{
+  "environmentFingerprint": {
+    "deviceSelection": "automatic-no-preferred-device",
+    "environmentVersion": "10.0.9",
+    "frameworkDescription": ".NET 10.0.9",
+    "metalDeviceName": "Apple M3",
+    "metalDriver": "Apple Metal shipped with macOS build 25F84",
+    "metalFeatureFamily": "spdisplays_metal4",
+    "metalRegistryId": "0x00000001000003a8",
+    "osArchitecture": "Arm64",
+    "osBuild": "25F84",
+    "osDescription": "macOS 26.5.2",
+    "osVersion": "Unix 26.5.2",
+    "processArchitecture": "Arm64",
+    "rendererBackend": "Metal",
+    "runtimeIdentifier": "osx-arm64",
+    "silkNetVulkanVersion": "2.23.0+94605142f7b7bd6e69c9201e8e721d245c69eb7e",
+    "skiaBackend": "Metal",
+    "skiaSharpManagedVersion": "3.119.4+release-3.119.4.f568ac94dd768ef9a2f593537cfde2dd0d348ef5.f568ac94dd768ef9a2f593537cfde2dd0d348ef5",
+    "skiaSharpNativeVersion": "119.0",
+    "vulkanApiVersion": "1.2.323",
+    "vulkanDeviceId": "0x1a050209",
+    "vulkanDeviceName": "Apple M3",
+    "vulkanDeviceType": "IntegratedGpu",
+    "vulkanDeviceUuid": "0000106b1a0502090000000000000000",
+    "vulkanDriverId": "DriverIDMoltenvk",
+    "vulkanDriverInfo": "1.4.0",
+    "vulkanDriverName": "MoltenVK",
+    "vulkanDriverUuid": "4d564b00000028a01a05020900000000",
+    "vulkanDriverVersionDecoded": "0.2.2208",
+    "vulkanDriverVersionRaw": "10400",
+    "vulkanEnabledExtensions": [
+      "VK_EXT_metal_objects",
+      "VK_EXT_metal_surface",
+      "VK_EXT_swapchain_colorspace",
+      "VK_KHR_get_physical_device_properties2",
+      "VK_KHR_portability_enumeration",
+      "VK_KHR_portability_subset",
+      "VK_KHR_surface",
+      "VK_KHR_swapchain"
+    ],
+    "vulkanVendorId": "0x0000106b"
+  },
+  "featureCodeSha": "5b2c0cc6831c7677f79d47669aa0655beafaa69d",
+  "featureCommand": "dotnet run -c Release --no-build --project tests/Beutl.Benchmarks/Beutl.Benchmarks.csproj -- feature-visual-export",
+  "featureManifestSha256": "8ba213346d7d6007b7d006061a94fe997109a79e75316abfe20f495eec586381",
+  "generatedAtUtc": "2026-07-31T16:56:47.692026+00:00",
+  "scenes": [
+    {
+      "edgeCrop": {
+        "alphaMae": 4.122453501671754e-08,
+        "coverageBandMaximumError": [
+          0.0003662109375,
+          4.57763671875e-05,
+          5.7220458984375e-06,
+          0.00048828125
+        ],
+        "coverageBandPixelCount": 340,
+        "coverageBandRgbaMae": 6.667831364799949e-07,
+        "linearLightSsim": 0.9999999989334684,
+        "linearRgbMae": 1.175401986208361e-08,
+        "maximumErrorBound": 0.02,
+        "region": [
+          18,
+          16,
+          156,
+          76
+        ]
+      },
+      "fullImage": {
+        "alphaMae": 2.3570509604465815e-08,
+        "linearLightSsim": 0.9999999993698873,
+        "linearRgbMae": 6.720469689663545e-09
+      },
+      "sceneId": "aa-thin-line-color-times-alpha"
+    },
+    {
+      "fullImage": {
+        "alphaMae": 0.0,
+        "linearLightSsim": 1.0,
+        "linearRgbMae": 0.0
+      },
+      "sceneId": "aa-thin-line-control"
+    },
+    {
+      "edgeCrop": {
+        "alphaMae": 0.0,
+        "coverageBandMaximumError": [
+          0.0,
+          0.0,
+          0.0,
+          0.0
+        ],
+        "coverageBandPixelCount": 356,
+        "coverageBandRgbaMae": 0.0,
+        "linearLightSsim": 1.0,
+        "linearRgbMae": 0.0,
+        "maximumErrorBound": 0.02,
+        "region": [
+          18,
+          16,
+          156,
+          76
+        ]
+      },
+      "fullImage": {
+        "alphaMae": 0.0,
+        "linearLightSsim": 1.0,
+        "linearRgbMae": 0.0
+      },
+      "sceneId": "aa-thin-stroke-color-times-alpha"
+    },
+    {
+      "fullImage": {
+        "alphaMae": 0.0,
+        "linearLightSsim": 1.0,
+        "linearRgbMae": 0.0
+      },
+      "sceneId": "aa-thin-stroke-control"
+    },
+    {
+      "fullImage": {
+        "alphaMae": 0.0014989276727040608,
+        "linearLightSsim": 0.9999803454569474,
+        "linearRgbMae": 0.0007533790857948884
+      },
+      "sceneId": "automatic-device-selection"
+    },
+    {
+      "fullImage": {
+        "alphaMae": 0.0,
+        "linearLightSsim": 1.0,
+        "linearRgbMae": 0.0
+      },
+      "sceneId": "automatic-device-selection-control"
+    },
+    {
+      "fullImage": {
+        "alphaMae": 0.0,
+        "linearLightSsim": 1.0,
+        "linearRgbMae": 0.0
+      },
+      "sceneId": "cache-cold"
+    },
+    {
+      "fullImage": {
+        "alphaMae": 0.0,
+        "linearLightSsim": 1.0,
+        "linearRgbMae": 0.0
+      },
+      "sceneId": "cache-control-empty"
+    },
+    {
+      "fullImage": {
+        "alphaMae": 0.00011562752928354859,
+        "linearLightSsim": 0.9999975316313043,
+        "linearRgbMae": 4.90559592705082e-05
+      },
+      "sceneId": "cache-warm-hit"
+    },
+    {
+      "fullImage": {
+        "alphaMae": 0.0,
+        "linearLightSsim": 1.0,
+        "linearRgbMae": 0.0
+      },
+      "sceneId": "external-materialized-source"
+    },
+    {
+      "fullImage": {
+        "alphaMae": 0.0,
+        "linearLightSsim": 1.0,
+        "linearRgbMae": 0.0
+      },
+      "sceneId": "external-materialized-source-control"
+    },
+    {
+      "fullImage": {
+        "alphaMae": 0.0,
+        "linearLightSsim": 1.0,
+        "linearRgbMae": 0.0
+      },
+      "sceneId": "geometry-stroke"
+    },
+    {
+      "fullImage": {
+        "alphaMae": 0.0,
+        "linearLightSsim": 1.0,
+        "linearRgbMae": 0.0
+      },
+      "sceneId": "geometry-stroke-control"
+    },
+    {
+      "fullImage": {
+        "alphaMae": 1.8155984120604434e-05,
+        "linearLightSsim": 0.9999998347701147,
+        "linearRgbMae": 5.444909403782813e-06
+      },
+      "sceneId": "mixed-spatial-color-lut"
+    },
+    {
+      "fullImage": {
+        "alphaMae": 0.0,
+        "linearLightSsim": 1.0,
+        "linearRgbMae": 0.0
+      },
+      "sceneId": "mixed-spatial-color-lut-control"
+    },
+    {
+      "fullImage": {
+        "alphaMae": 0.0,
+        "linearLightSsim": 1.0,
+        "linearRgbMae": 0.0
+      },
+      "sceneId": "multiple-composition-roots"
+    },
+    {
+      "fullImage": {
+        "alphaMae": 0.0,
+        "linearLightSsim": 1.0,
+        "linearRgbMae": 0.0
+      },
+      "sceneId": "multiple-composition-roots-control"
+    },
+    {
+      "fullImage": {
+        "alphaMae": 0.0002082527419667185,
+        "linearLightSsim": 0.9994304161707878,
+        "linearRgbMae": 0.019756174809203594
+      },
+      "sceneId": "nested-drawable-brush-delay"
+    },
+    {
+      "fullImage": {
+        "alphaMae": 0.0,
+        "linearLightSsim": 1.0,
+        "linearRgbMae": 0.0
+      },
+      "sceneId": "nested-drawable-brush-delay-control"
+    },
+    {
+      "fullImage": {
+        "alphaMae": 0.0,
+        "linearLightSsim": 1.0,
+        "linearRgbMae": 0.0
+      },
+      "sceneId": "opaque-custom-readback"
+    },
+    {
+      "fullImage": {
+        "alphaMae": 0.0,
+        "linearLightSsim": 1.0,
+        "linearRgbMae": 0.0
+      },
+      "sceneId": "opaque-custom-readback-control"
+    },
+    {
+      "fullImage": {
+        "alphaMae": 0.0,
+        "linearLightSsim": 1.0,
+        "linearRgbMae": 0.0
+      },
+      "sceneId": "primary-control-all-identity"
+    },
+    {
+      "fullImage": {
+        "alphaMae": 0.0001888040131256904,
+        "linearLightSsim": 0.9999988829736545,
+        "linearRgbMae": 0.00013323872514958243
+      },
+      "sceneId": "primary-control-gamma-disabled"
+    },
+    {
+      "fullImage": {
+        "alphaMae": 0.0001888040131256904,
+        "linearLightSsim": 0.9999996238058401,
+        "linearRgbMae": 8.564810517700121e-05
+      },
+      "sceneId": "primary-control-invert-disabled"
+    },
+    {
+      "fullImage": {
+        "alphaMae": 0.0,
+        "linearLightSsim": 1.0,
+        "linearRgbMae": 0.0
+      },
+      "sceneId": "primary-control-opacity-disabled"
+    },
+    {
+      "fullImage": {
+        "alphaMae": 0.0001888040131256904,
+        "linearLightSsim": 0.9999991802199669,
+        "linearRgbMae": 0.00011148119398963795
+      },
+      "sceneId": "primary-cross-node"
+    },
+    {
+      "fullImage": {
+        "alphaMae": 2.3547513985339505e-07,
+        "linearLightSsim": 0.9999999998157727,
+        "linearRgbMae": 5.4944199299125516e-08
+      },
+      "sceneId": "root-a-b-no-clear-control"
+    },
+    {
+      "fullImage": {
+        "alphaMae": 0.0,
+        "linearLightSsim": 1.0,
+        "linearRgbMae": 0.0
+      },
+      "sceneId": "root-a-clear-b"
+    },
+    {
+      "fullImage": {
+        "alphaMae": 0.001539107446593267,
+        "linearLightSsim": 0.9999210835390987,
+        "linearRgbMae": 0.0007727205937291369
+      },
+      "sceneId": "scale-half"
+    },
+    {
+      "fullImage": {
+        "alphaMae": 0.0014427008084308955,
+        "linearLightSsim": 0.9998923890919312,
+        "linearRgbMae": 0.0009612693861433507
+      },
+      "sceneId": "scale-half-control"
+    },
+    {
+      "fullImage": {
+        "alphaMae": 0.0007471554901128934,
+        "linearLightSsim": 0.9999937589118838,
+        "linearRgbMae": 0.0003665529820040911
+      },
+      "sceneId": "scale-one"
+    },
+    {
+      "fullImage": {
+        "alphaMae": 0.0,
+        "linearLightSsim": 1.0,
+        "linearRgbMae": 0.0
+      },
+      "sceneId": "scale-one-control"
+    },
+    {
+      "fullImage": {
+        "alphaMae": 0.0011910794649192672,
+        "linearLightSsim": 0.9999594426431977,
+        "linearRgbMae": 0.0006702015554405933
+      },
+      "sceneId": "scale-two"
+    },
+    {
+      "fullImage": {
+        "alphaMae": 0.0010034489728521878,
+        "linearLightSsim": 0.9999841124361449,
+        "linearRgbMae": 0.00048583135255056707
+      },
+      "sceneId": "scale-two-control"
+    },
+    {
+      "fullImage": {
+        "alphaMae": 0.0,
+        "linearLightSsim": 1.0,
+        "linearRgbMae": 0.0
+      },
+      "sceneId": "scene3d-no-2d-tail-control"
+    },
+    {
+      "fullImage": {
+        "alphaMae": 0.0,
+        "linearLightSsim": 1.0,
+        "linearRgbMae": 0.0
+      },
+      "sceneId": "scene3d-with-2d-tail"
+    },
+    {
+      "fullImage": {
+        "alphaMae": 0.00037021028191714224,
+        "linearLightSsim": 0.9999968541090638,
+        "linearRgbMae": 0.00021246839743843795
+      },
+      "sceneId": "shifted-roi"
+    },
+    {
+      "fullImage": {
+        "alphaMae": 0.0,
+        "linearLightSsim": 1.0,
+        "linearRgbMae": 0.0
+      },
+      "sceneId": "shifted-roi-control"
+    },
+    {
+      "fullImage": {
+        "alphaMae": 0.0,
+        "linearLightSsim": 1.0,
+        "linearRgbMae": 0.0
+      },
+      "sceneId": "snapshot-clear-draw-backdrop"
+    },
+    {
+      "fullImage": {
+        "alphaMae": 0.0,
+        "linearLightSsim": 1.0,
+        "linearRgbMae": 0.0
+      },
+      "sceneId": "snapshot-draw-backdrop-no-clear-control"
+    },
+    {
+      "fullImage": {
+        "alphaMae": 0.0,
+        "linearLightSsim": 1.0,
+        "linearRgbMae": 0.0
+      },
+      "sceneId": "split-expansion"
+    },
+    {
+      "fullImage": {
+        "alphaMae": 0.0,
+        "linearLightSsim": 1.0,
+        "linearRgbMae": 0.0
+      },
+      "sceneId": "split-expansion-control"
+    },
+    {
+      "fullImage": {
+        "alphaMae": 0.0,
+        "linearLightSsim": 1.0,
+        "linearRgbMae": 0.0
+      },
+      "sceneId": "whole-source-coordinate-control"
+    },
+    {
+      "fullImage": {
+        "alphaMae": 0.0,
+        "linearLightSsim": 1.0,
+        "linearRgbMae": 0.0
+      },
+      "sceneId": "whole-source-coordinate-shader"
+    }
+  ],
+  "schemaVersion": 1,
+  "semanticRefresh": {
+    "artifacts": [
+      {
+        "artifact": "geometry-stroke.rgba16f",
+        "legacyArtifactSha256": "37e7c40d349c52a1a9bb8a7bec12e838e9b1ca2565b902230bc9262a8317ee45",
+        "parityRanAgainstRefreshedArtifact": true,
+        "refreshedArtifactSha256": "047982d1f4ffecbf46706fa3bd93a4e9c09502e4d991591b6b8b2f02de4a11be",
+        "sceneId": "geometry-stroke"
+      },
+      {
+        "artifact": "scene3d-with-2d-tail.rgba16f",
+        "legacyArtifactSha256": "89d111e13da934fd2c233e48ca07bcae7c41da0d26b6423c0c47d40dca38bede",
+        "parityRanAgainstRefreshedArtifact": true,
+        "refreshedArtifactSha256": "8908d30de25b882368b3d9f7e3d355c783ef5f0026b10f1c108e577f067331f6",
+        "sceneId": "scene3d-with-2d-tail"
+      },
+      {
+        "artifact": "split-expansion.rgba16f",
+        "legacyArtifactSha256": "028a6a61e1aa448a8d11337ccd6d0d73652e621507ebe71bd744e9ede814e8fc",
+        "parityRanAgainstRefreshedArtifact": true,
+        "refreshedArtifactSha256": "ac694c8d884a68077b5504000213bc47007ed5b09b82bafaa2d205e9eee28230",
+        "sceneId": "split-expansion"
+      }
+    ],
+    "committedTargetBaselineManifestSha256": "59f2e1cc0d29b9562c58b2632d5ee045a860a852a524357cf8fea6f17982451a",
+    "regeneratedTargetManifestSha256": "1e3d03f2d8a1962b31d21215c14a1b67c950b1847b313275a908348ba640bbeb"
+  },
+  "sourceAssemblyVersions": {
+    "feature": "2.99.99+5b2c0cc6831c7677f79d47669aa0655beafaa69d",
+    "target": "2.99.99+43a38e665d9bf52548161a3917e748bd1457ff55"
+  },
+  "status": "passed",
+  "targetCodeSha": "43a38e665d9bf52548161a3917e748bd1457ff55",
+  "targetManifestSha256": "bc7cfda592d26fc25a74eaae77983d13178c5dfcbf48e3994277366b2167321c",
+  "thresholds": {
+    "maximumAaCoverageBandChannelError": 0.02,
+    "maximumAlphaMae": 0.02,
+    "maximumLinearRgbMae": 0.02,
+    "minimumLinearLightSsim": 0.99
+  }
+}
