@@ -1,4 +1,20 @@
 {
+  "allocationFailures": {
+    "delivery": {
+      "exceptionType": "System.InvalidOperationException",
+      "injectionPoint": "next EffectMaterialization RenderTarget.Create",
+      "intent": "delivery",
+      "maxWorkingScale": "+Infinity",
+      "outcome": "threw"
+    },
+    "preview": {
+      "exceptionType": null,
+      "injectionPoint": "next EffectMaterialization RenderTarget.Create",
+      "intent": "preview",
+      "maxWorkingScale": "2",
+      "outcome": "dropped-output-without-throw"
+    }
+  },
   "environmentFingerprint": {
     "deviceSelection": "automatic-no-preferred-device",
     "environmentVersion": "10.0.9",
@@ -41,10 +57,10 @@
     ],
     "vulkanVendorId": "0x0000106b"
   },
-  "featureCodeSha": "5b2c0cc6831c7677f79d47669aa0655beafaa69d",
+  "featureCodeSha": "f8c486518a9fbf028a9abb588034e7068ce4d56a",
   "featureCommand": "dotnet run -c Release --no-build --project tests/Beutl.Benchmarks/Beutl.Benchmarks.csproj -- feature-visual-export",
-  "featureManifestSha256": "8ba213346d7d6007b7d006061a94fe997109a79e75316abfe20f495eec586381",
-  "generatedAtUtc": "2026-07-31T16:56:47.692026+00:00",
+  "featureManifestSha256": "f9e1e1bfc5219b0c6a233317ccfebc42e7773e8d2b2604f30ae5ac7ba419997e",
+  "generatedAtUtc": "2026-07-31T20:49:12.043452+00:00",
   "scenes": [
     {
       "edgeCrop": {
@@ -464,16 +480,16 @@
         "sceneId": "split-expansion"
       }
     ],
-    "committedTargetBaselineManifestSha256": "59f2e1cc0d29b9562c58b2632d5ee045a860a852a524357cf8fea6f17982451a",
-    "regeneratedTargetManifestSha256": "1e3d03f2d8a1962b31d21215c14a1b67c950b1847b313275a908348ba640bbeb"
+    "committedTargetBaselineManifestSha256": "20672a8463095dbfe08973482a57249de11740dd336e0cda697e8835a453f7ff",
+    "regeneratedTargetManifestSha256": "4e7b4b2669d620c61f9ff42b223d69298b2628f29e963284c4f66eadf992caf2"
   },
   "sourceAssemblyVersions": {
-    "feature": "2.99.99+5b2c0cc6831c7677f79d47669aa0655beafaa69d",
+    "feature": "2.99.99+f8c486518a9fbf028a9abb588034e7068ce4d56a",
     "target": "2.99.99+43a38e665d9bf52548161a3917e748bd1457ff55"
   },
   "status": "passed",
   "targetCodeSha": "43a38e665d9bf52548161a3917e748bd1457ff55",
-  "targetManifestSha256": "bc7cfda592d26fc25a74eaae77983d13178c5dfcbf48e3994277366b2167321c",
+  "targetManifestSha256": "9a95e4b486909b60220c4becef6768ede4e8bf285e48d62a8c76040891f950e8",
   "thresholds": {
     "maximumAaCoverageBandChannelError": 0.02,
     "maximumAlphaMae": 0.02,

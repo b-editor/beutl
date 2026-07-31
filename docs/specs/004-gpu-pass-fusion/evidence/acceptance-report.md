@@ -10,21 +10,37 @@ identified by its SHA-256.
 | Tool | SHA-256 |
 |---|---|
 | `target-baseline-generator.patch` | `037315804fa9531bdef1b79e2db405e8a3813e4bc137527690f9f2d5cb4e728c` |
-| `generate-target-baseline.sh` | `05d33410a06cdd3a6fee91911b25a348fdc480ed249916e45fe75c653b40c4f7` |
-| `run-paired-visual-evidence.sh` | `4263352f519686b9de89047ee0c55dbb999935412db05419464ca81387939af9` |
+| `generate-target-baseline.sh` | `fb0bf369aff9b017c82edf74e8423e83fd13156d3e1a569267447fa4fdf5df03` |
+| `run-paired-visual-evidence.sh` | `9248461402bc7a8aaceb856e9214759e8c8bee27013be487935bb044460241c0` |
+| `refresh-intentional-visual-baselines.sh` | `5057b76ae3d4c1bc4474e424cc3119c5ce52aa8c203fcc0cac874d38cd8c74d8` |
 | generator source bundle | `d6e5f339d5d7214b0cb879aa5cf2cd717896879b942400928e77b38c9a62a19e` |
-| `run-paired-benchmarks.sh` | `7e33ff52ee0d1b1db367cc326953195e773afc18af23b0f6a6e72a06187893a8` |
+| `run-paired-benchmarks.sh` | `809e4b813074592927e586429ccf5cae426485a32fd09a56eafab5b856ab2123` |
+
+These hashes match the committed scripts and the `evidenceTools` records in both
+frozen manifests. The recorded benchmark run predates the later review-driven
+runner hardening (frozen-SHA pinning), so its own provenance records the runner
+version it actually executed, `7e33ff52ee0d1b1db367cc326953195e773afc18af23b0f6a6e72a06187893a8`;
+the pinning change affects only how the baseline worktree is selected, not the
+measurement methodology.
 
 ## Paired visual evidence (passed)
 
-- Target: legacy renderer regenerated from `43a38e665d9bf52548161a3917e748bd1457ff55`; feature: `5b2c0cc6831c7677f79d47669aa0655beafaa69d`.
+- Target: legacy renderer regenerated from `43a38e665d9bf52548161a3917e748bd1457ff55`; feature: `f8c486518a9fbf028a9abb588034e7068ce4d56a`.
 - Environment fingerprint gate: exact match required and satisfied before any parity metric.
 - Result: **all 44 scenes passed** — thresholds SSIM ≥ 0.99,
   linear-RGB MAE ≤ 0.02, alpha MAE ≤ 0.02.
   Worst full-image linear-light SSIM: 0.99943 (`nested-drawable-brush-delay`).
+- The run also compares the `bounds-hit-test-query` measured record (bounds, probe
+  points, hit results) and the preview/delivery allocation-failure records against
+  the frozen baseline. The allocation probe initially exposed a real FR-039
+  regression — the feature pipeline threw on Preview effect-materialization
+  allocation failure where the baseline drops the output — fixed in
+  `d3dc99667` (consumer-provenance-scoped preview drop with the
+  `PreviewAllocationDrops` counter); the recorded outcomes now match the baseline
+  (`dropped-output-without-throw` / `threw`).
 - Raw result: [`paired-visual-result.json`](paired-visual-result.json)
-  (SHA-256 `4e10babe28006b466b444bc26cee21696f13fc0cf512b886e67dd70a34b0f561`);
-  target manifest `bc7cfda592d26fc25a74eaae77983d13178c5dfcbf48e3994277366b2167321c`, feature manifest `8ba213346d7d6007b7d006061a94fe997109a79e75316abfe20f495eec586381`.
+  (SHA-256 `7c5cfb535e9a9157295a2d64c88f9f376894b1b39d513694289f4ba1df454443`);
+  run-regenerated target manifest `9a95e4b486909b60220c4becef6768ede4e8bf285e48d62a8c76040891f950e8`, feature manifest `f9e1e1bfc5219b0c6a233317ccfebc42e7773e8d2b2604f30ae5ac7ba419997e`.
 
 ### Paired exact-fingerprint AA edge bound
 
@@ -189,4 +205,9 @@ methodology are unchanged.
 | `paired-benchmark-run/feature/raw-benchmark-stdout.txt` | `a174be2deafef47e6c0b355d292d34432a974c74cfa95c02e29616e786c2c283` |
 | `paired-benchmark-run/manifest.json` | `129725e6281c7bbda17a7e6f087c0d7632c24a3619412b02b59ed9ee94e92894` |
 
-Generated 2026-07-31T18:35:08Z on the fingerprinted machine.
+Visual evidence regenerated 2026-07-31T20:49:12Z on the fingerprinted machine
+(benchmark run recorded 2026-07-31T18:35:08Z on the same machine). The paired
+benchmark analyzer has since been tightened to require the configured 15 samples
+per case with matching counts across all three runs; the recorded run satisfies
+the tightened gate (11 cases × 15 samples in each of baseline-A, feature, and
+baseline-B).
