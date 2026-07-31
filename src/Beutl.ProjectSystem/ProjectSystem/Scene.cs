@@ -48,6 +48,7 @@ public enum ElementOverlapHandling
 
 public class Scene : ProjectItem, INotifyEdited
 {
+    private const int MaxRecoveredIdCollisionAttempts = 1024;
     private static readonly Guid s_recoveredElementNamespace = new("dfad2f76-1d04-5593-ae3b-f371fb1f42ee");
     private static readonly Regex s_idPattern = new(
         "\"Id\"\\s*:\\s*\"(?<id>[0-9a-fA-F-]{36})\"",
@@ -702,17 +703,39 @@ public class Scene : ProjectItem, INotifyEdited
         }
 
         string sceneDirectory = Path.GetDirectoryName(Uri!.LocalPath)!;
-        foreach (Element child in Children)
+        var recoveredChildren = Children
+            .Where(static child => child.SuppressedStorageSource is not null)
+            .Select(child => (
+                Child: child,
+                RelativePath: Path.GetRelativePath(sceneDirectory, child.Uri!.LocalPath)))
+            .OrderBy(static item => item.RelativePath, StringComparer.Ordinal);
+        foreach ((Element child, string relativePath) in recoveredChildren)
         {
-            if (child.SuppressedStorageSource is null || claimedIds.Add(child.Id))
+            if (claimedIds.Add(child.Id))
             {
                 continue;
             }
 
-            child.Id = CreateVersion5Guid(
-                s_recoveredElementNamespace,
-                Path.GetRelativePath(sceneDirectory, child.Uri!.LocalPath));
-            claimedIds.Add(child.Id);
+            bool assigned = false;
+            for (int attempt = 0; attempt < MaxRecoveredIdCollisionAttempts; attempt++)
+            {
+                string candidateName = attempt == 0
+                    ? relativePath
+                    : $"{relativePath}#{attempt}";
+                Guid candidate = CreateVersion5Guid(s_recoveredElementNamespace, candidateName);
+                if (claimedIds.Add(candidate))
+                {
+                    child.Id = candidate;
+                    assigned = true;
+                    break;
+                }
+            }
+
+            if (!assigned)
+            {
+                throw new InvalidOperationException(
+                    $"Could not assign a unique recovered element Id for '{relativePath}'.");
+            }
         }
     }
 
@@ -780,7 +803,11 @@ public class Scene : ProjectItem, INotifyEdited
         }
 
         JsonObject json = fallback.Json ?? new JsonObject();
-        json.WriteDiscriminator(coreObject.GetType());
+        if (!json.ContainsKey("$type") && !json.ContainsKey("@type"))
+        {
+            json.WriteDiscriminator(coreObject.GetType());
+        }
+
         json[nameof(CoreObject.Id)] = coreObject.Id.ToString();
         fallback.Json = json;
     }
@@ -817,6 +844,7 @@ public class Scene : ProjectItem, INotifyEdited
     {
         int matchIndex = 0;
         int objectDepth = 0;
+        int arrayDepth = 0;
         bool inString = false;
         bool escaped = false;
 
@@ -825,7 +853,7 @@ public class Scene : ProjectItem, INotifyEdited
             Match match = matches[matchIndex];
             if (i == match.Index)
             {
-                if (!inString && objectDepth == 1)
+                if (!inString && objectDepth == 1 && arrayDepth == 0)
                 {
                     return match;
                 }
@@ -860,6 +888,14 @@ public class Scene : ProjectItem, INotifyEdited
             else if (current == '}' && objectDepth > 0)
             {
                 objectDepth--;
+            }
+            else if (current == '[')
+            {
+                arrayDepth++;
+            }
+            else if (current == ']' && arrayDepth > 0)
+            {
+                arrayDepth--;
             }
         }
 

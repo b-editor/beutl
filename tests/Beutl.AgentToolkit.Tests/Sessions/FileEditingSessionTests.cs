@@ -114,6 +114,33 @@ public sealed class FileEditingSessionTests
     }
 
     [Test]
+    public void SetProjectPath_keeps_element_sidecar_subpaths_starting_with_two_dots()
+    {
+        string root = Path.Combine(TestContext.CurrentContext.WorkDirectory, Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(root);
+        using var source = new FileSessionSource();
+        FileEditingSession session = source.CreateProject(new ProjectCreateOptions(
+            Path.Combine(root, "demo.bep"), 640, 360, 30, TimeSpan.FromSeconds(2), Name: "demo"));
+        Scene scene = session.Project.Items.OfType<Scene>().Single();
+        string relativePath = Path.Combine("..assets", "clip.belm");
+        var element = new Element
+        {
+            Name = "clip",
+            Length = TimeSpan.FromSeconds(1),
+            Uri = new Uri(Path.Combine(Path.GetDirectoryName(scene.Uri!.LocalPath)!, relativePath)),
+        };
+        scene.Children.Add(element);
+        session.Save(skipConflictCheck: true);
+
+        session.SetProjectPath(Path.Combine(root, "copy.bep"));
+
+        string newSceneDirectory = Path.GetDirectoryName(scene.Uri!.LocalPath)!;
+        Assert.That(
+            Path.GetRelativePath(newSceneDirectory, element.Uri!.LocalPath),
+            Is.EqualTo(relativePath));
+    }
+
+    [Test]
     public void Failed_plain_save_restores_the_original_uri_state()
     {
         string root = Path.Combine(TestContext.CurrentContext.WorkDirectory, Guid.NewGuid().ToString("N"));

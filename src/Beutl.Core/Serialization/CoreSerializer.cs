@@ -263,10 +263,10 @@ public static class CoreSerializer
                 Directory.CreateDirectory(rehomedDirectory);
             }
 
+            FileStream stream;
             try
             {
-                using var stream = new FileStream(rehomedPath, FileMode.CreateNew, FileAccess.Write);
-                stream.Write(suppressed.RawBytes);
+                stream = new FileStream(rehomedPath, FileMode.CreateNew, FileAccess.Write);
             }
             catch (IOException) when (File.Exists(rehomedPath))
             {
@@ -274,6 +274,26 @@ public static class CoreSerializer
                 // verbatim copy); never overwrite it.
                 suppressedObj.Uri = uri;
                 return;
+            }
+
+            try
+            {
+                using (stream)
+                {
+                    stream.Write(suppressed.RawBytes);
+                }
+            }
+            catch
+            {
+                try
+                {
+                    File.Delete(rehomedPath);
+                }
+                catch
+                {
+                }
+
+                throw;
             }
 
             suppressedObj.Uri = uri;

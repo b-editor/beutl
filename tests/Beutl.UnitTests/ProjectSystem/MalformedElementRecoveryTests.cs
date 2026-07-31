@@ -345,6 +345,99 @@ public sealed class MalformedElementRecoveryTests
     }
 
     [Test]
+    public void Restore_RecoveredElementsSharingTopLevelId_AreAssignedStableUniqueIdsByPath()
+    {
+        (Uri sceneUri, string[] elementPaths) =
+            CreatePersistedSceneWithElements("a.belm", "b.belm");
+        var contestedId = new Guid("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa");
+        foreach (string elementPath in elementPaths)
+        {
+            File.WriteAllText(elementPath, $$"""{"Id":"{{contestedId}}","Objects":[""");
+        }
+
+        Dictionary<string, Guid> first = GetIdsBySidecarName(
+            CoreSerializer.RestoreFromUri<Scene>(sceneUri));
+        Dictionary<string, Guid> second = GetIdsBySidecarName(
+            CoreSerializer.RestoreFromUri<Scene>(sceneUri));
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(first.Values, Is.Unique);
+            Assert.That(second.Values, Is.Unique);
+            Assert.That(first["a.belm"], Is.EqualTo(contestedId));
+            Assert.That(first["b.belm"], Is.Not.EqualTo(contestedId));
+            Assert.That(second["a.belm"], Is.EqualTo(first["a.belm"]));
+            Assert.That(second["b.belm"], Is.EqualTo(first["b.belm"]));
+        });
+    }
+
+    [Test]
+    public void Restore_RecoveredReplacementIdCollision_DerivesStableUniqueCandidate()
+    {
+        (Uri sceneUri, string[] elementPaths) =
+            CreatePersistedSceneWithElements("a.belm", "b.belm");
+        string aPath = elementPaths[0];
+        string bPath = elementPaths[1];
+        File.WriteAllText(bPath, "{ this is not valid JSON");
+
+        Guid bPathId = GetIdsBySidecarName(
+            CoreSerializer.RestoreFromUri<Scene>(sceneUri))["b.belm"];
+        File.WriteAllText(aPath, $$"""{"Id":"{{bPathId}}","Objects":[""");
+
+        Dictionary<string, Guid> first = GetIdsBySidecarName(
+            CoreSerializer.RestoreFromUri<Scene>(sceneUri));
+        Dictionary<string, Guid> second = GetIdsBySidecarName(
+            CoreSerializer.RestoreFromUri<Scene>(sceneUri));
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(first.Values, Is.Unique);
+            Assert.That(second.Values, Is.Unique);
+            Assert.That(first["a.belm"], Is.EqualTo(bPathId));
+            Assert.That(first["b.belm"], Is.Not.EqualTo(bPathId));
+            Assert.That(second["a.belm"], Is.EqualTo(first["a.belm"]));
+            Assert.That(second["b.belm"], Is.EqualTo(first["b.belm"]));
+        });
+    }
+
+    [Test]
+    public void Restore_NestedFallbackProjection_PreservesOriginalDiscriminator()
+    {
+        (Uri sceneUri, string elementPath) = CreatePersistedScene();
+        const string OriginalType = "[Beutl.Engine]Beutl.Graphics.Effects:NoSuchEffect";
+        JsonObject json = JsonNode.Parse(File.ReadAllText(elementPath))!.AsObject();
+        json[nameof(Element.Objects)] = new JsonArray(new JsonObject
+        {
+            ["$type"] = OriginalType,
+            [nameof(CoreObject.Id)] = Guid.NewGuid().ToString(),
+        });
+        File.WriteAllText(elementPath, json.ToJsonString());
+
+        Scene recovered = CoreSerializer.RestoreFromUri<Scene>(sceneUri);
+        var fallback = (IFallback)recovered.Children.Single().Objects.Single();
+
+        Assert.That(fallback.Json!["$type"]!.GetValue<string>(), Is.EqualTo(OriginalType));
+    }
+
+    [Test]
+    public void Restore_RootArrayId_DoesNotAdoptInnerIdAndRemainsStable()
+    {
+        (Uri sceneUri, string elementPath) = CreatePersistedScene();
+        var innerId = new Guid("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa");
+        File.WriteAllText(elementPath, $$"""[{"Id":"{{innerId}}"}]""");
+
+        Guid first = CoreSerializer.RestoreFromUri<Scene>(sceneUri).Children.Single().Id;
+        Guid second = CoreSerializer.RestoreFromUri<Scene>(sceneUri).Children.Single().Id;
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(first, Is.Not.EqualTo(innerId));
+            Assert.That(first, Is.Not.EqualTo(Guid.Empty));
+            Assert.That(second, Is.EqualTo(first));
+        });
+    }
+
+    [Test]
     public void StoreToUri_RehomeTarget_NeverOverwritesAnExistingFile()
     {
         (Uri sceneUri, string elementPath) = CreatePersistedScene();
@@ -532,25 +625,47 @@ public sealed class MalformedElementRecoveryTests
 
     private (Uri SceneUri, string ElementPath) CreatePersistedScene()
     {
+        (Uri sceneUri, string[] elementPaths) = CreatePersistedSceneWithElements("element.belm");
+        return (sceneUri, elementPaths[0]);
+    }
+
+    private (Uri SceneUri, string[] ElementPaths) CreatePersistedSceneWithElements(
+        params string[] elementFileNames)
+    {
         var sceneUri = new Uri(Path.Combine(_root, "scene.scene"));
-        string elementPath = Path.Combine(_root, "element.belm");
         var scene = new Scene(64, 64, "Scene")
         {
             Uri = sceneUri,
         };
-        var element = new Element
+        string[] elementPaths = new string[elementFileNames.Length];
+        for (int i = 0; i < elementFileNames.Length; i++)
         {
-            Name = "Element",
-            Length = TimeSpan.FromSeconds(1),
-            Uri = new Uri(elementPath),
-        };
-        element.AddObject(new RectShape
-        {
-            Width = { CurrentValue = 32 },
-            Height = { CurrentValue = 32 },
-        });
-        scene.Children.Add(element);
+            string elementPath = Path.Combine(_root, elementFileNames[i]);
+            var element = new Element
+            {
+                Name = Path.GetFileNameWithoutExtension(elementPath),
+                Start = TimeSpan.FromSeconds(i),
+                Length = TimeSpan.FromSeconds(1),
+                Uri = new Uri(elementPath),
+            };
+            element.AddObject(new RectShape
+            {
+                Width = { CurrentValue = 32 },
+                Height = { CurrentValue = 32 },
+            });
+            scene.Children.Add(element);
+            elementPaths[i] = elementPath;
+        }
+
         CoreSerializer.StoreToUri(scene, sceneUri);
-        return (sceneUri, elementPath);
+        return (sceneUri, elementPaths);
+    }
+
+    private static Dictionary<string, Guid> GetIdsBySidecarName(Scene scene)
+    {
+        return scene.Children.ToDictionary(
+            child => Path.GetFileName(child.Uri!.LocalPath),
+            child => child.Id,
+            StringComparer.Ordinal);
     }
 }

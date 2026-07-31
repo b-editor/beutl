@@ -168,13 +168,16 @@ public sealed class FileEditingSession : IEditingSession, IEditingSessionDispatc
                     string relativePath = previousSceneDirectory != null
                         ? Path.GetRelativePath(previousSceneDirectory, previousUri.LocalPath)
                         : Path.GetFileName(previousUri.LocalPath);
-                    if (Path.IsPathRooted(relativePath)
-                        || relativePath.StartsWith("..", StringComparison.Ordinal))
+                    string sceneRoot = Path.TrimEndingDirectorySeparator(Path.GetFullPath(sceneDirectory));
+                    string resolvedPath = Path.GetFullPath(Path.Combine(sceneRoot, relativePath));
+                    if (!resolvedPath.StartsWith(
+                            sceneRoot + Path.DirectorySeparatorChar,
+                            PathComparison.ForCurrentPlatform))
                     {
-                        relativePath = Path.GetFileName(previousUri.LocalPath);
+                        resolvedPath = Path.Combine(sceneRoot, Path.GetFileName(previousUri.LocalPath));
                     }
 
-                    element.Uri = new Uri(Path.Combine(sceneDirectory, relativePath));
+                    element.Uri = new Uri(resolvedPath);
                 }
                 else
                 {
