@@ -41,13 +41,20 @@ public sealed class RenderPipelineMigrationCensusTests
             ["src/Beutl.Engine/Graphics/Rendering/TextRenderNode.cs"] = 1,
             ["src/Beutl.Engine/Graphics/Rendering/TransformRenderNode.cs"] = 1,
             ["src/Beutl.Engine/Graphics/Rendering/VideoSourceRenderNode.cs"] = 1,
+            ["src/Beutl.Engine/Graphics/Rendering/Renderer.cs"] = 1,
             ["src/Beutl.Engine/Graphics3D/Scene3DRenderNode.cs"] = 1,
             ["src/Beutl.NodeGraph/NodeGraphFilterEffectRenderNode.cs"] = 1,
+            ["src/Beutl.NodeGraph/Nodes/FilterEffectInputNode.cs"] = 1,
             ["src/Beutl.ProjectSystem/ProjectSystem/SceneDrawable.cs"] = 1,
         };
 
+    // The starting-SHA baseline is a historical fact about 43a38e665; overrides that first
+    // appeared during the migration are excluded from the derivation.
     private static readonly IReadOnlyDictionary<string, int> s_startingProductionOverrideBaseline =
         s_productionOverrideBaseline
+            .Where(static item =>
+                item.Key != "src/Beutl.Engine/Graphics/Rendering/Renderer.cs"
+                && item.Key != "src/Beutl.NodeGraph/Nodes/FilterEffectInputNode.cs")
             .Append(new KeyValuePair<string, int>(
                 "src/Beutl.Engine/Graphics/Rendering/OperationWrapperRenderNode.cs",
                 1))
@@ -56,10 +63,54 @@ public sealed class RenderPipelineMigrationCensusTests
     private static readonly IReadOnlyDictionary<string, int> s_testOverrideBaseline =
         new Dictionary<string, int>(StringComparer.Ordinal)
         {
+            ["tests/Beutl.Benchmarks/Rendering/FeatureVisualEvidenceExporter.cs"] = 7,
+            ["tests/Beutl.Benchmarks/Rendering/RenderPipelineBenchmarks.cs"] = 6,
+            ["tests/Beutl.Graphics3DTests/GpuPassFusion3DBoundaryTests.cs"] = 1,
+            ["tests/Beutl.PublicApiContractTests/FilterEffectCompatibilityContractTests.cs"] = 5,
+            ["tests/Beutl.PublicApiContractTests/GeometryAuthoringContractTests.cs"] = 2,
+            ["tests/Beutl.PublicApiContractTests/RenderNodeAuthoringContractTests.cs"] = 2,
+            ["tests/Beutl.PublicApiContractTests/RenderNodeRendererContractTests.cs"] = 1,
+            ["tests/Beutl.PublicApiContractTests/RenderScaleMappingContractTests.cs"] = 1,
+            ["tests/Beutl.PublicApiContractTests/ShaderAuthoringContractTests.cs"] = 5,
+            ["tests/Beutl.PublicApiContractTests/TargetAuthoringContractTests.cs"] = 2,
+            ["tests/Beutl.UnitTests/Engine/Graphics/Rendering/Cache/ContributeValuesCacheHitExecutionTests.cs"] = 2,
+            ["tests/Beutl.UnitTests/Engine/Graphics/Rendering/Cache/RenderCacheResolutionTests.cs"] = 2,
+            ["tests/Beutl.UnitTests/Engine/Graphics/Rendering/Cache/StructuralAndProgramCacheTests.cs"] = 5,
+            ["tests/Beutl.UnitTests/Engine/Graphics/Rendering/Failure/DeferredCallbackFailureTests.cs"] = 7,
+            ["tests/Beutl.UnitTests/Engine/Graphics/Rendering/Failure/NestedTargetAndCleanupFailureTests.cs"] = 16,
+            ["tests/Beutl.UnitTests/Engine/Graphics/Rendering/Failure/RecordingAndPlanningFailureTests.cs"] = 5,
+            ["tests/Beutl.UnitTests/Engine/Graphics/Rendering/Failure/RenderNodeRendererLifetimeTests.cs"] = 1,
+            ["tests/Beutl.UnitTests/Engine/Graphics/Rendering/Failure/ShaderAndAllocationFailureTests.cs"] = 4,
+            ["tests/Beutl.UnitTests/Engine/Graphics/Rendering/Fusion/CrossNodeShaderFusionTests.cs"] = 5,
+            ["tests/Beutl.UnitTests/Engine/Graphics/Rendering/Fusion/ExecutionIslandAuthorityTests.cs"] = 3,
+            ["tests/Beutl.UnitTests/Engine/Graphics/Rendering/Fusion/FusionBoundaryExecutionTestSupport.cs"] = 6,
+            ["tests/Beutl.UnitTests/Engine/Graphics/Rendering/Fusion/ShaderFallbackTests.cs"] = 2,
+            ["tests/Beutl.UnitTests/Engine/Graphics/Rendering/Golden/GpuPassFusionFeature003RegressionTests.cs"] = 1,
+            ["tests/Beutl.UnitTests/Engine/Graphics/Rendering/Golden/GpuPassFusionScaleRegionTests.cs"] = 6,
+            ["tests/Beutl.UnitTests/Engine/Graphics/Rendering/Golden/LosslessCompositeCoverageTests.cs"] = 1,
+            ["tests/Beutl.UnitTests/Engine/Graphics/Rendering/Golden/TargetCaptureValueWrapperTests.cs"] = 2,
+            ["tests/Beutl.UnitTests/Engine/Graphics/Rendering/GraphicsContext2DTests.cs"] = 2,
+            ["tests/Beutl.UnitTests/Engine/Graphics/Rendering/ImageSourceRenderNodeTest.cs"] = 1,
+            ["tests/Beutl.UnitTests/Engine/Graphics/Rendering/LegacyFilterPhysicalFootprintTests.cs"] = 2,
+            ["tests/Beutl.UnitTests/Engine/Graphics/Rendering/LegacyFilterTypedSuffixExecutionTests.cs"] = 1,
             ["tests/Beutl.UnitTests/Engine/Graphics/Rendering/NodeCacheScaleTests.cs"] = 3,
+            ["tests/Beutl.UnitTests/Engine/Graphics/Rendering/Planning/BackdropOrderingTests.cs"] = 1,
+            ["tests/Beutl.UnitTests/Engine/Graphics/Rendering/Planning/MaterializedInputCompositeTests.cs"] = 1,
+            ["tests/Beutl.UnitTests/Engine/Graphics/Rendering/Planning/ProductionResourceLifetimeTests.cs"] = 2,
+            ["tests/Beutl.UnitTests/Engine/Graphics/Rendering/Planning/RenderPipelineReconciliationTests.cs"] = 14,
+            ["tests/Beutl.UnitTests/Engine/Graphics/Rendering/Planning/RendererWideRecordingTests.cs"] = 7,
+            ["tests/Beutl.UnitTests/Engine/Graphics/Rendering/Planning/SymbolicOwningDomainTests.cs"] = 3,
+            ["tests/Beutl.UnitTests/Engine/Graphics/Rendering/Planning/SymbolicSupplyMappingTests.cs"] = 1,
+            ["tests/Beutl.UnitTests/Engine/Graphics/Rendering/Planning/TargetScopeLoweringTests.cs"] = 9,
+            ["tests/Beutl.UnitTests/Engine/Graphics/Rendering/Recording/RecordingSideEffectTests.cs"] = 1,
+            ["tests/Beutl.UnitTests/Engine/Graphics/Rendering/Recording/ValueReplaySafetyTests.cs"] = 2,
+            ["tests/Beutl.UnitTests/Engine/Graphics/Rendering/RenderNodeRendererExceptionSafetyTests.cs"] = 2,
+            ["tests/Beutl.UnitTests/Engine/Graphics/Rendering/RenderNodeRendererSnapshotFastPathTests.cs"] = 1,
             ["tests/Beutl.UnitTests/Engine/Graphics/Rendering/RendererExceptionSafetyTests.cs"] = 1,
+            ["tests/Beutl.UnitTests/Engine/Graphics/Rendering/ResolutionScaleTests.cs"] = 1,
             ["tests/Beutl.UnitTests/Engine/Graphics/Rendering/SourceEffectiveScaleFlowTests.cs"] = 13,
             ["tests/Beutl.UnitTests/NodeGraph/NodeGraphFilterEffectRenderNodeTests.cs"] = 5,
+            ["tests/Beutl.UnitTests/ProjectSystem/SceneDrawableScaleTests.cs"] = 1,
         };
 
     private static readonly IReadOnlyDictionary<string, int> s_startingTestOverrideBaseline =
@@ -109,8 +160,9 @@ public sealed class RenderPipelineMigrationCensusTests
         {
             AssertDeclaredBaseline("production", 29, s_startingProductionOverrideBaseline);
             AssertDeclaredBaseline("test", 7, s_startingTestOverrideBaseline);
-            AssertBaselineInventory("production", 28, s_productionOverrideBaseline, overrides);
-            AssertBaselineInventory("test", 22, s_testOverrideBaseline, overrides);
+            AssertAllOverridesAreMapped(overrides);
+            AssertBaselineInventory("production", 30, s_productionOverrideBaseline, overrides);
+            AssertBaselineInventory("test", 174, s_testOverrideBaseline, overrides);
         }
     }
 
@@ -274,6 +326,19 @@ public sealed class RenderPipelineMigrationCensusTests
             $"The {label} Process override baseline changed.{Environment.NewLine}{FormatMethods(baselineOverrides)}");
         Assert.That(actualInventory, Is.EqualTo(expectedInventory),
             $"The {label} Process override inventory changed.");
+    }
+
+    private static void AssertAllOverridesAreMapped(IReadOnlyList<SourceMethod> allOverrides)
+    {
+        var mappedPaths = new HashSet<string>(s_productionOverrideBaseline.Keys, StringComparer.Ordinal);
+        mappedPaths.UnionWith(s_testOverrideBaseline.Keys);
+        SourceMethod[] unmapped = allOverrides
+            .Where(sourceMethod => !mappedPaths.Contains(sourceMethod.Document.RelativePath))
+            .ToArray();
+
+        Assert.That(unmapped, Is.Empty,
+            $"Every RenderNode.Process override must appear in the production or test inventory."
+            + $"{Environment.NewLine}{FormatMethods(unmapped)}");
     }
 
     private static void AssertDeclaredBaseline(

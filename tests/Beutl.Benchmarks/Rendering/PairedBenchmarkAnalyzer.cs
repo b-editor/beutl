@@ -270,6 +270,7 @@ internal static class PairedBenchmarkAnalyzer
 
         ValidateCompatibleBenchmarkRuns(baselineResults, baselineRepeatResults, "baseline repeat");
         ValidateCompatibleBenchmarkRuns(baselineResults, featureResults, "feature");
+        ValidateConfiguredSampleCounts(baselineResults, baselineRepeatResults, featureResults);
 
         ValidateSourceProvenance(
             baselineCounters.SourceProvenance,
@@ -546,6 +547,31 @@ internal static class PairedBenchmarkAnalyzer
             throw new InvalidDataException(
                 $"The {label} run must use the same benchmark method, BenchmarkDotNet job, "
                 + "and BenchmarkDotNet version as baseline A.");
+        }
+    }
+
+    private static void ValidateConfiguredSampleCounts(
+        BenchmarkResultRun baseline,
+        BenchmarkResultRun baselineRepeat,
+        BenchmarkResultRun feature)
+    {
+        foreach (RenderPipelineBenchmarkSceneDefinition scene in RenderPipelineBenchmarkScenes.All)
+        {
+            int baselineCount = baseline.Samples[scene.Name].Length;
+            int featureCount = feature.Samples[scene.Name].Length;
+            int baselineRepeatCount = baselineRepeat.Samples[scene.Name].Length;
+            if (baselineCount != RenderPipelineBenchmarkConfig.BenchmarkIterationCount
+                || featureCount != RenderPipelineBenchmarkConfig.BenchmarkIterationCount
+                || baselineRepeatCount != RenderPipelineBenchmarkConfig.BenchmarkIterationCount
+                || baselineCount != featureCount
+                || baselineCount != baselineRepeatCount)
+            {
+                throw new InvalidDataException(
+                    $"Benchmark case '{scene.Name}' must contain exactly "
+                    + $"{RenderPipelineBenchmarkConfig.BenchmarkIterationCount} matching samples in every run; "
+                    + $"observed baseline-a={baselineCount}, feature={featureCount}, "
+                    + $"baseline-b={baselineRepeatCount}.");
+            }
         }
     }
 

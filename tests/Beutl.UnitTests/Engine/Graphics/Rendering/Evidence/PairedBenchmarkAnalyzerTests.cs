@@ -79,6 +79,25 @@ public sealed class PairedBenchmarkAnalyzerTests
     }
 
     [Test]
+    public void Analyze_RejectsTruncatedRun()
+    {
+        using var fixture = new AnalyzerFixture();
+        fixture.SetSampleCount(
+            AnalyzerRun.Feature,
+            "SingleShader",
+            RenderPipelineBenchmarkConfig.BenchmarkIterationCount - 1,
+            100);
+
+        InvalidDataException? exception = Assert.Throws<InvalidDataException>(() => fixture.Analyze());
+
+        Assert.That(
+            exception!.Message,
+            Does.Contain("SingleShader")
+                .And.Contain($"exactly {RenderPipelineBenchmarkConfig.BenchmarkIterationCount}")
+                .And.Contain("baseline-a=15, feature=14, baseline-b=15"));
+    }
+
+    [Test]
     public void Analyze_RejectsSourceProvenanceMismatch()
     {
         using var fixture = new AnalyzerFixture();
@@ -281,6 +300,13 @@ public sealed class PairedBenchmarkAnalyzerTests
         }
 
         public void SetSamples(AnalyzerRun run, string caseName, double value)
+            => SetSampleCount(
+                run,
+                caseName,
+                RenderPipelineBenchmarkConfig.BenchmarkIterationCount,
+                value);
+
+        public void SetSampleCount(AnalyzerRun run, string caseName, int count, double value)
         {
             JsonObject root = LoadObject(_runs[run].Results);
             JsonObject benchmark = root["Benchmarks"]!.AsArray()
@@ -289,7 +315,7 @@ public sealed class PairedBenchmarkAnalyzerTests
                     item["Parameters"]!.GetValue<string>(),
                     $"CaseName={caseName}",
                     StringComparison.Ordinal));
-            benchmark["Statistics"]!["OriginalValues"] = Samples(value);
+            benchmark["Statistics"]!["OriginalValues"] = Samples(value, count);
             WriteObject(_runs[run].Results, root);
         }
 
@@ -440,7 +466,10 @@ public sealed class PairedBenchmarkAnalyzerTests
         }
 
         private static JsonArray Samples(double value)
-            => new(Enumerable.Repeat(value, 15).Select(v => JsonValue.Create(v)).ToArray());
+            => Samples(value, RenderPipelineBenchmarkConfig.BenchmarkIterationCount);
+
+        private static JsonArray Samples(double value, int count)
+            => new(Enumerable.Repeat(value, count).Select(v => JsonValue.Create(v)).ToArray());
 
         private static JsonObject Bounds()
             => new()
