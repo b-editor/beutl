@@ -1458,7 +1458,6 @@
     <SolidColorBrush x:Key="DockSurfaceSidebarBrush" Color="#0E0E0F" />
     <SolidColorBrush x:Key="DockSurfaceEditorBrush" Color="#0E0E0F" />
     <SolidColorBrush x:Key="DockSurfacePanelBrush" Color="#0E0E0F" />
-    <SolidColorBrush x:Key="TerminalBackgroundBrush" Color="#0E0E0F" />
     <SolidColorBrush x:Key="TerminalForegroundBrush" Color="#FFFFFF" />
     <SolidColorBrush x:Key="DockSurfaceHeaderBrush" Color="#0E0E0F" />
     <SolidColorBrush x:Key="DockSurfaceHeaderActiveBrush" Color="#0E0E0F" />

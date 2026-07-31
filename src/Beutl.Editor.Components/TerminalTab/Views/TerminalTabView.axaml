@@ -24,7 +24,7 @@
             </DockPanel>
         </Border>
         <terminal:TerminalControl Name="Terminal"
-                                  Background="{DynamicResource TerminalBackgroundBrush}"
+                                  Background="Transparent"
                                   BufferSize="5000"
                                   FontFamily="Consolas, Menlo, monospace"
                                   Foreground="{DynamicResource TerminalForegroundBrush}"
