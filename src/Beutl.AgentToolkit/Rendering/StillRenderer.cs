@@ -347,18 +347,9 @@ public sealed class StillRenderer
             Span<byte> row = bitmap.GetRow(y);
             for (int x = 0; x < bitmap.Width; x++)
             {
-                int pixelOffset = x * bitmap.BytesPerPixel;
-                int maxColorByte = 0;
-                int luma = 0;
-                for (int channel = 0; channel < colorByteCount; channel++)
-                {
-                    byte value = row[pixelOffset + channel];
-                    maxColorByte = Math.Max(maxColorByte, value);
-                    luma += value;
-                }
-
-                luma /= colorByteCount;
-                if (maxColorByte > nearBlackThreshold)
+                PixelIntensity intensity = ReadPixelIntensity(bitmap, row, x, colorByteCount);
+                int luma = intensity.Luma;
+                if (intensity.Maximum > nearBlackThreshold)
                 {
                     visiblePixels++;
                 }
@@ -394,14 +385,7 @@ public sealed class StillRenderer
             Span<byte> row = bitmap.GetRow(y);
             for (int x = 0; x < bitmap.Width; x++)
             {
-                int pixelOffset = x * bitmap.BytesPerPixel;
-                int luma = 0;
-                for (int channel = 0; channel < colorByteCount; channel++)
-                {
-                    luma += row[pixelOffset + channel];
-                }
-
-                luma /= colorByteCount;
+                int luma = ReadPixelIntensity(bitmap, row, x, colorByteCount).Luma;
                 if (Math.Abs(luma - backgroundLuma) <= foregroundDeltaThreshold)
                 {
                     continue;
@@ -576,14 +560,7 @@ public sealed class StillRenderer
             for (int x = 0; x < bitmap.Width; x++)
             {
                 int index = (y * bitmap.Width) + x;
-                int offset = x * bitmap.BytesPerPixel;
-                int luma = 0;
-                for (int channel = 0; channel < colorByteCount; channel++)
-                {
-                    luma += row[offset + channel];
-                }
-
-                luma /= colorByteCount;
+                int luma = ReadPixelIntensity(bitmap, row, x, colorByteCount).Luma;
                 lumaByPixel[index] = (byte)Math.Clamp(luma, 0, byte.MaxValue);
                 double delta = Math.Abs(luma - visibility.BackgroundLuma);
                 if (delta <= visibility.ForegroundDeltaThreshold)
@@ -812,4 +789,99 @@ public sealed class StillRenderer
             _ => Math.Min(3, bytesPerPixel)
         };
     }
+
+    private static PixelIntensity ReadPixelIntensity(
+        Bitmap bitmap,
+        ReadOnlySpan<byte> row,
+        int x,
+        int colorByteCount)
+    {
+        int offset = x * bitmap.BytesPerPixel;
+        return bitmap.ColorType switch
+        {
+            BitmapColorType.RgbaF16 or BitmapColorType.RgbaF16Clamped
+                => ReadFloatChannels(
+                    bitmap,
+                    System.Runtime.InteropServices.MemoryMarshal.Cast<byte, Half>(
+                        row.Slice(offset, 3 * sizeof(ushort)))),
+            BitmapColorType.RgbaF32
+                => ReadFloatChannels(
+                    bitmap,
+                    System.Runtime.InteropServices.MemoryMarshal.Cast<byte, float>(
+                        row.Slice(offset, 3 * sizeof(float)))),
+            BitmapColorType.Rgba16161616
+                => ReadUnorm16Channels(
+                    System.Runtime.InteropServices.MemoryMarshal.Cast<byte, ushort>(
+                        row.Slice(offset, 3 * sizeof(ushort)))),
+            _ => ReadByteChannels(row.Slice(offset, colorByteCount)),
+        };
+    }
+
+    private static PixelIntensity ReadFloatChannels<T>(
+        Bitmap bitmap,
+        ReadOnlySpan<T> channels)
+        where T : unmanaged
+    {
+        int total = 0;
+        int maximum = 0;
+        for (int i = 0; i < channels.Length; i++)
+        {
+            float value = channels[i] switch
+            {
+                Half half => (float)half,
+                float single => single,
+                _ => 0,
+            };
+            int encoded = EncodeColorChannel(bitmap, value);
+            total += encoded;
+            maximum = Math.Max(maximum, encoded);
+        }
+
+        return new PixelIntensity(total / channels.Length, maximum);
+    }
+
+    private static PixelIntensity ReadUnorm16Channels(ReadOnlySpan<ushort> channels)
+    {
+        int total = 0;
+        int maximum = 0;
+        for (int i = 0; i < channels.Length; i++)
+        {
+            int encoded = (int)MathF.Round(channels[i] * (255f / ushort.MaxValue));
+            total += encoded;
+            maximum = Math.Max(maximum, encoded);
+        }
+
+        return new PixelIntensity(total / channels.Length, maximum);
+    }
+
+    private static PixelIntensity ReadByteChannels(ReadOnlySpan<byte> channels)
+    {
+        int total = 0;
+        int maximum = 0;
+        for (int i = 0; i < channels.Length; i++)
+        {
+            total += channels[i];
+            maximum = Math.Max(maximum, channels[i]);
+        }
+
+        return new PixelIntensity(total / channels.Length, maximum);
+    }
+
+    private static int EncodeColorChannel(Bitmap bitmap, float value)
+    {
+        if (!float.IsFinite(value))
+            return 0;
+
+        value = Math.Clamp(value, 0, 1);
+        if (bitmap.ColorSpace.GammaIsLinear)
+        {
+            value = value <= 0.0031308f
+                ? value * 12.92f
+                : 1.055f * MathF.Pow(value, 1f / 2.4f) - 0.055f;
+        }
+
+        return (int)MathF.Round(value * byte.MaxValue);
+    }
+
+    private readonly record struct PixelIntensity(int Luma, int Maximum);
 }
