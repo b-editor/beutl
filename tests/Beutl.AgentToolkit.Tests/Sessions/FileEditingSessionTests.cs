@@ -141,6 +141,63 @@ public sealed class FileEditingSessionTests
     }
 
     [Test]
+    public void SaveAs_uniquifies_escaping_same_named_recovered_sidecars()
+    {
+        string root = Path.Combine(TestContext.CurrentContext.WorkDirectory, Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(root);
+        string projectPath = Path.Combine(root, "demo.bep");
+        using var source = new FileSessionSource();
+        FileEditingSession session = source.CreateProject(new ProjectCreateOptions(
+            projectPath, 640, 360, 30, TimeSpan.FromSeconds(2), Name: "demo"));
+        Scene scene = session.Project.Items.OfType<Scene>().Single();
+        string sceneDirectory = Path.GetDirectoryName(scene.Uri!.LocalPath)!;
+        string firstPath = Path.Combine(sceneDirectory, "first", "clip.belm");
+        string secondPath = Path.Combine(sceneDirectory, "second", "clip.belm");
+        scene.Children.Add(new Element
+        {
+            Name = "First",
+            Length = TimeSpan.FromSeconds(1),
+            Uri = new Uri(firstPath),
+        });
+        scene.Children.Add(new Element
+        {
+            Name = "Second",
+            Start = TimeSpan.FromSeconds(1),
+            Length = TimeSpan.FromSeconds(1),
+            Uri = new Uri(secondPath),
+        });
+        session.Save(skipConflictCheck: true);
+
+        byte[] firstBytes = "{\"$type\":\"[Missing]Example:First\",\"Id\":\"11111111-1111-1111-1111-111111111111\"}"u8.ToArray();
+        byte[] secondBytes = "{\"$type\":\"[Missing]Example:Second\",\"Id\":\"22222222-2222-2222-2222-222222222222\"}"u8.ToArray();
+        File.WriteAllBytes(firstPath, firstBytes);
+        File.WriteAllBytes(secondPath, secondBytes);
+
+        FileEditingSession recovered = source.OpenProject(projectPath);
+        Scene recoveredScene = recovered.Project.Items.OfType<Scene>().Single();
+        Element first = recoveredScene.Children.Single(element => element.Uri!.LocalPath == firstPath);
+        Element second = recoveredScene.Children.Single(element => element.Uri!.LocalPath == secondPath);
+        string firstOutsidePath = Path.Combine(root, "outside-first", "clip.belm");
+        string secondOutsidePath = Path.Combine(root, "outside-second", "clip.belm");
+        first.Uri = new Uri(firstOutsidePath);
+        second.Uri = new Uri(secondOutsidePath);
+
+        recovered.SaveAs(Path.Combine(root, "copy.bep"), skipConflictCheck: true);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(first.Uri!.LocalPath, Is.Not.EqualTo(second.Uri!.LocalPath));
+            Assert.That(
+                new[] { Path.GetFileName(first.Uri.LocalPath), Path.GetFileName(second.Uri.LocalPath) },
+                Is.EquivalentTo(new[] { "clip.belm", "clip-2.belm" }));
+            Assert.That(File.Exists(first.Uri.LocalPath), Is.True);
+            Assert.That(File.Exists(second.Uri.LocalPath), Is.True);
+            Assert.That(File.ReadAllBytes(first.Uri.LocalPath), Is.EqualTo(firstBytes));
+            Assert.That(File.ReadAllBytes(second.Uri.LocalPath), Is.EqualTo(secondBytes));
+        });
+    }
+
+    [Test]
     public void Failed_plain_save_restores_the_original_uri_state()
     {
         string root = Path.Combine(TestContext.CurrentContext.WorkDirectory, Guid.NewGuid().ToString("N"));

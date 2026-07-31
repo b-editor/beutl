@@ -57,6 +57,9 @@ public class Scene : ProjectItem, INotifyEdited
     private static readonly Regex s_idPattern = new(
         "\"Id\"\\s*:\\s*\"(?<id>[0-9a-fA-F-]{36})\"",
         RegexOptions.CultureInvariant);
+    private static readonly Regex s_typePattern = new(
+        "\"\\$type\"\\s*:\\s*(?<type>\"(?:\\\\.|[^\"\\\\])*\")",
+        RegexOptions.CultureInvariant);
     public static readonly CoreProperty<PixelSize> FrameSizeProperty;
     public static readonly CoreProperty<Elements> ChildrenProperty;
     public static readonly CoreProperty<TimeSpan> StartProperty;
@@ -790,10 +793,11 @@ public class Scene : ProjectItem, INotifyEdited
         _recoveredDescendantIds.Clear();
         _recoveredDescendantRemaps.Clear();
         var pendingDescendantRemaps
-            = new Dictionary<CoreObject, (string RelativePath, Guid OriginalId)>(
+            = new Dictionary<CoreObject, (string RemapKey, Guid OriginalId)>(
                 ReferenceEqualityComparer.Instance);
         foreach ((Element child, string relativePath) in recoveredChildren)
         {
+            var occurrences = new Dictionary<Guid, int>();
             foreach (CoreObject descendant in EnumerateSerializedGraphDescendants(child))
             {
                 if (!seenDescendants.Add(descendant))
@@ -802,7 +806,9 @@ public class Scene : ProjectItem, INotifyEdited
                 }
 
                 Guid originalId = descendant.Id;
-                string remapKey = CreateRecoveredDescendantKey(relativePath, originalId);
+                int occurrence = occurrences.GetValueOrDefault(originalId);
+                occurrences[originalId] = occurrence + 1;
+                string remapKey = CreateRecoveredDescendantKey(relativePath, originalId, occurrence);
                 if (persistedDescendantIds.TryGetValue(remapKey, out Guid persistedId))
                 {
                     if (claimedIds.Add(persistedId))
@@ -812,11 +818,11 @@ public class Scene : ProjectItem, INotifyEdited
                         continue;
                     }
 
-                    pendingDescendantRemaps[descendant] = (relativePath, originalId);
+                    pendingDescendantRemaps[descendant] = (remapKey, originalId);
                 }
                 else if (!claimedIds.Add(originalId))
                 {
-                    pendingDescendantRemaps[descendant] = (relativePath, originalId);
+                    pendingDescendantRemaps[descendant] = (remapKey, originalId);
                 }
             }
         }
@@ -902,7 +908,7 @@ public class Scene : ProjectItem, INotifyEdited
             {
                 if (!pendingDescendantRemaps.Remove(
                         descendant,
-                        out (string RelativePath, Guid OriginalId) remap))
+                        out (string RemapKey, Guid OriginalId) remap))
                 {
                     continue;
                 }
@@ -910,14 +916,16 @@ public class Scene : ProjectItem, INotifyEdited
                 bool assigned = false;
                 for (int attempt = 0; attempt < MaxRecoveredIdCollisionAttempts; attempt++)
                 {
-                    string candidateName = $"{remap.RelativePath}!{remap.OriginalId:D}#{attempt}";
+                    string candidateName = attempt == 0
+                        ? remap.RemapKey
+                        : $"{remap.RemapKey}#{attempt}";
                     Guid candidate = CreateVersion5Guid(s_recoveredElementNamespace, candidateName);
                     if (claimedIds.Add(candidate))
                     {
                         descendant.Id = candidate;
                         RecordRecoveredDescendantRemap(
                             descendant,
-                            CreateRecoveredDescendantKey(remap.RelativePath, remap.OriginalId),
+                            remap.RemapKey,
                             remap.OriginalId,
                             candidate);
                         assigned = true;
@@ -980,11 +988,12 @@ public class Scene : ProjectItem, INotifyEdited
         {
             // Raw bytes, not text: the sidecar must survive rehoming byte-identically even when it
             // holds a BOM, another encoding, or undecodable bytes. The lossy decode is only scanned
-            // for a top-level Id.
+            // for top-level recovery metadata.
             byte[] rawBytes = File.ReadAllBytes(uri.LocalPath);
+            string rawText = Encoding.UTF8.GetString(rawBytes);
             var element = new Element
             {
-                Id = ResolveRecoveredElementId(Encoding.UTF8.GetString(rawBytes), uri),
+                Id = ResolveRecoveredElementId(rawText, uri),
                 Name = Path.GetFileNameWithoutExtension(uri.LocalPath),
                 Uri = uri,
                 IsEnabled = false,
@@ -995,7 +1004,7 @@ public class Scene : ProjectItem, INotifyEdited
                 Reason = FallbackReason.DeserializationFailed,
                 ErrorMessage = $"{ex.GetType().Name}: {ex.Message}",
             };
-            fallback.Json = CreateFallbackProjection(fallback);
+            fallback.Json = CreateFallbackProjection(fallback, TryGetTopLevelTypeName(rawText));
             element.AddObject(fallback);
             MarkRecoveredElement(element, rawBytes, uri);
             return element;
@@ -1007,16 +1016,16 @@ public class Scene : ProjectItem, INotifyEdited
         element.SuppressedStorageSource = new SuppressedStorageSource(rawBytes, uri);
     }
 
-    internal static bool TryResumeElementPersistence(Element element)
+    internal static SuppressedStorageSource? TryResumeElementPersistence(Element element)
     {
-        if (element.SuppressedStorageSource is null
+        if (element.SuppressedStorageSource is not { } source
             || EnumerateSerializedGraphFallbacks(element).Any())
         {
-            return false;
+            return null;
         }
 
         element.SuppressedStorageSource = null;
-        return true;
+        return source;
     }
 
     private static bool ContainsFileSystemFailure(Exception exception)
@@ -1137,15 +1146,41 @@ public class Scene : ProjectItem, INotifyEdited
         fallback.Json = json;
     }
 
-    private static JsonObject CreateFallbackProjection(FallbackEngineObject fallback)
+    private static JsonObject CreateFallbackProjection(FallbackEngineObject fallback, string? typeName = null)
     {
         var json = new JsonObject
         {
             [nameof(CoreObject.Id)] = fallback.Id.ToString(),
             [nameof(CoreObject.Name)] = fallback.Name,
         };
-        json.WriteDiscriminator(typeof(FallbackEngineObject));
+        if (typeName is not null)
+        {
+            json["$type"] = typeName;
+        }
+        else
+        {
+            json.WriteDiscriminator(typeof(FallbackEngineObject));
+        }
+
         return json;
+    }
+
+    private static string? TryGetTopLevelTypeName(string rawText)
+    {
+        Match? match = FindTopLevelMatch(rawText, s_typePattern.Matches(rawText));
+        if (match is null)
+        {
+            return null;
+        }
+
+        try
+        {
+            return JsonSerializer.Deserialize<string>(match.Groups["type"].Value);
+        }
+        catch (JsonException)
+        {
+            return null;
+        }
     }
 
     private Guid ResolveRecoveredElementId(string rawText, Uri uri)
@@ -1153,7 +1188,7 @@ public class Scene : ProjectItem, INotifyEdited
         // Only a top-level Id may name the element: a nested object's or quoted Id would collide
         // with live objects, so anything else falls through to the deterministic filename Guid.
         MatchCollection matches = s_idPattern.Matches(rawText);
-        Match? topLevelMatch = FindTopLevelIdMatch(rawText, matches);
+        Match? topLevelMatch = FindTopLevelMatch(rawText, matches);
         if (topLevelMatch != null
             && Guid.TryParse(topLevelMatch.Groups["id"].Value, out Guid topLevelId)
             && topLevelId != Guid.Empty)
@@ -1196,14 +1231,22 @@ public class Scene : ProjectItem, INotifyEdited
             string relativePath = NormalizeRelativePath(
                 Path.GetRelativePath(sceneDirectory, child.Uri!.LocalPath));
             _recoveredElementIds[relativePath] = child.Id;
+            var occurrences = new Dictionary<Guid, int>();
             foreach (CoreObject descendant in EnumerateSerializedGraphDescendants(child))
             {
+                Guid originalId = descendantRemaps.TryGetValue(
+                    descendant,
+                    out (Guid OriginalId, Guid AssignedId) remap)
+                    ? remap.OriginalId
+                    : descendant.Id;
+                int occurrence = occurrences.GetValueOrDefault(originalId);
+                occurrences[originalId] = occurrence + 1;
                 if (descendantRemaps.TryGetValue(
                         descendant,
-                        out (Guid OriginalId, Guid AssignedId) remap)
+                        out remap)
                     && descendant.Id == remap.AssignedId)
                 {
-                    string remapKey = CreateRecoveredDescendantKey(relativePath, remap.OriginalId);
+                    string remapKey = CreateRecoveredDescendantKey(relativePath, remap.OriginalId, occurrence);
                     _recoveredDescendantIds[remapKey] = remap.AssignedId;
                     _recoveredDescendantRemaps[descendant] = remap;
                 }
@@ -1211,9 +1254,9 @@ public class Scene : ProjectItem, INotifyEdited
         }
     }
 
-    private static string CreateRecoveredDescendantKey(string relativePath, Guid originalId)
+    private static string CreateRecoveredDescendantKey(string relativePath, Guid originalId, int occurrence)
     {
-        return $"{relativePath}!{originalId:D}";
+        return $"{relativePath}!{originalId:D}#{occurrence}";
     }
 
     private static string NormalizeRelativePath(string path)
@@ -1221,7 +1264,7 @@ public class Scene : ProjectItem, INotifyEdited
         return path.Replace('\\', '/');
     }
 
-    private static Match? FindTopLevelIdMatch(string rawText, MatchCollection matches)
+    private static Match? FindTopLevelMatch(string rawText, MatchCollection matches)
     {
         int matchIndex = 0;
         int objectDepth = 0;

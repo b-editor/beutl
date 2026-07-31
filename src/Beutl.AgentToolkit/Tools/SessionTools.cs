@@ -20,6 +20,8 @@ public sealed record SceneSummary(string SceneId, string Name, int Width, int He
 public sealed record SessionSummary(IReadOnlyList<SceneSummary> Scenes);
 
 public sealed record RecoveryIncident(
+    string SceneId,
+    string SceneName,
     string ElementFile,
     string Reason,
     string? TypeName,
@@ -129,6 +131,8 @@ public sealed class SessionTools(
                     }
 
                     incidents.Add(new RecoveryIncident(
+                        scene.Id.ToString(),
+                        scene.Name,
                         elementFile,
                         fallback.Reason.ToString(),
                         typeName,

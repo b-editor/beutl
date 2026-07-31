@@ -677,10 +677,57 @@ public sealed class MalformedElementRecoveryTests
         {
             Assert.That(remappedId, Is.Not.EqualTo(claimantId));
             Assert.That(
-                persistedIds[$"recovered.belm!{claimantId:D}"]!.GetValue<string>(),
+                persistedIds[$"recovered.belm!{claimantId:D}#0"]!.GetValue<string>(),
                 Is.EqualTo(remappedId.ToString()));
             Assert.That(reloaded.Children, Has.Count.EqualTo(1));
             Assert.That(reloadedId, Is.EqualTo(remappedId));
+        });
+    }
+
+    [Test]
+    public void Restore_RecoveredDescendantsSharingSerializedIdKeepOccurrenceStableRemaps()
+    {
+        (Uri sceneUri, string[] elementPaths) =
+            CreatePersistedSceneWithElements("healthy.belm", "recovered.belm");
+        Scene source = CoreSerializer.RestoreFromUri<Scene>(sceneUri);
+        Element healthySource = source.Children.Single(child => child.Uri!.LocalPath == elementPaths[0]);
+        Guid claimantId = healthySource.Objects.Single().Id;
+        Element recoveredSource = source.Children.Single(child => child.Uri!.LocalPath == elementPaths[1]);
+        recoveredSource.AddObject(new RectShape());
+        CoreSerializer.StoreToUri(recoveredSource, recoveredSource.Uri!);
+
+        JsonObject json = JsonNode.Parse(File.ReadAllText(elementPaths[1]))!.AsObject();
+        JsonArray objects = json[nameof(Element.Objects)]!.AsArray();
+        foreach (JsonObject obj in objects.OfType<JsonObject>())
+        {
+            obj[nameof(CoreObject.Id)] = claimantId.ToString();
+        }
+
+        objects[1]!.AsObject()["$type"] = "[Beutl.Engine]Beutl.Graphics.Shapes:DoesNotExist";
+        File.WriteAllText(elementPaths[1], json.ToJsonString());
+
+        Scene firstLoad = CoreSerializer.RestoreFromUri<Scene>(sceneUri);
+        Element firstRecovered = firstLoad.Children.Single(child => child.Uri!.LocalPath == elementPaths[1]);
+        Guid[] firstAssignedIds = firstRecovered.Objects.Select(static obj => obj.Id).ToArray();
+        Guid[] firstGraphIds = EnumerateElementGraphs(firstLoad).Select(static obj => obj.Id).ToArray();
+        CoreSerializer.StoreToUri(firstLoad, sceneUri);
+
+        JsonObject persistedScene = JsonNode.Parse(File.ReadAllText(sceneUri.LocalPath))!.AsObject();
+        JsonObject persistedIds = persistedScene["RecoveredDescendantIds"]!.AsObject();
+        Scene secondLoad = CoreSerializer.RestoreFromUri<Scene>(sceneUri);
+        Element secondRecovered = secondLoad.Children.Single(child => child.Uri!.LocalPath == elementPaths[1]);
+        Guid[] secondAssignedIds = secondRecovered.Objects.Select(static obj => obj.Id).ToArray();
+        Guid[] secondGraphIds = EnumerateElementGraphs(secondLoad).Select(static obj => obj.Id).ToArray();
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(firstGraphIds, Is.Unique);
+            Assert.That(secondGraphIds, Is.Unique);
+            Assert.That(firstAssignedIds, Has.Length.EqualTo(2));
+            Assert.That(firstAssignedIds, Does.Not.Contain(claimantId));
+            Assert.That(secondAssignedIds, Is.EqualTo(firstAssignedIds));
+            Assert.That(persistedIds.ContainsKey($"recovered.belm!{claimantId:D}#0"), Is.True);
+            Assert.That(persistedIds.ContainsKey($"recovered.belm!{claimantId:D}#1"), Is.True);
         });
     }
 

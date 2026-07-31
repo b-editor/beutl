@@ -214,7 +214,6 @@ public sealed class TransformEditorViewModel : ValueEditorViewModel<Transform?>,
     {
         Transform? previous = Value.Value;
         SetValue(previous, FallbackHelper.DeserializeInstance<Transform>(str));
-        ResumeElementPersistenceAfterFallbackReplacement(previous);
     }
 
     public override void Accept(IPropertyEditorContextVisitor visitor)

@@ -303,6 +303,67 @@ public sealed class SessionToolsTests
     }
 
     [Test]
+    public async Task Open_project_incidents_distinguish_same_named_sidecars_across_scenes_and_keep_top_level_type()
+    {
+        const string MissingType = "[Missing.Assembly]Missing.Namespace:MissingElement";
+        string root = CreateWorkspace();
+        string projectPath = Path.Combine(root, "duplicate-sidecars-across-scenes.bep");
+        Project project = ProjectOperations.CreateProject(new ProjectCreateOptions(
+            projectPath,
+            64,
+            64,
+            30,
+            TimeSpan.FromSeconds(1),
+            Name: "First scene"));
+        Scene firstScene = project.Items.OfType<Scene>().Single();
+        Scene secondScene = ProjectOperations.AddScene(project, new SceneCreateOptions(
+            64,
+            64,
+            TimeSpan.Zero,
+            TimeSpan.FromSeconds(1),
+            Name: "Second scene"));
+        Scene[] scenes = [firstScene, secondScene];
+        foreach (Scene scene in scenes)
+        {
+            scene.Children.Add(new Element
+            {
+                Name = "Clip",
+                Length = TimeSpan.FromSeconds(1),
+                Uri = new Uri(Path.Combine(Path.GetDirectoryName(scene.Uri!.LocalPath)!, "clip.belm")),
+            });
+        }
+
+        ProjectOperations.Save(project);
+        foreach (Scene scene in scenes)
+        {
+            Element element = scene.Children.Single();
+            File.WriteAllText(
+                element.Uri!.LocalPath,
+                $$"""{"$type":"{{MissingType}}","Id":"{{element.Id}}","Name":"Clip"}""");
+        }
+
+        var manager = new AgentSessionManager();
+        using var source = new FileSessionSource();
+        SessionTools sessionTools = CreateSessionTools(source, manager, root);
+
+        ToolResult<OpenProjectResponse> opened = await sessionTools.OpenProject(projectPath);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(opened.IsSuccess, Is.True, opened.Error?.Message);
+            Assert.That(opened.Value!.RecoveryIncidents, Has.Count.EqualTo(2));
+            Assert.That(opened.Value.RecoveryIncidents.Select(static incident => incident.ElementFile),
+                Is.All.EqualTo("clip.belm"));
+            Assert.That(opened.Value.RecoveryIncidents.Select(static incident => incident.SceneId),
+                Is.EquivalentTo(scenes.Select(static scene => scene.Id.ToString())));
+            Assert.That(opened.Value.RecoveryIncidents.Select(static incident => incident.SceneName),
+                Is.EquivalentTo(new[] { "First scene", "Second scene" }));
+            Assert.That(opened.Value.RecoveryIncidents.Select(static incident => incident.TypeName),
+                Is.All.EqualTo(MissingType));
+        });
+    }
+
+    [Test]
     public async Task Apply_edit_can_rename_healthy_element_while_malformed_element_is_recovered()
     {
         string root = CreateWorkspace();

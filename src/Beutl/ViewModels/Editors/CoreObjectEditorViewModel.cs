@@ -154,7 +154,6 @@ public sealed class CoreObjectEditorViewModel<T> : BaseEditorViewModel<T>, ICore
     {
         T? previous = Value.Value;
         SetValue(previous, FallbackHelper.DeserializeInstance<T>(str));
-        ResumeElementPersistenceAfterFallbackReplacement(previous);
     }
 
     public void SetNull()

@@ -103,7 +103,6 @@ public sealed class GeometryEditorViewModel : ValueEditorViewModel<Geometry?>, I
     {
         Geometry? previous = Value.Value;
         SetValue(previous, FallbackHelper.DeserializeInstance<Geometry>(str));
-        ResumeElementPersistenceAfterFallbackReplacement(previous);
     }
 
     public override void Accept(IPropertyEditorContextVisitor visitor)

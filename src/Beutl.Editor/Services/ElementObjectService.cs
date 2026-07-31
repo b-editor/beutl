@@ -86,9 +86,12 @@ public sealed class ElementObjectService : IElementObjectService
 
             CoreSerializer.PopulateFromJsonObject(obj, type, newJson);
             element.Objects[index] = obj;
-            if (previous is IFallback)
+            if (previous is IFallback
+                && Scene.TryResumeElementPersistence(element) is { } suppression)
             {
-                Scene.TryResumeElementPersistence(element);
+                _historyManager.Record(
+                    () => element.SuppressedStorageSource = null,
+                    () => element.SuppressedStorageSource = suppression);
             }
 
             _historyManager.Commit(CommandNames.PasteObject);

@@ -153,7 +153,6 @@ public sealed class BrushEditorViewModel : BaseEditorViewModel, IFallbackObjectV
     {
         Brush? previous = Value.Value;
         SetValue(previous, FallbackHelper.DeserializeInstance<Brush>(str));
-        ResumeElementPersistenceAfterFallbackReplacement(previous);
     }
 
     public void UpdateBrushPreview()
@@ -174,6 +173,7 @@ public sealed class BrushEditorViewModel : BaseEditorViewModel, IFallbackObjectV
         if (!EqualityComparer<Brush>.Default.Equals(oldValue, newValue))
         {
             PropertyAdapter.SetValue(newValue);
+            ResumeElementPersistenceAfterFallbackReplacement(oldValue);
             Commit();
         }
     }

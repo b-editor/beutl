@@ -187,9 +187,14 @@ public abstract class BaseEditorViewModel : IPropertyEditorContext, IServiceProv
 
     protected void ResumeElementPersistenceAfterFallbackReplacement(object? previous)
     {
-        if (previous is IFallback && _element is not null)
+        if (previous is IFallback
+            && _element is not null
+            && Scene.TryResumeElementPersistence(_element) is { } suppression)
         {
-            Scene.TryResumeElementPersistence(_element);
+            Element element = _element;
+            this.GetRequiredService<HistoryManager>().Record(
+                () => element.SuppressedStorageSource = null,
+                () => element.SuppressedStorageSource = suppression);
         }
     }
 
@@ -564,6 +569,7 @@ public abstract class BaseEditorViewModel<T> : BaseEditorViewModel
                 prop.SetValue(newValue);
             }
 
+            ResumeElementPersistenceAfterFallbackReplacement(oldValue);
             Commit();
         }
     }

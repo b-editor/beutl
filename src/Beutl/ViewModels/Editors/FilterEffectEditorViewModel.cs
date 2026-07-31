@@ -282,7 +282,6 @@ public sealed class FilterEffectEditorViewModel : ValueEditorViewModel<FilterEff
     {
         FilterEffect? previous = Value.Value;
         SetValue(previous, FallbackHelper.DeserializeInstance<FilterEffect>(str));
-        ResumeElementPersistenceAfterFallbackReplacement(previous);
     }
 
     protected override void Dispose(bool disposing)
