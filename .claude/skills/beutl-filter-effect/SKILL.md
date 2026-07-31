@@ -355,11 +355,13 @@ public new partial class Resource
 }
 ```
 
-### GLSL (Vulkan) opaque fallback
+### GLSL (Vulkan) opaque fallback property excerpt
 
 The public declarative Shader API accepts SkSL. A Vulkan-only GLSL implementation therefore remains an
 opaque `CustomEffect` fallback and must also provide a supported ordinary-2D path if the effect is expected
-to work without that backend:
+to work without that backend. The following is only the effect's shader-property declaration; the effect must
+also implement `ApplyTo` by pairing the property with a Vulkan `CustomEffect` path and a supported ordinary-2D
+fallback:
 
 ```csharp
 [Display(Name = nameof(Strings.Script), ResourceType = typeof(Strings))]

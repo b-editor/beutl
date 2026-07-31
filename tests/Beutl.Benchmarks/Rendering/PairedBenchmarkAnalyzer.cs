@@ -1,4 +1,5 @@
-﻿using System.Security.Cryptography;
+﻿using System.Diagnostics;
+using System.Security.Cryptography;
 using System.Text.Json;
 
 namespace Beutl.Benchmarks.Rendering;
@@ -288,8 +289,12 @@ internal static class PairedBenchmarkAnalyzer
         AssertMatchingEnvironmentFingerprints(
             baselineCounters.EnvironmentFingerprint,
             featureCounters.EnvironmentFingerprint);
-        ValidatePairedCounterContracts(baselineCounters, baselineRepeatCounters);
-        ValidatePairedCounterContracts(baselineCounters, featureCounters);
+        ValidatePairedCounterContracts(baselineCounters, baselineRepeatCounters, compareEveryOutput: true);
+        ValidatePairedCounterContracts(baselineCounters, featureCounters, compareEveryOutput: false);
+        ValidateSelfRecordedOutputContracts(baselineCounters, "baseline A");
+        ValidateSelfRecordedOutputContracts(baselineRepeatCounters, "baseline B");
+        ValidateSelfRecordedOutputContracts(featureCounters, "feature");
+        ValidateFeatureOutputContracts(featureCounters);
 
         var cases = new SortedDictionary<string, PairedBenchmarkCaseResult>(StringComparer.Ordinal);
         foreach (RenderPipelineBenchmarkSceneDefinition scene in RenderPipelineBenchmarkScenes.All)
@@ -398,7 +403,7 @@ internal static class PairedBenchmarkAnalyzer
                 options.FeatureCountersPath,
                 featureCounters),
             RunnerSha256 = options.RunnerSha256,
-            BaselineHarnessFileSha256 = HashDirectory(options.BaselineHarnessPath),
+            BaselineHarnessFileSha256 = HashTrackedDirectory(options.BaselineHarnessPath),
             EnvironmentFingerprint = new SortedDictionary<string, JsonElement>(environment, StringComparer.Ordinal),
             Cases = cases,
         };
@@ -677,16 +682,19 @@ internal static class PairedBenchmarkAnalyzer
         }
     }
 
-    private static void ValidatePairedCounterContracts(CounterRun baseline, CounterRun feature)
+    private static void ValidatePairedCounterContracts(
+        CounterRun baseline,
+        CounterRun candidate,
+        bool compareEveryOutput)
     {
         foreach (string caseName in baseline.Cases.Keys)
         {
             IReadOnlyDictionary<string, string> baselineContract = baseline.Cases[caseName].Contract;
-            IReadOnlyDictionary<string, string> featureContract = feature.Cases[caseName].Contract;
+            IReadOnlyDictionary<string, string> candidateContract = candidate.Cases[caseName].Contract;
             string[] mismatches = baselineContract.Keys
-                .Union(featureContract.Keys, StringComparer.Ordinal)
+                .Union(candidateContract.Keys, StringComparer.Ordinal)
                 .Where(key => !baselineContract.TryGetValue(key, out string? left)
-                              || !featureContract.TryGetValue(key, out string? right)
+                              || !candidateContract.TryGetValue(key, out string? right)
                               || !string.Equals(left, right, StringComparison.Ordinal))
                 .Order(StringComparer.Ordinal)
                 .ToArray();
@@ -696,13 +704,67 @@ internal static class PairedBenchmarkAnalyzer
                     $"Paired counter contract mismatch for '{caseName}': {string.Join(", ", mismatches)}.");
             }
 
-            if (string.Equals(caseName, ExactOutputControlCaseName, StringComparison.Ordinal))
+            if (compareEveryOutput
+                || string.Equals(caseName, ExactOutputControlCaseName, StringComparison.Ordinal))
             {
                 ValidateExactOutputContract(
                     caseName,
-                    baseline.Cases[caseName].OutputContract,
-                    feature.Cases[caseName].OutputContract);
+                    baseline.Cases[caseName].SetupOutputContract,
+                    candidate.Cases[caseName].SetupOutputContract);
+                ValidateExactOutputContract(
+                    caseName + " measured",
+                    baseline.Cases[caseName].MeasuredOutputContract,
+                    candidate.Cases[caseName].MeasuredOutputContract);
             }
+        }
+    }
+
+    private static void ValidateFeatureOutputContracts(CounterRun feature)
+    {
+        foreach (RenderPipelineBenchmarkSceneDefinition scene in RenderPipelineBenchmarkScenes.All)
+        {
+            CounterCase item = feature.Cases[scene.Name];
+            ValidateMatchingOutputGeometry(
+                scene.Name,
+                item.SetupOutputContract,
+                item.MeasuredOutputContract);
+            if (scene.Animation == RenderPipelineBenchmarkAnimation.None)
+            {
+                ValidateExactOutputContract(
+                    scene.Name + " feature setup/measured",
+                    item.SetupOutputContract,
+                    item.MeasuredOutputContract);
+            }
+        }
+    }
+
+    private static void ValidateSelfRecordedOutputContracts(CounterRun run, string label)
+    {
+        foreach ((string caseName, CounterCase item) in run.Cases)
+        {
+            ValidateExactOutputContract(
+                $"{caseName} {label} measured/expected",
+                item.MeasuredOutputContract,
+                item.ExpectedMeasuredOutputContract);
+        }
+    }
+
+    private static void ValidateMatchingOutputGeometry(
+        string caseName,
+        CounterOutputContract setup,
+        CounterOutputContract measured)
+    {
+        var mismatches = new List<string>(3);
+        if (setup.Width != measured.Width)
+            mismatches.Add("width");
+        if (setup.Height != measured.Height)
+            mismatches.Add("height");
+        if (!string.Equals(setup.Bounds, measured.Bounds, StringComparison.Ordinal))
+            mismatches.Add("outputBounds");
+        if (mismatches.Count != 0)
+        {
+            throw new InvalidDataException(
+                $"Feature output geometry mismatch for '{caseName}': {string.Join(", ", mismatches)}.");
         }
     }
 
@@ -756,6 +818,51 @@ internal static class PairedBenchmarkAnalyzer
         {
             string relative = Path.GetRelativePath(root, path).Replace(Path.DirectorySeparatorChar, '/');
             result.Add(relative, Sha256File(path));
+        }
+        return result;
+    }
+
+    private static SortedDictionary<string, string> HashTrackedDirectory(string directory)
+    {
+        string root = Path.GetFullPath(directory);
+        var startInfo = new ProcessStartInfo
+        {
+            FileName = "git",
+            RedirectStandardOutput = true,
+            RedirectStandardError = true,
+            UseShellExecute = false,
+        };
+        startInfo.ArgumentList.Add("-C");
+        startInfo.ArgumentList.Add(root);
+        startInfo.ArgumentList.Add("ls-files");
+        startInfo.ArgumentList.Add("-z");
+        startInfo.ArgumentList.Add("--");
+        startInfo.ArgumentList.Add(".");
+        using Process process = Process.Start(startInfo)
+            ?? throw new InvalidOperationException("Could not start git to enumerate tracked harness inputs.");
+        string standardOutput = process.StandardOutput.ReadToEnd();
+        string standardError = process.StandardError.ReadToEnd();
+        process.WaitForExit();
+        if (process.ExitCode != 0)
+        {
+            throw new InvalidOperationException(
+                $"Could not enumerate tracked baseline-harness inputs: {standardError.Trim()}");
+        }
+
+        string[] tracked = standardOutput.Split('\0', StringSplitOptions.RemoveEmptyEntries);
+        if (tracked.Length == 0)
+            throw new InvalidDataException("The baseline harness contains no tracked source inputs.");
+        var result = new SortedDictionary<string, string>(StringComparer.Ordinal);
+        foreach (string relative in tracked.Order(StringComparer.Ordinal))
+        {
+            string path = Path.GetFullPath(relative, root);
+            if (!path.StartsWith(root + Path.DirectorySeparatorChar, StringComparison.Ordinal)
+                || !File.Exists(path))
+            {
+                throw new InvalidDataException(
+                    $"Tracked baseline-harness input is missing or outside the harness root: {relative}");
+            }
+            result.Add(relative.Replace(Path.DirectorySeparatorChar, '/'), Sha256File(path));
         }
         return result;
     }
@@ -881,6 +988,30 @@ internal static class PairedBenchmarkAnalyzer
             {
                 throw new InvalidDataException($"Counter output field 'outputBounds' is invalid: {path}");
             }
+            string measuredOutputSha256 = ReadHexOutput(root, "measuredOutputSha256", 64, path);
+            string measuredOutputChecksum = ReadHexOutput(root, "measuredOutputChecksum", 16, path);
+            if (!root.TryGetProperty("measuredOutputBounds", out JsonElement measuredOutputBounds)
+                || !IsValidOutputBounds(measuredOutputBounds))
+            {
+                throw new InvalidDataException(
+                    $"Counter output field 'measuredOutputBounds' is invalid: {path}");
+            }
+            string expectedMeasuredOutputSha256 = ReadHexOutput(
+                root,
+                "expectedMeasuredOutputSha256",
+                64,
+                path);
+            string expectedMeasuredOutputChecksum = ReadHexOutput(
+                root,
+                "expectedMeasuredOutputChecksum",
+                16,
+                path);
+            if (!root.TryGetProperty("expectedMeasuredOutputBounds", out JsonElement expectedMeasuredOutputBounds)
+                || !IsValidOutputBounds(expectedMeasuredOutputBounds))
+            {
+                throw new InvalidDataException(
+                    $"Counter output field 'expectedMeasuredOutputBounds' is invalid: {path}");
+            }
 
             foreach (string name in new[] { "setupLastRequestCounters", "measuredLastRequestCounters" })
             {
@@ -891,8 +1022,16 @@ internal static class PairedBenchmarkAnalyzer
 
             int width = root.GetProperty("width").GetInt32();
             int height = root.GetProperty("height").GetInt32();
+            int measuredWidth = root.GetProperty("measuredWidth").GetInt32();
+            int measuredHeight = root.GetProperty("measuredHeight").GetInt32();
+            int expectedMeasuredWidth = root.GetProperty("expectedMeasuredWidth").GetInt32();
+            int expectedMeasuredHeight = root.GetProperty("expectedMeasuredHeight").GetInt32();
             if (width <= 0
                 || height <= 0
+                || measuredWidth <= 0
+                || measuredHeight <= 0
+                || expectedMeasuredWidth <= 0
+                || expectedMeasuredHeight <= 0
                 || root.GetProperty("setupWarmupFrames").GetInt32() <= 0)
             {
                 throw new InvalidDataException($"Counter dimensions or warm-up count are invalid: {path}");
@@ -905,7 +1044,19 @@ internal static class PairedBenchmarkAnalyzer
                     height,
                     CanonicalJson(outputBounds),
                     outputSha256,
-                    outputChecksum));
+                    outputChecksum),
+                new CounterOutputContract(
+                    measuredWidth,
+                    measuredHeight,
+                    CanonicalJson(measuredOutputBounds),
+                    measuredOutputSha256,
+                    measuredOutputChecksum),
+                new CounterOutputContract(
+                    expectedMeasuredWidth,
+                    expectedMeasuredHeight,
+                    CanonicalJson(expectedMeasuredOutputBounds),
+                    expectedMeasuredOutputSha256,
+                    expectedMeasuredOutputChecksum));
         }
 
         internal static bool IsValidOutputBounds(JsonElement outputBounds)
@@ -992,7 +1143,9 @@ internal static class PairedBenchmarkAnalyzer
     private sealed record CounterCase(
         JsonElement Record,
         SortedDictionary<string, string> Contract,
-        CounterOutputContract OutputContract);
+        CounterOutputContract SetupOutputContract,
+        CounterOutputContract MeasuredOutputContract,
+        CounterOutputContract ExpectedMeasuredOutputContract);
 
     private sealed record CounterOutputContract(
         int Width,

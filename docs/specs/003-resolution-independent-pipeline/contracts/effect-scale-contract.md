@@ -113,7 +113,7 @@ A custom `RenderNode` that records a materialized source or maps an input supply
 
 So a plugin override that derives a density from animatable geometry MUST either **pre-guard the quotient** (as `TransformRenderNode.RescaleDensity` does — clamp the factor, then re-check the quotient is finite-positive) **or use `AtOrUnbounded`**. Reserve `At` for densities already proven finite-positive.
 
-Relatedly, `RenderNodeContext` **sanitizes degenerate inputs once at construction** so downstream consumers (effects, particles, 3D) inherit a safe density without re-validating: a degenerate `OutputScale` (`0` / `NaN` / `∞`) becomes `1`, and a degenerate `MaxWorkingScale` (`NaN` / `≤ 0`) becomes `+∞` (no ceiling — it can never NaN-propagate into `w` or pull it to zero). `ResolveWorkingScale` and `ClampWorkingScaleToBufferBudget` harden the same way (a non-finite/non-positive `outputScale` is treated as `1`; a non-finite `w`/bounds passes through unchanged).
+Relatedly, `RenderNodeContext` **sanitizes degenerate inputs once at construction** so downstream consumers (effects, particles, 3D) inherit a safe density without re-validating: a degenerate `OutputScale` (`0` / `NaN` / `∞`) becomes `1`, and a degenerate `MaxWorkingScale` (`NaN` / `≤ 0`) becomes `+∞` (no ceiling — it can never NaN-propagate into `w` or pull it to zero). `RenderScaleUtilities.ResolveWorkingScale` and `RenderScaleUtilities.ClampWorkingScaleToBufferBudget` harden the same way (a non-finite/non-positive `outputScale` is treated as `1`; a non-finite `w`/bounds passes through unchanged).
 
 ## Mechanism summary
 

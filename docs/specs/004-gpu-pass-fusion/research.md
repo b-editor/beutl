@@ -71,6 +71,12 @@ three approved blobs, updates only their artifact hashes and non-vacuity records
 updates the visual manifest trust anchor, and keeps the benchmark manifest's visual
 evidence linkage consistent. It never selects or truncates the live workload set.
 
+Execute that refresh step from the clean feature repository whose `HEAD` supplies the feature provenance:
+
+```bash
+docs/specs/004-gpu-pass-fusion/evidence/refresh-intentional-visual-baselines.sh
+```
+
 ## Phase 6 render-cache default
 
 The node render cache remains available as an explicit experimental option, but it

@@ -9,13 +9,6 @@ baseline_manifest="$baseline_root/manifest.json"
 benchmark_manifest="$script_dir/target-benchmark/manifest.json"
 test_support="$repo_root/tests/Beutl.UnitTests/Engine/Graphics/Rendering/Baseline/GpuPassFusionBaselineTestSupport.cs"
 provenance_doc="$script_dir/target-baseline.md"
-temporary_root=$(mktemp -d "${TMPDIR:-/tmp}/beutl-visual-refresh.XXXXXX")
-feature_output="$temporary_root/feature"
-
-cleanup() {
-    rm -rf -- "$temporary_root"
-}
-trap cleanup EXIT
 
 for command_name in dotnet git python3; do
     command -v "$command_name" >/dev/null 2>&1 || {
@@ -24,28 +17,60 @@ for command_name in dotnet git python3; do
     }
 done
 
+[[ -z $(git -C "$repo_root" status --porcelain=v1 --untracked-files=all) ]] || {
+    printf 'Visual-baseline refresh requires a clean repository: %s\n' "$repo_root" >&2
+    exit 1
+}
+feature_code_sha=$(git -C "$repo_root" rev-parse HEAD)
+[[ $feature_code_sha =~ ^[0-9a-f]{40}$ ]] || {
+    printf 'Could not resolve the feature code SHA from repository: %s\n' "$repo_root" >&2
+    exit 1
+}
+refresh_script="$script_dir/$(basename -- "$0")"
+refresh_script_relative=${refresh_script#"$repo_root"/}
+git -C "$repo_root" ls-files --error-unmatch -- "$refresh_script_relative" >/dev/null || {
+    printf 'Visual-baseline refresh script is not tracked: %s\n' "$refresh_script" >&2
+    exit 1
+}
+refresh_script_sha=$(python3 -c \
+    'import hashlib, pathlib, sys; print(hashlib.sha256(pathlib.Path(sys.argv[1]).read_bytes()).hexdigest())' \
+    "$refresh_script")
+
+temporary_root=$(mktemp -d "${TMPDIR:-/tmp}/beutl-visual-refresh.XXXXXX")
+feature_output="$temporary_root/feature"
+
+cleanup() {
+    rm -rf -- "$temporary_root"
+}
+trap cleanup EXIT
+
 [[ -f $baseline_manifest ]] || {
     printf 'Target baseline manifest is missing: %s\n' "$baseline_manifest" >&2
     exit 1
 }
 
-BEUTL_GPU_PASS_EVIDENCE_OUTPUT_DIR="$feature_output" \
-BEUTL_GPU_PASS_BASELINE_MANIFEST="$baseline_manifest" \
-BEUTL_GPU_PASS_EVIDENCE_MODE=feature \
-BEUTL_REQUIRE_GPU=1 \
-dotnet run \
-    --project "$repo_root/tests/Beutl.Benchmarks/Beutl.Benchmarks.csproj" \
-    -c Release \
-    -f net10.0 \
-    -- \
-    feature-visual-export
+(
+    cd "$repo_root"
+    BEUTL_GPU_PASS_EVIDENCE_OUTPUT_DIR="$feature_output" \
+    BEUTL_GPU_PASS_BASELINE_MANIFEST="$baseline_manifest" \
+    BEUTL_GPU_PASS_EVIDENCE_MODE=feature \
+    BEUTL_REQUIRE_GPU=1 \
+    dotnet run \
+        --project "$repo_root/tests/Beutl.Benchmarks/Beutl.Benchmarks.csproj" \
+        -c Release \
+        -f net10.0 \
+        -- \
+        feature-visual-export
+)
 
 python3 - \
     "$baseline_root" \
     "$feature_output" \
     "$benchmark_manifest" \
     "$test_support" \
-    "$provenance_doc" <<'PY'
+    "$provenance_doc" \
+    "$feature_code_sha" \
+    "$refresh_script_sha" <<'PY'
 import hashlib
 import json
 import os
@@ -58,6 +83,8 @@ feature_root = pathlib.Path(sys.argv[2])
 benchmark_path = pathlib.Path(sys.argv[3])
 test_support = pathlib.Path(sys.argv[4])
 provenance_doc = pathlib.Path(sys.argv[5])
+expected_feature_code_sha = sys.argv[6]
+refresh_script_sha = sys.argv[7]
 
 selected = {
     "geometry-stroke": "geometry-stroke.rgba16f",
@@ -92,6 +119,8 @@ feature = load_json(feature_path, "feature manifest")
 benchmark = load_json(benchmark_path, "target benchmark manifest")
 if benchmark.get("visualManifestSha256") != old_manifest_hash:
     raise SystemExit("Target benchmark manifest does not reference the current visual manifest")
+if feature.get("featureCodeSha") != expected_feature_code_sha:
+    raise SystemExit("Feature manifest code SHA does not match the clean repository HEAD")
 
 if baseline.get("pixelFormat") != feature.get("pixelFormat"):
     raise SystemExit("Feature and target pixel formats differ")
@@ -102,6 +131,9 @@ if not isinstance(baseline_fingerprint, dict) or not isinstance(feature_fingerpr
     raise SystemExit("An evidence fingerprint is missing")
 if set(baseline_fingerprint) != set(feature_fingerprint):
     raise SystemExit("Feature and target fingerprint schemas differ")
+feature_assembly_version = feature_fingerprint.get(source_provenance_field)
+if not isinstance(feature_assembly_version, str) or expected_feature_code_sha.lower() not in feature_assembly_version.lower():
+    raise SystemExit("Feature assembly provenance does not contain the clean repository HEAD")
 environment_fields = set(baseline_fingerprint) - {source_provenance_field}
 mismatches = sorted(
     name for name in environment_fields
@@ -239,6 +271,7 @@ for scene_id, blob_name in selected.items():
     print(f"  {scene_id}: {blob_name} {target_hashes[blob_name]}")
 print(f"Updated manifest trust anchor: {manifest_hash}")
 print(f"Updated benchmark evidence linkage: {benchmark_hash}")
+print(f"Refresh script SHA-256: {refresh_script_sha}")
 PY
 
 printf '%s\n' \

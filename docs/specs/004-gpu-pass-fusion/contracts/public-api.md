@@ -746,6 +746,8 @@ public sealed class RawTargetCommandSession
 }
 ```
 
+Both `RawTargetCommandDescription.Create` and `TargetCommandDescription.Create` validate `queryBounds` when the description is created. The accepted domain is every finite `Rect` with non-negative width and height. `Rect.Empty` is the conventional no-query value, although another finite zero-area rectangle is also accepted and preserves its authored origin. A non-finite coordinate/dimension or a negative width/height is rejected synchronously with `ArgumentException` for `queryBounds`.
+
 `RawTargetScope` is invoked once per input fragment and must call `ReplayInput` exactly once. It receives a raw current-target canvas specifically to migrate an existing custom decorator that cannot be expressed through Opacity, Blend, OpacityMask, typed `TargetLayerScope`, finite value `Layer`, or guarded transform/clip TargetScope. Both raw forms conservatively consume/produce the scope's `TargetRegion.Full` token with read/write access because an unguarded callback may draw, clear, snapshot, or touch pixels before/after replay and cannot be mechanically confined. A raw scope's Bounds/HitTest/Scale and a raw command's QueryBounds/HitTest describe only value/query metadata, never a trusted access limit. `RawTargetCommand` is invoked once with no value input and has value cardinality `None`, `EffectiveScale.Unbounded`, and `ContributesValuesToTarget == false`; wrap it in finite `Layer` when its painter result must become a value.
 
 Neither raw callback may dispose or retain the canvas/session/resource, but internal saves, layers, draws, snapshots, flushes, or nested raw hooks cannot be inspected or counted by the planner. Each fragment is therefore a `LegacyRawCanvas`/opaque-external boundary, sets `HasOpaqueExternalWork`, increments `OpaqueExternalExecutions`, disables whole-subtree caching/fusion through itself, and is excluded from exact internal pass/synchronization claims. Raw descriptions deliberately have no runtime cache identity: callback payload binds per request and whole-subtree output caching always bypasses. New code uses the typed vocabulary; the raw forms exist for behavioral completeness, not as optimization assertions. The migration census must classify every old `CreateLambda`/raw-canvas call site as guarded `Opaque*`, typed TargetCommand/capture/scope, RawTargetScope, or RawTargetCommand; no unclassified escape remains.
@@ -817,7 +819,7 @@ Every public callback is conservatively target-dependent: `ReadWrite` and `Readb
 
 `QueryBounds` and the mandatory CPU-only `HitTest` contract describe this command's visible/query contribution independently of the region it reads or writes; snapshot/readback/clear commands normally use empty query bounds plus `None`, while a backdrop draw uses its declared bounds plus `OutputBounds`. They never authorize command reordering or elimination. Resources must be declared and are borrowed through the same scoped rules as opaque work. A null structural key defaults to the execution callback's method identity plus access kind; shape-changing captured choices require an explicit key. Pixel-affecting captured scalar/value data uses `runtimeIdentity`; null creates a fresh request-local cache identity.
 
-For `TargetAccess.Readback`, the executor snapshots the immutable preceding target token over the resolved finite affected region before invoking the command callback. `UseSnapshot` must then be called exactly once and supplies that pre-command bitmap synchronously; writes performed by the callback are not reflected in it. The bitmap's local pixel `(0, 0)` represents `Canvas.LogicalOrigin` and its size is `Canvas.DeviceBounds.Size`. The request disposes it before return, retained/disposed-by-author use is invalid, and failure preserves the callback exception while still releasing the bitmap. A callback that needs pixels after an intermediate write must split that work into a target command followed by `TargetCapture`/another command, making the synchronization visible. `ReadWrite` permits GPU-side target access through `Canvas` but does not imply CPU readback.
+For `TargetAccess.Readback`, the executor resolves the finite `AffectedRegion` as the command's `RequiredRegion`, snapshots that subset of the immutable preceding target token, and creates the callback canvas over the same region before invoking the command. `UseSnapshot` must then be called exactly once and supplies that pre-command bitmap synchronously; writes performed by the callback are not reflected in it. The bitmap's local pixel `(0, 0)` represents `Canvas.LogicalOrigin`, and its pixel dimensions match `Canvas.DeviceBounds.Size` (the canvas `RasterBounds` footprint), not the full backing target. The request disposes it before return, retained/disposed-by-author use is invalid, and failure preserves the callback exception while still releasing the bitmap. A callback that needs pixels after an intermediate write must split that work into a target command followed by `TargetCapture`/another command, making the synchronization visible. `ReadWrite` permits GPU-side target access through `Canvas` but does not imply CPU readback.
 
 The command canvas clips ordinary drawing to the resolved affected region and rejects every pixel operation when it is `Empty`. Because the native clear primitive ignores clip state, `Clear` is accepted only for `TargetRegion.Full`; a finite-region clear must use the engine's clipped source-replace operation or an ordinary clipped draw. Every access outside the declaration is a capability violation and fails before cache publication.
 
@@ -1086,7 +1088,13 @@ public class CustomFilterEffectContext
     public Vector DeviceGridOffset { get; }
     public RenderIntent Intent { get; }
     public RenderRequestPurpose Purpose { get; }
+    public EffectTarget CreateTarget(Rect bounds);
+    public EffectTarget CreateTargetLike(EffectTarget source);
     public EffectTarget CreateReplacement(EffectTarget source, RenderTarget renderTarget);
+    public SKShader CreateMappedInputShader(
+        EffectTarget source,
+        EffectTarget destination,
+        SKShader sourceShader);
 }
 
 public sealed class EffectTarget : IDisposable
@@ -1098,6 +1106,16 @@ public sealed class EffectTarget : IDisposable
     public Vector DeviceGridOffset { get; }
     public Rect RasterBounds { get; }
     public RenderTarget? RenderTarget { get; }
+}
+
+public sealed class SKSLShader : IDisposable
+{
+    public SKRuntimeShaderBuilder CreateBuilder();
+
+    public void RenderToTarget(
+        CustomFilterEffectContext context,
+        SKRuntimeShaderBuilder builder,
+        EffectTarget target);
 }
 ```
 

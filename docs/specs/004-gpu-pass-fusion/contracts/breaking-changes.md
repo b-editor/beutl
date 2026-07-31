@@ -72,6 +72,7 @@ public override void Process(RenderNodeContext context)
     {
         // The inputs still depend on an owning target domain. Record without
         // authoritative bounds, or establish an explicit finite Layer below.
+        context.PassThrough();
         return;
     }
 
@@ -406,7 +407,18 @@ using EffectTarget source = context.Targets[index];
 EffectTarget destination = context.CreateTargetLike(source);
 try
 {
-    using SKImage image = source.RenderTarget!.Value.Snapshot();
+    using Bitmap bitmap = source.RenderTarget!.Snapshot();
+    using SKColorSpace colorSpace = SKColorSpace.CreateSrgbLinear();
+    var imageInfo = new SKImageInfo(
+        bitmap.Width,
+        bitmap.Height,
+        SKColorType.RgbaF16,
+        SKAlphaType.Premul,
+        colorSpace);
+    using SKImage image = SKImage.FromPixelCopy(
+        imageInfo,
+        bitmap.GetPixelSpan(),
+        bitmap.RowBytes);
     using SKShader snapshot = image.ToShader(
         SKShaderTileMode.Decal,
         SKShaderTileMode.Decal);
@@ -430,7 +442,7 @@ catch
 }
 ```
 
-For expanded, cropped, or otherwise changed logical bounds, replace `CreateTargetLike(source)` with `CreateTarget(newBounds)`. A generator shader with no materialized input omits `CreateMappedInputShader`. The mapping uses the current `RasterBounds`, not immutable `DeviceBounds`, so translated targets, fractional origins, raster aprons, and differing input/output densities remain aligned. `RenderToTarget` borrows its arguments and always draws the complete destination backing; callers own unpublished destinations and dispose them on failure.
+The example uses only the landed public surface: `RenderTarget.Snapshot` returns a CPU `Bitmap`, `SKImage.FromPixelCopy` creates the Skia input image, `CreateTargetLike` allocates the destination, `CreateMappedInputShader` maps the input footprint, and `RenderToTarget` performs the final draw. For expanded, cropped, or otherwise changed logical bounds, replace `CreateTargetLike(source)` with `CreateTarget(newBounds)`. A generator shader with no materialized input omits `CreateMappedInputShader`. The mapping uses the current `RasterBounds`, not immutable `DeviceBounds`, so translated targets, fractional origins, raster aprons, and differing input/output densities remain aligned. `RenderToTarget` borrows its arguments and always draws the complete destination backing; callers own unpublished destinations and dispose them on failure.
 
 `OperationWrapperRenderNode.SetOperations` cannot retain transaction handles and is removed with the wrapper's public executable role. NodeGraph input nodes receive fresh request-local facade handles through `RecordNode` binding and publish only while that nested transaction is active. A downstream custom wrapper follows the same pattern instead of storing handles in fields.
 

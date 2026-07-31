@@ -101,6 +101,8 @@ internal sealed class RenderPipelineBenchmarkSession : IDisposable
     private readonly RenderPipelineEvidenceFingerprint _fingerprint;
     private int _nextFrame;
     private RenderPipelineObservedFrame? _lastSetupFrame;
+    private int _lastMeasuredFrameIndex = -1;
+    private ulong _lastMeasuredToken;
     private bool _disposed;
 
     public RenderPipelineBenchmarkSession(string caseName)
@@ -162,19 +164,13 @@ internal sealed class RenderPipelineBenchmarkSession : IDisposable
     {
         ThrowIfDisposed();
         RenderThread.Dispatcher.VerifyAccess();
-        ApplyFrameState(_nextFrame++);
+        int frameIndex = _nextFrame++;
+        ApplyFrameState(frameIndex);
         using RenderNodeRasterization rasterization = _renderer.Rasterize();
         Bitmap? bitmap = rasterization.Bitmap;
-        if (bitmap is null)
-            return 0;
-
-        Span<ushort> pixels = bitmap.GetPixelSpan<ushort>();
-        return pixels.Length == 0
-            ? 0
-            : ((ulong)pixels[0] << 48)
-              | ((ulong)pixels[pixels.Length / 3] << 32)
-              | ((ulong)pixels[pixels.Length * 2 / 3] << 16)
-              | pixels[^1];
+        _lastMeasuredFrameIndex = frameIndex;
+        _lastMeasuredToken = bitmap is null ? 0 : SampleToken(bitmap.GetPixelSpan<ushort>());
+        return _lastMeasuredToken;
     }
 
     public RenderPipelineBenchmarkCounterRecord CreateCounterRecord()
@@ -183,9 +179,19 @@ internal sealed class RenderPipelineBenchmarkSession : IDisposable
         RenderThread.Dispatcher.VerifyAccess();
         RenderPipelineObservedFrame setup = _lastSetupFrame
             ?? throw new InvalidOperationException("Benchmark setup verification did not complete.");
+        if (_lastMeasuredFrameIndex < 0)
+            throw new InvalidOperationException("Benchmark completed without a measured request.");
         using var diagnosticSession = new DiagnosticSession(_scene);
         DiagnosticCapture diagnostics = diagnosticSession.Capture(_nextFrame);
         AssertMatchingDiagnosticOutput(setup, diagnostics.SetupOutput);
+        if (diagnostics.MeasuredOutput.Token != _lastMeasuredToken)
+        {
+            throw new InvalidOperationException(
+                "The untimed diagnostic session did not reproduce the final measured output token.");
+        }
+        using var expectationSession = new DiagnosticSession(_scene);
+        DiagnosticCapture expectation = expectationSession.Capture(_nextFrame);
+        AssertMatchingDiagnosticOutput(diagnostics.MeasuredOutput, expectation.MeasuredOutput);
 
         return new RenderPipelineBenchmarkCounterRecord
         {
@@ -200,6 +206,16 @@ internal sealed class RenderPipelineBenchmarkSession : IDisposable
             OutputSha256 = setup.Sha256,
             OutputChecksum = setup.Checksum.ToString("x16"),
             OutputBounds = setup.Bounds,
+            MeasuredOutputSha256 = diagnostics.MeasuredOutput.Sha256,
+            MeasuredOutputChecksum = diagnostics.MeasuredOutput.Checksum.ToString("x16"),
+            MeasuredOutputBounds = diagnostics.MeasuredOutput.Bounds,
+            MeasuredWidth = diagnostics.MeasuredOutput.Width,
+            MeasuredHeight = diagnostics.MeasuredOutput.Height,
+            ExpectedMeasuredOutputSha256 = expectation.MeasuredOutput.Sha256,
+            ExpectedMeasuredOutputChecksum = expectation.MeasuredOutput.Checksum.ToString("x16"),
+            ExpectedMeasuredOutputBounds = expectation.MeasuredOutput.Bounds,
+            ExpectedMeasuredWidth = expectation.MeasuredOutput.Width,
+            ExpectedMeasuredHeight = expectation.MeasuredOutput.Height,
             Fingerprint = _fingerprint,
             SetupLastRequestCounters = diagnostics.SetupCounters,
             MeasuredLastRequestCounters = diagnostics.MeasuredCounters,
@@ -239,6 +255,7 @@ internal sealed class RenderPipelineBenchmarkSession : IDisposable
                 0,
                 0,
                 0,
+                0,
                 string.Empty,
                 0);
         }
@@ -246,6 +263,7 @@ internal sealed class RenderPipelineBenchmarkSession : IDisposable
         Span<byte> bytes = bitmap.GetPixelSpan();
         string sha256 = Convert.ToHexString(SHA256.HashData(bytes)).ToLowerInvariant();
         Span<ushort> components = bitmap.GetPixelSpan<ushort>();
+        ulong token = SampleToken(components);
         ulong checksum = CalculateChecksum(components);
         double energy = 0;
         for (int index = 0; index < components.Length; index += 17)
@@ -256,6 +274,7 @@ internal sealed class RenderPipelineBenchmarkSession : IDisposable
             rasterization.Bounds,
             bitmap.Width,
             bitmap.Height,
+            token,
             checksum,
             sha256,
             energy);
@@ -335,6 +354,14 @@ internal sealed class RenderPipelineBenchmarkSession : IDisposable
         return result;
     }
 
+    private static ulong SampleToken(ReadOnlySpan<ushort> components)
+        => components.Length == 0
+            ? 0
+            : ((ulong)components[0] << 48)
+              | ((ulong)components[components.Length / 3] << 32)
+              | ((ulong)components[components.Length * 2 / 3] << 16)
+              | components[^1];
+
     private static int[] GetSetupFrames(RenderPipelineBenchmarkSceneDefinition scene)
         => scene.Animation == RenderPipelineBenchmarkAnimation.StructuralToggle
             ? [0, 1, 7, 8, 9]
@@ -358,11 +385,12 @@ internal sealed class RenderPipelineBenchmarkSession : IDisposable
             || production.Bounds != diagnostic.Bounds
             || production.Width != diagnostic.Width
             || production.Height != diagnostic.Height
+            || production.Token != diagnostic.Token
             || production.Checksum != diagnostic.Checksum
             || !string.Equals(production.Sha256, diagnostic.Sha256, StringComparison.Ordinal))
         {
             throw new InvalidOperationException(
-                "The untimed diagnostic session did not reproduce the production benchmark setup output.");
+                "Independent benchmark output captures did not reproduce the same output.");
         }
     }
 
@@ -586,6 +614,7 @@ internal sealed class RenderPipelineBenchmarkSession : IDisposable
                 throw new InvalidOperationException("The production benchmark completed without a measured request.");
 
             SortedDictionary<string, long>? measuredCounters = null;
+            RenderPipelineObservedFrame? measuredOutput = null;
             for (int frameIndex = firstMeasuredFrame; frameIndex < productionNextFrame; frameIndex++)
             {
                 ApplyFrameState(frameIndex);
@@ -593,7 +622,10 @@ internal sealed class RenderPipelineBenchmarkSession : IDisposable
                 SortedDictionary<string, long> counters = CaptureCounters(frameIndex, "measured-shape");
                 ValidateRequestCounters(counters);
                 if (frameIndex == productionNextFrame - 1)
+                {
+                    measuredOutput = Observe(rasterization);
                     measuredCounters = counters;
+                }
             }
             SortedDictionary<string, long> verifiedMeasuredCounters = measuredCounters
                 ?? throw new InvalidOperationException(
@@ -602,6 +634,8 @@ internal sealed class RenderPipelineBenchmarkSession : IDisposable
             return new DiagnosticCapture(
                 setupOutput
                     ?? throw new InvalidOperationException("The untimed diagnostic setup produced no output."),
+                measuredOutput
+                    ?? throw new InvalidOperationException("The untimed diagnostic session produced no measured output."),
                 verifiedSetupCounters,
                 verifiedMeasuredCounters,
                 RenderPipelineInternalDiagnostics.CaptureNumericProperties(
@@ -650,6 +684,7 @@ internal sealed class RenderPipelineBenchmarkSession : IDisposable
 
     private sealed record DiagnosticCapture(
         RenderPipelineObservedFrame SetupOutput,
+        RenderPipelineObservedFrame MeasuredOutput,
         SortedDictionary<string, long> SetupCounters,
         SortedDictionary<string, long> MeasuredCounters,
         SortedDictionary<string, long> LastExecutionStatistics,
@@ -777,6 +812,7 @@ internal sealed record RenderPipelineObservedFrame(
     Rect Bounds,
     int Width,
     int Height,
+    ulong Token,
     ulong Checksum,
     string Sha256,
     double Energy);
@@ -885,6 +921,16 @@ internal sealed class RenderPipelineBenchmarkCounterRecord
     public string OutputSha256 { get; init; } = string.Empty;
     public string OutputChecksum { get; init; } = string.Empty;
     public Rect OutputBounds { get; init; }
+    public string MeasuredOutputSha256 { get; init; } = string.Empty;
+    public string MeasuredOutputChecksum { get; init; } = string.Empty;
+    public Rect MeasuredOutputBounds { get; init; }
+    public int MeasuredWidth { get; init; }
+    public int MeasuredHeight { get; init; }
+    public string ExpectedMeasuredOutputSha256 { get; init; } = string.Empty;
+    public string ExpectedMeasuredOutputChecksum { get; init; } = string.Empty;
+    public Rect ExpectedMeasuredOutputBounds { get; init; }
+    public int ExpectedMeasuredWidth { get; init; }
+    public int ExpectedMeasuredHeight { get; init; }
     public RenderPipelineEvidenceFingerprint Fingerprint { get; init; } = new();
     public SortedDictionary<string, long> SetupLastRequestCounters { get; init; } = new(StringComparer.Ordinal);
     public SortedDictionary<string, long> MeasuredLastRequestCounters { get; init; } = new(StringComparer.Ordinal);

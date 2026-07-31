@@ -5,9 +5,12 @@ This guide is for implementing the feature after `/speckit-tasks` has generated 
 ## 1. Confirm the feature worktree
 
 ```bash
-git branch --show-current
-git status --short
-git merge-base HEAD origin/main
+expected_branch=speckit/004-gpu-pass-fusion
+expected_baseline_sha=43a38e665d9bf52548161a3917e748bd1457ff55
+
+test "$(git branch --show-current)" = "$expected_branch"
+test -z "$(git status --porcelain=v1 --untracked-files=all)"
+test "$(git merge-base HEAD origin/main)" = "$expected_baseline_sha"
 ```
 
 Expected feature branch:
@@ -254,4 +257,4 @@ docs/specs/004-gpu-pass-fusion/evidence/run-paired-benchmarks.sh \
 
 The runner records raw results, SHAs, environment, controls, confidence intervals, and request counters. The primary warmed post/pre median ratio's 95% confidence interval must lie below 1.0; donor percentages are not acceptance thresholds.
 
-Finally run the public-design and repository boundary reviews. The public migration commit must be breaking and name `Beutl.Engine`, `Beutl.Editor`, `Beutl.NodeGraph`, `Beutl.ProjectSystem`, `Beutl.AgentToolkit`, the application, and downstream custom render-node authors in its `BREAKING CHANGE:` footer.
+Finally run the public-design and repository boundary reviews. The public migration commit must use a `refactor!:` or `feat!:` Conventional Commit prefix and name `Beutl.Engine`, `Beutl.Editor`, `Beutl.NodeGraph`, `Beutl.ProjectSystem`, `Beutl.AgentToolkit`, the application, and downstream custom render-node authors in its `BREAKING CHANGE:` footer.

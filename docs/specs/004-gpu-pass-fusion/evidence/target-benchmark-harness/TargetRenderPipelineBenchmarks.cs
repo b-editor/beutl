@@ -85,7 +85,8 @@ internal sealed class TargetRenderPipelineBenchmarkSession : IDisposable
     private readonly TargetEvidenceFingerprint _fingerprint;
     private int _nextFrame;
     private TargetObservedFrame? _lastSetupFrame;
-    private SortedDictionary<string, long> _lastMeasuredCounters = new(StringComparer.Ordinal);
+    private int _lastMeasuredFrameIndex = -1;
+    private ulong _lastMeasuredToken;
     private bool _disposed;
 
     public TargetRenderPipelineBenchmarkSession(string caseName)
@@ -154,9 +155,11 @@ internal sealed class TargetRenderPipelineBenchmarkSession : IDisposable
     public ulong RenderMeasuredFrame()
     {
         ThrowIfDisposed();
-        TargetObservedFrame frame = RenderAndObserve(_nextFrame++, verifyOutput: false);
-        _lastMeasuredCounters = frame.RequestCounters;
-        return frame.Token;
+        int frameIndex = _nextFrame++;
+        TargetObservedFrame frame = RenderAndObserve(frameIndex, verifyOutput: false);
+        _lastMeasuredFrameIndex = frameIndex;
+        _lastMeasuredToken = frame.Token;
+        return _lastMeasuredToken;
     }
 
     public TargetRenderPipelineCounterRecord CreateCounterRecord()
@@ -164,8 +167,28 @@ internal sealed class TargetRenderPipelineBenchmarkSession : IDisposable
         ThrowIfDisposed();
         TargetObservedFrame setup = _lastSetupFrame
             ?? throw new InvalidOperationException("Target benchmark setup verification did not complete.");
-        if (_lastMeasuredCounters.Count == 0)
+        if (_lastMeasuredFrameIndex < 0)
             throw new InvalidOperationException("Target benchmark completed without a measured request.");
+        TargetObservedFrame measured = RenderAndObserve(_lastMeasuredFrameIndex, verifyOutput: true);
+        if (measured.Token != _lastMeasuredToken)
+        {
+            throw new InvalidOperationException(
+                "The untimed target replay did not reproduce the final measured output token.");
+        }
+        TargetObservedFrame expectedMeasured = RenderAndObserve(_lastMeasuredFrameIndex, verifyOutput: true);
+        if (measured.Bounds != expectedMeasured.Bounds
+            || measured.Width != expectedMeasured.Width
+            || measured.Height != expectedMeasured.Height
+            || measured.Checksum != expectedMeasured.Checksum
+            || !string.Equals(measured.Sha256, expectedMeasured.Sha256, StringComparison.Ordinal))
+        {
+            throw new InvalidOperationException(
+                "Independent untimed target replays did not reproduce the final measured output.");
+        }
+        SortedDictionary<string, long> setupCounters = setup.RequestCounters
+            ?? throw new InvalidOperationException("Target benchmark setup counters are missing.");
+        SortedDictionary<string, long> measuredCounters = measured.RequestCounters
+            ?? throw new InvalidOperationException("Target benchmark measured counters are missing.");
         return new TargetRenderPipelineCounterRecord
         {
             SchemaVersion = 2,
@@ -179,12 +202,22 @@ internal sealed class TargetRenderPipelineBenchmarkSession : IDisposable
             OutputSha256 = setup.Sha256,
             OutputChecksum = setup.Checksum.ToString("x16"),
             OutputBounds = setup.Bounds,
+            MeasuredOutputSha256 = measured.Sha256,
+            MeasuredOutputChecksum = measured.Checksum.ToString("x16"),
+            MeasuredOutputBounds = measured.Bounds,
+            MeasuredWidth = measured.Width,
+            MeasuredHeight = measured.Height,
+            ExpectedMeasuredOutputSha256 = expectedMeasured.Sha256,
+            ExpectedMeasuredOutputChecksum = expectedMeasured.Checksum.ToString("x16"),
+            ExpectedMeasuredOutputBounds = expectedMeasured.Bounds,
+            ExpectedMeasuredWidth = expectedMeasured.Width,
+            ExpectedMeasuredHeight = expectedMeasured.Height,
             Fingerprint = _fingerprint,
-            SetupLastRequestCounters = setup.RequestCounters,
-            MeasuredLastRequestCounters = _lastMeasuredCounters,
+            SetupLastRequestCounters = setupCounters,
+            MeasuredLastRequestCounters = measuredCounters,
             LastExecutionStatistics = new SortedDictionary<string, long>(StringComparer.Ordinal)
             {
-                ["LegacyOperationExecutions"] = _lastMeasuredCounters["LegacyOperationExecutions"],
+                ["LegacyOperationExecutions"] = measuredCounters["LegacyOperationExecutions"],
             },
             StructuralPlanCacheStatistics = new SortedDictionary<string, long>(StringComparer.Ordinal)
             {
@@ -254,6 +287,15 @@ internal sealed class TargetRenderPipelineBenchmarkSession : IDisposable
               | ((ulong)components[components.Length / 3] << 32)
               | ((ulong)components[components.Length * 2 / 3] << 16)
               | components[^1];
+        if (!verifyOutput)
+            return new TargetObservedFrame(bounds, bitmap.Width, bitmap.Height, token, 0, string.Empty, 0, null);
+
+        byte[] bytes = bitmap.GetPixelSpan().ToArray();
+        string sha256 = Convert.ToHexString(SHA256.HashData(bytes)).ToLowerInvariant();
+        ulong checksum = CalculateChecksum(components);
+        double energy = 0;
+        for (int index = 0; index < components.Length; index += 17)
+            energy += Math.Abs((float)BitConverter.UInt16BitsToHalf(components[index]));
         var counters = new SortedDictionary<string, long>(StringComparer.Ordinal)
         {
             ["CompletedRequests"] = 1,
@@ -264,15 +306,6 @@ internal sealed class TargetRenderPipelineBenchmarkSession : IDisposable
             ["RenderCacheHits"] = _scene.HasStaticPrefixCache ? 1 : 0,
             ["Failures"] = 0,
         };
-        if (!verifyOutput)
-            return new TargetObservedFrame(bounds, bitmap.Width, bitmap.Height, token, 0, string.Empty, 0, counters);
-
-        byte[] bytes = bitmap.GetPixelSpan().ToArray();
-        string sha256 = Convert.ToHexString(SHA256.HashData(bytes)).ToLowerInvariant();
-        ulong checksum = CalculateChecksum(components);
-        double energy = 0;
-        for (int index = 0; index < components.Length; index += 17)
-            energy += Math.Abs((float)BitConverter.UInt16BitsToHalf(components[index]));
         return new TargetObservedFrame(bounds, bitmap.Width, bitmap.Height, token, checksum, sha256, energy, counters);
     }
 
@@ -466,7 +499,7 @@ internal static class TargetSceneFactory
             RenderNode source = fixture.WrapShader(
                 Source(scene, bounds, index),
                 TargetShaderScript.Create(TargetShaderKind.ChannelRotate));
-            var dependency = new TargetLegacyDependencyNode();
+            var dependency = new TargetLegacyDependencyNode(bounds);
             dependency.AddChild(source);
             root.AddChild(dependency);
         }
@@ -559,8 +592,15 @@ internal sealed class TargetMaterializedSourceNode(RenderTarget target, Rect bou
     }
 }
 
-internal sealed class TargetLegacyDependencyNode : ContainerRenderNode
+internal sealed class TargetLegacyDependencyNode(Rect bounds) : ContainerRenderNode
 {
+    public override RenderNodeOperation[] Process(RenderNodeContext context)
+    {
+        var result = new RenderNodeOperation[context.Input.Length + 1];
+        context.Input.CopyTo(result, 0);
+        result[^1] = RenderNodeOperation.CreateLambda(bounds, static _ => { }, bounds.Contains);
+        return result;
+    }
 }
 
 internal enum TargetShaderKind
@@ -650,6 +690,16 @@ internal sealed class TargetRenderPipelineCounterRecord
     public string OutputSha256 { get; init; } = string.Empty;
     public string OutputChecksum { get; init; } = string.Empty;
     public Rect OutputBounds { get; init; }
+    public string MeasuredOutputSha256 { get; init; } = string.Empty;
+    public string MeasuredOutputChecksum { get; init; } = string.Empty;
+    public Rect MeasuredOutputBounds { get; init; }
+    public int MeasuredWidth { get; init; }
+    public int MeasuredHeight { get; init; }
+    public string ExpectedMeasuredOutputSha256 { get; init; } = string.Empty;
+    public string ExpectedMeasuredOutputChecksum { get; init; } = string.Empty;
+    public Rect ExpectedMeasuredOutputBounds { get; init; }
+    public int ExpectedMeasuredWidth { get; init; }
+    public int ExpectedMeasuredHeight { get; init; }
     public TargetEvidenceFingerprint Fingerprint { get; init; } = new();
     public SortedDictionary<string, long> SetupLastRequestCounters { get; init; } = new(StringComparer.Ordinal);
     public SortedDictionary<string, long> MeasuredLastRequestCounters { get; init; } = new(StringComparer.Ordinal);
@@ -659,7 +709,7 @@ internal sealed class TargetRenderPipelineCounterRecord
     public SortedDictionary<string, long> TargetPoolStatistics { get; init; } = new(StringComparer.Ordinal);
 }
 
-internal sealed record TargetObservedFrame(
+internal readonly record struct TargetObservedFrame(
     Rect Bounds,
     int Width,
     int Height,
@@ -667,7 +717,7 @@ internal sealed record TargetObservedFrame(
     ulong Checksum,
     string Sha256,
     double Energy,
-    SortedDictionary<string, long> RequestCounters);
+    SortedDictionary<string, long>? RequestCounters);
 
 internal enum TargetBenchmarkAnimation
 {

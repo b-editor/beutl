@@ -6,9 +6,9 @@
 
 ## Content Quality
 
-- [x] No implementation details (languages, frameworks, APIs)
+- [x] Implementation detail is limited to the user-mandated public API outcomes needed to make the contract testable
 - [x] Focused on user value and business needs
-- [x] Written for non-technical stakeholders
+- [x] Written for technical product, engine, and plugin stakeholders
 - [x] All mandatory sections completed
 
 ## Requirement Completeness
@@ -16,7 +16,7 @@
 - [x] No [NEEDS CLARIFICATION] markers remain
 - [x] Requirements are testable and unambiguous
 - [x] Success criteria are measurable
-- [x] Success criteria are technology-agnostic (no implementation details)
+- [x] Success criteria are measurable and name implementation surfaces only where the requested public contract requires them
 - [x] All acceptance scenarios are defined
 - [x] Edge cases are identified
 - [x] Scope is clearly bounded
@@ -27,7 +27,7 @@
 - [x] All functional requirements have clear acceptance criteria
 - [x] User scenarios cover primary flows
 - [x] Feature meets measurable outcomes defined in Success Criteria
-- [x] No implementation details leak into specification
+- [x] Named APIs in the specification correspond to deliberate public extensibility outcomes, with internal type shapes deferred to planning
 
 ## Notes
 

@@ -467,6 +467,8 @@ PY
 
 if [[ -e $destination ]]; then
     python3 - "$staging_output" "$destination" <<'PY'
+import hashlib
+import json
 import pathlib
 import sys
 
@@ -478,9 +480,61 @@ generated_files = sorted(path.name for path in generated.iterdir() if path.is_fi
 existing_files = sorted(path.name for path in existing.iterdir() if path.is_file())
 if generated_files != existing_files:
     raise SystemExit("Immutable baseline destination has a different file set")
-for name in generated_files:
-    if (generated / name).read_bytes() != (existing / name).read_bytes():
-        raise SystemExit(f"Immutable baseline differs from regenerated evidence: {name}")
+
+generated_manifest = json.loads((generated / "manifest.json").read_text(encoding="utf-8"))
+existing_manifest = json.loads((existing / "manifest.json").read_text(encoding="utf-8"))
+generated_hashes = generated_manifest.get("artifactSha256")
+existing_hashes = existing_manifest.get("artifactSha256")
+if not isinstance(generated_hashes, dict) or not isinstance(existing_hashes, dict):
+    raise SystemExit("An immutable baseline artifact hash table is missing")
+if set(generated_hashes) != set(existing_hashes):
+    raise SystemExit("Generated and committed artifact sets differ")
+
+# Keep this allowlist synchronized with the approved divergences in research.md.
+approved_semantic_refreshes = {
+    "geometry-stroke.rgba16f",
+    "scene3d-with-2d-tail.rgba16f",
+    "split-expansion.rgba16f",
+}
+if not approved_semantic_refreshes <= set(existing_hashes):
+    raise SystemExit("The approved semantic-refresh artifact set is incomplete")
+
+def sha256(path):
+    return hashlib.sha256(path.read_bytes()).hexdigest()
+
+for name in sorted(existing_hashes):
+    generated_path = generated / name
+    existing_path = existing / name
+    if sha256(generated_path) != generated_hashes[name]:
+        raise SystemExit(f"Regenerated legacy artifact hash mismatch: {name}")
+    if sha256(existing_path) != existing_hashes[name]:
+        raise SystemExit(f"Committed artifact hash mismatch: {name}")
+    if name not in approved_semantic_refreshes and generated_path.read_bytes() != existing_path.read_bytes():
+        raise SystemExit(f"Non-approved immutable baseline differs from regenerated evidence: {name}")
+
+generated_scenes = {
+    scene.get("id"): scene
+    for scene in generated_manifest.get("scenes", [])
+    if isinstance(scene, dict) and isinstance(scene.get("id"), str)
+}
+existing_scenes = {
+    scene.get("id"): scene
+    for scene in existing_manifest.get("scenes", [])
+    if isinstance(scene, dict) and isinstance(scene.get("id"), str)
+}
+if set(generated_scenes) != set(existing_scenes):
+    raise SystemExit("Generated and committed scene sets differ")
+for scene_id in sorted(generated_scenes):
+    generated_scene = dict(generated_scenes[scene_id])
+    existing_scene = dict(existing_scenes[scene_id])
+    blob = generated_scene.get("blob")
+    if blob != existing_scene.get("blob"):
+        raise SystemExit(f"Generated and committed scene blob mappings differ: {scene_id}")
+    if blob in approved_semantic_refreshes:
+        generated_scene.pop("nonVacuity", None)
+        existing_scene.pop("nonVacuity", None)
+    if generated_scene != existing_scene:
+        raise SystemExit(f"Generated and committed scene contracts differ: {scene_id}")
 print(f"Verified existing immutable target baseline at {existing}")
 PY
 else

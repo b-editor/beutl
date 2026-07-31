@@ -66,7 +66,7 @@ A disposable single-output rasterization result.
 
 | Field | Meaning |
 |---|---|
-| `Bounds` | Exact logical raster domain selected for this request: the explicit `RequestedRegion`, or `RootOutputExtent` when the option is null. |
+| `Bounds` | Logical raster domain selected for this request. A non-degenerate `RequestedRegion` is intersected with `RootOutputExtent`/`OutputBounds`; a wholly outside request yields the empty intersection and `Bitmap == null`. A null request uses `RootOutputExtent`. An explicitly degenerate request preserves its authored zero-area bounds and origin without clipping. |
 | `OutputScale` | Density used to rasterize `Bounds`. |
 | `Bitmap` | Optional bitmap owned by this result. It is non-null exactly for a non-empty raster domain. |
 | `IsEmpty` | True when `Bounds` is empty and no bitmap was allocated. |

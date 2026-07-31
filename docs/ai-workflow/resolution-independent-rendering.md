@@ -81,7 +81,7 @@ the CTM handles it, and a manual `× w` would double-scale and regress the resul
   preserves byte-identity. Solid / gradient / perlin brushes are vector shaders and resolution-independent
   regardless.
 - **3D scenes.** `Scene3DRenderNode` renders at `ceil(size × w)` and reports `EffectiveScale.At(w)`, where
-  `w = ClampWorkingScaleToBufferBudget(size, s_out)` is the output scale reduced only if the dense surface would
+  `w = RenderScaleUtilities.ClampWorkingScaleToBufferBudget(size, s_out)` is the output scale reduced only if the dense surface would
   exceed the per-buffer dimension budget. So 3D content is crisp under supersampled export instead of being
   upscaled by the root CTM.
 
