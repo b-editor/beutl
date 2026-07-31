@@ -154,9 +154,15 @@ public sealed class FileEditingSession : IEditingSession, IEditingSessionDispatc
                 sceneName,
                 usedDirs);
             scene.Uri = new Uri(scenePath);
+            string sceneDirectory = Path.GetDirectoryName(scenePath)!;
             foreach (Element element in scene.Children)
             {
-                element.Uri = null;
+                // Keep each sidecar's file name across Save As: a recovered element's stable
+                // fallback identity is derived from its scene-relative path, so a regenerated
+                // random name would change the element's Id when the copy is reopened.
+                element.Uri = element.Uri is { IsFile: true } previousUri
+                    ? new Uri(Path.Combine(sceneDirectory, Path.GetFileName(previousUri.LocalPath)))
+                    : null;
             }
 
             index++;

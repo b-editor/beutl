@@ -680,19 +680,53 @@ public class Scene : ProjectItem, INotifyEdited
         }
 
         Children.AddRange(urisAdd.AsParallel().Select(RestoreElementOrFallback));
+        ReassignDuplicateRecoveredIds();
 
         activity?.SetTag("addCount", urisAdd.Length);
         activity?.SetTag("removeCount", elementsRemove.Length);
         activity?.SetTag("childrenCount", Children.Count);
     }
 
+    private void ReassignDuplicateRecoveredIds()
+    {
+        // A corrupt sidecar can surface an Id another element already owns; the recovered element
+        // yields it to the healthy claimant so Id-based reconciliation and group references stay
+        // unambiguous, and falls back to its deterministic path-derived identity.
+        var claimedIds = new HashSet<Guid>();
+        foreach (Element child in Children)
+        {
+            if (child.SuppressedStorageSource is null)
+            {
+                claimedIds.Add(child.Id);
+            }
+        }
+
+        string sceneDirectory = Path.GetDirectoryName(Uri!.LocalPath)!;
+        foreach (Element child in Children)
+        {
+            if (child.SuppressedStorageSource is null || claimedIds.Add(child.Id))
+            {
+                continue;
+            }
+
+            child.Id = CreateVersion5Guid(
+                s_recoveredElementNamespace,
+                Path.GetRelativePath(sceneDirectory, child.Uri!.LocalPath));
+            claimedIds.Add(child.Id);
+        }
+    }
+
     private Element RestoreElementOrFallback(Uri uri)
     {
+        int fallbackCountBefore = DeserializationIncidents.FallbackCount;
         try
         {
             Element element = CoreSerializer.RestoreFromUri<Element>(uri);
             IFallback[] fallbacks = element.EnumerateAllChildren<IFallback>().ToArray();
-            if (fallbacks.Length > 0)
+
+            // The incident tally also catches fallbacks stored outside the hierarchy (e.g. a
+            // keyframe value), which the child traversal cannot see.
+            if (fallbacks.Length > 0 || DeserializationIncidents.FallbackCount != fallbackCountBefore)
             {
                 foreach (IFallback fallback in fallbacks)
                 {
@@ -704,13 +738,10 @@ public class Scene : ProjectItem, INotifyEdited
 
             return element;
         }
-        // Deserialization-domain failures recover; filesystem failures still propagate. A resolvable
-        // but non-Element $type surfaces as InvalidCastException, an unresolvable one as
-        // InvalidOperationException / NotSupportedException.
-        catch (Exception ex) when (ex is JsonException
-                                       or InvalidCastException
-                                       or InvalidOperationException
-                                       or NotSupportedException)
+        // Any non-filesystem failure is a content problem the recovery path must absorb — value
+        // converters throw freely (e.g. FormatException from Color.Parse); filesystem failures
+        // still propagate so a genuinely unreadable project keeps failing loudly.
+        catch (Exception ex) when (ex is not (IOException or UnauthorizedAccessException))
         {
             // Raw bytes, not text: the sidecar must survive rehoming byte-identically even when it
             // holds a BOM, another encoding, or undecodable bytes. The lossy decode is only scanned

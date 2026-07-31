@@ -55,6 +55,38 @@ public sealed class FileEditingSessionTests
     }
 
     [Test]
+    public void SetProjectPath_keeps_element_sidecar_file_names()
+    {
+        string root = Path.Combine(TestContext.CurrentContext.WorkDirectory, Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(root);
+        using var source = new FileSessionSource();
+        FileEditingSession session = source.CreateProject(new ProjectCreateOptions(
+            Path.Combine(root, "demo.bep"), 640, 360, 30, TimeSpan.FromSeconds(2), Name: "demo"));
+        Scene scene = session.Project.Items.OfType<Scene>().Single();
+        var element = new Element
+        {
+            Name = "clip",
+            Length = TimeSpan.FromSeconds(1),
+            Uri = new Uri(Path.Combine(Path.GetDirectoryName(scene.Uri!.LocalPath)!, "clip.belm")),
+        };
+        scene.Children.Add(element);
+        session.Save(skipConflictCheck: true);
+        string originalFileName = Path.GetFileName(element.Uri!.LocalPath);
+
+        session.SetProjectPath(Path.Combine(root, "copy.bep"));
+
+        // A recovered element's fallback identity is derived from the scene-relative sidecar path,
+        // so Save As must not regenerate the file name.
+        Assert.Multiple(() =>
+        {
+            Assert.That(Path.GetFileName(element.Uri!.LocalPath), Is.EqualTo(originalFileName));
+            Assert.That(
+                Path.GetDirectoryName(element.Uri.LocalPath),
+                Is.EqualTo(Path.GetDirectoryName(scene.Uri!.LocalPath)));
+        });
+    }
+
+    [Test]
     public void Failed_plain_save_restores_the_original_uri_state()
     {
         string root = Path.Combine(TestContext.CurrentContext.WorkDirectory, Guid.NewGuid().ToString("N"));

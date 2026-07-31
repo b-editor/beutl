@@ -83,6 +83,7 @@ public static class CoreSerializer
             if (obj is IFallback fallbackObj)
             {
                 fallbackObj.Reason = FallbackReason.TypeNotFound;
+                DeserializationIncidents.RecordFallback();
             }
 
             return obj;
@@ -158,10 +159,10 @@ public static class CoreSerializer
         // 互換性処理
         // 1.x で作成されたファイルでは一部のオブジェクトに $type が付与されないため、
         // 期待される型に基づいてディスクリミネータを補完する。
-        // Presence is checked on the raw string: a present-but-unparsable discriminator must fail
-        // as an unknown type, not silently deserialize as the legacy default and overwrite the
-        // original data on the next save.
-        if (!node.TryGetDiscriminator(out string? _))
+        // Presence is checked on the property key alone: a present-but-unparsable or non-string
+        // discriminator must fail as an unknown type, not silently deserialize as the legacy
+        // default and overwrite the original data on the next save.
+        if (!jsonObject.ContainsKey("$type") && !jsonObject.ContainsKey("@type"))
         {
             if (type == typeof(ProjectItem))
             {
@@ -203,6 +204,7 @@ public static class CoreSerializer
             if (obj is IFallback fallbackObj)
             {
                 fallbackObj.Reason = FallbackReason.TypeNotFound;
+                DeserializationIncidents.RecordFallback();
             }
 
             return obj;
@@ -249,6 +251,14 @@ public static class CoreSerializer
             // element. The suppression record is never mutated — the source location stays
             // skip-protected even if a failed multi-file save rolls Uri back afterwards.
             string rehomedPath = uri.LocalPath;
+            if (File.Exists(rehomedPath))
+            {
+                // An existing file may hold a manual repair of the recovered content (or an earlier
+                // verbatim copy); never overwrite it.
+                suppressedObj.Uri = uri;
+                return;
+            }
+
             string? rehomedDirectory = Path.GetDirectoryName(rehomedPath);
             if (rehomedDirectory != null)
             {

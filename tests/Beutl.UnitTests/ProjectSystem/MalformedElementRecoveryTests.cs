@@ -1,6 +1,7 @@
 ﻿using System.Text.Json.Nodes;
 using Beutl.Editor;
 using Beutl.Graphics.Shapes;
+using Beutl.Graphics.Transformation;
 using Beutl.ProjectSystem;
 using Beutl.Serialization;
 
@@ -181,6 +182,127 @@ public sealed class MalformedElementRecoveryTests
     }
 
     [Test]
+    public void Restore_NonStringDiscriminator_RecoversInsteadOfLoadingLegacyDefault()
+    {
+        (Uri sceneUri, string elementPath) = CreatePersistedScene();
+        File.WriteAllText(
+            elementPath,
+            """{"$type":123,"Id":"85f4d478-e16d-4cb1-ab71-ee1a90a03fe0"}""");
+        byte[] originalBytes = File.ReadAllBytes(elementPath);
+
+        Scene recovered = CoreSerializer.RestoreFromUri<Scene>(sceneUri);
+        CoreSerializer.StoreToUri(recovered, sceneUri);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(recovered.Children.Single().IsEnabled, Is.False);
+            Assert.That(
+                recovered.Children.Single().Id,
+                Is.EqualTo(new Guid("85f4d478-e16d-4cb1-ab71-ee1a90a03fe0")));
+            Assert.That(File.ReadAllBytes(elementPath), Is.EqualTo(originalBytes));
+        });
+    }
+
+    [Test]
+    public void Restore_InvalidElementScalarValue_RecoversInsteadOfFailing()
+    {
+        (Uri sceneUri, string elementPath) = CreatePersistedScene();
+        JsonObject json = JsonNode.Parse(File.ReadAllText(elementPath))!.AsObject();
+        json[nameof(Element.AccentColor)] = "not-a-color";
+        File.WriteAllText(elementPath, json.ToJsonString());
+        byte[] originalBytes = File.ReadAllBytes(elementPath);
+
+        Scene recovered = CoreSerializer.RestoreFromUri<Scene>(sceneUri);
+        CoreSerializer.StoreToUri(recovered, sceneUri);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(recovered.Children.Single().IsEnabled, Is.False);
+            Assert.That(File.ReadAllBytes(elementPath), Is.EqualTo(originalBytes));
+        });
+    }
+
+    [Test]
+    public void Save_PreservesSidecarBytesWhenFallbackIsOutsideTheHierarchy()
+    {
+        (Uri sceneUri, string elementPath) = CreatePersistedScene();
+        Scene loaded = CoreSerializer.RestoreFromUri<Scene>(sceneUri);
+        Element loadedElement = loaded.Children.Single();
+        var shape = (RectShape)loadedElement.Objects.Single();
+        shape.Transform.CurrentValue = new RotationTransform();
+        CoreSerializer.StoreToUri(loadedElement, loadedElement.Uri!);
+
+        JsonObject json = JsonNode.Parse(File.ReadAllText(elementPath))!.AsObject();
+        Assert.That(
+            ReplaceDiscriminator(json, "Transformation", "[Beutl.Engine]Beutl.Graphics.Transformation:DoesNotExist"),
+            Is.True);
+        File.WriteAllText(elementPath, json.ToJsonString());
+        byte[] originalBytes = File.ReadAllBytes(elementPath);
+
+        Scene recovered = CoreSerializer.RestoreFromUri<Scene>(sceneUri);
+        CoreSerializer.StoreToUri(recovered, sceneUri);
+
+        Assert.That(File.ReadAllBytes(elementPath), Is.EqualTo(originalBytes));
+    }
+
+    [Test]
+    public void Restore_DuplicateTopLevelId_YieldsToTheHealthyElement()
+    {
+        var sceneUri = new Uri(Path.Combine(_root, "scene.scene"));
+        string element1Path = Path.Combine(_root, "element1.belm");
+        string element2Path = Path.Combine(_root, "element2.belm");
+        var scene = new Scene(64, 64, "Scene") { Uri = sceneUri };
+        scene.Children.Add(new Element
+        {
+            Name = "One",
+            Length = TimeSpan.FromSeconds(1),
+            Uri = new Uri(element1Path),
+        });
+        scene.Children.Add(new Element
+        {
+            Name = "Two",
+            Start = TimeSpan.FromSeconds(1),
+            Length = TimeSpan.FromSeconds(1),
+            Uri = new Uri(element2Path),
+        });
+        Guid healthyId = scene.Children[0].Id;
+        CoreSerializer.StoreToUri(scene, sceneUri);
+        File.WriteAllText(element2Path, $$"""{"Id":"{{healthyId}}","Objects":[""");
+
+        Scene firstLoad = CoreSerializer.RestoreFromUri<Scene>(sceneUri);
+        Scene secondLoad = CoreSerializer.RestoreFromUri<Scene>(sceneUri);
+
+        Element healthy = firstLoad.Children.Single(c => c.Name == "One");
+        Element corrupt = firstLoad.Children.Single(c => c.Name != "One");
+        Element corruptAgain = secondLoad.Children.Single(c => c.Name != "One");
+        Assert.Multiple(() =>
+        {
+            Assert.That(healthy.Id, Is.EqualTo(healthyId));
+            Assert.That(corrupt.Id, Is.Not.EqualTo(healthyId));
+            Assert.That(corrupt.Id, Is.Not.EqualTo(Guid.Empty));
+            Assert.That(corruptAgain.Id, Is.EqualTo(corrupt.Id));
+        });
+    }
+
+    [Test]
+    public void StoreToUri_RehomeTarget_NeverOverwritesAnExistingFile()
+    {
+        (Uri sceneUri, string elementPath) = CreatePersistedScene();
+        byte[] corruptBytes = "{\"Id\":\"85f4d478-e16d-4cb1-ab71-ee1a90a03fe0\",\"Objects\":["u8.ToArray();
+        File.WriteAllBytes(elementPath, corruptBytes);
+
+        Element recovered = CoreSerializer.RestoreFromUri<Scene>(sceneUri).Children.Single();
+        string rehomedPath = Path.Combine(_root, "rehomed", Path.GetFileName(elementPath));
+        CoreSerializer.StoreToUri(recovered, new Uri(rehomedPath));
+
+        byte[] repairedBytes = "{\"Id\":\"85f4d478-e16d-4cb1-ab71-ee1a90a03fe0\",\"Objects\":[]}"u8.ToArray();
+        File.WriteAllBytes(rehomedPath, repairedBytes);
+        CoreSerializer.StoreToUri(recovered, new Uri(rehomedPath));
+
+        Assert.That(File.ReadAllBytes(rehomedPath), Is.EqualTo(repairedBytes));
+    }
+
+    [Test]
     public void SaveAs_CopiesRecoveredSidecarBytesToTheNewLocation()
     {
         (Uri sceneUri, string elementPath) = CreatePersistedScene();
@@ -279,6 +401,41 @@ public sealed class MalformedElementRecoveryTests
         Element recovered = CoreSerializer.RestoreFromUri<Scene>(sceneUri).Children.Single();
 
         Assert.That(recovered.Id, Is.EqualTo(topLevelId));
+    }
+
+    private static bool ReplaceDiscriminator(JsonNode node, string containsToken, string replacement)
+    {
+        if (node is JsonObject obj)
+        {
+            if (obj.TryGetPropertyValue("$type", out JsonNode? typeNode)
+                && typeNode is JsonValue typeValue
+                && typeValue.TryGetValue(out string? typeName)
+                && typeName.Contains(containsToken))
+            {
+                obj["$type"] = replacement;
+                return true;
+            }
+
+            foreach ((string _, JsonNode? child) in obj)
+            {
+                if (child != null && ReplaceDiscriminator(child, containsToken, replacement))
+                {
+                    return true;
+                }
+            }
+        }
+        else if (node is JsonArray array)
+        {
+            foreach (JsonNode? child in array)
+            {
+                if (child != null && ReplaceDiscriminator(child, containsToken, replacement))
+                {
+                    return true;
+                }
+            }
+        }
+
+        return false;
     }
 
     private (Uri SceneUri, string ElementPath) CreatePersistedScene()
