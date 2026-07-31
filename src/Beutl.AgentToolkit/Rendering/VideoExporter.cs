@@ -1,4 +1,5 @@
 ﻿using System.Globalization;
+using System.Reactive.Disposables;
 using System.Reactive.Subjects;
 using Beutl.Collections;
 using Beutl.Extensibility;
@@ -39,7 +40,8 @@ public sealed class VideoExporter(EncoderRegistration encoders)
         float renderScale,
         CancellationToken cancellationToken,
         int? crf = null,
-        int? bitrate = null)
+        int? bitrate = null,
+        Action<long, long>? onFrameProgress = null)
     {
         ArgumentNullException.ThrowIfNull(scene);
         ArgumentException.ThrowIfNullOrWhiteSpace(outputPath);
@@ -102,6 +104,15 @@ public sealed class VideoExporter(EncoderRegistration encoders)
             renderer.CacheOptions = RenderCacheOptions.Disabled;
             using var frameProgress = new Subject<TimeSpan>();
             using var frameProvider = new FrameProviderImpl(scene, frameRate, renderer, frameProgress);
+            double ratePerSecond = frameRate.ToDouble();
+            using IDisposable frameProgressSubscription = onFrameProgress is null
+                ? Disposable.Empty
+                : frameProgress.Subscribe(time => onFrameProgress(
+                    // The provider derives frame times from integer ticks, so the product lands
+                    // just under the frame number; round rather than truncate, and report the
+                    // count completed (index + 1) so a finished export reaches total.
+                    Math.Min((long)Math.Round(time.TotalSeconds * ratePerSecond) + 1, frameProvider.FrameCount),
+                    frameProvider.FrameCount));
             using var composer = CreateExportComposer(scene, normalizedSampleRate);
             using var sampleProgress = new Subject<TimeSpan>();
             using var sampleProvider = new SampleProviderImpl(scene, composer, normalizedSampleRate, sampleProgress);

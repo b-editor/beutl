@@ -280,6 +280,7 @@ public sealed class AgentHostEndpoint : IAsyncDisposable
             .WithTools<QueryTools>()
             .WithTools<DesignTools>()
             .WithTools<EditTools>()
+            .WithTools<HistoryTools>()
             .WithTools<RenderTools>();
 
         WebApplication app = builder.Build();

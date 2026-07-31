@@ -139,7 +139,7 @@ A creator asks the agent: *"10-second 1080p clip: a title that fades in over a b
    render_still { "timeSeconds": 1.5, "outputPath": "preview.png" }  → outputPath + warnings + visibilityAnalysis + activeElements
    evaluate_motion_variation { "sampleCount": 5 }                    → motion verdict + coverage metrics
    evaluate_edit_quality { "sampleCount": 5 }                        → quality gate + categorized issues
-   preview_quality_risks { "styleProfile": "kinetic-type" }          → document-only early risks
+   evaluate_edit_quality(staticLayout:true) { "styleProfile": "kinetic-type" }          → document-only early risks
    suggest_quality_fixes { "includeMotion": false }                  → grouped minimal repair suggestions
    final_preflight { "outputPrefix": "preflight" }                   → stills + motion + quality + readyForExport
    export_video { "outputPath": "promo.mp4" }                        → videoPath   (needs FFmpeg native libs; run after quality gate passes)

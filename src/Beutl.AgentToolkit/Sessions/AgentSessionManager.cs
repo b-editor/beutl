@@ -348,7 +348,6 @@ public sealed record QualityAnalysisOptions(
     float RenderScale,
     bool AllowAllCaps,
     bool AllowHardCuts,
-    bool AllowRectDominance,
     bool RelaxAesthetics,
     bool AllowStillness,
     bool AllowDenseText,

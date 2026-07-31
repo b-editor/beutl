@@ -109,7 +109,7 @@ public sealed class DesignToolsTests
 
         Assert.Multiple(() =>
         {
-            Assert.That(response.MinimumDepthBands.Select(band => band.Name), Is.EquivalentTo(new[] { "background", "midground", "foreground" }));
+            Assert.That(response.DepthBands.Select(band => band.Name), Is.EquivalentTo(new[] { "background", "midground", "foreground" }));
             Assert.That(response.BaseLayer.Options.Select(option => option.Name), Does.Contain("multi-stop gradient"));
             Assert.That(response.BaseLayer.Options.Select(option => option.Name), Does.Contain("shader"));
             Assert.That(response.DepthLayers, Has.Count.EqualTo(2));
@@ -117,9 +117,9 @@ public sealed class DesignToolsTests
             Assert.That(response.DepthLayers.SelectMany(layer => layer.Options).Select(option => option.Name), Does.Contain("geometric accents"));
             Assert.That(response.DepthLayers.SelectMany(layer => layer.Options).Select(option => option.Name), Does.Contain("vignette"));
             Assert.That(response.Motion.Options.Select(option => option.Name), Is.EquivalentTo(new[] { "drift", "parallax" }));
-            Assert.That(response.DerivationRules, Has.Some.Contains("Call derive_palette"));
-            Assert.That(response.DeviationRules, Has.Some.Contains("recorded reason"));
-            Assert.That(response.UsageHint, Does.Contain("not treat this response as JSON"));
+            Assert.That(response.DerivationNotes, Has.Some.Contains("derive_palette"));
+            Assert.That(response.DeviationNotes, Has.Some.Contains("deliberate restraint"));
+            Assert.That(response.UsageHint, Does.Contain("not JSON to paste into apply_edit"));
         });
     }
 
@@ -128,13 +128,14 @@ public sealed class DesignToolsTests
     {
         var tools = new QueryTools(new AgentSessionManager());
 
-        GettingStartedResponse response = tools.GetStarted().Value!;
+        GettingStartedResponse core = tools.GetStarted().Value!;
+        GettingStartedResponse withGuidance = tools.GetStarted(includeGuidance: true).Value!;
 
         Assert.Multiple(() =>
         {
-            Assert.That(response.RecommendedCalls, Has.Some.Contains("derive_palette"));
-            Assert.That(response.RecommendedCalls, Has.Some.Contains("get_background_grammar"));
-            Assert.That(response.RecommendedCalls, Has.Some.Contains("hue/tone/motion vocabulary"));
+            Assert.That(core.Essentials, Has.Some.Contains("derive_palette"));
+            Assert.That(core.Essentials, Has.Some.Contains("get_background_grammar"));
+            Assert.That(withGuidance.Guidance, Has.Some.Contains("base hue, tonal seed, harmony scheme"));
         });
     }
 }

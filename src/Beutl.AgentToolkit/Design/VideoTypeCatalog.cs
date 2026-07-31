@@ -27,15 +27,13 @@ public sealed record VideoTypeGateProfile(
     bool ForceMotionGraphicsIntentOff = false,
     bool SuppressTempoAnalysis = false,
     bool SuppressTempoUnlessExplicitHighTempo = false,
-    bool SuppressBackgroundRichness = false,
     bool SuppressPaletteBalance = false,
     bool SuppressLayerDensityPlanGate = false,
     bool SuppressCaptionRoleHierarchy = false,
     bool SuppressCutRhythm = false,
     bool RewordCutRhythmForTransitions = false,
     bool RunTransitionVocabulary = false,
-    bool RunTimelineCoverage = false,
-    bool RunLogoIntroMotionArc = false)
+    bool RunTimelineCoverage = false)
 {
     public static VideoTypeGateProfile None { get; } = new();
 
@@ -64,11 +62,6 @@ public sealed record VideoTypeGateProfile(
         else if (SuppressTempoUnlessExplicitHighTempo)
         {
             adjustments.Add("tempo/beat-grid checks require explicit high-tempo styleProfile");
-        }
-
-        if (SuppressBackgroundRichness)
-        {
-            adjustments.Add("background-richness advisories skipped");
         }
 
         if (SuppressPaletteBalance)
@@ -105,11 +98,6 @@ public sealed record VideoTypeGateProfile(
             adjustments.Add("timelineCoverage advisory enabled");
         }
 
-        if (RunLogoIntroMotionArc)
-        {
-            adjustments.Add("logo-intro motionArc advisory enabled");
-        }
-
         return adjustments.Count == 0 ? ["none"] : adjustments;
     }
 }
@@ -130,16 +118,16 @@ public static class VideoTypeCatalog
             [
                 "Call list_creative_directions for optional divergence stimulus, then record the authored concept before calling derive_palette.",
                 "Call derive_palette with the brief-derived hue, tonal seed, harmony scheme, derivationReason, and structuralSignature.",
-                "Call get_background_grammar and instantiate background, midground, foreground, and motion slots in notes before apply_edit.",
+                "Call get_background_grammar for background vocabulary; planning which depth bands and motion slot the piece uses before apply_edit avoids rebuilding the stack later.",
                 "Call get_schema for any drawable, GeometryShape, media, effect, brush, or animation types whose property names are not already known.",
-                "Build a beatGridPlan and quantitativePlanSheet before apply_edit when the brief names BPM, high tempo, or short kinetic beats.",
-                "Record a cameraPlan before apply_edit: per shot choose locked, push-in, pull-back, pan, whip-pan, roll, or parallax, then author moves as animated transforms on a named [role:camera-rig] DrawableGroup so shots do not read as static slides — either nesting the shot's content as Children or pulling the contiguous timeline layers above the rig with PortalObject.Count (see get_examples insert-camera-rig-push-in / insert-camera-rig-portal).",
+                "When the brief names BPM, high tempo, or short kinetic beats, deciding the beat grid and a per-shot foreground-density target before apply_edit is what later Element boundaries get derived from.",
+                "Decide the camera treatment per shot before apply_edit — locked, push-in, pull-back, pan, whip-pan, roll, or parallax — then author moves as animated transforms on a named [role:camera-rig] DrawableGroup; a piece whose viewpoint never moves reads as static slides. Content that shares the rig's timing can nest as Children; content that needs its own Start/Length stays on the timeline and is pulled in with PortalObject.Count (see get_examples insert-camera-rig-push-in / insert-camera-rig-portal).",
                 "Use apply_edit in storyboard-first stages: background/surface, foreground structure, typography, then text backing plates.",
-                "Call render_storyboard and preview_quality_risks with videoType:\"motion-graphics\" before adding effects or motion.",
+                "Call render_storyboard and evaluate_edit_quality(staticLayout:true) with videoType:\"motion-graphics\" before adding effects or motion.",
                 "Call list_effect_recipes, get_effect_recipe, and validate_shader when effect chains or SKSL fields are part of the look.",
                 "Prefer real capability types over fakes: ParticleEmitter for particle fields, AudioWaveformDrawable/AudioSpectrumDrawable for music-reactive layers, TextBlock.SplitByCharacters for kinetic type, Rotation3DTransform for perspective moves, Pen.TrimStart/TrimEnd for line-draw reveals, and BlendMode/Clipping for mattes and wipes — get_schema exposes each surface.",
-                "Call evaluate_edit_quality with videoType:\"motion-graphics\" and plannedForegroundElementsPerShot from the quantitativePlanSheet.",
-                "Call final_preflight with videoType:\"motion-graphics\", requireAnimatedProperties:true, and the planned density target before export_video."
+                "Call evaluate_edit_quality with videoType:\"motion-graphics\" and plannedForegroundElementsPerShot set to your per-shot foreground-density target.",
+                "Call final_preflight with videoType:\"motion-graphics\" and the planned density target before export_video; add requireAnimatedProperties:true when a piece with no animated property would be a mistake for this brief."
             ],
             VideoTypeGateProfile.None),
         new(
@@ -160,14 +148,13 @@ public static class VideoTypeCatalog
                 "Use read_document_summary after each cut-list stage to confirm narrative order, timing, and one EngineObject per ordinary Element.",
                 "Handle audio explicitly in notes and apply_edit: source audio vs music bed, intended levels, and where overlays must not mask speech.",
                 "Use measure_object_bounds for sparse text overlays, then keep overlay copy short enough for evaluate_edit_quality read-time checks.",
-                "Call preview_quality_risks, suggest_quality_fixes, evaluate_edit_quality, and final_preflight with videoType:\"footage-cut\".",
+                "Call evaluate_edit_quality(staticLayout:true) while the layout is still static, then suggest_quality_fixes, evaluate_edit_quality, and final_preflight with videoType:\"footage-cut\".",
                 "Review the timelineCoverage advisory from quality tools and close unintended empty visible gaps before export_video.",
                 "Skip derive_palette and get_background_grammar unless authored graphic overlays are requested; record that reason when you skip them."
             ],
             new VideoTypeGateProfile(
                 ForceMotionGraphicsIntentOff: true,
                 SuppressTempoUnlessExplicitHighTempo: true,
-                SuppressBackgroundRichness: true,
                 SuppressPaletteBalance: true,
                 RunTransitionVocabulary: true,
                 RunTimelineCoverage: true)),
@@ -190,7 +177,7 @@ public static class VideoTypeCatalog
                 "Add minimal Ken Burns-style motion with one slow scale or translate direction per photo, alternating direction deliberately.",
                 "Use measure_object_bounds for captions and backing plates, and keep captions within evaluate_edit_quality read-time rules.",
                 "Call derive_palette only when caption/backing colors need palette support, not as a default background-grammar step.",
-                "Call preview_quality_risks, suggest_quality_fixes, evaluate_edit_quality, and final_preflight with videoType:\"slideshow\".",
+                "Call evaluate_edit_quality(staticLayout:true) while the layout is still static, then suggest_quality_fixes, evaluate_edit_quality, and final_preflight with videoType:\"slideshow\".",
                 "Review timelineCoverage and transition-consistency findings on the subdivided render_storyboard contact sheet before export_video."
             ],
             new VideoTypeGateProfile(
@@ -219,15 +206,14 @@ public static class VideoTypeCatalog
                 "Call get_schema for TextBlock, backing shapes, brushes, and any needed text animation properties before authoring.",
                 "Use apply_edit to create one Element per lyric or caption line with Start/Length matching the sync table.",
                 "Use measure_object_bounds on representative lines and backing plates before relying on render_still readability.",
-                "Verify per-line read time and contrast with preview_quality_risks or evaluate_edit_quality before adding extra motion.",
-                "Keep the background a simple consistent loop that never outcompetes the timed text; AudioSpectrumDrawable or AudioWaveformDrawable can render a genuinely music-reactive backdrop from the music bed.",
-                "Call preview_quality_risks, suggest_quality_fixes, evaluate_edit_quality, and final_preflight with videoType:\"lyric-captions\"."
+                "Verify per-line read time and contrast with evaluate_edit_quality(staticLayout:true) or evaluate_edit_quality before adding extra motion.",
+                "A background that outcompetes the timed text costs readability, so a consistent loop is the usual choice; AudioSpectrumDrawable or AudioWaveformDrawable render a genuinely music-reactive backdrop from the music bed.",
+                "Call evaluate_edit_quality(staticLayout:true) while the layout is still static, then suggest_quality_fixes, evaluate_edit_quality, and final_preflight with videoType:\"lyric-captions\"."
             ],
             new VideoTypeGateProfile(
                 ImpliedAllowMinimalDensity: true,
                 ForceMotionGraphicsIntentOff: true,
                 SuppressTempoAnalysis: true,
-                SuppressBackgroundRichness: true,
                 SuppressCaptionRoleHierarchy: true)),
         new(
             "logo-intro",
@@ -247,14 +233,13 @@ public static class VideoTypeCatalog
                 "Invest in easing quality and secondary detail such as particles, strokes, texture, or subtle material effects.",
                 "End on a stable hold frame of at least 1 second and verify it with render_still.",
                 "Call render_storyboard with subdivisionLevel:2 or 3 to review the arc inside the single shot.",
-                "Call preview_quality_risks, suggest_quality_fixes, evaluate_edit_quality, and final_preflight with videoType:\"logo-intro\".",
-                "Do not pass allowStillness unless the brief explicitly accepts a static logo hold; otherwise motionContinuity remains a blocker."
+                "Call evaluate_edit_quality(staticLayout:true) while the layout is still static, then suggest_quality_fixes, evaluate_edit_quality, and final_preflight with videoType:\"logo-intro\".",
+                "Pass allowStillness when a static logo hold is the intended ending, so the motionContinuity finding reads as expected. Motion never fails the gate either way."
             ],
             new VideoTypeGateProfile(
                 ImpliedAllowMinimalDensity: true,
                 SuppressTempoAnalysis: true,
-                SuppressCutRhythm: true,
-                RunLogoIntroMotionArc: true))
+                SuppressCutRhythm: true))
     ];
 
     public static IReadOnlyList<VideoTypeProfile> Profiles => s_profiles;

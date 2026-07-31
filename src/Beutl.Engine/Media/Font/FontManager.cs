@@ -17,6 +17,7 @@ public sealed class FontManager
     private readonly Lock _gate = new();
     internal readonly Dictionary<FontFamily, FrozenDictionary<Typeface, SKTypeface>> _fonts = [];
     internal readonly Dictionary<FontFamily, FontName> _fontNames = [];
+    private readonly HashSet<FontFamily> _reportedMissingFamilies = [];
     private readonly string[] _fontDirs;
 
     private FontManager()
@@ -216,7 +217,34 @@ public sealed class FontManager
     {
         lock (_gate)
         {
-            return _fonts[typeface.FontFamily].Get(typeface);
+            // An unregistered family is ordinary input (uninstalled font, or a subfamily name such
+            // as "Inter 28pt"), so this runs inside the render pass and must not throw.
+            if (_fonts.TryGetValue(typeface.FontFamily, out FrozenDictionary<Typeface, SKTypeface>? typefaces))
+            {
+                return typefaces.Get(typeface);
+            }
+
+            // ToSkia() runs per text layout, so an unregistered family in a multi-frame render
+            // would log once per frame per layout; report each missing family once.
+            if (_reportedMissingFamilies.Add(typeface.FontFamily))
+            {
+                _logger.LogWarning(
+                    "Font family '{FontFamily}' is not registered; falling back to '{Fallback}'",
+                    typeface.FontFamily.Name,
+                    DefaultTypeface.FontFamily.Name);
+            }
+
+            return _fonts.TryGetValue(DefaultTypeface.FontFamily, out FrozenDictionary<Typeface, SKTypeface>? fallback)
+                ? fallback.Get(new Typeface(DefaultTypeface.FontFamily, typeface.Style, typeface.Weight))
+                : SKTypeface.Default;
+        }
+    }
+
+    public bool IsRegistered(FontFamily fontFamily)
+    {
+        lock (_gate)
+        {
+            return _fonts.ContainsKey(fontFamily);
         }
     }
 }

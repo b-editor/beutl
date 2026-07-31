@@ -12,6 +12,7 @@ public sealed class ToolSurfaceTests
         typeof(DesignTools),
         typeof(SessionTools),
         typeof(EditTools),
+        typeof(HistoryTools),
         typeof(RenderTools)
     ];
 
@@ -31,6 +32,7 @@ public sealed class ToolSurfaceTests
                 "get_background_grammar",
                 "plan_original_scaffold",
                 "get_schema",
+                "list_fonts",
                 "list_effects",
                 "list_effect_recipes",
                 "get_effect_recipe",
@@ -45,6 +47,9 @@ public sealed class ToolSurfaceTests
                 "add_scene",
                 "save_project",
                 "read_operation_status",
+                "undo",
+                "redo",
+                "read_history",
                 "read_document_summary",
                 "measure_object_bounds",
                 "read_document",
@@ -57,7 +62,6 @@ public sealed class ToolSurfaceTests
                 "evaluate_motion_variation",
                 "analyze_audio_rhythm",
                 "evaluate_edit_quality",
-                "preview_quality_risks",
                 "suggest_quality_fixes",
                 "final_preflight",
                 "compare_revisions",
@@ -69,8 +73,6 @@ public sealed class ToolSurfaceTests
             Assert.That(names, Does.Not.Contain("update_keyframe"));
             Assert.That(names, Does.Not.Contain("remove_keyframe"));
             Assert.That(names, Does.Not.Contain("set_property"));
-            Assert.That(names, Does.Not.Contain("undo"));
-            Assert.That(names, Does.Not.Contain("redo"));
         });
     }
 

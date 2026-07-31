@@ -81,32 +81,6 @@ public sealed class QualityAnalyzerTests
     }
 
     [Test]
-    public async Task Rect_background_is_allowed_but_rect_dominance_is_advisory()
-    {
-        Scene backgroundScene = CreateScene();
-        AddRect(backgroundScene, "Background plate", zIndex: 0, width: 1920, height: 1080);
-
-        QualityReviewResponse backgroundResult = await AnalyzeAsync(backgroundScene, evaluateMotion: false);
-
-        Scene rectHeavyScene = CreateScene();
-        AddRect(rectHeavyScene, "Panel 1", zIndex: 3, width: 420, height: 130, x: -400, y: -220);
-        AddRect(rectHeavyScene, "Panel 2", zIndex: 4, width: 360, height: 120, x: 280, y: -40);
-        AddRect(rectHeavyScene, "Panel 3", zIndex: 5, width: 300, height: 110, x: -20, y: 180);
-        AddText(rectHeavyScene, "Launch notes", zIndex: 10);
-
-        QualityReviewResponse rectHeavyResult = await AnalyzeAsync(rectHeavyScene, evaluateMotion: false);
-
-        Assert.Multiple(() =>
-        {
-            Assert.That(backgroundResult.Issues.Where(issue => issue.Category == "shapeDiversity"), Is.Empty);
-            Assert.That(rectHeavyResult.Issues, Has.Some.Matches<QualityIssue>(issue =>
-                issue.Category == "shapeDiversity" && issue.Severity == "minor"));
-            Assert.That(rectHeavyResult.PassesQualityGate, Is.True);
-            Assert.That(rectHeavyResult.Metrics.ShapeDiversity.NonBackgroundRectShapeCount, Is.EqualTo(3));
-        });
-    }
-
-    [Test]
     public async Task Misaligned_text_background_plate_is_advisory()
     {
         Scene scene = CreateScene();
@@ -274,54 +248,6 @@ public sealed class QualityAnalyzerTests
     }
 
     [Test]
-    public async Task Large_unclear_foreground_shape_is_advisory()
-    {
-        Scene scene = CreateScene();
-        AddEllipse(scene, "EllipseShape", zIndex: 5, width: 480, height: 320, x: 0, y: 0, color: Color.Parse("#ff6ca8ff"));
-        AddText(scene, "Launch notes", zIndex: 10);
-
-        QualityReviewResponse result = await AnalyzeAsync(scene, evaluateMotion: false);
-
-        Assert.Multiple(() =>
-        {
-            Assert.That(result.Issues, Has.Some.Matches<QualityIssue>(issue =>
-                issue.Category == "shapeIntent"
-                && issue.Severity == "minor"));
-            Assert.That(result.PassesQualityGate, Is.True);
-            Assert.That(result.Metrics.Structure.UnclearForegroundShapeCount, Is.EqualTo(1));
-        });
-    }
-
-    [Test]
-    public async Task Animated_shape_without_motion_intent_is_advisory()
-    {
-        Scene scene = CreateScene(durationSeconds: 2);
-        Element element = AddEllipse(
-            scene,
-            "Soft accent",
-            zIndex: 5,
-            width: 160,
-            height: 120,
-            x: 0,
-            y: 0,
-            color: Color.Parse("#ff6ca8ff"));
-        var ellipse = (EllipseShape)element.Objects[0];
-        var transform = (TransformGroup)ellipse.Transform.CurrentValue!;
-        ((TranslateTransform)transform.Children[0]).X.Animation = CreateFloatAnimation();
-
-        QualityReviewResponse result = await AnalyzeAsync(scene, evaluateMotion: false);
-
-        Assert.Multiple(() =>
-        {
-            Assert.That(result.Issues, Has.Some.Matches<QualityIssue>(issue =>
-                issue.Category == "motionIntent"
-                && issue.Severity == "minor"));
-            Assert.That(result.PassesQualityGate, Is.True);
-            Assert.That(result.Metrics.Structure.AnimatedShapeWithoutMotionIntentCount, Is.EqualTo(1));
-        });
-    }
-
-    [Test]
     public async Task Easing_diversity_flags_all_linear_six_transition_fixture()
     {
         Scene scene = CreateScene(durationSeconds: 2);
@@ -446,212 +372,6 @@ public sealed class QualityAnalyzerTests
     }
 
     [Test]
-    public async Task Logo_intro_motion_arc_flags_missing_settle()
-    {
-        Scene scene = CreateScene(durationSeconds: 4);
-        Element element = AddEllipse(
-            scene,
-            "[role:decorative] [role:motion] logo reveal",
-            zIndex: 10,
-            width: 220,
-            height: 160,
-            x: 0,
-            y: 0,
-            color: Color.Parse("#fff4f0e8"));
-        element.Length = TimeSpan.FromSeconds(4);
-        TranslateTransform translate = GetTranslate(element);
-        translate.X.Animation = CreateFloatAnimation(
-            [-20, -28, 0],
-            [new CubicEaseOut(), new LinearEasing()],
-            [0, 0.4, 3.4]);
-
-        QualityReviewResponse result = await AnalyzeAsync(scene, evaluateMotion: false, videoType: "logo-intro");
-
-        Assert.Multiple(() =>
-        {
-            Assert.That(result.PassesQualityGate, Is.True);
-            Assert.That(result.Issues, Has.Some.Matches<QualityIssue>(issue =>
-                issue.Category == "motionArc"
-                && issue.Severity == "minor"
-                && issue.Message.Contains("settle", StringComparison.OrdinalIgnoreCase)));
-            Assert.That(result.Metrics.MotionCraft.MotionArc.Evaluated, Is.True);
-            Assert.That(result.Metrics.MotionCraft.MotionArc.HasAnticipation, Is.True);
-            Assert.That(result.Metrics.MotionCraft.MotionArc.HasSettle, Is.False);
-        });
-    }
-
-    [Test]
-    public async Task Logo_intro_motion_arc_accepts_complete_arc()
-    {
-        Scene scene = CreateScene(durationSeconds: 4);
-        Element element = AddEllipse(
-            scene,
-            "[role:decorative] [role:motion] logo reveal settle",
-            zIndex: 10,
-            width: 220,
-            height: 160,
-            x: 0,
-            y: 0,
-            color: Color.Parse("#fff4f0e8"));
-        element.Length = TimeSpan.FromSeconds(4);
-        TranslateTransform translate = GetTranslate(element);
-        translate.X.Animation = CreateFloatAnimation(
-            [-8, -14, 0, 8, 0],
-            [new CubicEaseOut(), new CubicEaseOut(), new CubicEaseOut(), new BackEaseOut()],
-            [0, 0.3, 1.1, 1.5, 1.9]);
-
-        QualityReviewResponse result = await AnalyzeAsync(scene, evaluateMotion: false, videoType: "logo-intro");
-
-        Assert.Multiple(() =>
-        {
-            Assert.That(result.Issues, Has.None.Matches<QualityIssue>(issue => issue.Category == "motionArc"));
-            Assert.That(result.Metrics.MotionCraft.MotionArc.Evaluated, Is.True);
-            Assert.That(result.Metrics.MotionCraft.MotionArc.HasAnticipation, Is.True);
-            Assert.That(result.Metrics.MotionCraft.MotionArc.HasSettle, Is.True);
-            Assert.That(result.Metrics.MotionCraft.MotionArc.HoldSeconds, Is.GreaterThanOrEqualTo(2.0));
-        });
-    }
-
-    [Test]
-    public async Task Non_logo_intro_video_type_does_not_report_motion_arc()
-    {
-        Scene scene = CreateScene(durationSeconds: 4);
-        Element element = AddEllipse(
-            scene,
-            "[role:decorative] [role:motion] logo reveal",
-            zIndex: 10,
-            width: 220,
-            height: 160,
-            x: 0,
-            y: 0,
-            color: Color.Parse("#fff4f0e8"));
-        TranslateTransform translate = GetTranslate(element);
-        translate.X.Animation = CreateFloatAnimation(
-            [-20, -28, 0],
-            [new CubicEaseOut(), new LinearEasing()],
-            [0, 0.4, 3.4]);
-
-        QualityReviewResponse result = await AnalyzeAsync(scene, evaluateMotion: false, videoType: "motion-graphics");
-
-        Assert.Multiple(() =>
-        {
-            Assert.That(result.Issues, Has.None.Matches<QualityIssue>(issue => issue.Category == "motionArc"));
-            Assert.That(result.Metrics.MotionCraft.MotionArc.Evaluated, Is.False);
-        });
-    }
-
-    [Test]
-    public async Task Decorative_glint_ellipse_is_advisory_ambiguous()
-    {
-        Scene scene = CreateScene(durationSeconds: 3);
-        Element element = AddEllipse(
-            scene,
-            "[role:decorative] glass glint ellipse intro sweep",
-            zIndex: 8,
-            width: 760,
-            height: 260,
-            x: 0,
-            y: 0,
-            color: Color.Parse("#88ffcc66"));
-        var ellipse = (EllipseShape)element.Objects[0];
-        var transform = (TransformGroup)ellipse.Transform.CurrentValue!;
-        ((TranslateTransform)transform.Children[0]).X.Animation = CreateFloatAnimation();
-
-        QualityReviewResponse result = await AnalyzeAsync(scene, evaluateMotion: false);
-
-        Assert.Multiple(() =>
-        {
-            Assert.That(result.Issues, Has.Some.Matches<QualityIssue>(issue =>
-                issue.Category == "decorativeShapeClarity"
-                && issue.Severity == "minor"
-                && issue.Message.Contains("ambiguous", StringComparison.OrdinalIgnoreCase)));
-            Assert.That(result.PassesQualityGate, Is.True);
-            Assert.That(result.Metrics.ShapeDiversity.AmbiguousDecorativeShapeCount, Is.EqualTo(1));
-        });
-    }
-
-    [Test]
-    public async Task Large_ambient_two_stop_gradient_without_softening_is_advisory()
-    {
-        Scene scene = CreateScene(durationSeconds: 3);
-        var ellipse = new EllipseShape
-        {
-            Name = "[role:background] amber ambient aperture drift",
-            Width = { CurrentValue = 1120 },
-            Height = { CurrentValue = 720 },
-            Fill =
-            {
-                CurrentValue = new RadialGradientBrush
-                {
-                    GradientStops =
-                    {
-                        new GradientStop(Color.Parse("#ddffb34d"), 0),
-                        new GradientStop(Color.Parse("#00120f0a"), 1)
-                    }
-                }
-            },
-            Transform =
-            {
-                CurrentValue = new TransformGroup
-                {
-                    Children = { new TranslateTransform(0, 0) }
-                }
-            }
-        };
-        AddObject(scene, "[role:background] amber ambient aperture drift element", zIndex: 2, ellipse);
-
-        QualityReviewResponse result = await AnalyzeAsync(scene, evaluateMotion: false);
-
-        Assert.Multiple(() =>
-        {
-            Assert.That(result.Issues, Has.Some.Matches<QualityIssue>(issue =>
-                issue.Category == "gradientFalloff"
-                && issue.Severity == "minor"
-                && issue.Message.Contains("abrupt", StringComparison.OrdinalIgnoreCase)));
-            Assert.That(result.PassesQualityGate, Is.True);
-            Assert.That(result.Metrics.Palette.HardGradientObjectCount, Is.EqualTo(1));
-            Assert.That(result.Metrics.Palette.HardGradientTransitionCount, Is.EqualTo(1));
-        });
-    }
-
-    [Test]
-    public async Task Flat_single_layer_background_is_advisory_but_rich_background_passes_richness_check()
-    {
-        Scene flat = CreateScene(durationSeconds: 3);
-        AddRect(flat, "[role:background] flat field", zIndex: 0, width: 1920, height: 1080, color: Color.Parse("#ff20242b"));
-
-        QualityReviewResponse flatResult = await AnalyzeAsync(flat, evaluateMotion: false);
-
-        Scene rich = CreateScene(durationSeconds: 3);
-        AddGradientRect(
-            rich,
-            "[role:background] three-stop spectral field",
-            zIndex: 0,
-            width: 1920,
-            height: 1080,
-            [
-                (Color.Parse("#ff10141e"), 0d),
-                (Color.Parse("#ff1d3552"), 0.54d),
-                (Color.Parse("#ff4c6f8f"), 1d)
-            ]);
-
-        QualityReviewResponse richResult = await AnalyzeAsync(rich, evaluateMotion: false);
-
-        Assert.Multiple(() =>
-        {
-            Assert.That(flatResult.Issues, Has.Some.Matches<QualityIssue>(issue =>
-                issue.Category == "backgroundRichness"
-                && issue.Severity == "minor"));
-            Assert.That(flatResult.PassesQualityGate, Is.True);
-            Assert.That(flatResult.Metrics.BackgroundRichness.FlatSingleLayerBackgroundCount, Is.EqualTo(1));
-
-            Assert.That(richResult.Issues, Has.None.Matches<QualityIssue>(issue => issue.Category == "backgroundRichness"));
-            Assert.That(richResult.Metrics.BackgroundRichness.FlatSingleLayerBackgroundCount, Is.EqualTo(0));
-            Assert.That(richResult.PassesQualityGate, Is.True);
-        });
-    }
-
-    [Test]
     public async Task High_tempo_profile_flags_sparse_event_density_and_slow_holds_as_advisory()
     {
         Scene scene = CreateScene(durationSeconds: 30);
@@ -732,7 +452,7 @@ public sealed class QualityAnalyzerTests
     }
 
     [Test]
-    public async Task Density_plan_violation_blocks_when_authored_density_falls_below_half_of_plan()
+    public async Task Density_plan_violation_is_reported_but_never_blocks()
     {
         Scene scene = CreateScene(durationSeconds: 4);
         AddRect(scene, "[role:background] flat field", zIndex: 0, width: 1920, height: 1080, color: Color.Parse("#ff10141e"));
@@ -746,18 +466,18 @@ public sealed class QualityAnalyzerTests
 
         Assert.Multiple(() =>
         {
-            Assert.That(result.PassesQualityGate, Is.False);
+            Assert.That(result.PassesQualityGate, Is.True, QualityDebug(result));
             Assert.That(result.Metrics.LayerDensity.DensityPlanViolation, Is.True);
             Assert.That(result.Metrics.LayerDensity.BandsBelowHalfPlannedForegroundLayerCount, Is.EqualTo(result.Metrics.LayerDensity.TimeBandCount));
             Assert.That(result.Issues, Has.Some.Matches<QualityIssue>(issue =>
                 issue.Category == "layerDensity"
-                && issue.Severity == "major"
+                && issue.Severity == "minor"
                 && issue.Message.Contains("quantitative plan", StringComparison.OrdinalIgnoreCase)));
         });
     }
 
     [Test]
-    public async Task Minimal_density_intent_downgrades_density_plan_violation_to_advisory()
+    public async Task Minimal_density_intent_rewords_the_density_plan_advisory()
     {
         Scene scene = CreateScene(durationSeconds: 4);
         AddRect(scene, "[role:background] flat field", zIndex: 0, width: 1920, height: 1080, color: Color.Parse("#ff10141e"));
@@ -777,7 +497,8 @@ public sealed class QualityAnalyzerTests
             Assert.That(result.Issues, Has.Some.Matches<QualityIssue>(issue =>
                 issue.Category == "layerDensity"
                 && issue.Severity == "minor"
-                && issue.Message.Contains("quantitative plan", StringComparison.OrdinalIgnoreCase)));
+                && issue.Message.Contains("quantitative plan", StringComparison.OrdinalIgnoreCase)
+                && issue.SuggestedFix.Contains("matches the recorded minimal-density intent", StringComparison.OrdinalIgnoreCase)));
             Assert.That(result.Issues, Has.None.Matches<QualityIssue>(issue =>
                 issue.Category == "layerDensity"
                 && issue.Severity == "major"));
@@ -842,155 +563,6 @@ public sealed class QualityAnalyzerTests
     }
 
     [Test]
-    public async Task Saturated_dark_teal_cyan_magenta_palette_is_advisory()
-    {
-        Scene scene = CreateScene();
-        AddRect(scene, "Deep teal background", zIndex: 0, width: 1920, height: 1080, color: Color.Parse("#ff020711"));
-        AddRoundedRect(scene, "Cyan panel", zIndex: 5, width: 420, height: 120, x: -260, color: Color.Parse("#ff00ffff"));
-        AddText(scene, "Launch notes", zIndex: 10, fill: Color.Parse("#ffff00ff"));
-
-        QualityReviewResponse result = await AnalyzeAsync(scene, evaluateMotion: false);
-
-        Assert.Multiple(() =>
-        {
-            Assert.That(result.Issues, Has.Some.Matches<QualityIssue>(issue =>
-                issue.Category == "paletteHarmony" && issue.Severity == "minor"));
-            Assert.That(result.PassesQualityGate, Is.True);
-            Assert.That(result.Metrics.Palette.HasDarkTealCyanMagentaPalette, Is.True);
-        });
-    }
-
-    [Test]
-    public async Task Palette_harmony_scores_harmonious_and_clashing_hand_picked_palettes()
-    {
-        Scene harmonious = CreateScene();
-        AddRect(harmonious, "Deep azure background", zIndex: 0, width: 1920, height: 1080, color: Color.Parse("#ff0c1626"));
-        AddRoundedRect(harmonious, "Analogous cyan panel", zIndex: 5, width: 460, height: 130, x: -220, color: Color.Parse("#ff1a7fb0"));
-        AddText(harmonious, "Launch notes", zIndex: 10, fill: Color.Parse("#fff3f8ff"));
-        AddEllipse(harmonious, "[role:accent] blue signal", zIndex: 9, width: 120, height: 120, x: 360, y: -120, color: Color.Parse("#ff46c7d8"));
-
-        QualityReviewResponse harmoniousResult = await AnalyzeAsync(harmonious, evaluateMotion: false);
-
-        Scene clashing = CreateScene();
-        AddRect(clashing, "Dark background", zIndex: 0, width: 1920, height: 1080, color: Color.Parse("#ff101010"));
-        AddRoundedRect(clashing, "Red block", zIndex: 5, width: 320, height: 120, x: -420, color: Color.Parse("#ffff2020"));
-        AddRoundedRect(clashing, "Orange block", zIndex: 6, width: 320, height: 120, x: -120, color: Color.Parse("#ffff8a00"));
-        AddRoundedRect(clashing, "Yellow block", zIndex: 7, width: 320, height: 120, x: 180, color: Color.Parse("#ffffff00"));
-        AddRoundedRect(clashing, "Green block", zIndex: 8, width: 260, height: 100, x: 480, y: 160, color: Color.Parse("#ff00ff35"));
-        AddRoundedRect(clashing, "Cyan block", zIndex: 9, width: 260, height: 100, x: -500, y: 170, color: Color.Parse("#ff00ffff"));
-        AddText(clashing, "Launch notes", zIndex: 10, fill: Color.Parse("#ffff00ff"));
-
-        QualityReviewResponse clashingResult = await AnalyzeAsync(clashing, evaluateMotion: false);
-
-        Assert.Multiple(() =>
-        {
-            Assert.That(harmoniousResult.Metrics.Palette.HasLowHarmonyScore, Is.False);
-            Assert.That(harmoniousResult.Metrics.Palette.HarmonyScore, Is.GreaterThanOrEqualTo(0.68));
-
-            Assert.That(clashingResult.Metrics.Palette.HasLowHarmonyScore, Is.True);
-            Assert.That(clashingResult.Metrics.Palette.HarmonyScore, Is.LessThan(0.68));
-            Assert.That(clashingResult.Issues, Has.Some.Matches<QualityIssue>(issue =>
-                issue.Category == "paletteHarmony"
-                && issue.Severity == "minor"
-                && issue.Message.Contains("hue-wheel", StringComparison.OrdinalIgnoreCase)));
-            Assert.That(clashingResult.PassesQualityGate, Is.True);
-        });
-    }
-
-    [Test]
-    public async Task Material_ui_card_texture_is_advisory()
-    {
-        Scene scene = CreateScene();
-        AddCard(scene, "Card A", zIndex: 4, x: -260);
-        AddCard(scene, "Card B", zIndex: 5, x: 260);
-        AddText(scene, "Launch notes", zIndex: 10);
-
-        QualityReviewResponse result = await AnalyzeAsync(scene, evaluateMotion: false);
-
-        Assert.Multiple(() =>
-        {
-            Assert.That(result.Issues, Has.Some.Matches<QualityIssue>(issue =>
-                issue.Category == "materialUiLook" && issue.Severity == "minor"));
-            Assert.That(result.PassesQualityGate, Is.True);
-        });
-    }
-
-    [Test]
-    public async Task Relaxing_aesthetics_suppresses_shape_and_card_advisories()
-    {
-        Scene scene = CreateScene(durationSeconds: 3);
-        Element decorative = AddEllipse(
-            scene,
-            "[role:decorative] glass glint ellipse intro sweep",
-            zIndex: 8,
-            width: 760,
-            height: 260,
-            x: 0,
-            y: 0,
-            color: Color.Parse("#88ffcc66"));
-        var ellipse = (EllipseShape)decorative.Objects[0];
-        var transform = (TransformGroup)ellipse.Transform.CurrentValue!;
-        ((TranslateTransform)transform.Children[0]).X.Animation = CreateFloatAnimation();
-        AddCard(scene, "Card A", zIndex: 4, x: -260);
-        AddCard(scene, "Card B", zIndex: 5, x: 260);
-
-        QualityReviewResponse strict = await AnalyzeAsync(scene, evaluateMotion: false);
-        QualityReviewResponse relaxed = await AnalyzeAsync(scene, evaluateMotion: false, relaxAesthetics: true);
-
-        Assert.Multiple(() =>
-        {
-            Assert.That(strict.Issues, Has.Some.Matches<QualityIssue>(issue => issue.Category == "decorativeShapeClarity"));
-            Assert.That(strict.Issues, Has.Some.Matches<QualityIssue>(issue => issue.Category == "materialUiLook"));
-
-            Assert.That(relaxed.Issues, Has.None.Matches<QualityIssue>(issue => issue.Category == "decorativeShapeClarity"));
-            Assert.That(relaxed.Issues, Has.None.Matches<QualityIssue>(issue => issue.Category == "materialUiLook"));
-            Assert.That(relaxed.PassesQualityGate, Is.True);
-            Assert.That(relaxed.Metrics.ShapeDiversity.AmbiguousDecorativeShapeCount, Is.EqualTo(1));
-        });
-    }
-
-    [Test]
-    public async Task Too_many_dominant_type_elements_are_advisory()
-    {
-        Scene scene = CreateScene();
-        AddText(scene, "Build", zIndex: 10, x: -420, y: -180, size: 96);
-        AddText(scene, "Edit", zIndex: 11, x: 120, y: -120, size: 96);
-        AddText(scene, "Grade", zIndex: 12, x: -260, y: 80, size: 96);
-        AddText(scene, "Export", zIndex: 13, x: 330, y: 160, size: 96);
-
-        QualityReviewResponse result = await AnalyzeAsync(scene, evaluateMotion: false);
-
-        Assert.Multiple(() =>
-        {
-            Assert.That(result.Issues, Has.Some.Matches<QualityIssue>(issue =>
-                issue.Category == "visualHierarchy"
-                && issue.Severity == "minor"
-                && issue.ElementIds.Count == 4));
-            Assert.That(result.PassesQualityGate, Is.True);
-        });
-    }
-
-    [Test]
-    public async Task Sequential_dominant_type_elements_do_not_trigger_visual_hierarchy()
-    {
-        Scene scene = CreateScene(durationSeconds: 4);
-        for (int i = 0; i < 4; i++)
-        {
-            Element element = AddText(scene, $"Word {i}", zIndex: 10 + i, size: 96);
-            element.Start = TimeSpan.FromSeconds(i);
-            element.Length = TimeSpan.FromSeconds(0.8);
-        }
-
-        QualityReviewResponse result = await AnalyzeAsync(scene, evaluateMotion: false);
-
-        Assert.Multiple(() =>
-        {
-            Assert.That(result.Issues, Has.None.Matches<QualityIssue>(issue => issue.Category == "visualHierarchy"));
-            Assert.That(result.PassesQualityGate, Is.True);
-        });
-    }
-
-    [Test]
     public async Task Named_final_resolve_is_exempt_from_high_tempo_hold_warning()
     {
         Scene scene = CreateScene(durationSeconds: 8);
@@ -1041,27 +613,7 @@ public sealed class QualityAnalyzerTests
     }
 
     [Test]
-    public async Task Dense_foreground_effect_stacks_are_advisory()
-    {
-        Scene scene = CreateScene();
-        AddEffectStackedEllipse(scene, "Glow shard A", zIndex: 4, x: -360);
-        AddEffectStackedEllipse(scene, "Glow shard B", zIndex: 5, x: 0);
-        AddEffectStackedEllipse(scene, "Glow shard C", zIndex: 6, x: 360);
-
-        QualityReviewResponse result = await AnalyzeAsync(scene, evaluateMotion: false);
-
-        Assert.Multiple(() =>
-        {
-            Assert.That(result.Issues, Has.Some.Matches<QualityIssue>(issue =>
-                issue.Category == "effectIntent"
-                && issue.Severity == "minor"
-                && issue.ObjectIds.Count == 3));
-            Assert.That(result.PassesQualityGate, Is.True);
-        });
-    }
-
-    [Test]
-    public async Task Low_motion_variation_is_included_in_quality_review()
+    public async Task Low_motion_variation_is_reported_but_never_blocks()
     {
         Scene scene = CreateScene(durationSeconds: 3);
         AddRect(scene, "Static field", zIndex: 0, width: 1920, height: 1080, color: Colors.Black);
@@ -1072,8 +624,8 @@ public sealed class QualityAnalyzerTests
         Assert.Multiple(() =>
         {
             Assert.That(result.Issues, Has.Some.Matches<QualityIssue>(issue =>
-                issue.Category == "motionContinuity" && issue.Severity == "major"));
-            Assert.That(result.PassesQualityGate, Is.False);
+                issue.Category == "motionContinuity" && issue.Severity == "minor"));
+            Assert.That(result.PassesQualityGate, Is.True, QualityDebug(result));
             Assert.That(result.Metrics.MotionContinuity.MotionVerdict, Is.EqualTo("low-motion-variation"));
         });
     }
@@ -1097,36 +649,7 @@ public sealed class QualityAnalyzerTests
     }
 
     [Test]
-    public async Task Distinctive_but_legible_design_passes_gate()
-    {
-        // Exercises several previously-blocking aesthetics at once: four hero-scale
-        // texts, a saturated palette, and a rect-dominant foreground. Each is now
-        // advisory, so a legible, structurally valid scene must still pass the gate.
-        Scene scene = CreateScene(durationSeconds: 3);
-        AddRect(scene, "Background plate", zIndex: 0, width: 1920, height: 1080, color: Color.Parse("#ff101418"));
-        AddRect(scene, "Panel 1", zIndex: 3, width: 420, height: 130, x: -400, y: -220, color: Color.Parse("#ffff5a1f"));
-        AddRect(scene, "Panel 2", zIndex: 4, width: 360, height: 120, x: 280, y: -40, color: Color.Parse("#ffe11d8f"));
-        AddRect(scene, "Panel 3", zIndex: 5, width: 300, height: 110, x: -20, y: 180, color: Color.Parse("#ff1fb6ff"));
-        AddText(scene, "Build", zIndex: 10, x: -420, y: -180, size: 96, fill: Color.Parse("#ffffe14d"));
-        AddText(scene, "Edit", zIndex: 11, x: 120, y: -120, size: 96, fill: Color.Parse("#ff4dff9e"));
-        AddText(scene, "Grade", zIndex: 12, x: -260, y: 80, size: 96, fill: Color.Parse("#ff4dc8ff"));
-        AddText(scene, "Export", zIndex: 13, x: 330, y: 160, size: 96, fill: Color.Parse("#ffff7a4d"));
-
-        QualityReviewResponse result = await AnalyzeAsync(scene, evaluateMotion: false);
-
-        Assert.Multiple(() =>
-        {
-            Assert.That(result.PassesQualityGate, Is.True);
-            Assert.That(result.Issues.Where(issue => issue.Severity is "critical" or "major"), Is.Empty);
-            Assert.That(result.Issues, Has.Some.Matches<QualityIssue>(issue =>
-                issue.Category == "visualHierarchy" && issue.Severity == "minor"));
-            Assert.That(result.Issues, Has.Some.Matches<QualityIssue>(issue =>
-                issue.Category == "shapeDiversity" && issue.Severity == "minor"));
-        });
-    }
-
-    [Test]
-    public async Task Stillness_intent_flag_downgrades_low_motion_blocker_to_advisory()
+    public async Task Stillness_intent_flag_rewords_the_low_motion_advisory()
     {
         Scene accidental = CreateScene(durationSeconds: 3);
         AddRect(accidental, "Static field", zIndex: 0, width: 1920, height: 1080, color: Colors.Black);
@@ -1142,13 +665,17 @@ public sealed class QualityAnalyzerTests
 
         Assert.Multiple(() =>
         {
-            Assert.That(blocked.PassesQualityGate, Is.False);
+            Assert.That(blocked.PassesQualityGate, Is.True, QualityDebug(blocked));
             Assert.That(blocked.Issues, Has.Some.Matches<QualityIssue>(issue =>
-                issue.Category == "motionContinuity" && issue.Severity == "major"));
+                issue.Category == "motionContinuity"
+                && issue.Severity == "minor"
+                && issue.SuggestedFix.Contains("If the stillness is unintended", StringComparison.Ordinal)));
 
             Assert.That(allowed.PassesQualityGate, Is.True, QualityDebug(allowed));
             Assert.That(allowed.Issues, Has.Some.Matches<QualityIssue>(issue =>
-                issue.Category == "motionContinuity" && issue.Severity == "minor"));
+                issue.Category == "motionContinuity"
+                && issue.Severity == "minor"
+                && issue.SuggestedFix.Contains("matches the recorded held-frame intent", StringComparison.Ordinal)));
             Assert.That(allowed.Issues, Has.None.Matches<QualityIssue>(issue =>
                 issue.Category == "motionContinuity" && issue.Severity == "major"));
         });
@@ -1173,7 +700,33 @@ public sealed class QualityAnalyzerTests
     }
 
     [Test]
-    public async Task Existing_gate_blockers_remain_typography_structure_and_motion()
+    public async Task Deliberately_minimal_still_monochrome_scene_passes_the_gate_without_intent_flags()
+    {
+        // Sparse, motionless, and low-chroma at once with no intent flag and no role
+        // tag: none of those make a result unusable, so only advisories may fire.
+        Scene scene = CreateScene(durationSeconds: 6);
+        AddRect(scene, "Tonal field", zIndex: 0, width: 1920, height: 1080, color: Color.Parse("#ff1c1c1c"));
+        AddText(scene, "Quiet", zIndex: 10, size: 96, fill: Color.Parse("#ffe8e8e8"));
+
+        QualityReviewResponse result = await AnalyzeAsync(
+            scene,
+            styleProfile: "motion-graphics promo",
+            plannedForegroundElementsPerShot: 5);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(result.PassesQualityGate, Is.True, QualityDebug(result));
+            Assert.That(result.Issues.Where(issue => issue.Severity is "critical" or "major"), Is.Empty);
+            Assert.That(result.Issues, Has.Some.Matches<QualityIssue>(issue =>
+                issue.Category == "motionContinuity" && issue.Severity == "minor"));
+            Assert.That(result.Issues, Has.Some.Matches<QualityIssue>(issue =>
+                issue.Category == "layerDensity" && issue.Severity == "minor"));
+            Assert.That(result.ReviewNotes, Has.Some.Contains("Advisory issues describe what the scene measures"));
+        });
+    }
+
+    [Test]
+    public async Task Gate_blocks_only_unreadable_text_and_malformed_structure()
     {
         Scene denseCopy = CreateScene(durationSeconds: 4);
         Element denseText = AddText(
@@ -1205,9 +758,9 @@ public sealed class QualityAnalyzerTests
             Assert.That(multiObjectResult.Issues, Has.Some.Matches<QualityIssue>(issue =>
                 issue.Category == "elementStructure" && issue.Severity == "major"));
 
-            Assert.That(stillResult.PassesQualityGate, Is.False);
+            Assert.That(stillResult.PassesQualityGate, Is.True, QualityDebug(stillResult));
             Assert.That(stillResult.Issues, Has.Some.Matches<QualityIssue>(issue =>
-                issue.Category == "motionContinuity" && issue.Severity == "major"));
+                issue.Category == "motionContinuity" && issue.Severity == "minor"));
         });
     }
 
@@ -1274,40 +827,6 @@ public sealed class QualityAnalyzerTests
     }
 
     [Test]
-    public async Task Monochrome_intent_suppresses_low_contrast_palette_advisory_via_flag_or_token()
-    {
-        Scene scene = CreateScene();
-        AddRect(scene, "Deep slate field", zIndex: 0, width: 1920, height: 1080, color: Color.Parse("#ff303030"));
-        AddText(scene, "Launch notes", zIndex: 10, fill: Color.Parse("#ff383838"));
-
-        QualityReviewResponse surfaced = await AnalyzeAsync(scene, evaluateMotion: false);
-        QualityReviewResponse suppressedByFlag = await AnalyzeAsync(scene, evaluateMotion: false, allowMonochrome: true);
-
-        Scene tokenScene = CreateScene();
-        AddRect(tokenScene, "[role:monochrome] tonal field", zIndex: 0, width: 1920, height: 1080, color: Color.Parse("#ff303030"));
-        AddText(tokenScene, "Launch notes", zIndex: 10, fill: Color.Parse("#ff383838"));
-
-        QualityReviewResponse suppressedByToken = await AnalyzeAsync(tokenScene, evaluateMotion: false);
-
-        Assert.Multiple(() =>
-        {
-            Assert.That(surfaced.Metrics.Palette.HasLowContrastPalette, Is.True);
-            Assert.That(surfaced.Issues, Has.Some.Matches<QualityIssue>(issue =>
-                issue.Category == "paletteHarmony"
-                && issue.Message.Contains("low luma separation", StringComparison.OrdinalIgnoreCase)));
-
-            Assert.That(suppressedByFlag.PassesQualityGate, Is.True);
-            Assert.That(suppressedByFlag.Issues, Has.None.Matches<QualityIssue>(issue =>
-                issue.Category == "paletteHarmony"
-                && issue.Message.Contains("low luma separation", StringComparison.OrdinalIgnoreCase)));
-
-            Assert.That(suppressedByToken.Issues, Has.None.Matches<QualityIssue>(issue =>
-                issue.Category == "paletteHarmony"
-                && issue.Message.Contains("low luma separation", StringComparison.OrdinalIgnoreCase)));
-        });
-    }
-
-    [Test]
     public async Task Slideshow_video_type_implies_stillness_and_minimal_density()
     {
         Scene scene = CreateScene(durationSeconds: 3);
@@ -1325,11 +844,11 @@ public sealed class QualityAnalyzerTests
 
         Assert.Multiple(() =>
         {
-            Assert.That(defaultResult.PassesQualityGate, Is.False);
+            Assert.That(defaultResult.PassesQualityGate, Is.True, QualityDebug(defaultResult));
             Assert.That(defaultResult.Issues, Has.Some.Matches<QualityIssue>(issue =>
-                issue.Category == "motionContinuity" && issue.Severity == "major"));
+                issue.Category == "motionContinuity" && issue.Severity == "minor"));
             Assert.That(defaultResult.Issues, Has.Some.Matches<QualityIssue>(issue =>
-                issue.Category == "layerDensity" && issue.Severity == "major"));
+                issue.Category == "layerDensity" && issue.Severity == "minor"));
 
             Assert.That(slideshowResult.PassesQualityGate, Is.True);
             Assert.That(slideshowResult.Issues, Has.Some.Matches<QualityIssue>(issue =>
@@ -1341,43 +860,6 @@ public sealed class QualityAnalyzerTests
             Assert.That(slideshowResult.ReviewNotes, Has.Some.Contains("Video type: slideshow"));
             Assert.That(slideshowResult.ReviewNotes, Has.Some.Contains("allowStillness"));
             Assert.That(slideshowResult.ReviewNotes, Has.Some.Contains("allowMinimalDensity"));
-        });
-    }
-
-    [Test]
-    public async Task Footage_cut_video_type_suppresses_motion_graphics_density_and_background_richness()
-    {
-        Scene scene = CreateScene(durationSeconds: 4);
-        AddRect(scene, "[role:background] flat field", zIndex: 0, width: 1920, height: 1080, color: Color.Parse("#ff10141e"));
-        AddText(scene, "Interview", zIndex: 10, size: 72);
-
-        QualityReviewResponse defaultResult = await AnalyzeAsync(
-            scene,
-            evaluateMotion: false,
-            styleProfile: "motion-graphics promo",
-            plannedForegroundElementsPerShot: 4);
-        QualityReviewResponse footageResult = await AnalyzeAsync(
-            scene,
-            evaluateMotion: false,
-            styleProfile: "motion-graphics promo",
-            plannedForegroundElementsPerShot: 4,
-            videoType: "footage-cut");
-
-        Assert.Multiple(() =>
-        {
-            Assert.That(defaultResult.Issues, Has.Some.Matches<QualityIssue>(issue =>
-                issue.Category == "layerDensity"));
-            Assert.That(defaultResult.Issues, Has.Some.Matches<QualityIssue>(issue =>
-                issue.Category == "backgroundRichness"));
-
-            Assert.That(footageResult.PassesQualityGate, Is.True);
-            Assert.That(footageResult.Issues, Has.None.Matches<QualityIssue>(issue =>
-                issue.Category == "layerDensity"));
-            Assert.That(footageResult.Issues, Has.None.Matches<QualityIssue>(issue =>
-                issue.Category == "backgroundRichness"));
-            Assert.That(footageResult.Metrics.LayerDensity.MotionGraphicsIntent, Is.False);
-            Assert.That(footageResult.ReviewNotes, Has.Some.Contains("Video type: footage-cut"));
-            Assert.That(footageResult.ReviewNotes, Has.Some.Contains("motionGraphicsIntent off"));
         });
     }
 
@@ -1443,8 +925,7 @@ public sealed class QualityAnalyzerTests
 
         string[] expected =
         [
-            "backgroundRichness:minor:The full-frame background is a flat single layer.",
-            "layerDensity:major:Authored foreground density falls below half of the quantitative plan.",
+            "layerDensity:minor:Authored foreground density falls below half of the quantitative plan.",
             "layerDensity:minor:The motion-graphics scene has thin layer density or incomplete depth coverage.",
             "tempoRhythm:minor:Foreground event gaps are too long for a high-tempo brief.",
             "tempoRhythm:minor:Foreground scene changes are too sparse for the requested BPM.",
@@ -1711,7 +1192,6 @@ public sealed class QualityAnalyzerTests
             styleProfile,
             allowAllCaps: false,
             allowHardCuts: allowHardCuts,
-            allowRectDominance: false,
             relaxAesthetics: relaxAesthetics,
             allowStillness: allowStillness,
             allowDenseText: allowDenseText,

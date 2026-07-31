@@ -25,6 +25,10 @@ public sealed record FinalPreflightResponse(
     string RecommendedNextTool)
 {
     public bool ReadyForStoryboard { get; init; }
+
+    // Blockers stay reserved for unreadable text and malformed structure; every other
+    // finding lands here and does not withhold export.
+    public IReadOnlyList<string> Advisories { get; init; } = [];
 }
 
 public sealed record PreflightStillFrame(

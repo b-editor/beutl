@@ -326,11 +326,10 @@ public sealed class StillRenderer
             return EmptyAnalysis("Rendered frame has no pixels.", nearBlackThreshold, maxForegroundDeltaThreshold);
         }
 
-        int colorByteCount = GetColorByteCount(bitmap.ColorType, bitmap.BytesPerPixel);
-        if (colorByteCount <= 0)
+        if (GetLumaPixelReader(bitmap) is not { } reader)
         {
             return EmptyAnalysis(
-                "Rendered frame uses a pixel format that could not be analyzed for visibility.",
+                $"Rendered frame uses pixel format {bitmap.ColorType}, which the visibility analyzer cannot decode.",
                 nearBlackThreshold,
                 maxForegroundDeltaThreshold);
         }
@@ -348,16 +347,9 @@ public sealed class StillRenderer
             for (int x = 0; x < bitmap.Width; x++)
             {
                 int pixelOffset = x * bitmap.BytesPerPixel;
-                int maxColorByte = 0;
-                int luma = 0;
-                for (int channel = 0; channel < colorByteCount; channel++)
-                {
-                    byte value = row[pixelOffset + channel];
-                    maxColorByte = Math.Max(maxColorByte, value);
-                    luma += value;
-                }
-
-                luma /= colorByteCount;
+                reader.Read(row, pixelOffset, out byte red, out byte green, out byte blue);
+                int maxColorByte = Math.Max(red, Math.Max(green, blue));
+                int luma = Rec709Luma(red, green, blue);
                 if (maxColorByte > nearBlackThreshold)
                 {
                     visiblePixels++;
@@ -395,13 +387,8 @@ public sealed class StillRenderer
             for (int x = 0; x < bitmap.Width; x++)
             {
                 int pixelOffset = x * bitmap.BytesPerPixel;
-                int luma = 0;
-                for (int channel = 0; channel < colorByteCount; channel++)
-                {
-                    luma += row[pixelOffset + channel];
-                }
-
-                luma /= colorByteCount;
+                reader.Read(row, pixelOffset, out byte fr, out byte fg, out byte fb);
+                int luma = Rec709Luma(fr, fg, fb);
                 if (Math.Abs(luma - backgroundLuma) <= foregroundDeltaThreshold)
                 {
                     continue;
@@ -557,8 +544,7 @@ public sealed class StillRenderer
             return new NormalizedFocalPoint(0.5, 0.5);
         }
 
-        int colorByteCount = GetColorByteCount(bitmap.ColorType, bitmap.BytesPerPixel);
-        if (colorByteCount <= 0)
+        if (GetLumaPixelReader(bitmap) is not { } reader)
         {
             return FocalFromVisibilityBounds(bitmap, visibility);
         }
@@ -577,13 +563,8 @@ public sealed class StillRenderer
             {
                 int index = (y * bitmap.Width) + x;
                 int offset = x * bitmap.BytesPerPixel;
-                int luma = 0;
-                for (int channel = 0; channel < colorByteCount; channel++)
-                {
-                    luma += row[offset + channel];
-                }
-
-                luma /= colorByteCount;
+                reader.Read(row, offset, out byte pr, out byte pg, out byte pb);
+                int luma = Rec709Luma(pr, pg, pb);
                 lumaByPixel[index] = (byte)Math.Clamp(luma, 0, byte.MaxValue);
                 double delta = Math.Abs(luma - visibility.BackgroundLuma);
                 if (delta <= visibility.ForegroundDeltaThreshold)
@@ -782,34 +763,87 @@ public sealed class StillRenderer
         }
     }
 
-    private static int GetColorByteCount(BitmapColorType colorType, int bytesPerPixel)
+    private enum LumaPixelLayout
     {
-        return colorType switch
+        None,
+        Rgb8,
+        Bgr8,
+        Gray8,
+        RgbaHalf
+    }
+
+    // The renderer hands back RgbaF16 — linear, premultiplied half-floats — so reading bytes
+    // positionally yields a number that looks like a luma and is not one. Every layout decodes to
+    // sRGB-encoded 0..255 so reported values match the PNG a human looks at.
+    private readonly record struct LumaPixelReader(LumaPixelLayout Layout, bool Premultiplied)
+    {
+        public void Read(Span<byte> row, int pixelOffset, out byte r, out byte g, out byte b)
         {
-            BitmapColorType.Alpha8 => bytesPerPixel,
-            BitmapColorType.Rgb565 => bytesPerPixel,
-            BitmapColorType.Argb4444 => bytesPerPixel,
-            BitmapColorType.Rgba8888 => Math.Min(3, bytesPerPixel),
-            BitmapColorType.Rgb888x => Math.Min(3, bytesPerPixel),
-            BitmapColorType.Bgra8888 => Math.Min(3, bytesPerPixel),
-            BitmapColorType.Rgba1010102 => bytesPerPixel,
-            BitmapColorType.Bgra1010102 => bytesPerPixel,
-            BitmapColorType.Rgb101010x => bytesPerPixel,
-            BitmapColorType.Bgr101010x => bytesPerPixel,
-            BitmapColorType.Bgr101010xXR => bytesPerPixel,
-            BitmapColorType.Gray8 => Math.Min(1, bytesPerPixel),
-            BitmapColorType.RgbaF16 => Math.Min(6, bytesPerPixel),
-            BitmapColorType.RgbaF16Clamped => Math.Min(6, bytesPerPixel),
-            BitmapColorType.RgbaF32 => Math.Min(12, bytesPerPixel),
-            BitmapColorType.Rg88 => bytesPerPixel,
-            BitmapColorType.AlphaF16 => bytesPerPixel,
-            BitmapColorType.RgF16 => bytesPerPixel,
-            BitmapColorType.Alpha16 => bytesPerPixel,
-            BitmapColorType.Rg1616 => bytesPerPixel,
-            BitmapColorType.Rgba16161616 => Math.Min(6, bytesPerPixel),
-            BitmapColorType.Srgba8888 => Math.Min(3, bytesPerPixel),
-            BitmapColorType.R8Unorm => Math.Min(1, bytesPerPixel),
-            _ => Math.Min(3, bytesPerPixel)
+            switch (Layout)
+            {
+                case LumaPixelLayout.Rgb8:
+                    r = row[pixelOffset];
+                    g = row[pixelOffset + 1];
+                    b = row[pixelOffset + 2];
+                    return;
+                case LumaPixelLayout.Bgr8:
+                    r = row[pixelOffset + 2];
+                    g = row[pixelOffset + 1];
+                    b = row[pixelOffset];
+                    return;
+                case LumaPixelLayout.Gray8:
+                    r = g = b = row[pixelOffset];
+                    return;
+                default:
+                    float red = (float)BitConverter.ToHalf(row.Slice(pixelOffset, 2));
+                    float green = (float)BitConverter.ToHalf(row.Slice(pixelOffset + 2, 2));
+                    float blue = (float)BitConverter.ToHalf(row.Slice(pixelOffset + 4, 2));
+                    if (!Premultiplied)
+                    {
+                        // Straight alpha: weight by coverage so a barely-visible pixel does not
+                        // register as fully lit. Premultiplied values already carry that weight,
+                        // which is what compositing the frame over black produces.
+                        float alpha = (float)BitConverter.ToHalf(row.Slice(pixelOffset + 6, 2));
+                        red *= alpha;
+                        green *= alpha;
+                        blue *= alpha;
+                    }
+
+                    r = LinearToSrgbByte(red);
+                    g = LinearToSrgbByte(green);
+                    b = LinearToSrgbByte(blue);
+                    return;
+            }
+        }
+    }
+
+    private static byte LinearToSrgbByte(float linear)
+    {
+        double c = Math.Clamp(linear, 0, 1);
+        double encoded = c <= 0.0031308 ? c * 12.92 : (1.055 * Math.Pow(c, 1 / 2.4)) - 0.055;
+        return (byte)Math.Clamp(Math.Round(encoded * 255), 0, 255);
+    }
+
+    private static int Rec709Luma(byte r, byte g, byte b)
+    {
+        return (int)Math.Round((0.2126 * r) + (0.7152 * g) + (0.0722 * b));
+    }
+
+    private static LumaPixelReader? GetLumaPixelReader(Bitmap bitmap)
+    {
+        LumaPixelLayout layout = bitmap.ColorType switch
+        {
+            BitmapColorType.Rgba8888 or BitmapColorType.Rgb888x or BitmapColorType.Srgba8888
+                when bitmap.BytesPerPixel >= 3 => LumaPixelLayout.Rgb8,
+            BitmapColorType.Bgra8888 when bitmap.BytesPerPixel >= 3 => LumaPixelLayout.Bgr8,
+            BitmapColorType.Gray8 or BitmapColorType.R8Unorm when bitmap.BytesPerPixel >= 1 => LumaPixelLayout.Gray8,
+            BitmapColorType.RgbaF16 or BitmapColorType.RgbaF16Clamped
+                when bitmap.BytesPerPixel >= 8 => LumaPixelLayout.RgbaHalf,
+            _ => LumaPixelLayout.None
         };
+
+        return layout == LumaPixelLayout.None
+            ? null
+            : new LumaPixelReader(layout, bitmap.AlphaType == BitmapAlphaType.Premul);
     }
 }

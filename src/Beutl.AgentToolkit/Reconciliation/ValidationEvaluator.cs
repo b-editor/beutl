@@ -95,9 +95,30 @@ public static class ValidationEvaluator
         return EvaluateValidator(validator, new ValidationContext(property, null), value, options);
     }
 
+    // A FontFamily that is not registered renders as a fallback rather than the requested face,
+    // and nothing downstream says so — the frame just comes back in the wrong typeface.
+    private static ValidationOutcome? EvaluateFontFamily(object? value, CoreSerializerOptions? options)
+    {
+        if (value is not FontFamily family || FontManager.Instance.IsRegistered(family))
+        {
+            return null;
+        }
+
+        return ValidationOutcome.Warning(
+            value,
+            $"Font family '{family.Name}' is not installed or is not a typographic family name, so it renders in the fallback face.",
+            options,
+            "Call list_fonts for the installed families and the weights each one actually has. A subfamily name such as \"Inter 28pt\" is not a family name; use the typographic family (\"Inter\") and set FontWeight separately.");
+    }
+
     private static ValidationOutcome EvaluateValidator(
         IValidator? validator, ValidationContext context, object? value, CoreSerializerOptions? options)
     {
+        if (EvaluateFontFamily(value, options) is { } fontOutcome)
+        {
+            return fontOutcome;
+        }
+
         if (validator is null)
         {
             return ValidationOutcome.Ok(value, options);
