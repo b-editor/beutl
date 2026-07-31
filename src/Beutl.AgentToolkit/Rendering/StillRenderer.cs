@@ -822,6 +822,12 @@ public sealed class StillRenderer
         ReadOnlySpan<T> channels)
         where T : unmanaged
     {
+        if (typeof(T) == typeof(Half) && bitmap.ColorSpace.GammaIsLinear)
+        {
+            return ReadLinearHalfChannels(
+                System.Runtime.InteropServices.MemoryMarshal.Cast<T, ushort>(channels));
+        }
+
         int total = 0;
         int maximum = 0;
         for (int i = 0; i < channels.Length; i++)
@@ -838,6 +844,21 @@ public sealed class StillRenderer
         }
 
         return new PixelIntensity(total / channels.Length, maximum);
+    }
+
+    private static PixelIntensity ReadLinearHalfChannels(ReadOnlySpan<ushort> channelBits)
+    {
+        byte[] table = LinearHalfEncodeTable;
+        int total = 0;
+        int maximum = 0;
+        for (int i = 0; i < channelBits.Length; i++)
+        {
+            int encoded = table[channelBits[i]];
+            total += encoded;
+            maximum = Math.Max(maximum, encoded);
+        }
+
+        return new PixelIntensity(total / channelBits.Length, maximum);
     }
 
     private static PixelIntensity ReadUnorm16Channels(ReadOnlySpan<ushort> channels)
@@ -869,11 +890,16 @@ public sealed class StillRenderer
 
     private static int EncodeColorChannel(Bitmap bitmap, float value)
     {
+        return EncodeColorChannel(bitmap.ColorSpace.GammaIsLinear, value);
+    }
+
+    private static int EncodeColorChannel(bool linearGamma, float value)
+    {
         if (!float.IsFinite(value))
             return 0;
 
         value = Math.Clamp(value, 0, 1);
-        if (bitmap.ColorSpace.GammaIsLinear)
+        if (linearGamma)
         {
             value = value <= 0.0031308f
                 ? value * 12.92f
@@ -881,6 +907,26 @@ public sealed class StillRenderer
         }
 
         return (int)MathF.Round(value * byte.MaxValue);
+    }
+
+    // Keyed on raw half bits and filled through EncodeColorChannel itself, so full-frame analysis
+    // of the renderer's linear RgbaF16 snapshots reads a table instead of paying a MathF.Pow per
+    // colour channel while staying bit-identical to the direct encode.
+    private static byte[]? s_linearHalfEncodeTable;
+
+    private static byte[] LinearHalfEncodeTable => s_linearHalfEncodeTable ??= BuildLinearHalfEncodeTable();
+
+    private static byte[] BuildLinearHalfEncodeTable()
+    {
+        var table = new byte[ushort.MaxValue + 1];
+        for (int bits = 0; bits <= ushort.MaxValue; bits++)
+        {
+            table[bits] = (byte)EncodeColorChannel(
+                linearGamma: true,
+                (float)BitConverter.UInt16BitsToHalf((ushort)bits));
+        }
+
+        return table;
     }
 
     private readonly record struct PixelIntensity(int Luma, int Maximum);

@@ -116,9 +116,12 @@ public sealed class ExportOrchestrationTests
         var scene = new Scene(64, 64, "export") { Duration = TimeSpan.FromSeconds(1) };
         string output = Path.Combine(CreateWorkspace(), "movie.mov");
 
+        // Only the export call may ignore environment failures: assertions run outside the try so
+        // a wrong Encoder/Warnings value fails instead of being converted into Assert.Ignore.
+        ExportVideoResponse? response = null;
         try
         {
-            ExportVideoResponse response = exporter.ExportAsync(
+            response = exporter.ExportAsync(
                     scene,
                     output,
                     new Rational(30, 1),
@@ -129,14 +132,6 @@ public sealed class ExportOrchestrationTests
                 .AsTask()
                 .GetAwaiter()
                 .GetResult();
-            Assert.Multiple(() =>
-            {
-                Assert.That(File.Exists(output), Is.True);
-                Assert.That(response.Encoder, Is.EqualTo("AVFoundation"));
-                Assert.That(
-                    response.Warnings,
-                    Has.Some.Contains("AVFoundation").And.Some.Contains("crf").And.Some.Contains("ignored"));
-            });
         }
         catch (CodecUnavailableException)
         {
@@ -147,6 +142,15 @@ public sealed class ExportOrchestrationTests
             // The FFmpeg skip is what matters here; AVFoundation itself may not run in a headless runner.
             Assert.Ignore($"AVFoundation encode could not run in this environment: {ex.GetType().Name}.");
         }
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(File.Exists(output), Is.True);
+            Assert.That(response!.Encoder, Is.EqualTo("AVFoundation"));
+            Assert.That(
+                response.Warnings,
+                Has.Some.Contains("AVFoundation").And.Some.Contains("crf").And.Some.Contains("ignored"));
+        });
     }
 
     private static string CreateWorkspace()
