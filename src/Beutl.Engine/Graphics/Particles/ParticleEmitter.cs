@@ -213,7 +213,7 @@ public partial class ParticleEmitter : Drawable
         private float _endOpacityMultiplier;
         private Color _endColor;
         private bool _useEndColor;
-        private float _time;
+        private double _time;
 
         public Drawable.Resource? ParticleDrawable => _particleDrawable;
 
@@ -263,8 +263,8 @@ public partial class ParticleEmitter : Drawable
             CompareAndUpdateObject(context, emitter.ParticleDrawable, ref _particleDrawable, ref updateOnly);
 
             // Time tracking
-            float oldTime = _time;
-            _time = (float)(context.Time - obj.TimeRange.Start).TotalSeconds;
+            double oldTime = _time;
+            _time = (context.Time - obj.TimeRange.Start).TotalSeconds;
 
             if (paramChanged)
             {
