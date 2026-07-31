@@ -1,13 +1,15 @@
 ﻿using Avalonia.Controls;
 using Avalonia.Interactivity;
 using Beutl.Editor.Components.VersionControl.ViewModels;
+using Beutl.Editor.Components.VersionControl.Views;
 using Beutl.Language;
-using FluentAvalonia.UI.Controls;
 
 namespace Beutl.Views;
 
 public sealed partial class TitleBarBranchView : UserControl
 {
+    internal VersionControlPickerFlyout PromptFlyout { get; } = new();
+
     public TitleBarBranchView()
     {
         InitializeComponent();
@@ -18,7 +20,7 @@ public sealed partial class TitleBarBranchView : UserControl
         base.OnDataContextChanged(e);
         if (DataContext is TitleBarBranchViewModel viewModel)
         {
-            viewModel.RequestNewBranchNameAsync = ShowNewBranchDialogAsync;
+            viewModel.RequestNewBranchNameAsync = ShowNewBranchFlyoutAsync;
         }
     }
 
@@ -45,21 +47,13 @@ public sealed partial class TitleBarBranchView : UserControl
         }
     }
 
-    private static async Task<string?> ShowNewBranchDialogAsync()
+    private Task<string?> ShowNewBranchFlyoutAsync()
     {
-        var textBox = new TextBox
-        {
-            Watermark = Strings.VersionControl_BranchName,
-        };
-        var dialog = new ContentDialog
-        {
-            Title = Strings.VersionControl_NewBranch,
-            Content = textBox,
-            PrimaryButtonText = Strings.VersionControl_CreateBranch,
-            CloseButtonText = Strings.Cancel,
-            DefaultButton = ContentDialogButton.Primary,
-        };
-        ContentDialogResult result = await dialog.ShowAsync();
-        return result == ContentDialogResult.Primary ? textBox.Text : null;
+        TitleBarBranchButton.Flyout?.Hide();
+        return PromptFlyout.ShowTextInputAsync(
+            TitleBarBranchButton,
+            Strings.VersionControl_NewBranch,
+            Strings.VersionControl_BranchName,
+            initialText: null);
     }
 }

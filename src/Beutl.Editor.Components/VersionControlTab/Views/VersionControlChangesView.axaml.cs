@@ -21,4 +21,26 @@ internal sealed partial class VersionControlChangesView : UserControl
                 listBox.SelectedItem as VersionControlFileChangeViewModel);
         }
     }
+
+    private async void OnRestoreClick(object? sender, RoutedEventArgs e)
+    {
+        if (DataContext is VersionControlTabViewModel
+            {
+                SelectedCommit.Value: { } selectedCommit,
+            } viewModel)
+        {
+            await viewModel.RestoreAsync(selectedCommit.Commit);
+        }
+    }
+
+    private async void OnRestoreToNewBranchClick(object? sender, RoutedEventArgs e)
+    {
+        if (DataContext is VersionControlTabViewModel
+            {
+                SelectedCommit.Value: { } selectedCommit,
+            } viewModel)
+        {
+            await viewModel.RestoreToNewBranchAsync(selectedCommit.Commit);
+        }
+    }
 }

@@ -19,11 +19,13 @@
                    Margin="8,0"
                    IsVisible="{Binding HasSelectedCommit.Value}"
                    Orientation="Horizontal">
-            <Button Margin="0,0,6,6"
-                    Command="{Binding SelectedCommit.Value.RestoreCommand}"
+            <Button x:Name="RestoreButton"
+                    Margin="0,0,6,6"
+                    Click="OnRestoreClick"
                     Content="{x:Static lang:Strings.VersionControl_Restore}" />
-            <Button Margin="0,0,0,6"
-                    Command="{Binding SelectedCommit.Value.RestoreToNewBranchCommand}"
+            <Button x:Name="RestoreToNewBranchButton"
+                    Margin="0,0,0,6"
+                    Click="OnRestoreToNewBranchClick"
                     Content="{x:Static lang:Strings.VersionControl_RestoreToNewBranch}" />
         </WrapPanel>
         <Grid Grid.Row="2">

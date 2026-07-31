@@ -4,12 +4,10 @@ using System.Reactive.Disposables;
 using System.Resources;
 using System.Text.Json.Nodes;
 using System.Windows.Input;
-using Avalonia.Controls;
 using Avalonia.Threading;
 using Beutl.Editor.VersionControl;
 using Beutl.Extensibility;
 using Beutl.Services;
-using FluentAvalonia.UI.Controls;
 using Reactive.Bindings;
 using Reactive.Bindings.Extensions;
 
@@ -40,6 +38,7 @@ public sealed class VersionControlTabViewModel : IToolContext
     private int _nextHistoryOffset;
     private int _aheadCount;
     private int _behindCount;
+    private int _restoreRequestActive;
     private bool _hasUncommittedChanges;
     private bool _disposed;
 
@@ -218,9 +217,9 @@ public sealed class VersionControlTabViewModel : IToolContext
         InvokePrimaryActionCommand = new ReactiveCommandSlim()
             .WithSubscribe(InvokePrimaryAction)
             .DisposeWith(_disposables);
-        RequestBranchNameAsync = ShowBranchNameDialogAsync;
+        RequestBranchNameAsync = static _ => Task.FromResult<string?>(null);
         RequestRemoteUrlAsync = static _ => Task.FromResult<string?>(null);
-        ShowRemoteResultAsync = ShowRemoteResultDialogAsync;
+        ShowRemoteResultAsync = ShowRemoteResultNotificationAsync;
         RequestEnableVersionControlAsync = static () => Task.CompletedTask;
         LaunchUriAsync = static _ => Task.FromResult(false);
         IsRemoteOperationRunning
@@ -627,35 +626,39 @@ public sealed class VersionControlTabViewModel : IToolContext
         _disposables.Dispose();
     }
 
-    internal async Task<bool> RestoreAsync(CommitInfo commit)
+    internal Task<bool> RestoreAsync(CommitInfo commit)
     {
         if (_versionControlCoordinator is null)
         {
-            return false;
+            return Task.FromResult(false);
         }
 
-        return await _versionControlCoordinator.RestoreAsync(
-            commit.Sha,
-            CancellationToken.None);
+        return RunRestoreRequestAsync(
+            () => _versionControlCoordinator.RestoreAsync(
+                commit.Sha,
+                CancellationToken.None));
     }
 
-    internal async Task<bool> RestoreToNewBranchAsync(CommitInfo commit)
+    internal Task<bool> RestoreToNewBranchAsync(CommitInfo commit)
     {
         if (_versionControlCoordinator is null)
         {
-            return false;
+            return Task.FromResult(false);
         }
 
-        string? branchName = await RequestBranchNameAsync(commit);
-        if (string.IsNullOrWhiteSpace(branchName))
+        return RunRestoreRequestAsync(async () =>
         {
-            return false;
-        }
+            string? branchName = await RequestBranchNameAsync(commit);
+            if (string.IsNullOrWhiteSpace(branchName))
+            {
+                return false;
+            }
 
-        return await _versionControlCoordinator.RestoreToNewBranchAsync(
-            commit.Sha,
-            branchName.Trim(),
-            CancellationToken.None);
+            return await _versionControlCoordinator.RestoreToNewBranchAsync(
+                commit.Sha,
+                branchName.Trim(),
+                CancellationToken.None);
+        });
     }
 
     internal async Task RemoveStaleLockAsync()
@@ -667,6 +670,23 @@ public sealed class VersionControlTabViewModel : IToolContext
 
         await _lockRecoveryService.RemoveRecoverableLockAsync(CancellationToken.None);
         HasRecoverableLock.Value = _lockRecoveryService.RecoverableLock is not null;
+    }
+
+    private async Task<bool> RunRestoreRequestAsync(Func<Task<bool>> operation)
+    {
+        if (Interlocked.CompareExchange(ref _restoreRequestActive, 1, 0) != 0)
+        {
+            return false;
+        }
+
+        try
+        {
+            return await operation();
+        }
+        finally
+        {
+            Volatile.Write(ref _restoreRequestActive, 0);
+        }
     }
 
     private void OnServicePublished(IProjectVersionControlService? service)
@@ -1257,43 +1277,6 @@ public sealed class VersionControlTabViewModel : IToolContext
         }
     }
 
-    private static async Task<string?> ShowBranchNameDialogAsync(CommitInfo commit)
-    {
-        var textBox = new TextBox
-        {
-            Watermark = Strings.VersionControl_BranchName,
-            Text = $"restore-{commit.ShortSha}",
-        };
-        var dialog = new ContentDialog
-        {
-            Title = Strings.VersionControl_CreateBranchTitle,
-            Content = textBox,
-            PrimaryButtonText = Strings.VersionControl_RestoreToNewBranch,
-            CloseButtonText = Strings.Cancel,
-            DefaultButton = ContentDialogButton.Primary,
-        };
-        ContentDialogResult result = await dialog.ShowAsync();
-        return result == ContentDialogResult.Primary ? textBox.Text : null;
-    }
-
-    private static async Task ShowRemoteResultDialogAsync(RemoteOpResult result)
-    {
-        string message = GetRemoteResultMessage(result);
-        if (string.IsNullOrWhiteSpace(message))
-        {
-            return;
-        }
-
-        var dialog = new ContentDialog
-        {
-            Title = Strings.VersionControl_ErrorTitle,
-            Content = message,
-            CloseButtonText = Strings.Close,
-            DefaultButton = ContentDialogButton.Close,
-        };
-        await dialog.ShowAsync();
-    }
-
     internal static string GetRemoteResultMessage(RemoteOpResult result)
     {
         ArgumentNullException.ThrowIfNull(result);
@@ -1305,6 +1288,19 @@ public sealed class VersionControlTabViewModel : IToolContext
             RemoteOpResult.Failed failed => failed.Stderr,
             _ => string.Empty,
         };
+    }
+
+    private static Task ShowRemoteResultNotificationAsync(RemoteOpResult result)
+    {
+        string message = GetRemoteResultMessage(result);
+        if (!string.IsNullOrWhiteSpace(message))
+        {
+            NotificationService.ShowError(
+                Strings.VersionControl_ErrorTitle,
+                message);
+        }
+
+        return Task.CompletedTask;
     }
 
     private sealed class CallbackProgress<T>(Action<T> callback) : IProgress<T>

@@ -1,8 +1,12 @@
-﻿using Avalonia.Threading;
+﻿using Avalonia;
+using Avalonia.Controls;
+using Avalonia.Controls.ApplicationLifetimes;
+using Avalonia.Threading;
+using Avalonia.VisualTree;
 using Beutl.Configuration;
+using Beutl.Editor.Components.VersionControl.Views;
 using Beutl.Editor.VersionControl;
 using Beutl.Logging;
-using FluentAvalonia.UI.Controls;
 using Microsoft.Extensions.Logging;
 using Reactive.Bindings;
 
@@ -871,89 +875,54 @@ public sealed class VersionControlCoordinator : IProjectVersionControlCoordinato
             : exception.Message;
     }
 
-    private static async Task<bool> ShowRestoreConfirmationAsync(
+    private static Task<bool> ShowRestoreConfirmationAsync(
         CancellationToken cancellationToken)
     {
-        cancellationToken.ThrowIfCancellationRequested();
-        var dialog = new ContentDialog
-        {
-            Title = Strings.VersionControl_Restore,
-            Content = Strings.VersionControl_RestoreConfirmation,
-            PrimaryButtonText = Strings.VersionControl_Restore,
-            CloseButtonText = Strings.Cancel,
-            DefaultButton = ContentDialogButton.Close,
-        };
-        ContentDialogResult result = await dialog.ShowAsync();
-        return result == ContentDialogResult.Primary;
+        return ShowConfirmationAsync(
+            Strings.VersionControl_Restore,
+            Strings.VersionControl_RestoreConfirmation,
+            cancellationToken);
     }
 
-    private static async Task<bool> ShowSwitchBranchConfirmationAsync(
+    private static Task<bool> ShowSwitchBranchConfirmationAsync(
         string branchName,
         CancellationToken cancellationToken)
     {
-        cancellationToken.ThrowIfCancellationRequested();
-        var dialog = new ContentDialog
-        {
-            Title = Strings.VersionControl_SwitchBranch,
-            Content = string.Format(
+        return ShowConfirmationAsync(
+            Strings.VersionControl_SwitchBranch,
+            string.Format(
                 Strings.VersionControl_SwitchBranchConfirmation,
                 branchName),
-            PrimaryButtonText = Strings.VersionControl_SwitchBranch,
-            CloseButtonText = Strings.Cancel,
-            DefaultButton = ContentDialogButton.Close,
-        };
-        ContentDialogResult result = await dialog.ShowAsync();
-        return result == ContentDialogResult.Primary;
+            cancellationToken);
     }
 
-    private static async Task<bool> ShowPullConfirmationAsync(
+    private static Task<bool> ShowPullConfirmationAsync(
         CancellationToken cancellationToken)
     {
-        cancellationToken.ThrowIfCancellationRequested();
-        var dialog = new ContentDialog
-        {
-            Title = Strings.VersionControl_Pull,
-            Content = Strings.VersionControl_PullConfirmation,
-            PrimaryButtonText = Strings.VersionControl_Pull,
-            CloseButtonText = Strings.Cancel,
-            DefaultButton = ContentDialogButton.Close,
-        };
-        ContentDialogResult result = await dialog.ShowAsync();
-        return result == ContentDialogResult.Primary;
+        return ShowConfirmationAsync(
+            Strings.VersionControl_Pull,
+            Strings.VersionControl_PullConfirmation,
+            cancellationToken);
     }
 
-    private static async Task<bool> ShowEnclosingRepositoryConfirmationAsync(
+    private static Task<bool> ShowEnclosingRepositoryConfirmationAsync(
         RepositoryInfo repository,
         CancellationToken cancellationToken)
     {
-        cancellationToken.ThrowIfCancellationRequested();
-        var dialog = new ContentDialog
-        {
-            Title = Strings.VersionControl,
-            Content = $"{Strings.VersionControl_EnclosingRepositoryFound}\n\n{repository.RepoRoot}",
-            PrimaryButtonText = Strings.VersionControl_UseEnclosingRepository,
-            CloseButtonText = Strings.VersionControl_LeaveUnmanaged,
-            DefaultButton = ContentDialogButton.Close,
-        };
-        ContentDialogResult result = await dialog.ShowAsync();
-        return result == ContentDialogResult.Primary;
+        return ShowConfirmationAsync(
+            Strings.VersionControl,
+            $"{Strings.VersionControl_EnclosingRepositoryFound}\n\n{repository.RepoRoot}",
+            cancellationToken);
     }
 
-    private static async Task<bool> ShowStaleLockConfirmationAsync(
+    private static Task<bool> ShowStaleLockConfirmationAsync(
         RepositoryLockInfo lockInfo,
         CancellationToken cancellationToken)
     {
-        cancellationToken.ThrowIfCancellationRequested();
-        var dialog = new ContentDialog
-        {
-            Title = Strings.VersionControl,
-            Content = $"{Strings.VersionControl_StaleLockConfirmation}\n\n{lockInfo.LockPath}",
-            PrimaryButtonText = Strings.VersionControl_RemoveStaleLock,
-            CloseButtonText = Strings.Cancel,
-            DefaultButton = ContentDialogButton.Close,
-        };
-        ContentDialogResult result = await dialog.ShowAsync();
-        return result == ContentDialogResult.Primary;
+        return ShowConfirmationAsync(
+            Strings.VersionControl,
+            $"{Strings.VersionControl_StaleLockConfirmation}\n\n{lockInfo.LockPath}",
+            cancellationToken);
     }
 
     private async Task WarnBeforeOpeningConflictedProjectAsync(string projectFile)
@@ -969,16 +938,63 @@ public sealed class VersionControlCoordinator : IProjectVersionControlCoordinato
 
     private static async Task ShowConflictMarkerWarningAsync(string markerFile)
     {
-        var dialog = new ContentDialog
+        await Dispatcher.UIThread.InvokeAsync(
+            () => NotificationService.ShowWarning(
+                Strings.VersionControl_ConflictMarkerWarningTitle,
+                string.Format(
+                    Strings.VersionControl_ConflictMarkerWarning,
+                    markerFile)));
+    }
+
+    private static async Task<bool> ShowConfirmationAsync(
+        string title,
+        string message,
+        CancellationToken cancellationToken)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        VersionControlPickerFlyout? flyout = null;
+        Task<bool>? confirmation = null;
+        await Dispatcher.UIThread.InvokeAsync(() =>
         {
-            Title = Strings.VersionControl_ConflictMarkerWarningTitle,
-            Content = string.Format(
-                Strings.VersionControl_ConflictMarkerWarning,
-                markerFile),
-            CloseButtonText = Strings.Close,
-            DefaultButton = ContentDialogButton.Close,
-        };
-        await dialog.ShowAsync();
+            if (GetFlyoutAnchor() is not { } anchor)
+            {
+                return;
+            }
+
+            flyout = new VersionControlPickerFlyout();
+            confirmation = flyout.ShowConfirmationAsync(anchor, title, message);
+        });
+
+        if (flyout is null || confirmation is null)
+        {
+            return false;
+        }
+
+        using CancellationTokenRegistration registration = cancellationToken.Register(
+            static state =>
+            {
+                var target = (VersionControlPickerFlyout)state!;
+                Dispatcher.UIThread.Post(target.Hide);
+            },
+            flyout);
+        return await confirmation.WaitAsync(cancellationToken);
+    }
+
+    private static Control? GetFlyoutAnchor()
+    {
+        if (Application.Current?.ApplicationLifetime
+                is not IClassicDesktopStyleApplicationLifetime
+                {
+                    MainWindow: { } mainWindow,
+                })
+        {
+            return null;
+        }
+
+        Control? focused = mainWindow.FocusManager?.GetFocusedElement() as Control;
+        return focused?.IsAttachedToVisualTree() == true
+            ? focused
+            : mainWindow;
     }
 
     private static async Task ShowPolicyNoticeAsync(

@@ -5,9 +5,11 @@ using Avalonia.Collections;
 using Avalonia.Controls;
 using Avalonia.Controls.ApplicationLifetimes;
 using Avalonia.Platform.Storage;
+using Avalonia.VisualTree;
 using Beutl.Api.Services;
 using Beutl.Configuration;
 using Beutl.Editor;
+using Beutl.Editor.Components.VersionControl.Views;
 using Beutl.Editor.Services;
 using Beutl.Editor.VersionControl;
 using Beutl.Models;
@@ -72,7 +74,7 @@ public partial class MainView
         viewModel.MenuBar.ImportProject.Subscribe(OnImportProject).AddTo(_disposables);
     }
 
-    private static async Task EnableVersionControlAsync(MainViewModel viewModel)
+    private async Task EnableVersionControlAsync(MainViewModel viewModel)
     {
         try
         {
@@ -91,36 +93,38 @@ public partial class MainView
         }
     }
 
-    private static async Task<bool> RequestGitIdentityAsync(
+    private async Task<bool> RequestGitIdentityAsync(
         IProjectVersionControlService versionControlService)
     {
         var viewModel = new GitIdentityDialogViewModel(versionControlService);
-        var dialog = new GitIdentityDialog { DataContext = viewModel };
-        if (await dialog.ShowAsync() != ContentDialogResult.Primary)
+        var flyout = new VersionControlPickerFlyout();
+        VersionControlIdentityInput? input = await flyout.ShowIdentityAsync(
+            GetVersionControlFlyoutAnchor(),
+            Strings.VersionControl_IdentityTitle,
+            Strings.VersionControl_IdentityName,
+            Strings.VersionControl_IdentityEmail,
+            viewModel.Name.Value,
+            viewModel.Email.Value);
+        if (input is not { } identity)
         {
             return false;
         }
 
+        viewModel.Name.Value = identity.Name;
+        viewModel.Email.Value = identity.Email;
         await viewModel.SaveAsync();
         return true;
     }
 
-    private static async Task CommitVersionAsync(MainViewModel viewModel)
+    private async Task CommitVersionAsync(MainViewModel viewModel)
     {
-        var textBox = new TextBox
-        {
-            Watermark = Strings.VersionControl_CommitMessage,
-        };
-        var dialog = new ContentDialog
-        {
-            Title = Strings.VersionControl_Commit,
-            Content = textBox,
-            PrimaryButtonText = Strings.VersionControl_CommitNow,
-            CloseButtonText = Strings.Cancel,
-            DefaultButton = ContentDialogButton.Primary,
-        };
-        if (await dialog.ShowAsync() != ContentDialogResult.Primary
-            || string.IsNullOrWhiteSpace(textBox.Text))
+        var flyout = new VersionControlPickerFlyout();
+        string? message = await flyout.ShowTextInputAsync(
+            GetVersionControlFlyoutAnchor(),
+            Strings.VersionControl_Commit,
+            Strings.VersionControl_CommitMessage,
+            initialText: null);
+        if (string.IsNullOrWhiteSpace(message))
         {
             return;
         }
@@ -128,7 +132,7 @@ public partial class MainView
         try
         {
             CommitResult result = await viewModel.VersionControlCoordinator.CommitManualAsync(
-                textBox.Text.Trim());
+                message.Trim());
             NotificationService.ShowInformation(
                 Strings.VersionControl,
                 result is CommitResult.NoChanges
@@ -142,6 +146,15 @@ public partial class MainView
         {
             await ex.Handle();
         }
+    }
+
+    private Control GetVersionControlFlyoutAnchor()
+    {
+        Control? focused =
+            TopLevel.GetTopLevel(this)?.FocusManager?.GetFocusedElement() as Control;
+        return focused is not MenuItem && focused?.IsAttachedToVisualTree() == true
+            ? focused
+            : this;
     }
 
     private void InitializeRecentItems(MainViewModel viewModel)

@@ -2,23 +2,28 @@
 using System.Diagnostics;
 using Avalonia;
 using Avalonia.Controls;
+using Avalonia.Controls.Primitives;
 using Avalonia.Headless;
 using Avalonia.Headless.NUnit;
 using Avalonia.Input;
+using Avalonia.Interactivity;
 using Avalonia.Layout;
 using Avalonia.Media;
 using Avalonia.VisualTree;
 using Beutl.Configuration;
 using Beutl.Editor.Components.VersionControl.ViewModels;
+using Beutl.Editor.Components.VersionControl.Views;
 using Beutl.Editor.Components.VersionControlTab.ViewModels;
 using Beutl.Editor.Components.VersionControlTab.Views;
 using Beutl.Editor.VersionControl;
 using Beutl.Extensibility;
 using Beutl.Language;
 using Beutl.ProjectSystem;
+using Beutl.Services;
 using Beutl.Services.PrimitiveImpls;
 using Beutl.Testing.Headless;
 using Beutl.Views;
+using FluentAvalonia.UI.Controls;
 using FluentIcons.Avalonia.Fluent;
 
 namespace Beutl.HeadlessUITests;
@@ -135,6 +140,47 @@ public class VersionControlTabViewTests
                     Does.Contain("flyout-refresh"));
                 Assert.That(currentMark.Icon.ToString(), Is.EqualTo("Checkmark"));
                 Assert.That(currentMark.IsVisible, Is.True);
+            });
+
+            Task<string?> branchNameTask = viewModel.RequestNewBranchNameAsync();
+            HeadlessTestHelpers.Render();
+
+            VersionControlPickerFlyout branchPrompt = view.PromptFlyout;
+            Button acceptButton = GetPickerButton(branchPrompt, "AcceptButton");
+            Assert.Multiple(() =>
+            {
+                Assert.That(branchButton.Flyout.IsOpen, Is.False);
+                Assert.That(branchPrompt.IsOpen, Is.True);
+                Assert.That(branchPrompt.Target, Is.SameAs(branchButton));
+                Assert.That(branchPrompt.Presenter, Is.TypeOf<PickerFlyoutPresenter>());
+                Assert.That(branchPrompt.Presenter!.Width, Is.EqualTo(320));
+                Assert.That(branchPrompt.Presenter.Padding, Is.EqualTo(new Thickness(8, 4)));
+                Assert.That(
+                    branchPrompt.TitleTextBlock.Text,
+                    Is.EqualTo(Strings.VersionControl_NewBranch));
+                Assert.That(
+                    branchPrompt.PrimaryTextBox.Watermark,
+                    Is.EqualTo(Strings.VersionControl_BranchName));
+                Assert.That(branchPrompt.PrimaryTextBox.Text, Is.Null);
+                Assert.That(branchPrompt.MessageTextBlock.IsVisible, Is.False);
+            });
+
+            acceptButton.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+            Assert.Multiple(() =>
+            {
+                Assert.That(branchPrompt.IsOpen, Is.True);
+                Assert.That(branchNameTask.IsCompleted, Is.False);
+            });
+
+            branchPrompt.PrimaryTextBox.Text = "headless-branch";
+            acceptButton.RaiseEvent(
+                new RoutedEventArgs(Button.ClickEvent));
+            string? requestedBranchName = await branchNameTask;
+
+            Assert.Multiple(() =>
+            {
+                Assert.That(requestedBranchName, Is.EqualTo("headless-branch"));
+                Assert.That(branchPrompt.IsOpen, Is.False);
             });
         }
         finally
@@ -332,6 +378,159 @@ public class VersionControlTabViewTests
                     Has.Count.EqualTo(5));
             });
 
+            Task<string?> remoteUrlTask =
+                viewModel.RequestRemoteUrlAsync("https://example.invalid/old.git");
+            HeadlessTestHelpers.Render();
+
+            VersionControlPickerFlyout tabPrompt = view.PromptFlyout;
+            Button acceptButton = GetPickerButton(tabPrompt, "AcceptButton");
+            Button dismissButton = GetPickerButton(tabPrompt, "DismissButton");
+            Assert.Multiple(() =>
+            {
+                Assert.That(tabPrompt.IsOpen, Is.True);
+                Assert.That(tabPrompt.Target, Is.SameAs(primaryAction));
+                Assert.That(
+                    tabPrompt.TitleTextBlock.Text,
+                    Is.EqualTo(Strings.VersionControl_SetRemoteTitle));
+                Assert.That(
+                    tabPrompt.PrimaryTextBox.Text,
+                    Is.EqualTo("https://example.invalid/old.git"));
+                Assert.That(tabPrompt.PrimaryTextBox.IsVisible, Is.True);
+                Assert.That(tabPrompt.Presenter, Is.TypeOf<PickerFlyoutPresenter>());
+                Assert.That(acceptButton.IsVisible, Is.True);
+                Assert.That(dismissButton.IsVisible, Is.True);
+            });
+
+            tabPrompt.PrimaryTextBox.Text = "https://example.invalid/new.git";
+            acceptButton.RaiseEvent(
+                new RoutedEventArgs(Button.ClickEvent));
+            Assert.That(
+                await remoteUrlTask,
+                Is.EqualTo("https://example.invalid/new.git"));
+
+            CommitInfo selectedCommitInfo = viewModel.Commits[0].Commit;
+            Task<string?> branchNameTask =
+                viewModel.RequestBranchNameAsync(selectedCommitInfo);
+            HeadlessTestHelpers.Render();
+
+            Assert.Multiple(() =>
+            {
+                Assert.That(tabPrompt.IsOpen, Is.True);
+                Assert.That(
+                    tabPrompt.TitleTextBlock.Text,
+                    Is.EqualTo(Strings.VersionControl_CreateBranchTitle));
+                Assert.That(
+                    tabPrompt.PrimaryTextBox.Text,
+                    Is.EqualTo($"restore-{selectedCommitInfo.ShortSha}"));
+                Assert.That(tabPrompt.MessageTextBlock.IsVisible, Is.False);
+            });
+
+            dismissButton = GetPickerButton(tabPrompt, "DismissButton");
+            dismissButton.RaiseEvent(
+                new RoutedEventArgs(Button.ClickEvent));
+            Assert.That(await branchNameTask, Is.Null);
+
+            string longWarning = string.Concat(
+                Enumerable.Repeat("LongWarningText", 20));
+            Task<bool> confirmationTask = tabPrompt.ShowConfirmationAsync(
+                primaryAction,
+                Strings.VersionControl_Pull,
+                longWarning);
+            HeadlessTestHelpers.Render();
+            PickerFlyoutPresenter presenter = tabPrompt.Presenter!;
+            ScrollViewer presenterScrollViewer = presenter
+                .GetVisualDescendants()
+                .OfType<ScrollViewer>()
+                .Single(scrollViewer => scrollViewer.Name == "ScrollViewer");
+            Assert.Multiple(() =>
+            {
+                Assert.That(tabPrompt.IsOpen, Is.True);
+                Assert.That(tabPrompt.MessageTextBlock.IsVisible, Is.True);
+                Assert.That(
+                    tabPrompt.MessageTextBlock.Text,
+                    Is.EqualTo(longWarning));
+                Assert.That(
+                    tabPrompt.TitleTextBlock.TextWrapping,
+                    Is.EqualTo(TextWrapping.Wrap));
+                Assert.That(
+                    tabPrompt.MessageTextBlock.TextWrapping,
+                    Is.EqualTo(TextWrapping.Wrap));
+                Assert.That(
+                    tabPrompt.MessageTextBlock.Bounds.Width,
+                    Is.LessThanOrEqualTo(304));
+                Assert.That(
+                    tabPrompt.MessageTextBlock.Bounds.Height,
+                    Is.GreaterThan(30));
+                Assert.That(
+                    ScrollViewer.GetHorizontalScrollBarVisibility(presenter),
+                    Is.EqualTo(ScrollBarVisibility.Disabled));
+                Assert.That(
+                    presenterScrollViewer.Extent.Width,
+                    Is.LessThanOrEqualTo(presenterScrollViewer.Viewport.Width));
+                Assert.That(tabPrompt.PrimaryTextBox.IsVisible, Is.False);
+                Assert.That(tabPrompt.SecondaryTextBox.IsVisible, Is.False);
+            });
+            GetPickerButton(tabPrompt, "AcceptButton")
+                .RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+            Assert.That(await confirmationTask, Is.True);
+
+            Task<VersionControlIdentityInput?> identityTask =
+                tabPrompt.ShowIdentityAsync(
+                    primaryAction,
+                    Strings.VersionControl_IdentityTitle,
+                    Strings.VersionControl_IdentityName,
+                    Strings.VersionControl_IdentityEmail,
+                    "Headless User",
+                    "headless@example.invalid");
+            HeadlessTestHelpers.Render();
+            Assert.Multiple(() =>
+            {
+                Assert.That(
+                    tabPrompt.PrimaryLabelTextBlock.Text,
+                    Is.EqualTo(Strings.VersionControl_IdentityName));
+                Assert.That(
+                    tabPrompt.SecondaryLabelTextBlock.Text,
+                    Is.EqualTo(Strings.VersionControl_IdentityEmail));
+                Assert.That(tabPrompt.PrimaryTextBox.Text, Is.EqualTo("Headless User"));
+                Assert.That(
+                    tabPrompt.SecondaryTextBox.Text,
+                    Is.EqualTo("headless@example.invalid"));
+            });
+            GetPickerButton(tabPrompt, "AcceptButton")
+                .RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+            Assert.That(
+                await identityTask,
+                Is.EqualTo(
+                    new VersionControlIdentityInput(
+                        "Headless User",
+                        "headless@example.invalid")));
+
+            INotificationServiceHandler previousNotificationHandler =
+                NotificationService.Handler;
+            var notificationHandler = new CaptureNotificationHandler();
+            try
+            {
+                NotificationService.Handler = notificationHandler;
+                await viewModel.ShowRemoteResultAsync(new RemoteOpResult.Offline());
+            }
+            finally
+            {
+                NotificationService.Handler = previousNotificationHandler;
+            }
+
+            Notification notification = notificationHandler.Notifications.Single();
+            Assert.Multiple(() =>
+            {
+                Assert.That(notification.Type, Is.EqualTo(NotificationType.Error));
+                Assert.That(
+                    notification.Title,
+                    Is.EqualTo(Strings.VersionControl_ErrorTitle));
+                Assert.That(
+                    notification.Message,
+                    Is.EqualTo(Strings.VersionControl_Offline));
+                Assert.That(tabPrompt.IsOpen, Is.False);
+            });
+
             commitMessageTextBox.Focus();
             viewModel.CommitMessage.Value = "first line";
             commitMessageTextBox.CaretIndex = commitMessageTextBox.Text!.Length;
@@ -411,6 +610,10 @@ public class VersionControlTabViewTests
                 .GetVisualDescendants()
                 .OfType<TextBlock>()
                 .Single(textBlock => textBlock.Text == changedFile.PathText);
+            Button restoreButton =
+                narrowChanges.FindControl<Button>("RestoreButton")!;
+            Button restoreToNewBranchButton =
+                narrowChanges.FindControl<Button>("RestoreToNewBranchButton")!;
             Assert.Multiple(() =>
             {
                 Assert.That(narrowHistory.IsVisible, Is.False);
@@ -429,6 +632,10 @@ public class VersionControlTabViewTests
                 Assert.That(
                     narrowChanges.FindControl<WrapPanel>("SelectedCommitActionBar")!.IsVisible,
                     Is.True);
+                Assert.That(restoreButton.Command, Is.Null);
+                Assert.That(restoreButton.IsEffectivelyEnabled, Is.True);
+                Assert.That(restoreToNewBranchButton.Command, Is.Null);
+                Assert.That(restoreToNewBranchButton.IsEffectivelyEnabled, Is.True);
                 Assert.That(
                     detailHeader.FindControl<Button>("BackButton")!.IsVisible,
                     Is.True);
@@ -592,6 +799,27 @@ public class VersionControlTabViewTests
         public void Execute(ContextCommandExecution execution)
         {
             LastExecution = execution;
+        }
+    }
+
+    private static Button GetPickerButton(
+        VersionControlPickerFlyout flyout,
+        string name)
+    {
+        HeadlessTestHelpers.Render();
+        return flyout.Presenter!
+            .GetVisualDescendants()
+            .OfType<Button>()
+            .Single(button => button.Name == name);
+    }
+
+    private sealed class CaptureNotificationHandler : INotificationServiceHandler
+    {
+        public List<Notification> Notifications { get; } = [];
+
+        public void Show(Notification notification)
+        {
+            Notifications.Add(notification);
         }
     }
 

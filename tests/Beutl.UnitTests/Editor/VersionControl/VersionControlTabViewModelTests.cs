@@ -762,6 +762,52 @@ public class VersionControlTabViewModelTests
     }
 
     [Test]
+    public async Task Restore_request_ignores_reentry_without_disabling_the_view_action()
+    {
+        CommitInfo commit = CreateCommit(1, SnapshotKind.Manual);
+        var restoreStarted = new TaskCompletionSource(
+            TaskCreationOptions.RunContinuationsAsynchronously);
+        var restoreCompletion = new TaskCompletionSource<bool>(
+            TaskCreationOptions.RunContinuationsAsynchronously);
+        Mock<IProjectVersionControlService> service = CreateServiceMock();
+        service.Setup(x => x.GetHistoryAsync(
+                It.IsAny<int>(),
+                It.IsAny<int>(),
+                It.IsAny<CancellationToken>()))
+            .ReturnsAsync([commit]);
+        var coordinator = new Mock<IProjectVersionControlCoordinator>();
+        coordinator.Setup(x => x.RestoreAsync(
+                commit.Sha,
+                It.IsAny<CancellationToken>()))
+            .Returns(() =>
+            {
+                restoreStarted.TrySetResult();
+                return restoreCompletion.Task;
+            });
+        using VersionControlTabViewModel viewModel = CreateViewModel(
+            service.Object,
+            coordinator.Object);
+        await viewModel.Initialization;
+
+        Task<bool> firstRequest = viewModel.RestoreAsync(commit);
+        await restoreStarted.Task;
+        bool reentered = await viewModel.RestoreAsync(commit);
+        restoreCompletion.SetResult(true);
+        bool completed = await firstRequest;
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(reentered, Is.False);
+            Assert.That(completed, Is.True);
+        });
+        coordinator.Verify(
+            x => x.RestoreAsync(
+                commit.Sha,
+                It.IsAny<CancellationToken>()),
+            Times.Once);
+    }
+
+    [Test]
     public async Task Restore_to_new_branch_uses_prompted_name_and_coordinator_cycle()
     {
         CommitInfo commit = CreateCommit(1, SnapshotKind.Save);
@@ -934,7 +980,7 @@ public class VersionControlTabViewModelTests
     }
 
     [Test]
-    public async Task Remote_push_reports_progress_and_maps_expected_failure_to_the_dialog()
+    public async Task Remote_push_reports_progress_and_maps_expected_failure_to_notification()
     {
         Mock<IProjectVersionControlService> service = CreateServiceMock();
         service.Setup(x => x.GetRemotesAsync(It.IsAny<CancellationToken>()))

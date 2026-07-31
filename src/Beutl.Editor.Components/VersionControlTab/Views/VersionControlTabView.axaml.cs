@@ -3,10 +3,11 @@ using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Input;
 using Avalonia.Interactivity;
+using Beutl.Editor.Components.VersionControl.Views;
 using Beutl.Editor.Components.VersionControlTab.ViewModels;
+using Beutl.Editor.VersionControl;
 using Beutl.Extensibility;
 using Beutl.Language;
-using FluentAvalonia.UI.Controls;
 
 namespace Beutl.Editor.Components.VersionControlTab.Views;
 
@@ -16,6 +17,8 @@ public sealed partial class VersionControlTabView : UserControl
         AvaloniaProperty.Register<VersionControlTabView, bool>(
             nameof(IsNarrowLayout),
             defaultValue: true);
+
+    internal VersionControlPickerFlyout PromptFlyout { get; } = new();
 
     public VersionControlTabView()
     {
@@ -50,6 +53,7 @@ public sealed partial class VersionControlTabView : UserControl
         if (DataContext is VersionControlTabViewModel viewModel)
         {
             viewModel.RequestEnableVersionControlAsync = ExecuteEnableVersionControlAsync;
+            viewModel.RequestBranchNameAsync = RequestBranchNameAsync;
             viewModel.RequestRemoteUrlAsync = RequestRemoteUrlAsync;
             viewModel.LaunchUriAsync = LaunchUriAsync;
         }
@@ -116,27 +120,23 @@ public sealed partial class VersionControlTabView : UserControl
                ?? Task.FromResult(false);
     }
 
-    private static async Task<string?> RequestRemoteUrlAsync(string? currentRemoteUrl)
+    private Task<string?> RequestBranchNameAsync(CommitInfo commit)
     {
-        var textBox = new TextBox
-        {
-            Text = currentRemoteUrl,
-            Watermark = Strings.VersionControl_RemoteUrl,
-        };
-        var dialog = new ContentDialog
-        {
-            Title = Strings.VersionControl_SetRemoteTitle,
-            Content = textBox,
-            PrimaryButtonText = Strings.OK,
-            CloseButtonText = Strings.Cancel,
-            DefaultButton = ContentDialogButton.Primary,
-        };
-        dialog[!ContentDialog.IsPrimaryButtonEnabledProperty] =
-            textBox.GetObservable(TextBox.TextProperty)
-                .Select(static value => !string.IsNullOrWhiteSpace(value))
-                .ToBinding();
+        PrimaryActionSplitButton.Flyout?.Hide();
+        return PromptFlyout.ShowTextInputAsync(
+            PrimaryActionSplitButton,
+            Strings.VersionControl_CreateBranchTitle,
+            Strings.VersionControl_BranchName,
+            $"restore-{commit.ShortSha}");
+    }
 
-        ContentDialogResult result = await dialog.ShowAsync();
-        return result == ContentDialogResult.Primary ? textBox.Text : null;
+    private Task<string?> RequestRemoteUrlAsync(string? currentRemoteUrl)
+    {
+        PrimaryActionSplitButton.Flyout?.Hide();
+        return PromptFlyout.ShowTextInputAsync(
+            PrimaryActionSplitButton,
+            Strings.VersionControl_SetRemoteTitle,
+            Strings.VersionControl_RemoteUrl,
+            currentRemoteUrl);
     }
 }
