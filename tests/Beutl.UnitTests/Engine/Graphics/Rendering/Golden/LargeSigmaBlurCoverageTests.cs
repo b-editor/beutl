@@ -32,7 +32,8 @@ public class LargeSigmaBlurCoverageTests
             foreach (float outputScale in s_outputScales)
             {
                 yield return new TestCaseData(sigma, outputScale)
-                    .SetName($"Blur_CenterCoverageMatchesGaussianModel_Sigma{sigma}_Scale{outputScale}");
+                    .SetName(
+                        $"{nameof(Blur_CenterCoverageMatchesGaussianModelAcrossCapBoundary)}_Sigma{sigma}_Scale{outputScale}");
             }
         }
 
@@ -41,7 +42,8 @@ public class LargeSigmaBlurCoverageTests
             foreach (float outputScale in new[] { 1f, 1.02f, 1.05f })
             {
                 yield return new TestCaseData(sigma, outputScale)
-                    .SetName($"Blur_DeviceSigmaThreshold_Sigma{sigma}_Scale{outputScale}");
+                    .SetName(
+                        $"{nameof(Blur_CenterCoverageMatchesGaussianModelAcrossCapBoundary)}_DeviceSigmaThreshold_Sigma{sigma}_Scale{outputScale}");
             }
         }
     }

@@ -469,26 +469,33 @@ public sealed class LosslessCompositeCoverageTests
         VulkanTestEnvironment.EnsureAvailable();
         VulkanTestEnvironment.InvokeOnRenderThread(() =>
         {
-            var scale = new ScaleTransform(200, 200);
+            const float width = 200;
+            const float height = 100;
+            const float sigma = 10;
+            const float scaleFactor = 2;
+            const float footprintTolerance = 4;
+            var scale = new ScaleTransform(scaleFactor * 100, scaleFactor * 100);
             var blur = new Blur();
-            blur.Sigma.CurrentValue = new Size(10, 10);
+            blur.Sigma.CurrentValue = new Size(sigma, sigma);
             var frame = new PixelSize(800, 600);
             using Drawable.Resource filtered = CreateTransformedRectangle(
-                width: 200,
-                height: 100,
+                width,
+                height,
                 scale,
                 blur);
             using Bitmap bitmap = RenderThroughPipeline(filtered, density: 1, frame);
 
             PixelRect footprint = MeasureAlphaBounds(bitmap);
+            float expectedWidth = (width + (6 * sigma)) * scaleFactor;
+            float expectedHeight = (height + (6 * sigma)) * scaleFactor;
             TestContext.WriteLine($"scaled local blur footprint = {footprint}");
 
             Assert.Multiple(() =>
             {
-                Assert.That(footprint.Width, Is.GreaterThan(480),
-                    "Scaling a locally blurred 200px shape by 200% must also double the blur extent.");
-                Assert.That(footprint.Height, Is.GreaterThan(280),
-                    "Scaling a locally blurred 100px shape by 200% must also double the blur extent.");
+                Assert.That(footprint.Width, Is.EqualTo(expectedWidth).Within(footprintTolerance),
+                    "Scaling a locally blurred shape must also scale its horizontal Gaussian extent.");
+                Assert.That(footprint.Height, Is.EqualTo(expectedHeight).Within(footprintTolerance),
+                    "Scaling a locally blurred shape must also scale its vertical Gaussian extent.");
             });
         });
     }
