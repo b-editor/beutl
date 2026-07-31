@@ -1,8 +1,11 @@
 ﻿using System.Diagnostics.CodeAnalysis;
 using System.Text.Json.Nodes;
 
+using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Headless.NUnit;
+using Avalonia.Media;
+using Avalonia.Styling;
 using Avalonia.VisualTree;
 
 using Beutl.Editor.Components.TerminalTab.ViewModels;
@@ -148,6 +151,64 @@ public class TerminalTabLifecycleTests
         finally
         {
             editor.CloseToolTab(transientContext);
+            window.Close();
+            HeadlessTestHelpers.Settle();
+        }
+    }
+
+    [AvaloniaTest]
+    public async Task TerminalControl_ThemeResources_ResolvePerVariant()
+    {
+        await ResetProjectAsync();
+        if (OperatingSystem.IsWindows())
+        {
+            Assert.Ignore("The Windows ConPTY path is not exercised by this headless test.");
+        }
+
+        EditViewModel editor = await OpenEditorForNewScene("terminal-tab-theme-resources");
+        IToolDock bottomDock = editor.DockHost.Factory.GetAnchoredDock(DockAnchor.Bottom)!;
+        var terminalContext = new TerminalTabViewModel(editor);
+        Assert.That(editor.DockHost.OpenToolTab(terminalContext, bottomDock), Is.True);
+        var terminalDockable = editor.DockHost.Factory.EnumerateTools()
+            .Single(item => ReferenceEquals(item.ToolContext, terminalContext));
+        var view = new EditView { DataContext = editor };
+        var window = new Window { Content = view, Width = 900, Height = 700 };
+
+        if (Application.Current is not Application currentApp)
+        {
+            throw new InvalidOperationException("Application.Current is null");
+        }
+
+#pragma warning disable CS8600
+        ThemeVariant originalVariant = currentApp.RequestedThemeVariant;
+#pragma warning restore CS8600
+        try
+        {
+            window.Show();
+            editor.DockHost.Factory.SetActiveDockable(terminalDockable);
+            HeadlessTestHelpers.Render();
+
+            TerminalControl terminal = FindTerminal(view);
+
+            Assert.That((terminal.Background as ISolidColorBrush)?.Color, Is.EqualTo(Colors.Transparent));
+
+            Assert.That(terminal.Foreground, Is.Not.Null);
+
+            currentApp.RequestedThemeVariant = ThemeVariant.Dark;
+            HeadlessTestHelpers.Render();
+            Color darkForeground = (terminal.Foreground as ISolidColorBrush)?.Color ?? default;
+
+            currentApp.RequestedThemeVariant = ThemeVariant.Light;
+            HeadlessTestHelpers.Render();
+            Color lightForeground = (terminal.Foreground as ISolidColorBrush)?.Color ?? default;
+
+            Assert.That(darkForeground, Is.Not.EqualTo(lightForeground),
+                "terminal foreground should vary between Dark and Light theme variants");
+        }
+        finally
+        {
+            currentApp.RequestedThemeVariant = originalVariant;
+            editor.CloseToolTab(terminalContext);
             window.Close();
             HeadlessTestHelpers.Settle();
         }
