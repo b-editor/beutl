@@ -151,7 +151,9 @@ public sealed class BrushEditorViewModel : BaseEditorViewModel, IFallbackObjectV
 
     public void SetJsonString(string? str)
     {
-        SetValue(Value.Value, FallbackHelper.DeserializeInstance<Brush>(str));
+        Brush? previous = Value.Value;
+        SetValue(previous, FallbackHelper.DeserializeInstance<Brush>(str));
+        ResumeElementPersistenceAfterFallbackReplacement(previous);
     }
 
     public void UpdateBrushPreview()

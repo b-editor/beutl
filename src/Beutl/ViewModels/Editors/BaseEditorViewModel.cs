@@ -185,6 +185,14 @@ public abstract class BaseEditorViewModel : IPropertyEditorContext, IServiceProv
 
     protected ImmutableArray<CoreObject?> GetStorables() => [_element];
 
+    protected void ResumeElementPersistenceAfterFallbackReplacement(object? previous)
+    {
+        if (previous is IFallback && _element is not null)
+        {
+            Scene.TryResumeElementPersistence(_element);
+        }
+    }
+
     public void Dispose()
     {
         if (!IsDisposed)

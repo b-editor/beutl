@@ -1,6 +1,8 @@
 ﻿using System.Collections;
+using System.Collections.Immutable;
 using System.Text.Json.Nodes;
 using Beutl.Animation;
+using Beutl.Animation.Easings;
 using Beutl.Editor;
 using Beutl.Engine;
 using Beutl.Graphics.Shapes;
@@ -13,6 +15,14 @@ namespace Beutl.UnitTests.ProjectSystem;
 public sealed class MalformedElementRecoveryTests
 {
     private string _root = null!;
+
+    private sealed class IOExceptionElement : Element
+    {
+        public IOExceptionElement()
+        {
+            throw new IOException("Constructor could not access its storage.");
+        }
+    }
 
     [SetUp]
     public void SetUp()
@@ -33,6 +43,20 @@ public sealed class MalformedElementRecoveryTests
     }
 
     [Test]
+    public void Serialize_UriLessSceneWithEmbeddedElements_Succeeds()
+    {
+        var options = new CoreSerializerOptions
+        {
+            Mode = CoreSerializationMode.Write | CoreSerializationMode.EmbedReferencedObjects,
+        };
+
+        JsonObject? json = null;
+        Assert.DoesNotThrow(() => json = CoreSerializer.SerializeToJsonObject(new Scene(), options));
+
+        Assert.That(json!["Elements"], Is.Not.Null);
+    }
+
+    [Test]
     public void Save_PreservesMalformedElementSidecarBytes()
     {
         (Uri sceneUri, string elementPath) = CreatePersistedScene();
@@ -44,6 +68,39 @@ public sealed class MalformedElementRecoveryTests
         CoreSerializer.StoreToUri(recovered, sceneUri);
 
         Assert.That(File.ReadAllBytes(elementPath), Is.EqualTo(corruptBytes));
+    }
+
+    [Test]
+    public void Save_UnresolvableKeyFrameEasing_PreservesSidecarBytes()
+    {
+        (Uri sceneUri, string elementPath) = CreatePersistedScene();
+        Element element = CoreSerializer.RestoreFromUri<Element>(new Uri(elementPath));
+        var shape = (RectShape)element.Objects.Single();
+        var animation = new KeyFrameAnimation<float>();
+        animation.KeyFrames.Add(new KeyFrame<float>
+        {
+            KeyTime = TimeSpan.Zero,
+            Value = 32,
+        });
+        shape.Width.Animation = animation;
+        CoreSerializer.StoreToUri(element, element.Uri!);
+
+        JsonObject json = JsonNode.Parse(File.ReadAllText(elementPath))!.AsObject();
+        JsonObject keyFrameJson = FindObjectWithProperty(json, nameof(KeyFrame.Easing))!;
+        keyFrameJson[nameof(KeyFrame.Easing)] = "[Missing.Assembly]Missing.Namespace:MissingEasing";
+        File.WriteAllText(elementPath, json.ToJsonString());
+        byte[] originalBytes = File.ReadAllBytes(elementPath);
+
+        Scene recovered = CoreSerializer.RestoreFromUri<Scene>(sceneUri);
+        var recoveredShape = (RectShape)recovered.Children.Single().Objects.Single();
+        var recoveredAnimation = (KeyFrameAnimation<float>)recoveredShape.Width.Animation!;
+        CoreSerializer.StoreToUri(recovered, sceneUri);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(recoveredAnimation.KeyFrames.Single().Easing, Is.InstanceOf<LinearEasing>());
+            Assert.That(File.ReadAllBytes(elementPath), Is.EqualTo(originalBytes));
+        });
     }
 
     [Test]
@@ -153,6 +210,23 @@ public sealed class MalformedElementRecoveryTests
             Assert.That(recovered.Children.Single().IsEnabled, Is.False);
             Assert.That(File.ReadAllBytes(elementPath), Is.EqualTo(originalBytes));
         });
+    }
+
+    [Test]
+    public void Restore_ElementConstructorIOException_PropagatesWrappedFailure()
+    {
+        (Uri sceneUri, string elementPath) = CreatePersistedScene();
+        var json = new JsonObject
+        {
+            ["$type"] = TypeFormat.ToString(typeof(IOExceptionElement)),
+            [nameof(CoreObject.Id)] = Guid.NewGuid().ToString(),
+        };
+        File.WriteAllText(elementPath, json.ToJsonString());
+
+        Exception? exception = Assert.Catch(() => CoreSerializer.RestoreFromUri<Scene>(sceneUri));
+
+        Assert.That(exception, Is.Not.Null);
+        Assert.That(ContainsException<IOException>(exception!), Is.True);
     }
 
     [Test]
@@ -530,6 +604,87 @@ public sealed class MalformedElementRecoveryTests
     }
 
     [Test]
+    public void Restore_RepairedElementIdMigratesPersistedGroup()
+    {
+        (Uri sceneUri, string[] elementPaths) =
+            CreatePersistedSceneWithElements("recovered.belm", "healthy.belm");
+        File.WriteAllText(elementPaths[0], "{ this is not valid JSON");
+
+        Scene recoveredScene = CoreSerializer.RestoreFromUri<Scene>(sceneUri);
+        Element placeholder = recoveredScene.Children.Single(
+            child => child.Uri!.LocalPath == elementPaths[0]);
+        Element healthy = recoveredScene.Children.Single(
+            child => child.Uri!.LocalPath == elementPaths[1]);
+        recoveredScene.Groups.Add(ImmutableHashSet.Create(placeholder.Id, healthy.Id));
+        CoreSerializer.StoreToUri(recoveredScene, sceneUri);
+
+        Guid repairedId = Guid.NewGuid();
+        var repaired = new Element
+        {
+            Id = repairedId,
+            Name = "Repaired",
+            Start = TimeSpan.Zero,
+            Length = TimeSpan.FromSeconds(1),
+            Uri = new Uri(elementPaths[0]),
+        };
+        repaired.AddObject(new RectShape());
+        CoreSerializer.StoreToUri(repaired, repaired.Uri!);
+
+        Scene reloaded = CoreSerializer.RestoreFromUri<Scene>(sceneUri);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(reloaded.Children.Single(child => child.Uri!.LocalPath == elementPaths[0]).Id,
+                Is.EqualTo(repairedId));
+            Assert.That(reloaded.Groups, Has.Count.EqualTo(1));
+            Assert.That(reloaded.Groups.Single(),
+                Is.EqualTo(ImmutableHashSet.Create(repairedId, healthy.Id)));
+        });
+    }
+
+    [Test]
+    public void Restore_PersistedRecoveredDescendantRemapSurvivesClaimantRemoval()
+    {
+        (Uri sceneUri, string[] elementPaths) =
+            CreatePersistedSceneWithElements("healthy.belm", "recovered.belm");
+        Scene source = CoreSerializer.RestoreFromUri<Scene>(sceneUri);
+        Element healthySource = source.Children.Single(child => child.Uri!.LocalPath == elementPaths[0]);
+        Guid claimantId = healthySource.Objects.Single().Id;
+        Element recoveredSource = source.Children.Single(child => child.Uri!.LocalPath == elementPaths[1]);
+        var recoveredShapeSource = (RectShape)recoveredSource.Objects.Single();
+        recoveredShapeSource.Transform.CurrentValue = new RotationTransform { Id = claimantId };
+        CoreSerializer.StoreToUri(recoveredSource, recoveredSource.Uri!);
+
+        JsonObject json = JsonNode.Parse(File.ReadAllText(elementPaths[1]))!.AsObject();
+        JsonObject transformJson = FindObjectByDiscriminator(json, "RotationTransform")!;
+        transformJson["$type"] = "[Beutl.Engine]Beutl.Graphics.Transformation:DoesNotExist";
+        transformJson[nameof(CoreObject.Id)] = claimantId.ToString();
+        File.WriteAllText(elementPaths[1], json.ToJsonString());
+
+        Scene recoveredScene = CoreSerializer.RestoreFromUri<Scene>(sceneUri);
+        Guid remappedId = ((CoreObject)GetTransformFallback(recoveredScene, elementPaths[1])).Id;
+        CoreSerializer.StoreToUri(recoveredScene, sceneUri);
+        recoveredScene.DeleteChild(
+            recoveredScene.Children.Single(child => child.Uri!.LocalPath == elementPaths[0]));
+        CoreSerializer.StoreToUri(recoveredScene, sceneUri);
+
+        JsonObject persistedScene = JsonNode.Parse(File.ReadAllText(sceneUri.LocalPath))!.AsObject();
+        JsonObject persistedIds = persistedScene["RecoveredDescendantIds"]!.AsObject();
+        Scene reloaded = CoreSerializer.RestoreFromUri<Scene>(sceneUri);
+        Guid reloadedId = ((CoreObject)GetTransformFallback(reloaded, elementPaths[1])).Id;
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(remappedId, Is.Not.EqualTo(claimantId));
+            Assert.That(
+                persistedIds[$"recovered.belm!{claimantId:D}"]!.GetValue<string>(),
+                Is.EqualTo(remappedId.ToString()));
+            Assert.That(reloaded.Children, Has.Count.EqualTo(1));
+            Assert.That(reloadedId, Is.EqualTo(remappedId));
+        });
+    }
+
+    [Test]
     public void Save_RebuildsRecoveredElementIdMapAfterRehome()
     {
         (Uri sceneUri, string elementPath) = CreatePersistedScene();
@@ -837,6 +992,54 @@ public sealed class MalformedElementRecoveryTests
         }
 
         return null;
+    }
+
+    private static JsonObject? FindObjectWithProperty(JsonNode node, string propertyName)
+    {
+        if (node is JsonObject obj)
+        {
+            if (obj.ContainsKey(propertyName))
+            {
+                return obj;
+            }
+
+            foreach ((string _, JsonNode? child) in obj)
+            {
+                if (child != null && FindObjectWithProperty(child, propertyName) is { } result)
+                {
+                    return result;
+                }
+            }
+        }
+        else if (node is JsonArray array)
+        {
+            foreach (JsonNode? child in array)
+            {
+                if (child != null && FindObjectWithProperty(child, propertyName) is { } result)
+                {
+                    return result;
+                }
+            }
+        }
+
+        return null;
+    }
+
+    private static bool ContainsException<TException>(Exception exception)
+        where TException : Exception
+    {
+        if (exception is TException)
+        {
+            return true;
+        }
+
+        if (exception is AggregateException aggregate
+            && aggregate.InnerExceptions.Any(ContainsException<TException>))
+        {
+            return true;
+        }
+
+        return exception.InnerException is { } inner && ContainsException<TException>(inner);
     }
 
     private static IFallback GetTransformFallback(Scene scene, string elementPath)

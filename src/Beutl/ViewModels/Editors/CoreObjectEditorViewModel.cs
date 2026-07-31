@@ -152,7 +152,9 @@ public sealed class CoreObjectEditorViewModel<T> : BaseEditorViewModel<T>, ICore
 
     public void SetJsonString(string? str)
     {
-        SetValue(Value.Value, FallbackHelper.DeserializeInstance<T>(str));
+        T? previous = Value.Value;
+        SetValue(previous, FallbackHelper.DeserializeInstance<T>(str));
+        ResumeElementPersistenceAfterFallbackReplacement(previous);
     }
 
     public void SetNull()

@@ -202,6 +202,40 @@ public class ElementObjectServiceTests
     }
 
     [Test]
+    public void PasteOver_LastFallback_ClearsPersistenceSuppression()
+    {
+        _service.Add(_element, new FallbackEngineObject());
+        _element.SuppressedStorageSource = new SuppressedStorageSource([], _element.Uri!);
+        string json = CoreSerializer.SerializeToJsonString(new TestEngineObject());
+
+        ObjectPasteOutcome outcome = _service.PasteOver(_element, 0, json);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(outcome, Is.EqualTo(ObjectPasteOutcome.Pasted));
+            Assert.That(_element.SuppressedStorageSource, Is.Null);
+        });
+    }
+
+    [Test]
+    public void PasteOver_WhenAnotherFallbackRemains_KeepsPersistenceSuppression()
+    {
+        _service.Add(_element, new FallbackEngineObject());
+        _service.Add(_element, new FallbackEngineObject());
+        var suppression = new SuppressedStorageSource([], _element.Uri!);
+        _element.SuppressedStorageSource = suppression;
+        string json = CoreSerializer.SerializeToJsonString(new TestEngineObject());
+
+        ObjectPasteOutcome outcome = _service.PasteOver(_element, 0, json);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(outcome, Is.EqualTo(ObjectPasteOutcome.Pasted));
+            Assert.That(_element.SuppressedStorageSource, Is.SameAs(suppression));
+        });
+    }
+
+    [Test]
     public void SetEnabled_NoChange_NoCommit()
     {
         var obj = new TestEngineObject { IsEnabled = true };

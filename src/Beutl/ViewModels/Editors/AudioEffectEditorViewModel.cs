@@ -122,7 +122,9 @@ public sealed class AudioEffectEditorViewModel : ValueEditorViewModel<AudioEffec
 
     public void SetJsonString(string? str)
     {
-        SetValue(Value.Value, FallbackHelper.DeserializeInstance<AudioEffect>(str));
+        AudioEffect? previous = Value.Value;
+        SetValue(previous, FallbackHelper.DeserializeInstance<AudioEffect>(str));
+        ResumeElementPersistenceAfterFallbackReplacement(previous);
     }
 
     public override void Accept(IPropertyEditorContextVisitor visitor)

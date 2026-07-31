@@ -54,9 +54,13 @@ public class KeyFrame : Hierarchical
             if (easingNode is JsonValue easingTypeValue
                 && easingTypeValue.TryGetValue(out string? easingType))
             {
-                Type type = TypeFormat.ToType(easingType) ?? typeof(LinearEasing);
-
-                if (Activator.CreateInstance(type) is Easing easing)
+                Type? type = TypeFormat.ToType(easingType);
+                if (type is null || !type.IsAssignableTo(typeof(Easing)))
+                {
+                    DeserializationIncidents.RecordFallback();
+                    Easing = new LinearEasing();
+                }
+                else if (Activator.CreateInstance(type) is Easing easing)
                 {
                     Easing = easing;
                 }

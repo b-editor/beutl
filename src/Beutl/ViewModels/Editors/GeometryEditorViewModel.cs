@@ -101,7 +101,9 @@ public sealed class GeometryEditorViewModel : ValueEditorViewModel<Geometry?>, I
 
     public void SetJsonString(string? str)
     {
-        SetValue(Value.Value, FallbackHelper.DeserializeInstance<Geometry>(str));
+        Geometry? previous = Value.Value;
+        SetValue(previous, FallbackHelper.DeserializeInstance<Geometry>(str));
+        ResumeElementPersistenceAfterFallbackReplacement(previous);
     }
 
     public override void Accept(IPropertyEditorContextVisitor visitor)
