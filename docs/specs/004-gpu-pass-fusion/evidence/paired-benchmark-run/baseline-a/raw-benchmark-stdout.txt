@@ -1,13 +1,12 @@
-Identity added: /Users/teradatakeshishou/.ssh/id_ed25519 (teradatakeshishou@teradatakeshishounonotobukkukonpyuta.local)
-// Validating benchmarks:
+Enter passphrase for /Users/teradatakeshishou/.ssh/id_ed25519: // Validating benchmarks:
 // ***** BenchmarkRunner: Start   *****
 // ***** Found 11 benchmark(s) in total *****
 // ***** Building 1 exe(s) in Parallel: Start   *****
-// start dotnet  restore --nodeReuse:false /p:UseSharedCompilation=false /p:Deterministic=true /p:Optimize=true /p:ArtifactsPath="/private/var/folders/nl/kd31xyh169n3x8wb6g0dpw_m0000gn/T/beutl-gpu-pass-benchmark-build.Xp00DQ/baseline/bin/Beutl.GpuPassTargetBenchmarkHarness/release/Beutl.GpuPassTargetBenchmarkHarness-RenderPipeline-1/" /p:OutDir="/private/var/folders/nl/kd31xyh169n3x8wb6g0dpw_m0000gn/T/beutl-gpu-pass-benchmark-build.Xp00DQ/baseline/bin/Beutl.GpuPassTargetBenchmarkHarness/release/Beutl.GpuPassTargetBenchmarkHarness-RenderPipeline-1/bin/Release/net10.0/" /p:OutputPath="/private/var/folders/nl/kd31xyh169n3x8wb6g0dpw_m0000gn/T/beutl-gpu-pass-benchmark-build.Xp00DQ/baseline/bin/Beutl.GpuPassTargetBenchmarkHarness/release/Beutl.GpuPassTargetBenchmarkHarness-RenderPipeline-1/bin/Release/net10.0/" /p:PublishDir="/private/var/folders/nl/kd31xyh169n3x8wb6g0dpw_m0000gn/T/beutl-gpu-pass-benchmark-build.Xp00DQ/baseline/bin/Beutl.GpuPassTargetBenchmarkHarness/release/Beutl.GpuPassTargetBenchmarkHarness-RenderPipeline-1/publish/" in /private/var/folders/nl/kd31xyh169n3x8wb6g0dpw_m0000gn/T/beutl-gpu-pass-benchmark-build.Xp00DQ/baseline/bin/Beutl.GpuPassTargetBenchmarkHarness/release/Beutl.GpuPassTargetBenchmarkHarness-RenderPipeline-1
-// command took 0.92 sec and exited with 0
-// start dotnet  build -c Release --no-restore --nodeReuse:false /p:UseSharedCompilation=false /p:Deterministic=true /p:Optimize=true /p:ArtifactsPath="/private/var/folders/nl/kd31xyh169n3x8wb6g0dpw_m0000gn/T/beutl-gpu-pass-benchmark-build.Xp00DQ/baseline/bin/Beutl.GpuPassTargetBenchmarkHarness/release/Beutl.GpuPassTargetBenchmarkHarness-RenderPipeline-1/" /p:OutDir="/private/var/folders/nl/kd31xyh169n3x8wb6g0dpw_m0000gn/T/beutl-gpu-pass-benchmark-build.Xp00DQ/baseline/bin/Beutl.GpuPassTargetBenchmarkHarness/release/Beutl.GpuPassTargetBenchmarkHarness-RenderPipeline-1/bin/Release/net10.0/" /p:OutputPath="/private/var/folders/nl/kd31xyh169n3x8wb6g0dpw_m0000gn/T/beutl-gpu-pass-benchmark-build.Xp00DQ/baseline/bin/Beutl.GpuPassTargetBenchmarkHarness/release/Beutl.GpuPassTargetBenchmarkHarness-RenderPipeline-1/bin/Release/net10.0/" /p:PublishDir="/private/var/folders/nl/kd31xyh169n3x8wb6g0dpw_m0000gn/T/beutl-gpu-pass-benchmark-build.Xp00DQ/baseline/bin/Beutl.GpuPassTargetBenchmarkHarness/release/Beutl.GpuPassTargetBenchmarkHarness-RenderPipeline-1/publish/" --output "/private/var/folders/nl/kd31xyh169n3x8wb6g0dpw_m0000gn/T/beutl-gpu-pass-benchmark-build.Xp00DQ/baseline/bin/Beutl.GpuPassTargetBenchmarkHarness/release/Beutl.GpuPassTargetBenchmarkHarness-RenderPipeline-1/bin/Release/net10.0/" in /private/var/folders/nl/kd31xyh169n3x8wb6g0dpw_m0000gn/T/beutl-gpu-pass-benchmark-build.Xp00DQ/baseline/bin/Beutl.GpuPassTargetBenchmarkHarness/release/Beutl.GpuPassTargetBenchmarkHarness-RenderPipeline-1
-// command took 9.26 sec and exited with 0
-// ***** Done, took 00:00:16 (16.48 sec)   *****
+// start dotnet  restore --nodeReuse:false /p:UseSharedCompilation=false /p:Deterministic=true /p:Optimize=true /p:ArtifactsPath="/private/var/folders/nl/kd31xyh169n3x8wb6g0dpw_m0000gn/T/beutl-gpu-pass-benchmark-build.lfmNQ9/baseline/bin/Beutl.GpuPassTargetBenchmarkHarness/release/Beutl.GpuPassTargetBenchmarkHarness-RenderPipeline-1/" /p:OutDir="/private/var/folders/nl/kd31xyh169n3x8wb6g0dpw_m0000gn/T/beutl-gpu-pass-benchmark-build.lfmNQ9/baseline/bin/Beutl.GpuPassTargetBenchmarkHarness/release/Beutl.GpuPassTargetBenchmarkHarness-RenderPipeline-1/bin/Release/net10.0/" /p:OutputPath="/private/var/folders/nl/kd31xyh169n3x8wb6g0dpw_m0000gn/T/beutl-gpu-pass-benchmark-build.lfmNQ9/baseline/bin/Beutl.GpuPassTargetBenchmarkHarness/release/Beutl.GpuPassTargetBenchmarkHarness-RenderPipeline-1/bin/Release/net10.0/" /p:PublishDir="/private/var/folders/nl/kd31xyh169n3x8wb6g0dpw_m0000gn/T/beutl-gpu-pass-benchmark-build.lfmNQ9/baseline/bin/Beutl.GpuPassTargetBenchmarkHarness/release/Beutl.GpuPassTargetBenchmarkHarness-RenderPipeline-1/publish/" in /private/var/folders/nl/kd31xyh169n3x8wb6g0dpw_m0000gn/T/beutl-gpu-pass-benchmark-build.lfmNQ9/baseline/bin/Beutl.GpuPassTargetBenchmarkHarness/release/Beutl.GpuPassTargetBenchmarkHarness-RenderPipeline-1
+// command took 1.08 sec and exited with 0
+// start dotnet  build -c Release --no-restore --nodeReuse:false /p:UseSharedCompilation=false /p:Deterministic=true /p:Optimize=true /p:ArtifactsPath="/private/var/folders/nl/kd31xyh169n3x8wb6g0dpw_m0000gn/T/beutl-gpu-pass-benchmark-build.lfmNQ9/baseline/bin/Beutl.GpuPassTargetBenchmarkHarness/release/Beutl.GpuPassTargetBenchmarkHarness-RenderPipeline-1/" /p:OutDir="/private/var/folders/nl/kd31xyh169n3x8wb6g0dpw_m0000gn/T/beutl-gpu-pass-benchmark-build.lfmNQ9/baseline/bin/Beutl.GpuPassTargetBenchmarkHarness/release/Beutl.GpuPassTargetBenchmarkHarness-RenderPipeline-1/bin/Release/net10.0/" /p:OutputPath="/private/var/folders/nl/kd31xyh169n3x8wb6g0dpw_m0000gn/T/beutl-gpu-pass-benchmark-build.lfmNQ9/baseline/bin/Beutl.GpuPassTargetBenchmarkHarness/release/Beutl.GpuPassTargetBenchmarkHarness-RenderPipeline-1/bin/Release/net10.0/" /p:PublishDir="/private/var/folders/nl/kd31xyh169n3x8wb6g0dpw_m0000gn/T/beutl-gpu-pass-benchmark-build.lfmNQ9/baseline/bin/Beutl.GpuPassTargetBenchmarkHarness/release/Beutl.GpuPassTargetBenchmarkHarness-RenderPipeline-1/publish/" --output "/private/var/folders/nl/kd31xyh169n3x8wb6g0dpw_m0000gn/T/beutl-gpu-pass-benchmark-build.lfmNQ9/baseline/bin/Beutl.GpuPassTargetBenchmarkHarness/release/Beutl.GpuPassTargetBenchmarkHarness-RenderPipeline-1/bin/Release/net10.0/" in /private/var/folders/nl/kd31xyh169n3x8wb6g0dpw_m0000gn/T/beutl-gpu-pass-benchmark-build.lfmNQ9/baseline/bin/Beutl.GpuPassTargetBenchmarkHarness/release/Beutl.GpuPassTargetBenchmarkHarness-RenderPipeline-1
+// command took 11.61 sec and exited with 0
+// ***** Done, took 00:00:19 (19.41 sec)   *****
 // Found 11 benchmarks:
 //   TargetRenderPipelineBenchmarks.RenderCompleteTargetRequest: RenderPipeline(InvocationCount=1, IterationCount=15, LaunchCount=1, RunStrategy=Monitoring, UnrollFactor=1, WarmupCount=3) [CaseName=LongInvariantChain]
 //   TargetRenderPipelineBenchmarks.RenderCompleteTargetRequest: RenderPipeline(InvocationCount=1, IterationCount=15, LaunchCount=1, RunStrategy=Monitoring, UnrollFactor=1, WarmupCount=3) [CaseName=MixedSpatialColor]
@@ -25,7 +24,7 @@ Identity added: /Users/teradatakeshishou/.ssh/id_ed25519 (teradatakeshishou@tera
 // Benchmark: TargetRenderPipelineBenchmarks.RenderCompleteTargetRequest: RenderPipeline(InvocationCount=1, IterationCount=15, LaunchCount=1, RunStrategy=Monitoring, UnrollFactor=1, WarmupCount=3) [CaseName=LongInvariantChain]
 // *** Execute ***
 // Launch: 1 / 1
-// Execute: dotnet Beutl.GpuPassTargetBenchmarkHarness-RenderPipeline-1.dll --anonymousPipes 110 111 --benchmarkName "Beutl.GpuPassTargetBenchmarkHarness.TargetRenderPipelineBenchmarks.RenderCompleteTargetRequest(CaseName: \"LongInvariantChain\")" --job RenderPipeline --benchmarkId 0 in /private/var/folders/nl/kd31xyh169n3x8wb6g0dpw_m0000gn/T/beutl-gpu-pass-benchmark-build.Xp00DQ/baseline/bin/Beutl.GpuPassTargetBenchmarkHarness/release/Beutl.GpuPassTargetBenchmarkHarness-RenderPipeline-1/bin/Release/net10.0
+// Execute: dotnet Beutl.GpuPassTargetBenchmarkHarness-RenderPipeline-1.dll --anonymousPipes 110 111 --benchmarkName "Beutl.GpuPassTargetBenchmarkHarness.TargetRenderPipelineBenchmarks.RenderCompleteTargetRequest(CaseName: \"LongInvariantChain\")" --job RenderPipeline --benchmarkId 0 in /private/var/folders/nl/kd31xyh169n3x8wb6g0dpw_m0000gn/T/beutl-gpu-pass-benchmark-build.lfmNQ9/baseline/bin/Beutl.GpuPassTargetBenchmarkHarness/release/Beutl.GpuPassTargetBenchmarkHarness-RenderPipeline-1/bin/Release/net10.0
 // Failed to set up high priority (Permission denied). In order to run benchmarks with high priority, make sure you have the right permissions.
 // BeforeAnythingElse
 
@@ -208,61 +207,61 @@ Identity added: /Users/teradatakeshishou/.ssh/id_ed25519 (teradatakeshishou@tera
 	VK_KHR_portability_subset v1
 	VK_KHR_swapchain v70
 	VK_EXT_metal_objects v2
-WorkloadWarmup   1: 1 op, 9021292.00 ns, 9.0213 ms/op
-WorkloadWarmup   2: 1 op, 8534542.00 ns, 8.5345 ms/op
-WorkloadWarmup   3: 1 op, 8534542.00 ns, 8.5345 ms/op
+WorkloadWarmup   1: 1 op, 8328042.00 ns, 8.3280 ms/op
+WorkloadWarmup   2: 1 op, 7971541.00 ns, 7.9715 ms/op
+WorkloadWarmup   3: 1 op, 7884125.00 ns, 7.8841 ms/op
 
 // BeforeActualRun
-WorkloadActual   1: 1 op, 8418000.00 ns, 8.4180 ms/op
-WorkloadActual   2: 1 op, 8528209.00 ns, 8.5282 ms/op
-WorkloadActual   3: 1 op, 8578250.00 ns, 8.5783 ms/op
-WorkloadActual   4: 1 op, 9157125.00 ns, 9.1571 ms/op
-WorkloadActual   5: 1 op, 8415458.00 ns, 8.4155 ms/op
-WorkloadActual   6: 1 op, 8514500.00 ns, 8.5145 ms/op
-WorkloadActual   7: 1 op, 8431375.00 ns, 8.4314 ms/op
-WorkloadActual   8: 1 op, 8172375.00 ns, 8.1724 ms/op
-WorkloadActual   9: 1 op, 8663625.00 ns, 8.6636 ms/op
-WorkloadActual  10: 1 op, 7893833.00 ns, 7.8938 ms/op
-WorkloadActual  11: 1 op, 7804375.00 ns, 7.8044 ms/op
-WorkloadActual  12: 1 op, 8497500.00 ns, 8.4975 ms/op
-WorkloadActual  13: 1 op, 7721458.00 ns, 7.7215 ms/op
-WorkloadActual  14: 1 op, 8167375.00 ns, 8.1674 ms/op
-WorkloadActual  15: 1 op, 8153042.00 ns, 8.1530 ms/op
+WorkloadActual   1: 1 op, 7763708.00 ns, 7.7637 ms/op
+WorkloadActual   2: 1 op, 7868167.00 ns, 7.8682 ms/op
+WorkloadActual   3: 1 op, 7868209.00 ns, 7.8682 ms/op
+WorkloadActual   4: 1 op, 7886292.00 ns, 7.8863 ms/op
+WorkloadActual   5: 1 op, 8041417.00 ns, 8.0414 ms/op
+WorkloadActual   6: 1 op, 7737042.00 ns, 7.7370 ms/op
+WorkloadActual   7: 1 op, 8214625.00 ns, 8.2146 ms/op
+WorkloadActual   8: 1 op, 7869541.00 ns, 7.8695 ms/op
+WorkloadActual   9: 1 op, 7951500.00 ns, 7.9515 ms/op
+WorkloadActual  10: 1 op, 7629833.00 ns, 7.6298 ms/op
+WorkloadActual  11: 1 op, 7937875.00 ns, 7.9379 ms/op
+WorkloadActual  12: 1 op, 8058375.00 ns, 8.0584 ms/op
+WorkloadActual  13: 1 op, 7846542.00 ns, 7.8465 ms/op
+WorkloadActual  14: 1 op, 7892708.00 ns, 7.8927 ms/op
+WorkloadActual  15: 1 op, 7985375.00 ns, 7.9854 ms/op
 
 // AfterActualRun
-WorkloadResult   1: 1 op, 8418000.00 ns, 8.4180 ms/op
-WorkloadResult   2: 1 op, 8528209.00 ns, 8.5282 ms/op
-WorkloadResult   3: 1 op, 8578250.00 ns, 8.5783 ms/op
-WorkloadResult   4: 1 op, 9157125.00 ns, 9.1571 ms/op
-WorkloadResult   5: 1 op, 8415458.00 ns, 8.4155 ms/op
-WorkloadResult   6: 1 op, 8514500.00 ns, 8.5145 ms/op
-WorkloadResult   7: 1 op, 8431375.00 ns, 8.4314 ms/op
-WorkloadResult   8: 1 op, 8172375.00 ns, 8.1724 ms/op
-WorkloadResult   9: 1 op, 8663625.00 ns, 8.6636 ms/op
-WorkloadResult  10: 1 op, 7893833.00 ns, 7.8938 ms/op
-WorkloadResult  11: 1 op, 7804375.00 ns, 7.8044 ms/op
-WorkloadResult  12: 1 op, 8497500.00 ns, 8.4975 ms/op
-WorkloadResult  13: 1 op, 7721458.00 ns, 7.7215 ms/op
-WorkloadResult  14: 1 op, 8167375.00 ns, 8.1674 ms/op
-WorkloadResult  15: 1 op, 8153042.00 ns, 8.1530 ms/op
-// GC:  0 0 0 110440 1
+WorkloadResult   1: 1 op, 7763708.00 ns, 7.7637 ms/op
+WorkloadResult   2: 1 op, 7868167.00 ns, 7.8682 ms/op
+WorkloadResult   3: 1 op, 7868209.00 ns, 7.8682 ms/op
+WorkloadResult   4: 1 op, 7886292.00 ns, 7.8863 ms/op
+WorkloadResult   5: 1 op, 8041417.00 ns, 8.0414 ms/op
+WorkloadResult   6: 1 op, 7737042.00 ns, 7.7370 ms/op
+WorkloadResult   7: 1 op, 8214625.00 ns, 8.2146 ms/op
+WorkloadResult   8: 1 op, 7869541.00 ns, 7.8695 ms/op
+WorkloadResult   9: 1 op, 7951500.00 ns, 7.9515 ms/op
+WorkloadResult  10: 1 op, 7629833.00 ns, 7.6298 ms/op
+WorkloadResult  11: 1 op, 7937875.00 ns, 7.9379 ms/op
+WorkloadResult  12: 1 op, 8058375.00 ns, 8.0584 ms/op
+WorkloadResult  13: 1 op, 7846542.00 ns, 7.8465 ms/op
+WorkloadResult  14: 1 op, 7892708.00 ns, 7.8927 ms/op
+WorkloadResult  15: 1 op, 7985375.00 ns, 7.9854 ms/op
+// GC:  0 0 0 109856 1
 // Threading:  0 0 1
 
 // AfterAll
-// Benchmark Process 67169 has exited with code 0.
+// Benchmark Process 96985 has exited with code 0.
 
-Mean = 8.341 ms, StdErr = 0.095 ms (1.14%), N = 15, StdDev = 0.369 ms
-Min = 7.721 ms, Q1 = 8.160 ms, Median = 8.418 ms, Q3 = 8.521 ms, Max = 9.157 ms
-IQR = 0.361 ms, LowerFence = 7.618 ms, UpperFence = 9.063 ms
-ConfidenceInterval = [7.947 ms; 8.735 ms] (CI 99.9%), Margin = 0.394 ms (4.72% of Mean)
-Skewness = 0.14, Kurtosis = 2.65, MValue = 3
+Mean = 7.903 ms, StdErr = 0.036 ms (0.46%), N = 15, StdDev = 0.141 ms
+Min = 7.630 ms, Q1 = 7.857 ms, Median = 7.886 ms, Q3 = 7.968 ms, Max = 8.215 ms
+IQR = 0.111 ms, LowerFence = 7.691 ms, UpperFence = 8.135 ms
+ConfidenceInterval = [7.752 ms; 8.054 ms] (CI 99.9%), Margin = 0.151 ms (1.91% of Mean)
+Skewness = 0.21, Kurtosis = 2.87, MValue = 2
 
-// ** Remained 10 (90.9%) benchmark(s) to run. Estimated finish 2026-08-01 1:44 (0h 0m from now) **
+// ** Remained 10 (90.9%) benchmark(s) to run. Estimated finish 2026-08-01 3:32 (0h 0m from now) **
 // **************************
 // Benchmark: TargetRenderPipelineBenchmarks.RenderCompleteTargetRequest: RenderPipeline(InvocationCount=1, IterationCount=15, LaunchCount=1, RunStrategy=Monitoring, UnrollFactor=1, WarmupCount=3) [CaseName=MixedSpatialColor]
 // *** Execute ***
 // Launch: 1 / 1
-// Execute: dotnet Beutl.GpuPassTargetBenchmarkHarness-RenderPipeline-1.dll --anonymousPipes 110 111 --benchmarkName "Beutl.GpuPassTargetBenchmarkHarness.TargetRenderPipelineBenchmarks.RenderCompleteTargetRequest(CaseName: \"MixedSpatialColor\")" --job RenderPipeline --benchmarkId 1 in /private/var/folders/nl/kd31xyh169n3x8wb6g0dpw_m0000gn/T/beutl-gpu-pass-benchmark-build.Xp00DQ/baseline/bin/Beutl.GpuPassTargetBenchmarkHarness/release/Beutl.GpuPassTargetBenchmarkHarness-RenderPipeline-1/bin/Release/net10.0
+// Execute: dotnet Beutl.GpuPassTargetBenchmarkHarness-RenderPipeline-1.dll --anonymousPipes 110 111 --benchmarkName "Beutl.GpuPassTargetBenchmarkHarness.TargetRenderPipelineBenchmarks.RenderCompleteTargetRequest(CaseName: \"MixedSpatialColor\")" --job RenderPipeline --benchmarkId 1 in /private/var/folders/nl/kd31xyh169n3x8wb6g0dpw_m0000gn/T/beutl-gpu-pass-benchmark-build.lfmNQ9/baseline/bin/Beutl.GpuPassTargetBenchmarkHarness/release/Beutl.GpuPassTargetBenchmarkHarness-RenderPipeline-1/bin/Release/net10.0
 // Failed to set up high priority (Permission denied). In order to run benchmarks with high priority, make sure you have the right permissions.
 // BeforeAnythingElse
 
@@ -445,61 +444,61 @@ Skewness = 0.14, Kurtosis = 2.65, MValue = 3
 	VK_KHR_portability_subset v1
 	VK_KHR_swapchain v70
 	VK_EXT_metal_objects v2
-WorkloadWarmup   1: 1 op, 5470208.00 ns, 5.4702 ms/op
-WorkloadWarmup   2: 1 op, 5903541.00 ns, 5.9035 ms/op
-WorkloadWarmup   3: 1 op, 4099333.00 ns, 4.0993 ms/op
+WorkloadWarmup   1: 1 op, 5017750.00 ns, 5.0178 ms/op
+WorkloadWarmup   2: 1 op, 4116542.00 ns, 4.1165 ms/op
+WorkloadWarmup   3: 1 op, 4271584.00 ns, 4.2716 ms/op
 
 // BeforeActualRun
-WorkloadActual   1: 1 op, 4427083.00 ns, 4.4271 ms/op
-WorkloadActual   2: 1 op, 4521458.00 ns, 4.5215 ms/op
-WorkloadActual   3: 1 op, 4245833.00 ns, 4.2458 ms/op
-WorkloadActual   4: 1 op, 4380875.00 ns, 4.3809 ms/op
-WorkloadActual   5: 1 op, 4293709.00 ns, 4.2937 ms/op
-WorkloadActual   6: 1 op, 4202917.00 ns, 4.2029 ms/op
-WorkloadActual   7: 1 op, 4214375.00 ns, 4.2144 ms/op
-WorkloadActual   8: 1 op, 4250667.00 ns, 4.2507 ms/op
-WorkloadActual   9: 1 op, 4228958.00 ns, 4.2290 ms/op
-WorkloadActual  10: 1 op, 4166167.00 ns, 4.1662 ms/op
-WorkloadActual  11: 1 op, 4141000.00 ns, 4.1410 ms/op
-WorkloadActual  12: 1 op, 4243458.00 ns, 4.2435 ms/op
-WorkloadActual  13: 1 op, 4107000.00 ns, 4.1070 ms/op
-WorkloadActual  14: 1 op, 4131792.00 ns, 4.1318 ms/op
-WorkloadActual  15: 1 op, 4110083.00 ns, 4.1101 ms/op
+WorkloadActual   1: 1 op, 4265417.00 ns, 4.2654 ms/op
+WorkloadActual   2: 1 op, 4161541.00 ns, 4.1615 ms/op
+WorkloadActual   3: 1 op, 4138417.00 ns, 4.1384 ms/op
+WorkloadActual   4: 1 op, 4014875.00 ns, 4.0149 ms/op
+WorkloadActual   5: 1 op, 4149375.00 ns, 4.1494 ms/op
+WorkloadActual   6: 1 op, 4064083.00 ns, 4.0641 ms/op
+WorkloadActual   7: 1 op, 4085083.00 ns, 4.0851 ms/op
+WorkloadActual   8: 1 op, 4192542.00 ns, 4.1925 ms/op
+WorkloadActual   9: 1 op, 4065542.00 ns, 4.0655 ms/op
+WorkloadActual  10: 1 op, 4060542.00 ns, 4.0605 ms/op
+WorkloadActual  11: 1 op, 4055500.00 ns, 4.0555 ms/op
+WorkloadActual  12: 1 op, 3969000.00 ns, 3.9690 ms/op
+WorkloadActual  13: 1 op, 4090500.00 ns, 4.0905 ms/op
+WorkloadActual  14: 1 op, 4129709.00 ns, 4.1297 ms/op
+WorkloadActual  15: 1 op, 3994625.00 ns, 3.9946 ms/op
 
 // AfterActualRun
-WorkloadResult   1: 1 op, 4427083.00 ns, 4.4271 ms/op
-WorkloadResult   2: 1 op, 4521458.00 ns, 4.5215 ms/op
-WorkloadResult   3: 1 op, 4245833.00 ns, 4.2458 ms/op
-WorkloadResult   4: 1 op, 4380875.00 ns, 4.3809 ms/op
-WorkloadResult   5: 1 op, 4293709.00 ns, 4.2937 ms/op
-WorkloadResult   6: 1 op, 4202917.00 ns, 4.2029 ms/op
-WorkloadResult   7: 1 op, 4214375.00 ns, 4.2144 ms/op
-WorkloadResult   8: 1 op, 4250667.00 ns, 4.2507 ms/op
-WorkloadResult   9: 1 op, 4228958.00 ns, 4.2290 ms/op
-WorkloadResult  10: 1 op, 4166167.00 ns, 4.1662 ms/op
-WorkloadResult  11: 1 op, 4141000.00 ns, 4.1410 ms/op
-WorkloadResult  12: 1 op, 4243458.00 ns, 4.2435 ms/op
-WorkloadResult  13: 1 op, 4107000.00 ns, 4.1070 ms/op
-WorkloadResult  14: 1 op, 4131792.00 ns, 4.1318 ms/op
-WorkloadResult  15: 1 op, 4110083.00 ns, 4.1101 ms/op
-// GC:  0 0 0 50120 1
+WorkloadResult   1: 1 op, 4265417.00 ns, 4.2654 ms/op
+WorkloadResult   2: 1 op, 4161541.00 ns, 4.1615 ms/op
+WorkloadResult   3: 1 op, 4138417.00 ns, 4.1384 ms/op
+WorkloadResult   4: 1 op, 4014875.00 ns, 4.0149 ms/op
+WorkloadResult   5: 1 op, 4149375.00 ns, 4.1494 ms/op
+WorkloadResult   6: 1 op, 4064083.00 ns, 4.0641 ms/op
+WorkloadResult   7: 1 op, 4085083.00 ns, 4.0851 ms/op
+WorkloadResult   8: 1 op, 4192542.00 ns, 4.1925 ms/op
+WorkloadResult   9: 1 op, 4065542.00 ns, 4.0655 ms/op
+WorkloadResult  10: 1 op, 4060542.00 ns, 4.0605 ms/op
+WorkloadResult  11: 1 op, 4055500.00 ns, 4.0555 ms/op
+WorkloadResult  12: 1 op, 3969000.00 ns, 3.9690 ms/op
+WorkloadResult  13: 1 op, 4090500.00 ns, 4.0905 ms/op
+WorkloadResult  14: 1 op, 4129709.00 ns, 4.1297 ms/op
+WorkloadResult  15: 1 op, 3994625.00 ns, 3.9946 ms/op
+// GC:  0 0 0 49536 1
 // Threading:  0 0 1
 
 // AfterAll
-// Benchmark Process 67175 has exited with code 0.
+// Benchmark Process 96995 has exited with code 0.
 
-Mean = 4.244 ms, StdErr = 0.031 ms (0.73%), N = 15, StdDev = 0.120 ms
-Min = 4.107 ms, Q1 = 4.154 ms, Median = 4.229 ms, Q3 = 4.272 ms, Max = 4.521 ms
-IQR = 0.119 ms, LowerFence = 3.976 ms, UpperFence = 4.450 ms
-ConfidenceInterval = [4.116 ms; 4.372 ms] (CI 99.9%), Margin = 0.128 ms (3.01% of Mean)
-Skewness = 0.85, Kurtosis = 2.72, MValue = 2.29
+Mean = 4.096 ms, StdErr = 0.020 ms (0.49%), N = 15, StdDev = 0.078 ms
+Min = 3.969 ms, Q1 = 4.058 ms, Median = 4.085 ms, Q3 = 4.144 ms, Max = 4.265 ms
+IQR = 0.086 ms, LowerFence = 3.929 ms, UpperFence = 4.273 ms
+ConfidenceInterval = [4.012 ms; 4.180 ms] (CI 99.9%), Margin = 0.084 ms (2.05% of Mean)
+Skewness = 0.36, Kurtosis = 2.4, MValue = 2
 
-// ** Remained 9 (81.8%) benchmark(s) to run. Estimated finish 2026-08-01 1:44 (0h 0m from now) **
+// ** Remained 9 (81.8%) benchmark(s) to run. Estimated finish 2026-08-01 3:32 (0h 0m from now) **
 // **************************
 // Benchmark: TargetRenderPipelineBenchmarks.RenderCompleteTargetRequest: RenderPipeline(InvocationCount=1, IterationCount=15, LaunchCount=1, RunStrategy=Monitoring, UnrollFactor=1, WarmupCount=3) [CaseName=Multi(...)ncies [35]]
 // *** Execute ***
 // Launch: 1 / 1
-// Execute: dotnet Beutl.GpuPassTargetBenchmarkHarness-RenderPipeline-1.dll --anonymousPipes 110 111 --benchmarkName "Beutl.GpuPassTargetBenchmarkHarness.TargetRenderPipelineBenchmarks.RenderCompleteTargetRequest(CaseName: \"MultipleDrawablesTargetDependencies\")" --job RenderPipeline --benchmarkId 2 in /private/var/folders/nl/kd31xyh169n3x8wb6g0dpw_m0000gn/T/beutl-gpu-pass-benchmark-build.Xp00DQ/baseline/bin/Beutl.GpuPassTargetBenchmarkHarness/release/Beutl.GpuPassTargetBenchmarkHarness-RenderPipeline-1/bin/Release/net10.0
+// Execute: dotnet Beutl.GpuPassTargetBenchmarkHarness-RenderPipeline-1.dll --anonymousPipes 110 111 --benchmarkName "Beutl.GpuPassTargetBenchmarkHarness.TargetRenderPipelineBenchmarks.RenderCompleteTargetRequest(CaseName: \"MultipleDrawablesTargetDependencies\")" --job RenderPipeline --benchmarkId 2 in /private/var/folders/nl/kd31xyh169n3x8wb6g0dpw_m0000gn/T/beutl-gpu-pass-benchmark-build.lfmNQ9/baseline/bin/Beutl.GpuPassTargetBenchmarkHarness/release/Beutl.GpuPassTargetBenchmarkHarness-RenderPipeline-1/bin/Release/net10.0
 // Failed to set up high priority (Permission denied). In order to run benchmarks with high priority, make sure you have the right permissions.
 // BeforeAnythingElse
 
@@ -682,61 +681,61 @@ Skewness = 0.85, Kurtosis = 2.72, MValue = 2.29
 	VK_KHR_portability_subset v1
 	VK_KHR_swapchain v70
 	VK_EXT_metal_objects v2
-WorkloadWarmup   1: 1 op, 5225209.00 ns, 5.2252 ms/op
-WorkloadWarmup   2: 1 op, 4228625.00 ns, 4.2286 ms/op
-WorkloadWarmup   3: 1 op, 4506458.00 ns, 4.5065 ms/op
+WorkloadWarmup   1: 1 op, 4599833.00 ns, 4.5998 ms/op
+WorkloadWarmup   2: 1 op, 4278000.00 ns, 4.2780 ms/op
+WorkloadWarmup   3: 1 op, 4527000.00 ns, 4.5270 ms/op
 
 // BeforeActualRun
-WorkloadActual   1: 1 op, 4368583.00 ns, 4.3686 ms/op
-WorkloadActual   2: 1 op, 4237791.00 ns, 4.2378 ms/op
-WorkloadActual   3: 1 op, 4264000.00 ns, 4.2640 ms/op
-WorkloadActual   4: 1 op, 4329667.00 ns, 4.3297 ms/op
-WorkloadActual   5: 1 op, 4246666.00 ns, 4.2467 ms/op
-WorkloadActual   6: 1 op, 4231875.00 ns, 4.2319 ms/op
-WorkloadActual   7: 1 op, 4318833.00 ns, 4.3188 ms/op
-WorkloadActual   8: 1 op, 4226833.00 ns, 4.2268 ms/op
-WorkloadActual   9: 1 op, 4264459.00 ns, 4.2645 ms/op
-WorkloadActual  10: 1 op, 4226375.00 ns, 4.2264 ms/op
-WorkloadActual  11: 1 op, 4262833.00 ns, 4.2628 ms/op
-WorkloadActual  12: 1 op, 4216334.00 ns, 4.2163 ms/op
-WorkloadActual  13: 1 op, 4248625.00 ns, 4.2486 ms/op
-WorkloadActual  14: 1 op, 4213500.00 ns, 4.2135 ms/op
-WorkloadActual  15: 1 op, 4193333.00 ns, 4.1933 ms/op
+WorkloadActual   1: 1 op, 4320625.00 ns, 4.3206 ms/op
+WorkloadActual   2: 1 op, 4193000.00 ns, 4.1930 ms/op
+WorkloadActual   3: 1 op, 4283709.00 ns, 4.2837 ms/op
+WorkloadActual   4: 1 op, 4143666.00 ns, 4.1437 ms/op
+WorkloadActual   5: 1 op, 4127042.00 ns, 4.1270 ms/op
+WorkloadActual   6: 1 op, 4213917.00 ns, 4.2139 ms/op
+WorkloadActual   7: 1 op, 4233458.00 ns, 4.2335 ms/op
+WorkloadActual   8: 1 op, 4342333.00 ns, 4.3423 ms/op
+WorkloadActual   9: 1 op, 4201125.00 ns, 4.2011 ms/op
+WorkloadActual  10: 1 op, 4181125.00 ns, 4.1811 ms/op
+WorkloadActual  11: 1 op, 4170333.00 ns, 4.1703 ms/op
+WorkloadActual  12: 1 op, 4310416.00 ns, 4.3104 ms/op
+WorkloadActual  13: 1 op, 4240125.00 ns, 4.2401 ms/op
+WorkloadActual  14: 1 op, 4287208.00 ns, 4.2872 ms/op
+WorkloadActual  15: 1 op, 4217209.00 ns, 4.2172 ms/op
 
 // AfterActualRun
-WorkloadResult   1: 1 op, 4368583.00 ns, 4.3686 ms/op
-WorkloadResult   2: 1 op, 4237791.00 ns, 4.2378 ms/op
-WorkloadResult   3: 1 op, 4264000.00 ns, 4.2640 ms/op
-WorkloadResult   4: 1 op, 4329667.00 ns, 4.3297 ms/op
-WorkloadResult   5: 1 op, 4246666.00 ns, 4.2467 ms/op
-WorkloadResult   6: 1 op, 4231875.00 ns, 4.2319 ms/op
-WorkloadResult   7: 1 op, 4318833.00 ns, 4.3188 ms/op
-WorkloadResult   8: 1 op, 4226833.00 ns, 4.2268 ms/op
-WorkloadResult   9: 1 op, 4264459.00 ns, 4.2645 ms/op
-WorkloadResult  10: 1 op, 4226375.00 ns, 4.2264 ms/op
-WorkloadResult  11: 1 op, 4262833.00 ns, 4.2628 ms/op
-WorkloadResult  12: 1 op, 4216334.00 ns, 4.2163 ms/op
-WorkloadResult  13: 1 op, 4248625.00 ns, 4.2486 ms/op
-WorkloadResult  14: 1 op, 4213500.00 ns, 4.2135 ms/op
-WorkloadResult  15: 1 op, 4193333.00 ns, 4.1933 ms/op
-// GC:  0 0 0 51832 1
+WorkloadResult   1: 1 op, 4320625.00 ns, 4.3206 ms/op
+WorkloadResult   2: 1 op, 4193000.00 ns, 4.1930 ms/op
+WorkloadResult   3: 1 op, 4283709.00 ns, 4.2837 ms/op
+WorkloadResult   4: 1 op, 4143666.00 ns, 4.1437 ms/op
+WorkloadResult   5: 1 op, 4127042.00 ns, 4.1270 ms/op
+WorkloadResult   6: 1 op, 4213917.00 ns, 4.2139 ms/op
+WorkloadResult   7: 1 op, 4233458.00 ns, 4.2335 ms/op
+WorkloadResult   8: 1 op, 4342333.00 ns, 4.3423 ms/op
+WorkloadResult   9: 1 op, 4201125.00 ns, 4.2011 ms/op
+WorkloadResult  10: 1 op, 4181125.00 ns, 4.1811 ms/op
+WorkloadResult  11: 1 op, 4170333.00 ns, 4.1703 ms/op
+WorkloadResult  12: 1 op, 4310416.00 ns, 4.3104 ms/op
+WorkloadResult  13: 1 op, 4240125.00 ns, 4.2401 ms/op
+WorkloadResult  14: 1 op, 4287208.00 ns, 4.2872 ms/op
+WorkloadResult  15: 1 op, 4217209.00 ns, 4.2172 ms/op
+// GC:  0 0 0 52112 1
 // Threading:  0 0 1
 
 // AfterAll
-// Benchmark Process 67181 has exited with code 0.
+// Benchmark Process 97000 has exited with code 0.
 
-Mean = 4.257 ms, StdErr = 0.012 ms (0.29%), N = 15, StdDev = 0.048 ms
-Min = 4.193 ms, Q1 = 4.227 ms, Median = 4.247 ms, Q3 = 4.264 ms, Max = 4.369 ms
-IQR = 0.038 ms, LowerFence = 4.170 ms, UpperFence = 4.321 ms
-ConfidenceInterval = [4.205 ms; 4.308 ms] (CI 99.9%), Margin = 0.051 ms (1.21% of Mean)
-Skewness = 0.94, Kurtosis = 2.81, MValue = 2
+Mean = 4.231 ms, StdErr = 0.017 ms (0.40%), N = 15, StdDev = 0.066 ms
+Min = 4.127 ms, Q1 = 4.187 ms, Median = 4.217 ms, Q3 = 4.285 ms, Max = 4.342 ms
+IQR = 0.098 ms, LowerFence = 4.039 ms, UpperFence = 4.433 ms
+ConfidenceInterval = [4.161 ms; 4.301 ms] (CI 99.9%), Margin = 0.070 ms (1.66% of Mean)
+Skewness = 0.16, Kurtosis = 1.71, MValue = 2
 
-// ** Remained 8 (72.7%) benchmark(s) to run. Estimated finish 2026-08-01 1:44 (0h 0m from now) **
+// ** Remained 8 (72.7%) benchmark(s) to run. Estimated finish 2026-08-01 3:32 (0h 0m from now) **
 // **************************
 // Benchmark: TargetRenderPipelineBenchmarks.RenderCompleteTargetRequest: RenderPipeline(InvocationCount=1, IterationCount=15, LaunchCount=1, RunStrategy=Monitoring, UnrollFactor=1, WarmupCount=3) [CaseName=NoEffectControl]
 // *** Execute ***
 // Launch: 1 / 1
-// Execute: dotnet Beutl.GpuPassTargetBenchmarkHarness-RenderPipeline-1.dll --anonymousPipes 110 111 --benchmarkName "Beutl.GpuPassTargetBenchmarkHarness.TargetRenderPipelineBenchmarks.RenderCompleteTargetRequest(CaseName: \"NoEffectControl\")" --job RenderPipeline --benchmarkId 3 in /private/var/folders/nl/kd31xyh169n3x8wb6g0dpw_m0000gn/T/beutl-gpu-pass-benchmark-build.Xp00DQ/baseline/bin/Beutl.GpuPassTargetBenchmarkHarness/release/Beutl.GpuPassTargetBenchmarkHarness-RenderPipeline-1/bin/Release/net10.0
+// Execute: dotnet Beutl.GpuPassTargetBenchmarkHarness-RenderPipeline-1.dll --anonymousPipes 110 111 --benchmarkName "Beutl.GpuPassTargetBenchmarkHarness.TargetRenderPipelineBenchmarks.RenderCompleteTargetRequest(CaseName: \"NoEffectControl\")" --job RenderPipeline --benchmarkId 3 in /private/var/folders/nl/kd31xyh169n3x8wb6g0dpw_m0000gn/T/beutl-gpu-pass-benchmark-build.lfmNQ9/baseline/bin/Beutl.GpuPassTargetBenchmarkHarness/release/Beutl.GpuPassTargetBenchmarkHarness-RenderPipeline-1/bin/Release/net10.0
 // Failed to set up high priority (Permission denied). In order to run benchmarks with high priority, make sure you have the right permissions.
 // BeforeAnythingElse
 
@@ -919,61 +918,61 @@ Skewness = 0.94, Kurtosis = 2.81, MValue = 2
 	VK_KHR_portability_subset v1
 	VK_KHR_swapchain v70
 	VK_EXT_metal_objects v2
-WorkloadWarmup   1: 1 op, 1314667.00 ns, 1.3147 ms/op
-WorkloadWarmup   2: 1 op, 892375.00 ns, 892.3750 us/op
-WorkloadWarmup   3: 1 op, 850584.00 ns, 850.5840 us/op
+WorkloadWarmup   1: 1 op, 1525959.00 ns, 1.5260 ms/op
+WorkloadWarmup   2: 1 op, 838917.00 ns, 838.9170 us/op
+WorkloadWarmup   3: 1 op, 832083.00 ns, 832.0830 us/op
 
 // BeforeActualRun
-WorkloadActual   1: 1 op, 838083.00 ns, 838.0830 us/op
-WorkloadActual   2: 1 op, 814042.00 ns, 814.0420 us/op
-WorkloadActual   3: 1 op, 815458.00 ns, 815.4580 us/op
-WorkloadActual   4: 1 op, 811750.00 ns, 811.7500 us/op
-WorkloadActual   5: 1 op, 787125.00 ns, 787.1250 us/op
-WorkloadActual   6: 1 op, 834166.00 ns, 834.1660 us/op
-WorkloadActual   7: 1 op, 786542.00 ns, 786.5420 us/op
-WorkloadActual   8: 1 op, 802875.00 ns, 802.8750 us/op
-WorkloadActual   9: 1 op, 804084.00 ns, 804.0840 us/op
-WorkloadActual  10: 1 op, 799542.00 ns, 799.5420 us/op
-WorkloadActual  11: 1 op, 792250.00 ns, 792.2500 us/op
-WorkloadActual  12: 1 op, 803500.00 ns, 803.5000 us/op
-WorkloadActual  13: 1 op, 786417.00 ns, 786.4170 us/op
-WorkloadActual  14: 1 op, 867334.00 ns, 867.3340 us/op
-WorkloadActual  15: 1 op, 789500.00 ns, 789.5000 us/op
+WorkloadActual   1: 1 op, 933334.00 ns, 933.3340 us/op
+WorkloadActual   2: 1 op, 1056000.00 ns, 1.0560 ms/op
+WorkloadActual   3: 1 op, 918958.00 ns, 918.9580 us/op
+WorkloadActual   4: 1 op, 922042.00 ns, 922.0420 us/op
+WorkloadActual   5: 1 op, 1033125.00 ns, 1.0331 ms/op
+WorkloadActual   6: 1 op, 957625.00 ns, 957.6250 us/op
+WorkloadActual   7: 1 op, 800542.00 ns, 800.5420 us/op
+WorkloadActual   8: 1 op, 826708.00 ns, 826.7080 us/op
+WorkloadActual   9: 1 op, 795000.00 ns, 795.0000 us/op
+WorkloadActual  10: 1 op, 850750.00 ns, 850.7500 us/op
+WorkloadActual  11: 1 op, 806000.00 ns, 806.0000 us/op
+WorkloadActual  12: 1 op, 803292.00 ns, 803.2920 us/op
+WorkloadActual  13: 1 op, 815041.00 ns, 815.0410 us/op
+WorkloadActual  14: 1 op, 792792.00 ns, 792.7920 us/op
+WorkloadActual  15: 1 op, 874875.00 ns, 874.8750 us/op
 
 // AfterActualRun
-WorkloadResult   1: 1 op, 838083.00 ns, 838.0830 us/op
-WorkloadResult   2: 1 op, 814042.00 ns, 814.0420 us/op
-WorkloadResult   3: 1 op, 815458.00 ns, 815.4580 us/op
-WorkloadResult   4: 1 op, 811750.00 ns, 811.7500 us/op
-WorkloadResult   5: 1 op, 787125.00 ns, 787.1250 us/op
-WorkloadResult   6: 1 op, 834166.00 ns, 834.1660 us/op
-WorkloadResult   7: 1 op, 786542.00 ns, 786.5420 us/op
-WorkloadResult   8: 1 op, 802875.00 ns, 802.8750 us/op
-WorkloadResult   9: 1 op, 804084.00 ns, 804.0840 us/op
-WorkloadResult  10: 1 op, 799542.00 ns, 799.5420 us/op
-WorkloadResult  11: 1 op, 792250.00 ns, 792.2500 us/op
-WorkloadResult  12: 1 op, 803500.00 ns, 803.5000 us/op
-WorkloadResult  13: 1 op, 786417.00 ns, 786.4170 us/op
-WorkloadResult  14: 1 op, 867334.00 ns, 867.3340 us/op
-WorkloadResult  15: 1 op, 789500.00 ns, 789.5000 us/op
-// GC:  0 0 0 6992 1
+WorkloadResult   1: 1 op, 933334.00 ns, 933.3340 us/op
+WorkloadResult   2: 1 op, 1056000.00 ns, 1.0560 ms/op
+WorkloadResult   3: 1 op, 918958.00 ns, 918.9580 us/op
+WorkloadResult   4: 1 op, 922042.00 ns, 922.0420 us/op
+WorkloadResult   5: 1 op, 1033125.00 ns, 1.0331 ms/op
+WorkloadResult   6: 1 op, 957625.00 ns, 957.6250 us/op
+WorkloadResult   7: 1 op, 800542.00 ns, 800.5420 us/op
+WorkloadResult   8: 1 op, 826708.00 ns, 826.7080 us/op
+WorkloadResult   9: 1 op, 795000.00 ns, 795.0000 us/op
+WorkloadResult  10: 1 op, 850750.00 ns, 850.7500 us/op
+WorkloadResult  11: 1 op, 806000.00 ns, 806.0000 us/op
+WorkloadResult  12: 1 op, 803292.00 ns, 803.2920 us/op
+WorkloadResult  13: 1 op, 815041.00 ns, 815.0410 us/op
+WorkloadResult  14: 1 op, 792792.00 ns, 792.7920 us/op
+WorkloadResult  15: 1 op, 874875.00 ns, 874.8750 us/op
+// GC:  0 0 0 6408 1
 // Threading:  0 0 1
 
 // AfterAll
-// Benchmark Process 67185 has exited with code 0.
+// Benchmark Process 97004 has exited with code 0.
 
-Mean = 808.845 us, StdErr = 5.892 us (0.73%), N = 15, StdDev = 22.821 us
-Min = 786.417 us, Q1 = 790.875 us, Median = 803.500 us, Q3 = 814.750 us, Max = 867.334 us
-IQR = 23.875 us, LowerFence = 755.062 us, UpperFence = 850.562 us
-ConfidenceInterval = [784.447 us; 833.242 us] (CI 99.9%), Margin = 24.397 us (3.02% of Mean)
-Skewness = 1.1, Kurtosis = 3.39, MValue = 2
+Mean = 879.072 us, StdErr = 22.574 us (2.57%), N = 15, StdDev = 87.428 us
+Min = 792.792 us, Q1 = 804.646 us, Median = 850.750 us, Q3 = 927.688 us, Max = 1,056.000 us
+IQR = 123.042 us, LowerFence = 620.083 us, UpperFence = 1,112.251 us
+ConfidenceInterval = [785.606 us; 972.538 us] (CI 99.9%), Margin = 93.466 us (10.63% of Mean)
+Skewness = 0.7, Kurtosis = 2.08, MValue = 2
 
-// ** Remained 7 (63.6%) benchmark(s) to run. Estimated finish 2026-08-01 1:44 (0h 0m from now) **
+// ** Remained 7 (63.6%) benchmark(s) to run. Estimated finish 2026-08-01 3:32 (0h 0m from now) **
 // **************************
 // Benchmark: TargetRenderPipelineBenchmarks.RenderCompleteTargetRequest: RenderPipeline(InvocationCount=1, IterationCount=15, LaunchCount=1, RunStrategy=Monitoring, UnrollFactor=1, WarmupCount=3) [CaseName=Param(...)ation [22]]
 // *** Execute ***
 // Launch: 1 / 1
-// Execute: dotnet Beutl.GpuPassTargetBenchmarkHarness-RenderPipeline-1.dll --anonymousPipes 110 111 --benchmarkName "Beutl.GpuPassTargetBenchmarkHarness.TargetRenderPipelineBenchmarks.RenderCompleteTargetRequest(CaseName: \"ParameterOnlyAnimation\")" --job RenderPipeline --benchmarkId 4 in /private/var/folders/nl/kd31xyh169n3x8wb6g0dpw_m0000gn/T/beutl-gpu-pass-benchmark-build.Xp00DQ/baseline/bin/Beutl.GpuPassTargetBenchmarkHarness/release/Beutl.GpuPassTargetBenchmarkHarness-RenderPipeline-1/bin/Release/net10.0
+// Execute: dotnet Beutl.GpuPassTargetBenchmarkHarness-RenderPipeline-1.dll --anonymousPipes 110 111 --benchmarkName "Beutl.GpuPassTargetBenchmarkHarness.TargetRenderPipelineBenchmarks.RenderCompleteTargetRequest(CaseName: \"ParameterOnlyAnimation\")" --job RenderPipeline --benchmarkId 4 in /private/var/folders/nl/kd31xyh169n3x8wb6g0dpw_m0000gn/T/beutl-gpu-pass-benchmark-build.lfmNQ9/baseline/bin/Beutl.GpuPassTargetBenchmarkHarness/release/Beutl.GpuPassTargetBenchmarkHarness-RenderPipeline-1/bin/Release/net10.0
 // Failed to set up high priority (Permission denied). In order to run benchmarks with high priority, make sure you have the right permissions.
 // BeforeAnythingElse
 
@@ -1156,61 +1155,61 @@ Skewness = 1.1, Kurtosis = 3.39, MValue = 2
 	VK_KHR_portability_subset v1
 	VK_KHR_swapchain v70
 	VK_EXT_metal_objects v2
-WorkloadWarmup   1: 1 op, 21754708.00 ns, 21.7547 ms/op
-WorkloadWarmup   2: 1 op, 20138917.00 ns, 20.1389 ms/op
-WorkloadWarmup   3: 1 op, 20621750.00 ns, 20.6218 ms/op
+WorkloadWarmup   1: 1 op, 4043500.00 ns, 4.0435 ms/op
+WorkloadWarmup   2: 1 op, 3535541.00 ns, 3.5355 ms/op
+WorkloadWarmup   3: 1 op, 3379416.00 ns, 3.3794 ms/op
 
 // BeforeActualRun
-WorkloadActual   1: 1 op, 20772083.00 ns, 20.7721 ms/op
-WorkloadActual   2: 1 op, 20673667.00 ns, 20.6737 ms/op
-WorkloadActual   3: 1 op, 20043583.00 ns, 20.0436 ms/op
-WorkloadActual   4: 1 op, 20761416.00 ns, 20.7614 ms/op
-WorkloadActual   5: 1 op, 20429584.00 ns, 20.4296 ms/op
-WorkloadActual   6: 1 op, 20043916.00 ns, 20.0439 ms/op
-WorkloadActual   7: 1 op, 20310583.00 ns, 20.3106 ms/op
-WorkloadActual   8: 1 op, 20300125.00 ns, 20.3001 ms/op
-WorkloadActual   9: 1 op, 20104125.00 ns, 20.1041 ms/op
-WorkloadActual  10: 1 op, 20793083.00 ns, 20.7931 ms/op
-WorkloadActual  11: 1 op, 20302750.00 ns, 20.3028 ms/op
-WorkloadActual  12: 1 op, 21696417.00 ns, 21.6964 ms/op
-WorkloadActual  13: 1 op, 20937250.00 ns, 20.9373 ms/op
-WorkloadActual  14: 1 op, 21392167.00 ns, 21.3922 ms/op
-WorkloadActual  15: 1 op, 20549625.00 ns, 20.5496 ms/op
+WorkloadActual   1: 1 op, 3369833.00 ns, 3.3698 ms/op
+WorkloadActual   2: 1 op, 3359750.00 ns, 3.3598 ms/op
+WorkloadActual   3: 1 op, 3460750.00 ns, 3.4608 ms/op
+WorkloadActual   4: 1 op, 3208417.00 ns, 3.2084 ms/op
+WorkloadActual   5: 1 op, 3153292.00 ns, 3.1533 ms/op
+WorkloadActual   6: 1 op, 3167917.00 ns, 3.1679 ms/op
+WorkloadActual   7: 1 op, 3136917.00 ns, 3.1369 ms/op
+WorkloadActual   8: 1 op, 3127375.00 ns, 3.1274 ms/op
+WorkloadActual   9: 1 op, 3211083.00 ns, 3.2111 ms/op
+WorkloadActual  10: 1 op, 3425083.00 ns, 3.4251 ms/op
+WorkloadActual  11: 1 op, 3066667.00 ns, 3.0667 ms/op
+WorkloadActual  12: 1 op, 3195166.00 ns, 3.1952 ms/op
+WorkloadActual  13: 1 op, 2990417.00 ns, 2.9904 ms/op
+WorkloadActual  14: 1 op, 3101041.00 ns, 3.1010 ms/op
+WorkloadActual  15: 1 op, 2963125.00 ns, 2.9631 ms/op
 
 // AfterActualRun
-WorkloadResult   1: 1 op, 20772083.00 ns, 20.7721 ms/op
-WorkloadResult   2: 1 op, 20673667.00 ns, 20.6737 ms/op
-WorkloadResult   3: 1 op, 20043583.00 ns, 20.0436 ms/op
-WorkloadResult   4: 1 op, 20761416.00 ns, 20.7614 ms/op
-WorkloadResult   5: 1 op, 20429584.00 ns, 20.4296 ms/op
-WorkloadResult   6: 1 op, 20043916.00 ns, 20.0439 ms/op
-WorkloadResult   7: 1 op, 20310583.00 ns, 20.3106 ms/op
-WorkloadResult   8: 1 op, 20300125.00 ns, 20.3001 ms/op
-WorkloadResult   9: 1 op, 20104125.00 ns, 20.1041 ms/op
-WorkloadResult  10: 1 op, 20793083.00 ns, 20.7931 ms/op
-WorkloadResult  11: 1 op, 20302750.00 ns, 20.3028 ms/op
-WorkloadResult  12: 1 op, 21696417.00 ns, 21.6964 ms/op
-WorkloadResult  13: 1 op, 20937250.00 ns, 20.9373 ms/op
-WorkloadResult  14: 1 op, 21392167.00 ns, 21.3922 ms/op
-WorkloadResult  15: 1 op, 20549625.00 ns, 20.5496 ms/op
-// GC:  0 0 0 39456 1
+WorkloadResult   1: 1 op, 3369833.00 ns, 3.3698 ms/op
+WorkloadResult   2: 1 op, 3359750.00 ns, 3.3598 ms/op
+WorkloadResult   3: 1 op, 3460750.00 ns, 3.4608 ms/op
+WorkloadResult   4: 1 op, 3208417.00 ns, 3.2084 ms/op
+WorkloadResult   5: 1 op, 3153292.00 ns, 3.1533 ms/op
+WorkloadResult   6: 1 op, 3167917.00 ns, 3.1679 ms/op
+WorkloadResult   7: 1 op, 3136917.00 ns, 3.1369 ms/op
+WorkloadResult   8: 1 op, 3127375.00 ns, 3.1274 ms/op
+WorkloadResult   9: 1 op, 3211083.00 ns, 3.2111 ms/op
+WorkloadResult  10: 1 op, 3425083.00 ns, 3.4251 ms/op
+WorkloadResult  11: 1 op, 3066667.00 ns, 3.0667 ms/op
+WorkloadResult  12: 1 op, 3195166.00 ns, 3.1952 ms/op
+WorkloadResult  13: 1 op, 2990417.00 ns, 2.9904 ms/op
+WorkloadResult  14: 1 op, 3101041.00 ns, 3.1010 ms/op
+WorkloadResult  15: 1 op, 2963125.00 ns, 2.9631 ms/op
+// GC:  0 0 0 38904 1
 // Threading:  0 0 1
 
 // AfterAll
-// Benchmark Process 67189 has exited with code 0.
+// Benchmark Process 97009 has exited with code 0.
 
-Mean = 20.607 ms, StdErr = 0.123 ms (0.60%), N = 15, StdDev = 0.478 ms
-Min = 20.044 ms, Q1 = 20.301 ms, Median = 20.550 ms, Q3 = 20.783 ms, Max = 21.696 ms
-IQR = 0.481 ms, LowerFence = 19.580 ms, UpperFence = 21.504 ms
-ConfidenceInterval = [20.096 ms; 21.118 ms] (CI 99.9%), Margin = 0.511 ms (2.48% of Mean)
-Skewness = 0.76, Kurtosis = 2.67, MValue = 2
+Mean = 3.196 ms, StdErr = 0.039 ms (1.21%), N = 15, StdDev = 0.150 ms
+Min = 2.963 ms, Q1 = 3.114 ms, Median = 3.168 ms, Q3 = 3.285 ms, Max = 3.461 ms
+IQR = 0.171 ms, LowerFence = 2.857 ms, UpperFence = 3.542 ms
+ConfidenceInterval = [3.036 ms; 3.356 ms] (CI 99.9%), Margin = 0.160 ms (5.00% of Mean)
+Skewness = 0.31, Kurtosis = 1.93, MValue = 2.89
 
-// ** Remained 6 (54.5%) benchmark(s) to run. Estimated finish 2026-08-01 1:44 (0h 0m from now) **
+// ** Remained 6 (54.5%) benchmark(s) to run. Estimated finish 2026-08-01 3:32 (0h 0m from now) **
 // **************************
 // Benchmark: TargetRenderPipelineBenchmarks.RenderCompleteTargetRequest: RenderPipeline(InvocationCount=1, IterationCount=15, LaunchCount=1, RunStrategy=Monitoring, UnrollFactor=1, WarmupCount=3) [CaseName=ShaderOpacityShader]
 // *** Execute ***
 // Launch: 1 / 1
-// Execute: dotnet Beutl.GpuPassTargetBenchmarkHarness-RenderPipeline-1.dll --anonymousPipes 110 111 --benchmarkName "Beutl.GpuPassTargetBenchmarkHarness.TargetRenderPipelineBenchmarks.RenderCompleteTargetRequest(CaseName: \"ShaderOpacityShader\")" --job RenderPipeline --benchmarkId 5 in /private/var/folders/nl/kd31xyh169n3x8wb6g0dpw_m0000gn/T/beutl-gpu-pass-benchmark-build.Xp00DQ/baseline/bin/Beutl.GpuPassTargetBenchmarkHarness/release/Beutl.GpuPassTargetBenchmarkHarness-RenderPipeline-1/bin/Release/net10.0
+// Execute: dotnet Beutl.GpuPassTargetBenchmarkHarness-RenderPipeline-1.dll --anonymousPipes 110 111 --benchmarkName "Beutl.GpuPassTargetBenchmarkHarness.TargetRenderPipelineBenchmarks.RenderCompleteTargetRequest(CaseName: \"ShaderOpacityShader\")" --job RenderPipeline --benchmarkId 5 in /private/var/folders/nl/kd31xyh169n3x8wb6g0dpw_m0000gn/T/beutl-gpu-pass-benchmark-build.lfmNQ9/baseline/bin/Beutl.GpuPassTargetBenchmarkHarness/release/Beutl.GpuPassTargetBenchmarkHarness-RenderPipeline-1/bin/Release/net10.0
 // Failed to set up high priority (Permission denied). In order to run benchmarks with high priority, make sure you have the right permissions.
 // BeforeAnythingElse
 
@@ -1393,61 +1392,61 @@ Skewness = 0.76, Kurtosis = 2.67, MValue = 2
 	VK_KHR_portability_subset v1
 	VK_KHR_swapchain v70
 	VK_EXT_metal_objects v2
-WorkloadWarmup   1: 1 op, 4434584.00 ns, 4.4346 ms/op
-WorkloadWarmup   2: 1 op, 3722250.00 ns, 3.7223 ms/op
-WorkloadWarmup   3: 1 op, 3434125.00 ns, 3.4341 ms/op
+WorkloadWarmup   1: 1 op, 3409209.00 ns, 3.4092 ms/op
+WorkloadWarmup   2: 1 op, 2867167.00 ns, 2.8672 ms/op
+WorkloadWarmup   3: 1 op, 2911917.00 ns, 2.9119 ms/op
 
 // BeforeActualRun
-WorkloadActual   1: 1 op, 3106083.00 ns, 3.1061 ms/op
-WorkloadActual   2: 1 op, 3566125.00 ns, 3.5661 ms/op
-WorkloadActual   3: 1 op, 2930292.00 ns, 2.9303 ms/op
-WorkloadActual   4: 1 op, 2893541.00 ns, 2.8935 ms/op
-WorkloadActual   5: 1 op, 2734833.00 ns, 2.7348 ms/op
-WorkloadActual   6: 1 op, 3786667.00 ns, 3.7867 ms/op
-WorkloadActual   7: 1 op, 2718166.00 ns, 2.7182 ms/op
-WorkloadActual   8: 1 op, 2888542.00 ns, 2.8885 ms/op
-WorkloadActual   9: 1 op, 2749209.00 ns, 2.7492 ms/op
-WorkloadActual  10: 1 op, 2715709.00 ns, 2.7157 ms/op
-WorkloadActual  11: 1 op, 2739375.00 ns, 2.7394 ms/op
-WorkloadActual  12: 1 op, 2760333.00 ns, 2.7603 ms/op
-WorkloadActual  13: 1 op, 2710375.00 ns, 2.7104 ms/op
-WorkloadActual  14: 1 op, 2698542.00 ns, 2.6985 ms/op
-WorkloadActual  15: 1 op, 2762625.00 ns, 2.7626 ms/op
+WorkloadActual   1: 1 op, 2891792.00 ns, 2.8918 ms/op
+WorkloadActual   2: 1 op, 2912250.00 ns, 2.9123 ms/op
+WorkloadActual   3: 1 op, 2857458.00 ns, 2.8575 ms/op
+WorkloadActual   4: 1 op, 2857375.00 ns, 2.8574 ms/op
+WorkloadActual   5: 1 op, 2873125.00 ns, 2.8731 ms/op
+WorkloadActual   6: 1 op, 2882208.00 ns, 2.8822 ms/op
+WorkloadActual   7: 1 op, 2856750.00 ns, 2.8568 ms/op
+WorkloadActual   8: 1 op, 2814583.00 ns, 2.8146 ms/op
+WorkloadActual   9: 1 op, 2867500.00 ns, 2.8675 ms/op
+WorkloadActual  10: 1 op, 2675292.00 ns, 2.6753 ms/op
+WorkloadActual  11: 1 op, 2780875.00 ns, 2.7809 ms/op
+WorkloadActual  12: 1 op, 2649792.00 ns, 2.6498 ms/op
+WorkloadActual  13: 1 op, 2663875.00 ns, 2.6639 ms/op
+WorkloadActual  14: 1 op, 2734334.00 ns, 2.7343 ms/op
+WorkloadActual  15: 1 op, 2692042.00 ns, 2.6920 ms/op
 
 // AfterActualRun
-WorkloadResult   1: 1 op, 3106083.00 ns, 3.1061 ms/op
-WorkloadResult   2: 1 op, 3566125.00 ns, 3.5661 ms/op
-WorkloadResult   3: 1 op, 2930292.00 ns, 2.9303 ms/op
-WorkloadResult   4: 1 op, 2893541.00 ns, 2.8935 ms/op
-WorkloadResult   5: 1 op, 2734833.00 ns, 2.7348 ms/op
-WorkloadResult   6: 1 op, 3786667.00 ns, 3.7867 ms/op
-WorkloadResult   7: 1 op, 2718166.00 ns, 2.7182 ms/op
-WorkloadResult   8: 1 op, 2888542.00 ns, 2.8885 ms/op
-WorkloadResult   9: 1 op, 2749209.00 ns, 2.7492 ms/op
-WorkloadResult  10: 1 op, 2715709.00 ns, 2.7157 ms/op
-WorkloadResult  11: 1 op, 2739375.00 ns, 2.7394 ms/op
-WorkloadResult  12: 1 op, 2760333.00 ns, 2.7603 ms/op
-WorkloadResult  13: 1 op, 2710375.00 ns, 2.7104 ms/op
-WorkloadResult  14: 1 op, 2698542.00 ns, 2.6985 ms/op
-WorkloadResult  15: 1 op, 2762625.00 ns, 2.7626 ms/op
-// GC:  0 0 0 29752 1
+WorkloadResult   1: 1 op, 2891792.00 ns, 2.8918 ms/op
+WorkloadResult   2: 1 op, 2912250.00 ns, 2.9123 ms/op
+WorkloadResult   3: 1 op, 2857458.00 ns, 2.8575 ms/op
+WorkloadResult   4: 1 op, 2857375.00 ns, 2.8574 ms/op
+WorkloadResult   5: 1 op, 2873125.00 ns, 2.8731 ms/op
+WorkloadResult   6: 1 op, 2882208.00 ns, 2.8822 ms/op
+WorkloadResult   7: 1 op, 2856750.00 ns, 2.8568 ms/op
+WorkloadResult   8: 1 op, 2814583.00 ns, 2.8146 ms/op
+WorkloadResult   9: 1 op, 2867500.00 ns, 2.8675 ms/op
+WorkloadResult  10: 1 op, 2675292.00 ns, 2.6753 ms/op
+WorkloadResult  11: 1 op, 2780875.00 ns, 2.7809 ms/op
+WorkloadResult  12: 1 op, 2649792.00 ns, 2.6498 ms/op
+WorkloadResult  13: 1 op, 2663875.00 ns, 2.6639 ms/op
+WorkloadResult  14: 1 op, 2734334.00 ns, 2.7343 ms/op
+WorkloadResult  15: 1 op, 2692042.00 ns, 2.6920 ms/op
+// GC:  0 0 0 29168 1
 // Threading:  0 0 1
 
 // AfterAll
-// Benchmark Process 67196 has exited with code 0.
+// Benchmark Process 97013 has exited with code 0.
 
-Mean = 2.917 ms, StdErr = 0.085 ms (2.92%), N = 15, StdDev = 0.330 ms
-Min = 2.699 ms, Q1 = 2.726 ms, Median = 2.760 ms, Q3 = 2.912 ms, Max = 3.787 ms
-IQR = 0.185 ms, LowerFence = 2.448 ms, UpperFence = 3.190 ms
-ConfidenceInterval = [2.564 ms; 3.270 ms] (CI 99.9%), Margin = 0.353 ms (12.10% of Mean)
-Skewness = 1.62, Kurtosis = 4.27, MValue = 2.22
+Mean = 2.801 ms, StdErr = 0.024 ms (0.86%), N = 15, StdDev = 0.093 ms
+Min = 2.650 ms, Q1 = 2.713 ms, Median = 2.857 ms, Q3 = 2.870 ms, Max = 2.912 ms
+IQR = 0.157 ms, LowerFence = 2.478 ms, UpperFence = 3.106 ms
+ConfidenceInterval = [2.701 ms; 2.900 ms] (CI 99.9%), Margin = 0.099 ms (3.54% of Mean)
+Skewness = -0.47, Kurtosis = 1.45, MValue = 2.89
 
-// ** Remained 5 (45.5%) benchmark(s) to run. Estimated finish 2026-08-01 1:44 (0h 0m from now) **
+// ** Remained 5 (45.5%) benchmark(s) to run. Estimated finish 2026-08-01 3:32 (0h 0m from now) **
 // **************************
 // Benchmark: TargetRenderPipelineBenchmarks.RenderCompleteTargetRequest: RenderPipeline(InvocationCount=1, IterationCount=15, LaunchCount=1, RunStrategy=Monitoring, UnrollFactor=1, WarmupCount=3) [CaseName=Shade(...)rrier [26]]
 // *** Execute ***
 // Launch: 1 / 1
-// Execute: dotnet Beutl.GpuPassTargetBenchmarkHarness-RenderPipeline-1.dll --anonymousPipes 110 111 --benchmarkName "Beutl.GpuPassTargetBenchmarkHarness.TargetRenderPipelineBenchmarks.RenderCompleteTargetRequest(CaseName: \"ShaderOpacityShaderBarrier\")" --job RenderPipeline --benchmarkId 6 in /private/var/folders/nl/kd31xyh169n3x8wb6g0dpw_m0000gn/T/beutl-gpu-pass-benchmark-build.Xp00DQ/baseline/bin/Beutl.GpuPassTargetBenchmarkHarness/release/Beutl.GpuPassTargetBenchmarkHarness-RenderPipeline-1/bin/Release/net10.0
+// Execute: dotnet Beutl.GpuPassTargetBenchmarkHarness-RenderPipeline-1.dll --anonymousPipes 110 111 --benchmarkName "Beutl.GpuPassTargetBenchmarkHarness.TargetRenderPipelineBenchmarks.RenderCompleteTargetRequest(CaseName: \"ShaderOpacityShaderBarrier\")" --job RenderPipeline --benchmarkId 6 in /private/var/folders/nl/kd31xyh169n3x8wb6g0dpw_m0000gn/T/beutl-gpu-pass-benchmark-build.lfmNQ9/baseline/bin/Beutl.GpuPassTargetBenchmarkHarness/release/Beutl.GpuPassTargetBenchmarkHarness-RenderPipeline-1/bin/Release/net10.0
 // Failed to set up high priority (Permission denied). In order to run benchmarks with high priority, make sure you have the right permissions.
 // BeforeAnythingElse
 
@@ -1630,61 +1629,61 @@ Skewness = 1.62, Kurtosis = 4.27, MValue = 2.22
 	VK_KHR_portability_subset v1
 	VK_KHR_swapchain v70
 	VK_EXT_metal_objects v2
-WorkloadWarmup   1: 1 op, 5448125.00 ns, 5.4481 ms/op
-WorkloadWarmup   2: 1 op, 3736791.00 ns, 3.7368 ms/op
-WorkloadWarmup   3: 1 op, 4512708.00 ns, 4.5127 ms/op
+WorkloadWarmup   1: 1 op, 4161375.00 ns, 4.1614 ms/op
+WorkloadWarmup   2: 1 op, 3798667.00 ns, 3.7987 ms/op
+WorkloadWarmup   3: 1 op, 3667375.00 ns, 3.6674 ms/op
 
 // BeforeActualRun
-WorkloadActual   1: 1 op, 3410666.00 ns, 3.4107 ms/op
-WorkloadActual   2: 1 op, 3381250.00 ns, 3.3813 ms/op
-WorkloadActual   3: 1 op, 3419375.00 ns, 3.4194 ms/op
-WorkloadActual   4: 1 op, 3449500.00 ns, 3.4495 ms/op
-WorkloadActual   5: 1 op, 3405250.00 ns, 3.4053 ms/op
-WorkloadActual   6: 1 op, 3386292.00 ns, 3.3863 ms/op
-WorkloadActual   7: 1 op, 3555667.00 ns, 3.5557 ms/op
-WorkloadActual   8: 1 op, 3408709.00 ns, 3.4087 ms/op
-WorkloadActual   9: 1 op, 3306209.00 ns, 3.3062 ms/op
-WorkloadActual  10: 1 op, 3511584.00 ns, 3.5116 ms/op
-WorkloadActual  11: 1 op, 3653250.00 ns, 3.6533 ms/op
-WorkloadActual  12: 1 op, 3350500.00 ns, 3.3505 ms/op
-WorkloadActual  13: 1 op, 3420709.00 ns, 3.4207 ms/op
-WorkloadActual  14: 1 op, 3393792.00 ns, 3.3938 ms/op
-WorkloadActual  15: 1 op, 3461000.00 ns, 3.4610 ms/op
+WorkloadActual   1: 1 op, 3596083.00 ns, 3.5961 ms/op
+WorkloadActual   2: 1 op, 3630916.00 ns, 3.6309 ms/op
+WorkloadActual   3: 1 op, 3588125.00 ns, 3.5881 ms/op
+WorkloadActual   4: 1 op, 3475000.00 ns, 3.4750 ms/op
+WorkloadActual   5: 1 op, 3440083.00 ns, 3.4401 ms/op
+WorkloadActual   6: 1 op, 3483667.00 ns, 3.4837 ms/op
+WorkloadActual   7: 1 op, 3399458.00 ns, 3.3995 ms/op
+WorkloadActual   8: 1 op, 3458125.00 ns, 3.4581 ms/op
+WorkloadActual   9: 1 op, 3388500.00 ns, 3.3885 ms/op
+WorkloadActual  10: 1 op, 3358625.00 ns, 3.3586 ms/op
+WorkloadActual  11: 1 op, 3396792.00 ns, 3.3968 ms/op
+WorkloadActual  12: 1 op, 3439666.00 ns, 3.4397 ms/op
+WorkloadActual  13: 1 op, 3374250.00 ns, 3.3743 ms/op
+WorkloadActual  14: 1 op, 3500500.00 ns, 3.5005 ms/op
+WorkloadActual  15: 1 op, 3506042.00 ns, 3.5060 ms/op
 
 // AfterActualRun
-WorkloadResult   1: 1 op, 3410666.00 ns, 3.4107 ms/op
-WorkloadResult   2: 1 op, 3381250.00 ns, 3.3813 ms/op
-WorkloadResult   3: 1 op, 3419375.00 ns, 3.4194 ms/op
-WorkloadResult   4: 1 op, 3449500.00 ns, 3.4495 ms/op
-WorkloadResult   5: 1 op, 3405250.00 ns, 3.4053 ms/op
-WorkloadResult   6: 1 op, 3386292.00 ns, 3.3863 ms/op
-WorkloadResult   7: 1 op, 3555667.00 ns, 3.5557 ms/op
-WorkloadResult   8: 1 op, 3408709.00 ns, 3.4087 ms/op
-WorkloadResult   9: 1 op, 3306209.00 ns, 3.3062 ms/op
-WorkloadResult  10: 1 op, 3511584.00 ns, 3.5116 ms/op
-WorkloadResult  11: 1 op, 3653250.00 ns, 3.6533 ms/op
-WorkloadResult  12: 1 op, 3350500.00 ns, 3.3505 ms/op
-WorkloadResult  13: 1 op, 3420709.00 ns, 3.4207 ms/op
-WorkloadResult  14: 1 op, 3393792.00 ns, 3.3938 ms/op
-WorkloadResult  15: 1 op, 3461000.00 ns, 3.4610 ms/op
-// GC:  0 0 0 39936 1
+WorkloadResult   1: 1 op, 3596083.00 ns, 3.5961 ms/op
+WorkloadResult   2: 1 op, 3630916.00 ns, 3.6309 ms/op
+WorkloadResult   3: 1 op, 3588125.00 ns, 3.5881 ms/op
+WorkloadResult   4: 1 op, 3475000.00 ns, 3.4750 ms/op
+WorkloadResult   5: 1 op, 3440083.00 ns, 3.4401 ms/op
+WorkloadResult   6: 1 op, 3483667.00 ns, 3.4837 ms/op
+WorkloadResult   7: 1 op, 3399458.00 ns, 3.3995 ms/op
+WorkloadResult   8: 1 op, 3458125.00 ns, 3.4581 ms/op
+WorkloadResult   9: 1 op, 3388500.00 ns, 3.3885 ms/op
+WorkloadResult  10: 1 op, 3358625.00 ns, 3.3586 ms/op
+WorkloadResult  11: 1 op, 3396792.00 ns, 3.3968 ms/op
+WorkloadResult  12: 1 op, 3439666.00 ns, 3.4397 ms/op
+WorkloadResult  13: 1 op, 3374250.00 ns, 3.3743 ms/op
+WorkloadResult  14: 1 op, 3500500.00 ns, 3.5005 ms/op
+WorkloadResult  15: 1 op, 3506042.00 ns, 3.5060 ms/op
+// GC:  0 0 0 39352 1
 // Threading:  0 0 1
 
 // AfterAll
-// Benchmark Process 67200 has exited with code 0.
+// Benchmark Process 97018 has exited with code 0.
 
-Mean = 3.434 ms, StdErr = 0.022 ms (0.64%), N = 15, StdDev = 0.085 ms
-Min = 3.306 ms, Q1 = 3.390 ms, Median = 3.411 ms, Q3 = 3.455 ms, Max = 3.653 ms
-IQR = 0.065 ms, LowerFence = 3.292 ms, UpperFence = 3.553 ms
-ConfidenceInterval = [3.343 ms; 3.526 ms] (CI 99.9%), Margin = 0.091 ms (2.66% of Mean)
-Skewness = 1.04, Kurtosis = 3.61, MValue = 2
+Mean = 3.469 ms, StdErr = 0.022 ms (0.62%), N = 15, StdDev = 0.084 ms
+Min = 3.359 ms, Q1 = 3.398 ms, Median = 3.458 ms, Q3 = 3.503 ms, Max = 3.631 ms
+IQR = 0.105 ms, LowerFence = 3.240 ms, UpperFence = 3.661 ms
+ConfidenceInterval = [3.379 ms; 3.559 ms] (CI 99.9%), Margin = 0.090 ms (2.59% of Mean)
+Skewness = 0.52, Kurtosis = 1.98, MValue = 2
 
-// ** Remained 4 (36.4%) benchmark(s) to run. Estimated finish 2026-08-01 1:44 (0h 0m from now) **
+// ** Remained 4 (36.4%) benchmark(s) to run. Estimated finish 2026-08-01 3:32 (0h 0m from now) **
 // **************************
 // Benchmark: TargetRenderPipelineBenchmarks.RenderCompleteTargetRequest: RenderPipeline(InvocationCount=1, IterationCount=15, LaunchCount=1, RunStrategy=Monitoring, UnrollFactor=1, WarmupCount=3) [CaseName=SingleShader]
 // *** Execute ***
 // Launch: 1 / 1
-// Execute: dotnet Beutl.GpuPassTargetBenchmarkHarness-RenderPipeline-1.dll --anonymousPipes 110 111 --benchmarkName "Beutl.GpuPassTargetBenchmarkHarness.TargetRenderPipelineBenchmarks.RenderCompleteTargetRequest(CaseName: \"SingleShader\")" --job RenderPipeline --benchmarkId 7 in /private/var/folders/nl/kd31xyh169n3x8wb6g0dpw_m0000gn/T/beutl-gpu-pass-benchmark-build.Xp00DQ/baseline/bin/Beutl.GpuPassTargetBenchmarkHarness/release/Beutl.GpuPassTargetBenchmarkHarness-RenderPipeline-1/bin/Release/net10.0
+// Execute: dotnet Beutl.GpuPassTargetBenchmarkHarness-RenderPipeline-1.dll --anonymousPipes 110 111 --benchmarkName "Beutl.GpuPassTargetBenchmarkHarness.TargetRenderPipelineBenchmarks.RenderCompleteTargetRequest(CaseName: \"SingleShader\")" --job RenderPipeline --benchmarkId 7 in /private/var/folders/nl/kd31xyh169n3x8wb6g0dpw_m0000gn/T/beutl-gpu-pass-benchmark-build.lfmNQ9/baseline/bin/Beutl.GpuPassTargetBenchmarkHarness/release/Beutl.GpuPassTargetBenchmarkHarness-RenderPipeline-1/bin/Release/net10.0
 // Failed to set up high priority (Permission denied). In order to run benchmarks with high priority, make sure you have the right permissions.
 // BeforeAnythingElse
 
@@ -1867,61 +1866,61 @@ Skewness = 1.04, Kurtosis = 3.61, MValue = 2
 	VK_KHR_portability_subset v1
 	VK_KHR_swapchain v70
 	VK_EXT_metal_objects v2
-WorkloadWarmup   1: 1 op, 2625125.00 ns, 2.6251 ms/op
-WorkloadWarmup   2: 1 op, 2191333.00 ns, 2.1913 ms/op
-WorkloadWarmup   3: 1 op, 1993667.00 ns, 1.9937 ms/op
+WorkloadWarmup   1: 1 op, 2185708.00 ns, 2.1857 ms/op
+WorkloadWarmup   2: 1 op, 1811625.00 ns, 1.8116 ms/op
+WorkloadWarmup   3: 1 op, 1976417.00 ns, 1.9764 ms/op
 
 // BeforeActualRun
-WorkloadActual   1: 1 op, 1974667.00 ns, 1.9747 ms/op
-WorkloadActual   2: 1 op, 1671958.00 ns, 1.6720 ms/op
-WorkloadActual   3: 1 op, 1633583.00 ns, 1.6336 ms/op
-WorkloadActual   4: 1 op, 2031916.00 ns, 2.0319 ms/op
-WorkloadActual   5: 1 op, 1735375.00 ns, 1.7354 ms/op
-WorkloadActual   6: 1 op, 1974917.00 ns, 1.9749 ms/op
-WorkloadActual   7: 1 op, 1940125.00 ns, 1.9401 ms/op
-WorkloadActual   8: 1 op, 1930916.00 ns, 1.9309 ms/op
-WorkloadActual   9: 1 op, 1618250.00 ns, 1.6183 ms/op
-WorkloadActual  10: 1 op, 1670958.00 ns, 1.6710 ms/op
-WorkloadActual  11: 1 op, 1562958.00 ns, 1.5630 ms/op
-WorkloadActual  12: 1 op, 1620750.00 ns, 1.6208 ms/op
-WorkloadActual  13: 1 op, 1938250.00 ns, 1.9383 ms/op
-WorkloadActual  14: 1 op, 2123500.00 ns, 2.1235 ms/op
-WorkloadActual  15: 1 op, 1553417.00 ns, 1.5534 ms/op
+WorkloadActual   1: 1 op, 2057708.00 ns, 2.0577 ms/op
+WorkloadActual   2: 1 op, 2307417.00 ns, 2.3074 ms/op
+WorkloadActual   3: 1 op, 1488000.00 ns, 1.4880 ms/op
+WorkloadActual   4: 1 op, 1667208.00 ns, 1.6672 ms/op
+WorkloadActual   5: 1 op, 1744416.00 ns, 1.7444 ms/op
+WorkloadActual   6: 1 op, 1873209.00 ns, 1.8732 ms/op
+WorkloadActual   7: 1 op, 1962583.00 ns, 1.9626 ms/op
+WorkloadActual   8: 1 op, 1867167.00 ns, 1.8672 ms/op
+WorkloadActual   9: 1 op, 1700917.00 ns, 1.7009 ms/op
+WorkloadActual  10: 1 op, 1701042.00 ns, 1.7010 ms/op
+WorkloadActual  11: 1 op, 1692458.00 ns, 1.6925 ms/op
+WorkloadActual  12: 1 op, 1615625.00 ns, 1.6156 ms/op
+WorkloadActual  13: 1 op, 1724916.00 ns, 1.7249 ms/op
+WorkloadActual  14: 1 op, 1622000.00 ns, 1.6220 ms/op
+WorkloadActual  15: 1 op, 1612209.00 ns, 1.6122 ms/op
 
 // AfterActualRun
-WorkloadResult   1: 1 op, 1974667.00 ns, 1.9747 ms/op
-WorkloadResult   2: 1 op, 1671958.00 ns, 1.6720 ms/op
-WorkloadResult   3: 1 op, 1633583.00 ns, 1.6336 ms/op
-WorkloadResult   4: 1 op, 2031916.00 ns, 2.0319 ms/op
-WorkloadResult   5: 1 op, 1735375.00 ns, 1.7354 ms/op
-WorkloadResult   6: 1 op, 1974917.00 ns, 1.9749 ms/op
-WorkloadResult   7: 1 op, 1940125.00 ns, 1.9401 ms/op
-WorkloadResult   8: 1 op, 1930916.00 ns, 1.9309 ms/op
-WorkloadResult   9: 1 op, 1618250.00 ns, 1.6183 ms/op
-WorkloadResult  10: 1 op, 1670958.00 ns, 1.6710 ms/op
-WorkloadResult  11: 1 op, 1562958.00 ns, 1.5630 ms/op
-WorkloadResult  12: 1 op, 1620750.00 ns, 1.6208 ms/op
-WorkloadResult  13: 1 op, 1938250.00 ns, 1.9383 ms/op
-WorkloadResult  14: 1 op, 2123500.00 ns, 2.1235 ms/op
-WorkloadResult  15: 1 op, 1553417.00 ns, 1.5534 ms/op
-// GC:  0 0 0 18784 1
+WorkloadResult   1: 1 op, 2057708.00 ns, 2.0577 ms/op
+WorkloadResult   2: 1 op, 2307417.00 ns, 2.3074 ms/op
+WorkloadResult   3: 1 op, 1488000.00 ns, 1.4880 ms/op
+WorkloadResult   4: 1 op, 1667208.00 ns, 1.6672 ms/op
+WorkloadResult   5: 1 op, 1744416.00 ns, 1.7444 ms/op
+WorkloadResult   6: 1 op, 1873209.00 ns, 1.8732 ms/op
+WorkloadResult   7: 1 op, 1962583.00 ns, 1.9626 ms/op
+WorkloadResult   8: 1 op, 1867167.00 ns, 1.8672 ms/op
+WorkloadResult   9: 1 op, 1700917.00 ns, 1.7009 ms/op
+WorkloadResult  10: 1 op, 1701042.00 ns, 1.7010 ms/op
+WorkloadResult  11: 1 op, 1692458.00 ns, 1.6925 ms/op
+WorkloadResult  12: 1 op, 1615625.00 ns, 1.6156 ms/op
+WorkloadResult  13: 1 op, 1724916.00 ns, 1.7249 ms/op
+WorkloadResult  14: 1 op, 1622000.00 ns, 1.6220 ms/op
+WorkloadResult  15: 1 op, 1612209.00 ns, 1.6122 ms/op
+// GC:  0 0 0 18200 1
 // Threading:  0 0 1
 
 // AfterAll
-// Benchmark Process 67204 has exited with code 0.
+// Benchmark Process 97022 has exited with code 0.
 
-Mean = 1.799 ms, StdErr = 0.050 ms (2.77%), N = 15, StdDev = 0.193 ms
-Min = 1.553 ms, Q1 = 1.627 ms, Median = 1.735 ms, Q3 = 1.957 ms, Max = 2.123 ms
-IQR = 0.330 ms, LowerFence = 1.132 ms, UpperFence = 2.453 ms
-ConfidenceInterval = [1.592 ms; 2.005 ms] (CI 99.9%), Margin = 0.207 ms (11.48% of Mean)
-Skewness = 0.16, Kurtosis = 1.3, MValue = 3.75
+Mean = 1.776 ms, StdErr = 0.054 ms (3.03%), N = 15, StdDev = 0.208 ms
+Min = 1.488 ms, Q1 = 1.645 ms, Median = 1.701 ms, Q3 = 1.870 ms, Max = 2.307 ms
+IQR = 0.226 ms, LowerFence = 1.306 ms, UpperFence = 2.209 ms
+ConfidenceInterval = [1.553 ms; 1.998 ms] (CI 99.9%), Margin = 0.223 ms (12.54% of Mean)
+Skewness = 1.05, Kurtosis = 3.42, MValue = 2.67
 
-// ** Remained 3 (27.3%) benchmark(s) to run. Estimated finish 2026-08-01 1:44 (0h 0m from now) **
+// ** Remained 3 (27.3%) benchmark(s) to run. Estimated finish 2026-08-01 3:32 (0h 0m from now) **
 // **************************
 // Benchmark: TargetRenderPipelineBenchmarks.RenderCompleteTargetRequest: RenderPipeline(InvocationCount=1, IterationCount=15, LaunchCount=1, RunStrategy=Monitoring, UnrollFactor=1, WarmupCount=3) [CaseName=Small(...)rhead [24]]
 // *** Execute ***
 // Launch: 1 / 1
-// Execute: dotnet Beutl.GpuPassTargetBenchmarkHarness-RenderPipeline-1.dll --anonymousPipes 110 111 --benchmarkName "Beutl.GpuPassTargetBenchmarkHarness.TargetRenderPipelineBenchmarks.RenderCompleteTargetRequest(CaseName: \"SmallObjectFixedOverhead\")" --job RenderPipeline --benchmarkId 8 in /private/var/folders/nl/kd31xyh169n3x8wb6g0dpw_m0000gn/T/beutl-gpu-pass-benchmark-build.Xp00DQ/baseline/bin/Beutl.GpuPassTargetBenchmarkHarness/release/Beutl.GpuPassTargetBenchmarkHarness-RenderPipeline-1/bin/Release/net10.0
+// Execute: dotnet Beutl.GpuPassTargetBenchmarkHarness-RenderPipeline-1.dll --anonymousPipes 112 113 --benchmarkName "Beutl.GpuPassTargetBenchmarkHarness.TargetRenderPipelineBenchmarks.RenderCompleteTargetRequest(CaseName: \"SmallObjectFixedOverhead\")" --job RenderPipeline --benchmarkId 8 in /private/var/folders/nl/kd31xyh169n3x8wb6g0dpw_m0000gn/T/beutl-gpu-pass-benchmark-build.lfmNQ9/baseline/bin/Beutl.GpuPassTargetBenchmarkHarness/release/Beutl.GpuPassTargetBenchmarkHarness-RenderPipeline-1/bin/Release/net10.0
 // Failed to set up high priority (Permission denied). In order to run benchmarks with high priority, make sure you have the right permissions.
 // BeforeAnythingElse
 
@@ -2104,61 +2103,61 @@ Skewness = 0.16, Kurtosis = 1.3, MValue = 3.75
 	VK_KHR_portability_subset v1
 	VK_KHR_swapchain v70
 	VK_EXT_metal_objects v2
-WorkloadWarmup   1: 1 op, 3703167.00 ns, 3.7032 ms/op
-WorkloadWarmup   2: 1 op, 2710875.00 ns, 2.7109 ms/op
-WorkloadWarmup   3: 1 op, 3161416.00 ns, 3.1614 ms/op
+WorkloadWarmup   1: 1 op, 3262791.00 ns, 3.2628 ms/op
+WorkloadWarmup   2: 1 op, 2583375.00 ns, 2.5834 ms/op
+WorkloadWarmup   3: 1 op, 3385167.00 ns, 3.3852 ms/op
 
 // BeforeActualRun
-WorkloadActual   1: 1 op, 3198916.00 ns, 3.1989 ms/op
-WorkloadActual   2: 1 op, 3079709.00 ns, 3.0797 ms/op
-WorkloadActual   3: 1 op, 2669500.00 ns, 2.6695 ms/op
-WorkloadActual   4: 1 op, 2609833.00 ns, 2.6098 ms/op
-WorkloadActual   5: 1 op, 2632083.00 ns, 2.6321 ms/op
-WorkloadActual   6: 1 op, 2646958.00 ns, 2.6470 ms/op
-WorkloadActual   7: 1 op, 2472292.00 ns, 2.4723 ms/op
-WorkloadActual   8: 1 op, 2508667.00 ns, 2.5087 ms/op
-WorkloadActual   9: 1 op, 2541833.00 ns, 2.5418 ms/op
-WorkloadActual  10: 1 op, 2623667.00 ns, 2.6237 ms/op
-WorkloadActual  11: 1 op, 2562959.00 ns, 2.5630 ms/op
-WorkloadActual  12: 1 op, 2461292.00 ns, 2.4613 ms/op
-WorkloadActual  13: 1 op, 2461583.00 ns, 2.4616 ms/op
-WorkloadActual  14: 1 op, 2497042.00 ns, 2.4970 ms/op
-WorkloadActual  15: 1 op, 2480666.00 ns, 2.4807 ms/op
+WorkloadActual   1: 1 op, 2528542.00 ns, 2.5285 ms/op
+WorkloadActual   2: 1 op, 2530166.00 ns, 2.5302 ms/op
+WorkloadActual   3: 1 op, 2515417.00 ns, 2.5154 ms/op
+WorkloadActual   4: 1 op, 2482042.00 ns, 2.4820 ms/op
+WorkloadActual   5: 1 op, 2473458.00 ns, 2.4735 ms/op
+WorkloadActual   6: 1 op, 2483667.00 ns, 2.4837 ms/op
+WorkloadActual   7: 1 op, 2476250.00 ns, 2.4763 ms/op
+WorkloadActual   8: 1 op, 2564334.00 ns, 2.5643 ms/op
+WorkloadActual   9: 1 op, 2528250.00 ns, 2.5283 ms/op
+WorkloadActual  10: 1 op, 2462042.00 ns, 2.4620 ms/op
+WorkloadActual  11: 1 op, 2510625.00 ns, 2.5106 ms/op
+WorkloadActual  12: 1 op, 2478916.00 ns, 2.4789 ms/op
+WorkloadActual  13: 1 op, 2617542.00 ns, 2.6175 ms/op
+WorkloadActual  14: 1 op, 2518208.00 ns, 2.5182 ms/op
+WorkloadActual  15: 1 op, 2504375.00 ns, 2.5044 ms/op
 
 // AfterActualRun
-WorkloadResult   1: 1 op, 3198916.00 ns, 3.1989 ms/op
-WorkloadResult   2: 1 op, 3079709.00 ns, 3.0797 ms/op
-WorkloadResult   3: 1 op, 2669500.00 ns, 2.6695 ms/op
-WorkloadResult   4: 1 op, 2609833.00 ns, 2.6098 ms/op
-WorkloadResult   5: 1 op, 2632083.00 ns, 2.6321 ms/op
-WorkloadResult   6: 1 op, 2646958.00 ns, 2.6470 ms/op
-WorkloadResult   7: 1 op, 2472292.00 ns, 2.4723 ms/op
-WorkloadResult   8: 1 op, 2508667.00 ns, 2.5087 ms/op
-WorkloadResult   9: 1 op, 2541833.00 ns, 2.5418 ms/op
-WorkloadResult  10: 1 op, 2623667.00 ns, 2.6237 ms/op
-WorkloadResult  11: 1 op, 2562959.00 ns, 2.5630 ms/op
-WorkloadResult  12: 1 op, 2461292.00 ns, 2.4613 ms/op
-WorkloadResult  13: 1 op, 2461583.00 ns, 2.4616 ms/op
-WorkloadResult  14: 1 op, 2497042.00 ns, 2.4970 ms/op
-WorkloadResult  15: 1 op, 2480666.00 ns, 2.4807 ms/op
-// GC:  0 0 0 29752 1
+WorkloadResult   1: 1 op, 2528542.00 ns, 2.5285 ms/op
+WorkloadResult   2: 1 op, 2530166.00 ns, 2.5302 ms/op
+WorkloadResult   3: 1 op, 2515417.00 ns, 2.5154 ms/op
+WorkloadResult   4: 1 op, 2482042.00 ns, 2.4820 ms/op
+WorkloadResult   5: 1 op, 2473458.00 ns, 2.4735 ms/op
+WorkloadResult   6: 1 op, 2483667.00 ns, 2.4837 ms/op
+WorkloadResult   7: 1 op, 2476250.00 ns, 2.4763 ms/op
+WorkloadResult   8: 1 op, 2564334.00 ns, 2.5643 ms/op
+WorkloadResult   9: 1 op, 2528250.00 ns, 2.5283 ms/op
+WorkloadResult  10: 1 op, 2462042.00 ns, 2.4620 ms/op
+WorkloadResult  11: 1 op, 2510625.00 ns, 2.5106 ms/op
+WorkloadResult  12: 1 op, 2478916.00 ns, 2.4789 ms/op
+WorkloadResult  13: 1 op, 2617542.00 ns, 2.6175 ms/op
+WorkloadResult  14: 1 op, 2518208.00 ns, 2.5182 ms/op
+WorkloadResult  15: 1 op, 2504375.00 ns, 2.5044 ms/op
+// GC:  0 0 0 29168 1
 // Threading:  0 0 1
 
 // AfterAll
-// Benchmark Process 67208 has exited with code 0.
+// Benchmark Process 97026 has exited with code 0.
 
-Mean = 2.630 ms, StdErr = 0.057 ms (2.16%), N = 15, StdDev = 0.220 ms
-Min = 2.461 ms, Q1 = 2.489 ms, Median = 2.563 ms, Q3 = 2.640 ms, Max = 3.199 ms
-IQR = 0.151 ms, LowerFence = 2.263 ms, UpperFence = 2.866 ms
-ConfidenceInterval = [2.395 ms; 2.865 ms] (CI 99.9%), Margin = 0.235 ms (8.94% of Mean)
-Skewness = 1.59, Kurtosis = 4.26, MValue = 3.14
+Mean = 2.512 ms, StdErr = 0.010 ms (0.42%), N = 15, StdDev = 0.040 ms
+Min = 2.462 ms, Q1 = 2.480 ms, Median = 2.511 ms, Q3 = 2.528 ms, Max = 2.618 ms
+IQR = 0.048 ms, LowerFence = 2.409 ms, UpperFence = 2.600 ms
+ConfidenceInterval = [2.468 ms; 2.555 ms] (CI 99.9%), Margin = 0.043 ms (1.72% of Mean)
+Skewness = 1.06, Kurtosis = 3.64, MValue = 2
 
-// ** Remained 2 (18.2%) benchmark(s) to run. Estimated finish 2026-08-01 1:44 (0h 0m from now) **
+// ** Remained 2 (18.2%) benchmark(s) to run. Estimated finish 2026-08-01 3:32 (0h 0m from now) **
 // **************************
 // Benchmark: TargetRenderPipelineBenchmarks.RenderCompleteTargetRequest: RenderPipeline(InvocationCount=1, IterationCount=15, LaunchCount=1, RunStrategy=Monitoring, UnrollFactor=1, WarmupCount=3) [CaseName=Stati(...)dTail [24]]
 // *** Execute ***
 // Launch: 1 / 1
-// Execute: dotnet Beutl.GpuPassTargetBenchmarkHarness-RenderPipeline-1.dll --anonymousPipes 110 111 --benchmarkName "Beutl.GpuPassTargetBenchmarkHarness.TargetRenderPipelineBenchmarks.RenderCompleteTargetRequest(CaseName: \"StaticPrefixAnimatedTail\")" --job RenderPipeline --benchmarkId 9 in /private/var/folders/nl/kd31xyh169n3x8wb6g0dpw_m0000gn/T/beutl-gpu-pass-benchmark-build.Xp00DQ/baseline/bin/Beutl.GpuPassTargetBenchmarkHarness/release/Beutl.GpuPassTargetBenchmarkHarness-RenderPipeline-1/bin/Release/net10.0
+// Execute: dotnet Beutl.GpuPassTargetBenchmarkHarness-RenderPipeline-1.dll --anonymousPipes 112 113 --benchmarkName "Beutl.GpuPassTargetBenchmarkHarness.TargetRenderPipelineBenchmarks.RenderCompleteTargetRequest(CaseName: \"StaticPrefixAnimatedTail\")" --job RenderPipeline --benchmarkId 9 in /private/var/folders/nl/kd31xyh169n3x8wb6g0dpw_m0000gn/T/beutl-gpu-pass-benchmark-build.lfmNQ9/baseline/bin/Beutl.GpuPassTargetBenchmarkHarness/release/Beutl.GpuPassTargetBenchmarkHarness-RenderPipeline-1/bin/Release/net10.0
 // Failed to set up high priority (Permission denied). In order to run benchmarks with high priority, make sure you have the right permissions.
 // BeforeAnythingElse
 
@@ -2341,61 +2340,61 @@ Skewness = 1.59, Kurtosis = 4.26, MValue = 3.14
 	VK_KHR_portability_subset v1
 	VK_KHR_swapchain v70
 	VK_EXT_metal_objects v2
-WorkloadWarmup   1: 1 op, 3899541.00 ns, 3.8995 ms/op
-WorkloadWarmup   2: 1 op, 4470417.00 ns, 4.4704 ms/op
-WorkloadWarmup   3: 1 op, 3305000.00 ns, 3.3050 ms/op
+WorkloadWarmup   1: 1 op, 4438541.00 ns, 4.4385 ms/op
+WorkloadWarmup   2: 1 op, 3616875.00 ns, 3.6169 ms/op
+WorkloadWarmup   3: 1 op, 3267625.00 ns, 3.2676 ms/op
 
 // BeforeActualRun
-WorkloadActual   1: 1 op, 3237334.00 ns, 3.2373 ms/op
-WorkloadActual   2: 1 op, 3186333.00 ns, 3.1863 ms/op
-WorkloadActual   3: 1 op, 3072708.00 ns, 3.0727 ms/op
-WorkloadActual   4: 1 op, 2943833.00 ns, 2.9438 ms/op
-WorkloadActual   5: 1 op, 2940542.00 ns, 2.9405 ms/op
-WorkloadActual   6: 1 op, 3097583.00 ns, 3.0976 ms/op
-WorkloadActual   7: 1 op, 2991500.00 ns, 2.9915 ms/op
-WorkloadActual   8: 1 op, 2968416.00 ns, 2.9684 ms/op
-WorkloadActual   9: 1 op, 2923875.00 ns, 2.9239 ms/op
-WorkloadActual  10: 1 op, 3005083.00 ns, 3.0051 ms/op
-WorkloadActual  11: 1 op, 3034917.00 ns, 3.0349 ms/op
-WorkloadActual  12: 1 op, 2937584.00 ns, 2.9376 ms/op
-WorkloadActual  13: 1 op, 2955125.00 ns, 2.9551 ms/op
-WorkloadActual  14: 1 op, 2914042.00 ns, 2.9140 ms/op
-WorkloadActual  15: 1 op, 3203459.00 ns, 3.2035 ms/op
+WorkloadActual   1: 1 op, 3404167.00 ns, 3.4042 ms/op
+WorkloadActual   2: 1 op, 3401208.00 ns, 3.4012 ms/op
+WorkloadActual   3: 1 op, 3426834.00 ns, 3.4268 ms/op
+WorkloadActual   4: 1 op, 3489416.00 ns, 3.4894 ms/op
+WorkloadActual   5: 1 op, 3439958.00 ns, 3.4400 ms/op
+WorkloadActual   6: 1 op, 3556917.00 ns, 3.5569 ms/op
+WorkloadActual   7: 1 op, 3508042.00 ns, 3.5080 ms/op
+WorkloadActual   8: 1 op, 3362875.00 ns, 3.3629 ms/op
+WorkloadActual   9: 1 op, 3388125.00 ns, 3.3881 ms/op
+WorkloadActual  10: 1 op, 3251708.00 ns, 3.2517 ms/op
+WorkloadActual  11: 1 op, 3012792.00 ns, 3.0128 ms/op
+WorkloadActual  12: 1 op, 3001833.00 ns, 3.0018 ms/op
+WorkloadActual  13: 1 op, 3142125.00 ns, 3.1421 ms/op
+WorkloadActual  14: 1 op, 3055000.00 ns, 3.0550 ms/op
+WorkloadActual  15: 1 op, 3100875.00 ns, 3.1009 ms/op
 
 // AfterActualRun
-WorkloadResult   1: 1 op, 3237334.00 ns, 3.2373 ms/op
-WorkloadResult   2: 1 op, 3186333.00 ns, 3.1863 ms/op
-WorkloadResult   3: 1 op, 3072708.00 ns, 3.0727 ms/op
-WorkloadResult   4: 1 op, 2943833.00 ns, 2.9438 ms/op
-WorkloadResult   5: 1 op, 2940542.00 ns, 2.9405 ms/op
-WorkloadResult   6: 1 op, 3097583.00 ns, 3.0976 ms/op
-WorkloadResult   7: 1 op, 2991500.00 ns, 2.9915 ms/op
-WorkloadResult   8: 1 op, 2968416.00 ns, 2.9684 ms/op
-WorkloadResult   9: 1 op, 2923875.00 ns, 2.9239 ms/op
-WorkloadResult  10: 1 op, 3005083.00 ns, 3.0051 ms/op
-WorkloadResult  11: 1 op, 3034917.00 ns, 3.0349 ms/op
-WorkloadResult  12: 1 op, 2937584.00 ns, 2.9376 ms/op
-WorkloadResult  13: 1 op, 2955125.00 ns, 2.9551 ms/op
-WorkloadResult  14: 1 op, 2914042.00 ns, 2.9140 ms/op
-WorkloadResult  15: 1 op, 3203459.00 ns, 3.2035 ms/op
-// GC:  0 0 0 30400 1
+WorkloadResult   1: 1 op, 3404167.00 ns, 3.4042 ms/op
+WorkloadResult   2: 1 op, 3401208.00 ns, 3.4012 ms/op
+WorkloadResult   3: 1 op, 3426834.00 ns, 3.4268 ms/op
+WorkloadResult   4: 1 op, 3489416.00 ns, 3.4894 ms/op
+WorkloadResult   5: 1 op, 3439958.00 ns, 3.4400 ms/op
+WorkloadResult   6: 1 op, 3556917.00 ns, 3.5569 ms/op
+WorkloadResult   7: 1 op, 3508042.00 ns, 3.5080 ms/op
+WorkloadResult   8: 1 op, 3362875.00 ns, 3.3629 ms/op
+WorkloadResult   9: 1 op, 3388125.00 ns, 3.3881 ms/op
+WorkloadResult  10: 1 op, 3251708.00 ns, 3.2517 ms/op
+WorkloadResult  11: 1 op, 3012792.00 ns, 3.0128 ms/op
+WorkloadResult  12: 1 op, 3001833.00 ns, 3.0018 ms/op
+WorkloadResult  13: 1 op, 3142125.00 ns, 3.1421 ms/op
+WorkloadResult  14: 1 op, 3055000.00 ns, 3.0550 ms/op
+WorkloadResult  15: 1 op, 3100875.00 ns, 3.1009 ms/op
+// GC:  0 0 0 29816 1
 // Threading:  0 0 1
 
 // AfterAll
-// Benchmark Process 67217 has exited with code 0.
+// Benchmark Process 97035 has exited with code 0.
 
-Mean = 3.027 ms, StdErr = 0.028 ms (0.92%), N = 15, StdDev = 0.108 ms
-Min = 2.914 ms, Q1 = 2.942 ms, Median = 2.991 ms, Q3 = 3.085 ms, Max = 3.237 ms
-IQR = 0.143 ms, LowerFence = 2.728 ms, UpperFence = 3.300 ms
-ConfidenceInterval = [2.912 ms; 3.143 ms] (CI 99.9%), Margin = 0.116 ms (3.82% of Mean)
-Skewness = 0.73, Kurtosis = 1.97, MValue = 2
+Mean = 3.303 ms, StdErr = 0.049 ms (1.49%), N = 15, StdDev = 0.191 ms
+Min = 3.002 ms, Q1 = 3.122 ms, Median = 3.388 ms, Q3 = 3.433 ms, Max = 3.557 ms
+IQR = 0.312 ms, LowerFence = 2.654 ms, UpperFence = 3.901 ms
+ConfidenceInterval = [3.098 ms; 3.507 ms] (CI 99.9%), Margin = 0.204 ms (6.19% of Mean)
+Skewness = -0.39, Kurtosis = 1.47, MValue = 2.89
 
-// ** Remained 1 (9.1%) benchmark(s) to run. Estimated finish 2026-08-01 1:44 (0h 0m from now) **
+// ** Remained 1 (9.1%) benchmark(s) to run. Estimated finish 2026-08-01 3:32 (0h 0m from now) **
 // **************************
 // Benchmark: TargetRenderPipelineBenchmarks.RenderCompleteTargetRequest: RenderPipeline(InvocationCount=1, IterationCount=15, LaunchCount=1, RunStrategy=Monitoring, UnrollFactor=1, WarmupCount=3) [CaseName=StructuralToggle]
 // *** Execute ***
 // Launch: 1 / 1
-// Execute: dotnet Beutl.GpuPassTargetBenchmarkHarness-RenderPipeline-1.dll --anonymousPipes 110 111 --benchmarkName "Beutl.GpuPassTargetBenchmarkHarness.TargetRenderPipelineBenchmarks.RenderCompleteTargetRequest(CaseName: \"StructuralToggle\")" --job RenderPipeline --benchmarkId 10 in /private/var/folders/nl/kd31xyh169n3x8wb6g0dpw_m0000gn/T/beutl-gpu-pass-benchmark-build.Xp00DQ/baseline/bin/Beutl.GpuPassTargetBenchmarkHarness/release/Beutl.GpuPassTargetBenchmarkHarness-RenderPipeline-1/bin/Release/net10.0
+// Execute: dotnet Beutl.GpuPassTargetBenchmarkHarness-RenderPipeline-1.dll --anonymousPipes 112 113 --benchmarkName "Beutl.GpuPassTargetBenchmarkHarness.TargetRenderPipelineBenchmarks.RenderCompleteTargetRequest(CaseName: \"StructuralToggle\")" --job RenderPipeline --benchmarkId 10 in /private/var/folders/nl/kd31xyh169n3x8wb6g0dpw_m0000gn/T/beutl-gpu-pass-benchmark-build.lfmNQ9/baseline/bin/Beutl.GpuPassTargetBenchmarkHarness/release/Beutl.GpuPassTargetBenchmarkHarness-RenderPipeline-1/bin/Release/net10.0
 // Failed to set up high priority (Permission denied). In order to run benchmarks with high priority, make sure you have the right permissions.
 // BeforeAnythingElse
 
@@ -2578,212 +2577,208 @@ Skewness = 0.73, Kurtosis = 1.97, MValue = 2
 	VK_KHR_portability_subset v1
 	VK_KHR_swapchain v70
 	VK_EXT_metal_objects v2
-WorkloadWarmup   1: 1 op, 3766833.00 ns, 3.7668 ms/op
-WorkloadWarmup   2: 1 op, 3994250.00 ns, 3.9943 ms/op
-WorkloadWarmup   3: 1 op, 3009292.00 ns, 3.0093 ms/op
+WorkloadWarmup   1: 1 op, 4421167.00 ns, 4.4212 ms/op
+WorkloadWarmup   2: 1 op, 3788375.00 ns, 3.7884 ms/op
+WorkloadWarmup   3: 1 op, 3158334.00 ns, 3.1583 ms/op
 
 // BeforeActualRun
-WorkloadActual   1: 1 op, 3279167.00 ns, 3.2792 ms/op
-WorkloadActual   2: 1 op, 3244833.00 ns, 3.2448 ms/op
-WorkloadActual   3: 1 op, 3355417.00 ns, 3.3554 ms/op
-WorkloadActual   4: 1 op, 3259334.00 ns, 3.2593 ms/op
-WorkloadActual   5: 1 op, 3108000.00 ns, 3.1080 ms/op
-WorkloadActual   6: 1 op, 2999958.00 ns, 3.0000 ms/op
-WorkloadActual   7: 1 op, 3015917.00 ns, 3.0159 ms/op
-WorkloadActual   8: 1 op, 3016000.00 ns, 3.0160 ms/op
-WorkloadActual   9: 1 op, 3015750.00 ns, 3.0158 ms/op
-WorkloadActual  10: 1 op, 2956542.00 ns, 2.9565 ms/op
-WorkloadActual  11: 1 op, 2945542.00 ns, 2.9455 ms/op
-WorkloadActual  12: 1 op, 3052958.00 ns, 3.0530 ms/op
-WorkloadActual  13: 1 op, 3012625.00 ns, 3.0126 ms/op
-WorkloadActual  14: 1 op, 2967208.00 ns, 2.9672 ms/op
-WorkloadActual  15: 1 op, 3002500.00 ns, 3.0025 ms/op
+WorkloadActual   1: 1 op, 3205917.00 ns, 3.2059 ms/op
+WorkloadActual   2: 1 op, 3437916.00 ns, 3.4379 ms/op
+WorkloadActual   3: 1 op, 3027500.00 ns, 3.0275 ms/op
+WorkloadActual   4: 1 op, 2990250.00 ns, 2.9903 ms/op
+WorkloadActual   5: 1 op, 3063083.00 ns, 3.0631 ms/op
+WorkloadActual   6: 1 op, 2973125.00 ns, 2.9731 ms/op
+WorkloadActual   7: 1 op, 2960542.00 ns, 2.9605 ms/op
+WorkloadActual   8: 1 op, 2961125.00 ns, 2.9611 ms/op
+WorkloadActual   9: 1 op, 2964083.00 ns, 2.9641 ms/op
+WorkloadActual  10: 1 op, 3015083.00 ns, 3.0151 ms/op
+WorkloadActual  11: 1 op, 2967292.00 ns, 2.9673 ms/op
+WorkloadActual  12: 1 op, 2974041.00 ns, 2.9740 ms/op
+WorkloadActual  13: 1 op, 2957625.00 ns, 2.9576 ms/op
+WorkloadActual  14: 1 op, 2936209.00 ns, 2.9362 ms/op
+WorkloadActual  15: 1 op, 2839542.00 ns, 2.8395 ms/op
 
 // AfterActualRun
-WorkloadResult   1: 1 op, 3279167.00 ns, 3.2792 ms/op
-WorkloadResult   2: 1 op, 3244833.00 ns, 3.2448 ms/op
-WorkloadResult   3: 1 op, 3355417.00 ns, 3.3554 ms/op
-WorkloadResult   4: 1 op, 3259334.00 ns, 3.2593 ms/op
-WorkloadResult   5: 1 op, 3108000.00 ns, 3.1080 ms/op
-WorkloadResult   6: 1 op, 2999958.00 ns, 3.0000 ms/op
-WorkloadResult   7: 1 op, 3015917.00 ns, 3.0159 ms/op
-WorkloadResult   8: 1 op, 3016000.00 ns, 3.0160 ms/op
-WorkloadResult   9: 1 op, 3015750.00 ns, 3.0158 ms/op
-WorkloadResult  10: 1 op, 2956542.00 ns, 2.9565 ms/op
-WorkloadResult  11: 1 op, 2945542.00 ns, 2.9455 ms/op
-WorkloadResult  12: 1 op, 3052958.00 ns, 3.0530 ms/op
-WorkloadResult  13: 1 op, 3012625.00 ns, 3.0126 ms/op
-WorkloadResult  14: 1 op, 2967208.00 ns, 2.9672 ms/op
-WorkloadResult  15: 1 op, 3002500.00 ns, 3.0025 ms/op
-// GC:  0 0 0 39152 1
+WorkloadResult   1: 1 op, 3205917.00 ns, 3.2059 ms/op
+WorkloadResult   2: 1 op, 3437916.00 ns, 3.4379 ms/op
+WorkloadResult   3: 1 op, 3027500.00 ns, 3.0275 ms/op
+WorkloadResult   4: 1 op, 2990250.00 ns, 2.9903 ms/op
+WorkloadResult   5: 1 op, 3063083.00 ns, 3.0631 ms/op
+WorkloadResult   6: 1 op, 2973125.00 ns, 2.9731 ms/op
+WorkloadResult   7: 1 op, 2960542.00 ns, 2.9605 ms/op
+WorkloadResult   8: 1 op, 2961125.00 ns, 2.9611 ms/op
+WorkloadResult   9: 1 op, 2964083.00 ns, 2.9641 ms/op
+WorkloadResult  10: 1 op, 3015083.00 ns, 3.0151 ms/op
+WorkloadResult  11: 1 op, 2967292.00 ns, 2.9673 ms/op
+WorkloadResult  12: 1 op, 2974041.00 ns, 2.9740 ms/op
+WorkloadResult  13: 1 op, 2957625.00 ns, 2.9576 ms/op
+WorkloadResult  14: 1 op, 2936209.00 ns, 2.9362 ms/op
+WorkloadResult  15: 1 op, 2839542.00 ns, 2.8395 ms/op
+// GC:  0 0 0 38568 1
 // Threading:  0 0 1
 
 // AfterAll
-// Benchmark Process 67221 has exited with code 0.
+// Benchmark Process 97205 has exited with code 0.
 
-Mean = 3.082 ms, StdErr = 0.035 ms (1.12%), N = 15, StdDev = 0.134 ms
-Min = 2.946 ms, Q1 = 3.001 ms, Median = 3.016 ms, Q3 = 3.176 ms, Max = 3.355 ms
-IQR = 0.175 ms, LowerFence = 2.738 ms, UpperFence = 3.439 ms
-ConfidenceInterval = [2.939 ms; 3.225 ms] (CI 99.9%), Margin = 0.143 ms (4.65% of Mean)
-Skewness = 0.82, Kurtosis = 2, MValue = 2.6
+Mean = 3.018 ms, StdErr = 0.036 ms (1.19%), N = 15, StdDev = 0.140 ms
+Min = 2.840 ms, Q1 = 2.961 ms, Median = 2.973 ms, Q3 = 3.021 ms, Max = 3.438 ms
+IQR = 0.060 ms, LowerFence = 2.870 ms, UpperFence = 3.112 ms
+ConfidenceInterval = [2.869 ms; 3.167 ms] (CI 99.9%), Margin = 0.149 ms (4.94% of Mean)
+Skewness = 1.8, Kurtosis = 5.87, MValue = 2
 
-// ** Remained 0 (0.0%) benchmark(s) to run. Estimated finish 2026-08-01 1:44 (0h 0m from now) **
+// ** Remained 0 (0.0%) benchmark(s) to run. Estimated finish 2026-08-01 3:32 (0h 0m from now) **
 // ***** BenchmarkRunner: Finish  *****
 
 // * Export *
-  private/tmp/claude-501/-Volumes-Transcend-source-beutl-worktrees-speckit-004-gpu-pass-fusion/058041f1-b6d5-4743-8ab6-39807ae0c750/scratchpad/paired-bench-5/baseline-a/bdn/results/Beutl.GpuPassTargetBenchmarkHarness.TargetRenderPipelineBenchmarks-report.csv
-  private/tmp/claude-501/-Volumes-Transcend-source-beutl-worktrees-speckit-004-gpu-pass-fusion/058041f1-b6d5-4743-8ab6-39807ae0c750/scratchpad/paired-bench-5/baseline-a/bdn/results/Beutl.GpuPassTargetBenchmarkHarness.TargetRenderPipelineBenchmarks-report-github.md
-  private/tmp/claude-501/-Volumes-Transcend-source-beutl-worktrees-speckit-004-gpu-pass-fusion/058041f1-b6d5-4743-8ab6-39807ae0c750/scratchpad/paired-bench-5/baseline-a/bdn/results/Beutl.GpuPassTargetBenchmarkHarness.TargetRenderPipelineBenchmarks-report.html
-  private/tmp/claude-501/-Volumes-Transcend-source-beutl-worktrees-speckit-004-gpu-pass-fusion/058041f1-b6d5-4743-8ab6-39807ae0c750/scratchpad/paired-bench-5/baseline-a/bdn/results/Beutl.GpuPassTargetBenchmarkHarness.TargetRenderPipelineBenchmarks-report-full.json
+  private/tmp/claude-501/-Volumes-Transcend-source-beutl-worktrees-speckit-004-gpu-pass-fusion/058041f1-b6d5-4743-8ab6-39807ae0c750/scratchpad/paired-bench-7/baseline-a/bdn/results/Beutl.GpuPassTargetBenchmarkHarness.TargetRenderPipelineBenchmarks-report.csv
+  private/tmp/claude-501/-Volumes-Transcend-source-beutl-worktrees-speckit-004-gpu-pass-fusion/058041f1-b6d5-4743-8ab6-39807ae0c750/scratchpad/paired-bench-7/baseline-a/bdn/results/Beutl.GpuPassTargetBenchmarkHarness.TargetRenderPipelineBenchmarks-report-github.md
+  private/tmp/claude-501/-Volumes-Transcend-source-beutl-worktrees-speckit-004-gpu-pass-fusion/058041f1-b6d5-4743-8ab6-39807ae0c750/scratchpad/paired-bench-7/baseline-a/bdn/results/Beutl.GpuPassTargetBenchmarkHarness.TargetRenderPipelineBenchmarks-report.html
+  private/tmp/claude-501/-Volumes-Transcend-source-beutl-worktrees-speckit-004-gpu-pass-fusion/058041f1-b6d5-4743-8ab6-39807ae0c750/scratchpad/paired-bench-7/baseline-a/bdn/results/Beutl.GpuPassTargetBenchmarkHarness.TargetRenderPipelineBenchmarks-report-full.json
 
 // * Detailed results *
 TargetRenderPipelineBenchmarks.RenderCompleteTargetRequest: RenderPipeline(InvocationCount=1, IterationCount=15, LaunchCount=1, RunStrategy=Monitoring, UnrollFactor=1, WarmupCount=3) [CaseName=LongInvariantChain]
 Runtime = .NET 10.0.9 (10.0.9, 10.0.926.27113), Arm64 RyuJIT armv8.0-a; GC = Concurrent Workstation
-Mean = 8.341 ms, StdErr = 0.095 ms (1.14%), N = 15, StdDev = 0.369 ms
-Min = 7.721 ms, Q1 = 8.160 ms, Median = 8.418 ms, Q3 = 8.521 ms, Max = 9.157 ms
-IQR = 0.361 ms, LowerFence = 7.618 ms, UpperFence = 9.063 ms
-ConfidenceInterval = [7.947 ms; 8.735 ms] (CI 99.9%), Margin = 0.394 ms (4.72% of Mean)
-Skewness = 0.14, Kurtosis = 2.65, MValue = 3
+Mean = 7.903 ms, StdErr = 0.036 ms (0.46%), N = 15, StdDev = 0.141 ms
+Min = 7.630 ms, Q1 = 7.857 ms, Median = 7.886 ms, Q3 = 7.968 ms, Max = 8.215 ms
+IQR = 0.111 ms, LowerFence = 7.691 ms, UpperFence = 8.135 ms
+ConfidenceInterval = [7.752 ms; 8.054 ms] (CI 99.9%), Margin = 0.151 ms (1.91% of Mean)
+Skewness = 0.21, Kurtosis = 2.87, MValue = 2
 -------------------- Histogram --------------------
-[7.612 ms ; 8.004 ms) | @@@
-[8.004 ms ; 8.537 ms) | @@@@@@@@@
-[8.537 ms ; 8.961 ms) | @@
-[8.961 ms ; 9.353 ms) | @
+[7.620 ms ; 7.837 ms) | @@@
+[7.837 ms ; 8.290 ms) | @@@@@@@@@@@@
 ---------------------------------------------------
 
 TargetRenderPipelineBenchmarks.RenderCompleteTargetRequest: RenderPipeline(InvocationCount=1, IterationCount=15, LaunchCount=1, RunStrategy=Monitoring, UnrollFactor=1, WarmupCount=3) [CaseName=MixedSpatialColor]
 Runtime = .NET 10.0.9 (10.0.9, 10.0.926.27113), Arm64 RyuJIT armv8.0-a; GC = Concurrent Workstation
-Mean = 4.244 ms, StdErr = 0.031 ms (0.73%), N = 15, StdDev = 0.120 ms
-Min = 4.107 ms, Q1 = 4.154 ms, Median = 4.229 ms, Q3 = 4.272 ms, Max = 4.521 ms
-IQR = 0.119 ms, LowerFence = 3.976 ms, UpperFence = 4.450 ms
-ConfidenceInterval = [4.116 ms; 4.372 ms] (CI 99.9%), Margin = 0.128 ms (3.01% of Mean)
-Skewness = 0.85, Kurtosis = 2.72, MValue = 2.29
+Mean = 4.096 ms, StdErr = 0.020 ms (0.49%), N = 15, StdDev = 0.078 ms
+Min = 3.969 ms, Q1 = 4.058 ms, Median = 4.085 ms, Q3 = 4.144 ms, Max = 4.265 ms
+IQR = 0.086 ms, LowerFence = 3.929 ms, UpperFence = 4.273 ms
+ConfidenceInterval = [4.012 ms; 4.180 ms] (CI 99.9%), Margin = 0.084 ms (2.05% of Mean)
+Skewness = 0.36, Kurtosis = 2.4, MValue = 2
 -------------------- Histogram --------------------
-[4.043 ms ; 4.128 ms) | @@
-[4.128 ms ; 4.255 ms) | @@@@@@@@@
-[4.255 ms ; 4.468 ms) | @@@
-[4.468 ms ; 4.585 ms) | @
+[3.950 ms ; 4.034 ms) | @@@
+[4.034 ms ; 4.139 ms) | @@@@@@@@
+[4.139 ms ; 4.307 ms) | @@@@
 ---------------------------------------------------
 
 TargetRenderPipelineBenchmarks.RenderCompleteTargetRequest: RenderPipeline(InvocationCount=1, IterationCount=15, LaunchCount=1, RunStrategy=Monitoring, UnrollFactor=1, WarmupCount=3) [CaseName=Multi(...)ncies [35]]
 Runtime = .NET 10.0.9 (10.0.9, 10.0.926.27113), Arm64 RyuJIT armv8.0-a; GC = Concurrent Workstation
-Mean = 4.257 ms, StdErr = 0.012 ms (0.29%), N = 15, StdDev = 0.048 ms
-Min = 4.193 ms, Q1 = 4.227 ms, Median = 4.247 ms, Q3 = 4.264 ms, Max = 4.369 ms
-IQR = 0.038 ms, LowerFence = 4.170 ms, UpperFence = 4.321 ms
-ConfidenceInterval = [4.205 ms; 4.308 ms] (CI 99.9%), Margin = 0.051 ms (1.21% of Mean)
-Skewness = 0.94, Kurtosis = 2.81, MValue = 2
+Mean = 4.231 ms, StdErr = 0.017 ms (0.40%), N = 15, StdDev = 0.066 ms
+Min = 4.127 ms, Q1 = 4.187 ms, Median = 4.217 ms, Q3 = 4.285 ms, Max = 4.342 ms
+IQR = 0.098 ms, LowerFence = 4.039 ms, UpperFence = 4.433 ms
+ConfidenceInterval = [4.161 ms; 4.301 ms] (CI 99.9%), Margin = 0.070 ms (1.66% of Mean)
+Skewness = 0.16, Kurtosis = 1.71, MValue = 2
 -------------------- Histogram --------------------
-[4.168 ms ; 4.281 ms) | @@@@@@@@@@@@
-[4.281 ms ; 4.387 ms) | @@@
+[4.092 ms ; 4.253 ms) | @@@@@@@@@@
+[4.253 ms ; 4.356 ms) | @@@@@
 ---------------------------------------------------
 
 TargetRenderPipelineBenchmarks.RenderCompleteTargetRequest: RenderPipeline(InvocationCount=1, IterationCount=15, LaunchCount=1, RunStrategy=Monitoring, UnrollFactor=1, WarmupCount=3) [CaseName=NoEffectControl]
 Runtime = .NET 10.0.9 (10.0.9, 10.0.926.27113), Arm64 RyuJIT armv8.0-a; GC = Concurrent Workstation
-Mean = 808.845 us, StdErr = 5.892 us (0.73%), N = 15, StdDev = 22.821 us
-Min = 786.417 us, Q1 = 790.875 us, Median = 803.500 us, Q3 = 814.750 us, Max = 867.334 us
-IQR = 23.875 us, LowerFence = 755.062 us, UpperFence = 850.562 us
-ConfidenceInterval = [784.447 us; 833.242 us] (CI 99.9%), Margin = 24.397 us (3.02% of Mean)
-Skewness = 1.1, Kurtosis = 3.39, MValue = 2
+Mean = 879.072 us, StdErr = 22.574 us (2.57%), N = 15, StdDev = 87.428 us
+Min = 792.792 us, Q1 = 804.646 us, Median = 850.750 us, Q3 = 927.688 us, Max = 1,056.000 us
+IQR = 123.042 us, LowerFence = 620.083 us, UpperFence = 1,112.251 us
+ConfidenceInterval = [785.606 us; 972.538 us] (CI 99.9%), Margin = 93.466 us (10.63% of Mean)
+Skewness = 0.7, Kurtosis = 2.08, MValue = 2
 -------------------- Histogram --------------------
-[783.105 us ; 807.396 us) | @@@@@@@@@
-[807.396 us ; 835.103 us) | @@@@
-[835.103 us ; 855.189 us) | @
-[855.189 us ; 879.479 us) | @
+[787.305 us ;   880.362 us) | @@@@@@@@@
+[880.362 us ;   998.034 us) | @@@@
+[998.034 us ; 1,102.529 us) | @@
 ---------------------------------------------------
 
 TargetRenderPipelineBenchmarks.RenderCompleteTargetRequest: RenderPipeline(InvocationCount=1, IterationCount=15, LaunchCount=1, RunStrategy=Monitoring, UnrollFactor=1, WarmupCount=3) [CaseName=Param(...)ation [22]]
 Runtime = .NET 10.0.9 (10.0.9, 10.0.926.27113), Arm64 RyuJIT armv8.0-a; GC = Concurrent Workstation
-Mean = 20.607 ms, StdErr = 0.123 ms (0.60%), N = 15, StdDev = 0.478 ms
-Min = 20.044 ms, Q1 = 20.301 ms, Median = 20.550 ms, Q3 = 20.783 ms, Max = 21.696 ms
-IQR = 0.481 ms, LowerFence = 19.580 ms, UpperFence = 21.504 ms
-ConfidenceInterval = [20.096 ms; 21.118 ms] (CI 99.9%), Margin = 0.511 ms (2.48% of Mean)
-Skewness = 0.76, Kurtosis = 2.67, MValue = 2
+Mean = 3.196 ms, StdErr = 0.039 ms (1.21%), N = 15, StdDev = 0.150 ms
+Min = 2.963 ms, Q1 = 3.114 ms, Median = 3.168 ms, Q3 = 3.285 ms, Max = 3.461 ms
+IQR = 0.171 ms, LowerFence = 2.857 ms, UpperFence = 3.542 ms
+ConfidenceInterval = [3.036 ms; 3.356 ms] (CI 99.9%), Margin = 0.160 ms (5.00% of Mean)
+Skewness = 0.31, Kurtosis = 1.93, MValue = 2.89
 -------------------- Histogram --------------------
-[19.789 ms ; 20.292 ms) | @@@
-[20.292 ms ; 20.801 ms) | @@@@@@@@@
-[20.801 ms ; 21.290 ms) | @
-[21.290 ms ; 21.799 ms) | @@
+[2.884 ms ; 3.059 ms) | @@
+[3.059 ms ; 3.218 ms) | @@@@@@@@@
+[3.218 ms ; 3.331 ms) | 
+[3.331 ms ; 3.490 ms) | @@@@
 ---------------------------------------------------
 
 TargetRenderPipelineBenchmarks.RenderCompleteTargetRequest: RenderPipeline(InvocationCount=1, IterationCount=15, LaunchCount=1, RunStrategy=Monitoring, UnrollFactor=1, WarmupCount=3) [CaseName=ShaderOpacityShader]
 Runtime = .NET 10.0.9 (10.0.9, 10.0.926.27113), Arm64 RyuJIT armv8.0-a; GC = Concurrent Workstation
-Mean = 2.917 ms, StdErr = 0.085 ms (2.92%), N = 15, StdDev = 0.330 ms
-Min = 2.699 ms, Q1 = 2.726 ms, Median = 2.760 ms, Q3 = 2.912 ms, Max = 3.787 ms
-IQR = 0.185 ms, LowerFence = 2.448 ms, UpperFence = 3.190 ms
-ConfidenceInterval = [2.564 ms; 3.270 ms] (CI 99.9%), Margin = 0.353 ms (12.10% of Mean)
-Skewness = 1.62, Kurtosis = 4.27, MValue = 2.22
+Mean = 2.801 ms, StdErr = 0.024 ms (0.86%), N = 15, StdDev = 0.093 ms
+Min = 2.650 ms, Q1 = 2.713 ms, Median = 2.857 ms, Q3 = 2.870 ms, Max = 2.912 ms
+IQR = 0.157 ms, LowerFence = 2.478 ms, UpperFence = 3.106 ms
+ConfidenceInterval = [2.701 ms; 2.900 ms] (CI 99.9%), Margin = 0.099 ms (3.54% of Mean)
+Skewness = -0.47, Kurtosis = 1.45, MValue = 2.89
 -------------------- Histogram --------------------
-[2.639 ms ; 2.990 ms) | @@@@@@@@@@@@
-[2.990 ms ; 3.282 ms) | @
-[3.282 ms ; 3.501 ms) | 
-[3.501 ms ; 3.852 ms) | @@
+[2.643 ms ; 2.741 ms) | @@@@@
+[2.741 ms ; 2.814 ms) | @
+[2.814 ms ; 2.913 ms) | @@@@@@@@@
 ---------------------------------------------------
 
 TargetRenderPipelineBenchmarks.RenderCompleteTargetRequest: RenderPipeline(InvocationCount=1, IterationCount=15, LaunchCount=1, RunStrategy=Monitoring, UnrollFactor=1, WarmupCount=3) [CaseName=Shade(...)rrier [26]]
 Runtime = .NET 10.0.9 (10.0.9, 10.0.926.27113), Arm64 RyuJIT armv8.0-a; GC = Concurrent Workstation
-Mean = 3.434 ms, StdErr = 0.022 ms (0.64%), N = 15, StdDev = 0.085 ms
-Min = 3.306 ms, Q1 = 3.390 ms, Median = 3.411 ms, Q3 = 3.455 ms, Max = 3.653 ms
-IQR = 0.065 ms, LowerFence = 3.292 ms, UpperFence = 3.553 ms
-ConfidenceInterval = [3.343 ms; 3.526 ms] (CI 99.9%), Margin = 0.091 ms (2.66% of Mean)
-Skewness = 1.04, Kurtosis = 3.61, MValue = 2
+Mean = 3.469 ms, StdErr = 0.022 ms (0.62%), N = 15, StdDev = 0.084 ms
+Min = 3.359 ms, Q1 = 3.398 ms, Median = 3.458 ms, Q3 = 3.503 ms, Max = 3.631 ms
+IQR = 0.105 ms, LowerFence = 3.240 ms, UpperFence = 3.661 ms
+ConfidenceInterval = [3.379 ms; 3.559 ms] (CI 99.9%), Margin = 0.090 ms (2.59% of Mean)
+Skewness = 0.52, Kurtosis = 1.98, MValue = 2
 -------------------- Histogram --------------------
-[3.283 ms ; 3.376 ms) | @@
-[3.376 ms ; 3.467 ms) | @@@@@@@@@@
-[3.467 ms ; 3.579 ms) | @@
-[3.579 ms ; 3.699 ms) | @
+[3.334 ms ; 3.428 ms) | @@@@@
+[3.428 ms ; 3.518 ms) | @@@@@@@
+[3.518 ms ; 3.654 ms) | @@@
 ---------------------------------------------------
 
 TargetRenderPipelineBenchmarks.RenderCompleteTargetRequest: RenderPipeline(InvocationCount=1, IterationCount=15, LaunchCount=1, RunStrategy=Monitoring, UnrollFactor=1, WarmupCount=3) [CaseName=SingleShader]
 Runtime = .NET 10.0.9 (10.0.9, 10.0.926.27113), Arm64 RyuJIT armv8.0-a; GC = Concurrent Workstation
-Mean = 1.799 ms, StdErr = 0.050 ms (2.77%), N = 15, StdDev = 0.193 ms
-Min = 1.553 ms, Q1 = 1.627 ms, Median = 1.735 ms, Q3 = 1.957 ms, Max = 2.123 ms
-IQR = 0.330 ms, LowerFence = 1.132 ms, UpperFence = 2.453 ms
-ConfidenceInterval = [1.592 ms; 2.005 ms] (CI 99.9%), Margin = 0.207 ms (11.48% of Mean)
-Skewness = 0.16, Kurtosis = 1.3, MValue = 3.75
+Mean = 1.776 ms, StdErr = 0.054 ms (3.03%), N = 15, StdDev = 0.208 ms
+Min = 1.488 ms, Q1 = 1.645 ms, Median = 1.701 ms, Q3 = 1.870 ms, Max = 2.307 ms
+IQR = 0.226 ms, LowerFence = 1.306 ms, UpperFence = 2.209 ms
+ConfidenceInterval = [1.553 ms; 1.998 ms] (CI 99.9%), Margin = 0.223 ms (12.54% of Mean)
+Skewness = 1.05, Kurtosis = 3.42, MValue = 2.67
 -------------------- Histogram --------------------
-[1.542 ms ; 1.747 ms) | @@@@@@@@
-[1.747 ms ; 1.924 ms) | 
-[1.924 ms ; 2.130 ms) | @@@@@@@
+[1.377 ms ; 1.567 ms) | @
+[1.567 ms ; 1.789 ms) | @@@@@@@@@
+[1.789 ms ; 2.073 ms) | @@@@
+[2.073 ms ; 2.197 ms) | 
+[2.197 ms ; 2.418 ms) | @
 ---------------------------------------------------
 
 TargetRenderPipelineBenchmarks.RenderCompleteTargetRequest: RenderPipeline(InvocationCount=1, IterationCount=15, LaunchCount=1, RunStrategy=Monitoring, UnrollFactor=1, WarmupCount=3) [CaseName=Small(...)rhead [24]]
 Runtime = .NET 10.0.9 (10.0.9, 10.0.926.27113), Arm64 RyuJIT armv8.0-a; GC = Concurrent Workstation
-Mean = 2.630 ms, StdErr = 0.057 ms (2.16%), N = 15, StdDev = 0.220 ms
-Min = 2.461 ms, Q1 = 2.489 ms, Median = 2.563 ms, Q3 = 2.640 ms, Max = 3.199 ms
-IQR = 0.151 ms, LowerFence = 2.263 ms, UpperFence = 2.866 ms
-ConfidenceInterval = [2.395 ms; 2.865 ms] (CI 99.9%), Margin = 0.235 ms (8.94% of Mean)
-Skewness = 1.59, Kurtosis = 4.26, MValue = 3.14
+Mean = 2.512 ms, StdErr = 0.010 ms (0.42%), N = 15, StdDev = 0.040 ms
+Min = 2.462 ms, Q1 = 2.480 ms, Median = 2.511 ms, Q3 = 2.528 ms, Max = 2.618 ms
+IQR = 0.048 ms, LowerFence = 2.409 ms, UpperFence = 2.600 ms
+ConfidenceInterval = [2.468 ms; 2.555 ms] (CI 99.9%), Margin = 0.043 ms (1.72% of Mean)
+Skewness = 1.06, Kurtosis = 3.64, MValue = 2
 -------------------- Histogram --------------------
-[2.448 ms ; 2.682 ms) | @@@@@@@@@@@@@
-[2.682 ms ; 2.916 ms) | 
-[2.916 ms ; 3.022 ms) | 
-[3.022 ms ; 3.256 ms) | @@
+[2.441 ms ; 2.522 ms) | @@@@@@@@@@
+[2.522 ms ; 2.639 ms) | @@@@@
 ---------------------------------------------------
 
 TargetRenderPipelineBenchmarks.RenderCompleteTargetRequest: RenderPipeline(InvocationCount=1, IterationCount=15, LaunchCount=1, RunStrategy=Monitoring, UnrollFactor=1, WarmupCount=3) [CaseName=Stati(...)dTail [24]]
 Runtime = .NET 10.0.9 (10.0.9, 10.0.926.27113), Arm64 RyuJIT armv8.0-a; GC = Concurrent Workstation
-Mean = 3.027 ms, StdErr = 0.028 ms (0.92%), N = 15, StdDev = 0.108 ms
-Min = 2.914 ms, Q1 = 2.942 ms, Median = 2.991 ms, Q3 = 3.085 ms, Max = 3.237 ms
-IQR = 0.143 ms, LowerFence = 2.728 ms, UpperFence = 3.300 ms
-ConfidenceInterval = [2.912 ms; 3.143 ms] (CI 99.9%), Margin = 0.116 ms (3.82% of Mean)
-Skewness = 0.73, Kurtosis = 1.97, MValue = 2
+Mean = 3.303 ms, StdErr = 0.049 ms (1.49%), N = 15, StdDev = 0.191 ms
+Min = 3.002 ms, Q1 = 3.122 ms, Median = 3.388 ms, Q3 = 3.433 ms, Max = 3.557 ms
+IQR = 0.312 ms, LowerFence = 2.654 ms, UpperFence = 3.901 ms
+ConfidenceInterval = [3.098 ms; 3.507 ms] (CI 99.9%), Margin = 0.204 ms (6.19% of Mean)
+Skewness = -0.39, Kurtosis = 1.47, MValue = 2.89
 -------------------- Histogram --------------------
-[2.902 ms ; 3.017 ms) | @@@@@@@@@
-[3.017 ms ; 3.154 ms) | @@@
-[3.154 ms ; 3.269 ms) | @@@
+[2.970 ms ; 3.174 ms) | @@@@@
+[3.174 ms ; 3.358 ms) | @
+[3.358 ms ; 3.562 ms) | @@@@@@@@@
 ---------------------------------------------------
 
 TargetRenderPipelineBenchmarks.RenderCompleteTargetRequest: RenderPipeline(InvocationCount=1, IterationCount=15, LaunchCount=1, RunStrategy=Monitoring, UnrollFactor=1, WarmupCount=3) [CaseName=StructuralToggle]
 Runtime = .NET 10.0.9 (10.0.9, 10.0.926.27113), Arm64 RyuJIT armv8.0-a; GC = Concurrent Workstation
-Mean = 3.082 ms, StdErr = 0.035 ms (1.12%), N = 15, StdDev = 0.134 ms
-Min = 2.946 ms, Q1 = 3.001 ms, Median = 3.016 ms, Q3 = 3.176 ms, Max = 3.355 ms
-IQR = 0.175 ms, LowerFence = 2.738 ms, UpperFence = 3.439 ms
-ConfidenceInterval = [2.939 ms; 3.225 ms] (CI 99.9%), Margin = 0.143 ms (4.65% of Mean)
-Skewness = 0.82, Kurtosis = 2, MValue = 2.6
+Mean = 3.018 ms, StdErr = 0.036 ms (1.19%), N = 15, StdDev = 0.140 ms
+Min = 2.840 ms, Q1 = 2.961 ms, Median = 2.973 ms, Q3 = 3.021 ms, Max = 3.438 ms
+IQR = 0.060 ms, LowerFence = 2.870 ms, UpperFence = 3.112 ms
+ConfidenceInterval = [2.869 ms; 3.167 ms] (CI 99.9%), Margin = 0.149 ms (4.94% of Mean)
+Skewness = 1.8, Kurtosis = 5.87, MValue = 2
 -------------------- Histogram --------------------
-[2.928 ms ; 3.071 ms) | @@@@@@@@@@
-[3.071 ms ; 3.229 ms) | @
-[3.229 ms ; 3.371 ms) | @@@@
+[2.765 ms ; 2.925 ms) | @
+[2.925 ms ; 3.074 ms) | @@@@@@@@@@@@
+[3.074 ms ; 3.280 ms) | @
+[3.280 ms ; 3.364 ms) | 
+[3.364 ms ; 3.512 ms) | @
 ---------------------------------------------------
 
 // * Summary *
@@ -2798,48 +2793,42 @@ Job=RenderPipeline  InvocationCount=1  IterationCount=15
 LaunchCount=1  RunStrategy=Monitoring  UnrollFactor=1  
 WarmupCount=3  
 
-| Method                      | CaseName             | Mean        | Error     | StdDev    | Allocated |
-|---------------------------- |--------------------- |------------:|----------:|----------:|----------:|
-| RenderCompleteTargetRequest | LongInvariantChain   |  8,341.1 us | 393.98 us | 368.53 us | 107.85 KB |
-| RenderCompleteTargetRequest | MixedSpatialColor    |  4,244.4 us | 127.94 us | 119.67 us |  48.95 KB |
-| RenderCompleteTargetRequest | Multi(...)ncies [35] |  4,256.6 us |  51.36 us |  48.04 us |  50.62 KB |
-| RenderCompleteTargetRequest | NoEffectControl      |    808.8 us |  24.40 us |  22.82 us |   6.83 KB |
-| RenderCompleteTargetRequest | Param(...)ation [22] | 20,607.4 us | 511.05 us | 478.04 us |  38.53 KB |
-| RenderCompleteTargetRequest | ShaderOpacityShader  |  2,917.4 us | 353.03 us | 330.23 us |  29.05 KB |
-| RenderCompleteTargetRequest | Shade(...)rrier [26] |  3,434.3 us |  91.36 us |  85.46 us |     39 KB |
-| RenderCompleteTargetRequest | SingleShader         |  1,798.8 us | 206.53 us | 193.18 us |  18.34 KB |
-| RenderCompleteTargetRequest | Small(...)rhead [24] |  2,629.8 us | 235.07 us | 219.88 us |  29.05 KB |
-| RenderCompleteTargetRequest | Stati(...)dTail [24] |  3,027.5 us | 115.71 us | 108.24 us |  29.69 KB |
-| RenderCompleteTargetRequest | StructuralToggle     |  3,082.1 us | 143.32 us | 134.06 us |  38.23 KB |
+| Method                      | CaseName             | Mean       | Error     | StdDev    | Allocated |
+|---------------------------- |--------------------- |-----------:|----------:|----------:|----------:|
+| RenderCompleteTargetRequest | LongInvariantChain   | 7,903.4 us | 151.04 us | 141.28 us | 107.28 KB |
+| RenderCompleteTargetRequest | MixedSpatialColor    | 4,095.8 us |  83.83 us |  78.41 us |  48.38 KB |
+| RenderCompleteTargetRequest | Multi(...)ncies [35] | 4,231.0 us |  70.09 us |  65.56 us |  50.89 KB |
+| RenderCompleteTargetRequest | NoEffectControl      |   879.1 us |  93.47 us |  87.43 us |   6.26 KB |
+| RenderCompleteTargetRequest | Param(...)ation [22] | 3,195.8 us | 159.86 us | 149.53 us |  37.99 KB |
+| RenderCompleteTargetRequest | ShaderOpacityShader  | 2,800.6 us |  99.26 us |  92.85 us |  28.48 KB |
+| RenderCompleteTargetRequest | Shade(...)rrier [26] | 3,469.1 us |  89.75 us |  83.96 us |  38.43 KB |
+| RenderCompleteTargetRequest | SingleShader         | 1,775.8 us | 222.64 us | 208.26 us |  17.77 KB |
+| RenderCompleteTargetRequest | Small(...)rhead [24] | 2,511.6 us |  43.24 us |  40.45 us |  28.48 KB |
+| RenderCompleteTargetRequest | Stati(...)dTail [24] | 3,302.8 us | 204.42 us | 191.21 us |  29.12 KB |
+| RenderCompleteTargetRequest | StructuralToggle     | 3,018.2 us | 149.20 us | 139.56 us |  37.66 KB |
 
 // * Warnings *
 MinIterationTime
-  TargetRenderPipelineBenchmarks.RenderCompleteTargetRequest: RenderPipeline -> The minimum observed iteration time is 7.721ms which is very small. It's recommended to increase it to at least 100ms using more operations.
-  TargetRenderPipelineBenchmarks.RenderCompleteTargetRequest: RenderPipeline -> The minimum observed iteration time is 4.107ms which is very small. It's recommended to increase it to at least 100ms using more operations.
-  TargetRenderPipelineBenchmarks.RenderCompleteTargetRequest: RenderPipeline -> The minimum observed iteration time is 4.193ms which is very small. It's recommended to increase it to at least 100ms using more operations.
-  TargetRenderPipelineBenchmarks.RenderCompleteTargetRequest: RenderPipeline -> The minimum observed iteration time is 786.417us which is very small. It's recommended to increase it to at least 100ms using more operations.
-  TargetRenderPipelineBenchmarks.RenderCompleteTargetRequest: RenderPipeline -> The minimum observed iteration time is 20.044ms which is very small. It's recommended to increase it to at least 100ms using more operations.
-  TargetRenderPipelineBenchmarks.RenderCompleteTargetRequest: RenderPipeline -> The minimum observed iteration time is 2.699ms which is very small. It's recommended to increase it to at least 100ms using more operations.
-  TargetRenderPipelineBenchmarks.RenderCompleteTargetRequest: RenderPipeline -> The minimum observed iteration time is 3.306ms which is very small. It's recommended to increase it to at least 100ms using more operations.
-  TargetRenderPipelineBenchmarks.RenderCompleteTargetRequest: RenderPipeline -> The minimum observed iteration time is 1.553ms which is very small. It's recommended to increase it to at least 100ms using more operations.
-  TargetRenderPipelineBenchmarks.RenderCompleteTargetRequest: RenderPipeline -> The minimum observed iteration time is 2.461ms which is very small. It's recommended to increase it to at least 100ms using more operations.
-  TargetRenderPipelineBenchmarks.RenderCompleteTargetRequest: RenderPipeline -> The minimum observed iteration time is 2.914ms which is very small. It's recommended to increase it to at least 100ms using more operations.
-  TargetRenderPipelineBenchmarks.RenderCompleteTargetRequest: RenderPipeline -> The minimum observed iteration time is 2.946ms which is very small. It's recommended to increase it to at least 100ms using more operations.
+  TargetRenderPipelineBenchmarks.RenderCompleteTargetRequest: RenderPipeline -> The minimum observed iteration time is 7.63ms which is very small. It's recommended to increase it to at least 100ms using more operations.
+  TargetRenderPipelineBenchmarks.RenderCompleteTargetRequest: RenderPipeline -> The minimum observed iteration time is 3.969ms which is very small. It's recommended to increase it to at least 100ms using more operations.
+  TargetRenderPipelineBenchmarks.RenderCompleteTargetRequest: RenderPipeline -> The minimum observed iteration time is 4.127ms which is very small. It's recommended to increase it to at least 100ms using more operations.
+  TargetRenderPipelineBenchmarks.RenderCompleteTargetRequest: RenderPipeline -> The minimum observed iteration time is 792.792us which is very small. It's recommended to increase it to at least 100ms using more operations.
+  TargetRenderPipelineBenchmarks.RenderCompleteTargetRequest: RenderPipeline -> The minimum observed iteration time is 2.963ms which is very small. It's recommended to increase it to at least 100ms using more operations.
+  TargetRenderPipelineBenchmarks.RenderCompleteTargetRequest: RenderPipeline -> The minimum observed iteration time is 2.65ms which is very small. It's recommended to increase it to at least 100ms using more operations.
+  TargetRenderPipelineBenchmarks.RenderCompleteTargetRequest: RenderPipeline -> The minimum observed iteration time is 3.359ms which is very small. It's recommended to increase it to at least 100ms using more operations.
+  TargetRenderPipelineBenchmarks.RenderCompleteTargetRequest: RenderPipeline -> The minimum observed iteration time is 1.488ms which is very small. It's recommended to increase it to at least 100ms using more operations.
+  TargetRenderPipelineBenchmarks.RenderCompleteTargetRequest: RenderPipeline -> The minimum observed iteration time is 2.462ms which is very small. It's recommended to increase it to at least 100ms using more operations.
+  TargetRenderPipelineBenchmarks.RenderCompleteTargetRequest: RenderPipeline -> The minimum observed iteration time is 3.002ms which is very small. It's recommended to increase it to at least 100ms using more operations.
+  TargetRenderPipelineBenchmarks.RenderCompleteTargetRequest: RenderPipeline -> The minimum observed iteration time is 2.84ms which is very small. It's recommended to increase it to at least 100ms using more operations.
 MultimodalDistribution
-  TargetRenderPipelineBenchmarks.RenderCompleteTargetRequest: RenderPipeline -> It seems that the distribution can have several modes (mValue = 3)
-  TargetRenderPipelineBenchmarks.RenderCompleteTargetRequest: RenderPipeline -> It seems that the distribution is bimodal (mValue = 3.75)
-  TargetRenderPipelineBenchmarks.RenderCompleteTargetRequest: RenderPipeline -> It seems that the distribution can have several modes (mValue = 3.14)
+  TargetRenderPipelineBenchmarks.RenderCompleteTargetRequest: RenderPipeline -> It seems that the distribution can have several modes (mValue = 2.89)
 
 // * Hints *
 Outliers
-  TargetRenderPipelineBenchmarks.RenderCompleteTargetRequest: RenderPipeline -> 1 outlier  was  detected (9.16 ms)
-  TargetRenderPipelineBenchmarks.RenderCompleteTargetRequest: RenderPipeline -> 1 outlier  was  detected (4.52 ms)
-  TargetRenderPipelineBenchmarks.RenderCompleteTargetRequest: RenderPipeline -> 2 outliers were detected (4.33 ms, 4.37 ms)
-  TargetRenderPipelineBenchmarks.RenderCompleteTargetRequest: RenderPipeline -> 1 outlier  was  detected (867.33 us)
-  TargetRenderPipelineBenchmarks.RenderCompleteTargetRequest: RenderPipeline -> 1 outlier  was  detected (21.70 ms)
-  TargetRenderPipelineBenchmarks.RenderCompleteTargetRequest: RenderPipeline -> 2 outliers were detected (3.57 ms, 3.79 ms)
-  TargetRenderPipelineBenchmarks.RenderCompleteTargetRequest: RenderPipeline -> 2 outliers were detected (3.56 ms, 3.65 ms)
-  TargetRenderPipelineBenchmarks.RenderCompleteTargetRequest: RenderPipeline -> 2 outliers were detected (3.08 ms, 3.20 ms)
+  TargetRenderPipelineBenchmarks.RenderCompleteTargetRequest: RenderPipeline -> 2 outliers were detected (7.63 ms, 8.21 ms)
+  TargetRenderPipelineBenchmarks.RenderCompleteTargetRequest: RenderPipeline -> 1 outlier  was  detected (2.31 ms)
+  TargetRenderPipelineBenchmarks.RenderCompleteTargetRequest: RenderPipeline -> 1 outlier  was  detected (2.62 ms)
+  TargetRenderPipelineBenchmarks.RenderCompleteTargetRequest: RenderPipeline -> 3 outliers were detected (2.84 ms, 3.21 ms, 3.44 ms)
 
 // * Legends *
   CaseName  : Value of the 'CaseName' parameter
@@ -2853,8 +2842,8 @@ Outliers
 
 
 // ***** BenchmarkRunner: End *****
-Run time: 00:00:08 (8.78 sec), executed benchmarks: 11
+Run time: 00:00:07 (7.22 sec), executed benchmarks: 11
 
-Global total time: 00:00:25 (25.45 sec), executed benchmarks: 11
+Global total time: 00:00:26 (26.88 sec), executed benchmarks: 11
 // * Artifacts cleanup *
 Artifacts cleanup is finished

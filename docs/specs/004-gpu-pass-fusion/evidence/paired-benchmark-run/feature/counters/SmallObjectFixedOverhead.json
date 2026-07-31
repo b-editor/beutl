@@ -10,6 +10,16 @@
   "outputSha256": "f33908eecd0f998527b95934c70f0110dadba0b9fea90b74e84c35f3f9c71030",
   "outputChecksum": "26bc2ca07643a5a9",
   "outputBounds": "173, 97, 38, 22",
+  "measuredOutputSha256": "f33908eecd0f998527b95934c70f0110dadba0b9fea90b74e84c35f3f9c71030",
+  "measuredOutputChecksum": "26bc2ca07643a5a9",
+  "measuredOutputBounds": "173, 97, 38, 22",
+  "measuredWidth": 38,
+  "measuredHeight": 22,
+  "expectedMeasuredOutputSha256": "f33908eecd0f998527b95934c70f0110dadba0b9fea90b74e84c35f3f9c71030",
+  "expectedMeasuredOutputChecksum": "26bc2ca07643a5a9",
+  "expectedMeasuredOutputBounds": "173, 97, 38, 22",
+  "expectedMeasuredWidth": 38,
+  "expectedMeasuredHeight": 22,
   "fingerprint": {
     "osDescription": "macOS 26.5.2",
     "osVersion": "Unix 26.5.2",
@@ -51,7 +61,7 @@
     "skiaSharpManagedVersion": "3.119.4\u002Brelease-3.119.4.f568ac94dd768ef9a2f593537cfde2dd0d348ef5.f568ac94dd768ef9a2f593537cfde2dd0d348ef5",
     "skiaSharpNativeVersion": "119.0",
     "silkNetVulkanVersion": "2.23.0\u002B94605142f7b7bd6e69c9201e8e721d245c69eb7e",
-    "beutlEngineAssemblyVersion": "2.99.99\u002B5b2c0cc6831c7677f79d47669aa0655beafaa69d"
+    "beutlEngineAssemblyVersion": "2.99.99\u002B912ddda0484d0b8cde3c63b60deefa491a0c596c"
   },
   "setupLastRequestCounters": {
     "ExecutedGpuPasses": 1,

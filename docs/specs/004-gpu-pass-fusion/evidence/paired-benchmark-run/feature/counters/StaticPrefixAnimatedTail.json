@@ -10,6 +10,16 @@
   "outputSha256": "36ccc9afc3c8c21c49b7333dd7cc68f5d3dd254b286a08c6c6ee15c0f7045e77",
   "outputChecksum": "8863371c5d679c14",
   "outputBounds": "0, 0, 384, 216",
+  "measuredOutputSha256": "2298fb26bc5f519d6460900234aeb095513ef7e418f6013873f8d5c341ff9cf4",
+  "measuredOutputChecksum": "b7d963eb76a6cb4b",
+  "measuredOutputBounds": "0, 0, 384, 216",
+  "measuredWidth": 384,
+  "measuredHeight": 216,
+  "expectedMeasuredOutputSha256": "2298fb26bc5f519d6460900234aeb095513ef7e418f6013873f8d5c341ff9cf4",
+  "expectedMeasuredOutputChecksum": "b7d963eb76a6cb4b",
+  "expectedMeasuredOutputBounds": "0, 0, 384, 216",
+  "expectedMeasuredWidth": 384,
+  "expectedMeasuredHeight": 216,
   "fingerprint": {
     "osDescription": "macOS 26.5.2",
     "osVersion": "Unix 26.5.2",
@@ -51,7 +61,7 @@
     "skiaSharpManagedVersion": "3.119.4\u002Brelease-3.119.4.f568ac94dd768ef9a2f593537cfde2dd0d348ef5.f568ac94dd768ef9a2f593537cfde2dd0d348ef5",
     "skiaSharpNativeVersion": "119.0",
     "silkNetVulkanVersion": "2.23.0\u002B94605142f7b7bd6e69c9201e8e721d245c69eb7e",
-    "beutlEngineAssemblyVersion": "2.99.99\u002B5b2c0cc6831c7677f79d47669aa0655beafaa69d"
+    "beutlEngineAssemblyVersion": "2.99.99\u002B912ddda0484d0b8cde3c63b60deefa491a0c596c"
   },
   "setupLastRequestCounters": {
     "CachedOutcomes": 1,
