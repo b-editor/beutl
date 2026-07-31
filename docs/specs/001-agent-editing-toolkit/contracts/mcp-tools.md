@@ -159,6 +159,8 @@ Element, property, transform, geometry, pen, brush, visual effect, audio effect,
 
 ## Render & export
 
+Every tool in this section that exposes `renderScale` normalizes non-finite or non-positive values to `1`, then validates the root output extent before rendering or encoder preflight. Both `ceil(frameWidth * renderScale)` and `ceil(frameHeight * renderScale)` must be at most `16384`; an oversized request returns `validation_rejected` targeted at `renderScale`, naming the requested extent, the axis limit, and the maximum usable scale for the current frame size.
+
 ### `render_still`
 Render one frame to an image without the GUI (FR-016).
 - **Input**: `{ "outputPath": string, "timeSeconds"?: number, "renderScale"?: number, "confirmOverwrite"?: bool, "returnImageContent"?: bool }` (write — **guarded**). Bare filenames are written under `agent-output/`; explicit relative directories and absolute in-workspace paths are preserved. `timeSeconds` is the only time argument; `time` is not a parameter and is rejected as an unknown argument. `returnImageContent` defaults to `false`.

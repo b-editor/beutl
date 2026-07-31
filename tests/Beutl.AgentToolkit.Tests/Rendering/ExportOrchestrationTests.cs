@@ -118,9 +118,25 @@ public sealed class ExportOrchestrationTests
 
         try
         {
-            exporter.ExportAsync(scene, output, new Rational(30, 1), 44100, 1, CancellationToken.None)
-                .AsTask().GetAwaiter().GetResult();
-            Assert.That(File.Exists(output), Is.True);
+            ExportVideoResponse response = exporter.ExportAsync(
+                    scene,
+                    output,
+                    new Rational(30, 1),
+                    44100,
+                    1,
+                    CancellationToken.None,
+                    crf: 28)
+                .AsTask()
+                .GetAwaiter()
+                .GetResult();
+            Assert.Multiple(() =>
+            {
+                Assert.That(File.Exists(output), Is.True);
+                Assert.That(response.Encoder, Is.EqualTo("AVFoundation"));
+                Assert.That(
+                    response.Warnings,
+                    Has.Some.Contains("AVFoundation").And.Some.Contains("crf").And.Some.Contains("ignored"));
+            });
         }
         catch (CodecUnavailableException)
         {
