@@ -61,6 +61,24 @@ public sealed class MalformedElementRecoveryTests
     }
 
     [Test]
+    public void Restore_MalformedElementWithEmptyTopLevelId_UsesStableNonEmptyId()
+    {
+        (Uri sceneUri, string elementPath) = CreatePersistedScene();
+        File.WriteAllText(
+            elementPath,
+            """{"Id":"00000000-0000-0000-0000-000000000000","Objects":[""");
+
+        Guid first = CoreSerializer.RestoreFromUri<Scene>(sceneUri).Children.Single().Id;
+        Guid second = CoreSerializer.RestoreFromUri<Scene>(sceneUri).Children.Single().Id;
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(first, Is.Not.EqualTo(Guid.Empty));
+            Assert.That(second, Is.EqualTo(first));
+        });
+    }
+
+    [Test]
     public void Restore_MalformedElementWithOnlyNestedId_DoesNotAdoptIt()
     {
         (Uri sceneUri, string elementPath) = CreatePersistedScene();
@@ -345,6 +363,54 @@ public sealed class MalformedElementRecoveryTests
     }
 
     [Test]
+    public void Restore_TopLevelIdMatchingSceneId_IsReassignedStably()
+    {
+        (Uri sceneUri, string elementPath) = CreatePersistedScene();
+        Guid sceneId = CoreSerializer.RestoreFromUri<Scene>(sceneUri).Id;
+        File.WriteAllText(elementPath, $$"""{"Id":"{{sceneId}}","Objects":[""");
+
+        Guid first = CoreSerializer.RestoreFromUri<Scene>(sceneUri).Children.Single().Id;
+        Guid second = CoreSerializer.RestoreFromUri<Scene>(sceneUri).Children.Single().Id;
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(first, Is.Not.EqualTo(sceneId));
+            Assert.That(first, Is.Not.EqualTo(Guid.Empty));
+            Assert.That(second, Is.EqualTo(first));
+        });
+    }
+
+    [Test]
+    public void Restore_TopLevelIdMatchingHealthyDescendantId_IsReassignedStably()
+    {
+        (Uri sceneUri, string[] elementPaths) =
+            CreatePersistedSceneWithElements("healthy.belm", "recovered.belm");
+        Scene original = CoreSerializer.RestoreFromUri<Scene>(sceneUri);
+        Guid descendantId = original.Children
+            .Single(child => child.Uri!.LocalPath == elementPaths[0])
+            .Objects
+            .Single()
+            .Id;
+        File.WriteAllText(
+            elementPaths[1],
+            $$"""{"Id":"{{descendantId}}","Objects":[""");
+
+        Guid first = CoreSerializer.RestoreFromUri<Scene>(sceneUri).Children
+            .Single(child => child.Uri!.LocalPath == elementPaths[1])
+            .Id;
+        Guid second = CoreSerializer.RestoreFromUri<Scene>(sceneUri).Children
+            .Single(child => child.Uri!.LocalPath == elementPaths[1])
+            .Id;
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(first, Is.Not.EqualTo(descendantId));
+            Assert.That(first, Is.Not.EqualTo(Guid.Empty));
+            Assert.That(second, Is.EqualTo(first));
+        });
+    }
+
+    [Test]
     public void Restore_RecoveredElementsSharingTopLevelId_AreAssignedStableUniqueIdsByPath()
     {
         (Uri sceneUri, string[] elementPaths) =
@@ -454,6 +520,35 @@ public sealed class MalformedElementRecoveryTests
     }
 
     [Test]
+    public void Save_RebuildsRecoveredElementIdMapAfterRehome()
+    {
+        (Uri sceneUri, string elementPath) = CreatePersistedScene();
+        File.WriteAllText(elementPath, "{ this is not valid JSON");
+
+        Scene recoveredScene = CoreSerializer.RestoreFromUri<Scene>(sceneUri);
+        Element recovered = recoveredScene.Children.Single();
+        Guid recoveredId = recovered.Id;
+        string rehomedPath = Path.Combine(_root, "renamed.belm");
+        File.Move(elementPath, rehomedPath);
+        recovered.Uri = new Uri(rehomedPath);
+
+        CoreSerializer.StoreToUri(recoveredScene, sceneUri);
+
+        JsonObject persistedScene = JsonNode.Parse(File.ReadAllText(sceneUri.LocalPath))!.AsObject();
+        JsonObject persistedIds = persistedScene["RecoveredElementIds"]!.AsObject();
+        Scene reloaded = CoreSerializer.RestoreFromUri<Scene>(sceneUri);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(persistedIds, Has.Count.EqualTo(1));
+            Assert.That(
+                persistedIds["renamed.belm"]!.GetValue<string>(),
+                Is.EqualTo(recoveredId.ToString()));
+            Assert.That(reloaded.Children.Single().Id, Is.EqualTo(recoveredId));
+        });
+    }
+
+    [Test]
     public void Restore_NestedFallbackProjection_PreservesOriginalDiscriminator()
     {
         (Uri sceneUri, string elementPath) = CreatePersistedScene();
@@ -523,6 +618,11 @@ public sealed class MalformedElementRecoveryTests
         {
             Assert.That(File.ReadAllBytes(rehomedPath), Is.EqualTo(corruptBytes));
             Assert.That(File.ReadAllBytes(elementPath), Is.EqualTo(corruptBytes));
+            Assert.That(
+                Directory.GetFiles(
+                    Path.GetDirectoryName(rehomedPath)!,
+                    $"{Path.GetFileName(rehomedPath)}.*.tmp"),
+                Is.Empty);
         });
     }
 

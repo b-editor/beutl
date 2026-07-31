@@ -260,43 +260,50 @@ public static class CoreSerializer
             // element. The suppression record is never mutated — the source location stays
             // skip-protected even if a failed multi-file save rolls Uri back afterwards.
             string rehomedPath = uri.LocalPath;
+            if (File.Exists(rehomedPath))
+            {
+                suppressedObj.Uri = uri;
+                return;
+            }
+
             string? rehomedDirectory = Path.GetDirectoryName(rehomedPath);
             if (rehomedDirectory != null)
             {
                 Directory.CreateDirectory(rehomedDirectory);
             }
 
-            FileStream stream;
+            string tempPath = $"{rehomedPath}.{Guid.NewGuid():N}.tmp";
             try
             {
-                stream = new FileStream(rehomedPath, FileMode.CreateNew, FileAccess.Write);
-            }
-            catch (IOException) when (File.Exists(rehomedPath))
-            {
-                // An existing file may hold a manual repair of the recovered content (or an earlier
-                // verbatim copy); never overwrite it.
-                suppressedObj.Uri = uri;
-                return;
-            }
-
-            try
-            {
-                using (stream)
+                using (var stream = new FileStream(
+                           tempPath,
+                           FileMode.CreateNew,
+                           FileAccess.Write,
+                           FileShare.None))
                 {
                     stream.Write(suppressed.RawBytes);
+                    stream.Flush(flushToDisk: true);
+                }
+
+                try
+                {
+                    File.Move(tempPath, rehomedPath, overwrite: false);
+                }
+                catch (IOException) when (File.Exists(rehomedPath))
+                {
+                    suppressedObj.Uri = uri;
+                    return;
                 }
             }
-            catch
+            finally
             {
                 try
                 {
-                    File.Delete(rehomedPath);
+                    File.Delete(tempPath);
                 }
                 catch
                 {
                 }
-
-                throw;
             }
 
             suppressedObj.Uri = uri;

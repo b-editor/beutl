@@ -551,7 +551,7 @@ public class Scene : ProjectItem, INotifyEdited
         context.SetValue("Height", FrameSize.Height);
         context.SetValue("Groups", Groups.Select(ids => string.Join(':', ids)).ToArray());
         context.SetValue(nameof(Markers), Markers);
-        PruneRecoveredElementIds();
+        RebuildRecoveredElementIds();
         if (_recoveredElementIds.Count > 0)
         {
             var recoveredElementIds = new JsonObject();
@@ -717,12 +717,16 @@ public class Scene : ProjectItem, INotifyEdited
 
     private void ReassignDuplicateRecoveredIds()
     {
-        var claimedIds = new HashSet<Guid>();
+        var claimedIds = new HashSet<Guid> { Guid.Empty, Id };
         foreach (Element child in Children)
         {
             if (child.SuppressedStorageSource is null)
             {
                 claimedIds.Add(child.Id);
+                foreach (CoreObject descendant in child.EnumerateAllChildren<CoreObject>())
+                {
+                    claimedIds.Add(descendant.Id);
+                }
             }
         }
 
@@ -784,7 +788,6 @@ public class Scene : ProjectItem, INotifyEdited
                 if (claimedIds.Add(candidate))
                 {
                     child.Id = candidate;
-                    _recoveredElementIds[relativePath] = candidate;
                     assigned = true;
                     break;
                 }
@@ -795,6 +798,11 @@ public class Scene : ProjectItem, INotifyEdited
                 throw new InvalidOperationException(
                     $"Could not assign a unique recovered element Id for '{relativePath}'.");
             }
+        }
+
+        foreach ((Element child, string relativePath) in recoveredChildren)
+        {
+            _recoveredElementIds[relativePath] = child.Id;
         }
     }
 
@@ -889,7 +897,8 @@ public class Scene : ProjectItem, INotifyEdited
         MatchCollection matches = s_idPattern.Matches(rawText);
         Match? topLevelMatch = FindTopLevelIdMatch(rawText, matches);
         if (topLevelMatch != null
-            && Guid.TryParse(topLevelMatch.Groups["id"].Value, out Guid topLevelId))
+            && Guid.TryParse(topLevelMatch.Groups["id"].Value, out Guid topLevelId)
+            && topLevelId != Guid.Empty)
         {
             return topLevelId;
         }
@@ -899,22 +908,16 @@ public class Scene : ProjectItem, INotifyEdited
         return CreateVersion5Guid(s_recoveredElementNamespace, relativePath);
     }
 
-    private void PruneRecoveredElementIds()
+    private void RebuildRecoveredElementIds()
     {
-        if (_recoveredElementIds.Count == 0)
-        {
-            return;
-        }
-
         string sceneDirectory = Path.GetDirectoryName(Uri!.LocalPath)!;
-        var recoveredPaths = Children
-            .Where(static child => child.SuppressedStorageSource is not null)
-            .Select(child => NormalizeRelativePath(
-                Path.GetRelativePath(sceneDirectory, child.Uri!.LocalPath)))
-            .ToHashSet(StringComparer.Ordinal);
-        foreach (string path in _recoveredElementIds.Keys.Where(path => !recoveredPaths.Contains(path)).ToArray())
+        _recoveredElementIds.Clear();
+        foreach (Element child in Children.Where(
+                     static child => child.SuppressedStorageSource is not null))
         {
-            _recoveredElementIds.Remove(path);
+            string relativePath = NormalizeRelativePath(
+                Path.GetRelativePath(sceneDirectory, child.Uri!.LocalPath));
+            _recoveredElementIds[relativePath] = child.Id;
         }
     }
 
