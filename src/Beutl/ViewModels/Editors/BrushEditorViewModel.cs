@@ -170,11 +170,16 @@ public sealed class BrushEditorViewModel : BaseEditorViewModel, IFallbackObjectV
 
     public void SetValue(Brush? oldValue, Brush? newValue)
     {
+        SetValue(oldValue, newValue, null);
+    }
+
+    private void SetValue(Brush? oldValue, Brush? newValue, string? commandName)
+    {
         if (!EqualityComparer<Brush>.Default.Equals(oldValue, newValue))
         {
             PropertyAdapter.SetValue(newValue);
             ResumeElementPersistenceAfterFallbackReplacement(oldValue);
-            Commit();
+            Commit(commandName);
         }
     }
 
@@ -187,8 +192,7 @@ public sealed class BrushEditorViewModel : BaseEditorViewModel, IFallbackObjectV
     {
         if (template.CreateInstance() is not Brush instance) return false;
         IsExpanded.Value = true;
-        PropertyAdapter.SetValue(instance);
-        Commit(CommandNames.ApplyTemplate);
+        SetValue(Value.Value, instance, CommandNames.ApplyTemplate);
         return true;
     }
 
@@ -197,8 +201,7 @@ public sealed class BrushEditorViewModel : BaseEditorViewModel, IFallbackObjectV
         if (!CoreObjectClipboard.TryDeserializeJson<Brush>(json, out var pasted)) return false;
 
         IsExpanded.Value = true;
-        PropertyAdapter.SetValue(pasted);
-        Commit(CommandNames.PasteObject);
+        SetValue(Value.Value, pasted, CommandNames.PasteObject);
         return true;
     }
 
@@ -248,7 +251,9 @@ public sealed class BrushEditorViewModel : BaseEditorViewModel, IFallbackObjectV
         {
             if (Activator.CreateInstance(type) is Drawable instance)
             {
+                Drawable? previous = drawable.Drawable.CurrentValue;
                 drawable.Drawable.CurrentValue = instance;
+                ResumeElementPersistenceAfterFallbackReplacement(previous);
                 Commit();
             }
         }
@@ -273,6 +278,8 @@ public sealed class BrushEditorViewModel : BaseEditorViewModel, IFallbackObjectV
 
     public void SetDrawableTarget(Drawable? target)
     {
+        Brush? previousBrush = Value.Value;
+        Drawable? previousDrawable = (previousBrush as DrawableBrush)?.Drawable.CurrentValue;
         if (Value.Value is not DrawableBrush drawableBrush)
         {
             drawableBrush = new DrawableBrush();
@@ -295,6 +302,8 @@ public sealed class BrushEditorViewModel : BaseEditorViewModel, IFallbackObjectV
             presenter.Target.CurrentValue = null;
         }
 
+        ResumeElementPersistenceAfterFallbackReplacement(previousBrush);
+        ResumeElementPersistenceAfterFallbackReplacement(previousDrawable);
         Commit();
     }
 

@@ -1,5 +1,6 @@
 ﻿using System.Collections;
 using System.Collections.Immutable;
+using System.Text.Json;
 using System.Text.Json.Nodes;
 using Beutl.Animation;
 using Beutl.Animation.Easings;
@@ -211,6 +212,26 @@ public sealed class MalformedElementRecoveryTests
     }
 
     [Test]
+    public void Restore_TrailingRootId_DoesNotOverridePathDerivedId()
+    {
+        (Uri sceneUri, string elementPath) = CreatePersistedScene();
+        File.WriteAllText(elementPath, "{ this is not valid JSON");
+        Guid pathDerivedId = CoreSerializer.RestoreFromUri<Scene>(sceneUri).Children.Single().Id;
+        var trailingId = new Guid("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa");
+        File.WriteAllText(elementPath, $$"""{} {"Id":"{{trailingId}}"}""");
+
+        Guid first = CoreSerializer.RestoreFromUri<Scene>(sceneUri).Children.Single().Id;
+        Guid second = CoreSerializer.RestoreFromUri<Scene>(sceneUri).Children.Single().Id;
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(first, Is.EqualTo(pathDerivedId));
+            Assert.That(first, Is.Not.EqualTo(trailingId));
+            Assert.That(second, Is.EqualTo(first));
+        });
+    }
+
+    [Test]
     public void Restore_ResolvableNonElementDiscriminator_RecoversInsteadOfFailing()
     {
         (Uri sceneUri, string elementPath) = CreatePersistedScene();
@@ -391,6 +412,22 @@ public sealed class MalformedElementRecoveryTests
     }
 
     [Test]
+    public void StoreToUri_RecoveredElementNonFileDestinationMatchesNormalFailure()
+    {
+        (Uri sceneUri, string elementPath) = CreatePersistedScene();
+        File.WriteAllText(elementPath, "{ this is not valid JSON");
+        Element recovered = CoreSerializer.RestoreFromUri<Scene>(sceneUri).Children.Single();
+        var destination = new Uri("https://example.com/element.belm");
+
+        JsonException normalException = Assert.Throws<JsonException>(
+            () => CoreSerializer.StoreToUri(new Element(), destination))!;
+        JsonException recoveredException = Assert.Throws<JsonException>(
+            () => CoreSerializer.StoreToUri(recovered, destination))!;
+
+        Assert.That(recoveredException.GetType(), Is.EqualTo(normalException.GetType()));
+    }
+
+    [Test]
     public void Restore_NonStringDiscriminator_RecoversInsteadOfLoadingLegacyDefault()
     {
         (Uri sceneUri, string elementPath) = CreatePersistedScene();
@@ -498,6 +535,51 @@ public sealed class MalformedElementRecoveryTests
             Assert.That(corrupt.Id, Is.Not.EqualTo(healthyId));
             Assert.That(corrupt.Id, Is.Not.EqualTo(Guid.Empty));
             Assert.That(corruptAgain.Id, Is.EqualTo(corrupt.Id));
+        });
+    }
+
+    [Test]
+    public void Restore_RecoveredElementIdWinsOwnDescendantAndPreservesGroup()
+    {
+        (Uri sceneUri, string[] elementPaths) =
+            CreatePersistedSceneWithElements("recovered.belm", "healthy.belm");
+        Scene source = CoreSerializer.RestoreFromUri<Scene>(sceneUri);
+        Element recoveredSource = source.Children.Single(child => child.Uri!.LocalPath == elementPaths[0]);
+        Element healthySource = source.Children.Single(child => child.Uri!.LocalPath == elementPaths[1]);
+        Guid contestedId = recoveredSource.Id;
+        var recoveredShapeSource = (RectShape)recoveredSource.Objects.Single();
+        recoveredShapeSource.Transform.CurrentValue = new RotationTransform { Id = contestedId };
+        source.Groups.Add(ImmutableHashSet.Create(contestedId, healthySource.Id));
+        CoreSerializer.StoreToUri(source, sceneUri);
+
+        JsonObject json = JsonNode.Parse(File.ReadAllText(elementPaths[0]))!.AsObject();
+        json[nameof(CoreObject.Id)] = contestedId.ToString();
+        JsonObject transformJson = FindObjectByDiscriminator(json, nameof(RotationTransform))!;
+        transformJson["$type"] = "[Beutl.Engine]Beutl.Graphics.Transformation:DoesNotExist";
+        transformJson[nameof(CoreObject.Id)] = contestedId.ToString();
+        File.WriteAllText(elementPaths[0], json.ToJsonString());
+
+        Scene firstLoad = CoreSerializer.RestoreFromUri<Scene>(sceneUri);
+        Element firstRecovered = firstLoad.Children.Single(child => child.Uri!.LocalPath == elementPaths[0]);
+        Guid firstDescendantId = ((CoreObject)GetTransformFallback(firstLoad, elementPaths[0])).Id;
+        CoreSerializer.StoreToUri(firstLoad, sceneUri);
+
+        Scene secondLoad = CoreSerializer.RestoreFromUri<Scene>(sceneUri);
+        Element secondRecovered = secondLoad.Children.Single(child => child.Uri!.LocalPath == elementPaths[0]);
+        Guid secondDescendantId = ((CoreObject)GetTransformFallback(secondLoad, elementPaths[0])).Id;
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(firstRecovered.Id, Is.EqualTo(contestedId));
+            Assert.That(secondRecovered.Id, Is.EqualTo(contestedId));
+            Assert.That(firstDescendantId, Is.Not.EqualTo(contestedId));
+            Assert.That(secondDescendantId, Is.EqualTo(firstDescendantId));
+            Assert.That(firstLoad.Groups, Has.Count.EqualTo(1));
+            Assert.That(firstLoad.Groups.Single(),
+                Is.EqualTo(ImmutableHashSet.Create(contestedId, healthySource.Id)));
+            Assert.That(secondLoad.Groups, Has.Count.EqualTo(1));
+            Assert.That(secondLoad.Groups.Single(),
+                Is.EqualTo(ImmutableHashSet.Create(contestedId, healthySource.Id)));
         });
     }
 

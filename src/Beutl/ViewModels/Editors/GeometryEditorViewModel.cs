@@ -132,8 +132,10 @@ public sealed class GeometryEditorViewModel : ValueEditorViewModel<Geometry?>, I
     public override bool ApplyTemplate(ObjectTemplateItem template)
     {
         if (template.CreateInstance() is not Geometry instance) return false;
+        Geometry? previous = PropertyAdapter.GetValue();
         IsExpanded.Value = true;
         PropertyAdapter.SetValue(instance);
+        ResumeElementPersistenceAfterFallbackReplacement(previous);
         Commit(CommandNames.ApplyTemplate);
         return true;
     }
@@ -145,18 +147,18 @@ public sealed class GeometryEditorViewModel : ValueEditorViewModel<Geometry?>, I
         IsExpanded.Value = true;
         if (EditingKeyFrame.Value is { } kf)
         {
-            kf.Value = pasted;
+            SetValue(kf.Value, pasted, CommandNames.PasteObject);
         }
         else if (PropertyAdapter is ListItemAccessorImpl<Geometry> listItemAccessor)
         {
             listItemAccessor.List.Insert(listItemAccessor.Index, pasted);
+            Commit(CommandNames.PasteObject);
         }
         else
         {
-            PropertyAdapter.SetValue(pasted);
+            SetValue(PropertyAdapter.GetValue(), pasted, CommandNames.PasteObject);
         }
 
-        Commit(CommandNames.PasteObject);
         return true;
     }
 

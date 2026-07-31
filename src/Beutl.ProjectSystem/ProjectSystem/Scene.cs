@@ -788,51 +788,6 @@ public class Scene : ProjectItem, INotifyEdited
             }
         }
 
-        var persistedDescendantIds = new Dictionary<string, Guid>(
-            _recoveredDescendantIds,
-            StringComparer.Ordinal);
-        _recoveredDescendantIds.Clear();
-        _recoveredDescendantRemaps.Clear();
-        var pendingDescendantRemaps
-            = new Dictionary<CoreObject, (string RemapKey, Guid OriginalId, int Occurrence)>(
-                ReferenceEqualityComparer.Instance);
-        foreach ((Element child, string relativePath) in recoveredChildren)
-        {
-            var occurrences = new Dictionary<Guid, int>();
-            foreach (CoreObject descendant in EnumerateSerializedGraphDescendants(child))
-            {
-                if (!seenDescendants.Add(descendant))
-                {
-                    continue;
-                }
-
-                Guid originalId = descendant.Id;
-                int occurrence = occurrences.GetValueOrDefault(originalId);
-                occurrences[originalId] = occurrence + 1;
-                string remapKey = CreateRecoveredDescendantKey(relativePath, originalId, occurrence);
-                if (persistedDescendantIds.TryGetValue(remapKey, out Guid persistedId))
-                {
-                    if (claimedIds.Add(persistedId))
-                    {
-                        descendant.Id = persistedId;
-                        RecordRecoveredDescendantRemap(
-                            descendant,
-                            remapKey,
-                            originalId,
-                            persistedId,
-                            occurrence);
-                        continue;
-                    }
-
-                    pendingDescendantRemaps[descendant] = (remapKey, originalId, occurrence);
-                }
-                else if (!claimedIds.Add(originalId))
-                {
-                    pendingDescendantRemaps[descendant] = (remapKey, originalId, occurrence);
-                }
-            }
-        }
-
         foreach ((Element child, string relativePath) in healthyChildren)
         {
             if (_recoveredElementIds.Remove(relativePath, out Guid placeholderId)
@@ -906,6 +861,51 @@ public class Scene : ProjectItem, INotifyEdited
         foreach ((Element child, string relativePath) in recoveredChildren)
         {
             _recoveredElementIds[relativePath] = child.Id;
+        }
+
+        var persistedDescendantIds = new Dictionary<string, Guid>(
+            _recoveredDescendantIds,
+            StringComparer.Ordinal);
+        _recoveredDescendantIds.Clear();
+        _recoveredDescendantRemaps.Clear();
+        var pendingDescendantRemaps
+            = new Dictionary<CoreObject, (string RemapKey, Guid OriginalId, int Occurrence)>(
+                ReferenceEqualityComparer.Instance);
+        foreach ((Element child, string relativePath) in recoveredChildren)
+        {
+            var occurrences = new Dictionary<Guid, int>();
+            foreach (CoreObject descendant in EnumerateSerializedGraphDescendants(child))
+            {
+                if (!seenDescendants.Add(descendant))
+                {
+                    continue;
+                }
+
+                Guid originalId = descendant.Id;
+                int occurrence = occurrences.GetValueOrDefault(originalId);
+                occurrences[originalId] = occurrence + 1;
+                string remapKey = CreateRecoveredDescendantKey(relativePath, originalId, occurrence);
+                if (persistedDescendantIds.TryGetValue(remapKey, out Guid persistedId))
+                {
+                    if (claimedIds.Add(persistedId))
+                    {
+                        descendant.Id = persistedId;
+                        RecordRecoveredDescendantRemap(
+                            descendant,
+                            remapKey,
+                            originalId,
+                            persistedId,
+                            occurrence);
+                        continue;
+                    }
+
+                    pendingDescendantRemaps[descendant] = (remapKey, originalId, occurrence);
+                }
+                else if (!claimedIds.Add(originalId))
+                {
+                    pendingDescendantRemaps[descendant] = (remapKey, originalId, occurrence);
+                }
+            }
         }
 
         foreach ((Element child, string relativePath) in recoveredChildren)
@@ -1310,13 +1310,25 @@ public class Scene : ProjectItem, INotifyEdited
 
     private static Match? FindTopLevelMatch(string rawText, MatchCollection matches)
     {
+        int rootStart = 0;
+        while (rootStart < rawText.Length
+               && (char.IsWhiteSpace(rawText[rootStart]) || rawText[rootStart] == '\uFEFF'))
+        {
+            rootStart++;
+        }
+
+        if (rootStart >= rawText.Length || rawText[rootStart] != '{')
+        {
+            return null;
+        }
+
         int matchIndex = 0;
         int objectDepth = 0;
         int arrayDepth = 0;
         bool inString = false;
         bool escaped = false;
 
-        for (int i = 0; i < rawText.Length && matchIndex < matches.Count; i++)
+        for (int i = rootStart; i < rawText.Length && matchIndex < matches.Count; i++)
         {
             Match match = matches[matchIndex];
             if (i == match.Index)
@@ -1356,6 +1368,10 @@ public class Scene : ProjectItem, INotifyEdited
             else if (current == '}' && objectDepth > 0)
             {
                 objectDepth--;
+                if (objectDepth == 0)
+                {
+                    return null;
+                }
             }
             else if (current == '[')
             {

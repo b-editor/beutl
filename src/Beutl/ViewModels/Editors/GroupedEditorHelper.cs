@@ -23,7 +23,8 @@ internal static class GroupedEditorHelper
         }
         else if (vm.EditingKeyFrame.Value is { } kf)
         {
-            kf.Value = pasted;
+            vm.SetValue(kf.Value, pasted, CommandNames.PasteObject);
+            return true;
         }
         else if (vm.PropertyAdapter is ListItemAccessorImpl<TItem> listItemAccessor)
         {
@@ -31,7 +32,8 @@ internal static class GroupedEditorHelper
         }
         else
         {
-            vm.PropertyAdapter.SetValue(pasted);
+            vm.SetValue(vm.PropertyAdapter.GetValue(), pasted, CommandNames.PasteObject);
+            return true;
         }
 
         vm.Commit(CommandNames.PasteObject);

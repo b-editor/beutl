@@ -251,9 +251,14 @@ public static class CoreSerializer
     {
         if (obj is CoreObject { SuppressedStorageSource: { } suppressed } suppressedObj)
         {
-            if (uri == suppressed.SourceUri || uri.Scheme != "file")
+            if (uri == suppressed.SourceUri)
             {
                 return;
+            }
+
+            if (uri.Scheme != "file")
+            {
+                throw new JsonException();
             }
 
             // Rehomed (save-as): the retained bytes move verbatim so the new project copy keeps the

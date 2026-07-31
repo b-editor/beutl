@@ -181,8 +181,10 @@ public sealed class CoreObjectEditorViewModel<T> : BaseEditorViewModel<T>, ICore
     public override bool ApplyTemplate(ObjectTemplateItem template)
     {
         if (template.CreateInstance() is not T instance) return false;
+        T? previous = PropertyAdapter.GetValue();
         IsExpanded.Value = true;
         PropertyAdapter.SetValue(instance);
+        ResumeElementPersistenceAfterFallbackReplacement(previous);
         Commit(CommandNames.ApplyTemplate);
         return true;
     }
@@ -194,28 +196,30 @@ public sealed class CoreObjectEditorViewModel<T> : BaseEditorViewModel<T>, ICore
         IsExpanded.Value = true;
         if (EditingKeyFrame.Value is { } kf)
         {
-            kf.Value = pasted;
+            SetValue(kf.Value, pasted, CommandNames.PasteObject);
         }
         else if (PropertyAdapter is ListItemAccessorImpl<T> listItemAccessor)
         {
             listItemAccessor.List.Insert(listItemAccessor.Index, pasted);
+            Commit(CommandNames.PasteObject);
         }
         else
         {
-            PropertyAdapter.SetValue(pasted);
+            SetValue(PropertyAdapter.GetValue(), pasted, CommandNames.PasteObject);
         }
 
-        Commit(CommandNames.PasteObject);
         return true;
     }
 
     public void SetTarget(CoreObject? target)
     {
+        T? previous = null;
         if (Value.Value is not IPresenter<T> presenter)
         {
             Type? presenterType = PresenterTypeAttribute.GetPresenterType(PropertyAdapter.PropertyType);
             if (presenterType == null) return;
             if (Activator.CreateInstance(presenterType) is not IPresenter<T> p) return;
+            previous = PropertyAdapter.GetValue();
             presenter = p;
             PropertyAdapter.SetValue(presenter);
         }
@@ -231,6 +235,7 @@ public sealed class CoreObjectEditorViewModel<T> : BaseEditorViewModel<T>, ICore
             presenter.Target.CurrentValue = null;
         }
 
+        ResumeElementPersistenceAfterFallbackReplacement(previous);
         Commit();
     }
 
