@@ -5,6 +5,8 @@ using Avalonia.Controls;
 using Avalonia.Headless;
 using Avalonia.Headless.NUnit;
 using Avalonia.Input;
+using Avalonia.Layout;
+using Avalonia.Media;
 using Avalonia.VisualTree;
 using Beutl.Configuration;
 using Beutl.Editor.Components.VersionControl.ViewModels;
@@ -308,15 +310,39 @@ public class VersionControlTabViewTests
 
             SplitButton primaryAction =
                 view.FindControl<SplitButton>("PrimaryActionSplitButton")!;
+            TextBox commitMessageTextBox =
+                view.FindControl<TextBox>("CommitMessageTextBox")!;
+            Grid commitComposer =
+                view.FindControl<Grid>("CommitComposer")!;
+            var primaryActionFlyout = (MenuFlyout)primaryAction.Flyout!;
             Assert.Multiple(() =>
             {
                 Assert.That(
                     primaryAction.Content,
                     Is.EqualTo(Strings.VersionControl_PublishBranch));
                 Assert.That(primaryAction.IsEnabled, Is.True);
+                Assert.That(commitMessageTextBox.AcceptsReturn, Is.True);
+                Assert.That(commitMessageTextBox.MinLines, Is.EqualTo(3));
+                Assert.That(commitMessageTextBox.MaxLines, Is.EqualTo(6));
+                Assert.That(commitMessageTextBox.TextWrapping, Is.EqualTo(TextWrapping.Wrap));
+                Assert.That(commitComposer.Parent, Is.TypeOf<Grid>());
+                Assert.That(primaryActionFlyout.Placement.ToString(), Is.EqualTo("Pointer"));
                 Assert.That(
-                    ((MenuFlyout)primaryAction.Flyout!).Items,
+                    primaryActionFlyout.Items,
                     Has.Count.EqualTo(5));
+            });
+
+            commitMessageTextBox.Focus();
+            viewModel.CommitMessage.Value = "first line";
+            commitMessageTextBox.CaretIndex = commitMessageTextBox.Text!.Length;
+            viewModel.StatusMessage.Value = "unchanged";
+            window.KeyPressQwerty(PhysicalKey.Enter, RawInputModifiers.None);
+            HeadlessTestHelpers.Settle();
+
+            Assert.Multiple(() =>
+            {
+                Assert.That(viewModel.CommitMessage.Value, Does.Contain('\n'));
+                Assert.That(viewModel.StatusMessage.Value, Is.EqualTo("unchanged"));
             });
 
             Grid wideLayout = view.FindControl<Grid>("WideLayoutRoot")!;
@@ -368,14 +394,29 @@ public class VersionControlTabViewTests
             VersionControlCommitViewModel selectedCommit = viewModel.Commits[0];
             commitList.SelectedItem = selectedCommit;
             await WaitUntilAsync(() => viewModel.ShowingDetail.Value);
+            await WaitUntilAsync(() => viewModel.ChangedFiles.Count > 0);
             HeadlessTestHelpers.Render();
 
+            ListBox changedFileList =
+                narrowChanges.FindControl<ListBox>("ChangedFileList")!;
+            var changedFileItem = (ListBoxItem)changedFileList.ContainerFromIndex(0)!;
+            VersionControlFileChangeViewModel changedFile = viewModel.ChangedFiles[0];
+            TextBlock changeStatusText = changedFileItem
+                .GetVisualDescendants()
+                .OfType<TextBlock>()
+                .Single(textBlock => textBlock.Text == changedFile.StatusText);
+            TextBlock changePathText = changedFileItem
+                .GetVisualDescendants()
+                .OfType<TextBlock>()
+                .Single(textBlock => textBlock.Text == changedFile.PathText);
             Assert.Multiple(() =>
             {
                 Assert.That(narrowHistory.IsVisible, Is.False);
                 Assert.That(narrowDetail.IsVisible, Is.True);
                 Assert.That(viewModel.SelectedCommit.Value, Is.SameAs(selectedCommit));
                 Assert.That(wideCommitList.SelectedItem, Is.SameAs(selectedCommit));
+                Assert.That(changeStatusText.VerticalAlignment, Is.EqualTo(VerticalAlignment.Center));
+                Assert.That(changePathText.VerticalAlignment, Is.EqualTo(VerticalAlignment.Center));
                 Assert.That(
                     narrowChanges.FindControl<WrapPanel>("SelectedCommitActionBar")!.IsVisible,
                     Is.True);

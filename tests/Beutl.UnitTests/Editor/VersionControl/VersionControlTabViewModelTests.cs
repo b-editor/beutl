@@ -669,6 +669,50 @@ public class VersionControlTabViewModelTests
     }
 
     [Test]
+    public async Task Selecting_another_commit_swallows_the_previous_selection_cancellation()
+    {
+        CommitInfo firstCommit = CreateCommit(1, SnapshotKind.Save);
+        CommitInfo secondCommit = CreateCommit(2, SnapshotKind.Manual);
+        var secondFile = new FileChange("elements/two.belm", FileChangeStatus.Modified);
+        var firstRequestStarted = new TaskCompletionSource(
+            TaskCreationOptions.RunContinuationsAsynchronously);
+        Mock<IProjectVersionControlService> service = CreateServiceMock();
+        service.Setup(x => x.GetHistoryAsync(
+                It.IsAny<int>(),
+                It.IsAny<int>(),
+                It.IsAny<CancellationToken>()))
+            .ReturnsAsync([firstCommit, secondCommit]);
+        service.Setup(x => x.GetCommitFilesAsync(
+                firstCommit.Sha,
+                It.IsAny<CancellationToken>()))
+            .Returns(async (string _, CancellationToken cancellationToken) =>
+            {
+                firstRequestStarted.SetResult();
+                await Task.Delay(Timeout.InfiniteTimeSpan, cancellationToken);
+                return Array.Empty<FileChange>();
+            });
+        service.Setup(x => x.GetCommitFilesAsync(
+                secondCommit.Sha,
+                It.IsAny<CancellationToken>()))
+            .ReturnsAsync([secondFile]);
+        using VersionControlTabViewModel viewModel = CreateViewModel(service.Object);
+        await viewModel.Initialization;
+
+        Task firstSelection = viewModel.SelectCommitAsync(viewModel.Commits[0]);
+        await firstRequestStarted.Task;
+        Task secondSelection = viewModel.SelectCommitAsync(viewModel.Commits[1]);
+
+        Assert.DoesNotThrowAsync(async () =>
+            await Task.WhenAll(firstSelection, secondSelection));
+        Assert.Multiple(() =>
+        {
+            Assert.That(viewModel.SelectedCommit.Value, Is.SameAs(viewModel.Commits[1]));
+            Assert.That(viewModel.ChangedFiles, Has.Count.EqualTo(1));
+            Assert.That(viewModel.ChangedFiles[0].PathText, Is.EqualTo(secondFile.Path));
+        });
+    }
+
+    [Test]
     public async Task Narrow_drill_down_opens_detail_and_back_preserves_the_selection()
     {
         CommitInfo commit = CreateCommit(1, SnapshotKind.Save);

@@ -148,49 +148,52 @@
 
                 <Grid IsVisible="{Binding IsTracked.Value}"
                       RowDefinitions="Auto,*">
-                    <Border Margin="8,8,8,0"
-                            Padding="8"
-                            BorderBrush="{DynamicResource DividerStrokeColorDefaultBrush}"
-                            BorderThickness="1"
-                            CornerRadius="4">
-                        <Grid RowDefinitions="Auto,Auto,Auto" RowSpacing="6">
-                            <TextBox Text="{Binding CommitMessage.Value}"
-                                     Watermark="{x:Static lang:Strings.VersionControl_CommitMessage}" />
-                            <SplitButton x:Name="PrimaryActionSplitButton"
-                                         Grid.Row="1"
-                                         HorizontalAlignment="Stretch"
-                                         HorizontalContentAlignment="Center"
-                                         Classes.primaryDisabled="{Binding !IsPrimaryActionEnabled.Value}"
-                                         Command="{Binding InvokePrimaryActionCommand}"
-                                         Content="{Binding PrimaryAction.Value.Label}">
-                                <SplitButton.Flyout>
-                                    <MenuFlyout>
-                                        <MenuItem x:Name="CommitMenuItem"
-                                                  Command="{Binding CommitCommand}"
-                                                  Header="{x:Static lang:Strings.VersionControl_CommitNow}" />
-                                        <MenuItem x:Name="PushMenuItem"
-                                                  Command="{Binding PushCommand}"
-                                                  Header="{x:Static lang:Strings.VersionControl_Push}" />
-                                        <MenuItem x:Name="PullMenuItem"
-                                                  Command="{Binding PullCommand}"
-                                                  Header="{x:Static lang:Strings.VersionControl_Pull}" />
-                                        <MenuItem x:Name="SetRemoteMenuItem"
-                                                  Command="{Binding SetRemoteCommand}"
-                                                  Header="{x:Static lang:Strings.VersionControl_SetRemote}" />
-                                        <MenuItem x:Name="CancelRemoteOperationMenuItem"
-                                                  Command="{Binding CancelRemoteOperationCommand}"
-                                                  Header="{x:Static lang:Strings.Cancel}"
-                                                  IsVisible="{Binding IsRemoteOperationRunning.Value}" />
-                                    </MenuFlyout>
-                                </SplitButton.Flyout>
-                            </SplitButton>
-                            <TextBlock Grid.Row="2"
-                                       Classes="secondary"
-                                       IsVisible="{Binding IsRemoteOperationRunning.Value}"
-                                       Text="{Binding RemoteProgress.Value}"
-                                       TextTrimming="CharacterEllipsis" />
-                        </Grid>
-                    </Border>
+                    <Grid x:Name="CommitComposer"
+                          Margin="8,8,8,0"
+                          RowDefinitions="Auto,Auto,Auto"
+                          RowSpacing="6">
+                        <TextBox x:Name="CommitMessageTextBox"
+                                 AcceptsReturn="True"
+                                 MaxLines="6"
+                                 MinLines="3"
+                                 ScrollViewer.VerticalScrollBarVisibility="Auto"
+                                 Text="{Binding CommitMessage.Value}"
+                                 TextWrapping="Wrap"
+                                 Watermark="{x:Static lang:Strings.VersionControl_CommitMessage}" />
+                        <SplitButton x:Name="PrimaryActionSplitButton"
+                                     Grid.Row="1"
+                                     HorizontalAlignment="Stretch"
+                                     HorizontalContentAlignment="Center"
+                                     Classes.primaryDisabled="{Binding !IsPrimaryActionEnabled.Value}"
+                                     Command="{Binding InvokePrimaryActionCommand}"
+                                     Content="{Binding PrimaryAction.Value.Label}">
+                            <SplitButton.Flyout>
+                                <MenuFlyout Placement="Pointer">
+                                    <MenuItem x:Name="CommitMenuItem"
+                                              Command="{Binding CommitCommand}"
+                                              Header="{x:Static lang:Strings.VersionControl_CommitNow}" />
+                                    <MenuItem x:Name="PushMenuItem"
+                                              Command="{Binding PushCommand}"
+                                              Header="{x:Static lang:Strings.VersionControl_Push}" />
+                                    <MenuItem x:Name="PullMenuItem"
+                                              Command="{Binding PullCommand}"
+                                              Header="{x:Static lang:Strings.VersionControl_Pull}" />
+                                    <MenuItem x:Name="SetRemoteMenuItem"
+                                              Command="{Binding SetRemoteCommand}"
+                                              Header="{x:Static lang:Strings.VersionControl_SetRemote}" />
+                                    <MenuItem x:Name="CancelRemoteOperationMenuItem"
+                                              Command="{Binding CancelRemoteOperationCommand}"
+                                              Header="{x:Static lang:Strings.Cancel}"
+                                              IsVisible="{Binding IsRemoteOperationRunning.Value}" />
+                                </MenuFlyout>
+                            </SplitButton.Flyout>
+                        </SplitButton>
+                        <TextBlock Grid.Row="2"
+                                   Classes="secondary"
+                                   IsVisible="{Binding IsRemoteOperationRunning.Value}"
+                                   Text="{Binding RemoteProgress.Value}"
+                                   TextTrimming="CharacterEllipsis" />
+                    </Grid>
 
                     <Grid x:Name="WideLayoutRoot"
                           Grid.Row="1"

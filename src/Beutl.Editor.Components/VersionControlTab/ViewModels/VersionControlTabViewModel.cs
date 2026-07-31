@@ -502,9 +502,18 @@ public sealed class VersionControlTabViewModel : IToolContext
             return;
         }
 
-        IReadOnlyList<FileChange> files = await _service.GetCommitFilesAsync(
-            commit.Commit.Sha,
-            cancellationToken);
+        IReadOnlyList<FileChange> files;
+        try
+        {
+            files = await _service.GetCommitFilesAsync(
+                commit.Commit.Sha,
+                cancellationToken);
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            return;
+        }
+
         if (cancellationToken.IsCancellationRequested)
         {
             return;
@@ -546,10 +555,19 @@ public sealed class VersionControlTabViewModel : IToolContext
             return;
         }
 
-        string diff = await _service.GetDiffAsync(
-            commit.Commit.Sha,
-            file.Change.Path,
-            cancellationToken);
+        string diff;
+        try
+        {
+            diff = await _service.GetDiffAsync(
+                commit.Commit.Sha,
+                file.Change.Path,
+                cancellationToken);
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            return;
+        }
+
         if (cancellationToken.IsCancellationRequested)
         {
             return;

@@ -34,10 +34,12 @@
                         <Grid Margin="6,4"
                               ColumnDefinitions="24,*"
                               ColumnSpacing="4">
-                            <TextBlock FontFamily="Consolas, Menlo, monospace"
+                            <TextBlock VerticalAlignment="Center"
+                                       FontFamily="Consolas, Menlo, monospace"
                                        FontWeight="SemiBold"
                                        Text="{Binding StatusText}" />
                             <TextBlock Grid.Column="1"
+                                       VerticalAlignment="Center"
                                        Text="{Binding PathText}"
                                        TextTrimming="CharacterEllipsis"
                                        ToolTip.Tip="{Binding PathText}" />
