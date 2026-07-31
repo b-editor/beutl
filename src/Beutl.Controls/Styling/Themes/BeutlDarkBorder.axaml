@@ -2,9 +2,10 @@
                     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
     <!--
         Color overrides for the first-party "Dark" theme (id "beutl.dark.border"), merged flat over
-        the Dark base variant by ThemeService. Every key here must also exist in the built-in "Dark
-        (Classic)" dictionaries (Styling/BeutlDarkColors.axaml, Dock/DockFluent.axaml, Styles.axaml's
-        Dark scope): swap the value, never leave a dangling key. Non-color design stays app-level.
+        the Dark base variant by ThemeService. Every key here must also exist in the app's built-in
+        "Dark (Classic)" resources (Styling/BeutlDarkColors.axaml, Dock/DockFluent.axaml,
+        Styles.axaml's Dark scope, or a component dictionary such as GraphEditorResources.axaml):
+        swap the value, never leave a dangling key. Non-color design stays app-level.
 
         Accent surfaces reference SystemAccentColor* dynamically so a configured custom accent
         retints them; with no custom accent, ThemeService seeds those shades from
@@ -1478,5 +1479,14 @@
 
     <SolidColorBrush x:Key="DockChromeButtonHoverBackgroundBrush" Color="#0BFFFFFF" />
     <SolidColorBrush x:Key="DockChromeButtonPressedBackgroundBrush" Color="#14FFFFFF" />
+
+    <!-- ===== Graph editor (shared with Timeline) ===== -->
+    <StaticResource x:Key="GraphEditorBackgroundBrush" ResourceKey="DockSurfacePanelBrush" />
+    <StaticResource x:Key="GraphEditorGridLineBrush" ResourceKey="TextFillColorTertiaryBrush" />
+    <StaticResource x:Key="GraphEditorScaleTextBrush" ResourceKey="TextControlForeground" />
+    <StaticResource x:Key="GraphEditorControlPointFillBrush" ResourceKey="SystemFillColorCautionBrush" />
+    <StaticResource x:Key="GraphEditorControlPointStrokeBrush" ResourceKey="SystemFillColorCautionBrush" />
+    <StaticResource x:Key="GraphEditorHandleLineBrush" ResourceKey="TextControlForeground" />
+    <StaticResource x:Key="GraphEditorKeyFrameBrush" ResourceKey="SystemFillColorCautionBrush" />
 
 </ResourceDictionary>
