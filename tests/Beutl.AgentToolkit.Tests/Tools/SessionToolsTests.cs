@@ -8,7 +8,9 @@ using Beutl.AgentToolkit.Sessions;
 using Beutl.AgentToolkit.Tests.Helpers;
 using Beutl.AgentToolkit.Tools;
 using Beutl.AgentToolkit.Workspace;
+using Beutl.Animation;
 using Beutl.Editor;
+using Beutl.Engine;
 using Beutl.Graphics;
 using Beutl.Graphics.Shapes;
 using Beutl.Media;
@@ -89,6 +91,62 @@ public sealed class SessionToolsTests
                 Has.Some.Contains(Path.GetFileName(elementPath)).And.Some.Contains("could not be converted"));
             Assert.That(rendered.IsError, Is.Not.True);
             Assert.That(File.Exists(outputPath), Is.True);
+        });
+    }
+
+    [Test]
+    public async Task Open_project_warns_about_fallback_in_animation_keyframe_value()
+    {
+        string root = CreateWorkspace();
+        string projectPath = Path.Combine(root, "animation-fallback.bep");
+        Project project = ProjectOperations.CreateProject(new ProjectCreateOptions(
+            projectPath,
+            64,
+            64,
+            30,
+            TimeSpan.FromSeconds(1)));
+        Scene scene = project.Items.OfType<Scene>().Single();
+        var holder = new AnimatedValueHolder();
+        var animation = new KeyFrameAnimation<EngineObject?>();
+        animation.KeyFrames.Add(new KeyFrame<EngineObject?>
+        {
+            KeyTime = TimeSpan.Zero,
+            Value = new RectShape(),
+        }, out _);
+        holder.AnimatedValue.Animation = animation;
+        var element = new Element
+        {
+            Name = "Animated fallback",
+            Length = TimeSpan.FromSeconds(1),
+            Uri = new Uri(Path.Combine(
+                Path.GetDirectoryName(scene.Uri!.LocalPath)!,
+                "animation-fallback.belm")),
+        };
+        element.AddObject(holder);
+        scene.Children.Add(element);
+        ProjectOperations.Save(project);
+
+        string elementPath = element.Uri!.LocalPath;
+        JsonObject elementJson = JsonNode.Parse(File.ReadAllText(elementPath))!.AsObject();
+        JsonObject objectJson = elementJson[nameof(Element.Objects)]!.AsArray()[0]!.AsObject();
+        JsonObject animationJson = objectJson["Animations"]![nameof(AnimatedValueHolder.AnimatedValue)]!.AsObject();
+        JsonObject keyFrameJson = animationJson[nameof(KeyFrameAnimation.KeyFrames)]!.AsArray()[0]!.AsObject();
+        keyFrameJson[nameof(IKeyFrame.Value)]!.AsObject()["$type"]
+            = "[Beutl.Engine]Beutl.Engine:MissingAnimatedValue";
+        File.WriteAllText(elementPath, elementJson.ToJsonString());
+
+        var manager = new AgentSessionManager();
+        using var source = new FileSessionSource();
+        SessionTools sessionTools = CreateSessionTools(source, manager, root);
+
+        ToolResult<OpenProjectResponse> opened = await sessionTools.OpenProject(projectPath);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(opened.IsSuccess, Is.True, opened.Error?.Message);
+            Assert.That(
+                opened.Value!.Warnings,
+                Has.Some.Contains(Path.GetFileName(elementPath)).And.Some.Contains(nameof(FallbackReason.TypeNotFound)));
         });
     }
 
@@ -723,6 +781,16 @@ public sealed class SessionToolsTests
             malformed.Uri.LocalPath,
             malformed.Id,
             malformedBytes);
+    }
+
+    public sealed class AnimatedValueHolder : EngineObject
+    {
+        public AnimatedValueHolder()
+        {
+            ScanProperties<AnimatedValueHolder>();
+        }
+
+        public IProperty<EngineObject?> AnimatedValue { get; } = Property.CreateAnimatable<EngineObject?>();
     }
 
     private sealed record RecoveredProjectFixture(

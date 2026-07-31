@@ -1,5 +1,6 @@
 ﻿using System.Text.Json.Nodes;
 using Beutl.Editor;
+using Beutl.Engine;
 using Beutl.Graphics.Shapes;
 using Beutl.Graphics.Transformation;
 using Beutl.ProjectSystem;
@@ -151,6 +152,46 @@ public sealed class MalformedElementRecoveryTests
             Assert.That(recovered.Children.Single().IsEnabled, Is.False);
             Assert.That(File.ReadAllBytes(elementPath), Is.EqualTo(originalBytes));
         });
+    }
+
+    [Test]
+    public void Restore_NestedSceneDiscriminatorWithSelfInclude_RecoversWithoutRecursing()
+    {
+        (Uri sceneUri, string elementPath) = CreatePersistedScene();
+        JsonObject elementJson = JsonNode.Parse(File.ReadAllText(elementPath))!.AsObject();
+        elementJson[nameof(Element.Objects)] = new JsonArray(new JsonObject
+        {
+            ["$type"] = "[Beutl.ProjectSystem]:Scene",
+            [nameof(CoreObject.Uri)] = "element.belm",
+            ["Elements"] = new JsonObject
+            {
+                ["Include"] = new JsonArray("element.belm"),
+            },
+        });
+        File.WriteAllText(elementPath, elementJson.ToJsonString());
+        byte[] originalBytes = File.ReadAllBytes(elementPath);
+
+        Scene recovered = CoreSerializer.RestoreFromUri<Scene>(sceneUri);
+        CoreSerializer.StoreToUri(recovered, sceneUri);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(recovered.Children.Single().Objects.Single(), Is.InstanceOf<IFallback>());
+            Assert.That(File.ReadAllBytes(elementPath), Is.EqualTo(originalBytes));
+        });
+    }
+
+    [Test]
+    public void DeserializeFromJsonObject_UnassignableDiscriminatorUsesFallback()
+    {
+        var json = new JsonObject
+        {
+            ["$type"] = "[Beutl.ProjectSystem]:Scene",
+        };
+
+        object restored = CoreSerializer.DeserializeFromJsonObject(json, typeof(EngineObject));
+
+        Assert.That(restored, Is.InstanceOf<IFallback>());
     }
 
     [Test]
@@ -405,6 +446,38 @@ public sealed class MalformedElementRecoveryTests
         service.SaveObjects([recovered]);
 
         Assert.That(File.ReadAllBytes(elementPath), Is.EqualTo(corruptBytes));
+    }
+
+    [Test]
+    public void DeleteChild_PreservesRecoveredSidecarAndDeletesNormalSidecar()
+    {
+        (Uri sceneUri, string recoveredPath) = CreatePersistedScene();
+        byte[] corruptBytes = "{\"Id\":\"85f4d478-e16d-4cb1-ab71-ee1a90a03fe0\",\"Objects\":["u8.ToArray();
+        File.WriteAllBytes(recoveredPath, corruptBytes);
+
+        Scene scene = CoreSerializer.RestoreFromUri<Scene>(sceneUri);
+        Element recovered = scene.Children.Single();
+        string normalPath = Path.Combine(_root, "normal.belm");
+        var normal = new Element
+        {
+            Name = "Normal",
+            Start = TimeSpan.FromSeconds(1),
+            Length = TimeSpan.FromSeconds(1),
+            Uri = new Uri(normalPath),
+        };
+        normal.AddObject(new RectShape());
+        CoreSerializer.StoreToUri(normal, normal.Uri!);
+        scene.Children.Add(normal);
+
+        scene.DeleteChild(recovered);
+        scene.DeleteChild(normal);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(File.ReadAllBytes(recoveredPath), Is.EqualTo(corruptBytes));
+            Assert.That(File.Exists(normalPath), Is.False);
+            Assert.That(scene.Children, Is.Empty);
+        });
     }
 
     [Test]

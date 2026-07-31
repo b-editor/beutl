@@ -153,16 +153,33 @@ public sealed class FileEditingSession : IEditingSession, IEditingSessionDispatc
                 Path.Combine(projectDirectory, projectName),
                 sceneName,
                 usedDirs);
+            string? previousSceneDirectory = scene.Uri is { IsFile: true } previousSceneUri
+                ? Path.GetDirectoryName(previousSceneUri.LocalPath)
+                : null;
             scene.Uri = new Uri(scenePath);
             string sceneDirectory = Path.GetDirectoryName(scenePath)!;
             foreach (Element element in scene.Children)
             {
-                // Keep each sidecar's file name across Save As: a recovered element's stable
+                // Keep each sidecar's relative path across Save As: a recovered element's stable
                 // fallback identity is derived from its scene-relative path, so a regenerated
-                // random name would change the element's Id when the copy is reopened.
-                element.Uri = element.Uri is { IsFile: true } previousUri
-                    ? new Uri(Path.Combine(sceneDirectory, Path.GetFileName(previousUri.LocalPath)))
-                    : null;
+                // path would change the element's Id when the copy is reopened.
+                if (element.Uri is { IsFile: true } previousUri)
+                {
+                    string relativePath = previousSceneDirectory != null
+                        ? Path.GetRelativePath(previousSceneDirectory, previousUri.LocalPath)
+                        : Path.GetFileName(previousUri.LocalPath);
+                    if (Path.IsPathRooted(relativePath)
+                        || relativePath.StartsWith("..", StringComparison.Ordinal))
+                    {
+                        relativePath = Path.GetFileName(previousUri.LocalPath);
+                    }
+
+                    element.Uri = new Uri(Path.Combine(sceneDirectory, relativePath));
+                }
+                else
+                {
+                    element.Uri = null;
+                }
             }
 
             index++;

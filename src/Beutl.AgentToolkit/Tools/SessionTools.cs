@@ -6,6 +6,7 @@ using Beutl.AgentToolkit.Reconciliation;
 using Beutl.AgentToolkit.Rendering;
 using Beutl.AgentToolkit.Sessions;
 using Beutl.AgentToolkit.Workspace;
+using Beutl.Animation;
 using Beutl.Editor;
 using Beutl.Engine;
 using Beutl.ProjectSystem;
@@ -136,6 +137,13 @@ public sealed class SessionTools(
             foreach (IProperty property in engineObject.Properties)
             {
                 CollectFallbacks(property.CurrentValue, visited, fallbacks);
+                if (property.Animation is IKeyFrameAnimation animation)
+                {
+                    foreach (IKeyFrame keyFrame in animation.KeyFrames)
+                    {
+                        CollectFallbacks(keyFrame.Value, visited, fallbacks);
+                    }
+                }
             }
         }
 

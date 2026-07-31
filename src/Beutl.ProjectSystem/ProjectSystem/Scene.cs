@@ -1250,7 +1250,7 @@ public class Scene : ProjectItem, INotifyEdited
             if (_element != null)
             {
                 string fileName = _element.Uri!.LocalPath;
-                if (File.Exists(fileName))
+                if (_element.SuppressedStorageSource is null && File.Exists(fileName))
                 {
                     File.Delete(fileName);
                 }
