@@ -1277,8 +1277,9 @@ public sealed class LegacyFilterPhysicalFootprintTests
     {
         public List<PixelSize> Allocations { get; } = [];
 
-        public RenderTarget Create(PixelSize deviceSize)
+        public RenderTarget Create(RenderTargetAllocationDescriptor allocation)
         {
+            PixelSize deviceSize = allocation.DeviceSize;
             Allocations.Add(deviceSize);
             return new CpuRenderTarget(deviceSize.Width, deviceSize.Height);
         }

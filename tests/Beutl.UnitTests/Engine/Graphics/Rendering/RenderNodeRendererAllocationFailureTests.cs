@@ -134,8 +134,9 @@ public sealed class RenderNodeRendererAllocationFailureTests
     {
         public bool FailureConsumed { get; private set; }
 
-        public override RenderTarget? Create(PixelSize deviceSize)
+        public override RenderTarget? Create(RenderTargetAllocationDescriptor allocation)
         {
+            PixelSize deviceSize = allocation.DeviceSize;
             int index = CreateCalls++;
             if (index == 1)
             {
@@ -151,8 +152,9 @@ public sealed class RenderNodeRendererAllocationFailureTests
     {
         public int CreateCalls { get; protected set; }
 
-        public virtual RenderTarget? Create(PixelSize deviceSize)
+        public virtual RenderTarget? Create(RenderTargetAllocationDescriptor allocation)
         {
+            PixelSize deviceSize = allocation.DeviceSize;
             CreateCalls++;
             return CreateTarget(deviceSize);
         }

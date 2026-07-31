@@ -152,8 +152,9 @@ public class FilterEffectRenderNodeTest
 
     private sealed class CpuTargetFactory : IRenderTargetFactory
     {
-        public RenderTarget Create(PixelSize deviceSize)
+        public RenderTarget Create(RenderTargetAllocationDescriptor allocation)
         {
+            PixelSize deviceSize = allocation.DeviceSize;
             SKSurface surface = SKSurface.Create(new SKImageInfo(
                     deviceSize.Width,
                     deviceSize.Height,

@@ -536,7 +536,8 @@ public sealed class FilterEffectCompatibilityContractTests
 
     private sealed class CpuTargetFactory : IRenderTargetFactory
     {
-        public RenderTarget Create(PixelSize deviceSize) => new CpuRenderTarget(deviceSize);
+        public RenderTarget Create(RenderTargetAllocationDescriptor allocation) =>
+            new CpuRenderTarget(allocation.DeviceSize);
     }
 
     private sealed class CpuRenderTarget : RenderTarget

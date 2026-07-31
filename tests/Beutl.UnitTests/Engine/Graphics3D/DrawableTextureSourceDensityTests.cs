@@ -96,7 +96,9 @@ public class DrawableTextureSourceDensityTests
 
     private sealed class CpuTargetFactory : IRenderTargetFactory
     {
-        public RenderTarget Create(PixelSize deviceSize)
-            => FailureTestSupport.CreateCpuTarget(deviceSize.Width, deviceSize.Height);
+        public RenderTarget Create(RenderTargetAllocationDescriptor allocation)
+            => FailureTestSupport.CreateCpuTarget(
+                allocation.DeviceSize.Width,
+                allocation.DeviceSize.Height);
     }
 }

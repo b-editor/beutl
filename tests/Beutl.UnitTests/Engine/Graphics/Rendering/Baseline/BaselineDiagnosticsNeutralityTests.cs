@@ -315,8 +315,9 @@ public sealed class BaselineDiagnosticsNeutralityTests
     {
         public List<string> Allocations { get; } = [];
 
-        public RenderTarget Create(PixelSize deviceSize)
+        public RenderTarget Create(RenderTargetAllocationDescriptor allocation)
         {
+            PixelSize deviceSize = allocation.DeviceSize;
             Allocations.Add($"{deviceSize.Width}x{deviceSize.Height}");
             if (throwOnAllocation)
                 throw new InvalidOperationException("allocation-fault");

@@ -5,6 +5,8 @@ This guide is for implementing the feature after `/speckit-tasks` has generated 
 ## 1. Confirm the feature worktree
 
 ```bash
+set -euo pipefail
+
 expected_branch=speckit/004-gpu-pass-fusion
 expected_baseline_sha=43a38e665d9bf52548161a3917e748bd1457ff55
 

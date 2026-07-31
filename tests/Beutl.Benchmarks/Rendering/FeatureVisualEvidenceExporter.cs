@@ -1301,8 +1301,9 @@ internal static class FeatureVisualEvidenceExporter
 
         public bool FailureConsumed { get; private set; }
 
-        public RenderTarget? Create(PixelSize deviceSize)
+        public RenderTarget? Create(RenderTargetAllocationDescriptor allocation)
         {
+            PixelSize deviceSize = allocation.DeviceSize;
             int index = CreateCalls++;
             if (index == 1)
             {

@@ -251,8 +251,9 @@ public sealed class RenderNodeRendererLifetimeTests
 
         public bool IsDisposed { get; private set; }
 
-        public RenderTarget Create(PixelSize deviceSize)
+        public RenderTarget Create(RenderTargetAllocationDescriptor allocation)
         {
+            PixelSize deviceSize = allocation.DeviceSize;
             var target = new TrackingRenderTarget(
                 deviceSize,
                 disposeFailureAt?.Invoke(Targets.Count));

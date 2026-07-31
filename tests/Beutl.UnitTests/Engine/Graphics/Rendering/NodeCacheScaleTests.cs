@@ -307,8 +307,8 @@ public class NodeCacheScaleTests
     {
         private static readonly SKColorSpace s_colorSpace = SKColorSpace.CreateSrgbLinear();
 
-        public RenderTarget Create(PixelSize deviceSize)
-            => new CpuRenderTarget(deviceSize);
+        public RenderTarget Create(RenderTargetAllocationDescriptor allocation)
+            => new CpuRenderTarget(allocation.DeviceSize);
 
         private sealed class CpuRenderTarget : RenderTarget
         {

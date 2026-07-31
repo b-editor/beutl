@@ -219,8 +219,8 @@ public sealed class OffFrameFilterEffectExecutionTests
 
     private sealed class CpuTargetFactory : IRenderTargetFactory
     {
-        public RenderTarget Create(PixelSize deviceSize)
-            => new CpuRenderTarget(deviceSize.Width, deviceSize.Height);
+        public RenderTarget Create(RenderTargetAllocationDescriptor allocation)
+            => new CpuRenderTarget(allocation.DeviceSize.Width, allocation.DeviceSize.Height);
     }
 
     private sealed class CpuRenderTarget(int width, int height)

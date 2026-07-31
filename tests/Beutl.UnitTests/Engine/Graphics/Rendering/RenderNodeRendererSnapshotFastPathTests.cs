@@ -271,8 +271,9 @@ public sealed class RenderNodeRendererSnapshotFastPathTests
     {
         public List<TrackingRenderTarget> Targets { get; } = [];
 
-        public RenderTarget Create(PixelSize deviceSize)
+        public RenderTarget Create(RenderTargetAllocationDescriptor allocation)
         {
+            PixelSize deviceSize = allocation.DeviceSize;
             var target = new TrackingRenderTarget(deviceSize.Width, deviceSize.Height);
             Targets.Add(target);
             return target;

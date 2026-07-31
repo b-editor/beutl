@@ -174,6 +174,12 @@ public sealed class RenderNodeRendererContractTests
             Assert.That(executionIntent, Is.EqualTo(RenderIntent.Delivery));
             Assert.That(destination.IsDisposed, Is.False);
             Assert.That(destinationTarget.IsDisposed, Is.False);
+            Assert.That(factory.Allocations, Is.Not.Empty);
+            Assert.That(factory.Allocations, Has.All.Matches<RenderTargetAllocationDescriptor>(allocation =>
+                allocation.PixelFormat == RenderTargetPixelFormat.LinearPremultipliedRgba16Float
+                && allocation.GraphicsContext is null
+                && allocation.GraphicsContextHandle == 0
+                && allocation.GraphicsBackend is null));
         });
     }
 
@@ -292,6 +298,11 @@ public sealed class RenderNodeRendererContractTests
             Assert.That(bitmap.Width, Is.EqualTo(expectedDeviceBounds.Width));
             Assert.That(bitmap.Height, Is.EqualTo(expectedDeviceBounds.Height));
             Assert.That(factory.Requests, Does.Contain(expectedDeviceBounds.Size));
+            Assert.That(factory.Allocations, Has.All.Matches<RenderTargetAllocationDescriptor>(allocation =>
+                allocation.PixelFormat == RenderTargetPixelFormat.LinearPremultipliedRgba16Float
+                && allocation.GraphicsContext is null
+                && allocation.GraphicsContextHandle is null or 0
+                && allocation.GraphicsBackend is null));
         });
 
         renderer.Dispose();
@@ -589,10 +600,14 @@ public sealed class RenderNodeRendererContractTests
     {
         public List<PixelSize> Requests { get; } = [];
 
+        public List<RenderTargetAllocationDescriptor> Allocations { get; } = [];
+
         public List<TrackingRenderTarget> Targets { get; } = [];
 
-        public RenderTarget? Create(PixelSize deviceSize)
+        public RenderTarget? Create(RenderTargetAllocationDescriptor allocation)
         {
+            PixelSize deviceSize = allocation.DeviceSize;
+            Allocations.Add(allocation);
             Requests.Add(deviceSize);
             RenderTarget? result = create(deviceSize);
             if (result is TrackingRenderTarget tracking)

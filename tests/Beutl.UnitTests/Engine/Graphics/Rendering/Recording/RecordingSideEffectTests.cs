@@ -415,8 +415,9 @@ public sealed class RecordingSideEffectTests
     {
         public int CreateCalls { get; private set; }
 
-        public RenderTarget Create(PixelSize deviceSize)
+        public RenderTarget Create(RenderTargetAllocationDescriptor allocation)
         {
+            PixelSize deviceSize = allocation.DeviceSize;
             CreateCalls++;
             throw new AssertionException(
                 $"Recording unexpectedly requested a {deviceSize.Width}x{deviceSize.Height} render target.");

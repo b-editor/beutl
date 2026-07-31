@@ -1,6 +1,7 @@
 ﻿using System.Runtime.ExceptionServices;
 
 using Beutl.Graphics;
+using Beutl.Graphics.Backend;
 using Beutl.Graphics.Rendering;
 using Beutl.Media;
 using Beutl.UnitTests.Engine.Graphics.Backend;
@@ -706,6 +707,77 @@ public sealed class RenderTargetPoolTests
     }
 
     [Test]
+    public void BoundCpuContext_IsForwardedToSubsequentTargetlessFactoryMiss()
+    {
+        var factory = new TrackingTargetFactory();
+        using var pool = new RenderTargetPool(factory);
+
+        using (RenderTargetPoolRequest request = pool.BeginRequestForContext(new object(), 0))
+            request.Acquire(new PixelSize(2, 2)).Dispose();
+        using (RenderTargetPoolRequest request = pool.BeginRequest())
+            request.Acquire(new PixelSize(3, 3)).Dispose();
+
+        Assert.That(factory.Allocations, Has.Count.EqualTo(2));
+        Assert.That(factory.Allocations, Has.All.Matches<RenderTargetAllocationDescriptor>(allocation =>
+            allocation.PixelFormat == RenderTargetPixelFormat.LinearPremultipliedRgba16Float
+            && allocation.GraphicsContext is null
+            && allocation.GraphicsContextHandle == 0
+            && allocation.GraphicsBackend is null));
+    }
+
+    [Test]
+    [Category("GpuPassFusionGpu")]
+    public void TargetlessGpuBinding_ForwardsLiveContextOnLaterMissAndRecreation()
+    {
+        VulkanTestEnvironment.EnsureAvailable();
+        VulkanTestEnvironment.InvokeOnRenderThread(() =>
+        {
+            using IGraphicsContext recreatedContext = GraphicsContextFactory.CreateContext();
+            var factory = new DescriptorTargetFactory();
+            using var pool = new RenderTargetPool(factory);
+            GRRecordingContext firstContext;
+
+            using (RenderTargetPoolRequest request = pool.BeginRequest())
+            {
+                using PooledRenderTargetLease lease = request.Acquire(new PixelSize(2, 2));
+                firstContext = lease.Target.Value.Context
+                    ?? throw new AssertionException("The first target-less allocation must bind a GPU context.");
+            }
+
+            factory.ExpectedContext = firstContext;
+            using (RenderTargetPoolRequest request = pool.BeginRequest())
+                request.Acquire(new PixelSize(3, 3)).Dispose();
+
+            factory.ExpectedContext = recreatedContext.SkiaContext;
+            using (RenderTargetPoolRequest request = pool.BeginRequestForContext(
+                       recreatedContext.SkiaContext,
+                       recreatedContext.SkiaContext.Handle))
+            {
+                request.Acquire(new PixelSize(4, 4)).Dispose();
+            }
+
+            Assert.Multiple(() =>
+            {
+                Assert.That(factory.Observations, Has.Count.EqualTo(3));
+                Assert.That(factory.Observations, Has.All.Matches<AllocationObservation>(observation =>
+                    observation.PixelFormat == RenderTargetPixelFormat.LinearPremultipliedRgba16Float
+                    && observation.ContextMatchedExpectation));
+                Assert.That(factory.Observations[0].HasGraphicsContext, Is.False);
+                Assert.That(factory.Observations[0].GraphicsContextHandle, Is.Null);
+                Assert.That(factory.Observations[0].GraphicsBackend, Is.Null);
+                Assert.That(factory.Observations[1].HasGraphicsContext, Is.True);
+                Assert.That(factory.Observations[1].GraphicsContextHandle, Is.EqualTo(firstContext.Handle));
+                Assert.That(factory.Observations[1].GraphicsBackend, Is.EqualTo(firstContext.Backend));
+                Assert.That(factory.Observations[2].HasGraphicsContext, Is.True);
+                Assert.That(factory.Observations[2].GraphicsContextHandle,
+                    Is.EqualTo(recreatedContext.SkiaContext.Handle));
+                Assert.That(factory.Observations[2].GraphicsBackend,
+                    Is.EqualTo(recreatedContext.SkiaContext.Backend));
+            });
+        });
+    }
+
+    [Test]
     public void FactoryTarget_MustMatchSizeAndRgba16fContract()
     {
         var wrongSizeFactory = new TrackingTargetFactory(
@@ -827,8 +899,12 @@ public sealed class RenderTargetPoolTests
     {
         public List<RenderTarget> Created { get; } = [];
 
-        public RenderTarget? Create(PixelSize deviceSize)
+        public List<RenderTargetAllocationDescriptor> Allocations { get; } = [];
+
+        public RenderTarget? Create(RenderTargetAllocationDescriptor allocation)
         {
+            PixelSize deviceSize = allocation.DeviceSize;
+            Allocations.Add(allocation);
             RenderTarget target = create?.Invoke(deviceSize, Created.Count)
                 ?? new TrackingRenderTarget(deviceSize.Width, deviceSize.Height);
             Created.Add(target);
@@ -838,10 +914,10 @@ public sealed class RenderTargetPoolTests
 
     private sealed class SizeRejectingTargetFactory(int rejectedWidth) : IRenderTargetFactory
     {
-        public RenderTarget? Create(PixelSize deviceSize)
-            => deviceSize.Width == rejectedWidth
+        public RenderTarget? Create(RenderTargetAllocationDescriptor allocation)
+            => allocation.DeviceSize.Width == rejectedWidth
                 ? null
-                : new TrackingRenderTarget(deviceSize.Width, deviceSize.Height);
+                : new TrackingRenderTarget(allocation.DeviceSize.Width, allocation.DeviceSize.Height);
     }
 
     private sealed class BudgetedTargetFactory(long budgetBytes) : IRenderTargetFactory
@@ -850,8 +926,9 @@ public sealed class RenderTargetPoolTests
 
         public int DeclinedRequests { get; private set; }
 
-        public RenderTarget? Create(PixelSize deviceSize)
+        public RenderTarget? Create(RenderTargetAllocationDescriptor allocation)
         {
+            PixelSize deviceSize = allocation.DeviceSize;
             _live.RemoveAll(static target => target.IsDisposed);
             long requested = (long)deviceSize.Width * deviceSize.Height * 8;
             long live = _live.Sum(static target => (long)target.Width * target.Height * 8);
@@ -867,9 +944,52 @@ public sealed class RenderTargetPoolTests
         }
     }
 
+    private sealed class DescriptorTargetFactory : IRenderTargetFactory
+    {
+        public GRRecordingContext? ExpectedContext { get; set; }
+
+        public List<AllocationObservation> Observations { get; } = [];
+
+        public RenderTarget? Create(RenderTargetAllocationDescriptor allocation)
+        {
+            Observations.Add(new AllocationObservation(
+                allocation.PixelFormat,
+                allocation.GraphicsContext is not null,
+                allocation.GraphicsContextHandle,
+                allocation.GraphicsBackend,
+                ReferenceEquals(allocation.GraphicsContext, ExpectedContext)));
+            PixelSize size = allocation.DeviceSize;
+            if (allocation.GraphicsContext is null)
+                return RenderTarget.Create(size.Width, size.Height);
+
+            SKSurface? surface = SKSurface.Create(
+                allocation.GraphicsContext,
+                false,
+                new SKImageInfo(
+                    size.Width,
+                    size.Height,
+                    SKColorType.RgbaF16,
+                    SKAlphaType.Premul,
+                    SKColorSpace.CreateSrgbLinear()));
+            return surface is null ? null : new TrackingRenderTarget(surface, size.Width, size.Height);
+        }
+    }
+
+    private readonly record struct AllocationObservation(
+        RenderTargetPixelFormat PixelFormat,
+        bool HasGraphicsContext,
+        nint? GraphicsContextHandle,
+        GRBackend? GraphicsBackend,
+        bool ContextMatchedExpectation);
+
     private sealed class TrackingRenderTarget : RenderTarget
     {
         private readonly Exception? _disposeFailure;
+
+        public TrackingRenderTarget(SKSurface surface, int width, int height)
+            : base(surface, width, height)
+        {
+        }
 
         public TrackingRenderTarget(
             int width,

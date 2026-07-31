@@ -103,8 +103,9 @@ public sealed class LegacyFilterRequiredRegionTests
     private sealed class BudgetedCpuTargetFactory(int maximumDimension, List<PixelSize>? requestedSizes = null)
         : IRenderTargetFactory
     {
-        public RenderTarget? Create(PixelSize deviceSize)
+        public RenderTarget? Create(RenderTargetAllocationDescriptor allocation)
         {
+            PixelSize deviceSize = allocation.DeviceSize;
             requestedSizes?.Add(deviceSize);
             return deviceSize.Width > maximumDimension || deviceSize.Height > maximumDimension
                 ? null

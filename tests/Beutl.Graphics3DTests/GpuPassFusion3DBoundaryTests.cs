@@ -64,18 +64,40 @@ public sealed class GpuPassFusion3DBoundaryTests
                     UseRenderCache = false,
                 });
             using RenderNodeRasterization rasterization = renderer.Rasterize();
+            Bitmap bitmap = rasterization.Bitmap
+                ?? throw new AssertionException("The 3D-to-2D hand-off must publish a bitmap.");
+            Vector4 expectedBackground = scene.BackgroundColor.CurrentValue.ToLinearPremultiplied();
+            Vector4 actualCenter = ReadLinearPixel(bitmap, 16, 12);
 
             Assert.Multiple(() =>
             {
-                Assert.That(rasterization.Bitmap, Is.Not.Null);
                 Assert.That(rasterization.Bounds, Is.EqualTo(new Rect(0, 0, 32, 24)));
                 Assert.That(renderer.LastExecutionStatistics.Synchronizations, Is.EqualTo(1));
                 Assert.That(renderer.LastExecutionStatistics.ShaderRunExecutions, Is.EqualTo(1));
                 Assert.That(renderer.LastExecutionStatistics.ShaderStageExecutions, Is.EqualTo(1));
-                Assert.That(rasterization.Bitmap!.GetPixelSpan<ushort>().ToArray(), Has.Some.Not.Zero,
+                Assert.That(bitmap.GetPixelSpan<ushort>().ToArray(), Has.Some.Not.Zero,
                     "The 3D-to-2D hand-off must publish a non-vacuous value.");
+                Assert.That(actualCenter.X, Is.EqualTo(expectedBackground.Z).Within(0.003f),
+                    "The downstream shader must swap blue into the red channel.");
+                Assert.That(actualCenter.Y, Is.EqualTo(expectedBackground.Y).Within(0.003f),
+                    "The downstream shader must preserve the green channel.");
+                Assert.That(actualCenter.Z, Is.EqualTo(expectedBackground.X).Within(0.003f),
+                    "The downstream shader must swap red into the blue channel.");
+                Assert.That(actualCenter.W, Is.EqualTo(expectedBackground.W).Within(0.003f),
+                    "The downstream shader must preserve alpha.");
             });
         });
+    }
+
+    private static Vector4 ReadLinearPixel(Bitmap bitmap, int x, int y)
+    {
+        int offset = ((y * bitmap.Width) + x) * 4;
+        ReadOnlySpan<ushort> pixels = bitmap.GetPixelSpan<ushort>();
+        return new Vector4(
+            (float)BitConverter.UInt16BitsToHalf(pixels[offset]),
+            (float)BitConverter.UInt16BitsToHalf(pixels[offset + 1]),
+            (float)BitConverter.UInt16BitsToHalf(pixels[offset + 2]),
+            (float)BitConverter.UInt16BitsToHalf(pixels[offset + 3]));
     }
 
     [Test]

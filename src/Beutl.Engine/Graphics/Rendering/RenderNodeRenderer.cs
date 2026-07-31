@@ -59,18 +59,63 @@ public sealed class RenderNodeRendererOptions
     internal IRenderPipelineDiagnosticsState? Diagnostics { get; init; }
 }
 
+/// <summary>Identifies the pixel format required for a renderer-owned target allocation.</summary>
+public enum RenderTargetPixelFormat : byte
+{
+    /// <summary>Linear-sRGB, premultiplied-alpha RGBA with 16-bit floating-point components.</summary>
+    LinearPremultipliedRgba16Float,
+}
+
+/// <summary>Describes one renderer-owned target allocation.</summary>
+public readonly record struct RenderTargetAllocationDescriptor
+{
+    internal RenderTargetAllocationDescriptor(
+        PixelSize deviceSize,
+        GRRecordingContext? graphicsContext,
+        nint? graphicsContextHandle)
+    {
+        DeviceSize = deviceSize;
+        GraphicsContext = graphicsContext;
+        GraphicsContextHandle = graphicsContextHandle;
+    }
+
+    /// <summary>Gets the exact positive device-pixel size.</summary>
+    public PixelSize DeviceSize { get; }
+
+    /// <summary>Gets the required pixel format.</summary>
+    public RenderTargetPixelFormat PixelFormat =>
+        RenderTargetPixelFormat.LinearPremultipliedRgba16Float;
+
+    /// <summary>
+    /// Gets the borrowed Skia context for a context-bound GPU request, or <see langword="null"/> for a
+    /// CPU request or a target-less request whose backend is not bound yet.
+    /// </summary>
+    /// <remarks>The factory may use this value only for the duration of <see cref="IRenderTargetFactory.Create"/>.</remarks>
+    public GRRecordingContext? GraphicsContext { get; }
+
+    /// <summary>
+    /// Gets the required Skia context handle: a positive value for GPU, zero for CPU, or
+    /// <see langword="null"/> when a target-less request has not bound a backend yet.
+    /// </summary>
+    public nint? GraphicsContextHandle { get; }
+
+    /// <summary>Gets the required GPU backend, or <see langword="null"/> when no GPU context is bound.</summary>
+    public GRBackend? GraphicsBackend => GraphicsContext?.Backend;
+}
+
 /// <summary>Creates fresh linear-premultiplied RGBA16F targets requested by a renderer.</summary>
 public interface IRenderTargetFactory
 {
-    /// <summary>Creates a target with the exact requested device size.</summary>
-    /// <param name="deviceSize">The positive device-pixel size.</param>
+    /// <summary>Creates a target satisfying the exact allocation requirements.</summary>
+    /// <param name="allocation">The size, format, backend, and device/context requirements.</param>
     /// <returns>A new target, or <see langword="null"/> when allocation cannot be satisfied.</returns>
     /// <remarks>
     /// Every non-null return transfers exclusive ownership to the renderer immediately and must be fresh,
-    /// unleased, format-compatible, and exactly <paramref name="deviceSize"/>. The renderer disposes an invalid
-    /// non-null return. The factory itself remains caller-owned and is never disposed by the renderer.
+    /// unleased, and satisfy the size, format, and context requirements in <paramref name="allocation"/>.
+    /// The renderer disposes an invalid non-null return. The factory itself remains caller-owned and is never
+    /// disposed by the renderer.
     /// </remarks>
-    RenderTarget? Create(PixelSize deviceSize);
+    RenderTarget? Create(RenderTargetAllocationDescriptor allocation);
 }
 
 /// <summary>

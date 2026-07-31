@@ -102,7 +102,7 @@ public sealed class CrossNodeShaderFusionTests
                 FusionMode = FusionMode.Enabled,
                 RenderPurpose = RenderRequestPurpose.Frame,
             });
-        using RenderTarget destination = targetFactory.Create(new PixelSize(24, 16));
+        using RenderTarget destination = targetFactory.CreateCpuTarget(new PixelSize(24, 16));
         using var canvas = new ImmediateCanvas(destination, logicalSize: new Size(24, 16));
 
         Assert.That(destination.Value.Context, Is.Null);
@@ -135,7 +135,7 @@ public sealed class CrossNodeShaderFusionTests
                     FusionMode = FusionMode.Enabled,
                     RenderPurpose = RenderRequestPurpose.Frame,
                 });
-            using RenderTarget cpuDestination = cpuFactory.Create(new PixelSize(24, 16));
+            using RenderTarget cpuDestination = cpuFactory.CreateCpuTarget(new PixelSize(24, 16));
             using var cpuCanvas = new ImmediateCanvas(cpuDestination, logicalSize: new Size(24, 16));
             using RenderTarget gpuDestination = RenderTarget.Create(24, 16)
                 ?? throw new InvalidOperationException("Could not create the GPU fusion-test surface.");
@@ -186,7 +186,7 @@ public sealed class CrossNodeShaderFusionTests
             using var secondCanvas = new ImmediateCanvas(
                 secondDestination,
                 logicalSize: new Size(24, 16));
-            using RenderTarget source = new CpuTargetFactory().Create(
+            using RenderTarget source = new CpuTargetFactory().CreateCpuTarget(
                 new PixelSize((int)s_bounds.Width, (int)s_bounds.Height));
             source.Value.Canvas.Clear(new SKColor(48, 112, 216, 176));
             using var node = new PrimaryChainNode(source, s_bounds);
@@ -673,7 +673,13 @@ public sealed class CrossNodeShaderFusionTests
 
     private sealed class CpuTargetFactory : IRenderTargetFactory
     {
-        public RenderTarget Create(PixelSize deviceSize)
+        public RenderTarget CreateCpuTarget(PixelSize deviceSize)
+            => CreateCore(deviceSize);
+
+        public RenderTarget Create(RenderTargetAllocationDescriptor allocation)
+            => CreateCore(allocation.DeviceSize);
+
+        private static RenderTarget CreateCore(PixelSize deviceSize)
         {
             SKSurface surface = SKSurface.Create(new SKImageInfo(
                     deviceSize.Width,

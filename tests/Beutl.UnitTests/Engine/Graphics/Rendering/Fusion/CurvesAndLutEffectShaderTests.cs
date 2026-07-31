@@ -163,7 +163,7 @@ public sealed class CurvesAndLutEffectShaderTests
     {
         FilterEffect effect = factory();
         using FilterEffect.Resource resource = effect.ToResource(CompositionContext.Default);
-        using RenderTarget backing = new CpuTargetFactory().Create(new PixelSize(1, 1));
+        using RenderTarget backing = new CpuTargetFactory().CreateCpuTarget(new PixelSize(1, 1));
         backing.Value.Canvas.Clear(SKColors.Red);
         backing.Value.Canvas.Flush();
         using var targets = new EffectTargets
@@ -330,7 +330,13 @@ public sealed class CurvesAndLutEffectShaderTests
 
     private sealed class CpuTargetFactory : IRenderTargetFactory
     {
-        public RenderTarget Create(PixelSize deviceSize)
+        public RenderTarget CreateCpuTarget(PixelSize deviceSize)
+            => CreateCore(deviceSize);
+
+        public RenderTarget Create(RenderTargetAllocationDescriptor allocation)
+            => CreateCore(allocation.DeviceSize);
+
+        private static RenderTarget CreateCore(PixelSize deviceSize)
         {
             SKSurface surface = SKSurface.Create(new SKImageInfo(
                     deviceSize.Width,

@@ -1731,8 +1731,9 @@ public sealed class RenderCacheResolutionTests
     {
         public List<TrackingRenderTarget> Targets { get; } = [];
 
-        public RenderTarget Create(PixelSize deviceSize)
+        public RenderTarget Create(RenderTargetAllocationDescriptor allocation)
         {
+            PixelSize deviceSize = allocation.DeviceSize;
             var result = new TrackingRenderTarget(deviceSize);
             Targets.Add(result);
             return result;

@@ -989,8 +989,9 @@ public sealed class TargetScopeLoweringTests
     {
         public int AllocationCount { get; private set; }
 
-        public RenderTarget Create(PixelSize deviceSize)
+        public RenderTarget Create(RenderTargetAllocationDescriptor allocation)
         {
+            PixelSize deviceSize = allocation.DeviceSize;
             AllocationCount++;
             return new CpuRenderTarget(deviceSize.Width, deviceSize.Height);
         }

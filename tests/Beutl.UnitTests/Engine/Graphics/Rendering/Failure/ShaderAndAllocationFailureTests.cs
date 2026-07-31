@@ -474,8 +474,9 @@ public sealed class ShaderAndAllocationFailureTests
 
         public int CreateCalls { get; private set; }
 
-        public RenderTarget? Create(PixelSize deviceSize)
+        public RenderTarget? Create(RenderTargetAllocationDescriptor allocation)
         {
+            PixelSize deviceSize = allocation.DeviceSize;
             int index = CreateCalls++;
             if (index == failAt)
                 return null;

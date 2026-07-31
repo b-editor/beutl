@@ -58,6 +58,11 @@ public sealed class DeferredCallbackFailureTests
         Assert.Multiple(() =>
         {
             Assert.That(failure, Is.Not.Null);
+            if (failurePoint == GeometryFailure.Callback)
+            {
+                Assert.That(failure, Is.TypeOf<InvalidOperationException>());
+                Assert.That(failure!.Message, Is.EqualTo("geometry-callback-primary"));
+            }
             Assert.That(node.CallbackEntries, Is.EqualTo(1));
             Assert.That(renderer.TargetPoolStatistics.LeasedTargets, Is.Zero);
             Assert.That(node.Cache.IsCached, Is.False);

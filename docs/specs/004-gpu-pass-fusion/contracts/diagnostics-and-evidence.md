@@ -219,8 +219,8 @@ Snapshots, dictionaries, and event lists are immutable and contain numeric/strin
 | `ExecutedOutcomes` | Committed fragments whose planned work executed successfully. |
 | `CachedOutcomes` | Committed fragments satisfied by a selected render-cache entry. |
 | `MetadataOutcomes` | Committed fragments resolved without pixel execution by a `Bounds` or `HitTest` request. |
-| `SkippedOutcomes` | Committed fragments omitted because no required consumer/region remained, including failure-dependent skips. |
-| `FailedOutcomes` | Committed fragments assigned the primary or dependent failure outcome. |
+| `SkippedOutcomes` | Committed fragments assigned `Skipped` because no required consumer/region remained, including dependents left unexecuted after another fragment received the primary failure. A fragment assigned `Failed` is not also skipped. |
+| `FailedOutcomes` | Committed fragments assigned `Failed` because the fragment itself is associated with the primary failure. Failure-dependent fragments that never execute are assigned only `Skipped`. |
 | `Failures` | Primary failure count (zero or one); `FailurePhase` and failure events supply phase classification. A cleanup-only first fault becomes the primary `Cleanup` failure. |
 | `CleanupFailures` | Every cleanup fault. With an earlier primary they remain secondary; without one, the first is also represented by `Failures = 1` / `FailurePhase = Cleanup`. |
 | `ExternalRootResources` | Externally owned root/presentation targets, classified separately from intermediates. |
@@ -234,8 +234,10 @@ Every committed execution-relevant fragment receives exactly one terminal outcom
 - executed;
 - satisfied by selected cache;
 - resolved as metadata without pixel execution for a bounds/hit-test request;
-- skipped because no required consumer/region remains;
-- failed or skipped due to an upstream/primary failure.
+- skipped because no required consumer/region remains, including an unexecuted dependency after another fragment fails; or
+- failed because that fragment is directly assigned the primary failure.
+
+The recorder enforces this exclusivity by accepting only the first terminal `RenderPipelineOutcome` for each fragment and incrementing the counter mapped from that one enum value (`src/Beutl.Engine/Graphics/Rendering/Planning/RenderPipelineDiagnostics.cs:990-1000`, `src/Beutl.Engine/Graphics/Rendering/Planning/RenderPipelineDiagnostics.cs:1043-1052`).
 
 For every completed or failed request:
 

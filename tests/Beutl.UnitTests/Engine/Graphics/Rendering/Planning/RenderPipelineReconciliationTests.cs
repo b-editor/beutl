@@ -1307,7 +1307,7 @@ public sealed class RenderPipelineReconciliationTests
 
     private sealed class ThrowingTargetFactory : IRenderTargetFactory
     {
-        public RenderTarget Create(PixelSize deviceSize)
+        public RenderTarget Create(RenderTargetAllocationDescriptor allocation)
             => throw new InvalidOperationException("allocation-fault");
     }
 }

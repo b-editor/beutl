@@ -593,8 +593,9 @@ internal sealed class FailureTestTargetFactory(
 
     public int CreateCalls { get; private set; }
 
-    public RenderTarget? Create(PixelSize deviceSize)
+    public RenderTarget? Create(RenderTargetAllocationDescriptor allocation)
     {
+        PixelSize deviceSize = allocation.DeviceSize;
         int index = CreateCalls++;
         if (createFailure is not null)
             throw createFailure;

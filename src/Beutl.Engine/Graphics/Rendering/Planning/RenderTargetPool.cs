@@ -64,6 +64,7 @@ internal sealed class RenderTargetPool : IDisposable
     private readonly HashSet<SKSurface> _knownSurfaces = new(ReferenceEqualityComparer.Instance);
     private RenderTargetPoolRequest? _activeRequest;
     private object? _contextIdentity;
+    private GRRecordingContext? _graphicsContext;
     private nint _contextHandle;
     private bool _hasContext;
     private long _requestEpoch;
@@ -367,6 +368,7 @@ internal sealed class RenderTargetPool : IDisposable
         if (!_hasContext || !ReferenceEquals(_contextIdentity, contextIdentity))
         {
             _contextIdentity = contextIdentity;
+            _graphicsContext = externalTarget?.Value.Context ?? contextIdentity as GRRecordingContext;
             _contextHandle = expectedContextHandle ?? 0;
             _hasContext = expectedContextHandle.HasValue;
             _contextGeneration = NextGeneration(_contextGeneration);
@@ -374,9 +376,14 @@ internal sealed class RenderTargetPool : IDisposable
         else if (expectedContextHandle.HasValue && _contextHandle != expectedContextHandle.Value)
         {
             EvictAllAvailable(request: null, failures);
+            _graphicsContext = externalTarget?.Value.Context ?? contextIdentity as GRRecordingContext;
             _contextHandle = expectedContextHandle.Value;
             _hasContext = true;
             _contextGeneration = NextGeneration(_contextGeneration);
+        }
+        else if (externalTarget?.Value.Context is { } graphicsContext)
+        {
+            _graphicsContext = graphicsContext;
         }
 
         ThrowCleanupFailures(failures);
@@ -632,7 +639,8 @@ internal sealed class RenderTargetPool : IDisposable
 
     private void ValidateContext(SKSurface surface, RenderTargetPoolRequest request)
     {
-        nint actual = surface.Context?.Handle ?? 0;
+        GRRecordingContext? actualContext = surface.Context;
+        nint actual = actualContext?.Handle ?? 0;
         if (request.ExpectedContextHandle is { } expected && actual != expected)
         {
             throw new InvalidOperationException(
@@ -651,6 +659,8 @@ internal sealed class RenderTargetPool : IDisposable
             throw new InvalidOperationException(
                 "The render-target factory returned targets from incompatible graphics contexts.");
         }
+
+        _graphicsContext = actualContext;
     }
 
     private void VerifyActive(RenderTargetPoolRequest request)
@@ -697,7 +707,10 @@ internal sealed class RenderTargetPool : IDisposable
     private RenderTarget? CreateTarget(PixelSize deviceSize, RenderTargetPoolRequest request)
         => _factory is null
             ? CreateDefaultTarget(deviceSize, request)
-            : _factory.Create(deviceSize);
+            : _factory.Create(new RenderTargetAllocationDescriptor(
+                deviceSize,
+                _graphicsContext,
+                request.ExpectedContextHandle ?? (_hasContext ? _contextHandle : null)));
 
     private static RenderTarget? CreateDefaultTarget(
         PixelSize deviceSize,

@@ -37,10 +37,24 @@ public sealed class CurrentPixelQuantizationTests
                 $"fusion={fusionEnabled}, control={controlRed} ({controlLinear:R}, a={controlAlpha:R}), "
                 + $"identity-stage={identityRed} ({identityLinear:R}, a={identityAlpha:R}), "
                 + $"double-invert={invertedRed} ({invertedLinear:R}, a={invertedAlpha:R})");
-            Assert.That(
-                invertedRed,
-                Is.EqualTo(identityRed),
-                $"Two full Invert stages must not add quantization beyond the materialization boundary; identity={identityRed}, inverted={invertedRed}.");
+            Assert.Multiple(() =>
+            {
+                Assert.That(controlLinear, Is.GreaterThan(0), "The unfiltered control must contain visible color.");
+                Assert.That(controlAlpha, Is.GreaterThan(0), "The unfiltered control must contain visible alpha.");
+                Assert.That(identityRed, Is.EqualTo(controlRed).Within(2),
+                    "Identity materialization must preserve the rendered control color "
+                    + "within the RGBA16F round-trip quantization this fixture characterizes.");
+                Assert.That(identityLinear, Is.EqualTo(controlLinear).Within(0.003f),
+                    "Identity materialization must preserve the rendered control in linear space.");
+                Assert.That(identityAlpha, Is.EqualTo(controlAlpha).Within(0.001f),
+                    "Identity materialization must preserve the rendered control alpha.");
+                Assert.That(invertedRed, Is.EqualTo(identityRed),
+                    $"Two full Invert stages must not add quantization beyond the materialization boundary; identity={identityRed}, inverted={invertedRed}.");
+                Assert.That(invertedLinear, Is.EqualTo(identityLinear).Within(0.001f),
+                    "Two full Invert stages must preserve the identity materialization in linear space.");
+                Assert.That(invertedAlpha, Is.EqualTo(identityAlpha).Within(0.001f),
+                    "Two full Invert stages must preserve the identity materialization alpha.");
+            });
         });
     }
 

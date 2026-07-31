@@ -545,8 +545,9 @@ public class RenderNodeRendererExceptionSafetyTests
     {
         public List<FakeRenderTarget> CreatedTargets { get; } = [];
 
-        public RenderTarget? Create(PixelSize deviceSize)
+        public RenderTarget? Create(RenderTargetAllocationDescriptor allocation)
         {
+            PixelSize deviceSize = allocation.DeviceSize;
             if (throwOnCreate)
                 throw new InvalidOperationException("rt-create-fault");
             if (returnNullOnCreate)

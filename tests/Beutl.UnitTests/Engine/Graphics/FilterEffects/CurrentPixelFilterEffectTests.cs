@@ -386,7 +386,7 @@ public sealed class CurrentPixelFilterEffectTests
         foreach (FilterEffect effect in matching)
         {
             (_, float[] after) = Render(effect, input);
-            Assert.That(after, Is.All.LessThanOrEqualTo(0.003f), effect.GetType().Name);
+            AssertPixel(after, [0, 0, 0, 0], 0.003f, effect.GetType().Name);
         }
 
         foreach (FilterEffect effect in nonMatching)
