@@ -189,17 +189,22 @@ public sealed class ReconcilerIdIntegrityTests
             Uri = new Uri(Path.Combine(directory, "carrier.belm")),
         };
         var holder = new NonHierarchicalValueHolder();
-        var fallback = new FallbackEngineObject();
-        fallback.Json = new JsonObject
-        {
-            ["$type"] = "[Beutl.Engine]Beutl.Engine:MissingPropertyValue",
-            [nameof(CoreObject.Id)] = fallback.Id.ToString(),
-        };
-        holder.Value.CurrentValue = fallback;
+        holder.Value.CurrentValue = new RectShape();
         carrier.AddObject(holder);
         scene.Children.Add(carrier);
+        CoreSerializer.StoreToUri(scene, scene.Uri!);
 
-        using var session = new AgentToolkitTestSession(scene);
+        JsonObject carrierJson = JsonNode.Parse(File.ReadAllText(carrier.Uri.LocalPath))!.AsObject();
+        JsonObject valueJson = carrierJson[nameof(Element.Objects)]!.AsArray()[0]!
+            [nameof(NonHierarchicalValueHolder.Value)]!.AsObject();
+        valueJson["$type"] = "[Beutl.Engine]Beutl.Engine:MissingPropertyValue";
+        valueJson.Remove(nameof(CoreObject.Id));
+        File.WriteAllText(carrier.Uri.LocalPath, carrierJson.ToJsonString());
+
+        Scene recovered = CoreSerializer.RestoreFromUri<Scene>(scene.Uri!);
+        Element recoveredHealthy = recovered.Children.Single(item => item.Id == healthy.Id);
+
+        using var session = new AgentToolkitTestSession(recovered);
         var manager = new AgentSessionManager();
         manager.UseSource(new AgentToolkitTestSessionSource(session));
         var tools = new EditTools(manager);
@@ -219,7 +224,7 @@ public sealed class ReconcilerIdIntegrityTests
         Assert.Multiple(() =>
         {
             Assert.That(renamed.IsSuccess, Is.True, renamed.Error?.Message);
-            Assert.That(healthy.Name, Is.EqualTo("Renamed healthy element"));
+            Assert.That(recoveredHealthy.Name, Is.EqualTo("Renamed healthy element"));
         });
     }
 

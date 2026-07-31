@@ -19,9 +19,17 @@ public sealed record SceneSummary(string SceneId, string Name, int Width, int He
 
 public sealed record SessionSummary(IReadOnlyList<SceneSummary> Scenes);
 
+public sealed record RecoveryIncident(
+    string ElementFile,
+    string Reason,
+    string? TypeName,
+    string? Message);
+
 public sealed record OpenProjectResponse(string Session, string Source, SessionSummary Summary)
 {
     public IReadOnlyList<string> Warnings { get; init; } = [];
+
+    public IReadOnlyList<RecoveryIncident> RecoveryIncidents { get; init; } = [];
 }
 
 public sealed record CreateProjectResponse(string Session, string SavedPath, SessionSummary Summary);
@@ -75,21 +83,23 @@ public sealed class SessionTools(
             }
 
             ProjectSessionResult result = await projects.OpenProjectAsync(fullPath, cancellationToken).ConfigureAwait(false);
+            DeserializationWarningCollection recovery = result.Session.ReadOnSession(
+                () => CollectDeserializationWarnings(result.Project));
             return new OpenProjectResponse(
                 result.Session.SessionId,
                 result.Session.Source.ToString(),
                 CreateSummary(result.Session, result.Project))
             {
-                // The traversal walks the live graph, so it must run on the session thread — a live
-                // editor may mutate the collections concurrently.
-                Warnings = result.Session.ReadOnSession(() => CollectDeserializationWarnings(result.Project))
+                Warnings = recovery.Warnings,
+                RecoveryIncidents = recovery.RecoveryIncidents,
             };
         });
     }
 
-    private static IReadOnlyList<string> CollectDeserializationWarnings(Project project)
+    private static DeserializationWarningCollection CollectDeserializationWarnings(Project project)
     {
         var warnings = new List<string>();
+        var incidents = new List<RecoveryIncident>();
         foreach (Scene scene in project.Items.OfType<Scene>())
         {
             foreach (Element element in scene.Children)
@@ -109,6 +119,20 @@ public sealed class SessionTools(
                     : element.Name;
                 foreach (IFallback fallback in fallbacks)
                 {
+                    fallback.TryGetTypeName(out string? typeName);
+                    if (string.Equals(
+                            typeName,
+                            IdentityHelper.WriteDiscriminator(fallback.GetType()),
+                            StringComparison.Ordinal))
+                    {
+                        typeName = null;
+                    }
+
+                    incidents.Add(new RecoveryIncident(
+                        elementFile,
+                        fallback.Reason.ToString(),
+                        typeName,
+                        fallback.ErrorMessage));
                     string error = string.IsNullOrWhiteSpace(fallback.ErrorMessage)
                         ? fallback.Reason.ToString()
                         : fallback.ErrorMessage;
@@ -118,8 +142,12 @@ public sealed class SessionTools(
             }
         }
 
-        return warnings;
+        return new DeserializationWarningCollection(warnings, incidents);
     }
+
+    private sealed record DeserializationWarningCollection(
+        IReadOnlyList<string> Warnings,
+        IReadOnlyList<RecoveryIncident> RecoveryIncidents);
 
     private static void CollectFallbacks(
         object? value,

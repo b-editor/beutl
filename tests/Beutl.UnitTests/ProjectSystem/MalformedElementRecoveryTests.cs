@@ -301,7 +301,7 @@ public sealed class MalformedElementRecoveryTests
     }
 
     [Test]
-    public void Save_PreservesSidecarBytesWhenFallbackIsOutsideTheHierarchy()
+    public void Restore_IdlessFallbackOutsideHierarchy_ProjectsRuntimeIdAndPreservesSidecarBytes()
     {
         (Uri sceneUri, string elementPath) = CreatePersistedScene();
         Scene loaded = CoreSerializer.RestoreFromUri<Scene>(sceneUri);
@@ -311,16 +311,24 @@ public sealed class MalformedElementRecoveryTests
         CoreSerializer.StoreToUri(loadedElement, loadedElement.Uri!);
 
         JsonObject json = JsonNode.Parse(File.ReadAllText(elementPath))!.AsObject();
-        Assert.That(
-            ReplaceDiscriminator(json, "Transformation", "[Beutl.Engine]Beutl.Graphics.Transformation:DoesNotExist"),
-            Is.True);
+        JsonObject transformJson = FindObjectByDiscriminator(json, "Transformation")!;
+        transformJson["$type"] = "[Beutl.Engine]Beutl.Graphics.Transformation:DoesNotExist";
+        transformJson.Remove(nameof(CoreObject.Id));
         File.WriteAllText(elementPath, json.ToJsonString());
         byte[] originalBytes = File.ReadAllBytes(elementPath);
 
         Scene recovered = CoreSerializer.RestoreFromUri<Scene>(sceneUri);
+        var recoveredShape = (RectShape)recovered.Children.Single().Objects.Single();
+        var fallback = (IFallback)recoveredShape.Transform.CurrentValue!;
+        var fallbackObject = (CoreObject)fallback;
         CoreSerializer.StoreToUri(recovered, sceneUri);
 
-        Assert.That(File.ReadAllBytes(elementPath), Is.EqualTo(originalBytes));
+        Assert.Multiple(() =>
+        {
+            Assert.That(fallback.Json![nameof(CoreObject.Id)]!.GetValue<string>(),
+                Is.EqualTo(fallbackObject.Id.ToString()));
+            Assert.That(File.ReadAllBytes(elementPath), Is.EqualTo(originalBytes));
+        });
     }
 
     [Test]
@@ -741,7 +749,7 @@ public sealed class MalformedElementRecoveryTests
         Assert.That(recovered.Id, Is.EqualTo(topLevelId));
     }
 
-    private static bool ReplaceDiscriminator(JsonNode node, string containsToken, string replacement)
+    private static JsonObject? FindObjectByDiscriminator(JsonNode node, string containsToken)
     {
         if (node is JsonObject obj)
         {
@@ -750,15 +758,14 @@ public sealed class MalformedElementRecoveryTests
                 && typeValue.TryGetValue(out string? typeName)
                 && typeName.Contains(containsToken))
             {
-                obj["$type"] = replacement;
-                return true;
+                return obj;
             }
 
             foreach ((string _, JsonNode? child) in obj)
             {
-                if (child != null && ReplaceDiscriminator(child, containsToken, replacement))
+                if (child != null && FindObjectByDiscriminator(child, containsToken) is { } result)
                 {
-                    return true;
+                    return result;
                 }
             }
         }
@@ -766,14 +773,14 @@ public sealed class MalformedElementRecoveryTests
         {
             foreach (JsonNode? child in array)
             {
-                if (child != null && ReplaceDiscriminator(child, containsToken, replacement))
+                if (child != null && FindObjectByDiscriminator(child, containsToken) is { } result)
                 {
-                    return true;
+                    return result;
                 }
             }
         }
 
-        return false;
+        return null;
     }
 
     private (Uri SceneUri, string ElementPath) CreatePersistedScene()

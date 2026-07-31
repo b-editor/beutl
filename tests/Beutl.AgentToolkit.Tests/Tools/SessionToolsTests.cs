@@ -100,6 +100,7 @@ public sealed class SessionToolsTests
     [Test]
     public async Task Open_project_warns_about_fallback_in_animation_keyframe_value()
     {
+        const string MissingType = "[Beutl.Engine]Beutl.Engine:MissingAnimatedValue";
         string root = CreateWorkspace();
         string projectPath = Path.Combine(root, "animation-fallback.bep");
         Project project = ProjectOperations.CreateProject(new ProjectCreateOptions(
@@ -137,8 +138,7 @@ public sealed class SessionToolsTests
         JsonObject objectJson = elementJson[nameof(Element.Objects)]!.AsArray()[0]!.AsObject();
         JsonObject animationJson = objectJson["Animations"]![nameof(AnimatedValueHolder.AnimatedValue)]!.AsObject();
         JsonObject keyFrameJson = animationJson[nameof(KeyFrameAnimation.KeyFrames)]!.AsArray()[0]!.AsObject();
-        keyFrameJson[nameof(IKeyFrame.Value)]!.AsObject()["$type"]
-            = "[Beutl.Engine]Beutl.Engine:MissingAnimatedValue";
+        keyFrameJson[nameof(IKeyFrame.Value)]!.AsObject()["$type"] = MissingType;
         File.WriteAllText(elementPath, elementJson.ToJsonString());
 
         var manager = new AgentSessionManager();
@@ -153,6 +153,12 @@ public sealed class SessionToolsTests
             Assert.That(
                 opened.Value!.Warnings,
                 Has.Some.Contains(elementRelativePath).And.Some.Contains(nameof(FallbackReason.TypeNotFound)));
+            Assert.That(opened.Value.RecoveryIncidents, Has.Count.EqualTo(1));
+            Assert.That(opened.Value.RecoveryIncidents[0].ElementFile, Is.EqualTo(elementRelativePath));
+            Assert.That(opened.Value.RecoveryIncidents[0].Reason,
+                Is.EqualTo(nameof(FallbackReason.TypeNotFound)));
+            Assert.That(opened.Value.RecoveryIncidents[0].TypeName, Is.EqualTo(MissingType));
+            Assert.That(opened.Value.RecoveryIncidents[0].Message, Is.Null);
         });
     }
 
@@ -226,6 +232,9 @@ public sealed class SessionToolsTests
         var rendered = await renderTools.RenderStill(
             outputPath,
             cancellationToken: CancellationToken.None);
+        var recoveredFallback = (IFallback)((Scene)manager.CurrentSession!.Root)
+            .Children.Single(item => item.Uri!.LocalPath == malformed.Uri.LocalPath)
+            .Objects.Single();
 
         Assert.Multiple(() =>
         {
@@ -235,6 +244,12 @@ public sealed class SessionToolsTests
                 Has.Some.Contains(malformedRelativePath)
                     .And.Some.Contains("JsonReaderException")
                     .And.Some.Contains("invalid start"));
+            Assert.That(opened.Value.RecoveryIncidents, Has.Count.EqualTo(1));
+            Assert.That(opened.Value.RecoveryIncidents[0].ElementFile, Is.EqualTo(malformedRelativePath));
+            Assert.That(opened.Value.RecoveryIncidents[0].Reason,
+                Is.EqualTo(nameof(FallbackReason.DeserializationFailed)));
+            Assert.That(opened.Value.RecoveryIncidents[0].TypeName, Is.Null);
+            Assert.That(opened.Value.RecoveryIncidents[0].Message, Is.EqualTo(recoveredFallback.ErrorMessage));
             Assert.That(rendered.IsError, Is.Not.True);
             Assert.That(File.Exists(outputPath), Is.True);
         });
@@ -282,6 +297,8 @@ public sealed class SessionToolsTests
             Assert.That(opened.IsSuccess, Is.True, opened.Error?.Message);
             Assert.That(opened.Value!.Warnings, Has.Some.Contains("first/clip.belm"));
             Assert.That(opened.Value.Warnings, Has.Some.Contains("second/clip.belm"));
+            Assert.That(opened.Value.RecoveryIncidents.Select(static item => item.ElementFile),
+                Is.EquivalentTo(new[] { "first/clip.belm", "second/clip.belm" }));
         });
     }
 

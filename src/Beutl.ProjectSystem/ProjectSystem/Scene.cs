@@ -1,4 +1,5 @@
-﻿using System.Collections.Concurrent;
+﻿using System.Collections;
+using System.Collections.Concurrent;
 using System.Collections.Immutable;
 using System.Collections.Specialized;
 using System.ComponentModel;
@@ -9,6 +10,7 @@ using System.Text;
 using System.Text.Json;
 using System.Text.Json.Nodes;
 using System.Text.RegularExpressions;
+using Beutl.Animation;
 using Beutl.Collections;
 using Beutl.Configuration;
 using Beutl.Engine;
@@ -812,10 +814,8 @@ public class Scene : ProjectItem, INotifyEdited
         try
         {
             Element element = CoreSerializer.RestoreFromUri<Element>(uri);
-            IFallback[] fallbacks = element.EnumerateAllChildren<IFallback>().ToArray();
+            IFallback[] fallbacks = EnumerateSerializedGraphFallbacks(element).ToArray();
 
-            // The incident tally also catches fallbacks stored outside the hierarchy (e.g. a
-            // keyframe value), which the child traversal cannot see.
             if (fallbacks.Length > 0 || DeserializationIncidents.FallbackCount != fallbackCountBefore)
             {
                 foreach (IFallback fallback in fallbacks)
@@ -860,6 +860,62 @@ public class Scene : ProjectItem, INotifyEdited
     private static void MarkRecoveredElement(Element element, byte[] rawBytes, Uri uri)
     {
         element.SuppressedStorageSource = new SuppressedStorageSource(rawBytes, uri);
+    }
+
+    private static IEnumerable<IFallback> EnumerateSerializedGraphFallbacks(Element element)
+    {
+        var fallbacks = new List<IFallback>();
+        var visited = new HashSet<object>(ReferenceEqualityComparer.Instance);
+        CollectSerializedGraphFallbacks(element, visited, fallbacks);
+        return fallbacks;
+    }
+
+    private static void CollectSerializedGraphFallbacks(
+        object? value,
+        ISet<object> visited,
+        ICollection<IFallback> fallbacks)
+    {
+        if (value is null or string
+            || (!value.GetType().IsValueType && !visited.Add(value)))
+        {
+            return;
+        }
+
+        if (value is IFallback fallback)
+        {
+            fallbacks.Add(fallback);
+        }
+
+        if (value is IHierarchical hierarchical)
+        {
+            foreach (IHierarchical child in hierarchical.HierarchicalChildren)
+            {
+                CollectSerializedGraphFallbacks(child, visited, fallbacks);
+            }
+        }
+
+        if (value is EngineObject engineObject)
+        {
+            foreach (IProperty property in engineObject.Properties)
+            {
+                CollectSerializedGraphFallbacks(property.CurrentValue, visited, fallbacks);
+                if (property.Animation is IKeyFrameAnimation animation)
+                {
+                    foreach (IKeyFrame keyFrame in animation.KeyFrames)
+                    {
+                        CollectSerializedGraphFallbacks(keyFrame.Value, visited, fallbacks);
+                    }
+                }
+            }
+        }
+
+        if (value is IEnumerable enumerable)
+        {
+            foreach (object? item in enumerable)
+            {
+                CollectSerializedGraphFallbacks(item, visited, fallbacks);
+            }
+        }
     }
 
     private static void EnsureFallbackProjection(IFallback fallback)
