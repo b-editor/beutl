@@ -79,7 +79,9 @@ public sealed class SessionTools(
                 result.Session.Source.ToString(),
                 CreateSummary(result.Session, result.Project))
             {
-                Warnings = CollectDeserializationWarnings(result.Project)
+                // The traversal walks the live graph, so it must run on the session thread — a live
+                // editor may mutate the collections concurrently.
+                Warnings = result.Session.ReadOnSession(() => CollectDeserializationWarnings(result.Project))
             };
         });
     }

@@ -74,7 +74,9 @@ public abstract class CoreObject : ICoreObject
 
     public Uri? Uri { get; set; }
 
-    internal bool IsStorageWriteSuppressed { get; set; }
+    // Non-null while this object stands in for a file the serializer must not regenerate:
+    // StoreToUri skips the source location and copies the raw text verbatim to any new one.
+    internal SuppressedStorageSource? SuppressedStorageSource { get; set; }
 
     private Dictionary<int, IEntry> Values => _values ??= [];
 

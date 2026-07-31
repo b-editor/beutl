@@ -227,8 +227,25 @@ public static class CoreSerializer
     public static void StoreToUri<T>(T obj, Uri uri, CoreSerializationMode? mode = null)
         where T : ICoreSerializable
     {
-        if (obj is CoreObject { IsStorageWriteSuppressed: true })
+        if (obj is CoreObject { SuppressedStorageSource: { } suppressed } suppressedObj)
         {
+            if (uri == suppressed.SourceUri || uri.Scheme != "file")
+            {
+                return;
+            }
+
+            // Rehomed (save-as): the retained bytes move verbatim so the new project copy keeps the
+            // element, while the original file stays untouched.
+            string rehomedPath = uri.LocalPath;
+            string? rehomedDirectory = Path.GetDirectoryName(rehomedPath);
+            if (rehomedDirectory != null)
+            {
+                Directory.CreateDirectory(rehomedDirectory);
+            }
+
+            File.WriteAllText(rehomedPath, suppressed.RawText);
+            suppressedObj.Uri = uri;
+            suppressedObj.SuppressedStorageSource = suppressed with { SourceUri = uri };
             return;
         }
 

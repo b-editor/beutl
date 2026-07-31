@@ -61,8 +61,6 @@ public class Scene : ProjectItem, INotifyEdited
     public static readonly CoreProperty<CoreList<SceneMarker>> MarkersProperty;
     private readonly List<string> _includeElements = ["**/*.belm"];
     private readonly List<string> _excludeElements = [];
-    private readonly ConcurrentDictionary<Element, RecoveredElementSource> _recoveredElements
-        = new(ReferenceEqualityComparer.Instance);
     private readonly Elements _children;
     private readonly HierarchicalList<TimelineLayer> _layers;
     private readonly HierarchicalList<SceneMarker> _markers;
@@ -555,10 +553,7 @@ public class Scene : ProjectItem, INotifyEdited
         {
             foreach (Element item in Children)
             {
-                if (!_recoveredElements.ContainsKey(item))
-                {
-                    CoreSerializer.StoreToUri(item, item.Uri!);
-                }
+                CoreSerializer.StoreToUri(item, item.Uri!);
             }
         }
 
@@ -693,7 +688,6 @@ public class Scene : ProjectItem, INotifyEdited
 
     private Element RestoreElementOrFallback(Uri uri)
     {
-        string rawText = File.ReadAllText(uri.LocalPath);
         try
         {
             Element element = CoreSerializer.RestoreFromUri<Element>(uri);
@@ -705,13 +699,20 @@ public class Scene : ProjectItem, INotifyEdited
                     EnsureFallbackProjection(fallback);
                 }
 
-                MarkRecoveredElement(element, rawText);
+                MarkRecoveredElement(element, File.ReadAllText(uri.LocalPath), uri);
             }
 
             return element;
         }
-        catch (JsonException ex)
+        // Deserialization-domain failures recover; filesystem failures still propagate. A resolvable
+        // but non-Element $type surfaces as InvalidCastException, an unresolvable one as
+        // InvalidOperationException / NotSupportedException.
+        catch (Exception ex) when (ex is JsonException
+                                       or InvalidCastException
+                                       or InvalidOperationException
+                                       or NotSupportedException)
         {
+            string rawText = File.ReadAllText(uri.LocalPath);
             var element = new Element
             {
                 Id = ResolveRecoveredElementId(rawText, uri),
@@ -727,15 +728,14 @@ public class Scene : ProjectItem, INotifyEdited
             };
             fallback.Json = CreateFallbackProjection(fallback);
             element.AddObject(fallback);
-            MarkRecoveredElement(element, rawText);
+            MarkRecoveredElement(element, rawText, uri);
             return element;
         }
     }
 
-    private void MarkRecoveredElement(Element element, string rawText)
+    private static void MarkRecoveredElement(Element element, string rawText, Uri uri)
     {
-        element.IsStorageWriteSuppressed = true;
-        _recoveredElements[element] = new RecoveredElementSource(rawText);
+        element.SuppressedStorageSource = new SuppressedStorageSource(rawText, uri);
     }
 
     private static void EnsureFallbackProjection(IFallback fallback)
@@ -764,18 +764,14 @@ public class Scene : ProjectItem, INotifyEdited
 
     private Guid ResolveRecoveredElementId(string rawText, Uri uri)
     {
+        // Only a top-level Id may name the element: a nested object's or quoted Id would collide
+        // with live objects, so anything else falls through to the deterministic filename Guid.
         MatchCollection matches = s_idPattern.Matches(rawText);
         Match? topLevelMatch = FindTopLevelIdMatch(rawText, matches);
         if (topLevelMatch != null
             && Guid.TryParse(topLevelMatch.Groups["id"].Value, out Guid topLevelId))
         {
             return topLevelId;
-        }
-
-        if (matches.Count > 0
-            && Guid.TryParse(matches[0].Groups["id"].Value, out Guid firstId))
-        {
-            return firstId;
         }
 
         string sceneDirectory = Path.GetDirectoryName(Uri!.LocalPath)!;
@@ -861,7 +857,6 @@ public class Scene : ProjectItem, INotifyEdited
         (bytes[6], bytes[7]) = (bytes[7], bytes[6]);
     }
 
-    private sealed record RecoveredElementSource(string RawText);
 
     private void UpdateInclude()
     {

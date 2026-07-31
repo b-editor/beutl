@@ -139,6 +139,7 @@ public sealed class SessionToolsTests
         SessionTools sessionTools = CreateSessionTools(source, manager, root);
 
         ToolResult<OpenProjectResponse> opened = await sessionTools.OpenProject(projectPath);
+        Assert.That(opened.IsSuccess, Is.True, opened.Error?.Message);
         JsonObject responseJson = JsonSerializer.SerializeToNode(opened.Value)!.AsObject();
 
         var stillRenderer = new StillRenderer();
@@ -181,6 +182,7 @@ public sealed class SessionToolsTests
         using var source = new FileSessionSource();
         SessionTools sessionTools = CreateSessionTools(source, manager, root);
         ToolResult<OpenProjectResponse> opened = await sessionTools.OpenProject(fixture.ProjectPath);
+        Assert.That(opened.IsSuccess, Is.True, opened.Error?.Message);
         var editTools = new EditTools(manager);
         JsonObject patch = new()
         {
@@ -217,6 +219,7 @@ public sealed class SessionToolsTests
         using var source = new FileSessionSource();
         SessionTools sessionTools = CreateSessionTools(source, manager, root);
         ToolResult<OpenProjectResponse> opened = await sessionTools.OpenProject(fixture.ProjectPath);
+        Assert.That(opened.IsSuccess, Is.True, opened.Error?.Message);
         var editTools = new EditTools(manager);
         JsonObject patch = new()
         {
