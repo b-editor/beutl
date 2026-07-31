@@ -116,6 +116,25 @@ public sealed class MalformedElementRecoveryTests
     }
 
     [Test]
+    public void Restore_UnresolvableGenericDiscriminator_RecoversInsteadOfFailing()
+    {
+        (Uri sceneUri, string elementPath) = CreatePersistedScene();
+        File.WriteAllText(
+            elementPath,
+            """{"$type":"[NoSuchAssembly]Ns:Foo<[System.Private.CoreLib]System:Int32>","Id":"85f4d478-e16d-4cb1-ab71-ee1a90a03fe0"}""");
+        byte[] originalBytes = File.ReadAllBytes(elementPath);
+
+        Scene recovered = CoreSerializer.RestoreFromUri<Scene>(sceneUri);
+        CoreSerializer.StoreToUri(recovered, sceneUri);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(recovered.Children.Single().IsEnabled, Is.False);
+            Assert.That(File.ReadAllBytes(elementPath), Is.EqualTo(originalBytes));
+        });
+    }
+
+    [Test]
     public void Restore_SceneDiscriminatorWithSelfInclude_RecoversWithoutRecursing()
     {
         (Uri sceneUri, string elementPath) = CreatePersistedScene();

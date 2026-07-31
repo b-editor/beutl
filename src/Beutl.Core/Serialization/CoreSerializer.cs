@@ -251,7 +251,18 @@ public static class CoreSerializer
             // element. The suppression record is never mutated — the source location stays
             // skip-protected even if a failed multi-file save rolls Uri back afterwards.
             string rehomedPath = uri.LocalPath;
-            if (File.Exists(rehomedPath))
+            string? rehomedDirectory = Path.GetDirectoryName(rehomedPath);
+            if (rehomedDirectory != null)
+            {
+                Directory.CreateDirectory(rehomedDirectory);
+            }
+
+            try
+            {
+                using var stream = new FileStream(rehomedPath, FileMode.CreateNew, FileAccess.Write);
+                stream.Write(suppressed.RawBytes);
+            }
+            catch (IOException) when (File.Exists(rehomedPath))
             {
                 // An existing file may hold a manual repair of the recovered content (or an earlier
                 // verbatim copy); never overwrite it.
@@ -259,13 +270,6 @@ public static class CoreSerializer
                 return;
             }
 
-            string? rehomedDirectory = Path.GetDirectoryName(rehomedPath);
-            if (rehomedDirectory != null)
-            {
-                Directory.CreateDirectory(rehomedDirectory);
-            }
-
-            File.WriteAllBytes(rehomedPath, suppressed.RawBytes);
             suppressedObj.Uri = uri;
             return;
         }

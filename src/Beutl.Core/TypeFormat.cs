@@ -19,6 +19,7 @@ namespace Beutl
             // hand-edited file); every caller already treats null as "unknown type".
             catch (Exception ex) when (ex is IndexOutOfRangeException
                                            or ArgumentOutOfRangeException
+                                           or ArgumentException
                                            or InvalidOperationException)
             {
                 return null;
@@ -333,6 +334,11 @@ namespace Beutl
                 else
                 {
                     type = _assembly?.GetType($"{_namespace ?? ""}.{typeName}{suffix}")!;
+                }
+
+                if (type == null)
+                {
+                    return null;
                 }
 
                 if (genericArgs.Length > 0)
