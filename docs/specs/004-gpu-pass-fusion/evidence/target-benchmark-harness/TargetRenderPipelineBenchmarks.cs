@@ -100,12 +100,26 @@ internal sealed class TargetRenderPipelineBenchmarkSession : IDisposable
         {
             RenderNode cacheNode = _fixture.CacheNode
                 ?? throw new InvalidOperationException("The static-prefix fixture has no cache boundary.");
-            cacheNode.Cache.ReportRenderCount(RenderNodeCache.Count);
+            // Starting-SHA admission (CanCacheRecursive) requires the render count on every node
+            // of the cached subtree, not just the boundary.
+            ReportRenderCountRecursive(cacheNode);
             RenderNodeCacheHelper.MakeCache(cacheNode, RenderCacheOptions.Default, 1, 1);
             if (!cacheNode.Cache.IsCached)
                 throw new InvalidOperationException("The starting-SHA static prefix was not cached.");
         }
         _processor = new RenderNodeProcessor(_fixture.Root, _scene.HasStaticPrefixCache, 1, 1);
+    }
+
+    private static void ReportRenderCountRecursive(RenderNode node)
+    {
+        node.Cache.ReportRenderCount(RenderNodeCache.Count);
+        if (node is ContainerRenderNode container)
+        {
+            foreach (RenderNode child in container.Children)
+            {
+                ReportRenderCountRecursive(child);
+            }
+        }
     }
 
     public void WarmAndVerify()
