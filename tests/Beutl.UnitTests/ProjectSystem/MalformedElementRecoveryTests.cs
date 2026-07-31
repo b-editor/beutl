@@ -401,6 +401,59 @@ public sealed class MalformedElementRecoveryTests
     }
 
     [Test]
+    public void Restore_MalformedSubdirectoryElementIdUsesForwardSlashRelativePath()
+    {
+        (Uri sceneUri, string[] elementPaths) =
+            CreatePersistedSceneWithElements(Path.Combine("subdirectory", "clip.belm"));
+        File.WriteAllText(elementPaths[0], "{ this is not valid JSON");
+
+        Guid first = CoreSerializer.RestoreFromUri<Scene>(sceneUri).Children.Single().Id;
+        Guid second = CoreSerializer.RestoreFromUri<Scene>(sceneUri).Children.Single().Id;
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(first, Is.EqualTo(new Guid("b23f930b-40c4-51ca-a013-59c3c3798f02")));
+            Assert.That(second, Is.EqualTo(first));
+            Assert.That(first, Is.Not.EqualTo(new Guid("10a2473b-45a8-5459-a5e2-9ea28f691f53")));
+        });
+    }
+
+    [Test]
+    public void Restore_PersistedRecoveredRemapSurvivesClaimantRemoval()
+    {
+        (Uri sceneUri, string[] elementPaths) =
+            CreatePersistedSceneWithElements("healthy.belm", "recovered.belm");
+        Scene original = CoreSerializer.RestoreFromUri<Scene>(sceneUri);
+        Element healthy = original.Children.Single(child => child.Uri!.LocalPath == elementPaths[0]);
+        File.WriteAllText(
+            elementPaths[1],
+            $$"""{"Id":"{{healthy.Id}}","Objects":[""");
+
+        Scene recoveredScene = CoreSerializer.RestoreFromUri<Scene>(sceneUri);
+        Element recovered = recoveredScene.Children.Single(child => child.Uri!.LocalPath == elementPaths[1]);
+        Guid remappedId = recovered.Id;
+        CoreSerializer.StoreToUri(recoveredScene, sceneUri);
+
+        JsonObject persistedScene = JsonNode.Parse(File.ReadAllText(sceneUri.LocalPath))!.AsObject();
+        JsonObject persistedIds = persistedScene["RecoveredElementIds"]!.AsObject();
+        recoveredScene.DeleteChild(
+            recoveredScene.Children.Single(child => child.Uri!.LocalPath == elementPaths[0]));
+        CoreSerializer.StoreToUri(recoveredScene, sceneUri);
+
+        Scene reloaded = CoreSerializer.RestoreFromUri<Scene>(sceneUri);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(remappedId, Is.Not.EqualTo(healthy.Id));
+            Assert.That(
+                persistedIds["recovered.belm"]!.GetValue<string>(),
+                Is.EqualTo(remappedId.ToString()));
+            Assert.That(reloaded.Children, Has.Count.EqualTo(1));
+            Assert.That(reloaded.Children.Single().Id, Is.EqualTo(remappedId));
+        });
+    }
+
+    [Test]
     public void Restore_NestedFallbackProjection_PreservesOriginalDiscriminator()
     {
         (Uri sceneUri, string elementPath) = CreatePersistedScene();

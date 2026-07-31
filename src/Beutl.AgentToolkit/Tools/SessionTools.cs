@@ -102,7 +102,10 @@ public sealed class SessionTools(
                 }
 
                 string elementFile = element.Uri is { IsFile: true } uri
-                    ? Path.GetFileName(uri.LocalPath)
+                    && scene.Uri is { IsFile: true } sceneUri
+                    ? Path.GetRelativePath(
+                        Path.GetDirectoryName(sceneUri.LocalPath)!,
+                        uri.LocalPath).Replace('\\', '/')
                     : element.Name;
                 foreach (IFallback fallback in fallbacks)
                 {

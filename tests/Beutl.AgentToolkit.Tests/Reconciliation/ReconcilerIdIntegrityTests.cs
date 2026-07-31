@@ -4,6 +4,7 @@ using Beutl.AgentToolkit.Reconciliation;
 using Beutl.AgentToolkit.Sessions;
 using Beutl.AgentToolkit.Tests.Helpers;
 using Beutl.AgentToolkit.Tools;
+using Beutl.Engine;
 using Beutl.Graphics.Shapes;
 using Beutl.Graphics.Transformation;
 using Beutl.ProjectSystem;
@@ -176,6 +177,52 @@ public sealed class ReconcilerIdIntegrityTests
         });
     }
 
+    [Test]
+    public void Apply_edit_allows_preexisting_fallback_in_nonhierarchical_property_value()
+    {
+        Scene scene = CreateSceneWithElement(out Element healthy);
+        string directory = Path.GetDirectoryName(scene.Uri!.LocalPath)!;
+        var carrier = new Element
+        {
+            Start = TimeSpan.FromSeconds(4),
+            Length = TimeSpan.FromSeconds(4),
+            Uri = new Uri(Path.Combine(directory, "carrier.belm")),
+        };
+        var holder = new NonHierarchicalValueHolder();
+        var fallback = new FallbackEngineObject();
+        fallback.Json = new JsonObject
+        {
+            ["$type"] = "[Beutl.Engine]Beutl.Engine:MissingPropertyValue",
+            [nameof(CoreObject.Id)] = fallback.Id.ToString(),
+        };
+        holder.Value.CurrentValue = fallback;
+        carrier.AddObject(holder);
+        scene.Children.Add(carrier);
+
+        using var session = new AgentToolkitTestSession(scene);
+        var manager = new AgentSessionManager();
+        manager.UseSource(new AgentToolkitTestSessionSource(session));
+        var tools = new EditTools(manager);
+        JsonObject renamePatch = new()
+        {
+            ["Elements"] = new JsonArray(new JsonObject
+            {
+                ["Id"] = healthy.Id.ToString(),
+                ["Name"] = "Renamed healthy element",
+            }),
+        };
+
+        ToolResult<ApplyEditResponse> renamed = tools.ApplyEdit(
+            patch: renamePatch,
+            schemaVersion: SchemaVersion.Current);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(renamed.IsSuccess, Is.True, renamed.Error?.Message);
+            Assert.That(healthy.Name, Is.EqualTo("Renamed healthy element"));
+        });
+    }
+
     private static JsonObject CreateDocumentWithIdlessRect(out string mintPath)
     {
         mintPath = "$/Elements[0]/Objects[0]";
@@ -210,5 +257,17 @@ public sealed class ReconcilerIdIntegrityTests
         };
         scene.Children.Add(element);
         return scene;
+    }
+
+    public sealed class NonHierarchicalValueHolder : EngineObject
+    {
+        public NonHierarchicalValueHolder()
+        {
+            Value.SetAttributes(nameof(Value), []);
+            Value.SetValidator(Value.CreateValidator([]));
+            RegisterProperty(Value);
+        }
+
+        public IProperty<EngineObject?> Value { get; } = Property.Create<EngineObject?>();
     }
 }

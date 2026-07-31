@@ -49,6 +49,7 @@ public enum ElementOverlapHandling
 public class Scene : ProjectItem, INotifyEdited
 {
     private const int MaxRecoveredIdCollisionAttempts = 1024;
+    private const string RecoveredElementIdsKey = "RecoveredElementIds";
     private static readonly Guid s_recoveredElementNamespace = new("dfad2f76-1d04-5593-ae3b-f371fb1f42ee");
     private static readonly Regex s_idPattern = new(
         "\"Id\"\\s*:\\s*\"(?<id>[0-9a-fA-F-]{36})\"",
@@ -65,6 +66,7 @@ public class Scene : ProjectItem, INotifyEdited
     private readonly Elements _children;
     private readonly HierarchicalList<TimelineLayer> _layers;
     private readonly HierarchicalList<SceneMarker> _markers;
+    private readonly Dictionary<string, Guid> _recoveredElementIds = new(StringComparer.Ordinal);
     private TimeSpan _start = TimeSpan.FromMinutes(0);
     private TimeSpan _duration = TimeSpan.FromMinutes(5);
     private PixelSize _frameSize;
@@ -549,6 +551,17 @@ public class Scene : ProjectItem, INotifyEdited
         context.SetValue("Height", FrameSize.Height);
         context.SetValue("Groups", Groups.Select(ids => string.Join(':', ids)).ToArray());
         context.SetValue(nameof(Markers), Markers);
+        PruneRecoveredElementIds();
+        if (_recoveredElementIds.Count > 0)
+        {
+            var recoveredElementIds = new JsonObject();
+            foreach ((string path, Guid id) in _recoveredElementIds.OrderBy(static item => item.Key, StringComparer.Ordinal))
+            {
+                recoveredElementIds[path] = id.ToString();
+            }
+
+            context.SetValue(RecoveredElementIdsKey, recoveredElementIds);
+        }
 
         if (context.Mode.HasFlag(CoreSerializationMode.SaveReferencedObjects))
         {
@@ -604,6 +617,20 @@ public class Scene : ProjectItem, INotifyEdited
         if (context.Contains("Width") && context.Contains("Height"))
         {
             FrameSize = new PixelSize(context.GetValue<int>("Width"), context.GetValue<int>("Height"));
+        }
+
+        _recoveredElementIds.Clear();
+        if (context.GetValue<JsonNode>(RecoveredElementIdsKey) is JsonObject recoveredElementIds)
+        {
+            foreach ((string path, JsonNode? idNode) in recoveredElementIds)
+            {
+                if (idNode is JsonValue idValue
+                    && idValue.TryGetValue(out string? idText)
+                    && Guid.TryParse(idText, out Guid id))
+                {
+                    _recoveredElementIds[NormalizeRelativePath(path)] = id;
+                }
+            }
         }
 
         if (context.GetValue<JsonNode>(nameof(Elements)) is { } elementsJson)
@@ -690,9 +717,6 @@ public class Scene : ProjectItem, INotifyEdited
 
     private void ReassignDuplicateRecoveredIds()
     {
-        // A corrupt sidecar can surface an Id another element already owns; the recovered element
-        // yields it to the healthy claimant so Id-based reconciliation and group references stay
-        // unambiguous, and falls back to its deterministic path-derived identity.
         var claimedIds = new HashSet<Guid>();
         foreach (Element child in Children)
         {
@@ -707,10 +731,44 @@ public class Scene : ProjectItem, INotifyEdited
             .Where(static child => child.SuppressedStorageSource is not null)
             .Select(child => (
                 Child: child,
-                RelativePath: Path.GetRelativePath(sceneDirectory, child.Uri!.LocalPath)))
-            .OrderBy(static item => item.RelativePath, StringComparer.Ordinal);
+                RelativePath: NormalizeRelativePath(
+                    Path.GetRelativePath(sceneDirectory, child.Uri!.LocalPath))))
+            .OrderBy(static item => item.RelativePath, StringComparer.Ordinal)
+            .ToArray();
+        var recoveredPaths = recoveredChildren
+            .Select(static item => item.RelativePath)
+            .ToHashSet(StringComparer.Ordinal);
+        foreach (string path in _recoveredElementIds.Keys.Where(path => !recoveredPaths.Contains(path)).ToArray())
+        {
+            _recoveredElementIds.Remove(path);
+        }
+
+        var persistedChildren = new HashSet<Element>();
         foreach ((Element child, string relativePath) in recoveredChildren)
         {
+            if (_recoveredElementIds.TryGetValue(relativePath, out Guid persistedId))
+            {
+                // A persisted remap that a healthy element now owns is stale; drop it so the
+                // derivation loop assigns a fresh deterministic identity instead of a duplicate.
+                if (claimedIds.Add(persistedId))
+                {
+                    child.Id = persistedId;
+                    persistedChildren.Add(child);
+                }
+                else
+                {
+                    _recoveredElementIds.Remove(relativePath);
+                }
+            }
+        }
+
+        foreach ((Element child, string relativePath) in recoveredChildren)
+        {
+            if (persistedChildren.Contains(child))
+            {
+                continue;
+            }
+
             if (claimedIds.Add(child.Id))
             {
                 continue;
@@ -726,6 +784,7 @@ public class Scene : ProjectItem, INotifyEdited
                 if (claimedIds.Add(candidate))
                 {
                     child.Id = candidate;
+                    _recoveredElementIds[relativePath] = candidate;
                     assigned = true;
                     break;
                 }
@@ -836,8 +895,32 @@ public class Scene : ProjectItem, INotifyEdited
         }
 
         string sceneDirectory = Path.GetDirectoryName(Uri!.LocalPath)!;
-        string relativePath = Path.GetRelativePath(sceneDirectory, uri.LocalPath);
+        string relativePath = NormalizeRelativePath(Path.GetRelativePath(sceneDirectory, uri.LocalPath));
         return CreateVersion5Guid(s_recoveredElementNamespace, relativePath);
+    }
+
+    private void PruneRecoveredElementIds()
+    {
+        if (_recoveredElementIds.Count == 0)
+        {
+            return;
+        }
+
+        string sceneDirectory = Path.GetDirectoryName(Uri!.LocalPath)!;
+        var recoveredPaths = Children
+            .Where(static child => child.SuppressedStorageSource is not null)
+            .Select(child => NormalizeRelativePath(
+                Path.GetRelativePath(sceneDirectory, child.Uri!.LocalPath)))
+            .ToHashSet(StringComparer.Ordinal);
+        foreach (string path in _recoveredElementIds.Keys.Where(path => !recoveredPaths.Contains(path)).ToArray())
+        {
+            _recoveredElementIds.Remove(path);
+        }
+    }
+
+    private static string NormalizeRelativePath(string path)
+    {
+        return path.Replace('\\', '/');
     }
 
     private static Match? FindTopLevelIdMatch(string rawText, MatchCollection matches)

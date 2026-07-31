@@ -59,6 +59,9 @@ public static class CoreSerializer
 
     public static object DeserializeFromJsonObject(JsonObject json, Type baseType, CoreSerializerOptions? options = null)
     {
+        // A sealed baseType deliberately ignores any present discriminator: sealed wrapper types
+        // (e.g. Optional<T>) legitimately carry the wrapped payload's $type on their own node and
+        // interpret it themselves during Deserialize.
         Type? actualType = baseType.IsSealed ? baseType : json.GetDiscriminator(baseType);
         if (actualType == null)
         {

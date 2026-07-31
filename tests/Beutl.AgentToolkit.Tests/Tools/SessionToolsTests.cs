@@ -51,6 +51,9 @@ public sealed class SessionToolsTests
         ProjectOperations.Save(project);
 
         string elementPath = element.Uri!.LocalPath;
+        string elementRelativePath = Path.GetRelativePath(
+            Path.GetDirectoryName(scene.Uri!.LocalPath)!,
+            elementPath).Replace('\\', '/');
         JsonObject elementJson = JsonNode.Parse(File.ReadAllText(elementPath))!.AsObject();
         JsonObject drawableJson = elementJson[nameof(Element.Objects)]!.AsArray()[0]!.AsObject();
         drawableJson[nameof(RectShape.Width)] = "not-a-number";
@@ -88,7 +91,7 @@ public sealed class SessionToolsTests
             Assert.That(opened.IsSuccess, Is.True, opened.Error?.Message);
             Assert.That(
                 responseJson["Warnings"]?.AsArray().Select(static item => item!.GetValue<string>()),
-                Has.Some.Contains(Path.GetFileName(elementPath)).And.Some.Contains("could not be converted"));
+                Has.Some.Contains(elementRelativePath).And.Some.Contains("could not be converted"));
             Assert.That(rendered.IsError, Is.Not.True);
             Assert.That(File.Exists(outputPath), Is.True);
         });
@@ -127,6 +130,9 @@ public sealed class SessionToolsTests
         ProjectOperations.Save(project);
 
         string elementPath = element.Uri!.LocalPath;
+        string elementRelativePath = Path.GetRelativePath(
+            Path.GetDirectoryName(scene.Uri!.LocalPath)!,
+            elementPath).Replace('\\', '/');
         JsonObject elementJson = JsonNode.Parse(File.ReadAllText(elementPath))!.AsObject();
         JsonObject objectJson = elementJson[nameof(Element.Objects)]!.AsArray()[0]!.AsObject();
         JsonObject animationJson = objectJson["Animations"]![nameof(AnimatedValueHolder.AnimatedValue)]!.AsObject();
@@ -146,7 +152,7 @@ public sealed class SessionToolsTests
             Assert.That(opened.IsSuccess, Is.True, opened.Error?.Message);
             Assert.That(
                 opened.Value!.Warnings,
-                Has.Some.Contains(Path.GetFileName(elementPath)).And.Some.Contains(nameof(FallbackReason.TypeNotFound)));
+                Has.Some.Contains(elementRelativePath).And.Some.Contains(nameof(FallbackReason.TypeNotFound)));
         });
     }
 
@@ -191,6 +197,9 @@ public sealed class SessionToolsTests
         scene.Children.Add(malformed);
         ProjectOperations.Save(project);
         File.WriteAllText(malformed.Uri!.LocalPath, "{ this is not valid JSON");
+        string malformedRelativePath = Path.GetRelativePath(
+            sceneDirectory,
+            malformed.Uri.LocalPath).Replace('\\', '/');
 
         var manager = new AgentSessionManager();
         using var source = new FileSessionSource();
@@ -223,11 +232,56 @@ public sealed class SessionToolsTests
             Assert.That(opened.Value!.Summary.Scenes.Single().Elements, Is.EqualTo(2));
             Assert.That(
                 responseJson["Warnings"]?.AsArray().Select(static item => item!.GetValue<string>()),
-                Has.Some.Contains(Path.GetFileName(malformed.Uri.LocalPath))
+                Has.Some.Contains(malformedRelativePath)
                     .And.Some.Contains("JsonReaderException")
                     .And.Some.Contains("invalid start"));
             Assert.That(rendered.IsError, Is.Not.True);
             Assert.That(File.Exists(outputPath), Is.True);
+        });
+    }
+
+    [Test]
+    public async Task Open_project_warning_paths_distinguish_same_named_sidecars_in_different_directories()
+    {
+        string root = CreateWorkspace();
+        string projectPath = Path.Combine(root, "duplicate-sidecar-names.bep");
+        Project project = ProjectOperations.CreateProject(new ProjectCreateOptions(
+            projectPath,
+            64,
+            64,
+            30,
+            TimeSpan.FromSeconds(1)));
+        Scene scene = project.Items.OfType<Scene>().Single();
+        string sceneDirectory = Path.GetDirectoryName(scene.Uri!.LocalPath)!;
+        string firstPath = Path.Combine(sceneDirectory, "first", "clip.belm");
+        string secondPath = Path.Combine(sceneDirectory, "second", "clip.belm");
+        scene.Children.Add(new Element
+        {
+            Name = "First clip",
+            Length = TimeSpan.FromSeconds(1),
+            Uri = new Uri(firstPath),
+        });
+        scene.Children.Add(new Element
+        {
+            Name = "Second clip",
+            Length = TimeSpan.FromSeconds(1),
+            Uri = new Uri(secondPath),
+        });
+        ProjectOperations.Save(project);
+        File.WriteAllText(firstPath, "{ this is not valid JSON");
+        File.WriteAllText(secondPath, "{ this is not valid JSON");
+
+        var manager = new AgentSessionManager();
+        using var source = new FileSessionSource();
+        SessionTools sessionTools = CreateSessionTools(source, manager, root);
+
+        ToolResult<OpenProjectResponse> opened = await sessionTools.OpenProject(projectPath);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(opened.IsSuccess, Is.True, opened.Error?.Message);
+            Assert.That(opened.Value!.Warnings, Has.Some.Contains("first/clip.belm"));
+            Assert.That(opened.Value.Warnings, Has.Some.Contains("second/clip.belm"));
         });
     }
 

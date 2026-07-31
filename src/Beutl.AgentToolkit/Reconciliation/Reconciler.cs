@@ -681,21 +681,16 @@ public sealed class Reconciler
     private static HashSet<Guid> CollectFallbackIds(CoreObject root)
     {
         var ids = new HashSet<Guid>();
-        if (root is IHierarchical hierarchical)
+        var visited = new HashSet<object>(ReferenceEqualityComparer.Instance);
+        TraverseSerializedGraph(root, "$", visited, (node, _) =>
         {
-            foreach (IFallback fallback in hierarchical.EnumerateAllChildren<IFallback>())
+            if (node is IFallback)
             {
-                if (fallback is CoreObject coreObject)
-                {
-                    ids.Add(coreObject.Id);
-                }
+                ids.Add(node.Id);
             }
-        }
 
-        if (root is IFallback rootFallback)
-        {
-            ids.Add(((CoreObject)rootFallback).Id);
-        }
+            return false;
+        });
 
         return ids;
     }
@@ -705,112 +700,135 @@ public sealed class Reconciler
         string path,
         HashSet<Guid> existingFallbackIds)
     {
-        var visited = new HashSet<Guid>();
-        return FindFirstNewFallbackCore(root, path, existingFallbackIds, visited);
-    }
-
-    private static FallbackOccurrence? FindFirstNewFallbackCore(
-        CoreObject node,
-        string path,
-        HashSet<Guid> existingFallbackIds,
-        HashSet<Guid> visited)
-    {
-        if (!visited.Add(node.Id))
+        FallbackOccurrence? result = null;
+        var visited = new HashSet<object>(ReferenceEqualityComparer.Instance);
+        TraverseSerializedGraph(root, path, visited, (node, nodePath) =>
         {
-            return null;
-        }
+            if (node is not IFallback fallback || existingFallbackIds.Contains(node.Id))
+            {
+                return false;
+            }
 
-        if (node is IFallback fallback && !existingFallbackIds.Contains(node.Id))
-        {
             fallback.TryGetTypeName(out string? fallbackTypeName);
-            return new FallbackOccurrence(
-                path,
+            result = new FallbackOccurrence(
+                nodePath,
                 node.Id,
                 fallbackTypeName,
                 fallback.Reason.ToString(),
                 fallback.ErrorMessage);
-        }
-
-        switch (node)
-        {
-            case Scene scene:
-                for (int i = 0; i < scene.Children.Count; i++)
-                {
-                    if (FindFirstNewFallbackCore(
-                            scene.Children[i],
-                            $"{path}/Elements[{i}]",
-                            existingFallbackIds,
-                            visited) is { } occurrence)
-                    {
-                        return occurrence;
-                    }
-                }
-                break;
-
-            case Element element:
-                for (int i = 0; i < element.Objects.Count; i++)
-                {
-                    if (FindFirstNewFallbackCore(
-                            element.Objects[i],
-                            $"{path}/Objects[{i}]",
-                            existingFallbackIds,
-                            visited) is { } occurrence)
-                    {
-                        return occurrence;
-                    }
-                }
-                break;
-
-            case EngineObject engineObject:
-                foreach (IProperty property in engineObject.Properties)
-                {
-                    if (FindFirstNewFallbackInValue(
-                            property.CurrentValue,
-                            $"{path}/{property.Name}",
-                            existingFallbackIds,
-                            visited) is { } occurrence)
-                    {
-                        return occurrence;
-                    }
-                }
-                break;
-        }
-
-        return null;
+            return true;
+        });
+        return result;
     }
 
-    private static FallbackOccurrence? FindFirstNewFallbackInValue(
+    private static bool TraverseSerializedGraph(
         object? value,
         string path,
-        HashSet<Guid> existingFallbackIds,
-        HashSet<Guid> visited)
+        HashSet<object> visited,
+        Func<CoreObject, string, bool> visitCoreObject)
     {
-        switch (value)
+        if (value is null or string)
         {
-            case CoreObject coreObject:
-                return FindFirstNewFallbackCore(coreObject, path, existingFallbackIds, visited);
-            case IEnumerable enumerable when value is not string:
-                {
-                    int index = 0;
-                    foreach (object? item in enumerable)
-                    {
-                        if (FindFirstNewFallbackInValue(
-                                item,
-                                $"{path}[{index}]",
-                                existingFallbackIds,
-                                visited) is { } occurrence)
-                        {
-                            return occurrence;
-                        }
-
-                        index++;
-                    }
-
-                    break;
-                }
+            return false;
         }
 
-        return null;
+        if (!value.GetType().IsValueType && !visited.Add(value))
+        {
+            return false;
+        }
+
+        if (value is CoreObject coreObject)
+        {
+            if (visitCoreObject(coreObject, path))
+            {
+                return true;
+            }
+
+            switch (coreObject)
+            {
+                case Scene scene:
+                    for (int i = 0; i < scene.Children.Count; i++)
+                    {
+                        if (TraverseSerializedGraph(
+                                scene.Children[i],
+                                $"{path}/Elements[{i}]",
+                                visited,
+                                visitCoreObject))
+                        {
+                            return true;
+                        }
+                    }
+                    break;
+
+                case Element element:
+                    for (int i = 0; i < element.Objects.Count; i++)
+                    {
+                        if (TraverseSerializedGraph(
+                                element.Objects[i],
+                                $"{path}/Objects[{i}]",
+                                visited,
+                                visitCoreObject))
+                        {
+                            return true;
+                        }
+                    }
+                    break;
+
+                case EngineObject engineObject:
+                    foreach (IProperty property in engineObject.Properties)
+                    {
+                        if (TraverseSerializedGraph(
+                                property.CurrentValue,
+                                $"{path}/{property.Name}",
+                                visited,
+                                visitCoreObject))
+                        {
+                            return true;
+                        }
+
+                        if (property.Animation is IKeyFrameAnimation animation)
+                        {
+                            int index = 0;
+                            foreach (IKeyFrame keyFrame in animation.KeyFrames)
+                            {
+                                if (TraverseSerializedGraph(
+                                        keyFrame.Value,
+                                        $"{path}/Animations/{property.Name}/KeyFrames[{index}]/Value",
+                                        visited,
+                                        visitCoreObject))
+                                {
+                                    return true;
+                                }
+
+                                index++;
+                            }
+                        }
+                    }
+                    break;
+            }
+
+            return false;
+        }
+
+        if (value is IEnumerable enumerable)
+        {
+            int index = 0;
+            foreach (object? item in enumerable)
+            {
+                if (TraverseSerializedGraph(
+                        item,
+                        $"{path}[{index}]",
+                        visited,
+                        visitCoreObject))
+                {
+                    return true;
+                }
+
+                index++;
+            }
+        }
+
+        return false;
     }
 
     private static string CreateFallbackHint(FallbackOccurrence occurrence)
