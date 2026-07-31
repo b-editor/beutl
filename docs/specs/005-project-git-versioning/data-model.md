@@ -12,7 +12,7 @@ Result of probing the machine for git tooling.
 |---|---|---|
 | `State` | `GitAvailabilityState` | `Installed` / `NotInstalled` / `VersionTooOld` |
 | `GitPath` | `string?` | Resolved executable path when installed |
-| `Version` | `Version?` | Parsed from `git --version`; floor is 2.23 (needs `git switch`/`git restore`) |
+| `Version` | `Version?` | Parsed from `git --version`; floor is 2.23 (needs `git switch`, worktree, and current plumbing behavior) |
 | `LfsInstalled` | `bool` | `git lfs version` succeeded |
 
 ## RepositoryInfo
@@ -24,15 +24,15 @@ Identity of the repository serving one open project. `null` on the service ⇒ p
 | `RepoRoot` | `string` | Absolute path of the repository work-tree root |
 | `ProjectRoot` | `string` | Absolute path of the directory containing the `.bep` |
 | `IsNestedInForeignRepo` | `bool` | `RepoRoot` ≠ `ProjectRoot` (enclosing repo the user opted into) |
-| `Pathspec` | `string` | `"."` for a dedicated repo; project directory relative to `RepoRoot` when nested. Every status/add/log/restore call is scoped with it |
+| `Pathspec` | `string` | `"."` for a dedicated repo; project directory relative to `RepoRoot` when nested. Project status/history/snapshot/tree operations use it |
 
-**Invariant**: `ProjectRoot` is always equal to or below `RepoRoot`. Operations never touch paths outside `Pathspec` (FR-003).
+**Invariant**: `ProjectRoot` is always equal to or below `RepoRoot`. Project-content operations never stage or restore paths outside `Pathspec`; disclosed repository-level branch, push, pull, cleanliness checks, and expected-old ref updates apply to the enclosing repository (FR-003).
 
 ## SnapshotKind
 
-`enum`: `Manual` | `Save` | `Close` | `Safety` | `Restore` | `Init`.
+`enum`: `Manual` | `Save` | `Close` | `Safety` | `Restore` | `Recovery` | `Init`.
 
-Persisted in the repository as the commit trailer `Beutl-Snapshot: save|close|safety|restore|init` (absent ⇒ `Manual`, including commits made by external tools). UI badges/localization derive from this — never from the subject text (FR-016).
+Persisted in the repository as the commit trailer `Beutl-Snapshot: save|close|safety|restore|recovery|init` (absent ⇒ `Manual`, including commits made by external tools). `Recovery` records a compensating commit after an attempted restore committed successfully but its project reopen failed. UI badges/localization derive from this — never from the subject text (FR-016).
 
 ## CommitInfo
 
@@ -66,12 +66,31 @@ Snapshot of the current repo state, produced by one `git status --porcelain=v2 -
 | `HasConflicts` | `bool` | Unmerged paths present ⇒ service enters `Conflicted` (FR-033) |
 | `IsClean` | `bool` | Derived: no changes |
 
-**State transitions** (service level): `NotARepo → Ready` (InitializeAsync / opening a tracked project) ; `Ready → Conflicted` (unmerged paths detected) ; `Conflicted → Ready` (external resolution observed on refresh). There is no in-app transition into `Conflicted` — only external tools can create it.
+**Repository-state transitions**: `NotARepo → Ready` (initialization / opening a tracked project); `Ready → Conflicted` (unmerged paths detected); `Conflicted → Ready` (external resolution observed on refresh). There is no in-app transition into `Conflicted` — only external tools can create it.
+
+**Backend lifetime transitions**: `Active → Retiring → Retired`. Starting retirement immediately rejects new mutations, waits for the current exclusive transaction, optionally records the final close snapshot, then disposes the watcher and other resources. `Retired` is terminal. A temporary close during a coordinator cycle hides the public service without retiring the owned backend.
 
 ## CommitResult / RemoteOpResult
 
-- `CommitResult`: `NoChanges` | `Committed(string Sha)` | `SkippedNoIdentity` (auto-triggers only; one-time warning surfaced).
-- `RemoteOpResult`: `Success` | `AuthFailed(string Guidance)` | `Diverged` | `Offline` | `Failed(string Stderr)` — each maps to a distinct actionable message (FR-031/FR-032, edge cases).
+- `CommitResult`: `NoChanges` | `Committed(CommitRevision Revision)` | `SkippedNoIdentity` (auto-triggers only; one-time warning surfaced). `CommitRevision` is `Known(string Sha)` or `Unavailable`; the latter means `git commit` succeeded but the best-effort post-commit revision lookup failed, so callers must not retry the commit.
+- `RemoteOpResult`: `Success` | `AuthFailed(string Guidance)` | `Diverged` | `Offline` | `RepositoryDirty` | `Failed(string Stderr)` — each maps to a distinct actionable message (FR-031/FR-032, edge cases). `RepositoryDirty` is reserved for a failed whole-repository cleanliness precondition; it never represents ownership loss or an unverified recovery.
+
+## CheckedOutBranchTip / ProjectCheckpoint
+
+- `CheckedOutBranchTip(RefName, Commit)` identifies one attached local branch and its exact commit. Detached HEAD is not a valid input to a close/reopen mutation cycle.
+- `ProjectCheckpoint(RefName, Commit, BaseTip)` identifies a commit reachable through `refs/beutl/safety/*`. It captures the project pathspec with a temporary index while leaving the checked-out branch, working tree, and user's index unchanged.
+- A checkpoint is valid only while its ref resolves to the recorded commit, that commit's first parent equals `BaseTip.Commit`, and the same local branch remains checked out. Branch rollback uses the recorded ref plus expected-old commit as one compare-and-swap.
+
+## PullTransitionState
+
+Internal result state returned with a fast-forward pull:
+
+- `Unchanged`: no durable branch/tree transition remains; normal recovery/reopen is safe.
+- `Applied`: the exact target tree/index was prepared and the expected-old branch CAS reached the target.
+- `OwnershipLost`: an external ref, worktree, or index update invalidated Beutl's captured ownership; Beutl does not overwrite it.
+- `RecoveryFailed`: mutation started and the backend could not verify either the target or restored original state.
+
+`OwnershipLost` and `RecoveryFailed` leave the project closed and retain any private checkpoint. They remain distinct internally because the coordinator must not attempt a second rollback against uncertain ownership; only at the public coordinator boundary are both rendered as the exact localized uncertain-transition `Failed` result, without inner result text.
 
 ## BranchInfo / RemoteInfo / GitIdentity
 
@@ -90,6 +109,8 @@ Snapshot of the current repo state, produced by one `git status --porcelain=v2 -
 | `UseLfsWhenAvailable` | `bool` | `true` | FR-035 (clarification #4) |
 | `LargeMediaWarningThresholdMb` | `int` | `50` | FR-035 warning without LFS |
 
+All six values are editable from the existing Editor Settings page; blank executable input restores automatic Git discovery, and the media threshold is clamped to at least 1 MB.
+
 ## Repository content contracts (on-disk)
 
 - **Generated `.gitignore`** (project root; also written inside the project dir in the nested case): `**/.beutl/`, `*.tmp`.
@@ -100,17 +121,20 @@ Snapshot of the current repo state, produced by one `git status --porcelain=v2 -
 
 ```text
 VersionControlCoordinator (src/Beutl/, app-level, 1 per open project)
- ├─ owns → IProjectVersionControlService (GitCliVersionControlService)
+ ├─ owns → IProjectVersionControlBackend (GitCliVersionControlService)
  │          ├─ RepositoryInfo (identity, pathspec scoping)
  │          ├─ GitCliRunner (process contract, R-2)
  │          ├─ RepositoryWatcher (debounced status refresh, R-8)
  │          └─ emits WorkspaceStatus via StatusChanged (background thread)
+ ├─ exposes → IProjectVersionControlService (read/query only)
+ ├─ mutates → IProjectVersionControlTransaction (exclusive, non-retainable)
  ├─ subscribes → ProjectService.ProjectObservable (create/dispose per project)
  └─ orchestrates → close → git op → reopen cycles (restore / switch / pull)
 
 VersionControlTabViewModel (src/Beutl.Editor.Components/)
- └─ resolves IProjectVersionControlService via IEditorContext.GetService
-    (EditViewModel switchboard; all scene tabs of one project share the instance)
+ ├─ observes IProjectVersionControlService for status/history/diff queries
+ └─ resolves IProjectVersionControlCoordinator for mutations
+    (EditViewModel switchboard; all scene tabs of one project share the instances)
 ```
 
 ## Element file naming (prerequisite fix, `Beutl.Editor`)

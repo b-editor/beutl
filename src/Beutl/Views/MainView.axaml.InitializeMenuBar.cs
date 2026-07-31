@@ -93,10 +93,10 @@ public partial class MainView
         }
     }
 
-    private async Task<bool> RequestGitIdentityAsync(
-        IProjectVersionControlService versionControlService)
+    private async Task<GitIdentity?> RequestGitIdentityAsync(CancellationToken cancellationToken)
     {
-        var viewModel = new GitIdentityDialogViewModel(versionControlService);
+        cancellationToken.ThrowIfCancellationRequested();
+        var viewModel = new GitIdentityDialogViewModel();
         var flyout = new VersionControlPickerFlyout();
         VersionControlIdentityInput? input = await flyout.ShowIdentityAsync(
             GetVersionControlFlyoutAnchor(),
@@ -104,16 +104,17 @@ public partial class MainView
             Strings.VersionControl_IdentityName,
             Strings.VersionControl_IdentityEmail,
             viewModel.Name.Value,
-            viewModel.Email.Value);
+            viewModel.Email.Value,
+            cancellationToken);
+        cancellationToken.ThrowIfCancellationRequested();
         if (input is not { } identity)
         {
-            return false;
+            return null;
         }
 
         viewModel.Name.Value = identity.Name;
         viewModel.Email.Value = identity.Email;
-        await viewModel.SaveAsync();
-        return true;
+        return viewModel.CreateIdentity();
     }
 
     private async Task CommitVersionAsync(MainViewModel viewModel)
@@ -332,6 +333,15 @@ public partial class MainView
         Project? project = exportVm.ProjectService.CurrentProject.Value;
         if (project?.Uri == null)
         {
+            return;
+        }
+
+        using IDisposable? outputOperation = exportVm.EditorService.TryBeginOutputOperation();
+        if (outputOperation is null)
+        {
+            NotificationService.ShowWarning(
+                Strings.ExportProject,
+                Strings.VersionControl_WorktreeOperationInProgress);
             return;
         }
 

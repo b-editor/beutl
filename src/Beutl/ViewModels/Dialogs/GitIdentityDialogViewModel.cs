@@ -5,12 +5,8 @@ namespace Beutl.ViewModels.Dialogs;
 
 public sealed class GitIdentityDialogViewModel
 {
-    private readonly IProjectVersionControlService _versionControlService;
-
-    public GitIdentityDialogViewModel(IProjectVersionControlService versionControlService)
+    public GitIdentityDialogViewModel()
     {
-        _versionControlService = versionControlService
-                                 ?? throw new ArgumentNullException(nameof(versionControlService));
         Name.Value = Environment.UserName;
         CanSave = Name.CombineLatest(
                 Email,
@@ -25,15 +21,13 @@ public sealed class GitIdentityDialogViewModel
 
     public ReadOnlyReactivePropertySlim<bool> CanSave { get; }
 
-    public Task SaveAsync(CancellationToken cancellationToken = default)
+    public GitIdentity CreateIdentity()
     {
         if (!CanSave.Value)
         {
             throw new InvalidOperationException("A Git user name and email address are required.");
         }
 
-        return _versionControlService.SetLocalIdentityAsync(
-            new GitIdentity(Name.Value.Trim(), Email.Value.Trim()),
-            cancellationToken);
+        return new GitIdentity(Name.Value.Trim(), Email.Value.Trim());
     }
 }

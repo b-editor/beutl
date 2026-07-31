@@ -15,6 +15,7 @@ namespace Beutl.Views;
 public sealed partial class MacWindow : Window
 {
     private readonly Dictionary<ToolWindowExtension, List<Window>> _openToolWindows = new();
+    private readonly WindowShutdownCoordinator _shutdown;
 
     public MacWindow()
     {
@@ -27,6 +28,7 @@ public sealed partial class MacWindow : Window
         }
 
         InitializeComponent();
+        _shutdown = new WindowShutdownCoordinator(ShutdownAsync, Close);
         ViewConfig viewConfig = GlobalConfiguration.Instance.ViewConfig;
         (int X, int Y)? pos = viewConfig.WindowPosition;
         (int Width, int Height)? size = viewConfig.WindowSize;
@@ -355,27 +357,13 @@ public sealed partial class MacWindow : Window
         }
     }
 
-    private bool _captureStopped;
-    private Task? _captureStopTask;
-
     protected override void OnClosing(WindowClosingEventArgs e)
     {
-        if (!_captureStopped)
+        if (!_shutdown.CanClose)
         {
-            if (_captureStopTask is not null)
-            {
-                // A shutdown task is already draining ffmpeg from a prior close
-                // attempt; keep cancelling until that task finalizes and calls Close().
-                e.Cancel = true;
-                return;
-            }
-
-            if (mainView is { HasActiveCapture: true } mv)
-            {
-                e.Cancel = true;
-                _captureStopTask = StopCaptureAndCloseAsync(mv);
-                return;
-            }
+            e.Cancel = true;
+            _ = _shutdown.BeginShutdownAsync();
+            return;
         }
 
         base.OnClosing(e);
@@ -383,18 +371,15 @@ public sealed partial class MacWindow : Window
         viewConfig.WindowSize = ((int)ClientSize.Width, (int)ClientSize.Height);
         viewConfig.WindowPosition = (Position.X, Position.Y);
         viewConfig.IsWindowMaximized = WindowState == WindowState.Maximized;
-
-        if (DataContext is MainViewModel viewModel)
-        {
-            viewModel.Dispose();
-        }
     }
 
-    private async Task StopCaptureAndCloseAsync(MainView mv)
+    private async Task ShutdownAsync(CancellationToken cancellationToken)
     {
-        await mv.EnsureCaptureStoppedAsync();
-        _captureStopped = true;
-        Close();
+        await mainView.EnsureCaptureStoppedAsync();
+        if (DataContext is MainViewModel viewModel)
+        {
+            await viewModel.ShutdownAsync(cancellationToken);
+        }
     }
 
     private async void OpenTutorialsDialog(object? sender, EventArgs e) => await mainView.ShowTutorialsDialogAsync();

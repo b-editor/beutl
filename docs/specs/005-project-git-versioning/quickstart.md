@@ -41,7 +41,7 @@ On another machine: clone the repository with any Git tool, open the `.bep` in B
 | Check | Platforms |
 |---|---|
 | HTTPS push/pull via credential helper (GitHub) | Windows / macOS / Linux |
-| SSH push/pull via agent | Windows / macOS / Linux |
+| SSH push/pull via agent; repeat with a custom `core.sshCommand` or `GIT_SSH*` wrapper/proxy and verify Beutl preserves it | Windows / macOS / Linux |
 | GUI-launch git discovery (Homebrew git, CLT git, no git) | macOS |
 | LFS round-trip with a >100 MB video in `resources/`, clone on 2nd machine, verify playback | any two |
 | Git-absent degradation (full editor pass, zero errors) | one per OS |

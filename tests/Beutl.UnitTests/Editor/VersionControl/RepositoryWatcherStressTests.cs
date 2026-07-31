@@ -6,6 +6,69 @@ namespace Beutl.UnitTests.Editor.VersionControl;
 public class RepositoryWatcherStressTests : RealGitTestRepository
 {
     [Test]
+    public async Task External_index_and_commit_updates_raise_changes()
+    {
+        string projectPath = Path.Combine(Root, "project.bep");
+        await CommitFileAsync("project.bep", "{\"value\":0}\n", "baseline");
+        await File.WriteAllTextAsync(projectPath, "{\"value\":1}\n");
+
+        using (var indexWatcher = new RepositoryWatcher(Root))
+        {
+            await AssertChangedDuringAsync(
+                indexWatcher,
+                () => RunGitAndAssertSuccessAsync(Repository, "add", "--", "project.bep"));
+        }
+
+        using (var commitWatcher = new RepositoryWatcher(Root))
+        {
+            await AssertChangedDuringAsync(
+                commitWatcher,
+                () => RunGitAndAssertSuccessAsync(Repository, "commit", "-m", "external commit"));
+        }
+    }
+
+    [Test]
+    public async Task Linked_worktree_watches_its_index_and_the_common_ref_store()
+    {
+        await CommitFileAsync("project.bep", "{\"value\":0}\n", "baseline");
+        string linkedRoot = CreateTemporaryDirectory();
+        Directory.Delete(linkedRoot);
+        await RunGitAndAssertSuccessAsync(
+            Repository,
+            "worktree",
+            "add",
+            "-b",
+            "linked",
+            linkedRoot);
+        var linkedRepository = new RepositoryInfo(linkedRoot, linkedRoot);
+        await File.WriteAllTextAsync(
+            Path.Combine(linkedRoot, "project.bep"),
+            "{\"value\":1}\n");
+
+        using (var indexWatcher = new RepositoryWatcher(linkedRoot))
+        {
+            await AssertChangedDuringAsync(
+                indexWatcher,
+                () => RunGitAndAssertSuccessAsync(
+                    linkedRepository,
+                    "add",
+                    "--",
+                    "project.bep"));
+        }
+
+        using (var commonRefsWatcher = new RepositoryWatcher(linkedRoot))
+        {
+            await AssertChangedDuringAsync(
+                commonRefsWatcher,
+                () => RunGitAndAssertSuccessAsync(
+                    Repository,
+                    "update-ref",
+                    "refs/heads/external-update",
+                    "HEAD"));
+        }
+    }
+
+    [Test]
     public async Task Rapid_write_burst_has_bounded_status_refreshes_without_self_feedback()
     {
         const int writeCount = 1000;
@@ -59,6 +122,41 @@ public class RepositoryWatcherStressTests : RealGitTestRepository
             "Reading status must not generate a watcher event that schedules another status call.");
     }
 
+    private static async Task AssertChangedDuringAsync(
+        RepositoryWatcher watcher,
+        Func<Task> operation)
+    {
+        var completion = new TaskCompletionSource(
+            TaskCreationOptions.RunContinuationsAsynchronously);
+        watcher.Changed += OnChanged;
+        try
+        {
+            await operation();
+            await completion.Task.WaitAsync(TimeSpan.FromSeconds(15));
+        }
+        finally
+        {
+            watcher.Changed -= OnChanged;
+        }
+
+        void OnChanged(object? sender, EventArgs args)
+        {
+            completion.TrySetResult();
+        }
+    }
+
+    private async Task RunGitAndAssertSuccessAsync(
+        RepositoryInfo repository,
+        params string[] arguments)
+    {
+        GitCommandResult result = await Runner.RunAsync(
+            repository,
+            arguments,
+            GitCommandOptions.Local,
+            CancellationToken.None);
+        Assert.That(result.ExitCode, Is.Zero, result.Stderr);
+    }
+
     private static async Task<int> WaitForStatusCallsToSettleAsync(
         StatusCountingRunner runner,
         TimeSpan quietPeriod,
@@ -97,7 +195,7 @@ public class RepositoryWatcherStressTests : RealGitTestRepository
         public Task<GitCommandResult> RunAsync(
             RepositoryInfo repository,
             IReadOnlyList<string> arguments,
-            bool networkOperation,
+            GitCommandOptions options,
             CancellationToken cancellationToken,
             IProgress<string>? stderrProgress = null)
         {
@@ -105,7 +203,7 @@ public class RepositoryWatcherStressTests : RealGitTestRepository
             {
                 Interlocked.Increment(ref _statusCallCount);
                 bool foundOptionalLocks = inner
-                    .CreateStartInfo(repository, arguments, networkOperation)
+                    .CreateStartInfo(repository, arguments, GitExecutionPolicy.Local)
                     .Environment
                     .TryGetValue("GIT_OPTIONAL_LOCKS", out string? optionalLocks);
                 if (!foundOptionalLocks || optionalLocks != "0")
@@ -117,7 +215,7 @@ public class RepositoryWatcherStressTests : RealGitTestRepository
             return inner.RunAsync(
                 repository,
                 arguments,
-                networkOperation,
+                options,
                 cancellationToken,
                 stderrProgress);
         }

@@ -1582,6 +1582,9 @@ GetProperty&lt;T&gt;("path") または GetProperty&lt;T&gt;(guid, "propertyName"
   <data name="VersionControl_SnapshotRestore" xml:space="preserve">
     <value>復元</value>
   </data>
+  <data name="VersionControl_SnapshotRecovery" xml:space="preserve">
+    <value>復旧</value>
+  </data>
   <data name="VersionControl_SnapshotInit" xml:space="preserve">
     <value>初期化</value>
   </data>
@@ -1634,6 +1637,9 @@ GetProperty&lt;T&gt;("path") または GetProperty&lt;T&gt;(guid, "propertyName"
   <data name="VersionControl_IdentityEmail" xml:space="preserve">
     <value>メールアドレス</value>
   </data>
+  <data name="VersionControl_MissingIdentityNotice" xml:space="preserve">
+    <value>このリポジトリにコミット作成者が設定されていないため、自動スナップショットを一時停止しました。手動バージョンを作成してリポジトリ専用の名前とメールアドレスを設定してから、もう一度保存してください。</value>
+  </data>
   <data name="VersionControl_RestoreConfirmation" xml:space="preserve">
     <value>プロジェクトを閉じて再度開くため、現在の取り消し履歴は消去されます。続行しますか？</value>
   </data>
@@ -1642,6 +1648,9 @@ GetProperty&lt;T&gt;("path") または GetProperty&lt;T&gt;(guid, "propertyName"
   </data>
   <data name="VersionControl_RecoveryFailed" xml:space="preserve">
     <value>操作に失敗し、元のプロジェクト状態も復元できませんでした。操作エラー: {0} 復旧エラー: {1}</value>
+  </data>
+  <data name="VersionControl_PullTransitionUncertain" xml:space="preserve">
+    <value>保護されたリポジトリ遷移の所有権が失われたか、元の状態を復元できませんでした。プロジェクトは閉じたままです。安全チェックポイントが作成されていた場合は保持されています。プロジェクトを再度開く前に、外部の Git ツールでリポジトリを確認して復旧してください。</value>
   </data>
   <data name="VersionControl_BranchFormat" xml:space="preserve">
     <value>ブランチ: {0}</value>
@@ -1781,19 +1790,25 @@ GetProperty&lt;T&gt;("path") または GetProperty&lt;T&gt;(guid, "propertyName"
   <data name="VersionControl_Diverged" xml:space="preserve">
     <value>ローカルとリモートの履歴が分岐しています。外部の Git ツールで解決してください。</value>
   </data>
+  <data name="VersionControl_RepositoryDirty" xml:space="preserve">
+    <value>プルするにはリポジトリ全体をクリーンにする必要があります。プロジェクト外の変更をコミットまたはスタッシュしてから再試行してください。</value>
+  </data>
   <data name="VersionControl_Offline" xml:space="preserve">
     <value>リモートに接続できませんでした。ネットワーク接続を確認して再試行してください。</value>
   </data>
   <data name="VersionControl_StaleLockGuidance" xml:space="preserve">
-    <value>古い Git インデックスロックにより、バージョン管理操作が妨げられています。</value>
+    <value>古い Git リポジトリロックにより、バージョン管理操作が妨げられています。</value>
   </data>
   <data name="VersionControl_RemoveStaleLock" xml:space="preserve">
     <value>古いロックを削除</value>
   </data>
   <data name="VersionControl_StaleLockConfirmation" xml:space="preserve">
-    <value>Git のインデックスロックが作成から 10 分以上経過しており、Beutl が実行中の Git プロセスはありません。この古いロックを削除しますか？</value>
+    <value>Git のリポジトリロックが作成から 10 分以上経過しており、Beutl が実行中の Git プロセスはありません。この古いロックを削除しますか？</value>
   </data>
   <data name="VersionControl_StaleLockRemoved" xml:space="preserve">
-    <value>古い Git インデックスロックを削除しました。バージョン管理操作を再試行してください。</value>
+    <value>古い Git リポジトリロックを削除しました。バージョン管理操作を再試行してください。</value>
+  </data>
+  <data name="VersionControl_WorktreeOperationInProgress" xml:space="preserve">
+    <value>バージョン管理がプロジェクトファイルを更新しています。処理の完了後に再試行してください。</value>
   </data>
 </root>

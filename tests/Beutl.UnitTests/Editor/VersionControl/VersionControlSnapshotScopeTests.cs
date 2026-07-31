@@ -32,10 +32,10 @@ public class VersionControlSnapshotScopeTests : RealGitTestRepository
         await WriteProjectFileAsync("render-cache.tmp", "ignored\n");
         using var service = CreateService();
 
-        var commit = (CommitResult.Committed)await service.CommitAllAsync(
+        var commit = (CommitRevision.Known)((CommitResult.Committed)await service.CommitAllAsync(
             "beutl: snapshot on save",
             SnapshotKind.Save,
-            CancellationToken.None);
+            CancellationToken.None)).Revision;
         IReadOnlyList<FileChange> changedFiles = await service.GetCommitFilesAsync(
             commit.Sha,
             CancellationToken.None);

@@ -17,11 +17,13 @@ public class VersionControlStringsTests
         "VersionControl_Commit",
         "VersionControl_Restore",
         "VersionControl_SnapshotSave",
+        "VersionControl_SnapshotRecovery",
         "VersionControl_GitNotInstalled",
         "VersionControl_ConflictGuidance",
         "VersionControl_RestoreConfirmation",
         "VersionControl_ExportInProgress",
         "VersionControl_RecoveryFailed",
+        "VersionControl_PullTransitionUncertain",
         "VersionControl_BranchFormat",
         "VersionControl_CurrentBranch",
         "VersionControl_Branches",
@@ -66,9 +68,12 @@ public class VersionControlStringsTests
         "VersionControl_RemoteOperationCanceled",
         "VersionControl_LfsQuotaNotice",
         "VersionControl_LargeMediaWarningFormat",
+        "VersionControl_MissingIdentityNotice",
         "VersionControl_AuthenticationFailed",
         "VersionControl_Diverged",
+        "VersionControl_RepositoryDirty",
         "VersionControl_Offline",
+        "VersionControl_WorktreeOperationInProgress",
     ];
 
     [TestCase("en-US")]

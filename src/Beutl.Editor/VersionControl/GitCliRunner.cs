@@ -1,8 +1,38 @@
 ﻿using System.Diagnostics;
+using System.Text;
 
 namespace Beutl.Editor.VersionControl;
 
-internal sealed record GitCommandResult(int ExitCode, string Stdout, string Stderr);
+internal sealed record GitCommandResult(
+    int ExitCode,
+    string Stdout,
+    string Stderr,
+    bool StdoutTruncated = false);
+
+internal enum GitCommandExecutionKind
+{
+    Local,
+    Network,
+}
+
+internal enum GitExecutionPolicy
+{
+    Local,
+    NetworkWithConfiguredSsh,
+    NetworkWithDefaultOpenSsh,
+}
+
+internal sealed record GitCommandOptions(
+    GitCommandExecutionKind ExecutionKind,
+    IReadOnlyDictionary<string, string?>? EnvironmentOverrides = null,
+    int? MaxStdoutBytes = null,
+    string? StandardInput = null,
+    bool UseLiteralPathspecs = true)
+{
+    public static GitCommandOptions Local { get; } = new(GitCommandExecutionKind.Local);
+
+    public static GitCommandOptions Network { get; } = new(GitCommandExecutionKind.Network);
+}
 
 internal sealed class GitRepositoryLockEventArgs(
     RepositoryInfo repository,
@@ -20,7 +50,7 @@ internal interface IGitCliRunner
     Task<GitCommandResult> RunAsync(
         RepositoryInfo repository,
         IReadOnlyList<string> arguments,
-        bool networkOperation,
+        GitCommandOptions options,
         CancellationToken cancellationToken,
         IProgress<string>? stderrProgress = null);
 
@@ -33,11 +63,12 @@ internal interface IGitCliRunner
 
 internal sealed class GitCliRunner : IGitCliRunner
 {
+    private const string DefaultSshCommand = "ssh -oBatchMode=yes";
     private static readonly TimeSpan s_defaultLocalTimeout = TimeSpan.FromSeconds(30);
     internal static readonly TimeSpan StaleLockAge = TimeSpan.FromMinutes(10);
     private readonly string _gitPath;
     private readonly TimeSpan _localTimeout;
-    private readonly IReadOnlyDictionary<string, string>? _environmentOverrides;
+    private readonly IReadOnlyDictionary<string, string?>? _environmentOverrides;
     private readonly TimeProvider _timeProvider;
     private readonly Func<string, string> _readAllText;
     private readonly Action<string> _deleteFile;
@@ -55,7 +86,7 @@ internal sealed class GitCliRunner : IGitCliRunner
     internal GitCliRunner(
         string gitPath,
         TimeSpan localTimeout,
-        IReadOnlyDictionary<string, string>? environmentOverrides,
+        IReadOnlyDictionary<string, string?>? environmentOverrides,
         TimeProvider? timeProvider = null,
         Func<string, string>? readAllText = null,
         Action<string>? deleteFile = null)
@@ -81,14 +112,75 @@ internal sealed class GitCliRunner : IGitCliRunner
     public async Task<GitCommandResult> RunAsync(
         RepositoryInfo repository,
         IReadOnlyList<string> arguments,
-        bool networkOperation = false,
+        GitCommandOptions options,
         CancellationToken cancellationToken = default,
         IProgress<string>? stderrProgress = null)
     {
         ArgumentNullException.ThrowIfNull(repository);
         ArgumentNullException.ThrowIfNull(arguments);
+        ArgumentNullException.ThrowIfNull(options);
+        if (options.MaxStdoutBytes is < 0)
+        {
+            throw new ArgumentOutOfRangeException(nameof(options));
+        }
 
-        ProcessStartInfo startInfo = CreateStartInfo(repository, arguments, networkOperation);
+        GitExecutionPolicy executionPolicy = await ResolveExecutionPolicyAsync(
+            repository,
+            options,
+            cancellationToken).ConfigureAwait(false);
+        ProcessStartInfo startInfo = CreateStartInfo(
+            repository,
+            arguments,
+            executionPolicy,
+            options.EnvironmentOverrides,
+            options.UseLiteralPathspecs);
+        return await RunProcessAsync(
+            repository,
+            startInfo,
+            executionPolicy,
+            cancellationToken,
+            stderrProgress,
+            options.MaxStdoutBytes,
+            options.StandardInput,
+            throwOnFailure: true).ConfigureAwait(false);
+    }
+
+    internal async Task<ProcessStartInfo> CreateStartInfoAsync(
+        RepositoryInfo repository,
+        IReadOnlyList<string> arguments,
+        GitCommandOptions options,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(repository);
+        ArgumentNullException.ThrowIfNull(arguments);
+        ArgumentNullException.ThrowIfNull(options);
+        if (options.MaxStdoutBytes is < 0)
+        {
+            throw new ArgumentOutOfRangeException(nameof(options));
+        }
+
+        GitExecutionPolicy executionPolicy = await ResolveExecutionPolicyAsync(
+            repository,
+            options,
+            cancellationToken).ConfigureAwait(false);
+        return CreateStartInfo(
+            repository,
+            arguments,
+            executionPolicy,
+            options.EnvironmentOverrides,
+            options.UseLiteralPathspecs);
+    }
+
+    private async Task<GitCommandResult> RunProcessAsync(
+        RepositoryInfo repository,
+        ProcessStartInfo startInfo,
+        GitExecutionPolicy executionPolicy,
+        CancellationToken cancellationToken,
+        IProgress<string>? stderrProgress,
+        int? maxStdoutBytes,
+        string? standardInput,
+        bool throwOnFailure)
+    {
         using var process = new Process { StartInfo = startInfo };
         try
         {
@@ -102,25 +194,39 @@ internal sealed class GitCliRunner : IGitCliRunner
         Interlocked.Increment(ref _activeProcesses);
         try
         {
-            Task<string> stdoutTask = process.StandardOutput.ReadToEndAsync();
+            Task<(string Output, bool Truncated)> stdoutTask = ReadStandardOutputAsync(
+                process.StandardOutput.BaseStream,
+                maxStdoutBytes);
             Task<string> stderrTask = stderrProgress is null
                 ? process.StandardError.ReadToEndAsync()
                 : ReadStandardErrorAsync(process.StandardError, stderrProgress);
-            using var timeoutCts = networkOperation
-                ? null
-                : new CancellationTokenSource(_localTimeout);
+            using var timeoutCts = executionPolicy == GitExecutionPolicy.Local
+                ? new CancellationTokenSource(_localTimeout)
+                : null;
             using var linkedCts = timeoutCts is null
                 ? CancellationTokenSource.CreateLinkedTokenSource(cancellationToken)
                 : CancellationTokenSource.CreateLinkedTokenSource(cancellationToken, timeoutCts.Token);
+            Task stdinTask = WriteStandardInputAsync(
+                process.StandardInput,
+                standardInput,
+                linkedCts.Token);
 
             try
             {
-                await process.WaitForExitAsync(linkedCts.Token).ConfigureAwait(false);
+                await Task.WhenAll(
+                        process.WaitForExitAsync(linkedCts.Token),
+                        stdinTask)
+                    .ConfigureAwait(false);
             }
             catch (OperationCanceledException) when (linkedCts.IsCancellationRequested)
             {
                 TryKillProcessTree(process);
                 await process.WaitForExitAsync(CancellationToken.None).ConfigureAwait(false);
+                await Task.WhenAll(
+                        ObserveReaderAfterProcessExitAsync(stdinTask),
+                        ObserveReaderAfterProcessExitAsync(stdoutTask),
+                        ObserveReaderAfterProcessExitAsync(stderrTask))
+                    .ConfigureAwait(false);
                 if (!cancellationToken.IsCancellationRequested && timeoutCts?.IsCancellationRequested == true)
                 {
                     throw new TimeoutException($"Git did not finish within {_localTimeout}.");
@@ -130,10 +236,10 @@ internal sealed class GitCliRunner : IGitCliRunner
                 throw;
             }
 
-            string stdout = await stdoutTask.ConfigureAwait(false);
+            (string stdout, bool stdoutTruncated) = await stdoutTask.ConfigureAwait(false);
             string stderr = GitDiagnosticSanitizer.RedactCredentials(
                 await stderrTask.ConfigureAwait(false));
-            if (process.ExitCode != 0)
+            if (throwOnFailure && process.ExitCode != 0)
             {
                 var exception = new GitOperationException(process.ExitCode, stderr);
                 if (exception.IsRepositoryLockFailure)
@@ -146,11 +252,37 @@ internal sealed class GitCliRunner : IGitCliRunner
                 throw exception;
             }
 
-            return new GitCommandResult(process.ExitCode, stdout, stderr);
+            return new GitCommandResult(
+                process.ExitCode,
+                stdout,
+                stderr,
+                stdoutTruncated);
         }
         finally
         {
             Interlocked.Decrement(ref _activeProcesses);
+        }
+    }
+
+    private static async Task ObserveReaderAfterProcessExitAsync<T>(Task<T> readerTask)
+    {
+        try
+        {
+            await readerTask.ConfigureAwait(false);
+        }
+        catch (Exception ex) when (ex is IOException or ObjectDisposedException)
+        {
+        }
+    }
+
+    private static async Task ObserveReaderAfterProcessExitAsync(Task readerTask)
+    {
+        try
+        {
+            await readerTask.ConfigureAwait(false);
+        }
+        catch (Exception ex) when (ex is IOException or ObjectDisposedException)
+        {
         }
     }
 
@@ -170,18 +302,23 @@ internal sealed class GitCliRunner : IGitCliRunner
 
         try
         {
-            string lockPath = GetIndexLockPath(repository);
-            if (!File.Exists(lockPath))
+            foreach (string lockPath in GetRepositoryLockPaths(repository))
             {
-                return null;
+                if (!File.Exists(lockPath))
+                {
+                    continue;
+                }
+
+                var lastWriteTime = new DateTimeOffset(
+                    File.GetLastWriteTimeUtc(lockPath),
+                    TimeSpan.Zero);
+                if (_timeProvider.GetUtcNow() - lastWriteTime > StaleLockAge)
+                {
+                    return new RepositoryLockInfo(lockPath, lastWriteTime);
+                }
             }
 
-            var lastWriteTime = new DateTimeOffset(
-                File.GetLastWriteTimeUtc(lockPath),
-                TimeSpan.Zero);
-            return _timeProvider.GetUtcNow() - lastWriteTime > StaleLockAge
-                ? new RepositoryLockInfo(lockPath, lastWriteTime)
-                : null;
+            return null;
         }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
         {
@@ -220,7 +357,9 @@ internal sealed class GitCliRunner : IGitCliRunner
     internal ProcessStartInfo CreateStartInfo(
         RepositoryInfo repository,
         IReadOnlyList<string> arguments,
-        bool networkOperation)
+        GitExecutionPolicy executionPolicy,
+        IReadOnlyDictionary<string, string?>? environmentOverrides = null,
+        bool useLiteralPathspecs = true)
     {
         var startInfo = new ProcessStartInfo(_gitPath)
         {
@@ -236,24 +375,95 @@ internal sealed class GitCliRunner : IGitCliRunner
             startInfo.ArgumentList.Add(argument);
         }
 
+        ApplyEnvironmentOverrides(startInfo, _environmentOverrides);
+        ApplyEnvironmentOverrides(startInfo, environmentOverrides);
+
         startInfo.Environment["GIT_TERMINAL_PROMPT"] = "0";
         startInfo.Environment["GIT_OPTIONAL_LOCKS"] = "0";
+        startInfo.Environment["GIT_LITERAL_PATHSPECS"] = useLiteralPathspecs ? "1" : "0";
         startInfo.Environment["LC_ALL"] = "C";
-        if (networkOperation)
+        if (executionPolicy == GitExecutionPolicy.NetworkWithDefaultOpenSsh
+            && !HasConfiguredSshEnvironment(startInfo))
         {
-            startInfo.Environment["GIT_SSH_COMMAND"] = "ssh -oBatchMode=yes";
-        }
-
-        if (_environmentOverrides is not null)
-        {
-            foreach ((string key, string value) in _environmentOverrides)
-            {
-                startInfo.Environment[key] = value;
-            }
+            startInfo.Environment["GIT_SSH_COMMAND"] = DefaultSshCommand;
         }
 
         return startInfo;
     }
+
+    private async Task<GitExecutionPolicy> ResolveExecutionPolicyAsync(
+        RepositoryInfo repository,
+        GitCommandOptions options,
+        CancellationToken cancellationToken)
+    {
+        if (options.ExecutionKind == GitCommandExecutionKind.Local)
+        {
+            return GitExecutionPolicy.Local;
+        }
+
+        if (options.ExecutionKind != GitCommandExecutionKind.Network)
+        {
+            throw new ArgumentOutOfRangeException(nameof(options));
+        }
+
+        ProcessStartInfo environmentProbe = CreateStartInfo(
+            repository,
+            [],
+            GitExecutionPolicy.NetworkWithConfiguredSsh,
+            options.EnvironmentOverrides,
+            options.UseLiteralPathspecs);
+        if (HasConfiguredSshEnvironment(environmentProbe))
+        {
+            return GitExecutionPolicy.NetworkWithConfiguredSsh;
+        }
+
+        ProcessStartInfo configProbe = CreateStartInfo(
+            repository,
+            ["config", "--get-regexp", "^(core\\.sshcommand|ssh\\.variant)$"],
+            GitExecutionPolicy.Local,
+            options.EnvironmentOverrides,
+            options.UseLiteralPathspecs);
+        GitCommandResult configResult = await RunProcessAsync(
+            repository,
+            configProbe,
+            GitExecutionPolicy.Local,
+            cancellationToken,
+            stderrProgress: null,
+            maxStdoutBytes: null,
+            standardInput: null,
+            throwOnFailure: false).ConfigureAwait(false);
+
+        return configResult.ExitCode == 1
+            ? GitExecutionPolicy.NetworkWithDefaultOpenSsh
+            : GitExecutionPolicy.NetworkWithConfiguredSsh;
+    }
+
+    private static void ApplyEnvironmentOverrides(
+        ProcessStartInfo startInfo,
+        IReadOnlyDictionary<string, string?>? overrides)
+    {
+        if (overrides is null)
+        {
+            return;
+        }
+
+        foreach ((string key, string? value) in overrides)
+        {
+            if (value is null)
+            {
+                startInfo.Environment.Remove(key);
+            }
+            else
+            {
+                startInfo.Environment[key] = value;
+            }
+        }
+    }
+
+    private static bool HasConfiguredSshEnvironment(ProcessStartInfo startInfo)
+        => startInfo.Environment.ContainsKey("GIT_SSH_COMMAND")
+           || startInfo.Environment.ContainsKey("GIT_SSH")
+           || startInfo.Environment.ContainsKey("GIT_SSH_VARIANT");
 
     private static void TryKillProcessTree(Process process)
     {
@@ -268,6 +478,25 @@ internal sealed class GitCliRunner : IGitCliRunner
                                    or System.ComponentModel.Win32Exception
                                    or NotSupportedException)
         {
+        }
+    }
+
+    private static async Task WriteStandardInputAsync(
+        TextWriter writer,
+        string? input,
+        CancellationToken cancellationToken)
+    {
+        try
+        {
+            if (input is not null)
+            {
+                await writer.WriteAsync(input.AsMemory(), cancellationToken).ConfigureAwait(false);
+                await writer.FlushAsync(cancellationToken).ConfigureAwait(false);
+            }
+        }
+        finally
+        {
+            writer.Close();
         }
     }
 
@@ -310,12 +539,93 @@ internal sealed class GitCliRunner : IGitCliRunner
         return GitDiagnosticSanitizer.RedactCredentials(output.ToString());
     }
 
-    private string GetIndexLockPath(RepositoryInfo repository)
+    internal static async Task<(string Output, bool Truncated)> ReadStandardOutputAsync(
+        Stream stream,
+        int? maxBytes)
+    {
+        ArgumentNullException.ThrowIfNull(stream);
+        if (maxBytes is < 0)
+        {
+            throw new ArgumentOutOfRangeException(nameof(maxBytes));
+        }
+
+        if (maxBytes is null)
+        {
+            using var reader = new StreamReader(
+                stream,
+                Encoding.UTF8,
+                detectEncodingFromByteOrderMarks: true,
+                leaveOpen: true);
+            return (await reader.ReadToEndAsync().ConfigureAwait(false), false);
+        }
+
+        int limit = maxBytes.Value;
+        var captured = new byte[limit];
+        var buffer = new byte[8192];
+        int capturedCount = 0;
+        bool truncated = false;
+        int count;
+        while ((count = await stream.ReadAsync(buffer).ConfigureAwait(false)) > 0)
+        {
+            int copyCount = Math.Min(count, limit - capturedCount);
+            if (copyCount > 0)
+            {
+                buffer.AsSpan(0, copyCount).CopyTo(captured.AsSpan(capturedCount));
+                capturedCount += copyCount;
+            }
+
+            truncated |= copyCount < count;
+        }
+
+        int completeByteCount = GetCompleteUtf8PrefixLength(
+            captured.AsSpan(0, capturedCount));
+        return (
+            Encoding.UTF8.GetString(captured, 0, completeByteCount),
+            truncated);
+    }
+
+    private static int GetCompleteUtf8PrefixLength(ReadOnlySpan<byte> bytes)
+    {
+        if (bytes.IsEmpty)
+        {
+            return 0;
+        }
+
+        int sequenceStart = bytes.Length - 1;
+        while (sequenceStart > 0 && (bytes[sequenceStart] & 0xC0) == 0x80)
+        {
+            sequenceStart--;
+        }
+
+        int sequenceLength = bytes[sequenceStart] switch
+        {
+            < 0x80 => 1,
+            >= 0xC2 and <= 0xDF => 2,
+            >= 0xE0 and <= 0xEF => 3,
+            >= 0xF0 and <= 0xF4 => 4,
+            _ => 1,
+        };
+        return bytes.Length - sequenceStart < sequenceLength
+            ? sequenceStart
+            : bytes.Length;
+    }
+
+    private IReadOnlyList<string> GetRepositoryLockPaths(RepositoryInfo repository)
+    {
+        string gitDirectory = GetGitDirectory(repository);
+        return
+        [
+            Path.Combine(gitDirectory, "index.lock"),
+            Path.Combine(gitDirectory, "HEAD.lock"),
+        ];
+    }
+
+    private string GetGitDirectory(RepositoryInfo repository)
     {
         string dotGitPath = Path.Combine(repository.RepoRoot, ".git");
         if (Directory.Exists(dotGitPath))
         {
-            return Path.Combine(dotGitPath, "index.lock");
+            return Path.GetFullPath(dotGitPath);
         }
 
         if (File.Exists(dotGitPath))
@@ -330,11 +640,11 @@ internal sealed class GitCliRunner : IGitCliRunner
                     gitDirectory = Path.Combine(repository.RepoRoot, gitDirectory);
                 }
 
-                return Path.Combine(Path.GetFullPath(gitDirectory), "index.lock");
+                return Path.GetFullPath(gitDirectory);
             }
         }
 
-        return Path.Combine(dotGitPath, "index.lock");
+        return Path.GetFullPath(dotGitPath);
     }
 
     private static StringComparison PathComparison

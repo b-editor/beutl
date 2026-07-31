@@ -27,11 +27,11 @@ Each entry records a decision that resolves an unknown from the Technical Contex
 **Decision**: A single `GitCliRunner` owns all process invocation, with these rules:
 
 - Never through a shell; argument arrays only. Working directory = repository root.
-- Environment on every call: `GIT_TERMINAL_PROMPT=0` (fail fast instead of hanging on credential prompts), `GIT_OPTIONAL_LOCKS=0` (`git status` must not write the index — prevents a feedback loop with the work-tree watcher), `LC_ALL=C` (stable parseable output); network operations add `GIT_SSH_COMMAND=ssh -oBatchMode=yes`.
+- Environment on every call: `GIT_TERMINAL_PROMPT=0` (fail fast instead of hanging on credential prompts), `GIT_OPTIONAL_LOCKS=0` (`git status` must not write the index — prevents a feedback loop with the work-tree watcher), and `LC_ALL=C` (stable parseable output). Network operations preserve inherited `GIT_SSH_COMMAND`/`GIT_SSH`/`GIT_SSH_VARIANT` and effective repository/global `core.sshCommand`/`ssh.variant`; only the unconfigured default transport adds `GIT_SSH_COMMAND=ssh -oBatchMode=yes`.
 - Machine-readable output only: `status --porcelain=v2 -z`, `log --format=…%x00 -z`, `show --name-status -z`, `rev-parse`, `for-each-ref`. Human-facing output is never parsed.
 - Cancellation kills the child process.
 
-**Rationale**: prompts hanging a GUI process, locale-dependent output, and index-writing status calls are the three classic failure modes of GUI-embedded git; each rule closes one. Detailed in `contracts/git-cli-invocation.md`.
+**Rationale**: prompts hanging a GUI process, locale-dependent output, and index-writing status calls are the three classic failure modes of GUI-embedded git; each rule closes one. Preserving the effective SSH command keeps user-selected wrappers and non-OpenSSH clients functional, while closing the redirected standard-input stream and adding BatchMode only to default OpenSSH keeps the default path noninteractive. Detailed in `contracts/git-cli-invocation.md`.
 
 **Alternatives considered**: parsing default (`--porcelain` v1 / human) output — rejected, v2 -z is the documented stable machine interface.
 
@@ -42,7 +42,7 @@ Each entry records a decision that resolves an unknown from the Technical Contex
 - macOS: `git` on PATH → `/usr/bin/git` only if Xcode CLT is actually installed (`xcode-select -p` succeeds; the bare stub otherwise triggers Apple's CLT install dialog) → `/opt/homebrew/bin/git` → `/usr/local/bin/git`.
 - Windows: `where.exe git` → `%ProgramFiles%\Git\cmd\git.exe`.
 - Linux: `git` on PATH.
-- Validate with `git --version` and enforce a minimum version floor (2.23+, for `git switch`/`git restore`). Repository initialization uses `git init` followed by `git symbolic-ref HEAD refs/heads/main`, because `git init -b` is only available from Git 2.28.
+- Validate with `git --version` and enforce a minimum version floor (2.23+, for `git switch`, worktree, and the required plumbing behavior). Repository initialization uses `git init` followed by `git symbolic-ref HEAD refs/heads/main`, because `git init -b` is only available from Git 2.28.
 
 **Rationale**: macOS GUI apps launch with a minimal PATH; the CLT stub is a well-known trap that would pop an OS dialog from inside Beutl.
 
@@ -50,7 +50,7 @@ Each entry records a decision that resolves an unknown from the Technical Contex
 
 ## R-4. Commit model: snapshot on explicit save/close only
 
-**Decision**: The work tree is continuously current (autosave writes every undoable edit); commits mark user-meaningful points only — explicit Save / Save All, project close, safety snapshots before destructive-ish operations, and manual commits. Clean-tree triggers skip silently. Always `git add -A -- <pathspec>` (whole project); no partial staging. *(Pinned by clarification 2026-07-28.)*
+**Decision**: The work tree is continuously current (autosave writes every undoable edit); commits mark user-meaningful points only — explicit Save / Save All, project close, safety snapshots around destructive-ish operations, recovery snapshots after compensating a failed restore, and manual commits. A dirty pull first writes the project state to a durable private ref without advancing the branch, then promotes it to a normal safety commit on the fast-forwarded tip. Clean-tree triggers skip silently. Always `git add -A -- <pathspec>` (whole project); no partial staging. *(Pinned by clarification 2026-07-28 and review resolution 2026-07-31.)*
 
 **Rationale**: autosave fires per edit (`EditViewModel.OnChangeOperations` → `AutoSaveService`); mapping commits 1:1 onto it would produce a commit per drag. `HistoryManager` is per-scene, in-memory, with no save-point concept, so the only honest definition of "version" is "the on-disk state at a moment the user called done".
 
@@ -58,7 +58,7 @@ Each entry records a decision that resolves an unknown from the Technical Contex
 
 ## R-5. Snapshot message format
 
-**Decision**: Stable English subjects (`beutl: snapshot on save`, `beutl: snapshot on close`, `beutl: safety snapshot before <op>`, `beutl: restore project state from <shortsha>`, `beutl: initialize version control`) plus a machine-readable trailer `Beutl-Snapshot: save|close|safety|restore|init`. Manual commits use the user's message verbatim, no trailer. The history UI localizes the *display* by parsing the trailer.
+**Decision**: Stable English subjects (`beutl: snapshot on save`, `beutl: snapshot on close`, `beutl: safety snapshot before <op>`, `beutl: restore project state from <shortsha>`, `beutl: recover original project state after failed restore`, `beutl: initialize version control`) plus a machine-readable trailer `Beutl-Snapshot: save|close|safety|restore|recovery|init`. Manual commits use the user's message verbatim, no trailer. The history UI localizes the *display* by parsing the trailer.
 
 **Rationale**: repository content must be language-independent (survives locale switches and external tools); trailers are git's sanctioned metadata channel (FR-016).
 
@@ -66,7 +66,7 @@ Each entry records a decision that resolves an unknown from the Technical Contex
 
 ## R-6. Restore semantics: "restore as a new commit"
 
-**Decision**: Default restore = close project → `git restore --source=<sha> --worktree -- <pathspec>` + `git clean -fd -- <pathspec>` (removes elements added after `<sha>`; `.gitignore` protects `.beutl/`) → auto-commit with the `restore` trailer → reopen. A secondary "Restore to new branch" (`git switch -c <name> <sha>`) is offered in the commit context menu. Detached HEAD and hard reset are rejected outright.
+**Decision**: Default restore = close project → validate the attached branch plus scoped worktree/index → apply the selected tree through the guarded tree-transition transaction → append a commit with the `restore` trailer → reopen. The transition removes project files absent from the selected tree without running a broad clean and protects untracked or ignored collisions. If failure occurs after the Restore commit, apply the captured original tree and append a compensating `recovery` commit before reopening; never erase the attempted restore. A secondary "Restore to new branch" is offered in the commit context menu. Exposing detached HEAD and destructive reset is rejected outright.
 
 **Rationale**: history stays linear and complete (the pre-restore state is one commit back), nothing is ever lost, `push` keeps working, and the mental model — "make the project look like it did then" — needs zero git literacy. Detached HEAD orphans subsequent auto-commits (GC-able = data loss); reset rewrites history (violates FR-021/FR-028).
 
@@ -74,11 +74,11 @@ Each entry records a decision that resolves an unknown from the Technical Contex
 
 ## R-7. Live-editor constraint: close → operate → reopen
 
-**Decision**: Every operation that changes files under the editor (restore, branch switch, pull) runs the cycle: confirm → safety snapshot if dirty → `ProjectService.CloseProject()` → git operation → `ProjectService.OpenProject()`. Push does not touch the work tree and needs no cycle.
+**Decision**: Every operation that changes files under the editor (restore, branch switch, pull) runs a confirm → preserve dirty project state → `ProjectService.CloseProject()` → git operation → `ProjectService.OpenProject()` cycle. Restore and branch switch preserve dirty state as an ordinary safety commit. Pull preserves it as a durable private-ref checkpoint so the checked-out branch can still fast-forward, then reapplies and commits that state on the new tip. Push does not touch the work tree and needs no cycle.
 
 **Rationale**: the in-memory `Scene` is live-bound and `HistoryManager` is per-open-scene; rewriting files under them is undefined behavior. `ProjectPackageService.ImportAsync` already uses exactly this shape, so the lifecycle seam is proven.
 
-**Alternatives considered**: in-place model reload — a much larger feature (object-graph diffing against the live scene) with no v1 payoff; explicitly rejected for v1.
+**Alternatives considered**: in-place model reload — a much larger feature (object-graph diffing against the live scene) with no v1 payoff; explicitly rejected for v1. Committing dirty state before pull — rejected because it creates local divergence exactly when the remote is ahead. A process-only temporary stash — rejected because cancellation or a process crash can make the saved state undiscoverable to the app; the private ref is a durable recovery marker.
 
 ## R-8. Status pipeline and the autosave feedback loop
 
@@ -105,7 +105,7 @@ Each entry records a decision that resolves an unknown from the Technical Contex
 **Decision**: Four fixes land first, each as an independent PR-sized task with tests:
 
 1. **Id-based element file names** — extract the AgentToolkit convention (`{Id:N}.belm`, `-{index}` collision suffix; `DeclarativeDocumentApplier.cs:788`) into an `ElementFileNaming` helper in `Beutl.Editor` and replace the five GUI call sites of `RandomFileNameGenerator` (`ElementAdderImpl.cs:50,287`, `ElementStructureService.cs:74`, `ElementClipboardService.cs:205,294`, `DuplicateHelper.cs:162`). No bulk rename of existing files (scene loading is glob-based; names are cosmetic).
-2. **appVersion churn** — `Project.Serialize` writes `BeutlApplication.Version` unconditionally (`src/Beutl.Core/Project.cs:96`); change to persist the loaded `AppVersion` and advance it only when a migration actually rewrites content. `feat!:` + `NoMigrationRegressionTests` update.
+2. **appVersion churn** — `Project.Serialize` writes `BeutlApplication.Version` unconditionally (`src/Beutl.Core/Project.cs:96`); change to persist the loaded `AppVersion` and advance it only when a migration actually rewrites content. Project-item deserialization reports real persisted-content migrations back to `Project`, including legacy formats that normalize to an empty current collection; plain old-version resaves remain unchanged. `feat!:` + positive and negative migration regressions.
 3. **Exclude-list separator normalization** — `Scene` stores `Path.GetRelativePath` output (native `\` on Windows; `Scene.cs` include/exclude update paths); normalize to `/` on write, accept both on read.
 4. **JSON newline pinning** — `JsonHelper.WriterOptions` (`src/Beutl.Core/JsonHelper.cs:41`) leaves `JsonWriterOptions.NewLine` at its .NET default (`Environment.NewLine` ⇒ CRLF on Windows); pin `NewLine = "\n"`, paired with the `.gitattributes` `eol=lf`. One-time diff for existing Windows projects, called out in release notes.
 
@@ -121,13 +121,13 @@ Each entry records a decision that resolves an unknown from the Technical Contex
 
 ## R-12. Remote scope and conflict policy
 
-**Decision**: One remote (`origin`), URL-configurable. Push = `git push -u origin HEAD` with progress + cancel. Pull = `git pull --ff-only` inside the close/reopen cycle. Divergence and unmerged states are detected and surfaced with "resolve outside Beutl" guidance; all VC operations block in the `Conflicted` state; the editor itself stays usable; opening files containing conflict markers warns first (they fail JSON parse).
+**Decision**: One remote (`origin`), URL-configurable. Push = `git push -u origin HEAD` with progress + cancel. Pull fetches, resolves the configured upstream commit, proves the update is fast-forward, and performs the close/reopen tree transition without invoking merge or rebase. A dirty pull captures the attached branch tip and a durable project checkpoint, builds the merged project tree and Safety commit off-ref, then applies that exact state and compare-and-swaps the branch as the last durable step. Any failure restores the captured tree/index only while ownership fingerprints still match; an unexpected external ref movement or unrelated dirty repository state is refused, never overwritten. Divergence and unmerged states are detected and surfaced with "resolve outside Beutl" guidance; all VC operations block in the `Conflicted` state; the editor itself stays usable; opening files containing conflict markers warns first (they fail JSON parse).
 
 **Rationale**: fast-forward-only means git itself refuses anything destructive; the element-per-file layout keeps realistic conflicts confined to `.scene`/`.bep`, which external tools handle. A semantic merge UI is a standalone future feature (spec Out of Scope).
 
 ## R-13. Identity handling
 
-**Decision**: Use `git config user.name/user.email`. If unset at first commit: prompt once (prefilled from the OS username), write **repo-local** config only. Unattended auto-commit with missing identity is skipped with a one-time warning instead of fabricating an identity.
+**Decision**: Use `git config user.name/user.email`. If unset at first commit: prompt once (prefilled from the OS username), write **repo-local** config only. The initialization seam accepts `Func<CancellationToken, Task<GitIdentity?>>` and passes the exact operation token into that prompt. The Avalonia identity flyout observes the token, cancels its pending result, and closes itself on the UI thread. Unattended auto-commit with missing identity is skipped with a one-time warning instead of fabricating an identity.
 
 **Rationale**: mutating `--global` config from an app is hostile; silent fabricated identities poison shared repos (FR-004).
 

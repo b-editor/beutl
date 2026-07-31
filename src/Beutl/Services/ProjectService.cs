@@ -20,6 +20,11 @@ public sealed class ProjectService
     private readonly ReadOnlyReactivePropertySlim<bool> _isOpened;
     private readonly BeutlApplication _app = BeutlApplication.Current;
     private readonly ILogger _logger = Log.CreateLogger<ProjectService>();
+    private readonly SemaphoreSlim _transitionGate = new(1, 1);
+    private readonly object _transitionSync = new();
+    private ProjectTransitionContext? _currentTransition;
+    private long _nextTransitionId;
+    private int _shutdownRequested;
 
     public ProjectService()
     {
@@ -33,6 +38,17 @@ public sealed class ProjectService
     internal event Func<CancellationToken, Task>? Closing;
 
     internal event Func<string, Task>? Opening;
+
+    internal ProjectTransitionContext? CurrentTransition
+    {
+        get
+        {
+            lock (_transitionSync)
+            {
+                return _currentTransition;
+            }
+        }
+    }
 
     public IReadOnlyReactiveProperty<Project?> CurrentProject { get; }
 
@@ -54,6 +70,106 @@ public sealed class ProjectService
 
     public async Task OpenProject(string file)
     {
+        await using ProjectTransitionScope transition = await BeginTransitionAsync(
+            ProjectTransitionPurpose.Normal,
+            this,
+            allowDuringShutdown: false,
+            CancellationToken.None);
+        await OpenProjectCoreAsync(file, transition.Context);
+    }
+
+    public async Task CloseProject(CancellationToken cancellationToken = default)
+    {
+        await using ProjectTransitionScope transition = await BeginTransitionAsync(
+            ProjectTransitionPurpose.Normal,
+            this,
+            allowDuringShutdown: false,
+            cancellationToken);
+        await CloseProjectCoreAsync(transition.Context, cancellationToken);
+    }
+
+    public async Task<Project?> CreateProject(int width, int height, int framerate, int samplerate, string name, string location)
+    {
+        await using ProjectTransitionScope transition = await BeginTransitionAsync(
+            ProjectTransitionPurpose.Normal,
+            this,
+            allowDuringShutdown: false,
+            CancellationToken.None);
+        return await CreateProjectCoreAsync(
+            width,
+            height,
+            framerate,
+            samplerate,
+            name,
+            location,
+            transition.Context);
+    }
+
+    internal ValueTask<ProjectTransitionScope> BeginVersionControlTransitionAsync(
+        object owner,
+        CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(owner);
+        return BeginTransitionAsync(
+            ProjectTransitionPurpose.VersionControlMutation,
+            owner,
+            allowDuringShutdown: false,
+            cancellationToken);
+    }
+
+    internal ValueTask<ProjectTransitionScope> BeginShutdownTransitionAsync(
+        object owner,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(owner);
+        Interlocked.Exchange(ref _shutdownRequested, 1);
+        return BeginTransitionAsync(
+            ProjectTransitionPurpose.Shutdown,
+            owner,
+            allowDuringShutdown: true,
+            cancellationToken);
+    }
+
+    internal void RequestShutdown()
+    {
+        Interlocked.Exchange(ref _shutdownRequested, 1);
+    }
+
+    private async ValueTask<ProjectTransitionScope> BeginTransitionAsync(
+        ProjectTransitionPurpose purpose,
+        object owner,
+        bool allowDuringShutdown,
+        CancellationToken cancellationToken)
+    {
+        if (!allowDuringShutdown && Volatile.Read(ref _shutdownRequested) != 0)
+        {
+            throw new InvalidOperationException(
+                "Project transitions cannot start after application shutdown has begun.");
+        }
+
+        await _transitionGate.WaitAsync(cancellationToken);
+        if (!allowDuringShutdown && Volatile.Read(ref _shutdownRequested) != 0)
+        {
+            _transitionGate.Release();
+            throw new InvalidOperationException(
+                "Project transitions cannot start after application shutdown has begun.");
+        }
+
+        var context = new ProjectTransitionContext(
+            Interlocked.Increment(ref _nextTransitionId),
+            purpose,
+            owner);
+        lock (_transitionSync)
+        {
+            _currentTransition = context;
+        }
+
+        return new ProjectTransitionScope(this, context);
+    }
+
+    private async Task OpenProjectCoreAsync(string file, ProjectTransitionContext transition)
+    {
+        VerifyTransition(transition);
         await App.WaitLoadingExtensions();
 
         using Activity? activity = Telemetry.StartActivity();
@@ -67,7 +183,7 @@ public sealed class ProjectService
                 }
             }
 
-            await CloseProject();
+            await CloseProjectCoreAsync(transition, CancellationToken.None);
 
             (NuGetVersion appVersion, NuGetVersion minVersion) = await GetProjectVersion(file);
             activity?.SetTag(nameof(appVersion), appVersion.ToString());
@@ -102,8 +218,11 @@ public sealed class ProjectService
         }
     }
 
-    public async Task CloseProject(CancellationToken cancellationToken = default)
+    private async Task CloseProjectCoreAsync(
+        ProjectTransitionContext transition,
+        CancellationToken cancellationToken)
     {
+        VerifyTransition(transition);
         if (_app.Project is null)
         {
             return;
@@ -132,8 +251,16 @@ public sealed class ProjectService
         }
     }
 
-    public async Task<Project?> CreateProject(int width, int height, int framerate, int samplerate, string name, string location)
+    private async Task<Project?> CreateProjectCoreAsync(
+        int width,
+        int height,
+        int framerate,
+        int samplerate,
+        string name,
+        string location,
+        ProjectTransitionContext transition)
     {
+        VerifyTransition(transition);
         await App.WaitLoadingExtensions();
 
         using Activity? activity = Telemetry.StartActivity();
@@ -143,7 +270,7 @@ public sealed class ProjectService
         activity?.SetTag(nameof(samplerate), samplerate);
         try
         {
-            await CloseProject();
+            await CloseProjectCoreAsync(transition, CancellationToken.None);
 
             location = Path.Combine(location, name);
             var scene = new Scene(width, height, name)
@@ -204,4 +331,76 @@ public sealed class ProjectService
         viewConfig.UpdateRecentFile(file);
         viewConfig.LastOpenedProjectFile = file;
     }
+
+    private void VerifyTransition(ProjectTransitionContext transition)
+    {
+        lock (_transitionSync)
+        {
+            if (!ReferenceEquals(_currentTransition, transition))
+            {
+                throw new InvalidOperationException("The project transition is no longer active.");
+            }
+        }
+    }
+
+    private void EndTransition(ProjectTransitionContext transition)
+    {
+        lock (_transitionSync)
+        {
+            if (!ReferenceEquals(_currentTransition, transition))
+            {
+                return;
+            }
+
+            _currentTransition = null;
+        }
+
+        _transitionGate.Release();
+    }
+
+    internal sealed class ProjectTransitionScope : IAsyncDisposable
+    {
+        private ProjectService? _owner;
+
+        internal ProjectTransitionScope(ProjectService owner, ProjectTransitionContext context)
+        {
+            _owner = owner;
+            Context = context;
+        }
+
+        internal ProjectTransitionContext Context { get; }
+
+        internal Task CloseProjectAsync(CancellationToken cancellationToken = default)
+        {
+            ProjectService owner = _owner
+                                   ?? throw new ObjectDisposedException(nameof(ProjectTransitionScope));
+            return owner.CloseProjectCoreAsync(Context, cancellationToken);
+        }
+
+        internal Task OpenProjectAsync(string file)
+        {
+            ProjectService owner = _owner
+                                   ?? throw new ObjectDisposedException(nameof(ProjectTransitionScope));
+            return owner.OpenProjectCoreAsync(file, Context);
+        }
+
+        public ValueTask DisposeAsync()
+        {
+            ProjectService? owner = Interlocked.Exchange(ref _owner, null);
+            owner?.EndTransition(Context);
+            return ValueTask.CompletedTask;
+        }
+    }
 }
+
+internal enum ProjectTransitionPurpose
+{
+    Normal,
+    VersionControlMutation,
+    Shutdown,
+}
+
+internal sealed record ProjectTransitionContext(
+    long Id,
+    ProjectTransitionPurpose Purpose,
+    object Owner);

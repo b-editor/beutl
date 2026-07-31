@@ -47,13 +47,8 @@ public class VersionControlSaveTests
             HeadlessTestHelpers.Settle();
 
             bool initialized = await TestShell.VersionControl.InitializeCurrentProjectAsync(
-                async service =>
-                {
-                    await service.SetLocalIdentityAsync(
-                        new GitIdentity("Beutl Headless Test", "headless@example.invalid"),
-                        CancellationToken.None);
-                    return true;
-                });
+                _ => Task.FromResult<GitIdentity?>(
+                    new GitIdentity("Beutl Headless Test", "headless@example.invalid")));
             Assert.That(initialized, Is.True);
 
             string projectRoot = Path.GetDirectoryName(project.Uri!.LocalPath)!;
@@ -155,15 +150,9 @@ public class VersionControlSaveTests
             });
 
             bool initialized = await TestShell.VersionControl.InitializeCurrentProjectAsync(
-                async service =>
-                {
-                    await service.SetLocalIdentityAsync(
-                        new GitIdentity(
-                            "Beutl Headless Test",
-                            "headless@example.invalid"),
-                        CancellationToken.None);
-                    return true;
-                });
+                _ => Task.FromResult<GitIdentity?>(new GitIdentity(
+                    "Beutl Headless Test",
+                    "headless@example.invalid")));
             HeadlessTestHelpers.Settle();
 
             Assert.Multiple(() =>
@@ -186,17 +175,85 @@ public class VersionControlSaveTests
     }
 
     [AvaloniaTest]
+    public async Task Discovered_repository_hygiene_finishes_before_tracked_service_publication()
+    {
+        await TestReset.ResetShellAsync();
+        using var environment = new IsolatedGitEnvironment();
+        string gitPath = ProbeGitOrIgnore();
+        VersionControlConfig config = GlobalConfiguration.Instance.VersionControlConfig;
+        string? oldGitPath = config.GitExecutablePath;
+        bool oldAutoCommitOnClose = config.AutoCommitOnClose;
+        bool oldUseLfs = config.UseLfsWhenAvailable;
+
+        try
+        {
+            config.GitExecutablePath = gitPath;
+            config.AutoCommitOnClose = false;
+            config.UseLfsWhenAvailable = false;
+            string location = Path.Combine(
+                BeutlHomeIsolation.CurrentHome!,
+                "version-control-auto-hygiene");
+            Directory.CreateDirectory(location);
+            Project project = (await TestShell.Project.CreateProject(
+                640,
+                480,
+                30,
+                44100,
+                "auto-hygiene",
+                location))!;
+            bool initialized = await TestShell.VersionControl.InitializeCurrentProjectAsync(
+                _ => Task.FromResult<GitIdentity?>(
+                    new GitIdentity("Beutl Headless Test", "headless@example.invalid")));
+            Assert.That(initialized, Is.True);
+
+            string projectFile = project.Uri!.LocalPath;
+            string projectRoot = Path.GetDirectoryName(projectFile)!;
+            int initialCommitCount = await CountCommitsAsync(gitPath, projectRoot);
+            await TestShell.MainViewModel.MenuBar.CloseProject.ExecuteAsync();
+            File.Delete(Path.Combine(projectRoot, ".gitignore"));
+            File.Delete(Path.Combine(projectRoot, ".gitattributes"));
+
+            await TestShell.Project.OpenProject(projectFile);
+            await WaitUntilAsync(
+                () => TestShell.VersionControl.CurrentService?.Repository is not null);
+            string staged = await RunGitAsync(
+                gitPath,
+                projectRoot,
+                "diff",
+                "--cached",
+                "--name-only");
+            int finalCommitCount = await CountCommitsAsync(gitPath, projectRoot);
+
+            Assert.Multiple(() =>
+            {
+                Assert.That(File.ReadAllText(Path.Combine(projectRoot, ".gitignore")),
+                    Is.EqualTo("**/.beutl/\n*.tmp\n"));
+                Assert.That(File.ReadAllText(Path.Combine(projectRoot, ".gitattributes")),
+                    Does.Contain("*.bep text eol=lf\n"));
+                Assert.That(finalCommitCount, Is.EqualTo(initialCommitCount));
+                Assert.That(staged, Is.Empty);
+            });
+        }
+        finally
+        {
+            await TestReset.ResetShellAsync();
+            config.GitExecutablePath = oldGitPath;
+            config.AutoCommitOnClose = oldAutoCommitOnClose;
+            config.UseLfsWhenAvailable = oldUseLfs;
+        }
+    }
+
+    [AvaloniaTest]
     public async Task Identity_view_model_prefills_the_os_user_and_writes_the_repository_identity()
     {
-        var service = new RecordingVersionControlService();
-        var viewModel = new GitIdentityDialogViewModel(service);
+        var viewModel = new GitIdentityDialogViewModel();
 
         Assert.That(viewModel.Name.Value, Is.EqualTo(Environment.UserName));
         viewModel.Email.Value = "local@example.invalid";
-        await viewModel.SaveAsync();
+        GitIdentity identity = viewModel.CreateIdentity();
 
         Assert.That(
-            service.Identity,
+            identity,
             Is.EqualTo(new GitIdentity(Environment.UserName, "local@example.invalid")));
     }
 
@@ -212,6 +269,22 @@ public class VersionControlSaveTests
         }
 
         return count;
+    }
+
+    private static async Task WaitUntilAsync(Func<bool> condition)
+    {
+        for (int attempt = 0; attempt < 200; attempt++)
+        {
+            HeadlessTestHelpers.Settle();
+            if (condition())
+            {
+                return;
+            }
+
+            await Task.Delay(10);
+        }
+
+        Assert.Fail("Timed out waiting for version control activation.");
     }
 
     private static async Task<int> CountCommitsAsync(string gitPath, string repositoryRoot)
@@ -353,106 +426,4 @@ public class VersionControlSaveTests
         }
     }
 
-    private sealed class RecordingVersionControlService : IProjectVersionControlService
-    {
-        public RepositoryInfo? Repository => null;
-
-        public GitIdentity? Identity { get; private set; }
-
-        public event EventHandler<WorkspaceStatus>? StatusChanged
-        {
-            add { }
-            remove { }
-        }
-
-        public Task<GitAvailability> GetAvailabilityAsync(CancellationToken cancellationToken)
-            => Task.FromResult(GitAvailability.NotInstalled);
-
-        public Task<RepositoryInfo?> DiscoverRepositoryAsync(
-            string projectRoot,
-            CancellationToken cancellationToken)
-            => Task.FromResult<RepositoryInfo?>(null);
-
-        public Task InitializeAsync(InitOptions options, CancellationToken cancellationToken)
-            => Task.CompletedTask;
-
-        public Task<CommitResult> CommitAllAsync(
-            string message,
-            SnapshotKind kind,
-            CancellationToken cancellationToken)
-            => Task.FromResult<CommitResult>(new CommitResult.NoChanges());
-
-        public Task<WorkspaceStatus> GetStatusAsync(CancellationToken cancellationToken)
-            => Task.FromResult(new WorkspaceStatus(null, 0, 0, [], false));
-
-        public Task<IReadOnlyList<CommitInfo>> GetHistoryAsync(
-            int skip,
-            int take,
-            CancellationToken cancellationToken)
-            => Task.FromResult<IReadOnlyList<CommitInfo>>([]);
-
-        public Task<IReadOnlyList<FileChange>> GetCommitFilesAsync(
-            string sha,
-            CancellationToken cancellationToken)
-            => Task.FromResult<IReadOnlyList<FileChange>>([]);
-
-        public Task<string> GetDiffAsync(
-            string sha,
-            string? path,
-            CancellationToken cancellationToken)
-            => Task.FromResult(string.Empty);
-
-        public Task RestoreWorktreeFromAsync(
-            string sha,
-            CancellationToken cancellationToken)
-            => Task.CompletedTask;
-
-        public Task<IReadOnlyList<BranchInfo>> GetBranchesAsync(
-            CancellationToken cancellationToken)
-            => Task.FromResult<IReadOnlyList<BranchInfo>>([]);
-
-        public Task CreateBranchAsync(
-            string name,
-            string startPoint,
-            CancellationToken cancellationToken)
-            => Task.CompletedTask;
-
-        public Task SwitchBranchAsync(
-            string name,
-            CancellationToken cancellationToken)
-            => Task.CompletedTask;
-
-        public Task<IReadOnlyList<RemoteInfo>> GetRemotesAsync(
-            CancellationToken cancellationToken)
-            => Task.FromResult<IReadOnlyList<RemoteInfo>>([]);
-
-        public Task SetRemoteAsync(
-            string url,
-            CancellationToken cancellationToken)
-            => Task.CompletedTask;
-
-        public Task<RemoteOpResult> PushAsync(
-            IProgress<string>? progress,
-            CancellationToken cancellationToken)
-            => Task.FromResult<RemoteOpResult>(new RemoteOpResult.Success());
-
-        public Task<RemoteOpResult> PullFastForwardAsync(
-            CancellationToken cancellationToken)
-            => Task.FromResult<RemoteOpResult>(new RemoteOpResult.Success());
-
-        public Task<GitIdentity?> GetIdentityAsync(CancellationToken cancellationToken)
-            => Task.FromResult(Identity);
-
-        public Task SetLocalIdentityAsync(
-            GitIdentity identity,
-            CancellationToken cancellationToken)
-        {
-            Identity = identity;
-            return Task.CompletedTask;
-        }
-
-        public void Dispose()
-        {
-        }
-    }
 }

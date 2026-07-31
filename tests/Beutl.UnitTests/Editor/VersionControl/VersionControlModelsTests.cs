@@ -22,6 +22,23 @@ public class VersionControlModelsTests
     }
 
     [Test]
+    public void Commit_revision_requires_an_explicit_non_empty_known_sha()
+    {
+        var known = new CommitRevision.Known("0123456789abcdef");
+        var unavailable = new CommitRevision.Unavailable();
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(known.Sha, Is.EqualTo("0123456789abcdef"));
+            Assert.That(unavailable, Is.TypeOf<CommitRevision.Unavailable>());
+            Assert.Throws<ArgumentNullException>(() => new CommitRevision.Known(null!));
+            Assert.Throws<ArgumentException>(() => new CommitRevision.Known(string.Empty));
+            Assert.Throws<ArgumentException>(() => new CommitRevision.Known("   "));
+            Assert.Throws<ArgumentNullException>(() => new CommitResult.Committed(null!));
+        });
+    }
+
+    [Test]
     public void RepositoryInfo_normalizes_nested_pathspec_and_enforces_containment()
     {
         string root = Path.Combine(Path.GetTempPath(), "repo");
@@ -57,10 +74,11 @@ public class VersionControlModelsTests
         }
     }
 
-    [Test]
-    public void GitOperationException_preserves_safe_stderr_and_detects_lock_failure()
+    [TestCase("fatal: Unable to create '.git/index.lock': File exists.")]
+    [TestCase("fatal: Unable to acquire '/repo/.git/HEAD.lock': File exists.")]
+    public void GitOperationException_preserves_safe_stderr_and_detects_lock_failure(
+        string stderr)
     {
-        const string stderr = "fatal: Unable to create '.git/index.lock': File exists.";
         var exception = new GitOperationException(128, stderr);
 
         Assert.Multiple(() =>

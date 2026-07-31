@@ -176,7 +176,14 @@ public sealed class NestedRepositoryTests : RealGitTestRepository
             "--name-only",
             "HEAD");
 
-        await service.RestoreWorktreeFromAsync(targetSha, CancellationToken.None);
+        CheckedOutBranchTip currentTip = await service.GetCheckedOutBranchTipAsync(
+            CancellationToken.None);
+        await service.CommitProjectTreeAsync(
+            currentTip,
+            targetSha,
+            "beutl: restore target",
+            SnapshotKind.Restore,
+            CancellationToken.None);
 
         Assert.Multiple(() =>
         {
@@ -223,7 +230,7 @@ public sealed class NestedRepositoryTests : RealGitTestRepository
         await runner.RunAsync(
             remoteRepository,
             ["init", "--bare"],
-            networkOperation: false,
+            GitCommandOptions.Local,
             CancellationToken.None);
         await service.SetRemoteAsync(remoteRoot, CancellationToken.None);
         RemoteOpResult push = await service.PushAsync(
@@ -232,7 +239,7 @@ public sealed class NestedRepositoryTests : RealGitTestRepository
         GitCommandResult remoteFiles = await runner.RunAsync(
             remoteRepository,
             ["ls-tree", "-r", "--name-only", "whole-repository"],
-            networkOperation: false,
+            GitCommandOptions.Local,
             CancellationToken.None);
 
         string peerRoot = CreateTemporaryDirectory();
@@ -246,12 +253,12 @@ public sealed class NestedRepositoryTests : RealGitTestRepository
         await runner.RunAsync(
             peerRepository,
             ["config", "user.name", "Beutl Test Peer"],
-            networkOperation: false,
+            GitCommandOptions.Local,
             CancellationToken.None);
         await runner.RunAsync(
             peerRepository,
             ["config", "user.email", "peer@example.invalid"],
-            networkOperation: false,
+            GitCommandOptions.Local,
             CancellationToken.None);
         await File.WriteAllTextAsync(
             Path.Combine(peerRoot, "foreign-from-peer.txt"),
@@ -259,27 +266,32 @@ public sealed class NestedRepositoryTests : RealGitTestRepository
         await runner.RunAsync(
             peerRepository,
             ["add", "--", "foreign-from-peer.txt"],
-            networkOperation: false,
+            GitCommandOptions.Local,
             CancellationToken.None);
         await runner.RunAsync(
             peerRepository,
             ["commit", "-m", "foreign peer update"],
-            networkOperation: false,
+            GitCommandOptions.Local,
             CancellationToken.None);
         await runner.RunAsync(
             peerRepository,
             ["push"],
-            networkOperation: true,
+            GitCommandOptions.Network,
             CancellationToken.None);
 
-        RemoteOpResult pull = await service.PullFastForwardAsync(CancellationToken.None);
+        CheckedOutBranchTip expected = await service.GetCheckedOutBranchTipAsync(
+            CancellationToken.None);
+        FastForwardPullResult pull = await service.PullFastForwardAsync(
+            expected,
+            checkpoint: null,
+            CancellationToken.None);
 
         Assert.Multiple(() =>
         {
             Assert.That(branchFiles.Stdout, Does.Contain("foreign.txt"));
             Assert.That(push, Is.TypeOf<RemoteOpResult.Success>());
             Assert.That(remoteFiles.Stdout, Does.Contain("foreign.txt"));
-            Assert.That(pull, Is.TypeOf<RemoteOpResult.Success>());
+            Assert.That(pull.Result, Is.TypeOf<RemoteOpResult.Success>());
             Assert.That(
                 File.ReadAllText(Path.Combine(Root, "foreign-from-peer.txt")),
                 Is.EqualTo("whole repository pull\n"));

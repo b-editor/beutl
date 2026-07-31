@@ -6,13 +6,123 @@ using Microsoft.Extensions.Logging;
 namespace Beutl.Editor.VersionControl;
 
 internal sealed class GitCliVersionControlService :
-    IProjectVersionControlService,
-    IRepositoryLockRecoveryService
+    IProjectVersionControlBackend
 {
+    private sealed record WorktreeStateFingerprint(string Tree, string IndexEntries);
+
+    private enum TreeTransitionOutcome
+    {
+        AppliedTarget,
+        RestoredCurrent,
+        OwnershipLost,
+        RecoveryFailed,
+    }
+
+    private sealed record TreeTransitionResult(
+        TreeTransitionOutcome Outcome,
+        Exception? Error = null,
+        CheckedOutBranchTip? ActualTip = null);
+
+    private sealed record TreeTransitionIndexPlan(
+        string? PrepareCommit = null,
+        string? FinalCommit = null,
+        string? RestoreCommit = null,
+        string Pathspec = ".");
+
+    private sealed class HeadOwnershipLease : IDisposable
+    {
+        private readonly Action<Exception>? _releaseFailureSink;
+        private FileStream? _stream;
+
+        private HeadOwnershipLease(
+            string lockPath,
+            FileStream stream,
+            Action<Exception>? releaseFailureSink)
+        {
+            LockPath = lockPath;
+            _stream = stream;
+            _releaseFailureSink = releaseFailureSink;
+        }
+
+        public string LockPath { get; }
+
+        public static HeadOwnershipLease Acquire(
+            string headPath,
+            string expectedRefName,
+            Action<Exception>? releaseFailureSink)
+        {
+            string lockPath = headPath + ".lock";
+            FileStream stream;
+            try
+            {
+                stream = new FileStream(
+                    lockPath,
+                    FileMode.CreateNew,
+                    FileAccess.Write,
+                    FileShare.None,
+                    bufferSize: 1,
+                    FileOptions.WriteThrough);
+            }
+            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+            {
+                throw new GitOperationException(
+                    128,
+                    $"Unable to acquire the worktree HEAD lock '{lockPath}': {ex.Message}");
+            }
+
+            var lease = new HeadOwnershipLease(lockPath, stream, releaseFailureSink);
+            try
+            {
+                string expected = $"ref: {expectedRefName}\n";
+                string actual = File.ReadAllText(headPath, new UTF8Encoding(false));
+                if (!string.Equals(actual, expected, StringComparison.Ordinal))
+                {
+                    throw new ProjectCheckpointStateChangedException();
+                }
+
+                return lease;
+            }
+            catch
+            {
+                lease.Dispose();
+                throw;
+            }
+        }
+
+        public void Dispose()
+        {
+            FileStream? stream = Interlocked.Exchange(ref _stream, null);
+            if (stream is null)
+            {
+                return;
+            }
+
+            try
+            {
+                stream.Dispose();
+            }
+            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+            {
+                _releaseFailureSink?.Invoke(ex);
+            }
+
+            try
+            {
+                File.Delete(LockPath);
+            }
+            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+            {
+                _releaseFailureSink?.Invoke(ex);
+            }
+        }
+    }
+
     internal const int MaxDiffBytes = 1024 * 1024;
     internal const string DiffTruncationMarker = "\n--- Diff truncated at 1 MB ---\n";
     private const string LfsQuotaNoticeConfigKeyPrefix = "beutl.lfsQuotaNoticeShown-";
     private const string LargeMediaNoticeConfigKeyPrefix = "beutl.largeMediaNoticeShown-";
+    private const string MissingIdentityNoticeConfigKeyPrefix = "beutl.missingIdentityNoticeShown-";
+    private const string PullSafetyCommitMessage = "beutl: safety snapshot before pull";
 
     private static readonly string[] s_gitIgnoreLines =
     [
@@ -73,8 +183,10 @@ internal sealed class GitCliVersionControlService :
     private RepositoryWatcher? _watcher;
     private GitAvailability? _cachedAvailability;
     private IGitCliRunner? _runner;
+    private Task? _retirementTask;
     private int _configurationRevision;
-    private int _disposed;
+    private int _lifetimeState;
+    private int _resourcesDisposed;
 
     public GitCliVersionControlService(
         GitInstallationLocator installationLocator,
@@ -204,6 +316,32 @@ internal sealed class GitCliVersionControlService :
             cancellationToken);
     }
 
+    public Task EnsureRepositoryHygieneAsync(CancellationToken cancellationToken)
+    {
+        ThrowIfDisposed();
+        return RunSerializedAsync(
+            async () =>
+            {
+                RepositoryInfo repository = GetRepository();
+                (GitAvailability availability, IGitCliRunner? runner)
+                    = await GetGitRuntimeCoreAsync(cancellationToken).ConfigureAwait(false);
+                if (availability.State != GitAvailabilityState.Installed || runner is null)
+                {
+                    throw new InvalidOperationException("Git is not available.");
+                }
+
+                bool useLfs = _installationLocator.Config.UseLfsWhenAvailable
+                              && availability.LfsInstalled;
+                await EnsureRepositoryHygieneCoreAsync(
+                        repository,
+                        runner,
+                        useLfs,
+                        cancellationToken)
+                    .ConfigureAwait(false);
+            },
+            cancellationToken);
+    }
+
     public Task<CommitResult> CommitAllAsync(
         string message,
         SnapshotKind kind,
@@ -213,6 +351,81 @@ internal sealed class GitCliVersionControlService :
         ArgumentException.ThrowIfNullOrWhiteSpace(message);
         return RunSerializedAsync(
             () => CommitAllCoreAsync(message, kind, cancellationToken),
+            cancellationToken);
+    }
+
+    public Task<CheckedOutBranchTip> GetCheckedOutBranchTipAsync(CancellationToken cancellationToken)
+    {
+        ThrowIfDisposed();
+        return RunSerializedAsync(
+            () => GetCheckedOutBranchTipCoreAsync(cancellationToken),
+            cancellationToken);
+    }
+
+    public Task<ProjectCheckpoint> CreateProjectCheckpointAsync(
+        string message,
+        CancellationToken cancellationToken)
+    {
+        ThrowIfDisposed();
+        ArgumentException.ThrowIfNullOrWhiteSpace(message);
+        return RunSerializedAsync(
+            () => CreateProjectCheckpointCoreAsync(message, cancellationToken),
+            cancellationToken);
+    }
+
+    public Task RestoreProjectCheckpointAsync(
+        ProjectCheckpoint checkpoint,
+        CancellationToken cancellationToken)
+    {
+        ThrowIfDisposed();
+        ArgumentNullException.ThrowIfNull(checkpoint);
+        return RunSerializedAsync(
+            () => RestoreProjectCheckpointCoreAsync(checkpoint, cancellationToken),
+            cancellationToken);
+    }
+
+    public Task<CommitResult> CommitProjectTreeAsync(
+        CheckedOutBranchTip expectedCurrent,
+        string sourceCommit,
+        string message,
+        SnapshotKind kind,
+        CancellationToken cancellationToken)
+    {
+        ThrowIfDisposed();
+        ArgumentNullException.ThrowIfNull(expectedCurrent);
+        ArgumentException.ThrowIfNullOrWhiteSpace(sourceCommit);
+        ArgumentException.ThrowIfNullOrWhiteSpace(message);
+        return RunSerializedAsync(
+            () => CommitProjectTreeCoreAsync(
+                expectedCurrent,
+                sourceCommit,
+                message,
+                kind,
+                cancellationToken),
+            cancellationToken);
+    }
+
+    public Task<BranchTipRollbackResult> TryRollbackBranchTipAsync(
+        CheckedOutBranchTip expectedCurrent,
+        CheckedOutBranchTip target,
+        CancellationToken cancellationToken)
+    {
+        ThrowIfDisposed();
+        ArgumentNullException.ThrowIfNull(expectedCurrent);
+        ArgumentNullException.ThrowIfNull(target);
+        return RunSerializedAsync(
+            () => TryRollbackBranchTipCoreAsync(expectedCurrent, target, cancellationToken),
+            cancellationToken);
+    }
+
+    public Task<bool> DeleteProjectCheckpointAsync(
+        ProjectCheckpoint checkpoint,
+        CancellationToken cancellationToken)
+    {
+        ThrowIfDisposed();
+        ArgumentNullException.ThrowIfNull(checkpoint);
+        return RunSerializedAsync(
+            () => DeleteProjectCheckpointCoreAsync(checkpoint, cancellationToken),
             cancellationToken);
     }
 
@@ -257,17 +470,6 @@ internal sealed class GitCliVersionControlService :
         ArgumentException.ThrowIfNullOrWhiteSpace(sha);
         return RunSerializedAsync(
             () => GetDiffCoreAsync(sha, path, cancellationToken),
-            cancellationToken);
-    }
-
-    public Task RestoreWorktreeFromAsync(
-        string sha,
-        CancellationToken cancellationToken)
-    {
-        ThrowIfDisposed();
-        ArgumentException.ThrowIfNullOrWhiteSpace(sha);
-        return RunSerializedAsync(
-            () => RestoreWorktreeFromCoreAsync(sha, cancellationToken),
             cancellationToken);
     }
 
@@ -334,12 +536,15 @@ internal sealed class GitCliVersionControlService :
             cancellationToken);
     }
 
-    public Task<RemoteOpResult> PullFastForwardAsync(
+    public Task<FastForwardPullResult> PullFastForwardAsync(
+        CheckedOutBranchTip expectedCurrent,
+        ProjectCheckpoint? checkpoint,
         CancellationToken cancellationToken)
     {
         ThrowIfDisposed();
+        ArgumentNullException.ThrowIfNull(expectedCurrent);
         return RunSerializedAsync(
-            () => PullFastForwardCoreAsync(cancellationToken),
+            () => PullFastForwardCoreAsync(expectedCurrent, checkpoint, cancellationToken),
             cancellationToken);
     }
 
@@ -373,12 +578,12 @@ internal sealed class GitCliVersionControlService :
                 await runner.RunAsync(
                     repository,
                     ["config", "--local", "user.name", identity.Name],
-                    networkOperation: false,
+                    GitCommandOptions.Local,
                     cancellationToken).ConfigureAwait(false);
                 await runner.RunAsync(
                     repository,
                     ["config", "--local", "user.email", identity.Email],
-                    networkOperation: false,
+                    GitCommandOptions.Local,
                     cancellationToken).ConfigureAwait(false);
             },
             cancellationToken);
@@ -412,14 +617,101 @@ internal sealed class GitCliVersionControlService :
 
     public void Dispose()
     {
+        Task retirement = RetireAsync(finalSnapshot: null);
+        if (!retirement.IsCompletedSuccessfully)
+        {
+            _ = ObserveRetirementAsync(retirement);
+        }
+    }
+
+    Task<TResult> IProjectVersionControlBackend.ExecuteExclusiveAsync<TResult>(
+        Func<IProjectVersionControlTransaction, Task<TResult>> operation,
+        CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(operation);
+        ThrowIfDisposed();
+        return ExecuteExclusiveCoreAsync(operation, cancellationToken);
+    }
+
+    public Task RetireAsync(ProjectVersionControlFinalSnapshot? finalSnapshot)
+    {
+        lock (_lifetimeSync)
+        {
+            if (_retirementTask is not null)
+            {
+                return _retirementTask;
+            }
+
+            if ((ServiceLifetimeState)_lifetimeState == ServiceLifetimeState.Retired)
+            {
+                return Task.CompletedTask;
+            }
+
+            _lifetimeState = (int)ServiceLifetimeState.Retiring;
+            _retirementTask = RetireCoreAsync(finalSnapshot);
+            return _retirementTask;
+        }
+    }
+
+    private async Task<TResult> ExecuteExclusiveCoreAsync<TResult>(
+        Func<IProjectVersionControlTransaction, Task<TResult>> operation,
+        CancellationToken cancellationToken)
+    {
+        await _operationGate.WaitAsync(cancellationToken).ConfigureAwait(false);
+        try
+        {
+            ThrowIfDisposed();
+            return await operation(new Transaction(this)).ConfigureAwait(false);
+        }
+        catch (GitOperationException ex)
+        {
+            CaptureRecoverableLock(ex);
+            throw;
+        }
+        finally
+        {
+            _operationGate.Release();
+        }
+    }
+
+    private async Task RetireCoreAsync(ProjectVersionControlFinalSnapshot? finalSnapshot)
+    {
+        await Task.Yield();
+        await _operationGate.WaitAsync().ConfigureAwait(false);
+        try
+        {
+            if (finalSnapshot is not null && Repository is not null)
+            {
+                await CommitAllCoreAsync(
+                        finalSnapshot.Message,
+                        finalSnapshot.Kind,
+                        CancellationToken.None)
+                    .ConfigureAwait(false);
+            }
+        }
+        catch (GitOperationException ex)
+        {
+            CaptureRecoverableLock(ex);
+            throw;
+        }
+        finally
+        {
+            DisposeResources();
+            Volatile.Write(ref _lifetimeState, (int)ServiceLifetimeState.Retired);
+            _operationGate.Release();
+        }
+    }
+
+    private void DisposeResources()
+    {
+        if (Interlocked.Exchange(ref _resourcesDisposed, 1) != 0)
+        {
+            return;
+        }
+
         RepositoryWatcher? watcher;
         lock (_lifetimeSync)
         {
-            if (Interlocked.Exchange(ref _disposed, 1) != 0)
-            {
-                return;
-            }
-
             watcher = _watcher;
             _watcher = null;
             if (watcher is not null)
@@ -430,6 +722,18 @@ internal sealed class GitCliVersionControlService :
 
         watcher?.Dispose();
         _installationLocator.Config.ConfigurationChanged -= OnVersionControlConfigChanged;
+    }
+
+    private async Task ObserveRetirementAsync(Task retirement)
+    {
+        try
+        {
+            await retirement.ConfigureAwait(false);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to retire the project version-control service.");
+        }
     }
 
     internal static WorkspaceStatus ParseStatus(string output)
@@ -632,6 +936,1676 @@ internal sealed class GitCliVersionControlService :
         return FileChangeStatus.Modified;
     }
 
+    private async Task<CheckedOutBranchTip> GetCheckedOutBranchTipCoreAsync(CancellationToken cancellationToken)
+    {
+        RepositoryInfo repository = GetRepository();
+        IGitCliRunner runner = await GetInstalledRunnerCoreAsync(cancellationToken).ConfigureAwait(false);
+        return await GetCheckedOutBranchTipCoreAsync(repository, runner, cancellationToken).ConfigureAwait(false);
+    }
+
+    private static async Task<CheckedOutBranchTip> GetCheckedOutBranchTipCoreAsync(
+        RepositoryInfo repository,
+        IGitCliRunner runner,
+        CancellationToken cancellationToken)
+    {
+        GitCommandResult symbolicRef;
+        try
+        {
+            symbolicRef = await runner.RunAsync(
+                repository,
+                ["symbolic-ref", "--quiet", "HEAD"],
+                GitCommandOptions.Local,
+                cancellationToken).ConfigureAwait(false);
+        }
+        catch (GitOperationException ex) when (ex.ExitCode == 1)
+        {
+            throw new DetachedHeadNotSupportedException();
+        }
+
+        string refName = symbolicRef.Stdout.Trim();
+        if (!refName.StartsWith("refs/heads/", StringComparison.Ordinal))
+        {
+            throw new DetachedHeadNotSupportedException();
+        }
+
+        GitCommandResult commit = await runner.RunAsync(
+            repository,
+            ["rev-parse", "--verify", $"{refName}^{{commit}}"],
+            GitCommandOptions.Local,
+            cancellationToken).ConfigureAwait(false);
+        return new CheckedOutBranchTip(refName, commit.Stdout.Trim());
+    }
+
+    private async Task<ProjectCheckpoint> CreateProjectCheckpointCoreAsync(
+        string message,
+        CancellationToken cancellationToken)
+    {
+        await EnsureNotConflictedCoreAsync(cancellationToken).ConfigureAwait(false);
+        RepositoryInfo repository = GetRepository();
+        IGitCliRunner runner = await GetInstalledRunnerCoreAsync(cancellationToken).ConfigureAwait(false);
+        CheckedOutBranchTip baseHead = await GetCheckedOutBranchTipCoreAsync(repository, runner, cancellationToken)
+            .ConfigureAwait(false);
+        if (!await IsProjectIndexCleanAsync(repository, runner, cancellationToken)
+                .ConfigureAwait(false))
+        {
+            throw new ProjectCheckpointStagedChangesException();
+        }
+
+        GitIdentity? identity = await GetIdentityCoreAsync(repository, runner, cancellationToken)
+            .ConfigureAwait(false);
+        if (identity is null)
+        {
+            await RaiseMissingIdentityNoticeIfNeededAsync(
+                    repository,
+                    runner,
+                    cancellationToken)
+                .ConfigureAwait(false);
+            throw new GitIdentityRequiredException();
+        }
+
+        string temporaryIndex = Path.Combine(
+            Path.GetTempPath(),
+            $"beutl-git-index-{Guid.NewGuid():N}");
+        var indexOptions = new GitCommandOptions(
+            GitCommandExecutionKind.Local,
+            new Dictionary<string, string?>
+            {
+                ["GIT_INDEX_FILE"] = temporaryIndex,
+            });
+
+        try
+        {
+            await runner.RunAsync(
+                repository,
+                ["read-tree", baseHead.Commit],
+                indexOptions,
+                cancellationToken).ConfigureAwait(false);
+            await runner.RunAsync(
+                repository,
+                ["add", "-A", "--", repository.Pathspec],
+                indexOptions,
+                cancellationToken).ConfigureAwait(false);
+            GitCommandResult tree = await runner.RunAsync(
+                repository,
+                ["write-tree"],
+                indexOptions,
+                cancellationToken).ConfigureAwait(false);
+
+            cancellationToken.ThrowIfCancellationRequested();
+            GitCommandResult commit = await runner.RunAsync(
+                repository,
+                [
+                    "commit-tree",
+                    tree.Stdout.Trim(),
+                    "-p",
+                    baseHead.Commit,
+                    "-m",
+                    message.Trim(),
+                    "-m",
+                    "Beutl-Snapshot: safety",
+                ],
+                indexOptions,
+                CancellationToken.None).ConfigureAwait(false);
+            string checkpointCommit = commit.Stdout.Trim();
+            string checkpointRef = GetCheckpointRefPrefix(repository)
+                                   + Guid.NewGuid().ToString("N");
+            var checkpoint = new ProjectCheckpoint(checkpointRef, checkpointCommit, baseHead);
+            try
+            {
+                await runner.RunAsync(
+                    repository,
+                    [
+                        "update-ref",
+                        "--create-reflog",
+                        "-m",
+                        "beutl safety checkpoint",
+                        checkpointRef,
+                        checkpointCommit,
+                        string.Empty,
+                    ],
+                    GitCommandOptions.Local,
+                    CancellationToken.None).ConfigureAwait(false);
+                return checkpoint;
+            }
+            catch (Exception publicationException)
+            {
+                string? observedCommit;
+                try
+                {
+                    observedCommit = await TryResolveCommitAsync(
+                            repository,
+                            runner,
+                            checkpointRef,
+                            CancellationToken.None)
+                        .ConfigureAwait(false);
+                }
+                catch (Exception observationException)
+                {
+                    throw new AggregateException(
+                        "The safety checkpoint ref publication failed and its durable result could not be observed.",
+                        publicationException,
+                        observationException);
+                }
+
+                if (string.Equals(
+                        observedCommit,
+                        checkpointCommit,
+                        StringComparison.OrdinalIgnoreCase))
+                {
+                    return checkpoint;
+                }
+
+                if (observedCommit is null)
+                {
+                    throw;
+                }
+
+                throw new ProjectCheckpointChangedException(checkpointRef);
+            }
+        }
+        finally
+        {
+            TryDeleteTemporaryIndex(temporaryIndex);
+        }
+    }
+
+    private async Task RestoreProjectCheckpointCoreAsync(
+        ProjectCheckpoint checkpoint,
+        CancellationToken cancellationToken)
+    {
+        EnsureWorktreeMutationAllowed();
+        RepositoryInfo repository = GetRepository();
+        IGitCliRunner runner = await GetInstalledRunnerCoreAsync(cancellationToken).ConfigureAwait(false);
+        await ValidateCheckpointAsync(repository, runner, checkpoint, cancellationToken)
+            .ConfigureAwait(false);
+        CheckedOutBranchTip currentHead = await GetCheckedOutBranchTipCoreAsync(repository, runner, cancellationToken)
+            .ConfigureAwait(false);
+        if (!EqualsBranchTip(currentHead, checkpoint.BaseTip))
+        {
+            throw new InvalidOperationException(
+                "The project checkpoint can only be restored directly at its original head.");
+        }
+
+        WorktreeStateFingerprint currentState = await CaptureWorktreeStateAsync(
+                repository,
+                runner,
+                checkpoint.BaseTip.Commit,
+                repository.Pathspec,
+                cancellationToken)
+            .ConfigureAwait(false);
+        string checkpointTree = await ResolveTreeAsync(
+                repository,
+                runner,
+                checkpoint.Commit,
+                cancellationToken)
+            .ConfigureAwait(false);
+        if (string.Equals(currentState.Tree, checkpointTree, StringComparison.OrdinalIgnoreCase)
+            && await IsProjectIndexCleanAsync(repository, runner, cancellationToken)
+                .ConfigureAwait(false))
+        {
+            return;
+        }
+
+        if (!await IsProjectCleanAsync(repository, runner, cancellationToken).ConfigureAwait(false))
+        {
+            throw new InvalidOperationException(
+                "The project must be clean before restoring a project checkpoint.");
+        }
+
+        string baseTree = await ResolveTreeAsync(
+                repository,
+                runner,
+                checkpoint.BaseTip.Commit,
+                cancellationToken)
+            .ConfigureAwait(false);
+        if (!string.Equals(currentState.Tree, baseTree, StringComparison.OrdinalIgnoreCase))
+        {
+            throw new ProjectCheckpointStateChangedException();
+        }
+
+        cancellationToken.ThrowIfCancellationRequested();
+        CheckedOutBranchTip ownershipTip = await GetCheckedOutBranchTipCoreAsync(
+                repository,
+                runner,
+                CancellationToken.None)
+            .ConfigureAwait(false);
+        WorktreeStateFingerprint ownershipState = await CaptureWorktreeStateAsync(
+                repository,
+                runner,
+                checkpoint.BaseTip.Commit,
+                repository.Pathspec,
+                CancellationToken.None)
+            .ConfigureAwait(false);
+        if (!EqualsBranchTip(ownershipTip, checkpoint.BaseTip)
+            || ownershipState != currentState)
+        {
+            throw new InvalidOperationException(
+                "The project changed before its checkpoint could be restored.");
+        }
+
+        TreeTransitionResult transitionResult = await ApplyTreeTransitionAsync(
+            repository,
+            runner,
+            checkpoint.BaseTip,
+            checkpoint.BaseTip,
+            checkpoint.BaseTip.Commit,
+            checkpoint.Commit,
+            "beutl restore project checkpoint",
+            new TreeTransitionIndexPlan(
+                FinalCommit: checkpoint.BaseTip.Commit,
+                RestoreCommit: checkpoint.BaseTip.Commit,
+                Pathspec: repository.Pathspec),
+            CancellationToken.None).ConfigureAwait(false);
+        EnsureTreeTransitionApplied(
+            transitionResult,
+            "The project checkpoint could not be restored safely.");
+        await TryQueueStatusChangedCoreAsync().ConfigureAwait(false);
+    }
+
+    private async Task<CommitResult> CommitProjectTreeCoreAsync(
+        CheckedOutBranchTip expectedCurrent,
+        string sourceCommit,
+        string message,
+        SnapshotKind kind,
+        CancellationToken cancellationToken)
+    {
+        await EnsureNotConflictedCoreAsync(cancellationToken).ConfigureAwait(false);
+        EnsureWorktreeMutationAllowed();
+        ValidateAttachedBranchTip(expectedCurrent, nameof(expectedCurrent));
+        RepositoryInfo repository = GetRepository();
+        IGitCliRunner runner = await GetInstalledRunnerCoreAsync(cancellationToken).ConfigureAwait(false);
+        CheckedOutBranchTip currentTip = await GetCheckedOutBranchTipCoreAsync(
+                repository,
+                runner,
+                cancellationToken)
+            .ConfigureAwait(false);
+        if (!EqualsBranchTip(currentTip, expectedCurrent))
+        {
+            throw new InvalidOperationException(
+                "The checked-out branch changed before the project tree transition started.");
+        }
+
+        string? resolvedSource = await TryResolveCommitAsync(
+                repository,
+                runner,
+                sourceCommit,
+                cancellationToken)
+            .ConfigureAwait(false);
+        if (resolvedSource is null)
+        {
+            throw new ArgumentException(
+                "The project tree source must resolve to a commit.",
+                nameof(sourceCommit));
+        }
+
+        if (!await IsProjectCleanAsync(repository, runner, cancellationToken).ConfigureAwait(false))
+        {
+            throw new InvalidOperationException(
+                "The project must be clean before committing a project tree transition.");
+        }
+
+        GitIdentity? identity = await GetIdentityCoreAsync(repository, runner, cancellationToken)
+            .ConfigureAwait(false);
+        if (identity is null)
+        {
+            if (kind != SnapshotKind.Manual)
+            {
+                await RaiseMissingIdentityNoticeIfNeededAsync(
+                        repository,
+                        runner,
+                        cancellationToken)
+                    .ConfigureAwait(false);
+                return new CommitResult.SkippedNoIdentity();
+            }
+
+            throw new GitIdentityRequiredException();
+        }
+
+        WorktreeStateFingerprint expectedState = await CaptureWorktreeStateAsync(
+                repository,
+                runner,
+                expectedCurrent.Commit,
+                repository.Pathspec,
+                cancellationToken)
+            .ConfigureAwait(false);
+        string expectedTree = await ResolveTreeAsync(
+                repository,
+                runner,
+                expectedCurrent.Commit,
+                cancellationToken)
+            .ConfigureAwait(false);
+        if (!string.Equals(expectedState.Tree, expectedTree, StringComparison.OrdinalIgnoreCase))
+        {
+            throw new InvalidOperationException(
+                "The project index or worktree changed before the project tree transition started.");
+        }
+
+        string desiredTree = await BuildProjectTreeAsync(
+                repository,
+                runner,
+                expectedCurrent.Commit,
+                resolvedSource,
+                cancellationToken)
+            .ConfigureAwait(false);
+        if (string.Equals(desiredTree, expectedTree, StringComparison.OrdinalIgnoreCase))
+        {
+            return new CommitResult.NoChanges();
+        }
+
+        GitCommandResult commit = await runner.RunAsync(
+            repository,
+            [
+                "commit-tree",
+                desiredTree,
+                "-p",
+                expectedCurrent.Commit,
+                "-m",
+                message.Trim(),
+                "-m",
+                $"Beutl-Snapshot: {kind.ToString().ToLowerInvariant()}",
+            ],
+            GitCommandOptions.Local,
+            cancellationToken).ConfigureAwait(false);
+        var committedTip = new CheckedOutBranchTip(
+            expectedCurrent.RefName,
+            commit.Stdout.Trim());
+
+        cancellationToken.ThrowIfCancellationRequested();
+        CheckedOutBranchTip ownershipTip = await GetCheckedOutBranchTipCoreAsync(
+                repository,
+                runner,
+                CancellationToken.None)
+            .ConfigureAwait(false);
+        WorktreeStateFingerprint ownershipState = await CaptureWorktreeStateAsync(
+                repository,
+                runner,
+                expectedCurrent.Commit,
+                repository.Pathspec,
+                CancellationToken.None)
+            .ConfigureAwait(false);
+        if (!EqualsBranchTip(ownershipTip, expectedCurrent)
+            || ownershipState != expectedState
+            || !await IsProjectCleanAsync(repository, runner, CancellationToken.None)
+                .ConfigureAwait(false))
+        {
+            throw new ProjectCheckpointStateChangedException();
+        }
+
+        TreeTransitionResult applyResult = await ApplyTreeTransitionAsync(
+            repository,
+            runner,
+            expectedCurrent,
+            committedTip,
+            expectedCurrent.Commit,
+            committedTip.Commit,
+            $"commit: {message.Trim()}",
+            new TreeTransitionIndexPlan(Pathspec: repository.Pathspec),
+            CancellationToken.None).ConfigureAwait(false);
+        EnsureTreeTransitionApplied(
+            applyResult,
+            "The project tree transition could not be applied safely.");
+        await TryQueueStatusChangedCoreAsync().ConfigureAwait(false);
+        return new CommitResult.Committed(new CommitRevision.Known(committedTip.Commit));
+    }
+
+    private async Task<BranchTipRollbackResult> TryRollbackBranchTipCoreAsync(
+        CheckedOutBranchTip expectedCurrent,
+        CheckedOutBranchTip target,
+        CancellationToken cancellationToken)
+    {
+        EnsureWorktreeMutationAllowed();
+        ValidateBranchTipForRollback(expectedCurrent, target);
+        RepositoryInfo repository = GetRepository();
+        IGitCliRunner runner = await GetInstalledRunnerCoreAsync(cancellationToken).ConfigureAwait(false);
+        CheckedOutBranchTip? actualHead = await TryGetCheckedOutBranchTipAsync(repository, runner, cancellationToken)
+            .ConfigureAwait(false);
+        if (actualHead is null
+            || !string.Equals(actualHead.RefName, expectedCurrent.RefName, StringComparison.Ordinal)
+            || !string.Equals(actualHead.Commit, expectedCurrent.Commit, StringComparison.OrdinalIgnoreCase))
+        {
+            return new BranchTipRollbackResult.RefChanged(actualHead?.Commit);
+        }
+
+        if (!await IsAncestorAsync(
+                repository,
+                runner,
+                target.Commit,
+                expectedCurrent.Commit,
+                cancellationToken).ConfigureAwait(false))
+        {
+            throw new ArgumentException(
+                "The rollback target must be an ancestor of the expected current head.",
+                nameof(target));
+        }
+
+        if (!await IsWholeRepositoryCleanAsync(repository, runner, cancellationToken)
+                .ConfigureAwait(false))
+        {
+            return new BranchTipRollbackResult.UnsafeRepositoryState();
+        }
+
+        WorktreeStateFingerprint expectedWorktree = await CaptureWorktreeStateAsync(
+                repository,
+                runner,
+                expectedCurrent.Commit,
+                ".",
+                cancellationToken)
+            .ConfigureAwait(false);
+        string expectedTree = await ResolveTreeAsync(
+                repository,
+                runner,
+                expectedCurrent.Commit,
+                cancellationToken)
+            .ConfigureAwait(false);
+        if (!string.Equals(expectedWorktree.Tree, expectedTree, StringComparison.OrdinalIgnoreCase)
+            || !await IsWholeRepositoryCleanAsync(repository, runner, cancellationToken)
+                .ConfigureAwait(false))
+        {
+            return new BranchTipRollbackResult.UnsafeRepositoryState();
+        }
+
+        cancellationToken.ThrowIfCancellationRequested();
+        TreeTransitionResult rollbackResult = await ApplyTreeTransitionAsync(
+            repository,
+            runner,
+            expectedCurrent,
+            target,
+            expectedCurrent.Commit,
+            target.Commit,
+            "beutl rollback fast-forward pull",
+            indexPlan: null,
+            CancellationToken.None).ConfigureAwait(false);
+        if (rollbackResult.Outcome == TreeTransitionOutcome.OwnershipLost)
+        {
+            return new BranchTipRollbackResult.RefChanged(
+                rollbackResult.ActualTip?.Commit);
+        }
+
+        if (rollbackResult.Outcome != TreeTransitionOutcome.AppliedTarget)
+        {
+            if (rollbackResult.Outcome == TreeTransitionOutcome.RecoveryFailed
+                && rollbackResult.Error is not null)
+            {
+                throw rollbackResult.Error;
+            }
+
+            return new BranchTipRollbackResult.UnsafeRepositoryState();
+        }
+
+        await TryQueueStatusChangedCoreAsync().ConfigureAwait(false);
+        return new BranchTipRollbackResult.RolledBack();
+    }
+
+    private async Task<bool> DeleteProjectCheckpointCoreAsync(
+        ProjectCheckpoint checkpoint,
+        CancellationToken cancellationToken)
+    {
+        RepositoryInfo repository = GetRepository();
+        IGitCliRunner runner = await GetInstalledRunnerCoreAsync(cancellationToken).ConfigureAwait(false);
+        ValidateCheckpointRef(repository, checkpoint);
+        string? currentCommit = await TryResolveCommitAsync(
+                repository,
+                runner,
+                checkpoint.RefName,
+                cancellationToken)
+            .ConfigureAwait(false);
+        if (currentCommit is null)
+        {
+            return false;
+        }
+
+        if (!string.Equals(currentCommit, checkpoint.Commit, StringComparison.OrdinalIgnoreCase))
+        {
+            throw new ProjectCheckpointChangedException(checkpoint.RefName);
+        }
+
+        cancellationToken.ThrowIfCancellationRequested();
+        await runner.RunAsync(
+            repository,
+            ["update-ref", "-d", checkpoint.RefName, checkpoint.Commit],
+            GitCommandOptions.Local,
+            CancellationToken.None).ConfigureAwait(false);
+        return true;
+    }
+
+    private static async Task ValidateCheckpointAsync(
+        RepositoryInfo repository,
+        IGitCliRunner runner,
+        ProjectCheckpoint checkpoint,
+        CancellationToken cancellationToken)
+    {
+        ValidateCheckpointRef(repository, checkpoint);
+        string? currentCommit = await TryResolveCommitAsync(
+                repository,
+                runner,
+                checkpoint.RefName,
+                cancellationToken)
+            .ConfigureAwait(false);
+        string? parentCommit = await TryResolveCommitAsync(
+                repository,
+                runner,
+                $"{checkpoint.Commit}^1",
+                cancellationToken)
+            .ConfigureAwait(false);
+        if (!string.Equals(currentCommit, checkpoint.Commit, StringComparison.OrdinalIgnoreCase)
+            || !string.Equals(
+                parentCommit,
+                checkpoint.BaseTip.Commit,
+                StringComparison.OrdinalIgnoreCase))
+        {
+            throw new ProjectCheckpointChangedException(checkpoint.RefName);
+        }
+    }
+
+    private static void ValidateCheckpointRef(
+        RepositoryInfo repository,
+        ProjectCheckpoint checkpoint)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(checkpoint.RefName);
+        ArgumentException.ThrowIfNullOrWhiteSpace(checkpoint.Commit);
+        ArgumentNullException.ThrowIfNull(checkpoint.BaseTip);
+        if (!checkpoint.RefName.StartsWith(
+                GetCheckpointRefPrefix(repository),
+                StringComparison.Ordinal))
+        {
+            throw new ArgumentException(
+                "The checkpoint does not belong to this project.",
+                nameof(checkpoint));
+        }
+    }
+
+    private static void ValidateBranchTipForRollback(
+        CheckedOutBranchTip expectedCurrent,
+        CheckedOutBranchTip target)
+    {
+        ValidateAttachedBranchTip(expectedCurrent, nameof(expectedCurrent));
+        ValidateAttachedBranchTip(target, nameof(target));
+        if (!string.Equals(expectedCurrent.RefName, target.RefName, StringComparison.Ordinal))
+        {
+            throw new ArgumentException(
+                "The rollback heads must identify the same local branch.",
+                nameof(target));
+        }
+    }
+
+    private static void ValidateAttachedBranchTip(CheckedOutBranchTip tip, string paramName)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(tip.RefName, paramName);
+        ArgumentException.ThrowIfNullOrWhiteSpace(tip.Commit, paramName);
+        if (!tip.RefName.StartsWith("refs/heads/", StringComparison.Ordinal))
+        {
+            throw new ArgumentException("An attached local branch tip is required.", paramName);
+        }
+    }
+
+    private static async Task<CheckedOutBranchTip?> TryGetCheckedOutBranchTipAsync(
+        RepositoryInfo repository,
+        IGitCliRunner runner,
+        CancellationToken cancellationToken)
+    {
+        try
+        {
+            return await GetCheckedOutBranchTipCoreAsync(repository, runner, cancellationToken).ConfigureAwait(false);
+        }
+        catch (DetachedHeadNotSupportedException)
+        {
+            return null;
+        }
+    }
+
+    private static async Task<string?> TryResolveCommitAsync(
+        RepositoryInfo repository,
+        IGitCliRunner runner,
+        string revision,
+        CancellationToken cancellationToken)
+    {
+        try
+        {
+            GitCommandResult result = await runner.RunAsync(
+                repository,
+                ["rev-parse", "--verify", "--quiet", $"{revision}^{{commit}}"],
+                GitCommandOptions.Local,
+                cancellationToken).ConfigureAwait(false);
+            string commit = result.Stdout.Trim();
+            return string.IsNullOrEmpty(commit) ? null : commit;
+        }
+        catch (GitOperationException ex) when (ex.ExitCode is 1 or 128)
+        {
+            return null;
+        }
+    }
+
+    private static async Task<string> ResolveTreeAsync(
+        RepositoryInfo repository,
+        IGitCliRunner runner,
+        string revision,
+        CancellationToken cancellationToken)
+    {
+        GitCommandResult result = await runner.RunAsync(
+            repository,
+            ["rev-parse", "--verify", $"{revision}^{{tree}}"],
+            GitCommandOptions.Local,
+            cancellationToken).ConfigureAwait(false);
+        return result.Stdout.Trim();
+    }
+
+    private static async Task<WorktreeStateFingerprint> CaptureWorktreeStateAsync(
+        RepositoryInfo repository,
+        IGitCliRunner runner,
+        string baseCommit,
+        string pathspec,
+        CancellationToken cancellationToken)
+    {
+        string temporaryIndex = Path.Combine(
+            Path.GetTempPath(),
+            $"beutl-git-index-{Guid.NewGuid():N}");
+        var indexOptions = new GitCommandOptions(
+            GitCommandExecutionKind.Local,
+            new Dictionary<string, string?>
+            {
+                ["GIT_INDEX_FILE"] = temporaryIndex,
+            });
+
+        try
+        {
+            await runner.RunAsync(
+                repository,
+                ["read-tree", baseCommit],
+                indexOptions,
+                cancellationToken).ConfigureAwait(false);
+            await runner.RunAsync(
+                repository,
+                ["add", "-A", "--", pathspec],
+                indexOptions,
+                cancellationToken).ConfigureAwait(false);
+            GitCommandResult tree = await runner.RunAsync(
+                repository,
+                ["write-tree"],
+                indexOptions,
+                cancellationToken).ConfigureAwait(false);
+            GitCommandResult indexEntries = await runner.RunAsync(
+                repository,
+                ["ls-files", "--stage", "-z", "--", pathspec],
+                GitCommandOptions.Local,
+                cancellationToken).ConfigureAwait(false);
+            return new WorktreeStateFingerprint(tree.Stdout.Trim(), indexEntries.Stdout);
+        }
+        finally
+        {
+            TryDeleteTemporaryIndex(temporaryIndex);
+        }
+    }
+
+    private static async Task<string> BuildProjectTreeAsync(
+        RepositoryInfo repository,
+        IGitCliRunner runner,
+        string baseCommit,
+        string sourceCommit,
+        CancellationToken cancellationToken)
+    {
+        string temporaryIndex = Path.Combine(
+            Path.GetTempPath(),
+            $"beutl-git-index-{Guid.NewGuid():N}");
+        var indexOptions = new GitCommandOptions(
+            GitCommandExecutionKind.Local,
+            new Dictionary<string, string?>
+            {
+                ["GIT_INDEX_FILE"] = temporaryIndex,
+            });
+
+        try
+        {
+            await runner.RunAsync(
+                repository,
+                ["read-tree", baseCommit],
+                indexOptions,
+                cancellationToken).ConfigureAwait(false);
+            await runner.RunAsync(
+                repository,
+                [
+                    "restore",
+                    $"--source={sourceCommit}",
+                    "--staged",
+                    "--",
+                    repository.Pathspec,
+                ],
+                indexOptions,
+                cancellationToken).ConfigureAwait(false);
+            GitCommandResult tree = await runner.RunAsync(
+                repository,
+                ["write-tree"],
+                indexOptions,
+                cancellationToken).ConfigureAwait(false);
+            return tree.Stdout.Trim();
+        }
+        finally
+        {
+            TryDeleteTemporaryIndex(temporaryIndex);
+        }
+    }
+
+    private static async Task<string> BuildMergedTreeAsync(
+        RepositoryInfo repository,
+        IGitCliRunner runner,
+        string mergeBase,
+        string currentCommit,
+        string incomingCommit,
+        CancellationToken cancellationToken)
+    {
+        string temporaryIndex = Path.Combine(
+            Path.GetTempPath(),
+            $"beutl-git-index-{Guid.NewGuid():N}");
+        var indexOptions = new GitCommandOptions(
+            GitCommandExecutionKind.Local,
+            new Dictionary<string, string?>
+            {
+                ["GIT_INDEX_FILE"] = temporaryIndex,
+            });
+
+        try
+        {
+            await runner.RunAsync(
+                repository,
+                ["read-tree", "-m", mergeBase, currentCommit, incomingCommit],
+                indexOptions,
+                cancellationToken).ConfigureAwait(false);
+            GitCommandResult tree = await runner.RunAsync(
+                repository,
+                ["write-tree"],
+                indexOptions,
+                cancellationToken).ConfigureAwait(false);
+            return tree.Stdout.Trim();
+        }
+        finally
+        {
+            TryDeleteTemporaryIndex(temporaryIndex);
+        }
+    }
+
+    private static async Task<bool> IsWholeRepositoryCleanAsync(
+        RepositoryInfo repository,
+        IGitCliRunner runner,
+        CancellationToken cancellationToken)
+    {
+        GitCommandResult result = await runner.RunAsync(
+            repository,
+            ["status", "--porcelain=v1", "--untracked-files=all", "-z"],
+            GitCommandOptions.Local,
+            cancellationToken).ConfigureAwait(false);
+        return result.Stdout.Length == 0;
+    }
+
+    private static async Task<string?> FindIgnoredIncomingPathAsync(
+        RepositoryInfo repository,
+        IGitCliRunner runner,
+        string currentCommit,
+        string incomingCommit,
+        CancellationToken cancellationToken)
+    {
+        GitCommandResult changed = await runner.RunAsync(
+            repository,
+            [
+                "diff",
+                "--name-only",
+                "--diff-filter=ACR",
+                "-z",
+                currentCommit,
+                incomingCommit,
+                "--",
+                ".",
+            ],
+            GitCommandOptions.Local,
+            cancellationToken).ConfigureAwait(false);
+        IReadOnlyList<string> changedPaths = GitCliRunner.SplitNullSeparated(changed.Stdout);
+        string repositoryRoot = Path.GetFullPath(repository.RepoRoot);
+        string repositoryPrefix = Path.TrimEndingDirectorySeparator(repositoryRoot)
+                                  + Path.DirectorySeparatorChar;
+        string[] existingPaths = changedPaths
+            .Where(path =>
+            {
+                string fullPath;
+                try
+                {
+                    fullPath = Path.GetFullPath(Path.Combine(repositoryRoot, path));
+                }
+                catch (Exception ex) when (ex is ArgumentException
+                                               or NotSupportedException
+                                               or PathTooLongException)
+                {
+                    return false;
+                }
+
+                return fullPath.StartsWith(repositoryPrefix, PathComparison)
+                       && (File.Exists(fullPath) || Directory.Exists(fullPath));
+            })
+            .ToArray();
+        if (existingPaths.Length == 0)
+        {
+            return null;
+        }
+
+        string input = string.Join('\0', existingPaths) + '\0';
+        try
+        {
+            GitCommandResult ignored = await runner.RunAsync(
+                repository,
+                ["check-ignore", "--stdin", "-z"],
+                new GitCommandOptions(
+                    GitCommandExecutionKind.Local,
+                    StandardInput: input,
+                    UseLiteralPathspecs: false),
+                cancellationToken).ConfigureAwait(false);
+            return GitCliRunner.SplitNullSeparated(ignored.Stdout).FirstOrDefault();
+        }
+        catch (GitOperationException ex) when (ex.ExitCode == 1)
+        {
+            return null;
+        }
+    }
+
+    private static async Task<bool> IsProjectCleanAsync(
+        RepositoryInfo repository,
+        IGitCliRunner runner,
+        CancellationToken cancellationToken)
+    {
+        GitCommandResult result = await runner.RunAsync(
+            repository,
+            [
+                "status",
+                "--porcelain=v1",
+                "--untracked-files=all",
+                "-z",
+                "--",
+                repository.Pathspec,
+            ],
+            GitCommandOptions.Local,
+            cancellationToken).ConfigureAwait(false);
+        return result.Stdout.Length == 0;
+    }
+
+    private static async Task<bool> IsProjectIndexCleanAsync(
+        RepositoryInfo repository,
+        IGitCliRunner runner,
+        CancellationToken cancellationToken)
+    {
+        try
+        {
+            await runner.RunAsync(
+                repository,
+                ["diff", "--cached", "--quiet", "--", repository.Pathspec],
+                GitCommandOptions.Local,
+                cancellationToken).ConfigureAwait(false);
+            return true;
+        }
+        catch (GitOperationException ex) when (ex.ExitCode == 1)
+        {
+            return false;
+        }
+    }
+
+    private static async Task<bool> IsWholeIndexCleanAsync(
+        RepositoryInfo repository,
+        IGitCliRunner runner,
+        CancellationToken cancellationToken)
+    {
+        try
+        {
+            await runner.RunAsync(
+                repository,
+                ["diff", "--cached", "--quiet", "--", "."],
+                GitCommandOptions.Local,
+                cancellationToken).ConfigureAwait(false);
+            return true;
+        }
+        catch (GitOperationException ex) when (ex.ExitCode == 1)
+        {
+            return false;
+        }
+    }
+
+    private static async Task<bool> IsAncestorAsync(
+        RepositoryInfo repository,
+        IGitCliRunner runner,
+        string ancestor,
+        string descendant,
+        CancellationToken cancellationToken)
+    {
+        try
+        {
+            await runner.RunAsync(
+                repository,
+                ["merge-base", "--is-ancestor", ancestor, descendant],
+                GitCommandOptions.Local,
+                cancellationToken).ConfigureAwait(false);
+            return true;
+        }
+        catch (GitOperationException ex) when (ex.ExitCode == 1)
+        {
+            return false;
+        }
+    }
+
+    private async Task<TreeTransitionResult> ApplyTreeTransitionAsync(
+        RepositoryInfo repository,
+        IGitCliRunner runner,
+        CheckedOutBranchTip currentHead,
+        CheckedOutBranchTip targetHead,
+        string currentTreeCommit,
+        string targetTreeCommit,
+        string reflogMessage,
+        TreeTransitionIndexPlan? indexPlan,
+        CancellationToken cancellationToken)
+    {
+        if (!string.Equals(currentHead.RefName, targetHead.RefName, StringComparison.Ordinal))
+        {
+            throw new ArgumentException("A tree transition must remain on the same local branch.");
+        }
+
+        string headPath = await ResolveGitPathAsync(
+                repository,
+                runner,
+                "HEAD",
+                cancellationToken)
+            .ConfigureAwait(false);
+        string indexPath = await ResolveGitPathAsync(
+                repository,
+                runner,
+                "index",
+                cancellationToken)
+            .ConfigureAwait(false);
+        string refUpdateWorktreePath = Path.Combine(
+            Path.GetTempPath(),
+            $"beutl-git-ref-update-{Guid.NewGuid():N}");
+        try
+        {
+            await runner.RunAsync(
+                repository,
+                [
+                    "worktree",
+                    "add",
+                    "--detach",
+                    "--no-checkout",
+                    refUpdateWorktreePath,
+                    currentTreeCommit,
+                ],
+                GitCommandOptions.Local,
+                cancellationToken).ConfigureAwait(false);
+        }
+        catch (Exception ex)
+        {
+            await RemoveRefUpdateWorktreeBestEffortAsync(
+                    repository,
+                    runner,
+                    refUpdateWorktreePath)
+                .ConfigureAwait(false);
+            return new TreeTransitionResult(
+                TreeTransitionOutcome.RestoredCurrent,
+                ex,
+                currentHead);
+        }
+
+        var refUpdateRepository = new RepositoryInfo(
+            refUpdateWorktreePath,
+            refUpdateWorktreePath);
+        var transitionCheckoutOptions = new GitCommandOptions(
+            GitCommandExecutionKind.Local,
+            new Dictionary<string, string?>
+            {
+                ["GIT_WORK_TREE"] = repository.RepoRoot,
+                ["GIT_INDEX_FILE"] = indexPath,
+            });
+        bool mutationStarted = false;
+        try
+        {
+            using HeadOwnershipLease lease = HeadOwnershipLease.Acquire(
+                headPath,
+                currentHead.RefName,
+                ex => LogWarningBestEffort(
+                    ex,
+                    "Failed to release the protected Git HEAD lock."));
+            CheckedOutBranchTip actualHead = await GetCheckedOutBranchTipCoreAsync(
+                    repository,
+                    runner,
+                    CancellationToken.None)
+                .ConfigureAwait(false);
+            if (!EqualsBranchTip(actualHead, currentHead))
+            {
+                return new TreeTransitionResult(
+                    TreeTransitionOutcome.OwnershipLost,
+                    ActualTip: actualHead);
+            }
+
+            WorktreeStateFingerprint originalState = await CaptureWorktreeStateAsync(
+                    repository,
+                    runner,
+                    currentTreeCommit,
+                    indexPlan?.Pathspec ?? ".",
+                    CancellationToken.None)
+                .ConfigureAwait(false);
+            string currentTree = await ResolveTreeAsync(
+                    repository,
+                    runner,
+                    currentTreeCommit,
+                    CancellationToken.None)
+                .ConfigureAwait(false);
+            if (!string.Equals(originalState.Tree, currentTree, StringComparison.OrdinalIgnoreCase))
+            {
+                return new TreeTransitionResult(TreeTransitionOutcome.OwnershipLost);
+            }
+
+            WorktreeStateFingerprint preparedState = originalState;
+            bool worktreeMutationAttempted = false;
+            bool targetPrepared = false;
+            try
+            {
+                if (indexPlan?.PrepareCommit is { } prepareCommit)
+                {
+                    mutationStarted = true;
+                    await ResetIndexAsync(
+                            repository,
+                            runner,
+                            prepareCommit,
+                            indexPlan.Pathspec)
+                        .ConfigureAwait(false);
+                    preparedState = await CaptureWorktreeStateAsync(
+                            repository,
+                            runner,
+                            currentTreeCommit,
+                            indexPlan.Pathspec,
+                            CancellationToken.None)
+                        .ConfigureAwait(false);
+                }
+
+                string? ignoredCollision = await FindIgnoredIncomingPathAsync(
+                        repository,
+                        runner,
+                        currentTreeCommit,
+                        targetTreeCommit,
+                        CancellationToken.None)
+                    .ConfigureAwait(false);
+                if (ignoredCollision is not null)
+                {
+                    throw new InvalidOperationException(
+                        $"The tree transition would overwrite the ignored path '{ignoredCollision}'.");
+                }
+
+                mutationStarted = true;
+                worktreeMutationAttempted = true;
+                await runner.RunAsync(
+                    refUpdateRepository,
+                    [
+                        "-c",
+                        "core.hooksPath=/dev/null",
+                        "checkout",
+                        "--detach",
+                        "--no-overwrite-ignore",
+                        targetTreeCommit,
+                    ],
+                    transitionCheckoutOptions,
+                    CancellationToken.None).ConfigureAwait(false);
+
+                if (indexPlan?.FinalCommit is { } finalCommit)
+                {
+                    await ResetIndexAsync(
+                            repository,
+                            runner,
+                            finalCommit,
+                            indexPlan.Pathspec)
+                        .ConfigureAwait(false);
+                }
+
+                WorktreeStateFingerprint targetState = await CaptureWorktreeStateAsync(
+                        repository,
+                        runner,
+                        targetTreeCommit,
+                        indexPlan?.Pathspec ?? ".",
+                        CancellationToken.None)
+                    .ConfigureAwait(false);
+                string targetTree = await ResolveTreeAsync(
+                        repository,
+                        runner,
+                        targetTreeCommit,
+                        CancellationToken.None)
+                    .ConfigureAwait(false);
+                string expectedIndexCommit = indexPlan?.FinalCommit ?? targetTreeCommit;
+                if (!string.Equals(targetState.Tree, targetTree, StringComparison.OrdinalIgnoreCase)
+                    || !await IsIndexAtCommitAsync(
+                            repository,
+                            runner,
+                            expectedIndexCommit,
+                            indexPlan?.Pathspec ?? ".",
+                            CancellationToken.None)
+                        .ConfigureAwait(false))
+                {
+                    throw new ProjectCheckpointStateChangedException();
+                }
+
+                targetPrepared = true;
+
+                string? branchCommit = await TryResolveCommitAsync(
+                        repository,
+                        runner,
+                        currentHead.RefName,
+                        CancellationToken.None)
+                    .ConfigureAwait(false);
+                if (!string.Equals(
+                        branchCommit,
+                        currentHead.Commit,
+                        StringComparison.OrdinalIgnoreCase))
+                {
+                    return new TreeTransitionResult(
+                        TreeTransitionOutcome.OwnershipLost,
+                        ActualTip: await TryGetCheckedOutBranchTipAsync(
+                                repository,
+                                runner,
+                                CancellationToken.None)
+                            .ConfigureAwait(false));
+                }
+
+                await runner.RunAsync(
+                    refUpdateRepository,
+                    [
+                        "update-ref",
+                        "-m",
+                        reflogMessage,
+                        currentHead.RefName,
+                        targetHead.Commit,
+                        currentHead.Commit,
+                    ],
+                    GitCommandOptions.Local,
+                    CancellationToken.None).ConfigureAwait(false);
+                return new TreeTransitionResult(TreeTransitionOutcome.AppliedTarget);
+            }
+            catch (Exception transitionException)
+            {
+                string? branchCommit = await TryResolveCommitAsync(
+                        repository,
+                        runner,
+                        currentHead.RefName,
+                        CancellationToken.None)
+                    .ConfigureAwait(false);
+                if (string.Equals(
+                        branchCommit,
+                        targetHead.Commit,
+                        StringComparison.OrdinalIgnoreCase)
+                    && targetPrepared)
+                {
+                    return new TreeTransitionResult(TreeTransitionOutcome.AppliedTarget);
+                }
+
+                if (!string.Equals(
+                        branchCommit,
+                        currentHead.Commit,
+                        StringComparison.OrdinalIgnoreCase))
+                {
+                    return new TreeTransitionResult(
+                        TreeTransitionOutcome.OwnershipLost,
+                        transitionException,
+                        await TryGetCheckedOutBranchTipAsync(
+                                repository,
+                                runner,
+                                CancellationToken.None)
+                            .ConfigureAwait(false));
+                }
+
+                try
+                {
+                    WorktreeStateFingerprint failedState = await CaptureWorktreeStateAsync(
+                            repository,
+                            runner,
+                            currentTreeCommit,
+                            indexPlan?.Pathspec ?? ".",
+                            CancellationToken.None)
+                        .ConfigureAwait(false);
+                    string targetTree = await ResolveTreeAsync(
+                            repository,
+                            runner,
+                            targetTreeCommit,
+                            CancellationToken.None)
+                        .ConfigureAwait(false);
+                    bool worktreeOwned = string.Equals(
+                                             failedState.Tree,
+                                             originalState.Tree,
+                                             StringComparison.OrdinalIgnoreCase)
+                                         || string.Equals(
+                                             failedState.Tree,
+                                             targetTree,
+                                             StringComparison.OrdinalIgnoreCase);
+                    bool indexOwned = string.Equals(
+                                          failedState.IndexEntries,
+                                          originalState.IndexEntries,
+                                          StringComparison.Ordinal)
+                                      || string.Equals(
+                                          failedState.IndexEntries,
+                                          preparedState.IndexEntries,
+                                          StringComparison.Ordinal)
+                                      || await IsIndexAtCommitAsync(
+                                              repository,
+                                              runner,
+                                              targetTreeCommit,
+                                              indexPlan?.Pathspec ?? ".",
+                                              CancellationToken.None)
+                                          .ConfigureAwait(false)
+                                      || (indexPlan?.PrepareCommit is { } expectedPrepareCommit
+                                          && await IsIndexAtCommitAsync(
+                                                  repository,
+                                                  runner,
+                                                  expectedPrepareCommit,
+                                                  indexPlan.Pathspec,
+                                                  CancellationToken.None)
+                                              .ConfigureAwait(false))
+                                      || (indexPlan?.FinalCommit is { } expectedFinalCommit
+                                          && await IsIndexAtCommitAsync(
+                                                  repository,
+                                                  runner,
+                                                  expectedFinalCommit,
+                                                  indexPlan.Pathspec,
+                                                  CancellationToken.None)
+                                              .ConfigureAwait(false));
+                    if (!indexOwned)
+                    {
+                        return new TreeTransitionResult(
+                            TreeTransitionOutcome.OwnershipLost,
+                            transitionException,
+                            currentHead);
+                    }
+
+                    if (!worktreeOwned)
+                    {
+                        string refusedRestoreCommit = indexPlan?.RestoreCommit ?? currentTreeCommit;
+                        await ResetIndexAsync(
+                                repository,
+                                runner,
+                                refusedRestoreCommit,
+                                indexPlan?.Pathspec ?? ".")
+                            .ConfigureAwait(false);
+                        WorktreeStateFingerprint refusedState = await CaptureWorktreeStateAsync(
+                                repository,
+                                runner,
+                                currentTreeCommit,
+                                indexPlan?.Pathspec ?? ".",
+                                CancellationToken.None)
+                            .ConfigureAwait(false);
+                        if (!string.Equals(
+                                refusedState.IndexEntries,
+                                originalState.IndexEntries,
+                                StringComparison.Ordinal))
+                        {
+                            return new TreeTransitionResult(
+                                TreeTransitionOutcome.RecoveryFailed,
+                                new AggregateException(
+                                    "The checkout was refused and the original index could not be restored.",
+                                    transitionException),
+                                currentHead);
+                        }
+
+                        CheckedOutBranchTip? refusedTip = await TryGetCheckedOutBranchTipAsync(
+                                repository,
+                                runner,
+                                CancellationToken.None)
+                            .ConfigureAwait(false);
+                        return new TreeTransitionResult(
+                            TreeTransitionOutcome.OwnershipLost,
+                            transitionException,
+                            refusedTip);
+                    }
+
+                    if (worktreeMutationAttempted
+                        && string.Equals(
+                            failedState.Tree,
+                            targetTree,
+                            StringComparison.OrdinalIgnoreCase))
+                    {
+                        string? transitionHead = await TryResolveCommitAsync(
+                                refUpdateRepository,
+                                runner,
+                                "HEAD",
+                                CancellationToken.None)
+                            .ConfigureAwait(false);
+                        if (string.Equals(
+                                transitionHead,
+                                currentTreeCommit,
+                                StringComparison.OrdinalIgnoreCase))
+                        {
+                            try
+                            {
+                                await runner.RunAsync(
+                                    refUpdateRepository,
+                                    [
+                                        "update-ref",
+                                        "--no-deref",
+                                        "-m",
+                                        "beutl align temporary transition head for recovery",
+                                        "HEAD",
+                                        targetTreeCommit,
+                                        currentTreeCommit,
+                                    ],
+                                    GitCommandOptions.Local,
+                                    CancellationToken.None).ConfigureAwait(false);
+                            }
+                            catch (Exception alignmentException)
+                            {
+                                transitionHead = await TryResolveCommitAsync(
+                                        refUpdateRepository,
+                                        runner,
+                                        "HEAD",
+                                        CancellationToken.None)
+                                    .ConfigureAwait(false);
+                                if (string.Equals(
+                                        transitionHead,
+                                        targetTreeCommit,
+                                        StringComparison.OrdinalIgnoreCase))
+                                {
+                                    // The update reached Git even though the runner lost its response.
+                                }
+                                else if (string.Equals(
+                                             transitionHead,
+                                             currentTreeCommit,
+                                             StringComparison.OrdinalIgnoreCase))
+                                {
+                                    return new TreeTransitionResult(
+                                        TreeTransitionOutcome.RecoveryFailed,
+                                        new AggregateException(
+                                            "The temporary transition head could not be aligned for recovery.",
+                                            transitionException,
+                                            alignmentException),
+                                        currentHead);
+                                }
+                                else
+                                {
+                                    return new TreeTransitionResult(
+                                        TreeTransitionOutcome.OwnershipLost,
+                                        new AggregateException(
+                                            "The temporary transition head changed while recovery was being prepared.",
+                                            transitionException,
+                                            alignmentException),
+                                        currentHead);
+                                }
+                            }
+                        }
+                        else if (!string.Equals(
+                                     transitionHead,
+                                     targetTreeCommit,
+                                     StringComparison.OrdinalIgnoreCase))
+                        {
+                            return new TreeTransitionResult(
+                                TreeTransitionOutcome.OwnershipLost,
+                                transitionException,
+                                currentHead);
+                        }
+
+                        await ResetIndexAsync(
+                                repository,
+                                runner,
+                                targetTreeCommit,
+                                indexPlan?.Pathspec ?? ".")
+                            .ConfigureAwait(false);
+                        await runner.RunAsync(
+                            refUpdateRepository,
+                            [
+                                "-c",
+                                "core.hooksPath=/dev/null",
+                                "checkout",
+                                "--detach",
+                                "--no-overwrite-ignore",
+                                currentTreeCommit,
+                            ],
+                            transitionCheckoutOptions,
+                            CancellationToken.None).ConfigureAwait(false);
+                    }
+
+                    if (indexPlan?.RestoreCommit is { } restoreCommit)
+                    {
+                        await ResetIndexAsync(
+                                repository,
+                                runner,
+                                restoreCommit,
+                                indexPlan.Pathspec)
+                            .ConfigureAwait(false);
+                    }
+                    else if (!string.Equals(
+                                 failedState.IndexEntries,
+                                 originalState.IndexEntries,
+                                 StringComparison.Ordinal))
+                    {
+                        await ResetIndexAsync(
+                                repository,
+                                runner,
+                                currentTreeCommit,
+                                indexPlan?.Pathspec ?? ".")
+                            .ConfigureAwait(false);
+                    }
+
+                    WorktreeStateFingerprint recoveredState = await CaptureWorktreeStateAsync(
+                            repository,
+                            runner,
+                            currentTreeCommit,
+                            indexPlan?.Pathspec ?? ".",
+                            CancellationToken.None)
+                        .ConfigureAwait(false);
+                    string expectedRestoreCommit = indexPlan?.RestoreCommit ?? currentTreeCommit;
+                    if (!string.Equals(
+                            recoveredState.Tree,
+                            currentTree,
+                            StringComparison.OrdinalIgnoreCase)
+                        || !await IsIndexAtCommitAsync(
+                                repository,
+                                runner,
+                                expectedRestoreCommit,
+                                indexPlan?.Pathspec ?? ".",
+                                CancellationToken.None)
+                            .ConfigureAwait(false))
+                    {
+                        return new TreeTransitionResult(
+                            TreeTransitionOutcome.RecoveryFailed,
+                            new AggregateException(
+                                "The tree transition failed and the original tree could not be verified.",
+                                transitionException),
+                            currentHead);
+                    }
+
+                    CheckedOutBranchTip? recoveredTip = await TryGetCheckedOutBranchTipAsync(
+                            repository,
+                            runner,
+                            CancellationToken.None)
+                        .ConfigureAwait(false);
+                    if (recoveredTip is null || !EqualsBranchTip(recoveredTip, currentHead))
+                    {
+                        return new TreeTransitionResult(
+                            TreeTransitionOutcome.OwnershipLost,
+                            transitionException,
+                            recoveredTip);
+                    }
+
+                    return new TreeTransitionResult(
+                        TreeTransitionOutcome.RestoredCurrent,
+                        transitionException,
+                        currentHead);
+                }
+                catch (Exception recoveryException)
+                {
+                    return new TreeTransitionResult(
+                        TreeTransitionOutcome.RecoveryFailed,
+                        new AggregateException(
+                            "The tree transition failed and its current state could not be restored.",
+                            transitionException,
+                            recoveryException),
+                        currentHead);
+                }
+            }
+        }
+        catch (ProjectCheckpointStateChangedException ex)
+        {
+            return new TreeTransitionResult(
+                TreeTransitionOutcome.OwnershipLost,
+                ex,
+                await TryGetCheckedOutBranchTipAsync(
+                        repository,
+                        runner,
+                        CancellationToken.None)
+                    .ConfigureAwait(false));
+        }
+        catch (Exception ex)
+        {
+            return new TreeTransitionResult(
+                mutationStarted
+                    ? TreeTransitionOutcome.RecoveryFailed
+                    : TreeTransitionOutcome.RestoredCurrent,
+                ex,
+                currentHead);
+        }
+        finally
+        {
+            await RemoveRefUpdateWorktreeBestEffortAsync(
+                    repository,
+                    runner,
+                    refUpdateWorktreePath)
+                .ConfigureAwait(false);
+        }
+    }
+
+    private async Task RemoveRefUpdateWorktreeBestEffortAsync(
+        RepositoryInfo repository,
+        IGitCliRunner runner,
+        string worktreePath)
+    {
+        Exception? cleanupFailure = null;
+        try
+        {
+            await runner.RunAsync(
+                repository,
+                ["worktree", "remove", "--force", worktreePath],
+                GitCommandOptions.Local,
+                CancellationToken.None).ConfigureAwait(false);
+        }
+        catch (Exception ex)
+        {
+            cleanupFailure = ex;
+        }
+
+        try
+        {
+            if (Directory.Exists(worktreePath))
+            {
+                Directory.Delete(worktreePath, recursive: true);
+            }
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            cleanupFailure = cleanupFailure is null
+                ? ex
+                : new AggregateException(cleanupFailure, ex);
+        }
+
+        if (cleanupFailure is not null)
+        {
+            LogWarningBestEffort(
+                cleanupFailure,
+                "Failed to remove a temporary detached Git worktree used for a ref update.");
+        }
+    }
+
+    private static async Task<string> ResolveGitPathAsync(
+        RepositoryInfo repository,
+        IGitCliRunner runner,
+        string gitPath,
+        CancellationToken cancellationToken)
+    {
+        GitCommandResult result = await runner.RunAsync(
+            repository,
+            ["rev-parse", "--git-path", gitPath],
+            GitCommandOptions.Local,
+            cancellationToken).ConfigureAwait(false);
+        string path = result.Stdout.TrimEnd('\r', '\n');
+        return Path.GetFullPath(
+            Path.IsPathFullyQualified(path)
+                ? path
+                : Path.Combine(repository.RepoRoot, path));
+    }
+
+    private static void EnsureTreeTransitionApplied(
+        TreeTransitionResult result,
+        string message)
+    {
+        if (result.Outcome == TreeTransitionOutcome.AppliedTarget)
+        {
+            return;
+        }
+
+        if (result.Error is GitOperationException operationException)
+        {
+            throw operationException;
+        }
+
+        throw new InvalidOperationException(
+            $"{message} Outcome: {result.Outcome}.",
+            result.Error);
+    }
+
+    private static Task<GitCommandResult> ResetIndexAsync(
+        RepositoryInfo repository,
+        IGitCliRunner runner,
+        string commit,
+        string pathspec)
+    {
+        return string.Equals(pathspec, ".", StringComparison.Ordinal)
+            ? runner.RunAsync(
+                repository,
+                ["read-tree", "--reset", commit],
+                GitCommandOptions.Local,
+                CancellationToken.None)
+            : runner.RunAsync(
+                repository,
+                ["restore", $"--source={commit}", "--staged", "--", pathspec],
+                GitCommandOptions.Local,
+                CancellationToken.None);
+    }
+
+    private static async Task<bool> IsIndexAtCommitAsync(
+        RepositoryInfo repository,
+        IGitCliRunner runner,
+        string commit,
+        string pathspec,
+        CancellationToken cancellationToken)
+    {
+        try
+        {
+            await runner.RunAsync(
+                repository,
+                ["diff", "--cached", "--quiet", commit, "--", pathspec],
+                GitCommandOptions.Local,
+                cancellationToken).ConfigureAwait(false);
+            return true;
+        }
+        catch (GitOperationException ex) when (ex.ExitCode == 1)
+        {
+            return false;
+        }
+    }
+
+    private static string GetCheckpointRefPrefix(RepositoryInfo repository)
+    {
+        return $"refs/beutl/safety/{GetConfigKeyHash(repository.Pathspec)}/";
+    }
+
+    private static bool EqualsBranchTip(CheckedOutBranchTip left, CheckedOutBranchTip right)
+    {
+        return string.Equals(left.RefName, right.RefName, StringComparison.Ordinal)
+               && string.Equals(left.Commit, right.Commit, StringComparison.OrdinalIgnoreCase);
+    }
+
+    private static void TryDeleteTemporaryIndex(string path)
+    {
+        try
+        {
+            File.Delete(path);
+            File.Delete($"{path}.lock");
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+        }
+    }
+
     private async Task<WorkspaceStatus> GetStatusCoreAsync(CancellationToken cancellationToken)
     {
         RepositoryInfo repository = GetRepository();
@@ -655,7 +2629,7 @@ internal sealed class GitCliVersionControlService :
                 "--",
                 repository.Pathspec,
             ],
-            networkOperation: false,
+            GitCommandOptions.Local,
             cancellationToken).ConfigureAwait(false);
         return ParseStatus(result.Stdout);
     }
@@ -679,7 +2653,7 @@ internal sealed class GitCliVersionControlService :
                 "--",
                 repository.Pathspec,
             ],
-            networkOperation: false,
+            GitCommandOptions.Local,
             cancellationToken).ConfigureAwait(false);
         return ParseHistory(result.Stdout);
     }
@@ -693,7 +2667,7 @@ internal sealed class GitCliVersionControlService :
         GitCommandResult result = await runner.RunAsync(
             repository,
             ["show", "--name-status", "--format=", "-z", sha, "--", repository.Pathspec],
-            networkOperation: false,
+            GitCommandOptions.Local,
             cancellationToken).ConfigureAwait(false);
         return ParseCommitFiles(result.Stdout);
     }
@@ -711,9 +2685,11 @@ internal sealed class GitCliVersionControlService :
         GitCommandResult result = await runner.RunAsync(
             repository,
             ["show", "--format=", "--no-ext-diff", "--unified=3", sha, "--", pathspec],
-            networkOperation: false,
+            GitCommandOptions.Local with { MaxStdoutBytes = MaxDiffBytes },
             cancellationToken).ConfigureAwait(false);
-        return TruncateDiff(result.Stdout);
+        return result.StdoutTruncated
+            ? string.Concat(result.Stdout, DiffTruncationMarker)
+            : result.Stdout;
     }
 
     private async Task<IReadOnlyList<BranchInfo>> GetBranchesCoreAsync(
@@ -728,7 +2704,7 @@ internal sealed class GitCliVersionControlService :
                 "--format=%(refname:short)%00%(HEAD)%00%(upstream:short)",
                 "refs/heads",
             ],
-            networkOperation: false,
+            GitCommandOptions.Local,
             cancellationToken).ConfigureAwait(false);
         return ParseBranches(result.Stdout);
     }
@@ -745,39 +2721,9 @@ internal sealed class GitCliVersionControlService :
         await runner.RunAsync(
             repository,
             ["switch", "-c", name, startPoint],
-            networkOperation: false,
+            GitCommandOptions.Local,
             cancellationToken).ConfigureAwait(false);
-        await QueueStatusChangedCoreAsync(cancellationToken).ConfigureAwait(false);
-    }
-
-    private async Task RestoreWorktreeFromCoreAsync(
-        string sha,
-        CancellationToken cancellationToken)
-    {
-        await EnsureNotConflictedCoreAsync(cancellationToken).ConfigureAwait(false);
-        EnsureWorktreeMutationAllowed();
-        RepositoryInfo repository = GetRepository();
-        IGitCliRunner runner = await GetInstalledRunnerCoreAsync(cancellationToken).ConfigureAwait(false);
-        await runner.RunAsync(
-            repository,
-            ["restore", $"--source={sha}", "--worktree", "--", repository.Pathspec],
-            networkOperation: false,
-            cancellationToken).ConfigureAwait(false);
-        await runner.RunAsync(
-            repository,
-            ["clean", "-fd", "--", repository.Pathspec],
-            networkOperation: false,
-            cancellationToken).ConfigureAwait(false);
-        // A path present in the source commit but absent from the current index is considered
-        // untracked after a worktree-only restore, so clean removes it. Reapply the source tree
-        // after cleaning to make restores symmetric without changing the index before the
-        // coordinator records the restore commit.
-        await runner.RunAsync(
-            repository,
-            ["restore", $"--source={sha}", "--worktree", "--", repository.Pathspec],
-            networkOperation: false,
-            cancellationToken).ConfigureAwait(false);
-        await QueueStatusChangedCoreAsync(cancellationToken).ConfigureAwait(false);
+        await TryQueueStatusChangedCoreAsync().ConfigureAwait(false);
     }
 
     private async Task SwitchBranchCoreAsync(
@@ -791,9 +2737,9 @@ internal sealed class GitCliVersionControlService :
         await runner.RunAsync(
             repository,
             ["switch", name],
-            networkOperation: false,
+            GitCommandOptions.Local,
             cancellationToken).ConfigureAwait(false);
-        await QueueStatusChangedCoreAsync(cancellationToken).ConfigureAwait(false);
+        await TryQueueStatusChangedCoreAsync().ConfigureAwait(false);
     }
 
     private async Task<IReadOnlyList<RemoteInfo>> GetRemotesCoreAsync(
@@ -806,7 +2752,7 @@ internal sealed class GitCliVersionControlService :
             GitCommandResult result = await runner.RunAsync(
                 repository,
                 ["remote", "get-url", "origin"],
-                networkOperation: false,
+                GitCommandOptions.Local,
                 cancellationToken).ConfigureAwait(false);
             string url = result.Stdout.Trim();
             return string.IsNullOrEmpty(url) ? [] : [new RemoteInfo("origin", url)];
@@ -830,18 +2776,17 @@ internal sealed class GitCliVersionControlService :
             isFirstRemote
                 ? ["remote", "add", "origin", url]
                 : ["remote", "set-url", "origin", url],
-            networkOperation: false,
+            GitCommandOptions.Local,
             cancellationToken).ConfigureAwait(false);
 
         if (isFirstRemote)
         {
-            await RaiseLfsQuotaNoticeIfNeededAsync(
+            await TryRaiseLfsQuotaNoticeIfNeededAsync(
                 repository,
-                runner,
-                cancellationToken).ConfigureAwait(false);
+                runner).ConfigureAwait(false);
         }
 
-        await QueueStatusChangedCoreAsync(cancellationToken).ConfigureAwait(false);
+        await TryQueueStatusChangedCoreAsync().ConfigureAwait(false);
     }
 
     private async Task<RemoteOpResult> PushCoreAsync(
@@ -856,39 +2801,387 @@ internal sealed class GitCliVersionControlService :
             await runner.RunAsync(
                 repository,
                 ["push", "--progress", "-u", "origin", "HEAD"],
-                networkOperation: true,
+                GitCommandOptions.Network,
                 cancellationToken,
                 progress).ConfigureAwait(false);
-            await QueueStatusChangedCoreAsync(cancellationToken).ConfigureAwait(false);
+            await TryQueueStatusChangedCoreAsync().ConfigureAwait(false);
             return new RemoteOpResult.Success();
         }
         catch (GitOperationException ex)
         {
+            CaptureRecoverableLock(ex);
             return MapRemoteFailure(ex);
         }
     }
 
-    private async Task<RemoteOpResult> PullFastForwardCoreAsync(
+    private async Task<FastForwardPullResult> PullFastForwardCoreAsync(
+        CheckedOutBranchTip expectedCurrent,
+        ProjectCheckpoint? checkpoint,
         CancellationToken cancellationToken)
     {
         await EnsureNotConflictedCoreAsync(cancellationToken).ConfigureAwait(false);
         EnsureWorktreeMutationAllowed();
+        ValidateAttachedBranchTip(expectedCurrent, nameof(expectedCurrent));
         RepositoryInfo repository = GetRepository();
         IGitCliRunner runner = await GetInstalledRunnerCoreAsync(cancellationToken).ConfigureAwait(false);
+        CheckedOutBranchTip currentTip = await GetCheckedOutBranchTipCoreAsync(
+                repository,
+                runner,
+                cancellationToken)
+            .ConfigureAwait(false);
+        if (!EqualsBranchTip(currentTip, expectedCurrent))
+        {
+            throw new InvalidOperationException(
+                "The checked-out branch changed before the fast-forward pull started.");
+        }
+
+        WorktreeStateFingerprint? checkpointState = null;
+        string? checkpointTree = null;
+        if (checkpoint is null)
+        {
+            if (!await IsWholeRepositoryCleanAsync(repository, runner, cancellationToken)
+                    .ConfigureAwait(false))
+            {
+                return new FastForwardPullResult(
+                    new RemoteOpResult.RepositoryDirty(),
+                    expectedCurrent);
+            }
+        }
+        else
+        {
+            await ValidateCheckpointAsync(repository, runner, checkpoint, cancellationToken)
+                .ConfigureAwait(false);
+            if (!EqualsBranchTip(checkpoint.BaseTip, expectedCurrent))
+            {
+                throw new InvalidOperationException(
+                    "The project checkpoint does not belong to the expected pull tip.");
+            }
+
+            checkpointState = await CaptureWorktreeStateAsync(
+                    repository,
+                    runner,
+                    expectedCurrent.Commit,
+                    ".",
+                    cancellationToken)
+                .ConfigureAwait(false);
+            checkpointTree = await ResolveTreeAsync(
+                    repository,
+                    runner,
+                    checkpoint.Commit,
+                    cancellationToken)
+                .ConfigureAwait(false);
+            if (!string.Equals(
+                    checkpointState.Tree,
+                    checkpointTree,
+                    StringComparison.OrdinalIgnoreCase)
+                || !await IsWholeIndexCleanAsync(repository, runner, cancellationToken)
+                    .ConfigureAwait(false))
+            {
+                return new FastForwardPullResult(
+                    new RemoteOpResult.RepositoryDirty(),
+                    expectedCurrent);
+            }
+        }
+
         try
         {
             await runner.RunAsync(
                 repository,
-                ["pull", "--ff-only"],
-                networkOperation: true,
+                ["fetch"],
+                GitCommandOptions.Network,
                 cancellationToken).ConfigureAwait(false);
-            await QueueStatusChangedCoreAsync(cancellationToken).ConfigureAwait(false);
-            return new RemoteOpResult.Success();
         }
         catch (GitOperationException ex)
         {
-            return MapRemoteFailure(ex);
+            CaptureRecoverableLock(ex);
+            return new FastForwardPullResult(MapRemoteFailure(ex), expectedCurrent);
         }
+
+        GitCommandResult upstreamResult;
+        try
+        {
+            upstreamResult = await runner.RunAsync(
+                repository,
+                ["rev-parse", "--verify", "@{upstream}^{commit}"],
+                GitCommandOptions.Local,
+                cancellationToken).ConfigureAwait(false);
+        }
+        catch (GitOperationException ex)
+        {
+            CaptureRecoverableLock(ex);
+            return new FastForwardPullResult(MapRemoteFailure(ex), expectedCurrent);
+        }
+
+        string upstreamCommit = upstreamResult.Stdout.Trim();
+        if (!await IsAncestorAsync(
+                repository,
+                runner,
+                expectedCurrent.Commit,
+                upstreamCommit,
+                cancellationToken).ConfigureAwait(false))
+        {
+            return new FastForwardPullResult(new RemoteOpResult.Diverged(), expectedCurrent);
+        }
+
+        if (string.Equals(
+                upstreamCommit,
+                expectedCurrent.Commit,
+                StringComparison.OrdinalIgnoreCase)
+            && checkpoint is null)
+        {
+            return new FastForwardPullResult(new RemoteOpResult.Success(), expectedCurrent);
+        }
+
+        string? ignoredCollision = await FindIgnoredIncomingPathAsync(
+                repository,
+                runner,
+                expectedCurrent.Commit,
+                upstreamCommit,
+                cancellationToken)
+            .ConfigureAwait(false);
+        if (ignoredCollision is not null)
+        {
+            return new FastForwardPullResult(
+                new RemoteOpResult.Failed(
+                    $"The pull would overwrite the ignored path '{ignoredCollision}'."),
+                expectedCurrent);
+        }
+
+        if (checkpoint is not null)
+        {
+            return await PullCheckpointedProjectCoreAsync(
+                    repository,
+                    runner,
+                    expectedCurrent,
+                    upstreamCommit,
+                    checkpoint,
+                    checkpointState!,
+                    checkpointTree!,
+                    cancellationToken)
+                .ConfigureAwait(false);
+        }
+
+        WorktreeStateFingerprint expectedWorktree = await CaptureWorktreeStateAsync(
+                repository,
+                runner,
+                expectedCurrent.Commit,
+                ".",
+                cancellationToken)
+            .ConfigureAwait(false);
+        string expectedTree = await ResolveTreeAsync(
+                repository,
+                runner,
+                expectedCurrent.Commit,
+                cancellationToken)
+            .ConfigureAwait(false);
+        currentTip = await GetCheckedOutBranchTipCoreAsync(repository, runner, cancellationToken)
+            .ConfigureAwait(false);
+        if (!EqualsBranchTip(currentTip, expectedCurrent))
+        {
+            throw new InvalidOperationException(
+                "The checked-out branch changed while the fast-forward pull was being prepared.");
+        }
+
+        if (!string.Equals(expectedWorktree.Tree, expectedTree, StringComparison.OrdinalIgnoreCase)
+            || !await IsWholeRepositoryCleanAsync(repository, runner, cancellationToken)
+                .ConfigureAwait(false))
+        {
+            return new FastForwardPullResult(
+                new RemoteOpResult.RepositoryDirty(),
+                expectedCurrent);
+        }
+
+        ignoredCollision = await FindIgnoredIncomingPathAsync(
+                repository,
+                runner,
+                expectedCurrent.Commit,
+                upstreamCommit,
+                cancellationToken)
+            .ConfigureAwait(false);
+        if (ignoredCollision is not null)
+        {
+            return new FastForwardPullResult(
+                new RemoteOpResult.Failed(
+                    $"The pull would overwrite the ignored path '{ignoredCollision}'."),
+                expectedCurrent);
+        }
+
+        cancellationToken.ThrowIfCancellationRequested();
+        var pulledTip = new CheckedOutBranchTip(expectedCurrent.RefName, upstreamCommit);
+        TreeTransitionResult transitionResult = await ApplyTreeTransitionAsync(
+            repository,
+            runner,
+            expectedCurrent,
+            pulledTip,
+            expectedCurrent.Commit,
+            upstreamCommit,
+            "pull: fast-forward",
+            indexPlan: null,
+            CancellationToken.None).ConfigureAwait(false);
+        if (transitionResult.Outcome != TreeTransitionOutcome.AppliedTarget)
+        {
+            if (transitionResult.Error is GitOperationException operationException)
+            {
+                CaptureRecoverableLock(operationException);
+            }
+
+            RemoteOpResult failure = transitionResult.Outcome switch
+            {
+                TreeTransitionOutcome.OwnershipLost => new RemoteOpResult.Failed(
+                    transitionResult.Error?.Message
+                    ?? "The repository changed while the fast-forward pull was being applied."),
+                TreeTransitionOutcome.RestoredCurrent when transitionResult.Error is GitOperationException gitException
+                    => MapRemoteFailure(gitException),
+                _ => new RemoteOpResult.Failed(
+                    transitionResult.Error?.Message
+                    ?? "The fast-forward pull could not be applied safely."),
+            };
+            return new FastForwardPullResult(
+                failure,
+                transitionResult.ActualTip ?? expectedCurrent,
+                transitionResult.Outcome switch
+                {
+                    TreeTransitionOutcome.OwnershipLost => PullTransitionState.OwnershipLost,
+                    TreeTransitionOutcome.RecoveryFailed => PullTransitionState.RecoveryFailed,
+                    _ => PullTransitionState.Unchanged,
+                });
+        }
+
+        await TryQueueStatusChangedCoreAsync().ConfigureAwait(false);
+        return new FastForwardPullResult(
+            new RemoteOpResult.Success(),
+            pulledTip,
+            PullTransitionState.Applied);
+    }
+
+    private async Task<FastForwardPullResult> PullCheckpointedProjectCoreAsync(
+        RepositoryInfo repository,
+        IGitCliRunner runner,
+        CheckedOutBranchTip expectedCurrent,
+        string upstreamCommit,
+        ProjectCheckpoint checkpoint,
+        WorktreeStateFingerprint expectedCheckpointState,
+        string checkpointTree,
+        CancellationToken cancellationToken)
+    {
+        string mergedTree = await BuildMergedTreeAsync(
+                repository,
+                runner,
+                checkpoint.BaseTip.Commit,
+                upstreamCommit,
+                checkpoint.Commit,
+                cancellationToken)
+            .ConfigureAwait(false);
+        GitCommandResult commit = await runner.RunAsync(
+            repository,
+            [
+                "commit-tree",
+                mergedTree,
+                "-p",
+                upstreamCommit,
+                "-m",
+                PullSafetyCommitMessage,
+                "-m",
+                "Beutl-Snapshot: safety",
+            ],
+            GitCommandOptions.Local,
+            cancellationToken).ConfigureAwait(false);
+        var safetyTip = new CheckedOutBranchTip(expectedCurrent.RefName, commit.Stdout.Trim());
+
+        await ValidateCheckpointAsync(repository, runner, checkpoint, cancellationToken)
+            .ConfigureAwait(false);
+        CheckedOutBranchTip ownershipTip = await GetCheckedOutBranchTipCoreAsync(
+                repository,
+                runner,
+                cancellationToken)
+            .ConfigureAwait(false);
+        WorktreeStateFingerprint ownershipState = await CaptureWorktreeStateAsync(
+                repository,
+                runner,
+                expectedCurrent.Commit,
+                ".",
+                cancellationToken)
+            .ConfigureAwait(false);
+        string? ignoredCollision = await FindIgnoredIncomingPathAsync(
+                repository,
+                runner,
+                expectedCurrent.Commit,
+                upstreamCommit,
+                cancellationToken)
+            .ConfigureAwait(false);
+        if (!EqualsBranchTip(ownershipTip, expectedCurrent))
+        {
+            return new FastForwardPullResult(
+                new RemoteOpResult.Failed(
+                    "The checked-out branch changed while the checkpointed pull was being prepared."),
+                ownershipTip,
+                PullTransitionState.OwnershipLost);
+        }
+
+        if (ownershipState != expectedCheckpointState
+            || !string.Equals(
+                ownershipState.Tree,
+                checkpointTree,
+                StringComparison.OrdinalIgnoreCase)
+            || !await IsWholeIndexCleanAsync(repository, runner, cancellationToken)
+                .ConfigureAwait(false))
+        {
+            return new FastForwardPullResult(
+                new RemoteOpResult.RepositoryDirty(),
+                expectedCurrent);
+        }
+
+        if (ignoredCollision is not null)
+        {
+            return new FastForwardPullResult(
+                new RemoteOpResult.Failed(
+                    $"The pull would overwrite the ignored path '{ignoredCollision}'."),
+                expectedCurrent);
+        }
+
+        cancellationToken.ThrowIfCancellationRequested();
+        TreeTransitionResult transitionResult = await ApplyTreeTransitionAsync(
+            repository,
+            runner,
+            expectedCurrent,
+            safetyTip,
+            checkpoint.Commit,
+            safetyTip.Commit,
+            "pull: fast-forward with project checkpoint",
+            new TreeTransitionIndexPlan(
+                PrepareCommit: checkpoint.Commit,
+                RestoreCommit: expectedCurrent.Commit),
+            CancellationToken.None).ConfigureAwait(false);
+        if (transitionResult.Outcome != TreeTransitionOutcome.AppliedTarget)
+        {
+            if (transitionResult.Error is GitOperationException gitException)
+            {
+                CaptureRecoverableLock(gitException);
+            }
+            return new FastForwardPullResult(
+                transitionResult.Outcome == TreeTransitionOutcome.OwnershipLost
+                    ? new RemoteOpResult.Failed(
+                        transitionResult.Error?.Message
+                        ?? "The repository changed while the checkpointed pull was being applied.")
+                    : transitionResult.Error is GitOperationException operationException
+                        ? MapRemoteFailure(operationException)
+                        : new RemoteOpResult.Failed(
+                            transitionResult.Error?.Message
+                            ?? "The checkpointed pull could not be applied safely."),
+                transitionResult.ActualTip ?? expectedCurrent,
+                transitionResult.Outcome switch
+                {
+                    TreeTransitionOutcome.OwnershipLost => PullTransitionState.OwnershipLost,
+                    TreeTransitionOutcome.RecoveryFailed => PullTransitionState.RecoveryFailed,
+                    _ => PullTransitionState.Unchanged,
+                });
+        }
+
+        await TryQueueStatusChangedCoreAsync().ConfigureAwait(false);
+        return new FastForwardPullResult(
+            new RemoteOpResult.Success(),
+            safetyTip,
+            PullTransitionState.Applied);
     }
 
     private async Task InitializeCoreAsync(
@@ -966,50 +3259,45 @@ internal sealed class GitCliVersionControlService :
             await runner.RunAsync(
                 repository,
                 ["init"],
-                networkOperation: false,
+                GitCommandOptions.Local,
                 cancellationToken).ConfigureAwait(false);
             await runner.RunAsync(
                 repository,
                 ["symbolic-ref", "HEAD", "refs/heads/main"],
-                networkOperation: false,
+                GitCommandOptions.Local,
                 cancellationToken).ConfigureAwait(false);
         }
 
         Repository = repository;
         bool useLfs = options.UseLfsWhenAvailable && availability.LfsInstalled;
-        if (useLfs)
-        {
-            await runner.RunAsync(
+        await EnsureRepositoryHygieneCoreAsync(
                 repository,
-                ["lfs", "install", "--local"],
-                networkOperation: false,
-                cancellationToken).ConfigureAwait(false);
-        }
-
-        await EnsureLinesAsync(
-            Path.Combine(projectRoot, ".gitignore"),
-            s_gitIgnoreLines,
-            cancellationToken).ConfigureAwait(false);
-        await EnsureLinesAsync(
-            Path.Combine(projectRoot, ".gitattributes"),
-            useLfs ? [.. s_textAttributeLines, .. s_lfsAttributeLines] : s_textAttributeLines,
-            cancellationToken).ConfigureAwait(false);
+                runner,
+                useLfs,
+                cancellationToken)
+            .ConfigureAwait(false);
 
         GitIdentity? identity = await GetIdentityCoreAsync(repository, runner, cancellationToken)
             .ConfigureAwait(false);
         if (identity is null)
         {
-            EnsureWatcher();
+            TryEnsureWatcher();
             throw new GitIdentityRequiredException();
         }
 
         WorkspaceStatus status = await GetStatusCoreAsync(cancellationToken).ConfigureAwait(false);
         if (!status.IsClean)
         {
+            await RaiseLargeMediaNoticeIfNeededAsync(
+                    repository,
+                    runner,
+                    status,
+                    cancellationToken)
+                .ConfigureAwait(false);
             await runner.RunAsync(
                 repository,
                 ["add", "-A", "--", repository.Pathspec],
-                networkOperation: false,
+                GitCommandOptions.Local,
                 cancellationToken).ConfigureAwait(false);
             await runner.RunAsync(
                 repository,
@@ -1022,12 +3310,37 @@ internal sealed class GitCliVersionControlService :
                     "--",
                     repository.Pathspec,
                 ],
-                networkOperation: false,
+                GitCommandOptions.Local,
                 cancellationToken).ConfigureAwait(false);
         }
 
-        EnsureWatcher();
-        await QueueStatusChangedCoreAsync(cancellationToken).ConfigureAwait(false);
+        TryEnsureWatcher();
+        await TryQueueStatusChangedCoreAsync().ConfigureAwait(false);
+    }
+
+    private static async Task EnsureRepositoryHygieneCoreAsync(
+        RepositoryInfo repository,
+        IGitCliRunner runner,
+        bool useLfs,
+        CancellationToken cancellationToken)
+    {
+        if (useLfs)
+        {
+            await runner.RunAsync(
+                repository,
+                ["lfs", "install", "--local"],
+                GitCommandOptions.Local,
+                cancellationToken).ConfigureAwait(false);
+        }
+
+        await EnsureLinesAsync(
+            Path.Combine(repository.ProjectRoot, ".gitignore"),
+            s_gitIgnoreLines,
+            cancellationToken).ConfigureAwait(false);
+        await EnsureLinesAsync(
+            Path.Combine(repository.ProjectRoot, ".gitattributes"),
+            useLfs ? [.. s_textAttributeLines, .. s_lfsAttributeLines] : s_textAttributeLines,
+            cancellationToken).ConfigureAwait(false);
     }
 
     private static async Task<RepositoryInfo?> DiscoverRepositoryCoreAsync(
@@ -1043,7 +3356,7 @@ internal sealed class GitCliVersionControlService :
             GitCommandResult result = await runner.RunAsync(
                 discoveryContext,
                 ["rev-parse", "--show-toplevel", "--show-prefix"],
-                networkOperation: false,
+                GitCommandOptions.Local,
                 cancellationToken).ConfigureAwait(false);
             string[] lines = result.Stdout
                 .Replace("\r\n", "\n", StringComparison.Ordinal)
@@ -1124,6 +3437,11 @@ internal sealed class GitCliVersionControlService :
         {
             if (kind != SnapshotKind.Manual)
             {
+                await RaiseMissingIdentityNoticeIfNeededAsync(
+                        repository,
+                        runner,
+                        cancellationToken)
+                    .ConfigureAwait(false);
                 return new CommitResult.SkippedNoIdentity();
             }
 
@@ -1139,7 +3457,7 @@ internal sealed class GitCliVersionControlService :
         await runner.RunAsync(
             repository,
             ["add", "-A", "--", repository.Pathspec],
-            networkOperation: false,
+            GitCommandOptions.Local,
             cancellationToken).ConfigureAwait(false);
 
         var arguments = new List<string>
@@ -1159,16 +3477,41 @@ internal sealed class GitCliVersionControlService :
         await runner.RunAsync(
             repository,
             arguments,
-            networkOperation: false,
+            GitCommandOptions.Local,
             cancellationToken).ConfigureAwait(false);
-        GitCommandResult revParse = await runner.RunAsync(
-            repository,
-            ["rev-parse", "HEAD"],
-            networkOperation: false,
-            cancellationToken).ConfigureAwait(false);
+        CommitResult result = await ResolveCommittedResultAsync(repository, runner)
+            .ConfigureAwait(false);
+        await TryQueueStatusChangedCoreAsync().ConfigureAwait(false);
+        return result;
+    }
 
-        await QueueStatusChangedCoreAsync(cancellationToken).ConfigureAwait(false);
-        return new CommitResult.Committed(revParse.Stdout.Trim());
+    private async Task<CommitResult> ResolveCommittedResultAsync(
+        RepositoryInfo repository,
+        IGitCliRunner runner)
+    {
+        try
+        {
+            GitCommandResult revParse = await runner.RunAsync(
+                repository,
+                ["rev-parse", "HEAD"],
+                GitCommandOptions.Local,
+                CancellationToken.None).ConfigureAwait(false);
+            string sha = revParse.Stdout.Trim();
+            if (string.IsNullOrEmpty(sha))
+            {
+                throw new InvalidOperationException(
+                    "Git did not report the revision created by the successful commit.");
+            }
+
+            return new CommitResult.Committed(new CommitRevision.Known(sha));
+        }
+        catch (Exception ex)
+        {
+            LogWarningBestEffort(
+                ex,
+                "Failed to resolve the revision created by a successful Git commit.");
+            return new CommitResult.Committed(new CommitRevision.Unavailable());
+        }
     }
 
     private async Task EnsureNotConflictedCoreAsync(CancellationToken cancellationToken)
@@ -1193,6 +3536,7 @@ internal sealed class GitCliVersionControlService :
             "close" => SnapshotKind.Close,
             "safety" => SnapshotKind.Safety,
             "restore" => SnapshotKind.Restore,
+            "recovery" => SnapshotKind.Recovery,
             "init" => SnapshotKind.Init,
             _ => SnapshotKind.Manual,
         };
@@ -1305,39 +3649,6 @@ internal sealed class GitCliVersionControlService :
         return normalized;
     }
 
-    private static string TruncateDiff(string diff)
-    {
-        if (Encoding.UTF8.GetByteCount(diff) <= MaxDiffBytes)
-        {
-            return diff;
-        }
-
-        int low = 0;
-        int high = diff.Length;
-        while (low < high)
-        {
-            int middle = low + ((high - low + 1) / 2);
-            if (Encoding.UTF8.GetByteCount(diff.AsSpan(0, middle)) <= MaxDiffBytes)
-            {
-                low = middle;
-            }
-            else
-            {
-                high = middle - 1;
-            }
-        }
-
-        if (low > 0
-            && low < diff.Length
-            && char.IsHighSurrogate(diff[low - 1])
-            && char.IsLowSurrogate(diff[low]))
-        {
-            low--;
-        }
-
-        return string.Concat(diff.AsSpan(0, low), DiffTruncationMarker);
-    }
-
     private void EnsureWorktreeMutationAllowed()
     {
         if (!_isWorktreeMutationAllowed())
@@ -1405,8 +3716,7 @@ internal sealed class GitCliVersionControlService :
         }
 
         if (!await PresentPolicyNoticeAsync(
-                new VersionControlPolicyNotice(
-                    VersionControlPolicyNoticeKind.LfsRemoteQuota),
+                new VersionControlPolicyNotice.LfsRemoteQuota(),
                 cancellationToken).ConfigureAwait(false))
         {
             return;
@@ -1452,8 +3762,7 @@ internal sealed class GitCliVersionControlService :
 
             long sizeBytes = new FileInfo(path).Length;
             if (!await PresentPolicyNoticeAsync(
-                    new VersionControlPolicyNotice(
-                        VersionControlPolicyNoticeKind.LargeMediaWithoutLfs,
+                    new VersionControlPolicyNotice.LargeMediaWithoutLfs(
                         Path.GetRelativePath(repository.ProjectRoot, path).Replace('\\', '/'),
                         sizeBytes),
                     cancellationToken).ConfigureAwait(false))
@@ -1469,6 +3778,37 @@ internal sealed class GitCliVersionControlService :
                 cancellationToken).ConfigureAwait(false);
             return;
         }
+    }
+
+    private async Task RaiseMissingIdentityNoticeIfNeededAsync(
+        RepositoryInfo repository,
+        IGitCliRunner runner,
+        CancellationToken cancellationToken)
+    {
+        string acknowledgementKey = MissingIdentityNoticeConfigKeyPrefix
+                                    + GetConfigKeyHash(repository.Pathspec);
+        if (await GetLocalBooleanConfigAsync(
+                repository,
+                runner,
+                acknowledgementKey,
+                cancellationToken).ConfigureAwait(false))
+        {
+            return;
+        }
+
+        if (!await PresentPolicyNoticeAsync(
+                new VersionControlPolicyNotice.MissingIdentity(),
+                cancellationToken).ConfigureAwait(false))
+        {
+            return;
+        }
+
+        await SetLocalConfigValueAsync(
+            repository,
+            runner,
+            acknowledgementKey,
+            "true",
+            cancellationToken).ConfigureAwait(false);
     }
 
     private async Task<bool> PresentPolicyNoticeAsync(
@@ -1585,7 +3925,7 @@ internal sealed class GitCliVersionControlService :
         await runner.RunAsync(
             repository,
             ["config", "--local", key, value],
-            networkOperation: false,
+            GitCommandOptions.Local,
             cancellationToken).ConfigureAwait(false);
     }
 
@@ -1600,7 +3940,7 @@ internal sealed class GitCliVersionControlService :
             GitCommandResult result = await runner.RunAsync(
                 repository,
                 ["config", "--get", key],
-                networkOperation: false,
+                GitCommandOptions.Local,
                 cancellationToken).ConfigureAwait(false);
             string value = result.Stdout.Trim();
             return string.IsNullOrEmpty(value) ? null : value;
@@ -1647,19 +3987,71 @@ internal sealed class GitCliVersionControlService :
         QueueStatusChanged(status);
     }
 
+    private async Task TryQueueStatusChangedCoreAsync()
+    {
+        try
+        {
+            await QueueStatusChangedCoreAsync(CancellationToken.None).ConfigureAwait(false);
+        }
+        catch (Exception ex)
+        {
+            LogWarningBestEffort(
+                ex,
+                "Failed to publish version-control status after a durable Git operation.");
+        }
+    }
+
+    private async Task TryRaiseLfsQuotaNoticeIfNeededAsync(
+        RepositoryInfo repository,
+        IGitCliRunner runner)
+    {
+        try
+        {
+            await RaiseLfsQuotaNoticeIfNeededAsync(
+                repository,
+                runner,
+                CancellationToken.None).ConfigureAwait(false);
+        }
+        catch (Exception ex)
+        {
+            LogWarningBestEffort(
+                ex,
+                "Failed to publish the Git LFS quota notice after configuring the remote.");
+        }
+    }
+
     private void QueueStatusChanged(WorkspaceStatus status)
     {
         ThreadPool.UnsafeQueueUserWorkItem(
             static state =>
             {
                 var payload = ((GitCliVersionControlService Service, WorkspaceStatus Status))state!;
-                if (!payload.Service.IsDisposed)
-                {
-                    payload.Service.StatusChanged?.Invoke(payload.Service, payload.Status);
-                }
+                payload.Service.NotifyStatusChanged(payload.Status);
             },
             (this, status),
             preferLocal: false);
+    }
+
+    private void NotifyStatusChanged(WorkspaceStatus status)
+    {
+        if (IsDisposed || StatusChanged is not { } handlers)
+        {
+            return;
+        }
+
+        foreach (EventHandler<WorkspaceStatus> handler in handlers.GetInvocationList())
+        {
+            try
+            {
+                handler(this, status);
+            }
+            catch (Exception ex)
+            {
+                LogWarningBestEffort(
+                    ex,
+                    "Failed to notify a version-control status subscriber.");
+            }
+        }
     }
 
     private RepositoryInfo GetRepository()
@@ -1683,6 +4075,20 @@ internal sealed class GitCliVersionControlService :
 
             _watcher = new RepositoryWatcher(Repository.RepoRoot);
             _watcher.Changed += OnRepositoryChanged;
+        }
+    }
+
+    private void TryEnsureWatcher()
+    {
+        try
+        {
+            EnsureWatcher();
+        }
+        catch (Exception ex)
+        {
+            LogWarningBestEffort(
+                ex,
+                "Failed to start repository watching after initializing version control.");
         }
     }
 
@@ -1796,16 +4202,45 @@ internal sealed class GitCliVersionControlService :
                 var payload = ((
                     GitCliVersionControlService Service,
                     RepositoryLockInfo LockInfo))state!;
-                if (!payload.Service.IsDisposed
-                    && Equals(payload.Service.RecoverableLock, payload.LockInfo))
-                {
-                    payload.Service.RecoverableLockAvailable?.Invoke(
-                        payload.Service,
-                        payload.LockInfo);
-                }
+                payload.Service.NotifyRecoverableLockAvailable(payload.LockInfo);
             },
             (this, lockInfo),
             preferLocal: false);
+    }
+
+    private void NotifyRecoverableLockAvailable(RepositoryLockInfo lockInfo)
+    {
+        if (IsDisposed
+            || !Equals(RecoverableLock, lockInfo)
+            || RecoverableLockAvailable is not { } handlers)
+        {
+            return;
+        }
+
+        foreach (EventHandler<RepositoryLockInfo> handler in handlers.GetInvocationList())
+        {
+            try
+            {
+                handler(this, lockInfo);
+            }
+            catch (Exception ex)
+            {
+                LogWarningBestEffort(
+                    ex,
+                    "Failed to notify a recoverable repository-lock subscriber.");
+            }
+        }
+    }
+
+    private void LogWarningBestEffort(Exception exception, string message)
+    {
+        try
+        {
+            _logger.LogWarning(exception, message);
+        }
+        catch
+        {
+        }
     }
 
     private void OnVersionControlConfigChanged(object? sender, EventArgs e)
@@ -1846,7 +4281,87 @@ internal sealed class GitCliVersionControlService :
         ObjectDisposedException.ThrowIf(IsDisposed, this);
     }
 
-    private bool IsDisposed => Volatile.Read(ref _disposed) != 0;
+    private bool IsDisposed
+        => (ServiceLifetimeState)Volatile.Read(ref _lifetimeState) != ServiceLifetimeState.Active;
+
+    private sealed class Transaction : IProjectVersionControlTransaction
+    {
+        private readonly GitCliVersionControlService _service;
+
+        public Transaction(GitCliVersionControlService service)
+        {
+            _service = service;
+        }
+
+        public Task<CommitResult> CommitAllAsync(
+            string message,
+            SnapshotKind kind,
+            CancellationToken cancellationToken)
+            => _service.CommitAllCoreAsync(message, kind, cancellationToken);
+
+        public Task<CheckedOutBranchTip> GetCheckedOutBranchTipAsync(
+            CancellationToken cancellationToken)
+            => _service.GetCheckedOutBranchTipCoreAsync(cancellationToken);
+
+        public Task<ProjectCheckpoint> CreateProjectCheckpointAsync(
+            string message,
+            CancellationToken cancellationToken)
+            => _service.CreateProjectCheckpointCoreAsync(message, cancellationToken);
+
+        public Task RestoreProjectCheckpointAsync(
+            ProjectCheckpoint checkpoint,
+            CancellationToken cancellationToken)
+            => _service.RestoreProjectCheckpointCoreAsync(checkpoint, cancellationToken);
+
+        public Task<CommitResult> CommitProjectTreeAsync(
+            CheckedOutBranchTip expectedCurrent,
+            string sourceCommit,
+            string message,
+            SnapshotKind kind,
+            CancellationToken cancellationToken)
+            => _service.CommitProjectTreeCoreAsync(
+                expectedCurrent,
+                sourceCommit,
+                message,
+                kind,
+                cancellationToken);
+
+        public Task<BranchTipRollbackResult> TryRollbackBranchTipAsync(
+            CheckedOutBranchTip expectedCurrent,
+            CheckedOutBranchTip target,
+            CancellationToken cancellationToken)
+            => _service.TryRollbackBranchTipCoreAsync(expectedCurrent, target, cancellationToken);
+
+        public Task<bool> DeleteProjectCheckpointAsync(
+            ProjectCheckpoint checkpoint,
+            CancellationToken cancellationToken)
+            => _service.DeleteProjectCheckpointCoreAsync(checkpoint, cancellationToken);
+
+        public Task<WorkspaceStatus> GetStatusAsync(CancellationToken cancellationToken)
+            => _service.GetStatusCoreAsync(cancellationToken);
+
+        public Task CreateBranchAsync(
+            string name,
+            string startPoint,
+            CancellationToken cancellationToken)
+            => _service.CreateBranchCoreAsync(name, startPoint, cancellationToken);
+
+        public Task SwitchBranchAsync(string name, CancellationToken cancellationToken)
+            => _service.SwitchBranchCoreAsync(name, cancellationToken);
+
+        public Task<FastForwardPullResult> PullFastForwardAsync(
+            CheckedOutBranchTip expectedCurrent,
+            ProjectCheckpoint? checkpoint,
+            CancellationToken cancellationToken)
+            => _service.PullFastForwardCoreAsync(expectedCurrent, checkpoint, cancellationToken);
+    }
+
+    private enum ServiceLifetimeState
+    {
+        Active,
+        Retiring,
+        Retired,
+    }
 
     private static StringComparison PathComparison
         => OperatingSystem.IsWindows() ? StringComparison.OrdinalIgnoreCase : StringComparison.Ordinal;

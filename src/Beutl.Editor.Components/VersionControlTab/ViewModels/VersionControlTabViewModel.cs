@@ -1285,6 +1285,7 @@ public sealed class VersionControlTabViewModel : IToolContext
             RemoteOpResult.AuthFailed authFailed => authFailed.Guidance,
             RemoteOpResult.Diverged => Strings.VersionControl_Diverged,
             RemoteOpResult.Offline => Strings.VersionControl_Offline,
+            RemoteOpResult.RepositoryDirty => Strings.VersionControl_RepositoryDirty,
             RemoteOpResult.Failed failed => failed.Stderr,
             _ => string.Empty,
         };
@@ -1414,7 +1415,7 @@ public sealed class VersionControlCommitViewModel : IDisposable
 
     public bool IsSafety => Commit.Kind == SnapshotKind.Safety;
 
-    public bool IsRestore => Commit.Kind == SnapshotKind.Restore;
+    public bool IsRestore => Commit.Kind is SnapshotKind.Restore or SnapshotKind.Recovery;
 
     public bool IsInit => Commit.Kind == SnapshotKind.Init;
 
@@ -1442,6 +1443,7 @@ public sealed class VersionControlCommitViewModel : IDisposable
             SnapshotKind.Close => Strings.VersionControl_SnapshotClose,
             SnapshotKind.Safety => Strings.VersionControl_SnapshotSafety,
             SnapshotKind.Restore => Strings.VersionControl_SnapshotRestore,
+            SnapshotKind.Recovery => Strings.VersionControl_SnapshotRecovery,
             SnapshotKind.Init => Strings.VersionControl_SnapshotInit,
             _ => Strings.VersionControl_SnapshotManual,
         };

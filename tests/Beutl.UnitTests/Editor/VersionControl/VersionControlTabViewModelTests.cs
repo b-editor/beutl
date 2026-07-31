@@ -874,6 +874,30 @@ public class VersionControlTabViewModelTests
     }
 
     [Test]
+    public async Task Manual_commit_treats_an_unresolved_committed_sha_as_success()
+    {
+        Mock<IProjectVersionControlService> service = CreateServiceMock();
+        var coordinator = new Mock<IProjectVersionControlCoordinator>();
+        coordinator.Setup(x => x.CommitManualAsync(
+                "milestone",
+                It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new CommitResult.Committed(new CommitRevision.Unavailable()));
+        using var viewModel = CreateViewModel(service.Object, coordinator.Object);
+        await viewModel.Initialization;
+        viewModel.CommitMessage.Value = "milestone";
+
+        await viewModel.CommitManualAsync();
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(viewModel.CommitMessage.Value, Is.Empty);
+            Assert.That(
+                viewModel.StatusMessage.Value,
+                Is.EqualTo(Strings.VersionControl_CommitCreated));
+        });
+    }
+
+    [Test]
     public async Task Manual_commit_clears_the_message_and_manual_history_has_a_distinct_badge_state()
     {
         CommitInfo manual = CreateCommit(1, SnapshotKind.Manual);
@@ -888,7 +912,7 @@ public class VersionControlTabViewModelTests
         coordinator.Setup(x => x.CommitManualAsync(
                 "milestone",
                 It.IsAny<CancellationToken>()))
-            .ReturnsAsync(new CommitResult.Committed(manual.Sha));
+            .ReturnsAsync(new CommitResult.Committed(new CommitRevision.Known(manual.Sha)));
         using var viewModel = CreateViewModel(service.Object, coordinator.Object);
         await viewModel.Initialization;
         viewModel.CommitMessage.Value = "milestone";
@@ -917,6 +941,7 @@ public class VersionControlTabViewModelTests
             SnapshotKind.Close,
             SnapshotKind.Safety,
             SnapshotKind.Restore,
+            SnapshotKind.Recovery,
             SnapshotKind.Init,
         ];
         Mock<IProjectVersionControlService> service = CreateServiceMock();
@@ -944,6 +969,11 @@ public class VersionControlTabViewModelTests
                 }.Count(static value => value);
                 Assert.That(activeClasses, Is.EqualTo(1), commit.Commit.Kind.ToString());
             }
+
+            Assert.That(
+                viewModel.Commits.Single(commit => commit.Commit.Kind == SnapshotKind.Recovery)
+                    .KindText,
+                Is.EqualTo(Strings.VersionControl_SnapshotRecovery));
         });
     }
 
@@ -1107,6 +1137,10 @@ public class VersionControlTabViewModelTests
                 VersionControlTabViewModel.GetRemoteResultMessage(
                     new RemoteOpResult.Offline()),
                 Is.EqualTo(Strings.VersionControl_Offline));
+            Assert.That(
+                VersionControlTabViewModel.GetRemoteResultMessage(
+                    new RemoteOpResult.RepositoryDirty()),
+                Is.EqualTo(Strings.VersionControl_RepositoryDirty));
             Assert.That(
                 VersionControlTabViewModel.GetRemoteResultMessage(
                     new RemoteOpResult.Failed(stderr)),

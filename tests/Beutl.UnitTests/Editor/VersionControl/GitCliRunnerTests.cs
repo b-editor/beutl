@@ -14,18 +14,19 @@ public class GitCliRunnerTests : RealGitTestRepository
         var startInfo = runner.CreateStartInfo(
             Repository,
             ["show", "--format=value with spaces", "HEAD"],
-            networkOperation: true);
+            GitExecutionPolicy.Local);
 
         Assert.Multiple(() =>
         {
             Assert.That(startInfo.UseShellExecute, Is.False);
+            Assert.That(startInfo.RedirectStandardInput, Is.True);
             Assert.That(startInfo.WorkingDirectory, Is.EqualTo(Repository.RepoRoot));
             Assert.That(startInfo.ArgumentList,
                 Is.EqualTo(new[] { "show", "--format=value with spaces", "HEAD" }));
             Assert.That(startInfo.Environment["GIT_TERMINAL_PROMPT"], Is.EqualTo("0"));
             Assert.That(startInfo.Environment["GIT_OPTIONAL_LOCKS"], Is.EqualTo("0"));
+            Assert.That(startInfo.Environment["GIT_LITERAL_PATHSPECS"], Is.EqualTo("1"));
             Assert.That(startInfo.Environment["LC_ALL"], Is.EqualTo("C"));
-            Assert.That(startInfo.Environment["GIT_SSH_COMMAND"], Is.EqualTo("ssh -oBatchMode=yes"));
             Assert.That(startInfo.Environment.TryGetValue("GIT_CONFIG_GLOBAL", out string? globalConfig),
                 Is.EqualTo(Environment.GetEnvironmentVariable("GIT_CONFIG_GLOBAL") is not null));
             Assert.That(globalConfig, Is.EqualTo(Environment.GetEnvironmentVariable("GIT_CONFIG_GLOBAL")));
@@ -36,11 +37,191 @@ public class GitCliRunnerTests : RealGitTestRepository
     }
 
     [Test]
+    public async Task CreateStartInfo_adds_batch_mode_for_default_open_ssh()
+    {
+        GitCliRunner runner = CreateSshIsolatedRunner();
+
+        var startInfo = await runner.CreateStartInfoAsync(
+            Repository,
+            ["push", "origin", "HEAD"],
+            GitCommandOptions.Network);
+
+        Assert.That(
+            startInfo.Environment["GIT_SSH_COMMAND"],
+            Is.EqualTo("ssh -oBatchMode=yes"));
+    }
+
+    [TestCase("GIT_SSH_COMMAND", "custom-ssh --identity test-key")]
+    [TestCase("GIT_SSH", "custom-ssh")]
+    [TestCase("GIT_SSH_VARIANT", "plink")]
+    public async Task CreateStartInfo_preserves_inherited_ssh_environment(
+        string variable,
+        string value)
+    {
+        Dictionary<string, string?> environment = CreateSshIsolatedEnvironment();
+        environment[variable] = value;
+        var runner = new GitCliRunner(
+            GitPath,
+            TimeSpan.FromSeconds(10),
+            environment);
+
+        var startInfo = await runner.CreateStartInfoAsync(
+            Repository,
+            ["push", "origin", "HEAD"],
+            GitCommandOptions.Network);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(startInfo.Environment[variable], Is.EqualTo(value));
+            if (variable != "GIT_SSH_COMMAND")
+            {
+                Assert.That(startInfo.Environment.ContainsKey("GIT_SSH_COMMAND"), Is.False);
+            }
+        });
+    }
+
+    [TestCase(false)]
+    [TestCase(true)]
+    public async Task CreateStartInfo_preserves_repository_or_global_core_ssh_command(
+        bool useGlobalConfig)
+    {
+        const string customSshCommand = "custom-ssh-wrapper --nonstandard-option";
+        Dictionary<string, string?> environment = CreateSshIsolatedEnvironment();
+        if (useGlobalConfig)
+        {
+            string globalConfigPath = Path.Combine(CreateTemporaryDirectory(), "gitconfig");
+            await RunGitAsync(
+                "config",
+                "--file",
+                globalConfigPath,
+                "core.sshCommand",
+                customSshCommand);
+            environment["GIT_CONFIG_GLOBAL"] = globalConfigPath;
+        }
+        else
+        {
+            await RunGitAsync("config", "core.sshCommand", customSshCommand);
+        }
+
+        var runner = new GitCliRunner(
+            GitPath,
+            TimeSpan.FromSeconds(10),
+            environment);
+
+        var startInfo = await runner.CreateStartInfoAsync(
+            Repository,
+            ["push", "origin", "HEAD"],
+            GitCommandOptions.Network);
+
+        Assert.That(startInfo.Environment.ContainsKey("GIT_SSH_COMMAND"), Is.False);
+    }
+
+    [TestCase(false)]
+    [TestCase(true)]
+    public async Task CreateStartInfo_preserves_repository_or_global_ssh_variant(
+        bool useGlobalConfig)
+    {
+        Dictionary<string, string?> environment = CreateSshIsolatedEnvironment();
+        if (useGlobalConfig)
+        {
+            string globalConfigPath = Path.Combine(CreateTemporaryDirectory(), "gitconfig");
+            await RunGitAsync(
+                "config",
+                "--file",
+                globalConfigPath,
+                "ssh.variant",
+                "plink");
+            environment["GIT_CONFIG_GLOBAL"] = globalConfigPath;
+        }
+        else
+        {
+            await RunGitAsync("config", "ssh.variant", "plink");
+        }
+
+        var runner = new GitCliRunner(
+            GitPath,
+            TimeSpan.FromSeconds(10),
+            environment);
+
+        var startInfo = await runner.CreateStartInfoAsync(
+            Repository,
+            ["push", "origin", "HEAD"],
+            GitCommandOptions.Network);
+
+        Assert.That(startInfo.Environment.ContainsKey("GIT_SSH_COMMAND"), Is.False);
+    }
+
+    [Test]
+    public async Task Per_command_environment_overrides_constructor_environment()
+    {
+        const string constructorIndex = "/constructor/index";
+        const string commandIndex = "/command/index";
+        Dictionary<string, string?> environment = CreateSshIsolatedEnvironment();
+        environment["GIT_INDEX_FILE"] = constructorIndex;
+        var runner = new GitCliRunner(
+            GitPath,
+            TimeSpan.FromSeconds(10),
+            environment);
+        var options = new GitCommandOptions(
+            GitCommandExecutionKind.Local,
+            new Dictionary<string, string?>
+            {
+                ["GIT_INDEX_FILE"] = commandIndex,
+                ["GIT_TERMINAL_PROMPT"] = "1",
+            });
+
+        var startInfo = await runner.CreateStartInfoAsync(
+            Repository,
+            ["status"],
+            options);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(startInfo.Environment["GIT_INDEX_FILE"], Is.EqualTo(commandIndex));
+            Assert.That(startInfo.Environment["GIT_TERMINAL_PROMPT"], Is.EqualTo("0"));
+        });
+    }
+
+    [Test]
     public void SplitNullSeparated_preserves_spaces_and_omits_terminal_empty_record()
     {
         IReadOnlyList<string> values = GitCliRunner.SplitNullSeparated("one\0two words\0three\0");
 
         Assert.That(values, Is.EqualTo(new[] { "one", "two words", "three" }));
+    }
+
+    [Test]
+    public async Task RunAsync_writes_explicit_null_separated_standard_input()
+    {
+        string excludePath = Path.Combine(Root, ".git", "info", "exclude");
+        await File.AppendAllTextAsync(excludePath, "ignored-*\nignored dir/\n");
+
+        GitCommandResult result = await Runner.RunAsync(
+            Repository,
+            ["check-ignore", "--stdin", "-z"],
+            new GitCommandOptions(
+                GitCommandExecutionKind.Local,
+                StandardInput: "ignored-file\0ignored dir/file.txt\0visible.txt\0",
+                UseLiteralPathspecs: false),
+            CancellationToken.None);
+
+        Assert.That(
+            GitCliRunner.SplitNullSeparated(result.Stdout),
+            Is.EqualTo(new[] { "ignored-file", "ignored dir/file.txt" }));
+    }
+
+    [Test]
+    public async Task RunAsync_closes_standard_input_when_payload_is_null()
+    {
+        GitCommandResult result = await Runner.RunAsync(
+            Repository,
+            ["hash-object", "--stdin"],
+            GitCommandOptions.Local,
+            CancellationToken.None);
+
+        Assert.That(
+            result.Stdout.Trim(),
+            Is.EqualTo("e69de29bb2d1d6434b8b29ae775ad8c2e48c5391"));
     }
 
     [Test]
@@ -113,10 +294,47 @@ public class GitCliRunnerTests : RealGitTestRepository
         Assert.ThrowsAsync<OperationCanceledException>(
             async () => await runner.RunAsync(
                 Repository,
-                ["cat-file", "--batch"],
-                networkOperation: false,
+                ["-c", "alias.wait=!printf output; sleep 30", "wait"],
+                GitCommandOptions.Local with { MaxStdoutBytes = 1 },
                 cancellation.Token));
         Assert.That(runner.HasActiveProcess, Is.False);
+    }
+
+    [Test]
+    public async Task Standard_input_is_closed_after_process_start()
+    {
+        var runner = CreateRunner(TimeSpan.FromSeconds(1));
+
+        GitCommandResult result = await runner.RunAsync(
+            Repository,
+            ["cat-file", "--batch"],
+            GitCommandOptions.Local,
+            CancellationToken.None);
+
+        Assert.That(result.ExitCode, Is.Zero);
+    }
+
+    [Test]
+    public async Task Stdout_byte_limit_drains_the_process_and_omits_partial_utf8_sequence()
+    {
+        string contents = string.Concat(Enumerable.Repeat("あ", 100_000));
+        await CommitFileAsync("large.txt", contents, "large output");
+        var runner = CreateRunner(TimeSpan.FromSeconds(10));
+        var options = GitCommandOptions.Local with { MaxStdoutBytes = 5 };
+
+        GitCommandResult result = await runner.RunAsync(
+            Repository,
+            ["show", "HEAD:large.txt"],
+            options,
+            CancellationToken.None);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(result.Stdout, Is.EqualTo("あ"));
+            Assert.That(result.Stdout, Does.Not.Contain('\uFFFD'));
+            Assert.That(result.StdoutTruncated, Is.True);
+            Assert.That(runner.HasActiveProcess, Is.False);
+        });
     }
 
     [Test]
@@ -142,7 +360,7 @@ public class GitCliRunnerTests : RealGitTestRepository
             async () => await runner.RunAsync(
                 Repository,
                 ["add", "--", "locked.txt"],
-                networkOperation: false,
+                GitCommandOptions.Local,
                 CancellationToken.None));
         RepositoryLockInfo? recoverable = runner.GetRecoverableRepositoryLock(Repository);
 
@@ -182,8 +400,8 @@ public class GitCliRunnerTests : RealGitTestRepository
         using var cancellation = new CancellationTokenSource();
         Task<GitCommandResult> activeCommand = runner.RunAsync(
             Repository,
-            ["cat-file", "--batch"],
-            networkOperation: false,
+            ["-c", "alias.wait=!sleep 30", "wait"],
+            GitCommandOptions.Local,
             cancellation.Token);
         for (int attempt = 0; attempt < 100 && !runner.HasActiveProcess; attempt++)
         {
@@ -196,6 +414,49 @@ public class GitCliRunnerTests : RealGitTestRepository
         cancellation.Cancel();
         Assert.ThrowsAsync<OperationCanceledException>(async () => await activeCommand);
         Assert.That(runner.GetRecoverableRepositoryLock(Repository), Is.Not.Null);
+    }
+
+    [Test]
+    public async Task Stale_linked_worktree_HEAD_lock_is_removed_only_with_matching_identity()
+    {
+        await CommitFileAsync("project.beutl", "base", "initial");
+        string worktreeRoot = CreateTemporaryDirectory();
+        await RunGitAsync("worktree", "add", "-b", "linked", worktreeRoot);
+        var worktree = new RepositoryInfo(worktreeRoot, worktreeRoot);
+        string gitFile = await File.ReadAllTextAsync(Path.Combine(worktreeRoot, ".git"));
+        string gitDirectory = gitFile["gitdir:".Length..].Trim();
+        if (!Path.IsPathFullyQualified(gitDirectory))
+        {
+            gitDirectory = Path.Combine(worktreeRoot, gitDirectory);
+        }
+
+        string lockPath = Path.Combine(Path.GetFullPath(gitDirectory), "HEAD.lock");
+        var now = new DateTimeOffset(2026, 1, 2, 12, 0, 0, TimeSpan.Zero);
+        var timeProvider = new FakeTimeProvider(now);
+        await File.WriteAllTextAsync(lockPath, "stale");
+        DateTime firstTimestamp = (now - GitCliRunner.StaleLockAge - TimeSpan.FromMinutes(2)).UtcDateTime;
+        File.SetLastWriteTimeUtc(lockPath, firstTimestamp);
+        var runner = new GitCliRunner(
+            GitPath,
+            TimeSpan.FromSeconds(10),
+            IsolatedGitEnvironment,
+            timeProvider);
+
+        RepositoryLockInfo first = runner.GetRecoverableRepositoryLock(worktree)!;
+        Assert.That(first.LockPath, Is.EqualTo(Path.GetFullPath(lockPath)));
+
+        DateTime replacementTimestamp = firstTimestamp.AddMinutes(1);
+        File.SetLastWriteTimeUtc(lockPath, replacementTimestamp);
+        Assert.That(
+            runner.RemoveRecoverableRepositoryLock(worktree, first),
+            Is.False);
+        Assert.That(File.Exists(lockPath), Is.True);
+
+        RepositoryLockInfo replacement = runner.GetRecoverableRepositoryLock(worktree)!;
+        Assert.That(
+            runner.RemoveRecoverableRepositoryLock(worktree, replacement),
+            Is.True);
+        Assert.That(File.Exists(lockPath), Is.False);
     }
 
     [Test]
@@ -250,5 +511,22 @@ public class GitCliRunnerTests : RealGitTestRepository
         {
             Messages.Add(value);
         }
+    }
+
+    private GitCliRunner CreateSshIsolatedRunner()
+        => new(
+            GitPath,
+            TimeSpan.FromSeconds(10),
+            CreateSshIsolatedEnvironment());
+
+    private static Dictionary<string, string?> CreateSshIsolatedEnvironment()
+    {
+        var environment = IsolatedGitEnvironment.ToDictionary(
+            static pair => pair.Key,
+            static pair => (string?)pair.Value);
+        environment["GIT_SSH_COMMAND"] = null;
+        environment["GIT_SSH"] = null;
+        environment["GIT_SSH_VARIANT"] = null;
+        return environment;
     }
 }

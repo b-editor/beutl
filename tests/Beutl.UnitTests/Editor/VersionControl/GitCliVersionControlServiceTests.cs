@@ -41,22 +41,22 @@ public class GitCliVersionControlServiceTests : RealGitTestRepository
         GitCommandResult branch = await Runner.RunAsync(
             projectRepository,
             ["branch", "--show-current"],
-            networkOperation: false,
+            GitCommandOptions.Local,
             CancellationToken.None);
         GitCommandResult log = await Runner.RunAsync(
             projectRepository,
             ["log", "-1", "--format=%s%n%b"],
-            networkOperation: false,
+            GitCommandOptions.Local,
             CancellationToken.None);
         GitCommandResult count = await Runner.RunAsync(
             projectRepository,
             ["rev-list", "--count", "HEAD"],
-            networkOperation: false,
+            GitCommandOptions.Local,
             CancellationToken.None);
         GitCommandResult topLevel = await Runner.RunAsync(
             projectRepository,
             ["rev-parse", "--show-toplevel"],
-            networkOperation: false,
+            GitCommandOptions.Local,
             CancellationToken.None);
         string expectedRoot = Path.TrimEndingDirectorySeparator(
             Path.GetFullPath(topLevel.Stdout.Trim()));
@@ -90,7 +90,7 @@ public class GitCliVersionControlServiceTests : RealGitTestRepository
         await Runner.RunAsync(
             otherRepository,
             ["init"],
-            networkOperation: false,
+            GitCommandOptions.Local,
             CancellationToken.None);
         using GitCliVersionControlService service = CreateService();
 
@@ -152,6 +152,32 @@ public class GitCliVersionControlServiceTests : RealGitTestRepository
             Assert.That(
                 File.ReadAllText(Path.Combine(projectRoot, ".gitattributes")),
                 Does.Contain("resources/**/*.png filter=lfs diff=lfs merge=lfs -text\n"));
+        });
+    }
+
+    [Test]
+    public async Task EnsureRepositoryHygieneAsync_is_idempotent_and_does_not_stage_or_commit()
+    {
+        await CommitFileAsync("project.bep", "{}\n", "existing repository");
+        string initialTip = (await RunGitAsync("rev-parse", "HEAD")).Stdout.Trim();
+        using var service = CreateService();
+
+        await service.EnsureRepositoryHygieneAsync(CancellationToken.None);
+        await service.EnsureRepositoryHygieneAsync(CancellationToken.None);
+
+        GitCommandResult currentTip = await RunGitAsync("rev-parse", "HEAD");
+        GitCommandResult staged = await RunGitAsync("diff", "--cached", "--name-only");
+        Assert.Multiple(() =>
+        {
+            Assert.That(currentTip.Stdout.Trim(), Is.EqualTo(initialTip));
+            Assert.That(staged.Stdout, Is.Empty);
+            Assert.That(
+                File.ReadAllLines(Path.Combine(Root, ".gitignore")),
+                Is.EqualTo(new[] { "**/.beutl/", "*.tmp" }));
+            Assert.That(
+                File.ReadAllLines(Path.Combine(Root, ".gitattributes"))
+                    .Count(static line => line == "*.bep text eol=lf"),
+                Is.EqualTo(1));
         });
     }
 
@@ -326,6 +352,36 @@ public class GitCliVersionControlServiceTests : RealGitTestRepository
     }
 
     [Test]
+    public async Task Mapped_remote_failure_still_exposes_recoverable_lock()
+    {
+        var expectedLock = new RepositoryLockInfo(
+            Path.Combine(Root, ".git", "index.lock"),
+            DateTimeOffset.UtcNow - GitCliRunner.StaleLockAge - TimeSpan.FromMinutes(1));
+        var runner = new RemoteLockFailureRunner(expectedLock);
+        using var service = new GitCliVersionControlService(
+            CreateInstalledLocator(),
+            Repository,
+            watcher: null,
+            _ => runner);
+        var completion = new TaskCompletionSource<RepositoryLockInfo>(
+            TaskCreationOptions.RunContinuationsAsynchronously);
+        service.RecoverableLockAvailable += (_, lockInfo) =>
+            completion.TrySetResult(lockInfo);
+
+        RemoteOpResult result = await service.PushAsync(
+            progress: null,
+            CancellationToken.None);
+        RepositoryLockInfo actual = await completion.Task.WaitAsync(TimeSpan.FromSeconds(5));
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(result, Is.TypeOf<RemoteOpResult.Failed>());
+            Assert.That(actual, Is.EqualTo(expectedLock));
+            Assert.That(service.RecoverableLock, Is.EqualTo(expectedLock));
+        });
+    }
+
+    [Test]
     public async Task GetHistoryAsync_pages_commits_and_parses_snapshot_trailers()
     {
         await CommitFileAsync("project.bep", "one\n", "manual baseline");
@@ -366,6 +422,25 @@ public class GitCliVersionControlServiceTests : RealGitTestRepository
     }
 
     [Test]
+    public async Task GetHistoryAsync_parses_recovery_snapshot_trailer()
+    {
+        await CommitFileAsync("project.bep", "before\n", "baseline");
+        using var service = CreateService();
+        await File.WriteAllTextAsync(Path.Combine(Root, "project.bep"), "recovered\n");
+
+        await service.CommitAllAsync(
+            "beutl: recover project state after failed restore",
+            SnapshotKind.Recovery,
+            CancellationToken.None);
+        CommitInfo recovery = (await service.GetHistoryAsync(
+            0,
+            1,
+            CancellationToken.None)).Single();
+
+        Assert.That(recovery.Kind, Is.EqualTo(SnapshotKind.Recovery));
+    }
+
+    [Test]
     public async Task GetCommitFilesAsync_reports_added_modified_deleted_and_renamed_paths()
     {
         await File.WriteAllTextAsync(Path.Combine(Root, "project.bep"), "one\n");
@@ -379,10 +454,10 @@ public class GitCliVersionControlServiceTests : RealGitTestRepository
         File.Move(Path.Combine(Root, "old.scene"), Path.Combine(Root, "new.scene"));
         await File.WriteAllTextAsync(Path.Combine(Root, "added.belm"), "added\n");
         using var service = CreateService();
-        var commit = (CommitResult.Committed)await service.CommitAllAsync(
+        var commit = (CommitRevision.Known)((CommitResult.Committed)await service.CommitAllAsync(
             "beutl: snapshot on save",
             SnapshotKind.Save,
-            CancellationToken.None);
+            CancellationToken.None)).Revision;
 
         IReadOnlyList<FileChange> files = await service.GetCommitFilesAsync(
             commit.Sha,
@@ -405,10 +480,10 @@ public class GitCliVersionControlServiceTests : RealGitTestRepository
         await CommitFileAsync("project.bep", "old value\n", "baseline");
         await File.WriteAllTextAsync(Path.Combine(Root, "project.bep"), "new value\n");
         using var service = CreateService();
-        var commit = (CommitResult.Committed)await service.CommitAllAsync(
+        var commit = (CommitRevision.Known)((CommitResult.Committed)await service.CommitAllAsync(
             "beutl: snapshot on save",
             SnapshotKind.Save,
-            CancellationToken.None);
+            CancellationToken.None)).Revision;
 
         string diff = await service.GetDiffAsync(
             commit.Sha,
@@ -426,6 +501,36 @@ public class GitCliVersionControlServiceTests : RealGitTestRepository
     }
 
     [Test]
+    public async Task GetDiffAsync_treats_pathspec_magic_like_top_as_a_literal_file_name()
+    {
+        if (OperatingSystem.IsWindows())
+        {
+            Assert.Ignore("Windows file names cannot contain a colon.");
+        }
+
+        await CommitFileAsync(":(top)", "old literal\n", "literal baseline");
+        await CommitFileAsync("other.bep", "old other\n", "other baseline");
+        await File.WriteAllTextAsync(Path.Combine(Root, ":(top)"), "new literal\n");
+        await File.WriteAllTextAsync(Path.Combine(Root, "other.bep"), "new other\n");
+        using var service = CreateService();
+        var commit = (CommitRevision.Known)((CommitResult.Committed)await service.CommitAllAsync(
+            "literal path update",
+            SnapshotKind.Save,
+            CancellationToken.None)).Revision;
+
+        string diff = await service.GetDiffAsync(
+            commit.Sha,
+            ":(top)",
+            CancellationToken.None);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(diff, Does.Contain("+new literal"));
+            Assert.That(diff, Does.Not.Contain("+new other"));
+        });
+    }
+
+    [Test]
     public async Task GetDiffAsync_caps_output_at_one_megabyte_and_appends_marker()
     {
         await CommitFileAsync("large.belm", "old\n", "baseline");
@@ -433,10 +538,10 @@ public class GitCliVersionControlServiceTests : RealGitTestRepository
             Enumerable.Repeat("a changed line that remains text\n", 40000));
         await File.WriteAllTextAsync(Path.Combine(Root, "large.belm"), largeContents);
         using var service = CreateService();
-        var commit = (CommitResult.Committed)await service.CommitAllAsync(
+        var commit = (CommitRevision.Known)((CommitResult.Committed)await service.CommitAllAsync(
             "beutl: snapshot on save",
             SnapshotKind.Save,
-            CancellationToken.None);
+            CancellationToken.None)).Revision;
 
         string diff = await service.GetDiffAsync(
             commit.Sha,
@@ -454,7 +559,7 @@ public class GitCliVersionControlServiceTests : RealGitTestRepository
     }
 
     [Test]
-    public async Task RestoreWorktreeFromAsync_matches_target_and_preserves_ignored_files()
+    public async Task CommitProjectTreeAsync_matches_target_and_preserves_ignored_files()
     {
         byte[] targetProject = [0x7b, 0x0a, 0x7d, 0x0a];
         byte[] targetElement = [0x31, 0x32, 0x33, 0x0a];
@@ -480,7 +585,14 @@ public class GitCliVersionControlServiceTests : RealGitTestRepository
         await File.WriteAllTextAsync(Path.Combine(Root, "atomic.tmp"), "keep\n");
 
         using var service = CreateService();
-        await service.RestoreWorktreeFromAsync(targetSha, CancellationToken.None);
+        CheckedOutBranchTip laterTip = await service.GetCheckedOutBranchTipAsync(
+            CancellationToken.None);
+        CommitResult targetRestore = await service.CommitProjectTreeAsync(
+            laterTip,
+            targetSha,
+            "beutl: restore target",
+            SnapshotKind.Restore,
+            CancellationToken.None);
 
         Assert.Multiple(() =>
         {
@@ -493,9 +605,14 @@ public class GitCliVersionControlServiceTests : RealGitTestRepository
             Assert.That(File.ReadAllText(Path.Combine(Root, "atomic.tmp")), Is.EqualTo("keep\n"));
         });
 
-        await RunGitAsync("add", "-A");
-        await RunGitAsync("commit", "-m", "record restore");
-        await service.RestoreWorktreeFromAsync(laterSha, CancellationToken.None);
+        var targetRestoreCommit = (CommitRevision.Known)
+            ((CommitResult.Committed)targetRestore).Revision;
+        await service.CommitProjectTreeAsync(
+            new CheckedOutBranchTip(laterTip.RefName, targetRestoreCommit.Sha),
+            laterSha,
+            "beutl: restore later",
+            SnapshotKind.Restore,
+            CancellationToken.None);
 
         Assert.Multiple(() =>
         {
@@ -611,9 +728,12 @@ public class GitCliVersionControlServiceTests : RealGitTestRepository
 
         Assert.Multiple(() =>
         {
-            Assert.ThrowsAsync<InvalidOperationException>(
-                async () => await service.RestoreWorktreeFromAsync(
+            Assert.ThrowsAsync<InvalidOperationException>(async () =>
+                await service.CommitProjectTreeAsync(
+                    new CheckedOutBranchTip("refs/heads/main", head),
                     head,
+                    "blocked restore",
+                    SnapshotKind.Restore,
                     CancellationToken.None));
             Assert.ThrowsAsync<InvalidOperationException>(
                 async () => await service.CreateBranchAsync(
@@ -770,6 +890,8 @@ public class GitCliVersionControlServiceTests : RealGitTestRepository
             CancellationToken.None);
         IReadOnlyList<RemoteInfo> remotes = await service.GetRemotesAsync(
             CancellationToken.None);
+        CheckedOutBranchTip expectedTip = await service.GetCheckedOutBranchTipAsync(
+            CancellationToken.None);
 
         VersionControlConflictedException[] exceptions =
         [
@@ -779,8 +901,11 @@ public class GitCliVersionControlServiceTests : RealGitTestRepository
                     SnapshotKind.Manual,
                     CancellationToken.None))!,
             Assert.ThrowsAsync<VersionControlConflictedException>(
-                async () => await service.RestoreWorktreeFromAsync(
+                async () => await service.CommitProjectTreeAsync(
+                    expectedTip,
                     history[0].Sha,
+                    "blocked restore",
+                    SnapshotKind.Restore,
                     CancellationToken.None))!,
             Assert.ThrowsAsync<VersionControlConflictedException>(
                 async () => await service.CreateBranchAsync(
@@ -809,6 +934,8 @@ public class GitCliVersionControlServiceTests : RealGitTestRepository
                     CancellationToken.None))!,
             Assert.ThrowsAsync<VersionControlConflictedException>(
                 async () => await service.PullFastForwardAsync(
+                    expectedTip,
+                    checkpoint: null,
                     CancellationToken.None))!,
         ];
 
@@ -874,6 +1001,149 @@ public class GitCliVersionControlServiceTests : RealGitTestRepository
         Assert.DoesNotThrowAsync(async () => await operation);
         Assert.ThrowsAsync<ObjectDisposedException>(
             async () => await service.GetStatusAsync(CancellationToken.None));
+    }
+
+    [Test]
+    public async Task Retirement_waits_for_started_operation_and_rejects_queued_and_new_calls()
+    {
+        var runner = new BlockingStatusRunner();
+        var service = new GitCliVersionControlService(
+            CreateInstalledLocator(),
+            Repository,
+            watcher: null,
+            _ => runner);
+
+        Task<WorkspaceStatus> started = service.GetStatusAsync(CancellationToken.None);
+        await runner.Started.WaitAsync(TimeSpan.FromSeconds(5));
+        Task<WorkspaceStatus> queued = service.GetStatusAsync(CancellationToken.None);
+        Task retirement = ((IProjectVersionControlBackend)service).RetireAsync(
+            finalSnapshot: null);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(started.IsCompleted, Is.False);
+            Assert.That(retirement.IsCompleted, Is.False);
+            Assert.ThrowsAsync<ObjectDisposedException>(
+                async () => await service.GetStatusAsync(CancellationToken.None));
+        });
+
+        runner.Complete();
+        Assert.DoesNotThrowAsync(async () => await started);
+        Assert.ThrowsAsync<ObjectDisposedException>(async () => await queued);
+        await retirement.WaitAsync(TimeSpan.FromSeconds(5));
+    }
+
+    [Test]
+    public async Task Retirement_creates_final_snapshot_after_started_raw_operation()
+    {
+        var runner = new BlockingFirstStatusRunner(CreateRunner());
+        var service = new GitCliVersionControlService(
+            CreateInstalledLocator(),
+            Repository,
+            watcher: null,
+            _ => runner);
+
+        Task<WorkspaceStatus> operation = service.GetStatusAsync(CancellationToken.None);
+        await runner.Started.WaitAsync(TimeSpan.FromSeconds(5));
+        await File.WriteAllTextAsync(Path.Combine(Root, "project.bep"), "final state\n");
+        Task retirement = ((IProjectVersionControlBackend)service).RetireAsync(
+            new ProjectVersionControlFinalSnapshot(
+                "beutl: snapshot on close",
+                SnapshotKind.Close));
+
+        runner.Complete();
+        await operation;
+        await retirement.WaitAsync(TimeSpan.FromSeconds(5));
+        GitCommandResult log = await RunGitAsync(
+            "log",
+            "-1",
+            "--pretty=%s%n%(trailers:key=Beutl-Snapshot,valueonly)");
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(log.Stdout, Does.Contain("beutl: snapshot on close"));
+            Assert.That(log.Stdout, Does.Contain("close"));
+            Assert.ThrowsAsync<ObjectDisposedException>(
+                async () => await service.GetStatusAsync(CancellationToken.None));
+        });
+    }
+
+    [Test]
+    public async Task Retirement_requested_during_initialization_commits_the_final_close_state()
+    {
+        string projectRoot = CreateTemporaryDirectory();
+        await File.WriteAllTextAsync(Path.Combine(projectRoot, "project.bep"), "initial state\n");
+        var repository = new RepositoryInfo(projectRoot, projectRoot);
+        GitCliRunner commandRunner = CreateRunner();
+        var runner = new BlockingInitializationRunner(commandRunner);
+        var service = new GitCliVersionControlService(
+            CreateInstalledLocator(),
+            repository: null,
+            watcher: null,
+            _ => runner);
+
+        try
+        {
+            Task initialization = service.InitializeAsync(
+                new InitOptions(repository, UseLfsWhenAvailable: false),
+                CancellationToken.None);
+            await runner.RepositoryInitialized.WaitAsync(TimeSpan.FromSeconds(5));
+            await commandRunner.RunAsync(
+                repository,
+                ["config", "user.name", "Initialization Test"],
+                GitCommandOptions.Local,
+                CancellationToken.None);
+            await commandRunner.RunAsync(
+                repository,
+                ["config", "user.email", "initialization@example.invalid"],
+                GitCommandOptions.Local,
+                CancellationToken.None);
+
+            Task retirement = ((IProjectVersionControlBackend)service).RetireAsync(
+                new ProjectVersionControlFinalSnapshot(
+                    "beutl: snapshot on close",
+                    SnapshotKind.Close));
+            Assert.Multiple(() =>
+            {
+                Assert.That(service.Repository, Is.Null);
+                Assert.That(retirement.IsCompleted, Is.False);
+            });
+
+            runner.ContinueAfterRepositoryInitialization();
+            await runner.InitialCommitCompleted.WaitAsync(TimeSpan.FromSeconds(5));
+            await File.WriteAllTextAsync(
+                Path.Combine(projectRoot, "project.bep"),
+                "final close state\n");
+            runner.ContinueAfterInitialCommit();
+            await initialization.WaitAsync(TimeSpan.FromSeconds(5));
+            await retirement.WaitAsync(TimeSpan.FromSeconds(5));
+
+            GitCommandResult log = await commandRunner.RunAsync(
+                repository,
+                ["log", "-2", "--pretty=%s%n%(trailers:key=Beutl-Snapshot,valueonly)"],
+                GitCommandOptions.Local,
+                CancellationToken.None);
+            GitCommandResult contents = await commandRunner.RunAsync(
+                repository,
+                ["show", "HEAD:project.bep"],
+                GitCommandOptions.Local,
+                CancellationToken.None);
+
+            Assert.Multiple(() =>
+            {
+                Assert.That(log.Stdout, Does.Contain("beutl: snapshot on close"));
+                Assert.That(log.Stdout, Does.Contain("beutl: initialize version control"));
+                Assert.That(log.Stdout, Does.Contain("close"));
+                Assert.That(log.Stdout, Does.Contain("init"));
+                Assert.That(contents.Stdout, Is.EqualTo("final close state\n"));
+            });
+        }
+        finally
+        {
+            runner.ContinueAfterRepositoryInitialization();
+            runner.ContinueAfterInitialCommit();
+            service.Dispose();
+        }
     }
 
     [Test]
@@ -970,6 +1240,244 @@ public class GitCliVersionControlServiceTests : RealGitTestRepository
         });
     }
 
+    [Test]
+    public async Task Durable_mutations_succeed_when_status_refresh_fails()
+    {
+        string remoteRoot = CreateTemporaryDirectory();
+        var remoteRepository = new RepositoryInfo(remoteRoot, remoteRoot);
+        await CreateRunner().RunAsync(
+            remoteRepository,
+            ["init", "--bare", "-b", "main"],
+            GitCommandOptions.Local,
+            CancellationToken.None);
+        await File.WriteAllTextAsync(Path.Combine(Root, "project.bep"), "initial\n");
+        var runner = new FailingPostMutationStatusRunner(CreateRunner());
+        var logger = new RecordingLogger();
+        using var service = new GitCliVersionControlService(
+            CreateInstalledLocator(),
+            Repository,
+            watcher: null,
+            _ => runner,
+            logger);
+
+        CommitResult commit = await service.CommitAllAsync(
+            "beutl: snapshot on save",
+            SnapshotKind.Save,
+            CancellationToken.None);
+        await service.CreateBranchAsync("alternate", "HEAD", CancellationToken.None);
+        await service.SwitchBranchAsync("main", CancellationToken.None);
+        await service.SetRemoteAsync(remoteRoot, CancellationToken.None);
+        RemoteOpResult push = await service.PushAsync(progress: null, CancellationToken.None);
+
+        string localHead = (await RunGitAsync("rev-parse", "HEAD")).Stdout.Trim();
+        string remoteHead = (await CreateRunner().RunAsync(
+            remoteRepository,
+            ["rev-parse", "refs/heads/main"],
+            GitCommandOptions.Local,
+            CancellationToken.None)).Stdout.Trim();
+        LogEntry entry = await logger.Entry.WaitAsync(TimeSpan.FromSeconds(5));
+        Assert.Multiple(() =>
+        {
+            Assert.That(commit, Is.TypeOf<CommitResult.Committed>());
+            Assert.That(push, Is.TypeOf<RemoteOpResult.Success>());
+            Assert.That(remoteHead, Is.EqualTo(localHead));
+            Assert.That(runner.StatusFailureCount, Is.EqualTo(5));
+            Assert.That(entry.Level, Is.EqualTo(LogLevel.Warning));
+            Assert.That(entry.Exception, Is.SameAs(runner.StatusFailure));
+            Assert.That(
+                entry.Message,
+                Is.EqualTo("Failed to publish version-control status after a durable Git operation."));
+        });
+    }
+
+    [Test]
+    public async Task CommitAllAsync_reports_committed_when_post_commit_revision_lookup_fails()
+    {
+        await File.WriteAllTextAsync(Path.Combine(Root, "project.bep"), "initial\n");
+        var runner = new FailingPostCommitRevisionRunner(CreateRunner());
+        var logger = new RecordingLogger();
+        using var service = new GitCliVersionControlService(
+            CreateInstalledLocator(),
+            Repository,
+            watcher: null,
+            _ => runner,
+            logger);
+
+        CommitResult result = await service.CommitAllAsync(
+            "beutl: snapshot on save",
+            SnapshotKind.Save,
+            CancellationToken.None);
+
+        GitCommandResult commitCount = await RunGitAsync("rev-list", "--count", "HEAD");
+        LogEntry entry = await logger.Entry.WaitAsync(TimeSpan.FromSeconds(5));
+        Assert.Multiple(() =>
+        {
+            Assert.That(result, Is.TypeOf<CommitResult.Committed>());
+            Assert.That(
+                ((CommitResult.Committed)result).Revision,
+                Is.TypeOf<CommitRevision.Unavailable>());
+            Assert.That(commitCount.Stdout.Trim(), Is.EqualTo("1"));
+            Assert.That(runner.RevisionFailureCount, Is.EqualTo(1));
+            Assert.That(entry.Level, Is.EqualTo(LogLevel.Warning));
+            Assert.That(entry.Exception, Is.SameAs(runner.RevisionFailure));
+            Assert.That(
+                entry.Message,
+                Is.EqualTo("Failed to resolve the revision created by a successful Git commit."));
+        });
+    }
+
+    [Test]
+    public async Task InitializeAsync_succeeds_when_status_refresh_fails_after_initial_commit()
+    {
+        string projectRoot = CreateTemporaryDirectory();
+        var projectRepository = new RepositoryInfo(projectRoot, projectRoot);
+        GitCliRunner setupRunner = CreateRunner();
+        await setupRunner.RunAsync(
+            projectRepository,
+            ["init", "-b", "main"],
+            GitCommandOptions.Local,
+            CancellationToken.None);
+        await setupRunner.RunAsync(
+            projectRepository,
+            ["config", "user.name", "Beutl Test"],
+            GitCommandOptions.Local,
+            CancellationToken.None);
+        await setupRunner.RunAsync(
+            projectRepository,
+            ["config", "user.email", "beutl-test@example.invalid"],
+            GitCommandOptions.Local,
+            CancellationToken.None);
+        await File.WriteAllTextAsync(Path.Combine(projectRoot, "project.bep"), "initial\n");
+        var runner = new FailingPostMutationStatusRunner(CreateRunner());
+        using var service = new GitCliVersionControlService(
+            CreateInstalledLocator(),
+            repository: null,
+            watcher: null,
+            _ => runner);
+
+        await service.InitializeAsync(
+            new InitOptions(projectRepository, UseLfsWhenAvailable: false),
+            CancellationToken.None);
+
+        GitCommandResult commitCount = await setupRunner.RunAsync(
+            projectRepository,
+            ["rev-list", "--count", "HEAD"],
+            GitCommandOptions.Local,
+            CancellationToken.None);
+        Assert.Multiple(() =>
+        {
+            Assert.That(service.Repository, Is.Not.Null);
+            Assert.That(
+                RepositoryPathComparer.AreEquivalent(
+                    service.Repository!.ProjectRoot,
+                    projectRepository.ProjectRoot),
+                Is.True);
+            Assert.That(service.Repository.Pathspec, Is.EqualTo(projectRepository.Pathspec));
+            Assert.That(commitCount.Stdout.Trim(), Is.EqualTo("1"));
+            Assert.That(runner.StatusFailureCount, Is.EqualTo(1));
+        });
+    }
+
+    [Test]
+    public async Task StatusChanged_subscriber_failure_is_isolated_and_logged()
+    {
+        await File.WriteAllTextAsync(Path.Combine(Root, "project.bep"), "initial\n");
+        var logger = new RecordingLogger();
+        using var service = new GitCliVersionControlService(
+            CreateInstalledLocator(),
+            Repository,
+            watcher: null,
+            _ => CreateRunner(),
+            logger);
+        var expected = new InvalidOperationException("subscriber failed");
+        var notified = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        service.StatusChanged += (_, _) => throw expected;
+        service.StatusChanged += (_, _) => notified.TrySetResult();
+
+        CommitResult result = await service.CommitAllAsync(
+            "beutl: snapshot on save",
+            SnapshotKind.Save,
+            CancellationToken.None);
+
+        await notified.Task.WaitAsync(TimeSpan.FromSeconds(5));
+        LogEntry entry = await logger.Entry.WaitAsync(TimeSpan.FromSeconds(5));
+        Assert.Multiple(() =>
+        {
+            Assert.That(result, Is.TypeOf<CommitResult.Committed>());
+            Assert.That(entry.Level, Is.EqualTo(LogLevel.Warning));
+            Assert.That(entry.Exception, Is.SameAs(expected));
+            Assert.That(
+                entry.Message,
+                Is.EqualTo("Failed to notify a version-control status subscriber."));
+        });
+    }
+
+    [Test]
+    public async Task SetRemoteAsync_succeeds_when_post_mutation_policy_check_fails()
+    {
+        const string remoteUrl = "https://example.invalid/repository.git";
+        var runner = new FailingPostRemoteAuxiliaryRunner(CreateRunner());
+        var logger = new RecordingLogger();
+        using var service = new GitCliVersionControlService(
+            CreateInstalledLocator(),
+            Repository,
+            watcher: null,
+            _ => runner,
+            logger);
+
+        await service.SetRemoteAsync(remoteUrl, CancellationToken.None);
+
+        string configuredRemote = (await RunGitAsync("remote", "get-url", "origin")).Stdout.Trim();
+        LogEntry entry = await logger.Entry.WaitAsync(TimeSpan.FromSeconds(5));
+        Assert.Multiple(() =>
+        {
+            Assert.That(configuredRemote, Is.EqualTo(remoteUrl));
+            Assert.That(runner.AuxiliaryFailureCount, Is.EqualTo(1));
+            Assert.That(entry.Level, Is.EqualTo(LogLevel.Warning));
+            Assert.That(entry.Exception, Is.SameAs(runner.AuxiliaryFailure));
+            Assert.That(
+                entry.Message,
+                Is.EqualTo("Failed to publish the Git LFS quota notice after configuring the remote."));
+        });
+    }
+
+    [Test]
+    public async Task RecoverableLockAvailable_subscriber_failure_is_isolated_and_logged()
+    {
+        var expectedLock = new RepositoryLockInfo(
+            Path.Combine(Root, ".git", "index.lock"),
+            DateTimeOffset.UtcNow - GitCliRunner.StaleLockAge - TimeSpan.FromMinutes(1));
+        var runner = new RemoteLockFailureRunner(expectedLock);
+        var logger = new RecordingLogger();
+        using var service = new GitCliVersionControlService(
+            CreateInstalledLocator(),
+            Repository,
+            watcher: null,
+            _ => runner,
+            logger);
+        var expected = new InvalidOperationException("subscriber failed");
+        var notified = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        service.RecoverableLockAvailable += (_, _) => throw expected;
+        service.RecoverableLockAvailable += (_, _) => notified.TrySetResult();
+
+        RemoteOpResult result = await service.PushAsync(
+            progress: null,
+            CancellationToken.None);
+
+        await notified.Task.WaitAsync(TimeSpan.FromSeconds(5));
+        LogEntry entry = await logger.Entry.WaitAsync(TimeSpan.FromSeconds(5));
+        Assert.Multiple(() =>
+        {
+            Assert.That(result, Is.TypeOf<RemoteOpResult.Failed>());
+            Assert.That(service.RecoverableLock, Is.EqualTo(expectedLock));
+            Assert.That(entry.Level, Is.EqualTo(LogLevel.Warning));
+            Assert.That(entry.Exception, Is.SameAs(expected));
+            Assert.That(
+                entry.Message,
+                Is.EqualTo("Failed to notify a recoverable repository-lock subscriber."));
+        });
+    }
+
     private GitCliVersionControlService CreateService(RepositoryWatcher? watcher = null)
     {
         return new GitCliVersionControlService(
@@ -990,7 +1498,7 @@ public class GitCliVersionControlServiceTests : RealGitTestRepository
         public async Task<GitCommandResult> RunAsync(
             RepositoryInfo repository,
             IReadOnlyList<string> arguments,
-            bool networkOperation,
+            GitCommandOptions options,
             CancellationToken cancellationToken,
             IProgress<string>? stderrProgress = null)
         {
@@ -1035,7 +1543,7 @@ public class GitCliVersionControlServiceTests : RealGitTestRepository
         public async Task<GitCommandResult> RunAsync(
             RepositoryInfo repository,
             IReadOnlyList<string> arguments,
-            bool networkOperation,
+            GitCommandOptions options,
             CancellationToken cancellationToken,
             IProgress<string>? stderrProgress = null)
         {
@@ -1053,6 +1561,119 @@ public class GitCliVersionControlServiceTests : RealGitTestRepository
             => false;
     }
 
+    private sealed class BlockingInitializationRunner(IGitCliRunner inner) : IGitCliRunner
+    {
+        private readonly TaskCompletionSource _initialCommitCompleted = new(
+            TaskCreationOptions.RunContinuationsAsynchronously);
+        private readonly TaskCompletionSource _repositoryInitialized = new(
+            TaskCreationOptions.RunContinuationsAsynchronously);
+        private readonly TaskCompletionSource _releaseInitialCommit = new(
+            TaskCreationOptions.RunContinuationsAsynchronously);
+        private readonly TaskCompletionSource _releaseRepositoryInitialization = new(
+            TaskCreationOptions.RunContinuationsAsynchronously);
+
+        public bool HasActiveProcess => inner.HasActiveProcess;
+
+        public Task InitialCommitCompleted => _initialCommitCompleted.Task;
+
+        public Task RepositoryInitialized => _repositoryInitialized.Task;
+
+        public void ContinueAfterInitialCommit()
+        {
+            _releaseInitialCommit.TrySetResult();
+        }
+
+        public void ContinueAfterRepositoryInitialization()
+        {
+            _releaseRepositoryInitialization.TrySetResult();
+        }
+
+        public async Task<GitCommandResult> RunAsync(
+            RepositoryInfo repository,
+            IReadOnlyList<string> arguments,
+            GitCommandOptions options,
+            CancellationToken cancellationToken,
+            IProgress<string>? stderrProgress = null)
+        {
+            GitCommandResult result = await inner.RunAsync(
+                repository,
+                arguments,
+                options,
+                cancellationToken,
+                stderrProgress);
+            if (arguments.SequenceEqual(["symbolic-ref", "HEAD", "refs/heads/main"]))
+            {
+                _repositoryInitialized.TrySetResult();
+                await _releaseRepositoryInitialization.Task.WaitAsync(cancellationToken);
+            }
+            else if (arguments.FirstOrDefault() == "commit"
+                     && arguments.Contains("Beutl-Snapshot: init"))
+            {
+                _initialCommitCompleted.TrySetResult();
+                await _releaseInitialCommit.Task.WaitAsync(cancellationToken);
+            }
+
+            return result;
+        }
+
+        public RepositoryLockInfo? GetRecoverableRepositoryLock(RepositoryInfo repository)
+            => inner.GetRecoverableRepositoryLock(repository);
+
+        public bool RemoveRecoverableRepositoryLock(
+            RepositoryInfo repository,
+            RepositoryLockInfo lockInfo)
+            => inner.RemoveRecoverableRepositoryLock(repository, lockInfo);
+    }
+
+    private sealed class BlockingFirstStatusRunner(IGitCliRunner inner) : IGitCliRunner
+    {
+        private readonly TaskCompletionSource _started = new(
+            TaskCreationOptions.RunContinuationsAsynchronously);
+        private readonly TaskCompletionSource _completion = new(
+            TaskCreationOptions.RunContinuationsAsynchronously);
+        private int _blocked;
+
+        public bool HasActiveProcess => inner.HasActiveProcess;
+
+        public Task Started => _started.Task;
+
+        public void Complete()
+        {
+            _completion.TrySetResult();
+        }
+
+        public async Task<GitCommandResult> RunAsync(
+            RepositoryInfo repository,
+            IReadOnlyList<string> arguments,
+            GitCommandOptions options,
+            CancellationToken cancellationToken,
+            IProgress<string>? stderrProgress = null)
+        {
+            if (arguments.Count > 0
+                && arguments[0] == "status"
+                && Interlocked.Exchange(ref _blocked, 1) == 0)
+            {
+                _started.TrySetResult();
+                await _completion.Task.WaitAsync(cancellationToken);
+            }
+
+            return await inner.RunAsync(
+                repository,
+                arguments,
+                options,
+                cancellationToken,
+                stderrProgress);
+        }
+
+        public RepositoryLockInfo? GetRecoverableRepositoryLock(RepositoryInfo repository)
+            => inner.GetRecoverableRepositoryLock(repository);
+
+        public bool RemoveRecoverableRepositoryLock(
+            RepositoryInfo repository,
+            RepositoryLockInfo lockInfo)
+            => inner.RemoveRecoverableRepositoryLock(repository, lockInfo);
+    }
+
     private sealed class ThrowingStatusRunner(Exception exception) : IGitCliRunner
     {
         public bool HasActiveProcess => false;
@@ -1060,7 +1681,7 @@ public class GitCliVersionControlServiceTests : RealGitTestRepository
         public Task<GitCommandResult> RunAsync(
             RepositoryInfo repository,
             IReadOnlyList<string> arguments,
-            bool networkOperation,
+            GitCommandOptions options,
             CancellationToken cancellationToken,
             IProgress<string>? stderrProgress = null)
         {
@@ -1076,6 +1697,162 @@ public class GitCliVersionControlServiceTests : RealGitTestRepository
             => false;
     }
 
+    private sealed class FailingPostMutationStatusRunner(IGitCliRunner inner) : IGitCliRunner
+    {
+        private int _failNextStatus;
+        private int _statusFailureCount;
+
+        public IOException StatusFailure { get; } = new("post-mutation status failed");
+
+        public int StatusFailureCount => Volatile.Read(ref _statusFailureCount);
+
+        public bool HasActiveProcess => inner.HasActiveProcess;
+
+        public async Task<GitCommandResult> RunAsync(
+            RepositoryInfo repository,
+            IReadOnlyList<string> arguments,
+            GitCommandOptions options,
+            CancellationToken cancellationToken,
+            IProgress<string>? stderrProgress = null)
+        {
+            if (arguments.FirstOrDefault() == "status"
+                && Interlocked.Exchange(ref _failNextStatus, 0) != 0)
+            {
+                Interlocked.Increment(ref _statusFailureCount);
+                throw StatusFailure;
+            }
+
+            GitCommandResult result = await inner.RunAsync(
+                repository,
+                arguments,
+                options,
+                cancellationToken,
+                stderrProgress);
+            if (IsDurableMutation(arguments))
+            {
+                Volatile.Write(ref _failNextStatus, 1);
+            }
+
+            return result;
+        }
+
+        public RepositoryLockInfo? GetRecoverableRepositoryLock(RepositoryInfo repository)
+            => inner.GetRecoverableRepositoryLock(repository);
+
+        public bool RemoveRecoverableRepositoryLock(
+            RepositoryInfo repository,
+            RepositoryLockInfo lockInfo)
+            => inner.RemoveRecoverableRepositoryLock(repository, lockInfo);
+
+        private static bool IsDurableMutation(IReadOnlyList<string> arguments)
+        {
+            string? command = arguments.FirstOrDefault();
+            return command is "commit" or "push" or "switch"
+                   || (command == "remote"
+                       && arguments.Count > 1
+                       && arguments[1] is "add" or "set-url");
+        }
+    }
+
+    private sealed class FailingPostCommitRevisionRunner(IGitCliRunner inner) : IGitCliRunner
+    {
+        private int _commitCompleted;
+        private int _revisionFailureCount;
+
+        public IOException RevisionFailure { get; } = new("post-commit revision lookup failed");
+
+        public int RevisionFailureCount => Volatile.Read(ref _revisionFailureCount);
+
+        public bool HasActiveProcess => inner.HasActiveProcess;
+
+        public async Task<GitCommandResult> RunAsync(
+            RepositoryInfo repository,
+            IReadOnlyList<string> arguments,
+            GitCommandOptions options,
+            CancellationToken cancellationToken,
+            IProgress<string>? stderrProgress = null)
+        {
+            if (Volatile.Read(ref _commitCompleted) != 0
+                && arguments.SequenceEqual(["rev-parse", "HEAD"]))
+            {
+                Interlocked.Increment(ref _revisionFailureCount);
+                Volatile.Write(ref _commitCompleted, 0);
+                throw RevisionFailure;
+            }
+
+            GitCommandResult result = await inner.RunAsync(
+                repository,
+                arguments,
+                options,
+                cancellationToken,
+                stderrProgress);
+            if (arguments.FirstOrDefault() == "commit")
+            {
+                Volatile.Write(ref _commitCompleted, 1);
+            }
+
+            return result;
+        }
+
+        public RepositoryLockInfo? GetRecoverableRepositoryLock(RepositoryInfo repository)
+            => inner.GetRecoverableRepositoryLock(repository);
+
+        public bool RemoveRecoverableRepositoryLock(
+            RepositoryInfo repository,
+            RepositoryLockInfo lockInfo)
+            => inner.RemoveRecoverableRepositoryLock(repository, lockInfo);
+    }
+
+    private sealed class FailingPostRemoteAuxiliaryRunner(IGitCliRunner inner) : IGitCliRunner
+    {
+        private int _remoteMutated;
+        private int _auxiliaryFailureCount;
+
+        public IOException AuxiliaryFailure { get; } = new("post-remote auxiliary check failed");
+
+        public int AuxiliaryFailureCount => Volatile.Read(ref _auxiliaryFailureCount);
+
+        public bool HasActiveProcess => inner.HasActiveProcess;
+
+        public async Task<GitCommandResult> RunAsync(
+            RepositoryInfo repository,
+            IReadOnlyList<string> arguments,
+            GitCommandOptions options,
+            CancellationToken cancellationToken,
+            IProgress<string>? stderrProgress = null)
+        {
+            if (Volatile.Read(ref _remoteMutated) != 0
+                && arguments.SequenceEqual(["remote", "get-url", "origin"]))
+            {
+                Interlocked.Increment(ref _auxiliaryFailureCount);
+                throw AuxiliaryFailure;
+            }
+
+            GitCommandResult result = await inner.RunAsync(
+                repository,
+                arguments,
+                options,
+                cancellationToken,
+                stderrProgress);
+            if (arguments.Count > 1
+                && arguments[0] == "remote"
+                && arguments[1] is "add" or "set-url")
+            {
+                Volatile.Write(ref _remoteMutated, 1);
+            }
+
+            return result;
+        }
+
+        public RepositoryLockInfo? GetRecoverableRepositoryLock(RepositoryInfo repository)
+            => inner.GetRecoverableRepositoryLock(repository);
+
+        public bool RemoveRecoverableRepositoryLock(
+            RepositoryInfo repository,
+            RepositoryLockInfo lockInfo)
+            => inner.RemoveRecoverableRepositoryLock(repository, lockInfo);
+    }
+
     private sealed class StaticStatusRunner : IGitCliRunner
     {
         public bool HasActiveProcess => false;
@@ -1083,7 +1860,7 @@ public class GitCliVersionControlServiceTests : RealGitTestRepository
         public Task<GitCommandResult> RunAsync(
             RepositoryInfo repository,
             IReadOnlyList<string> arguments,
-            bool networkOperation,
+            GitCommandOptions options,
             CancellationToken cancellationToken,
             IProgress<string>? stderrProgress = null)
         {
@@ -1099,6 +1876,33 @@ public class GitCliVersionControlServiceTests : RealGitTestRepository
             => false;
     }
 
+    private sealed class RemoteLockFailureRunner(RepositoryLockInfo lockInfo) : IGitCliRunner
+    {
+        public bool HasActiveProcess => false;
+
+        public Task<GitCommandResult> RunAsync(
+            RepositoryInfo repository,
+            IReadOnlyList<string> arguments,
+            GitCommandOptions options,
+            CancellationToken cancellationToken,
+            IProgress<string>? stderrProgress = null)
+        {
+            return arguments.FirstOrDefault() == "push"
+                ? Task.FromException<GitCommandResult>(new GitOperationException(
+                    128,
+                    $"fatal: Unable to create '{lockInfo.LockPath}': File exists.\n"))
+                : Task.FromResult(new GitCommandResult(0, "# branch.head main\0", ""));
+        }
+
+        public RepositoryLockInfo? GetRecoverableRepositoryLock(RepositoryInfo repository)
+            => lockInfo;
+
+        public bool RemoveRecoverableRepositoryLock(
+            RepositoryInfo repository,
+            RepositoryLockInfo candidate)
+            => false;
+    }
+
     private sealed class RecordingInitializationRunner : IGitCliRunner
     {
         public List<string> Commands { get; } = [];
@@ -1108,7 +1912,7 @@ public class GitCliVersionControlServiceTests : RealGitTestRepository
         public Task<GitCommandResult> RunAsync(
             RepositoryInfo repository,
             IReadOnlyList<string> arguments,
-            bool networkOperation,
+            GitCommandOptions options,
             CancellationToken cancellationToken,
             IProgress<string>? stderrProgress = null)
         {
@@ -1159,7 +1963,7 @@ public class GitCliVersionControlServiceTests : RealGitTestRepository
         public Task<GitCommandResult> RunAsync(
             RepositoryInfo repository,
             IReadOnlyList<string> arguments,
-            bool networkOperation,
+            GitCommandOptions options,
             CancellationToken cancellationToken,
             IProgress<string>? stderrProgress = null)
         {

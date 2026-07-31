@@ -61,4 +61,38 @@ public class ProjectConflictMarkerScannerTests
 
         Assert.That(result, Is.Null);
     }
+
+    [Test]
+    public async Task FindFirstAsync_prunes_metadata_directories_before_scanning_files()
+    {
+        string projectFile = Path.Combine(_root, "project.bep");
+        string gitDirectory = Path.Combine(_root, ".git");
+        string beutlDirectory = Path.Combine(_root, ".beutl");
+        string resourcesDirectory = Path.Combine(_root, "resources");
+        Directory.CreateDirectory(gitDirectory);
+        Directory.CreateDirectory(beutlDirectory);
+        Directory.CreateDirectory(resourcesDirectory);
+        await File.WriteAllTextAsync(projectFile, "{}\n");
+        await File.WriteAllTextAsync(
+            Path.Combine(gitDirectory, "conflict.scene"),
+            "<<<<<<< metadata\n");
+        await File.WriteAllTextAsync(
+            Path.Combine(beutlDirectory, "conflict.belm"),
+            "<<<<<<< metadata\n");
+        await File.WriteAllTextAsync(
+            Path.Combine(resourcesDirectory, "unrelated.scene"),
+            "<<<<<<< imported resource\n");
+
+        string? result = await ProjectConflictMarkerScanner.FindFirstAsync(
+            projectFile,
+            CancellationToken.None);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(result, Is.Null);
+            Assert.That(ProjectConflictMarkerScanner.ShouldDescendInto(gitDirectory), Is.False);
+            Assert.That(ProjectConflictMarkerScanner.ShouldDescendInto(beutlDirectory), Is.False);
+            Assert.That(ProjectConflictMarkerScanner.ShouldDescendInto(resourcesDirectory), Is.False);
+        });
+    }
 }

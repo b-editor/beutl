@@ -28,6 +28,9 @@ public sealed class MainViewModel : BasePageViewModel, IContextCommandHandler
     private readonly ExtensionProvider _extensionProvider;
     private readonly AgentHostEndpoint _agentHostEndpoint;
     private readonly ILogger _logger = Log.CreateLogger<MainViewModel>();
+    private readonly object _shutdownGate = new();
+    private Task? _shutdownTask;
+    private int _disposed;
 
     public MainViewModel()
     {
@@ -159,25 +162,75 @@ public sealed class MainViewModel : BasePageViewModel, IContextCommandHandler
 
     public override void Dispose()
     {
+        if (Interlocked.Exchange(ref _disposed, 1) != 0)
+        {
+            return;
+        }
+
         CommandPalette.Dispose();
         TitleBarBranch.Dispose();
         _agentHostEndpoint.RequestStop();
-        _versionControlCoordinator.NotifyClosingAsync().GetAwaiter().GetResult();
-        _projectService.CloseProjectImmediately();
         _versionControlCoordinator.Dispose();
         BeutlApplication.Current.Items.Clear();
+    }
+
+    internal Task ShutdownAsync(CancellationToken cancellationToken = default)
+    {
+        lock (_shutdownGate)
+        {
+            return _shutdownTask ??= ShutdownCoreAsync(cancellationToken);
+        }
+    }
+
+    private async Task ShutdownCoreAsync(CancellationToken cancellationToken)
+    {
+        // Publish the single-flight task before a synchronous Closing handler can re-enter shutdown.
+        await Task.Yield();
+        _agentHostEndpoint.RequestStop();
+        _projectService.RequestShutdown();
+
+        try
+        {
+            try
+            {
+                await using ProjectService.ProjectTransitionScope transition =
+                    await _projectService.BeginShutdownTransitionAsync(this, cancellationToken);
+                // The shutdown transition waits for an active version-control mutation to finish
+                // its recovery and reopen before the final close runs.
+                await transition.CloseProjectAsync(cancellationToken);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Failed to close the project during application shutdown.");
+            }
+
+            if (ProxyMediaServices.Current is { } proxyMediaServices)
+            {
+                Task disposalTask = proxyMediaServices.DisposeAsync().AsTask();
+                try
+                {
+                    await disposalTask;
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogWarning(ex, "Proxy media services failed to dispose during shutdown.");
+                }
+            }
+        }
+        finally
+        {
+            Dispose();
+        }
     }
 
     private void OnExit(object? sender, ControlledApplicationLifetimeExitEventArgs e)
     {
         _agentHostEndpoint.RequestStop();
-        try
+        if (ProxyMediaServices.Current is { } proxyMediaServices)
         {
-            ProxyMediaServices.Current?.DisposeAsync().AsTask().GetAwaiter().GetResult();
-        }
-        catch (Exception ex)
-        {
-            _logger.LogWarning(ex, "Proxy media services failed to dispose during shutdown.");
+            // The window pipeline normally drains this before closing. If the deadline expired (or
+            // another lifetime initiated exit), make a best-effort start without blocking the UI thread.
+            _ = DisposeProxyMediaServicesAfterExitAsync(proxyMediaServices);
         }
 
         PackageChangesQueue queue = _beutlClients.GetResource<PackageChangesQueue>();
@@ -213,6 +266,18 @@ public sealed class MainViewModel : BasePageViewModel, IContextCommandHandler
                 startInfo.ArgumentList.Add("--launch-debugger");
 
             Process.Start(startInfo);
+        }
+    }
+
+    private async Task DisposeProxyMediaServicesAfterExitAsync(ProxyMediaServices proxyMediaServices)
+    {
+        try
+        {
+            await proxyMediaServices.DisposeAsync().ConfigureAwait(false);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Proxy media services failed to dispose during shutdown.");
         }
     }
 

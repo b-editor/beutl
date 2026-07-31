@@ -9,6 +9,7 @@ using Avalonia.Input;
 using Avalonia.Interactivity;
 using Avalonia.Layout;
 using Avalonia.Media;
+using Avalonia.Threading;
 using Avalonia.VisualTree;
 using Beutl.Configuration;
 using Beutl.Editor.Components.VersionControl.ViewModels;
@@ -66,15 +67,9 @@ public class VersionControlTabViewTests
                 "title-bar-branch-widget",
                 location);
             bool initialized = await TestShell.VersionControl.InitializeCurrentProjectAsync(
-                async service =>
-                {
-                    await service.SetLocalIdentityAsync(
-                        new GitIdentity(
-                            "Beutl Headless Test",
-                            "headless@example.invalid"),
-                        CancellationToken.None);
-                    return true;
-                });
+                _ => Task.FromResult<GitIdentity?>(new GitIdentity(
+                    "Beutl Headless Test",
+                    "headless@example.invalid")));
             Assert.That(initialized, Is.True);
             await WaitUntilAsync(() => viewModel.IsVisible.Value);
 
@@ -219,15 +214,9 @@ public class VersionControlTabViewTests
                 "title-bar-branch-handler-errors",
                 location);
             bool initialized = await TestShell.VersionControl.InitializeCurrentProjectAsync(
-                async service =>
-                {
-                    await service.SetLocalIdentityAsync(
-                        new GitIdentity(
-                            "Beutl Headless Test",
-                            "headless@example.invalid"),
-                        CancellationToken.None);
-                    return true;
-                });
+                _ => Task.FromResult<GitIdentity?>(new GitIdentity(
+                    "Beutl Headless Test",
+                    "headless@example.invalid")));
             Assert.That(initialized, Is.True);
 
             TitleBarBranchViewModel viewModel =
@@ -302,15 +291,9 @@ public class VersionControlTabViewTests
                 "tracked-before-tab",
                 location))!;
             bool initialized = await TestShell.VersionControl.InitializeCurrentProjectAsync(
-                async service =>
-                {
-                    await service.SetLocalIdentityAsync(
-                        new GitIdentity(
-                            "Beutl Headless Test",
-                            "headless@example.invalid"),
-                        CancellationToken.None);
-                    return true;
-                });
+                _ => Task.FromResult<GitIdentity?>(new GitIdentity(
+                    "Beutl Headless Test",
+                    "headless@example.invalid")));
             Assert.That(initialized, Is.True);
 
             IProjectVersionControlService readyService =
@@ -427,18 +410,23 @@ public class VersionControlTabViewTests
             Assert.That(handler.LastExecution?.CommandName, Is.EqualTo("EnableVersionControl"));
 
             bool initialized = await TestShell.VersionControl.InitializeCurrentProjectAsync(
-                async service =>
-                {
-                    await service.SetLocalIdentityAsync(
-                        new GitIdentity(
-                            "Beutl Headless Test",
-                            "headless@example.invalid"),
-                        CancellationToken.None);
-                    return true;
-                });
+                _ => Task.FromResult<GitIdentity?>(new GitIdentity(
+                    "Beutl Headless Test",
+                    "headless@example.invalid")));
             Assert.That(initialized, Is.True);
             await WaitUntilAsync(
                 () => viewModel.IsTracked.Value && viewModel.Commits.Count > 0);
+            await viewModel.Initialization;
+            await WaitUntilAsync(
+                () => !viewModel.IsLoading.Value && viewModel.Commits.Count > 0);
+            IProjectVersionControlService trackedService =
+                TestShell.VersionControl.CurrentService!;
+            string requestedSha = (await trackedService.GetHistoryAsync(
+                    0,
+                    1,
+                    CancellationToken.None))
+                .Single()
+                .Sha;
 
             SplitButton primaryAction =
                 view.FindControl<SplitButton>("PrimaryActionSplitButton")!;
@@ -567,7 +555,8 @@ public class VersionControlTabViewTests
                     Strings.VersionControl_IdentityName,
                     Strings.VersionControl_IdentityEmail,
                     "Headless User",
-                    "headless@example.invalid");
+                    "headless@example.invalid",
+                    CancellationToken.None);
             HeadlessTestHelpers.Render();
             Assert.Multiple(() =>
             {
@@ -617,19 +606,6 @@ public class VersionControlTabViewTests
                 Assert.That(tabPrompt.IsOpen, Is.False);
             });
 
-            commitMessageTextBox.Focus();
-            viewModel.CommitMessage.Value = "first line";
-            commitMessageTextBox.CaretIndex = commitMessageTextBox.Text!.Length;
-            viewModel.StatusMessage.Value = "unchanged";
-            window.KeyPressQwerty(PhysicalKey.Enter, RawInputModifiers.None);
-            HeadlessTestHelpers.Settle();
-
-            Assert.Multiple(() =>
-            {
-                Assert.That(viewModel.CommitMessage.Value, Does.Contain('\n'));
-                Assert.That(viewModel.StatusMessage.Value, Is.EqualTo("unchanged"));
-            });
-
             Grid wideLayout = view.FindControl<Grid>("WideLayoutRoot")!;
             Grid narrowLayout = view.FindControl<Grid>("NarrowLayoutRoot")!;
             UserControl wideHistory =
@@ -676,26 +652,55 @@ public class VersionControlTabViewTests
 
             ListBox commitList = narrowHistory.FindControl<ListBox>("CommitList")!;
             ListBox wideCommitList = wideHistory.FindControl<ListBox>("CommitList")!;
-            VersionControlCommitViewModel selectedCommit = viewModel.Commits[0];
-            commitList.SelectedItem = selectedCommit;
-            await WaitUntilAsync(() => viewModel.ShowingDetail.Value);
-            await WaitUntilAsync(() => viewModel.ChangedFiles.Count > 0);
-            HeadlessTestHelpers.Render();
 
             ListBox changedFileList =
                 narrowChanges.FindControl<ListBox>("ChangedFileList")!;
             ScrollViewer diffScrollViewer =
                 narrowChanges.FindControl<ScrollViewer>("DiffScrollViewer")!;
-            var changedFileItem = (ListBoxItem)changedFileList.ContainerFromIndex(0)!;
-            VersionControlFileChangeViewModel changedFile = viewModel.ChangedFiles[0];
-            TextBlock changeStatusText = changedFileItem
+            VersionControlFileChangeViewModel? changedFile = null;
+            ListBoxItem? changedFileItem = null;
+            await WaitUntilAsync(() =>
+            {
+                HeadlessTestHelpers.Render();
+                VersionControlCommitViewModel? currentCommit = viewModel.Commits
+                    .FirstOrDefault(commit => string.Equals(
+                        commit.Commit.Sha,
+                        requestedSha,
+                        StringComparison.Ordinal));
+                if (currentCommit is null)
+                {
+                    return false;
+                }
+
+                if (!ReferenceEquals(commitList.SelectedItem, currentCommit))
+                {
+                    commitList.SelectedItem = currentCommit;
+                    return false;
+                }
+
+                if (!viewModel.ShowingDetail.Value
+                    || !ReferenceEquals(viewModel.SelectedCommit.Value, currentCommit)
+                    || viewModel.ChangedFiles.FirstOrDefault() is not { } currentFile
+                    || changedFileList.ContainerFromIndex(0) is not ListBoxItem currentItem
+                    || !ReferenceEquals(currentItem.DataContext, currentFile)
+                    || !ReferenceEquals(commitList.SelectedItem, currentCommit)
+                    || !ReferenceEquals(wideCommitList.SelectedItem, currentCommit))
+                {
+                    return false;
+                }
+
+                changedFile = currentFile;
+                changedFileItem = currentItem;
+                return true;
+            });
+            TextBlock changeStatusText = changedFileItem!
                 .GetVisualDescendants()
                 .OfType<TextBlock>()
-                .Single(textBlock => textBlock.Text == changedFile.StatusText);
-            TextBlock changePathText = changedFileItem
+                .Single(textBlock => textBlock.Text == changedFile!.StatusText);
+            TextBlock changePathText = changedFileItem!
                 .GetVisualDescendants()
                 .OfType<TextBlock>()
-                .Single(textBlock => textBlock.Text == changedFile.PathText);
+                .Single(textBlock => textBlock.Text == changedFile!.PathText);
             Button restoreButton =
                 narrowChanges.FindControl<Button>("RestoreButton")!;
             Button restoreToNewBranchButton =
@@ -704,8 +709,12 @@ public class VersionControlTabViewTests
             {
                 Assert.That(narrowHistory.IsVisible, Is.False);
                 Assert.That(narrowDetail.IsVisible, Is.True);
-                Assert.That(viewModel.SelectedCommit.Value, Is.SameAs(selectedCommit));
-                Assert.That(wideCommitList.SelectedItem, Is.SameAs(selectedCommit));
+                Assert.That(
+                    viewModel.SelectedCommit.Value?.Commit.Sha,
+                    Is.EqualTo(requestedSha));
+                Assert.That(
+                    wideCommitList.SelectedItem,
+                    Is.SameAs(viewModel.SelectedCommit.Value));
                 Assert.That(wideHistory.Margin, Is.EqualTo(default(Thickness)));
                 Assert.That(wideChanges.Margin, Is.EqualTo(default(Thickness)));
                 Assert.That(narrowHistory.Margin, Is.EqualTo(default(Thickness)));
@@ -729,14 +738,25 @@ public class VersionControlTabViewTests
 
             detailHeader.FindControl<Button>("BackButton")!.Command!.Execute(null);
             HeadlessTestHelpers.Render();
+            await WaitUntilAsync(() =>
+                viewModel.SelectedCommit.Value is { } currentCommit
+                && string.Equals(
+                    currentCommit.Commit.Sha,
+                    requestedSha,
+                    StringComparison.Ordinal)
+                && ReferenceEquals(commitList.SelectedItem, currentCommit));
 
             Assert.Multiple(() =>
             {
                 Assert.That(viewModel.ShowingDetail.Value, Is.False);
                 Assert.That(narrowHistory.IsVisible, Is.True);
                 Assert.That(narrowDetail.IsVisible, Is.False);
-                Assert.That(viewModel.SelectedCommit.Value, Is.SameAs(selectedCommit));
-                Assert.That(commitList.SelectedItem, Is.SameAs(selectedCommit));
+                Assert.That(
+                    viewModel.SelectedCommit.Value?.Commit.Sha,
+                    Is.EqualTo(requestedSha));
+                Assert.That(
+                    commitList.SelectedItem,
+                    Is.SameAs(viewModel.SelectedCommit.Value));
             });
 
             var selectedItem = (ListBoxItem)commitList.ContainerFromIndex(0)!;
@@ -756,22 +776,105 @@ public class VersionControlTabViewTests
             HeadlessTestHelpers.Render();
             window.Width = 900;
             HeadlessTestHelpers.Render();
+            await WaitUntilAsync(() =>
+                viewModel.SelectedCommit.Value is { } currentCommit
+                && string.Equals(
+                    currentCommit.Commit.Sha,
+                    requestedSha,
+                    StringComparison.Ordinal)
+                && ReferenceEquals(wideCommitList.SelectedItem, currentCommit));
 
             Assert.Multiple(() =>
             {
                 Assert.That(view.IsNarrowLayout, Is.False);
                 Assert.That(wideLayout.IsVisible, Is.True);
                 Assert.That(narrowLayout.IsVisible, Is.False);
-                Assert.That(wideCommitList.SelectedItem, Is.SameAs(selectedCommit));
+                Assert.That(
+                    wideCommitList.SelectedItem,
+                    Is.SameAs(viewModel.SelectedCommit.Value));
                 Assert.That(
                     wideChanges.FindControl<WrapPanel>("SelectedCommitActionBar")!.IsVisible,
                     Is.True);
+            });
+
+            commitMessageTextBox.Focus();
+            viewModel.CommitMessage.Value = "first line";
+            commitMessageTextBox.CaretIndex = commitMessageTextBox.Text!.Length;
+            await File.AppendAllTextAsync(project.Uri!.LocalPath, "\n");
+            WorkspaceStatus statusBeforeEnter = await trackedService.GetStatusAsync(
+                CancellationToken.None);
+            string[] revisionsBeforeEnter = (await trackedService.GetHistoryAsync(
+                    0,
+                    VersionControlTabViewModel.HistoryPageSize,
+                    CancellationToken.None))
+                .Select(static commit => commit.Sha)
+                .ToArray();
+            window.KeyPressQwerty(PhysicalKey.Enter, RawInputModifiers.None);
+            HeadlessTestHelpers.Settle();
+            string[] revisionsAfterEnter = (await trackedService.GetHistoryAsync(
+                    0,
+                    VersionControlTabViewModel.HistoryPageSize,
+                    CancellationToken.None))
+                .Select(static commit => commit.Sha)
+                .ToArray();
+            WorkspaceStatus statusAfterEnter = await trackedService.GetStatusAsync(
+                CancellationToken.None);
+
+            Assert.Multiple(() =>
+            {
+                Assert.That(statusBeforeEnter.IsClean, Is.False);
+                Assert.That(viewModel.CommitMessage.Value, Does.Contain('\n'));
+                Assert.That(revisionsAfterEnter, Is.EqualTo(revisionsBeforeEnter));
+                Assert.That(statusAfterEnter.IsClean, Is.False);
             });
         }
         finally
         {
             window.Close();
             config.GitExecutablePath = previousGitPath;
+            await TestReset.ResetShellAsync();
+        }
+    }
+
+    [AvaloniaTest]
+    public async Task Identity_prompt_cancellation_closes_flyout_and_cancels_request()
+    {
+        await TestReset.ResetShellAsync();
+        var window = new Window { Width = 420, Height = 240 };
+        var anchor = new Button { Content = "Identity" };
+        var flyout = new VersionControlPickerFlyout();
+        window.Content = anchor;
+        try
+        {
+            window.Show();
+            HeadlessTestHelpers.Render();
+            using var cancellation = new CancellationTokenSource();
+            Task<VersionControlIdentityInput?> request = flyout.ShowIdentityAsync(
+                anchor,
+                Strings.VersionControl_IdentityTitle,
+                Strings.VersionControl_IdentityName,
+                Strings.VersionControl_IdentityEmail,
+                "Headless User",
+                "headless@example.invalid",
+                cancellation.Token);
+            HeadlessTestHelpers.Render();
+
+            Assert.That(flyout.IsOpen, Is.True);
+
+            await Dispatcher.UIThread.InvokeAsync(cancellation.Cancel);
+            Assert.That(flyout.IsOpen, Is.False);
+            Assert.That(
+                async () => await request,
+                Throws.InstanceOf<OperationCanceledException>());
+        }
+        finally
+        {
+            if (flyout.IsOpen)
+            {
+                flyout.Hide();
+            }
+
+            window.Close();
             await TestReset.ResetShellAsync();
         }
     }

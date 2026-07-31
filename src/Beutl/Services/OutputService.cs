@@ -13,7 +13,12 @@ public sealed class OutputProfileItem : IDisposable
 {
     private readonly ILogger<OutputProfileItem> _logger = Log.CreateLogger<OutputProfileItem>();
     private readonly EditorService _editorService;
-    private int _isRunning;
+    private readonly object _outputOperationSync = new();
+    private IDisposable? _outputOperation;
+    private int _eventHandlersInProgress;
+    private bool _disposeRequested;
+    private bool _contextDisposed;
+    private bool _outputReportedFinished;
 
     public OutputProfileItem(IOutputContext context, IEditorContext editorContext, EditorService editorService)
     {
@@ -33,55 +38,167 @@ public sealed class OutputProfileItem : IDisposable
 
     private void OnStarted(object? sender, EventArgs e)
     {
-        if (Interlocked.Exchange(ref _isRunning, 1) == 0)
+        lock (_outputOperationSync)
         {
-            _editorService.NotifyOutputStarted();
+            if (_contextDisposed)
+            {
+                return;
+            }
+
+            if (_outputOperation is not null)
+            {
+                return;
+            }
+
+            _outputOperation = _editorService.TryBeginOutputOperation()
+                               ?? throw new InvalidOperationException(
+                                   Strings.VersionControl_WorktreeOperationInProgress);
+            _outputReportedFinished = false;
+            _eventHandlersInProgress++;
         }
 
-        _logger.LogDebug("Output started for file: {File}", Context.Object.Uri);
+        try
+        {
+            _logger.LogDebug("Output started for file: {File}", Context.Object.Uri);
 
-        if (_editorService.TryGetTabItem(Context.Object, out EditorTabItem? tabItem))
-        {
-            tabItem.Context.Value.IsEnabled.Value = false;
-            _logger.LogDebug("Tab item disabled for file: {File}", Context.Object.Uri);
+            if (_editorService.TryGetTabItem(Context.Object, out EditorTabItem? tabItem))
+            {
+                tabItem.Context.Value.IsEnabled.Value = false;
+                _logger.LogDebug("Tab item disabled for file: {File}", Context.Object.Uri);
+            }
+            else
+            {
+                _logger.LogWarning("Tab item not found for file: {File}", Context.Object.Uri);
+            }
         }
-        else
+        finally
         {
-            _logger.LogWarning("Tab item not found for file: {File}", Context.Object.Uri);
+            CompleteEventHandler();
         }
     }
 
     private void OnFinished(object? sender, EventArgs e)
     {
-        FinishOutputTracking();
-        _logger.LogDebug("Output finished for file: {File}", Context.Object.Uri);
+        IDisposable? operation;
+        lock (_outputOperationSync)
+        {
+            if (_contextDisposed)
+            {
+                return;
+            }
 
-        if (_editorService.TryGetTabItem(Context.Object, out EditorTabItem? tabItem))
-        {
-            tabItem.Context.Value.IsEnabled.Value = true;
-            _logger.LogDebug("Tab item enabled for file: {File}", Context.Object.Uri);
+            _eventHandlersInProgress++;
+            _outputReportedFinished = true;
+            operation = _outputOperation;
+            _outputOperation = null;
         }
-        else
+
+        try
         {
-            _logger.LogWarning("Tab item not found for file: {File}", Context.Object.Uri);
+            operation?.Dispose();
+            _logger.LogDebug("Output finished for file: {File}", Context.Object.Uri);
+
+            if (_editorService.TryGetTabItem(Context.Object, out EditorTabItem? tabItem))
+            {
+                tabItem.Context.Value.IsEnabled.Value = true;
+                _logger.LogDebug("Tab item enabled for file: {File}", Context.Object.Uri);
+            }
+            else
+            {
+                _logger.LogWarning("Tab item not found for file: {File}", Context.Object.Uri);
+            }
+        }
+        finally
+        {
+            CompleteEventHandler();
         }
     }
 
     public void Dispose()
     {
-        FinishOutputTracking();
+        bool disposeContext;
+        lock (_outputOperationSync)
+        {
+            if (_disposeRequested)
+            {
+                return;
+            }
+
+            _disposeRequested = true;
+            disposeContext = TryMarkContextDisposed();
+        }
+
+        if (disposeContext)
+        {
+            DisposeContext();
+        }
+    }
+
+    internal bool TryDisposeIfIdle()
+    {
+        bool disposeContext;
+        lock (_outputOperationSync)
+        {
+            if (_disposeRequested)
+            {
+                return _contextDisposed;
+            }
+
+            if (_outputOperation is not null
+                || _eventHandlersInProgress > 0
+                || Context.IsEncoding.Value)
+            {
+                return false;
+            }
+
+            _disposeRequested = true;
+            disposeContext = TryMarkContextDisposed();
+        }
+
+        if (disposeContext)
+        {
+            DisposeContext();
+        }
+
+        return true;
+    }
+
+    private void CompleteEventHandler()
+    {
+        bool disposeContext;
+        lock (_outputOperationSync)
+        {
+            _eventHandlersInProgress--;
+            disposeContext = TryMarkContextDisposed();
+        }
+
+        if (disposeContext)
+        {
+            DisposeContext();
+        }
+    }
+
+    private bool TryMarkContextDisposed()
+    {
+        if (!_disposeRequested
+            || _contextDisposed
+            || _outputOperation is not null
+            || _eventHandlersInProgress > 0
+            || (!_outputReportedFinished && Context.IsEncoding.Value))
+        {
+            return false;
+        }
+
+        _contextDisposed = true;
+        return true;
+    }
+
+    private void DisposeContext()
+    {
         _logger.LogInformation("Disposing OutputProfileItem for file: {File}", Context.Object.Uri);
         Context.Started -= OnStarted;
         Context.Finished -= OnFinished;
         Context.Dispose();
-    }
-
-    private void FinishOutputTracking()
-    {
-        if (Interlocked.Exchange(ref _isRunning, 0) == 1)
-        {
-            _editorService.NotifyOutputFinished();
-        }
     }
 
     public static JsonNode ToJson(OutputProfileItem item)

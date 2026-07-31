@@ -74,7 +74,9 @@ public sealed class EditorService
     private readonly ExtensionProvider _extensionProvider;
     private readonly ReactivePropertySlim<IProjectVersionControlService?>
         _projectVersionControlService = new();
+    private readonly object _workspaceOperationSync = new();
     private int _activeOutputOperations;
+    private bool _worktreeMutationActive;
 
     public EditorService(ExtensionProvider extensionProvider)
     {
@@ -96,31 +98,54 @@ public sealed class EditorService
 
     internal IProjectVersionControlCoordinator? ProjectVersionControlCoordinator { get; set; }
 
-    internal bool IsExportRunning => Volatile.Read(ref _activeOutputOperations) > 0;
-
     internal void PublishProjectVersionControlService(
         IProjectVersionControlService? service)
     {
         _projectVersionControlService.Value = service;
     }
 
-    internal void NotifyOutputStarted()
+    internal IDisposable? TryBeginOutputOperation()
     {
-        Interlocked.Increment(ref _activeOutputOperations);
+        lock (_workspaceOperationSync)
+        {
+            if (_worktreeMutationActive)
+            {
+                return null;
+            }
+
+            _activeOutputOperations++;
+            return new WorkspaceOperationLease(this, isOutput: true);
+        }
     }
 
-    internal void NotifyOutputFinished()
+    internal IDisposable? TryBeginWorktreeMutation()
     {
-        while (true)
+        lock (_workspaceOperationSync)
         {
-            int current = Volatile.Read(ref _activeOutputOperations);
-            if (current == 0
-                || Interlocked.CompareExchange(
-                    ref _activeOutputOperations,
-                    current - 1,
-                    current) == current)
+            if (_worktreeMutationActive || _activeOutputOperations > 0)
             {
-                return;
+                return null;
+            }
+
+            _worktreeMutationActive = true;
+            return new WorkspaceOperationLease(this, isOutput: false);
+        }
+    }
+
+    private void EndWorkspaceOperation(bool isOutput)
+    {
+        lock (_workspaceOperationSync)
+        {
+            if (isOutput)
+            {
+                if (_activeOutputOperations > 0)
+                {
+                    _activeOutputOperations--;
+                }
+            }
+            else
+            {
+                _worktreeMutationActive = false;
             }
         }
     }
@@ -169,5 +194,18 @@ public sealed class EditorService
     {
         TabItems.Remove(item);
         await item.DisposeAsync();
+    }
+
+    private sealed class WorkspaceOperationLease(EditorService owner, bool isOutput) : IDisposable
+    {
+        private int _disposed;
+
+        public void Dispose()
+        {
+            if (Interlocked.Exchange(ref _disposed, 1) == 0)
+            {
+                owner.EndWorkspaceOperation(isOutput);
+            }
+        }
     }
 }

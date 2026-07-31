@@ -78,6 +78,10 @@ public sealed class Project : Hierarchical
         if (context.GetValue<ProjectItem[]>("items") is { } items)
         {
             Items.Replace(items);
+            if (items.Any(static item => item.HasMigratedPersistedContent))
+            {
+                MarkAsMigrated();
+            }
         }
 
         if (context.GetValue<Dictionary<string, string>>("variables") is { } vars)
@@ -94,8 +98,8 @@ public sealed class Project : Hierarchical
         activity?.SetTag("itemsCount", Items.Count);
     }
 
-    // Project migrations must call this only after they have rewritten persisted content.
-    // A plain load/save keeps the version from disk so a newer Beutl release does not dirty the project.
+    // Call only after a migration has rewritten persisted content. Project-item migrations are
+    // aggregated during deserialization; a plain load/save keeps the version from disk.
     internal void MarkAsMigrated()
     {
         AppVersion = BeutlApplication.Version;

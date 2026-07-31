@@ -33,6 +33,57 @@ public class RepositoryWatcherTests
         Assert.That(RepositoryWatcher.ShouldExcludePath(_tempDirectory, path), Is.True);
     }
 
+    [TestCase("index", true)]
+    [TestCase("HEAD", true)]
+    [TestCase("packed-refs", true)]
+    [TestCase("refs/heads/main", true)]
+    [TestCase("refs/remotes/origin/main", true)]
+    [TestCase("index.lock", false)]
+    [TestCase("HEAD.lock", false)]
+    [TestCase("packed-refs.lock", false)]
+    [TestCase("refs/heads/main.lock", false)]
+    [TestCase("objects/ab/cdef", false)]
+    [TestCase("logs/HEAD", false)]
+    [TestCase("config", false)]
+    public void Git_metadata_filter_includes_state_and_refs_without_transient_noise(
+        string relativePath,
+        bool expected)
+    {
+        string path = Path.Combine(
+            _tempDirectory,
+            relativePath.Replace('/', Path.DirectorySeparatorChar));
+
+        Assert.That(
+            RepositoryWatcher.ShouldIncludeGitMetadataPath(_tempDirectory, path),
+            Is.EqualTo(expected));
+    }
+
+    [Test]
+    public void Git_metadata_directories_resolve_linked_worktree_admin_and_common_directories()
+    {
+        string commonDirectory = Path.Combine(_tempDirectory, "main", ".git");
+        string gitDirectory = Path.Combine(commonDirectory, "worktrees", "linked");
+        string linkedRoot = Path.Combine(_tempDirectory, "linked");
+        Directory.CreateDirectory(gitDirectory);
+        Directory.CreateDirectory(linkedRoot);
+        File.WriteAllText(
+            Path.Combine(linkedRoot, ".git"),
+            $"gitdir: {gitDirectory}{Environment.NewLine}");
+        File.WriteAllText(
+            Path.Combine(gitDirectory, "commondir"),
+            $"../..{Environment.NewLine}");
+
+        (string GitDirectory, string CommonDirectory)? result
+            = RepositoryWatcher.ResolveGitMetadataDirectories(linkedRoot);
+
+        Assert.That(result, Is.Not.Null);
+        Assert.Multiple(() =>
+        {
+            Assert.That(result!.Value.GitDirectory, Is.EqualTo(Path.GetFullPath(gitDirectory)));
+            Assert.That(result.Value.CommonDirectory, Is.EqualTo(Path.GetFullPath(commonDirectory)));
+        });
+    }
+
     [Test]
     public async Task Debounce_coalesces_a_burst_at_exactly_500_milliseconds()
     {

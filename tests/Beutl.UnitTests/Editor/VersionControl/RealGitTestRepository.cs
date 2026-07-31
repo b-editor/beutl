@@ -8,8 +8,8 @@ public abstract class RealGitTestRepository
 {
     private readonly List<string> _additionalTemporaryDirectories = [];
 
-    protected static readonly IReadOnlyDictionary<string, string> IsolatedGitEnvironment
-        = new Dictionary<string, string>
+    protected static readonly IReadOnlyDictionary<string, string?> IsolatedGitEnvironment
+        = new Dictionary<string, string?>
         {
             ["GIT_CONFIG_GLOBAL"] = "/dev/null",
             ["GIT_CONFIG_NOSYSTEM"] = "1",
@@ -74,7 +74,7 @@ public abstract class RealGitTestRepository
     }
 
     private protected Task<GitCommandResult> RunGitAsync(params string[] arguments)
-        => Runner.RunAsync(Repository, arguments, networkOperation: false, CancellationToken.None);
+        => Runner.RunAsync(Repository, arguments, GitCommandOptions.Local, CancellationToken.None);
 
     protected async Task CommitFileAsync(string relativePath, string contents, string message)
     {

@@ -5,6 +5,6 @@ public interface IProjectVersionControlInitializer
     Task<GitAvailability> GetAvailabilityAsync(CancellationToken cancellationToken);
 
     Task<bool> InitializeCurrentProjectAsync(
-        Func<IProjectVersionControlService, Task<bool>> requestIdentityAsync,
+        Func<CancellationToken, Task<GitIdentity?>> requestIdentityAsync,
         CancellationToken cancellationToken);
 }

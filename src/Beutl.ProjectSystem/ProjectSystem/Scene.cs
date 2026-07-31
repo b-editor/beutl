@@ -59,6 +59,9 @@ public class Scene : ProjectItem, INotifyEdited
     private TimeSpan _duration = TimeSpan.FromMinutes(5);
     private PixelSize _frameSize;
 
+    internal override bool HasMigratedPersistedContent
+        => Children.Any(static element => element.WasMigratedFromOperation);
+
     public Scene()
         : this(1920, 1080, string.Empty)
     {

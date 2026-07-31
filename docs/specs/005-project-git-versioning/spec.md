@@ -163,7 +163,7 @@ The user connects the project to a remote repository, pushes their history for b
 - **Interrupted version operation (crash mid-commit)**: a stale repository lock is detected and recovered on next open; the project files themselves are always intact thanks to atomic saves.
 - **Remote failures (offline, rejected auth, non-fast-forward push)**: each failure mode surfaces an actionable, distinct message; saving and editing are never blocked by remote problems.
 - **Stale per-user view state after restore**: reopening tolerates view state that references elements that no longer exist (view state is untracked and may lag the restored content).
-- **Second writer (e.g. a headless agent session) on the same project**: version operations assume a single writer; the app documents this and serializes its own operations, and a snapshot taken while another writer saves captures only completed file states.
+- **Second writer (e.g. a headless agent or external Git session) on the same project**: Beutl serializes its own mutations; tree transitions lock the worktree HEAD, validate scoped fingerprints, and use expected-old branch updates. A detected external change aborts without being overwritten and may leave the project closed with its checkpoint retained. Ordinary snapshots still capture only completed atomic file writes.
 - **Project Save As / rename**: saving a copy to a new location starts a fresh, independent history for the copy (the original keeps its history); an in-place rename of project items relies on rename detection and does not lose history.
 
 ## Requirements *(mandatory)*
@@ -175,7 +175,7 @@ The user connects the project to a remote repository, pushes their history for b
 - **FR-001**: Version tracking MUST be opt-in per project: offered as a pre-selected option when creating a project (only when Git is available) and as an explicit "enable version tracking" action for existing projects. The system MUST NOT initialize a repository without user consent.
 - **FR-002**: Enabling tracking MUST set up the repository at the project root with generated ignore rules (per-user editor state, temporary files) and attribute rules (consistent line endings; large-media handling when available), and record an initial version of the current project state.
 - **FR-003**: Before initializing, the system MUST detect an enclosing existing repository. If found, it MUST NOT create a nested repository without explicit consent, MUST offer using the enclosing repository, and MUST scope every versioning operation (status, snapshot, history, restore) to the project's own directory so unrelated files are never touched.
-- **FR-004**: Version authorship MUST use the user's existing Git identity. When unset, the system MUST ask once and store the identity for that repository only — it MUST NOT modify the user's global Git configuration, and MUST NOT silently fabricate an identity.
+- **FR-004**: Version authorship MUST use the user's existing Git identity. When unset, the system MUST ask once and store the identity for that repository only — it MUST NOT modify the user's global Git configuration, MUST NOT silently fabricate an identity, and MUST propagate the initiating operation's cancellation token through the identity request.
 - **FR-005**: The system MUST recover from interrupted version operations (e.g. a stale lock left by a crash) on the next project open, without data loss and without permanently disabling versioning.
 
 **Git-friendly project storage**
@@ -193,7 +193,7 @@ The user connects the project to a remote repository, pushes their history for b
 - **FR-013**: Closing a tracked project with changes since the last version MUST record a close snapshot.
 - **FR-014**: When nothing changed, save/close/commit MUST NOT create a version (no empty versions), and repeated saves MUST NOT spam history.
 - **FR-015**: The system MUST NOT record a version per editing action or autosave tick; continuous autosave keeps files current, while versions mark explicit user save points only.
-- **FR-016**: Automatic snapshot messages MUST be stable and machine-readable in the repository, with the kind (save / close / safety / restore) distinguishable, while the history view localizes what the user sees.
+- **FR-016**: Automatic snapshot messages MUST be stable and machine-readable in the repository, with the kind (save / close / safety / restore / recovery) distinguishable, while the history view localizes what the user sees.
 - **FR-017**: Version operations MUST run off the UI thread, MUST be serialized against each other, and MUST NOT capture partially written files.
 
 **History browsing**
@@ -205,7 +205,7 @@ The user connects the project to a remote repository, pushes their history for b
 **Restore**
 
 - **FR-021**: Users MUST be able to restore the whole project to any past version. Restore MUST be recorded as a new version on the current line of history — the system MUST NOT rewrite, delete, or orphan any existing version to perform a restore.
-- **FR-022**: Before any operation that changes files under the editor (restore, branch switch, pull), the system MUST record a safety snapshot of the current state when there are changes, then close the project, apply the operation, and reopen it.
+- **FR-022**: Before any operation that changes files under the editor (restore, branch switch, pull), the system MUST durably preserve the current state when there are changes, then close the project, apply the operation, and reopen it. Restore and branch switch use an ordinary safety commit; pull uses a reachable private checkpoint that does not move the branch and promotes it to a safety commit after fast-forward.
 - **FR-023**: The restore confirmation MUST disclose that the project will close and reopen and that the in-session undo history will be cleared.
 - **FR-024**: A restored project MUST match the selected version exactly, including the removal of elements that were added after that version.
 - **FR-025**: A secondary "restore to a new branch" action MUST be available for users who want to keep the restored line separate.
@@ -223,7 +223,7 @@ The user connects the project to a remote repository, pushes their history for b
 
 - **FR-029**: Users MUST be able to associate one remote with the project and change its URL.
 - **FR-030**: Push MUST transfer the current branch with visible progress and cancellation; push MUST NOT require closing the project.
-- **FR-031**: Pull MUST apply only fast-forward updates, via the safety-snapshot + close/reopen cycle. On divergence, the system MUST preserve both sides untouched and direct the user to external Git tooling.
+- **FR-031**: Pull MUST apply only fast-forward updates via the durable-checkpoint + close/reopen cycle. On success, dirty local project state MUST be reapplied and committed on the fast-forwarded tip. On divergence or failure, the system MUST restore the exact captured local branch tip and project state without overwriting a concurrent external ref movement, preserve both sides, and direct the user to external Git tooling when automatic recovery is unsafe. `RepositoryDirty` MUST describe only a failed cleanliness precondition; ownership loss or unverified recovery MUST surface as one localized uncertain-transition failure without composing an inner remote-result message.
 - **FR-032**: Authentication MUST be fully delegated to the user's existing Git credential mechanisms; the app MUST NOT collect, store, or transmit credentials itself, and auth failures MUST surface immediately with actionable guidance.
 - **FR-033**: When the repository is in a conflicted state (e.g. after an external merge attempt), versioning operations MUST be blocked with clear guidance while the editor itself remains usable; the app MUST warn before opening project files that contain conflict markers.
 
@@ -248,11 +248,11 @@ The user connects the project to a remote repository, pushes their history for b
 
 - **Project repository**: the version store rooted at the project directory (or an enclosing repository the user opted into, with operations scoped to the project directory).
 - **Version (snapshot/commit)**: a whole-project state with time, author, message, and kind; immutable once recorded.
-- **Snapshot kind**: save, close, safety, restore, or manual — machine-readable in the repository, localized in the UI.
+- **Snapshot kind**: save, close, safety, restore, recovery, or manual — machine-readable in the repository, localized in the UI.
 - **Branch**: a named line of history; exactly one is active per project.
 - **Remote**: a single associated backup/collaboration endpoint per project.
 - **Ignore/attribute rules**: generated repository configuration that excludes per-user state and pins cross-platform text policies.
-- **Safety snapshot**: the pre-operation version taken when project state is dirty, making restore/switch/pull non-destructive without creating empty commits for clean state.
+- **Safety snapshot**: the reachable preservation point taken when project state is dirty, making restore/switch/pull non-destructive without creating empty commits for clean state. For pull it begins as a private checkpoint and becomes an ordinary commit on the fast-forwarded branch tip.
 
 ## Success Criteria *(mandatory)*
 
@@ -261,7 +261,7 @@ The user connects the project to a remote repository, pushes their history for b
 - **SC-001** (integrity): Restoring any version from a 50-version history reopens the project with zero load errors, and the reopened project renders frame-identically to the state that was saved at that version.
 - **SC-002** (diff minimality): Changing one property of one element and saving produces a version that touches exactly that element's file (plus the scene file for structural edits) — never the project file, per-user state, or unrelated files.
 - **SC-003** (performance): Recording a snapshot of a 500-element project completes within 2 seconds without blocking the UI; the history view opens within 1 second for a 200-version history.
-- **SC-004** (safety): 100% of restore, branch-switch, and pull flows with dirty project state record a reachable safety version first; clean flows create no empty safety version, and no sequence of in-app versioning operations can lose committed work or the currently saved project state.
+- **SC-004** (safety): 100% of restore, branch-switch, and pull flows with dirty project state create a durable reachable preservation point before mutating files; successful dirty pulls promote that checkpoint to a safety commit, clean flows create no empty safety version, and no sequence of in-app versioning operations can lose committed work or the currently saved project state.
 - **SC-005** (discoverability): A user new to the feature can enable tracking, find the history view, and restore a prior version within 2 minutes using only in-app UI.
 - **SC-006** (portability): A project committed on Windows, pushed, and cloned on macOS or Linux opens with zero path or line-ending errors and renders identically.
 - **SC-007** (degradation): With Git absent, a full pass over the editor's feature surface produces zero versioning-related errors or dialogs beyond the single guidance state.
@@ -275,7 +275,7 @@ The user connects the project to a remote repository, pushes their history for b
 - **Save As starts a fresh history for the copy** rather than duplicating the original's repository; the original project keeps its history.
 - **Media inside the project (`resources/`) is committed by default**; the large-file extension is used automatically when available, and a size-threshold warning covers its absence.
 - **Restore, branch switch, and pull operate on a closed project.** The editor's in-memory state and undo history are per-session; the close/reopen cycle is the only correct way to change files underneath the editor, and undo history loss on reopen is accepted and disclosed.
-- **A single writer is assumed per project** at a time; concurrent external writers (e.g. a headless agent session) are outside the safety guarantees beyond snapshot atomicity.
+- **Beutl is the single in-process writer per project.** Concurrent external Git or file writers are not coordinated by Beutl's internal gate, so every close/reopen transition validates ownership and refuses a mismatch. External writes after the final verified ownership point are new operations observed by the repository watcher; snapshot atomicity remains the boundary for arbitrary file writers.
 
 ## Dependencies
 

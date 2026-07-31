@@ -7,6 +7,19 @@ internal static class ProjectConflictMarkerScanner
     private static readonly HashSet<string> s_projectExtensions = new(
         [".bep", ".scene", ".belm"],
         StringComparer.OrdinalIgnoreCase);
+    private static readonly HashSet<string> s_prunedDirectories = new(
+        [
+            ".beutl",
+            ".git",
+            ".idea",
+            ".vs",
+            "bin",
+            "node_modules",
+            "obj",
+            "packages",
+            "resources",
+        ],
+        StringComparer.OrdinalIgnoreCase);
 
     public static async Task<string?> FindFirstAsync(
         string projectFile,
@@ -22,49 +35,86 @@ internal static class ProjectConflictMarkerScanner
             return null;
         }
 
-        var options = new EnumerationOptions
-        {
-            RecurseSubdirectories = true,
-            IgnoreInaccessible = true,
-            ReturnSpecialDirectories = false,
-        };
-        foreach (string file in Directory.EnumerateFiles(projectRoot, "*", options))
+        var pendingDirectories = new Stack<string>();
+        pendingDirectories.Push(projectRoot);
+        while (pendingDirectories.TryPop(out string? directory))
         {
             cancellationToken.ThrowIfCancellationRequested();
-            if (!s_projectExtensions.Contains(Path.GetExtension(file))
-                || IsInsideGitDirectory(projectRoot, file))
+            string[] files;
+            string[] directories;
+            try
+            {
+                files = Directory.GetFiles(directory);
+                directories = Directory.GetDirectories(directory);
+            }
+            catch (IOException)
+            {
+                continue;
+            }
+            catch (UnauthorizedAccessException)
             {
                 continue;
             }
 
-            try
+            foreach (string childDirectory in directories)
             {
-                using var reader = new StreamReader(file);
-                while (await reader.ReadLineAsync(cancellationToken).ConfigureAwait(false) is { } line)
+                cancellationToken.ThrowIfCancellationRequested();
+                if (ShouldDescendInto(childDirectory))
                 {
-                    if (line.Contains(ConflictMarker, StringComparison.Ordinal))
-                    {
-                        return file;
-                    }
+                    pendingDirectories.Push(childDirectory);
                 }
             }
-            catch (IOException)
+
+            foreach (string file in files)
             {
-            }
-            catch (UnauthorizedAccessException)
-            {
+                cancellationToken.ThrowIfCancellationRequested();
+                if (!s_projectExtensions.Contains(Path.GetExtension(file)))
+                {
+                    continue;
+                }
+
+                try
+                {
+                    using var reader = new StreamReader(file);
+                    while (await reader.ReadLineAsync(cancellationToken).ConfigureAwait(false) is { } line)
+                    {
+                        if (line.Contains(ConflictMarker, StringComparison.Ordinal))
+                        {
+                            return file;
+                        }
+                    }
+                }
+                catch (IOException)
+                {
+                }
+                catch (UnauthorizedAccessException)
+                {
+                }
             }
         }
 
         return null;
     }
 
-    private static bool IsInsideGitDirectory(string projectRoot, string file)
+    internal static bool ShouldDescendInto(string directory)
     {
-        string relativePath = Path.GetRelativePath(projectRoot, file);
-        return relativePath.Split(
-                [Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar],
-                StringSplitOptions.RemoveEmptyEntries)
-            .Contains(".git", StringComparer.OrdinalIgnoreCase);
+        string name = Path.GetFileName(Path.TrimEndingDirectorySeparator(directory));
+        if (s_prunedDirectories.Contains(name))
+        {
+            return false;
+        }
+
+        try
+        {
+            return !File.GetAttributes(directory).HasFlag(FileAttributes.ReparsePoint);
+        }
+        catch (IOException)
+        {
+            return false;
+        }
+        catch (UnauthorizedAccessException)
+        {
+            return false;
+        }
     }
 }

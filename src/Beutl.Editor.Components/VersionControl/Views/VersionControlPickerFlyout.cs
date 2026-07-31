@@ -12,6 +12,11 @@ namespace Beutl.Editor.Components.VersionControl.Views;
 
 internal sealed class VersionControlPickerFlyout : PickerFlyoutBase
 {
+    private sealed record CancellationRequest(
+        VersionControlPickerFlyout Flyout,
+        TaskCompletionSource<bool> Completion,
+        CancellationToken CancellationToken);
+
     private const double PresenterWidth = 320;
     private const double PresenterHorizontalPadding = 8;
 
@@ -113,7 +118,8 @@ internal sealed class VersionControlPickerFlyout : PickerFlyoutBase
         string nameLabel,
         string emailLabel,
         string? initialName,
-        string? initialEmail)
+        string? initialEmail,
+        CancellationToken cancellationToken)
     {
         ResetPendingRequest();
         ConfigureContent(title);
@@ -130,7 +136,9 @@ internal sealed class VersionControlPickerFlyout : PickerFlyoutBase
         bool confirmed = await ShowAsync(
             anchor,
             () => !string.IsNullOrWhiteSpace(PrimaryTextBox.Text)
-                  && !string.IsNullOrWhiteSpace(SecondaryTextBox.Text));
+                  && !string.IsNullOrWhiteSpace(SecondaryTextBox.Text),
+            cancellationToken);
+        cancellationToken.ThrowIfCancellationRequested();
         return confirmed
             ? new VersionControlIdentityInput(
                 PrimaryTextBox.Text!.Trim(),
@@ -197,14 +205,19 @@ internal sealed class VersionControlPickerFlyout : PickerFlyoutBase
         _confirmOnEnter = false;
     }
 
-    private Task<bool> ShowAsync(Control anchor, Func<bool> canConfirm)
+    private async Task<bool> ShowAsync(
+        Control anchor,
+        Func<bool> canConfirm,
+        CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(anchor);
+        cancellationToken.ThrowIfCancellationRequested();
 
         _canConfirm = canConfirm;
-        _completion = new TaskCompletionSource<bool>(
+        var completion = new TaskCompletionSource<bool>(
             TaskCreationOptions.RunContinuationsAsynchronously);
-        Task<bool> task = _completion.Task;
+        _completion = completion;
+        Task<bool> task = completion.Task;
         try
         {
             ShowAt(anchor);
@@ -215,7 +228,26 @@ internal sealed class VersionControlPickerFlyout : PickerFlyoutBase
             throw;
         }
 
-        return task;
+        using CancellationTokenRegistration registration = cancellationToken.Register(
+            static state =>
+            {
+                var request = (CancellationRequest)state!;
+                if (Dispatcher.UIThread.CheckAccess())
+                {
+                    request.Flyout.CancelPendingRequest(
+                        request.Completion,
+                        request.CancellationToken);
+                }
+                else
+                {
+                    Dispatcher.UIThread.Post(
+                        () => request.Flyout.CancelPendingRequest(
+                            request.Completion,
+                            request.CancellationToken));
+                }
+            },
+            new CancellationRequest(this, completion, cancellationToken));
+        return await task;
     }
 
     private void OnInputKeyDown(object? sender, KeyEventArgs e)
@@ -257,6 +289,26 @@ internal sealed class VersionControlPickerFlyout : PickerFlyoutBase
         {
             Hide();
         }
+    }
+
+    private void CancelPendingRequest(
+        TaskCompletionSource<bool> completion,
+        CancellationToken cancellationToken)
+    {
+        if (!ReferenceEquals(_completion, completion))
+        {
+            return;
+        }
+
+        _completion = null;
+        _canConfirm = null;
+        _confirmOnEnter = false;
+        if (IsOpen)
+        {
+            Hide();
+        }
+
+        completion.TrySetCanceled(cancellationToken);
     }
 
     private void Complete(bool confirmed, bool hide)

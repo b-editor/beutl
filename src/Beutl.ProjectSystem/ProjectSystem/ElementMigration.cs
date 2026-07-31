@@ -39,13 +39,21 @@ internal static class ElementMigration
         new KeyValuePair<string, Type>("[Beutl.Operators].Source:PointLight3DOperator", typeof(PointLight3D)),
         new KeyValuePair<string, Type>("[Beutl.Operators].Source:SpotLight3DOperator", typeof(SpotLight3D)));
 
-    internal static EngineObject[] MigrateFromOperation(IJsonSerializationContext jsonContext)
+    internal static bool TryMigrateFromOperation(
+        IJsonSerializationContext jsonContext,
+        out EngineObject[] migrated)
     {
         if (jsonContext.GetNode("Operation") is not JsonObject operation)
-            return [];
+        {
+            migrated = [];
+            return false;
+        }
 
         if (operation["Children"] is not JsonArray children)
-            return [];
+        {
+            migrated = [];
+            return false;
+        }
 
         var results = new List<EngineObject>();
         foreach (JsonNode? child in children)
@@ -57,7 +65,8 @@ internal static class ElementMigration
             results.Add(engineObject);
         }
 
-        return results.ToArray();
+        migrated = results.ToArray();
+        return true;
     }
 
     private static EngineObject ExtractEngineObjectFromOperator(JsonObject operatorObj,
