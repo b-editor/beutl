@@ -1,4 +1,4 @@
-﻿namespace Beutl.Serialization;
+namespace Beutl.Serialization;
 
 /// <summary>
 /// Thread-local tally of fallback substitutions, letting a caller detect fallbacks created in
@@ -12,5 +12,8 @@ internal static class DeserializationIncidents
 
     internal static int FallbackCount => t_fallbackCount;
 
-    internal static void RecordFallback() => t_fallbackCount++;
+    /// <summary>
+/// Records a fallback substitution for the current thread.
+/// </summary>
+internal static void RecordFallback() => t_fallbackCount++;
 }

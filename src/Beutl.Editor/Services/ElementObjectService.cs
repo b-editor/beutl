@@ -1,4 +1,4 @@
-﻿using System.Text.Json.Nodes;
+using System.Text.Json.Nodes;
 using Beutl.Engine;
 using Beutl.Language;
 using Beutl.Logging;
@@ -61,6 +61,13 @@ public sealed class ElementObjectService : IElementObjectService
         return true;
     }
 
+    /// <summary>
+    /// Replaces an element object with the object described by clipboard JSON.
+    /// </summary>
+    /// <param name="element">The element whose object is replaced.</param>
+    /// <param name="index">The zero-based index of the object to replace.</param>
+    /// <param name="json">The clipboard JSON describing the replacement object.</param>
+    /// <returns>The paste outcome: <see cref="ObjectPasteOutcome.Pasted"/> on success, <see cref="ObjectPasteOutcome.InvalidJson"/> for invalid JSON or an invalid index, <see cref="ObjectPasteOutcome.MissingType"/> when the JSON lacks a valid engine object type, or <see cref="ObjectPasteOutcome.UnexpectedError"/> when materialization fails.</returns>
     public ObjectPasteOutcome PasteOver(Element element, int index, string json)
     {
         ArgumentNullException.ThrowIfNull(element);

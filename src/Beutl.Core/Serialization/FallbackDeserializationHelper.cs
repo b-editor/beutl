@@ -1,9 +1,18 @@
-﻿using System.Text.Json.Nodes;
+using System.Text.Json.Nodes;
 
 namespace Beutl.Serialization;
 
 internal static class FallbackDeserializationHelper
 {
+    /// <summary>
+    /// Creates a fallback instance for a deserialization failure when the base type specifies one.
+    /// </summary>
+    /// <param name="baseType">The type whose fallback configuration is used.</param>
+    /// <param name="actualType">The type being deserialized, if known.</param>
+    /// <param name="json">The JSON object to associate with the fallback instance.</param>
+    /// <param name="exception">The exception that caused deserialization to fail, if available.</param>
+    /// <returns>The configured fallback instance, or <c>null</c> when no fallback applies.</returns>
+    /// <exception cref="InvalidOperationException">Thrown when the configured fallback type cannot be created as an <see cref="IFallback"/>.</exception>
     internal static ICoreSerializable? TryCreateFallback(
         Type baseType, Type? actualType, JsonObject json, Exception? exception = null)
     {

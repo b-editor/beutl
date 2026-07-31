@@ -1,4 +1,4 @@
-﻿using System.Collections;
+using System.Collections;
 using System.Collections.Concurrent;
 using System.Collections.Immutable;
 using System.Collections.Specialized;
@@ -528,6 +528,10 @@ public class Scene : ProjectItem, INotifyEdited
         return end > start ? gap with { Range = new TimeRange(start, end - start) } : null;
     }
 
+    /// <summary>
+    /// Serializes the scene, its elements, recovery mappings, groups, markers, and element file patterns.
+    /// </summary>
+    /// <param name="context">The serialization context that controls how referenced elements are stored.</param>
     public override void Serialize(ICoreSerializationContext context)
     {
         base.Serialize(context);
@@ -608,6 +612,10 @@ public class Scene : ProjectItem, INotifyEdited
         }
     }
 
+    /// <summary>
+    /// Restores the scene's dimensions, elements, recovery mappings, groups, and markers from serialized data.
+    /// </summary>
+    /// <param name="context">The serialization context containing the scene data.</param>
     public override void Deserialize(ICoreSerializationContext context)
     {
         base.Deserialize(context);
@@ -728,6 +736,10 @@ public class Scene : ProjectItem, INotifyEdited
         }
     }
 
+    /// <summary>
+    /// Synchronizes the scene's elements with the specified file paths.
+    /// </summary>
+    /// <param name="pathToElement">The file paths of the elements that should be present in the scene.</param>
     private void SyncronizeFiles(IEnumerable<string> pathToElement)
     {
         using Activity? activity = BeutlApplication.ActivitySource.StartActivity("Scene.SyncronizeFiles");
@@ -752,6 +764,12 @@ public class Scene : ProjectItem, INotifyEdited
         activity?.SetTag("childrenCount", Children.Count);
     }
 
+    /// <summary>
+    /// Reassigns duplicate identifiers for recovered elements and their serialized descendants.
+    /// </summary>
+    /// <exception cref="InvalidOperationException">
+    /// Thrown when a unique identifier cannot be assigned within the allowed collision attempts.
+    /// </exception>
     private void ReassignDuplicateRecoveredIds()
     {
         string sceneDirectory = Path.GetDirectoryName(Uri!.LocalPath)!;
@@ -939,6 +957,13 @@ public class Scene : ProjectItem, INotifyEdited
         }
     }
 
+    /// <summary>
+    /// Records the assigned identifier for a recovered descendant and updates its fallback projection when applicable.
+    /// </summary>
+    /// <param name="descendant">The recovered descendant whose identifier was remapped.</param>
+    /// <param name="remapKey">The key used to store the remapped identifier.</param>
+    /// <param name="originalId">The descendant's original identifier.</param>
+    /// <param name="assignedId">The identifier assigned to the descendant.</param>
     private void RecordRecoveredDescendantRemap(
         CoreObject descendant,
         string remapKey,
@@ -953,6 +978,11 @@ public class Scene : ProjectItem, INotifyEdited
         }
     }
 
+    /// <summary>
+    /// Restores an element from a file and creates a disabled fallback element when deserialization fails.
+    /// </summary>
+    /// <param name="uri">The URI of the element file to restore.</param>
+    /// <returns>The restored element or a disabled fallback element representing unreadable data.</returns>
     private Element RestoreElementOrFallback(Uri uri)
     {
         int fallbackCountBefore = DeserializationIncidents.FallbackCount;
@@ -1002,11 +1032,22 @@ public class Scene : ProjectItem, INotifyEdited
         }
     }
 
+    /// <summary>
+    /// Marks an element as recovered and preserves its original serialized data and source URI.
+    /// </summary>
+    /// <param name="element">The recovered element to mark.</param>
+    /// <param name="rawBytes">The original serialized element data.</param>
+    /// <param name="uri">The source URI of the serialized data.</param>
     private static void MarkRecoveredElement(Element element, byte[] rawBytes, Uri uri)
     {
         element.SuppressedStorageSource = new SuppressedStorageSource(rawBytes, uri);
     }
 
+    /// <summary>
+    /// Resumes persistence for an element when its serialized object graph contains no fallback objects.
+    /// </summary>
+    /// <param name="element">The element whose persistence should be resumed.</param>
+    /// <returns><c>true</c> if suppressed storage was cleared; <c>false</c> if persistence was already active or fallback objects remain.</returns>
     internal static bool TryResumeElementPersistence(Element element)
     {
         if (element.SuppressedStorageSource is null
@@ -1019,6 +1060,11 @@ public class Scene : ProjectItem, INotifyEdited
         return true;
     }
 
+    /// <summary>
+    /// Determines whether an exception or any of its nested exceptions represents a file system failure.
+    /// </summary>
+    /// <param name="exception">The exception to inspect.</param>
+    /// <returns><c>true</c> if the exception hierarchy contains an I/O or authorization exception; <c>false</c> otherwise.</returns>
     private static bool ContainsFileSystemFailure(Exception exception)
     {
         var pending = new Stack<Exception>();
@@ -1052,11 +1098,21 @@ public class Scene : ProjectItem, INotifyEdited
         return false;
     }
 
+    /// <summary>
+    /// Enumerates fallback objects in an element's serialized object graph.
+    /// </summary>
+    /// <param name="element">The element whose serialized object graph is traversed.</param>
+    /// <returns>The fallback objects found in the serialized object graph.</returns>
     private static IEnumerable<IFallback> EnumerateSerializedGraphFallbacks(Element element)
     {
         return EnumerateSerializedGraphObjects(element).OfType<IFallback>();
     }
 
+    /// <summary>
+    /// Enumerates all serialized descendant objects of an element.
+    /// </summary>
+    /// <param name="element">The element whose serialized graph is traversed.</param>
+    /// <returns>The serialized graph objects that are <see cref="CoreObject"/> instances other than the specified element.</returns>
     private static IEnumerable<CoreObject> EnumerateSerializedGraphDescendants(Element element)
     {
         return EnumerateSerializedGraphObjects(element)
@@ -1064,6 +1120,11 @@ public class Scene : ProjectItem, INotifyEdited
             .Where(value => !ReferenceEquals(value, element));
     }
 
+    /// <summary>
+    /// Enumerates the objects in an element's serialized object graph.
+    /// </summary>
+    /// <param name="element">The element whose serialized object graph is traversed.</param>
+    /// <returns>The serialized objects reachable from the element.</returns>
     private static IEnumerable<object> EnumerateSerializedGraphObjects(Element element)
     {
         var objects = new List<object>();
@@ -1072,6 +1133,12 @@ public class Scene : ProjectItem, INotifyEdited
         return objects;
     }
 
+    /// <summary>
+    /// Collects serialized graph objects reachable from a value.
+    /// </summary>
+    /// <param name="value">The value from which to traverse the object graph.</param>
+    /// <param name="visited">The objects already traversed.</param>
+    /// <param name="objects">The collection to receive discovered graph objects.</param>
     private static void CollectSerializedGraphObjects(
         object? value,
         ISet<object> visited,
@@ -1120,6 +1187,10 @@ public class Scene : ProjectItem, INotifyEdited
         }
     }
 
+    /// <summary>
+    /// Ensures a fallback object has a JSON projection containing its type discriminator and identifier.
+    /// </summary>
+    /// <param name="fallback">The fallback object whose JSON projection is updated.</param>
     private static void EnsureFallbackProjection(IFallback fallback)
     {
         if (fallback is not CoreObject coreObject)
@@ -1137,6 +1208,11 @@ public class Scene : ProjectItem, INotifyEdited
         fallback.Json = json;
     }
 
+    /// <summary>
+    /// Creates a JSON projection for a fallback engine object.
+    /// </summary>
+    /// <param name="fallback">The fallback object to represent.</param>
+    /// <returns>A JSON object containing the fallback object's identifier, name, and type discriminator.</returns>
     private static JsonObject CreateFallbackProjection(FallbackEngineObject fallback)
     {
         var json = new JsonObject
@@ -1148,6 +1224,12 @@ public class Scene : ProjectItem, INotifyEdited
         return json;
     }
 
+    /// <summary>
+    /// Resolves the recovered element identifier from its top-level JSON identifier or source path.
+    /// </summary>
+    /// <param name="rawText">The serialized element data to inspect.</param>
+    /// <param name="uri">The element's source file URI.</param>
+    /// <returns>The valid top-level identifier, or a deterministic identifier derived from the relative source path.</returns>
     private Guid ResolveRecoveredElementId(string rawText, Uri uri)
     {
         // Only a top-level Id may name the element: a nested object's or quoted Id would collide
@@ -1166,6 +1248,9 @@ public class Scene : ProjectItem, INotifyEdited
         return CreateVersion5Guid(s_recoveredElementNamespace, relativePath);
     }
 
+    /// <summary>
+    /// Rebuilds persisted ID mappings for recovered scene elements and their serialized descendants.
+    /// </summary>
     private void RebuildRecoveredElementIds()
     {
         if (Uri is null)
@@ -1211,16 +1296,33 @@ public class Scene : ProjectItem, INotifyEdited
         }
     }
 
+    /// <summary>
+    /// Creates a stable recovery key for a descendant element.
+    /// </summary>
+    /// <param name="relativePath">The descendant's relative file path.</param>
+    /// <param name="originalId">The descendant's original identifier.</param>
+    /// <returns>A key combining the relative path and formatted identifier.</returns>
     private static string CreateRecoveredDescendantKey(string relativePath, Guid originalId)
     {
         return $"{relativePath}!{originalId:D}";
     }
 
+    /// <summary>
+    /// Converts a path to use forward slash separators.
+    /// </summary>
+    /// <param name="path">The path to normalize.</param>
+    /// <returns>The path with backslashes replaced by forward slashes.</returns>
     private static string NormalizeRelativePath(string path)
     {
         return path.Replace('\\', '/');
     }
 
+    /// <summary>
+    /// Finds the first match located directly within the top-level object.
+    /// </summary>
+    /// <param name="rawText">The JSON-like text containing the matches.</param>
+    /// <param name="matches">The candidate matches to inspect.</param>
+    /// <returns>The first top-level match, or <see langword="null"/> if none is found.</returns>
     private static Match? FindTopLevelIdMatch(string rawText, MatchCollection matches)
     {
         int matchIndex = 0;
@@ -1283,6 +1385,12 @@ public class Scene : ProjectItem, INotifyEdited
         return null;
     }
 
+    /// <summary>
+    /// Creates a deterministic version 5 GUID from a namespace identifier and name.
+    /// </summary>
+    /// <param name="namespaceId">The namespace identifier used as the GUID namespace.</param>
+    /// <param name="name">The name used to derive the GUID.</param>
+    /// <returns>The version 5 GUID derived from the namespace identifier and name.</returns>
     private static Guid CreateVersion5Guid(Guid namespaceId, string name)
     {
         byte[] namespaceBytes = namespaceId.ToByteArray();
@@ -1300,6 +1408,10 @@ public class Scene : ProjectItem, INotifyEdited
         return new Guid(hash);
     }
 
+    /// <summary>
+    /// Reverses the byte order of the GUID fields represented in the span.
+    /// </summary>
+    /// <param name="bytes">The GUID bytes to modify in place.</param>
     private static void SwapGuidByteOrder(Span<byte> bytes)
     {
         (bytes[0], bytes[3]) = (bytes[3], bytes[0]);
@@ -1309,6 +1421,9 @@ public class Scene : ProjectItem, INotifyEdited
     }
 
 
+    /// <summary>
+    /// Adds child element paths that are missing from the scene's include patterns.
+    /// </summary>
     private void UpdateInclude()
     {
         string dirPath = Path.GetDirectoryName(Uri!.LocalPath)!;
@@ -1662,6 +1777,9 @@ public class Scene : ProjectItem, INotifyEdited
             _element = element;
         }
 
+        /// <summary>
+        /// Deletes the element's backing file when storage is not suppressed and removes the element from the scene.
+        /// </summary>
         public void Do()
         {
             if (_element != null)

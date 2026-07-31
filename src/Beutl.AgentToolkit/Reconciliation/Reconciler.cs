@@ -1,4 +1,4 @@
-﻿using System.Collections;
+using System.Collections;
 using System.Text.Json;
 using System.Text.Json.Nodes;
 using Beutl.AgentToolkit.Common;
@@ -678,6 +678,11 @@ public sealed class Reconciler
         return clone;
     }
 
+    /// <summary>
+    /// Collects the identifiers of fallback objects in the serialized object graph.
+    /// </summary>
+    /// <param name="root">The root object whose graph is inspected.</param>
+    /// <returns>The identifiers of all fallback objects found in the graph.</returns>
     private static HashSet<Guid> CollectFallbackIds(CoreObject root)
     {
         var ids = new HashSet<Guid>();
@@ -695,6 +700,13 @@ public sealed class Reconciler
         return ids;
     }
 
+    /// <summary>
+    /// Finds the first fallback object in the serialized graph that was not present in the existing fallback set.
+    /// </summary>
+    /// <param name="root">The root object whose graph is searched.</param>
+    /// <param name="path">The serialized path of the root object.</param>
+    /// <param name="existingFallbackIds">The identifiers of fallback objects already present.</param>
+    /// <returns>The first newly encountered fallback occurrence, or null if none is found.</returns>
     private static FallbackOccurrence? FindFirstNewFallback(
         CoreObject root,
         string path,
@@ -721,6 +733,14 @@ public sealed class Reconciler
         return result;
     }
 
+    /// <summary>
+    /// Traverses a serialized object graph and invokes a callback for each core object, preserving object paths and stopping when the callback reports a match.
+    /// </summary>
+    /// <param name="value">The value at the current graph location.</param>
+    /// <param name="path">The serialized path of the current value.</param>
+    /// <param name="visited">The objects already visited during traversal.</param>
+    /// <param name="visitCoreObject">The callback invoked for each core object.</param>
+    /// <returns><c>true</c> if the callback reports a match; <c>false</c> otherwise.</returns>
     private static bool TraverseSerializedGraph(
         object? value,
         string path,
@@ -831,6 +851,11 @@ public sealed class Reconciler
         return false;
     }
 
+    /// <summary>
+    /// Creates guidance for resolving a fallback object during deserialization.
+    /// </summary>
+    /// <param name="occurrence">The fallback occurrence containing its reason and optional deserialization error.</param>
+    /// <returns>A remediation hint that includes the relevant deserialization error or fallback reason.</returns>
     private static string CreateFallbackHint(FallbackOccurrence occurrence)
     {
         string baseHint = "Call get_schema for the exact drawable/effect/brush/transform/pen/animation type and use the discriminator and PascalCase property names it returns. Timeline Elements use '$type': '[Beutl.ProjectSystem]:Element'. Objects require concrete EngineObject discriminators from get_schema; typed property values such as Pen, Brush, Transform, Effect, and Animation also require concrete schema-returned object shapes.";

@@ -1,4 +1,4 @@
-﻿using System.Collections;
+using System.Collections;
 using System.ComponentModel;
 using System.Globalization;
 using Beutl.AgentToolkit.Common;
@@ -64,6 +64,11 @@ public sealed class SessionTools(
     DestructiveGuard destructiveGuard,
     RenderJobManager renderJobs) : ToolBase
 {
+    /// <summary>
+    /// Opens a Beutl project and makes it the active editing session.
+    /// </summary>
+    /// <param name="path">The path to a readable <c>.bep</c> project file.</param>
+    /// <returns>The active session details, scene summary, and any deserialization recovery information.</returns>
     [McpServerTool(Name = "open_project")]
     [Description("Opens a Beutl .bep project from any readable local path and makes it the active editing session. In the in-app host this opens the project in the Beutl editor (the editor holds a single open project; the session is LiveEditor and edits show live); in the stdio host it opens a file-backed session.")]
     public ValueTask<ToolResult<OpenProjectResponse>> OpenProject(string path, CancellationToken cancellationToken = default)
@@ -96,6 +101,11 @@ public sealed class SessionTools(
         });
     }
 
+    /// <summary>
+    /// Collects deserialization warnings and recovery incidents from project elements.
+    /// </summary>
+    /// <param name="project">The project whose elements are inspected.</param>
+    /// <returns>The warnings and recovery incidents found in the project.</returns>
     private static DeserializationWarningCollection CollectDeserializationWarnings(Project project)
     {
         var warnings = new List<string>();
@@ -149,6 +159,12 @@ public sealed class SessionTools(
         IReadOnlyList<string> Warnings,
         IReadOnlyList<RecoveryIncident> RecoveryIncidents);
 
+    /// <summary>
+    /// Collects fallback objects reachable from an engine object or enumerable value.
+    /// </summary>
+    /// <param name="value">The value to inspect.</param>
+    /// <param name="visited">The set of objects already inspected.</param>
+    /// <param name="fallbacks">The collection to populate with discovered fallback objects.</param>
     private static void CollectFallbacks(
         object? value,
         ISet<object> visited,
@@ -187,6 +203,13 @@ public sealed class SessionTools(
         }
     }
 
+    /// <summary>
+    /// Creates and saves a new project with one scene, then makes it the active editing session.
+    /// </summary>
+    /// <param name="path">The workspace-relative path for the project file. The <c>.bep</c> extension is added when omitted.</param>
+    /// <param name="duration">The positive duration of the initial scene.</param>
+    /// <param name="confirmOverwrite">Whether to authorize overwriting an existing project file.</param>
+    /// <returns>The created session identifier, project path, and scene summary.</returns>
     [McpServerTool(Name = "create_project")]
     [Description("Creates and saves a new Beutl .bep project with one scene, then makes it the active editing session. In the in-app host the project opens in the Beutl editor (single open project, LiveEditor session); in the stdio host it becomes a file-backed session. Paths without an extension are saved as .bep; .beutl is reserved for project packages. The output path is restricted to BEUTL_WORKSPACE.")]
     public ValueTask<ToolResult<CreateProjectResponse>> CreateProject(

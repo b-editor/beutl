@@ -1,4 +1,4 @@
-﻿using System.Reflection;
+using System.Reflection;
 using System.Text;
 
 using Beutl.JsonDiscriminator;
@@ -7,6 +7,11 @@ namespace Beutl
 {
     internal static class TypeFormat
     {
+        /// <summary>
+        /// Resolves a formatted type name to a runtime type.
+        /// </summary>
+        /// <param name="fullName">The formatted type name to resolve.</param>
+        /// <returns>The resolved type, or <c>null</c> if the name is invalid or unknown.</returns>
         public static Type? ToType(string fullName)
         {
             fullName = fullName.Replace("Beutl.Embedding.FFmpeg", "Beutl.Extensions.FFmpeg");
@@ -26,6 +31,11 @@ namespace Beutl
             }
         }
 
+        /// <summary>
+        /// Formats a runtime type using the serialized type-name format.
+        /// </summary>
+        /// <param name="type">The type to format.</param>
+        /// <returns>The formatted type name.</returns>
         public static string ToString(Type type)
         {
             return new TypeNameFormatter(type).Format();

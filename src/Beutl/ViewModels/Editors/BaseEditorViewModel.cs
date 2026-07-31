@@ -1,4 +1,4 @@
-﻿using System.Collections.Immutable;
+using System.Collections.Immutable;
 using System.Diagnostics.CodeAnalysis;
 using System.Reactive.Subjects;
 using System.Text.Json.Nodes;
@@ -183,8 +183,16 @@ public abstract class BaseEditorViewModel : IPropertyEditorContext, IServiceProv
 
     [AllowNull] public PropertyEditorExtension Extension { get; set; }
 
-    protected ImmutableArray<CoreObject?> GetStorables() => [_element];
+    /// <summary>
+/// Provides the current element as a storable object.
+/// </summary>
+/// <returns>An immutable array containing the current element, which may be null.</returns>
+protected ImmutableArray<CoreObject?> GetStorables() => [_element];
 
+    /// <summary>
+    /// Resumes persistence for the current element after replacing a fallback value.
+    /// </summary>
+    /// <param name="previous">The value that was replaced.</param>
     protected void ResumeElementPersistenceAfterFallbackReplacement(object? previous)
     {
         if (previous is IFallback && _element is not null)
@@ -193,6 +201,9 @@ public abstract class BaseEditorViewModel : IPropertyEditorContext, IServiceProv
         }
     }
 
+    /// <summary>
+    /// Releases the resources used by the editor view model.
+    /// </summary>
     public void Dispose()
     {
         if (!IsDisposed)

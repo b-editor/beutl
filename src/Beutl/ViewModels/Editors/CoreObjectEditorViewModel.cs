@@ -1,4 +1,4 @@
-﻿using System.Text.Json.Nodes;
+using System.Text.Json.Nodes;
 using Avalonia.Input;
 using Beutl.Composition;
 using Beutl.Editor.Components.Helpers;
@@ -150,6 +150,10 @@ public sealed class CoreObjectEditorViewModel<T> : BaseEditorViewModel<T>, ICore
 
     public IObservable<string?> GetJsonString() => FallbackHelper.GetFallbackJson(Value);
 
+    /// <summary>
+    /// Replaces the current value with an instance deserialized from a JSON string.
+    /// </summary>
+    /// <param name="str">The JSON string containing the replacement value.</param>
     public void SetJsonString(string? str)
     {
         T? previous = Value.Value;
@@ -157,6 +161,9 @@ public sealed class CoreObjectEditorViewModel<T> : BaseEditorViewModel<T>, ICore
         ResumeElementPersistenceAfterFallbackReplacement(previous);
     }
 
+    /// <summary>
+    /// Clears the current value.
+    /// </summary>
     public void SetNull()
     {
         SetValue(Value.Value, null);

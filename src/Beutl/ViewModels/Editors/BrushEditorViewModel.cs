@@ -1,4 +1,4 @@
-﻿using System.Text.Json.Nodes;
+using System.Text.Json.Nodes;
 using Avalonia.Input;
 using Beutl.Composition;
 using Beutl.Editor.Components.Helpers;
@@ -149,6 +149,10 @@ public sealed class BrushEditorViewModel : BaseEditorViewModel, IFallbackObjectV
 
     public IObservable<string?> GetJsonString() => FallbackHelper.GetFallbackJson(Value);
 
+    /// <summary>
+    /// Replaces the current brush with the brush represented by the specified JSON string.
+    /// </summary>
+    /// <param name="str">The JSON string containing the brush representation.</param>
     public void SetJsonString(string? str)
     {
         Brush? previous = Value.Value;
@@ -156,6 +160,9 @@ public sealed class BrushEditorViewModel : BaseEditorViewModel, IFallbackObjectV
         ResumeElementPersistenceAfterFallbackReplacement(previous);
     }
 
+    /// <summary>
+    /// Updates the brush preview.
+    /// </summary>
     public void UpdateBrushPreview()
     {
         _update?.Invoke();

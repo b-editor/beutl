@@ -1,4 +1,4 @@
-﻿using System.Text.Json.Nodes;
+using System.Text.Json.Nodes;
 
 using Avalonia.Input;
 using Beutl.Audio.Effects;
@@ -120,6 +120,10 @@ public sealed class AudioEffectEditorViewModel : ValueEditorViewModel<AudioEffec
 
     public IObservable<string?> GetJsonString() => FallbackHelper.GetFallbackJson(Value);
 
+    /// <summary>
+    /// Replaces the current audio effect with the instance deserialized from a JSON string.
+    /// </summary>
+    /// <param name="str">The JSON representation of the replacement audio effect.</param>
     public void SetJsonString(string? str)
     {
         AudioEffect? previous = Value.Value;
@@ -127,6 +131,10 @@ public sealed class AudioEffectEditorViewModel : ValueEditorViewModel<AudioEffec
         ResumeElementPersistenceAfterFallbackReplacement(previous);
     }
 
+    /// <summary>
+    /// Accepts a visitor for this editor and its child editor.
+    /// </summary>
+    /// <param name="visitor">The visitor to accept.</param>
     public override void Accept(IPropertyEditorContextVisitor visitor)
     {
         base.Accept(visitor);

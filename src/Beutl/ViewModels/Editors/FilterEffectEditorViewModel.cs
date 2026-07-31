@@ -1,4 +1,4 @@
-﻿using System.Text.Json.Nodes;
+using System.Text.Json.Nodes;
 using Avalonia.Input;
 using Beutl.Composition;
 using Beutl.Editor.Components.Helpers;
@@ -278,6 +278,10 @@ public sealed class FilterEffectEditorViewModel : ValueEditorViewModel<FilterEff
 
     public IObservable<string?> GetJsonString() => FallbackHelper.GetFallbackJson(Value);
 
+    /// <summary>
+    /// Replaces the current filter effect with the instance deserialized from fallback JSON.
+    /// </summary>
+    /// <param name="str">The fallback JSON to deserialize.</param>
     public void SetJsonString(string? str)
     {
         FilterEffect? previous = Value.Value;

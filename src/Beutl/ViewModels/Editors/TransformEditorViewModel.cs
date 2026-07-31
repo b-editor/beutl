@@ -1,4 +1,4 @@
-﻿using System.Text.Json.Nodes;
+using System.Text.Json.Nodes;
 using Avalonia.Input;
 using Beutl.Composition;
 using Beutl.Editor.Components.Helpers;
@@ -210,6 +210,10 @@ public sealed class TransformEditorViewModel : ValueEditorViewModel<Transform?>,
 
     public IObservable<string?> GetJsonString() => FallbackHelper.GetFallbackJson(Value);
 
+    /// <summary>
+    /// Replaces the current transform with the transform represented by the specified JSON string.
+    /// </summary>
+    /// <param name="str">The JSON string containing the replacement transform.</param>
     public void SetJsonString(string? str)
     {
         Transform? previous = Value.Value;
@@ -217,6 +221,10 @@ public sealed class TransformEditorViewModel : ValueEditorViewModel<Transform?>,
         ResumeElementPersistenceAfterFallbackReplacement(previous);
     }
 
+    /// <summary>
+    /// Processes this editor and its nested child editor.
+    /// </summary>
+    /// <param name="visitor">The visitor that processes the editor context.</param>
     public override void Accept(IPropertyEditorContextVisitor visitor)
     {
         base.Accept(visitor);

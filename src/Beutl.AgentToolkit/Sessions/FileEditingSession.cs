@@ -1,4 +1,4 @@
-﻿using Beutl.AgentToolkit.Common;
+using Beutl.AgentToolkit.Common;
 using Beutl.AgentToolkit.Documents;
 using Beutl.Editor;
 using Beutl.ProjectSystem;
@@ -130,6 +130,10 @@ public sealed class FileEditingSession : IEditingSession, IEditingSessionDispatc
         }
     }
 
+    /// <summary>
+    /// Rehomes the project and its scene and element files under the specified project path.
+    /// </summary>
+    /// <param name="projectPath">The new file path for the project.</param>
     private void SetProjectPathCore(string projectPath)
     {
         string fullPath = Path.GetFullPath(projectPath);

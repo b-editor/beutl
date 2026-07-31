@@ -1,4 +1,4 @@
-﻿using System.Text.Json;
+using System.Text.Json;
 using System.Text.Json.Nodes;
 
 namespace Beutl.Serialization;
@@ -57,6 +57,15 @@ public static class CoreSerializer
         return jsonNode.ToJsonString(JsonHelper.SerializerOptions);
     }
 
+    /// <summary>
+    /// Deserializes a JSON object into a core-serializable instance of the requested type.
+    /// </summary>
+    /// <param name="json">The JSON object to deserialize.</param>
+    /// <param name="baseType">The expected base type of the deserialized instance.</param>
+    /// <param name="options">Optional serialization settings.</param>
+    /// <returns>The deserialized instance, or a fallback object when deserialization fails and fallback creation is supported.</returns>
+    /// <exception cref="InvalidOperationException">Thrown when the concrete type cannot be determined or an instance cannot be created.</exception>
+    /// <exception cref="InvalidCastException">Thrown when the resolved concrete type is not assignable to <paramref name="baseType"/>.</exception>
     public static object DeserializeFromJsonObject(JsonObject json, Type baseType, CoreSerializerOptions? options = null)
     {
         // A sealed baseType deliberately ignores any present discriminator: sealed wrapper types
@@ -158,6 +167,15 @@ public static class CoreSerializer
         return (T)RestoreFromUri(uri, typeof(T));
     }
 
+    /// <summary>
+    /// Restores a serializable object from JSON loaded from the specified URI.
+    /// </summary>
+    /// <param name="uri">The URI of the JSON resource.</param>
+    /// <param name="type">The expected type of the restored object.</param>
+    /// <returns>The restored object, or a fallback object when deserialization fails and fallback creation is supported.</returns>
+    /// <exception cref="JsonException">Thrown when the resource does not contain a JSON object.</exception>
+    /// <exception cref="InvalidOperationException">Thrown when the object's type discriminator is missing or an instance cannot be created.</exception>
+    /// <exception cref="InvalidCastException">Thrown when the discriminated type is not assignable to <paramref name="type"/>.</exception>
     public static object RestoreFromUri(Uri uri, Type type)
     {
         using var stream = UriHelper.ResolveStream(uri);
@@ -246,6 +264,16 @@ public static class CoreSerializer
         PopulateFromJsonObject(obj, type, jsonObject, options);
     }
 
+    /// <summary>
+    /// Stores a serializable object at the specified file URI.
+    /// </summary>
+    /// <param name="obj">The object to store.</param>
+    /// <param name="uri">The file URI identifying the destination.</param>
+    /// <param name="mode">The serialization mode to use, or the default write and referenced-object save modes when omitted.</param>
+    /// <exception cref="JsonException">Thrown when the URI does not use the <c>file</c> scheme.</exception>
+    /// <remarks>
+    /// Suppressed objects are skipped when the destination is their protected source or is not a file URI. When rehomed, their retained source bytes are copied to the new location without overwriting an existing file.
+    /// </remarks>
     public static void StoreToUri<T>(T obj, Uri uri, CoreSerializationMode? mode = null)
         where T : ICoreSerializable
     {

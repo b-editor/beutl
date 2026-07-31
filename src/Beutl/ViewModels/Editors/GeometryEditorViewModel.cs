@@ -1,4 +1,4 @@
-﻿using System.Text.Json.Nodes;
+using System.Text.Json.Nodes;
 
 using Avalonia.Input;
 using Beutl.Editor.Components.Helpers;
@@ -99,6 +99,10 @@ public sealed class GeometryEditorViewModel : ValueEditorViewModel<Geometry?>, I
 
     public IObservable<string?> GetJsonString() => FallbackHelper.GetFallbackJson(Value);
 
+    /// <summary>
+    /// Replaces the current geometry with the geometry deserialized from the specified JSON string.
+    /// </summary>
+    /// <param name="str">The JSON string containing the geometry.</param>
     public void SetJsonString(string? str)
     {
         Geometry? previous = Value.Value;
@@ -106,6 +110,10 @@ public sealed class GeometryEditorViewModel : ValueEditorViewModel<Geometry?>, I
         ResumeElementPersistenceAfterFallbackReplacement(previous);
     }
 
+    /// <summary>
+    /// Visits this editor context and its nested editors.
+    /// </summary>
+    /// <param name="visitor">The visitor that processes the editor context.</param>
     public override void Accept(IPropertyEditorContextVisitor visitor)
     {
         base.Accept(visitor);

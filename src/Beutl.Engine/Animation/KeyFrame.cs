@@ -1,4 +1,4 @@
-﻿using System.Text.Json.Nodes;
+using System.Text.Json.Nodes;
 
 using Beutl.Animation.Easings;
 using Beutl.Serialization;
@@ -45,6 +45,10 @@ public class KeyFrame : Hierarchical
 
     public IValidator? Validator { get; set; }
 
+    /// <summary>
+    /// Deserializes the key frame and restores its easing configuration.
+    /// </summary>
+    /// <param name="context">The context containing the serialized key frame data.</param>
     public override void Deserialize(ICoreSerializationContext context)
     {
         base.Deserialize(context);

@@ -1,4 +1,4 @@
-﻿using System.Reactive.Linq;
+using System.Reactive.Linq;
 using System.Reactive.Subjects;
 using Beutl.Editor.Operations;
 using Beutl.Logging;
@@ -30,6 +30,12 @@ public sealed class AutoSaveService : IDisposable
         SaveObjects(objectsToSave);
     }
 
+    /// <summary>
+    /// Saves the specified objects to their associated URIs.
+    /// </summary>
+    /// <param name="objectsToSave">The objects to save.</param>
+    /// <exception cref="ObjectDisposedException">Thrown when the service has been disposed.</exception>
+    /// <returns></returns>
     public void SaveObjects(IEnumerable<CoreObject> objectsToSave)
     {
         ThrowIfDisposed();
