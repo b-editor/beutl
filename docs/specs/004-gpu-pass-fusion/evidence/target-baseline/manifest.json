@@ -8,7 +8,7 @@
   "roiBaselineMode": "legacy-full-render-then-device-crop",
   "evidenceTools": {
     "generatorPatchSha256": "037315804fa9531bdef1b79e2db405e8a3813e4bc137527690f9f2d5cb4e728c",
-    "generatorScriptSha256": "05d33410a06cdd3a6fee91911b25a348fdc480ed249916e45fe75c653b40c4f7",
+    "generatorScriptSha256": "8ecd36f3589eaaaa891578eb2b1cd1a5ca5a271ea5b8f440e5be7bcd1f671aec",
     "pairedRunnerSha256": "4263352f519686b9de89047ee0c55dbb999935412db05419464ca81387939af9",
     "generatorSourceBundleSha256": "d6e5f339d5d7214b0cb879aa5cf2cd717896879b942400928e77b38c9a62a19e"
   },
