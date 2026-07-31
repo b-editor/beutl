@@ -227,6 +227,11 @@ public static class CoreSerializer
     public static void StoreToUri<T>(T obj, Uri uri, CoreSerializationMode? mode = null)
         where T : ICoreSerializable
     {
+        if (obj is CoreObject { IsStorageWriteSuppressed: true })
+        {
+            return;
+        }
+
         if (uri.Scheme == "file")
         {
             if (obj is CoreObject coreObj)

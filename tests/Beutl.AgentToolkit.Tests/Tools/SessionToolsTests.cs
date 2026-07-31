@@ -1,17 +1,251 @@
-﻿using Beutl.AgentToolkit.Common;
+﻿using System.Text.Json;
+using System.Text.Json.Nodes;
+using Beutl.AgentToolkit.Common;
 using Beutl.AgentToolkit.Documents;
 using Beutl.AgentToolkit.Rendering;
+using Beutl.AgentToolkit.Schema;
 using Beutl.AgentToolkit.Sessions;
 using Beutl.AgentToolkit.Tests.Helpers;
 using Beutl.AgentToolkit.Tools;
 using Beutl.AgentToolkit.Workspace;
 using Beutl.Editor;
+using Beutl.Graphics;
+using Beutl.Graphics.Shapes;
+using Beutl.Media;
 using Beutl.ProjectSystem;
+using Beutl.Serialization;
 
 namespace Beutl.AgentToolkit.Tests.Tools;
 
 public sealed class SessionToolsTests
 {
+    [Test]
+    public async Task Open_project_warns_about_corrupt_element_and_render_still_remains_available()
+    {
+        string root = CreateWorkspace();
+        string projectPath = Path.Combine(root, "corrupt-element.bep");
+        Project project = ProjectOperations.CreateProject(new ProjectCreateOptions(
+            projectPath,
+            64,
+            64,
+            30,
+            TimeSpan.FromSeconds(1)));
+        Scene scene = project.Items.OfType<Scene>().Single();
+        var element = new Element
+        {
+            Name = "Corrupt element",
+            Length = TimeSpan.FromSeconds(1),
+            Uri = new Uri(Path.Combine(
+                Path.GetDirectoryName(scene.Uri!.LocalPath)!,
+                "corrupt-element.belm"))
+        };
+        element.AddObject(new RectShape
+        {
+            Width = { CurrentValue = 32 },
+            Height = { CurrentValue = 32 },
+            Fill = { CurrentValue = Brushes.White }
+        });
+        scene.Children.Add(element);
+        ProjectOperations.Save(project);
+
+        string elementPath = element.Uri!.LocalPath;
+        JsonObject elementJson = JsonNode.Parse(File.ReadAllText(elementPath))!.AsObject();
+        JsonObject drawableJson = elementJson[nameof(Element.Objects)]!.AsArray()[0]!.AsObject();
+        drawableJson[nameof(RectShape.Width)] = "not-a-number";
+        File.WriteAllText(elementPath, elementJson.ToJsonString());
+
+        var manager = new AgentSessionManager();
+        using var source = new FileSessionSource();
+        SessionTools sessionTools = CreateSessionTools(source, manager, root);
+
+        ToolResult<OpenProjectResponse> opened = await sessionTools.OpenProject(projectPath);
+        Assert.That(opened.IsSuccess, Is.True, opened.Error?.Message);
+        Assert.That(opened.Value, Is.Not.Null, opened.Error?.Message);
+        JsonObject responseJson = JsonSerializer.SerializeToNode(opened.Value)!.AsObject();
+
+        var stillRenderer = new StillRenderer();
+        var motionAnalyzer = new MotionVariationAnalyzer(stillRenderer);
+        var renderTools = new RenderTools(
+            manager,
+            new WorkspaceGuard(root),
+            new DestructiveGuard(),
+            stillRenderer,
+            new StoryboardRenderer(),
+            motionAnalyzer,
+            new AudioRhythmAnalyzer(),
+            new QualityAnalyzer(motionAnalyzer, stillRenderer),
+            new VideoExporter(new EncoderRegistration()),
+            new RenderJobManager());
+        string outputPath = Path.Combine(root, "corrupt-element.png");
+        var rendered = await renderTools.RenderStill(
+            outputPath,
+            cancellationToken: CancellationToken.None);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(opened.IsSuccess, Is.True, opened.Error?.Message);
+            Assert.That(
+                responseJson["Warnings"]?.AsArray().Select(static item => item!.GetValue<string>()),
+                Has.Some.Contains(Path.GetFileName(elementPath)).And.Some.Contains("could not be converted"));
+            Assert.That(rendered.IsError, Is.Not.True);
+            Assert.That(File.Exists(outputPath), Is.True);
+        });
+    }
+
+    [Test]
+    public async Task Open_project_warns_about_malformed_element_json_and_keeps_healthy_elements()
+    {
+        string root = CreateWorkspace();
+        string projectPath = Path.Combine(root, "malformed-element.bep");
+        Project project = ProjectOperations.CreateProject(new ProjectCreateOptions(
+            projectPath,
+            64,
+            64,
+            30,
+            TimeSpan.FromSeconds(1)));
+        Scene scene = project.Items.OfType<Scene>().Single();
+        string sceneDirectory = Path.GetDirectoryName(scene.Uri!.LocalPath)!;
+        var healthy = new Element
+        {
+            Name = "Healthy element",
+            Length = TimeSpan.FromSeconds(1),
+            Uri = new Uri(Path.Combine(sceneDirectory, "healthy-element.belm")),
+        };
+        healthy.AddObject(new RectShape
+        {
+            Width = { CurrentValue = 32 },
+            Height = { CurrentValue = 32 },
+            Fill = { CurrentValue = Brushes.White },
+        });
+        var malformed = new Element
+        {
+            Name = "Malformed element",
+            Length = TimeSpan.FromSeconds(1),
+            Uri = new Uri(Path.Combine(sceneDirectory, "malformed-element.belm")),
+        };
+        malformed.AddObject(new RectShape
+        {
+            Width = { CurrentValue = 16 },
+            Height = { CurrentValue = 16 },
+            Fill = { CurrentValue = Brushes.Red },
+        });
+        scene.Children.Add(healthy);
+        scene.Children.Add(malformed);
+        ProjectOperations.Save(project);
+        File.WriteAllText(malformed.Uri!.LocalPath, "{ this is not valid JSON");
+
+        var manager = new AgentSessionManager();
+        using var source = new FileSessionSource();
+        SessionTools sessionTools = CreateSessionTools(source, manager, root);
+
+        ToolResult<OpenProjectResponse> opened = await sessionTools.OpenProject(projectPath);
+        JsonObject responseJson = JsonSerializer.SerializeToNode(opened.Value)!.AsObject();
+
+        var stillRenderer = new StillRenderer();
+        var motionAnalyzer = new MotionVariationAnalyzer(stillRenderer);
+        var renderTools = new RenderTools(
+            manager,
+            new WorkspaceGuard(root),
+            new DestructiveGuard(),
+            stillRenderer,
+            new StoryboardRenderer(),
+            motionAnalyzer,
+            new AudioRhythmAnalyzer(),
+            new QualityAnalyzer(motionAnalyzer, stillRenderer),
+            new VideoExporter(new EncoderRegistration()),
+            new RenderJobManager());
+        string outputPath = Path.Combine(root, "malformed-element.png");
+        var rendered = await renderTools.RenderStill(
+            outputPath,
+            cancellationToken: CancellationToken.None);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(opened.Value!.Summary.Scenes.Single().Elements, Is.EqualTo(2));
+            Assert.That(
+                responseJson["Warnings"]?.AsArray().Select(static item => item!.GetValue<string>()),
+                Has.Some.Contains(Path.GetFileName(malformed.Uri.LocalPath))
+                    .And.Some.Contains("JsonReaderException")
+                    .And.Some.Contains("invalid start"));
+            Assert.That(rendered.IsError, Is.Not.True);
+            Assert.That(File.Exists(outputPath), Is.True);
+        });
+    }
+
+    [Test]
+    public async Task Apply_edit_can_rename_healthy_element_while_malformed_element_is_recovered()
+    {
+        string root = CreateWorkspace();
+        RecoveredProjectFixture fixture = CreateProjectWithMalformedElement(root);
+        var manager = new AgentSessionManager();
+        using var source = new FileSessionSource();
+        SessionTools sessionTools = CreateSessionTools(source, manager, root);
+        ToolResult<OpenProjectResponse> opened = await sessionTools.OpenProject(fixture.ProjectPath);
+        var editTools = new EditTools(manager);
+        JsonObject patch = new()
+        {
+            ["Elements"] = new JsonArray(new JsonObject
+            {
+                [nameof(CoreObject.Id)] = fixture.HealthyId.ToString(),
+                [nameof(CoreObject.Name)] = "Renamed healthy element",
+            }),
+        };
+
+        ToolResult<ApplyEditResponse> applied = editTools.ApplyEdit(
+            patch: patch,
+            schemaVersion: SchemaVersion.Current);
+        ToolResult<SaveProjectResponse> saved = sessionTools.SaveProject(opened.Value!.Session);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(applied.IsSuccess, Is.True, applied.Error?.Message);
+            Assert.That(saved.IsSuccess, Is.True, saved.Error?.Message);
+            Assert.That(File.ReadAllBytes(fixture.MalformedPath), Is.EqualTo(fixture.MalformedBytes));
+            Assert.That(
+                ((Scene)manager.CurrentSession!.Root).Children.Single(item => item.Id == fixture.HealthyId).Name,
+                Is.EqualTo("Renamed healthy element"));
+        });
+    }
+
+    [Test]
+    public async Task Delete_recovered_element_and_save_excludes_it_without_deleting_its_sidecar()
+    {
+        string root = CreateWorkspace();
+        RecoveredProjectFixture fixture = CreateProjectWithMalformedElement(root);
+        byte[] healthyBytes = File.ReadAllBytes(fixture.HealthyPath);
+        var manager = new AgentSessionManager();
+        using var source = new FileSessionSource();
+        SessionTools sessionTools = CreateSessionTools(source, manager, root);
+        ToolResult<OpenProjectResponse> opened = await sessionTools.OpenProject(fixture.ProjectPath);
+        var editTools = new EditTools(manager);
+        JsonObject patch = new()
+        {
+            ["Elements"] = new JsonArray(new JsonObject
+            {
+                [nameof(CoreObject.Id)] = fixture.MalformedId.ToString(),
+                ["$delete"] = true,
+            }),
+        };
+
+        ToolResult<ApplyEditResponse> deleted = editTools.ApplyEdit(
+            patch: patch,
+            schemaVersion: SchemaVersion.Current);
+        ToolResult<SaveProjectResponse> saved = sessionTools.SaveProject(opened.Value!.Session);
+
+        Project reopenedProject = CoreSerializer.RestoreFromUri<Project>(new Uri(fixture.ProjectPath));
+        Scene reopenedScene = reopenedProject.Items.OfType<Scene>().Single();
+        Assert.Multiple(() =>
+        {
+            Assert.That(deleted.IsSuccess, Is.True, deleted.Error?.Message);
+            Assert.That(saved.IsSuccess, Is.True, saved.Error?.Message);
+            Assert.That(File.ReadAllBytes(fixture.MalformedPath), Is.EqualTo(fixture.MalformedBytes),
+                "Declarative deletion excludes the recovered sidecar; it does not destroy the opaque source file.");
+            Assert.That(File.ReadAllBytes(fixture.HealthyPath), Is.EqualTo(healthyBytes));
+            Assert.That(reopenedScene.Children.Select(static item => item.Id), Does.Not.Contain(fixture.MalformedId));
+            Assert.That(reopenedScene.Children.Select(static item => item.Id), Does.Contain(fixture.HealthyId));
+        });
+    }
+
     [Test]
     public async Task Create_project_starts_file_backed_session_for_document_tools()
     {
@@ -436,6 +670,65 @@ public sealed class SessionToolsTests
         Directory.CreateDirectory(path);
         return path;
     }
+
+    private static RecoveredProjectFixture CreateProjectWithMalformedElement(string root)
+    {
+        string projectPath = Path.Combine(root, "recovered-project.bep");
+        Project project = ProjectOperations.CreateProject(new ProjectCreateOptions(
+            projectPath,
+            64,
+            64,
+            30,
+            TimeSpan.FromSeconds(1)));
+        Scene scene = project.Items.OfType<Scene>().Single();
+        string sceneDirectory = Path.GetDirectoryName(scene.Uri!.LocalPath)!;
+        var healthy = new Element
+        {
+            Name = "Healthy element",
+            Length = TimeSpan.FromSeconds(1),
+            Uri = new Uri(Path.Combine(sceneDirectory, "healthy-element.belm")),
+        };
+        healthy.AddObject(new RectShape
+        {
+            Width = { CurrentValue = 32 },
+            Height = { CurrentValue = 32 },
+            Fill = { CurrentValue = Brushes.White },
+        });
+        var malformed = new Element
+        {
+            Name = "Malformed element",
+            Length = TimeSpan.FromSeconds(1),
+            Uri = new Uri(Path.Combine(sceneDirectory, "malformed-element.belm")),
+        };
+        malformed.AddObject(new RectShape
+        {
+            Width = { CurrentValue = 16 },
+            Height = { CurrentValue = 16 },
+            Fill = { CurrentValue = Brushes.Red },
+        });
+        scene.Children.Add(healthy);
+        scene.Children.Add(malformed);
+        ProjectOperations.Save(project);
+
+        byte[] malformedBytes = System.Text.Encoding.UTF8.GetBytes(
+            $"{{\"Id\":\"{malformed.Id}\",\"Name\":\"Malformed element\",\"Objects\":[");
+        File.WriteAllBytes(malformed.Uri!.LocalPath, malformedBytes);
+        return new RecoveredProjectFixture(
+            projectPath,
+            healthy.Uri!.LocalPath,
+            healthy.Id,
+            malformed.Uri.LocalPath,
+            malformed.Id,
+            malformedBytes);
+    }
+
+    private sealed record RecoveredProjectFixture(
+        string ProjectPath,
+        string HealthyPath,
+        Guid HealthyId,
+        string MalformedPath,
+        Guid MalformedId,
+        byte[] MalformedBytes);
 
     private sealed class DispatchingProjectGateway : IProjectSessionGateway
     {

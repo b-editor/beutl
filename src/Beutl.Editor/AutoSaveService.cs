@@ -41,7 +41,7 @@ public sealed class AutoSaveService : IDisposable
             {
                 if (obj is IHierarchical hierarchical && hierarchical.HierarchicalRoot == null)
                 {
-                    if (obj.Uri!.Scheme == "file")
+                    if (!obj.IsStorageWriteSuppressed && obj.Uri!.Scheme == "file")
                     {
                         var path = obj.Uri.LocalPath;
                         if (File.Exists(path))
