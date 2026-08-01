@@ -5,17 +5,95 @@ using Beutl.Configuration;
 using Beutl.Editor.Models;
 using Beutl.Editor.Services;
 using Beutl.Editor.VersionControl;
+using Beutl.Extensibility;
 using Beutl.Graphics.Shapes;
 using Beutl.ProjectSystem;
+using Beutl.Serialization;
+using Beutl.Services;
+using Beutl.Services.PrimitiveImpls;
 using Beutl.Testing.Headless;
 using Beutl.ViewModels;
 using Beutl.ViewModels.Dialogs;
+using Reactive.Bindings;
 
 namespace Beutl.HeadlessUITests;
 
 [TestFixture]
 public class VersionControlSaveTests
 {
+    [AvaloniaTest]
+    public async Task Save_all_does_not_snapshot_partially_saved_files()
+    {
+        await TestReset.ResetShellAsync();
+        using var environment = new IsolatedGitEnvironment();
+        string gitPath = ProbeGitOrIgnore();
+        VersionControlConfig config = GlobalConfiguration.Instance.VersionControlConfig;
+        string? oldGitPath = config.GitExecutablePath;
+        bool oldAutoCommitOnSave = config.AutoCommitOnSave;
+        bool oldAutoCommitOnClose = config.AutoCommitOnClose;
+        bool oldUseLfs = config.UseLfsWhenAvailable;
+
+        try
+        {
+            config.GitExecutablePath = gitPath;
+            config.AutoCommitOnSave = true;
+            config.AutoCommitOnClose = false;
+            config.UseLfsWhenAvailable = false;
+
+            string location = Path.Combine(
+                BeutlHomeIsolation.CurrentHome!,
+                "version-control-partial-save");
+            Directory.CreateDirectory(location);
+            Project project = (await TestShell.Project.CreateProject(
+                640,
+                480,
+                30,
+                44100,
+                "partial-save",
+                location))!;
+            bool initialized = await TestShell.VersionControl.InitializeCurrentProjectAsync(
+                _ => Task.FromResult<GitIdentity?>(new GitIdentity(
+                    "Beutl Headless Test",
+                    "headless@example.invalid")));
+            Assert.That(initialized, Is.True);
+
+            string projectRoot = Path.GetDirectoryName(project.Uri!.LocalPath)!;
+            int commitsBeforeSave = await CountCommitsAsync(gitPath, projectRoot);
+            var failedCommands = new FailedSaveCommands();
+            var failedItem = new Scene
+            {
+                Uri = new Uri(Path.Combine(projectRoot, "failed.scene")),
+            };
+            TestShell.Editor.TabItems.Add(new EditorTabItem(
+                new FailedSaveEditorContext(failedItem, failedCommands)));
+            project.Variables["partially-saved"] = "true";
+
+            await TestShell.MainViewModel.MenuBar.SaveAll.ExecuteAsync();
+
+            int commitsAfterSave = await CountCommitsAsync(gitPath, projectRoot);
+            int saveSnapshots = await CountSaveSnapshotsAsync(gitPath, projectRoot);
+            WorkspaceStatus status = await TestShell.VersionControl.CurrentService!
+                .GetStatusAsync(CancellationToken.None);
+            Project persisted = CoreSerializer.RestoreFromUri<Project>(project.Uri);
+            Assert.Multiple(() =>
+            {
+                Assert.That(failedCommands.SaveCalls, Is.EqualTo(1));
+                Assert.That(persisted.Variables["partially-saved"], Is.EqualTo("true"));
+                Assert.That(commitsAfterSave, Is.EqualTo(commitsBeforeSave));
+                Assert.That(saveSnapshots, Is.Zero);
+                Assert.That(status.IsClean, Is.False);
+            });
+        }
+        finally
+        {
+            await TestReset.ResetShellAsync();
+            config.GitExecutablePath = oldGitPath;
+            config.AutoCommitOnSave = oldAutoCommitOnSave;
+            config.AutoCommitOnClose = oldAutoCommitOnClose;
+            config.UseLfsWhenAvailable = oldUseLfs;
+        }
+    }
+
     [AvaloniaTest]
     public async Task Explicit_save_creates_one_snapshot_and_a_second_clean_save_creates_none()
     {
@@ -406,6 +484,50 @@ public class VersionControlSaveTests
         }
 
         return path;
+    }
+
+    private sealed class FailedSaveEditorContext(
+        CoreObject obj,
+        FailedSaveCommands commands) : IEditorContext
+    {
+        public CoreObject Object { get; } = obj;
+
+        public EditorExtension Extension => SceneEditorExtension.Instance;
+
+        public IReactiveProperty<bool> IsEnabled { get; } = new ReactivePropertySlim<bool>(true);
+
+        public IKnownEditorCommands? Commands { get; } = commands;
+
+        public object? GetService(Type serviceType) => null;
+
+        public T? FindToolTab<T>(Func<T, bool> condition)
+            where T : IToolContext
+        {
+            return default;
+        }
+
+        public T? FindToolTab<T>()
+            where T : IToolContext
+        {
+            return default;
+        }
+
+        public bool OpenToolTab(IToolContext item) => false;
+
+        public void CloseToolTab(IToolContext item)
+        {
+        }
+    }
+
+    private sealed class FailedSaveCommands : IKnownEditorCommands
+    {
+        public int SaveCalls { get; private set; }
+
+        public ValueTask<bool> OnSave()
+        {
+            SaveCalls++;
+            return ValueTask.FromResult(false);
+        }
     }
 
     private sealed class IsolatedGitEnvironment : IDisposable

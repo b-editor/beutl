@@ -379,6 +379,103 @@ public class GitCliRunnerTests : RealGitTestRepository
         Assert.That(File.Exists(lockPath), Is.False);
     }
 
+    [TestCase(false)]
+    [TestCase(true)]
+    public async Task Stale_current_branch_ref_lock_is_recoverable(bool useLinkedWorktree)
+    {
+        await CommitFileAsync("project.beutl", "base", "initial");
+        RepositoryInfo repository = Repository;
+        string branchName = "main";
+        if (useLinkedWorktree)
+        {
+            string worktreeRoot = CreateTemporaryDirectory();
+            await RunGitAsync("worktree", "add", "-b", "linked", worktreeRoot);
+            repository = new RepositoryInfo(worktreeRoot, worktreeRoot);
+            branchName = "linked";
+        }
+
+        string lockPath = Path.Combine(
+            Root,
+            ".git",
+            "refs",
+            "heads",
+            $"{branchName}.lock");
+        var now = new DateTimeOffset(2026, 1, 2, 12, 0, 0, TimeSpan.Zero);
+        await File.WriteAllTextAsync(lockPath, "stale");
+        File.SetLastWriteTimeUtc(
+            lockPath,
+            (now - GitCliRunner.StaleLockAge - TimeSpan.FromMinutes(1)).UtcDateTime);
+        var runner = new GitCliRunner(
+            GitPath,
+            TimeSpan.FromSeconds(10),
+            IsolatedGitEnvironment,
+            new FakeTimeProvider(now));
+
+        RepositoryLockInfo? recoverable = runner.GetRecoverableRepositoryLock(repository);
+
+        Assert.That(recoverable, Is.Not.Null);
+        Assert.That(
+            RepositoryPathComparer.AreEquivalent(recoverable!.LockPath, lockPath),
+            Is.True);
+        Assert.That(
+            runner.RemoveRecoverableRepositoryLock(repository, recoverable),
+            Is.True);
+        Assert.That(File.Exists(lockPath), Is.False);
+    }
+
+    [Test]
+    public async Task Current_branch_ref_lock_does_not_follow_a_directory_link_outside_git_data()
+    {
+        string externalDirectory = CreateTemporaryDirectory();
+        string linkedDirectory = Path.Combine(Root, ".git", "refs", "heads", "external");
+        CreateDirectorySymbolicLinkOrIgnore(linkedDirectory, externalDirectory);
+        await File.WriteAllTextAsync(
+            Path.Combine(Root, ".git", "HEAD"),
+            "ref: refs/heads/external/main\n");
+        string externalLockPath = Path.Combine(externalDirectory, "main.lock");
+        var now = new DateTimeOffset(2026, 1, 2, 12, 0, 0, TimeSpan.Zero);
+        await File.WriteAllTextAsync(externalLockPath, "outside");
+        File.SetLastWriteTimeUtc(
+            externalLockPath,
+            (now - GitCliRunner.StaleLockAge - TimeSpan.FromMinutes(1)).UtcDateTime);
+        var runner = new GitCliRunner(
+            GitPath,
+            TimeSpan.FromSeconds(10),
+            IsolatedGitEnvironment,
+            new FakeTimeProvider(now));
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(runner.GetRecoverableRepositoryLock(Repository), Is.Null);
+            Assert.That(File.Exists(externalLockPath), Is.True);
+        });
+    }
+
+    [Test]
+    public async Task Current_branch_ref_lock_rejects_a_traversing_HEAD_ref()
+    {
+        await File.WriteAllTextAsync(
+            Path.Combine(Root, ".git", "HEAD"),
+            "ref: refs/heads/../../outside\n");
+        string outsideLockPath = Path.Combine(Root, ".git", "outside.lock");
+        var now = new DateTimeOffset(2026, 1, 2, 12, 0, 0, TimeSpan.Zero);
+        await File.WriteAllTextAsync(outsideLockPath, "outside");
+        File.SetLastWriteTimeUtc(
+            outsideLockPath,
+            (now - GitCliRunner.StaleLockAge - TimeSpan.FromMinutes(1)).UtcDateTime);
+        var runner = new GitCliRunner(
+            GitPath,
+            TimeSpan.FromSeconds(10),
+            IsolatedGitEnvironment,
+            new FakeTimeProvider(now));
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(runner.GetRecoverableRepositoryLock(Repository), Is.Null);
+            Assert.That(File.Exists(outsideLockPath), Is.True);
+        });
+    }
+
     [Test]
     public async Task Recent_or_active_repository_lock_is_not_recoverable()
     {
@@ -477,6 +574,30 @@ public class GitCliRunnerTests : RealGitTestRepository
     }
 
     [Test]
+    public async Task Unreadable_HEAD_does_not_hide_a_stale_index_lock()
+    {
+        var now = new DateTimeOffset(2026, 1, 2, 12, 0, 0, TimeSpan.Zero);
+        string lockPath = Path.Combine(Root, ".git", "index.lock");
+        await File.WriteAllTextAsync(lockPath, "stale");
+        File.SetLastWriteTimeUtc(
+            lockPath,
+            (now - GitCliRunner.StaleLockAge - TimeSpan.FromMinutes(1)).UtcDateTime);
+        var runner = new GitCliRunner(
+            GitPath,
+            TimeSpan.FromSeconds(10),
+            IsolatedGitEnvironment,
+            new FakeTimeProvider(now),
+            readAllText: _ => throw new IOException("simulated HEAD read failure"));
+
+        RepositoryLockInfo? lockInfo = runner.GetRecoverableRepositoryLock(Repository);
+
+        Assert.That(lockInfo, Is.Not.Null);
+        Assert.That(
+            RepositoryPathComparer.AreEquivalent(lockInfo!.LockPath, lockPath),
+            Is.True);
+    }
+
+    [Test]
     public async Task Failed_stale_lock_deletion_is_reported_without_throwing()
     {
         var now = new DateTimeOffset(2026, 1, 2, 12, 0, 0, TimeSpan.Zero);
@@ -518,6 +639,21 @@ public class GitCliRunnerTests : RealGitTestRepository
             GitPath,
             TimeSpan.FromSeconds(10),
             CreateSshIsolatedEnvironment());
+
+    private static void CreateDirectorySymbolicLinkOrIgnore(
+        string linkPath,
+        string targetPath)
+    {
+        try
+        {
+            Directory.CreateSymbolicLink(linkPath, targetPath);
+        }
+        catch (Exception ex)
+            when (ex is UnauthorizedAccessException or IOException or PlatformNotSupportedException)
+        {
+            Assert.Ignore($"Symbolic links are not creatable in this environment: {ex.Message}");
+        }
+    }
 
     private static Dictionary<string, string?> CreateSshIsolatedEnvironment()
     {

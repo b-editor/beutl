@@ -801,6 +801,7 @@ public class VersionControlTabViewTests
 
             commitMessageTextBox.Focus();
             viewModel.CommitMessage.Value = "first line";
+            HeadlessTestHelpers.Settle();
             commitMessageTextBox.CaretIndex = commitMessageTextBox.Text!.Length;
             await File.AppendAllTextAsync(project.Uri!.LocalPath, "\n");
             WorkspaceStatus statusBeforeEnter = await trackedService.GetStatusAsync(

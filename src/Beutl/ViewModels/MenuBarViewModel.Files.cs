@@ -130,6 +130,7 @@ public partial class MenuBarViewModel
         using Activity? activity = Telemetry.StartActivity("SaveAll");
         Project? project = _projectService.CurrentProject.Value;
         int itemsCount = 0;
+        bool allRequestedSavesSucceeded = true;
 
         try
         {
@@ -150,6 +151,7 @@ public partial class MenuBarViewModel
                     }
                     else
                     {
+                        allRequestedSavesSucceeded = false;
                         Type type = item.Extension.Value.GetType();
                         _logger.LogError("{Extension} failed to save file: {FileName}", type.FullName ?? type.Name,
                             item.FileName.Value);
@@ -166,7 +168,10 @@ public partial class MenuBarViewModel
                 NotificationService.ShowInformation(string.Empty, MessageStrings.FilesAutoSaved);
             }
 
-            await _versionControlCoordinator.NotifySavedAsync();
+            if (allRequestedSavesSucceeded)
+            {
+                await _versionControlCoordinator.NotifySavedAsync();
+            }
         }
         catch (Exception ex)
         {

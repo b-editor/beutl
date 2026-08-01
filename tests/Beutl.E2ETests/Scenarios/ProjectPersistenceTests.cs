@@ -1,4 +1,5 @@
-﻿using Beutl.Graphics.Shapes;
+﻿using System.Text.Json.Nodes;
+using Beutl.Graphics.Shapes;
 using Beutl.Media;
 using Beutl.ProjectSystem;
 using Beutl.Serialization;
@@ -140,5 +141,29 @@ public class ProjectPersistenceTests
             Assert.That(secondScene.Children, Has.Count.EqualTo(1));
             Assert.That(secondScene.Children[0].Length, Is.EqualTo(TimeSpan.FromSeconds(3)));
         });
+    }
+
+    [Test]
+    public void External_project_item_migration_updates_project_version_requirements()
+    {
+        var project = new Project();
+        project.Items.Add(new ExternalMigratingProjectItem());
+        JsonObject json = CoreSerializer.SerializeToJsonObject(project);
+        json["appVersion"] = "1.0.0";
+        json["minAppVersion"] = "1.0.0";
+
+        var restored = (Project)CoreSerializer.DeserializeFromJsonObject(json, typeof(Project));
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(restored.Items.Single(), Is.TypeOf<ExternalMigratingProjectItem>());
+            Assert.That(restored.AppVersion, Is.EqualTo(BeutlApplication.Version));
+            Assert.That(restored.MinAppVersion, Is.EqualTo(Project.DefaultMinAppVersion));
+        });
+    }
+
+    public sealed class ExternalMigratingProjectItem : ProjectItem
+    {
+        protected override bool HasMigratedPersistedContent => true;
     }
 }

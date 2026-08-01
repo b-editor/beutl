@@ -124,6 +124,7 @@ public class ShutdownPipelineTests
     [AvaloniaTest]
     public async Task Shutdown_waits_for_version_control_transition_then_performs_final_close()
     {
+        await TestReset.ResetShellAsync();
         var projectService = new ProjectService();
         Project project = SetOpenProject("shutdown-transition");
         var closingPurposes = new List<ProjectTransitionPurpose>();
@@ -183,6 +184,7 @@ public class ShutdownPipelineTests
     [AvaloniaTest]
     public async Task Project_close_awaits_all_completion_callbacks_and_isolates_failures()
     {
+        await TestReset.ResetShellAsync();
         var projectService = new ProjectService();
         SetOpenProject("async-close-completions");
         var firstCompletionEntered = new TaskCompletionSource(

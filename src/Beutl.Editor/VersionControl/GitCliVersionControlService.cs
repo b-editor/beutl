@@ -123,6 +123,9 @@ internal sealed class GitCliVersionControlService :
     private const string LargeMediaNoticeConfigKeyPrefix = "beutl.largeMediaNoticeShown-";
     private const string MissingIdentityNoticeConfigKeyPrefix = "beutl.missingIdentityNoticeShown-";
     private const string PullSafetyCommitMessage = "beutl: safety snapshot before pull";
+    private const string ManagedLfsBeginMarker = "# BEGIN BEUTL MANAGED LFS";
+    private const string ManagedLfsEndMarker = "# END BEUTL MANAGED LFS";
+    private const int MaxHygieneWriteAttempts = 3;
 
     private static readonly string[] s_gitIgnoreLines =
     [
@@ -171,10 +174,16 @@ internal sealed class GitCliVersionControlService :
             Path.GetExtension(line.Split(' ', 2)[0])),
         StringComparer.OrdinalIgnoreCase);
 
+    private static readonly HashSet<string> s_projectFileExtensions = new(
+        [".bep", ".scene", ".belm"],
+        StringComparer.OrdinalIgnoreCase);
+
     private readonly GitInstallationLocator _installationLocator;
     private readonly Func<string, IGitCliRunner> _runnerFactory;
     private readonly Func<bool> _isWorktreeMutationAllowed;
     private readonly Func<VersionControlPolicyNotice, CancellationToken, Task>? _policyNoticeSink;
+    private readonly Func<string, CancellationToken, Task>? _beforeHygieneFileReplace;
+    private readonly Func<string, CancellationToken, Task>? _beforeHygieneFileCommit;
     private readonly ILogger _logger;
     private readonly bool _createWatcherWhenRepositoryAvailable;
     private readonly SemaphoreSlim _operationGate = new(1, 1);
@@ -199,6 +208,8 @@ internal sealed class GitCliVersionControlService :
             createWatcherWhenRepositoryAvailable: true,
             isWorktreeMutationAllowed: static () => true,
             policyNoticeSink: null,
+            beforeHygieneFileReplace: null,
+            beforeHygieneFileCommit: null,
             logger: null)
     {
     }
@@ -216,6 +227,8 @@ internal sealed class GitCliVersionControlService :
             createWatcherWhenRepositoryAvailable: true,
             isWorktreeMutationAllowed: isWorktreeMutationAllowed,
             policyNoticeSink: policyNoticeSink,
+            beforeHygieneFileReplace: null,
+            beforeHygieneFileCommit: null,
             logger: null)
     {
     }
@@ -225,7 +238,9 @@ internal sealed class GitCliVersionControlService :
         RepositoryInfo? repository,
         RepositoryWatcher? watcher,
         Func<string, IGitCliRunner> runnerFactory,
-        ILogger? logger = null)
+        ILogger? logger = null,
+        Func<string, CancellationToken, Task>? beforeHygieneFileReplace = null,
+        Func<string, CancellationToken, Task>? beforeHygieneFileCommit = null)
         : this(
             installationLocator,
             repository,
@@ -234,6 +249,8 @@ internal sealed class GitCliVersionControlService :
             createWatcherWhenRepositoryAvailable: false,
             isWorktreeMutationAllowed: static () => true,
             policyNoticeSink: null,
+            beforeHygieneFileReplace: beforeHygieneFileReplace,
+            beforeHygieneFileCommit: beforeHygieneFileCommit,
             logger: logger)
     {
     }
@@ -246,6 +263,8 @@ internal sealed class GitCliVersionControlService :
         bool createWatcherWhenRepositoryAvailable,
         Func<bool> isWorktreeMutationAllowed,
         Func<VersionControlPolicyNotice, CancellationToken, Task>? policyNoticeSink,
+        Func<string, CancellationToken, Task>? beforeHygieneFileReplace,
+        Func<string, CancellationToken, Task>? beforeHygieneFileCommit,
         ILogger? logger)
     {
         _installationLocator = installationLocator
@@ -264,6 +283,8 @@ internal sealed class GitCliVersionControlService :
                                      ?? throw new ArgumentNullException(
                                          nameof(isWorktreeMutationAllowed));
         _policyNoticeSink = policyNoticeSink;
+        _beforeHygieneFileReplace = beforeHygieneFileReplace;
+        _beforeHygieneFileCommit = beforeHygieneFileCommit;
         _logger = logger ?? Log.CreateLogger<GitCliVersionControlService>();
         _createWatcherWhenRepositoryAvailable = createWatcherWhenRepositoryAvailable;
         if (_watcher is not null)
@@ -330,6 +351,11 @@ internal sealed class GitCliVersionControlService :
                     throw new InvalidOperationException("Git is not available.");
                 }
 
+                await EnsureRepositoryHygienePreflightCoreAsync(
+                        repository,
+                        runner,
+                        cancellationToken)
+                    .ConfigureAwait(false);
                 bool useLfs = _installationLocator.Config.UseLfsWhenAvailable
                               && availability.LfsInstalled;
                 await EnsureRepositoryHygieneCoreAsync(
@@ -456,6 +482,7 @@ internal sealed class GitCliVersionControlService :
     {
         ThrowIfDisposed();
         ArgumentException.ThrowIfNullOrWhiteSpace(sha);
+        ValidateCommitSha(sha);
         return RunSerializedAsync(
             () => GetCommitFilesCoreAsync(sha, cancellationToken),
             cancellationToken);
@@ -468,6 +495,7 @@ internal sealed class GitCliVersionControlService :
     {
         ThrowIfDisposed();
         ArgumentException.ThrowIfNullOrWhiteSpace(sha);
+        ValidateCommitSha(sha);
         return RunSerializedAsync(
             () => GetDiffCoreAsync(sha, path, cancellationToken),
             cancellationToken);
@@ -521,6 +549,7 @@ internal sealed class GitCliVersionControlService :
     {
         ThrowIfDisposed();
         ArgumentException.ThrowIfNullOrWhiteSpace(url);
+        ValidateRemoteUrl(url);
         return RunSerializedAsync(
             () => SetRemoteCoreAsync(url, cancellationToken),
             cancellationToken);
@@ -572,19 +601,15 @@ internal sealed class GitCliVersionControlService :
         return RunSerializedAsync(
             async () =>
             {
-                await EnsureNotConflictedCoreAsync(cancellationToken).ConfigureAwait(false);
                 RepositoryInfo repository = GetRepository();
+                await EnsureNotConflictedCoreAsync(cancellationToken).ConfigureAwait(false);
                 IGitCliRunner runner = await GetInstalledRunnerCoreAsync(cancellationToken).ConfigureAwait(false);
-                await runner.RunAsync(
-                    repository,
-                    ["config", "--local", "user.name", identity.Name],
-                    GitCommandOptions.Local,
-                    cancellationToken).ConfigureAwait(false);
-                await runner.RunAsync(
-                    repository,
-                    ["config", "--local", "user.email", identity.Email],
-                    GitCommandOptions.Local,
-                    cancellationToken).ConfigureAwait(false);
+                await SetLocalIdentityCoreAsync(
+                        repository,
+                        runner,
+                        identity,
+                        cancellationToken)
+                    .ConfigureAwait(false);
             },
             cancellationToken);
     }
@@ -948,6 +973,24 @@ internal sealed class GitCliVersionControlService :
         IGitCliRunner runner,
         CancellationToken cancellationToken)
     {
+        string refName = await GetAttachedBranchRefCoreAsync(
+                repository,
+                runner,
+                cancellationToken)
+            .ConfigureAwait(false);
+        GitCommandResult commit = await runner.RunAsync(
+            repository,
+            ["rev-parse", "--verify", $"{refName}^{{commit}}"],
+            GitCommandOptions.Local,
+            cancellationToken).ConfigureAwait(false);
+        return new CheckedOutBranchTip(refName, commit.Stdout.Trim());
+    }
+
+    private static async Task<string> GetAttachedBranchRefCoreAsync(
+        RepositoryInfo repository,
+        IGitCliRunner runner,
+        CancellationToken cancellationToken)
+    {
         GitCommandResult symbolicRef;
         try
         {
@@ -968,12 +1011,7 @@ internal sealed class GitCliVersionControlService :
             throw new DetachedHeadNotSupportedException();
         }
 
-        GitCommandResult commit = await runner.RunAsync(
-            repository,
-            ["rev-parse", "--verify", $"{refName}^{{commit}}"],
-            GitCommandOptions.Local,
-            cancellationToken).ConfigureAwait(false);
-        return new CheckedOutBranchTip(refName, commit.Stdout.Trim());
+        return refName;
     }
 
     private async Task<ProjectCheckpoint> CreateProjectCheckpointCoreAsync(
@@ -2631,7 +2669,20 @@ internal sealed class GitCliVersionControlService :
             ],
             GitCommandOptions.Local,
             cancellationToken).ConfigureAwait(false);
-        return ParseStatus(result.Stdout);
+        WorkspaceStatus status = ParseStatus(result.Stdout);
+        if (!repository.IsNestedInForeignRepo || status.HasConflicts)
+        {
+            return status;
+        }
+
+        GitCommandResult unmerged = await runner.RunAsync(
+            repository,
+            ["ls-files", "--unmerged"],
+            GitCommandOptions.Local,
+            cancellationToken).ConfigureAwait(false);
+        return string.IsNullOrWhiteSpace(unmerged.Stdout)
+            ? status
+            : status with { HasConflicts = true };
     }
 
     private async Task<IReadOnlyList<CommitInfo>> GetHistoryCoreAsync(
@@ -3190,7 +3241,6 @@ internal sealed class GitCliVersionControlService :
     {
         ArgumentNullException.ThrowIfNull(options.TargetRepository);
         string projectRoot = options.TargetRepository.ProjectRoot;
-        Directory.CreateDirectory(projectRoot);
 
         (GitAvailability availability, IGitCliRunner? nullableRunner)
             = await GetGitRuntimeCoreAsync(cancellationToken).ConfigureAwait(false);
@@ -3200,11 +3250,13 @@ internal sealed class GitCliVersionControlService :
         }
 
         IGitCliRunner runner = nullableRunner;
-        RepositoryInfo? discoveredRepository = await DiscoverRepositoryCoreAsync(
-                projectRoot,
-                runner,
-                cancellationToken)
-            .ConfigureAwait(false);
+        RepositoryInfo? discoveredRepository = Directory.Exists(projectRoot)
+            ? await DiscoverRepositoryCoreAsync(
+                    projectRoot,
+                    runner,
+                    cancellationToken)
+                .ConfigureAwait(false)
+            : null;
         RepositoryInfo repository;
         if (discoveredRepository is { IsNestedInForeignRepo: true })
         {
@@ -3244,18 +3296,48 @@ internal sealed class GitCliVersionControlService :
                 "This service is already associated with a different project.");
         }
 
-        if (discoveredRepository is not null)
+        GitIdentity? identity = options.Identity;
+        if (identity is not null)
         {
-            WorkspaceStatus existingStatus = await GetStatusCoreAsync(
+            ValidateIdentity(identity);
+        }
+        else if (Directory.Exists(repository.RepoRoot))
+        {
+            identity = await GetIdentityCoreAsync(
                     repository,
                     runner,
                     cancellationToken)
                 .ConfigureAwait(false);
-            ThrowIfConflicted(existingStatus);
+        }
+
+        if (identity is null)
+        {
+            throw new GitIdentityRequiredException();
+        }
+
+        EnsureHygienePathsAreSafe(repository);
+        if (discoveredRepository is not null)
+        {
+            await EnsureInitializationPreflightCoreAsync(
+                    repository,
+                    runner,
+                    cancellationToken)
+                .ConfigureAwait(false);
+        }
+        else
+        {
+            string? ignoredPath = await FindIgnoredRequiredProjectPathBeforeInitAsync(
+                    repository,
+                    runner,
+                    cancellationToken)
+                .ConfigureAwait(false);
+            ThrowIfRequiredProjectPathIgnored(ignoredPath);
         }
 
         if (discoveredRepository is null)
         {
+            Directory.CreateDirectory(projectRoot);
+            Repository = repository;
             await runner.RunAsync(
                 repository,
                 ["init"],
@@ -3266,9 +3348,42 @@ internal sealed class GitCliVersionControlService :
                 ["symbolic-ref", "HEAD", "refs/heads/main"],
                 GitCommandOptions.Local,
                 cancellationToken).ConfigureAwait(false);
+
+            RepositoryInfo? initializedRepository = await DiscoverRepositoryCoreAsync(
+                    projectRoot,
+                    runner,
+                    cancellationToken)
+                .ConfigureAwait(false);
+            if (initializedRepository is not null
+                && !MatchesRepositorySelection(
+                    initializedRepository,
+                    options.TargetRepository))
+            {
+                throw new InvalidOperationException(
+                    "The initialized repository could not be resolved safely.");
+            }
+
+            if (initializedRepository is not null)
+            {
+                repository = initializedRepository;
+                Repository = repository;
+            }
+        }
+        else
+        {
+            Repository = repository;
         }
 
-        Repository = repository;
+        if (options.Identity is not null)
+        {
+            await SetLocalIdentityCoreAsync(
+                    repository,
+                    runner,
+                    options.Identity,
+                    cancellationToken)
+                .ConfigureAwait(false);
+        }
+
         bool useLfs = options.UseLfsWhenAvailable && availability.LfsInstalled;
         await EnsureRepositoryHygieneCoreAsync(
                 repository,
@@ -3277,15 +3392,11 @@ internal sealed class GitCliVersionControlService :
                 cancellationToken)
             .ConfigureAwait(false);
 
-        GitIdentity? identity = await GetIdentityCoreAsync(repository, runner, cancellationToken)
+        WorkspaceStatus status = await GetStatusCoreAsync(
+                repository,
+                runner,
+                cancellationToken)
             .ConfigureAwait(false);
-        if (identity is null)
-        {
-            TryEnsureWatcher();
-            throw new GitIdentityRequiredException();
-        }
-
-        WorkspaceStatus status = await GetStatusCoreAsync(cancellationToken).ConfigureAwait(false);
         if (!status.IsClean)
         {
             await RaiseLargeMediaNoticeIfNeededAsync(
@@ -3303,12 +3414,12 @@ internal sealed class GitCliVersionControlService :
                 repository,
                 [
                     "commit",
-                    "-m",
-                    "beutl: initialize version control",
-                    "-m",
-                    "Beutl-Snapshot: init",
-                    "--",
-                    repository.Pathspec,
+                        "-m",
+                        "beutl: initialize version control",
+                        "-m",
+                        "Beutl-Snapshot: init",
+                        "--",
+                        repository.Pathspec,
                 ],
                 GitCommandOptions.Local,
                 cancellationToken).ConfigureAwait(false);
@@ -3318,12 +3429,62 @@ internal sealed class GitCliVersionControlService :
         await TryQueueStatusChangedCoreAsync().ConfigureAwait(false);
     }
 
-    private static async Task EnsureRepositoryHygieneCoreAsync(
+    private static async Task EnsureInitializationPreflightCoreAsync(
+        RepositoryInfo repository,
+        IGitCliRunner runner,
+        CancellationToken cancellationToken)
+    {
+        EnsureHygienePathsAreSafe(repository);
+        await GetAttachedBranchRefCoreAsync(repository, runner, cancellationToken)
+            .ConfigureAwait(false);
+        await EnsureRepositoryStatusAndIgnorePreflightCoreAsync(
+                repository,
+                runner,
+                cancellationToken)
+            .ConfigureAwait(false);
+    }
+
+    private static async Task EnsureRepositoryHygienePreflightCoreAsync(
+        RepositoryInfo repository,
+        IGitCliRunner runner,
+        CancellationToken cancellationToken)
+    {
+        EnsureHygienePathsAreSafe(repository);
+        await GetCheckedOutBranchTipCoreAsync(repository, runner, cancellationToken)
+            .ConfigureAwait(false);
+        await EnsureRepositoryStatusAndIgnorePreflightCoreAsync(
+                repository,
+                runner,
+                cancellationToken)
+            .ConfigureAwait(false);
+    }
+
+    private static async Task EnsureRepositoryStatusAndIgnorePreflightCoreAsync(
+        RepositoryInfo repository,
+        IGitCliRunner runner,
+        CancellationToken cancellationToken)
+    {
+        WorkspaceStatus status = await GetStatusCoreAsync(
+                repository,
+                runner,
+                cancellationToken)
+            .ConfigureAwait(false);
+        ThrowIfConflicted(status);
+        string? ignoredPath = await FindIgnoredRequiredProjectPathAsync(
+                repository,
+                runner,
+                cancellationToken)
+            .ConfigureAwait(false);
+        ThrowIfRequiredProjectPathIgnored(ignoredPath);
+    }
+
+    private async Task EnsureRepositoryHygieneCoreAsync(
         RepositoryInfo repository,
         IGitCliRunner runner,
         bool useLfs,
         CancellationToken cancellationToken)
     {
+        EnsureHygienePathsAreSafe(repository);
         if (useLfs)
         {
             await runner.RunAsync(
@@ -3337,9 +3498,9 @@ internal sealed class GitCliVersionControlService :
             Path.Combine(repository.ProjectRoot, ".gitignore"),
             s_gitIgnoreLines,
             cancellationToken).ConfigureAwait(false);
-        await EnsureLinesAsync(
+        await EnsureAttributesAsync(
             Path.Combine(repository.ProjectRoot, ".gitattributes"),
-            useLfs ? [.. s_textAttributeLines, .. s_lfsAttributeLines] : s_textAttributeLines,
+            useLfs,
             cancellationToken).ConfigureAwait(false);
     }
 
@@ -3424,6 +3585,13 @@ internal sealed class GitCliVersionControlService :
     {
         RepositoryInfo repository = GetRepository();
         IGitCliRunner runner = await GetInstalledRunnerCoreAsync(cancellationToken).ConfigureAwait(false);
+        await GetAttachedBranchRefCoreAsync(repository, runner, cancellationToken).ConfigureAwait(false);
+        string? ignoredPath = await FindIgnoredExistingRequiredProjectPathAsync(
+                repository,
+                runner,
+                cancellationToken)
+            .ConfigureAwait(false);
+        ThrowIfRequiredProjectPathIgnored(ignoredPath);
         WorkspaceStatus status = await GetStatusCoreAsync(cancellationToken).ConfigureAwait(false);
         ThrowIfConflicted(status);
         if (status.IsClean)
@@ -3626,6 +3794,19 @@ internal sealed class GitCliVersionControlService :
         };
     }
 
+    private static void ValidateCommitSha(string sha)
+    {
+        if (sha.Length is < 4 or > 64
+            || sha.Any(static character => character is not (>= '0' and <= '9'
+                or >= 'a' and <= 'f'
+                or >= 'A' and <= 'F')))
+        {
+            throw new ArgumentException(
+                "The commit SHA must be a hexadecimal object ID between 4 and 64 characters.",
+                nameof(sha));
+        }
+    }
+
     private static string ValidateDiffPath(RepositoryInfo repository, string path)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(path);
@@ -3688,6 +3869,30 @@ internal sealed class GitCliVersionControlService :
         return string.IsNullOrWhiteSpace(name) || string.IsNullOrWhiteSpace(email)
             ? null
             : new GitIdentity(name, email);
+    }
+
+    private static async Task SetLocalIdentityCoreAsync(
+        RepositoryInfo repository,
+        IGitCliRunner runner,
+        GitIdentity identity,
+        CancellationToken cancellationToken)
+    {
+        await runner.RunAsync(
+            repository,
+            ["config", "--local", "user.name", identity.Name],
+            GitCommandOptions.Local,
+            cancellationToken).ConfigureAwait(false);
+        await runner.RunAsync(
+            repository,
+            ["config", "--local", "user.email", identity.Email],
+            GitCommandOptions.Local,
+            cancellationToken).ConfigureAwait(false);
+    }
+
+    private static void ValidateIdentity(GitIdentity identity)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(identity.Name);
+        ArgumentException.ThrowIfNullOrWhiteSpace(identity.Email);
     }
 
     private async Task RaiseLfsQuotaNoticeIfNeededAsync(
@@ -3951,33 +4156,561 @@ internal sealed class GitCliVersionControlService :
         }
     }
 
-    private static async Task EnsureLinesAsync(
+    private async Task EnsureLinesAsync(
         string path,
         IReadOnlyList<string> requiredLines,
         CancellationToken cancellationToken)
     {
-        string? existingContents = File.Exists(path)
-            ? await File.ReadAllTextAsync(path, cancellationToken).ConfigureAwait(false)
-            : null;
-        var lines = File.Exists(path)
-            ? (await File.ReadAllLinesAsync(path, cancellationToken).ConfigureAwait(false)).ToList()
-            : [];
-        foreach (string requiredLine in requiredLines)
-        {
-            if (!lines.Contains(requiredLine, StringComparer.Ordinal))
+        await UpdateHygieneFileAsync(
+            path,
+            lines =>
             {
-                lines.Add(requiredLine);
+                foreach (string requiredLine in requiredLines)
+                {
+                    if (!lines.Contains(requiredLine, StringComparer.Ordinal))
+                    {
+                        lines.Add(requiredLine);
+                    }
+                }
+
+                return lines;
+            },
+            cancellationToken).ConfigureAwait(false);
+    }
+
+    private async Task EnsureAttributesAsync(
+        string path,
+        bool useLfs,
+        CancellationToken cancellationToken)
+    {
+        await UpdateHygieneFileAsync(
+            path,
+            lines =>
+            {
+                int? managedBlockIndex = RemoveManagedLfsBlocks(lines);
+                foreach (string requiredLine in s_textAttributeLines)
+                {
+                    if (!lines.Contains(requiredLine, StringComparer.Ordinal))
+                    {
+                        lines.Add(requiredLine);
+                    }
+                }
+
+                if (useLfs)
+                {
+                    int insertionIndex = managedBlockIndex is { } existingIndex
+                        ? Math.Min(existingIndex, lines.Count)
+                        : 0;
+                    lines.InsertRange(
+                        insertionIndex,
+                        [ManagedLfsBeginMarker, .. s_lfsAttributeLines, ManagedLfsEndMarker]);
+                }
+
+                return lines;
+            },
+            cancellationToken).ConfigureAwait(false);
+    }
+
+    private static int? RemoveManagedLfsBlocks(List<string> lines)
+    {
+        int? firstBlockIndex = null;
+        int index = 0;
+        while (index < lines.Count)
+        {
+            if (!string.Equals(lines[index], ManagedLfsBeginMarker, StringComparison.Ordinal))
+            {
+                index++;
+                continue;
+            }
+
+            int end = lines.FindIndex(
+                index + 1,
+                static line => string.Equals(
+                    line,
+                    ManagedLfsEndMarker,
+                    StringComparison.Ordinal));
+            if (end < 0)
+            {
+                index++;
+                continue;
+            }
+
+            firstBlockIndex ??= index;
+            lines.RemoveRange(index, end - index + 1);
+        }
+
+        return firstBlockIndex;
+    }
+
+    private async Task UpdateHygieneFileAsync(
+        string path,
+        Func<List<string>, List<string>> updateLines,
+        CancellationToken cancellationToken)
+    {
+        for (int attempt = 0; attempt < MaxHygieneWriteAttempts; attempt++)
+        {
+            HygieneFileSnapshot snapshot = await ReadHygieneFileSnapshotAsync(
+                    path,
+                    cancellationToken)
+                .ConfigureAwait(false);
+            List<string> lines = ReadHygieneLines(snapshot.Contents);
+            string contents = string.Join('\n', updateLines(lines)) + '\n';
+            if (snapshot.Exists
+                && string.Equals(snapshot.Contents, contents, StringComparison.Ordinal))
+            {
+                return;
+            }
+
+            string temporaryPath = await WriteTemporaryHygieneFileAsync(
+                    path,
+                    contents,
+                    snapshot,
+                    cancellationToken)
+                .ConfigureAwait(false);
+            try
+            {
+                if (_beforeHygieneFileReplace is not null)
+                {
+                    await _beforeHygieneFileReplace(path, cancellationToken).ConfigureAwait(false);
+                }
+
+                HygieneFileSnapshot current = await ReadHygieneFileSnapshotAsync(
+                        path,
+                        cancellationToken)
+                    .ConfigureAwait(false);
+                if (current != snapshot)
+                {
+                    continue;
+                }
+
+                cancellationToken.ThrowIfCancellationRequested();
+                if (_beforeHygieneFileCommit is not null)
+                {
+                    await _beforeHygieneFileCommit(path, cancellationToken).ConfigureAwait(false);
+                }
+
+                HygieneFileSnapshot finalSnapshot = await ReadHygieneFileSnapshotAsync(
+                        path,
+                        cancellationToken)
+                    .ConfigureAwait(false);
+                if (finalSnapshot != snapshot)
+                {
+                    continue;
+                }
+
+                cancellationToken.ThrowIfCancellationRequested();
+                try
+                {
+                    File.Move(temporaryPath, path, overwrite: snapshot.Exists);
+                }
+                catch (IOException) when (!snapshot.Exists && File.Exists(path))
+                {
+                    continue;
+                }
+
+                return;
+            }
+            finally
+            {
+                TryDeleteHygieneTemporaryFile(temporaryPath);
             }
         }
 
-        string contents = string.Join('\n', lines) + '\n';
-        if (!string.Equals(existingContents, contents, StringComparison.Ordinal))
+        throw new InvalidOperationException(
+            $"Repository hygiene could not update '{path}' because it kept changing.");
+    }
+
+    private static async Task<string> WriteTemporaryHygieneFileAsync(
+        string path,
+        string contents,
+        HygieneFileSnapshot snapshot,
+        CancellationToken cancellationToken)
+    {
+        string directory = Path.GetDirectoryName(path)
+                           ?? throw new InvalidOperationException(
+                               $"The repository hygiene path '{path}' has no parent directory.");
+        string temporaryPath = Path.Combine(
+            directory,
+            $".{Path.GetFileName(path)}.{Guid.NewGuid():N}.tmp");
+        try
         {
-            await File.WriteAllTextAsync(
-                path,
+            await using (var stream = new FileStream(
+                             temporaryPath,
+                             new FileStreamOptions
+                             {
+                                 Mode = FileMode.CreateNew,
+                                 Access = FileAccess.Write,
+                                 Share = FileShare.None,
+                                 Options = FileOptions.Asynchronous,
+                             }))
+            await using (var writer = new StreamWriter(
+                             stream,
+                             new UTF8Encoding(encoderShouldEmitUTF8Identifier: false)))
+            {
+                await writer.WriteAsync(contents.AsMemory(), cancellationToken)
+                    .ConfigureAwait(false);
+            }
+
+            CopyHygieneFileMetadata(temporaryPath, snapshot);
+            return temporaryPath;
+        }
+        catch
+        {
+            TryDeleteHygieneTemporaryFile(temporaryPath);
+            throw;
+        }
+    }
+
+    private static void CopyHygieneFileMetadata(
+        string temporaryPath,
+        HygieneFileSnapshot snapshot)
+    {
+        if (snapshot.Attributes is { } attributes)
+        {
+            File.SetAttributes(temporaryPath, attributes);
+        }
+
+        if (!OperatingSystem.IsWindows() && snapshot.UnixMode is { } unixMode)
+        {
+            File.SetUnixFileMode(temporaryPath, unixMode);
+        }
+    }
+
+    private static async Task<HygieneFileSnapshot> ReadHygieneFileSnapshotAsync(
+        string path,
+        CancellationToken cancellationToken)
+    {
+        EnsureHygienePathIsSafe(path);
+        try
+        {
+            if (!File.Exists(path))
+            {
+                return new HygieneFileSnapshot(
+                    Exists: false,
+                    Contents: null,
+                    Attributes: null,
+                    UnixMode: null);
+            }
+
+            string contents = await File.ReadAllTextAsync(path, cancellationToken)
+                .ConfigureAwait(false);
+            FileAttributes attributes = File.GetAttributes(path);
+            UnixFileMode? unixMode = null;
+            if (!OperatingSystem.IsWindows())
+            {
+                unixMode = File.GetUnixFileMode(path);
+            }
+
+            EnsureHygienePathIsSafe(path);
+            return new HygieneFileSnapshot(
+                Exists: true,
                 contents,
-                new UTF8Encoding(encoderShouldEmitUTF8Identifier: false),
+                attributes,
+                unixMode);
+        }
+        catch (Exception ex) when (ex is FileNotFoundException or DirectoryNotFoundException)
+        {
+            EnsureHygienePathIsSafe(path);
+            return new HygieneFileSnapshot(
+                Exists: false,
+                Contents: null,
+                Attributes: null,
+                UnixMode: null);
+        }
+    }
+
+    private static List<string> ReadHygieneLines(string? contents)
+    {
+        if (string.IsNullOrEmpty(contents))
+        {
+            return [];
+        }
+
+        var lines = new List<string>();
+        using var reader = new StringReader(contents);
+        while (reader.ReadLine() is { } line)
+        {
+            lines.Add(line);
+        }
+
+        return lines;
+    }
+
+    private static void TryDeleteHygieneTemporaryFile(string path)
+    {
+        try
+        {
+            File.Delete(path);
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+        }
+    }
+
+    private sealed record HygieneFileSnapshot(
+        bool Exists,
+        string? Contents,
+        FileAttributes? Attributes,
+        UnixFileMode? UnixMode);
+
+    private static void EnsureHygienePathsAreSafe(RepositoryInfo repository)
+    {
+        EnsureHygienePathIsSafe(Path.Combine(repository.ProjectRoot, ".gitignore"));
+        EnsureHygienePathIsSafe(Path.Combine(repository.ProjectRoot, ".gitattributes"));
+    }
+
+    private static void EnsureHygienePathIsSafe(string path)
+    {
+        try
+        {
+            var file = new FileInfo(path);
+            file.Refresh();
+            if (file.LinkTarget is not null
+                || (file.Exists && (file.Attributes & FileAttributes.ReparsePoint) != 0)
+                || Directory.Exists(path))
+            {
+                throw new InvalidOperationException(
+                    $"Repository hygiene requires '{path}' to be a regular file.");
+            }
+        }
+        catch (InvalidOperationException)
+        {
+            throw;
+        }
+        catch (Exception ex) when (ex is IOException
+                                       or UnauthorizedAccessException
+                                       or NotSupportedException)
+        {
+            throw new InvalidOperationException(
+                $"The repository hygiene path '{path}' could not be inspected safely.",
+                ex);
+        }
+    }
+
+    private static async Task<string?> FindIgnoredRequiredProjectPathAsync(
+        RepositoryInfo repository,
+        IGitCliRunner runner,
+        CancellationToken cancellationToken)
+    {
+        string prefix = repository.Pathspec == "." ? string.Empty : repository.Pathspec + "/";
+        var paths = GetRequiredProjectRelativePaths(repository.ProjectRoot)
+            .Select(path => prefix + path)
+            .ToList();
+        if (repository.Pathspec != ".")
+        {
+            paths.Add(repository.Pathspec + "/");
+        }
+
+        return await FindIgnoredPathAsync(
+                repository,
+                runner,
+                paths,
+                environmentOverrides: null,
+                includeTrackedFiles: true,
+                cancellationToken)
+            .ConfigureAwait(false);
+    }
+
+    private static async Task<string?> FindIgnoredExistingRequiredProjectPathAsync(
+        RepositoryInfo repository,
+        IGitCliRunner runner,
+        CancellationToken cancellationToken)
+    {
+        string prefix = repository.Pathspec == "." ? string.Empty : repository.Pathspec + "/";
+        IEnumerable<string> paths = EnumerateRequiredProjectFiles(repository.ProjectRoot)
+            .Select(path => prefix + Path.GetRelativePath(repository.ProjectRoot, path).Replace('\\', '/'));
+        return await FindIgnoredPathAsync(
+                repository,
+                runner,
+                paths,
+                environmentOverrides: null,
+                includeTrackedFiles: false,
+                cancellationToken)
+            .ConfigureAwait(false);
+    }
+
+    private static async Task<string?> FindIgnoredRequiredProjectPathBeforeInitAsync(
+        RepositoryInfo repository,
+        IGitCliRunner runner,
+        CancellationToken cancellationToken)
+    {
+        if (!Directory.Exists(repository.ProjectRoot))
+        {
+            return null;
+        }
+
+        string probeRoot = Path.Combine(
+            Path.GetTempPath(),
+            $"beutl-git-ignore-{Guid.NewGuid():N}");
+        Directory.CreateDirectory(probeRoot);
+        try
+        {
+            var probeRepository = new RepositoryInfo(probeRoot, probeRoot);
+            await runner.RunAsync(
+                probeRepository,
+                ["init"],
+                GitCommandOptions.Local,
                 cancellationToken).ConfigureAwait(false);
+            var environmentOverrides = new Dictionary<string, string?>
+            {
+                ["GIT_DIR"] = Path.Combine(probeRoot, ".git"),
+                ["GIT_WORK_TREE"] = repository.ProjectRoot,
+            };
+            return await FindIgnoredPathAsync(
+                    probeRepository,
+                    runner,
+                    GetRequiredProjectRelativePaths(repository.ProjectRoot),
+                    environmentOverrides,
+                    includeTrackedFiles: true,
+                    cancellationToken)
+                .ConfigureAwait(false);
+        }
+        finally
+        {
+            TryDeleteIgnoreProbeDirectory(probeRoot);
+        }
+    }
+
+    private static async Task<string?> FindIgnoredPathAsync(
+        RepositoryInfo repository,
+        IGitCliRunner runner,
+        IEnumerable<string> paths,
+        IReadOnlyDictionary<string, string?>? environmentOverrides,
+        bool includeTrackedFiles,
+        CancellationToken cancellationToken)
+    {
+        string input = string.Join(
+            '\0',
+            paths.Distinct(StringComparer.Ordinal)) + '\0';
+        if (input.Length == 1)
+        {
+            return null;
+        }
+
+        try
+        {
+            GitCommandResult result = await runner.RunAsync(
+                repository,
+                includeTrackedFiles
+                    ? ["check-ignore", "--no-index", "--stdin", "-z"]
+                    : ["check-ignore", "--stdin", "-z"],
+                new GitCommandOptions(
+                    GitCommandExecutionKind.Local,
+                    EnvironmentOverrides: environmentOverrides,
+                    StandardInput: input,
+                    UseLiteralPathspecs: false),
+                cancellationToken).ConfigureAwait(false);
+            return GitCliRunner.SplitNullSeparated(result.Stdout).FirstOrDefault();
+        }
+        catch (GitOperationException ex) when (ex.ExitCode == 1)
+        {
+            return null;
+        }
+    }
+
+    private static IReadOnlyList<string> GetRequiredProjectRelativePaths(string projectRoot)
+    {
+        var paths = new HashSet<string>(StringComparer.Ordinal)
+        {
+            ".gitignore",
+            ".gitattributes",
+            "beutl-required-project.bep",
+            "beutl-required-project.scene",
+            "beutl-required-project.belm",
+        };
+        foreach (string extension in s_mediaExtensions)
+        {
+            paths.Add($"resources/beutl-required-media{extension}");
+        }
+
+        if (Directory.Exists(projectRoot))
+        {
+            foreach (string path in EnumerateRequiredProjectFiles(projectRoot))
+            {
+                paths.Add(Path.GetRelativePath(projectRoot, path).Replace('\\', '/'));
+            }
+        }
+
+        return [.. paths];
+    }
+
+    private static IEnumerable<string> EnumerateRequiredProjectFiles(string projectRoot)
+    {
+        var pending = new Stack<(string Directory, bool IsResourceDirectory)>();
+        pending.Push((projectRoot, IsResourceDirectory: false));
+        var options = new EnumerationOptions { AttributesToSkip = 0 };
+        while (pending.TryPop(out (string Directory, bool IsResourceDirectory) item))
+        {
+            foreach (string file in Directory.EnumerateFiles(item.Directory, "*", options))
+            {
+                string extension = Path.GetExtension(file);
+                if (!string.Equals(extension, ".tmp", StringComparison.OrdinalIgnoreCase)
+                    && (item.IsResourceDirectory
+                        || s_projectFileExtensions.Contains(extension)))
+                {
+                    yield return file;
+                }
+            }
+
+            foreach (string child in Directory.EnumerateDirectories(item.Directory, "*", options))
+            {
+                string name = Path.GetFileName(Path.TrimEndingDirectorySeparator(child));
+                if ((File.GetAttributes(child) & FileAttributes.ReparsePoint) == 0
+                    && !string.Equals(
+                        name,
+                        ".beutl",
+                        StringComparison.OrdinalIgnoreCase)
+                    && !string.Equals(
+                        name,
+                        ".git",
+                        StringComparison.OrdinalIgnoreCase))
+                {
+                    pending.Push((
+                        child,
+                        item.IsResourceDirectory
+                        || string.Equals(name, "resources", StringComparison.OrdinalIgnoreCase)));
+                }
+            }
+        }
+    }
+
+    private static void TryDeleteIgnoreProbeDirectory(string path)
+    {
+        try
+        {
+            Directory.Delete(path, recursive: true);
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+        }
+    }
+
+    private static void ThrowIfRequiredProjectPathIgnored(string? path)
+    {
+        if (path is not null)
+        {
+            throw new InvalidOperationException(
+                $"The required project path '{path}' is ignored by the repository. "
+                + "Update the repository's ignore rules before enabling version control.");
+        }
+    }
+
+    private static void ValidateRemoteUrl(string url)
+    {
+        if (!Uri.TryCreate(url, UriKind.Absolute, out Uri? uri)
+            || string.IsNullOrEmpty(uri.UserInfo))
+        {
+            return;
+        }
+
+        bool isSsh = string.Equals(uri.Scheme, "ssh", StringComparison.OrdinalIgnoreCase);
+        bool hasPassword = Uri.UnescapeDataString(uri.UserInfo)
+            .Contains(':');
+        if (!isSsh || hasPassword)
+        {
+            throw new ArgumentException(
+                "Remote URLs must not embed credentials. Configure a Git credential helper instead.",
+                nameof(url));
         }
     }
 
@@ -4182,14 +4915,16 @@ internal sealed class GitCliVersionControlService :
 
     private void CaptureRecoverableLock(GitOperationException exception)
     {
+        IGitCliRunner? runner = _runner;
+        RepositoryInfo? repository = Repository;
         if (!exception.IsRepositoryLockFailure
-            || Repository is null
-            || _runner is null)
+            || repository is null
+            || runner is null)
         {
             return;
         }
 
-        RepositoryLockInfo? lockInfo = _runner.GetRecoverableRepositoryLock(Repository);
+        RepositoryLockInfo? lockInfo = runner.GetRecoverableRepositoryLock(repository);
         if (lockInfo is null)
         {
             return;

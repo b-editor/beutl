@@ -42,6 +42,8 @@ public sealed class VersionControlCoordinator :
     private readonly ReactivePropertySlim<bool> _isGitAvailable = new();
     private readonly ReactivePropertySlim<bool> _isTracked = new();
     private readonly Queue<StatePublication> _publicationQueue = new();
+    private readonly Dictionary<ProjectService.ProjectCloseContext, NonTransactionalCloseBarrier>
+        _preparedCloseBarriers = new();
     private readonly Dictionary<IProjectVersionControlBackend, HashSet<ActivationContext>>
         _candidateServiceUsers = new(ReferenceEqualityComparer.Instance);
     private readonly HashSet<IProjectVersionControlBackend> _managedServices = new(
@@ -55,6 +57,7 @@ public sealed class VersionControlCoordinator :
     private TaskCompletionSource? _activationSetupsQuiesced;
     private TaskCompletionSource? _availabilityQuiesced;
     private TaskCompletionSource? _closeBarriersQuiesced;
+    private TaskCompletionSource? _configurationActivationQuiesced;
     private TaskCompletionSource? _lifecycleQuiesced;
     private TaskCompletionSource? _lockRecoveryQuiesced;
     private TaskCompletionSource? _notificationsQuiesced;
@@ -62,9 +65,12 @@ public sealed class VersionControlCoordinator :
     private TaskCompletionSource? _publicationDrainQuiesced;
     private TaskCompletionSource? _retirementsQuiesced;
     private CancellationTokenSource? _operationEpochCancellation = new();
+    private CancellationTokenSource? _configurationActivationCancellation;
+    private ConfigurationActivationRequest? _pendingConfigurationActivation;
     private long _nextActivationRevision;
     private long _latestActivationRevision;
     private long _nextStateRevision;
+    private long _nextConfigurationActivationRevision;
     private long _lastPublishedRevision;
     private int _availabilityRevision;
     private int _activationSetupUsers;
@@ -76,9 +82,11 @@ public sealed class VersionControlCoordinator :
     private int _operationUsers;
     private int _retirementUsers;
     private int _asyncDisposalStarted;
+    private string? _observedGitExecutablePath;
     private bool _publicationDrainScheduled;
     private bool _publicationDrainRunning;
     private bool _disposePropertiesRequested;
+    private bool _configurationActivationActive;
     private bool _operationCloseBarrierActive;
     private bool _propertiesDisposed;
     private volatile bool _disposed;
@@ -105,6 +113,7 @@ public sealed class VersionControlCoordinator :
         _projectService = projectService ?? throw new ArgumentNullException(nameof(projectService));
         _editorService = editorService ?? throw new ArgumentNullException(nameof(editorService));
         _config = config ?? throw new ArgumentNullException(nameof(config));
+        _observedGitExecutablePath = NormalizeGitExecutablePath(config.GitExecutablePath);
         _installationLocator = installationLocator ?? new GitInstallationLocator(config);
         _serviceFactory = serviceFactory;
         _dispatcher = Dispatcher.UIThread;
@@ -118,6 +127,7 @@ public sealed class VersionControlCoordinator :
         PresentPolicyNoticeAsync = ShowPolicyNoticeAsync;
         _config.ConfigurationChanged += OnVersionControlConfigChanged;
         _projectService.Opening += WarnBeforeOpeningConflictedProjectAsync;
+        _projectService.Closing += PrepareProjectClosingAsync;
         _projectService.ClosingFinalizing += NotifyProjectClosingAsync;
         _projectSubscription = _projectService.ProjectObservable.Subscribe(
             change => OnProjectChanged(change.New));
@@ -222,7 +232,7 @@ public sealed class VersionControlCoordinator :
     {
         ArgumentNullException.ThrowIfNull(requestIdentityAsync);
         using NonTransactionalOperationLease operation =
-            BeginNonTransactionalOperation(cancellationToken);
+            await BeginNonTransactionalOperationAsync(cancellationToken);
         CancellationToken operationCancellation = operation.CancellationToken;
 
         Project project = _projectService.CurrentProject.Value
@@ -287,8 +297,9 @@ public sealed class VersionControlCoordinator :
                 }
 
                 operationCancellation.ThrowIfCancellationRequested();
-                await service.SetLocalIdentityAsync(identity, operationCancellation);
-                await service.InitializeAsync(options, operationCancellation);
+                await service.InitializeAsync(
+                    options with { Identity = identity },
+                    operationCancellation);
             }
         }
         catch (VersionControlConflictedException ex)
@@ -322,7 +333,7 @@ public sealed class VersionControlCoordinator :
     public async Task NotifySavedAsync(CancellationToken cancellationToken = default)
     {
         using NonTransactionalOperationLease operation =
-            BeginNonTransactionalOperation(cancellationToken);
+            await BeginNonTransactionalOperationAsync(cancellationToken);
         await CommitSnapshotAsync(
             _config.AutoCommitOnSave,
             SaveSnapshotMessage,
@@ -330,7 +341,7 @@ public sealed class VersionControlCoordinator :
             operation.CancellationToken);
     }
 
-    private async Task NotifyProjectClosingAsync(
+    private async Task PrepareProjectClosingAsync(
         ProjectService.ProjectCloseContext closeContext,
         CancellationToken cancellationToken)
     {
@@ -350,23 +361,68 @@ public sealed class VersionControlCoordinator :
         bool completionRegistered = false;
         try
         {
-            closeContext.RegisterCompletion(closeBarrier.CompleteAsync);
+            lock (_stateGate)
+            {
+                _preparedCloseBarriers.Add(closeContext, closeBarrier);
+            }
+
+            closeContext.RegisterCompletion(
+                projectClosed => CompletePreparedCloseBarrierAsync(
+                    closeContext,
+                    closeBarrier,
+                    projectClosed));
             completionRegistered = true;
-            await NotifyClosingCoreAsync(closeBarrier).ConfigureAwait(false);
         }
         finally
         {
             if (!completionRegistered)
             {
+                lock (_stateGate)
+                {
+                    _preparedCloseBarriers.Remove(closeContext);
+                }
+
                 await closeBarrier.CompleteAsync(projectClosed: false).ConfigureAwait(false);
             }
         }
     }
 
-    private async Task NotifyClosingCoreAsync(NonTransactionalCloseBarrier closeBarrier)
+    private async Task CompletePreparedCloseBarrierAsync(
+        ProjectService.ProjectCloseContext closeContext,
+        NonTransactionalCloseBarrier closeBarrier,
+        bool projectClosed)
     {
-        CancellationToken closeCancellation = closeBarrier.CancellationToken;
+        lock (_stateGate)
+        {
+            _preparedCloseBarriers.Remove(closeContext);
+        }
 
+        await closeBarrier.CompleteAsync(projectClosed).ConfigureAwait(false);
+    }
+
+    private async Task NotifyProjectClosingAsync(
+        ProjectService.ProjectCloseContext closeContext,
+        CancellationToken cancellationToken)
+    {
+        if (IsInternalVersionControlTransition())
+        {
+            return;
+        }
+
+        NonTransactionalCloseBarrier? closeBarrier;
+        lock (_stateGate)
+        {
+            _preparedCloseBarriers.TryGetValue(closeContext, out closeBarrier);
+        }
+
+        if (closeBarrier is not null)
+        {
+            await NotifyClosingCoreAsync(cancellationToken).ConfigureAwait(false);
+        }
+    }
+
+    private async Task NotifyClosingCoreAsync(CancellationToken closeCancellation)
+    {
         ActivationContext? activation;
         string? projectRoot;
         long activationRevision;
@@ -482,7 +538,7 @@ public sealed class VersionControlCoordinator :
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(message);
         using NonTransactionalOperationLease operation =
-            BeginNonTransactionalOperation(cancellationToken);
+            await BeginNonTransactionalOperationAsync(cancellationToken);
         CancellationToken operationCancellation = operation.CancellationToken;
         IProjectVersionControlBackend service = GetTrackedBackend();
         try
@@ -531,7 +587,7 @@ public sealed class VersionControlCoordinator :
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(url);
         using NonTransactionalOperationLease operation =
-            BeginNonTransactionalOperation(cancellationToken);
+            await BeginNonTransactionalOperationAsync(cancellationToken);
         await GetTrackedBackend().SetRemoteAsync(url.Trim(), operation.CancellationToken);
     }
 
@@ -541,7 +597,7 @@ public sealed class VersionControlCoordinator :
     {
         ArgumentNullException.ThrowIfNull(identity);
         using NonTransactionalOperationLease operation =
-            BeginNonTransactionalOperation(cancellationToken);
+            await BeginNonTransactionalOperationAsync(cancellationToken);
         await GetTrackedBackend().SetLocalIdentityAsync(identity, operation.CancellationToken);
     }
 
@@ -550,7 +606,7 @@ public sealed class VersionControlCoordinator :
         CancellationToken cancellationToken = default)
     {
         using NonTransactionalOperationLease operation =
-            BeginNonTransactionalOperation(cancellationToken);
+            await BeginNonTransactionalOperationAsync(cancellationToken);
         return await GetTrackedBackend().PushAsync(progress, operation.CancellationToken);
     }
 
@@ -596,6 +652,7 @@ public sealed class VersionControlCoordinator :
     private void BeginDisposal()
     {
         bool clearProjectState;
+        CancellationTokenSource? configurationActivationCancellation;
         lock (_stateGate)
         {
             if (_disposed)
@@ -604,6 +661,8 @@ public sealed class VersionControlCoordinator :
             }
 
             _disposed = true;
+            _pendingConfigurationActivation = null;
+            configurationActivationCancellation = _configurationActivationCancellation;
             clearProjectState = _closeBarrierUsers == 0
                                 && _lifecycleUsers == 0
                                 && _operationUsers == 0;
@@ -619,8 +678,10 @@ public sealed class VersionControlCoordinator :
                 ex,
                 "A cancellation callback failed while disposing version control.");
         }
+        CancelConfigurationActivation(configurationActivationCancellation);
         _config.ConfigurationChanged -= OnVersionControlConfigChanged;
         _projectService.Opening -= WarnBeforeOpeningConflictedProjectAsync;
+        _projectService.Closing -= PrepareProjectClosingAsync;
         _projectService.ClosingFinalizing -= NotifyProjectClosingAsync;
         _projectSubscription.Dispose();
         if (ReferenceEquals(_editorService.ProjectVersionControlCoordinator, this))
@@ -817,7 +878,7 @@ public sealed class VersionControlCoordinator :
         bool create,
         CancellationToken cancellationToken)
     {
-        BeginLifecycleOperation();
+        await BeginLifecycleOperationAsync(cancellationToken);
         bool gateEntered = false;
         try
         {
@@ -945,7 +1006,7 @@ public sealed class VersionControlCoordinator :
 
     private async Task<RemoteOpResult> RunPullCycleAsync(CancellationToken cancellationToken)
     {
-        BeginLifecycleOperation();
+        await BeginLifecycleOperationAsync(cancellationToken);
         bool gateEntered = false;
         try
         {
@@ -1249,7 +1310,7 @@ public sealed class VersionControlCoordinator :
         string? branchName,
         CancellationToken cancellationToken)
     {
-        BeginLifecycleOperation();
+        await BeginLifecycleOperationAsync(cancellationToken);
         bool gateEntered = false;
         try
         {
@@ -1752,12 +1813,27 @@ public sealed class VersionControlCoordinator :
         }
     }
 
-    private void BeginLifecycleOperation()
+    private async Task BeginLifecycleOperationAsync(CancellationToken cancellationToken)
     {
-        lock (_stateGate)
+        while (true)
         {
-            ThrowIfLifecycleOperationUnavailableLocked();
-            _lifecycleUsers++;
+            Task? configurationActivation;
+            lock (_stateGate)
+            {
+                ThrowIfLifecycleOperationUnavailableLocked();
+                if (_configurationActivationActive)
+                {
+                    configurationActivation =
+                        (_configurationActivationQuiesced ??= CreateCompletionSource()).Task;
+                }
+                else
+                {
+                    _lifecycleUsers++;
+                    return;
+                }
+            }
+
+            await configurationActivation.WaitAsync(cancellationToken).ConfigureAwait(false);
         }
     }
 
@@ -1779,38 +1855,58 @@ public sealed class VersionControlCoordinator :
         }
     }
 
-    private NonTransactionalOperationLease BeginNonTransactionalOperation(
+    private async ValueTask<NonTransactionalOperationLease> BeginNonTransactionalOperationAsync(
         CancellationToken cancellationToken)
     {
-        CancellationToken operationEpochCancellation;
-        lock (_stateGate)
+        while (true)
         {
-            ObjectDisposedException.ThrowIf(_disposed, this);
-            if (_operationCloseBarrierActive)
+            Task? configurationActivation;
+            CancellationToken operationEpochCancellation = default;
+            lock (_stateGate)
             {
-                throw new InvalidOperationException(
-                    "Version-control operations cannot start while the project is closing.");
+                ObjectDisposedException.ThrowIf(_disposed, this);
+                if (_operationCloseBarrierActive)
+                {
+                    throw new InvalidOperationException(
+                        "Version-control operations cannot start while the project is closing.");
+                }
+
+                if (_configurationActivationActive)
+                {
+                    configurationActivation =
+                        (_configurationActivationQuiesced ??= CreateCompletionSource()).Task;
+                }
+                else
+                {
+                    configurationActivation = null;
+                    operationEpochCancellation = (_operationEpochCancellation
+                                                  ?? throw new ObjectDisposedException(
+                                                      nameof(VersionControlCoordinator)))
+                        .Token;
+                    _operationUsers++;
+                }
             }
 
-            operationEpochCancellation = (_operationEpochCancellation
-                                          ?? throw new ObjectDisposedException(nameof(VersionControlCoordinator)))
-                .Token;
-            _operationUsers++;
-        }
+            if (configurationActivation is not null)
+            {
+                await configurationActivation.WaitAsync(cancellationToken).ConfigureAwait(false);
+                continue;
+            }
 
-        try
-        {
-            return new NonTransactionalOperationLease(
-                this,
-                CancellationTokenSource.CreateLinkedTokenSource(
-                    cancellationToken,
-                    _lifetimeCancellation.Token,
-                    operationEpochCancellation));
-        }
-        catch
-        {
-            FinishNonTransactionalOperation();
-            throw;
+            try
+            {
+                return new NonTransactionalOperationLease(
+                    this,
+                    CancellationTokenSource.CreateLinkedTokenSource(
+                        cancellationToken,
+                        _lifetimeCancellation.Token,
+                        operationEpochCancellation));
+            }
+            catch
+            {
+                FinishNonTransactionalOperation();
+                throw;
+            }
         }
     }
 
@@ -1820,7 +1916,7 @@ public sealed class VersionControlCoordinator :
         CancellationToken operationEpochCancellation;
         lock (_stateGate)
         {
-            if (_disposed || _operationCloseBarrierActive)
+            if (_disposed || _operationCloseBarrierActive || _configurationActivationActive)
             {
                 return null;
             }
@@ -1874,6 +1970,7 @@ public sealed class VersionControlCoordinator :
         finally
         {
             quiesced?.TrySetResult();
+            TryStartPendingConfigurationActivation();
         }
     }
 
@@ -1962,6 +2059,7 @@ public sealed class VersionControlCoordinator :
             {
                 FinishNonTransactionalCloseBarrier(
                     operationEpochCancellation!);
+                TryStartPendingConfigurationActivation();
             }
             else
             {
@@ -2020,9 +2118,19 @@ public sealed class VersionControlCoordinator :
     }
 
     private Task CompleteNonTransactionalCloseBarrierAsync(
-        CancellationTokenSource operationEpochCancellation)
+        CancellationTokenSource operationEpochCancellation,
+        bool projectClosed)
     {
+        if (projectClosed)
+        {
+            lock (_stateGate)
+            {
+                _pendingConfigurationActivation = null;
+            }
+        }
+
         FinishNonTransactionalCloseBarrier(operationEpochCancellation);
+        TryStartPendingConfigurationActivation();
         return Task.CompletedTask;
     }
 
@@ -2058,6 +2166,7 @@ public sealed class VersionControlCoordinator :
         finally
         {
             quiesced?.TrySetResult();
+            TryStartPendingConfigurationActivation();
         }
     }
 
@@ -2090,6 +2199,7 @@ public sealed class VersionControlCoordinator :
         finally
         {
             quiesced?.TrySetResult();
+            TryStartPendingConfigurationActivation();
         }
     }
 
@@ -2291,18 +2401,48 @@ public sealed class VersionControlCoordinator :
     internal void OnProjectChanged(Project? project)
     {
         bool internalTransition = IsInternalVersionControlTransition();
-        if (!TryBeginActivationSetup(internalTransition, out long activationRevision))
+        CancellationTokenSource? configurationActivationCancellation;
+        lock (_stateGate)
         {
-            return;
+            _pendingConfigurationActivation = null;
+            configurationActivationCancellation = _configurationActivationCancellation;
         }
 
-        _ = OnProjectChangedAsync(project, internalTransition, activationRevision);
+        CancelConfigurationActivation(configurationActivationCancellation);
+        StartProjectActivation(project, internalTransition);
     }
 
-    private async Task OnProjectChangedAsync(
+    private void StartProjectActivation(Project? project, bool internalTransition)
+    {
+        _ = StartProjectActivationAsync(
+            project,
+            internalTransition,
+            CancellationToken.None);
+    }
+
+    private async Task<ActivationContext?> StartProjectActivationAsync(
         Project? project,
         bool internalTransition,
-        long activationRevision)
+        CancellationToken cancellationToken)
+    {
+        if (!TryBeginActivationSetup(internalTransition, out long activationRevision))
+        {
+            return null;
+        }
+
+        return await OnProjectChangedAsync(
+                project,
+                internalTransition,
+                activationRevision,
+                cancellationToken)
+            .ConfigureAwait(false);
+    }
+
+    private async Task<ActivationContext?> OnProjectChangedAsync(
+        Project? project,
+        bool internalTransition,
+        long activationRevision,
+        CancellationToken cancellationToken)
     {
         try
         {
@@ -2311,7 +2451,7 @@ public sealed class VersionControlCoordinator :
                 if (project is null)
                 {
                     SetVisibleService(null);
-                    return;
+                    return null;
                 }
 
                 string preservedRoot = GetProjectRoot(project);
@@ -2322,19 +2462,19 @@ public sealed class VersionControlCoordinator :
                         preservedRoot))
                 {
                     SetVisibleService(preservedService);
-                    return;
+                    return null;
                 }
             }
 
             if (internalTransition && !TryPromoteActivationRevision(activationRevision))
             {
-                return;
+                return null;
             }
 
             if (project is null)
             {
                 ClearProjectState(activationRevision);
-                return;
+                return null;
             }
 
             string projectRoot = GetProjectRoot(project);
@@ -2347,21 +2487,23 @@ public sealed class VersionControlCoordinator :
             var activation = new ActivationContext(
                 activationRevision,
                 projectRoot,
-                service);
+                service,
+                cancellationToken);
             if (BeginActivation(activation, out bool cleanupRejectedService))
             {
                 _ = ActivateRepositoryAsync(activation);
+                return activation;
             }
-            else
-            {
-                await CompleteRejectedActivationAsync(activation, cleanupRejectedService)
-                    .ConfigureAwait(false);
-            }
+
+            await CompleteRejectedActivationAsync(activation, cleanupRejectedService)
+                .ConfigureAwait(false);
+            return null;
         }
         catch (Exception ex)
         {
             _logger.LogError(ex, "Failed to activate version control for the open project.");
             ClearProjectState(activationRevision);
+            return null;
         }
         finally
         {
@@ -2419,6 +2561,7 @@ public sealed class VersionControlCoordinator :
         }
 
         quiesced?.TrySetResult();
+        TryStartPendingConfigurationActivation();
     }
 
     private async Task CompleteRejectedActivationAsync(
@@ -2579,6 +2722,7 @@ public sealed class VersionControlCoordinator :
             finally
             {
                 activation.Finish();
+                TryStartPendingConfigurationActivation();
             }
         }
     }
@@ -2603,7 +2747,260 @@ public sealed class VersionControlCoordinator :
 
     private void OnVersionControlConfigChanged(object? sender, EventArgs e)
     {
+        if (TryCaptureGitExecutablePathChange(out string? executablePath)
+            && _projectService.CurrentProject.Value is { } project)
+        {
+            QueueConfigurationActivation(project, executablePath);
+        }
+
         StartAvailabilityRefresh();
+    }
+
+    private bool TryCaptureGitExecutablePathChange(out string? executablePath)
+    {
+        executablePath = NormalizeGitExecutablePath(_config.GitExecutablePath);
+        lock (_stateGate)
+        {
+            if (_disposed
+                || string.Equals(
+                    executablePath,
+                    _observedGitExecutablePath,
+                    PathComparison))
+            {
+                return false;
+            }
+
+            _observedGitExecutablePath = executablePath;
+            return true;
+        }
+    }
+
+    private void QueueConfigurationActivation(Project project, string? executablePath)
+    {
+        string projectRoot = GetProjectRoot(project);
+        CancellationTokenSource? activeCancellation = null;
+        lock (_stateGate)
+        {
+            if (_disposed || !ReferenceEquals(_projectService.CurrentProject.Value, project))
+            {
+                return;
+            }
+
+            if (_state.ProjectRoot is { } stateRoot
+                && string.Equals(stateRoot, projectRoot, PathComparison)
+                && _state.OwnedService?.Repository is not null)
+            {
+                _pendingConfigurationActivation = null;
+                return;
+            }
+
+            _pendingConfigurationActivation = new ConfigurationActivationRequest(
+                ++_nextConfigurationActivationRevision,
+                project,
+                projectRoot,
+                executablePath);
+            activeCancellation = _configurationActivationCancellation;
+        }
+
+        CancelConfigurationActivation(activeCancellation);
+        TryStartPendingConfigurationActivation();
+    }
+
+    private void TryStartPendingConfigurationActivation()
+    {
+        ConfigurationActivationStart? activationStart;
+        lock (_stateGate)
+        {
+            activationStart = TryPreparePendingConfigurationActivationLocked();
+        }
+
+        StartConfigurationActivation(activationStart);
+    }
+
+    private ConfigurationActivationStart? TryPreparePendingConfigurationActivationLocked()
+    {
+        ConfigurationActivationRequest? request = _pendingConfigurationActivation;
+        if (_disposed)
+        {
+            _pendingConfigurationActivation = null;
+            return null;
+        }
+
+        if (request is null || _configurationActivationActive)
+        {
+            return null;
+        }
+
+        Project? currentProject = _projectService.CurrentProject.Value;
+        if (!ReferenceEquals(currentProject, request.Project))
+        {
+            _pendingConfigurationActivation = null;
+            return null;
+        }
+
+        if (_state.ProjectRoot is { } stateRoot
+            && !string.Equals(stateRoot, request.ProjectRoot, PathComparison))
+        {
+            _pendingConfigurationActivation = null;
+            return null;
+        }
+
+        if (_state.ProjectRoot is { } trackedRoot
+            && string.Equals(trackedRoot, request.ProjectRoot, PathComparison)
+            && _state.OwnedService?.Repository is not null)
+        {
+            _pendingConfigurationActivation = null;
+            return null;
+        }
+
+        if (_operationCloseBarrierActive
+            || _closeBarrierUsers != 0
+            || _operationUsers != 0
+            || _lifecycleUsers != 0
+            || _activationSetupUsers != 0
+            || _activation is not null)
+        {
+            return null;
+        }
+
+        CancellationToken operationEpochCancellation = (_operationEpochCancellation
+                                                          ?? throw new ObjectDisposedException(
+                                                              nameof(VersionControlCoordinator)))
+            .Token;
+        var cancellation = CancellationTokenSource.CreateLinkedTokenSource(
+            _lifetimeCancellation.Token,
+            operationEpochCancellation);
+        _pendingConfigurationActivation = null;
+        _configurationActivationActive = true;
+        _configurationActivationCancellation = cancellation;
+        _operationUsers++;
+        return new ConfigurationActivationStart(request, cancellation);
+    }
+
+    private void StartConfigurationActivation(ConfigurationActivationStart? activationStart)
+    {
+        if (activationStart is not null)
+        {
+            _ = RunConfigurationActivationAsync(
+                activationStart.Request,
+                activationStart.Cancellation);
+        }
+    }
+
+    private async Task RunConfigurationActivationAsync(
+        ConfigurationActivationRequest request,
+        CancellationTokenSource cancellation)
+    {
+        bool retry = false;
+        try
+        {
+            cancellation.Token.ThrowIfCancellationRequested();
+            ActivationContext? activation = await StartProjectActivationAsync(
+                    request.Project,
+                    internalTransition: false,
+                    cancellation.Token)
+                .ConfigureAwait(false);
+            if (activation is not null)
+            {
+                await activation.Completion.ConfigureAwait(false);
+            }
+
+            cancellation.Token.ThrowIfCancellationRequested();
+        }
+        catch (OperationCanceledException) when (cancellation.IsCancellationRequested)
+        {
+            retry = true;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to apply a Git executable configuration change.");
+        }
+        finally
+        {
+            FinishConfigurationActivation(request, cancellation, retry);
+        }
+    }
+
+    private void FinishConfigurationActivation(
+        ConfigurationActivationRequest request,
+        CancellationTokenSource cancellation,
+        bool retry)
+    {
+        TaskCompletionSource? configurationActivationQuiesced = null;
+        TaskCompletionSource? operationsQuiesced = null;
+        ConfigurationActivationStart? nextActivation = null;
+        lock (_stateGate)
+        {
+            if (ReferenceEquals(_configurationActivationCancellation, cancellation))
+            {
+                _configurationActivationCancellation = null;
+            }
+
+            _configurationActivationActive = false;
+            configurationActivationQuiesced = _configurationActivationQuiesced;
+            _configurationActivationQuiesced = null;
+            _operationUsers--;
+
+            if (retry
+                && !_disposed
+                && request.Revision == _nextConfigurationActivationRevision
+                && _pendingConfigurationActivation is null
+                && ReferenceEquals(_projectService.CurrentProject.Value, request.Project)
+                && string.Equals(
+                    _observedGitExecutablePath,
+                    request.ExecutablePath,
+                    PathComparison)
+                && (_state.ProjectRoot is null
+                    || string.Equals(
+                        _state.ProjectRoot,
+                        request.ProjectRoot,
+                        PathComparison))
+                && _state.OwnedService?.Repository is null)
+            {
+                _pendingConfigurationActivation = request;
+            }
+
+            nextActivation = TryPreparePendingConfigurationActivationLocked();
+            if (_operationUsers == 0)
+            {
+                operationsQuiesced = _operationsQuiesced;
+                _operationsQuiesced = null;
+            }
+        }
+
+        try
+        {
+            cancellation.Dispose();
+        }
+        finally
+        {
+            try
+            {
+                StartConfigurationActivation(nextActivation);
+            }
+            finally
+            {
+                configurationActivationQuiesced?.TrySetResult();
+                operationsQuiesced?.TrySetResult();
+            }
+        }
+    }
+
+    private void CancelConfigurationActivation(CancellationTokenSource? cancellation)
+    {
+        try
+        {
+            cancellation?.Cancel();
+        }
+        catch (ObjectDisposedException)
+        {
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(
+                ex,
+                "A Git configuration activation cancellation callback failed.");
+        }
     }
 
     private void StartAvailabilityRefresh()
@@ -2683,6 +3080,7 @@ public sealed class VersionControlCoordinator :
         {
             rejected = _disposed
                        || activation.Revision != Volatile.Read(ref _latestActivationRevision)
+                       || activation.CancellationToken.IsCancellationRequested
                        || !CanAdoptServiceLocked(activation.Service);
             if (rejected)
             {
@@ -3468,6 +3866,16 @@ public sealed class VersionControlCoordinator :
         IProjectVersionControlBackend Service,
         Task ActivationReady);
 
+    private sealed record ConfigurationActivationRequest(
+        long Revision,
+        Project Project,
+        string ProjectRoot,
+        string? ExecutablePath);
+
+    private sealed record ConfigurationActivationStart(
+        ConfigurationActivationRequest Request,
+        CancellationTokenSource Cancellation);
+
     private sealed class NonTransactionalCloseBarrier
     {
         private VersionControlCoordinator? _owner;
@@ -3484,8 +3892,6 @@ public sealed class VersionControlCoordinator :
             _operationEpochCancellation = operationEpochCancellation;
         }
 
-        public CancellationToken CancellationToken => _cancellation.Token;
-
         public async Task CompleteAsync(bool projectClosed)
         {
             VersionControlCoordinator? owner = Interlocked.Exchange(ref _owner, null);
@@ -3501,7 +3907,8 @@ public sealed class VersionControlCoordinator :
             finally
             {
                 await owner.CompleteNonTransactionalCloseBarrierAsync(
-                        _operationEpochCancellation)
+                        _operationEpochCancellation,
+                        projectClosed)
                     .ConfigureAwait(false);
             }
         }
@@ -3538,7 +3945,7 @@ public sealed class VersionControlCoordinator :
     private sealed class ActivationContext
     {
         private readonly object _gate = new();
-        private readonly CancellationTokenSource _cancellation = new();
+        private readonly CancellationTokenSource _cancellation;
         private readonly TaskCompletionSource _cancellationQuiesced = new(
             TaskCreationOptions.RunContinuationsAsynchronously);
         private readonly TaskCompletionSource _completion = new(
@@ -3555,12 +3962,14 @@ public sealed class VersionControlCoordinator :
         public ActivationContext(
             long revision,
             string projectRoot,
-            IProjectVersionControlBackend service)
+            IProjectVersionControlBackend service,
+            CancellationToken cancellationToken = default)
         {
             Revision = revision;
             ProjectRoot = projectRoot;
             Service = service;
             _ownedService = service;
+            _cancellation = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
         }
 
         public long Revision { get; }
@@ -3724,6 +4133,9 @@ public sealed class VersionControlCoordinator :
         return Path.GetDirectoryName(projectPath)
                ?? throw new InvalidOperationException("The project file has no parent directory.");
     }
+
+    private static string? NormalizeGitExecutablePath(string? path)
+        => string.IsNullOrWhiteSpace(path) ? null : path;
 
     private static StringComparison PathComparison
         => OperatingSystem.IsWindows() ? StringComparison.OrdinalIgnoreCase : StringComparison.Ordinal;

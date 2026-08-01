@@ -283,6 +283,83 @@ public class VersionControlRestoreTests
     }
 
     [AvaloniaTest]
+    public async Task Caller_cancellation_after_the_close_commit_point_does_not_skip_retirement()
+    {
+        await TestReset.ResetShellAsync();
+        VersionControlCoordinator? coordinator = null;
+        Func<ProjectService.ProjectCloseContext, CancellationToken, Task>?
+            cancelAfterCommitPoint = null;
+        using var closeCancellation = new CancellationTokenSource();
+
+        try
+        {
+            Project project = await CreateProjectForFakeVersionControlAsync(
+                "version-control-close-post-commit-cancellation");
+            string projectRoot = Path.GetDirectoryName(project.Uri!.LocalPath)!;
+            var repository = new RepositoryInfo(projectRoot, projectRoot);
+            var tip = new CheckedOutBranchTip(
+                "refs/heads/main",
+                "1111111111111111111111111111111111111111");
+            var backend = new PullCycleTestBackend(repository, repository, tip);
+            var config = new VersionControlConfig
+            {
+                AutoCommitOnClose = true,
+            };
+            var editorService = new EditorService(new ExtensionProvider());
+
+            cancelAfterCommitPoint = (_, finalizerCancellation) =>
+            {
+                Assert.That(finalizerCancellation, Is.EqualTo(CancellationToken.None));
+                closeCancellation.Cancel();
+                return Task.CompletedTask;
+            };
+            TestShell.Project.ClosingFinalizing += cancelAfterCommitPoint;
+            coordinator = new VersionControlCoordinator(
+                TestShell.Project,
+                editorService,
+                config,
+                installationLocator: null,
+                serviceFactory: _ => backend);
+            await WaitUntilAsync(() =>
+                ReferenceEquals(coordinator.CurrentService, backend)
+                && coordinator.IsTracked.Value);
+
+            await TestShell.Project.CloseProject(closeCancellation.Token)
+                .WaitAsync(TimeSpan.FromSeconds(5));
+            await WaitUntilAsync(() =>
+                backend.RetirementCalls == 1
+                && backend.DisposeCalls == 1);
+
+            ProjectVersionControlFinalSnapshot? finalSnapshot =
+                backend.RetirementSnapshots.Single();
+            Assert.Multiple(() =>
+            {
+                Assert.That(closeCancellation.IsCancellationRequested, Is.True);
+                Assert.That(TestShell.Project.CurrentProject.Value, Is.Null);
+                Assert.That(finalSnapshot, Is.Not.Null);
+                Assert.That(finalSnapshot!.Message, Is.EqualTo("beutl: snapshot on close"));
+                Assert.That(finalSnapshot.Kind, Is.EqualTo(SnapshotKind.Close));
+                Assert.That(backend.RetirementCalls, Is.EqualTo(1));
+                Assert.That(backend.CallsAfterRetirement, Is.Zero);
+            });
+        }
+        finally
+        {
+            if (cancelAfterCommitPoint is not null)
+            {
+                TestShell.Project.ClosingFinalizing -= cancelAfterCommitPoint;
+            }
+
+            if (coordinator is not null)
+            {
+                await coordinator.DisposeAsync().AsTask().WaitAsync(TimeSpan.FromSeconds(5));
+            }
+
+            await TestReset.ResetShellAsync();
+        }
+    }
+
+    [AvaloniaTest]
     public async Task InitializeCurrentProject_propagates_cancellation_to_the_identity_request()
     {
         await TestReset.ResetShellAsync();
@@ -343,6 +420,60 @@ public class VersionControlRestoreTests
         finally
         {
             coordinator?.Dispose();
+            await TestReset.ResetShellAsync();
+        }
+    }
+
+    [AvaloniaTest]
+    public async Task InitializeCurrentProject_passes_the_requested_identity_to_the_retry()
+    {
+        await TestReset.ResetShellAsync();
+        VersionControlCoordinator? coordinator = null;
+
+        try
+        {
+            await CreateProjectForFakeVersionControlAsync(
+                "version-control-initialize-identity-retry");
+            var tip = new CheckedOutBranchTip(
+                "refs/heads/main",
+                "1111111111111111111111111111111111111111");
+            var backend = new PullCycleTestBackend(
+                repository: null,
+                discoveredRepository: null,
+                tip)
+            {
+                RequireIdentityForInitialization = true,
+            };
+            var identity = new GitIdentity("Identity Retry", "identity-retry@example.invalid");
+            var editorService = new EditorService(new ExtensionProvider());
+            coordinator = new VersionControlCoordinator(
+                TestShell.Project,
+                editorService,
+                GlobalConfiguration.Instance.VersionControlConfig,
+                installationLocator: null,
+                serviceFactory: _ => backend);
+            await WaitUntilAsync(() => ReferenceEquals(coordinator.CurrentService, backend));
+
+            bool initialized = await coordinator.InitializeCurrentProjectAsync(
+                _ => Task.FromResult<GitIdentity?>(identity));
+
+            Assert.Multiple(() =>
+            {
+                Assert.That(initialized, Is.True);
+                Assert.That(backend.InitializeCalls, Is.EqualTo(2));
+                Assert.That(backend.InitializationOptions[0].Identity, Is.Null);
+                Assert.That(backend.InitializationOptions[1].Identity, Is.EqualTo(identity));
+                Assert.That(backend.SetLocalIdentityCalls, Is.Zero);
+                Assert.That(backend.Repository, Is.Not.Null);
+            });
+        }
+        finally
+        {
+            if (coordinator is not null)
+            {
+                await coordinator.DisposeAsync().AsTask().WaitAsync(TimeSpan.FromSeconds(5));
+            }
+
             await TestReset.ResetShellAsync();
         }
     }
@@ -2522,6 +2653,947 @@ public class VersionControlRestoreTests
     }
 
     [AvaloniaTest]
+    public async Task Git_executable_override_rediscoveries_only_an_unassociated_backend()
+    {
+        await TestReset.ResetShellAsync();
+        VersionControlCoordinator? coordinator = null;
+
+        try
+        {
+            Project project = await CreateProjectForFakeVersionControlAsync(
+                "version-control-git-override-reactivation");
+            string projectRoot = Path.GetDirectoryName(project.Uri!.LocalPath)!;
+            var repository = new RepositoryInfo(projectRoot, projectRoot);
+            var tip = new CheckedOutBranchTip(
+                "refs/heads/main",
+                "1111111111111111111111111111111111111111");
+            string validGitPath = Path.Combine(Path.GetTempPath(), "beutl-valid-git");
+            string invalidGitPath = Path.Combine(Path.GetTempPath(), "beutl-invalid-git");
+            var probe = new ConfigurableGitInstallationProbe(validGitPath);
+            var config = new VersionControlConfig
+            {
+                GitExecutablePath = invalidGitPath,
+            };
+            var locator = new GitInstallationLocator(config, probe, GitHostPlatform.Linux);
+            var createdBackends = new List<PullCycleTestBackend>();
+            var editorService = new EditorService(new ExtensionProvider());
+            coordinator = new VersionControlCoordinator(
+                TestShell.Project,
+                editorService,
+                config,
+                locator,
+                serviceFactory: candidate =>
+                {
+                    var backend = new PullCycleTestBackend(candidate, repository, tip)
+                    {
+                        AvailabilityOverride = locator.LocateAsync,
+                    };
+                    createdBackends.Add(backend);
+                    return backend;
+                });
+            await WaitUntilAsync(() =>
+                coordinator.CurrentService is { Repository: null }
+                && !coordinator.IsGitAvailable.Value
+                && !coordinator.IsTracked.Value);
+            IProjectVersionControlService unavailableService = coordinator.CurrentService!;
+
+            config.AutoCommitOnSave = !config.AutoCommitOnSave;
+            HeadlessTestHelpers.Settle();
+            Assert.That(coordinator.CurrentService, Is.SameAs(unavailableService));
+
+            config.GitExecutablePath = validGitPath;
+            await WaitUntilAsync(() =>
+                coordinator.CurrentService?.Repository is not null
+                && coordinator.IsGitAvailable.Value
+                && coordinator.IsTracked.Value
+                && ReferenceEquals(
+                    editorService.ProjectVersionControlService.Value,
+                    coordinator.CurrentService));
+            IProjectVersionControlService trackedService = coordinator.CurrentService!;
+
+            int backendCountAfterTracking = createdBackends.Count;
+            config.GitExecutablePath = invalidGitPath;
+            await WaitUntilAsync(() => !coordinator.IsGitAvailable.Value);
+
+            Assert.Multiple(() =>
+            {
+                Assert.That(trackedService.Repository, Is.Not.Null);
+                Assert.That(coordinator.CurrentService, Is.SameAs(trackedService));
+                Assert.That(editorService.ProjectVersionControlService.Value,
+                    Is.SameAs(trackedService));
+                Assert.That(coordinator.IsGitAvailable.Value, Is.False);
+                Assert.That(coordinator.IsTracked.Value, Is.True);
+                Assert.That(createdBackends, Has.Count.EqualTo(backendCountAfterTracking));
+                Assert.That(
+                    createdBackends.Single(backend => ReferenceEquals(backend, trackedService))
+                        .RetirementCalls,
+                    Is.Zero);
+            });
+        }
+        finally
+        {
+            if (coordinator is not null)
+            {
+                await coordinator.DisposeAsync().AsTask().WaitAsync(TimeSpan.FromSeconds(5));
+            }
+
+            await TestReset.ResetShellAsync();
+        }
+    }
+
+    [AvaloniaTest]
+    public async Task Newer_git_configuration_cancels_a_stale_unassociated_rediscovery()
+    {
+        await TestReset.ResetShellAsync();
+        VersionControlCoordinator? coordinator = null;
+        var hygieneStarted = new TaskCompletionSource(
+            TaskCreationOptions.RunContinuationsAsynchronously);
+        var hygieneCompleted = new TaskCompletionSource(
+            TaskCreationOptions.RunContinuationsAsynchronously);
+        var releaseHygiene = new TaskCompletionSource(
+            TaskCreationOptions.RunContinuationsAsynchronously);
+        var latestInvalidProbeCompleted = new TaskCompletionSource(
+            TaskCreationOptions.RunContinuationsAsynchronously);
+
+        try
+        {
+            Project project = await CreateProjectForFakeVersionControlAsync(
+                "version-control-stale-git-configuration");
+            string projectRoot = Path.GetDirectoryName(project.Uri!.LocalPath)!;
+            var repository = new RepositoryInfo(projectRoot, projectRoot);
+            var tip = new CheckedOutBranchTip(
+                "refs/heads/main",
+                "1111111111111111111111111111111111111111");
+            string validGitPath = Path.Combine(Path.GetTempPath(), "beutl-stale-valid-git");
+            string invalidGitPath = Path.Combine(Path.GetTempPath(), "beutl-stale-invalid-git");
+            var probe = new ConfigurableGitInstallationProbe(validGitPath);
+            var config = new VersionControlConfig
+            {
+                GitExecutablePath = invalidGitPath,
+            };
+            var locator = new GitInstallationLocator(config, probe, GitHostPlatform.Linux);
+            PullCycleTestBackend? staleTrackedBackend = null;
+            var editorService = new EditorService(new ExtensionProvider());
+            var publishedServices = new List<IProjectVersionControlService?>();
+            using IDisposable subscription = editorService.ProjectVersionControlService.Subscribe(
+                publishedServices.Add);
+            coordinator = new VersionControlCoordinator(
+                TestShell.Project,
+                editorService,
+                config,
+                locator,
+                serviceFactory: candidate =>
+                {
+                    bool blockHygiene = candidate is not null && staleTrackedBackend is null;
+                    var backend = new PullCycleTestBackend(candidate, repository, tip)
+                    {
+                        AvailabilityOverride = async cancellationToken =>
+                        {
+                            GitAvailability availability = await locator.LocateAsync(
+                                cancellationToken);
+                            if (availability.State != GitAvailabilityState.Installed
+                                && staleTrackedBackend is not null)
+                            {
+                                latestInvalidProbeCompleted.TrySetResult();
+                            }
+
+                            return availability;
+                        },
+                        EnsureHygieneStarted = blockHygiene ? hygieneStarted : null,
+                        EnsureHygieneRelease = blockHygiene ? releaseHygiene.Task : null,
+                        EnsureHygieneCompleted = blockHygiene ? hygieneCompleted : null,
+                    };
+                    if (blockHygiene)
+                    {
+                        staleTrackedBackend = backend;
+                    }
+
+                    return backend;
+                });
+            await WaitUntilAsync(() =>
+                coordinator.CurrentService is { Repository: null }
+                && !coordinator.IsGitAvailable.Value);
+
+            config.GitExecutablePath = validGitPath;
+            await hygieneStarted.Task.WaitAsync(TimeSpan.FromSeconds(5));
+
+            config.GitExecutablePath = invalidGitPath;
+            await hygieneCompleted.Task.WaitAsync(TimeSpan.FromSeconds(5));
+            await WaitUntilAsync(() =>
+                staleTrackedBackend is { RetirementCalls: 1, DisposeCalls: 1 });
+            await latestInvalidProbeCompleted.Task.WaitAsync(TimeSpan.FromSeconds(5));
+            await WaitUntilAsync(() =>
+                coordinator.CurrentService is { Repository: null }
+                && !coordinator.IsGitAvailable.Value
+                && !coordinator.IsTracked.Value
+                && ReferenceEquals(
+                    editorService.ProjectVersionControlService.Value,
+                    coordinator.CurrentService));
+
+            Assert.Multiple(() =>
+            {
+                Assert.That(staleTrackedBackend, Is.Not.Null);
+                Assert.That(publishedServices, Does.Not.Contain(staleTrackedBackend));
+                Assert.That(coordinator.CurrentService, Is.Not.SameAs(staleTrackedBackend));
+                Assert.That(editorService.ProjectVersionControlService.Value,
+                    Is.SameAs(coordinator.CurrentService));
+                Assert.That(staleTrackedBackend!.RetirementCalls, Is.EqualTo(1));
+                Assert.That(staleTrackedBackend.DisposeCalls, Is.EqualTo(1));
+            });
+        }
+        finally
+        {
+            releaseHygiene.TrySetResult();
+            if (coordinator is not null)
+            {
+                await coordinator.DisposeAsync().AsTask().WaitAsync(TimeSpan.FromSeconds(5));
+            }
+
+            await TestReset.ResetShellAsync();
+        }
+    }
+
+    [AvaloniaTest]
+    public async Task Waiting_operation_does_not_interleave_between_coalesced_git_configurations()
+    {
+        await TestReset.ResetShellAsync();
+        VersionControlCoordinator? coordinator = null;
+        var staleHygieneStarted = new TaskCompletionSource(
+            TaskCreationOptions.RunContinuationsAsynchronously);
+        var releaseStaleHygiene = new TaskCompletionSource(
+            TaskCreationOptions.RunContinuationsAsynchronously);
+        var latestActivationStarted = new TaskCompletionSource(
+            TaskCreationOptions.RunContinuationsAsynchronously);
+        var releaseLatestActivation = new TaskCompletionSource(
+            TaskCreationOptions.RunContinuationsAsynchronously);
+        var staleInitializationStarted = new TaskCompletionSource(
+            TaskCreationOptions.RunContinuationsAsynchronously);
+        var releaseStaleInitialization = new TaskCompletionSource(
+            TaskCreationOptions.RunContinuationsAsynchronously);
+        var latestInitializationStarted = new TaskCompletionSource(
+            TaskCreationOptions.RunContinuationsAsynchronously);
+
+        try
+        {
+            Project project = await CreateProjectForFakeVersionControlAsync(
+                "version-control-coalesced-git-config-waiter");
+            string projectRoot = Path.GetDirectoryName(project.Uri!.LocalPath)!;
+            var repository = new RepositoryInfo(projectRoot, projectRoot);
+            var tip = new CheckedOutBranchTip(
+                "refs/heads/main",
+                "1111111111111111111111111111111111111111");
+            string validGitPath = Path.Combine(Path.GetTempPath(), "beutl-coalesced-valid-git");
+            string invalidGitPath = Path.Combine(
+                Path.GetTempPath(),
+                "beutl-coalesced-invalid-git");
+            var probe = new ConfigurableGitInstallationProbe(validGitPath);
+            var config = new VersionControlConfig
+            {
+                GitExecutablePath = invalidGitPath,
+            };
+            var locator = new GitInstallationLocator(config, probe, GitHostPlatform.Linux);
+            int untrackedBackends = 0;
+            var editorService = new EditorService(new ExtensionProvider());
+            coordinator = new VersionControlCoordinator(
+                TestShell.Project,
+                editorService,
+                config,
+                locator,
+                serviceFactory: candidate =>
+                {
+                    int untrackedIndex = candidate is null
+                        ? Interlocked.Increment(ref untrackedBackends)
+                        : 0;
+                    return new PullCycleTestBackend(candidate, repository, tip)
+                    {
+                        AvailabilityOverride = untrackedIndex == 3
+                            ? async cancellationToken =>
+                            {
+                                latestActivationStarted.TrySetResult();
+                                await releaseLatestActivation.Task.WaitAsync(cancellationToken);
+                                return await locator.LocateAsync(cancellationToken);
+                            }
+                        : locator.LocateAsync,
+                        EnsureHygieneStarted = candidate is not null
+                            ? staleHygieneStarted
+                            : null,
+                        EnsureHygieneRelease = candidate is not null
+                            ? releaseStaleHygiene.Task
+                            : null,
+                        InitializeStarted = untrackedIndex switch
+                        {
+                            2 => staleInitializationStarted,
+                            3 => latestInitializationStarted,
+                            _ => null,
+                        },
+                        InitializeRelease = untrackedIndex == 2
+                            ? releaseStaleInitialization.Task
+                            : null,
+                    };
+                });
+            await WaitUntilAsync(() =>
+                coordinator.CurrentService is { Repository: null }
+                && !coordinator.IsGitAvailable.Value);
+
+            config.GitExecutablePath = validGitPath;
+            await staleHygieneStarted.Task.WaitAsync(TimeSpan.FromSeconds(5));
+
+            var synchronousReadiness = new TaskCompletionSource();
+            System.Reflection.FieldInfo? readinessField =
+                typeof(VersionControlCoordinator).GetField(
+                    "_configurationActivationQuiesced",
+                    System.Reflection.BindingFlags.Instance
+                    | System.Reflection.BindingFlags.NonPublic);
+            Assert.That(readinessField, Is.Not.Null);
+            readinessField!.SetValue(coordinator, synchronousReadiness);
+
+            Task<bool> initialization = coordinator.InitializeCurrentProjectAsync(
+                _ => Task.FromResult<GitIdentity?>(null));
+            Assert.That(initialization.IsCompleted, Is.False);
+
+            config.GitExecutablePath = invalidGitPath;
+            Task firstActivation = await Task.WhenAny(
+                    latestActivationStarted.Task,
+                    staleInitializationStarted.Task)
+                .WaitAsync(TimeSpan.FromSeconds(5));
+
+            Assert.Multiple(() =>
+            {
+                Assert.That(firstActivation, Is.SameAs(latestActivationStarted.Task));
+                Assert.That(initialization.IsCompleted, Is.False);
+                Assert.That(staleInitializationStarted.Task.IsCompleted, Is.False);
+            });
+
+            releaseLatestActivation.TrySetResult();
+            Assert.That(
+                await initialization.WaitAsync(TimeSpan.FromSeconds(5)),
+                Is.True);
+            await latestInitializationStarted.Task.WaitAsync(TimeSpan.FromSeconds(5));
+
+            Assert.Multiple(() =>
+            {
+                Assert.That(coordinator.IsGitAvailable.Value, Is.False);
+                Assert.That(coordinator.IsTracked.Value, Is.True);
+                Assert.That(staleInitializationStarted.Task.IsCompleted, Is.False);
+            });
+        }
+        finally
+        {
+            releaseStaleHygiene.TrySetResult();
+            releaseLatestActivation.TrySetResult();
+            releaseStaleInitialization.TrySetResult();
+            if (coordinator is not null)
+            {
+                await coordinator.DisposeAsync().AsTask().WaitAsync(TimeSpan.FromSeconds(5));
+            }
+
+            await TestReset.ResetShellAsync();
+        }
+    }
+
+    [AvaloniaTest]
+    public async Task Git_configuration_change_during_disposal_does_not_start_a_new_activation()
+    {
+        await TestReset.ResetShellAsync();
+        VersionControlCoordinator? coordinator = null;
+        Task? disposal = null;
+        var retirementStarted = new TaskCompletionSource(
+            TaskCreationOptions.RunContinuationsAsynchronously);
+        var releaseRetirement = new TaskCompletionSource(
+            TaskCreationOptions.RunContinuationsAsynchronously);
+
+        try
+        {
+            Project project = await CreateProjectForFakeVersionControlAsync(
+                "version-control-git-config-disposal");
+            string projectRoot = Path.GetDirectoryName(project.Uri!.LocalPath)!;
+            var repository = new RepositoryInfo(projectRoot, projectRoot);
+            var tip = new CheckedOutBranchTip(
+                "refs/heads/main",
+                "1111111111111111111111111111111111111111");
+            string validGitPath = Path.Combine(Path.GetTempPath(), "beutl-disposal-valid-git");
+            string invalidGitPath = Path.Combine(Path.GetTempPath(), "beutl-disposal-invalid-git");
+            var probe = new ConfigurableGitInstallationProbe(validGitPath);
+            var config = new VersionControlConfig
+            {
+                GitExecutablePath = invalidGitPath,
+            };
+            var locator = new GitInstallationLocator(config, probe, GitHostPlatform.Linux);
+            int factoryCalls = 0;
+            var editorService = new EditorService(new ExtensionProvider());
+            coordinator = new VersionControlCoordinator(
+                TestShell.Project,
+                editorService,
+                config,
+                locator,
+                serviceFactory: candidate =>
+                {
+                    Interlocked.Increment(ref factoryCalls);
+                    return new PullCycleTestBackend(candidate, repository, tip)
+                    {
+                        AvailabilityOverride = locator.LocateAsync,
+                        RetirementStarted = retirementStarted,
+                        RetirementRelease = releaseRetirement.Task,
+                    };
+                });
+            await WaitUntilAsync(() =>
+                coordinator.CurrentService is { Repository: null }
+                && !coordinator.IsGitAvailable.Value);
+            int callsBeforeDisposal = Volatile.Read(ref factoryCalls);
+
+            disposal = coordinator.DisposeAsync().AsTask();
+            await retirementStarted.Task.WaitAsync(TimeSpan.FromSeconds(5));
+            config.GitExecutablePath = validGitPath;
+
+            Assert.Multiple(() =>
+            {
+                Assert.That(disposal.IsCompleted, Is.False);
+                Assert.That(Volatile.Read(ref factoryCalls), Is.EqualTo(callsBeforeDisposal));
+                Assert.That(coordinator.CurrentService, Is.Null);
+                Assert.That(editorService.ProjectVersionControlService.Value, Is.Null);
+            });
+
+            releaseRetirement.TrySetResult();
+            await disposal.WaitAsync(TimeSpan.FromSeconds(5));
+        }
+        finally
+        {
+            releaseRetirement.TrySetResult();
+            if (disposal is not null)
+            {
+                await disposal.WaitAsync(TimeSpan.FromSeconds(5));
+            }
+
+            if (coordinator is not null)
+            {
+                await coordinator.DisposeAsync().AsTask().WaitAsync(TimeSpan.FromSeconds(5));
+            }
+
+            await TestReset.ResetShellAsync();
+        }
+    }
+
+    [AvaloniaTest]
+    public async Task Git_configuration_rediscovery_waits_for_inflight_initialization()
+    {
+        await TestReset.ResetShellAsync();
+        VersionControlCoordinator? coordinator = null;
+        var initializeStarted = new TaskCompletionSource(
+            TaskCreationOptions.RunContinuationsAsynchronously);
+        var releaseInitialize = new TaskCompletionSource(
+            TaskCreationOptions.RunContinuationsAsynchronously);
+
+        try
+        {
+            Project project = await CreateProjectForFakeVersionControlAsync(
+                "version-control-git-config-initialize");
+            string projectRoot = Path.GetDirectoryName(project.Uri!.LocalPath)!;
+            var repository = new RepositoryInfo(projectRoot, projectRoot);
+            var tip = new CheckedOutBranchTip(
+                "refs/heads/main",
+                "1111111111111111111111111111111111111111");
+            string validGitPath = Path.Combine(Path.GetTempPath(), "beutl-init-valid-git");
+            string invalidGitPath = Path.Combine(Path.GetTempPath(), "beutl-init-invalid-git");
+            var probe = new ConfigurableGitInstallationProbe(validGitPath);
+            var config = new VersionControlConfig
+            {
+                GitExecutablePath = invalidGitPath,
+            };
+            var locator = new GitInstallationLocator(config, probe, GitHostPlatform.Linux);
+            var createdBackends = new List<PullCycleTestBackend>();
+            var editorService = new EditorService(new ExtensionProvider());
+            coordinator = new VersionControlCoordinator(
+                TestShell.Project,
+                editorService,
+                config,
+                locator,
+                serviceFactory: candidate =>
+                {
+                    bool initialBackend = createdBackends.Count == 0;
+                    var backend = new PullCycleTestBackend(candidate, repository, tip)
+                    {
+                        AvailabilityOverride = locator.LocateAsync,
+                        InitializeStarted = initialBackend ? initializeStarted : null,
+                        InitializeRelease = initialBackend ? releaseInitialize.Task : null,
+                    };
+                    createdBackends.Add(backend);
+                    return backend;
+                });
+            await WaitUntilAsync(() =>
+                coordinator.CurrentService is { Repository: null }
+                && !coordinator.IsGitAvailable.Value);
+            var initialService = (PullCycleTestBackend)coordinator.CurrentService!;
+
+            Task<bool> initialization = coordinator.InitializeCurrentProjectAsync(
+                _ => Task.FromResult<GitIdentity?>(null));
+            await initializeStarted.Task.WaitAsync(TimeSpan.FromSeconds(5));
+
+            config.GitExecutablePath = validGitPath;
+
+            Assert.Multiple(() =>
+            {
+                Assert.That(initialization.IsCompleted, Is.False);
+                Assert.That(createdBackends, Has.Count.EqualTo(1));
+                Assert.That(coordinator.CurrentService, Is.SameAs(initialService));
+            });
+
+            releaseInitialize.TrySetResult();
+            Assert.That(
+                await initialization.WaitAsync(TimeSpan.FromSeconds(5)),
+                Is.True);
+            await WaitUntilAsync(() =>
+                ReferenceEquals(coordinator.CurrentService, initialService)
+                && coordinator.IsGitAvailable.Value
+                && coordinator.IsTracked.Value);
+
+            Assert.Multiple(() =>
+            {
+                Assert.That(initialService.Repository, Is.Not.Null);
+                Assert.That(createdBackends, Has.Count.EqualTo(1));
+                Assert.That(initialService.RetirementCalls, Is.Zero);
+            });
+        }
+        finally
+        {
+            releaseInitialize.TrySetResult();
+            if (coordinator is not null)
+            {
+                await coordinator.DisposeAsync().AsTask().WaitAsync(TimeSpan.FromSeconds(5));
+            }
+
+            await TestReset.ResetShellAsync();
+        }
+    }
+
+    [AvaloniaTest]
+    public async Task Initialization_started_during_git_rediscovery_waits_for_activation()
+    {
+        await TestReset.ResetShellAsync();
+        VersionControlCoordinator? coordinator = null;
+        var hygieneStarted = new TaskCompletionSource(
+            TaskCreationOptions.RunContinuationsAsynchronously);
+        var releaseHygiene = new TaskCompletionSource(
+            TaskCreationOptions.RunContinuationsAsynchronously);
+
+        try
+        {
+            Project project = await CreateProjectForFakeVersionControlAsync(
+                "version-control-git-config-wait-initialize");
+            string projectRoot = Path.GetDirectoryName(project.Uri!.LocalPath)!;
+            var repository = new RepositoryInfo(projectRoot, projectRoot);
+            var tip = new CheckedOutBranchTip(
+                "refs/heads/main",
+                "1111111111111111111111111111111111111111");
+            string validGitPath = Path.Combine(Path.GetTempPath(), "beutl-wait-init-valid-git");
+            string invalidGitPath = Path.Combine(Path.GetTempPath(), "beutl-wait-init-invalid-git");
+            var probe = new ConfigurableGitInstallationProbe(validGitPath);
+            var config = new VersionControlConfig
+            {
+                GitExecutablePath = invalidGitPath,
+            };
+            var locator = new GitInstallationLocator(config, probe, GitHostPlatform.Linux);
+            var createdBackends = new List<PullCycleTestBackend>();
+            var editorService = new EditorService(new ExtensionProvider());
+            coordinator = new VersionControlCoordinator(
+                TestShell.Project,
+                editorService,
+                config,
+                locator,
+                serviceFactory: candidate =>
+                {
+                    var backend = new PullCycleTestBackend(candidate, repository, tip)
+                    {
+                        AvailabilityOverride = locator.LocateAsync,
+                        EnsureHygieneStarted = candidate is not null ? hygieneStarted : null,
+                        EnsureHygieneRelease = candidate is not null ? releaseHygiene.Task : null,
+                    };
+                    createdBackends.Add(backend);
+                    return backend;
+                });
+            await WaitUntilAsync(() =>
+                coordinator.CurrentService is { Repository: null }
+                && !coordinator.IsGitAvailable.Value
+                && !coordinator.IsTracked.Value);
+
+            config.GitExecutablePath = validGitPath;
+            await hygieneStarted.Task.WaitAsync(TimeSpan.FromSeconds(5));
+
+            Task<bool> initialization = coordinator.InitializeCurrentProjectAsync(
+                _ => Task.FromResult<GitIdentity?>(null));
+
+            Assert.That(initialization.IsCompleted, Is.False);
+
+            releaseHygiene.TrySetResult();
+            Assert.That(
+                await initialization.WaitAsync(TimeSpan.FromSeconds(5)),
+                Is.True);
+            var trackedBackend = (PullCycleTestBackend)coordinator.CurrentService!;
+
+            Assert.Multiple(() =>
+            {
+                Assert.That(trackedBackend.Repository, Is.EqualTo(repository));
+                Assert.That(trackedBackend.InitializeCalls, Is.EqualTo(1));
+                Assert.That(coordinator.IsGitAvailable.Value, Is.True);
+                Assert.That(coordinator.IsTracked.Value, Is.True);
+                Assert.That(createdBackends, Does.Contain(trackedBackend));
+            });
+        }
+        finally
+        {
+            releaseHygiene.TrySetResult();
+            if (coordinator is not null)
+            {
+                await coordinator.DisposeAsync().AsTask().WaitAsync(TimeSpan.FromSeconds(5));
+            }
+
+            await TestReset.ResetShellAsync();
+        }
+    }
+
+    [AvaloniaTest]
+    public async Task Branch_started_during_git_rediscovery_waits_for_activation()
+    {
+        await TestReset.ResetShellAsync();
+        VersionControlCoordinator? coordinator = null;
+        var hygieneStarted = new TaskCompletionSource(
+            TaskCreationOptions.RunContinuationsAsynchronously);
+        var releaseHygiene = new TaskCompletionSource(
+            TaskCreationOptions.RunContinuationsAsynchronously);
+        var branchStarted = new TaskCompletionSource(
+            TaskCreationOptions.RunContinuationsAsynchronously);
+
+        try
+        {
+            Project project = await CreateProjectForFakeVersionControlAsync(
+                "version-control-git-config-wait-branch");
+            string projectRoot = Path.GetDirectoryName(project.Uri!.LocalPath)!;
+            var repository = new RepositoryInfo(projectRoot, projectRoot);
+            var tip = new CheckedOutBranchTip(
+                "refs/heads/main",
+                "1111111111111111111111111111111111111111");
+            string validGitPath = Path.Combine(Path.GetTempPath(), "beutl-wait-branch-valid-git");
+            string invalidGitPath = Path.Combine(Path.GetTempPath(), "beutl-wait-branch-invalid-git");
+            var probe = new ConfigurableGitInstallationProbe(validGitPath);
+            var config = new VersionControlConfig
+            {
+                GitExecutablePath = invalidGitPath,
+            };
+            var locator = new GitInstallationLocator(config, probe, GitHostPlatform.Linux);
+            var createdBackends = new List<PullCycleTestBackend>();
+            var editorService = new EditorService(new ExtensionProvider());
+            coordinator = new VersionControlCoordinator(
+                TestShell.Project,
+                editorService,
+                config,
+                locator,
+                serviceFactory: candidate =>
+                {
+                    var backend = new PullCycleTestBackend(candidate, repository, tip)
+                    {
+                        AvailabilityOverride = locator.LocateAsync,
+                        EnsureHygieneStarted = candidate is not null ? hygieneStarted : null,
+                        EnsureHygieneRelease = candidate is not null ? releaseHygiene.Task : null,
+                        SwitchBranchStarted = candidate is not null ? branchStarted : null,
+                    };
+                    createdBackends.Add(backend);
+                    return backend;
+                });
+            coordinator.ConfirmSwitchBranchAsync = (_, _) => Task.FromResult(true);
+            await WaitUntilAsync(() =>
+                coordinator.CurrentService is { Repository: null }
+                && !coordinator.IsGitAvailable.Value
+                && !coordinator.IsTracked.Value);
+
+            config.GitExecutablePath = validGitPath;
+            await hygieneStarted.Task.WaitAsync(TimeSpan.FromSeconds(5));
+
+            Task<bool> branch = coordinator.SwitchBranchAsync("configuration-ready");
+
+            Assert.Multiple(() =>
+            {
+                Assert.That(branch.IsCompleted, Is.False);
+                Assert.That(branchStarted.Task.IsCompleted, Is.False);
+            });
+
+            releaseHygiene.TrySetResult();
+            Assert.That(await branch.WaitAsync(TimeSpan.FromSeconds(5)), Is.True);
+            await branchStarted.Task.WaitAsync(TimeSpan.FromSeconds(5));
+            var trackedBackend = (PullCycleTestBackend)coordinator.CurrentService!;
+
+            Assert.Multiple(() =>
+            {
+                Assert.That(trackedBackend.Repository, Is.EqualTo(repository));
+                Assert.That(trackedBackend.RetirementCalls, Is.Zero);
+                Assert.That(coordinator.IsGitAvailable.Value, Is.True);
+                Assert.That(coordinator.IsTracked.Value, Is.True);
+                Assert.That(createdBackends, Does.Contain(trackedBackend));
+            });
+        }
+        finally
+        {
+            releaseHygiene.TrySetResult();
+            if (coordinator is not null)
+            {
+                await coordinator.DisposeAsync().AsTask().WaitAsync(TimeSpan.FromSeconds(5));
+            }
+
+            await TestReset.ResetShellAsync();
+        }
+    }
+
+    [AvaloniaTest]
+    public async Task Git_configuration_change_during_branch_cycle_preserves_backend_identity()
+    {
+        await TestReset.ResetShellAsync();
+        VersionControlCoordinator? coordinator = null;
+        var branchStarted = new TaskCompletionSource(
+            TaskCreationOptions.RunContinuationsAsynchronously);
+        var releaseBranch = new TaskCompletionSource(
+            TaskCreationOptions.RunContinuationsAsynchronously);
+
+        try
+        {
+            Project project = await CreateProjectForFakeVersionControlAsync(
+                "version-control-git-config-branch");
+            string projectRoot = Path.GetDirectoryName(project.Uri!.LocalPath)!;
+            var repository = new RepositoryInfo(projectRoot, projectRoot);
+            var tip = new CheckedOutBranchTip(
+                "refs/heads/main",
+                "1111111111111111111111111111111111111111");
+            string validGitPath = Path.Combine(Path.GetTempPath(), "beutl-branch-valid-git");
+            string invalidGitPath = Path.Combine(Path.GetTempPath(), "beutl-branch-invalid-git");
+            var probe = new ConfigurableGitInstallationProbe(validGitPath);
+            var config = new VersionControlConfig
+            {
+                GitExecutablePath = validGitPath,
+            };
+            var locator = new GitInstallationLocator(config, probe, GitHostPlatform.Linux);
+            var backend = new PullCycleTestBackend(repository, repository, tip)
+            {
+                AvailabilityOverride = locator.LocateAsync,
+                SwitchBranchStarted = branchStarted,
+                SwitchBranchRelease = releaseBranch.Task,
+            };
+            int factoryCalls = 0;
+            var editorService = new EditorService(new ExtensionProvider());
+            coordinator = new VersionControlCoordinator(
+                TestShell.Project,
+                editorService,
+                config,
+                locator,
+                serviceFactory: _ =>
+                {
+                    Interlocked.Increment(ref factoryCalls);
+                    return backend;
+                });
+            coordinator.ConfirmSwitchBranchAsync = (_, _) => Task.FromResult(true);
+            await WaitUntilAsync(() =>
+                ReferenceEquals(coordinator.CurrentService, backend)
+                && coordinator.IsGitAvailable.Value
+                && coordinator.IsTracked.Value);
+            int callsBeforeBranch = Volatile.Read(ref factoryCalls);
+
+            Task<bool> branch = coordinator.SwitchBranchAsync("config-change");
+            await branchStarted.Task.WaitAsync(TimeSpan.FromSeconds(5));
+            Assert.That(TestShell.Project.CurrentProject.Value, Is.Null);
+
+            config.GitExecutablePath = invalidGitPath;
+
+            Assert.Multiple(() =>
+            {
+                Assert.That(branch.IsCompleted, Is.False);
+                Assert.That(Volatile.Read(ref factoryCalls), Is.EqualTo(callsBeforeBranch));
+                Assert.That(backend.RetirementCalls, Is.Zero);
+            });
+
+            releaseBranch.TrySetResult();
+            Assert.That(await branch.WaitAsync(TimeSpan.FromSeconds(5)), Is.True);
+            await WaitUntilAsync(() =>
+                ReferenceEquals(coordinator.CurrentService, backend)
+                && !coordinator.IsGitAvailable.Value
+                && coordinator.IsTracked.Value);
+
+            Assert.Multiple(() =>
+            {
+                Assert.That(editorService.ProjectVersionControlService.Value, Is.SameAs(backend));
+                Assert.That(Volatile.Read(ref factoryCalls), Is.EqualTo(callsBeforeBranch));
+                Assert.That(backend.RetirementCalls, Is.Zero);
+            });
+        }
+        finally
+        {
+            releaseBranch.TrySetResult();
+            if (coordinator is not null)
+            {
+                await coordinator.DisposeAsync().AsTask().WaitAsync(TimeSpan.FromSeconds(5));
+            }
+
+            await TestReset.ResetShellAsync();
+        }
+    }
+
+    [AvaloniaTest]
+    public async Task Close_barrier_defers_git_rediscovery_and_retires_the_tracked_backend_once()
+    {
+        await TestReset.ResetShellAsync();
+        VersionControlCoordinator? coordinator = null;
+        Func<ProjectService.ProjectCloseContext, CancellationToken, Task>? blockingClosing = null;
+        Task? abortedClose = null;
+        var closingStarted = new TaskCompletionSource(
+            TaskCreationOptions.RunContinuationsAsynchronously);
+        var trackedHygieneStarted = new TaskCompletionSource(
+            TaskCreationOptions.RunContinuationsAsynchronously);
+        var trackedRetirementStarted = new TaskCompletionSource(
+            TaskCreationOptions.RunContinuationsAsynchronously);
+        var releaseTrackedRetirement = new TaskCompletionSource(
+            TaskCreationOptions.RunContinuationsAsynchronously);
+        using var closeCancellation = new CancellationTokenSource();
+
+        try
+        {
+            Project project = await CreateProjectForFakeVersionControlAsync(
+                "version-control-git-config-close");
+            string projectRoot = Path.GetDirectoryName(project.Uri!.LocalPath)!;
+            var repository = new RepositoryInfo(projectRoot, projectRoot);
+            var tip = new CheckedOutBranchTip(
+                "refs/heads/main",
+                "1111111111111111111111111111111111111111");
+            string validGitPath = Path.Combine(Path.GetTempPath(), "beutl-close-valid-git");
+            string invalidGitPath = Path.Combine(Path.GetTempPath(), "beutl-close-invalid-git");
+            var probe = new ConfigurableGitInstallationProbe(validGitPath);
+            var config = new VersionControlConfig
+            {
+                GitExecutablePath = invalidGitPath,
+                AutoCommitOnClose = true,
+            };
+            var locator = new GitInstallationLocator(config, probe, GitHostPlatform.Linux);
+            var createdBackends = new List<PullCycleTestBackend>();
+            var editorService = new EditorService(new ExtensionProvider());
+            coordinator = new VersionControlCoordinator(
+                TestShell.Project,
+                editorService,
+                config,
+                locator,
+                serviceFactory: candidate =>
+                {
+                    var backend = new PullCycleTestBackend(candidate, repository, tip)
+                    {
+                        AvailabilityOverride = locator.LocateAsync,
+                        EnsureHygieneStarted = candidate is not null
+                            ? trackedHygieneStarted
+                            : null,
+                        RetirementStarted = candidate is not null
+                            ? trackedRetirementStarted
+                            : null,
+                        RetirementRelease = candidate is not null
+                            ? releaseTrackedRetirement.Task
+                            : null,
+                    };
+                    createdBackends.Add(backend);
+                    return backend;
+                });
+            await WaitUntilAsync(() =>
+                coordinator.CurrentService is { Repository: null }
+                && !coordinator.IsGitAvailable.Value);
+            int callsBeforeClose = createdBackends.Count;
+
+            blockingClosing = async (_, cancellationToken) =>
+            {
+                closingStarted.TrySetResult();
+                await Task.Delay(Timeout.InfiniteTimeSpan, cancellationToken);
+            };
+            TestShell.Project.Closing += blockingClosing;
+            abortedClose = TestShell.Project.CloseProject(closeCancellation.Token);
+            await closingStarted.Task.WaitAsync(TimeSpan.FromSeconds(5));
+
+            config.GitExecutablePath = validGitPath;
+
+            Assert.Multiple(() =>
+            {
+                Assert.That(abortedClose.IsCompleted, Is.False);
+                Assert.That(createdBackends, Has.Count.EqualTo(callsBeforeClose));
+                Assert.That(trackedHygieneStarted.Task.IsCompleted, Is.False);
+            });
+
+            closeCancellation.Cancel();
+            OperationCanceledException? closeFailure = null;
+            try
+            {
+                await abortedClose.WaitAsync(TimeSpan.FromSeconds(5));
+            }
+            catch (OperationCanceledException ex)
+            {
+                closeFailure = ex;
+            }
+            Assert.That(closeFailure, Is.Not.Null);
+            await trackedHygieneStarted.Task.WaitAsync(TimeSpan.FromSeconds(5));
+            await WaitUntilAsync(() =>
+                coordinator.CurrentService is { Repository: not null }
+                && coordinator.IsTracked.Value);
+            var trackedBackend = (PullCycleTestBackend)coordinator.CurrentService!;
+            await WaitUntilAsync(() =>
+                createdBackends
+                    .Where(backend => !ReferenceEquals(backend, trackedBackend))
+                    .All(backend => backend.RetirementCalls == 1));
+
+            TestShell.Project.Closing -= blockingClosing;
+            blockingClosing = null;
+            int callsBeforeSuccessfulClose = createdBackends.Count;
+            Task successfulClose = TestShell.Project.CloseProject();
+            await trackedRetirementStarted.Task.WaitAsync(TimeSpan.FromSeconds(5));
+
+            config.GitExecutablePath = invalidGitPath;
+
+            Assert.Multiple(() =>
+            {
+                Assert.That(successfulClose.IsCompleted, Is.False);
+                Assert.That(createdBackends, Has.Count.EqualTo(callsBeforeSuccessfulClose));
+                Assert.That(trackedBackend.RetirementCalls, Is.EqualTo(1));
+                Assert.That(trackedBackend.RetirementSnapshots, Has.Count.EqualTo(1));
+                Assert.That(trackedBackend.RetirementSnapshots[0]?.Kind,
+                    Is.EqualTo(SnapshotKind.Close));
+            });
+
+            releaseTrackedRetirement.TrySetResult();
+            await successfulClose.WaitAsync(TimeSpan.FromSeconds(5));
+
+            Assert.Multiple(() =>
+            {
+                Assert.That(TestShell.Project.CurrentProject.Value, Is.Null);
+                Assert.That(createdBackends, Has.Count.EqualTo(callsBeforeSuccessfulClose));
+                Assert.That(trackedBackend.RetirementCalls, Is.EqualTo(1));
+                Assert.That(trackedBackend.DisposeCalls, Is.EqualTo(1));
+            });
+        }
+        finally
+        {
+            releaseTrackedRetirement.TrySetResult();
+            if (blockingClosing is not null)
+            {
+                TestShell.Project.Closing -= blockingClosing;
+            }
+
+            if (abortedClose is not null)
+            {
+                try
+                {
+                    await abortedClose.WaitAsync(TimeSpan.FromSeconds(5));
+                }
+                catch (OperationCanceledException)
+                {
+                }
+            }
+
+            if (coordinator is not null)
+            {
+                await coordinator.DisposeAsync().AsTask().WaitAsync(TimeSpan.FromSeconds(5));
+            }
+
+            await TestReset.ResetShellAsync();
+        }
+    }
+
+    [AvaloniaTest]
     public async Task Disposal_cancels_inflight_git_availability_probes()
     {
         await TestReset.ResetShellAsync();
@@ -4035,6 +5107,45 @@ public class VersionControlRestoreTests
         public string? GetEnvironmentVariable(string name) => null;
     }
 
+    private sealed class ConfigurableGitInstallationProbe(string installedExecutablePath)
+        : IGitInstallationProbe
+    {
+        private readonly string _installedExecutablePath = Path.GetFullPath(installedExecutablePath);
+
+        public Task<IReadOnlyList<string>> FindOnPathAsync(
+            string executableName,
+            CancellationToken cancellationToken)
+        {
+            return Task.FromResult<IReadOnlyList<string>>([]);
+        }
+
+        public Task<bool> HasMacCommandLineToolsAsync(CancellationToken cancellationToken)
+        {
+            return Task.FromResult(false);
+        }
+
+        public Task<GitProbeResult> RunAsync(
+            string executablePath,
+            IReadOnlyList<string> arguments,
+            CancellationToken cancellationToken)
+        {
+            bool installed = RepositoryPathComparer.AreEquivalent(
+                _installedExecutablePath,
+                executablePath);
+            if (installed && arguments.SequenceEqual(["--version"]))
+            {
+                return Task.FromResult(
+                    new GitProbeResult(0, "git version 2.40.0", string.Empty));
+            }
+
+            return Task.FromResult(new GitProbeResult(1, string.Empty, string.Empty));
+        }
+
+        public bool FileExists(string path) => false;
+
+        public string? GetEnvironmentVariable(string name) => null;
+    }
+
     private sealed class PullCycleTestBackend :
         IProjectVersionControlBackend,
         IProjectVersionControlTransaction
@@ -4090,6 +5201,8 @@ public class VersionControlRestoreTests
 
         public Func<CancellationToken, Task>? EnsureHygieneOverride { get; init; }
 
+        public Func<CancellationToken, Task<GitAvailability>>? AvailabilityOverride { get; init; }
+
         public TaskCompletionSource? RetirementStarted { get; init; }
 
         public Task? RetirementRelease { get; init; }
@@ -4105,6 +5218,10 @@ public class VersionControlRestoreTests
         public TaskCompletionSource? InitializeStarted { get; init; }
 
         public Task? InitializeRelease { get; init; }
+
+        public TaskCompletionSource? SwitchBranchStarted { get; init; }
+
+        public Task? SwitchBranchRelease { get; init; }
 
         public bool RequireIdentityForInitialization { get; init; }
 
@@ -4134,6 +5251,8 @@ public class VersionControlRestoreTests
 
         public List<ProjectVersionControlFinalSnapshot?> RetirementSnapshots { get; } = [];
 
+        public List<InitOptions> InitializationOptions { get; } = [];
+
         public bool IsCheckpointRetained => _checkpoint is not null;
 
         public event EventHandler<WorkspaceStatus>? StatusChanged
@@ -4157,6 +5276,11 @@ public class VersionControlRestoreTests
 
         public Task<GitAvailability> GetAvailabilityAsync(CancellationToken cancellationToken)
         {
+            if (AvailabilityOverride is not null)
+            {
+                return AvailabilityOverride(cancellationToken);
+            }
+
             return Task.FromResult(new GitAvailability(
                 GitAvailabilityState.Installed,
                 "git",
@@ -4270,9 +5394,15 @@ public class VersionControlRestoreTests
         {
             RecordBackendCall();
             InitializeCalls++;
-            if (RequireIdentityForInitialization && !_hasIdentity)
+            InitializationOptions.Add(options);
+            if (RequireIdentityForInitialization && !_hasIdentity && options.Identity is null)
             {
                 throw new GitIdentityRequiredException();
+            }
+
+            if (options.Identity is not null)
+            {
+                _hasIdentity = true;
             }
 
             InitializeStarted?.TrySetResult();
@@ -4408,9 +5538,13 @@ public class VersionControlRestoreTests
             return Task.CompletedTask;
         }
 
-        public Task SwitchBranchAsync(string name, CancellationToken cancellationToken)
+        public async Task SwitchBranchAsync(string name, CancellationToken cancellationToken)
         {
-            return Task.CompletedTask;
+            SwitchBranchStarted?.TrySetResult();
+            if (SwitchBranchRelease is not null)
+            {
+                await SwitchBranchRelease.WaitAsync(cancellationToken);
+            }
         }
 
         public void Dispose()

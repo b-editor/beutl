@@ -318,9 +318,12 @@ public sealed record RepositoryLockInfo(
     string LockPath,
     DateTimeOffset LastWriteTimeUtc);
 
-public sealed record InitOptions(
+internal sealed record InitOptions(
     RepositoryInfo TargetRepository,
-    bool UseLfsWhenAvailable = true);
+    bool UseLfsWhenAvailable = true)
+{
+    public GitIdentity? Identity { get; init; }
+}
 
 internal static partial class GitDiagnosticSanitizer
 {
