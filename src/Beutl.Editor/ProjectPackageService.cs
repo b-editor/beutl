@@ -214,7 +214,7 @@ public sealed class ProjectPackageService
             try
             {
                 progress?.Report((Strings.ImportingProject, 0.3));
-                await Task.Run(() => ZipFile.ExtractToDirectory(packagePath, projectDir), cancellationToken);
+                await Task.Run(() => ExtractPackage(packagePath, projectDir), cancellationToken);
 
                 progress?.Report((Strings.ImportingProject, 0.6));
                 string? projectFile = Directory.GetFiles(projectDir, "*.bep", SearchOption.TopDirectoryOnly)
@@ -283,6 +283,31 @@ public sealed class ProjectPackageService
         }
 
         return path;
+    }
+
+    private static void ExtractPackage(string packagePath, string destinationDirectory)
+    {
+        using ZipArchive archive = ZipFile.OpenRead(packagePath);
+        if (archive.Entries.Any(entry => ContainsGitMetadataPath(entry.FullName)))
+        {
+            throw new InvalidDataException("Package contains reserved Git metadata.");
+        }
+
+        archive.ExtractToDirectory(destinationDirectory);
+    }
+
+    private static bool ContainsGitMetadataPath(string entryPath)
+    {
+        string[] segments = entryPath.Split(['/', '\\'], StringSplitOptions.RemoveEmptyEntries);
+        return segments.Any(IsGitMetadataPathSegment);
+    }
+
+    private static bool IsGitMetadataPathSegment(string segment)
+    {
+        int streamSeparator = segment.IndexOf(':');
+        string portableName = (streamSeparator >= 0 ? segment[..streamSeparator] : segment)
+            .TrimEnd(' ', '.');
+        return string.Equals(portableName, ".git", StringComparison.OrdinalIgnoreCase);
     }
 
     /// <summary>

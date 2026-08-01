@@ -509,6 +509,62 @@ public class ProjectPackageServiceTests
         Assert.That(importedProject, Is.Not.Null);
     }
 
+    [TestCase(".git/config")]
+    [TestCase(".git/")]
+    [TestCase("nested/.GIT/config")]
+    [TestCase(".GiT\\config")]
+    [TestCase("nested\\.GiT/config")]
+    [TestCase(".git./config")]
+    [TestCase("nested/.GiT /config")]
+    [TestCase(".git")]
+    [TestCase(".git.")]
+    [TestCase(".git ")]
+    [TestCase(".git::$DATA")]
+    [TestCase(".GIT:stream")]
+    [TestCase(".GiT.:payload")]
+    [TestCase("nested\\.GIT:payload")]
+    [TestCase("linked-worktree/.git")]
+    [TestCase("linked-worktree\\.GIT")]
+    public async Task ImportAsync_WithGitMetadataEntry_RejectsPackageBeforeExtraction(string entryName)
+    {
+        var service = ProjectPackageService.Current;
+        Project originalProject = CreateAndSaveTestProject();
+        string packagePath = Path.Combine(_exportDir, "unsafe-git-metadata.zip");
+        await service.ExportAsync(originalProject, packagePath);
+        AddArchiveEntry(packagePath, entryName, "malicious repository metadata");
+
+        Project? importedProject = await service.ImportAsync(packagePath, _importDir);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(importedProject, Is.Null);
+            Assert.That(Directory.Exists(Path.Combine(_importDir, "unsafe-git-metadata")), Is.False);
+        });
+    }
+
+    [Test]
+    public async Task ImportAsync_WithGitLikeEntryNames_ImportsSuccessfully()
+    {
+        var service = ProjectPackageService.Current;
+        Project originalProject = CreateAndSaveTestProject();
+        string packagePath = Path.Combine(_exportDir, "safe-git-like-names.zip");
+        await service.ExportAsync(originalProject, packagePath);
+        AddArchiveEntry(packagePath, ".gitignore", "*.tmp\n");
+        AddArchiveEntry(packagePath, ".github/workflows/check.yml", "name: check\n");
+        AddArchiveEntry(packagePath, "assets/project.git/config", "ordinary project data\n");
+
+        Project? importedProject = await service.ImportAsync(packagePath, _importDir);
+
+        Assert.That(importedProject, Is.Not.Null);
+        string importedDirectory = Path.GetDirectoryName(importedProject!.Uri!.LocalPath)!;
+        Assert.Multiple(() =>
+        {
+            Assert.That(File.Exists(Path.Combine(importedDirectory, ".gitignore")), Is.True);
+            Assert.That(File.Exists(Path.Combine(importedDirectory, ".github", "workflows", "check.yml")), Is.True);
+            Assert.That(File.Exists(Path.Combine(importedDirectory, "assets", "project.git", "config")), Is.True);
+        });
+    }
+
     [Test]
     public async Task ImportAsync_WithProgress_ReportsProgress()
     {
@@ -742,6 +798,16 @@ public class ProjectPackageServiceTests
     #endregion
 
     #region Helper Methods
+
+    private static void AddArchiveEntry(string packagePath, string entryName, string content)
+    {
+        using System.IO.Compression.ZipArchive archive = System.IO.Compression.ZipFile.Open(
+            packagePath,
+            System.IO.Compression.ZipArchiveMode.Update);
+        System.IO.Compression.ZipArchiveEntry entry = archive.CreateEntry(entryName);
+        using var writer = new StreamWriter(entry.Open());
+        writer.Write(content);
+    }
 
     private Project CreateAndSaveTestProject()
     {

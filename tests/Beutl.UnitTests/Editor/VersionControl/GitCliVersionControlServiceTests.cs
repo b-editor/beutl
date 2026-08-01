@@ -125,6 +125,150 @@ public class GitCliVersionControlServiceTests : RealGitTestRepository
         });
     }
 
+    [TestCase(false)]
+    [TestCase(true)]
+    public async Task InitializeAsync_restores_the_prior_index_when_initial_commit_stops_after_staging(
+        bool cancelCommit)
+    {
+        string ignorePath = Path.Combine(Root, ".gitignore");
+        const string originalIgnoreContents = "custom ignore rule\n";
+        await CommitFileAsync(".gitignore", originalIgnoreContents, "baseline ignore");
+        await CommitFileAsync("baseline.txt", "baseline\n", "baseline");
+        UnixFileMode? originalIgnoreMode = null;
+        if (!OperatingSystem.IsWindows())
+        {
+            File.SetUnixFileMode(
+                ignorePath,
+                UnixFileMode.UserRead | UnixFileMode.UserWrite);
+            originalIgnoreMode = File.GetUnixFileMode(ignorePath);
+        }
+
+        FileAttributes originalIgnoreAttributes = File.GetAttributes(ignorePath);
+        string stagedFile = Path.Combine(Root, "staged.belm");
+        await File.WriteAllTextAsync(stagedFile, "staged before initialization\n");
+        await RunGitAsync("add", "--", "staged.belm");
+        await File.WriteAllTextAsync(stagedFile, "working tree during initialization\n");
+        await File.WriteAllTextAsync(Path.Combine(Root, "project.bep"), "{}\n");
+        string tipBefore = (await RunGitAsync("rev-parse", "HEAD")).Stdout.Trim();
+        string indexBefore = (await RunGitAsync("write-tree")).Stdout.Trim();
+        using var cancellation = new CancellationTokenSource();
+        var runner = new FailingInitialCommitRunner(
+            CreateRunner(),
+            cancellation: cancelCommit ? cancellation : null);
+        using var service = new GitCliVersionControlService(
+            CreateInstalledLocator(),
+            repository: null,
+            watcher: null,
+            _ => runner);
+
+        if (cancelCommit)
+        {
+            Assert.CatchAsync<OperationCanceledException>(
+                async () => await service.InitializeAsync(
+                    new InitOptions(Repository, UseLfsWhenAvailable: false),
+                    cancellation.Token));
+        }
+        else
+        {
+            Assert.ThrowsAsync<GitOperationException>(
+                async () => await service.InitializeAsync(
+                    new InitOptions(Repository, UseLfsWhenAvailable: false),
+                    CancellationToken.None));
+        }
+
+        string tipAfter = (await RunGitAsync("rev-parse", "HEAD")).Stdout.Trim();
+        string indexAfter = (await RunGitAsync("write-tree")).Stdout.Trim();
+        GitCommandResult stagedContents = await RunGitAsync("show", ":staged.belm");
+        GitCommandResult stagedNames = await RunGitAsync("diff", "--cached", "--name-only");
+        Assert.Multiple(() =>
+        {
+            Assert.That(runner.InitialCommitAttempts, Is.EqualTo(1));
+            Assert.That(tipAfter, Is.EqualTo(tipBefore));
+            Assert.That(indexAfter, Is.EqualTo(indexBefore));
+            Assert.That(stagedContents.Stdout, Is.EqualTo("staged before initialization\n"));
+            Assert.That(stagedNames.Stdout, Is.EqualTo("staged.belm\n"));
+            Assert.That(
+                File.ReadAllText(stagedFile),
+                Is.EqualTo("working tree during initialization\n"));
+            Assert.That(File.ReadAllText(ignorePath), Is.EqualTo(originalIgnoreContents));
+            Assert.That(File.GetAttributes(ignorePath), Is.EqualTo(originalIgnoreAttributes));
+            Assert.That(File.Exists(Path.Combine(Root, ".gitattributes")), Is.False);
+        });
+        if (!OperatingSystem.IsWindows() && originalIgnoreMode is { } expectedMode)
+        {
+            Assert.That(File.GetUnixFileMode(ignorePath), Is.EqualTo(expectedMode));
+        }
+    }
+
+    [Test]
+    public async Task InitializeAsync_preserves_an_external_hygiene_edit_when_the_initial_commit_fails()
+    {
+        await CommitFileAsync("baseline.txt", "baseline\n", "baseline");
+        await File.WriteAllTextAsync(Path.Combine(Root, "project.bep"), "{}\n");
+        string indexBefore = (await RunGitAsync("write-tree")).Stdout.Trim();
+        string ignorePath = Path.Combine(Root, ".gitignore");
+        var runner = new FailingInitialCommitRunner(
+            CreateRunner(),
+            beforeFailure: _ => File.WriteAllText(ignorePath, "external edit\n"));
+        using var service = new GitCliVersionControlService(
+            CreateInstalledLocator(),
+            repository: null,
+            watcher: null,
+            _ => runner);
+
+        Assert.ThrowsAsync<GitOperationException>(
+            async () => await service.InitializeAsync(
+                new InitOptions(Repository, UseLfsWhenAvailable: false),
+                CancellationToken.None));
+
+        string indexAfter = (await RunGitAsync("write-tree")).Stdout.Trim();
+        Assert.Multiple(() =>
+        {
+            Assert.That(indexAfter, Is.EqualTo(indexBefore));
+            Assert.That(File.ReadAllText(ignorePath), Is.EqualTo("external edit\n"));
+            Assert.That(File.Exists(Path.Combine(Root, ".gitattributes")), Is.False);
+        });
+    }
+
+    [Test]
+    public async Task InitializeAsync_accepts_a_durable_initial_commit_when_its_result_is_lost()
+    {
+        string projectRoot = CreateTemporaryDirectory();
+        await File.WriteAllTextAsync(Path.Combine(projectRoot, "project.bep"), "{}\n");
+        var repository = new RepositoryInfo(projectRoot, projectRoot);
+        var runner = new LostInitialCommitResultRunner(CreateRunner());
+        using var service = new GitCliVersionControlService(
+            CreateInstalledLocator(),
+            repository: null,
+            watcher: null,
+            _ => runner);
+
+        Assert.DoesNotThrowAsync(
+            async () => await service.InitializeAsync(
+                new InitOptions(repository, UseLfsWhenAvailable: false)
+                {
+                    Identity = new GitIdentity("Beutl Test", "beutl-test@example.invalid"),
+                },
+                CancellationToken.None));
+
+        GitCommandResult count = await runner.Inner.RunAsync(
+            repository,
+            ["rev-list", "--count", "HEAD"],
+            GitCommandOptions.Local,
+            CancellationToken.None);
+        GitCommandResult staged = await runner.Inner.RunAsync(
+            repository,
+            ["diff", "--cached", "--name-only"],
+            GitCommandOptions.Local,
+            CancellationToken.None);
+        Assert.Multiple(() =>
+        {
+            Assert.That(runner.InitialCommitAttempts, Is.EqualTo(1));
+            Assert.That(count.Stdout.Trim(), Is.EqualTo("1"));
+            Assert.That(staged.Stdout, Is.Empty);
+        });
+    }
+
     [Test]
     public async Task InitializeAsync_requires_identity_before_existing_repository_mutation_or_association()
     {
@@ -222,6 +366,46 @@ public class GitCliVersionControlServiceTests : RealGitTestRepository
                 CancellationToken.None));
 
         Assert.That(runner.Commands, Does.Not.Contain("init"));
+    }
+
+    [Test]
+    public void DiscoverRepositoryAsync_rejects_control_characters_before_running_Git()
+    {
+        if (OperatingSystem.IsWindows())
+        {
+            Assert.Ignore("Windows paths cannot contain the control characters used by this regression.");
+        }
+
+        string projectRoot = Path.Combine(Root, "project\nwith\tcontrols");
+        var runner = new MismatchedDiscoveryRunner(Root);
+        using var service = new GitCliVersionControlService(
+            CreateInstalledLocator(),
+            repository: null,
+            watcher: null,
+            _ => runner);
+
+        Assert.ThrowsAsync<ArgumentException>(
+            async () => await service.DiscoverRepositoryAsync(
+                projectRoot,
+                CancellationToken.None));
+        Assert.That(runner.Commands, Is.Empty);
+    }
+
+    [Test]
+    public void DiscoverRepositoryAsync_rejects_a_prefix_for_another_project_root()
+    {
+        string projectRoot = CreateTemporaryDirectory();
+        var runner = new MismatchedDiscoveryRunner(projectRoot, "another-project/");
+        using var service = new GitCliVersionControlService(
+            CreateInstalledLocator(),
+            repository: null,
+            watcher: null,
+            _ => runner);
+
+        Assert.ThrowsAsync<InvalidOperationException>(
+            async () => await service.DiscoverRepositoryAsync(
+                projectRoot,
+                CancellationToken.None));
     }
 
     [Test]
@@ -2183,6 +2367,102 @@ public class GitCliVersionControlServiceTests : RealGitTestRepository
     }
 
     [Test]
+    public async Task Conflict_free_external_merge_blocks_snapshot_and_project_tree_commit()
+    {
+        await CommitFileAsync("project.bep", "base project\n", "base project");
+        await CommitFileAsync("other.belm", "base other\n", "base other");
+        await RunGitAsync("switch", "-c", "alternate");
+        await CommitFileAsync("other.belm", "alternate other\n", "alternate update");
+        await RunGitAsync("switch", "main");
+        await CommitFileAsync("project.bep", "main project\n", "main update");
+        await RunGitAsync("merge", "--no-commit", "--no-ff", "alternate");
+        using var service = CreateService();
+        WorkspaceStatus status = await service.GetStatusAsync(CancellationToken.None);
+        CheckedOutBranchTip expectedTip = await service.GetCheckedOutBranchTipAsync(
+            CancellationToken.None);
+        string indexBefore = (await RunGitAsync("write-tree")).Stdout.Trim();
+        string headBefore = (await RunGitAsync("rev-parse", "HEAD")).Stdout.Trim();
+
+        VersionControlConflictedException snapshotException =
+            Assert.ThrowsAsync<VersionControlConflictedException>(
+                async () => await service.CommitAllAsync(
+                    "blocked snapshot",
+                    SnapshotKind.Save,
+                    CancellationToken.None))!;
+        VersionControlConflictedException treeCommitException =
+            Assert.ThrowsAsync<VersionControlConflictedException>(
+                async () => await service.CommitProjectTreeAsync(
+                    expectedTip,
+                    expectedTip.Commit,
+                    "blocked project tree commit",
+                    SnapshotKind.Restore,
+                    CancellationToken.None))!;
+
+        string mergeHeadPath = (await RunGitAsync("rev-parse", "--git-path", "MERGE_HEAD"))
+            .Stdout.TrimEnd('\r', '\n');
+        string indexAfter = (await RunGitAsync("write-tree")).Stdout.Trim();
+        string headAfter = (await RunGitAsync("rev-parse", "HEAD")).Stdout.Trim();
+        Assert.Multiple(() =>
+        {
+            Assert.That(status.HasConflicts, Is.False);
+            Assert.That(snapshotException.Guidance, Is.EqualTo(Strings.VersionControl_ConflictGuidance));
+            Assert.That(treeCommitException.Guidance, Is.EqualTo(Strings.VersionControl_ConflictGuidance));
+            Assert.That(File.Exists(Path.GetFullPath(Path.Combine(Root, mergeHeadPath))), Is.True);
+            Assert.That(indexAfter, Is.EqualTo(indexBefore));
+            Assert.That(headAfter, Is.EqualTo(headBefore));
+        });
+    }
+
+    [Test]
+    public async Task CommitAllAsync_rechecks_an_external_merge_after_the_policy_notice()
+    {
+        await CommitFileAsync("project.bep", "base project\n", "base project");
+        await CommitFileAsync("other.belm", "base other\n", "base other");
+        await RunGitAsync("switch", "-c", "alternate");
+        await CommitFileAsync("other.belm", "alternate other\n", "alternate update");
+        await RunGitAsync("switch", "main");
+        await CommitFileAsync("project.bep", "main project\n", "main update");
+        string mediaPath = Path.Combine(Root, "resources", "clip.mp4");
+        Directory.CreateDirectory(Path.GetDirectoryName(mediaPath)!);
+        await File.WriteAllTextAsync(mediaPath, "media\n");
+        string? mergeIndex = null;
+        int notices = 0;
+        var config = new VersionControlConfig { LargeMediaWarningThresholdMb = 0 };
+        using var service = new GitCliVersionControlService(
+            CreateInstalledLocator(config: config),
+            Repository,
+            watcher: null,
+            _ => CreateRunner(),
+            policyNoticeSink: async (_, _) =>
+            {
+                Interlocked.Increment(ref notices);
+                await RunGitAsync("merge", "--no-commit", "--no-ff", "alternate");
+                mergeIndex = (await RunGitAsync("write-tree")).Stdout.Trim();
+            });
+        string headBefore = (await RunGitAsync("rev-parse", "HEAD")).Stdout.Trim();
+
+        VersionControlConflictedException exception =
+            Assert.ThrowsAsync<VersionControlConflictedException>(
+                async () => await service.CommitAllAsync(
+                    "blocked snapshot",
+                    SnapshotKind.Save,
+                    CancellationToken.None))!;
+
+        string headAfter = (await RunGitAsync("rev-parse", "HEAD")).Stdout.Trim();
+        string indexAfter = (await RunGitAsync("write-tree")).Stdout.Trim();
+        string mergeHeadPath = (await RunGitAsync("rev-parse", "--git-path", "MERGE_HEAD"))
+            .Stdout.TrimEnd('\r', '\n');
+        Assert.Multiple(() =>
+        {
+            Assert.That(notices, Is.EqualTo(1));
+            Assert.That(exception.Guidance, Is.EqualTo(Strings.VersionControl_ConflictGuidance));
+            Assert.That(indexAfter, Is.EqualTo(mergeIndex));
+            Assert.That(headAfter, Is.EqualTo(headBefore));
+            Assert.That(File.Exists(Path.GetFullPath(Path.Combine(Root, mergeHeadPath))), Is.True);
+        });
+    }
+
+    [Test]
     public async Task Concurrent_status_calls_are_serialized()
     {
         var runner = new ConcurrencyTrackingRunner();
@@ -2501,6 +2781,48 @@ public class GitCliVersionControlServiceTests : RealGitTestRepository
             Assert.That(
                 entry.Message,
                 Is.EqualTo("Failed to publish version-control status after a durable Git operation."));
+        });
+    }
+
+    [Test]
+    public async Task Pull_treats_a_local_ahead_branch_as_success_without_a_transition()
+    {
+        await CommitFileAsync("project.bep", "initial\n", "initial");
+        string remoteRoot = CreateTemporaryDirectory();
+        var remoteRepository = new RepositoryInfo(remoteRoot, remoteRoot);
+        await CreateRunner().RunAsync(
+            remoteRepository,
+            ["init", "--bare", "-b", "main"],
+            GitCommandOptions.Local,
+            CancellationToken.None);
+        using var service = CreateService();
+        await service.SetRemoteAsync(remoteRoot, CancellationToken.None);
+        Assert.That(
+            await service.PushAsync(progress: null, CancellationToken.None),
+            Is.TypeOf<RemoteOpResult.Success>());
+        await CommitFileAsync("local.belm", "local only\n", "local update");
+        CheckedOutBranchTip expectedTip = await service.GetCheckedOutBranchTipAsync(
+            CancellationToken.None);
+
+        PullPreflightResult preflight = await service.PreflightPullAsync(
+            expectedTip,
+            CancellationToken.None);
+        FastForwardPullResult pull = await service.PullFastForwardAsync(
+            expectedTip,
+            checkpoint: null,
+            Path.Combine(Root, "project.bep"),
+            CancellationToken.None);
+        CheckedOutBranchTip actualTip = await service.GetCheckedOutBranchTipAsync(
+            CancellationToken.None);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(preflight.Result, Is.TypeOf<RemoteOpResult.Success>());
+            Assert.That(preflight.RequiresTransition, Is.False);
+            Assert.That(pull.Result, Is.TypeOf<RemoteOpResult.Success>());
+            Assert.That(pull.TransitionState, Is.EqualTo(PullTransitionState.Unchanged));
+            Assert.That(pull.Tip, Is.EqualTo(expectedTip));
+            Assert.That(actualTip, Is.EqualTo(expectedTip));
         });
     }
 
@@ -2869,7 +3191,7 @@ public class GitCliVersionControlServiceTests : RealGitTestRepository
                 _repositoryInitialized.TrySetResult();
                 await _releaseRepositoryInitialization.Task.WaitAsync(cancellationToken);
             }
-            else if (arguments.FirstOrDefault() == "commit"
+            else if (IsCommitCommand(arguments)
                      && arguments.Contains("Beutl-Snapshot: init"))
             {
                 _initialCommitCompleted.TrySetResult();
@@ -3169,7 +3491,9 @@ public class GitCliVersionControlServiceTests : RealGitTestRepository
 
     private sealed class FailingInitialCommitRunner(
         IGitCliRunner inner,
-        RepositoryLockInfo? recoverableLock = null) : IGitCliRunner
+        RepositoryLockInfo? recoverableLock = null,
+        CancellationTokenSource? cancellation = null,
+        Action<RepositoryInfo>? beforeFailure = null) : IGitCliRunner
     {
         private int _initialCommitAttempts;
 
@@ -3184,10 +3508,17 @@ public class GitCliVersionControlServiceTests : RealGitTestRepository
             CancellationToken cancellationToken,
             IProgress<string>? stderrProgress = null)
         {
-            if (arguments.FirstOrDefault() == "commit"
+            if (IsCommitCommand(arguments)
                 && arguments.Contains("Beutl-Snapshot: init"))
             {
                 Interlocked.Increment(ref _initialCommitAttempts);
+                beforeFailure?.Invoke(repository);
+                if (cancellation is not null)
+                {
+                    cancellation.Cancel();
+                    return Task.FromCanceled<GitCommandResult>(cancellation.Token);
+                }
+
                 return Task.FromException<GitCommandResult>(new GitOperationException(
                     1,
                     recoverableLock is null
@@ -3205,6 +3536,48 @@ public class GitCliVersionControlServiceTests : RealGitTestRepository
 
         public RepositoryLockInfo? GetRecoverableRepositoryLock(RepositoryInfo repository)
             => recoverableLock ?? inner.GetRecoverableRepositoryLock(repository);
+
+        public bool RemoveRecoverableRepositoryLock(
+            RepositoryInfo repository,
+            RepositoryLockInfo lockInfo)
+            => inner.RemoveRecoverableRepositoryLock(repository, lockInfo);
+    }
+
+    private sealed class LostInitialCommitResultRunner(IGitCliRunner inner) : IGitCliRunner
+    {
+        private int _initialCommitAttempts;
+
+        public IGitCliRunner Inner => inner;
+
+        public int InitialCommitAttempts => Volatile.Read(ref _initialCommitAttempts);
+
+        public bool HasActiveProcess => inner.HasActiveProcess;
+
+        public async Task<GitCommandResult> RunAsync(
+            RepositoryInfo repository,
+            IReadOnlyList<string> arguments,
+            GitCommandOptions options,
+            CancellationToken cancellationToken,
+            IProgress<string>? stderrProgress = null)
+        {
+            GitCommandResult result = await inner.RunAsync(
+                repository,
+                arguments,
+                options,
+                cancellationToken,
+                stderrProgress);
+            if (IsCommitCommand(arguments)
+                && arguments.Contains("Beutl-Snapshot: init"))
+            {
+                Interlocked.Increment(ref _initialCommitAttempts);
+                throw new TimeoutException("simulated lost initial commit result");
+            }
+
+            return result;
+        }
+
+        public RepositoryLockInfo? GetRecoverableRepositoryLock(RepositoryInfo repository)
+            => inner.GetRecoverableRepositoryLock(repository);
 
         public bool RemoveRecoverableRepositoryLock(
             RepositoryInfo repository,
@@ -3361,6 +3734,23 @@ public class GitCliVersionControlServiceTests : RealGitTestRepository
             IProgress<string>? stderrProgress = null)
         {
             Commands.Add(string.Join(' ', arguments));
+            if (arguments.FirstOrDefault() == "rev-parse"
+                && arguments.Contains("--git-path"))
+            {
+                string[] paths = arguments
+                    .Select((argument, index) => (argument, index))
+                    .Where(static item => item.argument == "--git-path")
+                    .Select(item => Path.Combine(
+                        repository.RepoRoot,
+                        ".git",
+                        arguments[item.index + 1]))
+                    .ToArray();
+                return Task.FromResult(new GitCommandResult(
+                    0,
+                    string.Join('\n', paths) + '\n',
+                    ""));
+            }
+
             if (arguments.FirstOrDefault() == "rev-parse")
             {
                 throw new GitOperationException(
@@ -3376,6 +3766,11 @@ public class GitCliVersionControlServiceTests : RealGitTestRepository
             if (arguments.SequenceEqual(["config", "--get", "user.email"]))
             {
                 return Task.FromResult(new GitCommandResult(0, "beutl-test@example.invalid\n", ""));
+            }
+
+            if (arguments.SequenceEqual(["symbolic-ref", "--quiet", "HEAD"]))
+            {
+                return Task.FromResult(new GitCommandResult(0, "refs/heads/main\n", ""));
             }
 
             if (arguments.FirstOrDefault() == "status")
@@ -3398,7 +3793,9 @@ public class GitCliVersionControlServiceTests : RealGitTestRepository
             => false;
     }
 
-    private sealed class MismatchedDiscoveryRunner(string discoveredRoot) : IGitCliRunner
+    private sealed class MismatchedDiscoveryRunner(
+        string discoveredRoot,
+        string discoveredPrefix = "") : IGitCliRunner
     {
         public List<string> Commands { get; } = [];
 
@@ -3412,10 +3809,17 @@ public class GitCliVersionControlServiceTests : RealGitTestRepository
             IProgress<string>? stderrProgress = null)
         {
             Commands.Add(string.Join(' ', arguments));
-            return Task.FromResult(
-                arguments.FirstOrDefault() == "rev-parse"
-                    ? new GitCommandResult(0, $"{discoveredRoot}\n\n", "")
-                    : new GitCommandResult(0, "", ""));
+            if (arguments.SequenceEqual(["rev-parse", "--show-toplevel"]))
+            {
+                return Task.FromResult(new GitCommandResult(0, $"{discoveredRoot}\n", ""));
+            }
+
+            if (arguments.SequenceEqual(["rev-parse", "--show-prefix"]))
+            {
+                return Task.FromResult(new GitCommandResult(0, $"{discoveredPrefix}\n", ""));
+            }
+
+            return Task.FromResult(new GitCommandResult(0, "", ""));
         }
 
         public RepositoryLockInfo? GetRecoverableRepositoryLock(RepositoryInfo repository)

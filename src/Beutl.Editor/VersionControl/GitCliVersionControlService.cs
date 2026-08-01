@@ -40,6 +40,14 @@ internal sealed class GitCliVersionControlService :
         RecoveryFailed,
     }
 
+    private enum PullRelation
+    {
+        Equal,
+        LocalBehind,
+        LocalAhead,
+        Diverged,
+    }
+
     private sealed record TreeTransitionResult(
         TreeTransitionOutcome Outcome,
         Exception? Error = null,
@@ -222,6 +230,16 @@ internal sealed class GitCliVersionControlService :
     [
         "**/.[bB][eE][uU][tT][lL]/**",
         "**/*.[tT][mM][pP]",
+    ];
+
+    private static readonly string[] s_repositoryOperationRefs =
+    [
+        "MERGE_HEAD",
+        "CHERRY_PICK_HEAD",
+        "REVERT_HEAD",
+        "rebase-merge",
+        "rebase-apply",
+        "sequencer",
     ];
 
     private static string CreateCaseInsensitiveGlob(string value)
@@ -2384,6 +2402,11 @@ internal sealed class GitCliVersionControlService :
         ValidateAttachedBranchTip(expectedCurrent, nameof(expectedCurrent));
         RepositoryInfo repository = GetRepository();
         IGitCliRunner runner = await GetInstalledRunnerCoreAsync(cancellationToken).ConfigureAwait(false);
+        await EnsureNoExternalRepositoryOperationAsync(
+                repository,
+                runner,
+                cancellationToken)
+            .ConfigureAwait(false);
         CheckedOutBranchTip currentTip = await GetCheckedOutBranchTipCoreAsync(
                 repository,
                 runner,
@@ -2462,6 +2485,11 @@ internal sealed class GitCliVersionControlService :
             return new CommitResult.NoChanges();
         }
 
+        await EnsureNoExternalRepositoryOperationAsync(
+                repository,
+                runner,
+                cancellationToken)
+            .ConfigureAwait(false);
         GitCommandResult commit = await runner.RunAsync(
             repository,
             [
@@ -2501,6 +2529,11 @@ internal sealed class GitCliVersionControlService :
             throw new ProjectCheckpointStateChangedException();
         }
 
+        await EnsureNoExternalRepositoryOperationAsync(
+                repository,
+                runner,
+                CancellationToken.None)
+            .ConfigureAwait(false);
         TreeTransitionResult applyResult = await ApplyTreeTransitionAsync(
             repository,
             runner,
@@ -3112,6 +3145,38 @@ internal sealed class GitCliVersionControlService :
         {
             return false;
         }
+    }
+
+    private static async Task<PullRelation> GetPullRelationAsync(
+        RepositoryInfo repository,
+        IGitCliRunner runner,
+        string localCommit,
+        string upstreamCommit,
+        CancellationToken cancellationToken)
+    {
+        if (string.Equals(localCommit, upstreamCommit, StringComparison.OrdinalIgnoreCase))
+        {
+            return PullRelation.Equal;
+        }
+
+        if (await IsAncestorAsync(
+                repository,
+                runner,
+                localCommit,
+                upstreamCommit,
+                cancellationToken).ConfigureAwait(false))
+        {
+            return PullRelation.LocalBehind;
+        }
+
+        return await IsAncestorAsync(
+                repository,
+                runner,
+                upstreamCommit,
+                localCommit,
+                cancellationToken).ConfigureAwait(false)
+            ? PullRelation.LocalAhead
+            : PullRelation.Diverged;
     }
 
     private async Task<TreeTransitionResult> ApplyTreeTransitionAsync(
@@ -4331,17 +4396,13 @@ internal sealed class GitCliVersionControlService :
         }
 
         string upstreamCommit = upstreamResult.Stdout.Trim();
-        if (!await IsAncestorAsync(
+        PullRelation relation = await GetPullRelationAsync(
                 repository,
                 runner,
                 expectedCurrent.Commit,
                 upstreamCommit,
-                cancellationToken).ConfigureAwait(false))
-        {
-            return new PullPreflightResult(
-                new RemoteOpResult.Diverged(),
-                RequiresTransition: false);
-        }
+                cancellationToken)
+            .ConfigureAwait(false);
 
         currentTip = await GetCheckedOutBranchTipCoreAsync(
                 repository,
@@ -4354,12 +4415,18 @@ internal sealed class GitCliVersionControlService :
                 "The checked-out branch changed while the pull preflight was running.");
         }
 
-        return new PullPreflightResult(
-            new RemoteOpResult.Success(),
-            RequiresTransition: !string.Equals(
-                upstreamCommit,
-                expectedCurrent.Commit,
-                StringComparison.OrdinalIgnoreCase));
+        return relation switch
+        {
+            PullRelation.LocalBehind => new PullPreflightResult(
+                new RemoteOpResult.Success(),
+                RequiresTransition: true),
+            PullRelation.Equal or PullRelation.LocalAhead => new PullPreflightResult(
+                new RemoteOpResult.Success(),
+                RequiresTransition: false),
+            _ => new PullPreflightResult(
+                new RemoteOpResult.Diverged(),
+                RequiresTransition: false),
+        };
     }
 
     private async Task<FastForwardPullResult> PullFastForwardCoreAsync(
@@ -4462,21 +4529,31 @@ internal sealed class GitCliVersionControlService :
         }
 
         string upstreamCommit = upstreamResult.Stdout.Trim();
-        if (!await IsAncestorAsync(
+        PullRelation relation = await GetPullRelationAsync(
                 repository,
                 runner,
                 expectedCurrent.Commit,
                 upstreamCommit,
-                cancellationToken).ConfigureAwait(false))
+                cancellationToken)
+            .ConfigureAwait(false);
+        currentTip = await GetCheckedOutBranchTipCoreAsync(
+                repository,
+                runner,
+                cancellationToken)
+            .ConfigureAwait(false);
+        if (!EqualsBranchTip(currentTip, expectedCurrent))
+        {
+            throw new InvalidOperationException(
+                "The checked-out branch changed while the fast-forward pull was being prepared.");
+        }
+
+        if (relation == PullRelation.Diverged)
         {
             return new FastForwardPullResult(new RemoteOpResult.Diverged(), expectedCurrent);
         }
 
-        if (string.Equals(
-                upstreamCommit,
-                expectedCurrent.Commit,
-                StringComparison.OrdinalIgnoreCase)
-            && checkpoint is null)
+        if (relation == PullRelation.LocalAhead
+            || relation == PullRelation.Equal && checkpoint is null)
         {
             return new FastForwardPullResult(new RemoteOpResult.Success(), expectedCurrent);
         }
@@ -4960,45 +5037,243 @@ internal sealed class GitCliVersionControlService :
                 .ConfigureAwait(false);
         }
 
+        string ignorePath = Path.Combine(repository.ProjectRoot, ".gitignore");
+        string attributesPath = Path.Combine(repository.ProjectRoot, ".gitattributes");
+        HygieneFileSnapshot originalIgnore = await ReadHygieneFileSnapshotAsync(
+                ignorePath,
+                cancellationToken)
+            .ConfigureAwait(false);
+        HygieneFileSnapshot originalAttributes = await ReadHygieneFileSnapshotAsync(
+                attributesPath,
+                cancellationToken)
+            .ConfigureAwait(false);
+        HygieneFileSnapshot? initializedIgnore = null;
+        HygieneFileSnapshot? initializedAttributes = null;
+        string? branchRef = null;
+        string? originalBranchTip = null;
+        string? originalIndexTree = null;
+        string? reflogAction = null;
+        bool indexMayHaveChanged = false;
+        bool commitAttempted = false;
         bool useLfs = options.UseLfsWhenAvailable && availability.LfsInstalled;
-        await EnsureRepositoryHygieneCoreAsync(
-                repository,
-                runner,
-                useLfs,
-                cancellationToken)
-            .ConfigureAwait(false);
-
-        WorkspaceStatus status = await GetStatusCoreAsync(
-                repository,
-                runner,
-                cancellationToken)
-            .ConfigureAwait(false);
-        if (!status.IsClean)
+        try
         {
-            await RaiseLargeMediaNoticeIfNeededAsync(
+            if (useLfs)
+            {
+                await runner.RunAsync(
                     repository,
-                    runner,
-                    status,
+                    ["lfs", "install", "--local"],
+                    GitCommandOptions.Local,
+                    cancellationToken).ConfigureAwait(false);
+            }
+
+            await EnsureLinesAsync(
+                    ignorePath,
+                    s_gitIgnoreLines,
                     cancellationToken)
                 .ConfigureAwait(false);
-            await runner.RunAsync(
-                repository,
-                ["add", "-A", "--", repository.Pathspec],
-                GitCommandOptions.Local,
-                cancellationToken).ConfigureAwait(false);
-            await runner.RunAsync(
-                repository,
-                [
-                    "commit",
-                        "-m",
-                        "beutl: initialize version control",
-                        "-m",
-                        "Beutl-Snapshot: init",
-                        "--",
-                        repository.Pathspec,
-                ],
-                GitCommandOptions.Local,
-                cancellationToken).ConfigureAwait(false);
+            initializedIgnore = await ReadHygieneFileSnapshotAsync(
+                    ignorePath,
+                    CancellationToken.None)
+                .ConfigureAwait(false);
+            await EnsureAttributesAsync(
+                    attributesPath,
+                    useLfs,
+                    cancellationToken)
+                .ConfigureAwait(false);
+            initializedAttributes = await ReadHygieneFileSnapshotAsync(
+                    attributesPath,
+                    CancellationToken.None)
+                .ConfigureAwait(false);
+
+            WorkspaceStatus status = await GetStatusCoreAsync(
+                    repository,
+                    runner,
+                    cancellationToken)
+                .ConfigureAwait(false);
+            if (!status.IsClean)
+            {
+                await RaiseLargeMediaNoticeIfNeededAsync(
+                        repository,
+                        runner,
+                        status,
+                        cancellationToken)
+                    .ConfigureAwait(false);
+                await EnsureNoExternalRepositoryOperationAsync(
+                        repository,
+                        runner,
+                        cancellationToken)
+                    .ConfigureAwait(false);
+                branchRef = await GetAttachedBranchRefCoreAsync(
+                        repository,
+                        runner,
+                        cancellationToken)
+                    .ConfigureAwait(false);
+                originalBranchTip = await TryResolveCommitAsync(
+                        repository,
+                        runner,
+                        branchRef,
+                        cancellationToken)
+                    .ConfigureAwait(false);
+                GitCommandResult originalIndex = await runner.RunAsync(
+                    repository,
+                    ["write-tree"],
+                    GitCommandOptions.Local,
+                    cancellationToken).ConfigureAwait(false);
+                originalIndexTree = originalIndex.Stdout.Trim();
+                string currentBranchRef = await GetAttachedBranchRefCoreAsync(
+                        repository,
+                        runner,
+                        cancellationToken)
+                    .ConfigureAwait(false);
+                string? currentBranchTip = await TryResolveCommitAsync(
+                        repository,
+                        runner,
+                        currentBranchRef,
+                        cancellationToken)
+                    .ConfigureAwait(false);
+                if (!string.Equals(currentBranchRef, branchRef, StringComparison.Ordinal)
+                    || !string.Equals(
+                        currentBranchTip,
+                        originalBranchTip,
+                        StringComparison.OrdinalIgnoreCase))
+                {
+                    throw new ProjectCheckpointStateChangedException();
+                }
+
+                await EnsureNoExternalRepositoryOperationAsync(
+                        repository,
+                        runner,
+                        cancellationToken)
+                    .ConfigureAwait(false);
+                reflogAction = $"beutl-initialize/{Guid.NewGuid():N}";
+                indexMayHaveChanged = true;
+                await runner.RunAsync(
+                    repository,
+                    ["add", "-A", "--", repository.Pathspec],
+                    GitCommandOptions.Local,
+                    cancellationToken).ConfigureAwait(false);
+                commitAttempted = true;
+                await runner.RunAsync(
+                    repository,
+                    [
+                        "-c",
+                            "core.logAllRefUpdates=true",
+                            "commit",
+                            "-m",
+                            "beutl: initialize version control",
+                            "-m",
+                            "Beutl-Snapshot: init",
+                            "--",
+                            repository.Pathspec,
+                    ],
+                    new GitCommandOptions(
+                        GitCommandExecutionKind.Local,
+                        new Dictionary<string, string?>
+                        {
+                            ["GIT_REFLOG_ACTION"] = reflogAction,
+                        }),
+                    cancellationToken).ConfigureAwait(false);
+            }
+        }
+        catch (Exception operationException)
+        {
+            bool durableCommitRecorded = false;
+            if (commitAttempted)
+            {
+                string? durableCommit;
+                try
+                {
+                    durableCommit = await TryFindCommitByReflogActionAsync(
+                            repository,
+                            runner,
+                            branchRef!,
+                            reflogAction!)
+                        .ConfigureAwait(false);
+                }
+                catch (Exception observationException)
+                {
+                    throw new AggregateException(
+                        "The initial snapshot failed and its durable commit result could not be observed. The initialization state was left unchanged.",
+                        operationException,
+                        observationException);
+                }
+
+                if (durableCommit is not null)
+                {
+                    durableCommitRecorded = true;
+                    LogWarningBestEffort(
+                        operationException,
+                        "Git reported an initial snapshot failure after its durable commit was recorded.");
+                }
+            }
+
+            if (!durableCommitRecorded && indexMayHaveChanged)
+            {
+                string observedBranchRef;
+                string? observedBranchTip;
+                try
+                {
+                    observedBranchRef = await GetAttachedBranchRefCoreAsync(
+                            repository,
+                            runner,
+                            CancellationToken.None)
+                        .ConfigureAwait(false);
+                    observedBranchTip = await TryResolveCommitAsync(
+                            repository,
+                            runner,
+                            observedBranchRef,
+                            CancellationToken.None)
+                        .ConfigureAwait(false);
+                }
+                catch (Exception observationException)
+                {
+                    throw new AggregateException(
+                        "The initial snapshot failed and the current branch tip could not be observed. The initialization state was left unchanged.",
+                        operationException,
+                        observationException);
+                }
+
+                if (!string.Equals(observedBranchRef, branchRef, StringComparison.Ordinal)
+                    || !string.Equals(
+                        observedBranchTip,
+                        originalBranchTip,
+                        StringComparison.OrdinalIgnoreCase))
+                {
+                    throw new AggregateException(
+                        "The initial snapshot failed, but the branch tip changed before its durable result could be identified. The initialization state was left unchanged.",
+                        operationException,
+                        new InvalidOperationException(
+                            $"Expected branch '{branchRef}' at '{originalBranchTip ?? "<unborn>"}', but observed '{observedBranchRef}' at '{observedBranchTip ?? "<unborn>"}'."));
+                }
+            }
+
+            if (!durableCommitRecorded)
+            {
+                try
+                {
+                    await RestoreFailedInitializationAsync(
+                            repository,
+                            runner,
+                            indexMayHaveChanged ? originalIndexTree : null,
+                            ignorePath,
+                            originalIgnore,
+                            initializedIgnore,
+                            attributesPath,
+                            originalAttributes,
+                            initializedAttributes)
+                        .ConfigureAwait(false);
+                }
+                catch (Exception restoreException)
+                {
+                    throw new AggregateException(
+                        "Version-control initialization failed and the prior index or repository hygiene state could not be restored.",
+                        operationException,
+                        restoreException);
+                }
+
+                throw;
+            }
         }
 
         TryEnsureWatcher();
@@ -5087,33 +5362,89 @@ internal sealed class GitCliVersionControlService :
     {
         string normalizedProjectRoot = Path.TrimEndingDirectorySeparator(
             Path.GetFullPath(projectRoot));
+        if (normalizedProjectRoot.Any(char.IsControl))
+        {
+            throw new ArgumentException(
+                "Repository discovery does not support control characters in project paths.",
+                nameof(projectRoot));
+        }
+
         var discoveryContext = new RepositoryInfo(normalizedProjectRoot, normalizedProjectRoot);
         try
         {
-            GitCommandResult result = await runner.RunAsync(
+            GitCommandResult rootResult = await runner.RunAsync(
                 discoveryContext,
-                ["rev-parse", "--show-toplevel", "--show-prefix"],
+                ["rev-parse", "--show-toplevel"],
                 GitCommandOptions.Local,
                 cancellationToken).ConfigureAwait(false);
-            string[] lines = result.Stdout
-                .Replace("\r\n", "\n", StringComparison.Ordinal)
-                .Split('\n');
-            if (lines.Length == 0 || string.IsNullOrWhiteSpace(lines[0]))
-            {
-                throw new InvalidOperationException(
-                    "Git repository discovery returned an empty repository root.");
-            }
-
-            string repoRoot = Path.TrimEndingDirectorySeparator(Path.GetFullPath(lines[0]));
+            GitCommandResult prefixResult = await runner.RunAsync(
+                discoveryContext,
+                ["rev-parse", "--show-prefix"],
+                GitCommandOptions.Local,
+                cancellationToken).ConfigureAwait(false);
+            string root = ParseRepositoryDiscoveryPath(
+                rootResult.Stdout,
+                allowEmpty: false,
+                description: "repository root");
+            string prefix = ParseRepositoryDiscoveryPath(
+                prefixResult.Stdout,
+                allowEmpty: true,
+                description: "project prefix");
+            string repoRoot = Path.TrimEndingDirectorySeparator(Path.GetFullPath(root));
             string resolvedProjectRoot = GetDiscoveredProjectRoot(
                 repoRoot,
-                lines.Length > 1 ? lines[1] : string.Empty);
+                prefix);
+            if (!RepositoryPathComparer.AreEquivalent(
+                    resolvedProjectRoot,
+                    normalizedProjectRoot))
+            {
+                throw new InvalidOperationException(
+                    "Git repository discovery returned a project root that does not match the requested path.");
+            }
+
             return new RepositoryInfo(repoRoot, resolvedProjectRoot);
         }
         catch (GitOperationException ex) when (IsNotRepositoryFailure(ex))
         {
             return null;
         }
+    }
+
+    private static string ParseRepositoryDiscoveryPath(
+        string stdout,
+        bool allowEmpty,
+        string description)
+    {
+        if (stdout.Length == 0)
+        {
+            if (allowEmpty)
+            {
+                return string.Empty;
+            }
+
+            throw new InvalidOperationException(
+                $"Git repository discovery returned an empty {description}.");
+        }
+
+        if (!stdout.EndsWith('\n'))
+        {
+            throw new InvalidOperationException(
+                $"Git repository discovery returned an invalid {description} record.");
+        }
+
+        string value = stdout[..^1];
+        if (value.EndsWith('\r'))
+        {
+            value = value[..^1];
+        }
+
+        if ((!allowEmpty && value.Length == 0) || value.Any(char.IsControl))
+        {
+            throw new InvalidOperationException(
+                $"Git repository discovery returned an invalid {description}.");
+        }
+
+        return value;
     }
 
     private static string GetDiscoveredProjectRoot(string repoRoot, string prefix)
@@ -5166,6 +5497,11 @@ internal sealed class GitCliVersionControlService :
         ThrowIfRequiredProjectPathIgnored(ignoredPath);
         WorkspaceStatus status = await GetStatusCoreAsync(cancellationToken).ConfigureAwait(false);
         ThrowIfConflicted(status);
+        await EnsureNoExternalRepositoryOperationAsync(
+                repository,
+                runner,
+                cancellationToken)
+            .ConfigureAwait(false);
         if (status.IsClean)
         {
             return new CommitResult.NoChanges();
@@ -5224,6 +5560,11 @@ internal sealed class GitCliVersionControlService :
 
         arguments.Add("--");
         arguments.Add(repository.Pathspec);
+        await EnsureNoExternalRepositoryOperationAsync(
+                repository,
+                runner,
+                cancellationToken)
+            .ConfigureAwait(false);
         try
         {
             await runner.RunAsync(
@@ -5387,8 +5728,82 @@ internal sealed class GitCliVersionControlService :
 
     private async Task EnsureNotConflictedCoreAsync(CancellationToken cancellationToken)
     {
-        WorkspaceStatus status = await GetStatusCoreAsync(cancellationToken).ConfigureAwait(false);
+        RepositoryInfo repository = GetRepository();
+        IGitCliRunner runner = await GetInstalledRunnerCoreAsync(cancellationToken)
+            .ConfigureAwait(false);
+        WorkspaceStatus status = await GetStatusCoreAsync(
+                repository,
+                runner,
+                cancellationToken)
+            .ConfigureAwait(false);
         ThrowIfConflicted(status);
+    }
+
+    private static async Task EnsureNoExternalRepositoryOperationAsync(
+        RepositoryInfo repository,
+        IGitCliRunner runner,
+        CancellationToken cancellationToken)
+    {
+        var arguments = new List<string> { "rev-parse" };
+        foreach (string operationRef in s_repositoryOperationRefs)
+        {
+            arguments.Add("--git-path");
+            arguments.Add(operationRef);
+        }
+
+        GitCommandResult result = await runner.RunAsync(
+            repository,
+            arguments,
+            GitCommandOptions.Local,
+            cancellationToken).ConfigureAwait(false);
+        string stdout = result.Stdout.Replace("\r\n", "\n", StringComparison.Ordinal);
+        if (!stdout.EndsWith('\n'))
+        {
+            throw new InvalidOperationException(
+                "Git returned an invalid repository-operation path list.");
+        }
+
+        string[] paths = stdout[..^1].Split('\n');
+        if (paths.Length != s_repositoryOperationRefs.Length
+            || paths.Any(static path => path.Length == 0 || path.Any(char.IsControl)))
+        {
+            throw new InvalidOperationException(
+                "Git returned an invalid repository-operation path list.");
+        }
+
+        foreach (string path in paths)
+        {
+            string fullPath = Path.GetFullPath(
+                Path.IsPathFullyQualified(path)
+                    ? path
+                    : Path.Combine(repository.RepoRoot, path));
+            if (RepositoryOperationPathExists(fullPath))
+            {
+                throw new VersionControlConflictedException(
+                    Strings.VersionControl_ConflictGuidance);
+            }
+        }
+    }
+
+    private static bool RepositoryOperationPathExists(string path)
+    {
+        try
+        {
+            _ = File.GetAttributes(path);
+            return true;
+        }
+        catch (Exception ex) when (ex is FileNotFoundException or DirectoryNotFoundException)
+        {
+            return false;
+        }
+        catch (Exception ex) when (ex is IOException
+                                       or UnauthorizedAccessException
+                                       or NotSupportedException)
+        {
+            throw new InvalidOperationException(
+                $"The Git repository-operation path '{path}' could not be inspected safely.",
+                ex);
+        }
     }
 
     private static void ThrowIfConflicted(WorkspaceStatus status)
@@ -6114,6 +6529,120 @@ internal sealed class GitCliVersionControlService :
         }
 
         return firstBlockIndex;
+    }
+
+    private static async Task RestoreFailedInitializationAsync(
+        RepositoryInfo repository,
+        IGitCliRunner runner,
+        string? originalIndexTree,
+        string ignorePath,
+        HygieneFileSnapshot originalIgnore,
+        HygieneFileSnapshot? initializedIgnore,
+        string attributesPath,
+        HygieneFileSnapshot originalAttributes,
+        HygieneFileSnapshot? initializedAttributes)
+    {
+        var failures = new List<Exception>();
+        if (originalIndexTree is not null)
+        {
+            try
+            {
+                await ResetIndexAsync(
+                        repository,
+                        runner,
+                        originalIndexTree,
+                        repository.Pathspec)
+                    .ConfigureAwait(false);
+            }
+            catch (Exception ex)
+            {
+                failures.Add(ex);
+            }
+        }
+
+        if (initializedIgnore is not null)
+        {
+            try
+            {
+                await RestoreHygieneFileIfUnchangedAsync(
+                        ignorePath,
+                        originalIgnore,
+                        initializedIgnore)
+                    .ConfigureAwait(false);
+            }
+            catch (Exception ex)
+            {
+                failures.Add(ex);
+            }
+        }
+
+        if (initializedAttributes is not null)
+        {
+            try
+            {
+                await RestoreHygieneFileIfUnchangedAsync(
+                        attributesPath,
+                        originalAttributes,
+                        initializedAttributes)
+                    .ConfigureAwait(false);
+            }
+            catch (Exception ex)
+            {
+                failures.Add(ex);
+            }
+        }
+
+        if (failures.Count > 0)
+        {
+            throw new AggregateException(failures);
+        }
+    }
+
+    private static async Task RestoreHygieneFileIfUnchangedAsync(
+        string path,
+        HygieneFileSnapshot original,
+        HygieneFileSnapshot initialized)
+    {
+        HygieneFileSnapshot current = await ReadHygieneFileSnapshotAsync(
+                path,
+                CancellationToken.None)
+            .ConfigureAwait(false);
+        if (current != initialized || current == original)
+        {
+            return;
+        }
+
+        if (!original.Exists)
+        {
+            current = await ReadHygieneFileSnapshotAsync(path, CancellationToken.None)
+                .ConfigureAwait(false);
+            if (current == initialized)
+            {
+                File.Delete(path);
+            }
+
+            return;
+        }
+
+        string temporaryPath = await WriteTemporaryHygieneFileAsync(
+                path,
+                original.Contents ?? string.Empty,
+                original,
+                CancellationToken.None)
+            .ConfigureAwait(false);
+        try
+        {
+            current = await ReadHygieneFileSnapshotAsync(path, CancellationToken.None)
+                .ConfigureAwait(false);
+            if (current == initialized)
+            {
+                File.Move(temporaryPath, path, overwrite: true);
+            }
+        }
+        finally
+        {
+            TryDeleteHygieneTemporaryFile(temporaryPath);
+        }
     }
 
     private async Task UpdateHygieneFileAsync(
