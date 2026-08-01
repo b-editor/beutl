@@ -62,6 +62,8 @@ public class SelectedDrawableRenderTests
             {
                 Bitmap ownedBitmap = rasterization.Bitmap
                     ?? throw new AssertionException("The shifted non-empty drawable produced no bitmap.");
+                bool contentMatches = playerBitmap.GetPixelSpan<ushort>()
+                    .SequenceEqual(ownedBitmap.GetPixelSpan<ushort>());
                 Assert.Multiple(() =>
                 {
                     Assert.That(measurement.OutputBounds, Is.EqualTo(new Rect(37, 29, 48, 32)));
@@ -73,9 +75,13 @@ public class SelectedDrawableRenderTests
                     Assert.That(measuredSize, Is.EqualTo(PixelRect.FromRect(measurement.OutputBounds).Size));
                     Assert.That(playerBitmap.Width, Is.EqualTo(ownedBitmap.Width));
                     Assert.That(playerBitmap.Height, Is.EqualTo(ownedBitmap.Height));
+                    Assert.That(contentMatches, Is.True,
+                        "PlayerViewModel must return the same rendered pixels as direct rasterization.");
                     Assert.That(playerBitmap.IsDisposed, Is.False,
                         "PlayerViewModel must return a clone that survives disposal of its rasterization.");
                 });
+                AssertOpaqueRedCenter(playerBitmap, "PlayerViewModel bitmap");
+                AssertOpaqueRedCenter(ownedBitmap, "direct rasterization bitmap");
 
                 rasterization.Dispose();
                 Assert.Multiple(() =>
@@ -101,6 +107,25 @@ public class SelectedDrawableRenderTests
         }
 
         Assert.That(playerBitmap.IsDisposed, Is.True);
+    }
+
+    private static void AssertOpaqueRedCenter(Bitmap bitmap, string label)
+    {
+        Assert.That(bitmap.ColorType, Is.EqualTo(BitmapColorType.RgbaF16), label);
+        ReadOnlySpan<ushort> pixels = bitmap.GetPixelSpan<ushort>();
+        int offset = (((bitmap.Height / 2) * bitmap.Width) + (bitmap.Width / 2)) * 4;
+        float red = (float)BitConverter.UInt16BitsToHalf(pixels[offset]);
+        float green = (float)BitConverter.UInt16BitsToHalf(pixels[offset + 1]);
+        float blue = (float)BitConverter.UInt16BitsToHalf(pixels[offset + 2]);
+        float alpha = (float)BitConverter.UInt16BitsToHalf(pixels[offset + 3]);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(red, Is.EqualTo(1).Within(0.001), $"{label} center red");
+            Assert.That(green, Is.EqualTo(0).Within(0.001), $"{label} center green");
+            Assert.That(blue, Is.EqualTo(0).Within(0.001), $"{label} center blue");
+            Assert.That(alpha, Is.EqualTo(1).Within(0.001), $"{label} center alpha");
+        });
     }
 
     [AvaloniaTest]

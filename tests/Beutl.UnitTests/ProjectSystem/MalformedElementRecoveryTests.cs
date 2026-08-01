@@ -43,15 +43,27 @@ public sealed class MalformedElementRecoveryTests
     }
 
     [Test]
-    public void Restore_MalformedElementWithoutReadableId_UsesStableId()
+    public void Restore_MalformedElementsWithoutReadableIds_UseStableDistinctIds()
     {
-        (Uri sceneUri, string elementPath) = CreatePersistedScene();
-        File.WriteAllText(elementPath, "{ this is not valid JSON");
+        (Uri sceneUri, string[] elementPaths) = CreatePersistedSceneWithElements(
+            "element-a.belm",
+            "element-b.belm");
+        foreach (string elementPath in elementPaths)
+            File.WriteAllText(elementPath, "{ this is not valid JSON");
 
-        Guid first = CoreSerializer.RestoreFromUri<Scene>(sceneUri).Children.Single().Id;
-        Guid second = CoreSerializer.RestoreFromUri<Scene>(sceneUri).Children.Single().Id;
+        Dictionary<string, Guid> first = CoreSerializer.RestoreFromUri<Scene>(sceneUri).Children
+            .ToDictionary(element => element.Uri!.LocalPath, element => element.Id);
+        Dictionary<string, Guid> second = CoreSerializer.RestoreFromUri<Scene>(sceneUri).Children
+            .ToDictionary(element => element.Uri!.LocalPath, element => element.Id);
 
-        Assert.That(second, Is.EqualTo(first));
+        Assert.Multiple(() =>
+        {
+            Assert.That(first[elementPaths[0]], Is.Not.EqualTo(Guid.Empty));
+            Assert.That(first[elementPaths[1]], Is.Not.EqualTo(Guid.Empty));
+            Assert.That(second[elementPaths[0]], Is.EqualTo(first[elementPaths[0]]));
+            Assert.That(second[elementPaths[1]], Is.EqualTo(first[elementPaths[1]]));
+            Assert.That(first[elementPaths[0]], Is.Not.EqualTo(first[elementPaths[1]]));
+        });
     }
 
     [Test]
@@ -162,25 +174,38 @@ public sealed class MalformedElementRecoveryTests
 
     private (Uri SceneUri, string ElementPath) CreatePersistedScene()
     {
+        (Uri sceneUri, string[] elementPaths) = CreatePersistedSceneWithElements("element.belm");
+        return (sceneUri, elementPaths.Single());
+    }
+
+    private (Uri SceneUri, string[] ElementPaths) CreatePersistedSceneWithElements(
+        params string[] elementFileNames)
+    {
         var sceneUri = new Uri(Path.Combine(_root, "scene.scene"));
-        string elementPath = Path.Combine(_root, "element.belm");
         var scene = new Scene(64, 64, "Scene")
         {
             Uri = sceneUri,
         };
-        var element = new Element
+        string[] elementPaths = elementFileNames
+            .Select(elementFileName => Path.Combine(_root, elementFileName))
+            .ToArray();
+        foreach (string elementPath in elementPaths)
         {
-            Name = "Element",
-            Length = TimeSpan.FromSeconds(1),
-            Uri = new Uri(elementPath),
-        };
-        element.AddObject(new RectShape
-        {
-            Width = { CurrentValue = 32 },
-            Height = { CurrentValue = 32 },
-        });
-        scene.Children.Add(element);
+            var element = new Element
+            {
+                Name = Path.GetFileNameWithoutExtension(elementPath),
+                Length = TimeSpan.FromSeconds(1),
+                Uri = new Uri(elementPath),
+            };
+            element.AddObject(new RectShape
+            {
+                Width = { CurrentValue = 32 },
+                Height = { CurrentValue = 32 },
+            });
+            scene.Children.Add(element);
+        }
+
         CoreSerializer.StoreToUri(scene, sceneUri);
-        return (sceneUri, elementPath);
+        return (sceneUri, elementPaths);
     }
 }

@@ -8,10 +8,12 @@ namespace Beutl.PublicApiContractTests;
 public sealed class TargetAuthoringContractTests
 {
     [Test]
-    public void OwningTargetLayer_ResolvesPluginFullWriteAgainstRequestDomain()
+    public void OwningTargetLayer_IsValueEligibleAndResolvesPluginFullWriteAgainstRequestDomain()
     {
         var domain = new Rect(3, 5, 8, 6);
         int executions = 0;
+        bool layerIsValueEligible = false;
+        bool consumerIsValueEligible = false;
         using var node = new DelegateNode(context =>
         {
             RenderFragmentHandle command = context.TargetCommand(
@@ -23,7 +25,16 @@ public sealed class TargetAuthoringContractTests
                     RenderHitTestContract.None,
                     TargetAccess.ReadWrite,
                     structuralKey: "public-owning-target-layer"));
-            context.Publish(context.OwningTargetLayer([command]));
+            RenderFragmentHandle layer = context.OwningTargetLayer([command]);
+            RenderFragmentHandle consumer = context.OpaqueMap(
+                layer,
+                ExecutingMap(
+                    domain,
+                    static _ => { },
+                    RenderScaleContract.MaterializeAtWorkingScale));
+            layerIsValueEligible = layer.CanBeUsedAsValueInput;
+            consumerIsValueEligible = consumer.CanBeUsedAsValueInput;
+            context.Publish(consumer);
         });
 
         using RenderNodeRasterization rasterization = Rasterize(node, targetDomain: domain);
@@ -33,6 +44,8 @@ public sealed class TargetAuthoringContractTests
             Assert.That(rasterization.IsEmpty, Is.False);
             Assert.That(rasterization.Bounds, Is.EqualTo(domain));
             Assert.That(executions, Is.EqualTo(1));
+            Assert.That(layerIsValueEligible, Is.True);
+            Assert.That(consumerIsValueEligible, Is.True);
         });
     }
 

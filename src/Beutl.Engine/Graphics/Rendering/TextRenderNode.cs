@@ -31,7 +31,7 @@ public sealed class TextRenderNode(FormattedText text, Brush.Resource? fill, Pen
         if (rasterBounds.Width == 0 || rasterBounds.Height == 0)
             return;
 
-        Rect bounds = text.ActualBounds;
+        Rect bounds = text.Bounds;
 
         (Brush.Resource Resource, int Version)? fillSnapshot = Fill;
         (Pen.Resource Resource, int Version)? penSnapshot = Pen;

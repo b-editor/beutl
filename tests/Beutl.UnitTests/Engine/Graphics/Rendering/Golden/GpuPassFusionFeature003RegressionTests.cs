@@ -144,6 +144,55 @@ public sealed class GpuPassFusionFeature003RegressionTests
         });
     }
 
+    [TestCase(float.PositiveInfinity)]
+    [TestCase(float.NegativeInfinity)]
+    public void Feature003ScaleOneGoldenEnergy_RejectsInfiniteRgb(float value)
+    {
+        using var bitmap = new Bitmap(
+            1,
+            1,
+            BitmapColorType.RgbaF16,
+            BitmapAlphaType.Premul,
+            BitmapColorSpace.LinearSrgb);
+        bitmap.GetPixelSpan<ushort>()[1] = BitConverter.HalfToUInt16Bits((Half)value);
+
+        AssertionException? exception = Assert.Throws<AssertionException>(() => SumAbsoluteRgb(bitmap));
+        Assert.That(exception!.Message, Does.Contain("pixel 0 channel 1").And.Contain("non-finite"));
+    }
+
+    [TestCase(float.PositiveInfinity)]
+    [TestCase(float.NegativeInfinity)]
+    public void Feature003ScaleOneGoldenEnergy_RejectsInfiniteAlpha(float value)
+    {
+        using var bitmap = new Bitmap(
+            1,
+            1,
+            BitmapColorType.RgbaF16,
+            BitmapAlphaType.Premul,
+            BitmapColorSpace.LinearSrgb);
+        bitmap.GetPixelSpan<ushort>()[3] = BitConverter.HalfToUInt16Bits((Half)value);
+
+        AssertionException? exception = Assert.Throws<AssertionException>(() => SumAbsoluteRgb(bitmap));
+        Assert.That(exception!.Message, Does.Contain("pixel 0 channel 3").And.Contain("non-finite"));
+    }
+
+    [Test]
+    public void Feature003ScaleOneGoldenEnergy_RejectsTransparentNonzeroRgb()
+    {
+        using var bitmap = new Bitmap(
+            1,
+            1,
+            BitmapColorType.RgbaF16,
+            BitmapAlphaType.Premul,
+            BitmapColorSpace.LinearSrgb);
+        bitmap.GetPixelSpan<ushort>()[1] = BitConverter.HalfToUInt16Bits((Half)0.25f);
+
+        AssertionException? exception = Assert.Throws<AssertionException>(() => SumAbsoluteRgb(bitmap));
+        Assert.That(
+            exception!.Message,
+            Does.Contain("transparent pixel 0").And.Contain("non-zero premultiplied RGB"));
+    }
+
     [TestCase(RepresentativeContent.Vector)]
     [TestCase(RepresentativeContent.Bitmap)]
     [TestCase(RepresentativeContent.Text)]
@@ -357,11 +406,38 @@ public sealed class GpuPassFusionFeature003RegressionTests
         ReadOnlySpan<ushort> pixels = bitmap.GetPixelSpan<ushort>();
         for (int offset = 0; offset < pixels.Length; offset += 4)
         {
-            for (int channel = 0; channel < 3; channel++)
-                result += Math.Abs((float)BitConverter.UInt16BitsToHalf(pixels[offset + channel]));
+            int pixelIndex = offset / 4;
+            float red = DecodeFiniteChannel(pixels, offset, pixelIndex, channel: 0);
+            float green = DecodeFiniteChannel(pixels, offset, pixelIndex, channel: 1);
+            float blue = DecodeFiniteChannel(pixels, offset, pixelIndex, channel: 2);
+            float alpha = DecodeFiniteChannel(pixels, offset, pixelIndex, channel: 3);
+            if (alpha == 0 && (red != 0 || green != 0 || blue != 0))
+            {
+                throw new AssertionException(
+                    $"Scale-one golden transparent pixel {pixelIndex} contains non-zero premultiplied RGB: "
+                    + $"({red}, {green}, {blue}).");
+            }
+
+            result += Math.Abs(red) + Math.Abs(green) + Math.Abs(blue);
         }
 
         return result;
+    }
+
+    private static float DecodeFiniteChannel(
+        ReadOnlySpan<ushort> pixels,
+        int offset,
+        int pixelIndex,
+        int channel)
+    {
+        float value = (float)BitConverter.UInt16BitsToHalf(pixels[offset + channel]);
+        if (!float.IsFinite(value))
+        {
+            throw new AssertionException(
+                $"Scale-one golden pixel {pixelIndex} channel {channel} is non-finite: {value}.");
+        }
+
+        return value;
     }
 
     private sealed class MaterializedBitmapNode(RenderTarget source) : RenderNode

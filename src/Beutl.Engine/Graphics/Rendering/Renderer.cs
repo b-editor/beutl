@@ -205,31 +205,28 @@ public class Renderer : IRenderer
 
     ~Renderer()
     {
-        // A finalizer must never throw. Each step is guarded independently so a failure cannot
-        // skip releasing the GPU surface.
+        // A finalizer must never throw or release render-owned resources from the finalizer thread.
         if (IsDisposed)
             return;
 
-        static void SafeStep(string step, Action action)
+        _isDisposed = true;
+        try
         {
-            try
-            {
-                action();
-            }
-            catch (Exception ex)
-            {
-                s_logger.LogDebug(ex, "Renderer finalizer: {Step} threw during last-resort disposal", step);
-            }
+            OnDispose(false);
+        }
+        catch (Exception ex)
+        {
+            s_logger.LogDebug(ex, "Renderer finalizer: OnDispose threw during last-resort disposal");
         }
 
-        _isDisposed = true;
-        SafeStep(nameof(OnDispose), () => OnDispose(false));
-        SafeStep(nameof(_frameRenderer), () => _frameRenderer?.Dispose());
-        SafeStep(nameof(_completeTarget), () => _completeTarget?.Dispose());
-        SafeStep(nameof(_frameClear), () => _frameClear?.Dispose());
-        SafeStep(nameof(_immediateCanvas), () => _immediateCanvas?.Dispose());
-        SafeStep(nameof(_surface), () => _surface?.Dispose());
-        SafeStep(nameof(DispatchFinalizerEntryCleanup), DispatchFinalizerEntryCleanup);
+        try
+        {
+            DispatchFinalizerRenderResourceCleanup();
+        }
+        catch (Exception ex)
+        {
+            s_logger.LogDebug(ex, "Renderer finalizer: cleanup dispatch threw during last-resort disposal");
+        }
     }
 
     private volatile bool _isDisposed;
@@ -244,6 +241,7 @@ public class Renderer : IRenderer
         set
         {
             ArgumentNullException.ThrowIfNull(value);
+            ObjectDisposedException.ThrowIf(IsDisposed, this);
             if (RenderThread.Dispatcher.CheckAccess())
                 SetCacheOptionsCore(value);
             else
@@ -289,39 +287,22 @@ public class Renderer : IRenderer
             _isDisposed = true;
             Exception? primary = null;
 
-            void DisposeStep(Action action)
-            {
-                try
-                {
-                    action();
-                }
-                catch (Exception ex)
-                {
-                    primary ??= ex;
-                }
-            }
-
-            DisposeStep(() => OnDispose(true));
-            void DisposeRenderResources()
-            {
-                RenderThread.Dispatcher.VerifyAccess();
-                DisposeStep(_frameRenderer.Dispose);
-                DisposeStep(_completeTarget.Dispose);
-                DisposeStep(_frameClear.Dispose);
-                DisposeStep(_immediateCanvas.Dispose);
-                DisposeStep(_surface.Dispose);
-                DisposeStep(ClearAllCachesCore);
-                DisposeStep(DisposeAllEntriesCore);
-            }
+            CaptureCleanupFailure(() => OnDispose(true), ref primary);
+            Exception? renderResourceFailure = null;
 
             if (RenderThread.Dispatcher.CheckAccess())
             {
-                DisposeRenderResources();
+                renderResourceFailure = DisposeRenderResourcesCore();
             }
             else
             {
-                DisposeStep(() => RenderThread.Dispatcher.Invoke(DisposeRenderResources));
+                CaptureCleanupFailure(
+                    () => RenderThread.Dispatcher.Invoke(
+                        () => renderResourceFailure = DisposeRenderResourcesCore()),
+                    ref primary);
             }
+
+            primary ??= renderResourceFailure;
             GC.SuppressFinalize(this);
 
             if (primary is not null)
@@ -329,7 +310,43 @@ public class Renderer : IRenderer
         }
     }
 
-    /// <remarks><see cref="IsDisposed"/> is already <c>true</c> when this method is called.</remarks>
+    private static void CaptureCleanupFailure(Action action, ref Exception? primary)
+    {
+        try
+        {
+            action();
+        }
+        catch (Exception ex)
+        {
+            primary ??= ex;
+        }
+    }
+
+    private Exception? DisposeRenderResourcesCore()
+    {
+        RenderThread.Dispatcher.VerifyAccess();
+        Exception? primary = null;
+        CaptureCleanupFailure(() => _completeTarget?.UpdateRoots([]), ref primary);
+        CaptureCleanupFailure(() => _frameRenderer?.Dispose(), ref primary);
+        CaptureCleanupFailure(() => _completeTarget?.Dispose(), ref primary);
+        CaptureCleanupFailure(() => _frameClear?.Dispose(), ref primary);
+        CaptureCleanupFailure(() => _immediateCanvas?.Dispose(), ref primary);
+        CaptureCleanupFailure(() => _surface?.Dispose(), ref primary);
+        CaptureCleanupFailure(ClearEntryCachesCore, ref primary);
+        CaptureCleanupFailure(DisposeAllEntriesCore, ref primary);
+        return primary;
+    }
+
+    /// <summary>Releases resources owned by a derived renderer.</summary>
+    /// <param name="disposing">
+    /// <c>true</c> when called synchronously by <see cref="Dispose"/>; <c>false</c> when called by the finalizer.
+    /// </param>
+    /// <remarks>
+    /// <see cref="IsDisposed"/> is already <c>true</c> when this method is called. The <c>true</c> path runs
+    /// inline and synchronously on the thread calling <see cref="Dispose"/>. The <c>false</c> path runs inline
+    /// on the finalizer thread before render-resource cleanup is dispatched, and must not access
+    /// render-thread-affine resources.
+    /// </remarks>
     protected virtual void OnDispose(bool disposing)
     {
     }
@@ -428,7 +445,8 @@ public class Renderer : IRenderer
     private RenderNodeRenderer CreateEntryRenderer(
         RenderNode node,
         RenderRequestPurpose purpose = RenderRequestPurpose.Auxiliary,
-        IRenderPipelineDiagnosticsState? diagnostics = null)
+        IRenderPipelineDiagnosticsState? diagnostics = null,
+        RenderCacheOptions? cacheOptions = null)
         => new(
             node,
             new RenderNodeRendererOptions
@@ -439,7 +457,7 @@ public class Renderer : IRenderer
                     TargetDomain = new Rect(default, FrameSize.ToSize(1)),
                     OutputScale = OutputScale,
                     MaxWorkingScale = MaxWorkingScale,
-                    CacheOptions = CacheOptions,
+                    CacheOptions = cacheOptions ?? CacheOptions,
                     Purpose = purpose,
                     Diagnostics = diagnostics,
                 },
@@ -714,6 +732,7 @@ public class Renderer : IRenderer
 
     public void ClearAllCaches()
     {
+        ObjectDisposedException.ThrowIf(IsDisposed, this);
         if (RenderThread.Dispatcher.CheckAccess())
             ClearAllCachesCore();
         else
@@ -722,23 +741,56 @@ public class Renderer : IRenderer
 
     private void SetCacheOptionsCore(RenderCacheOptions value)
     {
-        ClearAllCachesCore();
-        _cacheOptions = value;
-        RenderNodeRenderer replacement = CreateEntryRenderer(
-            _completeTarget,
-            RenderRequestPurpose.Frame,
-            _diagnostics);
-        RenderNodeRenderer previous = _frameRenderer;
-        _frameRenderer = replacement;
-        previous.Dispose();
+        ResetAllCachesCore(value, updateCacheOptions: true);
     }
 
     private void ClearAllCachesCore()
     {
+        ResetAllCachesCore(_cacheOptions, updateCacheOptions: false);
+    }
+
+    private void ResetAllCachesCore(RenderCacheOptions cacheOptions, bool updateCacheOptions)
+    {
         RenderThread.Dispatcher.VerifyAccess();
-        var entries = _nodeCache.ToArray();
-        _nodeCache.Clear();
-        _allCurrentEntries.Clear();
+        ObjectDisposedException.ThrowIf(IsDisposed, this);
+        Exception? primary = null;
+        CaptureCleanupFailure(() => _completeTarget.UpdateRoots([]), ref primary);
+
+        RenderNodeRenderer? replacement = null;
+        try
+        {
+            replacement = CreateEntryRenderer(
+                _completeTarget,
+                RenderRequestPurpose.Frame,
+                _diagnostics,
+                cacheOptions);
+        }
+        catch (Exception ex)
+        {
+            primary ??= ex;
+        }
+
+        if (replacement is not null)
+        {
+            RenderNodeRenderer previous = _frameRenderer;
+            _frameRenderer = replacement;
+            if (updateCacheOptions)
+                _cacheOptions = cacheOptions;
+            CaptureCleanupFailure(previous.Dispose, ref primary);
+        }
+
+        CaptureCleanupFailure(ClearEntryCachesCore, ref primary);
+
+        if (primary is not null)
+            System.Runtime.ExceptionServices.ExceptionDispatchInfo.Capture(primary).Throw();
+    }
+
+    private void ClearEntryCachesCore()
+    {
+        RenderThread.Dispatcher.VerifyAccess();
+        var entries = _nodeCache?.ToArray() ?? [];
+        _nodeCache?.Clear();
+        _allCurrentEntries?.Clear();
         Exception? primary = null;
         foreach (var item in entries)
         {
@@ -767,8 +819,8 @@ public class Renderer : IRenderer
     private void DisposeAllEntriesCore()
     {
         RenderThread.Dispatcher.VerifyAccess();
-        var entries = _nodeCache.ToArray();
-        _nodeCache.Clear();
+        var entries = _nodeCache?.ToArray() ?? [];
+        _nodeCache?.Clear();
         Exception? primary = null;
         foreach (var item in entries)
         {
@@ -816,7 +868,7 @@ public class Renderer : IRenderer
             System.Runtime.ExceptionServices.ExceptionDispatchInfo.Capture(primary).Throw();
     }
 
-    private void DispatchFinalizerEntryCleanup()
+    private void DispatchFinalizerRenderResourceCleanup()
     {
         var dispatcher = RenderThread.Dispatcher;
         if (dispatcher.HasShutdownStarted)
@@ -824,13 +876,12 @@ public class Renderer : IRenderer
 
         dispatcher.Dispatch(() =>
         {
-            try
+            Exception? primary = DisposeRenderResourcesCore();
+            if (primary is not null)
             {
-                ClearAllCachesCore();
-            }
-            catch (Exception ex)
-            {
-                s_logger.LogDebug(ex, "Renderer finalizer: entry cleanup threw during last-resort disposal");
+                s_logger.LogDebug(
+                    primary,
+                    "Renderer finalizer: render resource cleanup threw during last-resort disposal");
             }
         }, ct: CancellationToken.None);
     }

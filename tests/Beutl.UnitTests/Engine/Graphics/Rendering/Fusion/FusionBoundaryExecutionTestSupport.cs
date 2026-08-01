@@ -364,8 +364,19 @@ internal static class FusionBoundaryExecutionTestSupport
     public static double SumAbsoluteChannels(Bitmap bitmap)
     {
         double result = 0;
-        foreach (ushort bits in bitmap.GetPixelSpan<ushort>())
-            result += Math.Abs((float)BitConverter.UInt16BitsToHalf(bits));
+        ReadOnlySpan<ushort> pixels = bitmap.GetPixelSpan<ushort>();
+        for (int index = 0; index < pixels.Length; index++)
+        {
+            float value = (float)BitConverter.UInt16BitsToHalf(pixels[index]);
+            if (!float.IsFinite(value))
+            {
+                throw new AssertionException(
+                    $"Fusion-boundary bitmap channel {index} is non-finite: {value}.");
+            }
+
+            result += Math.Abs(value);
+        }
+
         return result;
     }
 
@@ -380,5 +391,26 @@ internal static class FusionBoundaryExecutionTestSupport
                 result++;
         }
         return result;
+    }
+}
+
+[TestFixture]
+public sealed class FusionBoundaryExecutionTestSupportTests
+{
+    [TestCase(float.PositiveInfinity)]
+    [TestCase(float.NegativeInfinity)]
+    public void SumAbsoluteChannels_RejectsInfiniteChannel(float value)
+    {
+        using var bitmap = new Bitmap(
+            1,
+            1,
+            BitmapColorType.RgbaF16,
+            BitmapAlphaType.Premul,
+            BitmapColorSpace.LinearSrgb);
+        bitmap.GetPixelSpan<ushort>()[0] = BitConverter.HalfToUInt16Bits((Half)value);
+
+        AssertionException? exception = Assert.Throws<AssertionException>(
+            () => FusionBoundaryExecutionTestSupport.SumAbsoluteChannels(bitmap));
+        Assert.That(exception!.Message, Does.Contain("channel 0").And.Contain("non-finite"));
     }
 }

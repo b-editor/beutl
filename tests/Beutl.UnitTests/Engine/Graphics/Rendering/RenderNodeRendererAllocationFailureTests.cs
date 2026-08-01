@@ -24,10 +24,18 @@ public sealed class RenderNodeRendererAllocationFailureTests
 
         using RenderNodeRasterization rasterization = renderer.Rasterize();
         RenderPipelineDiagnosticSnapshot snapshot = diagnostics.Latest;
+        Bitmap bitmap = rasterization.Bitmap
+            ?? throw new AssertionException("The preview allocation-drop request produced no bitmap.");
+        PixelSize expectedDeviceSize = PixelRect.FromRect(s_domain, rasterization.OutputScale).Size;
 
         Assert.Multiple(() =>
         {
             Assert.That(rasterization.IsEmpty, Is.False);
+            Assert.That(rasterization.Bounds, Is.EqualTo(s_domain));
+            Assert.That(rasterization.OutputScale, Is.EqualTo(1));
+            Assert.That(new PixelSize(bitmap.Width, bitmap.Height), Is.EqualTo(expectedDeviceSize));
+            Assert.That(bitmap.GetPixelSpan<ushort>().ToArray(), Is.All.Zero,
+                "a dropped preview contribution must leave the cleared destination transparent");
             Assert.That(factory.FailureConsumed, Is.True);
             Assert.That(factory.CreateCalls, Is.EqualTo(2));
             Assert.That(snapshot.Succeeded, Is.True);

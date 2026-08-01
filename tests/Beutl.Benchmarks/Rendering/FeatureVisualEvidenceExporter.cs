@@ -197,8 +197,51 @@ internal static class FeatureVisualEvidenceExporter
             || !DictionariesEqual(first.Counters, second.Counters))
             throw new InvalidOperationException($"Feature {intent} allocation-failure evidence is not stable.");
 
-        bool expectThrow = intent == RenderIntent.Delivery;
-        if (first.Threw != expectThrow || first.FailureConsumed is false)
+        bool valid = intent switch
+        {
+            RenderIntent.Preview => first is
+            {
+                Outcome: "dropped-output-without-throw",
+                Threw: false,
+                RequestSucceeded: true,
+                OutputIsEmpty: false,
+                OutputNonZeroComponents: 0,
+                OutputNonFiniteComponents: 0,
+                OutputSha256: not null,
+            }
+                && first.OutputBounds == s_domain
+                && first.OutputScale == 1
+                && first.OutputBitmapWidth == s_frame.Width
+                && first.OutputBitmapHeight == s_frame.Height
+                && Counter(first.Counters, "PreviewAllocationDrops") == 1
+                && Counter(first.Counters, "Failures") == 0
+                && Counter(first.Counters, "CleanupFailures") == 0,
+            RenderIntent.Delivery => first is
+            {
+                Outcome: "threw",
+                Threw: true,
+                RequestSucceeded: false,
+                OutputBounds: null,
+                OutputScale: null,
+                OutputIsEmpty: null,
+                OutputBitmapWidth: null,
+                OutputBitmapHeight: null,
+                OutputNonZeroComponents: null,
+                OutputNonFiniteComponents: null,
+                OutputSha256: null,
+            }
+                && Counter(first.Counters, "PreviewAllocationDrops") == 0
+                && Counter(first.Counters, "Failures") == 1
+                && Counter(first.Counters, "CleanupFailures") == 0
+                && first.ExceptionType == typeof(InvalidOperationException).FullName
+                && first.FailedAllocationWidth > 0
+                && first.FailedAllocationHeight > 0
+                && first.ExceptionMessage ==
+                    $"The render-target factory could not allocate "
+                    + $"{first.FailedAllocationWidth}x{first.FailedAllocationHeight} pixels.",
+            _ => false,
+        };
+        if (!valid || first.FailureConsumed is false || first.TargetFactoryCreateCalls != 2)
         {
             throw new InvalidOperationException(
                 $"Feature {intent} allocation-failure behavior did not match the render-intent contract.");
@@ -211,12 +254,22 @@ internal static class FeatureVisualEvidenceExporter
             ["maxWorkingScale"] = float.IsPositiveInfinity(maxWorkingScale)
                 ? "+Infinity"
                 : maxWorkingScale.ToString("R", CultureInfo.InvariantCulture),
-            ["outcome"] = expectThrow ? "threw" : "dropped-output-without-throw",
+            ["outcome"] = first.Outcome,
             ["exceptionType"] = first.ExceptionType,
             ["exceptionMessage"] = first.ExceptionMessage,
             ["requestSucceeded"] = first.RequestSucceeded,
+            ["outputBounds"] = first.OutputBounds is { } outputBounds ? RectString(outputBounds) : null,
+            ["outputScale"] = first.OutputScale,
+            ["outputIsEmpty"] = first.OutputIsEmpty,
+            ["outputBitmapWidth"] = first.OutputBitmapWidth,
+            ["outputBitmapHeight"] = first.OutputBitmapHeight,
+            ["outputNonZeroComponents"] = first.OutputNonZeroComponents,
+            ["outputNonFiniteComponents"] = first.OutputNonFiniteComponents,
+            ["outputSha256"] = first.OutputSha256,
             ["featureCounters"] = JsonSerializer.SerializeToNode(first.Counters, s_jsonOptions),
             ["targetFactoryCreateCalls"] = first.TargetFactoryCreateCalls,
+            ["failedAllocationWidth"] = first.FailedAllocationWidth,
+            ["failedAllocationHeight"] = first.FailedAllocationHeight,
         };
     }
 
@@ -240,13 +293,47 @@ internal static class FeatureVisualEvidenceExporter
             TargetFactory = factory,
         };
         RenderPipelineInternalDiagnostics.Attach(options, diagnostics, RenderRequestPurpose.Frame);
+        string outcome = "threw";
         string? exceptionType = null;
         string? exceptionMessage = null;
+        Rect? outputBounds = null;
+        float? outputScale = null;
+        bool? outputIsEmpty = null;
+        int? outputBitmapWidth = null;
+        int? outputBitmapHeight = null;
+        int? outputNonZeroComponents = null;
+        int? outputNonFiniteComponents = null;
+        string? outputSha256 = null;
         using (var renderer = new RenderNodeRenderer(fixture.Root, options))
         {
             try
             {
                 using RenderNodeRasterization rasterization = renderer.Rasterize();
+                outputBounds = rasterization.Bounds;
+                outputScale = rasterization.OutputScale;
+                outputIsEmpty = rasterization.IsEmpty;
+                if (rasterization.IsEmpty)
+                {
+                    outcome = "empty-output-without-throw";
+                }
+                else if (rasterization.Bitmap is not { } bitmap)
+                {
+                    outcome = "missing-bitmap-without-throw";
+                }
+                else
+                {
+                    outputBitmapWidth = bitmap.Width;
+                    outputBitmapHeight = bitmap.Height;
+                    (int nonZero, int nonFinite, string sha256) = InspectAllocationOutput(bitmap);
+                    outputNonZeroComponents = nonZero;
+                    outputNonFiniteComponents = nonFinite;
+                    outputSha256 = sha256;
+                    outcome = nonFinite > 0
+                        ? "non-finite-output-without-throw"
+                        : nonZero > 0
+                            ? "rendered-output-without-throw"
+                            : "dropped-output-without-throw";
+                }
             }
             catch (Exception exception)
             {
@@ -258,13 +345,40 @@ internal static class FeatureVisualEvidenceExporter
         SortedDictionary<string, long> counters =
             RenderPipelineInternalDiagnostics.CaptureLatestCounters(diagnostics, out bool requestSucceeded);
         return new FeatureAllocationFailureCapture(
+            outcome,
             exceptionType is not null,
             exceptionType,
             exceptionMessage,
             requestSucceeded,
+            outputBounds,
+            outputScale,
+            outputIsEmpty,
+            outputBitmapWidth,
+            outputBitmapHeight,
+            outputNonZeroComponents,
+            outputNonFiniteComponents,
+            outputSha256,
             factory.FailureConsumed,
             factory.CreateCalls,
+            factory.FailedDeviceSize?.Width,
+            factory.FailedDeviceSize?.Height,
             counters);
+    }
+
+    private static (int NonZeroComponents, int NonFiniteComponents, string Sha256) InspectAllocationOutput(Bitmap bitmap)
+    {
+        int nonZeroComponents = 0;
+        int nonFiniteComponents = 0;
+        foreach (ushort bits in bitmap.GetPixelSpan<ushort>())
+        {
+            float value = (float)BitConverter.UInt16BitsToHalf(bits);
+            if (!float.IsFinite(value))
+                nonFiniteComponents++;
+            else if (value != 0)
+                nonZeroComponents++;
+        }
+
+        return (nonZeroComponents, nonFiniteComponents, Sha256Hex(Rgba16fEvidenceWriter.Encode(bitmap)));
     }
 
     private static FeatureVisualCapture CaptureVisualScene(string id, JsonObject scene)
@@ -402,10 +516,10 @@ internal static class FeatureVisualEvidenceExporter
             SKCanvas nativeCanvas = target.Value.Canvas;
             nativeCanvas.Clear(new SKColor(23, 47, 89, 255));
             using (var clearPaint = new SKPaint
-                   {
-                       BlendMode = SKBlendMode.Src,
-                       Color = SKColors.Transparent,
-                   })
+            {
+                BlendMode = SKBlendMode.Src,
+                Color = SKColors.Transparent,
+            })
             {
                 PixelRect initializedRegion = requestedDeviceRegion.Value;
                 nativeCanvas.DrawRect(
@@ -1435,6 +1549,9 @@ internal static class FeatureVisualEvidenceExporter
         => left.Count == right.Count
            && left.All(pair => right.TryGetValue(pair.Key, out long value) && value == pair.Value);
 
+    private static long Counter(IReadOnlyDictionary<string, long> counters, string name)
+        => counters.TryGetValue(name, out long value) ? value : 0;
+
     private readonly record struct RequestedRegion(int X, int Y, int Width, int Height)
     {
         public Rect ToRect() => new(X, Y, Width, Height);
@@ -1446,6 +1563,8 @@ internal static class FeatureVisualEvidenceExporter
 
         public bool FailureConsumed { get; private set; }
 
+        public PixelSize? FailedDeviceSize { get; private set; }
+
         public RenderTarget? Create(RenderTargetAllocationDescriptor allocation)
         {
             PixelSize deviceSize = allocation.DeviceSize;
@@ -1453,6 +1572,7 @@ internal static class FeatureVisualEvidenceExporter
             if (index == 1)
             {
                 FailureConsumed = true;
+                FailedDeviceSize = deviceSize;
                 return null;
             }
 
@@ -1463,12 +1583,23 @@ internal static class FeatureVisualEvidenceExporter
     }
 
     private sealed record FeatureAllocationFailureCapture(
+        string Outcome,
         bool Threw,
         string? ExceptionType,
         string? ExceptionMessage,
         bool RequestSucceeded,
+        Rect? OutputBounds,
+        float? OutputScale,
+        bool? OutputIsEmpty,
+        int? OutputBitmapWidth,
+        int? OutputBitmapHeight,
+        int? OutputNonZeroComponents,
+        int? OutputNonFiniteComponents,
+        string? OutputSha256,
         bool FailureConsumed,
         int TargetFactoryCreateCalls,
+        int? FailedAllocationWidth,
+        int? FailedAllocationHeight,
         SortedDictionary<string, long> Counters);
 }
 

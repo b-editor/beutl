@@ -67,6 +67,11 @@ public sealed class RasterFootprintContractTests
         {
             Assert.That(
                 contextType.GetMethod(
+                    nameof(CustomFilterEffectContext.ResolveTargetDensity),
+                    [typeof(Rect)])?.ReturnType,
+                Is.EqualTo(typeof(float)));
+            Assert.That(
+                contextType.GetMethod(
                     nameof(CustomFilterEffectContext.CreateTargetLike),
                     [typeof(EffectTarget)]),
                 Is.Not.Null);

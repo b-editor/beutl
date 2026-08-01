@@ -1,12 +1,16 @@
 ﻿using System.Collections.Immutable;
+using System.Reflection;
+using System.Runtime.CompilerServices;
 using Beutl.Composition;
 using Beutl.Engine;
 using Beutl.Graphics;
+using Beutl.Graphics.Effects;
 using Beutl.Graphics.Rendering;
 using Beutl.Graphics.Rendering.Cache;
 using Beutl.Graphics.Shapes;
 using Beutl.Graphics.Transformation;
 using Beutl.Media;
+using Beutl.Threading;
 using Beutl.UnitTests.Engine.Graphics.Backend;
 using SkiaSharp;
 
@@ -108,6 +112,231 @@ public sealed class RendererWideRecordingTests
         {
             Assert.That(surface.DisposeCount, Is.EqualTo(1));
             Assert.That(surface.DisposedOnRenderThread, Is.True);
+        });
+    }
+
+    [Test]
+    [NonParallelizable]
+    public void ProductionFrameRenderer_FinalizerReleasesOwnedResourcesOnRenderThread()
+    {
+        var state = new DisposalThreadState();
+        WeakReference renderer = AbandonRenderer(state);
+
+        GC.Collect();
+        GC.WaitForPendingFinalizers();
+        RenderThread.Dispatcher.Invoke(static () => { });
+        GC.Collect();
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(renderer.IsAlive, Is.False);
+            Assert.That(state.DisposeCount, Is.EqualTo(1));
+            Assert.That(state.DisposedOnRenderThread, Is.True);
+        });
+    }
+
+    [Test]
+    [NonParallelizable]
+    public void ProductionFrameRenderer_FinalizerCallsDerivedHookInlineBeforeRenderThreadCleanup()
+    {
+        var state = new FinalizerHookState();
+        WeakReference renderer = AbandonFinalizerHookProbe(state);
+
+        GC.Collect();
+        GC.WaitForPendingFinalizers();
+        bool hookCompletedBeforeRenderThreadBarrier = state.Completed;
+        RenderThread.Dispatcher.Invoke(static () => { });
+        GC.Collect();
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(renderer.IsAlive, Is.False);
+            Assert.That(hookCompletedBeforeRenderThreadBarrier, Is.True);
+            Assert.That(state.CallCount, Is.EqualTo(1));
+            Assert.That(state.CalledOnRenderThread, Is.False);
+        });
+    }
+
+    [Test]
+    [NonParallelizable]
+    public void ProductionFrameRenderer_FailedConstruction_FinalizerCleanupKeepsRenderThreadAlive()
+    {
+        Dispatcher dispatcher = RenderThread.Dispatcher;
+        Exception? unhandledException = null;
+        EventHandler<DispatcherUnhandledExceptionEventArgs> handler = (_, args) =>
+        {
+            Interlocked.CompareExchange(ref unhandledException, args.Exception, null);
+            args.Handled = true;
+        };
+        dispatcher.UnhandledException += handler;
+        try
+        {
+            FailRendererConstructionAfterRenderResourcesAreCreated();
+            FailRendererConstructionBeforeFrameRendererIsAssigned();
+
+            GC.Collect();
+            GC.WaitForPendingFinalizers();
+            dispatcher.Invoke(static () => { });
+        }
+        finally
+        {
+            dispatcher.UnhandledException -= handler;
+        }
+
+        Assert.That(Volatile.Read(ref unhandledException), Is.Null);
+    }
+
+    [Test]
+    [NonParallelizable]
+    public void ClearAllCaches_QueuedBeforeDispose_DoesNotReplaceDisposedFrameRenderer()
+    {
+        var renderer = new Renderer(
+            width: 8,
+            height: 8,
+            renderScale: 1,
+            maxWorkingScale: 1,
+            diagnostics: null,
+            surface: new CpuRenderTarget(8, 8));
+        FieldInfo frameRendererField = typeof(Renderer).GetField(
+            "_frameRenderer",
+            BindingFlags.Instance | BindingFlags.NonPublic)!;
+        var initialFrameRenderer = (RenderNodeRenderer)frameRendererField.GetValue(renderer)!;
+        var renderThreadBlocked = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var releaseRenderThread = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var blockerCompleted = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var clearStarted = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        Exception? clearFailure = null;
+        var clearThread = new Thread(() =>
+        {
+            clearStarted.TrySetResult();
+            try
+            {
+                renderer.ClearAllCaches();
+            }
+            catch (Exception ex)
+            {
+                clearFailure = ex;
+            }
+        })
+        {
+            IsBackground = true,
+        };
+        bool renderThreadWasBlocked = false;
+        bool clearDidStart = false;
+        bool clearWasQueued = false;
+        bool blockerWasDrained;
+        bool clearCompleted;
+        bool renderThreadWasDrained = false;
+        try
+        {
+            RenderThread.Dispatcher.Dispatch(
+                () =>
+                {
+                    try
+                    {
+                        renderThreadBlocked.TrySetResult();
+                        releaseRenderThread.Task.GetAwaiter().GetResult();
+                    }
+                    finally
+                    {
+                        blockerCompleted.TrySetResult();
+                    }
+                },
+                DispatchPriority.High);
+            renderThreadWasBlocked = renderThreadBlocked.Task.Wait(TimeSpan.FromSeconds(5));
+
+            clearThread.Start();
+            clearDidStart = clearStarted.Task.Wait(TimeSpan.FromSeconds(5));
+            clearWasQueued = SpinWait.SpinUntil(
+                () => (clearThread.ThreadState & ThreadState.WaitSleepJoin) != 0,
+                TimeSpan.FromSeconds(5));
+
+            RenderThread.Dispatcher.Dispatch(renderer.Dispose, DispatchPriority.High);
+        }
+        finally
+        {
+            releaseRenderThread.TrySetResult();
+            blockerWasDrained = blockerCompleted.Task.Wait(TimeSpan.FromSeconds(5));
+            clearCompleted = (clearThread.ThreadState & ThreadState.Unstarted) != 0
+                || clearThread.Join(TimeSpan.FromSeconds(5));
+            if (blockerWasDrained)
+            {
+                renderThreadWasDrained = RenderThread.Dispatcher
+                    .InvokeAsync(static () => { })
+                    .Wait(TimeSpan.FromSeconds(5));
+            }
+        }
+
+        Exception[] failures = clearFailure is AggregateException aggregate
+            ? [.. aggregate.Flatten().InnerExceptions]
+            : clearFailure is null ? [] : [clearFailure];
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(renderThreadWasBlocked, Is.True);
+            Assert.That(clearDidStart, Is.True);
+            Assert.That(clearWasQueued, Is.True);
+            Assert.That(blockerWasDrained, Is.True);
+            Assert.That(clearCompleted, Is.True);
+            Assert.That(renderThreadWasDrained, Is.True);
+            Assert.That(failures.Any(static ex => ex is ObjectDisposedException), Is.True);
+            Assert.That(frameRendererField.GetValue(renderer), Is.SameAs(initialFrameRenderer));
+            Assert.That(initialFrameRenderer.IsDisposed, Is.True);
+        });
+    }
+
+    [Test]
+    [Category("GpuPassFusionGpu")]
+    public void ProductionFrameRenderer_ClearAllCachesColdResetsFrameCachesWithoutChangingPolicy()
+    {
+        VulkanTestEnvironment.EnsureAvailable();
+        VulkanTestEnvironment.InvokeOnRenderThread(() =>
+        {
+            var state = new RendererWideTreeState(1) { UseShaderProgram = true };
+            var drawable = new RendererWideProbeDrawable(0, state);
+            using Drawable.Resource resource =
+                (Drawable.Resource)drawable.ToResource(CompositionContext.Default);
+            var frame = new CompositionFrame(
+                ImmutableArray.Create<EngineObject.Resource>(resource),
+                new TimeRange(TimeSpan.Zero, TimeSpan.FromSeconds(1)),
+                new PixelSize(8, 8));
+            using var renderer = new Renderer(8, 8)
+            {
+                CacheOptions = RenderCacheOptions.Disabled,
+            };
+            RenderCacheOptions expectedOptions = renderer.CacheOptions;
+
+            renderer.Render(frame);
+            renderer.Render(frame);
+
+            Assert.Multiple(() =>
+            {
+                Assert.That(renderer.FrameStructuralPlanCacheStatistics.RetainedPlans, Is.EqualTo(1));
+                Assert.That(renderer.FrameStructuralPlanCacheStatistics.Hits, Is.EqualTo(1));
+                Assert.That(renderer.FrameProgramCacheStatistics.RetainedPrograms, Is.GreaterThan(0));
+                Assert.That(renderer.FrameTargetPoolStatistics.RetainedBytes, Is.GreaterThan(0));
+            });
+
+            renderer.ClearAllCaches();
+
+            Assert.Multiple(() =>
+            {
+                Assert.That(renderer.CacheOptions, Is.SameAs(expectedOptions));
+                Assert.That(renderer.FrameStructuralPlanCacheStatistics, Is.EqualTo(default(StructuralPlanCacheStatistics)));
+                Assert.That(renderer.FrameProgramCacheStatistics, Is.EqualTo(default(ProgramCacheStatistics)));
+                Assert.That(renderer.FrameTargetPoolStatistics, Is.EqualTo(default(RenderTargetPoolStatistics)));
+            });
+
+            renderer.Render(frame);
+
+            Assert.Multiple(() =>
+            {
+                Assert.That(renderer.FrameStructuralPlanCacheStatistics.Compilations, Is.EqualTo(1));
+                Assert.That(renderer.FrameStructuralPlanCacheStatistics.Misses, Is.EqualTo(1));
+                Assert.That(renderer.FrameStructuralPlanCacheStatistics.Hits, Is.Zero);
+                Assert.That(renderer.FrameProgramCacheStatistics.RetainedPrograms, Is.GreaterThan(0));
+                Assert.That(renderer.FrameTargetPoolStatistics.RetainedBytes, Is.GreaterThan(0));
+            });
         });
     }
 
@@ -440,6 +669,51 @@ public sealed class RendererWideRecordingTests
         }
     }
 
+    [MethodImpl(MethodImplOptions.NoInlining)]
+    private static WeakReference AbandonRenderer(DisposalThreadState state)
+    {
+        var surface = new DisposalThreadProbeRenderTarget(8, 8, state);
+        GC.SuppressFinalize(surface);
+        var renderer = new Renderer(
+            width: 8,
+            height: 8,
+            renderScale: 1,
+            maxWorkingScale: 1,
+            diagnostics: null,
+            surface: surface);
+        return new WeakReference(renderer, trackResurrection: true);
+    }
+
+    [MethodImpl(MethodImplOptions.NoInlining)]
+    private static WeakReference AbandonFinalizerHookProbe(FinalizerHookState state)
+    {
+        var renderer = new FinalizerHookProbeRenderer(state);
+        return new WeakReference(renderer, trackResurrection: true);
+    }
+
+    [MethodImpl(MethodImplOptions.NoInlining)]
+    private static void FailRendererConstructionAfterRenderResourcesAreCreated()
+    {
+        var exception = Assert.Throws<AggregateException>(() => new Renderer(
+            width: 8,
+            height: 8,
+            renderScale: 1,
+            maxWorkingScale: 1,
+            diagnostics: null,
+            surface: new CpuRenderTarget(7, 8)));
+        Assert.That(exception!.InnerException, Is.TypeOf<ArgumentException>());
+    }
+
+    [MethodImpl(MethodImplOptions.NoInlining)]
+    private static void FailRendererConstructionBeforeFrameRendererIsAssigned()
+    {
+        Assert.Throws<ArgumentException>(() => new Renderer(
+            width: 0,
+            height: 8,
+            renderScale: 1,
+            maxWorkingScale: 1));
+    }
+
     private sealed class RecordingRootNode(
         int index,
         bool[] recorded,
@@ -628,7 +902,10 @@ public sealed class RendererWideRecordingTests
             width,
             height);
 
-    private sealed class DisposalThreadProbeRenderTarget(int width, int height)
+    private sealed class DisposalThreadProbeRenderTarget(
+        int width,
+        int height,
+        DisposalThreadState? state = null)
         : RenderTarget(
             SKSurface.Create(new SKImageInfo(
                 width,
@@ -639,19 +916,68 @@ public sealed class RendererWideRecordingTests
             width,
             height)
     {
-        public int DisposeCount { get; private set; }
+        private readonly DisposalThreadState _state = state ?? new DisposalThreadState();
 
-        public bool DisposedOnRenderThread { get; private set; }
+        public int DisposeCount => _state.DisposeCount;
+
+        public bool DisposedOnRenderThread => _state.DisposedOnRenderThread;
 
         protected override void Dispose(bool disposing)
         {
             if (disposing && !IsDisposed)
             {
-                DisposeCount++;
-                DisposedOnRenderThread = RenderThread.Dispatcher.CheckAccess();
+                _state.DisposeCount++;
+                _state.DisposedOnRenderThread = RenderThread.Dispatcher.CheckAccess();
             }
 
             base.Dispose(disposing);
+        }
+    }
+
+    private sealed class DisposalThreadState
+    {
+        public int DisposeCount { get; set; }
+
+        public bool DisposedOnRenderThread { get; set; }
+    }
+
+    private sealed class FinalizerHookProbeRenderer(FinalizerHookState state)
+        : Renderer(
+            width: 8,
+            height: 8,
+            renderScale: 1,
+            maxWorkingScale: 1,
+            diagnostics: null,
+            surface: new CpuRenderTarget(8, 8))
+    {
+        protected override void OnDispose(bool disposing)
+        {
+            if (!disposing)
+                state.Record();
+
+            base.OnDispose(disposing);
+        }
+    }
+
+    private sealed class FinalizerHookState
+    {
+        private int _callCount;
+        private int _calledOnRenderThread;
+        private int _completed;
+
+        public int CallCount => Volatile.Read(ref _callCount);
+
+        public bool CalledOnRenderThread => Volatile.Read(ref _calledOnRenderThread) != 0;
+
+        public bool Completed => Volatile.Read(ref _completed) != 0;
+
+        public void Record()
+        {
+            if (RenderThread.Dispatcher.CheckAccess())
+                Volatile.Write(ref _calledOnRenderThread, 1);
+
+            Interlocked.Increment(ref _callCount);
+            Volatile.Write(ref _completed, 1);
         }
     }
 }
@@ -667,6 +993,8 @@ internal sealed class RendererWideTreeState(int count)
     public List<int> ExecutionOrder { get; } = [];
 
     public ProductionTreeProbeNode?[] Nodes { get; } = new ProductionTreeProbeNode[count];
+
+    public bool UseShaderProgram { get; init; }
 }
 
 // Top-level partial because EngineObjectResourceGenerator does not support nested types.
@@ -696,7 +1024,9 @@ internal sealed class ProductionTreeProbeNode(
 {
     public override void Process(RenderNodeContext context)
     {
-        Assert.That(state.BuildCalls, Is.All.EqualTo(1),
+        int completedBuildCount = state.BuildCalls[index];
+        Assert.That(completedBuildCount, Is.GreaterThan(0));
+        Assert.That(state.BuildCalls, Is.All.EqualTo(completedBuildCount),
             "Every drawable tree must be built before the complete request starts recording.");
         state.RecordCalls[index]++;
         if (context.Purpose == RenderRequestPurpose.Frame)
@@ -725,7 +1055,17 @@ internal sealed class ProductionTreeProbeNode(
             RenderScaleContract.MaterializeAtWorkingScale,
             structuralKey: (typeof(ProductionTreeProbeNode), index),
             runtimeIdentity: new RenderRuntimeIdentity(index));
-        context.Publish(context.OpaqueSource(description));
+        RenderFragmentHandle source = context.OpaqueSource(description);
+        if (state.UseShaderProgram)
+        {
+            ShaderDescription shader = ShaderDescription.CurrentPixel(
+                "half4 apply(half4 color) { return half4(color.b, color.g, color.r, color.a); }");
+            context.Publish(context.Shader(source, shader));
+        }
+        else
+        {
+            context.Publish(source);
+        }
     }
 }
 
