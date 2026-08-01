@@ -27,7 +27,7 @@ outside the evidence directory.
 
 ## Paired visual evidence (passed)
 
-- Target: legacy renderer regenerated from `43a38e665d9bf52548161a3917e748bd1457ff55`; feature: `8f44a7ffb4ddbcf07c9274124668f02924b7ba25`.
+- Target: legacy renderer regenerated from `43a38e665d9bf52548161a3917e748bd1457ff55`; feature: `e83cbbfd5fee5dda730a89e1f3cc6a85fc593d1b`.
 - Environment fingerprint gate: exact match required and satisfied before any parity metric.
 - Result: **all 44 scenes passed** — thresholds SSIM ≥ 0.99,
   linear-RGB MAE ≤ 0.02, alpha MAE ≤ 0.02, and the 16×16 minimum-window
@@ -45,8 +45,8 @@ outside the evidence directory.
   `PreviewAllocationDrops` counter); the recorded outcomes now match the baseline
   (`dropped-output-without-throw` / `threw`).
 - Raw result: [`paired-visual-result.json`](paired-visual-result.json)
-  (SHA-256 `9c9ecc81899945a3847e04a45a3a0cd3f073e3359e2893549ccb4eb6e4796a77`);
-  run-regenerated target manifest `ac6fe051b32e3ccab6db24c5a2656dd4cd6fd6cd621dafe2eda7213f49d31275`, feature manifest `ad59c058e618960c87082bcfe0eb2955652113ca74c3c8bbda784c6b0db35fdb`.
+  (SHA-256 `4404e8280268877d3d1fd8ab97dd59381dd164fbd6c2f1cebfb55af19687e30f`);
+  run-regenerated target manifest `a7c9845f4e4368c22af53b53b6c0015fa4b801ac2b09e28ab7e5c567d2969277`, feature manifest `5673da54d77c8d1f0c77a4e3f5e51cda623662e6059f61cb3e36ad0b477aadea`.
 
 ### Paired exact-fingerprint AA edge bound
 
@@ -214,7 +214,7 @@ methodology are unchanged.
 | `paired-benchmark-run/feature/raw-benchmark-stdout.txt` | `a174be2deafef47e6c0b355d292d34432a974c74cfa95c02e29616e786c2c283` |
 | `paired-benchmark-run/manifest.json` | `129725e6281c7bbda17a7e6f087c0d7632c24a3619412b02b59ed9ee94e92894` |
 
-Visual evidence regenerated 2026-08-01T00:44:41Z on the fingerprinted machine
+Visual evidence regenerated 2026-08-01T02:11:24Z on the fingerprinted machine
 (benchmark run recorded 2026-07-31T18:35:08Z on the same machine). The paired
 benchmark analyzer has since been tightened to require the configured 15 samples
 per case with matching counts across all three runs; the recorded run satisfies
