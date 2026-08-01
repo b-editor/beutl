@@ -51,7 +51,7 @@
     "generatorPatchSha256": "898692fc4a53e834cbc9f0e00176f8eca198e4f16b6de391d89f1fbbceeaa8be",
     "generatorScriptSha256": "bf0574663d6c825150b6e06192a42abda40dba45184f123ecf52ce5199ad255d",
     "generatorSourceBundleSha256": "bb165d312af895b4f703441d96d4f42144036d7d6f8e875ae0101c4701b0414d",
-    "pairedRunnerSha256": "bc691db808f71f5e87c887fa587674f66cbdae3b45b890b990dc81930937dcd6",
+    "pairedRunnerSha256": "415fb4407fd216afb2d5f51280d2271e3951cae3a30bc30a081bd8b982e700f8",
     "refreshScriptSha256": "5057b76ae3d4c1bc4474e424cc3119c5ce52aa8c203fcc0cac874d38cd8c74d8"
   },
   "fingerprint": {
@@ -103,5 +103,5 @@
   "runStartedUtc": "2026-07-19T07:58:07.936284+00:00",
   "schemaVersion": 1,
   "scope": "minimum starting-SHA baseline; the 11-case paired confidence gate remains T112-T115",
-  "visualManifestSha256": "211aec2f33ef405b1d505b2ce2a6db763414c3f3c5faa17a49f044da42e823f6"
+  "visualManifestSha256": "4a0a76c1134b578c58ba1e74e724878b2959183f2aebfb35d452cefd1348b29d"
 }

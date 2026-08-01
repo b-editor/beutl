@@ -52,11 +52,11 @@ byte-identical to its committed counterpart.
 
 | Item | SHA-256 |
 |---|---|
-| Visual manifest | `211aec2f33ef405b1d505b2ce2a6db763414c3f3c5faa17a49f044da42e823f6` |
-| Benchmark manifest | `dd35c5ca643b3a9baca20d84ae0b4d006baddb5fad139abc3bdcb7123d254010` |
+| Visual manifest | `4a0a76c1134b578c58ba1e74e724878b2959183f2aebfb35d452cefd1348b29d` |
+| Benchmark manifest | `fd2c6ed75067ea8a58489dd8a8b8b74b0066cd72eeb81689bc7cfd155e0f9e10` |
 | Generator patch / applied diff | `898692fc4a53e834cbc9f0e00176f8eca198e4f16b6de391d89f1fbbceeaa8be` |
 | Generator script | `bf0574663d6c825150b6e06192a42abda40dba45184f123ecf52ce5199ad255d` |
-| Paired visual runner | `bc691db808f71f5e87c887fa587674f66cbdae3b45b890b990dc81930937dcd6` |
+| Paired visual runner | `415fb4407fd216afb2d5f51280d2271e3951cae3a30bc30a081bd8b982e700f8` |
 | Paired benchmark runner | `a8575996b4ee74663d42fc4268e6d93fba8062739a4bedf5b7bd16f8fe226969` |
 | Intentional refresh script | `5057b76ae3d4c1bc4474e424cc3119c5ce52aa8c203fcc0cac874d38cd8c74d8` |
 | Generator source bundle | `bb165d312af895b4f703441d96d4f42144036d7d6f8e875ae0101c4701b0414d` |

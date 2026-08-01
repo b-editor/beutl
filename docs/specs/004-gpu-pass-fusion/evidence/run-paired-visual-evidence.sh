@@ -219,6 +219,8 @@ for blob_name in sorted(regenerated_hashes):
 
 refresh_records = []
 for blob_name, scene_id in sorted(approved_blobs.items(), key=lambda item: item[1]):
+    regenerated_scene = regenerated_scenes[scene_id]
+    committed_scene = committed_scenes[scene_id]
     legacy_hash = sha256(regenerated_payloads[blob_name])
     refreshed_hash = committed_hashes[blob_name]
     if refreshed_hash == legacy_hash:

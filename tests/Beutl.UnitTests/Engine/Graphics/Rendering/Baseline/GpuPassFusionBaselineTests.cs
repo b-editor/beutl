@@ -10,7 +10,7 @@ namespace Beutl.UnitTests.Engine.Graphics.Rendering.Baseline;
 public sealed class GpuPassFusionBaselineTests
 {
     private const string ExpectedTargetBenchmarkManifestSha256 =
-        "dd35c5ca643b3a9baca20d84ae0b4d006baddb5fad139abc3bdcb7123d254010";
+        "fd2c6ed75067ea8a58489dd8a8b8b74b0066cd72eeb81689bc7cfd155e0f9e10";
 
     [Test]
     public void ImmutableEvidence_HasPinnedManifestToolAndBlobIntegrity()
