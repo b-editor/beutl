@@ -170,7 +170,8 @@ if set(baseline_fingerprint) != set(feature_fingerprint):
 feature_assembly_version = feature_fingerprint.get(source_provenance_field)
 if not isinstance(feature_assembly_version, str) or expected_feature_code_sha.lower() not in feature_assembly_version.lower():
     raise SystemExit("Feature assembly provenance does not contain the clean repository HEAD")
-environment_fields = set(baseline_fingerprint) - {source_provenance_field}
+cross_boot_volatile_fields = {"metalRegistryId"}
+environment_fields = set(baseline_fingerprint) - {source_provenance_field} - cross_boot_volatile_fields
 mismatches = sorted(
     name for name in environment_fields
     if baseline_fingerprint[name] != feature_fingerprint[name]
@@ -179,6 +180,15 @@ if mismatches:
     raise SystemExit(
         "Feature render does not match the frozen environment fingerprint: "
         + ", ".join(mismatches)
+    )
+volatile_mismatches = sorted(
+    name for name in cross_boot_volatile_fields
+    if baseline_fingerprint[name] != feature_fingerprint[name]
+)
+if volatile_mismatches:
+    print(
+        "Recorded cross-boot diagnostic fingerprint changed while stable device identity matched: "
+        + ", ".join(volatile_mismatches)
     )
 
 baseline_scenes = {

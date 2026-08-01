@@ -66,6 +66,13 @@ manifest is [`target-benchmark/manifest.json`](target-benchmark/manifest.json). 
 record the baseline SHA, clean pre-patch state, evidence-tool hashes, and the same
 exact environment fingerprint.
 
+The selective intentional-refresh tool may run after a macOS reboot. It therefore treats
+`metalRegistryId` as a recorded diagnostic rather than a persistent device identity when
+comparing a live refresh with the frozen manifest. Every stable OS/runtime/backend/device/driver
+field—including the Vulkan device and driver UUIDs—must still match exactly, and each publishable
+RGBA16F payload must match its independently approved SHA-256. The paired target/feature runner is
+unchanged: both live worktrees must still report byte-identical values for every fingerprint field.
+
 ## Evidence fingerprint
 
 | Field | Captured value |
