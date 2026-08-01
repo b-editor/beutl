@@ -360,6 +360,7 @@ public sealed class AgentHostEndpoint : IAsyncDisposable
             .AddSingleton(_ => new CreativeMemoryStore(workspaceRoot))
             .AddSingleton<AgentSessionManager>()
             .AddSingleton<IWorkspaceGuard>(_ => new WorkspaceGuard(workspaceRoot))
+            .AddSingleton<IOutputOperationLeaseProvider, EditorOutputOperationLeaseProvider>()
             .AddSingleton<DestructiveGuard>()
             .AddSingleton<StillRenderer>()
             .AddSingleton<StoryboardRenderer>()
@@ -535,5 +536,21 @@ public sealed class AgentHostEndpoint : IAsyncDisposable
         return CryptographicOperations.FixedTimeEquals(
             Encoding.UTF8.GetBytes(provided),
             Encoding.UTF8.GetBytes(expected));
+    }
+}
+
+internal sealed class EditorOutputOperationLeaseProvider : IOutputOperationLeaseProvider
+{
+    private readonly EditorService _editorService;
+
+    public EditorOutputOperationLeaseProvider(EditorService editorService)
+    {
+        ArgumentNullException.ThrowIfNull(editorService);
+        _editorService = editorService;
+    }
+
+    public IDisposable? TryBeginOutputOperation()
+    {
+        return _editorService.TryBeginOutputOperation();
     }
 }

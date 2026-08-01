@@ -31,13 +31,9 @@ public sealed partial class MenuBarViewModel
             .SelectMany(i => i?.Context ?? Observable.Empty<IEditorContext?>())
             .Select(v => v is EditViewModel);
 
-        Parallel.Invoke(
-            () => InitializeFilesCommands(),
-            () => InitializeSceneCommands(isSceneOpened),
-            () => InitializeViewCommands(isSceneOpened));
-
-        //InitializeFilesCommands();
-        //InitializeSceneCommands(isSceneOpened);
+        InitializeFilesCommands();
+        InitializeSceneCommands(isSceneOpened);
+        InitializeViewCommands(isSceneOpened);
 
         Undo = new AsyncReactiveCommand(IsProjectOpened)
             .WithSubscribe(OnUndo);

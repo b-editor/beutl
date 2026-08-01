@@ -17,6 +17,7 @@ ConfigureConsoleLogging(builder.Logging);
 
 builder.Services
     .AddSingleton<IWorkspaceGuard>(_ => new WorkspaceGuard(workspaceRoot))
+    .AddSingleton<IOutputOperationLeaseProvider>(StandaloneOutputOperationLeaseProvider.Instance)
     .AddSingleton<DestructiveGuard>()
     .AddSingleton<StillRenderer>()
     .AddSingleton<StoryboardRenderer>()

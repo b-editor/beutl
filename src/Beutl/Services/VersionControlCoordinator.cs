@@ -994,6 +994,15 @@ public sealed class VersionControlCoordinator :
             return await ownedService.ExecuteExclusiveAsync(
                 async service =>
                 {
+                    if (create
+                        && !await CanCreateBranchAsync(
+                            service,
+                            branchName,
+                            cancellationToken))
+                    {
+                        return false;
+                    }
+
                     if (!create
                         && !await LocalBranchExistsAsync(
                             service,
@@ -1021,6 +1030,15 @@ public sealed class VersionControlCoordinator :
                     }
 
                     cancellationToken.ThrowIfCancellationRequested();
+                    if (create
+                        && !await CanCreateBranchAsync(
+                            service,
+                            branchName,
+                            CancellationToken.None))
+                    {
+                        return false;
+                    }
+
                     CheckedOutBranchTip originalTip = await service.GetCheckedOutBranchTipAsync(
                         CancellationToken.None);
                     if (!status.IsClean)
@@ -1041,6 +1059,15 @@ public sealed class VersionControlCoordinator :
                             throw new InvalidOperationException(
                                 "The branch ref changed while the switch safety snapshot was committed.");
                         }
+                    }
+
+                    if (create
+                        && !await CanCreateBranchAsync(
+                            service,
+                            branchName,
+                            CancellationToken.None))
+                    {
+                        return false;
                     }
 
                     if (!create
@@ -1125,6 +1152,12 @@ public sealed class VersionControlCoordinator :
         return branches.Any(branch =>
             string.Equals(branch.Name, branchName, StringComparison.Ordinal));
     }
+
+    private static Task<bool> CanCreateBranchAsync(
+        IProjectVersionControlTransaction service,
+        string branchName,
+        CancellationToken cancellationToken)
+        => service.CanCreateBranchAsync(branchName, cancellationToken);
 
     private async Task<RemoteOpResult> RunPullCycleAsync(CancellationToken cancellationToken)
     {
@@ -2088,6 +2121,15 @@ public sealed class VersionControlCoordinator :
             return await ownedService.ExecuteExclusiveAsync(
                 async service =>
                 {
+                    if (branchName is not null
+                        && !await CanCreateBranchAsync(
+                            service,
+                            branchName,
+                            cancellationToken))
+                    {
+                        return false;
+                    }
+
                     WorkspaceStatus status = await service.GetStatusAsync(cancellationToken);
                     if (status.HasConflicts)
                     {
@@ -2104,6 +2146,15 @@ public sealed class VersionControlCoordinator :
                     }
 
                     cancellationToken.ThrowIfCancellationRequested();
+                    if (branchName is not null
+                        && !await CanCreateBranchAsync(
+                            service,
+                            branchName,
+                            CancellationToken.None))
+                    {
+                        return false;
+                    }
+
                     CheckedOutBranchTip originalTip =
                         await service.GetCheckedOutBranchTipAsync(CancellationToken.None);
                     if (!status.IsClean)
@@ -2124,6 +2175,15 @@ public sealed class VersionControlCoordinator :
                             throw new InvalidOperationException(
                                 "The branch ref changed while the restore safety snapshot was committed.");
                         }
+                    }
+
+                    if (branchName is not null
+                        && !await CanCreateBranchAsync(
+                            service,
+                            branchName,
+                            CancellationToken.None))
+                    {
+                        return false;
                     }
 
                     CheckedOutBranchTip expectedResultTip = originalTip;

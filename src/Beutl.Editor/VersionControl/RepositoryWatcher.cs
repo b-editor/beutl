@@ -92,7 +92,13 @@ internal sealed class RepositoryWatcher : IDisposable
             return false;
         }
 
-        return relativePath is "index" or "HEAD" or "packed-refs" or "refs"
+        return relativePath is "index"
+                   or "HEAD"
+                   or "packed-refs"
+                   or "config"
+                   or "config.worktree"
+                   or "info/exclude"
+                   or "refs"
                || relativePath.StartsWith("refs/", StringComparison.Ordinal);
     }
 
@@ -305,6 +311,7 @@ internal sealed class RepositoryWatcher : IDisposable
     {
         AddGitMetadataWatcher(metadataRoot, metadataRoot, includeSubdirectories: false);
         RefreshGitRefsWatcher(metadataRoot);
+        RefreshGitInfoWatcher(metadataRoot);
     }
 
     private void AddGitMetadataWatcher(
@@ -357,9 +364,32 @@ internal sealed class RepositoryWatcher : IDisposable
         }
     }
 
-    private void RefreshGitRefsWatcher(string metadataRoot)
+    private void RefreshGitRefsWatcher(string metadataRoot, bool replaceExisting = false)
     {
-        string refsDirectory = Path.Combine(metadataRoot, "refs");
+        RefreshGitMetadataSubdirectoryWatcher(
+            metadataRoot,
+            "refs",
+            includeSubdirectories: true,
+            replaceExisting: replaceExisting);
+    }
+
+    private void RefreshGitInfoWatcher(string metadataRoot, bool replaceExisting = false)
+    {
+        RefreshGitMetadataSubdirectoryWatcher(
+            metadataRoot,
+            "info",
+            includeSubdirectories: false,
+            replaceExisting: replaceExisting);
+    }
+
+    private void RefreshGitMetadataSubdirectoryWatcher(
+        string metadataRoot,
+        string directoryName,
+        bool includeSubdirectories,
+        bool replaceExisting)
+    {
+        string directory = Path.Combine(metadataRoot, directoryName);
+        List<FileSystemWatcher> replacedWatchers = [];
         lock (_sync)
         {
             if (_disposed)
@@ -367,18 +397,55 @@ internal sealed class RepositoryWatcher : IDisposable
                 return;
             }
 
-            foreach (FileSystemWatcher watcher in _watchers)
+            for (int i = _watchers.Count - 1; i >= 0; i--)
             {
-                if (watcher.IncludeSubdirectories && PathsEqual(watcher.Path, refsDirectory))
+                FileSystemWatcher watcher = _watchers[i];
+                if (watcher.IncludeSubdirectories == includeSubdirectories
+                    && PathsEqual(watcher.Path, directory))
+                {
+                    if (!replaceExisting)
+                    {
+                        return;
+                    }
+
+                    _watchers.RemoveAt(i);
+                    replacedWatchers.Add(watcher);
+                }
+            }
+        }
+
+        foreach (FileSystemWatcher watcher in replacedWatchers)
+        {
+            watcher.Dispose();
+        }
+
+        if (!Directory.Exists(directory))
+        {
+            return;
+        }
+
+        try
+        {
+            lock (_sync)
+            {
+                if (_disposed
+                    || _watchers.Any(watcher =>
+                        watcher.IncludeSubdirectories == includeSubdirectories
+                        && PathsEqual(watcher.Path, directory))
+                    || !Directory.Exists(directory))
                 {
                     return;
                 }
-            }
 
-            if (Directory.Exists(refsDirectory))
-            {
-                AddGitMetadataWatcher(refsDirectory, metadataRoot, includeSubdirectories: true);
+                AddGitMetadataWatcher(directory, metadataRoot, includeSubdirectories);
             }
+        }
+        catch (Exception ex)
+            when (ex is IOException
+                  or UnauthorizedAccessException
+                  or ArgumentException)
+        {
+            // The metadata directory can disappear again between the root event and watcher setup.
         }
     }
 
@@ -406,15 +473,27 @@ internal sealed class RepositoryWatcher : IDisposable
 
     private void OnGitMetadataChanged(string metadataRoot, FileSystemEventArgs e)
     {
+        bool metadataSubdirectoryChanged = false;
         string refsDirectory = Path.Combine(metadataRoot, "refs");
         if (PathsEqual(e.FullPath, refsDirectory)
             || e is RenamedEventArgs refsRename
             && PathsEqual(refsRename.OldFullPath, refsDirectory))
         {
-            RefreshGitRefsWatcher(metadataRoot);
+            RefreshGitRefsWatcher(metadataRoot, replaceExisting: true);
+            metadataSubdirectoryChanged = true;
         }
 
-        bool include = ShouldIncludeGitMetadataPath(metadataRoot, e.FullPath);
+        string infoDirectory = Path.Combine(metadataRoot, "info");
+        if (PathsEqual(e.FullPath, infoDirectory)
+            || e is RenamedEventArgs infoRename
+            && PathsEqual(infoRename.OldFullPath, infoDirectory))
+        {
+            RefreshGitInfoWatcher(metadataRoot, replaceExisting: true);
+            metadataSubdirectoryChanged = true;
+        }
+
+        bool include = metadataSubdirectoryChanged
+                       || ShouldIncludeGitMetadataPath(metadataRoot, e.FullPath);
         if (e is RenamedEventArgs renamed)
         {
             include |= ShouldIncludeGitMetadataPath(metadataRoot, renamed.OldFullPath);

@@ -4,6 +4,7 @@ using System.Net.Sockets;
 using Avalonia.Headless.NUnit;
 using Beutl.AgentHost;
 using Beutl.AgentToolkit.Common;
+using Beutl.AgentToolkit.Rendering;
 using Beutl.AgentToolkit.Sessions;
 using Beutl.Api.Services;
 using Beutl.Configuration;
@@ -15,6 +16,27 @@ namespace Beutl.HeadlessUITests;
 
 public sealed class AgentHostEndpointTests
 {
+    [AvaloniaTest]
+    public async Task Live_output_operation_provider_delegates_to_editor_service_exclusion()
+    {
+        await TestReset.ResetShellAsync();
+        var editorService = new EditorService(new ExtensionProvider());
+        var provider = new EditorOutputOperationLeaseProvider(editorService);
+
+        using (IDisposable worktreeMutation = editorService.TryBeginWorktreeMutation()!)
+        {
+            Assert.That(provider.TryBeginOutputOperation(), Is.Null);
+        }
+
+        using (IDisposable outputOperation = provider.TryBeginOutputOperation()!)
+        {
+            Assert.That(editorService.TryBeginWorktreeMutation(), Is.Null);
+        }
+
+        using IDisposable? mutationAfterOutput = editorService.TryBeginWorktreeMutation();
+        Assert.That(mutationAfterOutput, Is.Not.Null);
+    }
+
     [AvaloniaTest]
     public async Task Endpoint_binds_default_loopback_port_uses_fixed_token_and_stops_cleanly()
     {

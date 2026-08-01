@@ -104,7 +104,7 @@ public sealed class SessionSecurityTests
         {
             await gate.Task;
             return (JsonNode)JsonValue.Create(true);
-        });
+        }, StandaloneOutputOperationLeaseProvider.Instance.TryBeginOutputOperation()!);
 
         try
         {

@@ -135,6 +135,10 @@ internal interface IProjectVersionControlTransaction
 
     Task<IReadOnlyList<BranchInfo>> GetBranchesAsync(CancellationToken cancellationToken);
 
+    Task<bool> CanCreateBranchAsync(
+        string name,
+        CancellationToken cancellationToken);
+
     Task CreateBranchAsync(
         string name,
         string startPoint,

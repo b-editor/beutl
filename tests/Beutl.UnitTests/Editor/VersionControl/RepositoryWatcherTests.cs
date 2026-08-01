@@ -44,7 +44,10 @@ public class RepositoryWatcherTests
     [TestCase("refs/heads/main.lock", false)]
     [TestCase("objects/ab/cdef", false)]
     [TestCase("logs/HEAD", false)]
-    [TestCase("config", false)]
+    [TestCase("config", true)]
+    [TestCase("config.worktree", true)]
+    [TestCase("info/exclude", true)]
+    [TestCase("info/exclude.lock", false)]
     public void Git_metadata_filter_includes_state_and_refs_without_transient_noise(
         string relativePath,
         bool expected)
@@ -56,6 +59,137 @@ public class RepositoryWatcherTests
         Assert.That(
             RepositoryWatcher.ShouldIncludeGitMetadataPath(_tempDirectory, path),
             Is.EqualTo(expected));
+    }
+
+    [Test]
+    public void Start_watches_the_stable_git_info_metadata_directory()
+    {
+        string projectRoot = Path.Combine(_tempDirectory, "project");
+        string metadataRoot = Path.Combine(_tempDirectory, ".git");
+        string infoDirectory = Path.Combine(metadataRoot, "info");
+        Directory.CreateDirectory(projectRoot);
+        Directory.CreateDirectory(Path.Combine(metadataRoot, "refs"));
+        Directory.CreateDirectory(infoDirectory);
+        var watchedDirectories = new List<string>();
+
+        using var watcher = new RepositoryWatcher(
+            new RepositoryInfo(_tempDirectory, projectRoot),
+            TimeProvider.System,
+            startWatching: true,
+            watcherFactory: path =>
+            {
+                watchedDirectories.Add(Path.GetFullPath(path));
+                return new FileSystemWatcher(path);
+            },
+            watcherEnabler: static _ => { });
+
+        Assert.That(
+            watchedDirectories,
+            Does.Contain(Path.GetFullPath(infoDirectory)));
+    }
+
+    [Test]
+    public async Task Git_metadata_subdirectory_recreation_replaces_the_stale_watcher_and_schedules_a_change()
+    {
+        string projectRoot = Path.Combine(_tempDirectory, "project");
+        string metadataRoot = Path.Combine(_tempDirectory, ".git");
+        string infoDirectory = Path.Combine(metadataRoot, "info");
+        Directory.CreateDirectory(projectRoot);
+        Directory.CreateDirectory(Path.Combine(metadataRoot, "refs"));
+        Directory.CreateDirectory(infoDirectory);
+        var timeProvider = new FakeTimeProvider();
+        var createdWatchers = new List<TrackingFileSystemWatcher>();
+        using var watcher = new RepositoryWatcher(
+            new RepositoryInfo(_tempDirectory, projectRoot),
+            timeProvider,
+            startWatching: true,
+            watcherFactory: path =>
+            {
+                var created = new TrackingFileSystemWatcher(path);
+                createdWatchers.Add(created);
+                return created;
+            },
+            watcherEnabler: static _ => { });
+        TrackingFileSystemWatcher metadataWatcher = createdWatchers.Single(created =>
+            !created.IncludeSubdirectories
+            && PathsEqual(created.Path, metadataRoot));
+        TrackingFileSystemWatcher originalInfoWatcher = createdWatchers.Single(created =>
+            !created.IncludeSubdirectories
+            && PathsEqual(created.Path, infoDirectory));
+        int raised = 0;
+        var firstChange = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var secondChange = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        watcher.Changed += (_, _) =>
+        {
+            int count = Interlocked.Increment(ref raised);
+            (count == 1 ? firstChange : secondChange).TrySetResult();
+        };
+
+        Directory.Delete(infoDirectory, recursive: true);
+        metadataWatcher.RaiseDeleted("info");
+        Directory.CreateDirectory(infoDirectory);
+        await File.WriteAllTextAsync(Path.Combine(infoDirectory, "exclude"), "*.tmp\n");
+        metadataWatcher.RaiseCreated("info");
+        timeProvider.Advance(RepositoryWatcher.DebounceInterval);
+        await firstChange.Task.WaitAsync(TimeSpan.FromSeconds(2));
+
+        TrackingFileSystemWatcher replacementInfoWatcher = createdWatchers
+            .Where(created => !ReferenceEquals(created, originalInfoWatcher))
+            .Single(created =>
+                !created.IncludeSubdirectories
+                && PathsEqual(created.Path, infoDirectory));
+        replacementInfoWatcher.RaiseChanged("exclude");
+        timeProvider.Advance(RepositoryWatcher.DebounceInterval);
+        await secondChange.Task.WaitAsync(TimeSpan.FromSeconds(2));
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(originalInfoWatcher.IsDisposed, Is.True);
+            Assert.That(replacementInfoWatcher.IsDisposed, Is.False);
+            Assert.That(Volatile.Read(ref raised), Is.EqualTo(2));
+        });
+    }
+
+    [Test]
+    public async Task Git_metadata_subdirectory_disappearance_during_reattach_still_schedules_a_change()
+    {
+        string projectRoot = Path.Combine(_tempDirectory, "project");
+        string metadataRoot = Path.Combine(_tempDirectory, ".git");
+        string infoDirectory = Path.Combine(metadataRoot, "info");
+        Directory.CreateDirectory(projectRoot);
+        Directory.CreateDirectory(Path.Combine(metadataRoot, "refs"));
+        Directory.CreateDirectory(infoDirectory);
+        var timeProvider = new FakeTimeProvider();
+        var createdWatchers = new List<TrackingFileSystemWatcher>();
+        bool deleteInfoDuringReattach = false;
+        using var watcher = new RepositoryWatcher(
+            new RepositoryInfo(_tempDirectory, projectRoot),
+            timeProvider,
+            startWatching: true,
+            watcherFactory: path =>
+            {
+                if (deleteInfoDuringReattach && PathsEqual(path, infoDirectory))
+                {
+                    Directory.Delete(infoDirectory, recursive: true);
+                }
+
+                var created = new TrackingFileSystemWatcher(path);
+                createdWatchers.Add(created);
+                return created;
+            },
+            watcherEnabler: static _ => { });
+        TrackingFileSystemWatcher metadataWatcher = createdWatchers.Single(created =>
+            !created.IncludeSubdirectories
+            && PathsEqual(created.Path, metadataRoot));
+        var changed = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        watcher.Changed += (_, _) => changed.TrySetResult();
+
+        deleteInfoDuringReattach = true;
+        Assert.DoesNotThrow(() => metadataWatcher.RaiseChanged("info"));
+        timeProvider.Advance(RepositoryWatcher.DebounceInterval);
+
+        await changed.Task.WaitAsync(TimeSpan.FromSeconds(2));
+        Assert.That(changed.Task.IsCompletedSuccessfully, Is.True);
     }
 
     [Test]
@@ -259,6 +393,31 @@ public class RepositoryWatcherTests
             IsDisposed = true;
             base.Dispose(disposing);
         }
+
+        public void RaiseChanged(string name)
+        {
+            OnChanged(new FileSystemEventArgs(WatcherChangeTypes.Changed, Path, name));
+        }
+
+        public void RaiseCreated(string name)
+        {
+            OnCreated(new FileSystemEventArgs(WatcherChangeTypes.Created, Path, name));
+        }
+
+        public void RaiseDeleted(string name)
+        {
+            OnDeleted(new FileSystemEventArgs(WatcherChangeTypes.Deleted, Path, name));
+        }
+    }
+
+    private static bool PathsEqual(string left, string right)
+    {
+        return string.Equals(
+            Path.GetFullPath(left),
+            Path.GetFullPath(right),
+            OperatingSystem.IsWindows()
+                ? StringComparison.OrdinalIgnoreCase
+                : StringComparison.Ordinal);
     }
 
     private sealed class TrackingTimeProvider : TimeProvider

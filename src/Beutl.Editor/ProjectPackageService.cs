@@ -295,7 +295,7 @@ public sealed class ProjectPackageService
         foreach (string file in Directory.GetFiles(sourceDir))
         {
             cancellationToken.ThrowIfCancellationRequested();
-            if (Path.GetFileName(file) == ".git")
+            if (ShouldSkipEntry(file, isDirectory: false))
                 continue;
 
             string destFile = Path.Combine(destDir, Path.GetFileName(file));
@@ -307,13 +307,49 @@ public sealed class ProjectPackageService
             cancellationToken.ThrowIfCancellationRequested();
             string dirName = Path.GetFileName(subDir);
 
-            // Skip editor state and Git metadata directories.
-            if (dirName is ".beutl" or ".git")
+            if (ShouldSkipEntry(subDir, isDirectory: true))
                 continue;
 
             string destSubDir = Path.Combine(destDir, dirName);
             await CopyDirectoryAsync(subDir, destSubDir, cancellationToken);
         }
+    }
+
+    private static bool ShouldSkipEntry(string path, bool isDirectory)
+    {
+        if (IsSymbolicLink(path, isDirectory))
+        {
+            return true;
+        }
+
+        return HasReservedName(path, ".git")
+               || (isDirectory && HasReservedName(path, ".beutl"));
+    }
+
+    private static bool IsSymbolicLink(string path, bool isDirectory)
+    {
+        try
+        {
+            FileSystemInfo info = isDirectory
+                ? new DirectoryInfo(path)
+                : new FileInfo(path);
+            // LinkTarget identifies symbolic links and junctions without excluding unrelated
+            // reparse points such as cloud-backed file placeholders.
+            return info.LinkTarget is not null;
+        }
+        catch (Exception ex)
+            when (ex is IOException
+                  or UnauthorizedAccessException
+                  or NotSupportedException)
+        {
+            return true;
+        }
+    }
+
+    private static bool HasReservedName(string path, string reservedName)
+    {
+        string name = Path.GetFileName(Path.TrimEndingDirectorySeparator(path));
+        return string.Equals(name, reservedName, StringComparison.OrdinalIgnoreCase);
     }
 
     /// <summary>

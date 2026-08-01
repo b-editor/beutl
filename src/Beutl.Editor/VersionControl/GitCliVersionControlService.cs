@@ -3950,12 +3950,76 @@ internal sealed class GitCliVersionControlService :
             repository,
             [
                 "for-each-ref",
-                "--format=%(refname:short)%00%(HEAD)%00%(upstream:short)",
+                "--format=%(refname:lstrip=2)%00%(HEAD)%00%(upstream:lstrip=2)",
                 "refs/heads",
             ],
             GitCommandOptions.Local,
             cancellationToken).ConfigureAwait(false);
         return ParseBranches(result.Stdout);
+    }
+
+    private async Task<bool> CanCreateBranchCoreAsync(
+        string name,
+        CancellationToken cancellationToken)
+    {
+        if (string.IsNullOrWhiteSpace(name))
+        {
+            return false;
+        }
+
+        RepositoryInfo repository = GetRepository();
+        IGitCliRunner runner = await GetInstalledRunnerCoreAsync(cancellationToken).ConfigureAwait(false);
+        try
+        {
+            GitCommandResult result = await runner.RunAsync(
+                repository,
+                ["check-ref-format", "--branch", name],
+                GitCommandOptions.Local,
+                cancellationToken).ConfigureAwait(false);
+            string validatedName = RemoveSingleTrailingLineEnding(result.Stdout);
+            if (!string.Equals(validatedName, name, StringComparison.Ordinal))
+            {
+                return false;
+            }
+
+            IReadOnlyList<BranchInfo> branches = await GetBranchesCoreAsync(cancellationToken)
+                .ConfigureAwait(false);
+            StringComparison branchNameComparison = await UsesCaseInsensitiveFilesRefStorageAsync(
+                    repository,
+                    runner,
+                    cancellationToken)
+                .ConfigureAwait(false)
+                ? StringComparison.OrdinalIgnoreCase
+                : StringComparison.Ordinal;
+            if (branches.Any(branch => BranchNamesConflict(
+                    branch.Name,
+                    name,
+                    branchNameComparison)))
+            {
+                return false;
+            }
+
+            return !await HasLooseBranchPathCollisionAsync(
+                    repository,
+                    runner,
+                    name,
+                    cancellationToken)
+                .ConfigureAwait(false);
+        }
+        catch (GitOperationException)
+        {
+            return false;
+        }
+    }
+
+    private static string RemoveSingleTrailingLineEnding(string value)
+    {
+        if (value.EndsWith("\r\n", StringComparison.Ordinal))
+        {
+            return value[..^2];
+        }
+
+        return value.EndsWith('\n') ? value[..^1] : value;
     }
 
     private async Task CreateBranchCoreAsync(
@@ -3964,6 +4028,13 @@ internal sealed class GitCliVersionControlService :
         CancellationToken cancellationToken)
     {
         GitRevisionValidator.ValidateCommitId(startPoint, nameof(startPoint));
+        if (!await CanCreateBranchCoreAsync(name, cancellationToken).ConfigureAwait(false))
+        {
+            throw new ArgumentException(
+                "The branch must be a valid, unused local branch name.",
+                nameof(name));
+        }
+
         await EnsureNotConflictedCoreAsync(cancellationToken).ConfigureAwait(false);
         EnsureWorktreeMutationAllowed();
         RepositoryInfo repository = GetRepository();
@@ -4007,6 +4078,135 @@ internal sealed class GitCliVersionControlService :
     {
         return branches.Any(branch =>
             string.Equals(branch.Name, name, StringComparison.Ordinal));
+    }
+
+    private static bool BranchNamesConflict(
+        string existingName,
+        string candidateName,
+        StringComparison comparison)
+    {
+        return string.Equals(existingName, candidateName, comparison)
+               || existingName.StartsWith($"{candidateName}/", comparison)
+               || candidateName.StartsWith($"{existingName}/", comparison);
+    }
+
+    private static async Task<bool> UsesCaseInsensitiveFilesRefStorageAsync(
+        RepositoryInfo repository,
+        IGitCliRunner runner,
+        CancellationToken cancellationToken)
+    {
+        try
+        {
+            GitCommandResult storage = await runner.RunAsync(
+                repository,
+                ["config", "--local", "--get", "extensions.refStorage"],
+                GitCommandOptions.Local,
+                cancellationToken).ConfigureAwait(false);
+            if (!string.Equals(
+                    storage.Stdout.Trim(),
+                    "files",
+                    StringComparison.OrdinalIgnoreCase))
+            {
+                return false;
+            }
+        }
+        catch (GitOperationException ex) when (ex.ExitCode == 1)
+        {
+            // The traditional files backend omits extensions.refStorage.
+        }
+
+        string headsDirectory = await ResolveGitPathAsync(
+                repository,
+                runner,
+                "refs/heads",
+                cancellationToken)
+            .ConfigureAwait(false);
+        return IsDirectoryStorageCaseInsensitive(headsDirectory);
+    }
+
+    private static bool IsDirectoryStorageCaseInsensitive(string directory)
+    {
+        try
+        {
+            DirectoryInfo? current = new DirectoryInfo(directory);
+            while (current is not null && !current.Exists)
+            {
+                current = current.Parent;
+            }
+
+            while (current?.Parent is not null)
+            {
+                string aliasName = current.Name.ToUpperInvariant();
+                if (string.Equals(aliasName, current.Name, StringComparison.Ordinal))
+                {
+                    aliasName = current.Name.ToLowerInvariant();
+                }
+
+                if (!string.Equals(aliasName, current.Name, StringComparison.Ordinal))
+                {
+                    string aliasPath = Path.Combine(current.Parent.FullName, aliasName);
+                    if (!Directory.Exists(aliasPath))
+                    {
+                        return false;
+                    }
+
+                    bool distinctAliasExists = current.Parent
+                        .EnumerateDirectories()
+                        .Any(candidate => string.Equals(
+                            candidate.Name,
+                            aliasName,
+                            StringComparison.Ordinal));
+                    return !distinctAliasExists;
+                }
+
+                current = current.Parent;
+            }
+
+            return OperatingSystem.IsWindows();
+        }
+        catch (Exception ex)
+            when (ex is IOException
+                  or UnauthorizedAccessException
+                  or NotSupportedException)
+        {
+            // Conservatively reject case aliases when the files backend cannot be inspected.
+            return true;
+        }
+    }
+
+    private static async Task<bool> HasLooseBranchPathCollisionAsync(
+        RepositoryInfo repository,
+        IGitCliRunner runner,
+        string candidateName,
+        CancellationToken cancellationToken)
+    {
+        string headsDirectory = await ResolveGitPathAsync(
+                repository,
+                runner,
+                "refs/heads",
+                cancellationToken)
+            .ConfigureAwait(false);
+        string candidatePath = Path.Combine(
+            headsDirectory,
+            candidateName.Replace('/', Path.DirectorySeparatorChar));
+        if (Path.Exists(candidatePath))
+        {
+            return true;
+        }
+
+        string? parent = Path.GetDirectoryName(candidatePath);
+        while (parent is not null
+               && !string.Equals(parent, headsDirectory, StringComparison.Ordinal))
+        {
+            if (File.Exists(parent))
+            {
+                return true;
+            }
+
+            parent = Path.GetDirectoryName(parent);
+        }
+
+        return false;
     }
 
     private async Task<IReadOnlyList<RemoteInfo>> GetRemotesCoreAsync(
@@ -6967,6 +7167,11 @@ internal sealed class GitCliVersionControlService :
         public Task<IReadOnlyList<BranchInfo>> GetBranchesAsync(
             CancellationToken cancellationToken)
             => _service.GetBranchesCoreAsync(cancellationToken);
+
+        public Task<bool> CanCreateBranchAsync(
+            string name,
+            CancellationToken cancellationToken)
+            => _service.CanCreateBranchCoreAsync(name, cancellationToken);
 
         public Task CreateBranchAsync(
             string name,

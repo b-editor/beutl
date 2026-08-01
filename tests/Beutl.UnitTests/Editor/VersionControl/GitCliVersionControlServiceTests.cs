@@ -1609,6 +1609,206 @@ public class GitCliVersionControlServiceTests : RealGitTestRepository
     }
 
     [Test]
+    public async Task CanCreateBranchAsync_accepts_a_valid_unused_local_name()
+    {
+        await CommitFileAsync("project.bep", "current\n", "current");
+        using var service = CreateService();
+
+        bool canCreate = await ((IProjectVersionControlBackend)service).ExecuteExclusiveAsync(
+            transaction => transaction.CanCreateBranchAsync(
+                "new-feature",
+                CancellationToken.None),
+            CancellationToken.None);
+
+        Assert.That(canCreate, Is.True);
+    }
+
+    [Test]
+    public async Task CanCreateBranchAsync_rejects_an_invalid_name_without_mutation()
+    {
+        await CommitFileAsync("project.bep", "current\n", "current");
+        string originalSha = (await RunGitAsync("rev-parse", "HEAD")).Stdout.Trim();
+        using var service = CreateService();
+
+        bool canCreate = await ((IProjectVersionControlBackend)service).ExecuteExclusiveAsync(
+            transaction => transaction.CanCreateBranchAsync(
+                "invalid..branch",
+                CancellationToken.None),
+            CancellationToken.None);
+
+        GitCommandResult currentBranch = await RunGitAsync("branch", "--show-current");
+        GitCommandResult currentSha = await RunGitAsync("rev-parse", "HEAD");
+        Assert.Multiple(() =>
+        {
+            Assert.That(canCreate, Is.False);
+            Assert.That(currentBranch.Stdout.Trim(), Is.EqualTo("main"));
+            Assert.That(currentSha.Stdout.Trim(), Is.EqualTo(originalSha));
+        });
+    }
+
+    [Test]
+    public async Task CanCreateBranchAsync_rejects_an_existing_local_name()
+    {
+        await CommitFileAsync("project.bep", "current\n", "current");
+        await RunGitAsync("branch", "existing");
+        using var service = CreateService();
+
+        bool canCreate = await ((IProjectVersionControlBackend)service).ExecuteExclusiveAsync(
+            transaction => transaction.CanCreateBranchAsync(
+                "existing",
+                CancellationToken.None),
+            CancellationToken.None);
+
+        GitCommandResult currentBranch = await RunGitAsync("branch", "--show-current");
+        Assert.Multiple(() =>
+        {
+            Assert.That(canCreate, Is.False);
+            Assert.That(currentBranch.Stdout.Trim(), Is.EqualTo("main"));
+        });
+    }
+
+    [TestCase("parent", "parent/child")]
+    [TestCase("parent/child", "parent")]
+    public async Task CanCreateBranchAsync_rejects_local_ref_namespace_collisions(
+        string existingName,
+        string candidateName)
+    {
+        await CommitFileAsync("project.bep", "current\n", "current");
+        await RunGitAsync("branch", existingName);
+        using var service = CreateService();
+
+        bool canCreate = await ((IProjectVersionControlBackend)service).ExecuteExclusiveAsync(
+            transaction => transaction.CanCreateBranchAsync(
+                candidateName,
+                CancellationToken.None),
+            CancellationToken.None);
+
+        GitCommandResult currentBranch = await RunGitAsync("branch", "--show-current");
+        Assert.Multiple(() =>
+        {
+            Assert.That(canCreate, Is.False);
+            Assert.That(currentBranch.Stdout.Trim(), Is.EqualTo("main"));
+        });
+    }
+
+    [Test]
+    public async Task CanCreateBranchAsync_detects_an_existing_branch_when_a_tag_has_the_same_name()
+    {
+        await CommitFileAsync("project.bep", "current\n", "current");
+        await RunGitAsync("branch", "ambiguous");
+        await RunGitAsync("tag", "ambiguous");
+        using var service = CreateService();
+
+        bool canCreate = await ((IProjectVersionControlBackend)service).ExecuteExclusiveAsync(
+            transaction => transaction.CanCreateBranchAsync(
+                "ambiguous",
+                CancellationToken.None),
+            CancellationToken.None);
+
+        GitCommandResult currentBranch = await RunGitAsync("branch", "--show-current");
+        Assert.Multiple(() =>
+        {
+            Assert.That(canCreate, Is.False);
+            Assert.That(currentBranch.Stdout.Trim(), Is.EqualTo("main"));
+        });
+    }
+
+    [TestCase("CaseAlias", "casealias")]
+    [TestCase("CaseParent", "caseparent/child")]
+    [TestCase("CaseParent/child", "caseparent")]
+    public async Task CanCreateBranchAsync_rejects_case_aliases_when_loose_refs_share_the_same_storage_path(
+        string existingName,
+        string candidateName)
+    {
+        await CommitFileAsync("project.bep", "current\n", "current");
+        await RunGitAsync("branch", existingName);
+        string aliasedExistingPath = Path.Combine(
+            Root,
+            ".git",
+            "refs",
+            "heads",
+            existingName.ToLowerInvariant().Replace('/', Path.DirectorySeparatorChar));
+        if (!Path.Exists(aliasedExistingPath))
+        {
+            Assert.Ignore("The repository ref storage is case-sensitive for this branch name.");
+        }
+
+        using var service = CreateService();
+        bool canCreate = await ((IProjectVersionControlBackend)service).ExecuteExclusiveAsync(
+            transaction => transaction.CanCreateBranchAsync(
+                candidateName,
+                CancellationToken.None),
+            CancellationToken.None);
+
+        GitCommandResult currentBranch = await RunGitAsync("branch", "--show-current");
+        Assert.Multiple(() =>
+        {
+            Assert.That(canCreate, Is.False);
+            Assert.That(currentBranch.Stdout.Trim(), Is.EqualTo("main"));
+        });
+    }
+
+    [TestCase("PackedAlias", "packedalias")]
+    [TestCase("PackedParent", "packedparent/child")]
+    [TestCase("PackedParent/child", "packedparent")]
+    public async Task CanCreateBranchAsync_rejects_case_aliases_against_packed_refs_on_case_insensitive_storage(
+        string existingName,
+        string candidateName)
+    {
+        await CommitFileAsync("project.bep", "current\n", "current");
+        await RunGitAsync("branch", existingName);
+        await RunGitAsync("pack-refs", "--all", "--prune");
+        string refsDirectory = Path.Combine(Root, ".git", "refs");
+        if (!Directory.Exists(Path.Combine(Root, ".GIT")))
+        {
+            Assert.Ignore("The repository ref storage is case-sensitive.");
+        }
+
+        string looseExistingPath = Path.Combine(
+            refsDirectory,
+            "heads",
+            existingName.Replace('/', Path.DirectorySeparatorChar));
+        Assert.That(File.Exists(looseExistingPath), Is.False);
+
+        using var service = CreateService();
+        bool canCreate = await ((IProjectVersionControlBackend)service).ExecuteExclusiveAsync(
+            transaction => transaction.CanCreateBranchAsync(
+                candidateName,
+                CancellationToken.None),
+            CancellationToken.None);
+
+        GitCommandResult currentBranch = await RunGitAsync("branch", "--show-current");
+        Assert.Multiple(() =>
+        {
+            Assert.That(canCreate, Is.False);
+            Assert.That(currentBranch.Stdout.Trim(), Is.EqualTo("main"));
+        });
+    }
+
+    [Test]
+    public async Task CanCreateBranchAsync_rejects_previous_branch_shorthand_normalization()
+    {
+        await CommitFileAsync("project.bep", "current\n", "current");
+        await RunGitAsync("branch", "alternate");
+        await RunGitAsync("switch", "alternate");
+        await RunGitAsync("switch", "main");
+        using var service = CreateService();
+
+        bool canCreate = await ((IProjectVersionControlBackend)service).ExecuteExclusiveAsync(
+            transaction => transaction.CanCreateBranchAsync(
+                "@{-1}",
+                CancellationToken.None),
+            CancellationToken.None);
+
+        GitCommandResult currentBranch = await RunGitAsync("branch", "--show-current");
+        Assert.Multiple(() =>
+        {
+            Assert.That(canCreate, Is.False);
+            Assert.That(currentBranch.Stdout.Trim(), Is.EqualTo("main"));
+        });
+    }
+
+    [Test]
     public async Task SwitchBranchAsync_rejects_Git_previous_branch_shorthand()
     {
         await CommitFileAsync("project.bep", "current\n", "current");

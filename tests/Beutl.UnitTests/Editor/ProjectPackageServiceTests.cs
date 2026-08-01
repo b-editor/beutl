@@ -265,6 +265,75 @@ public class ProjectPackageServiceTests
     }
 
     [Test]
+    public async Task ExportAsync_AlwaysExcludesReservedMetadataRegardlessOfCasing()
+    {
+        var service = ProjectPackageService.Current;
+        Project project = CreateAndSaveTestProject();
+        string packagePath = Path.Combine(_exportDir, "git-casing.zip");
+
+        string upperGitDirectory = Path.Combine(_projectDir, ".GIT");
+        Directory.CreateDirectory(upperGitDirectory);
+        File.WriteAllText(Path.Combine(upperGitDirectory, "config"), "repository metadata");
+
+        string worktreeDirectory = Path.Combine(_projectDir, "worktree");
+        Directory.CreateDirectory(worktreeDirectory);
+        string upperGitFile = Path.Combine(worktreeDirectory, ".GIT");
+        File.WriteAllText(upperGitFile, "gitdir: ../.git/worktrees/example");
+
+        string upperBeutlDirectory = Path.Combine(_projectDir, ".BEUTL");
+        Directory.CreateDirectory(upperBeutlDirectory);
+        File.WriteAllText(Path.Combine(upperBeutlDirectory, "state.json"), "{}");
+
+        ExportResult result = await service.ExportAsync(project, packagePath);
+
+        Assert.That(result.Success, Is.True);
+        using System.IO.Compression.ZipArchive archive = System.IO.Compression.ZipFile.OpenRead(packagePath);
+        Assert.Multiple(() =>
+        {
+            Assert.That(archive.GetEntry(".GIT/config"), Is.Null);
+            Assert.That(archive.GetEntry("worktree/.GIT"), Is.Null);
+            Assert.That(archive.GetEntry(".BEUTL/state.json"), Is.Null);
+        });
+    }
+
+    [Test]
+    public async Task ExportAsync_DoesNotFollowFileOrDirectorySymbolicLinks()
+    {
+        var service = ProjectPackageService.Current;
+        Project project = CreateAndSaveTestProject();
+        string packagePath = Path.Combine(_exportDir, "symbolic-links.zip");
+
+        string outsideDirectory = Path.Combine(_testDir, "outside");
+        Directory.CreateDirectory(outsideDirectory);
+        string outsideFile = Path.Combine(outsideDirectory, "secret.txt");
+        File.WriteAllText(outsideFile, "external secret");
+        string outsideAsset = Path.Combine(outsideDirectory, "external.scene");
+        File.WriteAllText(outsideAsset, "external scene");
+
+        string fileLink = Path.Combine(_projectDir, "linked-secret.txt");
+        string directoryLink = Path.Combine(_projectDir, "linked-assets");
+        try
+        {
+            File.CreateSymbolicLink(fileLink, outsideFile);
+            Directory.CreateSymbolicLink(directoryLink, outsideDirectory);
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or PlatformNotSupportedException)
+        {
+            Assert.Ignore("Creating symbolic links is not supported in this environment.");
+        }
+
+        ExportResult result = await service.ExportAsync(project, packagePath);
+
+        Assert.That(result.Success, Is.True);
+        using System.IO.Compression.ZipArchive archive = System.IO.Compression.ZipFile.OpenRead(packagePath);
+        Assert.Multiple(() =>
+        {
+            Assert.That(archive.GetEntry("linked-secret.txt"), Is.Null);
+            Assert.That(archive.GetEntry("linked-assets/external.scene"), Is.Null);
+        });
+    }
+
+    [Test]
     public async Task ExportAsync_WithProjectItems_SavesItems()
     {
         // Arrange

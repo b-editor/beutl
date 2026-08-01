@@ -318,6 +318,7 @@ public sealed class McpToolBindingTests
                 .AddSingleton<QualityAnalyzer>()
                 .AddSingleton<EncoderRegistration>()
                 .AddSingleton<VideoExporter>()
+                .AddSingleton<IOutputOperationLeaseProvider>(StandaloneOutputOperationLeaseProvider.Instance)
                 .AddSingleton<RenderJobManager>()
                 .AddSingleton<FileSessionSource>()
                 .AddSingleton<IProjectSessionGateway, FileProjectSessionGateway>()

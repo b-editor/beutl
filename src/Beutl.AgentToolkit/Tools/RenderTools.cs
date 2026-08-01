@@ -42,7 +42,8 @@ public sealed class RenderTools(
     AudioRhythmAnalyzer audioRhythmAnalyzer,
     QualityAnalyzer qualityAnalyzer,
     VideoExporter videoExporter,
-    RenderJobManager renderJobs) : ToolBase
+    RenderJobManager renderJobs,
+    IOutputOperationLeaseProvider outputOperations) : ToolBase
 {
     private static readonly JsonSerializerOptions s_jobResultOptions = new(JsonSerializerDefaults.Web);
     private static readonly JsonSerializerOptions s_toolResultOptions = new(JsonSerializerDefaults.Web);
@@ -72,6 +73,7 @@ public sealed class RenderTools(
     {
         return ExecuteMcpAsync<RenderStillResponse>(async () =>
         {
+            using OwnedOutputOperation outputOperation = BeginOutputOperation();
             Scene scene = RequireSceneSnapshot();
             renderScale = ValidateRenderScale(scene, renderScale, "render_still");
             string resolvedPath = workspace.ResolveForWrite(NormalizeOutputPath(outputPath));
@@ -116,6 +118,7 @@ public sealed class RenderTools(
     {
         return ExecuteMcpAsync<RenderStoryboardResult>(async () =>
         {
+            using OwnedOutputOperation outputOperation = BeginOutputOperation();
             if (background && returnImageContent)
             {
                 throw new ReconcileException(new ToolError(
@@ -220,11 +223,12 @@ public sealed class RenderTools(
 
             if (background)
             {
-                string jobId = renderJobs.Enqueue(
+                string jobId = outputOperation.Transfer(lease => renderJobs.Enqueue(
                     "storyboard",
                     async token => JsonSerializer.SerializeToNode(
                         await RunStoryboardAsync(token).ConfigureAwait(false),
-                        s_jobResultOptions)!);
+                        s_jobResultOptions)!,
+                    lease));
                 return (new RenderStoryboardResult("running", jobId, null), (ImageContentBlock?)null);
             }
 
@@ -370,6 +374,7 @@ public sealed class RenderTools(
     {
         return ExecuteAsync(async () =>
         {
+            using OwnedOutputOperation? outputOperation = staticLayout ? null : BeginOutputOperation();
             ValidateVideoType(videoType);
             IEditingSession snapshotSession = sessions.RequireSession();
             Scene scene = CreateSceneSnapshot(snapshotSession);
@@ -617,6 +622,7 @@ public sealed class RenderTools(
     {
         return ExecuteAsync(async () =>
         {
+            using OwnedOutputOperation outputOperation = BeginOutputOperation();
             ValidateVideoType(videoType);
             IEditingSession snapshotSession = sessions.RequireSession();
             Scene scene = CreateSceneSnapshot(snapshotSession);
@@ -755,6 +761,7 @@ public sealed class RenderTools(
     {
         return ExecuteMcpManyAsync<CompareRevisionsResponse>(async () =>
         {
+            using OwnedOutputOperation outputOperation = BeginOutputOperation();
             IEditingSession snapshotSession = sessions.RequireSession();
             Scene scene = CreateSceneSnapshot(snapshotSession);
             // Capture the session key first, then fetch the baseline FOR that key: a session switch
@@ -841,6 +848,7 @@ public sealed class RenderTools(
     {
         return ExecuteAsync<ExportVideoResult>(async () =>
         {
+            using OwnedOutputOperation outputOperation = BeginOutputOperation();
             Scene scene = RequireSceneSnapshot();
             renderScale = ValidateRenderScale(scene, renderScale, "export_video");
 
@@ -907,11 +915,12 @@ public sealed class RenderTools(
 
             if (background)
             {
-                string jobId = renderJobs.Enqueue(
+                string jobId = outputOperation.Transfer(lease => renderJobs.Enqueue(
                     "export",
                     async token => JsonSerializer.SerializeToNode(
                         await RunExportAsync(token).ConfigureAwait(false),
-                        s_jobResultOptions)!);
+                        s_jobResultOptions)!,
+                    lease));
                 return new ExportVideoResult("running", jobId, null);
             }
 
@@ -1258,6 +1267,13 @@ public sealed class RenderTools(
         }
 
         return stillPaths;
+    }
+
+    private OwnedOutputOperation BeginOutputOperation()
+    {
+        IDisposable lease = outputOperations.TryBeginOutputOperation()
+                            ?? throw new OutputOperationBusyException();
+        return new OwnedOutputOperation(lease);
     }
 
     private void StoreQualityBaseline(
@@ -1636,6 +1652,26 @@ public sealed class RenderTools(
         }
 
         return result;
+    }
+
+    private sealed class OwnedOutputOperation(IDisposable lease) : IDisposable
+    {
+        private IDisposable? _lease = lease;
+
+        public T Transfer<T>(Func<IDisposable, T> transfer)
+        {
+            ArgumentNullException.ThrowIfNull(transfer);
+            IDisposable current = _lease
+                                  ?? throw new InvalidOperationException("The output operation lease was already transferred.");
+            T result = transfer(current);
+            _lease = null;
+            return result;
+        }
+
+        public void Dispose()
+        {
+            Interlocked.Exchange(ref _lease, null)?.Dispose();
+        }
     }
 
     private static IReadOnlyList<ResolvedStoryboardShot> ResolveStoryboardShots(

@@ -2,7 +2,9 @@
 
 internal static class ProjectConflictMarkerScanner
 {
-    private const string ConflictMarker = "<<<<<<< ";
+    private const int ScanChunkSize = 4096;
+
+    private static readonly byte[] s_conflictMarkerBytes = "<<<<<<< "u8.ToArray();
 
     private static readonly HashSet<string> s_projectExtensions = new(
         [".bep", ".scene", ".belm"],
@@ -73,15 +75,26 @@ internal static class ProjectConflictMarkerScanner
                     continue;
                 }
 
+                if (!TryGetScannableLength(projectRoot, file, out long scanLength))
+                {
+                    continue;
+                }
+
                 try
                 {
-                    using var reader = new StreamReader(file);
-                    while (await reader.ReadLineAsync(cancellationToken).ConfigureAwait(false) is { } line)
+                    await using FileStream stream = new(
+                        file,
+                        FileMode.Open,
+                        FileAccess.Read,
+                        FileShare.ReadWrite | FileShare.Delete,
+                        ScanChunkSize,
+                        FileOptions.Asynchronous | FileOptions.SequentialScan);
+                    if (await ContainsConflictMarkerAsync(
+                            stream,
+                            scanLength,
+                            cancellationToken).ConfigureAwait(false))
                     {
-                        if (line.Contains(ConflictMarker, StringComparison.Ordinal))
-                        {
-                            return file;
-                        }
+                        return file;
                     }
                 }
                 catch (IOException)
@@ -96,6 +109,70 @@ internal static class ProjectConflictMarkerScanner
         return null;
     }
 
+    private static bool TryGetScannableLength(
+        string projectRoot,
+        string file,
+        out long scanLength)
+    {
+        scanLength = 0;
+        try
+        {
+            var info = new FileInfo(file);
+            info.Refresh();
+            if (info.LinkTarget is not null
+                || info.Length <= 0
+                || !RepositoryPathComparer.IsContainedWithin(projectRoot, info.FullName))
+            {
+                return false;
+            }
+
+            scanLength = info.Length;
+            return true;
+        }
+        catch (Exception ex)
+            when (ex is IOException
+                  or UnauthorizedAccessException
+                  or NotSupportedException)
+        {
+            return false;
+        }
+    }
+
+    private static async Task<bool> ContainsConflictMarkerAsync(
+        Stream stream,
+        long scanLength,
+        CancellationToken cancellationToken)
+    {
+        int overlapCapacity = s_conflictMarkerBytes.Length - 1;
+        byte[] buffer = new byte[ScanChunkSize + overlapCapacity];
+        int overlapLength = 0;
+        long remaining = scanLength;
+        while (remaining > 0)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            int requested = (int)Math.Min(ScanChunkSize, remaining);
+            int read = await stream.ReadAsync(
+                buffer.AsMemory(overlapLength, requested),
+                cancellationToken).ConfigureAwait(false);
+            if (read == 0)
+            {
+                return false;
+            }
+
+            remaining -= read;
+            int bufferedLength = overlapLength + read;
+            if (buffer.AsSpan(0, bufferedLength).IndexOf(s_conflictMarkerBytes) >= 0)
+            {
+                return true;
+            }
+
+            overlapLength = Math.Min(overlapCapacity, bufferedLength);
+            buffer.AsSpan(bufferedLength - overlapLength, overlapLength).CopyTo(buffer);
+        }
+
+        return false;
+    }
+
     internal static bool ShouldDescendInto(string directory)
     {
         string name = Path.GetFileName(Path.TrimEndingDirectorySeparator(directory));
@@ -106,7 +183,7 @@ internal static class ProjectConflictMarkerScanner
 
         try
         {
-            return !File.GetAttributes(directory).HasFlag(FileAttributes.ReparsePoint);
+            return new DirectoryInfo(directory).LinkTarget is null;
         }
         catch (IOException)
         {

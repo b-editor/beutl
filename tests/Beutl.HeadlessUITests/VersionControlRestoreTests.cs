@@ -4222,6 +4222,87 @@ public class VersionControlRestoreTests
     }
 
     [AvaloniaTest]
+    public async Task Branch_creation_rejects_invalid_existing_and_shorthand_names_before_confirmation_or_close()
+    {
+        await TestReset.ResetShellAsync();
+        using var environment = new IsolatedGitEnvironment();
+        string gitPath = ProbeGitOrIgnore();
+        VersionControlConfig config = GlobalConfiguration.Instance.VersionControlConfig;
+        string? oldGitPath = config.GitExecutablePath;
+        bool oldAutoCommitOnSave = config.AutoCommitOnSave;
+        bool oldAutoCommitOnClose = config.AutoCommitOnClose;
+        bool oldUseLfs = config.UseLfsWhenAvailable;
+        var oldConfirmSwitchBranchAsync =
+            TestShell.VersionControl.ConfirmSwitchBranchAsync;
+
+        try
+        {
+            config.GitExecutablePath = gitPath;
+            config.AutoCommitOnSave = true;
+            config.AutoCommitOnClose = true;
+            config.UseLfsWhenAvailable = false;
+
+            (Project project, EditViewModel editor) = await CreateTrackedProjectAsync(
+                "version-control-create-branch-validation");
+            string projectRoot = Path.GetDirectoryName(project.Uri!.LocalPath)!;
+            await RunGitAsync(gitPath, projectRoot, "branch", "existing");
+            await RunGitAsync(gitPath, projectRoot, "switch", "existing");
+            await RunGitAsync(gitPath, projectRoot, "switch", "main");
+            var adder = (IElementAdder)editor.GetService(typeof(IElementAdder))!;
+            AddRectangle(adder, layer: 0);
+            project.Variables[RestoreStateKey] = "unsaved-state";
+            CoreSerializer.StoreToUri(project, project.Uri!);
+            Assert.That(
+                (await TestShell.VersionControl.CurrentService!.GetStatusAsync(
+                    CancellationToken.None)).IsClean,
+                Is.False);
+            int confirmations = 0;
+            TestShell.VersionControl.ConfirmSwitchBranchAsync = (_, _) =>
+            {
+                confirmations++;
+                return Task.FromResult(true);
+            };
+
+            bool invalid = await TestShell.VersionControl.CreateBranchAsync("invalid..branch");
+            bool existing = await TestShell.VersionControl.CreateBranchAsync("existing");
+            bool shorthand = await TestShell.VersionControl.CreateBranchAsync("@{-1}");
+            HeadlessTestHelpers.Settle();
+
+            WorkspaceStatus status = await TestShell.VersionControl.CurrentService!
+                .GetStatusAsync(CancellationToken.None);
+            IReadOnlyList<CommitInfo> history =
+                await TestShell.VersionControl.CurrentService.GetHistoryAsync(
+                    0,
+                    20,
+                    CancellationToken.None);
+            Assert.Multiple(() =>
+            {
+                Assert.That(invalid, Is.False);
+                Assert.That(existing, Is.False);
+                Assert.That(shorthand, Is.False);
+                Assert.That(confirmations, Is.Zero);
+                Assert.That(status.Branch, Is.EqualTo("main"));
+                Assert.That(status.IsClean, Is.False);
+                Assert.That(
+                    history.Any(commit => commit.Kind == SnapshotKind.Safety),
+                    Is.False);
+                Assert.That(TestShell.Project.CurrentProject.Value, Is.SameAs(project));
+                Assert.That(editor.HistoryManager.CanUndo, Is.True);
+            });
+        }
+        finally
+        {
+            TestShell.VersionControl.ConfirmSwitchBranchAsync =
+                oldConfirmSwitchBranchAsync;
+            await TestReset.ResetShellAsync();
+            config.GitExecutablePath = oldGitPath;
+            config.AutoCommitOnSave = oldAutoCommitOnSave;
+            config.AutoCommitOnClose = oldAutoCommitOnClose;
+            config.UseLfsWhenAvailable = oldUseLfs;
+        }
+    }
+
+    [AvaloniaTest]
     public async Task Branch_switch_rejects_Git_previous_branch_shorthand_before_confirmation_or_close()
     {
         await TestReset.ResetShellAsync();
@@ -4331,6 +4412,131 @@ public class VersionControlRestoreTests
                 Assert.That(confirmations, Is.EqualTo(1));
                 Assert.That(backend.GetBranchesCalls, Is.EqualTo(2));
                 Assert.That(backend.SwitchBranchStarted!.Task.IsCompleted, Is.False);
+                Assert.That(TestShell.Project.CurrentProject.Value, Is.SameAs(project));
+            });
+        }
+        finally
+        {
+            if (coordinator is not null)
+            {
+                await coordinator.DisposeAsync();
+            }
+
+            await TestReset.ResetShellAsync();
+        }
+    }
+
+    [AvaloniaTest]
+    public async Task Branch_creation_revalidates_the_name_before_closing_the_project()
+    {
+        await TestReset.ResetShellAsync();
+        VersionControlCoordinator? coordinator = null;
+        try
+        {
+            Project project = await CreateProjectForFakeVersionControlAsync(
+                "version-control-create-branch-revalidation");
+            string projectRoot = Path.GetDirectoryName(project.Uri!.LocalPath)!;
+            var repository = new RepositoryInfo(projectRoot, projectRoot);
+            var tip = new CheckedOutBranchTip(
+                "refs/heads/main",
+                "1111111111111111111111111111111111111111");
+            var discovery = new PullCycleTestBackend(repository: null, repository, tip);
+            var backend = new PullCycleTestBackend(repository, repository, tip)
+            {
+                Status = new WorkspaceStatus(
+                    "main",
+                    Ahead: 0,
+                    Behind: 0,
+                    Changes: [],
+                    HasConflicts: false),
+            };
+            backend.EnqueueCanCreateBranchResult(true);
+            backend.EnqueueCanCreateBranchResult(false);
+            var editorService = new EditorService(new ExtensionProvider());
+            var config = new VersionControlConfig();
+            coordinator = new VersionControlCoordinator(
+                TestShell.Project,
+                editorService,
+                config,
+                installationLocator: null,
+                serviceFactory: candidate => candidate is null ? discovery : backend);
+            int confirmations = 0;
+            coordinator.ConfirmSwitchBranchAsync = (_, _) =>
+            {
+                confirmations++;
+                return Task.FromResult(true);
+            };
+            await WaitUntilAsync(() => ReferenceEquals(coordinator.CurrentService, backend));
+
+            bool created = await coordinator.CreateBranchAsync("target");
+            HeadlessTestHelpers.Settle();
+
+            Assert.Multiple(() =>
+            {
+                Assert.That(created, Is.False);
+                Assert.That(confirmations, Is.EqualTo(1));
+                Assert.That(backend.CanCreateBranchCalls, Is.EqualTo(2));
+                Assert.That(backend.CreateBranchCalls, Is.Zero);
+                Assert.That(backend.CommitAllCalls, Is.Zero);
+                Assert.That(TestShell.Project.CurrentProject.Value, Is.SameAs(project));
+            });
+        }
+        finally
+        {
+            if (coordinator is not null)
+            {
+                await coordinator.DisposeAsync();
+            }
+
+            await TestReset.ResetShellAsync();
+        }
+    }
+
+    [AvaloniaTest]
+    public async Task Branch_creation_revalidates_after_the_safety_snapshot_before_closing_the_project()
+    {
+        await TestReset.ResetShellAsync();
+        VersionControlCoordinator? coordinator = null;
+        try
+        {
+            Project project = await CreateProjectForFakeVersionControlAsync(
+                "version-control-create-branch-post-snapshot-revalidation");
+            string projectRoot = Path.GetDirectoryName(project.Uri!.LocalPath)!;
+            var repository = new RepositoryInfo(projectRoot, projectRoot);
+            var tip = new CheckedOutBranchTip(
+                "refs/heads/main",
+                "1111111111111111111111111111111111111111");
+            var discovery = new PullCycleTestBackend(repository: null, repository, tip);
+            var backend = new PullCycleTestBackend(repository, repository, tip);
+            backend.EnqueueCanCreateBranchResult(true);
+            backend.EnqueueCanCreateBranchResult(true);
+            backend.EnqueueCanCreateBranchResult(false);
+            var editorService = new EditorService(new ExtensionProvider());
+            var config = new VersionControlConfig();
+            coordinator = new VersionControlCoordinator(
+                TestShell.Project,
+                editorService,
+                config,
+                installationLocator: null,
+                serviceFactory: candidate => candidate is null ? discovery : backend);
+            int confirmations = 0;
+            coordinator.ConfirmSwitchBranchAsync = (_, _) =>
+            {
+                confirmations++;
+                return Task.FromResult(true);
+            };
+            await WaitUntilAsync(() => ReferenceEquals(coordinator.CurrentService, backend));
+
+            bool created = await coordinator.CreateBranchAsync("target");
+            HeadlessTestHelpers.Settle();
+
+            Assert.Multiple(() =>
+            {
+                Assert.That(created, Is.False);
+                Assert.That(confirmations, Is.EqualTo(1));
+                Assert.That(backend.CanCreateBranchCalls, Is.EqualTo(3));
+                Assert.That(backend.CreateBranchCalls, Is.Zero);
+                Assert.That(backend.CommitAllCalls, Is.EqualTo(1));
                 Assert.That(TestShell.Project.CurrentProject.Value, Is.SameAs(project));
             });
         }
@@ -7164,6 +7370,225 @@ public class VersionControlRestoreTests
     }
 
     [AvaloniaTest]
+    public async Task Restore_to_new_branch_rejects_invalid_existing_and_shorthand_names_before_confirmation_or_close()
+    {
+        await TestReset.ResetShellAsync();
+        using var environment = new IsolatedGitEnvironment();
+        string gitPath = ProbeGitOrIgnore();
+        VersionControlConfig config = GlobalConfiguration.Instance.VersionControlConfig;
+        string? oldGitPath = config.GitExecutablePath;
+        bool oldAutoCommitOnSave = config.AutoCommitOnSave;
+        bool oldAutoCommitOnClose = config.AutoCommitOnClose;
+        bool oldUseLfs = config.UseLfsWhenAvailable;
+        var oldConfirmRestoreAsync = TestShell.VersionControl.ConfirmRestoreAsync;
+
+        try
+        {
+            config.GitExecutablePath = gitPath;
+            config.AutoCommitOnSave = true;
+            config.AutoCommitOnClose = true;
+            config.UseLfsWhenAvailable = false;
+
+            (Project project, EditViewModel editor) = await CreateTrackedProjectAsync(
+                "version-control-restore-branch-validation");
+            string projectRoot = Path.GetDirectoryName(project.Uri!.LocalPath)!;
+            string targetSha = (await RunGitAsync(
+                gitPath,
+                projectRoot,
+                "rev-parse",
+                "HEAD")).Trim();
+            await RunGitAsync(gitPath, projectRoot, "branch", "existing");
+            await RunGitAsync(gitPath, projectRoot, "switch", "existing");
+            await RunGitAsync(gitPath, projectRoot, "switch", "main");
+            var adder = (IElementAdder)editor.GetService(typeof(IElementAdder))!;
+            AddRectangle(adder, layer: 0);
+            project.Variables[RestoreStateKey] = "unsaved-state";
+            CoreSerializer.StoreToUri(project, project.Uri!);
+            Assert.That(
+                (await TestShell.VersionControl.CurrentService!.GetStatusAsync(
+                    CancellationToken.None)).IsClean,
+                Is.False);
+            int confirmations = 0;
+            TestShell.VersionControl.ConfirmRestoreAsync = _ =>
+            {
+                confirmations++;
+                return Task.FromResult(true);
+            };
+
+            bool invalid = await TestShell.VersionControl.RestoreToNewBranchAsync(
+                targetSha,
+                "invalid..branch");
+            bool existing = await TestShell.VersionControl.RestoreToNewBranchAsync(
+                targetSha,
+                "existing");
+            bool shorthand = await TestShell.VersionControl.RestoreToNewBranchAsync(
+                targetSha,
+                "@{-1}");
+            HeadlessTestHelpers.Settle();
+
+            WorkspaceStatus status = await TestShell.VersionControl.CurrentService!
+                .GetStatusAsync(CancellationToken.None);
+            IReadOnlyList<CommitInfo> history =
+                await TestShell.VersionControl.CurrentService.GetHistoryAsync(
+                    0,
+                    20,
+                    CancellationToken.None);
+            Assert.Multiple(() =>
+            {
+                Assert.That(invalid, Is.False);
+                Assert.That(existing, Is.False);
+                Assert.That(shorthand, Is.False);
+                Assert.That(confirmations, Is.Zero);
+                Assert.That(status.Branch, Is.EqualTo("main"));
+                Assert.That(status.IsClean, Is.False);
+                Assert.That(
+                    history.Any(commit => commit.Kind == SnapshotKind.Safety),
+                    Is.False);
+                Assert.That(TestShell.Project.CurrentProject.Value, Is.SameAs(project));
+                Assert.That(editor.HistoryManager.CanUndo, Is.True);
+            });
+        }
+        finally
+        {
+            TestShell.VersionControl.ConfirmRestoreAsync = oldConfirmRestoreAsync;
+            await TestReset.ResetShellAsync();
+            config.GitExecutablePath = oldGitPath;
+            config.AutoCommitOnSave = oldAutoCommitOnSave;
+            config.AutoCommitOnClose = oldAutoCommitOnClose;
+            config.UseLfsWhenAvailable = oldUseLfs;
+        }
+    }
+
+    [AvaloniaTest]
+    public async Task Restore_to_new_branch_revalidates_the_name_before_closing_the_project()
+    {
+        await TestReset.ResetShellAsync();
+        VersionControlCoordinator? coordinator = null;
+        try
+        {
+            Project project = await CreateProjectForFakeVersionControlAsync(
+                "version-control-restore-branch-revalidation");
+            string projectRoot = Path.GetDirectoryName(project.Uri!.LocalPath)!;
+            var repository = new RepositoryInfo(projectRoot, projectRoot);
+            var tip = new CheckedOutBranchTip(
+                "refs/heads/main",
+                "1111111111111111111111111111111111111111");
+            var discovery = new PullCycleTestBackend(repository: null, repository, tip);
+            var backend = new PullCycleTestBackend(repository, repository, tip)
+            {
+                Status = new WorkspaceStatus(
+                    "main",
+                    Ahead: 0,
+                    Behind: 0,
+                    Changes: [],
+                    HasConflicts: false),
+            };
+            backend.EnqueueCanCreateBranchResult(true);
+            backend.EnqueueCanCreateBranchResult(false);
+            var editorService = new EditorService(new ExtensionProvider());
+            var config = new VersionControlConfig();
+            coordinator = new VersionControlCoordinator(
+                TestShell.Project,
+                editorService,
+                config,
+                installationLocator: null,
+                serviceFactory: candidate => candidate is null ? discovery : backend);
+            int confirmations = 0;
+            coordinator.ConfirmRestoreAsync = _ =>
+            {
+                confirmations++;
+                return Task.FromResult(true);
+            };
+            await WaitUntilAsync(() => ReferenceEquals(coordinator.CurrentService, backend));
+
+            bool restored = await coordinator.RestoreToNewBranchAsync(
+                "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                "target");
+            HeadlessTestHelpers.Settle();
+
+            Assert.Multiple(() =>
+            {
+                Assert.That(restored, Is.False);
+                Assert.That(confirmations, Is.EqualTo(1));
+                Assert.That(backend.CanCreateBranchCalls, Is.EqualTo(2));
+                Assert.That(backend.CreateBranchCalls, Is.Zero);
+                Assert.That(backend.CommitAllCalls, Is.Zero);
+                Assert.That(TestShell.Project.CurrentProject.Value, Is.SameAs(project));
+            });
+        }
+        finally
+        {
+            if (coordinator is not null)
+            {
+                await coordinator.DisposeAsync();
+            }
+
+            await TestReset.ResetShellAsync();
+        }
+    }
+
+    [AvaloniaTest]
+    public async Task Restore_to_new_branch_revalidates_after_the_safety_snapshot_before_closing_the_project()
+    {
+        await TestReset.ResetShellAsync();
+        VersionControlCoordinator? coordinator = null;
+        try
+        {
+            Project project = await CreateProjectForFakeVersionControlAsync(
+                "version-control-restore-branch-post-snapshot-revalidation");
+            string projectRoot = Path.GetDirectoryName(project.Uri!.LocalPath)!;
+            var repository = new RepositoryInfo(projectRoot, projectRoot);
+            var tip = new CheckedOutBranchTip(
+                "refs/heads/main",
+                "1111111111111111111111111111111111111111");
+            var discovery = new PullCycleTestBackend(repository: null, repository, tip);
+            var backend = new PullCycleTestBackend(repository, repository, tip);
+            backend.EnqueueCanCreateBranchResult(true);
+            backend.EnqueueCanCreateBranchResult(true);
+            backend.EnqueueCanCreateBranchResult(false);
+            var editorService = new EditorService(new ExtensionProvider());
+            var config = new VersionControlConfig();
+            coordinator = new VersionControlCoordinator(
+                TestShell.Project,
+                editorService,
+                config,
+                installationLocator: null,
+                serviceFactory: candidate => candidate is null ? discovery : backend);
+            int confirmations = 0;
+            coordinator.ConfirmRestoreAsync = _ =>
+            {
+                confirmations++;
+                return Task.FromResult(true);
+            };
+            await WaitUntilAsync(() => ReferenceEquals(coordinator.CurrentService, backend));
+
+            bool restored = await coordinator.RestoreToNewBranchAsync(
+                "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                "target");
+            HeadlessTestHelpers.Settle();
+
+            Assert.Multiple(() =>
+            {
+                Assert.That(restored, Is.False);
+                Assert.That(confirmations, Is.EqualTo(1));
+                Assert.That(backend.CanCreateBranchCalls, Is.EqualTo(3));
+                Assert.That(backend.CreateBranchCalls, Is.Zero);
+                Assert.That(backend.CommitAllCalls, Is.EqualTo(1));
+                Assert.That(TestShell.Project.CurrentProject.Value, Is.SameAs(project));
+            });
+        }
+        finally
+        {
+            if (coordinator is not null)
+            {
+                await coordinator.DisposeAsync();
+            }
+
+            await TestReset.ResetShellAsync();
+        }
+    }
+
+    [AvaloniaTest]
     public async Task Restore_reopens_exact_state_preserves_safety_snapshot_and_supports_a_new_branch()
     {
         await TestReset.ResetShellAsync();
@@ -7872,6 +8297,7 @@ public class VersionControlRestoreTests
         private readonly RepositoryInfo? _discoveredRepository;
         private readonly Queue<CheckedOutBranchTip> _observedTips = new();
         private readonly Queue<IReadOnlyList<BranchInfo>> _branchSnapshots = new();
+        private readonly Queue<bool> _canCreateBranchResults = new();
         private readonly List<PendingPullRecovery> _pendingPullRecoveries = [];
         private readonly CheckedOutBranchTip _originalTip;
         private readonly SemaphoreSlim _exclusiveGate = new(1, 1);
@@ -8000,6 +8426,10 @@ public class VersionControlRestoreTests
 
         public int GetBranchesCalls { get; private set; }
 
+        public int CanCreateBranchCalls { get; private set; }
+
+        public int CreateBranchCalls { get; private set; }
+
         public int RetirementCalls => Volatile.Read(ref _retirementCalls);
 
         public int RemoveRecoverableLockCalls { get; private set; }
@@ -8009,6 +8439,11 @@ public class VersionControlRestoreTests
         public void EnqueueBranchSnapshot(IReadOnlyList<BranchInfo> branches)
         {
             _branchSnapshots.Enqueue(branches);
+        }
+
+        public void EnqueueCanCreateBranchResult(bool canCreate)
+        {
+            _canCreateBranchResults.Enqueue(canCreate);
         }
 
         public int DisposeCalls => Volatile.Read(ref _disposeCalls);
@@ -8412,11 +8847,23 @@ public class VersionControlRestoreTests
             return Task.FromResult<GitIdentity?>(null);
         }
 
+        public Task<bool> CanCreateBranchAsync(
+            string name,
+            CancellationToken cancellationToken)
+        {
+            CanCreateBranchCalls++;
+            return Task.FromResult(
+                _canCreateBranchResults.TryDequeue(out bool canCreate)
+                    ? canCreate
+                    : true);
+        }
+
         public Task CreateBranchAsync(
             string name,
             string startPoint,
             CancellationToken cancellationToken)
         {
+            CreateBranchCalls++;
             return Task.CompletedTask;
         }
 
