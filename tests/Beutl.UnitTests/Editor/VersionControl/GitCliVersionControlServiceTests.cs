@@ -631,6 +631,78 @@ public class GitCliVersionControlServiceTests : RealGitTestRepository
             Is.EqualTo(paths.Select(static path => $"{path}: filter: lfs").ToArray()));
     }
 
+    [Test]
+    public async Task EnsureRepositoryHygieneAsync_falls_back_to_non_Lfs_when_a_custom_hook_blocks_install()
+    {
+        await CommitFileAsync("project.bep", "{}\n", "baseline");
+        string hookRecord = (await RunGitAsync("rev-parse", "--git-path", "hooks/pre-push"))
+            .Stdout.TrimEnd('\r', '\n');
+        string hookPath = Path.GetFullPath(
+            Path.IsPathFullyQualified(hookRecord)
+                ? hookRecord
+                : Path.Combine(Root, hookRecord));
+        Directory.CreateDirectory(Path.GetDirectoryName(hookPath)!);
+        const string hookContents = "#!/bin/sh\nprintf 'custom pre-push hook\\n'\n";
+        await File.WriteAllTextAsync(hookPath, hookContents);
+        string attributesPath = Path.Combine(Root, ".gitattributes");
+        await File.WriteAllTextAsync(
+            attributesPath,
+            "custom text\n# BEGIN BEUTL MANAGED LFS\n"
+            + "resources/**/*.mp4 filter=lfs diff=lfs merge=lfs -text\n"
+            + "# END BEUTL MANAGED LFS\n");
+        var notices = new List<VersionControlPolicyNotice>();
+        var config = new VersionControlConfig
+        {
+            UseLfsWhenAvailable = true,
+            LargeMediaWarningThresholdMb = 0,
+        };
+        var runner = new CustomHookRejectingLfsInstallRunner(
+            CreateRunner(),
+            hookPath,
+            hookContents);
+        using var service = new GitCliVersionControlService(
+            CreateInstalledLocator(lfsInstalled: true, config),
+            Repository,
+            watcher: null,
+            _ => runner,
+            policyNoticeSink: (notice, _) =>
+            {
+                notices.Add(notice);
+                return Task.CompletedTask;
+            });
+
+        await service.EnsureRepositoryHygieneAsync(CancellationToken.None);
+        WorkspaceStatus status = await service.GetStatusAsync(CancellationToken.None);
+        string mediaPath = Path.Combine(Root, "resources", "large.mp4");
+        Directory.CreateDirectory(Path.GetDirectoryName(mediaPath)!);
+        await File.WriteAllBytesAsync(mediaPath, [0]);
+        CommitResult commit = await service.CommitAllAsync(
+            "non-lfs fallback",
+            SnapshotKind.Manual,
+            CancellationToken.None);
+
+        string attributes = await File.ReadAllTextAsync(attributesPath);
+        Assert.Multiple(() =>
+        {
+            Assert.That(runner.LfsInstallCalls, Is.EqualTo(1));
+            Assert.That(File.Exists(hookPath), Is.True);
+            Assert.That(File.ReadAllText(hookPath), Is.EqualTo(hookContents));
+            Assert.That(status.HasConflicts, Is.False);
+            Assert.That(attributes, Does.Contain("*.bep text eol=lf"));
+            Assert.That(attributes, Does.Not.Contain("# BEGIN BEUTL MANAGED LFS"));
+            Assert.That(attributes, Does.Not.Contain("filter=lfs"));
+            Assert.That(commit, Is.TypeOf<CommitResult.Committed>());
+            Assert.That(
+                notices,
+                Is.EqualTo(new[]
+                {
+                    new VersionControlPolicyNotice.LargeMediaWithoutLfs(
+                        "resources/large.mp4",
+                        1),
+                }));
+        });
+    }
+
     [TestCase(".WAVE")]
     [TestCase(".APNG")]
     [TestCase(".DNG")]
@@ -4471,6 +4543,60 @@ public class GitCliVersionControlServiceTests : RealGitTestRepository
             {
                 Interlocked.Increment(ref _lfsInstallCalls);
                 return Task.FromResult(new GitCommandResult(0, "", ""));
+            }
+
+            return inner.RunAsync(
+                repository,
+                arguments,
+                options,
+                cancellationToken,
+                stderrProgress);
+        }
+
+        public RepositoryLockInfo? GetRecoverableRepositoryLock(RepositoryInfo repository)
+            => inner.GetRecoverableRepositoryLock(repository);
+
+        public bool RemoveRecoverableRepositoryLock(
+            RepositoryInfo repository,
+            RepositoryLockInfo lockInfo)
+            => inner.RemoveRecoverableRepositoryLock(repository, lockInfo);
+    }
+
+    private sealed class CustomHookRejectingLfsInstallRunner(
+        IGitCliRunner inner,
+        string hookPath,
+        string expectedHookContents) : IGitCliRunner
+    {
+        private int _lfsInstallCalls;
+
+        public int LfsInstallCalls => Volatile.Read(ref _lfsInstallCalls);
+
+        public bool HasActiveProcess => inner.HasActiveProcess;
+
+        public Task<GitCommandResult> RunAsync(
+            RepositoryInfo repository,
+            IReadOnlyList<string> arguments,
+            GitCommandOptions options,
+            CancellationToken cancellationToken,
+            IProgress<string>? stderrProgress = null)
+        {
+            if (arguments.SequenceEqual(["lfs", "install", "--local"]))
+            {
+                Interlocked.Increment(ref _lfsInstallCalls);
+                string observedHook = File.Exists(hookPath)
+                    ? File.ReadAllText(hookPath)
+                    : "<missing>";
+                if (!string.Equals(observedHook, expectedHookContents, StringComparison.Ordinal))
+                {
+                    return Task.FromException<GitCommandResult>(
+                        new InvalidOperationException(
+                            "The custom pre-push hook changed before Git LFS installation."));
+                }
+
+                return Task.FromException<GitCommandResult>(
+                    new GitOperationException(
+                        2,
+                        $"Hook already exists: pre-push\n\n{observedHook}"));
             }
 
             return inner.RunAsync(

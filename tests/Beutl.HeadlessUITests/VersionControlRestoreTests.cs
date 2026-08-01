@@ -2938,6 +2938,97 @@ public class VersionControlRestoreTests
     }
 
     [AvaloniaTest]
+    public async Task Lfs_configuration_reapplies_hygiene_to_the_open_tracked_backend()
+    {
+        await TestReset.ResetShellAsync();
+        VersionControlCoordinator? coordinator = null;
+        var appliedValues = new List<bool>();
+
+        try
+        {
+            Project project = await CreateProjectForFakeVersionControlAsync(
+                "version-control-lfs-config-hygiene");
+            string projectRoot = Path.GetDirectoryName(project.Uri!.LocalPath)!;
+            var repository = new RepositoryInfo(projectRoot, projectRoot);
+            var tip = new CheckedOutBranchTip(
+                "refs/heads/main",
+                "1111111111111111111111111111111111111111");
+            var config = new VersionControlConfig
+            {
+                UseLfsWhenAvailable = false,
+            };
+            var backend = new PullCycleTestBackend(repository, repository, tip)
+            {
+                EnsureHygieneOverride = _ =>
+                {
+                    lock (appliedValues)
+                    {
+                        appliedValues.Add(config.UseLfsWhenAvailable);
+                    }
+
+                    return Task.CompletedTask;
+                },
+            };
+            var editorService = new EditorService(new ExtensionProvider());
+            coordinator = new VersionControlCoordinator(
+                TestShell.Project,
+                editorService,
+                config,
+                installationLocator: null,
+                serviceFactory: _ => backend);
+            await WaitUntilAsync(() =>
+                ReferenceEquals(coordinator.CurrentService, backend)
+                && coordinator.IsTracked.Value);
+            lock (appliedValues)
+            {
+                appliedValues.Clear();
+            }
+
+            config.UseLfsWhenAvailable = true;
+            await WaitUntilAsync(() =>
+            {
+                lock (appliedValues)
+                {
+                    return appliedValues.Count >= 1;
+                }
+            });
+
+            config.UseLfsWhenAvailable = false;
+            await WaitUntilAsync(() =>
+            {
+                lock (appliedValues)
+                {
+                    return appliedValues.Count >= 2;
+                }
+            });
+
+            bool[] snapshot;
+            lock (appliedValues)
+            {
+                snapshot = appliedValues.ToArray();
+            }
+
+            Assert.Multiple(() =>
+            {
+                Assert.That(snapshot, Is.EqualTo(new[] { true, false }));
+                Assert.That(TestShell.Project.CurrentProject.Value, Is.SameAs(project));
+                Assert.That(coordinator.CurrentService, Is.SameAs(backend));
+                Assert.That(editorService.ProjectVersionControlService.Value, Is.SameAs(backend));
+                Assert.That(backend.RetirementCalls, Is.Zero);
+            });
+        }
+        finally
+        {
+            if (coordinator is not null)
+            {
+                await coordinator.DisposeAsync().AsTask().WaitAsync(TimeSpan.FromSeconds(5));
+            }
+
+            await TestReset.ResetShellAsync();
+        }
+    }
+
+    [AvaloniaTest]
     public async Task Newer_git_configuration_cancels_a_stale_unassociated_rediscovery()
     {
         await TestReset.ResetShellAsync();
@@ -3572,8 +3663,11 @@ public class VersionControlRestoreTests
             var config = new VersionControlConfig
             {
                 GitExecutablePath = validGitPath,
+                UseLfsWhenAvailable = false,
             };
             var locator = new GitInstallationLocator(config, probe, GitHostPlatform.Linux);
+            int hygieneCalls = 0;
+            bool appliedUseLfsWhenAvailable = false;
             var backend = new PullCycleTestBackend(repository, repository, tip)
             {
                 AvailabilityOverride = locator.LocateAsync,
@@ -3584,6 +3678,14 @@ public class VersionControlRestoreTests
                 ],
                 SwitchBranchStarted = branchStarted,
                 SwitchBranchRelease = releaseBranch.Task,
+                EnsureHygieneOverride = _ =>
+                {
+                    Volatile.Write(
+                        ref appliedUseLfsWhenAvailable,
+                        config.UseLfsWhenAvailable);
+                    Interlocked.Increment(ref hygieneCalls);
+                    return Task.CompletedTask;
+                },
             };
             int factoryCalls = 0;
             var editorService = new EditorService(new ExtensionProvider());
@@ -3603,17 +3705,22 @@ public class VersionControlRestoreTests
                 && coordinator.IsGitAvailable.Value
                 && coordinator.IsTracked.Value);
             int callsBeforeBranch = Volatile.Read(ref factoryCalls);
+            int hygieneCallsBeforeBranch = Volatile.Read(ref hygieneCalls);
 
             Task<bool> branch = coordinator.SwitchBranchAsync("config-change");
             await branchStarted.Task.WaitAsync(TimeSpan.FromSeconds(5));
             Assert.That(TestShell.Project.CurrentProject.Value, Is.Null);
 
             config.GitExecutablePath = invalidGitPath;
+            config.UseLfsWhenAvailable = true;
 
             Assert.Multiple(() =>
             {
                 Assert.That(branch.IsCompleted, Is.False);
                 Assert.That(Volatile.Read(ref factoryCalls), Is.EqualTo(callsBeforeBranch));
+                Assert.That(
+                    Volatile.Read(ref hygieneCalls),
+                    Is.EqualTo(hygieneCallsBeforeBranch));
                 Assert.That(backend.RetirementCalls, Is.Zero);
             });
 
@@ -3623,11 +3730,20 @@ public class VersionControlRestoreTests
                 ReferenceEquals(coordinator.CurrentService, backend)
                 && !coordinator.IsGitAvailable.Value
                 && coordinator.IsTracked.Value);
+            await WaitUntilAsync(() =>
+                Volatile.Read(ref hygieneCalls) == hygieneCallsBeforeBranch + 1);
 
             Assert.Multiple(() =>
             {
+                Assert.That(
+                    TestShell.Project.CurrentProject.Value?.Uri?.LocalPath,
+                    Is.EqualTo(project.Uri!.LocalPath));
                 Assert.That(editorService.ProjectVersionControlService.Value, Is.SameAs(backend));
                 Assert.That(Volatile.Read(ref factoryCalls), Is.EqualTo(callsBeforeBranch));
+                Assert.That(
+                    Volatile.Read(ref hygieneCalls),
+                    Is.EqualTo(hygieneCallsBeforeBranch + 1));
+                Assert.That(Volatile.Read(ref appliedUseLfsWhenAvailable), Is.True);
                 Assert.That(backend.RetirementCalls, Is.Zero);
             });
         }

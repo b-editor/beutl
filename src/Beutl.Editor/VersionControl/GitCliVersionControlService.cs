@@ -5225,11 +5225,11 @@ internal sealed class GitCliVersionControlService :
         {
             if (useLfs)
             {
-                await runner.RunAsync(
-                    repository,
-                    ["lfs", "install", "--local"],
-                    GitCommandOptions.Local,
-                    cancellationToken).ConfigureAwait(false);
+                useLfs = await TryInstallLfsLocallyAsync(
+                        repository,
+                        runner,
+                        cancellationToken)
+                    .ConfigureAwait(false);
             }
 
             await EnsureLinesAsync(
@@ -5503,11 +5503,11 @@ internal sealed class GitCliVersionControlService :
         EnsureHygienePathsAreSafe(repository);
         if (useLfs)
         {
-            await runner.RunAsync(
-                repository,
-                ["lfs", "install", "--local"],
-                GitCommandOptions.Local,
-                cancellationToken).ConfigureAwait(false);
+            useLfs = await TryInstallLfsLocallyAsync(
+                    repository,
+                    runner,
+                    cancellationToken)
+                .ConfigureAwait(false);
         }
 
         await EnsureLinesAsync(
@@ -5518,6 +5518,33 @@ internal sealed class GitCliVersionControlService :
             Path.Combine(repository.ProjectRoot, ".gitattributes"),
             useLfs,
             cancellationToken).ConfigureAwait(false);
+    }
+
+    private async Task<bool> TryInstallLfsLocallyAsync(
+        RepositoryInfo repository,
+        IGitCliRunner runner,
+        CancellationToken cancellationToken)
+    {
+        try
+        {
+            await runner.RunAsync(
+                repository,
+                ["lfs", "install", "--local"],
+                GitCommandOptions.Local,
+                cancellationToken).ConfigureAwait(false);
+            return true;
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            throw;
+        }
+        catch (GitOperationException ex)
+        {
+            LogWarningBestEffort(
+                ex,
+                "Git LFS could not be enabled locally; continuing without Beutl-managed LFS rules.");
+            return false;
+        }
     }
 
     private static async Task<RepositoryInfo?> DiscoverRepositoryCoreAsync(

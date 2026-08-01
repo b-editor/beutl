@@ -94,11 +94,13 @@ public sealed class VersionControlCoordinator :
     private Project? _lastProjectNotification;
     private bool _hasProjectNotification;
     private string? _observedGitExecutablePath;
+    private bool _observedUseLfsWhenAvailable;
     private bool _publicationDrainScheduled;
     private bool _publicationDrainRunning;
     private bool _disposePropertiesRequested;
     private bool _configurationActivationActive;
     private bool _operationCloseBarrierActive;
+    private bool _repositoryHygieneConfigurationDirty;
     private bool _propertiesDisposed;
     private volatile bool _disposed;
 
@@ -125,6 +127,7 @@ public sealed class VersionControlCoordinator :
         _editorService = editorService ?? throw new ArgumentNullException(nameof(editorService));
         _config = config ?? throw new ArgumentNullException(nameof(config));
         _observedGitExecutablePath = NormalizeGitExecutablePath(config.GitExecutablePath);
+        _observedUseLfsWhenAvailable = config.UseLfsWhenAvailable;
         _installationLocator = installationLocator ?? new GitInstallationLocator(config);
         _serviceFactory = serviceFactory;
         _dispatcher = Dispatcher.UIThread;
@@ -4021,6 +4024,11 @@ public sealed class VersionControlCoordinator :
             _lastProjectNotification = project;
             _hasProjectNotification = true;
             _pendingConfigurationActivation = null;
+            if (!internalTransition)
+            {
+                _repositoryHygieneConfigurationDirty = false;
+            }
+
             configurationActivationCancellation = _configurationActivationCancellation;
             if (!TryBeginActivationSetupLocked(
                     internalTransition,
@@ -4059,6 +4067,11 @@ public sealed class VersionControlCoordinator :
             }
 
             _pendingConfigurationActivation = null;
+            if (!internalTransition)
+            {
+                _repositoryHygieneConfigurationDirty = false;
+            }
+
             configurationActivationCancellation = _configurationActivationCancellation;
             if (!TryBeginActivationSetupLocked(
                     internalTransition,
@@ -4185,6 +4198,7 @@ public sealed class VersionControlCoordinator :
                         preservedRoot))
                 {
                     SetVisibleService(preservedService);
+                    QueueRepositoryHygieneConfigurationIfDirty(project);
                     return null;
                 }
             }
@@ -4698,13 +4712,24 @@ public sealed class VersionControlCoordinator :
 
     private void OnVersionControlConfigChanged(object? sender, EventArgs e)
     {
-        if (TryCaptureGitExecutablePathChange(out string? executablePath))
+        bool executablePathChanged =
+            TryCaptureGitExecutablePathChange(out string? executablePath);
+        bool useLfsWhenAvailableChanged = TryCaptureUseLfsWhenAvailableChange(
+            out bool useLfsWhenAvailable);
+        if (executablePathChanged)
         {
             AdvanceProjectServiceEpoch();
-            if (_projectService.CurrentProject.Value is { } project)
-            {
-                QueueConfigurationActivation(project, executablePath);
-            }
+        }
+
+        if ((executablePathChanged || useLfsWhenAvailableChanged)
+            && _projectService.CurrentProject.Value is { } project)
+        {
+            QueueConfigurationActivation(
+                project,
+                executablePath,
+                useLfsWhenAvailable,
+                rediscoverUnassociatedBackend: executablePathChanged,
+                reapplyTrackedRepositoryHygiene: useLfsWhenAvailableChanged);
         }
 
         StartAvailabilityRefresh();
@@ -4729,7 +4754,57 @@ public sealed class VersionControlCoordinator :
         }
     }
 
-    private void QueueConfigurationActivation(Project project, string? executablePath)
+    private bool TryCaptureUseLfsWhenAvailableChange(out bool useLfsWhenAvailable)
+    {
+        useLfsWhenAvailable = _config.UseLfsWhenAvailable;
+        lock (_stateGate)
+        {
+            if (_disposed || useLfsWhenAvailable == _observedUseLfsWhenAvailable)
+            {
+                return false;
+            }
+
+            _observedUseLfsWhenAvailable = useLfsWhenAvailable;
+            if (_state.OwnedService?.Repository is not null)
+            {
+                _repositoryHygieneConfigurationDirty = true;
+            }
+
+            return true;
+        }
+    }
+
+    private void QueueRepositoryHygieneConfigurationIfDirty(Project project)
+    {
+        string? executablePath;
+        bool useLfsWhenAvailable;
+        lock (_stateGate)
+        {
+            if (_disposed
+                || !_repositoryHygieneConfigurationDirty
+                || !ReferenceEquals(_projectService.CurrentProject.Value, project))
+            {
+                return;
+            }
+
+            executablePath = _observedGitExecutablePath;
+            useLfsWhenAvailable = _observedUseLfsWhenAvailable;
+        }
+
+        QueueConfigurationActivation(
+            project,
+            executablePath,
+            useLfsWhenAvailable,
+            rediscoverUnassociatedBackend: false,
+            reapplyTrackedRepositoryHygiene: true);
+    }
+
+    private void QueueConfigurationActivation(
+        Project project,
+        string? executablePath,
+        bool useLfsWhenAvailable,
+        bool rediscoverUnassociatedBackend,
+        bool reapplyTrackedRepositoryHygiene)
     {
         string projectRoot = GetProjectRoot(project);
         CancellationTokenSource? activeCancellation = null;
@@ -4742,18 +4817,27 @@ public sealed class VersionControlCoordinator :
 
             if (_state.ProjectRoot is { } stateRoot
                 && string.Equals(stateRoot, projectRoot, PathComparison)
-                && _state.OwnedService?.Repository is not null)
+                && _state.OwnedService?.Repository is not null
+                && !reapplyTrackedRepositoryHygiene)
             {
-                _pendingConfigurationActivation = null;
                 return;
             }
 
+            ConfigurationActivationRequest? pending = _pendingConfigurationActivation;
             _pendingConfigurationActivation = new ConfigurationActivationRequest(
                 ++_nextConfigurationActivationRevision,
                 project,
                 projectRoot,
-                executablePath);
-            activeCancellation = _configurationActivationCancellation;
+                executablePath,
+                useLfsWhenAvailable,
+                rediscoverUnassociatedBackend
+                || pending?.RediscoverUnassociatedBackend == true,
+                reapplyTrackedRepositoryHygiene
+                || pending?.ReapplyTrackedRepositoryHygiene == true);
+            if (rediscoverUnassociatedBackend)
+            {
+                activeCancellation = _configurationActivationCancellation;
+            }
         }
 
         CancelConfigurationActivation(activeCancellation);
@@ -4799,14 +4883,6 @@ public sealed class VersionControlCoordinator :
             return null;
         }
 
-        if (_state.ProjectRoot is { } trackedRoot
-            && string.Equals(trackedRoot, request.ProjectRoot, PathComparison)
-            && _state.OwnedService?.Repository is not null)
-        {
-            _pendingConfigurationActivation = null;
-            return null;
-        }
-
         if (_operationCloseBarrierActive
             || _closeBarrierUsers != 0
             || _operationUsers != 0
@@ -4814,6 +4890,25 @@ public sealed class VersionControlCoordinator :
             || _activationSetupUsers != 0
             || _activation is not null)
         {
+            return null;
+        }
+
+        IProjectVersionControlBackend? trackedService = null;
+        if (_state.ProjectRoot is { } trackedRoot
+            && string.Equals(trackedRoot, request.ProjectRoot, PathComparison)
+            && _state.OwnedService?.Repository is not null)
+        {
+            if (!request.ReapplyTrackedRepositoryHygiene)
+            {
+                _pendingConfigurationActivation = null;
+                return null;
+            }
+
+            trackedService = _state.OwnedService;
+        }
+        else if (!request.RediscoverUnassociatedBackend)
+        {
+            _pendingConfigurationActivation = null;
             return null;
         }
 
@@ -4828,35 +4923,51 @@ public sealed class VersionControlCoordinator :
         _configurationActivationActive = true;
         _configurationActivationCancellation = cancellation;
         _operationUsers++;
-        return new ConfigurationActivationStart(request, cancellation);
+        return new ConfigurationActivationStart(request, cancellation, trackedService);
     }
 
     private void StartConfigurationActivation(ConfigurationActivationStart? activationStart)
     {
         if (activationStart is not null)
         {
-            _ = RunConfigurationActivationAsync(
-                activationStart.Request,
-                activationStart.Cancellation);
+            _ = RunConfigurationActivationAsync(activationStart);
         }
     }
 
-    private async Task RunConfigurationActivationAsync(
-        ConfigurationActivationRequest request,
-        CancellationTokenSource cancellation)
+    private async Task RunConfigurationActivationAsync(ConfigurationActivationStart activationStart)
     {
+        ConfigurationActivationRequest request = activationStart.Request;
+        CancellationTokenSource cancellation = activationStart.Cancellation;
         bool retry = false;
         try
         {
             cancellation.Token.ThrowIfCancellationRequested();
-            ActivationContext? activation = await StartProjectActivationAsync(
-                    request.Project,
-                    internalTransition: false,
-                    cancellation.Token)
-                .ConfigureAwait(false);
-            if (activation is not null)
+            if (activationStart.TrackedService is { } trackedService)
             {
-                await activation.Completion.ConfigureAwait(false);
+                await trackedService.EnsureRepositoryHygieneAsync(cancellation.Token)
+                    .ConfigureAwait(false);
+                cancellation.Token.ThrowIfCancellationRequested();
+                lock (_stateGate)
+                {
+                    if (ReferenceEquals(_state.OwnedService, trackedService)
+                        && trackedService.Repository is not null
+                        && request.UseLfsWhenAvailable == _observedUseLfsWhenAvailable)
+                    {
+                        _repositoryHygieneConfigurationDirty = false;
+                    }
+                }
+            }
+            else
+            {
+                ActivationContext? activation = await StartProjectActivationAsync(
+                        request.Project,
+                        internalTransition: false,
+                        cancellation.Token)
+                    .ConfigureAwait(false);
+                if (activation is not null)
+                {
+                    await activation.Completion.ConfigureAwait(false);
+                }
             }
 
             cancellation.Token.ThrowIfCancellationRequested();
@@ -4867,19 +4978,20 @@ public sealed class VersionControlCoordinator :
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Failed to apply a Git executable configuration change.");
+            _logger.LogError(ex, "Failed to apply a version-control configuration change.");
         }
         finally
         {
-            FinishConfigurationActivation(request, cancellation, retry);
+            FinishConfigurationActivation(activationStart, retry);
         }
     }
 
     private void FinishConfigurationActivation(
-        ConfigurationActivationRequest request,
-        CancellationTokenSource cancellation,
+        ConfigurationActivationStart activationStart,
         bool retry)
     {
+        ConfigurationActivationRequest request = activationStart.Request;
+        CancellationTokenSource cancellation = activationStart.Cancellation;
         TaskCompletionSource? configurationActivationQuiesced = null;
         TaskCompletionSource? operationsQuiesced = null;
         ConfigurationActivationStart? nextActivation = null;
@@ -4895,21 +5007,28 @@ public sealed class VersionControlCoordinator :
             _configurationActivationQuiesced = null;
             _operationUsers--;
 
+            bool retryTargetStillCurrent = activationStart.TrackedService is { } trackedService
+                ? request.ReapplyTrackedRepositoryHygiene
+                  && request.UseLfsWhenAvailable == _observedUseLfsWhenAvailable
+                  && ReferenceEquals(_state.OwnedService, trackedService)
+                  && trackedService.Repository is not null
+                : request.RediscoverUnassociatedBackend
+                  && string.Equals(
+                      _observedGitExecutablePath,
+                      request.ExecutablePath,
+                      PathComparison)
+                  && _state.OwnedService?.Repository is null;
             if (retry
                 && !_disposed
                 && request.Revision == _nextConfigurationActivationRevision
                 && _pendingConfigurationActivation is null
                 && ReferenceEquals(_projectService.CurrentProject.Value, request.Project)
-                && string.Equals(
-                    _observedGitExecutablePath,
-                    request.ExecutablePath,
-                    PathComparison)
                 && (_state.ProjectRoot is null
                     || string.Equals(
                         _state.ProjectRoot,
                         request.ProjectRoot,
                         PathComparison))
-                && _state.OwnedService?.Repository is null)
+                && retryTargetStillCurrent)
             {
                 _pendingConfigurationActivation = request;
             }
@@ -5247,6 +5366,7 @@ public sealed class VersionControlCoordinator :
 
             activation = _activation;
             _activation = null;
+            _repositoryHygieneConfigurationDirty = false;
             schedulePublication = TransitionOwnedServiceLocked(
                 ownedService: null,
                 visibleService: null,
@@ -5892,11 +6012,15 @@ public sealed class VersionControlCoordinator :
         long Revision,
         Project Project,
         string ProjectRoot,
-        string? ExecutablePath);
+        string? ExecutablePath,
+        bool UseLfsWhenAvailable,
+        bool RediscoverUnassociatedBackend,
+        bool ReapplyTrackedRepositoryHygiene);
 
     private sealed record ConfigurationActivationStart(
         ConfigurationActivationRequest Request,
-        CancellationTokenSource Cancellation);
+        CancellationTokenSource Cancellation,
+        IProjectVersionControlBackend? TrackedService);
 
     private sealed class NonTransactionalCloseBarrier
     {
