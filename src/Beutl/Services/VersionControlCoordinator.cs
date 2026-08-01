@@ -72,6 +72,7 @@ public sealed class VersionControlCoordinator :
     private CancellationTokenSource? _operationEpochCancellation = new();
     private CancellationTokenSource? _projectServiceEpochCancellation = new();
     private PendingRecoveryOfferContext? _pendingRecoveryOffer;
+    private PendingOpeningRepositoryDecision? _pendingOpeningRepositoryDecision;
     private CancellationTokenSource? _configurationActivationCancellation;
     private ConfigurationActivationRequest? _pendingConfigurationActivation;
     private long _nextActivationRevision;
@@ -465,8 +466,7 @@ public sealed class VersionControlCoordinator :
         try
         {
             IProjectVersionControlBackend service;
-            ProjectVersionControlFinalSnapshot? finalSnapshot;
-            bool schedulePublication;
+            bool finalSnapshotRequested;
             lock (_stateGate)
             {
                 if (_disposed
@@ -485,9 +485,38 @@ public sealed class VersionControlCoordinator :
                 }
 
                 service = ownedService;
+                finalSnapshotRequested = _config.AutoCommitOnClose;
+            }
+
+            bool snapshotRequiresReservation =
+                finalSnapshotRequested && service.Repository is not null;
+            using IDisposable? snapshotMutation = snapshotRequiresReservation
+                ? TryBeginWorktreeMutation()
+                : null;
+            bool snapshotReserved = !snapshotRequiresReservation || snapshotMutation is not null;
+            if (!snapshotReserved)
+            {
+                _logger.LogInformation(
+                    "Skipped the {SnapshotKind} project snapshot because output is active.",
+                    SnapshotKind.Close);
+            }
+
+            ProjectVersionControlFinalSnapshot? finalSnapshot;
+            bool schedulePublication;
+            lock (_stateGate)
+            {
+                if (_disposed
+                    || projectRoot is null
+                    || activationRevision != _latestActivationRevision
+                    || _state.ProjectRoot is not { } currentRoot
+                    || !string.Equals(currentRoot, projectRoot, PathComparison)
+                    || !ReferenceEquals(_state.OwnedService, service))
+                {
+                    return;
+                }
 
                 finalSnapshot =
-                    _config.AutoCommitOnClose
+                    finalSnapshotRequested && snapshotReserved
                         ? new ProjectVersionControlFinalSnapshot(
                             CloseSnapshotMessage,
                             SnapshotKind.Close)
@@ -707,6 +736,7 @@ public sealed class VersionControlCoordinator :
 
             _disposed = true;
             _pendingConfigurationActivation = null;
+            _pendingOpeningRepositoryDecision = null;
             _openingPullRecoveries.Clear();
             configurationActivationCancellation = _configurationActivationCancellation;
             projectServiceEpochCancellation = _projectServiceEpochCancellation;
@@ -3086,6 +3116,15 @@ public sealed class VersionControlCoordinator :
         ProjectService.ProjectOpenAttempt attempt,
         CancellationToken cancellationToken)
     {
+        lock (_stateGate)
+        {
+            if (_pendingOpeningRepositoryDecision is { } pending
+                && !ReferenceEquals(pending.Attempt, attempt))
+            {
+                _pendingOpeningRepositoryDecision = null;
+            }
+        }
+
         using NonTransactionalOperationLease? operation =
             TryBeginNonTransactionalOperation(cancellationToken);
         if (operation is null)
@@ -3093,25 +3132,35 @@ public sealed class VersionControlCoordinator :
             return new AbortProjectOpenPreparation();
         }
 
-        PendingPullRecoveryOpenSelection? selection = null;
+        OpeningRepositoryInspection? inspection = null;
         try
         {
-            selection = await DiscoverPendingPullRecoveryForOpeningAsync(
+            inspection = await DiscoverPendingPullRecoveryForOpeningAsync(
                     attempt.ProjectFile,
                     operation.CancellationToken)
                 .ConfigureAwait(false);
-            if (selection is null)
+            if (inspection is null
+                || !inspection.Repository.IsNestedInForeignRepo
+                && inspection.Recovery is null)
             {
                 return null;
             }
 
-            bool accepted = selection.AlreadyApplied
+            PendingPullRecoveryOpenSelection? selection = inspection.Recovery;
+            bool accepted = selection is null
+                            || selection.AlreadyApplied
                             || await ConfirmPendingPullRecoveryAsync(
                                 ToRecoveryInfo(selection.Recovery),
                                 operation.CancellationToken);
-            return new PendingPullRecoveryOpenPreparation(
+            return new VersionControlProjectOpenPreparation(
                 this,
-                selection with { Accepted = accepted });
+                attempt,
+                inspection with
+                {
+                    Recovery = selection is null
+                        ? null
+                        : selection with { Accepted = accepted },
+                });
         }
         catch (OperationCanceledException) when (operation.CancellationToken.IsCancellationRequested)
         {
@@ -3156,11 +3205,13 @@ public sealed class VersionControlCoordinator :
         PendingPullRecoveryOpenSelection? selection = null;
         try
         {
-            selection = await DiscoverPendingPullRecoveryForOpeningAsync(
+            OpeningRepositoryInspection? inspection =
+                await DiscoverPendingPullRecoveryForOpeningAsync(
                     projectFile,
                     cancellationToken,
                     requiredRecoveryId)
                 .ConfigureAwait(false);
+            selection = inspection?.Recovery;
             if (selection is null)
             {
                 return false;
@@ -3203,7 +3254,7 @@ public sealed class VersionControlCoordinator :
         }
     }
 
-    private async Task<PendingPullRecoveryOpenSelection?>
+    private async Task<OpeningRepositoryInspection?>
         DiscoverPendingPullRecoveryForOpeningAsync(
             string projectFile,
             CancellationToken cancellationToken,
@@ -3237,11 +3288,22 @@ public sealed class VersionControlCoordinator :
                     projectRoot,
                     cancellationToken)
                 .ConfigureAwait(false);
-            if (repository is null
-                || repository.IsNestedInForeignRepo
-                && !await ConfirmUseEnclosingRepositoryAsync(repository, cancellationToken))
+            if (repository is null)
             {
                 return null;
+            }
+
+            bool enclosingRepositoryAccepted = !repository.IsNestedInForeignRepo
+                                                || await ConfirmUseEnclosingRepositoryAsync(
+                                                    repository,
+                                                    cancellationToken);
+            if (!enclosingRepositoryAccepted)
+            {
+                return new OpeningRepositoryInspection(
+                    repository,
+                    projectFile,
+                    EnclosingRepositoryAccepted: false,
+                    Recovery: null);
             }
 
             trackedService = CreateTemporaryBackend(repository, projectFile);
@@ -3279,7 +3341,11 @@ public sealed class VersionControlCoordinator :
                     }
                 }
 
-                return null;
+                return new OpeningRepositoryInspection(
+                    repository,
+                    projectFile,
+                    EnclosingRepositoryAccepted: true,
+                    Recovery: null);
             }
 
             PendingOpeningPullRecovery? appliedMarker = null;
@@ -3299,12 +3365,16 @@ public sealed class VersionControlCoordinator :
                 }
             }
 
-            return new PendingPullRecoveryOpenSelection(
+            return new OpeningRepositoryInspection(
                 repository,
-                recovery,
                 projectFile,
-                Accepted: false,
-                AppliedMarker: appliedMarker);
+                EnclosingRepositoryAccepted: true,
+                Recovery: new PendingPullRecoveryOpenSelection(
+                    repository,
+                    recovery,
+                    projectFile,
+                    Accepted: false,
+                    AppliedMarker: appliedMarker));
         }
         finally
         {
@@ -3314,6 +3384,143 @@ public sealed class VersionControlCoordinator :
             }
 
             DisposeService(discoveryService);
+        }
+    }
+
+    private async Task<ProjectOpenPreparationResult> ApplyProjectOpeningPreparationAsync(
+        ProjectService.ProjectOpenAttempt attempt,
+        OpeningRepositoryInspection inspection,
+        ProjectTransitionContext transition,
+        CancellationToken cancellationToken)
+    {
+        try
+        {
+            if (transition.Purpose != ProjectTransitionPurpose.Normal
+                || !ReferenceEquals(transition.Owner, attempt)
+                || !PathsEqual(attempt.ProjectFile, inspection.ProjectFile))
+            {
+                return ProjectOpenPreparationResult.Abort;
+            }
+
+            if (inspection.Recovery is { } recovery)
+            {
+                ProjectOpenPreparationResult result =
+                    await ApplyPendingPullRecoveryBeforeOpeningAsync(
+                            recovery,
+                            cancellationToken)
+                        .ConfigureAwait(false);
+                if (result == ProjectOpenPreparationResult.Abort)
+                {
+                    return result;
+                }
+            }
+            else
+            {
+                RepositoryInfo? current = await RevalidateOpeningRepositoryAsync(
+                        inspection.ProjectFile,
+                        cancellationToken)
+                    .ConfigureAwait(false);
+                if (current is null || !current.Equals(inspection.Repository))
+                {
+                    return ProjectOpenPreparationResult.Proceed;
+                }
+            }
+
+            if (!inspection.Repository.IsNestedInForeignRepo)
+            {
+                return ProjectOpenPreparationResult.Proceed;
+            }
+
+            return TryRecordOpeningRepositoryDecision(
+                attempt,
+                transition,
+                inspection)
+                ? ProjectOpenPreparationResult.Proceed
+                : ProjectOpenPreparationResult.Abort;
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            return ProjectOpenPreparationResult.Abort;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(
+                ex,
+                "Failed to revalidate enclosing-repository consent for project open {ProjectFile}.",
+                inspection.ProjectFile);
+            return ProjectOpenPreparationResult.Abort;
+        }
+    }
+
+    private async Task<RepositoryInfo?> RevalidateOpeningRepositoryAsync(
+        string projectFile,
+        CancellationToken cancellationToken)
+    {
+        using NonTransactionalOperationLease? operation =
+            TryBeginNonTransactionalOperation(cancellationToken);
+        if (operation is null)
+        {
+            return null;
+        }
+
+        IProjectVersionControlBackend? discoveryService = null;
+        try
+        {
+            discoveryService = CreateTemporaryBackend(repository: null, projectFile);
+            GitAvailability availability = await discoveryService.GetAvailabilityAsync(
+                    operation.CancellationToken)
+                .ConfigureAwait(false);
+            if (availability.State != GitAvailabilityState.Installed)
+            {
+                return null;
+            }
+
+            string projectRoot = Path.GetDirectoryName(projectFile)
+                                 ?? throw new InvalidOperationException(
+                                     "The project file has no parent directory.");
+            return await discoveryService.DiscoverRepositoryAsync(
+                    projectRoot,
+                    operation.CancellationToken)
+                .ConfigureAwait(false);
+        }
+        finally
+        {
+            DisposeService(discoveryService);
+        }
+    }
+
+    private bool TryRecordOpeningRepositoryDecision(
+        ProjectService.ProjectOpenAttempt attempt,
+        ProjectTransitionContext transition,
+        OpeningRepositoryInspection inspection)
+    {
+        if (transition.Purpose != ProjectTransitionPurpose.Normal
+            || !ReferenceEquals(transition.Owner, attempt)
+            || !PathsEqual(attempt.ProjectFile, inspection.ProjectFile)
+            || !RepositoryPathComparer.AreEquivalent(
+                inspection.Repository.ProjectRoot,
+                Path.GetDirectoryName(inspection.ProjectFile)
+                ?? throw new InvalidOperationException(
+                    "The project file has no parent directory.")))
+        {
+            return false;
+        }
+
+        lock (_stateGate)
+        {
+            if (_disposed)
+            {
+                return false;
+            }
+
+            _pendingOpeningRepositoryDecision = new PendingOpeningRepositoryDecision(
+                attempt,
+                attempt.Id,
+                transition.Id,
+                GetOpeningRecoveryKey(inspection.ProjectFile),
+                inspection.Repository,
+                inspection.EnclosingRepositoryAccepted);
+            return true;
         }
     }
 
@@ -3672,6 +3879,15 @@ public sealed class VersionControlCoordinator :
             return;
         }
 
+        using IDisposable? snapshotMutation = TryBeginWorktreeMutation();
+        if (snapshotMutation is null)
+        {
+            _logger.LogInformation(
+                "Skipped the {SnapshotKind} project snapshot because output is active.",
+                kind);
+            return;
+        }
+
         try
         {
             await service.CommitAllAsync(message, kind, cancellationToken).ConfigureAwait(false);
@@ -3686,9 +3902,58 @@ public sealed class VersionControlCoordinator :
         }
     }
 
+    private PendingOpeningRepositoryDecision? TryTakeOpeningRepositoryDecision(Project project)
+    {
+        ProjectTransitionContext? transition = _projectService.CurrentTransition;
+        string projectFile = GetProjectFile(project);
+        string projectRoot = GetProjectRoot(project);
+        lock (_stateGate)
+        {
+            if (_pendingOpeningRepositoryDecision is not { } pending)
+            {
+                return null;
+            }
+
+            bool matches = false;
+            try
+            {
+                matches = transition is
+                {
+                    Purpose: ProjectTransitionPurpose.Normal,
+                    Owner: ProjectService.ProjectOpenAttempt attempt,
+                }
+                && ReferenceEquals(pending.Attempt, attempt)
+                && pending.AttemptId == attempt.Id
+                && pending.TransitionId == transition.Id
+                && PathsEqual(pending.ProjectFile, projectFile)
+                && RepositoryPathComparer.AreEquivalent(
+                    pending.Repository.ProjectRoot,
+                    projectRoot);
+            }
+            catch (Exception ex)
+                when (ex is IOException
+                      or UnauthorizedAccessException
+                      or NotSupportedException
+                      or ArgumentException)
+            {
+                _logger.LogWarning(
+                    ex,
+                    "Could not match enclosing-repository consent to the opening project {ProjectFile}.",
+                    projectFile);
+            }
+
+            _pendingOpeningRepositoryDecision = null;
+            return matches ? pending : null;
+        }
+    }
+
     internal void OnProjectChanged(Project? project)
     {
         bool internalTransition = IsInternalVersionControlTransition();
+        PendingOpeningRepositoryDecision? openingRepositoryDecision =
+            project is null || internalTransition
+                ? null
+                : TryTakeOpeningRepositoryDecision(project);
         CancellationTokenSource? configurationActivationCancellation;
         long activationRevision;
         lock (_stateGate)
@@ -3711,7 +3976,11 @@ public sealed class VersionControlCoordinator :
         {
             CancelPendingPullRecoveryOffer();
         }
-        StartProjectActivation(project, internalTransition, activationRevision);
+        StartProjectActivation(
+            project,
+            internalTransition,
+            activationRevision,
+            openingRepositoryDecision);
     }
 
     private void ObserveCurrentProjectSnapshot()
@@ -3744,24 +4013,31 @@ public sealed class VersionControlCoordinator :
         {
             CancelPendingPullRecoveryOffer();
         }
-        StartProjectActivation(project, internalTransition, activationRevision);
+        StartProjectActivation(
+            project,
+            internalTransition,
+            activationRevision,
+            openingRepositoryDecision: null);
     }
 
     private void StartProjectActivation(
         Project? project,
         bool internalTransition,
-        long activationRevision)
+        long activationRevision,
+        PendingOpeningRepositoryDecision? openingRepositoryDecision)
     {
         _ = StartProjectActivationAfterOpeningRecoveryAsync(
             project,
             internalTransition,
-            activationRevision);
+            activationRevision,
+            openingRepositoryDecision);
     }
 
     private async Task StartProjectActivationAfterOpeningRecoveryAsync(
         Project? project,
         bool internalTransition,
-        long activationRevision)
+        long activationRevision,
+        PendingOpeningRepositoryDecision? openingRepositoryDecision)
     {
         try
         {
@@ -3783,6 +4059,7 @@ public sealed class VersionControlCoordinator :
                     project,
                     internalTransition,
                     activationRevision,
+                    openingRepositoryDecision,
                     CancellationToken.None)
                 .ConfigureAwait(false);
         }
@@ -3808,7 +4085,8 @@ public sealed class VersionControlCoordinator :
                     project,
                     internalTransition,
                     activationRevision,
-                    cancellationToken)
+                    openingRepositoryDecision: null,
+                    cancellationToken: cancellationToken)
                 .ConfigureAwait(false);
         }
         finally
@@ -3821,6 +4099,7 @@ public sealed class VersionControlCoordinator :
         Project? project,
         bool internalTransition,
         long activationRevision,
+        PendingOpeningRepositoryDecision? openingRepositoryDecision,
         CancellationToken cancellationToken)
     {
         try
@@ -3867,6 +4146,7 @@ public sealed class VersionControlCoordinator :
                 activationRevision,
                 projectRoot,
                 service,
+                openingRepositoryDecision,
                 cancellationToken);
             if (BeginActivation(activation, out bool cleanupRejectedService))
             {
@@ -4001,12 +4281,28 @@ public sealed class VersionControlCoordinator :
                 return;
             }
 
-            if (repository.IsNestedInForeignRepo
-                && !await ConfirmUseEnclosingRepositoryAsync(
-                    repository,
-                    activation.CancellationToken))
+            if (repository.IsNestedInForeignRepo)
             {
-                return;
+                PendingOpeningRepositoryDecision? openingDecision =
+                    activation.OpeningRepositoryDecision;
+                bool matchesOpeningDecision = openingDecision is not null
+                                              && openingDecision.Repository.Equals(repository)
+                                              && RepositoryPathComparer.AreEquivalent(
+                                                  repository.ProjectRoot,
+                                                  activation.ProjectRoot);
+                if (matchesOpeningDecision)
+                {
+                    if (!openingDecision!.Accepted)
+                    {
+                        return;
+                    }
+                }
+                else if (!await ConfirmUseEnclosingRepositoryAsync(
+                             repository,
+                             activation.CancellationToken))
+                {
+                    return;
+                }
             }
 
             if (!IsCurrentActivation(activation))
@@ -5475,6 +5771,20 @@ public sealed class VersionControlCoordinator :
         RepositoryInfo Repository,
         PendingPullRecovery Recovery);
 
+    private sealed record PendingOpeningRepositoryDecision(
+        ProjectService.ProjectOpenAttempt Attempt,
+        long AttemptId,
+        long TransitionId,
+        string ProjectFile,
+        RepositoryInfo Repository,
+        bool Accepted);
+
+    private sealed record OpeningRepositoryInspection(
+        RepositoryInfo Repository,
+        string ProjectFile,
+        bool EnclosingRepositoryAccepted,
+        PendingPullRecoveryOpenSelection? Recovery);
+
     private sealed record PendingPullRecoveryOpenSelection(
         RepositoryInfo Repository,
         PendingPullRecovery Recovery,
@@ -5485,17 +5795,20 @@ public sealed class VersionControlCoordinator :
         public bool AlreadyApplied => AppliedMarker is not null;
     }
 
-    private sealed class PendingPullRecoveryOpenPreparation(
+    private sealed class VersionControlProjectOpenPreparation(
         VersionControlCoordinator owner,
-        PendingPullRecoveryOpenSelection selection)
+        ProjectService.ProjectOpenAttempt attempt,
+        OpeningRepositoryInspection inspection)
         : ProjectService.ProjectOpenPreparation
     {
         internal override Task<ProjectOpenPreparationResult> ApplyAsync(
             ProjectTransitionContext transition,
             CancellationToken cancellationToken)
         {
-            return owner.ApplyPendingPullRecoveryBeforeOpeningAsync(
-                selection,
+            return owner.ApplyProjectOpeningPreparationAsync(
+                attempt,
+                inspection,
+                transition,
                 cancellationToken);
         }
     }
@@ -5612,11 +5925,13 @@ public sealed class VersionControlCoordinator :
             long revision,
             string projectRoot,
             IProjectVersionControlBackend service,
+            PendingOpeningRepositoryDecision? openingRepositoryDecision = null,
             CancellationToken cancellationToken = default)
         {
             Revision = revision;
             ProjectRoot = projectRoot;
             Service = service;
+            OpeningRepositoryDecision = openingRepositoryDecision;
             _ownedService = service;
             _cancellation = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
         }
@@ -5626,6 +5941,8 @@ public sealed class VersionControlCoordinator :
         public string ProjectRoot { get; }
 
         public IProjectVersionControlBackend Service { get; }
+
+        public PendingOpeningRepositoryDecision? OpeningRepositoryDecision { get; }
 
         public CancellationToken CancellationToken => _cancellation.Token;
 

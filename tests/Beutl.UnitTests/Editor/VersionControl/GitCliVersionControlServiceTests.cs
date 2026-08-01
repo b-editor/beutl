@@ -807,6 +807,96 @@ public class GitCliVersionControlServiceTests : RealGitTestRepository
         });
     }
 
+    [TestCase(false)]
+    [TestCase(true)]
+    public async Task CommitAllAsync_restores_the_prior_index_when_commit_stops_after_staging(
+        bool cancelCommit)
+    {
+        await CommitFileAsync("project.bep", "baseline\n", "baseline");
+        string projectFile = Path.Combine(Root, "project.bep");
+        await File.WriteAllTextAsync(projectFile, "staged before snapshot\n");
+        await RunGitAsync("add", "--", "project.bep");
+        await File.WriteAllTextAsync(projectFile, "working tree at snapshot\n");
+        string indexBefore = (await RunGitAsync("write-tree")).Stdout.Trim();
+        using var cancellation = new CancellationTokenSource();
+        var runner = new FailingSnapshotCommitRunner(
+            CreateRunner(),
+            cancelCommit ? cancellation : null);
+        using var service = new GitCliVersionControlService(
+            CreateInstalledLocator(),
+            Repository,
+            watcher: null,
+            _ => runner);
+
+        if (cancelCommit)
+        {
+            Assert.CatchAsync<OperationCanceledException>(
+                async () => await service.CommitAllAsync(
+                    "beutl: snapshot on save",
+                    SnapshotKind.Save,
+                    cancellation.Token));
+        }
+        else
+        {
+            Assert.ThrowsAsync<GitOperationException>(
+                async () => await service.CommitAllAsync(
+                    "beutl: snapshot on save",
+                    SnapshotKind.Save,
+                    CancellationToken.None));
+        }
+
+        string indexAfter = (await RunGitAsync("write-tree")).Stdout.Trim();
+        GitCommandResult stagedContents = await RunGitAsync("show", ":project.bep");
+        string workingContents = await File.ReadAllTextAsync(projectFile);
+        Assert.Multiple(() =>
+        {
+            Assert.That(runner.CommitAttempts, Is.EqualTo(1));
+            Assert.That(indexAfter, Is.EqualTo(indexBefore));
+            Assert.That(stagedContents.Stdout, Is.EqualTo("staged before snapshot\n"));
+            Assert.That(workingContents, Is.EqualTo("working tree at snapshot\n"));
+        });
+    }
+
+    [TestCase(false)]
+    [TestCase(true)]
+    public async Task CommitAllAsync_reports_a_durable_commit_when_the_runner_loses_its_result(
+        bool startWithCommit)
+    {
+        if (startWithCommit)
+        {
+            await CommitFileAsync("project.bep", "baseline\n", "baseline");
+        }
+
+        string projectFile = Path.Combine(Root, "project.bep");
+        await File.WriteAllTextAsync(projectFile, "snapshot contents\n");
+        var runner = new LostSnapshotCommitResultRunner(CreateRunner());
+        using var service = new GitCliVersionControlService(
+            CreateInstalledLocator(),
+            Repository,
+            watcher: null,
+            _ => runner);
+
+        CommitResult result = await service.CommitAllAsync(
+            "beutl: snapshot on save",
+            SnapshotKind.Save,
+            CancellationToken.None);
+
+        GitCommandResult count = await RunGitAsync("rev-list", "--count", "HEAD");
+        GitCommandResult head = await RunGitAsync("rev-parse", "HEAD");
+        GitCommandResult committedContents = await RunGitAsync("show", "HEAD:project.bep");
+        GitCommandResult staged = await RunGitAsync("diff", "--cached", "--name-only");
+        var committed = (CommitResult.Committed)result;
+        var revision = (CommitRevision.Known)committed.Revision;
+        Assert.Multiple(() =>
+        {
+            Assert.That(runner.CommitAttempts, Is.EqualTo(1));
+            Assert.That(revision.Sha, Is.EqualTo(head.Stdout.Trim()));
+            Assert.That(count.Stdout.Trim(), Is.EqualTo(startWithCommit ? "2" : "1"));
+            Assert.That(committedContents.Stdout, Is.EqualTo("snapshot contents\n"));
+            Assert.That(staged.Stdout, Is.Empty);
+        });
+    }
+
     [Test]
     public async Task CommitAllAsync_rejects_detached_HEAD_before_staging_or_committing()
     {
@@ -2720,7 +2810,8 @@ public class GitCliVersionControlServiceTests : RealGitTestRepository
         private static bool IsDurableMutation(IReadOnlyList<string> arguments)
         {
             string? command = arguments.FirstOrDefault();
-            return command is "commit" or "push" or "switch"
+            return IsCommitCommand(arguments)
+                   || command is "push" or "switch"
                    || (command == "remote"
                        && arguments.Count > 1
                        && arguments[1] is "add" or "set-url");
@@ -2759,7 +2850,7 @@ public class GitCliVersionControlServiceTests : RealGitTestRepository
                 options,
                 cancellationToken,
                 stderrProgress);
-            if (arguments.FirstOrDefault() == "commit")
+            if (IsCommitCommand(arguments))
             {
                 Volatile.Write(ref _commitCompleted, 1);
             }
@@ -2919,6 +3010,103 @@ public class GitCliVersionControlServiceTests : RealGitTestRepository
             RepositoryInfo repository,
             RepositoryLockInfo lockInfo)
             => inner.RemoveRecoverableRepositoryLock(repository, lockInfo);
+    }
+
+    private sealed class FailingSnapshotCommitRunner(
+        IGitCliRunner inner,
+        CancellationTokenSource? cancellation = null) : IGitCliRunner
+    {
+        private int _commitAttempts;
+
+        public int CommitAttempts => Volatile.Read(ref _commitAttempts);
+
+        public bool HasActiveProcess => inner.HasActiveProcess;
+
+        public Task<GitCommandResult> RunAsync(
+            RepositoryInfo repository,
+            IReadOnlyList<string> arguments,
+            GitCommandOptions options,
+            CancellationToken cancellationToken,
+            IProgress<string>? stderrProgress = null)
+        {
+            if (IsCommitCommand(arguments)
+                && arguments.Contains("Beutl-Snapshot: save"))
+            {
+                Interlocked.Increment(ref _commitAttempts);
+                if (cancellation is not null)
+                {
+                    cancellation.Cancel();
+                    return Task.FromCanceled<GitCommandResult>(cancellation.Token);
+                }
+
+                return Task.FromException<GitCommandResult>(new GitOperationException(
+                    1,
+                    "simulated snapshot commit failure"));
+            }
+
+            return inner.RunAsync(
+                repository,
+                arguments,
+                options,
+                cancellationToken,
+                stderrProgress);
+        }
+
+        public RepositoryLockInfo? GetRecoverableRepositoryLock(RepositoryInfo repository)
+            => inner.GetRecoverableRepositoryLock(repository);
+
+        public bool RemoveRecoverableRepositoryLock(
+            RepositoryInfo repository,
+            RepositoryLockInfo lockInfo)
+            => inner.RemoveRecoverableRepositoryLock(repository, lockInfo);
+    }
+
+    private sealed class LostSnapshotCommitResultRunner(IGitCliRunner inner) : IGitCliRunner
+    {
+        private int _commitAttempts;
+
+        public int CommitAttempts => Volatile.Read(ref _commitAttempts);
+
+        public bool HasActiveProcess => inner.HasActiveProcess;
+
+        public async Task<GitCommandResult> RunAsync(
+            RepositoryInfo repository,
+            IReadOnlyList<string> arguments,
+            GitCommandOptions options,
+            CancellationToken cancellationToken,
+            IProgress<string>? stderrProgress = null)
+        {
+            GitCommandResult result = await inner.RunAsync(
+                repository,
+                arguments,
+                options,
+                cancellationToken,
+                stderrProgress);
+            if (IsCommitCommand(arguments)
+                && arguments.Contains("Beutl-Snapshot: save"))
+            {
+                Interlocked.Increment(ref _commitAttempts);
+                throw new TimeoutException("simulated lost snapshot commit result");
+            }
+
+            return result;
+        }
+
+        public RepositoryLockInfo? GetRecoverableRepositoryLock(RepositoryInfo repository)
+            => inner.GetRecoverableRepositoryLock(repository);
+
+        public bool RemoveRecoverableRepositoryLock(
+            RepositoryInfo repository,
+            RepositoryLockInfo lockInfo)
+            => inner.RemoveRecoverableRepositoryLock(repository, lockInfo);
+    }
+
+    private static bool IsCommitCommand(IReadOnlyList<string> arguments)
+    {
+        return arguments.FirstOrDefault() == "commit"
+               || arguments.Count >= 3
+               && arguments[0] == "-c"
+               && arguments[2] == "commit";
     }
 
     private sealed class RecordingLfsRunner(IGitCliRunner inner) : IGitCliRunner

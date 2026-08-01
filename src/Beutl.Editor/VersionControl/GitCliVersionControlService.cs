@@ -4961,7 +4961,11 @@ internal sealed class GitCliVersionControlService :
     {
         RepositoryInfo repository = GetRepository();
         IGitCliRunner runner = await GetInstalledRunnerCoreAsync(cancellationToken).ConfigureAwait(false);
-        await GetAttachedBranchRefCoreAsync(repository, runner, cancellationToken).ConfigureAwait(false);
+        string branchRef = await GetAttachedBranchRefCoreAsync(
+                repository,
+                runner,
+                cancellationToken)
+            .ConfigureAwait(false);
         string? ignoredPath = await FindIgnoredExistingRequiredProjectPathAsync(
                 repository,
                 runner,
@@ -4998,14 +5002,24 @@ internal sealed class GitCliVersionControlService :
             status,
             cancellationToken).ConfigureAwait(false);
 
-        await runner.RunAsync(
+        string? originalBranchTip = await TryResolveCommitAsync(
+                repository,
+                runner,
+                branchRef,
+                cancellationToken)
+            .ConfigureAwait(false);
+        GitCommandResult originalIndex = await runner.RunAsync(
             repository,
-            ["add", "-A", "--", repository.Pathspec],
+            ["write-tree"],
             GitCommandOptions.Local,
             cancellationToken).ConfigureAwait(false);
+        string originalIndexTree = originalIndex.Stdout.Trim();
+        string reflogAction = $"beutl-snapshot/{Guid.NewGuid():N}";
 
         var arguments = new List<string>
         {
+            "-c",
+            "core.logAllRefUpdates=true",
             "commit",
             "-m",
             message,
@@ -5018,15 +5032,136 @@ internal sealed class GitCliVersionControlService :
 
         arguments.Add("--");
         arguments.Add(repository.Pathspec);
-        await runner.RunAsync(
-            repository,
-            arguments,
-            GitCommandOptions.Local,
-            cancellationToken).ConfigureAwait(false);
+        try
+        {
+            await runner.RunAsync(
+                repository,
+                ["add", "-A", "--", repository.Pathspec],
+                GitCommandOptions.Local,
+                cancellationToken).ConfigureAwait(false);
+            await runner.RunAsync(
+                repository,
+                arguments,
+                new GitCommandOptions(
+                    GitCommandExecutionKind.Local,
+                    new Dictionary<string, string?>
+                    {
+                        ["GIT_REFLOG_ACTION"] = reflogAction,
+                    }),
+                cancellationToken).ConfigureAwait(false);
+        }
+        catch (Exception operationException)
+        {
+            string? durableCommit;
+            try
+            {
+                durableCommit = await TryFindCommitByReflogActionAsync(
+                        repository,
+                        runner,
+                        branchRef,
+                        reflogAction)
+                    .ConfigureAwait(false);
+            }
+            catch (Exception observationException)
+            {
+                throw new AggregateException(
+                    "The snapshot operation failed and its durable commit result could not be observed. The index was left unchanged.",
+                    operationException,
+                    observationException);
+            }
+
+            if (durableCommit is not null)
+            {
+                LogWarningBestEffort(
+                    operationException,
+                    "Git reported a snapshot failure after its durable commit was recorded.");
+                await TryQueueStatusChangedCoreAsync().ConfigureAwait(false);
+                return new CommitResult.Committed(new CommitRevision.Known(durableCommit));
+            }
+
+            string? observedBranchTip;
+            try
+            {
+                observedBranchTip = await TryResolveCommitAsync(
+                        repository,
+                        runner,
+                        branchRef,
+                        CancellationToken.None)
+                    .ConfigureAwait(false);
+            }
+            catch (Exception observationException)
+            {
+                throw new AggregateException(
+                    "The snapshot operation failed and the current branch tip could not be observed. The index was left unchanged.",
+                    operationException,
+                    observationException);
+            }
+
+            if (!string.Equals(
+                    observedBranchTip,
+                    originalBranchTip,
+                    StringComparison.OrdinalIgnoreCase))
+            {
+                throw new AggregateException(
+                    "The snapshot operation failed, but the branch tip changed before its durable result could be identified. The index was left unchanged.",
+                    operationException,
+                    new InvalidOperationException(
+                        $"Expected branch tip '{originalBranchTip ?? "<unborn>"}', but observed '{observedBranchTip ?? "<unborn>"}'."));
+            }
+
+            try
+            {
+                await ResetIndexAsync(
+                        repository,
+                        runner,
+                        originalIndexTree,
+                        repository.Pathspec)
+                    .ConfigureAwait(false);
+            }
+            catch (Exception restoreException)
+            {
+                throw new AggregateException(
+                    "The snapshot staging or commit failed and the original index could not be restored.",
+                    operationException,
+                    restoreException);
+            }
+
+            throw;
+        }
+
         CommitResult result = await ResolveCommittedResultAsync(repository, runner)
             .ConfigureAwait(false);
         await TryQueueStatusChangedCoreAsync().ConfigureAwait(false);
         return result;
+    }
+
+    private static async Task<string?> TryFindCommitByReflogActionAsync(
+        RepositoryInfo repository,
+        IGitCliRunner runner,
+        string branchRef,
+        string reflogAction)
+    {
+        try
+        {
+            GitCommandResult result = await runner.RunAsync(
+                repository,
+                [
+                    "log",
+                    "-g",
+                    "-1",
+                    "--format=%H",
+                    $"--grep-reflog={reflogAction}:",
+                    branchRef,
+                ],
+                GitCommandOptions.Local,
+                CancellationToken.None).ConfigureAwait(false);
+            string commit = result.Stdout.Trim();
+            return string.IsNullOrEmpty(commit) ? null : commit;
+        }
+        catch (GitOperationException ex) when (ex.ExitCode is 1 or 128)
+        {
+            return null;
+        }
     }
 
     private async Task<CommitResult> ResolveCommittedResultAsync(

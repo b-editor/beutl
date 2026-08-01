@@ -155,7 +155,7 @@ The user connects the project to a remote repository, pushes their history for b
 
 - **Project inside the user's own existing repository**: detected before enabling; no nested repository is created without explicit consent; snapshots, status, history, and restore are scoped to the project directory, while branch, push, and pull operations affect the whole enclosing repository and are disclosed as such.
 - **Git missing, broken, or below the version floor**: versioning UI degrades to guidance; every other editor feature is unaffected; the probe never blocks startup.
-- **Snapshot concurrent with export/render/proxy generation**: version operations are serialized against each other, and a restore/branch switch/pull is refused while an export is reading project files; a snapshot only captures fully written files (never a half-written save).
+- **Snapshot concurrent with export/render/proxy generation**: output operations hold a shared workspace lease, while snapshots hold the exclusive lease through staging and commit. An already-running output makes save/close skip only the Git snapshot, and a snapshot in progress refuses a new output. The save/close action itself continues; the next explicit save after output completes records the accumulated changes, so no snapshot captures a partially written file.
 - **Restore or branch switch with unsaved in-memory state**: the user is prompted; dirty on-disk project state is recorded in a safety snapshot first, while a clean project creates no empty snapshot; the close/reopen cycle is the only path that changes files under the editor.
 - **Editing after restoring an old version**: the restore itself is a new version on the current branch, so subsequent saves continue linearly — no detached or orphaned states are ever created.
 - **Huge media files committed into the project**: when the large-file extension is unavailable or a candidate path is not effectively covered by an LFS filter, a one-time warning explains that history size is permanent before large media is first committed; the operation is never blocked.
@@ -189,12 +189,12 @@ The user connects the project to a remote repository, pushes their history for b
 
 **Automatic snapshots**
 
-- **FR-012**: When tracking is enabled, an explicit save or save-all MUST record an automatic snapshot if anything changed since the last version.
-- **FR-013**: Closing a tracked project with changes since the last version MUST record a close snapshot.
+- **FR-012**: When tracking is enabled, an explicit save or save-all MUST record an automatic snapshot if anything changed since the last version, except while an output operation owns the shared workspace lease. In that case the save succeeds without a snapshot, and the next explicit save after output completes records the accumulated changes.
+- **FR-013**: Closing a tracked project with changes since the last version MUST record a close snapshot, except while an output operation owns the shared workspace lease. In that case closing continues without asking Git to snapshot files that may still be changing.
 - **FR-014**: When nothing changed, save/close/commit MUST NOT create a version (no empty versions), and repeated saves MUST NOT spam history.
 - **FR-015**: The system MUST NOT record a version per editing action or autosave tick; continuous autosave keeps files current, while versions mark explicit user save points only.
 - **FR-016**: Automatic snapshot messages MUST be stable and machine-readable in the repository, with the kind (save / close / safety / restore / recovery) distinguishable, while the history view localizes what the user sees.
-- **FR-017**: Version operations MUST run off the UI thread, MUST be serialized against each other, and MUST NOT capture partially written files.
+- **FR-017**: Version operations MUST run off the UI thread, MUST be serialized against each other, and MUST NOT capture partially written files. Automatic snapshots MUST hold the exclusive workspace lease for their entire staging/commit interval; an existing output lease skips the snapshot, while an existing snapshot lease refuses a new output.
 
 **History browsing**
 

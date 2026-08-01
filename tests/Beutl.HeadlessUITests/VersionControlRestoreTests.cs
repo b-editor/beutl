@@ -148,6 +148,202 @@ public class VersionControlRestoreTests
     }
 
     [AvaloniaTest]
+    public async Task Save_snapshot_is_skipped_while_an_output_operation_is_active()
+    {
+        await TestReset.ResetShellAsync();
+        VersionControlCoordinator? coordinator = null;
+
+        try
+        {
+            Project project = await CreateProjectForFakeVersionControlAsync(
+                "version-control-save-during-output");
+            string projectRoot = Path.GetDirectoryName(project.Uri!.LocalPath)!;
+            var repository = new RepositoryInfo(projectRoot, projectRoot);
+            var tip = new CheckedOutBranchTip(
+                "refs/heads/main",
+                "1111111111111111111111111111111111111111");
+            var backend = new PullCycleTestBackend(repository, repository, tip);
+            var editorService = new EditorService(new ExtensionProvider());
+            var config = new VersionControlConfig
+            {
+                AutoCommitOnSave = true,
+                AutoCommitOnClose = false,
+            };
+            coordinator = new VersionControlCoordinator(
+                TestShell.Project,
+                editorService,
+                config,
+                installationLocator: null,
+                serviceFactory: _ => backend);
+            await WaitUntilAsync(() =>
+                ReferenceEquals(coordinator.CurrentService, backend)
+                && coordinator.IsTracked.Value);
+
+            using (IDisposable outputOperation = editorService.TryBeginOutputOperation()!)
+            {
+                await coordinator.NotifySavedAsync();
+                Assert.That(
+                    backend.CommitAllCalls,
+                    Is.Zero,
+                    "A save must not snapshot files while output may still be writing them.");
+            }
+
+            await coordinator.NotifySavedAsync();
+            Assert.That(
+                backend.CommitAllCalls,
+                Is.EqualTo(1),
+                "The next save after output completes must recover the skipped snapshot.");
+        }
+        finally
+        {
+            if (coordinator is not null)
+            {
+                await coordinator.DisposeAsync().AsTask().WaitAsync(TimeSpan.FromSeconds(5));
+            }
+
+            await TestReset.ResetShellAsync();
+        }
+    }
+
+    [AvaloniaTest]
+    public async Task Save_snapshot_reservation_blocks_output_until_commit_completes()
+    {
+        await TestReset.ResetShellAsync();
+        VersionControlCoordinator? coordinator = null;
+        Task? snapshot = null;
+        var commitStarted = new TaskCompletionSource(
+            TaskCreationOptions.RunContinuationsAsynchronously);
+        var releaseCommit = new TaskCompletionSource(
+            TaskCreationOptions.RunContinuationsAsynchronously);
+
+        try
+        {
+            Project project = await CreateProjectForFakeVersionControlAsync(
+                "version-control-output-during-save");
+            string projectRoot = Path.GetDirectoryName(project.Uri!.LocalPath)!;
+            var repository = new RepositoryInfo(projectRoot, projectRoot);
+            var tip = new CheckedOutBranchTip(
+                "refs/heads/main",
+                "1111111111111111111111111111111111111111");
+            var backend = new PullCycleTestBackend(repository, repository, tip)
+            {
+                CommitAllStarted = commitStarted,
+                CommitAllRelease = releaseCommit.Task,
+            };
+            var editorService = new EditorService(new ExtensionProvider());
+            var config = new VersionControlConfig
+            {
+                AutoCommitOnSave = true,
+                AutoCommitOnClose = false,
+            };
+            coordinator = new VersionControlCoordinator(
+                TestShell.Project,
+                editorService,
+                config,
+                installationLocator: null,
+                serviceFactory: _ => backend);
+            await WaitUntilAsync(() =>
+                ReferenceEquals(coordinator.CurrentService, backend)
+                && coordinator.IsTracked.Value);
+
+            snapshot = coordinator.NotifySavedAsync();
+            await commitStarted.Task.WaitAsync(TimeSpan.FromSeconds(5));
+
+            IDisposable? blockedOutput = editorService.TryBeginOutputOperation();
+            try
+            {
+                Assert.That(
+                    blockedOutput,
+                    Is.Null,
+                    "Output must not start after snapshot staging has begun.");
+            }
+            finally
+            {
+                blockedOutput?.Dispose();
+            }
+
+            releaseCommit.TrySetResult();
+            await snapshot.WaitAsync(TimeSpan.FromSeconds(5));
+            snapshot = null;
+
+            using IDisposable? outputAfterSnapshot = editorService.TryBeginOutputOperation();
+            Assert.That(outputAfterSnapshot, Is.Not.Null);
+        }
+        finally
+        {
+            releaseCommit.TrySetResult();
+            if (snapshot is not null)
+            {
+                await snapshot.WaitAsync(TimeSpan.FromSeconds(5));
+            }
+
+            if (coordinator is not null)
+            {
+                await coordinator.DisposeAsync().AsTask().WaitAsync(TimeSpan.FromSeconds(5));
+            }
+
+            await TestReset.ResetShellAsync();
+        }
+    }
+
+    [AvaloniaTest]
+    public async Task Close_snapshot_is_skipped_while_an_output_operation_is_active()
+    {
+        await TestReset.ResetShellAsync();
+        VersionControlCoordinator? coordinator = null;
+
+        try
+        {
+            Project project = await CreateProjectForFakeVersionControlAsync(
+                "version-control-close-during-output");
+            string projectRoot = Path.GetDirectoryName(project.Uri!.LocalPath)!;
+            var repository = new RepositoryInfo(projectRoot, projectRoot);
+            var tip = new CheckedOutBranchTip(
+                "refs/heads/main",
+                "1111111111111111111111111111111111111111");
+            var backend = new PullCycleTestBackend(repository, repository, tip);
+            var editorService = new EditorService(new ExtensionProvider());
+            var config = new VersionControlConfig
+            {
+                AutoCommitOnClose = true,
+            };
+            coordinator = new VersionControlCoordinator(
+                TestShell.Project,
+                editorService,
+                config,
+                installationLocator: null,
+                serviceFactory: _ => backend);
+            await WaitUntilAsync(() =>
+                ReferenceEquals(coordinator.CurrentService, backend)
+                && coordinator.IsTracked.Value);
+
+            using (IDisposable outputOperation = editorService.TryBeginOutputOperation()!)
+            {
+                await TestShell.Project.CloseProject().WaitAsync(TimeSpan.FromSeconds(5));
+            }
+
+            Assert.Multiple(() =>
+            {
+                Assert.That(TestShell.Project.CurrentProject.Value, Is.Null);
+                Assert.That(backend.RetirementCalls, Is.EqualTo(1));
+                Assert.That(
+                    backend.RetirementSnapshots,
+                    Is.EqualTo(new ProjectVersionControlFinalSnapshot?[] { null }),
+                    "Closing may continue, but retirement must not snapshot a partial output file.");
+            });
+        }
+        finally
+        {
+            if (coordinator is not null)
+            {
+                await coordinator.DisposeAsync().AsTask().WaitAsync(TimeSpan.FromSeconds(5));
+            }
+
+            await TestReset.ResetShellAsync();
+        }
+    }
+
+    [AvaloniaTest]
     public async Task Project_close_waits_for_activation_and_retires_the_tracked_backend_with_a_final_snapshot()
     {
         await TestReset.ResetShellAsync();
@@ -5567,6 +5763,148 @@ public class VersionControlRestoreTests
     }
 
     [AvaloniaTest]
+    public async Task Explicit_open_reuses_matching_enclosing_repository_consent_once()
+    {
+        await TestReset.ResetShellAsync();
+        VersionControlConfig config = GlobalConfiguration.Instance.VersionControlConfig;
+        bool oldAutoCommitOnClose = config.AutoCommitOnClose;
+        VersionControlCoordinator? coordinator = null;
+
+        try
+        {
+            config.AutoCommitOnClose = false;
+            Project target = await CreateProjectForFakeVersionControlAsync(
+                "version-control-enclosing-consent-once");
+            string projectFile = target.Uri!.LocalPath;
+            string projectRoot = Path.GetDirectoryName(projectFile)!;
+            string repositoryRoot = Path.GetDirectoryName(projectRoot)!;
+            await TestShell.Project.CloseProject();
+            var projectService = new ProjectService();
+            var repository = new RepositoryInfo(repositoryRoot, projectRoot);
+            var originalTip = new CheckedOutBranchTip(
+                "refs/heads/main",
+                "1111111111111111111111111111111111111111");
+            var discovery = new PullCycleTestBackend(null, repository, originalTip);
+            var tracked = new PullCycleTestBackend(repository, repository, originalTip);
+            coordinator = new VersionControlCoordinator(
+                projectService,
+                new EditorService(new ExtensionProvider()),
+                config,
+                installationLocator: null,
+                serviceFactory: candidate => candidate is null ? discovery : tracked);
+            int confirmations = 0;
+            coordinator.ConfirmUseEnclosingRepositoryAsync = (candidate, _) =>
+            {
+                Assert.That(candidate, Is.EqualTo(repository));
+                Interlocked.Increment(ref confirmations);
+                return Task.FromResult(true);
+            };
+
+            await projectService.OpenProject(projectFile);
+            await WaitUntilAsync(() => ReferenceEquals(coordinator.CurrentService, tracked));
+
+            Assert.Multiple(() =>
+            {
+                Assert.That(confirmations, Is.EqualTo(1));
+                Assert.That(projectService.CurrentProject.Value, Is.Not.Null);
+                Assert.That(projectService.CurrentProject.Value!.Uri!.LocalPath,
+                    Is.EqualTo(projectFile));
+            });
+        }
+        finally
+        {
+            if (coordinator is not null)
+            {
+                await coordinator.DisposeAsync();
+            }
+
+            await TestReset.ResetShellAsync();
+            config.AutoCommitOnClose = oldAutoCommitOnClose;
+        }
+    }
+
+    [AvaloniaTest]
+    public async Task Changed_recovery_does_not_leak_enclosing_consent_to_the_next_open_attempt()
+    {
+        await TestReset.ResetShellAsync();
+        VersionControlConfig config = GlobalConfiguration.Instance.VersionControlConfig;
+        bool oldAutoCommitOnClose = config.AutoCommitOnClose;
+        VersionControlCoordinator? coordinator = null;
+
+        try
+        {
+            config.AutoCommitOnClose = false;
+            Project target = await CreateProjectForFakeVersionControlAsync(
+                "version-control-enclosing-consent-recovery-race");
+            string projectFile = target.Uri!.LocalPath;
+            string projectRoot = Path.GetDirectoryName(projectFile)!;
+            string repositoryRoot = Path.GetDirectoryName(projectRoot)!;
+            await TestShell.Project.CloseProject();
+            var projectService = new ProjectService();
+            var repository = new RepositoryInfo(repositoryRoot, projectRoot);
+            var originalTip = new CheckedOutBranchTip(
+                "refs/heads/main",
+                "1111111111111111111111111111111111111111");
+            var discovery = new PullCycleTestBackend(null, repository, originalTip);
+            var tracked = new PullCycleTestBackend(repository, repository, originalTip);
+            var checkpoint = new ProjectCheckpoint(
+                "refs/beutl/safety/test-checkpoint",
+                "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                originalTip);
+            PendingPullRecovery pending = await tracked.PersistPendingPullRecoveryAsync(
+                checkpoint,
+                originalTip,
+                projectFile,
+                CancellationToken.None);
+            coordinator = new VersionControlCoordinator(
+                projectService,
+                new EditorService(new ExtensionProvider()),
+                config,
+                installationLocator: null,
+                serviceFactory: candidate => candidate is null ? discovery : tracked);
+            int enclosingConfirmations = 0;
+            int recoveryConfirmations = 0;
+            coordinator.ConfirmUseEnclosingRepositoryAsync = (_, _) =>
+            {
+                Interlocked.Increment(ref enclosingConfirmations);
+                return Task.FromResult(true);
+            };
+            coordinator.ConfirmPendingPullRecoveryAsync = (_, _) =>
+            {
+                Interlocked.Increment(ref recoveryConfirmations);
+                tracked.RemovePendingPullRecovery(pending.Id);
+                return Task.FromResult(true);
+            };
+
+            await projectService.OpenProject(projectFile);
+            Assert.That(projectService.CurrentProject.Value, Is.Null);
+
+            await projectService.OpenProject(projectFile);
+            await WaitUntilAsync(() => ReferenceEquals(coordinator.CurrentService, tracked));
+
+            Assert.Multiple(() =>
+            {
+                Assert.That(enclosingConfirmations, Is.EqualTo(2));
+                Assert.That(recoveryConfirmations, Is.EqualTo(1));
+                Assert.That(tracked.RecoverPendingPullCalls, Is.Zero);
+                Assert.That(projectService.CurrentProject.Value, Is.Not.Null);
+                Assert.That(projectService.CurrentProject.Value!.Uri!.LocalPath,
+                    Is.EqualTo(projectFile));
+            });
+        }
+        finally
+        {
+            if (coordinator is not null)
+            {
+                await coordinator.DisposeAsync();
+            }
+
+            await TestReset.ResetShellAsync();
+            config.AutoCommitOnClose = oldAutoCommitOnClose;
+        }
+    }
+
+    [AvaloniaTest]
     public async Task Accepted_explicit_open_recovery_failure_keeps_the_current_project_open()
     {
         await TestReset.ResetShellAsync();
@@ -7632,6 +7970,10 @@ public class VersionControlRestoreTests
 
         public Task? SwitchBranchRelease { get; init; }
 
+        public TaskCompletionSource? CommitAllStarted { get; init; }
+
+        public Task? CommitAllRelease { get; init; }
+
         public bool RequireIdentityForInitialization { get; init; }
 
         public int InitializeCalls { get; private set; }
@@ -7936,14 +8278,20 @@ public class VersionControlRestoreTests
             Repository = options.TargetRepository;
         }
 
-        public Task<CommitResult> CommitAllAsync(
+        public async Task<CommitResult> CommitAllAsync(
             string message,
             SnapshotKind kind,
             CancellationToken cancellationToken)
         {
             RecordBackendCall();
             Interlocked.Increment(ref _commitAllCalls);
-            return Task.FromResult<CommitResult>(new CommitResult.NoChanges());
+            CommitAllStarted?.TrySetResult();
+            if (CommitAllRelease is not null)
+            {
+                await CommitAllRelease.WaitAsync(cancellationToken);
+            }
+
+            return new CommitResult.NoChanges();
         }
 
         public Task<CommitResult> CommitProjectTreeAsync(

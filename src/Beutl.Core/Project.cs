@@ -1,6 +1,7 @@
 ﻿using System.Diagnostics;
 using Beutl.Collections;
 using Beutl.Serialization;
+using NuGet.Versioning;
 
 namespace Beutl;
 
@@ -104,7 +105,17 @@ public sealed class Project : Hierarchical
     internal void MarkAsMigrated()
     {
         AppVersion = BeutlApplication.Version;
-        MinAppVersion = DefaultMinAppVersion;
+        MinAppVersion = GetMaximumVersion(MinAppVersion, DefaultMinAppVersion);
+    }
+
+    private static string GetMaximumVersion(string persistedVersion, string requiredVersion)
+    {
+        // An unknown persisted constraint is retained so migration cannot weaken it.
+        return NuGetVersion.TryParse(persistedVersion, out NuGetVersion? persisted)
+               && NuGetVersion.TryParse(requiredVersion, out NuGetVersion? required)
+               && VersionComparer.VersionRelease.Compare(persisted, required) < 0
+            ? requiredVersion
+            : persistedVersion;
     }
 
     public override void Serialize(ICoreSerializationContext context)
