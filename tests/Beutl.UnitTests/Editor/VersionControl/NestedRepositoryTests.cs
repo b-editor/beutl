@@ -254,6 +254,8 @@ public sealed class NestedRepositoryTests : RealGitTestRepository
 
     [TestCase("late.scene", "nested/project/*.scene")]
     [TestCase("resources/late.mp4", "nested/project/resources/")]
+    [TestCase("late.SCENE", "nested/project/*.SCENE")]
+    [TestCase("Resources/late.MP4", "nested/project/Resources/")]
     public async Task Snapshot_rejects_required_data_ignored_after_nested_activation(
         string relativeProjectPath,
         string ignoreRule)
@@ -294,6 +296,234 @@ public sealed class NestedRepositoryTests : RealGitTestRepository
             Assert.That(exception!.Message, Does.Contain("ignore rules"));
             Assert.That(staged.Stdout, Is.Empty);
             Assert.That(File.Exists(requiredPath), Is.True);
+        });
+    }
+
+    [Test]
+    public async Task Snapshot_keeps_the_associated_outer_repository_after_an_inner_repository_is_created()
+    {
+        string projectRoot = Path.Combine(Root, "project");
+        Directory.CreateDirectory(projectRoot);
+        await File.WriteAllTextAsync(Path.Combine(projectRoot, "project.bep"), "{}\n");
+        await RunGitAsync("add", "-A");
+        await RunGitAsync("commit", "-m", "baseline project");
+        await File.WriteAllTextAsync(Path.Combine(Root, ".gitignore"), "/project/\n");
+        await RunGitAsync("add", "--", ".gitignore");
+        await RunGitAsync("commit", "-m", "ignore outer project directory");
+        var repository = new RepositoryInfo(Root, projectRoot);
+        using var service = new GitCliVersionControlService(
+            CreateInstalledLocator(),
+            repository,
+            watcher: null,
+            _ => CreateRunner());
+
+        var innerRepository = new RepositoryInfo(projectRoot, projectRoot);
+        await CreateRunner().RunAsync(
+            innerRepository,
+            ["init", "-b", "main"],
+            GitCommandOptions.Local,
+            CancellationToken.None);
+        string requiredPath = Path.Combine(projectRoot, "late.scene");
+        await File.WriteAllTextAsync(requiredPath, "ignored required data\n");
+
+        InvalidOperationException? exception = Assert.ThrowsAsync<InvalidOperationException>(
+            async () => await service.CommitAllAsync(
+                "beutl: snapshot on save",
+                SnapshotKind.Save,
+                CancellationToken.None));
+
+        GitCommandResult staged = await RunGitAsync(
+            "diff",
+            "--cached",
+            "--name-only",
+            "--",
+            repository.Pathspec);
+        Assert.Multiple(() =>
+        {
+            Assert.That(exception!.Message, Does.Contain("ignore rules"));
+            Assert.That(staged.Stdout, Is.Empty);
+            Assert.That(File.Exists(requiredPath), Is.True);
+        });
+    }
+
+    [Test]
+    public async Task Snapshot_does_not_treat_glob_characters_in_the_project_prefix_as_pathspec_magic()
+    {
+        string projectRoot = Path.Combine(Root, "nested", "project[1]");
+        string lookalikeRoot = Path.Combine(Root, "nested", "project1");
+        Directory.CreateDirectory(projectRoot);
+        Directory.CreateDirectory(lookalikeRoot);
+        await File.WriteAllTextAsync(Path.Combine(projectRoot, "project.bep"), "{}\n");
+        await RunGitAsync("add", "--", "nested/project[1]/project.bep");
+        await RunGitAsync("commit", "-m", "baseline project");
+        await File.WriteAllTextAsync(Path.Combine(Root, ".gitignore"), "*.scene\n");
+        await RunGitAsync("add", "--", ".gitignore");
+        await RunGitAsync("commit", "-m", "ignore scenes");
+        await File.WriteAllTextAsync(
+            Path.Combine(lookalikeRoot, "outside.scene"),
+            "ignored outside project\n");
+        var repository = new RepositoryInfo(Root, projectRoot);
+        using var service = new GitCliVersionControlService(
+            CreateInstalledLocator(),
+            repository,
+            watcher: null,
+            _ => CreateRunner());
+
+        CommitResult result = await service.CommitAllAsync(
+            "beutl: snapshot on save",
+            SnapshotKind.Save,
+            CancellationToken.None);
+
+        string requiredPath = Path.Combine(projectRoot, "late.scene");
+        await File.WriteAllTextAsync(requiredPath, "ignored required data\n");
+        InvalidOperationException? exception = Assert.ThrowsAsync<InvalidOperationException>(
+            async () => await service.CommitAllAsync(
+                "beutl: snapshot on save",
+                SnapshotKind.Save,
+                CancellationToken.None));
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(result, Is.TypeOf<CommitResult.NoChanges>());
+            Assert.That(exception!.Message, Does.Contain("ignore rules"));
+        });
+    }
+
+    [Test]
+    public async Task Snapshot_fails_closed_when_the_ignored_file_query_is_truncated()
+    {
+        string projectRoot = CreateProjectDirectory();
+        await File.WriteAllTextAsync(Path.Combine(projectRoot, "project.bep"), "{}\n");
+        await RunGitAsync("add", "-A");
+        await RunGitAsync("commit", "-m", "baseline project");
+        var repository = new RepositoryInfo(Root, projectRoot);
+        var runner = new TruncatedIgnoredQueryRunner(CreateRunner());
+        using var service = new GitCliVersionControlService(
+            CreateInstalledLocator(),
+            repository,
+            watcher: null,
+            _ => runner);
+
+        InvalidOperationException? exception = Assert.ThrowsAsync<InvalidOperationException>(
+            async () => await service.CommitAllAsync(
+                "beutl: snapshot on save",
+                SnapshotKind.Save,
+                CancellationToken.None));
+
+        Assert.That(exception!.Message, Does.Contain("safely"));
+    }
+
+    [Test]
+    public async Task Snapshot_allows_only_unambiguous_Beutl_directory_warnings()
+    {
+        string projectRoot = CreateProjectDirectory();
+        await File.WriteAllTextAsync(Path.Combine(projectRoot, "project.bep"), "{}\n");
+        await RunGitAsync("add", "-A");
+        await RunGitAsync("commit", "-m", "baseline project");
+        var repository = new RepositoryInfo(Root, projectRoot);
+        var runner = new DiagnosticIgnoredQueryRunner(
+            CreateRunner(),
+            "warning: could not open directory 'nested/project/.beutl/': Permission denied\n"
+            + "warning: could not open directory 'nested/project/cache/.BeUtL/child/': Permission denied\n");
+        using var service = new GitCliVersionControlService(
+            CreateInstalledLocator(),
+            repository,
+            watcher: null,
+            _ => runner);
+
+        CommitResult result = await service.CommitAllAsync(
+            "beutl: snapshot on save",
+            SnapshotKind.Save,
+            CancellationToken.None);
+
+        Assert.That(result, Is.TypeOf<CommitResult.NoChanges>());
+    }
+
+    [TestCase("warning: could not open directory 'nested/project/.beutl/': Permission denied")]
+    [TestCase("warning: could not open directory 'nested/project/.beutl/': Permission denied\nunexpected\n")]
+    [TestCase("warning: could not open directory 'nested/project/.beutl/': Permission denied\n\n")]
+    [TestCase("\n")]
+    [TestCase("warning: could not open directory 'nested/project/.beutl-other/': Permission denied\n")]
+    [TestCase("warning: could not open directory 'nested/project/evil'/.beutl/': Permission denied\n")]
+    [TestCase("warning: could not open directory 'nested/project/.beutl/': forged/': Permission denied\n")]
+    [TestCase("warning: could not open directory '../nested/project/.beutl/': Permission denied\n")]
+    public async Task Snapshot_fails_closed_for_ambiguous_ignored_file_query_warnings(
+        string stderr)
+    {
+        string projectRoot = CreateProjectDirectory();
+        await File.WriteAllTextAsync(Path.Combine(projectRoot, "project.bep"), "{}\n");
+        await RunGitAsync("add", "-A");
+        await RunGitAsync("commit", "-m", "baseline project");
+        var repository = new RepositoryInfo(Root, projectRoot);
+        var runner = new DiagnosticIgnoredQueryRunner(CreateRunner(), stderr);
+        using var service = new GitCliVersionControlService(
+            CreateInstalledLocator(),
+            repository,
+            watcher: null,
+            _ => runner);
+
+        InvalidOperationException? exception = Assert.ThrowsAsync<InvalidOperationException>(
+            async () => await service.CommitAllAsync(
+                "beutl: snapshot on save",
+                SnapshotKind.Save,
+                CancellationToken.None));
+
+        Assert.That(exception!.Message, Does.Contain("safely"));
+    }
+
+    [Test]
+    public async Task Snapshot_uses_a_bounded_ignored_file_query_anchored_to_the_associated_repository()
+    {
+        string projectRoot = Path.Combine(Root, "nested", "project[1]");
+        Directory.CreateDirectory(projectRoot);
+        await File.WriteAllTextAsync(Path.Combine(projectRoot, "project.bep"), "{}\n");
+        await RunGitAsync("add", "-A");
+        await RunGitAsync("commit", "-m", "baseline project");
+        var repository = new RepositoryInfo(Root, projectRoot);
+        var runner = new RecordingRunner(CreateRunner());
+        using var service = new GitCliVersionControlService(
+            CreateInstalledLocator(),
+            repository,
+            watcher: null,
+            _ => runner);
+
+        CommitResult result = await service.CommitAllAsync(
+            "beutl: snapshot on save",
+            SnapshotKind.Save,
+            CancellationToken.None);
+
+        RecordedCommand? query = runner.Commands.SingleOrDefault(
+            static command => command.Arguments.FirstOrDefault() == "ls-files"
+                              && command.Arguments.Contains("--ignored"));
+        Assert.That(query, Is.Not.Null);
+        Assert.Multiple(() =>
+        {
+            Assert.That(result, Is.TypeOf<CommitResult.NoChanges>());
+            Assert.That(query!.Repository.RepoRoot, Is.EqualTo(Root));
+            Assert.That(query.Repository.ProjectRoot, Is.EqualTo(projectRoot));
+            Assert.That(
+                query.Arguments,
+                Is.EqualTo(new[]
+                {
+                    "ls-files",
+                    "--others",
+                    "--ignored",
+                    "--exclude-standard",
+                    "-z",
+                    "--",
+                    ":(top,glob)nested/project\\[1\\]/**/*.[bB][eE][pP]",
+                    ":(top,glob)nested/project\\[1\\]/**/*.[sS][cC][eE][nN][eE]",
+                    ":(top,glob)nested/project\\[1\\]/**/*.[bB][eE][lL][mM]",
+                    ":(top,glob)nested/project\\[1\\]/**/[rR][eE][sS][oO][uU][rR][cC][eE][sS]/**",
+                    ":(top,glob)nested/project\\[1\\]/.gitignore",
+                    ":(top,glob)nested/project\\[1\\]/.gitattributes",
+                    ":(top,exclude,glob)nested/project\\[1\\]/**/.[bB][eE][uU][tT][lL]/**",
+                    ":(top,exclude,glob)nested/project\\[1\\]/**/*.[tT][mM][pP]",
+                }));
+            Assert.That(query.Options.ExecutionKind, Is.EqualTo(GitCommandExecutionKind.Local));
+            Assert.That(query.Options.StandardInput, Is.Null);
+            Assert.That(query.Options.UseLiteralPathspecs, Is.False);
+            Assert.That(query.Options.MaxStdoutBytes, Is.InRange(1, 256 * 1024));
         });
     }
 
@@ -576,5 +806,107 @@ public sealed class NestedRepositoryTests : RealGitTestRepository
         {
             Assert.Ignore($"Symbolic links are not creatable in this environment: {ex.Message}");
         }
+    }
+
+    private sealed record RecordedCommand(
+        RepositoryInfo Repository,
+        IReadOnlyList<string> Arguments,
+        GitCommandOptions Options);
+
+    private sealed class RecordingRunner(IGitCliRunner inner) : IGitCliRunner
+    {
+        public List<RecordedCommand> Commands { get; } = [];
+
+        public bool HasActiveProcess => inner.HasActiveProcess;
+
+        public Task<GitCommandResult> RunAsync(
+            RepositoryInfo repository,
+            IReadOnlyList<string> arguments,
+            GitCommandOptions options,
+            CancellationToken cancellationToken,
+            IProgress<string>? stderrProgress = null)
+        {
+            Commands.Add(new RecordedCommand(repository, [.. arguments], options));
+            return inner.RunAsync(
+                repository,
+                arguments,
+                options,
+                cancellationToken,
+                stderrProgress);
+        }
+
+        public RepositoryLockInfo? GetRecoverableRepositoryLock(RepositoryInfo repository)
+            => inner.GetRecoverableRepositoryLock(repository);
+
+        public bool RemoveRecoverableRepositoryLock(
+            RepositoryInfo repository,
+            RepositoryLockInfo lockInfo)
+            => inner.RemoveRecoverableRepositoryLock(repository, lockInfo);
+    }
+
+    private sealed class TruncatedIgnoredQueryRunner(IGitCliRunner inner) : IGitCliRunner
+    {
+        public bool HasActiveProcess => inner.HasActiveProcess;
+
+        public async Task<GitCommandResult> RunAsync(
+            RepositoryInfo repository,
+            IReadOnlyList<string> arguments,
+            GitCommandOptions options,
+            CancellationToken cancellationToken,
+            IProgress<string>? stderrProgress = null)
+        {
+            GitCommandResult result = await inner.RunAsync(
+                repository,
+                arguments,
+                options,
+                cancellationToken,
+                stderrProgress);
+            return arguments.FirstOrDefault() == "ls-files"
+                   && arguments.Contains("--ignored")
+                ? result with { StdoutTruncated = true }
+                : result;
+        }
+
+        public RepositoryLockInfo? GetRecoverableRepositoryLock(RepositoryInfo repository)
+            => inner.GetRecoverableRepositoryLock(repository);
+
+        public bool RemoveRecoverableRepositoryLock(
+            RepositoryInfo repository,
+            RepositoryLockInfo lockInfo)
+            => inner.RemoveRecoverableRepositoryLock(repository, lockInfo);
+    }
+
+    private sealed class DiagnosticIgnoredQueryRunner(
+        IGitCliRunner inner,
+        string stderr) : IGitCliRunner
+    {
+        public bool HasActiveProcess => inner.HasActiveProcess;
+
+        public async Task<GitCommandResult> RunAsync(
+            RepositoryInfo repository,
+            IReadOnlyList<string> arguments,
+            GitCommandOptions options,
+            CancellationToken cancellationToken,
+            IProgress<string>? stderrProgress = null)
+        {
+            GitCommandResult result = await inner.RunAsync(
+                repository,
+                arguments,
+                options,
+                cancellationToken,
+                stderrProgress);
+            return arguments.FirstOrDefault() == "ls-files"
+                   && arguments.Contains("--ignored")
+                ? result with { Stderr = stderr }
+                : result;
+        }
+
+        public RepositoryLockInfo? GetRecoverableRepositoryLock(RepositoryInfo repository)
+            => inner.GetRecoverableRepositoryLock(repository);
+
+        public bool RemoveRecoverableRepositoryLock(
+            RepositoryInfo repository,
+            RepositoryLockInfo lockInfo)
+            => inner.RemoveRecoverableRepositoryLock(repository, lockInfo);
     }
 }

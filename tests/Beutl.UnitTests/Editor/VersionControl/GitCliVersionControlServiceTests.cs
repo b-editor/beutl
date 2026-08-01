@@ -841,6 +841,140 @@ public class GitCliVersionControlServiceTests : RealGitTestRepository
     }
 
     [Test]
+    public async Task CommitAllAsync_ignores_Beutl_state_scene_artifacts()
+    {
+        await CommitFileAsync("project.bep", "{}\n", "baseline");
+        await File.WriteAllTextAsync(Path.Combine(Root, ".gitignore"), "**/.beutl/\n");
+        await RunGitAsync("add", "--", ".gitignore");
+        await RunGitAsync("commit", "-m", "ignore Beutl state");
+        string stateDirectory = Path.Combine(Root, ".beutl");
+        Directory.CreateDirectory(stateDirectory);
+        await File.WriteAllTextAsync(Path.Combine(stateDirectory, "recovery.scene"), "temporary\n");
+        using var service = CreateService();
+
+        CommitResult result = await service.CommitAllAsync(
+            "beutl: snapshot on save",
+            SnapshotKind.Save,
+            CancellationToken.None);
+
+        Assert.That(result, Is.TypeOf<CommitResult.NoChanges>());
+    }
+
+    [TestCase(".beutl", ".beutl")]
+    [TestCase(".BeUtL", ".BeUtL")]
+    [TestCase(".beutl", ".beutl/child")]
+    public async Task CommitAllAsync_allows_an_inaccessible_ignored_Beutl_state_subtree(
+        string stateDirectoryName,
+        string inaccessibleRelativePath)
+    {
+        if (OperatingSystem.IsWindows())
+        {
+            Assert.Ignore("Unix directory permissions are not available on Windows.");
+            return;
+        }
+
+        await CommitFileAsync("project.bep", "{}\n", "baseline");
+        await File.WriteAllTextAsync(
+            Path.Combine(Root, ".gitignore"),
+            $"**/{stateDirectoryName}/\n");
+        await RunGitAsync("add", "--", ".gitignore");
+        await RunGitAsync("commit", "-m", "ignore Beutl state");
+        string stateDirectory = Path.Combine(Root, stateDirectoryName);
+        Directory.CreateDirectory(stateDirectory);
+        string inaccessibleDirectory = Path.Combine(
+            Root,
+            inaccessibleRelativePath.Replace('/', Path.DirectorySeparatorChar));
+        Directory.CreateDirectory(inaccessibleDirectory);
+        string stateFile = Path.Combine(inaccessibleDirectory, "recovery.scene");
+        await File.WriteAllTextAsync(stateFile, "temporary\n");
+        File.SetUnixFileMode(inaccessibleDirectory, UnixFileMode.None);
+        CommitResult? result = null;
+        try
+        {
+            try
+            {
+                _ = Directory.EnumerateFileSystemEntries(inaccessibleDirectory).FirstOrDefault();
+                Assert.Ignore("The current user can still enumerate a mode-000 directory.");
+                return;
+            }
+            catch (UnauthorizedAccessException)
+            {
+            }
+
+            using var service = CreateService();
+            result = await service.CommitAllAsync(
+                "beutl: snapshot on save",
+                SnapshotKind.Save,
+                CancellationToken.None);
+        }
+        finally
+        {
+            File.SetUnixFileMode(
+                inaccessibleDirectory,
+                UnixFileMode.UserRead | UnixFileMode.UserWrite | UnixFileMode.UserExecute);
+        }
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(result, Is.TypeOf<CommitResult.NoChanges>());
+            Assert.That(File.Exists(stateFile), Is.True);
+        });
+    }
+
+    [Test]
+    public async Task CommitAllAsync_fails_closed_when_an_ignored_required_path_cannot_be_enumerated()
+    {
+        if (OperatingSystem.IsWindows())
+        {
+            Assert.Ignore("Unix directory permissions are not available on Windows.");
+            return;
+        }
+
+        await CommitFileAsync("project.bep", "{}\n", "baseline");
+        await File.WriteAllTextAsync(Path.Combine(Root, ".gitignore"), "/opaque/\n");
+        await RunGitAsync("add", "--", ".gitignore");
+        await RunGitAsync("commit", "-m", "ignore unrelated directory");
+        string opaqueDirectory = Path.Combine(Root, "opaque");
+        Directory.CreateDirectory(opaqueDirectory);
+        string requiredPath = Path.Combine(opaqueDirectory, "hidden.scene");
+        await File.WriteAllTextAsync(requiredPath, "ignored required data\n");
+        File.SetUnixFileMode(opaqueDirectory, UnixFileMode.None);
+        InvalidOperationException? exception;
+        try
+        {
+            try
+            {
+                _ = Directory.EnumerateFileSystemEntries(opaqueDirectory).FirstOrDefault();
+                Assert.Ignore("The current user can still enumerate a mode-000 directory.");
+                return;
+            }
+            catch (UnauthorizedAccessException)
+            {
+            }
+
+            using var service = CreateService();
+
+            exception = Assert.ThrowsAsync<InvalidOperationException>(
+                async () => await service.CommitAllAsync(
+                    "beutl: snapshot on save",
+                    SnapshotKind.Save,
+                    CancellationToken.None));
+        }
+        finally
+        {
+            File.SetUnixFileMode(
+                opaqueDirectory,
+                UnixFileMode.UserRead | UnixFileMode.UserWrite | UnixFileMode.UserExecute);
+        }
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(exception!.Message, Does.Contain("safely"));
+            Assert.That(File.Exists(requiredPath), Is.True);
+        });
+    }
+
+    [Test]
     public async Task Identity_is_read_and_written_in_repository_local_config()
     {
         await RunGitAsync("config", "--unset", "user.name");

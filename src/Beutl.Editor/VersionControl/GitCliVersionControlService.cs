@@ -126,6 +126,7 @@ internal sealed class GitCliVersionControlService :
     private const string ManagedLfsBeginMarker = "# BEGIN BEUTL MANAGED LFS";
     private const string ManagedLfsEndMarker = "# END BEUTL MANAGED LFS";
     private const int MaxHygieneWriteAttempts = 3;
+    private const int MaxIgnoredRequiredPathOutputBytes = 256 * 1024;
 
     private static readonly string[] s_gitIgnoreLines =
     [
@@ -177,6 +178,22 @@ internal sealed class GitCliVersionControlService :
     private static readonly HashSet<string> s_projectFileExtensions = new(
         [".bep", ".scene", ".belm"],
         StringComparer.OrdinalIgnoreCase);
+
+    private static readonly string[] s_ignoredRequiredProjectPathspecSuffixes =
+    [
+        "**/*.[bB][eE][pP]",
+        "**/*.[sS][cC][eE][nN][eE]",
+        "**/*.[bB][eE][lL][mM]",
+        "**/[rR][eE][sS][oO][uU][rR][cC][eE][sS]/**",
+        ".gitignore",
+        ".gitattributes",
+    ];
+
+    private static readonly string[] s_ignoredOptionalProjectPathspecSuffixes =
+    [
+        "**/.[bB][eE][uU][tT][lL]/**",
+        "**/*.[tT][mM][pP]",
+    ];
 
     private readonly GitInstallationLocator _installationLocator;
     private readonly Func<string, IGitCliRunner> _runnerFactory;
@@ -4516,17 +4533,202 @@ internal sealed class GitCliVersionControlService :
         IGitCliRunner runner,
         CancellationToken cancellationToken)
     {
-        string prefix = repository.Pathspec == "." ? string.Empty : repository.Pathspec + "/";
-        IEnumerable<string> paths = EnumerateRequiredProjectFiles(repository.ProjectRoot)
-            .Select(path => prefix + Path.GetRelativePath(repository.ProjectRoot, path).Replace('\\', '/'));
-        return await FindIgnoredPathAsync(
-                repository,
-                runner,
-                paths,
-                environmentOverrides: null,
-                includeTrackedFiles: false,
-                cancellationToken)
-            .ConfigureAwait(false);
+        IReadOnlyList<string> pathspecs = CreateIgnoredRequiredProjectPathspecs(repository);
+        GitCommandResult result = await runner.RunAsync(
+            repository,
+            [
+                "ls-files",
+                "--others",
+                "--ignored",
+                "--exclude-standard",
+                "-z",
+                "--",
+                .. pathspecs,
+            ],
+            new GitCommandOptions(
+                GitCommandExecutionKind.Local,
+                MaxStdoutBytes: MaxIgnoredRequiredPathOutputBytes,
+                UseLiteralPathspecs: false),
+            cancellationToken).ConfigureAwait(false);
+        if (result.StdoutTruncated
+            || !HasOnlyExcludedBeutlDirectoryWarnings(repository, result.Stderr))
+        {
+            throw new InvalidOperationException(
+                "Git could not safely determine whether required project files are ignored.");
+        }
+
+        return GitCliRunner.SplitNullSeparated(result.Stdout).FirstOrDefault();
+    }
+
+    private static bool HasOnlyExcludedBeutlDirectoryWarnings(
+        RepositoryInfo repository,
+        string stderr)
+    {
+        if (stderr.Length == 0)
+        {
+            return true;
+        }
+
+        if (!stderr.EndsWith('\n'))
+        {
+            return false;
+        }
+
+        const string warningPrefix = "warning: could not open directory '";
+        const string pathTerminator = "': ";
+        int lineStart = 0;
+        while (lineStart < stderr.Length)
+        {
+            int lineEnd = stderr.IndexOf('\n', lineStart);
+            if (lineEnd < 0)
+            {
+                return false;
+            }
+
+            ReadOnlySpan<char> line = stderr.AsSpan(lineStart, lineEnd - lineStart);
+            if (!line.IsEmpty && line[^1] == '\r')
+            {
+                line = line[..^1];
+            }
+
+            if (line.IsEmpty
+                || !IsExcludedBeutlDirectoryWarning(repository, line, warningPrefix, pathTerminator))
+            {
+                return false;
+            }
+
+            lineStart = lineEnd + 1;
+        }
+
+        return true;
+    }
+
+    private static bool IsExcludedBeutlDirectoryWarning(
+        RepositoryInfo repository,
+        ReadOnlySpan<char> line,
+        string warningPrefix,
+        string pathTerminator)
+    {
+        if (!line.StartsWith(warningPrefix, StringComparison.Ordinal))
+        {
+            return false;
+        }
+
+        ReadOnlySpan<char> remainder = line[warningPrefix.Length..];
+        int terminatorIndex = remainder.IndexOf(pathTerminator, StringComparison.Ordinal);
+        if (terminatorIndex <= 0)
+        {
+            return false;
+        }
+
+        ReadOnlySpan<char> warningPath = remainder[..terminatorIndex];
+        ReadOnlySpan<char> reason = remainder[(terminatorIndex + pathTerminator.Length)..];
+        if (reason.IsEmpty
+            || warningPath.Length < 2
+            || warningPath[^1] != '/'
+            || warningPath[0] == '/')
+        {
+            return false;
+        }
+
+        warningPath = warningPath[..^1];
+        foreach (char character in warningPath)
+        {
+            if (character is '\'' or '"' or '\\' || char.IsControl(character))
+            {
+                return false;
+            }
+        }
+
+        if (reason.Trim().IsEmpty)
+        {
+            return false;
+        }
+
+        foreach (char character in reason)
+        {
+            if (character is '\'' or '"' or '\\' || char.IsControl(character))
+            {
+                return false;
+            }
+        }
+
+        ReadOnlySpan<char> projectPath = repository.Pathspec.AsSpan();
+        if (repository.Pathspec != "."
+            && (warningPath.Length <= projectPath.Length
+                || !warningPath[..projectPath.Length].Equals(projectPath, PathComparison)
+                || warningPath[projectPath.Length] != '/'))
+        {
+            return false;
+        }
+
+        ReadOnlySpan<char> relativePath = repository.Pathspec == "."
+            ? warningPath
+            : warningPath[(projectPath.Length + 1)..];
+        int componentStart = 0;
+        bool isInBeutlStateDirectory = false;
+        while (componentStart < relativePath.Length)
+        {
+            int separator = relativePath[componentStart..].IndexOf('/');
+            int componentLength = separator < 0
+                ? relativePath.Length - componentStart
+                : separator;
+            ReadOnlySpan<char> component = relativePath.Slice(componentStart, componentLength);
+            if (component.IsEmpty || component.SequenceEqual(".") || component.SequenceEqual(".."))
+            {
+                return false;
+            }
+
+            isInBeutlStateDirectory |= component.Equals(
+                ".beutl",
+                StringComparison.OrdinalIgnoreCase);
+            if (separator < 0)
+            {
+                return isInBeutlStateDirectory;
+            }
+
+            componentStart += componentLength + 1;
+        }
+
+        return false;
+    }
+
+    private static IReadOnlyList<string> CreateIgnoredRequiredProjectPathspecs(
+        RepositoryInfo repository)
+    {
+        string prefix = repository.Pathspec == "."
+            ? string.Empty
+            : EscapeGitGlobPath(repository.Pathspec) + "/";
+        var result = new List<string>(
+            s_ignoredRequiredProjectPathspecSuffixes.Length
+            + s_ignoredOptionalProjectPathspecSuffixes.Length);
+        foreach (string suffix in s_ignoredRequiredProjectPathspecSuffixes)
+        {
+            result.Add($":(top,glob){prefix}{suffix}");
+        }
+
+        foreach (string suffix in s_ignoredOptionalProjectPathspecSuffixes)
+        {
+            result.Add($":(top,exclude,glob){prefix}{suffix}");
+        }
+
+        return result;
+    }
+
+    private static string EscapeGitGlobPath(string path)
+    {
+        var builder = new StringBuilder(path.Length);
+        foreach (char character in path)
+        {
+            if (character is '\\' or '*' or '?' or '[' or ']')
+            {
+                builder.Append('\\');
+            }
+
+            builder.Append(character);
+        }
+
+        return builder.ToString();
     }
 
     private static async Task<string?> FindIgnoredRequiredProjectPathBeforeInitAsync(
