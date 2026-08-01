@@ -151,6 +151,49 @@ public sealed class LegacyFilterTypedSuffixExecutionTests
     }
 
     [Test]
+    public void SourceGridReplacement_FlowsIntoFollowingCustomStage()
+    {
+        var translation = new Vector(0.25f, 0.75f);
+        Vector replacementGrid = new(float.NaN, float.NaN);
+        Vector followingAmbientGrid = default;
+        Vector followingInputGrid = new(float.NaN, float.NaN);
+        var effect = new LegacySuffixCallbackFilterEffect((context, _) =>
+        {
+            context.CustomEffect(
+                0,
+                (_, execution) =>
+                {
+                    EffectTarget source = execution.Targets.Single();
+                    using RenderTarget replacementBacking = source.RenderTarget!.ShallowCopy();
+                    EffectTarget replacement = execution.CreateReplacement(
+                        source,
+                        replacementBacking);
+                    source.Dispose();
+                    execution.Targets[0] = replacement;
+                    replacementGrid = replacement.DeviceGridOffset;
+                },
+                static (_, bounds) => bounds);
+            context.CustomEffect(
+                1,
+                (_, execution) =>
+                {
+                    followingAmbientGrid = execution.DeviceGridOffset;
+                    followingInputGrid = execution.Targets.Single().DeviceGridOffset;
+                },
+                static (_, bounds) => bounds);
+        });
+
+        RenderMaterializedEffect(effect, translation);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(replacementGrid, Is.EqualTo(default(Vector)));
+            Assert.That(followingAmbientGrid, Is.EqualTo(translation));
+            Assert.That(followingInputGrid, Is.EqualTo(default(Vector)));
+        });
+    }
+
+    [Test]
     public void CompatibilityShader_ProgramAcquirerReceivesExecutionDestination()
     {
         Rect bounds = new(0, 0, 8, 6);

@@ -81,6 +81,23 @@ public class EffectDrawableBrushLoweringTests
                 effect.ShowDisplacementMap.CurrentValue = true;
                 return effect;
             }));
+        // A drawable map takes the legacy custom-effect path while every other brush takes the shader
+        // description, so this case pins both the lowering and the equivalence of the two paths.
+        yield return new TestCaseData(
+            "DisplacementMap-Transform",
+            (Func<Brush?, FilterEffect>)(brush =>
+            {
+                var transform = new DisplacementMapTranslateTransform();
+                transform.X.CurrentValue = 24;
+                transform.Y.CurrentValue = -16;
+                var effect = new DisplacementMapEffect();
+                effect.DisplacementMap.CurrentValue = brush;
+                effect.Transform.CurrentValue = transform;
+                // The source fill is flat, so a uniform displacement only shows where the shifted sampling
+                // leaves the source; clamp sampling would reproduce the unshifted fill instead.
+                effect.SpreadMethod.CurrentValue = GradientSpreadMethod.Decal;
+                return effect;
+            }));
     }
 
     // DelayAnimationEffect re-applies its child effect from an execution-time callback, where the recorder is

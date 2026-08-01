@@ -1387,6 +1387,19 @@ public class CustomFilterEffectContext
     public void ForEach(Func<int, EffectTarget, EffectTargets> action);
     public float ResolveTargetDensity(Rect bounds);
     public EffectTarget CreateTarget(Rect bounds);
+    public EffectTarget CreateTargetLike(EffectTarget source);
+    public EffectTarget CreateReplacement(EffectTarget source, RenderTarget renderTarget);
+    public SKShader CreateMappedInputShader(
+        EffectTarget source,
+        EffectTarget destination,
+        SKShader sourceShader);
+    public void UseMappedInputShader<TState>(
+        EffectTarget source,
+        EffectTarget destination,
+        TState state,
+        Action<TState, SKShader> use,
+        SKShaderTileMode x = SKShaderTileMode.Decal,
+        SKShaderTileMode y = SKShaderTileMode.Decal);
     public ImmediateCanvas Open(EffectTarget target);
 }
 
@@ -1417,19 +1430,26 @@ public sealed class SKSLShader : IDisposable
         out SKSLShader? shader,
         out string? errorText);
 
-    public SKRuntimeEffect Effect { get; }
-    public SKRuntimeShaderBuilder CreateBuilder();
+    public SKSLShaderBuilder CreateBuilder();
 
-    public EffectTarget ApplyToNewTarget(
+    public void RenderToTarget(
         CustomFilterEffectContext context,
-        SKRuntimeShaderBuilder builder,
-        Rect bounds);
+        SKSLShaderBuilder builder,
+        EffectTarget target);
 
+    public void Dispose();
+}
+
+public sealed class SKSLShaderBuilder : IDisposable
+{
+    public SKRuntimeEffectUniforms Uniforms { get; }
+    public SKRuntimeEffectChildren Children { get; }
+    public SKShader Build();
     public void Dispose();
 }
 ```
 
-`EffectTarget()` and the materialized `EffectTarget(RenderTarget, Rect, EffectiveScale)` constructor remain public for source-less and caller-materialized legacy effects. Only the operation-backed constructor is removed. The materialized constructor takes a shallow copy and derives the canonical zero-offset footprint. `Clone()` preserves `OriginalBounds`, current `Bounds`, `Scale`, `DeviceBounds`, and `DeviceGridOffset`; `EffectTargets.Clone()` uses that path for every retained target.
+`EffectTarget()` and the materialized `EffectTarget(RenderTarget, Rect, EffectiveScale)` constructor remain public for source-less and caller-materialized legacy effects. Only the operation-backed constructor is removed. The materialized constructor takes a shallow copy and derives the canonical zero-offset footprint. `Clone()` preserves `OriginalBounds`, current `Bounds`, `Scale`, `DeviceBounds`, and `DeviceGridOffset`; `EffectTargets.Clone()` uses that path for every retained target. Engine code replacing an existing target while preserving its legacy local placement uses `CreateReplacement`.
 
 Direct legacy activation takes its allocation-failure classification from an explicit `RenderIntent` argument that defaults to `RenderIntent.Preview`; its request purpose remains auxiliary. `RenderIntent.Delivery` fails fast — an intermediate buffer that cannot be allocated throws `InvalidOperationException` rather than letting the layer vanish from a delivered frame — while `RenderIntent.Preview` logs the failed footprint and drops that target. `MaxWorkingScale` does not participate in this classification: it bounds the working scale only, so a preview with an infinite ceiling still degrades and a delivery with a finite ceiling still fails fast. Engine-owned execution paths supply their explicit request classification internally:
 
@@ -1477,6 +1497,16 @@ point-placement semantics when `Bounds` moves. Canonical device-cover allocation
 Shader/Geometry execution.
 
 `DeviceBufferBounds(bounds, w) == PixelRect.FromRect(bounds, w)` describes a canonical composition-device cover. Legacy `CreateTarget(bounds)` deliberately keeps its prior local-buffer allocation instead: `DeviceBufferSize` depends only on the logical dimensions (`(int)` at `w == 1`, otherwise `ceil(dimension * w)`), so changing a fractional origin does not change the buffer size. `ResolveTargetDensity(bounds)` likewise applies the legacy dimension-only per-buffer clamp. `DeviceGridOffset`, `DeviceBounds`, and `RasterBounds` record how that local storage is placed on the composition grid without changing what the callback sees through `Open`.
+
+`CreateTargetLike(source)` allocates a same-footprint output without discarding the source's scale, grid,
+logical placement, or legacy placement mode. `CreateReplacement(source, renderTarget)` wraps a caller-created
+target with the same metadata and requires an exact physical-size match. `CreateMappedInputShader` and
+`UseMappedInputShader` map an input shader from its own `RasterBounds` into the destination backing; the scoped
+variant also owns the temporary snapshot and shader lifetime and passes explicit caller state to a static callback
+without requiring a render-hot-path closure. `SKSLShaderBuilder` borrows its shader's compiled runtime effect,
+disposes only per-build uniform and child storage, and returns a caller-owned `SKShader` from `Build()` without
+exposing the disposable compiled effect. `SKSLShader.RenderToTarget` draws only into the
+already allocated destination, so allocation and input lifetime stay explicit at each CustomEffect call site.
 
 Immediately before each legacy Custom callback, the engine force-materializes surviving inputs to remove renderer-owned aprons. A target that the callback creates, retains, or repositions keeps its local raster placement through execution; scale-one replay uses the historical direct point composite, and no canonical normalization pass is inserted. If a legacy effect translates `Bounds` without reallocating, the backing translates by the same logical delta while preserving its physical size. Semantic `Bounds`, measurement, hit testing, and ROI publication remain separate from that backing footprint. The typed `Shader` and `Geometry` paths use canonical device covers and guarded callback canvases independently of this compatibility behavior.
 
