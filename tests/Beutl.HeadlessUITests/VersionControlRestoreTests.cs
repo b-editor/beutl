@@ -4572,6 +4572,95 @@ public class VersionControlRestoreTests
     }
 
     [AvaloniaTest]
+    public async Task Restore_to_new_branch_validates_revision_before_confirmation_or_close()
+    {
+        await TestReset.ResetShellAsync();
+        using var environment = new IsolatedGitEnvironment();
+        string gitPath = ProbeGitOrIgnore();
+        VersionControlConfig config = GlobalConfiguration.Instance.VersionControlConfig;
+        string? oldGitPath = config.GitExecutablePath;
+        bool oldAutoCommitOnSave = config.AutoCommitOnSave;
+        bool oldAutoCommitOnClose = config.AutoCommitOnClose;
+        bool oldUseLfs = config.UseLfsWhenAvailable;
+        var oldConfirmRestoreAsync = TestShell.VersionControl.ConfirmRestoreAsync;
+
+        try
+        {
+            config.GitExecutablePath = gitPath;
+            config.AutoCommitOnSave = false;
+            config.AutoCommitOnClose = false;
+            config.UseLfsWhenAvailable = false;
+
+            (Project project, _) = await CreateTrackedProjectAsync(
+                "version-control-reject-restore-option");
+            string projectRoot = Path.GetDirectoryName(project.Uri!.LocalPath)!;
+            string validSha = (await RunGitAsync(
+                gitPath,
+                projectRoot,
+                "rev-parse",
+                "HEAD")).Trim();
+            int confirmationCalls = 0;
+            TestShell.VersionControl.ConfirmRestoreAsync = _ =>
+            {
+                confirmationCalls++;
+                return Task.FromResult(true);
+            };
+
+            Assert.ThrowsAsync<ArgumentException>(async () =>
+                await TestShell.VersionControl.RestoreToNewBranchAsync(
+                    "--discard-changes",
+                    "injected-option"));
+
+            string currentBranch = await RunGitAsync(
+                gitPath,
+                projectRoot,
+                "branch",
+                "--show-current");
+            string injectedBranch = await RunGitAsync(
+                gitPath,
+                projectRoot,
+                "branch",
+                "--list",
+                "injected-option");
+            Assert.Multiple(() =>
+            {
+                Assert.That(confirmationCalls, Is.Zero);
+                Assert.That(TestShell.Project.CurrentProject.Value, Is.SameAs(project));
+                Assert.That(currentBranch.Trim(), Is.EqualTo("main"));
+                Assert.That(injectedBranch, Is.Empty);
+            });
+
+            Assert.That(
+                await TestShell.VersionControl.RestoreToNewBranchAsync(
+                    validSha,
+                    "valid-revision"),
+                Is.True);
+            HeadlessTestHelpers.Settle();
+
+            string validBranch = await RunGitAsync(
+                gitPath,
+                projectRoot,
+                "branch",
+                "--show-current");
+            Assert.Multiple(() =>
+            {
+                Assert.That(confirmationCalls, Is.EqualTo(1));
+                Assert.That(TestShell.Project.CurrentProject.Value, Is.Not.Null);
+                Assert.That(validBranch.Trim(), Is.EqualTo("valid-revision"));
+            });
+        }
+        finally
+        {
+            TestShell.VersionControl.ConfirmRestoreAsync = oldConfirmRestoreAsync;
+            await TestReset.ResetShellAsync();
+            config.GitExecutablePath = oldGitPath;
+            config.AutoCommitOnSave = oldAutoCommitOnSave;
+            config.AutoCommitOnClose = oldAutoCommitOnClose;
+            config.UseLfsWhenAvailable = oldUseLfs;
+        }
+    }
+
+    [AvaloniaTest]
     public async Task Restore_reopens_exact_state_preserves_safety_snapshot_and_supports_a_new_branch()
     {
         await TestReset.ResetShellAsync();

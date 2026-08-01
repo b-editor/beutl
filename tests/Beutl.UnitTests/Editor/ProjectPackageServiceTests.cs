@@ -209,8 +209,59 @@ public class ProjectPackageServiceTests
         // Extract and verify .beutl is not included
         string extractDir = Path.Combine(_testDir, "verify");
         System.IO.Compression.ZipFile.ExtractToDirectory(outputPath, extractDir);
-        string extractedBeutlDir = Path.Combine(extractDir, Path.GetFileName(_projectDir), ".beutl");
+        string extractedBeutlDir = Path.Combine(extractDir, ".beutl");
         Assert.That(Directory.Exists(extractedBeutlDir), Is.False);
+    }
+
+    [Test]
+    public async Task ExportImportAsync_ExcludesGitDirectoriesAndPreservesOtherDotfiles()
+    {
+        var service = ProjectPackageService.Current;
+        Project project = CreateAndSaveTestProject();
+        string packagePath = Path.Combine(_exportDir, "git-filtering.zip");
+
+        string gitDirectory = Path.Combine(_projectDir, ".git");
+        Directory.CreateDirectory(Path.Combine(gitDirectory, "objects"));
+        File.WriteAllText(Path.Combine(gitDirectory, "config"), "sensitive repository config");
+
+        string nestedGitDirectory = Path.Combine(_projectDir, "assets", ".git");
+        Directory.CreateDirectory(nestedGitDirectory);
+        File.WriteAllText(Path.Combine(nestedGitDirectory, "HEAD"), "ref: refs/heads/main");
+
+        string linkedWorktreeDirectory = Path.Combine(_projectDir, "linked-worktree");
+        Directory.CreateDirectory(linkedWorktreeDirectory);
+        File.WriteAllText(Path.Combine(linkedWorktreeDirectory, ".git"), "gitdir: ../.git/worktrees/linked");
+
+        string beutlDirectory = Path.Combine(_projectDir, ".beutl");
+        Directory.CreateDirectory(beutlDirectory);
+        File.WriteAllText(Path.Combine(beutlDirectory, "state.json"), "{}");
+
+        File.WriteAllText(Path.Combine(_projectDir, ".gitignore"), "*.tmp\n");
+        string hiddenDirectory = Path.Combine(_projectDir, ".settings");
+        Directory.CreateDirectory(hiddenDirectory);
+        File.WriteAllText(Path.Combine(hiddenDirectory, "editor.json"), "{\"theme\":\"dark\"}");
+        File.WriteAllText(Path.Combine(_projectDir, "assets", "clip.txt"), "project content");
+
+        ExportResult exportResult = await service.ExportAsync(project, packagePath);
+        Project? importedProject = await service.ImportAsync(packagePath, _importDir);
+
+        Assert.That(exportResult.Success, Is.True);
+        Assert.That(importedProject, Is.Not.Null);
+
+        string importedProjectDirectory = Path.GetDirectoryName(importedProject!.Uri!.LocalPath)!;
+        Assert.Multiple(() =>
+        {
+            Assert.That(Directory.Exists(Path.Combine(importedProjectDirectory, ".git")), Is.False);
+            Assert.That(Directory.Exists(Path.Combine(importedProjectDirectory, "assets", ".git")), Is.False);
+            Assert.That(File.Exists(Path.Combine(importedProjectDirectory, "linked-worktree", ".git")), Is.False);
+            Assert.That(Directory.Exists(Path.Combine(importedProjectDirectory, ".beutl")), Is.False);
+            Assert.That(File.ReadAllText(Path.Combine(importedProjectDirectory, ".gitignore")),
+                Is.EqualTo("*.tmp\n"));
+            Assert.That(File.ReadAllText(Path.Combine(importedProjectDirectory, ".settings", "editor.json")),
+                Is.EqualTo("{\"theme\":\"dark\"}"));
+            Assert.That(File.ReadAllText(Path.Combine(importedProjectDirectory, "assets", "clip.txt")),
+                Is.EqualTo("project content"));
+        });
     }
 
     [Test]

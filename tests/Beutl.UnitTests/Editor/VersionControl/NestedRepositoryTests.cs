@@ -676,9 +676,10 @@ public sealed class NestedRepositoryTests : RealGitTestRepository
             repository,
             watcher: null,
             _ => CreateRunner());
+        string branchStart = (await RunGitAsync("rev-parse", "HEAD")).Stdout.Trim();
         await service.CreateBranchAsync(
             "whole-repository",
-            "HEAD",
+            branchStart,
             CancellationToken.None);
         GitCommandResult branchFiles = await RunGitAsync(
             "ls-tree",

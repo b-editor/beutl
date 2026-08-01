@@ -518,7 +518,7 @@ public sealed class VersionControlCoordinator :
         string sha,
         CancellationToken cancellationToken = default)
     {
-        ArgumentException.ThrowIfNullOrWhiteSpace(sha);
+        GitRevisionValidator.ValidateCommitId(sha, nameof(sha));
         return RunRestoreCycleAsync(sha, branchName: null, cancellationToken);
     }
 
@@ -527,7 +527,7 @@ public sealed class VersionControlCoordinator :
         string branchName,
         CancellationToken cancellationToken = default)
     {
-        ArgumentException.ThrowIfNullOrWhiteSpace(sha);
+        GitRevisionValidator.ValidateCommitId(sha, nameof(sha));
         ArgumentException.ThrowIfNullOrWhiteSpace(branchName);
         return RunRestoreCycleAsync(sha, branchName, cancellationToken);
     }

@@ -295,6 +295,9 @@ public sealed class ProjectPackageService
         foreach (string file in Directory.GetFiles(sourceDir))
         {
             cancellationToken.ThrowIfCancellationRequested();
+            if (Path.GetFileName(file) == ".git")
+                continue;
+
             string destFile = Path.Combine(destDir, Path.GetFileName(file));
             await CopyFileAsync(file, destFile, cancellationToken);
         }
@@ -304,8 +307,8 @@ public sealed class ProjectPackageService
             cancellationToken.ThrowIfCancellationRequested();
             string dirName = Path.GetFileName(subDir);
 
-            // Skip the .beutl folder (view state, etc.)
-            if (dirName == ".beutl")
+            // Skip editor state and Git metadata directories.
+            if (dirName is ".beutl" or ".git")
                 continue;
 
             string destSubDir = Path.Combine(destDir, dirName);

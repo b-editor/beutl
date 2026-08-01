@@ -1483,6 +1483,50 @@ public class GitCliVersionControlServiceTests : RealGitTestRepository
         });
     }
 
+    [TestCase(false)]
+    [TestCase(true)]
+    public async Task CreateBranch_paths_reject_option_like_revision_before_mutation(
+        bool useExclusiveTransaction)
+    {
+        await CommitFileAsync("project.bep", "current\n", "current");
+        string originalSha = (await RunGitAsync("rev-parse", "HEAD")).Stdout.Trim();
+        using var service = CreateService();
+
+        Assert.ThrowsAsync<ArgumentException>(async () =>
+        {
+            if (useExclusiveTransaction)
+            {
+                await ((IProjectVersionControlBackend)service).ExecuteExclusiveAsync(
+                    async transaction =>
+                    {
+                        await transaction.CreateBranchAsync(
+                            "injected-option",
+                            "--discard-changes",
+                            CancellationToken.None);
+                        return true;
+                    },
+                    CancellationToken.None);
+            }
+            else
+            {
+                await service.CreateBranchAsync(
+                    "injected-option",
+                    "--discard-changes",
+                    CancellationToken.None);
+            }
+        });
+
+        GitCommandResult currentBranch = await RunGitAsync("branch", "--show-current");
+        GitCommandResult injectedBranch = await RunGitAsync("branch", "--list", "injected-option");
+        GitCommandResult currentSha = await RunGitAsync("rev-parse", "HEAD");
+        Assert.Multiple(() =>
+        {
+            Assert.That(currentBranch.Stdout.Trim(), Is.EqualTo("main"));
+            Assert.That(injectedBranch.Stdout, Is.Empty);
+            Assert.That(currentSha.Stdout.Trim(), Is.EqualTo(originalSha));
+        });
+    }
+
     [Test]
     public async Task Branches_can_be_listed_created_and_switched_after_diverging()
     {
@@ -1490,7 +1534,7 @@ public class GitCliVersionControlServiceTests : RealGitTestRepository
         string baseSha = (await RunGitAsync("rev-parse", "HEAD")).Stdout.Trim();
         using var service = CreateService();
 
-        await service.CreateBranchAsync("alternate", "HEAD", CancellationToken.None);
+        await service.CreateBranchAsync("alternate", baseSha, CancellationToken.None);
         IReadOnlyList<BranchInfo> afterCreate = await service.GetBranchesAsync(
             CancellationToken.None);
         await CommitFileAsync("project.bep", "alternate\n", "alternate");
@@ -2091,7 +2135,8 @@ public class GitCliVersionControlServiceTests : RealGitTestRepository
             "beutl: snapshot on save",
             SnapshotKind.Save,
             CancellationToken.None);
-        await service.CreateBranchAsync("alternate", "HEAD", CancellationToken.None);
+        string committedSha = (await RunGitAsync("rev-parse", "HEAD")).Stdout.Trim();
+        await service.CreateBranchAsync("alternate", committedSha, CancellationToken.None);
         await service.SwitchBranchAsync("main", CancellationToken.None);
         await service.SetRemoteAsync(remoteRoot, CancellationToken.None);
         RemoteOpResult push = await service.PushAsync(progress: null, CancellationToken.None);

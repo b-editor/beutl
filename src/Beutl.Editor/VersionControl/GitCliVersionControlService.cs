@@ -442,7 +442,7 @@ internal sealed class GitCliVersionControlService :
     {
         ThrowIfDisposed();
         ArgumentNullException.ThrowIfNull(expectedCurrent);
-        ArgumentException.ThrowIfNullOrWhiteSpace(sourceCommit);
+        GitRevisionValidator.ValidateCommitId(sourceCommit, nameof(sourceCommit));
         ArgumentException.ThrowIfNullOrWhiteSpace(message);
         return RunSerializedAsync(
             () => CommitProjectTreeCoreAsync(
@@ -504,8 +504,7 @@ internal sealed class GitCliVersionControlService :
         CancellationToken cancellationToken)
     {
         ThrowIfDisposed();
-        ArgumentException.ThrowIfNullOrWhiteSpace(sha);
-        ValidateCommitSha(sha);
+        GitRevisionValidator.ValidateCommitId(sha, nameof(sha));
         return RunSerializedAsync(
             () => GetCommitFilesCoreAsync(sha, cancellationToken),
             cancellationToken);
@@ -517,8 +516,7 @@ internal sealed class GitCliVersionControlService :
         CancellationToken cancellationToken)
     {
         ThrowIfDisposed();
-        ArgumentException.ThrowIfNullOrWhiteSpace(sha);
-        ValidateCommitSha(sha);
+        GitRevisionValidator.ValidateCommitId(sha, nameof(sha));
         return RunSerializedAsync(
             () => GetDiffCoreAsync(sha, path, cancellationToken),
             cancellationToken);
@@ -540,7 +538,7 @@ internal sealed class GitCliVersionControlService :
     {
         ThrowIfDisposed();
         ArgumentException.ThrowIfNullOrWhiteSpace(name);
-        ArgumentException.ThrowIfNullOrWhiteSpace(startPoint);
+        GitRevisionValidator.ValidateCommitId(startPoint, nameof(startPoint));
         return RunSerializedAsync(
             () => CreateBranchCoreAsync(name, startPoint, cancellationToken),
             cancellationToken);
@@ -1270,6 +1268,7 @@ internal sealed class GitCliVersionControlService :
         SnapshotKind kind,
         CancellationToken cancellationToken)
     {
+        GitRevisionValidator.ValidateCommitId(sourceCommit, nameof(sourceCommit));
         await EnsureNotConflictedCoreAsync(cancellationToken).ConfigureAwait(false);
         EnsureWorktreeMutationAllowed();
         ValidateAttachedBranchTip(expectedCurrent, nameof(expectedCurrent));
@@ -2788,6 +2787,7 @@ internal sealed class GitCliVersionControlService :
         string startPoint,
         CancellationToken cancellationToken)
     {
+        GitRevisionValidator.ValidateCommitId(startPoint, nameof(startPoint));
         await EnsureNotConflictedCoreAsync(cancellationToken).ConfigureAwait(false);
         EnsureWorktreeMutationAllowed();
         RepositoryInfo repository = GetRepository();
@@ -3815,19 +3815,6 @@ internal sealed class GitCliVersionControlService :
             'D' => FileChangeStatus.Deleted,
             _ => FileChangeStatus.Modified,
         };
-    }
-
-    private static void ValidateCommitSha(string sha)
-    {
-        if (sha.Length is < 4 or > 64
-            || sha.Any(static character => character is not (>= '0' and <= '9'
-                or >= 'a' and <= 'f'
-                or >= 'A' and <= 'F')))
-        {
-            throw new ArgumentException(
-                "The commit SHA must be a hexadecimal object ID between 4 and 64 characters.",
-                nameof(sha));
-        }
     }
 
     private static string ValidateDiffPath(RepositoryInfo repository, string path)
@@ -5492,4 +5479,21 @@ internal sealed class GitCliVersionControlService :
 
     private static StringComparison PathComparison
         => OperatingSystem.IsWindows() ? StringComparison.OrdinalIgnoreCase : StringComparison.Ordinal;
+}
+
+internal static class GitRevisionValidator
+{
+    public static void ValidateCommitId(string revision, string paramName)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(revision, paramName);
+        if (revision.Length is < 4 or > 64
+            || revision.Any(static character => character is not (>= '0' and <= '9'
+                or >= 'a' and <= 'f'
+                or >= 'A' and <= 'F')))
+        {
+            throw new ArgumentException(
+                "The commit revision must be a hexadecimal object ID between 4 and 64 characters.",
+                paramName);
+        }
+    }
 }
