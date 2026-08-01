@@ -67,8 +67,8 @@ The benchmark manifest's `visualManifestSha256` and
   status, failure dimensions, and diagnostics counters, plus the Delivery exception
   type, exact message, and failure counters.
 - Raw result: [`paired-visual-result.json`](paired-visual-result.json)
-  (SHA-256 `34a3c98f6f2a2109e3d2be8162238db0b08dd9b72bab934adbc3368fed1b40a7`);
-  run-regenerated target manifest `11859a01858b248963ab5f2b0cd6aa6da00818afdfce3d2cf04869c708a1f29d`, feature manifest `26874c1573fdf4552273a016e37f3bab9dc8b0e1875a97ada976a8bd9ad1eee2`.
+  (SHA-256 `84013ea15e4b98c57af91ac994ea8098fc883c0ff53fd933ce71da6c49014ec5`);
+  run-regenerated target manifest `e9c8d5ca17766b3518c32934f1fb1837dacd5dc3e67fb828f47fc17ed544b4b8`, feature manifest `4c5cc30db393da7d64c9857ceada9396f1b8b7a6166f7c0cde422a9521f7f1c1`.
 - The exact historical inputs are retained under
   [`paired-visual-run/target/`](paired-visual-run/target/) and
   [`paired-visual-run/feature/`](paired-visual-run/feature/). Each manifest authenticates
@@ -86,19 +86,18 @@ Per-channel maximum error bound 0.02 over the reference coverage band (0 < α < 
 
 ### Approved semantic refreshes
 
-Parity for the three research.md-approved artifacts ran against the committed refreshed
-blobs; every other artifact was byte-verified against the regenerated legacy baseline.
+Parity for the remaining research.md-approved artifact ran against the committed refreshed
+blob. `geometry-stroke` and `split-expansion` were restored to their regenerated legacy
+values, and every other artifact was byte-verified against that legacy baseline.
 
 | Scene | Legacy blob | Refreshed blob |
 |---|---|---|
-| `geometry-stroke` | `37e7c40d349c52a1…` | `047982d1f4ffecbf…` |
 | `scene3d-with-2d-tail` | `89d111e13da934fd…` | `8908d30de25b8823…` |
-| `split-expansion` | `028a6a61e1aa448a…` | `ac694c8d884a6807…` |
 
 ### Non-vacuity
 
 All parity scenes carry non-vacuity evidence; the minimum recorded margin above
-tolerance is 0.0867 (`geometry-stroke`, `marginAboveTolerance`).
+tolerance is 0.0895 (`geometry-stroke`, `marginAboveTolerance`).
 
 ## Same-process fusion-disabled/enabled A/B (passed)
 

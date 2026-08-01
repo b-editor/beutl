@@ -57,14 +57,14 @@
     ],
     "vulkanVendorId": "0x0000106b"
   },
-  "featureCodeSha": "acabdbfd7c5f6601b520daf88df0f50f80eb40cf",
+  "featureCodeSha": "d6f9972334a52b6f7980e603d5cd487e7a427e6b",
   "featureCommand": "dotnet run -c Release --no-build --project tests/Beutl.Benchmarks/Beutl.Benchmarks.csproj -- feature-visual-export",
   "featureExporterProvenance": {
-    "exporterAssemblyVersion": "2.99.99+acabdbfd7c5f6601b520daf88df0f50f80eb40cf",
-    "featureCodeSha": "acabdbfd7c5f6601b520daf88df0f50f80eb40cf"
+    "exporterAssemblyVersion": "2.99.99+d6f9972334a52b6f7980e603d5cd487e7a427e6b",
+    "featureCodeSha": "d6f9972334a52b6f7980e603d5cd487e7a427e6b"
   },
-  "featureManifestSha256": "26874c1573fdf4552273a016e37f3bab9dc8b0e1875a97ada976a8bd9ad1eee2",
-  "generatedAtUtc": "2026-08-01T13:30:03.113026+00:00",
+  "featureManifestSha256": "4c5cc30db393da7d64c9857ceada9396f1b8b7a6166f7c0cde422a9521f7f1c1",
+  "generatedAtUtc": "2026-08-01T17:51:42.867121+00:00",
   "scenes": [
     {
       "edgeCrop": {
@@ -251,12 +251,12 @@
     },
     {
       "fullImage": {
-        "alphaMae": 1.8155984120604434e-05,
-        "linearLightSsim": 0.9999998347701147,
-        "linearRgbMae": 5.444909403782813e-06,
-        "maximumWindowedAlphaMae": 9.775161743164062e-05,
-        "maximumWindowedRgbaMae": 5.1781535148620605e-05,
-        "minimumWindowedSsim": 0.9999980515613711
+        "alphaMae": 0.0,
+        "linearLightSsim": 1.0,
+        "linearRgbMae": 0.0,
+        "maximumWindowedAlphaMae": 0.0,
+        "maximumWindowedRgbaMae": 0.0,
+        "minimumWindowedSsim": 1.0
       },
       "sceneId": "mixed-spatial-color-lut"
     },
@@ -595,37 +595,23 @@
   "semanticRefresh": {
     "artifacts": [
       {
-        "artifact": "geometry-stroke.rgba16f",
-        "legacyArtifactSha256": "37e7c40d349c52a1a9bb8a7bec12e838e9b1ca2565b902230bc9262a8317ee45",
-        "parityRanAgainstRefreshedArtifact": true,
-        "refreshedArtifactSha256": "047982d1f4ffecbf46706fa3bd93a4e9c09502e4d991591b6b8b2f02de4a11be",
-        "sceneId": "geometry-stroke"
-      },
-      {
         "artifact": "scene3d-with-2d-tail.rgba16f",
         "legacyArtifactSha256": "89d111e13da934fd2c233e48ca07bcae7c41da0d26b6423c0c47d40dca38bede",
         "parityRanAgainstRefreshedArtifact": true,
         "refreshedArtifactSha256": "8908d30de25b882368b3d9f7e3d355c783ef5f0026b10f1c108e577f067331f6",
         "sceneId": "scene3d-with-2d-tail"
-      },
-      {
-        "artifact": "split-expansion.rgba16f",
-        "legacyArtifactSha256": "028a6a61e1aa448a8d11337ccd6d0d73652e621507ebe71bd744e9ede814e8fc",
-        "parityRanAgainstRefreshedArtifact": true,
-        "refreshedArtifactSha256": "ac694c8d884a68077b5504000213bc47007ed5b09b82bafaa2d205e9eee28230",
-        "sceneId": "split-expansion"
       }
     ],
-    "committedTargetBaselineManifestSha256": "954236df9a2b47831d069045cbc58e27f29f02fd22afd3ca0de8e4a62a2d0945",
-    "regeneratedTargetManifestSha256": "60a10cf97363c362b95ce4443d20f0bd70b43207111fb2518c4c7f5c05295eab"
+    "committedTargetBaselineManifestSha256": "02acc4c2ce09b8f2e524f4bd8d2d0d036fdf28c036fea6f501794f63828776d5",
+    "regeneratedTargetManifestSha256": "0251a1ba42aeda41b4a04ad563e5a373408dae474a285b0c509df3ec59e77d56"
   },
   "sourceAssemblyVersions": {
-    "feature": "2.99.99+acabdbfd7c5f6601b520daf88df0f50f80eb40cf",
+    "feature": "2.99.99+d6f9972334a52b6f7980e603d5cd487e7a427e6b",
     "target": "2.99.99+43a38e665d9bf52548161a3917e748bd1457ff55"
   },
   "status": "passed",
   "targetCodeSha": "43a38e665d9bf52548161a3917e748bd1457ff55",
-  "targetManifestSha256": "11859a01858b248963ab5f2b0cd6aa6da00818afdfce3d2cf04869c708a1f29d",
+  "targetManifestSha256": "e9c8d5ca17766b3518c32934f1fb1837dacd5dc3e67fb828f47fc17ed544b4b8",
   "thresholds": {
     "maximumAaCoverageBandChannelError": 0.02,
     "maximumAlphaMae": 0.02,

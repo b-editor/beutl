@@ -1,10 +1,10 @@
 {
   "schemaVersion": 1,
-  "featureCodeSha": "acabdbfd7c5f6601b520daf88df0f50f80eb40cf",
+  "featureCodeSha": "d6f9972334a52b6f7980e603d5cd487e7a427e6b",
   "generatorSeed": 20040719,
   "evidenceMode": "feature-current-production-render-node-renderer",
-  "baselineManifestSha256": "11859a01858b248963ab5f2b0cd6aa6da00818afdfce3d2cf04869c708a1f29d",
-  "exporterAssemblyVersion": "2.99.99\u002Bacabdbfd7c5f6601b520daf88df0f50f80eb40cf",
+  "baselineManifestSha256": "e9c8d5ca17766b3518c32934f1fb1837dacd5dc3e67fb828f47fc17ed544b4b8",
+  "exporterAssemblyVersion": "2.99.99\u002Bd6f9972334a52b6f7980e603d5cd487e7a427e6b",
   "fingerprint": {
     "osDescription": "macOS 26.5.2",
     "osVersion": "Unix 26.5.2",
@@ -46,7 +46,7 @@
     "skiaSharpManagedVersion": "3.119.4\u002Brelease-3.119.4.f568ac94dd768ef9a2f593537cfde2dd0d348ef5.f568ac94dd768ef9a2f593537cfde2dd0d348ef5",
     "skiaSharpNativeVersion": "119.0",
     "silkNetVulkanVersion": "2.23.0\u002B94605142f7b7bd6e69c9201e8e721d245c69eb7e",
-    "beutlEngineAssemblyVersion": "2.99.99\u002Bacabdbfd7c5f6601b520daf88df0f50f80eb40cf"
+    "beutlEngineAssemblyVersion": "2.99.99\u002Bd6f9972334a52b6f7980e603d5cd487e7a427e6b"
   },
   "pixelFormat": {
     "colorType": "RGBA16F",
@@ -69,9 +69,9 @@
     "external-materialized-source-control.rgba16f": "3b441cdd9ba74563ae6e64cb1d8ec906e622a658dec10f0a91a5493d629cadbd",
     "external-materialized-source.rgba16f": "7b63ace1452ad254c8498faa9e387c8bc29d7f79d1e7ecac3c3ba79006b30eca",
     "geometry-stroke-control.rgba16f": "307622f4daf91c91fbd9e3e3b7ef7063a9bfca21606497b9558a86ea97103947",
-    "geometry-stroke.rgba16f": "047982d1f4ffecbf46706fa3bd93a4e9c09502e4d991591b6b8b2f02de4a11be",
+    "geometry-stroke.rgba16f": "37e7c40d349c52a1a9bb8a7bec12e838e9b1ca2565b902230bc9262a8317ee45",
     "mixed-spatial-color-lut-control.rgba16f": "7b63ace1452ad254c8498faa9e387c8bc29d7f79d1e7ecac3c3ba79006b30eca",
-    "mixed-spatial-color-lut.rgba16f": "e054ca2b29e6284d84f02798b254b18f5b7af6a30e71e6876195dfd32ed92e15",
+    "mixed-spatial-color-lut.rgba16f": "1a2aef2471c25cbb81ef072a83d06cd9da79171b3b8503ce9138862a287c5e0c",
     "multiple-composition-roots-control.rgba16f": "cb4ddea0ba9b75bbe91e8a213d066847667c83b9862ccc1727c71d0b52769edc",
     "multiple-composition-roots.rgba16f": "7189d2e653fa7bf998963c1e3ba22493432bc7b1ddcc01f5e2b64261d7818866",
     "nested-drawable-brush-delay-control.rgba16f": "4cd25d47782c845ff3d7d6720eb8c5c61989d5a5a22f87096deb68042141533b",
@@ -98,7 +98,7 @@
     "snapshot-clear-draw-backdrop.rgba16f": "e9d7e659d6da7e74783432d006824ddce3fbea29c36d166b8ac81fd82aa4615c",
     "snapshot-draw-backdrop-no-clear-control.rgba16f": "751f64965bd8615a5fee509ba9e34063aeabd1f6b87e922096b0f4f9a12460cf",
     "split-expansion-control.rgba16f": "7b63ace1452ad254c8498faa9e387c8bc29d7f79d1e7ecac3c3ba79006b30eca",
-    "split-expansion.rgba16f": "ac694c8d884a68077b5504000213bc47007ed5b09b82bafaa2d205e9eee28230",
+    "split-expansion.rgba16f": "028a6a61e1aa448a8d11337ccd6d0d73652e621507ebe71bd744e9ede814e8fc",
     "whole-source-coordinate-control.rgba16f": "7b63ace1452ad254c8498faa9e387c8bc29d7f79d1e7ecac3c3ba79006b30eca",
     "whole-source-coordinate-shader.rgba16f": "6092f5ba974be5bfe8bc891d008b8234c288737773f28460eca643dd508e0c49"
   },
@@ -1033,14 +1033,14 @@
         "Reuses": 0
       },
       "nonVacuity": {
-        "linearRgbMae": 0.043542045877610215,
-        "alphaMae": 0.10669340174875142,
+        "linearRgbMae": 0.04435536168025109,
+        "alphaMae": 0.10949119962291953,
         "maximumChannelError": 1,
         "sampleCount": 20736,
         "metricMode": "full-frame",
         "metricRegion": null,
         "parityTolerance": 0.02,
-        "marginAboveTolerance": 0.08669340174875141
+        "marginAboveTolerance": 0.08949119962291953
       }
     },
     {
@@ -1134,14 +1134,11 @@
         "saturationPercent": "35"
       },
       "requestCounters": {
-        "ExecutedGpuPasses": 1,
         "ExecutedOutcomes": 2,
         "ExecutionIslands": 1,
         "ExternalRootResources": 1,
         "OpaqueBoundaries": 1,
-        "PlannedGpuPasses": 1,
-        "ProgramCreations": 1,
-        "ProgramMisses": 1,
+        "OpaqueExternalExecutions": 1,
         "RecordedFragments": 2,
         "RecordedMaterializableValues": 2,
         "RenderCacheResolutionPasses": 1,
@@ -1152,8 +1149,8 @@
         "FusedShaderRunExecutions": 0,
         "IntermediateTargetAcquisitions": 0,
         "ProgramCacheHits": 0,
-        "ShaderRunExecutions": 1,
-        "ShaderStageExecutions": 1,
+        "ShaderRunExecutions": 0,
+        "ShaderStageExecutions": 0,
         "Synchronizations": 0
       },
       "structuralPlanCacheStatistics": {
@@ -1164,12 +1161,12 @@
         "RetainedPlans": 1
       },
       "programCacheStatistics": {
-        "Creations": 1,
+        "Creations": 0,
         "Evictions": 0,
         "Hits": 0,
-        "Misses": 1,
-        "RetainedBytes": 4974,
-        "RetainedPrograms": 1
+        "Misses": 0,
+        "RetainedBytes": 0,
+        "RetainedPrograms": 0
       },
       "targetPoolStatistics": {
         "AvailableTargets": 0,
@@ -1279,21 +1276,21 @@
         "lut": "non-identity-2x2x2"
       },
       "requestCounters": {
-        "ExecutedGpuPasses": 2,
+        "ExecutedGpuPasses": 1,
         "ExecutedOutcomes": 5,
         "ExecutionIslands": 4,
         "ExternalRootResources": 1,
-        "FullFrameMaterializations": 4,
-        "IntermediateAcquires": 4,
-        "IntermediateCreates": 4,
-        "IntermediateDischarges": 4,
+        "FullFrameMaterializations": 1,
+        "IntermediateAcquires": 1,
+        "IntermediateCreates": 1,
+        "IntermediateDischarges": 1,
         "OpaqueBoundaries": 4,
-        "OpaqueExternalExecutions": 2,
-        "PeakLiveIntermediates": 2,
-        "PlannedGpuPasses": 2,
-        "PoolMisses": 4,
-        "ProgramCreations": 2,
-        "ProgramMisses": 2,
+        "OpaqueExternalExecutions": 3,
+        "PeakLiveIntermediates": 1,
+        "PlannedGpuPasses": 1,
+        "PoolMisses": 1,
+        "ProgramCreations": 1,
+        "ProgramMisses": 1,
         "RecordedFragments": 5,
         "RecordedMaterializableValues": 5,
         "RenderCacheResolutionPasses": 1,
@@ -1302,7 +1299,7 @@
       },
       "lastExecutionStatistics": {
         "FusedShaderRunExecutions": 0,
-        "IntermediateTargetAcquisitions": 4,
+        "IntermediateTargetAcquisitions": 1,
         "ProgramCacheHits": 0,
         "ShaderRunExecutions": 0,
         "ShaderStageExecutions": 0,
@@ -1316,34 +1313,34 @@
         "RetainedPlans": 1
       },
       "programCacheStatistics": {
-        "Creations": 2,
+        "Creations": 1,
         "Evictions": 0,
         "Hits": 0,
-        "Misses": 2,
-        "RetainedBytes": 3638,
-        "RetainedPrograms": 2
+        "Misses": 1,
+        "RetainedBytes": 447,
+        "RetainedPrograms": 1
       },
       "targetPoolStatistics": {
-        "AvailableTargets": 4,
-        "Creates": 4,
+        "AvailableTargets": 1,
+        "Creates": 1,
         "Evictions": 0,
         "LeasedTargets": 0,
-        "Misses": 4,
-        "OwnedBytes": 724784,
-        "OwnedTargets": 4,
-        "PeakLiveTargets": 2,
-        "RetainedBytes": 724784,
+        "Misses": 1,
+        "OwnedBytes": 211680,
+        "OwnedTargets": 1,
+        "PeakLiveTargets": 1,
+        "RetainedBytes": 211680,
         "Reuses": 0
       },
       "nonVacuity": {
-        "linearRgbMae": 0.16149895657677923,
-        "alphaMae": 0.10565080349965963,
-        "maximumChannelError": 0.78173828125,
+        "linearRgbMae": 0.16149547253064658,
+        "alphaMae": 0.1056431361221145,
+        "maximumChannelError": 0.78125,
         "sampleCount": 20736,
         "metricMode": "full-frame",
         "metricRegion": null,
         "parityTolerance": 0.02,
-        "marginAboveTolerance": 0.14149895657677924
+        "marginAboveTolerance": 0.1414954725306466
       }
     },
     {
@@ -1435,14 +1432,8 @@
         "ExecutedOutcomes": 2,
         "ExecutionIslands": 1,
         "ExternalRootResources": 1,
-        "FullFrameMaterializations": 6,
-        "IntermediateAcquires": 6,
-        "IntermediateCreates": 6,
-        "IntermediateDischarges": 6,
         "OpaqueBoundaries": 1,
         "OpaqueExternalExecutions": 1,
-        "PeakLiveIntermediates": 6,
-        "PoolMisses": 6,
         "RecordedFragments": 2,
         "RecordedMaterializableValues": 2,
         "RenderCacheResolutionPasses": 1,
@@ -1451,7 +1442,7 @@
       },
       "lastExecutionStatistics": {
         "FusedShaderRunExecutions": 0,
-        "IntermediateTargetAcquisitions": 6,
+        "IntermediateTargetAcquisitions": 0,
         "ProgramCacheHits": 0,
         "ShaderRunExecutions": 0,
         "ShaderStageExecutions": 0,
@@ -1473,26 +1464,26 @@
         "RetainedPrograms": 0
       },
       "targetPoolStatistics": {
-        "AvailableTargets": 6,
-        "Creates": 6,
+        "AvailableTargets": 0,
+        "Creates": 0,
         "Evictions": 0,
         "LeasedTargets": 0,
-        "Misses": 6,
-        "OwnedBytes": 148512,
-        "OwnedTargets": 6,
-        "PeakLiveTargets": 6,
-        "RetainedBytes": 148512,
+        "Misses": 0,
+        "OwnedBytes": 0,
+        "OwnedTargets": 0,
+        "PeakLiveTargets": 0,
+        "RetainedBytes": 0,
         "Reuses": 0
       },
       "nonVacuity": {
-        "linearRgbMae": 0.06147165492238331,
-        "alphaMae": 0.13159820179880402,
+        "linearRgbMae": 0.06243007200379155,
+        "alphaMae": 0.135278917297169,
         "maximumChannelError": 0.99462890625,
         "sampleCount": 20736,
         "metricMode": "full-frame",
         "metricRegion": null,
         "parityTolerance": 0.02,
-        "marginAboveTolerance": 0.11159820179880402
+        "marginAboveTolerance": 0.115278917297169
       }
     },
     {
@@ -3340,22 +3331,21 @@
       },
       "requestCounters": {
         "ExecutedBackendTransitions": 1,
-        "ExecutedGpuPasses": 3,
+        "ExecutedGpuPasses": 2,
         "ExecutedOutcomes": 4,
         "ExecutionIslands": 4,
         "ExternalRootResources": 1,
-        "FullFrameMaterializations": 2,
-        "IntermediateAcquires": 2,
-        "IntermediateCreates": 2,
-        "IntermediateDischarges": 2,
+        "FullFrameMaterializations": 1,
+        "IntermediateAcquires": 1,
+        "IntermediateCreates": 1,
+        "IntermediateDischarges": 1,
         "Opaque3DBoundaries": 1,
         "OpaqueBoundaries": 5,
-        "PeakLiveIntermediates": 2,
+        "OpaqueExternalExecutions": 1,
+        "PeakLiveIntermediates": 1,
         "PlannedBackendTransitions": 1,
-        "PlannedGpuPasses": 4,
-        "PoolMisses": 2,
-        "ProgramCreations": 1,
-        "ProgramMisses": 1,
+        "PlannedGpuPasses": 3,
+        "PoolMisses": 1,
         "RecordedFragments": 4,
         "RecordedMaterializableValues": 4,
         "RecordedTargetScopes": 1,
@@ -3366,10 +3356,10 @@
       },
       "lastExecutionStatistics": {
         "FusedShaderRunExecutions": 0,
-        "IntermediateTargetAcquisitions": 2,
+        "IntermediateTargetAcquisitions": 1,
         "ProgramCacheHits": 0,
-        "ShaderRunExecutions": 1,
-        "ShaderStageExecutions": 1,
+        "ShaderRunExecutions": 0,
+        "ShaderStageExecutions": 0,
         "Synchronizations": 1
       },
       "structuralPlanCacheStatistics": {
@@ -3380,23 +3370,23 @@
         "RetainedPlans": 1
       },
       "programCacheStatistics": {
-        "Creations": 1,
+        "Creations": 0,
         "Evictions": 0,
         "Hits": 0,
-        "Misses": 1,
-        "RetainedBytes": 716,
-        "RetainedPrograms": 1
+        "Misses": 0,
+        "RetainedBytes": 0,
+        "RetainedPrograms": 0
       },
       "targetPoolStatistics": {
-        "AvailableTargets": 2,
-        "Creates": 2,
+        "AvailableTargets": 1,
+        "Creates": 1,
         "Evictions": 0,
         "LeasedTargets": 0,
-        "Misses": 2,
-        "OwnedBytes": 331776,
-        "OwnedTargets": 2,
-        "PeakLiveTargets": 2,
-        "RetainedBytes": 331776,
+        "Misses": 1,
+        "OwnedBytes": 165888,
+        "OwnedTargets": 1,
+        "PeakLiveTargets": 1,
+        "RetainedBytes": 165888,
         "Reuses": 0
       },
       "nonVacuity": {
