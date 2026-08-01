@@ -376,7 +376,7 @@ internal sealed class RenderPipelineBenchmarkSession : IDisposable
                 TargetDomain = s_targetDomain,
                 OutputScale = 1,
                 MaxWorkingScale = 1,
-                UseRenderCache = scene.HasStaticPrefixCache,
+                CacheOptions = new Beutl.Graphics.Rendering.Cache.RenderCacheOptions(scene.HasStaticPrefixCache, Beutl.Graphics.Rendering.Cache.RenderCacheRules.Default),
             },
         };
 

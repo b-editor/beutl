@@ -22,7 +22,7 @@ public class HitTestParityTests
                 DefaultRequest = new RenderNodeRenderRequest
                 {
                     OutputScale = outputScale,
-                    UseRenderCache = false,
+                    CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Disabled,
                 },
             });
         return renderer.HitTest(point);

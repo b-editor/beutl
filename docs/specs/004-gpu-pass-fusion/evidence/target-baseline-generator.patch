@@ -26,10 +26,10 @@ index 0000000000000000000000000000000000000000..6d55410ecd222610a4a076142173ecd6
 +</Project>
 diff --git a/.gpu-pass-baseline/Program.cs b/.gpu-pass-baseline/Program.cs
 new file mode 100644
-index 0000000000000000000000000000000000000000..796fb924cc38c372495bd80ae139fab02866b187
+index 0000000000000000000000000000000000000000..44b597f3b8789982e485ef27938c7950ccc4ce0b
 --- /dev/null
 +++ b/.gpu-pass-baseline/Program.cs
-@@ -0,0 +1,1959 @@
+@@ -0,0 +1,1961 @@
 +using System.Buffers.Binary;
 +using System.Collections.Immutable;
 +using System.Diagnostics;
@@ -1373,6 +1373,7 @@ index 0000000000000000000000000000000000000000..796fb924cc38c372495bd80ae139fab0
 +            GeneratorPatchSha256 = RequireEnvironment("BEUTL_BASELINE_PATCH_SHA256"),
 +            GeneratorScriptSha256 = RequireEnvironment("BEUTL_BASELINE_GENERATOR_SCRIPT_SHA256"),
 +            PairedRunnerSha256 = RequireEnvironment("BEUTL_BASELINE_PAIRED_RUNNER_SHA256"),
++            BenchmarkRunnerSha256 = RequireEnvironment("BEUTL_BASELINE_BENCHMARK_RUNNER_SHA256"),
 +            GeneratorSourceBundleSha256 = RequireEnvironment("BEUTL_BASELINE_SOURCE_BUNDLE_SHA256"),
 +        };
 +    }
@@ -1867,6 +1868,7 @@ index 0000000000000000000000000000000000000000..796fb924cc38c372495bd80ae139fab0
 +    public string GeneratorPatchSha256 { get; init; } = "";
 +    public string GeneratorScriptSha256 { get; init; } = "";
 +    public string PairedRunnerSha256 { get; init; } = "";
++    public string BenchmarkRunnerSha256 { get; init; } = "";
 +    public string GeneratorSourceBundleSha256 { get; init; } = "";
 +}
 +

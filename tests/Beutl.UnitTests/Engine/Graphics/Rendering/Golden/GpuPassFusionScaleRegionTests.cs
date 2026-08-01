@@ -70,7 +70,7 @@ public sealed class GpuPassFusionScaleRegionTests
                     RequestedRegion = requestedRegion,
                     OutputScale = 1,
                     MaxWorkingScale = float.PositiveInfinity,
-                    UseRenderCache = false,
+                    CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Disabled,
                 },
             });
 
@@ -107,7 +107,7 @@ public sealed class GpuPassFusionScaleRegionTests
                     TargetDomain = new Rect(0, 0, 200, 300),
                     RequestedRegion = new Rect(100, 200, 25, 20),
                     OutputScale = 1,
-                    UseRenderCache = false,
+                    CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Disabled,
                     Purpose = RenderRequestPurpose.Frame,
                     Diagnostics = diagnostics,
                 },
@@ -150,7 +150,7 @@ public sealed class GpuPassFusionScaleRegionTests
                     RequestedRegion = requestedRegion,
                     OutputScale = 1,
                     MaxWorkingScale = 4,
-                    UseRenderCache = false,
+                    CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Disabled,
                 },
                 TargetFactory = new CpuTargetFactory(),
             });
@@ -194,7 +194,7 @@ public sealed class GpuPassFusionScaleRegionTests
                     RequestedRegion = requestedRegion,
                     OutputScale = 2,
                     MaxWorkingScale = 4,
-                    UseRenderCache = false,
+                    CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Disabled,
                 },
                 TargetFactory = new CpuTargetFactory(),
             });
@@ -241,7 +241,7 @@ public sealed class GpuPassFusionScaleRegionTests
                     RequestedRegion = requestedRegion,
                     OutputScale = 2,
                     MaxWorkingScale = 4,
-                    UseRenderCache = false,
+                    CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Disabled,
                 },
                 TargetFactory = new CpuTargetFactory(),
             });
@@ -284,7 +284,7 @@ public sealed class GpuPassFusionScaleRegionTests
                 DefaultRequest = new RenderNodeRenderRequest
                 {
                     RequestedRegion = requestedRegion,
-                    UseRenderCache = false,
+                    CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Disabled,
                 },
                 TargetFactory = new CpuTargetFactory(),
             });
@@ -325,7 +325,7 @@ public sealed class GpuPassFusionScaleRegionTests
                 DefaultRequest = new RenderNodeRenderRequest
                 {
                     RequestedRegion = requestedRegion,
-                    UseRenderCache = false,
+                    CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Disabled,
                 },
                 TargetFactory = new CpuTargetFactory(),
             });
@@ -367,7 +367,7 @@ public sealed class GpuPassFusionScaleRegionTests
                     TargetDomain = s_domain,
                     OutputScale = 1,
                     MaxWorkingScale = 2,
-                    UseRenderCache = false,
+                    CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Disabled,
                 },
                 TargetFactory = new CpuTargetFactory(),
             });
@@ -451,7 +451,7 @@ public sealed class GpuPassFusionScaleRegionTests
                         TargetDomain = new Rect(0, 0, width, height),
                         OutputScale = 1,
                         MaxWorkingScale = 2,
-                        UseRenderCache = false,
+                        CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Disabled,
                         FusionMode = mode,
                     },
                 });

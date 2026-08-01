@@ -332,7 +332,7 @@ public sealed class ShaderAndAllocationFailureTests
                     TargetDomain = new Rect(0, 0, 8, 8),
                     OutputScale = 1,
                     MaxWorkingScale = 1,
-                    UseRenderCache = false,
+                    CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Disabled,
                 },
                 TargetFactory = factory,
             });

@@ -4,6 +4,8 @@ using Beutl.Engine;
 using Beutl.Graphics;
 using Beutl.Graphics.Rendering;
 using Beutl.Graphics.Rendering.Cache;
+using Beutl.Graphics.Shapes;
+using Beutl.Graphics.Transformation;
 using Beutl.Media;
 using Beutl.UnitTests.Engine.Graphics.Backend;
 using SkiaSharp;
@@ -177,7 +179,7 @@ public sealed class RendererWideRecordingTests
                 DefaultRequest = new RenderNodeRenderRequest
                 {
                     TargetDomain = new Rect(0, 0, 8, 8),
-                    UseRenderCache = false,
+                    CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Disabled,
                 },
                 TargetFactory = new CpuTargetFactory(),
             });
@@ -211,7 +213,7 @@ public sealed class RendererWideRecordingTests
                 DefaultRequest = new RenderNodeRenderRequest
                 {
                     TargetDomain = new Rect(0, 0, 8, 8),
-                    UseRenderCache = false,
+                    CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Disabled,
                     Diagnostics = diagnostics,
                 },
                 TargetFactory = new CpuTargetFactory(),
@@ -341,6 +343,48 @@ public sealed class RendererWideRecordingTests
                 Assert.That(renderer.GetBoundary(first), Is.Null);
                 Assert.That(state.RecordCalls, Is.EqualTo(new[] { 6, 5 }),
                     "Clearing caches must not measure disposed current-frame entries.");
+            });
+        });
+    }
+
+    [Test]
+    public void ProductionRenderer_UsesQueryBoundsForAFullTargetDrawable()
+    {
+        RenderThread.Dispatcher.Invoke(() =>
+        {
+            var group = new DrawableGroup();
+            group.Children.Add(new RectShape
+            {
+                Width = { CurrentValue = 3 },
+                Height = { CurrentValue = 2 },
+                AlignmentX = { CurrentValue = AlignmentX.Left },
+                AlignmentY = { CurrentValue = AlignmentY.Top },
+                Transform = { CurrentValue = new TranslateTransform(2, 1) },
+                Fill = { CurrentValue = Brushes.White },
+            });
+            using Drawable.Resource resource =
+                (Drawable.Resource)group.ToResource(CompositionContext.Default);
+            var frame = new CompositionFrame(
+                ImmutableArray.Create<EngineObject.Resource>(resource),
+                new TimeRange(TimeSpan.Zero, TimeSpan.FromSeconds(1)),
+                new PixelSize(8, 8));
+            using var renderer = new Renderer(
+                width: 8,
+                height: 8,
+                renderScale: 1,
+                maxWorkingScale: float.PositiveInfinity,
+                diagnostics: null,
+                surface: new CpuRenderTarget(8, 8))
+            {
+                CacheOptions = RenderCacheOptions.Disabled,
+            };
+
+            renderer.Render(frame);
+
+            Assert.Multiple(() =>
+            {
+                Assert.That(renderer.GetBoundary(group), Is.EqualTo(new Rect(2, 1, 3, 2)));
+                Assert.That(renderer.RecalculateBoundaries(0), Is.EqualTo(new[] { new Rect(2, 1, 3, 2) }));
             });
         });
     }

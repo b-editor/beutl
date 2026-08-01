@@ -47,7 +47,7 @@ internal static class GoldenImageHarness
                     TargetDomain = new Rect(default, logicalSize.ToSize(1)),
                     RequestedRegion = requestedRegion,
                     OutputScale = scale,
-                    UseRenderCache = false,
+                    CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Disabled,
                 },
             });
         renderer.Render(canvas);

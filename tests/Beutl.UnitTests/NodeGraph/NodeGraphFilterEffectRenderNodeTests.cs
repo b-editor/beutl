@@ -130,7 +130,7 @@ public class NodeGraphFilterEffectRenderNodeTests
         {
             DefaultRequest = new RenderNodeRenderRequest
             {
-                UseRenderCache = false,
+                CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Disabled,
             },
         });
 
@@ -165,7 +165,7 @@ public class NodeGraphFilterEffectRenderNodeTests
         {
             DefaultRequest = new RenderNodeRenderRequest
             {
-                UseRenderCache = false,
+                CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Disabled,
             },
         });
 
@@ -219,7 +219,7 @@ public class NodeGraphFilterEffectRenderNodeTests
         {
             DefaultRequest = new RenderNodeRenderRequest
             {
-                UseRenderCache = false,
+                CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Disabled,
             },
         });
 
@@ -263,7 +263,7 @@ public class NodeGraphFilterEffectRenderNodeTests
         {
             DefaultRequest = new RenderNodeRenderRequest
             {
-                UseRenderCache = false,
+                CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Disabled,
             },
         });
 
@@ -296,7 +296,7 @@ public class NodeGraphFilterEffectRenderNodeTests
         {
             DefaultRequest = new RenderNodeRenderRequest
             {
-                UseRenderCache = false,
+                CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Disabled,
             },
         });
         using RenderNodeRasterization rasterization = renderer.Rasterize();
@@ -340,7 +340,7 @@ public class NodeGraphFilterEffectRenderNodeTests
         {
             DefaultRequest = new RenderNodeRenderRequest
             {
-                UseRenderCache = false,
+                CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Disabled,
             },
         });
 
@@ -399,7 +399,7 @@ public class NodeGraphFilterEffectRenderNodeTests
         {
             DefaultRequest = new RenderNodeRenderRequest
             {
-                UseRenderCache = false,
+                CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Disabled,
             },
         });
 
@@ -442,7 +442,7 @@ public class NodeGraphFilterEffectRenderNodeTests
         {
             DefaultRequest = new RenderNodeRenderRequest
             {
-                UseRenderCache = false,
+                CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Disabled,
             },
         });
 
@@ -480,7 +480,7 @@ public class NodeGraphFilterEffectRenderNodeTests
             {
                 DefaultRequest = new RenderNodeRenderRequest
                 {
-                    UseRenderCache = false,
+                    CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Disabled,
                 },
             });
 
@@ -550,7 +550,7 @@ public class NodeGraphFilterEffectRenderNodeTests
         {
             DefaultRequest = new RenderNodeRenderRequest
             {
-                UseRenderCache = false,
+                CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Disabled,
             },
         });
         using (RenderNodeRasterization first = renderer.Rasterize())
@@ -700,7 +700,7 @@ public class NodeGraphFilterEffectRenderNodeTests
         {
             DefaultRequest = new RenderNodeRenderRequest
             {
-                UseRenderCache = false,
+                CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Disabled,
             },
         });
 

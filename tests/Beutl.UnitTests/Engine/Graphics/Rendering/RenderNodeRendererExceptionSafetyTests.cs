@@ -474,7 +474,7 @@ public class RenderNodeRendererExceptionSafetyTests
             {
                 OutputScale = 1,
                 MaxWorkingScale = float.PositiveInfinity,
-                UseRenderCache = false,
+                CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Disabled,
             },
             TargetFactory = targetFactory,
         });

@@ -194,7 +194,7 @@ public sealed class OpaqueSourceCoverageTests
                     Intent = RenderIntent.Delivery,
                     OutputScale = density,
                     MaxWorkingScale = density,
-                    UseRenderCache = false,
+                    CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Disabled,
                     Purpose = RenderRequestPurpose.Auxiliary,
                 },
             });
@@ -234,7 +234,7 @@ public sealed class OpaqueSourceCoverageTests
                     TargetDomain = new Rect(default, s_frame.ToSize(1)),
                     OutputScale = density,
                     MaxWorkingScale = density,
-                    UseRenderCache = useRenderCache,
+                    CacheOptions = new Beutl.Graphics.Rendering.Cache.RenderCacheOptions(useRenderCache, Beutl.Graphics.Rendering.Cache.RenderCacheRules.Default),
                     Purpose = RenderRequestPurpose.Frame,
                     Diagnostics = diagnostics,
                 },
@@ -324,6 +324,8 @@ public sealed class OpaqueSourceCoverageTests
     {
         RgbaMaximumError maximum = ImageMetrics.MaximumAbsoluteErrorPerChannel(expected, actual);
         RgbaMaximumError edgeMaximum = ImageMetrics.EdgeBandMaximumAbsoluteErrorPerChannel(expected, actual);
+        PixelRect expectedExtent = GetNonBlackExtent(expected);
+        int fractionalReferencePixels = CountFractionalAlphaPixels(expected);
         TestContext.WriteLine(
             $"{scenario}: extent={GetNonBlackExtent(actual)}, max={maximum.Maximum:F6}, edge-max={edgeMaximum.Maximum:F6}");
 
@@ -331,15 +333,34 @@ public sealed class OpaqueSourceCoverageTests
         {
             Assert.That(actual.Width, Is.EqualTo(expected.Width));
             Assert.That(actual.Height, Is.EqualTo(expected.Height));
+            Assert.That(expectedExtent, Is.Not.EqualTo(default(PixelRect)),
+                "The antialiased reference must have nonempty visible coverage.");
+            Assert.That(fractionalReferencePixels, Is.GreaterThan(0),
+                "The antialiased reference must contain fractional-alpha edge coverage.");
             Assert.That(
                 GetNonBlackExtent(actual),
-                Is.EqualTo(GetNonBlackExtent(expected)),
+                Is.EqualTo(expectedExtent),
                 "Materialization must retain the complete antialiased coverage fringe.");
             Assert.That(maximum.Maximum, Is.LessThanOrEqualTo(0.02),
                 "Materialization introduced a visible whole-frame pixel error.");
             Assert.That(edgeMaximum.Maximum, Is.LessThanOrEqualTo(0.02),
                 "Materialization changed an antialiased edge pixel.");
         });
+    }
+
+    private static int CountFractionalAlphaPixels(Bitmap bitmap)
+    {
+        int count = 0;
+        ReadOnlySpan<ushort> pixels = bitmap.GetPixelSpan<ushort>();
+        for (int index = 3; index < pixels.Length; index += 4)
+        {
+            float alpha = (float)BitConverter.UInt16BitsToHalf(pixels[index]);
+            Assert.That(float.IsFinite(alpha), Is.True, "Reference alpha must be finite.");
+            if (alpha > 0 && alpha < 1)
+                count++;
+        }
+
+        return count;
     }
 
     private static PixelRect GetNonBlackExtent(Bitmap bitmap)

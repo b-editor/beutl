@@ -70,16 +70,18 @@ public class LargeSigmaWorkingScaleTests
                     TargetDomain = new Rect(0, 0, 64, 64),
                     OutputScale = 1,
                     MaxWorkingScale = 1,
-                    UseRenderCache = false,
+                    CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Disabled,
                 },
             });
 
+        RenderNodeMeasurement firstMeasurement = renderer.Measure();
         using (renderer.Rasterize())
         {
         }
 
         using FilterEffect.Resource second = CreateEffect("Blur", sigma: 600);
-        node.Update(second);
+        Assert.That(node.Update(second), Is.True);
+        RenderNodeMeasurement secondMeasurement = renderer.Measure();
         using (renderer.Rasterize())
         {
         }
@@ -87,6 +89,9 @@ public class LargeSigmaWorkingScaleTests
         StructuralPlanCacheStatistics statistics = renderer.StructuralPlanCacheStatistics;
         Assert.Multiple(() =>
         {
+            Assert.That(firstMeasurement.EffectiveScale.Value, Is.EqualTo(1).Within(0.0001f));
+            Assert.That(secondMeasurement.EffectiveScale.Value, Is.EqualTo(500f / 600f).Within(0.0001f));
+            Assert.That(secondMeasurement.EffectiveScale, Is.Not.EqualTo(firstMeasurement.EffectiveScale));
             Assert.That(statistics.Compilations, Is.EqualTo(1));
             Assert.That(statistics.Misses, Is.EqualTo(1));
             Assert.That(statistics.Hits, Is.EqualTo(1));

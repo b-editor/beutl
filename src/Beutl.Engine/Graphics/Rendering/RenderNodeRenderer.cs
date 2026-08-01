@@ -42,8 +42,8 @@ public sealed record RenderNodeRenderRequest
     /// </remarks>
     public float MaxWorkingScale { get; init; } = float.PositiveInfinity;
 
-    /// <summary>Gets whether eligible persistent render-node cache entries may be read or published.</summary>
-    public bool UseRenderCache { get; init; } = RenderCacheOptions.Default.IsEnabled;
+    /// <summary>Gets the persistent render-node cache admission policy for this request.</summary>
+    public RenderCacheOptions CacheOptions { get; init; } = RenderCacheOptions.Default;
 
     /// <summary>Gets the execution purpose observed by render callbacks and cache policy.</summary>
     /// <remarks>
@@ -53,8 +53,6 @@ public sealed record RenderNodeRenderRequest
     public RenderRequestPurpose Purpose { get; init; } = RenderRequestPurpose.Auxiliary;
 
     internal FusionMode FusionMode { get; init; } = FusionMode.Enabled;
-
-    internal RenderCacheRules CacheRules { get; init; } = RenderCacheRules.Default;
 
     internal IRenderPipelineDiagnosticsState? Diagnostics { get; init; }
 }
@@ -756,7 +754,7 @@ public sealed class RenderNodeRenderer : IDisposable
             SynchronizeProgramCacheContext(targets);
             var recorder = new RenderRequestRecorder(request);
             RecordedRenderGraph graph = recorder.Record(Root);
-            bool allowPersistentLookup = renderRequest.UseRenderCache
+            bool allowPersistentLookup = renderRequest.CacheOptions.IsEnabled
                                          && purpose is not (RenderRequestPurpose.Bounds or RenderRequestPurpose.HitTest);
             bool allowCapturePublication = allowPersistentLookup
                                            && purpose is RenderRequestPurpose.Frame or RenderRequestPurpose.CacheWarmup;
@@ -809,7 +807,7 @@ public sealed class RenderNodeRenderer : IDisposable
             renderRequest.RequestedRegion,
             outputScale,
             maxWorkingScale,
-            new RenderCacheOptions(renderRequest.UseRenderCache, renderRequest.CacheRules),
+            renderRequest.CacheOptions,
             renderRequest.FusionMode,
             diagnostics: renderRequest.Diagnostics));
 
@@ -821,6 +819,7 @@ public sealed class RenderNodeRenderer : IDisposable
     private static RenderNodeRenderRequest CopyAndSanitizeRequest(RenderNodeRenderRequest request)
     {
         ArgumentNullException.ThrowIfNull(request);
+        ArgumentNullException.ThrowIfNull(request.CacheOptions);
         if (!Enum.IsDefined(request.Intent))
         {
             throw new ArgumentOutOfRangeException(

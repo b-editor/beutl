@@ -1,5 +1,6 @@
 ﻿using Beutl.Graphics;
 using Beutl.Graphics.Rendering;
+using Beutl.Media;
 
 namespace Beutl.PublicApiContractTests;
 
@@ -466,6 +467,51 @@ public sealed class TargetAuthoringContractTests
         });
     }
 
+    [Test]
+    public void FiniteTargetCommand_CanReplacePixelsWithTransparencyWithoutEscapingItsRegion()
+    {
+        var domain = new Rect(0, 0, 4, 3);
+        var erased = new Rect(1, 1, 2, 1);
+        using var node = new DelegateNode(context =>
+        {
+            RenderFragmentHandle source = context.OpaqueSource(OpaqueRenderDescription.Create(
+                session =>
+                {
+                    using OpaqueRenderOutput output = session.CreateOutput(session.OutputBounds);
+                    output.Canvas.Use(canvas => canvas.Clear(Colors.Red));
+                    session.Publish(output);
+                },
+                OpaqueRenderBoundsContract.Source(domain),
+                RenderHitTestContract.OutputBounds,
+                RenderValueCardinality.Single,
+                RenderScaleContract.MaterializeAtWorkingScale,
+                structuralKey: "finite-source-replace-background"));
+            RenderFragmentHandle command = context.TargetCommand(
+                [],
+                TargetCommandDescription.Create(
+                    session => session.ReplaceAffectedRegion(Colors.Transparent),
+                    TargetRegion.Region(erased),
+                    Rect.Empty,
+                    RenderHitTestContract.None,
+                    TargetAccess.ReadWrite,
+                    structuralKey: "finite-source-replace"));
+            context.PublishRange([source, command]);
+        });
+
+        using RenderNodeRasterization rasterization = Rasterize(node, targetDomain: domain);
+        Bitmap bitmap = rasterization.Bitmap
+            ?? throw new AssertionException("The finite replacement request produced no bitmap.");
+        ReadOnlySpan<ushort> pixels = bitmap.GetPixelSpan<ushort>();
+        float outsideAlpha = (float)BitConverter.UInt16BitsToHalf(pixels[((0 * bitmap.Width) + 0) * 4 + 3]);
+        float insideAlpha = (float)BitConverter.UInt16BitsToHalf(pixels[((1 * bitmap.Width) + 1) * 4 + 3]);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(outsideAlpha, Is.EqualTo(1).Within(0.001f));
+            Assert.That(insideAlpha, Is.Zero.Within(0.001f));
+        });
+    }
+
     [TestCase(true)]
     [TestCase(false)]
     public void RenderInputReadback_BindsToAuthoredDynamicInputs(bool selectDynamicInput)
@@ -918,7 +964,7 @@ public sealed class TargetAuthoringContractTests
                     RequestedRegion = requestedRegion,
                     OutputScale = outputScale,
                     MaxWorkingScale = maxWorkingScale,
-                    UseRenderCache = false,
+                    CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Disabled,
                 },
             });
         return renderer.Measure();
@@ -941,7 +987,7 @@ public sealed class TargetAuthoringContractTests
                     RequestedRegion = requestedRegion,
                     OutputScale = outputScale,
                     MaxWorkingScale = maxWorkingScale,
-                    UseRenderCache = false,
+                    CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Disabled,
                 },
             });
         return renderer.Rasterize();

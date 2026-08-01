@@ -245,6 +245,19 @@ public partial class ImmediateCanvas : IDisposable, IPopable
         Canvas.Clear(color.ToSKColor());
     }
 
+    internal void ReplaceAffectedRegion(Color color)
+    {
+        VerifyPixelOperation();
+        RecordPixelOperation();
+        using var paint = new SKPaint
+        {
+            Color = color.ToSKColor(),
+            BlendMode = SKBlendMode.Src,
+            IsAntialias = false,
+        };
+        Canvas.DrawPaint(paint);
+    }
+
     public void ClipRect(Rect clip, ClipOperation operation = ClipOperation.Intersect)
     {
         VerifyAccess();
@@ -525,7 +538,7 @@ public partial class ImmediateCanvas : IDisposable, IPopable
                 {
                     OutputScale = _currentDensity,
                     MaxWorkingScale = MaxWorkingScale,
-                    UseRenderCache = true,
+                    CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Enabled,
                 },
             });
         renderer.Render(this);
@@ -543,7 +556,7 @@ public partial class ImmediateCanvas : IDisposable, IPopable
                 {
                     OutputScale = _currentDensity,
                     MaxWorkingScale = MaxWorkingScale,
-                    UseRenderCache = true,
+                    CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Enabled,
                 },
             });
         renderer.Render(this);

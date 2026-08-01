@@ -486,7 +486,7 @@ public static class AvaloniaTypeConverter
                         {
                             Intent = RenderIntent.Preview,
                             TargetDomain = new Graphics.Rect(0, 0, 1920, 1080),
-                            UseRenderCache = false,
+                            CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Disabled,
                         },
                     });
                 using RenderNodeRasterization rasterization = renderer.Rasterize();

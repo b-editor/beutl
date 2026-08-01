@@ -34,7 +34,7 @@ public sealed class ShaderFallbackTests
                 DefaultRequest = new RenderNodeRenderRequest
                 {
                     TargetDomain = s_bounds,
-                    UseRenderCache = false,
+                    CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Disabled,
                     FusionMode = FusionMode.Disabled,
                 },
                 TargetFactory = new CpuTargetFactory(),
@@ -92,7 +92,7 @@ public sealed class ShaderFallbackTests
                 DefaultRequest = new RenderNodeRenderRequest
                 {
                     TargetDomain = s_bounds,
-                    UseRenderCache = false,
+                    CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Disabled,
                     FusionMode = FusionMode.Disabled,
                 },
                 TargetFactory = new CpuTargetFactory(),
@@ -142,7 +142,7 @@ public sealed class ShaderFallbackTests
                 DefaultRequest = new RenderNodeRenderRequest
                 {
                     TargetDomain = s_bounds,
-                    UseRenderCache = false,
+                    CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Disabled,
                     FusionMode = FusionMode.Disabled,
                 },
                 TargetFactory = new CpuTargetFactory(),
@@ -218,7 +218,7 @@ public sealed class ShaderFallbackTests
                 {
                     TargetDomain = s_bounds,
                     RequestedRegion = requestedRegion,
-                    UseRenderCache = false,
+                    CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Disabled,
                     FusionMode = fusionMode,
                 },
                 TargetFactory = new CpuTargetFactory(),

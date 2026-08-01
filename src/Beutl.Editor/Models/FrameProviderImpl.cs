@@ -21,15 +21,27 @@ public sealed class FrameProviderImpl : IFrameProvider, IDisposable
     private readonly Channel<(long Frame, Bitmap Bitmap)> _channel;
     private readonly CancellationTokenSource _cts = new();
     private readonly Task _producerTask;
+    private readonly Action<int, long>? _retainedTargetCheckpoint;
     private int _renderedFrameCount;
     private bool _disposed;
 
     public FrameProviderImpl(Scene scene, Rational rate, SceneRenderer renderer, Subject<TimeSpan> progress)
+        : this(scene, rate, renderer, progress, retainedTargetCheckpoint: null)
+    {
+    }
+
+    internal FrameProviderImpl(
+        Scene scene,
+        Rational rate,
+        SceneRenderer renderer,
+        Subject<TimeSpan> progress,
+        Action<int, long>? retainedTargetCheckpoint)
     {
         _scene = scene;
         _rate = rate;
         _renderer = renderer;
         _progress = progress;
+        _retainedTargetCheckpoint = retainedTargetCheckpoint;
 
         int bufferSize = Preferences.Default.Get("Output.FrameBufferSize", 100);
         _channel = Channel.CreateBounded<(long Frame, Bitmap Bitmap)>(
@@ -75,7 +87,8 @@ public sealed class FrameProviderImpl : IFrameProvider, IDisposable
         {
             try
             {
-                _renderer.ReleaseRetainedRenderTargets();
+                long releasedBytes = _renderer.ReleaseRetainedRenderTargets();
+                _retainedTargetCheckpoint?.Invoke(_renderedFrameCount, releasedBytes);
             }
             catch
             {

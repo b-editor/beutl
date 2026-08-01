@@ -159,7 +159,7 @@ public sealed class RenderNodeRendererSnapshotFastPathTests
                 RequestedRegion = requestedRegion,
                 OutputScale = 1,
                 MaxWorkingScale = 1,
-                UseRenderCache = false,
+                CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Disabled,
             },
             TargetFactory = targetFactory,
         });

@@ -23,7 +23,7 @@ public sealed class RenderNodeRendererDeviceBoundsTests
                 {
                     OutputScale = outputScale,
                     MaxWorkingScale = 2,
-                    UseRenderCache = false,
+                    CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Disabled,
                 },
                 TargetFactory = factory,
             });
@@ -67,7 +67,7 @@ public sealed class RenderNodeRendererDeviceBoundsTests
                 {
                     OutputScale = 1,
                     MaxWorkingScale = 1,
-                    UseRenderCache = false,
+                    CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Disabled,
                 },
                 TargetFactory = factory,
             });

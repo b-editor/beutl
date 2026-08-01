@@ -129,7 +129,7 @@ public sealed class BackdropOrderingTests
                 DefaultRequest = new RenderNodeRenderRequest
                 {
                     TargetDomain = s_domain,
-                    UseRenderCache = false,
+                    CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Disabled,
                 },
             });
 
@@ -201,7 +201,7 @@ public sealed class BackdropOrderingTests
                 DefaultRequest = new RenderNodeRenderRequest
                 {
                     TargetDomain = s_domain,
-                    UseRenderCache = false,
+                    CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Disabled,
                 },
             });
 

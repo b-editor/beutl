@@ -324,7 +324,7 @@ public class ResolutionScaleTests
                 DefaultRequest = new RenderNodeRenderRequest
                 {
                     OutputScale = bad,
-                    UseRenderCache = false,
+                    CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Disabled,
                 },
             });
         Assert.That(renderer.Options.DefaultRequest.OutputScale, Is.EqualTo(1f));
@@ -344,7 +344,7 @@ public class ResolutionScaleTests
                 {
                     OutputScale = 1,
                     MaxWorkingScale = bad,
-                    UseRenderCache = false,
+                    CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Disabled,
                 },
             });
         Assert.That(renderer.Options.DefaultRequest.MaxWorkingScale, Is.EqualTo(float.PositiveInfinity));
@@ -370,7 +370,7 @@ public class ResolutionScaleTests
                 {
                     OutputScale = 1,
                     MaxWorkingScale = bad,
-                    UseRenderCache = false,
+                    CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Disabled,
                 },
             });
         Assert.That(renderer.Options.DefaultRequest.MaxWorkingScale, Is.EqualTo(float.PositiveInfinity));
@@ -388,7 +388,7 @@ public class ResolutionScaleTests
                 DefaultRequest = new RenderNodeRenderRequest
                 {
                     OutputScale = bad,
-                    UseRenderCache = false,
+                    CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Disabled,
                 },
             });
         Assert.That(renderer.Options.DefaultRequest.OutputScale, Is.EqualTo(1f));
@@ -424,7 +424,7 @@ public class ResolutionScaleTests
             new RenderNodeRendererOptions {
                 DefaultRequest = new RenderNodeRenderRequest
                 {
-                    UseRenderCache = false,
+                    CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Disabled,
                 },
             });
         RenderNodeMeasurement measurement = renderer.Measure();

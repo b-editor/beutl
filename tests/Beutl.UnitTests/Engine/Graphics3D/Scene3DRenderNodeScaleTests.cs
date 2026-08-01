@@ -32,7 +32,7 @@ public class Scene3DRenderNodeScaleTests
                 {
                     OutputScale = 2,
                     MaxWorkingScale = 0.5f,
-                    UseRenderCache = false,
+                    CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Disabled,
                 },
             });
 

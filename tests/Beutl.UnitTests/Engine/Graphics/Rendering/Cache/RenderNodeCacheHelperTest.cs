@@ -216,8 +216,9 @@ public class RenderNodeCacheHelperTest
                 DefaultRequest = new RenderNodeRenderRequest
                 {
                     TargetDomain = new Rect(0, 0, 100, 100),
-                    UseRenderCache = useRenderCache,
-                    CacheRules = cacheRules ?? RenderCacheRules.Default,
+                    CacheOptions = new RenderCacheOptions(
+                        useRenderCache,
+                        cacheRules ?? RenderCacheRules.Default),
                     Purpose = RenderRequestPurpose.Frame,
                 },
                 TargetFactory = new CpuTargetFactory(),

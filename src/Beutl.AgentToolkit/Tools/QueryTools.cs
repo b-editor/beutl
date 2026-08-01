@@ -1503,7 +1503,7 @@ public sealed class QueryTools(AgentSessionManager sessions) : ToolBase
                     TargetDomain = new Rect(default, canvasSize),
                     OutputScale = 1,
                     MaxWorkingScale = 1,
-                    UseRenderCache = false,
+                    CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Disabled,
                 },
             });
         RenderNodeMeasurement measurement = renderer.Measure();

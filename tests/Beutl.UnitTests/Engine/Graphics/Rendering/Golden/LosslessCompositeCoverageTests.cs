@@ -602,6 +602,10 @@ public sealed class LosslessCompositeCoverageTests
             {
                 int pixelOffset = ((y * bitmap.Width) + x) * 4;
                 float alpha = (float)BitConverter.UInt16BitsToHalf(pixels[pixelOffset + 3]);
+                Assert.That(
+                    float.IsFinite(alpha),
+                    Is.True,
+                    $"The footprint alpha at ({x}, {y}) must be finite.");
                 if (alpha <= 0)
                     continue;
                 left = Math.Min(left, x);
@@ -823,7 +827,7 @@ public sealed class LosslessCompositeCoverageTests
                     TargetDomain = new Rect(0, 0, 180, 140),
                     OutputScale = 1,
                     MaxWorkingScale = maxWorkingScale,
-                    UseRenderCache = useRenderCache,
+                    CacheOptions = new Beutl.Graphics.Rendering.Cache.RenderCacheOptions(useRenderCache, Beutl.Graphics.Rendering.Cache.RenderCacheRules.Default),
                     FusionMode = fusionMode,
                     Purpose = RenderRequestPurpose.Frame,
                 },
@@ -949,7 +953,7 @@ public sealed class LosslessCompositeCoverageTests
                     TargetDomain = new Rect(default, frame.ToSize(1)),
                     OutputScale = density,
                     MaxWorkingScale = density,
-                    UseRenderCache = false,
+                    CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Disabled,
                     Purpose = RenderRequestPurpose.Frame,
                 },
             });

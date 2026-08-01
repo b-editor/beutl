@@ -36,7 +36,7 @@ public class TextRenderNodeTests
             new RenderNodeRendererOptions {
                 DefaultRequest = new RenderNodeRenderRequest
                 {
-                    UseRenderCache = false,
+                    CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Disabled,
                 },
             });
         RenderNodeMeasurement measurement = renderer.Measure();

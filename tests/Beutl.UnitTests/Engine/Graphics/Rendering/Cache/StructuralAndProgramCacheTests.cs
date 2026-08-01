@@ -30,7 +30,7 @@ public sealed class StructuralAndProgramCacheTests
                     TargetDomain = new Rect(0, 0, 8, 8),
                     OutputScale = 1,
                     MaxWorkingScale = 1,
-                    UseRenderCache = false,
+                    CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Disabled,
                 },
                 TargetFactory = new CpuTargetFactory(),
             });
@@ -279,7 +279,7 @@ public sealed class StructuralAndProgramCacheTests
                 DefaultRequest = new RenderNodeRenderRequest
                 {
                     TargetDomain = new Rect(0, 0, 8, 8),
-                    UseRenderCache = false,
+                    CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Disabled,
                 },
                 TargetFactory = new CpuTargetFactory(),
             });

@@ -183,7 +183,7 @@ public class SceneDrawableScaleTests
                         DefaultRequest = new RenderNodeRenderRequest
                         {
                             TargetDomain = new Rect(0, 0, inner.FrameSize.Width, inner.FrameSize.Height),
-                            UseRenderCache = false,
+                            CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Disabled,
                         },
                     });
                 using RenderNodeRasterization rasterization = renderer.Rasterize();

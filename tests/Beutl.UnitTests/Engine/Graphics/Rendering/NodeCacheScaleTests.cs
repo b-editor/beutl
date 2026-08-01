@@ -205,8 +205,9 @@ public class NodeCacheScaleTests
                     RequestedRegion = requestedRegion,
                     OutputScale = outputScale,
                     MaxWorkingScale = maxWorkingScale,
-                    UseRenderCache = true,
-                    CacheRules = cacheRules ?? RenderCacheRules.Default,
+                    CacheOptions = new RenderCacheOptions(
+                        true,
+                        cacheRules ?? RenderCacheRules.Default),
                     Purpose = RenderRequestPurpose.Frame,
                     Diagnostics = diagnostics,
                 },

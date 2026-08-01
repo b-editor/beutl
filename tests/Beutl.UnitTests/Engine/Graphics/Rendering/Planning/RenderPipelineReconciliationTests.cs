@@ -22,7 +22,7 @@ public sealed class RenderPipelineReconciliationTests
             {
                 TargetDomain = new Rect(0, 0, 32, 24),
                 Diagnostics = diagnostics,
-                UseRenderCache = false,
+                CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Disabled,
             },
         });
 
@@ -53,7 +53,7 @@ public sealed class RenderPipelineReconciliationTests
                 TargetDomain = new Rect(0, 0, 32, 24),
                 RequestedRegion = new Rect(8, 8, 12, 10),
                 Diagnostics = diagnostics,
-                UseRenderCache = false,
+                CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Disabled,
             },
         });
 
@@ -88,7 +88,7 @@ public sealed class RenderPipelineReconciliationTests
             {
                 TargetDomain = new Rect(0, 0, 16, 16),
                 Diagnostics = diagnostics,
-                UseRenderCache = false,
+                CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Disabled,
             },
         });
         using RenderTarget target = RenderTarget.CreateNull(16, 16);
@@ -120,7 +120,7 @@ public sealed class RenderPipelineReconciliationTests
             {
                 TargetDomain = new Rect(0, 0, 16, 16),
                 Diagnostics = diagnostics,
-                UseRenderCache = false,
+                CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Disabled,
             },
         });
         using RenderTarget target = RenderTarget.CreateNull(16, 16);
@@ -157,7 +157,7 @@ public sealed class RenderPipelineReconciliationTests
             {
                 TargetDomain = new Rect(0, 0, 16, 16),
                 Diagnostics = diagnostics,
-                UseRenderCache = true,
+                CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Enabled,
                 Purpose = RenderRequestPurpose.Frame,
             },
         });
@@ -366,7 +366,7 @@ public sealed class RenderPipelineReconciliationTests
             {
                 TargetDomain = new Rect(0, 0, 16, 16),
                 Diagnostics = diagnostics,
-                UseRenderCache = true,
+                CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Enabled,
                 Purpose = RenderRequestPurpose.Frame,
             },
         });
@@ -396,7 +396,7 @@ public sealed class RenderPipelineReconciliationTests
             {
                 TargetDomain = new Rect(0, 0, 16, 16),
                 Diagnostics = diagnostics,
-                UseRenderCache = false,
+                CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Disabled,
             },
             TargetFactory = new ThrowingTargetFactory(),
         });
@@ -431,7 +431,7 @@ public sealed class RenderPipelineReconciliationTests
             {
                 TargetDomain = new Rect(0, 0, 16, 16),
                 Diagnostics = diagnostics,
-                UseRenderCache = false,
+                CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Disabled,
             },
         });
 
@@ -539,7 +539,7 @@ public sealed class RenderPipelineReconciliationTests
             DefaultRequest = new RenderNodeRenderRequest
             {
                 Diagnostics = diagnostics,
-                UseRenderCache = false,
+                CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Disabled,
             },
         });
 
@@ -959,7 +959,7 @@ public sealed class RenderPipelineReconciliationTests
             {
                 TargetDomain = new Rect(0, 0, 16, 16),
                 Diagnostics = diagnostics,
-                UseRenderCache = false,
+                CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Disabled,
             },
         });
 
@@ -999,7 +999,7 @@ public sealed class RenderPipelineReconciliationTests
             {
                 TargetDomain = new Rect(0, 0, 16, 16),
                 Diagnostics = diagnostics,
-                UseRenderCache = false,
+                CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Disabled,
             },
         });
 

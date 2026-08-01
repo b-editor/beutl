@@ -102,7 +102,7 @@ public class MaxWorkingScaleSanitizationTests
                 {
                     OutputScale = 1,
                     MaxWorkingScale = maxWorkingScale,
-                    UseRenderCache = false,
+                    CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Disabled,
                 },
             });
 
@@ -121,7 +121,7 @@ public class MaxWorkingScaleSanitizationTests
                 {
                     OutputScale = 1,
                     MaxWorkingScale = 3,
-                    UseRenderCache = false,
+                    CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Disabled,
                 },
             });
 

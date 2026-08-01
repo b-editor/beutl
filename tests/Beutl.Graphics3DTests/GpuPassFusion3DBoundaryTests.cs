@@ -63,7 +63,7 @@ public sealed class GpuPassFusion3DBoundaryTests
                         TargetDomain = new Rect(0, 0, 32, 24),
                         OutputScale = 1,
                         MaxWorkingScale = 1,
-                        UseRenderCache = false,
+                        CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Disabled,
                     },
                 });
             using RenderNodeRasterization rasterization = renderer.Rasterize();
@@ -126,7 +126,7 @@ public sealed class GpuPassFusion3DBoundaryTests
                                TargetDomain = new Rect(0, 0, 32, 24),
                                OutputScale = 1,
                                MaxWorkingScale = 1,
-                               UseRenderCache = false,
+                               CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Disabled,
                            },
                        }))
             {

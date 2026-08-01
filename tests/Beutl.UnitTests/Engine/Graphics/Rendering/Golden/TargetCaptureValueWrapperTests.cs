@@ -54,7 +54,7 @@ public sealed class TargetCaptureValueWrapperTests
                 DefaultRequest = new RenderNodeRenderRequest
                 {
                     TargetDomain = s_bounds,
-                    UseRenderCache = false,
+                    CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Disabled,
                     FusionMode = FusionMode.Disabled,
                 },
                 TargetFactory = new CpuTargetFactory(),
@@ -88,7 +88,7 @@ public sealed class TargetCaptureValueWrapperTests
                 DefaultRequest = new RenderNodeRenderRequest
                 {
                     TargetDomain = s_bounds,
-                    UseRenderCache = false,
+                    CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Disabled,
                     FusionMode = FusionMode.Disabled,
                 },
                 TargetFactory = new CpuTargetFactory(),

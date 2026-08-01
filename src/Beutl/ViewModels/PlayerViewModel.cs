@@ -2092,10 +2092,10 @@ public sealed class PlayerViewModel : IAsyncDisposable, IPreviewPlayer
                         Intent = RenderIntent.Preview,
                         TargetDomain = new Rect(default, frameSize.ToSize(1)),
                         OutputScale = 1,
-                        UseRenderCache = false,
+                        CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Disabled,
                     },
                 });
-            return PixelRect.FromRect(renderer.Measure().OutputBounds).Size;
+            return PixelRect.FromRect(renderer.Measure().QueryBounds).Size;
         });
     }
 
@@ -2109,7 +2109,6 @@ public sealed class PlayerViewModel : IAsyncDisposable, IPreviewPlayer
         return await RenderThread.Dispatcher.InvokeAsync(() =>
         {
             if (Scene == null) throw new Exception("Scene is null.");
-            // TODO: Rendererに特定のDrawableのみを描画するクラスを追加する
             SceneRenderer sceneRenderer = EditViewModel.Renderer.Value;
             using var resource = drawable.ToResource(new CompositionContext(CurrentFrame.Value));
             PixelSize frameSize = sceneRenderer.FrameSize;
@@ -2119,20 +2118,25 @@ public sealed class PlayerViewModel : IAsyncDisposable, IPreviewPlayer
                 drawable.Render(context, resource);
             }
 
+            var request = new RenderNodeRenderRequest
+            {
+                Intent = RenderIntent.Delivery,
+                TargetDomain = new Rect(default, frameSize.ToSize(1)),
+                OutputScale = outputScale,
+                MaxWorkingScale = WorkingScaleCeiling.Export(),
+                CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Disabled,
+            };
             using var renderer = new RenderNodeRenderer(
                 root,
                 new RenderNodeRendererOptions
                 {
-                    DefaultRequest = new RenderNodeRenderRequest
-                    {
-                        Intent = RenderIntent.Delivery,
-                        TargetDomain = new Rect(default, frameSize.ToSize(1)),
-                        OutputScale = outputScale,
-                        MaxWorkingScale = WorkingScaleCeiling.Export(),
-                        UseRenderCache = false,
-                    },
+                    DefaultRequest = request,
                 });
-            using RenderNodeRasterization rasterization = renderer.Rasterize();
+            Rect queryBounds = renderer.Measure().QueryBounds;
+            using RenderNodeRasterization rasterization = renderer.Rasterize(request with
+            {
+                RequestedRegion = queryBounds,
+            });
             return rasterization.Bitmap?.Clone()
                 ?? throw new InvalidOperationException("The selected drawable produced no raster output.");
         });

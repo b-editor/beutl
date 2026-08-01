@@ -30,7 +30,7 @@ public sealed class RenderNodeRendererLifetimeTests
                     RequestedRegion = emptySelection,
                     OutputScale = 2,
                     MaxWorkingScale = 2,
-                    UseRenderCache = false,
+                    CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Disabled,
                     Purpose = RenderRequestPurpose.Frame,
                     Diagnostics = diagnostics,
                 },
@@ -81,7 +81,7 @@ public sealed class RenderNodeRendererLifetimeTests
                 {
                     TargetDomain = bounds,
                     RequestedRegion = new Rect(x, y, width, height),
-                    UseRenderCache = false,
+                    CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Disabled,
                     Purpose = RenderRequestPurpose.Frame,
                     Diagnostics = diagnostics,
                 },
@@ -128,7 +128,7 @@ public sealed class RenderNodeRendererLifetimeTests
                     TargetDomain = bounds,
                     OutputScale = 1,
                     MaxWorkingScale = 1,
-                    UseRenderCache = false,
+                    CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Disabled,
                 },
                 TargetFactory = factory,
             });
@@ -187,7 +187,7 @@ public sealed class RenderNodeRendererLifetimeTests
                     TargetDomain = bounds,
                     OutputScale = 1,
                     MaxWorkingScale = 1,
-                    UseRenderCache = false,
+                    CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Disabled,
                 },
                 TargetFactory = factory,
             });

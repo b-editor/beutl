@@ -150,7 +150,7 @@ public sealed class RecordingAndPlanningFailureTests
                     RequestedRegion = new Rect(2, 2, 2, 2),
                     OutputScale = 1,
                     MaxWorkingScale = 1,
-                    UseRenderCache = false,
+                    CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Disabled,
                 },
                 TargetFactory = factory,
             });
@@ -524,7 +524,7 @@ internal static class FailureTestSupport
                     TargetDomain = s_bounds,
                     OutputScale = 1,
                     MaxWorkingScale = 1,
-                    UseRenderCache = useRenderCache,
+                    CacheOptions = new Beutl.Graphics.Rendering.Cache.RenderCacheOptions(useRenderCache, Beutl.Graphics.Rendering.Cache.RenderCacheRules.Default),
                     Purpose = purpose,
                     Diagnostics = diagnostics,
                 },

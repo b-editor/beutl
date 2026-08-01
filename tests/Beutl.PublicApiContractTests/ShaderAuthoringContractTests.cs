@@ -278,7 +278,7 @@ public sealed class ShaderAuthoringContractTests
                     TargetDomain = targetDomain,
                     OutputScale = 1,
                     MaxWorkingScale = 4,
-                    UseRenderCache = false,
+                    CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Disabled,
                 },
                 TargetFactory = new CpuTargetFactory(),
             });
@@ -293,7 +293,7 @@ public sealed class ShaderAuthoringContractTests
                 {
                     OutputScale = outputScale,
                     MaxWorkingScale = outputScale,
-                    UseRenderCache = false,
+                    CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Disabled,
                 },
                 TargetFactory = new CpuTargetFactory(),
             });

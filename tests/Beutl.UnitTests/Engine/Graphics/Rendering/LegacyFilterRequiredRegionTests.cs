@@ -28,7 +28,7 @@ public sealed class LegacyFilterRequiredRegionTests
                 DefaultRequest = new RenderNodeRenderRequest
                 {
                     RequestedRegion = requestedRegion,
-                    UseRenderCache = false,
+                    CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Disabled,
                 },
                 TargetFactory = new BudgetedCpuTargetFactory(int.MaxValue),
             });
@@ -67,7 +67,7 @@ public sealed class LegacyFilterRequiredRegionTests
                     Intent = RenderIntent.Preview,
                     TargetDomain = new Rect(default, frame.ToSize(1)),
                     OutputScale = scale,
-                    UseRenderCache = false,
+                    CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Disabled,
                 },
                 TargetFactory = factory,
             });

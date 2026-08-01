@@ -134,7 +134,7 @@ public class RenderScaleBenchmarkTests
                         Intent = RenderIntent.Delivery,
                         TargetDomain = new Rect(default, _logicalSize),
                         OutputScale = scale,
-                        UseRenderCache = false,
+                        CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Disabled,
                     },
                 });
         }

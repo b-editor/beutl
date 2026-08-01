@@ -61,7 +61,7 @@ public class ClearRenderNodeTest
                 DefaultRequest = new RenderNodeRenderRequest
                 {
                     TargetDomain = new Rect(0, 0, 100, 100),
-                    UseRenderCache = false,
+                    CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Disabled,
                 },
             });
         using var renderTarget = RenderTarget.CreateNull(100, 100);

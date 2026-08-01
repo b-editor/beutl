@@ -116,7 +116,7 @@ public sealed partial class DrawableTextureSource : TextureSource
                             TargetDomain = new Rect(0, 0, textureWidth, textureHeight),
                             OutputScale = density,
                             MaxWorkingScale = density,
-                            UseRenderCache = true,
+                            CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Enabled,
                         },
                     });
                 using (var canvas = new ImmediateCanvas(_renderTarget, density, density))

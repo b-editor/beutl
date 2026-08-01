@@ -166,7 +166,7 @@ public sealed record RenderNodeRenderRequest
     public Rect? RequestedRegion { get; init; }
     public float OutputScale { get; init; } = 1f;
     public float MaxWorkingScale { get; init; } = float.PositiveInfinity;
-    public bool UseRenderCache { get; init; } = Cache.RenderCacheOptions.Default.IsEnabled;
+    public Cache.RenderCacheOptions CacheOptions { get; init; } = Cache.RenderCacheOptions.Default;
     public RenderRequestPurpose Purpose { get; init; } = RenderRequestPurpose.Auxiliary;
 }
 
@@ -886,7 +886,7 @@ Every public callback is conservatively target-dependent: `ReadWrite` and `Readb
 
 For `TargetAccess.Readback`, the executor resolves the finite `AffectedRegion` as the command's `RequiredRegion`, snapshots that subset of the immutable preceding target token, and creates the callback canvas over the same region before invoking the command. `UseSnapshot` must then be called exactly once and supplies that pre-command bitmap synchronously; writes performed by the callback are not reflected in it. The bitmap's local pixel `(0, 0)` represents `Canvas.LogicalOrigin`, and its pixel dimensions match `Canvas.DeviceBounds.Size` (the canvas `RasterBounds` footprint), not the full backing target. The request disposes it before return, retained/disposed-by-author use is invalid, and failure preserves the callback exception while still releasing the bitmap. A callback that needs pixels after an intermediate write must split that work into a target command followed by `TargetCapture`/another command, making the synchronization visible. `ReadWrite` permits GPU-side target access through `Canvas` but does not imply CPU readback.
 
-The command canvas clips ordinary drawing to the resolved affected region and rejects every pixel operation when it is `Empty`. Because the native clear primitive ignores clip state, `Clear` is accepted only for `TargetRegion.Full`; a finite-region clear must use the engine's clipped source-replace operation or an ordinary clipped draw. Every access outside the declaration is a capability violation and fails before cache publication.
+The command canvas clips ordinary drawing to the resolved affected region and rejects every pixel operation when it is `Empty`. Because the native clear primitive ignores clip state, `Clear` is accepted only for `TargetRegion.Full`. Public authors erase or replace a finite region through `TargetCommandSession.ReplaceAffectedRegion(Color)`, which performs clipped `Src` replacement without exposing unrestricted blend state; an ordinary clipped `SrcOver` draw remains available when destination alpha must be preserved. Every access outside the declaration is a capability violation and fails before cache publication.
 
 Unlike planner-owned opaque/Geometry outputs, `TargetCommandSession.Canvas` is never automatically cleared: it represents the prior target token in the current external root, resolved `TargetLayerScope`, or finite value Layer and must preserve all preceding target content and state. Its close follows the same no-flush rule as every callback canvas.
 

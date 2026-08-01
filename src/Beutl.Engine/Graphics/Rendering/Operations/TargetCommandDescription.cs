@@ -198,6 +198,17 @@ public sealed class TargetCommandSession
         get { _token.ThrowIfInactive(); return _canvas; }
     }
 
+    /// <summary>Replaces every pixel in the declared affected region with <paramref name="color"/>.</summary>
+    /// <remarks>
+    /// The operation uses clipped source replacement, so a transparent color erases a finite region without
+    /// exposing unrestricted blend state or writing outside the command's declared target access.
+    /// </remarks>
+    public void ReplaceAffectedRegion(Color color)
+    {
+        _token.ThrowIfInactive();
+        _canvas.Use(canvas => canvas.ReplaceAffectedRegion(color));
+    }
+
     public void UseSnapshot(Action<Bitmap> use)
     {
         _token.ThrowIfInactive();

@@ -521,9 +521,16 @@ public sealed class DrawableGroupIsolationTests
         return group.ToResource(CompositionContext.Default);
     }
 
-    private static Drawable.Resource CreateTranslatedDstOutGroup(FilterEffect? effect)
+    private static Drawable.Resource CreateTranslatedDstOutGroup(
+        FilterEffect? effect,
+        float eraserOpacity = 100)
     {
-        var eraser = CreateRectangle(160, 160, Brushes.White, blendMode: BlendMode.DstOut);
+        var eraser = CreateRectangle(
+            160,
+            160,
+            Brushes.White,
+            opacity: eraserOpacity,
+            blendMode: BlendMode.DstOut);
         eraser.Transform.CurrentValue = new TranslateTransform(0.25f, 0.25f);
 
         var group = new DrawableGroup();
@@ -597,7 +604,7 @@ public sealed class DrawableGroupIsolationTests
                     Intent = RenderIntent.Delivery,
                     TargetDomain = new Rect(default, s_frame.ToSize(1)),
                     OutputScale = outputScale,
-                    UseRenderCache = false,
+                    CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Disabled,
                     FusionMode = fusionMode,
                 },
             });

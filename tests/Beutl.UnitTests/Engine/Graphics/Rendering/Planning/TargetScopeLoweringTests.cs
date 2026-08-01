@@ -94,7 +94,7 @@ public sealed class TargetScopeLoweringTests
                 DefaultRequest = new RenderNodeRenderRequest
                 {
                     TargetDomain = s_rootDomain,
-                    UseRenderCache = false,
+                    CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Disabled,
                 },
                 TargetFactory = new CpuTargetFactory(),
             });
@@ -148,7 +148,7 @@ public sealed class TargetScopeLoweringTests
                 DefaultRequest = new RenderNodeRenderRequest
                 {
                     TargetDomain = s_rootDomain,
-                    UseRenderCache = false,
+                    CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Disabled,
                 },
                 TargetFactory = factory,
             });
@@ -212,7 +212,7 @@ public sealed class TargetScopeLoweringTests
                 DefaultRequest = new RenderNodeRenderRequest
                 {
                     TargetDomain = s_rootDomain,
-                    UseRenderCache = false,
+                    CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Disabled,
                 },
                 TargetFactory = new CpuTargetFactory(),
             });
@@ -297,7 +297,7 @@ public sealed class TargetScopeLoweringTests
                 DefaultRequest = new RenderNodeRenderRequest
                 {
                     TargetDomain = s_rootDomain,
-                    UseRenderCache = false,
+                    CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Disabled,
                 },
                 TargetFactory = new CpuTargetFactory(),
             });
@@ -552,7 +552,7 @@ public sealed class TargetScopeLoweringTests
                 DefaultRequest = new RenderNodeRenderRequest
                 {
                     TargetDomain = s_rootDomain,
-                    UseRenderCache = false,
+                    CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Disabled,
                 },
                 TargetFactory = new CpuTargetFactory(),
             });
@@ -612,7 +612,7 @@ public sealed class TargetScopeLoweringTests
                 DefaultRequest = new RenderNodeRenderRequest
                 {
                     TargetDomain = s_rootDomain,
-                    UseRenderCache = false,
+                    CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Disabled,
                 },
                 TargetFactory = new CpuTargetFactory(),
             });
@@ -692,7 +692,7 @@ public sealed class TargetScopeLoweringTests
                 DefaultRequest = new RenderNodeRenderRequest
                 {
                     TargetDomain = domain,
-                    UseRenderCache = false,
+                    CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Disabled,
                 },
                 TargetFactory = new CpuTargetFactory(),
             });
@@ -721,7 +721,7 @@ public sealed class TargetScopeLoweringTests
                 DefaultRequest = new RenderNodeRenderRequest
                 {
                     TargetDomain = s_rootDomain,
-                    UseRenderCache = false,
+                    CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Disabled,
                 },
                 TargetFactory = new CpuTargetFactory(),
             });
@@ -750,7 +750,7 @@ public sealed class TargetScopeLoweringTests
                 DefaultRequest = new RenderNodeRenderRequest
                 {
                     OutputScale = 2,
-                    UseRenderCache = false,
+                    CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Disabled,
                 },
                 TargetFactory = factory,
             });
@@ -775,7 +775,7 @@ public sealed class TargetScopeLoweringTests
                 DefaultRequest = new RenderNodeRenderRequest
                 {
                     RequestedRegion = emptySelection,
-                    UseRenderCache = false,
+                    CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Disabled,
                 },
                 TargetFactory = factory,
             });

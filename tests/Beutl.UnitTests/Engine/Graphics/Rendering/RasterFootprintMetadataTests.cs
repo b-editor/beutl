@@ -314,7 +314,7 @@ public sealed class RasterFootprintMetadataTests
                     TargetDomain = logicalBounds,
                     OutputScale = density,
                     MaxWorkingScale = density,
-                    UseRenderCache = false,
+                    CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Disabled,
                 },
             });
 

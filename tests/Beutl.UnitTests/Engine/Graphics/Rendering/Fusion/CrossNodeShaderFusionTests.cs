@@ -99,7 +99,7 @@ public sealed class CrossNodeShaderFusionTests
                 DefaultRequest = new RenderNodeRenderRequest
                 {
                     Intent = RenderIntent.Preview,
-                    UseRenderCache = false,
+                    CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Disabled,
                     FusionMode = FusionMode.Enabled,
                     Purpose = RenderRequestPurpose.Frame,
                 },
@@ -136,7 +136,7 @@ public sealed class CrossNodeShaderFusionTests
                     DefaultRequest = new RenderNodeRenderRequest
                     {
                         Intent = RenderIntent.Preview,
-                        UseRenderCache = false,
+                        CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Disabled,
                         FusionMode = FusionMode.Enabled,
                         Purpose = RenderRequestPurpose.Frame,
                     },
@@ -511,7 +511,7 @@ public sealed class CrossNodeShaderFusionTests
                     TargetDomain = s_bounds,
                     OutputScale = 1,
                     MaxWorkingScale = 1,
-                    UseRenderCache = useRenderCache,
+                    CacheOptions = new Beutl.Graphics.Rendering.Cache.RenderCacheOptions(useRenderCache, Beutl.Graphics.Rendering.Cache.RenderCacheRules.Default),
                     FusionMode = fusionMode,
                     Purpose = RenderRequestPurpose.Frame,
                     Diagnostics = diagnostics,

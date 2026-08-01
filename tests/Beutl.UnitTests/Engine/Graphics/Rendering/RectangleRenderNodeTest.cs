@@ -118,7 +118,7 @@ public class RectangleRenderNodeTest
         => new(node, new RenderNodeRendererOptions {
             DefaultRequest = new RenderNodeRenderRequest
             {
-                UseRenderCache = false,
+                CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Disabled,
             },
         });
 }

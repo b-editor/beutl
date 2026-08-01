@@ -815,7 +815,7 @@ public sealed class FusionBoundaryTests
                     TargetDomain = s_bounds,
                     OutputScale = 1,
                     MaxWorkingScale = 1,
-                    UseRenderCache = useRenderCache,
+                    CacheOptions = new Beutl.Graphics.Rendering.Cache.RenderCacheOptions(useRenderCache, Beutl.Graphics.Rendering.Cache.RenderCacheRules.Default),
                     FusionMode = fusionMode,
                     Purpose = RenderRequestPurpose.Frame,
                     Diagnostics = diagnostics,

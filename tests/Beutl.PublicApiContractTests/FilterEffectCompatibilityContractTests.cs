@@ -155,7 +155,7 @@ public sealed class FilterEffectCompatibilityContractTests
                 DefaultRequest = new RenderNodeRenderRequest
                 {
                     TargetDomain = targetDomain,
-                    UseRenderCache = false,
+                    CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Disabled,
                 },
             });
 
@@ -206,7 +206,7 @@ public sealed class FilterEffectCompatibilityContractTests
             new RenderNodeRendererOptions {
                 DefaultRequest = new RenderNodeRenderRequest
                 {
-                    UseRenderCache = false,
+                    CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Disabled,
                 },
             });
 
@@ -248,7 +248,7 @@ public sealed class FilterEffectCompatibilityContractTests
                 DefaultRequest = new RenderNodeRenderRequest
                 {
                     OutputScale = 2,
-                    UseRenderCache = false,
+                    CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Disabled,
                 },
             });
 
@@ -281,7 +281,7 @@ public sealed class FilterEffectCompatibilityContractTests
                 DefaultRequest = new RenderNodeRenderRequest
                 {
                     OutputScale = 2,
-                    UseRenderCache = false,
+                    CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Disabled,
                 },
                 TargetFactory = new CpuTargetFactory(),
             });

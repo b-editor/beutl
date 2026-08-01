@@ -80,7 +80,7 @@ public sealed class ProductionResourceLifetimeTests
                 OutputScale = 1,
                 MaxWorkingScale = 1,
                 Diagnostics = diagnostics,
-                UseRenderCache = false,
+                CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Disabled,
             },
             TargetFactory = new CpuTargetFactory(),
         });

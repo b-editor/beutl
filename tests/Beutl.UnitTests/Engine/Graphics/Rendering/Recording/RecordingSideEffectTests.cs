@@ -87,7 +87,7 @@ public sealed class RecordingSideEffectTests
             {
                 TargetDomain = DeferredShapeProbeNode.Bounds,
                 Diagnostics = diagnostics,
-                UseRenderCache = false,
+                CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Disabled,
             },
             TargetFactory = targetFactory,
         });

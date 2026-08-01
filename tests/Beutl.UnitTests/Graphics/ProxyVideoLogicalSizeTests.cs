@@ -58,7 +58,7 @@ public class ProxyVideoLogicalSizeTests
             new RenderNodeRendererOptions {
                 DefaultRequest = new RenderNodeRenderRequest
                 {
-                    UseRenderCache = false,
+                    CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Disabled,
                 },
             });
         RenderNodeMeasurement measurement = renderer.Measure();
@@ -87,7 +87,7 @@ public class ProxyVideoLogicalSizeTests
             new RenderNodeRendererOptions {
                 DefaultRequest = new RenderNodeRenderRequest
                 {
-                    UseRenderCache = false,
+                    CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Disabled,
                 },
             });
         RenderNodeMeasurement measurement = renderer.Measure();

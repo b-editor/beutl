@@ -68,7 +68,7 @@ public class Renderer : IRenderer
         {
             if (!HasValidBounds)
             {
-                _bounds = Renderer.Measure().OutputBounds;
+                _bounds = Renderer.Measure().QueryBounds;
                 HasValidBounds = true;
             }
 
@@ -77,7 +77,7 @@ public class Renderer : IRenderer
 
         public Rect RecalculateBounds()
         {
-            _bounds = Renderer.Measure().OutputBounds;
+            _bounds = Renderer.Measure().QueryBounds;
             HasValidBounds = true;
             return _bounds;
         }
@@ -426,8 +426,7 @@ public class Renderer : IRenderer
                     TargetDomain = new Rect(default, FrameSize.ToSize(1)),
                     OutputScale = OutputScale,
                     MaxWorkingScale = MaxWorkingScale,
-                    UseRenderCache = CacheOptions.IsEnabled,
-                    CacheRules = CacheOptions.Rules,
+                    CacheOptions = CacheOptions,
                     Purpose = purpose,
                     Diagnostics = diagnostics,
                 },

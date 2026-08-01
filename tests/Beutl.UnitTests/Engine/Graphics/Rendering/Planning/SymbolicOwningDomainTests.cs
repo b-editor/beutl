@@ -81,7 +81,7 @@ public sealed class SymbolicOwningDomainTests
                 DefaultRequest = new RenderNodeRenderRequest
                 {
                     TargetDomain = s_rootDomain,
-                    UseRenderCache = false,
+                    CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Disabled,
                 },
                 TargetFactory = new CpuTargetFactory(),
             });
@@ -150,7 +150,7 @@ public sealed class SymbolicOwningDomainTests
             {
                 DefaultRequest = new RenderNodeRenderRequest
                 {
-                    UseRenderCache = false,
+                    CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Disabled,
                 },
                 TargetFactory = new CpuTargetFactory(),
             });
@@ -171,7 +171,7 @@ public sealed class SymbolicOwningDomainTests
             new RenderNodeRendererOptions {
                 DefaultRequest = new RenderNodeRenderRequest
                 {
-                    UseRenderCache = false,
+                    CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Disabled,
                 },
             });
 
@@ -445,7 +445,7 @@ public sealed class SymbolicOwningDomainTests
                 DefaultRequest = new RenderNodeRenderRequest
                 {
                     TargetDomain = s_rootDomain,
-                    UseRenderCache = false,
+                    CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Disabled,
                 },
                 TargetFactory = new CpuTargetFactory(),
             });
@@ -477,7 +477,7 @@ public sealed class SymbolicOwningDomainTests
                 DefaultRequest = new RenderNodeRenderRequest
                 {
                     TargetDomain = s_rootDomain,
-                    UseRenderCache = false,
+                    CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Disabled,
                 },
                 TargetFactory = new CpuTargetFactory(),
             });
@@ -519,7 +519,7 @@ public sealed class SymbolicOwningDomainTests
                     TargetDomain = domain,
                     OutputScale = density,
                     MaxWorkingScale = 4,
-                    UseRenderCache = false,
+                    CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Disabled,
                 },
                 TargetFactory = new CpuTargetFactory(),
             });
@@ -591,7 +591,7 @@ public sealed class SymbolicOwningDomainTests
                 DefaultRequest = new RenderNodeRenderRequest
                 {
                     TargetDomain = targetDomain,
-                    UseRenderCache = false,
+                    CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Disabled,
                 },
                 TargetFactory = new CpuTargetFactory(),
             });

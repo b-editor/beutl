@@ -126,7 +126,7 @@ public sealed class RenderNodeRendererAllocationFailureTests
                     MaxWorkingScale = intent == RenderIntent.Delivery
                     ? float.PositiveInfinity
                     : 2,
-                    UseRenderCache = false,
+                    CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Disabled,
                     Purpose = RenderRequestPurpose.Frame,
                     Diagnostics = diagnostics,
                 },

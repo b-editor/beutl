@@ -145,7 +145,7 @@ public sealed class OffFrameFilterEffectExecutionTests
                     RequestedRegion = s_frame,
                     OutputScale = 1,
                     MaxWorkingScale = 1,
-                    UseRenderCache = false,
+                    CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Disabled,
                 },
                 TargetFactory = new CpuTargetFactory(),
             });

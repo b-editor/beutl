@@ -91,7 +91,7 @@ public sealed class LegacyFilterTypedSuffixExecutionTests
                 DefaultRequest = new RenderNodeRenderRequest
                 {
                     TargetDomain = bounds,
-                    UseRenderCache = false,
+                    CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Disabled,
                 },
                 TargetFactory = new CpuTargetFactory(),
             });
@@ -100,11 +100,21 @@ public sealed class LegacyFilterTypedSuffixExecutionTests
         ProgramCacheStatistics coldStatistics = renderer.ProgramCacheStatistics;
         using RenderNodeRasterization warm = renderer.Rasterize();
         ProgramCacheStatistics warmStatistics = renderer.ProgramCacheStatistics;
+        SKColor coldColor = ReadCenterPixel(cold.Bitmap
+            ?? throw new AssertionException("The cold typed-suffix render produced no bitmap."));
+        SKColor warmColor = ReadCenterPixel(warm.Bitmap
+            ?? throw new AssertionException("The warm typed-suffix render produced no bitmap."));
 
         Assert.Multiple(() =>
         {
-            Assert.That(cold.Bitmap, Is.Not.Null);
-            Assert.That(warm.Bitmap, Is.Not.Null);
+            Assert.That(coldColor.Red, Is.LessThan(16));
+            Assert.That(coldColor.Green, Is.LessThan(16));
+            Assert.That(coldColor.Blue, Is.GreaterThan(239));
+            Assert.That(coldColor.Alpha, Is.GreaterThan(239));
+            Assert.That(warmColor.Red, Is.LessThan(16));
+            Assert.That(warmColor.Green, Is.LessThan(16));
+            Assert.That(warmColor.Blue, Is.GreaterThan(239));
+            Assert.That(warmColor.Alpha, Is.GreaterThan(239));
             Assert.That(coldStatistics.Creations, Is.EqualTo(1));
             Assert.That(coldStatistics.Misses, Is.EqualTo(1));
             Assert.That(coldStatistics.Hits, Is.Zero);
@@ -378,7 +388,7 @@ public sealed class LegacyFilterTypedSuffixExecutionTests
                 DefaultRequest = new RenderNodeRenderRequest
                 {
                     TargetDomain = domain,
-                    UseRenderCache = false,
+                    CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Disabled,
                 },
                 TargetFactory = new CpuTargetFactory(),
             });
@@ -443,6 +453,9 @@ public sealed class LegacyFilterTypedSuffixExecutionTests
         return bitmap.SKBitmap.GetPixel(bitmap.Width / 2, bitmap.Height / 2);
     }
 
+    private static SKColor ReadCenterPixel(Bitmap bitmap)
+        => bitmap.SKBitmap.GetPixel(bitmap.Width / 2, bitmap.Height / 2);
+
     private static void RenderMaterializedEffect(FilterEffect effect, Vector translation)
     {
         var bounds = new Rect(8, 6, 12, 10);
@@ -459,7 +472,7 @@ public sealed class LegacyFilterTypedSuffixExecutionTests
                 DefaultRequest = new RenderNodeRenderRequest
                 {
                     TargetDomain = new Rect(0, 0, 32, 24),
-                    UseRenderCache = false,
+                    CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Disabled,
                     OutputScale = 1,
                     MaxWorkingScale = 1,
                 },

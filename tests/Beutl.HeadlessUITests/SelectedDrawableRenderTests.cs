@@ -164,6 +164,41 @@ public class SelectedDrawableRenderTests
     }
 
     [AvaloniaTest]
+    public async Task Full_target_group_uses_query_geometry_for_measurement_and_rasterization()
+    {
+        GpuTestGate.EnsureAvailable();
+        await ResetProjectAsync();
+        EditViewModel editor = await OpenEditor("selected-drawable-full-target-group");
+        var group = new DrawableGroup();
+        group.Children.Add(new RectShape
+        {
+            Width = { CurrentValue = 48 },
+            Height = { CurrentValue = 32 },
+            AlignmentX = { CurrentValue = AlignmentX.Left },
+            AlignmentY = { CurrentValue = AlignmentY.Top },
+            Transform = { CurrentValue = new TranslateTransform(37, 29) },
+            Fill = { CurrentValue = new SolidColorBrush(Colors.Red) },
+        });
+
+        PixelSize measuredSize = await editor.Player.MeasureSelectedDrawable(group);
+        using Bitmap bitmap = await editor.Player.DrawSelectedDrawable(group);
+        (RenderNodeMeasurement measurement, RenderNodeRasterization rasterization) =
+            RenderSelectedDrawable(group, editor.Renderer.Value.FrameSize);
+        using (rasterization)
+        {
+            Assert.Multiple(() =>
+            {
+                Assert.That(measurement.OutputBounds, Is.EqualTo(new Rect(0, 0, 320, 240)));
+                Assert.That(measurement.QueryBounds, Is.EqualTo(new Rect(37, 29, 48, 32)));
+                Assert.That(rasterization.Bounds, Is.EqualTo(measurement.QueryBounds));
+                Assert.That(measuredSize, Is.EqualTo(new PixelSize(48, 32)));
+                Assert.That(bitmap.Width, Is.EqualTo(48));
+                Assert.That(bitmap.Height, Is.EqualTo(32));
+            });
+        }
+    }
+
+    [AvaloniaTest]
     public async Task Nested_scene_selected_drawable_records_the_requested_output_scale()
     {
         GpuTestGate.EnsureAvailable();
@@ -215,20 +250,24 @@ public class SelectedDrawableRenderTests
                 drawable.Render(context, resource);
             }
 
+            var request = new RenderNodeRenderRequest
+            {
+                Intent = RenderIntent.Delivery,
+                TargetDomain = new Rect(default, frameSize.ToSize(1)),
+                OutputScale = 1,
+                CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Disabled,
+            };
             using var renderer = new RenderNodeRenderer(
                 root,
                 new RenderNodeRendererOptions
                 {
-                    DefaultRequest = new RenderNodeRenderRequest
-                    {
-                        Intent = RenderIntent.Delivery,
-                        TargetDomain = new Rect(default, frameSize.ToSize(1)),
-                        OutputScale = 1,
-                        UseRenderCache = false,
-                    },
+                    DefaultRequest = request,
                 });
             RenderNodeMeasurement measurement = renderer.Measure();
-            RenderNodeRasterization rasterization = renderer.Rasterize();
+            RenderNodeRasterization rasterization = renderer.Rasterize(request with
+            {
+                RequestedRegion = measurement.QueryBounds,
+            });
             return (measurement, rasterization);
         });
     }

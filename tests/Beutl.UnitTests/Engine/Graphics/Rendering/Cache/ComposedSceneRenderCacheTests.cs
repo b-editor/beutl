@@ -413,7 +413,7 @@ public sealed class ComposedSceneRenderCacheTests
                 DefaultRequest = new RenderNodeRenderRequest
                 {
                     TargetDomain = s_frameBounds,
-                    UseRenderCache = useRenderCache,
+                    CacheOptions = new Beutl.Graphics.Rendering.Cache.RenderCacheOptions(useRenderCache, Beutl.Graphics.Rendering.Cache.RenderCacheRules.Default),
                     Purpose = RenderRequestPurpose.Frame,
                     Diagnostics = diagnostics,
                 },

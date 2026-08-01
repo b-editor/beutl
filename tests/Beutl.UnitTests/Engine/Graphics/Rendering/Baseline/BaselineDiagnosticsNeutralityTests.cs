@@ -307,7 +307,7 @@ public sealed class BaselineDiagnosticsNeutralityTests
             {
                 OutputScale = 1,
                 MaxWorkingScale = float.PositiveInfinity,
-                UseRenderCache = useRenderCache,
+                CacheOptions = new Beutl.Graphics.Rendering.Cache.RenderCacheOptions(useRenderCache, Beutl.Graphics.Rendering.Cache.RenderCacheRules.Default),
                 Purpose = purpose,
                 Diagnostics = diagnostics,
             },

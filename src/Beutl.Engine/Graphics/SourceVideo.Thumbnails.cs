@@ -177,7 +177,7 @@ public partial class SourceVideo : IThumbnailsProvider
                         Intent = RenderIntent.Preview,
                         TargetDomain = new Rect(0, 0, thumbWidth, maxHeight),
                         OutputScale = 1,
-                        UseRenderCache = false,
+                        CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Disabled,
                     },
                 });
 

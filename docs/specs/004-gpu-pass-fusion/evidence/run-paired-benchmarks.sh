@@ -65,9 +65,11 @@ run_benchmark() {
     local worktree="$2"
     local command="$3"
     local run_root="$4"
+    local expected_harness="$5"
     local artifacts="$run_root/bdn"
     local counters="$run_root/counters"
     local stdout="$run_root/raw-benchmark-stdout.txt"
+    local harness_provenance="$run_root/harness-provenance.json"
 
     mkdir -p "$artifacts" "$counters"
     printf '%s\n' "$command" >"$run_root/command.txt"
@@ -77,9 +79,49 @@ run_benchmark() {
         cd "$worktree"
         BEUTL_RENDER_BENCHMARK_ARTIFACTS="$artifacts" \
         BEUTL_RENDER_BENCHMARK_COUNTERS="$counters" \
+        BEUTL_RENDER_BENCHMARK_HARNESS_PROVENANCE="$harness_provenance" \
         BEUTL_REQUIRE_GPU=1 \
         bash -lc "$command"
     ) 2>&1 | tee "$stdout"
+
+    python3 - "$harness_provenance" "$expected_harness" "$feature_sha" <<'PY'
+import json
+import pathlib
+import sys
+
+path = pathlib.Path(sys.argv[1])
+expected_harness = sys.argv[2]
+expected_revision = sys.argv[3].lower()
+if not path.is_file():
+    raise SystemExit(
+        f"Executed benchmark harness did not emit provenance: {path}. "
+        "Prebuilt command overrides must use a harness built from the current feature revision."
+    )
+value = json.loads(path.read_text(encoding="utf-8"))
+expected_fields = {
+    "schemaVersion",
+    "harnessAssemblyName",
+    "harnessAssemblyVersion",
+    "sourceRevision",
+}
+if set(value) != expected_fields or value.get("schemaVersion") != 1:
+    raise SystemExit(f"Benchmark harness provenance schema mismatch: {path}")
+if value.get("harnessAssemblyName") != expected_harness:
+    raise SystemExit(
+        f"Benchmark harness identity mismatch: expected {expected_harness}, "
+        f"found {value.get('harnessAssemblyName')}"
+    )
+assembly_version = value.get("harnessAssemblyVersion")
+source_revision = value.get("sourceRevision")
+if not isinstance(assembly_version, str) or expected_revision not in assembly_version.lower():
+    raise SystemExit(
+        f"Benchmark harness assembly version does not identify {expected_revision}: {assembly_version}"
+    )
+if source_revision != expected_revision:
+    raise SystemExit(
+        f"Benchmark harness source revision mismatch: expected {expected_revision}, found {source_revision}"
+    )
+PY
 
     local result
     result="$(find_full_result "$artifacts")"
@@ -141,18 +183,34 @@ run_benchmark \
     "discarded baseline warm-up" \
     "$baseline_worktree" \
     "$baseline_command" \
-    "$temporary_build_root/discarded-baseline-warmup"
+    "$temporary_build_root/discarded-baseline-warmup" \
+    "Beutl.GpuPassTargetBenchmarkHarness"
 require_clean_worktree "$baseline_worktree" "Baseline after discarded warm-up"
 require_clean_worktree "$feature_worktree" "Feature harness after discarded warm-up"
 
 mkdir -p "$output_root/baseline-a" "$output_root/feature" "$output_root/baseline-b"
-run_benchmark "baseline A" "$baseline_worktree" "$baseline_command" "$output_root/baseline-a"
+run_benchmark \
+    "baseline A" \
+    "$baseline_worktree" \
+    "$baseline_command" \
+    "$output_root/baseline-a" \
+    "Beutl.GpuPassTargetBenchmarkHarness"
 require_clean_worktree "$baseline_worktree" "Baseline after baseline A"
 require_clean_worktree "$feature_worktree" "Feature harness after baseline A"
-run_benchmark "feature" "$feature_worktree" "$feature_command" "$output_root/feature"
+run_benchmark \
+    "feature" \
+    "$feature_worktree" \
+    "$feature_command" \
+    "$output_root/feature" \
+    "Beutl.Benchmarks"
 require_clean_worktree "$baseline_worktree" "Baseline after feature"
 require_clean_worktree "$feature_worktree" "Feature after feature"
-run_benchmark "baseline B repeat" "$baseline_worktree" "$baseline_command" "$output_root/baseline-b"
+run_benchmark \
+    "baseline B repeat" \
+    "$baseline_worktree" \
+    "$baseline_command" \
+    "$output_root/baseline-b" \
+    "Beutl.GpuPassTargetBenchmarkHarness"
 require_clean_worktree "$baseline_worktree" "Baseline after baseline B"
 require_clean_worktree "$feature_worktree" "Feature harness after baseline B"
 

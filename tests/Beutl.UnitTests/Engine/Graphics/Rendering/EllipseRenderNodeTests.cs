@@ -110,7 +110,7 @@ public class EllipseRenderNodeTest
         => new(node, new RenderNodeRendererOptions {
             DefaultRequest = new RenderNodeRenderRequest
             {
-                UseRenderCache = false,
+                CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Disabled,
             },
         });
 }

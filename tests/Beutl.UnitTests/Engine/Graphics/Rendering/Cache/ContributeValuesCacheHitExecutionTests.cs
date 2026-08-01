@@ -25,7 +25,7 @@ public sealed class ContributeValuesCacheHitExecutionTests
                 DefaultRequest = new RenderNodeRenderRequest
                 {
                     TargetDomain = s_bounds,
-                    UseRenderCache = true,
+                    CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Enabled,
                     Purpose = RenderRequestPurpose.Frame,
                     FusionMode = FusionMode.Disabled,
                     Diagnostics = diagnostics,
@@ -61,7 +61,7 @@ public sealed class ContributeValuesCacheHitExecutionTests
                 {
                     TargetDomain = s_bounds,
                     MaxWorkingScale = 4,
-                    UseRenderCache = true,
+                    CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Enabled,
                     Purpose = RenderRequestPurpose.Frame,
                     FusionMode = FusionMode.Disabled,
                     Diagnostics = diagnostics,
@@ -96,8 +96,9 @@ public sealed class ContributeValuesCacheHitExecutionTests
                 {
                     TargetDomain = s_bounds,
                     MaxWorkingScale = 4,
-                    UseRenderCache = true,
-                    CacheRules = new RenderCacheRules(MaxPixels: 200, MinPixels: 1),
+                    CacheOptions = new RenderCacheOptions(
+                        true,
+                        new RenderCacheRules(MaxPixels: 200, MinPixels: 1)),
                     Purpose = RenderRequestPurpose.Frame,
                     FusionMode = FusionMode.Disabled,
                     Diagnostics = diagnostics,

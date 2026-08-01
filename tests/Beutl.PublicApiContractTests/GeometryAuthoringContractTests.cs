@@ -212,7 +212,7 @@ public sealed class GeometryAuthoringContractTests
                 {
                     OutputScale = outputScale,
                     MaxWorkingScale = maxWorkingScale,
-                    UseRenderCache = false,
+                    CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Disabled,
                 },
                 TargetFactory = new CpuTargetFactory(),
             });

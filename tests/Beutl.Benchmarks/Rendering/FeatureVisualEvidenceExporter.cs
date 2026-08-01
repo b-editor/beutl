@@ -235,7 +235,7 @@ internal static class FeatureVisualEvidenceExporter
                 TargetDomain = s_domain,
                 OutputScale = 1,
                 MaxWorkingScale = maxWorkingScale,
-                UseRenderCache = false,
+                CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Disabled,
             },
             TargetFactory = factory,
         };
@@ -382,7 +382,7 @@ internal static class FeatureVisualEvidenceExporter
                 TargetDomain = s_domain,
                 OutputScale = outputScale,
                 MaxWorkingScale = maxWorkingScale,
-                UseRenderCache = useCache,
+                CacheOptions = new Beutl.Graphics.Rendering.Cache.RenderCacheOptions(useCache, Beutl.Graphics.Rendering.Cache.RenderCacheRules.Default),
                 RequestedRegion = requestedRegion?.ToRect(),
             },
         };
@@ -502,7 +502,7 @@ internal static class FeatureVisualEvidenceExporter
                 TargetDomain = s_domain,
                 OutputScale = 1,
                 MaxWorkingScale = 2,
-                UseRenderCache = warm,
+                CacheOptions = new Beutl.Graphics.Rendering.Cache.RenderCacheOptions(warm, Beutl.Graphics.Rendering.Cache.RenderCacheRules.Default),
             },
         };
         RenderPipelineInternalDiagnostics.Attach(options, diagnostics, RenderRequestPurpose.Frame);
@@ -936,7 +936,7 @@ internal static class FeatureVisualEvidenceExporter
                 TargetDomain = s_domain,
                 OutputScale = 1,
                 MaxWorkingScale = 2,
-                UseRenderCache = false,
+                CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Disabled,
             },
         };
         RenderPipelineInternalDiagnostics.Attach(options, diagnostics, RenderRequestPurpose.Bounds);
@@ -980,7 +980,7 @@ internal static class FeatureVisualEvidenceExporter
                 RequestedRegion = region.ToRect(),
                 OutputScale = 1,
                 MaxWorkingScale = 2,
-                UseRenderCache = false,
+                CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Disabled,
             },
         };
         RenderPipelineInternalDiagnostics.Attach(options, diagnostics, RenderRequestPurpose.Frame);

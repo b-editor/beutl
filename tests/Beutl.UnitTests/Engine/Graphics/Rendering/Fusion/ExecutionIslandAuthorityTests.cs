@@ -348,7 +348,7 @@ public sealed class ExecutionIslandAuthorityTests
                     TargetDomain = s_bounds,
                     OutputScale = 1,
                     MaxWorkingScale = 1,
-                    UseRenderCache = false,
+                    CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Disabled,
                     FusionMode = FusionMode.Enabled,
                     Purpose = RenderRequestPurpose.Frame,
                     Diagnostics = diagnostics,

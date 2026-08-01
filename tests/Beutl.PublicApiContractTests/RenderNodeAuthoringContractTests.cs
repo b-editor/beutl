@@ -675,7 +675,7 @@ public sealed class RenderNodeAuthoringContractTests
                     TargetDomain = targetDomain,
                     OutputScale = outputScale,
                     MaxWorkingScale = maxWorkingScale,
-                    UseRenderCache = false,
+                    CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Disabled,
                 },
             });
         return renderer.Measure();

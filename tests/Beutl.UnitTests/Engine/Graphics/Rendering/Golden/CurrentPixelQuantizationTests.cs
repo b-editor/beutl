@@ -112,7 +112,7 @@ public sealed class CurrentPixelQuantizationTests
                         Intent = RenderIntent.Delivery,
                         TargetDomain = new Rect(default, s_frame.ToSize(1)),
                         OutputScale = 1,
-                        UseRenderCache = false,
+                        CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Disabled,
                         FusionMode = fusionMode,
                     },
                 });

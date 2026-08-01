@@ -269,7 +269,7 @@ public sealed class CurvesAndLutEffectShaderTests
                 DefaultRequest = new RenderNodeRenderRequest
                 {
                     TargetDomain = s_bounds,
-                    UseRenderCache = false,
+                    CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Disabled,
                 },
                 TargetFactory = new CpuTargetFactory(),
             });

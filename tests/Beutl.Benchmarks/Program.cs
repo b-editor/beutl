@@ -3,6 +3,8 @@
 using BenchmarkDotNet.Running;
 using Beutl.Benchmarks.Rendering;
 
+BenchmarkHarnessProvenance.WriteFromEnvironment(typeof(RenderPipelineBenchmarks).Assembly);
+
 // Select a benchmark via `-- --filter <pattern>`; no args shows an interactive picker.
 if (args.Length > 0 && string.Equals(args[0], "paired-analyze", StringComparison.Ordinal))
 {

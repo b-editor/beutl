@@ -245,6 +245,8 @@ public sealed class LegacyFilterPhysicalFootprintTests
 
         Assert.Multiple(() =>
         {
+            Assert.That(origin.Pixels, Has.Some.Not.Zero,
+                "The ColorShift origin render must retain visible content.");
             Assert.That(translated.Bounds, Is.EqualTo(origin.Bounds.Translate(translation)));
             Assert.That(translated.Pixels, Has.Length.EqualTo(origin.Pixels.Length));
             Assert.That(translated.Pixels.SequenceEqual(origin.Pixels), Is.True,
@@ -379,6 +381,8 @@ public sealed class LegacyFilterPhysicalFootprintTests
 
         Assert.Multiple(() =>
         {
+            Assert.That(origin.Pixels, Has.Some.Not.Zero,
+                "The origin ColorShift render must retain visible content before translation parity is compared.");
             Assert.That(translated.Bounds, Is.EqualTo(origin.Bounds.Translate(translation)));
             Assert.That(translated.RasterBounds, Is.EqualTo(origin.RasterBounds.Translate(translation)));
             Assert.That(translated.Pixels.SequenceEqual(origin.Pixels), Is.True,
@@ -578,7 +582,7 @@ public sealed class LegacyFilterPhysicalFootprintTests
             {
                 DefaultRequest = new RenderNodeRenderRequest
                 {
-                    UseRenderCache = false,
+                    CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Disabled,
                     OutputScale = 1,
                     MaxWorkingScale = 1,
                 },
@@ -728,7 +732,7 @@ public sealed class LegacyFilterPhysicalFootprintTests
                         TargetDomain = PixelExactLegacySourceNode.Frame,
                         OutputScale = 1,
                         MaxWorkingScale = 1,
-                        UseRenderCache = false,
+                        CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Disabled,
                     },
                     TargetFactory = new TrackingTargetFactory(),
                 });
@@ -786,7 +790,7 @@ public sealed class LegacyFilterPhysicalFootprintTests
                     Intent = RenderIntent.Delivery,
                     OutputScale = 1,
                     MaxWorkingScale = 1,
-                    UseRenderCache = false,
+                    CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Disabled,
                 },
                 TargetFactory = new TrackingTargetFactory(),
             });

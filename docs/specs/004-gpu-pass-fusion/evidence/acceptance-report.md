@@ -9,12 +9,12 @@ identified by its SHA-256.
 
 | Tool | SHA-256 |
 |---|---|
-| `target-baseline-generator.patch` | `037315804fa9531bdef1b79e2db405e8a3813e4bc137527690f9f2d5cb4e728c` |
-| `generate-target-baseline.sh` | `fb0bf369aff9b017c82edf74e8423e83fd13156d3e1a569267447fa4fdf5df03` |
+| `target-baseline-generator.patch` | `898692fc4a53e834cbc9f0e00176f8eca198e4f16b6de391d89f1fbbceeaa8be` |
+| `generate-target-baseline.sh` | `bf0574663d6c825150b6e06192a42abda40dba45184f123ecf52ce5199ad255d` |
 | `run-paired-visual-evidence.sh` | `ef1eb523115ea6abb94d06466cecbbf8a1152be3d7b2b74f85a3bd7a852ab032` |
 | `refresh-intentional-visual-baselines.sh` | `5057b76ae3d4c1bc4474e424cc3119c5ce52aa8c203fcc0cac874d38cd8c74d8` |
-| generator source bundle | `d6e5f339d5d7214b0cb879aa5cf2cd717896879b942400928e77b38c9a62a19e` |
-| `run-paired-benchmarks.sh` | `30087e0c363e9f43deeafa6fcfd99f12ea251df57b9cbca206caa4de62b03d66` |
+| generator source bundle | `bb165d312af895b4f703441d96d4f42144036d7d6f8e875ae0101c4701b0414d` |
+| `run-paired-benchmarks.sh` | `a8575996b4ee74663d42fc4268e6d93fba8062739a4bedf5b7bd16f8fe226969` |
 
 These hashes match the committed scripts and the `evidenceTools` records in both
 frozen manifests. The recorded benchmark run predates the later review-driven runner
@@ -24,6 +24,13 @@ The current runner pins the baseline worktree and executes the documented discar
 baseline warm-up before creating baseline A, feature, and baseline B artifacts. This
 automates the methodology used for the recorded run; discarded artifacts remain
 outside the evidence directory.
+
+The current immutable trust-chain anchors are target visual manifest
+`754d5cc0ecb9d2c1d4220be528569d08d419e53409c6958313916f6781157c1c` and
+target benchmark manifest
+`c5e34bc1cd9fe225b293ba1dad2ec967e815bb7a18a4c5f504a7fcf0bcddec11`.
+The benchmark manifest's `visualManifestSha256` and
+`GpuPassFusionBaselineEvidence.ExpectedManifestSha256` both name the former.
 
 ## Paired visual evidence (passed)
 
@@ -47,6 +54,11 @@ outside the evidence directory.
 - Raw result: [`paired-visual-result.json`](paired-visual-result.json)
   (SHA-256 `8da67e2864fb577605903dba0c0e143f727300afbc57526af3914dc6f534b01b`);
   run-regenerated target manifest `a7c9845f4e4368c22af53b53b6c0015fa4b801ac2b09e28ab7e5c567d2969277`, feature manifest `00457c360cdc7a05f92347b45a82d55652e033fb763f508701bb6d9ead943044`.
+- The exact historical inputs are retained under
+  [`paired-visual-run/target/`](paired-visual-run/target/) and
+  [`paired-visual-run/feature/`](paired-visual-run/feature/). Each manifest authenticates
+  all 44 RGBA16F blobs; their manifest SHA-256 values are the target and feature values
+  recorded above, so the committed result can be recomputed without regenerating either lane.
 
 ### Paired exact-fingerprint AA edge bound
 
@@ -98,6 +110,15 @@ equivalence is proven by the paired visual evidence.
 Recorded run committed under
 [`paired-benchmark-run/`](paired-benchmark-run/) (manifest SHA-256
 `839eaf34e4fa5824a03333fa50418259ea3fca302a044eb767110afb6b676b1e`), feature code SHA `912ddda0484d0b8cde3c63b60deefa491a0c596c`.
+
+The two acceptance lanes are intentionally revision-scoped rather than revision-identical.
+The performance result remains frozen at feature revision
+`912ddda0484d0b8cde3c63b60deefa491a0c596c`; its numeric ratios apply only to that
+revision. The visual oracle is regenerated after approved hardening rounds and currently
+validates semantic behavior at `0333344de919901b239764addde91d8bec7e8582`.
+Later visual evidence is a semantic no-regression gate for those hardening changes; it does
+not reattribute the frozen benchmark ratios to the later revision, and the benchmark run is
+not regenerated merely to advance the visual revision.
 
 ### Primary gate — passed
 

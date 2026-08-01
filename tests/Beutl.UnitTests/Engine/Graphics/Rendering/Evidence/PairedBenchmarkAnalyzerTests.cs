@@ -131,6 +131,36 @@ public sealed class PairedBenchmarkAnalyzerTests
     }
 
     [Test]
+    public void BenchmarkHarnessProvenance_ExtractsTheCompiledSourceRevision()
+    {
+        const string revision = "1111111111111111111111111111111111111111";
+
+        Assert.That(
+            BenchmarkHarnessProvenance.ExtractSourceRevision($"2.99.99+{revision}"),
+            Is.EqualTo(revision));
+        Assert.That(
+            () => BenchmarkHarnessProvenance.ExtractSourceRevision("2.99.99+short"),
+            Throws.TypeOf<InvalidOperationException>());
+    }
+
+    [Test]
+    public void PairedRunner_RejectsHarnessesThatDoNotAuthenticateTheExecutedBinary()
+    {
+        string runner = File.ReadAllText(Path.Combine(
+            GpuPassFusionEvidencePaths.Discover().EvidenceDirectory,
+            "run-paired-benchmarks.sh"));
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(runner, Does.Contain("BEUTL_RENDER_BENCHMARK_HARNESS_PROVENANCE"));
+            Assert.That(runner, Does.Contain("harness-provenance.json"));
+            Assert.That(runner, Does.Contain("Benchmark harness source revision mismatch"));
+            Assert.That(runner, Does.Contain("Beutl.GpuPassTargetBenchmarkHarness"));
+            Assert.That(runner, Does.Contain("Beutl.Benchmarks"));
+        });
+    }
+
+    [Test]
     public void Analyze_RejectsFingerprintSchemaMismatch()
     {
         using var fixture = new AnalyzerFixture();

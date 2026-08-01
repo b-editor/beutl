@@ -121,7 +121,7 @@ public class FilterEffectRenderNodeTest
         => new(node, new RenderNodeRendererOptions {
             DefaultRequest = new RenderNodeRenderRequest
             {
-                UseRenderCache = false,
+                CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Disabled,
             },
         });
 
@@ -145,7 +145,7 @@ public class FilterEffectRenderNodeTest
             {
                 DefaultRequest = new RenderNodeRenderRequest
                 {
-                    UseRenderCache = false,
+                    CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Disabled,
                     FusionMode = fusionMode,
                     Purpose = RenderRequestPurpose.Frame,
                     Diagnostics = diagnostics,

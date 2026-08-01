@@ -315,7 +315,7 @@ public sealed class GpuPassFusionFeature003RegressionTests
                         TargetDomain = new Rect(default, s_frame.ToSize(1)),
                         OutputScale = scale,
                         MaxWorkingScale = float.PositiveInfinity,
-                        UseRenderCache = false,
+                        CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Disabled,
                     },
                 });
             renderer.Render(destinationCanvas);
