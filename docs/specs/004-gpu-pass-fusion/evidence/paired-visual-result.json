@@ -57,14 +57,14 @@
     ],
     "vulkanVendorId": "0x0000106b"
   },
-  "featureCodeSha": "0333344de919901b239764addde91d8bec7e8582",
+  "featureCodeSha": "180809f90f04f989be3964fb35ba69fcc21527ba",
   "featureCommand": "dotnet run -c Release --no-build --project tests/Beutl.Benchmarks/Beutl.Benchmarks.csproj -- feature-visual-export",
   "featureExporterProvenance": {
-    "exporterAssemblyVersion": "2.99.99+0333344de919901b239764addde91d8bec7e8582",
-    "featureCodeSha": "0333344de919901b239764addde91d8bec7e8582"
+    "exporterAssemblyVersion": "2.99.99+180809f90f04f989be3964fb35ba69fcc21527ba",
+    "featureCodeSha": "180809f90f04f989be3964fb35ba69fcc21527ba"
   },
-  "featureManifestSha256": "00457c360cdc7a05f92347b45a82d55652e033fb763f508701bb6d9ead943044",
-  "generatedAtUtc": "2026-08-01T04:42:55.412367+00:00",
+  "featureManifestSha256": "f094bc5339ae63337004312497d0253892eaf8f1ec2dd78711a663cb3371ab30",
+  "generatedAtUtc": "2026-08-01T05:59:03.226839+00:00",
   "scenes": [
     {
       "edgeCrop": {
@@ -528,16 +528,16 @@
         "sceneId": "split-expansion"
       }
     ],
-    "committedTargetBaselineManifestSha256": "4d8e4942508320d40673e6541009e97fbe503778322fa33d3b9256f02531bcb6",
-    "regeneratedTargetManifestSha256": "9d39968078b69738aba65a61065187218da9bd862067c86aba322d53a831c9fd"
+    "committedTargetBaselineManifestSha256": "754d5cc0ecb9d2c1d4220be528569d08d419e53409c6958313916f6781157c1c",
+    "regeneratedTargetManifestSha256": "a3d0cbbd4de76baa32aae940cb4a493637747ede890765ed30833123f8624b5b"
   },
   "sourceAssemblyVersions": {
-    "feature": "2.99.99+0333344de919901b239764addde91d8bec7e8582",
+    "feature": "2.99.99+180809f90f04f989be3964fb35ba69fcc21527ba",
     "target": "2.99.99+43a38e665d9bf52548161a3917e748bd1457ff55"
   },
   "status": "passed",
   "targetCodeSha": "43a38e665d9bf52548161a3917e748bd1457ff55",
-  "targetManifestSha256": "a7c9845f4e4368c22af53b53b6c0015fa4b801ac2b09e28ab7e5c567d2969277",
+  "targetManifestSha256": "1b6a0e7743090982b034b0fa281fa98104ae606f860ff98804efc08a5efdd294",
   "thresholds": {
     "maximumAaCoverageBandChannelError": 0.02,
     "maximumAlphaMae": 0.02,

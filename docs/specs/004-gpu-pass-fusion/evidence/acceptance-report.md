@@ -34,7 +34,7 @@ The benchmark manifest's `visualManifestSha256` and
 
 ## Paired visual evidence (passed)
 
-- Target: legacy renderer regenerated from `43a38e665d9bf52548161a3917e748bd1457ff55`; feature: `0333344de919901b239764addde91d8bec7e8582`.
+- Target: legacy renderer regenerated from `43a38e665d9bf52548161a3917e748bd1457ff55`; feature: `180809f90f04f989be3964fb35ba69fcc21527ba`.
 - Environment fingerprint gate: exact match required and satisfied before any parity metric.
 - Result: **all 44 scenes passed** — thresholds SSIM ≥ 0.99,
   linear-RGB MAE ≤ 0.02, alpha MAE ≤ 0.02, and the 16×16 minimum-window
@@ -52,8 +52,8 @@ The benchmark manifest's `visualManifestSha256` and
   `PreviewAllocationDrops` counter); the recorded outcomes now match the baseline
   (`dropped-output-without-throw` / `threw`).
 - Raw result: [`paired-visual-result.json`](paired-visual-result.json)
-  (SHA-256 `8da67e2864fb577605903dba0c0e143f727300afbc57526af3914dc6f534b01b`);
-  run-regenerated target manifest `a7c9845f4e4368c22af53b53b6c0015fa4b801ac2b09e28ab7e5c567d2969277`, feature manifest `00457c360cdc7a05f92347b45a82d55652e033fb763f508701bb6d9ead943044`.
+  (SHA-256 `0d6ae2cbfe1c19b8116baf3e83ce10764e57f8a4bb2960cf3a04b6e5361a70af`);
+  run-regenerated target manifest `1b6a0e7743090982b034b0fa281fa98104ae606f860ff98804efc08a5efdd294`, feature manifest `f094bc5339ae63337004312497d0253892eaf8f1ec2dd78711a663cb3371ab30`.
 - The exact historical inputs are retained under
   [`paired-visual-run/target/`](paired-visual-run/target/) and
   [`paired-visual-run/feature/`](paired-visual-run/feature/). Each manifest authenticates
@@ -235,7 +235,7 @@ methodology are unchanged.
 | `paired-benchmark-run/feature/raw-benchmark-stdout.txt` | `a174be2deafef47e6c0b355d292d34432a974c74cfa95c02e29616e786c2c283` |
 | `paired-benchmark-run/manifest.json` | `839eaf34e4fa5824a03333fa50418259ea3fca302a044eb767110afb6b676b1e` |
 
-Visual evidence regenerated 2026-08-01T04:42:55Z on the fingerprinted machine
+Visual evidence regenerated 2026-08-01T05:59:03Z on the fingerprinted machine
 (benchmark run recorded 2026-07-31T18:35:08Z on the same machine). The paired
 benchmark analyzer has since been tightened to require the exact frozen BenchmarkDotNet
 job (`Monitoring`, warmup 3, iterations 15, launch/invocation/unroll 1) and matching
