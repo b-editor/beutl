@@ -35,7 +35,8 @@ internal sealed class RenderPipelineDiagnosticSnapshot
         string rootTargetClass,
         RenderPipelineFailurePhase? failurePhase,
         IReadOnlyDictionary<RenderPipelineCounter, long> counters,
-        IEnumerable<RenderPipelineDiagnosticEvent> events);
+        IEnumerable<RenderPipelineDiagnosticEvent> events,
+        bool hasRuntimeDynamicGpuPassWork = false);
 
     internal long RequestId { get; }
     internal long? ParentRequestId { get; }
@@ -43,6 +44,8 @@ internal sealed class RenderPipelineDiagnosticSnapshot
     internal RenderRequestPurpose Purpose { get; }
     internal bool Succeeded { get; }
     internal bool HasOpaqueExternalWork { get; }
+    internal bool HasRuntimeDynamicGpuPassWork { get; }
+    internal bool HasExactGpuPassCount { get; }
     internal string RootTargetClass { get; }
     internal RenderPipelineFailurePhase? FailurePhase { get; }
     internal IReadOnlyDictionary<RenderPipelineCounter, long> Counters { get; }
@@ -191,7 +194,7 @@ Snapshots, dictionaries, and event lists are immutable and contain numeric/strin
 | `RecordedTargetCaptures` | Committed target-token-to-value capture fragments. |
 | `RecordedTargetScopes` | Committed guarded typed or raw same-target scope fragments. |
 | `RecordedLayers` | Committed local-target Layer fragments. |
-| `PlannedGpuPasses` | Planner-controlled GPU draw/dispatch passes in the compiled request, including new opaque/Geometry compatibility islands but excluding internals of legacy external callbacks. |
+| `PlannedGpuPasses` | Planner-controlled GPU draw/dispatch work items in the compiled request, including each opaque/Geometry compatibility island but excluding internals of legacy external callbacks. One runtime-dynamic `OpaqueExpand` island is one planned item even though its callback may create multiple physical output-canvas passes. |
 | `ExecutedGpuPasses` | Planner-controlled planned GPU passes that actually execute. Cache/skipped work and legacy callback internals are excluded. |
 | `FusedStages` | Semantic stages executed inside multi-stage compiled runs. |
 | `ExecutionIslands` | Planned cache/backend/lifetime islands. |
@@ -225,7 +228,7 @@ Snapshots, dictionaries, and event lists are immutable and contain numeric/strin
 | `CleanupFailures` | Every cleanup fault. With an earlier primary they remain secondary; without one, the first is also represented by `Failures = 1` / `FailurePhase = Cleanup`. |
 | `ExternalRootResources` | Externally owned root/presentation targets, classified separately from intermediates. |
 
-When `HasOpaqueExternalWork` is false, planned/executed pass, synchronization, transition, acquire, and discharge counters are exact for the complete request. Existing `FilterEffectContext.CustomEffect` lowers to `LegacyCustomEffect`; every retained raw `IBackdrop`/audio/custom canvas hook plus `RawTargetScope`/`RawTargetCommand` lowers to `LegacyRawCanvas`. Recording any such fragment sets `HasOpaqueExternalWork` even when ROI/failure later skips callback invocation. The planner counts the boundary and every resource/synchronization it controls around it, but cannot claim the callback's internal physical GPU pass or flush count. `OpaqueExternalExecutions` increments only on callback entry. A snapshot with opaque external work must not support an exact whole-request physical-pass claim, while fragment outcome reconciliation remains complete.
+`HasExactGpuPassCount` is true only when both `HasOpaqueExternalWork` and `HasRuntimeDynamicGpuPassWork` are false. Runtime-dynamic `OpaqueExpand` sets the latter because its callback discovers the number of output canvases only during execution; the planned/executed counters continue to describe its one compatibility-island work item, not an exact physical pass count. Existing `FilterEffectContext.CustomEffect` lowers to `LegacyCustomEffect`; every retained raw `IBackdrop`/audio/custom canvas hook plus `RawTargetScope`/`RawTargetCommand` lowers to `LegacyRawCanvas`. Recording any such fragment sets `HasOpaqueExternalWork` even when ROI/failure later skips callback invocation. The planner counts the boundary and every resource/synchronization it controls around it, but cannot claim the callback's internal physical GPU pass or flush count. `OpaqueExternalExecutions` increments only on callback entry. In either inexact case, synchronization, transition, acquire, discharge, and fragment outcome reconciliation remain complete for the planner-controlled request.
 
 ### Outcome reconciliation
 
@@ -282,7 +285,7 @@ The script creates a temporary clean worktree pinned to the exact baseline SHA, 
 - allocation-failure behavior for preview and delivery paths;
 - benchmark command/environment/raw result reference.
 
-A paired target-baseline comparison is valid only when the baseline and feature runs have byte-identical environment fingerprints. Source provenance is validated separately against each worktree: code SHA and an engine informational/assembly version that embeds that SHA are expected to differ and are not environment-fingerprint fields. `run-paired-visual-evidence.sh` runs the pinned baseline and feature worktrees, compares every required OS/runtime/graphics fingerprint field before invoking the parity oracle, validates each run's source provenance against its own SHA, and records both result sets. A missing/unknown environment field, environment mismatch, or source-provenance mismatch is a hard evidence-run error, never a skip or a reason to select another device's blob; rerun both worktrees under one matching environment. The evidence runner uses immutable `AssertExisting` behavior. Missing files or hash mismatches fail and are never generated by the implementation under test.
+A paired target-baseline comparison is valid only when the baseline and feature runs have byte-identical environment fingerprints. Source provenance is validated separately against each worktree: code SHA and an engine informational/assembly version that embeds that SHA are expected to differ and are not environment-fingerprint fields. `run-paired-visual-evidence.sh` runs the pinned baseline and feature worktrees, compares every required OS/runtime/graphics fingerprint field before invoking the parity oracle, validates each run's source provenance against its own SHA, and records both result sets. The feature manifest's `featureCodeSha` must equal the feature worktree SHA and its `exporterAssemblyVersion` must embed that SHA, independently of the loaded Engine assembly version; both exporter fields are persisted in the paired result. A missing/unknown environment field, environment mismatch, or source-provenance mismatch is a hard evidence-run error, never a skip or a reason to select another device's blob; rerun both worktrees under one matching environment. The evidence runner uses immutable `AssertExisting` behavior. Missing files or hash mismatches fail and are never generated by the implementation under test.
 
 Normal CI does not use a committed device-specific blob as an unconditional visual oracle. It verifies the evidence manifest schema and every patch/script/blob hash on every run, then performs functional visual parity with fusion disabled versus enabled in the same process, backend, device, and runtime. Friend tests select an internal request `FusionMode`; production and public renderer options expose only enabled planning, nested requests inherit the mode, and structural-plan identity includes it so the two schedules cannot alias. CI never silently selects a foreign-fingerprint blob. The dedicated paired evidence run against the pinned starting SHA remains required separately and cannot be replaced by the same-process comparison.
 
@@ -466,7 +469,7 @@ Required cases:
 - small-object/fixed-overhead scene;
 - multiple top-level drawables with target dependencies.
 
-Compare pinned baseline and feature worktrees in the same machine/session with identical runtime, backend/device, dimensions, warm-up, renderer lifetime, scene, and output verification. Preserve raw BenchmarkDotNet results and every counter each unmodified engine can expose. The external starting-SHA harness records observational legacy request counters derived from pulled operations and immutable scene declarations (`LegacyOperationExecutions`, semantic stages, top-level drawables, target dependencies, cache hits, completion, and failure), and explicitly records final structural-plan/program-cache/target-pool statistics as unavailable on that SHA. The feature harness records its native request-wide planning, execution, synchronization, cache, program, and pool counters. A feature-only counter is not fabricated for the baseline and is not treated as a cross-version numeric pair; the paired manifest preserves both baseline snapshots independently, while feature counter invariants are validated against the feature engine.
+Compare pinned baseline and feature worktrees in the same machine/session with identical runtime, backend/device, dimensions, warm-up, renderer lifetime, scene, and output verification. Every setup and final measured output contract for every feature workload must match the independently executed starting-SHA baseline; a second feature replay supplies repeatability evidence but is not the semantic oracle. Preserve raw BenchmarkDotNet results and every counter each unmodified engine can expose. The external starting-SHA harness records observational legacy request counters derived from pulled operations and immutable scene declarations (`LegacyOperationExecutions`, semantic stages, top-level drawables, target dependencies, cache hits, completion, and failure), and explicitly records final structural-plan/program-cache/target-pool statistics as unavailable on that SHA. The feature harness records its native request-wide planning, execution, synchronization, cache, program, and pool counters. It applies the same scene-specific workload-shape invariants to both the setup snapshot and the replay of the final measured request. A feature-only counter is not fabricated for the baseline and is not treated as a cross-version numeric pair; the paired manifest preserves both baseline snapshots independently, while feature counter invariants are validated against the feature engine.
 
 Acceptance for the primary warmed cross-node workload is a post/pre median frame-time ratio whose 95% confidence interval lies entirely below 1.0. Controls and barrier cases must remain within the measurement tolerance established by repeated baseline runs. No absolute milliseconds or historical donor percentage is normative.
 

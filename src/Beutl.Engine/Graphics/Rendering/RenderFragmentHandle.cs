@@ -517,7 +517,7 @@ internal static class TargetWriteMetadataResolver
             TargetRegionKind.Empty => null,
             TargetRegionKind.Region => region.Value,
             TargetRegionKind.Full when targetDomain is { } domain => domain,
-            TargetRegionKind.Full => throw new InvalidOperationException(
+            TargetRegionKind.Full => throw new RenderTargetDomainRequiredException(
                 "A target-less request with a Full target write requires a finite TargetDomain."),
             _ => throw new InvalidOperationException("The target region is uninitialized."),
         };

@@ -105,6 +105,7 @@ public sealed class ShaderFallbackTests
     {
         using var source = new CpuRenderTarget(6, 4);
         source.Value.Canvas.Clear(new SKColor(64, 128, 192, 160));
+        using Bitmap sourceBitmap = source.Snapshot();
         ShaderDescription description;
         if (kind == ShaderDescriptionKind.WholeSource)
         {
@@ -145,8 +146,10 @@ public sealed class ShaderFallbackTests
 
         Assert.Multiple(() =>
         {
-            Assert.That(SumAbsoluteChannels(cold.Bitmap!), Is.GreaterThan(1));
-            Assert.That(SumAbsoluteChannels(warm.Bitmap!), Is.GreaterThan(1));
+            Assert.That(cold.Bitmap, Is.Not.Null);
+            Assert.That(warm.Bitmap, Is.Not.Null);
+            AssertBlueRedSwap(sourceBitmap, cold.Bitmap!);
+            AssertBlueRedSwap(sourceBitmap, warm.Bitmap!);
             Assert.That(coldStatistics.Creations, Is.EqualTo(1));
             Assert.That(coldStatistics.Misses, Is.EqualTo(1));
             Assert.That(coldStatistics.Hits, Is.Zero);

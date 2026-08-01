@@ -37,11 +37,11 @@ public sealed class RenderPipelineMigrationCensusTests
             ["src/Beutl.Engine/Graphics/Rendering/RectClipRenderNode.cs"] = 1,
             ["src/Beutl.Engine/Graphics/Rendering/RectangleRenderNode.cs"] = 1,
             ["src/Beutl.Engine/Graphics/Rendering/ReferencesChildRenderNode.cs"] = 1,
+            ["src/Beutl.Engine/Graphics/Rendering/Renderer.cs"] = 1,
             ["src/Beutl.Engine/Graphics/Rendering/SnapshotBackdropRenderNode.cs"] = 1,
             ["src/Beutl.Engine/Graphics/Rendering/TextRenderNode.cs"] = 1,
             ["src/Beutl.Engine/Graphics/Rendering/TransformRenderNode.cs"] = 1,
             ["src/Beutl.Engine/Graphics/Rendering/VideoSourceRenderNode.cs"] = 1,
-            ["src/Beutl.Engine/Graphics/Rendering/Renderer.cs"] = 1,
             ["src/Beutl.Engine/Graphics3D/Scene3DRenderNode.cs"] = 1,
             ["src/Beutl.NodeGraph/NodeGraphFilterEffectRenderNode.cs"] = 1,
             ["src/Beutl.NodeGraph/Nodes/FilterEffectInputNode.cs"] = 1,
@@ -75,7 +75,7 @@ public sealed class RenderPipelineMigrationCensusTests
             ["tests/Beutl.PublicApiContractTests/TargetAuthoringContractTests.cs"] = 2,
             ["tests/Beutl.UnitTests/Engine/Graphics/Rendering/Cache/ContributeValuesCacheHitExecutionTests.cs"] = 2,
             ["tests/Beutl.UnitTests/Engine/Graphics/Rendering/Cache/RenderCacheResolutionTests.cs"] = 2,
-            ["tests/Beutl.UnitTests/Engine/Graphics/Rendering/Cache/StructuralAndProgramCacheTests.cs"] = 5,
+            ["tests/Beutl.UnitTests/Engine/Graphics/Rendering/Cache/StructuralAndProgramCacheTests.cs"] = 6,
             ["tests/Beutl.UnitTests/Engine/Graphics/Rendering/Failure/DeferredCallbackFailureTests.cs"] = 7,
             ["tests/Beutl.UnitTests/Engine/Graphics/Rendering/Failure/NestedTargetAndCleanupFailureTests.cs"] = 16,
             ["tests/Beutl.UnitTests/Engine/Graphics/Rendering/Failure/RecordingAndPlanningFailureTests.cs"] = 5,
@@ -109,7 +109,7 @@ public sealed class RenderPipelineMigrationCensusTests
             ["tests/Beutl.UnitTests/Engine/Graphics/Rendering/RendererExceptionSafetyTests.cs"] = 1,
             ["tests/Beutl.UnitTests/Engine/Graphics/Rendering/ResolutionScaleTests.cs"] = 1,
             ["tests/Beutl.UnitTests/Engine/Graphics/Rendering/SourceEffectiveScaleFlowTests.cs"] = 13,
-            ["tests/Beutl.UnitTests/NodeGraph/NodeGraphFilterEffectRenderNodeTests.cs"] = 5,
+            ["tests/Beutl.UnitTests/NodeGraph/NodeGraphFilterEffectRenderNodeTests.cs"] = 6,
             ["tests/Beutl.UnitTests/ProjectSystem/SceneDrawableScaleTests.cs"] = 1,
         };
 
@@ -162,7 +162,7 @@ public sealed class RenderPipelineMigrationCensusTests
             AssertDeclaredBaseline("test", 7, s_startingTestOverrideBaseline);
             AssertAllOverridesAreMapped(overrides);
             AssertBaselineInventory("production", 30, s_productionOverrideBaseline, overrides);
-            AssertBaselineInventory("test", 175, s_testOverrideBaseline, overrides);
+            AssertBaselineInventory("test", 177, s_testOverrideBaseline, overrides);
         }
     }
 

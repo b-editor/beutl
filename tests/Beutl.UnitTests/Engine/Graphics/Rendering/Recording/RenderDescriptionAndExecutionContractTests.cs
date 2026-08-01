@@ -326,7 +326,7 @@ public sealed class RenderDescriptionAndExecutionContractTests
             bounds,
             RenderHitTestContract.OutputBounds,
             TargetAccess.Readback,
-            requiresInputReadback: true,
+            inputReadbacks: [TargetInputReadback.Values([0])],
             structuralKey: "read-command",
             runtimeIdentity: new RenderRuntimeIdentity(("command", 2)));
         TargetScopeDescription scope = TargetScopeDescription.Create(
@@ -352,11 +352,27 @@ public sealed class RenderDescriptionAndExecutionContractTests
             Assert.That(capture.SourceRegion.Kind, Is.EqualTo(TargetRegionKind.Region));
             Assert.That(capture.Bounds, Is.EqualTo(bounds));
             Assert.That(command.Access, Is.EqualTo(TargetAccess.Readback));
-            Assert.That(command.RequiresInputReadback, Is.True);
+            Assert.That(command.InputReadbacks, Is.EqualTo(new[] { TargetInputReadback.Values([0]) }));
+            Assert.That(TargetInputReadback.Values([1, 0]), Is.EqualTo(TargetInputReadback.Values([0, 1])));
             Assert.That(command.QueryBounds, Is.EqualTo(bounds));
             Assert.That(scope.Bounds, Is.EqualTo(RenderBoundsContract.Identity));
             Assert.That(rawScope.Scale, Is.EqualTo(RenderScaleContract.PreserveInputSupply));
             Assert.That(rawCommand.QueryBounds, Is.EqualTo(bounds));
+            Assert.That(
+                () => TargetInputReadback.Values([-1]),
+                Throws.TypeOf<ArgumentOutOfRangeException>());
+            Assert.That(
+                () => TargetInputReadback.Values([0, 0]),
+                Throws.TypeOf<ArgumentException>());
+            Assert.That(
+                () => TargetCommandDescription.Create(
+                    static _ => { },
+                    TargetRegion.Region(bounds),
+                    bounds,
+                    RenderHitTestContract.None,
+                    TargetAccess.ReadWrite,
+                    inputReadbacks: [default]),
+                Throws.TypeOf<ArgumentException>().With.Property("ParamName").EqualTo("inputReadbacks"));
         });
 
         ArgumentException emptyReadback = Assert.Throws<ArgumentException>(

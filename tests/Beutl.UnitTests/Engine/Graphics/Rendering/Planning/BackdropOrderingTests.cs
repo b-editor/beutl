@@ -143,6 +143,34 @@ public sealed class BackdropOrderingTests
     }
 
     [Test]
+    public void SnapshotSubclass_UsesTheSameRequestCapture()
+    {
+        using var root = new ContainerRenderNode();
+        var snapshot = new DerivedSnapshotBackdropRenderNode();
+        root.AddChild(snapshot);
+        root.AddChild(new DrawBackdropRenderNode(snapshot, s_drawBounds));
+        using var request = new RenderRequest(new RenderRequestOptions(
+            RenderIntent.Preview,
+            RenderRequestPurpose.Frame,
+            targetDomain: s_domain));
+
+        RecordedRenderGraph graph = new RenderRequestRecorder(request).Record(root);
+        RenderFragmentReference[] references = graph.Fragments
+            .Select(static fragment => (RenderFragmentReference)fragment.Payload!)
+            .ToArray();
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(references.Count(static item => item.Kind == RenderFragmentKind.BuiltInBackdropCapture),
+                Is.EqualTo(1));
+            Assert.That(references.Count(static item => item.Kind == RenderFragmentKind.TargetCommand),
+                Is.EqualTo(1));
+            Assert.That(references, Has.None.Matches<RenderFragmentReference>(
+                static item => item.Kind == RenderFragmentKind.RawTargetCommand));
+        });
+    }
+
+    [Test]
     public void DisposedSnapshot_RejectsPersistedFallbackWithoutTakingOwnership()
     {
         var snapshot = new SnapshotBackdropRenderNode();
@@ -233,6 +261,10 @@ public sealed class BackdropOrderingTests
             IReadOnlyList<RenderFragmentHandle> outputs = context.RecordSubtree(subtree);
             context.Publish(context.Layer(outputs, s_domain));
         }
+    }
+
+    private sealed class DerivedSnapshotBackdropRenderNode : SnapshotBackdropRenderNode
+    {
     }
 
     public enum BackdropScope

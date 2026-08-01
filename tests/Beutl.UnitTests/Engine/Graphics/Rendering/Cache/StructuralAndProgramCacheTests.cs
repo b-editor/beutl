@@ -266,6 +266,38 @@ public sealed class StructuralAndProgramCacheTests
     }
 
     [Test]
+    public void TargetInputReadbackSelection_ReplacesStructuralPlanAndRebindsSnapshots()
+    {
+        using var node = new MutableTargetCommandReadbackNode();
+        using var renderer = new RenderNodeRenderer(
+            node,
+            new RenderNodeRendererOptions
+            {
+                TargetDomain = new Rect(0, 0, 8, 8),
+                UseRenderCache = false,
+                TargetFactory = new CpuTargetFactory(),
+            });
+
+        using (renderer.Rasterize())
+        {
+        }
+
+        node.ReadFirstInput = false;
+        using (renderer.Rasterize())
+        {
+        }
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(node.SnapshotCounts, Is.EqualTo(new[] { 1, 1 }));
+            Assert.That(renderer.StructuralPlanCacheStatistics.Compilations, Is.EqualTo(2));
+            Assert.That(renderer.StructuralPlanCacheStatistics.Misses, Is.EqualTo(2));
+            Assert.That(renderer.StructuralPlanCacheStatistics.Replacements, Is.EqualTo(1));
+            Assert.That(renderer.StructuralPlanCacheStatistics.Hits, Is.Zero);
+        });
+    }
+
+    [Test]
     public void NestedRequestFamily_ReusesEveryCurrentPlanAndTrimsRemovedMembers()
     {
         using var cache = new StructuralPlanCache();
@@ -551,6 +583,49 @@ public sealed class StructuralAndProgramCacheTests
 
         public override void Process(RenderNodeContext context)
             => context.Publish(context.TargetLayerScope([], Region));
+    }
+
+    private sealed class MutableTargetCommandReadbackNode : RenderNode
+    {
+        private static readonly Rect s_bounds = new(0, 0, 8, 8);
+
+        public bool ReadFirstInput { get; set; } = true;
+
+        public int[] SnapshotCounts { get; } = new int[2];
+
+        public override void Process(RenderNodeContext context)
+        {
+            RenderFragmentHandle first = context.OpaqueSource(CreateSource("first"));
+            RenderFragmentHandle second = context.OpaqueSource(CreateSource("second"));
+            int selectedInput = ReadFirstInput ? 0 : 1;
+            RenderFragmentHandle command = context.TargetCommand(
+                [first, second],
+                TargetCommandDescription.Create(
+                    session => session.Inputs[selectedInput].UseSnapshot(
+                        _ => SnapshotCounts[selectedInput]++),
+                    TargetRegion.Empty,
+                    Rect.Empty,
+                    RenderHitTestContract.None,
+                    TargetAccess.ReadWrite,
+                    inputReadbacks: ReadFirstInput
+                        ? [TargetInputReadback.All, TargetInputReadback.None]
+                        : [TargetInputReadback.None, TargetInputReadback.All],
+                    structuralKey: "mutable-target-input-readback"));
+            context.PublishRange([first, second, command]);
+        }
+
+        private static OpaqueRenderDescription CreateSource(string key)
+            => OpaqueRenderDescription.Create(
+                session =>
+                {
+                    using OpaqueRenderOutput output = session.CreateOutput(session.OutputBounds);
+                    session.Publish(output);
+                },
+                OpaqueRenderBoundsContract.Source(s_bounds),
+                RenderHitTestContract.OutputBounds,
+                RenderValueCardinality.Single,
+                RenderScaleContract.MaterializeAtWorkingScale,
+                structuralKey: ("mutable-target-input-readback-source", key));
     }
 
     private sealed class ExecutableParameterShaderNode(RenderTarget source) : RenderNode

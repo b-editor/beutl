@@ -630,6 +630,7 @@ internal sealed class RenderPipelineBenchmarkSession : IDisposable
             SortedDictionary<string, long> verifiedMeasuredCounters = measuredCounters
                 ?? throw new InvalidOperationException(
                     "The untimed diagnostic session did not replay the final measured request.");
+            ValidateSceneCounters(_scene, verifiedMeasuredCounters);
 
             return new DiagnosticCapture(
                 setupOutput

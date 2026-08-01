@@ -45,7 +45,7 @@ public partial class MeasureNode : GraphNode
                         using var renderer = new RenderNodeRenderer(renderNode);
                         rect = renderer.Measure().QueryBounds;
                     }
-                    catch (InvalidOperationException) when (context.TargetDomain is { } domain)
+                    catch (RenderTargetDomainRequiredException) when (context.TargetDomain is { } domain)
                     {
                         using var renderer = new RenderNodeRenderer(renderNode, new RenderNodeRendererOptions
                         {

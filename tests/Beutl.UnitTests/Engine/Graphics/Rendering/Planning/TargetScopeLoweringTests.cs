@@ -618,7 +618,7 @@ public sealed class TargetScopeLoweringTests
         var request = new RenderRequest(Options(targetDomain: null, owner: owner));
         RecordedRenderGraph graph = new RenderRequestRecorder(request).Record(fullCommand);
 
-        InvalidOperationException? error = Assert.Throws<InvalidOperationException>(
+        InvalidOperationException? error = Assert.Throws<RenderTargetDomainRequiredException>(
             () => new RenderRequestCompiler().Compile(request, graph));
 
         Assert.That(error!.Message, Does.Contain("finite").And.Contain("target domain").IgnoreCase);
@@ -648,7 +648,7 @@ public sealed class TargetScopeLoweringTests
         using var command = new FullCommandNode();
         Assert.That(
             () => Compile(command, targetDomain: null, requestedRegion: new Rect(2, 3, 4, 5)),
-            Throws.TypeOf<InvalidOperationException>());
+            Throws.TypeOf<RenderTargetDomainRequiredException>());
 
         using var root = new ContainerRenderNode();
         var finite = new LayerRenderNode(new Rect(10, 20, 30, 40));

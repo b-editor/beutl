@@ -615,6 +615,42 @@ public class NodeGraphFilterEffectRenderNodeTests
         monitor.Value?.Dispose();
     }
 
+    [TestCase(false)]
+    [TestCase(true)]
+    public void StandaloneUtility_DoesNotRetryAnUnrelatedInvalidOperationException(bool preview)
+    {
+        using var renderNode = new ThrowingRenderNode();
+        var model = new GraphModel();
+        var sourceNode = new FixedRenderNodeGraphNode(renderNode);
+        model.Nodes.Add(sourceNode);
+        if (preview)
+        {
+            var previewNode = new PreviewNode();
+            model.Nodes.Add(previewNode);
+            model.Connect(previewNode.Input, sourceNode.Output);
+            GetPreviewMonitor(previewNode).IsEnabled = true;
+        }
+        else
+        {
+            var measureNode = new MeasureNode();
+            model.Nodes.Add(measureNode);
+            model.Connect(measureNode.Input, sourceNode.Output);
+        }
+
+        using var snapshot = new GraphSnapshot();
+        var context = new CompositionContext(TimeSpan.Zero)
+        {
+            TargetDomain = new Rect(0, 0, 64, 48),
+        };
+        snapshot.Build(model, context);
+
+        Assert.That(
+            () => snapshot.Evaluate(CompositionTarget.Graphics, context),
+            Throws.TypeOf<InvalidOperationException>().With.Message.EqualTo(ThrowingRenderNode.Message));
+        Assert.That(renderNode.ProcessCount, Is.EqualTo(1),
+            "An unrelated InvalidOperationException must propagate without a target-domain retry.");
+    }
+
     [Test]
     public void SharedNonValueSubtree_ThrowsAtSecondNodeGraphConsumer()
     {
@@ -1029,6 +1065,19 @@ internal sealed class CountingOpaqueSourceRenderNode(Rect bounds) : RenderNode
             RenderScaleContract.MaterializeAtWorkingScale,
             structuralKey: typeof(CountingOpaqueSourceRenderNode),
             runtimeIdentity: new RenderRuntimeIdentity(bounds))));
+    }
+}
+
+internal sealed class ThrowingRenderNode : RenderNode
+{
+    public const string Message = "unrelated render-node failure";
+
+    public int ProcessCount { get; private set; }
+
+    public override void Process(RenderNodeContext context)
+    {
+        ProcessCount++;
+        throw new InvalidOperationException(Message);
     }
 }
 

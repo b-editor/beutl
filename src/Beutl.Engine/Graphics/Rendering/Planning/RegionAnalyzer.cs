@@ -458,7 +458,7 @@ internal sealed class RegionAnalyzer
         if (reference.BoundsRequirement == RenderFragmentBoundsRequirement.OwningTargetDomain)
         {
             return targetDomain
-                ?? throw new InvalidOperationException(reference.Kind == RenderFragmentKind.LegacyFilterEffect
+                ?? throw new RenderTargetDomainRequiredException(reference.Kind == RenderFragmentKind.LegacyFilterEffect
                     ? "A CustomEffect without transformBounds requires a finite owning target domain from a "
                       + "destination, finite Layer, or explicit TargetDomain."
                     : "A symbolic full-target capture requires a finite owning target domain.");
@@ -1193,7 +1193,7 @@ internal sealed class RegionAnalyzer
             TargetRegionKind.Empty => Rect.Empty,
             TargetRegionKind.Region => region.Value,
             TargetRegionKind.Full when targetDomain is { } domain => domain,
-            TargetRegionKind.Full => throw new InvalidOperationException(
+            TargetRegionKind.Full => throw new RenderTargetDomainRequiredException(
                 "A target-less request with Full target access requires a finite TargetDomain."),
             _ => throw new InvalidOperationException("The target region is uninitialized."),
         };

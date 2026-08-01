@@ -3286,8 +3286,22 @@ internal sealed class RenderRequestExecutor
             var payload = (TargetCommandRenderFragmentPayload)fragment.Payload!;
             TargetCommandDescription description = payload.Description;
             var values = new List<CompatibilityRenderValue>();
-            foreach (RenderFragmentReference input in fragment.Inputs)
-                values.AddRange(Materialize(input, destination));
+            var inputReadbacks = new List<bool>();
+            for (int inputIndex = 0; inputIndex < fragment.Inputs.Length; inputIndex++)
+            {
+                IReadOnlyList<CompatibilityRenderValue> inputValues = Materialize(
+                    fragment.Inputs[inputIndex],
+                    destination);
+                TargetInputReadback readback = payload.InputReadbacks[inputIndex];
+                readback.ValidateRuntimeCount(
+                    fragment.Inputs[inputIndex].ValueCardinality,
+                    inputValues.Count);
+                for (int valueIndex = 0; valueIndex < inputValues.Count; valueIndex++)
+                {
+                    values.Add(inputValues[valueIndex]);
+                    inputReadbacks.Add(readback.RequiresValue(valueIndex));
+                }
+            }
 
             var images = new List<SKImage>(values.Count);
             Bitmap? targetSnapshot = null;
@@ -3297,10 +3311,10 @@ internal sealed class RenderRequestExecutor
                 token.RunAndComplete(
                     () =>
                     {
-                        IReadOnlyList<RenderExecutionInput> inputs = CreateExecutionInputs(
+                        IReadOnlyList<RenderExecutionInput> inputs = CreateTargetCommandExecutionInputs(
                             token,
                             values,
-                            description.RequiresInputReadback,
+                            inputReadbacks,
                             fragment,
                             images);
                         Rect affectedBounds = ResolveTargetRegion(
@@ -3543,6 +3557,40 @@ internal sealed class RenderRequestExecutor
                 images.Add(image);
                 Func<Bitmap>? createSnapshot = requiresReadback
                     ? () => SnapshotInputForReadback(readbackOwner!, value)
+                    : null;
+                inputs.Add(new RenderExecutionInput(
+                    token,
+                    value.Bounds,
+                    value.EffectiveScale,
+                    value.DeviceBounds,
+                    value.RasterBounds,
+                    image,
+                    createSnapshot,
+                    requiresReadback));
+            }
+
+            return inputs;
+        }
+
+        private IReadOnlyList<RenderExecutionInput> CreateTargetCommandExecutionInputs(
+            RenderExecutionSessionToken token,
+            IReadOnlyList<CompatibilityRenderValue> values,
+            IReadOnlyList<bool> inputReadbacks,
+            RenderFragmentReference readbackOwner,
+            List<SKImage> images)
+        {
+            if (inputReadbacks.Count != values.Count)
+                throw new InvalidOperationException("Target-command input readback planning did not reconcile.");
+
+            var inputs = new List<RenderExecutionInput>(values.Count);
+            for (int index = 0; index < values.Count; index++)
+            {
+                CompatibilityRenderValue value = values[index];
+                SKImage image = value.Target.Value.Snapshot();
+                images.Add(image);
+                bool requiresReadback = inputReadbacks[index];
+                Func<Bitmap>? createSnapshot = requiresReadback
+                    ? () => SnapshotInputForReadback(readbackOwner, value)
                     : null;
                 inputs.Add(new RenderExecutionInput(
                     token,

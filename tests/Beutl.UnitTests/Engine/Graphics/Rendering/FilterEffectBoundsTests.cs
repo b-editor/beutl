@@ -4,6 +4,7 @@ using Beutl.Engine;
 using Beutl.Graphics;
 using Beutl.Graphics.Effects;
 using Beutl.Graphics.Rendering;
+using Beutl.Graphics.Transformation;
 using Beutl.Media;
 using SkiaSharp;
 
@@ -54,7 +55,7 @@ public sealed class FilterEffectBoundsTests
             node,
             new RenderNodeRendererOptions { UseRenderCache = false });
 
-        InvalidOperationException? error = Assert.Throws<InvalidOperationException>(() => renderer.Measure());
+        InvalidOperationException? error = Assert.Throws<RenderTargetDomainRequiredException>(() => renderer.Measure());
 
         Assert.That(error!.Message, Does.Contain("transformBounds").And.Contain("TargetDomain"));
     }
@@ -128,6 +129,46 @@ public sealed class FilterEffectBoundsTests
         };
 
         Assert.That(ApplyBounds(effect), Is.EqualTo(new Rect(-2, 16, 124, 68)));
+    }
+
+    [Test]
+    public void TransformEffect_DeclaredBoundsContainSeparatedRuntimeTargets()
+    {
+        var inputBounds = new Rect(0, 0, 100, 10);
+        var split = new SplitEffect
+        {
+            HorizontalDivisions = { CurrentValue = 2 },
+            VerticalDivisions = { CurrentValue = 1 },
+        };
+        var transform = new TransformEffect
+        {
+            Transform = { CurrentValue = new ScaleTransform(50, 50) },
+        };
+
+        using var context = new FilterEffectContext(inputBounds);
+        using FilterEffect.Resource splitResource = split.ToResource(CompositionContext.Default);
+        using FilterEffect.Resource transformResource = transform.ToResource(CompositionContext.Default);
+        split.ApplyTo(context, splitResource);
+        transform.ApplyTo(context, transformResource);
+
+        using RenderTarget source = RenderTarget.Create(100, 10)
+            ?? throw new InvalidOperationException("A render target is required for this test.");
+        using var targets = new EffectTargets
+        {
+            new EffectTarget(source, inputBounds),
+        };
+        using var builder = new SKImageFilterBuilder();
+        using var activator = new FilterEffectActivator(
+            targets,
+            builder,
+            RenderIntent.Delivery,
+            RenderRequestPurpose.Auxiliary);
+
+        activator.Apply(context);
+
+        Rect runtimeBounds = activator.CurrentTargets.CalculateBounds();
+        Assert.That(runtimeBounds, Is.EqualTo(new Rect(12.5f, 2.5f, 75, 5)));
+        AssertRectContains(context.Bounds, runtimeBounds, 0.001f);
     }
 
     [Test]

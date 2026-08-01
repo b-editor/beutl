@@ -40,6 +40,24 @@ public class ParticleRenderNodeScaleTests
         return (ParticleEmitter.Resource)emitter.ToResource(ctx);
     }
 
+    private static ParticleEmitter.Resource BuildResourceWithGroupedParticleDrawable()
+    {
+        var particle = new RectShape();
+        particle.Width.CurrentValue = 20;
+        particle.Height.CurrentValue = 12;
+        particle.Fill.CurrentValue = Brushes.White;
+        var group = new DrawableGroup();
+        group.Children.Add(particle);
+
+        var emitter = new ParticleEmitter();
+        emitter.ParticleDrawable.CurrentValue = group;
+        emitter.MaxParticles.CurrentValue = 1;
+        emitter.Speed.CurrentValue = 0;
+        emitter.Gravity.CurrentValue = 0;
+        return (ParticleEmitter.Resource)emitter.ToResource(
+            new CompositionContext(TimeSpan.FromSeconds(1)));
+    }
+
     [Test]
     public void Resource_AfterOneSecond_HasAliveParticles()
     {
@@ -89,5 +107,25 @@ public class ParticleRenderNodeScaleTests
             "the materialized particle output must report the clamped buffer density, not the nominal output scale");
         Assert.That(measurement.EffectiveScale.Value, Is.EqualTo(
             RenderScaleUtilities.ClampWorkingScaleToBufferBudget(new Rect(0, 0, 4000, 10), 8)).Within(1e-3));
+    }
+
+    [Test]
+    public void GroupedParticleDrawable_LocalizesItsOwningDomainBeforeMeasurement()
+    {
+        using ParticleEmitter.Resource resource = BuildResourceWithGroupedParticleDrawable();
+        Assert.That(resource.GetAliveParticles().Length, Is.GreaterThanOrEqualTo(1));
+        using var pipeline = ScaleRecordingTestHelper.Pipeline(
+            new ParticleRenderNode(resource),
+            ScaleRecordingTestHelper.Materialize());
+
+        RenderNodeMeasurement measurement = ScaleRecordingTestHelper.Measure(pipeline, outputScale: 1);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(measurement.HasFragments, Is.True);
+            Assert.That(measurement.OutputBounds.IsInvalid, Is.False);
+            Assert.That(measurement.OutputBounds.Width, Is.GreaterThan(0));
+            Assert.That(measurement.OutputBounds.Height, Is.GreaterThan(0));
+        });
     }
 }

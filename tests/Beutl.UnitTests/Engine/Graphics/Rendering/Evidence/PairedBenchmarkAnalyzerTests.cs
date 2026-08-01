@@ -125,6 +125,22 @@ public sealed class PairedBenchmarkAnalyzerTests
         Assert.That(exception!.Message, Does.Contain("fingerprint schema mismatch").IgnoreCase);
     }
 
+    [Test]
+    public void Analyze_RejectsUnknownFingerprintArrayElement()
+    {
+        using var fixture = new AnalyzerFixture();
+        fixture.MutateCounter(
+            AnalyzerRun.Feature,
+            "SingleShader",
+            root => root["fingerprint"]!["vulkanEnabledExtensions"] = new JsonArray(
+                "VK_KHR_surface",
+                "unknown"));
+
+        InvalidDataException? exception = Assert.Throws<InvalidDataException>(() => fixture.Analyze());
+
+        Assert.That(exception!.Message, Does.Contain("vulkanEnabledExtensions").And.Contain("unknown"));
+    }
+
     [TestCase(OutputMismatch.PairedExact)]
     [TestCase(OutputMismatch.SelfRecorded)]
     [TestCase(OutputMismatch.FeatureStatic)]

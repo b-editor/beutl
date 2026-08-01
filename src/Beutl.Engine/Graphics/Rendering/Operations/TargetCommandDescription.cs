@@ -10,7 +10,7 @@ public sealed class TargetCommandDescription
         Rect queryBounds,
         RenderHitTestContract hitTest,
         TargetAccess access,
-        bool requiresInputReadback,
+        IReadOnlyList<TargetInputReadback> inputReadbacks,
         object structuralKey,
         RenderRuntimeIdentity? runtimeIdentity,
         IReadOnlyList<RenderResource> resources)
@@ -20,7 +20,7 @@ public sealed class TargetCommandDescription
         QueryBounds = queryBounds;
         HitTest = hitTest;
         Access = access;
-        RequiresInputReadback = requiresInputReadback;
+        InputReadbacks = inputReadbacks;
         StructuralKey = structuralKey;
         RuntimeIdentity = runtimeIdentity;
         Resources = resources;
@@ -34,7 +34,7 @@ public sealed class TargetCommandDescription
 
     public TargetAccess Access { get; }
 
-    public bool RequiresInputReadback { get; }
+    public IReadOnlyList<TargetInputReadback> InputReadbacks { get; }
 
     public object StructuralKey { get; }
 
@@ -50,7 +50,7 @@ public sealed class TargetCommandDescription
         Rect queryBounds,
         RenderHitTestContract hitTest,
         TargetAccess access,
-        bool requiresInputReadback = false,
+        IEnumerable<TargetInputReadback>? inputReadbacks = null,
         object? structuralKey = null,
         RenderRuntimeIdentity? runtimeIdentity = null,
         IEnumerable<RenderResource>? resources = null)
@@ -75,6 +75,7 @@ public sealed class TargetCommandDescription
                 execute.Method,
                 nameof(structuralKey));
         RenderDescriptionValidation.ValidateRuntimeIdentity(runtimeIdentity, nameof(runtimeIdentity));
+        TargetInputReadback[] readbacks = CopyInputReadbacks(inputReadbacks);
 
         return new TargetCommandDescription(
             execute,
@@ -82,10 +83,40 @@ public sealed class TargetCommandDescription
             queryBounds,
             hitTest,
             access,
-            requiresInputReadback,
+            Array.AsReadOnly(readbacks),
             resolvedStructuralKey,
             runtimeIdentity,
             RenderDescriptionValidation.CopyResources(resources, nameof(resources)));
+    }
+
+    internal IReadOnlyList<TargetInputReadback> ResolveInputReadbacks(
+        int inputCount,
+        string parameterName)
+    {
+        if (InputReadbacks.Count == 0)
+            return Enumerable.Repeat(TargetInputReadback.None, inputCount).ToArray();
+        if (InputReadbacks.Count != inputCount)
+        {
+            throw new ArgumentException(
+                "The target-command input readback count must match the authored input count.",
+                parameterName);
+        }
+        return InputReadbacks;
+    }
+
+    private static TargetInputReadback[] CopyInputReadbacks(
+        IEnumerable<TargetInputReadback>? inputReadbacks)
+    {
+        if (inputReadbacks is null)
+            return [];
+
+        TargetInputReadback[] result = inputReadbacks.ToArray();
+        foreach (TargetInputReadback inputReadback in result)
+        {
+            inputReadback.ThrowIfUninitialized(nameof(inputReadbacks));
+        }
+
+        return result;
     }
 }
 

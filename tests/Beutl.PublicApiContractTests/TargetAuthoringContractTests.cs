@@ -227,11 +227,11 @@ public sealed class TargetAuthoringContractTests
             context.Publish(command);
         });
 
-        Assert.That(() => Measure(commandNode), Throws.TypeOf<InvalidOperationException>());
+        Assert.That(() => Measure(commandNode), Throws.TypeOf<RenderTargetDomainRequiredException>());
         Assert.That(recorded, Is.True, "Full remains symbolic during Process and fails only at graph finalization.");
         Assert.That(
             () => Measure(commandNode, requestedRegion: new Rect(20, 25, 5, 5)),
-            Throws.TypeOf<InvalidOperationException>(),
+            Throws.TypeOf<RenderTargetDomainRequiredException>(),
             "RequestedRegion is not a substitute for TargetDomain.");
 
         RenderNodeMeasurement measurement = Measure(commandNode, targetDomain: domain);
@@ -424,20 +424,27 @@ public sealed class TargetAuthoringContractTests
             session =>
             {
                 session.UseSnapshot(_ => targetSnapshots++);
-                Assert.That(session.Inputs, Has.Count.EqualTo(1));
+                Assert.That(session.Inputs, Has.Count.EqualTo(2));
                 session.Inputs[0].UseSnapshot(_ => inputSnapshots++);
+                Assert.That(
+                    () => session.Inputs[1].UseSnapshot(_ => inputSnapshots++),
+                    Throws.TypeOf<InvalidOperationException>());
             },
             TargetRegion.Region(bounds),
             Rect.Empty,
             RenderHitTestContract.None,
             TargetAccess.Readback,
-            requiresInputReadback: true,
+            inputReadbacks: [TargetInputReadback.Values([0]), TargetInputReadback.None],
             structuralKey: "target-and-input-readback");
 
         Assert.Multiple(() =>
         {
             Assert.That(description.Access, Is.EqualTo(TargetAccess.Readback));
-            Assert.That(description.RequiresInputReadback, Is.True);
+            Assert.That(description.InputReadbacks, Is.EqualTo(new[]
+            {
+                TargetInputReadback.Values([0]),
+                TargetInputReadback.None,
+            }));
             Assert.That(description.AffectedRegion, Is.EqualTo(TargetRegion.Region(bounds)));
             Assert.That(description.QueryBounds, Is.EqualTo(Rect.Empty));
         });
@@ -445,8 +452,9 @@ public sealed class TargetAuthoringContractTests
         using var node = new DelegateNode(context =>
         {
             RenderFragmentHandle source = context.OpaqueSource(ExecutingSource(bounds));
-            RenderFragmentHandle command = context.TargetCommand([source], description);
-            context.PublishRange([source, command]);
+            RenderFragmentHandle second = context.OpaqueSource(ExecutingSource(bounds));
+            RenderFragmentHandle command = context.TargetCommand([source, second], description);
+            context.PublishRange([source, second, command]);
         });
 
         using RenderNodeRasterization rasterization = Rasterize(node, targetDomain: bounds);
@@ -456,6 +464,109 @@ public sealed class TargetAuthoringContractTests
             Assert.That(targetSnapshots, Is.EqualTo(1));
             Assert.That(inputSnapshots, Is.EqualTo(1));
         });
+    }
+
+    [TestCase(true)]
+    [TestCase(false)]
+    public void TargetInputReadback_BindsToAuthoredDynamicInputs(bool selectDynamicInput)
+    {
+        var bounds = new Rect(0, 0, 4, 3);
+        int snapshots = 0;
+        TargetCommandDescription description = TargetCommandDescription.Create(
+            session =>
+            {
+                Assert.That(session.Inputs, Has.Count.EqualTo(3));
+                for (int index = 0; index < session.Inputs.Count; index++)
+                {
+                    bool selected = selectDynamicInput ? index < 2 : index == 2;
+                    if (selected)
+                    {
+                        session.Inputs[index].UseSnapshot(_ => snapshots++);
+                    }
+                    else
+                    {
+                        Assert.That(
+                            () => session.Inputs[index].UseSnapshot(_ => snapshots++),
+                            Throws.TypeOf<InvalidOperationException>());
+                    }
+                }
+            },
+            TargetRegion.Empty,
+            Rect.Empty,
+            RenderHitTestContract.None,
+            TargetAccess.ReadWrite,
+            inputReadbacks: selectDynamicInput
+                ? [TargetInputReadback.All, TargetInputReadback.None]
+                : [TargetInputReadback.None, TargetInputReadback.All],
+            structuralKey: ("dynamic-input-readback", selectDynamicInput));
+
+        using var node = new DelegateNode(context =>
+        {
+            RenderFragmentHandle source = context.OpaqueSource(ExecutingSource(bounds));
+            RenderFragmentHandle expanded = context.OpaqueExpand(
+                [source],
+                ExecutingExpansion(bounds));
+            RenderFragmentHandle trailing = context.OpaqueSource(ExecutingSource(
+                bounds,
+                structuralKey: "trailing-readback-source"));
+            RenderFragmentHandle command = context.TargetCommand([expanded, trailing], description);
+            context.PublishRange([expanded, trailing, command]);
+        });
+
+        using RenderNodeRasterization rasterization = Rasterize(node, targetDomain: bounds);
+
+        Assert.That(snapshots, Is.EqualTo(selectDynamicInput ? 2 : 1));
+    }
+
+    [Test]
+    public void TargetInputReadback_RejectsMissingLocalRuntimeValue()
+    {
+        var bounds = new Rect(0, 0, 4, 3);
+        using var node = new DelegateNode(context =>
+        {
+            RenderFragmentHandle source = context.OpaqueSource(ExecutingSource(bounds));
+            RenderFragmentHandle command = context.TargetCommand(
+                [source],
+                TargetCommandDescription.Create(
+                    static _ => throw new AssertionException("Invalid readback must fail before callback entry."),
+                    TargetRegion.Empty,
+                    Rect.Empty,
+                    RenderHitTestContract.None,
+                    TargetAccess.ReadWrite,
+                    inputReadbacks: [TargetInputReadback.Values([1])],
+                    structuralKey: "missing-local-readback-value"));
+            context.PublishRange([source, command]);
+        });
+
+        Assert.That(
+            () => Rasterize(node, targetDomain: bounds),
+            Throws.TypeOf<InvalidOperationException>()
+                .With.Message.Contains("local input value index"));
+    }
+
+    [Test]
+    public void TargetInputReadback_RequiresOneDeclarationPerAuthoredInput()
+    {
+        var bounds = new Rect(0, 0, 4, 3);
+        using var node = new DelegateNode(context =>
+        {
+            RenderFragmentHandle source = context.OpaqueSource(ExecutingSource(bounds));
+            _ = context.TargetCommand(
+                [source],
+                TargetCommandDescription.Create(
+                    static _ => { },
+                    TargetRegion.Empty,
+                    Rect.Empty,
+                    RenderHitTestContract.None,
+                    TargetAccess.ReadWrite,
+                    inputReadbacks: [TargetInputReadback.All, TargetInputReadback.None],
+                    structuralKey: "mismatched-input-readback-count"));
+        });
+
+        Assert.That(
+            () => Rasterize(node, targetDomain: bounds),
+            Throws.TypeOf<ArgumentException>()
+                .With.Property("ParamName").EqualTo("description"));
     }
 
     [Test]
@@ -672,6 +783,26 @@ public sealed class TargetAuthoringContractTests
             RenderValueCardinality.Single,
             scale,
             structuralKey: ("executing-map", bounds));
+    }
+
+    private static OpaqueRenderDescription ExecutingExpansion(Rect bounds)
+    {
+        return OpaqueRenderDescription.Create(
+            session =>
+            {
+                for (int index = 0; index < 2; index++)
+                {
+                    using OpaqueRenderOutput output = session.CreateOutput(session.OutputBounds);
+                    session.Publish(output);
+                }
+            },
+            OpaqueRenderBoundsContract.FullInputs(
+                static inputs => inputs.Aggregate(static (left, right) => left.Union(right))),
+            RenderHitTestContract.AnyInput,
+            RenderValueCardinality.Dynamic,
+            RenderScaleContract.MaterializeAtWorkingScale,
+            structuralKey: ("executing-expansion", bounds),
+            runtimeIdentity: new RenderRuntimeIdentity(("expansion-runtime", bounds)));
     }
 
     private static RenderNodeMeasurement Measure(

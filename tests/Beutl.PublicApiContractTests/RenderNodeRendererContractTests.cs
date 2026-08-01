@@ -291,7 +291,8 @@ public sealed class RenderNodeRendererContractTests
         {
             Assert.That(
                 () => renderer.Render(destination),
-                Throws.InvalidOperationException.With.Message.Contains("requires a finite owning target domain"));
+                Throws.TypeOf<RenderTargetDomainRequiredException>()
+                    .With.Message.Contains("requires a finite owning target domain"));
         }
 
         Assert.Multiple(() =>

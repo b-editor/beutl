@@ -415,7 +415,14 @@ internal sealed class StructuralFragmentIdentity : IEquatable<StructuralFragment
             case TargetCommandRenderFragmentPayload command:
                 components.Add(command.Description.StructuralKey);
                 components.Add(command.Description.Access);
-                components.Add(command.Description.RequiresInputReadback);
+                components.Add(command.InputReadbacks.Count);
+                foreach (TargetInputReadback inputReadback in command.InputReadbacks)
+                {
+                    components.Add(inputReadback.StructuralKind);
+                    components.Add(inputReadback.ValueIndices.Count);
+                    foreach (int valueIndex in inputReadback.ValueIndices)
+                        components.Add(valueIndex);
+                }
                 components.Add(command.Description.HitTest.StructuralIdentity);
                 AddResourceTypes(command.Description.Resources, components);
                 return;

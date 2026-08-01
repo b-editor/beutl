@@ -7,6 +7,8 @@ namespace Beutl.Graphics.Particles;
 
 internal sealed class ParticleRenderNode(ParticleEmitter.Resource particle) : RenderNode
 {
+    private static readonly Rect s_drawableRecordingDomain = new(0, 0, 1920, 1080);
+
     public (ParticleEmitter.Resource Resource, int Version)? Particle { get; private set; } = particle.Capture();
 
     public bool Update(ParticleEmitter.Resource resource)
@@ -76,7 +78,7 @@ internal sealed class ParticleRenderNode(ParticleEmitter.Resource particle) : Re
         using var root = new DrawableRenderNode(drawable);
         using (var graphics = new GraphicsContext2D(
                    root,
-                   new Size(1920, 1080),
+                   s_drawableRecordingDomain.Size,
                    context.OutputScale))
         {
             // This only builds the child's RenderNode tree. Pixel execution remains in the parent
@@ -85,7 +87,7 @@ internal sealed class ParticleRenderNode(ParticleEmitter.Resource particle) : Re
         }
 
         IReadOnlyList<RenderFragmentHandle> outputs = context.RecordSubtree(root);
-        Rect bounds = CalculateBounds(outputs);
+        Rect bounds = CalculateBounds(outputs, s_drawableRecordingDomain);
         if (bounds.Width <= 0 || bounds.Height <= 0)
             return null;
 
@@ -207,20 +209,24 @@ internal sealed class ParticleRenderNode(ParticleEmitter.Resource particle) : Re
         return hasBounds ? totalBounds : Rect.Empty;
     }
 
-    private static Rect CalculateBounds(IReadOnlyList<RenderFragmentHandle> fragments)
+    private static Rect CalculateBounds(
+        IReadOnlyList<RenderFragmentHandle> fragments,
+        Rect symbolicOwnerDomain)
     {
         Rect bounds = Rect.Empty;
+        bool hasSymbolicMetadata = false;
         foreach (RenderFragmentHandle fragment in fragments)
         {
             if (!fragment.TryGetMetadata(out RenderFragmentMetadata metadata))
             {
-                throw new InvalidOperationException(
-                    "A particle drawable with symbolic metadata must be localized by an explicit finite Layer.");
+                hasSymbolicMetadata = true;
+                continue;
             }
 
             bounds = bounds.Union(metadata.Bounds);
         }
-        return bounds;
+
+        return hasSymbolicMetadata ? bounds.Union(symbolicOwnerDomain) : bounds;
     }
 
     protected override void OnDispose(bool disposing)

@@ -169,7 +169,7 @@ public sealed class RecordingSideEffectTests
             }
 
             if ((name is null || !invocationNames.Contains(name))
-                && IsTargetFactoryInvocation(invocation.Expression))
+                && IsTargetFactoryInvocation(invocation, source.SemanticModel))
             {
                 yield return source.ToFinding(invocation, "eager target-factory access");
             }
@@ -266,15 +266,55 @@ public sealed class RecordingSideEffectTests
             .ToArray();
     }
 
-    private static bool IsTargetFactoryInvocation(ExpressionSyntax expression)
+    [Test]
+    public void TargetFactoryProbe_ResolvesReceiversByType()
     {
-        if (expression is not MemberAccessExpressionSyntax member)
-            return false;
+        const string source = """
+            using Beutl.Graphics.Rendering;
 
-        string receiver = member.Expression.ToString();
-        return receiver.Contains("targetFactory", StringComparison.OrdinalIgnoreCase)
-               || receiver.Contains("renderTargetFactory", StringComparison.OrdinalIgnoreCase);
+            public sealed class Probe
+            {
+                public void Run(IRenderTargetFactory allocator)
+                {
+                    allocator.Create(default);
+                }
+            }
+            """;
+        SyntaxTree tree = CSharpSyntaxTree.ParseText(source);
+        CSharpCompilation compilation = CSharpCompilation.Create(
+            "TargetFactoryReceiverProbe",
+            [tree],
+            s_semanticReferences,
+            new CSharpCompilationOptions(OutputKind.DynamicallyLinkedLibrary));
+        SemanticModel semanticModel = compilation.GetSemanticModel(tree);
+        InvocationExpressionSyntax invocation = tree.GetRoot()
+            .DescendantNodes()
+            .OfType<InvocationExpressionSyntax>()
+            .Single();
+
+        Assert.That(IsTargetFactoryInvocation(invocation, semanticModel), Is.True,
+            "An IRenderTargetFactory receiver named 'allocator' must remain inside the recording gate.");
     }
+
+    private static bool IsTargetFactoryInvocation(
+        InvocationExpressionSyntax invocation,
+        SemanticModel semanticModel)
+    {
+        IMethodSymbol? method = semanticModel.GetSymbolInfo(invocation).Symbol as IMethodSymbol;
+        ITypeSymbol? receiverType = method?.ContainingType;
+        if (receiverType is null && invocation.Expression is MemberAccessExpressionSyntax member)
+            receiverType = semanticModel.GetTypeInfo(member.Expression).Type;
+
+        return receiverType is INamedTypeSymbol named
+               && IsRenderTargetFactoryType(named);
+    }
+
+    private static bool IsRenderTargetFactoryType(INamedTypeSymbol type)
+        => IsRenderTargetFactoryInterface(type)
+           || type.AllInterfaces.Any(IsRenderTargetFactoryInterface);
+
+    private static bool IsRenderTargetFactoryInterface(INamedTypeSymbol type)
+        => type.ToDisplayString() == "Beutl.Graphics.Rendering.IRenderTargetFactory";
 
     private static bool IsCpuNodeDescriptionRender(
         InvocationExpressionSyntax invocation,
@@ -399,14 +439,14 @@ public sealed class RecordingSideEffectTests
                     RenderHitTestContract.OutputBounds,
                     RenderScaleContract.MaterializeAtWorkingScale));
             RenderFragmentHandle command = context.TargetCommand(
-                [],
+                [source],
                 TargetCommandDescription.Create(
                     _ => tripwire.TouchAll(),
                     TargetRegion.Full,
                     Bounds,
                     RenderHitTestContract.OutputBounds,
                     TargetAccess.Readback,
-                    requiresInputReadback: true,
+                    inputReadbacks: [TargetInputReadback.All],
                     structuralKey: "target-command-recording-probe"));
             RenderFragmentHandle scope = context.TargetScope(
                 source,

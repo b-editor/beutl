@@ -660,7 +660,7 @@ internal sealed class ExecutionIslandPlanner
             OpaqueRenderFragmentPayload opaque => opaque.Description.RequiresReadback,
             TargetCommandRenderFragmentPayload command
                 => command.Description.Access == TargetAccess.Readback
-                   || command.Description.RequiresInputReadback,
+                   || command.InputReadbacks.Any(static item => item.RequiresAnyReadback),
             _ => false,
         };
 

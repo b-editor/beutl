@@ -365,7 +365,7 @@ public sealed class RegionAnalyzerTests
                 hasTargetEffects: true,
                 hasOpaqueExternalWork: false,
                 inputs: null,
-                new TargetCommandRenderFragmentPayload(description),
+                new TargetCommandRenderFragmentPayload(description, []),
                 queryBounds.Contains));
         }
 

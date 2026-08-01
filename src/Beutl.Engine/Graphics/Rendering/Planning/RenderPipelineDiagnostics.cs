@@ -175,6 +175,7 @@ internal sealed class RenderPipelineDiagnosticRecorder
     private long _liveIntermediates;
     private RenderPipelineFailurePhase? _failurePhase;
     private bool _hasOpaqueExternalWork;
+    private bool _hasRuntimeDynamicGpuPassWork;
     private bool _cacheCapturesAccepted;
     private bool _faulted;
     private bool _completed;
@@ -299,6 +300,8 @@ internal sealed class RenderPipelineDiagnosticRecorder
         Increment(RenderPipelineCounter.RecordedFragments);
         AddEvent(RenderPipelineDiagnosticEventKind.FragmentRecorded, id.Value);
         Add(RenderPipelineCounter.RecordedMaterializableValues, reference.ValueIds.Length);
+        if (reference.Kind == RenderFragmentKind.OpaqueExpand)
+            _hasRuntimeDynamicGpuPassWork = true;
         switch (reference.Kind)
         {
             case RenderFragmentKind.TargetCommand:
@@ -967,7 +970,8 @@ internal sealed class RenderPipelineDiagnosticRecorder
                 _rootTargetClass,
                 _failurePhase,
                 _counters,
-                _events);
+                _events,
+                _hasRuntimeDynamicGpuPassWork);
             _state.Complete(snapshot);
         }
         catch (Exception)
@@ -1139,6 +1143,7 @@ internal sealed class RenderPipelineDiagnosticSnapshot
         RenderRequestPurpose purpose,
         bool succeeded,
         bool hasOpaqueExternalWork,
+        bool hasRuntimeDynamicGpuPassWork,
         string rootTargetClass,
         RenderPipelineFailurePhase? failurePhase,
         IReadOnlyDictionary<RenderPipelineCounter, long> counters,
@@ -1150,6 +1155,7 @@ internal sealed class RenderPipelineDiagnosticSnapshot
         Purpose = purpose;
         Succeeded = succeeded;
         HasOpaqueExternalWork = hasOpaqueExternalWork;
+        HasRuntimeDynamicGpuPassWork = hasRuntimeDynamicGpuPassWork;
         RootTargetClass = rootTargetClass;
         FailurePhase = failurePhase;
         Counters = counters;
@@ -1163,6 +1169,7 @@ internal sealed class RenderPipelineDiagnosticSnapshot
         purpose: RenderRequestPurpose.Frame,
         succeeded: false,
         hasOpaqueExternalWork: false,
+        hasRuntimeDynamicGpuPassWork: false,
         rootTargetClass: string.Empty,
         failurePhase: null,
         counters: s_emptyCounters,
@@ -1179,6 +1186,10 @@ internal sealed class RenderPipelineDiagnosticSnapshot
     internal bool Succeeded { get; }
 
     internal bool HasOpaqueExternalWork { get; }
+
+    internal bool HasRuntimeDynamicGpuPassWork { get; }
+
+    internal bool HasExactGpuPassCount => !HasOpaqueExternalWork && !HasRuntimeDynamicGpuPassWork;
 
     internal string RootTargetClass { get; }
 
@@ -1201,7 +1212,8 @@ internal sealed class RenderPipelineDiagnosticSnapshot
         string rootTargetClass,
         RenderPipelineFailurePhase? failurePhase,
         IReadOnlyDictionary<RenderPipelineCounter, long> counters,
-        IEnumerable<RenderPipelineDiagnosticEvent> events)
+        IEnumerable<RenderPipelineDiagnosticEvent> events,
+        bool hasRuntimeDynamicGpuPassWork = false)
     {
         ValidateIdentity(requestId, parentRequestId, intent, purpose, rootTargetClass);
         ArgumentNullException.ThrowIfNull(counters);
@@ -1219,6 +1231,7 @@ internal sealed class RenderPipelineDiagnosticSnapshot
             purpose,
             succeeded,
             hasOpaqueExternalWork,
+            hasRuntimeDynamicGpuPassWork,
             rootTargetClass,
             failurePhase,
             new ReadOnlyDictionary<RenderPipelineCounter, long>(counterCopy),

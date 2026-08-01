@@ -268,7 +268,11 @@ internal sealed class FilterEffectInputBinding : IDisposable
         {
             Func<Ref<Bitmap>?, Ref<Bitmap>?> replace = preview.Replace;
             IReadOnlyList<RenderFragmentHandle> inputs = preview.Inputs;
-            bool requiresInputReadback = inputs.Count != 0;
+            TargetInputReadback[] inputReadbacks = inputs
+                .Select(static (_, index) => index == 0
+                    ? TargetInputReadback.Values([0])
+                    : TargetInputReadback.None)
+                .ToArray();
             object runtimeIdentity = preview.RuntimeIdentity;
             TargetCommandDescription description = TargetCommandDescription.Create(
                 session => ExecutePreview(session, replace),
@@ -276,7 +280,7 @@ internal sealed class FilterEffectInputBinding : IDisposable
                 Rect.Empty,
                 RenderHitTestContract.None,
                 TargetAccess.ReadWrite,
-                requiresInputReadback,
+                inputReadbacks,
                 structuralKey: s_previewCommandStructuralKey,
                 runtimeIdentity: new RenderRuntimeIdentity(runtimeIdentity));
             _context.Publish(_context.TargetCommand(inputs, description));

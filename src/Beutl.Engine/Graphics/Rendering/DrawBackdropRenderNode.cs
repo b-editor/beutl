@@ -25,8 +25,7 @@ public class DrawBackdropRenderNode(IBackdrop backdrop, Rect bounds) : RenderNod
 
         IBackdrop backdrop = Backdrop;
         Rect bounds = Bounds;
-        if (backdrop.GetType() == typeof(SnapshotBackdropRenderNode)
-            && context.TryBuiltInBackdrop(backdrop, out RenderFragmentHandle? capture))
+        if (context.TryBuiltInBackdrop(backdrop, out RenderFragmentHandle? capture))
         {
             TargetCommandDescription description = TargetCommandDescription.Create(
                 static session => session.Canvas.Use(canvas => session.Inputs[0].Draw(canvas)),

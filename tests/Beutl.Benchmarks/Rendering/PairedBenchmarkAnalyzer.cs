@@ -730,6 +730,10 @@ internal static class PairedBenchmarkAnalyzer
                     $"Paired counter contract mismatch for '{caseName}': {string.Join(", ", mismatches)}.");
             }
 
+            // Feature output is intentionally not byte-identical to the frozen baseline for
+            // effect workloads (FR-019); cross-pipeline equivalence is proven by the paired
+            // visual evidence, so byte equality is required only within a pipeline and for
+            // the no-effect control case.
             if (compareEveryOutput
                 || string.Equals(caseName, ExactOutputControlCaseName, StringComparison.Ordinal))
             {
@@ -1119,10 +1123,13 @@ internal static class PairedBenchmarkAnalyzer
                 JsonElement[] items = property.Value.EnumerateArray().ToArray();
                 if (items.Length == 0
                     || items.Any(static item => item.ValueKind != JsonValueKind.String
-                                                || string.IsNullOrWhiteSpace(item.GetString())))
+                                                || string.IsNullOrWhiteSpace(item.GetString())
+                                                || item.GetString()!.Contains(
+                                                    "unknown",
+                                                    StringComparison.OrdinalIgnoreCase)))
                 {
                     throw new InvalidDataException(
-                        $"Fingerprint array '{property.Name}' is empty or invalid in '{path}'.");
+                        $"Fingerprint array '{property.Name}' is empty, invalid, or unknown in '{path}'.");
                 }
             }
             else

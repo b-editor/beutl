@@ -80,7 +80,7 @@ public sealed partial class TransformEffect : FilterEffect
                             Matrix offset = Matrix.CreateTranslation(origin);
                             Matrix transform = -offset * data.mat * offset;
 
-                            EffectTarget newTarget = effectContext.CreateTarget(TransformBounds(data, target.Bounds));
+                            EffectTarget newTarget = effectContext.CreateTarget(TransformSingleTargetBounds(data, target.Bounds));
                             using var canvas = effectContext.Open(newTarget);
                             using (canvas.PushTransform(Matrix.CreateTranslation(
                                        target.Bounds.Position - newTarget.Bounds.Position)))
@@ -94,16 +94,64 @@ public sealed partial class TransformEffect : FilterEffect
                             return newTarget;
                         });
                     },
-                    TransformBounds);
+                    TransformPotentiallySeparatedBounds);
             }
         }
     }
 
-    private static Rect TransformBounds((Matrix mat, RelativePoint originPoint) data, Rect bounds)
+    private static Rect TransformSingleTargetBounds((Matrix mat, RelativePoint originPoint) data, Rect bounds)
     {
         Vector origin = data.originPoint.ToPixels(bounds.Size);
         Matrix offset = Matrix.CreateTranslation(origin + bounds.Position);
         return bounds.TransformToAABB(-offset * data.mat * offset);
+    }
+
+    private static Rect TransformPotentiallySeparatedBounds(
+        (Matrix mat, RelativePoint originPoint) data,
+        Rect bounds)
+    {
+        if (data.mat.M13 != 0 || data.mat.M23 != 0 || data.mat.M33 != 1)
+            return Rect.Invalid;
+
+        (float minX, float maxX) = ResolveOriginRange(
+            bounds.Left,
+            bounds.Right,
+            bounds.Width,
+            data.originPoint.Point.X,
+            data.originPoint.Unit);
+        (float minY, float maxY) = ResolveOriginRange(
+            bounds.Top,
+            bounds.Bottom,
+            bounds.Height,
+            data.originPoint.Point.Y,
+            data.originPoint.Unit);
+
+        return TransformAtOrigin(bounds, data.mat, minX, minY)
+            .Union(TransformAtOrigin(bounds, data.mat, minX, maxY))
+            .Union(TransformAtOrigin(bounds, data.mat, maxX, minY))
+            .Union(TransformAtOrigin(bounds, data.mat, maxX, maxY));
+    }
+
+    private static Rect TransformAtOrigin(Rect bounds, Matrix matrix, float x, float y)
+    {
+        Matrix offset = Matrix.CreateTranslation(x, y);
+        return bounds.TransformToAABB(-offset * matrix * offset);
+    }
+
+    private static (float Min, float Max) ResolveOriginRange(
+        float minimum,
+        float maximum,
+        float extent,
+        float origin,
+        RelativeUnit unit)
+    {
+        if (unit == RelativeUnit.Absolute)
+            return (minimum + origin, maximum + origin);
+
+        float relativeEndpoint = minimum + (origin * extent);
+        return (
+            MathF.Min(minimum, MathF.Min(maximum, relativeEndpoint)),
+            MathF.Max(minimum, MathF.Max(maximum, relativeEndpoint)));
     }
 
     private static Matrix CreateRelativeOriginTransform(

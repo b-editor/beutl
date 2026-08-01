@@ -678,6 +678,42 @@ public sealed class RenderPipelineReconciliationTests
     }
 
     [Test]
+    public void DynamicOpaqueExpand_MarksPlannedGpuPassCountAsInexact()
+    {
+        var diagnostics = new RenderPipelineDiagnosticsState();
+        using var request = CreateRequest(diagnostics);
+        RenderPipelineDiagnosticRecorder recorder = Start(request);
+        RenderFragmentReference fragment = CreateFragment(
+            request,
+            1,
+            RenderFragmentKind.OpaqueExpand,
+            hasValue: true,
+            valueCardinality: RenderValueCardinality.Dynamic);
+        recorder.RecordCommittedFragments(ToEntries([fragment]));
+        recorder.RecordPlan(new ExecutionIslandPlan(
+            [new ExecutionIsland(
+                new ExecutionIslandId(1),
+                ExecutionIslandKind.Compatibility,
+                [fragment.Id!.Value],
+                plansGpuPass: true)],
+            [new ExecutionIslandBoundary(
+                null,
+                fragment.Id,
+                ExecutionIslandBoundaryReason.Opaque,
+                [])]));
+        recorder.Complete();
+
+        RenderPipelineDiagnosticSnapshot snapshot = diagnostics.Latest;
+        Assert.Multiple(() =>
+        {
+            Assert.That(snapshot.HasOpaqueExternalWork, Is.False);
+            Assert.That(snapshot.HasRuntimeDynamicGpuPassWork, Is.True);
+            Assert.That(snapshot.HasExactGpuPassCount, Is.False);
+            Assert.That(snapshot[RenderPipelineCounter.PlannedGpuPasses], Is.EqualTo(1));
+        });
+    }
+
+    [Test]
     public void Failure_PreservesPrimaryPhaseSkipsDependentsRejectsCaptureAndDischargesLease()
     {
         var diagnostics = new RenderPipelineDiagnosticsState();
@@ -938,13 +974,14 @@ public sealed class RenderPipelineReconciliationTests
         RenderRequest request,
         long id,
         RenderFragmentKind kind,
-        bool hasValue)
+        bool hasValue,
+        RenderValueCardinality? valueCardinality = null)
     {
         var result = new RenderFragmentReference(
             kind,
             new Rect(0, 0, 16, 16),
             EffectiveScale.At(1),
-            hasValue ? RenderValueCardinality.Single : RenderValueCardinality.None,
+            valueCardinality ?? (hasValue ? RenderValueCardinality.Single : RenderValueCardinality.None),
             contributesValuesToTarget: hasValue,
             canBeUsedAsValueInput: hasValue,
             hasTargetEffects: !hasValue,

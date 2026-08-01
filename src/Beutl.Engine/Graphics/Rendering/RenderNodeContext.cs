@@ -874,6 +874,9 @@ public sealed class RenderNodeContext
             transaction.GetReferences(inputs, nameof(inputs));
         foreach (RenderFragmentReference reference in references)
             EnsureValueInput(reference, nameof(inputs));
+        IReadOnlyList<TargetInputReadback> inputReadbacks = description.ResolveInputReadbacks(
+            references.Length,
+            nameof(description));
         ValidateDescriptionResources(description.Resources, nameof(description));
 
         Func<Point, bool> hitTest = CreateHitTest(
@@ -890,7 +893,7 @@ public sealed class RenderNodeContext
             hasTargetEffects: true,
             hasOpaqueExternalWork: false,
             references,
-            new TargetCommandRenderFragmentPayload(description),
+            new TargetCommandRenderFragmentPayload(description, inputReadbacks),
             hitTest);
     }
 
@@ -1271,7 +1274,8 @@ internal sealed record RawTargetCommandRenderFragmentPayload(
     RawTargetCommandDescription Description);
 
 internal sealed record TargetCommandRenderFragmentPayload(
-    TargetCommandDescription Description);
+    TargetCommandDescription Description,
+    IReadOnlyList<TargetInputReadback> InputReadbacks);
 
 internal interface IBuiltInBackdropCaptureSink
 {

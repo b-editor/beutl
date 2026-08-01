@@ -1502,7 +1502,8 @@ public sealed class RenderCacheResolutionTests
                         Rect.Empty,
                         RenderHitTestContract.None,
                         TargetAccess.ReadWrite,
-                        runtimeIdentity: new RenderRuntimeIdentity("command")));
+                        runtimeIdentity: new RenderRuntimeIdentity("command")),
+                    []);
                 cardinality = RenderValueCardinality.None;
                 contributes = false;
                 canBeUsed = false;

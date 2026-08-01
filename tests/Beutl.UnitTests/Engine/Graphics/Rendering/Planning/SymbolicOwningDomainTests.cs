@@ -164,7 +164,7 @@ public sealed class SymbolicOwningDomainTests
             root,
             new RenderNodeRendererOptions { UseRenderCache = false });
 
-        InvalidOperationException? error = Assert.Throws<InvalidOperationException>(() => renderer.Measure());
+        InvalidOperationException? error = Assert.Throws<RenderTargetDomainRequiredException>(() => renderer.Measure());
 
         Assert.Multiple(() =>
         {

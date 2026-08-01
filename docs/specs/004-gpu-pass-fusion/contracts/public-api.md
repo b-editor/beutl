@@ -165,6 +165,11 @@ public enum RenderTargetPixelFormat : byte
 
 public readonly record struct RenderTargetAllocationDescriptor
 {
+    internal RenderTargetAllocationDescriptor(
+        PixelSize deviceSize,
+        GRRecordingContext? graphicsContext,
+        nint? graphicsContextHandle);
+
     public PixelSize DeviceSize { get; }
     public RenderTargetPixelFormat PixelFormat { get; }
     public GRRecordingContext? GraphicsContext { get; }
@@ -175,6 +180,11 @@ public readonly record struct RenderTargetAllocationDescriptor
 public interface IRenderTargetFactory
 {
     RenderTarget? Create(RenderTargetAllocationDescriptor allocation);
+}
+
+public sealed class RenderTargetDomainRequiredException : InvalidOperationException
+{
+    public RenderTargetDomainRequiredException(string message);
 }
 
 public sealed class RenderNodeRasterization : IDisposable
@@ -200,7 +210,7 @@ public readonly record struct RenderNodeMeasurement(
 
 Request-wide diagnostics remain an internal renderer/evidence seam in this feature. No public provider, mutable writer, sink, snapshot factory, or telemetry schema is added to `IRenderer` or `RenderNodeRenderer`; the normative internal counters/events are fixed in [diagnostics-and-evidence.md](diagnostics-and-evidence.md#request-wide-diagnostics). This keeps the plugin-facing breaking change focused on render authoring rather than freezing planner telemetry as a second extensibility surface.
 
-The node-renderer constructor snapshots and sanitizes options. A non-finite or non-positive `OutputScale` becomes `1`; a NaN or non-positive `MaxWorkingScale` becomes positive infinity, while a positive finite value or positive infinity is preserved. `TargetDomain` and `RequestedRegion` are expressed in the root node's composition-logical coordinate space before the destination canvas's active transform. A non-null `TargetDomain` must be finite and non-empty. It supplies the root target only for target-less `Rasterize`, `Measure`, and `HitTest`; `Render(ImmediateCanvas)` and production Frame requests always use the actual destination viewport and ignore this option. A target-less request with null `TargetDomain` remains valid for self-bounded work, but graph finalization rejects every published root `TargetRegion.Full` access whose enclosing target still has no finite domain. Authors set `TargetDomain` or use a finite `TargetRegion.Region`; neither `RequestedRegion` nor query bounds are inferred as a substitute. `RequestedRegion = null` selects the complete conservative `OutputBounds` computed for the root. A non-degenerate non-null rectangle selects its intersection with that output as the final output requirement/commit crop, so a wholly outside selection is a successful empty result rather than a transparent padded bitmap. An explicitly degenerate rectangle is a valid empty request and preserves its authored bounds and shifted origin; `HitTest` returns false even for a point on the retained line or origin. An invalid non-null rectangle is rejected. `RequestedRegion` never replaces or shrinks the available `TargetDomain` used by target reads and scope-relative effects.
+The node-renderer constructor snapshots and sanitizes options. A non-finite or non-positive `OutputScale` becomes `1`; a NaN or non-positive `MaxWorkingScale` becomes positive infinity, while a positive finite value or positive infinity is preserved. A positive finite ceiling is authoritative even when it is below `OutputScale`: the standard scale calculation applies the `OutputScale` floor before the ceiling, so `OutputScale = 2` with `MaxWorkingScale = 1` materializes at `1`. `TargetDomain` and `RequestedRegion` are expressed in the root node's composition-logical coordinate space before the destination canvas's active transform. A non-null `TargetDomain` must be finite and non-empty. It supplies the root target only for target-less `Rasterize`, `Measure`, and `HitTest`; `Render(ImmediateCanvas)` and production Frame requests always use the actual destination viewport and ignore this option. A target-less request with null `TargetDomain` remains valid for self-bounded work, but graph finalization rejects every published root `TargetRegion.Full` access whose enclosing target still has no finite domain by throwing `RenderTargetDomainRequiredException`. Authors set `TargetDomain` or use a finite `TargetRegion.Region`; neither `RequestedRegion` nor query bounds are inferred as a substitute. `RequestedRegion = null` selects the complete conservative `OutputBounds` computed for the root. A non-degenerate non-null rectangle selects its intersection with that output as the final output requirement/commit crop, so a wholly outside selection is a successful empty result rather than a transparent padded bitmap. An explicitly degenerate rectangle is a valid empty request and preserves its authored bounds and shifted origin; `HitTest` returns false even for a point on the retained line or origin. An invalid non-null rectangle is rejected. `RequestedRegion` never replaces or shrinks the available `TargetDomain` used by target reads and scope-relative effects.
 
 Standalone `RenderNodeRenderer.Render` and `Rasterize` always create `Auxiliary` execution requests; only the production `Renderer` creates `Frame` requests through an internal entry point, and cache warm-up is likewise internal. `Measure` and `HitTest` create metadata-only `Bounds`/`HitTest` requests and emit internal diagnostic snapshots. `OutputScale` is the density for target-less rasterize/metadata calls. `Render(ImmediateCanvas)` instead uses the destination's active `Density` as the request output scale and the lesser of the option and destination maximum-working-scale ceilings; it never silently resamples through the option scale. `TargetFactory` replaces `RenderNodeProcessor.CreateRenderTarget` extensibility and is called only when the renderer-owned pool cannot satisfy a materialization. It receives the exact device size, fixed linear-premultiplied RGBA16F format, and current backend/device context in `RenderTargetAllocationDescriptor`: a positive context handle and borrowed `GraphicsContext` identify GPU, zero identifies a bound CPU destination, and null identifies a target-less request whose backend is not bound yet. The borrowed context is valid only for the synchronous `Create` call. A null factory selects the engine's standard allocator; a selected factory returning null follows the characterized `Intent` failure policy. Targets created by the factory are owned by that pool and are reused or evicted there (`src/Beutl.Engine/Graphics/Rendering/RenderNodeRenderer.cs:62-118`, `src/Beutl.Engine/Graphics/Rendering/Planning/RenderTargetPool.cs:707-713`).
 
@@ -598,7 +608,7 @@ Each materialized input exposes immutable composition-device `DeviceBounds`, `De
 
 `UseSnapshot` is one-shot per input. It invokes the action synchronously with a request-owned `Bitmap` after the declared readback synchronization, then disposes the bitmap before returning. The author must not dispose or retain it; retained use observes an already-disposed object. Callback failure still releases it and preserves the callback exception as primary.
 
-`RenderScaleContract.MaterializeAtWorkingScale` uses feature 003's supply-driven formula, and `Vector` remains unbounded until a later materialization. `PreserveInputSupply` is a topology contract, not a request to choose one density from an arbitrary list: it is valid only for an element-wise one-input map (`OpaqueMap`, including zero-or-one discard) or a per-fragment replay scope such as `TargetScope`/`RawTargetScope`, where every surviving output has exactly one corresponding input whose supply is copied. `MapInputSupply` has the same one-corresponding-input restriction but applies a pure `EffectiveScale -> EffectiveScale` mapping after that input supply is known. It is the required contract for transform-like density changes that must be recomputed after an `OwningTargetDomain` dependency resolves; returning `Unbounded` preserves deferred rasterization, while a concrete result is capped by `MaxWorkingScale` and the per-buffer dimension limit. Both one-input contracts are rejected for zero-input sources/captures, multi-input combine, and arbitrary expansion; those shapes use `Vector`, `MaterializeAtWorkingScale`, or a `Custom` contract as allowed by their description. `TargetLayerScope` has no author-supplied scale contract and publishes `EffectiveScale.Unbounded`. Validation happens when a description is used by a context method, so one reusable description cannot acquire a different topology meaning accidentally.
+`RenderScaleContract.MaterializeAtWorkingScale` uses feature 003's supply-driven formula, applying the `OutputScale` floor before the authoritative `MaxWorkingScale` ceiling; a lower positive ceiling therefore overrides that floor. `Vector` remains unbounded until a later materialization. `PreserveInputSupply` is a topology contract, not a request to choose one density from an arbitrary list: it is valid only for an element-wise one-input map (`OpaqueMap`, including zero-or-one discard) or a per-fragment replay scope such as `TargetScope`/`RawTargetScope`, where every surviving output has exactly one corresponding input whose supply is copied. `MapInputSupply` has the same one-corresponding-input restriction but applies a pure `EffectiveScale -> EffectiveScale` mapping after that input supply is known. It is the required contract for transform-like density changes that must be recomputed after an `OwningTargetDomain` dependency resolves; returning `Unbounded` preserves deferred rasterization, while a concrete result is capped by `MaxWorkingScale` and the per-buffer dimension limit. Both one-input contracts are rejected for zero-input sources/captures, multi-input combine, and arbitrary expansion; those shapes use `Vector`, `MaterializeAtWorkingScale`, or a `Custom` contract as allowed by their description. `TargetLayerScope` has no author-supplied scale contract and publishes `EffectiveScale.Unbounded`. Validation happens when a description is used by a context method, so one reusable description cannot acquire a different topology meaning accidentally.
 
 `Custom` is the public replacement for a custom render node's former eager working-scale decision. Its pure CPU resolver uses the available input supplies and complete conservative `OutputBounds`; it cannot observe the later `RequiredRegion`. A fragment whose recording metadata is already concrete resolves once while recording. A fragment with an `OwningTargetDomain` dependency does not expose the provisional result through `RenderFragmentHandle` and may re-evaluate the pure resolver during graph-wide metadata resolution after its final input supplies and output bounds are known. The resolver must return a finite value greater than zero. A throw, NaN, infinity, zero, or negative result fails the current recording or graph-finalization transaction and leaves no published output/cache entry; it is never sanitized to `OutputScale` or another fallback. A valid result is capped by `MaxWorkingScale` and clamped against the complete output bounds by the per-buffer 16,384-axis rule before becoming concrete fragment metadata. Later ROI analysis crops the allocation region but never raises or changes that density. The resolver method/key is structural; its returned density is runtime data.
 
@@ -794,7 +804,7 @@ public sealed class TargetCommandDescription
     public Rect QueryBounds { get; }
     public RenderHitTestContract HitTest { get; }
     public TargetAccess Access { get; }
-    public bool RequiresInputReadback { get; }
+    public IReadOnlyList<TargetInputReadback> InputReadbacks { get; }
     public object StructuralKey { get; }
     public RenderRuntimeIdentity? RuntimeIdentity { get; }
     public IReadOnlyList<RenderResource> Resources { get; }
@@ -805,10 +815,20 @@ public sealed class TargetCommandDescription
         Rect queryBounds,
         RenderHitTestContract hitTest,
         TargetAccess access,
-        bool requiresInputReadback = false,
+        IEnumerable<TargetInputReadback>? inputReadbacks = null,
         object? structuralKey = null,
         RenderRuntimeIdentity? runtimeIdentity = null,
         IEnumerable<RenderResource>? resources = null);
+}
+
+public readonly struct TargetInputReadback
+{
+    public static TargetInputReadback None { get; }
+    public static TargetInputReadback All { get; }
+    public bool ReadsAllValues { get; }
+    public IReadOnlyList<int> ValueIndices { get; }
+
+    public static TargetInputReadback Values(IEnumerable<int> valueIndices);
 }
 
 public readonly struct TargetRegion
@@ -844,7 +864,7 @@ public sealed class TargetCommandSession
 
 `default(TargetRegion)` is uninitialized and rejected. `Region` rejects invalid/non-finite rectangles and normalizes a finite zero-area rectangle to `Empty`; `Full` is resolved only after the current external root, `TargetLayerScope`, or finite value Layer target has a finite domain. `TargetCommandDescription.Create` rejects `TargetAccess.Readback` with `TargetRegion.Empty`, because its required one-shot snapshot cannot produce a non-null zero-area bitmap; an order-only command uses `ReadWrite` plus `Empty`.
 
-Target callbacks execute later against the currently scoped target session and borrowed materialized inputs. Each supplied handle must have `CanBeUsedAsValueInput == true`; recording rejects command-bearing/effect-only fragments or shared-target-scope inputs, which remain ordered through `TargetScope`/`TargetLayerScope` or become a value only through finite `Layer`. A non-contributing public `TargetCapture` is valid because it does expose a value: its prior-token dependency is scheduled before materialization and threaded into the command. Valid inputs are flattened in authored handle/stream order. `RequiresInputReadback` explicitly schedules CPU-readable snapshots for all materialized inputs and enables each input's `UseSnapshot`; when false, input `UseSnapshot` throws without synchronizing. This declaration is independent of `TargetAccess.Readback`, which describes the preceding target token.
+Target callbacks execute later against the currently scoped target session and borrowed materialized inputs. Each supplied handle must have `CanBeUsedAsValueInput == true`; recording rejects command-bearing/effect-only fragments or shared-target-scope inputs, which remain ordered through `TargetScope`/`TargetLayerScope` or become a value only through finite `Layer`. A non-contributing public `TargetCapture` is valid because it does expose a value: its prior-token dependency is scheduled before materialization and threaded into the command. Valid inputs are flattened in authored handle/stream order. A non-empty `InputReadbacks` list has exactly one declaration per authored input handle. `None` schedules no CPU bitmap, `All` selects every runtime value from that handle even when its cardinality is dynamic, and `Values` selects sorted unique local indices within that handle. A null or empty declaration means `None` for every authored input. This per-handle binding keeps a later selection stable when an earlier handle produces a runtime-variable number of values. Only selected flattened execution inputs enable `UseSnapshot`; an unselected input throws without synchronizing or allocating a bitmap. A local index that is impossible for the handle's declared cardinality, or is guaranteed by its minimum cardinality but missing at runtime, fails execution before the command callback. An absent optional value does not materialize a declared readback. This declaration is independent of `TargetAccess.Readback`, which describes the preceding target token.
 
 Every public callback is conservatively target-dependent: `ReadWrite` and `Readback` both consume the prior target token, and `Readback` additionally schedules CPU access. There is no public author-asserted write-only access because ordinary `SrcOver`, inherited opacity/blend/mask state, and most canvas draws read the prior destination. Engine-proven clear/source-replace commands may use an internal write-only classification under an enforceable capability. `TargetRegion.Full` means the complete finite domain of the current root, finite value Layer, or resolved `TargetLayerScope` target; `Empty` is an order-only/no-pixel access, and `Region(Rect)` is a validated finite composition-logical subregion. A built-in clear uses internal write-only `Full`; a destination snapshot uses `Full` readback; a finite backdrop draw uses `ReadWrite` and its bounds. Commands are preserved even when the affected region is `Empty`.
 
@@ -1220,7 +1240,8 @@ overrides the protected hook while retaining the base `Process` lowering:
 protected virtual RenderScaleContract? GetWorkingScaleContract();
 ```
 
-Returning `null` uses the standard `MaterializeAtWorkingScale` policy, including its `s_out` floor. The protected
+Returning `null` uses the standard `MaterializeAtWorkingScale` policy, including its `s_out` floor before the
+authoritative `MaxWorkingScale` ceiling; a lower positive ceiling therefore overrides that floor. The protected
 hook may instead return any valid `RenderScaleContract`; an explicit `Custom` result may intentionally be below
 `s_out` and is not raised to the standard floor. After the base implementation has identified the finite or
 owner-relative isolation needed for mixed/value-ineligible inputs, it folds the standard or custom policy into the

@@ -11,7 +11,7 @@ identified by its SHA-256.
 |---|---|
 | `target-baseline-generator.patch` | `037315804fa9531bdef1b79e2db405e8a3813e4bc137527690f9f2d5cb4e728c` |
 | `generate-target-baseline.sh` | `fb0bf369aff9b017c82edf74e8423e83fd13156d3e1a569267447fa4fdf5df03` |
-| `run-paired-visual-evidence.sh` | `68098e70120c161d9ca27e6295c776450b2547ee59b4a19e7bf4ac7abcdca483` |
+| `run-paired-visual-evidence.sh` | `ef1eb523115ea6abb94d06466cecbbf8a1152be3d7b2b74f85a3bd7a852ab032` |
 | `refresh-intentional-visual-baselines.sh` | `5057b76ae3d4c1bc4474e424cc3119c5ce52aa8c203fcc0cac874d38cd8c74d8` |
 | generator source bundle | `d6e5f339d5d7214b0cb879aa5cf2cd717896879b942400928e77b38c9a62a19e` |
 | `run-paired-benchmarks.sh` | `30087e0c363e9f43deeafa6fcfd99f12ea251df57b9cbca206caa4de62b03d66` |
@@ -92,7 +92,10 @@ against the timed run's token): BenchmarkDotNet Monitoring strategy, warmup 3 +
 (baseline-A → feature → baseline-B) preceded by one discarded warm-up pass,
 bootstrap 100,000 iterations, seed 20040719, confidence 0.95. The analyzer verifies
 every case's outputs across the baseline repeats, the feature's setup/measured
-self-consistency, and exact control-case equality. Recorded run committed under
+self-consistency, and exact no-effect-control equality; effect workloads are
+intentionally not byte-identical across pipelines (FR-019), so cross-pipeline
+equivalence is proven by the paired visual evidence.
+Recorded run committed under
 [`paired-benchmark-run/`](paired-benchmark-run/) (manifest SHA-256
 `129725e6281c7bbda17a7e6f087c0d7632c24a3619412b02b59ed9ee94e92894`), feature code SHA `912ddda0484d0b8cde3c63b60deefa491a0c596c`.
 

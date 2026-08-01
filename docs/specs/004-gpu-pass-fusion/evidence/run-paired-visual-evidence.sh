@@ -333,10 +333,17 @@ target_fingerprint = validate_fingerprint(target, "target")
 feature_fingerprint = validate_fingerprint(feature, "feature")
 target_code_sha = target.get("baselineCodeSha")
 feature_code_sha = os.environ["FEATURE_SHA"]
+feature_manifest_code_sha = feature.get("featureCodeSha")
+feature_exporter_assembly_version = feature.get("exporterAssemblyVersion")
 if not isinstance(target_code_sha, str) or target_code_sha not in target_fingerprint[source_provenance_field]:
     raise SystemExit("Target engine assembly provenance does not contain baselineCodeSha")
 if feature_code_sha not in feature_fingerprint[source_provenance_field]:
     raise SystemExit("Feature engine assembly provenance does not contain the feature worktree SHA")
+if feature_manifest_code_sha != feature_code_sha:
+    raise SystemExit("Feature exporter manifest featureCodeSha does not match the feature worktree SHA")
+if (not isinstance(feature_exporter_assembly_version, str)
+        or feature_code_sha not in feature_exporter_assembly_version):
+    raise SystemExit("Feature exporter assembly provenance does not contain the feature worktree SHA")
 
 target_environment_fingerprint = {
     name: target_fingerprint[name] for name in required_environment_fingerprint_fields
@@ -640,6 +647,10 @@ result = {
     "targetCodeSha": target_code_sha,
     "featureCodeSha": feature_code_sha,
     "featureCommand": os.environ["FEATURE_COMMAND"],
+    "featureExporterProvenance": {
+        "featureCodeSha": feature_manifest_code_sha,
+        "exporterAssemblyVersion": feature_exporter_assembly_version,
+    },
     "targetManifestSha256": hashlib.sha256((target_root / "manifest.json").read_bytes()).hexdigest(),
     "featureManifestSha256": hashlib.sha256((feature_root / "manifest.json").read_bytes()).hexdigest(),
     "semanticRefresh": {

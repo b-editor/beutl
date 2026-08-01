@@ -849,7 +849,7 @@ internal static class TargetDependencyLowerer
                 TargetRegionKind.Empty => Rect.Empty,
                 TargetRegionKind.Region => region.Value,
                 TargetRegionKind.Full when ownerDomain is { } domain => domain,
-                TargetRegionKind.Full => throw new InvalidOperationException(
+                TargetRegionKind.Full => throw new RenderTargetDomainRequiredException(
                     $"A reachable Full target access on {owner.Kind} requires a finite owning target domain."),
                 _ => throw new InvalidOperationException("The target region is uninitialized."),
             };
