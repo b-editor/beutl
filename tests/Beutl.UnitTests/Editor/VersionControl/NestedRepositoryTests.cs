@@ -81,6 +81,32 @@ public sealed class NestedRepositoryTests : RealGitTestRepository
     }
 
     [Test]
+    public async Task Initialize_accepts_a_selection_with_an_intermediate_symbolic_link_alias()
+    {
+        string projectRoot = CreateProjectDirectory();
+        await File.WriteAllTextAsync(Path.Combine(projectRoot, "project.bep"), "{}\n");
+        string linkedNestedRoot = Path.Combine(Root, "linked-nested");
+        CreateDirectorySymbolicLinkOrIgnore(linkedNestedRoot, Path.Combine(Root, "nested"));
+        string linkedProjectRoot = Path.Combine(linkedNestedRoot, "project");
+        var selectedRepository = new RepositoryInfo(Root, linkedProjectRoot);
+        using GitCliVersionControlService service = CreateUnassociatedService();
+
+        await service.InitializeAsync(
+            new InitOptions(selectedRepository, UseLfsWhenAvailable: false),
+            CancellationToken.None);
+
+        string expectedRepoRoot = await GetRepositoryTopLevelAsync();
+        Assert.Multiple(() =>
+        {
+            Assert.That(service.Repository!.RepoRoot, Is.EqualTo(expectedRepoRoot));
+            Assert.That(
+                service.Repository.ProjectRoot,
+                Is.EqualTo(Path.Combine(expectedRepoRoot, "nested", "project")));
+            Assert.That(service.Repository.Pathspec, Is.EqualTo("nested/project"));
+        });
+    }
+
+    [Test]
     public async Task Initialize_requires_consent_and_commits_only_the_nested_project()
     {
         string projectRoot = CreateProjectDirectory();

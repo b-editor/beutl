@@ -4666,7 +4666,7 @@ internal sealed class GitCliVersionControlService :
 
         if (Repository is not null
             && !string.Equals(Repository.ProjectRoot, projectRoot, PathComparison)
-            && !IsSameRepository(Repository, repository))
+            && !MatchesRepositorySelection(Repository, repository))
         {
             throw new InvalidOperationException(
                 "This service is already associated with a different project.");
@@ -4938,20 +4938,12 @@ internal sealed class GitCliVersionControlService :
         RepositoryInfo selected)
     {
         return discovered.IsNestedInForeignRepo == selected.IsNestedInForeignRepo
-               && string.Equals(discovered.Pathspec, selected.Pathspec, PathComparison)
                && RepositoryPathComparer.AreEquivalent(
                    discovered.RepoRoot,
                    selected.RepoRoot)
                && RepositoryPathComparer.AreEquivalent(
                    discovered.ProjectRoot,
                    selected.ProjectRoot);
-    }
-
-    private static bool IsSameRepository(RepositoryInfo left, RepositoryInfo right)
-    {
-        return RepositoryPathComparer.AreEquivalent(left.RepoRoot, right.RepoRoot)
-               && RepositoryPathComparer.AreEquivalent(left.ProjectRoot, right.ProjectRoot)
-               && string.Equals(left.Pathspec, right.Pathspec, PathComparison);
     }
 
     private async Task<CommitResult> CommitAllCoreAsync(
