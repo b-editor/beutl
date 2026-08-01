@@ -311,9 +311,6 @@ public sealed partial class PixelSortEffect : FilterEffect
             RenderTarget? renderTarget = target.RenderTarget;
             if (renderTarget?.Texture == null) continue;
 
-            // RenderTarget-level: the texture-level transition alone leaves pending Skia work unwritten.
-            renderTarget.PrepareForSampling();
-
             ITexture2D originalTexture = renderTarget.Texture;
             int width = originalTexture.Width;
             int height = originalTexture.Height;
@@ -348,7 +345,7 @@ public sealed partial class PixelSortEffect : FilterEffect
                     });
 
                 // Pass 3: Gather + Restore - place pixels by rank, restore anchors
-                EffectTarget newTarget = ctx.CreateTargetLike(target);
+                EffectTarget newTarget = ctx.CreateTarget(target.Bounds);
                 RenderTarget? newRenderTarget = newTarget.RenderTarget;
 
                 if (newRenderTarget?.Texture == null)

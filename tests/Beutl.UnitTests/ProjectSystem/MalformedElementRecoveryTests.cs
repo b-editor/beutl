@@ -1,4 +1,5 @@
-﻿using System.Text.Json.Nodes;
+﻿using System.Runtime.CompilerServices;
+using System.Text.Json.Nodes;
 using Beutl.Editor;
 using Beutl.Graphics;
 using Beutl.Graphics.Shapes;
@@ -171,6 +172,22 @@ public sealed class MalformedElementRecoveryTests
     }
 
     [Test]
+    public void Remove_ReleasesRecoveredElementAndItsRawSidecarPayload()
+    {
+        (Uri sceneUri, string elementPath) = CreatePersistedScene();
+        File.WriteAllText(elementPath, "{ this is not valid JSON");
+        Scene scene = CoreSerializer.RestoreFromUri<Scene>(sceneUri);
+
+        WeakReference<Element> removed = RemoveRecoveredElement(scene);
+        GC.Collect();
+        GC.WaitForPendingFinalizers();
+        GC.Collect();
+
+        Assert.That(removed.TryGetTarget(out _), Is.False);
+        GC.KeepAlive(scene);
+    }
+
+    [Test]
     public void Restore_MalformedElementPrefersTopLevelId()
     {
         (Uri sceneUri, string elementPath) = CreatePersistedScene();
@@ -255,6 +272,14 @@ public sealed class MalformedElementRecoveryTests
     {
         (Uri sceneUri, string[] elementPaths) = CreatePersistedSceneWithElements("element.belm");
         return (sceneUri, elementPaths.Single());
+    }
+
+    [MethodImpl(MethodImplOptions.NoInlining)]
+    private static WeakReference<Element> RemoveRecoveredElement(Scene scene)
+    {
+        Element recovered = scene.Children.Single();
+        scene.Children.Remove(recovered);
+        return new WeakReference<Element>(recovered);
     }
 
     private (Uri SceneUri, string[] ElementPaths) CreatePersistedSceneWithElements(

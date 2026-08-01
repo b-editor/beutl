@@ -100,6 +100,48 @@ public class RendererExceptionSafetyTests
         });
     }
 
+    [Test]
+    public void UpdateFrame_PublishesMetadataOnlyAfterEveryDrawableRecordsAndRetriesFaultedEntry()
+    {
+        RenderThread.Dispatcher.Invoke(() =>
+        {
+            using var renderer = new Renderer(
+                width: 16,
+                height: 16,
+                renderScale: 1,
+                maxWorkingScale: float.PositiveInfinity,
+                diagnostics: null,
+                surface: new CpuRenderTarget(16, 16));
+            var first = new RecordingFailureDrawable(failures: 0);
+            var faulting = new RecordingFailureDrawable(failures: 1);
+            var firstResource = (Drawable.Resource)first.ToResource(CompositionContext.Default);
+            var faultingResource = (Drawable.Resource)faulting.ToResource(CompositionContext.Default);
+            var frame = new CompositionFrame(
+                ImmutableArray.Create<EngineObject.Resource>(firstResource, faultingResource),
+                new TimeRange(TimeSpan.Zero, TimeSpan.FromSeconds(1)),
+                new PixelSize(16, 16));
+
+            Assert.That(
+                () => renderer.UpdateFrame(frame),
+                Throws.TypeOf<InvalidOperationException>().With.Message.EqualTo("recording failed"));
+            Assert.Multiple(() =>
+            {
+                Assert.That(renderer.GetBoundary(first), Is.Null);
+                Assert.That(renderer.GetBoundary(faulting), Is.Null);
+                Assert.That(renderer.GetBoundaries(zIndex: 0), Is.Empty);
+            });
+
+            Assert.That(() => renderer.UpdateFrame(frame), Throws.Nothing);
+            Assert.Multiple(() =>
+            {
+                Assert.That(first.RenderCalls, Is.EqualTo(1));
+                Assert.That(faulting.RenderCalls, Is.EqualTo(2));
+                Assert.That(renderer.GetBoundary(first), Is.Not.Null);
+                Assert.That(renderer.GetBoundary(faulting), Is.Not.Null);
+            });
+        });
+    }
+
     private static CompositionFrame CreateFrame(
         ICollection<string> discharged,
         params RecordedOperationSpec[] operations)
@@ -131,6 +173,29 @@ internal sealed partial class FaultingDrawable(RecordedOperationSpec[] operation
 
     public override void Render(GraphicsContext2D context, Drawable.Resource resource)
         => context.DrawNode(new FixedOpsNode(operations, Discharged));
+
+    protected override Size MeasureCore(Size availableSize, Drawable.Resource resource) => new(4, 4);
+
+    protected override void OnDraw(GraphicsContext2D context, Drawable.Resource resource)
+    {
+    }
+}
+
+internal sealed partial class RecordingFailureDrawable(int failures) : Drawable
+{
+    private int _remainingFailures = failures;
+
+    public int RenderCalls { get; private set; }
+
+    public override void Render(GraphicsContext2D context, Drawable.Resource resource)
+    {
+        RenderCalls++;
+        context.DrawRectangle(new Rect(0, 0, 4, 4), Brushes.Resource.White, null);
+        if (_remainingFailures-- > 0)
+        {
+            throw new InvalidOperationException("recording failed");
+        }
+    }
 
     protected override Size MeasureCore(Size availableSize, Drawable.Resource resource) => new(4, 4);
 

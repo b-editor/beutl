@@ -128,7 +128,7 @@ internal sealed class RenderRequestOptions
             Intent,
             Purpose,
             targetDomain ?? TargetDomain,
-            requestedRegion ?? RequestedRegion,
+            requestedRegion,
             outputScale,
             maxWorkingScale,
             CachePolicy,

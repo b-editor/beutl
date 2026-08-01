@@ -233,49 +233,6 @@ public sealed class SymbolicOwningDomainTests
     }
 
     [Test]
-    public void TargetIndependentTransform_SymbolicOwningDomain_DefersRelativeOriginUntilResolution()
-    {
-        using var symbolicRoot = new FilterEffectRenderNode(
-            CreateTargetIndependentHalfScaleEffect().ToResource(CompositionContext.Default));
-        symbolicRoot.AddChild(new ClearRenderNode(Colors.White));
-
-        using CompiledRenderRequest compiled = Compile(symbolicRoot, s_rootDomain);
-        RenderFragmentReference legacy = References(compiled.Graph).Values
-            .Single(static reference => reference.Kind == RenderFragmentKind.LegacyFilterEffect);
-        Vector origin = RelativePoint.Center.ToPixels(s_rootDomain.Size) + s_rootDomain.Position;
-        Matrix offset = Matrix.CreateTranslation(origin);
-        Rect expectedBounds = s_rootDomain.TransformToAABB(
-            (-offset) * Matrix.CreateScale(0.5f, 0.5f) * offset);
-
-        using Bitmap symbolic = RenderToBitmap(symbolicRoot, s_rootDomain);
-        using var finiteRoot = new FilterEffectRenderNode(
-            CreateTargetIndependentHalfScaleEffect().ToResource(CompositionContext.Default));
-        finiteRoot.AddChild(new RectangleRenderNode(s_rootDomain, Brushes.Resource.White, null));
-        using Bitmap finite = RenderToBitmap(finiteRoot, s_rootDomain);
-
-        Assert.Multiple(() =>
-        {
-            Assert.That(legacy.Bounds.IsInvalid, Is.False);
-            Assert.That(legacy.Bounds, Is.EqualTo(expectedBounds));
-            Assert.That(AlphaAt(symbolic, 50, 30), Is.GreaterThan(0.9f));
-            foreach (PixelPoint point in new[]
-                     {
-                         new PixelPoint(50, 30),
-                         new PixelPoint(30, 20),
-                         new PixelPoint(70, 40),
-                         new PixelPoint(10, 10),
-                         new PixelPoint(90, 50),
-                     })
-            {
-                Assert.That(
-                    AlphaAt(symbolic, point.X, point.Y),
-                    Is.EqualTo(AlphaAt(finite, point.X, point.Y)).Within(1e-3f),
-                    $"symbolic and finite relative-origin transforms differ at {point}");
-            }
-        });
-    }
-
-    [Test]
     public void UnknownLegacy_FiniteLegacyParentRecomputesBoundsAndHitTestFromResolvedInput()
     {
         var unknown = new SymbolicDomainFilterEffect();

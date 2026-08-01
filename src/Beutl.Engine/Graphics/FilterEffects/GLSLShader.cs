@@ -119,7 +119,7 @@ public sealed class GLSLShader : IDisposable
 
             renderTarget.PrepareForSampling();
 
-            EffectTarget newTarget = context.CreateTargetLike(target);
+            EffectTarget newTarget = context.CreateTarget(target.Bounds);
             RenderTarget? newRenderTarget = newTarget.RenderTarget;
 
             if (newRenderTarget?.Texture == null)
@@ -210,7 +210,7 @@ public sealed class GLSLShader : IDisposable
             if (passCount == 1)
             {
                 // Single pass: write directly to the new EffectTarget
-                EffectTarget newTarget = context.CreateTargetLike(target);
+                EffectTarget newTarget = context.CreateTarget(target.Bounds);
                 RenderTarget? newRenderTarget = newTarget.RenderTarget;
 
                 if (newRenderTarget?.Texture == null)
@@ -249,7 +249,7 @@ public sealed class GLSLShader : IDisposable
 
             // Final pass: write directly to the new EffectTarget
             {
-                EffectTarget newTarget = context.CreateTargetLike(target);
+                EffectTarget newTarget = context.CreateTarget(target.Bounds);
                 RenderTarget? newRenderTarget = newTarget.RenderTarget;
 
                 if (newRenderTarget?.Texture == null)
@@ -298,7 +298,7 @@ public sealed class GLSLShader : IDisposable
 
             renderTarget.PrepareForSampling();
 
-            EffectTarget newTarget = context.CreateTargetLike(target);
+            EffectTarget newTarget = context.CreateTarget(target.Bounds);
             RenderTarget? newRenderTarget = newTarget.RenderTarget;
 
             if (newRenderTarget?.Texture == null)

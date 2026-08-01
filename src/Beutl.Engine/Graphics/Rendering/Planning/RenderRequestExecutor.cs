@@ -2262,7 +2262,8 @@ internal sealed class RenderRequestExecutor
                                 target,
                                 source));
                         activator.Apply(effectContext);
-                        activator.Flush(force: payload.WorkingScalePolicy.HasValue);
+                        activator.CompletePolicyBoundary(
+                            payload.WorkingScalePolicy.HasValue);
 
                         var result = new List<CompatibilityRenderValue>(activator.CurrentTargets.Count);
                         foreach (EffectTarget target in activator.CurrentTargets)
@@ -2361,13 +2362,7 @@ internal sealed class RenderRequestExecutor
                            rasterTranslation.X,
                            rasterTranslation.Y)))
                 {
-                    if (!canvas.TryDrawRenderTargetPixelAlignedWithoutFlush(
-                            renderTarget,
-                            target.RasterBounds,
-                            target.Scale.Value))
-                    {
-                        canvas.DrawRenderTargetScaledWithoutFlush(renderTarget, target.RasterBounds);
-                    }
+                    canvas.DrawRenderTargetScaledWithoutFlush(renderTarget, target.RasterBounds);
                 }
 
                 succeeded = true;

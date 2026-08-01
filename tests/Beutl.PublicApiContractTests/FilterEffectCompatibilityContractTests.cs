@@ -15,22 +15,20 @@ public sealed class FilterEffectCompatibilityContractTests
     private static readonly Rect s_bounds = new(3, 5, 12, 8);
 
     [Test]
-    public void LegacyExecutionContexts_RequireAndExposeExplicitRequestClassification()
+    public void LegacyExecutionContexts_PreserveScaleOnlyConstructorAndDefaultClassification()
     {
         using var targets = new EffectTargets();
         using var builder = new SKImageFilterBuilder();
-        using var activator = new FilterEffectActivator(
+        using var activator = new FilterEffectActivator(targets, builder);
+        using var previewActivator = new FilterEffectActivator(
             targets,
             builder,
-            RenderIntent.Preview,
-            RenderRequestPurpose.HitTest);
+            maxWorkingScale: 2);
 
         Type[] expectedParameterTypes =
         [
             typeof(EffectTargets),
             typeof(SKImageFilterBuilder),
-            typeof(RenderIntent),
-            typeof(RenderRequestPurpose),
             typeof(float),
             typeof(float),
             typeof(float),
@@ -45,13 +43,13 @@ public sealed class FilterEffectCompatibilityContractTests
 
         Assert.Multiple(() =>
         {
-            Assert.That(activator.Intent, Is.EqualTo(RenderIntent.Preview));
-            Assert.That(activator.Purpose, Is.EqualTo(RenderRequestPurpose.HitTest));
+            Assert.That(activator.Intent, Is.EqualTo(RenderIntent.Delivery));
+            Assert.That(activator.Purpose, Is.EqualTo(RenderRequestPurpose.Auxiliary));
+            Assert.That(previewActivator.Intent, Is.EqualTo(RenderIntent.Preview));
+            Assert.That(previewActivator.Purpose, Is.EqualTo(RenderRequestPurpose.Auxiliary));
             Assert.That(actualParameterTypes, Is.EqualTo(expectedParameterTypes),
-                "the former scale-only compatibility constructor must not remain public");
-            Assert.That(constructorParameters[2].IsOptional, Is.False);
-            Assert.That(constructorParameters[3].IsOptional, Is.False);
-            Assert.That(constructorParameters.Skip(4).All(static parameter => parameter.IsOptional), Is.True);
+                "existing FilterEffect callers must retain the scale-only public constructor");
+            Assert.That(constructorParameters.Skip(2).All(static parameter => parameter.IsOptional), Is.True);
             Assert.That(typeof(FilterEffectActivator).GetProperty(nameof(FilterEffectActivator.Intent))!.CanWrite,
                 Is.False);
             Assert.That(typeof(FilterEffectActivator).GetProperty(nameof(FilterEffectActivator.Purpose))!.CanWrite,
@@ -203,7 +201,8 @@ public sealed class FilterEffectCompatibilityContractTests
             new BranchSensitiveWorkingScaleFilterNode(resource));
         using var renderer = new RenderNodeRenderer(
             root,
-            new RenderNodeRendererOptions {
+            new RenderNodeRendererOptions
+            {
                 DefaultRequest = new RenderNodeRenderRequest
                 {
                     CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Disabled,

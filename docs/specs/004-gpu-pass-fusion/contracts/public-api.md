@@ -1181,25 +1181,21 @@ The existing `CustomEffect` recording method and its `CustomFilterEffectContext`
 ```csharp
 public class CustomFilterEffectContext
 {
+    public EffectTargets Targets { get; }
+    public float OutputScale { get; }
+    public float WorkingScale { get; }
+    public float MaxWorkingScale { get; }
     public static PixelRect DeviceBufferBounds(Rect bounds, float w);
     public static (int Width, int Height) DeviceBufferSize(Rect bounds, float w);
     public Vector DeviceGridOffset { get; }
     public RenderIntent Intent { get; }
     public RenderRequestPurpose Purpose { get; }
+    public void ForEach(Action<int, EffectTarget> action);
+    public void ForEach(Func<int, EffectTarget, EffectTarget> action);
+    public void ForEach(Func<int, EffectTarget, EffectTargets> action);
     public float ResolveTargetDensity(Rect bounds);
     public EffectTarget CreateTarget(Rect bounds);
-    public EffectTarget CreateTargetLike(EffectTarget source);
-    public EffectTarget CreateReplacement(EffectTarget source, RenderTarget renderTarget);
-    public SKShader CreateMappedInputShader(
-        EffectTarget source,
-        EffectTarget destination,
-        SKShader sourceShader);
-    public void UseMappedInputShader(
-        EffectTarget source,
-        EffectTarget destination,
-        Action<SKShader> use,
-        SKShaderTileMode x = SKShaderTileMode.Decal,
-        SKShaderTileMode y = SKShaderTileMode.Decal);
+    public ImmediateCanvas Open(EffectTarget target);
 }
 
 public sealed class EffectTarget : IDisposable
@@ -1223,18 +1219,27 @@ public sealed class EffectTarget : IDisposable
 
 public sealed class SKSLShader : IDisposable
 {
+    public static SKSLShader Create(string sksl);
+    public static bool TryCreate(
+        string sksl,
+        out SKSLShader? shader,
+        out string? errorText);
+
+    public SKRuntimeEffect Effect { get; }
     public SKRuntimeShaderBuilder CreateBuilder();
 
-    public void RenderToTarget(
+    public EffectTarget ApplyToNewTarget(
         CustomFilterEffectContext context,
         SKRuntimeShaderBuilder builder,
-        EffectTarget target);
+        Rect bounds);
+
+    public void Dispose();
 }
 ```
 
-`EffectTarget()` and the materialized `EffectTarget(RenderTarget, Rect, EffectiveScale)` constructor remain public for source-less and caller-materialized legacy effects. Only the operation-backed constructor is removed. The materialized constructor takes a shallow copy and derives the canonical zero-offset footprint. `Clone()` preserves `OriginalBounds`, current `Bounds`, `Scale`, `DeviceBounds`, and `DeviceGridOffset`; `EffectTargets.Clone()` uses that path for every retained target. Engine code replacing an existing target while preserving a non-zero grid uses `CreateReplacement`.
+`EffectTarget()` and the materialized `EffectTarget(RenderTarget, Rect, EffectiveScale)` constructor remain public for source-less and caller-materialized legacy effects. Only the operation-backed constructor is removed. The materialized constructor takes a shallow copy and derives the canonical zero-offset footprint. `Clone()` preserves `OriginalBounds`, current `Bounds`, `Scale`, `DeviceBounds`, and `DeviceGridOffset`; `EffectTargets.Clone()` uses that path for every retained target.
 
-Direct legacy activation remains available, but request classification is explicit and independent from scale:
+Direct legacy activation retains its existing public scale-only constructor and historical allocation-failure classification: a positive-infinite (including sanitized invalid) `maxWorkingScale` selects delivery fail-fast behavior, while a finite positive ceiling selects preview drop behavior. Its request purpose is auxiliary. Engine-owned execution paths supply their explicit request classification internally:
 
 ```csharp
 public sealed class FilterEffectActivator : IDisposable
@@ -1242,19 +1247,24 @@ public sealed class FilterEffectActivator : IDisposable
     public FilterEffectActivator(
         EffectTargets targets,
         SKImageFilterBuilder builder,
-        RenderIntent intent,
-        RenderRequestPurpose purpose,
         float outputScale = 1f,
         float workingScale = 1f,
         float maxWorkingScale = float.PositiveInfinity);
 
+    public SKImageFilterBuilder Builder { get; }
+    public EffectTargets CurrentTargets { get; }
+    public float OutputScale { get; }
+    public float WorkingScale { get; private set; }
+    public float MaxWorkingScale { get; }
     public RenderIntent Intent { get; }
     public RenderRequestPurpose Purpose { get; }
+
+    public void Flush(bool force = true);
+    public void Apply(FilterEffectContext context);
+    public SKImageFilter? Activate(FilterEffectContext context);
+    public void Dispose();
 }
 ```
-
-There is no compatibility inference from `MaxWorkingScale`: finite-density delivery and unlimited-density preview
-are both valid and must retain their authored allocation-failure policy.
 
 The overload that accepts `transformBounds` must provide a conservative finite mapping and keeps that mapping
 available to later authored items. The two-argument overload intentionally leaves bounds unknown; it never means
@@ -1268,7 +1278,7 @@ are neither planner-visible nor bounded by that crop. Built-in effects use a fin
 one can be derived; only genuinely dynamic effects whose callback may run an arbitrary child effect retain
 unknown bounds.
 
-`DeviceBufferBounds(bounds, w) == PixelRect.FromRect(bounds, w)` is the allocation source of truth. `DeviceBufferSize` returns that footprint's size rather than independently rounding width/height; consequently a fractional origin can add a device pixel even when `ceil(bounds.Width * w)` alone would not. `CustomFilterEffectContext.DeviceGridOffset` is the ambient allocation grid applied by `CreateTarget(bounds)` before calling that helper. `ResolveTargetDensity(bounds)` applies that grid offset and the exact per-buffer allocation clamp, returning the density that `CreateTarget(bounds)` will use. Each input target independently retains the grid of its existing storage. Mixed-grid inputs are valid and map through their own `RasterBounds` or `CreateMappedInputShader`. Replay into an aligned backing computes its local translation from the integer `DeviceBounds` first, avoiding a divide-then-multiply float round trip that could alter the source's device phase. `CreateReplacement(source, renderTarget)` is the public path for wrapping a caller-created target while preserving the source's density, physical footprint, logical placement, and grid offset; the supplied target must match that footprint. `EffectTarget.DeviceBounds` is the immutable composition-device allocation footprint and `RasterBounds == DeviceBounds.ToRect(Scale.Value).Translate(-DeviceGridOffset)` is its pixel-aligned effect-local footprint at allocation time. If a legacy effect translates `Bounds` without reallocating (for example Shake), `RasterBounds` translates by exactly the same logical delta while preserving its physical size. `Draw`, `Open`, and final activation use this physical footprint and never stretch the backing image to semantic `Bounds`; `OriginalBounds`, `Bounds`, measurement, hit testing, and ROI semantics remain unchanged.
+`DeviceBufferBounds(bounds, w) == PixelRect.FromRect(bounds, w)` is the allocation source of truth. `DeviceBufferSize` returns that footprint's size rather than independently rounding width/height; consequently a fractional origin can add a device pixel even when `ceil(bounds.Width * w)` alone would not. `CustomFilterEffectContext.DeviceGridOffset` is the ambient allocation grid applied by `CreateTarget(bounds)` before calling that helper. `ResolveTargetDensity(bounds)` applies that grid offset and the exact per-buffer allocation clamp, returning the density that `CreateTarget(bounds)` will use. Immediately before each legacy Custom callback, the engine force-materializes every surviving input to this canonical device cover of its semantic `Bounds` at the actual working scale. An exact canonical input may be reused, but an apron-bearing or otherwise larger renderer backing is rematerialized so unchanged code that pairs `Targets` with `CreateTarget(Bounds)` or `DeviceBufferSize(Bounds, WorkingScale)` continues to observe matching dimensions. Each callback target independently retains the grid of that canonical storage. Replay into an aligned backing computes its local translation from the integer `DeviceBounds` first, avoiding a divide-then-multiply float round trip that could alter the source's device phase. `EffectTarget.DeviceBounds` is the immutable composition-device allocation footprint and `RasterBounds == DeviceBounds.ToRect(Scale.Value).Translate(-DeviceGridOffset)` is its pixel-aligned effect-local footprint at allocation time. If a legacy effect subsequently translates `Bounds` without reallocating (for example Shake), `RasterBounds` translates by exactly the same logical delta while preserving its physical size. `Draw`, `Open`, and final activation use this post-callback physical footprint and never stretch the backing image to semantic `Bounds`; `OriginalBounds`, `Bounds`, measurement, hit testing, and ROI semantics remain unchanged.
 
 That legacy callback is not handed the new capability-guarded `RenderCallbackCanvas`; its internal raw target/canvas passes, snapshots, or flushes are intentionally uninspectable. Nothing may fuse through it, and diagnostics set `HasOpaqueExternalWork` rather than pretending its internal physical pass/synchronization count is known. New custom work should use Shader, Geometry, or the explicit opaque render-node descriptions for fully planned ownership and diagnostics.
 
@@ -1298,13 +1308,13 @@ first surviving Shader, Geometry, or legacy operation. The callback is invoked p
 one `InputSupplies` item and that branch's isolated effect-input bounds as `OutputBounds`; those are not the later
 first-operation output bounds. Legacy multi-input lowering aggregates the densest concrete branch result and falls
 back to `OutputScale` only if every branch remains `Unbounded`. Allocation footprints are independent of callback
-cardinality: before an opaque Custom callback they retain each branch's local-origin transforms and every
-intermediate/forced materialization, so empty space in a sparse union is not backing storage. Because a Custom
-callback may combine or split targets without declaring topology, the first such callback unions the transformed
-branch results and collapses later analysis to that aggregate domain. The clamp also carries the largest known
-pre-callback backing footprint forward at the transformed semantic position because a callback may retain that
-backing while moving or shrinking only `EffectTarget.Bounds`; this is deliberately conservative if the
-implementation replaces every target.
+cardinality: before an opaque Custom callback they retain each branch's local-origin transforms and intermediate
+materializations, so empty space in a sparse union is not backing storage. The forced compatibility materialization
+immediately before callback entry canonicalizes every surviving target to the exact device cover of its semantic
+`Bounds` at the actual working scale; it does not forward a renderer-owned apron to unchanged legacy code. Because
+a Custom callback may combine or split targets without declaring topology, the first such callback unions the
+transformed branch results and collapses later analysis to that aggregate domain. Physical footprints produced or
+retained by the callback are tracked from the callback result and exact-clamped by later normalization.
 The pure contract is reevaluated after a symbolic `TargetLayerScope(Full)` resolves against its actual owner.
 
 The base records no identity fragment or extra opaque/pass boundary. If `ApplyTo` records no items, the node

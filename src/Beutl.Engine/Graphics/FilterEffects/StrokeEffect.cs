@@ -80,18 +80,10 @@ public partial class StrokeEffect : FilterEffect
                 RenderTarget srcRenderTarget = target.RenderTarget!;
                 using var src = srcRenderTarget.Snapshot();
 
-                // The contour path is in backing-buffer pixels. Map it with the target's actual
-                // density and physical raster origin so it shares EffectTarget.Draw's placement.
-                float w = target.Scale.Value;
+                // The contour path is device px; map to logical (/ w) for logical pen width/offset.
+                float w = context.WorkingScale;
                 using SKPath borderPath = CreateBorderPath(src);
                 if (w != 1f) borderPath.Transform(SKMatrix.CreateScale(1f / w, 1f / w));
-                Vector rasterOrigin = target.RasterBounds.Position - target.Bounds.Position;
-                if (rasterOrigin != default)
-                {
-                    borderPath.Transform(SKMatrix.CreateTranslation(
-                        (float)rasterOrigin.X,
-                        (float)rasterOrigin.Y));
-                }
 
                 Rect transformedBounds = TransformBounds(data, target.Bounds);
                 var origin = Matrix.CreateTranslation(

@@ -1,6 +1,5 @@
 ﻿using System.ComponentModel.DataAnnotations;
 using Beutl.Engine;
-using Beutl.Graphics.Rendering;
 using Beutl.Language;
 using Beutl.Media;
 
@@ -37,14 +36,6 @@ public sealed partial class DropShadow : FilterEffect
         else
         {
             context.DropShadow(r.Position, r.Sigma, r.Color);
-        }
-    }
-
-    public partial class Resource
-    {
-        public override FilterEffectRenderNode CreateRenderNode()
-        {
-            return new FilterEffectRenderNode(this);
         }
     }
 }

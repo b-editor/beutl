@@ -117,9 +117,7 @@ record_path = pathlib.Path(sys.argv[3])
 # Approved explicitly by docs/specs/004-gpu-pass-fusion/research.md; never infer
 # this set from artifact hash differences because that would self-approve regressions.
 APPROVED_SEMANTIC_REFRESH_SCENE_IDS = (
-    "geometry-stroke",
     "scene3d-with-2d-tail",
-    "split-expansion",
 )
 
 def sha256(payload):
@@ -425,8 +423,8 @@ try:
 except (OSError, json.JSONDecodeError) as error:
     raise SystemExit(f"Semantic-refresh reconciliation record cannot be read: {error}") from error
 refresh_artifacts = reconciliation.get("artifacts")
-if not isinstance(refresh_artifacts, list) or len(refresh_artifacts) != 3:
-    raise SystemExit("Semantic-refresh reconciliation record must contain exactly three artifacts")
+if not isinstance(refresh_artifacts, list) or len(refresh_artifacts) != 1:
+    raise SystemExit("Semantic-refresh reconciliation record must contain exactly one artifact")
 refresh_scene_ids = set()
 for item in refresh_artifacts:
     if not isinstance(item, dict):
@@ -444,6 +442,8 @@ for item in refresh_artifacts:
         raise SystemExit(f"Semantic-refresh hash does not match the reconciled target: {scene_id}")
     if legacy_hash == refreshed_hash:
         raise SystemExit(f"Semantic-refresh record has identical legacy and refreshed hashes: {scene_id}")
+if refresh_scene_ids != {"scene3d-with-2d-tail"}:
+    raise SystemExit("Semantic-refresh reconciliation must contain only scene3d-with-2d-tail")
 
 semantic_fields = (
     "category", "role", "controlSceneId", "blobWidth", "blobHeight", "logicalWidth",

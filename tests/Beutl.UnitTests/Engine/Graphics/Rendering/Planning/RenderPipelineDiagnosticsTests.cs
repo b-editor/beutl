@@ -249,16 +249,68 @@ public sealed class RenderPipelineDiagnosticsTests
         Assert.That(snapshot.Events, Is.EqualTo(events));
     }
 
-    [TestCase((int)RenderPipelineDiagnosticEventKind.PassExecuted)]
-    [TestCase((int)RenderPipelineDiagnosticEventKind.SynchronizationExecuted)]
-    [TestCase((int)RenderPipelineDiagnosticEventKind.BackendTransitionExecuted)]
-    public void Create_RejectsExecutionBeforeCorrespondingPlan(int executedKindValue)
+    [TestCase(
+        (int)RenderPipelineDiagnosticEventKind.PassPlanned,
+        (int)RenderPipelineDiagnosticEventKind.PassExecuted)]
+    [TestCase(
+        (int)RenderPipelineDiagnosticEventKind.SynchronizationPlanned,
+        (int)RenderPipelineDiagnosticEventKind.SynchronizationExecuted)]
+    [TestCase(
+        (int)RenderPipelineDiagnosticEventKind.BackendTransitionPlanned,
+        (int)RenderPipelineDiagnosticEventKind.BackendTransitionExecuted)]
+    public void Create_RejectsExecutionBeforeCorrespondingPlan(
+        int plannedKindValue,
+        int executedKindValue)
     {
+        var plannedKind = (RenderPipelineDiagnosticEventKind)plannedKindValue;
         var executedKind = (RenderPipelineDiagnosticEventKind)executedKindValue;
+        RenderPipelineDiagnosticEvent[] orderedEvents =
+        [
+            Event(0, RenderPipelineDiagnosticEventKind.RequestStarted),
+            Event(1, RenderPipelineDiagnosticEventKind.FragmentRecorded, 1),
+            Event(2, plannedKind, 1),
+            Event(3, executedKind, 1),
+            Event(4, RenderPipelineDiagnosticEventKind.OutcomeAssigned, 1,
+                outcome: RenderPipelineOutcome.Executed),
+            Event(5, RenderPipelineDiagnosticEventKind.RequestCompleted),
+        ];
+        RenderPipelineDiagnosticEvent[] misorderedEvents =
+        [
+            Event(0, RenderPipelineDiagnosticEventKind.RequestStarted),
+            Event(1, RenderPipelineDiagnosticEventKind.FragmentRecorded, 1),
+            Event(2, executedKind, 1),
+            Event(3, plannedKind, 1),
+            Event(4, RenderPipelineDiagnosticEventKind.OutcomeAssigned, 1,
+                outcome: RenderPipelineOutcome.Executed),
+            Event(5, RenderPipelineDiagnosticEventKind.RequestCompleted),
+        ];
+        Dictionary<RenderPipelineCounter, long> counters = CreateCounters();
+        switch (executedKind)
+        {
+            case RenderPipelineDiagnosticEventKind.PassExecuted:
+                counters[RenderPipelineCounter.PlannedGpuPasses] = 1;
+                counters[RenderPipelineCounter.ExecutedGpuPasses] = 1;
+                break;
+            case RenderPipelineDiagnosticEventKind.SynchronizationExecuted:
+                counters[RenderPipelineCounter.Synchronizations] = 1;
+                break;
+            case RenderPipelineDiagnosticEventKind.BackendTransitionExecuted:
+                counters[RenderPipelineCounter.PlannedBackendTransitions] = 1;
+                counters[RenderPipelineCounter.ExecutedBackendTransitions] = 1;
+                break;
+        }
 
-        Assert.That(
-            () => CreateSnapshot(events: [Event(0, executedKind, 1)]),
-            Throws.InstanceOf<ArgumentException>());
+        Assert.Multiple(() =>
+        {
+            Assert.That(
+                () => CreateSnapshot(counters: counters, events: orderedEvents),
+                Throws.Nothing,
+                "The control stream must be valid apart from event ordering.");
+            Assert.That(
+                () => CreateSnapshot(counters: counters, events: misorderedEvents),
+                Throws.ArgumentException.With.Message.Contains(
+                    "must follow its corresponding planned event"));
+        });
     }
 
     [Test]

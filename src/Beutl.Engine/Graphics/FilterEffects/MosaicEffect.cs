@@ -1,28 +1,41 @@
 ﻿using System.ComponentModel.DataAnnotations;
-using System.Numerics;
 using Beutl.Engine;
-using Beutl.Graphics.Rendering;
 using Beutl.Language;
-using Beutl.Media;
-using SkiaSharp;
+using Beutl.Logging;
+using Microsoft.Extensions.Logging;
 
 namespace Beutl.Graphics.Effects;
 
 [Display(Name = nameof(GraphicsStrings.MosaicEffect), ResourceType = typeof(GraphicsStrings))]
 public partial class MosaicEffect : FilterEffect
 {
-    private const string ShaderSource =
-        """
-        uniform shader src;
-        uniform float2 origin;
-        uniform float2 tileSize;
+    private static readonly ILogger s_logger = Log.CreateLogger<MosaicEffect>();
+    private static readonly SKSLShader? s_shader;
 
-        half4 main(float2 fragCoord) {
-            float2 blockIndex = floor((fragCoord - origin) / tileSize);
-            float2 sampleCoord = (blockIndex * tileSize + tileSize * 0.5) + origin;
-            return src.eval(sampleCoord);
+    static MosaicEffect()
+    {
+        string sksl =
+            """
+            uniform shader src;
+            uniform float2 origin;
+            uniform float2 tileSize;
+
+            half4 main(float2 fragCoord) {
+                float2 blockIndex = floor((fragCoord - origin) / tileSize);
+
+                // タイルの中心位置を求める
+                float2 sampleCoord = (blockIndex * tileSize + tileSize * 0.5) + origin;
+
+                // 中心位置の色をサンプリングして返す
+                return src.eval(sampleCoord);
+            }
+            """;
+
+        if (!SKSLShader.TryCreate(sksl, out s_shader, out string? errorText))
+        {
+            s_logger.LogError("Failed to compile SKSL: {ErrorText}", errorText);
         }
-        """;
+    }
 
     public MosaicEffect()
     {
@@ -39,78 +52,40 @@ public partial class MosaicEffect : FilterEffect
     public override void ApplyTo(FilterEffectContext context, FilterEffect.Resource resource)
     {
         var r = (Resource)resource;
-        var tileSize = new Vector2(r.TileSize.Width, r.TileSize.Height);
-        var origin = new Vector2(r.Origin.Point.X, r.Origin.Point.Y);
-        context.Shader(ShaderDescription.WholeSource(
-            ShaderSource,
-            RenderBoundsContract.FullInput,
-            bindings =>
-            {
-                bindings.Uniform(
-                    "tileSize",
-                    tileSize,
-                    BindScaledVector,
-                    structuralKey: (typeof(MosaicEffect), "tile-size"),
-                    cachePolicy: ShaderBindingCachePolicy.ReuseFromSnapshot);
-                if (r.Origin.Unit == RelativeUnit.Relative)
-                {
-                    bindings.Uniform(
-                        "origin",
-                        origin,
-                        BindRelativeOrigin,
-                        structuralKey: (typeof(MosaicEffect), RelativeUnit.Relative),
-                        cachePolicy: ShaderBindingCachePolicy.ReuseFromSnapshot);
-                }
-                else
-                {
-                    bindings.Uniform(
-                        "origin",
-                        origin,
-                        BindAbsoluteOrigin,
-                        structuralKey: (typeof(MosaicEffect), RelativeUnit.Absolute),
-                        cachePolicy: ShaderBindingCachePolicy.ReuseFromSnapshot);
-                }
-            },
-            SKShaderTileMode.Clamp));
+        context.CustomEffect(
+            (r.TileSize, r.Origin),
+            OnApplyTo,
+            static (_, r) => r);
     }
 
-    private static void BindScaledVector(
-        ShaderUniformWriter writer,
-        Vector2 value,
-        ShaderExecutionContext context)
-        => writer.Set(value * context.WorkingScale);
-
-    private static void BindRelativeOrigin(
-        ShaderUniformWriter writer,
-        Vector2 value,
-        ShaderExecutionContext context)
+    private static void OnApplyTo((Size tileSize, RelativePoint origin) data, CustomFilterEffectContext c)
     {
-        Rect outputBounds = context.OutputBounds;
-        Point logicalOrigin = context.LogicalOrigin;
-        PixelRect destinationDeviceBounds = context.DeviceBounds;
-        var deviceGridOffset = new Vector(
-            (destinationDeviceBounds.X / context.WorkingScale) - logicalOrigin.X,
-            (destinationDeviceBounds.Y / context.WorkingScale) - logicalOrigin.Y);
-        PixelRect completeDeviceBounds = PixelRect.FromRect(
-            outputBounds.Translate(deviceGridOffset),
-            context.WorkingScale);
-        writer.Set(new Vector2(
-            completeDeviceBounds.X
-            - destinationDeviceBounds.X
-            + (value.X * completeDeviceBounds.Width),
-            completeDeviceBounds.Y
-            - destinationDeviceBounds.Y
-            + (value.Y * completeDeviceBounds.Height)));
-    }
+        if (s_shader is null) return;
 
-    private static void BindAbsoluteOrigin(
-        ShaderUniformWriter writer,
-        Vector2 value,
-        ShaderExecutionContext context)
-    {
-        var semanticOrigin = context.OutputBounds.Position - context.LogicalOrigin;
-        writer.Set(new Vector2(
-            (value.X + semanticOrigin.X) * context.WorkingScale,
-            (value.Y + semanticOrigin.Y) * context.WorkingScale));
+        for (int i = 0; i < c.Targets.Count; i++)
+        {
+            using var effectTarget = c.Targets[i];
+            var renderTarget = effectTarget.RenderTarget!;
+
+            using var image = renderTarget.Value.Snapshot();
+            using var baseShader = image.ToShader();
+
+            // SKRuntimeShaderBuilderを作成して、child shaderとuniformを設定
+            var builder = s_shader.CreateBuilder();
+
+            // child shaderとしてテクスチャ用のシェーダーを設定
+            builder.Children["src"] = baseShader;
+            // Scale tile size by working density so uniforms match the device-px buffer.
+            float w = c.ResolveTargetDensity(effectTarget.Bounds);
+            var (bufW, bufH) = CustomFilterEffectContext.DeviceBufferSize(effectTarget.Bounds, w);
+            builder.Uniforms["tileSize"] = new Size(data.tileSize.Width * w, data.tileSize.Height * w).ToSKSize();
+            Point origin = data.origin.Unit == RelativeUnit.Relative
+                ? data.origin.ToPixels(new(bufW, bufH))
+                : data.origin.Point * w;
+            builder.Uniforms["origin"] = origin.ToSKPoint();
+
+            // 新しいターゲットに適用
+            c.Targets[i] = s_shader.ApplyToNewTarget(c, builder, effectTarget.Bounds);
+        }
     }
 }

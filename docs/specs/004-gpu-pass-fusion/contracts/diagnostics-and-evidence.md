@@ -315,9 +315,9 @@ Every parity workload has a control rendering with its operation under test disa
 
 ```text
 deterministic materialized semitransparent RGBA16F source
-  -> CurrentPixel Shader A (Gamma)
+  -> CurrentPixel Shader A
   -> invariant Opacity render node
-  -> CurrentPixel Shader B (Invert)
+  -> CurrentPixel Shader B
   -> root destination
 ```
 
@@ -354,7 +354,7 @@ For the same source/tail, insert each boundary independently and require the exa
 
 - strong CurrentPixel color chain over materialized semitransparent content;
 - antialiased thin line and thin stroke followed by `return color * color.a;`, with the exact coverage-materialization boundary plus edge-crop and maximum-error parity;
-- mixed Blur/color/DropShadow/non-identity LUT barriers;
+- mixed standard-filter/color/non-identity LUT barriers;
 - scaled bitmap and vector/text input combinations from feature 003;
 - shifted origin and offset requested region;
 - Geometry/opaque/TargetCommand guarded callback canvases at shifted cropped origins: composition-global logical mapping, canonical device rounding, clipping, and zero close-induced synchronization;

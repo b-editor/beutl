@@ -58,55 +58,6 @@ public sealed class RasterFootprintContractTests
     }
 
     [Test]
-    public void LegacyCustomShaderApi_SeparatesAllocationMappingAndRendering()
-    {
-        Type contextType = typeof(CustomFilterEffectContext);
-        Type shaderType = typeof(SKSLShader);
-
-        Assert.Multiple(() =>
-        {
-            Assert.That(
-                contextType.GetMethod(
-                    nameof(CustomFilterEffectContext.ResolveTargetDensity),
-                    [typeof(Rect)])?.ReturnType,
-                Is.EqualTo(typeof(float)));
-            Assert.That(
-                contextType.GetMethod(
-                    nameof(CustomFilterEffectContext.CreateTargetLike),
-                    [typeof(EffectTarget)]),
-                Is.Not.Null);
-            Assert.That(
-                contextType.GetMethod(
-                    nameof(CustomFilterEffectContext.CreateReplacement),
-                    [typeof(EffectTarget), typeof(RenderTarget)]),
-                Is.Not.Null);
-            Assert.That(
-                contextType.GetMethod(
-                    nameof(CustomFilterEffectContext.CreateMappedInputShader),
-                    [typeof(EffectTarget), typeof(EffectTarget), typeof(SKShader)]),
-                Is.Not.Null);
-            Assert.That(
-                contextType.GetMethod(
-                    nameof(CustomFilterEffectContext.UseMappedInputShader),
-                    [
-                        typeof(EffectTarget),
-                        typeof(EffectTarget),
-                        typeof(Action<SKShader>),
-                        typeof(SKShaderTileMode),
-                        typeof(SKShaderTileMode),
-                    ]),
-                Is.Not.Null);
-            Assert.That(
-                shaderType.GetMethod(
-                    nameof(SKSLShader.RenderToTarget),
-                    [typeof(CustomFilterEffectContext), typeof(SKRuntimeShaderBuilder), typeof(EffectTarget)]),
-                Is.Not.Null);
-            Assert.That(shaderType.GetMethod("ApplyToNewTarget"), Is.Null,
-                "the allocation-owning compatibility overload must not remain public");
-        });
-    }
-
-    [Test]
     public void GridAwareRasterFacades_ExposeTheCompositionDeviceTranslation()
     {
         Assert.Multiple(() =>

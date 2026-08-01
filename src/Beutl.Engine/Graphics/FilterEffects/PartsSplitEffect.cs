@@ -12,7 +12,7 @@ public partial class PartsSplitEffect : FilterEffect
 {
     public override void ApplyTo(FilterEffectContext context, FilterEffect.Resource resource)
     {
-        context.CustomEffect(Unit.Default, ApplyCore, static (_, bounds) => bounds);
+        context.CustomEffect(Unit.Default, ApplyCore);
     }
 
     private void ApplyCore(Unit unit, CustomFilterEffectContext context)
@@ -76,34 +76,26 @@ public partial class PartsSplitEffect : FilterEffect
                         }
                     }
 
-                    float w = target.Scale.Value;
-                    Vector rasterOrigin = target.RasterBounds.Position - target.Bounds.Position;
-                    SKMatrix sourceToLogical = SKMatrix.CreateScaleTranslation(
-                        1f / w,
-                        1f / w,
-                        (float)rasterOrigin.X,
-                        (float)rasterOrigin.Y);
+                    // Contours are device px; convert path bounds to logical (/ w).
+                    float w = context.WorkingScale;
                     foreach ((SKPath skpath, _, _) in pathes)
                     {
-                        skpath.Transform(sourceToLogical);
                         SKRect pathBounds = skpath.TightBounds;
                         var bounds = new Rect(
-                            target.Bounds.X + pathBounds.Left,
-                            target.Bounds.Y + pathBounds.Top,
-                            pathBounds.Width,
-                            pathBounds.Height);
+                            target.Bounds.X + pathBounds.Left / w,
+                            target.Bounds.Y + pathBounds.Top / w,
+                            pathBounds.Width / w,
+                            pathBounds.Height / w);
                         EffectTarget newTarget = context.CreateTarget(bounds);
-                        Vector outputOrigin = target.Bounds.Position - newTarget.Bounds.Position;
+                        // Clip path and source blit are device px; enter device space.
                         using (ImmediateCanvas newCanvas = context.Open(newTarget))
+                        using (newCanvas.PushDeviceSpace())
+                        using (newCanvas.PushTransform(Matrix.CreateTranslation(-pathBounds.Left, -pathBounds.Top)))
                         {
                             newCanvas.Clear();
-                            using (newCanvas.PushTransform(
-                                       Matrix.CreateTranslation(outputOrigin.X, outputOrigin.Y)))
-                            {
-                                newCanvas.Canvas.ClipPath(skpath, antialias: true);
+                            newCanvas.Canvas.ClipPath(skpath, antialias: true);
 
-                                target.Draw(newCanvas);
-                            }
+                            newCanvas.DrawRenderTarget(srcRenderTarget, default);
                         }
 
                         newTargets.Add(newTarget);
@@ -111,7 +103,7 @@ public partial class PartsSplitEffect : FilterEffect
                         skpath.Dispose();
                     }
 
-                    target.Dispose();
+                    srcRenderTarget.Dispose();
                     context.Targets.RemoveAt(i);
                     context.Targets.InsertRange(i, newTargets);
                     i += newTargets.Count - 1;

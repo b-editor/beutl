@@ -2,7 +2,6 @@
 using Beutl.Logging;
 using Beutl.Media;
 using Microsoft.Extensions.Logging;
-using SkiaSharp;
 
 namespace Beutl.Graphics.Effects;
 
@@ -136,17 +135,6 @@ public class CustomFilterEffectContext
     public EffectTarget CreateTarget(Rect bounds)
         => CreateTargetCore(bounds, WorkingScale);
 
-    internal EffectTarget CreateTargetAtMost(Rect bounds, float maximumDensity)
-    {
-        if (!float.IsFinite(maximumDensity) || maximumDensity <= 0)
-            throw new ArgumentOutOfRangeException(
-                nameof(maximumDensity),
-                maximumDensity,
-                "The target density ceiling must be positive and finite.");
-
-        return CreateTargetCore(bounds, MathF.Min(WorkingScale, maximumDensity));
-    }
-
     private EffectTarget CreateTargetCore(Rect bounds, float requestedDensity)
     {
         float w = requestedDensity;
@@ -164,131 +152,6 @@ public class CustomFilterEffectContext
 
         PixelRect deviceBounds = DeviceBufferBounds(bounds.Translate(_deviceGridOffset), w);
         return AllocateTarget(bounds, w, deviceBounds, _deviceGridOffset);
-    }
-
-    /// <summary>
-    /// Creates a replacement target with the source's complete physical footprint and current
-    /// logical placement. Use this for same-bounds raster effects so fractional-origin pixels and
-    /// raster aprons are preserved.
-    /// </summary>
-    public EffectTarget CreateTargetLike(EffectTarget source)
-    {
-        ArgumentNullException.ThrowIfNull(source);
-        if (source.RenderTarget is null || source.Scale.IsUnbounded)
-            return new EffectTarget();
-
-        using var renderTarget = RenderTarget.Create(source.DeviceBounds.Width, source.DeviceBounds.Height);
-        if (renderTarget != null)
-        {
-            return source.CreateReplacement(renderTarget);
-        }
-        else
-        {
-            s_logger.LogWarning(
-                "Custom-effect target allocation failed ({Width}x{Height} px, w {WorkingScale}, bounds {Bounds}); returning an empty target.",
-                source.DeviceBounds.Width,
-                source.DeviceBounds.Height,
-                source.Scale.Value,
-                source.Bounds);
-            return new EffectTarget();
-        }
-    }
-
-    /// <summary>
-    /// Wraps a caller-created target as a replacement with the source's logical placement,
-    /// density, physical footprint, and device-grid alignment.
-    /// </summary>
-    /// <remarks>
-    /// The returned effect target owns a shallow copy; the caller retains ownership of
-    /// <paramref name="renderTarget"/>.
-    /// </remarks>
-    public EffectTarget CreateReplacement(
-        EffectTarget source,
-        RenderTarget renderTarget)
-    {
-        ArgumentNullException.ThrowIfNull(source);
-        ArgumentNullException.ThrowIfNull(renderTarget);
-        if (source.RenderTarget is null || source.Scale.IsUnbounded)
-        {
-            throw new ArgumentException(
-                "The source must have a materialized target and concrete scale.",
-                nameof(source));
-        }
-        if (renderTarget.Width != source.DeviceBounds.Width
-            || renderTarget.Height != source.DeviceBounds.Height)
-        {
-            throw new ArgumentException(
-                $"The replacement render target must match the source device footprint "
-                + $"{source.DeviceBounds.Width}x{source.DeviceBounds.Height}.",
-                nameof(renderTarget));
-        }
-
-        return source.CreateReplacement(renderTarget);
-    }
-
-    /// <summary>
-    /// Creates a child shader that maps destination backing-buffer coordinates to the source
-    /// target's current physical raster placement.
-    /// </summary>
-    /// <remarks>The caller owns and must dispose the returned shader.</remarks>
-    public SKShader CreateMappedInputShader(
-        EffectTarget source,
-        EffectTarget destination,
-        SKShader sourceShader)
-    {
-        ArgumentNullException.ThrowIfNull(source);
-        ArgumentNullException.ThrowIfNull(destination);
-        ArgumentNullException.ThrowIfNull(sourceShader);
-        if (source.RenderTarget is null || source.Scale.IsUnbounded)
-            throw new ArgumentException("The source must have a materialized target and concrete scale.", nameof(source));
-        if (destination.RenderTarget is null || destination.Scale.IsUnbounded)
-        {
-            throw new ArgumentException(
-                "The destination must have a materialized target and concrete scale.",
-                nameof(destination));
-        }
-
-        return sourceShader.WithLocalMatrix(
-            RasterShaderMapping.CreateLocalMatrix(
-                destination.Scale.Value,
-                source.Scale.Value,
-                destination.RasterBounds,
-                source.RasterBounds));
-    }
-
-    /// <summary>
-    /// Supplies a borrowed GPU-backed snapshot shader for a materialized source, mapped into the
-    /// destination's backing-buffer coordinates.
-    /// </summary>
-    /// <remarks>
-    /// The shader and its backing image are valid only during <paramref name="use"/>. The callback must
-    /// complete every draw that references the shader and must not retain or dispose it.
-    /// </remarks>
-    public void UseMappedInputShader(
-        EffectTarget source,
-        EffectTarget destination,
-        Action<SKShader> use,
-        SKShaderTileMode x = SKShaderTileMode.Decal,
-        SKShaderTileMode y = SKShaderTileMode.Decal)
-    {
-        ArgumentNullException.ThrowIfNull(source);
-        ArgumentNullException.ThrowIfNull(destination);
-        ArgumentNullException.ThrowIfNull(use);
-        if (!Enum.IsDefined(x))
-            throw new ArgumentOutOfRangeException(nameof(x), x, "The shader tile mode is invalid.");
-        if (!Enum.IsDefined(y))
-            throw new ArgumentOutOfRangeException(nameof(y), y, "The shader tile mode is invalid.");
-        if (source.RenderTarget is null || source.Scale.IsUnbounded)
-            throw new ArgumentException("The source must have a materialized target and concrete scale.", nameof(source));
-        if (source.RenderTarget.Value is null)
-            throw new ArgumentException("The source target has no backing surface to sample.", nameof(source));
-
-        source.RenderTarget.PrepareForSampling();
-        using SKImage image = source.RenderTarget.Value.Snapshot()
-            ?? throw new InvalidOperationException("The source surface could not be snapshotted for sampling.");
-        using SKShader sourceShader = image.ToShader(x, y);
-        using SKShader mappedShader = CreateMappedInputShader(source, destination, sourceShader);
-        use(mappedShader);
     }
 
     private static EffectTarget AllocateTarget(

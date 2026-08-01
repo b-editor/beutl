@@ -173,11 +173,12 @@ public class GraphicsContext2DTests
     }
 
     [Test]
-    public void NestedDrawableFailure_PreservesPrimaryExceptionAndRecordedChildOwnership()
+    public void NestedDrawableFailure_DiscardsFaultedNodeAndStaleSuffix()
     {
         using var root = new ContainerRenderNode();
         var retained = new TrackingRenderNode();
         var trailing = new TrackingRenderNode();
+        var outerTrailing = new TrackingRenderNode();
         var primary = new InvalidOperationException("nested drawable failed");
         var drawable = new PartialFailureDrawable(retained, primary);
         using Drawable.Resource resource = drawable.ToResource(CompositionContext.Default);
@@ -185,6 +186,7 @@ public class GraphicsContext2DTests
         nested.AddChild(retained);
         nested.AddChild(trailing);
         root.AddChild(nested);
+        root.AddChild(outerTrailing);
 
         InvalidOperationException? failure;
         using (var context = new GraphicsContext2D(root))
@@ -196,10 +198,11 @@ public class GraphicsContext2DTests
         Assert.Multiple(() =>
         {
             Assert.That(failure, Is.SameAs(primary));
-            Assert.That(root.Children, Is.EqualTo(new[] { nested }));
-            Assert.That(nested.Children, Is.EqualTo(new[] { retained, trailing }));
-            Assert.That(retained.IsDisposed, Is.False);
-            Assert.That(trailing.IsDisposed, Is.False);
+            Assert.That(root.Children, Is.Empty);
+            Assert.That(nested.IsDisposed, Is.True);
+            Assert.That(retained.IsDisposed, Is.True);
+            Assert.That(trailing.IsDisposed, Is.True);
+            Assert.That(outerTrailing.IsDisposed, Is.True);
         });
     }
 

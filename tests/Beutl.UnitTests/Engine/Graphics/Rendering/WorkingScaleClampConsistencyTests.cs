@@ -3,6 +3,7 @@ using Beutl.Graphics.Effects;
 using Beutl.Graphics.Rendering;
 using Beutl.Media;
 using Beutl.UnitTests.Engine.Graphics.Backend;
+using SkiaSharp;
 
 namespace Beutl.UnitTests.Engine.Graphics.Rendering;
 
@@ -168,6 +169,93 @@ public class WorkingScaleClampConsistencyTests
                 "the flushed buffer's density and the activator's WorkingScale must agree");
             Assert.That(activator.CurrentTargets[0].RenderTarget!.Width,
                 Is.LessThanOrEqualTo(RenderScaleUtilities.MaxBufferDimension));
+        });
+    }
+
+    [TestCase(1f, false)]
+    [TestCase(0.5f, false)]
+    [TestCase(1f, true)]
+    [TestCase(0.5f, true)]
+    public void ForcedFlush_ApronBackedInput_UsesCanonicalLegacyCustomFootprint(
+        float density,
+        bool hasFilter)
+    {
+        VulkanTestEnvironment.EnsureAvailable();
+        VulkanTestEnvironment.InvokeOnRenderThread(() =>
+        {
+            var bounds = new Rect(0, 0, 20, 12);
+            PixelRect canonical = PixelRect.FromRect(bounds, density);
+            var apron = new PixelRect(
+                canonical.X - 1,
+                canonical.Y - 1,
+                canonical.Width + 2,
+                canonical.Height + 2);
+            using RenderTarget source = RenderTarget.Create(apron.Width, apron.Height)!;
+            var input = new EffectTarget(
+                source,
+                bounds,
+                EffectiveScale.At(density),
+                apron);
+            using var targets = new EffectTargets { input };
+            using var builder = new SKImageFilterBuilder();
+            using var activator = new FilterEffectActivator(
+                targets,
+                builder,
+                RenderIntent.Delivery,
+                RenderRequestPurpose.Auxiliary,
+                outputScale: density,
+                workingScale: density);
+            if (hasFilter)
+            {
+                builder.AppendSKColorFilter(
+                    0,
+                    activator,
+                    static (_, _) => SKColorFilter.CreateLinearToSrgbGamma());
+            }
+
+            activator.Flush();
+
+            EffectTarget actual = activator.CurrentTargets.Single();
+            Assert.Multiple(() =>
+            {
+                Assert.That(actual, Is.Not.SameAs(input));
+                Assert.That(actual.Scale, Is.EqualTo(EffectiveScale.At(density)));
+                Assert.That(actual.DeviceBounds, Is.EqualTo(canonical));
+                Assert.That(actual.RasterBounds, Is.EqualTo(bounds));
+                Assert.That(actual.RenderTarget!.Width, Is.EqualTo(canonical.Width));
+                Assert.That(actual.RenderTarget.Height, Is.EqualTo(canonical.Height));
+            });
+        });
+    }
+
+    [TestCase(1f)]
+    [TestCase(0.5f)]
+    public void ForcedFlush_CanonicalInput_ReusesTarget(float density)
+    {
+        VulkanTestEnvironment.EnsureAvailable();
+        VulkanTestEnvironment.InvokeOnRenderThread(() =>
+        {
+            var bounds = new Rect(0, 0, 20, 12);
+            PixelRect canonical = PixelRect.FromRect(bounds, density);
+            using RenderTarget source = RenderTarget.Create(canonical.Width, canonical.Height)!;
+            var input = new EffectTarget(
+                source,
+                bounds,
+                EffectiveScale.At(density),
+                canonical);
+            using var targets = new EffectTargets { input };
+            using var builder = new SKImageFilterBuilder();
+            using var activator = new FilterEffectActivator(
+                targets,
+                builder,
+                RenderIntent.Delivery,
+                RenderRequestPurpose.Auxiliary,
+                outputScale: density,
+                workingScale: density);
+
+            activator.Flush();
+
+            Assert.That(activator.CurrentTargets.Single(), Is.SameAs(input));
         });
     }
 

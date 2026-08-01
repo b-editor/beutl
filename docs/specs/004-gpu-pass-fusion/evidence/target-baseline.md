@@ -43,9 +43,8 @@ separately: each engine assembly version must contain its own worktree SHA, so t
 expected target/feature code-version difference cannot be mistaken for an environment
 mismatch.
 
-The paired runner reconciles the semantic refreshes approved in `research.md` from
-the committed baseline before parity: `geometry-stroke`, `split-expansion`, and
-`scene3d-with-2d-tail`. Every other regenerated legacy artifact must remain
+The paired runner reconciles the semantic refresh approved in `research.md` from
+the committed baseline before parity: `scene3d-with-2d-tail`. Every other regenerated legacy artifact must remain
 byte-identical to its committed counterpart.
 
 ## Immutable provenance

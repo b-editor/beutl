@@ -416,13 +416,21 @@ public class Renderer : IRenderer
         }
         else
         {
-            shouldRender = entry.Node.Update(resource);
+            shouldRender = entry.Node.Update(resource) || entry.Node.HasChanges;
         }
 
         if (shouldRender)
         {
-            using var ctx = new GraphicsContext2D(entry.Node, FrameSize.ToSize(1), OutputScale);
-            drawable.Render(ctx, resource);
+            try
+            {
+                using var ctx = new GraphicsContext2D(entry.Node, FrameSize.ToSize(1), OutputScale);
+                drawable.Render(ctx, resource);
+            }
+            catch
+            {
+                entry.Node.HasChanges = true;
+                throw;
+            }
         }
 
         return entry;
@@ -530,38 +538,20 @@ public class Renderer : IRenderer
         RenderThread.Dispatcher.VerifyAccess();
         Time = frame.Time.Start;
         ClearFrame();
+        var pendingEntries = new List<Entry>();
 
         foreach (var obj in frame.Objects)
         {
             if (obj is not Drawable.Resource drawableResource)
                 continue;
 
-            var drawable = drawableResource.GetOriginal();
-            Entry entry;
-            bool shouldRender;
-
-            if (!_nodeCache.TryGetValue(drawable, out entry!))
-            {
-                AddDetachedHandler(drawable);
-                entry = CreateEntry(drawableResource);
-                _nodeCache.Add(drawable, entry);
-                shouldRender = true;
-            }
-            else
-            {
-                shouldRender = entry.Node.Update(drawableResource);
-            }
-
-            if (shouldRender)
-            {
-                using var ctx = new GraphicsContext2D(entry.Node, FrameSize.ToSize(1), OutputScale);
-                drawable.Render(ctx, drawableResource);
-            }
-
+            Entry entry = PrepareDrawable(drawableResource);
             RevalidateAll(entry.Node);
             entry.InvalidateBounds();
-            _allCurrentEntries.Add(entry);
+            pendingEntries.Add(entry);
         }
+
+        _allCurrentEntries.AddRange(pendingEntries);
     }
 
     public Drawable? HitTest(CompositionFrame frame, Point point)

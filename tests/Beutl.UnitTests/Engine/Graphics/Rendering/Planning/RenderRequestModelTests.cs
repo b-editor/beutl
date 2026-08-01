@@ -105,6 +105,29 @@ public sealed class RenderRequestModelTests
     }
 
     [Test]
+    public void NestedOptions_DoNotInheritParentRequestedRegionWithoutAnExplicitMapping()
+    {
+        var parentRegion = new Rect(10, 20, 30, 40);
+        var mappedChildRegion = new Rect(1, 2, 3, 4);
+        var parent = new RenderRequestOptions(
+            RenderIntent.Preview,
+            RenderRequestPurpose.Frame,
+            requestedRegion: parentRegion);
+        using var binding = new NestedRenderTargetBinding();
+
+        RenderRequestOptions implicitScale = parent.CreateNested(binding);
+        RenderRequestOptions explicitScale = parent.CreateNestedAtScale(binding, 0.5f);
+        RenderRequestOptions mapped = parent.CreateNested(binding, requestedRegion: mappedChildRegion);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(implicitScale.RequestedRegion, Is.Null);
+            Assert.That(explicitScale.RequestedRegion, Is.Null);
+            Assert.That(mapped.RequestedRegion, Is.EqualTo(mappedChildRegion));
+        });
+    }
+
+    [Test]
     public void Request_RejectsNestedPolicyDriftOutsideTheNestedFactory()
     {
         using var owner = new RenderRequestOwner();

@@ -68,31 +68,32 @@ public sealed class SKSLShader : IDisposable
         return new SKRuntimeShaderBuilder(_effect);
     }
 
-    /// <summary>
-    /// Renders a configured runtime shader over the complete backing buffer of an existing target.
-    /// The caller retains ownership of <paramref name="target"/>, including when rendering fails.
-    /// </summary>
-    public void RenderToTarget(
-        CustomFilterEffectContext context,
-        SKRuntimeShaderBuilder builder,
-        EffectTarget target)
+    public EffectTarget ApplyToNewTarget(CustomFilterEffectContext context, SKRuntimeShaderBuilder builder, Rect bounds)
     {
-        ObjectDisposedException.ThrowIf(_disposed, this);
-        ArgumentNullException.ThrowIfNull(context);
-        ArgumentNullException.ThrowIfNull(builder);
-        ArgumentNullException.ThrowIfNull(target);
-        if (target.RenderTarget is null || target.Scale.IsUnbounded)
-            throw new ArgumentException("The target must be materialized with a concrete scale.", nameof(target));
-
-        using SKShader finalShader = builder.Build();
-        using var paint = new SKPaint { Shader = finalShader };
-        using ImmediateCanvas canvas = context.Open(target);
-        canvas.Clear();
-        using (canvas.PushDeviceSpace())
+        var newTarget = context.CreateTarget(bounds);
+        try
         {
-            canvas.Canvas.DrawRect(
-                SKRect.Create(target.RenderTarget.Width, target.RenderTarget.Height),
-                paint);
+            using (SKShader finalShader = builder.Build())
+            using (var paint = new SKPaint())
+            using (var canvas = context.Open(newTarget))
+            {
+                paint.Shader = finalShader;
+                canvas.Clear();
+                // Cover the full device buffer in device space.
+                float dw = context.WorkingScale == 1f ? (float)bounds.Width : newTarget.RenderTarget!.Width;
+                float dh = context.WorkingScale == 1f ? (float)bounds.Height : newTarget.RenderTarget!.Height;
+                using (canvas.PushDeviceSpace())
+                {
+                    canvas.Canvas.DrawRect(new SKRect(0, 0, dw, dh), paint);
+                }
+            }
+
+            return newTarget;
+        }
+        catch
+        {
+            newTarget.Dispose();
+            throw;
         }
     }
 

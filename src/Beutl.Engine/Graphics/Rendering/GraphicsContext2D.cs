@@ -397,6 +397,8 @@ public sealed class GraphicsContext2D(
         ArgumentNullException.ThrowIfNull(drawable);
         ObjectDisposedException.ThrowIf(drawable.IsDisposed, drawable);
 
+        ContainerRenderNode parent = _container;
+        int operationIndex = _drawOperationindex;
         DrawableRenderNode? next = Next<DrawableRenderNode>();
 
         if (next == null)
@@ -419,6 +421,7 @@ public sealed class GraphicsContext2D(
         catch
         {
             _faulted = true;
+            TrimTrailingNodes(parent, operationIndex);
             throw;
         }
         finally

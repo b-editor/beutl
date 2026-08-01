@@ -2,7 +2,6 @@
 using System.ComponentModel.DataAnnotations;
 using Beutl.Composition;
 using Beutl.Engine;
-using Beutl.Graphics.Rendering;
 using Beutl.Language;
 
 namespace Beutl.Graphics.Effects;
@@ -11,7 +10,6 @@ namespace Beutl.Graphics.Effects;
 [SuppressResourceClassGeneration]
 public partial class ShakeEffect : FilterEffect
 {
-    private const float MaxOffset = 100_000f;
     private readonly PerlinNoise _random = new();
     private float _offset;
 
@@ -66,36 +64,18 @@ public partial class ShakeEffect : FilterEffect
                     randomY = ClampOffset(randomY);
                     target.Bounds = target.Bounds.Translate(new Vector(randomX, randomY));
                 });
-            },
-            TransformBounds);
+            });
     }
 
     private static float ClampOffset(float value)
     {
+        const float maxOffset = 100_000f;
         if (!float.IsFinite(value))
         {
             return 0;
         }
 
-        return Math.Clamp(value, -MaxOffset, MaxOffset);
-    }
-
-    private static Rect TransformBounds(
-        (float time, float speed, float strengthX, float strengthY, PerlinNoise random, float offset) data,
-        Rect bounds)
-    {
-        float horizontal = GetMaximumOffset(data.strengthX);
-        float vertical = GetMaximumOffset(data.strengthY);
-        Rect result = bounds.Inflate(new Thickness(horizontal, vertical));
-        return RenderRectValidation.IsFiniteNonNegative(result) ? result : Rect.Invalid;
-    }
-
-    private static float GetMaximumOffset(float strength)
-    {
-        if (!float.IsFinite(strength))
-            return 0;
-
-        return MathF.Min(MathF.Abs(strength), MaxOffset);
+        return Math.Clamp(value, -maxOffset, maxOffset);
     }
 
     public override Resource ToResource(CompositionContext context)

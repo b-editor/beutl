@@ -151,49 +151,6 @@ public sealed class LegacyFilterTypedSuffixExecutionTests
     }
 
     [Test]
-    public void SourceGridReplacement_FlowsIntoFollowingCustomStage()
-    {
-        var translation = new Vector(0.25f, 0.75f);
-        Vector replacementGrid = new(float.NaN, float.NaN);
-        Vector followingAmbientGrid = default;
-        Vector followingInputGrid = new(float.NaN, float.NaN);
-        var effect = new LegacySuffixCallbackFilterEffect((context, _) =>
-        {
-            context.CustomEffect(
-                0,
-                (_, execution) =>
-                {
-                    EffectTarget source = execution.Targets.Single();
-                    using RenderTarget replacementBacking = source.RenderTarget!.ShallowCopy();
-                    EffectTarget replacement = execution.CreateReplacement(
-                        source,
-                        replacementBacking);
-                    source.Dispose();
-                    execution.Targets[0] = replacement;
-                    replacementGrid = replacement.DeviceGridOffset;
-                },
-                static (_, bounds) => bounds);
-            context.CustomEffect(
-                1,
-                (_, execution) =>
-                {
-                    followingAmbientGrid = execution.DeviceGridOffset;
-                    followingInputGrid = execution.Targets.Single().DeviceGridOffset;
-                },
-                static (_, bounds) => bounds);
-        });
-
-        RenderMaterializedEffect(effect, translation);
-
-        Assert.Multiple(() =>
-        {
-            Assert.That(replacementGrid, Is.EqualTo(default(Vector)));
-            Assert.That(followingAmbientGrid, Is.EqualTo(translation));
-            Assert.That(followingInputGrid, Is.EqualTo(default(Vector)));
-        });
-    }
-
-    [Test]
     public void CompatibilityShader_ProgramAcquirerReceivesExecutionDestination()
     {
         Rect bounds = new(0, 0, 8, 6);
@@ -410,6 +367,129 @@ public sealed class LegacyFilterTypedSuffixExecutionTests
         });
     }
 
+    [Test]
+    public void FirstCustomEffect_MovedSemanticBoundsRetainPreCallbackBacking()
+    {
+        var inputBounds = new Rect(0, 0, 12, 10);
+        var movedBounds = new Rect(4.5f, 3.5f, 4, 3);
+        Rect observedBounds = default;
+        Rect observedRasterBounds = default;
+        PixelRect observedDeviceBounds = default;
+        var movingEffect = new LegacySuffixCallbackFilterEffect((context, _) =>
+            context.CustomEffect(
+                movedBounds,
+                static (bounds, execution) =>
+                {
+                    foreach (EffectTarget target in execution.Targets)
+                        target.Bounds = bounds;
+                },
+                static (bounds, _) => bounds));
+        var observingEffect = new LegacySuffixCallbackFilterEffect((context, _) =>
+            context.Geometry(GeometryDescription.Create(
+                session =>
+                {
+                    observedBounds = session.Input.Bounds;
+                    observedDeviceBounds = session.Input.DeviceBounds;
+                    observedRasterBounds = session.Input.RasterBounds;
+                    session.Canvas.Use(session.Input.Draw);
+                },
+                RenderBoundsContract.Identity,
+                RenderHitTestContract.AnyInput,
+                structuralKey: "legacy-retained-backing-observer")));
+        using var source = new CpuRenderTarget((int)inputBounds.Width, (int)inputBounds.Height);
+        source.Value.Canvas.Clear(SKColors.White);
+        source.Value.Flush();
+        var movingNode = new FilterEffectRenderNode(
+            movingEffect.ToResource(CompositionContext.Default));
+        movingNode.AddChild(new MaterializedInputNode(source, inputBounds));
+        using var root = new FilterEffectRenderNode(
+            observingEffect.ToResource(CompositionContext.Default));
+        root.AddChild(movingNode);
+        using var renderer = new RenderNodeRenderer(
+            root,
+            new RenderNodeRendererOptions
+            {
+                DefaultRequest = new RenderNodeRenderRequest
+                {
+                    TargetDomain = new Rect(0, 0, 24, 20),
+                    CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Disabled,
+                    OutputScale = 1,
+                    MaxWorkingScale = 1,
+                },
+                TargetFactory = new CpuTargetFactory(),
+            });
+
+        using RenderNodeRasterization rasterization = renderer.Rasterize();
+        Rect movedInputRaster = inputBounds.Translate(movedBounds.Position - inputBounds.Position);
+        PixelRect expectedDeviceBounds = PixelRect.FromRect(movedInputRaster, 1);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(rasterization.IsEmpty, Is.False);
+            Assert.That(observedBounds, Is.EqualTo(movedBounds));
+            Assert.That(observedDeviceBounds, Is.EqualTo(expectedDeviceBounds));
+            Assert.That(observedRasterBounds, Is.EqualTo(expectedDeviceBounds.ToRect(1)));
+            Assert.That(observedDeviceBounds.Size, Is.EqualTo(new PixelSize(13, 11)));
+        });
+    }
+
+    [Test]
+    public void PolicyBearingNoOpSkiaItem_MaterializesAtResolvedWorkingScale()
+    {
+        const float inputDensity = 0.5f;
+        var bounds = new Rect(0, 0, 12, 10);
+        EffectiveScale observedScale = default;
+        PixelRect observedDeviceBounds = default;
+        var noOpSkiaEffect = new LegacySuffixCallbackFilterEffect((context, _) =>
+            context.AppendSkiaFilter(
+                0,
+                static (_, _, _) => null,
+                static (_, current) => current));
+        var observingEffect = new LegacySuffixCallbackFilterEffect((context, _) =>
+            context.Geometry(GeometryDescription.Create(
+                session =>
+                {
+                    observedScale = session.Input.EffectiveScale;
+                    observedDeviceBounds = session.Input.DeviceBounds;
+                    session.Canvas.Use(session.Input.Draw);
+                },
+                RenderBoundsContract.Identity,
+                RenderHitTestContract.AnyInput,
+                structuralKey: "legacy-policy-materialization-observer")));
+        PixelRect inputDeviceBounds = PixelRect.FromRect(bounds, inputDensity);
+        using var source = new CpuRenderTarget(inputDeviceBounds.Width, inputDeviceBounds.Height);
+        source.Value.Canvas.Clear(SKColors.White);
+        source.Value.Flush();
+        var noOpNode = new FilterEffectRenderNode(
+            noOpSkiaEffect.ToResource(CompositionContext.Default));
+        noOpNode.AddChild(new MaterializedInputNode(source, bounds, inputDensity));
+        using var root = new FilterEffectRenderNode(
+            observingEffect.ToResource(CompositionContext.Default));
+        root.AddChild(noOpNode);
+        using var renderer = new RenderNodeRenderer(
+            root,
+            new RenderNodeRendererOptions
+            {
+                DefaultRequest = new RenderNodeRenderRequest
+                {
+                    TargetDomain = bounds,
+                    CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Disabled,
+                    OutputScale = 1,
+                    MaxWorkingScale = 1,
+                },
+                TargetFactory = new CpuTargetFactory(),
+            });
+
+        using RenderNodeRasterization rasterization = renderer.Rasterize();
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(rasterization.IsEmpty, Is.False);
+            Assert.That(observedScale, Is.EqualTo(EffectiveScale.At(1)));
+            Assert.That(observedDeviceBounds, Is.EqualTo(PixelRect.FromRect(bounds, 1)));
+        });
+    }
+
     private static void Apply(FilterEffect effect, Rect bounds, EffectTargets targets)
     {
         using FilterEffect.Resource resource = effect.ToResource(CompositionContext.Default);
@@ -517,7 +597,10 @@ public sealed class LegacyFilterTypedSuffixExecutionTests
             width,
             height);
 
-    private sealed class MaterializedInputNode(RenderTarget source, Rect bounds) : RenderNode
+    private sealed class MaterializedInputNode(
+        RenderTarget source,
+        Rect bounds,
+        float density = 1) : RenderNode
     {
         public override void Process(RenderNodeContext context)
         {
@@ -529,8 +612,8 @@ public sealed class LegacyFilterTypedSuffixExecutionTests
                 MaterializedInputDescription.FromRenderTarget(
                     target,
                     bounds,
-                    EffectiveScale.At(1),
-                    PixelRect.FromRect(bounds, 1),
+                    EffectiveScale.At(density),
+                    PixelRect.FromRect(bounds, density),
                     default,
                     RenderHitTestContract.OutputBounds)));
         }

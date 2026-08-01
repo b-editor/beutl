@@ -81,7 +81,7 @@ public class Scene : ProjectItem, INotifyEdited
         _children = new Elements(this);
         _children.CollectionChanged += Children_CollectionChanged;
         _children.Attached += item => item.Edited += OnElementEdited;
-        _children.Detached += item => item.Edited -= OnElementEdited;
+        _children.Detached += OnElementDetached;
         _layers = new HierarchicalList<TimelineLayer>(this);
         _layers.CollectionChanged += Layers_CollectionChanged;
         _layers.Attached += OnLayerAttached;
@@ -988,6 +988,12 @@ public class Scene : ProjectItem, INotifyEdited
     private void OnElementEdited(object? sender, EventArgs e)
     {
         Edited?.Invoke(sender, e);
+    }
+
+    private void OnElementDetached(Element element)
+    {
+        element.Edited -= OnElementEdited;
+        _recoveredElements.TryRemove(element, out _);
     }
 
     private int NearestLayerNumber(Element element)

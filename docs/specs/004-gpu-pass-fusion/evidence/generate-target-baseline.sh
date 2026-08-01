@@ -521,9 +521,7 @@ if set(generated_hashes) != set(existing_hashes):
 
 # Keep this allowlist synchronized with the approved divergences in research.md.
 approved_semantic_refreshes = {
-    "geometry-stroke.rgba16f",
     "scene3d-with-2d-tail.rgba16f",
-    "split-expansion.rgba16f",
 }
 if not approved_semantic_refreshes <= set(existing_hashes):
     raise SystemExit("The approved semantic-refresh artifact set is incomplete")

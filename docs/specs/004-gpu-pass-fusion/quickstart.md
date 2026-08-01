@@ -180,7 +180,7 @@ Verify public authoring through the non-friend `Beutl.PublicApiContractTests` pr
 Start from a deterministic coverage-resolved semitransparent materialized source and build this exact distinct-node topology:
 
 ```text
-Gamma CurrentPixel Shader -> OpacityRenderNode -> Invert CurrentPixel Shader
+CurrentPixel Shader A -> OpacityRenderNode -> CurrentPixel Shader B
 ```
 
 With fusion disabled, confirm baseline parity and three semantic stages in the recorded request. With fusion enabled, require:

@@ -90,34 +90,6 @@ public partial class SplitEffect : FilterEffect
                         i += newTargets.Length - 1;
                     }
                 }
-            },
-            TransformBounds);
-    }
-
-    private static Rect TransformBounds(
-        (int HorizontalDivisions, int VerticalDivisions, float HorizontalSpacing, float VerticalSpacing) data,
-        Rect bounds)
-    {
-        if (data.HorizontalDivisions < 1
-            || data.VerticalDivisions < 1
-            || !float.IsFinite(data.HorizontalSpacing)
-            || !float.IsFinite(data.VerticalSpacing))
-        {
-            return Rect.Invalid;
-        }
-
-        if ((int)(bounds.Width / data.HorizontalDivisions) <= 0
-            || (int)(bounds.Height / data.VerticalDivisions) <= 0)
-        {
-            return Rect.Empty;
-        }
-
-        double horizontal = Math.Abs((double)data.HorizontalSpacing) * (data.HorizontalDivisions - 1) / 2;
-        double vertical = Math.Abs((double)data.VerticalSpacing) * (data.VerticalDivisions - 1) / 2;
-        if (horizontal > float.MaxValue || vertical > float.MaxValue)
-            return Rect.Invalid;
-
-        Rect result = bounds.Inflate(new Thickness((float)horizontal, (float)vertical));
-        return RenderRectValidation.IsFiniteNonNegative(result) ? result : Rect.Invalid;
+            });
     }
 }

@@ -17,8 +17,26 @@ public sealed class FilterEffectActivator : IDisposable
     private readonly Vector? _deviceGridOffset;
     private ProgramCache<CachedSkRuntimeEffect>? _ownedProgramCache;
     private Dictionary<EffectTarget, PendingSkiaTarget>? _pendingSkiaTargets;
+    private bool _customEffectBoundaryMaterialized;
 
     public FilterEffectActivator(
+        EffectTargets targets,
+        SKImageFilterBuilder builder,
+        float outputScale = 1f,
+        float workingScale = 1f,
+        float maxWorkingScale = float.PositiveInfinity)
+        : this(
+            targets,
+            builder,
+            ResolveLegacyIntent(maxWorkingScale),
+            RenderRequestPurpose.Auxiliary,
+            outputScale,
+            workingScale,
+            maxWorkingScale)
+    {
+    }
+
+    internal FilterEffectActivator(
         EffectTargets targets,
         SKImageFilterBuilder builder,
         RenderIntent intent,
@@ -121,6 +139,15 @@ public sealed class FilterEffectActivator : IDisposable
     public RenderRequestPurpose Purpose { get; }
 
     // Canonical ceiling rule, plus a warning when it substitutes.
+    private static RenderIntent ResolveLegacyIntent(float maxWorkingScale)
+    {
+        // Before request classification was explicit, a finite ceiling denoted preview while
+        // +Inf (including the fallback for invalid values) selected delivery fail-fast behavior.
+        return float.IsFinite(maxWorkingScale) && maxWorkingScale > 0f
+            ? RenderIntent.Preview
+            : RenderIntent.Delivery;
+    }
+
     private static float SanitizeCeiling(float value, string name)
     {
         float sanitized = RenderScaleUtilities.SanitizeMaxWorkingScale(value);
@@ -178,6 +205,11 @@ public sealed class FilterEffectActivator : IDisposable
         using var paint = hasFilter ? new SKPaint() : null;
         paint?.ImageFilter = Builder.GetFilter();
 
+        // A forced flush is also the legacy CustomEffect compatibility boundary. The old
+        // activator always replaced the input with a Bounds-sized buffer before callback entry,
+        // so renderer-owned aprons must be canonicalized instead of leaking into existing code.
+        bool canonicalize = force;
+
         var flushTargets = new Dictionary<EffectTarget, FlushTarget>();
         // Re-clamp against the physical runtime footprint. A retained raster can be wider than
         // semantic Bounds after a custom effect moves or shrinks the target.
@@ -193,7 +225,9 @@ public sealed class FilterEffectActivator : IDisposable
                 continue;
 
             flushTargets.Add(target, flushTarget);
-            Rect budgetBounds = ResolveDeviceRoundingSource(target, flushTarget, hasFilter);
+            Rect budgetBounds = canonicalize
+                ? target.Bounds
+                : ResolveDeviceRoundingSource(target, flushTarget, hasFilter);
             float fit = RenderScaleUtilities.ClampWorkingScaleToExactBufferBudget(
                 budgetBounds.Translate(target.DeviceGridOffset),
                 WorkingScale);
@@ -237,10 +271,12 @@ public sealed class FilterEffectActivator : IDisposable
             }
 
             float w = WorkingScale;
-            if (!hasFilter && CanReuseWithoutFilter(target, w))
+            if (!hasFilter && CanReuseCanonicalTarget(target, w))
                 continue;
 
-            Rect deviceRoundingSource = ResolveDeviceRoundingSource(target, flushTarget, hasFilter);
+            Rect deviceRoundingSource = canonicalize
+                ? target.Bounds
+                : ResolveDeviceRoundingSource(target, flushTarget, hasFilter);
             PixelRect deviceBounds = CustomFilterEffectContext.DeviceBufferBounds(
                 deviceRoundingSource.Translate(target.DeviceGridOffset), w);
             if (hasFilter)
@@ -304,13 +340,22 @@ public sealed class FilterEffectActivator : IDisposable
         Builder.Clear();
     }
 
+    internal void CompletePolicyBoundary(bool materializationRequired)
+    {
+        // A CustomEffect already consumed the policy through its forced pre-callback Flush.
+        // Re-forcing after the callback would discard backing that legacy code intentionally
+        // retained while moving or shrinking only Bounds. Pending Skia work still flushes.
+        Flush(materializationRequired && !_customEffectBoundaryMaterialized);
+    }
+
     private FlushTarget ResolveFlushTarget(EffectTarget target, bool hasFilter)
     {
         if (!hasFilter)
         {
-            return new FlushTarget(
-                target.Bounds,
-                target.RasterBounds.Union(target.Bounds));
+            // A forced no-filter flush is the compatibility boundary for imperative CustomEffect
+            // callbacks. Materialize the semantic bounds at WorkingScale so existing effects can
+            // keep using CreateTarget(Bounds) and DeviceBufferSize(Bounds, WorkingScale).
+            return new FlushTarget(target.Bounds, target.Bounds);
         }
 
         Rect inputBounds;
@@ -368,7 +413,7 @@ public sealed class FilterEffectActivator : IDisposable
         }
     }
 
-    private static bool CanReuseWithoutFilter(EffectTarget target, float density)
+    private static bool CanReuseCanonicalTarget(EffectTarget target, float density)
     {
         if (target.Scale.IsUnbounded || target.Scale.Value != density)
             return false;
@@ -376,13 +421,11 @@ public sealed class FilterEffectActivator : IDisposable
         PixelRect semanticDeviceBounds = PixelRect.FromRect(
             target.Bounds.Translate(target.DeviceGridOffset),
             density);
-        return target.RasterBounds
-                   == target.DeviceBounds
+        return target.DeviceBounds == semanticDeviceBounds
+               && target.RasterBounds
+                   == semanticDeviceBounds
                        .ToRect(density)
-                       .Translate(-target.DeviceGridOffset)
-               && Contains(target.DeviceBounds, semanticDeviceBounds)
-               && target.DeviceBounds.Width <= RenderScaleUtilities.MaxBufferDimension
-               && target.DeviceBounds.Height <= RenderScaleUtilities.MaxBufferDimension;
+                       .Translate(-target.DeviceGridOffset);
     }
 
     private static bool Contains(PixelRect outer, PixelRect inner)
@@ -460,6 +503,7 @@ public sealed class FilterEffectActivator : IDisposable
                     {
                         Flush();
                         if (CurrentTargets.Count == 0) return;
+                        _customEffectBoundaryMaterialized = true;
 
                         var customContext = new CustomFilterEffectContext(
                             CurrentTargets,
@@ -581,4 +625,3 @@ public sealed class FilterEffectActivator : IDisposable
         Rect InputBounds,
         Rect PhysicalBounds);
 }
-

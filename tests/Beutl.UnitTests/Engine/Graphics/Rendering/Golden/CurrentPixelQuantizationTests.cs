@@ -1,6 +1,7 @@
 ﻿using System.Numerics;
 using Beutl.Composition;
 using Beutl.Graphics;
+using Beutl.Engine;
 using Beutl.Graphics.Effects;
 using Beutl.Graphics.Rendering;
 using Beutl.Graphics.Shapes;
@@ -58,7 +59,7 @@ public sealed class CurrentPixelQuantizationTests
         });
     }
 
-    private static Drawable.Resource CreateDrawable(int invertCount, float amount = 100)
+    private static Drawable.Resource CreateDrawable(int invertCount)
     {
         var shape = new RectShape
         {
@@ -77,10 +78,7 @@ public sealed class CurrentPixelQuantizationTests
             var group = new FilterEffectGroup();
             for (int index = 0; index < invertCount; index++)
             {
-                group.Children.Add(new Invert
-                {
-                    Amount = { CurrentValue = amount },
-                });
+                group.Children.Add(new InvertTypedShaderEffect());
             }
 
             shape.FilterEffect.CurrentValue = group;
@@ -134,5 +132,25 @@ public sealed class CurrentPixelQuantizationTests
         return (
             (float)BitConverter.UInt16BitsToHalf(pixels[offset]),
             (float)BitConverter.UInt16BitsToHalf(pixels[offset + 3]));
+    }
+
+    [SuppressResourceClassGeneration]
+    private sealed partial class InvertTypedShaderEffect : FilterEffect
+    {
+        public override void ApplyTo(FilterEffectContext context, FilterEffect.Resource resource)
+        {
+            context.Shader(ShaderDescription.CurrentPixel(
+                "half4 apply(half4 color) { return half4(color.a - color.rgb, color.a); }"));
+        }
+
+        public override Resource ToResource(CompositionContext context)
+        {
+            var resource = new Resource();
+            bool updateOnly = false;
+            resource.Update(this, context, ref updateOnly);
+            return resource;
+        }
+
+        public new sealed class Resource : FilterEffect.Resource;
     }
 }

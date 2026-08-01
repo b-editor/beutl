@@ -102,12 +102,7 @@ public sealed class BackdropOrderingTests
                     Assert.That(isolation.BoundsRequirement,
                         Is.EqualTo(RenderFragmentBoundsRequirement.Finite));
                     Assert.That(references.Values.Any(static reference =>
-                            reference.Kind == RenderFragmentKind.Shader
-                            && reference.Payload is ShaderRenderFragmentPayload
-                            {
-                                Description.Kind: ShaderDescriptionKind.WholeSource,
-                            }),
-                        Is.True,
+                        reference.Kind == RenderFragmentKind.LegacyFilterEffect), Is.True,
                         "The filter must remain present after target-dependent input isolation.");
                 });
             }

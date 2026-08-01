@@ -31,23 +31,19 @@ the CTM handles it, and a manual `× w` would double-scale and regress the resul
 
 ## When scale matters
 
-- **Reading the working scale.** A deferred Shader author reads `ShaderExecutionContext.WorkingScale`
-  from an execution-time binding callback. A `CustomEffect` / GLSL author who hand-allocates an
+- **Reading the working scale.** A `CustomEffect` / SKSL / GLSL author who hand-allocates an
   intermediate or hard-codes a pixel literal reads its execution-time context or actual target scale.
-  Do not bake a deferred operation's runtime scale into its description. If record-time logic in `ApplyTo`
-  genuinely needs the nominal effect-input density, first call
-  `FilterEffectContext.TryGetWorkingScale(out w)`: it returns `false` for a symbolic owning domain or
-  multiple independent input branches, and `WorkingScale` throws instead of exposing a provisional/aggregate
-  value. Even a successful probe is only nominal; a later expanding operation can apply its own dimension clamp.
-  `CreateTarget(bounds)` already
+  During `ApplyTo`, first call `FilterEffectContext.TryGetWorkingScale(out w)`: it returns `false` for a
+  symbolic owning domain or multiple independent input branches, and `WorkingScale` throws instead of exposing
+  a provisional/aggregate value. Even a successful probe is the nominal effect-input density; a later expanding
+  operation can apply its own dimension clamp. `CreateTarget(bounds)` already
   allocates a `ceil(bounds × w)` device buffer tagged `EffectiveScale.At(w)`, so the runtime shader
   evaluates in DEVICE pixels: multiply any **absolute-length** pixel literal
   (tile size, displacement amount, split offset, a hard-coded `iResolution`-style constant) by `w` to
   stay logically constant. Content-relative logic (a luminance pixel-sort, a normalized-uv shader)
-  needs nothing. The built-ins already do this — Mosaic's deferred WholeSource Shader (`tileSize × w`),
-  DisplacementMap's deferred WholeSource Shader (translate / pivot `× w`, plus a `CreateScale(w)` local
-  matrix on the displacement-map shader so it shares the base texture's device-px coord space),
-  PartsSplit (contour bounds `/ w`), SKSL (`iResolution`/`width`/`height`
+  needs nothing. The built-ins already do this — Mosaic (`tileSize × w`), DisplacementMap (translate /
+  pivot `× w`, plus a `CreateScale(w)` local matrix on the displacement-map shader so it shares the base
+  texture's device-px coord space), PartsSplit (contour bounds `/ w`), SKSL (`iResolution`/`width`/`height`
   `× w` + `iScale = w`), GLSL (`Width`/`Height` push constants `× w`, plus a `scale` push constant `= w`
   mirroring SKSL's `iScale`) — verified by `CustomEffectSupersampleTests` (Mosaic + DisplacementMap 2×-delivered vs 1:1 SSIM
   1.0000; Mosaic strictly closer to ground truth than 1:1).
@@ -64,9 +60,12 @@ the CTM handles it, and a manual `× w` would double-scale and regress the resul
   pass. An explicit `Custom` result is not raised to the standard `s_out` floor. The callback runs once per
   surviving branch with one input supply and that branch's isolated effect-input bounds; legacy multi-input work
   aggregates the densest concrete result and falls back to `s_out` only when every branch is `Unbounded`. Allocation
-  clamping follows branch-local, local-origin footprints and intermediate Flushes until an opaque `CustomEffect`;
-  because that callback may combine/split targets, the transformed branch results are unioned there and subsequent
-  footprints conservatively use that aggregate domain. No authored items means a true pass-through with
+  clamping follows branch-local, local-origin footprints and intermediate Flushes until an opaque `CustomEffect`.
+  Immediately before that legacy callback, a forced compatibility Flush canonicalizes each surviving target to its
+  semantic `Bounds` at the actual working scale, so renderer aprons never change existing `CreateTarget(Bounds)` or
+  `DeviceBufferSize(Bounds, WorkingScale)` assumptions. Because the callback may combine/split targets, its
+  transformed branch results are unioned there and subsequent footprints conservatively use that aggregate domain.
+  No authored items means a true pass-through with
   no isolation fragment; the hook/resolver stay lazy unless `ApplyTo` probes `WorkingScale`. Override `Process`
   only for genuinely different topology or lowering.
 - **Bitmap sources.** A decoded image/video op reports its decoded density as `EffectiveScale.At(...)`,
@@ -138,11 +137,6 @@ must not compile a native program, allocate a target, snapshot, read back, flush
   explicit bounds, hit testing, resources, and optional readback.
 - `context.CustomEffect(...)` only for legacy or backend-specific work that cannot be described above. It
   remains an opaque external boundary and prevents an exact physical-pass claim across that callback.
-
-Built-in per-pixel color effects use CurrentPixel descriptions, while Mosaic, ColorShift, and displacement-map
-transforms use WholeSource descriptions because their sampling depends on coordinates. Arbitrary SKSL/GLSL script
-effects and multi-pass algorithms remain guarded custom work because their topology or source contract cannot be
-validated as one of those typed forms.
 
 `ApplyTo` must also record scale-independent structure when `TryGetWorkingScale` returns `false`. The final
 owner-domain bounds and working density are resolved later; read them from `ShaderExecutionContext`,

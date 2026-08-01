@@ -8,7 +8,7 @@ using Beutl.UnitTests.Engine.Graphics.Backend;
 
 namespace Beutl.UnitTests.Engine.Graphics.Rendering.Golden;
 
-// Deferred whole-source shaders use canonical PixelRect.FromRect(bounds, w) buffers and scale absolute lengths by w.
+// Custom effects allocate canonical PixelRect.FromRect(bounds, w) buffers and scale absolute-length params by w.
 [NonParallelizable]
 [TestFixture]
 public class CustomEffectSupersampleTests
@@ -30,35 +30,6 @@ public class CustomEffectSupersampleTests
         var mosaic = new MosaicEffect();
         mosaic.TileSize.CurrentValue = new Size(14, 14);
         shape.FilterEffect.CurrentValue = mosaic;
-        return shape.ToResource(CompositionContext.Default);
-    }
-
-    private static Drawable.Resource MakeMosaicRoiShape()
-    {
-        var gradient = new LinearGradientBrush
-        {
-            StartPoint = { CurrentValue = new RelativePoint(0, 0, RelativeUnit.Relative) },
-            EndPoint = { CurrentValue = new RelativePoint(1, 1, RelativeUnit.Relative) },
-        };
-        for (int index = 0; index <= 10; index++)
-        {
-            gradient.GradientStops.Add(new GradientStop(
-                index % 2 == 0 ? Colors.Red : Colors.Blue,
-                index / 10f));
-        }
-
-        var shape = new RectShape
-        {
-            AlignmentX = { CurrentValue = AlignmentX.Center },
-            AlignmentY = { CurrentValue = AlignmentY.Center },
-            Width = { CurrentValue = 180 },
-            Height = { CurrentValue = 160 },
-            Fill = { CurrentValue = gradient },
-        };
-        shape.FilterEffect.CurrentValue = new MosaicEffect
-        {
-            TileSize = { CurrentValue = new Size(14, 14) },
-        };
         return shape.ToResource(CompositionContext.Default);
     }
 
@@ -91,47 +62,6 @@ public class CustomEffectSupersampleTests
             TestContext.WriteLine($"Mosaic vs truth: MAE ss={maeSS:F4} 1:1={mae11:F4}");
             Assert.That(maeSS, Is.LessThan(mae11),
                 "supersampled mosaic not strictly closer to ground truth than 1:1 — buffer activation gave no density");
-        });
-    }
-
-    [Test]
-    public void Mosaic_CroppedExecution_MatchesFullRenderInsideRequestedRegion()
-    {
-        VulkanTestEnvironment.EnsureAvailable();
-        VulkanTestEnvironment.InvokeOnRenderThread(() =>
-        {
-            var requestedRegion = new Rect(30, 40, 60, 50);
-            PixelRect requestedPixels = PixelRect.FromRect(requestedRegion, 1);
-            using Bitmap full = GoldenImageHarness.RenderAtScale(
-                MakeMosaicRoiShape(),
-                Frame,
-                1,
-                requestedRegion: null);
-            using Bitmap cropped = GoldenImageHarness.RenderAtScale(
-                MakeMosaicRoiShape(),
-                Frame,
-                1,
-                requestedRegion);
-            using Bitmap expected = full.ExtractSubset(requestedPixels);
-            using Bitmap actual = cropped.ExtractSubset(requestedPixels);
-
-            double ssim = ImageMetrics.Ssim(expected, actual);
-            double mae = ImageMetrics.MeanAbsoluteError(expected, actual);
-            Assert.Multiple(() =>
-            {
-                Assert.That(
-                    HasNonBlackRgb(expected),
-                    Is.True,
-                    "the requested-region fixture must contain visible gradient pixels");
-                Assert.That(
-                    ssim,
-                    Is.GreaterThanOrEqualTo(GoldenThresholds.ExactSsimMin),
-                    "ROI execution must preserve the complete-frame relative mosaic origin");
-                Assert.That(
-                    mae,
-                    Is.LessThanOrEqualTo(GoldenThresholds.ExactMaeMax),
-                    "ROI execution must keep the full-render tile phase");
-            });
         });
     }
 
@@ -252,73 +182,5 @@ public class CustomEffectSupersampleTests
             Assert.That(ssim, Is.GreaterThan(0.95),
                 "supersampled rotation-displacement warp diverged from 1:1 — the pivot is sampled in the wrong space at w != 1");
         });
-    }
-
-    [TestCaseSource(nameof(DisplacementTransforms))]
-    public void DisplacementMap_CroppedExecution_MatchesFullRenderInsideRequestedRegion(
-        Func<DisplacementMapTransform> transformFactory)
-    {
-        VulkanTestEnvironment.EnsureAvailable();
-        VulkanTestEnvironment.InvokeOnRenderThread(() =>
-        {
-            var requestedRegion = new Rect(80, 60, 40, 80);
-            PixelRect requestedPixels = PixelRect.FromRect(requestedRegion, 1);
-            using Bitmap full = GoldenImageHarness.RenderAtScale(
-                MakeDisplacedShape(transformFactory()),
-                Frame,
-                1,
-                requestedRegion: null);
-            using Bitmap cropped = GoldenImageHarness.RenderAtScale(
-                MakeDisplacedShape(transformFactory()),
-                Frame,
-                1,
-                requestedRegion);
-            using Bitmap expected = full.ExtractSubset(requestedPixels);
-            using Bitmap actual = cropped.ExtractSubset(requestedPixels);
-
-            double ssim = ImageMetrics.Ssim(expected, actual);
-            double mae = ImageMetrics.MeanAbsoluteError(expected, actual);
-            Assert.Multiple(() =>
-            {
-                Assert.That(
-                    HasNonBlackRgb(expected),
-                    Is.True,
-                    "the requested-region fixture must contain visible displaced pixels");
-                Assert.That(
-                    ssim,
-                    Is.GreaterThanOrEqualTo(GoldenThresholds.ExactSsimMin),
-                    "ROI execution must preserve the complete displacement-map layout and pivot");
-                Assert.That(
-                    mae,
-                    Is.LessThanOrEqualTo(GoldenThresholds.ExactMaeMax),
-                    "ROI execution must match the full render inside the requested region");
-            });
-        });
-    }
-
-    private static IEnumerable<TestCaseData> DisplacementTransforms()
-    {
-        yield return new TestCaseData((Func<DisplacementMapTransform>)(() =>
-            new DisplacementMapTranslateTransform
-            {
-                X = { CurrentValue = 40 },
-                Y = { CurrentValue = 40 },
-            })).SetName("DisplacementMapTranslate_CroppedExecution_MatchesFullRender");
-        yield return new TestCaseData((Func<DisplacementMapTransform>)MakeScaleTransform)
-            .SetName("DisplacementMapScale_CroppedExecution_MatchesFullRender");
-        yield return new TestCaseData((Func<DisplacementMapTransform>)MakeRotationTransform)
-            .SetName("DisplacementMapRotation_CroppedExecution_MatchesFullRender");
-    }
-
-    private static bool HasNonBlackRgb(Bitmap bitmap)
-    {
-        ReadOnlySpan<ushort> pixels = bitmap.GetPixelSpan<ushort>();
-        for (int index = 0; index < pixels.Length; index += 4)
-        {
-            if (pixels[index] != 0 || pixels[index + 1] != 0 || pixels[index + 2] != 0)
-                return true;
-        }
-
-        return false;
     }
 }

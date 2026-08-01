@@ -13,6 +13,54 @@ public sealed class GpuPassFusionBaselineTests
         "17b65acc47289f94d208b1cf3284e69a4f94a89fba04ad61e3bf0b8b75660ebf";
 
     [Test]
+    public void IntentionalRefreshScript_StagesAllLinkedTrustAnchorsBeforePublishing()
+    {
+        GpuPassFusionEvidencePaths paths = GpuPassFusionEvidencePaths.Discover();
+        string script = File.ReadAllText(paths.RefreshScriptPath);
+        string benchmarkTest = File.ReadAllText(Path.Combine(
+            paths.RepositoryRoot,
+            "tests",
+            "Beutl.UnitTests",
+            "Engine",
+            "Graphics",
+            "Rendering",
+            "Baseline",
+            "GpuPassFusionBaselineTests.cs"));
+        string acceptanceReport = File.ReadAllText(Path.Combine(
+            paths.EvidenceDirectory,
+            "acceptance-report.md"));
+        int stagingStart = script.IndexOf("staged = []", StringComparison.Ordinal);
+        int benchmarkStage = script.IndexOf(
+            "staged.append((benchmark_test_stage, benchmark_test))",
+            StringComparison.Ordinal);
+        int acceptanceStage = script.IndexOf(
+            "staged.append((acceptance_stage, acceptance_report))",
+            StringComparison.Ordinal);
+        int publishStart = script.IndexOf("for source, destination in staged:", StringComparison.Ordinal);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(
+                System.Text.RegularExpressions.Regex.Matches(
+                    benchmarkTest,
+                    "ExpectedTargetBenchmarkManifestSha256\\s*=\\s*\"[0-9a-f]{64}\";").Count,
+                Is.EqualTo(1));
+            Assert.That(
+                System.Text.RegularExpressions.Regex.Matches(
+                    acceptanceReport,
+                    "The current immutable trust-chain anchors are target visual manifest\\s+"
+                    + "`[0-9a-f]{64}` and\\s+target benchmark manifest\\s+`[0-9a-f]{64}`\\.").Count,
+                Is.EqualTo(1));
+            Assert.That(script, Does.Contain("benchmark manifest test trust anchor"));
+            Assert.That(script, Does.Contain("acceptance visual manifest trust anchor"));
+            Assert.That(script, Does.Contain("acceptance benchmark manifest trust anchor"));
+            Assert.That(stagingStart, Is.GreaterThanOrEqualTo(0));
+            Assert.That(benchmarkStage, Is.GreaterThan(stagingStart).And.LessThan(publishStart));
+            Assert.That(acceptanceStage, Is.GreaterThan(stagingStart).And.LessThan(publishStart));
+        });
+    }
+
+    [Test]
     public void ImmutableEvidence_HasPinnedManifestToolAndBlobIntegrity()
     {
         GpuPassFusionEvidenceManifest manifest = GpuPassFusionBaselineEvidence.LoadAndVerify();

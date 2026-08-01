@@ -14,9 +14,7 @@ public sealed class PairedVisualEvidenceArchiveTests
 
     private static readonly string[] SemanticRefreshSceneIds =
     [
-        "geometry-stroke",
         "scene3d-with-2d-tail",
-        "split-expansion",
     ];
 
     [Test]

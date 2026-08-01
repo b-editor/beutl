@@ -8,7 +8,9 @@ baseline_root="$script_dir/target-baseline"
 baseline_manifest="$baseline_root/manifest.json"
 benchmark_manifest="$script_dir/target-benchmark/manifest.json"
 test_support="$repo_root/tests/Beutl.UnitTests/Engine/Graphics/Rendering/Baseline/GpuPassFusionBaselineTestSupport.cs"
+benchmark_test="$repo_root/tests/Beutl.UnitTests/Engine/Graphics/Rendering/Baseline/GpuPassFusionBaselineTests.cs"
 provenance_doc="$script_dir/target-baseline.md"
+acceptance_report="$script_dir/acceptance-report.md"
 
 for command_name in dotnet git python3; do
     command -v "$command_name" >/dev/null 2>&1 || {
@@ -26,12 +28,22 @@ feature_code_sha=$(git -C "$repo_root" rev-parse HEAD)
     printf 'Could not resolve the feature code SHA from repository: %s\n' "$repo_root" >&2
     exit 1
 }
+generator_script="$script_dir/generate-target-baseline.sh"
+paired_runner="$script_dir/run-paired-visual-evidence.sh"
 refresh_script="$script_dir/$(basename -- "$0")"
-refresh_script_relative=${refresh_script#"$repo_root"/}
-git -C "$repo_root" ls-files --error-unmatch -- "$refresh_script_relative" >/dev/null || {
-    printf 'Visual-baseline refresh script is not tracked: %s\n' "$refresh_script" >&2
-    exit 1
-}
+for evidence_tool in "$generator_script" "$paired_runner" "$refresh_script"; do
+    evidence_tool_relative=${evidence_tool#"$repo_root"/}
+    git -C "$repo_root" ls-files --error-unmatch -- "$evidence_tool_relative" >/dev/null || {
+        printf 'Visual-baseline evidence tool is not tracked: %s\n' "$evidence_tool" >&2
+        exit 1
+    }
+done
+generator_script_sha=$(python3 -c \
+    'import hashlib, pathlib, sys; print(hashlib.sha256(pathlib.Path(sys.argv[1]).read_bytes()).hexdigest())' \
+    "$generator_script")
+paired_runner_sha=$(python3 -c \
+    'import hashlib, pathlib, sys; print(hashlib.sha256(pathlib.Path(sys.argv[1]).read_bytes()).hexdigest())' \
+    "$paired_runner")
 refresh_script_sha=$(python3 -c \
     'import hashlib, pathlib, sys; print(hashlib.sha256(pathlib.Path(sys.argv[1]).read_bytes()).hexdigest())' \
     "$refresh_script")
@@ -68,8 +80,12 @@ python3 - \
     "$feature_output" \
     "$benchmark_manifest" \
     "$test_support" \
+    "$benchmark_test" \
     "$provenance_doc" \
+    "$acceptance_report" \
     "$feature_code_sha" \
+    "$generator_script_sha" \
+    "$paired_runner_sha" \
     "$refresh_script_sha" <<'PY'
 import hashlib
 import json
@@ -82,14 +98,23 @@ baseline_root = pathlib.Path(sys.argv[1])
 feature_root = pathlib.Path(sys.argv[2])
 benchmark_path = pathlib.Path(sys.argv[3])
 test_support = pathlib.Path(sys.argv[4])
-provenance_doc = pathlib.Path(sys.argv[5])
-expected_feature_code_sha = sys.argv[6]
-refresh_script_sha = sys.argv[7]
+benchmark_test = pathlib.Path(sys.argv[5])
+provenance_doc = pathlib.Path(sys.argv[6])
+acceptance_report = pathlib.Path(sys.argv[7])
+expected_feature_code_sha = sys.argv[8]
+generator_script_sha = sys.argv[9]
+paired_runner_sha = sys.argv[10]
+refresh_script_sha = sys.argv[11]
 
-selected = {
+published = {
     "geometry-stroke": "geometry-stroke.rgba16f",
     "scene3d-with-2d-tail": "scene3d-with-2d-tail.rgba16f",
     "split-expansion": "split-expansion.rgba16f",
+}
+expected_feature_hashes = {
+    "geometry-stroke.rgba16f": "37e7c40d349c52a1a9bb8a7bec12e838e9b1ca2565b902230bc9262a8317ee45",
+    "scene3d-with-2d-tail.rgba16f": "8908d30de25b882368b3d9f7e3d355c783ef5f0026b10f1c108e577f067331f6",
+    "split-expansion.rgba16f": "028a6a61e1aa448a8d11337ccd6d0d73652e621507ebe71bd744e9ede814e8fc",
 }
 source_provenance_field = "beutlEngineAssemblyVersion"
 
@@ -129,6 +154,10 @@ baseline_tools = baseline.get("evidenceTools")
 benchmark_tools = benchmark.get("evidenceTools")
 if not isinstance(baseline_tools, dict) or not isinstance(benchmark_tools, dict):
     raise SystemExit("An evidence-tool hash table is missing")
+baseline_tools["generatorScriptSha256"] = generator_script_sha
+benchmark_tools["generatorScriptSha256"] = generator_script_sha
+baseline_tools["pairedRunnerSha256"] = paired_runner_sha
+benchmark_tools["pairedRunnerSha256"] = paired_runner_sha
 baseline_tools["refreshScriptSha256"] = refresh_script_sha
 benchmark_tools["refreshScriptSha256"] = refresh_script_sha
 
@@ -180,7 +209,7 @@ semantic_fields = (
     "empty",
     "parameters",
 )
-for scene_id in selected:
+for scene_id in published:
     target_scene = baseline_scenes[scene_id]
     live_scene = feature_scenes[scene_id]
     for field in semantic_fields:
@@ -192,8 +221,8 @@ target_hashes = baseline.get("artifactSha256")
 if not isinstance(feature_hashes, dict) or not isinstance(target_hashes, dict):
     raise SystemExit("An artifact hash table is missing")
 
-selected_payloads = {}
-for scene_id, blob_name in selected.items():
+published_payloads = {}
+for scene_id, blob_name in published.items():
     payload = (feature_root / blob_name).read_bytes()
     live_scene = feature_scenes[scene_id]
     expected_length = int(live_scene["blobWidth"]) * int(live_scene["blobHeight"]) * 8
@@ -202,12 +231,17 @@ for scene_id, blob_name in selected.items():
     digest = sha256(payload)
     if digest != feature_hashes.get(blob_name):
         raise SystemExit(f"Feature artifact hash mismatch: {blob_name}")
-    selected_payloads[blob_name] = payload
+    if digest != expected_feature_hashes[blob_name]:
+        raise SystemExit(
+            f"Feature artifact is not the approved S4 payload: {blob_name} "
+            f"(expected {expected_feature_hashes[blob_name]}, found {digest})"
+        )
+    published_payloads[blob_name] = payload
     target_hashes[blob_name] = digest
     baseline_scenes[scene_id]["nonVacuity"] = live_scene.get("nonVacuity")
 
 for blob_name, expected_hash in target_hashes.items():
-    payload = selected_payloads.get(blob_name)
+    payload = published_payloads.get(blob_name)
     if payload is None:
         payload = (baseline_root / blob_name).read_bytes()
     if sha256(payload) != expected_hash:
@@ -230,6 +264,14 @@ support_text = replace_once(
     "manifest trust anchor",
 )
 
+benchmark_test_text = benchmark_test.read_text(encoding="utf-8")
+benchmark_test_text = replace_once(
+    benchmark_test_text,
+    r'(ExpectedTargetBenchmarkManifestSha256\s*=\s*")[0-9a-f]{64}(";)',
+    rf"\g<1>{benchmark_hash}\g<2>",
+    "benchmark manifest test trust anchor",
+)
+
 provenance_text = provenance_doc.read_text(encoding="utf-8")
 provenance_text = replace_once(
     provenance_text,
@@ -243,10 +285,60 @@ provenance_text = replace_once(
     rf"\g<1>{benchmark_hash}\g<2>",
     "documented benchmark manifest hash",
 )
+provenance_text = replace_once(
+    provenance_text,
+    r'(\| Generator script \| `)[0-9a-f]{64}(` \|)',
+    rf"\g<1>{generator_script_sha}\g<2>",
+    "documented generator script hash",
+)
+provenance_text = replace_once(
+    provenance_text,
+    r'(\| Paired visual runner \| `)[0-9a-f]{64}(` \|)',
+    rf"\g<1>{paired_runner_sha}\g<2>",
+    "documented paired runner hash",
+)
+provenance_text = replace_once(
+    provenance_text,
+    r'(\| Intentional refresh script \| `)[0-9a-f]{64}(` \|)',
+    rf"\g<1>{refresh_script_sha}\g<2>",
+    "documented refresh script hash",
+)
+
+acceptance_text = acceptance_report.read_text(encoding="utf-8")
+acceptance_text = replace_once(
+    acceptance_text,
+    r'(\| `generate-target-baseline\.sh` \| `)[0-9a-f]{64}(` \|)',
+    rf"\g<1>{generator_script_sha}\g<2>",
+    "acceptance generator script hash",
+)
+acceptance_text = replace_once(
+    acceptance_text,
+    r'(\| `run-paired-visual-evidence\.sh` \| `)[0-9a-f]{64}(` \|)',
+    rf"\g<1>{paired_runner_sha}\g<2>",
+    "acceptance paired runner hash",
+)
+acceptance_text = replace_once(
+    acceptance_text,
+    r'(\| `refresh-intentional-visual-baselines\.sh` \| `)[0-9a-f]{64}(` \|)',
+    rf"\g<1>{refresh_script_sha}\g<2>",
+    "acceptance refresh script hash",
+)
+acceptance_text = replace_once(
+    acceptance_text,
+    r'(The current immutable trust-chain anchors are target visual manifest\s+`)[0-9a-f]{64}(`)',
+    rf"\g<1>{manifest_hash}\g<2>",
+    "acceptance visual manifest trust anchor",
+)
+acceptance_text = replace_once(
+    acceptance_text,
+    r'(target benchmark manifest\s+`)[0-9a-f]{64}(`\.)',
+    rf"\g<1>{benchmark_hash}\g<2>",
+    "acceptance benchmark manifest trust anchor",
+)
 
 staged = []
 try:
-    for blob_name, payload in selected_payloads.items():
+    for blob_name, payload in published_payloads.items():
         path = baseline_root / f".{blob_name}.refresh"
         path.write_bytes(payload)
         staged.append((path, baseline_root / blob_name))
@@ -263,9 +355,17 @@ try:
     support_stage.write_text(support_text, encoding="utf-8")
     staged.append((support_stage, test_support))
 
+    benchmark_test_stage = benchmark_test.with_name(f".{benchmark_test.name}.refresh")
+    benchmark_test_stage.write_text(benchmark_test_text, encoding="utf-8")
+    staged.append((benchmark_test_stage, benchmark_test))
+
     provenance_stage = provenance_doc.with_name(f".{provenance_doc.name}.refresh")
     provenance_stage.write_text(provenance_text, encoding="utf-8")
     staged.append((provenance_stage, provenance_doc))
+
+    acceptance_stage = acceptance_report.with_name(f".{acceptance_report.name}.refresh")
+    acceptance_stage.write_text(acceptance_text, encoding="utf-8")
+    staged.append((acceptance_stage, acceptance_report))
 
     for source, destination in staged:
         os.replace(source, destination)
@@ -273,14 +373,17 @@ finally:
     for source, _ in staged:
         source.unlink(missing_ok=True)
 
-print("Refreshed exactly these intended-semantic artifacts:")
-for scene_id, blob_name in selected.items():
-    print(f"  {scene_id}: {blob_name} {target_hashes[blob_name]}")
+print("Published the closed S4 baseline payload set:")
+for scene_id, blob_name in published.items():
+    disposition = "approved semantic refresh" if scene_id == "scene3d-with-2d-tail" else "restored legacy"
+    print(f"  {scene_id}: {blob_name} {target_hashes[blob_name]} ({disposition})")
 print(f"Updated manifest trust anchor: {manifest_hash}")
 print(f"Updated benchmark evidence linkage: {benchmark_hash}")
+print(f"Generator script SHA-256: {generator_script_sha}")
+print(f"Paired runner SHA-256: {paired_runner_sha}")
 print(f"Refresh script SHA-256: {refresh_script_sha}")
 PY
 
 printf '%s\n' \
     'Selective visual-baseline refresh completed.' \
-    'Review the three blob changes, manifest fields, trust anchor, and provenance table before committing.'
+    'Review the two legacy restorations, one approved refresh, manifest fields, trust anchors, and provenance table before committing.'

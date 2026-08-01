@@ -183,11 +183,10 @@ public sealed class ComposedSceneRenderCacheTests
             });
             using Drawable.Resource resource = group.ToResource(CompositionContext.Default);
 
-            AssertProductionCacheSequence(
+            AssertProductionCacheSequenceParity(
                 resource,
                 RenderCacheOptions.Enabled,
-                expectCacheHit: true,
-                assertPixelParity: false);
+                expectCacheHit: true);
         });
     }
 

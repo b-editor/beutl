@@ -33,9 +33,11 @@ public class FilterEffectRenderNode(FilterEffect.Resource filterEffect) : Contai
     /// isolated effect-input bounds as <see cref="RenderScaleContext.OutputBounds"/>. Legacy multi-input operations
     /// aggregate the densest concrete branch result and fall back to <see cref="RenderScaleContext.OutputScale"/>
     /// only when every branch remains unbounded. Allocation clamping is independent of callback cardinality: it
-    /// covers each branch's local-origin footprint and every intermediate legacy materialization. Because a custom
-    /// legacy callback may combine or split targets without declaring topology, the first such callback collapses
-    /// transformed branch results to their union and footprints after it conservatively use that aggregate domain.
+    /// covers each branch's local-origin footprint and every intermediate legacy materialization. The forced Flush
+    /// immediately before a custom callback presents each branch through its canonical semantic Bounds footprint,
+    /// preserving the legacy callback contract. Because that callback may then combine, split, move, or shrink
+    /// targets without declaring topology, its results collapse to their union and later footprints conservatively
+    /// use that aggregate domain while retaining physical backing produced by the callback.
     /// The callback may be evaluated again after symbolic
     /// input metadata is resolved, so it must be deterministic and side-effect-free. An effect that authors no
     /// operations creates no isolation or contract fragment and remains a true pass-through. The hook and resolver
