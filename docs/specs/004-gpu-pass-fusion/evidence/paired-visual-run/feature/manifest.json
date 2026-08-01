@@ -1,10 +1,10 @@
 {
   "schemaVersion": 1,
-  "featureCodeSha": "f40c701d0991b6374387e6659da79b641a48440e",
+  "featureCodeSha": "acabdbfd7c5f6601b520daf88df0f50f80eb40cf",
   "generatorSeed": 20040719,
   "evidenceMode": "feature-current-production-render-node-renderer",
-  "baselineManifestSha256": "6e0c11ee1b0da8d1f5758db626955598c17c0b25da7b60cf6a8faee5d5fc5e3f",
-  "exporterAssemblyVersion": "2.99.99\u002Bf40c701d0991b6374387e6659da79b641a48440e",
+  "baselineManifestSha256": "11859a01858b248963ab5f2b0cd6aa6da00818afdfce3d2cf04869c708a1f29d",
+  "exporterAssemblyVersion": "2.99.99\u002Bacabdbfd7c5f6601b520daf88df0f50f80eb40cf",
   "fingerprint": {
     "osDescription": "macOS 26.5.2",
     "osVersion": "Unix 26.5.2",
@@ -46,7 +46,7 @@
     "skiaSharpManagedVersion": "3.119.4\u002Brelease-3.119.4.f568ac94dd768ef9a2f593537cfde2dd0d348ef5.f568ac94dd768ef9a2f593537cfde2dd0d348ef5",
     "skiaSharpNativeVersion": "119.0",
     "silkNetVulkanVersion": "2.23.0\u002B94605142f7b7bd6e69c9201e8e721d245c69eb7e",
-    "beutlEngineAssemblyVersion": "2.99.99\u002Bf40c701d0991b6374387e6659da79b641a48440e"
+    "beutlEngineAssemblyVersion": "2.99.99\u002Bacabdbfd7c5f6601b520daf88df0f50f80eb40cf"
   },
   "pixelFormat": {
     "colorType": "RGBA16F",
@@ -3509,9 +3509,9 @@
         "queryExecution": "legacy-pull-may-execute-work"
       },
       "requestCounters": {
-        "MetadataOutcomes": 1,
-        "RecordedFragments": 1,
-        "RecordedMaterializableValues": 1
+        "MetadataOutcomes": 2,
+        "RecordedFragments": 2,
+        "RecordedMaterializableValues": 2
       },
       "query": {
         "bounds": "26,12.75,94.5,70.75",
@@ -3519,7 +3519,8 @@
         "insideHit": true,
         "outsidePoint": "2,2",
         "outsideHit": false,
-        "deferredWorkExecuted": false
+        "deferredWorkExecuted": false,
+        "validatedRequestCount": 3
       }
     },
     {

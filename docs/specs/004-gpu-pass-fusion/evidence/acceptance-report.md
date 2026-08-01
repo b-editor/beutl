@@ -46,7 +46,7 @@ The benchmark manifest's `visualManifestSha256` and
 
 ## Paired visual evidence (passed)
 
-- Target: legacy renderer regenerated from `43a38e665d9bf52548161a3917e748bd1457ff55`; feature: `f40c701d0991b6374387e6659da79b641a48440e`.
+- Target: legacy renderer regenerated from `43a38e665d9bf52548161a3917e748bd1457ff55`; feature: `acabdbfd7c5f6601b520daf88df0f50f80eb40cf`.
 - Environment fingerprint gate: exact match required and satisfied before any parity metric.
 - Result: **all 44 scenes passed** — thresholds SSIM ≥ 0.99,
   linear-RGB MAE ≤ 0.02, alpha MAE ≤ 0.02, and the 16×16 minimum-window
@@ -67,8 +67,8 @@ The benchmark manifest's `visualManifestSha256` and
   status, failure dimensions, and diagnostics counters, plus the Delivery exception
   type, exact message, and failure counters.
 - Raw result: [`paired-visual-result.json`](paired-visual-result.json)
-  (SHA-256 `c4ece6ef90aa71cff22ddd1196396fbb4d5642804d7c91ab5fde69f10da8898d`);
-  run-regenerated target manifest `6e0c11ee1b0da8d1f5758db626955598c17c0b25da7b60cf6a8faee5d5fc5e3f`, feature manifest `f5c03dfbf73e52fb7afc57636772e5be92a619f479fb05864ebb3d447e76b47f`.
+  (SHA-256 `34a3c98f6f2a2109e3d2be8162238db0b08dd9b72bab934adbc3368fed1b40a7`);
+  run-regenerated target manifest `11859a01858b248963ab5f2b0cd6aa6da00818afdfce3d2cf04869c708a1f29d`, feature manifest `26874c1573fdf4552273a016e37f3bab9dc8b0e1875a97ada976a8bd9ad1eee2`.
 - The exact historical inputs are retained under
   [`paired-visual-run/target/`](paired-visual-run/target/) and
   [`paired-visual-run/feature/`](paired-visual-run/feature/). Each manifest authenticates
@@ -144,7 +144,7 @@ The two acceptance lanes are intentionally revision-scoped rather than revision-
 The performance result remains frozen at feature revision
 `912ddda0484d0b8cde3c63b60deefa491a0c596c`; its numeric ratios apply only to that
 revision. The visual oracle is regenerated after approved hardening rounds and currently
-validates semantic behavior at `f40c701d0991b6374387e6659da79b641a48440e`.
+validates semantic behavior at `acabdbfd7c5f6601b520daf88df0f50f80eb40cf`.
 Later visual evidence is a semantic no-regression gate for those hardening changes; it does
 not reattribute the frozen benchmark ratios to the later revision, and the benchmark run is
 not regenerated merely to advance the visual revision.
@@ -271,7 +271,7 @@ methodology are unchanged.
 | `paired-benchmark-run/feature/raw-benchmark-stdout.txt` | `a174be2deafef47e6c0b355d292d34432a974c74cfa95c02e29616e786c2c283` |
 | `paired-benchmark-run/manifest.json` | `839eaf34e4fa5824a03333fa50418259ea3fca302a044eb767110afb6b676b1e` |
 
-Visual evidence regenerated 2026-08-01T07:14:28Z on the fingerprinted machine
+Visual evidence regenerated 2026-08-01T13:30:03Z on the fingerprinted machine
 (benchmark run recorded 2026-07-31T18:35:08Z on the same machine). The paired
 benchmark analyzer has since been tightened to require the exact frozen BenchmarkDotNet
 job (`Monitoring`, warmup 3, iterations 15, launch/invocation/unroll 1) and matching
