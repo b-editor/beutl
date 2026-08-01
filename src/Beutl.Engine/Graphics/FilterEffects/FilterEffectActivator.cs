@@ -205,10 +205,10 @@ public sealed class FilterEffectActivator : IDisposable
         using var paint = hasFilter ? new SKPaint() : null;
         paint?.ImageFilter = Builder.GetFilter();
 
-        // A forced flush is also the legacy CustomEffect compatibility boundary. The old
-        // activator always replaced the input with a Bounds-sized local buffer before callback
-        // entry, so renderer-owned aprons must not leak into existing code.
-        bool legacyCompatibilityBoundary = force;
+        // A forced flush without pending Skia work is the legacy CustomEffect compatibility
+        // boundary. A forced materialization of a Skia chain must retain its canonical device
+        // footprint; otherwise unchanged color effects lose edge coverage at fractional scales.
+        bool legacyCompatibilityBoundary = force && !hasFilter;
 
         var flushTargets = new Dictionary<EffectTarget, FlushTarget>();
         // Re-clamp against the physical runtime footprint. A retained raster can be wider than

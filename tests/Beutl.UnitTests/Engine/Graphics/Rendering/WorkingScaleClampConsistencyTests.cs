@@ -176,7 +176,7 @@ public class WorkingScaleClampConsistencyTests
     [TestCase(0.5f, false)]
     [TestCase(1f, true)]
     [TestCase(0.5f, true)]
-    public void ForcedFlush_ApronBackedInput_UsesCanonicalLegacyCustomFootprint(
+    public void ForcedFlush_ApronBackedInput_UsesBoundaryAppropriateFootprint(
         float density,
         bool hasFilter)
     {
@@ -216,21 +216,23 @@ public class WorkingScaleClampConsistencyTests
             activator.Flush();
 
             EffectTarget actual = activator.CurrentTargets.Single();
+            PixelRect expectedDeviceBounds = hasFilter ? apron : canonical;
             Assert.Multiple(() =>
             {
                 Assert.That(actual, Is.Not.SameAs(input));
                 Assert.That(actual.Scale, Is.EqualTo(EffectiveScale.At(density)));
-                Assert.That(actual.DeviceBounds, Is.EqualTo(canonical));
-                Assert.That(actual.RasterBounds, Is.EqualTo(bounds));
-                Assert.That(actual.RenderTarget!.Width, Is.EqualTo(canonical.Width));
-                Assert.That(actual.RenderTarget.Height, Is.EqualTo(canonical.Height));
+                Assert.That(actual.DeviceBounds, Is.EqualTo(expectedDeviceBounds));
+                Assert.That(actual.RasterBounds, Is.EqualTo(expectedDeviceBounds.ToRect(density)));
+                Assert.That(actual.RenderTarget!.Width, Is.EqualTo(expectedDeviceBounds.Width));
+                Assert.That(actual.RenderTarget.Height, Is.EqualTo(expectedDeviceBounds.Height));
+                Assert.That(actual.PreserveLegacyRasterPlacement, Is.EqualTo(!hasFilter));
             });
         });
     }
 
     [TestCase(1f)]
     [TestCase(0.5f)]
-    public void ForcedFlush_CanonicalInput_ReusesTarget(float density)
+    public void ForcedFlush_CanonicalInput_ReplacesWithLegacyCustomTarget(float density)
     {
         VulkanTestEnvironment.EnsureAvailable();
         VulkanTestEnvironment.InvokeOnRenderThread(() =>
@@ -255,7 +257,16 @@ public class WorkingScaleClampConsistencyTests
 
             activator.Flush();
 
-            Assert.That(activator.CurrentTargets.Single(), Is.SameAs(input));
+            EffectTarget actual = activator.CurrentTargets.Single();
+            Assert.Multiple(() =>
+            {
+                Assert.That(actual, Is.Not.SameAs(input));
+                Assert.That(actual.PreserveLegacyRasterPlacement, Is.True);
+                Assert.That(actual.Bounds, Is.EqualTo(bounds));
+                Assert.That(actual.Scale, Is.EqualTo(EffectiveScale.At(density)));
+                Assert.That(actual.RenderTarget!.Width, Is.EqualTo(canonical.Width));
+                Assert.That(actual.RenderTarget.Height, Is.EqualTo(canonical.Height));
+            });
         });
     }
 
