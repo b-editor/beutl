@@ -27,7 +27,7 @@ outside the evidence directory.
 
 ## Paired visual evidence (passed)
 
-- Target: legacy renderer regenerated from `43a38e665d9bf52548161a3917e748bd1457ff55`; feature: `a4ac545a66c1602c24d31200ab4674553cec6a79`.
+- Target: legacy renderer regenerated from `43a38e665d9bf52548161a3917e748bd1457ff55`; feature: `0333344de919901b239764addde91d8bec7e8582`.
 - Environment fingerprint gate: exact match required and satisfied before any parity metric.
 - Result: **all 44 scenes passed** — thresholds SSIM ≥ 0.99,
   linear-RGB MAE ≤ 0.02, alpha MAE ≤ 0.02, and the 16×16 minimum-window
@@ -45,8 +45,8 @@ outside the evidence directory.
   `PreviewAllocationDrops` counter); the recorded outcomes now match the baseline
   (`dropped-output-without-throw` / `threw`).
 - Raw result: [`paired-visual-result.json`](paired-visual-result.json)
-  (SHA-256 `15ce3111e5cdf05dd295c17f75b40f2fb271a8eeb028c90c27238dee6a27c486`);
-  run-regenerated target manifest `a7c9845f4e4368c22af53b53b6c0015fa4b801ac2b09e28ab7e5c567d2969277`, feature manifest `cb074e3b60961e08f5047d031bbf8ed3d5115c7274d684d8ac4772f2bddb4fe1`.
+  (SHA-256 `8da67e2864fb577605903dba0c0e143f727300afbc57526af3914dc6f534b01b`);
+  run-regenerated target manifest `a7c9845f4e4368c22af53b53b6c0015fa4b801ac2b09e28ab7e5c567d2969277`, feature manifest `00457c360cdc7a05f92347b45a82d55652e033fb763f508701bb6d9ead943044`.
 
 ### Paired exact-fingerprint AA edge bound
 
@@ -214,7 +214,7 @@ methodology are unchanged.
 | `paired-benchmark-run/feature/raw-benchmark-stdout.txt` | `a174be2deafef47e6c0b355d292d34432a974c74cfa95c02e29616e786c2c283` |
 | `paired-benchmark-run/manifest.json` | `839eaf34e4fa5824a03333fa50418259ea3fca302a044eb767110afb6b676b1e` |
 
-Visual evidence regenerated 2026-08-01T03:02:24Z on the fingerprinted machine
+Visual evidence regenerated 2026-08-01T04:42:55Z on the fingerprinted machine
 (benchmark run recorded 2026-07-31T18:35:08Z on the same machine). The paired
 benchmark analyzer has since been tightened to require the exact frozen BenchmarkDotNet
 job (`Monitoring`, warmup 3, iterations 15, launch/invocation/unroll 1) and matching
