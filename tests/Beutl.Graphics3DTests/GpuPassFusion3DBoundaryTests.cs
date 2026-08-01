@@ -301,6 +301,10 @@ public sealed class GpuPassFusion3DBoundaryTests
             {
                 float texturedValue = (float)BitConverter.UInt16BitsToHalf(textured[offset + channel]);
                 float controlValue = (float)BitConverter.UInt16BitsToHalf(control[offset + channel]);
+                Assert.That(float.IsFinite(texturedValue), Is.True,
+                    $"Textured output contains a non-finite value at component {offset + channel}.");
+                Assert.That(float.IsFinite(controlValue), Is.True,
+                    $"Control output contains a non-finite value at component {offset + channel}.");
                 maximum = Math.Max(maximum, Math.Abs(texturedValue - controlValue));
             }
         }

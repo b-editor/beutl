@@ -2,6 +2,8 @@
 using System.Security.Cryptography;
 using System.Text.Json;
 
+using Beutl.Graphics;
+
 namespace Beutl.Benchmarks.Rendering;
 
 internal static class PairedBenchmarkAnalyzer
@@ -227,9 +229,15 @@ internal static class PairedBenchmarkAnalyzer
             using JsonDocument objectBounds = JsonDocument.Parse(
                 "{\"x\":0,\"y\":0,\"width\":384,\"height\":216}");
             using JsonDocument emptyBounds = JsonDocument.Parse("\"\"");
+            using JsonDocument nonFiniteBounds = JsonDocument.Parse("\"NaN, NaN, NaN, NaN\"");
+            using JsonDocument zeroBounds = JsonDocument.Parse("\"0, 0, 0, 0\"");
+            using JsonDocument unrelatedBounds = JsonDocument.Parse("{\"left\":0,\"top\":0,\"right\":384,\"bottom\":216}");
             if (!CounterRun.IsValidOutputBounds(stringBounds.RootElement)
                 || !CounterRun.IsValidOutputBounds(objectBounds.RootElement)
-                || CounterRun.IsValidOutputBounds(emptyBounds.RootElement))
+                || CounterRun.IsValidOutputBounds(emptyBounds.RootElement)
+                || CounterRun.IsValidOutputBounds(nonFiniteBounds.RootElement)
+                || CounterRun.IsValidOutputBounds(zeroBounds.RootElement)
+                || CounterRun.IsValidOutputBounds(unrelatedBounds.RootElement))
             {
                 throw new InvalidOperationException(
                     "The output-bounds counter contract did not accept supported serialized forms.");
@@ -1023,14 +1031,14 @@ internal static class PairedBenchmarkAnalyzer
             string outputSha256 = ReadHexOutput(root, "outputSha256", 64, path);
             string outputChecksum = ReadHexOutput(root, "outputChecksum", 16, path);
             if (!root.TryGetProperty("outputBounds", out JsonElement outputBounds)
-                || !IsValidOutputBounds(outputBounds))
+                || !TryParseOutputBounds(outputBounds, out Rect parsedOutputBounds))
             {
                 throw new InvalidDataException($"Counter output field 'outputBounds' is invalid: {path}");
             }
             string measuredOutputSha256 = ReadHexOutput(root, "measuredOutputSha256", 64, path);
             string measuredOutputChecksum = ReadHexOutput(root, "measuredOutputChecksum", 16, path);
             if (!root.TryGetProperty("measuredOutputBounds", out JsonElement measuredOutputBounds)
-                || !IsValidOutputBounds(measuredOutputBounds))
+                || !TryParseOutputBounds(measuredOutputBounds, out Rect parsedMeasuredOutputBounds))
             {
                 throw new InvalidDataException(
                     $"Counter output field 'measuredOutputBounds' is invalid: {path}");
@@ -1046,7 +1054,9 @@ internal static class PairedBenchmarkAnalyzer
                 16,
                 path);
             if (!root.TryGetProperty("expectedMeasuredOutputBounds", out JsonElement expectedMeasuredOutputBounds)
-                || !IsValidOutputBounds(expectedMeasuredOutputBounds))
+                || !TryParseOutputBounds(
+                    expectedMeasuredOutputBounds,
+                    out Rect parsedExpectedMeasuredOutputBounds))
             {
                 throw new InvalidDataException(
                     $"Counter output field 'expectedMeasuredOutputBounds' is invalid: {path}");
@@ -1075,6 +1085,16 @@ internal static class PairedBenchmarkAnalyzer
             {
                 throw new InvalidDataException($"Counter dimensions or warm-up count are invalid: {path}");
             }
+            if (parsedOutputBounds.Width != width
+                || parsedOutputBounds.Height != height
+                || parsedMeasuredOutputBounds.Width != measuredWidth
+                || parsedMeasuredOutputBounds.Height != measuredHeight
+                || parsedExpectedMeasuredOutputBounds.Width != expectedMeasuredWidth
+                || parsedExpectedMeasuredOutputBounds.Height != expectedMeasuredHeight)
+            {
+                throw new InvalidDataException(
+                    $"Counter output bounds do not match their bitmap dimensions: {path}");
+            }
             return new CounterCase(
                 root.Clone(),
                 contract,
@@ -1099,12 +1119,53 @@ internal static class PairedBenchmarkAnalyzer
         }
 
         internal static bool IsValidOutputBounds(JsonElement outputBounds)
-            => outputBounds.ValueKind switch
+            => TryParseOutputBounds(outputBounds, out _);
+
+        private static bool TryParseOutputBounds(JsonElement outputBounds, out Rect bounds)
+        {
+            bounds = default;
+            if (outputBounds.ValueKind == JsonValueKind.String)
             {
-                JsonValueKind.String => !string.IsNullOrWhiteSpace(outputBounds.GetString()),
-                JsonValueKind.Object => outputBounds.EnumerateObject().Any(),
-                _ => false,
-            };
+                if (!Rect.TryParse(outputBounds.GetString(), out bounds))
+                    return false;
+            }
+            else if (outputBounds.ValueKind == JsonValueKind.Object)
+            {
+                var values = new Dictionary<string, float>(StringComparer.OrdinalIgnoreCase);
+                foreach (JsonProperty property in outputBounds.EnumerateObject())
+                {
+                    if (property.Value.ValueKind != JsonValueKind.Number
+                        || !property.Value.TryGetSingle(out float value)
+                        || !float.IsFinite(value)
+                        || !values.TryAdd(property.Name, value))
+                    {
+                        return false;
+                    }
+                }
+
+                if (values.Count != 4
+                    || !values.TryGetValue("x", out float x)
+                    || !values.TryGetValue("y", out float y)
+                    || !values.TryGetValue("width", out float width)
+                    || !values.TryGetValue("height", out float height))
+                {
+                    return false;
+                }
+
+                bounds = new Rect(x, y, width, height);
+            }
+            else
+            {
+                return false;
+            }
+
+            return float.IsFinite(bounds.X)
+                   && float.IsFinite(bounds.Y)
+                   && float.IsFinite(bounds.Width)
+                   && float.IsFinite(bounds.Height)
+                   && bounds.Width > 0
+                   && bounds.Height > 0;
+        }
 
         private static string ReadHexOutput(JsonElement root, string name, int length, string path)
         {

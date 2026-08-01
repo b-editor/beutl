@@ -25,6 +25,18 @@ baseline warm-up before creating baseline A, feature, and baseline B artifacts. 
 automates the methodology used for the recorded run; discarded artifacts remain
 outside the evidence directory.
 
+The current post-run output-oracle hardening is anchored separately from that frozen
+run provenance:
+
+| Current source | SHA-256 |
+|---|---|
+| `tests/Beutl.Benchmarks/Rendering/RenderPipelineBenchmarks.cs` | `4c523efff0b1cf22f24c26799482dcfb6ee903b1e6b94f9fb1df28bf487ad888` |
+| `tests/Beutl.Benchmarks/Rendering/PairedBenchmarkAnalyzer.cs` | `93bf078defe56a0e0eaefb81b55d85a30111d6d17e68e6ced0d1f14dd816f406` |
+| `target-benchmark-harness/TargetRenderPipelineBenchmarks.cs` | `4384370e7861f90078f386024432e6559411388807114a64fca131bc1d124b17` |
+
+These hashes identify the current stricter implementation; they do not replace the
+historical harness hashes authenticated by the unchanged committed benchmark manifest.
+
 The current immutable trust-chain anchors are target visual manifest
 `754d5cc0ecb9d2c1d4220be528569d08d419e53409c6958313916f6781157c1c` and
 target benchmark manifest
@@ -97,9 +109,9 @@ documented fallback path (T122).
 
 ## Paired persistent-lifetime benchmark
 
-Methodology (frozen; revised after review to keep the timed path free of counter
-construction — counters and output hashes now come from untimed replays verified
-against the timed run's token): BenchmarkDotNet Monitoring strategy, warmup 3 +
+Recorded-run methodology (frozen; revised after review to keep the timed path free of
+counter construction — counters and output hashes came from untimed replays verified
+against the timed run's cheap token): BenchmarkDotNet Monitoring strategy, warmup 3 +
 5 setup frames, 15 iterations × 1 invocation, three runs
 (baseline-A → feature → baseline-B) preceded by one discarded warm-up pass,
 bootstrap 100,000 iterations, seed 20040719, confidence 0.95. The analyzer verifies
@@ -107,6 +119,11 @@ every case's outputs across the baseline repeats, the feature's setup/measured
 self-consistency, and exact no-effect-control equality; effect workloads are
 intentionally not byte-identical across pipelines (FR-019), so cross-pipeline
 equivalence is proven by the paired visual evidence.
+The current feature and starting-SHA harnesses strengthen that boundary without adding
+full-image hashing to the timed interval: cleanup hashes the retained final timed frame
+and requires exact bounds, dimensions, checksum, and SHA-256 equality with the untimed
+replay. The committed run predates this additional oracle, so its manifest and numeric
+results remain unchanged and continue to record the harness hashes that produced them.
 Recorded run committed under
 [`paired-benchmark-run/`](paired-benchmark-run/) (manifest SHA-256
 `839eaf34e4fa5824a03333fa50418259ea3fca302a044eb767110afb6b676b1e`), feature code SHA `912ddda0484d0b8cde3c63b60deefa491a0c596c`.
@@ -115,7 +132,7 @@ The two acceptance lanes are intentionally revision-scoped rather than revision-
 The performance result remains frozen at feature revision
 `912ddda0484d0b8cde3c63b60deefa491a0c596c`; its numeric ratios apply only to that
 revision. The visual oracle is regenerated after approved hardening rounds and currently
-validates semantic behavior at `0333344de919901b239764addde91d8bec7e8582`.
+validates semantic behavior at `180809f90f04f989be3964fb35ba69fcc21527ba`.
 Later visual evidence is a semantic no-regression gate for those hardening changes; it does
 not reattribute the frozen benchmark ratios to the later revision, and the benchmark run is
 not regenerated merely to advance the visual revision.
@@ -145,6 +162,13 @@ Rule: `bootstrap-95%-ci-for-feature-over-pooled-stable-baseline-a-and-b-median-r
 | `StructuralToggle` | 0.3522 | [0.3413, 0.3819] |
 
 ### Control / barrier and baseline repeat-stability gates — environment-limited
+
+The committed manifest plainly records `baselineRepeatStable=false`,
+`controlBarrierAcceptancePassed=false`, and consequently
+`overallAcceptancePassed=false`. These are environment-limited failures, not green
+acceptance claims: the tables below show the interactive-host drift that caused each
+failed flag. The documented fully-green path is an otherwise idle cold-boot rerun of
+the unchanged gates and sampling procedure.
 
 Rules: control/barrier requires the feature/baseline CI upper bound to stay within a
 case tolerance derived from the baseline repeat factor; repeat stability requires,

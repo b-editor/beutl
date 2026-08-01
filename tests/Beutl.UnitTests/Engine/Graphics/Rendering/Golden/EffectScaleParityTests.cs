@@ -192,11 +192,11 @@ public class EffectScaleParityTests
             e.Origin.CurrentValue = new RelativePoint(50, 30, RelativeUnit.Absolute);
             return e;
         }));
-        foreach (TestCaseData testCase in DrawableMapEffects())
+        foreach (TestCaseData testCase in DisplacementMapEffects())
             yield return testCase;
     }
 
-    public static IEnumerable<TestCaseData> DrawableMapEffects()
+    public static IEnumerable<TestCaseData> DisplacementMapEffects()
     {
         yield return new TestCaseData(
             "DisplacementMap-DrawableMap",
@@ -240,8 +240,8 @@ public class EffectScaleParityTests
         return effect;
     }
 
-    [TestCaseSource(nameof(DrawableMapEffects))]
-    public void DrawableMapEffect_ChangesIdentityOutput(string name, Func<FilterEffect> makeEffect)
+    [TestCaseSource(nameof(DisplacementMapEffects))]
+    public void DisplacementMapEffect_ChangesIdentityOutput(string name, Func<FilterEffect> makeEffect)
     {
         VulkanTestEnvironment.EnsureAvailable();
         // The recorded pipeline does not lower effect-owned DrawableBrush content yet; the

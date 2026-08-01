@@ -20,6 +20,7 @@ public sealed class StructuralAndProgramCacheTests
     {
         using var source = new CpuRenderTarget(8, 8);
         source.Value.Canvas.Clear(new SKColor(160, 96, 32, 224));
+        using Bitmap sourceBitmap = source.Snapshot();
         using var node = new ExecutableParameterShaderNode(source);
         using var renderer = new RenderNodeRenderer(
             node,
@@ -49,6 +50,7 @@ public sealed class StructuralAndProgramCacheTests
         }
 
         StructuralPlanCacheStatistics statistics = renderer.StructuralPlanCacheStatistics;
+        double maximumFinalDifference = MaximumScaledDifference(sourceBitmap, finalPixels!, 0.99f);
         Assert.Multiple(() =>
         {
             Assert.That(statistics.Compilations, Is.EqualTo(1));
@@ -63,7 +65,24 @@ public sealed class StructuralAndProgramCacheTests
                 "a warmed plan and program must bind the current frame's direct uniform value");
             Assert.That(finalPixels, Has.Some.Not.Zero,
                 "the final animated frame must produce a non-vacuous result");
+            Assert.That(maximumFinalDifference, Is.LessThan(0.002),
+                "the final warmed frame must bind the authored 0.99 direct-uniform value");
         });
+    }
+
+    private static double MaximumScaledDifference(Bitmap source, ushort[] actual, float scale)
+    {
+        ReadOnlySpan<ushort> expected = source.GetPixelSpan<ushort>();
+        Assert.That(actual, Has.Length.EqualTo(expected.Length));
+        double maximum = 0;
+        for (int index = 0; index < actual.Length; index++)
+        {
+            float sourceValue = (float)BitConverter.UInt16BitsToHalf(expected[index]);
+            float actualValue = (float)BitConverter.UInt16BitsToHalf(actual[index]);
+            maximum = Math.Max(maximum, Math.Abs(actualValue - (sourceValue * scale)));
+        }
+
+        return maximum;
     }
 
     [Test]

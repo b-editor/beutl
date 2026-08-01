@@ -84,6 +84,35 @@ public sealed class RendererWideRecordingTests
 
     [Test]
     [NonParallelizable]
+    public void ProductionFrameRenderer_DisposedFromOwnerThread_ReleasesSurfaceOnRenderThread()
+    {
+        var surface = new DisposalThreadProbeRenderTarget(8, 8);
+        var renderer = new Renderer(
+            width: 8,
+            height: 8,
+            renderScale: 1,
+            maxWorkingScale: 1,
+            diagnostics: null,
+            surface: surface);
+        var frame = new CompositionFrame(
+            ImmutableArray<EngineObject.Resource>.Empty,
+            new TimeRange(TimeSpan.Zero, TimeSpan.FromSeconds(1)),
+            new PixelSize(8, 8));
+        RenderThread.Dispatcher.Invoke(() => renderer.Render(frame));
+
+        Assert.That(RenderThread.Dispatcher.CheckAccess(), Is.False,
+            "the fixture must dispose from the renderer owner's non-render thread");
+        renderer.Dispose();
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(surface.DisposeCount, Is.EqualTo(1));
+            Assert.That(surface.DisposedOnRenderThread, Is.True);
+        });
+    }
+
+    [Test]
+    [NonParallelizable]
     [Category("GpuPassFusionGpu")]
     public void CacheMutations_FromCallerThread_DisposeCachedTreesOnRenderThread()
     {
@@ -598,6 +627,33 @@ public sealed class RendererWideRecordingTests
                 SKColorSpace.CreateSrgbLinear())),
             width,
             height);
+
+    private sealed class DisposalThreadProbeRenderTarget(int width, int height)
+        : RenderTarget(
+            SKSurface.Create(new SKImageInfo(
+                width,
+                height,
+                SKColorType.RgbaF16,
+                SKAlphaType.Premul,
+                SKColorSpace.CreateSrgbLinear())),
+            width,
+            height)
+    {
+        public int DisposeCount { get; private set; }
+
+        public bool DisposedOnRenderThread { get; private set; }
+
+        protected override void Dispose(bool disposing)
+        {
+            if (disposing && !IsDisposed)
+            {
+                DisposeCount++;
+                DisposedOnRenderThread = RenderThread.Dispatcher.CheckAccess();
+            }
+
+            base.Dispose(disposing);
+        }
+    }
 }
 
 internal sealed class RendererWideTreeState(int count)

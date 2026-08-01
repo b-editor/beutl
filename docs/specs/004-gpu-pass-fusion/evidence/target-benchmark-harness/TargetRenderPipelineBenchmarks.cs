@@ -85,6 +85,8 @@ internal sealed class TargetRenderPipelineBenchmarkSession : IDisposable
     private readonly TargetEvidenceFingerprint _fingerprint;
     private int _nextFrame;
     private TargetObservedFrame? _lastSetupFrame;
+    private TargetObservedFrame? _lastMeasuredFrame;
+    private Bitmap? _lastMeasuredBitmap;
     private int _lastMeasuredFrameIndex = -1;
     private ulong _lastMeasuredToken;
     private bool _disposed;
@@ -156,7 +158,10 @@ internal sealed class TargetRenderPipelineBenchmarkSession : IDisposable
     {
         ThrowIfDisposed();
         int frameIndex = _nextFrame++;
-        TargetObservedFrame frame = RenderAndObserve(frameIndex, verifyOutput: false);
+        _lastMeasuredBitmap?.Dispose();
+        _lastMeasuredBitmap = null;
+        TargetObservedFrame frame = RenderAndObserve(frameIndex, verifyOutput: false, retainBitmap: true);
+        _lastMeasuredFrame = frame;
         _lastMeasuredFrameIndex = frameIndex;
         _lastMeasuredToken = frame.Token;
         return _lastMeasuredToken;
@@ -169,22 +174,15 @@ internal sealed class TargetRenderPipelineBenchmarkSession : IDisposable
             ?? throw new InvalidOperationException("Target benchmark setup verification did not complete.");
         if (_lastMeasuredFrameIndex < 0)
             throw new InvalidOperationException("Target benchmark completed without a measured request.");
+        TargetObservedFrame timedMeasured = CompleteObservation(
+            _lastMeasuredFrame
+            ?? throw new InvalidOperationException("The final measured frame metadata was not retained."),
+            _lastMeasuredBitmap
+            ?? throw new InvalidOperationException("The final measured bitmap was not retained for cleanup."));
         TargetObservedFrame measured = RenderAndObserve(_lastMeasuredFrameIndex, verifyOutput: true);
-        if (measured.Token != _lastMeasuredToken)
-        {
-            throw new InvalidOperationException(
-                "The untimed target replay did not reproduce the final measured output token.");
-        }
+        AssertMatchingOutput(timedMeasured, measured, "timed target output and untimed replay");
         TargetObservedFrame expectedMeasured = RenderAndObserve(_lastMeasuredFrameIndex, verifyOutput: true);
-        if (measured.Bounds != expectedMeasured.Bounds
-            || measured.Width != expectedMeasured.Width
-            || measured.Height != expectedMeasured.Height
-            || measured.Checksum != expectedMeasured.Checksum
-            || !string.Equals(measured.Sha256, expectedMeasured.Sha256, StringComparison.Ordinal))
-        {
-            throw new InvalidOperationException(
-                "Independent untimed target replays did not reproduce the final measured output.");
-        }
+        AssertMatchingOutput(measured, expectedMeasured, "independent untimed target replays");
         SortedDictionary<string, long> setupCounters = setup.RequestCounters
             ?? throw new InvalidOperationException("Target benchmark setup counters are missing.");
         SortedDictionary<string, long> measuredCounters = measured.RequestCounters
@@ -202,11 +200,11 @@ internal sealed class TargetRenderPipelineBenchmarkSession : IDisposable
             OutputSha256 = setup.Sha256,
             OutputChecksum = setup.Checksum.ToString("x16"),
             OutputBounds = setup.Bounds,
-            MeasuredOutputSha256 = measured.Sha256,
-            MeasuredOutputChecksum = measured.Checksum.ToString("x16"),
-            MeasuredOutputBounds = measured.Bounds,
-            MeasuredWidth = measured.Width,
-            MeasuredHeight = measured.Height,
+            MeasuredOutputSha256 = timedMeasured.Sha256,
+            MeasuredOutputChecksum = timedMeasured.Checksum.ToString("x16"),
+            MeasuredOutputBounds = timedMeasured.Bounds,
+            MeasuredWidth = timedMeasured.Width,
+            MeasuredHeight = timedMeasured.Height,
             ExpectedMeasuredOutputSha256 = expectedMeasured.Sha256,
             ExpectedMeasuredOutputChecksum = expectedMeasured.Checksum.ToString("x16"),
             ExpectedMeasuredOutputBounds = expectedMeasured.Bounds,
@@ -238,11 +236,16 @@ internal sealed class TargetRenderPipelineBenchmarkSession : IDisposable
     {
         if (_disposed)
             return;
+        _lastMeasuredBitmap?.Dispose();
+        _lastMeasuredBitmap = null;
         _fixture.Dispose();
         _disposed = true;
     }
 
-    private TargetObservedFrame RenderAndObserve(int frameIndex, bool verifyOutput)
+    private TargetObservedFrame RenderAndObserve(
+        int frameIndex,
+        bool verifyOutput,
+        bool retainBitmap = false)
     {
         _fixture.ApplyFrameState(_scene.GetFrameState(frameIndex));
         RenderNodeOperation[] operations = _processor.PullToRoot();
@@ -279,34 +282,87 @@ internal sealed class TargetRenderPipelineBenchmarkSession : IDisposable
             }
         }
 
-        using Bitmap bitmap = target.Snapshot();
-        Span<ushort> components = bitmap.GetPixelSpan<ushort>();
-        ulong token = components.Length == 0
-            ? 0
-            : ((ulong)components[0] << 48)
-              | ((ulong)components[components.Length / 3] << 32)
-              | ((ulong)components[components.Length * 2 / 3] << 16)
-              | components[^1];
-        if (!verifyOutput)
-            return new TargetObservedFrame(bounds, bitmap.Width, bitmap.Height, token, 0, string.Empty, 0, null);
+        Bitmap bitmap = target.Snapshot();
+        try
+        {
+            Span<ushort> components = bitmap.GetPixelSpan<ushort>();
+            ulong token = components.Length == 0
+                ? 0
+                : ((ulong)components[0] << 48)
+                  | ((ulong)components[components.Length / 3] << 32)
+                  | ((ulong)components[components.Length * 2 / 3] << 16)
+                  | components[^1];
+            var frame = new TargetObservedFrame(
+                bounds,
+                bitmap.Width,
+                bitmap.Height,
+                token,
+                0,
+                string.Empty,
+                0,
+                null);
+            if (retainBitmap)
+            {
+                _lastMeasuredBitmap = bitmap;
+                bitmap = null!;
+            }
 
-        byte[] bytes = bitmap.GetPixelSpan().ToArray();
+            if (!verifyOutput)
+                return frame;
+
+            var counters = new SortedDictionary<string, long>(StringComparer.Ordinal)
+            {
+                ["CompletedRequests"] = 1,
+                ["LegacyOperationExecutions"] = operations.Length,
+                ["SemanticStages"] = _scene.SemanticStageCount,
+                ["TopLevelDrawables"] = _scene.TopLevelDrawableCount,
+                ["TargetDependencies"] = _scene.HasTargetDependencies ? _scene.TopLevelDrawableCount : 0,
+                ["RenderCacheHits"] = _scene.HasStaticPrefixCache ? 1 : 0,
+                ["Failures"] = 0,
+            };
+            return CompleteObservation(frame, bitmap, counters);
+        }
+        finally
+        {
+            bitmap?.Dispose();
+        }
+    }
+
+    private static TargetObservedFrame CompleteObservation(
+        TargetObservedFrame frame,
+        Bitmap bitmap,
+        SortedDictionary<string, long>? counters = null)
+    {
+        ReadOnlySpan<byte> bytes = bitmap.GetPixelSpan();
         string sha256 = Convert.ToHexString(SHA256.HashData(bytes)).ToLowerInvariant();
+        ReadOnlySpan<ushort> components = bitmap.GetPixelSpan<ushort>();
         ulong checksum = CalculateChecksum(components);
         double energy = 0;
         for (int index = 0; index < components.Length; index += 17)
             energy += Math.Abs((float)BitConverter.UInt16BitsToHalf(components[index]));
-        var counters = new SortedDictionary<string, long>(StringComparer.Ordinal)
+        return frame with
         {
-            ["CompletedRequests"] = 1,
-            ["LegacyOperationExecutions"] = operations.Length,
-            ["SemanticStages"] = _scene.SemanticStageCount,
-            ["TopLevelDrawables"] = _scene.TopLevelDrawableCount,
-            ["TargetDependencies"] = _scene.HasTargetDependencies ? _scene.TopLevelDrawableCount : 0,
-            ["RenderCacheHits"] = _scene.HasStaticPrefixCache ? 1 : 0,
-            ["Failures"] = 0,
+            Checksum = checksum,
+            Sha256 = sha256,
+            Energy = energy,
+            RequestCounters = counters,
         };
-        return new TargetObservedFrame(bounds, bitmap.Width, bitmap.Height, token, checksum, sha256, energy, counters);
+    }
+
+    private static void AssertMatchingOutput(
+        TargetObservedFrame first,
+        TargetObservedFrame second,
+        string description)
+    {
+        if (first.Bounds != second.Bounds
+            || first.Width != second.Width
+            || first.Height != second.Height
+            || first.Token != second.Token
+            || first.Checksum != second.Checksum
+            || !string.Equals(first.Sha256, second.Sha256, StringComparison.Ordinal))
+        {
+            throw new InvalidOperationException($"The {description} did not reproduce the same complete output.");
+        }
     }
 
     private static ulong CalculateChecksum(ReadOnlySpan<ushort> components)

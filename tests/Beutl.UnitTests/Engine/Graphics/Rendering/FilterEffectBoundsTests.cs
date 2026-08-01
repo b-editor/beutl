@@ -143,6 +143,18 @@ public sealed class FilterEffectBoundsTests
     }
 
     [Test]
+    public void SplitEffect_ReturnsEmptyWhenRuntimeTileSizeRoundsBelowOnePixel()
+    {
+        var effect = new SplitEffect
+        {
+            HorizontalDivisions = { CurrentValue = 3 },
+            VerticalDivisions = { CurrentValue = 2 },
+        };
+
+        Assert.That(ApplyBounds(effect, new Rect(4, 7, 2, 1)), Is.EqualTo(Rect.Empty));
+    }
+
+    [Test]
     public void TransformEffect_DeclaredBoundsContainSeparatedRuntimeTargets()
     {
         var inputBounds = new Rect(0, 0, 100, 10);
@@ -259,10 +271,10 @@ public sealed class FilterEffectBoundsTests
         AssertRectContains(context.Bounds, activator.CurrentTargets.CalculateBounds(), 0.001f);
     }
 
-    private static Rect ApplyBounds(FilterEffect effect)
+    private static Rect ApplyBounds(FilterEffect effect, Rect? inputBounds = null)
     {
         using FilterEffect.Resource resource = effect.ToResource(CompositionContext.Default);
-        using var context = new FilterEffectContext(s_inputBounds);
+        using var context = new FilterEffectContext(inputBounds ?? s_inputBounds);
         effect.ApplyTo(context, resource);
         return context.Bounds;
     }

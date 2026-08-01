@@ -752,7 +752,21 @@ public sealed class RenderNodeContext
             hitTest);
     }
 
-    internal RenderFragmentHandle OwningTargetLayer(
+    /// <summary>
+    /// Records an off-screen layer whose finite domain is resolved from its owning target after surrounding
+    /// target scopes are known.
+    /// </summary>
+    /// <param name="inputs">A non-null ordered list of non-null fragments replayed inside the layer.</param>
+    /// <returns>
+    /// A new transaction-scoped single-value fragment. The result is not published automatically and remains
+    /// symbolic until graph-wide target-domain resolution.
+    /// </returns>
+    /// <remarks>
+    /// Use this form when a mixed painter sequence must become value-eligible but no finite domain is available
+    /// during recording. Graph finalization rejects the fragment unless an enclosing scope or request supplies a
+    /// finite owning target domain.
+    /// </remarks>
+    public RenderFragmentHandle OwningTargetLayer(
         IReadOnlyList<RenderFragmentHandle> inputs)
     {
         NodeRecordingTransaction transaction = GetTransaction();

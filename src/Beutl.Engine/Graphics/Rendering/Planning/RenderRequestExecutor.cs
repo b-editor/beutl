@@ -2115,6 +2115,7 @@ internal sealed class RenderRequestExecutor
             OpaqueRenderDescription description = payload.Description;
             var flattened = new List<CompatibilityRenderValue>();
             var inputReadbacks = new List<bool>();
+            var inputRanges = new List<RenderExecutionInputRange>(fragment.Inputs.Length);
             EffectiveScale outputSupply = requestedScale
                 ?? (!fragment.EffectiveScale.IsUnbounded
                     ? fragment.EffectiveScale
@@ -2128,6 +2129,7 @@ internal sealed class RenderRequestExecutor
                     input.EffectiveScale.IsUnbounded ? outputSupply : null);
                 RenderInputReadback readback = payload.InputReadbacks[inputIndex];
                 readback.ValidateRuntimeCount(input.ValueCardinality, inputValues.Count);
+                inputRanges.Add(new RenderExecutionInputRange(flattened.Count, inputValues.Count));
                 for (int valueIndex = 0; valueIndex < inputValues.Count; valueIndex++)
                 {
                     flattened.Add(inputValues[valueIndex]);
@@ -2156,6 +2158,7 @@ internal sealed class RenderRequestExecutor
                             description,
                             [input],
                             [inputReadbacks[inputIndex]],
+                            [new RenderExecutionInputRange(0, 1)],
                             outputBounds,
                             outputScale,
                             description.ValueCardinality,
@@ -2181,6 +2184,7 @@ internal sealed class RenderRequestExecutor
                     description,
                     flattened,
                     inputReadbacks,
+                    inputRanges,
                     declaredBounds,
                     declaredScale,
                     description.ValueCardinality,
@@ -3143,6 +3147,7 @@ internal sealed class RenderRequestExecutor
             OpaqueRenderDescription description,
             IReadOnlyList<CompatibilityRenderValue> inputs,
             IReadOnlyList<bool> inputReadbacks,
+            IReadOnlyList<RenderExecutionInputRange> inputRanges,
             Rect outputBounds,
             EffectiveScale declaredScale,
             RenderValueCardinality cardinality,
@@ -3211,6 +3216,7 @@ internal sealed class RenderRequestExecutor
                         session = new OpaqueRenderSession(
                             token,
                             executionInputs,
+                            inputRanges,
                             outputBounds,
                             requiredRegion,
                             PixelRect.FromRect(
@@ -3346,6 +3352,7 @@ internal sealed class RenderRequestExecutor
             TargetCommandDescription description = payload.Description;
             var values = new List<CompatibilityRenderValue>();
             var inputReadbacks = new List<bool>();
+            var inputRanges = new List<RenderExecutionInputRange>(fragment.Inputs.Length);
             for (int inputIndex = 0; inputIndex < fragment.Inputs.Length; inputIndex++)
             {
                 IReadOnlyList<CompatibilityRenderValue> inputValues = Materialize(
@@ -3355,6 +3362,7 @@ internal sealed class RenderRequestExecutor
                 readback.ValidateRuntimeCount(
                     fragment.Inputs[inputIndex].ValueCardinality,
                     inputValues.Count);
+                inputRanges.Add(new RenderExecutionInputRange(values.Count, inputValues.Count));
                 for (int valueIndex = 0; valueIndex < inputValues.Count; valueIndex++)
                 {
                     values.Add(inputValues[valueIndex]);
@@ -3403,6 +3411,7 @@ internal sealed class RenderRequestExecutor
                         var session = new TargetCommandSession(
                             token,
                             inputs,
+                            inputRanges,
                             affectedBounds,
                             requiredRegion,
                             _options.Intent,

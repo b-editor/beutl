@@ -43,6 +43,8 @@ public sealed class ContributeValuesCacheHitExecutionTests
         {
             Assert.That(miss.Bounds, Is.EqualTo(s_bounds));
             Assert.That(hit.Bounds, Is.EqualTo(s_bounds));
+            Assert.That(producer.ExecuteCount, Is.EqualTo(1),
+                "the ContributeValues cache hit must prune the producer callback");
             Assert.That(diagnostics.Latest[RenderPipelineCounter.RenderCacheHits], Is.EqualTo(1));
         });
     }
@@ -50,8 +52,9 @@ public sealed class ContributeValuesCacheHitExecutionTests
     [Test]
     public void OpaqueExpandCache_PreservesIndependentOutputDensities()
     {
-        using var node = new IndependentDensityProducerNode();
-        node.Cache.ReportRenderCount(RenderNodeCache.Count);
+        var producer = new IndependentDensityProducerNode();
+        producer.Cache.ReportRenderCount(RenderNodeCache.Count);
+        using var node = new IndependentDensityObserverNode(producer);
         var diagnostics = new RenderPipelineDiagnosticsState();
         using var renderer = new RenderNodeRenderer(
             node,
@@ -76,8 +79,13 @@ public sealed class ContributeValuesCacheHitExecutionTests
         {
             Assert.That(miss.IsEmpty, Is.False);
             Assert.That(hit.IsEmpty, Is.False);
-            Assert.That(node.Cache.IsCached, Is.True);
-            Assert.That(node.ExecuteCount, Is.EqualTo(1));
+            Assert.That(producer.Cache.IsCached, Is.True);
+            Assert.That(producer.ExecuteCount, Is.EqualTo(1));
+            Assert.That(node.ObservedScales, Is.EqualTo(new[]
+            {
+                new[] { 1f, 2f },
+                new[] { 1f, 2f },
+            }), "the cold values and cached replay must retain each output's independent density");
             Assert.That(diagnostics.Latest[RenderPipelineCounter.RenderCacheHits], Is.EqualTo(1));
         });
     }
@@ -150,11 +158,14 @@ public sealed class ContributeValuesCacheHitExecutionTests
 
     private sealed class EmptyCombineContributionNode : RenderNode
     {
+        public int ExecuteCount { get; private set; }
+
         public override void Process(RenderNodeContext context)
         {
             RenderFragmentHandle combined = context.OpaqueCombine([], OpaqueRenderDescription.Create(
                 session =>
                 {
+                    ExecuteCount++;
                     using OpaqueRenderOutput output = session.CreateOutput(s_bounds);
                     output.Canvas.Use(canvas => canvas.Clear(Colors.White));
                     session.Publish(output);
@@ -196,6 +207,43 @@ public sealed class ContributeValuesCacheHitExecutionTests
                 runtimeIdentity: new RenderRuntimeIdentity(typeof(IndependentDensityProducerNode)));
             RenderFragmentHandle expanded = context.OpaqueExpand([], description);
             context.Publish(context.ContributeValues(expanded));
+        }
+    }
+
+    private sealed class IndependentDensityObserverNode(IndependentDensityProducerNode producer) : RenderNode
+    {
+        public List<float[]> ObservedScales { get; } = [];
+
+        public override void Process(RenderNodeContext context)
+        {
+            RenderFragmentHandle input = context.RecordNode(producer, []).Single();
+            OpaqueRenderDescription description = OpaqueRenderDescription.Create(
+                session =>
+                {
+                    ObservedScales.Add(session.Inputs
+                        .Select(static item => item.EffectiveScale.Value)
+                        .ToArray());
+                    using OpaqueRenderOutput output = session.CreateOutput(s_bounds);
+                    output.Canvas.Use(canvas =>
+                    {
+                        foreach (RenderExecutionInput item in session.Inputs)
+                            item.Draw(canvas);
+                    });
+                    session.Publish(output);
+                },
+                OpaqueRenderBoundsContract.FullInputs(static _ => s_bounds),
+                RenderHitTestContract.OutputBounds,
+                RenderValueCardinality.Single,
+                RenderScaleContract.MaterializeAtWorkingScale,
+                structuralKey: typeof(IndependentDensityObserverNode),
+                runtimeIdentity: new RenderRuntimeIdentity(typeof(IndependentDensityObserverNode)));
+            context.Publish(context.OpaqueCombine([input], description));
+        }
+
+        protected override void OnDispose(bool disposing)
+        {
+            producer.Dispose();
+            base.OnDispose(disposing);
         }
     }
 

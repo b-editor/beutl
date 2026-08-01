@@ -94,11 +94,13 @@ public sealed class ExecutionIslandAuthorityTests
         VulkanTestEnvironment.InvokeOnRenderThread(() =>
         {
             using RenderTarget source = FusionBoundaryExecutionTestSupport.CreatePatternSource(s_bounds);
+            using Bitmap sourceBitmap = source.Snapshot();
             using var node = new OpacityOnlyNode(source);
             var diagnostics = new RenderPipelineDiagnosticsState();
             using var renderer = CreateRenderer(node, diagnostics);
 
             using RenderNodeRasterization result = renderer.Rasterize();
+            double maximumDifference = MaximumOpacityDifference(sourceBitmap, result.Bitmap!, 0.625f);
 
             Assert.Multiple(() =>
             {
@@ -108,8 +110,26 @@ public sealed class ExecutionIslandAuthorityTests
                 Assert.That(renderer.LastExecutionStatistics.ShaderStageExecutions, Is.Zero);
                 Assert.That(diagnostics.Latest[RenderPipelineCounter.PlannedGpuPasses], Is.EqualTo(1));
                 Assert.That(diagnostics.Latest[RenderPipelineCounter.ExecutedGpuPasses], Is.EqualTo(1));
+                Assert.That(maximumDifference, Is.LessThan(0.002),
+                    "Semantic opacity replay must scale every premultiplied channel and alpha by 0.625.");
             });
         });
+    }
+
+    private static double MaximumOpacityDifference(Bitmap source, Bitmap actual, float opacity)
+    {
+        ReadOnlySpan<ushort> sourcePixels = source.GetPixelSpan<ushort>();
+        ReadOnlySpan<ushort> actualPixels = actual.GetPixelSpan<ushort>();
+        Assert.That(actualPixels.Length, Is.EqualTo(sourcePixels.Length));
+        double maximum = 0;
+        for (int index = 0; index < sourcePixels.Length; index++)
+        {
+            float sourceValue = (float)BitConverter.UInt16BitsToHalf(sourcePixels[index]);
+            float actualValue = (float)BitConverter.UInt16BitsToHalf(actualPixels[index]);
+            maximum = Math.Max(maximum, Math.Abs(actualValue - (sourceValue * opacity)));
+        }
+
+        return maximum;
     }
 
     [TestCase(false)]

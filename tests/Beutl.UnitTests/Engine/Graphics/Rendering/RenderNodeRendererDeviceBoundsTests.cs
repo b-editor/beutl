@@ -85,6 +85,23 @@ public sealed class RenderNodeRendererDeviceBoundsTests
         });
     }
 
+    [Test]
+    public void RenderInDeviceSpace_ResolvesFullTargetAgainstPhysicalViewport()
+    {
+        var deviceSize = new PixelSize(384, 216);
+        var logicalSize = new Size(192, 108);
+        Rect? observedDomain = null;
+        using var root = new DomainProbeNode(context => observedDomain = context.TargetDomain);
+        using var target = new DeviceBoundsRenderTarget(deviceSize);
+        using var canvas = new ImmediateCanvas(target, density: 2, logicalSize: logicalSize);
+        using var renderer = new RenderNodeRenderer(root);
+
+        using (canvas.PushDeviceSpace())
+            renderer.Render(canvas);
+
+        Assert.That(observedDomain, Is.EqualTo(new Rect(0, 0, 384, 216)));
+    }
+
     private sealed class CpuTargetFactory : IRenderTargetFactory
     {
         public RenderTarget Create(RenderTargetAllocationDescriptor allocation)
@@ -103,5 +120,33 @@ public sealed class RenderNodeRendererDeviceBoundsTests
 
         private sealed class CpuRenderTarget(SKSurface surface, PixelSize size)
             : RenderTarget(surface, size.Width, size.Height);
+    }
+
+    private sealed class DeviceBoundsRenderTarget(PixelSize size)
+        : RenderTarget(
+            SKSurface.Create(new SKImageInfo(
+                size.Width,
+                size.Height,
+                SKColorType.RgbaF16,
+                SKAlphaType.Premul,
+                SKColorSpace.CreateSrgbLinear())),
+            size.Width,
+            size.Height);
+
+    private sealed class DomainProbeNode(Action<RenderNodeContext> observe) : RenderNode
+    {
+        public override void Process(RenderNodeContext context)
+        {
+            observe(context);
+            context.Publish(context.TargetCommand(
+                [],
+                TargetCommandDescription.Create(
+                    static _ => { },
+                    TargetRegion.Full,
+                    Rect.Empty,
+                    RenderHitTestContract.None,
+                    TargetAccess.ReadWrite,
+                    structuralKey: typeof(DomainProbeNode))));
+        }
     }
 }

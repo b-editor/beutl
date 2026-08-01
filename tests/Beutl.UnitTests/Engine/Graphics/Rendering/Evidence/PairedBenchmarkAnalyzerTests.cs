@@ -240,6 +240,23 @@ public sealed class PairedBenchmarkAnalyzerTests
         Assert.That(exception!.Message, Does.Contain("output").IgnoreCase);
     }
 
+    [TestCase("\"NaN, NaN, NaN, NaN\"")]
+    [TestCase("\"0, 0, 0, 0\"")]
+    [TestCase("{\"left\":0,\"top\":0,\"right\":384,\"bottom\":216}")]
+    [TestCase("{\"x\":0,\"y\":0,\"width\":385,\"height\":216}")]
+    public void Analyze_RejectsMalformedOrDimensionallyInconsistentOutputBounds(string json)
+    {
+        using var fixture = new AnalyzerFixture();
+        fixture.MutateCounter(
+            AnalyzerRun.Feature,
+            "SingleShader",
+            root => root["outputBounds"] = JsonNode.Parse(json));
+
+        InvalidDataException? exception = Assert.Throws<InvalidDataException>(() => fixture.Analyze());
+
+        Assert.That(exception!.Message, Does.Contain("output").IgnoreCase);
+    }
+
     public enum AcceptanceGate
     {
         Primary,

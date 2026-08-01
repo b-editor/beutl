@@ -888,6 +888,7 @@ public sealed class OpaqueRenderSession
     private readonly Func<OpaqueRenderSession, Rect, float?, OpaqueRenderOutput> _createOutput;
     private readonly Action<OpaqueRenderOutput> _publish;
     private readonly IReadOnlyList<RenderExecutionInput> _inputs;
+    private readonly IReadOnlyList<RenderExecutionInputRange> _inputRanges;
     private readonly Rect _outputBounds;
     private readonly Rect _requiredRegion;
     private readonly PixelRect _deviceBounds;
@@ -900,6 +901,7 @@ public sealed class OpaqueRenderSession
     internal OpaqueRenderSession(
         RenderExecutionSessionToken token,
         IReadOnlyList<RenderExecutionInput> inputs,
+        IReadOnlyList<RenderExecutionInputRange> inputRanges,
         Rect outputBounds,
         Rect requiredRegion,
         PixelRect deviceBounds,
@@ -914,11 +916,16 @@ public sealed class OpaqueRenderSession
     {
         ArgumentNullException.ThrowIfNull(token);
         ArgumentNullException.ThrowIfNull(inputs);
+        ArgumentNullException.ThrowIfNull(inputRanges);
         ArgumentNullException.ThrowIfNull(resources);
         ArgumentNullException.ThrowIfNull(createOutput);
         ArgumentNullException.ThrowIfNull(publish);
         _token = token;
         _inputs = Array.AsReadOnly(inputs.ToArray());
+        _inputRanges = RenderExecutionInputRange.CopyAndValidate(
+            _inputs,
+            inputRanges,
+            nameof(inputRanges));
         _outputBounds = outputBounds;
         _requiredRegion = requiredRegion;
         _deviceBounds = deviceBounds;
@@ -935,6 +942,15 @@ public sealed class OpaqueRenderSession
     public IReadOnlyList<RenderExecutionInput> Inputs
     {
         get { _token.ThrowIfInactive(); return _inputs; }
+    }
+
+    /// <summary>
+    /// Gets one stable flattened-input range per authored input handle, including zero-length ranges for handles
+    /// that produced no runtime values.
+    /// </summary>
+    public IReadOnlyList<RenderExecutionInputRange> InputRanges
+    {
+        get { _token.ThrowIfInactive(); return _inputRanges; }
     }
 
     public Rect OutputBounds

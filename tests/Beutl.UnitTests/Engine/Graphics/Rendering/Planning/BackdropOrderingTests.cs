@@ -134,14 +134,21 @@ public sealed class BackdropOrderingTests
             });
 
         using RenderNodeRasterization rasterization = renderer.Rasterize();
+        Bitmap bitmap = rasterization.Bitmap
+            ?? throw new AssertionException("The persisted fallback produced no bitmap.");
+        int sampleX = (int)(s_drawBounds.Center.X - rasterization.Bounds.X);
+        int sampleY = (int)(s_drawBounds.Center.Y - rasterization.Bounds.Y);
+        var sample = bitmap.SKBitmap.GetPixel(sampleX, sampleY);
 
         Assert.Multiple(() =>
         {
             Assert.That(rasterization.Bounds.Contains(s_drawBounds), Is.True,
                 "The raw fallback may conservatively retain the full target domain.");
-            Assert.That(rasterization.Bitmap, Is.Not.Null);
-            Assert.That(rasterization.Bitmap!.GetPixelSpan().ToArray(), Has.Some.Not.Zero,
-                "The unbound draw must use the persisted snapshot rather than a transparent no-op.");
+            Assert.That(sample.Red, Is.EqualTo(byte.MaxValue));
+            Assert.That(sample.Green, Is.EqualTo(byte.MaxValue));
+            Assert.That(sample.Blue, Is.EqualTo(byte.MaxValue));
+            Assert.That(sample.Alpha, Is.EqualTo(byte.MaxValue),
+                "A point inside the draw bounds must contain the committed opaque-white fallback.");
         });
     }
 

@@ -302,13 +302,26 @@ public class Renderer : IRenderer
             }
 
             DisposeStep(() => OnDispose(true));
-            DisposeStep(_frameRenderer.Dispose);
-            DisposeStep(_completeTarget.Dispose);
-            DisposeStep(_frameClear.Dispose);
-            DisposeStep(_immediateCanvas.Dispose);
-            DisposeStep(_surface.Dispose);
-            DisposeStep(ClearAllCaches);
-            DisposeStep(DisposeAllEntries);
+            void DisposeRenderResources()
+            {
+                RenderThread.Dispatcher.VerifyAccess();
+                DisposeStep(_frameRenderer.Dispose);
+                DisposeStep(_completeTarget.Dispose);
+                DisposeStep(_frameClear.Dispose);
+                DisposeStep(_immediateCanvas.Dispose);
+                DisposeStep(_surface.Dispose);
+                DisposeStep(ClearAllCachesCore);
+                DisposeStep(DisposeAllEntriesCore);
+            }
+
+            if (RenderThread.Dispatcher.CheckAccess())
+            {
+                DisposeRenderResources();
+            }
+            else
+            {
+                DisposeStep(() => RenderThread.Dispatcher.Invoke(DisposeRenderResources));
+            }
             GC.SuppressFinalize(this);
 
             if (primary is not null)

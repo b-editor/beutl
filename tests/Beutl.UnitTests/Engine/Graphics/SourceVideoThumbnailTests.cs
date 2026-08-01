@@ -1,4 +1,5 @@
 ﻿using Beutl.Graphics;
+using Beutl.Graphics.Rendering;
 using Beutl.Media;
 
 namespace Beutl.UnitTests.Engine.Graphics;
@@ -48,5 +49,37 @@ public class SourceVideoThumbnailTests
     {
         // duration.TotalSeconds / count when count == 0 yields +Infinity.
         Assert.Throws<OverflowException>(() => TimeSpan.FromSeconds(double.PositiveInfinity * 0.5));
+    }
+
+    [Test]
+    [NonParallelizable]
+    public async Task ThumbnailRenderResources_AreDisposedOnRenderThread()
+    {
+        var resources = new[]
+        {
+            new DisposalThreadProbe(),
+            new DisposalThreadProbe(),
+            new DisposalThreadProbe(),
+        };
+
+        Assert.That(RenderThread.Dispatcher.CheckAccess(), Is.False,
+            "the fixture must begin on the thumbnail consumer's non-render thread");
+        await SourceVideo.DisposeThumbnailRenderResourcesAsync(resources);
+
+        Assert.That(resources, Has.All.Matches<DisposalThreadProbe>(static item =>
+            item.DisposeCount == 1 && item.DisposedOnRenderThread));
+    }
+
+    private sealed class DisposalThreadProbe : IDisposable
+    {
+        public int DisposeCount { get; private set; }
+
+        public bool DisposedOnRenderThread { get; private set; }
+
+        public void Dispose()
+        {
+            DisposeCount++;
+            DisposedOnRenderThread = RenderThread.Dispatcher.CheckAccess();
+        }
     }
 }

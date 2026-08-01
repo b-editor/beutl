@@ -125,6 +125,7 @@ public partial class SourceVideo : IThumbnailsProvider
     {
         Resource? resource = null;
         DrawableRenderNode? node = null;
+        RenderNodeRenderer? renderer = null;
         try
         {
             resource = ToResource(preferProxy
@@ -168,7 +169,7 @@ public partial class SourceVideo : IThumbnailsProvider
             int effectiveEnd = endIndex < 0 ? count - 1 : Math.Min(endIndex, count - 1);
 
             node = new DrawableRenderNode(resource);
-            using var renderer = new RenderNodeRenderer(
+            renderer = new RenderNodeRenderer(
                 node,
                 new RenderNodeRendererOptions
                 {
@@ -231,12 +232,31 @@ public partial class SourceVideo : IThumbnailsProvider
         }
         finally
         {
-            RenderThread.Dispatcher.Dispatch(() =>
-            {
-                node?.Dispose();
-                resource?.Dispose();
-            }, ct: CancellationToken.None);
+            await DisposeThumbnailRenderResourcesAsync(renderer, node, resource);
         }
+    }
+
+    internal static async Task DisposeThumbnailRenderResourcesAsync(params IDisposable?[] resources)
+    {
+        ArgumentNullException.ThrowIfNull(resources);
+        await RenderThread.Dispatcher.InvokeAsync(() =>
+        {
+            Exception? primary = null;
+            foreach (IDisposable? resource in resources)
+            {
+                try
+                {
+                    resource?.Dispose();
+                }
+                catch (Exception ex)
+                {
+                    primary ??= ex;
+                }
+            }
+
+            if (primary is not null)
+                System.Runtime.ExceptionServices.ExceptionDispatchInfo.Capture(primary).Throw();
+        }, ct: CancellationToken.None);
     }
 
     public async IAsyncEnumerable<WaveformChunk> GetWaveformChunksAsync(

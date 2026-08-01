@@ -8,6 +8,35 @@ namespace Beutl.PublicApiContractTests;
 public sealed class TargetAuthoringContractTests
 {
     [Test]
+    public void OwningTargetLayer_ResolvesPluginFullWriteAgainstRequestDomain()
+    {
+        var domain = new Rect(3, 5, 8, 6);
+        int executions = 0;
+        using var node = new DelegateNode(context =>
+        {
+            RenderFragmentHandle command = context.TargetCommand(
+                [],
+                TargetCommandDescription.Create(
+                    _ => executions++,
+                    TargetRegion.Full,
+                    Rect.Empty,
+                    RenderHitTestContract.None,
+                    TargetAccess.ReadWrite,
+                    structuralKey: "public-owning-target-layer"));
+            context.Publish(context.OwningTargetLayer([command]));
+        });
+
+        using RenderNodeRasterization rasterization = Rasterize(node, targetDomain: domain);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(rasterization.IsEmpty, Is.False);
+            Assert.That(rasterization.Bounds, Is.EqualTo(domain));
+            Assert.That(executions, Is.EqualTo(1));
+        });
+    }
+
+    [Test]
     public void FiniteLayer_DistinguishesReadOnlyDependenciesFromPixelWrites()
     {
         var domain = new Rect(0, 0, 100, 80);
@@ -522,6 +551,11 @@ public sealed class TargetAuthoringContractTests
             session =>
             {
                 Assert.That(session.Inputs, Has.Count.EqualTo(3));
+                Assert.That(session.InputRanges, Is.EqualTo(new[]
+                {
+                    new RenderExecutionInputRange(0, 2),
+                    new RenderExecutionInputRange(2, 1),
+                }));
                 for (int index = 0; index < session.Inputs.Count; index++)
                 {
                     bool selected = selectDynamicInput ? index < 2 : index == 2;
@@ -624,6 +658,11 @@ public sealed class TargetAuthoringContractTests
             session =>
             {
                 Assert.That(session.Inputs, Has.Count.EqualTo(3));
+                Assert.That(session.InputRanges, Is.EqualTo(new[]
+                {
+                    new RenderExecutionInputRange(0, 2),
+                    new RenderExecutionInputRange(2, 1),
+                }));
                 for (int index = 0; index < session.Inputs.Count; index++)
                 {
                     if (index == 1)

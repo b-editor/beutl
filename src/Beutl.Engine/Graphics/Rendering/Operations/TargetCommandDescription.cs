@@ -130,6 +130,7 @@ public sealed class TargetCommandSession
 {
     private readonly RenderExecutionSessionToken _token;
     private readonly IReadOnlyList<RenderExecutionInput> _inputs;
+    private readonly IReadOnlyList<RenderExecutionInputRange> _inputRanges;
     private readonly Rect _affectedBounds;
     private readonly Rect _requiredRegion;
     private readonly RenderIntent _intent;
@@ -143,6 +144,7 @@ public sealed class TargetCommandSession
     internal TargetCommandSession(
         RenderExecutionSessionToken token,
         IReadOnlyList<RenderExecutionInput> inputs,
+        IReadOnlyList<RenderExecutionInputRange> inputRanges,
         Rect affectedBounds,
         Rect requiredRegion,
         RenderIntent intent,
@@ -154,10 +156,15 @@ public sealed class TargetCommandSession
     {
         ArgumentNullException.ThrowIfNull(token);
         ArgumentNullException.ThrowIfNull(inputs);
+        ArgumentNullException.ThrowIfNull(inputRanges);
         ArgumentNullException.ThrowIfNull(canvas);
         ArgumentNullException.ThrowIfNull(resources);
         _token = token;
         _inputs = Array.AsReadOnly(inputs.ToArray());
+        _inputRanges = RenderExecutionInputRange.CopyAndValidate(
+            _inputs,
+            inputRanges,
+            nameof(inputRanges));
         _affectedBounds = affectedBounds;
         _requiredRegion = requiredRegion;
         _intent = intent;
@@ -171,6 +178,15 @@ public sealed class TargetCommandSession
     public IReadOnlyList<RenderExecutionInput> Inputs
     {
         get { _token.ThrowIfInactive(); return _inputs; }
+    }
+
+    /// <summary>
+    /// Gets one stable flattened-input range per authored input handle, including zero-length ranges for handles
+    /// that produced no runtime values.
+    /// </summary>
+    public IReadOnlyList<RenderExecutionInputRange> InputRanges
+    {
+        get { _token.ThrowIfInactive(); return _inputRanges; }
     }
 
     public Rect AffectedBounds

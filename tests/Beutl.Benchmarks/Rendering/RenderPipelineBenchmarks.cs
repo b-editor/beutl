@@ -47,8 +47,8 @@ public class RenderPipelineBenchmarks
 
     /// <summary>
     /// Renders one complete requested surface. Output validation lives in <see cref="Setup"/>, and request-wide
-    /// counters come from a separate untimed session during cleanup, so the measured body contains only production
-    /// frame-state update, render, readback, and result disposal.
+    /// counters and full-image hashing come from cleanup, so the measured body contains only production frame-state
+    /// update, render, readback, cheap token sampling, and steady-state disposal of the preceding result.
     /// </summary>
     [Benchmark]
     public ulong RenderCompleteTargetRequest()
@@ -101,6 +101,7 @@ internal sealed class RenderPipelineBenchmarkSession : IDisposable
     private readonly RenderPipelineEvidenceFingerprint _fingerprint;
     private int _nextFrame;
     private RenderPipelineObservedFrame? _lastSetupFrame;
+    private RenderNodeRasterization? _lastMeasuredRasterization;
     private int _lastMeasuredFrameIndex = -1;
     private ulong _lastMeasuredToken;
     private bool _disposed;
@@ -166,7 +167,9 @@ internal sealed class RenderPipelineBenchmarkSession : IDisposable
         RenderThread.Dispatcher.VerifyAccess();
         int frameIndex = _nextFrame++;
         ApplyFrameState(frameIndex);
-        using RenderNodeRasterization rasterization = _renderer.Rasterize();
+        _lastMeasuredRasterization?.Dispose();
+        RenderNodeRasterization rasterization = _renderer.Rasterize();
+        _lastMeasuredRasterization = rasterization;
         Bitmap? bitmap = rasterization.Bitmap;
         _lastMeasuredFrameIndex = frameIndex;
         _lastMeasuredToken = bitmap is null ? 0 : SampleToken(bitmap.GetPixelSpan<ushort>());
@@ -181,14 +184,13 @@ internal sealed class RenderPipelineBenchmarkSession : IDisposable
             ?? throw new InvalidOperationException("Benchmark setup verification did not complete.");
         if (_lastMeasuredFrameIndex < 0)
             throw new InvalidOperationException("Benchmark completed without a measured request.");
+        RenderPipelineObservedFrame measured = Observe(
+            _lastMeasuredRasterization
+            ?? throw new InvalidOperationException("The final measured output was not retained for cleanup."));
         using var diagnosticSession = new DiagnosticSession(_scene);
         DiagnosticCapture diagnostics = diagnosticSession.Capture(_nextFrame);
         AssertMatchingDiagnosticOutput(setup, diagnostics.SetupOutput);
-        if (diagnostics.MeasuredOutput.Token != _lastMeasuredToken)
-        {
-            throw new InvalidOperationException(
-                "The untimed diagnostic session did not reproduce the final measured output token.");
-        }
+        AssertMatchingDiagnosticOutput(measured, diagnostics.MeasuredOutput);
         using var expectationSession = new DiagnosticSession(_scene);
         DiagnosticCapture expectation = expectationSession.Capture(_nextFrame);
         AssertMatchingDiagnosticOutput(diagnostics.MeasuredOutput, expectation.MeasuredOutput);
@@ -206,11 +208,11 @@ internal sealed class RenderPipelineBenchmarkSession : IDisposable
             OutputSha256 = setup.Sha256,
             OutputChecksum = setup.Checksum.ToString("x16"),
             OutputBounds = setup.Bounds,
-            MeasuredOutputSha256 = diagnostics.MeasuredOutput.Sha256,
-            MeasuredOutputChecksum = diagnostics.MeasuredOutput.Checksum.ToString("x16"),
-            MeasuredOutputBounds = diagnostics.MeasuredOutput.Bounds,
-            MeasuredWidth = diagnostics.MeasuredOutput.Width,
-            MeasuredHeight = diagnostics.MeasuredOutput.Height,
+            MeasuredOutputSha256 = measured.Sha256,
+            MeasuredOutputChecksum = measured.Checksum.ToString("x16"),
+            MeasuredOutputBounds = measured.Bounds,
+            MeasuredWidth = measured.Width,
+            MeasuredHeight = measured.Height,
             ExpectedMeasuredOutputSha256 = expectation.MeasuredOutput.Sha256,
             ExpectedMeasuredOutputChecksum = expectation.MeasuredOutput.Checksum.ToString("x16"),
             ExpectedMeasuredOutputBounds = expectation.MeasuredOutput.Bounds,
@@ -232,6 +234,8 @@ internal sealed class RenderPipelineBenchmarkSession : IDisposable
             return;
 
         RenderThread.Dispatcher.VerifyAccess();
+        _lastMeasuredRasterization?.Dispose();
+        _lastMeasuredRasterization = null;
         _renderer.Dispose();
         _root.Dispose();
         _disposed = true;

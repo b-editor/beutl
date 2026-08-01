@@ -106,6 +106,12 @@ public partial class SplitEffect : FilterEffect
             return Rect.Invalid;
         }
 
+        if ((int)(bounds.Width / data.HorizontalDivisions) <= 0
+            || (int)(bounds.Height / data.VerticalDivisions) <= 0)
+        {
+            return Rect.Empty;
+        }
+
         double horizontal = Math.Abs((double)data.HorizontalSpacing) * (data.HorizontalDivisions - 1) / 2;
         double vertical = Math.Abs((double)data.VerticalSpacing) * (data.VerticalDivisions - 1) / 2;
         if (horizontal > float.MaxValue || vertical > float.MaxValue)
