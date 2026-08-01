@@ -526,6 +526,44 @@ def metrics(reference, actual, pixels):
         "alphaMae": alpha_error / count,
     }
 
+WINDOW_SIZE = 16
+MINIMUM_WINDOWED_SSIM = 0.95
+
+def minimum_windowed_ssim(reference, actual, width, height):
+    minimum = 1.0
+    for top in range(0, height, WINDOW_SIZE):
+        for left in range(0, width, WINDOW_SIZE):
+            region = [
+                left,
+                top,
+                min(WINDOW_SIZE, width - left),
+                min(WINDOW_SIZE, height - top),
+            ]
+            window = metrics(reference, actual, selected_pixels(width, height, region))
+            minimum = min(minimum, window["linearLightSsim"])
+    return minimum
+
+def verify_localized_error_gate():
+    size = 128
+    reference = []
+    actual = []
+    for y in range(size):
+        for x in range(size):
+            value = 1.0 if (x + y) % 2 == 0 else 0.0
+            reference.extend((value, value, value, 1.0))
+            actual_value = 0.5 if x < 14 and y < 14 else value
+            actual.extend((actual_value, actual_value, actual_value, 1.0))
+    full = metrics(reference, actual, selected_pixels(size, size))
+    if (full["linearLightSsim"] < 0.99
+            or full["linearRgbMae"] > 0.02
+            or full["alphaMae"] > 0.02):
+        raise SystemExit("Localized-error self-test no longer passes the whole-image thresholds")
+    localized = minimum_windowed_ssim(reference, actual, size, size)
+    if localized >= MINIMUM_WINDOWED_SSIM:
+        raise SystemExit("Minimum-window SSIM self-test failed to reject a localized defect")
+
+verify_localized_error_gate()
+
 def parse_crop(scene):
     text = (scene.get("parameters") or {}).get("edgeCrop")
     if text is None:
@@ -553,7 +591,14 @@ for scene_id in sorted(target_scenes):
     full = metrics(reference, actual, selected_pixels(width, height))
     if full["linearLightSsim"] < 0.99 or full["linearRgbMae"] > 0.02 or full["alphaMae"] > 0.02:
         raise SystemExit(f"Full-image parity threshold failed for {scene_id}: {full}")
-    scene_result = {"sceneId": scene_id, "fullImage": full}
+    windowed_ssim = minimum_windowed_ssim(reference, actual, width, height)
+    if windowed_ssim < MINIMUM_WINDOWED_SSIM:
+        raise SystemExit(
+            f"Minimum-window SSIM parity threshold failed for {scene_id}: {windowed_ssim}")
+    scene_result = {
+        "sceneId": scene_id,
+        "fullImage": {**full, "minimumWindowedSsim": windowed_ssim},
+    }
 
     crop = parse_crop(target_scene)
     if crop is not None:
@@ -621,6 +666,8 @@ result = {
     },
     "thresholds": {
         "minimumLinearLightSsim": 0.99,
+        "minimumWindowedSsim": MINIMUM_WINDOWED_SSIM,
+        "windowSize": WINDOW_SIZE,
         "maximumLinearRgbMae": 0.02,
         "maximumAlphaMae": 0.02,
         "maximumAaCoverageBandChannelError": 0.02,

@@ -207,7 +207,10 @@ public sealed class RenderNodeRenderer : IDisposable
     /// <param name="destination">The non-null caller-owned destination canvas.</param>
     /// <remarks>
     /// The call preserves the destination's active transform, clip, opacity, blend mode, density, and ownership.
-    /// It does not close, dispose, flush, submit, clear, or snapshot the destination implicitly.
+    /// A singular active transform completes value-only self-bounded work as a successful no-op. Domain-independent
+    /// target effects still execute for ordering, while work that requires the destination's root target domain
+    /// remains invalid because no inverse domain exists. The call does not close, dispose, flush, submit, clear, or
+    /// snapshot the destination implicitly.
     /// </remarks>
     /// <exception cref="ArgumentNullException"><paramref name="destination"/> is <see langword="null"/>.</exception>
     /// <exception cref="ObjectDisposedException">This renderer or <paramref name="destination"/> is disposed.</exception>
@@ -221,7 +224,8 @@ public sealed class RenderNodeRenderer : IDisposable
         bool hasExplicitEmptySelection = Options.RequestedRegion is { } requested
                                          && (requested.Width == 0 || requested.Height == 0);
         float maxWorkingScale = MathF.Min(Options.MaxWorkingScale, destination.MaxWorkingScale);
-        Rect targetDomain = ResolveDestinationTargetDomain(destination);
+        bool hasInvertibleDestination = TryResolveDestinationTargetDomain(destination, out Rect resolvedTargetDomain);
+        Rect? targetDomain = hasInvertibleDestination ? resolvedTargetDomain : null;
         RenderTargetLeaseSession targets = _targetRegistry.BeginSession(
             Options.Intent,
             destination._renderTarget);
@@ -241,7 +245,12 @@ public sealed class RenderNodeRenderer : IDisposable
                 DeviceGridAlignment.ResolveLogicalOffset(destination));
             owner = request.Request.Options.Owner;
             var executor = new RenderRequestExecutor(targets, _programCache);
-            if (hasExplicitEmptySelection)
+            if (!hasInvertibleDestination && !request.Measurement.HasTargetEffects)
+            {
+                preExecutionFailurePhase = RenderPipelineFailurePhase.Execution;
+                executor.CompleteNoOp(request);
+            }
+            else if (hasExplicitEmptySelection)
             {
                 preExecutionFailurePhase = RenderPipelineFailurePhase.Execution;
                 executor.CompleteEmptySelection(request);
@@ -610,7 +619,9 @@ public sealed class RenderNodeRenderer : IDisposable
         RenderExecutionCallbackGuard.ThrowIfRendererLaunchForbidden();
         ThrowIfDisposed();
         bool pointInRequestedRegion = Options.RequestedRegion is not { } requested
-                                      || requested.Contains(point);
+                                      || (requested.Width > 0
+                                          && requested.Height > 0
+                                          && requested.Contains(point));
 
         RenderRequest request = CreateRequest(
             RenderRequestPurpose.HitTest,
@@ -768,17 +779,17 @@ public sealed class RenderNodeRenderer : IDisposable
             Options.FusionMode,
             diagnostics: Options.Diagnostics));
 
-    private static Rect ResolveDestinationTargetDomain(ImmediateCanvas destination)
+    private static bool TryResolveDestinationTargetDomain(ImmediateCanvas destination, out Rect domain)
     {
         Matrix rootToViewport = destination.Transform.Append(
             Matrix.CreateScale(1 / destination.Density, 1 / destination.Density));
         if (!rootToViewport.TryInvert(out Matrix inverse))
         {
-            throw new InvalidOperationException(
-                "The destination's active transform must be invertible to resolve its root target domain.");
+            domain = default;
+            return false;
         }
 
-        Rect domain = new Rect(default, destination.LogicalSize).TransformToAABB(inverse);
+        domain = new Rect(default, destination.LogicalSize).TransformToAABB(inverse);
         if (!RenderRectValidation.IsFiniteNonNegative(domain)
             || domain.Width == 0
             || domain.Height == 0)
@@ -787,7 +798,7 @@ public sealed class RenderNodeRenderer : IDisposable
                 "The destination's active transform did not produce a finite non-empty root target domain.");
         }
 
-        return domain;
+        return true;
     }
 
     private static void DisposeAndCapture(IDisposable? disposable, ref ExceptionDispatchInfo? primary)

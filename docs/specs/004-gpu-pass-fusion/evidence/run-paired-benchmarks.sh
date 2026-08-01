@@ -137,6 +137,14 @@ feature_sha="$(git -C "$feature_worktree" rev-parse HEAD)"
 runner_path="$(cd "$(dirname "$0")" && pwd -P)/$(basename "$0")"
 runner_sha256="$(sha256_file "$runner_path")"
 
+run_benchmark \
+    "discarded baseline warm-up" \
+    "$baseline_worktree" \
+    "$baseline_command" \
+    "$temporary_build_root/discarded-baseline-warmup"
+require_clean_worktree "$baseline_worktree" "Baseline after discarded warm-up"
+require_clean_worktree "$feature_worktree" "Feature harness after discarded warm-up"
+
 mkdir -p "$output_root/baseline-a" "$output_root/feature" "$output_root/baseline-b"
 run_benchmark "baseline A" "$baseline_worktree" "$baseline_command" "$output_root/baseline-a"
 require_clean_worktree "$baseline_worktree" "Baseline after baseline A"

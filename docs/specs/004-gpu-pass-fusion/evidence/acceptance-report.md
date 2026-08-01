@@ -11,25 +11,32 @@ identified by its SHA-256.
 |---|---|
 | `target-baseline-generator.patch` | `037315804fa9531bdef1b79e2db405e8a3813e4bc137527690f9f2d5cb4e728c` |
 | `generate-target-baseline.sh` | `fb0bf369aff9b017c82edf74e8423e83fd13156d3e1a569267447fa4fdf5df03` |
-| `run-paired-visual-evidence.sh` | `9ecba22a3dc90b8c62cddf667899cc387dd04aa22e079dc9ffa20f06821534f3` |
+| `run-paired-visual-evidence.sh` | `68098e70120c161d9ca27e6295c776450b2547ee59b4a19e7bf4ac7abcdca483` |
 | `refresh-intentional-visual-baselines.sh` | `5057b76ae3d4c1bc4474e424cc3119c5ce52aa8c203fcc0cac874d38cd8c74d8` |
 | generator source bundle | `d6e5f339d5d7214b0cb879aa5cf2cd717896879b942400928e77b38c9a62a19e` |
-| `run-paired-benchmarks.sh` | `104bf644269de78bded892ab38377a027743ad09585c60e283978bccde89579a` |
+| `run-paired-benchmarks.sh` | `30087e0c363e9f43deeafa6fcfd99f12ea251df57b9cbca206caa4de62b03d66` |
 
 These hashes match the committed scripts and the `evidenceTools` records in both
-frozen manifests. The recorded benchmark run predates the later review-driven
-runner hardening (frozen-SHA pinning), so its own provenance records the runner
-version it actually executed, `7e33ff52ee0d1b1db367cc326953195e773afc18af23b0f6a6e72a06187893a8`;
-the pinning change affects only how the baseline worktree is selected, not the
-measurement methodology.
+frozen manifests. The recorded benchmark run predates the later review-driven runner
+hardening, so its own provenance records the runner version it actually executed,
+`7e33ff52ee0d1b1db367cc326953195e773afc18af23b0f6a6e72a06187893a8`.
+The current runner pins the baseline worktree and executes the documented discarded
+baseline warm-up before creating baseline A, feature, and baseline B artifacts. This
+automates the methodology used for the recorded run; discarded artifacts remain
+outside the evidence directory.
 
-## Paired visual evidence (passed)
+## Paired visual evidence (recorded gate passed; localized gate requires regeneration)
 
 - Target: legacy renderer regenerated from `43a38e665d9bf52548161a3917e748bd1457ff55`; feature: `dc90279b8a4125e85dc85b82281c6d3661e9137c`.
 - Environment fingerprint gate: exact match required and satisfied before any parity metric.
 - Result: **all 44 scenes passed** — thresholds SSIM ≥ 0.99,
   linear-RGB MAE ≤ 0.02, alpha MAE ≤ 0.02.
   Worst full-image linear-light SSIM: 0.99943 (`nested-drawable-brush-delay`).
+- The recorded result predates the current runner's 16×16 minimum-window SSIM ≥ 0.95
+  gate. The runner now self-tests that a localized 14×14 defect can pass every
+  whole-image threshold while failing the windowed threshold, and applies that bound
+  to every scene. The committed result remains evidence for the stated whole-image
+  gate; it does not claim that the later localized-error gate was executed.
 - The run also compares the `bounds-hit-test-query` measured record (bounds, probe
   points, hit results) and the preview/delivery allocation-failure records against
   the frozen baseline. The allocation probe initially exposed a real FR-039

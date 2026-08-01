@@ -43,6 +43,14 @@ internal sealed class RenderRequestExecutor
                 "Only a request with an empty selected output can complete without execution.");
         }
 
+        CompleteNoOp(request);
+    }
+
+    public void CompleteNoOp(CompiledRenderRequest request)
+    {
+        ArgumentNullException.ThrowIfNull(request);
+        ObjectDisposedException.ThrowIf(request.IsDisposed, request);
+
         ValidateFamilyForExecution(request);
         foreach (CompiledRenderRequest member in EnumerateFamilyDepthFirst(request))
             member.Request.TransitionTo(RenderRequestState.Executing);

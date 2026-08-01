@@ -466,7 +466,7 @@ Required cases:
 - small-object/fixed-overhead scene;
 - multiple top-level drawables with target dependencies.
 
-Compare pinned baseline and feature worktrees in the same machine/session with identical runtime, backend/device, dimensions, warm-up, renderer lifetime, scene, and output verification. Preserve raw BenchmarkDotNet results and request-wide counters.
+Compare pinned baseline and feature worktrees in the same machine/session with identical runtime, backend/device, dimensions, warm-up, renderer lifetime, scene, and output verification. Preserve raw BenchmarkDotNet results and every counter each unmodified engine can expose. The external starting-SHA harness records observational legacy request counters derived from pulled operations and immutable scene declarations (`LegacyOperationExecutions`, semantic stages, top-level drawables, target dependencies, cache hits, completion, and failure), and explicitly records final structural-plan/program-cache/target-pool statistics as unavailable on that SHA. The feature harness records its native request-wide planning, execution, synchronization, cache, program, and pool counters. A feature-only counter is not fabricated for the baseline and is not treated as a cross-version numeric pair; the paired manifest preserves both baseline snapshots independently, while feature counter invariants are validated against the feature engine.
 
 Acceptance for the primary warmed cross-node workload is a post/pre median frame-time ratio whose 95% confidence interval lies entirely below 1.0. Controls and barrier cases must remain within the measurement tolerance established by repeated baseline runs. No absolute milliseconds or historical donor percentage is normative.
 

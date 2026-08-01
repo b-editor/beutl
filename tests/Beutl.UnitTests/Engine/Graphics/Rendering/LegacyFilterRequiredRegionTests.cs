@@ -71,7 +71,7 @@ public sealed class LegacyFilterRequiredRegionTests
         using Bitmap result = destination.Snapshot();
         Assert.Multiple(() =>
         {
-            Assert.That(CountOpaquePixels(result), Is.EqualTo(frame.Width * scale * frame.Height * scale),
+            Assert.That(CountCoveredPixels(result), Is.EqualTo(frame.Width * scale * frame.Height * scale),
                 "the blurred element must still cover the frame");
             Assert.That(
                 requestedSizes.Select(static size => Math.Max(size.Width, size.Height)),
@@ -87,13 +87,16 @@ public sealed class LegacyFilterRequiredRegionTests
         return new FilterEffectRenderNode(blur.ToResource(CompositionContext.Default));
     }
 
-    private static long CountOpaquePixels(Bitmap bitmap)
+    private static long CountCoveredPixels(Bitmap bitmap)
     {
         ReadOnlySpan<ushort> pixels = bitmap.GetPixelSpan<ushort>();
         long count = 0;
         for (int index = 0; index + 3 < pixels.Length; index += 4)
         {
-            if (pixels[index + 3] != 0)
+            float alpha = (float)BitConverter.UInt16BitsToHalf(pixels[index + 3]);
+            // The floor rejects NaN/subnormal/negative-zero alpha while accommodating the
+            // bilinear tail a budget-clamped materialization leaves at buffer edges.
+            if (float.IsFinite(alpha) && alpha >= 0.01f)
                 count++;
         }
 

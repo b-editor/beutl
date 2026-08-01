@@ -219,6 +219,155 @@ public sealed class RenderNodeRendererContractTests
     }
 
     [Test]
+    public void Render_SingularDestinationTransformIsASuccessfulNoOp()
+    {
+        var bounds = new Rect(0, 0, 10, 10);
+        int recordings = 0;
+        int executions = 0;
+        var factory = new TrackingTargetFactory(static size => new TrackingRenderTarget(size));
+        using var root = new DelegateNode(context =>
+        {
+            recordings++;
+            RenderFragmentHandle source = context.OpaqueSource(
+                ExecutingSource(bounds, _ => executions++, "singular-transform-source"));
+            context.Publish(source);
+        });
+        using var renderer = new RenderNodeRenderer(
+            root,
+            new RenderNodeRendererOptions
+            {
+                TargetFactory = factory,
+                UseRenderCache = false,
+            });
+        using var target = new TrackingRenderTarget(new PixelSize(20, 20));
+        using var destination = new ImmediateCanvas(target);
+
+        using (destination.PushTransform(Matrix.CreateScale(0, 1)))
+        {
+            Matrix transform = destination.Transform;
+            Assert.That(() => renderer.Render(destination), Throws.Nothing);
+            Assert.That(destination.Transform, Is.EqualTo(transform));
+        }
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(recordings, Is.EqualTo(1));
+            Assert.That(executions, Is.Zero);
+            Assert.That(factory.Requests, Is.Empty);
+            Assert.That(destination.IsDisposed, Is.False);
+            Assert.That(target.IsDisposed, Is.False);
+        });
+    }
+
+    [Test]
+    public void Render_SingularDestinationTransformRejectsAFullTargetAccess()
+    {
+        int executions = 0;
+        var factory = new TrackingTargetFactory(static size => new TrackingRenderTarget(size));
+        using var root = new DelegateNode(context =>
+        {
+            RenderFragmentHandle command = context.TargetCommand(
+                [],
+                TargetCommandDescription.Create(
+                    _ => executions++,
+                    TargetRegion.Full,
+                    Rect.Empty,
+                    RenderHitTestContract.None,
+                    TargetAccess.ReadWrite,
+                    structuralKey: "singular-transform-full-command"));
+            context.Publish(command);
+        });
+        using var renderer = new RenderNodeRenderer(
+            root,
+            new RenderNodeRendererOptions
+            {
+                TargetFactory = factory,
+                UseRenderCache = false,
+            });
+        using var target = new TrackingRenderTarget(new PixelSize(20, 20));
+        using var destination = new ImmediateCanvas(target);
+
+        using (destination.PushTransform(Matrix.CreateScale(0, 1)))
+        {
+            Assert.That(
+                () => renderer.Render(destination),
+                Throws.InvalidOperationException.With.Message.Contains("requires a finite owning target domain"));
+        }
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(executions, Is.Zero);
+            Assert.That(factory.Requests, Is.Empty);
+            Assert.That(destination.IsDisposed, Is.False);
+            Assert.That(target.IsDisposed, Is.False);
+        });
+    }
+
+    [Test]
+    public void Render_SingularDestinationTransformPreservesAnEmptyTargetCommand()
+    {
+        int executions = 0;
+        var factory = new TrackingTargetFactory(static size => new TrackingRenderTarget(size));
+        using var root = new DelegateNode(context =>
+        {
+            RenderFragmentHandle command = context.TargetCommand(
+                [],
+                TargetCommandDescription.Create(
+                    _ => executions++,
+                    TargetRegion.Empty,
+                    Rect.Empty,
+                    RenderHitTestContract.None,
+                    TargetAccess.ReadWrite,
+                    structuralKey: "singular-transform-empty-command"));
+            context.Publish(command);
+        });
+        using var renderer = new RenderNodeRenderer(
+            root,
+            new RenderNodeRendererOptions
+            {
+                TargetFactory = factory,
+                UseRenderCache = false,
+            });
+        using var target = new TrackingRenderTarget(new PixelSize(20, 20));
+        using var destination = new ImmediateCanvas(target);
+
+        using (destination.PushTransform(Matrix.CreateScale(0, 1)))
+        {
+            Assert.That(() => renderer.Render(destination), Throws.Nothing);
+        }
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(executions, Is.EqualTo(1));
+            Assert.That(factory.Requests, Is.Empty);
+            Assert.That(destination.IsDisposed, Is.False);
+            Assert.That(target.IsDisposed, Is.False);
+        });
+    }
+
+    [TestCase(0, 8, 30, 44)]
+    [TestCase(8, 0, 34, 40)]
+    [TestCase(0, 0, 30, 40)]
+    public void HitTest_DegenerateRequestedRegionHasNoHits(
+        float width,
+        float height,
+        float pointX,
+        float pointY)
+    {
+        var bounds = new Rect(0, 0, 100, 100);
+        using var root = SourceNode(bounds);
+        using var renderer = new RenderNodeRenderer(
+            root,
+            new RenderNodeRendererOptions
+            {
+                RequestedRegion = new Rect(30, 40, width, height),
+                UseRenderCache = false,
+            });
+
+        Assert.That(renderer.HitTest(new Point(pointX, pointY)), Is.False);
+    }
+
+    [Test]
     public void CommandAndCaptureMeasurements_KeepValueContributionQueryAndTargetEffectsIndependent()
     {
         var domain = new Rect(10, 20, 50, 30);
