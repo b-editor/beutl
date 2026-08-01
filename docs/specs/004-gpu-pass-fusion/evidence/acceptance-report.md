@@ -30,9 +30,9 @@ run provenance:
 
 | Current source | SHA-256 |
 |---|---|
-| `tests/Beutl.Benchmarks/Rendering/RenderPipelineBenchmarks.cs` | `4c523efff0b1cf22f24c26799482dcfb6ee903b1e6b94f9fb1df28bf487ad888` |
-| `tests/Beutl.Benchmarks/Rendering/PairedBenchmarkAnalyzer.cs` | `93bf078defe56a0e0eaefb81b55d85a30111d6d17e68e6ced0d1f14dd816f406` |
-| `target-benchmark-harness/TargetRenderPipelineBenchmarks.cs` | `4384370e7861f90078f386024432e6559411388807114a64fca131bc1d124b17` |
+| `tests/Beutl.Benchmarks/Rendering/RenderPipelineBenchmarks.cs` | `1733c5c73f3fedc5977b5a0ab067e6ae391b33e5487a791fcf150d260636cf8a` |
+| `tests/Beutl.Benchmarks/Rendering/PairedBenchmarkAnalyzer.cs` | `e07e80bcf0da48cf8d0db1119b77c61b26f2e963e925299fdf0a684e4ef627e4` |
+| `target-benchmark-harness/TargetRenderPipelineBenchmarks.cs` | `2b334e5e5e874610d10c468dc9742dfee51f33fb91cb7e24765d191fe36f6eb2` |
 
 These hashes identify the current stricter implementation; they do not replace the
 historical harness hashes authenticated by the unchanged committed benchmark manifest.
@@ -46,7 +46,7 @@ The benchmark manifest's `visualManifestSha256` and
 
 ## Paired visual evidence (passed)
 
-- Target: legacy renderer regenerated from `43a38e665d9bf52548161a3917e748bd1457ff55`; feature: `72e26aa0c38bd91482b9e462111956251e78039c`.
+- Target: legacy renderer regenerated from `43a38e665d9bf52548161a3917e748bd1457ff55`; feature: `93ffabc3d2a8c05d3e4007ac086a1e6c0172a321`.
 - Environment fingerprint gate: exact match required and satisfied before any parity metric.
 - Result: **all 44 scenes passed** — thresholds SSIM ≥ 0.99,
   linear-RGB MAE ≤ 0.02, alpha MAE ≤ 0.02, and the 16×16 minimum-window
@@ -64,8 +64,8 @@ The benchmark manifest's `visualManifestSha256` and
   `PreviewAllocationDrops` counter); the recorded outcomes now match the baseline
   (`dropped-output-without-throw` / `threw`).
 - Raw result: [`paired-visual-result.json`](paired-visual-result.json)
-  (SHA-256 `06df6fe918f63d40967d419a6e5abe06624ba12f7464d1d8694605be2e1cc156`);
-  run-regenerated target manifest `1b6a0e7743090982b034b0fa281fa98104ae606f860ff98804efc08a5efdd294`, feature manifest `8def7dd9d2e1b42744c47666766a925840760dde0581224bc78afb50c8a5c26e`.
+  (SHA-256 `c064387a1645d7a4e8ec1be9420dac5580e4db1384c875b5e396c00738449c01`);
+  run-regenerated target manifest `6e0c11ee1b0da8d1f5758db626955598c17c0b25da7b60cf6a8faee5d5fc5e3f`, feature manifest `18d0103f02e09ffb61a869e8630920016f60c1d500405273bb7f3b00ff89e901`.
 - The exact historical inputs are retained under
   [`paired-visual-run/target/`](paired-visual-run/target/) and
   [`paired-visual-run/feature/`](paired-visual-run/feature/). Each manifest authenticates
@@ -132,7 +132,7 @@ The two acceptance lanes are intentionally revision-scoped rather than revision-
 The performance result remains frozen at feature revision
 `912ddda0484d0b8cde3c63b60deefa491a0c596c`; its numeric ratios apply only to that
 revision. The visual oracle is regenerated after approved hardening rounds and currently
-validates semantic behavior at `180809f90f04f989be3964fb35ba69fcc21527ba`.
+validates semantic behavior at `93ffabc3d2a8c05d3e4007ac086a1e6c0172a321`.
 Later visual evidence is a semantic no-regression gate for those hardening changes; it does
 not reattribute the frozen benchmark ratios to the later revision, and the benchmark run is
 not regenerated merely to advance the visual revision.

@@ -9,7 +9,7 @@
   "evidenceTools": {
     "generatorPatchSha256": "898692fc4a53e834cbc9f0e00176f8eca198e4f16b6de391d89f1fbbceeaa8be",
     "generatorScriptSha256": "bf0574663d6c825150b6e06192a42abda40dba45184f123ecf52ce5199ad255d",
-    "pairedRunnerSha256": "ef1eb523115ea6abb94d06466cecbbf8a1152be3d7b2b74f85a3bd7a852ab032",
+    "pairedRunnerSha256": "415fb4407fd216afb2d5f51280d2271e3951cae3a30bc30a081bd8b982e700f8",
     "benchmarkRunnerSha256": "a8575996b4ee74663d42fc4268e6d93fba8062739a4bedf5b7bd16f8fe226969",
     "generatorSourceBundleSha256": "bb165d312af895b4f703441d96d4f42144036d7d6f8e875ae0101c4701b0414d",
     "refreshScriptSha256": "5057b76ae3d4c1bc4474e424cc3119c5ce52aa8c203fcc0cac874d38cd8c74d8"
@@ -839,14 +839,14 @@
       ],
       "query": null,
       "nonVacuity": {
-        "linearRgbMae": 0.04435536168025109,
-        "alphaMae": 0.10949119962291953,
+        "linearRgbMae": 0.043542045877610215,
+        "alphaMae": 0.10669340174875142,
         "maximumChannelError": 1,
         "sampleCount": 20736,
         "metricMode": "full-frame",
         "metricRegion": null,
         "parityTolerance": 0.02,
-        "marginAboveTolerance": 0.08949119962291953
+        "marginAboveTolerance": 0.08669340174875141
       }
     },
     {
@@ -1189,14 +1189,14 @@
       ],
       "query": null,
       "nonVacuity": {
-        "linearRgbMae": 0.06243007200379155,
-        "alphaMae": 0.135278917297169,
+        "linearRgbMae": 0.06147165492238331,
+        "alphaMae": 0.13159820179880402,
         "maximumChannelError": 0.99462890625,
         "sampleCount": 20736,
         "metricMode": "full-frame",
         "metricRegion": null,
         "parityTolerance": 0.02,
-        "marginAboveTolerance": 0.115278917297169
+        "marginAboveTolerance": 0.11159820179880402
       }
     },
     {
@@ -2636,14 +2636,14 @@
       ],
       "query": null,
       "nonVacuity": {
-        "linearRgbMae": 0.025955698372405252,
-        "alphaMae": 1,
-        "maximumChannelError": 1,
+        "linearRgbMae": 0.6176422262878575,
+        "alphaMae": 0,
+        "maximumChannelError": 0.64990234375,
         "sampleCount": 20736,
         "metricMode": "full-frame",
         "metricRegion": null,
         "parityTolerance": 0.02,
-        "marginAboveTolerance": 0.98
+        "marginAboveTolerance": 0.5976422262878575
       }
     },
     {
