@@ -38,6 +38,29 @@ public class CustomTargetClampConsistencyTests
     }
 
     [Test]
+    public void CreateTarget_FractionalBounds_PreservesLegacyLocalBufferPlacement()
+    {
+        VulkanTestEnvironment.EnsureAvailable();
+        VulkanTestEnvironment.InvokeOnRenderThread(() =>
+        {
+            var bounds = new Rect(5.5f, 3.5f, 181.75f, 101.25f);
+            CustomFilterEffectContext context = Context(workingScale: 1f);
+            using EffectTarget target = context.CreateTarget(bounds);
+            using ImmediateCanvas canvas = context.Open(target);
+
+            Assert.Multiple(() =>
+            {
+                Assert.That(target.RenderTarget!.Width, Is.EqualTo(181));
+                Assert.That(target.RenderTarget.Height, Is.EqualTo(101));
+                Assert.That(target.RasterBounds,
+                    Is.EqualTo(new Rect(bounds.Position, new Size(181, 101))));
+                Assert.That(canvas.LogicalSize, Is.EqualTo(bounds.Size));
+                Assert.That(canvas.Transform.Transform(default(Point)), Is.EqualTo(default(Point)));
+            });
+        });
+    }
+
+    [Test]
     public void CreateTarget_BufferBudgetExceeded_ClampsDensity_AndOpenMatchesClamp()
     {
         VulkanTestEnvironment.EnsureAvailable();

@@ -34,8 +34,8 @@ public class FilterEffectRenderNode(FilterEffect.Resource filterEffect) : Contai
     /// aggregate the densest concrete branch result and fall back to <see cref="RenderScaleContext.OutputScale"/>
     /// only when every branch remains unbounded. Allocation clamping is independent of callback cardinality: it
     /// covers each branch's local-origin footprint and every intermediate legacy materialization. The forced Flush
-    /// immediately before a custom callback presents each branch through its canonical semantic Bounds footprint,
-    /// preserving the legacy callback contract. Because that callback may then combine, split, move, or shrink
+    /// immediately before a custom callback removes renderer-owned aprons and presents each branch through the
+    /// historical dimension-sized local backing. Because that callback may then combine, split, move, or shrink
     /// targets without declaring topology, its results collapse to their union and later footprints conservatively
     /// use that aggregate domain while retaining physical backing produced by the callback.
     /// The callback may be evaluated again after symbolic

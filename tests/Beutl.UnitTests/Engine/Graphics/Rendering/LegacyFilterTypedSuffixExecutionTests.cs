@@ -421,16 +421,154 @@ public sealed class LegacyFilterTypedSuffixExecutionTests
 
         using RenderNodeRasterization rasterization = renderer.Rasterize();
         Rect movedInputRaster = inputBounds.Translate(movedBounds.Position - inputBounds.Position);
-        PixelRect expectedDeviceBounds = PixelRect.FromRect(movedInputRaster, 1);
+        var expectedDeviceBounds = new PixelRect(
+            default,
+            new PixelSize((int)inputBounds.Width, (int)inputBounds.Height));
 
         Assert.Multiple(() =>
         {
             Assert.That(rasterization.IsEmpty, Is.False);
             Assert.That(observedBounds, Is.EqualTo(movedBounds));
             Assert.That(observedDeviceBounds, Is.EqualTo(expectedDeviceBounds));
-            Assert.That(observedRasterBounds, Is.EqualTo(expectedDeviceBounds.ToRect(1)));
-            Assert.That(observedDeviceBounds.Size, Is.EqualTo(new PixelSize(13, 11)));
+            Assert.That(observedRasterBounds, Is.EqualTo(movedInputRaster));
+            Assert.That(observedDeviceBounds.Size, Is.EqualTo(new PixelSize(12, 10)));
         });
+    }
+
+    [TestCase(1)]
+    [TestCase(2)]
+    public void FractionalLegacyTarget_ReplaysExactlyLikeDirectPointComposite(int customCount)
+    {
+        var domain = new Rect(0, 0, 20, 14);
+        var legacyBounds = new Rect(2.5f, 1.5f, 9.75f, 7.25f);
+        var effect = new LegacySuffixCallbackFilterEffect((context, _) =>
+        {
+            context.CustomEffect(
+                legacyBounds,
+                static (bounds, execution) => execution.ForEach((_, _) =>
+                {
+                    EffectTarget output = execution.CreateTarget(bounds);
+                    using ImmediateCanvas canvas = execution.Open(output);
+                    DrawLegacyPattern(canvas);
+                    return output;
+                }),
+                static (bounds, _) => bounds);
+            if (customCount == 2)
+            {
+                context.CustomEffect(
+                    0,
+                    static (_, _) => { },
+                    static (_, bounds) => bounds);
+            }
+        });
+        using var root = new FilterEffectRenderNode(
+            effect.ToResource(CompositionContext.Default));
+        root.AddChild(new RectangleRenderNode(
+            new Rect(0, 0, 1, 1),
+            Brushes.Resource.White,
+            null));
+        using var renderer = new RenderNodeRenderer(
+            root,
+            new RenderNodeRendererOptions
+            {
+                DefaultRequest = new RenderNodeRenderRequest
+                {
+                    TargetDomain = domain,
+                    OutputScale = 1,
+                    MaxWorkingScale = 1,
+                    CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Disabled,
+                },
+                TargetFactory = new CpuTargetFactory(),
+            });
+        using var actualTarget = new CpuRenderTarget((int)domain.Width, (int)domain.Height);
+        using (var actualCanvas = new ImmediateCanvas(actualTarget, logicalSize: domain.Size))
+        {
+            actualCanvas.Clear();
+            renderer.Render(actualCanvas);
+        }
+
+        using var localTarget = new CpuRenderTarget(9, 7);
+        using (var localCanvas = new ImmediateCanvas(localTarget, logicalSize: legacyBounds.Size))
+        {
+            DrawLegacyPattern(localCanvas);
+        }
+
+        using var expectedTarget = new CpuRenderTarget((int)domain.Width, (int)domain.Height);
+        using (var expectedCanvas = new ImmediateCanvas(expectedTarget, logicalSize: domain.Size))
+        {
+            expectedCanvas.Clear();
+            expectedCanvas.DrawRenderTarget(localTarget, legacyBounds.Position);
+        }
+
+        using Bitmap actual = actualTarget.Snapshot();
+        using Bitmap expected = expectedTarget.Snapshot();
+        Assert.That(
+            actual.GetPixelSpan<ushort>().SequenceEqual(expected.GetPixelSpan<ushort>()),
+            Is.True,
+            $"{customCount} legacy CustomEffect boundary/boundaries changed direct point-blit pixels");
+    }
+
+    [Test]
+    public void FractionalLegacyInput_RetainsDirectPlacementWhenCallbackMovesBounds()
+    {
+        var domain = new Rect(0, 0, 20, 14);
+        var sourceBounds = new Rect(2.5f, 1.5f, 9.75f, 7.25f);
+        var movedBounds = new Rect(5.25f, 3.75f, sourceBounds.Width, sourceBounds.Height);
+        RenderTarget? retainedInput = null;
+        var effect = new LegacySuffixCallbackFilterEffect((context, _) =>
+            context.CustomEffect(
+                movedBounds,
+                (bounds, execution) => execution.ForEach((_, target) =>
+                {
+                    retainedInput = target.RenderTarget!.ShallowCopy();
+                    target.Bounds = bounds;
+                    return target;
+                }),
+                static (bounds, _) => bounds));
+        using var root = new FilterEffectRenderNode(
+            effect.ToResource(CompositionContext.Default));
+        root.AddChild(new RectangleRenderNode(
+            sourceBounds,
+            Brushes.Resource.OrangeRed,
+            null));
+        using var renderer = new RenderNodeRenderer(
+            root,
+            new RenderNodeRendererOptions
+            {
+                DefaultRequest = new RenderNodeRenderRequest
+                {
+                    TargetDomain = domain,
+                    OutputScale = 1,
+                    MaxWorkingScale = 1,
+                    CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Disabled,
+                },
+                TargetFactory = new CpuTargetFactory(),
+            });
+        using var actualTarget = new CpuRenderTarget((int)domain.Width, (int)domain.Height);
+        using (var actualCanvas = new ImmediateCanvas(actualTarget, logicalSize: domain.Size))
+        {
+            actualCanvas.Clear();
+            renderer.Render(actualCanvas);
+        }
+
+        using RenderTarget localTarget = retainedInput
+            ?? throw new AssertionException("The legacy callback did not receive a materialized input.");
+        Assert.That(localTarget.Width, Is.EqualTo(9));
+        Assert.That(localTarget.Height, Is.EqualTo(7));
+
+        using var expectedTarget = new CpuRenderTarget((int)domain.Width, (int)domain.Height);
+        using (var expectedCanvas = new ImmediateCanvas(expectedTarget, logicalSize: domain.Size))
+        {
+            expectedCanvas.Clear();
+            expectedCanvas.DrawRenderTarget(localTarget, movedBounds.Position);
+        }
+
+        using Bitmap actual = actualTarget.Snapshot();
+        using Bitmap expected = expectedTarget.Snapshot();
+        Assert.That(
+            actual.GetPixelSpan<ushort>().SequenceEqual(expected.GetPixelSpan<ushort>()),
+            Is.True,
+            "moving retained legacy input pixels must not insert a canonical normalization pass");
     }
 
     [Test]
@@ -535,6 +673,19 @@ public sealed class LegacyFilterTypedSuffixExecutionTests
 
     private static SKColor ReadCenterPixel(Bitmap bitmap)
         => bitmap.SKBitmap.GetPixel(bitmap.Width / 2, bitmap.Height / 2);
+
+    private static void DrawLegacyPattern(ImmediateCanvas canvas)
+    {
+        canvas.Clear();
+        canvas.DrawRectangle(
+            new Rect(0.25f, 0.25f, 8.25f, 6.25f),
+            Brushes.Resource.OrangeRed,
+            null);
+        canvas.DrawRectangle(
+            new Rect(2.25f, 1.75f, 3.5f, 2.5f),
+            Brushes.Resource.White,
+            null);
+    }
 
     private static void RenderMaterializedEffect(FilterEffect effect, Vector translation)
     {

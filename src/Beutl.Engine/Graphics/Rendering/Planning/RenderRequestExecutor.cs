@@ -2286,7 +2286,12 @@ internal sealed class RenderRequestExecutor
                                 continue;
                             }
 
-                            if (selectedBounds != value.Bounds)
+                            if (selectedBounds != value.Bounds
+                                && value.PreserveLegacyRasterPlacement)
+                            {
+                                value.Bounds = selectedBounds;
+                            }
+                            else if (selectedBounds != value.Bounds)
                             {
                                 CompatibilityRenderValue cropped = CropValue(
                                     fragment,
@@ -2314,6 +2319,21 @@ internal sealed class RenderRequestExecutor
             RenderTarget renderTarget,
             Rect completeBounds)
         {
+            if (target.PreserveLegacyRasterPlacement)
+            {
+                Vector deviceGridOffset = target.DeviceBounds
+                    .ToRect(target.Scale.Value)
+                    .Position - target.RasterBounds.Position;
+                return CreateOwnedShallowCopy(
+                    renderTarget,
+                    target.Bounds,
+                    target.Scale,
+                    target.DeviceBounds,
+                    deviceGridOffset,
+                    completeBounds,
+                    preserveLegacyRasterPlacement: true);
+            }
+
             Rect canonicalRasterBounds = target.DeviceBounds
                 .ToRect(target.Scale.Value)
                 .Translate(-target.DeviceGridOffset);
@@ -4233,7 +4253,18 @@ internal sealed class RenderRequestExecutor
         private static void DrawValue(
             CompatibilityRenderValue value,
             ImmediateCanvas destination)
-            => destination.DrawRenderTargetScaledWithoutFlush(value.Target, value.RasterBounds);
+        {
+            if (value.PreserveLegacyRasterPlacement
+                && value.EffectiveScale.Value == 1f
+                && destination.Density == 1f)
+            {
+                destination.DrawRenderTarget(value.Target, value.RasterBounds.Position);
+            }
+            else
+            {
+                destination.DrawRenderTargetScaledWithoutFlush(value.Target, value.RasterBounds);
+            }
+        }
 
         private static void ValidateOutputCount(
             RenderValueCardinality cardinality,
@@ -4254,7 +4285,8 @@ internal sealed class RenderRequestExecutor
             EffectiveScale effectiveScale,
             PixelRect deviceBounds,
             Vector deviceGridOffset = default,
-            Rect? completeBounds = null)
+            Rect? completeBounds = null,
+            bool preserveLegacyRasterPlacement = false)
         {
             RenderTarget copy = target.ShallowCopy();
             try
@@ -4266,7 +4298,8 @@ internal sealed class RenderRequestExecutor
                     deviceBounds,
                     ownsTarget: true,
                     deviceGridOffset: deviceGridOffset,
-                    completeBounds: completeBounds);
+                    completeBounds: completeBounds,
+                    preserveLegacyRasterPlacement: preserveLegacyRasterPlacement);
             }
             catch
             {
@@ -4303,7 +4336,8 @@ internal sealed class RenderRequestExecutor
             PixelRect deviceBounds,
             bool ownsTarget,
             Vector deviceGridOffset = default,
-            Rect? completeBounds = null)
+            Rect? completeBounds = null,
+            bool preserveLegacyRasterPlacement = false)
         {
             ArgumentNullException.ThrowIfNull(target);
             ValidatePhysicalFootprint(
@@ -4311,7 +4345,8 @@ internal sealed class RenderRequestExecutor
                 bounds,
                 effectiveScale,
                 deviceBounds,
-                deviceGridOffset);
+                deviceGridOffset,
+                preserveLegacyRasterPlacement);
             Target = target;
             Bounds = bounds;
             CompleteBounds = completeBounds ?? bounds;
@@ -4319,6 +4354,7 @@ internal sealed class RenderRequestExecutor
             DeviceBounds = deviceBounds;
             DeviceGridOffset = deviceGridOffset;
             OwnsTarget = ownsTarget;
+            PreserveLegacyRasterPlacement = preserveLegacyRasterPlacement;
         }
 
         public CompatibilityRenderValue(
@@ -4365,6 +4401,8 @@ internal sealed class RenderRequestExecutor
 
         public bool OwnsTarget { get; }
 
+        public bool PreserveLegacyRasterPlacement { get; }
+
         public RenderTarget TransferToAcceptedCache()
         {
             if (_lease is null)
@@ -4389,7 +4427,8 @@ internal sealed class RenderRequestExecutor
             Rect bounds,
             EffectiveScale effectiveScale,
             PixelRect deviceBounds,
-            Vector deviceGridOffset)
+            Vector deviceGridOffset,
+            bool preserveLegacyRasterPlacement = false)
         {
             if (effectiveScale.IsUnbounded)
                 throw new ArgumentException("A materialized value requires a concrete density.", nameof(effectiveScale));
@@ -4399,6 +4438,9 @@ internal sealed class RenderRequestExecutor
                     "A materialized value's device bounds must match its backing target size.",
                     nameof(deviceBounds));
             }
+
+            if (preserveLegacyRasterPlacement)
+                return;
 
             PixelRect semanticDeviceBounds = PixelRect.FromRect(
                 bounds.Translate(deviceGridOffset),

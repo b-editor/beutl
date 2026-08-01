@@ -206,9 +206,9 @@ public sealed class FilterEffectActivator : IDisposable
         paint?.ImageFilter = Builder.GetFilter();
 
         // A forced flush is also the legacy CustomEffect compatibility boundary. The old
-        // activator always replaced the input with a Bounds-sized buffer before callback entry,
-        // so renderer-owned aprons must be canonicalized instead of leaking into existing code.
-        bool canonicalize = force;
+        // activator always replaced the input with a Bounds-sized local buffer before callback
+        // entry, so renderer-owned aprons must not leak into existing code.
+        bool legacyCompatibilityBoundary = force;
 
         var flushTargets = new Dictionary<EffectTarget, FlushTarget>();
         // Re-clamp against the physical runtime footprint. A retained raster can be wider than
@@ -225,12 +225,16 @@ public sealed class FilterEffectActivator : IDisposable
                 continue;
 
             flushTargets.Add(target, flushTarget);
-            Rect budgetBounds = canonicalize
-                ? target.Bounds
+            Rect budgetBounds = legacyCompatibilityBoundary
+                ? new Rect(default, target.Bounds.Size)
                 : ResolveDeviceRoundingSource(target, flushTarget, hasFilter);
-            float fit = RenderScaleUtilities.ClampWorkingScaleToExactBufferBudget(
-                budgetBounds.Translate(target.DeviceGridOffset),
-                WorkingScale);
+            float fit = legacyCompatibilityBoundary
+                ? RenderScaleUtilities.ClampWorkingScaleToBufferBudget(
+                    budgetBounds,
+                    WorkingScale)
+                : RenderScaleUtilities.ClampWorkingScaleToExactBufferBudget(
+                    budgetBounds.Translate(target.DeviceGridOffset),
+                    WorkingScale);
             if (fit < WorkingScale)
             {
                 s_logger.LogWarning(
@@ -271,19 +275,44 @@ public sealed class FilterEffectActivator : IDisposable
             }
 
             float w = WorkingScale;
-            if (!hasFilter && CanReuseCanonicalTarget(target, w))
+            if (!hasFilter
+                && legacyCompatibilityBoundary
+                && CanReuseLegacyTarget(target, w))
                 continue;
 
-            Rect deviceRoundingSource = canonicalize
+            bool preserveLegacyRasterPlacement = legacyCompatibilityBoundary;
+            Vector allocationGridOffset = preserveLegacyRasterPlacement
+                ? _deviceGridOffset ?? default
+                : target.DeviceGridOffset;
+            Rect deviceRoundingSource = legacyCompatibilityBoundary
                 ? target.Bounds
                 : ResolveDeviceRoundingSource(target, flushTarget, hasFilter);
-            PixelRect deviceBounds = CustomFilterEffectContext.DeviceBufferBounds(
-                deviceRoundingSource.Translate(target.DeviceGridOffset), w);
-            if (hasFilter)
+            PixelRect canonicalDeviceBounds = CustomFilterEffectContext.DeviceBufferBounds(
+                deviceRoundingSource.Translate(allocationGridOffset), w);
+            PixelRect deviceBounds;
+            Vector outputDeviceGridOffset;
+            if (preserveLegacyRasterPlacement)
+            {
+                (int width, int height) = CustomFilterEffectContext.DeviceBufferSize(
+                    target.Bounds,
+                    w);
+                deviceBounds = new PixelRect(
+                    canonicalDeviceBounds.Position,
+                    new PixelSize(width, height));
+                outputDeviceGridOffset = deviceBounds
+                    .ToRect(w)
+                    .Position - target.Bounds.Position;
+            }
+            else
+            {
+                deviceBounds = canonicalDeviceBounds;
+                outputDeviceGridOffset = target.DeviceGridOffset;
+            }
+            if (hasFilter && !preserveLegacyRasterPlacement)
                 VerifyFilteredDeviceBounds(target, deviceBounds, w);
             Rect rasterBounds = deviceBounds
                 .ToRect(w)
-                .Translate(-target.DeviceGridOffset);
+                .Translate(-outputDeviceGridOffset);
             using RenderTarget? surface = RenderTarget.Create(
                 deviceBounds.Width,
                 deviceBounds.Height);
@@ -292,7 +321,7 @@ public sealed class FilterEffectActivator : IDisposable
             {
                 Vector rasterTranslation = DeviceGridAlignment.ResolveRasterTranslation(
                     deviceBounds,
-                    target.DeviceGridOffset,
+                    outputDeviceGridOffset,
                     w);
                 using (var canvas = new ImmediateCanvas(surface, w, MaxWorkingScale,
                            logicalSize: rasterBounds.Size))
@@ -313,7 +342,8 @@ public sealed class FilterEffectActivator : IDisposable
                     target.Bounds,
                     EffectiveScale.At(w),
                     deviceBounds,
-                    target.DeviceGridOffset)
+                    outputDeviceGridOffset,
+                    preserveLegacyRasterPlacement)
                 {
                     OriginalBounds = target.OriginalBounds
                 };
@@ -353,8 +383,8 @@ public sealed class FilterEffectActivator : IDisposable
         if (!hasFilter)
         {
             // A forced no-filter flush is the compatibility boundary for imperative CustomEffect
-            // callbacks. Materialize the semantic bounds at WorkingScale so existing effects can
-            // keep using CreateTarget(Bounds) and DeviceBufferSize(Bounds, WorkingScale).
+            // callbacks. Materialize semantic input without exposing a renderer-owned apron;
+            // callback-created targets keep their separate legacy local-buffer contract.
             return new FlushTarget(target.Bounds, target.Bounds);
         }
 
@@ -413,19 +443,20 @@ public sealed class FilterEffectActivator : IDisposable
         }
     }
 
-    private static bool CanReuseCanonicalTarget(EffectTarget target, float density)
+    private static bool CanReuseLegacyTarget(EffectTarget target, float density)
     {
-        if (target.Scale.IsUnbounded || target.Scale.Value != density)
+        if (!target.PreserveLegacyRasterPlacement
+            || target.Scale.IsUnbounded
+            || target.Scale.Value != density
+            || target.RenderTarget is not { } renderTarget)
+        {
             return false;
+        }
 
-        PixelRect semanticDeviceBounds = PixelRect.FromRect(
-            target.Bounds.Translate(target.DeviceGridOffset),
+        (int width, int height) = CustomFilterEffectContext.DeviceBufferSize(
+            target.Bounds,
             density);
-        return target.DeviceBounds == semanticDeviceBounds
-               && target.RasterBounds
-                   == semanticDeviceBounds
-                       .ToRect(density)
-                       .Translate(-target.DeviceGridOffset);
+        return renderTarget.Width == width && renderTarget.Height == height;
     }
 
     private static bool Contains(PixelRect outer, PixelRect inner)

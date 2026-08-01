@@ -399,15 +399,15 @@ public class ResolutionScaleTests
     [Test]
     public void DeviceBufferSize_MatchesCreateTargetFormula()
     {
-        // Must match CreateTarget's canonical PixelRect.FromRect footprint.
+        // Legacy custom effects size local buffers from dimensions, not from rounded global edges.
         Assert.That(CustomFilterEffectContext.DeviceBufferSize(new Rect(0, 0, 100.7f, 50.2f), 1f),
-            Is.EqualTo((101, 51)), "fractional far edges round out at w == 1");
+            Is.EqualTo((100, 50)), "the historical w == 1 path truncates fractional dimensions");
         Assert.That(CustomFilterEffectContext.DeviceBufferSize(new Rect(0, 0, 100.0f, 50.0f), 2f),
             Is.EqualTo((200, 100)), "integral bounds * w stays integral");
         Assert.That(CustomFilterEffectContext.DeviceBufferSize(new Rect(0, 0, 100.3f, 50.1f), 2f),
             Is.EqualTo((201, 101)), "fractional bounds * w ceils up");
         Assert.That(CustomFilterEffectContext.DeviceBufferSize(new Rect(10.25f, 20.25f, 8, 6), 2f),
-            Is.EqualTo((17, 13)), "fractional origins retain both rounded device edges");
+            Is.EqualTo((16, 12)), "fractional origins do not affect a local buffer's dimensions");
     }
 
     // --- Flatten nodes own no buffer and re-rasterize at any scale: must report Unbounded supply ---------

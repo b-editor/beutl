@@ -61,9 +61,9 @@ the CTM handles it, and a manual `× w` would double-scale and regress the resul
   surviving branch with one input supply and that branch's isolated effect-input bounds; legacy multi-input work
   aggregates the densest concrete result and falls back to `s_out` only when every branch is `Unbounded`. Allocation
   clamping follows branch-local, local-origin footprints and intermediate Flushes until an opaque `CustomEffect`.
-  Immediately before that legacy callback, a forced compatibility Flush canonicalizes each surviving target to its
-  semantic `Bounds` at the actual working scale, so renderer aprons never change existing `CreateTarget(Bounds)` or
-  `DeviceBufferSize(Bounds, WorkingScale)` assumptions. Because the callback may combine/split targets, its
+  Immediately before that legacy callback, a forced compatibility Flush removes renderer-owned aprons. Existing
+  `CreateTarget(Bounds)` and `DeviceBufferSize(Bounds, WorkingScale)` calls retain their dimension-only local-buffer
+  behavior and final raster placement. Because the callback may combine/split targets, its
   transformed branch results are unioned there and subsequent footprints conservatively use that aggregate domain.
   No authored items means a true pass-through with
   no isolation fragment; the hook/resolver stay lazy unless `ApplyTo` probes `WorkingScale`. Override `Process`

@@ -447,7 +447,7 @@ public sealed class RasterFootprintMetadataTests
     }
 
     [Test]
-    public void DeviceBufferBounds_IncludesFractionalOriginRoundingPixels()
+    public void DeviceBufferSize_RemainsIndependentFromCanonicalDeviceOrigin()
     {
         const float density = 2;
         var bounds = new Rect(10.25f, 20.25f, 8, 6);
@@ -460,12 +460,12 @@ public sealed class RasterFootprintMetadataTests
             Assert.That(actual.Size, Is.EqualTo(new PixelSize(17, 13)));
             Assert.That(
                 CustomFilterEffectContext.DeviceBufferSize(bounds, density),
-                Is.EqualTo((actual.Width, actual.Height)));
+                Is.EqualTo((16, 12)));
         });
     }
 
     [Test]
-    public void ResolveTargetDensity_ClampsTheGridAdjustedPhysicalFootprint()
+    public void ResolveTargetDensity_UsesLegacyLocalDimensions()
     {
         var sourceBounds = new Rect(0, 0, 1, 1);
         var gridOffset = new Vector(0.5f, 0);
@@ -493,15 +493,15 @@ public sealed class RasterFootprintMetadataTests
             1);
 
         float density = context.ResolveTargetDensity(requestedBounds);
-        PixelRect allocated = PixelRect.FromRect(
-            requestedBounds.Translate(context.DeviceGridOffset),
+        (int width, int height) = CustomFilterEffectContext.DeviceBufferSize(
+            requestedBounds,
             density);
 
         Assert.Multiple(() =>
         {
-            Assert.That(density, Is.LessThan(1));
-            Assert.That(allocated.Width, Is.LessThanOrEqualTo(RenderScaleUtilities.MaxBufferDimension));
-            Assert.That(allocated.Height, Is.LessThanOrEqualTo(RenderScaleUtilities.MaxBufferDimension));
+            Assert.That(density, Is.EqualTo(1));
+            Assert.That(width, Is.LessThanOrEqualTo(RenderScaleUtilities.MaxBufferDimension));
+            Assert.That(height, Is.LessThanOrEqualTo(RenderScaleUtilities.MaxBufferDimension));
         });
     }
 

@@ -1278,7 +1278,14 @@ are neither planner-visible nor bounded by that crop. Built-in effects use a fin
 one can be derived; only genuinely dynamic effects whose callback may run an arbitrary child effect retain
 unknown bounds.
 
-`DeviceBufferBounds(bounds, w) == PixelRect.FromRect(bounds, w)` is the allocation source of truth. `DeviceBufferSize` returns that footprint's size rather than independently rounding width/height; consequently a fractional origin can add a device pixel even when `ceil(bounds.Width * w)` alone would not. `CustomFilterEffectContext.DeviceGridOffset` is the ambient allocation grid applied by `CreateTarget(bounds)` before calling that helper. `ResolveTargetDensity(bounds)` applies that grid offset and the exact per-buffer allocation clamp, returning the density that `CreateTarget(bounds)` will use. Immediately before each legacy Custom callback, the engine force-materializes every surviving input to this canonical device cover of its semantic `Bounds` at the actual working scale. An exact canonical input may be reused, but an apron-bearing or otherwise larger renderer backing is rematerialized so unchanged code that pairs `Targets` with `CreateTarget(Bounds)` or `DeviceBufferSize(Bounds, WorkingScale)` continues to observe matching dimensions. Each callback target independently retains the grid of that canonical storage. Replay into an aligned backing computes its local translation from the integer `DeviceBounds` first, avoiding a divide-then-multiply float round trip that could alter the source's device phase. `EffectTarget.DeviceBounds` is the immutable composition-device allocation footprint and `RasterBounds == DeviceBounds.ToRect(Scale.Value).Translate(-DeviceGridOffset)` is its pixel-aligned effect-local footprint at allocation time. If a legacy effect subsequently translates `Bounds` without reallocating (for example Shake), `RasterBounds` translates by exactly the same logical delta while preserving its physical size. `Draw`, `Open`, and final activation use this post-callback physical footprint and never stretch the backing image to semantic `Bounds`; `OriginalBounds`, `Bounds`, measurement, hit testing, and ROI semantics remain unchanged.
+The public render-target `EffectTarget` constructor is a legacy compatibility constructor. It anchors the
+backing at `originalBounds.Position`, exposes the backing size through `RasterBounds`, and preserves local
+point-placement semantics when `Bounds` moves. Canonical device-cover allocation is reserved for typed
+Shader/Geometry execution.
+
+`DeviceBufferBounds(bounds, w) == PixelRect.FromRect(bounds, w)` describes a canonical composition-device cover. Legacy `CreateTarget(bounds)` deliberately keeps its prior local-buffer allocation instead: `DeviceBufferSize` depends only on the logical dimensions (`(int)` at `w == 1`, otherwise `ceil(dimension * w)`), so changing a fractional origin does not change the buffer size. `ResolveTargetDensity(bounds)` likewise applies the legacy dimension-only per-buffer clamp. `DeviceGridOffset`, `DeviceBounds`, and `RasterBounds` record how that local storage is placed on the composition grid without changing what the callback sees through `Open`.
+
+Immediately before each legacy Custom callback, the engine force-materializes surviving inputs to remove renderer-owned aprons. A target that the callback creates, retains, or repositions keeps its local raster placement through execution; scale-one replay uses the historical direct point composite, and no canonical normalization pass is inserted. If a legacy effect translates `Bounds` without reallocating, the backing translates by the same logical delta while preserving its physical size. Semantic `Bounds`, measurement, hit testing, and ROI publication remain separate from that backing footprint. The typed `Shader` and `Geometry` paths use canonical device covers and guarded callback canvases independently of this compatibility behavior.
 
 That legacy callback is not handed the new capability-guarded `RenderCallbackCanvas`; its internal raw target/canvas passes, snapshots, or flushes are intentionally uninspectable. Nothing may fuse through it, and diagnostics set `HasOpaqueExternalWork` rather than pretending its internal physical pass/synchronization count is known. New custom work should use Shader, Geometry, or the explicit opaque render-node descriptions for fully planned ownership and diagnostics.
 
@@ -1310,11 +1317,10 @@ first-operation output bounds. Legacy multi-input lowering aggregates the denses
 back to `OutputScale` only if every branch remains `Unbounded`. Allocation footprints are independent of callback
 cardinality: before an opaque Custom callback they retain each branch's local-origin transforms and intermediate
 materializations, so empty space in a sparse union is not backing storage. The forced compatibility materialization
-immediately before callback entry canonicalizes every surviving target to the exact device cover of its semantic
-`Bounds` at the actual working scale; it does not forward a renderer-owned apron to unchanged legacy code. Because
-a Custom callback may combine or split targets without declaring topology, the first such callback unions the
-transformed branch results and collapses later analysis to that aggregate domain. Physical footprints produced or
-retained by the callback are tracked from the callback result and exact-clamped by later normalization.
+immediately before callback entry removes renderer-owned aprons. Callback-created targets retain the legacy
+dimension-only local allocation and authored raster placement through final replay. Because a Custom callback may
+combine or split targets without declaring topology, the first such callback unions the transformed branch results
+and collapses later analysis to that aggregate domain.
 The pure contract is reevaluated after a symbolic `TargetLayerScope(Full)` resolves against its actual owner.
 
 The base records no identity fragment or extra opaque/pass boundary. If `ApplyTo` records no items, the node

@@ -18,7 +18,10 @@ public sealed class EffectTarget : IDisposable
                 renderTarget,
                 originalBounds,
                 scale.IsUnbounded ? EffectiveScale.At(1f) : scale),
-            default)
+            CreateLegacyDeviceGridOffset(
+                originalBounds,
+                scale.IsUnbounded ? EffectiveScale.At(1f) : scale),
+            preserveLegacyRasterPlacement: true)
     {
     }
 
@@ -27,7 +30,8 @@ public sealed class EffectTarget : IDisposable
         Rect originalBounds,
         EffectiveScale scale,
         PixelRect deviceBounds,
-        Vector deviceGridOffset = default)
+        Vector deviceGridOffset = default,
+        bool preserveLegacyRasterPlacement = false)
     {
         ArgumentNullException.ThrowIfNull(renderTarget);
         if (scale.IsUnbounded)
@@ -49,6 +53,7 @@ public sealed class EffectTarget : IDisposable
         Scale = scale;
         DeviceBounds = deviceBounds;
         DeviceGridOffset = deviceGridOffset;
+        PreserveLegacyRasterPlacement = preserveLegacyRasterPlacement;
     }
 
     public EffectTarget()
@@ -79,26 +84,14 @@ public sealed class EffectTarget : IDisposable
     /// </summary>
     public Vector DeviceGridOffset { get; }
 
+    internal bool PreserveLegacyRasterPlacement { get; }
+
     /// <summary>
     /// Gets the current effect-local, pixel-aligned logical footprint. Moving <see cref="Bounds"/>
     /// translates this footprint without stretching the backing pixels.
     /// </summary>
     public Rect RasterBounds
         => _allocationRasterBounds.Translate(Bounds.Position - _allocationBounds.Position);
-
-    internal Vector RasterOriginTranslation
-    {
-        get
-        {
-            Vector translation = DeviceGridAlignment.ResolveRasterTranslation(
-                DeviceBounds,
-                DeviceGridOffset,
-                Scale.Value);
-            return new Vector(
-                _allocationBounds.X + translation.X,
-                _allocationBounds.Y + translation.Y);
-        }
-    }
 
     public RenderTarget? RenderTarget => _target as RenderTarget;
 
@@ -123,7 +116,8 @@ public sealed class EffectTarget : IDisposable
             _allocationBounds,
             Scale,
             DeviceBounds,
-            DeviceGridOffset)
+            DeviceGridOffset,
+            PreserveLegacyRasterPlacement)
         {
             Bounds = Bounds,
             OriginalBounds = OriginalBounds,
@@ -142,7 +136,9 @@ public sealed class EffectTarget : IDisposable
         if (RenderTarget != null)
         {
             Rect rasterBounds = RasterBounds;
-            Point localOrigin = rasterBounds.Position - Bounds.Position;
+            Point localOrigin = PreserveLegacyRasterPlacement
+                ? default
+                : rasterBounds.Position - Bounds.Position;
             // Draw the complete backing footprint. Bounds is semantic metadata and can be
             // translated or inflated independently, so it must never be used as the image size.
             if ((Scale.IsUnbounded || Scale.Value == 1f) && canvas.Density == 1f)
@@ -165,5 +161,13 @@ public sealed class EffectTarget : IDisposable
         ArgumentNullException.ThrowIfNull(renderTarget);
         PixelRect canonical = PixelRect.FromRect(bounds, scale.Value);
         return new PixelRect(canonical.Position, new PixelSize(renderTarget.Width, renderTarget.Height));
+    }
+
+    private static Vector CreateLegacyDeviceGridOffset(Rect bounds, EffectiveScale scale)
+    {
+        Point deviceOrigin = PixelRect.FromRect(bounds, scale.Value)
+            .ToRect(scale.Value)
+            .Position;
+        return deviceOrigin - bounds.Position;
     }
 }

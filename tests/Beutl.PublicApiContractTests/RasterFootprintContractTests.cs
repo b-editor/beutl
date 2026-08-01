@@ -36,12 +36,13 @@ public sealed class RasterFootprintContractTests
             Assert.That(target.DeviceBounds, Is.EqualTo(allocation));
             Assert.That(target.RasterBounds, Is.EqualTo(initialRasterBounds.Translate(translation)));
             Assert.That(target.RasterBounds.Size, Is.EqualTo(initialRasterBounds.Size));
+            Assert.That(initialRasterBounds.Position, Is.EqualTo(bounds.Position));
             Assert.That(target.Bounds.Size, Is.EqualTo(bounds.Size));
         });
     }
 
     [Test]
-    public void LegacyCustomEffectBufferHelpers_UseCanonicalCompositionDeviceBounds()
+    public void LegacyCustomEffectBufferSize_RemainsLocalToLogicalDimensions()
     {
         const float density = 2;
         var bounds = new Rect(10.25f, 20.25f, 8, 6);
@@ -53,7 +54,7 @@ public sealed class RasterFootprintContractTests
             Assert.That(deviceBounds, Is.EqualTo(PixelRect.FromRect(bounds, density)));
             Assert.That(deviceBounds.Size, Is.EqualTo(new PixelSize(17, 13)));
             Assert.That(CustomFilterEffectContext.DeviceBufferSize(bounds, density),
-                Is.EqualTo((deviceBounds.Width, deviceBounds.Height)));
+                Is.EqualTo((16, 12)));
         });
     }
 
