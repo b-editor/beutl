@@ -4,17 +4,17 @@ using Beutl.Testing.Headless;
 
 namespace Beutl.HeadlessUITests;
 
-// Shared global-state reset for tests that open editor tabs. Must run on the Avalonia UI thread
-// (awaited at the start of each [AvaloniaTest] body), where touching ProjectService / EditorService /
-// BeutlApplication is safe; NUnit [SetUp]/[TearDown] run off that thread.
+// Shell-state reset for tests that perform multiple project operations. Must run on the Avalonia UI
+// thread (awaited inside each [AvaloniaTest] body), where touching ProjectService / EditorService /
+// BeutlApplication is safe; NUnit [SetUp]/[TearDown] run off that thread. Avalonia.Headless creates a
+// fresh TestApp per [AvaloniaTest], so the MainViewModel itself is not shared between test cases.
 internal static class TestReset
 {
     public static async Task ResetShellAsync()
     {
-        // Editor tabs are process-global and persist across tests. Their tool tabs (e.g. the file
-        // browser) hold live FileSystemWatchers on BEUTL_HOME; left open, a watcher from a prior
-        // test fires into a disposed view model when a later test writes under BEUTL_HOME. Dispose
-        // the tabs so those watchers are torn down.
+        // Editor tabs can outlive an earlier project operation within the current test. Their tool
+        // tabs (e.g. the file browser) hold live FileSystemWatchers on BEUTL_HOME, so dispose them
+        // before resetting the project and application items.
         await DisposeOpenEditorTabsAsync();
 
         // The test build reports BeutlApplication.Version "1.0.0" (no NuGetVersion metadata), so a

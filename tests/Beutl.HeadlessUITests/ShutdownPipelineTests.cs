@@ -127,7 +127,7 @@ public class ShutdownPipelineTests
         var projectService = new ProjectService();
         Project project = SetOpenProject("shutdown-transition");
         var closingPurposes = new List<ProjectTransitionPurpose>();
-        Func<CancellationToken, Task> closing = _ =>
+        Func<ProjectService.ProjectCloseContext, CancellationToken, Task> closing = (_, _) =>
         {
             closingPurposes.Add(projectService.CurrentTransition!.Purpose);
             return Task.CompletedTask;
@@ -181,6 +181,114 @@ public class ShutdownPipelineTests
     }
 
     [AvaloniaTest]
+    public async Task Project_close_awaits_all_completion_callbacks_and_isolates_failures()
+    {
+        var projectService = new ProjectService();
+        SetOpenProject("async-close-completions");
+        var firstCompletionEntered = new TaskCompletionSource(
+            TaskCreationOptions.RunContinuationsAsynchronously);
+        var releaseFirstCompletion = new TaskCompletionSource(
+            TaskCreationOptions.RunContinuationsAsynchronously);
+        bool? firstObservedClosed = null;
+        bool? secondObservedClosed = null;
+        Func<ProjectService.ProjectCloseContext, CancellationToken, Task> closing =
+            (closeContext, _) =>
+            {
+                closeContext.RegisterCompletion(async projectClosed =>
+                {
+                    firstCompletionEntered.TrySetResult();
+                    await releaseFirstCompletion.Task;
+                    firstObservedClosed = projectClosed;
+                    throw new InvalidOperationException("Expected completion failure.");
+                });
+                closeContext.RegisterCompletion(projectClosed =>
+                {
+                    secondObservedClosed = projectClosed;
+                    return Task.CompletedTask;
+                });
+                return Task.CompletedTask;
+            };
+        projectService.Closing += closing;
+
+        try
+        {
+            Task close = projectService.CloseProject();
+            await firstCompletionEntered.Task.WaitAsync(TimeSpan.FromSeconds(5));
+            Assert.That(close.IsCompleted, Is.False);
+
+            releaseFirstCompletion.TrySetResult();
+            await close.WaitAsync(TimeSpan.FromSeconds(5));
+
+            Assert.Multiple(() =>
+            {
+                Assert.That(firstObservedClosed, Is.True);
+                Assert.That(secondObservedClosed, Is.True);
+                Assert.That(projectService.CurrentProject.Value, Is.Null);
+            });
+        }
+        finally
+        {
+            releaseFirstCompletion.TrySetResult();
+            projectService.Closing -= closing;
+            projectService.CloseProjectImmediately();
+        }
+    }
+
+    [AvaloniaTest]
+    public async Task Project_close_is_committed_after_prepare_and_isolates_finalizer_failures()
+    {
+        var projectService = new ProjectService();
+        SetOpenProject("finalizer-failure-commit");
+        bool? completionObservedClosed = null;
+        bool subsequentFinalizerCalled = false;
+        Func<ProjectService.ProjectCloseContext, CancellationToken, Task> closing =
+            (closeContext, _) =>
+            {
+                closeContext.RegisterCompletion(projectClosed =>
+                {
+                    completionObservedClosed = projectClosed;
+                    return Task.CompletedTask;
+                });
+                return Task.CompletedTask;
+            };
+        Func<ProjectService.ProjectCloseContext, CancellationToken, Task> failingFinalizer =
+            static (_, cancellationToken) =>
+            {
+                Assert.That(cancellationToken, Is.EqualTo(CancellationToken.None));
+                throw new InvalidOperationException("Expected finalizer failure.");
+            };
+        Func<ProjectService.ProjectCloseContext, CancellationToken, Task> subsequentFinalizer =
+            (_, cancellationToken) =>
+            {
+                Assert.That(cancellationToken, Is.EqualTo(CancellationToken.None));
+                subsequentFinalizerCalled = true;
+                return Task.CompletedTask;
+            };
+        projectService.Closing += closing;
+        projectService.ClosingFinalizing += failingFinalizer;
+        projectService.ClosingFinalizing += subsequentFinalizer;
+
+        try
+        {
+            await projectService.CloseProject();
+
+            Assert.Multiple(() =>
+            {
+                Assert.That(projectService.CurrentProject.Value, Is.Null);
+                Assert.That(subsequentFinalizerCalled, Is.True);
+                Assert.That(completionObservedClosed, Is.True);
+            });
+        }
+        finally
+        {
+            projectService.Closing -= closing;
+            projectService.ClosingFinalizing -= failingFinalizer;
+            projectService.ClosingFinalizing -= subsequentFinalizer;
+            projectService.CloseProjectImmediately();
+        }
+    }
+
+    [AvaloniaTest]
     public async Task MainViewModel_shutdown_coalesces_close_handlers_and_releases_project()
     {
         await TestReset.ResetShellAsync();
@@ -190,12 +298,13 @@ public class ShutdownPipelineTests
         var releaseClosing = new TaskCompletionSource(
             TaskCreationOptions.RunContinuationsAsynchronously);
         int closingCalls = 0;
-        Func<CancellationToken, Task> closing = async cancellationToken =>
-        {
-            closingCalls++;
-            closingEntered.TrySetResult();
-            await releaseClosing.Task.WaitAsync(cancellationToken);
-        };
+        Func<ProjectService.ProjectCloseContext, CancellationToken, Task> closing =
+            async (_, cancellationToken) =>
+            {
+                closingCalls++;
+                closingEntered.TrySetResult();
+                await releaseClosing.Task.WaitAsync(cancellationToken);
+            };
 
         viewModel.ProjectService.Closing += closing;
         SetOpenProject("async-shutdown");
@@ -234,7 +343,7 @@ public class ShutdownPipelineTests
         await TestReset.ResetShellAsync();
         var viewModel = new MainViewModel();
         int closingCalls = 0;
-        Func<CancellationToken, Task> closing = _ =>
+        Func<ProjectService.ProjectCloseContext, CancellationToken, Task> closing = (_, _) =>
         {
             closingCalls++;
             return Task.CompletedTask;

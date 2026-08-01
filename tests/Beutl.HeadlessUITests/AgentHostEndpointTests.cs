@@ -155,6 +155,38 @@ public sealed class AgentHostEndpointTests
     }
 
     [AvaloniaTest]
+    public async Task StartAsync_can_retry_after_a_cancelled_start_attempt()
+    {
+        await TestReset.ResetShellAsync();
+        var endpoint = new AgentHostEndpoint(
+            new ProjectService(),
+            new EditorService(new ExtensionProvider()),
+            GetAvailableLoopbackPort(),
+            "test-token");
+        using var cancellation = new CancellationTokenSource();
+        cancellation.Cancel();
+
+        try
+        {
+            Assert.That(
+                async () => await endpoint.StartAsync(cancellation.Token),
+                Throws.InstanceOf<OperationCanceledException>());
+
+            await endpoint.StartAsync();
+
+            Assert.Multiple(() =>
+            {
+                Assert.That(endpoint.IsRunning, Is.True);
+                Assert.That(endpoint.EndpointUri, Is.Not.Null);
+            });
+        }
+        finally
+        {
+            await endpoint.StopAsync();
+        }
+    }
+
+    [AvaloniaTest]
     public async Task RequestStop_marks_endpoint_stopped_without_awaiting_host_shutdown()
     {
         await TestReset.ResetShellAsync();
@@ -170,6 +202,192 @@ public sealed class AgentHostEndpointTests
         });
 
         await endpoint.StopAsync();
+    }
+
+    [AvaloniaTest]
+    public async Task DisposeAsync_waits_for_the_stop_started_by_RequestStop()
+    {
+        await TestReset.ResetShellAsync();
+        var stopEntered = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var releaseStop = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var endpoint = new AgentHostEndpoint(
+            new ProjectService(),
+            new EditorService(new ExtensionProvider()),
+            GetAvailableLoopbackPort(),
+            "test-token",
+            async _ =>
+            {
+                stopEntered.TrySetResult();
+                await releaseStop.Task.ConfigureAwait(false);
+            });
+
+        try
+        {
+            await endpoint.StartAsync();
+            endpoint.RequestStop();
+            await stopEntered.Task.WaitAsync(TimeSpan.FromSeconds(5));
+
+            Task disposalTask = endpoint.DisposeAsync().AsTask();
+            Task repeatedDisposalTask = endpoint.DisposeAsync().AsTask();
+
+            Assert.Multiple(() =>
+            {
+                Assert.That(disposalTask.IsCompleted, Is.False);
+                Assert.That(repeatedDisposalTask.IsCompleted, Is.False);
+            });
+
+            releaseStop.TrySetResult();
+            await Task.WhenAll(disposalTask, repeatedDisposalTask).WaitAsync(TimeSpan.FromSeconds(5));
+        }
+        finally
+        {
+            releaseStop.TrySetResult();
+            await endpoint.DisposeAsync();
+        }
+    }
+
+    [AvaloniaTest]
+    public async Task RequestStop_then_DisposeAsync_propagates_the_retained_stop_failure()
+    {
+        await TestReset.ResetShellAsync();
+        var endpoint = new AgentHostEndpoint(
+            new ProjectService(),
+            new EditorService(new ExtensionProvider()),
+            GetAvailableLoopbackPort(),
+            "test-token",
+            static _ => Task.FromException(
+                new InvalidOperationException("Expected stop failure.")));
+
+        try
+        {
+            await endpoint.StartAsync();
+            endpoint.RequestStop();
+
+            InvalidOperationException? first = Assert.ThrowsAsync<InvalidOperationException>(
+                async () => await endpoint.DisposeAsync());
+            InvalidOperationException? second = Assert.ThrowsAsync<InvalidOperationException>(
+                async () => await endpoint.DisposeAsync());
+
+            Assert.Multiple(() =>
+            {
+                Assert.That(first?.Message, Is.EqualTo("Expected stop failure."));
+                Assert.That(second?.Message, Is.EqualTo("Expected stop failure."));
+                Assert.That(endpoint.IsRunning, Is.False);
+                Assert.That(endpoint.EndpointUri, Is.Null);
+            });
+        }
+        finally
+        {
+            try
+            {
+                await endpoint.DisposeAsync();
+            }
+            catch (InvalidOperationException)
+            {
+            }
+        }
+    }
+
+    [AvaloniaTest]
+    public async Task StopAsync_cancellation_does_not_cancel_the_retained_drain()
+    {
+        await TestReset.ResetShellAsync();
+        var stopEntered = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var releaseStop = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var endpoint = new AgentHostEndpoint(
+            new ProjectService(),
+            new EditorService(new ExtensionProvider()),
+            GetAvailableLoopbackPort(),
+            "test-token",
+            async cancellationToken =>
+            {
+                Assert.That(cancellationToken, Is.EqualTo(CancellationToken.None));
+                stopEntered.TrySetResult();
+                await releaseStop.Task.ConfigureAwait(false);
+            });
+        using var cancellation = new CancellationTokenSource();
+
+        try
+        {
+            await endpoint.StartAsync();
+            Task stopWait = endpoint.StopAsync(cancellation.Token);
+            await stopEntered.Task.WaitAsync(TimeSpan.FromSeconds(5));
+            cancellation.Cancel();
+
+            Assert.That(
+                async () => await stopWait,
+                Throws.InstanceOf<OperationCanceledException>());
+
+            Task disposal = endpoint.DisposeAsync().AsTask();
+            Assert.That(disposal.IsCompleted, Is.False);
+
+            releaseStop.TrySetResult();
+            await disposal.WaitAsync(TimeSpan.FromSeconds(5));
+        }
+        finally
+        {
+            releaseStop.TrySetResult();
+            await endpoint.DisposeAsync();
+        }
+    }
+
+    [AvaloniaTest]
+    public async Task RequestStop_during_start_hands_the_application_to_the_retained_drain()
+    {
+        await TestReset.ResetShellAsync();
+        var applicationStarted = new TaskCompletionSource(
+            TaskCreationOptions.RunContinuationsAsynchronously);
+        var releaseStartup = new TaskCompletionSource(
+            TaskCreationOptions.RunContinuationsAsynchronously);
+        var stopEntered = new TaskCompletionSource(
+            TaskCreationOptions.RunContinuationsAsynchronously);
+        var endpoint = new AgentHostEndpoint(
+            new ProjectService(),
+            new EditorService(new ExtensionProvider()),
+            GetAvailableLoopbackPort(),
+            "test-token",
+            _ =>
+            {
+                stopEntered.TrySetResult();
+                return Task.CompletedTask;
+            },
+            async cancellationToken =>
+            {
+                applicationStarted.TrySetResult();
+                await releaseStartup.Task.WaitAsync(cancellationToken);
+            });
+
+        try
+        {
+            Task startup = endpoint.StartAsync();
+            await applicationStarted.Task.WaitAsync(TimeSpan.FromSeconds(5));
+
+            endpoint.RequestStop();
+            Task disposal = endpoint.DisposeAsync().AsTask();
+
+            Assert.Multiple(() =>
+            {
+                Assert.That(startup.IsCompleted, Is.False);
+                Assert.That(disposal.IsCompleted, Is.False);
+                Assert.That(endpoint.IsRunning, Is.False);
+                Assert.That(endpoint.EndpointUri, Is.Null);
+            });
+
+            releaseStartup.TrySetResult();
+            await stopEntered.Task.WaitAsync(TimeSpan.FromSeconds(5));
+            await Task.WhenAll(startup, disposal).WaitAsync(TimeSpan.FromSeconds(5));
+
+            Assert.Multiple(() =>
+            {
+                Assert.That(endpoint.IsRunning, Is.False);
+                Assert.That(endpoint.EndpointUri, Is.Null);
+            });
+        }
+        finally
+        {
+            releaseStartup.TrySetResult();
+            await endpoint.DisposeAsync();
+        }
     }
 
     [AvaloniaTest]

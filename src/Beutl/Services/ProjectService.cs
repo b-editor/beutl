@@ -1,4 +1,5 @@
-﻿using System.Reactive.Subjects;
+﻿using System.Reactive.Linq;
+using System.Reactive.Subjects;
 using System.Text.Json.Nodes;
 using Beutl.Configuration;
 using Beutl.Editor;
@@ -17,6 +18,7 @@ namespace Beutl.Services;
 public sealed class ProjectService
 {
     private readonly Subject<(Project? New, Project? Old)> _projectObservable = new();
+    private readonly IObservable<(Project? New, Project? Old)> _safeProjectObservable;
     private readonly ReadOnlyReactivePropertySlim<bool> _isOpened;
     private readonly BeutlApplication _app = BeutlApplication.Current;
     private readonly ILogger _logger = Log.CreateLogger<ProjectService>();
@@ -28,16 +30,34 @@ public sealed class ProjectService
 
     public ProjectService()
     {
+        _safeProjectObservable = Observable.Create<(Project? New, Project? Old)>(observer =>
+            _projectObservable.Subscribe(change =>
+            {
+                try
+                {
+                    observer.OnNext(change);
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogError(
+                        ex,
+                        "A project-state observer failed while publishing the committed transition.");
+                }
+            }));
         CurrentProject = _app.GetObservable(BeutlApplication.ProjectProperty)
             .ToReadOnlyReactivePropertySlim();
         _isOpened = CurrentProject.Select(v => v != null).ToReadOnlyReactivePropertySlim();
     }
 
-    public IObservable<(Project? New, Project? Old)> ProjectObservable => _projectObservable;
+    public IObservable<(Project? New, Project? Old)> ProjectObservable => _safeProjectObservable;
 
-    internal event Func<CancellationToken, Task>? Closing;
+    internal event Func<ProjectCloseContext, CancellationToken, Task>? Closing;
+
+    internal event Func<ProjectCloseContext, CancellationToken, Task>? ClosingFinalizing;
 
     internal event Func<string, Task>? Opening;
+
+    internal event Func<Project, Task>? Opened;
 
     internal ProjectTransitionContext? CurrentTransition
     {
@@ -203,12 +223,11 @@ public sealed class ProjectService
 
             var project = CoreSerializer.RestoreFromUri<Project>(UriHelper.CreateFromPath(file));
 
-            _app.Project = project;
-            // 値を発行
-            _projectObservable.OnNext((New: project, null));
+            await ActivateProjectAsync(project);
 
-            AddToRecentProjects(file);
+            TryAddToRecentProjects(file);
             _logger.LogInformation("Opened project. File: {File}, AppVersion: {AppVersion}, MinVersion: {MinVersion}", file, appVersion, minVersion);
+            PublishProjectChange((New: project, null));
         }
         catch (Exception ex)
         {
@@ -223,31 +242,41 @@ public sealed class ProjectService
         CancellationToken cancellationToken)
     {
         VerifyTransition(transition);
-        if (_app.Project is null)
+        if (_app.Project is not { } closingProject)
         {
             return;
         }
 
-        if (Closing is { } closing)
+        var closeContext = new ProjectCloseContext();
+        try
         {
-            foreach (Func<CancellationToken, Task> handler in closing.GetInvocationList())
-            {
-                await handler(cancellationToken);
-            }
+            await NotifyClosingAsync(closeContext, cancellationToken);
+            cancellationToken.ThrowIfCancellationRequested();
+            await NotifyClosingFinalizingAsync(closeContext);
+            CloseProjectImmediately();
         }
-
-        CloseProjectImmediately();
+        finally
+        {
+            bool projectClosed = !ReferenceEquals(_app.Project, closingProject);
+            await closeContext.CompleteAsync(projectClosed, _logger);
+        }
     }
 
     internal void CloseProjectImmediately()
     {
         if (_app.Project is { } project)
         {
-            // 値を発行
-            _projectObservable.OnNext((New: null, project));
             _app.Project = null;
-            GlobalConfiguration.Instance.ViewConfig.LastOpenedProjectFile = null;
+            try
+            {
+                GlobalConfiguration.Instance.ViewConfig.LastOpenedProjectFile = null;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Failed to clear the last-opened project setting.");
+            }
             _logger.LogInformation("Closed project. Project: {Project}", project.Uri);
+            PublishProjectChange((New: null, project));
         }
     }
 
@@ -305,12 +334,11 @@ public sealed class ProjectService
                     }
                 });
 
-            // 値を発行
-            _projectObservable.OnNext((New: project, null));
-            _app.Project = project;
+            await ActivateProjectAsync(project);
 
-            AddToRecentProjects(project.Uri.LocalPath);
+            TryAddToRecentProjects(project.Uri.LocalPath);
             _logger.LogInformation("Created new project. Name: {Name}, Location: {Location}, Width: {Width}, Height: {Height}, Framerate: {Framerate}, Samplerate: {Samplerate}", name, location, width, height, framerate, samplerate);
+            PublishProjectChange((New: project, null));
 
             return project;
         }
@@ -324,12 +352,133 @@ public sealed class ProjectService
         }
     }
 
-    private static void AddToRecentProjects(string file)
+    private void TryAddToRecentProjects(string file)
     {
-        ViewConfig viewConfig = GlobalConfiguration.Instance.ViewConfig;
-        viewConfig.UpdateRecentProject(file);
-        viewConfig.UpdateRecentFile(file);
-        viewConfig.LastOpenedProjectFile = file;
+        try
+        {
+            ViewConfig viewConfig = GlobalConfiguration.Instance.ViewConfig;
+            viewConfig.UpdateRecentProject(file);
+            viewConfig.UpdateRecentFile(file);
+            viewConfig.LastOpenedProjectFile = file;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Failed to update recent-project settings. File: {File}", file);
+        }
+    }
+
+    private async Task NotifyOpenedAsync(Project project)
+    {
+        if (Opened is { } opened)
+        {
+            foreach (Func<Project, Task> handler in opened.GetInvocationList())
+            {
+                await handler(project);
+            }
+        }
+    }
+
+    private async Task ActivateProjectAsync(Project project)
+    {
+        _app.Project = project;
+        try
+        {
+            await NotifyOpenedAsync(project);
+        }
+        catch
+        {
+            await RollBackFailedActivationAsync(project);
+            throw;
+        }
+    }
+
+    private async Task RollBackFailedActivationAsync(Project project)
+    {
+        if (!ReferenceEquals(_app.Project, project))
+        {
+            return;
+        }
+
+        var closeContext = new ProjectCloseContext();
+        try
+        {
+            if (Closing is { } closing)
+            {
+                foreach (Func<ProjectCloseContext, CancellationToken, Task> handler
+                         in closing.GetInvocationList())
+                {
+                    try
+                    {
+                        await handler(closeContext, CancellationToken.None);
+                    }
+                    catch (Exception ex)
+                    {
+                        _logger.LogError(
+                            ex,
+                            "A project-closing handler failed while rolling back project activation.");
+                    }
+                }
+            }
+
+            await NotifyClosingFinalizingAsync(closeContext);
+
+            if (ReferenceEquals(_app.Project, project))
+            {
+                _app.Project = null;
+            }
+        }
+        finally
+        {
+            bool projectClosed = !ReferenceEquals(_app.Project, project);
+            await closeContext.CompleteAsync(projectClosed, _logger);
+        }
+    }
+
+    private async Task NotifyClosingAsync(
+        ProjectCloseContext closeContext,
+        CancellationToken cancellationToken)
+    {
+        if (Closing is { } closing)
+        {
+            foreach (Func<ProjectCloseContext, CancellationToken, Task> handler
+                     in closing.GetInvocationList())
+            {
+                await handler(closeContext, cancellationToken);
+            }
+        }
+    }
+
+    private async Task NotifyClosingFinalizingAsync(ProjectCloseContext closeContext)
+    {
+        if (ClosingFinalizing is { } closingFinalizing)
+        {
+            foreach (Func<ProjectCloseContext, CancellationToken, Task> handler
+                     in closingFinalizing.GetInvocationList())
+            {
+                try
+                {
+                    await handler(closeContext, CancellationToken.None);
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogError(ex, "A project-close finalizer failed.");
+                }
+            }
+        }
+    }
+
+    private void PublishProjectChange((Project? New, Project? Old) change)
+    {
+        try
+        {
+            _projectObservable.OnNext(change);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(
+                ex,
+                "Unable to publish a committed project-state transition.");
+        }
     }
 
     private void VerifyTransition(ProjectTransitionContext transition)
@@ -356,6 +505,56 @@ public sealed class ProjectService
         }
 
         _transitionGate.Release();
+    }
+
+    internal sealed class ProjectCloseContext
+    {
+        private readonly object _gate = new();
+        private readonly List<Func<bool, Task>> _completions = [];
+        private bool _completed;
+
+        internal void RegisterCompletion(Func<bool, Task> completion)
+        {
+            ArgumentNullException.ThrowIfNull(completion);
+            lock (_gate)
+            {
+                if (_completed)
+                {
+                    throw new InvalidOperationException(
+                        "The project-close transition has already completed.");
+                }
+
+                _completions.Add(completion);
+            }
+        }
+
+        internal async Task CompleteAsync(bool projectClosed, ILogger logger)
+        {
+            Func<bool, Task>[] completions;
+            lock (_gate)
+            {
+                if (_completed)
+                {
+                    return;
+                }
+
+                _completed = true;
+                completions = _completions.ToArray();
+                _completions.Clear();
+            }
+
+            foreach (Func<bool, Task> completion in completions)
+            {
+                try
+                {
+                    await completion(projectClosed);
+                }
+                catch (Exception ex)
+                {
+                    logger.LogError(ex, "A project-close completion callback failed.");
+                }
+            }
+        }
     }
 
     internal sealed class ProjectTransitionScope : IAsyncDisposable

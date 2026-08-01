@@ -481,6 +481,8 @@ public class VersionControlTabViewTests
             Assert.That(
                 await remoteUrlTask,
                 Is.EqualTo("https://example.invalid/new.git"));
+            await WaitUntilAsync(
+                () => !viewModel.IsLoading.Value && viewModel.Commits.Count > 0);
 
             CommitInfo selectedCommitInfo = viewModel.Commits[0].Commit;
             Task<string?> branchNameTask =

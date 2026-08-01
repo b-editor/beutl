@@ -18,7 +18,7 @@ using Reactive.Bindings;
 
 namespace Beutl.ViewModels;
 
-public sealed class MainViewModel : BasePageViewModel, IContextCommandHandler
+public sealed class MainViewModel : BasePageViewModel, IContextCommandHandler, IAsyncDisposable
 {
     internal readonly BeutlApiApplication _beutlClients;
     private readonly HttpClient _authHttpClient;
@@ -29,11 +29,22 @@ public sealed class MainViewModel : BasePageViewModel, IContextCommandHandler
     private readonly AgentHostEndpoint _agentHostEndpoint;
     private readonly ILogger _logger = Log.CreateLogger<MainViewModel>();
     private readonly object _shutdownGate = new();
+    private readonly TaskCompletionSource _disposalCompletion = new(
+        TaskCreationOptions.RunContinuationsAsynchronously);
     private Task? _shutdownTask;
     private int _disposed;
 
     public MainViewModel()
+        : this(static (projectService, editorService) =>
+            new AgentHostEndpoint(projectService, editorService))
     {
+    }
+
+    internal MainViewModel(
+        Func<ProjectService, EditorService, AgentHostEndpoint> agentHostFactory)
+    {
+        ArgumentNullException.ThrowIfNull(agentHostFactory);
+
         _authHttpClient = new HttpClient();
         // Composition root: own the editor-session services here and thread the instances
         // down to child view models and services.
@@ -41,7 +52,7 @@ public sealed class MainViewModel : BasePageViewModel, IContextCommandHandler
         _projectService = new ProjectService();
         _editorService = new EditorService(_extensionProvider);
         _versionControlCoordinator = new VersionControlCoordinator(_projectService, _editorService);
-        _agentHostEndpoint = new AgentHostEndpoint(_projectService, _editorService);
+        _agentHostEndpoint = agentHostFactory(_projectService, _editorService);
         _beutlClients = new BeutlApiApplication(_authHttpClient, _extensionProvider);
         ContextCommandManager = _beutlClients.GetResource<ContextCommandManager>();
 
@@ -167,11 +178,88 @@ public sealed class MainViewModel : BasePageViewModel, IContextCommandHandler
             return;
         }
 
-        CommandPalette.Dispose();
-        TitleBarBranch.Dispose();
         _agentHostEndpoint.RequestStop();
-        _versionControlCoordinator.Dispose();
-        BeutlApplication.Current.Items.Clear();
+        _ = CompleteDisposalAsync();
+        _ = ObserveDisposalCompletionAsync();
+    }
+
+    public ValueTask DisposeAsync()
+    {
+        Dispose();
+        return new ValueTask(_disposalCompletion.Task);
+    }
+
+    private async Task CompleteDisposalAsync()
+    {
+        var failures = new List<Exception>();
+        try
+        {
+            CommandPalette.Dispose();
+        }
+        catch (Exception ex)
+        {
+            failures.Add(ex);
+        }
+
+        try
+        {
+            TitleBarBranch.Dispose();
+        }
+        catch (Exception ex)
+        {
+            failures.Add(ex);
+        }
+
+        try
+        {
+            await _agentHostEndpoint.DisposeAsync();
+        }
+        catch (Exception ex)
+        {
+            failures.Add(ex);
+        }
+
+        try
+        {
+            await Task.WhenAll(
+                EditorHost.DisposeAsync().AsTask(),
+                _versionControlCoordinator.DisposeAsync().AsTask());
+        }
+        catch (Exception ex)
+        {
+            failures.Add(ex);
+        }
+
+        try
+        {
+            BeutlApplication.Current.Items.Clear();
+        }
+        catch (Exception ex)
+        {
+            failures.Add(ex);
+        }
+
+        if (failures.Count == 0)
+        {
+            _disposalCompletion.TrySetResult();
+        }
+        else
+        {
+            _disposalCompletion.TrySetException(
+                failures.Count == 1 ? failures[0] : new AggregateException(failures));
+        }
+    }
+
+    private async Task ObserveDisposalCompletionAsync()
+    {
+        try
+        {
+            await _disposalCompletion.Task;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to dispose the main view-model composition root.");
+        }
     }
 
     internal Task ShutdownAsync(CancellationToken cancellationToken = default)
@@ -191,6 +279,17 @@ public sealed class MainViewModel : BasePageViewModel, IContextCommandHandler
 
         try
         {
+            try
+            {
+                // AgentHost owns the ingress to ProjectService and EditorService. Drain active MCP
+                // requests before closing the project or disposing either dependency.
+                await _agentHostEndpoint.DisposeAsync();
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Failed to drain the agent host during application shutdown.");
+            }
+
             try
             {
                 await using ProjectService.ProjectTransitionScope transition =
@@ -219,7 +318,7 @@ public sealed class MainViewModel : BasePageViewModel, IContextCommandHandler
         }
         finally
         {
-            Dispose();
+            await DisposeAsync();
         }
     }
 
