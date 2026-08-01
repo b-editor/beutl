@@ -25,18 +25,17 @@ baseline warm-up before creating baseline A, feature, and baseline B artifacts. 
 automates the methodology used for the recorded run; discarded artifacts remain
 outside the evidence directory.
 
-## Paired visual evidence (recorded gate passed; localized gate requires regeneration)
+## Paired visual evidence (passed)
 
-- Target: legacy renderer regenerated from `43a38e665d9bf52548161a3917e748bd1457ff55`; feature: `dc90279b8a4125e85dc85b82281c6d3661e9137c`.
+- Target: legacy renderer regenerated from `43a38e665d9bf52548161a3917e748bd1457ff55`; feature: `8f44a7ffb4ddbcf07c9274124668f02924b7ba25`.
 - Environment fingerprint gate: exact match required and satisfied before any parity metric.
 - Result: **all 44 scenes passed** — thresholds SSIM ≥ 0.99,
-  linear-RGB MAE ≤ 0.02, alpha MAE ≤ 0.02.
+  linear-RGB MAE ≤ 0.02, alpha MAE ≤ 0.02, and the 16×16 minimum-window
+  SSIM ≥ 0.95 localized-error gate.
   Worst full-image linear-light SSIM: 0.99943 (`nested-drawable-brush-delay`).
-- The recorded result predates the current runner's 16×16 minimum-window SSIM ≥ 0.95
-  gate. The runner now self-tests that a localized 14×14 defect can pass every
-  whole-image threshold while failing the windowed threshold, and applies that bound
-  to every scene. The committed result remains evidence for the stated whole-image
-  gate; it does not claim that the later localized-error gate was executed.
+- The runner self-tests that a localized 14×14 defect passes every whole-image
+  threshold while failing the windowed threshold, and applies the windowed bound
+  to every scene; the recorded run executed under this gate.
 - The run also compares the `bounds-hit-test-query` measured record (bounds, probe
   points, hit results) and the preview/delivery allocation-failure records against
   the frozen baseline. The allocation probe initially exposed a real FR-039
@@ -46,8 +45,8 @@ outside the evidence directory.
   `PreviewAllocationDrops` counter); the recorded outcomes now match the baseline
   (`dropped-output-without-throw` / `threw`).
 - Raw result: [`paired-visual-result.json`](paired-visual-result.json)
-  (SHA-256 `9eedd40be659092aa0f9058e671b68ab5bcf1804bbf68c400ab029e6fefe6d3b`);
-  run-regenerated target manifest `38ff5b736ca9e6b94dcdbea1c103a01c212fb95b2d28f6b72add995d509c1ab2`, feature manifest `16185209804f4d8ecd4058a95b5637f752ac03c1e22be354f8b040a443e33ec0`.
+  (SHA-256 `9c9ecc81899945a3847e04a45a3a0cd3f073e3359e2893549ccb4eb6e4796a77`);
+  run-regenerated target manifest `ac6fe051b32e3ccab6db24c5a2656dd4cd6fd6cd621dafe2eda7213f49d31275`, feature manifest `ad59c058e618960c87082bcfe0eb2955652113ca74c3c8bbda784c6b0db35fdb`.
 
 ### Paired exact-fingerprint AA edge bound
 
@@ -212,7 +211,7 @@ methodology are unchanged.
 | `paired-benchmark-run/feature/raw-benchmark-stdout.txt` | `a174be2deafef47e6c0b355d292d34432a974c74cfa95c02e29616e786c2c283` |
 | `paired-benchmark-run/manifest.json` | `129725e6281c7bbda17a7e6f087c0d7632c24a3619412b02b59ed9ee94e92894` |
 
-Visual evidence regenerated 2026-07-31T23:56:24Z on the fingerprinted machine
+Visual evidence regenerated 2026-08-01T00:44:41Z on the fingerprinted machine
 (benchmark run recorded 2026-07-31T18:35:08Z on the same machine). The paired
 benchmark analyzer has since been tightened to require the configured 15 samples
 per case with matching counts across all three runs; the recorded run satisfies

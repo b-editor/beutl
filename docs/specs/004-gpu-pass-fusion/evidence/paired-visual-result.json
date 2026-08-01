@@ -57,10 +57,10 @@
     ],
     "vulkanVendorId": "0x0000106b"
   },
-  "featureCodeSha": "dc90279b8a4125e85dc85b82281c6d3661e9137c",
+  "featureCodeSha": "8f44a7ffb4ddbcf07c9274124668f02924b7ba25",
   "featureCommand": "dotnet run -c Release --no-build --project tests/Beutl.Benchmarks/Beutl.Benchmarks.csproj -- feature-visual-export",
-  "featureManifestSha256": "16185209804f4d8ecd4058a95b5637f752ac03c1e22be354f8b040a443e33ec0",
-  "generatedAtUtc": "2026-07-31T23:56:24.256082+00:00",
+  "featureManifestSha256": "ad59c058e618960c87082bcfe0eb2955652113ca74c3c8bbda784c6b0db35fdb",
+  "generatedAtUtc": "2026-08-01T00:44:41.891057+00:00",
   "scenes": [
     {
       "edgeCrop": {
@@ -86,7 +86,8 @@
       "fullImage": {
         "alphaMae": 2.3570509604465815e-08,
         "linearLightSsim": 0.9999999993698873,
-        "linearRgbMae": 6.720469689663545e-09
+        "linearRgbMae": 6.720469689663545e-09,
+        "minimumWindowedSsim": 0.9999999595941196
       },
       "sceneId": "aa-thin-line-color-times-alpha"
     },
@@ -94,7 +95,8 @@
       "fullImage": {
         "alphaMae": 0.0,
         "linearLightSsim": 1.0,
-        "linearRgbMae": 0.0
+        "linearRgbMae": 0.0,
+        "minimumWindowedSsim": 1.0
       },
       "sceneId": "aa-thin-line-control"
     },
@@ -122,7 +124,8 @@
       "fullImage": {
         "alphaMae": 0.0,
         "linearLightSsim": 1.0,
-        "linearRgbMae": 0.0
+        "linearRgbMae": 0.0,
+        "minimumWindowedSsim": 1.0
       },
       "sceneId": "aa-thin-stroke-color-times-alpha"
     },
@@ -130,7 +133,8 @@
       "fullImage": {
         "alphaMae": 0.0,
         "linearLightSsim": 1.0,
-        "linearRgbMae": 0.0
+        "linearRgbMae": 0.0,
+        "minimumWindowedSsim": 1.0
       },
       "sceneId": "aa-thin-stroke-control"
     },
@@ -138,7 +142,8 @@
       "fullImage": {
         "alphaMae": 0.0014989276727040608,
         "linearLightSsim": 0.9999803454569474,
-        "linearRgbMae": 0.0007533790857948884
+        "linearRgbMae": 0.0007533790857948884,
+        "minimumWindowedSsim": 0.9999579264921643
       },
       "sceneId": "automatic-device-selection"
     },
@@ -146,7 +151,8 @@
       "fullImage": {
         "alphaMae": 0.0,
         "linearLightSsim": 1.0,
-        "linearRgbMae": 0.0
+        "linearRgbMae": 0.0,
+        "minimumWindowedSsim": 1.0
       },
       "sceneId": "automatic-device-selection-control"
     },
@@ -154,7 +160,8 @@
       "fullImage": {
         "alphaMae": 0.0,
         "linearLightSsim": 1.0,
-        "linearRgbMae": 0.0
+        "linearRgbMae": 0.0,
+        "minimumWindowedSsim": 1.0
       },
       "sceneId": "cache-cold"
     },
@@ -162,7 +169,8 @@
       "fullImage": {
         "alphaMae": 0.0,
         "linearLightSsim": 1.0,
-        "linearRgbMae": 0.0
+        "linearRgbMae": 0.0,
+        "minimumWindowedSsim": 1.0
       },
       "sceneId": "cache-control-empty"
     },
@@ -170,7 +178,8 @@
       "fullImage": {
         "alphaMae": 0.00011562752928354859,
         "linearLightSsim": 0.9999975316313043,
-        "linearRgbMae": 4.90559592705082e-05
+        "linearRgbMae": 4.90559592705082e-05,
+        "minimumWindowedSsim": 0.9998608390483502
       },
       "sceneId": "cache-warm-hit"
     },
@@ -178,7 +187,8 @@
       "fullImage": {
         "alphaMae": 0.0,
         "linearLightSsim": 1.0,
-        "linearRgbMae": 0.0
+        "linearRgbMae": 0.0,
+        "minimumWindowedSsim": 1.0
       },
       "sceneId": "external-materialized-source"
     },
@@ -186,7 +196,8 @@
       "fullImage": {
         "alphaMae": 0.0,
         "linearLightSsim": 1.0,
-        "linearRgbMae": 0.0
+        "linearRgbMae": 0.0,
+        "minimumWindowedSsim": 1.0
       },
       "sceneId": "external-materialized-source-control"
     },
@@ -194,7 +205,8 @@
       "fullImage": {
         "alphaMae": 0.0,
         "linearLightSsim": 1.0,
-        "linearRgbMae": 0.0
+        "linearRgbMae": 0.0,
+        "minimumWindowedSsim": 1.0
       },
       "sceneId": "geometry-stroke"
     },
@@ -202,7 +214,8 @@
       "fullImage": {
         "alphaMae": 0.0,
         "linearLightSsim": 1.0,
-        "linearRgbMae": 0.0
+        "linearRgbMae": 0.0,
+        "minimumWindowedSsim": 1.0
       },
       "sceneId": "geometry-stroke-control"
     },
@@ -210,7 +223,8 @@
       "fullImage": {
         "alphaMae": 1.8155984120604434e-05,
         "linearLightSsim": 0.9999998347701147,
-        "linearRgbMae": 5.444909403782813e-06
+        "linearRgbMae": 5.444909403782813e-06,
+        "minimumWindowedSsim": 0.9999980515613711
       },
       "sceneId": "mixed-spatial-color-lut"
     },
@@ -218,7 +232,8 @@
       "fullImage": {
         "alphaMae": 0.0,
         "linearLightSsim": 1.0,
-        "linearRgbMae": 0.0
+        "linearRgbMae": 0.0,
+        "minimumWindowedSsim": 1.0
       },
       "sceneId": "mixed-spatial-color-lut-control"
     },
@@ -226,7 +241,8 @@
       "fullImage": {
         "alphaMae": 0.0,
         "linearLightSsim": 1.0,
-        "linearRgbMae": 0.0
+        "linearRgbMae": 0.0,
+        "minimumWindowedSsim": 1.0
       },
       "sceneId": "multiple-composition-roots"
     },
@@ -234,7 +250,8 @@
       "fullImage": {
         "alphaMae": 0.0,
         "linearLightSsim": 1.0,
-        "linearRgbMae": 0.0
+        "linearRgbMae": 0.0,
+        "minimumWindowedSsim": 1.0
       },
       "sceneId": "multiple-composition-roots-control"
     },
@@ -242,7 +259,8 @@
       "fullImage": {
         "alphaMae": 0.0002082527419667185,
         "linearLightSsim": 0.9994304161707878,
-        "linearRgbMae": 0.019756174809203594
+        "linearRgbMae": 0.019756174809203594,
+        "minimumWindowedSsim": 0.9614714800458606
       },
       "sceneId": "nested-drawable-brush-delay"
     },
@@ -250,7 +268,8 @@
       "fullImage": {
         "alphaMae": 0.0,
         "linearLightSsim": 1.0,
-        "linearRgbMae": 0.0
+        "linearRgbMae": 0.0,
+        "minimumWindowedSsim": 1.0
       },
       "sceneId": "nested-drawable-brush-delay-control"
     },
@@ -258,7 +277,8 @@
       "fullImage": {
         "alphaMae": 0.0,
         "linearLightSsim": 1.0,
-        "linearRgbMae": 0.0
+        "linearRgbMae": 0.0,
+        "minimumWindowedSsim": 1.0
       },
       "sceneId": "opaque-custom-readback"
     },
@@ -266,7 +286,8 @@
       "fullImage": {
         "alphaMae": 0.0,
         "linearLightSsim": 1.0,
-        "linearRgbMae": 0.0
+        "linearRgbMae": 0.0,
+        "minimumWindowedSsim": 1.0
       },
       "sceneId": "opaque-custom-readback-control"
     },
@@ -274,7 +295,8 @@
       "fullImage": {
         "alphaMae": 0.0,
         "linearLightSsim": 1.0,
-        "linearRgbMae": 0.0
+        "linearRgbMae": 0.0,
+        "minimumWindowedSsim": 1.0
       },
       "sceneId": "primary-control-all-identity"
     },
@@ -282,7 +304,8 @@
       "fullImage": {
         "alphaMae": 0.0001888040131256904,
         "linearLightSsim": 0.9999988829736545,
-        "linearRgbMae": 0.00013323872514958243
+        "linearRgbMae": 0.00013323872514958243,
+        "minimumWindowedSsim": 0.9999866660046058
       },
       "sceneId": "primary-control-gamma-disabled"
     },
@@ -290,7 +313,8 @@
       "fullImage": {
         "alphaMae": 0.0001888040131256904,
         "linearLightSsim": 0.9999996238058401,
-        "linearRgbMae": 8.564810517700121e-05
+        "linearRgbMae": 8.564810517700121e-05,
+        "minimumWindowedSsim": 0.9999992091974225
       },
       "sceneId": "primary-control-invert-disabled"
     },
@@ -298,7 +322,8 @@
       "fullImage": {
         "alphaMae": 0.0,
         "linearLightSsim": 1.0,
-        "linearRgbMae": 0.0
+        "linearRgbMae": 0.0,
+        "minimumWindowedSsim": 1.0
       },
       "sceneId": "primary-control-opacity-disabled"
     },
@@ -306,7 +331,8 @@
       "fullImage": {
         "alphaMae": 0.0001888040131256904,
         "linearLightSsim": 0.9999991802199669,
-        "linearRgbMae": 0.00011148119398963795
+        "linearRgbMae": 0.00011148119398963795,
+        "minimumWindowedSsim": 0.9999882024884696
       },
       "sceneId": "primary-cross-node"
     },
@@ -314,7 +340,8 @@
       "fullImage": {
         "alphaMae": 2.3547513985339505e-07,
         "linearLightSsim": 0.9999999998157727,
-        "linearRgbMae": 5.4944199299125516e-08
+        "linearRgbMae": 5.4944199299125516e-08,
+        "minimumWindowedSsim": 0.999999946178789
       },
       "sceneId": "root-a-b-no-clear-control"
     },
@@ -322,7 +349,8 @@
       "fullImage": {
         "alphaMae": 0.0,
         "linearLightSsim": 1.0,
-        "linearRgbMae": 0.0
+        "linearRgbMae": 0.0,
+        "minimumWindowedSsim": 1.0
       },
       "sceneId": "root-a-clear-b"
     },
@@ -330,7 +358,8 @@
       "fullImage": {
         "alphaMae": 0.001539107446593267,
         "linearLightSsim": 0.9999210835390987,
-        "linearRgbMae": 0.0007727205937291369
+        "linearRgbMae": 0.0007727205937291369,
+        "minimumWindowedSsim": 0.9995838924196476
       },
       "sceneId": "scale-half"
     },
@@ -338,7 +367,8 @@
       "fullImage": {
         "alphaMae": 0.0014427008084308955,
         "linearLightSsim": 0.9998923890919312,
-        "linearRgbMae": 0.0009612693861433507
+        "linearRgbMae": 0.0009612693861433507,
+        "minimumWindowedSsim": 0.9991240181212453
       },
       "sceneId": "scale-half-control"
     },
@@ -346,7 +376,8 @@
       "fullImage": {
         "alphaMae": 0.0007471554901128934,
         "linearLightSsim": 0.9999937589118838,
-        "linearRgbMae": 0.0003665529820040911
+        "linearRgbMae": 0.0003665529820040911,
+        "minimumWindowedSsim": 0.9999737043528928
       },
       "sceneId": "scale-one"
     },
@@ -354,7 +385,8 @@
       "fullImage": {
         "alphaMae": 0.0,
         "linearLightSsim": 1.0,
-        "linearRgbMae": 0.0
+        "linearRgbMae": 0.0,
+        "minimumWindowedSsim": 1.0
       },
       "sceneId": "scale-one-control"
     },
@@ -362,7 +394,8 @@
       "fullImage": {
         "alphaMae": 0.0011910794649192672,
         "linearLightSsim": 0.9999594426431977,
-        "linearRgbMae": 0.0006702015554405933
+        "linearRgbMae": 0.0006702015554405933,
+        "minimumWindowedSsim": 0.9938805994442381
       },
       "sceneId": "scale-two"
     },
@@ -370,7 +403,8 @@
       "fullImage": {
         "alphaMae": 0.0010034489728521878,
         "linearLightSsim": 0.9999841124361449,
-        "linearRgbMae": 0.00048583135255056707
+        "linearRgbMae": 0.00048583135255056707,
+        "minimumWindowedSsim": 0.9875851221774881
       },
       "sceneId": "scale-two-control"
     },
@@ -378,7 +412,8 @@
       "fullImage": {
         "alphaMae": 0.0,
         "linearLightSsim": 1.0,
-        "linearRgbMae": 0.0
+        "linearRgbMae": 0.0,
+        "minimumWindowedSsim": 1.0
       },
       "sceneId": "scene3d-no-2d-tail-control"
     },
@@ -386,7 +421,8 @@
       "fullImage": {
         "alphaMae": 0.0,
         "linearLightSsim": 1.0,
-        "linearRgbMae": 0.0
+        "linearRgbMae": 0.0,
+        "minimumWindowedSsim": 1.0
       },
       "sceneId": "scene3d-with-2d-tail"
     },
@@ -394,7 +430,8 @@
       "fullImage": {
         "alphaMae": 0.00037021028191714224,
         "linearLightSsim": 0.9999968541090638,
-        "linearRgbMae": 0.00021246839743843795
+        "linearRgbMae": 0.00021246839743843795,
+        "minimumWindowedSsim": 0.9999898723280614
       },
       "sceneId": "shifted-roi"
     },
@@ -402,7 +439,8 @@
       "fullImage": {
         "alphaMae": 0.0,
         "linearLightSsim": 1.0,
-        "linearRgbMae": 0.0
+        "linearRgbMae": 0.0,
+        "minimumWindowedSsim": 1.0
       },
       "sceneId": "shifted-roi-control"
     },
@@ -410,7 +448,8 @@
       "fullImage": {
         "alphaMae": 0.0,
         "linearLightSsim": 1.0,
-        "linearRgbMae": 0.0
+        "linearRgbMae": 0.0,
+        "minimumWindowedSsim": 1.0
       },
       "sceneId": "snapshot-clear-draw-backdrop"
     },
@@ -418,7 +457,8 @@
       "fullImage": {
         "alphaMae": 0.0,
         "linearLightSsim": 1.0,
-        "linearRgbMae": 0.0
+        "linearRgbMae": 0.0,
+        "minimumWindowedSsim": 1.0
       },
       "sceneId": "snapshot-draw-backdrop-no-clear-control"
     },
@@ -426,7 +466,8 @@
       "fullImage": {
         "alphaMae": 0.0,
         "linearLightSsim": 1.0,
-        "linearRgbMae": 0.0
+        "linearRgbMae": 0.0,
+        "minimumWindowedSsim": 1.0
       },
       "sceneId": "split-expansion"
     },
@@ -434,7 +475,8 @@
       "fullImage": {
         "alphaMae": 0.0,
         "linearLightSsim": 1.0,
-        "linearRgbMae": 0.0
+        "linearRgbMae": 0.0,
+        "minimumWindowedSsim": 1.0
       },
       "sceneId": "split-expansion-control"
     },
@@ -442,7 +484,8 @@
       "fullImage": {
         "alphaMae": 0.0,
         "linearLightSsim": 1.0,
-        "linearRgbMae": 0.0
+        "linearRgbMae": 0.0,
+        "minimumWindowedSsim": 1.0
       },
       "sceneId": "whole-source-coordinate-control"
     },
@@ -450,7 +493,8 @@
       "fullImage": {
         "alphaMae": 0.0,
         "linearLightSsim": 1.0,
-        "linearRgbMae": 0.0
+        "linearRgbMae": 0.0,
+        "minimumWindowedSsim": 1.0
       },
       "sceneId": "whole-source-coordinate-shader"
     }
@@ -480,20 +524,22 @@
         "sceneId": "split-expansion"
       }
     ],
-    "committedTargetBaselineManifestSha256": "c430e2909ebd89eb54fb9d5c6aa1dc3d77c34b9609e002d5a1c794adebeb8945",
-    "regeneratedTargetManifestSha256": "c6567ecac52bff911d7d6d388a9046d9da0325391dc4df65bf91b501e4974da3"
+    "committedTargetBaselineManifestSha256": "8d9f9cd71b9dbb45ab81755d61b025554bf14b1592ba415dbc31ecd81f7fdab8",
+    "regeneratedTargetManifestSha256": "ddf53d52ef699f40388b034fb74c4c251836a66a9b867f79576a4cd94b584fa8"
   },
   "sourceAssemblyVersions": {
-    "feature": "2.99.99+dc90279b8a4125e85dc85b82281c6d3661e9137c",
+    "feature": "2.99.99+8f44a7ffb4ddbcf07c9274124668f02924b7ba25",
     "target": "2.99.99+43a38e665d9bf52548161a3917e748bd1457ff55"
   },
   "status": "passed",
   "targetCodeSha": "43a38e665d9bf52548161a3917e748bd1457ff55",
-  "targetManifestSha256": "38ff5b736ca9e6b94dcdbea1c103a01c212fb95b2d28f6b72add995d509c1ab2",
+  "targetManifestSha256": "ac6fe051b32e3ccab6db24c5a2656dd4cd6fd6cd621dafe2eda7213f49d31275",
   "thresholds": {
     "maximumAaCoverageBandChannelError": 0.02,
     "maximumAlphaMae": 0.02,
     "maximumLinearRgbMae": 0.02,
-    "minimumLinearLightSsim": 0.99
+    "minimumLinearLightSsim": 0.99,
+    "minimumWindowedSsim": 0.95,
+    "windowSize": 16
   }
 }
