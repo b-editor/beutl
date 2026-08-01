@@ -840,6 +840,104 @@ public class VersionControlTabViewTests
     }
 
     [AvaloniaTest]
+    public async Task Pending_pull_recovery_banner_shows_localized_action_and_recovers_the_oldest_id()
+    {
+        await TestReset.ResetShellAsync();
+        using var gitEnvironment = new IsolatedGitEnvironment();
+        VersionControlConfig config = GlobalConfiguration.Instance.VersionControlConfig;
+        string? previousGitPath = config.GitExecutablePath;
+        var window = new Window { Width = 620, Height = 480 };
+
+        try
+        {
+            config.GitExecutablePath = ProbeGitOrIgnore();
+            string location = Path.Combine(
+                BeutlHomeIsolation.CurrentHome!,
+                "version-control-pending-banner");
+            Directory.CreateDirectory(location);
+            Project project = (await TestShell.Project.CreateProject(
+                640,
+                480,
+                30,
+                44100,
+                "version-control-pending-banner",
+                location))!;
+            Assert.That(
+                await TestShell.VersionControl.InitializeCurrentProjectAsync(
+                    _ => Task.FromResult<GitIdentity?>(new GitIdentity(
+                        "Beutl Headless Test",
+                        "headless@example.invalid"))),
+                Is.True);
+            Scene scene = project.Items.OfType<Scene>().Single();
+            TestShell.Editor.ActivateTabItem(scene);
+            HeadlessTestHelpers.Settle();
+            IEditorContext editorContext =
+                TestShell.Editor.SelectedTabItem.Value!.Context.Value;
+            var coordinator = new PendingRecoveryCoordinator();
+            using var viewModel = new VersionControlTabViewModel(
+                VersionControlTabExtension.Instance,
+                editorContext,
+                TestShell.Editor.ProjectVersionControlService,
+                coordinator,
+                action => action());
+            var view = new VersionControlTabView { DataContext = viewModel };
+            window.Content = view;
+            window.Show();
+            await viewModel.Initialization;
+            HeadlessTestHelpers.Render();
+            Border banner = view.FindControl<Border>("PendingPullRecoveryBanner")!;
+            Button recoverButton = view.FindControl<Button>("RecoverPendingPullButton")!;
+
+            Assert.That(banner.IsVisible, Is.False);
+
+            DateTimeOffset now = DateTimeOffset.UtcNow;
+            coordinator.SetRecoveries(
+            [
+                new ProjectRecoveryInfo("newer", "newer.bep", now),
+                new ProjectRecoveryInfo("oldest", "oldest.bep", now.AddMinutes(-1)),
+                new ProjectRecoveryInfo("same-time-later-id", "same.bep", now.AddMinutes(-1)),
+            ]);
+            await WaitUntilAsync(() => viewModel.HasPendingPullRecovery.Value);
+            await viewModel.Initialization;
+            HeadlessTestHelpers.Render();
+
+            TextBlock guidance = banner
+                .GetVisualDescendants()
+                .OfType<TextBlock>()
+                .Single(textBlock => string.Equals(
+                    textBlock.Text,
+                    Strings.VersionControl_PendingPullRecoveryGuidance,
+                    StringComparison.Ordinal));
+            Assert.Multiple(() =>
+            {
+                Assert.That(banner.IsVisible, Is.True);
+                Assert.That(guidance.Text,
+                    Is.EqualTo(Strings.VersionControl_PendingPullRecoveryGuidance));
+                Assert.That(recoverButton.Content,
+                    Is.EqualTo(Strings.VersionControl_RecoverPendingPull));
+                Assert.That(recoverButton.Command,
+                    Is.SameAs(viewModel.RecoverPendingPullCommand));
+            });
+
+            await viewModel.RecoverPendingPullAsync();
+            string recoveredId = await coordinator.RecoveryRequested.Task.WaitAsync(
+                TimeSpan.FromSeconds(5));
+
+            Assert.Multiple(() =>
+            {
+                Assert.That(recoveredId, Is.EqualTo("oldest"));
+                Assert.That(viewModel.HasPendingPullRecovery.Value, Is.False);
+            });
+        }
+        finally
+        {
+            window.Close();
+            config.GitExecutablePath = previousGitPath;
+            await TestReset.ResetShellAsync();
+        }
+    }
+
+    [AvaloniaTest]
     public async Task Identity_prompt_cancellation_closes_flyout_and_cancels_request()
     {
         await TestReset.ResetShellAsync();
@@ -992,6 +1090,83 @@ public class VersionControlTabViewTests
         {
             LastExecution = execution;
         }
+    }
+
+    private sealed class PendingRecoveryCoordinator : IProjectVersionControlCoordinator
+    {
+        private IReadOnlyList<ProjectRecoveryInfo> _recoveries = [];
+
+        public event EventHandler? PendingPullRecoveriesChanged;
+
+        public TaskCompletionSource<string> RecoveryRequested { get; } = new(
+            TaskCreationOptions.RunContinuationsAsynchronously);
+
+        public void SetRecoveries(IReadOnlyList<ProjectRecoveryInfo> recoveries)
+        {
+            _recoveries = recoveries;
+            PendingPullRecoveriesChanged?.Invoke(this, EventArgs.Empty);
+        }
+
+        public Task<IReadOnlyList<ProjectRecoveryInfo>> GetPendingPullRecoveriesAsync(
+            CancellationToken cancellationToken)
+        {
+            return Task.FromResult(_recoveries);
+        }
+
+        public Task<ProjectRecoveryResult> RecoverPendingPullAsync(
+            string recoveryId,
+            CancellationToken cancellationToken)
+        {
+            RecoveryRequested.TrySetResult(recoveryId);
+            _recoveries = _recoveries
+                .Where(recovery => !string.Equals(
+                    recovery.Id,
+                    recoveryId,
+                    StringComparison.Ordinal))
+                .ToArray();
+            return Task.FromResult<ProjectRecoveryResult>(
+                new ProjectRecoveryResult.RestoredOriginal());
+        }
+
+        public Task<CommitResult> CommitManualAsync(
+            string message,
+            CancellationToken cancellationToken)
+            => throw new NotSupportedException();
+
+        public Task<bool> RestoreAsync(string sha, CancellationToken cancellationToken)
+            => throw new NotSupportedException();
+
+        public Task<bool> RestoreToNewBranchAsync(
+            string sha,
+            string branchName,
+            CancellationToken cancellationToken)
+            => throw new NotSupportedException();
+
+        public Task<bool> CreateBranchAsync(
+            string branchName,
+            CancellationToken cancellationToken)
+            => throw new NotSupportedException();
+
+        public Task<bool> SwitchBranchAsync(
+            string branchName,
+            CancellationToken cancellationToken)
+            => throw new NotSupportedException();
+
+        public Task SetRemoteAsync(string url, CancellationToken cancellationToken)
+            => throw new NotSupportedException();
+
+        public Task SetLocalIdentityAsync(
+            GitIdentity identity,
+            CancellationToken cancellationToken)
+            => throw new NotSupportedException();
+
+        public Task<RemoteOpResult> PushAsync(
+            IProgress<string>? progress,
+            CancellationToken cancellationToken)
+            => throw new NotSupportedException();
+
+        public Task<RemoteOpResult> PullAsync(CancellationToken cancellationToken)
+            => throw new NotSupportedException();
     }
 
     private static Button GetPickerButton(

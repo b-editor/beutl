@@ -23,8 +23,11 @@ public sealed class ProjectService
     private readonly BeutlApplication _app = BeutlApplication.Current;
     private readonly ILogger _logger = Log.CreateLogger<ProjectService>();
     private readonly SemaphoreSlim _transitionGate = new(1, 1);
+    private readonly object _openAttemptSync = new();
     private readonly object _transitionSync = new();
+    private ProjectOpenAttempt? _currentOpenAttempt;
     private ProjectTransitionContext? _currentTransition;
+    private long _nextOpenAttemptId;
     private long _nextTransitionId;
     private int _shutdownRequested;
 
@@ -54,6 +57,9 @@ public sealed class ProjectService
     internal event Func<ProjectCloseContext, CancellationToken, Task>? Closing;
 
     internal event Func<ProjectCloseContext, CancellationToken, Task>? ClosingFinalizing;
+
+    internal event Func<ProjectOpenAttempt, CancellationToken, Task<ProjectOpenPreparation?>>?
+        OpeningPreflight;
 
     internal event Func<string, Task>? Opening;
 
@@ -90,12 +96,81 @@ public sealed class ProjectService
 
     public async Task OpenProject(string file)
     {
-        await using ProjectTransitionScope transition = await BeginTransitionAsync(
-            ProjectTransitionPurpose.Normal,
-            this,
-            allowDuringShutdown: false,
-            CancellationToken.None);
-        await OpenProjectCoreAsync(file, transition.Context);
+        ArgumentException.ThrowIfNullOrWhiteSpace(file);
+        ProjectOpenAttempt attempt = BeginOpenAttempt(file);
+        try
+        {
+            try
+            {
+                await WaitForExistingTransitionAsync(attempt);
+            }
+            catch (OperationCanceledException) when (attempt.IsCancellationRequested)
+            {
+                return;
+            }
+
+            IReadOnlyList<ProjectOpenPreparation> preparations;
+            try
+            {
+                preparations = await NotifyOpeningPreflightAsync(attempt);
+            }
+            catch (OperationCanceledException) when (attempt.IsCancellationRequested)
+            {
+                return;
+            }
+
+            ProjectTransitionScope transition;
+            try
+            {
+                transition = await BeginTransitionAsync(
+                    ProjectTransitionPurpose.Normal,
+                    attempt,
+                    allowDuringShutdown: false,
+                    attempt.CancellationToken);
+            }
+            catch (OperationCanceledException) when (attempt.IsCancellationRequested)
+            {
+                return;
+            }
+
+            await using (transition)
+            {
+                if (!attempt.TryBeginApply())
+                {
+                    return;
+                }
+
+                foreach (ProjectOpenPreparation preparation in preparations)
+                {
+                    ProjectOpenPreparationResult result = await preparation.ApplyAsync(
+                        transition.Context,
+                        CancellationToken.None);
+                    if (result == ProjectOpenPreparationResult.Abort)
+                    {
+                        return;
+                    }
+                }
+
+                await OpenProjectCoreAsync(file, transition.Context);
+            }
+        }
+        finally
+        {
+            CompleteOpenAttempt(attempt);
+        }
+    }
+
+    private async Task WaitForExistingTransitionAsync(ProjectOpenAttempt attempt)
+    {
+        await _transitionGate.WaitAsync(attempt.CancellationToken);
+        try
+        {
+            attempt.CancellationToken.ThrowIfCancellationRequested();
+        }
+        finally
+        {
+            _transitionGate.Release();
+        }
     }
 
     public async Task CloseProject(CancellationToken cancellationToken = default)
@@ -153,6 +228,7 @@ public sealed class ProjectService
     internal void RequestShutdown()
     {
         Interlocked.Exchange(ref _shutdownRequested, 1);
+        CancelPendingOpenAttemptExcept(owner: null);
     }
 
     private async ValueTask<ProjectTransitionScope> BeginTransitionAsync(
@@ -161,6 +237,7 @@ public sealed class ProjectService
         bool allowDuringShutdown,
         CancellationToken cancellationToken)
     {
+        CancelPendingOpenAttemptExcept(owner);
         if (!allowDuringShutdown && Volatile.Read(ref _shutdownRequested) != 0)
         {
             throw new InvalidOperationException(
@@ -168,6 +245,13 @@ public sealed class ProjectService
         }
 
         await _transitionGate.WaitAsync(cancellationToken);
+        CancelPendingOpenAttemptExcept(owner);
+        if (cancellationToken.IsCancellationRequested)
+        {
+            _transitionGate.Release();
+            cancellationToken.ThrowIfCancellationRequested();
+        }
+
         if (!allowDuringShutdown && Volatile.Read(ref _shutdownRequested) != 0)
         {
             _transitionGate.Release();
@@ -187,6 +271,96 @@ public sealed class ProjectService
         return new ProjectTransitionScope(this, context);
     }
 
+    private ProjectOpenAttempt BeginOpenAttempt(string file)
+    {
+        var attempt = new ProjectOpenAttempt(
+            Interlocked.Increment(ref _nextOpenAttemptId),
+            file);
+        ProjectOpenAttempt? previous;
+        lock (_openAttemptSync)
+        {
+            previous = _currentOpenAttempt;
+            _currentOpenAttempt = attempt;
+        }
+
+        CancelOpenAttempt(previous);
+        return attempt;
+    }
+
+    private async Task<IReadOnlyList<ProjectOpenPreparation>> NotifyOpeningPreflightAsync(
+        ProjectOpenAttempt attempt)
+    {
+        if (OpeningPreflight is not { } openingPreflight)
+        {
+            return [];
+        }
+
+        var preparations = new List<ProjectOpenPreparation>();
+        foreach (Func<ProjectOpenAttempt, CancellationToken, Task<ProjectOpenPreparation?>> handler
+                 in openingPreflight.GetInvocationList())
+        {
+            attempt.CancellationToken.ThrowIfCancellationRequested();
+            ProjectOpenPreparation? preparation = await handler(
+                attempt,
+                attempt.CancellationToken);
+            if (preparation is not null)
+            {
+                preparations.Add(preparation);
+            }
+        }
+
+        return preparations;
+    }
+
+    private void CancelPendingOpenAttemptExcept(object? owner)
+    {
+        ProjectOpenAttempt? attempt;
+        lock (_openAttemptSync)
+        {
+            attempt = _currentOpenAttempt;
+        }
+
+        if (owner is ProjectOpenAttempt openingAttempt)
+        {
+            if (!ReferenceEquals(attempt, openingAttempt))
+            {
+                CancelOpenAttempt(openingAttempt);
+            }
+
+            return;
+        }
+
+        if (!ReferenceEquals(attempt, owner))
+        {
+            CancelOpenAttempt(attempt);
+        }
+    }
+
+    private void CancelOpenAttempt(ProjectOpenAttempt? attempt)
+    {
+        try
+        {
+            attempt?.CancelIfPending();
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "A project-open cancellation callback failed.");
+        }
+    }
+
+    private void CompleteOpenAttempt(ProjectOpenAttempt attempt)
+    {
+        lock (_openAttemptSync)
+        {
+            if (ReferenceEquals(_currentOpenAttempt, attempt))
+            {
+                _currentOpenAttempt = null;
+            }
+        }
+
+        attempt.Complete();
+    }
+
     private async Task OpenProjectCoreAsync(string file, ProjectTransitionContext transition)
     {
         VerifyTransition(transition);
@@ -201,6 +375,13 @@ public sealed class ProjectService
                 {
                     await handler(file);
                 }
+            }
+
+            if (!File.Exists(file))
+            {
+                _logger.LogInformation("Skipping project open: file is unavailable. File: {File}", file);
+                NotificationService.ShowInformation(Strings.File, MessageStrings.FileDoesNotExist);
+                return;
             }
 
             await CloseProjectCoreAsync(transition, CancellationToken.None);
@@ -557,6 +738,77 @@ public sealed class ProjectService
         }
     }
 
+    internal sealed class ProjectOpenAttempt
+    {
+        private readonly CancellationTokenSource _cancellation = new();
+        private readonly object _gate = new();
+        private ProjectOpenAttemptState _state;
+
+        internal ProjectOpenAttempt(long id, string projectFile)
+        {
+            Id = id;
+            ProjectFile = projectFile;
+        }
+
+        internal long Id { get; }
+
+        internal string ProjectFile { get; }
+
+        internal CancellationToken CancellationToken => _cancellation.Token;
+
+        internal bool IsCancellationRequested => _cancellation.IsCancellationRequested;
+
+        internal bool TryBeginApply()
+        {
+            lock (_gate)
+            {
+                if (_state != ProjectOpenAttemptState.Pending
+                    || _cancellation.IsCancellationRequested)
+                {
+                    return false;
+                }
+
+                _state = ProjectOpenAttemptState.Applying;
+                return true;
+            }
+        }
+
+        internal void CancelIfPending()
+        {
+            bool cancel;
+            lock (_gate)
+            {
+                cancel = _state == ProjectOpenAttemptState.Pending;
+                if (cancel)
+                {
+                    _state = ProjectOpenAttemptState.Cancelled;
+                }
+            }
+
+            if (cancel)
+            {
+                _cancellation.Cancel();
+            }
+        }
+
+        internal void Complete()
+        {
+            lock (_gate)
+            {
+                _state = ProjectOpenAttemptState.Completed;
+            }
+
+            _cancellation.Dispose();
+        }
+    }
+
+    internal abstract class ProjectOpenPreparation
+    {
+        internal abstract Task<ProjectOpenPreparationResult> ApplyAsync(
+            ProjectTransitionContext transition,
+            CancellationToken cancellationToken);
+    }
+
     internal sealed class ProjectTransitionScope : IAsyncDisposable
     {
         private ProjectService? _owner;
@@ -590,6 +842,20 @@ public sealed class ProjectService
             return ValueTask.CompletedTask;
         }
     }
+
+    private enum ProjectOpenAttemptState
+    {
+        Pending,
+        Applying,
+        Cancelled,
+        Completed,
+    }
+}
+
+internal enum ProjectOpenPreparationResult
+{
+    Proceed,
+    Abort,
 }
 
 internal enum ProjectTransitionPurpose

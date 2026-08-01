@@ -1650,7 +1650,25 @@ GetProperty&lt;T&gt;("path") または GetProperty&lt;T&gt;(guid, "propertyName"
     <value>操作に失敗し、元のプロジェクト状態も復元できませんでした。操作エラー: {0} 復旧エラー: {1}</value>
   </data>
   <data name="VersionControl_PullTransitionUncertain" xml:space="preserve">
-    <value>保護されたリポジトリ遷移の所有権が失われたか、元の状態を復元できませんでした。プロジェクトは閉じたままです。安全チェックポイントが作成されていた場合は保持されています。プロジェクトを再度開く前に、外部の Git ツールでリポジトリを確認して復旧してください。</value>
+    <value>保護されたリポジトリ遷移の所有権が失われたか、復旧を検証できませんでした。バージョン管理の「プロジェクトを復旧」を使用するか、「最近使ったプロジェクト」から再度開くと読み込み前に復旧できます。作業ツリーを安全に変更できない場合、Beutl はチェックポイントを永続的な Git 参照に保持します。</value>
+  </data>
+  <data name="VersionControl_PendingPullRecoveryConfirmation" xml:space="preserve">
+    <value>{0} の保護されたプルが {1:g} に正常終了しませんでした。プロジェクトを読み込む前に保存された状態を復旧しますか？復旧で置き換えられるプロジェクト状態は再読み込みされ、取り消し履歴が消去されます。</value>
+  </data>
+  <data name="VersionControl_PendingPullRecoveryGuidance" xml:space="preserve">
+    <value>保護されたプルが正常終了しませんでした。保存されたプロジェクト状態から復旧できます。</value>
+  </data>
+  <data name="VersionControl_RecoverPendingPull" xml:space="preserve">
+    <value>プロジェクトを復旧</value>
+  </data>
+  <data name="VersionControl_PullRecovered" xml:space="preserve">
+    <value>プルは完了できませんでしたが、保存されたプロジェクト状態を復旧しました。</value>
+  </data>
+  <data name="VersionControl_CheckpointReappliedOnRecoveryBranch" xml:space="preserve">
+    <value>保存されたプロジェクト状態をローカル変更として復旧しました。永続的なコピーはブランチ '{0}' に保持されています。</value>
+  </data>
+  <data name="VersionControl_CheckpointPreservedOnRecoveryBranch" xml:space="preserve">
+    <value>現在の作業ツリーを安全に変更できませんでした。保存されたプロジェクト状態は Git 参照 '{0}' に保持されています。Git でこの参照を確認してください。</value>
   </data>
   <data name="VersionControl_BranchFormat" xml:space="preserve">
     <value>ブランチ: {0}</value>

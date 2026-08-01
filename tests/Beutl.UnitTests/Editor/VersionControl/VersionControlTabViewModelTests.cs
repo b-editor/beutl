@@ -599,6 +599,158 @@ public class VersionControlTabViewModelTests
     }
 
     [Test]
+    public async Task Pending_pull_recovery_signal_refreshes_the_same_service_and_runs_recovery()
+    {
+        Mock<IProjectVersionControlService> service = CreateServiceMock();
+        var coordinator = new Mock<IProjectVersionControlCoordinator>();
+        IReadOnlyList<ProjectRecoveryInfo> currentRecoveries = [];
+        var recovery = new ProjectRecoveryInfo(
+            "11111111111111111111111111111111",
+            "project.bep",
+            DateTimeOffset.UtcNow);
+        coordinator.Setup(x => x.GetPendingPullRecoveriesAsync(
+                It.IsAny<CancellationToken>()))
+            .ReturnsAsync(() => currentRecoveries);
+        coordinator.Setup(x => x.RecoverPendingPullAsync(
+                recovery.Id,
+                It.IsAny<CancellationToken>()))
+            .Callback(() => currentRecoveries = [])
+            .ReturnsAsync(new ProjectRecoveryResult.RestoredOriginal());
+        using VersionControlTabViewModel viewModel = CreateViewModel(
+            service.Object,
+            coordinator.Object);
+        await viewModel.Initialization;
+        Assert.That(viewModel.HasPendingPullRecovery.Value, Is.False);
+
+        currentRecoveries = [recovery];
+        coordinator.Raise(
+            x => x.PendingPullRecoveriesChanged += null,
+            coordinator.Object,
+            EventArgs.Empty);
+        await viewModel.Initialization;
+        Assert.That(viewModel.HasPendingPullRecovery.Value, Is.True);
+
+        currentRecoveries = [];
+        coordinator.Raise(
+            x => x.PendingPullRecoveriesChanged += null,
+            coordinator.Object,
+            EventArgs.Empty);
+        await viewModel.Initialization;
+        Assert.That(viewModel.HasPendingPullRecovery.Value, Is.False);
+
+        currentRecoveries = [recovery];
+        coordinator.Raise(
+            x => x.PendingPullRecoveriesChanged += null,
+            coordinator.Object,
+            EventArgs.Empty);
+        await viewModel.Initialization;
+        await viewModel.RecoverPendingPullAsync();
+
+        Assert.That(viewModel.HasPendingPullRecovery.Value, Is.False);
+        coordinator.Verify(x => x.RecoverPendingPullAsync(
+            recovery.Id,
+            CancellationToken.None), Times.Once);
+    }
+
+    [Test]
+    public async Task Failed_pending_pull_recovery_keeps_the_banner_visible()
+    {
+        Mock<IProjectVersionControlService> service = CreateServiceMock();
+        var coordinator = new Mock<IProjectVersionControlCoordinator>();
+        var recovery = new ProjectRecoveryInfo(
+            "11111111111111111111111111111111",
+            "project.bep",
+            DateTimeOffset.UtcNow);
+        coordinator.Setup(x => x.GetPendingPullRecoveriesAsync(
+                It.IsAny<CancellationToken>()))
+            .ReturnsAsync([recovery]);
+        coordinator.Setup(x => x.RecoverPendingPullAsync(
+                recovery.Id,
+                It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new ProjectRecoveryResult.FailedPreserved(
+                "refs/beutl/safety/test-checkpoint"));
+        using VersionControlTabViewModel viewModel = CreateViewModel(
+            service.Object,
+            coordinator.Object);
+        await viewModel.Initialization;
+
+        await viewModel.RecoverPendingPullAsync();
+
+        Assert.That(viewModel.HasPendingPullRecovery.Value, Is.True);
+    }
+
+    [Test]
+    public async Task Pending_pull_recovery_refresh_is_latest_wins_on_the_same_service()
+    {
+        Mock<IProjectVersionControlService> service = CreateServiceMock();
+        var coordinator = new Mock<IProjectVersionControlCoordinator>();
+        Func<Task<IReadOnlyList<ProjectRecoveryInfo>>> query =
+            static () => Task.FromResult<IReadOnlyList<ProjectRecoveryInfo>>([]);
+        coordinator.Setup(x => x.GetPendingPullRecoveriesAsync(
+                It.IsAny<CancellationToken>()))
+            .Returns(() => query());
+        using VersionControlTabViewModel viewModel = CreateViewModel(
+            service.Object,
+            coordinator.Object);
+        await viewModel.Initialization;
+
+        var staleQuery = new TaskCompletionSource<IReadOnlyList<ProjectRecoveryInfo>>(
+            TaskCreationOptions.RunContinuationsAsynchronously);
+        query = () => staleQuery.Task;
+        coordinator.Raise(
+            x => x.PendingPullRecoveriesChanged += null,
+            coordinator.Object,
+            EventArgs.Empty);
+        Task staleRefresh = viewModel.Initialization;
+
+        query = static () => Task.FromResult<IReadOnlyList<ProjectRecoveryInfo>>([]);
+        coordinator.Raise(
+            x => x.PendingPullRecoveriesChanged += null,
+            coordinator.Object,
+            EventArgs.Empty);
+        await viewModel.Initialization;
+        staleQuery.TrySetResult([
+            new ProjectRecoveryInfo(
+                "22222222222222222222222222222222",
+                "project.bep",
+                DateTimeOffset.UtcNow),
+        ]);
+        await staleRefresh;
+
+        Assert.That(viewModel.HasPendingPullRecovery.Value, Is.False);
+    }
+
+    [Test]
+    public async Task Pending_pull_recovery_internal_epoch_cancellation_is_observed_as_completion()
+    {
+        Mock<IProjectVersionControlService> service = CreateServiceMock();
+        var coordinator = new Mock<IProjectVersionControlCoordinator>();
+        Func<Task<IReadOnlyList<ProjectRecoveryInfo>>> query =
+            static () => Task.FromResult<IReadOnlyList<ProjectRecoveryInfo>>([]);
+        coordinator.Setup(x => x.GetPendingPullRecoveriesAsync(
+                It.IsAny<CancellationToken>()))
+            .Returns(() => query());
+        using VersionControlTabViewModel viewModel = CreateViewModel(
+            service.Object,
+            coordinator.Object);
+        await viewModel.Initialization;
+
+        query = static () => Task.FromException<IReadOnlyList<ProjectRecoveryInfo>>(
+            new OperationCanceledException("coordinator operation epoch changed"));
+        coordinator.Raise(
+            x => x.PendingPullRecoveriesChanged += null,
+            coordinator.Object,
+            EventArgs.Empty);
+        await viewModel.Initialization;
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(viewModel.Initialization.Status, Is.EqualTo(TaskStatus.RanToCompletion));
+            Assert.That(viewModel.HasPendingPullRecovery.Value, Is.False);
+        });
+    }
+
+    [Test]
     public async Task Selecting_commit_and_file_loads_changes_and_classifies_diff_lines()
     {
         CommitInfo commit = CreateCommit(1, SnapshotKind.Restore);
@@ -825,6 +977,8 @@ public class VersionControlTabViewModelTests
                 "restored-version",
                 It.IsAny<CancellationToken>()))
             .ReturnsAsync(true);
+        coordinator.SetReturnsDefault(
+            Task.FromResult<IReadOnlyList<ProjectRecoveryInfo>>([]));
         using var viewModel = new VersionControlTabViewModel(
             Mock.Of<ToolTabExtension>(),
             Mock.Of<IEditorContext>(),
@@ -1188,6 +1342,12 @@ public class VersionControlTabViewModelTests
         IProjectVersionControlService service,
         IProjectVersionControlCoordinator? coordinator = null)
     {
+        if (coordinator is not null)
+        {
+            Mock.Get(coordinator).SetReturnsDefault(
+                Task.FromResult<IReadOnlyList<ProjectRecoveryInfo>>([]));
+        }
+
         return new VersionControlTabViewModel(
             Mock.Of<ToolTabExtension>(),
             Mock.Of<IEditorContext>(),

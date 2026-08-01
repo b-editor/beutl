@@ -747,6 +747,7 @@ public sealed class NestedRepositoryTests : RealGitTestRepository
         FastForwardPullResult pull = await service.PullFastForwardAsync(
             expected,
             checkpoint: null,
+            Path.Combine(projectRoot, "project.bep"),
             CancellationToken.None);
 
         Assert.Multiple(() =>

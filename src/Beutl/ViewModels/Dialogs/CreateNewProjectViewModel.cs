@@ -14,22 +14,19 @@ public sealed class CreateNewProjectViewModel
 {
     private readonly ILogger _logger = Log.CreateLogger<CreateNewProjectViewModel>();
     private readonly ProjectService _projectService;
-    private readonly IProjectVersionControlInitializer? _versionControlInitializer;
-    private readonly Func<CancellationToken, Task<GitIdentity?>>? _requestIdentityAsync;
-
-    public CreateNewProjectViewModel(ProjectService projectService)
-        : this(projectService, versionControlInitializer: null, requestIdentityAsync: null)
-    {
-    }
+    private readonly IProjectVersionControlInitializer _versionControlInitializer;
+    private readonly Func<CancellationToken, Task<GitIdentity?>> _requestIdentityAsync;
 
     public CreateNewProjectViewModel(
         ProjectService projectService,
-        IProjectVersionControlInitializer? versionControlInitializer,
-        Func<CancellationToken, Task<GitIdentity?>>? requestIdentityAsync)
+        IProjectVersionControlInitializer versionControlInitializer,
+        Func<CancellationToken, Task<GitIdentity?>> requestIdentityAsync)
     {
-        _projectService = projectService;
-        _versionControlInitializer = versionControlInitializer;
-        _requestIdentityAsync = requestIdentityAsync;
+        _projectService = projectService ?? throw new ArgumentNullException(nameof(projectService));
+        _versionControlInitializer = versionControlInitializer
+            ?? throw new ArgumentNullException(nameof(versionControlInitializer));
+        _requestIdentityAsync = requestIdentityAsync
+            ?? throw new ArgumentNullException(nameof(requestIdentityAsync));
         Location.Value = GetDefaultLocation();
         Name.Value = GenProjectName(Location.Value);
         _ = DetectGitAsync();
@@ -114,9 +111,7 @@ public sealed class CreateNewProjectViewModel
                 Name.Value,
                 Location.Value);
             if (project is not null
-                && initializeVersionControl
-                && _versionControlInitializer is not null
-                && _requestIdentityAsync is not null)
+                && initializeVersionControl)
             {
                 await _versionControlInitializer.InitializeCurrentProjectAsync(
                     _requestIdentityAsync,
@@ -145,11 +140,6 @@ public sealed class CreateNewProjectViewModel
 
     private async Task DetectGitAsync()
     {
-        if (_versionControlInitializer is null)
-        {
-            return;
-        }
-
         try
         {
             GitAvailability availability = await _versionControlInitializer.GetAvailabilityAsync(

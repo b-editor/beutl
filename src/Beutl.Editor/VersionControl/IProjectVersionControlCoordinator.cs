@@ -2,6 +2,8 @@
 
 public interface IProjectVersionControlCoordinator
 {
+    event EventHandler? PendingPullRecoveriesChanged;
+
     Task<CommitResult> CommitManualAsync(
         string message,
         CancellationToken cancellationToken);
@@ -36,4 +38,11 @@ public interface IProjectVersionControlCoordinator
         CancellationToken cancellationToken);
 
     Task<RemoteOpResult> PullAsync(CancellationToken cancellationToken);
+
+    Task<IReadOnlyList<ProjectRecoveryInfo>> GetPendingPullRecoveriesAsync(
+        CancellationToken cancellationToken);
+
+    Task<ProjectRecoveryResult> RecoverPendingPullAsync(
+        string recoveryId,
+        CancellationToken cancellationToken);
 }

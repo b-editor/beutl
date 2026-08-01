@@ -15,6 +15,7 @@ namespace Beutl.Services;
 public sealed class VersionControlCoordinator :
     IProjectVersionControlCoordinator,
     IProjectVersionControlInitializer,
+    IProjectVersionControlSession,
     IDisposable,
     IAsyncDisposable
 {
@@ -48,6 +49,9 @@ public sealed class VersionControlCoordinator :
         _candidateServiceUsers = new(ReferenceEqualityComparer.Instance);
     private readonly HashSet<IProjectVersionControlBackend> _managedServices = new(
         ReferenceEqualityComparer.Instance);
+    private readonly HashSet<string> _offeredPendingRecoveryIds = new(StringComparer.Ordinal);
+    private readonly Dictionary<string, PendingOpeningPullRecovery> _openingPullRecoveries =
+        new(PathComparer);
     private readonly TaskCompletionSource _propertiesDisposedCompletion = new(
         TaskCreationOptions.RunContinuationsAsynchronously);
     private readonly TaskCompletionSource _asyncDisposalCompletion = new(
@@ -61,10 +65,13 @@ public sealed class VersionControlCoordinator :
     private TaskCompletionSource? _lifecycleQuiesced;
     private TaskCompletionSource? _lockRecoveryQuiesced;
     private TaskCompletionSource? _notificationsQuiesced;
+    private TaskCompletionSource? _pendingRecoveryOffersQuiesced;
     private TaskCompletionSource? _operationsQuiesced;
     private TaskCompletionSource? _publicationDrainQuiesced;
     private TaskCompletionSource? _retirementsQuiesced;
     private CancellationTokenSource? _operationEpochCancellation = new();
+    private CancellationTokenSource? _projectServiceEpochCancellation = new();
+    private PendingRecoveryOfferContext? _pendingRecoveryOffer;
     private CancellationTokenSource? _configurationActivationCancellation;
     private ConfigurationActivationRequest? _pendingConfigurationActivation;
     private long _nextActivationRevision;
@@ -79,9 +86,12 @@ public sealed class VersionControlCoordinator :
     private int _lifecycleUsers;
     private int _lockRecoveryUsers;
     private int _notificationUsers;
+    private int _pendingRecoveryOfferUsers;
     private int _operationUsers;
     private int _retirementUsers;
     private int _asyncDisposalStarted;
+    private Project? _lastProjectNotification;
+    private bool _hasProjectNotification;
     private string? _observedGitExecutablePath;
     private bool _publicationDrainScheduled;
     private bool _publicationDrainRunning;
@@ -120,24 +130,22 @@ public sealed class VersionControlCoordinator :
         ConfirmRestoreAsync = ShowRestoreConfirmationAsync;
         ConfirmSwitchBranchAsync = ShowSwitchBranchConfirmationAsync;
         ConfirmPullAsync = ShowPullConfirmationAsync;
+        ConfirmPendingPullRecoveryAsync = ShowPendingPullRecoveryConfirmationAsync;
         ConfirmUseEnclosingRepositoryAsync = ShowEnclosingRepositoryConfirmationAsync;
         ConfirmRemoveStaleLockAsync = ShowStaleLockConfirmationAsync;
         WarnConflictMarkersAsync = ShowConflictMarkerWarningAsync;
         RequestIdentityAsync = static _ => Task.FromResult<GitIdentity?>(null);
         PresentPolicyNoticeAsync = ShowPolicyNoticeAsync;
         _config.ConfigurationChanged += OnVersionControlConfigChanged;
-        _projectService.Opening += WarnBeforeOpeningConflictedProjectAsync;
+        _projectService.OpeningPreflight += PrepareProjectOpeningAsync;
+        _projectService.Opening += InspectProjectOpeningAsync;
         _projectService.Closing += PrepareProjectClosingAsync;
         _projectService.ClosingFinalizing += NotifyProjectClosingAsync;
         _projectSubscription = _projectService.ProjectObservable.Subscribe(
             change => OnProjectChanged(change.New));
         _editorService.ProjectVersionControlCoordinator = this;
+        ObserveCurrentProjectSnapshot();
         StartAvailabilityRefresh();
-
-        if (_projectService.CurrentProject.Value is { } project)
-        {
-            OnProjectChanged(project);
-        }
     }
 
     public IProjectVersionControlService? CurrentService
@@ -155,11 +163,17 @@ public sealed class VersionControlCoordinator :
 
     public IReadOnlyReactiveProperty<bool> IsTracked => _isTracked;
 
+    public event EventHandler? PendingPullRecoveriesChanged;
+
     internal Func<CancellationToken, Task<bool>> ConfirmRestoreAsync { get; set; }
 
     internal Func<string, CancellationToken, Task<bool>> ConfirmSwitchBranchAsync { get; set; }
 
     internal Func<CancellationToken, Task<bool>> ConfirmPullAsync { get; set; }
+
+    internal Func<ProjectRecoveryInfo, CancellationToken, Task<bool>>
+        ConfirmPendingPullRecoveryAsync
+    { get; set; }
 
     internal Func<RepositoryInfo, CancellationToken, Task<bool>>
         ConfirmUseEnclosingRepositoryAsync
@@ -347,9 +361,11 @@ public sealed class VersionControlCoordinator :
     {
         if (IsInternalVersionControlTransition())
         {
+            AdvanceProjectServiceEpoch();
             return;
         }
 
+        CancelPendingPullRecoveryOffer();
         NonTransactionalCloseBarrier? closeBarrier =
             await TryBeginNonTransactionalCloseBarrierAsync(cancellationToken)
                 .ConfigureAwait(false);
@@ -357,6 +373,8 @@ public sealed class VersionControlCoordinator :
         {
             return;
         }
+
+        AdvanceProjectServiceEpoch();
 
         bool completionRegistered = false;
         try
@@ -508,17 +526,12 @@ public sealed class VersionControlCoordinator :
         }
     }
 
-    public async Task CloseCurrentProjectAsync(CancellationToken cancellationToken = default)
-    {
-        ObjectDisposedException.ThrowIf(_disposed, this);
-        await _projectService.CloseProject(cancellationToken);
-    }
-
     public Task<bool> RestoreAsync(
         string sha,
         CancellationToken cancellationToken = default)
     {
         GitRevisionValidator.ValidateCommitId(sha, nameof(sha));
+        CancelPendingPullRecoveryOffer();
         return RunRestoreCycleAsync(sha, branchName: null, cancellationToken);
     }
 
@@ -529,6 +542,7 @@ public sealed class VersionControlCoordinator :
     {
         GitRevisionValidator.ValidateCommitId(sha, nameof(sha));
         ArgumentException.ThrowIfNullOrWhiteSpace(branchName);
+        CancelPendingPullRecoveryOffer();
         return RunRestoreCycleAsync(sha, branchName, cancellationToken);
     }
 
@@ -570,6 +584,7 @@ public sealed class VersionControlCoordinator :
         CancellationToken cancellationToken = default)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(branchName);
+        CancelPendingPullRecoveryOffer();
         return RunBranchCycleAsync(branchName.Trim(), create: true, cancellationToken);
     }
 
@@ -578,6 +593,7 @@ public sealed class VersionControlCoordinator :
         CancellationToken cancellationToken = default)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(branchName);
+        CancelPendingPullRecoveryOffer();
         return RunBranchCycleAsync(branchName.Trim(), create: false, cancellationToken);
     }
 
@@ -612,7 +628,35 @@ public sealed class VersionControlCoordinator :
 
     public Task<RemoteOpResult> PullAsync(CancellationToken cancellationToken = default)
     {
+        CancelPendingPullRecoveryOffer();
         return RunPullCycleAsync(cancellationToken);
+    }
+
+    public async Task<IReadOnlyList<ProjectRecoveryInfo>> GetPendingPullRecoveriesAsync(
+        CancellationToken cancellationToken = default)
+    {
+        using NonTransactionalOperationLease operation =
+            await BeginNonTransactionalOperationAsync(cancellationToken);
+        IProjectVersionControlBackend service = GetTrackedBackend();
+        IReadOnlyList<PendingPullRecovery> recoveries =
+            await service.ExecuteExclusiveAsync(
+                transaction => transaction.GetPendingPullRecoveriesAsync(
+                    operation.CancellationToken),
+                operation.CancellationToken);
+        ReconcileOfferedPendingRecoveryIds(recoveries);
+        return recoveries.Select(ToRecoveryInfo).ToArray();
+    }
+
+    public Task<ProjectRecoveryResult> RecoverPendingPullAsync(
+        string recoveryId,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(recoveryId);
+        CancelPendingPullRecoveryOffer();
+        return RunPendingPullRecoveryCycleAsync(
+            recoveryId,
+            requireConfirmation: true,
+            cancellationToken);
     }
 
     public void Dispose()
@@ -653,6 +697,7 @@ public sealed class VersionControlCoordinator :
     {
         bool clearProjectState;
         CancellationTokenSource? configurationActivationCancellation;
+        CancellationTokenSource? projectServiceEpochCancellation;
         lock (_stateGate)
         {
             if (_disposed)
@@ -662,7 +707,10 @@ public sealed class VersionControlCoordinator :
 
             _disposed = true;
             _pendingConfigurationActivation = null;
+            _openingPullRecoveries.Clear();
             configurationActivationCancellation = _configurationActivationCancellation;
+            projectServiceEpochCancellation = _projectServiceEpochCancellation;
+            _projectServiceEpochCancellation = null;
             clearProjectState = _closeBarrierUsers == 0
                                 && _lifecycleUsers == 0
                                 && _operationUsers == 0;
@@ -679,8 +727,10 @@ public sealed class VersionControlCoordinator :
                 "A cancellation callback failed while disposing version control.");
         }
         CancelConfigurationActivation(configurationActivationCancellation);
+        CancelProjectServiceEpoch(projectServiceEpochCancellation);
         _config.ConfigurationChanged -= OnVersionControlConfigChanged;
-        _projectService.Opening -= WarnBeforeOpeningConflictedProjectAsync;
+        _projectService.OpeningPreflight -= PrepareProjectOpeningAsync;
+        _projectService.Opening -= InspectProjectOpeningAsync;
         _projectService.Closing -= PrepareProjectClosingAsync;
         _projectService.ClosingFinalizing -= NotifyProjectClosingAsync;
         _projectSubscription.Dispose();
@@ -710,6 +760,7 @@ public sealed class VersionControlCoordinator :
             await WaitForCloseBarrierQuiescenceAsync().ConfigureAwait(false);
             await WaitForLifecycleQuiescenceAsync().ConfigureAwait(false);
             await WaitForActivationSetupQuiescenceAsync().ConfigureAwait(false);
+            await WaitForPendingRecoveryOfferQuiescenceAsync().ConfigureAwait(false);
             ClearProjectState();
             await WaitForLockRecoveryQuiescenceAsync().ConfigureAwait(false);
             await WaitForNotificationQuiescenceAsync().ConfigureAwait(false);
@@ -816,6 +867,19 @@ public sealed class VersionControlCoordinator :
         }
     }
 
+    private Task WaitForPendingRecoveryOfferQuiescenceAsync()
+    {
+        lock (_stateGate)
+        {
+            if (_pendingRecoveryOfferUsers == 0)
+            {
+                return Task.CompletedTask;
+            }
+
+            return (_pendingRecoveryOffersQuiesced ??= CreateCompletionSource()).Task;
+        }
+    }
+
     private Task WaitForRetirementQuiescenceAsync()
     {
         lock (_stateGate)
@@ -900,6 +964,15 @@ public sealed class VersionControlCoordinator :
             return await ownedService.ExecuteExclusiveAsync(
                 async service =>
                 {
+                    if (!create
+                        && !await LocalBranchExistsAsync(
+                            service,
+                            branchName,
+                            cancellationToken))
+                    {
+                        return false;
+                    }
+
                     WorkspaceStatus status = await service.GetStatusAsync(cancellationToken);
                     if (!EnsureRepositoryIsNotConflicted(status))
                     {
@@ -938,6 +1011,15 @@ public sealed class VersionControlCoordinator :
                             throw new InvalidOperationException(
                                 "The branch ref changed while the switch safety snapshot was committed.");
                         }
+                    }
+
+                    if (!create
+                        && !await LocalBranchExistsAsync(
+                            service,
+                            branchName,
+                            CancellationToken.None))
+                    {
+                        return false;
                     }
 
                     CheckedOutBranchTip expectedResultTip = originalTip;
@@ -1004,7 +1086,98 @@ public sealed class VersionControlCoordinator :
         }
     }
 
+    private static async Task<bool> LocalBranchExistsAsync(
+        IProjectVersionControlTransaction service,
+        string branchName,
+        CancellationToken cancellationToken)
+    {
+        IReadOnlyList<BranchInfo> branches = await service.GetBranchesAsync(cancellationToken);
+        return branches.Any(branch =>
+            string.Equals(branch.Name, branchName, StringComparison.Ordinal));
+    }
+
     private async Task<RemoteOpResult> RunPullCycleAsync(CancellationToken cancellationToken)
+    {
+        CancellationTokenSource? confirmationCancellation = null;
+        try
+        {
+            confirmationCancellation =
+                CreateProjectServiceEpochCancellation(cancellationToken);
+            RemoteOpResult? preliminaryResult =
+                await RunPullPreflightCycleAsync(confirmationCancellation.Token);
+            if (preliminaryResult is not null)
+            {
+                return preliminaryResult;
+            }
+
+            if (!await ConfirmPullAsync(confirmationCancellation.Token).ConfigureAwait(false))
+            {
+                return new RemoteOpResult.Failed(string.Empty);
+            }
+        }
+        catch (OperationCanceledException)
+            when (confirmationCancellation?.IsCancellationRequested == true
+                  && !cancellationToken.IsCancellationRequested)
+        {
+            return new RemoteOpResult.Failed(
+                "The open project changed while the pull was awaiting confirmation.");
+        }
+        catch (ObjectDisposedException ex)
+        {
+            _logger.LogInformation(
+                ex,
+                "Skipped pull because its project/service epoch was unavailable before confirmation.");
+            return new RemoteOpResult.Failed(
+                "The open project changed while the pull was being prepared.");
+        }
+        catch (InvalidOperationException ex)
+        {
+            _logger.LogInformation(
+                ex,
+                "Skipped pull because the project lifecycle changed before confirmation.");
+            return new RemoteOpResult.Failed(
+                "The open project changed while the pull was being prepared.");
+        }
+        finally
+        {
+            confirmationCancellation?.Dispose();
+        }
+
+        PullMutationOutcome outcome;
+        try
+        {
+            outcome = await RunPullMutationCycleAsync(cancellationToken);
+        }
+        catch (ObjectDisposedException ex)
+        {
+            _logger.LogInformation(
+                ex,
+                "Skipped pull because its backend retired after confirmation.");
+            return new RemoteOpResult.Failed(
+                "The open project changed while the pull was being prepared.");
+        }
+        catch (InvalidOperationException ex)
+        {
+            _logger.LogInformation(
+                ex,
+                "Skipped pull because the project lifecycle changed after confirmation.");
+            return new RemoteOpResult.Failed(
+                "The open project changed while the pull was being prepared.");
+        }
+
+        if (outcome.Recovery is not null)
+        {
+            await OfferUncertainPullRecoveryAsync(
+                    outcome.Recovery,
+                    outcome.ProjectFile)
+                .ConfigureAwait(false);
+        }
+
+        return outcome.Result;
+    }
+
+    private async Task<RemoteOpResult?> RunPullPreflightCycleAsync(
+        CancellationToken cancellationToken)
     {
         await BeginLifecycleOperationAsync(cancellationToken);
         bool gateEntered = false;
@@ -1013,17 +1186,6 @@ public sealed class VersionControlCoordinator :
             await _lifecycleGate.WaitAsync(cancellationToken);
             gateEntered = true;
             ThrowIfLifecycleOperationUnavailable();
-            await using ProjectService.ProjectTransitionScope transition =
-                await _projectService.BeginVersionControlTransitionAsync(this, cancellationToken);
-            ThrowIfLifecycleOperationUnavailable();
-            using IDisposable? worktreeMutation = TryBeginWorktreeMutation();
-            if (worktreeMutation is null)
-            {
-                return new RemoteOpResult.Failed(Strings.VersionControl_ExportInProgress);
-            }
-
-            Project project = GetOpenProject();
-            string projectFile = GetProjectFile(project);
             IProjectVersionControlBackend ownedService = GetTrackedBackend();
             return await ownedService.ExecuteExclusiveAsync(
                 async service =>
@@ -1031,136 +1193,664 @@ public sealed class VersionControlCoordinator :
                     WorkspaceStatus status = await service.GetStatusAsync(cancellationToken);
                     if (!EnsureRepositoryIsNotConflicted(status))
                     {
-                        return new RemoteOpResult.Failed(Strings.VersionControl_ConflictGuidance);
+                        return new RemoteOpResult.Failed(
+                            Strings.VersionControl_ConflictGuidance);
                     }
 
-                    if (!await ConfirmPullAsync(cancellationToken))
-                    {
-                        return new RemoteOpResult.Failed(string.Empty);
-                    }
-
-                    cancellationToken.ThrowIfCancellationRequested();
                     CheckedOutBranchTip originalHead =
-                        await service.GetCheckedOutBranchTipAsync(CancellationToken.None);
-                    ProjectCheckpoint? checkpoint = status.IsClean
+                        await service.GetCheckedOutBranchTipAsync(cancellationToken);
+                    PullPreflightResult preflight = await service.PreflightPullAsync(
+                        originalHead,
+                        cancellationToken);
+                    return preflight.Result is RemoteOpResult.Success
+                           && preflight.RequiresTransition
                         ? null
-                        : await service.CreateProjectCheckpointAsync(
-                            PullSafetySnapshotMessage,
-                            CancellationToken.None);
-                    bool projectClosed = false;
-                    CheckedOutBranchTip expectedCurrentHead = originalHead;
-                    PullTransitionState pullTransitionState = PullTransitionState.Unchanged;
-                    try
-                    {
-                        await CloseProjectForOperationAsync(transition, CancellationToken.None);
-                        projectClosed = true;
-                        FastForwardPullResult pull = await service.PullFastForwardAsync(
-                            originalHead,
-                            checkpoint,
-                            CancellationToken.None);
-
-                        RemoteOpResult result = pull.Result;
-                        expectedCurrentHead = pull.Tip;
-                        pullTransitionState = pull.TransitionState;
-                        if (pullTransitionState is PullTransitionState.OwnershipLost
-                            or PullTransitionState.RecoveryFailed)
-                        {
-                            return new RemoteOpResult.Failed(
-                                Strings.VersionControl_PullTransitionUncertain);
-                        }
-
-                        if (result is not RemoteOpResult.Success)
-                        {
-                            Exception? recoveryFailure = await TryRecoverPullAsync(
-                                service,
-                                originalHead,
-                                expectedCurrentHead,
-                                checkpoint,
-                                transition,
-                                projectFile);
-                            if (recoveryFailure is not null)
-                            {
-                                return new RemoteOpResult.Failed(string.Format(
-                                    Strings.VersionControl_RecoveryFailed,
-                                    GetRemoteOperationError(result),
-                                    GetErrorText(recoveryFailure)));
-                            }
-
-                            await TryDeleteCheckpointAsync(service, checkpoint);
-                            return result;
-                        }
-
-                        CheckedOutBranchTip verifiedHead =
-                            await service.GetCheckedOutBranchTipAsync(CancellationToken.None);
-                        if (!BranchTipsEqual(verifiedHead, expectedCurrentHead))
-                        {
-                            throw new InvalidOperationException(
-                                "The repository ref changed before the pulled project could be reopened.");
-                        }
-
-                        await ReopenProjectAsync(transition, projectFile);
-                        await TryDeleteCheckpointAsync(service, checkpoint);
-                        return new RemoteOpResult.Success();
-                    }
-                    catch (Exception ex)
-                    {
-                        if (projectClosed
-                            && pullTransitionState is PullTransitionState.OwnershipLost
-                                or PullTransitionState.RecoveryFailed)
-                        {
-                            _logger.LogError(
-                                ex,
-                                "The pull transition became uncertain after the project was closed.");
-                            return new RemoteOpResult.Failed(
-                                Strings.VersionControl_PullTransitionUncertain);
-                        }
-
-                        Exception? recoveryFailure = projectClosed
-                            ? await TryRecoverPullAsync(
-                                service,
-                                originalHead,
-                                expectedCurrentHead,
-                                checkpoint,
-                                transition,
-                                projectFile)
-                            : null;
-                        if (ex is OperationCanceledException
-                            && cancellationToken.IsCancellationRequested)
-                        {
-                            throw;
-                        }
-
-                        if (projectClosed && recoveryFailure is null)
-                        {
-                            await TryDeleteCheckpointAsync(service, checkpoint);
-                        }
-
-                        if (recoveryFailure is not null)
-                        {
-                            HandleCycleFailure(
-                                ex,
-                                recoveryFailure,
-                                "pull",
-                                cancellationToken);
-                            return new RemoteOpResult.Failed(string.Format(
-                                Strings.VersionControl_RecoveryFailed,
-                                GetErrorText(ex),
-                                GetErrorText(recoveryFailure)));
-                        }
-
-                        _logger.LogError(ex, "Failed to pull project versions.");
-                        return new RemoteOpResult.Failed(GetErrorText(ex));
-                    }
-                    finally
-                    {
-                        FinishInternalTransition();
-                    }
+                        : preflight.Result;
                 },
                 cancellationToken);
         }
         finally
         {
             FinishLifecycleOperation(gateEntered);
+        }
+    }
+
+    private async Task<PullMutationOutcome> RunPullMutationCycleAsync(
+        CancellationToken cancellationToken)
+    {
+        await BeginLifecycleOperationAsync(cancellationToken);
+        bool gateEntered = false;
+        try
+        {
+            await _lifecycleGate.WaitAsync(cancellationToken);
+            gateEntered = true;
+            ThrowIfLifecycleOperationUnavailable();
+            Project project = GetOpenProject();
+            string projectFile = GetProjectFile(project);
+            IProjectVersionControlBackend ownedService = GetTrackedBackend();
+            cancellationToken.ThrowIfCancellationRequested();
+            await using ProjectService.ProjectTransitionScope transition =
+                await _projectService.BeginVersionControlTransitionAsync(
+                    this,
+                    cancellationToken);
+            ThrowIfLifecycleOperationUnavailable();
+            using IDisposable? worktreeMutation = TryBeginWorktreeMutation();
+            if (worktreeMutation is null)
+            {
+                return new PullMutationOutcome(
+                    new RemoteOpResult.Failed(Strings.VersionControl_ExportInProgress),
+                    null,
+                    projectFile);
+            }
+
+            try
+            {
+                if (!ReferenceEquals(_projectService.CurrentProject.Value, project)
+                    || !ReferenceEquals(GetOwnedBackend(), ownedService))
+                {
+                    return new PullMutationOutcome(
+                        new RemoteOpResult.Failed(
+                            "The open project changed while the pull was being prepared."),
+                        null,
+                        projectFile);
+                }
+
+                PendingPullRecovery? recoveryToOffer = null;
+                RemoteOpResult result = await ownedService.ExecuteExclusiveAsync(
+                    async service =>
+                    {
+                        WorkspaceStatus status = await service.GetStatusAsync(cancellationToken);
+                        if (!EnsureRepositoryIsNotConflicted(status))
+                        {
+                            return new RemoteOpResult.Failed(
+                                Strings.VersionControl_ConflictGuidance);
+                        }
+
+                        CheckedOutBranchTip originalHead =
+                            await service.GetCheckedOutBranchTipAsync(cancellationToken);
+                        PullPreflightResult preflight = await service.PreflightPullAsync(
+                            originalHead,
+                            cancellationToken);
+                        if (preflight.Result is not RemoteOpResult.Success
+                            || !preflight.RequiresTransition)
+                        {
+                            return preflight.Result;
+                        }
+
+                        ProjectCheckpoint? checkpoint = status.IsClean
+                            ? null
+                            : await service.CreateProjectCheckpointAsync(
+                                PullSafetySnapshotMessage,
+                                CancellationToken.None);
+                        bool projectClosed = false;
+                        CheckedOutBranchTip expectedCurrentHead = originalHead;
+                        PendingPullRecovery? pendingRecovery = null;
+                        PullTransitionState pullTransitionState = PullTransitionState.Unchanged;
+                        try
+                        {
+                            await CloseProjectForOperationAsync(transition, CancellationToken.None);
+                            projectClosed = true;
+                            FastForwardPullResult pull = await service.PullFastForwardAsync(
+                                originalHead,
+                                checkpoint,
+                                projectFile,
+                                CancellationToken.None);
+
+                            RemoteOpResult result = pull.Result;
+                            expectedCurrentHead = pull.Tip;
+                            pendingRecovery = pull.Recovery;
+                            if (pendingRecovery is not null)
+                            {
+                                PublishPendingPullRecoveriesChanged();
+                            }
+                            pullTransitionState = pull.TransitionState;
+                            if (pullTransitionState is PullTransitionState.OwnershipLost
+                                or PullTransitionState.RecoveryFailed)
+                            {
+                                recoveryToOffer = pendingRecovery;
+                                return new RemoteOpResult.Failed(
+                                    Strings.VersionControl_PullTransitionUncertain);
+                            }
+
+                            if (result is not RemoteOpResult.Success)
+                            {
+                                Exception? recoveryFailure = await TryRecoverPullAsync(
+                                    service,
+                                    originalHead,
+                                    expectedCurrentHead,
+                                    checkpoint,
+                                    transition,
+                                    projectFile);
+                                if (recoveryFailure is not null)
+                                {
+                                    _logger.LogError(
+                                        recoveryFailure,
+                                        "Failed to recover a pull after {PullError}.",
+                                        GetRemoteOperationError(result));
+                                    recoveryToOffer = pendingRecovery;
+                                    return new RemoteOpResult.Failed(
+                                        Strings.VersionControl_PullTransitionUncertain);
+                                }
+
+                                await TryCompletePullRecoveryAsync(
+                                    service,
+                                    pendingRecovery,
+                                    checkpoint);
+                                return result;
+                            }
+
+                            CheckedOutBranchTip verifiedHead =
+                                await service.GetCheckedOutBranchTipAsync(CancellationToken.None);
+                            if (!BranchTipsEqual(verifiedHead, expectedCurrentHead))
+                            {
+                                throw new InvalidOperationException(
+                                    "The repository ref changed before the pulled project could be reopened.");
+                            }
+
+                            await ReopenProjectAsync(transition, projectFile);
+                            await TryCompletePullRecoveryAsync(
+                                service,
+                                pendingRecovery,
+                                checkpoint);
+                            return new RemoteOpResult.Success();
+                        }
+                        catch (Exception ex)
+                        {
+                            if (projectClosed
+                                && pullTransitionState is PullTransitionState.OwnershipLost
+                                    or PullTransitionState.RecoveryFailed)
+                            {
+                                _logger.LogError(
+                                    ex,
+                                    "The pull transition became uncertain after the project was closed.");
+                                recoveryToOffer = pendingRecovery;
+                                return new RemoteOpResult.Failed(
+                                    Strings.VersionControl_PullTransitionUncertain);
+                            }
+
+                            Exception? recoveryFailure = projectClosed
+                                ? await TryRecoverPullAsync(
+                                    service,
+                                    originalHead,
+                                    expectedCurrentHead,
+                                    checkpoint,
+                                    transition,
+                                    projectFile)
+                                : null;
+                            if (ex is OperationCanceledException
+                                && cancellationToken.IsCancellationRequested)
+                            {
+                                throw;
+                            }
+
+                            if (projectClosed && recoveryFailure is null)
+                            {
+                                await TryCompletePullRecoveryAsync(
+                                    service,
+                                    pendingRecovery,
+                                    checkpoint);
+                            }
+
+                            if (recoveryFailure is not null)
+                            {
+                                _logger.LogError(
+                                    recoveryFailure,
+                                    "Failed to recover a pull after {PullError}.",
+                                    GetErrorText(ex));
+                                recoveryToOffer = pendingRecovery;
+                                return new RemoteOpResult.Failed(
+                                    Strings.VersionControl_PullTransitionUncertain);
+                            }
+
+                            _logger.LogError(ex, "Failed to pull project versions.");
+                            return new RemoteOpResult.Failed(GetErrorText(ex));
+                        }
+                    },
+                    cancellationToken);
+                return new PullMutationOutcome(result, recoveryToOffer, projectFile);
+            }
+            finally
+            {
+                FinishInternalTransition();
+            }
+        }
+        finally
+        {
+            FinishLifecycleOperation(gateEntered);
+        }
+    }
+
+    private async Task OfferUncertainPullRecoveryAsync(
+        PendingPullRecovery recovery,
+        string projectFile)
+    {
+        bool recovered;
+        using (NonTransactionalOperationLease? operation =
+               TryBeginNonTransactionalOperation(CancellationToken.None))
+        {
+            if (operation is null)
+            {
+                return;
+            }
+
+            recovered = await TryRecoverPendingPullBeforeOpeningAsync(
+                    projectFile,
+                    operation.CancellationToken,
+                    recovery.Id)
+                .ConfigureAwait(false);
+        }
+
+        if (!recovered || !File.Exists(projectFile))
+        {
+            return;
+        }
+
+        try
+        {
+            await _projectService.OpenProject(projectFile).ConfigureAwait(false);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(
+                ex,
+                "The pending pull state {RecoveryId} was recovered, but its project could not be opened.",
+                recovery.Id);
+        }
+    }
+
+    private async Task<ProjectRecoveryResult> RunPendingPullRecoveryCycleAsync(
+        string recoveryId,
+        bool requireConfirmation,
+        CancellationToken cancellationToken,
+        PendingPullRecovery? confirmedRecovery = null)
+    {
+        CancellationTokenSource? confirmationCancellation = null;
+        CancellationToken lookupCancellation = default;
+        try
+        {
+            if (requireConfirmation)
+            {
+                confirmationCancellation =
+                    CreateProjectServiceEpochCancellation(cancellationToken);
+                using (NonTransactionalOperationLease operation =
+                       await BeginNonTransactionalOperationAsync(
+                           confirmationCancellation.Token))
+                {
+                    lookupCancellation = operation.CancellationToken;
+                    Project project = GetOpenProject();
+                    string projectFile = GetProjectFile(project);
+                    IProjectVersionControlBackend service = GetTrackedBackend();
+                    confirmedRecovery = await service.ExecuteExclusiveAsync(
+                        async transaction =>
+                            (await transaction.GetPendingPullRecoveriesAsync(
+                                operation.CancellationToken))
+                            .SingleOrDefault(candidate => string.Equals(
+                                candidate.Id,
+                                recoveryId,
+                                StringComparison.Ordinal)),
+                        operation.CancellationToken);
+                    if (confirmedRecovery is null
+                        || !RecoveryProjectPathsEqual(
+                            projectFile,
+                            confirmedRecovery.ProjectFile))
+                    {
+                        return new ProjectRecoveryResult.NotFoundOrChanged();
+                    }
+                }
+
+                if (!await ConfirmPendingPullRecoveryAsync(
+                        ToRecoveryInfo(confirmedRecovery),
+                        confirmationCancellation.Token)
+                    .ConfigureAwait(false))
+                {
+                    return new ProjectRecoveryResult.Declined();
+                }
+            }
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            throw;
+        }
+        catch (OperationCanceledException)
+            when (confirmationCancellation?.IsCancellationRequested == true
+                  || lookupCancellation.IsCancellationRequested
+                  || _lifetimeCancellation.IsCancellationRequested)
+        {
+            return new ProjectRecoveryResult.Unavailable();
+        }
+        catch (ObjectDisposedException ex)
+        {
+            _logger.LogInformation(
+                ex,
+                "Skipped pending pull recovery because its backend retired before confirmation.");
+            return new ProjectRecoveryResult.Unavailable();
+        }
+        catch (InvalidOperationException ex)
+        {
+            _logger.LogInformation(
+                ex,
+                "Skipped pending pull recovery because it became unavailable before confirmation.");
+            return new ProjectRecoveryResult.Unavailable();
+        }
+        finally
+        {
+            confirmationCancellation?.Dispose();
+        }
+
+        try
+        {
+            return await RunPendingPullRecoveryMutationCycleAsync(
+                    recoveryId,
+                    confirmedRecovery,
+                    cancellationToken)
+                .ConfigureAwait(false);
+        }
+        catch (ObjectDisposedException ex)
+        {
+            _logger.LogInformation(
+                ex,
+                "Skipped pending pull recovery because its backend retired after confirmation.");
+            return new ProjectRecoveryResult.Unavailable();
+        }
+        catch (InvalidOperationException ex)
+        {
+            _logger.LogInformation(
+                ex,
+                "Skipped pending pull recovery because the project lifecycle changed after confirmation.");
+            return new ProjectRecoveryResult.Unavailable();
+        }
+    }
+
+    private async Task<ProjectRecoveryResult> RunPendingPullRecoveryMutationCycleAsync(
+        string recoveryId,
+        PendingPullRecovery? confirmedRecovery,
+        CancellationToken cancellationToken)
+    {
+        await BeginLifecycleOperationAsync(cancellationToken);
+        bool gateEntered = false;
+        try
+        {
+            await _lifecycleGate.WaitAsync(cancellationToken);
+            gateEntered = true;
+            ThrowIfLifecycleOperationUnavailable();
+            Project project = GetOpenProject();
+            IProjectVersionControlBackend ownedService = GetTrackedBackend();
+            PendingPullRecovery? offeredRecovery = await ownedService.ExecuteExclusiveAsync(
+                async service => (await service.GetPendingPullRecoveriesAsync(cancellationToken))
+                    .SingleOrDefault(candidate => string.Equals(
+                        candidate.Id,
+                        recoveryId,
+                        StringComparison.Ordinal)),
+                cancellationToken);
+            if (offeredRecovery is null)
+            {
+                return new ProjectRecoveryResult.NotFoundOrChanged();
+            }
+
+            string openProjectFile = GetProjectFile(project);
+            if (!RecoveryProjectPathsEqual(
+                    openProjectFile,
+                    offeredRecovery.ProjectFile)
+                || confirmedRecovery is not null
+                && !PendingPullRecoveriesMatch(confirmedRecovery, offeredRecovery))
+            {
+                return new ProjectRecoveryResult.NotFoundOrChanged();
+            }
+
+            cancellationToken.ThrowIfCancellationRequested();
+            await using ProjectService.ProjectTransitionScope transition =
+                await _projectService.BeginVersionControlTransitionAsync(
+                    this,
+                    cancellationToken);
+            ThrowIfLifecycleOperationUnavailable();
+            if (!ReferenceEquals(_projectService.CurrentProject.Value, project)
+                || !ReferenceEquals(GetOwnedBackend(), ownedService))
+            {
+                return new ProjectRecoveryResult.Unavailable();
+            }
+
+            using IDisposable? worktreeMutation = TryBeginWorktreeMutation();
+            if (worktreeMutation is null)
+            {
+                return new ProjectRecoveryResult.Unavailable();
+            }
+
+            try
+            {
+                return await ownedService.ExecuteExclusiveAsync(
+                    async service =>
+                    {
+                        PendingPullRecovery? recovery =
+                            (await service.GetPendingPullRecoveriesAsync(cancellationToken))
+                            .SingleOrDefault(candidate => string.Equals(
+                                candidate.Id,
+                                recoveryId,
+                                StringComparison.Ordinal));
+                        if (recovery is null
+                            || !PendingPullRecoveriesMatch(offeredRecovery, recovery)
+                            || !RecoveryProjectPathsEqual(
+                                openProjectFile,
+                                recovery.ProjectFile))
+                        {
+                            return new ProjectRecoveryResult.NotFoundOrChanged();
+                        }
+
+                        try
+                        {
+                            await CloseProjectForOperationAsync(
+                                transition,
+                                CancellationToken.None);
+                            PendingPullRecoveryOutcome outcome =
+                                await service.RecoverPendingPullRecoveryAsync(
+                                recovery,
+                                CancellationToken.None);
+                            await ReopenProjectAsync(transition, openProjectFile);
+                            await service.CompletePendingPullRecoveryAsync(
+                                recovery,
+                                CancellationToken.None);
+                            CompletePendingPullRecoveryPublication(recovery.Id);
+                            PublishRecoveryOutcomeNotification(recovery, outcome);
+                            return ToProjectRecoveryResult(recovery, outcome);
+                        }
+                        catch (PendingPullRecoveryPreservedException ex)
+                        {
+                            PublishPreservedRecoveryBranchNotification(ex.RecoveryReference);
+                            return new ProjectRecoveryResult.FailedPreserved(
+                                ex.RecoveryReference);
+                        }
+                        catch (Exception ex)
+                        {
+                            _logger.LogError(
+                                ex,
+                                "Failed to recover pending pull state {RecoveryId}; its retained-reference state could not be verified.",
+                                recovery.Id);
+                            PublishNotification(() =>
+                                NotificationService.ShowError(
+                                    Strings.VersionControl_ErrorTitle,
+                                    string.Format(
+                                        Strings.VersionControl_RecoveryFailed,
+                                        Strings.VersionControl_PullTransitionUncertain,
+                                        GetErrorText(ex))));
+                            return new ProjectRecoveryResult.FailedUncertain();
+                        }
+                    },
+                    cancellationToken);
+            }
+            finally
+            {
+                FinishInternalTransition();
+            }
+        }
+        finally
+        {
+            FinishLifecycleOperation(gateEntered);
+        }
+    }
+
+    private static ProjectRecoveryInfo ToRecoveryInfo(PendingPullRecovery recovery)
+    {
+        return new ProjectRecoveryInfo(
+            recovery.Id,
+            Path.GetFileName(recovery.ProjectFile),
+            recovery.CreatedAt);
+    }
+
+    private static ProjectRecoveryResult ToProjectRecoveryResult(
+        PendingPullRecovery recovery,
+        PendingPullRecoveryOutcome outcome)
+    {
+        return outcome switch
+        {
+            PendingPullRecoveryOutcome.RestoredOriginal
+                => new ProjectRecoveryResult.RestoredOriginal(),
+            PendingPullRecoveryOutcome.ReappliedCheckpoint
+                => new ProjectRecoveryResult.ReappliedCheckpoint(
+                    recovery.RecoveryBranchName),
+            _ => throw new ArgumentOutOfRangeException(nameof(outcome)),
+        };
+    }
+
+    private void PublishRecoveryOutcomeNotification(
+        PendingPullRecovery recovery,
+        PendingPullRecoveryOutcome outcome)
+    {
+        PublishNotification(() => NotificationService.ShowInformation(
+            Strings.VersionControl,
+            outcome == PendingPullRecoveryOutcome.ReappliedCheckpoint
+                ? string.Format(
+                    Strings.VersionControl_CheckpointReappliedOnRecoveryBranch,
+                    recovery.RecoveryBranchName)
+                : Strings.VersionControl_PullRecovered));
+    }
+
+    private void PublishPreservedRecoveryBranchNotification(string recoveryReference)
+    {
+        PublishNotification(() => NotificationService.ShowWarning(
+            Strings.VersionControl,
+            string.Format(
+                Strings.VersionControl_CheckpointPreservedOnRecoveryBranch,
+                recoveryReference)));
+    }
+
+    private static bool PendingPullRecoveriesMatch(
+        PendingPullRecovery expected,
+        PendingPullRecovery actual,
+        RepositoryInfo? repository = null)
+    {
+        return string.Equals(expected.Id, actual.Id, StringComparison.Ordinal)
+               && string.Equals(
+                   expected.DescriptorRef,
+                   actual.DescriptorRef,
+                   StringComparison.Ordinal)
+               && string.Equals(
+                   expected.DescriptorObject,
+                   actual.DescriptorObject,
+                   StringComparison.OrdinalIgnoreCase)
+               && (repository is null
+                   ? RecoveryProjectPathsEqual(
+                       expected.ProjectFile,
+                       actual.ProjectFile)
+                   : RecoveryProjectPathsEqual(
+                       repository,
+                       expected.ProjectFile,
+                       actual.ProjectFile));
+    }
+
+    private static bool PathsEqual(string left, string right)
+    {
+        return RepositoryPathComparer.AreEquivalent(left, right);
+    }
+
+    private static bool RecoveryProjectPathsEqual(string left, string right)
+    {
+        string lexicalLeft = Path.TrimEndingDirectorySeparator(Path.GetFullPath(left));
+        string lexicalRight = Path.TrimEndingDirectorySeparator(Path.GetFullPath(right));
+        if (string.Equals(lexicalLeft, lexicalRight, PathComparison))
+        {
+            return true;
+        }
+
+        try
+        {
+            return PathsEqual(left, right);
+        }
+        catch (Exception ex)
+            when (ex is IOException
+                  or UnauthorizedAccessException
+                  or NotSupportedException
+                  or ArgumentException)
+        {
+            return false;
+        }
+    }
+
+    private static bool RecoveryProjectPathsEqual(
+        RepositoryInfo repository,
+        string left,
+        string right)
+    {
+        if (TryGetRecoveryRelativePath(repository, left, out string? leftRelative)
+            && TryGetRecoveryRelativePath(repository, right, out string? rightRelative)
+            && string.Equals(leftRelative, rightRelative, PathComparison))
+        {
+            return true;
+        }
+
+        return RecoveryProjectPathsEqual(left, right);
+    }
+
+    private static bool TryGetRecoveryRelativePath(
+        RepositoryInfo repository,
+        string path,
+        out string? relativePath)
+    {
+        string fullPath = Path.GetFullPath(path);
+        string? ancestor = Path.GetDirectoryName(fullPath);
+        while (ancestor is not null)
+        {
+            try
+            {
+                if (RepositoryPathComparer.AreEquivalent(
+                        ancestor,
+                        repository.ProjectRoot))
+                {
+                    relativePath = Path.GetRelativePath(ancestor, fullPath);
+                    return relativePath != ".."
+                           && !relativePath.StartsWith(
+                               $"..{Path.DirectorySeparatorChar}",
+                               StringComparison.Ordinal)
+                           && !Path.IsPathRooted(relativePath);
+                }
+            }
+            catch (Exception ex)
+                when (ex is IOException
+                      or UnauthorizedAccessException
+                      or NotSupportedException
+                      or ArgumentException)
+            {
+                // A mutated child link must not prevent finding a safe lexical root ancestor.
+            }
+
+            ancestor = Path.GetDirectoryName(ancestor);
+        }
+
+        relativePath = null;
+        return false;
+    }
+
+    private static string GetOpeningRecoveryKey(string projectFile)
+    {
+        return Path.TrimEndingDirectorySeparator(Path.GetFullPath(projectFile));
+    }
+
+    private static void EnsurePendingRecoveryPathIsSafeForOpen(
+        RepositoryInfo? repository,
+        PendingPullRecovery? recovery,
+        string projectFile)
+    {
+        if (repository is not null && recovery is not null)
+        {
+            EnsureProjectFileIsPhysicallyContained(repository, projectFile);
         }
     }
 
@@ -1245,6 +1935,33 @@ public sealed class VersionControlCoordinator :
                 ex,
                 "Failed to delete completed project checkpoint {CheckpointRef}.",
                 checkpoint.RefName);
+        }
+    }
+
+    private async Task TryCompletePullRecoveryAsync(
+        IProjectVersionControlTransaction service,
+        PendingPullRecovery? recovery,
+        ProjectCheckpoint? checkpoint)
+    {
+        if (recovery is null)
+        {
+            await TryDeleteCheckpointAsync(service, checkpoint);
+            return;
+        }
+
+        try
+        {
+            await service.CompletePendingPullRecoveryAsync(
+                recovery,
+                CancellationToken.None);
+            CompletePendingPullRecoveryPublication(recovery.Id);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(
+                ex,
+                "Failed to delete completed pending pull recovery {RecoveryId}.",
+                recovery.Id);
         }
     }
 
@@ -1693,8 +2410,30 @@ public sealed class VersionControlCoordinator :
         ProjectService.ProjectTransitionScope transition,
         string projectFile)
     {
+        RepositoryInfo repository = GetOwnedBackend()?.Repository
+                                    ?? throw new InvalidOperationException(
+                                        "The repository is unavailable before reopening the project.");
+        EnsureProjectFileIsPhysicallyContained(repository, projectFile);
         await transition.OpenProjectAsync(projectFile);
         EnsureProjectReopened(projectFile);
+    }
+
+    private static void EnsureProjectFileIsPhysicallyContained(
+        RepositoryInfo repository,
+        string projectFile)
+    {
+        EnsureProjectFileIsPhysicallyContained(repository.ProjectRoot, projectFile);
+    }
+
+    private static void EnsureProjectFileIsPhysicallyContained(
+        string projectRoot,
+        string projectFile)
+    {
+        if (!RepositoryPathComparer.IsContainedWithin(projectRoot, projectFile))
+        {
+            throw new InvalidOperationException(
+                $"The project file '{projectFile}' resolves outside the version-controlled project root.");
+        }
     }
 
     private bool HandleCycleFailure(
@@ -1852,6 +2591,63 @@ public sealed class VersionControlCoordinator :
         {
             throw new InvalidOperationException(
                 "Lifecycle version-control operations cannot run while the project is closing.");
+        }
+    }
+
+    private CancellationTokenSource CreateProjectServiceEpochCancellation(
+        CancellationToken cancellationToken)
+    {
+        lock (_stateGate)
+        {
+            ThrowIfLifecycleOperationUnavailableLocked();
+            CancellationToken projectServiceEpoch =
+                (_projectServiceEpochCancellation
+                 ?? throw new ObjectDisposedException(nameof(VersionControlCoordinator)))
+                .Token;
+            return CancellationTokenSource.CreateLinkedTokenSource(
+                cancellationToken,
+                _lifetimeCancellation.Token,
+                projectServiceEpoch);
+        }
+    }
+
+    private void AdvanceProjectServiceEpoch()
+    {
+        CancellationTokenSource? previous;
+        lock (_stateGate)
+        {
+            if (_disposed)
+            {
+                return;
+            }
+
+            previous = _projectServiceEpochCancellation;
+            _projectServiceEpochCancellation = new CancellationTokenSource();
+        }
+
+        CancelProjectServiceEpoch(previous);
+    }
+
+    private void CancelProjectServiceEpoch(CancellationTokenSource? cancellation)
+    {
+        if (cancellation is null)
+        {
+            return;
+        }
+
+        try
+        {
+            cancellation.Cancel();
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(
+                ex,
+                "A project/service epoch cancellation callback failed.");
+        }
+        finally
+        {
+            cancellation.Dispose();
         }
     }
 
@@ -2253,6 +3049,19 @@ public sealed class VersionControlCoordinator :
             cancellationToken);
     }
 
+    private Task<bool> ShowPendingPullRecoveryConfirmationAsync(
+        ProjectRecoveryInfo recovery,
+        CancellationToken cancellationToken)
+    {
+        return ShowConfirmationAsync(
+            Strings.VersionControl,
+            string.Format(
+                Strings.VersionControl_PendingPullRecoveryConfirmation,
+                recovery.ProjectFileName,
+                recovery.CreatedAt.ToLocalTime()),
+            cancellationToken);
+    }
+
     private Task<bool> ShowEnclosingRepositoryConfirmationAsync(
         RepositoryInfo repository,
         CancellationToken cancellationToken)
@@ -2273,7 +3082,52 @@ public sealed class VersionControlCoordinator :
             cancellationToken);
     }
 
-    private async Task WarnBeforeOpeningConflictedProjectAsync(string projectFile)
+    private async Task<ProjectService.ProjectOpenPreparation?> PrepareProjectOpeningAsync(
+        ProjectService.ProjectOpenAttempt attempt,
+        CancellationToken cancellationToken)
+    {
+        using NonTransactionalOperationLease? operation =
+            TryBeginNonTransactionalOperation(cancellationToken);
+        if (operation is null)
+        {
+            return new AbortProjectOpenPreparation();
+        }
+
+        PendingPullRecoveryOpenSelection? selection = null;
+        try
+        {
+            selection = await DiscoverPendingPullRecoveryForOpeningAsync(
+                    attempt.ProjectFile,
+                    operation.CancellationToken)
+                .ConfigureAwait(false);
+            if (selection is null)
+            {
+                return null;
+            }
+
+            bool accepted = selection.AlreadyApplied
+                            || await ConfirmPendingPullRecoveryAsync(
+                                ToRecoveryInfo(selection.Recovery),
+                                operation.CancellationToken);
+            return new PendingPullRecoveryOpenPreparation(
+                this,
+                selection with { Accepted = accepted });
+        }
+        catch (OperationCanceledException) when (operation.CancellationToken.IsCancellationRequested)
+        {
+            throw;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(
+                ex,
+                "Failed to inspect pending pull recovery before opening {ProjectFile}.",
+                attempt.ProjectFile);
+            return new AbortProjectOpenPreparation();
+        }
+    }
+
+    private async Task InspectProjectOpeningAsync(string projectFile)
     {
         using NonTransactionalOperationLease? operation =
             TryBeginNonTransactionalOperation(CancellationToken.None);
@@ -2282,16 +3136,450 @@ public sealed class VersionControlCoordinator :
             return;
         }
 
-        CancellationToken operationCancellation = operation.CancellationToken;
+        CancellationToken cancellationToken = operation.CancellationToken;
         string? markerFile = await ProjectConflictMarkerScanner.FindFirstAsync(
             projectFile,
-            operationCancellation);
+            cancellationToken);
         if (markerFile is not null)
         {
-            operationCancellation.ThrowIfCancellationRequested();
+            cancellationToken.ThrowIfCancellationRequested();
             await WarnConflictMarkersAsync(markerFile);
-            operationCancellation.ThrowIfCancellationRequested();
+            cancellationToken.ThrowIfCancellationRequested();
         }
+    }
+
+    private async Task<bool> TryRecoverPendingPullBeforeOpeningAsync(
+        string projectFile,
+        CancellationToken cancellationToken,
+        string? requiredRecoveryId = null)
+    {
+        PendingPullRecoveryOpenSelection? selection = null;
+        try
+        {
+            selection = await DiscoverPendingPullRecoveryForOpeningAsync(
+                    projectFile,
+                    cancellationToken,
+                    requiredRecoveryId)
+                .ConfigureAwait(false);
+            if (selection is null)
+            {
+                return false;
+            }
+
+            bool accepted = selection.AlreadyApplied
+                            || await ConfirmPendingPullRecoveryAsync(
+                                ToRecoveryInfo(selection.Recovery),
+                                cancellationToken);
+            selection = selection with { Accepted = accepted };
+            if (!accepted)
+            {
+                IsPendingRecoveryPathSafeForOpen(selection);
+                return false;
+            }
+
+            ProjectOpenPreparationResult result =
+                await ApplyPendingPullRecoveryBeforeOpeningAsync(
+                        selection,
+                        cancellationToken)
+                    .ConfigureAwait(false);
+            return result == ProjectOpenPreparationResult.Proceed;
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            throw;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(
+                ex,
+                "Failed to inspect pending pull recovery before opening {ProjectFile}.",
+                projectFile);
+            if (selection is not null)
+            {
+                IsPendingRecoveryPathSafeForOpen(selection);
+            }
+
+            return false;
+        }
+    }
+
+    private async Task<PendingPullRecoveryOpenSelection?>
+        DiscoverPendingPullRecoveryForOpeningAsync(
+            string projectFile,
+            CancellationToken cancellationToken,
+            string? requiredRecoveryId = null)
+    {
+        string canonicalProjectFile = GetOpeningRecoveryKey(projectFile);
+        PendingOpeningPullRecovery? cleanupCandidate;
+        lock (_stateGate)
+        {
+            _openingPullRecoveries.TryGetValue(
+                canonicalProjectFile,
+                out cleanupCandidate);
+        }
+
+        IProjectVersionControlBackend? discoveryService = null;
+        IProjectVersionControlBackend? trackedService = null;
+        try
+        {
+            discoveryService = CreateTemporaryBackend(repository: null, projectFile);
+            GitAvailability availability = await discoveryService.GetAvailabilityAsync(cancellationToken)
+                .ConfigureAwait(false);
+            if (availability.State != GitAvailabilityState.Installed)
+            {
+                return null;
+            }
+
+            string projectRoot = Path.GetDirectoryName(projectFile)
+                                 ?? throw new InvalidOperationException(
+                                     "The project file has no parent directory.");
+            RepositoryInfo? repository = await discoveryService.DiscoverRepositoryAsync(
+                    projectRoot,
+                    cancellationToken)
+                .ConfigureAwait(false);
+            if (repository is null
+                || repository.IsNestedInForeignRepo
+                && !await ConfirmUseEnclosingRepositoryAsync(repository, cancellationToken))
+            {
+                return null;
+            }
+
+            trackedService = CreateTemporaryBackend(repository, projectFile);
+            IReadOnlyList<PendingPullRecovery> recoveries =
+                await trackedService.ExecuteExclusiveAsync(
+                        transaction => transaction.GetPendingPullRecoveriesAsync(cancellationToken),
+                        cancellationToken)
+                    .ConfigureAwait(false);
+            PendingPullRecovery? recovery = recoveries
+                .Where(candidate => RecoveryProjectPathsEqual(
+                                        repository,
+                                        candidate.ProjectFile,
+                                        projectFile)
+                                    && (requiredRecoveryId is null
+                                        || string.Equals(
+                                            candidate.Id,
+                                            requiredRecoveryId,
+                                            StringComparison.Ordinal)))
+                .OrderBy(static candidate => candidate.CreatedAt)
+                .ThenBy(static candidate => candidate.Id, StringComparer.Ordinal)
+                .FirstOrDefault();
+            if (recovery is null)
+            {
+                if (requiredRecoveryId is null && cleanupCandidate is not null)
+                {
+                    lock (_stateGate)
+                    {
+                        if (_openingPullRecoveries.TryGetValue(
+                                canonicalProjectFile,
+                                out PendingOpeningPullRecovery? current)
+                            && ReferenceEquals(current, cleanupCandidate))
+                        {
+                            _openingPullRecoveries.Remove(canonicalProjectFile);
+                        }
+                    }
+                }
+
+                return null;
+            }
+
+            PendingOpeningPullRecovery? appliedMarker = null;
+            lock (_stateGate)
+            {
+                if (_openingPullRecoveries.TryGetValue(
+                        canonicalProjectFile,
+                        out PendingOpeningPullRecovery? liveMarker)
+                    && liveMarker is not null
+                    && liveMarker.Repository.Equals(repository)
+                    && PendingPullRecoveriesMatch(
+                        liveMarker.Recovery,
+                        recovery,
+                        repository))
+                {
+                    appliedMarker = liveMarker;
+                }
+            }
+
+            return new PendingPullRecoveryOpenSelection(
+                repository,
+                recovery,
+                projectFile,
+                Accepted: false,
+                AppliedMarker: appliedMarker);
+        }
+        finally
+        {
+            if (!ReferenceEquals(trackedService, discoveryService))
+            {
+                DisposeService(trackedService);
+            }
+
+            DisposeService(discoveryService);
+        }
+    }
+
+    private async Task<ProjectOpenPreparationResult>
+        ApplyPendingPullRecoveryBeforeOpeningAsync(
+            PendingPullRecoveryOpenSelection selection,
+            CancellationToken cancellationToken)
+    {
+        using NonTransactionalOperationLease? operation =
+            TryBeginNonTransactionalOperation(cancellationToken);
+        if (operation is null)
+        {
+            return ProjectOpenPreparationResult.Abort;
+        }
+
+        using IDisposable? worktreeMutation = TryBeginWorktreeMutation();
+        if (worktreeMutation is null)
+        {
+            return ProjectOpenPreparationResult.Abort;
+        }
+
+        IProjectVersionControlBackend? discoveryService = null;
+        IProjectVersionControlBackend? trackedService = null;
+        try
+        {
+            CancellationToken operationCancellation = operation.CancellationToken;
+            string canonicalProjectFile = GetOpeningRecoveryKey(selection.ProjectFile);
+            discoveryService = CreateTemporaryBackend(repository: null, selection.ProjectFile);
+            GitAvailability availability = await discoveryService.GetAvailabilityAsync(
+                    operationCancellation)
+                .ConfigureAwait(false);
+            if (availability.State != GitAvailabilityState.Installed)
+            {
+                return ProjectOpenPreparationResult.Abort;
+            }
+
+            string projectRoot = Path.GetDirectoryName(selection.ProjectFile)
+                                 ?? throw new InvalidOperationException(
+                                     "The project file has no parent directory.");
+            RepositoryInfo? repository = await discoveryService.DiscoverRepositoryAsync(
+                    projectRoot,
+                    operationCancellation)
+                .ConfigureAwait(false);
+            if (repository is null || !repository.Equals(selection.Repository))
+            {
+                return ProjectOpenPreparationResult.Abort;
+            }
+
+            trackedService = CreateTemporaryBackend(repository, selection.ProjectFile);
+            PendingPullRecoveryOutcome? outcome = await trackedService.ExecuteExclusiveAsync(
+                    async transaction =>
+                    {
+                        PendingPullRecovery? current =
+                            (await transaction.GetPendingPullRecoveriesAsync(operationCancellation))
+                            .SingleOrDefault(candidate => string.Equals(
+                                candidate.Id,
+                                selection.Recovery.Id,
+                                StringComparison.Ordinal));
+                        if (current is null
+                            || !PendingPullRecoveriesMatch(
+                                selection.Recovery,
+                                current,
+                                repository)
+                            || !RecoveryProjectPathsEqual(
+                                repository,
+                                current.ProjectFile,
+                                selection.ProjectFile))
+                        {
+                            throw new PendingPullRecoveryChangedException(
+                                selection.Recovery.DescriptorRef);
+                        }
+
+                        if (selection.AlreadyApplied)
+                        {
+                            bool markerMatches;
+                            lock (_stateGate)
+                            {
+                                markerMatches = _openingPullRecoveries.TryGetValue(
+                                                    canonicalProjectFile,
+                                                    out PendingOpeningPullRecovery? liveMarker)
+                                                && liveMarker is not null
+                                                && ReferenceEquals(
+                                                    liveMarker,
+                                                    selection.AppliedMarker)
+                                                && liveMarker.Repository.Equals(repository)
+                                                && PendingPullRecoveriesMatch(
+                                                    liveMarker.Recovery,
+                                                    selection.Recovery,
+                                                    repository);
+                            }
+
+                            if (!markerMatches)
+                            {
+                                throw new PendingPullRecoveryChangedException(
+                                    selection.Recovery.DescriptorRef);
+                            }
+                        }
+
+                        if (!selection.Accepted || selection.AlreadyApplied)
+                        {
+                            return (PendingPullRecoveryOutcome?)null;
+                        }
+
+                        return (PendingPullRecoveryOutcome?)
+                            await transaction.RecoverPendingPullRecoveryAsync(
+                                current,
+                                CancellationToken.None);
+                    },
+                    operationCancellation)
+                .ConfigureAwait(false);
+            if (!IsPendingRecoveryPathSafeForOpen(selection))
+            {
+                return ProjectOpenPreparationResult.Abort;
+            }
+
+            if (outcome is null)
+            {
+                return ProjectOpenPreparationResult.Proceed;
+            }
+
+            lock (_stateGate)
+            {
+                _openingPullRecoveries[canonicalProjectFile] =
+                    new PendingOpeningPullRecovery(repository, selection.Recovery);
+            }
+
+            PublishRecoveryOutcomeNotification(selection.Recovery, outcome.Value);
+            return ProjectOpenPreparationResult.Proceed;
+        }
+        catch (OperationCanceledException) when (operation.CancellationToken.IsCancellationRequested)
+        {
+            return ProjectOpenPreparationResult.Abort;
+        }
+        catch (PendingPullRecoveryPreservedException ex)
+        {
+            PublishPreservedRecoveryBranchNotification(ex.RecoveryReference);
+            IsPendingRecoveryPathSafeForOpen(selection);
+            return ProjectOpenPreparationResult.Abort;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(
+                ex,
+                "Failed to validate or recover a pending pull before opening {ProjectFile}; its retained-reference state could not be verified.",
+                selection.ProjectFile);
+            IsPendingRecoveryPathSafeForOpen(selection);
+            return ProjectOpenPreparationResult.Abort;
+        }
+        finally
+        {
+            if (!ReferenceEquals(trackedService, discoveryService))
+            {
+                DisposeService(trackedService);
+            }
+
+            DisposeService(discoveryService);
+        }
+    }
+
+    private bool IsPendingRecoveryPathSafeForOpen(
+        PendingPullRecoveryOpenSelection selection)
+    {
+        try
+        {
+            EnsurePendingRecoveryPathIsSafeForOpen(
+                selection.Repository,
+                selection.Recovery,
+                selection.ProjectFile);
+            return true;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(
+                ex,
+                "The recovered project path {ProjectFile} is not safe to open.",
+                selection.ProjectFile);
+            return false;
+        }
+    }
+
+    private async Task CompleteOpeningPullRecoveryAfterPublishedAsync(Project project)
+    {
+        string projectFile = GetProjectFile(project);
+        string canonicalProjectFile = GetOpeningRecoveryKey(projectFile);
+        PendingOpeningPullRecovery? prepared;
+        lock (_stateGate)
+        {
+            _openingPullRecoveries.TryGetValue(canonicalProjectFile, out prepared);
+        }
+
+        if (prepared is null)
+        {
+            return;
+        }
+
+        IProjectVersionControlBackend? service = null;
+        try
+        {
+            service = CreateTemporaryBackend(prepared.Repository, projectFile);
+            await service.ExecuteExclusiveAsync(
+                    async transaction =>
+                    {
+                        PendingPullRecovery? current =
+                            (await transaction.GetPendingPullRecoveriesAsync(
+                                CancellationToken.None))
+                            .SingleOrDefault(candidate => string.Equals(
+                                candidate.Id,
+                                prepared.Recovery.Id,
+                                StringComparison.Ordinal));
+                        if (current is null
+                            || !PendingPullRecoveriesMatch(
+                                prepared.Recovery,
+                                current,
+                                prepared.Repository)
+                            || !RecoveryProjectPathsEqual(
+                                prepared.Repository,
+                                current.ProjectFile,
+                                projectFile))
+                        {
+                            throw new PendingPullRecoveryChangedException(
+                                prepared.Recovery.DescriptorRef);
+                        }
+
+                        await transaction.CompletePendingPullRecoveryAsync(
+                            current,
+                            CancellationToken.None);
+                        return true;
+                    },
+                    CancellationToken.None)
+                .ConfigureAwait(false);
+            lock (_stateGate)
+            {
+                if (_openingPullRecoveries.TryGetValue(
+                        canonicalProjectFile,
+                        out PendingOpeningPullRecovery? current)
+                    && ReferenceEquals(current, prepared))
+                {
+                    _openingPullRecoveries.Remove(canonicalProjectFile);
+                }
+            }
+
+            CompletePendingPullRecoveryPublication(prepared.Recovery.Id);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(
+                ex,
+                "The project opened after pending pull recovery, but its descriptor could not be completed.");
+        }
+        finally
+        {
+            DisposeService(service);
+        }
+    }
+
+    private IProjectVersionControlBackend CreateTemporaryBackend(
+        RepositoryInfo? repository,
+        string projectFile)
+    {
+        return _serviceFactory?.Invoke(repository)
+               ?? new GitCliVersionControlService(
+                   _installationLocator,
+                   repository,
+                   () => _projectService.CurrentProject.Value is not { } project
+                         || !PathsEqual(GetProjectFile(project), projectFile),
+                   PresentPolicyNoticeAsync);
     }
 
     private async Task ShowConflictMarkerWarningAsync(string markerFile)
@@ -2402,22 +3690,106 @@ public sealed class VersionControlCoordinator :
     {
         bool internalTransition = IsInternalVersionControlTransition();
         CancellationTokenSource? configurationActivationCancellation;
+        long activationRevision;
         lock (_stateGate)
         {
+            _lastProjectNotification = project;
+            _hasProjectNotification = true;
             _pendingConfigurationActivation = null;
             configurationActivationCancellation = _configurationActivationCancellation;
+            if (!TryBeginActivationSetupLocked(
+                    internalTransition,
+                    out activationRevision))
+            {
+                return;
+            }
+        }
+
+        AdvanceProjectServiceEpoch();
+        CancelConfigurationActivation(configurationActivationCancellation);
+        if (!internalTransition)
+        {
+            CancelPendingPullRecoveryOffer();
+        }
+        StartProjectActivation(project, internalTransition, activationRevision);
+    }
+
+    private void ObserveCurrentProjectSnapshot()
+    {
+        bool internalTransition = IsInternalVersionControlTransition();
+        CancellationTokenSource? configurationActivationCancellation;
+        Project? project;
+        long activationRevision;
+        lock (_stateGate)
+        {
+            project = _projectService.CurrentProject.Value;
+            if (_hasProjectNotification
+                && ReferenceEquals(_lastProjectNotification, project))
+            {
+                return;
+            }
+
+            _pendingConfigurationActivation = null;
+            configurationActivationCancellation = _configurationActivationCancellation;
+            if (!TryBeginActivationSetupLocked(
+                    internalTransition,
+                    out activationRevision))
+            {
+                return;
+            }
         }
 
         CancelConfigurationActivation(configurationActivationCancellation);
-        StartProjectActivation(project, internalTransition);
+        if (!internalTransition)
+        {
+            CancelPendingPullRecoveryOffer();
+        }
+        StartProjectActivation(project, internalTransition, activationRevision);
     }
 
-    private void StartProjectActivation(Project? project, bool internalTransition)
+    private void StartProjectActivation(
+        Project? project,
+        bool internalTransition,
+        long activationRevision)
     {
-        _ = StartProjectActivationAsync(
+        _ = StartProjectActivationAfterOpeningRecoveryAsync(
             project,
             internalTransition,
-            CancellationToken.None);
+            activationRevision);
+    }
+
+    private async Task StartProjectActivationAfterOpeningRecoveryAsync(
+        Project? project,
+        bool internalTransition,
+        long activationRevision)
+    {
+        try
+        {
+            if (!ReferenceEquals(_projectService.CurrentProject.Value, project))
+            {
+                return;
+            }
+
+            if (project is not null)
+            {
+                await CompleteOpeningPullRecoveryAfterPublishedAsync(project).ConfigureAwait(false);
+                if (!ReferenceEquals(_projectService.CurrentProject.Value, project))
+                {
+                    return;
+                }
+            }
+
+            await OnProjectChangedAsync(
+                    project,
+                    internalTransition,
+                    activationRevision,
+                    CancellationToken.None)
+                .ConfigureAwait(false);
+        }
+        finally
+        {
+            FinishActivationSetup();
+        }
     }
 
     private async Task<ActivationContext?> StartProjectActivationAsync(
@@ -2430,12 +3802,19 @@ public sealed class VersionControlCoordinator :
             return null;
         }
 
-        return await OnProjectChangedAsync(
-                project,
-                internalTransition,
-                activationRevision,
-                cancellationToken)
-            .ConfigureAwait(false);
+        try
+        {
+            return await OnProjectChangedAsync(
+                    project,
+                    internalTransition,
+                    activationRevision,
+                    cancellationToken)
+                .ConfigureAwait(false);
+        }
+        finally
+        {
+            FinishActivationSetup();
+        }
     }
 
     private async Task<ActivationContext?> OnProjectChangedAsync(
@@ -2446,6 +3825,11 @@ public sealed class VersionControlCoordinator :
     {
         try
         {
+            if (internalTransition && !TryPromoteActivationRevision(activationRevision))
+            {
+                return null;
+            }
+
             if (internalTransition)
             {
                 if (project is null)
@@ -2464,11 +3848,6 @@ public sealed class VersionControlCoordinator :
                     SetVisibleService(preservedService);
                     return null;
                 }
-            }
-
-            if (internalTransition && !TryPromoteActivationRevision(activationRevision))
-            {
-                return null;
             }
 
             if (project is null)
@@ -2505,10 +3884,6 @@ public sealed class VersionControlCoordinator :
             ClearProjectState(activationRevision);
             return null;
         }
-        finally
-        {
-            FinishActivationSetup();
-        }
     }
 
     private bool TryBeginActivationSetup(
@@ -2517,21 +3892,30 @@ public sealed class VersionControlCoordinator :
     {
         lock (_stateGate)
         {
-            if (_disposed)
-            {
-                activationRevision = 0;
-                return false;
-            }
-
-            _activationSetupUsers++;
-            activationRevision = ++_nextActivationRevision;
-            if (!internalTransition)
-            {
-                _latestActivationRevision = activationRevision;
-            }
-
-            return true;
+            return TryBeginActivationSetupLocked(
+                internalTransition,
+                out activationRevision);
         }
+    }
+
+    private bool TryBeginActivationSetupLocked(
+        bool internalTransition,
+        out long activationRevision)
+    {
+        if (_disposed)
+        {
+            activationRevision = 0;
+            return false;
+        }
+
+        _activationSetupUsers++;
+        activationRevision = ++_nextActivationRevision;
+        if (!internalTransition)
+        {
+            _latestActivationRevision = activationRevision;
+        }
+
+        return true;
     }
 
     private bool TryPromoteActivationRevision(long activationRevision)
@@ -2592,6 +3976,7 @@ public sealed class VersionControlCoordinator :
     {
         IProjectVersionControlBackend? candidateService = null;
         IProjectVersionControlBackend? pendingCleanup = null;
+        IProjectVersionControlBackend? pendingRecoveryOfferService = null;
         try
         {
             await activation.PredecessorsCompleted.ConfigureAwait(false);
@@ -2664,10 +4049,15 @@ public sealed class VersionControlCoordinator :
                 throw;
             }
 
-            if (!CompleteActivation(activation, trackedService)
-                && !activation.OwnsService(trackedService))
+            bool activationCompleted = CompleteActivation(activation, trackedService);
+            if (!activationCompleted && !activation.OwnsService(trackedService))
             {
                 pendingCleanup = trackedService;
+            }
+
+            if (activationCompleted)
+            {
+                pendingRecoveryOfferService = trackedService;
             }
         }
         catch (OperationCanceledException) when (activation.CancellationToken.IsCancellationRequested)
@@ -2722,6 +4112,11 @@ public sealed class VersionControlCoordinator :
             finally
             {
                 activation.Finish();
+                if (pendingRecoveryOfferService is not null)
+                {
+                    StartPendingPullRecoveryOffer(pendingRecoveryOfferService);
+                }
+
                 TryStartPendingConfigurationActivation();
             }
         }
@@ -2745,12 +4140,215 @@ public sealed class VersionControlCoordinator :
             : null;
     }
 
+    private void StartPendingPullRecoveryOffer(IProjectVersionControlBackend service)
+    {
+        var offer = new PendingRecoveryOfferContext(
+            service,
+            CancellationTokenSource.CreateLinkedTokenSource(_lifetimeCancellation.Token));
+        PendingRecoveryOfferContext? previousOffer;
+        lock (_stateGate)
+        {
+            if (_disposed
+                || !ReferenceEquals(_state.OwnedService, service)
+                || !ReferenceEquals(_state.VisibleService, service))
+            {
+                offer.Cancellation.Dispose();
+                return;
+            }
+
+            previousOffer = _pendingRecoveryOffer;
+            _pendingRecoveryOffer = offer;
+            _pendingRecoveryOfferUsers++;
+        }
+
+        CancelPendingPullRecoveryOffer(previousOffer);
+        _ = RunPendingPullRecoveryOfferAsync(offer);
+    }
+
+    private async Task RunPendingPullRecoveryOfferAsync(
+        PendingRecoveryOfferContext offer)
+    {
+        IProjectVersionControlBackend service = offer.Service;
+        CancellationToken cancellationToken = offer.Cancellation.Token;
+        try
+        {
+            IReadOnlyList<PendingPullRecovery> recoveries;
+            using (NonTransactionalOperationLease operation =
+                   await BeginNonTransactionalOperationAsync(cancellationToken)
+                       .ConfigureAwait(false))
+            {
+                if (!ReferenceEquals(GetOperationReadyBackend(), service))
+                {
+                    return;
+                }
+
+                recoveries = await service.ExecuteExclusiveAsync(
+                        transaction => transaction.GetPendingPullRecoveriesAsync(
+                            operation.CancellationToken),
+                        operation.CancellationToken)
+                    .ConfigureAwait(false);
+            }
+
+            var currentIds = recoveries
+                .Select(static recovery => recovery.Id)
+                .ToHashSet(StringComparer.Ordinal);
+            PendingPullRecovery[] orderedRecoveries = recoveries
+                .OrderBy(static candidate => candidate.CreatedAt)
+                .ThenBy(static candidate => candidate.Id, StringComparer.Ordinal)
+                .ToArray();
+            PendingPullRecovery? recovery = null;
+            bool offerRecovery = false;
+            lock (_stateGate)
+            {
+                _offeredPendingRecoveryIds.RemoveWhere(id => !currentIds.Contains(id));
+                if (!_disposed
+                    && ReferenceEquals(_pendingRecoveryOffer, offer)
+                    && ReferenceEquals(_state.OwnedService, service)
+                    && ReferenceEquals(_state.VisibleService, service))
+                {
+                    recovery = orderedRecoveries.FirstOrDefault(candidate =>
+                        !_offeredPendingRecoveryIds.Contains(candidate.Id));
+                    if (recovery is not null)
+                    {
+                        offerRecovery = _offeredPendingRecoveryIds.Add(recovery.Id);
+                    }
+                }
+            }
+
+            if (!offerRecovery
+                || recovery is null
+                || !await ConfirmPendingPullRecoveryAsync(
+                    ToRecoveryInfo(recovery),
+                    cancellationToken))
+            {
+                return;
+            }
+
+            await RunPendingPullRecoveryCycleAsync(
+                    recovery.Id,
+                    requireConfirmation: false,
+                    cancellationToken,
+                    confirmedRecovery: recovery)
+                .ConfigureAwait(false);
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+        }
+        catch (InvalidOperationException ex)
+        {
+            _logger.LogInformation(
+                ex,
+                "Skipped a pending pull recovery offer because the project lifecycle changed.");
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to offer a pending pull recovery.");
+        }
+        finally
+        {
+            TaskCompletionSource? quiesced = null;
+            lock (_stateGate)
+            {
+                if (ReferenceEquals(_pendingRecoveryOffer, offer))
+                {
+                    _pendingRecoveryOffer = null;
+                }
+
+                _pendingRecoveryOfferUsers--;
+                if (_pendingRecoveryOfferUsers == 0 && _disposed)
+                {
+                    quiesced = _pendingRecoveryOffersQuiesced;
+                }
+            }
+
+            offer.Cancellation.Dispose();
+            quiesced?.TrySetResult();
+        }
+    }
+
+    private void CancelPendingPullRecoveryOffer()
+    {
+        PendingRecoveryOfferContext? offer;
+        lock (_stateGate)
+        {
+            offer = _pendingRecoveryOffer;
+            _pendingRecoveryOffer = null;
+        }
+
+        CancelPendingPullRecoveryOffer(offer);
+    }
+
+    private void CancelPendingPullRecoveryOffer(PendingRecoveryOfferContext? offer)
+    {
+        try
+        {
+            offer?.Cancellation.Cancel();
+        }
+        catch (ObjectDisposedException)
+        {
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(
+                ex,
+                "A pending pull recovery offer cancellation callback failed.");
+        }
+    }
+
+    private void ReconcileOfferedPendingRecoveryIds(
+        IReadOnlyList<PendingPullRecovery> recoveries)
+    {
+        var currentIds = recoveries
+            .Select(static recovery => recovery.Id)
+            .ToHashSet(StringComparer.Ordinal);
+        lock (_stateGate)
+        {
+            _offeredPendingRecoveryIds.RemoveWhere(id => !currentIds.Contains(id));
+        }
+    }
+
+    private void CompletePendingPullRecoveryPublication(string recoveryId)
+    {
+        lock (_stateGate)
+        {
+            _offeredPendingRecoveryIds.Remove(recoveryId);
+        }
+
+        PublishPendingPullRecoveriesChanged();
+    }
+
+    private void PublishPendingPullRecoveriesChanged()
+    {
+        EventHandler? handlers = PendingPullRecoveriesChanged;
+        if (handlers is null)
+        {
+            return;
+        }
+
+        foreach (EventHandler handler in handlers.GetInvocationList())
+        {
+            try
+            {
+                handler(this, EventArgs.Empty);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(
+                    ex,
+                    "A pending pull recovery subscriber failed.");
+            }
+        }
+    }
+
     private void OnVersionControlConfigChanged(object? sender, EventArgs e)
     {
-        if (TryCaptureGitExecutablePathChange(out string? executablePath)
-            && _projectService.CurrentProject.Value is { } project)
+        if (TryCaptureGitExecutablePathChange(out string? executablePath))
         {
-            QueueConfigurationActivation(project, executablePath);
+            AdvanceProjectServiceEpoch();
+            if (_projectService.CurrentProject.Value is { } project)
+            {
+                QueueConfigurationActivation(project, executablePath);
+            }
         }
 
         StartAvailabilityRefresh();
@@ -3112,6 +4710,7 @@ public sealed class VersionControlCoordinator :
             return false;
         }
 
+        CancelPendingPullRecoveryOffer();
         SchedulePublicationDrain(schedulePublication);
         CancelActivation(previousActivation);
 
@@ -3300,6 +4899,7 @@ public sealed class VersionControlCoordinator :
                 out _);
         }
 
+        CancelPendingPullRecoveryOffer();
         SchedulePublicationDrain(schedulePublication);
         CancelActivation(activation);
     }
@@ -3735,6 +5335,7 @@ public sealed class VersionControlCoordinator :
         SchedulePublicationDrain(schedulePublication);
         if (detached)
         {
+            CancelPendingPullRecoveryOffer();
             DisposeService(service);
         }
     }
@@ -3865,6 +5466,54 @@ public sealed class VersionControlCoordinator :
     private sealed record ServiceRetirement(
         IProjectVersionControlBackend Service,
         Task ActivationReady);
+
+    private sealed record PendingRecoveryOfferContext(
+        IProjectVersionControlBackend Service,
+        CancellationTokenSource Cancellation);
+
+    private sealed record PendingOpeningPullRecovery(
+        RepositoryInfo Repository,
+        PendingPullRecovery Recovery);
+
+    private sealed record PendingPullRecoveryOpenSelection(
+        RepositoryInfo Repository,
+        PendingPullRecovery Recovery,
+        string ProjectFile,
+        bool Accepted,
+        PendingOpeningPullRecovery? AppliedMarker)
+    {
+        public bool AlreadyApplied => AppliedMarker is not null;
+    }
+
+    private sealed class PendingPullRecoveryOpenPreparation(
+        VersionControlCoordinator owner,
+        PendingPullRecoveryOpenSelection selection)
+        : ProjectService.ProjectOpenPreparation
+    {
+        internal override Task<ProjectOpenPreparationResult> ApplyAsync(
+            ProjectTransitionContext transition,
+            CancellationToken cancellationToken)
+        {
+            return owner.ApplyPendingPullRecoveryBeforeOpeningAsync(
+                selection,
+                cancellationToken);
+        }
+    }
+
+    private sealed class AbortProjectOpenPreparation : ProjectService.ProjectOpenPreparation
+    {
+        internal override Task<ProjectOpenPreparationResult> ApplyAsync(
+            ProjectTransitionContext transition,
+            CancellationToken cancellationToken)
+        {
+            return Task.FromResult(ProjectOpenPreparationResult.Abort);
+        }
+    }
+
+    private sealed record PullMutationOutcome(
+        RemoteOpResult Result,
+        PendingPullRecovery? Recovery,
+        string ProjectFile);
 
     private sealed record ConfigurationActivationRequest(
         long Revision,
@@ -4139,4 +5788,7 @@ public sealed class VersionControlCoordinator :
 
     private static StringComparison PathComparison
         => OperatingSystem.IsWindows() ? StringComparison.OrdinalIgnoreCase : StringComparison.Ordinal;
+
+    private static StringComparer PathComparer
+        => OperatingSystem.IsWindows() ? StringComparer.OrdinalIgnoreCase : StringComparer.Ordinal;
 }

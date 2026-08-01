@@ -20,10 +20,59 @@ namespace Beutl.HeadlessUITests;
 [TestFixture]
 public class CreateNewProjectDialogTests
 {
+    [Test]
+    public void Public_view_model_constructors_require_version_control_abstractions()
+    {
+        Type[] createProjectParameters = typeof(CreateNewProjectViewModel)
+            .GetConstructors()
+            .Single()
+            .GetParameters()
+            .Select(static parameter => parameter.ParameterType)
+            .ToArray();
+        Type[] menuBarParameters = typeof(MenuBarViewModel)
+            .GetConstructors()
+            .Single()
+            .GetParameters()
+            .Select(static parameter => parameter.ParameterType)
+            .ToArray();
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(createProjectParameters, Has.Length.EqualTo(3));
+            Assert.That(createProjectParameters[0], Is.EqualTo(typeof(ProjectService)));
+            Assert.That(
+                createProjectParameters[1],
+                Is.EqualTo(typeof(IProjectVersionControlInitializer)));
+            Assert.That(
+                createProjectParameters[2],
+                Is.EqualTo(typeof(Func<CancellationToken, Task<GitIdentity?>>)));
+            Assert.That(menuBarParameters, Has.Length.EqualTo(3));
+            Assert.That(
+                menuBarParameters[2],
+                Is.EqualTo(typeof(IProjectVersionControlSession)));
+        });
+
+        var projectService = new ProjectService();
+        var initializer = new TestVersionControlInitializer(
+            _ => Task.FromResult(GitAvailability.NotInstalled),
+            (_, _) => Task.FromResult(true));
+        Func<CancellationToken, Task<GitIdentity?>> requestIdentityAsync =
+            _ => Task.FromResult<GitIdentity?>(null);
+        Assert.Multiple(() =>
+        {
+            Assert.Throws<ArgumentNullException>(() =>
+                new CreateNewProjectViewModel(null!, initializer, requestIdentityAsync));
+            Assert.Throws<ArgumentNullException>(() =>
+                new CreateNewProjectViewModel(projectService, null!, requestIdentityAsync));
+            Assert.Throws<ArgumentNullException>(() =>
+                new CreateNewProjectViewModel(projectService, initializer, null!));
+        });
+    }
+
     [AvaloniaTest]
     public void NumericInputs_show_unit_suffixes()
     {
-        var vm = new CreateNewProjectViewModel(new ProjectService());
+        CreateNewProjectViewModel vm = CreateViewModel(new ProjectService());
         var dialog = new CreateNewProject { DataContext = vm };
 
         var carousel = dialog.Content as Carousel;
@@ -50,7 +99,7 @@ public class CreateNewProjectDialogTests
         try
         {
             config.EnableForNewProjects = false;
-            var vm = new CreateNewProjectViewModel(new ProjectService());
+            CreateNewProjectViewModel vm = CreateViewModel(new ProjectService());
             var dialog = new CreateNewProject { DataContext = vm };
             var carousel = (Carousel)dialog.Content!;
             var optionsPage = (Panel)carousel.Items[1]!;
@@ -322,6 +371,16 @@ public class CreateNewProjectDialogTests
         {
             await Task.Delay(10, timeout.Token);
         }
+    }
+
+    private static CreateNewProjectViewModel CreateViewModel(ProjectService projectService)
+    {
+        return new CreateNewProjectViewModel(
+            projectService,
+            new TestVersionControlInitializer(
+                _ => Task.FromResult(GitAvailability.NotInstalled),
+                (_, _) => Task.FromResult(true)),
+            _ => Task.FromResult<GitIdentity?>(null));
     }
 
     private sealed class TestVersionControlInitializer(

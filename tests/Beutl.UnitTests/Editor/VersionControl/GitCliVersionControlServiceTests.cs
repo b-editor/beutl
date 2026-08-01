@@ -248,14 +248,49 @@ public class GitCliVersionControlServiceTests : RealGitTestRepository
                 Does.Contain("lfs install --local"));
             Assert.That(
                 File.ReadAllText(Path.Combine(projectRoot, ".gitattributes")),
-                Does.Contain("resources/**/*.mp4 filter=lfs diff=lfs merge=lfs -text\n"));
+                Does.Contain(
+                    "resources/**/*.[mM][pP]4 filter=lfs diff=lfs merge=lfs -text\n"));
             Assert.That(
                 File.ReadAllText(Path.Combine(projectRoot, ".gitattributes")),
-                Does.Contain("resources/**/*.png filter=lfs diff=lfs merge=lfs -text\n"));
+                Does.Contain(
+                    "resources/**/*.[pP][nN][gG] filter=lfs diff=lfs merge=lfs -text\n"));
             Assert.That(
                 File.ReadAllText(Path.Combine(projectRoot, ".gitattributes")),
                 Does.Contain("# BEGIN BEUTL MANAGED LFS\n"));
         });
+    }
+
+    [Test]
+    public async Task EnsureRepositoryHygieneAsync_applies_Lfs_to_mixed_case_media_extensions()
+    {
+        await CommitFileAsync("project.bep", "{}\n", "baseline");
+        var config = new VersionControlConfig { UseLfsWhenAvailable = true };
+        var runner = new RecordingLfsRunner(CreateRunner());
+        using var service = new GitCliVersionControlService(
+            CreateInstalledLocator(lfsInstalled: true, config),
+            Repository,
+            watcher: null,
+            _ => runner);
+
+        await service.EnsureRepositoryHygieneAsync(CancellationToken.None);
+
+        Assert.That(
+            await File.ReadAllTextAsync(Path.Combine(Root, ".gitattributes")),
+            Does.Contain(
+                "resources/**/*.[mM][pP]4 filter=lfs diff=lfs merge=lfs -text\n"));
+        GitCommandResult attributes = await RunGitAsync(
+            "check-attr",
+            "filter",
+            "--",
+            "resources/CLIP.MP4",
+            "resources/Clip.Mp4");
+        Assert.That(
+            attributes.Stdout.Split('\n', StringSplitOptions.RemoveEmptyEntries),
+            Is.EqualTo(new[]
+            {
+                "resources/CLIP.MP4: filter: lfs",
+                "resources/Clip.Mp4: filter: lfs",
+            }));
     }
 
     [Test]
@@ -1483,6 +1518,22 @@ public class GitCliVersionControlServiceTests : RealGitTestRepository
         });
     }
 
+    [Test]
+    public async Task SwitchBranchAsync_rejects_Git_previous_branch_shorthand()
+    {
+        await CommitFileAsync("project.bep", "current\n", "current");
+        await RunGitAsync("branch", "alternate");
+        await RunGitAsync("switch", "alternate");
+        await RunGitAsync("switch", "main");
+        using var service = CreateService();
+
+        Assert.ThrowsAsync<ArgumentException>(
+            async () => await service.SwitchBranchAsync("-", CancellationToken.None));
+
+        GitCommandResult currentBranch = await RunGitAsync("branch", "--show-current");
+        Assert.That(currentBranch.Stdout.Trim(), Is.EqualTo("main"));
+    }
+
     [TestCase(false)]
     [TestCase(true)]
     public async Task CreateBranch_paths_reject_option_like_revision_before_mutation(
@@ -1803,6 +1854,7 @@ public class GitCliVersionControlServiceTests : RealGitTestRepository
                 async () => await service.PullFastForwardAsync(
                     expectedTip,
                     checkpoint: null,
+                    Path.Combine(Root, "project.bep"),
                     CancellationToken.None))!,
         ];
 

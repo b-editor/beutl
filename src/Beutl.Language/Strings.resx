@@ -1656,7 +1656,25 @@ Resolve the conflicts with an external Git tool before editing. The project may 
     <value>The operation failed, and the original project state could not be recovered. Operation error: {0} Recovery error: {1}</value>
   </data>
   <data name="VersionControl_PullTransitionUncertain" xml:space="preserve">
-    <value>The protected repository transition lost ownership or could not restore its original state. The project remains closed. If a safety checkpoint was created, it was retained. Inspect and recover the repository with an external Git tool before reopening the project.</value>
+    <value>The protected repository transition lost ownership or could not verify recovery. Use Recover Project in Version Control, or reopen the project from Recent Projects to recover it before loading. If Beutl cannot safely change the worktree, it preserves the checkpoint at a durable Git reference.</value>
+  </data>
+  <data name="VersionControl_PendingPullRecoveryConfirmation" xml:space="preserve">
+    <value>A protected pull for {0} did not finish cleanly at {1:g}. Recover the saved project state before loading the project? Any project state replaced by recovery will be reloaded, clearing its undo history.</value>
+  </data>
+  <data name="VersionControl_PendingPullRecoveryGuidance" xml:space="preserve">
+    <value>A protected pull did not finish cleanly. A saved project state is available for recovery.</value>
+  </data>
+  <data name="VersionControl_RecoverPendingPull" xml:space="preserve">
+    <value>Recover Project</value>
+  </data>
+  <data name="VersionControl_PullRecovered" xml:space="preserve">
+    <value>The pull could not be completed, but the saved project state was recovered.</value>
+  </data>
+  <data name="VersionControl_CheckpointReappliedOnRecoveryBranch" xml:space="preserve">
+    <value>The saved project state was restored as local changes. A durable copy remains on branch '{0}'.</value>
+  </data>
+  <data name="VersionControl_CheckpointPreservedOnRecoveryBranch" xml:space="preserve">
+    <value>Beutl could not safely change the current worktree. The saved project state remains at Git reference '{0}'. Inspect that reference with Git.</value>
   </data>
   <data name="VersionControl_BranchFormat" xml:space="preserve">
     <value>Branch: {0}</value>

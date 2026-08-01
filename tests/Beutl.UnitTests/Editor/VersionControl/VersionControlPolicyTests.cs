@@ -402,7 +402,7 @@ public sealed class VersionControlPolicyTests : RealGitTestRepository
         await CommitFileAsync("project.bep", "initial\n", "initial");
         await File.WriteAllTextAsync(
             Path.Combine(Root, ".gitattributes"),
-            "resources/**/*.mp4 filter=lfs diff=lfs merge=lfs -text\n");
+            "resources/**/*.[mM][pP]4 filter=lfs diff=lfs merge=lfs -text\n");
         var config = new VersionControlConfig { UseLfsWhenAvailable = true };
         var notices = new List<VersionControlPolicyNotice>();
         using var service = CreateService(

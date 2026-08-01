@@ -86,8 +86,29 @@ internal interface IProjectVersionControlTransaction
 
     Task<CheckedOutBranchTip> GetCheckedOutBranchTipAsync(CancellationToken cancellationToken);
 
+    Task<PullPreflightResult> PreflightPullAsync(
+        CheckedOutBranchTip expectedCurrent,
+        CancellationToken cancellationToken);
+
     Task<ProjectCheckpoint> CreateProjectCheckpointAsync(
         string message,
+        CancellationToken cancellationToken);
+
+    Task<PendingPullRecovery> PersistPendingPullRecoveryAsync(
+        ProjectCheckpoint checkpoint,
+        CheckedOutBranchTip targetTip,
+        string projectFile,
+        CancellationToken cancellationToken);
+
+    Task<IReadOnlyList<PendingPullRecovery>> GetPendingPullRecoveriesAsync(
+        CancellationToken cancellationToken);
+
+    Task<PendingPullRecoveryOutcome> RecoverPendingPullRecoveryAsync(
+        PendingPullRecovery recovery,
+        CancellationToken cancellationToken);
+
+    Task CompletePendingPullRecoveryAsync(
+        PendingPullRecovery recovery,
         CancellationToken cancellationToken);
 
     Task RestoreProjectCheckpointAsync(
@@ -112,6 +133,8 @@ internal interface IProjectVersionControlTransaction
 
     Task<WorkspaceStatus> GetStatusAsync(CancellationToken cancellationToken);
 
+    Task<IReadOnlyList<BranchInfo>> GetBranchesAsync(CancellationToken cancellationToken);
+
     Task CreateBranchAsync(
         string name,
         string startPoint,
@@ -122,6 +145,7 @@ internal interface IProjectVersionControlTransaction
     Task<FastForwardPullResult> PullFastForwardAsync(
         CheckedOutBranchTip expectedCurrent,
         ProjectCheckpoint? checkpoint,
+        string projectFile,
         CancellationToken cancellationToken);
 }
 

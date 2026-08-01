@@ -65,8 +65,27 @@
         </Style>
     </UserControl.Styles>
 
-    <Grid>
-        <Border Margin="20"
+    <Grid RowDefinitions="Auto,*">
+        <Border x:Name="PendingPullRecoveryBanner"
+                Grid.Row="0"
+                Margin="8"
+                Padding="10"
+                Background="{DynamicResource SystemFillColorCautionBackgroundBrush}"
+                CornerRadius="4"
+                IsVisible="{Binding HasPendingPullRecovery.Value}">
+            <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
+                <TextBlock VerticalAlignment="Center"
+                           Text="{x:Static lang:Strings.VersionControl_PendingPullRecoveryGuidance}"
+                           TextWrapping="Wrap" />
+                <Button x:Name="RecoverPendingPullButton"
+                        Grid.Column="1"
+                        Command="{Binding RecoverPendingPullCommand}"
+                        Content="{x:Static lang:Strings.VersionControl_RecoverPendingPull}" />
+            </Grid>
+        </Border>
+
+        <Border Grid.Row="1"
+                Margin="20"
                 HorizontalAlignment="Center"
                 VerticalAlignment="Center"
                 IsVisible="{Binding HasBlockingGuidance.Value}">
@@ -83,7 +102,8 @@
             </StackPanel>
         </Border>
 
-        <Grid IsVisible="{Binding !HasBlockingGuidance.Value}"
+        <Grid Grid.Row="1"
+              IsVisible="{Binding !HasBlockingGuidance.Value}"
               RowDefinitions="Auto,Auto,*">
             <Border Grid.Row="0"
                     Padding="10,8"
@@ -102,21 +122,22 @@
                 </Grid>
             </Border>
 
-            <Border Grid.Row="1"
-                    Margin="8"
-                    Padding="10"
-                    Background="{DynamicResource SystemFillColorCautionBackgroundBrush}"
-                    CornerRadius="4"
-                    IsVisible="{Binding HasRecoverableLock.Value}">
-                <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
-                    <TextBlock VerticalAlignment="Center"
-                               Text="{x:Static lang:Strings.VersionControl_StaleLockGuidance}"
-                               TextWrapping="Wrap" />
-                    <Button Grid.Column="1"
-                            Command="{Binding RemoveStaleLockCommand}"
-                            Content="{x:Static lang:Strings.VersionControl_RemoveStaleLock}" />
-                </Grid>
-            </Border>
+            <StackPanel Grid.Row="1">
+                <Border Margin="8"
+                        Padding="10"
+                        Background="{DynamicResource SystemFillColorCautionBackgroundBrush}"
+                        CornerRadius="4"
+                        IsVisible="{Binding HasRecoverableLock.Value}">
+                    <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
+                        <TextBlock VerticalAlignment="Center"
+                                   Text="{x:Static lang:Strings.VersionControl_StaleLockGuidance}"
+                                   TextWrapping="Wrap" />
+                        <Button Grid.Column="1"
+                                Command="{Binding RemoveStaleLockCommand}"
+                                Content="{x:Static lang:Strings.VersionControl_RemoveStaleLock}" />
+                    </Grid>
+                </Border>
+            </StackPanel>
 
             <Grid Grid.Row="2">
                 <Border x:Name="UntrackedProjectPanel"

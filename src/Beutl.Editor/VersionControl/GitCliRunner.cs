@@ -64,6 +64,25 @@ internal interface IGitCliRunner
 internal sealed class GitCliRunner : IGitCliRunner
 {
     private const string DefaultSshCommand = "ssh -oBatchMode=yes";
+    private static readonly string[] s_repositoryLocalEnvironmentVariables =
+    [
+        "GIT_ALTERNATE_OBJECT_DIRECTORIES",
+        "GIT_CONFIG",
+        "GIT_CONFIG_PARAMETERS",
+        "GIT_CONFIG_COUNT",
+        "GIT_OBJECT_DIRECTORY",
+        "GIT_DIR",
+        "GIT_WORK_TREE",
+        "GIT_IMPLICIT_WORK_TREE",
+        "GIT_GRAFT_FILE",
+        "GIT_INDEX_FILE",
+        "GIT_NO_REPLACE_OBJECTS",
+        "GIT_REPLACE_REF_BASE",
+        "GIT_PREFIX",
+        "GIT_SHALLOW_FILE",
+        "GIT_COMMON_DIR",
+    ];
+    private static readonly TimeSpan s_cleanupGracePeriod = TimeSpan.FromSeconds(1);
     private static readonly TimeSpan s_defaultLocalTimeout = TimeSpan.FromSeconds(30);
     internal static readonly TimeSpan StaleLockAge = TimeSpan.FromMinutes(10);
     private readonly string _gitPath;
@@ -210,23 +229,28 @@ internal sealed class GitCliRunner : IGitCliRunner
                 process.StandardInput,
                 standardInput,
                 linkedCts.Token);
+            Task processExitTask = process.WaitForExitAsync(CancellationToken.None);
+            Task completion = Task.WhenAll(
+                processExitTask,
+                stdinTask,
+                stdoutTask,
+                stderrTask);
 
             try
             {
-                await Task.WhenAll(
-                        process.WaitForExitAsync(linkedCts.Token),
-                        stdinTask)
-                    .ConfigureAwait(false);
+                await completion.WaitAsync(linkedCts.Token).ConfigureAwait(false);
             }
             catch (OperationCanceledException) when (linkedCts.IsCancellationRequested)
             {
                 TryKillProcessTree(process);
-                await process.WaitForExitAsync(CancellationToken.None).ConfigureAwait(false);
-                await Task.WhenAll(
-                        ObserveReaderAfterProcessExitAsync(stdinTask),
-                        ObserveReaderAfterProcessExitAsync(stdoutTask),
-                        ObserveReaderAfterProcessExitAsync(stderrTask))
-                    .ConfigureAwait(false);
+                TryCloseRedirectedStreams(process);
+                Task cleanup = Task.WhenAll(
+                    ObserveCleanupTaskAsync(completion),
+                    ObserveCleanupTaskAsync(processExitTask),
+                    ObserveCleanupTaskAsync(stdinTask),
+                    ObserveCleanupTaskAsync(stdoutTask),
+                    ObserveCleanupTaskAsync(stderrTask));
+                await WaitForCleanupGracePeriodAsync(cleanup).ConfigureAwait(false);
                 if (!cancellationToken.IsCancellationRequested && timeoutCts?.IsCancellationRequested == true)
                 {
                     throw new TimeoutException($"Git did not finish within {_localTimeout}.");
@@ -264,24 +288,24 @@ internal sealed class GitCliRunner : IGitCliRunner
         }
     }
 
-    private static async Task ObserveReaderAfterProcessExitAsync<T>(Task<T> readerTask)
+    private static async Task WaitForCleanupGracePeriodAsync(Task cleanup)
     {
         try
         {
-            await readerTask.ConfigureAwait(false);
+            await cleanup.WaitAsync(s_cleanupGracePeriod).ConfigureAwait(false);
         }
-        catch (Exception ex) when (ex is IOException or ObjectDisposedException)
+        catch (TimeoutException)
         {
         }
     }
 
-    private static async Task ObserveReaderAfterProcessExitAsync(Task readerTask)
+    private static async Task ObserveCleanupTaskAsync(Task task)
     {
         try
         {
-            await readerTask.ConfigureAwait(false);
+            await task.ConfigureAwait(false);
         }
-        catch (Exception ex) when (ex is IOException or ObjectDisposedException)
+        catch (Exception)
         {
         }
     }
@@ -376,6 +400,11 @@ internal sealed class GitCliRunner : IGitCliRunner
         foreach (string argument in arguments)
         {
             startInfo.ArgumentList.Add(argument);
+        }
+
+        foreach (string name in s_repositoryLocalEnvironmentVariables)
+        {
+            startInfo.Environment.Remove(name);
         }
 
         ApplyEnvironmentOverrides(startInfo, _environmentOverrides);
@@ -479,7 +508,26 @@ internal sealed class GitCliRunner : IGitCliRunner
         }
         catch (Exception ex) when (ex is InvalidOperationException
                                    or System.ComponentModel.Win32Exception
-                                   or NotSupportedException)
+                                   or NotSupportedException
+                                   or AggregateException)
+        {
+        }
+    }
+
+    private static void TryCloseRedirectedStreams(Process process)
+    {
+        TryCloseStream(() => process.StandardInput.BaseStream);
+        TryCloseStream(() => process.StandardOutput.BaseStream);
+        TryCloseStream(() => process.StandardError.BaseStream);
+    }
+
+    private static void TryCloseStream(Func<Stream> getStream)
+    {
+        try
+        {
+            getStream().Dispose();
+        }
+        catch (Exception)
         {
         }
     }

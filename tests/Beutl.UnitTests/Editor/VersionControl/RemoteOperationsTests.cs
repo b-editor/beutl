@@ -1,4 +1,5 @@
-﻿using Beutl.Editor.VersionControl;
+﻿using System.Text.Json.Nodes;
+using Beutl.Editor.VersionControl;
 
 namespace Beutl.UnitTests.Editor.VersionControl;
 
@@ -48,6 +49,7 @@ public sealed class RemoteOperationsTests : RealGitTestRepository
         FastForwardPullResult pull = await service.PullFastForwardAsync(
             expected,
             checkpoint: null,
+            Path.Combine(Root, "project.bep"),
             CancellationToken.None);
 
         Assert.Multiple(() =>
@@ -56,6 +58,66 @@ public sealed class RemoteOperationsTests : RealGitTestRepository
             Assert.That(
                 File.ReadAllText(Path.Combine(Root, "project.bep")),
                 Is.EqualTo("from peer\n"));
+        });
+    }
+
+    [Test]
+    public async Task Clean_pull_rejects_an_incoming_project_symlink_outside_the_root()
+    {
+        if (OperatingSystem.IsWindows())
+        {
+            Assert.Ignore("This regression requires Git symbolic-link checkout semantics.");
+        }
+
+        await CommitFileAsync("project.bep", "initial\n", "initial");
+        string remoteRoot = await CreateBareRemoteAsync();
+        using var service = CreateService();
+        await service.SetRemoteAsync(remoteRoot, CancellationToken.None);
+        Assert.That(
+            await service.PushAsync(progress: null, CancellationToken.None),
+            Is.TypeOf<RemoteOpResult.Success>());
+        RepositoryInfo peer = await CloneRemoteAsync(remoteRoot);
+        string outsideRoot = CreateTemporaryDirectory();
+        string outsideProject = Path.Combine(outsideRoot, "outside.bep");
+        await File.WriteAllTextAsync(outsideProject, "outside sentinel\n");
+        string peerProjectFile = Path.Combine(peer.ProjectRoot, "project.bep");
+        File.Delete(peerProjectFile);
+        CreateFileSymbolicLinkOrIgnore(peerProjectFile, outsideProject);
+        GitCliRunner runner = CreateRunner();
+        await runner.RunAsync(
+            peer,
+            ["add", "--", "project.bep"],
+            GitCommandOptions.Local,
+            CancellationToken.None);
+        await runner.RunAsync(
+            peer,
+            ["commit", "-m", "replace project with external symlink"],
+            GitCommandOptions.Local,
+            CancellationToken.None);
+        await runner.RunAsync(
+            peer,
+            ["push"],
+            GitCommandOptions.Local,
+            CancellationToken.None);
+        CheckedOutBranchTip expected = await service.GetCheckedOutBranchTipAsync(
+            CancellationToken.None);
+
+        FastForwardPullResult pull = await service.PullFastForwardAsync(
+            expected,
+            checkpoint: null,
+            Path.Combine(Root, "project.bep"),
+            CancellationToken.None);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(pull.Result, Is.TypeOf<RemoteOpResult.Failed>());
+            Assert.That(pull.TransitionState, Is.EqualTo(PullTransitionState.Unchanged));
+            Assert.That(pull.Tip, Is.EqualTo(expected));
+            Assert.That(pull.Recovery, Is.Null);
+            Assert.That(new FileInfo(Path.Combine(Root, "project.bep")).LinkTarget, Is.Null);
+            Assert.That(File.ReadAllText(Path.Combine(Root, "project.bep")),
+                Is.EqualTo("initial\n"));
+            Assert.That(File.ReadAllText(outsideProject), Is.EqualTo("outside sentinel\n"));
         });
     }
 
@@ -100,6 +162,7 @@ public sealed class RemoteOperationsTests : RealGitTestRepository
         FastForwardPullResult pull = await service.PullFastForwardAsync(
             expected,
             checkpoint: null,
+            Path.Combine(Root, "project.bep"),
             CancellationToken.None);
 
         Assert.Multiple(() =>
@@ -150,6 +213,7 @@ public sealed class RemoteOperationsTests : RealGitTestRepository
         FastForwardPullResult pull = await service.PullFastForwardAsync(
             expected,
             checkpoint: null,
+            Path.Combine(Root, "project.bep"),
             CancellationToken.None);
         CheckedOutBranchTip actual = await service.GetCheckedOutBranchTipAsync(
             CancellationToken.None);
@@ -186,6 +250,7 @@ public sealed class RemoteOperationsTests : RealGitTestRepository
         FastForwardPullResult pull = await service.PullFastForwardAsync(
             expected,
             checkpoint: null,
+            Path.Combine(Root, "project.bep"),
             CancellationToken.None);
 
         Assert.Multiple(() =>
@@ -234,6 +299,7 @@ public sealed class RemoteOperationsTests : RealGitTestRepository
         FastForwardPullResult pull = await service.PullFastForwardAsync(
             expected,
             checkpoint: null,
+            Path.Combine(Root, "project.bep"),
             CancellationToken.None);
 
         Assert.Multiple(() =>
@@ -260,6 +326,7 @@ public sealed class RemoteOperationsTests : RealGitTestRepository
             async () => await service.PullFastForwardAsync(
                 expected,
                 checkpoint: null,
+                Path.Combine(Root, "project.bep"),
                 CancellationToken.None),
             Throws.TypeOf<InvalidOperationException>());
 
@@ -297,6 +364,7 @@ public sealed class RemoteOperationsTests : RealGitTestRepository
         FastForwardPullResult pull = await service.PullFastForwardAsync(
             expected,
             checkpoint: null,
+            Path.Combine(Root, "project.bep"),
             CancellationToken.None);
         string mainTip = (await RunGitAsync("rev-parse", "refs/heads/main")).Stdout.Trim();
         string currentBranch = (await RunGitAsync("branch", "--show-current")).Stdout.Trim();
@@ -375,6 +443,7 @@ public sealed class RemoteOperationsTests : RealGitTestRepository
         FastForwardPullResult pull = await service.PullFastForwardAsync(
             expected,
             checkpoint: null,
+            Path.Combine(Root, "project.bep"),
             CancellationToken.None);
         string mainTip = (await RunGitAsync("rev-parse", "refs/heads/main")).Stdout.Trim();
         string currentBranch = (await RunGitAsync("branch", "--show-current")).Stdout.Trim();
@@ -444,6 +513,7 @@ public sealed class RemoteOperationsTests : RealGitTestRepository
         FastForwardPullResult pull = await service.PullFastForwardAsync(
             expected,
             checkpoint: null,
+            Path.Combine(Root, "project.bep"),
             CancellationToken.None);
         string actualTip = (await RunGitAsync("rev-parse", "refs/heads/main")).Stdout.Trim();
 
@@ -521,6 +591,7 @@ public sealed class RemoteOperationsTests : RealGitTestRepository
         FastForwardPullResult pull = await service.PullFastForwardAsync(
             expected,
             checkpoint,
+            Path.Combine(Root, "project.bep"),
             CancellationToken.None);
         string cachedAfter = (await RunGitAsync("diff", "--cached", "--binary")).Stdout;
         string actualTip = (await RunGitAsync("rev-parse", expected.RefName)).Stdout.Trim();
@@ -567,6 +638,7 @@ public sealed class RemoteOperationsTests : RealGitTestRepository
         FastForwardPullResult pull = await service.PullFastForwardAsync(
             expected,
             checkpoint: null,
+            Path.Combine(Root, "project.bep"),
             CancellationToken.None);
         string worktrees = (await RunGitAsync("worktree", "list", "--porcelain")).Stdout;
 
@@ -608,6 +680,7 @@ public sealed class RemoteOperationsTests : RealGitTestRepository
         FastForwardPullResult pull = await service.PullFastForwardAsync(
             expected,
             checkpoint: null,
+            Path.Combine(Root, "project.bep"),
             CancellationToken.None);
         RemoteOpResult push = await service.PushAsync(progress: null, CancellationToken.None);
 
@@ -649,10 +722,12 @@ public sealed class RemoteOperationsTests : RealGitTestRepository
         FastForwardPullResult pull = await service.PullFastForwardAsync(
             originalHead,
             checkpoint,
+            Path.Combine(Root, "project.bep"),
             CancellationToken.None);
         CheckedOutBranchTip pulledHead = pull.Tip;
-        bool checkpointDeleted = await service.DeleteProjectCheckpointAsync(
-            checkpoint,
+        Assert.That(pull.Recovery, Is.Not.Null);
+        await service.CompletePendingPullRecoveryAsync(
+            pull.Recovery!,
             CancellationToken.None);
         string safetyParent = (await RunGitAsync("rev-parse", "HEAD^1")).Stdout.Trim();
         string remoteHead = await ReadRemoteHeadAsync(remoteRoot);
@@ -669,7 +744,217 @@ public sealed class RemoteOperationsTests : RealGitTestRepository
                 Is.EqualTo("from peer\n"));
             Assert.That(File.ReadAllText(Path.Combine(Root, "local.belm")),
                 Is.EqualTo("local edit\n"));
-            Assert.That(checkpointDeleted, Is.True);
+            Assert.That(
+                (RunGitAsync(
+                    "for-each-ref",
+                    "--format=%(refname)",
+                    "refs/beutl/recovery/").GetAwaiter().GetResult()).Stdout,
+                Is.Empty);
+        });
+    }
+
+    [Test]
+    public async Task Checkpointed_pull_rejects_an_incoming_project_symlink_outside_the_root()
+    {
+        if (OperatingSystem.IsWindows())
+        {
+            Assert.Ignore("This regression requires Git symbolic-link checkout semantics.");
+        }
+
+        await CommitFileAsync("project.bep", "initial\n", "initial");
+        string remoteRoot = await CreateBareRemoteAsync();
+        using var service = CreateService();
+        await service.SetRemoteAsync(remoteRoot, CancellationToken.None);
+        Assert.That(
+            await service.PushAsync(progress: null, CancellationToken.None),
+            Is.TypeOf<RemoteOpResult.Success>());
+        RepositoryInfo peer = await CloneRemoteAsync(remoteRoot);
+        string outsideRoot = CreateTemporaryDirectory();
+        string outsideProject = Path.Combine(outsideRoot, "outside.bep");
+        await File.WriteAllTextAsync(outsideProject, "outside sentinel\n");
+        string peerProjectFile = Path.Combine(peer.ProjectRoot, "project.bep");
+        File.Delete(peerProjectFile);
+        CreateFileSymbolicLinkOrIgnore(peerProjectFile, outsideProject);
+        GitCliRunner runner = CreateRunner();
+        await runner.RunAsync(
+            peer,
+            ["add", "--", "project.bep"],
+            GitCommandOptions.Local,
+            CancellationToken.None);
+        await runner.RunAsync(
+            peer,
+            ["commit", "-m", "replace project with external symlink"],
+            GitCommandOptions.Local,
+            CancellationToken.None);
+        await runner.RunAsync(
+            peer,
+            ["push"],
+            GitCommandOptions.Local,
+            CancellationToken.None);
+
+        string localMarker = Path.Combine(Root, "local.belm");
+        await File.WriteAllTextAsync(localMarker, "local checkpoint\n");
+        CheckedOutBranchTip expected = await service.GetCheckedOutBranchTipAsync(
+            CancellationToken.None);
+        ProjectCheckpoint checkpoint = await service.CreateProjectCheckpointAsync(
+            "beutl: safety checkpoint before pull",
+            CancellationToken.None);
+
+        FastForwardPullResult pull = await service.PullFastForwardAsync(
+            expected,
+            checkpoint,
+            Path.Combine(Root, "project.bep"),
+            CancellationToken.None);
+        IReadOnlyList<PendingPullRecovery> recoveries =
+            await service.GetPendingPullRecoveriesAsync(CancellationToken.None);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(pull.Result, Is.TypeOf<RemoteOpResult.Failed>());
+            Assert.That(pull.TransitionState, Is.EqualTo(PullTransitionState.Unchanged));
+            Assert.That(pull.Tip, Is.EqualTo(expected));
+            Assert.That(pull.Recovery, Is.Not.Null);
+            Assert.That(recoveries, Is.EqualTo(new[] { pull.Recovery! }));
+            Assert.That(new FileInfo(Path.Combine(Root, "project.bep")).LinkTarget, Is.Null);
+            Assert.That(File.ReadAllText(Path.Combine(Root, "project.bep")),
+                Is.EqualTo("initial\n"));
+            Assert.That(File.ReadAllText(localMarker), Is.EqualTo("local checkpoint\n"));
+            Assert.That(File.ReadAllText(outsideProject), Is.EqualTo("outside sentinel\n"));
+        });
+    }
+
+    [Test]
+    public async Task Checkpointed_pull_publishes_recovery_before_the_guarded_transition()
+    {
+        await CommitFileAsync("project.bep", "initial\n", "initial");
+        string remoteRoot = await CreateBareRemoteAsync();
+        GitCliRunner observer = CreateRunner();
+        bool descriptorWasDurable = false;
+        var interceptingRunner = new InterceptingRunner(
+            CreateRunner(),
+            static (_, arguments, _) =>
+                arguments is ["worktree", "add", "--detach", "--no-checkout", ..],
+            async (repository, _, _) =>
+            {
+                GitCommandResult refs = await observer.RunAsync(
+                    repository,
+                    [
+                        "for-each-ref",
+                        "--format=%(refname)",
+                        "refs/beutl/recovery/",
+                    ],
+                    GitCommandOptions.Local,
+                    CancellationToken.None);
+                descriptorWasDurable = !string.IsNullOrWhiteSpace(refs.Stdout);
+                throw new IOException("simulated interruption before guarded transition");
+            },
+            after: null);
+        PendingPullRecovery? publishedRecovery;
+        using (GitCliVersionControlService service = CreateService(runner: interceptingRunner))
+        {
+            await service.SetRemoteAsync(remoteRoot, CancellationToken.None);
+            Assert.That(
+                await service.PushAsync(progress: null, CancellationToken.None),
+                Is.TypeOf<RemoteOpResult.Success>());
+            RepositoryInfo peer = await CloneRemoteAsync(remoteRoot);
+            await CommitInRepositoryAsync(peer, "project.bep", "from peer\n", "peer update");
+            await File.WriteAllTextAsync(Path.Combine(Root, "local.belm"), "local edit\n");
+            CheckedOutBranchTip expected = await service.GetCheckedOutBranchTipAsync(
+                CancellationToken.None);
+            ProjectCheckpoint checkpoint = await service.CreateProjectCheckpointAsync(
+                "beutl: safety checkpoint before pull",
+                CancellationToken.None);
+
+            FastForwardPullResult pull = await service.PullFastForwardAsync(
+                expected,
+                checkpoint,
+                Path.Combine(Root, "project.bep"),
+                CancellationToken.None);
+            publishedRecovery = pull.Recovery;
+
+            Assert.Multiple(() =>
+            {
+                Assert.That(descriptorWasDurable, Is.True);
+                Assert.That(interceptingRunner.InterceptionCount, Is.EqualTo(1));
+                Assert.That(pull.Result, Is.TypeOf<RemoteOpResult.Failed>());
+                Assert.That(publishedRecovery, Is.Not.Null);
+            });
+        }
+
+        using GitCliVersionControlService restarted = CreateService();
+        IReadOnlyList<PendingPullRecovery> recoveries =
+            await restarted.GetPendingPullRecoveriesAsync(CancellationToken.None);
+
+        Assert.That(recoveries, Is.EqualTo(new[] { publishedRecovery! }));
+    }
+
+    [Test]
+    public async Task Checkpointed_pull_returns_its_durable_recovery_when_post_publication_validation_fails()
+    {
+        await CommitFileAsync("project.bep", "initial\n", "initial");
+        string remoteRoot = await CreateBareRemoteAsync();
+        bool descriptorPublished = false;
+        var interceptingRunner = new InterceptingRunner(
+            CreateRunner(),
+            (_, arguments, _) =>
+            {
+                if (arguments is
+                    [
+                        "update-ref",
+                        "--create-reflog",
+                        "-m",
+                        "beutl pending pull recovery",
+                        ..
+                    ])
+                {
+                    descriptorPublished = true;
+                    return false;
+                }
+
+                return descriptorPublished
+                       && arguments is ["rev-parse", "--verify", "--quiet", var revision]
+                       && revision.StartsWith("refs/beutl/safety/", StringComparison.Ordinal);
+            },
+            before: null,
+            static (_, _, _) => throw new IOException(
+                "simulated post-publication checkpoint validation failure"));
+        using var service = CreateService(runner: interceptingRunner);
+        await service.SetRemoteAsync(remoteRoot, CancellationToken.None);
+        Assert.That(
+            await service.PushAsync(progress: null, CancellationToken.None),
+            Is.TypeOf<RemoteOpResult.Success>());
+        RepositoryInfo peer = await CloneRemoteAsync(remoteRoot);
+        await CommitInRepositoryAsync(peer, "project.bep", "from peer\n", "peer update");
+        await File.WriteAllTextAsync(Path.Combine(Root, "local.belm"), "local edit\n");
+        CheckedOutBranchTip expected = await service.GetCheckedOutBranchTipAsync(
+            CancellationToken.None);
+        ProjectCheckpoint checkpoint = await service.CreateProjectCheckpointAsync(
+            "beutl: safety checkpoint before pull",
+            CancellationToken.None);
+
+        FastForwardPullResult pull = await service.PullFastForwardAsync(
+            expected,
+            checkpoint,
+            Path.Combine(Root, "project.bep"),
+            CancellationToken.None);
+        IReadOnlyList<PendingPullRecovery> recoveries =
+            await service.GetPendingPullRecoveriesAsync(CancellationToken.None);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(descriptorPublished, Is.True);
+            Assert.That(interceptingRunner.InterceptionCount, Is.EqualTo(1));
+            Assert.That(pull.Result, Is.TypeOf<RemoteOpResult.Failed>());
+            Assert.That(pull.TransitionState,
+                Is.EqualTo(PullTransitionState.RecoveryFailed));
+            Assert.That(pull.Recovery, Is.Not.Null);
+            Assert.That(recoveries, Is.EqualTo(new[] { pull.Recovery! }));
+            Assert.That(
+                (RunGitAsync("rev-parse", checkpoint.RefName).GetAwaiter().GetResult())
+                .Stdout.Trim(),
+                Is.EqualTo(checkpoint.Commit));
+            Assert.That(File.ReadAllText(Path.Combine(Root, "local.belm")),
+                Is.EqualTo("local edit\n"));
         });
     }
 
@@ -731,7 +1016,10 @@ public sealed class RemoteOperationsTests : RealGitTestRepository
         FastForwardPullResult pull = await service.PullFastForwardAsync(
             expected,
             checkpoint,
+            Path.Combine(Root, "project.bep"),
             CancellationToken.None);
+        IReadOnlyList<PendingPullRecovery> pendingRecoveries =
+            await service.GetPendingPullRecoveriesAsync(CancellationToken.None);
         string actualRef = (await RunGitAsync("rev-parse", expected.RefName)).Stdout.Trim();
         string checkpointRef = (await RunGitAsync("rev-parse", checkpoint.RefName)).Stdout.Trim();
 
@@ -740,6 +1028,8 @@ public sealed class RemoteOperationsTests : RealGitTestRepository
             Assert.That(pull.Result, Is.TypeOf<RemoteOpResult.Failed>());
             Assert.That(pull.TransitionState, Is.EqualTo(PullTransitionState.OwnershipLost));
             Assert.That(pull.Tip.Commit, Is.EqualTo(externalCommit));
+            Assert.That(pull.Recovery, Is.Not.Null);
+            Assert.That(pendingRecoveries, Is.EqualTo(new[] { pull.Recovery! }));
             Assert.That(actualRef, Is.EqualTo(externalCommit));
             Assert.That(checkpointRef, Is.EqualTo(checkpoint.Commit));
             Assert.That(File.ReadAllText(Path.Combine(Root, "local.belm")),
@@ -780,6 +1070,7 @@ public sealed class RemoteOperationsTests : RealGitTestRepository
         FastForwardPullResult pull = await service.PullFastForwardAsync(
             expected,
             checkpoint,
+            Path.Combine(Root, "project.bep"),
             CancellationToken.None);
         string cachedDiff = (await RunGitAsync(
             "diff",
@@ -829,6 +1120,7 @@ public sealed class RemoteOperationsTests : RealGitTestRepository
         FastForwardPullResult pull = await service.PullFastForwardAsync(
             expected,
             checkpoint,
+            Path.Combine(Root, "project.bep"),
             CancellationToken.None);
         Assert.Multiple(() =>
         {
@@ -916,6 +1208,7 @@ public sealed class RemoteOperationsTests : RealGitTestRepository
         FastForwardPullResult pull = await service.PullFastForwardAsync(
             expected,
             checkpoint: null,
+            Path.Combine(Root, "project.bep"),
             CancellationToken.None);
         string cachedDiff = (await RunGitAsync(
             "diff",
@@ -965,6 +1258,7 @@ public sealed class RemoteOperationsTests : RealGitTestRepository
         FastForwardPullResult pull = await service.PullFastForwardAsync(
             expected,
             checkpoint: null,
+            Path.Combine(Root, "project.bep"),
             CancellationToken.None);
         string actualRef = (await RunGitAsync("rev-parse", expected.RefName)).Stdout.Trim();
         string worktrees = (await RunGitAsync("worktree", "list", "--porcelain")).Stdout;
@@ -1000,6 +1294,7 @@ public sealed class RemoteOperationsTests : RealGitTestRepository
         FastForwardPullResult pull = await service.PullFastForwardAsync(
             expected,
             checkpoint: null,
+            Path.Combine(Root, "project.bep"),
             CancellationToken.None);
 
         Assert.Multiple(() =>
@@ -1064,6 +1359,7 @@ public sealed class RemoteOperationsTests : RealGitTestRepository
         FastForwardPullResult pull = await service.PullFastForwardAsync(
             expected,
             checkpoint: null,
+            Path.Combine(Root, "project.bep"),
             CancellationToken.None);
         string actualRef = (await RunGitAsync("rev-parse", expected.RefName)).Stdout.Trim();
 
@@ -1108,6 +1404,7 @@ public sealed class RemoteOperationsTests : RealGitTestRepository
             async () => await service.PullFastForwardAsync(
                 checkpoint.BaseTip,
                 checkpoint,
+                Path.Combine(Root, "project.bep"),
                 CancellationToken.None),
             Throws.TypeOf<GitOperationException>());
 
@@ -1285,6 +1582,996 @@ public sealed class RemoteOperationsTests : RealGitTestRepository
     }
 
     [Test]
+    public async Task Pending_pull_recovery_is_enumerated_after_restart_and_restores_the_checkpoint()
+    {
+        await CommitFileAsync("project.bep", "base\n", "initial");
+        PendingPullRecovery persisted;
+        using (GitCliVersionControlService service = CreateService())
+        {
+            await File.WriteAllTextAsync(Path.Combine(Root, "project.bep"), "local work\n");
+            ProjectCheckpoint checkpoint = await service.CreateProjectCheckpointAsync(
+                "beutl: checkpoint",
+                CancellationToken.None);
+            string tree = (await RunGitAsync("rev-parse", "HEAD^{tree}")).Stdout.Trim();
+            string targetCommit = (await RunGitAsync(
+                "commit-tree",
+                tree,
+                "-p",
+                checkpoint.BaseTip.Commit,
+                "-m",
+                "prospective pull target")).Stdout.Trim();
+            persisted = await service.PersistPendingPullRecoveryAsync(
+                checkpoint,
+                new CheckedOutBranchTip(checkpoint.BaseTip.RefName, targetCommit),
+                Path.Combine(Root, "project.bep"),
+                CancellationToken.None);
+            await RunGitAsync("restore", "--source=HEAD", "--worktree", "--", ".");
+        }
+
+        using GitCliVersionControlService restarted = CreateService();
+        IReadOnlyList<PendingPullRecovery> recoveries =
+            await restarted.GetPendingPullRecoveriesAsync(CancellationToken.None);
+        PendingPullRecovery recoveredDescriptor = recoveries.Single();
+        PendingPullRecoveryOutcome outcome = await restarted.RecoverPendingPullRecoveryAsync(
+            recoveredDescriptor,
+            CancellationToken.None);
+        await restarted.CompletePendingPullRecoveryAsync(
+            recoveredDescriptor,
+            CancellationToken.None);
+        string remainingRecoveryRefs = (await RunGitAsync(
+            "for-each-ref",
+            "--format=%(refname)",
+            "refs/beutl/recovery/")).Stdout;
+        string remainingSafetyRefs = (await RunGitAsync(
+            "for-each-ref",
+            "--format=%(refname)",
+            "refs/beutl/safety/")).Stdout;
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(recoveredDescriptor, Is.EqualTo(persisted));
+            Assert.That(outcome, Is.EqualTo(PendingPullRecoveryOutcome.RestoredOriginal));
+            Assert.That(File.ReadAllText(Path.Combine(Root, "project.bep")),
+                Is.EqualTo("local work\n"));
+            Assert.That(remainingRecoveryRefs, Is.Empty);
+            Assert.That(remainingSafetyRefs, Is.Empty);
+        });
+    }
+
+    [Test]
+    public async Task Pending_pull_recovery_rolls_an_applied_invalid_target_back_to_the_checkpoint()
+    {
+        await CommitFileAsync("project.bep", "{\"valid\":true}\n", "initial");
+        string baseCommit = (await RunGitAsync("rev-parse", "HEAD")).Stdout.Trim();
+        await CommitFileAsync("project.bep", "{ invalid target", "invalid target");
+        string targetCommit = (await RunGitAsync("rev-parse", "HEAD")).Stdout.Trim();
+        await RunGitAsync("reset", "--hard", baseCommit);
+
+        PendingPullRecovery persisted;
+        string localMarker = Path.Combine(Root, "local.belm");
+        using (GitCliVersionControlService service = CreateService())
+        {
+            CheckedOutBranchTip baseTip = await service.GetCheckedOutBranchTipAsync(
+                CancellationToken.None);
+            await File.WriteAllTextAsync(localMarker, "local checkpoint\n");
+            ProjectCheckpoint checkpoint = await service.CreateProjectCheckpointAsync(
+                "beutl: checkpoint",
+                CancellationToken.None);
+            persisted = await service.PersistPendingPullRecoveryAsync(
+                checkpoint,
+                new CheckedOutBranchTip(baseTip.RefName, targetCommit),
+                Path.Combine(Root, "project.bep"),
+                CancellationToken.None);
+        }
+
+        File.Delete(localMarker);
+        await RunGitAsync("reset", "--hard", targetCommit);
+
+        using GitCliVersionControlService restarted = CreateService();
+        PendingPullRecovery recovered = (await restarted.GetPendingPullRecoveriesAsync(
+            CancellationToken.None)).Single();
+        PendingPullRecoveryOutcome outcome = await restarted.RecoverPendingPullRecoveryAsync(
+            recovered,
+            CancellationToken.None);
+        CheckedOutBranchTip recoveredTip = await restarted.GetCheckedOutBranchTipAsync(
+            CancellationToken.None);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(recovered.Id, Is.EqualTo(persisted.Id));
+            Assert.That(outcome, Is.EqualTo(PendingPullRecoveryOutcome.RestoredOriginal));
+            Assert.That(recoveredTip.Commit, Is.EqualTo(baseCommit));
+            Assert.That(File.ReadAllText(Path.Combine(Root, "project.bep")),
+                Is.EqualTo("{\"valid\":true}\n"));
+            Assert.That(File.ReadAllText(localMarker), Is.EqualTo("local checkpoint\n"));
+        });
+    }
+
+    [Test]
+    public async Task Pending_pull_recovery_enumerates_an_external_target_symlink_and_restores_the_checkpoint()
+    {
+        if (OperatingSystem.IsWindows())
+        {
+            Assert.Ignore("This regression requires Git symbolic-link checkout semantics.");
+        }
+
+        await CommitFileAsync("project.bep", "safe project\n", "initial");
+        string baseCommit = (await RunGitAsync("rev-parse", "HEAD")).Stdout.Trim();
+        string outsideRoot = CreateTemporaryDirectory();
+        string outsideProject = Path.Combine(outsideRoot, "outside.bep");
+        await File.WriteAllTextAsync(outsideProject, "outside sentinel\n");
+        string projectFile = Path.Combine(Root, "project.bep");
+        File.Delete(projectFile);
+        CreateFileSymbolicLinkOrIgnore(projectFile, outsideProject);
+        await RunGitAsync("add", "--", "project.bep");
+        await RunGitAsync("commit", "-m", "external project symlink target");
+        string targetCommit = (await RunGitAsync("rev-parse", "HEAD")).Stdout.Trim();
+        await RunGitAsync("reset", "--hard", baseCommit);
+
+        PendingPullRecovery persisted;
+        string localMarker = Path.Combine(Root, "local.belm");
+        using (GitCliVersionControlService service = CreateService())
+        {
+            CheckedOutBranchTip baseTip = await service.GetCheckedOutBranchTipAsync(
+                CancellationToken.None);
+            await File.WriteAllTextAsync(localMarker, "local checkpoint\n");
+            ProjectCheckpoint checkpoint = await service.CreateProjectCheckpointAsync(
+                "beutl: checkpoint",
+                CancellationToken.None);
+            persisted = await service.PersistPendingPullRecoveryAsync(
+                checkpoint,
+                new CheckedOutBranchTip(baseTip.RefName, targetCommit),
+                projectFile,
+                CancellationToken.None);
+        }
+
+        File.Delete(localMarker);
+        await RunGitAsync("reset", "--hard", targetCommit);
+        Assert.That(new FileInfo(projectFile).LinkTarget, Is.Not.Null);
+
+        using GitCliVersionControlService restarted = CreateService();
+        PendingPullRecovery recovered = (await restarted.GetPendingPullRecoveriesAsync(
+            CancellationToken.None)).Single();
+        PendingPullRecoveryOutcome outcome = await restarted.RecoverPendingPullRecoveryAsync(
+            recovered,
+            CancellationToken.None);
+        CheckedOutBranchTip recoveredTip = await restarted.GetCheckedOutBranchTipAsync(
+            CancellationToken.None);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(recovered.Id, Is.EqualTo(persisted.Id));
+            Assert.That(outcome, Is.EqualTo(PendingPullRecoveryOutcome.RestoredOriginal));
+            Assert.That(recoveredTip.Commit, Is.EqualTo(baseCommit));
+            Assert.That(new FileInfo(projectFile).LinkTarget, Is.Null);
+            Assert.That(File.ReadAllText(projectFile), Is.EqualTo("safe project\n"));
+            Assert.That(File.ReadAllText(localMarker), Is.EqualTo("local checkpoint\n"));
+            Assert.That(File.ReadAllText(outsideProject), Is.EqualTo("outside sentinel\n"));
+        });
+    }
+
+    [Test]
+    public async Task Pending_pull_recovery_at_base_survives_pruning_of_its_unapplied_target()
+    {
+        await CommitFileAsync("project.bep", "base\n", "initial");
+        PendingPullRecovery persisted;
+        string targetCommit;
+        using (GitCliVersionControlService service = CreateService())
+        {
+            await File.WriteAllTextAsync(Path.Combine(Root, "project.bep"), "local work\n");
+            ProjectCheckpoint checkpoint = await service.CreateProjectCheckpointAsync(
+                "beutl: checkpoint",
+                CancellationToken.None);
+            string tree = (await RunGitAsync(
+                "rev-parse",
+                $"{checkpoint.BaseTip.Commit}^{{tree}}")).Stdout.Trim();
+            targetCommit = (await RunGitAsync(
+                "commit-tree",
+                tree,
+                "-p",
+                checkpoint.BaseTip.Commit,
+                "-m",
+                "unapplied target")).Stdout.Trim();
+            persisted = await service.PersistPendingPullRecoveryAsync(
+                checkpoint,
+                new CheckedOutBranchTip(checkpoint.BaseTip.RefName, targetCommit),
+                Path.Combine(Root, "project.bep"),
+                CancellationToken.None);
+            await RunGitAsync("restore", "--source=HEAD", "--worktree", "--", ".");
+        }
+
+        await RunGitAsync("reflog", "expire", "--expire=now", "--all");
+        await RunGitAsync("gc", "--prune=now");
+        Assert.ThrowsAsync<GitOperationException>(async () =>
+            await RunGitAsync("cat-file", "-e", $"{targetCommit}^{{commit}}"));
+
+        using GitCliVersionControlService restarted = CreateService();
+        PendingPullRecovery recovered = (await restarted.GetPendingPullRecoveriesAsync(
+            CancellationToken.None)).Single();
+        PendingPullRecoveryOutcome outcome = await restarted.RecoverPendingPullRecoveryAsync(
+            recovered,
+            CancellationToken.None);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(recovered.Id, Is.EqualTo(persisted.Id));
+            Assert.That(outcome, Is.EqualTo(PendingPullRecoveryOutcome.RestoredOriginal));
+            Assert.That(File.ReadAllText(Path.Combine(Root, "project.bep")),
+                Is.EqualTo("local work\n"));
+        });
+    }
+
+    [Test]
+    public async Task Pending_pull_recovery_preserves_external_tip_and_reapplies_checkpoint()
+    {
+        await CommitFileAsync("project.bep", "base\n", "initial");
+        using var service = CreateService();
+        CheckedOutBranchTip baseTip = await service.GetCheckedOutBranchTipAsync(
+            CancellationToken.None);
+        await File.WriteAllTextAsync(Path.Combine(Root, "local.belm"), "local work\n");
+        ProjectCheckpoint checkpoint = await service.CreateProjectCheckpointAsync(
+            "beutl: checkpoint",
+            CancellationToken.None);
+        string baseTree = (await RunGitAsync("rev-parse", $"{baseTip.Commit}^{{tree}}")).Stdout.Trim();
+        string targetCommit = (await RunGitAsync(
+            "commit-tree",
+            baseTree,
+            "-p",
+            baseTip.Commit,
+            "-m",
+            "prospective pull target")).Stdout.Trim();
+        PendingPullRecovery recovery = await service.PersistPendingPullRecoveryAsync(
+            checkpoint,
+            new CheckedOutBranchTip(baseTip.RefName, targetCommit),
+            Path.Combine(Root, "project.bep"),
+            CancellationToken.None);
+        string externalCommit = (await RunGitAsync(
+            "commit-tree",
+            baseTree,
+            "-p",
+            baseTip.Commit,
+            "-m",
+            "external branch owner")).Stdout.Trim();
+        await RunGitAsync("update-ref", baseTip.RefName, externalCommit, baseTip.Commit);
+
+        PendingPullRecoveryOutcome? outcome = null;
+        PendingPullRecoveryOutcome? repeatedOutcome = null;
+        Assert.DoesNotThrowAsync(async () =>
+        {
+            outcome = await service.RecoverPendingPullRecoveryAsync(
+                recovery,
+                CancellationToken.None);
+            repeatedOutcome = await service.RecoverPendingPullRecoveryAsync(
+                recovery,
+                CancellationToken.None);
+        });
+        string recoveryBranch = $"refs/heads/beutl/recovery/{recovery.Id}";
+        string actualTip = (await RunGitAsync("rev-parse", baseTip.RefName)).Stdout.Trim();
+        string preservedCheckpoint = (await RunGitAsync("rev-parse", recoveryBranch)).Stdout.Trim();
+        WorkspaceStatus status = await service.GetStatusAsync(CancellationToken.None);
+        await service.CompletePendingPullRecoveryAsync(recovery, CancellationToken.None);
+        string remainingPrivateRefs = (await RunGitAsync(
+            "for-each-ref",
+            "--format=%(refname)",
+            "refs/beutl/")).Stdout;
+        string durableRecoveryBranch = (await RunGitAsync("rev-parse", recoveryBranch)).Stdout.Trim();
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(outcome, Is.EqualTo(PendingPullRecoveryOutcome.ReappliedCheckpoint));
+            Assert.That(repeatedOutcome,
+                Is.EqualTo(PendingPullRecoveryOutcome.ReappliedCheckpoint));
+            Assert.That(actualTip, Is.EqualTo(externalCommit));
+            Assert.That(preservedCheckpoint, Is.EqualTo(checkpoint.Commit));
+            Assert.That(durableRecoveryBranch, Is.EqualTo(checkpoint.Commit));
+            Assert.That(remainingPrivateRefs, Is.Empty);
+            Assert.That(File.ReadAllText(Path.Combine(Root, "local.belm")),
+                Is.EqualTo("local work\n"));
+            Assert.That(status.IsClean, Is.False);
+        });
+    }
+
+    [Test]
+    public async Task Pending_pull_recovery_rejects_unsafe_external_reapply_without_changing_its_state()
+    {
+        if (OperatingSystem.IsWindows())
+        {
+            Assert.Ignore("This regression requires Git symbolic-link checkout semantics.");
+        }
+
+        await CommitFileAsync("project.bep", "safe project\n", "initial");
+        string baseCommit = (await RunGitAsync("rev-parse", "HEAD")).Stdout.Trim();
+        string outsideRoot = CreateTemporaryDirectory();
+        string outsideProject = Path.Combine(outsideRoot, "outside.bep");
+        await File.WriteAllTextAsync(outsideProject, "outside sentinel\n");
+        string projectFile = Path.Combine(Root, "project.bep");
+        File.Delete(projectFile);
+        CreateFileSymbolicLinkOrIgnore(projectFile, outsideProject);
+        await RunGitAsync("add", "--", "project.bep");
+        await RunGitAsync("commit", "-m", "external branch owner");
+        string externalCommit = (await RunGitAsync("rev-parse", "HEAD")).Stdout.Trim();
+        await RunGitAsync("reset", "--hard", baseCommit);
+
+        using var service = CreateService();
+        CheckedOutBranchTip baseTip = await service.GetCheckedOutBranchTipAsync(
+            CancellationToken.None);
+        string localMarker = Path.Combine(Root, "local.belm");
+        await File.WriteAllTextAsync(localMarker, "local checkpoint\n");
+        ProjectCheckpoint checkpoint = await service.CreateProjectCheckpointAsync(
+            "beutl: checkpoint",
+            CancellationToken.None);
+        string baseTree = (await RunGitAsync(
+            "rev-parse",
+            $"{baseTip.Commit}^{{tree}}")).Stdout.Trim();
+        string targetCommit = (await RunGitAsync(
+            "commit-tree",
+            baseTree,
+            "-p",
+            baseTip.Commit,
+            "-m",
+            "prospective pull target")).Stdout.Trim();
+        PendingPullRecovery recovery = await service.PersistPendingPullRecoveryAsync(
+            checkpoint,
+            new CheckedOutBranchTip(baseTip.RefName, targetCommit),
+            projectFile,
+            CancellationToken.None);
+        File.Delete(localMarker);
+        await RunGitAsync("reset", "--hard", externalCommit);
+        string indexBefore = (await RunGitAsync("write-tree")).Stdout.Trim();
+        string statusBefore = (await RunGitAsync(
+            "status",
+            "--porcelain=v2",
+            "--untracked-files=all")).Stdout;
+
+        PendingPullRecoveryPreservedException? exception =
+            Assert.ThrowsAsync<PendingPullRecoveryPreservedException>(async () =>
+                await service.RecoverPendingPullRecoveryAsync(
+                    recovery,
+                    CancellationToken.None));
+        string indexAfter = (await RunGitAsync("write-tree")).Stdout.Trim();
+        string statusAfter = (await RunGitAsync(
+            "status",
+            "--porcelain=v2",
+            "--untracked-files=all")).Stdout;
+        string actualTip = (await RunGitAsync("rev-parse", baseTip.RefName)).Stdout.Trim();
+        string recoveryBranch = (await RunGitAsync(
+            "rev-parse",
+            $"refs/heads/{recovery.RecoveryBranchName}")).Stdout.Trim();
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(exception!.RecoveryReference, Is.EqualTo(recovery.RecoveryBranchName));
+            Assert.That(actualTip, Is.EqualTo(externalCommit));
+            Assert.That(recoveryBranch, Is.EqualTo(checkpoint.Commit));
+            Assert.That(indexAfter, Is.EqualTo(indexBefore));
+            Assert.That(statusAfter, Is.EqualTo(statusBefore));
+            Assert.That(new FileInfo(projectFile).LinkTarget, Is.Not.Null);
+            Assert.That(File.ReadAllText(projectFile), Is.EqualTo("outside sentinel\n"));
+            Assert.That(File.Exists(localMarker), Is.False);
+            Assert.That(File.ReadAllText(outsideProject), Is.EqualTo("outside sentinel\n"));
+        });
+    }
+
+    [Test]
+    public async Task Pending_pull_recovery_branch_collision_preserves_private_refs_and_external_tip()
+    {
+        await CommitFileAsync("project.bep", "base\n", "initial");
+        using var service = CreateService();
+        PendingPullRecovery recovery = await CreatePendingPullRecoveryAsync(service);
+        string baseTree = (await RunGitAsync(
+            "rev-parse",
+            $"{recovery.Checkpoint.BaseTip.Commit}^{{tree}}")).Stdout.Trim();
+        string externalCommit = (await RunGitAsync(
+            "commit-tree",
+            baseTree,
+            "-p",
+            recovery.Checkpoint.BaseTip.Commit,
+            "-m",
+            "external branch owner")).Stdout.Trim();
+        await RunGitAsync(
+            "update-ref",
+            recovery.Checkpoint.BaseTip.RefName,
+            externalCommit,
+            recovery.Checkpoint.BaseTip.Commit);
+        string recoveryBranchRef = $"refs/heads/{recovery.RecoveryBranchName}";
+        await RunGitAsync("update-ref", recoveryBranchRef, externalCommit, string.Empty);
+
+        PendingPullRecoveryPreservedException? exception =
+            Assert.ThrowsAsync<PendingPullRecoveryPreservedException>(async () =>
+                await service.RecoverPendingPullRecoveryAsync(
+                    recovery,
+                    CancellationToken.None));
+        string actualTip = (await RunGitAsync(
+            "rev-parse",
+            recovery.Checkpoint.BaseTip.RefName)).Stdout.Trim();
+        string retainedDescriptor = (await RunGitAsync(
+            "rev-parse",
+            recovery.DescriptorRef)).Stdout.Trim();
+        string retainedCheckpoint = (await RunGitAsync(
+            "rev-parse",
+            recovery.Checkpoint.RefName)).Stdout.Trim();
+        string collidingBranch = (await RunGitAsync(
+            "rev-parse",
+            recoveryBranchRef)).Stdout.Trim();
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(exception!.RecoveryReference,
+                Is.EqualTo(recovery.Checkpoint.RefName));
+            Assert.That(actualTip, Is.EqualTo(externalCommit));
+            Assert.That(retainedDescriptor, Is.EqualTo(recovery.DescriptorObject));
+            Assert.That(retainedCheckpoint, Is.EqualTo(recovery.Checkpoint.Commit));
+            Assert.That(collidingBranch, Is.EqualTo(externalCommit));
+        });
+    }
+
+    [Test]
+    public async Task Pending_pull_recovery_does_not_claim_a_deleted_checkpoint_is_preserved()
+    {
+        await CommitFileAsync("project.bep", "base\n", "initial");
+        PendingPullRecovery? recovery = null;
+        GitCliRunner observer = CreateRunner();
+        var interceptingRunner = new InterceptingRunner(
+            CreateRunner(),
+            (_, arguments, _) =>
+                recovery is not null
+                && arguments is ["rev-parse", "--verify", "--quiet", var revision]
+                && string.Equals(
+                    revision,
+                    $"refs/heads/{recovery.RecoveryBranchName}^{{commit}}",
+                    StringComparison.Ordinal),
+            async (repository, _, _) => await observer.RunAsync(
+                repository,
+                [
+                    "update-ref",
+                    "-d",
+                    recovery!.Checkpoint.RefName,
+                    recovery.Checkpoint.Commit,
+                ],
+                GitCommandOptions.Local,
+                CancellationToken.None),
+            after: null);
+        using var service = CreateService(runner: interceptingRunner);
+        recovery = await CreatePendingPullRecoveryAsync(service);
+        await RunGitAsync(
+            "update-ref",
+            $"refs/heads/{recovery.RecoveryBranchName}",
+            recovery.Checkpoint.BaseTip.Commit,
+            string.Empty);
+        await File.WriteAllTextAsync(
+            Path.Combine(Root, "project.bep"),
+            "unverified state\n");
+
+        Exception? exception = Assert.ThrowsAsync<AggregateException>(async () =>
+            await service.RecoverPendingPullRecoveryAsync(
+                recovery,
+                CancellationToken.None));
+        string checkpointRefs = (await RunGitAsync(
+            "for-each-ref",
+            "--format=%(refname)",
+            recovery.Checkpoint.RefName)).Stdout;
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(exception, Is.Not.TypeOf<PendingPullRecoveryPreservedException>());
+            Assert.That(interceptingRunner.InterceptionCount, Is.EqualTo(1));
+            Assert.That(checkpointRefs, Is.Empty);
+        });
+    }
+
+    [Test]
+    public async Task Pending_pull_recovery_external_branch_reports_a_deleted_checkpoint_as_uncertain()
+    {
+        await CommitFileAsync("project.bep", "base\n", "initial");
+        PendingPullRecovery? recovery = null;
+        GitCliRunner observer = CreateRunner();
+        var interceptingRunner = new InterceptingRunner(
+            CreateRunner(),
+            (_, arguments, _) =>
+                recovery is not null
+                && arguments is ["rev-parse", "--verify", "--quiet", var revision]
+                && string.Equals(
+                    revision,
+                    $"refs/heads/{recovery.RecoveryBranchName}^{{commit}}",
+                    StringComparison.Ordinal),
+            async (repository, _, _) => await observer.RunAsync(
+                repository,
+                [
+                    "update-ref",
+                    "-d",
+                    recovery!.Checkpoint.RefName,
+                    recovery.Checkpoint.Commit,
+                ],
+                GitCommandOptions.Local,
+                CancellationToken.None),
+            after: null);
+        using var service = CreateService(runner: interceptingRunner);
+        recovery = await CreatePendingPullRecoveryAsync(service);
+        string baseTree = (await RunGitAsync(
+            "rev-parse",
+            $"{recovery.Checkpoint.BaseTip.Commit}^{{tree}}")).Stdout.Trim();
+        string externalCommit = (await RunGitAsync(
+            "commit-tree",
+            baseTree,
+            "-p",
+            recovery.Checkpoint.BaseTip.Commit,
+            "-m",
+            "external branch owner")).Stdout.Trim();
+        await RunGitAsync(
+            "update-ref",
+            recovery.Checkpoint.BaseTip.RefName,
+            externalCommit,
+            recovery.Checkpoint.BaseTip.Commit);
+        await RunGitAsync(
+            "update-ref",
+            $"refs/heads/{recovery.RecoveryBranchName}",
+            externalCommit,
+            string.Empty);
+
+        Exception? exception = Assert.ThrowsAsync<AggregateException>(async () =>
+            await service.RecoverPendingPullRecoveryAsync(
+                recovery,
+                CancellationToken.None));
+        string actualTip = (await RunGitAsync(
+            "rev-parse",
+            recovery.Checkpoint.BaseTip.RefName)).Stdout.Trim();
+        string checkpointRefs = (await RunGitAsync(
+            "for-each-ref",
+            "--format=%(refname)",
+            recovery.Checkpoint.RefName)).Stdout;
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(exception, Is.Not.TypeOf<PendingPullRecoveryPreservedException>());
+            Assert.That(interceptingRunner.InterceptionCount, Is.EqualTo(1));
+            Assert.That(actualTip, Is.EqualTo(externalCommit));
+            Assert.That(checkpointRefs, Is.Empty);
+        });
+    }
+
+    [Test]
+    public async Task Pending_pull_recovery_with_unknown_dirty_state_preserves_everything_unchanged()
+    {
+        await CommitFileAsync("project.bep", "base\n", "initial");
+        using var service = CreateService();
+        PendingPullRecovery recovery = await CreatePendingPullRecoveryAsync(service);
+        string baseTree = (await RunGitAsync(
+            "rev-parse",
+            $"{recovery.Checkpoint.BaseTip.Commit}^{{tree}}")).Stdout.Trim();
+        string externalCommit = (await RunGitAsync(
+            "commit-tree",
+            baseTree,
+            "-p",
+            recovery.Checkpoint.BaseTip.Commit,
+            "-m",
+            "external branch owner")).Stdout.Trim();
+        await RunGitAsync(
+            "update-ref",
+            recovery.Checkpoint.BaseTip.RefName,
+            externalCommit,
+            recovery.Checkpoint.BaseTip.Commit);
+        await File.WriteAllTextAsync(Path.Combine(Root, "project.bep"), "unknown dirty state\n");
+        await RunGitAsync("add", "--", "project.bep");
+        await File.WriteAllTextAsync(Path.Combine(Root, "untracked.bin"), "untracked bytes\0\n");
+        string indexBefore = (await RunGitAsync("write-tree")).Stdout.Trim();
+        string statusBefore = (await RunGitAsync(
+            "status",
+            "--porcelain=v2",
+            "--untracked-files=all")).Stdout;
+        byte[] projectBefore = await File.ReadAllBytesAsync(Path.Combine(Root, "project.bep"));
+        byte[] untrackedBefore = await File.ReadAllBytesAsync(Path.Combine(Root, "untracked.bin"));
+
+        PendingPullRecoveryPreservedException? exception =
+            Assert.ThrowsAsync<PendingPullRecoveryPreservedException>(async () =>
+                await service.RecoverPendingPullRecoveryAsync(
+                    recovery,
+                    CancellationToken.None));
+        string indexAfter = (await RunGitAsync("write-tree")).Stdout.Trim();
+        string statusAfter = (await RunGitAsync(
+            "status",
+            "--porcelain=v2",
+            "--untracked-files=all")).Stdout;
+        string actualTip = (await RunGitAsync(
+            "rev-parse",
+            recovery.Checkpoint.BaseTip.RefName)).Stdout.Trim();
+        string recoveryBranch = (await RunGitAsync(
+            "rev-parse",
+            $"refs/heads/{recovery.RecoveryBranchName}")).Stdout.Trim();
+        string retainedDescriptor = (await RunGitAsync(
+            "rev-parse",
+            recovery.DescriptorRef)).Stdout.Trim();
+        string retainedCheckpoint = (await RunGitAsync(
+            "rev-parse",
+            recovery.Checkpoint.RefName)).Stdout.Trim();
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(exception!.RecoveryReference,
+                Is.EqualTo(recovery.RecoveryBranchName));
+            Assert.That(actualTip, Is.EqualTo(externalCommit));
+            Assert.That(recoveryBranch, Is.EqualTo(recovery.Checkpoint.Commit));
+            Assert.That(indexAfter, Is.EqualTo(indexBefore));
+            Assert.That(statusAfter, Is.EqualTo(statusBefore));
+            Assert.That(File.ReadAllBytes(Path.Combine(Root, "project.bep")),
+                Is.EqualTo(projectBefore));
+            Assert.That(File.ReadAllBytes(Path.Combine(Root, "untracked.bin")),
+                Is.EqualTo(untrackedBefore));
+            Assert.That(retainedDescriptor, Is.EqualTo(recovery.DescriptorObject));
+            Assert.That(retainedCheckpoint, Is.EqualTo(recovery.Checkpoint.Commit));
+        });
+    }
+
+    [TestCase("malformed OID")]
+    [TestCase("branch ref with space")]
+    [TestCase("foreign checkpoint path hash")]
+    [TestCase("nested checkpoint suffix")]
+    [TestCase("nested descriptor suffix")]
+    [TestCase("project path traversal")]
+    [TestCase("rooted project path")]
+    public async Task Pending_pull_recovery_enumeration_ignores_untrusted_descriptors(
+        string malformedField)
+    {
+        await CommitFileAsync("project.bep", "base\n", "initial");
+        using var service = CreateService();
+        PendingPullRecovery valid = await CreatePendingPullRecoveryAsync(service);
+        string descriptorJson = (await RunGitAsync(
+            "cat-file",
+            "blob",
+            valid.DescriptorObject)).Stdout;
+        JsonObject descriptor = JsonNode.Parse(descriptorJson)!.AsObject();
+        string id = Guid.NewGuid().ToString("N");
+        descriptor["Id"] = id;
+        string descriptorRef = valid.DescriptorRef[..^valid.Id.Length] + id;
+        switch (malformedField)
+        {
+            case "malformed OID":
+                descriptor["TargetCommit"] = "not-an-object-id";
+                break;
+            case "branch ref with space":
+                descriptor["BranchRef"] = "refs/heads/main branch";
+                break;
+            case "foreign checkpoint path hash":
+                {
+                    string checkpointRef = descriptor["CheckpointRef"]!.GetValue<string>();
+                    string checkpointId = checkpointRef[(checkpointRef.LastIndexOf('/') + 1)..];
+                    descriptor["CheckpointRef"] = $"refs/beutl/safety/foreign/{checkpointId}";
+                    break;
+                }
+            case "nested checkpoint suffix":
+                descriptor["CheckpointRef"] =
+                    descriptor["CheckpointRef"]!.GetValue<string>() + "/nested";
+                break;
+            case "nested descriptor suffix":
+                descriptorRef += "/nested";
+                break;
+            case "project path traversal":
+                descriptor["ProjectFile"] = "../outside.bep";
+                break;
+            case "rooted project path":
+                descriptor["ProjectFile"] =
+                    $"{Path.DirectorySeparatorChar}outside.bep";
+                break;
+            default:
+                throw new ArgumentOutOfRangeException(nameof(malformedField));
+        }
+
+        string descriptorObject = await WriteGitBlobAsync(descriptor.ToJsonString());
+        await RunGitAsync("update-ref", "-d", valid.DescriptorRef, valid.DescriptorObject);
+        await RunGitAsync("update-ref", descriptorRef, descriptorObject, string.Empty);
+
+        IReadOnlyList<PendingPullRecovery> recoveries =
+            await service.GetPendingPullRecoveriesAsync(CancellationToken.None);
+
+        Assert.That(recoveries, Is.Empty);
+    }
+
+    [Test]
+    public async Task Pending_pull_recovery_persistence_rejects_an_external_project_symlink()
+    {
+        await CommitFileAsync("project.bep", "base\n", "initial");
+        string externalRoot = CreateTemporaryDirectory();
+        string externalProject = Path.Combine(externalRoot, "outside.bep");
+        await File.WriteAllTextAsync(externalProject, "outside\n");
+        string linkedProject = Path.Combine(Root, "linked-project.bep");
+        CreateFileSymbolicLinkOrIgnore(linkedProject, externalProject);
+        using var service = CreateService();
+        ProjectCheckpoint checkpoint = await service.CreateProjectCheckpointAsync(
+            "beutl: checkpoint",
+            CancellationToken.None);
+
+        Assert.ThrowsAsync<ArgumentException>(async () =>
+            await service.PersistPendingPullRecoveryAsync(
+                checkpoint,
+                checkpoint.BaseTip,
+                linkedProject,
+                CancellationToken.None));
+    }
+
+    [Test]
+    public async Task Pending_pull_recovery_enumerates_a_dangling_file_beneath_an_external_directory_link()
+    {
+        await CommitFileAsync("project.bep", "base\n", "initial");
+        string externalRoot = CreateTemporaryDirectory();
+        CreateDirectorySymbolicLinkOrIgnore(
+            Path.Combine(Root, "escape"),
+            externalRoot);
+        CreateFileSymbolicLinkOrIgnore(
+            Path.Combine(Root, "linked-project.bep"),
+            "escape/missing.bep");
+        Assert.That(
+            RepositoryPathComparer.IsContainedWithin(
+                Root,
+                Path.Combine(Root, "linked-project.bep")),
+            Is.False);
+        using var service = CreateService();
+        PendingPullRecovery valid = await CreatePendingPullRecoveryAsync(service);
+        await ReplaceRecoveryProjectFileAsync(valid, "linked-project.bep");
+
+        PendingPullRecovery recovery = (await service.GetPendingPullRecoveriesAsync(
+            CancellationToken.None)).Single();
+
+        Assert.That(recovery.ProjectFile,
+            Is.EqualTo(Path.Combine(Root, "linked-project.bep")));
+    }
+
+    [Test]
+    public async Task Pending_pull_recovery_enumerates_relative_link_parent_segments_without_following_them()
+    {
+        await CommitFileAsync("project.bep", "base\n", "initial");
+        string externalRoot = CreateTemporaryDirectory();
+        Directory.CreateDirectory(Path.Combine(externalRoot, "sub"));
+        await File.WriteAllTextAsync(Path.Combine(externalRoot, "project.bep"), "external\n");
+        CreateDirectorySymbolicLinkOrIgnore(
+            Path.Combine(Root, "alias"),
+            Path.Combine(externalRoot, "sub"));
+        CreateFileSymbolicLinkOrIgnore(
+            Path.Combine(Root, "linked-project.bep"),
+            "alias/../project.bep");
+        Assert.That(
+            RepositoryPathComparer.IsContainedWithin(
+                Root,
+                Path.Combine(Root, "linked-project.bep")),
+            Is.False);
+        using var service = CreateService();
+        PendingPullRecovery valid = await CreatePendingPullRecoveryAsync(service);
+        await ReplaceRecoveryProjectFileAsync(valid, "linked-project.bep");
+
+        PendingPullRecovery recovery = (await service.GetPendingPullRecoveriesAsync(
+            CancellationToken.None)).Single();
+
+        Assert.That(recovery.ProjectFile,
+            Is.EqualTo(Path.Combine(Root, "linked-project.bep")));
+    }
+
+    [Test]
+    public async Task Pending_pull_recovery_accepts_a_finite_repeated_link_chain()
+    {
+        await CommitFileAsync("project.bep", "base\n", "initial");
+        CreateDirectorySymbolicLinkOrIgnore(Path.Combine(Root, "current"), ".");
+        Assert.That(
+            RepositoryPathComparer.AreEquivalent(
+                Path.Combine(Root, "current", "current", "project.bep"),
+                Path.Combine(Root, "project.bep")),
+            Is.True);
+        using var service = CreateService();
+        PendingPullRecovery valid = await CreatePendingPullRecoveryAsync(service);
+        await ReplaceRecoveryProjectFileAsync(valid, "current/current/project.bep");
+
+        PendingPullRecovery recovery = (await service.GetPendingPullRecoveriesAsync(
+            CancellationToken.None)).Single();
+
+        Assert.That(
+            recovery.ProjectFile,
+            Is.EqualTo(Path.Combine(Root, "current", "current", "project.bep")));
+    }
+
+    [Test]
+    public async Task Pending_pull_recovery_enumerates_a_current_symbolic_link_cycle()
+    {
+        await CommitFileAsync("project.bep", "base\n", "initial");
+        CreateDirectorySymbolicLinkOrIgnore(Path.Combine(Root, "cycle-a"), "cycle-b");
+        CreateDirectorySymbolicLinkOrIgnore(Path.Combine(Root, "cycle-b"), "cycle-a");
+        Assert.Throws<IOException>(() =>
+            RepositoryPathComparer.ResolveCanonicalPath(
+                Path.Combine(Root, "cycle-a", "project.bep")));
+        using var service = CreateService();
+        PendingPullRecovery valid = await CreatePendingPullRecoveryAsync(service);
+        await ReplaceRecoveryProjectFileAsync(valid, "cycle-a/project.bep");
+
+        PendingPullRecovery recovery = (await service.GetPendingPullRecoveriesAsync(
+            CancellationToken.None)).Single();
+
+        Assert.That(recovery.ProjectFile,
+            Is.EqualTo(Path.Combine(Root, "cycle-a", "project.bep")));
+    }
+
+    [Test]
+    public async Task Pending_pull_recovery_enumerates_a_current_deep_symbolic_link_chain()
+    {
+        await CommitFileAsync("project.bep", "base\n", "initial");
+        Directory.CreateDirectory(Path.Combine(Root, "link-target"));
+        for (int index = 0; index < 65; index++)
+        {
+            string target = index == 64 ? "link-target" : $"link-{index + 1}";
+            CreateDirectorySymbolicLinkOrIgnore(Path.Combine(Root, $"link-{index}"), target);
+        }
+
+        Assert.Throws<IOException>(() =>
+            RepositoryPathComparer.ResolveCanonicalPath(
+                Path.Combine(Root, "link-0", "project.bep")));
+
+        using var service = CreateService();
+        PendingPullRecovery valid = await CreatePendingPullRecoveryAsync(service);
+        await ReplaceRecoveryProjectFileAsync(valid, "link-0/project.bep");
+
+        PendingPullRecovery recovery = (await service.GetPendingPullRecoveriesAsync(
+            CancellationToken.None)).Single();
+
+        Assert.That(recovery.ProjectFile,
+            Is.EqualTo(Path.Combine(Root, "link-0", "project.bep")));
+    }
+
+    [Test]
+    public async Task Pending_pull_recovery_round_trip_preserves_an_in_root_project_file_alias()
+    {
+        string targetDirectory = Path.Combine(Root, "target");
+        Directory.CreateDirectory(targetDirectory);
+        string targetProjectFile = Path.Combine(targetDirectory, "project-data");
+        string linkedRootContainer = CreateTemporaryDirectory();
+        string linkedRoot = Path.Combine(linkedRootContainer, "repository-link");
+        CreateDirectorySymbolicLinkOrIgnore(linkedRoot, Root);
+        string projectAlias = Path.Combine(linkedRoot, "project.bep");
+        string repositoryProjectAlias = Path.Combine(Root, "project.bep");
+        await File.WriteAllTextAsync(targetProjectFile, "base\n");
+        CreateFileSymbolicLinkOrIgnore(repositoryProjectAlias, "target/project-data");
+        await RunGitAsync("add", "-A");
+        await RunGitAsync("commit", "-m", "initial");
+        PendingPullRecovery persisted;
+        using (GitCliVersionControlService service = CreateService())
+        {
+            await File.WriteAllTextAsync(projectAlias, "local work\n");
+            ProjectCheckpoint checkpoint = await service.CreateProjectCheckpointAsync(
+                "beutl: checkpoint",
+                CancellationToken.None);
+            persisted = await service.PersistPendingPullRecoveryAsync(
+                checkpoint,
+                checkpoint.BaseTip,
+                projectAlias,
+                CancellationToken.None);
+        }
+
+        using GitCliVersionControlService restarted = CreateService();
+        PendingPullRecovery recovered = (await restarted.GetPendingPullRecoveriesAsync(
+            CancellationToken.None)).Single();
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(persisted.ProjectFile, Is.EqualTo(repositoryProjectAlias));
+            Assert.That(recovered.ProjectFile, Is.EqualTo(repositoryProjectAlias));
+            Assert.That(RepositoryPathComparer.AreEquivalent(recovered.ProjectFile, targetProjectFile),
+                Is.True);
+        });
+    }
+
+    [Test]
+    public async Task Pending_pull_recovery_accepts_case_variant_paths_on_case_insensitive_macos_volumes()
+    {
+        if (!OperatingSystem.IsMacOS())
+        {
+            Assert.Ignore("This regression covers macOS volume casing semantics.");
+        }
+
+        await CommitFileAsync("project.bep", "base\n", "initial");
+        string variantRoot = Root.ToUpperInvariant();
+        string variantProjectFile = Path.Combine(variantRoot, "PROJECT.BEP");
+        if (!File.Exists(variantProjectFile))
+        {
+            Assert.Ignore("The test volume is case-sensitive.");
+        }
+
+        using var service = CreateService();
+        await File.WriteAllTextAsync(variantProjectFile, "local work\n");
+        ProjectCheckpoint checkpoint = await service.CreateProjectCheckpointAsync(
+            "beutl: checkpoint",
+            CancellationToken.None);
+
+        PendingPullRecovery recovery = await service.PersistPendingPullRecoveryAsync(
+            checkpoint,
+            checkpoint.BaseTip,
+            variantProjectFile,
+            CancellationToken.None);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(RepositoryPathComparer.AreEquivalent(Root, variantRoot), Is.True);
+            Assert.That(
+                RepositoryPathComparer.AreEquivalent(
+                    recovery.ProjectFile,
+                    Path.Combine(Root, "project.bep")),
+                Is.True);
+        });
+    }
+
+    [Test]
+    public async Task Pending_pull_recovery_completion_retains_both_refs_when_descriptor_CAS_changes()
+    {
+        await CommitFileAsync("project.bep", "base\n", "initial");
+        PendingPullRecovery? pending = null;
+        string? tamperedObject = null;
+        GitCliRunner observer = CreateRunner();
+        var interceptingRunner = new InterceptingRunner(
+            CreateRunner(),
+            static (_, arguments, _) => arguments is ["update-ref", "--stdin"],
+            async (repository, _, _) => await observer.RunAsync(
+                repository,
+                [
+                    "update-ref",
+                    pending!.DescriptorRef,
+                    tamperedObject!,
+                    pending.DescriptorObject,
+                ],
+                GitCommandOptions.Local,
+                CancellationToken.None),
+            after: null);
+        using var service = CreateService(runner: interceptingRunner);
+        pending = await CreatePendingPullRecoveryAsync(service);
+        string descriptorJson = (await RunGitAsync(
+            "cat-file",
+            "blob",
+            pending.DescriptorObject)).Stdout;
+        JsonObject descriptor = JsonNode.Parse(descriptorJson)!.AsObject();
+        descriptor["CreatedAt"] = DateTimeOffset.UtcNow.AddMinutes(1);
+        tamperedObject = await WriteGitBlobAsync(descriptor.ToJsonString());
+
+        Assert.ThrowsAsync<PendingPullRecoveryChangedException>(async () =>
+            await service.CompletePendingPullRecoveryAsync(
+                pending,
+                CancellationToken.None));
+
+        string retainedDescriptor = (await RunGitAsync(
+            "rev-parse",
+            pending.DescriptorRef)).Stdout.Trim();
+        string retainedCheckpoint = (await RunGitAsync(
+            "rev-parse",
+            pending.Checkpoint.RefName)).Stdout.Trim();
+        Assert.Multiple(() =>
+        {
+            Assert.That(interceptingRunner.InterceptionCount, Is.EqualTo(1));
+            Assert.That(retainedDescriptor, Is.EqualTo(tamperedObject));
+            Assert.That(retainedCheckpoint, Is.EqualTo(pending.Checkpoint.Commit));
+        });
+    }
+
+    [Test]
+    public async Task Pending_pull_recovery_completion_accepts_a_lost_success_response()
+    {
+        await CommitFileAsync("project.bep", "base\n", "initial");
+        var interceptingRunner = new InterceptingRunner(
+            CreateRunner(),
+            static (_, arguments, _) => arguments is ["update-ref", "--stdin"],
+            before: null,
+            static (_, _, _) => throw new IOException(
+                "simulated lost response after atomic ref deletion"));
+        using var service = CreateService(runner: interceptingRunner);
+        PendingPullRecovery pending = await CreatePendingPullRecoveryAsync(service);
+
+        Assert.DoesNotThrowAsync(async () =>
+            await service.CompletePendingPullRecoveryAsync(
+                pending,
+                CancellationToken.None));
+        string remainingRefs = (await RunGitAsync(
+            "for-each-ref",
+            "--format=%(refname)",
+            "refs/beutl/")).Stdout;
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(interceptingRunner.InterceptionCount, Is.EqualTo(1));
+            Assert.That(remainingRefs, Is.Empty);
+        });
+    }
+
+    [Test]
     public async Task Checkpoint_preserves_enclosing_repository_staging_and_pull_refuses_it()
     {
         string projectRoot = Path.Combine(Root, "project");
@@ -1309,6 +2596,7 @@ public sealed class RemoteOperationsTests : RealGitTestRepository
         FastForwardPullResult pull = await service.PullFastForwardAsync(
             checkpoint.BaseTip,
             checkpoint,
+            Path.Combine(Root, "project.bep"),
             CancellationToken.None);
         string stagedOutsideAfter = (await RunGitAsync("show", ":outside.txt")).Stdout;
         string checkpointOutside = (await RunGitAsync(
@@ -1432,6 +2720,7 @@ public sealed class RemoteOperationsTests : RealGitTestRepository
         FastForwardPullResult pull = await service.PullFastForwardAsync(
             checkpoint.BaseTip,
             checkpoint,
+            Path.Combine(Root, "project.bep"),
             CancellationToken.None);
 
         Assert.Multiple(() =>
@@ -1465,6 +2754,7 @@ public sealed class RemoteOperationsTests : RealGitTestRepository
                 async () => await service.PullFastForwardAsync(
                     checkpoint.BaseTip,
                     checkpoint,
+                    Path.Combine(Root, "project.bep"),
                     CancellationToken.None),
                 Throws.TypeOf<DetachedHeadNotSupportedException>());
         });
@@ -1498,6 +2788,7 @@ public sealed class RemoteOperationsTests : RealGitTestRepository
             async () => await service.PullFastForwardAsync(
                 checkpoint.BaseTip,
                 checkpoint,
+                Path.Combine(Root, "project.bep"),
                 CancellationToken.None),
             Throws.TypeOf<InvalidOperationException>());
 
@@ -1584,6 +2875,76 @@ public sealed class RemoteOperationsTests : RealGitTestRepository
             repository ?? Repository,
             watcher: null,
             _ => runner ?? CreateRunner());
+    }
+
+    private async Task<PendingPullRecovery> CreatePendingPullRecoveryAsync(
+        GitCliVersionControlService service)
+    {
+        await File.WriteAllTextAsync(Path.Combine(Root, "project.bep"), "local work\n");
+        ProjectCheckpoint checkpoint = await service.CreateProjectCheckpointAsync(
+            "beutl: checkpoint",
+            CancellationToken.None);
+        return await service.PersistPendingPullRecoveryAsync(
+            checkpoint,
+            checkpoint.BaseTip,
+            Path.Combine(Root, "project.bep"),
+            CancellationToken.None);
+    }
+
+    private async Task<string> WriteGitBlobAsync(string contents)
+    {
+        GitCommandResult result = await Runner.RunAsync(
+            Repository,
+            ["hash-object", "-w", "--stdin"],
+            new GitCommandOptions(
+                GitCommandExecutionKind.Local,
+                StandardInput: contents),
+            CancellationToken.None);
+        return result.Stdout.Trim();
+    }
+
+    private async Task ReplaceRecoveryProjectFileAsync(
+        PendingPullRecovery recovery,
+        string projectFile)
+    {
+        string descriptorJson = (await RunGitAsync(
+            "cat-file",
+            "blob",
+            recovery.DescriptorObject)).Stdout;
+        JsonObject descriptor = JsonNode.Parse(descriptorJson)!.AsObject();
+        descriptor["ProjectFile"] = projectFile;
+        string descriptorObject = await WriteGitBlobAsync(descriptor.ToJsonString());
+        await RunGitAsync(
+            "update-ref",
+            recovery.DescriptorRef,
+            descriptorObject,
+            recovery.DescriptorObject);
+    }
+
+    private static void CreateDirectorySymbolicLinkOrIgnore(string linkPath, string targetPath)
+    {
+        try
+        {
+            Directory.CreateSymbolicLink(linkPath, targetPath);
+        }
+        catch (Exception ex)
+            when (ex is UnauthorizedAccessException or IOException or PlatformNotSupportedException)
+        {
+            Assert.Ignore($"Symbolic links are not creatable in this environment: {ex.Message}");
+        }
+    }
+
+    private static void CreateFileSymbolicLinkOrIgnore(string linkPath, string targetPath)
+    {
+        try
+        {
+            File.CreateSymbolicLink(linkPath, targetPath);
+        }
+        catch (Exception ex)
+            when (ex is UnauthorizedAccessException or IOException or PlatformNotSupportedException)
+        {
+            Assert.Ignore($"Symbolic links are not creatable in this environment: {ex.Message}");
+        }
     }
 
     private async Task<string> CreateBareRemoteAsync()

@@ -1,4 +1,5 @@
-﻿using Beutl.Editor.VersionControl;
+﻿using System.Diagnostics;
+using Beutl.Editor.VersionControl;
 using Microsoft.Extensions.Time.Testing;
 
 namespace Beutl.UnitTests.Editor.VersionControl;
@@ -183,6 +184,84 @@ public class GitCliRunnerTests : RealGitTestRepository
     }
 
     [Test]
+    [NonParallelizable]
+    public async Task CreateStartInfo_removes_ambient_repository_routing_environment_before_overrides()
+    {
+        string[] localEnvironmentVariables =
+        [
+            "GIT_ALTERNATE_OBJECT_DIRECTORIES",
+            "GIT_CONFIG",
+            "GIT_CONFIG_PARAMETERS",
+            "GIT_CONFIG_COUNT",
+            "GIT_OBJECT_DIRECTORY",
+            "GIT_DIR",
+            "GIT_WORK_TREE",
+            "GIT_IMPLICIT_WORK_TREE",
+            "GIT_GRAFT_FILE",
+            "GIT_INDEX_FILE",
+            "GIT_NO_REPLACE_OBJECTS",
+            "GIT_REPLACE_REF_BASE",
+            "GIT_PREFIX",
+            "GIT_SHALLOW_FILE",
+            "GIT_COMMON_DIR",
+        ];
+        var originalValues = localEnvironmentVariables.ToDictionary(
+            static name => name,
+            Environment.GetEnvironmentVariable);
+        ProcessStartInfo startInfo;
+        try
+        {
+            foreach (string name in localEnvironmentVariables)
+            {
+                Environment.SetEnvironmentVariable(name, "ambient-poison");
+            }
+
+            Dictionary<string, string?> constructorEnvironment =
+                IsolatedGitEnvironment.ToDictionary(
+                    static pair => pair.Key,
+                    static pair => (string?)pair.Value);
+            constructorEnvironment["GIT_INDEX_FILE"] = "/beutl/constructor-index";
+            var runner = new GitCliRunner(
+                GitPath,
+                TimeSpan.FromSeconds(10),
+                constructorEnvironment);
+            var options = new GitCommandOptions(
+                GitCommandExecutionKind.Local,
+                new Dictionary<string, string?>
+                {
+                    ["GIT_WORK_TREE"] = "/beutl/command-worktree",
+                });
+
+            startInfo = await runner.CreateStartInfoAsync(
+                Repository,
+                ["status"],
+                options);
+        }
+        finally
+        {
+            foreach ((string name, string? value) in originalValues)
+            {
+                Environment.SetEnvironmentVariable(name, value);
+            }
+        }
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(
+                startInfo.Environment["GIT_INDEX_FILE"],
+                Is.EqualTo("/beutl/constructor-index"));
+            Assert.That(
+                startInfo.Environment["GIT_WORK_TREE"],
+                Is.EqualTo("/beutl/command-worktree"));
+            Assert.That(
+                localEnvironmentVariables
+                    .Except(["GIT_INDEX_FILE", "GIT_WORK_TREE"])
+                    .Where(startInfo.Environment.ContainsKey),
+                Is.Empty);
+        });
+    }
+
+    [Test]
     public void SplitNullSeparated_preserves_spaces_and_omits_terminal_empty_record()
     {
         IReadOnlyList<string> values = GitCliRunner.SplitNullSeparated("one\0two words\0three\0");
@@ -298,6 +377,87 @@ public class GitCliRunnerTests : RealGitTestRepository
                 GitCommandOptions.Local with { MaxStdoutBytes = 1 },
                 cancellation.Token));
         Assert.That(runner.HasActiveProcess, Is.False);
+    }
+
+    [Test]
+    public async Task Local_timeout_covers_pipe_drains_after_wrapper_exits()
+    {
+        if (OperatingSystem.IsWindows())
+        {
+            Assert.Ignore("This live inherited-pipe regression uses the Unix process model.");
+        }
+
+        (GitCliRunner runner, Task<GitCommandResult> runTask, string pidPath) =
+            StartExitedWrapperWithPipeHoldingDescendant(
+                TimeSpan.FromSeconds(1),
+                CancellationToken.None);
+        var stopwatch = Stopwatch.StartNew();
+
+        try
+        {
+            Assert.That(await WaitForRecordedProcessIdAsync(pidPath), Is.Not.Null);
+            Assert.ThrowsAsync<TimeoutException>(
+                async () => await runTask.WaitAsync(TimeSpan.FromSeconds(4)));
+            stopwatch.Stop();
+
+            Assert.Multiple(() =>
+            {
+                Assert.That(
+                    runTask.IsCompleted,
+                    Is.True,
+                    "The runner must enforce its deadline instead of relying on the test safety timeout.");
+                Assert.That(stopwatch.Elapsed, Is.LessThan(TimeSpan.FromSeconds(3)));
+                Assert.That(runner.HasActiveProcess, Is.False);
+            });
+        }
+        finally
+        {
+            await KillRecordedProcessAsync(pidPath);
+            await ObserveAsync(runTask);
+        }
+    }
+
+    [Test]
+    public async Task Caller_cancellation_covers_pipe_drains_after_wrapper_exits()
+    {
+        if (OperatingSystem.IsWindows())
+        {
+            Assert.Ignore("This live inherited-pipe regression uses the Unix process model.");
+        }
+
+        using var cancellation = new CancellationTokenSource();
+        (GitCliRunner runner, Task<GitCommandResult> runTask, string pidPath) =
+            StartExitedWrapperWithPipeHoldingDescendant(
+                TimeSpan.FromSeconds(10),
+                cancellation.Token);
+
+        try
+        {
+            Assert.That(await WaitForRecordedProcessIdAsync(pidPath), Is.Not.Null);
+            await Task.Delay(200);
+            var stopwatch = Stopwatch.StartNew();
+            cancellation.Cancel();
+
+            OperationCanceledException? exception = Assert.ThrowsAsync<OperationCanceledException>(
+                async () => await runTask.WaitAsync(TimeSpan.FromSeconds(3)));
+            stopwatch.Stop();
+
+            Assert.Multiple(() =>
+            {
+                Assert.That(exception!.CancellationToken, Is.EqualTo(cancellation.Token));
+                Assert.That(
+                    runTask.IsCompleted,
+                    Is.True,
+                    "The runner must enforce caller cancellation instead of relying on the test safety timeout.");
+                Assert.That(stopwatch.Elapsed, Is.LessThan(TimeSpan.FromSeconds(2)));
+                Assert.That(runner.HasActiveProcess, Is.False);
+            });
+        }
+        finally
+        {
+            await KillRecordedProcessAsync(pidPath);
+            await ObserveAsync(runTask);
+        }
     }
 
     [Test]
@@ -631,6 +791,86 @@ public class GitCliRunnerTests : RealGitTestRepository
         public void Report(string value)
         {
             Messages.Add(value);
+        }
+    }
+
+    private (GitCliRunner Runner, Task<GitCommandResult> RunTask, string PidPath)
+        StartExitedWrapperWithPipeHoldingDescendant(
+            TimeSpan localTimeout,
+            CancellationToken cancellationToken)
+    {
+        string pidPath = Path.Combine(CreateTemporaryDirectory(), "descendant.pid");
+        var runner = new GitCliRunner(
+            "/bin/sh",
+            localTimeout,
+            IsolatedGitEnvironment);
+        var options = new GitCommandOptions(
+            GitCommandExecutionKind.Local,
+            new Dictionary<string, string?>
+            {
+                ["BEUTL_TEST_DESCENDANT_PID"] = pidPath,
+            });
+        const string command =
+            "sleep 30 & descendant=$!; "
+            + "printf '%s' \"$descendant\" > \"$BEUTL_TEST_DESCENDANT_PID\"; exit 0";
+        Task<GitCommandResult> runTask = runner.RunAsync(
+            Repository,
+            ["-c", command],
+            options,
+            cancellationToken);
+        return (runner, runTask, pidPath);
+    }
+
+    private static async Task<int?> WaitForRecordedProcessIdAsync(string pidPath)
+    {
+        for (int attempt = 0; attempt < 100; attempt++)
+        {
+            if (File.Exists(pidPath)
+                && int.TryParse(await File.ReadAllTextAsync(pidPath), out int processId))
+            {
+                return processId;
+            }
+
+            await Task.Delay(10);
+        }
+
+        return null;
+    }
+
+    private static async Task KillRecordedProcessAsync(string pidPath)
+    {
+        int? processId = await WaitForRecordedProcessIdAsync(pidPath);
+        if (processId is null)
+        {
+            return;
+        }
+
+        try
+        {
+            using Process process = Process.GetProcessById(processId.Value);
+            if (!process.HasExited)
+            {
+                process.Kill(entireProcessTree: true);
+                await process.WaitForExitAsync().WaitAsync(TimeSpan.FromSeconds(2));
+            }
+        }
+        catch (Exception ex) when (ex is ArgumentException
+                                   or InvalidOperationException
+                                   or System.ComponentModel.Win32Exception
+                                   or NotSupportedException
+                                   or TimeoutException)
+        {
+        }
+    }
+
+    private static async Task ObserveAsync(Task task)
+    {
+        try
+        {
+            await task.WaitAsync(TimeSpan.FromSeconds(2));
+        }
+        catch
+        {
         }
     }
 

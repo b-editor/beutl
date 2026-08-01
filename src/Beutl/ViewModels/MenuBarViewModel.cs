@@ -1,4 +1,5 @@
-﻿using Beutl.Logging;
+﻿using Beutl.Editor.VersionControl;
+using Beutl.Logging;
 using Beutl.Services;
 
 using Microsoft.Extensions.Logging;
@@ -12,17 +13,18 @@ public sealed partial class MenuBarViewModel
     private readonly ILogger _logger = Log.CreateLogger<MenuBarViewModel>();
     private readonly ProjectService _projectService;
     private readonly EditorService _editorService;
-    private readonly VersionControlCoordinator _versionControlCoordinator;
+    private readonly IProjectVersionControlSession _versionControlSession;
 
 #pragma warning disable CS8618
     public MenuBarViewModel(
         ProjectService projectService,
         EditorService editorService,
-        VersionControlCoordinator versionControlCoordinator)
+        IProjectVersionControlSession versionControlSession)
     {
-        _projectService = projectService;
-        _editorService = editorService;
-        _versionControlCoordinator = versionControlCoordinator;
+        _projectService = projectService ?? throw new ArgumentNullException(nameof(projectService));
+        _editorService = editorService ?? throw new ArgumentNullException(nameof(editorService));
+        _versionControlSession = versionControlSession
+            ?? throw new ArgumentNullException(nameof(versionControlSession));
         IsProjectOpened = _projectService.IsOpened;
 
         IObservable<bool> isSceneOpened = _editorService.SelectedTabItem

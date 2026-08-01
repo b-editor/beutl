@@ -7,7 +7,9 @@ using System.Windows.Input;
 using Avalonia.Threading;
 using Beutl.Editor.VersionControl;
 using Beutl.Extensibility;
+using Beutl.Logging;
 using Beutl.Services;
+using Microsoft.Extensions.Logging;
 using Reactive.Bindings;
 using Reactive.Bindings.Extensions;
 
@@ -19,6 +21,7 @@ public sealed class VersionControlTabViewModel : IToolContext
     private static readonly Uri s_gitDownloadsUri = new("https://git-scm.com/downloads");
 
     private readonly IEditorContext _editorContext;
+    private readonly ILogger _logger = Log.CreateLogger<VersionControlTabViewModel>();
     private readonly IProjectVersionControlCoordinator? _versionControlCoordinator;
     private readonly Action<Action> _postToUi;
     private readonly VersionControlRelativeTimeFormatter _relativeTimeFormatter;
@@ -35,10 +38,13 @@ public sealed class VersionControlTabViewModel : IToolContext
     private CancellationTokenSource? _selectionCancellation;
     private CancellationTokenSource? _remoteOperationCancellation;
     private int _serviceRevision;
+    private int _pendingRecoveryQueryRevision;
     private int _nextHistoryOffset;
     private int _aheadCount;
     private int _behindCount;
     private int _restoreRequestActive;
+    private int _pendingRecoveryRequestActive;
+    private string? _pendingRecoveryId;
     private bool _hasUncommittedChanges;
     private bool _disposed;
 
@@ -76,6 +82,11 @@ public sealed class VersionControlTabViewModel : IToolContext
         IProjectVersionControlService? service = serviceSource.Value;
         _versionControlCoordinator = versionControlCoordinator;
         _postToUi = postToUi ?? throw new ArgumentNullException(nameof(postToUi));
+        if (_versionControlCoordinator is not null)
+        {
+            _versionControlCoordinator.PendingPullRecoveriesChanged +=
+                OnPendingPullRecoveriesChanged;
+        }
         _relativeTimeFormatter = new VersionControlRelativeTimeFormatter(
             timeProvider ?? TimeProvider.System,
             culture ?? CultureInfo.CurrentUICulture);
@@ -92,6 +103,8 @@ public sealed class VersionControlTabViewModel : IToolContext
             .DisposeWith(_disposables);
         HasRecoverableLock = new ReactivePropertySlim<bool>(
                 _lockRecoveryService?.RecoverableLock is not null)
+            .DisposeWith(_disposables);
+        HasPendingPullRecovery = new ReactivePropertySlim<bool>()
             .DisposeWith(_disposables);
         DirtySummary = new ReactivePropertySlim<string>()
             .DisposeWith(_disposables);
@@ -164,6 +177,9 @@ public sealed class VersionControlTabViewModel : IToolContext
             .DisposeWith(_disposables);
         RemoveStaleLockCommand = new AsyncReactiveCommand(HasRecoverableLock)
             .WithSubscribe(RemoveStaleLockAsync)
+            .DisposeWith(_disposables);
+        RecoverPendingPullCommand = new AsyncReactiveCommand(HasPendingPullRecovery)
+            .WithSubscribe(RecoverPendingPullAsync)
             .DisposeWith(_disposables);
         IObservable<bool> canMutate = IsTracked.CombineLatest(
             HasBlockingGuidance,
@@ -259,6 +275,8 @@ public sealed class VersionControlTabViewModel : IToolContext
 
     public ReactivePropertySlim<bool> HasRecoverableLock { get; }
 
+    public ReactivePropertySlim<bool> HasPendingPullRecovery { get; }
+
     public ReactivePropertySlim<string> DirtySummary { get; }
 
     public ReactivePropertySlim<string> StatusMessage { get; }
@@ -310,6 +328,8 @@ public sealed class VersionControlTabViewModel : IToolContext
     public AsyncReactiveCommand DownloadGitCommand { get; }
 
     public AsyncReactiveCommand RemoveStaleLockCommand { get; }
+
+    public AsyncReactiveCommand RecoverPendingPullCommand { get; }
 
     public AsyncReactiveCommand CommitCommand { get; }
 
@@ -599,6 +619,13 @@ public sealed class VersionControlTabViewModel : IToolContext
         }
 
         _disposed = true;
+        Interlocked.Increment(ref _pendingRecoveryQueryRevision);
+        if (_versionControlCoordinator is not null)
+        {
+            _versionControlCoordinator.PendingPullRecoveriesChanged -=
+                OnPendingPullRecoveriesChanged;
+        }
+
         DetachServiceEvents();
         _serviceBindingCancellation?.Cancel();
         _serviceBindingCancellation?.Dispose();
@@ -670,6 +697,36 @@ public sealed class VersionControlTabViewModel : IToolContext
 
         await _lockRecoveryService.RemoveRecoverableLockAsync(CancellationToken.None);
         HasRecoverableLock.Value = _lockRecoveryService.RecoverableLock is not null;
+    }
+
+    internal async Task RecoverPendingPullAsync()
+    {
+        string? recoveryId = _pendingRecoveryId;
+        if (_versionControlCoordinator is null
+            || recoveryId is null
+            || Interlocked.CompareExchange(ref _pendingRecoveryRequestActive, 1, 0) != 0)
+        {
+            return;
+        }
+
+        try
+        {
+            ProjectRecoveryResult result =
+                await _versionControlCoordinator.RecoverPendingPullAsync(
+                recoveryId,
+                CancellationToken.None);
+            bool recovered = result is ProjectRecoveryResult.RestoredOriginal
+                or ProjectRecoveryResult.ReappliedCheckpoint;
+            if (recovered && !_disposed)
+            {
+                _pendingRecoveryId = null;
+                HasPendingPullRecovery.Value = false;
+            }
+        }
+        finally
+        {
+            Volatile.Write(ref _pendingRecoveryRequestActive, 0);
+        }
     }
 
     private async Task<bool> RunRestoreRequestAsync(Func<Task<bool>> operation)
@@ -763,6 +820,7 @@ public sealed class VersionControlTabViewModel : IToolContext
         _aheadCount = 0;
         _behindCount = 0;
         _hasUncommittedChanges = false;
+        Interlocked.Increment(ref _pendingRecoveryQueryRevision);
 
         bool isTracked = _service?.Repository is not null;
         IsTracked.Value = isTracked;
@@ -771,6 +829,8 @@ public sealed class VersionControlTabViewModel : IToolContext
         IsConflicted.Value = false;
         HasBlockingGuidance.Value = false;
         HasRecoverableLock.Value = _lockRecoveryService?.RecoverableLock is not null;
+        HasPendingPullRecovery.Value = false;
+        _pendingRecoveryId = null;
         DirtySummary.Value = string.Empty;
         StatusMessage.Value = isTracked
             ? string.Empty
@@ -839,6 +899,12 @@ public sealed class VersionControlTabViewModel : IToolContext
             return;
         }
 
+        await RefreshPendingPullRecoveryAsync(service, revision, cancellationToken);
+        if (!IsCurrentService(service, revision, cancellationToken))
+        {
+            return;
+        }
+
         WorkspaceStatus status;
         try
         {
@@ -873,6 +939,68 @@ public sealed class VersionControlTabViewModel : IToolContext
             {
             }
         }
+    }
+
+    private async Task RefreshPendingPullRecoveryAsync(
+        IProjectVersionControlService service,
+        int revision,
+        CancellationToken cancellationToken)
+    {
+        int queryRevision = Interlocked.Increment(ref _pendingRecoveryQueryRevision);
+        if (_versionControlCoordinator is null)
+        {
+            return;
+        }
+
+        try
+        {
+            IReadOnlyList<ProjectRecoveryInfo> recoveries =
+                await _versionControlCoordinator.GetPendingPullRecoveriesAsync(
+                cancellationToken);
+            if (!IsCurrentService(service, revision, cancellationToken)
+                || queryRevision != Volatile.Read(ref _pendingRecoveryQueryRevision))
+            {
+                return;
+            }
+
+            ProjectRecoveryInfo? recovery = recoveries
+                .OrderBy(static item => item.CreatedAt)
+                .ThenBy(static item => item.Id, StringComparer.Ordinal)
+                .FirstOrDefault();
+            _pendingRecoveryId = recovery?.Id;
+            HasPendingPullRecovery.Value = recovery is not null;
+        }
+        catch (OperationCanceledException)
+        {
+            return;
+        }
+        catch (ObjectDisposedException)
+        {
+            return;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Failed to refresh pending pull recovery state.");
+        }
+    }
+
+    private void OnPendingPullRecoveriesChanged(object? sender, EventArgs e)
+    {
+        _postToUi(() =>
+        {
+            if (_disposed || _service is not { } service)
+            {
+                return;
+            }
+
+            int revision = _serviceRevision;
+            CancellationToken cancellationToken =
+                _serviceBindingCancellation?.Token ?? CancellationToken.None;
+            Initialization = RefreshPendingPullRecoveryAsync(
+                service,
+                revision,
+                cancellationToken);
+        });
     }
 
     private bool IsCurrentService(
@@ -1066,10 +1194,14 @@ public sealed class VersionControlTabViewModel : IToolContext
             }
 
             ApplyStatus(status);
+            CancellationToken cancellationToken =
+                _serviceBindingCancellation?.Token ?? CancellationToken.None;
+            Initialization = RefreshPendingPullRecoveryAsync(
+                eventService,
+                _serviceRevision,
+                cancellationToken);
             if (!status.HasConflicts)
             {
-                CancellationToken cancellationToken =
-                    _serviceBindingCancellation?.Token ?? CancellationToken.None;
                 _ = RefreshAfterStatusChangedAsync(
                     eventService,
                     cancellationToken);

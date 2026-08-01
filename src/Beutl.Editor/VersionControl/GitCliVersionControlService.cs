@@ -1,4 +1,5 @@
 ﻿using System.Text;
+using System.Text.Json;
 using Beutl.Language;
 using Beutl.Logging;
 using Microsoft.Extensions.Logging;
@@ -8,6 +9,23 @@ namespace Beutl.Editor.VersionControl;
 internal sealed class GitCliVersionControlService :
     IProjectVersionControlBackend
 {
+    private const int PendingPullRecoveryFormatVersion = 1;
+    private const int MaxPendingRecoveryListBytes = 1024 * 1024;
+    private const int MaxPendingRecoveryDescriptorBytes = 64 * 1024;
+    private static readonly JsonSerializerOptions s_recoveryJsonOptions =
+        new(JsonSerializerOptions.Strict);
+
+    private sealed record PendingPullRecoveryData(
+        int Version,
+        string Id,
+        string CheckpointRef,
+        string CheckpointCommit,
+        string BranchRef,
+        string BaseCommit,
+        string TargetCommit,
+        string ProjectFile,
+        DateTimeOffset CreatedAt);
+
     private sealed record LfsAttributeQueryResult(
         HashSet<string> CoveredPaths,
         bool IsComplete);
@@ -148,36 +166,42 @@ internal sealed class GitCliVersionControlService :
         ".gitattributes text eol=lf",
     ];
 
-    private static readonly string[] s_lfsAttributeLines =
+    private static readonly string[] s_supportedMediaExtensions =
     [
-        "resources/**/*.mp4 filter=lfs diff=lfs merge=lfs -text",
-        "resources/**/*.mov filter=lfs diff=lfs merge=lfs -text",
-        "resources/**/*.mkv filter=lfs diff=lfs merge=lfs -text",
-        "resources/**/*.avi filter=lfs diff=lfs merge=lfs -text",
-        "resources/**/*.wmv filter=lfs diff=lfs merge=lfs -text",
-        "resources/**/*.flv filter=lfs diff=lfs merge=lfs -text",
-        "resources/**/*.webm filter=lfs diff=lfs merge=lfs -text",
-        "resources/**/*.wav filter=lfs diff=lfs merge=lfs -text",
-        "resources/**/*.mp3 filter=lfs diff=lfs merge=lfs -text",
-        "resources/**/*.flac filter=lfs diff=lfs merge=lfs -text",
-        "resources/**/*.aac filter=lfs diff=lfs merge=lfs -text",
-        "resources/**/*.m4a filter=lfs diff=lfs merge=lfs -text",
-        "resources/**/*.ogg filter=lfs diff=lfs merge=lfs -text",
-        "resources/**/*.opus filter=lfs diff=lfs merge=lfs -text",
-        "resources/**/*.wma filter=lfs diff=lfs merge=lfs -text",
-        "resources/**/*.png filter=lfs diff=lfs merge=lfs -text",
-        "resources/**/*.jpg filter=lfs diff=lfs merge=lfs -text",
-        "resources/**/*.jpeg filter=lfs diff=lfs merge=lfs -text",
-        "resources/**/*.gif filter=lfs diff=lfs merge=lfs -text",
-        "resources/**/*.bmp filter=lfs diff=lfs merge=lfs -text",
-        "resources/**/*.webp filter=lfs diff=lfs merge=lfs -text",
-        "resources/**/*.tiff filter=lfs diff=lfs merge=lfs -text",
-        "resources/**/*.tif filter=lfs diff=lfs merge=lfs -text",
+        ".mp4",
+        ".mov",
+        ".mkv",
+        ".avi",
+        ".wmv",
+        ".flv",
+        ".webm",
+        ".wav",
+        ".mp3",
+        ".flac",
+        ".aac",
+        ".m4a",
+        ".ogg",
+        ".opus",
+        ".wma",
+        ".png",
+        ".jpg",
+        ".jpeg",
+        ".gif",
+        ".bmp",
+        ".webp",
+        ".tiff",
+        ".tif",
     ];
 
+    private static readonly string[] s_lfsAttributeLines =
+        s_supportedMediaExtensions
+            .Select(static extension =>
+                $"resources/**/*{CreateCaseInsensitiveGlob(extension)} "
+                + "filter=lfs diff=lfs merge=lfs -text")
+            .ToArray();
+
     private static readonly HashSet<string> s_mediaExtensions = new(
-        s_lfsAttributeLines.Select(static line =>
-            Path.GetExtension(line.Split(' ', 2)[0])),
+        s_supportedMediaExtensions,
         StringComparer.OrdinalIgnoreCase);
 
     private static readonly HashSet<string> s_projectFileExtensions = new(
@@ -199,6 +223,27 @@ internal sealed class GitCliVersionControlService :
         "**/.[bB][eE][uU][tT][lL]/**",
         "**/*.[tT][mM][pP]",
     ];
+
+    private static string CreateCaseInsensitiveGlob(string value)
+    {
+        var builder = new StringBuilder(value.Length * 4);
+        foreach (char character in value)
+        {
+            if (character is >= 'a' and <= 'z')
+            {
+                builder.Append('[')
+                    .Append(character)
+                    .Append(char.ToUpperInvariant(character))
+                    .Append(']');
+            }
+            else
+            {
+                builder.Append(character);
+            }
+        }
+
+        return builder.ToString();
+    }
 
     private readonly GitInstallationLocator _installationLocator;
     private readonly Func<string, IGitCliRunner> _runnerFactory;
@@ -411,6 +456,17 @@ internal sealed class GitCliVersionControlService :
             cancellationToken);
     }
 
+    public Task<PullPreflightResult> PreflightPullAsync(
+        CheckedOutBranchTip expectedCurrent,
+        CancellationToken cancellationToken)
+    {
+        ThrowIfDisposed();
+        ArgumentNullException.ThrowIfNull(expectedCurrent);
+        return RunSerializedAsync(
+            () => PreflightPullCoreAsync(expectedCurrent, cancellationToken),
+            cancellationToken);
+    }
+
     public Task<ProjectCheckpoint> CreateProjectCheckpointAsync(
         string message,
         CancellationToken cancellationToken)
@@ -419,6 +475,56 @@ internal sealed class GitCliVersionControlService :
         ArgumentException.ThrowIfNullOrWhiteSpace(message);
         return RunSerializedAsync(
             () => CreateProjectCheckpointCoreAsync(message, cancellationToken),
+            cancellationToken);
+    }
+
+    public Task<PendingPullRecovery> PersistPendingPullRecoveryAsync(
+        ProjectCheckpoint checkpoint,
+        CheckedOutBranchTip targetTip,
+        string projectFile,
+        CancellationToken cancellationToken)
+    {
+        ThrowIfDisposed();
+        ArgumentNullException.ThrowIfNull(checkpoint);
+        ArgumentNullException.ThrowIfNull(targetTip);
+        ArgumentException.ThrowIfNullOrWhiteSpace(projectFile);
+        return RunSerializedAsync(
+            () => PersistPendingPullRecoveryCoreAsync(
+                checkpoint,
+                targetTip,
+                projectFile,
+                cancellationToken),
+            cancellationToken);
+    }
+
+    public Task<IReadOnlyList<PendingPullRecovery>> GetPendingPullRecoveriesAsync(
+        CancellationToken cancellationToken)
+    {
+        ThrowIfDisposed();
+        return RunSerializedAsync(
+            () => GetPendingPullRecoveriesCoreAsync(cancellationToken),
+            cancellationToken);
+    }
+
+    public Task<PendingPullRecoveryOutcome> RecoverPendingPullRecoveryAsync(
+        PendingPullRecovery recovery,
+        CancellationToken cancellationToken)
+    {
+        ThrowIfDisposed();
+        ArgumentNullException.ThrowIfNull(recovery);
+        return RunSerializedAsync(
+            () => RecoverPendingPullRecoveryCoreAsync(recovery, cancellationToken),
+            cancellationToken);
+    }
+
+    public Task CompletePendingPullRecoveryAsync(
+        PendingPullRecovery recovery,
+        CancellationToken cancellationToken)
+    {
+        ThrowIfDisposed();
+        ArgumentNullException.ThrowIfNull(recovery);
+        return RunSerializedAsync(
+            () => CompletePendingPullRecoveryCoreAsync(recovery, cancellationToken),
             cancellationToken);
     }
 
@@ -589,12 +695,18 @@ internal sealed class GitCliVersionControlService :
     public Task<FastForwardPullResult> PullFastForwardAsync(
         CheckedOutBranchTip expectedCurrent,
         ProjectCheckpoint? checkpoint,
+        string projectFile,
         CancellationToken cancellationToken)
     {
         ThrowIfDisposed();
         ArgumentNullException.ThrowIfNull(expectedCurrent);
+        ArgumentException.ThrowIfNullOrWhiteSpace(projectFile);
         return RunSerializedAsync(
-            () => PullFastForwardCoreAsync(expectedCurrent, checkpoint, cancellationToken),
+            () => PullFastForwardCoreAsync(
+                expectedCurrent,
+                checkpoint,
+                projectFile,
+                cancellationToken),
             cancellationToken);
     }
 
@@ -1168,9 +1280,1005 @@ internal sealed class GitCliVersionControlService :
         }
     }
 
+    private async Task<PendingPullRecovery> PersistPendingPullRecoveryCoreAsync(
+        ProjectCheckpoint checkpoint,
+        CheckedOutBranchTip targetTip,
+        string projectFile,
+        CancellationToken cancellationToken)
+    {
+        RepositoryInfo repository = GetRepository();
+        IGitCliRunner runner = await GetInstalledRunnerCoreAsync(cancellationToken)
+            .ConfigureAwait(false);
+        await ValidateCheckpointAsync(repository, runner, checkpoint, cancellationToken)
+            .ConfigureAwait(false);
+        ValidateAttachedBranchTip(targetTip, nameof(targetTip));
+        if (!string.Equals(
+                targetTip.RefName,
+                checkpoint.BaseTip.RefName,
+                StringComparison.Ordinal))
+        {
+            throw new ArgumentException(
+                "The recovery target must identify the checkpoint's local branch.",
+                nameof(targetTip));
+        }
+
+        string? resolvedTarget = await TryResolveCommitAsync(
+                repository,
+                runner,
+                targetTip.Commit,
+                cancellationToken)
+            .ConfigureAwait(false);
+        if (!string.Equals(
+                resolvedTarget,
+                targetTip.Commit,
+                StringComparison.OrdinalIgnoreCase))
+        {
+            throw new ArgumentException(
+                "The recovery target must resolve to an existing commit.",
+                nameof(targetTip));
+        }
+
+        string relativeProjectFile = GetRecoveryProjectFile(repository, projectFile);
+        string absoluteProjectFile = GetLexicalRecoveryProjectFile(
+            repository,
+            relativeProjectFile);
+        ValidateRecoveryProjectFilePhysicalContainment(repository, absoluteProjectFile);
+        string id = Guid.NewGuid().ToString("N");
+        string descriptorRef = GetPendingRecoveryRefPrefix(repository) + id;
+        DateTimeOffset createdAt = DateTimeOffset.UtcNow;
+        var data = new PendingPullRecoveryData(
+            PendingPullRecoveryFormatVersion,
+            id,
+            checkpoint.RefName,
+            checkpoint.Commit,
+            checkpoint.BaseTip.RefName,
+            checkpoint.BaseTip.Commit,
+            targetTip.Commit,
+            relativeProjectFile,
+            createdAt);
+        string json = JsonSerializer.Serialize(data, s_recoveryJsonOptions);
+        GitCommandResult descriptorObjectResult = await runner.RunAsync(
+            repository,
+            ["hash-object", "-w", "--stdin"],
+            new GitCommandOptions(
+                GitCommandExecutionKind.Local,
+                StandardInput: json),
+            cancellationToken).ConfigureAwait(false);
+        string descriptorObject = descriptorObjectResult.Stdout.Trim();
+        GitRevisionValidator.ValidateCommitId(descriptorObject, nameof(descriptorObject));
+
+        cancellationToken.ThrowIfCancellationRequested();
+        try
+        {
+            await runner.RunAsync(
+                repository,
+                [
+                    "update-ref",
+                    "--create-reflog",
+                    "-m",
+                    "beutl pending pull recovery",
+                    descriptorRef,
+                    descriptorObject,
+                    string.Empty,
+                ],
+                GitCommandOptions.Local,
+                CancellationToken.None).ConfigureAwait(false);
+        }
+        catch (Exception publicationException)
+        {
+            string? observedObject;
+            try
+            {
+                observedObject = await TryResolveObjectAsync(
+                        repository,
+                        runner,
+                        descriptorRef,
+                        CancellationToken.None)
+                    .ConfigureAwait(false);
+            }
+            catch (Exception observationException)
+            {
+                throw new AggregateException(
+                    "The pending pull recovery publication failed and its durable result could not be observed.",
+                    publicationException,
+                    observationException);
+            }
+
+            if (!string.Equals(
+                    observedObject,
+                    descriptorObject,
+                    StringComparison.OrdinalIgnoreCase))
+            {
+                if (observedObject is null)
+                {
+                    throw;
+                }
+
+                throw new PendingPullRecoveryChangedException(descriptorRef);
+            }
+        }
+
+        return new PendingPullRecovery(
+            id,
+            descriptorRef,
+            descriptorObject,
+            checkpoint,
+            targetTip,
+            absoluteProjectFile,
+            createdAt);
+    }
+
+    private async Task<IReadOnlyList<PendingPullRecovery>> GetPendingPullRecoveriesCoreAsync(
+        CancellationToken cancellationToken)
+    {
+        RepositoryInfo repository = GetRepository();
+        IGitCliRunner runner = await GetInstalledRunnerCoreAsync(cancellationToken)
+            .ConfigureAwait(false);
+        GitCommandResult refs = await runner.RunAsync(
+            repository,
+            [
+                "for-each-ref",
+                "--sort=refname",
+                "--format=%(refname)%00%(objectname)",
+                GetPendingRecoveryRefPrefix(repository),
+            ],
+            new GitCommandOptions(
+                GitCommandExecutionKind.Local,
+                MaxStdoutBytes: MaxPendingRecoveryListBytes),
+            cancellationToken).ConfigureAwait(false);
+        if (refs.StdoutTruncated)
+        {
+            throw new InvalidOperationException(
+                "The pending pull recovery list exceeded the safe output limit.");
+        }
+
+        var result = new List<PendingPullRecovery>();
+        foreach (string rawLine in refs.Stdout.Split('\n', StringSplitOptions.RemoveEmptyEntries))
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            string line = rawLine.TrimEnd('\r');
+            string[] fields = line.Split('\0');
+            if (fields.Length != 2)
+            {
+                _logger.LogWarning(
+                    "Ignored a malformed pending pull recovery ref record in {RepositoryRoot}.",
+                    repository.RepoRoot);
+                continue;
+            }
+
+            try
+            {
+                PendingPullRecovery? recovery = await ReadPendingPullRecoveryAsync(
+                        repository,
+                        runner,
+                        fields[0],
+                        fields[1],
+                        cancellationToken)
+                    .ConfigureAwait(false);
+                if (recovery is not null)
+                {
+                    result.Add(recovery);
+                }
+            }
+            catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+            {
+                throw;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(
+                    ex,
+                    "Ignored invalid pending pull recovery descriptor {RecoveryRef}.",
+                    fields[0]);
+            }
+        }
+
+        return result
+            .OrderBy(static recovery => recovery.CreatedAt)
+            .ThenBy(static recovery => recovery.Id, StringComparer.Ordinal)
+            .ToArray();
+    }
+
+    private async Task<PendingPullRecovery?> ReadPendingPullRecoveryAsync(
+        RepositoryInfo repository,
+        IGitCliRunner runner,
+        string descriptorRef,
+        string descriptorObject,
+        CancellationToken cancellationToken)
+    {
+        string prefix = GetPendingRecoveryRefPrefix(repository);
+        if (!descriptorRef.StartsWith(prefix, StringComparison.Ordinal))
+        {
+            return null;
+        }
+
+        string id = descriptorRef[prefix.Length..];
+        if (!Guid.TryParseExact(id, "N", out _)
+            || id.Contains('/', StringComparison.Ordinal))
+        {
+            return null;
+        }
+
+        GitRevisionValidator.ValidateCommitId(descriptorObject, nameof(descriptorObject));
+        GitCommandResult descriptor = await runner.RunAsync(
+            repository,
+            ["cat-file", "blob", descriptorObject],
+            new GitCommandOptions(
+                GitCommandExecutionKind.Local,
+                MaxStdoutBytes: MaxPendingRecoveryDescriptorBytes),
+            cancellationToken).ConfigureAwait(false);
+        if (descriptor.StdoutTruncated)
+        {
+            return null;
+        }
+
+        PendingPullRecoveryData? data = JsonSerializer.Deserialize<PendingPullRecoveryData>(
+            descriptor.Stdout,
+            s_recoveryJsonOptions);
+        if (data is null
+            || data.Version != PendingPullRecoveryFormatVersion
+            || !string.Equals(data.Id, id, StringComparison.Ordinal))
+        {
+            return null;
+        }
+
+        var checkpoint = new ProjectCheckpoint(
+            data.CheckpointRef,
+            data.CheckpointCommit,
+            new CheckedOutBranchTip(data.BranchRef, data.BaseCommit));
+        var targetTip = new CheckedOutBranchTip(data.BranchRef, data.TargetCommit);
+        ValidateCheckpointRef(repository, checkpoint);
+        ValidateAttachedBranchTip(targetTip, nameof(data.TargetCommit));
+        if (!string.Equals(
+                checkpoint.BaseTip.RefName,
+                targetTip.RefName,
+                StringComparison.Ordinal)
+            || data.CreatedAt == default)
+        {
+            return null;
+        }
+
+        string projectFile = GetLexicalRecoveryProjectFile(repository, data.ProjectFile);
+        await ValidateCheckpointAsync(repository, runner, checkpoint, cancellationToken)
+            .ConfigureAwait(false);
+
+        return new PendingPullRecovery(
+            id,
+            descriptorRef,
+            descriptorObject,
+            checkpoint,
+            targetTip,
+            projectFile,
+            data.CreatedAt);
+    }
+
+    private async Task<PendingPullRecoveryOutcome> RecoverPendingPullRecoveryCoreAsync(
+        PendingPullRecovery recovery,
+        CancellationToken cancellationToken)
+    {
+        EnsureWorktreeMutationAllowed();
+        RepositoryInfo repository = GetRepository();
+        IGitCliRunner runner = await GetInstalledRunnerCoreAsync(cancellationToken)
+            .ConfigureAwait(false);
+        await ValidatePendingPullRecoveryAsync(
+                repository,
+                runner,
+                recovery,
+                cancellationToken)
+            .ConfigureAwait(false);
+        CheckedOutBranchTip actualTip = await GetCheckedOutBranchTipCoreAsync(
+                repository,
+                runner,
+                cancellationToken)
+            .ConfigureAwait(false);
+        if (EqualsBranchTip(actualTip, recovery.TargetTip))
+        {
+            WorktreeStateFingerprint actualState = await CaptureWorktreeStateAsync(
+                    repository,
+                    runner,
+                    recovery.TargetTip.Commit,
+                    ".",
+                    cancellationToken)
+                .ConfigureAwait(false);
+            string targetTree = await ResolveTreeAsync(
+                    repository,
+                    runner,
+                    recovery.TargetTip.Commit,
+                    cancellationToken)
+                .ConfigureAwait(false);
+            if (!string.Equals(
+                    actualState.Tree,
+                    targetTree,
+                    StringComparison.OrdinalIgnoreCase)
+                || !await IsWholeRepositoryCleanAsync(repository, runner, cancellationToken)
+                    .ConfigureAwait(false))
+            {
+                throw await CreatePreservedRecoveryExceptionAsync(
+                        repository,
+                        runner,
+                        recovery,
+                        new InvalidOperationException(
+                            "The pulled branch tip is present, but its worktree state cannot be verified."))
+                    .ConfigureAwait(false);
+            }
+
+            TreeTransitionResult rollback;
+            try
+            {
+                rollback = await ApplyTreeTransitionAsync(
+                        repository,
+                        runner,
+                        recovery.TargetTip,
+                        recovery.Checkpoint.BaseTip,
+                        recovery.TargetTip.Commit,
+                        recovery.Checkpoint.BaseTip.Commit,
+                        "beutl roll back pending pull target",
+                        indexPlan: null,
+                        CancellationToken.None)
+                    .ConfigureAwait(false);
+            }
+            catch (Exception ex)
+            {
+                throw await CreatePreservedRecoveryExceptionAsync(
+                        repository,
+                        runner,
+                        recovery,
+                        ex)
+                    .ConfigureAwait(false);
+            }
+
+            if (rollback.Outcome != TreeTransitionOutcome.AppliedTarget)
+            {
+                throw await CreatePreservedRecoveryExceptionAsync(
+                        repository,
+                        runner,
+                        recovery,
+                        rollback.Error
+                        ?? new InvalidOperationException(
+                            "The pulled branch could not be rolled back safely."))
+                    .ConfigureAwait(false);
+            }
+
+            try
+            {
+                await RestoreProjectCheckpointCoreAsync(
+                        recovery.Checkpoint,
+                        CancellationToken.None,
+                        validatePreparedTarget: () =>
+                            ValidateRecoveryProjectFilePhysicalContainment(
+                                repository,
+                                recovery.ProjectFile))
+                    .ConfigureAwait(false);
+                ValidateRecoveryProjectFilePhysicalContainment(
+                    repository,
+                    recovery.ProjectFile);
+                return PendingPullRecoveryOutcome.RestoredOriginal;
+            }
+            catch (Exception ex)
+            {
+                throw await CreatePreservedRecoveryExceptionAsync(
+                        repository,
+                        runner,
+                        recovery,
+                        ex)
+                    .ConfigureAwait(false);
+            }
+        }
+
+        if (!EqualsBranchTip(actualTip, recovery.Checkpoint.BaseTip))
+        {
+            string recoveryBranchName;
+            try
+            {
+                recoveryBranchName = await PreserveCheckpointOnRecoveryBranchAsync(
+                        repository,
+                        runner,
+                        recovery,
+                        CancellationToken.None)
+                    .ConfigureAwait(false);
+            }
+            catch (Exception ex)
+            {
+                throw await CreateCheckpointPreservationExceptionAsync(
+                        repository,
+                        runner,
+                        recovery,
+                        ex)
+                    .ConfigureAwait(false);
+            }
+
+            try
+            {
+                if (!await TryReapplyCheckpointToExternallyOwnedTipAsync(
+                        repository,
+                        runner,
+                        recovery,
+                        actualTip,
+                        CancellationToken.None)
+                    .ConfigureAwait(false))
+                {
+                    throw new PendingPullRecoveryPreservedException(recoveryBranchName);
+                }
+
+                ValidateRecoveryProjectFilePhysicalContainment(
+                    repository,
+                    recovery.ProjectFile);
+                return PendingPullRecoveryOutcome.ReappliedCheckpoint;
+            }
+            catch (PendingPullRecoveryPreservedException)
+            {
+                throw;
+            }
+            catch (Exception ex)
+            {
+                throw new PendingPullRecoveryPreservedException(recoveryBranchName, ex);
+            }
+        }
+
+        try
+        {
+            await RestoreProjectCheckpointCoreAsync(
+                    recovery.Checkpoint,
+                    CancellationToken.None,
+                    validatePreparedTarget: () =>
+                        ValidateRecoveryProjectFilePhysicalContainment(
+                            repository,
+                            recovery.ProjectFile))
+                .ConfigureAwait(false);
+            CheckedOutBranchTip recoveredTip = await GetCheckedOutBranchTipCoreAsync(
+                    repository,
+                    runner,
+                    CancellationToken.None)
+                .ConfigureAwait(false);
+            if (!EqualsBranchTip(recoveredTip, recovery.Checkpoint.BaseTip))
+            {
+                throw new InvalidOperationException(
+                    "The repository branch changed while the pending pull recovery was restored.");
+            }
+
+            ValidateRecoveryProjectFilePhysicalContainment(
+                repository,
+                recovery.ProjectFile);
+            return PendingPullRecoveryOutcome.RestoredOriginal;
+        }
+        catch (Exception ex)
+        {
+            throw await CreatePreservedRecoveryExceptionAsync(
+                    repository,
+                    runner,
+                    recovery,
+                    ex)
+                .ConfigureAwait(false);
+        }
+    }
+
+    private static async Task<Exception>
+        CreatePreservedRecoveryExceptionAsync(
+            RepositoryInfo repository,
+            IGitCliRunner runner,
+            PendingPullRecovery recovery,
+            Exception failure)
+    {
+        try
+        {
+            string recoveryBranchName = await PreserveCheckpointOnRecoveryBranchAsync(
+                    repository,
+                    runner,
+                    recovery,
+                    CancellationToken.None)
+                .ConfigureAwait(false);
+            return new PendingPullRecoveryPreservedException(
+                recoveryBranchName,
+                failure);
+        }
+        catch (Exception preservationFailure)
+        {
+            return await CreateCheckpointPreservationExceptionAsync(
+                    repository,
+                    runner,
+                    recovery,
+                    new AggregateException(
+                    "The pending pull recovery failed and its durable recovery branch could not be published.",
+                    failure,
+                    preservationFailure))
+                .ConfigureAwait(false);
+        }
+    }
+
+    private static async Task<Exception> CreateCheckpointPreservationExceptionAsync(
+        RepositoryInfo repository,
+        IGitCliRunner runner,
+        PendingPullRecovery recovery,
+        Exception failure)
+    {
+        try
+        {
+            string? checkpointCommit = await TryResolveCommitAsync(
+                    repository,
+                    runner,
+                    recovery.Checkpoint.RefName,
+                    CancellationToken.None)
+                .ConfigureAwait(false);
+            if (string.Equals(
+                    checkpointCommit,
+                    recovery.Checkpoint.Commit,
+                    StringComparison.OrdinalIgnoreCase))
+            {
+                return new PendingPullRecoveryPreservedException(
+                    recovery.Checkpoint.RefName,
+                    failure);
+            }
+
+            return new AggregateException(
+                "The pending pull recovery failed and its checkpoint reference no longer identifies the expected commit.",
+                failure);
+        }
+        catch (Exception verificationFailure)
+        {
+            return new AggregateException(
+                "The pending pull recovery failed and its checkpoint reference could not be verified.",
+                failure,
+                verificationFailure);
+        }
+    }
+
+    private static async Task<string> PreserveCheckpointOnRecoveryBranchAsync(
+        RepositoryInfo repository,
+        IGitCliRunner runner,
+        PendingPullRecovery recovery,
+        CancellationToken cancellationToken)
+    {
+        string branchName = recovery.RecoveryBranchName;
+        string branchRef = $"refs/heads/{branchName}";
+        string? existing = await TryResolveCommitAsync(
+                repository,
+                runner,
+                branchRef,
+                cancellationToken)
+            .ConfigureAwait(false);
+        if (string.Equals(
+                existing,
+                recovery.Checkpoint.Commit,
+                StringComparison.OrdinalIgnoreCase))
+        {
+            return branchName;
+        }
+
+        if (existing is not null)
+        {
+            throw new InvalidOperationException(
+                $"The recovery branch '{branchName}' already identifies another commit.");
+        }
+
+        try
+        {
+            await runner.RunAsync(
+                repository,
+                [
+                    "update-ref",
+                    "--create-reflog",
+                    "-m",
+                    "beutl preserve pending pull checkpoint",
+                    branchRef,
+                    recovery.Checkpoint.Commit,
+                    string.Empty,
+                ],
+                GitCommandOptions.Local,
+                cancellationToken).ConfigureAwait(false);
+        }
+        catch (Exception publicationException)
+        {
+            existing = await TryResolveCommitAsync(
+                    repository,
+                    runner,
+                    branchRef,
+                    CancellationToken.None)
+                .ConfigureAwait(false);
+            if (!string.Equals(
+                    existing,
+                    recovery.Checkpoint.Commit,
+                    StringComparison.OrdinalIgnoreCase))
+            {
+                throw new AggregateException(
+                    $"The recovery branch '{branchName}' could not be published safely.",
+                    publicationException);
+            }
+        }
+
+        return branchName;
+    }
+
+    private async Task<bool> TryReapplyCheckpointToExternallyOwnedTipAsync(
+        RepositoryInfo repository,
+        IGitCliRunner runner,
+        PendingPullRecovery recovery,
+        CheckedOutBranchTip actualTip,
+        CancellationToken cancellationToken)
+    {
+        if (!string.Equals(
+                actualTip.RefName,
+                recovery.Checkpoint.BaseTip.RefName,
+                StringComparison.Ordinal))
+        {
+            return false;
+        }
+
+        string desiredTree = await BuildProjectTreeAsync(
+                repository,
+                runner,
+                actualTip.Commit,
+                recovery.Checkpoint.Commit,
+                cancellationToken)
+            .ConfigureAwait(false);
+        WorktreeStateFingerprint actualState = await CaptureWorktreeStateAsync(
+                repository,
+                runner,
+                actualTip.Commit,
+                repository.Pathspec,
+                cancellationToken)
+            .ConfigureAwait(false);
+        string actualTree = await ResolveTreeAsync(
+                repository,
+                runner,
+                actualTip.Commit,
+                cancellationToken)
+            .ConfigureAwait(false);
+        bool indexAtActual = await IsIndexAtCommitAsync(
+                repository,
+                runner,
+                actualTip.Commit,
+                repository.Pathspec,
+                cancellationToken)
+            .ConfigureAwait(false);
+
+        if (string.Equals(actualState.Tree, desiredTree, StringComparison.OrdinalIgnoreCase))
+        {
+            bool indexAtBase = indexAtActual || await IsIndexAtCommitAsync(
+                    repository,
+                    runner,
+                    recovery.Checkpoint.BaseTip.Commit,
+                    repository.Pathspec,
+                    cancellationToken)
+                .ConfigureAwait(false);
+            if (!indexAtBase)
+            {
+                return false;
+            }
+
+            CheckedOutBranchTip beforeReset = await GetCheckedOutBranchTipCoreAsync(
+                    repository,
+                    runner,
+                    cancellationToken)
+                .ConfigureAwait(false);
+            if (!EqualsBranchTip(beforeReset, actualTip))
+            {
+                return false;
+            }
+
+            string originalIndexCommit = indexAtActual
+                ? actualTip.Commit
+                : recovery.Checkpoint.BaseTip.Commit;
+            try
+            {
+                if (!indexAtActual)
+                {
+                    await ResetIndexAsync(
+                            repository,
+                            runner,
+                            actualTip.Commit,
+                            repository.Pathspec)
+                        .ConfigureAwait(false);
+                }
+
+                CheckedOutBranchTip verifiedTip = await GetCheckedOutBranchTipCoreAsync(
+                        repository,
+                        runner,
+                        CancellationToken.None)
+                    .ConfigureAwait(false);
+                WorktreeStateFingerprint verifiedState = await CaptureWorktreeStateAsync(
+                        repository,
+                        runner,
+                        actualTip.Commit,
+                        repository.Pathspec,
+                        CancellationToken.None)
+                    .ConfigureAwait(false);
+                if (!EqualsBranchTip(verifiedTip, actualTip)
+                    || !string.Equals(
+                        verifiedState.Tree,
+                        desiredTree,
+                        StringComparison.OrdinalIgnoreCase)
+                    || !await IsIndexAtCommitAsync(
+                            repository,
+                            runner,
+                            actualTip.Commit,
+                            repository.Pathspec,
+                            CancellationToken.None)
+                        .ConfigureAwait(false))
+                {
+                    throw new ProjectCheckpointStateChangedException();
+                }
+
+                return true;
+            }
+            catch (Exception ex)
+            {
+                Exception failure = ex;
+                if (!indexAtActual)
+                {
+                    try
+                    {
+                        await ResetIndexAsync(
+                                repository,
+                                runner,
+                            originalIndexCommit,
+                            repository.Pathspec)
+                            .ConfigureAwait(false);
+                    }
+                    catch (Exception restoreException)
+                    {
+                        failure = new AggregateException(
+                            "The checkpoint index reapply failed and the prior index could not be restored.",
+                            ex,
+                            restoreException);
+                    }
+                }
+
+                throw failure;
+            }
+        }
+
+        if (!string.Equals(actualState.Tree, actualTree, StringComparison.OrdinalIgnoreCase)
+            || !indexAtActual)
+        {
+            return false;
+        }
+
+        TreeTransitionResult transition = await ApplyTreeTransitionAsync(
+                repository,
+                runner,
+                actualTip,
+                actualTip,
+                actualTip.Commit,
+                desiredTree,
+                "beutl reapply pending pull checkpoint",
+                new TreeTransitionIndexPlan(
+                    FinalCommit: actualTip.Commit,
+                    RestoreCommit: actualTip.Commit,
+                    Pathspec: repository.Pathspec),
+                cancellationToken,
+                validatePreparedTarget: () =>
+                    ValidateRecoveryProjectFilePhysicalContainment(
+                        repository,
+                        recovery.ProjectFile))
+            .ConfigureAwait(false);
+        return transition.Outcome switch
+        {
+            TreeTransitionOutcome.AppliedTarget => true,
+            TreeTransitionOutcome.OwnershipLost => false,
+            _ => throw new InvalidOperationException(
+                "The pending pull checkpoint could not be reapplied safely.",
+                transition.Error),
+        };
+    }
+
+    private async Task CompletePendingPullRecoveryCoreAsync(
+        PendingPullRecovery recovery,
+        CancellationToken cancellationToken)
+    {
+        RepositoryInfo repository = GetRepository();
+        IGitCliRunner runner = await GetInstalledRunnerCoreAsync(cancellationToken)
+            .ConfigureAwait(false);
+        await ValidatePendingPullRecoveryAsync(
+                repository,
+                runner,
+                recovery,
+                cancellationToken)
+            .ConfigureAwait(false);
+        cancellationToken.ThrowIfCancellationRequested();
+        string commands = string.Join(
+            '\n',
+            "start",
+            $"delete {recovery.DescriptorRef} {recovery.DescriptorObject}",
+            $"delete {recovery.Checkpoint.RefName} {recovery.Checkpoint.Commit}",
+            "prepare",
+            "commit",
+            string.Empty);
+        try
+        {
+            await runner.RunAsync(
+                repository,
+                ["update-ref", "--stdin"],
+                new GitCommandOptions(
+                    GitCommandExecutionKind.Local,
+                    StandardInput: commands),
+                CancellationToken.None).ConfigureAwait(false);
+        }
+        catch (Exception ex)
+        {
+            string? remainingDescriptor = await TryResolveObjectAsync(
+                    repository,
+                    runner,
+                    recovery.DescriptorRef,
+                    CancellationToken.None)
+                .ConfigureAwait(false);
+            string? remainingCheckpoint = await TryResolveCommitAsync(
+                    repository,
+                    runner,
+                    recovery.Checkpoint.RefName,
+                    CancellationToken.None)
+                .ConfigureAwait(false);
+            if (remainingDescriptor is null && remainingCheckpoint is null)
+            {
+                return;
+            }
+
+            throw new PendingPullRecoveryChangedException(recovery.DescriptorRef, ex);
+        }
+    }
+
+    private static async Task ValidatePendingPullRecoveryAsync(
+        RepositoryInfo repository,
+        IGitCliRunner runner,
+        PendingPullRecovery recovery,
+        CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(recovery);
+        string expectedRef = GetPendingRecoveryRefPrefix(repository) + recovery.Id;
+        if (!Guid.TryParseExact(recovery.Id, "N", out _)
+            || !string.Equals(recovery.DescriptorRef, expectedRef, StringComparison.Ordinal))
+        {
+            throw new ArgumentException(
+                "The pending pull recovery does not belong to this project.",
+                nameof(recovery));
+        }
+
+        GitRevisionValidator.ValidateCommitId(
+            recovery.DescriptorObject,
+            nameof(recovery));
+        ValidateCheckpointRef(repository, recovery.Checkpoint);
+        ValidateAttachedBranchTip(recovery.TargetTip, nameof(recovery));
+        if (!string.Equals(
+                recovery.Checkpoint.BaseTip.RefName,
+                recovery.TargetTip.RefName,
+                StringComparison.Ordinal)
+            || recovery.CreatedAt == default)
+        {
+            throw new ArgumentException(
+                "The pending pull recovery descriptor is inconsistent.",
+                nameof(recovery));
+        }
+
+        _ = ValidateStoredRecoveryProjectFile(repository, recovery.ProjectFile);
+        string? currentObject = await TryResolveObjectAsync(
+                repository,
+                runner,
+                recovery.DescriptorRef,
+                cancellationToken)
+            .ConfigureAwait(false);
+        if (!string.Equals(
+                currentObject,
+                recovery.DescriptorObject,
+                StringComparison.OrdinalIgnoreCase))
+        {
+            throw new PendingPullRecoveryChangedException(recovery.DescriptorRef);
+        }
+
+        await ValidateCheckpointAsync(repository, runner, recovery.Checkpoint, cancellationToken)
+            .ConfigureAwait(false);
+    }
+
+    private static string GetRecoveryProjectFile(
+        RepositoryInfo repository,
+        string projectFile)
+    {
+        string projectRoot = RepositoryPathComparer.ResolveCanonicalPath(repository.ProjectRoot);
+        string fullPath = RepositoryPathComparer.ResolveCanonicalPath(projectFile);
+        string canonicalRelativePath = Path.GetRelativePath(projectRoot, fullPath);
+        ValidateRecoveryProjectFileContainment(canonicalRelativePath);
+
+        return GetRecoveryProjectFileLexically(
+            repository,
+            projectFile,
+            canonicalRelativePath);
+    }
+
+    private static string GetRecoveryProjectFileLexically(
+        RepositoryInfo repository,
+        string projectFile,
+        string? canonicalRelativePath = null)
+    {
+
+        string lexicalProjectFile = Path.GetFullPath(projectFile);
+        string? lexicalRoot = Path.GetDirectoryName(lexicalProjectFile);
+        while (lexicalRoot is not null)
+        {
+            if (RepositoryPathComparer.AreEquivalent(lexicalRoot, repository.ProjectRoot))
+            {
+                string lexicalRelativePath = Path.GetRelativePath(
+                    lexicalRoot,
+                    lexicalProjectFile);
+                ValidateRecoveryProjectFile(lexicalRelativePath);
+                return lexicalRelativePath.Replace('\\', '/');
+            }
+
+            lexicalRoot = Path.GetDirectoryName(lexicalRoot);
+        }
+
+        canonicalRelativePath ??= Path.GetRelativePath(
+            Path.GetFullPath(repository.ProjectRoot),
+            lexicalProjectFile);
+        ValidateRecoveryProjectFile(canonicalRelativePath);
+        return canonicalRelativePath.Replace('\\', '/');
+    }
+
+    private static string GetLexicalRecoveryProjectFile(
+        RepositoryInfo repository,
+        string relativeProjectFile)
+    {
+        ValidateRecoveryProjectFile(relativeProjectFile);
+        return Path.GetFullPath(Path.Combine(
+            repository.ProjectRoot,
+            relativeProjectFile.Replace('/', Path.DirectorySeparatorChar)));
+    }
+
+    private static string ValidateStoredRecoveryProjectFile(
+        RepositoryInfo repository,
+        string projectFile)
+    {
+        string relativeProjectFile = Path.GetRelativePath(
+            Path.GetFullPath(repository.ProjectRoot),
+            Path.GetFullPath(projectFile));
+        ValidateRecoveryProjectFile(relativeProjectFile);
+        return relativeProjectFile.Replace('\\', '/');
+    }
+
+    private static void ValidateRecoveryProjectFilePhysicalContainment(
+        RepositoryInfo repository,
+        string projectFile)
+    {
+        if (!RepositoryPathComparer.IsContainedWithin(repository.ProjectRoot, projectFile))
+        {
+            throw new ArgumentException(
+                $"The pending pull recovery project file '{projectFile}' must remain inside the project root.",
+                nameof(projectFile));
+        }
+    }
+
+    private static void ValidateRecoveryProjectFile(string relativePath)
+    {
+        ValidateRecoveryProjectFileContainment(relativePath);
+        if (!string.Equals(
+                Path.GetExtension(relativePath),
+                ".bep",
+                StringComparison.OrdinalIgnoreCase))
+        {
+            throw new ArgumentException(
+                $"The pending pull recovery project file '{relativePath}' must use the .bep extension.",
+                nameof(relativePath));
+        }
+    }
+
+    private static void ValidateRecoveryProjectFileContainment(string relativePath)
+    {
+        if (string.IsNullOrWhiteSpace(relativePath)
+            || relativePath == ".."
+            || relativePath.StartsWith($"..{Path.DirectorySeparatorChar}", StringComparison.Ordinal)
+            || relativePath.StartsWith("../", StringComparison.Ordinal)
+            || Path.IsPathRooted(relativePath)
+            || relativePath
+                .Split(['/', '\\'], StringSplitOptions.RemoveEmptyEntries)
+                .Any(static component => component is "." or ".."))
+        {
+            throw new ArgumentException(
+                $"The pending pull recovery project file '{relativePath}' must remain inside the project root.",
+                nameof(relativePath));
+        }
+    }
+
     private async Task RestoreProjectCheckpointCoreAsync(
         ProjectCheckpoint checkpoint,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken,
+        Action? validatePreparedTarget = null)
     {
         EnsureWorktreeMutationAllowed();
         RepositoryInfo repository = GetRepository();
@@ -1202,6 +2310,7 @@ internal sealed class GitCliVersionControlService :
             && await IsProjectIndexCleanAsync(repository, runner, cancellationToken)
                 .ConfigureAwait(false))
         {
+            validatePreparedTarget?.Invoke();
             return;
         }
 
@@ -1254,7 +2363,8 @@ internal sealed class GitCliVersionControlService :
                 FinalCommit: checkpoint.BaseTip.Commit,
                 RestoreCommit: checkpoint.BaseTip.Commit,
                 Pathspec: repository.Pathspec),
-            CancellationToken.None).ConfigureAwait(false);
+            CancellationToken.None,
+            validatePreparedTarget).ConfigureAwait(false);
         EnsureTreeTransitionApplied(
             transitionResult,
             "The project checkpoint could not be restored safely.");
@@ -1561,17 +2671,21 @@ internal sealed class GitCliVersionControlService :
         RepositoryInfo repository,
         ProjectCheckpoint checkpoint)
     {
+        ArgumentNullException.ThrowIfNull(checkpoint);
         ArgumentException.ThrowIfNullOrWhiteSpace(checkpoint.RefName);
         ArgumentException.ThrowIfNullOrWhiteSpace(checkpoint.Commit);
         ArgumentNullException.ThrowIfNull(checkpoint.BaseTip);
-        if (!checkpoint.RefName.StartsWith(
-                GetCheckpointRefPrefix(repository),
-                StringComparison.Ordinal))
+        string prefix = GetCheckpointRefPrefix(repository);
+        if (!checkpoint.RefName.StartsWith(prefix, StringComparison.Ordinal)
+            || !Guid.TryParseExact(checkpoint.RefName[prefix.Length..], "N", out _))
         {
             throw new ArgumentException(
                 "The checkpoint does not belong to this project.",
                 nameof(checkpoint));
         }
+
+        GitRevisionValidator.ValidateCommitId(checkpoint.Commit, nameof(checkpoint));
+        ValidateAttachedBranchTip(checkpoint.BaseTip, nameof(checkpoint));
     }
 
     private static void ValidateBranchTipForRollback(
@@ -1590,12 +2704,45 @@ internal sealed class GitCliVersionControlService :
 
     private static void ValidateAttachedBranchTip(CheckedOutBranchTip tip, string paramName)
     {
+        ArgumentNullException.ThrowIfNull(tip, paramName);
         ArgumentException.ThrowIfNullOrWhiteSpace(tip.RefName, paramName);
         ArgumentException.ThrowIfNullOrWhiteSpace(tip.Commit, paramName);
-        if (!tip.RefName.StartsWith("refs/heads/", StringComparison.Ordinal))
+        if (!IsValidLocalBranchRef(tip.RefName))
         {
             throw new ArgumentException("An attached local branch tip is required.", paramName);
         }
+
+        GitRevisionValidator.ValidateCommitId(tip.Commit, paramName);
+    }
+
+    private static bool IsValidLocalBranchRef(string refName)
+    {
+        const string Prefix = "refs/heads/";
+        if (!refName.StartsWith(Prefix, StringComparison.Ordinal)
+            || refName.Length == Prefix.Length
+            || refName.EndsWith("/", StringComparison.Ordinal)
+            || refName.EndsWith(".", StringComparison.Ordinal)
+            || refName.Contains("//", StringComparison.Ordinal)
+            || refName.Contains("..", StringComparison.Ordinal)
+            || refName.Contains("@{", StringComparison.Ordinal)
+            || refName.Any(static character => character <= ' '
+                || character == '\u007f'
+                || character is '~' or '^' or ':' or '?' or '*' or '[' or '\\'))
+        {
+            return false;
+        }
+
+        foreach (string component in refName.Split('/'))
+        {
+            if (component.Length == 0
+                || component.StartsWith(".", StringComparison.Ordinal)
+                || component.EndsWith(".lock", StringComparison.OrdinalIgnoreCase))
+            {
+                return false;
+            }
+        }
+
+        return true;
     }
 
     private static async Task<CheckedOutBranchTip?> TryGetCheckedOutBranchTipAsync(
@@ -1628,6 +2775,28 @@ internal sealed class GitCliVersionControlService :
                 cancellationToken).ConfigureAwait(false);
             string commit = result.Stdout.Trim();
             return string.IsNullOrEmpty(commit) ? null : commit;
+        }
+        catch (GitOperationException ex) when (ex.ExitCode is 1 or 128)
+        {
+            return null;
+        }
+    }
+
+    private static async Task<string?> TryResolveObjectAsync(
+        RepositoryInfo repository,
+        IGitCliRunner runner,
+        string revision,
+        CancellationToken cancellationToken)
+    {
+        try
+        {
+            GitCommandResult result = await runner.RunAsync(
+                repository,
+                ["rev-parse", "--verify", "--quiet", revision],
+                GitCommandOptions.Local,
+                cancellationToken).ConfigureAwait(false);
+            string objectId = result.Stdout.Trim();
+            return string.IsNullOrEmpty(objectId) ? null : objectId;
         }
         catch (GitOperationException ex) when (ex.ExitCode is 1 or 128)
         {
@@ -1954,7 +3123,8 @@ internal sealed class GitCliVersionControlService :
         string targetTreeCommit,
         string reflogMessage,
         TreeTransitionIndexPlan? indexPlan,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken,
+        Action? validatePreparedTarget = null)
     {
         if (!string.Equals(currentHead.RefName, targetHead.RefName, StringComparison.Ordinal))
         {
@@ -2140,6 +3310,7 @@ internal sealed class GitCliVersionControlService :
                     throw new ProjectCheckpointStateChangedException();
                 }
 
+                validatePreparedTarget?.Invoke();
                 targetPrepared = true;
 
                 string? branchCommit = await TryResolveCommitAsync(
@@ -2648,6 +3819,11 @@ internal sealed class GitCliVersionControlService :
         return $"refs/beutl/safety/{GetConfigKeyHash(repository.Pathspec)}/";
     }
 
+    private static string GetPendingRecoveryRefPrefix(RepositoryInfo repository)
+    {
+        return $"refs/beutl/recovery/{GetConfigKeyHash(repository.Pathspec)}/";
+    }
+
     private static bool EqualsBranchTip(CheckedOutBranchTip left, CheckedOutBranchTip right)
     {
         return string.Equals(left.RefName, right.RefName, StringComparison.Ordinal)
@@ -2806,6 +3982,15 @@ internal sealed class GitCliVersionControlService :
     {
         await EnsureNotConflictedCoreAsync(cancellationToken).ConfigureAwait(false);
         EnsureWorktreeMutationAllowed();
+        IReadOnlyList<BranchInfo> branches = await GetBranchesCoreAsync(cancellationToken)
+            .ConfigureAwait(false);
+        if (!ContainsLocalBranch(branches, name))
+        {
+            throw new ArgumentException(
+                "The branch must exactly name an existing local branch.",
+                nameof(name));
+        }
+
         RepositoryInfo repository = GetRepository();
         IGitCliRunner runner = await GetInstalledRunnerCoreAsync(cancellationToken).ConfigureAwait(false);
         await runner.RunAsync(
@@ -2814,6 +3999,14 @@ internal sealed class GitCliVersionControlService :
             GitCommandOptions.Local,
             cancellationToken).ConfigureAwait(false);
         await TryQueueStatusChangedCoreAsync().ConfigureAwait(false);
+    }
+
+    private static bool ContainsLocalBranch(
+        IReadOnlyList<BranchInfo> branches,
+        string name)
+    {
+        return branches.Any(branch =>
+            string.Equals(branch.Name, name, StringComparison.Ordinal));
     }
 
     private async Task<IReadOnlyList<RemoteInfo>> GetRemotesCoreAsync(
@@ -2888,9 +4081,91 @@ internal sealed class GitCliVersionControlService :
         }
     }
 
+    private async Task<PullPreflightResult> PreflightPullCoreAsync(
+        CheckedOutBranchTip expectedCurrent,
+        CancellationToken cancellationToken)
+    {
+        await EnsureNotConflictedCoreAsync(cancellationToken).ConfigureAwait(false);
+        ValidateAttachedBranchTip(expectedCurrent, nameof(expectedCurrent));
+        RepositoryInfo repository = GetRepository();
+        IGitCliRunner runner = await GetInstalledRunnerCoreAsync(cancellationToken)
+            .ConfigureAwait(false);
+        CheckedOutBranchTip currentTip = await GetCheckedOutBranchTipCoreAsync(
+                repository,
+                runner,
+                cancellationToken)
+            .ConfigureAwait(false);
+        if (!EqualsBranchTip(currentTip, expectedCurrent))
+        {
+            throw new InvalidOperationException(
+                "The checked-out branch changed before the pull preflight started.");
+        }
+
+        try
+        {
+            await runner.RunAsync(
+                repository,
+                ["fetch"],
+                GitCommandOptions.Network,
+                cancellationToken).ConfigureAwait(false);
+        }
+        catch (GitOperationException ex)
+        {
+            CaptureRecoverableLock(ex);
+            return new PullPreflightResult(MapRemoteFailure(ex), RequiresTransition: false);
+        }
+
+        GitCommandResult upstreamResult;
+        try
+        {
+            upstreamResult = await runner.RunAsync(
+                repository,
+                ["rev-parse", "--verify", "@{upstream}^{commit}"],
+                GitCommandOptions.Local,
+                cancellationToken).ConfigureAwait(false);
+        }
+        catch (GitOperationException ex)
+        {
+            CaptureRecoverableLock(ex);
+            return new PullPreflightResult(MapRemoteFailure(ex), RequiresTransition: false);
+        }
+
+        string upstreamCommit = upstreamResult.Stdout.Trim();
+        if (!await IsAncestorAsync(
+                repository,
+                runner,
+                expectedCurrent.Commit,
+                upstreamCommit,
+                cancellationToken).ConfigureAwait(false))
+        {
+            return new PullPreflightResult(
+                new RemoteOpResult.Diverged(),
+                RequiresTransition: false);
+        }
+
+        currentTip = await GetCheckedOutBranchTipCoreAsync(
+                repository,
+                runner,
+                cancellationToken)
+            .ConfigureAwait(false);
+        if (!EqualsBranchTip(currentTip, expectedCurrent))
+        {
+            throw new InvalidOperationException(
+                "The checked-out branch changed while the pull preflight was running.");
+        }
+
+        return new PullPreflightResult(
+            new RemoteOpResult.Success(),
+            RequiresTransition: !string.Equals(
+                upstreamCommit,
+                expectedCurrent.Commit,
+                StringComparison.OrdinalIgnoreCase));
+    }
+
     private async Task<FastForwardPullResult> PullFastForwardCoreAsync(
         CheckedOutBranchTip expectedCurrent,
         ProjectCheckpoint? checkpoint,
+        string projectFile,
         CancellationToken cancellationToken)
     {
         await EnsureNotConflictedCoreAsync(cancellationToken).ConfigureAwait(false);
@@ -3031,6 +4306,7 @@ internal sealed class GitCliVersionControlService :
                     checkpoint,
                     checkpointState!,
                     checkpointTree!,
+                    projectFile,
                     cancellationToken)
                 .ConfigureAwait(false);
         }
@@ -3091,7 +4367,10 @@ internal sealed class GitCliVersionControlService :
             upstreamCommit,
             "pull: fast-forward",
             indexPlan: null,
-            CancellationToken.None).ConfigureAwait(false);
+            CancellationToken.None,
+            validatePreparedTarget: () =>
+                ValidateRecoveryProjectFilePhysicalContainment(repository, projectFile))
+            .ConfigureAwait(false);
         if (transitionResult.Outcome != TreeTransitionOutcome.AppliedTarget)
         {
             if (transitionResult.Error is GitOperationException operationException)
@@ -3118,14 +4397,29 @@ internal sealed class GitCliVersionControlService :
                     TreeTransitionOutcome.OwnershipLost => PullTransitionState.OwnershipLost,
                     TreeTransitionOutcome.RecoveryFailed => PullTransitionState.RecoveryFailed,
                     _ => PullTransitionState.Unchanged,
-                });
+                },
+                pulledTip);
+        }
+
+        try
+        {
+            ValidateRecoveryProjectFilePhysicalContainment(repository, projectFile);
+        }
+        catch (Exception ex)
+        {
+            return new FastForwardPullResult(
+                new RemoteOpResult.Failed(ex.Message),
+                pulledTip,
+                PullTransitionState.Applied,
+                pulledTip);
         }
 
         await TryQueueStatusChangedCoreAsync().ConfigureAwait(false);
         return new FastForwardPullResult(
             new RemoteOpResult.Success(),
             pulledTip,
-            PullTransitionState.Applied);
+            PullTransitionState.Applied,
+            pulledTip);
     }
 
     private async Task<FastForwardPullResult> PullCheckpointedProjectCoreAsync(
@@ -3136,6 +4430,7 @@ internal sealed class GitCliVersionControlService :
         ProjectCheckpoint checkpoint,
         WorktreeStateFingerprint expectedCheckpointState,
         string checkpointTree,
+        string projectFile,
         CancellationToken cancellationToken)
     {
         string mergedTree = await BuildMergedTreeAsync(
@@ -3162,70 +4457,110 @@ internal sealed class GitCliVersionControlService :
             cancellationToken).ConfigureAwait(false);
         var safetyTip = new CheckedOutBranchTip(expectedCurrent.RefName, commit.Stdout.Trim());
 
-        await ValidateCheckpointAsync(repository, runner, checkpoint, cancellationToken)
-            .ConfigureAwait(false);
-        CheckedOutBranchTip ownershipTip = await GetCheckedOutBranchTipCoreAsync(
-                repository,
-                runner,
-                cancellationToken)
-            .ConfigureAwait(false);
-        WorktreeStateFingerprint ownershipState = await CaptureWorktreeStateAsync(
-                repository,
-                runner,
-                expectedCurrent.Commit,
-                ".",
-                cancellationToken)
-            .ConfigureAwait(false);
-        string? ignoredCollision = await FindIgnoredIncomingPathAsync(
-                repository,
-                runner,
-                expectedCurrent.Commit,
-                upstreamCommit,
-                cancellationToken)
-            .ConfigureAwait(false);
-        if (!EqualsBranchTip(ownershipTip, expectedCurrent))
-        {
-            return new FastForwardPullResult(
-                new RemoteOpResult.Failed(
-                    "The checked-out branch changed while the checkpointed pull was being prepared."),
-                ownershipTip,
-                PullTransitionState.OwnershipLost);
-        }
-
-        if (ownershipState != expectedCheckpointState
-            || !string.Equals(
-                ownershipState.Tree,
-                checkpointTree,
-                StringComparison.OrdinalIgnoreCase)
-            || !await IsWholeIndexCleanAsync(repository, runner, cancellationToken)
-                .ConfigureAwait(false))
-        {
-            return new FastForwardPullResult(
-                new RemoteOpResult.RepositoryDirty(),
-                expectedCurrent);
-        }
-
-        if (ignoredCollision is not null)
-        {
-            return new FastForwardPullResult(
-                new RemoteOpResult.Failed(
-                    $"The pull would overwrite the ignored path '{ignoredCollision}'."),
-                expectedCurrent);
-        }
-
         cancellationToken.ThrowIfCancellationRequested();
-        TreeTransitionResult transitionResult = await ApplyTreeTransitionAsync(
-            repository,
-            runner,
-            expectedCurrent,
-            safetyTip,
-            checkpoint.Commit,
-            safetyTip.Commit,
-            "pull: fast-forward with project checkpoint",
-            new TreeTransitionIndexPlan(
-                PrepareCommit: checkpoint.Commit,
-                RestoreCommit: expectedCurrent.Commit),
-            CancellationToken.None).ConfigureAwait(false);
+        PendingPullRecovery recovery = await PersistPendingPullRecoveryCoreAsync(
+                checkpoint,
+                safetyTip,
+                projectFile,
+                cancellationToken)
+            .ConfigureAwait(false);
+
+        try
+        {
+            await ValidateCheckpointAsync(repository, runner, checkpoint, CancellationToken.None)
+                .ConfigureAwait(false);
+            CheckedOutBranchTip ownershipTip = await GetCheckedOutBranchTipCoreAsync(
+                    repository,
+                    runner,
+                    CancellationToken.None)
+                .ConfigureAwait(false);
+            WorktreeStateFingerprint ownershipState = await CaptureWorktreeStateAsync(
+                    repository,
+                    runner,
+                    expectedCurrent.Commit,
+                    ".",
+                    CancellationToken.None)
+                .ConfigureAwait(false);
+            string? ignoredCollision = await FindIgnoredIncomingPathAsync(
+                    repository,
+                    runner,
+                    expectedCurrent.Commit,
+                    upstreamCommit,
+                    CancellationToken.None)
+                .ConfigureAwait(false);
+            if (!EqualsBranchTip(ownershipTip, expectedCurrent))
+            {
+                return new FastForwardPullResult(
+                    new RemoteOpResult.Failed(
+                        "The checked-out branch changed while the checkpointed pull was being prepared."),
+                    ownershipTip,
+                    PullTransitionState.OwnershipLost,
+                    safetyTip,
+                    recovery);
+            }
+
+            if (ownershipState != expectedCheckpointState
+                || !string.Equals(
+                    ownershipState.Tree,
+                    checkpointTree,
+                    StringComparison.OrdinalIgnoreCase)
+                || !await IsWholeIndexCleanAsync(repository, runner, CancellationToken.None)
+                    .ConfigureAwait(false))
+            {
+                return new FastForwardPullResult(
+                    new RemoteOpResult.RepositoryDirty(),
+                    expectedCurrent,
+                    Recovery: recovery);
+            }
+
+            if (ignoredCollision is not null)
+            {
+                return new FastForwardPullResult(
+                    new RemoteOpResult.Failed(
+                        $"The pull would overwrite the ignored path '{ignoredCollision}'."),
+                    expectedCurrent,
+                    Recovery: recovery);
+            }
+        }
+        catch (Exception ex)
+        {
+            return new FastForwardPullResult(
+                new RemoteOpResult.Failed(ex.Message),
+                expectedCurrent,
+                PullTransitionState.RecoveryFailed,
+                safetyTip,
+                recovery);
+        }
+
+        TreeTransitionResult transitionResult;
+        try
+        {
+            transitionResult = await ApplyTreeTransitionAsync(
+                repository,
+                runner,
+                expectedCurrent,
+                safetyTip,
+                checkpoint.Commit,
+                safetyTip.Commit,
+                "pull: fast-forward with project checkpoint",
+                new TreeTransitionIndexPlan(
+                    PrepareCommit: checkpoint.Commit,
+                    RestoreCommit: expectedCurrent.Commit),
+                CancellationToken.None,
+                validatePreparedTarget: () =>
+                    ValidateRecoveryProjectFilePhysicalContainment(repository, projectFile))
+                .ConfigureAwait(false);
+        }
+        catch (Exception ex)
+        {
+            return new FastForwardPullResult(
+                new RemoteOpResult.Failed(ex.Message),
+                expectedCurrent,
+                PullTransitionState.RecoveryFailed,
+                safetyTip,
+                recovery);
+        }
+
         if (transitionResult.Outcome != TreeTransitionOutcome.AppliedTarget)
         {
             if (transitionResult.Error is GitOperationException gitException)
@@ -3248,14 +4583,32 @@ internal sealed class GitCliVersionControlService :
                     TreeTransitionOutcome.OwnershipLost => PullTransitionState.OwnershipLost,
                     TreeTransitionOutcome.RecoveryFailed => PullTransitionState.RecoveryFailed,
                     _ => PullTransitionState.Unchanged,
-                });
+                },
+                safetyTip,
+                recovery);
+        }
+
+        try
+        {
+            ValidateRecoveryProjectFilePhysicalContainment(repository, projectFile);
+        }
+        catch (Exception ex)
+        {
+            return new FastForwardPullResult(
+                new RemoteOpResult.Failed(ex.Message),
+                safetyTip,
+                PullTransitionState.RecoveryFailed,
+                safetyTip,
+                recovery);
         }
 
         await TryQueueStatusChangedCoreAsync().ConfigureAwait(false);
         return new FastForwardPullResult(
             new RemoteOpResult.Success(),
             safetyTip,
-            PullTransitionState.Applied);
+            PullTransitionState.Applied,
+            safetyTip,
+            recovery);
     }
 
     private async Task InitializeCoreAsync(
@@ -5417,10 +6770,40 @@ internal sealed class GitCliVersionControlService :
             CancellationToken cancellationToken)
             => _service.GetCheckedOutBranchTipCoreAsync(cancellationToken);
 
+        public Task<PullPreflightResult> PreflightPullAsync(
+            CheckedOutBranchTip expectedCurrent,
+            CancellationToken cancellationToken)
+            => _service.PreflightPullCoreAsync(expectedCurrent, cancellationToken);
+
         public Task<ProjectCheckpoint> CreateProjectCheckpointAsync(
             string message,
             CancellationToken cancellationToken)
             => _service.CreateProjectCheckpointCoreAsync(message, cancellationToken);
+
+        public Task<PendingPullRecovery> PersistPendingPullRecoveryAsync(
+            ProjectCheckpoint checkpoint,
+            CheckedOutBranchTip targetTip,
+            string projectFile,
+            CancellationToken cancellationToken)
+            => _service.PersistPendingPullRecoveryCoreAsync(
+                checkpoint,
+                targetTip,
+                projectFile,
+                cancellationToken);
+
+        public Task<IReadOnlyList<PendingPullRecovery>> GetPendingPullRecoveriesAsync(
+            CancellationToken cancellationToken)
+            => _service.GetPendingPullRecoveriesCoreAsync(cancellationToken);
+
+        public Task<PendingPullRecoveryOutcome> RecoverPendingPullRecoveryAsync(
+            PendingPullRecovery recovery,
+            CancellationToken cancellationToken)
+            => _service.RecoverPendingPullRecoveryCoreAsync(recovery, cancellationToken);
+
+        public Task CompletePendingPullRecoveryAsync(
+            PendingPullRecovery recovery,
+            CancellationToken cancellationToken)
+            => _service.CompletePendingPullRecoveryCoreAsync(recovery, cancellationToken);
 
         public Task RestoreProjectCheckpointAsync(
             ProjectCheckpoint checkpoint,
@@ -5454,6 +6837,10 @@ internal sealed class GitCliVersionControlService :
         public Task<WorkspaceStatus> GetStatusAsync(CancellationToken cancellationToken)
             => _service.GetStatusCoreAsync(cancellationToken);
 
+        public Task<IReadOnlyList<BranchInfo>> GetBranchesAsync(
+            CancellationToken cancellationToken)
+            => _service.GetBranchesCoreAsync(cancellationToken);
+
         public Task CreateBranchAsync(
             string name,
             string startPoint,
@@ -5466,8 +6853,13 @@ internal sealed class GitCliVersionControlService :
         public Task<FastForwardPullResult> PullFastForwardAsync(
             CheckedOutBranchTip expectedCurrent,
             ProjectCheckpoint? checkpoint,
+            string projectFile,
             CancellationToken cancellationToken)
-            => _service.PullFastForwardCoreAsync(expectedCurrent, checkpoint, cancellationToken);
+            => _service.PullFastForwardCoreAsync(
+                expectedCurrent,
+                checkpoint,
+                projectFile,
+                cancellationToken);
     }
 
     private enum ServiceLifetimeState
