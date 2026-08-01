@@ -1,9 +1,10 @@
-﻿using Beutl.Benchmarks.Rendering;
+﻿using System.Buffers.Binary;
+using System.Text.Json;
+using System.Text.Json.Nodes;
+using Beutl.Benchmarks.Rendering;
+using Beutl.Graphics.Rendering;
 using Beutl.Media;
 using Beutl.UnitTests.Engine.Graphics.Backend;
-
-using System.Buffers.Binary;
-using System.Text.Json;
 
 namespace Beutl.UnitTests.Engine.Graphics.Rendering.Baseline;
 
@@ -189,6 +190,116 @@ public sealed class GpuPassFusionFrozenBaselineLiveTests
                 Has.Some.Not.Zero,
                 "The production FilterEffectRenderNode boundary must materialize the Scene3D surface for its 2D tail.");
         }
+    }
+
+    [Test]
+    public void AllocationFailureCapture_PinsPreviewAndDeliveryEvidence()
+    {
+        VulkanTestEnvironment.EnsureAvailable();
+        JsonArray captures = VulkanTestEnvironment.InvokeOnRenderThread(
+            FeatureVisualEvidenceExporter.CaptureAllocationFailuresForTest);
+        TestContext.WriteLine(captures.ToJsonString(new JsonSerializerOptions { WriteIndented = true }));
+
+        Assert.That(captures, Has.Count.EqualTo(2));
+        JsonObject preview = captures[0]?.AsObject()
+            ?? throw new AssertionException("The preview allocation capture is missing.");
+        JsonObject delivery = captures[1]?.AsObject()
+            ?? throw new AssertionException("The delivery allocation capture is missing.");
+
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(preview["intent"]?.GetValue<string>(), Is.EqualTo("preview"));
+            Assert.That(
+                preview["injectionPoint"]?.GetValue<string>(),
+                Is.EqualTo("next EffectMaterialization RenderTarget.Create"));
+            Assert.That(preview["maxWorkingScale"]?.GetValue<string>(), Is.EqualTo("2"));
+            Assert.That(preview["outcome"]?.GetValue<string>(), Is.EqualTo("dropped-output-without-throw"));
+            Assert.That(preview["exceptionType"], Is.Null);
+            Assert.That(preview["exceptionMessage"], Is.Null);
+            Assert.That(preview["requestSucceeded"]?.GetValue<bool>(), Is.True);
+            Assert.That(preview["outputBounds"]?.GetValue<string>(), Is.EqualTo("5,3,182,102"));
+            Assert.That(preview["outputScale"]?.GetValue<float>(), Is.EqualTo(1));
+            Assert.That(preview["outputIsEmpty"]?.GetValue<bool>(), Is.False);
+            Assert.That(preview["outputBitmapWidth"]?.GetValue<int>(), Is.EqualTo(182));
+            Assert.That(preview["outputBitmapHeight"]?.GetValue<int>(), Is.EqualTo(102));
+            Assert.That(preview["outputNonZeroComponents"]?.GetValue<int>(), Is.Zero);
+            Assert.That(preview["outputNonFiniteComponents"]?.GetValue<int>(), Is.Zero);
+            Assert.That(
+                preview["outputSha256"]?.GetValue<string>(),
+                Is.EqualTo("5e364eb2f6cc38287f3aec69da9cd156c1d7e6653a5083a7889cdf204d983fba"));
+            Assert.That(preview["targetFactoryCreateCalls"]?.GetValue<int>(), Is.EqualTo(2));
+            Assert.That(preview["failedAllocationWidth"]?.GetValue<int>(), Is.EqualTo(174));
+            Assert.That(preview["failedAllocationHeight"]?.GetValue<int>(), Is.EqualTo(94));
+            AssertCounters(
+                preview,
+                new Dictionary<string, long>
+                {
+                    ["ExecutionIslands"] = 2,
+                    ["ExternalRootResources"] = 1,
+                    ["OpaqueBoundaries"] = 2,
+                    ["PlannedGpuPasses"] = 1,
+                    ["PoolMisses"] = 1,
+                    ["PreviewAllocationDrops"] = 1,
+                    ["RecordedFragments"] = 2,
+                    ["RecordedMaterializableValues"] = 2,
+                    ["RenderCacheResolutionPasses"] = 1,
+                    ["SkippedOutcomes"] = 2,
+                    ["StructuralPlanCompilations"] = 1,
+                    ["StructuralPlanMisses"] = 1,
+                });
+
+            Assert.That(delivery["intent"]?.GetValue<string>(), Is.EqualTo("delivery"));
+            Assert.That(
+                delivery["injectionPoint"]?.GetValue<string>(),
+                Is.EqualTo("next EffectMaterialization RenderTarget.Create"));
+            Assert.That(delivery["maxWorkingScale"]?.GetValue<string>(), Is.EqualTo("+Infinity"));
+            Assert.That(delivery["outcome"]?.GetValue<string>(), Is.EqualTo("threw"));
+            Assert.That(
+                delivery["exceptionType"]?.GetValue<string>(),
+                Is.EqualTo(typeof(InvalidOperationException).FullName));
+            Assert.That(
+                delivery["exceptionMessage"]?.GetValue<string>(),
+                Is.EqualTo("The render-target factory could not allocate 174x94 pixels."));
+            Assert.That(delivery["requestSucceeded"]?.GetValue<bool>(), Is.False);
+            Assert.That(delivery["outputBounds"], Is.Null);
+            Assert.That(delivery["outputScale"], Is.Null);
+            Assert.That(delivery["outputIsEmpty"], Is.Null);
+            Assert.That(delivery["outputBitmapWidth"], Is.Null);
+            Assert.That(delivery["outputBitmapHeight"], Is.Null);
+            Assert.That(delivery["outputNonZeroComponents"], Is.Null);
+            Assert.That(delivery["outputNonFiniteComponents"], Is.Null);
+            Assert.That(delivery["outputSha256"], Is.Null);
+            Assert.That(delivery["targetFactoryCreateCalls"]?.GetValue<int>(), Is.EqualTo(2));
+            Assert.That(delivery["failedAllocationWidth"]?.GetValue<int>(), Is.EqualTo(174));
+            Assert.That(delivery["failedAllocationHeight"]?.GetValue<int>(), Is.EqualTo(94));
+            AssertCounters(
+                delivery,
+                new Dictionary<string, long>
+                {
+                    ["ExecutionIslands"] = 2,
+                    ["ExternalRootResources"] = 1,
+                    ["FailedOutcomes"] = 1,
+                    ["Failures"] = 1,
+                    ["OpaqueBoundaries"] = 2,
+                    ["PlannedGpuPasses"] = 1,
+                    ["PoolMisses"] = 1,
+                    ["RecordedFragments"] = 2,
+                    ["RecordedMaterializableValues"] = 2,
+                    ["RenderCacheResolutionPasses"] = 1,
+                    ["SkippedOutcomes"] = 1,
+                    ["StructuralPlanCompilations"] = 1,
+                    ["StructuralPlanMisses"] = 1,
+                });
+        }
+    }
+
+    private static void AssertCounters(JsonObject capture, IReadOnlyDictionary<string, long> expected)
+    {
+        JsonObject actual = capture["featureCounters"]?.AsObject()
+            ?? throw new AssertionException("The allocation capture has no feature counters.");
+        Assert.That(actual, Has.Count.EqualTo(expected.Count));
+        foreach ((string name, long value) in expected)
+            Assert.That(actual[name]?.GetValue<long>(), Is.EqualTo(value), $"counter {name}");
     }
 
     private static IEnumerable<string> FingerprintValues(JsonElement element)

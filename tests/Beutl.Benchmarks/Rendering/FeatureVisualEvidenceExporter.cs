@@ -43,6 +43,8 @@ internal static class FeatureVisualEvidenceExporter
 
     private static readonly PixelSize s_frame = new(192, 108);
     private static readonly Rect s_domain = new(0, 0, s_frame.Width, s_frame.Height);
+    private static readonly Rect s_allocationProbeOutputBounds = new(5, 3, 182, 102);
+    private static readonly PixelSize s_allocationProbeFailureSize = new(174, 94);
     private static readonly JsonSerializerOptions s_jsonOptions = new()
     {
         PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
@@ -189,6 +191,12 @@ internal static class FeatureVisualEvidenceExporter
         ];
     }
 
+    internal static JsonArray CaptureAllocationFailuresForTest()
+    {
+        RenderThread.Dispatcher.VerifyAccess();
+        return CaptureAllocationFailures();
+    }
+
     private static JsonObject CaptureAllocationFailure(RenderIntent intent, float maxWorkingScale)
     {
         FeatureAllocationFailureCapture first = RunAllocationFailure(intent, maxWorkingScale);
@@ -197,6 +205,10 @@ internal static class FeatureVisualEvidenceExporter
             || !DictionariesEqual(first.Counters, second.Counters))
             throw new InvalidOperationException($"Feature {intent} allocation-failure evidence is not stable.");
 
+        const float expectedOutputScale = 1;
+        PixelSize expectedOutputDeviceSize = PixelRect.FromRect(
+            s_allocationProbeOutputBounds,
+            expectedOutputScale).Size;
         bool valid = intent switch
         {
             RenderIntent.Preview => first is
@@ -209,10 +221,10 @@ internal static class FeatureVisualEvidenceExporter
                 OutputNonFiniteComponents: 0,
                 OutputSha256: not null,
             }
-                && first.OutputBounds == s_domain
-                && first.OutputScale == 1
-                && first.OutputBitmapWidth == s_frame.Width
-                && first.OutputBitmapHeight == s_frame.Height
+                && first.OutputBounds == s_allocationProbeOutputBounds
+                && first.OutputScale == expectedOutputScale
+                && first.OutputBitmapWidth == expectedOutputDeviceSize.Width
+                && first.OutputBitmapHeight == expectedOutputDeviceSize.Height
                 && Counter(first.Counters, "PreviewAllocationDrops") == 1
                 && Counter(first.Counters, "Failures") == 0
                 && Counter(first.Counters, "CleanupFailures") == 0,
@@ -234,17 +246,20 @@ internal static class FeatureVisualEvidenceExporter
                 && Counter(first.Counters, "Failures") == 1
                 && Counter(first.Counters, "CleanupFailures") == 0
                 && first.ExceptionType == typeof(InvalidOperationException).FullName
-                && first.FailedAllocationWidth > 0
-                && first.FailedAllocationHeight > 0
                 && first.ExceptionMessage ==
                     $"The render-target factory could not allocate "
-                    + $"{first.FailedAllocationWidth}x{first.FailedAllocationHeight} pixels.",
+                    + $"{s_allocationProbeFailureSize.Width}x{s_allocationProbeFailureSize.Height} pixels.",
             _ => false,
         };
-        if (!valid || first.FailureConsumed is false || first.TargetFactoryCreateCalls != 2)
+        if (!valid
+            || first.FailureConsumed is false
+            || first.TargetFactoryCreateCalls != 2
+            || first.FailedAllocationWidth != s_allocationProbeFailureSize.Width
+            || first.FailedAllocationHeight != s_allocationProbeFailureSize.Height)
         {
             throw new InvalidOperationException(
-                $"Feature {intent} allocation-failure behavior did not match the render-intent contract.");
+                $"Feature {intent} allocation-failure behavior did not match the render-intent contract: "
+                + JsonSerializer.Serialize(first, s_jsonOptions));
         }
 
         return new JsonObject

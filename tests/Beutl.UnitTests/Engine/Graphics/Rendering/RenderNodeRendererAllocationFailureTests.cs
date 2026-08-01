@@ -38,10 +38,12 @@ public sealed class RenderNodeRendererAllocationFailureTests
                 "a dropped preview contribution must leave the cleared destination transparent");
             Assert.That(factory.FailureConsumed, Is.True);
             Assert.That(factory.CreateCalls, Is.EqualTo(2));
+            Assert.That(factory.FailedDeviceSize, Is.EqualTo(new PixelSize(102, 102)));
             Assert.That(snapshot.Succeeded, Is.True);
             Assert.That(snapshot.FailurePhase, Is.Null);
             Assert.That(snapshot[RenderPipelineCounter.PreviewAllocationDrops], Is.EqualTo(1));
             Assert.That(snapshot[RenderPipelineCounter.Failures], Is.Zero);
+            Assert.That(snapshot[RenderPipelineCounter.CleanupFailures], Is.Zero);
         });
     }
 
@@ -54,17 +56,25 @@ public sealed class RenderNodeRendererAllocationFailureTests
         var diagnostics = new RenderPipelineDiagnosticsState();
         using var renderer = CreateRenderer(node, RenderIntent.Delivery, factory, diagnostics);
 
-        InvalidOperationException? exception = Assert.Throws<InvalidOperationException>(
-            () => renderer.Rasterize());
+        InvalidOperationException? exception = Assert.Throws<InvalidOperationException>(() =>
+        {
+            using RenderNodeRasterization unexpected = renderer.Rasterize();
+        });
+        RenderPipelineDiagnosticSnapshot snapshot = diagnostics.Latest;
 
         Assert.Multiple(() =>
         {
-            Assert.That(exception!.Message, Does.Contain("could not allocate"));
-            Assert.That(factory.FailureConsumed, Is.True);
-            Assert.That(diagnostics.Latest.Succeeded, Is.False);
             Assert.That(
-                diagnostics.Latest[RenderPipelineCounter.PreviewAllocationDrops],
-                Is.Zero);
+                exception!.Message,
+                Is.EqualTo("The render-target factory could not allocate 102x102 pixels."));
+            Assert.That(factory.FailureConsumed, Is.True);
+            Assert.That(factory.CreateCalls, Is.EqualTo(2));
+            Assert.That(factory.FailedDeviceSize, Is.EqualTo(new PixelSize(102, 102)));
+            Assert.That(snapshot.Succeeded, Is.False);
+            Assert.That(snapshot.FailurePhase, Is.EqualTo(RenderPipelineFailurePhase.Allocation));
+            Assert.That(snapshot[RenderPipelineCounter.PreviewAllocationDrops], Is.Zero);
+            Assert.That(snapshot[RenderPipelineCounter.Failures], Is.EqualTo(1));
+            Assert.That(snapshot[RenderPipelineCounter.CleanupFailures], Is.Zero);
         });
     }
 
@@ -145,6 +155,8 @@ public sealed class RenderNodeRendererAllocationFailureTests
     {
         public bool FailureConsumed { get; private set; }
 
+        public PixelSize? FailedDeviceSize { get; private set; }
+
         public override RenderTarget? Create(RenderTargetAllocationDescriptor allocation)
         {
             PixelSize deviceSize = allocation.DeviceSize;
@@ -152,6 +164,7 @@ public sealed class RenderNodeRendererAllocationFailureTests
             if (index == 1)
             {
                 FailureConsumed = true;
+                FailedDeviceSize = deviceSize;
                 return null;
             }
 
