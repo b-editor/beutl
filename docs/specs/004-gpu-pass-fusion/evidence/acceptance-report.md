@@ -10,9 +10,9 @@ identified by its SHA-256.
 | Tool | SHA-256 |
 |---|---|
 | `target-baseline-generator.patch` | `898692fc4a53e834cbc9f0e00176f8eca198e4f16b6de391d89f1fbbceeaa8be` |
-| `generate-target-baseline.sh` | `bf0574663d6c825150b6e06192a42abda40dba45184f123ecf52ce5199ad255d` |
-| `run-paired-visual-evidence.sh` | `a974984b5902506a23546ae0e24dc3fd3e87ea4e57035f87d5e9e69c5989cd8e` |
-| `refresh-intentional-visual-baselines.sh` | `5057b76ae3d4c1bc4474e424cc3119c5ce52aa8c203fcc0cac874d38cd8c74d8` |
+| `generate-target-baseline.sh` | `f176e45e5c52f403f3ba9bdd47f45b96c4f0a83988f1888d927f21b72f059032` |
+| `run-paired-visual-evidence.sh` | `c566b70c82d3c2efa2654cdb651164900eabd48a9e9731d23e8291f1b0dff9bd` |
+| `refresh-intentional-visual-baselines.sh` | `496b784faaee84f03766bc5520755026a20e29ca0338137637017e5422ac7f15` |
 | generator source bundle | `bb165d312af895b4f703441d96d4f42144036d7d6f8e875ae0101c4701b0414d` |
 | `run-paired-benchmarks.sh` | `a8575996b4ee74663d42fc4268e6d93fba8062739a4bedf5b7bd16f8fe226969` |
 
@@ -38,9 +38,9 @@ These hashes identify the current stricter implementation; they do not replace t
 historical harness hashes authenticated by the unchanged committed benchmark manifest.
 
 The current immutable trust-chain anchors are target visual manifest
-`954236df9a2b47831d069045cbc58e27f29f02fd22afd3ca0de8e4a62a2d0945` and
+`02acc4c2ce09b8f2e524f4bd8d2d0d036fdf28c036fea6f501794f63828776d5` and
 target benchmark manifest
-`17b65acc47289f94d208b1cf3284e69a4f94a89fba04ad61e3bf0b8b75660ebf`.
+`8a32b484247ebb84630aa25442698e28606b4cf57849e5ea029b6eefe71fe0ef`.
 The benchmark manifest's `visualManifestSha256` and
 `GpuPassFusionBaselineEvidence.ExpectedManifestSha256` both name the former.
 

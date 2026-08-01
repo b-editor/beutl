@@ -9,9 +9,9 @@
   "evidenceTools": {
     "benchmarkRunnerSha256": "a8575996b4ee74663d42fc4268e6d93fba8062739a4bedf5b7bd16f8fe226969",
     "generatorPatchSha256": "898692fc4a53e834cbc9f0e00176f8eca198e4f16b6de391d89f1fbbceeaa8be",
-    "generatorScriptSha256": "bf0574663d6c825150b6e06192a42abda40dba45184f123ecf52ce5199ad255d",
-    "pairedRunnerSha256": "a974984b5902506a23546ae0e24dc3fd3e87ea4e57035f87d5e9e69c5989cd8e",
-    "refreshScriptSha256": "5057b76ae3d4c1bc4474e424cc3119c5ce52aa8c203fcc0cac874d38cd8c74d8",
+    "generatorScriptSha256": "f176e45e5c52f403f3ba9bdd47f45b96c4f0a83988f1888d927f21b72f059032",
+    "pairedRunnerSha256": "c566b70c82d3c2efa2654cdb651164900eabd48a9e9731d23e8291f1b0dff9bd",
+    "refreshScriptSha256": "496b784faaee84f03766bc5520755026a20e29ca0338137637017e5422ac7f15",
     "generatorSourceBundleSha256": "bb165d312af895b4f703441d96d4f42144036d7d6f8e875ae0101c4701b0414d"
   },
   "fingerprint": {
@@ -78,7 +78,7 @@
     "external-materialized-source-control.rgba16f": "3b441cdd9ba74563ae6e64cb1d8ec906e622a658dec10f0a91a5493d629cadbd",
     "external-materialized-source.rgba16f": "7b63ace1452ad254c8498faa9e387c8bc29d7f79d1e7ecac3c3ba79006b30eca",
     "geometry-stroke-control.rgba16f": "307622f4daf91c91fbd9e3e3b7ef7063a9bfca21606497b9558a86ea97103947",
-    "geometry-stroke.rgba16f": "047982d1f4ffecbf46706fa3bd93a4e9c09502e4d991591b6b8b2f02de4a11be",
+    "geometry-stroke.rgba16f": "37e7c40d349c52a1a9bb8a7bec12e838e9b1ca2565b902230bc9262a8317ee45",
     "mixed-spatial-color-lut-control.rgba16f": "7b63ace1452ad254c8498faa9e387c8bc29d7f79d1e7ecac3c3ba79006b30eca",
     "mixed-spatial-color-lut.rgba16f": "1a2aef2471c25cbb81ef072a83d06cd9da79171b3b8503ce9138862a287c5e0c",
     "multiple-composition-roots-control.rgba16f": "cb4ddea0ba9b75bbe91e8a213d066847667c83b9862ccc1727c71d0b52769edc",
@@ -107,7 +107,7 @@
     "snapshot-clear-draw-backdrop.rgba16f": "e9d7e659d6da7e74783432d006824ddce3fbea29c36d166b8ac81fd82aa4615c",
     "snapshot-draw-backdrop-no-clear-control.rgba16f": "751f64965bd8615a5fee509ba9e34063aeabd1f6b87e922096b0f4f9a12460cf",
     "split-expansion-control.rgba16f": "7b63ace1452ad254c8498faa9e387c8bc29d7f79d1e7ecac3c3ba79006b30eca",
-    "split-expansion.rgba16f": "ac694c8d884a68077b5504000213bc47007ed5b09b82bafaa2d205e9eee28230",
+    "split-expansion.rgba16f": "028a6a61e1aa448a8d11337ccd6d0d73652e621507ebe71bd744e9ede814e8fc",
     "whole-source-coordinate-control.rgba16f": "7b63ace1452ad254c8498faa9e387c8bc29d7f79d1e7ecac3c3ba79006b30eca",
     "whole-source-coordinate-shader.rgba16f": "6092f5ba974be5bfe8bc891d008b8234c288737773f28460eca643dd508e0c49"
   },
@@ -839,14 +839,14 @@
       ],
       "query": null,
       "nonVacuity": {
-        "linearRgbMae": 0.043542045877610215,
-        "alphaMae": 0.10669340174875142,
+        "linearRgbMae": 0.04435536168025109,
+        "alphaMae": 0.10949119962291953,
         "maximumChannelError": 1,
         "sampleCount": 20736,
         "metricMode": "full-frame",
         "metricRegion": null,
         "parityTolerance": 0.02,
-        "marginAboveTolerance": 0.08669340174875141
+        "marginAboveTolerance": 0.08949119962291953
       }
     },
     {
@@ -1189,14 +1189,14 @@
       ],
       "query": null,
       "nonVacuity": {
-        "linearRgbMae": 0.06147165492238331,
-        "alphaMae": 0.13159820179880402,
+        "linearRgbMae": 0.06243007200379155,
+        "alphaMae": 0.135278917297169,
         "maximumChannelError": 0.99462890625,
         "sampleCount": 20736,
         "metricMode": "full-frame",
         "metricRegion": null,
         "parityTolerance": 0.02,
-        "marginAboveTolerance": 0.11159820179880402
+        "marginAboveTolerance": 0.115278917297169
       }
     },
     {

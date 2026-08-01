@@ -16,7 +16,7 @@ internal static class GpuPassFusionBaselineEvidence
 
     // This is the trust anchor for the pinned manifest and its documented semantic refreshes.
     // Update it only through an explicitly approved evidence regeneration and review.
-    public const string ExpectedManifestSha256 = "954236df9a2b47831d069045cbc58e27f29f02fd22afd3ca0de8e4a62a2d0945";
+    public const string ExpectedManifestSha256 = "02acc4c2ce09b8f2e524f4bd8d2d0d036fdf28c036fea6f501794f63828776d5";
 
     public const double NonVacuityParityTolerance = 0.02;
     public const double MaximumWindowedRgbaMae = 0.05;
