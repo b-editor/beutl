@@ -196,7 +196,7 @@ internal sealed class TargetRenderPipelineBenchmarkSession : IDisposable
             Height = setup.Height,
             SetupWarmupFrames = TargetRenderPipelineBenchmarkConfig.SetupWarmupFrameCount,
             Lifetime = TargetRenderPipelineBenchmarkConfig.LifetimeContract,
-            RequestShape = "complete-target-surface-request-with-rgba16f-readback",
+            RequestShape = TargetRenderPipelineBenchmarkConfig.RequestShapeContract,
             OutputSha256 = setup.Sha256,
             OutputChecksum = setup.Checksum.ToString("x16"),
             OutputBounds = setup.Bounds,
@@ -701,6 +701,7 @@ internal sealed class TargetRenderPipelineBenchmarkConfig : ManualConfig
     public const int BenchmarkIterationCount = 15;
     public const string LifetimeContract =
         "persistent-root-pipeline-and-version-available-structural-program-render-cache-target-pool-state";
+    public const string RequestShapeContract = "complete-target-surface-request-with-rgba16f-readback";
 
     public TargetRenderPipelineBenchmarkConfig()
     {

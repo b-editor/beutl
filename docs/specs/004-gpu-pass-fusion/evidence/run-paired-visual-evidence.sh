@@ -228,6 +228,7 @@ for blob_name, scene_id in sorted(approved_blobs.items(), key=lambda item: item[
             "refresh-intentional-visual-baselines.sh before paired evidence")
     shutil.copyfile(committed_root / blob_name, regenerated_root / blob_name)
     regenerated_hashes[blob_name] = refreshed_hash
+    regenerated_scene["nonVacuity"] = committed_scene["nonVacuity"]
     refresh_records.append({
         "sceneId": scene_id,
         "artifact": blob_name,

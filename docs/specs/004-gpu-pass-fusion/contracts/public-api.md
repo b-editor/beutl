@@ -878,6 +878,7 @@ public sealed class TargetCommandSession
     public RenderRequestPurpose Purpose { get; }
     public RenderCallbackCanvas Canvas { get; }
 
+    public void ReplaceAffectedRegion(Color color);
     public void UseSnapshot(Action<Bitmap> use);
 
     public void UseResource<T>(
@@ -1195,7 +1196,9 @@ public sealed class EffectTarget : IDisposable
     public Vector DeviceGridOffset { get; }
     public Rect RasterBounds { get; }
     public RenderTarget? RenderTarget { get; }
+    public bool IsEmpty { get; }
     public EffectTarget Clone();
+    public void Draw(ImmediateCanvas canvas);
 }
 
 public sealed class SKSLShader : IDisposable

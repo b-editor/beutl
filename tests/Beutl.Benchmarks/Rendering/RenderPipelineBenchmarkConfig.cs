@@ -41,6 +41,8 @@ internal sealed class RenderPipelineBenchmarkConfig : ManualConfig
     public const string LifetimeContract =
         "persistent-root-pipeline-and-version-available-structural-program-render-cache-target-pool-state";
 
+    public const string RequestShapeContract = "complete-target-surface-request-with-rgba16f-readback";
+
     public RenderPipelineBenchmarkConfig()
     {
         AddJob(Job.Default

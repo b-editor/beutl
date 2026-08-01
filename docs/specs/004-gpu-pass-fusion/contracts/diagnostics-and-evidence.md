@@ -411,7 +411,8 @@ Inject failure before/after each of:
 For every injection:
 
 - zero request-owned target/program/resource/session/handle leaks after teardown;
-- no staged request result or cache publication; direct `Render(destination)` failure pins must instead prove canvas-state restoration, absence of later work, and no cache publication because pixels already committed to a caller-owned destination are not rolled back;
+- before the atomic cache-publication commit, no staged request result or cache publication; direct `Render(destination)` failure pins must instead prove canvas-state restoration, absence of later work, and no cache publication because pixels already committed to a caller-owned destination are not rolled back;
+- after the atomic commit, a superseded-cache-storage cleanup failure surfaces as a cleanup exception while the complete replacement set remains published;
 - every context/session/input/handle rejects retained use;
 - cleanup continues after one cleanup fault;
 - the first primary planning/render exception remains the surfaced exception;

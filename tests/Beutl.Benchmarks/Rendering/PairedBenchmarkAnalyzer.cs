@@ -1017,6 +1017,8 @@ internal static class PairedBenchmarkAnalyzer
 
         private static CounterCase ParseCounterCase(JsonElement root, string path)
         {
+            string caseName = root.GetProperty("caseName").GetString()
+                ?? throw new InvalidDataException($"Counter file has no caseName: {path}");
             var contract = new SortedDictionary<string, string>(StringComparer.Ordinal);
             foreach (string name in new[]
                      {
@@ -1027,6 +1029,7 @@ internal static class PairedBenchmarkAnalyzer
                     throw new InvalidDataException($"Counter contract field '{name}' is missing: {path}");
                 contract.Add(name, CanonicalJson(value));
             }
+            ValidateFrozenWorkloadContract(root, caseName, path);
 
             string outputSha256 = ReadHexOutput(root, "outputSha256", 64, path);
             string outputChecksum = ReadHexOutput(root, "outputChecksum", 16, path);
@@ -1116,6 +1119,48 @@ internal static class PairedBenchmarkAnalyzer
                     CanonicalJson(expectedMeasuredOutputBounds),
                     expectedMeasuredOutputSha256,
                     expectedMeasuredOutputChecksum));
+        }
+
+        private static void ValidateFrozenWorkloadContract(JsonElement root, string caseName, string path)
+        {
+            RenderPipelineBenchmarkSceneDefinition? scene = RenderPipelineBenchmarkScenes.All
+                .SingleOrDefault(item => string.Equals(item.Name, caseName, StringComparison.Ordinal));
+            if (scene is null)
+                throw new InvalidDataException($"Counter file has an unknown benchmark case '{caseName}': {path}");
+
+            var mismatches = new List<string>(6);
+            if (root.GetProperty("seed").GetInt32() != scene.Seed)
+                mismatches.Add("seed");
+            if (root.GetProperty("width").GetInt32() != RenderPipelineBenchmarkScenes.ReferenceSize.Width)
+                mismatches.Add("width");
+            if (root.GetProperty("height").GetInt32() != RenderPipelineBenchmarkScenes.ReferenceSize.Height)
+                mismatches.Add("height");
+            if (root.GetProperty("setupWarmupFrames").GetInt32()
+                != RenderPipelineBenchmarkConfig.SetupWarmupFrameCount)
+            {
+                mismatches.Add("setupWarmupFrames");
+            }
+            if (!string.Equals(
+                    root.GetProperty("lifetime").GetString(),
+                    RenderPipelineBenchmarkConfig.LifetimeContract,
+                    StringComparison.Ordinal))
+            {
+                mismatches.Add("lifetime");
+            }
+            if (!string.Equals(
+                    root.GetProperty("requestShape").GetString(),
+                    RenderPipelineBenchmarkConfig.RequestShapeContract,
+                    StringComparison.Ordinal))
+            {
+                mismatches.Add("requestShape");
+            }
+
+            if (mismatches.Count != 0)
+            {
+                throw new InvalidDataException(
+                    $"Counter workload contract for '{caseName}' does not match the frozen benchmark: "
+                    + $"{string.Join(", ", mismatches)} ({path}).");
+            }
         }
 
         internal static bool IsValidOutputBounds(JsonElement outputBounds)

@@ -204,7 +204,7 @@ internal sealed class RenderPipelineBenchmarkSession : IDisposable
             Height = setup.Height,
             SetupWarmupFrames = RenderPipelineBenchmarkConfig.SetupWarmupFrameCount,
             Lifetime = RenderPipelineBenchmarkConfig.LifetimeContract,
-            RequestShape = "complete-target-surface-request-with-rgba16f-readback",
+            RequestShape = RenderPipelineBenchmarkConfig.RequestShapeContract,
             OutputSha256 = setup.Sha256,
             OutputChecksum = setup.Checksum.ToString("x16"),
             OutputBounds = setup.Bounds,

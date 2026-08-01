@@ -1,4 +1,5 @@
 ﻿using System.Reflection;
+using System.Text.Json;
 
 using Beutl.Graphics.Rendering;
 using Beutl.Media;
@@ -8,6 +9,9 @@ namespace Beutl.UnitTests.Engine.Graphics.Rendering.Baseline;
 [TestFixture]
 public sealed class GpuPassFusionBaselineTests
 {
+    private const string ExpectedTargetBenchmarkManifestSha256 =
+        "dd35c5ca643b3a9baca20d84ae0b4d006baddb5fad139abc3bdcb7123d254010";
+
     [Test]
     public void ImmutableEvidence_HasPinnedManifestToolAndBlobIntegrity()
     {
@@ -25,6 +29,105 @@ public sealed class GpuPassFusionBaselineTests
             Assert.That(
                 manifest.Fingerprint.Keys,
                 Is.EquivalentTo(GpuPassFusionBaselineEvidence.RequiredFingerprintFields));
+        }
+    }
+
+    [Test]
+    public void ImmutableTargetBenchmark_HasPinnedSchemaProvenanceFileSetAndArtifactHashes()
+    {
+        GpuPassFusionEvidenceManifest baseline = GpuPassFusionBaselineEvidence.LoadAndVerify();
+        string directory = Path.Combine(baseline.Paths.EvidenceDirectory, "target-benchmark");
+        string manifestPath = Path.Combine(directory, "manifest.json");
+        GpuPassFusionBaselineEvidence.VerifyFileHash(
+            manifestPath,
+            ExpectedTargetBenchmarkManifestSha256,
+            "target benchmark manifest");
+
+        using JsonDocument document = JsonDocument.Parse(File.ReadAllBytes(manifestPath));
+        JsonElement root = document.RootElement;
+        Assert.That(
+            root.EnumerateObject().Select(static property => property.Name),
+            Is.EquivalentTo(new[]
+            {
+                "artifactSha256",
+                "baselineCodeSha",
+                "benchmarkDotNetVersion",
+                "cases",
+                "command",
+                "configuration",
+                "evidenceTools",
+                "fingerprint",
+                "patchedDiffSha256",
+                "prePatchRepositoryState",
+                "runCompletedUtc",
+                "runStartedUtc",
+                "schemaVersion",
+                "scope",
+                "visualManifestSha256",
+            }));
+        Assert.Multiple(() =>
+        {
+            Assert.That(root.GetProperty("schemaVersion").GetInt32(), Is.EqualTo(1));
+            Assert.That(root.GetProperty("baselineCodeSha").GetString(), Is.EqualTo(baseline.BaselineCodeSha));
+            Assert.That(root.GetProperty("patchedDiffSha256").GetString(), Is.EqualTo(baseline.PatchedDiffSha256));
+            Assert.That(root.GetProperty("prePatchRepositoryState").GetString(), Is.EqualTo("clean"));
+            Assert.That(
+                root.GetProperty("visualManifestSha256").GetString(),
+                Is.EqualTo(GpuPassFusionBaselineEvidence.ExpectedManifestSha256));
+        });
+
+        IReadOnlyDictionary<string, string> expectedTools = new Dictionary<string, string>(StringComparer.Ordinal)
+        {
+            ["benchmarkRunnerSha256"] = baseline.EvidenceTools.BenchmarkRunnerSha256,
+            ["generatorPatchSha256"] = baseline.EvidenceTools.GeneratorPatchSha256,
+            ["generatorScriptSha256"] = baseline.EvidenceTools.GeneratorScriptSha256,
+            ["generatorSourceBundleSha256"] = baseline.EvidenceTools.GeneratorSourceBundleSha256,
+            ["pairedRunnerSha256"] = baseline.EvidenceTools.PairedRunnerSha256,
+            ["refreshScriptSha256"] = baseline.EvidenceTools.RefreshScriptSha256,
+        };
+        JsonElement tools = root.GetProperty("evidenceTools");
+        Assert.That(
+            tools.EnumerateObject().Select(static property => property.Name),
+            Is.EquivalentTo(expectedTools.Keys));
+        foreach ((string name, string expected) in expectedTools)
+            Assert.That(tools.GetProperty(name).GetString(), Is.EqualTo(expected), name);
+
+        JsonElement fingerprint = root.GetProperty("fingerprint");
+        Assert.That(
+            fingerprint.EnumerateObject().Select(static property => property.Name),
+            Is.EquivalentTo(baseline.Fingerprint.Keys));
+        foreach ((string name, IReadOnlyList<string> expected) in baseline.Fingerprint)
+        {
+            JsonElement actual = fingerprint.GetProperty(name);
+            IReadOnlyList<string?> values = actual.ValueKind == JsonValueKind.Array
+                ? actual.EnumerateArray().Select(static item => item.GetString()).ToArray()
+                : [actual.GetString()];
+            Assert.That(values, Is.EqualTo(expected), name);
+        }
+
+        string[] expectedArtifacts =
+        [
+            "counters.json",
+            "raw-benchmark-full.json",
+            "raw-benchmark-github.md",
+            "raw-benchmark-stdout.txt",
+        ];
+        JsonElement artifactHashes = root.GetProperty("artifactSha256");
+        Assert.That(
+            artifactHashes.EnumerateObject().Select(static property => property.Name),
+            Is.EquivalentTo(expectedArtifacts));
+        string[] actualFiles = Directory.EnumerateFiles(directory, "*", SearchOption.AllDirectories)
+            .Select(path => Path.GetRelativePath(directory, path).Replace(Path.DirectorySeparatorChar, '/'))
+            .Order(StringComparer.Ordinal)
+            .ToArray();
+        Assert.That(actualFiles, Is.EqualTo(expectedArtifacts.Append("manifest.json").Order(StringComparer.Ordinal)));
+        foreach (string artifact in expectedArtifacts)
+        {
+            GpuPassFusionBaselineEvidence.VerifyFileHash(
+                Path.Combine(directory, artifact),
+                artifactHashes.GetProperty(artifact).GetString()
+                    ?? throw new InvalidDataException($"Target benchmark hash is null: {artifact}"),
+                $"target benchmark artifact '{artifact}'");
         }
     }
 

@@ -116,6 +116,39 @@ public sealed class PairedBenchmarkAnalyzerTests
                 .And.Contain(jobDisplay));
     }
 
+    [TestCase("seed")]
+    [TestCase("width")]
+    [TestCase("height")]
+    [TestCase("setupWarmupFrames")]
+    [TestCase("lifetime")]
+    [TestCase("requestShape")]
+    public void Analyze_RejectsNonFrozenCounterWorkload(string field)
+    {
+        using var fixture = new AnalyzerFixture();
+        fixture.MutateCounter(
+            AnalyzerRun.Feature,
+            "SingleShader",
+            root =>
+            {
+                root[field] = field switch
+                {
+                    "seed" => RenderPipelineBenchmarkScenes.SourceSeed + 2,
+                    "width" => RenderPipelineBenchmarkScenes.ReferenceSize.Width - 1,
+                    "height" => RenderPipelineBenchmarkScenes.ReferenceSize.Height - 1,
+                    "setupWarmupFrames" => RenderPipelineBenchmarkConfig.SetupWarmupFrameCount - 1,
+                    "lifetime" => "short-lived-renderer",
+                    "requestShape" => "reduced-target-request",
+                    _ => throw new ArgumentOutOfRangeException(nameof(field), field, null),
+                };
+            });
+
+        InvalidDataException? exception = Assert.Throws<InvalidDataException>(() => fixture.Analyze());
+
+        Assert.That(
+            exception!.Message,
+            Does.Contain("frozen benchmark").And.Contain(field).And.Contain("SingleShader"));
+    }
+
     [Test]
     public void Analyze_RejectsSourceProvenanceMismatch()
     {
@@ -486,7 +519,7 @@ public sealed class PairedBenchmarkAnalyzerTests
             WriteBenchmarkResults(results, sampleValue);
             File.WriteAllText(stdout, "synthetic benchmark output\n", new UTF8Encoding(false));
             foreach (RenderPipelineBenchmarkSceneDefinition scene in RenderPipelineBenchmarkScenes.All)
-                WriteCounter(Path.Combine(counters, scene.Name + ".json"), scene.Name, sourceSha);
+                WriteCounter(Path.Combine(counters, scene.Name + ".json"), scene, sourceSha);
             return new RunPaths(results, counters, stdout);
         }
 
@@ -514,18 +547,21 @@ public sealed class PairedBenchmarkAnalyzerTests
             });
         }
 
-        private static void WriteCounter(string path, string caseName, string sourceSha)
+        private static void WriteCounter(
+            string path,
+            RenderPipelineBenchmarkSceneDefinition scene,
+            string sourceSha)
         {
             WriteObject(path, new JsonObject
             {
                 ["schemaVersion"] = 2,
-                ["caseName"] = caseName,
-                ["seed"] = 20_040_719,
-                ["width"] = 384,
-                ["height"] = 216,
-                ["setupWarmupFrames"] = 5,
-                ["lifetime"] = "persistent-renderer",
-                ["requestShape"] = "complete-target-frame",
+                ["caseName"] = scene.Name,
+                ["seed"] = scene.Seed,
+                ["width"] = RenderPipelineBenchmarkScenes.ReferenceSize.Width,
+                ["height"] = RenderPipelineBenchmarkScenes.ReferenceSize.Height,
+                ["setupWarmupFrames"] = RenderPipelineBenchmarkConfig.SetupWarmupFrameCount,
+                ["lifetime"] = RenderPipelineBenchmarkConfig.LifetimeContract,
+                ["requestShape"] = RenderPipelineBenchmarkConfig.RequestShapeContract,
                 ["outputSha256"] = OutputSha256,
                 ["outputChecksum"] = OutputChecksum,
                 ["outputBounds"] = Bounds(),

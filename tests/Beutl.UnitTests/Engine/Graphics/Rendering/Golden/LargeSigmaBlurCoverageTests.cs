@@ -23,8 +23,8 @@ public class LargeSigmaBlurCoverageTests
     private static readonly int[] s_smallSourceExtents = [25, 50, 100, 200];
     private static readonly float[] s_smallSourceSigmas = [127, 128, 250, 500];
 
-    // Dense backend-characterization sweeps are Explicit; each attribute records the exact
-    // orchestrator filter that opts the corresponding matrix into a dedicated gate.
+    // The blur cap-boundary matrix runs in the regular unfiltered test gate. Other dense
+    // backend-characterization sweeps remain Explicit and document their dedicated filters.
     public static IEnumerable<TestCaseData> LargeSigmaCases()
     {
         foreach (float sigma in s_sigmas)
@@ -104,9 +104,6 @@ public class LargeSigmaBlurCoverageTests
     }
 
     [TestCaseSource(nameof(LargeSigmaCases))]
-    [Explicit(
-        "Orchestrator gate: dotnet test tests/Beutl.UnitTests -f net10.0 "
-        + "--filter \"FullyQualifiedName~LargeSigmaBlurCoverageTests.Blur_CenterCoverageMatchesGaussianModelAcrossCapBoundary\"")]
     public void Blur_CenterCoverageMatchesGaussianModelAcrossCapBoundary(
         float sigma,
         float outputScale)

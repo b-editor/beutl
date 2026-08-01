@@ -37,6 +37,9 @@ public class PixelSortEffectContentTests
         {
             using Bitmap sorted = GoldenImageHarness.RenderAtScale(MakeSortedShape(), Frame, 1f);
 
+            string? nonFinite = ImageMetrics.FirstNonFinite(("sorted", sorted));
+            Assert.That(nonFinite, Is.Null, $"non-finite PixelSort render: {nonFinite}");
+
             double energy = 0;
             ReadOnlySpan<ushort> pixels = sorted.GetPixelSpan<ushort>();
             for (int offset = 0; offset < pixels.Length; offset += 4)
