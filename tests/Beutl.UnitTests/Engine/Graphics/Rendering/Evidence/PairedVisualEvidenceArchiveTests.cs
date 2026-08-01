@@ -10,7 +10,7 @@ namespace Beutl.UnitTests.Engine.Graphics.Rendering.Evidence;
 public sealed class PairedVisualEvidenceArchiveTests
 {
     private const string ExpectedResultSha256 =
-        "c064387a1645d7a4e8ec1be9420dac5580e4db1384c875b5e396c00738449c01";
+        "c4ece6ef90aa71cff22ddd1196396fbb4d5642804d7c91ab5fde69f10da8898d";
 
     private static readonly string[] SemanticRefreshSceneIds =
     [

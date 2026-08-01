@@ -1,10 +1,10 @@
 {
   "schemaVersion": 1,
-  "featureCodeSha": "93ffabc3d2a8c05d3e4007ac086a1e6c0172a321",
+  "featureCodeSha": "f40c701d0991b6374387e6659da79b641a48440e",
   "generatorSeed": 20040719,
   "evidenceMode": "feature-current-production-render-node-renderer",
   "baselineManifestSha256": "6e0c11ee1b0da8d1f5758db626955598c17c0b25da7b60cf6a8faee5d5fc5e3f",
-  "exporterAssemblyVersion": "2.99.99\u002B93ffabc3d2a8c05d3e4007ac086a1e6c0172a321",
+  "exporterAssemblyVersion": "2.99.99\u002Bf40c701d0991b6374387e6659da79b641a48440e",
   "fingerprint": {
     "osDescription": "macOS 26.5.2",
     "osVersion": "Unix 26.5.2",
@@ -46,7 +46,7 @@
     "skiaSharpManagedVersion": "3.119.4\u002Brelease-3.119.4.f568ac94dd768ef9a2f593537cfde2dd0d348ef5.f568ac94dd768ef9a2f593537cfde2dd0d348ef5",
     "skiaSharpNativeVersion": "119.0",
     "silkNetVulkanVersion": "2.23.0\u002B94605142f7b7bd6e69c9201e8e721d245c69eb7e",
-    "beutlEngineAssemblyVersion": "2.99.99\u002B93ffabc3d2a8c05d3e4007ac086a1e6c0172a321"
+    "beutlEngineAssemblyVersion": "2.99.99\u002Bf40c701d0991b6374387e6659da79b641a48440e"
   },
   "pixelFormat": {
     "colorType": "RGBA16F",
@@ -3604,6 +3604,14 @@
       "exceptionType": null,
       "exceptionMessage": null,
       "requestSucceeded": true,
+      "outputBounds": "5,3,182,102",
+      "outputScale": 1,
+      "outputIsEmpty": false,
+      "outputBitmapWidth": 182,
+      "outputBitmapHeight": 102,
+      "outputNonZeroComponents": 0,
+      "outputNonFiniteComponents": 0,
+      "outputSha256": "5e364eb2f6cc38287f3aec69da9cd156c1d7e6653a5083a7889cdf204d983fba",
       "featureCounters": {
         "ExecutionIslands": 2,
         "ExternalRootResources": 1,
@@ -3618,7 +3626,9 @@
         "StructuralPlanCompilations": 1,
         "StructuralPlanMisses": 1
       },
-      "targetFactoryCreateCalls": 2
+      "targetFactoryCreateCalls": 2,
+      "failedAllocationWidth": 174,
+      "failedAllocationHeight": 94
     },
     {
       "intent": "delivery",
@@ -3628,6 +3638,14 @@
       "exceptionType": "System.InvalidOperationException",
       "exceptionMessage": "The render-target factory could not allocate 174x94 pixels.",
       "requestSucceeded": false,
+      "outputBounds": null,
+      "outputScale": null,
+      "outputIsEmpty": null,
+      "outputBitmapWidth": null,
+      "outputBitmapHeight": null,
+      "outputNonZeroComponents": null,
+      "outputNonFiniteComponents": null,
+      "outputSha256": null,
       "featureCounters": {
         "ExecutionIslands": 2,
         "ExternalRootResources": 1,
@@ -3643,7 +3661,9 @@
         "StructuralPlanCompilations": 1,
         "StructuralPlanMisses": 1
       },
-      "targetFactoryCreateCalls": 2
+      "targetFactoryCreateCalls": 2,
+      "failedAllocationWidth": 174,
+      "failedAllocationHeight": 94
     }
   ],
   "sameProcessFusionParity": {

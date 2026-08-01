@@ -46,7 +46,7 @@ The benchmark manifest's `visualManifestSha256` and
 
 ## Paired visual evidence (passed)
 
-- Target: legacy renderer regenerated from `43a38e665d9bf52548161a3917e748bd1457ff55`; feature: `93ffabc3d2a8c05d3e4007ac086a1e6c0172a321`.
+- Target: legacy renderer regenerated from `43a38e665d9bf52548161a3917e748bd1457ff55`; feature: `f40c701d0991b6374387e6659da79b641a48440e`.
 - Environment fingerprint gate: exact match required and satisfied before any parity metric.
 - Result: **all 44 scenes passed** — thresholds SSIM ≥ 0.99,
   linear-RGB MAE ≤ 0.02, alpha MAE ≤ 0.02, and the 16×16 minimum-window
@@ -62,10 +62,13 @@ The benchmark manifest's `visualManifestSha256` and
   allocation failure where the baseline drops the output — fixed in
   `d3dc99667` (consumer-provenance-scoped preview drop with the
   `PreviewAllocationDrops` counter); the recorded outcomes now match the baseline
-  (`dropped-output-without-throw` / `threw`).
+  (`dropped-output-without-throw` / `threw`). The feature lane additionally pins the
+  observed Preview bounds, scale, transparent finite bitmap, output SHA-256, request
+  status, failure dimensions, and diagnostics counters, plus the Delivery exception
+  type, exact message, and failure counters.
 - Raw result: [`paired-visual-result.json`](paired-visual-result.json)
-  (SHA-256 `c064387a1645d7a4e8ec1be9420dac5580e4db1384c875b5e396c00738449c01`);
-  run-regenerated target manifest `6e0c11ee1b0da8d1f5758db626955598c17c0b25da7b60cf6a8faee5d5fc5e3f`, feature manifest `18d0103f02e09ffb61a869e8630920016f60c1d500405273bb7f3b00ff89e901`.
+  (SHA-256 `c4ece6ef90aa71cff22ddd1196396fbb4d5642804d7c91ab5fde69f10da8898d`);
+  run-regenerated target manifest `6e0c11ee1b0da8d1f5758db626955598c17c0b25da7b60cf6a8faee5d5fc5e3f`, feature manifest `f5c03dfbf73e52fb7afc57636772e5be92a619f479fb05864ebb3d447e76b47f`.
 - The exact historical inputs are retained under
   [`paired-visual-run/target/`](paired-visual-run/target/) and
   [`paired-visual-run/feature/`](paired-visual-run/feature/). Each manifest authenticates
@@ -132,7 +135,7 @@ The two acceptance lanes are intentionally revision-scoped rather than revision-
 The performance result remains frozen at feature revision
 `912ddda0484d0b8cde3c63b60deefa491a0c596c`; its numeric ratios apply only to that
 revision. The visual oracle is regenerated after approved hardening rounds and currently
-validates semantic behavior at `93ffabc3d2a8c05d3e4007ac086a1e6c0172a321`.
+validates semantic behavior at `f40c701d0991b6374387e6659da79b641a48440e`.
 Later visual evidence is a semantic no-regression gate for those hardening changes; it does
 not reattribute the frozen benchmark ratios to the later revision, and the benchmark run is
 not regenerated merely to advance the visual revision.
