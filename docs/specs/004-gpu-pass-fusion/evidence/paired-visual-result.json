@@ -57,14 +57,14 @@
     ],
     "vulkanVendorId": "0x0000106b"
   },
-  "featureCodeSha": "180809f90f04f989be3964fb35ba69fcc21527ba",
+  "featureCodeSha": "72e26aa0c38bd91482b9e462111956251e78039c",
   "featureCommand": "dotnet run -c Release --no-build --project tests/Beutl.Benchmarks/Beutl.Benchmarks.csproj -- feature-visual-export",
   "featureExporterProvenance": {
-    "exporterAssemblyVersion": "2.99.99+180809f90f04f989be3964fb35ba69fcc21527ba",
-    "featureCodeSha": "180809f90f04f989be3964fb35ba69fcc21527ba"
+    "exporterAssemblyVersion": "2.99.99+72e26aa0c38bd91482b9e462111956251e78039c",
+    "featureCodeSha": "72e26aa0c38bd91482b9e462111956251e78039c"
   },
-  "featureManifestSha256": "f094bc5339ae63337004312497d0253892eaf8f1ec2dd78711a663cb3371ab30",
-  "generatedAtUtc": "2026-08-01T05:59:03.226839+00:00",
+  "featureManifestSha256": "8def7dd9d2e1b42744c47666766a925840760dde0581224bc78afb50c8a5c26e",
+  "generatedAtUtc": "2026-08-01T07:14:28.315135+00:00",
   "scenes": [
     {
       "edgeCrop": {
@@ -532,7 +532,7 @@
     "regeneratedTargetManifestSha256": "a3d0cbbd4de76baa32aae940cb4a493637747ede890765ed30833123f8624b5b"
   },
   "sourceAssemblyVersions": {
-    "feature": "2.99.99+180809f90f04f989be3964fb35ba69fcc21527ba",
+    "feature": "2.99.99+72e26aa0c38bd91482b9e462111956251e78039c",
     "target": "2.99.99+43a38e665d9bf52548161a3917e748bd1457ff55"
   },
   "status": "passed",
