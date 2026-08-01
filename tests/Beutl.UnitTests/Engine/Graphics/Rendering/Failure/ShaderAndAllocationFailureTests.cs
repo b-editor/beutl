@@ -326,11 +326,14 @@ public sealed class ShaderAndAllocationFailureTests
             root,
             new RenderNodeRendererOptions
             {
-                Intent = intent,
-                TargetDomain = new Rect(0, 0, 8, 8),
-                OutputScale = 1,
-                MaxWorkingScale = 1,
-                UseRenderCache = false,
+                DefaultRequest = new RenderNodeRenderRequest
+                {
+                    Intent = intent,
+                    TargetDomain = new Rect(0, 0, 8, 8),
+                    OutputScale = 1,
+                    MaxWorkingScale = 1,
+                    UseRenderCache = false,
+                },
                 TargetFactory = factory,
             });
 

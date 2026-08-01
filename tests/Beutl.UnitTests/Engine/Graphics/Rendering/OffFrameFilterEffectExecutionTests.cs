@@ -139,11 +139,14 @@ public sealed class OffFrameFilterEffectExecutionTests
             root,
             new RenderNodeRendererOptions
             {
-                TargetDomain = s_frame,
-                RequestedRegion = s_frame,
-                OutputScale = 1,
-                MaxWorkingScale = 1,
-                UseRenderCache = false,
+                DefaultRequest = new RenderNodeRenderRequest
+                {
+                    TargetDomain = s_frame,
+                    RequestedRegion = s_frame,
+                    OutputScale = 1,
+                    MaxWorkingScale = 1,
+                    UseRenderCache = false,
+                },
                 TargetFactory = new CpuTargetFactory(),
             });
         renderer.Render(destination);

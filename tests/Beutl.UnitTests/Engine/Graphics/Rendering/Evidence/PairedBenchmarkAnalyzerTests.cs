@@ -97,6 +97,25 @@ public sealed class PairedBenchmarkAnalyzerTests
                 .And.Contain("baseline-a=15, feature=14, baseline-b=15"));
     }
 
+    [TestCase("RenderPipeline(InvocationCount=1, IterationCount=15, LaunchCount=1, RunStrategy=Monitoring, UnrollFactor=1, WarmupCount=2)")]
+    [TestCase("RenderPipeline(InvocationCount=1, IterationCount=14, LaunchCount=1, RunStrategy=Monitoring, UnrollFactor=1, WarmupCount=3)")]
+    [TestCase("RenderPipeline(InvocationCount=1, IterationCount=15, LaunchCount=2, RunStrategy=Monitoring, UnrollFactor=1, WarmupCount=3)")]
+    [TestCase("RenderPipeline(InvocationCount=2, IterationCount=15, LaunchCount=1, RunStrategy=Monitoring, UnrollFactor=1, WarmupCount=3)")]
+    [TestCase("RenderPipeline(InvocationCount=1, IterationCount=15, LaunchCount=1, RunStrategy=Throughput, UnrollFactor=1, WarmupCount=3)")]
+    [TestCase("RenderPipeline(InvocationCount=1, IterationCount=15, LaunchCount=1, RunStrategy=Monitoring, UnrollFactor=2, WarmupCount=3)")]
+    public void Analyze_RejectsNonFrozenBenchmarkJob(string jobDisplay)
+    {
+        using var fixture = new AnalyzerFixture();
+        fixture.SetJobDisplay(AnalyzerRun.Feature, jobDisplay);
+
+        InvalidDataException? exception = Assert.Throws<InvalidDataException>(() => fixture.Analyze());
+
+        Assert.That(
+            exception!.Message,
+            Does.Contain("frozen RenderPipelineBenchmarkConfig job")
+                .And.Contain(jobDisplay));
+    }
+
     [Test]
     public void Analyze_RejectsSourceProvenanceMismatch()
     {
@@ -343,6 +362,17 @@ public sealed class PairedBenchmarkAnalyzerTests
             WriteObject(_runs[run].Results, root);
         }
 
+        public void SetJobDisplay(AnalyzerRun run, string jobDisplay)
+        {
+            JsonObject root = LoadObject(_runs[run].Results);
+            foreach (JsonNode? item in root["Benchmarks"]!.AsArray())
+            {
+                string caseName = item!["Parameters"]!.GetValue<string>()["CaseName=".Length..];
+                item["DisplayInfo"] = $"Synthetic.Render: {jobDisplay} [CaseName={caseName}]";
+            }
+            WriteObject(_runs[run].Results, root);
+        }
+
         public void RemoveBenchmarkCase(AnalyzerRun run, string caseName)
         {
             JsonObject root = LoadObject(_runs[run].Results);
@@ -423,7 +453,9 @@ public sealed class PairedBenchmarkAnalyzerTests
                     ["FullName"] = $"Synthetic.Render(CaseName: \"{scene.Name}\")",
                     ["Parameters"] = $"CaseName={scene.Name}",
                     ["Method"] = "Render",
-                    ["DisplayInfo"] = $"Synthetic.Render: SyntheticJob [CaseName={scene.Name}]",
+                    ["DisplayInfo"] =
+                        $"Synthetic.Render: {RenderPipelineBenchmarkConfig.ExpectedJobDisplay} "
+                        + $"[CaseName={scene.Name}]",
                     ["Statistics"] = new JsonObject { ["OriginalValues"] = Samples(sampleValue) },
                 });
             }

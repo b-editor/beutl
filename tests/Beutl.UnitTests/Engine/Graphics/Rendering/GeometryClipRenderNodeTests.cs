@@ -24,7 +24,12 @@ public sealed class GeometryClipRenderNodeTests
             null));
         using var renderer = new RenderNodeRenderer(
             node,
-            new RenderNodeRendererOptions { UseRenderCache = false });
+            new RenderNodeRendererOptions {
+                DefaultRequest = new RenderNodeRenderRequest
+                {
+                    UseRenderCache = false,
+                },
+            });
 
         RenderNodeMeasurement measurement = renderer.Measure();
 

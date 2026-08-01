@@ -2087,10 +2087,13 @@ public sealed class PlayerViewModel : IAsyncDisposable, IPreviewPlayer
                 root,
                 new RenderNodeRendererOptions
                 {
-                    Intent = RenderIntent.Preview,
-                    TargetDomain = new Rect(default, frameSize.ToSize(1)),
-                    OutputScale = 1,
-                    UseRenderCache = false,
+                    DefaultRequest = new RenderNodeRenderRequest
+                    {
+                        Intent = RenderIntent.Preview,
+                        TargetDomain = new Rect(default, frameSize.ToSize(1)),
+                        OutputScale = 1,
+                        UseRenderCache = false,
+                    },
                 });
             return PixelRect.FromRect(renderer.Measure().OutputBounds).Size;
         });
@@ -2120,11 +2123,14 @@ public sealed class PlayerViewModel : IAsyncDisposable, IPreviewPlayer
                 root,
                 new RenderNodeRendererOptions
                 {
-                    Intent = RenderIntent.Delivery,
-                    TargetDomain = new Rect(default, frameSize.ToSize(1)),
-                    OutputScale = outputScale,
-                    MaxWorkingScale = WorkingScaleCeiling.Export(),
-                    UseRenderCache = false,
+                    DefaultRequest = new RenderNodeRenderRequest
+                    {
+                        Intent = RenderIntent.Delivery,
+                        TargetDomain = new Rect(default, frameSize.ToSize(1)),
+                        OutputScale = outputScale,
+                        MaxWorkingScale = WorkingScaleCeiling.Export(),
+                        UseRenderCache = false,
+                    },
                 });
             using RenderNodeRasterization rasterization = renderer.Rasterize();
             return rasterization.Bitmap?.Clone()

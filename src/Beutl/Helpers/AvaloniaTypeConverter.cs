@@ -482,9 +482,12 @@ public static class AvaloniaTypeConverter
                     node,
                     new RenderNodeRendererOptions
                     {
-                        Intent = RenderIntent.Preview,
-                        TargetDomain = new Graphics.Rect(0, 0, 1920, 1080),
-                        UseRenderCache = false,
+                        DefaultRequest = new RenderNodeRenderRequest
+                        {
+                            Intent = RenderIntent.Preview,
+                            TargetDomain = new Graphics.Rect(0, 0, 1920, 1080),
+                            UseRenderCache = false,
+                        },
                     });
                 using RenderNodeRasterization rasterization = renderer.Rasterize();
                 Media.Bitmap? bitmap = rasterization.Bitmap;

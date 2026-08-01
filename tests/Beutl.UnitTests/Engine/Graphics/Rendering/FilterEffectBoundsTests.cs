@@ -38,8 +38,11 @@ public sealed class FilterEffectBoundsTests
             node,
             new RenderNodeRendererOptions
             {
-                TargetDomain = domain,
-                UseRenderCache = false,
+                DefaultRequest = new RenderNodeRenderRequest
+                {
+                    TargetDomain = domain,
+                    UseRenderCache = false,
+                },
             });
 
         RenderNodeMeasurement measurement = renderer.Measure();
@@ -53,7 +56,12 @@ public sealed class FilterEffectBoundsTests
         using var node = CreateUnknownBoundsNode();
         using var renderer = new RenderNodeRenderer(
             node,
-            new RenderNodeRendererOptions { UseRenderCache = false });
+            new RenderNodeRendererOptions {
+                DefaultRequest = new RenderNodeRenderRequest
+                {
+                    UseRenderCache = false,
+                },
+            });
 
         InvalidOperationException? error = Assert.Throws<RenderTargetDomainRequiredException>(() => renderer.Measure());
 
@@ -68,7 +76,10 @@ public sealed class FilterEffectBoundsTests
             node,
             new RenderNodeRendererOptions
             {
-                UseRenderCache = false,
+                DefaultRequest = new RenderNodeRenderRequest
+                {
+                    UseRenderCache = false,
+                },
                 TargetFactory = new CpuTargetFactory(),
             });
         using var target = new CpuRenderTarget(64, 48);
@@ -202,6 +213,13 @@ public sealed class FilterEffectBoundsTests
 
         Rect actual = ApplyBounds(effect);
 
+        Assert.Multiple(() =>
+        {
+            Assert.That(float.IsFinite(actual.X), Is.True);
+            Assert.That(float.IsFinite(actual.Y), Is.True);
+            Assert.That(float.IsFinite(actual.Width), Is.True);
+            Assert.That(float.IsFinite(actual.Height), Is.True);
+        });
         AssertRectContains(actual, expected, 0.001f);
     }
 

@@ -18,9 +18,12 @@ public sealed class RenderPipelineReconciliationTests
         using var node = new ClearRenderNode(new Color(255, 12, 34, 56));
         using var renderer = new RenderNodeRenderer(node, new RenderNodeRendererOptions
         {
-            TargetDomain = new Rect(0, 0, 32, 24),
-            Diagnostics = diagnostics,
-            UseRenderCache = false,
+            DefaultRequest = new RenderNodeRenderRequest
+            {
+                TargetDomain = new Rect(0, 0, 32, 24),
+                Diagnostics = diagnostics,
+                UseRenderCache = false,
+            },
         });
 
         RenderNodeMeasurement measurement = renderer.Measure();
@@ -45,10 +48,13 @@ public sealed class RenderPipelineReconciliationTests
         using var node = new ClearRenderNode(new Color(255, 12, 34, 56));
         using var renderer = new RenderNodeRenderer(node, new RenderNodeRendererOptions
         {
-            TargetDomain = new Rect(0, 0, 32, 24),
-            RequestedRegion = new Rect(8, 8, 12, 10),
-            Diagnostics = diagnostics,
-            UseRenderCache = false,
+            DefaultRequest = new RenderNodeRenderRequest
+            {
+                TargetDomain = new Rect(0, 0, 32, 24),
+                RequestedRegion = new Rect(8, 8, 12, 10),
+                Diagnostics = diagnostics,
+                UseRenderCache = false,
+            },
         });
 
         bool hit = renderer.HitTest(new Point(2, 2));
@@ -78,9 +84,12 @@ public sealed class RenderPipelineReconciliationTests
         using var node = new ClearRenderNode(new Color(255, 12, 34, 56));
         using var renderer = new RenderNodeRenderer(node, new RenderNodeRendererOptions
         {
-            TargetDomain = new Rect(0, 0, 16, 16),
-            Diagnostics = diagnostics,
-            UseRenderCache = false,
+            DefaultRequest = new RenderNodeRenderRequest
+            {
+                TargetDomain = new Rect(0, 0, 16, 16),
+                Diagnostics = diagnostics,
+                UseRenderCache = false,
+            },
         });
         using RenderTarget target = RenderTarget.CreateNull(16, 16);
         using var canvas = new ImmediateCanvas(target);
@@ -107,9 +116,12 @@ public sealed class RenderPipelineReconciliationTests
         using var node = new CacheableWorkNode();
         using var renderer = new RenderNodeRenderer(node, new RenderNodeRendererOptions
         {
-            TargetDomain = new Rect(0, 0, 16, 16),
-            Diagnostics = diagnostics,
-            UseRenderCache = false,
+            DefaultRequest = new RenderNodeRenderRequest
+            {
+                TargetDomain = new Rect(0, 0, 16, 16),
+                Diagnostics = diagnostics,
+                UseRenderCache = false,
+            },
         });
         using RenderTarget target = RenderTarget.CreateNull(16, 16);
         using var canvas = new ImmediateCanvas(target);
@@ -141,10 +153,13 @@ public sealed class RenderPipelineReconciliationTests
         node.Cache.ReportRenderCount(RenderNodeCache.Count);
         using var renderer = new RenderNodeRenderer(node, new RenderNodeRendererOptions
         {
-            TargetDomain = new Rect(0, 0, 16, 16),
-            Diagnostics = diagnostics,
-            UseRenderCache = true,
-            RenderPurpose = RenderRequestPurpose.Frame,
+            DefaultRequest = new RenderNodeRenderRequest
+            {
+                TargetDomain = new Rect(0, 0, 16, 16),
+                Diagnostics = diagnostics,
+                UseRenderCache = true,
+                RenderPurpose = RenderRequestPurpose.Frame,
+            },
         });
 
         using RenderNodeRasterization cold = renderer.Rasterize();
@@ -347,10 +362,13 @@ public sealed class RenderPipelineReconciliationTests
         node.Cache.ReportRenderCount(RenderNodeCache.Count);
         using var renderer = new RenderNodeRenderer(node, new RenderNodeRendererOptions
         {
-            TargetDomain = new Rect(0, 0, 16, 16),
-            Diagnostics = diagnostics,
-            UseRenderCache = true,
-            RenderPurpose = RenderRequestPurpose.Frame,
+            DefaultRequest = new RenderNodeRenderRequest
+            {
+                TargetDomain = new Rect(0, 0, 16, 16),
+                Diagnostics = diagnostics,
+                UseRenderCache = true,
+                RenderPurpose = RenderRequestPurpose.Frame,
+            },
         });
 
         InvalidOperationException exception = Assert.Throws<InvalidOperationException>(
@@ -374,10 +392,13 @@ public sealed class RenderPipelineReconciliationTests
         using var node = new CacheableWorkNode();
         using var renderer = new RenderNodeRenderer(node, new RenderNodeRendererOptions
         {
-            TargetDomain = new Rect(0, 0, 16, 16),
-            Diagnostics = diagnostics,
+            DefaultRequest = new RenderNodeRenderRequest
+            {
+                TargetDomain = new Rect(0, 0, 16, 16),
+                Diagnostics = diagnostics,
+                UseRenderCache = false,
+            },
             TargetFactory = new ThrowingTargetFactory(),
-            UseRenderCache = false,
         });
         using RenderTarget target = RenderTarget.CreateNull(16, 16);
         using var canvas = new ImmediateCanvas(target);
@@ -406,9 +427,12 @@ public sealed class RenderPipelineReconciliationTests
         using var node = new DestinationInvalidatingNode(destination);
         using var renderer = new RenderNodeRenderer(node, new RenderNodeRendererOptions
         {
-            TargetDomain = new Rect(0, 0, 16, 16),
-            Diagnostics = diagnostics,
-            UseRenderCache = false,
+            DefaultRequest = new RenderNodeRenderRequest
+            {
+                TargetDomain = new Rect(0, 0, 16, 16),
+                Diagnostics = diagnostics,
+                UseRenderCache = false,
+            },
         });
 
         ObjectDisposedException exception = Assert.Throws<ObjectDisposedException>(
@@ -512,8 +536,11 @@ public sealed class RenderPipelineReconciliationTests
         using var node = new ThrowingNode();
         using var renderer = new RenderNodeRenderer(node, new RenderNodeRendererOptions
         {
-            Diagnostics = diagnostics,
-            UseRenderCache = false,
+            DefaultRequest = new RenderNodeRenderRequest
+            {
+                Diagnostics = diagnostics,
+                UseRenderCache = false,
+            },
         });
 
         InvalidOperationException exception = Assert.Throws<InvalidOperationException>(() => renderer.Measure())!;
@@ -928,9 +955,12 @@ public sealed class RenderPipelineReconciliationTests
         using var node = new UnpublishedWorkNode();
         using var renderer = new RenderNodeRenderer(node, new RenderNodeRendererOptions
         {
-            TargetDomain = new Rect(0, 0, 16, 16),
-            Diagnostics = diagnostics,
-            UseRenderCache = false,
+            DefaultRequest = new RenderNodeRenderRequest
+            {
+                TargetDomain = new Rect(0, 0, 16, 16),
+                Diagnostics = diagnostics,
+                UseRenderCache = false,
+            },
         });
 
         using RenderNodeRasterization rasterization = renderer.Rasterize();
@@ -965,9 +995,12 @@ public sealed class RenderPipelineReconciliationTests
         IRenderPipelineDiagnosticsState diagnostics)
         => new(node, new RenderNodeRendererOptions
         {
-            TargetDomain = new Rect(0, 0, 16, 16),
-            Diagnostics = diagnostics,
-            UseRenderCache = false,
+            DefaultRequest = new RenderNodeRenderRequest
+            {
+                TargetDomain = new Rect(0, 0, 16, 16),
+                Diagnostics = diagnostics,
+                UseRenderCache = false,
+            },
         });
 
     private static RenderFragmentReference CreateFragment(

@@ -22,12 +22,15 @@ public sealed class ContributeValuesCacheHitExecutionTests
             node,
             new RenderNodeRendererOptions
             {
-                TargetDomain = s_bounds,
+                DefaultRequest = new RenderNodeRenderRequest
+                {
+                    TargetDomain = s_bounds,
+                    UseRenderCache = true,
+                    RenderPurpose = RenderRequestPurpose.Frame,
+                    FusionMode = FusionMode.Disabled,
+                    Diagnostics = diagnostics,
+                },
                 TargetFactory = new CpuTargetFactory(),
-                UseRenderCache = true,
-                RenderPurpose = RenderRequestPurpose.Frame,
-                FusionMode = FusionMode.Disabled,
-                Diagnostics = diagnostics,
             });
 
         using RenderNodeRasterization miss = renderer.Rasterize();

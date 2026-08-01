@@ -46,7 +46,10 @@ public partial class PreviewNode : GraphNode
                 {
                     using var renderer = new RenderNodeRenderer(renderNode, new RenderNodeRendererOptions
                     {
-                        TargetDomain = domain,
+                        DefaultRequest = new RenderNodeRenderRequest
+                        {
+                            TargetDomain = domain,
+                        },
                     });
                     using RenderNodeRasterization rasterization = renderer.Rasterize();
                     node.ReplacePreview(rasterization.Bitmap?.Clone());

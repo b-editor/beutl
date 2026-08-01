@@ -174,8 +174,11 @@ public sealed class RendererWideRecordingTests
             completeTarget,
             new RenderNodeRendererOptions
             {
-                TargetDomain = new Rect(0, 0, 8, 8),
-                UseRenderCache = false,
+                DefaultRequest = new RenderNodeRenderRequest
+                {
+                    TargetDomain = new Rect(0, 0, 8, 8),
+                    UseRenderCache = false,
+                },
                 TargetFactory = new CpuTargetFactory(),
             });
 
@@ -205,10 +208,13 @@ public sealed class RendererWideRecordingTests
             completeTarget,
             new RenderNodeRendererOptions
             {
-                TargetDomain = new Rect(0, 0, 8, 8),
-                UseRenderCache = false,
+                DefaultRequest = new RenderNodeRenderRequest
+                {
+                    TargetDomain = new Rect(0, 0, 8, 8),
+                    UseRenderCache = false,
+                    Diagnostics = diagnostics,
+                },
                 TargetFactory = new CpuTargetFactory(),
-                Diagnostics = diagnostics,
             });
 
         renderer.Render(canvas);

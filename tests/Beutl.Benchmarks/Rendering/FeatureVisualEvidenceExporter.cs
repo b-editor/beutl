@@ -229,11 +229,14 @@ internal static class FeatureVisualEvidenceExporter
         object diagnostics = RenderPipelineInternalDiagnostics.CreateState();
         var options = new RenderNodeRendererOptions
         {
-            Intent = intent,
-            TargetDomain = s_domain,
-            OutputScale = 1,
-            MaxWorkingScale = maxWorkingScale,
-            UseRenderCache = false,
+            DefaultRequest = new RenderNodeRenderRequest
+            {
+                Intent = intent,
+                TargetDomain = s_domain,
+                OutputScale = 1,
+                MaxWorkingScale = maxWorkingScale,
+                UseRenderCache = false,
+            },
             TargetFactory = factory,
         };
         RenderPipelineInternalDiagnostics.Attach(options, diagnostics, RenderRequestPurpose.Frame);
@@ -373,12 +376,15 @@ internal static class FeatureVisualEvidenceExporter
         object diagnostics = RenderPipelineInternalDiagnostics.CreateState();
         var options = new RenderNodeRendererOptions
         {
-            Intent = RenderIntent.Preview,
-            TargetDomain = s_domain,
-            OutputScale = outputScale,
-            MaxWorkingScale = maxWorkingScale,
-            UseRenderCache = useCache,
-            RequestedRegion = requestedRegion?.ToRect(),
+            DefaultRequest = new RenderNodeRenderRequest
+            {
+                Intent = RenderIntent.Preview,
+                TargetDomain = s_domain,
+                OutputScale = outputScale,
+                MaxWorkingScale = maxWorkingScale,
+                UseRenderCache = useCache,
+                RequestedRegion = requestedRegion?.ToRect(),
+            },
         };
         if (fusionMode is not null)
             SetInternalFusionMode(options, fusionMode);
@@ -490,11 +496,14 @@ internal static class FeatureVisualEvidenceExporter
         object diagnostics = RenderPipelineInternalDiagnostics.CreateState();
         var options = new RenderNodeRendererOptions
         {
-            Intent = RenderIntent.Preview,
-            TargetDomain = s_domain,
-            OutputScale = 1,
-            MaxWorkingScale = 2,
-            UseRenderCache = warm,
+            DefaultRequest = new RenderNodeRenderRequest
+            {
+                Intent = RenderIntent.Preview,
+                TargetDomain = s_domain,
+                OutputScale = 1,
+                MaxWorkingScale = 2,
+                UseRenderCache = warm,
+            },
         };
         RenderPipelineInternalDiagnostics.Attach(options, diagnostics, RenderRequestPurpose.Frame);
         using var renderer = new RenderNodeRenderer(node, options);
@@ -922,10 +931,13 @@ internal static class FeatureVisualEvidenceExporter
         object diagnostics = RenderPipelineInternalDiagnostics.CreateState();
         var options = new RenderNodeRendererOptions
         {
-            TargetDomain = s_domain,
-            OutputScale = 1,
-            MaxWorkingScale = 2,
-            UseRenderCache = false,
+            DefaultRequest = new RenderNodeRenderRequest
+            {
+                TargetDomain = s_domain,
+                OutputScale = 1,
+                MaxWorkingScale = 2,
+                UseRenderCache = false,
+            },
         };
         RenderPipelineInternalDiagnostics.Attach(options, diagnostics, RenderRequestPurpose.Bounds);
         using var renderer = new RenderNodeRenderer(node, options);
@@ -961,12 +973,15 @@ internal static class FeatureVisualEvidenceExporter
         object diagnostics = RenderPipelineInternalDiagnostics.CreateState();
         var options = new RenderNodeRendererOptions
         {
-            Intent = RenderIntent.Preview,
-            TargetDomain = s_domain,
-            RequestedRegion = region.ToRect(),
-            OutputScale = 1,
-            MaxWorkingScale = 2,
-            UseRenderCache = false,
+            DefaultRequest = new RenderNodeRenderRequest
+            {
+                Intent = RenderIntent.Preview,
+                TargetDomain = s_domain,
+                RequestedRegion = region.ToRect(),
+                OutputScale = 1,
+                MaxWorkingScale = 2,
+                UseRenderCache = false,
+            },
         };
         RenderPipelineInternalDiagnostics.Attach(options, diagnostics, RenderRequestPurpose.Frame);
         using var renderer = new RenderNodeRenderer(fixture.Root, options);
@@ -1249,10 +1264,14 @@ internal static class FeatureVisualEvidenceExporter
     private static void SetInternalFusionMode(RenderNodeRendererOptions options, string name)
     {
         const BindingFlags flags = BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic;
-        PropertyInfo property = typeof(RenderNodeRendererOptions).GetProperty("FusionMode", flags)
-            ?? throw new MissingMemberException(typeof(RenderNodeRendererOptions).FullName, "FusionMode");
+        PropertyInfo requestProperty = typeof(RenderNodeRendererOptions).GetProperty("DefaultRequest", flags)
+            ?? throw new MissingMemberException(typeof(RenderNodeRendererOptions).FullName, "DefaultRequest");
+        object request = requestProperty.GetValue(options)
+            ?? throw new InvalidOperationException("The renderer options have no default request.");
+        PropertyInfo property = request.GetType().GetProperty("FusionMode", flags)
+            ?? throw new MissingMemberException(request.GetType().FullName, "FusionMode");
         object value = Enum.Parse(property.PropertyType, name, ignoreCase: false);
-        property.SetValue(options, value);
+        property.SetValue(request, value);
     }
 
     private static void AddNonVacuityMetrics(

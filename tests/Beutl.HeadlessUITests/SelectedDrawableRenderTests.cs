@@ -219,10 +219,13 @@ public class SelectedDrawableRenderTests
                 root,
                 new RenderNodeRendererOptions
                 {
-                    Intent = RenderIntent.Delivery,
-                    TargetDomain = new Rect(default, frameSize.ToSize(1)),
-                    OutputScale = 1,
-                    UseRenderCache = false,
+                    DefaultRequest = new RenderNodeRenderRequest
+                    {
+                        Intent = RenderIntent.Delivery,
+                        TargetDomain = new Rect(default, frameSize.ToSize(1)),
+                        OutputScale = 1,
+                        UseRenderCache = false,
+                    },
                 });
             RenderNodeMeasurement measurement = renderer.Measure();
             RenderNodeRasterization rasterization = renderer.Rasterize();

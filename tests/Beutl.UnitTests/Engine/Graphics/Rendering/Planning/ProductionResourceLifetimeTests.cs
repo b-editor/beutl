@@ -74,11 +74,14 @@ public sealed class ProductionResourceLifetimeTests
         IRenderPipelineDiagnosticsState diagnostics)
         => new(node, new RenderNodeRendererOptions
         {
-            TargetDomain = s_bounds,
-            OutputScale = 1,
-            MaxWorkingScale = 1,
-            Diagnostics = diagnostics,
-            UseRenderCache = false,
+            DefaultRequest = new RenderNodeRenderRequest
+            {
+                TargetDomain = s_bounds,
+                OutputScale = 1,
+                MaxWorkingScale = 1,
+                Diagnostics = diagnostics,
+                UseRenderCache = false,
+            },
             TargetFactory = new CpuTargetFactory(),
         });
 

@@ -158,7 +158,12 @@ public class ImageSourceRenderNodeTest
     }
 
     private static RenderNodeRenderer CreateRenderer(RenderNode node)
-        => new(node, new RenderNodeRendererOptions { UseRenderCache = false });
+        => new(node, new RenderNodeRendererOptions {
+            DefaultRequest = new RenderNodeRenderRequest
+            {
+                UseRenderCache = false,
+            },
+        });
 
     private sealed class InputFeedingNode(RenderNode child) : RenderNode
     {

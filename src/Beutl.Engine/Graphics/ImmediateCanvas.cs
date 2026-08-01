@@ -521,9 +521,12 @@ public partial class ImmediateCanvas : IDisposable, IPopable
             node,
             new RenderNodeRendererOptions
             {
-                OutputScale = _currentDensity,
-                MaxWorkingScale = MaxWorkingScale,
-                UseRenderCache = true,
+                DefaultRequest = new RenderNodeRenderRequest
+                {
+                    OutputScale = _currentDensity,
+                    MaxWorkingScale = MaxWorkingScale,
+                    UseRenderCache = true,
+                },
             });
         renderer.Render(this);
     }
@@ -536,9 +539,12 @@ public partial class ImmediateCanvas : IDisposable, IPopable
             node,
             new RenderNodeRendererOptions
             {
-                OutputScale = _currentDensity,
-                MaxWorkingScale = MaxWorkingScale,
-                UseRenderCache = true,
+                DefaultRequest = new RenderNodeRenderRequest
+                {
+                    OutputScale = _currentDensity,
+                    MaxWorkingScale = MaxWorkingScale,
+                    UseRenderCache = true,
+                },
             });
         renderer.Render(this);
     }

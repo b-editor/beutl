@@ -31,10 +31,13 @@ public sealed class ShaderFallbackTests
             node,
             new RenderNodeRendererOptions
             {
-                TargetDomain = s_bounds,
-                UseRenderCache = false,
+                DefaultRequest = new RenderNodeRenderRequest
+                {
+                    TargetDomain = s_bounds,
+                    UseRenderCache = false,
+                    FusionMode = FusionMode.Disabled,
+                },
                 TargetFactory = new CpuTargetFactory(),
-                FusionMode = FusionMode.Disabled,
             });
 
         using RenderNodeRasterization rasterization = renderer.Rasterize();
@@ -86,14 +89,17 @@ public sealed class ShaderFallbackTests
             node,
             new RenderNodeRendererOptions
             {
-                TargetDomain = s_bounds,
-                UseRenderCache = false,
+                DefaultRequest = new RenderNodeRenderRequest
+                {
+                    TargetDomain = s_bounds,
+                    UseRenderCache = false,
+                    FusionMode = FusionMode.Disabled,
+                },
                 TargetFactory = new CpuTargetFactory(),
-                FusionMode = FusionMode.Disabled,
             });
 
         Assert.That(
-            renderer.Rasterize,
+            () => renderer.Rasterize(),
             Throws.TypeOf<InvalidOperationException>()
                 .With.Message.StartsWith("SkSL program validation failed:"));
     }
@@ -133,10 +139,13 @@ public sealed class ShaderFallbackTests
             node,
             new RenderNodeRendererOptions
             {
-                TargetDomain = s_bounds,
-                UseRenderCache = false,
+                DefaultRequest = new RenderNodeRenderRequest
+                {
+                    TargetDomain = s_bounds,
+                    UseRenderCache = false,
+                    FusionMode = FusionMode.Disabled,
+                },
                 TargetFactory = new CpuTargetFactory(),
-                FusionMode = FusionMode.Disabled,
             });
 
         using RenderNodeRasterization cold = renderer.Rasterize();
@@ -205,11 +214,14 @@ public sealed class ShaderFallbackTests
             node,
             new RenderNodeRendererOptions
             {
-                TargetDomain = s_bounds,
-                RequestedRegion = requestedRegion,
-                UseRenderCache = false,
+                DefaultRequest = new RenderNodeRenderRequest
+                {
+                    TargetDomain = s_bounds,
+                    RequestedRegion = requestedRegion,
+                    UseRenderCache = false,
+                    FusionMode = fusionMode,
+                },
                 TargetFactory = new CpuTargetFactory(),
-                FusionMode = fusionMode,
             });
 
     private sealed class ShaderNode(RenderTarget source, ShaderDescription description) : RenderNode

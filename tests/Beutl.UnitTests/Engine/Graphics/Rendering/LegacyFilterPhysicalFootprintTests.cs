@@ -576,9 +576,12 @@ public sealed class LegacyFilterPhysicalFootprintTests
             pipeline,
             new RenderNodeRendererOptions
             {
-                UseRenderCache = false,
-                OutputScale = 1,
-                MaxWorkingScale = 1,
+                DefaultRequest = new RenderNodeRenderRequest
+                {
+                    UseRenderCache = false,
+                    OutputScale = 1,
+                    MaxWorkingScale = 1,
+                },
                 TargetFactory = factory,
             });
 
@@ -719,11 +722,14 @@ public sealed class LegacyFilterPhysicalFootprintTests
                 pipeline,
                 new RenderNodeRendererOptions
                 {
-                    Intent = RenderIntent.Delivery,
-                    TargetDomain = PixelExactLegacySourceNode.Frame,
-                    OutputScale = 1,
-                    MaxWorkingScale = 1,
-                    UseRenderCache = false,
+                    DefaultRequest = new RenderNodeRenderRequest
+                    {
+                        Intent = RenderIntent.Delivery,
+                        TargetDomain = PixelExactLegacySourceNode.Frame,
+                        OutputScale = 1,
+                        MaxWorkingScale = 1,
+                        UseRenderCache = false,
+                    },
                     TargetFactory = new TrackingTargetFactory(),
                 });
             using var target = new CpuRenderTarget(
@@ -775,10 +781,13 @@ public sealed class LegacyFilterPhysicalFootprintTests
             pipeline,
             new RenderNodeRendererOptions
             {
-                Intent = RenderIntent.Delivery,
-                OutputScale = 1,
-                MaxWorkingScale = 1,
-                UseRenderCache = false,
+                DefaultRequest = new RenderNodeRenderRequest
+                {
+                    Intent = RenderIntent.Delivery,
+                    OutputScale = 1,
+                    MaxWorkingScale = 1,
+                    UseRenderCache = false,
+                },
                 TargetFactory = new TrackingTargetFactory(),
             });
 

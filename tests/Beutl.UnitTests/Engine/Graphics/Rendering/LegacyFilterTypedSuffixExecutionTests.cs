@@ -88,9 +88,12 @@ public sealed class LegacyFilterTypedSuffixExecutionTests
             root,
             new RenderNodeRendererOptions
             {
-                TargetDomain = bounds,
+                DefaultRequest = new RenderNodeRenderRequest
+                {
+                    TargetDomain = bounds,
+                    UseRenderCache = false,
+                },
                 TargetFactory = new CpuTargetFactory(),
-                UseRenderCache = false,
             });
 
         using RenderNodeRasterization cold = renderer.Rasterize();
@@ -372,9 +375,12 @@ public sealed class LegacyFilterTypedSuffixExecutionTests
             root,
             new RenderNodeRendererOptions
             {
-                TargetDomain = domain,
+                DefaultRequest = new RenderNodeRenderRequest
+                {
+                    TargetDomain = domain,
+                    UseRenderCache = false,
+                },
                 TargetFactory = new CpuTargetFactory(),
-                UseRenderCache = false,
             });
 
         using RenderNodeRasterization rasterization = renderer.Rasterize();
@@ -450,11 +456,14 @@ public sealed class LegacyFilterTypedSuffixExecutionTests
             root,
             new RenderNodeRendererOptions
             {
-                TargetDomain = new Rect(0, 0, 32, 24),
+                DefaultRequest = new RenderNodeRenderRequest
+                {
+                    TargetDomain = new Rect(0, 0, 32, 24),
+                    UseRenderCache = false,
+                    OutputScale = 1,
+                    MaxWorkingScale = 1,
+                },
                 TargetFactory = new CpuTargetFactory(),
-                UseRenderCache = false,
-                OutputScale = 1,
-                MaxWorkingScale = 1,
             });
         using var destination = new CpuRenderTarget(32, 24);
         using var canvas = new ImmediateCanvas(

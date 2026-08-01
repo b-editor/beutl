@@ -180,8 +180,11 @@ public class SceneDrawableScaleTests
                     root,
                     new RenderNodeRendererOptions
                     {
-                        TargetDomain = new Rect(0, 0, inner.FrameSize.Width, inner.FrameSize.Height),
-                        UseRenderCache = false,
+                        DefaultRequest = new RenderNodeRenderRequest
+                        {
+                            TargetDomain = new Rect(0, 0, inner.FrameSize.Width, inner.FrameSize.Height),
+                            UseRenderCache = false,
+                        },
                     });
                 using RenderNodeRasterization rasterization = renderer.Rasterize();
 

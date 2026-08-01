@@ -208,9 +208,12 @@ public sealed class GeometryAuthoringContractTests
             node,
             new RenderNodeRendererOptions
             {
-                OutputScale = outputScale,
-                MaxWorkingScale = maxWorkingScale,
-                UseRenderCache = false,
+                DefaultRequest = new RenderNodeRenderRequest
+                {
+                    OutputScale = outputScale,
+                    MaxWorkingScale = maxWorkingScale,
+                    UseRenderCache = false,
+                },
                 TargetFactory = new CpuTargetFactory(),
             });
 

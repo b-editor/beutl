@@ -62,7 +62,12 @@ public class ContainerRenderNodeTest
         node.AddChild(new RectangleRenderNode(bounds, Brushes.Resource.White, null));
         using var renderer = new RenderNodeRenderer(
             node,
-            new RenderNodeRendererOptions { UseRenderCache = false });
+            new RenderNodeRendererOptions {
+                DefaultRequest = new RenderNodeRenderRequest
+                {
+                    UseRenderCache = false,
+                },
+            });
 
         RenderNodeMeasurement result = renderer.Measure();
 

@@ -117,17 +117,20 @@ public sealed class RenderNodeRendererAllocationFailureTests
             node,
             new RenderNodeRendererOptions
             {
-                Intent = intent,
-                TargetDomain = s_domain,
-                RequestedRegion = requestedRegion,
-                OutputScale = 1,
-                MaxWorkingScale = intent == RenderIntent.Delivery
+                DefaultRequest = new RenderNodeRenderRequest
+                {
+                    Intent = intent,
+                    TargetDomain = s_domain,
+                    RequestedRegion = requestedRegion,
+                    OutputScale = 1,
+                    MaxWorkingScale = intent == RenderIntent.Delivery
                     ? float.PositiveInfinity
                     : 2,
-                UseRenderCache = false,
+                    UseRenderCache = false,
+                    RenderPurpose = RenderRequestPurpose.Frame,
+                    Diagnostics = diagnostics,
+                },
                 TargetFactory = factory,
-                RenderPurpose = RenderRequestPurpose.Frame,
-                Diagnostics = diagnostics,
             });
 
     private sealed class FailSecondTargetFactory : CpuTargetFactory

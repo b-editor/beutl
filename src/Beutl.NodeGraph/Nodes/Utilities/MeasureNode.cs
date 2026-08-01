@@ -49,7 +49,10 @@ public partial class MeasureNode : GraphNode
                     {
                         using var renderer = new RenderNodeRenderer(renderNode, new RenderNodeRendererOptions
                         {
-                            TargetDomain = domain,
+                            DefaultRequest = new RenderNodeRenderRequest
+                            {
+                                TargetDomain = domain,
+                            },
                         });
                         rect = renderer.Measure().QueryBounds;
                     }

@@ -25,7 +25,7 @@
     "codeSha": "43a38e665d9bf52548161a3917e748bd1457ff55",
     "engineAssemblyVersion": "2.99.99\u002B43a38e665d9bf52548161a3917e748bd1457ff55",
     "command": "cd /Volumes/Transcend/source/beutl.worktrees/speckit-004-gpu-pass-fusion/docs/specs/004-gpu-pass-fusion/evidence/target-benchmark-harness \u0026\u0026 BEUTL_BASELINE_ENGINE_PROJECT=/Volumes/Transcend/source/beutl.worktrees/gpu-pass-benchbase/src/Beutl.Engine/Beutl.Engine.csproj dotnet run -c Release --artifacts-path /var/folders/nl/kd31xyh169n3x8wb6g0dpw_m0000gn/T//beutl-gpu-pass-benchmark-build.lfmNQ9/baseline --project /Volumes/Transcend/source/beutl.worktrees/speckit-004-gpu-pass-fusion/docs/specs/004-gpu-pass-fusion/evidence/target-benchmark-harness/Beutl.GpuPassTargetBenchmarkHarness.csproj -p:BaselineEngineProject=/Volumes/Transcend/source/beutl.worktrees/gpu-pass-benchbase/src/Beutl.Engine/Beutl.Engine.csproj -- --filter \u0027*TargetRenderPipelineBenchmarks*\u0027",
-    "benchmarkDotNetResultFile": "Beutl.GpuPassTargetBenchmarkHarness.TargetRenderPipelineBenchmarks-report-full.json",
+    "benchmarkDotNetResultFile": "raw-benchmark-full.json",
     "benchmarkDotNetResultSha256": "066efc54b0ebbdc82971a62437b190d87aff3e71e9c54907b47a1fdda0c18b95",
     "standardOutputFile": "raw-benchmark-stdout.txt",
     "standardOutputSha256": "7ba6fc96a86c09b15ba11bf4bd484fed85b7b8308f5b71a69c91124f1f0c7907",
@@ -44,17 +44,14 @@
       "StructuralToggle.json": "8c462686c2b8bbe0db183a30b6167ce64226730a292768cac63bc86229856e83"
     },
     "benchmarkDotNetArtifactSha256": {
-      "Beutl.GpuPassTargetBenchmarkHarness.TargetRenderPipelineBenchmarks-report-full.json": "066efc54b0ebbdc82971a62437b190d87aff3e71e9c54907b47a1fdda0c18b95",
-      "Beutl.GpuPassTargetBenchmarkHarness.TargetRenderPipelineBenchmarks-report-github.md": "e16358db6c2ab7f358cd9867498d3203d75d5ba64b0e6601c364c18ba289bf19",
-      "Beutl.GpuPassTargetBenchmarkHarness.TargetRenderPipelineBenchmarks-report.csv": "74a1c786daaea916a04b31c6cbad892c90f4fb8d0e368801a021a1dc2ef924ab",
-      "Beutl.GpuPassTargetBenchmarkHarness.TargetRenderPipelineBenchmarks-report.html": "51b4dd64abd6c366bf6d0270776d470a1e8692c95763468221e540f63d2db5b1"
+      "raw-benchmark-full.json": "066efc54b0ebbdc82971a62437b190d87aff3e71e9c54907b47a1fdda0c18b95"
     }
   },
   "baselineRepeat": {
     "codeSha": "43a38e665d9bf52548161a3917e748bd1457ff55",
     "engineAssemblyVersion": "2.99.99\u002B43a38e665d9bf52548161a3917e748bd1457ff55",
     "command": "cd /Volumes/Transcend/source/beutl.worktrees/speckit-004-gpu-pass-fusion/docs/specs/004-gpu-pass-fusion/evidence/target-benchmark-harness \u0026\u0026 BEUTL_BASELINE_ENGINE_PROJECT=/Volumes/Transcend/source/beutl.worktrees/gpu-pass-benchbase/src/Beutl.Engine/Beutl.Engine.csproj dotnet run -c Release --artifacts-path /var/folders/nl/kd31xyh169n3x8wb6g0dpw_m0000gn/T//beutl-gpu-pass-benchmark-build.lfmNQ9/baseline --project /Volumes/Transcend/source/beutl.worktrees/speckit-004-gpu-pass-fusion/docs/specs/004-gpu-pass-fusion/evidence/target-benchmark-harness/Beutl.GpuPassTargetBenchmarkHarness.csproj -p:BaselineEngineProject=/Volumes/Transcend/source/beutl.worktrees/gpu-pass-benchbase/src/Beutl.Engine/Beutl.Engine.csproj -- --filter \u0027*TargetRenderPipelineBenchmarks*\u0027",
-    "benchmarkDotNetResultFile": "Beutl.GpuPassTargetBenchmarkHarness.TargetRenderPipelineBenchmarks-report-full.json",
+    "benchmarkDotNetResultFile": "raw-benchmark-full.json",
     "benchmarkDotNetResultSha256": "9f5485ca9e0ffce3ad867e3ddb3b9f28bf40d3db3b789c5bc66d4b7f22b906dd",
     "standardOutputFile": "raw-benchmark-stdout.txt",
     "standardOutputSha256": "2a52642b31a05a5429fc2b15970dc29ddc7824c058fa7c6cf9df7a0d907e5268",
@@ -73,17 +70,14 @@
       "StructuralToggle.json": "8c462686c2b8bbe0db183a30b6167ce64226730a292768cac63bc86229856e83"
     },
     "benchmarkDotNetArtifactSha256": {
-      "Beutl.GpuPassTargetBenchmarkHarness.TargetRenderPipelineBenchmarks-report-full.json": "9f5485ca9e0ffce3ad867e3ddb3b9f28bf40d3db3b789c5bc66d4b7f22b906dd",
-      "Beutl.GpuPassTargetBenchmarkHarness.TargetRenderPipelineBenchmarks-report-github.md": "09a90dbd202453e0ba9983998fae10e8bb63a83f76d7ec3d4d1973f6782c23c7",
-      "Beutl.GpuPassTargetBenchmarkHarness.TargetRenderPipelineBenchmarks-report.csv": "6cc2faddfad904fbbbbb71259b7d75add52cc24d9e9274b8f0be84934a6bc136",
-      "Beutl.GpuPassTargetBenchmarkHarness.TargetRenderPipelineBenchmarks-report.html": "804c557f1af80d48f5c711b9b3cfd51d74616e9c7dd472468d903f2bcd5261c0"
+      "raw-benchmark-full.json": "9f5485ca9e0ffce3ad867e3ddb3b9f28bf40d3db3b789c5bc66d4b7f22b906dd"
     }
   },
   "feature": {
     "codeSha": "912ddda0484d0b8cde3c63b60deefa491a0c596c",
     "engineAssemblyVersion": "2.99.99\u002B912ddda0484d0b8cde3c63b60deefa491a0c596c",
     "command": "dotnet run -c Release --artifacts-path /var/folders/nl/kd31xyh169n3x8wb6g0dpw_m0000gn/T//beutl-gpu-pass-benchmark-build.lfmNQ9/feature --project tests/Beutl.Benchmarks/Beutl.Benchmarks.csproj -- --filter \u0027*RenderPipelineBenchmarks*\u0027",
-    "benchmarkDotNetResultFile": "Beutl.Benchmarks.Rendering.RenderPipelineBenchmarks-report-full.json",
+    "benchmarkDotNetResultFile": "raw-benchmark-full.json",
     "benchmarkDotNetResultSha256": "ba6f5c67bc63d6c12f540daf4a5fcd1d7331bd1f3c623a8e6ed6315399467a7b",
     "standardOutputFile": "raw-benchmark-stdout.txt",
     "standardOutputSha256": "a174be2deafef47e6c0b355d292d34432a974c74cfa95c02e29616e786c2c283",
@@ -102,10 +96,7 @@
       "StructuralToggle.json": "4b8082353817d820a660dc8b42497f027a76aa6556f41258e04b7fd82b08f3d8"
     },
     "benchmarkDotNetArtifactSha256": {
-      "Beutl.Benchmarks.Rendering.RenderPipelineBenchmarks-report-full.json": "ba6f5c67bc63d6c12f540daf4a5fcd1d7331bd1f3c623a8e6ed6315399467a7b",
-      "Beutl.Benchmarks.Rendering.RenderPipelineBenchmarks-report-github.md": "04e5ce45cdc6b49b4846f351c19a2c2a0b1e1227cf7bd5de1982acdff59a6839",
-      "Beutl.Benchmarks.Rendering.RenderPipelineBenchmarks-report.csv": "f18111fd8ffae51b5ce572aa7c38282ce6b99a623fc797835957e2d540959518",
-      "Beutl.Benchmarks.Rendering.RenderPipelineBenchmarks-report.html": "b59aabed8fb01f249eb72c658211bd8cce65e35ea0042e268ecd7fdbcba85226"
+      "raw-benchmark-full.json": "ba6f5c67bc63d6c12f540daf4a5fcd1d7331bd1f3c623a8e6ed6315399467a7b"
     }
   },
   "runnerSha256": "7e33ff52ee0d1b1db367cc326953195e773afc18af23b0f6a6e72a06187893a8",

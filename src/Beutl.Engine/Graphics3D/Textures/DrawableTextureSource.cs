@@ -110,11 +110,14 @@ public sealed partial class DrawableTextureSource : TextureSource
                     drawableNode,
                     new RenderNodeRendererOptions
                     {
-                        Intent = RenderIntent.Preview,
-                        TargetDomain = new Rect(0, 0, textureWidth, textureHeight),
-                        OutputScale = density,
-                        MaxWorkingScale = density,
-                        UseRenderCache = true,
+                        DefaultRequest = new RenderNodeRenderRequest
+                        {
+                            Intent = RenderIntent.Preview,
+                            TargetDomain = new Rect(0, 0, textureWidth, textureHeight),
+                            OutputScale = density,
+                            MaxWorkingScale = density,
+                            UseRenderCache = true,
+                        },
                     });
                 using (var canvas = new ImmediateCanvas(_renderTarget, density, density))
                 {

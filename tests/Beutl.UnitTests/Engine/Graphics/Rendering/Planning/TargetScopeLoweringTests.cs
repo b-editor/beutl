@@ -91,9 +91,12 @@ public sealed class TargetScopeLoweringTests
             root,
             new RenderNodeRendererOptions
             {
-                TargetDomain = s_rootDomain,
+                DefaultRequest = new RenderNodeRenderRequest
+                {
+                    TargetDomain = s_rootDomain,
+                    UseRenderCache = false,
+                },
                 TargetFactory = new CpuTargetFactory(),
-                UseRenderCache = false,
             });
 
         using RenderNodeRasterization raster = renderer.Rasterize();
@@ -142,9 +145,12 @@ public sealed class TargetScopeLoweringTests
             root,
             new RenderNodeRendererOptions
             {
-                TargetDomain = s_rootDomain,
+                DefaultRequest = new RenderNodeRenderRequest
+                {
+                    TargetDomain = s_rootDomain,
+                    UseRenderCache = false,
+                },
                 TargetFactory = factory,
-                UseRenderCache = false,
             });
         using RenderNodeRasterization raster = renderer.Rasterize();
         Bitmap bitmap = raster.Bitmap!;
@@ -203,9 +209,12 @@ public sealed class TargetScopeLoweringTests
             root,
             new RenderNodeRendererOptions
             {
-                TargetDomain = s_rootDomain,
+                DefaultRequest = new RenderNodeRenderRequest
+                {
+                    TargetDomain = s_rootDomain,
+                    UseRenderCache = false,
+                },
                 TargetFactory = new CpuTargetFactory(),
-                UseRenderCache = false,
             });
         using RenderNodeRasterization raster = renderer.Rasterize();
 
@@ -285,9 +294,12 @@ public sealed class TargetScopeLoweringTests
             root,
             new RenderNodeRendererOptions
             {
-                TargetDomain = s_rootDomain,
+                DefaultRequest = new RenderNodeRenderRequest
+                {
+                    TargetDomain = s_rootDomain,
+                    UseRenderCache = false,
+                },
                 TargetFactory = new CpuTargetFactory(),
-                UseRenderCache = false,
             });
 
         using RenderNodeRasterization raster = renderer.Rasterize();
@@ -537,9 +549,12 @@ public sealed class TargetScopeLoweringTests
             root,
             new RenderNodeRendererOptions
             {
-                TargetDomain = s_rootDomain,
+                DefaultRequest = new RenderNodeRenderRequest
+                {
+                    TargetDomain = s_rootDomain,
+                    UseRenderCache = false,
+                },
                 TargetFactory = new CpuTargetFactory(),
-                UseRenderCache = false,
             });
 
         using RenderNodeRasterization raster = renderer.Rasterize();
@@ -594,9 +609,12 @@ public sealed class TargetScopeLoweringTests
             root,
             new RenderNodeRendererOptions
             {
-                TargetDomain = s_rootDomain,
+                DefaultRequest = new RenderNodeRenderRequest
+                {
+                    TargetDomain = s_rootDomain,
+                    UseRenderCache = false,
+                },
                 TargetFactory = new CpuTargetFactory(),
-                UseRenderCache = false,
             });
 
         using RenderNodeRasterization raster = renderer.Rasterize();
@@ -671,9 +689,12 @@ public sealed class TargetScopeLoweringTests
             root,
             new RenderNodeRendererOptions
             {
-                TargetDomain = domain,
+                DefaultRequest = new RenderNodeRenderRequest
+                {
+                    TargetDomain = domain,
+                    UseRenderCache = false,
+                },
                 TargetFactory = new CpuTargetFactory(),
-                UseRenderCache = false,
             });
 
         RenderNodeMeasurement measurement = renderer.Measure();
@@ -697,9 +718,12 @@ public sealed class TargetScopeLoweringTests
             root,
             new RenderNodeRendererOptions
             {
-                TargetDomain = s_rootDomain,
+                DefaultRequest = new RenderNodeRenderRequest
+                {
+                    TargetDomain = s_rootDomain,
+                    UseRenderCache = false,
+                },
                 TargetFactory = new CpuTargetFactory(),
-                UseRenderCache = false,
             });
 
         using RenderNodeRasterization raster = renderer.Rasterize();
@@ -723,9 +747,12 @@ public sealed class TargetScopeLoweringTests
             root,
             new RenderNodeRendererOptions
             {
-                OutputScale = 2,
+                DefaultRequest = new RenderNodeRenderRequest
+                {
+                    OutputScale = 2,
+                    UseRenderCache = false,
+                },
                 TargetFactory = factory,
-                UseRenderCache = false,
             });
 
         using (RenderNodeRasterization raster = renderer.Rasterize())
@@ -745,9 +772,12 @@ public sealed class TargetScopeLoweringTests
             root,
             new RenderNodeRendererOptions
             {
-                RequestedRegion = emptySelection,
+                DefaultRequest = new RenderNodeRenderRequest
+                {
+                    RequestedRegion = emptySelection,
+                    UseRenderCache = false,
+                },
                 TargetFactory = factory,
-                UseRenderCache = false,
             });
         using RenderNodeRasterization empty = emptyRenderer.Rasterize();
 

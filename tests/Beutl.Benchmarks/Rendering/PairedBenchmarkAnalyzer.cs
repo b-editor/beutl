@@ -511,6 +511,15 @@ internal static class PairedBenchmarkAnalyzer
             string currentMethod = benchmark.GetProperty("Method").GetString()
                 ?? throw new InvalidDataException($"Benchmark method is missing for '{caseName}'.");
             string currentJobDisplay = ParseJobDisplay(benchmark, caseName);
+            if (!string.Equals(
+                    currentJobDisplay,
+                    RenderPipelineBenchmarkConfig.ExpectedJobDisplay,
+                    StringComparison.Ordinal))
+            {
+                throw new InvalidDataException(
+                    $"Benchmark case '{caseName}' must use the frozen RenderPipelineBenchmarkConfig job "
+                    + $"'{RenderPipelineBenchmarkConfig.ExpectedJobDisplay}'; observed '{currentJobDisplay}'.");
+            }
             method ??= currentMethod;
             jobDisplay ??= currentJobDisplay;
             if (!string.Equals(method, currentMethod, StringComparison.Ordinal)

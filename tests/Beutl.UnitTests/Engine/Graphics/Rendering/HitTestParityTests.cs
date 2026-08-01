@@ -19,8 +19,11 @@ public class HitTestParityTests
             node,
             new RenderNodeRendererOptions
             {
-                OutputScale = outputScale,
-                UseRenderCache = false,
+                DefaultRequest = new RenderNodeRenderRequest
+                {
+                    OutputScale = outputScale,
+                    UseRenderCache = false,
+                },
             });
         return renderer.HitTest(point);
     }

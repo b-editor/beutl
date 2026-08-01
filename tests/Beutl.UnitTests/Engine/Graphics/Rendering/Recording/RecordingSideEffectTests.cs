@@ -83,10 +83,13 @@ public sealed class RecordingSideEffectTests
         using var node = new DeferredShapeProbeNode(tripwire);
         using var renderer = new RenderNodeRenderer(node, new RenderNodeRendererOptions
         {
-            TargetDomain = DeferredShapeProbeNode.Bounds,
+            DefaultRequest = new RenderNodeRenderRequest
+            {
+                TargetDomain = DeferredShapeProbeNode.Bounds,
+                Diagnostics = diagnostics,
+                UseRenderCache = false,
+            },
             TargetFactory = targetFactory,
-            Diagnostics = diagnostics,
-            UseRenderCache = false,
         });
 
         RenderNodeMeasurement measurement = renderer.Measure();

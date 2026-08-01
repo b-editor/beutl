@@ -21,7 +21,12 @@ public sealed class BrushLoweringSmokeTests
         using var node = new RectangleRenderNode(new Rect(0, 0, 64, 36), brushResource, null);
         using var renderer = new RenderNodeRenderer(
             node,
-            new RenderNodeRendererOptions { UseRenderCache = false });
+            new RenderNodeRendererOptions {
+                DefaultRequest = new RenderNodeRenderRequest
+                {
+                    UseRenderCache = false,
+                },
+            });
 
         RenderNodeMeasurement measurement = renderer.Measure();
         using RenderNodeRasterization rasterization = renderer.Rasterize();
@@ -49,7 +54,12 @@ public sealed class BrushLoweringSmokeTests
         root.AddChild(new RectangleRenderNode(new Rect(0, 0, 64, 36), Brushes.Resource.White, null));
         using var renderer = new RenderNodeRenderer(
             root,
-            new RenderNodeRendererOptions { UseRenderCache = false });
+            new RenderNodeRendererOptions {
+                DefaultRequest = new RenderNodeRenderRequest
+                {
+                    UseRenderCache = false,
+                },
+            });
 
         RenderNodeMeasurement measurement = renderer.Measure();
         using RenderNodeRasterization rasterization = renderer.Rasterize();

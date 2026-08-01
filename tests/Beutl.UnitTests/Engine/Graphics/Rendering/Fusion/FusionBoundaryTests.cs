@@ -804,12 +804,15 @@ public sealed class FusionBoundaryTests
             node,
             new RenderNodeRendererOptions
             {
-                TargetDomain = s_bounds,
-                OutputScale = 1,
-                MaxWorkingScale = 1,
-                UseRenderCache = useRenderCache,
-                FusionMode = fusionMode,
-                RenderPurpose = RenderRequestPurpose.Frame,
-                Diagnostics = diagnostics,
+                DefaultRequest = new RenderNodeRenderRequest
+                {
+                    TargetDomain = s_bounds,
+                    OutputScale = 1,
+                    MaxWorkingScale = 1,
+                    UseRenderCache = useRenderCache,
+                    FusionMode = fusionMode,
+                    RenderPurpose = RenderRequestPurpose.Frame,
+                    Diagnostics = diagnostics,
+                },
             });
 }

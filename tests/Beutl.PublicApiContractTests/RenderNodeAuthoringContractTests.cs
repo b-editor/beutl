@@ -670,10 +670,13 @@ public sealed class RenderNodeAuthoringContractTests
             node,
             new RenderNodeRendererOptions
             {
-                TargetDomain = targetDomain,
-                OutputScale = outputScale,
-                MaxWorkingScale = maxWorkingScale,
-                UseRenderCache = false,
+                DefaultRequest = new RenderNodeRenderRequest
+                {
+                    TargetDomain = targetDomain,
+                    OutputScale = outputScale,
+                    MaxWorkingScale = maxWorkingScale,
+                    UseRenderCache = false,
+                },
             });
         return renderer.Measure();
     }

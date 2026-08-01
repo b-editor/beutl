@@ -189,11 +189,14 @@ public sealed class OpaqueSourceCoverageTests
             node,
             new RenderNodeRendererOptions
             {
-                Intent = RenderIntent.Delivery,
-                OutputScale = density,
-                MaxWorkingScale = density,
-                UseRenderCache = false,
-                RenderPurpose = RenderRequestPurpose.Auxiliary,
+                DefaultRequest = new RenderNodeRenderRequest
+                {
+                    Intent = RenderIntent.Delivery,
+                    OutputScale = density,
+                    MaxWorkingScale = density,
+                    UseRenderCache = false,
+                    RenderPurpose = RenderRequestPurpose.Auxiliary,
+                },
             });
         return renderer.Rasterize();
     }
@@ -225,13 +228,16 @@ public sealed class OpaqueSourceCoverageTests
             node,
             new RenderNodeRendererOptions
             {
-                Intent = RenderIntent.Delivery,
-                TargetDomain = new Rect(default, s_frame.ToSize(1)),
-                OutputScale = density,
-                MaxWorkingScale = density,
-                UseRenderCache = useRenderCache,
-                RenderPurpose = RenderRequestPurpose.Frame,
-                Diagnostics = diagnostics,
+                DefaultRequest = new RenderNodeRenderRequest
+                {
+                    Intent = RenderIntent.Delivery,
+                    TargetDomain = new Rect(default, s_frame.ToSize(1)),
+                    OutputScale = density,
+                    MaxWorkingScale = density,
+                    UseRenderCache = useRenderCache,
+                    RenderPurpose = RenderRequestPurpose.Frame,
+                    Diagnostics = diagnostics,
+                },
             });
 
     private static Bitmap RenderWithRenderer(RenderNodeRenderer renderer, float density)

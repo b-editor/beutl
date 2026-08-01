@@ -98,12 +98,15 @@ public class MaxWorkingScaleSanitizationTests
             node,
             new RenderNodeRendererOptions
             {
-                OutputScale = 1,
-                MaxWorkingScale = maxWorkingScale,
-                UseRenderCache = false,
+                DefaultRequest = new RenderNodeRenderRequest
+                {
+                    OutputScale = 1,
+                    MaxWorkingScale = maxWorkingScale,
+                    UseRenderCache = false,
+                },
             });
 
-        Assert.That(renderer.Options.MaxWorkingScale, Is.EqualTo(float.PositiveInfinity));
+        Assert.That(renderer.Options.DefaultRequest.MaxWorkingScale, Is.EqualTo(float.PositiveInfinity));
     }
 
     [Test]
@@ -114,12 +117,15 @@ public class MaxWorkingScaleSanitizationTests
             node,
             new RenderNodeRendererOptions
             {
-                OutputScale = 1,
-                MaxWorkingScale = 3,
-                UseRenderCache = false,
+                DefaultRequest = new RenderNodeRenderRequest
+                {
+                    OutputScale = 1,
+                    MaxWorkingScale = 3,
+                    UseRenderCache = false,
+                },
             });
 
-        Assert.That(renderer.Options.MaxWorkingScale, Is.EqualTo(3));
+        Assert.That(renderer.Options.DefaultRequest.MaxWorkingScale, Is.EqualTo(3));
     }
 
     [TestCaseSource(nameof(DegenerateCeilings))]

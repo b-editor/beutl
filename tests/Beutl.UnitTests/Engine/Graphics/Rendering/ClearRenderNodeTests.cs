@@ -58,8 +58,11 @@ public class ClearRenderNodeTest
             node,
             new RenderNodeRendererOptions
             {
-                TargetDomain = new Rect(0, 0, 100, 100),
-                UseRenderCache = false,
+                DefaultRequest = new RenderNodeRenderRequest
+                {
+                    TargetDomain = new Rect(0, 0, 100, 100),
+                    UseRenderCache = false,
+                },
             });
         using var renderTarget = RenderTarget.CreateNull(100, 100);
         using var canvas = new ImmediateCanvas(renderTarget);

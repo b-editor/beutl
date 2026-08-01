@@ -75,7 +75,12 @@ public class BackdropScaleTests
             using var snapshot = new SnapshotBackdropRenderNode();
             using var renderer = new RenderNodeRenderer(
                 snapshot,
-                new RenderNodeRendererOptions { UseRenderCache = false });
+                new RenderNodeRendererOptions {
+                    DefaultRequest = new RenderNodeRenderRequest
+                    {
+                        UseRenderCache = false,
+                    },
+                });
 
             // 1. Capture on a flush-style canvas (SurfaceDensity = w).
             using RenderTarget captureTarget = RenderTarget.Create(dev, dev)!;

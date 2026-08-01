@@ -1497,11 +1497,14 @@ public sealed class QueryTools(AgentSessionManager sessions) : ToolBase
             node,
             new RenderNodeRendererOptions
             {
-                Intent = RenderIntent.Preview,
-                TargetDomain = new Rect(default, canvasSize),
-                OutputScale = 1,
-                MaxWorkingScale = 1,
-                UseRenderCache = false,
+                DefaultRequest = new RenderNodeRenderRequest
+                {
+                    Intent = RenderIntent.Preview,
+                    TargetDomain = new Rect(default, canvasSize),
+                    OutputScale = 1,
+                    MaxWorkingScale = 1,
+                    UseRenderCache = false,
+                },
             });
         RenderNodeMeasurement measurement = renderer.Measure();
 

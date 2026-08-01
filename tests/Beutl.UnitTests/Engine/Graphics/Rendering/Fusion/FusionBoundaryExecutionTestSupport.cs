@@ -304,13 +304,16 @@ internal static class FusionBoundaryExecutionTestSupport
             node,
             new RenderNodeRendererOptions
             {
-                TargetDomain = bounds,
-                OutputScale = 1,
-                MaxWorkingScale = 1,
-                UseRenderCache = useRenderCache,
-                FusionMode = fusionMode,
-                RenderPurpose = RenderRequestPurpose.Frame,
-                Diagnostics = diagnostics,
+                DefaultRequest = new RenderNodeRenderRequest
+                {
+                    TargetDomain = bounds,
+                    OutputScale = 1,
+                    MaxWorkingScale = 1,
+                    UseRenderCache = useRenderCache,
+                    FusionMode = fusionMode,
+                    RenderPurpose = RenderRequestPurpose.Frame,
+                    Diagnostics = diagnostics,
+                },
             });
         using RenderNodeRasterization rasterization = renderer.Rasterize();
         Bitmap bitmap = rasterization.Bitmap?.Clone()

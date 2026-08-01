@@ -213,10 +213,13 @@ public class RenderNodeCacheHelperTest
             node,
             new RenderNodeRendererOptions
             {
-                TargetDomain = new Rect(0, 0, 100, 100),
-                UseRenderCache = useRenderCache,
-                CacheRules = cacheRules ?? RenderCacheRules.Default,
-                RenderPurpose = RenderRequestPurpose.Frame,
+                DefaultRequest = new RenderNodeRenderRequest
+                {
+                    TargetDomain = new Rect(0, 0, 100, 100),
+                    UseRenderCache = useRenderCache,
+                    CacheRules = cacheRules ?? RenderCacheRules.Default,
+                    RenderPurpose = RenderRequestPurpose.Frame,
+                },
                 TargetFactory = new CpuTargetFactory(),
             });
 

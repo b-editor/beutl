@@ -547,6 +547,10 @@ public sealed class LosslessCompositeCoverageTests
                 $"plateaus [{darkPlateau:F6}, {brightPlateau:F6}], resampled [{minimum:F6}, {maximum:F6}]");
             Assert.Multiple(() =>
             {
+                Assert.That(darkPlateau, Is.GreaterThan(0),
+                    "The scaled composite must retain the nonzero dark source plateau.");
+                Assert.That(brightPlateau, Is.GreaterThan(darkPlateau + halfFloatTolerance),
+                    "The scaled composite must retain two distinct source plateaus.");
                 Assert.That(maximum, Is.LessThanOrEqualTo(brightPlateau + halfFloatTolerance),
                     "The resample kernel overshot the brightest sample it interpolated.");
                 Assert.That(minimum, Is.GreaterThanOrEqualTo(darkPlateau - halfFloatTolerance),
@@ -808,13 +812,16 @@ public sealed class LosslessCompositeCoverageTests
             root,
             new RenderNodeRendererOptions
             {
-                Intent = RenderIntent.Delivery,
-                TargetDomain = new Rect(0, 0, 180, 140),
-                OutputScale = 1,
-                MaxWorkingScale = maxWorkingScale,
-                UseRenderCache = useRenderCache,
-                FusionMode = fusionMode,
-                RenderPurpose = RenderRequestPurpose.Frame,
+                DefaultRequest = new RenderNodeRenderRequest
+                {
+                    Intent = RenderIntent.Delivery,
+                    TargetDomain = new Rect(0, 0, 180, 140),
+                    OutputScale = 1,
+                    MaxWorkingScale = maxWorkingScale,
+                    UseRenderCache = useRenderCache,
+                    FusionMode = fusionMode,
+                    RenderPurpose = RenderRequestPurpose.Frame,
+                },
             });
 
     private static Bitmap RenderNodeRendererToBitmap(
@@ -931,12 +938,15 @@ public sealed class LosslessCompositeCoverageTests
             node,
             new RenderNodeRendererOptions
             {
-                Intent = RenderIntent.Delivery,
-                TargetDomain = new Rect(default, frame.ToSize(1)),
-                OutputScale = density,
-                MaxWorkingScale = density,
-                UseRenderCache = false,
-                RenderPurpose = RenderRequestPurpose.Frame,
+                DefaultRequest = new RenderNodeRenderRequest
+                {
+                    Intent = RenderIntent.Delivery,
+                    TargetDomain = new Rect(default, frame.ToSize(1)),
+                    OutputScale = density,
+                    MaxWorkingScale = density,
+                    UseRenderCache = false,
+                    RenderPurpose = RenderRequestPurpose.Frame,
+                },
             });
 
         using RenderTarget target = CreateFrameTarget(density, frame);

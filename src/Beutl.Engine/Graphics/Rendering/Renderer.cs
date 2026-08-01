@@ -414,14 +414,17 @@ public class Renderer : IRenderer
             node,
             new RenderNodeRendererOptions
             {
-                Intent = RenderIntent.Preview,
-                TargetDomain = new Rect(default, FrameSize.ToSize(1)),
-                OutputScale = OutputScale,
-                MaxWorkingScale = MaxWorkingScale,
-                UseRenderCache = CacheOptions.IsEnabled,
-                CacheRules = CacheOptions.Rules,
-                RenderPurpose = purpose,
-                Diagnostics = diagnostics,
+                DefaultRequest = new RenderNodeRenderRequest
+                {
+                    Intent = RenderIntent.Preview,
+                    TargetDomain = new Rect(default, FrameSize.ToSize(1)),
+                    OutputScale = OutputScale,
+                    MaxWorkingScale = MaxWorkingScale,
+                    UseRenderCache = CacheOptions.IsEnabled,
+                    CacheRules = CacheOptions.Rules,
+                    RenderPurpose = purpose,
+                    Diagnostics = diagnostics,
+                },
             });
 
     private void AddDetachedHandler(Drawable drawable)

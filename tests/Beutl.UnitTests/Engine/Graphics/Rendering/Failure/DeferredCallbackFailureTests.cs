@@ -260,7 +260,10 @@ public sealed class DeferredCallbackFailureTests
             Assert.That(() => _ = node.Input!.Bounds, Throws.TypeOf<InvalidOperationException>());
             Assert.That(() => _ = node.Output!.Bounds, Throws.TypeOf<InvalidOperationException>());
             Assert.That(() => _ = node.CanvasFacade!.LogicalBounds, Throws.TypeOf<InvalidOperationException>());
-            Assert.That(() => node.ImmediateCanvas!.Clear(), Throws.Exception);
+            Assert.That(node.ImmediateCanvas, Is.Not.Null);
+            Assert.That(
+                () => node.ImmediateCanvas!.Clear(),
+                Throws.TypeOf<ObjectDisposedException>());
             Assert.That(renderer.TargetPoolStatistics.LeasedTargets, Is.Zero);
         });
     }
@@ -302,10 +305,13 @@ public sealed class DeferredCallbackFailureTests
             root,
             new RenderNodeRendererOptions
             {
-                TargetDomain = s_bounds,
-                OutputScale = 1,
-                MaxWorkingScale = 1,
-                UseRenderCache = false,
+                DefaultRequest = new RenderNodeRenderRequest
+                {
+                    TargetDomain = s_bounds,
+                    OutputScale = 1,
+                    MaxWorkingScale = 1,
+                    UseRenderCache = false,
+                },
             });
 
     public enum GuardedCanvasViolation

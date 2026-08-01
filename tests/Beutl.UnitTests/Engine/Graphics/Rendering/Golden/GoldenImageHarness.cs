@@ -41,11 +41,14 @@ internal static class GoldenImageHarness
             node,
             new RenderNodeRendererOptions
             {
-                Intent = RenderIntent.Delivery,
-                TargetDomain = new Rect(default, logicalSize.ToSize(1)),
-                RequestedRegion = requestedRegion,
-                OutputScale = scale,
-                UseRenderCache = false,
+                DefaultRequest = new RenderNodeRenderRequest
+                {
+                    Intent = RenderIntent.Delivery,
+                    TargetDomain = new Rect(default, logicalSize.ToSize(1)),
+                    RequestedRegion = requestedRegion,
+                    OutputScale = scale,
+                    UseRenderCache = false,
+                },
             });
         renderer.Render(canvas);
 

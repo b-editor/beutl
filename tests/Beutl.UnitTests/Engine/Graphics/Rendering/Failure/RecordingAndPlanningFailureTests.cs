@@ -144,11 +144,14 @@ public sealed class RecordingAndPlanningFailureTests
             node,
             new RenderNodeRendererOptions
             {
-                TargetDomain = s_bounds,
-                RequestedRegion = new Rect(2, 2, 2, 2),
-                OutputScale = 1,
-                MaxWorkingScale = 1,
-                UseRenderCache = false,
+                DefaultRequest = new RenderNodeRenderRequest
+                {
+                    TargetDomain = s_bounds,
+                    RequestedRegion = new Rect(2, 2, 2, 2),
+                    OutputScale = 1,
+                    MaxWorkingScale = 1,
+                    UseRenderCache = false,
+                },
                 TargetFactory = factory,
             });
 
@@ -515,14 +518,17 @@ internal static class FailureTestSupport
             node,
             new RenderNodeRendererOptions
             {
-                Intent = intent,
-                TargetDomain = s_bounds,
-                OutputScale = 1,
-                MaxWorkingScale = 1,
-                UseRenderCache = useRenderCache,
+                DefaultRequest = new RenderNodeRenderRequest
+                {
+                    Intent = intent,
+                    TargetDomain = s_bounds,
+                    OutputScale = 1,
+                    MaxWorkingScale = 1,
+                    UseRenderCache = useRenderCache,
+                    RenderPurpose = purpose,
+                    Diagnostics = diagnostics,
+                },
                 TargetFactory = factory,
-                RenderPurpose = purpose,
-                Diagnostics = diagnostics,
             });
 
     public static RenderRequest CreateFrameRequest(bool useRenderCache)

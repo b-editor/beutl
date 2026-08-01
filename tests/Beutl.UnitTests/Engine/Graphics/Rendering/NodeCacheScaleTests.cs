@@ -199,15 +199,18 @@ public class NodeCacheScaleTests
             node,
             new RenderNodeRendererOptions
             {
-                TargetDomain = targetDomain ?? s_bounds,
-                RequestedRegion = requestedRegion,
-                OutputScale = outputScale,
-                MaxWorkingScale = maxWorkingScale,
-                UseRenderCache = true,
-                CacheRules = cacheRules ?? RenderCacheRules.Default,
-                RenderPurpose = RenderRequestPurpose.Frame,
+                DefaultRequest = new RenderNodeRenderRequest
+                {
+                    TargetDomain = targetDomain ?? s_bounds,
+                    RequestedRegion = requestedRegion,
+                    OutputScale = outputScale,
+                    MaxWorkingScale = maxWorkingScale,
+                    UseRenderCache = true,
+                    CacheRules = cacheRules ?? RenderCacheRules.Default,
+                    RenderPurpose = RenderRequestPurpose.Frame,
+                    Diagnostics = diagnostics,
+                },
                 TargetFactory = new CpuTargetFactory(),
-                Diagnostics = diagnostics,
             });
 
     private sealed class ConcreteSourceNode : RenderNode

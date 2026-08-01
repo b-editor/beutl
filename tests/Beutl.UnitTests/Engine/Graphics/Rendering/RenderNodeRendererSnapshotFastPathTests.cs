@@ -153,11 +153,14 @@ public sealed class RenderNodeRendererSnapshotFastPathTests
         IRenderTargetFactory targetFactory)
         => new(node, new RenderNodeRendererOptions
         {
-            TargetDomain = targetDomain,
-            RequestedRegion = requestedRegion,
-            OutputScale = 1,
-            MaxWorkingScale = 1,
-            UseRenderCache = false,
+            DefaultRequest = new RenderNodeRenderRequest
+            {
+                TargetDomain = targetDomain,
+                RequestedRegion = requestedRegion,
+                OutputScale = 1,
+                MaxWorkingScale = 1,
+                UseRenderCache = false,
+            },
             TargetFactory = targetFactory,
         });
 

@@ -816,11 +816,14 @@ public sealed class TargetAuthoringContractTests
             node,
             new RenderNodeRendererOptions
             {
-                TargetDomain = targetDomain,
-                RequestedRegion = requestedRegion,
-                OutputScale = outputScale,
-                MaxWorkingScale = maxWorkingScale,
-                UseRenderCache = false,
+                DefaultRequest = new RenderNodeRenderRequest
+                {
+                    TargetDomain = targetDomain,
+                    RequestedRegion = requestedRegion,
+                    OutputScale = outputScale,
+                    MaxWorkingScale = maxWorkingScale,
+                    UseRenderCache = false,
+                },
             });
         return renderer.Measure();
     }
@@ -836,11 +839,14 @@ public sealed class TargetAuthoringContractTests
             node,
             new RenderNodeRendererOptions
             {
-                TargetDomain = targetDomain,
-                RequestedRegion = requestedRegion,
-                OutputScale = outputScale,
-                MaxWorkingScale = maxWorkingScale,
-                UseRenderCache = false,
+                DefaultRequest = new RenderNodeRenderRequest
+                {
+                    TargetDomain = targetDomain,
+                    RequestedRegion = requestedRegion,
+                    OutputScale = outputScale,
+                    MaxWorkingScale = maxWorkingScale,
+                    UseRenderCache = false,
+                },
             });
         return renderer.Rasterize();
     }

@@ -309,11 +309,14 @@ public sealed class GpuPassFusionFeature003RegressionTests
                 node,
                 new RenderNodeRendererOptions
                 {
-                    Intent = RenderIntent.Delivery,
-                    TargetDomain = new Rect(default, s_frame.ToSize(1)),
-                    OutputScale = scale,
-                    MaxWorkingScale = float.PositiveInfinity,
-                    UseRenderCache = false,
+                    DefaultRequest = new RenderNodeRenderRequest
+                    {
+                        Intent = RenderIntent.Delivery,
+                        TargetDomain = new Rect(default, s_frame.ToSize(1)),
+                        OutputScale = scale,
+                        MaxWorkingScale = float.PositiveInfinity,
+                        UseRenderCache = false,
+                    },
                 });
             renderer.Render(destinationCanvas);
         }

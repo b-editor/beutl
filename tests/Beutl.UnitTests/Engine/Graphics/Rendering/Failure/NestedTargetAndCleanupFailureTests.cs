@@ -301,11 +301,14 @@ public sealed class NestedTargetAndCleanupFailureTests
             parent,
             new RenderNodeRendererOptions
             {
-                TargetDomain = fullDomain,
-                RequestedRegion = fullDomain,
-                OutputScale = 1,
-                MaxWorkingScale = 1,
-                UseRenderCache = false,
+                DefaultRequest = new RenderNodeRenderRequest
+                {
+                    TargetDomain = fullDomain,
+                    RequestedRegion = fullDomain,
+                    OutputScale = 1,
+                    MaxWorkingScale = 1,
+                    UseRenderCache = false,
+                },
             });
 
         using RenderNodeRasterization rasterization = renderer.Rasterize();
@@ -339,10 +342,13 @@ public sealed class NestedTargetAndCleanupFailureTests
             parent,
             new RenderNodeRendererOptions
             {
-                TargetDomain = s_bounds,
-                OutputScale = 1,
-                MaxWorkingScale = 1,
-                UseRenderCache = false,
+                DefaultRequest = new RenderNodeRenderRequest
+                {
+                    TargetDomain = s_bounds,
+                    OutputScale = 1,
+                    MaxWorkingScale = 1,
+                    UseRenderCache = false,
+                },
                 TargetFactory = factory,
             });
 

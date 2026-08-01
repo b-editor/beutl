@@ -24,19 +24,33 @@ internal sealed class RenderPipelineBenchmarkConfig : ManualConfig
 
     public const int BenchmarkIterationCount = 15;
 
+    public const int BenchmarkLaunchCount = 1;
+
+    public const int BenchmarkInvocationCount = 1;
+
+    public const int BenchmarkUnrollFactor = 1;
+
+    public const string BenchmarkJobId = "RenderPipeline";
+
+    public static string ExpectedJobDisplay =>
+        $"{BenchmarkJobId}(InvocationCount={BenchmarkInvocationCount}, "
+        + $"IterationCount={BenchmarkIterationCount}, LaunchCount={BenchmarkLaunchCount}, "
+        + $"RunStrategy={RunStrategy.Monitoring}, UnrollFactor={BenchmarkUnrollFactor}, "
+        + $"WarmupCount={BenchmarkWarmupCount})";
+
     public const string LifetimeContract =
         "persistent-root-pipeline-and-version-available-structural-program-render-cache-target-pool-state";
 
     public RenderPipelineBenchmarkConfig()
     {
         AddJob(Job.Default
-            .WithId("RenderPipeline")
+            .WithId(BenchmarkJobId)
             .WithStrategy(RunStrategy.Monitoring)
-            .WithLaunchCount(1)
+            .WithLaunchCount(BenchmarkLaunchCount)
             .WithWarmupCount(BenchmarkWarmupCount)
             .WithIterationCount(BenchmarkIterationCount)
-            .WithInvocationCount(1)
-            .WithUnrollFactor(1));
+            .WithInvocationCount(BenchmarkInvocationCount)
+            .WithUnrollFactor(BenchmarkUnrollFactor));
         AddDiagnoser(MemoryDiagnoser.Default);
         AddColumnProvider(DefaultColumnProviders.Instance);
         AddLogger(ConsoleLogger.Default);

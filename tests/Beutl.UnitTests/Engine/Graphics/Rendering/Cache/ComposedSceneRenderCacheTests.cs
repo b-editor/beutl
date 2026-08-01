@@ -224,10 +224,13 @@ public sealed class ComposedSceneRenderCacheTests
                 root,
                 new RenderNodeRendererOptions
                 {
-                    TargetDomain = s_frameBounds,
-                    RenderPurpose = RenderRequestPurpose.Frame,
+                    DefaultRequest = new RenderNodeRenderRequest
+                    {
+                        TargetDomain = s_frameBounds,
+                        RenderPurpose = RenderRequestPurpose.Frame,
+                        Diagnostics = diagnostics,
+                    },
                     TargetFactory = new CpuTargetFactory(),
-                    Diagnostics = diagnostics,
                 });
             using RenderNodeRasterization first = renderer.Rasterize();
             using RenderNodeRasterization second = renderer.Rasterize();
@@ -407,11 +410,14 @@ public sealed class ComposedSceneRenderCacheTests
             root,
             new RenderNodeRendererOptions
             {
-                TargetDomain = s_frameBounds,
-                UseRenderCache = useRenderCache,
-                RenderPurpose = RenderRequestPurpose.Frame,
+                DefaultRequest = new RenderNodeRenderRequest
+                {
+                    TargetDomain = s_frameBounds,
+                    UseRenderCache = useRenderCache,
+                    RenderPurpose = RenderRequestPurpose.Frame,
+                    Diagnostics = diagnostics,
+                },
                 TargetFactory = new CpuTargetFactory(),
-                Diagnostics = diagnostics,
             });
     }
 

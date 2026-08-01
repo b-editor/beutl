@@ -320,8 +320,14 @@ public class ResolutionScaleTests
         using var node = new ContainerRenderNode();
         using var renderer = new RenderNodeRenderer(
             node,
-            new RenderNodeRendererOptions { OutputScale = bad, UseRenderCache = false });
-        Assert.That(renderer.Options.OutputScale, Is.EqualTo(1f));
+            new RenderNodeRendererOptions {
+                DefaultRequest = new RenderNodeRenderRequest
+                {
+                    OutputScale = bad,
+                    UseRenderCache = false,
+                },
+            });
+        Assert.That(renderer.Options.DefaultRequest.OutputScale, Is.EqualTo(1f));
     }
 
     [TestCase(float.NaN)]
@@ -334,16 +340,19 @@ public class ResolutionScaleTests
             node,
             new RenderNodeRendererOptions
             {
-                OutputScale = 1,
-                MaxWorkingScale = bad,
-                UseRenderCache = false,
+                DefaultRequest = new RenderNodeRenderRequest
+                {
+                    OutputScale = 1,
+                    MaxWorkingScale = bad,
+                    UseRenderCache = false,
+                },
             });
-        Assert.That(renderer.Options.MaxWorkingScale, Is.EqualTo(float.PositiveInfinity));
+        Assert.That(renderer.Options.DefaultRequest.MaxWorkingScale, Is.EqualTo(float.PositiveInfinity));
         // and it must not pull a resolved working scale to zero / NaN
         float w = RenderScaleUtilities.ResolveWorkingScale(
             [EffectiveScale.At(3f)],
             1f,
-            renderer.Options.MaxWorkingScale);
+            renderer.Options.DefaultRequest.MaxWorkingScale);
         Assert.That(w, Is.EqualTo(3f));
     }
 
@@ -357,11 +366,14 @@ public class ResolutionScaleTests
             node,
             new RenderNodeRendererOptions
             {
-                OutputScale = 1,
-                MaxWorkingScale = bad,
-                UseRenderCache = false,
+                DefaultRequest = new RenderNodeRenderRequest
+                {
+                    OutputScale = 1,
+                    MaxWorkingScale = bad,
+                    UseRenderCache = false,
+                },
             });
-        Assert.That(renderer.Options.MaxWorkingScale, Is.EqualTo(float.PositiveInfinity));
+        Assert.That(renderer.Options.DefaultRequest.MaxWorkingScale, Is.EqualTo(float.PositiveInfinity));
     }
 
     [TestCase(float.NaN)]
@@ -372,8 +384,14 @@ public class ResolutionScaleTests
         using var node = new PassThroughRenderNode();
         using var renderer = new RenderNodeRenderer(
             node,
-            new RenderNodeRendererOptions { OutputScale = bad, UseRenderCache = false });
-        Assert.That(renderer.Options.OutputScale, Is.EqualTo(1f));
+            new RenderNodeRendererOptions {
+                DefaultRequest = new RenderNodeRenderRequest
+                {
+                    OutputScale = bad,
+                    UseRenderCache = false,
+                },
+            });
+        Assert.That(renderer.Options.DefaultRequest.OutputScale, Is.EqualTo(1f));
     }
 
     // --- Shader device-buffer dimensions (the size SKSL/GLSL resolution uniforms must report) ------------
@@ -403,7 +421,12 @@ public class ResolutionScaleTests
 
         using var renderer = new RenderNodeRenderer(
             node,
-            new RenderNodeRendererOptions { UseRenderCache = false });
+            new RenderNodeRendererOptions {
+                DefaultRequest = new RenderNodeRenderRequest
+                {
+                    UseRenderCache = false,
+                },
+            });
         RenderNodeMeasurement measurement = renderer.Measure();
 
         Assert.That(measurement.HasFragments, Is.True);

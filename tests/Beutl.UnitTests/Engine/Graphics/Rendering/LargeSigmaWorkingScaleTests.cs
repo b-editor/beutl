@@ -65,10 +65,13 @@ public class LargeSigmaWorkingScaleTests
             node,
             new RenderNodeRendererOptions
             {
-                TargetDomain = new Rect(0, 0, 64, 64),
-                OutputScale = 1,
-                MaxWorkingScale = 1,
-                UseRenderCache = false,
+                DefaultRequest = new RenderNodeRenderRequest
+                {
+                    TargetDomain = new Rect(0, 0, 64, 64),
+                    OutputScale = 1,
+                    MaxWorkingScale = 1,
+                    UseRenderCache = false,
+                },
             });
 
         using (renderer.Rasterize())

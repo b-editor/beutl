@@ -107,11 +107,14 @@ public sealed class CurrentPixelQuantizationTests
                 node,
                 new RenderNodeRendererOptions
                 {
-                    Intent = RenderIntent.Delivery,
-                    TargetDomain = new Rect(default, s_frame.ToSize(1)),
-                    OutputScale = 1,
-                    UseRenderCache = false,
-                    FusionMode = fusionMode,
+                    DefaultRequest = new RenderNodeRenderRequest
+                    {
+                        Intent = RenderIntent.Delivery,
+                        TargetDomain = new Rect(default, s_frame.ToSize(1)),
+                        OutputScale = 1,
+                        UseRenderCache = false,
+                        FusionMode = fusionMode,
+                    },
                 });
             renderer.Render(canvas);
             return target.Snapshot();

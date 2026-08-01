@@ -51,10 +51,13 @@ public sealed class TargetCaptureValueWrapperTests
             root,
             new RenderNodeRendererOptions
             {
-                TargetDomain = s_bounds,
+                DefaultRequest = new RenderNodeRenderRequest
+                {
+                    TargetDomain = s_bounds,
+                    UseRenderCache = false,
+                    FusionMode = FusionMode.Disabled,
+                },
                 TargetFactory = new CpuTargetFactory(),
-                UseRenderCache = false,
-                FusionMode = FusionMode.Disabled,
             });
 
         using RenderNodeRasterization raster = renderer.Rasterize();
@@ -82,10 +85,13 @@ public sealed class TargetCaptureValueWrapperTests
             root,
             new RenderNodeRendererOptions
             {
-                TargetDomain = s_bounds,
+                DefaultRequest = new RenderNodeRenderRequest
+                {
+                    TargetDomain = s_bounds,
+                    UseRenderCache = false,
+                    FusionMode = FusionMode.Disabled,
+                },
                 TargetFactory = new CpuTargetFactory(),
-                UseRenderCache = false,
-                FusionMode = FusionMode.Disabled,
             });
 
         return renderer.Rasterize();

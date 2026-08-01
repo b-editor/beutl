@@ -343,13 +343,16 @@ public sealed class ExecutionIslandAuthorityTests
             node,
             new RenderNodeRendererOptions
             {
-                TargetDomain = s_bounds,
-                OutputScale = 1,
-                MaxWorkingScale = 1,
-                UseRenderCache = false,
-                FusionMode = FusionMode.Enabled,
-                RenderPurpose = RenderRequestPurpose.Frame,
-                Diagnostics = diagnostics,
+                DefaultRequest = new RenderNodeRenderRequest
+                {
+                    TargetDomain = s_bounds,
+                    OutputScale = 1,
+                    MaxWorkingScale = 1,
+                    UseRenderCache = false,
+                    FusionMode = FusionMode.Enabled,
+                    RenderPurpose = RenderRequestPurpose.Frame,
+                    Diagnostics = diagnostics,
+                },
             });
 
     private static CompiledRenderRequest CompileTerminalOpacity()

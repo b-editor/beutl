@@ -59,8 +59,11 @@ public class TextBlockTests
             node,
             new RenderNodeRendererOptions
             {
-                TargetDomain = new Rect(0, 0, 1920, 1080),
-                UseRenderCache = false,
+                DefaultRequest = new RenderNodeRenderRequest
+                {
+                    TargetDomain = new Rect(0, 0, 1920, 1080),
+                    UseRenderCache = false,
+                },
             });
         using RenderNodeRasterization rasterization = renderer.Rasterize();
         Assert.That(rasterization.IsEmpty, Is.False);

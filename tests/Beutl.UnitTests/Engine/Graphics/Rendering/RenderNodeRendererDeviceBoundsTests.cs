@@ -19,9 +19,12 @@ public sealed class RenderNodeRendererDeviceBoundsTests
             root,
             new RenderNodeRendererOptions
             {
-                OutputScale = outputScale,
-                MaxWorkingScale = 2,
-                UseRenderCache = false,
+                DefaultRequest = new RenderNodeRenderRequest
+                {
+                    OutputScale = outputScale,
+                    MaxWorkingScale = 2,
+                    UseRenderCache = false,
+                },
                 TargetFactory = factory,
             });
 
@@ -60,9 +63,12 @@ public sealed class RenderNodeRendererDeviceBoundsTests
             root,
             new RenderNodeRendererOptions
             {
-                OutputScale = 1,
-                MaxWorkingScale = 1,
-                UseRenderCache = false,
+                DefaultRequest = new RenderNodeRenderRequest
+                {
+                    OutputScale = 1,
+                    MaxWorkingScale = 1,
+                    UseRenderCache = false,
+                },
                 TargetFactory = factory,
             });
 

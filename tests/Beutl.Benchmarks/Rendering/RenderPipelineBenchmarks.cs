@@ -370,11 +370,14 @@ internal sealed class RenderPipelineBenchmarkSession : IDisposable
     private static RenderNodeRendererOptions CreateRendererOptions(RenderPipelineBenchmarkSceneDefinition scene)
         => new()
         {
-            Intent = RenderIntent.Preview,
-            TargetDomain = s_targetDomain,
-            OutputScale = 1,
-            MaxWorkingScale = 1,
-            UseRenderCache = scene.HasStaticPrefixCache,
+            DefaultRequest = new RenderNodeRenderRequest
+            {
+                Intent = RenderIntent.Preview,
+                TargetDomain = s_targetDomain,
+                OutputScale = 1,
+                MaxWorkingScale = 1,
+                UseRenderCache = scene.HasStaticPrefixCache,
+            },
         };
 
     private static void AssertMatchingDiagnosticOutput(
@@ -838,12 +841,15 @@ internal static class RenderPipelineInternalDiagnostics
         object state,
         RenderRequestPurpose purpose)
     {
-        SetProperty(options, "Diagnostics", state);
-        SetPurpose(options, purpose);
+        // Diagnostics and RenderPurpose live on the default request record; its init-only
+        // accessors remain reflection-settable before the renderer copies the request.
+        object request = GetProperty(options, "DefaultRequest");
+        SetProperty(request, "Diagnostics", state);
+        SetProperty(request, "RenderPurpose", purpose);
     }
 
     public static void SetPurpose(RenderNodeRendererOptions options, RenderRequestPurpose purpose)
-        => SetProperty(options, "RenderPurpose", purpose);
+        => SetProperty(GetProperty(options, "DefaultRequest"), "RenderPurpose", purpose);
 
     public static SortedDictionary<string, long> CaptureLatestCounters(object state, out bool succeeded)
     {

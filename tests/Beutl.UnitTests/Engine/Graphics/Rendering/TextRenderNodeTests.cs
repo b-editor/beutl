@@ -33,7 +33,12 @@ public class TextRenderNodeTests
         using var node = new TextRenderNode(text, Brushes.Resource.White, null);
         using var renderer = new RenderNodeRenderer(
             node,
-            new RenderNodeRendererOptions { UseRenderCache = false });
+            new RenderNodeRendererOptions {
+                DefaultRequest = new RenderNodeRenderRequest
+                {
+                    UseRenderCache = false,
+                },
+            });
         RenderNodeMeasurement measurement = renderer.Measure();
 
         Assert.Multiple(() =>

@@ -470,9 +470,12 @@ public class RenderNodeRendererExceptionSafetyTests
         IRenderTargetFactory? targetFactory = null)
         => new(node, new RenderNodeRendererOptions
         {
-            OutputScale = 1,
-            MaxWorkingScale = float.PositiveInfinity,
-            UseRenderCache = false,
+            DefaultRequest = new RenderNodeRenderRequest
+            {
+                OutputScale = 1,
+                MaxWorkingScale = float.PositiveInfinity,
+                UseRenderCache = false,
+            },
             TargetFactory = targetFactory,
         });
 

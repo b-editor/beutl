@@ -309,10 +309,13 @@ public sealed class RasterFootprintMetadataTests
             root,
             new RenderNodeRendererOptions
             {
-                TargetDomain = logicalBounds,
-                OutputScale = density,
-                MaxWorkingScale = density,
-                UseRenderCache = false,
+                DefaultRequest = new RenderNodeRenderRequest
+                {
+                    TargetDomain = logicalBounds,
+                    OutputScale = density,
+                    MaxWorkingScale = density,
+                    UseRenderCache = false,
+                },
             });
 
         Assert.That(() => renderer.Render(destination), Throws.Nothing);
@@ -410,27 +413,36 @@ public sealed class RasterFootprintMetadataTests
     {
         const float density = 2;
         var bounds = new Rect(10.25f, 20.25f, 8, 6);
-        PixelRect deviceBounds = PixelRect.FromRect(bounds, density);
+        var deviceGridOffset = new Vector(0.25f, -0.125f);
+        PixelRect deviceBounds = PixelRect.FromRect(bounds.Translate(deviceGridOffset), density);
         using RenderTarget renderTarget = RenderTarget.CreateNull(deviceBounds.Width, deviceBounds.Height);
         using var target = new EffectTarget(
             renderTarget,
             bounds,
             EffectiveScale.At(density),
-            deviceBounds);
-        Rect initialRasterBounds = deviceBounds.ToRect(density);
+            deviceBounds,
+            deviceGridOffset);
+        Rect initialRasterBounds = deviceBounds.ToRect(density).Translate(-deviceGridOffset);
         var translation = new Vector(3.25f, -1.5f);
 
         target.Bounds = target.Bounds.Translate(translation);
         using EffectTarget clone = target.Clone();
+        using var targets = new EffectTargets { target.Clone() };
+        using EffectTargets clonedTargets = targets.Clone();
 
         Assert.Multiple(() =>
         {
             Assert.That(target.DeviceBounds, Is.EqualTo(deviceBounds));
+            Assert.That(target.DeviceGridOffset, Is.EqualTo(deviceGridOffset));
             Assert.That(target.RasterBounds, Is.EqualTo(initialRasterBounds.Translate(translation)));
             Assert.That(target.RasterBounds.Size, Is.EqualTo(initialRasterBounds.Size));
             Assert.That(clone.DeviceBounds, Is.EqualTo(deviceBounds));
+            Assert.That(clone.DeviceGridOffset, Is.EqualTo(deviceGridOffset));
             Assert.That(clone.Bounds, Is.EqualTo(target.Bounds));
             Assert.That(clone.RasterBounds, Is.EqualTo(target.RasterBounds));
+            Assert.That(clonedTargets[0].DeviceBounds, Is.EqualTo(deviceBounds));
+            Assert.That(clonedTargets[0].DeviceGridOffset, Is.EqualTo(deviceGridOffset));
+            Assert.That(clonedTargets[0].RasterBounds, Is.EqualTo(target.RasterBounds));
         });
     }
 

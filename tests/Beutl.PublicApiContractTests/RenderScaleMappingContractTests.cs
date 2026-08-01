@@ -14,7 +14,12 @@ public sealed class RenderScaleMappingContractTests
         using var node = new SupplyMappingNode(EffectiveScale.At(inputDensity));
         using var renderer = new RenderNodeRenderer(
             node,
-            new RenderNodeRendererOptions { UseRenderCache = false });
+            new RenderNodeRendererOptions {
+                DefaultRequest = new RenderNodeRenderRequest
+                {
+                    UseRenderCache = false,
+                },
+            });
 
         RenderNodeMeasurement measurement = renderer.Measure();
 
@@ -27,7 +32,12 @@ public sealed class RenderScaleMappingContractTests
         using var node = new SupplyMappingNode(EffectiveScale.Unbounded);
         using var renderer = new RenderNodeRenderer(
             node,
-            new RenderNodeRendererOptions { UseRenderCache = false });
+            new RenderNodeRendererOptions {
+                DefaultRequest = new RenderNodeRenderRequest
+                {
+                    UseRenderCache = false,
+                },
+            });
 
         RenderNodeMeasurement measurement = renderer.Measure();
 

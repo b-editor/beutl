@@ -28,9 +28,12 @@ public class Scene3DRenderNodeScaleTests
             node,
             new RenderNodeRendererOptions
             {
-                OutputScale = 2,
-                MaxWorkingScale = 0.5f,
-                UseRenderCache = false,
+                DefaultRequest = new RenderNodeRenderRequest
+                {
+                    OutputScale = 2,
+                    MaxWorkingScale = 0.5f,
+                    UseRenderCache = false,
+                },
             });
 
         RenderNodeMeasurement measurement = renderer.Measure();

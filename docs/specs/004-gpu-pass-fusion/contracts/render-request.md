@@ -19,15 +19,21 @@ public sealed class RenderNodeRenderer : IDisposable
     public RenderNodeRendererOptions Options { get; }
     public bool IsDisposed { get; }
 
-    public void Render(ImmediateCanvas destination);
-    public RenderNodeRasterization Rasterize();
-    public RenderNodeMeasurement Measure();
-    public bool HitTest(Point point);
+    public void Render(
+        ImmediateCanvas destination,
+        RenderNodeRenderRequest? requestOptions = null);
+    public RenderNodeRasterization Rasterize(
+        RenderNodeRenderRequest? requestOptions = null);
+    public RenderNodeMeasurement Measure(
+        RenderNodeRenderRequest? requestOptions = null);
+    public bool HitTest(
+        Point point,
+        RenderNodeRenderRequest? requestOptions = null);
     public void Dispose();
 }
 ```
 
-`RenderNodeRendererOptions` fixes intent, optional target-less `TargetDomain`, optional requested region (`null` = complete `RootOutputExtent`), output/maximum working scales, cache policy, and an `IRenderTargetFactory`. A null factory selects the engine's standard current-backend linear-premultiplied RGBA16F allocator. The factory replaces the old protected `CreateRenderTarget` seam and is called only on a pool miss with a `RenderTargetAllocationDescriptor` carrying exact device size, fixed format, and the request's backend/device context when bound; each non-null return transfers one fresh exclusive compatible target, and invalid returns are disposed before allocation-failure policy is applied (`src/Beutl.Engine/Graphics/Rendering/RenderNodeRenderer.cs:62-118`, `src/Beutl.Engine/Graphics/Rendering/Planning/RenderTargetPool.cs:554-664`, `src/Beutl.Engine/Graphics/Rendering/Planning/RenderTargetPool.cs:707-713`). `RenderNodeRenderer` owns persistent structural/program caches, the pool, and every factory-created target while pooled or request-leased; disposal evicts/releases them and does not dispose the borrowed root/cache, factory, destinations, or a returned caller-owned `RenderNodeRasterization`. Successful output-cache publication transfers the payload to the existing `RenderNodeCache` lifecycle. Public Render/rasterize create complete painter-ordered `Auxiliary` requests. Measure/hit-test stop after metadata/provenance analysis as `Bounds`/`HitTest` and never execute GPU/media callbacks. Only production `Renderer` creates `Frame`, and CacheWarmup is internal. Request diagnostics are an internal implementation/evidence seam, not a public option. There is no list-returning rasterizer because an effectful fragment stream has one target-ordered result; that result carries its logical bounds/origin and represents empty output without fabricating a zero-area bitmap. Internal overloads may accept an existing request owner for nested work; no overload returns public fragment handles outside a recording transaction. Full signatures are normative in [public-api.md](public-api.md#high-level-node-renderer).
+`RenderNodeRendererOptions` contains the snapshotted `DefaultRequest` plus the renderer-lifetime `IRenderTargetFactory`; a null factory selects the engine's standard current-backend linear-premultiplied RGBA16F allocator. `RenderNodeRenderRequest` is a complete reusable request descriptor containing intent, optional target-less `TargetDomain`, optional requested region (`null` = complete `RootOutputExtent`), output/maximum working scales, and cache policy. A null operation request selects the sanitized default snapshot; a non-null request completely replaces it and is independently copied, validated, and sanitized. The factory replaces the old protected `CreateRenderTarget` seam and is called only on a pool miss with a `RenderTargetAllocationDescriptor` carrying exact device size, fixed format, and the request's backend/device context when bound; each non-null return transfers one fresh exclusive compatible target, and invalid returns are disposed before allocation-failure policy is applied. `RenderNodeRenderer` owns persistent structural/program caches, the pool, and every factory-created target while pooled or request-leased; disposal evicts/releases them and does not dispose the borrowed root/cache, factory, request descriptors, destinations, or a returned caller-owned `RenderNodeRasterization`. Successful output-cache publication transfers the payload to the existing `RenderNodeCache` lifecycle. Public Render/rasterize create complete painter-ordered `Auxiliary` requests. Measure/hit-test stop after metadata/provenance analysis as `Bounds`/`HitTest` and never execute GPU/media callbacks. Only production `Renderer` creates `Frame`, and CacheWarmup is internal. Request diagnostics are an internal implementation/evidence seam, not a public option. There is no list-returning rasterizer because an effectful fragment stream has one target-ordered result; that result carries its logical bounds/origin and represents empty output without fabricating a zero-area bitmap. No overload returns public fragment handles outside a recording transaction. Full signatures are normative in [public-api.md](public-api.md#high-level-node-renderer).
 
 ## Renderer frame sequencing
 
@@ -216,7 +222,7 @@ The planner partitions the post-cache graph at:
 
 An island is maximal only when combining adjacent work preserves authored fragment/value order, scope-local target-token order, contribution semantics, bounds/ROI, scale, color/alpha semantics, hit-test metadata, output cardinality, cache identity, and synchronization behavior.
 
-Production requests use internal `FusionMode.Enabled`. Friend evidence tests may issue otherwise identical requests with `FusionMode.Disabled`, which retains the same semantic lowering and compatibility execution but prevents eligible stage composition. The mode is inherited by nested requests and included in structural-plan identity; it is not a public `RenderNodeRendererOptions` switch and therefore is not a plugin-visible behavior knob.
+Production requests use internal `FusionMode.Enabled`. Friend evidence tests may issue otherwise identical requests with `FusionMode.Disabled`, which retains the same semantic lowering and compatibility execution but prevents eligible stage composition. The mode is inherited by nested requests and included in structural-plan identity; it is not a public `RenderNodeRenderRequest` switch and therefore is not a plugin-visible behavior knob.
 
 ## Shader fusion
 

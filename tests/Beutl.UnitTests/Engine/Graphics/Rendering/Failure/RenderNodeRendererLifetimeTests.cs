@@ -24,14 +24,17 @@ public sealed class RenderNodeRendererLifetimeTests
             node,
             new RenderNodeRendererOptions
             {
-                TargetDomain = bounds,
-                RequestedRegion = emptySelection,
-                OutputScale = 2,
-                MaxWorkingScale = 2,
-                UseRenderCache = false,
+                DefaultRequest = new RenderNodeRenderRequest
+                {
+                    TargetDomain = bounds,
+                    RequestedRegion = emptySelection,
+                    OutputScale = 2,
+                    MaxWorkingScale = 2,
+                    UseRenderCache = false,
+                    RenderPurpose = RenderRequestPurpose.Frame,
+                    Diagnostics = diagnostics,
+                },
                 TargetFactory = factory,
-                RenderPurpose = RenderRequestPurpose.Frame,
-                Diagnostics = diagnostics,
             });
 
         using RenderNodeRasterization rasterization = renderer.Rasterize();
@@ -74,11 +77,14 @@ public sealed class RenderNodeRendererLifetimeTests
             node,
             new RenderNodeRendererOptions
             {
-                TargetDomain = bounds,
-                RequestedRegion = new Rect(x, y, width, height),
-                UseRenderCache = false,
-                RenderPurpose = RenderRequestPurpose.Frame,
-                Diagnostics = diagnostics,
+                DefaultRequest = new RenderNodeRenderRequest
+                {
+                    TargetDomain = bounds,
+                    RequestedRegion = new Rect(x, y, width, height),
+                    UseRenderCache = false,
+                    RenderPurpose = RenderRequestPurpose.Frame,
+                    Diagnostics = diagnostics,
+                },
             });
         using RenderTarget target = RenderTarget.CreateNull(8, 8);
         using var canvas = new ImmediateCanvas(target);
@@ -117,10 +123,13 @@ public sealed class RenderNodeRendererLifetimeTests
             node,
             new RenderNodeRendererOptions
             {
-                TargetDomain = bounds,
-                OutputScale = 1,
-                MaxWorkingScale = 1,
-                UseRenderCache = false,
+                DefaultRequest = new RenderNodeRenderRequest
+                {
+                    TargetDomain = bounds,
+                    OutputScale = 1,
+                    MaxWorkingScale = 1,
+                    UseRenderCache = false,
+                },
                 TargetFactory = factory,
             });
 
@@ -173,10 +182,13 @@ public sealed class RenderNodeRendererLifetimeTests
             node,
             new RenderNodeRendererOptions
             {
-                TargetDomain = bounds,
-                OutputScale = 1,
-                MaxWorkingScale = 1,
-                UseRenderCache = false,
+                DefaultRequest = new RenderNodeRenderRequest
+                {
+                    TargetDomain = bounds,
+                    OutputScale = 1,
+                    MaxWorkingScale = 1,
+                    UseRenderCache = false,
+                },
                 TargetFactory = factory,
             });
 

@@ -58,10 +58,13 @@ public sealed class GpuPassFusion3DBoundaryTests
                 root,
                 new RenderNodeRendererOptions
                 {
-                    TargetDomain = new Rect(0, 0, 32, 24),
-                    OutputScale = 1,
-                    MaxWorkingScale = 1,
-                    UseRenderCache = false,
+                    DefaultRequest = new RenderNodeRenderRequest
+                    {
+                        TargetDomain = new Rect(0, 0, 32, 24),
+                        OutputScale = 1,
+                        MaxWorkingScale = 1,
+                        UseRenderCache = false,
+                    },
                 });
             using RenderNodeRasterization rasterization = renderer.Rasterize();
             Bitmap bitmap = rasterization.Bitmap
@@ -118,10 +121,13 @@ public sealed class GpuPassFusion3DBoundaryTests
                        sceneNode,
                        new RenderNodeRendererOptions
                        {
-                           TargetDomain = new Rect(0, 0, 32, 24),
-                           OutputScale = 1,
-                           MaxWorkingScale = 1,
-                           UseRenderCache = false,
+                           DefaultRequest = new RenderNodeRenderRequest
+                           {
+                               TargetDomain = new Rect(0, 0, 32, 24),
+                               OutputScale = 1,
+                               MaxWorkingScale = 1,
+                               UseRenderCache = false,
+                           },
                        }))
             {
                 Assert.That(resource.Renderer, Is.Null);

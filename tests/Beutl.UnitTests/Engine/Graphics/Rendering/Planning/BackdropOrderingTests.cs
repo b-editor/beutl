@@ -126,8 +126,11 @@ public sealed class BackdropOrderingTests
             draw,
             new RenderNodeRendererOptions
             {
-                TargetDomain = s_domain,
-                UseRenderCache = false,
+                DefaultRequest = new RenderNodeRenderRequest
+                {
+                    TargetDomain = s_domain,
+                    UseRenderCache = false,
+                },
             });
 
         using RenderNodeRasterization rasterization = renderer.Rasterize();
@@ -195,8 +198,11 @@ public sealed class BackdropOrderingTests
             root,
             new RenderNodeRendererOptions
             {
-                TargetDomain = s_domain,
-                UseRenderCache = false,
+                DefaultRequest = new RenderNodeRenderRequest
+                {
+                    TargetDomain = s_domain,
+                    UseRenderCache = false,
+                },
             });
 
         using RenderNodeRasterization rasterization = renderer.Rasterize();

@@ -172,10 +172,13 @@ public partial class SourceVideo : IThumbnailsProvider
                 node,
                 new RenderNodeRendererOptions
                 {
-                    Intent = RenderIntent.Preview,
-                    TargetDomain = new Rect(0, 0, thumbWidth, maxHeight),
-                    OutputScale = 1,
-                    UseRenderCache = false,
+                    DefaultRequest = new RenderNodeRenderRequest
+                    {
+                        Intent = RenderIntent.Preview,
+                        TargetDomain = new Rect(0, 0, thumbWidth, maxHeight),
+                        OutputScale = 1,
+                        UseRenderCache = false,
+                    },
                 });
 
             for (int i = effectiveStart; i <= effectiveEnd; i++)

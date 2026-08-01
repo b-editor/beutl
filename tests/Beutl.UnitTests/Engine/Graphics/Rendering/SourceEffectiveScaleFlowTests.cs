@@ -119,7 +119,12 @@ public class SourceEffectiveScaleFlowTests
             MosaicNode());
         using var renderer = new RenderNodeRenderer(
             pipeline,
-            new RenderNodeRendererOptions { UseRenderCache = false });
+            new RenderNodeRendererOptions {
+                DefaultRequest = new RenderNodeRenderRequest
+                {
+                    UseRenderCache = false,
+                },
+            });
         using RenderTarget target = RenderTarget.Create(120, 90)!;
         using (var canvas = new ImmediateCanvas(target, 1))
         {
@@ -328,9 +333,12 @@ public class SourceEffectiveScaleFlowTests
             transform,
             new RenderNodeRendererOptions
             {
-                TargetDomain = domain,
+                DefaultRequest = new RenderNodeRenderRequest
+                {
+                    TargetDomain = domain,
+                    UseRenderCache = false,
+                },
                 TargetFactory = new CpuTargetFactory(),
-                UseRenderCache = false,
             });
         using RenderNodeRasterization rasterization = renderer.Rasterize();
         Bitmap bitmap = rasterization.Bitmap!;
@@ -793,8 +801,11 @@ public class SourceEffectiveScaleFlowTests
             pipeline,
             new RenderNodeRendererOptions
             {
-                UseRenderCache = false,
-                TargetDomain = bounds,
+                DefaultRequest = new RenderNodeRenderRequest
+                {
+                    UseRenderCache = false,
+                    TargetDomain = bounds,
+                },
                 TargetFactory = new CpuTargetFactory(),
             });
 
@@ -822,10 +833,13 @@ public class SourceEffectiveScaleFlowTests
             node,
             new RenderNodeRendererOptions
             {
-                UseRenderCache = false,
-                OutputScale = 1,
-                MaxWorkingScale = maxWorkingScale,
-                TargetDomain = bounds,
+                DefaultRequest = new RenderNodeRenderRequest
+                {
+                    UseRenderCache = false,
+                    OutputScale = 1,
+                    MaxWorkingScale = maxWorkingScale,
+                    TargetDomain = bounds,
+                },
                 TargetFactory = new CpuTargetFactory(),
             });
 
@@ -853,9 +867,12 @@ public class SourceEffectiveScaleFlowTests
             pipeline,
             new RenderNodeRendererOptions
             {
-                UseRenderCache = false,
-                OutputScale = 1,
-                TargetDomain = bounds,
+                DefaultRequest = new RenderNodeRenderRequest
+                {
+                    UseRenderCache = false,
+                    OutputScale = 1,
+                    TargetDomain = bounds,
+                },
                 TargetFactory = new CpuTargetFactory(),
             });
 
@@ -890,13 +907,16 @@ public class SourceEffectiveScaleFlowTests
             pipeline,
             new RenderNodeRendererOptions
             {
-                UseRenderCache = true,
-                OutputScale = requestedDensity,
-                MaxWorkingScale = requestedDensity,
-                TargetDomain = childBounds,
+                DefaultRequest = new RenderNodeRenderRequest
+                {
+                    UseRenderCache = true,
+                    OutputScale = requestedDensity,
+                    MaxWorkingScale = requestedDensity,
+                    TargetDomain = childBounds,
+                    RenderPurpose = RenderRequestPurpose.Frame,
+                    Diagnostics = diagnostics,
+                },
                 TargetFactory = new CpuTargetFactory(),
-                RenderPurpose = RenderRequestPurpose.Frame,
-                Diagnostics = diagnostics,
             });
 
         using RenderNodeRasterization cold = renderer.Rasterize();
@@ -937,15 +957,18 @@ public class SourceEffectiveScaleFlowTests
             pipeline,
             new RenderNodeRendererOptions
             {
-                UseRenderCache = true,
-                CacheRules = new RenderCacheRules(MaxPixels: 1_000, MinPixels: 1),
-                OutputScale = requestedDensity,
-                MaxWorkingScale = requestedDensity,
-                TargetDomain = childBounds,
-                RequestedRegion = requestedRegion,
+                DefaultRequest = new RenderNodeRenderRequest
+                {
+                    UseRenderCache = true,
+                    CacheRules = new RenderCacheRules(MaxPixels: 1_000, MinPixels: 1),
+                    OutputScale = requestedDensity,
+                    MaxWorkingScale = requestedDensity,
+                    TargetDomain = childBounds,
+                    RequestedRegion = requestedRegion,
+                    RenderPurpose = RenderRequestPurpose.Frame,
+                    Diagnostics = diagnostics,
+                },
                 TargetFactory = new CpuTargetFactory(),
-                RenderPurpose = RenderRequestPurpose.Frame,
-                Diagnostics = diagnostics,
             });
 
         using RenderNodeRasterization first = renderer.Rasterize();
@@ -985,13 +1008,16 @@ public class SourceEffectiveScaleFlowTests
             node,
             new RenderNodeRendererOptions
             {
-                UseRenderCache = true,
-                OutputScale = 1,
-                MaxWorkingScale = 4,
-                TargetDomain = bounds,
+                DefaultRequest = new RenderNodeRenderRequest
+                {
+                    UseRenderCache = true,
+                    OutputScale = 1,
+                    MaxWorkingScale = 4,
+                    TargetDomain = bounds,
+                    RenderPurpose = RenderRequestPurpose.Frame,
+                    Diagnostics = diagnostics,
+                },
                 TargetFactory = new CpuTargetFactory(),
-                RenderPurpose = RenderRequestPurpose.Frame,
-                Diagnostics = diagnostics,
             });
 
         using RenderNodeRasterization cold = renderer.Rasterize();
@@ -1034,13 +1060,16 @@ public class SourceEffectiveScaleFlowTests
             pipeline,
             new RenderNodeRendererOptions
             {
-                UseRenderCache = true,
-                OutputScale = 1,
-                MaxWorkingScale = 4,
-                TargetDomain = bounds,
+                DefaultRequest = new RenderNodeRenderRequest
+                {
+                    UseRenderCache = true,
+                    OutputScale = 1,
+                    MaxWorkingScale = 4,
+                    TargetDomain = bounds,
+                    RenderPurpose = RenderRequestPurpose.Frame,
+                    Diagnostics = diagnostics,
+                },
                 TargetFactory = new CpuTargetFactory(),
-                RenderPurpose = RenderRequestPurpose.Frame,
-                Diagnostics = diagnostics,
             });
 
         using RenderNodeRasterization cold = renderer.Rasterize();
@@ -1079,13 +1108,16 @@ public class SourceEffectiveScaleFlowTests
             node,
             new RenderNodeRendererOptions
             {
-                UseRenderCache = true,
-                OutputScale = 1,
-                MaxWorkingScale = 4,
-                TargetDomain = bounds,
+                DefaultRequest = new RenderNodeRenderRequest
+                {
+                    UseRenderCache = true,
+                    OutputScale = 1,
+                    MaxWorkingScale = 4,
+                    TargetDomain = bounds,
+                    RenderPurpose = RenderRequestPurpose.Frame,
+                    Diagnostics = diagnostics,
+                },
                 TargetFactory = new CpuTargetFactory(),
-                RenderPurpose = RenderRequestPurpose.Frame,
-                Diagnostics = diagnostics,
             });
 
         using RenderNodeRasterization first = renderer.Rasterize();
@@ -1126,15 +1158,18 @@ public class SourceEffectiveScaleFlowTests
             node,
             new RenderNodeRendererOptions
             {
-                UseRenderCache = true,
-                CacheRules = new RenderCacheRules(MaxPixels: 1_000, MinPixels: 1),
-                OutputScale = 1,
-                MaxWorkingScale = 1,
-                TargetDomain = bounds,
-                RequestedRegion = requestedRegion,
+                DefaultRequest = new RenderNodeRenderRequest
+                {
+                    UseRenderCache = true,
+                    CacheRules = new RenderCacheRules(MaxPixels: 1_000, MinPixels: 1),
+                    OutputScale = 1,
+                    MaxWorkingScale = 1,
+                    TargetDomain = bounds,
+                    RequestedRegion = requestedRegion,
+                    RenderPurpose = RenderRequestPurpose.Frame,
+                    Diagnostics = diagnostics,
+                },
                 TargetFactory = new CpuTargetFactory(),
-                RenderPurpose = RenderRequestPurpose.Frame,
-                Diagnostics = diagnostics,
             });
 
         using RenderNodeRasterization first = renderer.Rasterize();
@@ -1176,9 +1211,12 @@ public class SourceEffectiveScaleFlowTests
             pipeline,
             new RenderNodeRendererOptions
             {
-                UseRenderCache = false,
-                OutputScale = 1,
-                TargetDomain = bounds,
+                DefaultRequest = new RenderNodeRenderRequest
+                {
+                    UseRenderCache = false,
+                    OutputScale = 1,
+                    TargetDomain = bounds,
+                },
                 TargetFactory = new CpuTargetFactory(),
             });
 
@@ -1227,9 +1265,12 @@ public class SourceEffectiveScaleFlowTests
             pipeline,
             new RenderNodeRendererOptions
             {
-                UseRenderCache = false,
-                OutputScale = 1,
-                TargetDomain = bounds,
+                DefaultRequest = new RenderNodeRenderRequest
+                {
+                    UseRenderCache = false,
+                    OutputScale = 1,
+                    TargetDomain = bounds,
+                },
                 TargetFactory = new CpuTargetFactory(),
             });
 
@@ -1273,9 +1314,12 @@ public class SourceEffectiveScaleFlowTests
             pipeline,
             new RenderNodeRendererOptions
             {
-                UseRenderCache = false,
-                RequestedRegion = firstBounds,
-                MaxWorkingScale = 4,
+                DefaultRequest = new RenderNodeRenderRequest
+                {
+                    UseRenderCache = false,
+                    RequestedRegion = firstBounds,
+                    MaxWorkingScale = 4,
+                },
                 TargetFactory = new CpuTargetFactory(),
             });
 
@@ -1395,7 +1439,10 @@ public class SourceEffectiveScaleFlowTests
             pipeline,
             new RenderNodeRendererOptions
             {
-                UseRenderCache = false,
+                DefaultRequest = new RenderNodeRenderRequest
+                {
+                    UseRenderCache = false,
+                },
                 TargetFactory = new CpuTargetFactory(),
             });
 
@@ -1604,9 +1651,12 @@ public class SourceEffectiveScaleFlowTests
                    root,
                    new RenderNodeRendererOptions
                    {
-                       UseRenderCache = false,
-                       TargetDomain = targetDomain,
-                       Diagnostics = diagnostics,
+                       DefaultRequest = new RenderNodeRenderRequest
+                       {
+                           UseRenderCache = false,
+                           TargetDomain = targetDomain,
+                           Diagnostics = diagnostics,
+                       },
                        TargetFactory = new CpuTargetFactory(),
                    }))
         using (renderer.Rasterize())
@@ -1649,11 +1699,14 @@ public class SourceEffectiveScaleFlowTests
             node,
             new RenderNodeRendererOptions
             {
-                UseRenderCache = false,
-                OutputScale = 1,
-                MaxWorkingScale = 4,
-                TargetDomain = targetDomain,
-                FusionMode = fusionMode,
+                DefaultRequest = new RenderNodeRenderRequest
+                {
+                    UseRenderCache = false,
+                    OutputScale = 1,
+                    MaxWorkingScale = 4,
+                    TargetDomain = targetDomain,
+                    FusionMode = fusionMode,
+                },
                 TargetFactory = new CpuTargetFactory(),
             });
 
@@ -2060,7 +2113,12 @@ public class SourceEffectiveScaleFlowTests
                 new OversampleMosaicRenderNode(mosaic.ToResource(CompositionContext.Default)));
             using var renderer = new RenderNodeRenderer(
                 pipeline,
-                new RenderNodeRendererOptions { UseRenderCache = false });
+                new RenderNodeRendererOptions {
+                    DefaultRequest = new RenderNodeRenderRequest
+                    {
+                        UseRenderCache = false,
+                    },
+                });
 
             RenderNodeMeasurement measurement = renderer.Measure();
             Assert.That(measurement.HasFragments, Is.True,
@@ -2212,10 +2270,13 @@ internal static class ScaleRecordingTestHelper
             root,
             new RenderNodeRendererOptions
             {
-                OutputScale = outputScale,
-                MaxWorkingScale = maxWorkingScale,
-                TargetDomain = targetDomain,
-                UseRenderCache = false,
+                DefaultRequest = new RenderNodeRenderRequest
+                {
+                    OutputScale = outputScale,
+                    MaxWorkingScale = maxWorkingScale,
+                    TargetDomain = targetDomain,
+                    UseRenderCache = false,
+                },
             });
         return renderer.Measure();
     }

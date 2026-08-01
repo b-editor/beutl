@@ -18,10 +18,13 @@ public sealed class RenderNodeRendererContractTests
         using var root = new DelegateNode(static _ => { });
         var supplied = new RenderNodeRendererOptions
         {
-            Intent = RenderIntent.Delivery,
-            OutputScale = authored,
-            MaxWorkingScale = 3,
-            UseRenderCache = false,
+            DefaultRequest = new RenderNodeRenderRequest
+            {
+                Intent = RenderIntent.Delivery,
+                OutputScale = authored,
+                MaxWorkingScale = 3,
+                UseRenderCache = false,
+            },
         };
         using var renderer = new RenderNodeRenderer(root, supplied);
 
@@ -29,10 +32,10 @@ public sealed class RenderNodeRendererContractTests
         {
             Assert.That(renderer.Root, Is.SameAs(root));
             Assert.That(renderer.Options, Is.Not.SameAs(supplied));
-            Assert.That(renderer.Options.Intent, Is.EqualTo(RenderIntent.Delivery));
-            Assert.That(renderer.Options.OutputScale, Is.EqualTo(expected));
-            Assert.That(renderer.Options.MaxWorkingScale, Is.EqualTo(3));
-            Assert.That(renderer.Options.UseRenderCache, Is.False);
+            Assert.That(renderer.Options.DefaultRequest.Intent, Is.EqualTo(RenderIntent.Delivery));
+            Assert.That(renderer.Options.DefaultRequest.OutputScale, Is.EqualTo(expected));
+            Assert.That(renderer.Options.DefaultRequest.MaxWorkingScale, Is.EqualTo(3));
+            Assert.That(renderer.Options.DefaultRequest.UseRenderCache, Is.False);
         });
     }
 
@@ -44,15 +47,25 @@ public sealed class RenderNodeRendererContractTests
         {
             using var renderer = new RenderNodeRenderer(
                 root,
-                new RenderNodeRendererOptions { MaxWorkingScale = invalid });
-            Assert.That(renderer.Options.MaxWorkingScale, Is.EqualTo(float.PositiveInfinity));
+                new RenderNodeRendererOptions {
+                    DefaultRequest = new RenderNodeRenderRequest
+                    {
+                        MaxWorkingScale = invalid,
+                    },
+                });
+            Assert.That(renderer.Options.DefaultRequest.MaxWorkingScale, Is.EqualTo(float.PositiveInfinity));
         }
 
         using (var renderer = new RenderNodeRenderer(
                    root,
-                   new RenderNodeRendererOptions { MaxWorkingScale = float.PositiveInfinity }))
+                   new RenderNodeRendererOptions {
+                       DefaultRequest = new RenderNodeRenderRequest
+                       {
+                           MaxWorkingScale = float.PositiveInfinity,
+                       },
+                   }))
         {
-            Assert.That(renderer.Options.MaxWorkingScale, Is.EqualTo(float.PositiveInfinity));
+            Assert.That(renderer.Options.DefaultRequest.MaxWorkingScale, Is.EqualTo(float.PositiveInfinity));
         }
 
         Assert.Multiple(() =>
@@ -60,14 +73,11 @@ public sealed class RenderNodeRendererContractTests
             Assert.That(
                 () => new RenderNodeRenderer(
                     root,
-                    new RenderNodeRendererOptions { TargetDomain = Rect.Empty }),
-                Throws.TypeOf<ArgumentException>());
-            Assert.That(
-                () => new RenderNodeRenderer(
-                    root,
-                    new RenderNodeRendererOptions
-                    {
-                        TargetDomain = new Rect(float.NaN, 0, 1, 1),
+                    new RenderNodeRendererOptions {
+                        DefaultRequest = new RenderNodeRenderRequest
+                        {
+                            TargetDomain = Rect.Empty,
+                        },
                     }),
                 Throws.TypeOf<ArgumentException>());
             Assert.That(
@@ -75,14 +85,75 @@ public sealed class RenderNodeRendererContractTests
                     root,
                     new RenderNodeRendererOptions
                     {
-                        RequestedRegion = new Rect(0, 0, float.PositiveInfinity, 1),
+                        DefaultRequest = new RenderNodeRenderRequest
+                        {
+                            TargetDomain = new Rect(float.NaN, 0, 1, 1),
+                        },
                     }),
                 Throws.TypeOf<ArgumentException>());
             Assert.That(
                 () => new RenderNodeRenderer(
                     root,
-                    new RenderNodeRendererOptions { Intent = (RenderIntent)12345 }),
+                    new RenderNodeRendererOptions
+                    {
+                        DefaultRequest = new RenderNodeRenderRequest
+                        {
+                            RequestedRegion = new Rect(0, 0, float.PositiveInfinity, 1),
+                        },
+                    }),
+                Throws.TypeOf<ArgumentException>());
+            Assert.That(
+                () => new RenderNodeRenderer(
+                    root,
+                    new RenderNodeRendererOptions {
+                        DefaultRequest = new RenderNodeRenderRequest
+                        {
+                            Intent = (RenderIntent)12345,
+                        },
+                    }),
                 Throws.TypeOf<ArgumentOutOfRangeException>());
+        });
+    }
+
+    [Test]
+    public void Operations_AcceptCompletePerCallRequestsOnOnePersistentRenderer()
+    {
+        var factory = new TrackingTargetFactory(static size => new TrackingRenderTarget(size));
+        using DelegateNode root = SourceNode(new Rect(0, 0, 8, 6));
+        using var renderer = new RenderNodeRenderer(
+            root,
+            new RenderNodeRendererOptions
+            {
+                DefaultRequest = new RenderNodeRenderRequest { UseRenderCache = false },
+                TargetFactory = factory,
+            });
+        RenderNodeRenderRequest leftRequest = renderer.Options.DefaultRequest with
+        {
+            RequestedRegion = new Rect(0, 0, 4, 6),
+            OutputScale = 1,
+        };
+        RenderNodeRenderRequest rightRequest = renderer.Options.DefaultRequest with
+        {
+            RequestedRegion = new Rect(4, 0, 4, 6),
+            OutputScale = 2,
+        };
+
+        using RenderNodeRasterization left = renderer.Rasterize(leftRequest);
+        using RenderNodeRasterization right = renderer.Rasterize(rightRequest);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(left.Bounds, Is.EqualTo(new Rect(0, 0, 4, 6)));
+            Assert.That(left.OutputScale, Is.EqualTo(1));
+            Assert.That(left.Bitmap, Is.Not.Null);
+            Assert.That((left.Bitmap!.Width, left.Bitmap.Height), Is.EqualTo((4, 6)));
+            Assert.That(right.Bounds, Is.EqualTo(new Rect(4, 0, 4, 6)));
+            Assert.That(right.OutputScale, Is.EqualTo(2));
+            Assert.That(right.Bitmap, Is.Not.Null);
+            Assert.That((right.Bitmap!.Width, right.Bitmap.Height), Is.EqualTo((8, 12)));
+            Assert.That(renderer.Options.DefaultRequest.RequestedRegion, Is.Null);
+            Assert.That(renderer.Options.DefaultRequest.OutputScale, Is.EqualTo(1));
+            Assert.That(renderer.IsDisposed, Is.False);
         });
     }
 
@@ -118,11 +189,14 @@ public sealed class RenderNodeRendererContractTests
             root,
             new RenderNodeRendererOptions
             {
-                Intent = RenderIntent.Delivery,
-                RequestedRegion = requested,
-                OutputScale = 8,
-                MaxWorkingScale = 3,
-                UseRenderCache = false,
+                DefaultRequest = new RenderNodeRenderRequest
+                {
+                    Intent = RenderIntent.Delivery,
+                    RequestedRegion = requested,
+                    OutputScale = 8,
+                    MaxWorkingScale = 3,
+                    UseRenderCache = false,
+                },
                 TargetFactory = factory,
             });
 
@@ -236,8 +310,11 @@ public sealed class RenderNodeRendererContractTests
             root,
             new RenderNodeRendererOptions
             {
+                DefaultRequest = new RenderNodeRenderRequest
+                {
+                    UseRenderCache = false,
+                },
                 TargetFactory = factory,
-                UseRenderCache = false,
             });
         using var target = new TrackingRenderTarget(new PixelSize(20, 20));
         using var destination = new ImmediateCanvas(target);
@@ -281,8 +358,11 @@ public sealed class RenderNodeRendererContractTests
             root,
             new RenderNodeRendererOptions
             {
+                DefaultRequest = new RenderNodeRenderRequest
+                {
+                    UseRenderCache = false,
+                },
                 TargetFactory = factory,
-                UseRenderCache = false,
             });
         using var target = new TrackingRenderTarget(new PixelSize(20, 20));
         using var destination = new ImmediateCanvas(target);
@@ -326,8 +406,11 @@ public sealed class RenderNodeRendererContractTests
             root,
             new RenderNodeRendererOptions
             {
+                DefaultRequest = new RenderNodeRenderRequest
+                {
+                    UseRenderCache = false,
+                },
                 TargetFactory = factory,
-                UseRenderCache = false,
             });
         using var target = new TrackingRenderTarget(new PixelSize(20, 20));
         using var destination = new ImmediateCanvas(target);
@@ -361,8 +444,11 @@ public sealed class RenderNodeRendererContractTests
             root,
             new RenderNodeRendererOptions
             {
-                RequestedRegion = new Rect(30, 40, width, height),
-                UseRenderCache = false,
+                DefaultRequest = new RenderNodeRenderRequest
+                {
+                    RequestedRegion = new Rect(30, 40, width, height),
+                    UseRenderCache = false,
+                },
             });
 
         Assert.That(renderer.HitTest(new Point(pointX, pointY)), Is.False);
@@ -431,8 +517,11 @@ public sealed class RenderNodeRendererContractTests
             root,
             new RenderNodeRendererOptions
             {
-                OutputScale = 2,
-                UseRenderCache = false,
+                DefaultRequest = new RenderNodeRenderRequest
+                {
+                    OutputScale = 2,
+                    UseRenderCache = false,
+                },
                 TargetFactory = factory,
             });
 
@@ -474,7 +563,12 @@ public sealed class RenderNodeRendererContractTests
         using var emptyRoot = new DelegateNode(static _ => { });
         using (var renderer = new RenderNodeRenderer(
                    emptyRoot,
-                   new RenderNodeRendererOptions { TargetFactory = factory }))
+                   new RenderNodeRendererOptions {
+                       DefaultRequest = new RenderNodeRenderRequest
+                       {
+                       },
+                       TargetFactory = factory,
+                   }))
         using (RenderNodeRasterization result = renderer.Rasterize())
         {
             Assert.Multiple(() =>
@@ -497,7 +591,10 @@ public sealed class RenderNodeRendererContractTests
                    sourceRoot,
                    new RenderNodeRendererOptions
                    {
-                       RequestedRegion = emptySelection,
+                       DefaultRequest = new RenderNodeRenderRequest
+                       {
+                           RequestedRegion = emptySelection,
+                       },
                        TargetFactory = factory,
                    }))
         using (RenderNodeRasterization result = renderer.Rasterize())
@@ -533,8 +630,11 @@ public sealed class RenderNodeRendererContractTests
             root,
             new RenderNodeRendererOptions
             {
+                DefaultRequest = new RenderNodeRenderRequest
+                {
+                    UseRenderCache = false,
+                },
                 TargetFactory = factory,
-                UseRenderCache = false,
             });
 
         Assert.That(() => renderer.Rasterize(), Throws.TypeOf<InvalidOperationException>());
@@ -558,8 +658,11 @@ public sealed class RenderNodeRendererContractTests
             root,
             new RenderNodeRendererOptions
             {
+                DefaultRequest = new RenderNodeRenderRequest
+                {
+                    UseRenderCache = false,
+                },
                 TargetFactory = factory,
-                UseRenderCache = false,
             });
 
         Assert.That(() => renderer.Rasterize(), Throws.TypeOf<InvalidOperationException>());
@@ -586,8 +689,11 @@ public sealed class RenderNodeRendererContractTests
             root,
             new RenderNodeRendererOptions
             {
+                DefaultRequest = new RenderNodeRenderRequest
+                {
+                    UseRenderCache = false,
+                },
                 TargetFactory = factory,
-                UseRenderCache = false,
             });
 
         Assert.That(() => renderer.Render(destination), Throws.TypeOf<InvalidOperationException>());
@@ -614,8 +720,11 @@ public sealed class RenderNodeRendererContractTests
             root,
             new RenderNodeRendererOptions
             {
+                DefaultRequest = new RenderNodeRenderRequest
+                {
+                    UseRenderCache = false,
+                },
                 TargetFactory = factory,
-                UseRenderCache = false,
             });
 
         Assert.That(() => renderer.Rasterize(), Throws.TypeOf<InvalidOperationException>());
@@ -690,8 +799,11 @@ public sealed class RenderNodeRendererContractTests
             root,
             new RenderNodeRendererOptions
             {
-                TargetDomain = new Rect(100, 200, 10, 20),
-                UseRenderCache = false,
+                DefaultRequest = new RenderNodeRenderRequest
+                {
+                    TargetDomain = new Rect(100, 200, 10, 20),
+                    UseRenderCache = false,
+                },
             });
         using var target = new TrackingRenderTarget(deviceSize);
         using var destination = new ImmediateCanvas(target, density, logicalSize: logicalSize);
@@ -735,8 +847,11 @@ public sealed class RenderNodeRendererContractTests
             node,
             new RenderNodeRendererOptions
             {
-                TargetDomain = targetDomain,
-                UseRenderCache = false,
+                DefaultRequest = new RenderNodeRenderRequest
+                {
+                    TargetDomain = targetDomain,
+                    UseRenderCache = false,
+                },
             });
         return renderer.Measure();
     }

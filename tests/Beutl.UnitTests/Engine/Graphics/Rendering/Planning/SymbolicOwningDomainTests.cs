@@ -78,9 +78,12 @@ public sealed class SymbolicOwningDomainTests
             root,
             new RenderNodeRendererOptions
             {
-                TargetDomain = s_rootDomain,
+                DefaultRequest = new RenderNodeRenderRequest
+                {
+                    TargetDomain = s_rootDomain,
+                    UseRenderCache = false,
+                },
                 TargetFactory = new CpuTargetFactory(),
-                UseRenderCache = false,
             });
         using var target = new CpuRenderTarget(100, 60);
         using var canvas = new ImmediateCanvas(target);
@@ -145,8 +148,11 @@ public sealed class SymbolicOwningDomainTests
             root,
             new RenderNodeRendererOptions
             {
+                DefaultRequest = new RenderNodeRenderRequest
+                {
+                    UseRenderCache = false,
+                },
                 TargetFactory = new CpuTargetFactory(),
-                UseRenderCache = false,
             });
         using var target = new CpuRenderTarget(64, 48);
         using var canvas = new ImmediateCanvas(target);
@@ -162,7 +168,12 @@ public sealed class SymbolicOwningDomainTests
         using FilterEffectRenderNode root = CreateFilter(effect, new Rect(5, 6, 20, 12));
         using var renderer = new RenderNodeRenderer(
             root,
-            new RenderNodeRendererOptions { UseRenderCache = false });
+            new RenderNodeRendererOptions {
+                DefaultRequest = new RenderNodeRenderRequest
+                {
+                    UseRenderCache = false,
+                },
+            });
 
         InvalidOperationException? error = Assert.Throws<RenderTargetDomainRequiredException>(() => renderer.Measure());
 
@@ -431,9 +442,12 @@ public sealed class SymbolicOwningDomainTests
             root,
             new RenderNodeRendererOptions
             {
-                TargetDomain = s_rootDomain,
+                DefaultRequest = new RenderNodeRenderRequest
+                {
+                    TargetDomain = s_rootDomain,
+                    UseRenderCache = false,
+                },
                 TargetFactory = new CpuTargetFactory(),
-                UseRenderCache = false,
             });
         using var target = new CpuRenderTarget(100, 60);
         using var canvas = new ImmediateCanvas(target);
@@ -460,9 +474,12 @@ public sealed class SymbolicOwningDomainTests
             root,
             new RenderNodeRendererOptions
             {
-                TargetDomain = s_rootDomain,
+                DefaultRequest = new RenderNodeRenderRequest
+                {
+                    TargetDomain = s_rootDomain,
+                    UseRenderCache = false,
+                },
                 TargetFactory = new CpuTargetFactory(),
-                UseRenderCache = false,
             });
         using var target = new CpuRenderTarget(100, 60);
         using var canvas = new ImmediateCanvas(target);
@@ -497,11 +514,14 @@ public sealed class SymbolicOwningDomainTests
             probe,
             new RenderNodeRendererOptions
             {
-                TargetDomain = domain,
-                OutputScale = density,
-                MaxWorkingScale = 4,
+                DefaultRequest = new RenderNodeRenderRequest
+                {
+                    TargetDomain = domain,
+                    OutputScale = density,
+                    MaxWorkingScale = 4,
+                    UseRenderCache = false,
+                },
                 TargetFactory = new CpuTargetFactory(),
-                UseRenderCache = false,
             });
         PixelSize deviceSize = PixelRect.FromRect(domain, density).Size;
         using var target = new CpuRenderTarget(deviceSize.Width, deviceSize.Height);
@@ -568,9 +588,12 @@ public sealed class SymbolicOwningDomainTests
             root,
             new RenderNodeRendererOptions
             {
-                TargetDomain = targetDomain,
+                DefaultRequest = new RenderNodeRenderRequest
+                {
+                    TargetDomain = targetDomain,
+                    UseRenderCache = false,
+                },
                 TargetFactory = new CpuTargetFactory(),
-                UseRenderCache = false,
             });
         using var target = new CpuRenderTarget(size.Width, size.Height);
         using var canvas = new ImmediateCanvas(target);

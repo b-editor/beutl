@@ -6,19 +6,18 @@ using SkiaSharp;
 
 namespace Beutl.Graphics.Rendering;
 
-/// <summary>Configures requests issued by a <see cref="RenderNodeRenderer"/>.</summary>
-public sealed class RenderNodeRendererOptions
+/// <summary>Describes one complete request issued through a <see cref="RenderNodeRenderer"/>.</summary>
+public sealed record RenderNodeRenderRequest
 {
     /// <summary>Gets the intent that selects allocation-failure behavior.</summary>
     public RenderIntent Intent { get; init; } = RenderIntent.Preview;
 
     /// <summary>Gets the optional finite logical domain for target-less root target accesses.</summary>
     /// <remarks>
-    /// A non-null value must be finite and non-empty. It is used by <see cref="RenderNodeRenderer.Rasterize"/>,
-    /// <see cref="RenderNodeRenderer.Measure"/>, and <see cref="RenderNodeRenderer.HitTest(Point)"/> when a
-    /// root fragment requires a target domain. <see cref="RenderNodeRenderer.Render(ImmediateCanvas)"/> uses
-    /// its destination viewport instead. <see langword="null"/> is valid for self-bounded graphs that do not
-    /// require a root <see cref="TargetRegion.Full"/> access.
+    /// A non-null value must be finite and non-empty. It is used by target-less renderer operations when a
+    /// root fragment requires a target domain. Rendering into a supplied canvas uses its destination viewport
+    /// instead. <see langword="null"/> is valid for self-bounded graphs that do not require a root
+    /// <see cref="TargetRegion.Full"/> access.
     /// </remarks>
     public Rect? TargetDomain { get; init; }
 
@@ -46,10 +45,6 @@ public sealed class RenderNodeRendererOptions
     /// <summary>Gets whether eligible persistent render-node cache entries may be read or published.</summary>
     public bool UseRenderCache { get; init; } = RenderCacheOptions.Default.IsEnabled;
 
-    /// <summary>Gets the optional caller-owned factory for renderer-owned intermediate targets.</summary>
-    /// <remarks><see langword="null"/> selects the engine's current-backend RGBA16F allocator.</remarks>
-    public IRenderTargetFactory? TargetFactory { get; init; }
-
     internal FusionMode FusionMode { get; init; } = FusionMode.Enabled;
 
     internal RenderRequestPurpose RenderPurpose { get; init; } = RenderRequestPurpose.Auxiliary;
@@ -57,6 +52,17 @@ public sealed class RenderNodeRendererOptions
     internal RenderCacheRules CacheRules { get; init; } = RenderCacheRules.Default;
 
     internal IRenderPipelineDiagnosticsState? Diagnostics { get; init; }
+}
+
+/// <summary>Configures renderer-lifetime ownership and the request used when an operation omits one.</summary>
+public sealed class RenderNodeRendererOptions
+{
+    /// <summary>Gets the complete default request copied and sanitized for the renderer lifetime.</summary>
+    public RenderNodeRenderRequest DefaultRequest { get; init; } = new();
+
+    /// <summary>Gets the optional caller-owned factory for renderer-owned intermediate targets.</summary>
+    /// <remarks><see langword="null"/> selects the engine's current-backend RGBA16F allocator.</remarks>
+    public IRenderTargetFactory? TargetFactory { get; init; }
 }
 
 /// <summary>Identifies the pixel format required for a renderer-owned target allocation.</summary>
@@ -137,7 +143,8 @@ public sealed class RenderNodeRenderer : IDisposable
     /// <summary>Creates a renderer for a caller-owned root node.</summary>
     /// <param name="root">The non-null caller-owned root recorded for every request.</param>
     /// <param name="options">
-    /// Options copied and sanitized for the renderer lifetime, or <see langword="null"/> to use defaults.
+    /// Renderer ownership options and a default request copied for the renderer lifetime, or
+    /// <see langword="null"/> to use defaults.
     /// </param>
     /// <exception cref="ArgumentNullException"><paramref name="root"/> is <see langword="null"/>.</exception>
     /// <exception cref="ArgumentOutOfRangeException">The configured render intent is not defined.</exception>
@@ -148,31 +155,13 @@ public sealed class RenderNodeRenderer : IDisposable
     {
         ArgumentNullException.ThrowIfNull(root);
         options ??= new RenderNodeRendererOptions();
-        if (!Enum.IsDefined(options.Intent))
-        {
-            throw new ArgumentOutOfRangeException(
-                nameof(options),
-                options.Intent,
-                "The render intent is not defined.");
-        }
-
-        ValidateTargetDomain(options.TargetDomain);
-        ValidateRequestedRegion(options.RequestedRegion);
+        ArgumentNullException.ThrowIfNull(options.DefaultRequest);
 
         Root = root;
         Options = new RenderNodeRendererOptions
         {
-            Intent = options.Intent,
-            TargetDomain = options.TargetDomain,
-            RequestedRegion = options.RequestedRegion,
-            OutputScale = SanitizeOutputScale(options.OutputScale),
-            MaxWorkingScale = RenderScaleUtilities.SanitizeMaxWorkingScale(options.MaxWorkingScale),
-            UseRenderCache = options.UseRenderCache,
+            DefaultRequest = CopyAndSanitizeRequest(options.DefaultRequest),
             TargetFactory = options.TargetFactory,
-            FusionMode = options.FusionMode,
-            RenderPurpose = options.RenderPurpose,
-            CacheRules = options.CacheRules,
-            Diagnostics = options.Diagnostics,
         };
         _targetRegistry = new RenderTargetLeaseRegistry(Options.TargetFactory);
         _structuralPlanCache = new StructuralPlanCache();
@@ -182,7 +171,7 @@ public sealed class RenderNodeRenderer : IDisposable
     /// <summary>Gets the caller-owned root node.</summary>
     public RenderNode Root { get; }
 
-    /// <summary>Gets the sanitized option snapshot owned by this renderer.</summary>
+    /// <summary>Gets the sanitized renderer option snapshot owned by this renderer.</summary>
     public RenderNodeRendererOptions Options { get; }
 
     /// <summary>Gets whether this renderer has released its owned state.</summary>
@@ -203,8 +192,12 @@ public sealed class RenderNodeRenderer : IDisposable
         return _targetRegistry.ReleaseRetainedTargets();
     }
 
-    /// <summary>Synchronously renders the complete root stream into a borrowed destination.</summary>
+    /// <summary>Synchronously renders the selected root stream into a borrowed destination.</summary>
     /// <param name="destination">The non-null caller-owned destination canvas.</param>
+    /// <param name="requestOptions">
+    /// A complete request, or <see langword="null"/> to use <see cref="RenderNodeRendererOptions.DefaultRequest"/>.
+    /// The destination supplies output scale and target domain; its maximum working scale clamps this request.
+    /// </param>
     /// <remarks>
     /// The call preserves the destination's active transform, clip, opacity, blend mode, density, and ownership.
     /// A singular active transform completes value-only self-bounded work as a successful no-op. Domain-independent
@@ -214,20 +207,23 @@ public sealed class RenderNodeRenderer : IDisposable
     /// </remarks>
     /// <exception cref="ArgumentNullException"><paramref name="destination"/> is <see langword="null"/>.</exception>
     /// <exception cref="ObjectDisposedException">This renderer or <paramref name="destination"/> is disposed.</exception>
-    public void Render(ImmediateCanvas destination)
+    public void Render(
+        ImmediateCanvas destination,
+        RenderNodeRenderRequest? requestOptions = null)
     {
         RenderExecutionCallbackGuard.ThrowIfRendererLaunchForbidden();
         ThrowIfDisposed();
         ArgumentNullException.ThrowIfNull(destination);
         ObjectDisposedException.ThrowIf(destination.IsDisposed, destination);
+        RenderNodeRenderRequest effectiveRequest = ResolveRequest(requestOptions);
 
-        bool hasExplicitEmptySelection = Options.RequestedRegion is { } requested
+        bool hasExplicitEmptySelection = effectiveRequest.RequestedRegion is { } requested
                                          && (requested.Width == 0 || requested.Height == 0);
-        float maxWorkingScale = MathF.Min(Options.MaxWorkingScale, destination.MaxWorkingScale);
+        float maxWorkingScale = MathF.Min(effectiveRequest.MaxWorkingScale, destination.MaxWorkingScale);
         bool hasInvertibleDestination = TryResolveDestinationTargetDomain(destination, out Rect resolvedTargetDomain);
         Rect? targetDomain = hasInvertibleDestination ? resolvedTargetDomain : null;
         RenderTargetLeaseSession targets = _targetRegistry.BeginSession(
-            Options.Intent,
+            effectiveRequest.Intent,
             destination._renderTarget);
         CompiledRenderRequest? request = null;
         RenderRequestOwner? owner = null;
@@ -237,11 +233,12 @@ public sealed class RenderNodeRenderer : IDisposable
         try
         {
             request = RecordAndCompile(
-                Options.RenderPurpose,
+                effectiveRequest.RenderPurpose,
                 destination.Density,
                 maxWorkingScale,
                 targetDomain,
                 targets,
+                effectiveRequest,
                 DeviceGridAlignment.ResolveLogicalOffset(destination));
             owner = request.Request.Options.Owner;
             var executor = new RenderRequestExecutor(targets, _programCache);
@@ -398,14 +395,18 @@ public sealed class RenderNodeRenderer : IDisposable
     /// <remarks>
     /// The result exclusively owns its bitmap; callers dispose the result rather than the bitmap. A non-empty
     /// result reports the device-pixel-aligned cover of the selected output, so its bounds scaled by
-    /// <see cref="RenderNodeRendererOptions.OutputScale"/> are exactly the returned bitmap's pixel extent and
+    /// <see cref="RenderNodeRenderRequest.OutputScale"/> are exactly the returned bitmap's pixel extent and
     /// origin.
     /// </remarks>
+    /// <param name="requestOptions">
+    /// A complete request, or <see langword="null"/> to use <see cref="RenderNodeRendererOptions.DefaultRequest"/>.
+    /// </param>
     /// <exception cref="ObjectDisposedException">This renderer is disposed.</exception>
-    public RenderNodeRasterization Rasterize()
+    public RenderNodeRasterization Rasterize(RenderNodeRenderRequest? requestOptions = null)
     {
         RenderExecutionCallbackGuard.ThrowIfRendererLaunchForbidden();
         ThrowIfDisposed();
+        RenderNodeRenderRequest effectiveRequest = ResolveRequest(requestOptions);
         CompiledRenderRequest? request = null;
         RenderRequestOwner? owner = null;
         RenderTargetLeaseSession? targets = null;
@@ -418,28 +419,29 @@ public sealed class RenderNodeRenderer : IDisposable
         RenderPipelineFailurePhase preExecutionFailurePhase = RenderPipelineFailurePhase.Allocation;
         try
         {
-            targets = _targetRegistry.BeginSession(Options.Intent);
+            targets = _targetRegistry.BeginSession(effectiveRequest.Intent);
             request = RecordAndCompile(
-                Options.RenderPurpose,
-                Options.OutputScale,
-                Options.MaxWorkingScale,
-                Options.TargetDomain,
-                targets);
+                effectiveRequest.RenderPurpose,
+                effectiveRequest.OutputScale,
+                effectiveRequest.MaxWorkingScale,
+                effectiveRequest.TargetDomain,
+                targets,
+                effectiveRequest);
             owner = request.Request.Options.Owner;
             selectedBounds = request.SelectedOutputBounds;
             if (selectedBounds.Width != 0 && selectedBounds.Height != 0)
             {
                 PixelRect deviceBounds = PixelRect.FromRect(
                     request.ExecutionTargetBounds,
-                    Options.OutputScale);
-                PixelRect selectedDeviceBounds = PixelRect.FromRect(selectedBounds, Options.OutputScale);
-                selectedBounds = selectedDeviceBounds.ToRect(Options.OutputScale);
-                Rect rasterBounds = deviceBounds.ToRect(Options.OutputScale);
+                    effectiveRequest.OutputScale);
+                PixelRect selectedDeviceBounds = PixelRect.FromRect(selectedBounds, effectiveRequest.OutputScale);
+                selectedBounds = selectedDeviceBounds.ToRect(effectiveRequest.OutputScale);
+                Rect rasterBounds = deviceBounds.ToRect(effectiveRequest.OutputScale);
                 rootLease = targets.Acquire(deviceBounds.Size);
                 canvas = ImmediateCanvas.CreateExecutorManaged(
                     rootLease.Target,
-                    Options.OutputScale,
-                    Options.MaxWorkingScale,
+                    effectiveRequest.OutputScale,
+                    effectiveRequest.MaxWorkingScale,
                     rasterBounds.Size,
                     deviceBounds.Position);
                 canvas.Clear();
@@ -552,7 +554,7 @@ public sealed class RenderNodeRenderer : IDisposable
             throw;
         }
 
-        return new RenderNodeRasterization(selectedBounds, Options.OutputScale, bitmap);
+        return new RenderNodeRasterization(selectedBounds, effectiveRequest.OutputScale, bitmap);
     }
 
     internal static Bitmap TakeRasterizationBitmap(Bitmap complete, PixelRect selectedSubset)
@@ -576,16 +578,21 @@ public sealed class RenderNodeRenderer : IDisposable
     /// <summary>Resolves request-wide output and query metadata without executing deferred work.</summary>
     /// <returns>The resolved measurement.</returns>
     /// <remarks>This call performs no pixel callback, target allocation, readback, or cache publication.</remarks>
+    /// <param name="requestOptions">
+    /// A complete request, or <see langword="null"/> to use <see cref="RenderNodeRendererOptions.DefaultRequest"/>.
+    /// </param>
     /// <exception cref="ObjectDisposedException">This renderer is disposed.</exception>
-    public RenderNodeMeasurement Measure()
+    public RenderNodeMeasurement Measure(RenderNodeRenderRequest? requestOptions = null)
     {
         RenderExecutionCallbackGuard.ThrowIfRendererLaunchForbidden();
         ThrowIfDisposed();
+        RenderNodeRenderRequest effectiveRequest = ResolveRequest(requestOptions);
         RenderRequest request = CreateRequest(
             RenderRequestPurpose.Bounds,
-            Options.OutputScale,
-            Options.MaxWorkingScale,
-            Options.TargetDomain);
+            effectiveRequest.OutputScale,
+            effectiveRequest.MaxWorkingScale,
+            effectiveRequest.TargetDomain,
+            effectiveRequest);
         RenderRequestOwner owner = request.Options.Owner;
         RenderNodeMeasurement measurement = default;
         ExceptionDispatchInfo? primary = null;
@@ -611,23 +618,28 @@ public sealed class RenderNodeRenderer : IDisposable
 
     /// <summary>Tests the root at a logical point using recorded CPU-only metadata.</summary>
     /// <param name="point">The point in root request coordinates.</param>
+    /// <param name="requestOptions">
+    /// A complete request, or <see langword="null"/> to use <see cref="RenderNodeRendererOptions.DefaultRequest"/>.
+    /// </param>
     /// <returns><see langword="true"/> when a published fragment is hit.</returns>
     /// <remarks>This call performs no pixel callback, target allocation, or readback.</remarks>
     /// <exception cref="ObjectDisposedException">This renderer is disposed.</exception>
-    public bool HitTest(Point point)
+    public bool HitTest(Point point, RenderNodeRenderRequest? requestOptions = null)
     {
         RenderExecutionCallbackGuard.ThrowIfRendererLaunchForbidden();
         ThrowIfDisposed();
-        bool pointInRequestedRegion = Options.RequestedRegion is not { } requested
+        RenderNodeRenderRequest effectiveRequest = ResolveRequest(requestOptions);
+        bool pointInRequestedRegion = effectiveRequest.RequestedRegion is not { } requested
                                       || (requested.Width > 0
                                           && requested.Height > 0
                                           && requested.Contains(point));
 
         RenderRequest request = CreateRequest(
             RenderRequestPurpose.HitTest,
-            Options.OutputScale,
-            Options.MaxWorkingScale,
-            Options.TargetDomain);
+            effectiveRequest.OutputScale,
+            effectiveRequest.MaxWorkingScale,
+            effectiveRequest.TargetDomain,
+            effectiveRequest);
         RenderRequestOwner owner = request.Options.Owner;
         bool result = false;
         ExceptionDispatchInfo? primary = null;
@@ -714,16 +726,22 @@ public sealed class RenderNodeRenderer : IDisposable
         float maxWorkingScale,
         Rect? targetDomain,
         RenderTargetLeaseSession targets,
+        RenderNodeRenderRequest renderRequest,
         Vector deviceGridOffset = default)
     {
         ArgumentNullException.ThrowIfNull(targets);
-        RenderRequest request = CreateRequest(purpose, outputScale, maxWorkingScale, targetDomain);
+        RenderRequest request = CreateRequest(
+            purpose,
+            outputScale,
+            maxWorkingScale,
+            targetDomain,
+            renderRequest);
         try
         {
             SynchronizeProgramCacheContext(targets);
             var recorder = new RenderRequestRecorder(request);
             RecordedRenderGraph graph = recorder.Record(Root);
-            bool allowPersistentLookup = Options.UseRenderCache
+            bool allowPersistentLookup = renderRequest.UseRenderCache
                                          && purpose is not (RenderRequestPurpose.Bounds or RenderRequestPurpose.HitTest);
             bool allowCapturePublication = allowPersistentLookup
                                            && purpose is RenderRequestPurpose.Frame or RenderRequestPurpose.CacheWarmup;
@@ -767,17 +785,43 @@ public sealed class RenderNodeRenderer : IDisposable
         RenderRequestPurpose purpose,
         float outputScale,
         float maxWorkingScale,
-        Rect? targetDomain)
+        Rect? targetDomain,
+        RenderNodeRenderRequest renderRequest)
         => new(new RenderRequestOptions(
-            Options.Intent,
+            renderRequest.Intent,
             purpose,
             targetDomain,
-            Options.RequestedRegion,
+            renderRequest.RequestedRegion,
             outputScale,
             maxWorkingScale,
-            new RenderCacheOptions(Options.UseRenderCache, Options.CacheRules),
-            Options.FusionMode,
-            diagnostics: Options.Diagnostics));
+            new RenderCacheOptions(renderRequest.UseRenderCache, renderRequest.CacheRules),
+            renderRequest.FusionMode,
+            diagnostics: renderRequest.Diagnostics));
+
+    private RenderNodeRenderRequest ResolveRequest(RenderNodeRenderRequest? request)
+        => request is null
+            ? Options.DefaultRequest
+            : CopyAndSanitizeRequest(request);
+
+    private static RenderNodeRenderRequest CopyAndSanitizeRequest(RenderNodeRenderRequest request)
+    {
+        ArgumentNullException.ThrowIfNull(request);
+        if (!Enum.IsDefined(request.Intent))
+        {
+            throw new ArgumentOutOfRangeException(
+                nameof(request),
+                request.Intent,
+                "The render intent is not defined.");
+        }
+
+        ValidateTargetDomain(request.TargetDomain);
+        ValidateRequestedRegion(request.RequestedRegion);
+        return request with
+        {
+            OutputScale = SanitizeOutputScale(request.OutputScale),
+            MaxWorkingScale = RenderScaleUtilities.SanitizeMaxWorkingScale(request.MaxWorkingScale),
+        };
+    }
 
     private static bool TryResolveDestinationTargetDomain(ImmediateCanvas destination, out Rect domain)
     {

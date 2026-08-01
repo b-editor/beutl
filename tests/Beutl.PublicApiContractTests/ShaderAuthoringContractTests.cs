@@ -273,10 +273,13 @@ public sealed class ShaderAuthoringContractTests
             node,
             new RenderNodeRendererOptions
             {
-                TargetDomain = targetDomain,
-                OutputScale = 1,
-                MaxWorkingScale = 4,
-                UseRenderCache = false,
+                DefaultRequest = new RenderNodeRenderRequest
+                {
+                    TargetDomain = targetDomain,
+                    OutputScale = 1,
+                    MaxWorkingScale = 4,
+                    UseRenderCache = false,
+                },
                 TargetFactory = new CpuTargetFactory(),
             });
 
@@ -286,9 +289,12 @@ public sealed class ShaderAuthoringContractTests
             node,
             new RenderNodeRendererOptions
             {
-                OutputScale = outputScale,
-                MaxWorkingScale = outputScale,
-                UseRenderCache = false,
+                DefaultRequest = new RenderNodeRenderRequest
+                {
+                    OutputScale = outputScale,
+                    MaxWorkingScale = outputScale,
+                    UseRenderCache = false,
+                },
                 TargetFactory = new CpuTargetFactory(),
             });
         return renderer.Rasterize();

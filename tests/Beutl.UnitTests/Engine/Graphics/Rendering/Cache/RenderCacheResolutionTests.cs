@@ -161,8 +161,11 @@ public sealed class RenderCacheResolutionTests
             node,
             new RenderNodeRendererOptions
             {
-                TargetDomain = s_bounds,
-                UseRenderCache = true,
+                DefaultRequest = new RenderNodeRenderRequest
+                {
+                    TargetDomain = s_bounds,
+                    UseRenderCache = true,
+                },
             });
 
         using (renderer.Rasterize())
@@ -1268,13 +1271,16 @@ public sealed class RenderCacheResolutionTests
             node,
             new RenderNodeRendererOptions
             {
-                TargetDomain = s_bounds,
-                OutputScale = 1,
-                MaxWorkingScale = 1,
-                UseRenderCache = true,
+                DefaultRequest = new RenderNodeRenderRequest
+                {
+                    TargetDomain = s_bounds,
+                    OutputScale = 1,
+                    MaxWorkingScale = 1,
+                    UseRenderCache = true,
+                    RenderPurpose = RenderRequestPurpose.Frame,
+                    Diagnostics = diagnostics,
+                },
                 TargetFactory = targetFactory,
-                RenderPurpose = RenderRequestPurpose.Frame,
-                Diagnostics = diagnostics,
             });
 
     private static Scenario SingleCandidate(

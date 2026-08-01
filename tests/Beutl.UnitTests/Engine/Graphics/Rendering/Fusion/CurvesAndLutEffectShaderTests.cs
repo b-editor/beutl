@@ -266,9 +266,12 @@ public sealed class CurvesAndLutEffectShaderTests
             root,
             new RenderNodeRendererOptions
             {
-                TargetDomain = s_bounds,
+                DefaultRequest = new RenderNodeRenderRequest
+                {
+                    TargetDomain = s_bounds,
+                    UseRenderCache = false,
+                },
                 TargetFactory = new CpuTargetFactory(),
-                UseRenderCache = false,
             });
         using RenderNodeRasterization rasterization = renderer.Rasterize();
         if (expectedShaderStages is int expected)

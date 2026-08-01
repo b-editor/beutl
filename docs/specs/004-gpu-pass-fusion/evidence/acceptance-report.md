@@ -97,7 +97,7 @@ intentionally not byte-identical across pipelines (FR-019), so cross-pipeline
 equivalence is proven by the paired visual evidence.
 Recorded run committed under
 [`paired-benchmark-run/`](paired-benchmark-run/) (manifest SHA-256
-`129725e6281c7bbda17a7e6f087c0d7632c24a3619412b02b59ed9ee94e92894`), feature code SHA `912ddda0484d0b8cde3c63b60deefa491a0c596c`.
+`839eaf34e4fa5824a03333fa50418259ea3fca302a044eb767110afb6b676b1e`), feature code SHA `912ddda0484d0b8cde3c63b60deefa491a0c596c`.
 
 ### Primary gate — passed
 
@@ -212,11 +212,11 @@ methodology are unchanged.
 | `paired-benchmark-run/feature/counters/StructuralToggle.json` | `4b8082353817d820a660dc8b42497f027a76aa6556f41258e04b7fd82b08f3d8` |
 | `paired-benchmark-run/feature/raw-benchmark-full.json` | `ba6f5c67bc63d6c12f540daf4a5fcd1d7331bd1f3c623a8e6ed6315399467a7b` |
 | `paired-benchmark-run/feature/raw-benchmark-stdout.txt` | `a174be2deafef47e6c0b355d292d34432a974c74cfa95c02e29616e786c2c283` |
-| `paired-benchmark-run/manifest.json` | `129725e6281c7bbda17a7e6f087c0d7632c24a3619412b02b59ed9ee94e92894` |
+| `paired-benchmark-run/manifest.json` | `839eaf34e4fa5824a03333fa50418259ea3fca302a044eb767110afb6b676b1e` |
 
 Visual evidence regenerated 2026-08-01T02:11:24Z on the fingerprinted machine
 (benchmark run recorded 2026-07-31T18:35:08Z on the same machine). The paired
-benchmark analyzer has since been tightened to require the configured 15 samples
-per case with matching counts across all three runs; the recorded run satisfies
-the tightened gate (11 cases × 15 samples in each of baseline-A, feature, and
-baseline-B).
+benchmark analyzer has since been tightened to require the exact frozen BenchmarkDotNet
+job (`Monitoring`, warmup 3, iterations 15, launch/invocation/unroll 1) and matching
+sample counts across all three runs; the recorded run satisfies the tightened gate
+(11 cases × 15 samples in each of baseline-A, feature, and baseline-B).

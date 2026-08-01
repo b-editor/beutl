@@ -96,11 +96,14 @@ public sealed class CrossNodeShaderFusionTests
             node,
             new RenderNodeRendererOptions
             {
-                Intent = RenderIntent.Preview,
-                UseRenderCache = false,
+                DefaultRequest = new RenderNodeRenderRequest
+                {
+                    Intent = RenderIntent.Preview,
+                    UseRenderCache = false,
+                    FusionMode = FusionMode.Enabled,
+                    RenderPurpose = RenderRequestPurpose.Frame,
+                },
                 TargetFactory = targetFactory,
-                FusionMode = FusionMode.Enabled,
-                RenderPurpose = RenderRequestPurpose.Frame,
             });
         using RenderTarget destination = targetFactory.CreateCpuTarget(new PixelSize(24, 16));
         using var canvas = new ImmediateCanvas(destination, logicalSize: new Size(24, 16));
@@ -130,10 +133,13 @@ public sealed class CrossNodeShaderFusionTests
                 node,
                 new RenderNodeRendererOptions
                 {
-                    Intent = RenderIntent.Preview,
-                    UseRenderCache = false,
-                    FusionMode = FusionMode.Enabled,
-                    RenderPurpose = RenderRequestPurpose.Frame,
+                    DefaultRequest = new RenderNodeRenderRequest
+                    {
+                        Intent = RenderIntent.Preview,
+                        UseRenderCache = false,
+                        FusionMode = FusionMode.Enabled,
+                        RenderPurpose = RenderRequestPurpose.Frame,
+                    },
                 });
             using RenderTarget cpuDestination = cpuFactory.CreateCpuTarget(new PixelSize(24, 16));
             using var cpuCanvas = new ImmediateCanvas(cpuDestination, logicalSize: new Size(24, 16));
@@ -328,8 +334,8 @@ public sealed class CrossNodeShaderFusionTests
                 Assert.That(enabled.TargetPoolStatistics.LeasedTargets, Is.Zero);
                 Assert.That(disabled.LastExecutionStatistics.ShaderRunExecutions, Is.EqualTo(3));
                 Assert.That(disabled.LastExecutionStatistics.FusedShaderRunExecutions, Is.Zero);
-                Assert.That(enabled.Options.FusionMode, Is.EqualTo(FusionMode.Enabled));
-                Assert.That(disabled.Options.FusionMode, Is.EqualTo(FusionMode.Disabled));
+                Assert.That(enabled.Options.DefaultRequest.FusionMode, Is.EqualTo(FusionMode.Enabled));
+                Assert.That(disabled.Options.DefaultRequest.FusionMode, Is.EqualTo(FusionMode.Disabled));
                 Assert.That(enabled.StructuralPlanCacheStatistics.Compilations, Is.EqualTo(1));
                 Assert.That(enabled.StructuralPlanCacheStatistics.Misses, Is.EqualTo(1));
                 Assert.That(enabled.StructuralPlanCacheStatistics.Hits, Is.EqualTo(1));
@@ -488,14 +494,17 @@ public sealed class CrossNodeShaderFusionTests
             node,
             new RenderNodeRendererOptions
             {
-                Intent = RenderIntent.Preview,
-                TargetDomain = s_bounds,
-                OutputScale = 1,
-                MaxWorkingScale = 1,
-                UseRenderCache = useRenderCache,
-                FusionMode = fusionMode,
-                RenderPurpose = RenderRequestPurpose.Frame,
-                Diagnostics = diagnostics,
+                DefaultRequest = new RenderNodeRenderRequest
+                {
+                    Intent = RenderIntent.Preview,
+                    TargetDomain = s_bounds,
+                    OutputScale = 1,
+                    MaxWorkingScale = 1,
+                    UseRenderCache = useRenderCache,
+                    FusionMode = fusionMode,
+                    RenderPurpose = RenderRequestPurpose.Frame,
+                    Diagnostics = diagnostics,
+                },
             });
 
     private static Bitmap RenderWithActiveDestinationState(RenderNodeRenderer renderer)

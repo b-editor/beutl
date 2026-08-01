@@ -25,10 +25,13 @@ public sealed class StructuralAndProgramCacheTests
             node,
             new RenderNodeRendererOptions
             {
-                TargetDomain = new Rect(0, 0, 8, 8),
-                OutputScale = 1,
-                MaxWorkingScale = 1,
-                UseRenderCache = false,
+                DefaultRequest = new RenderNodeRenderRequest
+                {
+                    TargetDomain = new Rect(0, 0, 8, 8),
+                    OutputScale = 1,
+                    MaxWorkingScale = 1,
+                    UseRenderCache = false,
+                },
                 TargetFactory = new CpuTargetFactory(),
             });
         ushort[]? firstPixels = null;
@@ -273,8 +276,11 @@ public sealed class StructuralAndProgramCacheTests
             node,
             new RenderNodeRendererOptions
             {
-                TargetDomain = new Rect(0, 0, 8, 8),
-                UseRenderCache = false,
+                DefaultRequest = new RenderNodeRenderRequest
+                {
+                    TargetDomain = new Rect(0, 0, 8, 8),
+                    UseRenderCache = false,
+                },
                 TargetFactory = new CpuTargetFactory(),
             });
 

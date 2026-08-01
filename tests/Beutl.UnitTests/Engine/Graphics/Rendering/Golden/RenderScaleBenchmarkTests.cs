@@ -129,10 +129,13 @@ public class RenderScaleBenchmarkTests
                 _node,
                 new RenderNodeRendererOptions
                 {
-                    Intent = RenderIntent.Delivery,
-                    TargetDomain = new Rect(default, _logicalSize),
-                    OutputScale = scale,
-                    UseRenderCache = false,
+                    DefaultRequest = new RenderNodeRenderRequest
+                    {
+                        Intent = RenderIntent.Delivery,
+                        TargetDomain = new Rect(default, _logicalSize),
+                        OutputScale = scale,
+                        UseRenderCache = false,
+                    },
                 });
         }
 

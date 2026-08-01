@@ -14,6 +14,10 @@ BREAKING CHANGE: `RenderNodeCacheHelper.MakeCache`, `CreateDefaultCache`, and `C
 BREAKING CHANGE: `SKSLShader.ApplyToNewTarget` is replaced by explicit legacy-custom allocation, input mapping, and rendering. Use `CustomFilterEffectContext.CreateTargetLike` for same-bounds output or `CreateTarget` for changed bounds, borrow a GPU-backed mapped input through `UseMappedInputShader`, and finish with `SKSLShader.RenderToTarget` inside that scope. Uniforms must use the allocated destination's actual `Scale` and backing dimensions.
 
 BREAKING CHANGE: `IRenderer.GetBoundaries`, `IRenderer.GetBoundary`, and `Renderer.RecalculateBoundaries` are render-thread-affine queries. Bounds are resolved lazily from the recorded render graph after `Render` or `UpdateFrame`, so callers must dispatch these queries through `RenderThread.Dispatcher` instead of reading them from arbitrary threads.
+
+BREAKING CHANGE: `RenderCacheOptions.Default` now denotes the same disabled policy as `RenderCacheOptions.Disabled`, so unchanged `Beutl.Engine` and plugin callers no longer opt into persistent render caching implicitly. Callers that require persistent caching must select `RenderCacheOptions.Enabled` explicitly or set `RenderNodeRenderRequest.UseRenderCache = true`.
+
+BREAKING CHANGE: `RenderNodeRenderer` operations now accept an optional complete `RenderNodeRenderRequest`. `RenderNodeRendererOptions` composes a sanitized `DefaultRequest` with the renderer-lifetime `TargetFactory`; request intent, target domain, requested region, output/working scales, and cache policy move under that descriptor. A null operation argument selects the default snapshot, while a supplied descriptor completely replaces it, allowing one persistent renderer to serve changing regions and scales without discarding its structural/program caches or target pool.
 ```
 
 No `[Obsolete]` shim, returning overload, `V2` type, or executable compatibility wrapper remains after the same change.
@@ -531,11 +535,14 @@ using var renderer = new RenderNodeRenderer(
     root,
     new RenderNodeRendererOptions
     {
-        Intent = RenderIntent.Preview,
-        TargetDomain = targetDomain,
-        OutputScale = outputScale,
-        MaxWorkingScale = maxWorkingScale,
-        UseRenderCache = true,
+        DefaultRequest = new RenderNodeRenderRequest
+        {
+            Intent = RenderIntent.Preview,
+            TargetDomain = targetDomain,
+            OutputScale = outputScale,
+            MaxWorkingScale = maxWorkingScale,
+            UseRenderCache = true,
+        },
         TargetFactory = targetFactory,
     });
 

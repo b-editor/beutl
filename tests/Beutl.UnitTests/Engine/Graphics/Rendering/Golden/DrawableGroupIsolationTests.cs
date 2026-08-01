@@ -592,11 +592,14 @@ public sealed class DrawableGroupIsolationTests
             root,
             new RenderNodeRendererOptions
             {
-                Intent = RenderIntent.Delivery,
-                TargetDomain = new Rect(default, s_frame.ToSize(1)),
-                OutputScale = outputScale,
-                UseRenderCache = false,
-                FusionMode = fusionMode,
+                DefaultRequest = new RenderNodeRenderRequest
+                {
+                    Intent = RenderIntent.Delivery,
+                    TargetDomain = new Rect(default, s_frame.ToSize(1)),
+                    OutputScale = outputScale,
+                    UseRenderCache = false,
+                    FusionMode = fusionMode,
+                },
             });
         renderer.Render(canvas);
         return target.Snapshot();

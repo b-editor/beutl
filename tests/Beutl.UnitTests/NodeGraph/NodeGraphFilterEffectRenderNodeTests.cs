@@ -128,7 +128,10 @@ public class NodeGraphFilterEffectRenderNodeTests
         using var pipeline = ScaleRecordingTestHelper.Pipeline(source, resource.CreateRenderNode());
         using var renderer = new RenderNodeRenderer(pipeline, new RenderNodeRendererOptions
         {
-            UseRenderCache = false,
+            DefaultRequest = new RenderNodeRenderRequest
+            {
+                UseRenderCache = false,
+            },
         });
 
         using RenderNodeRasterization rasterization = renderer.Rasterize();
@@ -160,7 +163,10 @@ public class NodeGraphFilterEffectRenderNodeTests
         using var pipeline = ScaleRecordingTestHelper.Pipeline(source, resource.CreateRenderNode());
         using var renderer = new RenderNodeRenderer(pipeline, new RenderNodeRendererOptions
         {
-            UseRenderCache = false,
+            DefaultRequest = new RenderNodeRenderRequest
+            {
+                UseRenderCache = false,
+            },
         });
 
         RenderNodeMeasurement measurement = renderer.Measure();
@@ -211,7 +217,10 @@ public class NodeGraphFilterEffectRenderNodeTests
         using var pipeline = ScaleRecordingTestHelper.Pipeline(source, resource.CreateRenderNode());
         using var renderer = new RenderNodeRenderer(pipeline, new RenderNodeRendererOptions
         {
-            UseRenderCache = false,
+            DefaultRequest = new RenderNodeRenderRequest
+            {
+                UseRenderCache = false,
+            },
         });
 
         renderer.Measure();
@@ -252,7 +261,10 @@ public class NodeGraphFilterEffectRenderNodeTests
         using var pipeline = ScaleRecordingTestHelper.Pipeline(source, resource.CreateRenderNode());
         using var renderer = new RenderNodeRenderer(pipeline, new RenderNodeRendererOptions
         {
-            UseRenderCache = false,
+            DefaultRequest = new RenderNodeRenderRequest
+            {
+                UseRenderCache = false,
+            },
         });
 
         using RenderNodeRasterization rasterization = renderer.Rasterize();
@@ -282,7 +294,10 @@ public class NodeGraphFilterEffectRenderNodeTests
         using var pipeline = ScaleRecordingTestHelper.Pipeline(source, resource.CreateRenderNode());
         using var renderer = new RenderNodeRenderer(pipeline, new RenderNodeRendererOptions
         {
-            UseRenderCache = false,
+            DefaultRequest = new RenderNodeRenderRequest
+            {
+                UseRenderCache = false,
+            },
         });
         using RenderNodeRasterization rasterization = renderer.Rasterize();
 
@@ -323,7 +338,10 @@ public class NodeGraphFilterEffectRenderNodeTests
         using var pipeline = ScaleRecordingTestHelper.Pipeline(source, resource.CreateRenderNode());
         using var renderer = new RenderNodeRenderer(pipeline, new RenderNodeRendererOptions
         {
-            UseRenderCache = false,
+            DefaultRequest = new RenderNodeRenderRequest
+            {
+                UseRenderCache = false,
+            },
         });
 
         InvalidOperationException? failure;
@@ -379,7 +397,10 @@ public class NodeGraphFilterEffectRenderNodeTests
         using var pipeline = ScaleRecordingTestHelper.Pipeline(source, resource.CreateRenderNode());
         using var renderer = new RenderNodeRenderer(pipeline, new RenderNodeRendererOptions
         {
-            UseRenderCache = false,
+            DefaultRequest = new RenderNodeRenderRequest
+            {
+                UseRenderCache = false,
+            },
         });
 
         using RenderNodeRasterization rasterization = renderer.Rasterize();
@@ -419,7 +440,10 @@ public class NodeGraphFilterEffectRenderNodeTests
         using var pipeline = ScaleRecordingTestHelper.Pipeline(source, resource.CreateRenderNode());
         using var renderer = new RenderNodeRenderer(pipeline, new RenderNodeRendererOptions
         {
-            UseRenderCache = false,
+            DefaultRequest = new RenderNodeRenderRequest
+            {
+                UseRenderCache = false,
+            },
         });
 
         using RenderNodeRasterization rasterization = renderer.Rasterize();
@@ -454,7 +478,10 @@ public class NodeGraphFilterEffectRenderNodeTests
             using var pipeline = ScaleRecordingTestHelper.Pipeline(source, resource.CreateRenderNode());
             using var renderer = new RenderNodeRenderer(pipeline, new RenderNodeRendererOptions
             {
-                UseRenderCache = false,
+                DefaultRequest = new RenderNodeRenderRequest
+                {
+                    UseRenderCache = false,
+                },
             });
 
             Assert.That(
@@ -521,7 +548,10 @@ public class NodeGraphFilterEffectRenderNodeTests
 
         using var renderer = new RenderNodeRenderer(pipeline, new RenderNodeRendererOptions
         {
-            UseRenderCache = false,
+            DefaultRequest = new RenderNodeRenderRequest
+            {
+                UseRenderCache = false,
+            },
         });
         using (RenderNodeRasterization first = renderer.Rasterize())
         {
@@ -668,7 +698,10 @@ public class NodeGraphFilterEffectRenderNodeTests
         using var pipeline = ScaleRecordingTestHelper.Pipeline(source, resource.CreateRenderNode());
         using var renderer = new RenderNodeRenderer(pipeline, new RenderNodeRendererOptions
         {
-            UseRenderCache = false,
+            DefaultRequest = new RenderNodeRenderRequest
+            {
+                UseRenderCache = false,
+            },
         });
 
         Assert.That(

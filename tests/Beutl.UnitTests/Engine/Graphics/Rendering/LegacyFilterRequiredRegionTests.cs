@@ -25,8 +25,11 @@ public sealed class LegacyFilterRequiredRegionTests
             filter,
             new RenderNodeRendererOptions
             {
-                RequestedRegion = requestedRegion,
-                UseRenderCache = false,
+                DefaultRequest = new RenderNodeRenderRequest
+                {
+                    RequestedRegion = requestedRegion,
+                    UseRenderCache = false,
+                },
                 TargetFactory = new BudgetedCpuTargetFactory(int.MaxValue),
             });
 
@@ -59,10 +62,13 @@ public sealed class LegacyFilterRequiredRegionTests
             filter,
             new RenderNodeRendererOptions
             {
-                Intent = RenderIntent.Preview,
-                TargetDomain = new Rect(default, frame.ToSize(1)),
-                OutputScale = scale,
-                UseRenderCache = false,
+                DefaultRequest = new RenderNodeRenderRequest
+                {
+                    Intent = RenderIntent.Preview,
+                    TargetDomain = new Rect(default, frame.ToSize(1)),
+                    OutputScale = scale,
+                    UseRenderCache = false,
+                },
                 TargetFactory = factory,
             });
 

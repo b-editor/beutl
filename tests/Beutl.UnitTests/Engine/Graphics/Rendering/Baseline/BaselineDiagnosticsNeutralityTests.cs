@@ -303,12 +303,15 @@ public sealed class BaselineDiagnosticsNeutralityTests
         RenderRequestPurpose purpose = RenderRequestPurpose.Auxiliary)
         => new(root, new RenderNodeRendererOptions
         {
-            OutputScale = 1,
-            MaxWorkingScale = float.PositiveInfinity,
-            UseRenderCache = useRenderCache,
+            DefaultRequest = new RenderNodeRenderRequest
+            {
+                OutputScale = 1,
+                MaxWorkingScale = float.PositiveInfinity,
+                UseRenderCache = useRenderCache,
+                RenderPurpose = purpose,
+                Diagnostics = diagnostics,
+            },
             TargetFactory = targetFactory,
-            RenderPurpose = purpose,
-            Diagnostics = diagnostics,
         });
 
     private sealed class TrackingTargetFactory(bool throwOnAllocation = false) : IRenderTargetFactory

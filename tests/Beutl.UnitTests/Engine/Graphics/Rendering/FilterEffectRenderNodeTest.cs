@@ -118,7 +118,12 @@ public class FilterEffectRenderNodeTest
     }
 
     private static RenderNodeRenderer CreateRenderer(RenderNode node)
-        => new(node, new RenderNodeRendererOptions { UseRenderCache = false });
+        => new(node, new RenderNodeRendererOptions {
+            DefaultRequest = new RenderNodeRenderRequest
+            {
+                UseRenderCache = false,
+            },
+        });
 
     private static Bitmap RenderCurrentPixelBuiltIns(
         FusionMode fusionMode,
@@ -138,11 +143,14 @@ public class FilterEffectRenderNodeTest
             node,
             new RenderNodeRendererOptions
             {
-                UseRenderCache = false,
+                DefaultRequest = new RenderNodeRenderRequest
+                {
+                    UseRenderCache = false,
+                    FusionMode = fusionMode,
+                    RenderPurpose = RenderRequestPurpose.Frame,
+                    Diagnostics = diagnostics,
+                },
                 TargetFactory = new CpuTargetFactory(),
-                FusionMode = fusionMode,
-                RenderPurpose = RenderRequestPurpose.Frame,
-                Diagnostics = diagnostics,
             });
         using RenderNodeRasterization rasterization = renderer.Rasterize();
         statistics = renderer.LastExecutionStatistics;

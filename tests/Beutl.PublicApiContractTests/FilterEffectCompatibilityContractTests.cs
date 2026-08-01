@@ -152,8 +152,11 @@ public sealed class FilterEffectCompatibilityContractTests
             root,
             new RenderNodeRendererOptions
             {
-                TargetDomain = targetDomain,
-                UseRenderCache = false,
+                DefaultRequest = new RenderNodeRenderRequest
+                {
+                    TargetDomain = targetDomain,
+                    UseRenderCache = false,
+                },
             });
 
         RenderNodeMeasurement measurement = renderer.Measure();
@@ -200,7 +203,12 @@ public sealed class FilterEffectCompatibilityContractTests
             new BranchSensitiveWorkingScaleFilterNode(resource));
         using var renderer = new RenderNodeRenderer(
             root,
-            new RenderNodeRendererOptions { UseRenderCache = false });
+            new RenderNodeRendererOptions {
+                DefaultRequest = new RenderNodeRenderRequest
+                {
+                    UseRenderCache = false,
+                },
+            });
 
         RenderNodeMeasurement measurement = renderer.Measure();
 
@@ -237,8 +245,11 @@ public sealed class FilterEffectCompatibilityContractTests
             root,
             new RenderNodeRendererOptions
             {
-                OutputScale = 2,
-                UseRenderCache = false,
+                DefaultRequest = new RenderNodeRenderRequest
+                {
+                    OutputScale = 2,
+                    UseRenderCache = false,
+                },
             });
 
         RenderNodeMeasurement measurement = renderer.Measure();
@@ -267,8 +278,11 @@ public sealed class FilterEffectCompatibilityContractTests
             node,
             new RenderNodeRendererOptions
             {
-                OutputScale = 2,
-                UseRenderCache = false,
+                DefaultRequest = new RenderNodeRenderRequest
+                {
+                    OutputScale = 2,
+                    UseRenderCache = false,
+                },
                 TargetFactory = new CpuTargetFactory(),
             });
         return renderer.Rasterize();

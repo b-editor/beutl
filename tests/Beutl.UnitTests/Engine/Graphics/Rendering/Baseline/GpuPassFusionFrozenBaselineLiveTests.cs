@@ -2,6 +2,7 @@
 using Beutl.Media;
 using Beutl.UnitTests.Engine.Graphics.Backend;
 
+using System.Buffers.Binary;
 using System.Text.Json;
 
 namespace Beutl.UnitTests.Engine.Graphics.Rendering.Baseline;
@@ -91,10 +92,16 @@ public sealed class GpuPassFusionFrozenBaselineLiveTests
             scene.BlobWidth,
             scene.BlobHeight,
             region: null);
+        double minimumWindowedSsim = CalculateMinimumWindowedSsim(
+            reference,
+            live.Bytes,
+            scene.BlobWidth,
+            scene.BlobHeight);
         TestContext.WriteLine(
             $"{scene.Id}: SSIM={full.LinearLightSsim:F9}, "
+            + $"minimumWindowedSsim={minimumWindowedSsim:F9}, "
             + $"linearRgbMae={full.LinearRgbMae:F9}, alphaMae={full.AlphaMae:F9}");
-        AssertParity(full, scene.Id, "full image");
+        AssertParity(full, minimumWindowedSsim, scene.Id, "full image");
 
         if (scene.EdgeCrop is not { } crop)
             return;
@@ -117,7 +124,7 @@ public sealed class GpuPassFusionFrozenBaselineLiveTests
             $"{scene.Id} edge: SSIM={cropped.LinearLightSsim:F9}, "
             + $"linearRgbMae={cropped.LinearRgbMae:F9}, alphaMae={cropped.AlphaMae:F9}, "
             + $"coverageRgbaMae={coverage.RgbaMae:F9}, coverageMax={coverage.MaximumError.Maximum:F9}");
-        AssertParity(cropped, scene.Id, "AA edge crop");
+        AssertParity(cropped, minimumWindowedSsim: null, scene.Id, "AA edge crop");
         using (Assert.EnterMultipleScope())
         {
             Assert.That(
@@ -129,6 +136,33 @@ public sealed class GpuPassFusionFrozenBaselineLiveTests
                 Is.LessThanOrEqualTo(GpuPassFusionBaselineEvidence.NonVacuityParityTolerance),
                 $"{scene.Id} AA coverage-band maximum exceeded the manifest tolerance");
         }
+    }
+
+    [Test]
+    public void LiveParityGate_RejectsLocalizedDefectThatPassesWholeFrameMetrics()
+    {
+        const int size = 128;
+        byte[] reference = CreateCheckerboardPayload(size, withLocalizedDefect: false);
+        byte[] actual = CreateCheckerboardPayload(size, withLocalizedDefect: true);
+        Rgba16fParityMetrics full = Rgba16fEvidenceWriter.CalculateParity(
+            reference,
+            actual,
+            size,
+            size,
+            region: null);
+        double windowed = CalculateMinimumWindowedSsim(reference, actual, size, size);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(full.LinearLightSsim, Is.GreaterThanOrEqualTo(0.99));
+            Assert.That(
+                full.LinearRgbMae,
+                Is.LessThanOrEqualTo(GpuPassFusionBaselineEvidence.NonVacuityParityTolerance));
+            Assert.That(
+                full.AlphaMae,
+                Is.LessThanOrEqualTo(GpuPassFusionBaselineEvidence.NonVacuityParityTolerance));
+            Assert.That(windowed, Is.LessThan(GpuPassFusionSameProcessParityHarness.MinimumWindowedSsim));
+        });
     }
 
     [Test]
@@ -165,7 +199,67 @@ public sealed class GpuPassFusionFrozenBaselineLiveTests
         return [element.GetString()!];
     }
 
-    private static void AssertParity(Rgba16fParityMetrics metrics, string sceneId, string region)
+    private static double CalculateMinimumWindowedSsim(
+        byte[] reference,
+        byte[] actual,
+        int width,
+        int height)
+    {
+        const int windowSize = 16;
+        double minimum = 1;
+        for (int top = 0; top < height; top += windowSize)
+        {
+            for (int left = 0; left < width; left += windowSize)
+            {
+                var window = new PixelRect(
+                    left,
+                    top,
+                    Math.Min(windowSize, width - left),
+                    Math.Min(windowSize, height - top));
+                Rgba16fParityMetrics metrics = Rgba16fEvidenceWriter.CalculateParity(
+                    reference,
+                    actual,
+                    width,
+                    height,
+                    window);
+                minimum = Math.Min(minimum, metrics.LinearLightSsim);
+            }
+        }
+
+        return minimum;
+    }
+
+    private static byte[] CreateCheckerboardPayload(int size, bool withLocalizedDefect)
+    {
+        var result = new byte[checked(size * size * 8)];
+        for (int y = 0; y < size; y++)
+        {
+            for (int x = 0; x < size; x++)
+            {
+                float value = withLocalizedDefect && x < 14 && y < 14
+                    ? 0.5f
+                    : (x + y) % 2;
+                int offset = ((y * size) + x) * 8;
+                WriteHalf(result, offset, value);
+                WriteHalf(result, offset + 2, value);
+                WriteHalf(result, offset + 4, value);
+                WriteHalf(result, offset + 6, 1);
+            }
+        }
+
+        return result;
+    }
+
+    private static void WriteHalf(byte[] destination, int offset, float value)
+        => BinaryPrimitives.WriteUInt16LittleEndian(
+            destination.AsSpan(offset, sizeof(ushort)),
+            BitConverter.HalfToUInt16Bits((Half)value));
+
+    private static void AssertParity(
+        Rgba16fParityMetrics metrics,
+        double? minimumWindowedSsim,
+        string sceneId,
+        string region)
     {
         using (Assert.EnterMultipleScope())
         {
@@ -173,6 +267,13 @@ public sealed class GpuPassFusionFrozenBaselineLiveTests
                 metrics.LinearLightSsim,
                 Is.GreaterThanOrEqualTo(0.99),
                 $"{sceneId} {region} SSIM is below the frozen-baseline contract");
+            if (minimumWindowedSsim is { } windowedSsim)
+            {
+                Assert.That(
+                    windowedSsim,
+                    Is.GreaterThanOrEqualTo(GpuPassFusionSameProcessParityHarness.MinimumWindowedSsim),
+                    $"{sceneId} {region} minimum-window SSIM is below the frozen-baseline contract");
+            }
             Assert.That(
                 metrics.LinearRgbMae,
                 Is.LessThanOrEqualTo(GpuPassFusionBaselineEvidence.NonVacuityParityTolerance),

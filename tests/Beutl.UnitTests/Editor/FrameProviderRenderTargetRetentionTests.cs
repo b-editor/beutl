@@ -19,31 +19,44 @@ public sealed class FrameProviderRenderTargetRetentionTests
     public async Task SequentialExportFrames_PeriodicallyReleaseRetainedIntermediateTargets()
     {
         const int frameRate = 30;
-        const int frameCount = 150;
-        Scene scene = CreateAnimatedBlurScene(frameRate, frameCount);
-        using var renderer = new SceneRenderer(scene);
-        renderer.CacheOptions = RenderCacheOptions.Disabled;
-        using var progress = new Subject<TimeSpan>();
-        using var provider = new FrameProviderImpl(scene, new Rational(frameRate, 1), renderer, progress);
+        const int checkpointFrameCount = 30;
+        const int checkpointCount = 5;
         long peakRetainedBytes = 0;
+        long renderedFrameCount = 0;
+        var retainedBytesAtCheckpoints = new List<long>();
 
-        for (long frame = 0; frame < provider.FrameCount; frame++)
+        for (int checkpoint = 0; checkpoint < checkpointCount; checkpoint++)
         {
-            using Bitmap bitmap = await provider.RenderFrame(frame);
-            Assert.That(bitmap.GetPixelSpan().ToArray(), Has.Some.Not.Zero);
-            peakRetainedBytes = Math.Max(
-                peakRetainedBytes,
+            Scene scene = CreateAnimatedBlurScene(frameRate, checkpointFrameCount);
+            using var renderer = new SceneRenderer(scene);
+            renderer.CacheOptions = RenderCacheOptions.Disabled;
+            using var progress = new Subject<TimeSpan>();
+            using var provider = new FrameProviderImpl(scene, new Rational(frameRate, 1), renderer, progress);
+
+            for (long frame = 0; frame < provider.FrameCount; frame++)
+            {
+                using Bitmap bitmap = await provider.RenderFrame(frame);
+                Assert.That(bitmap.GetPixelSpan().ToArray(), Has.Some.Not.Zero);
+                peakRetainedBytes = Math.Max(
+                    peakRetainedBytes,
+                    RenderThread.Dispatcher.Invoke(() => renderer.RetainedRenderTargetBytes));
+                renderedFrameCount++;
+            }
+
+            retainedBytesAtCheckpoints.Add(
                 RenderThread.Dispatcher.Invoke(() => renderer.RetainedRenderTargetBytes));
         }
 
-        long retainedBytes = RenderThread.Dispatcher.Invoke(() => renderer.RetainedRenderTargetBytes);
         Assert.Multiple(() =>
         {
-            Assert.That(provider.FrameCount, Is.EqualTo(frameCount));
+            Assert.That(renderedFrameCount, Is.EqualTo(checkpointFrameCount * checkpointCount));
             Assert.That(peakRetainedBytes, Is.LessThan(1_000_000),
                 "Periodic export checkpoints must bound growth instead of merely releasing at shutdown.");
-            Assert.That(retainedBytes, Is.Zero,
-                "The final periodic export checkpoint must release every idle intermediate target.");
+            Assert.That(retainedBytesAtCheckpoints, Has.Count.EqualTo(checkpointCount));
+            Assert.That(
+                retainedBytesAtCheckpoints,
+                Has.All.EqualTo(0),
+                "Every 30-frame export checkpoint must release every idle intermediate target.");
         });
     }
 
