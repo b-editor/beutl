@@ -1,7 +1,9 @@
-﻿using Avalonia.Headless.NUnit;
+﻿using System.Text.Json.Nodes;
+using Avalonia.Headless.NUnit;
 using Beutl.AgentHost;
 using Beutl.AgentToolkit.Common;
 using Beutl.AgentToolkit.Reconciliation;
+using Beutl.AgentToolkit.Rendering;
 using Beutl.AgentToolkit.Sessions;
 using Beutl.AgentToolkit.Workspace;
 using Beutl.Graphics.Rendering;
@@ -15,6 +17,18 @@ namespace Beutl.HeadlessUITests;
 [TestFixture]
 public class EditorProjectSessionGatewayTests
 {
+    private sealed class TrackingLease : IDisposable
+    {
+        private int _disposeCount;
+
+        public int DisposeCount => Volatile.Read(ref _disposeCount);
+
+        public void Dispose()
+        {
+            Interlocked.Increment(ref _disposeCount);
+        }
+    }
+
     private sealed class ShellTestScope : IAsyncDisposable
     {
         public static async Task<ShellTestScope> CreateAsync()
@@ -154,21 +168,27 @@ public class EditorProjectSessionGatewayTests
     }
 
     [AvaloniaTest]
-    public async Task Shutdown_drains_agent_host_before_closing_project_and_editor()
+    public async Task Shutdown_drains_background_render_before_closing_project_and_editor()
     {
         await TestReset.ResetShellAsync();
-        var stopEntered = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
-        var releaseStop = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var managerCreated = new TaskCompletionSource<RenderJobManager>(
+            TaskCreationOptions.RunContinuationsAsynchronously);
+        var jobStarted = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var cancellationObserved = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var releaseCancellation = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var lease = new TrackingLease();
         var mainViewModel = new MainViewModel((projectService, editorService) =>
             new AgentHostEndpoint(
                 projectService,
                 editorService,
                 GetAvailableLoopbackPort(),
                 "test-token",
-                async _ =>
+                static _ => Task.CompletedTask,
+                renderJobManagerFactory: () =>
                 {
-                    stopEntered.TrySetResult();
-                    await releaseStop.Task.ConfigureAwait(false);
+                    var manager = new RenderJobManager();
+                    managerCreated.TrySetResult(manager);
+                    return manager;
                 }));
         string projectFile = CreateProjectFilesOnDisk(
             "gateway-agent-drain-order",
@@ -187,33 +207,55 @@ public class EditorProjectSessionGatewayTests
             mainViewModel.ProjectService.Closing += closing;
             await mainViewModel.AgentHostEndpoint.StartAsync();
             Project project = mainViewModel.ProjectService.CurrentProject.Value!;
+            RenderJobManager manager = await managerCreated.Task.WaitAsync(TimeSpan.FromSeconds(5));
+            string jobId = manager.Enqueue("test", async token =>
+            {
+                jobStarted.TrySetResult();
+                try
+                {
+                    await Task.Delay(Timeout.InfiniteTimeSpan, token).ConfigureAwait(false);
+                }
+                catch (OperationCanceledException) when (token.IsCancellationRequested)
+                {
+                    cancellationObserved.TrySetResult();
+                    await releaseCancellation.Task.ConfigureAwait(false);
+                    throw;
+                }
+
+                return new JsonObject();
+            }, lease);
+            await jobStarted.Task.WaitAsync(TimeSpan.FromSeconds(5));
 
             shutdown = mainViewModel.ShutdownAsync();
-            await stopEntered.Task.WaitAsync(TimeSpan.FromSeconds(5));
+            await cancellationObserved.Task.WaitAsync(TimeSpan.FromSeconds(5));
 
             Assert.Multiple(() =>
             {
                 Assert.That(shutdown.IsCompleted, Is.False);
                 Assert.That(mainViewModel.ProjectService.CurrentProject.Value, Is.SameAs(project));
                 Assert.That(closingCalls, Is.Zero);
+                Assert.That(lease.DisposeCount, Is.Zero);
+                Assert.That(manager.Get(jobId)!.State, Is.EqualTo("running"));
                 Assert.That(
                     mainViewModel.EditorService.ProjectVersionControlCoordinator,
                     Is.SameAs(mainViewModel.VersionControlCoordinator));
             });
 
-            releaseStop.TrySetResult();
+            releaseCancellation.TrySetResult();
             await shutdown.WaitAsync(TimeSpan.FromSeconds(10));
 
             Assert.Multiple(() =>
             {
                 Assert.That(mainViewModel.ProjectService.CurrentProject.Value, Is.Null);
                 Assert.That(closingCalls, Is.EqualTo(1));
+                Assert.That(manager.Get(jobId)!.State, Is.EqualTo("cancelled"));
+                Assert.That(lease.DisposeCount, Is.EqualTo(1));
                 Assert.That(mainViewModel.EditorService.ProjectVersionControlCoordinator, Is.Null);
             });
         }
         finally
         {
-            releaseStop.TrySetResult();
+            releaseCancellation.TrySetResult();
             if (shutdown is not null && !shutdown.IsCompleted)
             {
                 try

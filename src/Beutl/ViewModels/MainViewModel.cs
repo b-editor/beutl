@@ -282,7 +282,8 @@ public sealed class MainViewModel : BasePageViewModel, IContextCommandHandler, I
             try
             {
                 // AgentHost owns the ingress to ProjectService and EditorService. Drain active MCP
-                // requests before closing the project or disposing either dependency.
+                // requests and detached render jobs before closing the project or disposing either
+                // dependency.
                 await _agentHostEndpoint.DisposeAsync();
             }
             catch (Exception ex)

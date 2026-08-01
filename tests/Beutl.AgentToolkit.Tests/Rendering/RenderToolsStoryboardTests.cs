@@ -1038,7 +1038,7 @@ public sealed class RenderToolsStoryboardTests
         using var session = new AgentToolkitTestSession(CreateStaticQualityScene(workspace));
         var outputOperations = new TrackingOutputOperationLeaseProvider();
         var renderJobs = new RenderJobManager();
-        renderJobs.Dispose();
+        await renderJobs.DisposeAsync();
         RenderTools tools = CreateTools(
             workspace,
             session,
@@ -1069,7 +1069,7 @@ public sealed class RenderToolsStoryboardTests
         string workspace = CreateWorkspace();
         using var session = new AgentToolkitTestSession(CreateStaticQualityScene(workspace));
         var outputOperations = new TrackingOutputOperationLeaseProvider();
-        using var renderJobs = new RenderJobManager();
+        await using var renderJobs = new RenderJobManager();
         var blockerStarted = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         var releaseBlocker = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         string blockerJob = renderJobs.Enqueue("blocker", async _ =>

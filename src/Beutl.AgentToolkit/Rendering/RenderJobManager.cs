@@ -25,7 +25,7 @@ public sealed record RenderJobSnapshot(
 // Background render/export jobs so a long render is not killed by the MCP client request timeout.
 // Jobs are serialized (single-flight) because all stills share the one RenderThread and each export
 // builds its own graphics context; concurrent background renders would race those resources.
-public sealed class RenderJobManager : IDisposable
+public sealed class RenderJobManager : IAsyncDisposable
 {
     private sealed class JobRecord
     {
@@ -35,6 +35,8 @@ public sealed class RenderJobManager : IDisposable
         public required CancellationTokenSource Cts { get; init; }
         public required IDisposable OutputOperationLease { get; init; }
         public object Sync { get; } = new();
+        public TaskCompletionSource Completion { get; } = new(
+            TaskCreationOptions.RunContinuationsAsynchronously);
         public RenderJobState State { get; set; } = RenderJobState.Running;
         public JsonNode? Result { get; set; }
         public Exception? Failure { get; set; }
@@ -43,7 +45,8 @@ public sealed class RenderJobManager : IDisposable
 
     private readonly ConcurrentDictionary<string, JobRecord> _jobs = new();
     private readonly SemaphoreSlim _gate = new(1, 1);
-    private bool _disposed;
+    private readonly object _lifecycleLock = new();
+    private Task? _disposalTask;
 
     /// <summary>
     /// Queues a background render or export and transfers the output-operation lease to the job.
@@ -63,20 +66,26 @@ public sealed class RenderJobManager : IDisposable
         ArgumentException.ThrowIfNullOrWhiteSpace(kind);
         ArgumentNullException.ThrowIfNull(work);
         ArgumentNullException.ThrowIfNull(outputOperationLease);
-        ObjectDisposedException.ThrowIf(_disposed, this);
 
-        string jobId = Convert.ToHexString(RandomNumberGenerator.GetBytes(8)).ToLowerInvariant();
-        var record = new JobRecord
+        JobRecord record;
+        lock (_lifecycleLock)
         {
-            JobId = jobId,
-            Kind = kind,
-            StartedAt = DateTimeOffset.UtcNow,
-            Cts = new CancellationTokenSource(),
-            OutputOperationLease = outputOperationLease
-        };
-        _jobs[jobId] = record;
+            ObjectDisposedException.ThrowIf(_disposalTask is not null, this);
+
+            string jobId = Convert.ToHexString(RandomNumberGenerator.GetBytes(8)).ToLowerInvariant();
+            record = new JobRecord
+            {
+                JobId = jobId,
+                Kind = kind,
+                StartedAt = DateTimeOffset.UtcNow,
+                Cts = new CancellationTokenSource(),
+                OutputOperationLease = outputOperationLease
+            };
+            _jobs[jobId] = record;
+        }
+
         _ = RunAsync(record, work);
-        return jobId;
+        return record.JobId;
     }
 
     public RenderJobSnapshot? Get(string jobId)
@@ -185,15 +194,7 @@ public sealed class RenderJobManager : IDisposable
             {
                 if (acquired)
                 {
-                    try
-                    {
-                        _gate.Release();
-                    }
-                    catch (ObjectDisposedException)
-                    {
-                        // Dispose may race a job observing cancellation. The output lease is already
-                        // released, and a disposed manager no longer needs the single-flight permit.
-                    }
+                    _gate.Release();
                 }
 
                 record.Cts.Dispose();
@@ -206,6 +207,8 @@ public sealed class RenderJobManager : IDisposable
                 record.State = terminalState;
                 record.CompletedAt = DateTimeOffset.UtcNow;
             }
+
+            record.Completion.TrySetResult();
         }
     }
 
@@ -221,15 +224,33 @@ public sealed class RenderJobManager : IDisposable
         };
     }
 
-    public void Dispose()
+    public ValueTask DisposeAsync()
     {
-        if (_disposed)
+        TaskCompletionSource completion;
+        JobRecord[] jobs;
+        Task disposalTask;
+
+        lock (_lifecycleLock)
         {
-            return;
+            if (_disposalTask is not null)
+            {
+                return new ValueTask(_disposalTask);
+            }
+
+            completion = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+            disposalTask = completion.Task;
+            _disposalTask = disposalTask;
+            jobs = [.. _jobs.Values];
         }
 
-        _disposed = true;
-        foreach (JobRecord record in _jobs.Values)
+        _ = CompleteDisposalAsync(jobs, completion);
+        return new ValueTask(disposalTask);
+    }
+
+    private async Task CompleteDisposalAsync(JobRecord[] jobs, TaskCompletionSource completion)
+    {
+        List<Exception> failures = [];
+        foreach (JobRecord record in jobs)
         {
             try
             {
@@ -238,8 +259,47 @@ public sealed class RenderJobManager : IDisposable
             catch (ObjectDisposedException)
             {
             }
+            catch (AggregateException ex)
+            {
+                failures.AddRange(ex.Flatten().InnerExceptions);
+            }
+            catch (Exception ex)
+            {
+                failures.Add(ex);
+            }
         }
 
-        _gate.Dispose();
+        try
+        {
+            await Task.WhenAll(jobs.Select(static record => record.Completion.Task)).ConfigureAwait(false);
+        }
+        catch (AggregateException ex)
+        {
+            failures.AddRange(ex.Flatten().InnerExceptions);
+        }
+        catch (Exception ex)
+        {
+            failures.Add(ex);
+        }
+
+        try
+        {
+            _gate.Dispose();
+        }
+        catch (Exception ex)
+        {
+            failures.Add(ex);
+        }
+
+        if (failures.Count == 0)
+        {
+            completion.TrySetResult();
+        }
+        else
+        {
+            completion.TrySetException(new AggregateException(
+                "One or more render jobs failed while the manager was draining.",
+                failures));
+        }
     }
 }

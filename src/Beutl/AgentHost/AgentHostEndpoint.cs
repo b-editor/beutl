@@ -32,6 +32,7 @@ public sealed class AgentHostEndpoint : IAsyncDisposable
     private readonly int _preferredPort;
     private readonly Func<CancellationToken, Task> _beforeStopAsync;
     private readonly Func<CancellationToken, Task> _afterStartAsync;
+    private readonly Func<RenderJobManager> _renderJobManagerFactory;
     private readonly object _lifecycleLock = new();
     private bool _stopRequested;
     private WebApplication? _application;
@@ -110,7 +111,8 @@ public sealed class AgentHostEndpoint : IAsyncDisposable
         int preferredPort,
         string token,
         Func<CancellationToken, Task> beforeStopAsync,
-        Func<CancellationToken, Task>? afterStartAsync = null)
+        Func<CancellationToken, Task>? afterStartAsync = null,
+        Func<RenderJobManager>? renderJobManagerFactory = null)
         : this(
             projectService,
             editorService,
@@ -118,7 +120,8 @@ public sealed class AgentHostEndpoint : IAsyncDisposable
             token,
             GlobalConfiguration.Instance.AiAgentConfig,
             beforeStopAsync,
-            afterStartAsync)
+            afterStartAsync,
+            renderJobManagerFactory)
     {
     }
 
@@ -129,7 +132,8 @@ public sealed class AgentHostEndpoint : IAsyncDisposable
         string token,
         AiAgentConfig config,
         Func<CancellationToken, Task>? beforeStopAsync = null,
-        Func<CancellationToken, Task>? afterStartAsync = null)
+        Func<CancellationToken, Task>? afterStartAsync = null,
+        Func<RenderJobManager>? renderJobManagerFactory = null)
     {
         ArgumentNullException.ThrowIfNull(config);
 
@@ -149,6 +153,7 @@ public sealed class AgentHostEndpoint : IAsyncDisposable
         _preferredPort = preferredPort;
         _beforeStopAsync = beforeStopAsync ?? (static _ => Task.CompletedTask);
         _afterStartAsync = afterStartAsync ?? (static _ => Task.CompletedTask);
+        _renderJobManagerFactory = renderJobManagerFactory ?? (static () => new RenderJobManager());
         Token = token;
     }
 
@@ -369,7 +374,7 @@ public sealed class AgentHostEndpoint : IAsyncDisposable
             .AddSingleton<QualityAnalyzer>()
             .AddSingleton<EncoderRegistration>()
             .AddSingleton<VideoExporter>()
-            .AddSingleton<RenderJobManager>();
+            .AddSingleton(_ => _renderJobManagerFactory());
 
         builder.Services
             .AddMcpServer()
@@ -383,6 +388,9 @@ public sealed class AgentHostEndpoint : IAsyncDisposable
             .WithTools<RenderTools>();
 
         WebApplication app = builder.Build();
+        // Give the background-job manager the same explicit lifetime as this host. Resolving it
+        // here also prevents shutdown from constructing a never-used manager only to dispose it.
+        _ = app.Services.GetRequiredService<RenderJobManager>();
         app.Use(RequireToken);
         app.MapMcp("/mcp");
         return app;
@@ -485,7 +493,19 @@ public sealed class AgentHostEndpoint : IAsyncDisposable
         }
         finally
         {
-            await app.DisposeAsync().ConfigureAwait(false);
+            try
+            {
+                // Background jobs outlive their initiating MCP request. Cancel and await every
+                // terminal path before the host releases the project/editor services they lease.
+                await app.Services
+                    .GetRequiredService<RenderJobManager>()
+                    .DisposeAsync()
+                    .ConfigureAwait(false);
+            }
+            finally
+            {
+                await app.DisposeAsync().ConfigureAwait(false);
+            }
         }
     }
 
