@@ -2018,7 +2018,7 @@ public class GitCliVersionControlServiceTests : RealGitTestRepository
     public async Task Watcher_refresh_raises_StatusChanged_on_background_thread()
     {
         var timeProvider = new FakeTimeProvider();
-        var watcher = new RepositoryWatcher(Root, timeProvider, startWatching: false);
+        var watcher = new RepositoryWatcher(Repository, timeProvider, startWatching: false);
         using var service = CreateService(watcher);
         int callerThread = Environment.CurrentManagedThreadId;
         var completion = new TaskCompletionSource<(WorkspaceStatus Status, int ThreadId)>(
@@ -2043,7 +2043,7 @@ public class GitCliVersionControlServiceTests : RealGitTestRepository
     public async Task Watcher_refresh_logs_unexpected_failures()
     {
         var timeProvider = new FakeTimeProvider();
-        var watcher = new RepositoryWatcher(Root, timeProvider, startWatching: false);
+        var watcher = new RepositoryWatcher(Repository, timeProvider, startWatching: false);
         var logger = new RecordingLogger();
         var expected = new IOException("status failed");
         using var service = new GitCliVersionControlService(

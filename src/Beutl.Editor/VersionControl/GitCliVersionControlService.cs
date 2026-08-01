@@ -8,6 +8,10 @@ namespace Beutl.Editor.VersionControl;
 internal sealed class GitCliVersionControlService :
     IProjectVersionControlBackend
 {
+    private sealed record LfsAttributeQueryResult(
+        HashSet<string> CoveredPaths,
+        bool IsComplete);
+
     private sealed record WorktreeStateFingerprint(string Tree, string IndexEntries);
 
     private enum TreeTransitionOutcome
@@ -127,6 +131,7 @@ internal sealed class GitCliVersionControlService :
     private const string ManagedLfsEndMarker = "# END BEUTL MANAGED LFS";
     private const int MaxHygieneWriteAttempts = 3;
     private const int MaxIgnoredRequiredPathOutputBytes = 256 * 1024;
+    private const int MaxLfsAttributeOutputBytes = 256 * 1024;
 
     private static readonly string[] s_gitIgnoreLines =
     [
@@ -220,7 +225,7 @@ internal sealed class GitCliVersionControlService :
         : this(
             installationLocator,
             repository,
-            repository is null ? null : new RepositoryWatcher(repository.RepoRoot),
+            repository is null ? null : new RepositoryWatcher(repository),
             static gitPath => new GitCliRunner(gitPath),
             createWatcherWhenRepositoryAvailable: true,
             isWorktreeMutationAllowed: static () => true,
@@ -239,7 +244,7 @@ internal sealed class GitCliVersionControlService :
         : this(
             installationLocator,
             repository,
-            repository is null ? null : new RepositoryWatcher(repository.RepoRoot),
+            repository is null ? null : new RepositoryWatcher(repository),
             static gitPath => new GitCliRunner(gitPath),
             createWatcherWhenRepositoryAvailable: true,
             isWorktreeMutationAllowed: isWorktreeMutationAllowed,
@@ -257,7 +262,8 @@ internal sealed class GitCliVersionControlService :
         Func<string, IGitCliRunner> runnerFactory,
         ILogger? logger = null,
         Func<string, CancellationToken, Task>? beforeHygieneFileReplace = null,
-        Func<string, CancellationToken, Task>? beforeHygieneFileCommit = null)
+        Func<string, CancellationToken, Task>? beforeHygieneFileCommit = null,
+        Func<VersionControlPolicyNotice, CancellationToken, Task>? policyNoticeSink = null)
         : this(
             installationLocator,
             repository,
@@ -265,7 +271,7 @@ internal sealed class GitCliVersionControlService :
             runnerFactory,
             createWatcherWhenRepositoryAvailable: false,
             isWorktreeMutationAllowed: static () => true,
-            policyNoticeSink: null,
+            policyNoticeSink,
             beforeHygieneFileReplace: beforeHygieneFileReplace,
             beforeHygieneFileCommit: beforeHygieneFileCommit,
             logger: logger)
@@ -3960,8 +3966,9 @@ internal sealed class GitCliVersionControlService :
     {
         string acknowledgementKey = LargeMediaNoticeConfigKeyPrefix
                                     + GetConfigKeyHash(repository.Pathspec);
-        if (await IsLfsActiveAsync(repository, cancellationToken).ConfigureAwait(false)
-            || await GetLocalBooleanConfigAsync(
+        (GitAvailability availability, _) = await GetGitRuntimeCoreAsync(cancellationToken)
+            .ConfigureAwait(false);
+        if (await GetLocalBooleanConfigAsync(
                 repository,
                 runner,
                 acknowledgementKey,
@@ -3973,16 +3980,37 @@ internal sealed class GitCliVersionControlService :
         long thresholdBytes = Math.Max(
             0L,
             (long)_installationLocator.Config.LargeMediaWarningThresholdMb * 1024 * 1024);
+        var candidates = new List<(FileChange Change, string Path)>();
         foreach (FileChange change in status.Changes)
         {
             cancellationToken.ThrowIfCancellationRequested();
             string? path = GetLargeMediaPath(repository, change.Path, thresholdBytes);
-            if (path is null)
+            if (path is not null)
+            {
+                candidates.Add((change, path));
+            }
+        }
+
+        HashSet<string> lfsCoveredPaths = availability.LfsInstalled
+            ? await GetEffectiveLfsPathsAsync(
+                    repository,
+                    runner,
+                    candidates.Select(static candidate => candidate.Change.Path).ToArray(),
+                    cancellationToken)
+                .ConfigureAwait(false)
+            : [];
+        foreach ((FileChange change, string path) in candidates)
+        {
+            if (lfsCoveredPaths.Contains(change.Path))
             {
                 continue;
             }
 
-            long sizeBytes = new FileInfo(path).Length;
+            if (!TryGetFileLength(path, out long sizeBytes) || sizeBytes <= thresholdBytes)
+            {
+                continue;
+            }
+
             if (!await PresentPolicyNoticeAsync(
                     new VersionControlPolicyNotice.LargeMediaWithoutLfs(
                         Path.GetRelativePath(repository.ProjectRoot, path).Replace('\\', '/'),
@@ -4000,6 +4028,145 @@ internal sealed class GitCliVersionControlService :
                 cancellationToken).ConfigureAwait(false);
             return;
         }
+    }
+
+    internal static async Task<HashSet<string>> GetEffectiveLfsPathsAsync(
+        RepositoryInfo repository,
+        IGitCliRunner runner,
+        IReadOnlyList<string> repoRelativePaths,
+        CancellationToken cancellationToken)
+    {
+        var coveredPaths = new HashSet<string>(StringComparer.Ordinal);
+        var chunk = new List<string>();
+        int expectedOutputBytes = 0;
+        foreach (string path in repoRelativePaths)
+        {
+            int pathOutputBytes = Encoding.UTF8.GetByteCount(path) + 20;
+            if (chunk.Count > 0
+                && pathOutputBytes > MaxLfsAttributeOutputBytes - expectedOutputBytes)
+            {
+                LfsAttributeQueryResult result = await QueryEffectiveLfsPathsAsync(
+                        repository,
+                        runner,
+                        chunk,
+                        cancellationToken)
+                    .ConfigureAwait(false);
+                coveredPaths.UnionWith(result.CoveredPaths);
+                if (!result.IsComplete)
+                {
+                    return coveredPaths;
+                }
+
+                chunk.Clear();
+                expectedOutputBytes = 0;
+            }
+
+            chunk.Add(path);
+            expectedOutputBytes = pathOutputBytes > MaxLfsAttributeOutputBytes - expectedOutputBytes
+                ? MaxLfsAttributeOutputBytes
+                : expectedOutputBytes + pathOutputBytes;
+        }
+
+        if (chunk.Count > 0)
+        {
+            LfsAttributeQueryResult result = await QueryEffectiveLfsPathsAsync(
+                    repository,
+                    runner,
+                    chunk,
+                    cancellationToken)
+                .ConfigureAwait(false);
+            coveredPaths.UnionWith(result.CoveredPaths);
+        }
+
+        return coveredPaths;
+    }
+
+    private static async Task<LfsAttributeQueryResult> QueryEffectiveLfsPathsAsync(
+        RepositoryInfo repository,
+        IGitCliRunner runner,
+        IReadOnlyList<string> repoRelativePaths,
+        CancellationToken cancellationToken)
+    {
+        var standardInput = new StringBuilder();
+        foreach (string path in repoRelativePaths)
+        {
+            standardInput.Append(path).Append('\0');
+        }
+
+        GitCommandResult result;
+        try
+        {
+            result = await runner.RunAsync(
+                repository,
+                ["check-attr", "--stdin", "-z", "filter"],
+                new GitCommandOptions(
+                    GitCommandExecutionKind.Local,
+                    MaxStdoutBytes: MaxLfsAttributeOutputBytes,
+                    StandardInput: standardInput.ToString()),
+                cancellationToken).ConfigureAwait(false);
+        }
+        catch (GitOperationException)
+        {
+            return new([], false);
+        }
+        catch (TimeoutException)
+        {
+            return new([], false);
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            return new([], false);
+        }
+
+        if (result.ExitCode != 0 || result.Stderr.Length != 0)
+        {
+            return new([], false);
+        }
+
+        var coveredPaths = new HashSet<string>(StringComparer.Ordinal);
+        int position = 0;
+        for (int i = 0; i < repoRelativePaths.Count; i++)
+        {
+            if (!TryReadNullTerminatedField(result.Stdout, ref position, out string path)
+                || !TryReadNullTerminatedField(result.Stdout, ref position, out string attribute)
+                || !TryReadNullTerminatedField(result.Stdout, ref position, out string value))
+            {
+                return new(coveredPaths, false);
+            }
+
+            if (!string.Equals(path, repoRelativePaths[i], StringComparison.Ordinal)
+                || !string.Equals(attribute, "filter", StringComparison.Ordinal))
+            {
+                return new(coveredPaths, false);
+            }
+
+            if (string.Equals(value, "lfs", StringComparison.Ordinal))
+            {
+                coveredPaths.Add(repoRelativePaths[i]);
+            }
+        }
+
+        bool isComplete = !result.StdoutTruncated && position == result.Stdout.Length;
+        return isComplete
+            ? new(coveredPaths, true)
+            : new([], false);
+    }
+
+    private static bool TryReadNullTerminatedField(
+        string value,
+        ref int position,
+        out string field)
+    {
+        int end = value.IndexOf('\0', position);
+        if (end < 0)
+        {
+            field = string.Empty;
+            return false;
+        }
+
+        field = value[position..end];
+        position = end + 1;
+        return true;
     }
 
     private async Task RaiseMissingIdentityNoticeIfNeededAsync(
@@ -4115,12 +4282,35 @@ internal sealed class GitCliVersionControlService :
         string path = Path.GetFullPath(Path.Combine(
             repository.ProjectRoot,
             projectRelativePath.Replace('/', Path.DirectorySeparatorChar)));
-        if (!File.Exists(path) || new FileInfo(path).Length <= thresholdBytes)
+        if (!TryGetFileLength(path, out long length) || length <= thresholdBytes)
         {
             return null;
         }
 
         return path;
+    }
+
+    private static bool TryGetFileLength(string path, out long length)
+    {
+        try
+        {
+            var file = new FileInfo(path);
+            if (!file.Exists)
+            {
+                length = 0;
+                return false;
+            }
+
+            length = file.Length;
+            return true;
+        }
+        catch (Exception ex) when (ex is IOException
+                                   or UnauthorizedAccessException
+                                   or System.Security.SecurityException)
+        {
+            length = 0;
+            return false;
+        }
     }
 
     private static async Task<bool> GetLocalBooleanConfigAsync(
@@ -5008,7 +5198,7 @@ internal sealed class GitCliVersionControlService :
                 return;
             }
 
-            _watcher = new RepositoryWatcher(Repository.RepoRoot);
+            _watcher = new RepositoryWatcher(Repository);
             _watcher.Changed += OnRepositoryChanged;
         }
     }

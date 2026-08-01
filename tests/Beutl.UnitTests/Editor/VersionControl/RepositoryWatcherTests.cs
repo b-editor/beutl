@@ -84,11 +84,113 @@ public class RepositoryWatcherTests
         });
     }
 
+    [TestCase("", ".gitignore", true)]
+    [TestCase("nested", ".gitattributes", false)]
+    public async Task Ancestor_rule_file_changes_schedule_a_change(
+        string ancestorRelativePath,
+        string ruleFileName,
+        bool createBeforeWatching)
+    {
+        string projectRoot = Path.Combine(_tempDirectory, "nested", "project");
+        Directory.CreateDirectory(projectRoot);
+        string ancestorDirectory = Path.Combine(_tempDirectory, ancestorRelativePath);
+        string rulePath = Path.Combine(ancestorDirectory, ruleFileName);
+        if (createBeforeWatching)
+        {
+            await File.WriteAllTextAsync(rulePath, "baseline\n");
+        }
+
+        using var watcher = new RepositoryWatcher(
+            new RepositoryInfo(_tempDirectory, projectRoot));
+        var completion = new TaskCompletionSource(
+            TaskCreationOptions.RunContinuationsAsynchronously);
+        watcher.Changed += (_, _) => completion.TrySetResult();
+
+        await File.WriteAllTextAsync(rulePath, "updated\n");
+
+        await completion.Task.WaitAsync(TimeSpan.FromSeconds(3));
+        Assert.That(completion.Task.IsCompletedSuccessfully, Is.True);
+    }
+
+    [TestCase(".gitignore", ".gitignore.backup")]
+    [TestCase(".gitattributes.pending", ".gitattributes")]
+    public async Task Ancestor_rule_file_renames_schedule_a_change(
+        string oldFileName,
+        string newFileName)
+    {
+        string projectRoot = Path.Combine(_tempDirectory, "nested", "project");
+        Directory.CreateDirectory(projectRoot);
+        string oldPath = Path.Combine(_tempDirectory, oldFileName);
+        string newPath = Path.Combine(_tempDirectory, newFileName);
+        await File.WriteAllTextAsync(oldPath, "rule\n");
+        using var watcher = new RepositoryWatcher(
+            new RepositoryInfo(_tempDirectory, projectRoot));
+        var completion = new TaskCompletionSource(
+            TaskCreationOptions.RunContinuationsAsynchronously);
+        watcher.Changed += (_, _) => completion.TrySetResult();
+
+        File.Move(oldPath, newPath);
+
+        await completion.Task.WaitAsync(TimeSpan.FromSeconds(3));
+        Assert.That(completion.Task.IsCompletedSuccessfully, Is.True);
+    }
+
+    [Test]
+    public void Start_failure_disposes_timer_and_every_created_watcher()
+    {
+        string projectRoot = Path.Combine(_tempDirectory, "nested", "project");
+        Directory.CreateDirectory(projectRoot);
+        var timeProvider = new TrackingTimeProvider();
+        var createdWatchers = new List<TrackingFileSystemWatcher>();
+        int enableCount = 0;
+
+        Assert.Throws<InvalidOperationException>(() =>
+        {
+            _ = new RepositoryWatcher(
+                new RepositoryInfo(_tempDirectory, projectRoot),
+                timeProvider,
+                startWatching: true,
+                watcherFactory: path =>
+                {
+                    var watcher = new TrackingFileSystemWatcher(path);
+                    createdWatchers.Add(watcher);
+                    return watcher;
+                },
+                watcherEnabler: watcher =>
+                {
+                    if (Interlocked.Increment(ref enableCount) == 3)
+                    {
+                        throw new InvalidOperationException("Injected watcher startup failure.");
+                    }
+
+                    watcher.EnableRaisingEvents = true;
+                });
+        });
+
+        bool timerWasDisposed = timeProvider.Timer?.IsDisposed == true;
+        bool[] watcherDisposal = createdWatchers.Select(watcher => watcher.IsDisposed).ToArray();
+        timeProvider.Timer?.Dispose();
+        foreach (TrackingFileSystemWatcher watcher in createdWatchers)
+        {
+            watcher.Dispose();
+        }
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(createdWatchers, Has.Count.EqualTo(3));
+            Assert.That(timerWasDisposed, Is.True);
+            Assert.That(watcherDisposal, Is.All.True);
+        });
+    }
+
     [Test]
     public async Task Debounce_coalesces_a_burst_at_exactly_500_milliseconds()
     {
         var timeProvider = new FakeTimeProvider();
-        using var watcher = new RepositoryWatcher(_tempDirectory, timeProvider, startWatching: false);
+        using var watcher = new RepositoryWatcher(
+            new RepositoryInfo(_tempDirectory, _tempDirectory),
+            timeProvider,
+            startWatching: false);
         int raised = 0;
         var completion = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         watcher.Changed += (_, _) =>
@@ -113,7 +215,10 @@ public class RepositoryWatcherTests
     public async Task Changed_is_raised_on_a_background_thread()
     {
         var timeProvider = new FakeTimeProvider();
-        using var watcher = new RepositoryWatcher(_tempDirectory, timeProvider, startWatching: false);
+        using var watcher = new RepositoryWatcher(
+            new RepositoryInfo(_tempDirectory, _tempDirectory),
+            timeProvider,
+            startWatching: false);
         int callerThread = Environment.CurrentManagedThreadId;
         var completion = new TaskCompletionSource<int>(TaskCreationOptions.RunContinuationsAsynchronously);
         watcher.Changed += (_, _) => completion.TrySetResult(Environment.CurrentManagedThreadId);
@@ -129,7 +234,10 @@ public class RepositoryWatcherTests
     public async Task Rename_from_tracked_path_to_excluded_path_still_schedules_a_change()
     {
         var timeProvider = new FakeTimeProvider();
-        using var watcher = new RepositoryWatcher(_tempDirectory, timeProvider, startWatching: false);
+        using var watcher = new RepositoryWatcher(
+            new RepositoryInfo(_tempDirectory, _tempDirectory),
+            timeProvider,
+            startWatching: false);
         var completion = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         watcher.Changed += (_, _) => completion.TrySetResult();
 
@@ -140,5 +248,49 @@ public class RepositoryWatcherTests
 
         await completion.Task.WaitAsync(TimeSpan.FromSeconds(2));
         Assert.That(completion.Task.IsCompletedSuccessfully, Is.True);
+    }
+
+    private sealed class TrackingFileSystemWatcher(string path) : FileSystemWatcher(path)
+    {
+        public bool IsDisposed { get; private set; }
+
+        protected override void Dispose(bool disposing)
+        {
+            IsDisposed = true;
+            base.Dispose(disposing);
+        }
+    }
+
+    private sealed class TrackingTimeProvider : TimeProvider
+    {
+        public TrackingTimer? Timer { get; private set; }
+
+        public override ITimer CreateTimer(
+            TimerCallback callback,
+            object? state,
+            TimeSpan dueTime,
+            TimeSpan period)
+        {
+            Timer = new TrackingTimer();
+            return Timer;
+        }
+    }
+
+    private sealed class TrackingTimer : ITimer
+    {
+        public bool IsDisposed { get; private set; }
+
+        public bool Change(TimeSpan dueTime, TimeSpan period) => !IsDisposed;
+
+        public void Dispose()
+        {
+            IsDisposed = true;
+        }
+
+        public ValueTask DisposeAsync()
+        {
+            Dispose();
+            return ValueTask.CompletedTask;
+        }
     }
 }

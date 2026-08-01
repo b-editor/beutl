@@ -6,9 +6,12 @@ namespace Beutl.Editor.VersionControl;
 
 public sealed partial class GitInstallationLocator
 {
+    private static readonly TimeSpan s_defaultDiscoveryTimeout = TimeSpan.FromSeconds(10);
+
     public static readonly Version MinimumVersion = new(2, 23);
 
     private readonly VersionControlConfig _config;
+    private readonly TimeSpan _discoveryTimeout;
     private readonly IGitInstallationProbe _probe;
     private readonly GitHostPlatform _platform;
 
@@ -21,52 +24,90 @@ public sealed partial class GitInstallationLocator
         VersionControlConfig config,
         IGitInstallationProbe probe,
         GitHostPlatform platform)
+        : this(config, probe, platform, s_defaultDiscoveryTimeout)
     {
+    }
+
+    internal GitInstallationLocator(
+        VersionControlConfig config,
+        IGitInstallationProbe probe,
+        GitHostPlatform platform,
+        TimeSpan discoveryTimeout)
+    {
+        if (discoveryTimeout <= TimeSpan.Zero)
+        {
+            throw new ArgumentOutOfRangeException(nameof(discoveryTimeout));
+        }
+
         _config = config ?? throw new ArgumentNullException(nameof(config));
         _probe = probe ?? throw new ArgumentNullException(nameof(probe));
         _platform = platform;
+        _discoveryTimeout = discoveryTimeout;
     }
 
     internal VersionControlConfig Config => _config;
 
     public async Task<GitAvailability> LocateAsync(CancellationToken cancellationToken = default)
     {
-        IReadOnlyList<string> candidates = await GetCandidatesAsync(cancellationToken).ConfigureAwait(false);
-        GitAvailability? oldestSupportedFailure = null;
-
-        foreach (string candidate in candidates.Distinct(PathComparer))
+        cancellationToken.ThrowIfCancellationRequested();
+        using var timeoutCts = new CancellationTokenSource(_discoveryTimeout);
+        using var linkedCts = CancellationTokenSource.CreateLinkedTokenSource(
+            cancellationToken,
+            timeoutCts.Token);
+        CancellationToken discoveryToken = linkedCts.Token;
+        GitAvailability timeoutFallback = GitAvailability.NotInstalled;
+        try
         {
-            GitProbeResult result = await _probe.RunAsync(
-                candidate,
-                ["--version"],
-                cancellationToken).ConfigureAwait(false);
-            if (result.ExitCode != 0 || !TryParseVersion(result.Stdout, out Version? version))
-            {
-                continue;
-            }
+            IReadOnlyList<string> candidates = await GetCandidatesAsync(discoveryToken).ConfigureAwait(false);
+            discoveryToken.ThrowIfCancellationRequested();
+            GitAvailability? oldestSupportedFailure = null;
 
-            if (version < MinimumVersion)
+            foreach (string candidate in candidates.Distinct(PathComparer))
             {
-                oldestSupportedFailure ??= new GitAvailability(
-                    GitAvailabilityState.VersionTooOld,
+                discoveryToken.ThrowIfCancellationRequested();
+                GitProbeResult result = await _probe.RunAsync(
+                    candidate,
+                    ["--version"],
+                    discoveryToken).ConfigureAwait(false);
+                discoveryToken.ThrowIfCancellationRequested();
+                if (result.ExitCode != 0 || !TryParseVersion(result.Stdout, out Version? version))
+                {
+                    continue;
+                }
+
+                if (version < MinimumVersion)
+                {
+                    oldestSupportedFailure ??= new GitAvailability(
+                        GitAvailabilityState.VersionTooOld,
+                        candidate,
+                        version,
+                        LfsInstalled: false);
+                    timeoutFallback = oldestSupportedFailure;
+                    continue;
+                }
+
+                var installedWithoutLfs = new GitAvailability(
+                    GitAvailabilityState.Installed,
                     candidate,
                     version,
                     LfsInstalled: false);
-                continue;
+                timeoutFallback = installedWithoutLfs;
+                GitProbeResult lfs = await _probe.RunAsync(
+                    candidate,
+                    ["lfs", "version"],
+                    discoveryToken).ConfigureAwait(false);
+                discoveryToken.ThrowIfCancellationRequested();
+                return installedWithoutLfs with { LfsInstalled = lfs.ExitCode == 0 };
             }
 
-            GitProbeResult lfs = await _probe.RunAsync(
-                candidate,
-                ["lfs", "version"],
-                cancellationToken).ConfigureAwait(false);
-            return new GitAvailability(
-                GitAvailabilityState.Installed,
-                candidate,
-                version,
-                LfsInstalled: lfs.ExitCode == 0);
+            discoveryToken.ThrowIfCancellationRequested();
+            return oldestSupportedFailure ?? GitAvailability.NotInstalled;
         }
-
-        return oldestSupportedFailure ?? GitAvailability.NotInstalled;
+        catch (OperationCanceledException) when (linkedCts.IsCancellationRequested)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            return timeoutFallback;
+        }
     }
 
     internal static bool TryParseVersion(string output, out Version? version)
@@ -186,7 +227,21 @@ internal interface IGitInstallationProbe
 
 internal sealed class ProcessGitInstallationProbe : IGitInstallationProbe
 {
-    public static ProcessGitInstallationProbe Instance { get; } = new();
+    private static readonly TimeSpan s_cleanupGracePeriod = TimeSpan.FromSeconds(1);
+    private static readonly TimeSpan s_defaultTimeout = TimeSpan.FromSeconds(5);
+    private readonly TimeSpan _timeout;
+
+    public static ProcessGitInstallationProbe Instance { get; } = new(s_defaultTimeout);
+
+    internal ProcessGitInstallationProbe(TimeSpan timeout)
+    {
+        if (timeout <= TimeSpan.Zero)
+        {
+            throw new ArgumentOutOfRangeException(nameof(timeout));
+        }
+
+        _timeout = timeout;
+    }
 
     public async Task<IReadOnlyList<string>> FindOnPathAsync(
         string executableName,
@@ -236,20 +291,40 @@ internal sealed class ProcessGitInstallationProbe : IGitInstallationProbe
             startInfo.ArgumentList.Add(argument);
         }
 
+        using var timeoutCts = new CancellationTokenSource(_timeout);
+        using var linkedCts = CancellationTokenSource.CreateLinkedTokenSource(
+            cancellationToken,
+            timeoutCts.Token);
+        var process = new Process { StartInfo = startInfo };
+        bool disposeProcess = true;
         try
         {
-            using var process = new Process { StartInfo = startInfo };
-            process.Start();
-            Task<string> stdout = process.StandardOutput.ReadToEndAsync(cancellationToken);
-            Task<string> stderr = process.StandardError.ReadToEndAsync(cancellationToken);
             try
             {
-                await process.WaitForExitAsync(cancellationToken).ConfigureAwait(false);
+                process.Start();
             }
-            catch (OperationCanceledException)
+            catch (System.ComponentModel.Win32Exception)
+            {
+                return new GitProbeResult(-1, string.Empty, string.Empty);
+            }
+
+            Task<string> stdout = process.StandardOutput.ReadToEndAsync(linkedCts.Token);
+            Task<string> stderr = process.StandardError.ReadToEndAsync(linkedCts.Token);
+            Task processExit = process.WaitForExitAsync(linkedCts.Token);
+            Task completion = Task.WhenAll(processExit, stdout, stderr);
+            try
+            {
+                await completion.WaitAsync(linkedCts.Token).ConfigureAwait(false);
+            }
+            catch (OperationCanceledException) when (linkedCts.IsCancellationRequested)
             {
                 TryKillProcessTree(process);
-                throw;
+                Task cleanup = CreateCleanupTask(process, completion, processExit, stdout, stderr);
+                await WaitForCleanupGracePeriodAsync(cleanup).ConfigureAwait(false);
+                disposeProcess = false;
+                _ = DisposeAfterCleanupAsync(process, cleanup);
+                cancellationToken.ThrowIfCancellationRequested();
+                return new GitProbeResult(-1, string.Empty, string.Empty);
             }
 
             return new GitProbeResult(
@@ -257,9 +332,12 @@ internal sealed class ProcessGitInstallationProbe : IGitInstallationProbe
                 await stdout.ConfigureAwait(false),
                 await stderr.ConfigureAwait(false));
         }
-        catch (System.ComponentModel.Win32Exception)
+        finally
         {
-            return new GitProbeResult(-1, string.Empty, string.Empty);
+            if (disposeProcess)
+            {
+                process.Dispose();
+            }
         }
     }
 
@@ -267,18 +345,103 @@ internal sealed class ProcessGitInstallationProbe : IGitInstallationProbe
 
     public string? GetEnvironmentVariable(string name) => Environment.GetEnvironmentVariable(name);
 
-    internal static void TryKillProcessTree(Process process)
+    internal static void TryKillProcessTree(
+        Process process,
+        Action<Process>? killProcessTree = null)
     {
         try
         {
             if (!process.HasExited)
             {
-                process.Kill(entireProcessTree: true);
+                killProcessTree ??= static target => target.Kill(entireProcessTree: true);
+                killProcessTree(process);
             }
         }
         catch (Exception ex) when (ex is InvalidOperationException
                                    or System.ComponentModel.Win32Exception
-                                   or NotSupportedException)
+                                   or NotSupportedException
+                                   or AggregateException)
+        {
+        }
+    }
+
+    private static Task CreateCleanupTask(
+        Process process,
+        Task completion,
+        Task processExit,
+        Task stdout,
+        Task stderr)
+    {
+        Task finalExit;
+        try
+        {
+            finalExit = process.WaitForExitAsync(CancellationToken.None);
+        }
+        catch (Exception)
+        {
+            finalExit = Task.CompletedTask;
+        }
+
+        return Task.WhenAll(
+            ObserveCleanupTaskAsync(completion),
+            ObserveCleanupTaskAsync(processExit),
+            ObserveCleanupTaskAsync(stdout),
+            ObserveCleanupTaskAsync(stderr),
+            ObserveCleanupTaskAsync(finalExit));
+    }
+
+    private static async Task WaitForCleanupGracePeriodAsync(Task cleanup)
+    {
+        try
+        {
+            await cleanup.WaitAsync(s_cleanupGracePeriod).ConfigureAwait(false);
+        }
+        catch (TimeoutException)
+        {
+        }
+    }
+
+    private static async Task DisposeAfterCleanupAsync(Process process, Task cleanup)
+    {
+        await Task.Yield();
+        TryCloseRedirectedStreams(process);
+        try
+        {
+            process.Dispose();
+        }
+        catch (Exception)
+        {
+        }
+
+        await cleanup.ConfigureAwait(false);
+    }
+
+    private static void TryCloseRedirectedStreams(Process process)
+    {
+        try
+        {
+            process.StandardOutput.BaseStream.Dispose();
+        }
+        catch (Exception)
+        {
+        }
+
+        try
+        {
+            process.StandardError.BaseStream.Dispose();
+        }
+        catch (Exception)
+        {
+        }
+    }
+
+    private static async Task ObserveCleanupTaskAsync(Task task)
+    {
+        try
+        {
+            await task.ConfigureAwait(false);
+        }
+        catch (Exception)
         {
         }
     }

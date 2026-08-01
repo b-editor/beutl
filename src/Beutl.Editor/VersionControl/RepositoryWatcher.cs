@@ -1,25 +1,38 @@
 ﻿namespace Beutl.Editor.VersionControl;
 
-public sealed class RepositoryWatcher : IDisposable
+internal sealed class RepositoryWatcher : IDisposable
 {
+    private static readonly string[] AncestorRuleFileNames = [".gitignore", ".gitattributes"];
+
     internal static readonly TimeSpan DebounceInterval = TimeSpan.FromMilliseconds(500);
 
     private readonly object _sync = new();
     private readonly string _repoRoot;
+    private readonly string _projectRoot;
     private readonly ITimer _debounceTimer;
+    private readonly Func<string, FileSystemWatcher> _watcherFactory;
+    private readonly Action<FileSystemWatcher> _watcherEnabler;
     private readonly List<FileSystemWatcher> _watchers = [];
     private bool _disposed;
 
-    public RepositoryWatcher(string repoRoot, TimeProvider? timeProvider = null)
-        : this(repoRoot, timeProvider ?? TimeProvider.System, startWatching: true)
+    internal RepositoryWatcher(RepositoryInfo repository, TimeProvider? timeProvider = null)
+        : this(repository, timeProvider ?? TimeProvider.System, startWatching: true)
     {
     }
 
-    internal RepositoryWatcher(string repoRoot, TimeProvider timeProvider, bool startWatching)
+    internal RepositoryWatcher(
+        RepositoryInfo repository,
+        TimeProvider timeProvider,
+        bool startWatching,
+        Func<string, FileSystemWatcher>? watcherFactory = null,
+        Action<FileSystemWatcher>? watcherEnabler = null)
     {
-        ArgumentException.ThrowIfNullOrWhiteSpace(repoRoot);
+        ArgumentNullException.ThrowIfNull(repository);
         ArgumentNullException.ThrowIfNull(timeProvider);
-        _repoRoot = Path.TrimEndingDirectorySeparator(Path.GetFullPath(repoRoot));
+        _repoRoot = repository.RepoRoot;
+        _projectRoot = repository.ProjectRoot;
+        _watcherFactory = watcherFactory ?? (static path => new FileSystemWatcher(path));
+        _watcherEnabler = watcherEnabler ?? (static watcher => watcher.EnableRaisingEvents = true);
         _debounceTimer = timeProvider.CreateTimer(
             static state => ((RepositoryWatcher)state!).QueueChanged(),
             this,
@@ -28,15 +41,23 @@ public sealed class RepositoryWatcher : IDisposable
 
         if (startWatching)
         {
-            Start();
+            try
+            {
+                Start();
+            }
+            catch
+            {
+                Dispose();
+                throw;
+            }
         }
     }
 
     public event EventHandler? Changed;
 
-    internal static bool ShouldExcludePath(string repoRoot, string path)
+    internal static bool ShouldExcludePath(string projectRoot, string path)
     {
-        string relativePath = Path.GetRelativePath(repoRoot, path).Replace('\\', '/');
+        string relativePath = Path.GetRelativePath(projectRoot, path).Replace('\\', '/');
         if (relativePath == ".."
             || relativePath.StartsWith("../", StringComparison.Ordinal)
             || Path.IsPathFullyQualified(relativePath))
@@ -154,7 +175,7 @@ public sealed class RepositoryWatcher : IDisposable
 
     internal void NotifyPathChanged(string path)
     {
-        if (ShouldExcludePath(_repoRoot, path))
+        if (ShouldExcludePath(_projectRoot, path))
         {
             return;
         }
@@ -164,8 +185,8 @@ public sealed class RepositoryWatcher : IDisposable
 
     internal void NotifyPathRenamed(string oldPath, string newPath)
     {
-        if (ShouldExcludePath(_repoRoot, oldPath)
-            && ShouldExcludePath(_repoRoot, newPath))
+        if (ShouldExcludePath(_projectRoot, oldPath)
+            && ShouldExcludePath(_projectRoot, newPath))
         {
             return;
         }
@@ -202,21 +223,28 @@ public sealed class RepositoryWatcher : IDisposable
             throw new DirectoryNotFoundException($"Repository directory not found: {_repoRoot}");
         }
 
-        var worktreeWatcher = new FileSystemWatcher(_repoRoot)
+        if (!Directory.Exists(_projectRoot))
         {
-            IncludeSubdirectories = true,
-            NotifyFilter = NotifyFilters.FileName
-                           | NotifyFilters.DirectoryName
-                           | NotifyFilters.LastWrite
-                           | NotifyFilters.Size,
-        };
-        worktreeWatcher.Changed += OnFileSystemChanged;
-        worktreeWatcher.Created += OnFileSystemChanged;
-        worktreeWatcher.Deleted += OnFileSystemChanged;
-        worktreeWatcher.Renamed += OnFileSystemChanged;
-        worktreeWatcher.Error += OnWatcherError;
-        worktreeWatcher.EnableRaisingEvents = true;
-        _watchers.Add(worktreeWatcher);
+            throw new DirectoryNotFoundException($"Project directory not found: {_projectRoot}");
+        }
+
+        AddWatcher(
+            _projectRoot,
+            watcher =>
+            {
+                watcher.IncludeSubdirectories = true;
+                watcher.NotifyFilter = NotifyFilters.FileName
+                                       | NotifyFilters.DirectoryName
+                                       | NotifyFilters.LastWrite
+                                       | NotifyFilters.Size;
+                watcher.Changed += OnFileSystemChanged;
+                watcher.Created += OnFileSystemChanged;
+                watcher.Deleted += OnFileSystemChanged;
+                watcher.Renamed += OnFileSystemChanged;
+                watcher.Error += OnWatcherError;
+            });
+
+        AddAncestorRuleWatchers();
 
         (string GitDirectory, string CommonDirectory)? metadataDirectories
             = ResolveGitMetadataDirectories(_repoRoot);
@@ -232,6 +260,47 @@ public sealed class RepositoryWatcher : IDisposable
         }
     }
 
+    private void AddAncestorRuleWatchers()
+    {
+        string relativeProject = Path.GetRelativePath(_repoRoot, _projectRoot);
+        if (relativeProject == ".")
+        {
+            return;
+        }
+
+        string directory = _repoRoot;
+        foreach (string segment in relativeProject.Split(
+                     [Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar],
+                     StringSplitOptions.RemoveEmptyEntries))
+        {
+            AddAncestorRuleWatcher(directory);
+            directory = Path.Combine(directory, segment);
+        }
+    }
+
+    private void AddAncestorRuleWatcher(string directory)
+    {
+        AddWatcher(
+            directory,
+            watcher =>
+            {
+                watcher.IncludeSubdirectories = false;
+                watcher.NotifyFilter = NotifyFilters.FileName
+                                       | NotifyFilters.LastWrite
+                                       | NotifyFilters.Size;
+                foreach (string fileName in AncestorRuleFileNames)
+                {
+                    watcher.Filters.Add(fileName);
+                }
+
+                watcher.Changed += OnAncestorRuleChanged;
+                watcher.Created += OnAncestorRuleChanged;
+                watcher.Deleted += OnAncestorRuleChanged;
+                watcher.Renamed += OnAncestorRuleChanged;
+                watcher.Error += OnWatcherError;
+            });
+    }
+
     private void AddGitMetadataWatchers(string metadataRoot)
     {
         AddGitMetadataWatcher(metadataRoot, metadataRoot, includeSubdirectories: false);
@@ -243,23 +312,49 @@ public sealed class RepositoryWatcher : IDisposable
         string metadataRoot,
         bool includeSubdirectories)
     {
-        var watcher = new FileSystemWatcher(watchedDirectory)
+        AddWatcher(
+            watchedDirectory,
+            watcher =>
+            {
+                watcher.IncludeSubdirectories = includeSubdirectories;
+                watcher.NotifyFilter = NotifyFilters.FileName
+                                       | NotifyFilters.DirectoryName
+                                       | NotifyFilters.LastWrite
+                                       | NotifyFilters.Size;
+                FileSystemEventHandler changed = (_, e) => OnGitMetadataChanged(metadataRoot, e);
+                RenamedEventHandler renamed = (_, e) => OnGitMetadataChanged(metadataRoot, e);
+                watcher.Changed += changed;
+                watcher.Created += changed;
+                watcher.Deleted += changed;
+                watcher.Renamed += renamed;
+                watcher.Error += OnWatcherError;
+            });
+    }
+
+    private void AddWatcher(string directory, Action<FileSystemWatcher> configure)
+    {
+        FileSystemWatcher watcher = _watcherFactory(directory)
+                                    ?? throw new InvalidOperationException(
+                                        "The watcher factory returned null.");
+        try
         {
-            IncludeSubdirectories = includeSubdirectories,
-            NotifyFilter = NotifyFilters.FileName
-                           | NotifyFilters.DirectoryName
-                           | NotifyFilters.LastWrite
-                           | NotifyFilters.Size,
-        };
-        FileSystemEventHandler changed = (_, e) => OnGitMetadataChanged(metadataRoot, e);
-        RenamedEventHandler renamed = (_, e) => OnGitMetadataChanged(metadataRoot, e);
-        watcher.Changed += changed;
-        watcher.Created += changed;
-        watcher.Deleted += changed;
-        watcher.Renamed += renamed;
-        watcher.Error += OnWatcherError;
-        watcher.EnableRaisingEvents = true;
-        _watchers.Add(watcher);
+            configure(watcher);
+            _watchers.Add(watcher);
+            try
+            {
+                _watcherEnabler(watcher);
+            }
+            catch
+            {
+                _watchers.Remove(watcher);
+                throw;
+            }
+        }
+        catch
+        {
+            watcher.Dispose();
+            throw;
+        }
     }
 
     private void RefreshGitRefsWatcher(string metadataRoot)
@@ -300,6 +395,11 @@ public sealed class RepositoryWatcher : IDisposable
     }
 
     private void OnWatcherError(object sender, ErrorEventArgs e)
+    {
+        ScheduleChanged();
+    }
+
+    private void OnAncestorRuleChanged(object sender, FileSystemEventArgs e)
     {
         ScheduleChanged();
     }

@@ -12,14 +12,14 @@ public class RepositoryWatcherStressTests : RealGitTestRepository
         await CommitFileAsync("project.bep", "{\"value\":0}\n", "baseline");
         await File.WriteAllTextAsync(projectPath, "{\"value\":1}\n");
 
-        using (var indexWatcher = new RepositoryWatcher(Root))
+        using (var indexWatcher = new RepositoryWatcher(Repository))
         {
             await AssertChangedDuringAsync(
                 indexWatcher,
                 () => RunGitAndAssertSuccessAsync(Repository, "add", "--", "project.bep"));
         }
 
-        using (var commitWatcher = new RepositoryWatcher(Root))
+        using (var commitWatcher = new RepositoryWatcher(Repository))
         {
             await AssertChangedDuringAsync(
                 commitWatcher,
@@ -45,7 +45,7 @@ public class RepositoryWatcherStressTests : RealGitTestRepository
             Path.Combine(linkedRoot, "project.bep"),
             "{\"value\":1}\n");
 
-        using (var indexWatcher = new RepositoryWatcher(linkedRoot))
+        using (var indexWatcher = new RepositoryWatcher(linkedRepository))
         {
             await AssertChangedDuringAsync(
                 indexWatcher,
@@ -56,7 +56,7 @@ public class RepositoryWatcherStressTests : RealGitTestRepository
                     "project.bep"));
         }
 
-        using (var commonRefsWatcher = new RepositoryWatcher(linkedRoot))
+        using (var commonRefsWatcher = new RepositoryWatcher(linkedRepository))
         {
             await AssertChangedDuringAsync(
                 commonRefsWatcher,
@@ -69,6 +69,53 @@ public class RepositoryWatcherStressTests : RealGitTestRepository
     }
 
     [Test]
+    public async Task Nested_project_refreshes_only_for_project_worktree_changes()
+    {
+        const string relativeProjectPath = "nested/project";
+        string projectRoot = Path.Combine(Root, relativeProjectPath);
+        string projectFile = Path.Combine(projectRoot, "project.bep");
+        string siblingFile = Path.Combine(Root, "sibling.txt");
+        string siblingRuleFile = Path.Combine(Root, "sibling", ".gitignore");
+        await CommitFileAsync(
+            $"{relativeProjectPath}/project.bep",
+            "{\"value\":0}\n",
+            "baseline");
+        Directory.CreateDirectory(Path.GetDirectoryName(siblingRuleFile)!);
+
+        var nestedRepository = new RepositoryInfo(Root, projectRoot);
+        var countingRunner = new StatusCountingRunner(CreateRunner(TimeSpan.FromSeconds(30)));
+        using var watcher = new RepositoryWatcher(nestedRepository);
+        using var service = new GitCliVersionControlService(
+            CreateInstalledLocator(),
+            nestedRepository,
+            watcher,
+            _ => countingRunner);
+
+        await File.WriteAllTextAsync(siblingFile, "sibling change\n");
+        await File.WriteAllTextAsync(siblingRuleFile, "*.tmp\n");
+        await Task.Delay(RepositoryWatcher.DebounceInterval + TimeSpan.FromSeconds(1));
+        int callsAfterSiblingChange = countingRunner.StatusCallCount;
+
+        var projectRefresh = new TaskCompletionSource(
+            TaskCreationOptions.RunContinuationsAsynchronously);
+        service.StatusChanged += (_, _) => projectRefresh.TrySetResult();
+        await File.WriteAllTextAsync(projectFile, "{\"value\":1}\n");
+        await projectRefresh.Task.WaitAsync(TimeSpan.FromSeconds(15));
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(
+                callsAfterSiblingChange,
+                Is.Zero,
+                "Sibling writes and sibling rule files outside ProjectRoot must not refresh project status.");
+            Assert.That(
+                countingRunner.StatusCallCount,
+                Is.GreaterThan(callsAfterSiblingChange),
+                "A write inside ProjectRoot must refresh project status.");
+        });
+    }
+
+    [Test]
     public async Task Rapid_write_burst_has_bounded_status_refreshes_without_self_feedback()
     {
         const int writeCount = 1000;
@@ -78,7 +125,7 @@ public class RepositoryWatcherStressTests : RealGitTestRepository
 
         var gitRunner = CreateRunner(TimeSpan.FromSeconds(30));
         var countingRunner = new StatusCountingRunner(gitRunner);
-        using var watcher = new RepositoryWatcher(Root);
+        using var watcher = new RepositoryWatcher(Repository);
         using var service = new GitCliVersionControlService(
             CreateInstalledLocator(),
             Repository,

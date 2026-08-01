@@ -43,8 +43,9 @@ Each entry records a decision that resolves an unknown from the Technical Contex
 - Windows: `where.exe git` → `%ProgramFiles%\Git\cmd\git.exe`.
 - Linux: `git` on PATH.
 - Validate with `git --version` and enforce a minimum version floor (2.23+, for `git switch`, worktree, and the required plumbing behavior). Repository initialization uses `git init` followed by `git symbolic-ref HEAD refs/heads/main`, because `git init -b` is only available from Git 2.28.
+- Bound each subprocess probe to 5 seconds and the complete ordered discovery pass to a shared 10-second budget, while preserving caller cancellation. If the shared budget expires after Git validation but during the LFS probe, report Git as installed with LFS unavailable.
 
-**Rationale**: macOS GUI apps launch with a minimal PATH; the CLT stub is a well-known trap that would pop an OS dialog from inside Beutl.
+**Rationale**: macOS GUI apps launch with a minimal PATH; the CLT stub is a well-known trap that would pop an OS dialog from inside Beutl. A shared deadline prevents several missing or stalled candidates from multiplying the per-process timeout into an unbounded GUI wait.
 
 **Alternatives considered**: requiring PATH only — breaks the majority macOS GUI-launch case.
 
@@ -82,7 +83,7 @@ Each entry records a decision that resolves an unknown from the Technical Contex
 
 ## R-8. Status pipeline and the autosave feedback loop
 
-**Decision**: A `RepositoryWatcher` (FileSystemWatcher on the repo root, 500 ms debounce, background-thread events) triggers a single `git status --porcelain=v2 -z` per burst; `.git/`, `**/.beutl/`, and `*.tmp` are excluded from watch events. `GIT_OPTIONAL_LOCKS=0` guarantees status never writes `.git/index`, so status cannot retrigger the watcher (double protection). Mutating service calls refresh status on completion. All git operations serialize on one `SemaphoreSlim(1,1)` per project.
+**Decision**: A `RepositoryWatcher` (recursive FileSystemWatcher on `ProjectRoot`, non-recursive `.gitignore`/`.gitattributes` watchers in each ancestor directory through `RepoRoot`, dedicated Git metadata watchers resolved from `RepoRoot` through `.git`/gitdir/commondir and refs, 500 ms debounce, background-thread events) triggers a single `git status --porcelain=v2 -z` per burst. The ancestor watchers ignore unrelated files and sibling subtrees; `.git/`, `**/.beutl/`, and `*.tmp` are excluded from worktree watch events. `GIT_OPTIONAL_LOCKS=0` guarantees status never writes the Git index, so status cannot retrigger the watcher (double protection). Mutating service calls refresh status on completion. All git operations serialize on one `SemaphoreSlim(1,1)` per project.
 
 **Rationale**: autosave writes the tree on every edit, so the watcher fires constantly; the debounce+exclusion+no-lock triple keeps status calls bounded. Modeled on `DirectoryWatcherService` (`src/Beutl.Editor.Components/FileBrowserTab/Services/DirectoryWatcherService.cs`) but Avalonia-free.
 

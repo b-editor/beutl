@@ -55,6 +55,7 @@ public sealed class VersionControlPolicyTests : RealGitTestRepository
             LargeMediaWarningThresholdMb = 1,
         };
         var notices = new List<VersionControlPolicyNotice>();
+        var recordingRunner = new RecordingRunner(Runner);
         using var service = CreateService(
             config,
             lfsInstalled: false,
@@ -62,7 +63,8 @@ public sealed class VersionControlPolicyTests : RealGitTestRepository
             {
                 notices.Add(notice);
                 return Task.CompletedTask;
-            });
+            },
+            runner: recordingRunner);
         string mediaPath = Path.Combine(Root, "resources", "large.mp4");
         Directory.CreateDirectory(Path.GetDirectoryName(mediaPath)!);
         await File.WriteAllBytesAsync(mediaPath, new byte[(1024 * 1024) + 1]);
@@ -86,6 +88,311 @@ public sealed class VersionControlPolicyTests : RealGitTestRepository
             var notice = (VersionControlPolicyNotice.LargeMediaWithoutLfs)notices[0];
             Assert.That(notice.Path, Is.EqualTo("resources/large.mp4"));
             Assert.That(notice.SizeBytes, Is.GreaterThan(1024 * 1024));
+            Assert.That(
+                recordingRunner.Commands,
+                Has.None.Matches<RecordedCommand>(static command =>
+                    command.Arguments.FirstOrDefault() == "check-attr"));
+        });
+    }
+
+    [Test]
+    public async Task Unrelated_lfs_rule_does_not_suppress_large_media_notice()
+    {
+        await CommitFileAsync("project.bep", "initial\n", "initial");
+        await File.WriteAllTextAsync(
+            Path.Combine(Root, ".gitattributes"),
+            "assets/*.psd filter=lfs diff=lfs merge=lfs -text\n");
+        await WriteLargeMediaAsync(Root, "resources/large.mp4");
+        var notices = new List<VersionControlPolicyNotice>();
+        using var service = CreateService(
+            CreateLargeMediaConfig(),
+            lfsInstalled: true,
+            notice =>
+            {
+                notices.Add(notice);
+                return Task.CompletedTask;
+            });
+
+        CommitResult result = await service.CommitAllAsync(
+            "large media",
+            SnapshotKind.Manual,
+            CancellationToken.None);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(result, Is.TypeOf<CommitResult.Committed>());
+            Assert.That(notices, Has.Count.EqualTo(1));
+            Assert.That(
+                notices.Single(),
+                Is.EqualTo(new VersionControlPolicyNotice.LargeMediaWithoutLfs(
+                    "resources/large.mp4",
+                    (1024 * 1024) + 1)));
+        });
+    }
+
+    [Test]
+    public async Task Matching_lfs_rule_suppresses_large_media_notice()
+    {
+        await CommitFileAsync("project.bep", "initial\n", "initial");
+        await File.WriteAllTextAsync(
+            Path.Combine(Root, ".gitattributes"),
+            "resources/*.mp4 filter=lfs diff=lfs merge=lfs -text\n");
+        await WriteLargeMediaAsync(Root, "resources/large.mp4");
+        var notices = new List<VersionControlPolicyNotice>();
+        using var service = CreateService(
+            CreateLargeMediaConfig(),
+            lfsInstalled: true,
+            notice =>
+            {
+                notices.Add(notice);
+                return Task.CompletedTask;
+            });
+
+        CommitResult result = await service.CommitAllAsync(
+            "large media",
+            SnapshotKind.Manual,
+            CancellationToken.None);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(result, Is.TypeOf<CommitResult.Committed>());
+            Assert.That(notices, Is.Empty);
+        });
+    }
+
+    [Test]
+    public async Task Mixed_large_media_candidates_warn_for_first_uncovered_path()
+    {
+        await CommitFileAsync("project.bep", "initial\n", "initial");
+        await File.WriteAllTextAsync(
+            Path.Combine(Root, ".gitattributes"),
+            "resources/*.mp4 filter=lfs diff=lfs merge=lfs -text\n");
+        await WriteLargeMediaAsync(Root, "resources/01-covered.mp4");
+        await WriteLargeMediaAsync(Root, "resources/02-uncovered.wav");
+        var notices = new List<VersionControlPolicyNotice>();
+        var recordingRunner = new RecordingRunner(Runner);
+        using var service = CreateService(
+            CreateLargeMediaConfig(),
+            lfsInstalled: true,
+            notice =>
+            {
+                notices.Add(notice);
+                return Task.CompletedTask;
+            },
+            runner: recordingRunner);
+
+        CommitResult result = await service.CommitAllAsync(
+            "mixed media",
+            SnapshotKind.Manual,
+            CancellationToken.None);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(result, Is.TypeOf<CommitResult.Committed>());
+            Assert.That(notices, Has.Count.EqualTo(1));
+            Assert.That(
+                notices.Single(),
+                Is.EqualTo(new VersionControlPolicyNotice.LargeMediaWithoutLfs(
+                    "resources/02-uncovered.wav",
+                    (1024 * 1024) + 1)));
+            RecordedCommand[] attributeQueries = recordingRunner.Commands
+                .Where(static command => command.Arguments.FirstOrDefault() == "check-attr")
+                .ToArray();
+            Assert.That(attributeQueries, Has.Length.EqualTo(1));
+            Assert.That(
+                attributeQueries.Single().Options.StandardInput,
+                Is.EqualTo("resources/01-covered.mp4\0resources/02-uncovered.wav\0"));
+        });
+    }
+
+    [Test]
+    public async Task Effective_lfs_query_chunks_all_covered_paths_below_the_capture_limit()
+    {
+        string[] paths = Enumerable.Range(0, 20_000)
+            .Select(static index => $"resources/{index:D5}.mp4")
+            .ToArray();
+        var runner = new LfsAttributeEchoRunner();
+
+        HashSet<string> covered = await GitCliVersionControlService.GetEffectiveLfsPathsAsync(
+            Repository,
+            runner,
+            paths,
+            CancellationToken.None);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(covered.SetEquals(paths), Is.True);
+            Assert.That(runner.Commands, Has.Count.EqualTo(3));
+            Assert.That(
+                runner.Commands,
+                Has.All.Matches<RecordedCommand>(command =>
+                    command.Options.MaxStdoutBytes == 256 * 1024
+                    && command.Options.StandardInput!
+                        .Split('\0', StringSplitOptions.RemoveEmptyEntries)
+                        .Sum(static path => System.Text.Encoding.UTF8.GetByteCount(path) + 12)
+                    <= command.Options.MaxStdoutBytes));
+        });
+    }
+
+    [Test]
+    public async Task Truncated_custom_filter_preserves_the_valid_covered_prefix()
+    {
+        string[] paths = Enumerable.Range(0, 100)
+            .Select(static index =>
+                $"resources/{index:D3}-{new string('a', 2_480)}.mp4")
+            .ToArray();
+        var runner = new TruncatingCustomAttributeRunner();
+
+        HashSet<string> covered = await GitCliVersionControlService.GetEffectiveLfsPathsAsync(
+            Repository,
+            runner,
+            paths,
+            CancellationToken.None);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(runner.Commands, Has.Count.EqualTo(1));
+            Assert.That(covered.SetEquals(paths.Take(99)), Is.True);
+            Assert.That(covered.Contains(paths[^1]), Is.False);
+        });
+    }
+
+    [Test]
+    public async Task Nested_literal_path_uses_outer_repository_and_exact_null_terminated_input()
+    {
+        string projectDirectory = OperatingSystem.IsWindows()
+            ? "nested project [literal]"
+            : ":nested project\n[literal]";
+        const string mediaRelativePath = "resources/movie [draft] #1.mp4";
+        string nestedRoot = Path.Combine(Root, projectDirectory);
+        await CommitFileAsync(
+            $"{projectDirectory}/project.bep",
+            "initial\n",
+            "initial");
+        await File.WriteAllTextAsync(
+            Path.Combine(nestedRoot, ".gitattributes"),
+            "resources/*.mp4 filter=lfs diff=lfs merge=lfs -text\n");
+        await WriteLargeMediaAsync(nestedRoot, mediaRelativePath);
+        var repository = new RepositoryInfo(Root, nestedRoot);
+        var notices = new List<VersionControlPolicyNotice>();
+        var recordingRunner = new RecordingRunner(Runner);
+        using var service = CreateService(
+            CreateLargeMediaConfig(),
+            lfsInstalled: true,
+            notice =>
+            {
+                notices.Add(notice);
+                return Task.CompletedTask;
+            },
+            repository,
+            recordingRunner);
+
+        CommitResult result = await service.CommitAllAsync(
+            "literal media",
+            SnapshotKind.Manual,
+            CancellationToken.None);
+
+        RecordedCommand query = recordingRunner.Commands.Single(static command =>
+            command.Arguments.FirstOrDefault() == "check-attr");
+        Assert.Multiple(() =>
+        {
+            Assert.That(result, Is.TypeOf<CommitResult.Committed>());
+            Assert.That(notices, Is.Empty);
+            Assert.That(query.Repository, Is.EqualTo(repository));
+            Assert.That(
+                query.Arguments,
+                Is.EqualTo(new[] { "check-attr", "--stdin", "-z", "filter" }));
+            Assert.That(
+                query.Options.StandardInput,
+                Is.EqualTo($"{projectDirectory}/{mediaRelativePath}\0"));
+            if (!OperatingSystem.IsWindows())
+            {
+                Assert.That(query.Options.StandardInput, Does.StartWith(":").And.Contain("\n"));
+            }
+
+            Assert.That(query.Options.UseLiteralPathspecs, Is.True);
+        });
+    }
+
+    [TestCase(CheckAttributeFault.Malformed)]
+    [TestCase(CheckAttributeFault.Truncated)]
+    [TestCase(CheckAttributeFault.StandardError)]
+    [TestCase(CheckAttributeFault.Unset)]
+    [TestCase(CheckAttributeFault.Unspecified)]
+    [TestCase(CheckAttributeFault.PathMismatch)]
+    [TestCase(CheckAttributeFault.CommandFailure)]
+    [TestCase(CheckAttributeFault.Timeout)]
+    [TestCase(CheckAttributeFault.IoFailure)]
+    public async Task Non_exact_lfs_attribute_result_does_not_suppress_large_media_notice(
+        CheckAttributeFault fault)
+    {
+        await CommitFileAsync("project.bep", "initial\n", "initial");
+        await File.WriteAllTextAsync(
+            Path.Combine(Root, ".gitattributes"),
+            "resources/*.mp4 filter=lfs diff=lfs merge=lfs -text\n");
+        await WriteLargeMediaAsync(Root, "resources/large.mp4");
+        var notices = new List<VersionControlPolicyNotice>();
+        var faultRunner = new CheckAttributeFaultRunner(Runner, fault);
+        using var service = CreateService(
+            CreateLargeMediaConfig(),
+            lfsInstalled: true,
+            notice =>
+            {
+                notices.Add(notice);
+                return Task.CompletedTask;
+            },
+            runner: faultRunner);
+
+        CommitResult result = await service.CommitAllAsync(
+            "large media",
+            SnapshotKind.Manual,
+            CancellationToken.None);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(result, Is.TypeOf<CommitResult.Committed>());
+            Assert.That(notices, Has.Count.EqualTo(1));
+            Assert.That(
+                notices.Single(),
+                Is.EqualTo(new VersionControlPolicyNotice.LargeMediaWithoutLfs(
+                    "resources/large.mp4",
+                    (1024 * 1024) + 1)));
+        });
+    }
+
+    [Test]
+    public async Task Large_media_removed_during_attribute_query_does_not_block_commit()
+    {
+        await CommitFileAsync("project.bep", "initial\n", "initial");
+        await File.WriteAllTextAsync(Path.Combine(Root, "project.bep"), "changed\n");
+        await File.WriteAllTextAsync(
+            Path.Combine(Root, ".gitattributes"),
+            "assets/*.psd filter=lfs diff=lfs merge=lfs -text\n");
+        const string mediaRelativePath = "resources/large.mp4";
+        await WriteLargeMediaAsync(Root, mediaRelativePath);
+        string mediaPath = Path.Combine(Root, mediaRelativePath);
+        var notices = new List<VersionControlPolicyNotice>();
+        var deletingRunner = new DeleteDuringAttributeQueryRunner(Runner, mediaPath);
+        using var service = CreateService(
+            CreateLargeMediaConfig(),
+            lfsInstalled: true,
+            notice =>
+            {
+                notices.Add(notice);
+                return Task.CompletedTask;
+            },
+            runner: deletingRunner);
+
+        CommitResult result = await service.CommitAllAsync(
+            "media removed",
+            SnapshotKind.Manual,
+            CancellationToken.None);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(result, Is.TypeOf<CommitResult.Committed>());
+            Assert.That(File.Exists(mediaPath), Is.False);
+            Assert.That(notices, Is.Empty);
         });
     }
 
@@ -345,12 +652,261 @@ public sealed class VersionControlPolicyTests : RealGitTestRepository
         VersionControlConfig config,
         bool lfsInstalled,
         Func<VersionControlPolicyNotice, Task> presentNotice,
-        RepositoryInfo? repository = null)
+        RepositoryInfo? repository = null,
+        IGitCliRunner? runner = null)
     {
+        if (runner is not null)
+        {
+            return new GitCliVersionControlService(
+                CreateInstalledLocator(lfsInstalled, config),
+                repository ?? Repository,
+                watcher: null,
+                _ => runner,
+                policyNoticeSink: (notice, _) => presentNotice(notice));
+        }
+
         return new GitCliVersionControlService(
             CreateInstalledLocator(lfsInstalled, config),
             repository ?? Repository,
             static () => true,
             (notice, _) => presentNotice(notice));
+    }
+
+    private static VersionControlConfig CreateLargeMediaConfig()
+        => new() { LargeMediaWarningThresholdMb = 1 };
+
+    private static async Task WriteLargeMediaAsync(string root, string relativePath)
+    {
+        string path = Path.Combine(root, relativePath.Replace('/', Path.DirectorySeparatorChar));
+        Directory.CreateDirectory(Path.GetDirectoryName(path)!);
+        await File.WriteAllBytesAsync(path, new byte[(1024 * 1024) + 1]);
+    }
+
+    private sealed record RecordedCommand(
+        RepositoryInfo Repository,
+        IReadOnlyList<string> Arguments,
+        GitCommandOptions Options);
+
+    private sealed class RecordingRunner(IGitCliRunner inner) : IGitCliRunner
+    {
+        public List<RecordedCommand> Commands { get; } = [];
+
+        public bool HasActiveProcess => inner.HasActiveProcess;
+
+        public Task<GitCommandResult> RunAsync(
+            RepositoryInfo repository,
+            IReadOnlyList<string> arguments,
+            GitCommandOptions options,
+            CancellationToken cancellationToken,
+            IProgress<string>? stderrProgress = null)
+        {
+            Commands.Add(new RecordedCommand(repository, [.. arguments], options));
+            return inner.RunAsync(
+                repository,
+                arguments,
+                options,
+                cancellationToken,
+                stderrProgress);
+        }
+
+        public RepositoryLockInfo? GetRecoverableRepositoryLock(RepositoryInfo repository)
+            => inner.GetRecoverableRepositoryLock(repository);
+
+        public bool RemoveRecoverableRepositoryLock(
+            RepositoryInfo repository,
+            RepositoryLockInfo lockInfo)
+            => inner.RemoveRecoverableRepositoryLock(repository, lockInfo);
+    }
+
+    private sealed class LfsAttributeEchoRunner : IGitCliRunner
+    {
+        public List<RecordedCommand> Commands { get; } = [];
+
+        public bool HasActiveProcess => false;
+
+        public Task<GitCommandResult> RunAsync(
+            RepositoryInfo repository,
+            IReadOnlyList<string> arguments,
+            GitCommandOptions options,
+            CancellationToken cancellationToken,
+            IProgress<string>? stderrProgress = null)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            Commands.Add(new RecordedCommand(repository, [.. arguments], options));
+            string[] paths = options.StandardInput!
+                .Split('\0', StringSplitOptions.RemoveEmptyEntries);
+            string stdout = string.Concat(
+                paths.Select(static path => $"{path}\0filter\0lfs\0"));
+            return Task.FromResult(new GitCommandResult(0, stdout, string.Empty));
+        }
+
+        public RepositoryLockInfo? GetRecoverableRepositoryLock(RepositoryInfo repository)
+            => null;
+
+        public bool RemoveRecoverableRepositoryLock(
+            RepositoryInfo repository,
+            RepositoryLockInfo lockInfo)
+            => false;
+    }
+
+    private sealed class TruncatingCustomAttributeRunner : IGitCliRunner
+    {
+        public List<RecordedCommand> Commands { get; } = [];
+
+        public bool HasActiveProcess => false;
+
+        public Task<GitCommandResult> RunAsync(
+            RepositoryInfo repository,
+            IReadOnlyList<string> arguments,
+            GitCommandOptions options,
+            CancellationToken cancellationToken,
+            IProgress<string>? stderrProgress = null)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            Commands.Add(new RecordedCommand(repository, [.. arguments], options));
+            string[] paths = options.StandardInput!
+                .Split('\0', StringSplitOptions.RemoveEmptyEntries);
+            string stdout = string.Concat(paths.Select((path, index) =>
+                $"{path}\0filter\0{(index == paths.Length - 1 ? new string('x', 20_000) : "lfs")}\0"));
+            int captureLimit = options.MaxStdoutBytes!.Value;
+            Assert.That(stdout.Length, Is.GreaterThan(captureLimit));
+            return Task.FromResult(new GitCommandResult(
+                0,
+                stdout[..captureLimit],
+                string.Empty,
+                StdoutTruncated: true));
+        }
+
+        public RepositoryLockInfo? GetRecoverableRepositoryLock(RepositoryInfo repository)
+            => null;
+
+        public bool RemoveRecoverableRepositoryLock(
+            RepositoryInfo repository,
+            RepositoryLockInfo lockInfo)
+            => false;
+    }
+
+    public enum CheckAttributeFault
+    {
+        Malformed,
+        Truncated,
+        StandardError,
+        Unset,
+        Unspecified,
+        PathMismatch,
+        CommandFailure,
+        Timeout,
+        IoFailure,
+    }
+
+    private sealed class DeleteDuringAttributeQueryRunner(
+        IGitCliRunner inner,
+        string path) : IGitCliRunner
+    {
+        public bool HasActiveProcess => inner.HasActiveProcess;
+
+        public Task<GitCommandResult> RunAsync(
+            RepositoryInfo repository,
+            IReadOnlyList<string> arguments,
+            GitCommandOptions options,
+            CancellationToken cancellationToken,
+            IProgress<string>? stderrProgress = null)
+        {
+            if (arguments.FirstOrDefault() == "check-attr")
+            {
+                File.Delete(path);
+            }
+
+            return inner.RunAsync(
+                repository,
+                arguments,
+                options,
+                cancellationToken,
+                stderrProgress);
+        }
+
+        public RepositoryLockInfo? GetRecoverableRepositoryLock(RepositoryInfo repository)
+            => inner.GetRecoverableRepositoryLock(repository);
+
+        public bool RemoveRecoverableRepositoryLock(
+            RepositoryInfo repository,
+            RepositoryLockInfo lockInfo)
+            => inner.RemoveRecoverableRepositoryLock(repository, lockInfo);
+    }
+
+    private sealed class CheckAttributeFaultRunner(
+        IGitCliRunner inner,
+        CheckAttributeFault fault) : IGitCliRunner
+    {
+        public bool HasActiveProcess => inner.HasActiveProcess;
+
+        public async Task<GitCommandResult> RunAsync(
+            RepositoryInfo repository,
+            IReadOnlyList<string> arguments,
+            GitCommandOptions options,
+            CancellationToken cancellationToken,
+            IProgress<string>? stderrProgress = null)
+        {
+            if (arguments.FirstOrDefault() == "check-attr"
+                && fault == CheckAttributeFault.CommandFailure)
+            {
+                throw new GitOperationException(128, "attribute query failed");
+            }
+
+            if (arguments.FirstOrDefault() == "check-attr"
+                && fault == CheckAttributeFault.Timeout)
+            {
+                throw new TimeoutException("attribute query timed out");
+            }
+
+            if (arguments.FirstOrDefault() == "check-attr"
+                && fault == CheckAttributeFault.IoFailure)
+            {
+                throw new IOException("attribute query failed during I/O");
+            }
+
+            GitCommandResult result = await inner.RunAsync(
+                repository,
+                arguments,
+                options,
+                cancellationToken,
+                stderrProgress);
+            if (arguments.FirstOrDefault() != "check-attr")
+            {
+                return result;
+            }
+
+            string path = options.StandardInput![..^1];
+            return fault switch
+            {
+                CheckAttributeFault.Malformed => result with
+                {
+                    Stdout = $"{path}\0filter\0lfs",
+                },
+                CheckAttributeFault.Truncated => result with { StdoutTruncated = true },
+                CheckAttributeFault.StandardError => result with { Stderr = "attribute warning\n" },
+                CheckAttributeFault.Unset => result with
+                {
+                    Stdout = $"{path}\0filter\0unset\0",
+                },
+                CheckAttributeFault.Unspecified => result with
+                {
+                    Stdout = $"{path}\0filter\0unspecified\0",
+                },
+                CheckAttributeFault.PathMismatch => result with
+                {
+                    Stdout = $"other/{path}\0filter\0lfs\0",
+                },
+                _ => throw new ArgumentOutOfRangeException(nameof(fault)),
+            };
+        }
+
+        public RepositoryLockInfo? GetRecoverableRepositoryLock(RepositoryInfo repository)
+            => inner.GetRecoverableRepositoryLock(repository);
+
+        public bool RemoveRecoverableRepositoryLock(
+            RepositoryInfo repository,
+            RepositoryLockInfo lockInfo)
+            => inner.RemoveRecoverableRepositoryLock(repository, lockInfo);
     }
 }
