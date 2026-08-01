@@ -1,7 +1,9 @@
 ﻿using System.Collections.Concurrent;
 using Beutl.Editor;
+using Beutl.Graphics;
 using Beutl.Logging;
 using Beutl.Media;
+using Beutl.Media.Source;
 using Beutl.ProjectSystem;
 using Beutl.Serialization;
 using Microsoft.Extensions.Logging;
@@ -330,6 +332,145 @@ public class ProjectPackageServiceTests
         {
             Assert.That(archive.GetEntry("linked-secret.txt"), Is.Null);
             Assert.That(archive.GetEntry("linked-assets/external.scene"), Is.Null);
+        });
+    }
+
+    [Test]
+    public async Task ExportAsync_WithReferencedFileSymbolicLink_RelocatesTarget()
+    {
+        var service = ProjectPackageService.Current;
+        string outsideDirectory = Path.Combine(_testDir, "outside-file-link");
+        Directory.CreateDirectory(outsideDirectory);
+        string outsideFile = Path.Combine(outsideDirectory, "referenced.png");
+        File.WriteAllText(outsideFile, "referenced linked content");
+
+        string referencedLink = Path.Combine(_projectDir, "referenced-link.png");
+        string unreferencedLink = Path.Combine(_projectDir, "unreferenced-link.png");
+        CreateFileSymbolicLinkOrIgnore(referencedLink, outsideFile);
+        CreateFileSymbolicLinkOrIgnore(unreferencedLink, outsideFile);
+        Project project = CreateAndSaveTestProjectWithImageSource(referencedLink);
+        string packagePath = Path.Combine(_exportDir, "referenced-file-link.zip");
+
+        ExportResult result = await service.ExportAsync(project, packagePath);
+        Project? importedProject = await service.ImportAsync(packagePath, _importDir);
+
+        Assert.That(result.Success, Is.True);
+        Assert.That(result.FailedResources, Is.Empty);
+        Assert.That(importedProject, Is.Not.Null);
+        string importedDirectory = Path.GetDirectoryName(importedProject!.Uri!.LocalPath)!;
+        ImageSource importedSource = GetOnlyImageSource(importedProject);
+        Assert.Multiple(() =>
+        {
+            Assert.That(File.ReadAllText(importedSource.Uri.LocalPath),
+                Is.EqualTo("referenced linked content"));
+            Assert.That(Path.GetDirectoryName(importedSource.Uri.LocalPath),
+                Is.EqualTo(Path.Combine(importedDirectory, "resources")));
+            Assert.That(File.Exists(Path.Combine(importedDirectory, "referenced-link.png")), Is.False);
+            Assert.That(File.Exists(Path.Combine(importedDirectory, "unreferenced-link.png")), Is.False);
+        });
+    }
+
+    [Test]
+    public async Task ExportAsync_WithReferencedFileThroughDirectorySymbolicLink_RelocatesTarget()
+    {
+        var service = ProjectPackageService.Current;
+        string outsideDirectory = Path.Combine(_testDir, "outside-directory-link");
+        Directory.CreateDirectory(outsideDirectory);
+        string outsideFile = Path.Combine(outsideDirectory, "nested.png");
+        File.WriteAllText(outsideFile, "referenced directory-link content");
+
+        string linkedDirectory = Path.Combine(_projectDir, "linked-assets");
+        CreateDirectorySymbolicLinkOrIgnore(linkedDirectory, outsideDirectory);
+        string referencedFile = Path.Combine(linkedDirectory, "nested.png");
+        Project project = CreateAndSaveTestProjectWithImageSource(referencedFile);
+        string packagePath = Path.Combine(_exportDir, "referenced-directory-link.zip");
+
+        ExportResult result = await service.ExportAsync(project, packagePath);
+        Project? importedProject = await service.ImportAsync(packagePath, _importDir);
+
+        Assert.That(result.Success, Is.True);
+        Assert.That(result.FailedResources, Is.Empty);
+        Assert.That(importedProject, Is.Not.Null);
+        string importedDirectory = Path.GetDirectoryName(importedProject!.Uri!.LocalPath)!;
+        ImageSource importedSource = GetOnlyImageSource(importedProject);
+        Assert.Multiple(() =>
+        {
+            Assert.That(File.ReadAllText(importedSource.Uri.LocalPath),
+                Is.EqualTo("referenced directory-link content"));
+            Assert.That(Path.GetDirectoryName(importedSource.Uri.LocalPath),
+                Is.EqualTo(Path.Combine(importedDirectory, "resources")));
+            Assert.That(Directory.Exists(Path.Combine(importedDirectory, "linked-assets")), Is.False);
+        });
+    }
+
+    [Test]
+    public async Task ExportAsync_WithReferencedCyclicSymbolicLink_ReportsPartialFailure()
+    {
+        var service = ProjectPackageService.Current;
+        string firstLink = Path.Combine(_projectDir, "first.png");
+        string secondLink = Path.Combine(_projectDir, "second.png");
+        CreateFileSymbolicLinkOrIgnore(firstLink, secondLink);
+        CreateFileSymbolicLinkOrIgnore(secondLink, firstLink);
+        Project project = CreateAndSaveTestProjectWithImageSource(firstLink);
+        string packagePath = Path.Combine(_exportDir, "referenced-link-cycle.zip");
+
+        ExportResult result = await service.ExportAsync(project, packagePath);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(result.Success, Is.True);
+            Assert.That(result.FailedResources, Has.Count.EqualTo(1));
+            Assert.That(NormalizeFailedFileIdentifier(result.FailedResources[0]), Is.EqualTo(firstLink));
+            Assert.That(File.Exists(packagePath), Is.True);
+        });
+
+        using System.IO.Compression.ZipArchive archive = System.IO.Compression.ZipFile.OpenRead(packagePath);
+        Assert.Multiple(() =>
+        {
+            Assert.That(archive.GetEntry("first.png"), Is.Null);
+            Assert.That(archive.GetEntry("second.png"), Is.Null);
+        });
+    }
+
+    [Test]
+    public async Task ExportAsync_WithReferencedBrokenSymbolicLink_ReportsPartialFailure()
+    {
+        var service = ProjectPackageService.Current;
+        string brokenLink = Path.Combine(_projectDir, "broken.png");
+        CreateFileSymbolicLinkOrIgnore(brokenLink, Path.Combine(_testDir, "missing.png"));
+        Project project = CreateAndSaveTestProjectWithImageSource(brokenLink);
+        string packagePath = Path.Combine(_exportDir, "referenced-broken-link.zip");
+
+        ExportResult result = await service.ExportAsync(project, packagePath);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(result.Success, Is.True);
+            Assert.That(result.FailedResources, Has.Count.EqualTo(1));
+            Assert.That(NormalizeFailedFileIdentifier(result.FailedResources[0]), Is.EqualTo(brokenLink));
+            Assert.That(File.Exists(packagePath), Is.True);
+        });
+    }
+
+    [Test]
+    public async Task ExportAsync_WithReferencedSymbolicLinkToDirectory_ReportsPartialFailure()
+    {
+        var service = ProjectPackageService.Current;
+        string outsideDirectory = Path.Combine(_testDir, "directory-target");
+        Directory.CreateDirectory(outsideDirectory);
+        string directoryLink = Path.Combine(_projectDir, "linked-directory.png");
+        CreateDirectorySymbolicLinkOrIgnore(directoryLink, outsideDirectory);
+        Project project = CreateAndSaveTestProjectWithImageSource(directoryLink);
+        string packagePath = Path.Combine(_exportDir, "referenced-directory-target.zip");
+
+        ExportResult result = await service.ExportAsync(project, packagePath);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(result.Success, Is.True);
+            Assert.That(result.FailedResources, Has.Count.EqualTo(1));
+            Assert.That(NormalizeFailedFileIdentifier(result.FailedResources[0]), Is.EqualTo(directoryLink));
+            Assert.That(File.Exists(packagePath), Is.True);
         });
     }
 
@@ -809,6 +950,41 @@ public class ProjectPackageServiceTests
         writer.Write(content);
     }
 
+    private static void CreateFileSymbolicLinkOrIgnore(string path, string target)
+    {
+        try
+        {
+            File.CreateSymbolicLink(path, target);
+        }
+        catch (Exception ex) when (ex is IOException
+                                   or UnauthorizedAccessException
+                                   or PlatformNotSupportedException)
+        {
+            Assert.Ignore("Creating file symbolic links is not supported in this environment.");
+        }
+    }
+
+    private static void CreateDirectorySymbolicLinkOrIgnore(string path, string target)
+    {
+        try
+        {
+            Directory.CreateSymbolicLink(path, target);
+        }
+        catch (Exception ex) when (ex is IOException
+                                   or UnauthorizedAccessException
+                                   or PlatformNotSupportedException)
+        {
+            Assert.Ignore("Creating directory symbolic links is not supported in this environment.");
+        }
+    }
+
+    private static string NormalizeFailedFileIdentifier(string identifier)
+    {
+        return Uri.TryCreate(identifier, UriKind.Absolute, out Uri? uri) && uri.IsFile
+            ? uri.LocalPath
+            : identifier;
+    }
+
     private Project CreateAndSaveTestProject()
     {
         string projectFilePath = Path.Combine(_projectDir, "test.bep");
@@ -821,6 +997,37 @@ public class ProjectPackageServiceTests
 
         // Restore the project to get a proper Uri set
         return CoreSerializer.RestoreFromUri<Project>(projectUri);
+    }
+
+    private Project CreateAndSaveTestProjectWithImageSource(string sourcePath)
+    {
+        string projectFilePath = Path.Combine(_projectDir, "linked-source.bep");
+        var project = new Project { Name = "LinkedSourceProject" };
+        var scene = new Scene(1920, 1080, "LinkedSourceScene")
+        {
+            Uri = new Uri(Path.Combine(_projectDir, "linked-source.scene")),
+        };
+        var element = new Element
+        {
+            Uri = new Uri(Path.Combine(_projectDir, "linked-source.belm")),
+            Length = TimeSpan.FromSeconds(1),
+        };
+        var imageSource = new ImageSource();
+        imageSource.ReadFrom(new Uri(sourcePath));
+        element.AddObject(new SourceImage { Source = { CurrentValue = imageSource } });
+        scene.Children.Add(element);
+        project.Items.Add(scene);
+
+        Uri projectUri = new(projectFilePath);
+        CoreSerializer.StoreToUri(project, projectUri);
+        return CoreSerializer.RestoreFromUri<Project>(projectUri);
+    }
+
+    private static ImageSource GetOnlyImageSource(Project project)
+    {
+        Scene scene = project.Items.OfType<Scene>().Single();
+        SourceImage drawable = scene.Children.Single().Objects.OfType<SourceImage>().Single();
+        return drawable.Source.CurrentValue!;
     }
 
     private sealed class StubRelocationService(

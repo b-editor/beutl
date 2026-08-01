@@ -61,7 +61,7 @@ public sealed class ExternalResourceCollector
             CollectFromEngineObject(engineObj, projectDirectory);
         }
 
-        if (obj.Uri != null && IsExternalFile(obj.Uri, projectDirectory))
+        if (obj.Uri != null && ShouldRelocateFile(obj.Uri, projectDirectory))
         {
             _fileSources.Add((obj.Id, "Uri", obj.Uri));
         }
@@ -74,7 +74,7 @@ public sealed class ExternalResourceCollector
             switch (value)
             {
                 case IFileSource fileSource:
-                    if (fileSource.Uri != null && IsExternalFile(fileSource.Uri, projectDirectory))
+                    if (fileSource.Uri != null && ShouldRelocateFile(fileSource.Uri, projectDirectory))
                     {
                         _fileSources.Add((obj.Id, prop.Name, fileSource.Uri));
                     }
@@ -95,7 +95,7 @@ public sealed class ExternalResourceCollector
             {
                 // Collect IFileSource
                 case IFileSource fileSource when fileSource.Uri != null:
-                    if (IsExternalFile(fileSource.Uri, projectDirectory))
+                    if (ShouldRelocateFile(fileSource.Uri, projectDirectory))
                     {
                         _fileSources.Add((obj.Id, property.Name, fileSource.Uri));
                     }
@@ -110,19 +110,58 @@ public sealed class ExternalResourceCollector
     }
 
     /// <summary>
-    /// Determines whether the URI points to a file outside the project directory.
+    /// Determines whether the URI must be copied into the package's resources directory.
     /// </summary>
-    private static bool IsExternalFile(Uri uri, string projectDirectory)
+    private static bool ShouldRelocateFile(Uri uri, string projectDirectory)
     {
         if (!uri.IsFile)
             return false;
 
-        string filePath = uri.LocalPath;
+        string filePath = Path.GetFullPath(uri.LocalPath);
         string fullProjectPath = Path.GetFullPath(projectDirectory);
-        if (!fullProjectPath.EndsWith(Path.DirectorySeparatorChar))
-            fullProjectPath += Path.DirectorySeparatorChar;
+        string relativePath = Path.GetRelativePath(fullProjectPath, filePath);
 
-        // Files outside the project directory are considered external
-        return !Path.GetFullPath(filePath).StartsWith(fullProjectPath, StringComparison.OrdinalIgnoreCase);
+        // Files outside the project directory are considered external.
+        if (Path.IsPathRooted(relativePath)
+            || relativePath == ".."
+            || relativePath.StartsWith($"..{Path.DirectorySeparatorChar}", StringComparison.Ordinal))
+        {
+            return true;
+        }
+
+        // Directory staging deliberately skips links. A referenced file that is itself a link,
+        // or lives below a linked directory, must therefore go through the regular relocation
+        // path so only that referenced target is materialized in resources. Inspect each lexical
+        // component without resolving targets, which also identifies broken links and cycles.
+        string currentPath = fullProjectPath;
+        string[] segments = relativePath.Split(
+            [Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar],
+            StringSplitOptions.RemoveEmptyEntries);
+        for (int i = 0; i < segments.Length; i++)
+        {
+            currentPath = Path.Combine(currentPath, segments[i]);
+            FileSystemInfo info = i == segments.Length - 1
+                ? new FileInfo(currentPath)
+                : new DirectoryInfo(currentPath);
+
+            try
+            {
+                if (info.LinkTarget is not null)
+                {
+                    return true;
+                }
+            }
+            catch (Exception ex)
+                when (ex is IOException
+                      or UnauthorizedAccessException
+                      or NotSupportedException)
+            {
+                // Conservatively relocate when link inspection is unavailable. The relocation
+                // service will either copy the referenced file or report it as a partial failure.
+                return true;
+            }
+        }
+
+        return false;
     }
 }

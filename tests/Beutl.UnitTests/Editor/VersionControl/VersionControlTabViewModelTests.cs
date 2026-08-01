@@ -335,6 +335,197 @@ public class VersionControlTabViewModelTests
     }
 
     [Test]
+    public async Task Status_change_with_the_same_history_preserves_loaded_pages_and_selection()
+    {
+        CommitInfo[] commits = Enumerable.Range(0, 53)
+            .Select(index => CreateCommit(index, SnapshotKind.Save))
+            .ToArray();
+        Mock<IProjectVersionControlService> service = CreateServiceMock();
+        service.Setup(x => x.GetHistoryAsync(
+                It.IsAny<int>(),
+                It.IsAny<int>(),
+                It.IsAny<CancellationToken>()))
+            .ReturnsAsync((int skip, int take, CancellationToken _) =>
+                commits.Skip(skip).Take(take).ToArray());
+        service.Setup(x => x.GetCommitFilesAsync(
+                It.IsAny<string>(),
+                It.IsAny<CancellationToken>()))
+            .ReturnsAsync([]);
+        using VersionControlTabViewModel viewModel = CreateViewModel(service.Object);
+        await viewModel.Initialization;
+        await viewModel.LoadMoreAsync();
+        VersionControlCommitViewModel[] loadedCommits = [.. viewModel.Commits];
+        VersionControlCommitViewModel selectedCommit = loadedCommits[51];
+        await viewModel.OpenCommitDetailAsync(selectedCommit);
+
+        service.Raise(
+            x => x.StatusChanged += null,
+            service.Object,
+            new WorkspaceStatus(
+                "main",
+                0,
+                0,
+                [new FileChange("project.bep", FileChangeStatus.Modified)],
+                false));
+        await viewModel.Initialization;
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(viewModel.Commits, Is.EqualTo(loadedCommits));
+            Assert.That(viewModel.SelectedCommit.Value, Is.SameAs(selectedCommit));
+            Assert.That(viewModel.ShowingDetail.Value, Is.True);
+            Assert.That(viewModel.HasMoreHistory.Value, Is.False);
+            Assert.That(viewModel.DirtySummary.Value, Does.Contain("1"));
+        });
+        service.Verify(
+            x => x.GetHistoryAsync(0, 1, It.IsAny<CancellationToken>()),
+            Times.Once);
+        service.Verify(
+            x => x.GetHistoryAsync(0, 50, It.IsAny<CancellationToken>()),
+            Times.Once);
+        service.Verify(
+            x => x.GetHistoryAsync(50, 50, It.IsAny<CancellationToken>()),
+            Times.Once);
+    }
+
+    [Test]
+    public async Task Status_change_with_a_new_tip_refreshes_history_and_restores_selection()
+    {
+        CommitInfo firstCommit = CreateCommit(1, SnapshotKind.Save);
+        CommitInfo selectedCommit = CreateCommit(2, SnapshotKind.Manual);
+        CommitInfo newTip = CreateCommit(3, SnapshotKind.Save);
+        CommitInfo[] commits = [firstCommit, selectedCommit];
+        Mock<IProjectVersionControlService> service = CreateServiceMock();
+        service.Setup(x => x.GetHistoryAsync(
+                It.IsAny<int>(),
+                It.IsAny<int>(),
+                It.IsAny<CancellationToken>()))
+            .ReturnsAsync((int skip, int take, CancellationToken _) =>
+                commits.Skip(skip).Take(take).ToArray());
+        service.Setup(x => x.GetCommitFilesAsync(
+                It.IsAny<string>(),
+                It.IsAny<CancellationToken>()))
+            .ReturnsAsync([]);
+        using VersionControlTabViewModel viewModel = CreateViewModel(service.Object);
+        await viewModel.Initialization;
+        VersionControlCommitViewModel originalSelection = viewModel.Commits[1];
+        await viewModel.OpenCommitDetailAsync(originalSelection);
+        commits = [newTip, .. commits];
+
+        service.Raise(
+            x => x.StatusChanged += null,
+            service.Object,
+            new WorkspaceStatus("main", 0, 0, [], false));
+        await viewModel.Initialization;
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(
+                viewModel.Commits.Select(commit => commit.Commit),
+                Is.EqualTo(commits));
+            Assert.That(viewModel.SelectedCommit.Value, Is.Not.SameAs(originalSelection));
+            Assert.That(
+                viewModel.SelectedCommit.Value?.Commit.Sha,
+                Is.EqualTo(selectedCommit.Sha));
+            Assert.That(viewModel.ShowingDetail.Value, Is.True);
+        });
+        service.Verify(
+            x => x.GetHistoryAsync(0, 1, It.IsAny<CancellationToken>()),
+            Times.Once);
+        service.Verify(
+            x => x.GetHistoryAsync(0, 50, It.IsAny<CancellationToken>()),
+            Times.Exactly(2));
+    }
+
+    [Test]
+    public async Task Latest_status_refresh_wins_when_an_older_remote_query_completes_late()
+    {
+        CommitInfo initialTip = CreateCommit(1, SnapshotKind.Save);
+        CommitInfo latestTip = CreateCommit(2, SnapshotKind.Manual);
+        CommitInfo[] commits = [initialTip];
+        var initialRemote = new RemoteInfo(
+            "origin",
+            "https://example.invalid/initial.git");
+        var staleRemote = new RemoteInfo(
+            "origin",
+            "https://example.invalid/stale.git");
+        var latestRemote = new RemoteInfo(
+            "origin",
+            "https://example.invalid/latest.git");
+        var staleRemoteStarted = new TaskCompletionSource(
+            TaskCreationOptions.RunContinuationsAsynchronously);
+        var staleRemoteCompletion =
+            new TaskCompletionSource<IReadOnlyList<RemoteInfo>>(
+                TaskCreationOptions.RunContinuationsAsynchronously);
+        int remoteRequest = 0;
+        Mock<IProjectVersionControlService> service = CreateServiceMock();
+        service.Setup(x => x.GetHistoryAsync(
+                It.IsAny<int>(),
+                It.IsAny<int>(),
+                It.IsAny<CancellationToken>()))
+            .ReturnsAsync((int skip, int take, CancellationToken _) =>
+                commits.Skip(skip).Take(take).ToArray());
+        service.Setup(x => x.GetRemotesAsync(It.IsAny<CancellationToken>()))
+            .Returns<CancellationToken>(_ =>
+            {
+                int request = Interlocked.Increment(ref remoteRequest);
+                if (request == 1)
+                {
+                    return Task.FromResult<IReadOnlyList<RemoteInfo>>([initialRemote]);
+                }
+
+                if (request == 2)
+                {
+                    staleRemoteStarted.TrySetResult();
+                    return staleRemoteCompletion.Task;
+                }
+
+                return Task.FromResult<IReadOnlyList<RemoteInfo>>([latestRemote]);
+            });
+        using VersionControlTabViewModel viewModel = CreateViewModel(service.Object);
+        await viewModel.Initialization;
+
+        service.Raise(
+            x => x.StatusChanged += null,
+            service.Object,
+            new WorkspaceStatus("old-branch", 1, 0, [], false));
+        Task staleRefresh = viewModel.Initialization;
+        await staleRemoteStarted.Task.WaitAsync(TimeSpan.FromSeconds(2));
+
+        commits = [latestTip, .. commits];
+        service.Raise(
+            x => x.StatusChanged += null,
+            service.Object,
+            new WorkspaceStatus("new-branch", 2, 0, [], false));
+        await viewModel.Initialization;
+        VersionControlCommitViewModel appliedLatestTip = viewModel.Commits[0];
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(appliedLatestTip.Commit, Is.EqualTo(latestTip));
+            Assert.That(viewModel.RemoteUrl.Value, Is.EqualTo(latestRemote.Url));
+        });
+
+        staleRemoteCompletion.SetResult([staleRemote]);
+        await staleRefresh;
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(viewModel.Commits[0], Is.SameAs(appliedLatestTip));
+            Assert.That(viewModel.RemoteUrl.Value, Is.EqualTo(latestRemote.Url));
+        });
+        service.Verify(
+            x => x.GetHistoryAsync(0, 1, It.IsAny<CancellationToken>()),
+            Times.Once);
+        service.Verify(
+            x => x.GetHistoryAsync(0, 50, It.IsAny<CancellationToken>()),
+            Times.Exactly(2));
+        service.Verify(
+            x => x.GetRemotesAsync(It.IsAny<CancellationToken>()),
+            Times.Exactly(3));
+    }
+
+    [Test]
     public async Task Primary_action_follows_the_complete_priority_matrix()
     {
         (

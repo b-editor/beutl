@@ -9,6 +9,66 @@ namespace Beutl.UnitTests.Editor.VersionControl;
 [TestFixture]
 public class GitCliVersionControlServiceTests : RealGitTestRepository
 {
+    // Stable union of the existing policy, Engine built-in decoders, optional decoders,
+    // and the still-image formats advertised by SharedFilePickerOptions.OpenImage.
+    private static readonly string[] s_expectedSupportedMediaExtensions =
+    [
+        ".mp4",
+        ".mov",
+        ".mkv",
+        ".avi",
+        ".wmv",
+        ".flv",
+        ".webm",
+        ".wav",
+        ".mp3",
+        ".flac",
+        ".aac",
+        ".m4a",
+        ".ogg",
+        ".opus",
+        ".wma",
+        ".png",
+        ".jpg",
+        ".jpeg",
+        ".gif",
+        ".bmp",
+        ".webp",
+        ".tiff",
+        ".tif",
+        ".wave",
+        ".apng",
+        ".264",
+        ".mpeg",
+        ".ts",
+        ".mts",
+        ".m2ts",
+        ".sami",
+        ".smi",
+        ".m4v",
+        ".adts",
+        ".asf",
+        ".3gp",
+        ".3gp2",
+        ".3gpp",
+        ".ico",
+        ".wbmp",
+        ".pkm",
+        ".ktx",
+        ".astc",
+        ".dng",
+        ".heif",
+        ".avif",
+    ];
+
+    private static string CreateTestCaseInsensitiveGlob(string extension)
+    {
+        return string.Concat(extension.Select(static character =>
+            character is >= 'a' and <= 'z'
+                ? $"[{character}{char.ToUpperInvariant(character)}]"
+                : character.ToString()));
+    }
+
     [Test]
     public async Task InitializeAsync_creates_repository_files_and_initial_snapshot()
     {
@@ -445,6 +505,40 @@ public class GitCliVersionControlServiceTests : RealGitTestRepository
     }
 
     [Test]
+    public async Task InitializeAsync_writes_each_supported_media_Lfs_pattern_once()
+    {
+        string projectRoot = CreateTemporaryDirectory();
+        var runner = new RecordingInitializationRunner();
+        using var service = new GitCliVersionControlService(
+            CreateInstalledLocator(lfsInstalled: true),
+            repository: null,
+            watcher: null,
+            _ => runner);
+
+        await service.InitializeAsync(
+            new InitOptions(
+                new RepositoryInfo(projectRoot, projectRoot),
+                UseLfsWhenAvailable: true),
+            CancellationToken.None);
+
+        const string lfsAttributes = " filter=lfs diff=lfs merge=lfs -text";
+        string[] actualPatterns = File.ReadAllLines(Path.Combine(projectRoot, ".gitattributes"))
+            .Where(static line => line.StartsWith("resources/**/*", StringComparison.Ordinal)
+                && line.EndsWith(lfsAttributes, StringComparison.Ordinal))
+            .Select(static line => line[..^lfsAttributes.Length])
+            .ToArray();
+        string[] expectedPatterns = s_expectedSupportedMediaExtensions
+            .Select(static extension => $"resources/**/*{CreateTestCaseInsensitiveGlob(extension)}")
+            .ToArray();
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(actualPatterns, Is.Unique);
+            Assert.That(actualPatterns, Is.EquivalentTo(expectedPatterns));
+        });
+    }
+
+    [Test]
     public async Task EnsureRepositoryHygieneAsync_applies_Lfs_to_mixed_case_media_extensions()
     {
         await CommitFileAsync("project.bep", "{}\n", "baseline");
@@ -462,19 +556,63 @@ public class GitCliVersionControlServiceTests : RealGitTestRepository
             await File.ReadAllTextAsync(Path.Combine(Root, ".gitattributes")),
             Does.Contain(
                 "resources/**/*.[mM][pP]4 filter=lfs diff=lfs merge=lfs -text\n"));
-        GitCommandResult attributes = await RunGitAsync(
-            "check-attr",
-            "filter",
-            "--",
+        string[] paths =
+        [
             "resources/CLIP.MP4",
-            "resources/Clip.Mp4");
+            "resources/Clip.Mp4",
+            "resources/audio.WaVe",
+            "resources/animation.ApNg",
+            "resources/raw.DnG",
+            "resources/photo.HeIf",
+            "resources/photo.AvIf",
+        ];
+        GitCommandResult attributes = await RunGitAsync(
+            ["check-attr", "filter", "--", .. paths]);
         Assert.That(
             attributes.Stdout.Split('\n', StringSplitOptions.RemoveEmptyEntries),
-            Is.EqualTo(new[]
+            Is.EqualTo(paths.Select(static path => $"{path}: filter: lfs").ToArray()));
+    }
+
+    [TestCase(".WAVE")]
+    [TestCase(".APNG")]
+    [TestCase(".DNG")]
+    [TestCase(".HEIF")]
+    [TestCase(".AVIF")]
+    public async Task CommitAllAsync_warns_for_supported_large_media_without_Lfs(string extension)
+    {
+        await CommitFileAsync("project.bep", "initial\n", "initial");
+        string relativePath = $"resources/large{extension}";
+        string mediaPath = Path.Combine(Root, relativePath.Replace('/', Path.DirectorySeparatorChar));
+        Directory.CreateDirectory(Path.GetDirectoryName(mediaPath)!);
+        await File.WriteAllBytesAsync(mediaPath, [0]);
+        var notices = new List<VersionControlPolicyNotice>();
+        var config = new VersionControlConfig { LargeMediaWarningThresholdMb = 0 };
+        using var service = new GitCliVersionControlService(
+            CreateInstalledLocator(lfsInstalled: false, config),
+            Repository,
+            watcher: null,
+            _ => CreateRunner(),
+            policyNoticeSink: (notice, _) =>
             {
-                "resources/CLIP.MP4: filter: lfs",
-                "resources/Clip.Mp4: filter: lfs",
-            }));
+                notices.Add(notice);
+                return Task.CompletedTask;
+            });
+
+        CommitResult result = await service.CommitAllAsync(
+            "large media",
+            SnapshotKind.Manual,
+            CancellationToken.None);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(result, Is.TypeOf<CommitResult.Committed>());
+            Assert.That(
+                notices,
+                Is.EqualTo(new[]
+                {
+                    new VersionControlPolicyNotice.LargeMediaWithoutLfs(relativePath, 1),
+                }));
+        });
     }
 
     [Test]

@@ -174,6 +174,9 @@ internal sealed class GitCliVersionControlService :
         ".gitattributes text eol=lf",
     ];
 
+    // Stable union of the existing policy, Engine built-in decoders, the FFmpeg and
+    // MF/AVF decoders, and SharedFilePickerOptions.OpenImage. Do not derive this from
+    // DecoderRegistry: repository attributes must not vary with platform or extension load state.
     private static readonly string[] s_supportedMediaExtensions =
     [
         ".mp4",
@@ -199,6 +202,33 @@ internal sealed class GitCliVersionControlService :
         ".webp",
         ".tiff",
         ".tif",
+        // Engine built-in decoder additions.
+        ".wave",
+        ".apng",
+        // FFmpeg decoder additions.
+        ".264",
+        ".mpeg",
+        ".ts",
+        ".mts",
+        ".m2ts",
+        // Media Foundation and AVFoundation decoder additions.
+        ".sami",
+        ".smi",
+        ".m4v",
+        ".adts",
+        ".asf",
+        ".3gp",
+        ".3gp2",
+        ".3gpp",
+        // SharedFilePickerOptions.OpenImage additions.
+        ".ico",
+        ".wbmp",
+        ".pkm",
+        ".ktx",
+        ".astc",
+        ".dng",
+        ".heif",
+        ".avif",
     ];
 
     private static readonly string[] s_lfsAttributeLines =

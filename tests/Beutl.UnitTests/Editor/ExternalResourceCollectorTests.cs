@@ -107,6 +107,77 @@ public class ExternalResourceCollectorTests
     }
 
     [Test]
+    public void Collect_WithInternalFileSymbolicLink_CollectsFileSource()
+    {
+        string externalFile = Path.Combine(_externalDir, "target.png");
+        File.WriteAllText(externalFile, "linked content");
+        string linkedFile = Path.Combine(_testProjectDir, "linked.png");
+        CreateFileSymbolicLinkOrIgnore(linkedFile, externalFile);
+
+        var engineObj = new TestEngineObjectWithFileSource(new TestFileSource(new Uri(linkedFile)));
+        var root = new TestHierarchical();
+        root.AddChild(engineObj);
+
+        ExternalResourceCollector collector = ExternalResourceCollector.Collect(root, _testProjectDir);
+
+        Assert.That(collector.FileSources, Has.Count.EqualTo(1));
+        Assert.That(collector.FileSources.Single().OriginalUri.LocalPath, Is.EqualTo(linkedFile));
+    }
+
+    [Test]
+    public void Collect_WithFileInsideInternalDirectorySymbolicLink_CollectsFileSource()
+    {
+        string externalFile = Path.Combine(_externalDir, "nested.png");
+        File.WriteAllText(externalFile, "linked directory content");
+        string linkedDirectory = Path.Combine(_testProjectDir, "linked-assets");
+        CreateDirectorySymbolicLinkOrIgnore(linkedDirectory, _externalDir);
+        string linkedFile = Path.Combine(linkedDirectory, "nested.png");
+
+        var engineObj = new TestEngineObjectWithFileSource(new TestFileSource(new Uri(linkedFile)));
+        var root = new TestHierarchical();
+        root.AddChild(engineObj);
+
+        ExternalResourceCollector collector = ExternalResourceCollector.Collect(root, _testProjectDir);
+
+        Assert.That(collector.FileSources, Has.Count.EqualTo(1));
+        Assert.That(collector.FileSources.Single().OriginalUri.LocalPath, Is.EqualTo(linkedFile));
+    }
+
+    [Test]
+    public void Collect_WithBrokenInternalSymbolicLink_CollectsFileSource()
+    {
+        string linkedFile = Path.Combine(_testProjectDir, "broken.png");
+        CreateFileSymbolicLinkOrIgnore(linkedFile, Path.Combine(_externalDir, "missing.png"));
+
+        var engineObj = new TestEngineObjectWithFileSource(new TestFileSource(new Uri(linkedFile)));
+        var root = new TestHierarchical();
+        root.AddChild(engineObj);
+
+        ExternalResourceCollector collector = ExternalResourceCollector.Collect(root, _testProjectDir);
+
+        Assert.That(collector.FileSources, Has.Count.EqualTo(1));
+        Assert.That(collector.FileSources.Single().OriginalUri.LocalPath, Is.EqualTo(linkedFile));
+    }
+
+    [Test]
+    public void Collect_WithCyclicInternalSymbolicLink_CollectsFileSource()
+    {
+        string firstLink = Path.Combine(_testProjectDir, "first.png");
+        string secondLink = Path.Combine(_testProjectDir, "second.png");
+        CreateFileSymbolicLinkOrIgnore(firstLink, secondLink);
+        CreateFileSymbolicLinkOrIgnore(secondLink, firstLink);
+
+        var engineObj = new TestEngineObjectWithFileSource(new TestFileSource(new Uri(firstLink)));
+        var root = new TestHierarchical();
+        root.AddChild(engineObj);
+
+        ExternalResourceCollector collector = ExternalResourceCollector.Collect(root, _testProjectDir);
+
+        Assert.That(collector.FileSources, Has.Count.EqualTo(1));
+        Assert.That(collector.FileSources.Single().OriginalUri.LocalPath, Is.EqualTo(firstLink));
+    }
+
+    [Test]
     public void Collect_WithEngineObjectContainingFontFamily_CollectsFontFamily()
     {
         // Arrange
@@ -415,6 +486,34 @@ public class ExternalResourceCollectorTests
     }
 
     // Test helper classes
+    private static void CreateFileSymbolicLinkOrIgnore(string path, string target)
+    {
+        try
+        {
+            File.CreateSymbolicLink(path, target);
+        }
+        catch (Exception ex) when (ex is IOException
+                                   or UnauthorizedAccessException
+                                   or PlatformNotSupportedException)
+        {
+            Assert.Ignore("Creating file symbolic links is not supported in this environment.");
+        }
+    }
+
+    private static void CreateDirectorySymbolicLinkOrIgnore(string path, string target)
+    {
+        try
+        {
+            Directory.CreateSymbolicLink(path, target);
+        }
+        catch (Exception ex) when (ex is IOException
+                                   or UnauthorizedAccessException
+                                   or PlatformNotSupportedException)
+        {
+            Assert.Ignore("Creating directory symbolic links is not supported in this environment.");
+        }
+    }
+
     private class TestHierarchical : Hierarchical
     {
         public void AddChild(IHierarchical child)
