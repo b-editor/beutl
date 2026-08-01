@@ -469,6 +469,64 @@ public class GitCliVersionControlServiceTests : RealGitTestRepository
     }
 
     [Test]
+    public async Task DiscoverRepositoryAsync_preserves_literal_backslashes_in_a_Unix_prefix()
+    {
+        if (OperatingSystem.IsWindows())
+        {
+            Assert.Ignore("Backslashes are directory separators on Windows.");
+        }
+
+        string projectRoot = Path.Combine(Root, @"project\with-backslash");
+        var runner = new MismatchedDiscoveryRunner(Root, @"project\with-backslash/");
+        using var service = new GitCliVersionControlService(
+            CreateInstalledLocator(),
+            repository: null,
+            watcher: null,
+            _ => runner);
+
+        RepositoryInfo? discovered = await service.DiscoverRepositoryAsync(
+            projectRoot,
+            CancellationToken.None);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(discovered, Is.Not.Null);
+            Assert.That(discovered!.ProjectRoot, Is.EqualTo(projectRoot));
+            Assert.That(discovered.Pathspec, Is.EqualTo(@"project\with-backslash"));
+        });
+    }
+
+    [Test]
+    public async Task GetDiffAsync_preserves_a_literal_backslash_in_a_Unix_project_pathspec()
+    {
+        if (OperatingSystem.IsWindows())
+        {
+            Assert.Ignore("Backslashes are directory separators on Windows.");
+        }
+
+        string projectRoot = Path.Combine(Root, @"project\with-backslash");
+        Directory.CreateDirectory(projectRoot);
+        string projectFile = Path.Combine(projectRoot, "project.bep");
+        await File.WriteAllTextAsync(projectFile, "project contents\n");
+        await RunGitAsync("add", "-A");
+        await RunGitAsync("commit", "-m", "add nested project");
+        string sha = (await RunGitAsync("rev-parse", "HEAD")).Stdout.Trim();
+        var repository = new RepositoryInfo(Root, projectRoot);
+        using var service = new GitCliVersionControlService(
+            CreateInstalledLocator(),
+            repository,
+            watcher: null,
+            _ => CreateRunner());
+
+        string diff = await service.GetDiffAsync(
+            sha,
+            $"{repository.Pathspec}/project.bep",
+            CancellationToken.None);
+
+        Assert.That(diff, Does.Contain("+project contents"));
+    }
+
+    [Test]
     public async Task InitializeAsync_installs_local_lfs_and_writes_media_patterns_when_active()
     {
         string projectRoot = CreateTemporaryDirectory();
@@ -590,6 +648,56 @@ public class GitCliVersionControlServiceTests : RealGitTestRepository
         using var service = new GitCliVersionControlService(
             CreateInstalledLocator(lfsInstalled: false, config),
             Repository,
+            watcher: null,
+            _ => CreateRunner(),
+            policyNoticeSink: (notice, _) =>
+            {
+                notices.Add(notice);
+                return Task.CompletedTask;
+            });
+
+        CommitResult result = await service.CommitAllAsync(
+            "large media",
+            SnapshotKind.Manual,
+            CancellationToken.None);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(result, Is.TypeOf<CommitResult.Committed>());
+            Assert.That(
+                notices,
+                Is.EqualTo(new[]
+                {
+                    new VersionControlPolicyNotice.LargeMediaWithoutLfs(relativePath, 1),
+                }));
+        });
+    }
+
+    [Test]
+    public async Task CommitAllAsync_detects_large_media_under_a_Unix_backslash_pathspec()
+    {
+        if (OperatingSystem.IsWindows())
+        {
+            Assert.Ignore("Backslashes are directory separators on Windows.");
+        }
+
+        string projectRoot = Path.Combine(Root, @"project\with-backslash");
+        Directory.CreateDirectory(projectRoot);
+        await File.WriteAllTextAsync(Path.Combine(projectRoot, "project.bep"), "initial\n");
+        await RunGitAsync("add", "-A");
+        await RunGitAsync("commit", "-m", "add nested project");
+        string relativePath = "resources/large.MP4";
+        string mediaPath = Path.Combine(
+            projectRoot,
+            relativePath.Replace('/', Path.DirectorySeparatorChar));
+        Directory.CreateDirectory(Path.GetDirectoryName(mediaPath)!);
+        await File.WriteAllBytesAsync(mediaPath, [0]);
+        var notices = new List<VersionControlPolicyNotice>();
+        var config = new VersionControlConfig { LargeMediaWarningThresholdMb = 0 };
+        var repository = new RepositoryInfo(Root, projectRoot);
+        using var service = new GitCliVersionControlService(
+            CreateInstalledLocator(lfsInstalled: false, config),
+            repository,
             watcher: null,
             _ => CreateRunner(),
             policyNoticeSink: (notice, _) =>
@@ -1445,6 +1553,150 @@ public class GitCliVersionControlServiceTests : RealGitTestRepository
     }
 
     [Test]
+    public async Task SetLocalIdentityAsync_restores_both_local_values_when_the_email_write_fails()
+    {
+        await RunGitAsync("config", "--local", "user.name", "Original Name");
+        await RunGitAsync("config", "--local", "user.email", "original@example.invalid");
+        string? liveNameDuringUpdate = null;
+        GitOperationException? concurrentWriteFailure = null;
+        var runner = new FailingIdentityEmailWriteRunner(
+            CreateRunner(),
+            new GitOperationException(4, "simulated config write failure"),
+            () =>
+            {
+                liveNameDuringUpdate = RunGitAsync(
+                        "config",
+                        "--local",
+                        "--get",
+                        "user.name")
+                    .GetAwaiter()
+                    .GetResult()
+                    .Stdout.Trim();
+                try
+                {
+                    RunGitAsync(
+                            "config",
+                            "--local",
+                            "user.name",
+                            "Concurrent Name")
+                        .GetAwaiter()
+                        .GetResult();
+                }
+                catch (GitOperationException ex)
+                {
+                    concurrentWriteFailure = ex;
+                }
+            });
+        using var service = new GitCliVersionControlService(
+            CreateInstalledLocator(),
+            Repository,
+            watcher: null,
+            _ => runner);
+
+        Assert.ThrowsAsync<GitOperationException>(
+            async () => await service.SetLocalIdentityAsync(
+                new GitIdentity("Replacement Name", "replacement@example.invalid"),
+                CancellationToken.None));
+
+        IReadOnlyList<string> names = await GetLocalConfigValuesAsync("user.name");
+        IReadOnlyList<string> emails = await GetLocalConfigValuesAsync("user.email");
+        Assert.Multiple(() =>
+        {
+            Assert.That(names, Is.EqualTo(new[] { "Original Name" }));
+            Assert.That(emails, Is.EqualTo(new[] { "original@example.invalid" }));
+            Assert.That(liveNameDuringUpdate, Is.EqualTo("Original Name"));
+            Assert.That(concurrentWriteFailure, Is.Not.Null);
+            Assert.That(File.Exists(Path.Combine(Root, ".git", "config.lock")), Is.False);
+            Assert.That(
+                Directory.GetFiles(Path.Combine(Root, ".git"), ".beutl-config-*"),
+                Is.Empty);
+        });
+    }
+
+    [Test]
+    public async Task SetLocalIdentityAsync_restores_absence_and_multiple_values_when_cancelled()
+    {
+        await RunGitAsync("config", "--local", "--unset-all", "user.name");
+        await RunGitAsync("config", "--local", "--unset-all", "user.email");
+        await RunGitAsync("config", "--local", "--add", "user.email", "first@example.invalid");
+        await RunGitAsync("config", "--local", "--add", "user.email", "second@example.invalid");
+        using var cancellationSource = new CancellationTokenSource();
+        var runner = new FailingIdentityEmailWriteRunner(
+            CreateRunner(),
+            new OperationCanceledException(cancellationSource.Token),
+            cancellationSource.Cancel);
+        using var service = new GitCliVersionControlService(
+            CreateInstalledLocator(),
+            Repository,
+            watcher: null,
+            _ => runner);
+
+        Assert.ThrowsAsync<OperationCanceledException>(
+            async () => await service.SetLocalIdentityAsync(
+                new GitIdentity("Replacement Name", "replacement@example.invalid"),
+                cancellationSource.Token));
+
+        IReadOnlyList<string> names = await GetLocalConfigValuesAsync("user.name");
+        IReadOnlyList<string> emails = await GetLocalConfigValuesAsync("user.email");
+        Assert.Multiple(() =>
+        {
+            Assert.That(names, Is.Empty);
+            Assert.That(
+                emails,
+                Is.EqualTo(new[] { "first@example.invalid", "second@example.invalid" }));
+            Assert.That(File.Exists(Path.Combine(Root, ".git", "config.lock")), Is.False);
+            Assert.That(
+                Directory.GetFiles(Path.Combine(Root, ".git"), ".beutl-config-*"),
+                Is.Empty);
+        });
+    }
+
+    [TestCase("config.lock", false)]
+    [TestCase("config.lock.lock", true)]
+    public async Task SetLocalIdentityAsync_preserves_a_foreign_configuration_lock(
+        string lockFileName,
+        bool succeeds)
+    {
+        await RunGitAsync("config", "--local", "user.name", "Original Name");
+        await RunGitAsync("config", "--local", "user.email", "original@example.invalid");
+        string lockPath = Path.Combine(Root, ".git", lockFileName);
+        await File.WriteAllTextAsync(lockPath, "foreign lock sentinel\n");
+        using var service = CreateService();
+
+        var replacement = new GitIdentity("Replacement Name", "replacement@example.invalid");
+        if (succeeds)
+        {
+            Assert.DoesNotThrowAsync(
+                async () => await service.SetLocalIdentityAsync(
+                    replacement,
+                    CancellationToken.None));
+        }
+        else
+        {
+            Assert.ThrowsAsync<GitOperationException>(
+                async () => await service.SetLocalIdentityAsync(
+                    replacement,
+                    CancellationToken.None));
+        }
+
+        IReadOnlyList<string> names = await GetLocalConfigValuesAsync("user.name");
+        IReadOnlyList<string> emails = await GetLocalConfigValuesAsync("user.email");
+        Assert.Multiple(() =>
+        {
+            Assert.That(
+                names,
+                Is.EqualTo(new[] { succeeds ? replacement.Name : "Original Name" }));
+            Assert.That(
+                emails,
+                Is.EqualTo(new[]
+                {
+                    succeeds ? replacement.Email : "original@example.invalid",
+                }));
+            Assert.That(File.ReadAllText(lockPath), Is.EqualTo("foreign lock sentinel\n"));
+        });
+    }
+
+    [Test]
     public async Task CommitAllAsync_scopes_commit_and_preserves_foreign_staged_changes()
     {
         await CommitFileAsync("baseline.txt", "baseline\n", "baseline");
@@ -2131,19 +2383,35 @@ public class GitCliVersionControlServiceTests : RealGitTestRepository
     }
 
     [Test]
-    public async Task SwitchBranchAsync_rejects_Git_previous_branch_shorthand()
+    public async Task SwitchBranchAsync_rejects_Git_previous_branch_shorthand_even_when_the_ref_exists()
     {
         await CommitFileAsync("project.bep", "current\n", "current");
         await RunGitAsync("branch", "alternate");
         await RunGitAsync("switch", "alternate");
         await RunGitAsync("switch", "main");
+        await RunGitAsync("update-ref", "refs/heads/-", "HEAD");
         using var service = CreateService();
+
+        IReadOnlyList<BranchInfo> branches = await service.GetBranchesAsync(
+            CancellationToken.None);
 
         Assert.ThrowsAsync<ArgumentException>(
             async () => await service.SwitchBranchAsync("-", CancellationToken.None));
+        Assert.ThrowsAsync<ArgumentException>(async () =>
+            await ((IProjectVersionControlBackend)service).ExecuteExclusiveAsync(
+                async transaction =>
+                {
+                    await transaction.SwitchBranchAsync("-", CancellationToken.None);
+                    return true;
+                },
+                CancellationToken.None));
 
         GitCommandResult currentBranch = await RunGitAsync("branch", "--show-current");
-        Assert.That(currentBranch.Stdout.Trim(), Is.EqualTo("main"));
+        Assert.Multiple(() =>
+        {
+            Assert.That(branches.Select(branch => branch.Name), Does.Contain("-"));
+            Assert.That(currentBranch.Stdout.Trim(), Is.EqualTo("main"));
+        });
     }
 
     [TestCase(false)]
@@ -2548,6 +2816,214 @@ public class GitCliVersionControlServiceTests : RealGitTestRepository
             Assert.That(File.Exists(Path.GetFullPath(Path.Combine(Root, mergeHeadPath))), Is.True);
             Assert.That(indexAfter, Is.EqualTo(indexBefore));
             Assert.That(headAfter, Is.EqualTo(headBefore));
+        });
+    }
+
+    [Test]
+    public async Task Pull_rejects_a_clean_external_operation_before_close_and_transition()
+    {
+        await CommitFileAsync("project.bep", "current\n", "current");
+        CheckedOutBranchTip expectedTip;
+        bool closeGateChecked = false;
+        using (var readService = CreateService())
+        {
+            expectedTip = await readService.GetCheckedOutBranchTipAsync(CancellationToken.None);
+        }
+
+        string mergeHeadRecord = (await RunGitAsync("rev-parse", "--git-path", "MERGE_HEAD"))
+            .Stdout.TrimEnd('\r', '\n');
+        string mergeHeadPath = Path.GetFullPath(
+            Path.IsPathFullyQualified(mergeHeadRecord)
+                ? mergeHeadRecord
+                : Path.Combine(Root, mergeHeadRecord));
+        await File.WriteAllTextAsync(mergeHeadPath, $"{expectedTip.Commit}\n");
+        using var service = new GitCliVersionControlService(
+            CreateInstalledLocator(),
+            Repository,
+            () =>
+            {
+                closeGateChecked = true;
+                return false;
+            });
+
+        WorkspaceStatus status = await service.GetStatusAsync(CancellationToken.None);
+        VersionControlConflictedException preflightException =
+            Assert.ThrowsAsync<VersionControlConflictedException>(
+                async () => await service.PreflightPullAsync(
+                    expectedTip,
+                    CancellationToken.None))!;
+        VersionControlConflictedException transitionException =
+            Assert.ThrowsAsync<VersionControlConflictedException>(
+                async () => await service.PullFastForwardAsync(
+                    expectedTip,
+                    checkpoint: null,
+                    Path.Combine(Root, "project.bep"),
+                    CancellationToken.None))!;
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(status.IsClean, Is.True);
+            Assert.That(
+                preflightException.Guidance,
+                Is.EqualTo(Strings.VersionControl_ConflictGuidance));
+            Assert.That(
+                transitionException.Guidance,
+                Is.EqualTo(Strings.VersionControl_ConflictGuidance));
+            Assert.That(closeGateChecked, Is.False);
+            Assert.That(File.Exists(mergeHeadPath), Is.True);
+        });
+    }
+
+    [Test]
+    public async Task Tree_transition_rechecks_external_operations_inside_the_HEAD_lease()
+    {
+        await CommitFileAsync("project.bep", "current\n", "current");
+        await RunGitAsync("switch", "-c", "incoming");
+        await CommitFileAsync("project.bep", "incoming\n", "incoming");
+        string sourceCommit = (await RunGitAsync("rev-parse", "HEAD")).Stdout.Trim();
+        await RunGitAsync("switch", "main");
+        string mergeHeadRecord = (await RunGitAsync("rev-parse", "--git-path", "MERGE_HEAD"))
+            .Stdout.TrimEnd('\r', '\n');
+        string mergeHeadPath = Path.GetFullPath(
+            Path.IsPathFullyQualified(mergeHeadRecord)
+                ? mergeHeadRecord
+                : Path.Combine(Root, mergeHeadRecord));
+        var runner = new AfterTransitionWorktreeAddRunner(
+            CreateRunner(),
+            () => File.WriteAllText(mergeHeadPath, $"{sourceCommit}\n"));
+        using var service = new GitCliVersionControlService(
+            CreateInstalledLocator(),
+            Repository,
+            watcher: null,
+            _ => runner);
+        CheckedOutBranchTip expectedTip = await service.GetCheckedOutBranchTipAsync(
+            CancellationToken.None);
+
+        InvalidOperationException exception = Assert.ThrowsAsync<InvalidOperationException>(
+            async () => await service.CommitProjectTreeAsync(
+                expectedTip,
+                sourceCommit,
+                "blocked transition",
+                SnapshotKind.Restore,
+                CancellationToken.None))!;
+
+        string actualHead = (await RunGitAsync("rev-parse", "HEAD")).Stdout.Trim();
+        Assert.Multiple(() =>
+        {
+            Assert.That(exception.InnerException, Is.TypeOf<VersionControlConflictedException>());
+            Assert.That(runner.InterceptionCount, Is.EqualTo(1));
+            Assert.That(actualHead, Is.EqualTo(expectedTip.Commit));
+            Assert.That(File.ReadAllText(Path.Combine(Root, "project.bep")), Is.EqualTo("current\n"));
+            Assert.That(File.Exists(mergeHeadPath), Is.True);
+        });
+    }
+
+    [Test]
+    public async Task Tree_transition_does_not_rollback_over_an_external_operation_started_after_checkout()
+    {
+        await CommitFileAsync("project.bep", "base\n", "initial");
+        ProjectCheckpoint checkpoint;
+        CheckedOutBranchTip baseTip;
+        using (var checkpointService = CreateService())
+        {
+            baseTip = await checkpointService.GetCheckedOutBranchTipAsync(
+                CancellationToken.None);
+            await File.WriteAllTextAsync(
+                Path.Combine(Root, "project.bep"),
+                "checkpointed\n");
+            checkpoint = await checkpointService.CreateProjectCheckpointAsync(
+                "beutl: external operation rollback checkpoint",
+                CancellationToken.None);
+        }
+
+        await RunGitAsync(
+            "restore",
+            "--source=HEAD",
+            "--worktree",
+            "--",
+            "project.bep");
+        string mergeHeadRecord = (await RunGitAsync("rev-parse", "--git-path", "MERGE_HEAD"))
+            .Stdout.TrimEnd('\r', '\n');
+        string mergeHeadPath = Path.GetFullPath(
+            Path.IsPathFullyQualified(mergeHeadRecord)
+                ? mergeHeadRecord
+                : Path.Combine(Root, mergeHeadRecord));
+        var runner = new AfterTransitionCheckoutRunner(
+            CreateRunner(),
+            () => File.WriteAllText(mergeHeadPath, $"{checkpoint.Commit}\n"));
+        using var service = new GitCliVersionControlService(
+            CreateInstalledLocator(),
+            Repository,
+            watcher: null,
+            _ => runner);
+
+        InvalidOperationException exception = Assert.ThrowsAsync<InvalidOperationException>(
+            async () => await service.RestoreProjectCheckpointAsync(
+                checkpoint,
+                CancellationToken.None))!;
+
+        string actualHead = (await RunGitAsync("rev-parse", "HEAD")).Stdout.Trim();
+        string actualIndexTree = (await RunGitAsync("write-tree")).Stdout.Trim();
+        string checkpointTree = (await RunGitAsync("rev-parse", $"{checkpoint.Commit}^{{tree}}"))
+            .Stdout.Trim();
+        Assert.Multiple(() =>
+        {
+            Assert.That(exception.InnerException, Is.TypeOf<VersionControlConflictedException>());
+            Assert.That(runner.InterceptionCount, Is.EqualTo(1));
+            Assert.That(actualHead, Is.EqualTo(baseTip.Commit));
+            Assert.That(actualIndexTree, Is.EqualTo(checkpointTree));
+            Assert.That(
+                File.ReadAllText(Path.Combine(Root, "project.bep")),
+                Is.EqualTo("checkpointed\n"));
+            Assert.That(File.Exists(mergeHeadPath), Is.True);
+        });
+    }
+
+    [Test]
+    public async Task Branch_tip_rollback_reports_unsafe_when_an_external_operation_starts_after_checkout()
+    {
+        await CommitFileAsync("project.bep", "base\n", "initial");
+        CheckedOutBranchTip targetTip;
+        using (var readService = CreateService())
+        {
+            targetTip = await readService.GetCheckedOutBranchTipAsync(CancellationToken.None);
+        }
+
+        await CommitFileAsync("project.bep", "current\n", "current");
+        CheckedOutBranchTip expectedTip;
+        using (var readService = CreateService())
+        {
+            expectedTip = await readService.GetCheckedOutBranchTipAsync(CancellationToken.None);
+        }
+
+        string mergeHeadRecord = (await RunGitAsync("rev-parse", "--git-path", "MERGE_HEAD"))
+            .Stdout.TrimEnd('\r', '\n');
+        string mergeHeadPath = Path.GetFullPath(
+            Path.IsPathFullyQualified(mergeHeadRecord)
+                ? mergeHeadRecord
+                : Path.Combine(Root, mergeHeadRecord));
+        var runner = new AfterTransitionCheckoutRunner(
+            CreateRunner(),
+            () => File.WriteAllText(mergeHeadPath, $"{targetTip.Commit}\n"));
+        using var service = new GitCliVersionControlService(
+            CreateInstalledLocator(),
+            Repository,
+            watcher: null,
+            _ => runner);
+
+        BranchTipRollbackResult result = await service.TryRollbackBranchTipAsync(
+            expectedTip,
+            targetTip,
+            CancellationToken.None);
+
+        string actualHead = (await RunGitAsync("rev-parse", "HEAD")).Stdout.Trim();
+        Assert.Multiple(() =>
+        {
+            Assert.That(result, Is.TypeOf<BranchTipRollbackResult.UnsafeRepositoryState>());
+            Assert.That(runner.InterceptionCount, Is.EqualTo(1));
+            Assert.That(actualHead, Is.EqualTo(expectedTip.Commit));
+            Assert.That(File.ReadAllText(Path.Combine(Root, "project.bep")), Is.EqualTo("base\n"));
+            Assert.That(File.Exists(mergeHeadPath), Is.True);
         });
     }
 
@@ -3197,6 +3673,25 @@ public class GitCliVersionControlServiceTests : RealGitTestRepository
             _ => CreateRunner());
     }
 
+    private async Task<IReadOnlyList<string>> GetLocalConfigValuesAsync(string key)
+    {
+        try
+        {
+            GitCommandResult result = await RunGitAsync(
+                "config",
+                "--local",
+                "--null",
+                "--get-all",
+                key);
+            Assert.That(result.Stdout, Does.EndWith("\0"));
+            return result.Stdout[..^1].Split('\0');
+        }
+        catch (GitOperationException ex) when (ex.ExitCode == 1)
+        {
+            return [];
+        }
+    }
+
     private static void CreateFileSymbolicLinkOrIgnore(string linkPath, string targetPath)
     {
         try
@@ -3818,6 +4313,143 @@ public class GitCliVersionControlServiceTests : RealGitTestRepository
                || arguments.Count >= 3
                && arguments[0] == "-c"
                && arguments[2] == "commit";
+    }
+
+    private sealed class FailingIdentityEmailWriteRunner(
+        IGitCliRunner inner,
+        Exception failure,
+        Action? beforeFailure = null) : IGitCliRunner
+    {
+        private int _failurePending = 1;
+
+        public bool HasActiveProcess => inner.HasActiveProcess;
+
+        public Task<GitCommandResult> RunAsync(
+            RepositoryInfo repository,
+            IReadOnlyList<string> arguments,
+            GitCommandOptions options,
+            CancellationToken cancellationToken,
+            IProgress<string>? stderrProgress = null)
+        {
+            if (arguments.Count >= 4
+                && arguments[0] == "config"
+                && arguments.Contains("--file")
+                && arguments[^2] == "user.email"
+                && Interlocked.Exchange(ref _failurePending, 0) == 1)
+            {
+                beforeFailure?.Invoke();
+                return Task.FromException<GitCommandResult>(failure);
+            }
+
+            return inner.RunAsync(
+                repository,
+                arguments,
+                options,
+                cancellationToken,
+                stderrProgress);
+        }
+
+        public RepositoryLockInfo? GetRecoverableRepositoryLock(RepositoryInfo repository)
+            => inner.GetRecoverableRepositoryLock(repository);
+
+        public bool RemoveRecoverableRepositoryLock(
+            RepositoryInfo repository,
+            RepositoryLockInfo lockInfo)
+            => inner.RemoveRecoverableRepositoryLock(repository, lockInfo);
+    }
+
+    private sealed class AfterTransitionWorktreeAddRunner(
+        IGitCliRunner inner,
+        Action afterWorktreeAdd) : IGitCliRunner
+    {
+        private int _interceptionPending = 1;
+
+        public int InterceptionCount { get; private set; }
+
+        public bool HasActiveProcess => inner.HasActiveProcess;
+
+        public async Task<GitCommandResult> RunAsync(
+            RepositoryInfo repository,
+            IReadOnlyList<string> arguments,
+            GitCommandOptions options,
+            CancellationToken cancellationToken,
+            IProgress<string>? stderrProgress = null)
+        {
+            GitCommandResult result = await inner.RunAsync(
+                    repository,
+                    arguments,
+                    options,
+                    cancellationToken,
+                    stderrProgress)
+                .ConfigureAwait(false);
+            if (arguments is ["worktree", "add", ..]
+                && Interlocked.Exchange(ref _interceptionPending, 0) == 1)
+            {
+                InterceptionCount++;
+                afterWorktreeAdd();
+            }
+
+            return result;
+        }
+
+        public RepositoryLockInfo? GetRecoverableRepositoryLock(RepositoryInfo repository)
+            => inner.GetRecoverableRepositoryLock(repository);
+
+        public bool RemoveRecoverableRepositoryLock(
+            RepositoryInfo repository,
+            RepositoryLockInfo lockInfo)
+            => inner.RemoveRecoverableRepositoryLock(repository, lockInfo);
+    }
+
+    private sealed class AfterTransitionCheckoutRunner(
+        IGitCliRunner inner,
+        Action afterCheckout) : IGitCliRunner
+    {
+        private int _interceptionPending = 1;
+
+        public int InterceptionCount { get; private set; }
+
+        public bool HasActiveProcess => inner.HasActiveProcess;
+
+        public async Task<GitCommandResult> RunAsync(
+            RepositoryInfo repository,
+            IReadOnlyList<string> arguments,
+            GitCommandOptions options,
+            CancellationToken cancellationToken,
+            IProgress<string>? stderrProgress = null)
+        {
+            GitCommandResult result = await inner.RunAsync(
+                    repository,
+                    arguments,
+                    options,
+                    cancellationToken,
+                    stderrProgress)
+                .ConfigureAwait(false);
+            if (arguments is
+                [
+                    "-c",
+                    "core.hooksPath=/dev/null",
+                    "checkout",
+                    "--detach",
+                    "--no-overwrite-ignore",
+                    _,
+                ]
+                && Interlocked.Exchange(ref _interceptionPending, 0) == 1)
+            {
+                InterceptionCount++;
+                afterCheckout();
+            }
+
+            return result;
+        }
+
+        public RepositoryLockInfo? GetRecoverableRepositoryLock(RepositoryInfo repository)
+            => inner.GetRecoverableRepositoryLock(repository);
+
+        public bool RemoveRecoverableRepositoryLock(
+            RepositoryInfo repository,
+            RepositoryLockInfo lockInfo)
+            => inner.RemoveRecoverableRepositoryLock(repository, lockInfo);
     }
 
     private sealed class RecordingLfsRunner(IGitCliRunner inner) : IGitCliRunner

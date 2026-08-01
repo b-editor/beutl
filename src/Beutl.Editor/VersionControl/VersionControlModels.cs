@@ -225,8 +225,11 @@ public sealed record RepositoryInfo
         RepoRoot = normalizedRepoRoot;
         ProjectRoot = normalizedProjectRoot;
         IsNestedInForeignRepo = nested;
-        Pathspec = nested ? relativeProject.Replace('\\', '/') : ".";
+        Pathspec = nested ? NormalizePathspec(relativeProject) : ".";
     }
+
+    private static string NormalizePathspec(string path)
+        => OperatingSystem.IsWindows() ? path.Replace('\\', '/') : path;
 
     private static StringComparison PathComparison
         => OperatingSystem.IsWindows() ? StringComparison.OrdinalIgnoreCase : StringComparison.Ordinal;

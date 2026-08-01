@@ -81,6 +81,30 @@ public class GitCliRunnerTests : RealGitTestRepository
         });
     }
 
+    [Test]
+    public async Task CreateStartInfo_adds_batch_mode_for_inherited_open_ssh_variant()
+    {
+        Dictionary<string, string?> environment = CreateSshIsolatedEnvironment();
+        environment["GIT_SSH_VARIANT"] = "ssh";
+        var runner = new GitCliRunner(
+            GitPath,
+            TimeSpan.FromSeconds(10),
+            environment);
+
+        var startInfo = await runner.CreateStartInfoAsync(
+            Repository,
+            ["push", "origin", "HEAD"],
+            GitCommandOptions.Network);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(startInfo.Environment["GIT_SSH_VARIANT"], Is.EqualTo("ssh"));
+            Assert.That(
+                startInfo.Environment["GIT_SSH_COMMAND"],
+                Is.EqualTo("ssh -oBatchMode=yes"));
+        });
+    }
+
     [TestCase(false)]
     [TestCase(true)]
     public async Task CreateStartInfo_preserves_repository_or_global_core_ssh_command(
@@ -150,6 +174,43 @@ public class GitCliRunnerTests : RealGitTestRepository
             GitCommandOptions.Network);
 
         Assert.That(startInfo.Environment.ContainsKey("GIT_SSH_COMMAND"), Is.False);
+    }
+
+    [TestCase(false)]
+    [TestCase(true)]
+    public async Task CreateStartInfo_adds_batch_mode_for_repository_or_global_open_ssh_variant(
+        bool useGlobalConfig)
+    {
+        Dictionary<string, string?> environment = CreateSshIsolatedEnvironment();
+        if (useGlobalConfig)
+        {
+            string globalConfigPath = Path.Combine(CreateTemporaryDirectory(), "gitconfig");
+            await RunGitAsync(
+                "config",
+                "--file",
+                globalConfigPath,
+                "ssh.variant",
+                "ssh");
+            environment["GIT_CONFIG_GLOBAL"] = globalConfigPath;
+        }
+        else
+        {
+            await RunGitAsync("config", "ssh.variant", "ssh");
+        }
+
+        var runner = new GitCliRunner(
+            GitPath,
+            TimeSpan.FromSeconds(10),
+            environment);
+
+        var startInfo = await runner.CreateStartInfoAsync(
+            Repository,
+            ["push", "origin", "HEAD"],
+            GitCommandOptions.Network);
+
+        Assert.That(
+            startInfo.Environment["GIT_SSH_COMMAND"],
+            Is.EqualTo("ssh -oBatchMode=yes"));
     }
 
     [Test]

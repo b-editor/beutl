@@ -415,7 +415,8 @@ internal sealed class GitCliRunner : IGitCliRunner
         startInfo.Environment["GIT_LITERAL_PATHSPECS"] = useLiteralPathspecs ? "1" : "0";
         startInfo.Environment["LC_ALL"] = "C";
         if (executionPolicy == GitExecutionPolicy.NetworkWithDefaultOpenSsh
-            && !HasConfiguredSshEnvironment(startInfo))
+            && !HasConfiguredSshCommandEnvironment(startInfo)
+            && IsDefaultOpenSshVariant(GetSshVariantEnvironment(startInfo)))
         {
             startInfo.Environment["GIT_SSH_COMMAND"] = DefaultSshCommand;
         }
@@ -444,14 +445,14 @@ internal sealed class GitCliRunner : IGitCliRunner
             GitExecutionPolicy.NetworkWithConfiguredSsh,
             options.EnvironmentOverrides,
             options.UseLiteralPathspecs);
-        if (HasConfiguredSshEnvironment(environmentProbe))
+        if (HasConfiguredSshCommandEnvironment(environmentProbe))
         {
             return GitExecutionPolicy.NetworkWithConfiguredSsh;
         }
 
         ProcessStartInfo configProbe = CreateStartInfo(
             repository,
-            ["config", "--get-regexp", "^(core\\.sshcommand|ssh\\.variant)$"],
+            ["config", "--null", "--get-regexp", "^(core\\.sshcommand|ssh\\.variant)$"],
             GitExecutionPolicy.Local,
             options.EnvironmentOverrides,
             options.UseLiteralPathspecs);
@@ -465,7 +466,50 @@ internal sealed class GitCliRunner : IGitCliRunner
             standardInput: null,
             throwOnFailure: false).ConfigureAwait(false);
 
-        return configResult.ExitCode == 1
+        if (configResult.ExitCode == 1)
+        {
+            return IsDefaultOpenSshVariant(GetSshVariantEnvironment(environmentProbe))
+                ? GitExecutionPolicy.NetworkWithDefaultOpenSsh
+                : GitExecutionPolicy.NetworkWithConfiguredSsh;
+        }
+
+        if (configResult.ExitCode != 0)
+        {
+            return GitExecutionPolicy.NetworkWithConfiguredSsh;
+        }
+
+        bool foundConfiguration = false;
+        bool hasConfiguredSshCommand = false;
+        string? configuredVariant = null;
+        foreach (string record in SplitNullSeparated(configResult.Stdout))
+        {
+            int separator = record.IndexOf('\n');
+            if (separator < 0)
+            {
+                continue;
+            }
+
+            string name = record[..separator];
+            string value = record[(separator + 1)..];
+            if (string.Equals(name, "core.sshcommand", StringComparison.OrdinalIgnoreCase))
+            {
+                foundConfiguration = true;
+                hasConfiguredSshCommand = true;
+            }
+            else if (string.Equals(name, "ssh.variant", StringComparison.OrdinalIgnoreCase))
+            {
+                foundConfiguration = true;
+                configuredVariant = value;
+            }
+        }
+
+        if (!foundConfiguration || hasConfiguredSshCommand)
+        {
+            return GitExecutionPolicy.NetworkWithConfiguredSsh;
+        }
+
+        string? effectiveVariant = GetSshVariantEnvironment(environmentProbe) ?? configuredVariant;
+        return IsDefaultOpenSshVariant(effectiveVariant)
             ? GitExecutionPolicy.NetworkWithDefaultOpenSsh
             : GitExecutionPolicy.NetworkWithConfiguredSsh;
     }
@@ -492,10 +536,18 @@ internal sealed class GitCliRunner : IGitCliRunner
         }
     }
 
-    private static bool HasConfiguredSshEnvironment(ProcessStartInfo startInfo)
+    private static bool HasConfiguredSshCommandEnvironment(ProcessStartInfo startInfo)
         => startInfo.Environment.ContainsKey("GIT_SSH_COMMAND")
-           || startInfo.Environment.ContainsKey("GIT_SSH")
-           || startInfo.Environment.ContainsKey("GIT_SSH_VARIANT");
+           || startInfo.Environment.ContainsKey("GIT_SSH");
+
+    private static string? GetSshVariantEnvironment(ProcessStartInfo startInfo)
+        => startInfo.Environment.TryGetValue("GIT_SSH_VARIANT", out string? variant)
+            ? variant
+            : null;
+
+    private static bool IsDefaultOpenSshVariant(string? variant)
+        => variant is null
+           || string.Equals(variant.Trim(), "ssh", StringComparison.OrdinalIgnoreCase);
 
     private static void TryKillProcessTree(Process process)
     {

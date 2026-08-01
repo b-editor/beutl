@@ -703,7 +703,8 @@ internal sealed class GitCliVersionControlService :
         CancellationToken cancellationToken)
     {
         ThrowIfDisposed();
-        ArgumentException.ThrowIfNullOrWhiteSpace(name);
+        ValidateSwitchBranchName(name);
+
         return RunSerializedAsync(
             () => SwitchBranchCoreAsync(name, cancellationToken),
             cancellationToken);
@@ -2246,7 +2247,7 @@ internal sealed class GitCliVersionControlService :
                     lexicalRoot,
                     lexicalProjectFile);
                 ValidateRecoveryProjectFile(lexicalRelativePath);
-                return lexicalRelativePath.Replace('\\', '/');
+                return NormalizeGitPath(lexicalRelativePath);
             }
 
             lexicalRoot = Path.GetDirectoryName(lexicalRoot);
@@ -2256,7 +2257,7 @@ internal sealed class GitCliVersionControlService :
             Path.GetFullPath(repository.ProjectRoot),
             lexicalProjectFile);
         ValidateRecoveryProjectFile(canonicalRelativePath);
-        return canonicalRelativePath.Replace('\\', '/');
+        return NormalizeGitPath(canonicalRelativePath);
     }
 
     private static string GetLexicalRecoveryProjectFile(
@@ -2277,7 +2278,7 @@ internal sealed class GitCliVersionControlService :
             Path.GetFullPath(repository.ProjectRoot),
             Path.GetFullPath(projectFile));
         ValidateRecoveryProjectFile(relativeProjectFile);
-        return relativeProjectFile.Replace('\\', '/');
+        return NormalizeGitPath(relativeProjectFile);
     }
 
     private static void ValidateRecoveryProjectFilePhysicalContainment(
@@ -2650,6 +2651,11 @@ internal sealed class GitCliVersionControlService :
             CancellationToken.None).ConfigureAwait(false);
         if (rollbackResult.Outcome == TreeTransitionOutcome.OwnershipLost)
         {
+            if (rollbackResult.Error is VersionControlConflictedException)
+            {
+                return new BranchTipRollbackResult.UnsafeRepositoryState();
+            }
+
             return new BranchTipRollbackResult.RefChanged(
                 rollbackResult.ActualTip?.Commit);
         }
@@ -3300,6 +3306,12 @@ internal sealed class GitCliVersionControlService :
                     ActualTip: actualHead);
             }
 
+            await EnsureNoExternalRepositoryOperationAsync(
+                    repository,
+                    runner,
+                    CancellationToken.None)
+                .ConfigureAwait(false);
+
             WorktreeStateFingerprint originalState = await CaptureWorktreeStateAsync(
                     repository,
                     runner,
@@ -3325,6 +3337,11 @@ internal sealed class GitCliVersionControlService :
             {
                 if (indexPlan?.PrepareCommit is { } prepareCommit)
                 {
+                    await EnsureNoExternalRepositoryOperationAsync(
+                            repository,
+                            runner,
+                            CancellationToken.None)
+                        .ConfigureAwait(false);
                     mutationStarted = true;
                     await ResetIndexAsync(
                             repository,
@@ -3354,6 +3371,11 @@ internal sealed class GitCliVersionControlService :
                         $"The tree transition would overwrite the ignored path '{ignoredCollision}'.");
                 }
 
+                await EnsureNoExternalRepositoryOperationAsync(
+                        repository,
+                        runner,
+                        CancellationToken.None)
+                    .ConfigureAwait(false);
                 mutationStarted = true;
                 worktreeMutationAttempted = true;
                 await runner.RunAsync(
@@ -3371,6 +3393,11 @@ internal sealed class GitCliVersionControlService :
 
                 if (indexPlan?.FinalCommit is { } finalCommit)
                 {
+                    await EnsureNoExternalRepositoryOperationAsync(
+                            repository,
+                            runner,
+                            CancellationToken.None)
+                        .ConfigureAwait(false);
                     await ResetIndexAsync(
                             repository,
                             runner,
@@ -3428,6 +3455,11 @@ internal sealed class GitCliVersionControlService :
                             .ConfigureAwait(false));
                 }
 
+                await EnsureNoExternalRepositoryOperationAsync(
+                        repository,
+                        runner,
+                        CancellationToken.None)
+                    .ConfigureAwait(false);
                 await runner.RunAsync(
                     refUpdateRepository,
                     [
@@ -3472,6 +3504,32 @@ internal sealed class GitCliVersionControlService :
                                 runner,
                                 CancellationToken.None)
                             .ConfigureAwait(false));
+                }
+
+                try
+                {
+                    await EnsureNoExternalRepositoryOperationAsync(
+                            repository,
+                            runner,
+                            CancellationToken.None)
+                        .ConfigureAwait(false);
+                }
+                catch (VersionControlConflictedException externalOperationException)
+                {
+                    return new TreeTransitionResult(
+                        TreeTransitionOutcome.OwnershipLost,
+                        externalOperationException,
+                        currentHead);
+                }
+                catch (Exception recoveryGuardException)
+                {
+                    return new TreeTransitionResult(
+                        TreeTransitionOutcome.RecoveryFailed,
+                        new AggregateException(
+                            "The tree transition failed and rollback safety could not be established.",
+                            transitionException,
+                            recoveryGuardException),
+                        currentHead);
                 }
 
                 try
@@ -3539,6 +3597,11 @@ internal sealed class GitCliVersionControlService :
                     if (!worktreeOwned)
                     {
                         string refusedRestoreCommit = indexPlan?.RestoreCommit ?? currentTreeCommit;
+                        await EnsureNoExternalRepositoryOperationAsync(
+                                repository,
+                                runner,
+                                CancellationToken.None)
+                            .ConfigureAwait(false);
                         await ResetIndexAsync(
                                 repository,
                                 runner,
@@ -3660,11 +3723,21 @@ internal sealed class GitCliVersionControlService :
                                 currentHead);
                         }
 
+                        await EnsureNoExternalRepositoryOperationAsync(
+                                repository,
+                                runner,
+                                CancellationToken.None)
+                            .ConfigureAwait(false);
                         await ResetIndexAsync(
                                 repository,
                                 runner,
                                 targetTreeCommit,
                                 indexPlan?.Pathspec ?? ".")
+                            .ConfigureAwait(false);
+                        await EnsureNoExternalRepositoryOperationAsync(
+                                repository,
+                                runner,
+                                CancellationToken.None)
                             .ConfigureAwait(false);
                         await runner.RunAsync(
                             refUpdateRepository,
@@ -3682,6 +3755,11 @@ internal sealed class GitCliVersionControlService :
 
                     if (indexPlan?.RestoreCommit is { } restoreCommit)
                     {
+                        await EnsureNoExternalRepositoryOperationAsync(
+                                repository,
+                                runner,
+                                CancellationToken.None)
+                            .ConfigureAwait(false);
                         await ResetIndexAsync(
                                 repository,
                                 runner,
@@ -3694,6 +3772,11 @@ internal sealed class GitCliVersionControlService :
                                  originalState.IndexEntries,
                                  StringComparison.Ordinal))
                     {
+                        await EnsureNoExternalRepositoryOperationAsync(
+                                repository,
+                                runner,
+                                CancellationToken.None)
+                            .ConfigureAwait(false);
                         await ResetIndexAsync(
                                 repository,
                                 runner,
@@ -3746,6 +3829,13 @@ internal sealed class GitCliVersionControlService :
                     return new TreeTransitionResult(
                         TreeTransitionOutcome.RestoredCurrent,
                         transitionException,
+                        currentHead);
+                }
+                catch (VersionControlConflictedException recoveryException)
+                {
+                    return new TreeTransitionResult(
+                        TreeTransitionOutcome.OwnershipLost,
+                        recoveryException,
                         currentHead);
                 }
                 catch (Exception recoveryException)
@@ -4146,6 +4236,7 @@ internal sealed class GitCliVersionControlService :
         string name,
         CancellationToken cancellationToken)
     {
+        ValidateSwitchBranchName(name);
         await EnsureNotConflictedCoreAsync(cancellationToken).ConfigureAwait(false);
         EnsureWorktreeMutationAllowed();
         IReadOnlyList<BranchInfo> branches = await GetBranchesCoreAsync(cancellationToken)
@@ -4165,6 +4256,17 @@ internal sealed class GitCliVersionControlService :
             GitCommandOptions.Local,
             cancellationToken).ConfigureAwait(false);
         await TryQueueStatusChangedCoreAsync().ConfigureAwait(false);
+    }
+
+    private static void ValidateSwitchBranchName(string name)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(name);
+        if (name[0] == '-')
+        {
+            throw new ArgumentException(
+                "The branch name must not be interpreted as a Git command-line option.",
+                nameof(name));
+        }
     }
 
     private static bool ContainsLocalBranch(
@@ -4385,6 +4487,11 @@ internal sealed class GitCliVersionControlService :
         RepositoryInfo repository = GetRepository();
         IGitCliRunner runner = await GetInstalledRunnerCoreAsync(cancellationToken)
             .ConfigureAwait(false);
+        await EnsureNoExternalRepositoryOperationAsync(
+                repository,
+                runner,
+                cancellationToken)
+            .ConfigureAwait(false);
         CheckedOutBranchTip currentTip = await GetCheckedOutBranchTipCoreAsync(
                 repository,
                 runner,
@@ -4445,6 +4552,12 @@ internal sealed class GitCliVersionControlService :
                 "The checked-out branch changed while the pull preflight was running.");
         }
 
+        await EnsureNoExternalRepositoryOperationAsync(
+                repository,
+                runner,
+                cancellationToken)
+            .ConfigureAwait(false);
+
         return relation switch
         {
             PullRelation.LocalBehind => new PullPreflightResult(
@@ -4466,10 +4579,15 @@ internal sealed class GitCliVersionControlService :
         CancellationToken cancellationToken)
     {
         await EnsureNotConflictedCoreAsync(cancellationToken).ConfigureAwait(false);
-        EnsureWorktreeMutationAllowed();
         ValidateAttachedBranchTip(expectedCurrent, nameof(expectedCurrent));
         RepositoryInfo repository = GetRepository();
         IGitCliRunner runner = await GetInstalledRunnerCoreAsync(cancellationToken).ConfigureAwait(false);
+        await EnsureNoExternalRepositoryOperationAsync(
+                repository,
+                runner,
+                cancellationToken)
+            .ConfigureAwait(false);
+        EnsureWorktreeMutationAllowed();
         CheckedOutBranchTip currentTip = await GetCheckedOutBranchTipCoreAsync(
                 repository,
                 runner,
@@ -4603,6 +4721,12 @@ internal sealed class GitCliVersionControlService :
                 expectedCurrent);
         }
 
+        await EnsureNoExternalRepositoryOperationAsync(
+                repository,
+                runner,
+                cancellationToken)
+            .ConfigureAwait(false);
+
         if (checkpoint is not null)
         {
             return await PullCheckpointedProjectCoreAsync(
@@ -4664,6 +4788,11 @@ internal sealed class GitCliVersionControlService :
         }
 
         cancellationToken.ThrowIfCancellationRequested();
+        await EnsureNoExternalRepositoryOperationAsync(
+                repository,
+                runner,
+                CancellationToken.None)
+            .ConfigureAwait(false);
         var pulledTip = new CheckedOutBranchTip(expectedCurrent.RefName, upstreamCommit);
         TreeTransitionResult transitionResult = await ApplyTreeTransitionAsync(
             repository,
@@ -4828,6 +4957,12 @@ internal sealed class GitCliVersionControlService :
                     expectedCurrent,
                     Recovery: recovery);
             }
+
+            await EnsureNoExternalRepositoryOperationAsync(
+                    repository,
+                    runner,
+                    CancellationToken.None)
+                .ConfigureAwait(false);
         }
         catch (Exception ex)
         {
@@ -5479,7 +5614,7 @@ internal sealed class GitCliVersionControlService :
 
     private static string GetDiscoveredProjectRoot(string repoRoot, string prefix)
     {
-        string normalizedPrefix = prefix.Replace('\\', '/');
+        string normalizedPrefix = NormalizeGitPath(prefix);
         if (Path.IsPathFullyQualified(normalizedPrefix)
             || normalizedPrefix
                 .Split('/', StringSplitOptions.RemoveEmptyEntries)
@@ -5945,7 +6080,7 @@ internal sealed class GitCliVersionControlService :
     private static string ValidateDiffPath(RepositoryInfo repository, string path)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(path);
-        string normalized = path.Replace('\\', '/');
+        string normalized = NormalizeGitPath(path);
         if (Path.IsPathFullyQualified(path)
             || normalized.StartsWith("/", StringComparison.Ordinal)
             || normalized.Split('/').Any(static segment => segment == ".."))
@@ -5964,6 +6099,9 @@ internal sealed class GitCliVersionControlService :
 
         return normalized;
     }
+
+    private static string NormalizeGitPath(string path)
+        => OperatingSystem.IsWindows() ? path.Replace('\\', '/') : path;
 
     private void EnsureWorktreeMutationAllowed()
     {
@@ -6006,22 +6144,174 @@ internal sealed class GitCliVersionControlService :
             : new GitIdentity(name, email);
     }
 
-    private static async Task SetLocalIdentityCoreAsync(
+    private async Task SetLocalIdentityCoreAsync(
         RepositoryInfo repository,
         IGitCliRunner runner,
         GitIdentity identity,
         CancellationToken cancellationToken)
     {
-        await runner.RunAsync(
-            repository,
-            ["config", "--local", "user.name", identity.Name],
-            GitCommandOptions.Local,
-            cancellationToken).ConfigureAwait(false);
-        await runner.RunAsync(
-            repository,
-            ["config", "--local", "user.email", identity.Email],
-            GitCommandOptions.Local,
-            cancellationToken).ConfigureAwait(false);
+        string configPath = await ResolveGitPathAsync(
+                repository,
+                runner,
+                "config",
+                cancellationToken)
+            .ConfigureAwait(false);
+        string lockPath = configPath + ".lock";
+        string configDirectory = Path.GetDirectoryName(configPath)
+                                 ?? throw new InvalidOperationException(
+                                     "The local Git configuration has no parent directory.");
+        string stagingPath = Path.Combine(
+            configDirectory,
+            $".beutl-config-{Guid.NewGuid():N}.tmp");
+        FileStream lockStream;
+        try
+        {
+            lockStream = new FileStream(
+                lockPath,
+                new FileStreamOptions
+                {
+                    Mode = FileMode.CreateNew,
+                    Access = FileAccess.Write,
+                    Share = FileShare.None,
+                    Options = FileOptions.Asynchronous | FileOptions.WriteThrough,
+                });
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            throw new GitOperationException(
+                128,
+                $"Unable to acquire the local Git configuration lock '{lockPath}': {ex.Message}");
+        }
+
+        bool committed = false;
+        try
+        {
+            byte[] originalConfig;
+            byte[] stagedConfig;
+            FileAttributes originalAttributes;
+            UnixFileMode? originalUnixMode = null;
+            await using (lockStream)
+            {
+                EnsureLocalConfigPathIsRegular(configPath);
+                originalConfig = await File.ReadAllBytesAsync(configPath, cancellationToken)
+                    .ConfigureAwait(false);
+                originalAttributes = File.GetAttributes(configPath);
+                if (!OperatingSystem.IsWindows())
+                {
+                    originalUnixMode = File.GetUnixFileMode(configPath);
+                }
+
+                await using (var stagingStream = new FileStream(
+                                 stagingPath,
+                                 new FileStreamOptions
+                                 {
+                                     Mode = FileMode.CreateNew,
+                                     Access = FileAccess.Write,
+                                     Share = FileShare.None,
+                                     Options = FileOptions.Asynchronous,
+                                 }))
+                {
+                    await stagingStream.WriteAsync(originalConfig, cancellationToken)
+                        .ConfigureAwait(false);
+                    await stagingStream.FlushAsync(cancellationToken).ConfigureAwait(false);
+                }
+
+                await runner.RunAsync(
+                    repository,
+                    ["config", "--file", stagingPath, "--replace-all", "user.name", identity.Name],
+                    GitCommandOptions.Local,
+                    cancellationToken).ConfigureAwait(false);
+                await runner.RunAsync(
+                    repository,
+                    ["config", "--file", stagingPath, "--replace-all", "user.email", identity.Email],
+                    GitCommandOptions.Local,
+                    cancellationToken).ConfigureAwait(false);
+
+                stagedConfig = await File.ReadAllBytesAsync(stagingPath, cancellationToken)
+                    .ConfigureAwait(false);
+                cancellationToken.ThrowIfCancellationRequested();
+                byte[] currentConfig = await File.ReadAllBytesAsync(
+                        configPath,
+                        cancellationToken)
+                    .ConfigureAwait(false);
+                if (!originalConfig.AsSpan().SequenceEqual(currentConfig))
+                {
+                    throw new InvalidOperationException(
+                        "The local Git configuration changed while the identity update was staged.");
+                }
+
+                cancellationToken.ThrowIfCancellationRequested();
+                await lockStream.WriteAsync(stagedConfig, CancellationToken.None)
+                    .ConfigureAwait(false);
+                await lockStream.FlushAsync(CancellationToken.None).ConfigureAwait(false);
+                lockStream.Flush(flushToDisk: true);
+            }
+
+            File.SetAttributes(lockPath, originalAttributes);
+            if (!OperatingSystem.IsWindows() && originalUnixMode is { } unixMode)
+            {
+                File.SetUnixFileMode(lockPath, unixMode);
+            }
+
+            EnsureLocalConfigPathIsRegular(configPath);
+            byte[] finalConfig = await File.ReadAllBytesAsync(
+                    configPath,
+                    CancellationToken.None)
+                .ConfigureAwait(false);
+            if (!originalConfig.AsSpan().SequenceEqual(finalConfig))
+            {
+                throw new InvalidOperationException(
+                    "The local Git configuration changed before the staged identity was committed.");
+            }
+
+            File.Move(lockPath, configPath, overwrite: true);
+            committed = true;
+        }
+        finally
+        {
+            TryDeleteOwnedLocalConfigFile(stagingPath + ".lock");
+            TryDeleteOwnedLocalConfigFile(stagingPath);
+            if (!committed)
+            {
+                try
+                {
+                    File.Delete(lockPath);
+                }
+                catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+                {
+                    LogWarningBestEffort(
+                        ex,
+                        "Failed to release the local Git configuration lock after an identity update failure.");
+                }
+            }
+        }
+    }
+
+    private void TryDeleteOwnedLocalConfigFile(string path)
+    {
+        try
+        {
+            File.Delete(path);
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            LogWarningBestEffort(
+                ex,
+                "Failed to remove an owned temporary Git configuration file.");
+        }
+    }
+
+    private static void EnsureLocalConfigPathIsRegular(string path)
+    {
+        var file = new FileInfo(path);
+        file.Refresh();
+        if (!file.Exists
+            || file.LinkTarget is not null
+            || (file.Attributes & FileAttributes.ReparsePoint) != 0)
+        {
+            throw new InvalidOperationException(
+                $"The local Git configuration path '{path}' is not a regular file.");
+        }
     }
 
     private static void ValidateIdentity(GitIdentity identity)
@@ -6124,8 +6414,8 @@ internal sealed class GitCliVersionControlService :
             }
 
             if (!await PresentPolicyNoticeAsync(
-                    new VersionControlPolicyNotice.LargeMediaWithoutLfs(
-                        Path.GetRelativePath(repository.ProjectRoot, path).Replace('\\', '/'),
+                new VersionControlPolicyNotice.LargeMediaWithoutLfs(
+                        NormalizeGitPath(Path.GetRelativePath(repository.ProjectRoot, path)),
                         sizeBytes),
                     cancellationToken).ConfigureAwait(false))
             {
@@ -6370,7 +6660,7 @@ internal sealed class GitCliVersionControlService :
         string repoRelativePath,
         long thresholdBytes)
     {
-        string normalizedPath = repoRelativePath.Replace('\\', '/');
+        string normalizedPath = NormalizeGitPath(repoRelativePath);
         string projectRelativePath;
         if (repository.Pathspec == ".")
         {
@@ -7245,7 +7535,7 @@ internal sealed class GitCliVersionControlService :
         {
             foreach (string path in EnumerateRequiredProjectFiles(projectRoot))
             {
-                paths.Add(Path.GetRelativePath(projectRoot, path).Replace('\\', '/'));
+                paths.Add(NormalizeGitPath(Path.GetRelativePath(projectRoot, path)));
             }
         }
 
