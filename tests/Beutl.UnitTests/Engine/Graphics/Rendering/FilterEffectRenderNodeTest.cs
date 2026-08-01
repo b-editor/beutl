@@ -147,7 +147,7 @@ public class FilterEffectRenderNodeTest
                 {
                     UseRenderCache = false,
                     FusionMode = fusionMode,
-                    RenderPurpose = RenderRequestPurpose.Frame,
+                    Purpose = RenderRequestPurpose.Frame,
                     Diagnostics = diagnostics,
                 },
                 TargetFactory = new CpuTargetFactory(),

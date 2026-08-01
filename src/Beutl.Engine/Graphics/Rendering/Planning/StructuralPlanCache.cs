@@ -382,7 +382,14 @@ internal sealed class StructuralFragmentIdentity : IEquatable<StructuralFragment
                 components.Add(opaque.Description.Bounds.StructuralIdentity);
                 components.Add(opaque.Description.HitTest.StructuralIdentity);
                 components.Add(opaque.Description.Scale.StructuralIdentity);
-                components.Add(opaque.Description.RequiresReadback);
+                components.Add(opaque.InputReadbacks.Count);
+                foreach (RenderInputReadback inputReadback in opaque.InputReadbacks)
+                {
+                    components.Add(inputReadback.StructuralKind);
+                    components.Add(inputReadback.ValueIndices.Count);
+                    foreach (int valueIndex in inputReadback.ValueIndices)
+                        components.Add(valueIndex);
+                }
                 AddResourceTypes(opaque.Description.Resources, components);
                 return;
             case LegacyFilterEffectRenderFragmentPayload legacy:
@@ -416,7 +423,7 @@ internal sealed class StructuralFragmentIdentity : IEquatable<StructuralFragment
                 components.Add(command.Description.StructuralKey);
                 components.Add(command.Description.Access);
                 components.Add(command.InputReadbacks.Count);
-                foreach (TargetInputReadback inputReadback in command.InputReadbacks)
+                foreach (RenderInputReadback inputReadback in command.InputReadbacks)
                 {
                     components.Add(inputReadback.StructuralKind);
                     components.Add(inputReadback.ValueIndices.Count);

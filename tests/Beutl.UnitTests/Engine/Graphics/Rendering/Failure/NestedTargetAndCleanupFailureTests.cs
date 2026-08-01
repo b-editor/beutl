@@ -1025,7 +1025,7 @@ public sealed class NestedTargetAndCleanupFailureTests
                     s_bounds,
                     RenderHitTestContract.OutputBounds,
                     targetReadback ? TargetAccess.Readback : TargetAccess.ReadWrite,
-                    inputReadbacks: inputReadback ? [TargetInputReadback.All] : null,
+                    inputReadbacks: inputReadback ? [RenderInputReadback.All] : null,
                     structuralKey: $"target-command-{failurePoint}");
                 context.Publish(source);
                 context.Publish(context.TargetCommand([source], command));

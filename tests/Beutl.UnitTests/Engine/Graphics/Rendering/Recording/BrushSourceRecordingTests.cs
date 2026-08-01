@@ -1,5 +1,6 @@
 ﻿using Beutl.Composition;
 using Beutl.Graphics;
+using Beutl.Graphics.Effects;
 using Beutl.Graphics.Rendering;
 using Beutl.Graphics.Shapes;
 using Beutl.Media;
@@ -62,6 +63,44 @@ public sealed class BrushSourceRecordingTests
             Assert.That(payload.Description.DirectReplay, Is.Not.Null,
                 "Engine-owned source replay may consume its explicit materialized brush inputs.");
         });
+    }
+
+    [Test]
+    public void DirectBrushConstructor_RejectsUnloweredDrawableBrush()
+    {
+        var content = new RectShape();
+        var brush = new DrawableBrush(content);
+        using DrawableBrush.Resource brushResource = brush.ToResource(CompositionContext.Default);
+        var constructor = new BrushConstructor(
+            new Rect(0, 0, 32, 24),
+            brushResource,
+            BlendMode.SrcOver);
+
+        Assert.That(
+            () => constructor.CreateShader(),
+            Throws.TypeOf<InvalidOperationException>()
+                .With.Message.EqualTo(
+                    "DrawableBrush content must be lowered by BrushRecorder before execution; "
+                    + "a direct BrushConstructor cannot resolve nested drawable content."));
+    }
+
+    [Test]
+    public void DirectConstructor_RejectsUnloweredDrawableBrush()
+    {
+        var content = new RectShape();
+        var brush = new DrawableBrush(content);
+        using DrawableBrush.Resource brushResource = brush.ToResource(CompositionContext.Default);
+        var constructor = new BrushConstructor(
+            new Rect(0, 0, 32, 24),
+            brushResource,
+            BlendMode.SrcOver);
+
+        Assert.That(
+            () => constructor.CreateShader(),
+            Throws.TypeOf<InvalidOperationException>()
+                .With.Message.EqualTo(
+                    "DrawableBrush content must be lowered by BrushRecorder before execution; "
+                    + "a direct BrushConstructor cannot resolve nested drawable content."));
     }
 
     private static RenderRequest CreateRequest(RenderRequestOwner owner)

@@ -108,7 +108,7 @@ public sealed class GpuPassFusionScaleRegionTests
                     RequestedRegion = new Rect(100, 200, 25, 20),
                     OutputScale = 1,
                     UseRenderCache = false,
-                    RenderPurpose = RenderRequestPurpose.Frame,
+                    Purpose = RenderRequestPurpose.Frame,
                     Diagnostics = diagnostics,
                 },
                 TargetFactory = new CpuTargetFactory(),

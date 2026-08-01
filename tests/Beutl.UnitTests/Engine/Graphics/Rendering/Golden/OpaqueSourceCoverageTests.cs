@@ -195,7 +195,7 @@ public sealed class OpaqueSourceCoverageTests
                     OutputScale = density,
                     MaxWorkingScale = density,
                     UseRenderCache = false,
-                    RenderPurpose = RenderRequestPurpose.Auxiliary,
+                    Purpose = RenderRequestPurpose.Auxiliary,
                 },
             });
         return renderer.Rasterize();
@@ -235,7 +235,7 @@ public sealed class OpaqueSourceCoverageTests
                     OutputScale = density,
                     MaxWorkingScale = density,
                     UseRenderCache = useRenderCache,
-                    RenderPurpose = RenderRequestPurpose.Frame,
+                    Purpose = RenderRequestPurpose.Frame,
                     Diagnostics = diagnostics,
                 },
             });

@@ -376,6 +376,7 @@ public sealed class LosslessCompositeCoverageTests
             int delayedAlphaDifferences = 0;
             int wrappedPixelDifferences = 0;
             float maximumWrappedDelta = 0;
+            PixelRect plainAlphaBounds = MeasureAlphaBounds(expected);
             for (int offset = 3; offset < expectedPixels.Length; offset += 4)
             {
                 if (expectedPixels[offset] != directPixels[offset])
@@ -401,10 +402,14 @@ public sealed class LosslessCompositeCoverageTests
                 + $"direct-vs-delayed channel differences={wrappedPixelDifferences}, "
                 + $"max delta={maximumWrappedDelta:R}");
             TestContext.WriteLine(
-                $"nested brush alpha bounds: plain={MeasureAlphaBounds(expected)}, "
+                $"nested brush alpha bounds: plain={plainAlphaBounds}, "
                 + $"direct={MeasureAlphaBounds(directBitmap)}, delayed={MeasureAlphaBounds(delayedBitmap)}");
             using (Assert.EnterMultipleScope())
             {
+                Assert.That(
+                    plainAlphaBounds.Width > 0 && plainAlphaBounds.Height > 0,
+                    Is.True,
+                    "The plain nested DrawableBrush control must contain visible alpha.");
                 Assert.That(
                     directAlphaDifferences,
                     Is.Zero,
@@ -820,7 +825,7 @@ public sealed class LosslessCompositeCoverageTests
                     MaxWorkingScale = maxWorkingScale,
                     UseRenderCache = useRenderCache,
                     FusionMode = fusionMode,
-                    RenderPurpose = RenderRequestPurpose.Frame,
+                    Purpose = RenderRequestPurpose.Frame,
                 },
             });
 
@@ -945,7 +950,7 @@ public sealed class LosslessCompositeCoverageTests
                     OutputScale = density,
                     MaxWorkingScale = density,
                     UseRenderCache = false,
-                    RenderPurpose = RenderRequestPurpose.Frame,
+                    Purpose = RenderRequestPurpose.Frame,
                 },
             });
 

@@ -73,6 +73,29 @@ public sealed class MalformedElementRecoveryTests
     }
 
     [Test]
+    public void Restore_DeserializationFallbackPreservesOriginalDiscriminator()
+    {
+        (Uri sceneUri, string elementPath) = CreatePersistedScene();
+        JsonObject json = JsonNode.Parse(File.ReadAllText(elementPath))!.AsObject();
+        JsonObject malformedObject = json[nameof(Element.Objects)]!.AsArray()[0]!.AsObject();
+        string originalType = malformedObject["$type"]!.GetValue<string>();
+        malformedObject[nameof(RectShape.Width)] = "invalid-width";
+        File.WriteAllText(elementPath, json.ToJsonString());
+
+        IFallback fallback = (IFallback)CoreSerializer
+            .RestoreFromUri<Scene>(sceneUri)
+            .Children.Single()
+            .Objects.Single();
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(fallback.TryGetTypeName(out string? typeName), Is.True);
+            Assert.That(typeName, Is.EqualTo(originalType));
+            Assert.That(fallback.Json!["$type"]!.GetValue<string>(), Is.EqualTo(originalType));
+        });
+    }
+
+    [Test]
     public void DirectElementSave_PreservesMalformedElementSidecarBytes()
     {
         (Uri sceneUri, string elementPath) = CreatePersistedScene();

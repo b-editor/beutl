@@ -1,35 +1,35 @@
 namespace Beutl.Graphics.Rendering;
 
-/// <summary>Selects which runtime values from one authored target-command input require CPU readback.</summary>
-public readonly struct TargetInputReadback : IEquatable<TargetInputReadback>
+/// <summary>Selects which runtime values from one authored render input require CPU readback.</summary>
+public readonly struct RenderInputReadback : IEquatable<RenderInputReadback>
 {
-    private readonly TargetInputReadbackKind _kind;
+    private readonly RenderInputReadbackKind _kind;
     private readonly IReadOnlyList<int>? _valueIndices;
 
-    private TargetInputReadback(TargetInputReadbackKind kind, IReadOnlyList<int> valueIndices)
+    private RenderInputReadback(RenderInputReadbackKind kind, IReadOnlyList<int> valueIndices)
     {
         _kind = kind;
         _valueIndices = valueIndices;
     }
 
     /// <summary>Does not schedule CPU readback for any runtime value from the authored input.</summary>
-    public static TargetInputReadback None { get; } = new(
-        TargetInputReadbackKind.None,
+    public static RenderInputReadback None { get; } = new(
+        RenderInputReadbackKind.None,
         Array.AsReadOnly(Array.Empty<int>()));
 
     /// <summary>Schedules CPU readback for every runtime value produced by the authored input.</summary>
-    public static TargetInputReadback All { get; } = new(
-        TargetInputReadbackKind.All,
+    public static RenderInputReadback All { get; } = new(
+        RenderInputReadbackKind.All,
         Array.AsReadOnly(Array.Empty<int>()));
 
     /// <summary>Gets whether every runtime value produced by the authored input requires CPU readback.</summary>
-    public bool ReadsAllValues => _kind == TargetInputReadbackKind.All;
+    public bool ReadsAllValues => _kind == RenderInputReadbackKind.All;
 
     /// <summary>Gets the sorted local runtime-value indices selected by <see cref="Values"/>.</summary>
     public IReadOnlyList<int> ValueIndices => _valueIndices ?? Array.Empty<int>();
 
     /// <summary>Selects finite local runtime-value indices from one authored input.</summary>
-    public static TargetInputReadback Values(IEnumerable<int> valueIndices)
+    public static RenderInputReadback Values(IEnumerable<int> valueIndices)
     {
         ArgumentNullException.ThrowIfNull(valueIndices);
         int[] result = valueIndices.ToArray();
@@ -49,16 +49,16 @@ public readonly struct TargetInputReadback : IEquatable<TargetInputReadback>
                 throw new ArgumentException("Input value indices must be unique.", nameof(valueIndices));
         }
 
-        return new TargetInputReadback(
-            TargetInputReadbackKind.Values,
+        return new RenderInputReadback(
+            RenderInputReadbackKind.Values,
             Array.AsReadOnly(result));
     }
 
-    public bool Equals(TargetInputReadback other)
+    public bool Equals(RenderInputReadback other)
         => _kind == other._kind && ValueIndices.SequenceEqual(other.ValueIndices);
 
     public override bool Equals(object? obj)
-        => obj is TargetInputReadback other && Equals(other);
+        => obj is RenderInputReadback other && Equals(other);
 
     public override int GetHashCode()
     {
@@ -69,26 +69,26 @@ public readonly struct TargetInputReadback : IEquatable<TargetInputReadback>
         return hash.ToHashCode();
     }
 
-    public static bool operator ==(TargetInputReadback left, TargetInputReadback right)
+    public static bool operator ==(RenderInputReadback left, RenderInputReadback right)
         => left.Equals(right);
 
-    public static bool operator !=(TargetInputReadback left, TargetInputReadback right)
+    public static bool operator !=(RenderInputReadback left, RenderInputReadback right)
         => !left.Equals(right);
 
-    internal bool RequiresAnyReadback => _kind is TargetInputReadbackKind.All or TargetInputReadbackKind.Values;
+    internal bool RequiresAnyReadback => _kind is RenderInputReadbackKind.All or RenderInputReadbackKind.Values;
 
     internal int StructuralKind => (int)_kind;
 
     internal bool RequiresValue(int localIndex)
-        => _kind == TargetInputReadbackKind.All
-           || (_kind == TargetInputReadbackKind.Values && ValueIndices.BinarySearch(localIndex) >= 0);
+        => _kind == RenderInputReadbackKind.All
+           || (_kind == RenderInputReadbackKind.Values && ValueIndices.BinarySearch(localIndex) >= 0);
 
     internal void ThrowIfUninitialized(string parameterName)
     {
-        if (_kind == TargetInputReadbackKind.Uninitialized)
+        if (_kind == RenderInputReadbackKind.Uninitialized)
         {
             throw new ArgumentException(
-                "default(TargetInputReadback) is uninitialized; use None, All, or Values.",
+                "default(RenderInputReadback) is uninitialized; use None, All, or Values.",
                 parameterName);
         }
     }
@@ -97,7 +97,7 @@ public readonly struct TargetInputReadback : IEquatable<TargetInputReadback>
         RenderValueCardinality cardinality,
         int valueCount)
     {
-        if (_kind != TargetInputReadbackKind.Values)
+        if (_kind != RenderInputReadbackKind.Values)
             return;
 
         foreach (int valueIndex in ValueIndices)
@@ -107,13 +107,13 @@ public readonly struct TargetInputReadback : IEquatable<TargetInputReadback>
             if (isImpossible || isGuaranteedButMissing)
             {
                 throw new InvalidOperationException(
-                    "A target command declared readback for a local input value index that was not produced at runtime.");
+                    "A render operation declared readback for a local input value index that was not produced at runtime.");
             }
         }
     }
 }
 
-internal enum TargetInputReadbackKind : byte
+internal enum RenderInputReadbackKind : byte
 {
     Uninitialized,
     None,
@@ -121,7 +121,7 @@ internal enum TargetInputReadbackKind : byte
     Values,
 }
 
-internal static class TargetInputReadbackIndexExtensions
+internal static class RenderInputReadbackIndexExtensions
 {
     public static int BinarySearch(this IReadOnlyList<int> values, int value)
     {

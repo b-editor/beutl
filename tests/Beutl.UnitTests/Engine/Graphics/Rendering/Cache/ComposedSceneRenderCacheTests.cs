@@ -227,7 +227,7 @@ public sealed class ComposedSceneRenderCacheTests
                     DefaultRequest = new RenderNodeRenderRequest
                     {
                         TargetDomain = s_frameBounds,
-                        RenderPurpose = RenderRequestPurpose.Frame,
+                        Purpose = RenderRequestPurpose.Frame,
                         Diagnostics = diagnostics,
                     },
                     TargetFactory = new CpuTargetFactory(),
@@ -414,7 +414,7 @@ public sealed class ComposedSceneRenderCacheTests
                 {
                     TargetDomain = s_frameBounds,
                     UseRenderCache = useRenderCache,
-                    RenderPurpose = RenderRequestPurpose.Frame,
+                    Purpose = RenderRequestPurpose.Frame,
                     Diagnostics = diagnostics,
                 },
                 TargetFactory = new CpuTargetFactory(),

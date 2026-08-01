@@ -746,7 +746,8 @@ public class Scene : ProjectItem, INotifyEdited
         }
 
         JsonObject json = fallback.Json ?? new JsonObject();
-        json.WriteDiscriminator(coreObject.GetType());
+        if (!json.ContainsKey("$type") && !json.ContainsKey("@type"))
+            json.WriteDiscriminator(coreObject.GetType());
         json[nameof(CoreObject.Id)] = coreObject.Id.ToString();
         fallback.Json = json;
     }

@@ -3,6 +3,7 @@ using System.Diagnostics;
 using System.Reactive.Subjects;
 using Avalonia.Headless.NUnit;
 using Avalonia.Media.Imaging;
+using Avalonia.Platform;
 using Beutl.Composition;
 using Beutl.Graphics;
 using Beutl.Graphics.Rendering;
@@ -40,6 +41,7 @@ public class DrawableBrushThumbnailTests
                 TimeSpan.FromSeconds(5));
 
             var first = (WriteableBitmap)imageBrush.Source!;
+            uint initialPixel = SamplePixel(first, 20, 12);
             Assert.That(imageBrush.Stretch, Is.EqualTo(AvaStretch.Uniform));
 
             drawableBrush.Drawable.CurrentValue = CreateRectangle(72, 36, Colors.Blue);
@@ -52,14 +54,22 @@ public class DrawableBrushThumbnailTests
                       && !ReferenceEquals(bitmap, first)
                       && bitmap.PixelSize == new AvaPixelSize(72, 36),
                 TimeSpan.FromSeconds(5));
+            var second = (WriteableBitmap)imageBrush.Source!;
+            uint updatedPixel = SamplePixel(second, 36, 18);
 
             Assert.Multiple(() =>
             {
                 Assert.That(imageBrush.Stretch, Is.EqualTo(AvaStretch.None));
                 Assert.That(imageBrush.Source, Is.Not.SameAs(first));
                 Assert.That(
-                    ((WriteableBitmap)imageBrush.Source!).PixelSize,
+                    second.PixelSize,
                     Is.EqualTo(new AvaPixelSize(72, 36)));
+                Assert.That((initialPixel & 0xFF), Is.GreaterThan(200), "The initial thumbnail must be red.");
+                Assert.That(((initialPixel >> 16) & 0xFF), Is.LessThan(30), "The initial thumbnail must not be blue.");
+                Assert.That(((updatedPixel >> 16) & 0xFF), Is.GreaterThan(200), "The updated thumbnail must be blue.");
+                Assert.That((updatedPixel & 0xFF), Is.LessThan(30), "The updated thumbnail must not be red.");
+                Assert.That((initialPixel >> 24), Is.GreaterThan(200));
+                Assert.That((updatedPixel >> 24), Is.GreaterThan(200));
             });
         }
         finally
@@ -69,6 +79,29 @@ public class DrawableBrushThumbnailTests
         }
 
         Assert.That(imageBrush.Source, Is.Null);
+    }
+
+    private static uint SamplePixel(WriteableBitmap bitmap, int x, int y)
+    {
+        using ILockedFramebuffer buffer = bitmap.Lock();
+        Assert.That(
+            buffer.Format,
+            Is.EqualTo(Avalonia.Platform.PixelFormat.Rgba8888)
+                .Or.EqualTo(Avalonia.Platform.PixelFormat.Bgra8888),
+            $"SamplePixel assumes a 32bpp RGBA or BGRA bitmap but the format is {buffer.Format}.");
+        Assert.That(x, Is.InRange(0, buffer.Size.Width - 1));
+        Assert.That(y, Is.InRange(0, buffer.Size.Height - 1));
+
+        uint pixel;
+        unsafe
+        {
+            byte* row = (byte*)buffer.Address + (y * buffer.RowBytes);
+            pixel = ((uint*)row)[x];
+        }
+
+        return buffer.Format == Avalonia.Platform.PixelFormat.Bgra8888
+            ? (pixel & 0xFF00FF00) | ((pixel & 0x000000FF) << 16) | ((pixel & 0x00FF0000) >> 16)
+            : pixel;
     }
 
     [AvaloniaTest]

@@ -28,10 +28,7 @@ public sealed class RenderNodeCache(RenderNode node) : IDisposable
 
     public int CacheCount => _storage.Values.Length;
 
-    /// <summary>
-    /// The pixel density the cached tiles were rasterized at. Replay re-tags tiles at this density.
-    /// </summary>
-    public float Density => _storage.Density;
+    internal float IdentityDensity => _storage.IdentityDensity;
 
     public bool IsDisposed { get; private set; }
 
@@ -105,7 +102,7 @@ public sealed class RenderNodeCache(RenderNode node) : IDisposable
         }
     }
 
-    public RenderTarget UseCache(out Rect bounds)
+    internal RenderTarget UseCache(out Rect bounds)
     {
         if (_storage.Values.Length == 0)
         {
@@ -117,20 +114,20 @@ public sealed class RenderNodeCache(RenderNode node) : IDisposable
         return value.Target.ShallowCopy();
     }
 
-    public void StoreCache(RenderTarget renderTarget, Rect bounds, float density = 1f)
+    internal void StoreCache(RenderTarget renderTarget, Rect bounds, float density = 1f)
     {
         ArgumentNullException.ThrowIfNull(renderTarget);
         StoreCache([(renderTarget, bounds)], density);
     }
 
-    public IEnumerable<(RenderTarget RenderTarget, Rect Bounds)> UseCache()
+    internal IEnumerable<(RenderTarget RenderTarget, Rect Bounds)> UseCache()
     {
         return _storage.Values
             .Select(static value => (value.Target.ShallowCopy(), value.Bounds))
             .ToArray();
     }
 
-    public void StoreCache(ReadOnlySpan<(RenderTarget RenderTarget, Rect Bounds)> items, float density = 1f)
+    internal void StoreCache(ReadOnlySpan<(RenderTarget RenderTarget, Rect Bounds)> items, float density = 1f)
     {
         ObjectDisposedException.ThrowIf(IsDisposed, this);
         if (!float.IsFinite(density) || density <= 0)
@@ -282,7 +279,7 @@ public sealed class RenderNodeCache(RenderNode node) : IDisposable
     private sealed record CacheStorage(
         RenderOutputCacheIdentity? Identity,
         RenderNodeCachedValue[] Values,
-        float Density)
+        float IdentityDensity)
     {
         public static CacheStorage Empty { get; } = new(null, [], 1);
     }

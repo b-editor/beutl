@@ -345,18 +345,24 @@ public class Renderer : IRenderer
     private void RenderObjects(CompositionFrame frame)
     {
         var pendingEntries = new List<Entry>();
-        foreach (var obj in frame.Objects)
+        try
         {
-            if (obj is not Drawable.Resource drawableResource)
-                continue;
+            foreach (var obj in frame.Objects)
+            {
+                if (obj is not Drawable.Resource drawableResource)
+                    continue;
 
-            pendingEntries.Add(PrepareDrawable(drawableResource));
+                pendingEntries.Add(PrepareDrawable(drawableResource));
+            }
+
+            _completeTarget.UpdateRoots(pendingEntries.Select(static entry => (RenderNode)entry.Node));
+            _frameRenderer.Render(_immediateCanvas);
+        }
+        finally
+        {
+            ClearFrame();
         }
 
-        _completeTarget.UpdateRoots(pendingEntries.Select(static entry => (RenderNode)entry.Node));
-        _frameRenderer.Render(_immediateCanvas);
-
-        ClearFrame();
         foreach (Entry entry in pendingEntries)
         {
             RevalidateAll(entry.Node);
@@ -422,7 +428,7 @@ public class Renderer : IRenderer
                     MaxWorkingScale = MaxWorkingScale,
                     UseRenderCache = CacheOptions.IsEnabled,
                     CacheRules = CacheOptions.Rules,
-                    RenderPurpose = purpose,
+                    Purpose = purpose,
                     Diagnostics = diagnostics,
                 },
             });

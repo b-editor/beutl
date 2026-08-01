@@ -158,7 +158,7 @@ public sealed class RenderPipelineReconciliationTests
                 TargetDomain = new Rect(0, 0, 16, 16),
                 Diagnostics = diagnostics,
                 UseRenderCache = true,
-                RenderPurpose = RenderRequestPurpose.Frame,
+                Purpose = RenderRequestPurpose.Frame,
             },
         });
 
@@ -367,7 +367,7 @@ public sealed class RenderPipelineReconciliationTests
                 TargetDomain = new Rect(0, 0, 16, 16),
                 Diagnostics = diagnostics,
                 UseRenderCache = true,
-                RenderPurpose = RenderRequestPurpose.Frame,
+                Purpose = RenderRequestPurpose.Frame,
             },
         });
 

@@ -15,7 +15,7 @@ public sealed class OpaqueRenderDescription
         RenderScaleContract scale,
         object structuralKey,
         RenderRuntimeIdentity? runtimeIdentity,
-        bool requiresReadback,
+        IReadOnlyList<RenderInputReadback> inputReadbacks,
         IReadOnlyList<RenderResource> resources,
         RenderBackendBoundary backendBoundary,
         Action<EngineDirectRenderSession>? directReplay)
@@ -27,7 +27,7 @@ public sealed class OpaqueRenderDescription
         Scale = scale;
         StructuralKey = structuralKey;
         RuntimeIdentity = runtimeIdentity;
-        RequiresReadback = requiresReadback;
+        InputReadbacks = inputReadbacks;
         Resources = resources;
         BackendBoundary = backendBoundary;
         DirectReplay = directReplay;
@@ -41,7 +41,7 @@ public sealed class OpaqueRenderDescription
 
     public RenderScaleContract Scale { get; }
 
-    public bool RequiresReadback { get; }
+    public IReadOnlyList<RenderInputReadback> InputReadbacks { get; }
 
     public object StructuralKey { get; }
 
@@ -111,7 +111,7 @@ public sealed class OpaqueRenderDescription
                 Scale,
                 StructuralKey,
                 RuntimeIdentity,
-                RequiresReadback,
+                InputReadbacks,
                 Resources,
                 BackendBoundary,
                 directReplay: null);
@@ -124,7 +124,7 @@ public sealed class OpaqueRenderDescription
         RenderScaleContract scale,
         object? structuralKey = null,
         RenderRuntimeIdentity? runtimeIdentity = null,
-        bool requiresReadback = false,
+        IEnumerable<RenderInputReadback>? inputReadbacks = null,
         IEnumerable<RenderResource>? resources = null)
     {
         ArgumentNullException.ThrowIfNull(execute);
@@ -147,7 +147,7 @@ public sealed class OpaqueRenderDescription
             scale,
             resolvedStructuralKey,
             runtimeIdentity,
-            requiresReadback,
+            Array.AsReadOnly(CopyInputReadbacks(inputReadbacks)),
             RenderDescriptionValidation.CopyResources(resources, nameof(resources)),
             RenderBackendBoundary.None,
             directReplay: null);
@@ -180,7 +180,7 @@ public sealed class OpaqueRenderDescription
             scale,
             structuralKey,
             runtimeIdentity,
-            requiresReadback: false,
+            Array.AsReadOnly(Array.Empty<RenderInputReadback>()),
             RenderDescriptionValidation.CopyResources(resources, nameof(resources)),
             RenderBackendBoundary.None,
             directReplay);
@@ -216,10 +216,37 @@ public sealed class OpaqueRenderDescription
             scale,
             structuralKey,
             runtimeIdentity,
-            requiresReadback: false,
+            Array.AsReadOnly(Array.Empty<RenderInputReadback>()),
             RenderDescriptionValidation.CopyResources(resources, nameof(resources)),
             backendBoundary,
             directReplay: null);
+    }
+
+    internal IReadOnlyList<RenderInputReadback> ResolveInputReadbacks(
+        int inputCount,
+        string parameterName)
+    {
+        if (InputReadbacks.Count == 0)
+            return Enumerable.Repeat(RenderInputReadback.None, inputCount).ToArray();
+        if (InputReadbacks.Count != inputCount)
+        {
+            throw new ArgumentException(
+                "The opaque-render input readback count must match the authored input count.",
+                parameterName);
+        }
+        return InputReadbacks;
+    }
+
+    private static RenderInputReadback[] CopyInputReadbacks(
+        IEnumerable<RenderInputReadback>? inputReadbacks)
+    {
+        if (inputReadbacks is null)
+            return [];
+
+        RenderInputReadback[] result = inputReadbacks.ToArray();
+        foreach (RenderInputReadback inputReadback in result)
+            inputReadback.ThrowIfUninitialized(nameof(inputReadbacks));
+        return result;
     }
 }
 
@@ -858,7 +885,7 @@ public sealed class OpaqueRenderSession
 {
     private readonly RenderExecutionSessionToken _token;
     private readonly IReadOnlyList<RenderResource> _resources;
-    private readonly Func<OpaqueRenderSession, Rect, OpaqueRenderOutput> _createOutput;
+    private readonly Func<OpaqueRenderSession, Rect, float?, OpaqueRenderOutput> _createOutput;
     private readonly Action<OpaqueRenderOutput> _publish;
     private readonly IReadOnlyList<RenderExecutionInput> _inputs;
     private readonly Rect _outputBounds;
@@ -882,7 +909,7 @@ public sealed class OpaqueRenderSession
         RenderIntent intent,
         RenderRequestPurpose purpose,
         IReadOnlyList<RenderResource> resources,
-        Func<OpaqueRenderSession, Rect, OpaqueRenderOutput> createOutput,
+        Func<OpaqueRenderSession, Rect, float?, OpaqueRenderOutput> createOutput,
         Action<OpaqueRenderOutput> publish)
     {
         ArgumentNullException.ThrowIfNull(token);
@@ -955,16 +982,29 @@ public sealed class OpaqueRenderSession
         get { _token.ThrowIfInactive(); return _purpose; }
     }
 
-    public OpaqueRenderOutput CreateOutput(Rect logicalBounds)
+    /// <summary>Creates an unpublished output within the declared bounds.</summary>
+    /// <param name="logicalBounds">The finite non-empty logical output bounds.</param>
+    /// <param name="density">
+    /// The optional finite positive density for this output. <see langword="null"/> uses
+    /// <see cref="WorkingScale"/>. The executor clamps either value to engine allocation limits.
+    /// </param>
+    public OpaqueRenderOutput CreateOutput(Rect logicalBounds, float? density = null)
     {
         _token.ThrowIfInactive();
         RenderDescriptionValidation.ThrowIfFiniteNonEmpty(logicalBounds, nameof(logicalBounds));
+        if (density is { } value && (!float.IsFinite(value) || value <= 0))
+        {
+            throw new ArgumentOutOfRangeException(
+                nameof(density),
+                density,
+                "An opaque output density must be finite and positive.");
+        }
         if (!RenderDescriptionValidation.Contains(_outputBounds, logicalBounds))
         {
             throw new ArgumentException("An opaque output must be contained by the declared output bounds.", nameof(logicalBounds));
         }
 
-        return _createOutput(this, logicalBounds);
+        return _createOutput(this, logicalBounds, density);
     }
 
     public void Publish(OpaqueRenderOutput output)

@@ -581,3 +581,4 @@ public sealed class FilterEffectActivator : IDisposable
         Rect InputBounds,
         Rect PhysicalBounds);
 }
+

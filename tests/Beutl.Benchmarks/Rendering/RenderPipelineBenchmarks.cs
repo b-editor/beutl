@@ -841,15 +841,15 @@ internal static class RenderPipelineInternalDiagnostics
         object state,
         RenderRequestPurpose purpose)
     {
-        // Diagnostics and RenderPurpose live on the default request record; its init-only
+        // Diagnostics and Purpose live on the default request record; its init-only
         // accessors remain reflection-settable before the renderer copies the request.
         object request = GetProperty(options, "DefaultRequest");
         SetProperty(request, "Diagnostics", state);
-        SetProperty(request, "RenderPurpose", purpose);
+        SetProperty(request, "Purpose", purpose);
     }
 
     public static void SetPurpose(RenderNodeRendererOptions options, RenderRequestPurpose purpose)
-        => SetProperty(GetProperty(options, "DefaultRequest"), "RenderPurpose", purpose);
+        => SetProperty(GetProperty(options, "DefaultRequest"), "Purpose", purpose);
 
     public static SortedDictionary<string, long> CaptureLatestCounters(object state, out bool succeeded)
     {

@@ -525,7 +525,7 @@ internal static class FailureTestSupport
                     OutputScale = 1,
                     MaxWorkingScale = 1,
                     UseRenderCache = useRenderCache,
-                    RenderPurpose = purpose,
+                    Purpose = purpose,
                     Diagnostics = diagnostics,
                 },
                 TargetFactory = factory,

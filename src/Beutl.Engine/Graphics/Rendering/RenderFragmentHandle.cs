@@ -177,6 +177,10 @@ internal sealed class RenderFragmentReference
         HasTargetEffects = hasTargetEffects;
         HasOpaqueExternalWork = hasOpaqueExternalWork;
         Inputs = inputs is null ? [] : [.. inputs];
+        SupportsIndependentOutputDensities = payload is OpaqueRenderFragmentPayload
+            || (kind == RenderFragmentKind.ContributeValues
+                && Inputs.Length == 1
+                && Inputs[0].SupportsIndependentOutputDensities);
         HasConcreteRecordingMetadata = !hasDirectSymbolicBoundsDependency
             && boundsRequirement == RenderFragmentBoundsRequirement.Finite
             && (kind == RenderFragmentKind.Layer
@@ -216,6 +220,8 @@ internal sealed class RenderFragmentReference
     public bool PotentiallyWritesTarget { get; }
 
     public bool HasOpaqueExternalWork { get; }
+
+    public bool SupportsIndependentOutputDensities { get; }
 
     public ImmutableArray<RenderFragmentReference> Inputs { get; }
 

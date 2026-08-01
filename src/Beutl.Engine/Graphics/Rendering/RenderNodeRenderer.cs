@@ -45,9 +45,14 @@ public sealed record RenderNodeRenderRequest
     /// <summary>Gets whether eligible persistent render-node cache entries may be read or published.</summary>
     public bool UseRenderCache { get; init; } = RenderCacheOptions.Default.IsEnabled;
 
-    internal FusionMode FusionMode { get; init; } = FusionMode.Enabled;
+    /// <summary>Gets the execution purpose observed by render callbacks and cache policy.</summary>
+    /// <remarks>
+    /// <see cref="RenderNodeRenderer.Render"/> and <see cref="RenderNodeRenderer.Rasterize"/> preserve this value.
+    /// Metadata-only measurement and hit-testing use their dedicated engine purposes.
+    /// </remarks>
+    public RenderRequestPurpose Purpose { get; init; } = RenderRequestPurpose.Auxiliary;
 
-    internal RenderRequestPurpose RenderPurpose { get; init; } = RenderRequestPurpose.Auxiliary;
+    internal FusionMode FusionMode { get; init; } = FusionMode.Enabled;
 
     internal RenderCacheRules CacheRules { get; init; } = RenderCacheRules.Default;
 
@@ -147,7 +152,9 @@ public sealed class RenderNodeRenderer : IDisposable
     /// <see langword="null"/> to use defaults.
     /// </param>
     /// <exception cref="ArgumentNullException"><paramref name="root"/> is <see langword="null"/>.</exception>
-    /// <exception cref="ArgumentOutOfRangeException">The configured render intent is not defined.</exception>
+    /// <exception cref="ArgumentOutOfRangeException">
+    /// The configured render intent or request purpose is not defined.
+    /// </exception>
     /// <exception cref="ArgumentException">
     /// A configured target domain or requested region is not finite, or the target domain is empty.
     /// </exception>
@@ -207,6 +214,9 @@ public sealed class RenderNodeRenderer : IDisposable
     /// </remarks>
     /// <exception cref="ArgumentNullException"><paramref name="destination"/> is <see langword="null"/>.</exception>
     /// <exception cref="ObjectDisposedException">This renderer or <paramref name="destination"/> is disposed.</exception>
+    /// <exception cref="ArgumentOutOfRangeException">
+    /// The request purpose is reserved for metadata-only measurement or hit testing.
+    /// </exception>
     public void Render(
         ImmediateCanvas destination,
         RenderNodeRenderRequest? requestOptions = null)
@@ -216,6 +226,7 @@ public sealed class RenderNodeRenderer : IDisposable
         ArgumentNullException.ThrowIfNull(destination);
         ObjectDisposedException.ThrowIf(destination.IsDisposed, destination);
         RenderNodeRenderRequest effectiveRequest = ResolveRequest(requestOptions);
+        ThrowIfInvalidExecutionPurpose(effectiveRequest.Purpose);
 
         bool hasExplicitEmptySelection = effectiveRequest.RequestedRegion is { } requested
                                          && (requested.Width == 0 || requested.Height == 0);
@@ -233,7 +244,7 @@ public sealed class RenderNodeRenderer : IDisposable
         try
         {
             request = RecordAndCompile(
-                effectiveRequest.RenderPurpose,
+                effectiveRequest.Purpose,
                 destination.Density,
                 maxWorkingScale,
                 targetDomain,
@@ -402,11 +413,15 @@ public sealed class RenderNodeRenderer : IDisposable
     /// A complete request, or <see langword="null"/> to use <see cref="RenderNodeRendererOptions.DefaultRequest"/>.
     /// </param>
     /// <exception cref="ObjectDisposedException">This renderer is disposed.</exception>
+    /// <exception cref="ArgumentOutOfRangeException">
+    /// The request purpose is reserved for metadata-only measurement or hit testing.
+    /// </exception>
     public RenderNodeRasterization Rasterize(RenderNodeRenderRequest? requestOptions = null)
     {
         RenderExecutionCallbackGuard.ThrowIfRendererLaunchForbidden();
         ThrowIfDisposed();
         RenderNodeRenderRequest effectiveRequest = ResolveRequest(requestOptions);
+        ThrowIfInvalidExecutionPurpose(effectiveRequest.Purpose);
         CompiledRenderRequest? request = null;
         RenderRequestOwner? owner = null;
         RenderTargetLeaseSession? targets = null;
@@ -421,7 +436,7 @@ public sealed class RenderNodeRenderer : IDisposable
         {
             targets = _targetRegistry.BeginSession(effectiveRequest.Intent);
             request = RecordAndCompile(
-                effectiveRequest.RenderPurpose,
+                effectiveRequest.Purpose,
                 effectiveRequest.OutputScale,
                 effectiveRequest.MaxWorkingScale,
                 effectiveRequest.TargetDomain,
@@ -813,6 +828,13 @@ public sealed class RenderNodeRenderer : IDisposable
                 request.Intent,
                 "The render intent is not defined.");
         }
+        if (!Enum.IsDefined(request.Purpose))
+        {
+            throw new ArgumentOutOfRangeException(
+                nameof(request),
+                request.Purpose,
+                "The render request purpose is not defined.");
+        }
 
         ValidateTargetDomain(request.TargetDomain);
         ValidateRequestedRegion(request.RequestedRegion);
@@ -821,6 +843,19 @@ public sealed class RenderNodeRenderer : IDisposable
             OutputScale = SanitizeOutputScale(request.OutputScale),
             MaxWorkingScale = RenderScaleUtilities.SanitizeMaxWorkingScale(request.MaxWorkingScale),
         };
+    }
+
+    private static void ThrowIfInvalidExecutionPurpose(RenderRequestPurpose purpose)
+    {
+        if (purpose is not (RenderRequestPurpose.Frame
+            or RenderRequestPurpose.CacheWarmup
+            or RenderRequestPurpose.Auxiliary))
+        {
+            throw new ArgumentOutOfRangeException(
+                nameof(purpose),
+                purpose,
+                "Render and Rasterize require Frame, CacheWarmup, or Auxiliary purpose.");
+        }
     }
 
     private static bool TryResolveDestinationTargetDomain(ImmediateCanvas destination, out Rect domain)

@@ -127,7 +127,7 @@ public sealed class RenderNodeRendererAllocationFailureTests
                     ? float.PositiveInfinity
                     : 2,
                     UseRenderCache = false,
-                    RenderPurpose = RenderRequestPurpose.Frame,
+                    Purpose = RenderRequestPurpose.Frame,
                     Diagnostics = diagnostics,
                 },
                 TargetFactory = factory,

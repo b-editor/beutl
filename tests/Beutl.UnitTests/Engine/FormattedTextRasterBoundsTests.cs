@@ -172,7 +172,13 @@ public class FormattedTextRasterBoundsTests
         text.AddToSKPath(first, new Point(10, 20));
         text.AddToSKPath(second, new Point(10, 20));
 
-        Assert.That(second.TightBounds, Is.EqualTo(first.TightBounds));
+        Assert.Multiple(() =>
+        {
+            Assert.That(first.IsEmpty, Is.False, "AddToSKPath must produce outline geometry.");
+            Assert.That(first.TightBounds.Width, Is.GreaterThan(0));
+            Assert.That(first.TightBounds.Height, Is.GreaterThan(0));
+            Assert.That(second.TightBounds, Is.EqualTo(first.TightBounds));
+        });
     }
 
     private static Pen.Resource CreateThickPen(float textSize)

@@ -269,7 +269,7 @@ public sealed class StructuralAndProgramCacheTests
     }
 
     [Test]
-    public void TargetInputReadbackSelection_ReplacesStructuralPlanAndRebindsSnapshots()
+    public void RenderInputReadbackSelection_ReplacesStructuralPlanAndRebindsSnapshots()
     {
         using var node = new MutableTargetCommandReadbackNode();
         using var renderer = new RenderNodeRenderer(
@@ -614,8 +614,8 @@ public sealed class StructuralAndProgramCacheTests
                     RenderHitTestContract.None,
                     TargetAccess.ReadWrite,
                     inputReadbacks: ReadFirstInput
-                        ? [TargetInputReadback.All, TargetInputReadback.None]
-                        : [TargetInputReadback.None, TargetInputReadback.All],
+                        ? [RenderInputReadback.All, RenderInputReadback.None]
+                        : [RenderInputReadback.None, RenderInputReadback.All],
                     structuralKey: "mutable-target-input-readback"));
             context.PublishRange([first, second, command]);
         }

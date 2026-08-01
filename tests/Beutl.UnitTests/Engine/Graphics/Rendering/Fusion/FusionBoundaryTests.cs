@@ -377,7 +377,10 @@ public sealed class FusionBoundaryTests
         {
             RenderFragmentReference threeD = Fragment(
                 RenderFragmentKind.OpaqueSource,
-                new OpaqueRenderFragmentPayload(OpaqueRenderTopology.Source, description));
+                new OpaqueRenderFragmentPayload(
+                    OpaqueRenderTopology.Source,
+                    description,
+                    Array.Empty<RenderInputReadback>()));
             RenderFragmentReference shader = CurrentPixel(threeD, "return color.bgra;");
             return BuildGraph(requestId, [threeD, shader], [shader], cache);
         });
@@ -683,7 +686,10 @@ public sealed class FusionBoundaryTests
             RenderHitTestContract.OutputBounds,
             cardinality,
             RenderScaleContract.MaterializeAtWorkingScale);
-        return new OpaqueRenderFragmentPayload(topology, description);
+        IReadOnlyList<RenderInputReadback> inputReadbacks = topology == OpaqueRenderTopology.Map
+            ? [RenderInputReadback.None]
+            : Array.Empty<RenderInputReadback>();
+        return new OpaqueRenderFragmentPayload(topology, description, inputReadbacks);
     }
 
     private static RenderFragmentReference Fragment(
@@ -811,7 +817,7 @@ public sealed class FusionBoundaryTests
                     MaxWorkingScale = 1,
                     UseRenderCache = useRenderCache,
                     FusionMode = fusionMode,
-                    RenderPurpose = RenderRequestPurpose.Frame,
+                    Purpose = RenderRequestPurpose.Frame,
                     Diagnostics = diagnostics,
                 },
             });

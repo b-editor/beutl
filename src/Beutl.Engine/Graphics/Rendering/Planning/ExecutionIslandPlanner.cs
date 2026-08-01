@@ -657,7 +657,8 @@ internal sealed class ExecutionIslandPlanner
         => reference.Payload switch
         {
             GeometryRenderFragmentPayload geometry => geometry.Description.RequiresReadback,
-            OpaqueRenderFragmentPayload opaque => opaque.Description.RequiresReadback,
+            OpaqueRenderFragmentPayload opaque
+                => opaque.InputReadbacks.Any(static item => item.RequiresAnyReadback),
             TargetCommandRenderFragmentPayload command
                 => command.Description.Access == TargetAccess.Readback
                    || command.InputReadbacks.Any(static item => item.RequiresAnyReadback),

@@ -913,7 +913,7 @@ public class SourceEffectiveScaleFlowTests
                     OutputScale = requestedDensity,
                     MaxWorkingScale = requestedDensity,
                     TargetDomain = childBounds,
-                    RenderPurpose = RenderRequestPurpose.Frame,
+                    Purpose = RenderRequestPurpose.Frame,
                     Diagnostics = diagnostics,
                 },
                 TargetFactory = new CpuTargetFactory(),
@@ -930,7 +930,7 @@ public class SourceEffectiveScaleFlowTests
             Assert.That(observedWorkingScales, Has.Count.EqualTo(1));
             Assert.That(observedWorkingScales.Single(), Is.EqualTo(expectedDensity).Within(1e-4));
             Assert.That(layer.Cache.IsCached, Is.True);
-            Assert.That(layer.Cache.Density, Is.EqualTo(expectedDensity));
+            Assert.That(layer.Cache.IdentityDensity, Is.EqualTo(expectedDensity));
             Assert.That(
                 diagnostics.Latest[RenderPipelineCounter.RenderCacheHits],
                 Is.EqualTo(1));
@@ -965,7 +965,7 @@ public class SourceEffectiveScaleFlowTests
                     MaxWorkingScale = requestedDensity,
                     TargetDomain = childBounds,
                     RequestedRegion = requestedRegion,
-                    RenderPurpose = RenderRequestPurpose.Frame,
+                    Purpose = RenderRequestPurpose.Frame,
                     Diagnostics = diagnostics,
                 },
                 TargetFactory = new CpuTargetFactory(),
@@ -1014,7 +1014,7 @@ public class SourceEffectiveScaleFlowTests
                     OutputScale = 1,
                     MaxWorkingScale = 4,
                     TargetDomain = bounds,
-                    RenderPurpose = RenderRequestPurpose.Frame,
+                    Purpose = RenderRequestPurpose.Frame,
                     Diagnostics = diagnostics,
                 },
                 TargetFactory = new CpuTargetFactory(),
@@ -1029,7 +1029,7 @@ public class SourceEffectiveScaleFlowTests
             Assert.That(cold.IsEmpty, Is.False);
             Assert.That(warm.IsEmpty, Is.False);
             Assert.That(node.Cache.IsCached, Is.True);
-            Assert.That(node.Cache.Density, Is.EqualTo(sourceScale.Value));
+            Assert.That(node.Cache.IdentityDensity, Is.EqualTo(sourceScale.Value));
             Assert.That(
                 diagnostics.Latest[RenderPipelineCounter.RenderCacheHits],
                 Is.EqualTo(1));
@@ -1066,7 +1066,7 @@ public class SourceEffectiveScaleFlowTests
                     OutputScale = 1,
                     MaxWorkingScale = 4,
                     TargetDomain = bounds,
-                    RenderPurpose = RenderRequestPurpose.Frame,
+                    Purpose = RenderRequestPurpose.Frame,
                     Diagnostics = diagnostics,
                 },
                 TargetFactory = new CpuTargetFactory(),
@@ -1082,7 +1082,7 @@ public class SourceEffectiveScaleFlowTests
             Assert.That(cold.IsEmpty, Is.False);
             Assert.That(warm.IsEmpty, Is.False);
             Assert.That(opacity.Cache.IsCached, Is.True);
-            Assert.That(opacity.Cache.Density, Is.EqualTo(expectedDensity));
+            Assert.That(opacity.Cache.IdentityDensity, Is.EqualTo(expectedDensity));
             Assert.That(
                 diagnostics.Latest[RenderPipelineCounter.RenderCacheHits],
                 Is.EqualTo(1));
@@ -1114,7 +1114,7 @@ public class SourceEffectiveScaleFlowTests
                     OutputScale = 1,
                     MaxWorkingScale = 4,
                     TargetDomain = bounds,
-                    RenderPurpose = RenderRequestPurpose.Frame,
+                    Purpose = RenderRequestPurpose.Frame,
                     Diagnostics = diagnostics,
                 },
                 TargetFactory = new CpuTargetFactory(),
@@ -1166,7 +1166,7 @@ public class SourceEffectiveScaleFlowTests
                     MaxWorkingScale = 1,
                     TargetDomain = bounds,
                     RequestedRegion = requestedRegion,
-                    RenderPurpose = RenderRequestPurpose.Frame,
+                    Purpose = RenderRequestPurpose.Frame,
                     Diagnostics = diagnostics,
                 },
                 TargetFactory = new CpuTargetFactory(),

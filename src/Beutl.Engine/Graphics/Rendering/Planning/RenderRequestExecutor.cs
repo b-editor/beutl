@@ -807,6 +807,7 @@ internal sealed class RenderRequestExecutor
         private readonly Dictionary<RenderFragmentId, ImmutableArray<RenderCacheMissCapture>> _cacheMisses;
         private readonly HashSet<RenderFragmentId> _skippedExecutionSubjects = [];
         private readonly List<PendingRenderCacheCapture> _pendingCacheCaptures = [];
+        private readonly HashSet<RenderCacheCandidateId> _suppressedCacheCaptures = [];
         private readonly List<(IBuiltInBackdropCaptureSink Sink, CompatibilityRenderValue Value)> _backdropCaptures = [];
         private readonly List<PendingBackdropPublication> _pendingBackdropPublications = [];
         private int _shaderRunExecutions;
@@ -1298,6 +1299,7 @@ internal sealed class RenderRequestExecutor
             finally
             {
                 _pendingCacheCaptures.Clear();
+                _suppressedCacheCaptures.Clear();
                 _cacheCaptureValues.Clear();
             }
         }
@@ -1307,7 +1309,8 @@ internal sealed class RenderRequestExecutor
             ArgumentNullException.ThrowIfNull(seenCaches);
             if (_previewAllocationDropObserved)
                 return;
-            if (_pendingCacheCaptures.Count != _cacheResolution.MissCaptures.Length)
+            if (_pendingCacheCaptures.Count + _suppressedCacheCaptures.Count
+                != _cacheResolution.MissCaptures.Length)
             {
                 throw new InvalidOperationException(
                     "Every selected render-cache miss must materialize exactly one staged capture.");
@@ -1316,6 +1319,8 @@ internal sealed class RenderRequestExecutor
             var byCandidate = _pendingCacheCaptures.ToDictionary(static item => item.Descriptor.CandidateId);
             foreach (RenderCacheMissCapture descriptor in _cacheResolution.MissCaptures)
             {
+                if (_suppressedCacheCaptures.Contains(descriptor.CandidateId))
+                    continue;
                 if (!byCandidate.ContainsKey(descriptor.CandidateId))
                     throw new InvalidOperationException("A selected render-cache miss was not staged.");
                 RenderNodeCache cache = _cacheResolution.GetDecision(descriptor.CandidateId).Candidate.Cache
@@ -1340,6 +1345,8 @@ internal sealed class RenderRequestExecutor
             var byCandidate = _pendingCacheCaptures.ToDictionary(static item => item.Descriptor.CandidateId);
             foreach (RenderCacheMissCapture descriptor in _cacheResolution.MissCaptures)
             {
+                if (_suppressedCacheCaptures.Contains(descriptor.CandidateId))
+                    continue;
                 PendingRenderCacheCapture pending = byCandidate[descriptor.CandidateId];
                 RenderNodeCache cache = _cacheResolution.GetDecision(descriptor.CandidateId).Candidate.Cache!;
                 var cachedValues = new List<RenderNodeCachedValue>(pending.Values.Count);
@@ -1378,6 +1385,7 @@ internal sealed class RenderRequestExecutor
             }
 
             _pendingCacheCaptures.Clear();
+            _suppressedCacheCaptures.Clear();
             _diagnostics?.CommitAcceptedCacheCaptures();
         }
 
@@ -1399,6 +1407,7 @@ internal sealed class RenderRequestExecutor
             finally
             {
                 _pendingCacheCaptures.Clear();
+                _suppressedCacheCaptures.Clear();
                 _cacheCaptureValues.Clear();
             }
 
@@ -1731,13 +1740,15 @@ internal sealed class RenderRequestExecutor
             }
 
             var acquired = new List<CompatibilityRenderValue>(cachedOutput.Values.Count);
+            bool supportsIndependentOutputDensities = fragment.SupportsIndependentOutputDensities;
             try
             {
                 foreach (RenderNodeCachedValue cached in cachedOutput.Values)
                 {
                     if (cached.EffectiveScale.IsUnbounded
-                        || BitConverter.SingleToInt32Bits(cached.EffectiveScale.Value)
-                        != BitConverter.SingleToInt32Bits(hit.Identity.Density))
+                        || (!supportsIndependentOutputDensities
+                            && BitConverter.SingleToInt32Bits(cached.EffectiveScale.Value)
+                            != BitConverter.SingleToInt32Bits(hit.Identity.Density)))
                     {
                         throw new InvalidOperationException(
                             "A render-cache hit payload does not match its planned materialization density.");
@@ -1775,14 +1786,32 @@ internal sealed class RenderRequestExecutor
             if (fragment.Id is not { } id || !_cacheMisses.TryGetValue(id, out var misses))
                 return;
 
+            bool supportsIndependentOutputDensities = fragment.SupportsIndependentOutputDensities;
+            long actualPixels = 0;
+            foreach (CompatibilityRenderValue value in values)
+            {
+                long valuePixels = (long)value.DeviceBounds.Width * value.DeviceBounds.Height;
+                actualPixels = actualPixels > long.MaxValue - valuePixels
+                    ? long.MaxValue
+                    : actualPixels + valuePixels;
+            }
+
             foreach (RenderCacheMissCapture miss in misses)
             {
+                if (!_options.CachePolicy.Rules.Match(actualPixels))
+                {
+                    _suppressedCacheCaptures.Add(miss.CandidateId);
+                    _diagnostics?.RecordCacheCaptureRejected();
+                    continue;
+                }
+
                 var captures = new List<CompatibilityRenderValue>(values.Count);
                 try
                 {
                     foreach (CompatibilityRenderValue value in values)
                     {
-                        if (BitConverter.SingleToInt32Bits(value.EffectiveScale.Value)
+                        if (!supportsIndependentOutputDensities
+                            && BitConverter.SingleToInt32Bits(value.EffectiveScale.Value)
                             != BitConverter.SingleToInt32Bits(miss.Identity.Density))
                         {
                             throw new InvalidOperationException(
@@ -2085,16 +2114,25 @@ internal sealed class RenderRequestExecutor
             var payload = (OpaqueRenderFragmentPayload)fragment.Payload!;
             OpaqueRenderDescription description = payload.Description;
             var flattened = new List<CompatibilityRenderValue>();
+            var inputReadbacks = new List<bool>();
             EffectiveScale outputSupply = requestedScale
                 ?? (!fragment.EffectiveScale.IsUnbounded
                     ? fragment.EffectiveScale
                     : EffectiveScale.At(currentTarget.Density));
-            foreach (RenderFragmentReference input in fragment.Inputs)
+            for (int inputIndex = 0; inputIndex < fragment.Inputs.Length; inputIndex++)
             {
-                flattened.AddRange(Materialize(
+                RenderFragmentReference input = fragment.Inputs[inputIndex];
+                IReadOnlyList<CompatibilityRenderValue> inputValues = Materialize(
                     input,
                     currentTarget,
-                    input.EffectiveScale.IsUnbounded ? outputSupply : null));
+                    input.EffectiveScale.IsUnbounded ? outputSupply : null);
+                RenderInputReadback readback = payload.InputReadbacks[inputIndex];
+                readback.ValidateRuntimeCount(input.ValueCardinality, inputValues.Count);
+                for (int valueIndex = 0; valueIndex < inputValues.Count; valueIndex++)
+                {
+                    flattened.Add(inputValues[valueIndex]);
+                    inputReadbacks.Add(readback.RequiresValue(valueIndex));
+                }
             }
 
             try
@@ -2103,8 +2141,9 @@ internal sealed class RenderRequestExecutor
                 {
                     var mapped = new List<CompatibilityRenderValue>();
                     bool mapCallbackInvoked = false;
-                    foreach (CompatibilityRenderValue input in flattened)
+                    for (int inputIndex = 0; inputIndex < flattened.Count; inputIndex++)
                     {
+                        CompatibilityRenderValue input = flattened[inputIndex];
                         Rect outputBounds = description.Bounds.TransformBounds([input.CompleteBounds]);
                         EffectiveScale outputScale = requestedScale
                             ?? description.Scale.Resolve(
@@ -2116,6 +2155,7 @@ internal sealed class RenderRequestExecutor
                             fragment,
                             description,
                             [input],
+                            [inputReadbacks[inputIndex]],
                             outputBounds,
                             outputScale,
                             description.ValueCardinality,
@@ -2140,6 +2180,7 @@ internal sealed class RenderRequestExecutor
                     fragment,
                     description,
                     flattened,
+                    inputReadbacks,
                     declaredBounds,
                     declaredScale,
                     description.ValueCardinality,
@@ -3101,6 +3142,7 @@ internal sealed class RenderRequestExecutor
             RenderFragmentReference fragment,
             OpaqueRenderDescription description,
             IReadOnlyList<CompatibilityRenderValue> inputs,
+            IReadOnlyList<bool> inputReadbacks,
             Rect outputBounds,
             EffectiveScale declaredScale,
             RenderValueCardinality cardinality,
@@ -3124,11 +3166,13 @@ internal sealed class RenderRequestExecutor
                 IReadOnlyList<CompatibilityRenderValue> result = token.RunAndComplete(
                     () =>
                     {
-                        foreach (CompatibilityRenderValue input in inputs)
+                        for (int inputIndex = 0; inputIndex < inputs.Count; inputIndex++)
                         {
+                            CompatibilityRenderValue input = inputs[inputIndex];
+                            bool requiresReadback = inputReadbacks[inputIndex];
                             SKImage image = input.Target.Value.Snapshot();
                             inputImages.Add(image);
-                            Func<Bitmap>? createSnapshot = description.RequiresReadback
+                            Func<Bitmap>? createSnapshot = requiresReadback
                                 ? () => SnapshotInputForReadback(fragment, input)
                                 : null;
                             executionInputs.Add(new RenderExecutionInput(
@@ -3139,7 +3183,7 @@ internal sealed class RenderRequestExecutor
                                 input.RasterBounds,
                                 image,
                                 createSnapshot,
-                                description.RequiresReadback));
+                                requiresReadback));
                         }
 
                         float density = declaredScale.IsUnbounded
@@ -3163,7 +3207,6 @@ internal sealed class RenderRequestExecutor
                                 density);
                         }
 
-                        EffectiveScale concreteScale = EffectiveScale.At(density);
                         OpaqueRenderSession? session = null;
                         session = new OpaqueRenderSession(
                             token,
@@ -3179,27 +3222,43 @@ internal sealed class RenderRequestExecutor
                             _options.Intent,
                             _options.Purpose,
                             description.Resources,
-                            (_, logicalBounds) =>
+                            (_, logicalBounds, requestedOutputDensity) =>
                             {
+                                float outputDensity = requestedOutputDensity is { } requested
+                                    ? Math.Min(requested, _options.MaxWorkingScale)
+                                    : density;
+                                if (requestedOutputDensity.HasValue)
+                                {
+                                    Rect densityBounds = logicalBounds.Translate(_activeDeviceGridOffset);
+                                    outputDensity = preserveRasterApron
+                                        ? RenderScaleUtilities.ClampWorkingScaleToRasterApronBudget(
+                                            densityBounds,
+                                            outputDensity)
+                                        : RenderScaleUtilities.ClampWorkingScaleToExactBufferBudget(
+                                            densityBounds,
+                                            outputDensity);
+                                }
+
+                                EffectiveScale outputScale = EffectiveScale.At(outputDensity);
                                 PixelRect? physicalDeviceBounds = preserveRasterApron
                                     ? RenderScaleUtilities.AddRasterApron(
-                                        PixelRect.FromRect(logicalBounds, density))
+                                        PixelRect.FromRect(logicalBounds, outputDensity))
                                     : null;
                                 CompatibilityRenderValue value = CreateOwnedValue(
                                     logicalBounds,
-                                    concreteScale,
+                                    outputScale,
                                     outputBounds,
                                     physicalDeviceBounds,
                                     allowPreviewDrop: _previewDropEligibleMaterializations.Contains(fragment));
                                 _diagnostics?.RecordGpuPassExecuted(fragment.Id?.Value ?? 0);
                                 var canvas = new RenderCallbackCanvas(
                                     token,
-                                    density,
+                                    outputDensity,
                                     logicalBounds,
                                     value.DeviceBounds,
                                     () => ImmediateCanvas.CreateExecutorManaged(
                                         value.Target,
-                                        density,
+                                        outputDensity,
                                         _options.MaxWorkingScale,
                                         value.RasterBounds.Size,
                                         value.DeviceBounds.Position),
@@ -3209,7 +3268,7 @@ internal sealed class RenderRequestExecutor
                                     token,
                                     session!,
                                     logicalBounds,
-                                    concreteScale,
+                                    outputScale,
                                     canvas,
                                     _ => ReleaseUnpublished(value));
                                 outputLeases.Add(output, value);
@@ -3292,7 +3351,7 @@ internal sealed class RenderRequestExecutor
                 IReadOnlyList<CompatibilityRenderValue> inputValues = Materialize(
                     fragment.Inputs[inputIndex],
                     destination);
-                TargetInputReadback readback = payload.InputReadbacks[inputIndex];
+                RenderInputReadback readback = payload.InputReadbacks[inputIndex];
                 readback.ValidateRuntimeCount(
                     fragment.Inputs[inputIndex].ValueCardinality,
                     inputValues.Count);

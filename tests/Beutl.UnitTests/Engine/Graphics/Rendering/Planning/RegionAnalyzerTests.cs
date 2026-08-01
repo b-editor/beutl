@@ -293,7 +293,10 @@ public sealed class RegionAnalyzerTests
                 hasTargetEffects: false,
                 hasOpaqueExternalWork: true,
                 inputs: null,
-                new OpaqueRenderFragmentPayload(OpaqueRenderTopology.Source, description),
+                new OpaqueRenderFragmentPayload(
+                    OpaqueRenderTopology.Source,
+                    description,
+                    Array.Empty<RenderInputReadback>()),
                 bounds.Contains));
         }
 
@@ -321,7 +324,10 @@ public sealed class RegionAnalyzerTests
                 hasTargetEffects: input.HasTargetEffects,
                 hasOpaqueExternalWork: true,
                 [input],
-                new OpaqueRenderFragmentPayload(OpaqueRenderTopology.Map, description),
+                new OpaqueRenderFragmentPayload(
+                    OpaqueRenderTopology.Map,
+                    description,
+                    [RenderInputReadback.None]),
                 outputBounds.Contains));
         }
 

@@ -350,7 +350,7 @@ public sealed class ExecutionIslandAuthorityTests
                     MaxWorkingScale = 1,
                     UseRenderCache = false,
                     FusionMode = FusionMode.Enabled,
-                    RenderPurpose = RenderRequestPurpose.Frame,
+                    Purpose = RenderRequestPurpose.Frame,
                     Diagnostics = diagnostics,
                 },
             });
@@ -584,7 +584,7 @@ public sealed class ExecutionIslandAuthorityTests
                         RenderScaleContract.PreserveInputSupply,
                         structuralKey: (typeof(DeclaredInputReadbackNode), "opaque"),
                         runtimeIdentity: new RenderRuntimeIdentity("opaque-readback"),
-                        requiresReadback: true))
+                        inputReadbacks: [RenderInputReadback.All]))
                 : context.Geometry(
                     current,
                     GeometryDescription.Create(

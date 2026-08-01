@@ -396,14 +396,16 @@ public sealed class RecordingSideEffectTests
                 OpaqueRenderBoundsContract.Source(Bounds),
                 RenderValueCardinality.Single,
                 RenderScaleContract.MaterializeAtWorkingScale,
-                "source"));
+                "source",
+                inputCount: 0));
             RenderFragmentHandle mapped = context.OpaqueMap(
                 source,
                 CreateOpaque(
                     OpaqueRenderBoundsContract.Map(RenderBoundsContract.Identity),
                     RenderValueCardinality.Single,
                     RenderScaleContract.PreserveInputSupply,
-                    "map"));
+                    "map",
+                    inputCount: 1));
             RenderFragmentHandle combined = context.OpaqueCombine(
                 [source, mapped],
                 CreateOpaque(
@@ -413,7 +415,8 @@ public sealed class RecordingSideEffectTests
                         "recording-probe-combine-bounds"),
                     RenderValueCardinality.Single,
                     RenderScaleContract.MaterializeAtWorkingScale,
-                    "combine"));
+                    "combine",
+                    inputCount: 2));
             RenderFragmentHandle expanded = context.OpaqueExpand(
                 [source],
                 CreateOpaque(
@@ -422,7 +425,8 @@ public sealed class RecordingSideEffectTests
                         "recording-probe-expand-bounds"),
                     RenderValueCardinality.Dynamic,
                     RenderScaleContract.MaterializeAtWorkingScale,
-                    "expand"));
+                    "expand",
+                    inputCount: 1));
             RenderFragmentHandle shader = context.Shader(
                 source,
                 ShaderDescription.CurrentPixel(
@@ -449,7 +453,7 @@ public sealed class RecordingSideEffectTests
                     Bounds,
                     RenderHitTestContract.OutputBounds,
                     TargetAccess.Readback,
-                    inputReadbacks: [TargetInputReadback.All],
+                    inputReadbacks: [RenderInputReadback.All],
                     structuralKey: "target-command-recording-probe"));
             RenderFragmentHandle scope = context.TargetScope(
                 source,
@@ -482,7 +486,8 @@ public sealed class RecordingSideEffectTests
             OpaqueRenderBoundsContract bounds,
             RenderValueCardinality cardinality,
             RenderScaleContract scale,
-            string key)
+            string key,
+            int inputCount)
         {
             return OpaqueRenderDescription.Create(
                 _ => tripwire.TouchAll(),
@@ -491,7 +496,7 @@ public sealed class RecordingSideEffectTests
                 cardinality,
                 scale,
                 structuralKey: $"opaque-recording-probe-{key}",
-                requiresReadback: true);
+                inputReadbacks: Enumerable.Repeat(RenderInputReadback.All, inputCount));
         }
     }
 

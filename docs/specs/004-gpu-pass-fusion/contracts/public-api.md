@@ -167,6 +167,7 @@ public sealed record RenderNodeRenderRequest
     public float OutputScale { get; init; } = 1f;
     public float MaxWorkingScale { get; init; } = float.PositiveInfinity;
     public bool UseRenderCache { get; init; } = Cache.RenderCacheOptions.Default.IsEnabled;
+    public RenderRequestPurpose Purpose { get; init; } = RenderRequestPurpose.Auxiliary;
 }
 
 public enum RenderTargetPixelFormat : byte
@@ -221,11 +222,11 @@ public readonly record struct RenderNodeMeasurement(
 
 Request-wide diagnostics remain an internal renderer/evidence seam in this feature. No public provider, mutable writer, sink, snapshot factory, or telemetry schema is added to `IRenderer` or `RenderNodeRenderer`; the normative internal counters/events are fixed in [diagnostics-and-evidence.md](diagnostics-and-evidence.md#request-wide-diagnostics). This keeps the plugin-facing breaking change focused on render authoring rather than freezing planner telemetry as a second extensibility surface.
 
-`RenderNodeRendererOptions.DefaultRequest` is copied, validated, and sanitized when the renderer is constructed. Passing `null` to an operation selects that snapshot; passing a request supplies a complete replacement rather than a partial overlay. Callers can derive reusable variants with `renderer.Options.DefaultRequest with { RequestedRegion = region, OutputScale = scale }` while the renderer retains its structural/program caches and target pool. `TargetFactory` is renderer-lifetime ownership configuration. Intent, requested region, scale limits, and render-cache policy are request-specific and may vary between calls. `Render(destination, requestOptions)` derives `TargetDomain` and `OutputScale` from the destination and clamps the request's `MaxWorkingScale` to the destination limit; the descriptor's target domain and output scale govern target-less operations.
+`RenderNodeRendererOptions.DefaultRequest` is copied, validated, and sanitized when the renderer is constructed. Passing `null` to an operation selects that snapshot; passing a request supplies a complete replacement rather than a partial overlay. Callers can derive reusable variants with `renderer.Options.DefaultRequest with { RequestedRegion = region, OutputScale = scale, Purpose = purpose }` while the renderer retains its structural/program caches and target pool. `TargetFactory` is renderer-lifetime ownership configuration. Intent, purpose, requested region, scale limits, and render-cache policy are request-specific and may vary between calls. `Render(destination, requestOptions)` derives `TargetDomain` and `OutputScale` from the destination and clamps the request's `MaxWorkingScale` to the destination limit; the descriptor's target domain and output scale govern target-less operations.
 
 The node-renderer constructor snapshots and sanitizes `DefaultRequest`, and each supplied per-call descriptor is copied and sanitized before use. A non-finite or non-positive `OutputScale` becomes `1`; a NaN or non-positive `MaxWorkingScale` becomes positive infinity, while a positive finite value or positive infinity is preserved. A positive finite ceiling is authoritative even when it is below `OutputScale`: the standard scale calculation applies the `OutputScale` floor before the ceiling, so `OutputScale = 2` with `MaxWorkingScale = 1` materializes at `1`. `TargetDomain` and `RequestedRegion` are expressed in the root node's composition-logical coordinate space before the destination canvas's active transform. A non-null `TargetDomain` must be finite and non-empty. It supplies the root target only for target-less `Rasterize`, `Measure`, and `HitTest`; `Render(ImmediateCanvas)` and production Frame requests always use the actual destination viewport and ignore this option. A target-less request with null `TargetDomain` remains valid for self-bounded work, but graph finalization rejects every published root `TargetRegion.Full` access whose enclosing target still has no finite domain by throwing `RenderTargetDomainRequiredException`. Authors set `TargetDomain` or use a finite `TargetRegion.Region`; neither `RequestedRegion` nor query bounds are inferred as a substitute. `RequestedRegion = null` selects the complete conservative `OutputBounds` computed for the root. A non-degenerate non-null rectangle selects its intersection with that output as the final output requirement/commit crop, so a wholly outside selection is a successful empty result rather than a transparent padded bitmap. An explicitly degenerate rectangle is a valid empty request and preserves its authored bounds and shifted origin; `HitTest` returns false even for a point on the retained line or origin. An invalid non-null rectangle is rejected. `RequestedRegion` never replaces or shrinks the available `TargetDomain` used by target reads and scope-relative effects.
 
-Standalone `RenderNodeRenderer.Render` and `Rasterize` always create `Auxiliary` execution requests; only the production `Renderer` creates `Frame` requests through an internal entry point, and cache warm-up is likewise internal. `Measure` and `HitTest` create metadata-only `Bounds`/`HitTest` requests and emit internal diagnostic snapshots. `OutputScale` is the density for target-less rasterize/metadata calls. `Render(ImmediateCanvas)` instead uses the destination's active `Density` as the request output scale and the lesser of the request and destination maximum-working-scale ceilings; it never silently resamples through the option scale. `TargetFactory` replaces `RenderNodeProcessor.CreateRenderTarget` extensibility and is called only when the renderer-owned pool cannot satisfy a materialization. It receives the exact device size, fixed linear-premultiplied RGBA16F format, and current backend/device context in `RenderTargetAllocationDescriptor`: a positive context handle and borrowed `GraphicsContext` identify GPU, zero identifies a bound CPU destination, and null identifies a target-less request whose backend is not bound yet. The borrowed context is valid only for the synchronous `Create` call. A null factory selects the engine's standard allocator; a selected factory returning null follows the characterized `Intent` failure policy. Targets created by the factory are owned by that pool and are reused or evicted there (`src/Beutl.Engine/Graphics/Rendering/RenderNodeRenderer.cs:62-118`, `src/Beutl.Engine/Graphics/Rendering/Planning/RenderTargetPool.cs:707-713`).
+Standalone `RenderNodeRenderer.Render` and `Rasterize` preserve the request's public `Purpose`, whose default is `Auxiliary`; executable calls accept `Frame`, `CacheWarmup`, or `Auxiliary`, so direct frame hosts do not bypass the public renderer. Supplying the metadata-only `Bounds` or `HitTest` purpose to either pixel-executing call is rejected. The production `Renderer` sets `Frame` on its default request. `Measure` and `HitTest` intentionally override the supplied purpose with the metadata-only `Bounds`/`HitTest` purposes and emit internal diagnostic snapshots. `OutputScale` is the density for target-less rasterize/metadata calls. `Render(ImmediateCanvas)` instead uses the destination's active `Density` as the request output scale and the lesser of the request and destination maximum-working-scale ceilings; it never silently resamples through the option scale. `TargetFactory` replaces `RenderNodeProcessor.CreateRenderTarget` extensibility and is called only when the renderer-owned pool cannot satisfy a materialization. It receives the exact device size, fixed linear-premultiplied RGBA16F format, and current backend/device context in `RenderTargetAllocationDescriptor`: a positive context handle and borrowed `GraphicsContext` identify GPU, zero identifies a bound CPU destination, and null identifies a target-less request whose backend is not bound yet. The borrowed context is valid only for the synchronous `Create` call. A null factory selects the engine's standard allocator; a selected factory returning null follows the characterized `Intent` failure policy. Targets created by the factory are owned by that pool and are reused or evicted there (`src/Beutl.Engine/Graphics/Rendering/RenderNodeRenderer.cs:62-118`, `src/Beutl.Engine/Graphics/Rendering/Planning/RenderTargetPool.cs:707-713`).
 
 `Render` executes against the borrowed destination exactly as if the root fragments were drawn at the call site: it honors the canvas's active logical transform, clip, opacity, blend mode, coordinate-space density, and prior destination pixels. The finite root target domain is the canvas logical viewport mapped conservatively back through the active transform; `RequestedRegion` is a separate final-output requirement/commit clip, not a shrink of the available target. A singular active destination transform has no two-dimensional visible result, so a value-only self-bounded root is recorded and finalized as a successful no-op without allocating or executing pixel callbacks, leaving the borrowed destination unchanged. Domain-independent target effects still execute against that destination to preserve command ordering; for example, an `Empty` command invokes its callback without producing pixels. A root that requires the destination's owning target domain remains invalid under that transform because no inverse domain can be supplied; metadata resolution rejects its reachable `TargetRegion.Full` access instead of silently suppressing the command. `TargetRegion.Full` resolves during scope-token lowering to the complete finite domain of its current external root, resolved `TargetLayerScope`, or finite value Layer, so backward ROI may expand target reads for blur/filter aprons up to that domain. The active clip remains an additional exact execution constraint. The renderer snapshots destination state for the synchronous request, restores it before returning, and never implicitly clears, closes, disposes, flushes, submits, or snapshots the caller's canvas. A direct-to-root optimization is legal only when it is observably equivalent to that state; otherwise the planner materializes and performs the final composite.
 
@@ -239,7 +240,7 @@ A finite zero-area selected domain is a successful empty result: `IsEmpty == tru
 
 Each non-null `IRenderTargetFactory.Create` result transfers exclusive ownership to the renderer immediately. It must satisfy its `RenderTargetAllocationDescriptor`: a fresh, unleased target of exactly `DeviceSize`, on the supplied backend/device context when bound, in the declared linear premultiplied RGBA16F `PixelFormat`; returning an external, shared, cached elsewhere, already-leased, or previously returned live target is invalid. The renderer validates observable compatibility before use. It disposes an invalid non-null return under the transferred-ownership rule and then follows the request's allocation-failure policy; a factory exception remains the primary failure. The factory is invoked only on the owning render lifetime/thread and must not retain the borrowed `GraphicsContext` or a lease to its return value.
 
-`RenderNodeRenderer` owns its persistent structural-plan/program caches, target pool, and every factory-created target while it remains in that pool or a request lease. Successful render-cache publication transfers the captured payload into the existing `RenderNodeCache` ownership/invalidation lifecycle; it is no longer a pool lease. `Dispose` is idempotent, rejects every later public call, and releases renderer-owned resources best-effort while preserving the first disposal failure. It does not dispose `Root`, `Root.Cache`, `TargetFactory`, a borrowed render destination, or an already returned `RenderNodeRasterization`. Concurrent calls on one instance are unsupported. Distinct instances may execute concurrently only when their node/cache graphs, destinations, and externally borrowed mutable resources are disjoint; callers must serialize instances that share any of them.
+`RenderNodeRenderer` owns its persistent structural-plan/program caches, target pool, and every factory-created target while it remains in that pool or a request lease. Successful render-cache publication transfers the captured payload into the existing `RenderNodeCache` ownership/invalidation lifecycle; it is no longer a pool lease. Cached output payloads are engine-owned and may retain independent effective scales, so public cache control exposes invalidation/count policy rather than raw `Density`, `UseCache`, or `StoreCache` inspection/seeding. `Dispose` is idempotent, rejects every later public call, and releases renderer-owned resources best-effort while preserving the first disposal failure. It does not dispose `Root`, `Root.Cache`, `TargetFactory`, a borrowed render destination, or an already returned `RenderNodeRasterization`. Concurrent calls on one instance are unsupported. Distinct instances may execute concurrently only when their node/cache graphs, destinations, and externally borrowed mutable resources are disjoint; callers must serialize instances that share any of them.
 
 ## RenderNodeContext
 
@@ -462,7 +463,7 @@ public sealed class OpaqueRenderDescription
     public RenderHitTestContract HitTest { get; }
     public RenderValueCardinality ValueCardinality { get; }
     public RenderScaleContract Scale { get; }
-    public bool RequiresReadback { get; }
+    public IReadOnlyList<RenderInputReadback> InputReadbacks { get; }
     public object StructuralKey { get; }
     public RenderRuntimeIdentity? RuntimeIdentity { get; }
     public IReadOnlyList<RenderResource> Resources { get; }
@@ -475,8 +476,18 @@ public sealed class OpaqueRenderDescription
         RenderScaleContract scale,
         object? structuralKey = null,
         RenderRuntimeIdentity? runtimeIdentity = null,
-        bool requiresReadback = false,
+        IEnumerable<RenderInputReadback>? inputReadbacks = null,
         IEnumerable<RenderResource>? resources = null);
+}
+
+public readonly struct RenderInputReadback
+{
+    public static RenderInputReadback None { get; }
+    public static RenderInputReadback All { get; }
+    public bool ReadsAllValues { get; }
+    public IReadOnlyList<int> ValueIndices { get; }
+
+    public static RenderInputReadback Values(IEnumerable<int> valueIndices);
 }
 
 public sealed class OpaqueRenderBoundsContract
@@ -563,7 +574,7 @@ public sealed class OpaqueRenderSession
     public RenderIntent Intent { get; }
     public RenderRequestPurpose Purpose { get; }
 
-    public OpaqueRenderOutput CreateOutput(Rect logicalBounds);
+    public OpaqueRenderOutput CreateOutput(Rect logicalBounds, float? density = null);
     public void Publish(OpaqueRenderOutput output);
     public void UseResource<T>(
         RenderResource<T> resource,
@@ -605,9 +616,9 @@ The topology is chosen by the context method, not by an author-supplied semantic
 
 Hit testing is always the CPU-only description contract and is available before execution. `OutputBounds` tests the declared output union, `AnyInput` delegates to input metadata, and `Custom` receives only metadata-safe input views. A custom predicate must be pure, request-lifetime-safe, and must not capture a context, native callback object, or `RenderResource`; pixel-dependent tests use a conservative metadata result instead. Runtime `Publish` cannot replace this predicate.
 
-The callback is invoked only by the executor. `OpaqueSource` invokes it once with no inputs. `OpaqueMap` invokes it once per runtime input element with exactly one session input and element-local output bounds, required region, device bounds, and density. `OpaqueCombine` invokes it once with every input stream flattened in authored handle/stream order. `OpaqueExpand` likewise invokes once with all flattened inputs and may return its declared total N-to-M stream. Its session receives materialized borrowed inputs in that order and request-owned methods to acquire, draw, publish, shrink, or discard outputs.
+The callback is invoked only by the executor. `OpaqueSource` invokes it once with no inputs. `OpaqueMap` invokes it once per runtime input element with exactly one session input and element-local output bounds, required region, device bounds, and density. `OpaqueCombine` invokes it once with every input stream flattened in authored handle/stream order. `OpaqueExpand` likewise invokes once with all flattened inputs and may return its declared total N-to-M stream. Its session receives materialized borrowed inputs in that order and request-owned methods to acquire, draw, publish, shrink, or discard outputs. A non-empty `InputReadbacks` list has exactly one `RenderInputReadback` declaration per authored input handle, using the same `None`/`All`/local-`Values` semantics as `TargetCommand`; selection remains bound to the authored handle when an earlier dynamic stream changes flattened cardinality. Only selected execution inputs permit `UseSnapshot`, so unrelated inputs do not synchronize or allocate CPU bitmaps. An opaque source has zero authored inputs and therefore cannot declare input readback.
 
-`CreateOutput` acquires from the request owner and returns a transparently initialized output: although pooled contents are undefined at acquire time, the executor clears the allocation inside the already scheduled opaque island before its canvas becomes author-visible. That clear creates neither a separate GPU pass nor a synchronization. Disposing an unpublished output returns it, while `Publish` transfers it back to the request schedule and makes the author lease inert. Runtime output count, bounds, and density are validated against the description. `UseSnapshot` requires declared readback. A callback cannot publish a partially constructed output after failure.
+`CreateOutput` acquires from the request owner and returns a transparently initialized output: although pooled contents are undefined at acquire time, the executor clears the allocation inside the already scheduled opaque island before its canvas becomes author-visible. That clear creates neither a separate GPU pass nor a synchronization. The optional finite positive `density` applies only to that output, is capped by `MaxWorkingScale`, and is clamped against that output's own logical bounds and physical allocation limit; null uses the description-wide `WorkingScale`. Dynamic expansion may therefore publish differently sized values at independent effective scales without forcing unrelated outputs to the aggregate-bounds density. Cache payloads retain each published value's actual `EffectiveScale`; the request-level cache identity still keys the declared materialization demand, and publication rechecks `RenderCacheRules` against the sum of the actual output device-pixel areas. Disposing an unpublished output returns it, while `Publish` transfers it back to the request schedule and makes the author lease inert. Runtime output count, bounds, and density are validated against the description. `UseSnapshot` requires selection by the owning input's `RenderInputReadback`. A callback cannot publish a partially constructed output after failure.
 
 `RenderCallbackCanvas` is a non-disposable active-token facade. `LogicalBounds` is the finite semantic allocation/clip region selected from the complete output bounds and resolved requirement. `DeviceGridOffset` is the translation from callback-local logical coordinates to the composition-device grid. `DeviceBounds` is the immutable composition-device footprint of the complete backing target; it contains `PixelRect.FromRect(LogicalBounds.Translate(DeviceGridOffset), Density)` and normally equals it, but may be wider when an existing physical allocation or explicit raster apron is preserved. `RasterBounds == DeviceBounds.ToRect(Density).Translate(-DeviceGridOffset)` and `LogicalOrigin == RasterBounds.Position` identify the complete pixel-aligned callback-local footprint and the logical point represented by backing pixel `(0, 0)`. For a mapped materialization output, the engine pretranslates and clips the supplied `ImmediateCanvas` to `RasterBounds` so author coordinates remain composition-global and antialiasing may write the canonical rounding fringe without changing `LogicalBounds`. A target-attached command/scope retains its declared semantic target clip because it does not remap a standalone backing image, while still reporting its ambient translation-only device grid.
 
@@ -817,7 +828,7 @@ public sealed class TargetCommandDescription
     public Rect QueryBounds { get; }
     public RenderHitTestContract HitTest { get; }
     public TargetAccess Access { get; }
-    public IReadOnlyList<TargetInputReadback> InputReadbacks { get; }
+    public IReadOnlyList<RenderInputReadback> InputReadbacks { get; }
     public object StructuralKey { get; }
     public RenderRuntimeIdentity? RuntimeIdentity { get; }
     public IReadOnlyList<RenderResource> Resources { get; }
@@ -828,20 +839,10 @@ public sealed class TargetCommandDescription
         Rect queryBounds,
         RenderHitTestContract hitTest,
         TargetAccess access,
-        IEnumerable<TargetInputReadback>? inputReadbacks = null,
+        IEnumerable<RenderInputReadback>? inputReadbacks = null,
         object? structuralKey = null,
         RenderRuntimeIdentity? runtimeIdentity = null,
         IEnumerable<RenderResource>? resources = null);
-}
-
-public readonly struct TargetInputReadback
-{
-    public static TargetInputReadback None { get; }
-    public static TargetInputReadback All { get; }
-    public bool ReadsAllValues { get; }
-    public IReadOnlyList<int> ValueIndices { get; }
-
-    public static TargetInputReadback Values(IEnumerable<int> valueIndices);
 }
 
 public readonly struct TargetRegion

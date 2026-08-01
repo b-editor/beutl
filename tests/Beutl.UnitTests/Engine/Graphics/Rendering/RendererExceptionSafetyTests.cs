@@ -6,6 +6,7 @@ using Beutl.Graphics;
 using Beutl.Graphics.Rendering;
 using Beutl.Media;
 using Beutl.UnitTests.Engine.Graphics.Backend;
+using SkiaSharp;
 
 namespace Beutl.UnitTests.Engine.Graphics.Rendering;
 
@@ -59,6 +60,46 @@ public class RendererExceptionSafetyTests
         });
     }
 
+    [Test]
+    public void RenderDrawable_ClearsCurrentFrameMetadata_WhenExecutionThrows()
+    {
+        RenderThread.Dispatcher.Invoke(() =>
+        {
+            using var renderer = new Renderer(
+                width: 16,
+                height: 16,
+                renderScale: 1,
+                maxWorkingScale: float.PositiveInfinity,
+                diagnostics: null,
+                surface: new CpuRenderTarget(16, 16));
+            var previous = new FaultingDrawable([new RecordedOperationSpec("previous")]);
+            var previousResource = (Drawable.Resource)previous.ToResource(CompositionContext.Default);
+            var previousFrame = new CompositionFrame(
+                ImmutableArray.Create<EngineObject.Resource>(previousResource),
+                new TimeRange(TimeSpan.Zero, TimeSpan.FromSeconds(1)),
+                new PixelSize(16, 16));
+            renderer.Render(previousFrame);
+            Assert.That(renderer.GetBoundary(previous), Is.Not.Null);
+
+            var faulting = new FaultingDrawable([new RecordedOperationSpec("fault", ThrowOnExecute: true)]);
+            var faultingResource = (Drawable.Resource)faulting.ToResource(CompositionContext.Default);
+            var faultingFrame = new CompositionFrame(
+                ImmutableArray.Create<EngineObject.Resource>(faultingResource),
+                new TimeRange(TimeSpan.Zero, TimeSpan.FromSeconds(1)),
+                new PixelSize(16, 16));
+
+            Assert.That(
+                () => renderer.Render(faultingFrame),
+                Throws.TypeOf<InvalidOperationException>().With.Message.EqualTo("fault"));
+            Assert.Multiple(() =>
+            {
+                Assert.That(renderer.GetBoundary(previous), Is.Null);
+                Assert.That(renderer.GetBoundary(faulting), Is.Null);
+                Assert.That(renderer.GetBoundaries(zIndex: 0), Is.Empty);
+            });
+        });
+    }
+
     private static CompositionFrame CreateFrame(
         ICollection<string> discharged,
         params RecordedOperationSpec[] operations)
@@ -70,6 +111,17 @@ public class RendererExceptionSafetyTests
             new TimeRange(TimeSpan.Zero, TimeSpan.FromSeconds(1)),
             new PixelSize(16, 16));
     }
+
+    private sealed class CpuRenderTarget(int width, int height)
+        : RenderTarget(
+            SKSurface.Create(new SKImageInfo(
+                width,
+                height,
+                SKColorType.RgbaF16,
+                SKAlphaType.Premul,
+                SKColorSpace.CreateSrgbLinear())),
+            width,
+            height);
 }
 
 // Top-level partial because EngineObjectResourceGenerator does not support nested types.

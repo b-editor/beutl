@@ -443,6 +443,9 @@ public sealed class RenderNodeContext
     {
         ArgumentNullException.ThrowIfNull(description);
         description.ThrowIfIncompatible(OpaqueRenderTopology.Source, nameof(description));
+        IReadOnlyList<RenderInputReadback> inputReadbacks = description.ResolveInputReadbacks(
+            inputCount: 0,
+            parameterName: nameof(description));
         ValidateDescriptionResources(description.Resources, nameof(description));
 
         Rect bounds = description.Bounds.TransformBounds([]);
@@ -458,7 +461,7 @@ public sealed class RenderNodeContext
             hasTargetEffects: false,
             hasOpaqueExternalWork: description.DirectReplay is null,
             inputs: null,
-            new OpaqueRenderFragmentPayload(OpaqueRenderTopology.Source, description),
+            new OpaqueRenderFragmentPayload(OpaqueRenderTopology.Source, description, inputReadbacks),
             hitTest);
     }
 
@@ -477,6 +480,9 @@ public sealed class RenderNodeContext
         RenderFragmentReference reference = transaction.GetReference(input);
         EnsureValueInput(reference, nameof(input));
         description.ThrowIfIncompatible(OpaqueRenderTopology.Map, nameof(description));
+        IReadOnlyList<RenderInputReadback> inputReadbacks = description.ResolveInputReadbacks(
+            inputCount: 1,
+            parameterName: nameof(description));
         ValidateDescriptionResources(description.Resources, nameof(description));
 
         Rect bounds = description.Bounds.TransformBounds([reference.Bounds]);
@@ -499,7 +505,7 @@ public sealed class RenderNodeContext
             hasTargetEffects: reference.HasTargetEffects,
             hasOpaqueExternalWork: true,
             [reference],
-            new OpaqueRenderFragmentPayload(OpaqueRenderTopology.Map, description),
+            new OpaqueRenderFragmentPayload(OpaqueRenderTopology.Map, description, inputReadbacks),
             hitTest);
     }
 
@@ -874,7 +880,7 @@ public sealed class RenderNodeContext
             transaction.GetReferences(inputs, nameof(inputs));
         foreach (RenderFragmentReference reference in references)
             EnsureValueInput(reference, nameof(inputs));
-        IReadOnlyList<TargetInputReadback> inputReadbacks = description.ResolveInputReadbacks(
+        IReadOnlyList<RenderInputReadback> inputReadbacks = description.ResolveInputReadbacks(
             references.Length,
             nameof(description));
         ValidateDescriptionResources(description.Resources, nameof(description));
@@ -1074,6 +1080,9 @@ public sealed class RenderNodeContext
             EnsureValueInput(reference, nameof(inputs));
 
         description.ThrowIfIncompatible(topology, nameof(description));
+        IReadOnlyList<RenderInputReadback> inputReadbacks = description.ResolveInputReadbacks(
+            references.Length,
+            nameof(description));
         ValidateDescriptionResources(description.Resources, nameof(description));
         Rect bounds = description.Bounds.TransformBounds(
             references.Select(static item => item.Bounds).ToArray());
@@ -1095,7 +1104,7 @@ public sealed class RenderNodeContext
             hasTargetEffects: references.Any(static item => item.HasTargetEffects),
             hasOpaqueExternalWork: true,
             references,
-            new OpaqueRenderFragmentPayload(topology, description),
+            new OpaqueRenderFragmentPayload(topology, description, inputReadbacks),
             hitTest);
     }
 
@@ -1247,7 +1256,8 @@ internal sealed record TargetLayerScopeRenderFragmentPayload(TargetRegion Region
 
 internal sealed record OpaqueRenderFragmentPayload(
     OpaqueRenderTopology Topology,
-    OpaqueRenderDescription Description);
+    OpaqueRenderDescription Description,
+    IReadOnlyList<RenderInputReadback> InputReadbacks);
 
 internal sealed record LegacyFilterEffectRenderFragmentPayload(
     RenderResource<FilterEffectContext> Context,
@@ -1275,7 +1285,7 @@ internal sealed record RawTargetCommandRenderFragmentPayload(
 
 internal sealed record TargetCommandRenderFragmentPayload(
     TargetCommandDescription Description,
-    IReadOnlyList<TargetInputReadback> InputReadbacks);
+    IReadOnlyList<RenderInputReadback> InputReadbacks);
 
 internal interface IBuiltInBackdropCaptureSink
 {

@@ -308,7 +308,7 @@ public sealed class BaselineDiagnosticsNeutralityTests
                 OutputScale = 1,
                 MaxWorkingScale = float.PositiveInfinity,
                 UseRenderCache = useRenderCache,
-                RenderPurpose = purpose,
+                Purpose = purpose,
                 Diagnostics = diagnostics,
             },
             TargetFactory = targetFactory,

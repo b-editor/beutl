@@ -31,7 +31,7 @@ public sealed class RenderNodeRendererLifetimeTests
                     OutputScale = 2,
                     MaxWorkingScale = 2,
                     UseRenderCache = false,
-                    RenderPurpose = RenderRequestPurpose.Frame,
+                    Purpose = RenderRequestPurpose.Frame,
                     Diagnostics = diagnostics,
                 },
                 TargetFactory = factory,
@@ -82,7 +82,7 @@ public sealed class RenderNodeRendererLifetimeTests
                     TargetDomain = bounds,
                     RequestedRegion = new Rect(x, y, width, height),
                     UseRenderCache = false,
-                    RenderPurpose = RenderRequestPurpose.Frame,
+                    Purpose = RenderRequestPurpose.Frame,
                     Diagnostics = diagnostics,
                 },
             });

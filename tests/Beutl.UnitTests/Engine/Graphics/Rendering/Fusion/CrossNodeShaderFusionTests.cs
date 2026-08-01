@@ -101,7 +101,7 @@ public sealed class CrossNodeShaderFusionTests
                     Intent = RenderIntent.Preview,
                     UseRenderCache = false,
                     FusionMode = FusionMode.Enabled,
-                    RenderPurpose = RenderRequestPurpose.Frame,
+                    Purpose = RenderRequestPurpose.Frame,
                 },
                 TargetFactory = targetFactory,
             });
@@ -138,7 +138,7 @@ public sealed class CrossNodeShaderFusionTests
                         Intent = RenderIntent.Preview,
                         UseRenderCache = false,
                         FusionMode = FusionMode.Enabled,
-                        RenderPurpose = RenderRequestPurpose.Frame,
+                        Purpose = RenderRequestPurpose.Frame,
                     },
                 });
             using RenderTarget cpuDestination = cpuFactory.CreateCpuTarget(new PixelSize(24, 16));
@@ -441,15 +441,26 @@ public sealed class CrossNodeShaderFusionTests
 
             using Bitmap directBitmap = RenderWithActiveDestinationState(direct);
             using Bitmap cachedBitmap = RenderWithActiveDestinationState(cached);
+            using Bitmap background = CreateActiveDestinationBackground();
             RgbaMaximumError parity = ImageMetrics.MaximumAbsoluteErrorPerChannel(
                 directBitmap,
                 cachedBitmap);
+            RgbaMaximumError directChange = ImageMetrics.MaximumAbsoluteErrorPerChannel(
+                directBitmap,
+                background);
+            RgbaMaximumError cachedChange = ImageMetrics.MaximumAbsoluteErrorPerChannel(
+                cachedBitmap,
+                background);
 
             Assert.Multiple(() =>
             {
                 Assert.That(direct.LastExecutionStatistics.IntermediateTargetAcquisitions, Is.Zero);
                 Assert.That(cached.LastExecutionStatistics.IntermediateTargetAcquisitions, Is.GreaterThan(0));
                 Assert.That(cachedNode.Cache.IsCached, Is.True);
+                Assert.That(directChange.Maximum, Is.GreaterThan(0.02),
+                    "The terminal direct draw must modify the cleared destination.");
+                Assert.That(cachedChange.Maximum, Is.GreaterThan(0.02),
+                    "The cache-materialized terminal draw must modify the cleared destination.");
                 Assert.That(parity.Maximum, Is.LessThanOrEqualTo(0.02));
             });
         });
@@ -502,13 +513,21 @@ public sealed class CrossNodeShaderFusionTests
                     MaxWorkingScale = 1,
                     UseRenderCache = useRenderCache,
                     FusionMode = fusionMode,
-                    RenderPurpose = RenderRequestPurpose.Frame,
+                    Purpose = RenderRequestPurpose.Frame,
                     Diagnostics = diagnostics,
                 },
             });
 
     private static Bitmap RenderWithActiveDestinationState(RenderNodeRenderer renderer)
         => RenderWithDestinationTranslation(renderer, 2, 1);
+
+    private static Bitmap CreateActiveDestinationBackground()
+    {
+        using RenderTarget target = RenderTarget.Create(32, 24)
+            ?? throw new InvalidOperationException("Could not allocate the active-state background control.");
+        target.Value.Canvas.Clear(new SKColor(26, 48, 72, 255));
+        return target.Snapshot();
+    }
 
     private static Bitmap RenderWithDestinationTranslation(
         RenderNodeRenderer renderer,

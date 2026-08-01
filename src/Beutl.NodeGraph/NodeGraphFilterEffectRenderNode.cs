@@ -268,10 +268,10 @@ internal sealed class FilterEffectInputBinding : IDisposable
         {
             Func<Ref<Bitmap>?, Ref<Bitmap>?> replace = preview.Replace;
             IReadOnlyList<RenderFragmentHandle> inputs = preview.Inputs;
-            TargetInputReadback[] inputReadbacks = inputs
+            RenderInputReadback[] inputReadbacks = inputs
                 .Select(static (_, index) => index == 0
-                    ? TargetInputReadback.Values([0])
-                    : TargetInputReadback.None)
+                    ? RenderInputReadback.Values([0])
+                    : RenderInputReadback.None)
                 .ToArray();
             object runtimeIdentity = preview.RuntimeIdentity;
             TargetCommandDescription description = TargetCommandDescription.Create(

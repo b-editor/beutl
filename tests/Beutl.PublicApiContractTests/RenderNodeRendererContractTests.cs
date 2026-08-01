@@ -1,5 +1,6 @@
 ﻿using Beutl.Graphics;
 using Beutl.Graphics.Rendering;
+using Beutl.Graphics.Rendering.Cache;
 using Beutl.Media;
 using SkiaSharp;
 
@@ -8,6 +9,19 @@ namespace Beutl.PublicApiContractTests;
 [TestFixture]
 public sealed class RenderNodeRendererContractTests
 {
+    [Test]
+    public void RenderNodeCache_PublicSurfaceDoesNotExposeRendererOwnedPayloads()
+    {
+        Type cacheType = typeof(RenderNodeCache);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(cacheType.GetProperty("Density"), Is.Null);
+            Assert.That(cacheType.GetMethods().Where(static method => method.Name == "UseCache"), Is.Empty);
+            Assert.That(cacheType.GetMethods().Where(static method => method.Name == "StoreCache"), Is.Empty);
+        });
+    }
+
     [TestCase(float.NaN, 1f)]
     [TestCase(0f, 1f)]
     [TestCase(-2f, 1f)]
@@ -24,6 +38,7 @@ public sealed class RenderNodeRendererContractTests
                 OutputScale = authored,
                 MaxWorkingScale = 3,
                 UseRenderCache = false,
+                Purpose = RenderRequestPurpose.Frame,
             },
         };
         using var renderer = new RenderNodeRenderer(root, supplied);
@@ -36,6 +51,7 @@ public sealed class RenderNodeRendererContractTests
             Assert.That(renderer.Options.DefaultRequest.OutputScale, Is.EqualTo(expected));
             Assert.That(renderer.Options.DefaultRequest.MaxWorkingScale, Is.EqualTo(3));
             Assert.That(renderer.Options.DefaultRequest.UseRenderCache, Is.False);
+            Assert.That(renderer.Options.DefaultRequest.Purpose, Is.EqualTo(RenderRequestPurpose.Frame));
         });
     }
 
@@ -112,7 +128,61 @@ public sealed class RenderNodeRendererContractTests
                         },
                     }),
                 Throws.TypeOf<ArgumentOutOfRangeException>());
+            Assert.That(
+                () => new RenderNodeRenderer(
+                    root,
+                    new RenderNodeRendererOptions {
+                        DefaultRequest = new RenderNodeRenderRequest
+                        {
+                            Purpose = (RenderRequestPurpose)12345,
+                        },
+                    }),
+                Throws.TypeOf<ArgumentOutOfRangeException>());
         });
+    }
+
+    [Test]
+    public void Rasterize_PropagatesThePublicRequestPurpose()
+    {
+        var bounds = new Rect(0, 0, 4, 3);
+        RenderRequestPurpose observedPurpose = default;
+        using var root = new DelegateNode(context =>
+        {
+            RenderFragmentHandle source = context.OpaqueSource(ExecutingSource(
+                bounds,
+                session => observedPurpose = session.Purpose,
+                "public-purpose-source"));
+            context.Publish(source);
+        });
+        using var renderer = new RenderNodeRenderer(
+            root,
+            new RenderNodeRendererOptions
+            {
+                DefaultRequest = new RenderNodeRenderRequest { UseRenderCache = false },
+            });
+
+        using RenderNodeRasterization rasterization = renderer.Rasterize(
+            renderer.Options.DefaultRequest with { Purpose = RenderRequestPurpose.Frame });
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(rasterization.IsEmpty, Is.False);
+            Assert.That(observedPurpose, Is.EqualTo(RenderRequestPurpose.Frame));
+            Assert.That(renderer.Options.DefaultRequest.Purpose, Is.EqualTo(RenderRequestPurpose.Auxiliary));
+        });
+    }
+
+    [TestCase(RenderRequestPurpose.Bounds)]
+    [TestCase(RenderRequestPurpose.HitTest)]
+    public void Rasterize_RejectsMetadataOnlyRequestPurposes(RenderRequestPurpose purpose)
+    {
+        using var root = new DelegateNode(static _ => { });
+        using var renderer = new RenderNodeRenderer(root);
+
+        Assert.That(
+            () => renderer.Rasterize(new RenderNodeRenderRequest { Purpose = purpose }),
+            Throws.TypeOf<ArgumentOutOfRangeException>()
+                .With.Property("ParamName").EqualTo("purpose"));
     }
 
     [Test]

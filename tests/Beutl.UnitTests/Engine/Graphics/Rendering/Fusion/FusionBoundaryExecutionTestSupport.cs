@@ -311,7 +311,7 @@ internal static class FusionBoundaryExecutionTestSupport
                     MaxWorkingScale = 1,
                     UseRenderCache = useRenderCache,
                     FusionMode = fusionMode,
-                    RenderPurpose = RenderRequestPurpose.Frame,
+                    Purpose = RenderRequestPurpose.Frame,
                     Diagnostics = diagnostics,
                 },
             });

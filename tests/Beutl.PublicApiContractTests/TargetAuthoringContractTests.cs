@@ -434,7 +434,7 @@ public sealed class TargetAuthoringContractTests
             Rect.Empty,
             RenderHitTestContract.None,
             TargetAccess.Readback,
-            inputReadbacks: [TargetInputReadback.Values([0]), TargetInputReadback.None],
+            inputReadbacks: [RenderInputReadback.Values([0]), RenderInputReadback.None],
             structuralKey: "target-and-input-readback");
 
         Assert.Multiple(() =>
@@ -442,8 +442,8 @@ public sealed class TargetAuthoringContractTests
             Assert.That(description.Access, Is.EqualTo(TargetAccess.Readback));
             Assert.That(description.InputReadbacks, Is.EqualTo(new[]
             {
-                TargetInputReadback.Values([0]),
-                TargetInputReadback.None,
+                RenderInputReadback.Values([0]),
+                RenderInputReadback.None,
             }));
             Assert.That(description.AffectedRegion, Is.EqualTo(TargetRegion.Region(bounds)));
             Assert.That(description.QueryBounds, Is.EqualTo(Rect.Empty));
@@ -468,7 +468,7 @@ public sealed class TargetAuthoringContractTests
 
     [TestCase(true)]
     [TestCase(false)]
-    public void TargetInputReadback_BindsToAuthoredDynamicInputs(bool selectDynamicInput)
+    public void RenderInputReadback_BindsToAuthoredDynamicInputs(bool selectDynamicInput)
     {
         var bounds = new Rect(0, 0, 4, 3);
         int snapshots = 0;
@@ -496,8 +496,8 @@ public sealed class TargetAuthoringContractTests
             RenderHitTestContract.None,
             TargetAccess.ReadWrite,
             inputReadbacks: selectDynamicInput
-                ? [TargetInputReadback.All, TargetInputReadback.None]
-                : [TargetInputReadback.None, TargetInputReadback.All],
+                ? [RenderInputReadback.All, RenderInputReadback.None]
+                : [RenderInputReadback.None, RenderInputReadback.All],
             structuralKey: ("dynamic-input-readback", selectDynamicInput));
 
         using var node = new DelegateNode(context =>
@@ -519,7 +519,7 @@ public sealed class TargetAuthoringContractTests
     }
 
     [Test]
-    public void TargetInputReadback_RejectsMissingLocalRuntimeValue()
+    public void RenderInputReadback_RejectsMissingLocalRuntimeValue()
     {
         var bounds = new Rect(0, 0, 4, 3);
         using var node = new DelegateNode(context =>
@@ -533,7 +533,7 @@ public sealed class TargetAuthoringContractTests
                     Rect.Empty,
                     RenderHitTestContract.None,
                     TargetAccess.ReadWrite,
-                    inputReadbacks: [TargetInputReadback.Values([1])],
+                    inputReadbacks: [RenderInputReadback.Values([1])],
                     structuralKey: "missing-local-readback-value"));
             context.PublishRange([source, command]);
         });
@@ -545,7 +545,7 @@ public sealed class TargetAuthoringContractTests
     }
 
     [Test]
-    public void TargetInputReadback_RequiresOneDeclarationPerAuthoredInput()
+    public void RenderInputReadback_RequiresOneDeclarationPerAuthoredInput()
     {
         var bounds = new Rect(0, 0, 4, 3);
         using var node = new DelegateNode(context =>
@@ -559,7 +559,7 @@ public sealed class TargetAuthoringContractTests
                     Rect.Empty,
                     RenderHitTestContract.None,
                     TargetAccess.ReadWrite,
-                    inputReadbacks: [TargetInputReadback.All, TargetInputReadback.None],
+                    inputReadbacks: [RenderInputReadback.All, RenderInputReadback.None],
                     structuralKey: "mismatched-input-readback-count"));
         });
 
@@ -567,6 +567,102 @@ public sealed class TargetAuthoringContractTests
             () => Rasterize(node, targetDomain: bounds),
             Throws.TypeOf<ArgumentException>()
                 .With.Property("ParamName").EqualTo("description"));
+    }
+
+    [Test]
+    public void OpaqueInputReadback_SelectsRuntimeValuesPerAuthoredInput()
+    {
+        var bounds = new Rect(0, 0, 4, 3);
+        int snapshots = 0;
+        OpaqueRenderDescription description = OpaqueRenderDescription.Create(
+            session =>
+            {
+                Assert.That(session.Inputs, Has.Count.EqualTo(3));
+                for (int index = 0; index < session.Inputs.Count; index++)
+                {
+                    if (index == 1)
+                    {
+                        session.Inputs[index].UseSnapshot(_ => snapshots++);
+                    }
+                    else
+                    {
+                        Assert.That(
+                            () => session.Inputs[index].UseSnapshot(_ => snapshots++),
+                            Throws.TypeOf<InvalidOperationException>());
+                    }
+                }
+
+                using OpaqueRenderOutput output = session.CreateOutput(session.OutputBounds);
+                session.Publish(output);
+            },
+            OpaqueRenderBoundsContract.FullInputs(
+                static inputs => inputs.Aggregate(static (left, right) => left.Union(right))),
+            RenderHitTestContract.AnyInput,
+            RenderValueCardinality.Single,
+            RenderScaleContract.MaterializeAtWorkingScale,
+            structuralKey: "opaque-selective-input-readback",
+            inputReadbacks: [RenderInputReadback.Values([1]), RenderInputReadback.None]);
+
+        using var node = new DelegateNode(context =>
+        {
+            RenderFragmentHandle source = context.OpaqueSource(ExecutingSource(bounds));
+            RenderFragmentHandle expanded = context.OpaqueExpand([source], ExecutingExpansion(bounds));
+            RenderFragmentHandle trailing = context.OpaqueSource(ExecutingSource(
+                bounds,
+                structuralKey: "opaque-readback-trailing-source"));
+            context.Publish(context.OpaqueCombine([expanded, trailing], description));
+        });
+
+        using RenderNodeRasterization rasterization = Rasterize(node, targetDomain: bounds);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(rasterization.IsEmpty, Is.False);
+            Assert.That(snapshots, Is.EqualTo(1));
+            Assert.That(description.InputReadbacks, Is.EqualTo(new[]
+            {
+                RenderInputReadback.Values([1]),
+                RenderInputReadback.None,
+            }));
+        });
+    }
+
+    [Test]
+    public void OpaqueExpand_CreatesOutputsAtIndependentDensities()
+    {
+        var bounds = new Rect(0, 0, 12, 8);
+        var observedScales = new List<float>();
+        using var node = new DelegateNode(context =>
+        {
+            RenderFragmentHandle source = context.OpaqueSource(ExecutingSource(bounds));
+            OpaqueRenderDescription description = OpaqueRenderDescription.Create(
+                session =>
+                {
+                    using OpaqueRenderOutput large = session.CreateOutput(new Rect(0, 0, 8, 8), density: 1);
+                    using OpaqueRenderOutput detail = session.CreateOutput(new Rect(8, 0, 4, 4), density: 3);
+                    observedScales.Add(large.EffectiveScale.Value);
+                    observedScales.Add(detail.EffectiveScale.Value);
+                    session.Publish(large);
+                    session.Publish(detail);
+                },
+                OpaqueRenderBoundsContract.FullInputs(static inputs => inputs.Single()),
+                RenderHitTestContract.AnyInput,
+                RenderValueCardinality.Dynamic,
+                RenderScaleContract.MaterializeAtWorkingScale,
+                structuralKey: "independent-opaque-output-densities");
+            context.Publish(context.OpaqueExpand([source], description));
+        });
+
+        using RenderNodeRasterization rasterization = Rasterize(
+            node,
+            targetDomain: bounds,
+            maxWorkingScale: 4);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(rasterization.IsEmpty, Is.False);
+            Assert.That(observedScales, Is.EqualTo(new[] { 1f, 3f }));
+        });
     }
 
     [Test]

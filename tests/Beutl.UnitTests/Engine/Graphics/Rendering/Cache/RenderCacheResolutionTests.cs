@@ -1277,7 +1277,7 @@ public sealed class RenderCacheResolutionTests
                     OutputScale = 1,
                     MaxWorkingScale = 1,
                     UseRenderCache = true,
-                    RenderPurpose = RenderRequestPurpose.Frame,
+                    Purpose = RenderRequestPurpose.Frame,
                     Diagnostics = diagnostics,
                 },
                 TargetFactory = targetFactory,
@@ -1485,7 +1485,10 @@ public sealed class RenderCacheResolutionTests
             hasTargetEffects: false,
             hasOpaqueExternalWork: true,
             [input],
-            new OpaqueRenderFragmentPayload(OpaqueRenderTopology.Map, description),
+            new OpaqueRenderFragmentPayload(
+                OpaqueRenderTopology.Map,
+                description,
+                [RenderInputReadback.None]),
             static _ => true);
     }
 

@@ -26,7 +26,6 @@ public sealed class RenderDescriptionAndExecutionContractTests
             RenderScaleContract.MaterializeAtWorkingScale,
             structuralKey: "opaque-source",
             runtimeIdentity,
-            requiresReadback: true,
             resources: [resource]);
 
         Assert.Multiple(() =>
@@ -37,7 +36,7 @@ public sealed class RenderDescriptionAndExecutionContractTests
             Assert.That(description.Scale, Is.EqualTo(RenderScaleContract.MaterializeAtWorkingScale));
             Assert.That(description.StructuralKey, Is.EqualTo("opaque-source"));
             Assert.That(description.RuntimeIdentity, Is.EqualTo(runtimeIdentity));
-            Assert.That(description.RequiresReadback, Is.True);
+            Assert.That(description.InputReadbacks, Is.Empty);
             Assert.That(description.Resources, Is.EqualTo(new[] { resource }));
             Assert.That(description.Execute, Is.SameAs(execute));
             Assert.That(() => description.ThrowIfIncompatible(OpaqueRenderTopology.Source, "description"),
@@ -68,6 +67,15 @@ public sealed class RenderDescriptionAndExecutionContractTests
                 () => OpaqueRenderDescription.Create(
                     execute, bounds, RenderHitTestContract.None, RenderValueCardinality.Single, default),
                 Throws.TypeOf<ArgumentException>());
+            Assert.That(
+                () => OpaqueRenderDescription.Create(
+                    execute,
+                    bounds,
+                    RenderHitTestContract.None,
+                    RenderValueCardinality.Single,
+                    RenderScaleContract.Vector,
+                    inputReadbacks: [default]),
+                Throws.TypeOf<ArgumentException>().With.Property("ParamName").EqualTo("inputReadbacks"));
             Assert.That(
                 () => OpaqueRenderDescription.Create(
                     execute,
@@ -326,7 +334,7 @@ public sealed class RenderDescriptionAndExecutionContractTests
             bounds,
             RenderHitTestContract.OutputBounds,
             TargetAccess.Readback,
-            inputReadbacks: [TargetInputReadback.Values([0])],
+            inputReadbacks: [RenderInputReadback.Values([0])],
             structuralKey: "read-command",
             runtimeIdentity: new RenderRuntimeIdentity(("command", 2)));
         TargetScopeDescription scope = TargetScopeDescription.Create(
@@ -352,17 +360,17 @@ public sealed class RenderDescriptionAndExecutionContractTests
             Assert.That(capture.SourceRegion.Kind, Is.EqualTo(TargetRegionKind.Region));
             Assert.That(capture.Bounds, Is.EqualTo(bounds));
             Assert.That(command.Access, Is.EqualTo(TargetAccess.Readback));
-            Assert.That(command.InputReadbacks, Is.EqualTo(new[] { TargetInputReadback.Values([0]) }));
-            Assert.That(TargetInputReadback.Values([1, 0]), Is.EqualTo(TargetInputReadback.Values([0, 1])));
+            Assert.That(command.InputReadbacks, Is.EqualTo(new[] { RenderInputReadback.Values([0]) }));
+            Assert.That(RenderInputReadback.Values([1, 0]), Is.EqualTo(RenderInputReadback.Values([0, 1])));
             Assert.That(command.QueryBounds, Is.EqualTo(bounds));
             Assert.That(scope.Bounds, Is.EqualTo(RenderBoundsContract.Identity));
             Assert.That(rawScope.Scale, Is.EqualTo(RenderScaleContract.PreserveInputSupply));
             Assert.That(rawCommand.QueryBounds, Is.EqualTo(bounds));
             Assert.That(
-                () => TargetInputReadback.Values([-1]),
+                () => RenderInputReadback.Values([-1]),
                 Throws.TypeOf<ArgumentOutOfRangeException>());
             Assert.That(
-                () => TargetInputReadback.Values([0, 0]),
+                () => RenderInputReadback.Values([0, 0]),
                 Throws.TypeOf<ArgumentException>());
             Assert.That(
                 () => TargetCommandDescription.Create(

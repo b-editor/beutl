@@ -11,6 +11,10 @@ BREAKING CHANGE: Beutl.Engine, Beutl.Editor, Beutl.NodeGraph, Beutl.ProjectSyste
 
 BREAKING CHANGE: `RenderNodeCacheHelper.MakeCache`, `CreateDefaultCache`, and `CanCacheRecursiveChildrenOnly`, together with `RenderNodeCache.RejectCache` and `IsCacheRejected`, are removed. Cache lookup, miss capture, and atomic publication now occur only inside the complete request after dependency and region analysis; callers render through `RenderNodeRenderer`/the production `Renderer` and use `Invalidate` or `RenderNodeCacheHelper.ClearCache` to discard retained entries.
 
+BREAKING CHANGE: `RenderNodeCache.Density`, `UseCache`, and `StoreCache` are no longer public. Cache payloads are renderer-owned and may contain multiple outputs at independent effective scales, so a scalar public density or target/bounds-only tuple is not a sound inspection contract. Plugin code controls retention through `ReportRenderCount`, `CanCache`, `Invalidate`, and `RenderNodeCacheHelper.ClearCache` rather than reading or seeding engine payloads.
+
+BREAKING CHANGE: `TargetInputReadback` is renamed to the operation-neutral `RenderInputReadback` and is shared by `TargetCommandDescription.InputReadbacks` and `OpaqueRenderDescription.InputReadbacks`. Opaque `requiresReadback: true` migrates to one selector per authored input, normally `inputReadbacks: [RenderInputReadback.All, ...]`; `None` and `Values` avoid synchronizing unrelated runtime values. `OpaqueRenderSession.CreateOutput(bounds, density)` may select an independent finite positive density per runtime output. Direct `RenderNodeRenderer.Render`/`Rasterize` frame hosts set `RenderNodeRenderRequest.Purpose = RenderRequestPurpose.Frame`.
+
 BREAKING CHANGE: `SKSLShader.ApplyToNewTarget` is replaced by explicit legacy-custom allocation, input mapping, and rendering. Use `CustomFilterEffectContext.CreateTargetLike` for same-bounds output or `CreateTarget` for changed bounds, borrow a GPU-backed mapped input through `UseMappedInputShader`, and finish with `SKSLShader.RenderToTarget` inside that scope. Uniforms must use the allocated destination's actual `Scale` and backing dimensions.
 
 BREAKING CHANGE: `IRenderer.GetBoundaries`, `IRenderer.GetBoundary`, and `Renderer.RecalculateBoundaries` are render-thread-affine queries. Bounds are resolved lazily from the recorded render graph after `Render` or `UpdateFrame`, so callers must dispatch these queries through `RenderThread.Dispatcher` instead of reading them from arbitrary threads.
@@ -542,6 +546,7 @@ using var renderer = new RenderNodeRenderer(
             OutputScale = outputScale,
             MaxWorkingScale = maxWorkingScale,
             UseRenderCache = true,
+            Purpose = RenderRequestPurpose.Frame,
         },
         TargetFactory = targetFactory,
     });
@@ -562,7 +567,7 @@ if (!rasterized.IsEmpty)
 
 `RenderNodeRasterization.Bounds` preserves that selected logical domain, including shifted origins. A zero-area selection is a normal `IsEmpty` result with `Bitmap == null`; a non-empty selection owns a non-null bitmap even if all pixels are transparent. The result, not the renderer or caller separately, owns/disposes that bitmap. A former `RenderNodeProcessor.CreateRenderTarget` override becomes an injected `IRenderTargetFactory`; the renderer pool invokes `Create(RenderTargetAllocationDescriptor)` only on a compatible-pool miss and owns every accepted target until eviction or renderer disposal. The descriptor carries exact device size, the fixed linear-premultiplied RGBA16F format, and the request's backend/device context when bound. A null factory selects the built-in allocator. The renderer borrows `root`, `targetFactory`, the descriptor's callback-scoped graphics context, and `destination` (`src/Beutl.Engine/Graphics/Rendering/RenderNodeRenderer.cs`, `src/Beutl.Engine/Graphics/Rendering/Planning/RenderTargetPool.cs`). Request diagnostics remain an internal implementation/evidence seam rather than a public renderer option.
 
-Standalone `RenderNodeRenderer.Render`/`Rasterize` requests have purpose `Auxiliary`; `Measure` is `Bounds` and `HitTest` is `HitTest`. Only the production `Renderer` creates `Frame` requests through an internal entry point. There is no public list-returning rasterizer because an effectful fragment stream has one painter-ordered `RenderNodeRasterization` result.
+Standalone `RenderNodeRenderer.Render`/`Rasterize` requests preserve `RenderNodeRenderRequest.Purpose`, which defaults to `Auxiliary`; direct frame hosts select `Frame` and warm-up hosts select `CacheWarmup` through that public descriptor. Pixel-executing calls reject metadata-only `Bounds`/`HitTest`. The production `Renderer` sets `Frame` on its default request. `Measure` is always `Bounds` and `HitTest` is always `HitTest`. There is no public list-returning rasterizer because an effectful fragment stream has one painter-ordered `RenderNodeRasterization` result.
 
 ## Ownership summary
 

@@ -37,7 +37,7 @@ public class NodeCacheScaleTests
         Assert.Multiple(() =>
         {
             Assert.That(node.Cache.IsCached, Is.True);
-            Assert.That(node.Cache.Density, Is.EqualTo(outputScale));
+            Assert.That(node.Cache.IdentityDensity, Is.EqualTo(outputScale));
             Assert.That(measurement.HasFragments, Is.True);
             Assert.That(measurement.EffectiveScale.IsUnbounded, Is.True,
                 "metadata must retain the original graph instead of substituting a pixel cache");
@@ -59,7 +59,7 @@ public class NodeCacheScaleTests
         Assert.Multiple(() =>
         {
             Assert.That(node.Cache.IsCached, Is.True);
-            Assert.That(node.Cache.Density, Is.EqualTo(4f));
+            Assert.That(node.Cache.IdentityDensity, Is.EqualTo(4f));
             Assert.That(node.ExecuteCount, Is.EqualTo(1), "the warm frame must use the cached producer output");
             Assert.That(renderer.Measure().EffectiveScale.Value, Is.EqualTo(4f));
         });
@@ -140,7 +140,7 @@ public class NodeCacheScaleTests
             Assert.That(cold.IsEmpty, Is.False);
             Assert.That(warm.IsEmpty, Is.False);
             Assert.That(node.Cache.IsCached, Is.True);
-            Assert.That(node.Cache.Density, Is.EqualTo(expectedDensity));
+            Assert.That(node.Cache.IdentityDensity, Is.EqualTo(expectedDensity));
             Assert.That(node.ExecuteCount, Is.EqualTo(1));
             Assert.That(
                 diagnostics.Latest[RenderPipelineCounter.RenderCacheHits],
@@ -179,7 +179,7 @@ public class NodeCacheScaleTests
             Assert.That(cold.Bounds, Is.EqualTo(requestedRegion));
             Assert.That(warm.Bounds, Is.EqualTo(requestedRegion));
             Assert.That(node.Cache.IsCached, Is.True);
-            Assert.That(node.Cache.Density, Is.EqualTo(expectedDensity));
+            Assert.That(node.Cache.IdentityDensity, Is.EqualTo(expectedDensity));
             Assert.That(node.ExecuteCount, Is.EqualTo(1));
             Assert.That(
                 diagnostics.Latest[RenderPipelineCounter.RenderCacheHits],
@@ -207,7 +207,7 @@ public class NodeCacheScaleTests
                     MaxWorkingScale = maxWorkingScale,
                     UseRenderCache = true,
                     CacheRules = cacheRules ?? RenderCacheRules.Default,
-                    RenderPurpose = RenderRequestPurpose.Frame,
+                    Purpose = RenderRequestPurpose.Frame,
                     Diagnostics = diagnostics,
                 },
                 TargetFactory = new CpuTargetFactory(),
