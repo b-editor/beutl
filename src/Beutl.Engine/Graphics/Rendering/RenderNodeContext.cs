@@ -199,13 +199,12 @@ public sealed class RenderNodeContext
 
     /// <summary>Records a deferred premultiplied-opacity scope around one fragment stream.</summary>
     /// <param name="input">A non-null fragment borrowed from the active transaction.</param>
-    /// <param name="opacity">A finite opacity value.</param>
+    /// <param name="opacity">A finite opacity value. Values outside [0, 1] are clamped.</param>
     /// <returns>A new transaction-scoped fragment handle. The result is not published automatically.</returns>
     /// <exception cref="ArgumentOutOfRangeException"><paramref name="opacity"/> is not finite.</exception>
     public RenderFragmentHandle Opacity(RenderFragmentHandle input, float opacity)
     {
-        if (!float.IsFinite(opacity))
-            throw new ArgumentOutOfRangeException(nameof(opacity), opacity, "Opacity must be finite.");
+        opacity = OpacityRenderNode.Normalize(opacity);
 
         NodeRecordingTransaction transaction = GetTransaction();
         RenderFragmentReference reference = transaction.GetReference(input);
@@ -631,11 +630,12 @@ public sealed class RenderNodeContext
     public RenderFragmentHandle TargetCapture(TargetCaptureDescription description)
     {
         ArgumentNullException.ThrowIfNull(description);
-        EffectiveScale scale = description.Scale.Resolve(
-            [],
-            description.Bounds,
-            OutputScale,
-            MaxWorkingScale);
+        EffectiveScale scale = description.Scale.PreservesTargetSupply
+            ? EffectiveScale.Unbounded
+            : description.Scale.ResolveDeclared(
+                description.Bounds,
+                OutputScale,
+                MaxWorkingScale);
         Func<Point, bool> hitTest = CreateHitTest(description.HitTest, description.Bounds, []);
         return GetTransaction().CreateFragment(
             RenderFragmentKind.TargetCapture,
@@ -666,7 +666,7 @@ public sealed class RenderNodeContext
             TargetRegion.Full,
             placeholder,
             RenderHitTestContract.None,
-            RenderScaleContract.MaterializeAtWorkingScale);
+            TargetCaptureScaleContract.PreserveTargetSupply);
         RenderFragmentHandle handle = transaction.CreateFragment(
             RenderFragmentKind.BuiltInBackdropCapture,
             placeholder,

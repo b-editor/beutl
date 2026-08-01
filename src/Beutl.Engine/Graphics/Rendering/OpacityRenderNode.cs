@@ -32,11 +32,18 @@ public sealed class OpacityRenderNode(float opacity) : ContainerRenderNode
 
     internal static ShaderDescription CreateFusionDescription(float opacity)
     {
-        if (!float.IsFinite(opacity))
-            throw new ArgumentOutOfRangeException(nameof(opacity), opacity, "Opacity must be finite.");
+        opacity = Normalize(opacity);
 
         return ShaderDescription.CurrentPixel(
             FusionSource,
             bindings => bindings.Uniform("opacity", opacity));
+    }
+
+    internal static float Normalize(float opacity)
+    {
+        if (!float.IsFinite(opacity))
+            throw new ArgumentOutOfRangeException(nameof(opacity), opacity, "Opacity must be finite.");
+
+        return Math.Clamp(opacity, 0, 1);
     }
 }

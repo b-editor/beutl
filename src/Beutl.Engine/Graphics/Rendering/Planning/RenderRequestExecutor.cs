@@ -3816,7 +3816,7 @@ internal sealed class RenderRequestExecutor
             Rect bounds = fragment.Kind == RenderFragmentKind.BuiltInBackdropCapture
                 ? fragment.Bounds
                 : description.Bounds;
-            EffectiveScale scale = fragment.Kind == RenderFragmentKind.BuiltInBackdropCapture
+            EffectiveScale scale = description.Scale.PreservesTargetSupply
                 ? EffectiveScale.At(currentTarget.Density)
                 : ResolveConcreteScale(fragment);
             scale = ClampToActiveDeviceGrid(bounds, scale);

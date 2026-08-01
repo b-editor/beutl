@@ -117,7 +117,7 @@ public sealed class ValueReplaySafetyTests
                 TargetRegion.Region(bounds),
                 bounds,
                 RenderHitTestContract.OutputBounds,
-                RenderScaleContract.MaterializeAtWorkingScale));
+                TargetCaptureScaleContract.MaterializeAtWorkingScale));
             RenderFragmentHandle contributing = context.ContributeValues(capture);
             context.Publish(context.TargetScope(
                 contributing,

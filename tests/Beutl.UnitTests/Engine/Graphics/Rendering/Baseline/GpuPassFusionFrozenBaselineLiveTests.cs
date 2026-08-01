@@ -93,16 +93,18 @@ public sealed class GpuPassFusionFrozenBaselineLiveTests
             scene.BlobWidth,
             scene.BlobHeight,
             region: null);
-        double minimumWindowedSsim = CalculateMinimumWindowedSsim(
+        WindowedParityMetrics windowed = CalculateWindowedParity(
             reference,
             live.Bytes,
             scene.BlobWidth,
             scene.BlobHeight);
         TestContext.WriteLine(
             $"{scene.Id}: SSIM={full.LinearLightSsim:F9}, "
-            + $"minimumWindowedSsim={minimumWindowedSsim:F9}, "
+            + $"minimumWindowedSsim={windowed.MinimumSsim:F9}, "
+            + $"maximumWindowedAlphaMae={windowed.MaximumAlphaMae:F9}, "
+            + $"maximumWindowedRgbaMae={windowed.MaximumRgbaMae:F9}, "
             + $"linearRgbMae={full.LinearRgbMae:F9}, alphaMae={full.AlphaMae:F9}");
-        AssertParity(full, minimumWindowedSsim, scene.Id, "full image");
+        AssertParity(full, windowed, scene.Id, "full image");
 
         if (scene.EdgeCrop is not { } crop)
             return;
@@ -125,7 +127,7 @@ public sealed class GpuPassFusionFrozenBaselineLiveTests
             $"{scene.Id} edge: SSIM={cropped.LinearLightSsim:F9}, "
             + $"linearRgbMae={cropped.LinearRgbMae:F9}, alphaMae={cropped.AlphaMae:F9}, "
             + $"coverageRgbaMae={coverage.RgbaMae:F9}, coverageMax={coverage.MaximumError.Maximum:F9}");
-        AssertParity(cropped, minimumWindowedSsim: null, scene.Id, "AA edge crop");
+        AssertParity(cropped, windowed: null, scene.Id, "AA edge crop");
         using (Assert.EnterMultipleScope())
         {
             Assert.That(
@@ -151,7 +153,7 @@ public sealed class GpuPassFusionFrozenBaselineLiveTests
             size,
             size,
             region: null);
-        double windowed = CalculateMinimumWindowedSsim(reference, actual, size, size);
+        WindowedParityMetrics windowed = CalculateWindowedParity(reference, actual, size, size);
 
         Assert.Multiple(() =>
         {
@@ -162,7 +164,57 @@ public sealed class GpuPassFusionFrozenBaselineLiveTests
             Assert.That(
                 full.AlphaMae,
                 Is.LessThanOrEqualTo(GpuPassFusionBaselineEvidence.NonVacuityParityTolerance));
-            Assert.That(windowed, Is.LessThan(GpuPassFusionSameProcessParityHarness.MinimumWindowedSsim));
+            Assert.That(
+                windowed.MinimumSsim,
+                Is.LessThan(GpuPassFusionSameProcessParityHarness.MinimumWindowedSsim));
+        });
+    }
+
+    [Test]
+    public void LiveParityGate_RejectsLocalizedAlphaDefectThatPassesWholeFrameMetrics()
+    {
+        const int size = 128;
+        byte[] reference = CreateAlphaPayload(size, withLocalizedDefect: false);
+        byte[] actual = CreateAlphaPayload(size, withLocalizedDefect: true);
+        Rgba16fParityMetrics full = Rgba16fEvidenceWriter.CalculateParity(
+            reference,
+            actual,
+            size,
+            size,
+            region: null);
+        WindowedParityMetrics windowed = CalculateWindowedParity(reference, actual, size, size);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(full.LinearLightSsim, Is.GreaterThanOrEqualTo(0.99));
+            Assert.That(
+                full.LinearRgbMae,
+                Is.LessThanOrEqualTo(GpuPassFusionBaselineEvidence.NonVacuityParityTolerance));
+            Assert.That(
+                full.AlphaMae,
+                Is.LessThanOrEqualTo(GpuPassFusionBaselineEvidence.NonVacuityParityTolerance));
+            Assert.That(
+                windowed.MaximumAlphaMae,
+                Is.GreaterThan(GpuPassFusionBaselineEvidence.NonVacuityParityTolerance));
+            Assert.That(
+                windowed.MaximumRgbaMae,
+                Is.GreaterThan(GpuPassFusionBaselineEvidence.MaximumWindowedRgbaMae));
+        });
+    }
+
+    [Test]
+    public void QueryEvidence_ValidatesEveryMetadataOnlyRequestBeforeReadingTheNextSnapshot()
+    {
+        FeatureMetadataCapture capture = FeatureVisualEvidenceExporter.CaptureQuerySceneForTest();
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(capture.Query, Is.Not.Null);
+            Assert.That(capture.Query!["deferredWorkExecuted"]?.GetValue<bool>(), Is.False);
+            Assert.That(capture.Query["validatedRequestCount"]?.GetValue<int>(), Is.EqualTo(3));
+            Assert.That(capture.RequestCounters.GetValueOrDefault("ExecutedOutcomes"), Is.Zero);
+            Assert.That(capture.RequestCounters.GetValueOrDefault("IntermediateCreates"), Is.Zero);
+            Assert.That(capture.RequestCounters.GetValueOrDefault("OpaqueExternalExecutions"), Is.Zero);
         });
     }
 
@@ -310,14 +362,16 @@ public sealed class GpuPassFusionFrozenBaselineLiveTests
         return [element.GetString()!];
     }
 
-    private static double CalculateMinimumWindowedSsim(
+    private static WindowedParityMetrics CalculateWindowedParity(
         byte[] reference,
         byte[] actual,
         int width,
         int height)
     {
         const int windowSize = 16;
-        double minimum = 1;
+        double minimumSsim = 1;
+        double maximumAlphaMae = 0;
+        double maximumRgbaMae = 0;
         for (int top = 0; top < height; top += windowSize)
         {
             for (int left = 0; left < width; left += windowSize)
@@ -333,11 +387,15 @@ public sealed class GpuPassFusionFrozenBaselineLiveTests
                     width,
                     height,
                     window);
-                minimum = Math.Min(minimum, metrics.LinearLightSsim);
+                minimumSsim = Math.Min(minimumSsim, metrics.LinearLightSsim);
+                maximumAlphaMae = Math.Max(maximumAlphaMae, metrics.AlphaMae);
+                maximumRgbaMae = Math.Max(
+                    maximumRgbaMae,
+                    ((metrics.LinearRgbMae * 3) + metrics.AlphaMae) / 4);
             }
         }
 
-        return minimum;
+        return new WindowedParityMetrics(minimumSsim, maximumAlphaMae, maximumRgbaMae);
     }
 
     private static byte[] CreateCheckerboardPayload(int size, bool withLocalizedDefect)
@@ -361,6 +419,24 @@ public sealed class GpuPassFusionFrozenBaselineLiveTests
         return result;
     }
 
+    private static byte[] CreateAlphaPayload(int size, bool withLocalizedDefect)
+    {
+        var result = new byte[checked(size * size * 8)];
+        for (int y = 0; y < size; y++)
+        {
+            for (int x = 0; x < size; x++)
+            {
+                int offset = ((y * size) + x) * 8;
+                WriteHalf(result, offset, 0);
+                WriteHalf(result, offset + 2, 0);
+                WriteHalf(result, offset + 4, 0);
+                WriteHalf(result, offset + 6, withLocalizedDefect && x < 14 && y < 14 ? 0 : 1);
+            }
+        }
+
+        return result;
+    }
+
     private static void WriteHalf(byte[] destination, int offset, float value)
         => BinaryPrimitives.WriteUInt16LittleEndian(
             destination.AsSpan(offset, sizeof(ushort)),
@@ -368,7 +444,7 @@ public sealed class GpuPassFusionFrozenBaselineLiveTests
 
     private static void AssertParity(
         Rgba16fParityMetrics metrics,
-        double? minimumWindowedSsim,
+        WindowedParityMetrics? windowed,
         string sceneId,
         string region)
     {
@@ -378,12 +454,20 @@ public sealed class GpuPassFusionFrozenBaselineLiveTests
                 metrics.LinearLightSsim,
                 Is.GreaterThanOrEqualTo(0.99),
                 $"{sceneId} {region} SSIM is below the frozen-baseline contract");
-            if (minimumWindowedSsim is { } windowedSsim)
+            if (windowed is { } windowedMetrics)
             {
                 Assert.That(
-                    windowedSsim,
+                    windowedMetrics.MinimumSsim,
                     Is.GreaterThanOrEqualTo(GpuPassFusionSameProcessParityHarness.MinimumWindowedSsim),
                     $"{sceneId} {region} minimum-window SSIM is below the frozen-baseline contract");
+                Assert.That(
+                    windowedMetrics.MaximumAlphaMae,
+                    Is.LessThanOrEqualTo(GpuPassFusionBaselineEvidence.NonVacuityParityTolerance),
+                    $"{sceneId} {region} maximum-window alpha MAE exceeded the manifest tolerance");
+                Assert.That(
+                    windowedMetrics.MaximumRgbaMae,
+                    Is.LessThanOrEqualTo(GpuPassFusionBaselineEvidence.MaximumWindowedRgbaMae),
+                    $"{sceneId} {region} maximum-window RGBA MAE exceeded the manifest tolerance");
             }
             Assert.That(
                 metrics.LinearRgbMae,
@@ -395,4 +479,9 @@ public sealed class GpuPassFusionFrozenBaselineLiveTests
                 $"{sceneId} {region} alpha MAE exceeded the manifest tolerance");
         }
     }
+
+    private readonly record struct WindowedParityMetrics(
+        double MinimumSsim,
+        double MaximumAlphaMae,
+        double MaximumRgbaMae);
 }

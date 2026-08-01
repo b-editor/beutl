@@ -51,7 +51,7 @@ public partial class MosaicEffect : FilterEffect
                     tileSize,
                     BindScaledVector,
                     structuralKey: (typeof(MosaicEffect), "tile-size"),
-                    runtimeIdentity: new RenderRuntimeIdentity("MosaicEffect.tile-size"));
+                    cachePolicy: ShaderBindingCachePolicy.ReuseFromSnapshot);
                 if (r.Origin.Unit == RelativeUnit.Relative)
                 {
                     bindings.Uniform(
@@ -59,8 +59,7 @@ public partial class MosaicEffect : FilterEffect
                         origin,
                         BindRelativeOrigin,
                         structuralKey: (typeof(MosaicEffect), RelativeUnit.Relative),
-                        runtimeIdentity: new RenderRuntimeIdentity(
-                            ("MosaicEffect.origin", RelativeUnit.Relative)));
+                        cachePolicy: ShaderBindingCachePolicy.ReuseFromSnapshot);
                 }
                 else
                 {
@@ -69,8 +68,7 @@ public partial class MosaicEffect : FilterEffect
                         origin,
                         BindAbsoluteOrigin,
                         structuralKey: (typeof(MosaicEffect), RelativeUnit.Absolute),
-                        runtimeIdentity: new RenderRuntimeIdentity(
-                            ("MosaicEffect.origin", RelativeUnit.Absolute)));
+                        cachePolicy: ShaderBindingCachePolicy.ReuseFromSnapshot);
                 }
             },
             SKShaderTileMode.Clamp));

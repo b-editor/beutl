@@ -135,6 +135,28 @@ public sealed class Rgba16fGoldenStoreTests
         Assert.That(File.Exists(path), Is.False);
     }
 
+    [TestCase(0, 1)]
+    [TestCase(1, 0)]
+    public void Write_RejectsNonpositiveBitmapDimensions(int width, int height)
+    {
+        using var empty = new Bitmap(
+            width,
+            height,
+            BitmapColorType.RgbaF16,
+            BitmapAlphaType.Premul,
+            BitmapColorSpace.LinearSrgb);
+        string path = Path.Combine(_temporaryDirectory, "empty" + Rgba16fGoldenStore.Extension);
+
+        Assert.That(
+            () => Rgba16fGoldenStore.Write(path, empty),
+            Throws.ArgumentException.With.Property("ParamName").EqualTo("bitmap"));
+        Assert.Multiple(() =>
+        {
+            Assert.That(File.Exists(path), Is.False);
+            Assert.That(Directory.GetFiles(_temporaryDirectory), Is.Empty);
+        });
+    }
+
     private static Bitmap CreateFlat(float value)
     {
         var bitmap = new Bitmap(

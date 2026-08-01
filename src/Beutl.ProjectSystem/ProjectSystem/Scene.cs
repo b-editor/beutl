@@ -710,7 +710,11 @@ public class Scene : ProjectItem, INotifyEdited
 
             return element;
         }
-        catch (JsonException ex)
+        catch (Exception ex) when (ex is JsonException
+                                   or InvalidCastException
+                                   or InvalidOperationException
+                                   or FormatException
+                                   or OverflowException)
         {
             var element = new Element
             {

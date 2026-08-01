@@ -236,27 +236,57 @@ public partial class SourceVideo : IThumbnailsProvider
         }
     }
 
-    internal static async Task DisposeThumbnailRenderResourcesAsync(params IDisposable?[] resources)
-    {
-        ArgumentNullException.ThrowIfNull(resources);
-        await RenderThread.Dispatcher.InvokeAsync(() =>
-        {
-            Exception? primary = null;
-            foreach (IDisposable? resource in resources)
-            {
-                try
-                {
-                    resource?.Dispose();
-                }
-                catch (Exception ex)
-                {
-                    primary ??= ex;
-                }
-            }
+    internal static Task DisposeThumbnailRenderResourcesAsync(params IDisposable?[] resources)
+        => DisposeThumbnailRenderResourcesAsync(RenderThread.Dispatcher, resources);
 
-            if (primary is not null)
-                System.Runtime.ExceptionServices.ExceptionDispatchInfo.Capture(primary).Throw();
-        }, ct: CancellationToken.None);
+    internal static async Task DisposeThumbnailRenderResourcesAsync(
+        Dispatcher dispatcher,
+        params IDisposable?[] resources)
+    {
+        ArgumentNullException.ThrowIfNull(dispatcher);
+        ArgumentNullException.ThrowIfNull(resources);
+        if (dispatcher.HasShutdownStarted)
+            return;
+
+        using var shutdownCancellation = new ShutdownCancellationRegistration();
+        void OnShutdownStarted(object? _, EventArgs __) => shutdownCancellation.Cancel();
+        dispatcher.ShutdownStarted += OnShutdownStarted;
+        try
+        {
+            if (dispatcher.HasShutdownStarted)
+                return;
+
+            try
+            {
+                await dispatcher.InvokeAsync(() =>
+                {
+                    Exception? primary = null;
+                    foreach (IDisposable? resource in resources)
+                    {
+                        try
+                        {
+                            resource?.Dispose();
+                        }
+                        catch (Exception ex)
+                        {
+                            primary ??= ex;
+                        }
+                    }
+
+                    if (primary is not null)
+                        System.Runtime.ExceptionServices.ExceptionDispatchInfo.Capture(primary).Throw();
+                }, ct: shutdownCancellation.Token);
+            }
+            catch (OperationCanceledException) when (dispatcher.HasShutdownStarted)
+            {
+                // Shutdown is terminal. A queued render-thread cleanup can no longer execute, so do
+                // not await it forever or dispose thread-affine resources from the caller thread.
+            }
+        }
+        finally
+        {
+            dispatcher.ShutdownStarted -= OnShutdownStarted;
+        }
     }
 
     public async IAsyncEnumerable<WaveformChunk> GetWaveformChunksAsync(
@@ -284,5 +314,76 @@ public partial class SourceVideo : IThumbnailsProvider
             return 0;
 
         return (int)raw;
+    }
+
+    private sealed class ShutdownCancellationRegistration : IDisposable
+    {
+        private readonly object _gate = new();
+        private CancellationTokenSource? _source = new();
+        private int _activeCancellations;
+        private bool _disposeRequested;
+
+        public CancellationToken Token
+        {
+            get
+            {
+                lock (_gate)
+                {
+                    return _source?.Token
+                           ?? throw new ObjectDisposedException(nameof(ShutdownCancellationRegistration));
+                }
+            }
+        }
+
+        public void Cancel()
+        {
+            CancellationTokenSource? source;
+            lock (_gate)
+            {
+                source = _source;
+                if (source is null)
+                    return;
+                _activeCancellations++;
+            }
+
+            try
+            {
+                source.Cancel();
+            }
+            finally
+            {
+                CancellationTokenSource? dispose = null;
+                lock (_gate)
+                {
+                    _activeCancellations--;
+                    if (_disposeRequested && _activeCancellations == 0)
+                    {
+                        dispose = _source;
+                        _source = null;
+                    }
+                }
+
+                dispose?.Dispose();
+            }
+        }
+
+        public void Dispose()
+        {
+            CancellationTokenSource? dispose = null;
+            lock (_gate)
+            {
+                if (_disposeRequested)
+                    return;
+
+                _disposeRequested = true;
+                if (_activeCancellations == 0)
+                {
+                    dispose = _source;
+                    _source = null;
+                }
+            }
+
+            dispose?.Dispose();
+        }
     }
 }

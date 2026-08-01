@@ -942,7 +942,7 @@ public sealed class NestedTargetAndCleanupFailureTests
                     TargetRegion.Region(s_bounds),
                     s_bounds,
                     RenderHitTestContract.OutputBounds,
-                    RenderScaleContract.MaterializeAtWorkingScale)));
+                    TargetCaptureScaleContract.MaterializeAtWorkingScale)));
             TargetScopeDescription caller = TargetScopeDescription.Create(
                 session => session.Canvas.Use(_ =>
                 {
@@ -1099,7 +1099,7 @@ public sealed class NestedTargetAndCleanupFailureTests
                 TargetRegion.Region(s_bounds),
                 s_bounds,
                 RenderHitTestContract.OutputBounds,
-                RenderScaleContract.MaterializeAtWorkingScale));
+                TargetCaptureScaleContract.MaterializeAtWorkingScale));
             context.Publish(context.ContributeValues(capture));
         }
     }

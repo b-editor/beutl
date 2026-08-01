@@ -600,11 +600,16 @@ internal sealed class RegionAnalyzer
                     options.OutputScale,
                     options.MaxWorkingScale);
             case RenderFragmentKind.TargetCapture:
-                return ((TargetCaptureRenderFragmentPayload)reference.Payload!).Description.Scale.Resolve(
-                    [],
-                    resolvedBounds,
-                    options.OutputScale,
-                    options.MaxWorkingScale);
+                {
+                    TargetCaptureScaleContract scale =
+                        ((TargetCaptureRenderFragmentPayload)reference.Payload!).Description.Scale;
+                    return scale.PreservesTargetSupply
+                        ? EffectiveScale.Unbounded
+                        : scale.ResolveDeclared(
+                            resolvedBounds,
+                            options.OutputScale,
+                            options.MaxWorkingScale);
+                }
             case RenderFragmentKind.TargetScope:
                 return ((TargetScopeRenderFragmentPayload)reference.Payload!).Description.Scale.Resolve(
                     inputScales,

@@ -87,9 +87,6 @@ public sealed partial class Curves : FilterEffect
         }
         """;
 
-    private static readonly RenderRuntimeIdentity s_curveBindingIdentity =
-        new(typeof(Curves));
-
     public Curves()
     {
         ScanProperties<Curves>();
@@ -163,5 +160,5 @@ public sealed partial class Curves : FilterEffect
             curve,
             ShaderResourceCoordinateSpace.Value,
             static (writer, value, _) => writer.Set(value.ToShader()),
-            runtimeIdentity: s_curveBindingIdentity);
+            cachePolicy: ShaderBindingCachePolicy.ReuseFromSnapshot);
 }

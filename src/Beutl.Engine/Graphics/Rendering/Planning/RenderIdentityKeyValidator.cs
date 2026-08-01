@@ -33,8 +33,7 @@ internal static class RenderIdentityKeyValidator
             or RawTargetScopeSession
             or RawTargetCommandSession;
         bool mutablePayload = key is Array || IsKnownMutableCollection(key.GetType());
-        bool capturedDelegate = key is Delegate callback
-            && callback.GetInvocationList().Any(IsCapturedDelegate);
+        bool capturedDelegate = key is Delegate callback && CapturesState(callback);
         if (retainsLifetimeOrCapability || mutablePayload || capturedDelegate)
         {
             throw new ArgumentException(
@@ -42,6 +41,12 @@ internal static class RenderIdentityKeyValidator
                 + "a resource, context, request graph, mutable payload, or captured delegate.",
                 parameterName);
         }
+    }
+
+    public static bool CapturesState(Delegate callback)
+    {
+        ArgumentNullException.ThrowIfNull(callback);
+        return callback.GetInvocationList().Any(IsCapturedDelegate);
     }
 
     private static bool IsCapturedDelegate(Delegate callback)

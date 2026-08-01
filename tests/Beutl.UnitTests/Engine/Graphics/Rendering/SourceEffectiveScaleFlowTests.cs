@@ -119,7 +119,8 @@ public class SourceEffectiveScaleFlowTests
             MosaicNode());
         using var renderer = new RenderNodeRenderer(
             pipeline,
-            new RenderNodeRendererOptions {
+            new RenderNodeRendererOptions
+            {
                 DefaultRequest = new RenderNodeRenderRequest
                 {
                     CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Disabled,
@@ -1690,8 +1691,7 @@ public class SourceEffectiveScaleFlowTests
                     observations.Add(ShaderContextObservation.Capture(execution));
                     writer.Set(1f);
                 },
-                structuralKey: identity,
-                runtimeIdentity: new RenderRuntimeIdentity(identity)));
+                structuralKey: identity));
 
     private static RenderNodeRenderer CreateCpuRenderer(
         RenderNode node,
@@ -2115,7 +2115,8 @@ public class SourceEffectiveScaleFlowTests
                 new OversampleMosaicRenderNode(mosaic.ToResource(CompositionContext.Default)));
             using var renderer = new RenderNodeRenderer(
                 pipeline,
-                new RenderNodeRendererOptions {
+                new RenderNodeRendererOptions
+                {
                     DefaultRequest = new RenderNodeRenderRequest
                     {
                         CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Disabled,

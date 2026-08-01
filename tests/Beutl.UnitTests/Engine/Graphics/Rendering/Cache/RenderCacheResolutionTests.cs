@@ -309,6 +309,185 @@ public sealed class RenderCacheResolutionTests
     }
 
     [Test]
+    public void ReusableShaderBinderIdentity_InvalidatesRequestScalesWhenResolvedDensityIsUnchanged()
+    {
+        ShaderDescription description = ShaderDescription.CurrentPixel(
+            "uniform float amount; half4 apply(half4 color) { return color * amount; }",
+            bindings => bindings.Uniform(
+                "amount",
+                1f,
+                static (writer, value, context) =>
+                    writer.Set(value + context.OutputScale + context.MaxWorkingScale),
+                structuralKey: "request-scale-sensitive-binder",
+                cachePolicy: ShaderBindingCachePolicy.ReuseFromSnapshot));
+        EffectiveScale fixedSupply = EffectiveScale.At(2);
+        using Scenario baseline = ShaderCandidate(
+            description,
+            outputScale: 1,
+            maxWorkingScale: 4,
+            scale: fixedSupply);
+        RenderCacheResolution cold = Resolve(baseline);
+        var lookup = new RecordingLookup();
+        lookup.Add(cold.MissCaptures.Single());
+
+        AssertMiss(
+            ShaderCandidate(description, outputScale: 1.5f, maxWorkingScale: 4, scale: fixedSupply),
+            s_context,
+            lookup);
+        AssertMiss(
+            ShaderCandidate(description, outputScale: 1, maxWorkingScale: 8, scale: fixedSupply),
+            s_context,
+            lookup);
+    }
+
+    [Test]
+    public void ReusableShaderBinderIdentity_InvalidatesSharedStageRequirementAcrossFanOut()
+    {
+        ShaderDescription description = ShaderDescription.CurrentPixel(
+            "uniform float amount; half4 apply(half4 color) { return color * amount; }",
+            bindings => bindings.Uniform(
+                "amount",
+                1f,
+                static (writer, value, context) => writer.Set(value + context.RequiredRegion.Width),
+                structuralKey: "required-region-sensitive-binder",
+                cachePolicy: ShaderBindingCachePolicy.ReuseFromSnapshot));
+        using Scenario baseline = ShaderFanOut(description, widenSiblingRequirement: false);
+        RenderCachePlanningResult cold = ResolvePlanning(baseline);
+        var lookup = new RecordingLookup();
+        lookup.Add(cold.Resolution.MissCaptures.Single());
+
+        using Scenario expanded = ShaderFanOut(description, widenSiblingRequirement: true);
+        RenderCachePlanningResult expandedResult = ResolvePlanning(expanded, lookup);
+        RenderCacheResolution resolution = expandedResult.Resolution;
+        Rect baselineCandidateRequirement = baseline.Regions
+            .GetFragmentRequirement(baseline.Named("candidate"))
+            .Resolve(baseline.Named("candidate").Bounds);
+        Rect expandedCandidateRequirement = expanded.Regions
+            .GetFragmentRequirement(expanded.Named("candidate"))
+            .Resolve(expanded.Named("candidate").Bounds);
+        Rect baselineSharedRequirement = baseline.Regions
+            .GetFragmentRequirement(baseline.Named("shared"))
+            .Resolve(baseline.Named("shared").Bounds);
+        Rect expandedSharedRequirement = expanded.Regions
+            .GetFragmentRequirement(expanded.Named("shared"))
+            .Resolve(expanded.Named("shared").Bounds);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(baselineCandidateRequirement, Is.EqualTo(new Rect(16, 16, 16, 16)));
+            Assert.That(expandedCandidateRequirement, Is.EqualTo(baselineCandidateRequirement));
+            Assert.That(baselineSharedRequirement, Is.EqualTo(new Rect(16, 16, 16, 16)));
+            Assert.That(expandedSharedRequirement, Is.EqualTo(new Rect(8, 8, 32, 32)));
+            Assert.That(
+                expandedResult.MaterializationDemands[expanded.Named("shared")],
+                Is.EqualTo(cold.MaterializationDemands[baseline.Named("shared")]));
+            Assert.That(
+                resolution.MissCaptures.Single().Identity.Bounds,
+                Is.EqualTo(cold.Resolution.MissCaptures.Single().Identity.Bounds));
+            Assert.That(
+                resolution.MissCaptures.Single().Identity.Coverage,
+                Is.EqualTo(cold.Resolution.MissCaptures.Single().Identity.Coverage));
+            Assert.That(
+                resolution.MissCaptures.Single().Identity.Density,
+                Is.EqualTo(cold.Resolution.MissCaptures.Single().Identity.Density));
+            Assert.That(resolution.Hits, Is.Empty);
+            Assert.That(resolution.MissCaptures, Has.Length.EqualTo(1));
+        });
+    }
+
+    [Test]
+    public void BinderFreeShaderIdentity_ReusesAcrossUnobservedSharedStageRequirement()
+    {
+        ShaderDescription description = ShaderDescription.CurrentPixel(
+            "half4 apply(half4 color) { return color; }");
+        using Scenario baseline = ShaderFanOut(description, widenSiblingRequirement: false);
+        RenderCacheResolution cold = Resolve(baseline);
+        var lookup = new RecordingLookup();
+        lookup.Add(cold.MissCaptures.Single());
+
+        using Scenario expanded = ShaderFanOut(description, widenSiblingRequirement: true);
+        RenderCacheResolution resolution = Resolve(expanded, lookup);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(
+                expanded.Regions.GetFragmentRequirement(expanded.Named("shared")),
+                Is.Not.EqualTo(baseline.Regions.GetFragmentRequirement(baseline.Named("shared"))));
+            Assert.That(resolution.Hits, Has.Length.EqualTo(1));
+            Assert.That(resolution.MissCaptures, Is.Empty);
+        });
+    }
+
+    [Test]
+    public void ReusableShaderBinderIdentity_InvalidatesTransparentMaterializedInputRequirement()
+    {
+        ShaderDescription description = ShaderDescription.CurrentPixel(
+            "uniform float amount; half4 apply(half4 color) { return color * amount; }",
+            bindings => bindings.Uniform(
+                "amount",
+                1f,
+                static (writer, value, context) => writer.Set(value + context.InputBounds.Width),
+                structuralKey: "input-bounds-sensitive-binder",
+                cachePolicy: ShaderBindingCachePolicy.ReuseFromSnapshot));
+        using Scenario baseline = TransparentShaderFanOut(description, widenSiblingRequirement: false);
+        RenderCachePlanningResult cold = ResolvePlanning(baseline);
+        var lookup = new RecordingLookup();
+        lookup.Add(cold.Resolution.MissCaptures.Single());
+
+        using Scenario expanded = TransparentShaderFanOut(description, widenSiblingRequirement: true);
+        RenderCachePlanningResult expandedResult = ResolvePlanning(expanded, lookup);
+        RenderCacheResolution resolution = expandedResult.Resolution;
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(
+                expanded.Regions.GetFragmentRequirement(expanded.Named("candidate")),
+                Is.EqualTo(baseline.Regions.GetFragmentRequirement(baseline.Named("candidate"))));
+            Assert.That(
+                expanded.Regions.GetFragmentRequirement(expanded.Named("wrapper")),
+                Is.EqualTo(baseline.Regions.GetFragmentRequirement(baseline.Named("wrapper"))));
+            Assert.That(
+                baseline.Regions.GetFragmentRequirement(baseline.Named("producer")),
+                Is.EqualTo(RequiredRegion.Region(new Rect(16, 16, 16, 16))));
+            Assert.That(
+                expanded.Regions.GetFragmentRequirement(expanded.Named("producer")),
+                Is.EqualTo(RequiredRegion.Region(new Rect(8, 8, 32, 32))));
+            Assert.That(
+                expandedResult.MaterializationDemands[expanded.Named("producer")],
+                Is.EqualTo(cold.MaterializationDemands[baseline.Named("producer")]));
+            Assert.That(resolution.Hits, Is.Empty);
+            Assert.That(resolution.MissCaptures, Has.Length.EqualTo(1));
+        });
+    }
+
+    [Test]
+    public void BinderFreeCandidateIdentity_ReusesWhenExternalReusableSiblingChangesSharedRequirement()
+    {
+        using Scenario baseline = ExternalReusableShaderFanOut(widenSiblingRequirement: false);
+        RenderCacheResolution cold = Resolve(baseline);
+        var lookup = new RecordingLookup();
+        lookup.Add(cold.MissCaptures.Single());
+
+        using Scenario expanded = ExternalReusableShaderFanOut(widenSiblingRequirement: true);
+        RenderCacheResolution resolution = Resolve(expanded, lookup);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(
+                expanded.Regions.GetFragmentRequirement(expanded.Named("candidate")),
+                Is.EqualTo(baseline.Regions.GetFragmentRequirement(baseline.Named("candidate"))));
+            Assert.That(
+                baseline.Regions.GetFragmentRequirement(baseline.Named("producer")),
+                Is.EqualTo(RequiredRegion.Region(new Rect(16, 16, 16, 16))));
+            Assert.That(
+                expanded.Regions.GetFragmentRequirement(expanded.Named("producer")),
+                Is.EqualTo(RequiredRegion.Region(new Rect(8, 8, 32, 32))));
+            Assert.That(resolution.Hits, Has.Length.EqualTo(1));
+            Assert.That(resolution.MissCaptures, Is.Empty);
+        });
+    }
+
+    [Test]
     public void GridSensitiveIdentity_DistinguishesIntegralDestinationTranslations()
     {
         ShaderDescription description = ShaderDescription.CurrentPixel(
@@ -1160,13 +1339,17 @@ public sealed class RenderCacheResolutionTests
             });
     }
 
-    private static Scenario ShaderCandidate(ShaderDescription description)
+    private static Scenario ShaderCandidate(
+        ShaderDescription description,
+        float outputScale = 1,
+        float maxWorkingScale = float.PositiveInfinity,
+        EffectiveScale? scale = null)
     {
-        RenderFragmentReference source = Pure();
+        RenderFragmentReference source = Pure(scale: scale);
         var shader = new RenderFragmentReference(
             RenderFragmentKind.Shader,
             s_bounds,
-            EffectiveScale.Unbounded,
+            scale ?? EffectiveScale.Unbounded,
             RenderValueCardinality.Single,
             contributesValuesToTarget: true,
             canBeUsedAsValueInput: true,
@@ -1178,8 +1361,142 @@ public sealed class RenderCacheResolutionTests
         return Build(
             [source, shader],
             [shader],
-            [(shader, "shader")]);
+            [(shader, "shader")],
+            outputScale: outputScale,
+            maxWorkingScale: maxWorkingScale);
     }
+
+    private static Scenario ShaderFanOut(
+        ShaderDescription sharedDescription,
+        bool widenSiblingRequirement)
+    {
+        RenderFragmentReference source = Pure();
+        RenderFragmentReference shared = Shader(source, sharedDescription);
+        RenderFragmentReference candidate = Shader(
+            shared,
+            ShaderDescription.CurrentPixel("half4 apply(half4 color) { return color; }"));
+        RenderBoundsContract siblingBounds = widenSiblingRequirement
+            ? RenderBoundsContract.Create(
+                static input => input,
+                static requested => requested.Inflate(new Thickness(8)),
+                "fanout-expanded-requirement")
+            : RenderBoundsContract.Create(
+                static input => input,
+                static requested => requested,
+                "fanout-identity-requirement");
+        RenderFragmentReference sibling = Shader(
+            shared,
+            ShaderDescription.WholeSource(
+                "uniform shader src; half4 main(float2 coord) { return src.eval(coord); }",
+                siblingBounds));
+
+        return Build(
+            [source, shared, candidate, sibling],
+            [candidate, sibling],
+            [(candidate, "fanout-candidate")],
+            requestedRegion: new Rect(16, 16, 16, 16),
+            names: new Dictionary<string, RenderFragmentReference>
+            {
+                ["candidate"] = candidate,
+                ["shared"] = shared,
+            });
+    }
+
+    private static Scenario TransparentShaderFanOut(
+        ShaderDescription reusableDescription,
+        bool widenSiblingRequirement)
+    {
+        RenderFragmentReference source = Pure();
+        RenderFragmentReference producer = Shader(
+            source,
+            ShaderDescription.CurrentPixel("half4 apply(half4 color) { return color; }"));
+        RenderFragmentReference wrapper = Pure([producer]);
+        RenderFragmentReference candidate = Shader(wrapper, reusableDescription);
+        RenderBoundsContract siblingBounds = widenSiblingRequirement
+            ? RenderBoundsContract.Create(
+                static input => input,
+                static requested => requested.Inflate(new Thickness(8)),
+                "transparent-fanout-expanded-requirement")
+            : RenderBoundsContract.Create(
+                static input => input,
+                static requested => requested,
+                "transparent-fanout-identity-requirement");
+        RenderFragmentReference sibling = Shader(
+            producer,
+            ShaderDescription.WholeSource(
+                "uniform shader src; half4 main(float2 coord) { return src.eval(coord); }",
+                siblingBounds));
+
+        return Build(
+            [source, producer, wrapper, candidate, sibling],
+            [candidate, sibling],
+            [(candidate, "transparent-fanout-candidate")],
+            requestedRegion: new Rect(16, 16, 16, 16),
+            names: new Dictionary<string, RenderFragmentReference>
+            {
+                ["candidate"] = candidate,
+                ["producer"] = producer,
+                ["wrapper"] = wrapper,
+            });
+    }
+
+    private static Scenario ExternalReusableShaderFanOut(bool widenSiblingRequirement)
+    {
+        RenderFragmentReference source = Pure();
+        RenderFragmentReference producer = Shader(
+            source,
+            ShaderDescription.CurrentPixel("half4 apply(half4 color) { return color; }"));
+        RenderFragmentReference candidate = Shader(
+            producer,
+            ShaderDescription.CurrentPixel("half4 apply(half4 color) { return color; }"));
+        RenderBoundsContract siblingBounds = widenSiblingRequirement
+            ? RenderBoundsContract.Create(
+                static input => input,
+                static requested => requested.Inflate(new Thickness(8)),
+                "external-reusable-expanded-requirement")
+            : RenderBoundsContract.Create(
+                static input => input,
+                static requested => requested,
+                "external-reusable-identity-requirement");
+        ShaderDescription siblingDescription = ShaderDescription.WholeSource(
+            "uniform shader src; uniform float amount; "
+            + "half4 main(float2 coord) { return src.eval(coord) * amount; }",
+            siblingBounds,
+            bindings => bindings.Uniform(
+                "amount",
+                1f,
+                static (writer, value, context) => writer.Set(value + context.InputBounds.Width),
+                structuralKey: "external-input-bounds-sensitive-binder",
+                cachePolicy: ShaderBindingCachePolicy.ReuseFromSnapshot));
+        RenderFragmentReference sibling = Shader(producer, siblingDescription);
+
+        return Build(
+            [source, producer, candidate, sibling],
+            [candidate, sibling],
+            [(candidate, "binder-free-candidate")],
+            requestedRegion: new Rect(16, 16, 16, 16),
+            names: new Dictionary<string, RenderFragmentReference>
+            {
+                ["candidate"] = candidate,
+                ["producer"] = producer,
+            });
+    }
+
+    private static RenderFragmentReference Shader(
+        RenderFragmentReference input,
+        ShaderDescription description)
+        => new(
+            RenderFragmentKind.Shader,
+            description.Bounds.TransformBounds(input.Bounds),
+            input.EffectiveScale,
+            RenderValueCardinality.Single,
+            contributesValuesToTarget: true,
+            canBeUsedAsValueInput: true,
+            hasTargetEffects: false,
+            hasOpaqueExternalWork: false,
+            [input],
+            new ShaderRenderFragmentPayload(description, description.CreateRuntimeIdentity()),
+            static _ => true);
 
     private static Scenario GeometryCandidate(GeometryDescription description)
     {
@@ -1536,7 +1853,7 @@ public sealed class RenderCacheResolutionTests
                         TargetRegion.Region(s_bounds),
                         s_bounds,
                         RenderHitTestContract.None,
-                        RenderScaleContract.MaterializeAtWorkingScale));
+                        TargetCaptureScaleContract.MaterializeAtWorkingScale));
                 cardinality = RenderValueCardinality.Single;
                 contributes = false;
                 canBeUsed = true;

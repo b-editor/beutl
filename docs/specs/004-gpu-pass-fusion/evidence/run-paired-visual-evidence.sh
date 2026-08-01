@@ -8,6 +8,7 @@ committed_target_root="$script_dir/target-baseline"
 feature_worktree=""
 feature_command=${BEUTL_GPU_PASS_FEATURE_EXPORT_COMMAND:-}
 result_root=""
+runner_worktree=""
 
 usage() {
     cat >&2 <<EOF
@@ -83,6 +84,8 @@ for command_name in git python3 bash; do
     }
 done
 
+runner_worktree=$(git -C "$script_dir" rev-parse --show-toplevel)
+require_clean_worktree "$runner_worktree" "Evidence tools before paired visual capture"
 feature_worktree=$(git -C "$feature_worktree" rev-parse --show-toplevel)
 feature_sha=$(git -C "$feature_worktree" rev-parse HEAD)
 require_clean_worktree "$feature_worktree" "Feature before paired visual capture"
@@ -188,6 +191,19 @@ def load_and_validate(root, label):
     committed_payloads,
 ) = load_and_validate(committed_root, "committed target baseline")
 
+regenerated_tools = regenerated.get("evidenceTools")
+committed_tools = committed.get("evidenceTools")
+if not isinstance(regenerated_tools, dict) or not isinstance(committed_tools, dict):
+    raise SystemExit("Regenerated or committed target evidence-tool table is missing")
+if regenerated_tools != committed_tools:
+    mismatches = sorted(
+        name for name in set(regenerated_tools) | set(committed_tools)
+        if regenerated_tools.get(name) != committed_tools.get(name)
+    )
+    raise SystemExit(
+        "Regenerated evidence-tool hashes differ from the committed target baseline: "
+        + ", ".join(mismatches))
+
 if set(regenerated_scenes) != set(committed_scenes):
     raise SystemExit("Regenerated and committed target scene-id sets differ")
 if set(regenerated_hashes) != set(committed_hashes):
@@ -263,6 +279,7 @@ BEUTL_REQUIRE_GPU=1 \
 bash -c 'cd "$1" && exec bash -c "$2"' bash "$feature_worktree" "$feature_command"
 
 require_clean_worktree "$feature_worktree" "Feature after visual export"
+require_clean_worktree "$runner_worktree" "Evidence tools after visual export"
 
 [[ -f $feature_output/manifest.json ]] || {
     printf 'Feature exporter did not create %s/manifest.json\n' "$feature_output" >&2
@@ -538,9 +555,13 @@ def metrics(reference, actual, pixels):
 
 WINDOW_SIZE = 16
 MINIMUM_WINDOWED_SSIM = 0.95
+MAXIMUM_WINDOWED_ALPHA_MAE = 0.02
+MAXIMUM_WINDOWED_RGBA_MAE = 0.05
 
-def minimum_windowed_ssim(reference, actual, width, height):
-    minimum = 1.0
+def windowed_metrics(reference, actual, width, height):
+    minimum_ssim = 1.0
+    maximum_alpha_mae = 0.0
+    maximum_rgba_mae = 0.0
     for top in range(0, height, WINDOW_SIZE):
         for left in range(0, width, WINDOW_SIZE):
             region = [
@@ -550,8 +571,17 @@ def minimum_windowed_ssim(reference, actual, width, height):
                 min(WINDOW_SIZE, height - top),
             ]
             window = metrics(reference, actual, selected_pixels(width, height, region))
-            minimum = min(minimum, window["linearLightSsim"])
-    return minimum
+            minimum_ssim = min(minimum_ssim, window["linearLightSsim"])
+            maximum_alpha_mae = max(maximum_alpha_mae, window["alphaMae"])
+            maximum_rgba_mae = max(
+                maximum_rgba_mae,
+                ((window["linearRgbMae"] * 3.0) + window["alphaMae"]) / 4.0,
+            )
+    return {
+        "minimumSsim": minimum_ssim,
+        "maximumAlphaMae": maximum_alpha_mae,
+        "maximumRgbaMae": maximum_rgba_mae,
+    }
 
 def verify_localized_error_gate():
     size = 128
@@ -568,9 +598,24 @@ def verify_localized_error_gate():
             or full["linearRgbMae"] > 0.02
             or full["alphaMae"] > 0.02):
         raise SystemExit("Localized-error self-test no longer passes the whole-image thresholds")
-    localized = minimum_windowed_ssim(reference, actual, size, size)
-    if localized >= MINIMUM_WINDOWED_SSIM:
+    localized = windowed_metrics(reference, actual, size, size)
+    if localized["minimumSsim"] >= MINIMUM_WINDOWED_SSIM:
         raise SystemExit("Minimum-window SSIM self-test failed to reject a localized defect")
+
+    reference = [0.0, 0.0, 0.0, 1.0] * (size * size)
+    actual = []
+    for y in range(size):
+        for x in range(size):
+            actual.extend((0.0, 0.0, 0.0, 0.0 if x < 14 and y < 14 else 1.0))
+    full = metrics(reference, actual, selected_pixels(size, size))
+    if (full["linearLightSsim"] < 0.99
+            or full["linearRgbMae"] > 0.02
+            or full["alphaMae"] > 0.02):
+        raise SystemExit("Localized-alpha self-test no longer passes the whole-image thresholds")
+    localized = windowed_metrics(reference, actual, size, size)
+    if (localized["maximumAlphaMae"] <= MAXIMUM_WINDOWED_ALPHA_MAE
+            or localized["maximumRgbaMae"] <= MAXIMUM_WINDOWED_RGBA_MAE):
+        raise SystemExit("Window-local alpha/RGBA self-test failed to reject a localized defect")
 
 verify_localized_error_gate()
 
@@ -601,13 +646,22 @@ for scene_id in sorted(target_scenes):
     full = metrics(reference, actual, selected_pixels(width, height))
     if full["linearLightSsim"] < 0.99 or full["linearRgbMae"] > 0.02 or full["alphaMae"] > 0.02:
         raise SystemExit(f"Full-image parity threshold failed for {scene_id}: {full}")
-    windowed_ssim = minimum_windowed_ssim(reference, actual, width, height)
-    if windowed_ssim < MINIMUM_WINDOWED_SSIM:
+    windowed = windowed_metrics(reference, actual, width, height)
+    if windowed["minimumSsim"] < MINIMUM_WINDOWED_SSIM:
         raise SystemExit(
-            f"Minimum-window SSIM parity threshold failed for {scene_id}: {windowed_ssim}")
+            f"Minimum-window SSIM parity threshold failed for {scene_id}: {windowed['minimumSsim']}")
+    if (windowed["maximumAlphaMae"] > MAXIMUM_WINDOWED_ALPHA_MAE
+            or windowed["maximumRgbaMae"] > MAXIMUM_WINDOWED_RGBA_MAE):
+        raise SystemExit(
+            f"Window-local alpha/RGBA parity threshold failed for {scene_id}: {windowed}")
     scene_result = {
         "sceneId": scene_id,
-        "fullImage": {**full, "minimumWindowedSsim": windowed_ssim},
+        "fullImage": {
+            **full,
+            "minimumWindowedSsim": windowed["minimumSsim"],
+            "maximumWindowedAlphaMae": windowed["maximumAlphaMae"],
+            "maximumWindowedRgbaMae": windowed["maximumRgbaMae"],
+        },
     }
 
     crop = parse_crop(target_scene)
@@ -684,6 +738,8 @@ result = {
         "windowSize": WINDOW_SIZE,
         "maximumLinearRgbMae": 0.02,
         "maximumAlphaMae": 0.02,
+        "maximumWindowedAlphaMae": MAXIMUM_WINDOWED_ALPHA_MAE,
+        "maximumWindowedRgbaMae": MAXIMUM_WINDOWED_RGBA_MAE,
         "maximumAaCoverageBandChannelError": 0.02,
     },
     "scenes": results,

@@ -983,7 +983,7 @@ public sealed class TargetScopeLoweringTests
                 TargetRegion.Full,
                 captureBounds,
                 RenderHitTestContract.OutputBounds,
-                RenderScaleContract.MaterializeAtWorkingScale));
+                TargetCaptureScaleContract.MaterializeAtWorkingScale));
             RenderFragmentHandle contributing = context.ContributeValues(capture);
             context.Publish(context.Layer([contributing], layerDomain));
         }

@@ -627,8 +627,7 @@ public sealed class GpuPassFusionScaleRegionTests
                         ShaderDeviceBounds = execution.DeviceBounds;
                         writer.Set(value);
                     },
-                    structuralKey: typeof(TypedValueRoiNode),
-                    runtimeIdentity: new RenderRuntimeIdentity("typed-roi-shader")));
+                    structuralKey: typeof(TypedValueRoiNode)));
             current = context.Shader(current, shader);
             TargetScopeDescription scope = TargetScopeDescription.Create(
                 session =>
@@ -771,7 +770,7 @@ public sealed class GpuPassFusionScaleRegionTests
                 TargetRegion.Region(s_domain),
                 s_domain,
                 RenderHitTestContract.None,
-                RenderScaleContract.MaterializeAtWorkingScale));
+                TargetCaptureScaleContract.MaterializeAtWorkingScale));
             RenderFragmentHandle publicReplay = context.ContributeValues(
                 context.OpaqueMap(publicCapture, CreateCaptureObserver(CaptureKind.Public)));
 

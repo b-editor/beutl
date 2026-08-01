@@ -444,7 +444,7 @@ public sealed class RecordingSideEffectTests
                     TargetRegion.Full,
                     Bounds,
                     RenderHitTestContract.OutputBounds,
-                    RenderScaleContract.MaterializeAtWorkingScale));
+                    TargetCaptureScaleContract.MaterializeAtWorkingScale));
             RenderFragmentHandle command = context.TargetCommand(
                 [source],
                 TargetCommandDescription.Create(

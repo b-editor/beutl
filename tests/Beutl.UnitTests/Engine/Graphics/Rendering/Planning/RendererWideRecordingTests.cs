@@ -787,7 +787,7 @@ public sealed class RendererWideRecordingTests
                 TargetRegion.Full,
                 bounds,
                 RenderHitTestContract.None,
-                RenderScaleContract.MaterializeAtWorkingScale));
+                TargetCaptureScaleContract.MaterializeAtWorkingScale));
             OpaqueRenderDescription replay = OpaqueRenderDescription.Create(
                 session =>
                 {

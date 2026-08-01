@@ -143,7 +143,7 @@ public sealed class ShaderAndAllocationFailureTests
                 0.5f,
                 static (_, _, _) => throw new InvalidOperationException("uniform-provider-failure"),
                 structuralKey: "throwing-uniform-provider",
-                runtimeIdentity: new RenderRuntimeIdentity("throwing-uniform-runtime")));
+                cachePolicy: ShaderBindingCachePolicy.ReuseFromSnapshot));
         using var node = new ShaderNode(description);
         var factory = new TrackingTargetFactory();
         var renderer = CreateRenderer(node, factory);
@@ -411,8 +411,7 @@ public sealed class ShaderAndAllocationFailureTests
                         writer.Set(value);
                         writer.Set(value);
                     },
-                    structuralKey: $"runtime-uniform-{failurePoint}",
-                    runtimeIdentity: new RenderRuntimeIdentity($"runtime-uniform-{failurePoint}")));
+                    structuralKey: $"runtime-uniform-{failurePoint}"));
         }
 
         private ShaderDescription CreateResourceDescription(RenderNodeContext context)
@@ -441,8 +440,7 @@ public sealed class ShaderAndAllocationFailureTests
                         using SKShader duplicate = SKShader.CreateColor(SKColors.Black);
                         writer.Set(duplicate);
                     },
-                    structuralKey: $"runtime-resource-{failurePoint}",
-                    runtimeIdentity: new RenderRuntimeIdentity($"runtime-resource-{failurePoint}")));
+                    structuralKey: $"runtime-resource-{failurePoint}"));
         }
     }
 

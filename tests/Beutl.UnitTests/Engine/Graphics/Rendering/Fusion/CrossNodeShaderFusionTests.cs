@@ -86,6 +86,51 @@ public sealed class CrossNodeShaderFusionTests
         });
     }
 
+    [TestCase(-1f, 0f)]
+    [TestCase(2f, 1f)]
+    public void FiniteOutOfRangeOpacity_NormalizesBeforePlanningAndMatchesUnfusedExecution(
+        float authoredOpacity,
+        float expectedOpacity)
+    {
+        var targetFactory = new CpuTargetFactory();
+        using RenderTarget source = targetFactory.CreateCpuTarget(
+            new PixelSize((int)s_bounds.Width, (int)s_bounds.Height));
+        source.Value.Canvas.Clear(new SKColor(48, 112, 216, 176));
+        using var enabledNode = new PrimaryChainNode(source, s_bounds, authoredOpacity);
+        using var disabledNode = new PrimaryChainNode(source, s_bounds, authoredOpacity);
+        using var expectedNode = new PrimaryChainNode(source, s_bounds, expectedOpacity);
+        using var enabled = CreateCpuRenderer(enabledNode, FusionMode.Enabled, targetFactory);
+        using var disabled = CreateCpuRenderer(disabledNode, FusionMode.Disabled, targetFactory);
+        using var expected = CreateCpuRenderer(expectedNode, FusionMode.Enabled, targetFactory);
+
+        using RenderNodeRasterization enabledRaster = enabled.Rasterize();
+        using RenderNodeRasterization disabledRaster = disabled.Rasterize();
+        using RenderNodeRasterization expectedRaster = expected.Rasterize();
+
+        Assert.That(enabledRaster.Bitmap, Is.Not.Null);
+        Assert.That(disabledRaster.Bitmap, Is.Not.Null);
+        Assert.That(expectedRaster.Bitmap, Is.Not.Null);
+        RgbaMaximumError fusionParity = ImageMetrics.MaximumAbsoluteErrorPerChannel(
+            disabledRaster.Bitmap!,
+            enabledRaster.Bitmap!);
+        RgbaMaximumError normalizedParity = ImageMetrics.MaximumAbsoluteErrorPerChannel(
+            expectedRaster.Bitmap!,
+            enabledRaster.Bitmap!);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(enabled.LastExecutionStatistics.ShaderStageExecutions, Is.EqualTo(3));
+            Assert.That(enabled.LastExecutionStatistics.FusedShaderRunExecutions, Is.EqualTo(1),
+                "The normalized opacity must remain eligible for its adjacent shader run.");
+            Assert.That(disabled.LastExecutionStatistics.ShaderStageExecutions, Is.EqualTo(3));
+            Assert.That(disabled.LastExecutionStatistics.FusedShaderRunExecutions, Is.Zero);
+            Assert.That(normalizedParity.Maximum, Is.Zero,
+                "Recording must make an out-of-range opacity identical to its clamped value.");
+            Assert.That(fusionParity.Maximum, Is.LessThanOrEqualTo(0.003),
+                "FusionMode must not change finite out-of-range opacity semantics.");
+        });
+    }
+
     [Test]
     public void CpuDestination_UsesPortableBudgetAndSplitsLongShaderChain()
     {
@@ -518,6 +563,27 @@ public sealed class CrossNodeShaderFusionTests
                 },
             });
 
+    private static RenderNodeRenderer CreateCpuRenderer(
+        RenderNode node,
+        FusionMode fusionMode,
+        IRenderTargetFactory targetFactory)
+        => new(
+            node,
+            new RenderNodeRendererOptions
+            {
+                DefaultRequest = new RenderNodeRenderRequest
+                {
+                    Intent = RenderIntent.Preview,
+                    TargetDomain = s_bounds,
+                    OutputScale = 1,
+                    MaxWorkingScale = 1,
+                    CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Disabled,
+                    FusionMode = fusionMode,
+                    Purpose = RenderRequestPurpose.Frame,
+                },
+                TargetFactory = targetFactory,
+            });
+
     private static Bitmap RenderWithActiveDestinationState(RenderNodeRenderer renderer)
         => RenderWithDestinationTranslation(renderer, 2, 1);
 
@@ -601,12 +667,13 @@ public sealed class CrossNodeShaderFusionTests
 
         private readonly MaterializedSourceNode _source;
         private readonly ShaderStageNode _gamma = new(s_gamma);
-        private readonly OpacityRenderNode _opacity = new(0.625f);
+        private readonly OpacityRenderNode _opacity;
         private readonly ShaderStageNode _invert = new(s_invert);
 
-        public PrimaryChainNode(RenderTarget source, Rect bounds)
+        public PrimaryChainNode(RenderTarget source, Rect bounds, float opacity = 0.625f)
         {
             _source = new MaterializedSourceNode(source, bounds);
+            _opacity = new OpacityRenderNode(opacity);
         }
 
         public int[] ProcessCounts =>

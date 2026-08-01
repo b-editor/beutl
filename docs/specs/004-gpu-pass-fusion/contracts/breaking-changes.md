@@ -313,14 +313,14 @@ RenderFragmentHandle capture = context.TargetCapture(
         TargetRegion.Region(_bounds),
         _bounds,
         RenderHitTestContract.None,
-        RenderScaleContract.MaterializeAtWorkingScale));
+        TargetCaptureScaleContract.PreserveTargetSupply));
 
 context.Publish(capture); // Orders the read, but does not redraw it.
 RenderFragmentHandle filtered = context.Shader(capture, _shader);
 context.Publish(context.ContributeValues(filtered));
 ```
 
-This public capture is an explicit resampling boundary, not a lossless copy at the enclosing target's density. `MaterializeAtWorkingScale` derives a concrete density from request `OutputScale`, `MaxWorkingScale`, the capture bounds, and the buffer clamp. `Custom` may derive a different concrete density, but its `InputSupplies` list is empty and it may use only `OutputBounds`, `OutputScale`, and `MaxWorkingScale`; it receives no density supply from the enclosing root, finite Layer, or `TargetLayerScope`. Capturing inside a denser scope may therefore intentionally downsample before the Shader runs. The engine-internal backdrop capture may late-bind the resolved scope density; while its owning domain is symbolic, a nested public handle for it returns false from `TryGetMetadata` and `TryHitTest` rather than exposing the internal placeholder.
+Choose the target-specific scale contract from the intended semantics. `TargetCaptureScaleContract.MaterializeAtWorkingScale` and `Custom` are explicit resampling boundaries: they derive a concrete density from request `OutputScale`, `MaxWorkingScale`, capture bounds, and the buffer clamp without receiving the enclosing target density. `PreserveTargetSupply` remains late-bound and materializes at the resolved density of the enclosing root, finite Layer, or `TargetLayerScope`, so backdrop-style plugin nodes do not downsample before a Shader or replay. The built-in backdrop uses this same public mode.
 
 Use `TargetScope(input, description)` for exactly one same-target replay surrounded only by allocation-free transform/clip state. Opacity, Blend, and brush-backed OpacityMask are typed scope operations. Group isolation that remains an ordered current-target effect uses the normal bottom-up typed scope:
 

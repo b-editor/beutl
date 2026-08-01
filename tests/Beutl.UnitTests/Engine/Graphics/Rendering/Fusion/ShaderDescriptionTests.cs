@@ -293,7 +293,7 @@ public sealed class ShaderDescriptionTests
     }
 
     [Test]
-    public void ScopedCustomBinder_CannotRetainWriterAndNullRuntimeIdentityIsRequestUnique()
+    public void ScopedCustomBinder_CannotRetainWriterAndDefaultCachePolicyIsRequestUnique()
     {
         ShaderUniformWriter? retained = null;
         ShaderDescription description = ShaderDescription.CurrentPixel(
@@ -330,7 +330,9 @@ public sealed class ShaderDescriptionTests
         {
             Assert.That(() => retained!.Set(0.5f), Throws.TypeOf<InvalidOperationException>());
             Assert.That(() => _ = execution.OutputBounds, Throws.TypeOf<InvalidOperationException>());
-            Assert.That(description.Uniforms.Single().RuntimeIdentity, Is.Null);
+            Assert.That(
+                description.Uniforms.Single().CachePolicy,
+                Is.EqualTo(ShaderBindingCachePolicy.RequestUnique));
         });
     }
 
@@ -344,7 +346,7 @@ public sealed class ShaderDescriptionTests
                 1f,
                 static (writer, value, _) => writer.Set(value),
                 new CollisionKey("first"),
-                new RenderRuntimeIdentity("runtime")));
+                ShaderBindingCachePolicy.ReuseFromSnapshot));
         ShaderDescription second = ShaderDescription.CurrentPixel(
             "uniform float amount; " + IdentityCurrentPixel,
             bindings => bindings.Uniform(
@@ -352,7 +354,7 @@ public sealed class ShaderDescriptionTests
                 1f,
                 static (writer, value, _) => writer.Set(value),
                 new CollisionKey("second"),
-                new RenderRuntimeIdentity("runtime")));
+                ShaderBindingCachePolicy.ReuseFromSnapshot));
 
         Assert.Multiple(() =>
         {
@@ -362,9 +364,9 @@ public sealed class ShaderDescriptionTests
     }
 
     [Test]
-    public void CustomUniformRuntimeIdentity_ContainsCanonicalValueAndAdditionalIdentity()
+    public void CustomUniformCachePolicy_UsesCopiedValueOrRequestUniqueIdentity()
     {
-        static ShaderDescription Create(float value, object identity)
+        static ShaderDescription Create(float value, ShaderBindingCachePolicy cachePolicy)
             => ShaderDescription.CurrentPixel(
                 "uniform float amount; " + IdentityCurrentPixel,
                 bindings => bindings.Uniform(
@@ -372,18 +374,29 @@ public sealed class ShaderDescriptionTests
                     value,
                     static (writer, item, _) => writer.Set(item),
                     structuralKey: "custom-amount",
-                    runtimeIdentity: new RenderRuntimeIdentity(identity)));
+                    cachePolicy: cachePolicy));
 
-        object first = Create(1f, "same").CreateRuntimeIdentity();
-        object equal = Create(1f, "same").CreateRuntimeIdentity();
-        object changedValue = Create(2f, "same").CreateRuntimeIdentity();
-        object changedAdditionalIdentity = Create(1f, "different").CreateRuntimeIdentity();
+        object first = Create(1f, ShaderBindingCachePolicy.ReuseFromSnapshot).CreateRuntimeIdentity();
+        object equal = Create(1f, ShaderBindingCachePolicy.ReuseFromSnapshot).CreateRuntimeIdentity();
+        object changedValue = Create(2f, ShaderBindingCachePolicy.ReuseFromSnapshot).CreateRuntimeIdentity();
+        object requestUnique = Create(1f, ShaderBindingCachePolicy.RequestUnique).CreateRuntimeIdentity();
+        object anotherRequestUnique = Create(1f, ShaderBindingCachePolicy.RequestUnique).CreateRuntimeIdentity();
+        float mutableMultiplier = 2;
 
         Assert.Multiple(() =>
         {
             Assert.That(equal, Is.EqualTo(first));
             Assert.That(changedValue, Is.Not.EqualTo(first));
-            Assert.That(changedAdditionalIdentity, Is.Not.EqualTo(first));
+            Assert.That(requestUnique, Is.Not.EqualTo(anotherRequestUnique));
+            Assert.That(
+                () => ShaderDescription.CurrentPixel(
+                    "uniform float amount; " + IdentityCurrentPixel,
+                    bindings => bindings.Uniform(
+                        "amount",
+                        1f,
+                        (writer, item, _) => writer.Set(item * mutableMultiplier),
+                        cachePolicy: ShaderBindingCachePolicy.ReuseFromSnapshot)),
+                Throws.TypeOf<ArgumentException>());
         });
     }
 

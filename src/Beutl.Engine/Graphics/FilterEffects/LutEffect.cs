@@ -154,9 +154,6 @@ public sealed partial class LutEffect : FilterEffect
             }
             """;
 
-    private static readonly RenderRuntimeIdentity s_lutBindingIdentity =
-        new(typeof(LutEffect));
-
     public LutEffect()
     {
         ScanProperties<LutEffect>();
@@ -196,7 +193,7 @@ public sealed partial class LutEffect : FilterEffect
                     lut,
                     ShaderResourceCoordinateSpace.Value,
                     static (writer, value, _) => writer.Set(CreateLutShader(value.Cube)),
-                    runtimeIdentity: s_lutBindingIdentity);
+                    cachePolicy: ShaderBindingCachePolicy.ReuseFromSnapshot);
             }));
     }
 

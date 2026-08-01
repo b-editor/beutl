@@ -88,6 +88,12 @@ public partial class JsonSerializationContext
 
         try
         {
+            if (!baseType.IsAssignableFrom(actualType))
+            {
+                throw new JsonException(
+                    $"Discriminator type {actualType.FullName} is not assignable to {baseType.FullName}.");
+            }
+
             var instance = Activator.CreateInstance(actualType) as ICoreSerializable
                            ?? throw new InvalidOperationException(
                                $"Could not create instance of type {actualType.FullName}.");

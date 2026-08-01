@@ -63,7 +63,8 @@ public sealed class RenderNodeRendererContractTests
         {
             using var renderer = new RenderNodeRenderer(
                 root,
-                new RenderNodeRendererOptions {
+                new RenderNodeRendererOptions
+                {
                     DefaultRequest = new RenderNodeRenderRequest
                     {
                         MaxWorkingScale = invalid,
@@ -74,7 +75,8 @@ public sealed class RenderNodeRendererContractTests
 
         using (var renderer = new RenderNodeRenderer(
                    root,
-                   new RenderNodeRendererOptions {
+                   new RenderNodeRendererOptions
+                   {
                        DefaultRequest = new RenderNodeRenderRequest
                        {
                            MaxWorkingScale = float.PositiveInfinity,
@@ -89,7 +91,8 @@ public sealed class RenderNodeRendererContractTests
             Assert.That(
                 () => new RenderNodeRenderer(
                     root,
-                    new RenderNodeRendererOptions {
+                    new RenderNodeRendererOptions
+                    {
                         DefaultRequest = new RenderNodeRenderRequest
                         {
                             TargetDomain = Rect.Empty,
@@ -121,7 +124,8 @@ public sealed class RenderNodeRendererContractTests
             Assert.That(
                 () => new RenderNodeRenderer(
                     root,
-                    new RenderNodeRendererOptions {
+                    new RenderNodeRendererOptions
+                    {
                         DefaultRequest = new RenderNodeRenderRequest
                         {
                             Intent = (RenderIntent)12345,
@@ -131,7 +135,8 @@ public sealed class RenderNodeRendererContractTests
             Assert.That(
                 () => new RenderNodeRenderer(
                     root,
-                    new RenderNodeRendererOptions {
+                    new RenderNodeRendererOptions
+                    {
                         DefaultRequest = new RenderNodeRenderRequest
                         {
                             Purpose = (RenderRequestPurpose)12345,
@@ -552,7 +557,7 @@ public sealed class RenderNodeRendererContractTests
                     TargetRegion.Full,
                     query,
                     RenderHitTestContract.OutputBounds,
-                    RenderScaleContract.MaterializeAtWorkingScale));
+                    TargetCaptureScaleContract.MaterializeAtWorkingScale));
             context.Publish(capture);
         });
         RenderNodeMeasurement capture = Measure(captureNode, targetDomain: domain);
@@ -633,7 +638,8 @@ public sealed class RenderNodeRendererContractTests
         using var emptyRoot = new DelegateNode(static _ => { });
         using (var renderer = new RenderNodeRenderer(
                    emptyRoot,
-                   new RenderNodeRendererOptions {
+                   new RenderNodeRendererOptions
+                   {
                        DefaultRequest = new RenderNodeRenderRequest
                        {
                        },

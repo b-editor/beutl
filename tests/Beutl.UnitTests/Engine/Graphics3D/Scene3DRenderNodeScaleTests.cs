@@ -233,4 +233,70 @@ public class Scene3DRenderNodeScaleTests
             sceneResource.Dispose();
         }
     }
+
+    [Test]
+    public void Recording_DisabledParentDoesNotPrepareEnabledDescendantDrawableTexture()
+    {
+        var scene = new Scene3D();
+        scene.RenderWidth.CurrentValue = 32;
+        scene.RenderHeight.CurrentValue = 24;
+        var texture = new DrawableTextureSource();
+        texture.TextureWidth.CurrentValue = 11;
+        texture.TextureHeight.CurrentValue = 7;
+        var material = new BasicMaterial();
+        var cube = new Cube3D();
+        var disabledGroup = new Group3D { IsEnabled = false };
+        var outerGroup = new Group3D();
+
+        var sceneResource = (Scene3D.Resource)scene.ToResource(CompositionContext.Default);
+        var textureResource = (DrawableTextureSource.Resource)texture.ToResource(CompositionContext.Default);
+        var materialResource = (BasicMaterial.Resource)material.ToResource(CompositionContext.Default);
+        var cubeResource = (Cube3D.Resource)cube.ToResource(CompositionContext.Default);
+        var disabledGroupResource = (Group3D.Resource)disabledGroup.ToResource(CompositionContext.Default);
+        var outerGroupResource = (Group3D.Resource)outerGroup.ToResource(CompositionContext.Default);
+        textureResource.Drawable = sceneResource;
+        materialResource.DiffuseMap = textureResource;
+        cubeResource.Material = materialResource;
+        disabledGroupResource.Children.Add(cubeResource);
+        outerGroupResource.Children.Add(disabledGroupResource);
+        sceneResource.Objects.Add(outerGroupResource);
+
+        try
+        {
+            using var node = new Scene3DRenderNode(sceneResource);
+            using var owner = new RenderRequestOwner();
+            using var request = new RenderRequest(new RenderRequestOptions(
+                RenderIntent.Preview,
+                RenderRequestPurpose.Frame,
+                targetDomain: new Rect(0, 0, 32, 24),
+                cachePolicy: RenderCacheOptions.Disabled,
+                owner: owner));
+
+            RecordedRenderGraph graph = new RenderRequestRecorder(request).Record(node);
+
+            Assert.Multiple(() =>
+            {
+                Assert.That(graph.PublicationRoots, Has.Length.EqualTo(1));
+                Assert.That(graph.NestedRequests, Is.Empty,
+                    "A disabled 3D subtree must not record or allocate invisible drawable textures.");
+                Assert.That(request.State, Is.EqualTo(RenderRequestState.Recorded));
+                Assert.That(owner.IsCleanedUp, Is.False);
+            });
+        }
+        finally
+        {
+            sceneResource.Objects.Clear();
+            outerGroupResource.Children.Clear();
+            disabledGroupResource.Children.Clear();
+            cubeResource.Material = null;
+            materialResource.DiffuseMap = null;
+            textureResource.Drawable = null;
+            outerGroupResource.Dispose();
+            disabledGroupResource.Dispose();
+            cubeResource.Dispose();
+            materialResource.Dispose();
+            textureResource.Dispose();
+            sceneResource.Dispose();
+        }
+    }
 }

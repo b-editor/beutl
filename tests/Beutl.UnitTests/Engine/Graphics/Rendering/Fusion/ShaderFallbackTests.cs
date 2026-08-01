@@ -288,8 +288,7 @@ public sealed class ShaderFallbackTests
                         observedInputBounds.Add(execution.InputBounds);
                         writer.Set(value);
                     },
-                    structuralKey: (typeof(BoundShaderChainNode), stage),
-                    runtimeIdentity: new RenderRuntimeIdentity(stage)));
+                    structuralKey: (typeof(BoundShaderChainNode), stage)));
     }
 
     private sealed class CpuTargetFactory : IRenderTargetFactory

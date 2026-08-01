@@ -1,5 +1,6 @@
 ﻿using System.Text.Json.Nodes;
 using Beutl.Editor;
+using Beutl.Graphics;
 using Beutl.Graphics.Shapes;
 using Beutl.ProjectSystem;
 using Beutl.Serialization;
@@ -134,9 +135,15 @@ public sealed class MalformedElementRecoveryTests
         Element recovered = scene.Children.Single();
         recovered.Name = "Recovered placeholder";
         using var service = new AutoSaveService();
+        var errors = new List<Exception>();
+        using var subscription = service.SaveError.Subscribe(errors.Add);
         service.SaveObjects([recovered]);
 
-        Assert.That(File.ReadAllBytes(elementPath), Is.EqualTo(corruptBytes));
+        Assert.Multiple(() =>
+        {
+            Assert.That(errors, Is.Empty, "Autosave must complete without swallowing a serialization error.");
+            Assert.That(File.ReadAllBytes(elementPath), Is.EqualTo(corruptBytes));
+        });
     }
 
     [Test]
@@ -152,9 +159,15 @@ public sealed class MalformedElementRecoveryTests
         Element recovered = scene.Children.Single();
         scene.Children.Remove(recovered);
         using var service = new AutoSaveService();
+        var errors = new List<Exception>();
+        using var subscription = service.SaveError.Subscribe(errors.Add);
         service.SaveObjects([recovered]);
 
-        Assert.That(File.ReadAllBytes(elementPath), Is.EqualTo(corruptBytes));
+        Assert.Multiple(() =>
+        {
+            Assert.That(errors, Is.Empty, "Autosave must complete without swallowing a serialization error.");
+            Assert.That(File.ReadAllBytes(elementPath), Is.EqualTo(corruptBytes));
+        });
     }
 
     [Test]
@@ -170,6 +183,72 @@ public sealed class MalformedElementRecoveryTests
         Element recovered = CoreSerializer.RestoreFromUri<Scene>(sceneUri).Children.Single();
 
         Assert.That(recovered.Id, Is.EqualTo(topLevelId));
+    }
+
+    [Test]
+    public void Restore_NonElementTopLevelDiscriminatorCreatesDisabledRecoveryElement()
+    {
+        (Uri sceneUri, string elementPath) = CreatePersistedScene();
+        JsonObject json = JsonNode.Parse(File.ReadAllText(elementPath))!.AsObject();
+        json["$type"] = CoreSerializer.SerializeToJsonObject(new RectShape())["$type"]!.DeepClone();
+        File.WriteAllText(elementPath, json.ToJsonString());
+        byte[] originalBytes = File.ReadAllBytes(elementPath);
+
+        Scene scene = CoreSerializer.RestoreFromUri<Scene>(sceneUri);
+        Element recovered = scene.Children.Single();
+        var fallback = (IFallback)recovered.Objects.Single();
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(recovered.IsEnabled, Is.False);
+            Assert.That(recovered.IsStorageWriteSuppressed, Is.True);
+            Assert.That(fallback.Reason, Is.EqualTo(FallbackReason.DeserializationFailed));
+            Assert.That(fallback.ErrorMessage, Does.Contain("JsonException"));
+            Assert.That(fallback.ErrorMessage, Does.Contain("is not assignable"));
+        });
+
+        CoreSerializer.StoreToUri(scene, sceneUri);
+        Assert.That(File.ReadAllBytes(elementPath), Is.EqualTo(originalBytes));
+    }
+
+    [Test]
+    public void DeserializeFromJsonObject_IncompatibleDiscriminatorFallsBackBeforeConstruction()
+    {
+        JsonObject json = CreateIncompatibleDrawableJson();
+
+        object result = CoreSerializer.DeserializeFromJsonObject(json, typeof(Drawable));
+
+        AssertIncompatibleDrawableFallback(result);
+    }
+
+    [Test]
+    public void DeserializeFromJsonNode_IncompatibleDiscriminatorFallsBackBeforeConstruction()
+    {
+        JsonObject json = CreateIncompatibleDrawableJson();
+
+        object? result = CoreSerializer.DeserializeFromJsonNode(json, typeof(Drawable));
+
+        AssertIncompatibleDrawableFallback(result);
+    }
+
+    private static JsonObject CreateIncompatibleDrawableJson()
+    {
+        IncompatibleSerializable.ConstructorCount = 0;
+        var json = new JsonObject();
+        json.WriteDiscriminator(typeof(IncompatibleSerializable));
+        return json;
+    }
+
+    private static void AssertIncompatibleDrawableFallback(object? result)
+    {
+        var fallback = (IFallback)result!;
+        Assert.Multiple(() =>
+        {
+            Assert.That(IncompatibleSerializable.ConstructorCount, Is.Zero,
+                "An incompatible discriminator must be rejected before construction.");
+            Assert.That(fallback.Reason, Is.EqualTo(FallbackReason.DeserializationFailed));
+            Assert.That(fallback.ErrorMessage, Does.Contain("is not assignable"));
+        });
     }
 
     private (Uri SceneUri, string ElementPath) CreatePersistedScene()
@@ -207,5 +286,23 @@ public sealed class MalformedElementRecoveryTests
 
         CoreSerializer.StoreToUri(scene, sceneUri);
         return (sceneUri, elementPaths);
+    }
+
+    public sealed class IncompatibleSerializable : ICoreSerializable
+    {
+        public IncompatibleSerializable()
+        {
+            ConstructorCount++;
+        }
+
+        public static int ConstructorCount { get; set; }
+
+        public void Serialize(ICoreSerializationContext context)
+        {
+        }
+
+        public void Deserialize(ICoreSerializationContext context)
+        {
+        }
     }
 }

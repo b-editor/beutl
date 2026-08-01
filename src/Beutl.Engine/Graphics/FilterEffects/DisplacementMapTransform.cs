@@ -85,7 +85,7 @@ public abstract partial class DisplacementMapTransform : EngineObject
             ShaderResourceCoordinateSpace.OutputDevice,
             CreateDisplacementMapShader,
             structuralKey: typeof(DisplacementMapTransform),
-            runtimeIdentity: new RenderRuntimeIdentity("DisplacementMapTransform.map"));
+            cachePolicy: ShaderBindingCachePolicy.ReuseFromSnapshot);
         bindings.Uniform("uChannel", (int)channel);
         bindings.Uniform("uSigned", signed ? 1 : 0);
     }
@@ -370,7 +370,7 @@ public partial class DisplacementMapTranslateTransform : DisplacementMapTransfor
                     new Vector2(r.X, r.Y),
                     BindScaledVector,
                     structuralKey: typeof(DisplacementMapTranslateTransform),
-                    runtimeIdentity: new RenderRuntimeIdentity("DisplacementMapTranslateTransform.translation"));
+                    cachePolicy: ShaderBindingCachePolicy.ReuseFromSnapshot);
             },
             spreadMethod.ToSKShaderTileMode()));
     }
@@ -470,7 +470,7 @@ public partial class DisplacementMapScaleTransform : DisplacementMapTransform
                     new Vector2(r.CenterX, r.CenterY),
                     BindPivot,
                     structuralKey: typeof(DisplacementMapScaleTransform),
-                    runtimeIdentity: new RenderRuntimeIdentity("DisplacementMapScaleTransform.pivot"));
+                    cachePolicy: ShaderBindingCachePolicy.ReuseFromSnapshot);
             },
             spreadMethod.ToSKShaderTileMode()));
     }
@@ -561,7 +561,7 @@ public partial class DisplacementMapRotationTransform : DisplacementMapTransform
                     new Vector2(r.CenterX, r.CenterY),
                     BindPivot,
                     structuralKey: typeof(DisplacementMapRotationTransform),
-                    runtimeIdentity: new RenderRuntimeIdentity("DisplacementMapRotationTransform.pivot"));
+                    cachePolicy: ShaderBindingCachePolicy.ReuseFromSnapshot);
             },
             spreadMethod.ToSKShaderTileMode()));
     }

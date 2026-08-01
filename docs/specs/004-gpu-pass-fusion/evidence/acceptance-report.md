@@ -11,7 +11,7 @@ identified by its SHA-256.
 |---|---|
 | `target-baseline-generator.patch` | `898692fc4a53e834cbc9f0e00176f8eca198e4f16b6de391d89f1fbbceeaa8be` |
 | `generate-target-baseline.sh` | `bf0574663d6c825150b6e06192a42abda40dba45184f123ecf52ce5199ad255d` |
-| `run-paired-visual-evidence.sh` | `415fb4407fd216afb2d5f51280d2271e3951cae3a30bc30a081bd8b982e700f8` |
+| `run-paired-visual-evidence.sh` | `a974984b5902506a23546ae0e24dc3fd3e87ea4e57035f87d5e9e69c5989cd8e` |
 | `refresh-intentional-visual-baselines.sh` | `5057b76ae3d4c1bc4474e424cc3119c5ce52aa8c203fcc0cac874d38cd8c74d8` |
 | generator source bundle | `bb165d312af895b4f703441d96d4f42144036d7d6f8e875ae0101c4701b0414d` |
 | `run-paired-benchmarks.sh` | `a8575996b4ee74663d42fc4268e6d93fba8062739a4bedf5b7bd16f8fe226969` |
@@ -38,9 +38,9 @@ These hashes identify the current stricter implementation; they do not replace t
 historical harness hashes authenticated by the unchanged committed benchmark manifest.
 
 The current immutable trust-chain anchors are target visual manifest
-`4a0a76c1134b578c58ba1e74e724878b2959183f2aebfb35d452cefd1348b29d` and
+`954236df9a2b47831d069045cbc58e27f29f02fd22afd3ca0de8e4a62a2d0945` and
 target benchmark manifest
-`fd2c6ed75067ea8a58489dd8a8b8b74b0066cd72eeb81689bc7cfd155e0f9e10`.
+`17b65acc47289f94d208b1cf3284e69a4f94a89fba04ad61e3bf0b8b75660ebf`.
 The benchmark manifest's `visualManifestSha256` and
 `GpuPassFusionBaselineEvidence.ExpectedManifestSha256` both name the former.
 
@@ -50,11 +50,11 @@ The benchmark manifest's `visualManifestSha256` and
 - Environment fingerprint gate: exact match required and satisfied before any parity metric.
 - Result: **all 44 scenes passed** — thresholds SSIM ≥ 0.99,
   linear-RGB MAE ≤ 0.02, alpha MAE ≤ 0.02, and the 16×16 minimum-window
-  SSIM ≥ 0.95 localized-error gate.
+  SSIM ≥ 0.95 plus maximum window-local alpha MAE ≤ 0.02 and RGBA MAE ≤ 0.05.
   Worst full-image linear-light SSIM: 0.99943 (`nested-drawable-brush-delay`).
-- The runner self-tests that a localized 14×14 defect passes every whole-image
-  threshold while failing the windowed threshold, and applies the windowed bound
-  to every scene; the recorded run executed under this gate.
+- The runner self-tests both RGB and alpha-only localized 14×14 defects that pass
+  every whole-image threshold while failing a window-local threshold, and applies
+  all three windowed bounds to every scene; the recorded run executed under this gate.
 - The run also compares the `bounds-hit-test-query` measured record (bounds, probe
   points, hit results) and the preview/delivery allocation-failure records against
   the frozen baseline. The allocation probe initially exposed a real FR-039
@@ -103,12 +103,21 @@ tolerance is 0.0867 (`geometry-stroke`, `marginAboveTolerance`).
 ## Same-process fusion-disabled/enabled A/B (passed)
 
 `BEUTL_REQUIRE_GPU=1 dotnet test tests/Beutl.UnitTests/Beutl.UnitTests.csproj -f net10.0 --filter "FullyQualifiedName~Rendering.Fusion."`
-— **115/115 passed** on the authoritative device. These suites (`FusionBoundaryTests`,
-`CrossNodeShaderFusionTests`, and the other `Rendering.Fusion` fixtures) render each
-workload twice in one process with fusion disabled and enabled and assert the fixed
-per-channel AA edge maximum-error bound of **0.02** alongside exact-materialization
-checks. The same assertions run in normal CI without the GPU requirement via the
-documented fallback path (T122).
+— **115/115 passed** on the authoritative device as the broader fusion regression
+suite; that count is not a claim that every selected test renders both modes. The
+actual same-process disabled/enabled rendering subset is
+`FusionBoundaryTests.RuntimeBarrier_PreservesDisabledEnabledParityAndExactMaterialization`
+(all runtime-barrier cases), `AntialiasedThinStroke_NonlinearShaderPreservesCoverageAtTheExactBoundary`,
+`SelectedRenderCacheBoundary_PreservesParityAndPreventsCrossBoundaryFusion`,
+`StandaloneBackendOverflow_ExecutesCompatibilityPathWithParityAndExactReason`,
+`CrossNodeShaderFusionTests.Enabled_ExecutesDistinctNodePrimaryChainOnce_WithParityAndAWarmedProgram`,
+`CrossNodeShaderFusionTests.FiniteOutOfRangeOpacity_NormalizesBeforePlanningAndMatchesUnfusedExecution`,
+and `ShaderFallbackTests.FusedCurrentPixelStages_ReceiveTheSameRoiCroppedInputBoundsAsUnfusedStages`.
+Those tests assert their scenario-specific parity and materialization contracts; the
+fixed per-channel AA edge maximum-error bound of **0.02** belongs specifically to the
+antialiased thin-stroke pair. T122's ordinary non-GPU fallback runs the named
+`ShaderFallbackTests` coverage only; the hardware-required paired cases remain the
+separate authoritative-device gate.
 
 ## Paired persistent-lifetime benchmark
 

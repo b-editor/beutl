@@ -133,7 +133,7 @@ public sealed class TargetCaptureValueWrapperTests
                 TargetRegion.Region(s_bounds),
                 s_bounds,
                 RenderHitTestContract.OutputBounds,
-                RenderScaleContract.MaterializeAtWorkingScale));
+                TargetCaptureScaleContract.MaterializeAtWorkingScale));
             RenderFragmentHandle wrapped = wrapper switch
             {
                 ValueWrapper.Opacity => context.Opacity(capture, 0.5f),
@@ -156,7 +156,7 @@ public sealed class TargetCaptureValueWrapperTests
                 TargetRegion.Region(bounds),
                 bounds,
                 RenderHitTestContract.OutputBounds,
-                RenderScaleContract.MaterializeAtWorkingScale));
+                TargetCaptureScaleContract.MaterializeAtWorkingScale));
             context.Publish(context.ContributeValues(capture));
         }
     }

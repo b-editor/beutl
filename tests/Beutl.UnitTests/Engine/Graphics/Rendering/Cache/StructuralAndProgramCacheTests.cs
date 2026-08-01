@@ -139,14 +139,13 @@ public sealed class StructuralAndProgramCacheTests
     }
 
     [Test]
-    public void CustomBinder_RuntimeIdentityIsRuntimeOnly_BinderKeyIsStructural()
+    public void CustomBinder_SnapshotValueIsRuntimeOnly_BinderKeyIsStructural()
     {
         using var cache = new StructuralPlanCache();
         using var node = new ParameterShaderNode
         {
             UseCustomBinder = true,
             BinderStructuralKey = "binder-v1",
-            BinderRuntimeKey = "frame-a",
         };
 
         using (Compile(cache, node))
@@ -154,13 +153,12 @@ public sealed class StructuralAndProgramCacheTests
         }
 
         node.Value = 0.75f;
-        node.BinderRuntimeKey = "frame-b";
         using (Compile(cache, node))
         {
         }
 
         Assert.That(cache.Statistics.Hits, Is.EqualTo(1),
-            "custom binder values and declared runtime identity must not enter structural identity");
+            "custom binder snapshot values must not enter structural identity");
 
         node.BinderStructuralKey = "binder-v2";
         using (Compile(cache, node))
@@ -545,8 +543,6 @@ public sealed class StructuralAndProgramCacheTests
 
         public object BinderStructuralKey { get; set; } = "binder-v1";
 
-        public object BinderRuntimeKey { get; set; } = "frame-a";
-
         public ShaderDescription? LastDescription { get; private set; }
 
         public override void Process(RenderNodeContext context)
@@ -572,7 +568,7 @@ public sealed class StructuralAndProgramCacheTests
                             Value,
                             BindFloat,
                             BinderStructuralKey,
-                            new RenderRuntimeIdentity(BinderRuntimeKey));
+                            ShaderBindingCachePolicy.ReuseFromSnapshot);
                     }
                     else
                     {

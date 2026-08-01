@@ -751,11 +751,10 @@ internal sealed class RenderCacheResolver
     {
         var result = new HashSet<RenderFragmentReference>(
             ReferenceEqualityComparer.Instance);
-        Dictionary<RenderFragmentReference, RenderFragmentOutputIdentity>? identityMemo =
+        Dictionary<RenderFragmentOutputIdentityMemoKey, RenderFragmentOutputIdentity>? identityMemo =
             context.AllowCapturePublication
                 ? null
-                : new Dictionary<RenderFragmentReference, RenderFragmentOutputIdentity>(
-                    ReferenceEqualityComparer.Instance);
+                : [];
         foreach (RenderCacheCandidate candidate in index.Graph.CacheCandidates)
         {
             RecordedRenderFragment recorded = index.Fragments[candidate.FragmentId];
@@ -783,6 +782,7 @@ internal sealed class RenderCacheResolver
                 candidate,
                 reference,
                 evaluation,
+                regions,
                 context,
                 materializationDemands,
                 identityMemo!);
@@ -813,8 +813,7 @@ internal sealed class RenderCacheResolver
         IReadOnlyList<RenderCacheCandidate> candidates = topology is null
             ? index.Graph.CacheCandidates
             : topology.ParentFirst;
-        var identityMemo = new Dictionary<RenderFragmentReference, RenderFragmentOutputIdentity>(
-            ReferenceEqualityComparer.Instance);
+        var identityMemo = new Dictionary<RenderFragmentOutputIdentityMemoKey, RenderFragmentOutputIdentity>();
         var decisions = new Dictionary<RenderCacheCandidateId, RenderCacheDecision>();
         var selectedHits = new List<RenderCacheCandidateId>();
         foreach (RenderCacheCandidate candidate in candidates)
@@ -906,7 +905,7 @@ internal sealed class RenderCacheResolver
         RenderCacheResolutionContext context,
         IReadOnlyDictionary<RenderFragmentReference, EffectiveScale> materializationDemands,
         LookupMemo lookupMemo,
-        IDictionary<RenderFragmentReference, RenderFragmentOutputIdentity> identityMemo,
+        IDictionary<RenderFragmentOutputIdentityMemoKey, RenderFragmentOutputIdentity> identityMemo,
         IReadOnlySet<RenderFragmentReference> deviceGridAffectedReferences,
         IReadOnlySet<RenderFragmentReference> transformDependentReferences)
     {
@@ -927,6 +926,7 @@ internal sealed class RenderCacheResolver
             candidate,
             reference,
             evaluation,
+            regions,
             context,
             materializationDemands,
             identityMemo);
@@ -973,16 +973,20 @@ internal sealed class RenderCacheResolver
         RenderCacheCandidate candidate,
         RenderFragmentReference reference,
         CandidateEvaluation evaluation,
+        RegionAnalysis regions,
         RenderCacheResolutionContext context,
         IReadOnlyDictionary<RenderFragmentReference, EffectiveScale> materializationDemands,
-        IDictionary<RenderFragmentReference, RenderFragmentOutputIdentity> identityMemo)
+        IDictionary<RenderFragmentOutputIdentityMemoKey, RenderFragmentOutputIdentity> identityMemo)
         => new(
             candidate.CacheKey,
             RenderFragmentOutputIdentity.Create(
                 reference,
                 graphRequestId: request.Id,
                 materializationDemands,
-                identityMemo),
+                identityMemo,
+                request.Options.OutputScale,
+                request.Options.MaxWorkingScale,
+                regions),
             evaluation.Metadata.Bounds,
             evaluation.Coverage,
             evaluation.Density,
@@ -1513,6 +1517,10 @@ internal sealed class RenderCacheResolver
     }
 }
 
+internal readonly record struct RenderFragmentOutputIdentityMemoKey(
+    RenderFragmentReference Reference,
+    bool ShaderContextSensitive);
+
 internal sealed class RenderFragmentOutputIdentity : IEquatable<RenderFragmentOutputIdentity>
 {
     private readonly RenderFragmentKind _kind;
@@ -1547,23 +1555,44 @@ internal sealed class RenderFragmentOutputIdentity : IEquatable<RenderFragmentOu
     public static RenderFragmentOutputIdentity Create(
         RenderFragmentReference reference,
         RenderRequestId graphRequestId,
-        IReadOnlyDictionary<RenderFragmentReference, EffectiveScale>? materializationDemands = null)
+        IReadOnlyDictionary<RenderFragmentReference, EffectiveScale>? materializationDemands = null,
+        float outputScale = 1,
+        float maxWorkingScale = float.PositiveInfinity,
+        RegionAnalysis? regions = null)
     {
         ArgumentNullException.ThrowIfNull(reference);
-        var memo = new Dictionary<RenderFragmentReference, RenderFragmentOutputIdentity>(
-            ReferenceEqualityComparer.Instance);
-        return CreateCore(reference, graphRequestId, materializationDemands, memo);
+        var memo = new Dictionary<RenderFragmentOutputIdentityMemoKey, RenderFragmentOutputIdentity>();
+        return CreateCore(
+            reference,
+            graphRequestId,
+            materializationDemands,
+            memo,
+            outputScale,
+            maxWorkingScale,
+            regions,
+            shaderContextSensitive: false);
     }
 
     internal static RenderFragmentOutputIdentity Create(
         RenderFragmentReference reference,
         RenderRequestId graphRequestId,
         IReadOnlyDictionary<RenderFragmentReference, EffectiveScale>? materializationDemands,
-        IDictionary<RenderFragmentReference, RenderFragmentOutputIdentity> memo)
+        IDictionary<RenderFragmentOutputIdentityMemoKey, RenderFragmentOutputIdentity> memo,
+        float outputScale,
+        float maxWorkingScale,
+        RegionAnalysis regions)
     {
         ArgumentNullException.ThrowIfNull(reference);
         ArgumentNullException.ThrowIfNull(memo);
-        return CreateCore(reference, graphRequestId, materializationDemands, memo);
+        return CreateCore(
+            reference,
+            graphRequestId,
+            materializationDemands,
+            memo,
+            outputScale,
+            maxWorkingScale,
+            regions,
+            shaderContextSensitive: false);
     }
 
     public bool Equals(RenderFragmentOutputIdentity? other)
@@ -1612,16 +1641,47 @@ internal sealed class RenderFragmentOutputIdentity : IEquatable<RenderFragmentOu
         RenderFragmentReference reference,
         RenderRequestId requestId,
         IReadOnlyDictionary<RenderFragmentReference, EffectiveScale>? materializationDemands,
-        IDictionary<RenderFragmentReference, RenderFragmentOutputIdentity> memo)
+        IDictionary<RenderFragmentOutputIdentityMemoKey, RenderFragmentOutputIdentity> memo,
+        float outputScale,
+        float maxWorkingScale,
+        RegionAnalysis? regions,
+        bool shaderContextSensitive)
     {
-        if (memo.TryGetValue(reference, out RenderFragmentOutputIdentity? cached))
+        bool currentShaderContextSensitive = shaderContextSensitive
+                                             || reference.Payload is ShaderRenderFragmentPayload shader
+                                             && shader.Description.UsesReusableCallback;
+        var memoKey = new RenderFragmentOutputIdentityMemoKey(
+            reference,
+            currentShaderContextSensitive);
+        if (memo.TryGetValue(memoKey, out RenderFragmentOutputIdentity? cached))
             return cached;
 
         RenderFragmentOutputIdentity[] inputs = reference.Inputs
-            .Select(input => CreateCore(input, requestId, materializationDemands, memo))
+            .Select(input => CreateCore(
+                input,
+                requestId,
+                materializationDemands,
+                memo,
+                outputScale,
+                maxWorkingScale,
+                regions,
+                currentShaderContextSensitive))
             .ToArray();
         var components = new List<object>();
-        AddRuntimeComponents(reference, requestId, components);
+        AddRuntimeComponents(
+            reference,
+            requestId,
+            outputScale,
+            maxWorkingScale,
+            regions,
+            components);
+        if (regions is not null && currentShaderContextSensitive)
+        {
+            ResolvedFragmentMetadata metadata = regions.GetMetadata(reference);
+            components.Add(new ShaderExecutionRegionIdentity(
+                metadata.Bounds,
+                ResolveRequirement(regions, reference, metadata.Bounds)));
+        }
         EffectiveScale? demand = materializationDemands?.TryGetValue(
             reference,
             out EffectiveScale selectedDemand) == true
@@ -1632,13 +1692,16 @@ internal sealed class RenderFragmentOutputIdentity : IEquatable<RenderFragmentOu
             demand,
             components.ToArray(),
             inputs);
-        memo.Add(reference, identity);
+        memo.Add(memoKey, identity);
         return identity;
     }
 
     private static void AddRuntimeComponents(
         RenderFragmentReference reference,
         RenderRequestId requestId,
+        float outputScale,
+        float maxWorkingScale,
+        RegionAnalysis? regions,
         ICollection<object> components)
     {
         switch (reference.Payload)
@@ -1661,6 +1724,16 @@ internal sealed class RenderFragmentOutputIdentity : IEquatable<RenderFragmentOu
             case ShaderRenderFragmentPayload shader:
                 components.Add(shader.Description.StructuralIdentity);
                 components.Add(shader.RuntimeIdentity);
+                if (shader.Description.UsesReusableCallback)
+                {
+                    components.Add(new ShaderExecutionRequestIdentity(
+                        BitConverter.SingleToInt32Bits(outputScale),
+                        BitConverter.SingleToInt32Bits(maxWorkingScale)));
+                    if (regions is null)
+                    {
+                        components.Add(RequestLocalIdentity(reference, requestId, "shader-execution-context"));
+                    }
+                }
                 return;
             case GeometryRenderFragmentPayload geometry:
                 components.Add(geometry.Description.StructuralIdentity);
@@ -1730,6 +1803,14 @@ internal sealed class RenderFragmentOutputIdentity : IEquatable<RenderFragmentOu
             reference.Id?.Value ?? 0,
             role);
 
+    private static Rect ResolveRequirement(
+        RegionAnalysis regions,
+        RenderFragmentReference reference,
+        Rect completeBounds)
+        => regions.GetFragmentRequirement(reference)
+            .Resolve(completeBounds)
+            .Intersect(completeBounds);
+
     private static void AddResources(
         IReadOnlyList<RenderResource> resources,
         ICollection<object> components)
@@ -1743,4 +1824,12 @@ internal sealed class RenderFragmentOutputIdentity : IEquatable<RenderFragmentOu
         long RequestId,
         long FragmentId,
         string Role);
+
+    private sealed record ShaderExecutionRequestIdentity(
+        int OutputScaleBits,
+        int MaxWorkingScaleBits);
+
+    private sealed record ShaderExecutionRegionIdentity(
+        Rect CompleteBounds,
+        Rect RequiredRegion);
 }

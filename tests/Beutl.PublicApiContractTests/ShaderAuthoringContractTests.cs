@@ -52,6 +52,67 @@ public sealed class ShaderAuthoringContractTests
     }
 
     [Test]
+    public void ReusableCustomBinder_RequiresANonCapturingSnapshotOnlyCallback()
+    {
+        ShaderDescription reusable = ShaderDescription.CurrentPixel(
+            "uniform float amount; half4 apply(half4 color) { return color * amount; }",
+            bindings => bindings.Uniform(
+                "amount",
+                0.75f,
+                static (writer, value, _) => writer.Set(value),
+                structuralKey: "snapshot-only-amount",
+                cachePolicy: ShaderBindingCachePolicy.ReuseFromSnapshot));
+        ShaderDescription methodGroupReusable = ShaderDescription.CurrentPixel(
+            "uniform float amount; half4 apply(half4 color) { return color * amount; }",
+            bindings => bindings.Uniform(
+                "amount",
+                0.5f,
+                SetUniform,
+                structuralKey: "method-group-snapshot-only-amount",
+                cachePolicy: ShaderBindingCachePolicy.ReuseFromSnapshot));
+        float mutableMultiplier = 2;
+        Action<ShaderUniformWriter, float, ShaderExecutionContext> captured =
+            (writer, value, _) => writer.Set(value * mutableMultiplier);
+        Action<ShaderUniformWriter, float, ShaderExecutionContext> stateless =
+            static (writer, value, _) => writer.Set(value);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(
+                reusable.Uniforms.Single().CachePolicy,
+                Is.EqualTo(ShaderBindingCachePolicy.ReuseFromSnapshot));
+            Assert.That(
+                methodGroupReusable.Uniforms.Single().CachePolicy,
+                Is.EqualTo(ShaderBindingCachePolicy.ReuseFromSnapshot));
+            Assert.That(
+                () => ShaderDescription.CurrentPixel(
+                    "uniform float amount; half4 apply(half4 color) { return color * amount; }",
+                    bindings => bindings.Uniform(
+                        "amount",
+                        0.75f,
+                        (writer, value, _) => writer.Set(value * mutableMultiplier),
+                        cachePolicy: ShaderBindingCachePolicy.ReuseFromSnapshot)),
+                Throws.TypeOf<ArgumentException>());
+            Assert.That(
+                () => ShaderDescription.CurrentPixel(
+                    "uniform float amount; half4 apply(half4 color) { return color * amount; }",
+                    bindings => bindings.Uniform(
+                        "amount",
+                        0.75f,
+                        captured + stateless,
+                        cachePolicy: ShaderBindingCachePolicy.ReuseFromSnapshot)),
+                Throws.TypeOf<ArgumentException>(),
+                "Every invocation in a multicast binder must be stateless.");
+        });
+    }
+
+    private static void SetUniform(
+        ShaderUniformWriter writer,
+        float value,
+        ShaderExecutionContext _)
+        => writer.Set(value);
+
+    [Test]
     public void ShaderOpacityShaderChain_PreservesValueEligibilityAcrossDistinctNodes()
     {
         var snapshots = new Dictionary<string, FragmentSnapshot>();
@@ -211,8 +272,7 @@ public sealed class ShaderAuthoringContractTests
                         transferredShader = SKShader.CreateColor(value.Color);
                         writer.Set(transferredShader);
                     },
-                    structuralKey: "whole-source-resource-binder",
-                    runtimeIdentity: new RenderRuntimeIdentity("whole-source-resource-runtime")));
+                    structuralKey: "whole-source-resource-binder"));
             RenderFragmentHandle source = context.OpaqueSource(ExecutingSource(bounds, Colors.White));
             context.Publish(context.Shader(source, description));
         });
@@ -428,8 +488,7 @@ public sealed class ShaderAuthoringContractTests
                         UniformOutputBounds = execution.OutputBounds;
                         writer.Set(value);
                     },
-                    structuralKey: "current-gain",
-                    runtimeIdentity: new RenderRuntimeIdentity("current-gain-runtime"))));
+                    structuralKey: "current-gain")));
 
             RenderResource<ShaderColor> colorToken = context.Borrow(color, "shader-color", version: 1);
             context.Shader(ShaderDescription.WholeSource(
@@ -447,8 +506,7 @@ public sealed class ShaderAuthoringContractTests
                             UniformContext = execution;
                             writer.Set(value);
                         },
-                        structuralKey: "whole-amount",
-                        runtimeIdentity: new RenderRuntimeIdentity("whole-amount-runtime"));
+                        structuralKey: "whole-amount");
                     bindings.Resource(
                         "tint",
                         colorToken,
@@ -462,8 +520,7 @@ public sealed class ShaderAuthoringContractTests
                             ProducedShader = SKShader.CreateColor(value.Color);
                             writer.Set(ProducedShader);
                         },
-                        structuralKey: "whole-tint",
-                        runtimeIdentity: new RenderRuntimeIdentity("whole-tint-runtime"));
+                        structuralKey: "whole-tint");
                 }));
         }
 

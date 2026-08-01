@@ -26,10 +26,14 @@ public sealed class MaterializedInputCompositeTests
             destinationSize: new PixelSize(7, 5),
             transform: Matrix.Identity);
 
-        Assert.That(
-            actual.GetPixelSpan().SequenceEqual(expected.GetPixelSpan()),
-            Is.True,
-            "An exact external input must retain every source pixel byte.");
+        Assert.Multiple(() =>
+        {
+            AssertContainsVisibleContent(expected);
+            Assert.That(
+                actual.GetPixelSpan().SequenceEqual(expected.GetPixelSpan()),
+                Is.True,
+                "An exact external input must retain every source pixel byte.");
+        });
     }
 
     [Test]
@@ -51,10 +55,14 @@ public sealed class MaterializedInputCompositeTests
             destinationSize,
             transform: Matrix.Identity);
 
-        Assert.That(
-            actual.GetPixelSpan().SequenceEqual(expected.GetPixelSpan()),
-            Is.True,
-            "A density mismatch must retain the Mitchell-scaled fallback.");
+        Assert.Multiple(() =>
+        {
+            AssertContainsVisibleContent(expected);
+            Assert.That(
+                actual.GetPixelSpan().SequenceEqual(expected.GetPixelSpan()),
+                Is.True,
+                "A density mismatch must retain the Mitchell-scaled fallback.");
+        });
     }
 
     [Test]
@@ -77,10 +85,14 @@ public sealed class MaterializedInputCompositeTests
             destinationSize,
             transform);
 
-        Assert.That(
-            actual.GetPixelSpan().SequenceEqual(expected.GetPixelSpan()),
-            Is.True,
-            "A fractional device mapping must retain the transformed scaled fallback.");
+        Assert.Multiple(() =>
+        {
+            AssertContainsVisibleContent(expected);
+            Assert.That(
+                actual.GetPixelSpan().SequenceEqual(expected.GetPixelSpan()),
+                Is.True,
+                "A fractional device mapping must retain the transformed scaled fallback.");
+        });
     }
 
     [Test]
@@ -110,10 +122,14 @@ public sealed class MaterializedInputCompositeTests
             deviceBounds,
             deviceGridOffset);
 
-        Assert.That(
-            actual.GetPixelSpan().SequenceEqual(expected.GetPixelSpan()),
-            Is.True,
-            "Materialization must preserve the supplied physical footprint and fractional device-grid phase.");
+        Assert.Multiple(() =>
+        {
+            AssertContainsVisibleContent(expected);
+            Assert.That(
+                actual.GetPixelSpan().SequenceEqual(expected.GetPixelSpan()),
+                Is.True,
+                "Materialization must preserve the supplied physical footprint and fractional device-grid phase.");
+        });
     }
 
     private static Bitmap RenderExternalInput(
@@ -201,6 +217,26 @@ public sealed class MaterializedInputCompositeTests
             }
         }
         target.Value.Flush();
+    }
+
+    private static void AssertContainsVisibleContent(Bitmap bitmap)
+    {
+        ReadOnlySpan<ushort> pixels = bitmap.GetPixelSpan<ushort>();
+        bool hasVisiblePixel = false;
+        for (int index = 3; index < pixels.Length; index += 4)
+        {
+            float alpha = (float)BitConverter.UInt16BitsToHalf(pixels[index]);
+            if (float.IsFinite(alpha) && alpha > 0)
+            {
+                hasVisiblePixel = true;
+                break;
+            }
+        }
+
+        Assert.That(
+            hasVisiblePixel,
+            Is.True,
+            "The composite reference must contain visible source content.");
     }
 
     private sealed class MaterializedInputNode(

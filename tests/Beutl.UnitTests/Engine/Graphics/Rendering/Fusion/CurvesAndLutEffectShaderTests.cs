@@ -43,8 +43,8 @@ public sealed class CurvesAndLutEffectShaderTests
                     description.Resources.Select(static binding => binding.CoordinateSpace),
                     Is.All.EqualTo(ShaderResourceCoordinateSpace.Value));
                 Assert.That(
-                    description.Resources.Select(static binding => binding.RuntimeIdentity),
-                    Has.All.Not.Null);
+                    description.Resources.Select(static binding => binding.CachePolicy),
+                    Is.All.EqualTo(ShaderBindingCachePolicy.ReuseFromSnapshot));
                 Assert.That(description.Resources[0].Resource.CacheIdentity.Key, Is.SameAs(masterCurve));
                 Assert.That(description.Resources[0].Resource.CacheIdentity.Version, Is.Zero);
                 Assert.That(program.StageCount, Is.EqualTo(1));
@@ -102,7 +102,7 @@ public sealed class CurvesAndLutEffectShaderTests
                     Is.EqualTo(new[] { "lutSize", "strength" }));
                 Assert.That(binding.Name, Is.EqualTo("lut"));
                 Assert.That(binding.CoordinateSpace, Is.EqualTo(ShaderResourceCoordinateSpace.Value));
-                Assert.That(binding.RuntimeIdentity, Is.Not.Null);
+                Assert.That(binding.CachePolicy, Is.EqualTo(ShaderBindingCachePolicy.ReuseFromSnapshot));
                 Assert.That(binding.Resource.CacheIdentity.Key, Is.EqualTo(source.Id));
                 Assert.That(binding.Resource.CacheIdentity.Version, Is.EqualTo(sourceVersion));
                 Assert.That(lutResource.Strength, Is.EqualTo(100f));

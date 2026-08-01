@@ -33,6 +33,8 @@ public sealed class ShaderDescription
         Bounds = bounds;
         Uniforms = new ReadOnlyCollection<ShaderUniformBinding>(builder.Uniforms.ToArray());
         Resources = new ReadOnlyCollection<ShaderResourceBinding>(builder.Resources.ToArray());
+        UsesReusableCallback = Uniforms.Any(static item => item.UsesReusableCallback)
+                               || Resources.Any(static item => item.UsesReusableCallback);
         SourceTileMode = sourceTileMode;
         StructuralIdentity = new ShaderDescriptionStructuralIdentity(
             kind,
@@ -68,6 +70,8 @@ public sealed class ShaderDescription
     public SKShaderTileMode SourceTileMode { get; }
 
     internal object StructuralIdentity { get; }
+
+    internal bool UsesReusableCallback { get; }
 
     internal object CreateRuntimeIdentity()
         => new ShaderDescriptionRuntimeIdentity(

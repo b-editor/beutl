@@ -579,7 +579,7 @@ public class RenderNodeRendererExceptionSafetyTests
                 TargetRegion.Region(s_domain),
                 s_domain,
                 RenderHitTestContract.None,
-                RenderScaleContract.MaterializeAtWorkingScale)));
+                TargetCaptureScaleContract.MaterializeAtWorkingScale)));
             if (publishRasterOutput)
             {
                 context.Publish(context.OpaqueSource(

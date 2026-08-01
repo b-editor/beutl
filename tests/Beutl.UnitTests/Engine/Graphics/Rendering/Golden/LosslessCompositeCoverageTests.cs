@@ -899,8 +899,7 @@ public sealed class LosslessCompositeCoverageTests
                                 execution.WorkingScale));
                             writer.Set(value);
                         },
-                        structuralKey: (typeof(FootprintObservingShaderChainNode), capturedStage),
-                        runtimeIdentity: new RenderRuntimeIdentity(capturedStage)));
+                        structuralKey: (typeof(FootprintObservingShaderChainNode), capturedStage)));
                 current = context.Shader(current, description);
             }
 

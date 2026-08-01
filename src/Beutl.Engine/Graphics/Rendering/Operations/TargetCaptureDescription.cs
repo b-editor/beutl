@@ -6,7 +6,7 @@ public sealed class TargetCaptureDescription
         TargetRegion sourceRegion,
         Rect bounds,
         RenderHitTestContract hitTest,
-        RenderScaleContract scale)
+        TargetCaptureScaleContract scale)
     {
         SourceRegion = sourceRegion;
         Bounds = bounds;
@@ -20,13 +20,13 @@ public sealed class TargetCaptureDescription
 
     public RenderHitTestContract HitTest { get; }
 
-    public RenderScaleContract Scale { get; }
+    public TargetCaptureScaleContract Scale { get; }
 
     public static TargetCaptureDescription Create(
         TargetRegion sourceRegion,
         Rect bounds,
         RenderHitTestContract hitTest,
-        RenderScaleContract scale)
+        TargetCaptureScaleContract scale)
     {
         sourceRegion.ThrowIfUninitialized(nameof(sourceRegion));
         if (sourceRegion.Kind == TargetRegionKind.Empty)
@@ -50,12 +50,6 @@ public sealed class TargetCaptureDescription
         }
 
         scale.ThrowIfUninitialized(nameof(scale));
-        if (scale.Kind is not (RenderScaleContractKind.MaterializeAtWorkingScale or RenderScaleContractKind.Custom))
-        {
-            throw new ArgumentException(
-                "A public target capture requires MaterializeAtWorkingScale or a Custom scale contract.",
-                nameof(scale));
-        }
 
         return new TargetCaptureDescription(sourceRegion, bounds, hitTest, scale);
     }

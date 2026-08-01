@@ -20,7 +20,14 @@ public sealed class OffFrameFilterEffectExecutionTests
         using SceneGraph control = CreateScene(visibleCount: 1, includeOffFrameEffect: false);
         using SceneGraph actual = CreateScene(visibleCount: 1, includeOffFrameEffect: true);
 
-        Assert.That(Render(actual.Root), Is.EqualTo(Render(control.Root)));
+        byte[] expected = Render(control.Root);
+        byte[] rendered = Render(actual.Root);
+        Assert.Multiple(() =>
+        {
+            Assert.That(expected, Has.Some.Not.Zero,
+                "The single visible control drawable must contribute pixels before off-frame parity is compared.");
+            Assert.That(rendered, Is.EqualTo(expected));
+        });
     }
 
     [Test]

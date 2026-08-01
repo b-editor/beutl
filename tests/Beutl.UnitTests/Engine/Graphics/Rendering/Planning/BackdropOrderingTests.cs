@@ -213,11 +213,21 @@ public sealed class BackdropOrderingTests
             });
 
         using RenderNodeRasterization rasterization = renderer.Rasterize();
+        Bitmap bitmap = rasterization.Bitmap
+            ?? throw new AssertionException("The recorded temporary backdrop produced no bitmap.");
+        Assert.That(rasterization.Bounds.Contains(s_drawBounds.Center), Is.True,
+            "The temporary backdrop rasterization must contain the requested draw sample.");
+        int sampleX = (int)(s_drawBounds.Center.X - rasterization.Bounds.X);
+        int sampleY = (int)(s_drawBounds.Center.Y - rasterization.Bounds.Y);
+        var sample = bitmap.SKBitmap.GetPixel(sampleX, sampleY);
 
         Assert.Multiple(() =>
         {
-            Assert.That(rasterization.Bitmap, Is.Not.Null);
-            Assert.That(rasterization.Bitmap!.GetPixelSpan().ToArray(), Has.Some.Not.Zero);
+            Assert.That(sample.Red, Is.EqualTo(byte.MaxValue));
+            Assert.That(sample.Green, Is.EqualTo(byte.MaxValue));
+            Assert.That(sample.Blue, Is.EqualTo(byte.MaxValue));
+            Assert.That(sample.Alpha, Is.EqualTo(byte.MaxValue),
+                "The draw must retain the opaque-white backdrop captured before the contrasting clear.");
         });
     }
 
@@ -269,6 +279,7 @@ public sealed class BackdropOrderingTests
             var snapshot = new SnapshotBackdropRenderNode();
             subtree.AddChild(new ClearRenderNode(Colors.White));
             subtree.AddChild(snapshot);
+            subtree.AddChild(new ClearRenderNode(Colors.Transparent));
             subtree.AddChild(new DrawBackdropRenderNode(snapshot, s_drawBounds));
 
             IReadOnlyList<RenderFragmentHandle> outputs = context.RecordSubtree(subtree);

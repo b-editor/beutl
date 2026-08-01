@@ -154,6 +154,9 @@ internal sealed class Scene3DRenderNode(Scene3D.Resource scene) : RenderNode
     {
         foreach (Object3D.Resource obj in objects)
         {
+            if (!obj.IsEnabled)
+                continue;
+
             yield return obj;
             foreach (Object3D.Resource child in EnumerateObjects(obj.GetChildResources()))
                 yield return child;

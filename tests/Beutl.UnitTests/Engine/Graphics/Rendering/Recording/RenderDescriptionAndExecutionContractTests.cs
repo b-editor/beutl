@@ -327,7 +327,7 @@ public sealed class RenderDescriptionAndExecutionContractTests
             TargetRegion.Region(bounds),
             bounds,
             RenderHitTestContract.OutputBounds,
-            RenderScaleContract.MaterializeAtWorkingScale);
+            TargetCaptureScaleContract.MaterializeAtWorkingScale);
         TargetCommandDescription command = TargetCommandDescription.Create(
             static _ => { },
             TargetRegion.Region(bounds),
@@ -396,22 +396,22 @@ public sealed class RenderDescriptionAndExecutionContractTests
             Assert.That(emptyReadback.ParamName, Is.EqualTo("affectedRegion"));
             Assert.That(
                 () => TargetCaptureDescription.Create(
-                    TargetRegion.Empty, bounds, RenderHitTestContract.None, RenderScaleContract.MaterializeAtWorkingScale),
+                    TargetRegion.Empty, bounds, RenderHitTestContract.None, TargetCaptureScaleContract.MaterializeAtWorkingScale),
                 Throws.TypeOf<ArgumentException>());
             Assert.That(
                 () => TargetCaptureDescription.Create(
-                    TargetRegion.Full, bounds, RenderHitTestContract.AnyInput, RenderScaleContract.MaterializeAtWorkingScale),
+                    TargetRegion.Full, bounds, RenderHitTestContract.AnyInput, TargetCaptureScaleContract.MaterializeAtWorkingScale),
                 Throws.TypeOf<ArgumentException>());
             Assert.That(
                 () => TargetCaptureDescription.Create(
-                    TargetRegion.Full, bounds, RenderHitTestContract.None, RenderScaleContract.Vector),
+                    TargetRegion.Full, bounds, RenderHitTestContract.None, default),
                 Throws.TypeOf<ArgumentException>());
             Assert.That(
                 () => TargetCaptureDescription.Create(
                     TargetRegion.Region(new Rect(0, 0, 10, 10)),
                     bounds,
                     RenderHitTestContract.None,
-                    RenderScaleContract.MaterializeAtWorkingScale),
+                    TargetCaptureScaleContract.MaterializeAtWorkingScale),
                 Throws.TypeOf<ArgumentException>());
             Assert.That(
                 () => TargetCommandDescription.Create(

@@ -858,6 +858,7 @@ public sealed class LegacyFilterPhysicalFootprintTests
 
         Assert.That(apron, Has.Length.EqualTo(tight.Length));
         Assert.That(tight, Has.Length.GreaterThanOrEqualTo(minimumOutputCount));
+        AssertContainsVisibleFiniteContent(tight);
         Assert.Multiple(() =>
         {
             for (int index = 0; index < tight.Length; index++)
@@ -1191,6 +1192,40 @@ public sealed class LegacyFilterPhysicalFootprintTests
         }
 
         return true;
+    }
+
+    private static void AssertContainsVisibleFiniteContent(IReadOnlyList<TargetSnapshot> snapshots)
+    {
+        bool hasVisiblePixel = false;
+        (int Output, int ValueIndex, float Value)? firstNonFinite = null;
+        for (int output = 0; output < snapshots.Count; output++)
+        {
+            ushort[] pixels = snapshots[output].Pixels;
+            for (int valueIndex = 0; valueIndex < pixels.Length; valueIndex++)
+            {
+                float value = (float)BitConverter.UInt16BitsToHalf(pixels[valueIndex]);
+                if (!float.IsFinite(value))
+                {
+                    firstNonFinite ??= (output, valueIndex, value);
+                }
+                else if ((valueIndex & 3) == 3 && value > 0)
+                {
+                    hasVisiblePixel = true;
+                }
+            }
+        }
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(
+                firstNonFinite,
+                Is.Null,
+                $"The tight apron reference contains a non-finite channel: {firstNonFinite}.");
+            Assert.That(
+                hasVisiblePixel,
+                Is.True,
+                "The tight apron reference outputs must contain visible pixels in aggregate.");
+        });
     }
 
     private static bool DeviceRegionEquals(

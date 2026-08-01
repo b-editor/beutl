@@ -1057,6 +1057,8 @@ internal static class FeatureVisualEvidenceExporter
             new Rect(27.5f, 14.25f, 91.5f, 67.75f),
             Brushes.Resource.CornflowerBlue,
             penResource);
+        using var executionProbe = new FeatureExecutionProbeNode();
+        executionProbe.AddChild(node);
         object diagnostics = RenderPipelineInternalDiagnostics.CreateState();
         var options = new RenderNodeRendererOptions
         {
@@ -1069,16 +1071,22 @@ internal static class FeatureVisualEvidenceExporter
             },
         };
         RenderPipelineInternalDiagnostics.Attach(options, diagnostics, RenderRequestPurpose.Bounds);
-        using var renderer = new RenderNodeRenderer(node, options);
+        using var renderer = new RenderNodeRenderer(executionProbe, options);
         RenderNodeMeasurement measurement = renderer.Measure();
+        CaptureAndValidateMetadataOnlyQuery(diagnostics, renderer, executionProbe, "measure");
+        int validatedRequestCount = 1;
         bool inside = renderer.HitTest(new Point(73, 48));
+        CaptureAndValidateMetadataOnlyQuery(diagnostics, renderer, executionProbe, "inside hit test");
+        validatedRequestCount++;
         bool outside = renderer.HitTest(new Point(2, 2));
+        SortedDictionary<string, long> counters = CaptureAndValidateMetadataOnlyQuery(
+            diagnostics,
+            renderer,
+            executionProbe,
+            "outside hit test");
+        validatedRequestCount++;
         if (!inside || outside)
             throw new InvalidOperationException("The feature query control points are not discriminating.");
-        SortedDictionary<string, long> counters =
-            RenderPipelineInternalDiagnostics.CaptureLatestCounters(diagnostics, out bool succeeded);
-        if (!succeeded)
-            throw new InvalidOperationException("The feature query request failed.");
         var query = new JsonObject
         {
             ["bounds"] = RectString(measurement.OutputBounds),
@@ -1086,9 +1094,68 @@ internal static class FeatureVisualEvidenceExporter
             ["insideHit"] = inside,
             ["outsidePoint"] = "2,2",
             ["outsideHit"] = outside,
-            ["deferredWorkExecuted"] = false,
+            ["deferredWorkExecuted"] = executionProbe.CallbackEntries != 0,
+            ["validatedRequestCount"] = validatedRequestCount,
         };
         return new FeatureMetadataCapture(counters, query);
+    }
+
+    internal static FeatureMetadataCapture CaptureQuerySceneForTest()
+        => CaptureQueryScene();
+
+    private static SortedDictionary<string, long> CaptureAndValidateMetadataOnlyQuery(
+        object diagnostics,
+        RenderNodeRenderer renderer,
+        FeatureExecutionProbeNode executionProbe,
+        string operation)
+    {
+        SortedDictionary<string, long> counters =
+            RenderPipelineInternalDiagnostics.CaptureLatestCounters(diagnostics, out bool succeeded);
+        if (!succeeded)
+            throw new InvalidOperationException($"The feature query {operation} request failed.");
+
+        RenderPipelineCounter[] executionOrAllocationCounters =
+        [
+            RenderPipelineCounter.ExecutedGpuPasses,
+            RenderPipelineCounter.ExecutedBackendTransitions,
+            RenderPipelineCounter.IntermediateAcquires,
+            RenderPipelineCounter.IntermediateCreates,
+            RenderPipelineCounter.IntermediateDischarges,
+            RenderPipelineCounter.FullFrameMaterializations,
+            RenderPipelineCounter.RoiMaterializations,
+            RenderPipelineCounter.Synchronizations,
+            RenderPipelineCounter.ProgramCreations,
+            RenderPipelineCounter.RenderCacheCaptures,
+            RenderPipelineCounter.OpaqueExternalExecutions,
+            RenderPipelineCounter.ExecutedOutcomes,
+            RenderPipelineCounter.PreviewAllocationDrops,
+        ];
+        foreach (RenderPipelineCounter counter in executionOrAllocationCounters)
+        {
+            string name = counter.ToString();
+            if (counters.TryGetValue(name, out long value) && value != 0)
+            {
+                throw new InvalidOperationException(
+                    $"The metadata-only feature query {operation} requires {name}=0; observed "
+                    + value.ToString(CultureInfo.InvariantCulture) + ".");
+            }
+        }
+
+        if (executionProbe.CallbackEntries != 0)
+        {
+            throw new InvalidOperationException(
+                $"The metadata-only feature query {operation} executed "
+                + executionProbe.CallbackEntries.ToString(CultureInfo.InvariantCulture)
+                + " deferred callbacks.");
+        }
+        if (renderer.TargetPoolStatistics.Creates != 0
+            || renderer.TargetPoolStatistics.LeasedTargets != 0)
+        {
+            throw new InvalidOperationException(
+                $"The metadata-only feature query {operation} allocated or retained an intermediate target.");
+        }
+
+        return counters;
     }
 
     private static FeatureMetadataCapture CaptureEmptyRequestedRegion(JsonObject scene)

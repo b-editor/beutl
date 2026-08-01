@@ -64,7 +64,7 @@ public sealed class TargetAuthoringContractTests
                     TargetRegion.Region(affected),
                     affected,
                     RenderHitTestContract.None,
-                    RenderScaleContract.MaterializeAtWorkingScale));
+                    TargetCaptureScaleContract.MaterializeAtWorkingScale));
             RenderFragmentHandle layer = context.Layer([capture], domain);
             captureLayer = FragmentSnapshot.From(layer);
             context.Publish(layer);
@@ -367,13 +367,13 @@ public sealed class TargetAuthoringContractTests
                     TargetRegion.Full,
                     bounds,
                     RenderHitTestContract.OutputBounds,
-                    RenderScaleContract.MaterializeAtWorkingScale));
+                    TargetCaptureScaleContract.MaterializeAtWorkingScale));
             RenderFragmentHandle custom = context.TargetCapture(
                 TargetCaptureDescription.Create(
                     TargetRegion.Full,
                     bounds,
                     RenderHitTestContract.None,
-                    RenderScaleContract.Custom(static scaleContext =>
+                    TargetCaptureScaleContract.Custom(static scaleContext =>
                     {
                         Assert.Multiple(() =>
                         {
@@ -384,15 +384,23 @@ public sealed class TargetAuthoringContractTests
                         });
                         return 3;
                     }, "capture-custom-three")));
+            RenderFragmentHandle preserving = context.TargetCapture(
+                TargetCaptureDescription.Create(
+                    TargetRegion.Full,
+                    bounds,
+                    RenderHitTestContract.None,
+                    TargetCaptureScaleContract.PreserveTargetSupply));
             RenderFragmentHandle contributed = context.ContributeValues(standard);
 
             observed["standard"] = FragmentSnapshot.From(standard);
             observed["custom"] = FragmentSnapshot.From(custom);
+            observed["preserving"] = FragmentSnapshot.From(preserving);
             observed["contributed"] = FragmentSnapshot.From(contributed);
 
             context.Publish(contributed);
             context.Publish(custom);
             context.Publish(custom); // Target capture is the effectful fan-out exception.
+            context.Publish(preserving);
         });
 
         RenderNodeMeasurement measurement = Measure(
@@ -411,6 +419,10 @@ public sealed class TargetAuthoringContractTests
             Assert.That(observed["custom"].ContributesValues, Is.False);
             Assert.That(observed["custom"].CanBeUsedAsValueInput, Is.True);
             Assert.That(observed["custom"].EffectiveScale, Is.EqualTo(EffectiveScale.At(2)));
+
+            Assert.That(observed["preserving"].ContributesValues, Is.False);
+            Assert.That(observed["preserving"].CanBeUsedAsValueInput, Is.True);
+            Assert.That(observed["preserving"].EffectiveScale, Is.EqualTo(EffectiveScale.Unbounded));
 
             Assert.That(observed["contributed"].Bounds, Is.EqualTo(observed["standard"].Bounds));
             Assert.That(observed["contributed"].Cardinality, Is.EqualTo(observed["standard"].Cardinality));
@@ -431,29 +443,25 @@ public sealed class TargetAuthoringContractTests
                     TargetRegion.Empty,
                     bounds,
                     RenderHitTestContract.None,
-                    RenderScaleContract.MaterializeAtWorkingScale),
+                    TargetCaptureScaleContract.MaterializeAtWorkingScale),
                 Throws.TypeOf<ArgumentException>());
             Assert.That(
                 () => TargetCaptureDescription.Create(
                     TargetRegion.Full,
                     bounds,
                     RenderHitTestContract.AnyInput,
-                    RenderScaleContract.MaterializeAtWorkingScale),
+                    TargetCaptureScaleContract.MaterializeAtWorkingScale),
                 Throws.TypeOf<ArgumentException>());
             Assert.That(
                 () => TargetCaptureDescription.Create(
                     TargetRegion.Full,
                     bounds,
                     RenderHitTestContract.None,
-                    RenderScaleContract.Vector),
+                    default),
                 Throws.TypeOf<ArgumentException>());
             Assert.That(
-                () => TargetCaptureDescription.Create(
-                    TargetRegion.Full,
-                    bounds,
-                    RenderHitTestContract.None,
-                    RenderScaleContract.PreserveInputSupply),
-                Throws.TypeOf<ArgumentException>());
+                () => TargetCaptureScaleContract.Custom(null!),
+                Throws.TypeOf<ArgumentNullException>());
         });
     }
 
@@ -877,7 +885,7 @@ public sealed class TargetAuthoringContractTests
                     TargetRegion.Full,
                     bounds,
                     RenderHitTestContract.None,
-                    RenderScaleContract.Custom(static scaleContext =>
+                    TargetCaptureScaleContract.Custom(static scaleContext =>
                     {
                         Assert.Multiple(() =>
                         {
@@ -922,6 +930,65 @@ public sealed class TargetAuthoringContractTests
         {
             Assert.That(rasterization.IsEmpty, Is.False);
             Assert.That(captureInputScale, Is.EqualTo(1), "The capture remains an output-density value.");
+            Assert.That(layerTargetScale, Is.EqualTo(4), "The finite Layer is materialized for the denser consumer.");
+            Assert.That(outerInputScale, Is.EqualTo(4), "The dense consumer receives the Layer at its resolved supply.");
+        });
+    }
+
+    [Test]
+    public void TargetSupplyCaptureInsideDenserFiniteLayer_PreservesResolvedLayerDensity()
+    {
+        var bounds = new Rect(0, 0, 4, 4);
+        float captureInputScale = 0;
+        float layerTargetScale = 0;
+        float outerInputScale = 0;
+
+        using var node = new DelegateNode(context =>
+        {
+            RenderFragmentHandle source = context.OpaqueSource(ExecutingSource(
+                bounds,
+                scale: RenderScaleContract.Vector,
+                structuralKey: "target-supply-layer-source"));
+            RenderFragmentHandle capture = context.TargetCapture(
+                TargetCaptureDescription.Create(
+                    TargetRegion.Full,
+                    bounds,
+                    RenderHitTestContract.None,
+                    TargetCaptureScaleContract.PreserveTargetSupply));
+            RenderFragmentHandle inspectCapture = context.TargetCommand(
+                [capture],
+                TargetCommandDescription.Create(
+                    session =>
+                    {
+                        captureInputScale = session.Inputs.Single().EffectiveScale.Value;
+                        layerTargetScale = session.Canvas.Density;
+                    },
+                    TargetRegion.Region(bounds),
+                    Rect.Empty,
+                    RenderHitTestContract.None,
+                    TargetAccess.ReadWrite,
+                    structuralKey: "inspect-target-supply-capture-density"));
+            RenderFragmentHandle layer = context.Layer([source, capture, inspectCapture], bounds);
+            RenderFragmentHandle forceDenseMaterialization = context.OpaqueMap(
+                layer,
+                ExecutingMap(
+                    bounds,
+                    session => outerInputScale = session.Inputs.Single().EffectiveScale.Value,
+                    RenderScaleContract.Custom(static _ => 4, "materialize-preserving-layer-at-four")));
+
+            context.Publish(forceDenseMaterialization);
+        });
+
+        using RenderNodeRasterization rasterization = Rasterize(
+            node,
+            outputScale: 1,
+            maxWorkingScale: 4,
+            requestedRegion: bounds);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(rasterization.IsEmpty, Is.False);
+            Assert.That(captureInputScale, Is.EqualTo(4), "The public capture preserves its active target supply.");
             Assert.That(layerTargetScale, Is.EqualTo(4), "The finite Layer is materialized for the denser consumer.");
             Assert.That(outerInputScale, Is.EqualTo(4), "The dense consumer receives the Layer at its resolved supply.");
         });

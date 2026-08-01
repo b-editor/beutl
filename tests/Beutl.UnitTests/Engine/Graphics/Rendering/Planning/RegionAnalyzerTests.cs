@@ -337,7 +337,7 @@ public sealed class RegionAnalyzerTests
                 TargetRegion.Full,
                 bounds,
                 RenderHitTestContract.None,
-                RenderScaleContract.MaterializeAtWorkingScale);
+                TargetCaptureScaleContract.MaterializeAtWorkingScale);
             return Stamp(new RenderFragmentReference(
                 RenderFragmentKind.TargetCapture,
                 bounds,

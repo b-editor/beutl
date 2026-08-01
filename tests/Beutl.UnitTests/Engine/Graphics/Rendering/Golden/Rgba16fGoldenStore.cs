@@ -171,6 +171,13 @@ internal static class Rgba16fGoldenStore
 
     private static void EnsureCanonicalBitmap(Bitmap bitmap, string parameterName)
     {
+        if (bitmap.Width <= 0 || bitmap.Height <= 0)
+        {
+            throw new ArgumentException(
+                "Golden images must have positive dimensions.",
+                parameterName);
+        }
+
         if (bitmap.ColorType != BitmapColorType.RgbaF16
             || bitmap.AlphaType != BitmapAlphaType.Premul
             || bitmap.ColorSpace != BitmapColorSpace.LinearSrgb)

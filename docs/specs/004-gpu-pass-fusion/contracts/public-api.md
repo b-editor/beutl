@@ -453,7 +453,7 @@ The internal base constructor prevents out-of-tree subclasses or fabricated toke
 
 `cacheKey` and `version` are runtime output-cache identity, never structural-plan identity. For either `Own` or `Borrow`, a null key creates a unique request slot identity, which is safe but prevents cross-request pixel-cache reuse. Authors increment `version` whenever pixel-affecting contents change under a non-null key. Every description lists the resource tokens it may borrow; the recorder automatically incorporates their identities/versions into output-cache keys and rejects undeclared tokens at execution.
 
-`RenderRuntimeIdentity` is the matching non-resource channel for pixel-affecting scalar/value state captured by a deferred callback. Its `Key` must be non-null, immutable for its equality lifetime, and equality-stable; tuples and immutable records are typical keys. `default(RenderRuntimeIdentity)` and an explicitly null key are invalid and rejected by description/binding factories. Those factories accept a nullable identity: nullable `null` makes the recorder synthesize a fresh request-local identity on every recording, which is always correct but prevents cross-request pixel-cache reuse for that value or command. Runtime identity participates in render-output cache identity only and never in structural plan/program identity.
+`RenderRuntimeIdentity` is the matching non-resource channel for pixel-affecting scalar/value state captured by opaque, Geometry, scope, and command callbacks. Its `Key` must be non-null, immutable for its equality lifetime, and equality-stable; tuples and immutable records are typical keys. `default(RenderRuntimeIdentity)` and an explicitly null key are invalid and rejected by description factories. Those factories accept a nullable identity: nullable `null` makes the recorder synthesize a fresh request-local identity on every recording, which is always correct but prevents cross-request pixel-cache reuse for that value or command. Shader binders instead use the snapshot-constrained `ShaderBindingCachePolicy` contract below. Runtime identity participates in render-output cache identity only and never in structural plan/program identity.
 
 Every explicit `structuralKey`, `RenderRuntimeIdentity.Key`, and resource `cacheKey` may be retained by a structural/program/render cache beyond the recording request. It must therefore be a lightweight, immutable, equality-stable CPU identity such as a `Type`, string, primitive/value tuple, or immutable record composed of such values. Keys must not be a context/session/handle/facade, `RenderResource`, delegate closure, mutable collection or graph, `IDisposable`, native/target object or handle, or a large payload. Hashes select buckets only; complete key equality decides identity. When a large or native object needs identity, authors supply a small immutable ID/version key instead of the object itself.
 
@@ -685,18 +685,28 @@ A materialized input is already a fusion/cache island boundary. Its `RenderTarge
 ```csharp
 namespace Beutl.Graphics.Rendering;
 
+public readonly struct TargetCaptureScaleContract
+{
+    public static TargetCaptureScaleContract MaterializeAtWorkingScale { get; }
+    public static TargetCaptureScaleContract PreserveTargetSupply { get; }
+
+    public static TargetCaptureScaleContract Custom(
+        Func<RenderScaleContext, float> resolve,
+        object? structuralKey = null);
+}
+
 public sealed class TargetCaptureDescription
 {
     public TargetRegion SourceRegion { get; }
     public Rect Bounds { get; }
     public RenderHitTestContract HitTest { get; }
-    public RenderScaleContract Scale { get; }
+    public TargetCaptureScaleContract Scale { get; }
 
     public static TargetCaptureDescription Create(
         TargetRegion sourceRegion,
         Rect bounds,
         RenderHitTestContract hitTest,
-        RenderScaleContract scale);
+        TargetCaptureScaleContract scale);
 }
 ```
 
@@ -704,9 +714,11 @@ public sealed class TargetCaptureDescription
 
 `Bounds` is mandatory, finite, non-empty conservative content metadata even when `SourceRegion` is `Full`; after scope resolution it must be contained by both the source region and current target domain. `SourceRegion.Empty`, `HitTest.AnyInput`, and mismatched bounds are rejected. A globally empty required region may still skip an otherwise valid capture at planning time.
 
-The public capture accepts only `RenderScaleContract.MaterializeAtWorkingScale` or `Custom`. With no value inputs, the standard form starts at `OutputScale`, caps by `MaxWorkingScale`, and applies the 16,384-axis clamp to `Bounds`; `Custom` receives an empty `InputSupplies` list and may use only `OutputBounds`, `OutputScale`, and `MaxWorkingScale` from its `RenderScaleContext` before following the same validation/cap/clamp. It receives no enclosing-scope density supply. `Vector` and `PreserveInputSupply` are rejected because the current target's eventual scoped density is not available while a child is recording.
+`TargetCaptureScaleContract.MaterializeAtWorkingScale` and `Custom` declare a concrete output-derived sampling boundary. With no value inputs, the standard form starts at `OutputScale`, caps by `MaxWorkingScale`, and applies the 16,384-axis clamp to `Bounds`; `Custom` receives an empty `InputSupplies` list and may use only `OutputBounds`, `OutputScale`, and `MaxWorkingScale` from its `RenderScaleContext` before following the same validation/cap/clamp. Neither form receives enclosing-scope density supply.
 
-Public `TargetCapture` is therefore a deliberate sampling/materialization boundary, not a lossless or scope-density-preserving snapshot. The executor samples the scoped target into the declared concrete capture density, so capture inside a denser finite `Layer` or `TargetLayerScope` may intentionally downsample before later consumers run. This resampling is part of the public operation's declared semantics and must be covered by density-sensitive parity tests. Engine-internal backdrop capture may instead late-bind the actual scoped target density; a nested handle for that capture reports no concrete public metadata until an explicit finite Layer supplies the owning domain.
+`TargetCaptureScaleContract.PreserveTargetSupply` is the explicit lossless alternative for backdrop-style operations. It remains late-bound during recording and exposes `EffectiveScale.Unbounded` on the transaction-scoped handle; during execution it materializes at the resolved density of the active external root, finite `Layer`, or `TargetLayerScope`. A denser enclosing scope therefore remains dense before a later Shader, replay, or other value consumer. The finite authored `Bounds` still provides public bounds and hit-test metadata, and the normal maximum-dimension invariant has already been enforced by the owning target allocation. The built-in backdrop uses this same public density contract plus an internal request-local identity binding; no engine-only density mode is required.
+
+Authors choose the mode deliberately: output-derived modes may downsample a denser scope and require density-sensitive parity coverage, while `PreserveTargetSupply` propagates the active target supply without letting a callback observe or override it.
 
 The captured value may feed Shader, Geometry, opaque, scope, or target-command inputs. Its target-token dependency is threaded into those consumers, materialized once, and may fan out to multiple pure consumers. The capture is a target-read/fusion and whole-subtree-cache boundary and is scheduled/lifetime-counted like every other value; CPU readback occurs only when a downstream declaration actually requires CPU pixels.
 
@@ -755,7 +767,7 @@ public sealed class TargetScopeSession
 
 The callback is invoked once per runtime input fragment against the current scoped target, which retains all preceding pixels and is never auto-cleared. It must call `ReplayInput` exactly once while `Canvas.Use` has its managed canvas active; the method replays that fragment on the same target. Missing, duplicate, retained, or out-of-scope replay is a deterministic execution failure. This session uses a narrower capability mode than opaque/Geometry drawing: only save/restore, transform, and clip operations that are mechanically known not to allocate a layer or emit pixels may surround `ReplayInput`; a resource-bearing clip must use a declared borrow. `Clear`, every independent draw, snapshot/readback, `PushLayer`, opacity/blend/paint/mask APIs that internally use `SaveLayer`, any hidden allocation, flush/submit, nested work, and unrelated resource use are rejected. Group isolation uses the typed `TargetLayerScope`; Opacity uses the typed `Opacity` recorder; engine blend/paint/mask nodes use planner-visible typed scope descriptors, and an arbitrary raw layered callback is `LegacyRawCanvas` opaque-external work. Additional pixel emission belongs in `TargetCommand` or an opaque value description. `Bounds`, `HitTest`, and `Scale` map each input's pure metadata; `PreserveInputSupply` keeps its density, while `MapInputSupply` publishes a transform-like density change after the corresponding input supply is known. Public `TargetScope` is an opaque fusion boundary even if its bounds look like identity. Engine-proven typed scopes use the same internal fragment shape but may participate in equivalence rewrites.
 
-Finite value `Layer` flattens all supplied streams in authored order into one fragment with exactly one materializable composited value and always publishes `EffectiveScale.Unbounded`. Demand resolution selects its materialization density from every child supply, `OutputScale`, `MaxWorkingScale`, and downstream demand, so a denser downstream consumer can raise the Layer density without changing the Layer's public supply contract (`src/Beutl.Engine/Graphics/Rendering/RenderNodeContext.cs:727-738`, `src/Beutl.Engine/Graphics/Rendering/RenderScaleUtilities.cs:19-35`). `TargetLayerScope` also flattens a mixed stream but exposes no independent outer value: it publishes `EffectiveScale.Unbounded`, preserves the input streams' aggregate `RenderValueCardinality` for dependency accounting, keeps its initialized `Full`, finite `Region`, or `Empty` target access in the fragment IR, and remains value-ineligible until explicitly localized by finite `Layer`. `TargetCommand` has no independent reusable pixel supply, publishes `EffectiveScale.Unbounded`, and has `RenderValueCardinality.None`; its effectful fragment plus `QueryBounds`/hit-test metadata remain observable. Public target capture has `Single`; materialized sources, WholeSource Shader, Geometry, and opaque materializations publish concrete supply according to their own contracts.
+Finite value `Layer` flattens all supplied streams in authored order into one fragment with exactly one materializable composited value and always publishes `EffectiveScale.Unbounded`. Demand resolution selects its materialization density from every child supply, `OutputScale`, `MaxWorkingScale`, and downstream demand, so a denser downstream consumer can raise the Layer density without changing the Layer's public supply contract (`src/Beutl.Engine/Graphics/Rendering/RenderNodeContext.cs:727-738`, `src/Beutl.Engine/Graphics/Rendering/RenderScaleUtilities.cs:19-35`). `TargetLayerScope` also flattens a mixed stream but exposes no independent outer value: it publishes `EffectiveScale.Unbounded`, preserves the input streams' aggregate `RenderValueCardinality` for dependency accounting, keeps its initialized `Full`, finite `Region`, or `Empty` target access in the fragment IR, and remains value-ineligible until explicitly localized by finite `Layer`. `TargetCommand` has no independent reusable pixel supply, publishes `EffectiveScale.Unbounded`, and has `RenderValueCardinality.None`; its effectful fragment plus `QueryBounds`/hit-test metadata remain observable. Public target capture has `Single`; output-derived capture modes publish concrete supply while `PreserveTargetSupply` remains `Unbounded` until execution against its active target. Materialized sources, WholeSource Shader, Geometry, and opaque materializations publish concrete supply according to their own contracts.
 
 ## Raw target compatibility callbacks
 
@@ -980,7 +992,7 @@ public sealed class ShaderUniformBinding
 {
     public string Name { get; }
     public object StructuralKey { get; }
-    public RenderRuntimeIdentity? RuntimeIdentity { get; }
+    public ShaderBindingCachePolicy CachePolicy { get; }
 }
 
 public sealed class ShaderResourceBinding
@@ -989,7 +1001,13 @@ public sealed class ShaderResourceBinding
     public ShaderResourceCoordinateSpace CoordinateSpace { get; }
     public RenderResource Resource { get; }
     public object StructuralKey { get; }
-    public RenderRuntimeIdentity? RuntimeIdentity { get; }
+    public ShaderBindingCachePolicy CachePolicy { get; }
+}
+
+public enum ShaderBindingCachePolicy
+{
+    RequestUnique,
+    ReuseFromSnapshot,
 }
 
 public enum ShaderResourceCoordinateSpace
@@ -1011,7 +1029,7 @@ public sealed class ShaderBindingBuilder
         T value,
         Action<ShaderUniformWriter, T, ShaderExecutionContext> bind,
         object? structuralKey = null,
-        RenderRuntimeIdentity? runtimeIdentity = null)
+        ShaderBindingCachePolicy cachePolicy = ShaderBindingCachePolicy.RequestUnique)
         where T : unmanaged;
 
     public void Resource<T>(
@@ -1020,7 +1038,7 @@ public sealed class ShaderBindingBuilder
         ShaderResourceCoordinateSpace coordinateSpace,
         Action<ShaderResourceWriter, T, ShaderExecutionContext> bind,
         object? structuralKey = null,
-        RenderRuntimeIdentity? runtimeIdentity = null)
+        ShaderBindingCachePolicy cachePolicy = ShaderBindingCachePolicy.RequestUnique)
         where T : class;
 }
 
@@ -1067,7 +1085,7 @@ An extra resource binding declares how coordinates passed to its `.eval` are int
 
 Uniform/resource names, parsed source types, order, coordinate spaces, binder method/explicit structural keys, source, kind, tile mode, and bounds behavior are structural. Uniform values, resource identities/versions/contents, final logical/device bounds, required region, output/working/input density, and frame data are runtime. The direct unmanaged `Uniform(name, value)` overload writes the value without an author callback and automatically encodes its validated canonical representation in render-output cache identity. `unmanaged` is only the compile-time ceiling: runtime validation accepts the explicit canonical CPU scalar/vector/matrix allowlist compatible with the parsed SkSL type and rejects pointer-containing/padding-dependent structs, opaque byte blobs, `IntPtr`/`UIntPtr`/`nint`/`nuint`, function/native handles, and any other process-address identity. Canonical identity is derived from validated components, never raw struct memory. The span overload copies its floats into immutable description-owned storage during recording and keys the copied bit pattern; no caller array/memory is retained.
 
-The custom uniform binder overload also includes its passed `value` automatically. A null structural key defaults to the binder method identity; a shape-changing captured choice requires an explicit equality-stable structural key. Any additional pixel-affecting state read by the binder—including captured fields, globals, clocks, or services—must be represented by `runtimeIdentity`. Null is deliberately request-unique for every custom binder invocation, so the safe default cannot reuse a stale pixel cache; authors opt into cross-request output-cache reuse by supplying a complete equality-stable runtime key. Resource binders follow the same runtime rule. `ShaderExecutionContext`, writers, and resource tokens are active only during binding.
+The custom uniform binder overload copies its passed `value` into the immutable description and includes that canonical snapshot automatically in runtime cache identity. `ShaderBindingCachePolicy.RequestUnique` is the default and creates a fresh identity for each recorded custom binding, so a callback that legitimately observes other request-local state cannot publish a cross-request cache entry. `ReuseFromSnapshot` is accepted only for a non-capturing callback and derives reusable binding identity solely from the copied uniform value, or from the resource token's immutable key/version snapshot for a resource binder. Per cache candidate, the containing Shader subtree additionally keys request `OutputScale` and `MaxWorkingScale` plus the resolved complete bounds and required region of every reusable stage and every fragment in its upstream input closure. Combined with the subtree's density and device-grid identity, these values cover every `ShaderExecutionContext` property, including fan-out changes to shared materialized bounds that pass through transparent value wrappers, while an external reusable sibling leaves a binder-free candidate reusable. A static lambda provides the intended compile-time guarantee. Such a callback must read only its callback arguments and `ShaderExecutionContext`; instance and closure state are mechanically rejected, while mutable globals, services, clocks, or other unsnapshotted state are contract violations. Additional pixel-affecting state must be copied into a direct/custom uniform value or represented by a versioned resource instead of being paired with an author-asserted key. A null structural key defaults to the binder method identity; structural keys identify shape only and never substitute for runtime snapshots. `ShaderExecutionContext`, writers, and resource tokens are active only during binding.
 
 `ShaderUniformWriter` validates exactly one value compatible with the parsed uniform type. `ShaderResourceWriter.Set` transfers one newly created native shader to the engine; the engine disposes it after binding/program execution or on failure. A missing/duplicate/incompatible write is an explicit binding failure. `ShaderDescription` intentionally has reference equality; an internal structural key/comparer, not object/record equality, implements plan/program reuse.
 

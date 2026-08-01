@@ -84,7 +84,7 @@ public partial class ColorShift : FilterEffect
             new Vector2(value.X, value.Y),
             BindScaledOffset,
             structuralKey: typeof(ColorShift),
-            runtimeIdentity: new RenderRuntimeIdentity("ColorShift.offset"));
+            cachePolicy: ShaderBindingCachePolicy.ReuseFromSnapshot);
     }
 
     private static void BindScaledOffset(

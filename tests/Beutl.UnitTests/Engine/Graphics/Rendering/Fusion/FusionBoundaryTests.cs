@@ -643,7 +643,7 @@ public sealed class FusionBoundaryTests
             TargetRegion.Full,
             s_bounds,
             RenderHitTestContract.None,
-            RenderScaleContract.MaterializeAtWorkingScale);
+            TargetCaptureScaleContract.MaterializeAtWorkingScale);
         return new TargetCaptureRenderFragmentPayload(description);
     }
 
