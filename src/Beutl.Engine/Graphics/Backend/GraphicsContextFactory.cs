@@ -163,6 +163,7 @@ public class GraphicsContextFactory
     {
         RenderThread.Dispatcher.Invoke(() =>
         {
+            GpuResourceReclaimQueue.FlushAndDrain();
             SharedContext?.Dispose();
             SharedContext = null;
 

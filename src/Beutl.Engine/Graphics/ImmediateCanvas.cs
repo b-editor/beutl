@@ -1407,6 +1407,7 @@ public partial class ImmediateCanvas : IDisposable, IPopable
             {
                 context.SkiaContext.Flush(true, true);
                 RecordFlush(ImmediateCanvasFlushKind.CanvasClose);
+                GpuResourceReclaimQueue.DrainAfterContextSync();
             }
 
             while (_states.TryPop(out CanvasPushedState? state))

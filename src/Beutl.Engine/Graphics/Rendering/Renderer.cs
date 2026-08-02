@@ -714,6 +714,7 @@ public class Renderer : IRenderer
             // in the shared resource cache. Submit completed work before purging the released scratch bytes
             // so Metal/Vulkan can actually return them instead of growing once per delivery frame.
             context.SkiaContext.Flush(submit: true, synchronous: true);
+            GpuResourceReclaimQueue.DrainAfterContextSync();
             context.SkiaContext.PurgeUnlockedResources(released, preferScratchResources: true);
         }
 

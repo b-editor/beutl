@@ -74,7 +74,14 @@ public class RenderTarget : IDisposable
                 }
             }
 
-            var textureRef = sharedTexture != null ? new SKSurfaceCounter<ITexture2D>(sharedTexture) : null;
+            // Skia refcounts the surface itself and only borrows the image behind it, so the
+            // backend texture is the one resource that can outlive its last managed reference.
+            var textureRef = sharedTexture != null
+                ? new SKSurfaceCounter<ITexture2D>(
+                    sharedTexture,
+                    deferRelease: true,
+                    approximateBytes: (long)width * height * 8)
+                : null;
             return surface == null
                 ? null
                 : new RenderTarget(new SKSurfaceCounter<SKSurface>(surface), width, height, textureRef);
@@ -211,12 +218,18 @@ public class RenderTarget : IDisposable
     {
         VerifyAccess();
 
-        _surface.Value!.Flush(true, true);
+        // A context-wide flush is a superset of this surface's, so reclaiming deferred targets
+        // here replaces the surface flush instead of adding a second submit.
+        if (!GpuResourceReclaimQueue.FlushAndDrain())
+        {
+            _surface.Value!.Flush(true, true);
+        }
+
         ImmediateCanvas.RecordFlush(ImmediateCanvasFlushKind.PrepareForSampling);
         _texture?.Value?.PrepareForSampling();
     }
 
-    private sealed class SKSurfaceCounter<T>(T value)
+    private sealed class SKSurfaceCounter<T>(T value, bool deferRelease = false, long approximateBytes = 0)
         where T : class, IDisposable
     {
         private readonly Dispatcher? _dispatcher = Dispatcher.Current;
@@ -261,16 +274,16 @@ public class RenderTarget : IDisposable
                             {
                                 if (_dispatcher.CheckAccess())
                                 {
-                                    value.Dispose();
+                                    ReleaseValue(value);
                                 }
                                 else
                                 {
-                                    _dispatcher.Dispatch(value.Dispose);
+                                    _dispatcher.Dispatch(() => ReleaseValue(value));
                                 }
                             }
                             else
                             {
-                                value.Dispose();
+                                ReleaseValue(value);
                             }
                         }
                     }
@@ -280,6 +293,16 @@ public class RenderTarget : IDisposable
 
                 old = current;
             }
+        }
+
+        private void ReleaseValue(T value)
+        {
+            if (deferRelease && GpuResourceReclaimQueue.TryDefer(value, approximateBytes))
+            {
+                return;
+            }
+
+            value.Dispose();
         }
     }
 }
