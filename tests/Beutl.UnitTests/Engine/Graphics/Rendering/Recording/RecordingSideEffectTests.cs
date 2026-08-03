@@ -180,14 +180,22 @@ public sealed class RecordingSideEffectTests
 
         foreach (ObjectCreationExpressionSyntax creation in eagerNodes.OfType<ObjectCreationExpressionSyntax>())
         {
+            if (creation.Type is null) continue;
             string? name = creation.Type.DescendantTokens()
                 .LastOrDefault(static token => token.IsKind(SyntaxKind.IdentifierToken))
                 .ValueText;
             if (name is not null && constructionNames.Contains(name))
             {
-                yield return source.ToFinding(
-                    creation,
-                    $"eager construction '{name}'");
+                yield return source.ToFinding(creation, $"eager construction '{name}'");
+            }
+        }
+        foreach (ImplicitObjectCreationExpressionSyntax creation in eagerNodes.OfType<ImplicitObjectCreationExpressionSyntax>())
+        {
+            ITypeSymbol? type = source.SemanticModel.GetTypeInfo(creation).Type;
+            string? name = type?.ToDisplayString().Split('.').LastOrDefault();
+            if (name is not null && constructionNames.Contains(name))
+            {
+                yield return source.ToFinding(creation, $"eager construction '{name}'");
             }
         }
 
@@ -196,6 +204,107 @@ public sealed class RecordingSideEffectTests
             if (identifier.Identifier.ValueText == "GraphicsContextFactory")
             {
                 yield return source.ToFinding(identifier, "eager GPU-context access");
+            }
+
+            if (source.SemanticModel.GetSymbolInfo(identifier).Symbol is IPropertySymbol property
+                && property.GetMethod is { } getter)
+            {
+                foreach (SyntaxReference reference in getter.DeclaringSyntaxReferences)
+                {
+                    if (reference.GetSyntax() is AccessorDeclarationSyntax accessor
+                        && accessor.SyntaxTree == source.Method.SyntaxTree)
+                    {
+                        foreach (SourceFinding inner in FindEagerExecutionInAccessor(
+                            accessor, source, invocationNames, constructionNames))
+                        {
+                            yield return inner;
+                        }
+                    }
+                }
+            }
+        }
+
+        Dictionary<string, string?> delegateTargets = new(StringComparer.Ordinal);
+        foreach (LocalDeclarationStatementSyntax declaration in eagerNodes.OfType<LocalDeclarationStatementSyntax>())
+        {
+            foreach (VariableDeclaratorSyntax variable in declaration.Declaration.Variables)
+            {
+                if (variable.Initializer?.Value is IdentifierNameSyntax methodGroup
+                    && source.SemanticModel.GetSymbolInfo(methodGroup).Symbol is IMethodSymbol target)
+                {
+                    delegateTargets[variable.Identifier.ValueText] = target.Name;
+                }
+            }
+        }
+        if (delegateTargets.Count > 0)
+        {
+            foreach (InvocationExpressionSyntax invocation in eagerNodes.OfType<InvocationExpressionSyntax>())
+            {
+                if (invocation.Expression is IdentifierNameSyntax identifier
+                    && delegateTargets.TryGetValue(identifier.Identifier.ValueText, out string? targetName)
+                    && targetName is not null
+                    && invocationNames.Contains(targetName)
+                    && !IsCpuNodeDescriptionRender(invocation, targetName))
+                {
+                    yield return source.ToFinding(
+                        invocation,
+                        $"eager delegate invocation '{targetName}'");
+                }
+            }
+        }
+    }
+
+    private static IEnumerable<SourceFinding> FindEagerExecutionInAccessor(
+        AccessorDeclarationSyntax accessor,
+        SourceMethod source,
+        HashSet<string> invocationNames,
+        HashSet<string> constructionNames)
+    {
+        IEnumerable<SyntaxNode> accessorNodes = accessor.DescendantNodes(
+            descendIntoChildren: static node =>
+                node is not AnonymousFunctionExpressionSyntax
+                && node is not LocalFunctionStatementSyntax);
+
+        foreach (InvocationExpressionSyntax invocation in accessorNodes.OfType<InvocationExpressionSyntax>())
+        {
+            string? name = GetInvokedName(invocation);
+            if (name is not null
+                && invocationNames.Contains(name)
+                && !IsCpuNodeDescriptionRender(invocation, name))
+            {
+                yield return source.ToFinding(invocation, $"eager invocation '{name}' in property getter");
+            }
+
+            if (name == "Snapshot" && IsNativeSnapshotInvocation(invocation, source.SemanticModel))
+            {
+                yield return source.ToFinding(invocation, "eager surface/target snapshot in property getter");
+            }
+
+            if ((name is null || !invocationNames.Contains(name))
+                && IsTargetFactoryInvocation(invocation, source.SemanticModel))
+            {
+                yield return source.ToFinding(invocation, "eager target-factory access in property getter");
+            }
+        }
+
+        foreach (ObjectCreationExpressionSyntax creation in accessorNodes.OfType<ObjectCreationExpressionSyntax>())
+        {
+            if (creation.Type is null) continue;
+            string? name = creation.Type.DescendantTokens()
+                .LastOrDefault(static token => token.IsKind(SyntaxKind.IdentifierToken))
+                .ValueText;
+            if (name is not null && constructionNames.Contains(name))
+            {
+                yield return source.ToFinding(creation, $"eager construction '{name}' in property getter");
+            }
+        }
+        foreach (ImplicitObjectCreationExpressionSyntax creation in accessorNodes.OfType<ImplicitObjectCreationExpressionSyntax>())
+        {
+            ITypeSymbol? type = source.SemanticModel.GetTypeInfo(creation).Type;
+            string? name = type?.ToDisplayString().Split('.').LastOrDefault();
+            if (name is not null && constructionNames.Contains(name))
+            {
+                yield return source.ToFinding(creation, $"eager construction '{name}' in property getter");
             }
         }
     }

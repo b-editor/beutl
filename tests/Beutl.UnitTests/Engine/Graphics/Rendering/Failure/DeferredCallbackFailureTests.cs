@@ -53,16 +53,20 @@ public sealed class DeferredCallbackFailureTests
         using var node = new GeometryFailureNode(failurePoint);
         using var renderer = FailureTestSupport.CreateRenderer(node, useRenderCache: false);
 
-        Exception? failure = Assert.Catch(() => renderer.Rasterize());
+        Type expectedType = failurePoint switch
+        {
+            GeometryFailure.InvalidShrink => typeof(ArgumentException),
+            GeometryFailure.UseAfterCanvasClose => typeof(ObjectDisposedException),
+            _ => typeof(InvalidOperationException),
+        };
+        Assert.That(
+            () => renderer.Rasterize(),
+            failurePoint == GeometryFailure.Callback
+                ? Throws.TypeOf(expectedType).And.Message.EqualTo("geometry-callback-primary")
+                : Throws.TypeOf(expectedType));
 
         Assert.Multiple(() =>
         {
-            Assert.That(failure, Is.Not.Null);
-            if (failurePoint == GeometryFailure.Callback)
-            {
-                Assert.That(failure, Is.TypeOf<InvalidOperationException>());
-                Assert.That(failure!.Message, Is.EqualTo("geometry-callback-primary"));
-            }
             Assert.That(node.CallbackEntries, Is.EqualTo(1));
             Assert.That(renderer.TargetPoolStatistics.LeasedTargets, Is.Zero);
             Assert.That(node.Cache.IsCached, Is.False);
