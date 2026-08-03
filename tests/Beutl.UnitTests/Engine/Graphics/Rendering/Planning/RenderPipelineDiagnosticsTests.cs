@@ -754,6 +754,9 @@ public sealed class RenderPipelineDiagnosticsTests
             _ = state.LatestFrame;
         });
 
+        Assert.That(observed, Is.EqualTo(64),
+            "the concurrent phase must publish all 64 completions before the sequential repair.");
+
         state.Complete(CreateSnapshot(requestId: 65));
 
         Assert.Multiple(() =>

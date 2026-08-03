@@ -358,6 +358,9 @@ public class EffectScaleParityTests
 
                 // Parity is measurable: discard earlier transient non-finite records.
                 attempts.Clear();
+                Assert.That(
+                    HasFiniteVisibleContent(r1),
+                    $"{name}: the 1:1 reference must render finite visible content (SC-013 non-vacuity).");
                 double ssim = ImageMetrics.Ssim(r1, delivered);
                 // Windowed SSIM logged as diagnostic only (no universal floor; structural effects can be low).
                 double windowed = ImageMetrics.WindowedSsim(r1, delivered, 16);
@@ -402,6 +405,20 @@ public class EffectScaleParityTests
                 + string.Join("; ", attempts.Select(a => $"ref={a.Ref ?? "ok"}|scaled={a.Scaled ?? "ok"}"))
                 + $"] — {detail}; parity is verified on a hardware GPU.");
         }
+    }
+
+    private static bool HasFiniteVisibleContent(Bitmap bitmap)
+    {
+        ReadOnlySpan<ushort> pixels = bitmap.GetPixelSpan<ushort>();
+        for (int i = 3; i < pixels.Length; i += 4)
+        {
+            float a = (float)BitConverter.UInt16BitsToHalf(pixels[i]);
+            if (float.IsFinite(a) && a > 0f)
+            {
+                return true;
+            }
+        }
+        return false;
     }
 
     public static IEnumerable<TestCaseData> RepresentativeEffectsWithScales()
