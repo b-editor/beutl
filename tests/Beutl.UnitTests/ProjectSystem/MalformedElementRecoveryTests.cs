@@ -69,21 +69,34 @@ public sealed class MalformedElementRecoveryTests
     }
 
     [Test]
-    public void Save_PreservesDeserializationFallbackSidecarBytes()
+    public void Save_PersistsValidFieldsWhilePreservingFallbackProjection()
     {
         (Uri sceneUri, string elementPath) = CreatePersistedScene();
         JsonObject json = JsonNode.Parse(File.ReadAllText(elementPath))!.AsObject();
         json[nameof(CoreObject.Name)] = "Hand-formatted element";
-        json[nameof(Element.Objects)]!.AsArray()[0]!.AsObject()[nameof(RectShape.Width)] = "invalid-width";
-        string fallbackSource = json.ToJsonString();
-        File.WriteAllText(elementPath, fallbackSource);
-        byte[] originalBytes = File.ReadAllBytes(elementPath);
+        JsonObject malformedObject = json[nameof(Element.Objects)]!.AsArray()[0]!.AsObject();
+        string originalType = malformedObject["$type"]!.GetValue<string>();
+        malformedObject[nameof(RectShape.Width)] = "invalid-width";
+        File.WriteAllText(elementPath, json.ToJsonString());
 
         Scene recovered = CoreSerializer.RestoreFromUri<Scene>(sceneUri);
-        Assert.That(recovered.Children.Single().Objects.Single(), Is.InstanceOf<IFallback>());
+        Element element = recovered.Children.Single();
+        Assert.That(element.Objects.Single(), Is.InstanceOf<IFallback>());
+        element.Name = "Edited valid field";
         CoreSerializer.StoreToUri(recovered, sceneUri);
 
-        Assert.That(File.ReadAllBytes(elementPath), Is.EqualTo(originalBytes));
+        Scene reloaded = CoreSerializer.RestoreFromUri<Scene>(sceneUri);
+        Element reloadedElement = reloaded.Children.Single();
+        IFallback fallback = (IFallback)reloadedElement.Objects.Single();
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(reloadedElement.Name, Is.EqualTo("Edited valid field"),
+                "Valid-field edits on a partially recovered element must persist across save+reload.");
+            Assert.That(reloadedElement.Objects.Single(), Is.InstanceOf<IFallback>());
+            Assert.That(fallback.Json!["$type"]!.GetValue<string>(), Is.EqualTo(originalType),
+                "The nested fallback must preserve its original discriminator.");
+        });
     }
 
     [Test]

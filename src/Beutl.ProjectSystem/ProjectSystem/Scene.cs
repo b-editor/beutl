@@ -704,8 +704,6 @@ public class Scene : ProjectItem, INotifyEdited
                 {
                     EnsureFallbackProjection(fallback);
                 }
-
-                MarkRecoveredElement(element, rawText);
             }
 
             return element;
