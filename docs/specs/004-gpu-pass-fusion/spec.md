@@ -74,7 +74,7 @@ A plugin, script, or built-in effect author continues to implement `ApplyTo` aga
 
 **Acceptance Scenarios**:
 
-1. **Given** an existing effect that overrides `ApplyTo` and uses current `FilterEffectContext` operations, **When** it is compiled and rendered after this feature, **Then** it requires no lifecycle migration and preserves its baseline behavior.
+1. **Given** an existing effect that overrides `ApplyTo` and uses current `FilterEffectContext` operations, **When** it is compiled and rendered after this feature, **Then** it requires no lifecycle migration and preserves its baseline behavior — provided the effect does not depend on author-time metadata that FR-018 makes newly unavailable (e.g. reading `Bounds` or `WorkingScale` during `ApplyTo` to derive a later operation must be rewritten as deferred binding); such metadata-dependent effects require source migration.
 2. **Given** a public-API consumer that records a coordinate-invariant Shader operation, **When** the operation is placed between other eligible stages, **Then** it can participate in cross-node fusion without accessing engine internals.
 3. **Given** a public-API consumer that records Geometry with declared bounds and readback needs, **When** `ApplyTo` runs, **Then** recording performs no drawing, allocation, flush, or readback, and the geometry callback executes later under engine-owned lifetime rules.
 4. **Given** legacy, Shader, and Geometry operations recorded in one context, **When** the effect renders, **Then** their authored order is preserved and unsupported legacy work becomes an explicit barrier rather than being reordered or dropped.

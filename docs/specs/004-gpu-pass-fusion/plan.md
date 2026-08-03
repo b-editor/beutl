@@ -226,6 +226,12 @@ Both authoring contexts accept the same `ShaderDescription` and `GeometryDescrip
 4. Record same-target child nodes into the current graph; represent separate-target child rendering as nested requests inheriting allocator, diagnostics, purpose, intent, scale, region, and cache policy.
 5. Convert 3D to a deferred opaque backend source whose execution produces one materialized 2D input and explicit transition/synchronization events.
 
+### Phase C.5 - Bound the request-wide allocation footprint
+
+1. Define a request-wide **allocation budget** on the allocator/request owner: an aggregate live-buffer **area** budget (device pixels) and a simultaneous **live-buffer count**, enforced at every `RenderTarget.Create` / pool acquire in addition to the per-buffer FR-037(b) dimension clamp. The budget MUST cap the sum of live buffer areas (so several simultaneously live fan-out targets cannot approach the per-buffer 2 GiB ceiling), MUST be inherited by nested requests, and MUST have a documented failure policy that matches the existing `Intent` degrade/fail-fast characterization (preview logs and drops, delivery/export fails fast).
+2. Clamp the per-buffer dimension against the **actual backend-reported image limit** (`maxImageDimension2D`) instead of only the hard-coded `16384`: a sub-16384 backend (mobile, non-target) must be protected by the clamp, not only the degrade paths.
+3. Resolve the feature-003 "follow-up" note: replace `docs/specs/003-resolution-independent-pipeline/spec.md` FR-037's "request-scoped aggregate byte/area/live-buffer budget ... remain explicit follow-up work outside feature 003" with a pointer to this feature's request-wide budget as the authoritative aggregate bound.
+
 ### Phase D - Analyze regions and caches after discovery
 
 1. Acquire and validate each finite owning target domain from the real destination, a finite Layer, or explicit target-less `TargetDomain`, then lower scope-local target-token topology and discover complete preceding-token dependencies. Resolve symbolic TargetLayerScope regions only after every enclosing scope map is known; fail during lowering when a reachable Full access has no finite owner domain.
