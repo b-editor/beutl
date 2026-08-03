@@ -1023,6 +1023,8 @@ internal static class PairedBenchmarkAnalyzer
             foreach (string name in new[]
                      {
                          "seed", "width", "height", "setupWarmupFrames", "lifetime", "requestShape",
+                         "semanticStageCount", "topLevelDrawableCount", "animation", "barrier",
+                         "hasStaticPrefixCache", "hasTargetDependencies",
                      })
             {
                 if (!root.TryGetProperty(name, out JsonElement value))
@@ -1154,6 +1156,28 @@ internal static class PairedBenchmarkAnalyzer
             {
                 mismatches.Add("requestShape");
             }
+            if (root.GetProperty("semanticStageCount").GetInt32() != scene.SemanticStageCount)
+                mismatches.Add("semanticStageCount");
+            if (root.GetProperty("topLevelDrawableCount").GetInt32() != scene.TopLevelDrawableCount)
+                mismatches.Add("topLevelDrawableCount");
+            if (!string.Equals(
+                    root.GetProperty("animation").GetString(),
+                    scene.Animation.ToString(),
+                    StringComparison.Ordinal))
+            {
+                mismatches.Add("animation");
+            }
+            if (!string.Equals(
+                    root.GetProperty("barrier").GetString(),
+                    scene.Barrier.ToString(),
+                    StringComparison.Ordinal))
+            {
+                mismatches.Add("barrier");
+            }
+            if (root.GetProperty("hasStaticPrefixCache").GetBoolean() != scene.HasStaticPrefixCache)
+                mismatches.Add("hasStaticPrefixCache");
+            if (root.GetProperty("hasTargetDependencies").GetBoolean() != scene.HasTargetDependencies)
+                mismatches.Add("hasTargetDependencies");
 
             if (mismatches.Count != 0)
             {

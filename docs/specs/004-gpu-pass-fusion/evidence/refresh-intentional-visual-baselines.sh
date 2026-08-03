@@ -155,11 +155,15 @@ benchmark_tools = benchmark.get("evidenceTools")
 if not isinstance(baseline_tools, dict) or not isinstance(benchmark_tools, dict):
     raise SystemExit("An evidence-tool hash table is missing")
 baseline_tools["generatorScriptSha256"] = generator_script_sha
-benchmark_tools["generatorScriptSha256"] = generator_script_sha
 baseline_tools["pairedRunnerSha256"] = paired_runner_sha
-benchmark_tools["pairedRunnerSha256"] = paired_runner_sha
 baseline_tools["refreshScriptSha256"] = refresh_script_sha
-benchmark_tools["refreshScriptSha256"] = refresh_script_sha
+# The archived benchmark run is not re-executed by this visual refresh, so its
+# captured tool hashes must stay as they were recorded and cannot be re-stamped
+# with the current scripts; the benchmark anchor and manifest hash are updated
+# below only because the visual link field changes.
+for tool_name in ("generatorScriptSha256", "pairedRunnerSha256", "refreshScriptSha256"):
+    if not isinstance(benchmark_tools.get(tool_name), str) or len(benchmark_tools[tool_name]) != 64:
+        raise SystemExit(f"Target benchmark evidence-tool hash is missing: {tool_name}")
 
 baseline_fingerprint = baseline.get("fingerprint")
 feature_fingerprint = feature.get("fingerprint")

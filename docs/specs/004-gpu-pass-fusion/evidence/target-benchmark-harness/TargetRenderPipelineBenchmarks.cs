@@ -197,6 +197,12 @@ internal sealed class TargetRenderPipelineBenchmarkSession : IDisposable
             SetupWarmupFrames = TargetRenderPipelineBenchmarkConfig.SetupWarmupFrameCount,
             Lifetime = TargetRenderPipelineBenchmarkConfig.LifetimeContract,
             RequestShape = TargetRenderPipelineBenchmarkConfig.RequestShapeContract,
+            SemanticStageCount = _scene.SemanticStageCount,
+            TopLevelDrawableCount = _scene.TopLevelDrawableCount,
+            Animation = _scene.Animation.ToString(),
+            Barrier = _scene.Barrier.ToString(),
+            HasStaticPrefixCache = _scene.HasStaticPrefixCache,
+            HasTargetDependencies = _scene.HasTargetDependencies,
             OutputSha256 = setup.Sha256,
             OutputChecksum = setup.Checksum.ToString("x16"),
             OutputBounds = setup.Bounds,
@@ -744,6 +750,12 @@ internal sealed class TargetRenderPipelineCounterRecord
     public int SetupWarmupFrames { get; init; }
     public string Lifetime { get; init; } = string.Empty;
     public string RequestShape { get; init; } = string.Empty;
+    public int SemanticStageCount { get; init; }
+    public int TopLevelDrawableCount { get; init; }
+    public string Animation { get; init; } = string.Empty;
+    public string Barrier { get; init; } = string.Empty;
+    public bool HasStaticPrefixCache { get; init; }
+    public bool HasTargetDependencies { get; init; }
     public string OutputSha256 { get; init; } = string.Empty;
     public string OutputChecksum { get; init; } = string.Empty;
     public Rect OutputBounds { get; init; }
@@ -783,6 +795,14 @@ internal enum TargetBenchmarkAnimation
     StructuralToggle,
 }
 
+internal enum TargetBenchmarkBarrier
+{
+    None,
+    WholeSourceShader,
+    SpatialEffect,
+    TargetDependency,
+}
+
 internal readonly record struct TargetBenchmarkFrameState(int FrameModulo60, bool StructuralVariant);
 
 internal sealed record TargetRenderPipelineSceneDefinition(
@@ -792,6 +812,7 @@ internal sealed record TargetRenderPipelineSceneDefinition(
     int TopLevelDrawableCount = 1,
     float ContentScale = 0.8f,
     TargetBenchmarkAnimation Animation = TargetBenchmarkAnimation.None,
+    TargetBenchmarkBarrier Barrier = TargetBenchmarkBarrier.None,
     bool HasStaticPrefixCache = false,
     bool HasTargetDependencies = false)
 {
@@ -810,16 +831,19 @@ internal static class TargetRenderPipelineScenes
         new("NoEffectControl", SourceSeed + 0, 0),
         new("SingleShader", SourceSeed + 1, 1),
         new("ShaderOpacityShader", SourceSeed + 2, 3),
-        new("ShaderOpacityShaderBarrier", SourceSeed + 3, 4),
+        new("ShaderOpacityShaderBarrier", SourceSeed + 3, 4,
+            Barrier: TargetBenchmarkBarrier.WholeSourceShader),
         new("LongInvariantChain", SourceSeed + 4, 10),
         new("ParameterOnlyAnimation", SourceSeed + 5, 3, Animation: TargetBenchmarkAnimation.ParameterOnly),
         new("StructuralToggle", SourceSeed + 6, 3, Animation: TargetBenchmarkAnimation.StructuralToggle),
         new("StaticPrefixAnimatedTail", SourceSeed + 7, 6,
             Animation: TargetBenchmarkAnimation.ParameterOnly, HasStaticPrefixCache: true),
-        new("MixedSpatialColor", SourceSeed + 8, 5),
+        new("MixedSpatialColor", SourceSeed + 8, 5, Barrier: TargetBenchmarkBarrier.SpatialEffect),
         new("SmallObjectFixedOverhead", SourceSeed + 9, 3, ContentScale: 0.1f),
         new("MultipleDrawablesTargetDependencies", SourceSeed + 10, 4,
-            TopLevelDrawableCount: 4, HasTargetDependencies: true),
+            TopLevelDrawableCount: 4,
+            Barrier: TargetBenchmarkBarrier.TargetDependency,
+            HasTargetDependencies: true),
     ];
 
     public static TargetRenderPipelineSceneDefinition Get(string name)

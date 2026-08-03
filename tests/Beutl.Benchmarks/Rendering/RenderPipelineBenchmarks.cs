@@ -206,6 +206,12 @@ internal sealed class RenderPipelineBenchmarkSession : IDisposable
             SetupWarmupFrames = RenderPipelineBenchmarkConfig.SetupWarmupFrameCount,
             Lifetime = RenderPipelineBenchmarkConfig.LifetimeContract,
             RequestShape = RenderPipelineBenchmarkConfig.RequestShapeContract,
+            SemanticStageCount = _scene.SemanticStageCount,
+            TopLevelDrawableCount = _scene.TopLevelDrawableCount,
+            Animation = _scene.Animation.ToString(),
+            Barrier = _scene.Barrier.ToString(),
+            HasStaticPrefixCache = _scene.HasStaticPrefixCache,
+            HasTargetDependencies = _scene.HasTargetDependencies,
             OutputSha256 = setup.Sha256,
             OutputChecksum = setup.Checksum.ToString("x16"),
             OutputBounds = setup.Bounds,
@@ -932,6 +938,12 @@ internal sealed class RenderPipelineBenchmarkCounterRecord
     public int SetupWarmupFrames { get; init; }
     public string Lifetime { get; init; } = string.Empty;
     public string RequestShape { get; init; } = string.Empty;
+    public int SemanticStageCount { get; init; }
+    public int TopLevelDrawableCount { get; init; }
+    public string Animation { get; init; } = string.Empty;
+    public string Barrier { get; init; } = string.Empty;
+    public bool HasStaticPrefixCache { get; init; }
+    public bool HasTargetDependencies { get; init; }
     public string OutputSha256 { get; init; } = string.Empty;
     public string OutputChecksum { get; init; } = string.Empty;
     public Rect OutputBounds { get; init; }

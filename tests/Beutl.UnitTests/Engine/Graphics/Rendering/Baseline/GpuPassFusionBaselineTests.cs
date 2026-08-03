@@ -10,7 +10,45 @@ namespace Beutl.UnitTests.Engine.Graphics.Rendering.Baseline;
 public sealed class GpuPassFusionBaselineTests
 {
     private const string ExpectedTargetBenchmarkManifestSha256 =
-        "8a32b484247ebb84630aa25442698e28606b4cf57849e5ea029b6eefe71fe0ef";
+        "ef2615979ac19920d1d0f5bce9a80edc314dd2d2233710fe66bc0ded91932806";
+
+    private const string ExpectedPairedBenchmarkManifestSha256 =
+        "839eaf34e4fa5824a03333fa50418259ea3fca302a044eb767110afb6b676b1e";
+
+    private static readonly string[] ExpectedPairedBenchmarkCounterFiles =
+    [
+        "LongInvariantChain.json",
+        "MixedSpatialColor.json",
+        "MultipleDrawablesTargetDependencies.json",
+        "NoEffectControl.json",
+        "ParameterOnlyAnimation.json",
+        "ShaderOpacityShader.json",
+        "ShaderOpacityShaderBarrier.json",
+        "SingleShader.json",
+        "SmallObjectFixedOverhead.json",
+        "StaticPrefixAnimatedTail.json",
+        "StructuralToggle.json",
+    ];
+
+    private static readonly string[] ExpectedPairedBenchmarkArchiveFiles =
+    [
+        .. ExpectedPairedBenchmarkCounterFiles.Select(file => $"baseline-a/counters/{file}"),
+        .. ExpectedPairedBenchmarkCounterFiles.Select(file => $"baseline-b/counters/{file}"),
+        .. ExpectedPairedBenchmarkCounterFiles.Select(file => $"feature/counters/{file}"),
+        "baseline-a/code-sha.txt",
+        "baseline-a/command.txt",
+        "baseline-a/raw-benchmark-full.json",
+        "baseline-a/raw-benchmark-stdout.txt",
+        "baseline-b/code-sha.txt",
+        "baseline-b/command.txt",
+        "baseline-b/raw-benchmark-full.json",
+        "baseline-b/raw-benchmark-stdout.txt",
+        "feature/code-sha.txt",
+        "feature/command.txt",
+        "feature/raw-benchmark-full.json",
+        "feature/raw-benchmark-stdout.txt",
+        "manifest.json",
+    ];
 
     [Test]
     public void IntentionalRefreshScript_StagesAllLinkedTrustAnchorsBeforePublishing()
@@ -180,6 +218,74 @@ public sealed class GpuPassFusionBaselineTests
     }
 
     [Test]
+    public void PairedBenchmarkArchive_HasPinnedManifestFileSetAndArtifactHashes()
+    {
+        GpuPassFusionEvidencePaths paths = GpuPassFusionEvidencePaths.Discover();
+        string directory = Path.Combine(paths.EvidenceDirectory, "paired-benchmark-run");
+        string manifestPath = Path.Combine(directory, "manifest.json");
+        GpuPassFusionBaselineEvidence.VerifyFileHash(
+            manifestPath,
+            ExpectedPairedBenchmarkManifestSha256,
+            "paired benchmark manifest");
+
+        using JsonDocument document = JsonDocument.Parse(File.ReadAllBytes(manifestPath));
+        JsonElement root = document.RootElement;
+        Assert.Multiple(() =>
+        {
+            Assert.That(root.GetProperty("schemaVersion").GetInt32(), Is.EqualTo(2));
+            Assert.That(
+                root.EnumerateObject().Select(static property => property.Name),
+                Does.Contain("overallAcceptancePassed"));
+        });
+
+        string[] actualFiles = Directory.EnumerateFiles(directory, "*", SearchOption.AllDirectories)
+            .Select(path => Path.GetRelativePath(directory, path).Replace(Path.DirectorySeparatorChar, '/'))
+            .Order(StringComparer.Ordinal)
+            .ToArray();
+        Assert.That(actualFiles, Is.EqualTo(ExpectedPairedBenchmarkArchiveFiles.Order(StringComparer.Ordinal)));
+
+        foreach (string laneName in new[] { "baseline", "baselineRepeat", "feature" })
+        {
+            JsonElement lane = root.GetProperty(laneName);
+            string laneDirectory = laneName switch
+            {
+                "baseline" => "baseline-a",
+                "baselineRepeat" => "baseline-b",
+                _ => "feature",
+            };
+            string resultFile = lane.GetProperty("benchmarkDotNetResultFile").GetString()
+                ?? throw new InvalidDataException($"{laneName} result file is missing");
+            string resultPath = Path.Combine(directory, laneDirectory, resultFile);
+            GpuPassFusionBaselineEvidence.VerifyFileHash(
+                resultPath,
+                lane.GetProperty("benchmarkDotNetResultSha256").GetString()
+                    ?? throw new InvalidDataException($"{laneName} result hash is missing"),
+                $"{laneName} benchmark result");
+
+            string stdoutFile = lane.GetProperty("standardOutputFile").GetString()
+                ?? throw new InvalidDataException($"{laneName} stdout file is missing");
+            GpuPassFusionBaselineEvidence.VerifyFileHash(
+                Path.Combine(directory, laneDirectory, stdoutFile),
+                lane.GetProperty("standardOutputSha256").GetString()
+                    ?? throw new InvalidDataException($"{laneName} stdout hash is missing"),
+                $"{laneName} benchmark stdout");
+
+            JsonElement counterHashes = lane.GetProperty("counterFileSha256");
+            string counterDirectory = Path.Combine(directory, laneDirectory, "counters");
+            Assert.That(
+                counterHashes.EnumerateObject().Select(static property => property.Name),
+                Is.EquivalentTo(ExpectedPairedBenchmarkCounterFiles));
+            foreach (JsonProperty counter in counterHashes.EnumerateObject())
+            {
+                GpuPassFusionBaselineEvidence.VerifyFileHash(
+                    Path.Combine(counterDirectory, counter.Name),
+                    counter.Value.GetString() ?? throw new InvalidDataException($"{laneName} counter hash is null"),
+                    $"{laneName} counter '{counter.Name}'");
+            }
+        }
+    }
+
+    [Test]
     public void FingerprintValidation_IsCompleteButEnvironmentIndependent()
     {
         Dictionary<string, IReadOnlyList<string>> foreignFingerprint =
@@ -195,7 +301,6 @@ public sealed class GpuPassFusionBaselineTests
             Throws.Nothing,
             "Integrity validation must not select or reject blobs based on the current CI device.");
     }
-
     [Test]
     public void FingerprintValidation_RejectsMissingAndUnknownFields()
     {

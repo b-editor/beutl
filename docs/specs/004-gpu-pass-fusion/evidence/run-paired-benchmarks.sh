@@ -125,7 +125,8 @@ PY
 
     local result
     result="$(find_full_result "$artifacts")"
-    printf '%s\n' "$result" >"$run_root/full-result-path.txt"
+    mv -- "$result" "$run_root/raw-benchmark-full.json"
+    rm -rf -- "$artifacts" "$harness_provenance" "$run_root/full-result-path.txt"
     local counter_count
     counter_count="$(find "$counters" -maxdepth 1 -type f -name '*.json' | wc -l | tr -d ' ')"
     if [[ "$counter_count" != "11" ]]; then
@@ -214,9 +215,9 @@ run_benchmark \
 require_clean_worktree "$baseline_worktree" "Baseline after baseline B"
 require_clean_worktree "$feature_worktree" "Feature harness after baseline B"
 
-baseline_result="$(cat "$output_root/baseline-a/full-result-path.txt")"
-baseline_repeat_result="$(cat "$output_root/baseline-b/full-result-path.txt")"
-feature_result="$(cat "$output_root/feature/full-result-path.txt")"
+baseline_result="$output_root/baseline-a/raw-benchmark-full.json"
+baseline_repeat_result="$output_root/baseline-b/raw-benchmark-full.json"
+feature_result="$output_root/feature/raw-benchmark-full.json"
 analyzer_project="$feature_worktree/tests/Beutl.Benchmarks/Beutl.Benchmarks.csproj"
 
 dotnet run -c Release --artifacts-path "$temporary_build_root/analyzer" --project "$analyzer_project" -- paired-self-test

@@ -122,6 +122,12 @@ public sealed class PairedBenchmarkAnalyzerTests
     [TestCase("setupWarmupFrames")]
     [TestCase("lifetime")]
     [TestCase("requestShape")]
+    [TestCase("semanticStageCount")]
+    [TestCase("topLevelDrawableCount")]
+    [TestCase("animation")]
+    [TestCase("barrier")]
+    [TestCase("hasStaticPrefixCache")]
+    [TestCase("hasTargetDependencies")]
     public void Analyze_RejectsNonFrozenCounterWorkload(string field)
     {
         using var fixture = new AnalyzerFixture();
@@ -138,6 +144,12 @@ public sealed class PairedBenchmarkAnalyzerTests
                     "setupWarmupFrames" => RenderPipelineBenchmarkConfig.SetupWarmupFrameCount - 1,
                     "lifetime" => "short-lived-renderer",
                     "requestShape" => "reduced-target-request",
+                    "semanticStageCount" => 99,
+                    "topLevelDrawableCount" => 99,
+                    "animation" => "StructuralToggle",
+                    "barrier" => "TargetDependency",
+                    "hasStaticPrefixCache" => true,
+                    "hasTargetDependencies" => true,
                     _ => throw new ArgumentOutOfRangeException(nameof(field), field, null),
                 };
             });
@@ -562,6 +574,12 @@ public sealed class PairedBenchmarkAnalyzerTests
                 ["setupWarmupFrames"] = RenderPipelineBenchmarkConfig.SetupWarmupFrameCount,
                 ["lifetime"] = RenderPipelineBenchmarkConfig.LifetimeContract,
                 ["requestShape"] = RenderPipelineBenchmarkConfig.RequestShapeContract,
+                ["semanticStageCount"] = scene.SemanticStageCount,
+                ["topLevelDrawableCount"] = scene.TopLevelDrawableCount,
+                ["animation"] = scene.Animation.ToString(),
+                ["barrier"] = scene.Barrier.ToString(),
+                ["hasStaticPrefixCache"] = scene.HasStaticPrefixCache,
+                ["hasTargetDependencies"] = scene.HasTargetDependencies,
                 ["outputSha256"] = OutputSha256,
                 ["outputChecksum"] = OutputChecksum,
                 ["outputBounds"] = Bounds(),

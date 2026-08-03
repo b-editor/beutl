@@ -293,6 +293,7 @@ import json
 import math
 import os
 import pathlib
+import re
 import struct
 import sys
 
@@ -397,6 +398,7 @@ def validate_artifacts(root, manifest, label):
         if not path.is_file() or hashlib.sha256(path.read_bytes()).hexdigest() != expected:
             raise SystemExit(f"{label} artifact hash mismatch: {name}")
     by_id = {}
+    blob_to_scene_id = {}
     for scene in scenes:
         scene_id = scene.get("id")
         if not isinstance(scene_id, str) or not scene_id or scene_id in by_id:
@@ -404,11 +406,17 @@ def validate_artifacts(root, manifest, label):
         by_id[scene_id] = scene
         blob = scene.get("blob")
         if blob is not None:
+            if not isinstance(blob, str) or blob in blob_to_scene_id:
+                raise SystemExit(f"{label} scene references a duplicate blob: {scene_id}")
             if blob not in hashes:
                 raise SystemExit(f"{label} scene references an unhashed blob: {scene_id}")
+            blob_to_scene_id[blob] = scene_id
             expected_length = int(scene["blobWidth"]) * int(scene["blobHeight"]) * 8
             if (root / blob).stat().st_size != expected_length:
                 raise SystemExit(f"{label} blob length mismatch: {scene_id}")
+    unreferenced = sorted(set(hashes) - set(blob_to_scene_id))
+    if unreferenced:
+        raise SystemExit(f"{label} has hashed artifacts no scene references: {', '.join(unreferenced)}")
     return by_id
 
 target_scenes = validate_artifacts(target_root, target, "target")
@@ -497,6 +505,59 @@ for intent, target_failure in target_failures.items():
     feature_message = feature_failure.get("exceptionMessage")
     if (target_message is None) != (feature_message is None):
         raise SystemExit(f"Allocation-failure exception-message presence differs: {intent}")
+
+def allocation_dimensions(record, label):
+    width = record.get("failedAllocationWidth")
+    height = record.get("failedAllocationHeight")
+    if isinstance(width, int) and isinstance(height, int):
+        return (width, height)
+    # The legacy generator records the attempted request only as events,
+    # e.g. "allocation-attempt:EffectMaterialization:172x92".
+    for event in record.get("legacyEvents") or []:
+        if not isinstance(event, str) or not event.startswith("allocation-attempt:EffectMaterialization:"):
+            continue
+        size = event[len("allocation-attempt:EffectMaterialization:"):]
+        match = re.fullmatch(r"(\d+)x(\d+)", size)
+        if match:
+            return (int(match.group(1)), int(match.group(2)))
+    raise SystemExit(f"{label} allocation-failure record has no attempted EffectMaterialization dimensions for {intent}")
+
+allocation_comparisons = {}
+for intent in sorted(target_failures):
+    target_failure = target_failures[intent]
+    feature_failure = feature_failures[intent]
+    target_dimensions = allocation_dimensions(target_failure, "target")
+    feature_dimensions = allocation_dimensions(feature_failure, "feature")
+    allocation_comparisons[intent] = {
+        "targetAllocationDimensions": f"{target_dimensions[0]}x{target_dimensions[1]}",
+        "featureAllocationDimensions": f"{feature_dimensions[0]}x{feature_dimensions[1]}",
+        "dimensionsMatch": target_dimensions == feature_dimensions,
+    }
+    if target_dimensions != feature_dimensions:
+        # Both lanes must exercise the same logical allocation (same intent,
+        # injection point, and outcome); the requested pixel size can still
+        # differ when the renderer's bounds calculation evolves, and that
+        # difference is recorded in the comparison below rather than silently
+        # accepted.
+        print(
+            f"Allocation-failure request dimensions differ for {intent}: "
+            f"target {target_dimensions[0]}x{target_dimensions[1]}, "
+            f"feature {feature_dimensions[0]}x{feature_dimensions[1]}")
+    for name in ("requestSucceeded", "outputIsEmpty"):
+        target_value = target_failure.get(name)
+        feature_value = feature_failure.get(name)
+        if (target_value is None) != (feature_value is None):
+            raise SystemExit(f"Allocation-failure output contract presence differs: {intent}.{name}")
+        if target_value is not None and target_value != feature_value:
+            raise SystemExit(f"Allocation-failure output contract differs: {intent}.{name}")
+    target_output_bounds = target_failure.get("outputBounds")
+    feature_output_bounds = feature_failure.get("outputBounds")
+    if (target_output_bounds is None) != (feature_output_bounds is None):
+        raise SystemExit(f"Allocation-failure output-bounds presence differs: {intent}")
+    if target_output_bounds is not None and target_output_bounds != feature_output_bounds:
+        raise SystemExit(f"Allocation-failure output bounds differ: {intent}")
+    if target_failure.get("outputNonZeroComponents") != feature_failure.get("outputNonZeroComponents"):
+        raise SystemExit(f"Allocation-failure output content differs: {intent}")
 
 def decode_rgba16f(path, width, height):
     data = path.read_bytes()
@@ -617,6 +678,24 @@ def verify_localized_error_gate():
             or localized["maximumRgbaMae"] <= MAXIMUM_WINDOWED_RGBA_MAE):
         raise SystemExit("Window-local alpha/RGBA self-test failed to reject a localized defect")
 
+    # A checkerboard defect centered on a window-grid boundary (16, 16) is split
+    # across four fixed-grid tiles, so the windowed gate must still reject it even
+    # though no single unshifted tile contains the whole defect.
+    boundary_reference = []
+    for y in range(size):
+        for x in range(size):
+            value = 1.0 if (x + y) % 2 == 0 else 0.0
+            boundary_reference.extend((value, value, value, 1.0))
+    boundary_actual = list(boundary_reference)
+    for y in range(12, 20):
+        for x in range(12, 20):
+            index = (y * size + x) * 4
+            value = 1.0 if (x + y) % 2 != 0 else 0.0
+            boundary_actual[index] = boundary_actual[index + 1] = boundary_actual[index + 2] = value
+    boundary_grid = windowed_metrics(boundary_reference, boundary_actual, size, size)
+    if boundary_grid["minimumSsim"] >= MINIMUM_WINDOWED_SSIM:
+        raise SystemExit("Windowed self-test failed to reject a defect split by the fixed grid")
+
 verify_localized_error_gate()
 
 def parse_crop(scene):
@@ -731,6 +810,14 @@ result = {
             for name in allocation_semantic_fields
         }
         for intent in sorted(feature_failures)
+    },
+    "allocationComparisons": {
+        intent: {
+            "targetDimensions": allocation_comparisons[intent]["targetAllocationDimensions"],
+            "featureDimensions": allocation_comparisons[intent]["featureAllocationDimensions"],
+            "dimensionsMatch": allocation_comparisons[intent]["dimensionsMatch"],
+        }
+        for intent in sorted(allocation_comparisons)
     },
     "thresholds": {
         "minimumLinearLightSsim": 0.99,
