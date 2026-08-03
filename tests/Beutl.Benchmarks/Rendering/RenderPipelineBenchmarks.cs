@@ -134,10 +134,11 @@ internal sealed class RenderPipelineBenchmarkSession : IDisposable
             observed.Add(RenderAndObserve(frame));
 
         RenderPipelineObservedFrame first = observed[0];
-        if (first.IsEmpty || first.Width <= 0 || first.Height <= 0 || first.Energy <= 1)
+        if (first.IsEmpty || first.Width <= 0 || first.Height <= 0
+            || !double.IsFinite(first.Energy) || first.Energy <= 1)
         {
             throw new InvalidOperationException(
-                $"Benchmark scene '{_scene.Name}' produced an empty or vacuous setup output.");
+                $"Benchmark scene '{_scene.Name}' produced an empty, non-finite, or vacuous setup output.");
         }
 
         if (observed.Any(item => item.IsEmpty
