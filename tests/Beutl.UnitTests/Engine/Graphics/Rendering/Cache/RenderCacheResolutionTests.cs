@@ -70,6 +70,36 @@ public sealed class RenderCacheResolutionTests
     }
 
     [Test]
+    public void StaticPrefixCache_AcceptsHundredAnimatedFramesWithZeroPrefixExecution()
+    {
+        using var node = new SolidCacheNode();
+        node.Cache.ReportRenderCount(RenderNodeCache.Count);
+        var diagnostics = new RenderPipelineDiagnosticsState();
+        using var renderer = CreateFrameRenderer(node, diagnostics: diagnostics);
+
+        using RenderNodeRasterization first = renderer.Rasterize();
+        Assert.That(node.ExecuteCount, Is.EqualTo(1),
+            "the static prefix must execute exactly once on the cold frame");
+        ushort[] firstPixels = first.Bitmap!.GetPixelSpan<ushort>().ToArray();
+
+        for (int frame = 1; frame < 100; frame++)
+        {
+            using RenderNodeRasterization rasterization = renderer.Rasterize();
+            Assert.That(
+                rasterization.Bitmap!.GetPixelSpan<ushort>().SequenceEqual(firstPixels),
+                Is.True,
+                $"warm frame {frame} must match the cold prefix output (SC-012)");
+        }
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(node.ExecuteCount, Is.EqualTo(1),
+                "the static prefix must not re-execute across 100 animated frames (SC-012)");
+            Assert.That(node.Cache.IsCached, Is.True);
+        });
+    }
+
+    [Test]
     public void ExecutionFailure_RejectsEveryStagedCaptureWithoutPartialPublication()
     {
         using var root = new ContainerRenderNode();
