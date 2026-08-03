@@ -468,6 +468,10 @@ public sealed class ComposedSceneRenderCacheTests
             if (assertPixelParity)
             {
                 Assert.That(
+                    HasFiniteVisibleContent(control),
+                    Is.True,
+                    $"cache parity control frame {frame} must contain finite visible content (SC-013 non-vacuity).");
+                Assert.That(
                     actualPixels,
                     Is.EqualTo(expected),
                     $"cache policy changed frame {frame}. {DescribeDifference(expected, actualPixels)}");
@@ -482,6 +486,20 @@ public sealed class ComposedSceneRenderCacheTests
             expectCacheHit
                 ? "The explicitly enabled cached arm must execute a persistent cache hit."
                 : "The default-disabled or phase-unsafe arm must not execute a cache hit.");
+    }
+
+    private static bool HasFiniteVisibleContent(Bitmap bitmap)
+    {
+        ReadOnlySpan<ushort> pixels = bitmap.GetPixelSpan<ushort>();
+        for (int i = 3; i < pixels.Length; i += 4)
+        {
+            float a = (float)BitConverter.UInt16BitsToHalf(pixels[i]);
+            if (float.IsFinite(a) && a > 0f)
+            {
+                return true;
+            }
+        }
+        return false;
     }
 
     private static Bitmap RenderComposedFrame(Drawable.Resource resource, bool useRenderCache)

@@ -636,7 +636,25 @@ public sealed class DrawableGroupIsolationTests
                 identical,
                 Is.True,
                 $"{scenario} must be byte-identical.");
+            Assert.That(
+                HasFiniteVisibleContent(expected),
+                Is.True,
+                $"{scenario} must render finite visible content (SC-013 non-vacuity).");
         });
+    }
+
+    private static bool HasFiniteVisibleContent(Bitmap bitmap)
+    {
+        ReadOnlySpan<ushort> pixels = bitmap.GetPixelSpan<ushort>();
+        for (int i = 3; i < pixels.Length; i += 4)
+        {
+            float a = (float)BitConverter.UInt16BitsToHalf(pixels[i]);
+            if (float.IsFinite(a) && a > 0f)
+            {
+                return true;
+            }
+        }
+        return false;
     }
 
     private readonly record struct Rgba(float Red, float Green, float Blue, float Alpha);

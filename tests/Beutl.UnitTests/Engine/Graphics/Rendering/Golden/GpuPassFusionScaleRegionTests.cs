@@ -407,6 +407,16 @@ public sealed class GpuPassFusionScaleRegionTests
                     Is.LessThanOrEqualTo(GpuPassFusionSameProcessParityHarness.MaximumAaEdgeMeanError));
                 Assert.That(result.AaEdge.Value.MaximumError.Maximum,
                     Is.LessThanOrEqualTo(GpuPassFusionSameProcessParityHarness.MaximumAaEdgeChannelError));
+                using Bitmap shaderFree = RenderThinStroke(node.SourceWithoutShader, FusionMode.Disabled);
+                using Bitmap shaderApplied = RenderThinStroke(node, FusionMode.Disabled);
+                Assert.That(
+                    ImageMetrics.FirstNonFinite(("shader-free", shaderFree), ("shader-applied", shaderApplied)),
+                    Is.Null,
+                    "thin-stroke control and shader-applied outputs must be finite RGBA16F.");
+                Assert.That(
+                    ImageMetrics.MeanAbsoluteError(shaderFree, shaderApplied),
+                    Is.GreaterThan(GpuPassFusionSameProcessParityHarness.MaximumLinearRgbMae),
+                    "the color*alpha CurrentPixel shader must change the thin-stroke image beyond the parity tolerance.");
             });
         });
     }
@@ -873,6 +883,8 @@ public sealed class GpuPassFusionScaleRegionTests
             RenderFragmentHandle source = context.RecordNode(_source, [])[0];
             context.Publish(context.Shader(source, s_colorTimesAlpha));
         }
+
+        internal RenderNode SourceWithoutShader => _source;
 
         protected override void OnDispose(bool disposing)
         {
