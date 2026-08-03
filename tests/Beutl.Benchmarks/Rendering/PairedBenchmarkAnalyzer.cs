@@ -304,6 +304,11 @@ internal static class PairedBenchmarkAnalyzer
         ValidateSelfRecordedOutputContracts(baselineRepeatCounters, "baseline B");
         ValidateSelfRecordedOutputContracts(featureCounters, "feature");
         ValidateFeatureOutputContracts(featureCounters);
+        ValidateCrossPipelineVisualParity(
+            baselineCounters,
+            featureCounters,
+            options.BaselineOutputsPath,
+            options.FeatureOutputsPath);
 
         var cases = new SortedDictionary<string, PairedBenchmarkCaseResult>(StringComparer.Ordinal);
         foreach (RenderPipelineBenchmarkSceneDefinition scene in RenderPipelineBenchmarkScenes.All)
@@ -766,6 +771,46 @@ internal static class PairedBenchmarkAnalyzer
         }
     }
 
+    private static void ValidateCrossPipelineVisualParity(
+        CounterRun baseline,
+        CounterRun feature,
+        string? baselineOutputsPath,
+        string? featureOutputsPath)
+    {
+        if (baselineOutputsPath is null || featureOutputsPath is null)
+            return;
+
+        foreach (RenderPipelineBenchmarkSceneDefinition scene in RenderPipelineBenchmarkScenes.All)
+        {
+            CounterCase baselineCase = baseline.Cases[scene.Name];
+            CounterCase featureCase = feature.Cases[scene.Name];
+            string baselineBlob = baselineCase.SetupOutputBlobFile;
+            string featureBlob = featureCase.SetupOutputBlobFile;
+            if (string.IsNullOrEmpty(baselineBlob) || string.IsNullOrEmpty(featureBlob))
+                continue;
+
+            byte[] baselinePayload = File.ReadAllBytes(Path.Combine(baselineOutputsPath, baselineBlob));
+            byte[] featurePayload = File.ReadAllBytes(Path.Combine(featureOutputsPath, featureBlob));
+            int width = baselineCase.SetupOutputContract.Width;
+            int height = baselineCase.SetupOutputContract.Height;
+            Rgba16fParityMetrics full = Rgba16fEvidenceWriter.CalculateParity(
+                baselinePayload,
+                featurePayload,
+                width,
+                height,
+                region: null);
+            if (full.LinearLightSsim < 0.99
+                || full.LinearRgbMae > 0.02
+                || full.AlphaMae > 0.02)
+            {
+                throw new InvalidDataException(
+                    $"Benchmark case '{scene.Name}' feature output is not visually equivalent to its "
+                    + $"baseline: SSIM={full.LinearLightSsim:F6}, RGB MAE={full.LinearRgbMae:F6}, "
+                    + $"alpha MAE={full.AlphaMae:F6}.");
+            }
+        }
+    }
+
     private static void ValidateFeatureOutputContracts(CounterRun feature)
     {
         foreach (RenderPipelineBenchmarkSceneDefinition scene in RenderPipelineBenchmarkScenes.All)
@@ -1120,7 +1165,11 @@ internal static class PairedBenchmarkAnalyzer
                     expectedMeasuredHeight,
                     CanonicalJson(expectedMeasuredOutputBounds),
                     expectedMeasuredOutputSha256,
-                    expectedMeasuredOutputChecksum));
+                    expectedMeasuredOutputChecksum),
+                root.TryGetProperty("setupOutputBlobFile", out JsonElement blobFile)
+                    && blobFile.ValueKind == JsonValueKind.String
+                    ? blobFile.GetString() ?? string.Empty
+                    : string.Empty);
         }
 
         private static void ValidateFrozenWorkloadContract(JsonElement root, string caseName, string path)
@@ -1317,7 +1366,8 @@ internal static class PairedBenchmarkAnalyzer
         SortedDictionary<string, string> Contract,
         CounterOutputContract SetupOutputContract,
         CounterOutputContract MeasuredOutputContract,
-        CounterOutputContract ExpectedMeasuredOutputContract);
+        CounterOutputContract ExpectedMeasuredOutputContract,
+        string SetupOutputBlobFile);
 
     private sealed record CounterOutputContract(
         int Width,
@@ -1344,6 +1394,8 @@ internal sealed class PairedBenchmarkAnalyzerOptions
     public required string BaselineStdoutPath { get; init; }
     public required string BaselineRepeatStdoutPath { get; init; }
     public required string FeatureStdoutPath { get; init; }
+    public string? BaselineOutputsPath { get; init; }
+    public string? FeatureOutputsPath { get; init; }
     public required string BaselineSha { get; init; }
     public required string FeatureSha { get; init; }
     public required string BaselineCommand { get; init; }
@@ -1370,6 +1422,7 @@ internal sealed class PairedBenchmarkAnalyzerOptions
             "--baseline-results", "--baseline-repeat-results", "--feature-results",
             "--baseline-counters", "--baseline-repeat-counters", "--feature-counters",
             "--baseline-stdout", "--baseline-repeat-stdout", "--feature-stdout",
+            "--baseline-outputs", "--feature-outputs",
             "--baseline-sha", "--feature-sha", "--baseline-command", "--baseline-repeat-command",
             "--feature-command", "--runner-sha256", "--output",
             "--baseline-harness", "--bootstrap-iterations",
@@ -1399,6 +1452,8 @@ internal sealed class PairedBenchmarkAnalyzerOptions
             BaselineStdoutPath = FilePath(Require(values, "--baseline-stdout")),
             BaselineRepeatStdoutPath = FilePath(Require(values, "--baseline-repeat-stdout")),
             FeatureStdoutPath = FilePath(Require(values, "--feature-stdout")),
+            BaselineOutputsPath = OptionalDirectoryPath(values.GetValueOrDefault("--baseline-outputs")),
+            FeatureOutputsPath = OptionalDirectoryPath(values.GetValueOrDefault("--feature-outputs")),
             BaselineSha = Require(values, "--baseline-sha"),
             FeatureSha = Require(values, "--feature-sha"),
             BaselineCommand = Require(values, "--baseline-command"),
@@ -1427,6 +1482,9 @@ internal sealed class PairedBenchmarkAnalyzerOptions
         string path = Path.GetFullPath(value);
         return Directory.Exists(path) ? path : throw new DirectoryNotFoundException(path);
     }
+
+    private static string? OptionalDirectoryPath(string? value)
+        => string.IsNullOrWhiteSpace(value) ? null : DirectoryPath(value);
 
     private const string Usage =
         "Usage: paired-analyze --baseline-results <json> --baseline-repeat-results <json> "

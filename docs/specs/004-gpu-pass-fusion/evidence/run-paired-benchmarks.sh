@@ -68,10 +68,11 @@ run_benchmark() {
     local expected_harness="$5"
     local artifacts="$run_root/bdn"
     local counters="$run_root/counters"
+    local output_blobs="$run_root/output-blobs"
     local stdout="$run_root/raw-benchmark-stdout.txt"
     local harness_provenance="$run_root/harness-provenance.json"
 
-    mkdir -p "$artifacts" "$counters"
+    mkdir -p "$artifacts" "$counters" "$output_blobs"
     printf '%s\n' "$command" >"$run_root/command.txt"
     git -C "$worktree" rev-parse HEAD >"$run_root/code-sha.txt"
     echo "Running $label benchmark at $(git -C "$worktree" rev-parse HEAD)."
@@ -79,6 +80,7 @@ run_benchmark() {
         cd "$worktree"
         BEUTL_RENDER_BENCHMARK_ARTIFACTS="$artifacts" \
         BEUTL_RENDER_BENCHMARK_COUNTERS="$counters" \
+        BEUTL_RENDER_BENCHMARK_OUTPUT_BLOBS="$output_blobs" \
         BEUTL_RENDER_BENCHMARK_HARNESS_PROVENANCE="$harness_provenance" \
         BEUTL_REQUIRE_GPU=1 \
         bash -lc "$command"
@@ -232,6 +234,8 @@ dotnet run -c Release --artifacts-path "$temporary_build_root/analyzer" --projec
     --baseline-stdout "$output_root/baseline-a/raw-benchmark-stdout.txt" \
     --baseline-repeat-stdout "$output_root/baseline-b/raw-benchmark-stdout.txt" \
     --feature-stdout "$output_root/feature/raw-benchmark-stdout.txt" \
+    --baseline-outputs "$output_root/baseline-a/output-blobs" \
+    --feature-outputs "$output_root/feature/output-blobs" \
     --baseline-sha "$baseline_sha" \
     --feature-sha "$feature_sha" \
     --baseline-command "$baseline_command" \

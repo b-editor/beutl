@@ -176,6 +176,33 @@ public sealed class PairedBenchmarkAnalyzerTests
     }
 
     [Test]
+    public void Analyze_AcceptsVisualParityWhenFeatureOutputMatchesBaseline()
+    {
+        using var fixture = new AnalyzerFixture();
+
+        Assert.That(() => fixture.Analyze(), Throws.Nothing);
+    }
+
+    [Test]
+    public void Analyze_RejectsFeatureOutputThatDiffersVisuallyFromBaseline()
+    {
+        using var fixture = new AnalyzerFixture();
+        string featureBlob = Path.Combine(
+            fixture.FeatureRun.OutputBlobs,
+            "ShaderOpacityShader.rgba16f");
+        byte[] corrupted = File.ReadAllBytes(featureBlob);
+        for (int index = 0; index < corrupted.Length; index += 2)
+            corrupted[index] ^= 0xff;
+        File.WriteAllBytes(featureBlob, corrupted);
+
+        InvalidDataException? exception = Assert.Throws<InvalidDataException>(() => fixture.Analyze());
+
+        Assert.That(
+            exception!.Message,
+            Does.Contain("visually equivalent").And.Contain("ShaderOpacityShader"));
+    }
+
+    [Test]
     public void BenchmarkHarnessProvenance_ExtractsTheCompiledSourceRevision()
     {
         const string revision = "1111111111111111111111111111111111111111";
@@ -394,6 +421,8 @@ public sealed class PairedBenchmarkAnalyzerTests
 
         public string OutputPath { get; }
 
+        public RunPaths FeatureRun => _runs[AnalyzerRun.Feature];
+
         public PairedBenchmarkManifest Analyze()
             => PairedBenchmarkAnalyzer.Analyze(CreateOptions());
 
@@ -507,6 +536,8 @@ public sealed class PairedBenchmarkAnalyzerTests
                 BaselineStdoutPath = baseline.Stdout,
                 BaselineRepeatStdoutPath = repeat.Stdout,
                 FeatureStdoutPath = feature.Stdout,
+                BaselineOutputsPath = baseline.OutputBlobs,
+                FeatureOutputsPath = feature.OutputBlobs,
                 BaselineSha = BaselineSha,
                 FeatureSha = FeatureSha,
                 BaselineCommand = "synthetic baseline A",
@@ -528,11 +559,42 @@ public sealed class PairedBenchmarkAnalyzerTests
             Directory.CreateDirectory(counters);
             string results = Path.Combine(directory, "results.json");
             string stdout = Path.Combine(directory, "stdout.txt");
+            string outputBlobs = Path.Combine(directory, "output-blobs");
+            Directory.CreateDirectory(outputBlobs);
             WriteBenchmarkResults(results, sampleValue);
             File.WriteAllText(stdout, "synthetic benchmark output\n", new UTF8Encoding(false));
+            byte[] syntheticBlob = CreateSyntheticBlob();
             foreach (RenderPipelineBenchmarkSceneDefinition scene in RenderPipelineBenchmarkScenes.All)
+            {
                 WriteCounter(Path.Combine(counters, scene.Name + ".json"), scene, sourceSha);
-            return new RunPaths(results, counters, stdout);
+                File.WriteAllBytes(Path.Combine(outputBlobs, scene.Name + ".rgba16f"), syntheticBlob);
+            }
+
+            return new RunPaths(results, counters, stdout, outputBlobs);
+        }
+
+        private static byte[] CreateSyntheticBlob()
+        {
+            int width = RenderPipelineBenchmarkScenes.ReferenceSize.Width;
+            int height = RenderPipelineBenchmarkScenes.ReferenceSize.Height;
+            var payload = new byte[checked(width * height * 8)];
+            for (int offset = 0; offset < payload.Length; offset += 8)
+            {
+                System.Buffers.Binary.BinaryPrimitives.WriteUInt16LittleEndian(
+                    payload.AsSpan(offset, 2),
+                    BitConverter.HalfToUInt16Bits((Half)0.5f));
+                System.Buffers.Binary.BinaryPrimitives.WriteUInt16LittleEndian(
+                    payload.AsSpan(offset + 2, 2),
+                    BitConverter.HalfToUInt16Bits((Half)0.5f));
+                System.Buffers.Binary.BinaryPrimitives.WriteUInt16LittleEndian(
+                    payload.AsSpan(offset + 4, 2),
+                    BitConverter.HalfToUInt16Bits((Half)0.5f));
+                System.Buffers.Binary.BinaryPrimitives.WriteUInt16LittleEndian(
+                    payload.AsSpan(offset + 6, 2),
+                    BitConverter.HalfToUInt16Bits((Half)1f));
+            }
+
+            return payload;
         }
 
         private static void WriteBenchmarkResults(string path, double sampleValue)
@@ -580,6 +642,7 @@ public sealed class PairedBenchmarkAnalyzerTests
                 ["barrier"] = scene.Barrier.ToString(),
                 ["hasStaticPrefixCache"] = scene.HasStaticPrefixCache,
                 ["hasTargetDependencies"] = scene.HasTargetDependencies,
+                ["setupOutputBlobFile"] = $"{scene.Name}.rgba16f",
                 ["outputSha256"] = OutputSha256,
                 ["outputChecksum"] = OutputChecksum,
                 ["outputBounds"] = Bounds(),
@@ -638,6 +701,6 @@ public sealed class PairedBenchmarkAnalyzerTests
                 value.ToJsonString(new JsonSerializerOptions { WriteIndented = true }) + "\n",
                 new UTF8Encoding(false));
 
-        private sealed record RunPaths(string Results, string Counters, string Stdout);
+        internal sealed record RunPaths(string Results, string Counters, string Stdout, string OutputBlobs);
     }
 }

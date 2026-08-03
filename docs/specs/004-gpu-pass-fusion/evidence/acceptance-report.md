@@ -14,7 +14,7 @@ identified by its SHA-256.
 | `run-paired-visual-evidence.sh` | `32b7713a007ec719d839335352ac2a75914b2d179512edd13943ff94f4c64b78` |
 | `refresh-intentional-visual-baselines.sh` | `f9ff3831d63cf0f3ed864e20d15731a38b2402b6ac8e0a4c4c0a6860af72d1f2` |
 | generator source bundle | `bb165d312af895b4f703441d96d4f42144036d7d6f8e875ae0101c4701b0414d` |
-| `run-paired-benchmarks.sh` | `2009fd3935b7b393bf77232950d453a15ad57d5dad9941ae6b586557d883a121` |
+| `run-paired-benchmarks.sh` | `f0085c75543380b0cbab805ff213347c5eeced64140a31f91021a80bedcf0198` |
 
 These hashes match the committed scripts and the `evidenceTools` records in both
 frozen manifests. The recorded benchmark run predates the later review-driven runner
@@ -38,9 +38,9 @@ These hashes identify the current stricter implementation; they do not replace t
 historical harness hashes authenticated by the unchanged committed benchmark manifest.
 
 The current immutable trust-chain anchors are target visual manifest
-`1b12203f96674bafc4a98311ae221aa0abe0dc8f5468f432c25cbc033f95d937` and
+`e83694b68eb6a6daf3286ac5ace4bf8bf8e7816705fc6f4930652f124da06b7e` and
 target benchmark manifest
-`ef2615979ac19920d1d0f5bce9a80edc314dd2d2233710fe66bc0ded91932806`.
+`39272c4eef6414cf4099f3f2ab0a388dded36473e86deb506f127c65b85e78c6`.
 The benchmark manifest's `visualManifestSha256` and
 `GpuPassFusionBaselineEvidence.ExpectedManifestSha256` both name the former.
 

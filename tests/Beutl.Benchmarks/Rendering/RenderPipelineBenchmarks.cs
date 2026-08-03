@@ -101,6 +101,8 @@ internal sealed class RenderPipelineBenchmarkSession : IDisposable
     private readonly RenderPipelineEvidenceFingerprint _fingerprint;
     private int _nextFrame;
     private RenderPipelineObservedFrame? _lastSetupFrame;
+    private RenderNodeRasterization? _lastSetupRasterization;
+    private int _lastSetupFrameIndex = -1;
     private RenderNodeRasterization? _lastMeasuredRasterization;
     private int _lastMeasuredFrameIndex = -1;
     private ulong _lastMeasuredToken;
@@ -160,6 +162,13 @@ internal sealed class RenderPipelineBenchmarkSession : IDisposable
 
         _lastSetupFrame = observed[^1];
         _nextFrame = checked(frames[^1] + 1);
+
+        // Retain the final setup frame's rasterization so its RGBA16F payload can be
+        // archived for cross-pipeline visual comparison without re-rendering.
+        _lastSetupRasterization?.Dispose();
+        ApplyFrameState(frames[^1]);
+        _lastSetupRasterization = _renderer.Rasterize();
+        _lastSetupFrameIndex = frames[^1];
     }
 
     public ulong RenderMeasuredFrame()
@@ -196,6 +205,16 @@ internal sealed class RenderPipelineBenchmarkSession : IDisposable
         DiagnosticCapture expectation = expectationSession.Capture(_nextFrame);
         AssertMatchingDiagnosticOutput(diagnostics.MeasuredOutput, expectation.MeasuredOutput);
 
+        string? outputBlobsPath = RenderPipelineBenchmarkConfig.GetOutputBlobsPath();
+        string setupBlobFile = string.Empty;
+        if (outputBlobsPath is not null && _lastSetupRasterization?.Bitmap is { } setupBitmap)
+        {
+            setupBlobFile = _scene.Name + ".rgba16f";
+            byte[] payload = Rgba16fEvidenceWriter.Encode(setupBitmap);
+            Directory.CreateDirectory(outputBlobsPath);
+            File.WriteAllBytes(Path.Combine(outputBlobsPath, setupBlobFile), payload);
+        }
+
         return new RenderPipelineBenchmarkCounterRecord
         {
             SchemaVersion = 2,
@@ -215,6 +234,7 @@ internal sealed class RenderPipelineBenchmarkSession : IDisposable
             OutputSha256 = setup.Sha256,
             OutputChecksum = setup.Checksum.ToString("x16"),
             OutputBounds = setup.Bounds,
+            SetupOutputBlobFile = setupBlobFile,
             MeasuredOutputSha256 = measured.Sha256,
             MeasuredOutputChecksum = measured.Checksum.ToString("x16"),
             MeasuredOutputBounds = measured.Bounds,
@@ -243,6 +263,8 @@ internal sealed class RenderPipelineBenchmarkSession : IDisposable
         RenderThread.Dispatcher.VerifyAccess();
         _lastMeasuredRasterization?.Dispose();
         _lastMeasuredRasterization = null;
+        _lastSetupRasterization?.Dispose();
+        _lastSetupRasterization = null;
         _renderer.Dispose();
         _root.Dispose();
         _disposed = true;
@@ -947,6 +969,7 @@ internal sealed class RenderPipelineBenchmarkCounterRecord
     public string OutputSha256 { get; init; } = string.Empty;
     public string OutputChecksum { get; init; } = string.Empty;
     public Rect OutputBounds { get; init; }
+    public string SetupOutputBlobFile { get; init; } = string.Empty;
     public string MeasuredOutputSha256 { get; init; } = string.Empty;
     public string MeasuredOutputChecksum { get; init; } = string.Empty;
     public Rect MeasuredOutputBounds { get; init; }

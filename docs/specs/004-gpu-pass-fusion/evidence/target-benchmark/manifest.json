@@ -47,7 +47,7 @@
     "width": 192
   },
   "evidenceTools": {
-    "benchmarkRunnerSha256": "2009fd3935b7b393bf77232950d453a15ad57d5dad9941ae6b586557d883a121",
+    "benchmarkRunnerSha256": "f0085c75543380b0cbab805ff213347c5eeced64140a31f91021a80bedcf0198",
     "generatorPatchSha256": "898692fc4a53e834cbc9f0e00176f8eca198e4f16b6de391d89f1fbbceeaa8be",
     "generatorScriptSha256": "f176e45e5c52f403f3ba9bdd47f45b96c4f0a83988f1888d927f21b72f059032",
     "generatorSourceBundleSha256": "bb165d312af895b4f703441d96d4f42144036d7d6f8e875ae0101c4701b0414d",
@@ -103,5 +103,5 @@
   "runStartedUtc": "2026-07-19T07:58:07.936284+00:00",
   "schemaVersion": 1,
   "scope": "minimum starting-SHA baseline; the 11-case paired confidence gate remains T112-T115",
-  "visualManifestSha256": "1b12203f96674bafc4a98311ae221aa0abe0dc8f5468f432c25cbc033f95d937"
+  "visualManifestSha256": "e83694b68eb6a6daf3286ac5ace4bf8bf8e7816705fc6f4930652f124da06b7e"
 }

@@ -85,6 +85,7 @@ internal sealed class TargetRenderPipelineBenchmarkSession : IDisposable
     private readonly TargetEvidenceFingerprint _fingerprint;
     private int _nextFrame;
     private TargetObservedFrame? _lastSetupFrame;
+    private Bitmap? _lastSetupBitmap;
     private TargetObservedFrame? _lastMeasuredFrame;
     private Bitmap? _lastMeasuredBitmap;
     private int _lastMeasuredFrameIndex = -1;
@@ -152,6 +153,12 @@ internal sealed class TargetRenderPipelineBenchmarkSession : IDisposable
 
         _lastSetupFrame = observed[^1];
         _nextFrame = checked(frames[^1] + 1);
+
+        // Retain the final setup frame's bitmap so its RGBA16F payload can be
+        // archived for cross-pipeline visual comparison without re-rendering.
+        _lastSetupBitmap?.Dispose();
+        _lastSetupBitmap = null;
+        RenderAndObserve(frames[^1], verifyOutput: true, retainSetupBitmap: true);
     }
 
     public ulong RenderMeasuredFrame()
@@ -187,6 +194,17 @@ internal sealed class TargetRenderPipelineBenchmarkSession : IDisposable
             ?? throw new InvalidOperationException("Target benchmark setup counters are missing.");
         SortedDictionary<string, long> measuredCounters = measured.RequestCounters
             ?? throw new InvalidOperationException("Target benchmark measured counters are missing.");
+
+        string? outputBlobsPath = TargetRenderPipelineBenchmarkConfig.GetOutputBlobsPath();
+        string setupBlobFile = string.Empty;
+        if (outputBlobsPath is not null && _lastSetupBitmap is { } setupBitmap)
+        {
+            setupBlobFile = _scene.Name + ".rgba16f";
+            byte[] payload = setupBitmap.GetPixelSpan().ToArray();
+            Directory.CreateDirectory(outputBlobsPath);
+            File.WriteAllBytes(Path.Combine(outputBlobsPath, setupBlobFile), payload);
+        }
+
         return new TargetRenderPipelineCounterRecord
         {
             SchemaVersion = 2,
@@ -206,6 +224,7 @@ internal sealed class TargetRenderPipelineBenchmarkSession : IDisposable
             OutputSha256 = setup.Sha256,
             OutputChecksum = setup.Checksum.ToString("x16"),
             OutputBounds = setup.Bounds,
+            SetupOutputBlobFile = setupBlobFile,
             MeasuredOutputSha256 = timedMeasured.Sha256,
             MeasuredOutputChecksum = timedMeasured.Checksum.ToString("x16"),
             MeasuredOutputBounds = timedMeasured.Bounds,
@@ -244,6 +263,8 @@ internal sealed class TargetRenderPipelineBenchmarkSession : IDisposable
             return;
         _lastMeasuredBitmap?.Dispose();
         _lastMeasuredBitmap = null;
+        _lastSetupBitmap?.Dispose();
+        _lastSetupBitmap = null;
         _fixture.Dispose();
         _disposed = true;
     }
@@ -251,7 +272,8 @@ internal sealed class TargetRenderPipelineBenchmarkSession : IDisposable
     private TargetObservedFrame RenderAndObserve(
         int frameIndex,
         bool verifyOutput,
-        bool retainBitmap = false)
+        bool retainBitmap = false,
+        bool retainSetupBitmap = false)
     {
         _fixture.ApplyFrameState(_scene.GetFrameState(frameIndex));
         RenderNodeOperation[] operations = _processor.PullToRoot();
@@ -310,6 +332,11 @@ internal sealed class TargetRenderPipelineBenchmarkSession : IDisposable
             if (retainBitmap)
             {
                 _lastMeasuredBitmap = bitmap;
+                bitmap = null!;
+            }
+            else if (retainSetupBitmap)
+            {
+                _lastSetupBitmap = bitmap;
                 bitmap = null!;
             }
 
@@ -732,6 +759,12 @@ internal sealed class TargetRenderPipelineBenchmarkConfig : ManualConfig
         => Path.GetFullPath(
             Environment.GetEnvironmentVariable("BEUTL_RENDER_BENCHMARK_COUNTERS")
             ?? throw new InvalidOperationException("BEUTL_RENDER_BENCHMARK_COUNTERS is not set."));
+
+    public static string? GetOutputBlobsPath()
+    {
+        string? value = Environment.GetEnvironmentVariable("BEUTL_RENDER_BENCHMARK_OUTPUT_BLOBS");
+        return string.IsNullOrWhiteSpace(value) ? null : Path.GetFullPath(value);
+    }
 }
 
 internal sealed class TargetRenderPipelineCounterRecord
@@ -759,6 +792,7 @@ internal sealed class TargetRenderPipelineCounterRecord
     public string OutputSha256 { get; init; } = string.Empty;
     public string OutputChecksum { get; init; } = string.Empty;
     public Rect OutputBounds { get; init; }
+    public string SetupOutputBlobFile { get; init; } = string.Empty;
     public string MeasuredOutputSha256 { get; init; } = string.Empty;
     public string MeasuredOutputChecksum { get; init; } = string.Empty;
     public Rect MeasuredOutputBounds { get; init; }

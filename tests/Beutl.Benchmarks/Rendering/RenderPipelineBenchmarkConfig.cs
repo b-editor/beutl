@@ -18,6 +18,8 @@ internal sealed class RenderPipelineBenchmarkConfig : ManualConfig
 
     public const string CountersPathEnvironmentVariable = "BEUTL_RENDER_BENCHMARK_COUNTERS";
 
+    public const string OutputBlobsPathEnvironmentVariable = "BEUTL_RENDER_BENCHMARK_OUTPUT_BLOBS";
+
     public const int SetupWarmupFrameCount = 5;
 
     public const int BenchmarkWarmupCount = 3;
@@ -83,5 +85,11 @@ internal sealed class RenderPipelineBenchmarkConfig : ManualConfig
             ? Path.GetFullPath(value)
             : throw new InvalidOperationException(
                 $"{CountersPathEnvironmentVariable} was not initialized by the benchmark configuration.");
+    }
+
+    public static string? GetOutputBlobsPath()
+    {
+        string? value = Environment.GetEnvironmentVariable(OutputBlobsPathEnvironmentVariable);
+        return string.IsNullOrWhiteSpace(value) ? null : Path.GetFullPath(value);
     }
 }
