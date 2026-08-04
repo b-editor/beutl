@@ -155,7 +155,11 @@ public class Renderer : IRenderer
         }
 
         if (!Enum.IsDefined(intent))
+        {
+            // This constructor owns `surface` from entry.
+            DisposePreservingPrimaryFailure(surface);
             throw new ArgumentOutOfRangeException(nameof(intent), intent, "Unknown render intent.");
+        }
 
         float outputScale = float.IsFinite(renderScale) && renderScale > 0f ? renderScale : 1f;
         float maxScale = RenderScaleUtilities.SanitizeMaxWorkingScale(maxWorkingScale);

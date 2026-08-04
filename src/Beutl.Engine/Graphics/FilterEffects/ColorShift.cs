@@ -91,6 +91,16 @@ public partial class ColorShift : FilterEffect
             .Union(bounds.Translate(data.AlphaOffset.ToPoint(1)));
     }
 
+    // Delivery must not silently ship an unshifted layer; preview keeps the source pixels.
+    internal static void ThrowIfDeliverySnapshotFailure(RenderIntent intent, int targetIndex)
+    {
+        if (intent == RenderIntent.Delivery)
+        {
+            throw new InvalidOperationException(
+                $"ColorShift snapshot failed for target {targetIndex}; the GPU surface could not be read back.");
+        }
+    }
+
     private static void OnApply(
         (PixelPoint RedOffset, PixelPoint GreenOffset, PixelPoint BlueOffset, PixelPoint AlphaOffset) data,
         CustomFilterEffectContext context)
@@ -116,14 +126,7 @@ public partial class ColorShift : FilterEffect
             using var image = renderTarget.Value.Snapshot();
             if (image is null)
             {
-                // Delivery (MaxWorkingScale == +inf) must not silently ship an unshifted layer;
-                // preview keeps the source pixels.
-                if (float.IsPositiveInfinity(context.MaxWorkingScale))
-                {
-                    throw new InvalidOperationException(
-                        $"ColorShift snapshot failed for target {i}; the GPU surface could not be read back.");
-                }
-
+                ThrowIfDeliverySnapshotFailure(context.Intent, i);
                 continue;
             }
 

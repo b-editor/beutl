@@ -97,6 +97,23 @@ public sealed class RendererIntentTests
         Assert.That(failure!.ParamName, Is.EqualTo("intent"));
     }
 
+    [Test]
+    public void UndefinedIntent_DisposesTheCallerSuppliedSurface()
+    {
+        var surface = new CpuRenderTarget(8, 8);
+
+        Assert.Throws<ArgumentOutOfRangeException>(() => new Renderer(
+            width: 8,
+            height: 8,
+            renderScale: 1,
+            maxWorkingScale: 1,
+            diagnostics: null,
+            surface: surface,
+            intent: (RenderIntent)12345));
+
+        Assert.That(surface.IsDisposed, Is.True);
+    }
+
     private static Renderer CreateRenderer(RenderIntent intent, IRenderPipelineDiagnosticsState? diagnostics)
         => new(
             width: 8,
