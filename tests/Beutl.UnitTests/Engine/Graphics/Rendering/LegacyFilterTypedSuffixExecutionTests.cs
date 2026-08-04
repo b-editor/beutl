@@ -368,6 +368,75 @@ public sealed class LegacyFilterTypedSuffixExecutionTests
     }
 
     [Test]
+    public void UnknownCustomEffect_OwningDomainNarrowingKeepsLegacyRasterPlacement()
+    {
+        var domain = new Rect(0, 0, 20, 14);
+        var expandedBounds = new Rect(-3.5f, -2.25f, 26, 18.5f);
+        RenderTarget? retainedAllocation = null;
+        var expandingEffect = new LegacySuffixCallbackFilterEffect((context, _) =>
+            context.CustomEffect(
+                0,
+                (_, execution) => execution.ForEach((_, _) =>
+                {
+                    EffectTarget expanded = execution.CreateTarget(expandedBounds);
+                    using (ImmediateCanvas canvas = execution.Open(expanded))
+                    {
+                        canvas.Clear(Colors.Magenta);
+                        canvas.DrawRectangle(
+                            new Rect(7.5f, 5.25f, 4, 3),
+                            Brushes.Resource.White,
+                            null);
+                    }
+
+                    retainedAllocation = expanded.RenderTarget!.ShallowCopy();
+                    return expanded;
+                })));
+        using var root = new FilterEffectRenderNode(
+            expandingEffect.ToResource(CompositionContext.Default));
+        root.AddChild(new RectangleRenderNode(
+            new Rect(4, 2, 6, 4),
+            Brushes.Resource.Red,
+            null));
+        using var renderer = new RenderNodeRenderer(
+            root,
+            new RenderNodeRendererOptions
+            {
+                DefaultRequest = new RenderNodeRenderRequest
+                {
+                    TargetDomain = domain,
+                    OutputScale = 1,
+                    MaxWorkingScale = 1,
+                    CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Disabled,
+                },
+                TargetFactory = new CpuTargetFactory(),
+            });
+
+        using var actualTarget = new CpuRenderTarget((int)domain.Width, (int)domain.Height);
+        using (var actualCanvas = new ImmediateCanvas(actualTarget, logicalSize: domain.Size))
+        {
+            actualCanvas.Clear();
+            renderer.Render(actualCanvas);
+        }
+
+        using RenderTarget allocation = retainedAllocation
+            ?? throw new AssertionException("The custom effect did not allocate an expanded target.");
+        using var expectedTarget = new CpuRenderTarget((int)domain.Width, (int)domain.Height);
+        using (var expectedCanvas = new ImmediateCanvas(expectedTarget, logicalSize: domain.Size))
+        {
+            expectedCanvas.Clear();
+            expectedCanvas.DrawRenderTarget(allocation, expandedBounds.Position);
+        }
+
+        using Bitmap actual = actualTarget.Snapshot();
+        using Bitmap expected = expectedTarget.Snapshot();
+        Assert.That(
+            actual.GetPixelSpan<ushort>().SequenceEqual(expected.GetPixelSpan<ushort>()),
+            Is.True,
+            "narrowing a legacy raster-placement value to the owning domain must relabel its bounds "
+            + "instead of re-allocating and re-anchoring its pixels");
+    }
+
+    [Test]
     public void FirstCustomEffect_MovedSemanticBoundsRetainPreCallbackBacking()
     {
         var inputBounds = new Rect(0, 0, 12, 10);

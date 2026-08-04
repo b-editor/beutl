@@ -422,31 +422,32 @@ internal sealed partial class RenderRequestExecutor
                             _ownedValues.Add(value);
 
                             // Cropping the input to the backward region leaves the surrounding output
-                            // undefined, so the published value must not claim it. A legacy
-                            // raster-placement value is already positioned at its resolved footprint
-                            // and must not be cropped to the provisional fragment region.
-                            Rect selectedBounds = value.PreserveLegacyRasterPlacement
-                                ? value.Bounds
-                                : value.Bounds.Intersect(requiredRegion);
+                            // undefined, so the published value must not claim it.
+                            Rect selectedBounds = value.Bounds.Intersect(requiredRegion);
                             if (selectedBounds.Width == 0 || selectedBounds.Height == 0)
                             {
                                 ReleaseUnpublished(value);
                                 continue;
                             }
 
-                            if (selectedBounds != value.Bounds
-                                && value.PreserveLegacyRasterPlacement)
+                            if (selectedBounds != value.Bounds)
                             {
-                                value.Bounds = selectedBounds;
-                            }
-                            else if (selectedBounds != value.Bounds)
-                            {
-                                CompatibilityRenderValue cropped = CropValue(
-                                    fragment,
-                                    value,
-                                    selectedBounds);
-                                ReleaseUnpublished(value);
-                                value = cropped;
+                                if (value.PreserveLegacyRasterPlacement)
+                                {
+                                    // A legacy raster-placement value draws from its allocation
+                                    // footprint rather than from Bounds, so narrowing it is a
+                                    // relabel that must not re-allocate or move the placement.
+                                    value.Bounds = selectedBounds;
+                                }
+                                else
+                                {
+                                    CompatibilityRenderValue cropped = CropValue(
+                                        fragment,
+                                        value,
+                                        selectedBounds);
+                                    ReleaseUnpublished(value);
+                                    value = cropped;
+                                }
                             }
 
                             result.Add(value);
