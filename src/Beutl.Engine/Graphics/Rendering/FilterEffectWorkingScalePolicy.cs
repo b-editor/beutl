@@ -209,10 +209,20 @@ internal readonly record struct FilterEffectWorkingScalePolicy
             {
                 case IFEItem_Skia:
                     Rect previousSemanticBounds = semanticBounds;
-                    if (!semanticBounds.IsInvalid)
-                        semanticBounds = item.TransformBounds(semanticBounds);
-                    if (!allocationBounds.IsInvalid)
-                        allocationBounds = item.TransformBounds(allocationBounds);
+                    if (item is IFEItem_Skia { ResolveBoundsAtExecutionTime: true })
+                    {
+                        // A deferred-bound item resolves at execution time; its authoring-time
+                        // footprint is unknown, so the segment stays symbolic and conservative.
+                        semanticBounds = Rect.Invalid;
+                        allocationBounds = Rect.Invalid;
+                    }
+                    else
+                    {
+                        if (!semanticBounds.IsInvalid)
+                            semanticBounds = item.TransformBounds(semanticBounds);
+                        if (!allocationBounds.IsInvalid)
+                            allocationBounds = item.TransformBounds(allocationBounds);
+                    }
                     retainedBackingOffsets = TransformRetainedBackingOffsets(
                         retainedBackingOffsets,
                         previousSemanticBounds,
@@ -322,10 +332,15 @@ internal readonly record struct FilterEffectWorkingScalePolicy
         Rect previous = NormalizeLegacySemanticBounds(previousSemanticBounds, fallbackBounds);
         Rect current = NormalizeLegacySemanticBounds(semanticBounds, fallbackBounds);
         var result = new Rect[retainedBackingOffsets.Count];
+        bool deferred = item is IFEItem_Skia { ResolveBoundsAtExecutionTime: true };
         for (int index = 0; index < retainedBackingOffsets.Count; index++)
         {
             Rect physicalBounds = retainedBackingOffsets[index].Translate(previous.Position);
-            Rect transformed = item.TransformBounds(physicalBounds);
+            // A deferred-bound item resolves at execution time; its authoring-time footprint is
+            // unknown, so the retained backing stays symbolic and conservative.
+            Rect transformed = deferred
+                ? Rect.Invalid
+                : item.TransformBounds(physicalBounds);
             Rect normalized = NormalizeLegacyAllocationBounds(transformed, fallbackBounds);
             result[index] = normalized.Translate(new Point(-current.X, -current.Y));
         }

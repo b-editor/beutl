@@ -331,6 +331,30 @@ public partial class ImmediateCanvas : IDisposable, IPopable
     internal void DrawRenderTargetScaledWithoutFlush(RenderTarget renderTarget, Rect dest)
         => DrawRenderTargetScaledCore(renderTarget, dest, flushSource: false);
 
+    /// <summary>
+    /// Draws <paramref name="renderTarget"/> at <paramref name="dest"/> with an image filter,
+    /// translating the canvas first so the filter resolves around the same origin as main's
+    /// CreateLambda (CTM translation + origin draw + filter).
+    /// </summary>
+    internal void DrawRenderTargetWithFilter(
+        RenderTarget renderTarget,
+        Rect dest,
+        SKPaint paint)
+    {
+        VerifyAccess();
+        VerifyNativeTargetOperation();
+        renderTarget.VerifyAccess();
+        VerifyPixelOperation();
+        using SKImage image = renderTarget.Value.Snapshot();
+        RecordPixelOperation();
+        Canvas.Save();
+        Canvas.Translate((float)dest.X, (float)dest.Y);
+        var src = SKRect.Create(image.Width, image.Height);
+        var destSize = new SKRect(0, 0, (float)dest.Width, (float)dest.Height);
+        Canvas.DrawImage(image, src, destSize, s_compositeSampling, paint);
+        Canvas.Restore();
+    }
+
     internal bool TryDrawRenderTargetPixelAlignedWithoutFlush(
         RenderTarget renderTarget,
         Rect dest,

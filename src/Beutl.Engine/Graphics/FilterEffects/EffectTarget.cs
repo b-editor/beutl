@@ -1,5 +1,6 @@
 ﻿using Beutl.Graphics.Rendering;
 using Beutl.Media;
+using SkiaSharp;
 
 namespace Beutl.Graphics.Effects;
 
@@ -63,6 +64,13 @@ public sealed class EffectTarget : IDisposable
     public Rect OriginalBounds { get; set; }
 
     public Rect Bounds { get; set; }
+
+    /// <summary>
+    /// An image filter to apply when this target is drawn, used by deferred-bound Skia items
+    /// whose transform is resolved at execution time (the filter is applied at draw time, not
+    /// baked into the backing buffer, matching the main-branch behavior).
+    /// </summary>
+    public SKImageFilter? ImageFilter { get; set; }
 
     /// <summary>
     /// Supply density: <see cref="EffectiveScale.Unbounded"/> for vector, concrete <see cref="EffectiveScale.At"/> for rasterized buffers.

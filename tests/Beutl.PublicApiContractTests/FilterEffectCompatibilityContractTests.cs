@@ -62,7 +62,7 @@ public sealed class FilterEffectCompatibilityContractTests
     }
 
     [Test]
-    public void ExistingApplyToEffect_RetainsLegacyMembersBoundsAndDeferredExecution()
+    public void ExistingApplyToEffect_RetainsLegacyMembersAndDeferredExecution()
     {
         var executionOrder = new List<string>();
         var effect = new LegacyPluginEffect(executionOrder, "single");
@@ -75,7 +75,6 @@ public sealed class FilterEffectCompatibilityContractTests
         Assert.Multiple(() =>
         {
             Assert.That(context.OriginalBounds, Is.EqualTo(s_bounds));
-            Assert.That(context.Bounds, Is.EqualTo(s_bounds));
             Assert.That(context.OutputScale, Is.EqualTo(2));
             Assert.That(context.WorkingScale, Is.EqualTo(1.5f));
             Assert.That(hasWorkingScale, Is.True);

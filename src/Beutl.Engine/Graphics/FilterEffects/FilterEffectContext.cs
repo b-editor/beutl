@@ -87,7 +87,7 @@ public sealed class FilterEffectContext : IDisposable
         bool hasResolvedWorkingScale,
         FilterEffectResourceState resourceState)
     {
-        Bounds = OriginalBounds = bounds;
+        _bounds = OriginalBounds = bounds;
         OutputScale = outputScale;
         _workingScale = workingScale;
         _hasResolvedWorkingScale = hasResolvedWorkingScale;
@@ -99,7 +99,7 @@ public sealed class FilterEffectContext : IDisposable
     private FilterEffectContext(FilterEffectContext obj)
     {
         OriginalBounds = obj.OriginalBounds;
-        Bounds = obj.Bounds;
+        _bounds = obj._bounds;
         OutputScale = obj.OutputScale;
         _workingScale = obj._workingScale;
         _hasResolvedWorkingScale = obj._hasResolvedWorkingScale;
@@ -110,7 +110,7 @@ public sealed class FilterEffectContext : IDisposable
 
     private FilterEffectContext(FilterEffectContext obj, Rect bounds)
     {
-        OriginalBounds = Bounds = bounds;
+        OriginalBounds = _bounds = bounds;
         OutputScale = obj.OutputScale;
         _workingScale = obj._workingScale;
         _hasResolvedWorkingScale = obj._hasResolvedWorkingScale;
@@ -119,7 +119,9 @@ public sealed class FilterEffectContext : IDisposable
         _items = [];
     }
 
-    public Rect Bounds { get; internal set; }
+    private Rect _bounds;
+
+    internal Rect Bounds => _bounds;
 
     public Rect OriginalBounds { get; }
 
@@ -181,13 +183,13 @@ public sealed class FilterEffectContext : IDisposable
     public FilterEffectContext CreateChildContext()
     {
         ThrowIfDisposed();
-        return new FilterEffectContext(this, Bounds);
+        return new FilterEffectContext(this, _bounds);
     }
 
     private void AddItem(IFEItem item)
     {
         ThrowIfDisposed();
-        if (!Bounds.IsInvalid)
+        if (!_bounds.IsInvalid)
         {
             _items.Add(item);
         }
@@ -230,15 +232,15 @@ public sealed class FilterEffectContext : IDisposable
     private void AppendDescription(IFEItem item)
     {
         ThrowIfDisposed();
-        if (Bounds.IsInvalid)
+        if (_bounds.IsInvalid)
         {
             _renderTimeItems.Add(item);
             return;
         }
 
-        Rect nextBounds = item.TransformBounds(Bounds);
+        Rect nextBounds = item.TransformBounds(_bounds);
         _items.Add(item);
-        Bounds = nextBounds;
+        _bounds = nextBounds;
     }
 
     [EditorBrowsable(EditorBrowsableState.Never)]
@@ -355,6 +357,53 @@ public sealed class FilterEffectContext : IDisposable
             (data, input, _) => SKImageFilter.CreateMatrix(data.matrix.ToSKMatrix(),
                 data.bitmapInterpolationMode.ToSKSamplingOptions(), input),
             (data, rect) => rect.TransformToAABB(data.matrix));
+    }
+
+    /// <summary>
+    /// Appends a Skia matrix image filter whose matrix is resolved from the execution-time target
+    /// bounds via <paramref name="matrixFactory"/> when the input bounds are symbolic.
+    /// </summary>
+    /// <remarks>
+    /// When <see cref="Bounds"/> is concrete the matrix is resolved from it immediately, matching
+    /// <see cref="Transform(Matrix, BitmapInterpolationMode)"/>. When it is
+    /// <see cref="Rect.Invalid"/> (symbolic owning-domain input) the matrix is resolved once from
+    /// the combined execution-time target bounds and reused for every target.
+    /// </remarks>
+    public void Transform<T>(T data, Func<T, Rect, Matrix> matrixFactory,
+        BitmapInterpolationMode bitmapInterpolationMode)
+        where T : IEquatable<T>
+    {
+        if (!_bounds.IsInvalid)
+        {
+            Transform(matrixFactory(data, _bounds), bitmapInterpolationMode);
+            return;
+        }
+
+        // The matrix is resolved from the first bounds observation (the combined execution-time
+        // target bounds) and then fixed, so every target transforms with the same matrix.
+        Matrix resolved = default;
+        bool resolvedSet = false;
+        Func<(T Data, Func<T, Rect, Matrix> MatrixFactory, BitmapInterpolationMode Mode), Rect, Rect> transformBounds =
+            (d, rect) =>
+            {
+                if (rect.IsInvalid)
+                    return Rect.Invalid;
+                if (!resolvedSet)
+                {
+                    resolved = d.MatrixFactory(d.Data, rect);
+                    resolvedSet = true;
+                }
+                return rect.TransformToAABB(resolved);
+            };
+        AppendDescription(new FEItem_Skia<(T Data, Func<T, Rect, Matrix> MatrixFactory, BitmapInterpolationMode Mode)>(
+            (data, matrixFactory, bitmapInterpolationMode),
+            (d, input, activator) => SKImageFilter.CreateMatrix(
+                d.MatrixFactory(d.Data, activator.CurrentTargets.CalculateBounds()).ToSKMatrix(),
+                d.Mode.ToSKSamplingOptions(), input),
+            transformBounds)
+        {
+            ResolveBoundsAtExecutionTime = true,
+        });
     }
 
     public void MatrixConvolution(
@@ -631,7 +680,7 @@ public sealed class FilterEffectContext : IDisposable
     public void CustomEffect<T>(T data, Action<T, CustomFilterEffectContext> action)
     {
         AddItem(new FEItem_CustomEffect<T>(data, action, null));
-        Bounds = Rect.Invalid;
+        _bounds = Rect.Invalid;
     }
 
     public int CountItems()
@@ -662,7 +711,7 @@ public sealed class FilterEffectContext : IDisposable
         int itemCount = _items.Count;
         int renderTimeItemCount = _renderTimeItems.Count;
         int resourceCount = _resourceState.Count;
-        Rect bounds = Bounds;
+        Rect bounds = _bounds;
         try
         {
             apply();
@@ -674,7 +723,7 @@ public sealed class FilterEffectContext : IDisposable
                 _items.RemoveAt(_items.Count - 1);
             while (_renderTimeItems.Count > renderTimeItemCount)
                 _renderTimeItems.RemoveAt(_renderTimeItems.Count - 1);
-            Bounds = bounds;
+            _bounds = bounds;
             try
             {
                 _resourceState.RollbackTo(resourceCount, ex);
@@ -707,12 +756,25 @@ public sealed class FilterEffectContext : IDisposable
     {
         ArgumentNullException.ThrowIfNull(items);
         var context = new FilterEffectContext(bounds, outputScale, workingScale);
+        bool hasDeferredBounds = false;
         foreach (IFEItem item in items)
         {
             context.AddItem(item);
-            if (!context.Bounds.IsInvalid)
-                context.Bounds = item.TransformBounds(context.Bounds);
+            if (item is IFEItem_Skia { ResolveBoundsAtExecutionTime: true })
+            {
+                // A deferred-bound item resolves its bounds at execution time; authoring it
+                // here against the provisional segment input would freeze the wrong matrix.
+                hasDeferredBounds = true;
+                continue;
+            }
+
+            if (!context._bounds.IsInvalid)
+                context._bounds = item.TransformBounds(context._bounds);
         }
+
+        // The segment output is only known after the deferred item resolves at execution time.
+        if (hasDeferredBounds)
+            context._bounds = Rect.Invalid;
 
         return context;
     }

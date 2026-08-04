@@ -153,7 +153,9 @@ public class FilterEffectRenderNode(FilterEffect.Resource filterEffect) : Contai
                 }
 
                 legacyItems.Add(item);
-                if (!legacyBounds.IsInvalid)
+                // A deferred-bound item resolves at execution time; authoring it against the
+                // provisional hint would freeze the wrong matrix, so the segment stays symbolic.
+                if (!legacyBounds.IsInvalid && item is not IFEItem_Skia { ResolveBoundsAtExecutionTime: true })
                     legacyBounds = item.TransformBounds(legacyBounds);
                 opaqueTail |= legacyBounds.IsInvalid;
             }

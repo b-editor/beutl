@@ -18,6 +18,7 @@ public sealed class FilterEffectActivator : IDisposable
     private ProgramCache<CachedSkRuntimeEffect>? _ownedProgramCache;
     private Dictionary<EffectTarget, PendingSkiaTarget>? _pendingSkiaTargets;
     private bool _customEffectBoundaryMaterialized;
+    private bool _hasDeferredBoundSkiaItem;
 
     public FilterEffectActivator(
         EffectTargets targets,
@@ -199,6 +200,23 @@ public sealed class FilterEffectActivator : IDisposable
         if (!force && !hasFilter)
         {
             _pendingSkiaTargets = null;
+            return;
+        }
+
+        // A deferred-bound Skia item resolves its matrix from the execution-time target bounds;
+        // the filter must be applied at draw time (like main), not baked into a re-allocated
+        // buffer whose source footprint would not cover the transformed content. Attach the
+        // filter to each target and keep the source buffers untouched.
+        if (_hasDeferredBoundSkiaItem)
+        {
+            SKImageFilter? filter = Builder.TakeFilter();
+            foreach (EffectTarget target in CurrentTargets)
+            {
+                target.ImageFilter = filter;
+            }
+
+            _pendingSkiaTargets = null;
+            Builder.Clear();
             return;
         }
 
@@ -520,12 +538,38 @@ public sealed class FilterEffectActivator : IDisposable
                     {
                         BeginSkiaChain();
                         skia.Accepts(this, Builder);
-                        foreach (EffectTarget t in CurrentTargets)
+                        // A deferred-bound Skia item resolves its matrix from the combined
+                        // execution-time target bounds (e.g. an origin derived from the input
+                        // bounds after a preceding custom effect re-targeted the domain). The
+                        // resolved bounds mapping is applied once to every target, matching the
+                        // authored single-matrix semantics.
+                        if (skia.ResolveBoundsAtExecutionTime)
                         {
-                            PendingSkiaTarget pending = _pendingSkiaTargets![t];
-                            pending.PhysicalBounds = item.TransformBounds(pending.PhysicalBounds);
-                            t.Bounds = item.TransformBounds(t.Bounds);
-                            t.OriginalBounds = item.TransformBounds(t.OriginalBounds);
+                            // The matrix is resolved once from the combined execution-time target
+                            // bounds (the first TransformBounds call fixes it); every target then
+                            // transforms with that same matrix. Bounds/OriginalBounds map
+                            // individually like main; the filter is attached at flush time and
+                            // applied when the target is drawn.
+                            Rect combinedBounds = CurrentTargets.CalculateBounds();
+                            _ = item.TransformBounds(combinedBounds);
+                            _hasDeferredBoundSkiaItem = true;
+                            foreach (EffectTarget t in CurrentTargets)
+                            {
+                                PendingSkiaTarget pending = _pendingSkiaTargets![t];
+                                pending.PhysicalBounds = item.TransformBounds(pending.PhysicalBounds);
+                                t.Bounds = item.TransformBounds(t.Bounds);
+                                t.OriginalBounds = item.TransformBounds(t.OriginalBounds);
+                            }
+                        }
+                        else
+                        {
+                            foreach (EffectTarget t in CurrentTargets)
+                            {
+                                PendingSkiaTarget pending = _pendingSkiaTargets![t];
+                                pending.PhysicalBounds = item.TransformBounds(pending.PhysicalBounds);
+                                t.Bounds = item.TransformBounds(t.Bounds);
+                                t.OriginalBounds = item.TransformBounds(t.OriginalBounds);
+                            }
                         }
 
                         break;
@@ -647,7 +691,7 @@ public sealed class FilterEffectActivator : IDisposable
         Rect inputBounds,
         Rect physicalBounds)
     {
-        public Rect InputBounds { get; } = inputBounds;
+        public Rect InputBounds { get; set; } = inputBounds;
 
         public Rect PhysicalBounds { get; set; } = physicalBounds;
     }

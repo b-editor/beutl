@@ -49,6 +49,19 @@ public sealed class SKImageFilterBuilder : IDisposable
         return _filter;
     }
 
+    /// <summary>
+    /// Returns the composed filter and transfers ownership to the caller (the builder no longer
+    /// tracks it, so <see cref="Clear"/> will not dispose it). Used when a deferred-bound Skia
+    /// item attaches its filter to targets for draw-time application.
+    /// </summary>
+    public SKImageFilter? TakeFilter()
+    {
+        SKImageFilter? filter = GetFilter();
+        _filter = null;
+        _colorFilter = null;
+        return filter;
+    }
+
     public void Clear()
     {
         _filter?.Dispose();

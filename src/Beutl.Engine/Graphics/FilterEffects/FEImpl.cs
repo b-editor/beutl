@@ -20,6 +20,12 @@ internal record FEItem_Skia<T>(
     T Data, Func<T, SKImageFilter?, FilterEffectActivator, SKImageFilter?> Factory, Func<T, Rect, Rect> TransformBounds)
     : FEItem<T>(Data, TransformBounds), IFEItem_Skia
 {
+    /// <summary>
+    /// Resolves <see cref="IFEItem.TransformBounds"/> from the combined execution-time target
+    /// bounds when authoring-time bounds are unavailable (symbolic input).
+    /// </summary>
+    public bool ResolveBoundsAtExecutionTime { get; init; }
+
     public void Accepts(FilterEffectActivator activator, SKImageFilterBuilder builder)
     {
         builder.AppendSkiaFilter(Data, activator, Factory);
@@ -30,6 +36,8 @@ internal record FEItem_SKColorFilter<T>(
     T Data, Func<T, FilterEffectActivator, SKColorFilter?> Factory)
     : FEItem<T>(Data, (_, rect) => rect), IFEItem_Skia
 {
+    public bool ResolveBoundsAtExecutionTime => false;
+
     public void Accepts(FilterEffectActivator activator, SKImageFilterBuilder builder)
     {
         builder.AppendSKColorFilter(Data, activator, Factory);
@@ -39,6 +47,12 @@ internal record FEItem_SKColorFilter<T>(
 internal interface IFEItem_Skia
 {
     void Accepts(FilterEffectActivator activator, SKImageFilterBuilder builder);
+
+    /// <summary>
+    /// When true, the bounds mapping is resolved from the combined execution-time target
+    /// bounds instead of per-target authoring-time bounds.
+    /// </summary>
+    bool ResolveBoundsAtExecutionTime { get; }
 }
 
 internal record FEItem_CustomEffect<T>(
