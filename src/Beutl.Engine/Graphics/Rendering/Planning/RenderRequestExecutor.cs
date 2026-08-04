@@ -2279,9 +2279,8 @@ internal sealed class RenderRequestExecutor
 
                             // Cropping the input to the backward region leaves the surrounding output
                             // undefined, so the published value must not claim it. A legacy
-                            // raster-placement value (e.g. a deferred-bound Skia transform) is
-                            // already positioned at its resolved footprint and must not be cropped
-                            // to the provisional fragment region.
+                            // raster-placement value is already positioned at its resolved footprint
+                            // and must not be cropped to the provisional fragment region.
                             Rect selectedBounds = value.PreserveLegacyRasterPlacement
                                 ? value.Bounds
                                 : value.Bounds.Intersect(requiredRegion);
@@ -2324,10 +2323,7 @@ internal sealed class RenderRequestExecutor
             RenderTarget renderTarget,
             Rect completeBounds)
         {
-            // A deferred-bound Skia transform carries its filter to draw time; the source buffer
-            // must be passed through untouched (like main's CreateLambda) instead of being
-            // normalized into a re-allocated buffer.
-            if (target.PreserveLegacyRasterPlacement || target.ImageFilter != null)
+            if (target.PreserveLegacyRasterPlacement)
             {
                 Vector deviceGridOffset = target.DeviceBounds
                     .ToRect(target.Scale.Value)
@@ -2339,9 +2335,7 @@ internal sealed class RenderRequestExecutor
                     target.DeviceBounds,
                     deviceGridOffset,
                     completeBounds,
-                    preserveLegacyRasterPlacement: true,
-                    imageFilter: target.ImageFilter,
-                    sourcePosition: target.OriginalBounds);
+                    preserveLegacyRasterPlacement: true);
             }
 
             Rect canonicalRasterBounds = target.DeviceBounds
@@ -2359,8 +2353,7 @@ internal sealed class RenderRequestExecutor
                     target.Scale,
                     target.DeviceBounds,
                     target.DeviceGridOffset,
-                    completeBounds: completeBounds,
-                    imageFilter: target.ImageFilter);
+                    completeBounds: completeBounds);
             }
 
             Rect physicalBounds = target.RasterBounds.Union(target.Bounds);
@@ -4265,22 +4258,6 @@ internal sealed class RenderRequestExecutor
             CompatibilityRenderValue value,
             ImmediateCanvas destination)
         {
-            if (value.ImageFilter is { } imageFilter)
-            {
-                using var paint = new SKPaint { ImageFilter = imageFilter };
-                // The filter transforms the source content around the resolved origin; the draw
-                // keeps the source footprint size and places it at Bounds - SourcePosition, exactly
-                // matching main's CreateLambda translation (t.Bounds - t.OriginalBounds).
-                Point drawOrigin = value.SourcePosition is { } source
-                    ? value.Bounds.Position - source.Position
-                    : value.Bounds.Position;
-                destination.DrawRenderTargetWithFilter(
-                    value.Target,
-                    new Rect(drawOrigin, value.RasterBounds.Size),
-                    paint);
-                return;
-            }
-
             if (value.PreserveLegacyRasterPlacement
                 && value.EffectiveScale.Value == 1f
                 && destination.Density == 1f)
@@ -4313,9 +4290,7 @@ internal sealed class RenderRequestExecutor
             PixelRect deviceBounds,
             Vector deviceGridOffset = default,
             Rect? completeBounds = null,
-            bool preserveLegacyRasterPlacement = false,
-            SKImageFilter? imageFilter = null,
-            Rect? sourcePosition = null)
+            bool preserveLegacyRasterPlacement = false)
         {
             RenderTarget copy = target.ShallowCopy();
             try
@@ -4328,9 +4303,7 @@ internal sealed class RenderRequestExecutor
                     ownsTarget: true,
                     deviceGridOffset: deviceGridOffset,
                     completeBounds: completeBounds,
-                    preserveLegacyRasterPlacement: preserveLegacyRasterPlacement,
-                    imageFilter: imageFilter,
-                    sourcePosition: sourcePosition);
+                    preserveLegacyRasterPlacement: preserveLegacyRasterPlacement);
             }
             catch
             {
@@ -4368,9 +4341,7 @@ internal sealed class RenderRequestExecutor
             bool ownsTarget,
             Vector deviceGridOffset = default,
             Rect? completeBounds = null,
-            bool preserveLegacyRasterPlacement = false,
-            SKImageFilter? imageFilter = null,
-            Rect? sourcePosition = null)
+            bool preserveLegacyRasterPlacement = false)
         {
             ArgumentNullException.ThrowIfNull(target);
             ValidatePhysicalFootprint(
@@ -4388,8 +4359,6 @@ internal sealed class RenderRequestExecutor
             DeviceGridOffset = deviceGridOffset;
             OwnsTarget = ownsTarget;
             PreserveLegacyRasterPlacement = preserveLegacyRasterPlacement;
-            ImageFilter = imageFilter;
-            SourcePosition = sourcePosition;
         }
 
         public CompatibilityRenderValue(
@@ -4435,17 +4404,6 @@ internal sealed class RenderRequestExecutor
                 .Translate(-DeviceGridOffset);
 
         public bool OwnsTarget { get; }
-
-        /// <summary>
-        /// An image filter applied when this value is drawn (deferred-bound Skia transform).
-        /// </summary>
-        public SKImageFilter? ImageFilter { get; }
-
-        /// <summary>
-        /// The pre-transform logical position of the source buffer, used to place the draw
-        /// exactly as main's CreateLambda does (Bounds - SourcePosition translation).
-        /// </summary>
-        public Rect? SourcePosition { get; }
 
         public bool PreserveLegacyRasterPlacement { get; }
 
