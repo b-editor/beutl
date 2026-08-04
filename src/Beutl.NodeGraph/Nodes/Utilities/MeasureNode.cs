@@ -34,7 +34,7 @@ public partial class MeasureNode : GraphNode
             {
                 if (FilterEffectInputBinding.TryGetCurrent(out FilterEffectInputBinding binding))
                 {
-                    binding.TryMeasureSubtree(renderNode, out rect);
+                    rect = binding.MeasureSubtree(renderNode);
                 }
                 else
                 {

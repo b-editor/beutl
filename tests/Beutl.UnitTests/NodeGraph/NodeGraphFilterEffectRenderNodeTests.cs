@@ -456,6 +456,178 @@ public class NodeGraphFilterEffectRenderNodeTests
         });
     }
 
+    // A NodeGraphFilterEffect on a DrawableGroup nests PushFilterEffect around PushLayer, so the graph's
+    // bound inputs are a TargetLayerScope(Full) whose recording metadata stays symbolic.
+    [Test]
+    public void Preview_WithSymbolicInputBounds_RendersTheRequestTargetDomain()
+    {
+        var effect = new NodeGraphFilterEffect();
+        GraphModel model = effect.Model.CurrentValue!;
+        var inputNode = new FilterEffectInputNode();
+        var previewNode = new PreviewNode();
+        var outputNode = new OutputNode();
+        model.Nodes.Add(inputNode);
+        model.Nodes.Add(previewNode);
+        model.Nodes.Add(outputNode);
+        model.Connect(previewNode.Input, inputNode.Output);
+        model.Connect(outputNode.InputPort, inputNode.Output);
+        using var resource = (NodeGraphFilterEffect.Resource)effect.ToResource(CompositionContext.Default);
+        NodeMonitor<Ref<Bitmap>?> monitor = GetPreviewMonitor(previewNode);
+        monitor.IsEnabled = true;
+
+        var source = new CountingOpaqueSourceRenderNode(new Rect(3, 5, 24, 18));
+        using var pipeline = ScaleRecordingTestHelper.Pipeline(
+            source,
+            new LayerRenderNode(default),
+            resource.CreateRenderNode());
+        using var renderer = new RenderNodeRenderer(pipeline, new RenderNodeRendererOptions
+        {
+            DefaultRequest = new RenderNodeRenderRequest
+            {
+                TargetDomain = new Rect(0, 0, 64, 48),
+                CacheOptions = RenderCacheOptions.Disabled,
+            },
+        });
+
+        using RenderNodeRasterization rasterization = renderer.Rasterize();
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(monitor.Value, Is.Not.Null,
+                "A symbolic-bounds subtree must not be previewed as an empty subtree.");
+            Assert.That(monitor.Value!.Value.Width, Is.EqualTo(64));
+            Assert.That(monitor.Value.Value.Height, Is.EqualTo(48));
+        });
+
+        monitor.Value?.Dispose();
+    }
+
+    [Test]
+    public void DuplicateOutputRoots_WithSymbolicBounds_NormalizeAgainstTheRequestTargetDomain()
+    {
+        var effect = new NodeGraphFilterEffect();
+        GraphModel model = effect.Model.CurrentValue!;
+        var inputNode = new FilterEffectInputNode();
+        var firstOutput = new OutputNode();
+        var secondOutput = new OutputNode();
+        model.Nodes.Add(inputNode);
+        model.Nodes.Add(firstOutput);
+        model.Nodes.Add(secondOutput);
+        model.Connect(firstOutput.InputPort, inputNode.Output);
+        model.Connect(secondOutput.InputPort, inputNode.Output);
+        using var resource = (NodeGraphFilterEffect.Resource)effect.ToResource(CompositionContext.Default);
+
+        var source = new CountingOpaqueSourceRenderNode(new Rect(3, 5, 24, 18));
+        using var pipeline = ScaleRecordingTestHelper.Pipeline(
+            source,
+            new LayerRenderNode(default),
+            resource.CreateRenderNode());
+        using var renderer = new RenderNodeRenderer(pipeline, new RenderNodeRendererOptions
+        {
+            DefaultRequest = new RenderNodeRenderRequest
+            {
+                TargetDomain = new Rect(0, 0, 64, 48),
+                CacheOptions = RenderCacheOptions.Disabled,
+            },
+        });
+
+        using RenderNodeRasterization rasterization = renderer.Rasterize();
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(rasterization.Bitmap, Is.Not.Null,
+                "Two OutputNodes on one symbolic producer must still render.");
+            Assert.That(source.ExecutionCount, Is.EqualTo(1));
+        });
+    }
+
+    [TestCase(true)]
+    [TestCase(false)]
+    public void SymbolicInputBounds_WithoutARequestTargetDomain_FailWithAnActionableMessage(bool preview)
+    {
+        var effect = new NodeGraphFilterEffect();
+        GraphModel model = effect.Model.CurrentValue!;
+        var inputNode = new FilterEffectInputNode();
+        var outputNode = new OutputNode();
+        model.Nodes.Add(inputNode);
+        model.Nodes.Add(outputNode);
+        model.Connect(outputNode.InputPort, inputNode.Output);
+        if (preview)
+        {
+            var previewNode = new PreviewNode();
+            model.Nodes.Add(previewNode);
+            model.Connect(previewNode.Input, inputNode.Output);
+            GetPreviewMonitor(previewNode).IsEnabled = true;
+        }
+        else
+        {
+            var secondOutput = new OutputNode();
+            model.Nodes.Add(secondOutput);
+            model.Connect(secondOutput.InputPort, inputNode.Output);
+        }
+
+        using var resource = (NodeGraphFilterEffect.Resource)effect.ToResource(CompositionContext.Default);
+        var source = new CountingOpaqueSourceRenderNode(new Rect(3, 5, 24, 18));
+        using var pipeline = ScaleRecordingTestHelper.Pipeline(
+            source,
+            new LayerRenderNode(default),
+            resource.CreateRenderNode());
+        using var renderer = new RenderNodeRenderer(pipeline, new RenderNodeRendererOptions
+        {
+            DefaultRequest = new RenderNodeRenderRequest
+            {
+                CacheOptions = RenderCacheOptions.Disabled,
+            },
+        });
+
+        Assert.That(
+            () => renderer.Measure(),
+            Throws.TypeOf<RenderTargetDomainRequiredException>()
+                .And.Message.Contains("did not supply a finite TargetDomain"));
+    }
+
+    [Test]
+    public void Measure_WithSymbolicInputBounds_ReportsTheRecordedQueryBounds()
+    {
+        var bounds = new Rect(3, 5, 24, 18);
+        var effect = new NodeGraphFilterEffect();
+        GraphModel model = effect.Model.CurrentValue!;
+        var inputNode = new FilterEffectInputNode();
+        var measureNode = new MeasureNode();
+        var captureNode = new MeasureCaptureNode();
+        var outputNode = new OutputNode();
+        model.Nodes.Add(inputNode);
+        model.Nodes.Add(measureNode);
+        model.Nodes.Add(captureNode);
+        model.Nodes.Add(outputNode);
+        model.Connect(measureNode.Input, inputNode.Output);
+        model.Connect(captureNode.X, measureNode.X);
+        model.Connect(captureNode.Y, measureNode.Y);
+        model.Connect(captureNode.Width, measureNode.Width);
+        model.Connect(captureNode.Height, measureNode.Height);
+        model.Connect(outputNode.InputPort, inputNode.Output);
+        using var resource = (NodeGraphFilterEffect.Resource)effect.ToResource(CompositionContext.Default);
+
+        var source = new CountingOpaqueSourceRenderNode(bounds);
+        using var pipeline = ScaleRecordingTestHelper.Pipeline(
+            source,
+            new LayerRenderNode(default),
+            resource.CreateRenderNode());
+        using var renderer = new RenderNodeRenderer(pipeline, new RenderNodeRendererOptions
+        {
+            DefaultRequest = new RenderNodeRenderRequest
+            {
+                TargetDomain = new Rect(0, 0, 64, 48),
+                CacheOptions = RenderCacheOptions.Disabled,
+            },
+        });
+
+        renderer.Measure();
+
+        Assert.That(captureNode.Value, Is.EqualTo(bounds),
+            "MeasureNode must report the recorded query bounds of a symbolic-bounds subtree, not zero.");
+    }
+
     [Test]
     public void SharedRenderNodeCycle_IsRejectedByBoundGraphRecorder()
     {

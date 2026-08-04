@@ -201,10 +201,10 @@ internal sealed class FilterEffectInputBinding : IDisposable
         return outputs;
     }
 
-    internal bool TryMeasureSubtree(RenderNode node, out Rect bounds)
+    internal Rect MeasureSubtree(RenderNode node)
     {
         IReadOnlyList<RenderFragmentHandle> outputs = RecordSubtree(node);
-        return TryCalculateBounds(outputs, out bounds);
+        return CalculateRecordedQueryBounds(outputs);
     }
 
     internal void EnsureFanOutSafe(RenderNode node)
@@ -232,10 +232,14 @@ internal sealed class FilterEffectInputBinding : IDisposable
         }
 
         IReadOnlyList<RenderFragmentHandle> outputs = RecordSubtree(node);
-        if (outputs.Count == 0
-            || !TryCalculateBounds(outputs, out Rect bounds)
-            || bounds.Width == 0
-            || bounds.Height == 0)
+        if (outputs.Count == 0)
+        {
+            _previews.Add(new DeferredPreview([], replace, runtimeIdentity));
+            return;
+        }
+
+        Rect bounds = ResolveLayerDomain(node, outputs);
+        if (bounds.Width == 0 || bounds.Height == 0)
         {
             _previews.Add(new DeferredPreview([], replace, runtimeIdentity));
             return;
@@ -293,10 +297,8 @@ internal sealed class FilterEffectInputBinding : IDisposable
         RenderNode node,
         IReadOnlyList<RenderFragmentHandle> outputs)
     {
-        if (outputs.Count == 0
-            || !TryCalculateBounds(outputs, out Rect bounds)
-            || bounds.Width == 0
-            || bounds.Height == 0)
+        Rect bounds = outputs.Count == 0 ? Rect.Empty : ResolveLayerDomain(node, outputs);
+        if (bounds.Width == 0 || bounds.Height == 0)
         {
             throw new InvalidOperationException(
                 $"The shared node-graph subtree '{node.GetType().FullName}' cannot be normalized "
@@ -325,6 +327,41 @@ internal sealed class FilterEffectInputBinding : IDisposable
                 $"The non-value node-graph subtree '{node.GetType().FullName}' is used by more than one consumer. "
                 + "Wrap the shared subtree in a finite value-producing layer before branching.");
         }
+    }
+
+    /// <summary>
+    /// Resolves the finite domain of the layer that normalizes <paramref name="outputs"/> into one value.
+    /// </summary>
+    /// <remarks>
+    /// A layer domain covers final target writes, so a subtree whose recording metadata is still symbolic
+    /// resolves to the request's complete owning target domain rather than to its tight query bounds.
+    /// </remarks>
+    private Rect ResolveLayerDomain(
+        RenderNode node,
+        IReadOnlyList<RenderFragmentHandle> outputs)
+    {
+        if (TryCalculateBounds(outputs, out Rect bounds))
+            return bounds;
+
+        if (_context.TargetDomain is { } domain)
+            return domain;
+
+        throw new RenderTargetDomainRequiredException(
+            $"The node-graph subtree '{node.GetType().FullName}' writes its complete owning target domain, "
+            + "but the request did not supply a finite TargetDomain to resolve it against. Set "
+            + $"{nameof(RenderNodeRenderRequest)}.{nameof(RenderNodeRenderRequest.TargetDomain)} on the "
+            + "request, or produce the subtree inside a finite layer.");
+    }
+
+    private Rect CalculateRecordedQueryBounds(IReadOnlyList<RenderFragmentHandle> fragments)
+    {
+        Rect result = Rect.Empty;
+        foreach (RenderFragmentHandle fragment in fragments)
+        {
+            result = result.Union(_context.GetRecordedMetadataHint(fragment).Bounds);
+        }
+
+        return result;
     }
 
     private static bool TryCalculateBounds(
