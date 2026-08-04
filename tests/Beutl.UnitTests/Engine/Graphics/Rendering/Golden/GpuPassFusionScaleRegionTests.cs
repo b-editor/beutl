@@ -17,6 +17,16 @@ public sealed class GpuPassFusionScaleRegionTests
 {
     private static readonly Rect s_domain = new(0, 0, 96, 64);
 
+    // The stage runs in half precision and stores RGBA16F, so the CPU oracle and the GPU may disagree by a few
+    // half-precision ulps (~4.9e-4 relative near 1.0). Vulkan measures 0.000000; this keeps room for a backend
+    // that rounds differently while staying two orders of magnitude below the effect size.
+    private const double MaximumSelfAlphaProductDeviation = 0.005;
+
+    // Per premultiplied channel the stage changes a pixel by a - a^2, which peaks at 0.25 for a = 0.5. An
+    // antialiased stroke edge sweeps through that coverage, so the observed maximum is 0.2406. This floor sits
+    // well under it and far above the 0 that a stage which never ran would produce.
+    private const double MinimumSelfAlphaProductChange = 0.10;
+
     [Test]
     public void MixedVectorBitmapAndTextInputs_ResolveDensestSupplyThenMaximumWorkingScale()
     {
@@ -413,10 +423,30 @@ public sealed class GpuPassFusionScaleRegionTests
                     ImageMetrics.FirstNonFinite(("shader-free", shaderFree), ("shader-applied", shaderApplied)),
                     Is.Null,
                     "thin-stroke control and shader-applied outputs must be finite RGBA16F.");
+
+                // A CurrentPixel stage runs after coverage resolution, so the applied image must equal the
+                // control image put through color * color.a. Running the stage before antialiasing instead
+                // would yield (c * c.a) * coverage rather than (c * coverage) * (c.a * coverage), which differs
+                // on exactly the partially covered edge pixels this test exists to guard.
+                using Bitmap expected = MultiplyByOwnAlpha(shaderFree);
+                RgbaMaximumError deviation =
+                    ImageMetrics.MaximumAbsoluteErrorPerChannel(expected, shaderApplied);
+                RgbaMaximumError change =
+                    ImageMetrics.MaximumAbsoluteErrorPerChannel(shaderFree, shaderApplied);
+                TestContext.WriteLine(
+                    $"[color*alpha] oracle deviation={deviation.Maximum:F6} change={change.Maximum:F6} "
+                    + $"changeAlpha={change.Alpha:F6}");
+
+                // A whole-region mean cannot serve here: the stroke covers ~2% of the probe region, so even a
+                // total change of every covered pixel stays under the harness parity ceiling.
                 Assert.That(
-                    ImageMetrics.MeanAbsoluteError(shaderFree, shaderApplied),
-                    Is.GreaterThan(GpuPassFusionSameProcessParityHarness.MaximumLinearRgbMae),
-                    "the color*alpha CurrentPixel shader must change the thin-stroke image beyond the parity tolerance.");
+                    deviation.Maximum,
+                    Is.LessThanOrEqualTo(MaximumSelfAlphaProductDeviation),
+                    "the CurrentPixel stage must apply color * color.a to coverage-resolved pixels.");
+                Assert.That(
+                    change.Maximum,
+                    Is.GreaterThanOrEqualTo(MinimumSelfAlphaProductChange),
+                    "the color*alpha CurrentPixel shader must actually change the thin-stroke image.");
             });
         });
     }
@@ -441,6 +471,34 @@ public sealed class GpuPassFusionScaleRegionTests
                 ? RenderFragmentKind.BuiltInBackdropCapture
                 : RenderFragmentKind.TargetCapture));
         return RenderFragmentOutputIdentity.Create(reference, request.Id);
+    }
+
+    /// <summary>CPU oracle for the <c>color * color.a</c> CurrentPixel stage over premultiplied RGBA16F.</summary>
+    private static Bitmap MultiplyByOwnAlpha(Bitmap source)
+    {
+        var result = new Bitmap(
+            source.Width,
+            source.Height,
+            BitmapColorType.RgbaF16,
+            BitmapAlphaType.Premul,
+            BitmapColorSpace.LinearSrgb);
+        for (int y = 0; y < source.Height; y++)
+        {
+            ReadOnlySpan<ushort> sourceRow = source.GetRow<ushort>(y);
+            Span<ushort> resultRow = result.GetRow<ushort>(y);
+            for (int x = 0; x < source.Width; x++)
+            {
+                int offset = x * 4;
+                var alpha = (float)BitConverter.UInt16BitsToHalf(sourceRow[offset + 3]);
+                for (int channel = 0; channel < 4; channel++)
+                {
+                    var value = (float)BitConverter.UInt16BitsToHalf(sourceRow[offset + channel]);
+                    resultRow[offset + channel] = BitConverter.HalfToUInt16Bits((Half)(value * alpha));
+                }
+            }
+        }
+
+        return result;
     }
 
     private static Bitmap RenderThinStroke(RenderNode node, FusionMode mode)

@@ -1,57 +1,188 @@
-﻿using System.IO;
-using Beutl.Composition;
+﻿using Beutl.Composition;
 using Beutl.Graphics;
 using Beutl.Graphics.Effects;
 using Beutl.Graphics.Shapes;
 using Beutl.Graphics.Transformation;
 using Beutl.Media;
 using Beutl.UnitTests.Engine.Graphics.Backend;
-using SkiaSharp;
 
 namespace Beutl.UnitTests.Engine.Graphics.Rendering.Golden;
 
-// Guards the SplitEffect + TransformEffect(ApplyToTarget=false) combination (both orders).
-// With BEUTL_SNAPSHOT_DIR set, renders are saved as PNGs; with BEUTL_MAIN_SNAPSHOT_DIR set,
-// the MatchesMain tests compare the fixed-branch render against the main-branch baseline.
+// Guards SplitEffect combined with TransformEffect(ApplyToTarget=false) in both orders.
+//
+// The two orders reach different branches of FilterEffectContext.Transform. SplitEffect is a CustomEffect, so
+// it leaves the context bounds symbolic: a TransformEffect placed after it resolves one shared matrix from the
+// combined target bounds at execution time, while a TransformEffect placed before it resolves from the still
+// concrete bounds immediately. Each order therefore gets an oracle rendered in this same process, which keeps
+// the gate free of any checked-in baseline, machine-local snapshot directory, or inter-test ordering.
 [NonParallelizable]
 [TestFixture]
 public class SplitTransformEffectCombinationTests
 {
     private static readonly PixelSize Frame = new(200, 200);
 
-    private static string SnapshotDir =>
-        Environment.GetEnvironmentVariable("BEUTL_SNAPSHOT_DIR") ?? "/tmp/st-fixed";
+    private const float ShapeRotation = 21f;
+    private const float EffectRotation = 45f;
+    private const float EffectScaleX = 120f;
+    private const float EffectScaleY = 100f;
 
-    private static string MainSnapshotDir =>
-        Environment.GetEnvironmentVariable("BEUTL_MAIN_SNAPSHOT_DIR") ?? "/tmp/st-main";
+    // Each oracle reaches the same geometry through a different blit, so resampling differs at tile edges.
+    // TransformEffectEquivalenceTests uses the same bound against the same drawable-transform oracle.
+    // Measured on Vulkan: 0.9964 for the deferred order, 0.9995 for the concrete order.
+    private const double MinimumOracleSsim = 0.97;
+
+    // Measured order divergence is 0.2633, two orders of magnitude above this floor.
+    private const double MinimumOrderDivergence = 0.01;
+
+    // A transformed 140x90 shape split into nine tiles fills well over this share of a 200x200 frame.
+    private const double MinimumCoverageRatio = 0.05;
+
+    // The transform resolves at execution time here, so its oracle is the same transform applied once to the
+    // whole split result through the drawable's own Transform, a path with no deferred resolution at all.
+    [Test]
+    public void SplitThenTransformFilter_ExecutionTimeBoundsMatchTheDrawableTransform()
+    {
+        VulkanTestEnvironment.EnsureAvailable();
+        VulkanTestEnvironment.InvokeOnRenderThread(() =>
+        {
+            using Bitmap viaEffect = Render(SplitThenTransform(), ShapeTransform());
+            using Bitmap viaDrawableTransform = Render(MakeSplit(), ShapeThenEffectTransform());
+
+            AssertOracleMatch(viaEffect, viaDrawableTransform, "SplitThenTransform");
+        });
+    }
+
+    // The transform resolves from concrete bounds here, so ApplyToTarget=true — which computes the same matrix
+    // from the single target it is handed — is an equivalent independent path.
+    [Test]
+    public void TransformFilterThenSplit_ConcreteBoundsMatchTheApplyToTargetPath()
+    {
+        VulkanTestEnvironment.EnsureAvailable();
+        VulkanTestEnvironment.InvokeOnRenderThread(() =>
+        {
+            using Bitmap deferred = Render(TransformThenSplit(applyToTarget: false), ShapeTransform());
+            using Bitmap eager = Render(TransformThenSplit(applyToTarget: true), ShapeTransform());
+
+            AssertOracleMatch(deferred, eager, "TransformThenSplit");
+        });
+    }
+
+    [Test]
+    public void SplitTransformCombination_IsDeterministicAndOrderSensitive()
+    {
+        VulkanTestEnvironment.EnsureAvailable();
+        VulkanTestEnvironment.InvokeOnRenderThread(() =>
+        {
+            using Bitmap splitFirst = Render(SplitThenTransform(), ShapeTransform());
+            using Bitmap splitFirstAgain = Render(SplitThenTransform(), ShapeTransform());
+            using Bitmap transformFirst = Render(TransformThenSplit(applyToTarget: false), ShapeTransform());
+
+            double divergence = ImageMetrics.MeanAbsoluteError(splitFirst, transformFirst);
+            TestContext.WriteLine($"order divergence MAE={divergence:F6}");
+
+            Assert.Multiple(() =>
+            {
+                Assert.That(
+                    ImageMetrics.FirstNonFinite(("split-first", splitFirst), ("transform-first", transformFirst)),
+                    Is.Null);
+                GoldenImageHarness.AssertByteIdentical(splitFirst, splitFirstAgain);
+                Assert.That(CoveredPixelRatio(splitFirst), Is.GreaterThan(MinimumCoverageRatio));
+                Assert.That(
+                    divergence,
+                    Is.GreaterThan(MinimumOrderDivergence),
+                    "the two effect orders must not collapse onto one image.");
+            });
+        });
+    }
+
+    private static void AssertOracleMatch(Bitmap actual, Bitmap oracle, string label)
+    {
+        double ssim = ImageMetrics.Ssim(actual, oracle);
+        double mae = ImageMetrics.MeanAbsoluteError(actual, oracle);
+        TestContext.WriteLine($"{label} vs oracle SSIM={ssim:F4} MAE={mae:F6}");
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(ImageMetrics.FirstNonFinite((label, actual), ($"{label}-oracle", oracle)), Is.Null);
+
+            // Without this both sides could agree on a blank frame.
+            Assert.That(
+                CoveredPixelRatio(actual),
+                Is.GreaterThan(MinimumCoverageRatio),
+                $"{label} must produce substantial coverage.");
+            Assert.That(
+                ssim,
+                Is.GreaterThan(MinimumOracleSsim),
+                $"{label} diverged from its independently rendered oracle");
+        });
+    }
+
+    private static FilterEffect SplitThenTransform()
+    {
+        var group = new FilterEffectGroup();
+        group.Children.Add(MakeSplit());
+        group.Children.Add(MakeTransform(applyToTarget: false));
+        return group;
+    }
+
+    private static FilterEffect TransformThenSplit(bool applyToTarget)
+    {
+        var group = new FilterEffectGroup();
+        group.Children.Add(MakeTransform(applyToTarget));
+        group.Children.Add(MakeSplit());
+        return group;
+    }
 
     private static SplitEffect MakeSplit()
     {
-        var e = new SplitEffect();
-        e.HorizontalDivisions.CurrentValue = 3;
-        e.VerticalDivisions.CurrentValue = 3;
-        e.HorizontalSpacing.CurrentValue = 12;
-        e.VerticalSpacing.CurrentValue = 12;
-        return e;
+        var effect = new SplitEffect();
+        effect.HorizontalDivisions.CurrentValue = 3;
+        effect.VerticalDivisions.CurrentValue = 3;
+        effect.HorizontalSpacing.CurrentValue = 12;
+        effect.VerticalSpacing.CurrentValue = 12;
+        return effect;
     }
 
-    private static TransformEffect MakeTransformFilter()
+    private static TransformEffect MakeTransform(bool applyToTarget)
+    {
+        var effect = new TransformEffect();
+        effect.Transform.CurrentValue = EffectTransformGroup();
+        effect.TransformOrigin.CurrentValue = RelativePoint.Center;
+        effect.ApplyToTarget.CurrentValue = applyToTarget;
+        return effect;
+    }
+
+    private static TransformGroup EffectTransformGroup()
     {
         var group = new TransformGroup();
-        var rot = new RotationTransform();
-        rot.Rotation.CurrentValue = 45f;
+        var rotation = new RotationTransform();
+        rotation.Rotation.CurrentValue = EffectRotation;
         var scale = new ScaleTransform();
-        scale.ScaleX.CurrentValue = 120f;
-        scale.ScaleY.CurrentValue = 100f;
-        group.Children.Add(rot);
+        scale.ScaleX.CurrentValue = EffectScaleX;
+        scale.ScaleY.CurrentValue = EffectScaleY;
+        group.Children.Add(rotation);
         group.Children.Add(scale);
-        var e = new TransformEffect();
-        e.Transform.CurrentValue = group;
-        e.ApplyToTarget.CurrentValue = false;
-        return e;
+        return group;
     }
 
-    private static Drawable.Resource MakeWithEffect(FilterEffect effect)
+    private static Transform ShapeTransform()
+    {
+        var rotation = new RotationTransform();
+        rotation.Rotation.CurrentValue = ShapeRotation;
+        return rotation;
+    }
+
+    private static Transform ShapeThenEffectTransform()
+    {
+        var group = new TransformGroup();
+        group.Children.Add(ShapeTransform());
+        foreach (Transform child in EffectTransformGroup().Children)
+            group.Children.Add(child);
+
+        return group;
+    }
+
+    private static Bitmap Render(FilterEffect effect, Transform transform)
     {
         var shape = new RectShape();
         shape.AlignmentX.CurrentValue = AlignmentX.Center;
@@ -60,96 +191,25 @@ public class SplitTransformEffectCombinationTests
         shape.Width.CurrentValue = 140;
         shape.Height.CurrentValue = 90;
         shape.Fill.CurrentValue = Brushes.White;
-        var rotation = new RotationTransform();
-        rotation.Rotation.CurrentValue = 21f;
-        shape.Transform.CurrentValue = rotation;
+        shape.Transform.CurrentValue = transform;
         shape.FilterEffect.CurrentValue = effect;
-        return shape.ToResource(CompositionContext.Default);
+
+        return GoldenImageHarness.RenderAtScale(shape.ToResource(CompositionContext.Default), Frame, 1f);
     }
 
-    private static void SavePng(Bitmap bmp, string name)
+    private static double CoveredPixelRatio(Bitmap bitmap)
     {
-        Directory.CreateDirectory(SnapshotDir);
-        string path = Path.Combine(SnapshotDir, name);
-        using SKImage img = SKImage.FromBitmap(bmp.SKBitmap);
-        using SKData data = img.Encode(SKEncodedImageFormat.Png, 100);
-        using var fs = File.OpenWrite(path);
-        data.SaveTo(fs);
-        TestContext.WriteLine($"Saved {path}");
-    }
-
-    private static Bitmap LoadPng(string dir, string name)
-    {
-        string path = Path.Combine(dir, name);
-        using SKBitmap src = SKBitmap.Decode(path);
-        // ImageMetrics requires linear-sRGB premultiplied RgbaF16.
-        var info = new SKImageInfo(src.Width, src.Height, SKColorType.RgbaF16, SKAlphaType.Premul,
-            SKColorSpace.CreateSrgbLinear());
-        var dst = new SKBitmap(info);
-        using (var canvas = new SKCanvas(dst))
+        long covered = 0;
+        for (int y = 0; y < bitmap.Height; y++)
         {
-            canvas.DrawBitmap(src, 0, 0);
+            ReadOnlySpan<ushort> row = bitmap.GetRow<ushort>(y);
+            for (int x = 0; x < bitmap.Width; x++)
+            {
+                if ((float)BitConverter.UInt16BitsToHalf(row[(x * 4) + 3]) > 0.5f)
+                    covered++;
+            }
         }
 
-        return new Bitmap(dst);
-    }
-
-    [Test]
-    public void SplitThenTransformFilter_RendersWithoutException()
-    {
-        VulkanTestEnvironment.EnsureAvailable();
-        VulkanTestEnvironment.InvokeOnRenderThread(() =>
-        {
-            var group = new FilterEffectGroup();
-            group.Children.Add(MakeSplit());
-            group.Children.Add(MakeTransformFilter());
-            using Bitmap bmp = GoldenImageHarness.RenderAtScale(MakeWithEffect(group), Frame, 1f);
-            SavePng(bmp, "split-then-transform.png");
-        });
-    }
-
-    [Test]
-    public void TransformFilterThenSplit_RendersWithoutException()
-    {
-        VulkanTestEnvironment.EnsureAvailable();
-        VulkanTestEnvironment.InvokeOnRenderThread(() =>
-        {
-            var group = new FilterEffectGroup();
-            group.Children.Add(MakeTransformFilter());
-            group.Children.Add(MakeSplit());
-            using Bitmap bmp = GoldenImageHarness.RenderAtScale(MakeWithEffect(group), Frame, 1f);
-            SavePng(bmp, "transform-then-split.png");
-        });
-    }
-
-    [Test]
-    public void SplitThenTransformFilter_MatchesMain()
-    {
-        VulkanTestEnvironment.EnsureAvailable();
-        AssertMainMatch("split-then-transform.png", "SplitThenTransform");
-    }
-
-    [Test]
-    public void TransformFilterThenSplit_MatchesMain()
-    {
-        VulkanTestEnvironment.EnsureAvailable();
-        AssertMainMatch("transform-then-split.png", "TransformThenSplit");
-    }
-
-    private static void AssertMainMatch(string name, string label)
-    {
-        string mainPath = Path.Combine(MainSnapshotDir, name);
-        if (!File.Exists(mainPath))
-        {
-            Assert.Ignore($"main baseline not found at {mainPath}");
-            return;
-        }
-
-        using Bitmap fixedBmp = LoadPng(SnapshotDir, name);
-        using Bitmap mainBmp = LoadPng(MainSnapshotDir, name);
-        double ssim = ImageMetrics.Ssim(fixedBmp, mainBmp);
-        double mae = ImageMetrics.MeanAbsoluteError(fixedBmp, mainBmp);
-        TestContext.WriteLine($"{label} SSIM={ssim:F4} MAE={mae:F6}");
-        Assert.That(ssim, Is.GreaterThan(0.99), $"{label} diverged from main");
+        return covered / ((double)bitmap.Width * bitmap.Height);
     }
 }

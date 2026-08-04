@@ -400,6 +400,96 @@ public sealed class ShaderDescriptionTests
         });
     }
 
+    // SkSL reads matrix uniform data column-major, so a canonical matrix value must be the column-major encoding
+    // of the SkSL matrix that reproduces the source type's own transform convention.
+    [Test]
+    public void CanonicalMatrixValues_AreColumnMajorForTheEquivalentSkslMatrix()
+    {
+        // SKMatrix transforms column vectors (p' = M * p) and stores its rows contiguously, so the canonical
+        // value is its storage order transposed. A translation must therefore land in the last column.
+        var skMatrix = SKMatrix.CreateTranslation(50, 70);
+        float[] skValues = ShaderCanonicalValue.Create(skMatrix).Values!;
+
+        // Matrix4x4 transforms row vectors (p' = p * M) and stores its rows contiguously. The equivalent
+        // column-vector matrix is its transpose, whose column-major encoding is that same storage order.
+        Matrix4x4 numericsMatrix = Matrix4x4.CreateTranslation(50, 70, 90);
+        float[] numericsValues = ShaderCanonicalValue.Create(numericsMatrix).Values!;
+
+        // Matrix3x2 has no SkSL matrix type. Its six floats bind to float2[3]: x basis, y basis, translation.
+        var affine = Matrix3x2.CreateScale(2, 3) * Matrix3x2.CreateTranslation(50, 70);
+        float[] affineValues = ShaderCanonicalValue.Create(affine).Values!;
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(skValues, Is.EqualTo(new float[]
+            {
+                1, 0, 0,
+                0, 1, 0,
+                50, 70, 1,
+            }));
+            Assert.That(numericsValues, Is.EqualTo(new float[]
+            {
+                1, 0, 0, 0,
+                0, 1, 0, 0,
+                0, 0, 1, 0,
+                50, 70, 90, 1,
+            }));
+            Assert.That(affineValues, Is.EqualTo(new float[]
+            {
+                2, 0,
+                0, 3,
+                50, 70,
+            }));
+        });
+    }
+
+    // The two conventions agree once both are expressed as an SkSL matrix, so a transform built either way must
+    // produce the same canonical value. This is what makes the differing member order above correct.
+    [Test]
+    public void CanonicalMatrixValues_AgreeBetweenSkiaAndNumericsForTheSameTransform()
+    {
+        var skMatrix = SKMatrix.CreateScaleTranslation(2, 3, 50, 70);
+        Matrix4x4 numericsMatrix = Matrix4x4.CreateScale(2, 3, 1) * Matrix4x4.CreateTranslation(50, 70, 0);
+
+        float[] skValues = ShaderCanonicalValue.Create(skMatrix).Values!;
+        float[] numericsValues = ShaderCanonicalValue.Create(numericsMatrix).Values!;
+
+        // The 3x3 columns are the 4x4 columns with the z row and column dropped.
+        float[] projected =
+        [
+            numericsValues[0], numericsValues[1], numericsValues[3],
+            numericsValues[4], numericsValues[5], numericsValues[7],
+            numericsValues[12], numericsValues[13], numericsValues[15],
+        ];
+
+        Assert.That(skValues, Is.EqualTo(projected));
+    }
+
+    [Test]
+    public void CanonicalMatrixValues_BindToTheDeclaredSkslMatrixType()
+    {
+        ShaderDescription description = ShaderDescription.CurrentPixel(
+            "uniform float3x3 xform; uniform float2 basis[3]; "
+            + "half4 apply(half4 color) { return color * (xform[0][0] + basis[2].x); }",
+            bindings =>
+            {
+                bindings.Uniform("xform", SKMatrix.CreateTranslation(50, 70));
+                bindings.Uniform("basis", Matrix3x2.Identity);
+            });
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(description.Uniforms, Has.Count.EqualTo(2));
+
+            // float3x3 takes nine floats; a Matrix4x4 supplies sixteen and must be rejected.
+            Assert.That(
+                () => ShaderDescription.CurrentPixel(
+                    "uniform float3x3 xform; half4 apply(half4 color) { return color * xform[0][0]; }",
+                    bindings => bindings.Uniform("xform", Matrix4x4.Identity)),
+                Throws.TypeOf<InvalidOperationException>().Or.TypeOf<ArgumentException>());
+        });
+    }
+
     private sealed record CollisionKey(string Value)
     {
         public override int GetHashCode() => 7;

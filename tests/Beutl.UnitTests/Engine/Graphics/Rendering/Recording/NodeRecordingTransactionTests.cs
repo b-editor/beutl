@@ -1,4 +1,5 @@
 ﻿using Beutl.Graphics;
+using Beutl.Graphics.Effects;
 using Beutl.Graphics.Rendering;
 
 namespace Beutl.UnitTests.Engine.Graphics.Rendering.Recording;
@@ -107,6 +108,56 @@ public sealed class NodeRecordingTransactionTests
 
         transaction.Publish(source);
         transaction.Commit();
+    }
+
+    // Recording allocates one opacity fragment per drawable per pass. The SkSL text is a compile-time constant,
+    // so a pass must neither re-tokenize it nor mint a description per fragment.
+    [Test]
+    public void Opacity_ReusesOneValidatedFusionDescriptionPerNormalizedValue()
+    {
+        using var owner = new RenderRequestOwner();
+        using var request = CreateRequest(owner);
+        var host = new RecordingHost(request);
+        var transaction = new NodeRecordingTransaction(host, new object(), []);
+        var context = new RenderNodeContext(transaction);
+        var bounds = new Rect(0, 0, 10, 10);
+        RenderFragmentHandle source = CreateSource(transaction, bounds);
+
+        for (int i = 0; i < 8; i++)
+            transaction.Publish(context.Opacity(source, 0.375f));
+
+        transaction.Publish(context.Opacity(source, 0.75f));
+        transaction.Publish(context.Opacity(source, 4f));
+        transaction.Publish(context.Opacity(source, 1f));
+        transaction.Commit();
+
+        ShaderDescription[] descriptions = host.Commits[0].Fragments
+            .Select(static entry => entry.Reference.Payload)
+            .OfType<OpacityRenderFragmentPayload>()
+            .Select(static payload => payload.FusionDescription)
+            .ToArray();
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(descriptions, Has.Length.EqualTo(11));
+            Assert.That(
+                descriptions,
+                Has.All.Matches<ShaderDescription>(
+                    item => ReferenceEquals(item.Source, descriptions[0].Source)),
+                "The constant fusion source must be normalized and validated once.");
+            Assert.That(
+                descriptions.Take(8),
+                Has.All.SameAs(descriptions[0]),
+                "Fragments sharing one opacity must share one immutable description.");
+            Assert.That(descriptions[8], Is.Not.SameAs(descriptions[0]));
+            Assert.That(
+                descriptions[9],
+                Is.SameAs(descriptions[10]),
+                "An out-of-range opacity clamps onto the description of its normalized value.");
+            Assert.That(
+                descriptions[0],
+                Is.SameAs(OpacityRenderNode.CreateFusionDescription(0.375f)));
+        });
     }
 
     [Test]

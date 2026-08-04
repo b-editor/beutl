@@ -15,15 +15,11 @@ public sealed class ShaderDescription
 {
     private ShaderDescription(
         ShaderDescriptionKind kind,
-        string source,
+        SkslSource parsed,
         RenderBoundsContract bounds,
         Action<ShaderBindingBuilder>? bindings,
         SKShaderTileMode sourceTileMode)
     {
-        if (!Enum.IsDefined(sourceTileMode))
-            throw new ArgumentOutOfRangeException(nameof(sourceTileMode), sourceTileMode, "The source tile mode is invalid.");
-
-        var parsed = new SkslSource(source, kind);
         var builder = new ShaderBindingBuilder();
         bindings?.Invoke(builder);
         ValidateBindings(parsed, builder.Uniforms, builder.Resources, kind);
@@ -104,12 +100,29 @@ public sealed class ShaderDescription
     public static ShaderDescription CurrentPixel(
         string source,
         Action<ShaderBindingBuilder>? bindings = null)
-        => new(
+        => CurrentPixel(new SkslSource(source, ShaderDescriptionKind.CurrentPixel), bindings);
+
+    /// <summary>
+    /// Creates a current-pixel stage from a source that was already normalized and validated.
+    /// </summary>
+    /// <remarks>
+    /// Engine stages whose SkSL text is a compile-time constant share one parsed source so that recording a
+    /// fragment does not re-tokenize and re-validate it.
+    /// </remarks>
+    internal static ShaderDescription CurrentPixel(
+        SkslSource source,
+        Action<ShaderBindingBuilder>? bindings)
+    {
+        if (source.Kind != ShaderDescriptionKind.CurrentPixel)
+            throw new ArgumentException("The parsed source is not a CurrentPixel source.", nameof(source));
+
+        return new ShaderDescription(
             ShaderDescriptionKind.CurrentPixel,
             source,
             RenderBoundsContract.Identity,
             bindings,
             SKShaderTileMode.Decal);
+    }
 
     /// <summary>Creates a materializing shader stage that may sample arbitrary upstream locations.</summary>
     /// <param name="source">
@@ -143,9 +156,12 @@ public sealed class ShaderDescription
         SKShaderTileMode sourceTileMode = SKShaderTileMode.Decal)
     {
         bounds.ThrowIfUninitialized(nameof(bounds));
+        if (!Enum.IsDefined(sourceTileMode))
+            throw new ArgumentOutOfRangeException(nameof(sourceTileMode), sourceTileMode, "The source tile mode is invalid.");
+
         return new ShaderDescription(
             ShaderDescriptionKind.WholeSource,
-            source,
+            new SkslSource(source, ShaderDescriptionKind.WholeSource),
             bounds,
             bindings,
             sourceTileMode);

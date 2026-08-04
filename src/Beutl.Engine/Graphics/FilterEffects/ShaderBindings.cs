@@ -800,6 +800,9 @@ internal readonly record struct ShaderCanonicalValue(
             Vector2 current => Float([current.X, current.Y]),
             Vector3 current => Float([current.X, current.Y, current.Z]),
             Vector4 current => Float([current.X, current.Y, current.Z, current.W]),
+            // SkSL reads matrix uniforms column-major. System.Numerics stores rows contiguously and transforms
+            // row vectors, so its storage order already is the column-major encoding of the equivalent
+            // column-vector SkSL matrix. Matrix3x2 has no SkSL matrix type; it binds to float2[3].
             Matrix3x2 current => Float([
                 current.M11, current.M12,
                 current.M21, current.M22,
@@ -812,10 +815,12 @@ internal readonly record struct ShaderCanonicalValue(
             SKPoint current => Float([current.X, current.Y]),
             SKPoint3 current => Float([current.X, current.Y, current.Z]),
             SKSize current => Float([current.Width, current.Height]),
+            // SKMatrix also stores rows contiguously but transforms column vectors, so unlike the cases above its
+            // storage order must be transposed to become column-major.
             SKMatrix current => Float([
-                current.ScaleX, current.SkewX, current.TransX,
-                current.SkewY, current.ScaleY, current.TransY,
-                current.Persp0, current.Persp1, current.Persp2]),
+                current.ScaleX, current.SkewY, current.Persp0,
+                current.SkewX, current.ScaleY, current.Persp1,
+                current.TransX, current.TransY, current.Persp2]),
             _ => throw new ArgumentException(
                 $"'{typeof(T).FullName}' is not a canonical shader uniform value type.",
                 nameof(value)),
