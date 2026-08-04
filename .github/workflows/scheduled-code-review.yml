@@ -99,7 +99,7 @@ jobs:
 
       - name: Run Claude Code scheduled review
         if: steps.guard.outputs.skip != 'true'
-        uses: anthropics/claude-code-action@v1
+        uses: anthropics/claude-code-action@v1.0.183
         env:
           REVIEW_SINCE: ${{ env.REVIEW_SINCE }}
           REVIEW_SCOPE: ${{ env.REVIEW_SCOPE }}

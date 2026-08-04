@@ -33,7 +33,7 @@ jobs:
           fetch-depth: 1
 
       - name: Reformat release notes with Claude
-        uses: anthropics/claude-code-action@v1
+        uses: anthropics/claude-code-action@v1.0.183
         timeout-minutes: 20
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
