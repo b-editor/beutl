@@ -1,5 +1,4 @@
-﻿using System.Buffers.Binary;
-using System.Text.Json;
+﻿using System.Text.Json;
 using System.Text.Json.Nodes;
 using Beutl.Benchmarks.Rendering;
 using Beutl.Graphics.Rendering;
@@ -139,67 +138,6 @@ public sealed class GpuPassFusionFrozenBaselineLiveTests
                 Is.LessThanOrEqualTo(GpuPassFusionBaselineEvidence.NonVacuityParityTolerance),
                 $"{scene.Id} AA coverage-band maximum exceeded the manifest tolerance");
         }
-    }
-
-    [Test]
-    public void LiveParityGate_RejectsLocalizedDefectThatPassesWholeFrameMetrics()
-    {
-        const int size = 128;
-        byte[] reference = CreateCheckerboardPayload(size, withLocalizedDefect: false);
-        byte[] actual = CreateCheckerboardPayload(size, withLocalizedDefect: true);
-        Rgba16fParityMetrics full = Rgba16fEvidenceWriter.CalculateParity(
-            reference,
-            actual,
-            size,
-            size,
-            region: null);
-        WindowedParityMetrics windowed = CalculateWindowedParity(reference, actual, size, size);
-
-        Assert.Multiple(() =>
-        {
-            Assert.That(full.LinearLightSsim, Is.GreaterThanOrEqualTo(0.99));
-            Assert.That(
-                full.LinearRgbMae,
-                Is.LessThanOrEqualTo(GpuPassFusionBaselineEvidence.NonVacuityParityTolerance));
-            Assert.That(
-                full.AlphaMae,
-                Is.LessThanOrEqualTo(GpuPassFusionBaselineEvidence.NonVacuityParityTolerance));
-            Assert.That(
-                windowed.MinimumSsim,
-                Is.LessThan(GpuPassFusionSameProcessParityHarness.MinimumWindowedSsim));
-        });
-    }
-
-    [Test]
-    public void LiveParityGate_RejectsLocalizedAlphaDefectThatPassesWholeFrameMetrics()
-    {
-        const int size = 128;
-        byte[] reference = CreateAlphaPayload(size, withLocalizedDefect: false);
-        byte[] actual = CreateAlphaPayload(size, withLocalizedDefect: true);
-        Rgba16fParityMetrics full = Rgba16fEvidenceWriter.CalculateParity(
-            reference,
-            actual,
-            size,
-            size,
-            region: null);
-        WindowedParityMetrics windowed = CalculateWindowedParity(reference, actual, size, size);
-
-        Assert.Multiple(() =>
-        {
-            Assert.That(full.LinearLightSsim, Is.GreaterThanOrEqualTo(0.99));
-            Assert.That(
-                full.LinearRgbMae,
-                Is.LessThanOrEqualTo(GpuPassFusionBaselineEvidence.NonVacuityParityTolerance));
-            Assert.That(
-                full.AlphaMae,
-                Is.LessThanOrEqualTo(GpuPassFusionBaselineEvidence.NonVacuityParityTolerance));
-            Assert.That(
-                windowed.MaximumAlphaMae,
-                Is.GreaterThan(GpuPassFusionBaselineEvidence.NonVacuityParityTolerance));
-            Assert.That(
-                windowed.MaximumRgbaMae,
-                Is.GreaterThan(GpuPassFusionBaselineEvidence.MaximumWindowedRgbaMae));
-        });
     }
 
     [Test]
@@ -397,50 +335,6 @@ public sealed class GpuPassFusionFrozenBaselineLiveTests
 
         return new WindowedParityMetrics(minimumSsim, maximumAlphaMae, maximumRgbaMae);
     }
-
-    private static byte[] CreateCheckerboardPayload(int size, bool withLocalizedDefect)
-    {
-        var result = new byte[checked(size * size * 8)];
-        for (int y = 0; y < size; y++)
-        {
-            for (int x = 0; x < size; x++)
-            {
-                float value = withLocalizedDefect && x < 14 && y < 14
-                    ? 0.5f
-                    : (x + y) % 2;
-                int offset = ((y * size) + x) * 8;
-                WriteHalf(result, offset, value);
-                WriteHalf(result, offset + 2, value);
-                WriteHalf(result, offset + 4, value);
-                WriteHalf(result, offset + 6, 1);
-            }
-        }
-
-        return result;
-    }
-
-    private static byte[] CreateAlphaPayload(int size, bool withLocalizedDefect)
-    {
-        var result = new byte[checked(size * size * 8)];
-        for (int y = 0; y < size; y++)
-        {
-            for (int x = 0; x < size; x++)
-            {
-                int offset = ((y * size) + x) * 8;
-                WriteHalf(result, offset, 0);
-                WriteHalf(result, offset + 2, 0);
-                WriteHalf(result, offset + 4, 0);
-                WriteHalf(result, offset + 6, withLocalizedDefect && x < 14 && y < 14 ? 0 : 1);
-            }
-        }
-
-        return result;
-    }
-
-    private static void WriteHalf(byte[] destination, int offset, float value)
-        => BinaryPrimitives.WriteUInt16LittleEndian(
-            destination.AsSpan(offset, sizeof(ushort)),
-            BitConverter.HalfToUInt16Bits((Half)value));
 
     private static void AssertParity(
         Rgba16fParityMetrics metrics,

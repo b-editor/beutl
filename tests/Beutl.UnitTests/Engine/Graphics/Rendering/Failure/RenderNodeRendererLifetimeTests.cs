@@ -176,7 +176,8 @@ public sealed class RenderNodeRendererLifetimeTests
         source.Value.Canvas.Clear(new SKColor(80, 120, 160, 192));
         using var node = new ShaderNode(source, bounds);
         using var cacheSeed = new TrackingRenderTarget(new PixelSize(8, 8));
-        node.Cache.StoreCache(cacheSeed, bounds);
+        RenderNodeCache.PublishAtomically(
+            [RenderCacheTestSupport.CreatePublication(node.Cache, cacheSeed, bounds)]);
         using var factory = new TrackingTargetFactory();
         var renderer = new RenderNodeRenderer(
             node,

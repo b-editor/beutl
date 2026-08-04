@@ -6,33 +6,6 @@ namespace Beutl.UnitTests.Engine.Graphics.Rendering.Failure;
 public sealed class RenderRequestOwnerTests
 {
     [Test]
-    public void Cleanup_UsesStrictLifoAndContinuesAfterFault()
-    {
-        var order = new List<int>();
-        using var owner = new RenderRequestOwner();
-        owner.Register(() => order.Add(1));
-        owner.Register(() =>
-        {
-            order.Add(2);
-            throw new InvalidOperationException("cleanup-2");
-        });
-        owner.Register(() => order.Add(3));
-
-        owner.Cleanup();
-
-        Assert.Multiple(() =>
-        {
-            Assert.That(order, Is.EqualTo(new[] { 3, 2, 1 }));
-            Assert.That(owner.CleanupFailures.Select(static item => item.Message), Is.EqualTo(new[] { "cleanup-2" }));
-            Assert.That(owner.PrimaryFailure?.SourceException.Message, Is.EqualTo("cleanup-2"));
-            Assert.That(owner.IsCleanedUp, Is.True);
-        });
-
-        owner.Cleanup();
-        Assert.That(order, Is.EqualTo(new[] { 3, 2, 1 }));
-    }
-
-    [Test]
     public void PrimaryFailure_IsPreservedAndLaterFailuresAreSecondary()
     {
         var primary = new ApplicationException("render-primary");

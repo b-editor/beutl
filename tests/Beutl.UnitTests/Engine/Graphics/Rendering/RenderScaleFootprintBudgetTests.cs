@@ -68,6 +68,17 @@ public class RenderScaleFootprintBudgetTests
     }
 
     [Test]
+    public void BufferBudget_NonPositiveMaxDimension_IsRejected()
+    {
+        Assert.That(
+            () => RenderScaleUtilities.ClampWorkingScaleToBufferBudget(new Rect(0, 0, 100, 100), 2, 0),
+            Throws.TypeOf<ArgumentOutOfRangeException>());
+        Assert.That(
+            () => RenderScaleUtilities.ClampWorkingScaleToBufferBudget(new Rect(0, 0, 100, 100), 2, -1),
+            Throws.TypeOf<ArgumentOutOfRangeException>());
+    }
+
+    [Test]
     public void AllClamps_SweepOfOriginsExtentsAndScales_NeverExceedTheBudget()
     {
         foreach (Rect bounds in EnumerateBounds())

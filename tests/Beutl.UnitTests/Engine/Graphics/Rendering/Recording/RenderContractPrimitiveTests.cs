@@ -232,49 +232,6 @@ public sealed class RenderContractPrimitiveTests
         });
     }
 
-    [Test]
-    public void RenderScaleUtilities_SanitizesAndResolvesConcreteSupply()
-    {
-        EffectiveScale[] inputs =
-        [
-            EffectiveScale.Unbounded,
-            EffectiveScale.At(1.5f),
-            EffectiveScale.At(2.25f),
-        ];
-
-        Assert.Multiple(() =>
-        {
-            Assert.That(RenderScaleUtilities.SanitizeMaxWorkingScale(float.NaN), Is.EqualTo(float.PositiveInfinity));
-            Assert.That(RenderScaleUtilities.SanitizeMaxWorkingScale(0), Is.EqualTo(float.PositiveInfinity));
-            Assert.That(RenderScaleUtilities.SanitizeMaxWorkingScale(-1), Is.EqualTo(float.PositiveInfinity));
-            Assert.That(RenderScaleUtilities.SanitizeMaxWorkingScale(3), Is.EqualTo(3));
-            Assert.That(RenderScaleUtilities.ResolveWorkingScale(inputs, 1), Is.EqualTo(2.25f));
-            Assert.That(RenderScaleUtilities.ResolveWorkingScale(inputs, 3), Is.EqualTo(3));
-            Assert.That(RenderScaleUtilities.ResolveWorkingScale(inputs, 1, 2), Is.EqualTo(2));
-            Assert.That(RenderScaleUtilities.ResolveWorkingScale(inputs, float.NaN), Is.EqualTo(2.25f));
-        });
-    }
-
-    [Test]
-    public void RenderScaleUtilities_ClampsEachAxisToBufferBudget()
-    {
-        float clamped = RenderScaleUtilities.ClampWorkingScaleToBufferBudget(
-            new Rect(0, 0, 10_000, 100),
-            workingScale: 2);
-
-        Assert.Multiple(() =>
-        {
-            Assert.That(Math.Ceiling(10_000 * clamped), Is.LessThanOrEqualTo(RenderScaleUtilities.MaxBufferDimension));
-            Assert.That(clamped, Is.LessThan(2));
-            Assert.That(
-                RenderScaleUtilities.ClampWorkingScaleToBufferBudget(new Rect(0, 0, 100, 100), 2),
-                Is.EqualTo(2));
-            Assert.That(
-                () => RenderScaleUtilities.ClampWorkingScaleToBufferBudget(new Rect(0, 0, 100, 100), 2, 0),
-                Throws.TypeOf<ArgumentOutOfRangeException>());
-        });
-    }
-
     private sealed class DerivedMutableKey : List<int>;
 
     private sealed record ImmutableIdentity(string Name, int Version);

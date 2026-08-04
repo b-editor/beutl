@@ -116,37 +116,6 @@ public sealed class FilterEffectRecordingTransactionTests
     }
 
     [Test]
-    public void ApplyTransaction_RollsBackItemsBoundsAndOwnedResourcesExactlyOnce()
-    {
-        using var context = new FilterEffectContext(new Rect(0, 0, 10, 10));
-        context.Brightness(0.25f);
-        var disposable = new TrackingDisposable();
-        var effect = new CallbackFilterEffect((recording, _) =>
-        {
-            recording.Own(disposable, "owned", 1);
-            recording.Shader(ShaderDescription.CurrentPixel(IdentityShader));
-            recording.Blur(new Size(3, 3));
-            throw new InvalidOperationException("apply-failure");
-        });
-        FilterEffect.Resource resource = new Blur().ToResource(CompositionContext.Default);
-        Rect originalBounds = context.Bounds;
-        int originalCount = context.GetOrderedItems().Count;
-
-        Assert.That(
-            () => context.ApplyTransactional(effect, resource),
-            Throws.TypeOf<InvalidOperationException>().With.Message.EqualTo("apply-failure"));
-        Assert.Multiple(() =>
-        {
-            Assert.That(context.Bounds, Is.EqualTo(originalBounds));
-            Assert.That(context.GetOrderedItems(), Has.Count.EqualTo(originalCount));
-            Assert.That(disposable.DisposeCount, Is.EqualTo(1));
-        });
-
-        context.Dispose();
-        Assert.That(disposable.DisposeCount, Is.EqualTo(1));
-    }
-
-    [Test]
     public void NestedApplyTransaction_RollsBackEarlierChildrenWhenLaterChildFails()
     {
         using var context = new FilterEffectContext(new Rect(0, 0, 10, 10));

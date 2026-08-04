@@ -92,9 +92,11 @@ public class RenderNodeCacheHelperTest
     {
         // Arrange
         using var node = new EllipseRenderNode(new Rect(0, 0, 100, 100), Brushes.Resource.White, null);
+        Rect bounds = new(0, 0, 100, 100);
         using (var renderTarget = RenderTarget.CreateNull(100, 100))
         {
-            node.Cache.StoreCache(renderTarget, new Rect(0, 0, 100, 100));
+            RenderNodeCache.PublishAtomically(
+                [RenderCacheTestSupport.CreatePublication(node.Cache, renderTarget, bounds)]);
         }
 
         // Act
@@ -110,9 +112,11 @@ public class RenderNodeCacheHelperTest
         // Arrange
         using var node = new ContainerRenderNode();
         using var childNode = new EllipseRenderNode(new Rect(0, 0, 100, 100), Brushes.Resource.White, null);
+        Rect bounds = new(0, 0, 100, 100);
         using (var renderTarget = RenderTarget.CreateNull(100, 100))
         {
-            childNode.Cache.StoreCache(renderTarget, new Rect(0, 0, 100, 100));
+            RenderNodeCache.PublishAtomically(
+                [RenderCacheTestSupport.CreatePublication(childNode.Cache, renderTarget, bounds)]);
         }
         node.AddChild(childNode);
 

@@ -45,93 +45,14 @@ public class RenderNodeCacheTests
     }
 
     [Test]
-    public void UseCache_NotCached_ShouldThrowInvalidOperationException()
-    {
-        // Arrange
-        using var node = new ContainerRenderNode();
-        using var cache = new RenderNodeCache(node);
-
-        // Act & Assert
-        InvalidOperationException? exception =
-            Assert.Throws<InvalidOperationException>(() => cache.UseCache(out _));
-        Assert.That(exception!.Message, Is.EqualTo("No cached render target is available."));
-    }
-
-    [Test]
-    public void UseCache_NotCached_ShouldReturnEmptyArray()
-    {
-        // Arrange
-        using var node = new ContainerRenderNode();
-        using var cache = new RenderNodeCache(node);
-
-        // Act
-        var result = cache.UseCache();
-
-        // Assert
-        Assert.That(result, Is.Empty);
-    }
-
-    [Test]
-    public void StoreCache_Called_ShouldStoreCache()
-    {
-        // Arrange
-        using var node = new ContainerRenderNode();
-        using var cache = new RenderNodeCache(node);
-
-        // Act
-        using var renderTarget = RenderTarget.CreateNull(1, 1);
-        cache.StoreCache(renderTarget, new Rect(0, 0, 1, 1));
-
-        // Assert
-        Assert.That(cache.IsCached, Is.True);
-    }
-
-    [Test]
-    public void StoreCache_CalledMultipleTimes_ShouldStoreMultipleCaches()
-    {
-        // Arrange
-        using var node = new ContainerRenderNode();
-        using var cache = new RenderNodeCache(node);
-
-        // Act
-        using var renderTarget1 = RenderTarget.CreateNull(1, 1);
-        using var renderTarget2 = RenderTarget.CreateNull(1, 1);
-        cache.StoreCache([(renderTarget1, new Rect(0, 0, 1, 1)), (renderTarget2, new Rect(0, 0, 1, 1))]);
-
-        // Assert
-        Assert.That(cache.IsCached, Is.True);
-        Assert.That(cache.UseCache().Count(), Is.EqualTo(2));
-    }
-
-    [Test]
-    public void StoreCache_Called_ShouldInvalidateExistingCache()
-    {
-        // Arrange
-        using var node = new ContainerRenderNode();
-        using var cache = new RenderNodeCache(node);
-        using (var renderTarget = RenderTarget.CreateNull(1, 1))
-        {
-            cache.StoreCache(renderTarget, new Rect(0, 0, 1, 1));
-        }
-
-        // Act
-        using (var newRenderTarget = RenderTarget.CreateNull(1, 1))
-        {
-            cache.StoreCache(newRenderTarget, new Rect(0, 0, 1, 1));
-        }
-
-        // Assert
-        Assert.That(cache.IsCached, Is.True);
-        Assert.That(cache.UseCache().Count(), Is.EqualTo(1));
-    }
-
-    [Test]
     public void IncrementRenderCount_WhenNodeChanged_ShouldInvalidateExistingCache()
     {
         // Arrange
         using var node = new ContainerRenderNode();
         using var renderTarget = RenderTarget.CreateNull(1, 1);
-        node.Cache.StoreCache(renderTarget, new Rect(0, 0, 1, 1));
+        Rect bounds = new(0, 0, 1, 1);
+        RenderNodeCache.PublishAtomically(
+            [RenderCacheTestSupport.CreatePublication(node.Cache, renderTarget, bounds)]);
         node.Cache.ReportRenderCount(RenderNodeCache.Count);
         node.HasChanges = true;
 
