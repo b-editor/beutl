@@ -232,14 +232,7 @@ internal sealed class FilterEffectInputBinding : IDisposable
         }
 
         IReadOnlyList<RenderFragmentHandle> outputs = RecordSubtree(node);
-        if (outputs.Count == 0)
-        {
-            _previews.Add(new DeferredPreview([], replace, runtimeIdentity));
-            return;
-        }
-
-        Rect bounds = ResolveLayerDomain(node, outputs);
-        if (bounds.Width == 0 || bounds.Height == 0)
+        if (outputs.Count == 0 || HasEmptyRecordedBounds(outputs))
         {
             _previews.Add(new DeferredPreview([], replace, runtimeIdentity));
             return;
@@ -253,10 +246,10 @@ internal sealed class FilterEffectInputBinding : IDisposable
             return;
         }
 
-        // A finite layer preserves painter order and normalizes multiple or mixed subtree outputs
+        // A layer preserves painter order and normalizes multiple or mixed subtree outputs
         // to one readback-eligible value for the deferred preview command. When a raw output cannot
         // fan out, replace the identity cache as well so later graph outputs share the layer instead.
-        RenderFragmentHandle layer = _context.Layer(outputs, bounds);
+        RenderFragmentHandle layer = NormalizeToLayer(outputs);
         if (outputs.Any(static output => !output.CanBeUsedAsValueInput))
         {
             MarkSubtreeConsumed(node, outputs);
@@ -297,8 +290,7 @@ internal sealed class FilterEffectInputBinding : IDisposable
         RenderNode node,
         IReadOnlyList<RenderFragmentHandle> outputs)
     {
-        Rect bounds = outputs.Count == 0 ? Rect.Empty : ResolveLayerDomain(node, outputs);
-        if (bounds.Width == 0 || bounds.Height == 0)
+        if (outputs.Count == 0 || HasEmptyRecordedBounds(outputs))
         {
             throw new InvalidOperationException(
                 $"The shared node-graph subtree '{node.GetType().FullName}' cannot be normalized "
@@ -306,7 +298,7 @@ internal sealed class FilterEffectInputBinding : IDisposable
         }
 
         MarkSubtreeConsumed(node, outputs);
-        IReadOnlyList<RenderFragmentHandle> normalized = [_context.Layer(outputs, bounds)];
+        IReadOnlyList<RenderFragmentHandle> normalized = [NormalizeToLayer(outputs)];
         _recordedSubtrees[node] = normalized;
         return normalized;
     }
@@ -330,28 +322,21 @@ internal sealed class FilterEffectInputBinding : IDisposable
     }
 
     /// <summary>
-    /// Resolves the finite domain of the layer that normalizes <paramref name="outputs"/> into one value.
+    /// Normalizes <paramref name="outputs"/> into one value-eligible layer.
     /// </summary>
     /// <remarks>
-    /// A layer domain covers final target writes, so a subtree whose recording metadata is still symbolic
-    /// resolves to the request's complete owning target domain rather than to its tight query bounds.
+    /// The recording node observes its own local coordinate space, which every enclosing target scope
+    /// separates from the request root. A symbolic subtree therefore defers its domain to graph-wide
+    /// owning-target lowering, which back-maps the root domain through those scopes.
     /// </remarks>
-    private Rect ResolveLayerDomain(
-        RenderNode node,
-        IReadOnlyList<RenderFragmentHandle> outputs)
-    {
-        if (TryCalculateBounds(outputs, out Rect bounds))
-            return bounds;
+    private RenderFragmentHandle NormalizeToLayer(IReadOnlyList<RenderFragmentHandle> outputs)
+        => TryCalculateBounds(outputs, out Rect bounds)
+            ? _context.Layer(outputs, bounds)
+            : _context.OwningTargetLayer(outputs);
 
-        if (_context.TargetDomain is { } domain)
-            return domain;
-
-        throw new RenderTargetDomainRequiredException(
-            $"The node-graph subtree '{node.GetType().FullName}' writes its complete owning target domain, "
-            + "but the request did not supply a finite TargetDomain to resolve it against. Set "
-            + $"{nameof(RenderNodeRenderRequest)}.{nameof(RenderNodeRenderRequest.TargetDomain)} on the "
-            + "request, or produce the subtree inside a finite layer.");
-    }
+    private static bool HasEmptyRecordedBounds(IReadOnlyList<RenderFragmentHandle> outputs)
+        => TryCalculateBounds(outputs, out Rect bounds)
+           && (bounds.Width == 0 || bounds.Height == 0);
 
     private Rect CalculateRecordedQueryBounds(IReadOnlyList<RenderFragmentHandle> fragments)
     {

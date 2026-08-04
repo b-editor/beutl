@@ -459,7 +459,7 @@ public class NodeGraphFilterEffectRenderNodeTests
     // A NodeGraphFilterEffect on a DrawableGroup nests PushFilterEffect around PushLayer, so the graph's
     // bound inputs are a TargetLayerScope(Full) whose recording metadata stays symbolic.
     [Test]
-    public void Preview_WithSymbolicInputBounds_RendersTheRequestTargetDomain()
+    public void Preview_WithSymbolicInputBounds_RendersTheOwningTargetDomain()
     {
         var effect = new NodeGraphFilterEffect();
         GraphModel model = effect.Model.CurrentValue!;
@@ -502,8 +502,73 @@ public class NodeGraphFilterEffectRenderNodeTests
         monitor.Value?.Dispose();
     }
 
+    // The recording node observes its own local space, which every enclosing target scope separates from
+    // root space, so a normalizing layer sized from the root request rect clips local content away.
+    // The child paints at local (-40,-40,80,80) and the enclosing translate maps it to root (60,60,80,80).
+    [TestCase(true)]
+    [TestCase(false)]
+    public void SymbolicNormalization_UnderATranslatedEnclosingScope_KeepsContentOutsideTheRootDomainRect(
+        bool preview)
+    {
+        var effect = new NodeGraphFilterEffect();
+        GraphModel model = effect.Model.CurrentValue!;
+        var inputNode = new FilterEffectInputNode();
+        var outputNode = new OutputNode();
+        model.Nodes.Add(inputNode);
+        model.Nodes.Add(outputNode);
+        model.Connect(outputNode.InputPort, inputNode.Output);
+        NodeMonitor<Ref<Bitmap>?>? monitor = null;
+        if (preview)
+        {
+            var previewNode = new PreviewNode();
+            model.Nodes.Add(previewNode);
+            model.Connect(previewNode.Input, inputNode.Output);
+            monitor = GetPreviewMonitor(previewNode);
+            monitor.IsEnabled = true;
+        }
+        else
+        {
+            var secondOutput = new OutputNode();
+            model.Nodes.Add(secondOutput);
+            model.Connect(secondOutput.InputPort, inputNode.Output);
+        }
+
+        using var resource = (NodeGraphFilterEffect.Resource)effect.ToResource(CompositionContext.Default);
+        var content = new Rect(60, 60, 80, 80);
+        var source = new CountingOpaqueSourceRenderNode(new Rect(-40, -40, 80, 80));
+        using var pipeline = ScaleRecordingTestHelper.Pipeline(
+            source,
+            new LayerRenderNode(default),
+            resource.CreateRenderNode(),
+            new TransformRenderNode(Matrix.CreateTranslation(100, 100), TransformOperator.Prepend));
+        using var renderer = new RenderNodeRenderer(pipeline, new RenderNodeRendererOptions
+        {
+            DefaultRequest = new RenderNodeRenderRequest
+            {
+                TargetDomain = new Rect(0, 0, 200, 200),
+                CacheOptions = RenderCacheOptions.Disabled,
+            },
+        });
+
+        using RenderNodeRasterization rasterization = renderer.Rasterize();
+        Bitmap bitmap = rasterization.Bitmap
+            ?? throw new AssertionException("The translated graph subtree produced no bitmap.");
+        Assert.That(rasterization.Bounds.Contains(content), Is.True,
+            "Normalizing the graph subtree must not shrink the output extent to the root domain rect "
+            + "reinterpreted in the recording node's local space.");
+
+        var sample = bitmap.SKBitmap.GetPixel(
+            (int)(content.Center.X - rasterization.Bounds.X),
+            (int)(content.Center.Y - rasterization.Bounds.Y));
+
+        Assert.That(sample.Alpha, Is.EqualTo(byte.MaxValue),
+            "Content whose local coordinates fall outside the root domain rect must still be composited.");
+
+        monitor?.Value?.Dispose();
+    }
+
     [Test]
-    public void DuplicateOutputRoots_WithSymbolicBounds_NormalizeAgainstTheRequestTargetDomain()
+    public void DuplicateOutputRoots_WithSymbolicBounds_NormalizeAgainstTheOwningTargetDomain()
     {
         var effect = new NodeGraphFilterEffect();
         GraphModel model = effect.Model.CurrentValue!;
@@ -583,7 +648,7 @@ public class NodeGraphFilterEffectRenderNodeTests
         Assert.That(
             () => renderer.Measure(),
             Throws.TypeOf<RenderTargetDomainRequiredException>()
-                .And.Message.Contains("did not supply a finite TargetDomain"));
+                .And.Message.Contains("requires a finite TargetDomain"));
     }
 
     [Test]
