@@ -389,3 +389,6 @@ telemetry-data.json
 
 # `.mcp.json` is team-shared (see docs/ai-workflow/README.md); override any global gitignore
 !.mcp.json
+
+# Codex taste/preference store (personal, not shared)
+.commandcode/
