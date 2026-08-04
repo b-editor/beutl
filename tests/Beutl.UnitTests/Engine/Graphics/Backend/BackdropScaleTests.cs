@@ -75,7 +75,8 @@ public class BackdropScaleTests
             using var snapshot = new SnapshotBackdropRenderNode();
             using var renderer = new RenderNodeRenderer(
                 snapshot,
-                new RenderNodeRendererOptions {
+                new RenderNodeRendererOptions
+                {
                     DefaultRequest = new RenderNodeRenderRequest
                     {
                         CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Disabled,

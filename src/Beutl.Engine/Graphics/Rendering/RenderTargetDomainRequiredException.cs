@@ -1,4 +1,4 @@
-namespace Beutl.Graphics.Rendering;
+﻿namespace Beutl.Graphics.Rendering;
 
 /// <summary>
 /// The recorded render graph requires a finite owning target domain that the current request did not provide.

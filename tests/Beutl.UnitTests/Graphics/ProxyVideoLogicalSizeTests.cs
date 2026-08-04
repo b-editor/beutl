@@ -55,7 +55,8 @@ public class ProxyVideoLogicalSizeTests
         using var node = new VideoSourceRenderNode(resource, frame: 0, Brushes.Resource.White, null);
         using var renderer = new RenderNodeRenderer(
             node,
-            new RenderNodeRendererOptions {
+            new RenderNodeRendererOptions
+            {
                 DefaultRequest = new RenderNodeRenderRequest
                 {
                     CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Disabled,
@@ -84,7 +85,8 @@ public class ProxyVideoLogicalSizeTests
         using var node = new VideoSourceRenderNode(resource, frame: 0, Brushes.Resource.White, null);
         using var renderer = new RenderNodeRenderer(
             node,
-            new RenderNodeRendererOptions {
+            new RenderNodeRendererOptions
+            {
                 DefaultRequest = new RenderNodeRenderRequest
                 {
                     CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Disabled,

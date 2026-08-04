@@ -62,7 +62,8 @@ public class ContainerRenderNodeTest
         node.AddChild(new RectangleRenderNode(bounds, Brushes.Resource.White, null));
         using var renderer = new RenderNodeRenderer(
             node,
-            new RenderNodeRendererOptions {
+            new RenderNodeRendererOptions
+            {
                 DefaultRequest = new RenderNodeRenderRequest
                 {
                     CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Disabled,

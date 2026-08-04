@@ -14,7 +14,8 @@ public sealed class RenderScaleMappingContractTests
         using var node = new SupplyMappingNode(EffectiveScale.At(inputDensity));
         using var renderer = new RenderNodeRenderer(
             node,
-            new RenderNodeRendererOptions {
+            new RenderNodeRendererOptions
+            {
                 DefaultRequest = new RenderNodeRenderRequest
                 {
                     CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Disabled,
@@ -32,7 +33,8 @@ public sealed class RenderScaleMappingContractTests
         using var node = new SupplyMappingNode(EffectiveScale.Unbounded);
         using var renderer = new RenderNodeRenderer(
             node,
-            new RenderNodeRendererOptions {
+            new RenderNodeRendererOptions
+            {
                 DefaultRequest = new RenderNodeRenderRequest
                 {
                     CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Disabled,

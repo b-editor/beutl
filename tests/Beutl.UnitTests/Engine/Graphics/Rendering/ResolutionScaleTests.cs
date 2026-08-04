@@ -320,7 +320,8 @@ public class ResolutionScaleTests
         using var node = new ContainerRenderNode();
         using var renderer = new RenderNodeRenderer(
             node,
-            new RenderNodeRendererOptions {
+            new RenderNodeRendererOptions
+            {
                 DefaultRequest = new RenderNodeRenderRequest
                 {
                     OutputScale = bad,
@@ -384,7 +385,8 @@ public class ResolutionScaleTests
         using var node = new PassThroughRenderNode();
         using var renderer = new RenderNodeRenderer(
             node,
-            new RenderNodeRendererOptions {
+            new RenderNodeRendererOptions
+            {
                 DefaultRequest = new RenderNodeRenderRequest
                 {
                     OutputScale = bad,
@@ -421,7 +423,8 @@ public class ResolutionScaleTests
 
         using var renderer = new RenderNodeRenderer(
             node,
-            new RenderNodeRendererOptions {
+            new RenderNodeRendererOptions
+            {
                 DefaultRequest = new RenderNodeRenderRequest
                 {
                     CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Disabled,

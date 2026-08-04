@@ -77,7 +77,8 @@ public class TextBlockSubpixelPlacementTests
             canvas.Clear();
             using var renderer = new RenderNodeRenderer(
                 node,
-                new RenderNodeRendererOptions {
+                new RenderNodeRendererOptions
+                {
                     DefaultRequest = new RenderNodeRenderRequest
                     {
                         CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Disabled,

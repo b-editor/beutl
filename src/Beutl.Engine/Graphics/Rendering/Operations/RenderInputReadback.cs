@@ -1,4 +1,4 @@
-namespace Beutl.Graphics.Rendering;
+﻿namespace Beutl.Graphics.Rendering;
 
 /// <summary>Selects which runtime values from one authored render input require CPU readback.</summary>
 public readonly struct RenderInputReadback : IEquatable<RenderInputReadback>

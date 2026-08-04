@@ -21,7 +21,8 @@ public sealed class BrushLoweringSmokeTests
         using var node = new RectangleRenderNode(new Rect(0, 0, 64, 36), brushResource, null);
         using var renderer = new RenderNodeRenderer(
             node,
-            new RenderNodeRendererOptions {
+            new RenderNodeRendererOptions
+            {
                 DefaultRequest = new RenderNodeRenderRequest
                 {
                     CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Disabled,
@@ -54,7 +55,8 @@ public sealed class BrushLoweringSmokeTests
         root.AddChild(new RectangleRenderNode(new Rect(0, 0, 64, 36), Brushes.Resource.White, null));
         using var renderer = new RenderNodeRenderer(
             root,
-            new RenderNodeRendererOptions {
+            new RenderNodeRendererOptions
+            {
                 DefaultRequest = new RenderNodeRenderRequest
                 {
                     CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Disabled,

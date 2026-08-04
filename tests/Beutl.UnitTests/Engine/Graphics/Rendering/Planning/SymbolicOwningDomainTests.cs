@@ -168,7 +168,8 @@ public sealed class SymbolicOwningDomainTests
         using FilterEffectRenderNode root = CreateFilter(effect, new Rect(5, 6, 20, 12));
         using var renderer = new RenderNodeRenderer(
             root,
-            new RenderNodeRendererOptions {
+            new RenderNodeRendererOptions
+            {
                 DefaultRequest = new RenderNodeRenderRequest
                 {
                     CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Disabled,

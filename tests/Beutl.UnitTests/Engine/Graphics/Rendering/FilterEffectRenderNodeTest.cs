@@ -1,6 +1,6 @@
 ﻿using Beutl.Composition;
-using Beutl.Graphics;
 using Beutl.Engine;
+using Beutl.Graphics;
 using Beutl.Graphics.Effects;
 using Beutl.Graphics.Rendering;
 using Beutl.Media;
@@ -119,7 +119,8 @@ public class FilterEffectRenderNodeTest
     }
 
     private static RenderNodeRenderer CreateRenderer(RenderNode node)
-        => new(node, new RenderNodeRendererOptions {
+        => new(node, new RenderNodeRendererOptions
+        {
             DefaultRequest = new RenderNodeRenderRequest
             {
                 CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Disabled,
