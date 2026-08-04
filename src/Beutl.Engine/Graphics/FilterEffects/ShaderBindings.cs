@@ -18,9 +18,6 @@ public enum ShaderResourceCoordinateSpace
     /// <remarks>This is the only coordinate space accepted by <see cref="ShaderDescriptionKind.CurrentPixel"/>.</remarks>
     Value,
 
-    /// <summary>Interprets coordinates in logical composition units.</summary>
-    OutputLogical,
-
     /// <summary>
     /// Interprets coordinates in local output-device pixels, matching the <c>coord</c> argument of a whole-source
     /// shader.

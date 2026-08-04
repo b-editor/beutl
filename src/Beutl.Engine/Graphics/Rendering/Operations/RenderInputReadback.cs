@@ -81,7 +81,7 @@ public readonly struct RenderInputReadback : IEquatable<RenderInputReadback>
 
     internal bool RequiresValue(int localIndex)
         => _kind == RenderInputReadbackKind.All
-           || (_kind == RenderInputReadbackKind.Values && ValueIndices.BinarySearch(localIndex) >= 0);
+           || (_kind == RenderInputReadbackKind.Values && BinarySearch(ValueIndices, localIndex) >= 0);
 
     internal void ThrowIfUninitialized(string parameterName)
     {
@@ -111,19 +111,8 @@ public readonly struct RenderInputReadback : IEquatable<RenderInputReadback>
             }
         }
     }
-}
 
-internal enum RenderInputReadbackKind : byte
-{
-    Uninitialized,
-    None,
-    All,
-    Values,
-}
-
-internal static class RenderInputReadbackIndexExtensions
-{
-    public static int BinarySearch(this IReadOnlyList<int> values, int value)
+    private static int BinarySearch(IReadOnlyList<int> values, int value)
     {
         int lower = 0;
         int upper = values.Count - 1;
@@ -141,4 +130,12 @@ internal static class RenderInputReadbackIndexExtensions
 
         return -1;
     }
+}
+
+internal enum RenderInputReadbackKind : byte
+{
+    Uninitialized,
+    None,
+    All,
+    Values,
 }

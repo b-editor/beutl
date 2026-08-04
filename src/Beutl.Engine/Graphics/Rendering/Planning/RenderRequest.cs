@@ -109,20 +109,6 @@ internal sealed class RenderRequest : IDisposable
             Options.Owner.Cleanup();
     }
 
-    internal void FailAfterOwnerCleanup(Exception exception)
-    {
-        ArgumentNullException.ThrowIfNull(exception);
-        if (State is RenderRequestState.Completed or RenderRequestState.Failed or RenderRequestState.Disposed)
-        {
-            throw new InvalidOperationException($"Request state '{State}' cannot fail.");
-        }
-
-        if (Options.Owner.PrimaryFailure is null)
-            Options.Owner.RecordPrimaryFailure(exception);
-        State = RenderRequestState.Failed;
-        Options.Owner.Cleanup();
-    }
-
     internal void FailFamilyMember()
     {
         if (State is RenderRequestState.Completed or RenderRequestState.Disposed)

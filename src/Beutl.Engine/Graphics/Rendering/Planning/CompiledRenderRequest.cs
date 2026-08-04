@@ -238,7 +238,6 @@ internal sealed class CompiledRenderRequest : IDisposable
 
 internal sealed class ExecutionIslandPlan
 {
-    private readonly Dictionary<RenderFragmentReference, CompiledShaderRun> _shaderRunsByOutput;
     private readonly Dictionary<RenderFragmentId, ExecutionIslandMembership> _membershipByFragment;
 
     public ExecutionIslandPlan(
@@ -247,8 +246,6 @@ internal sealed class ExecutionIslandPlan
     {
         Islands = islands;
         Boundaries = boundaries;
-        _shaderRunsByOutput = new Dictionary<RenderFragmentReference, CompiledShaderRun>(
-            ReferenceEqualityComparer.Instance);
         _membershipByFragment = [];
         var islandIds = new HashSet<ExecutionIslandId>();
         foreach (ExecutionIsland island in islands)
@@ -271,15 +268,6 @@ internal sealed class ExecutionIslandPlan
                 }
             }
 
-            if (island.ShaderRun is not { } run)
-                continue;
-
-            if (!_shaderRunsByOutput.TryAdd(run.Output, run))
-            {
-                throw new ArgumentException(
-                    "Two compiled Shader runs cannot publish the same terminal fragment.",
-                    nameof(islands));
-            }
         }
     }
 
@@ -291,14 +279,6 @@ internal sealed class ExecutionIslandPlan
         => Islands
             .Where(static island => island.ShaderRun is not null)
             .Select(static island => island.ShaderRun!);
-
-    public bool TryGetShaderRun(
-        RenderFragmentReference output,
-        out CompiledShaderRun? run)
-    {
-        ArgumentNullException.ThrowIfNull(output);
-        return _shaderRunsByOutput.TryGetValue(output, out run);
-    }
 
     public bool TryGetMembership(
         RenderFragmentReference fragment,

@@ -114,49 +114,11 @@ public sealed class RenderNodeCache(RenderNode node) : IDisposable
         return value.Target.ShallowCopy();
     }
 
-    internal void StoreCache(RenderTarget renderTarget, Rect bounds, float density = 1f)
-    {
-        ArgumentNullException.ThrowIfNull(renderTarget);
-        StoreCache([(renderTarget, bounds)], density);
-    }
-
     internal IEnumerable<(RenderTarget RenderTarget, Rect Bounds)> UseCache()
     {
         return _storage.Values
             .Select(static value => (value.Target.ShallowCopy(), value.Bounds))
             .ToArray();
-    }
-
-    internal void StoreCache(ReadOnlySpan<(RenderTarget RenderTarget, Rect Bounds)> items, float density = 1f)
-    {
-        ObjectDisposedException.ThrowIf(IsDisposed, this);
-        if (!float.IsFinite(density) || density <= 0)
-            throw new ArgumentOutOfRangeException(nameof(density), density, "Cache density must be finite and positive.");
-
-        var values = new RenderNodeCachedValue[items.Length];
-        int initialized = 0;
-        try
-        {
-            for (; initialized < items.Length; initialized++)
-            {
-                (RenderTarget renderTarget, Rect bounds) = items[initialized];
-                ArgumentNullException.ThrowIfNull(renderTarget);
-                if (!RenderRectValidation.IsFiniteNonNegative(bounds))
-                    throw new ArgumentException("Cache bounds must be finite and non-negative.", nameof(items));
-                values[initialized] = new RenderNodeCachedValue(
-                    renderTarget.ShallowCopy(),
-                    bounds,
-                    EffectiveScale.At(density));
-            }
-
-            ReplaceStorage(new CacheStorage(Identity: null, values, density));
-        }
-        catch
-        {
-            for (int index = initialized - 1; index >= 0; index--)
-                values[index].Target.Dispose();
-            throw;
-        }
     }
 
     internal bool TryGetCachedOutput(
@@ -237,14 +199,6 @@ public sealed class RenderNodeCache(RenderNode node) : IDisposable
         }
 
         return failures ?? [];
-    }
-
-    private void ReplaceStorage(CacheStorage replacement)
-    {
-        ObjectDisposedException.ThrowIf(IsDisposed, this);
-        CacheStorage previous = DetachStorage();
-        DisposeStorage(previous);
-        _storage = replacement;
     }
 
     private CacheStorage DetachStorage()

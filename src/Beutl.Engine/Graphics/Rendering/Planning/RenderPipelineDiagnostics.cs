@@ -247,29 +247,6 @@ internal sealed class RenderPipelineDiagnosticRecorder
         }
     }
 
-    internal void RecordGraph(RecordedRenderGraph graph)
-    {
-        if (_completed || _faulted)
-            return;
-
-        try
-        {
-            if (graph.RequestId.Value != _requestId)
-                throw new InvalidOperationException("The recorded graph belongs to a different diagnostic request.");
-
-            foreach (RecordedRenderFragment recorded in graph.Fragments)
-            {
-                if (recorded.Payload is not RenderFragmentReference reference)
-                    throw new InvalidOperationException("A recorded fragment is missing its semantic reference.");
-                RecordCommittedReference(reference);
-            }
-        }
-        catch (Exception)
-        {
-            _faulted = true;
-        }
-    }
-
     internal void RecordCommittedFragments(IEnumerable<RecordedRenderFragmentEntry> fragments)
     {
         if (_completed || _faulted)
