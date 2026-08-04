@@ -270,7 +270,7 @@ public sealed class RenderNodeContext
         RenderRectValidation.ThrowIfInvalidInput(brushBounds, nameof(brushBounds));
         NodeRecordingTransaction transaction = GetTransaction();
         RenderFragmentReference reference = transaction.GetReference(input);
-        RecordedBrushPlan maskPlan = BrushRecorder.RecordMask(this, mask, mask.Version, brushBounds);
+        RecordedBrushPlan maskPlan = BrushRecorder.RecordStandaloneBrush(this, mask, mask.Version, brushBounds);
         ImmutableArray<RenderFragmentReference> dependencies =
             transaction.GetReferences(maskPlan.Dependencies, nameof(mask));
         var inputs = ImmutableArray.CreateBuilder<RenderFragmentReference>(1 + dependencies.Length);
@@ -540,7 +540,8 @@ public sealed class RenderNodeContext
         Rect outputBounds,
         bool requiresOwningTargetDomain = false,
         IReadOnlyList<IFEItem>? boundsItems = null,
-        FilterEffectWorkingScalePolicy? workingScalePolicy = null)
+        FilterEffectWorkingScalePolicy? workingScalePolicy = null,
+        IReadOnlyList<RegisteredEffectBrush>? brushes = null)
     {
         ArgumentNullException.ThrowIfNull(effectContext);
         NodeRecordingTransaction transaction = GetTransaction();
@@ -549,6 +550,22 @@ public sealed class RenderNodeContext
         foreach (RenderFragmentReference reference in references)
             EnsureValueInput(reference, nameof(inputs));
         ValidateDescriptionResources([effectContext], nameof(effectContext));
+
+        var brushBindings = ImmutableArray.CreateBuilder<LegacyFilterEffectBrushBinding>();
+        var brushDependencies = ImmutableArray.CreateBuilder<RenderFragmentReference>();
+        var brushResources = new List<RenderResource>();
+        foreach (RegisteredEffectBrush brush in brushes ?? [])
+        {
+            int dependencyOffset = brushDependencies.Count;
+            brushDependencies.AddRange(
+                transaction.GetReferences(brush.Dependencies, nameof(brushes)));
+            brushResources.AddRange(brush.Resources);
+            brushBindings.Add(new LegacyFilterEffectBrushBinding(
+                brush.Handle,
+                brush.Brush.HasDependency
+                    ? brush.Brush with { DependencyIndex = dependencyOffset + brush.Brush.DependencyIndex }
+                    : brush.Brush));
+        }
 
         RenderRectValidation.ThrowIfInvalidInput(outputBounds, nameof(effectContext));
         IReadOnlyList<IFEItem> recordedBoundsItems = boundsItems ?? [];
@@ -575,6 +592,7 @@ public sealed class RenderNodeContext
                 MaxWorkingScale);
         }
 
+        ImmutableArray<RenderFragmentReference> dependencies = brushDependencies.ToImmutable();
         return transaction.CreateFragment(
             RenderFragmentKind.LegacyFilterEffect,
             outputBounds,
@@ -582,13 +600,17 @@ public sealed class RenderNodeContext
             RenderValueCardinality.Dynamic,
             references.Any(static item => item.ContributesValuesToTarget),
             canBeUsedAsValueInput: true,
-            references.Any(static item => item.HasTargetEffects),
+            references.Any(static item => item.HasTargetEffects)
+            || dependencies.Any(static item => item.HasTargetEffects),
             hasOpaqueExternalWork: true,
-            references,
+            [.. references, .. dependencies],
             new LegacyFilterEffectRenderFragmentPayload(
                 effectContext,
                 [.. recordedBoundsItems],
-                workingScalePolicy),
+                workingScalePolicy,
+                references.Length,
+                brushBindings.ToImmutable(),
+                brushResources),
             outputBounds.Contains,
             requiresOwningTargetDomain
                 ? RenderFragmentBoundsRequirement.OwningTargetDomain
@@ -1273,10 +1295,17 @@ internal sealed record OpaqueRenderFragmentPayload(
     OpaqueRenderDescription Description,
     IReadOnlyList<RenderInputReadback> InputReadbacks);
 
+internal sealed record LegacyFilterEffectBrushBinding(
+    FilterEffectBrush Handle,
+    RecordedBrush Brush);
+
 internal sealed record LegacyFilterEffectRenderFragmentPayload(
     RenderResource<FilterEffectContext> Context,
     ImmutableArray<IFEItem> BoundsItems,
-    FilterEffectWorkingScalePolicy? WorkingScalePolicy = null);
+    FilterEffectWorkingScalePolicy? WorkingScalePolicy,
+    int StreamInputCount,
+    ImmutableArray<LegacyFilterEffectBrushBinding> Brushes,
+    IReadOnlyList<RenderResource> BrushResources);
 
 internal sealed record MaterializedInputRenderFragmentPayload(
     MaterializedInputDescription Description);

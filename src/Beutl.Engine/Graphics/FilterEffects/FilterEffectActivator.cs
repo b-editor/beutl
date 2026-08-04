@@ -15,6 +15,7 @@ public sealed class FilterEffectActivator : IDisposable
     private static readonly ILogger s_logger = Log.CreateLogger("FilterEffectActivator");
     private readonly SkRuntimeEffectProgramAcquirer? _injectedProgramAcquirer;
     private readonly Vector? _deviceGridOffset;
+    private readonly IReadOnlyDictionary<FilterEffectBrush, ResolvedBrush>? _brushes;
     private ProgramCache<CachedSkRuntimeEffect>? _ownedProgramCache;
     private Dictionary<EffectTarget, PendingSkiaTarget>? _pendingSkiaTargets;
     private bool _customEffectBoundaryMaterialized;
@@ -67,7 +68,8 @@ public sealed class FilterEffectActivator : IDisposable
         float workingScale,
         float maxWorkingScale,
         Vector deviceGridOffset,
-        SkRuntimeEffectProgramAcquirer acquireProgram)
+        SkRuntimeEffectProgramAcquirer acquireProgram,
+        IReadOnlyDictionary<FilterEffectBrush, ResolvedBrush>? brushes = null)
         : this(
             targets,
             builder,
@@ -78,7 +80,8 @@ public sealed class FilterEffectActivator : IDisposable
             maxWorkingScale,
             acquireProgram ?? throw new ArgumentNullException(nameof(acquireProgram)),
             deviceGridOffset,
-            ownsProgramCache: false)
+            ownsProgramCache: false,
+            brushes)
     {
     }
 
@@ -92,8 +95,10 @@ public sealed class FilterEffectActivator : IDisposable
         float maxWorkingScale,
         SkRuntimeEffectProgramAcquirer? acquireProgram,
         Vector? deviceGridOffset,
-        bool ownsProgramCache)
+        bool ownsProgramCache,
+        IReadOnlyDictionary<FilterEffectBrush, ResolvedBrush>? brushes = null)
     {
+        _brushes = brushes;
         ArgumentNullException.ThrowIfNull(targets);
         ArgumentNullException.ThrowIfNull(builder);
         if (!Enum.IsDefined(intent))
@@ -569,7 +574,8 @@ public sealed class FilterEffectActivator : IDisposable
                             OutputScale,
                             WorkingScale,
                             MaxWorkingScale,
-                            _deviceGridOffset);
+                            _deviceGridOffset,
+                            _brushes);
                         custom.Accepts(customContext);
 
                         foreach (EffectTarget t in CurrentTargets)

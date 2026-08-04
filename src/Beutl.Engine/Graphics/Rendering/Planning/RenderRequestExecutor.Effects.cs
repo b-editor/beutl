@@ -356,19 +356,23 @@ internal sealed partial class RenderRequestExecutor
             ImmediateCanvas currentTarget)
         {
             Rect requiredRegion = ResolveFragmentRequirement(fragment, fragment.Bounds);
+            var payload = (LegacyFilterEffectRenderFragmentPayload)fragment.Payload!;
             var inputs = new List<CompatibilityRenderValue>();
+            var brushValues = new List<CompatibilityRenderValue>();
             EffectiveScale inputRequestScale = fragment.EffectiveScale.IsUnbounded
                 ? EffectiveScale.At(currentTarget.Density)
                 : fragment.EffectiveScale;
-            foreach (RenderFragmentReference input in fragment.Inputs)
+            for (int index = 0; index < fragment.Inputs.Length; index++)
             {
-                inputs.AddRange(Materialize(
+                RenderFragmentReference input = fragment.Inputs[index];
+                List<CompatibilityRenderValue> destination =
+                    index < payload.StreamInputCount ? inputs : brushValues;
+                destination.AddRange(Materialize(
                     input,
                     currentTarget,
                     input.EffectiveScale.IsUnbounded ? inputRequestScale : null));
             }
 
-            var payload = (LegacyFilterEffectRenderFragmentPayload)fragment.Payload!;
             try
             {
                 return payload.Context.Registry.Use(
@@ -376,6 +380,7 @@ internal sealed partial class RenderRequestExecutor
                     effectContext =>
                     {
                         _diagnostics?.RecordOpaqueExecution(fragment.Id?.Value ?? 0);
+                        EffectTargets? resultTargets = null;
                         using var targets = new EffectTargets();
                         foreach (CompatibilityRenderValue input in inputs)
                         {
@@ -392,25 +397,33 @@ internal sealed partial class RenderRequestExecutor
                         }
 
                         using var builder = new SKImageFilterBuilder();
-                        using var activator = new FilterEffectActivator(
-                            targets,
-                            builder,
-                            _options.Intent,
-                            _options.Purpose,
-                            _options.OutputScale,
-                            fragment.EffectiveScale.Value,
-                            _options.MaxWorkingScale,
-                            _activeDeviceGridOffset,
-                            (target, source) => AcquireStandaloneProgram(
-                                fragment.Id?.Value ?? 0,
-                                target,
-                                source));
-                        activator.Apply(effectContext);
-                        activator.CompletePolicyBoundary(
-                            payload.WorkingScalePolicy.HasValue);
+                        RunWithResolvedBrushes(
+                            payload,
+                            brushValues,
+                            brushes =>
+                            {
+                                using var activator = new FilterEffectActivator(
+                                    targets,
+                                    builder,
+                                    _options.Intent,
+                                    _options.Purpose,
+                                    _options.OutputScale,
+                                    fragment.EffectiveScale.Value,
+                                    _options.MaxWorkingScale,
+                                    _activeDeviceGridOffset,
+                                    (target, source) => AcquireStandaloneProgram(
+                                        fragment.Id?.Value ?? 0,
+                                        target,
+                                        source),
+                                    brushes);
+                                activator.Apply(effectContext);
+                                activator.CompletePolicyBoundary(
+                                    payload.WorkingScalePolicy.HasValue);
+                                resultTargets = activator.CurrentTargets;
+                            });
 
-                        var result = new List<CompatibilityRenderValue>(activator.CurrentTargets.Count);
-                        foreach (EffectTarget target in activator.CurrentTargets)
+                        var result = new List<CompatibilityRenderValue>(resultTargets!.Count);
+                        foreach (EffectTarget target in resultTargets)
                         {
                             if (target.RenderTarget is not { } renderTarget)
                                 continue;
@@ -461,6 +474,68 @@ internal sealed partial class RenderRequestExecutor
                 foreach (RenderFragmentReference input in fragment.Inputs)
                     CompleteFragmentUse(input);
             }
+        }
+
+        private void RunWithResolvedBrushes(
+            LegacyFilterEffectRenderFragmentPayload payload,
+            IReadOnlyList<CompatibilityRenderValue> brushValues,
+            Action<IReadOnlyDictionary<FilterEffectBrush, ResolvedBrush>?> use)
+        {
+            if (payload.Brushes.IsDefaultOrEmpty)
+            {
+                use(null);
+                return;
+            }
+
+            var images = new List<SKImage>();
+            var token = new RenderExecutionSessionToken();
+            try
+            {
+                token.RunAndComplete(
+                    () =>
+                    {
+                        IReadOnlyList<RenderExecutionInput> inputs = CreateExecutionInputs(
+                            token,
+                            brushValues,
+                            requiresReadback: false,
+                            readbackOwner: null,
+                            images);
+                        var resolved = new Dictionary<FilterEffectBrush, ResolvedBrush>();
+                        ResolveBrush(token, payload, inputs, resolved, 0, use);
+                    });
+            }
+            finally
+            {
+                foreach (SKImage image in images)
+                    image.Dispose();
+            }
+        }
+
+        private static void ResolveBrush(
+            RenderExecutionSessionToken token,
+            LegacyFilterEffectRenderFragmentPayload payload,
+            IReadOnlyList<RenderExecutionInput> inputs,
+            Dictionary<FilterEffectBrush, ResolvedBrush> resolved,
+            int index,
+            Action<IReadOnlyDictionary<FilterEffectBrush, ResolvedBrush>?> use)
+        {
+            if (index >= payload.Brushes.Length)
+            {
+                use(resolved);
+                return;
+            }
+
+            LegacyFilterEffectBrushBinding binding = payload.Brushes[index];
+            BrushExecutionResolver.UseBrush(
+                token,
+                payload.BrushResources,
+                inputs,
+                binding.Brush,
+                brush =>
+                {
+                    resolved[binding.Handle] = brush;
+                    ResolveBrush(token, payload, inputs, resolved, index + 1, use);
+                });
         }
 
         private CompatibilityRenderValue MaterializeLegacyTarget(

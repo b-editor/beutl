@@ -31,6 +31,7 @@ public sealed class FilterEffectContext : IDisposable
     private readonly FilterEffectResourceState _resourceState;
     private readonly Lazy<float> _workingScale;
     private readonly bool _hasResolvedWorkingScale;
+    private readonly Rect _brushAuthoringBounds;
     private bool _disposed;
 
     internal static readonly ObjectPool<float[]> s_colorMatPool;
@@ -42,6 +43,7 @@ public sealed class FilterEffectContext : IDisposable
 
     public FilterEffectContext(Rect bounds, float outputScale = 1f, float workingScale = 1f)
         : this(
+            bounds,
             bounds,
             outputScale,
             CreateResolvedWorkingScale(workingScale),
@@ -58,6 +60,7 @@ public sealed class FilterEffectContext : IDisposable
         bool hasResolvedWorkingScale = true)
         : this(
             bounds,
+            bounds,
             outputScale,
             CreateResolvedWorkingScale(workingScale),
             hasResolvedWorkingScale,
@@ -67,12 +70,14 @@ public sealed class FilterEffectContext : IDisposable
 
     internal FilterEffectContext(
         Rect bounds,
+        Rect brushAuthoringBounds,
         float outputScale,
         Func<float> resolveWorkingScale,
         RenderNodeContext renderContext,
         bool hasResolvedWorkingScale = true)
         : this(
             bounds,
+            brushAuthoringBounds,
             outputScale,
             new Lazy<float>(resolveWorkingScale ?? throw new ArgumentNullException(nameof(resolveWorkingScale))),
             hasResolvedWorkingScale,
@@ -82,12 +87,14 @@ public sealed class FilterEffectContext : IDisposable
 
     private FilterEffectContext(
         Rect bounds,
+        Rect brushAuthoringBounds,
         float outputScale,
         Lazy<float> workingScale,
         bool hasResolvedWorkingScale,
         FilterEffectResourceState resourceState)
     {
         _bounds = OriginalBounds = bounds;
+        _brushAuthoringBounds = brushAuthoringBounds;
         OutputScale = outputScale;
         _workingScale = workingScale;
         _hasResolvedWorkingScale = hasResolvedWorkingScale;
@@ -100,6 +107,7 @@ public sealed class FilterEffectContext : IDisposable
     {
         OriginalBounds = obj.OriginalBounds;
         _bounds = obj._bounds;
+        _brushAuthoringBounds = obj._brushAuthoringBounds;
         OutputScale = obj.OutputScale;
         _workingScale = obj._workingScale;
         _hasResolvedWorkingScale = obj._hasResolvedWorkingScale;
@@ -111,6 +119,7 @@ public sealed class FilterEffectContext : IDisposable
     private FilterEffectContext(FilterEffectContext obj, Rect bounds)
     {
         OriginalBounds = _bounds = bounds;
+        _brushAuthoringBounds = obj._brushAuthoringBounds;
         OutputScale = obj.OutputScale;
         _workingScale = obj._workingScale;
         _hasResolvedWorkingScale = obj._hasResolvedWorkingScale;
@@ -214,6 +223,50 @@ public sealed class FilterEffectContext : IDisposable
         _resourceState.ValidateResources(description.Resources, nameof(description));
         AppendDescription(new FEItem_Geometry(description));
     }
+
+    /// <summary>
+    /// Registers a brush this effect paints with from an execution-time callback and lowers any nested
+    /// <see cref="DrawableBrush"/> content into the recorded render graph.
+    /// </summary>
+    /// <param name="brush">The brush resource, or <see langword="null"/> for an absent brush.</param>
+    /// <returns>
+    /// A handle to pass into custom-effect callback data and resolve through
+    /// <see cref="CustomFilterEffectContext.CreateBrushShader"/>.
+    /// </returns>
+    /// <remarks>
+    /// Nested drawable content is recorded against this effect's input frame. A brush registered outside a recorded
+    /// render request — a standalone <see cref="FilterEffectContext"/> — carries no lowered content, so nested
+    /// drawable content stays unresolvable there.
+    /// </remarks>
+    public FilterEffectBrush RegisterBrush(Brush.Resource? brush)
+    {
+        ThrowIfDisposed();
+        if (brush is null)
+            return FilterEffectBrush.Empty;
+
+        return _resourceState.RegisterBrush(brush, _brushAuthoringBounds);
+    }
+
+    /// <summary>
+    /// Registers a pen this effect strokes with from an execution-time callback and lowers any nested
+    /// <see cref="DrawableBrush"/> content in its brush into the recorded render graph.
+    /// </summary>
+    /// <param name="pen">The pen resource, or <see langword="null"/> for an absent pen.</param>
+    /// <returns>
+    /// A handle to pass into custom-effect callback data and stroke with through
+    /// <see cref="CustomFilterEffectContext.DrawPath"/>.
+    /// </returns>
+    public FilterEffectPen RegisterPen(Pen.Resource? pen)
+    {
+        ThrowIfDisposed();
+        if (pen is null)
+            return FilterEffectPen.Empty;
+
+        _resourceState.Borrow(pen, BrushRecorder.GetResourceIdentity(pen), pen.Version);
+        return new FilterEffectPen(pen, RegisterBrush(pen.Brush));
+    }
+
+    internal IReadOnlyList<RegisteredEffectBrush> RegisteredBrushes => _resourceState.RegisteredBrushes;
 
     public RenderResource<T> Own<T>(T resource, object? cacheKey = null, long version = 0)
         where T : class, IDisposable
@@ -654,7 +707,7 @@ public sealed class FilterEffectContext : IDisposable
 
     public void BlendMode(Brush.Resource? brush, BlendMode blendMode)
     {
-        static void ApplyCore((Brush.Resource? Brush, BlendMode BlendMode) data, CustomFilterEffectContext context)
+        static void ApplyCore((FilterEffectBrush Brush, BlendMode BlendMode) data, CustomFilterEffectContext context)
         {
             for (int i = 0; i < context.Targets.Count; i++)
             {
@@ -665,9 +718,8 @@ public sealed class FilterEffectContext : IDisposable
                     EffectTarget newTarget = context.CreateTarget(target.Bounds);
                     // Read density from the target (may be clamped), not context.WorkingScale.
                     float w = newTarget.Scale.Value;
-                    var c = new BrushConstructor(new(size), data.Brush, data.BlendMode, w, context.MaxWorkingScale);
                     using var brushPaint = new SKPaint();
-                    c.ConfigurePaint(brushPaint);
+                    context.ConfigureBrushPaint(brushPaint, data.Brush, new Rect(size), data.BlendMode, w);
 
                     using (ImmediateCanvas newCanvas = context.Open(newTarget))
                     {
@@ -687,7 +739,7 @@ public sealed class FilterEffectContext : IDisposable
             }
         }
 
-        CustomEffect((brush, blendMode), ApplyCore, (_, r) => r);
+        CustomEffect((RegisterBrush(brush), blendMode), ApplyCore, (_, r) => r);
     }
 
     public void CustomEffect<T>(T data, Action<T, CustomFilterEffectContext> action,
@@ -739,6 +791,7 @@ public sealed class FilterEffectContext : IDisposable
         int itemCount = _items.Count;
         int renderTimeItemCount = _renderTimeItems.Count;
         int resourceCount = _resourceState.Count;
+        int brushCount = _resourceState.BrushCount;
         Rect bounds = _bounds;
         try
         {
@@ -752,6 +805,7 @@ public sealed class FilterEffectContext : IDisposable
             while (_renderTimeItems.Count > renderTimeItemCount)
                 _renderTimeItems.RemoveAt(_renderTimeItems.Count - 1);
             _bounds = bounds;
+            _resourceState.RollbackBrushesTo(brushCount);
             try
             {
                 _resourceState.RollbackTo(resourceCount, ex);
@@ -821,11 +875,18 @@ public sealed class FilterEffectContext : IDisposable
     private void ThrowIfDisposed() => ObjectDisposedException.ThrowIf(_disposed, this);
 }
 
+internal sealed record RegisteredEffectBrush(
+    FilterEffectBrush Handle,
+    RecordedBrush Brush,
+    IReadOnlyList<RenderFragmentHandle> Dependencies,
+    IReadOnlyList<RenderResource> Resources);
+
 internal sealed class FilterEffectResourceState
 {
     private readonly RenderNodeContext? _renderContext;
     private readonly RenderRequestResourceRegistry? _standaloneRegistry;
     private readonly List<RenderResource> _resources = [];
+    private readonly List<RegisteredEffectBrush> _brushes = [];
     private int _references = 1;
     private bool _transferred;
 
@@ -837,6 +898,49 @@ internal sealed class FilterEffectResourceState
     }
 
     public int Count => _resources.Count;
+
+    public int BrushCount => _brushes.Count;
+
+    public IReadOnlyList<RegisteredEffectBrush> RegisteredBrushes => _brushes;
+
+    public FilterEffectBrush RegisterBrush(Brush.Resource brush, Rect brushBounds)
+    {
+        ThrowIfTransferred();
+        object identity = BrushRecorder.GetResourceIdentity(brush);
+        foreach (RegisteredEffectBrush registered in _brushes)
+        {
+            if (Equals(registered.Handle.Identity, identity))
+                return registered.Handle;
+        }
+
+        var handle = new FilterEffectBrush(brush, identity);
+        if (_renderContext is null || brushBounds.IsInvalid)
+        {
+            // Without a recording transaction there is no graph to lower nested content into; the handle stays
+            // declarative and BrushConstructor rejects unlowered drawable content at execution.
+            _brushes.Add(new RegisteredEffectBrush(handle, RecordedBrush.Empty, [], []));
+            return handle;
+        }
+
+        RecordedBrushPlan plan = BrushRecorder.RecordStandaloneBrush(
+            _renderContext,
+            brush,
+            brush.Version,
+            brushBounds);
+        _resources.AddRange(plan.Resources);
+        _brushes.Add(new RegisteredEffectBrush(handle, plan.Brush, plan.Dependencies, plan.Resources));
+        return handle;
+    }
+
+    public void RollbackBrushesTo(int count)
+    {
+        if (count < 0 || count > _brushes.Count)
+            throw new ArgumentOutOfRangeException(nameof(count));
+        if (count == _brushes.Count)
+            return;
+
+        _brushes.RemoveRange(count, _brushes.Count - count);
+    }
 
     public FilterEffectResourceState AddReference()
     {

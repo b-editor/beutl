@@ -394,6 +394,9 @@ internal sealed class StructuralFragmentIdentity : IEquatable<StructuralFragment
                 return;
             case LegacyFilterEffectRenderFragmentPayload legacy:
                 AddWorkingScalePolicy(legacy.WorkingScalePolicy, components);
+                components.Add(legacy.StreamInputCount);
+                components.Add(legacy.Brushes.IsDefault ? 0 : legacy.Brushes.Length);
+                AddResourceTypes(legacy.BrushResources, components);
                 return;
             case MaterializedInputRenderFragmentPayload input:
                 components.Add(input.Description.HitTest.StructuralIdentity);

@@ -108,6 +108,7 @@ public class FilterEffectRenderNode(FilterEffect.Resource filterEffect) : Contai
 
         FilterEffectContext? effectContext = new(
             hasConcreteInputMetadata ? inputBounds : Rect.Invalid,
+            recordedInputBounds,
             context.OutputScale,
             () => ResolveWorkingScale(
                 authorInputMetadata,
@@ -128,6 +129,7 @@ public class FilterEffectRenderNode(FilterEffect.Resource filterEffect) : Contai
                 return;
             }
 
+            IReadOnlyList<RegisteredEffectBrush> registeredBrushes = effectContext.RegisteredBrushes;
             FilterEffectWorkingScalePolicy resolvedWorkingScalePolicy = GetOrCreateWorkingScalePolicy();
             if (requiresInputIsolation)
             {
@@ -205,7 +207,8 @@ public class FilterEffectRenderNode(FilterEffect.Resource filterEffect) : Contai
                             segmentOutputBounds,
                             requiresOwningTargetDomain,
                             legacyItems,
-                            pendingWorkingScalePolicy),
+                            pendingWorkingScalePolicy,
+                            registeredBrushes),
                     ];
                     pendingWorkingScalePolicy = null;
                 }

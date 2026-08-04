@@ -516,8 +516,8 @@ internal sealed class RegionAnalyzer
             return reference.RecordedBounds;
 
         Rect bounds = default;
-        foreach (Rect inputBoundsItem in inputBounds)
-            bounds = bounds.Union(inputBoundsItem);
+        for (int index = 0; index < payload.StreamInputCount; index++)
+            bounds = bounds.Union(inputBounds[index]);
         foreach (IFEItem item in payload.BoundsItems)
             bounds = item.TransformBounds(bounds);
         return bounds;
@@ -571,7 +571,12 @@ internal sealed class RegionAnalyzer
                 {
                     var payload = (LegacyFilterEffectRenderFragmentPayload)reference.Payload!;
                     Rect[] inputBounds = reference.Inputs
+                        .Take(payload.StreamInputCount)
                         .Select(static input => input.Bounds)
+                        .ToArray();
+                    EffectiveScale[] streamScales = reference.Inputs
+                        .Take(payload.StreamInputCount)
+                        .Select(static input => input.EffectiveScale)
                         .ToArray();
                     Rect[] bufferBounds = FilterEffectWorkingScalePolicy.CalculateLegacyBufferBounds(
                         inputBounds,
@@ -579,13 +584,13 @@ internal sealed class RegionAnalyzer
                         resolvedBounds);
                     return payload.WorkingScalePolicy is { } policy
                         ? policy.Resolve(
-                            inputScales,
+                            streamScales,
                             inputBounds,
                             bufferBounds,
                             options.OutputScale,
                             options.MaxWorkingScale)
                         : FilterEffectWorkingScalePolicy.ResolveMaterialized(
-                            inputScales,
+                            streamScales,
                             bufferBounds,
                             options.OutputScale,
                             options.MaxWorkingScale);
@@ -1055,8 +1060,18 @@ internal sealed class RegionAnalyzer
             return FullInputs(reference);
 
         var result = ImmutableArray.CreateBuilder<RequiredRegion>(reference.Inputs.Length);
-        foreach (RenderFragmentReference input in reference.Inputs)
-            result.Add(RestrictToSemanticCoverage(input, RequiredRegion.Region(requested), targetDomain));
+        for (int index = 0; index < reference.Inputs.Length; index++)
+        {
+            // A brush dependency is sampled by an opaque callback over the whole brush frame, so its
+            // region cannot be narrowed by the stream's backward region.
+            result.Add(index < payload.StreamInputCount
+                ? RestrictToSemanticCoverage(
+                    reference.Inputs[index],
+                    RequiredRegion.Region(requested),
+                    targetDomain)
+                : RequiredRegion.Full);
+        }
+
         return result.MoveToImmutable();
     }
 

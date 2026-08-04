@@ -1756,6 +1756,7 @@ internal sealed class RenderFragmentOutputIdentity : IEquatable<RenderFragmentOu
                 return;
             case LegacyFilterEffectRenderFragmentPayload legacy:
                 components.Add(legacy.Context.CacheIdentity);
+                AddResources(legacy.BrushResources, components);
                 return;
             case MaterializedInputRenderFragmentPayload input:
                 components.Add(input.Description.Target.CacheIdentity);

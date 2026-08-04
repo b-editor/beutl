@@ -33,17 +33,17 @@ internal static class BrushRecorder
             builder.Resources);
     }
 
-    public static RecordedBrushPlan RecordMask(
+    public static RecordedBrushPlan RecordStandaloneBrush(
         RenderNodeContext context,
-        Brush.Resource mask,
+        Brush.Resource brush,
         long version,
         Rect brushBounds)
     {
         ArgumentNullException.ThrowIfNull(context);
-        ArgumentNullException.ThrowIfNull(mask);
+        ArgumentNullException.ThrowIfNull(brush);
         var builder = new Builder(context, brushBounds);
-        RecordedBrush brush = builder.RecordBrush(mask, version);
-        return new RecordedBrushPlan(brush, builder.Dependencies, builder.Resources);
+        RecordedBrush recorded = builder.RecordBrush(brush, version);
+        return new RecordedBrushPlan(recorded, builder.Dependencies, builder.Resources);
     }
 
     public static OpaqueRenderBoundsContract CreateSourceBounds(

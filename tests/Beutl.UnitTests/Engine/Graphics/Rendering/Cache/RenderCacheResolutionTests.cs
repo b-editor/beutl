@@ -1772,6 +1772,10 @@ public sealed class RenderCacheResolutionTests
         {
             RenderFragmentKind.LegacyFilterEffect => new LegacyFilterEffectRenderFragmentPayload(
                 null!,
+                [],
+                null,
+                1,
+                [],
                 []),
             RenderFragmentKind.Shader => CreateShaderPayload(),
             RenderFragmentKind.Geometry => CreateGeometryPayload(),

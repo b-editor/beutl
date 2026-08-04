@@ -2,6 +2,7 @@
 using Beutl.Logging;
 using Beutl.Media;
 using Microsoft.Extensions.Logging;
+using SkiaSharp;
 
 namespace Beutl.Graphics.Effects;
 
@@ -9,6 +10,7 @@ public class CustomFilterEffectContext
 {
     private static readonly ILogger s_logger = Log.CreateLogger("CustomFilterEffectContext");
     private readonly Vector _deviceGridOffset;
+    private readonly IReadOnlyDictionary<FilterEffectBrush, ResolvedBrush>? _brushes;
 
     internal CustomFilterEffectContext(
         EffectTargets targets,
@@ -17,8 +19,10 @@ public class CustomFilterEffectContext
         float outputScale = 1f,
         float workingScale = 1f,
         float maxWorkingScale = float.PositiveInfinity,
-        Vector? deviceGridOffset = null)
+        Vector? deviceGridOffset = null,
+        IReadOnlyDictionary<FilterEffectBrush, ResolvedBrush>? brushes = null)
     {
+        _brushes = brushes;
         if (!Enum.IsDefined(intent))
             throw new ArgumentOutOfRangeException(nameof(intent), intent, "The render intent is invalid.");
         if (!Enum.IsDefined(purpose))
@@ -35,6 +39,76 @@ public class CustomFilterEffectContext
     }
 
     public EffectTargets Targets { get; }
+
+    /// <summary>
+    /// Creates the Skia shader for a brush registered through <see cref="FilterEffectContext.RegisterBrush"/>.
+    /// </summary>
+    /// <param name="brush">The non-null handle returned while recording this effect.</param>
+    /// <param name="bounds">The logical frame the brush maps onto.</param>
+    /// <param name="blendMode">The blend mode to configure on the produced shader.</param>
+    /// <param name="scale">The device density of the buffer being painted.</param>
+    /// <returns>The caller-owned shader, or <see langword="null"/> when the brush produces no shader.</returns>
+    public SKShader? CreateBrushShader(
+        FilterEffectBrush brush,
+        Rect bounds,
+        BlendMode blendMode,
+        float scale)
+        => CreateBrushConstructor(brush, bounds, blendMode, scale).CreateShader();
+
+    /// <summary>Configures a paint from a brush registered through <see cref="FilterEffectContext.RegisterBrush"/>.</summary>
+    /// <param name="paint">The non-null paint to configure.</param>
+    /// <param name="brush">The non-null handle returned while recording this effect.</param>
+    /// <param name="bounds">The logical frame the brush maps onto.</param>
+    /// <param name="blendMode">The blend mode to configure on the paint.</param>
+    /// <param name="scale">The device density of the buffer being painted.</param>
+    public void ConfigureBrushPaint(
+        SKPaint paint,
+        FilterEffectBrush brush,
+        Rect bounds,
+        BlendMode blendMode,
+        float scale)
+    {
+        ArgumentNullException.ThrowIfNull(paint);
+        CreateBrushConstructor(brush, bounds, blendMode, scale).ConfigurePaint(paint);
+    }
+
+    /// <summary>
+    /// Draws a Skia path with a fill and pen registered through
+    /// <see cref="FilterEffectContext.RegisterBrush"/> / <see cref="FilterEffectContext.RegisterPen"/>.
+    /// </summary>
+    /// <param name="canvas">The non-null canvas opened for the target being painted.</param>
+    /// <param name="path">The non-null path in the canvas's current coordinate space.</param>
+    /// <param name="strokeOnly">Whether to skip the fill and stroke only.</param>
+    /// <param name="fill">The fill handle; pass <see cref="FilterEffectBrush.Empty"/> for no fill.</param>
+    /// <param name="pen">The pen handle; pass <see cref="FilterEffectPen.Empty"/> for no stroke.</param>
+    public void DrawPath(
+        ImmediateCanvas canvas,
+        SKPath path,
+        bool strokeOnly,
+        FilterEffectBrush fill,
+        FilterEffectPen pen)
+    {
+        ArgumentNullException.ThrowIfNull(canvas);
+        ArgumentNullException.ThrowIfNull(path);
+        ArgumentNullException.ThrowIfNull(fill);
+        ArgumentNullException.ThrowIfNull(pen);
+        canvas.DrawSKPath(path, strokeOnly, Resolve(fill), new ResolvedPen(pen.Resource, Resolve(pen.Brush)));
+    }
+
+    private ResolvedBrush Resolve(FilterEffectBrush brush)
+        => _brushes is not null && _brushes.TryGetValue(brush, out ResolvedBrush resolved)
+            ? resolved
+            : new ResolvedBrush(brush.Resource, null);
+
+    private BrushConstructor CreateBrushConstructor(
+        FilterEffectBrush brush,
+        Rect bounds,
+        BlendMode blendMode,
+        float scale)
+    {
+        ArgumentNullException.ThrowIfNull(brush);
+        return new BrushConstructor(bounds, Resolve(brush), blendMode, scale, MaxWorkingScale);
+    }
 
     /// <summary>The render request's output scale <c>s_out</c>, not a ceiling on this effect's working scale.</summary>
     public float OutputScale { get; }
