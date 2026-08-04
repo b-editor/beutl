@@ -1013,7 +1013,6 @@ public enum ShaderBindingCachePolicy
 public enum ShaderResourceCoordinateSpace
 {
     Value,
-    OutputLogical,
     OutputDevice,
 }
 
