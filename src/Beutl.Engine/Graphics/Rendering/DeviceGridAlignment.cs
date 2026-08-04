@@ -18,6 +18,26 @@ internal static class DeviceGridAlignment
             (transform.M32 + canvas.DeviceOrigin.Y) / density);
     }
 
+    /// <summary>
+    /// Maps <paramref name="canvas"/>'s own surface pixels back into its current logical space.
+    /// Unlike <see cref="ResolveLogicalOffset"/>, which selects a grid phase and therefore only
+    /// recognizes a translation, this stays exact under any invertible transform.
+    /// </summary>
+    /// <exception cref="InvalidOperationException">The canvas transform is singular.</exception>
+    public static Matrix ResolveSurfaceToLogical(ImmediateCanvas canvas)
+    {
+        Matrix transform = canvas.Transform;
+        if (!transform.TryInvert(out Matrix inverse))
+        {
+            throw new InvalidOperationException(
+                $"The target transform {transform} is singular, so the target surface cannot be mapped "
+                + "back into the local logical space. Reading the target back under a zero-scale or "
+                + "otherwise degenerate transform is not supported.");
+        }
+
+        return inverse;
+    }
+
     public static Vector NormalizePhase(Vector logicalOffset, float density)
     {
         static float Normalize(float offset, float activeDensity)

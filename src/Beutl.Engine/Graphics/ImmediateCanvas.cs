@@ -153,9 +153,6 @@ public partial class ImmediateCanvas : IDisposable, IPopable
 
     internal PixelPoint DeviceOrigin { get; }
 
-    internal Rect RasterBounds
-        => new PixelRect(DeviceOrigin, DeviceSize).ToRect(SurfaceDensity);
-
     /// <summary>
     /// Pixel density of the current coordinate space. Equals <see cref="SurfaceDensity"/> normally;
     /// 1 inside a <see cref="PushDeviceSpace"/> block.

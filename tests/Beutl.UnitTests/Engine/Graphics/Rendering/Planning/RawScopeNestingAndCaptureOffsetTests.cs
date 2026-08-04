@@ -12,6 +12,13 @@ public sealed class RawScopeNestingAndCaptureOffsetTests
     private static readonly Rect s_mark = new(8, 8, 8, 8);
     private const float Shift = 10;
 
+    // Half-transparent so a capture drawn back over the mark is observable: a direct draw alone
+    // leaves alpha 128, an in-place round trip composites 128 over 128 and leaves alpha ~192.
+    private static readonly Color s_markColor = Color.FromArgb(128, 255, 0, 0);
+    private const byte RoundTripAlpha = 192;
+    // Well above the fringe a resampled round trip leaves around the mark, well below a real copy.
+    private const byte StrayAlpha = 64;
+
     [Test]
     public void RawTargetScope_ExecutesNestedTargetWorkInsideItsReplay()
     {
@@ -61,27 +68,63 @@ public sealed class RawScopeNestingAndCaptureOffsetTests
         var scope = new TransformRenderNode(
             Matrix.CreateTranslation(Shift, 0),
             TransformOperator.Append);
-        scope.AddChild(new CaptureRoundTripNode());
+        // Local (-10, 0, 64, 64) covers the whole target, so the round trip must land in place.
+        scope.AddChild(new CaptureRoundTripNode(new Rect(-Shift, 0, s_domain.Width, s_domain.Height)));
         root.AddChild(scope);
         using var renderer = CreateRenderer(root);
 
         using RenderNodeRasterization rasterization = renderer.Rasterize();
 
+        AssertCaptureLandedOnTheMark(rasterization);
+    }
+
+    [Test]
+    public void TargetCapture_UnderAScaledAndTranslatedTarget_CopiesTheTargetWithoutDisplacingIt()
+    {
+        using var root = new ContainerRenderNode();
+        root.AddChild(new MarkNode());
+        var scope = new TransformRenderNode(
+            Matrix.CreateScale(2, 2) * Matrix.CreateTranslation(Shift, 0),
+            TransformOperator.Append);
+        // Local (-5, 0, 32, 32) covers the whole target, so the round trip must land in place.
+        scope.AddChild(new CaptureRoundTripNode(new Rect(-5, 0, 32, 32)));
+        root.AddChild(scope);
+        using var renderer = CreateRenderer(root);
+
+        using RenderNodeRasterization rasterization = renderer.Rasterize();
+
+        AssertCaptureLandedOnTheMark(rasterization);
+    }
+
+    private static void AssertCaptureLandedOnTheMark(RenderNodeRasterization rasterization)
+    {
         Bitmap bitmap = rasterization.Bitmap
             ?? throw new AssertionException("The offset target capture produced no bitmap.");
+        var origin = new PixelPoint((int)rasterization.Bounds.X, (int)rasterization.Bounds.Y);
         var mark = bitmap.SKBitmap.GetPixel(
-            (int)(s_mark.Center.X - rasterization.Bounds.X),
-            (int)(s_mark.Center.Y - rasterization.Bounds.Y));
-        var ghost = bitmap.SKBitmap.GetPixel(
-            (int)(s_mark.Center.X + Shift - rasterization.Bounds.X),
-            (int)(s_mark.Center.Y - rasterization.Bounds.Y));
+            (int)s_mark.Center.X - origin.X,
+            (int)s_mark.Center.Y - origin.Y);
+
+        // A resampled round trip bleeds a pixel or so past the mark.
+        var tolerated = s_mark.Inflate(2);
+        int strays = 0;
+        for (int y = 0; y < bitmap.Height; y++)
+        {
+            for (int x = 0; x < bitmap.Width; x++)
+            {
+                if (bitmap.SKBitmap.GetPixel(x, y).Alpha < StrayAlpha)
+                    continue;
+                if (!tolerated.Contains(new Point(x + origin.X, y + origin.Y)))
+                    strays++;
+            }
+        }
 
         Assert.Multiple(() =>
         {
-            Assert.That(mark.Alpha, Is.EqualTo(byte.MaxValue),
-                "Replaying a capture of the target back into the same place must be idempotent.");
-            Assert.That(ghost.Alpha, Is.Zero,
-                "The captured copy must not land shifted by the destination's device-grid offset.");
+            Assert.That(mark.Alpha, Is.EqualTo(RoundTripAlpha).Within(8),
+                "Replaying a capture of the target back into the same place must reproduce the mark there.");
+            Assert.That(strays, Is.Zero,
+                "The captured copy must not land displaced from the region it was read from.");
         });
     }
 
@@ -106,7 +149,7 @@ public sealed class RawScopeNestingAndCaptureOffsetTests
                 static session =>
                 {
                     using OpaqueRenderOutput output = session.CreateOutput(s_mark);
-                    output.Canvas.Use(static canvas => canvas.Clear(Colors.Red));
+                    output.Canvas.Use(static canvas => canvas.Clear(s_markColor));
                     session.Publish(output);
                 },
                 OpaqueRenderBoundsContract.Source(s_mark),
@@ -143,11 +186,10 @@ public sealed class RawScopeNestingAndCaptureOffsetTests
         }
     }
 
-    private sealed class CaptureRoundTripNode : RenderNode
+    private sealed class CaptureRoundTripNode(Rect captureBounds) : RenderNode
     {
         public override void Process(RenderNodeContext context)
         {
-            var captureBounds = new Rect(-Shift, 0, s_domain.Width, s_domain.Height);
             RenderFragmentHandle capture = context.TargetCapture(TargetCaptureDescription.Create(
                 TargetRegion.Region(captureBounds),
                 captureBounds,

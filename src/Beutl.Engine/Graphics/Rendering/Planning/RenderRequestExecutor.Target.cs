@@ -512,12 +512,16 @@ internal sealed partial class RenderRequestExecutor
                            rasterTranslation.Y)))
                 {
                     using RenderTarget source = RenderTarget.GetRenderTarget(currentTarget);
-                    // ImmediateCanvas.RasterBounds is device-grid logical space; the copy destination
-                    // is read in the source canvas's local logical space.
-                    Rect sourceBounds = currentTarget.RasterBounds.Translate(
-                        -DeviceGridAlignment.ResolveLogicalOffset(currentTarget));
                     canvas.ClipRect(bounds);
-                    canvas.DrawRenderTargetScaledWithoutFlush(source, sourceBounds);
+                    // The capture bounds are recorded in the target's local logical space, so the
+                    // surface has to be placed through the inverse of the target's own transform.
+                    Matrix toLocal = DeviceGridAlignment.ResolveSurfaceToLogical(currentTarget);
+                    using (canvas.PushTransform(toLocal))
+                    {
+                        canvas.DrawRenderTargetScaledWithoutFlush(
+                            source,
+                            new Rect(0, 0, source.Width, source.Height));
+                    }
                 }
 
                 succeeded = true;
