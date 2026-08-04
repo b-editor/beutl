@@ -96,6 +96,97 @@ public sealed class RawScopeNestingAndCaptureOffsetTests
         AssertCaptureLandedOnTheMark(rasterization);
     }
 
+    [Test]
+    public void TargetCapture_UnderAScaledTarget_MaterializesAtTheTargetsPixelSupply()
+    {
+        using var root = new ContainerRenderNode();
+        root.AddChild(new MarkNode());
+        var scope = new TransformRenderNode(
+            Matrix.CreateScale(2, 2),
+            TransformOperator.Append);
+        // Local (0, 0, 32, 32) covers the whole target, so the round trip must land in place.
+        scope.AddChild(new CaptureRoundTripNode(new Rect(0, 0, 32, 32)));
+        root.AddChild(scope);
+        using var renderer = CreateRenderer(root);
+
+        using RenderNodeRasterization rasterization = renderer.Rasterize();
+
+        Bitmap bitmap = rasterization.Bitmap
+            ?? throw new AssertionException("The scaled target capture produced no bitmap.");
+        var origin = new PixelPoint((int)rasterization.Bounds.X, (int)rasterization.Bounds.Y);
+        var mark = bitmap.SKBitmap.GetPixel(
+            (int)s_mark.Center.X - origin.X,
+            (int)s_mark.Center.Y - origin.Y);
+
+        // A capture taken below the target's supply comes back through a 2x upsample, which leaves a
+        // one-pixel fringe of half the mark's alpha around it.
+        int fringe = 0;
+        for (int y = 0; y < bitmap.Height; y++)
+        {
+            for (int x = 0; x < bitmap.Width; x++)
+            {
+                if (bitmap.SKBitmap.GetPixel(x, y).Alpha == 0)
+                    continue;
+                if (!s_mark.Contains(new Point(x + origin.X, y + origin.Y)))
+                    fringe++;
+            }
+        }
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(mark.Alpha, Is.EqualTo(RoundTripAlpha).Within(8),
+                "Replaying a capture of the target back into the same place must reproduce the mark there.");
+            Assert.That(fringe, Is.Zero,
+                "A capture under a scaled target must materialize at the target's own pixel supply.");
+        });
+    }
+
+    [Test]
+    [TestCase(0f)]
+    [TestCase(0.0005f)]
+    public void BuiltInBackdropCapture_UnderADegenerateTargetTransform_RendersTheRestOfTheFrame(float scale)
+    {
+        using var root = new ContainerRenderNode();
+        root.AddChild(new MarkNode());
+        var scope = new TransformRenderNode(
+            Matrix.CreateScale(scale, scale),
+            TransformOperator.Append);
+        var snapshot = new SnapshotBackdropRenderNode();
+        scope.AddChild(snapshot);
+        scope.AddChild(new DrawBackdropRenderNode(snapshot, s_domain));
+        root.AddChild(scope);
+        using var renderer = CreateRenderer(root);
+
+        using RenderNodeRasterization rasterization = renderer.Rasterize();
+
+        Bitmap bitmap = rasterization.Bitmap
+            ?? throw new AssertionException("The degenerate backdrop round trip produced no bitmap.");
+        var origin = new PixelPoint((int)rasterization.Bounds.X, (int)rasterization.Bounds.Y);
+        var mark = bitmap.SKBitmap.GetPixel(
+            (int)s_mark.Center.X - origin.X,
+            (int)s_mark.Center.Y - origin.Y);
+
+        int ink = 0;
+        for (int y = 0; y < bitmap.Height; y++)
+        {
+            for (int x = 0; x < bitmap.Width; x++)
+            {
+                if (bitmap.SKBitmap.GetPixel(x, y).Alpha == 0)
+                    continue;
+                if (!s_mark.Contains(new Point(x + origin.X, y + origin.Y)))
+                    ink++;
+            }
+        }
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(mark.Alpha, Is.EqualTo(s_markColor.A),
+                "A backdrop under a degenerate transform must leave the rest of the frame untouched.");
+            Assert.That(ink, Is.Zero,
+                "A capture with no readable preimage must contribute no pixels.");
+        });
+    }
+
     private static void AssertCaptureLandedOnTheMark(RenderNodeRasterization rasterization)
     {
         Bitmap bitmap = rasterization.Bitmap

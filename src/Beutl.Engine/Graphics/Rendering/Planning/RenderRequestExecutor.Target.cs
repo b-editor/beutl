@@ -485,7 +485,7 @@ internal sealed partial class RenderRequestExecutor
                 ? fragment.Bounds
                 : description.Bounds;
             EffectiveScale scale = description.Scale.PreservesTargetSupply
-                ? EffectiveScale.At(currentTarget.Density)
+                ? EffectiveScale.At(DeviceGridAlignment.ResolveLocalDensity(currentTarget))
                 : ResolveConcreteScale(fragment);
             scale = ClampToActiveDeviceGrid(bounds, scale);
             CompatibilityRenderValue value = CreateOwnedValue(
@@ -511,16 +511,20 @@ internal sealed partial class RenderRequestExecutor
                            rasterTranslation.X,
                            rasterTranslation.Y)))
                 {
-                    using RenderTarget source = RenderTarget.GetRenderTarget(currentTarget);
-                    canvas.ClipRect(bounds);
                     // The capture bounds are recorded in the target's local logical space, so the
                     // surface has to be placed through the inverse of the target's own transform.
-                    Matrix toLocal = DeviceGridAlignment.ResolveSurfaceToLogical(currentTarget);
-                    using (canvas.PushTransform(toLocal))
+                    // Under a singular transform no target pixel is visible in local space, so the
+                    // capture stays empty rather than failing.
+                    if (DeviceGridAlignment.TryResolveSurfaceToLogical(currentTarget, out Matrix toLocal))
                     {
-                        canvas.DrawRenderTargetScaledWithoutFlush(
-                            source,
-                            new Rect(0, 0, source.Width, source.Height));
+                        using RenderTarget source = RenderTarget.GetRenderTarget(currentTarget);
+                        canvas.ClipRect(bounds);
+                        using (canvas.PushTransform(toLocal))
+                        {
+                            canvas.DrawRenderTargetScaledWithoutFlush(
+                                source,
+                                new Rect(0, 0, source.Width, source.Height));
+                        }
                     }
                 }
 

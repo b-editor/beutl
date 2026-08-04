@@ -23,19 +23,27 @@ internal static class DeviceGridAlignment
     /// Unlike <see cref="ResolveLogicalOffset"/>, which selects a grid phase and therefore only
     /// recognizes a translation, this stays exact under any invertible transform.
     /// </summary>
-    /// <exception cref="InvalidOperationException">The canvas transform is singular.</exception>
-    public static Matrix ResolveSurfaceToLogical(ImmediateCanvas canvas)
-    {
-        Matrix transform = canvas.Transform;
-        if (!transform.TryInvert(out Matrix inverse))
-        {
-            throw new InvalidOperationException(
-                $"The target transform {transform} is singular, so the target surface cannot be mapped "
-                + "back into the local logical space. Reading the target back under a zero-scale or "
-                + "otherwise degenerate transform is not supported.");
-        }
+    /// <returns>
+    /// <see langword="false"/> when the canvas transform is singular. The whole surface then collapses
+    /// onto a point, so no logical region has a preimage of non-zero area and there is nothing to sample.
+    /// </returns>
+    public static bool TryResolveSurfaceToLogical(ImmediateCanvas canvas, out Matrix surfaceToLogical)
+        => canvas.Transform.TryInvert(out surfaceToLogical);
 
-        return inverse;
+    /// <summary>
+    /// Surface pixels per unit of <paramref name="canvas"/>'s current logical space.
+    /// <see cref="ImmediateCanvas.Density"/> counts pixels per unit of the canvas's own base space, so a
+    /// scaling transform pushed on top of it leaves the two apart: reading the surface back at
+    /// <see cref="ImmediateCanvas.Density"/> under a 2x transform would allocate half the target's supply.
+    /// </summary>
+    public static float ResolveLocalDensity(ImmediateCanvas canvas)
+    {
+        if (!canvas.Transform.TryDecomposeTransform(out _, out Vector scale, out _, out _))
+            return canvas.Density;
+
+        // The coarser axis is the one that would drop target pixels, so the finer one sets the supply.
+        float density = MathF.Max(MathF.Abs(scale.X), MathF.Abs(scale.Y));
+        return float.IsFinite(density) && density > 0f ? density : canvas.Density;
     }
 
     public static Vector NormalizePhase(Vector logicalOffset, float density)
