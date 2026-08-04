@@ -106,7 +106,7 @@ public class FilterEffectRenderNode(FilterEffect.Resource filterEffect) : Contai
             => workingScalePolicy ??= new FilterEffectWorkingScalePolicy(
                 GetWorkingScaleContract() ?? RenderScaleContract.MaterializeAtWorkingScale);
 
-        FilterEffectContext? effectContext = new(
+        FilterEffectContext recordingContext = new(
             hasConcreteInputMetadata ? inputBounds : Rect.Invalid,
             recordedInputBounds,
             context.OutputScale,
@@ -121,15 +121,15 @@ public class FilterEffectRenderNode(FilterEffect.Resource filterEffect) : Contai
         try
         {
             FilterEffect.Resource effectResource = effectSnapshot.Resource;
-            effectContext.ApplyTransactional(effectResource.GetOriginal(), effectResource);
-            IReadOnlyList<IFEItem> items = effectContext.GetOrderedItems();
+            recordingContext.ApplyTransactional(effectResource.GetOriginal(), effectResource);
+            IReadOnlyList<IFEItem> items = recordingContext.GetOrderedItems();
             if (items.Count == 0)
             {
                 context.PassThrough();
                 return;
             }
 
-            IReadOnlyList<RegisteredEffectBrush> registeredBrushes = effectContext.RegisteredBrushes;
+            IReadOnlyList<RegisteredEffectBrush> registeredBrushes = recordingContext.RegisteredBrushes;
             FilterEffectWorkingScalePolicy resolvedWorkingScalePolicy = GetOrCreateWorkingScalePolicy();
             if (requiresInputIsolation)
             {
@@ -208,7 +208,7 @@ public class FilterEffectRenderNode(FilterEffect.Resource filterEffect) : Contai
                             requiresOwningTargetDomain,
                             legacyItems,
                             pendingWorkingScalePolicy,
-                            registeredBrushes),
+                            SelectSegmentBrushes(recordingContext, registeredBrushes, legacyItems)),
                     ];
                     pendingWorkingScalePolicy = null;
                 }
@@ -254,12 +254,35 @@ public class FilterEffectRenderNode(FilterEffect.Resource filterEffect) : Contai
 
             FlushLegacyItems();
             context.PublishRange(current);
-            effectContext.TransferResources();
+            recordingContext.TransferResources();
         }
         finally
         {
-            effectContext?.Dispose();
+            recordingContext.Dispose();
         }
+    }
+
+    // A segment fragment takes a hard dependency on every brush it is given, so give it only the brushes its own
+    // operations can paint with.
+    private static IReadOnlyList<RegisteredEffectBrush> SelectSegmentBrushes(
+        FilterEffectContext recordingContext,
+        IReadOnlyList<RegisteredEffectBrush> registeredBrushes,
+        IReadOnlyList<IFEItem> segmentItems)
+    {
+        if (registeredBrushes.Count == 0)
+            return registeredBrushes;
+
+        var used = new HashSet<FilterEffectBrush>();
+        foreach (IFEItem item in segmentItems)
+        {
+            foreach (FilterEffectBrush brush in recordingContext.GetItemBrushes(item))
+                used.Add(brush);
+        }
+
+        if (used.Count == 0)
+            return [];
+
+        return registeredBrushes.Where(brush => used.Contains(brush.Handle)).ToArray();
     }
 
     private static Rect CalculateRecordedBoundsHint(

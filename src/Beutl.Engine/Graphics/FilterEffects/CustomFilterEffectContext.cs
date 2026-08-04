@@ -95,6 +95,34 @@ public class CustomFilterEffectContext
         canvas.DrawSKPath(path, strokeOnly, Resolve(fill), new ResolvedPen(pen.Resource, Resolve(pen.Brush)));
     }
 
+    /// <summary>
+    /// Creates an activator for a nested effect re-application that inherits this callback's execution settings
+    /// and its resolved brushes.
+    /// </summary>
+    /// <param name="targets">The non-null targets the nested re-application runs over.</param>
+    /// <param name="builder">The non-null caller-owned Skia filter builder for the nested run.</param>
+    /// <returns>A caller-owned activator.</returns>
+    /// <remarks>
+    /// A nested re-application records against a standalone <see cref="FilterEffectContext"/>, which cannot lower
+    /// nested <see cref="DrawableBrush"/> content. Lower it while recording with
+    /// <see cref="FilterEffectContext.LowerNestedEffectBrushes"/>; the activator this method returns is what
+    /// resolves those handles again during the nested run.
+    /// </remarks>
+    public FilterEffectActivator CreateNestedActivator(EffectTargets targets, SKImageFilterBuilder builder)
+    {
+        ArgumentNullException.ThrowIfNull(targets);
+        ArgumentNullException.ThrowIfNull(builder);
+        return new FilterEffectActivator(
+            targets,
+            builder,
+            Intent,
+            Purpose,
+            OutputScale,
+            WorkingScale,
+            MaxWorkingScale,
+            _brushes);
+    }
+
     private ResolvedBrush Resolve(FilterEffectBrush brush)
         => _brushes is not null && _brushes.TryGetValue(brush, out ResolvedBrush resolved)
             ? resolved

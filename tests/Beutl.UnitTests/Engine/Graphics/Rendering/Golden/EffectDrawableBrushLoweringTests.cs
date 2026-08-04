@@ -1,9 +1,11 @@
 ﻿using Beutl.Composition;
+using Beutl.Engine;
 using Beutl.Graphics;
 using Beutl.Graphics.Effects;
 using Beutl.Graphics.Shapes;
 using Beutl.Media;
 using Beutl.UnitTests.Engine.Graphics.Backend;
+using SkiaSharp;
 
 namespace Beutl.UnitTests.Engine.Graphics.Rendering.Golden;
 
@@ -55,6 +57,14 @@ public class EffectDrawableBrushLoweringTests
                 return effect;
             }));
         yield return new TestCaseData(
+            "NestedActivate",
+            (Func<Brush?, FilterEffect>)(brush =>
+            {
+                var effect = new NestedActivateBrushEffect();
+                effect.Brush.CurrentValue = brush;
+                return effect;
+            }));
+        yield return new TestCaseData(
             "DisplacementMap-ShowMap",
             (Func<Brush?, FilterEffect>)(brush =>
             {
@@ -65,7 +75,29 @@ public class EffectDrawableBrushLoweringTests
             }));
     }
 
+    // DelayAnimationEffect re-applies its child effect from an execution-time callback, where the recorder is
+    // no longer reachable. Its child's brush content must therefore be lowered while the parent is recorded.
+    public static IEnumerable<TestCaseData> DelayedEffects()
+    {
+        foreach (TestCaseData data in Effects())
+        {
+            var name = (string)data.Arguments[0]!;
+            var makeEffect = (Func<Brush?, FilterEffect>)data.Arguments[1]!;
+            yield return new TestCaseData(
+                $"DelayAnimation-{name}",
+                (Func<Brush?, FilterEffect>)(brush =>
+                {
+                    var group = new FilterEffectGroup();
+                    group.Children.Add(makeEffect(brush));
+                    var delay = new DelayAnimationEffect();
+                    delay.Effect.CurrentValue = group;
+                    return delay;
+                }));
+        }
+    }
+
     [TestCaseSource(nameof(Effects))]
+    [TestCaseSource(nameof(DelayedEffects))]
     public void EffectOwnedDrawableBrush_RendersLikeTheEquivalentSolidBrush(
         string name,
         Func<Brush?, FilterEffect> makeEffect)
@@ -145,5 +177,63 @@ public class EffectDrawableBrushLoweringTests
         shape.Fill.CurrentValue = Brushes.White;
         shape.FilterEffect.CurrentValue = makeEffect();
         return shape.ToResource(CompositionContext.Default);
+    }
+}
+
+// Exercises the public FilterEffectActivator.Activate(FilterEffectContext) seam: a registered brush must stay
+// resolvable inside the nested activator that seam builds.
+internal sealed partial class NestedActivateBrushEffect : FilterEffect
+{
+    public NestedActivateBrushEffect()
+    {
+        ScanProperties<NestedActivateBrushEffect>();
+    }
+
+    public IProperty<Brush?> Brush { get; } = Property.Create<Brush?>();
+
+    public override void ApplyTo(FilterEffectContext context, FilterEffect.Resource resource)
+    {
+        var r = (Resource)resource;
+        context.AppendSkiaFilter(
+            context.RegisterBrush(r.Brush),
+            static (handle, _, activator) =>
+            {
+                using var nested = new FilterEffectContext(
+                    activator.CurrentTargets.CalculateBounds(),
+                    activator.OutputScale,
+                    activator.WorkingScale);
+                nested.CustomEffect(handle, PaintBrush, static (_, bounds) => bounds);
+                return activator.Activate(nested);
+            },
+            static (_, bounds) => bounds);
+    }
+
+    private static void PaintBrush(FilterEffectBrush handle, CustomFilterEffectContext context)
+    {
+        for (int i = 0; i < context.Targets.Count; i++)
+        {
+            EffectTarget target = context.Targets[i];
+            if (target.RenderTarget is null)
+                continue;
+
+            Size size = target.Bounds.Size;
+            EffectTarget newTarget = context.CreateTarget(target.Bounds);
+            float w = newTarget.Scale.Value;
+            using var paint = new SKPaint();
+            context.ConfigureBrushPaint(paint, handle, new Rect(size), BlendMode.SrcIn, w);
+            using (ImmediateCanvas canvas = context.Open(newTarget))
+            {
+                canvas.Clear();
+                using (canvas.PushDeviceSpace())
+                {
+                    canvas.DrawRenderTarget(target.RenderTarget, default);
+                }
+
+                canvas.Canvas.DrawRect(SKRect.Create(size.ToSKSize()), paint);
+            }
+
+            target.Dispose();
+            context.Targets[i] = newTarget;
+        }
     }
 }

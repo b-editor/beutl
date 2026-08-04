@@ -241,6 +241,25 @@ public sealed class FilterEffectRecordingTransactionTests
         });
     }
 
+    // A recorded registration lowers nested drawable content against the authoring frame, so a symbolic frame
+    // cannot silently degrade to an unlowered brush.
+    [Test]
+    public void RecordedContext_RejectsSymbolicBrushAuthoringFrame()
+    {
+        using var owner = new RenderRequestOwner();
+        using var request = new RenderRequest(new RenderRequestOptions(
+            RenderIntent.Preview,
+            RenderRequestPurpose.Auxiliary,
+            owner: owner));
+        var recorder = new RenderRequestRecorder(request);
+        var transaction = new NodeRecordingTransaction(recorder, new object(), []);
+        var renderContext = new RenderNodeContext(transaction);
+
+        Assert.That(
+            () => new FilterEffectContext(Rect.Invalid, 1, 1, renderContext),
+            Throws.ArgumentException);
+    }
+
     [Test]
     public void CloneAndChild_ShareResourceFamilyButKeepDocumentedItemSemantics()
     {

@@ -67,6 +67,30 @@ public sealed class FilterEffectActivator : IDisposable
         float outputScale,
         float workingScale,
         float maxWorkingScale,
+        IReadOnlyDictionary<FilterEffectBrush, ResolvedBrush>? brushes)
+        : this(
+            targets,
+            builder,
+            intent,
+            purpose,
+            outputScale,
+            workingScale,
+            maxWorkingScale,
+            acquireProgram: null,
+            deviceGridOffset: null,
+            ownsProgramCache: true,
+            brushes)
+    {
+    }
+
+    internal FilterEffectActivator(
+        EffectTargets targets,
+        SKImageFilterBuilder builder,
+        RenderIntent intent,
+        RenderRequestPurpose purpose,
+        float outputScale,
+        float workingScale,
+        float maxWorkingScale,
         Vector deviceGridOffset,
         SkRuntimeEffectProgramAcquirer acquireProgram,
         IReadOnlyDictionary<FilterEffectBrush, ResolvedBrush>? brushes = null)
@@ -633,7 +657,12 @@ public sealed class FilterEffectActivator : IDisposable
 
     public SKImageFilter? Activate(FilterEffectContext context)
     {
+        // A no-op Flush still drops the pending-Skia bookkeeping, which the caller's own in-progress chain
+        // still needs when it authored this call from a Skia factory.
+        Dictionary<EffectTarget, PendingSkiaTarget>? pendingSkiaTargets =
+            Builder.HasFilter() ? null : _pendingSkiaTargets;
         Flush(false);
+        _pendingSkiaTargets = pendingSkiaTargets;
 
         using EffectTargets cloned = CurrentTargets.Clone();
         using var builder = new SKImageFilterBuilder();
@@ -647,7 +676,8 @@ public sealed class FilterEffectActivator : IDisposable
             MaxWorkingScale,
             _deviceGridOffset
                 ?? (cloned.Count > 0 ? cloned[0].DeviceGridOffset : default),
-            GetProgramAcquirer());
+            GetProgramAcquirer(),
+            _brushes);
 
         activator.Apply(context);
         activator.Flush(false);

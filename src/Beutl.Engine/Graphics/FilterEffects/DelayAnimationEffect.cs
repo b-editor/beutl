@@ -28,6 +28,7 @@ public partial class DelayAnimationEffect : FilterEffect
         if (r.Effect == null) return;
 
         var childEffect = r.Effect.GetOriginal();
+        context.LowerNestedEffectBrushes(childEffect, r.Effect);
 
         context.CustomEffect(
             (delay: r.Delay, globalTime: r.GlobalTime, childEffect, cache: r.DelayedResources,
@@ -83,15 +84,7 @@ public partial class DelayAnimationEffect : FilterEffect
                     using var singleTargets = new EffectTargets();
                     singleTargets.Add(target.Clone());
                     using var builder = new SKImageFilterBuilder();
-                    // Forward the working-scale ceiling into the nested pull.
-                    using var activator = new FilterEffectActivator(
-                        singleTargets,
-                        builder,
-                        effectContext.Intent,
-                        effectContext.Purpose,
-                        effectContext.OutputScale,
-                        effectContext.WorkingScale,
-                        effectContext.MaxWorkingScale);
+                    using var activator = effectContext.CreateNestedActivator(singleTargets, builder);
                     activator.Apply(childFEContext);
                     activator.Flush(false);
 

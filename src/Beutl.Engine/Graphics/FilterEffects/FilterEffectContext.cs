@@ -3,7 +3,9 @@ using System.Reactive;
 using System.Runtime.ExceptionServices;
 using Beutl.Collections.Pooled;
 using Beutl.Graphics.Rendering;
+using Beutl.Logging;
 using Beutl.Media;
+using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.ObjectPool;
 using SkiaSharp;
 using FilterEffectOrFEItem = object;
@@ -26,12 +28,16 @@ internal sealed class ArrayPooledObjectPolicy<T>(int length) : IPooledObjectPoli
 
 public sealed class FilterEffectContext : IDisposable
 {
+    private static readonly ILogger s_logger = Log.CreateLogger("FilterEffectContext");
     internal readonly PooledList<IFEItem> _items;
     internal readonly PooledList<IFEItem> _renderTimeItems;
     private readonly FilterEffectResourceState _resourceState;
     private readonly Lazy<float> _workingScale;
     private readonly bool _hasResolvedWorkingScale;
     private readonly Rect _brushAuthoringBounds;
+    private readonly List<FilterEffectBrush> _pendingBrushes = [];
+    private readonly Dictionary<IFEItem, List<FilterEffectBrush>> _itemBrushes =
+        new(ReferenceEqualityComparer.Instance);
     private bool _disposed;
 
     internal static readonly ObjectPool<float[]> s_colorMatPool;
@@ -93,6 +99,13 @@ public sealed class FilterEffectContext : IDisposable
         bool hasResolvedWorkingScale,
         FilterEffectResourceState resourceState)
     {
+        if (resourceState.IsRecorded && brushAuthoringBounds.IsInvalid)
+        {
+            throw new ArgumentException(
+                "A recorded filter-effect context requires a finite brush authoring frame.",
+                nameof(brushAuthoringBounds));
+        }
+
         _bounds = OriginalBounds = bounds;
         _brushAuthoringBounds = brushAuthoringBounds;
         OutputScale = outputScale;
@@ -114,15 +127,18 @@ public sealed class FilterEffectContext : IDisposable
         _resourceState = obj._resourceState.AddReference();
         _renderTimeItems = new PooledList<IFEItem>(obj._renderTimeItems);
         _items = new PooledList<IFEItem>(obj._items);
+        _pendingBrushes.AddRange(obj._pendingBrushes);
+        foreach ((IFEItem item, List<FilterEffectBrush> brushes) in obj._itemBrushes)
+            _itemBrushes[item] = [.. brushes];
     }
 
-    private FilterEffectContext(FilterEffectContext obj, Rect bounds)
+    private FilterEffectContext(FilterEffectContext obj, Rect bounds, bool? hasResolvedWorkingScale = null)
     {
         OriginalBounds = _bounds = bounds;
         _brushAuthoringBounds = obj._brushAuthoringBounds;
         OutputScale = obj.OutputScale;
         _workingScale = obj._workingScale;
-        _hasResolvedWorkingScale = obj._hasResolvedWorkingScale;
+        _hasResolvedWorkingScale = hasResolvedWorkingScale ?? obj._hasResolvedWorkingScale;
         _resourceState = obj._resourceState.AddReference();
         _renderTimeItems = [];
         _items = [];
@@ -206,7 +222,27 @@ public sealed class FilterEffectContext : IDisposable
         {
             _renderTimeItems.Add(item);
         }
+
+        AttachPendingBrushes(item);
     }
+
+    // A handle is only usable from the callback data of the operation authored right after it was registered,
+    // so the brushes still pending at that point are exactly the ones that operation can paint with.
+    private void AttachPendingBrushes(IFEItem item)
+    {
+        if (_pendingBrushes.Count == 0)
+            return;
+
+        if (_itemBrushes.TryGetValue(item, out List<FilterEffectBrush>? brushes))
+            brushes.AddRange(_pendingBrushes);
+        else
+            _itemBrushes[item] = [.. _pendingBrushes];
+
+        _pendingBrushes.Clear();
+    }
+
+    internal IReadOnlyList<FilterEffectBrush> GetItemBrushes(IFEItem item)
+        => _itemBrushes.TryGetValue(item, out List<FilterEffectBrush>? brushes) ? brushes : [];
 
     public void Shader(ShaderDescription description)
     {
@@ -244,7 +280,55 @@ public sealed class FilterEffectContext : IDisposable
         if (brush is null)
             return FilterEffectBrush.Empty;
 
-        return _resourceState.RegisterBrush(brush, _brushAuthoringBounds);
+        FilterEffectBrush handle = _resourceState.RegisterBrush(brush, _brushAuthoringBounds);
+        _pendingBrushes.Add(handle);
+        return handle;
+    }
+
+    /// <summary>
+    /// Lowers the nested <see cref="DrawableBrush"/> content of an effect that this effect re-applies from one of
+    /// its own execution-time callbacks.
+    /// </summary>
+    /// <param name="effect">The non-null nested effect that will be re-applied at execution time.</param>
+    /// <param name="resource">The non-null resource snapshot to record <paramref name="effect"/> against.</param>
+    /// <remarks>
+    /// Only the nested effect's brush, pen, and resource registrations are kept; its operations are discarded, so
+    /// the caller still authors whatever it re-applies. The lowered content is recorded once against this effect's
+    /// input frame at <paramref name="resource"/>'s composition time, which is the only time the recorder can see;
+    /// a re-application at a different composition time reuses that recorded brush.
+    /// Pair this with <see cref="CustomFilterEffectContext.CreateNestedActivator"/> so the re-application resolves
+    /// the lowered content.
+    /// This is a best-effort pre-pass: outside a recorded render request, and when
+    /// <paramref name="effect"/> fails to record, it lowers nothing and leaves this context unchanged. The
+    /// re-application itself stays authoritative for both the operations and any failure they raise.
+    /// </remarks>
+    public void LowerNestedEffectBrushes(FilterEffect effect, FilterEffect.Resource resource)
+    {
+        ArgumentNullException.ThrowIfNull(effect);
+        ArgumentNullException.ThrowIfNull(resource);
+        ThrowIfDisposed();
+        if (!_resourceState.IsRecorded)
+            return;
+
+        // The re-application always runs against a materialized target, so the probe sees a resolved density
+        // even when this context's own inputs are still branch-dependent.
+        using var probe = new FilterEffectContext(this, _bounds, hasResolvedWorkingScale: true);
+        try
+        {
+            probe.ApplyTransactional(effect, resource);
+        }
+        catch (Exception ex)
+        {
+            s_logger.LogWarning(
+                ex,
+                "Pre-lowering the nested brushes of {Effect} failed; its nested drawable content stays unresolved.",
+                effect.GetType());
+            return;
+        }
+
+        _pendingBrushes.AddRange(probe._pendingBrushes);
+        foreach (List<FilterEffectBrush> brushes in probe._itemBrushes.Values)
+            _pendingBrushes.AddRange(brushes);
     }
 
     /// <summary>
@@ -288,11 +372,13 @@ public sealed class FilterEffectContext : IDisposable
         if (_bounds.IsInvalid)
         {
             _renderTimeItems.Add(item);
+            AttachPendingBrushes(item);
             return;
         }
 
         Rect nextBounds = item.TransformBounds(_bounds);
         _items.Add(item);
+        AttachPendingBrushes(item);
         _bounds = nextBounds;
     }
 
@@ -771,9 +857,12 @@ public sealed class FilterEffectContext : IDisposable
     internal IReadOnlyList<IFEItem> GetOrderedItems()
     {
         ThrowIfDisposed();
-        return _renderTimeItems.Count == 0
+        IReadOnlyList<IFEItem> ordered = _renderTimeItems.Count == 0
             ? _items.ToArray()
             : [.. _items, .. _renderTimeItems];
+        if (ordered.Count > 0)
+            AttachPendingBrushes(ordered[^1]);
+        return ordered;
     }
 
     internal void ApplyTransactional(FilterEffect effect, FilterEffect.Resource resource)
@@ -793,6 +882,7 @@ public sealed class FilterEffectContext : IDisposable
         int resourceCount = _resourceState.Count;
         int brushCount = _resourceState.BrushCount;
         Rect bounds = _bounds;
+        FilterEffectBrush[] pendingBrushes = [.. _pendingBrushes];
         try
         {
             apply();
@@ -805,6 +895,8 @@ public sealed class FilterEffectContext : IDisposable
             while (_renderTimeItems.Count > renderTimeItemCount)
                 _renderTimeItems.RemoveAt(_renderTimeItems.Count - 1);
             _bounds = bounds;
+            _pendingBrushes.Clear();
+            _pendingBrushes.AddRange(pendingBrushes);
             _resourceState.RollbackBrushesTo(brushCount);
             try
             {
@@ -897,6 +989,8 @@ internal sealed class FilterEffectResourceState
             _standaloneRegistry = new RenderRequestResourceRegistry();
     }
 
+    public bool IsRecorded => _renderContext is not null;
+
     public int Count => _resources.Count;
 
     public int BrushCount => _brushes.Count;
@@ -914,7 +1008,7 @@ internal sealed class FilterEffectResourceState
         }
 
         var handle = new FilterEffectBrush(brush, identity);
-        if (_renderContext is null || brushBounds.IsInvalid)
+        if (_renderContext is null)
         {
             // Without a recording transaction there is no graph to lower nested content into; the handle stays
             // declarative and BrushConstructor rejects unlowered drawable content at execution.

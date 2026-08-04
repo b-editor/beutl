@@ -380,7 +380,6 @@ internal sealed partial class RenderRequestExecutor
                     effectContext =>
                     {
                         _diagnostics?.RecordOpaqueExecution(fragment.Id?.Value ?? 0);
-                        EffectTargets? resultTargets = null;
                         using var targets = new EffectTargets();
                         foreach (CompatibilityRenderValue input in inputs)
                         {
@@ -397,7 +396,7 @@ internal sealed partial class RenderRequestExecutor
                         }
 
                         using var builder = new SKImageFilterBuilder();
-                        RunWithResolvedBrushes(
+                        return RunWithResolvedBrushes(
                             payload,
                             brushValues,
                             brushes =>
@@ -419,54 +418,53 @@ internal sealed partial class RenderRequestExecutor
                                 activator.Apply(effectContext);
                                 activator.CompletePolicyBoundary(
                                     payload.WorkingScalePolicy.HasValue);
-                                resultTargets = activator.CurrentTargets;
+
+                                var result = new List<CompatibilityRenderValue>(activator.CurrentTargets.Count);
+                                foreach (EffectTarget target in activator.CurrentTargets)
+                                {
+                                    if (target.RenderTarget is not { } renderTarget)
+                                        continue;
+
+                                    CompatibilityRenderValue value = MaterializeLegacyTarget(
+                                        target,
+                                        renderTarget,
+                                        fragment.Bounds);
+                                    _ownedValues.Add(value);
+
+                                    // Cropping the input to the backward region leaves the surrounding output
+                                    // undefined, so the published value must not claim it.
+                                    Rect selectedBounds = value.Bounds.Intersect(requiredRegion);
+                                    if (selectedBounds.Width == 0 || selectedBounds.Height == 0)
+                                    {
+                                        ReleaseUnpublished(value);
+                                        continue;
+                                    }
+
+                                    if (selectedBounds != value.Bounds)
+                                    {
+                                        if (value.PreserveLegacyRasterPlacement)
+                                        {
+                                            // A legacy raster-placement value draws from its allocation
+                                            // footprint rather than from Bounds, so narrowing it is a
+                                            // relabel that must not re-allocate or move the placement.
+                                            value.Bounds = selectedBounds;
+                                        }
+                                        else
+                                        {
+                                            CompatibilityRenderValue cropped = CropValue(
+                                                fragment,
+                                                value,
+                                                selectedBounds);
+                                            ReleaseUnpublished(value);
+                                            value = cropped;
+                                        }
+                                    }
+
+                                    result.Add(value);
+                                }
+
+                                return (IReadOnlyList<CompatibilityRenderValue>)result;
                             });
-
-                        var result = new List<CompatibilityRenderValue>(resultTargets!.Count);
-                        foreach (EffectTarget target in resultTargets)
-                        {
-                            if (target.RenderTarget is not { } renderTarget)
-                                continue;
-
-                            CompatibilityRenderValue value = MaterializeLegacyTarget(
-                                target,
-                                renderTarget,
-                                fragment.Bounds);
-                            _ownedValues.Add(value);
-
-                            // Cropping the input to the backward region leaves the surrounding output
-                            // undefined, so the published value must not claim it.
-                            Rect selectedBounds = value.Bounds.Intersect(requiredRegion);
-                            if (selectedBounds.Width == 0 || selectedBounds.Height == 0)
-                            {
-                                ReleaseUnpublished(value);
-                                continue;
-                            }
-
-                            if (selectedBounds != value.Bounds)
-                            {
-                                if (value.PreserveLegacyRasterPlacement)
-                                {
-                                    // A legacy raster-placement value draws from its allocation
-                                    // footprint rather than from Bounds, so narrowing it is a
-                                    // relabel that must not re-allocate or move the placement.
-                                    value.Bounds = selectedBounds;
-                                }
-                                else
-                                {
-                                    CompatibilityRenderValue cropped = CropValue(
-                                        fragment,
-                                        value,
-                                        selectedBounds);
-                                    ReleaseUnpublished(value);
-                                    value = cropped;
-                                }
-                            }
-
-                            result.Add(value);
-                        }
-
-                        return (IReadOnlyList<CompatibilityRenderValue>)result;
                     });
             }
             finally
@@ -476,19 +474,18 @@ internal sealed partial class RenderRequestExecutor
             }
         }
 
-        private void RunWithResolvedBrushes(
+        private T RunWithResolvedBrushes<T>(
             LegacyFilterEffectRenderFragmentPayload payload,
             IReadOnlyList<CompatibilityRenderValue> brushValues,
-            Action<IReadOnlyDictionary<FilterEffectBrush, ResolvedBrush>?> use)
+            Func<IReadOnlyDictionary<FilterEffectBrush, ResolvedBrush>?, T> use)
         {
             if (payload.Brushes.IsDefaultOrEmpty)
-            {
-                use(null);
-                return;
-            }
+                return use(null);
 
             var images = new List<SKImage>();
             var token = new RenderExecutionSessionToken();
+            T result = default!;
+            bool used = false;
             try
             {
                 token.RunAndComplete(
@@ -501,7 +498,17 @@ internal sealed partial class RenderRequestExecutor
                             readbackOwner: null,
                             images);
                         var resolved = new Dictionary<FilterEffectBrush, ResolvedBrush>();
-                        ResolveBrush(token, payload, inputs, resolved, 0, use);
+                        ResolveBrush(
+                            token,
+                            payload,
+                            inputs,
+                            resolved,
+                            0,
+                            brushes =>
+                            {
+                                result = use(brushes);
+                                used = true;
+                            });
                     });
             }
             finally
@@ -509,6 +516,15 @@ internal sealed partial class RenderRequestExecutor
                 foreach (SKImage image in images)
                     image.Dispose();
             }
+
+            if (!used)
+            {
+                throw new InvalidOperationException(
+                    "A legacy filter-effect brush binding never produced a resolved brush, so the effect could "
+                    + "not execute.");
+            }
+
+            return result;
         }
 
         private static void ResolveBrush(
