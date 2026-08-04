@@ -538,6 +538,25 @@ public sealed class FilterEffectActivator : IDisposable
     // 最小単位である'IFEItem'の数がわからないので 'count'は'nullable'
     public void Apply(FilterEffectContext context)
     {
+        ArgumentNullException.ThrowIfNull(context);
+        try
+        {
+            ApplyCore(context);
+        }
+        // A swallowed pre-lowering failure usually surfaces here as the unlowered-DrawableBrush guard, which names
+        // neither the nested effect nor the real cause.
+        catch (Exception ex) when (context.NestedBrushLoweringFailure is { } loweringFailure
+                                   && !ReferenceEquals(
+                                       ex.Data[FilterEffectContext.NestedBrushLoweringFailureKey],
+                                       loweringFailure))
+        {
+            ex.Data[FilterEffectContext.NestedBrushLoweringFailureKey] = loweringFailure;
+            throw;
+        }
+    }
+
+    private void ApplyCore(FilterEffectContext context)
+    {
         if (CurrentTargets.Count == 0) return;
         context.PrepareStandaloneResourcesForExecution();
 

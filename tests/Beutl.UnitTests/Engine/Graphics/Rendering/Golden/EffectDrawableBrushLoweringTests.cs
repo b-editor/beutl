@@ -65,6 +65,14 @@ public class EffectDrawableBrushLoweringTests
                 return effect;
             }));
         yield return new TestCaseData(
+            "TypedOperationBeforeBrush",
+            (Func<Brush?, FilterEffect>)(brush =>
+            {
+                var effect = new TypedOperationBeforeBrushEffect();
+                effect.Brush.CurrentValue = brush;
+                return effect;
+            }));
+        yield return new TestCaseData(
             "DisplacementMap-ShowMap",
             (Func<Brush?, FilterEffect>)(brush =>
             {
@@ -177,6 +185,57 @@ public class EffectDrawableBrushLoweringTests
         shape.Fill.CurrentValue = Brushes.White;
         shape.FilterEffect.CurrentValue = makeEffect();
         return shape.ToResource(CompositionContext.Default);
+    }
+}
+
+// RegisterBrush states no ordering requirement: a typed operation authored between the registration and the
+// operation that paints with the handle is lowered as its own fragment, and the handle must still reach the
+// legacy segment behind it.
+internal sealed partial class TypedOperationBeforeBrushEffect : FilterEffect
+{
+    private const string IdentityShader = "half4 apply(half4 color) { return color; }";
+
+    public TypedOperationBeforeBrushEffect()
+    {
+        ScanProperties<TypedOperationBeforeBrushEffect>();
+    }
+
+    public IProperty<Brush?> Brush { get; } = Property.Create<Brush?>();
+
+    public override void ApplyTo(FilterEffectContext context, FilterEffect.Resource resource)
+    {
+        var r = (Resource)resource;
+        FilterEffectBrush handle = context.RegisterBrush(r.Brush);
+        context.Shader(ShaderDescription.CurrentPixel(IdentityShader));
+        context.CustomEffect(handle, PaintBrush, static (_, bounds) => bounds);
+    }
+
+    private static void PaintBrush(FilterEffectBrush handle, CustomFilterEffectContext context)
+    {
+        for (int i = 0; i < context.Targets.Count; i++)
+        {
+            EffectTarget target = context.Targets[i];
+            if (target.RenderTarget is null)
+                continue;
+
+            Size size = target.Bounds.Size;
+            EffectTarget newTarget = context.CreateTarget(target.Bounds);
+            using var paint = new SKPaint();
+            context.ConfigureBrushPaint(paint, handle, new Rect(size), BlendMode.SrcIn, newTarget.Scale.Value);
+            using (ImmediateCanvas canvas = context.Open(newTarget))
+            {
+                canvas.Clear();
+                using (canvas.PushDeviceSpace())
+                {
+                    canvas.DrawRenderTarget(target.RenderTarget, default);
+                }
+
+                canvas.Canvas.DrawRect(SKRect.Create(size.ToSKSize()), paint);
+            }
+
+            target.Dispose();
+            context.Targets[i] = newTarget;
+        }
     }
 }
 

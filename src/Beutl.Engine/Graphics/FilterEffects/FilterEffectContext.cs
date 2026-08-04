@@ -35,9 +35,8 @@ public sealed class FilterEffectContext : IDisposable
     private readonly Lazy<float> _workingScale;
     private readonly bool _hasResolvedWorkingScale;
     private readonly Rect _brushAuthoringBounds;
-    private readonly List<FilterEffectBrush> _pendingBrushes = [];
-    private readonly Dictionary<IFEItem, List<FilterEffectBrush>> _itemBrushes =
-        new(ReferenceEqualityComparer.Instance);
+    // A probe context registers on behalf of the operation the caller is about to author, not of its own items.
+    private readonly int? _brushRegistrationIndexOverride;
     private bool _disposed;
 
     internal static readonly ObjectPool<float[]> s_colorMatPool;
@@ -125,14 +124,17 @@ public sealed class FilterEffectContext : IDisposable
         _workingScale = obj._workingScale;
         _hasResolvedWorkingScale = obj._hasResolvedWorkingScale;
         _resourceState = obj._resourceState.AddReference();
+        _brushRegistrationIndexOverride = obj._brushRegistrationIndexOverride;
+        NestedBrushLoweringFailure = obj.NestedBrushLoweringFailure;
         _renderTimeItems = new PooledList<IFEItem>(obj._renderTimeItems);
         _items = new PooledList<IFEItem>(obj._items);
-        _pendingBrushes.AddRange(obj._pendingBrushes);
-        foreach ((IFEItem item, List<FilterEffectBrush> brushes) in obj._itemBrushes)
-            _itemBrushes[item] = [.. brushes];
     }
 
-    private FilterEffectContext(FilterEffectContext obj, Rect bounds, bool? hasResolvedWorkingScale = null)
+    private FilterEffectContext(
+        FilterEffectContext obj,
+        Rect bounds,
+        bool? hasResolvedWorkingScale = null,
+        int? brushRegistrationIndexOverride = null)
     {
         OriginalBounds = _bounds = bounds;
         _brushAuthoringBounds = obj._brushAuthoringBounds;
@@ -140,6 +142,7 @@ public sealed class FilterEffectContext : IDisposable
         _workingScale = obj._workingScale;
         _hasResolvedWorkingScale = hasResolvedWorkingScale ?? obj._hasResolvedWorkingScale;
         _resourceState = obj._resourceState.AddReference();
+        _brushRegistrationIndexOverride = brushRegistrationIndexOverride;
         _renderTimeItems = [];
         _items = [];
     }
@@ -222,27 +225,23 @@ public sealed class FilterEffectContext : IDisposable
         {
             _renderTimeItems.Add(item);
         }
-
-        AttachPendingBrushes(item);
     }
 
-    // A handle is only usable from the callback data of the operation authored right after it was registered,
-    // so the brushes still pending at that point are exactly the ones that operation can paint with.
-    private void AttachPendingBrushes(IFEItem item)
-    {
-        if (_pendingBrushes.Count == 0)
-            return;
+    // GetOrderedItems concatenates the two lists, and an item only moves to the render-time list once the bounds
+    // are invalid for good, so this is the ordered index the next authored operation will occupy.
+    private int NextItemIndex => _items.Count + _renderTimeItems.Count;
 
-        if (_itemBrushes.TryGetValue(item, out List<FilterEffectBrush>? brushes))
-            brushes.AddRange(_pendingBrushes);
-        else
-            _itemBrushes[item] = [.. _pendingBrushes];
+    /// <summary>
+    /// The <see cref="Exception.Data"/> key under which a swallowed <see cref="LowerNestedEffectBrushes"/> failure
+    /// is re-attached to whatever the execution of this recording raises.
+    /// </summary>
+    public const string NestedBrushLoweringFailureKey = "NestedEffectBrushLoweringFailure";
 
-        _pendingBrushes.Clear();
-    }
-
-    internal IReadOnlyList<FilterEffectBrush> GetItemBrushes(IFEItem item)
-        => _itemBrushes.TryGetValue(item, out List<FilterEffectBrush>? brushes) ? brushes : [];
+    /// <summary>
+    /// The first failure <see cref="LowerNestedEffectBrushes"/> swallowed, or <see langword="null"/> when the
+    /// pre-pass never failed.
+    /// </summary>
+    internal Exception? NestedBrushLoweringFailure { get; private set; }
 
     public void Shader(ShaderDescription description)
     {
@@ -273,6 +272,9 @@ public sealed class FilterEffectContext : IDisposable
     /// Nested drawable content is recorded against this effect's input frame. A brush registered outside a recorded
     /// render request — a standalone <see cref="FilterEffectContext"/> — carries no lowered content, so nested
     /// drawable content stays unresolvable there.
+    /// The handle stays usable from every operation authored after this call, however many operations that is and
+    /// whatever they are; registering a brush that is already registered returns the existing handle without
+    /// narrowing where it may be painted.
     /// </remarks>
     public FilterEffectBrush RegisterBrush(Brush.Resource? brush)
     {
@@ -280,9 +282,10 @@ public sealed class FilterEffectContext : IDisposable
         if (brush is null)
             return FilterEffectBrush.Empty;
 
-        FilterEffectBrush handle = _resourceState.RegisterBrush(brush, _brushAuthoringBounds);
-        _pendingBrushes.Add(handle);
-        return handle;
+        return _resourceState.RegisterBrush(
+            brush,
+            _brushAuthoringBounds,
+            _brushRegistrationIndexOverride ?? NextItemIndex);
     }
 
     /// <summary>
@@ -300,7 +303,12 @@ public sealed class FilterEffectContext : IDisposable
     /// the lowered content.
     /// This is a best-effort pre-pass: outside a recorded render request, and when
     /// <paramref name="effect"/> fails to record, it lowers nothing and leaves this context unchanged. The
-    /// re-application itself stays authoritative for both the operations and any failure they raise.
+    /// re-application itself stays authoritative for both the operations and any failure they raise; a swallowed
+    /// pre-pass failure is logged and re-attached to whatever the execution of this recording raises, under the
+    /// <see cref="NestedBrushLoweringFailureKey"/> entry of its <see cref="Exception.Data"/>.
+    /// The pre-pass reports a resolved working scale to <paramref name="effect"/> even when this context's own
+    /// inputs are branch-dependent, because the re-application runs against a materialized target and therefore
+    /// always offers one.
     /// </remarks>
     public void LowerNestedEffectBrushes(FilterEffect effect, FilterEffect.Resource resource)
     {
@@ -310,15 +318,19 @@ public sealed class FilterEffectContext : IDisposable
         if (!_resourceState.IsRecorded)
             return;
 
-        // The re-application always runs against a materialized target, so the probe sees a resolved density
-        // even when this context's own inputs are still branch-dependent.
-        using var probe = new FilterEffectContext(this, _bounds, hasResolvedWorkingScale: true);
+        using var probe = new FilterEffectContext(
+            this,
+            _bounds,
+            hasResolvedWorkingScale: true,
+            brushRegistrationIndexOverride: NextItemIndex);
+        int resourceCount = _resourceState.Count;
         try
         {
             probe.ApplyTransactional(effect, resource);
         }
         catch (Exception ex)
         {
+            NestedBrushLoweringFailure ??= ex;
             s_logger.LogWarning(
                 ex,
                 "Pre-lowering the nested brushes of {Effect} failed; its nested drawable content stays unresolved.",
@@ -326,9 +338,9 @@ public sealed class FilterEffectContext : IDisposable
             return;
         }
 
-        _pendingBrushes.AddRange(probe._pendingBrushes);
-        foreach (List<FilterEffectBrush> brushes in probe._itemBrushes.Values)
-            _pendingBrushes.AddRange(brushes);
+        // Only the brush registrations survive the probe: the operations are discarded, so anything the discarded
+        // operations owned or borrowed would be held for the whole request without ever being executed.
+        _resourceState.RollbackResourcesUnusedByBrushes(resourceCount);
     }
 
     /// <summary>
@@ -372,13 +384,11 @@ public sealed class FilterEffectContext : IDisposable
         if (_bounds.IsInvalid)
         {
             _renderTimeItems.Add(item);
-            AttachPendingBrushes(item);
             return;
         }
 
         Rect nextBounds = item.TransformBounds(_bounds);
         _items.Add(item);
-        AttachPendingBrushes(item);
         _bounds = nextBounds;
     }
 
@@ -857,12 +867,9 @@ public sealed class FilterEffectContext : IDisposable
     internal IReadOnlyList<IFEItem> GetOrderedItems()
     {
         ThrowIfDisposed();
-        IReadOnlyList<IFEItem> ordered = _renderTimeItems.Count == 0
+        return _renderTimeItems.Count == 0
             ? _items.ToArray()
             : [.. _items, .. _renderTimeItems];
-        if (ordered.Count > 0)
-            AttachPendingBrushes(ordered[^1]);
-        return ordered;
     }
 
     internal void ApplyTransactional(FilterEffect effect, FilterEffect.Resource resource)
@@ -882,7 +889,6 @@ public sealed class FilterEffectContext : IDisposable
         int resourceCount = _resourceState.Count;
         int brushCount = _resourceState.BrushCount;
         Rect bounds = _bounds;
-        FilterEffectBrush[] pendingBrushes = [.. _pendingBrushes];
         try
         {
             apply();
@@ -895,8 +901,6 @@ public sealed class FilterEffectContext : IDisposable
             while (_renderTimeItems.Count > renderTimeItemCount)
                 _renderTimeItems.RemoveAt(_renderTimeItems.Count - 1);
             _bounds = bounds;
-            _pendingBrushes.Clear();
-            _pendingBrushes.AddRange(pendingBrushes);
             _resourceState.RollbackBrushesTo(brushCount);
             try
             {
@@ -926,10 +930,14 @@ public sealed class FilterEffectContext : IDisposable
         Rect bounds,
         float outputScale,
         float workingScale,
-        IEnumerable<IFEItem> items)
+        IEnumerable<IFEItem> items,
+        Exception? nestedBrushLoweringFailure = null)
     {
         ArgumentNullException.ThrowIfNull(items);
-        var context = new FilterEffectContext(bounds, outputScale, workingScale);
+        var context = new FilterEffectContext(bounds, outputScale, workingScale)
+        {
+            NestedBrushLoweringFailure = nestedBrushLoweringFailure,
+        };
         bool hasDeferredBounds = false;
         foreach (IFEItem item in items)
         {
@@ -967,11 +975,16 @@ public sealed class FilterEffectContext : IDisposable
     private void ThrowIfDisposed() => ObjectDisposedException.ThrowIf(_disposed, this);
 }
 
+/// <param name="FirstUsableItemIndex">
+/// The ordered index of the first operation that could paint with <paramref name="Handle"/>. Every later
+/// operation could too, so a legacy segment must take this brush unless its own last operation precedes it.
+/// </param>
 internal sealed record RegisteredEffectBrush(
     FilterEffectBrush Handle,
     RecordedBrush Brush,
     IReadOnlyList<RenderFragmentHandle> Dependencies,
-    IReadOnlyList<RenderResource> Resources);
+    IReadOnlyList<RenderResource> Resources,
+    int FirstUsableItemIndex);
 
 internal sealed class FilterEffectResourceState
 {
@@ -997,12 +1010,13 @@ internal sealed class FilterEffectResourceState
 
     public IReadOnlyList<RegisteredEffectBrush> RegisteredBrushes => _brushes;
 
-    public FilterEffectBrush RegisterBrush(Brush.Resource brush, Rect brushBounds)
+    public FilterEffectBrush RegisterBrush(Brush.Resource brush, Rect brushBounds, int firstUsableItemIndex)
     {
         ThrowIfTransferred();
         object identity = BrushRecorder.GetResourceIdentity(brush);
         foreach (RegisteredEffectBrush registered in _brushes)
         {
+            // The earlier registration already covers every operation the later one could paint from.
             if (Equals(registered.Handle.Identity, identity))
                 return registered.Handle;
         }
@@ -1012,7 +1026,7 @@ internal sealed class FilterEffectResourceState
         {
             // Without a recording transaction there is no graph to lower nested content into; the handle stays
             // declarative and BrushConstructor rejects unlowered drawable content at execution.
-            _brushes.Add(new RegisteredEffectBrush(handle, RecordedBrush.Empty, [], []));
+            _brushes.Add(new RegisteredEffectBrush(handle, RecordedBrush.Empty, [], [], firstUsableItemIndex));
             return handle;
         }
 
@@ -1022,8 +1036,39 @@ internal sealed class FilterEffectResourceState
             brush.Version,
             brushBounds);
         _resources.AddRange(plan.Resources);
-        _brushes.Add(new RegisteredEffectBrush(handle, plan.Brush, plan.Dependencies, plan.Resources));
+        _brushes.Add(
+            new RegisteredEffectBrush(handle, plan.Brush, plan.Dependencies, plan.Resources, firstUsableItemIndex));
         return handle;
+    }
+
+    /// <summary>
+    /// Rolls back every resource registered after <paramref name="count"/> that no registered brush depends on.
+    /// </summary>
+    public void RollbackResourcesUnusedByBrushes(int count)
+    {
+        if (count < 0 || count > _resources.Count)
+            throw new ArgumentOutOfRangeException(nameof(count));
+        if (count == _resources.Count)
+            return;
+
+        var kept = new HashSet<RenderResource>(ReferenceEqualityComparer.Instance);
+        foreach (RegisteredEffectBrush brush in _brushes)
+        {
+            foreach (RenderResource resource in brush.Resources)
+                kept.Add(resource);
+        }
+
+        RenderResource[] removed = _resources.Skip(count).Where(item => !kept.Contains(item)).ToArray();
+        if (removed.Length == 0)
+            return;
+
+        for (int index = _resources.Count - 1; index >= count; index--)
+        {
+            if (!kept.Contains(_resources[index]))
+                _resources.RemoveAt(index);
+        }
+
+        Rollback(removed, primaryFailure: null);
     }
 
     public void RollbackBrushesTo(int count)
@@ -1090,6 +1135,11 @@ internal sealed class FilterEffectResourceState
 
         RenderResource[] removed = _resources.Skip(count).ToArray();
         _resources.RemoveRange(count, _resources.Count - count);
+        Rollback(removed, primaryFailure);
+    }
+
+    private void Rollback(RenderResource[] removed, Exception? primaryFailure)
+    {
         if (_renderContext is not null)
         {
             if (primaryFailure is null)
