@@ -270,6 +270,9 @@ public class FilterEffectRenderNode(FilterEffect.Resource filterEffect) : Contai
     // A segment fragment takes a hard dependency on every brush it is given. A handle stays usable from every
     // operation authored after it was registered — the recorder cannot see which of them actually paints with it —
     // so a segment takes exactly the brushes registered before its own last operation, and no later one.
+    // The selection therefore over-approximates: a segment may resolve a brush it never dereferences. It cannot be
+    // narrowed to the operations a segment appears to orphan, because RegisterBrush dedupes by identity, so one
+    // handle can be painted by operations on both sides of a typed operation.
     private static IReadOnlyList<RegisteredEffectBrush> SelectSegmentBrushes(
         IReadOnlyList<RegisteredEffectBrush> registeredBrushes,
         int lastItemIndex)

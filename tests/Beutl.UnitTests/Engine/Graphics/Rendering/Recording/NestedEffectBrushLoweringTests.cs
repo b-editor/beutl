@@ -42,6 +42,42 @@ public sealed class NestedEffectBrushLoweringTests
         }));
     }
 
+    [Test]
+    public void NestedBrushLowering_InsideAnotherProbe_KeepsTheBrushInTheConsumingSegment()
+    {
+        FilterEffect inner = MakeDelayed(new FilterEffectGroup { Children = { MakeDrawableBrushShadow() } });
+
+        Record(MakeDelayed(inner), segments => Assert.Multiple(() =>
+        {
+            Assert.That(segments, Has.Length.EqualTo(1));
+            Assert.That(
+                segments[0].Brushes,
+                Has.Length.EqualTo(1),
+                "the doubly nested brush must still be lowered into the segment");
+        }));
+    }
+
+    // The inner probe's own item index only diverges from the real recording's once the outer probe has authored an
+    // operation of its own, so a preceding sibling in the outer nested group is what exposes the mis-indexing.
+    [Test]
+    public void NestedBrushLowering_AfterAnOperationInTheEnclosingProbe_KeepsTheBrushInTheConsumingSegment()
+    {
+        var precedingSibling = new LegacySuffixCallbackFilterEffect(
+            static (context, _) => context.Blur(new Size(1, 1)));
+        FilterEffect inner = MakeDelayed(new FilterEffectGroup { Children = { MakeDrawableBrushShadow() } });
+
+        Record(
+            MakeDelayed(new FilterEffectGroup { Children = { precedingSibling, inner } }),
+            segments => Assert.Multiple(() =>
+            {
+                Assert.That(segments, Has.Length.EqualTo(1));
+                Assert.That(
+                    segments[0].Brushes,
+                    Has.Length.EqualTo(1),
+                    "the nested brush must be registered in the real recording's item order, not the probe's");
+            }));
+    }
+
     // A swallowed pre-pass failure otherwise surfaces only as the unlowered-DrawableBrush guard raised much later.
     [Test]
     public void FailedNestedBrushLowering_AttachesItsFailureToTheExecutionFailure()
@@ -130,6 +166,9 @@ public sealed class NestedEffectBrushLoweringTests
     }
 
     private static Brush.Resource MakeDrawableBrush()
+        => MakeDrawableBrushSource().ToResource(CompositionContext.Default);
+
+    private static DrawableBrush MakeDrawableBrushSource()
     {
         var content = new RectShape();
         content.Width.CurrentValue = 10;
@@ -137,7 +176,15 @@ public sealed class NestedEffectBrushLoweringTests
         content.Fill.CurrentValue = Brushes.White;
         var brush = new DrawableBrush(content);
         brush.Stretch.CurrentValue = Stretch.Fill;
-        return brush.ToResource(CompositionContext.Default);
+        return brush;
+    }
+
+    private static FlatShadow MakeDrawableBrushShadow()
+    {
+        var shadow = new FlatShadow();
+        shadow.Length.CurrentValue = 4;
+        shadow.Brush.CurrentValue = MakeDrawableBrushSource();
+        return shadow;
     }
 
     private static EffectTargets CreateSolidTargets(Rect bounds)

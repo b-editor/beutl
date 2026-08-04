@@ -322,7 +322,8 @@ public sealed class FilterEffectContext : IDisposable
             this,
             _bounds,
             hasResolvedWorkingScale: true,
-            brushRegistrationIndexOverride: NextItemIndex);
+            // A probe's item indices are its own, not the real recording's, so a nested probe inherits the override.
+            brushRegistrationIndexOverride: _brushRegistrationIndexOverride ?? NextItemIndex);
         int resourceCount = _resourceState.Count;
         try
         {
