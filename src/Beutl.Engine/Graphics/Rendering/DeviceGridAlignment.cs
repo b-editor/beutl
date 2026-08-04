@@ -41,8 +41,10 @@ internal static class DeviceGridAlignment
         if (!canvas.Transform.TryDecomposeTransform(out _, out Vector scale, out _, out _))
             return canvas.Density;
 
-        // The coarser axis is the one that would drop target pixels, so the finer one sets the supply.
-        float density = MathF.Max(MathF.Abs(scale.X), MathF.Abs(scale.Y));
+        // One scalar cannot hold both axes of an anisotropic transform. The geometric mean keeps the
+        // buffer at the target's own pixel count for every transform; the finer axis would instead
+        // inflate it by the unbounded anisotropy ratio.
+        float density = MathF.Sqrt(MathF.Abs(scale.X) * MathF.Abs(scale.Y));
         return float.IsFinite(density) && density > 0f ? density : canvas.Density;
     }
 

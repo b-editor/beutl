@@ -187,6 +187,76 @@ public sealed class RawScopeNestingAndCaptureOffsetTests
         });
     }
 
+    [Test]
+    [TestCase(2f, 2f, 2f)]
+    [TestCase(4f, 0.25f, 1f)]
+    [TestCase(8f, 0.125f, 1f)]
+    public void BuiltInBackdropCapture_UnderAnAnisotropicTargetTransform_KeepsTheTargetsPixelBudget(
+        float scaleX,
+        float scaleY,
+        float expectedDensity)
+    {
+        var domain = new Rect(0, 0, 1920, 1080);
+        using var root = new ContainerRenderNode();
+        var scope = new TransformRenderNode(
+            Matrix.CreateScale(scaleX, scaleY),
+            TransformOperator.Append);
+        var probe = new CaptureSizeProbeNode();
+        scope.AddChild(probe);
+        scope.AddChild(new DrawBackdropRenderNode(probe, domain));
+        root.AddChild(scope);
+        using var renderer = new RenderNodeRenderer(
+            root,
+            new RenderNodeRendererOptions
+            {
+                DefaultRequest = new RenderNodeRenderRequest
+                {
+                    Intent = RenderIntent.Preview,
+                    TargetDomain = domain,
+                    OutputScale = 1,
+                    CacheOptions = RenderCacheOptions.Disabled,
+                },
+            });
+
+        using RenderNodeRasterization rasterization = renderer.Rasterize();
+
+        long budget = (long)domain.Width * (long)domain.Height;
+        long allocated = (long)probe.CapturedDeviceSize.Width * probe.CapturedDeviceSize.Height;
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(probe.CapturedDensity, Is.EqualTo(expectedDensity).Within(1e-4f),
+                "A capture preserving the target's supply must read one axis scale back when the two agree "
+                + "and their geometric mean when they do not.");
+            Assert.That(allocated, Is.LessThanOrEqualTo(budget),
+                "A non-uniform target transform must not inflate the capture beyond the target's own "
+                + "pixel count.");
+        });
+    }
+
+    private sealed class CaptureSizeProbeNode : SnapshotBackdropRenderNode, IBuiltInBackdropCaptureSink
+    {
+        public PixelSize CapturedDeviceSize { get; private set; }
+
+        public float CapturedDensity { get; private set; }
+
+        bool IBuiltInBackdropCaptureSink.TryCommitBackdropCapture(Bitmap bitmap, float density)
+        {
+            Record(bitmap, density);
+            return true;
+        }
+
+        void IBuiltInBackdropCaptureSink.CommitBackdropCapture(Bitmap bitmap, float density)
+            => Record(bitmap, density);
+
+        private void Record(Bitmap bitmap, float density)
+        {
+            CapturedDeviceSize = new PixelSize(bitmap.Width, bitmap.Height);
+            CapturedDensity = density;
+            bitmap.Dispose();
+        }
+    }
+
     private static void AssertCaptureLandedOnTheMark(RenderNodeRasterization rasterization)
     {
         Bitmap bitmap = rasterization.Bitmap
