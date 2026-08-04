@@ -271,7 +271,8 @@ internal sealed partial class RenderRequestExecutor
                                 _options.Intent,
                                 _options.Purpose,
                                 description.Resources,
-                                replayCanvas => Replay(input, replayCanvas));
+                                replayCanvas => replayCanvas.ReplayTargetScopeInput(
+                                    nested => Replay(input, nested)));
                             description.Execute(session);
                             session.ValidateCompletion();
                         });
@@ -511,8 +512,12 @@ internal sealed partial class RenderRequestExecutor
                            rasterTranslation.Y)))
                 {
                     using RenderTarget source = RenderTarget.GetRenderTarget(currentTarget);
+                    // ImmediateCanvas.RasterBounds is device-grid logical space; the copy destination
+                    // is read in the source canvas's local logical space.
+                    Rect sourceBounds = currentTarget.RasterBounds.Translate(
+                        -DeviceGridAlignment.ResolveLogicalOffset(currentTarget));
                     canvas.ClipRect(bounds);
-                    canvas.DrawRenderTargetScaledWithoutFlush(source, currentTarget.RasterBounds);
+                    canvas.DrawRenderTargetScaledWithoutFlush(source, sourceBounds);
                 }
 
                 succeeded = true;

@@ -1378,12 +1378,19 @@ public partial class ImmediateCanvas : IDisposable, IPopable
         }
     }
 
+    /// <summary>
+    /// Replays a target scope's recorded input, permitting nested render work for the replay's duration.
+    /// </summary>
     internal void ReplayTargetScopeInput(Action<ImmediateCanvas> replay)
     {
         ArgumentNullException.ThrowIfNull(replay);
         VerifyAccess();
-        if (_callbackCapability != CallbackCanvasCapability.TargetScope || _isReplayingTargetScope)
+        if (_executionToken is null
+            || (_callbackCapability is not null and not CallbackCanvasCapability.TargetScope)
+            || _isReplayingTargetScope)
+        {
             throw new InvalidOperationException("A target-scope replay is not active for this canvas.");
+        }
 
         _isReplayingTargetScope = true;
         try
