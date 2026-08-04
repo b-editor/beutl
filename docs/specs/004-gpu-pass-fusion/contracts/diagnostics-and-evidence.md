@@ -240,7 +240,7 @@ Every committed execution-relevant fragment receives exactly one terminal outcom
 - skipped because no required consumer/region remains, including an unexecuted dependency after another fragment fails; or
 - failed because that fragment is directly assigned the primary failure.
 
-The recorder enforces this exclusivity by accepting only the first terminal `RenderPipelineOutcome` for each fragment and incrementing the counter mapped from that one enum value (`src/Beutl.Engine/Graphics/Rendering/Planning/RenderPipelineDiagnostics.cs:990-1000`, `src/Beutl.Engine/Graphics/Rendering/Planning/RenderPipelineDiagnostics.cs:1043-1052`).
+The recorder enforces this exclusivity by accepting only the first terminal `RenderPipelineOutcome` for each fragment and incrementing the counter mapped from that one enum value (`RenderPipelineDiagnosticRecorder.RecordOutcomeCore`, which returns early once the fragment's outcome is already set, and `RenderPipelineDiagnosticRecorder.GetOutcomeCounter`).
 
 For every completed or failed request:
 
