@@ -26,6 +26,24 @@ internal record FEItem_Skia<T>(
     /// </summary>
     public bool ResolveBoundsAtExecutionTime { get; init; }
 
+    /// <summary>
+    /// Maps a requested output region to the input region the built <see cref="SKImageFilter"/> reads, or
+    /// <see langword="null"/> when the footprint is not proven.
+    /// </summary>
+    public Func<T, Rect, Rect>? TransformSamplingBounds { get; init; }
+
+    public bool TryTransformSamplingBounds(Rect output, out Rect input)
+    {
+        if (TransformSamplingBounds is null)
+        {
+            input = default;
+            return false;
+        }
+
+        input = TransformSamplingBounds(Data, output);
+        return true;
+    }
+
     public void Accepts(FilterEffectActivator activator, SKImageFilterBuilder builder)
     {
         builder.AppendSkiaFilter(Data, activator, Factory);
@@ -37,6 +55,13 @@ internal record FEItem_SKColorFilter<T>(
     : FEItem<T>(Data, (_, rect) => rect), IFEItem_Skia
 {
     public bool ResolveBoundsAtExecutionTime => false;
+
+    public bool TryTransformSamplingBounds(Rect output, out Rect input)
+    {
+        // A color filter is evaluated per pixel, so it never reads outside the requested region.
+        input = output;
+        return true;
+    }
 
     public void Accepts(FilterEffectActivator activator, SKImageFilterBuilder builder)
     {
@@ -53,6 +78,16 @@ internal interface IFEItem_Skia
     /// bounds instead of per-target authoring-time bounds.
     /// </summary>
     bool ResolveBoundsAtExecutionTime { get; }
+
+    /// <summary>
+    /// Maps a requested output region to the input region this item reads while producing it.
+    /// </summary>
+    /// <returns>
+    /// <see langword="false"/> when the item declares no proven sampling footprint; the caller must then
+    /// require the complete input. A footprint is never inferred from <see cref="IFEItem.TransformBounds"/>,
+    /// which may legitimately be narrower than what the filter reads.
+    /// </returns>
+    bool TryTransformSamplingBounds(Rect output, out Rect input);
 }
 
 internal record FEItem_CustomEffect<T>(

@@ -243,12 +243,21 @@ public sealed class FilterEffectContext : IDisposable
         _bounds = nextBounds;
     }
 
+    /// <param name="transformSamplingBounds">
+    /// Maps a requested output region to the input region the filter reads while producing it. Omit it when
+    /// the footprint is not proven; the region analyzer then materializes the complete input instead of
+    /// inferring a footprint from <paramref name="transformBounds"/>, which may be narrower than what the
+    /// filter reads.
+    /// </param>
     [EditorBrowsable(EditorBrowsableState.Never)]
     public void AppendSkiaFilter<T>(T data, Func<T, SKImageFilter?, FilterEffectActivator, SKImageFilter?> factory,
-        Func<T, Rect, Rect> transformBounds)
+        Func<T, Rect, Rect> transformBounds, Func<T, Rect, Rect>? transformSamplingBounds = null)
         where T : IEquatable<T>
     {
-        AppendDescription(new FEItem_Skia<T>(data, factory, transformBounds));
+        AppendDescription(new FEItem_Skia<T>(data, factory, transformBounds)
+        {
+            TransformSamplingBounds = transformSamplingBounds,
+        });
     }
 
     [EditorBrowsable(EditorBrowsableState.Never)]
@@ -266,6 +275,9 @@ public sealed class FilterEffectContext : IDisposable
                 t.sigma.Width, t.sigma.Height, t.color.ToSKColor(), input),
             transformBounds: static (t, bounds) => bounds
                 .Translate(t.position)
+                .Inflate(new Thickness(t.sigma.Width * 3, t.sigma.Height * 3)),
+            transformSamplingBounds: static (t, region) => region
+                .Translate(-t.position)
                 .Inflate(new Thickness(t.sigma.Width * 3, t.sigma.Height * 3)));
     }
 
@@ -277,6 +289,9 @@ public sealed class FilterEffectContext : IDisposable
                 t.sigma.Height, t.color.ToSKColor(), input),
             transformBounds: static (t, bounds) => bounds.Union(bounds
                 .Translate(t.position)
+                .Inflate(new Thickness(t.sigma.Width * 3, t.sigma.Height * 3))),
+            transformSamplingBounds: static (t, region) => region.Union(region
+                .Translate(-t.position)
                 .Inflate(new Thickness(t.sigma.Width * 3, t.sigma.Height * 3))));
     }
 
@@ -297,7 +312,9 @@ public sealed class FilterEffectContext : IDisposable
                 return SKImageFilter.CreateBlur(sigma.Width, sigma.Height, input);
             },
             transformBounds: static (sigma, bounds) =>
-                bounds.Inflate(new Thickness(sigma.Width * 3, sigma.Height * 3)));
+                bounds.Inflate(new Thickness(sigma.Width * 3, sigma.Height * 3)),
+            transformSamplingBounds: static (sigma, region) =>
+                region.Inflate(new Thickness(sigma.Width * 3, sigma.Height * 3)));
     }
 
     // https://github.com/Shopify/react-native-skia/blob/c7740e30234e6b0a49721ab954c4a848e42d7edb/package/src/dom/nodes/paint/ImageFilters.ts#L25
@@ -352,6 +369,8 @@ public sealed class FilterEffectContext : IDisposable
 
     public void Transform(Matrix matrix, BitmapInterpolationMode bitmapInterpolationMode)
     {
+        // No sampling footprint: the resampling apron is a device-pixel quantity, and the density the
+        // segment finally runs at is unknown here, so no logical margin can bound it.
         AppendSkiaFilter(
             (matrix, bitmapInterpolationMode),
             (data, input, _) => SKImageFilter.CreateMatrix(data.matrix.ToSKMatrix(),
@@ -415,6 +434,8 @@ public sealed class FilterEffectContext : IDisposable
         GradientSpreadMethod spreadMethod,
         bool convolveAlpha)
     {
+        // No sampling footprint: the spread method resolves against the extent of whatever input it is
+        // given, so a cropped input would change the result inside the requested region.
         AppendSkiaFilter(
             (kernelSize, kernel, gain, bias, kernelOffset, spreadMethod, convolveAlpha),
             (data, input, _) => SKImageFilter.CreateMatrixConvolution(
@@ -445,7 +466,9 @@ public sealed class FilterEffectContext : IDisposable
         AppendSkiaFilter(
             (radiusX, radiusY),
             (data, input, _) => SKImageFilter.CreateErode(data.radiusX, data.radiusY, input),
-            (data, rect) => rect);
+            (data, rect) => rect,
+            // Erode shrinks its declared output but still reads the whole radius neighbourhood.
+            (data, region) => region.Inflate(MorphologyRadius(data.radiusX, data.radiusY)));
     }
 
     public void Dilate(float radiusX, float radiusY)
@@ -453,8 +476,13 @@ public sealed class FilterEffectContext : IDisposable
         AppendSkiaFilter(
             (radiusX, radiusY),
             (data, input, _) => SKImageFilter.CreateDilate(data.radiusX, data.radiusY, input),
-            (data, rect) => rect.Inflate(new Thickness(data.radiusX, data.radiusY)));
+            (data, rect) => rect.Inflate(new Thickness(data.radiusX, data.radiusY)),
+            (data, region) => region.Inflate(MorphologyRadius(data.radiusX, data.radiusY)));
     }
+
+    // Skia rejects a negative morphology radius, so such a filter degrades to a pass-through.
+    private static Thickness MorphologyRadius(float radiusX, float radiusY)
+        => new(MathF.Max(radiusX, 0), MathF.Max(radiusY, 0));
 
     public void ColorMatrix(in ColorMatrix matrix)
     {

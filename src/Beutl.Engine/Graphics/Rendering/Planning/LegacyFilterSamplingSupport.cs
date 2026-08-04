@@ -4,87 +4,47 @@ using Beutl.Graphics.Effects;
 namespace Beutl.Graphics.Rendering;
 
 /// <summary>
-/// Derives the backward sampling support of a recorded legacy filter segment from its forward bounds items.
+/// Resolves the input region a recorded legacy filter segment reads to produce a requested output region.
 /// </summary>
 internal static class LegacyFilterSamplingSupport
 {
-    private const float ProbeOffset = 37;
-    private const float ProbeGrowth = 101;
-    private const float ProbeTolerance = 1e-3f;
-
     /// <summary>
-    /// Resolves the margins by which a requested output region must grow to cover every input sample the
-    /// segment can read.
+    /// Maps <paramref name="output"/> backward through every item of the segment.
     /// </summary>
     /// <returns>
-    /// <see langword="false"/> when the segment is not a pure Skia chain, when a forward map is invalid, or
-    /// when the chain is not translation invariant; the caller must then require the complete input.
+    /// <see langword="false"/> when the segment is not a pure Skia chain, when an item declares no proven
+    /// sampling footprint, or when a mapped region is unusable; the caller must then require the complete
+    /// input. A footprint is never inferred from the forward bounds items, which may be narrower than what
+    /// the filter reads, as Erode is behind its identity forward map.
     /// </returns>
-    public static bool TryResolve(ImmutableArray<IFEItem> items, out Thickness support)
+    public static bool TryResolveSampledInput(ImmutableArray<IFEItem> items, Rect output, out Rect input)
     {
-        support = default;
-        if (items.IsDefaultOrEmpty)
+        input = default;
+        if (items.IsDefaultOrEmpty || !IsUsable(output))
             return false;
 
-        // Only Skia items declare bounds that coincide with their sampling support; a custom item may read
-        // outside its declared growth, as InnerShadow does behind an identity declaration.
-        foreach (IFEItem item in items)
+        Rect region = output;
+        for (int index = items.Length - 1; index >= 0; index--)
         {
-            if (item is not IFEItem_Skia)
-                return false;
-        }
-
-        var unit = new Rect(0, 0, 1, 1);
-        if (!TryTransform(items, unit, out Rect mapped)
-            || !TryTransform(items, unit.Translate(new Vector(ProbeOffset, ProbeOffset)), out Rect translated)
-            || !TryTransform(items, unit.Inflate(new Thickness(0, 0, ProbeGrowth, ProbeGrowth)), out Rect grown))
-        {
-            return false;
-        }
-
-        if (!IsClose(translated, mapped.Translate(new Vector(ProbeOffset, ProbeOffset)))
-            || !IsClose(grown, mapped.Inflate(new Thickness(0, 0, ProbeGrowth, ProbeGrowth))))
-        {
-            return false;
-        }
-
-        float left = mapped.Right - unit.Right;
-        float top = mapped.Bottom - unit.Bottom;
-        float right = unit.X - mapped.X;
-        float bottom = unit.Y - mapped.Y;
-        if (left + right < 0 || top + bottom < 0)
-            return false;
-
-        support = new Thickness(left, top, right, bottom);
-        return true;
-    }
-
-    private static bool TryTransform(ImmutableArray<IFEItem> items, Rect probe, out Rect result)
-    {
-        result = probe;
-        foreach (IFEItem item in items)
-        {
-            result = item.TransformBounds(result);
-            if (!float.IsFinite(result.X)
-                || !float.IsFinite(result.Y)
-                || !float.IsFinite(result.Width)
-                || !float.IsFinite(result.Height)
-                || result.Width < 0
-                || result.Height < 0)
+            if (items[index] is not IFEItem_Skia skia
+                || !skia.TryTransformSamplingBounds(region, out Rect sampled)
+                || !IsUsable(sampled))
             {
                 return false;
             }
+
+            region = sampled;
         }
 
+        input = region;
         return true;
     }
 
-    private static bool IsClose(Rect actual, Rect expected)
-        => IsClose(actual.X, expected.X)
-           && IsClose(actual.Y, expected.Y)
-           && IsClose(actual.Width, expected.Width)
-           && IsClose(actual.Height, expected.Height);
-
-    private static bool IsClose(float actual, float expected)
-        => MathF.Abs(actual - expected) <= ProbeTolerance * (1 + MathF.Abs(expected));
+    private static bool IsUsable(Rect rect)
+        => float.IsFinite(rect.X)
+           && float.IsFinite(rect.Y)
+           && float.IsFinite(rect.Width)
+           && float.IsFinite(rect.Height)
+           && rect.Width >= 0
+           && rect.Height >= 0;
 }

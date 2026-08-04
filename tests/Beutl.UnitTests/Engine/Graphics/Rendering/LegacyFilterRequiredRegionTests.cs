@@ -41,6 +41,69 @@ public sealed class LegacyFilterRequiredRegionTests
     }
 
     [Test]
+    public void SubRegionRequest_RestrictsErodeSourceToItsRadiusNeighbourhood()
+    {
+        var sourceBounds = new Rect(0, 0, 400, 400);
+        var requestedRegion = new Rect(0, 0, 50, 50);
+        var observed = new List<Rect>();
+        using FilterEffectRenderNode filter = CreateErodeNode(radius: 6);
+        filter.AddChild(ScaleRecordingTestHelper.Source(
+            EffectiveScale.At(1),
+            sourceBounds,
+            session => observed.Add(session.RequiredRegion)));
+        using var renderer = new RenderNodeRenderer(
+            filter,
+            new RenderNodeRendererOptions
+            {
+                DefaultRequest = new RenderNodeRenderRequest
+                {
+                    RequestedRegion = requestedRegion,
+                    CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Disabled,
+                },
+                TargetFactory = new BudgetedCpuTargetFactory(int.MaxValue),
+            });
+
+        using RenderNodeRasterization rasterization = renderer.Rasterize();
+
+        // Erode declares an identity output map yet reads the whole radius neighbourhood, so the
+        // destination's 50×50 region still needs the source's matching 6-unit apron.
+        Assert.That(observed, Is.EqualTo(new[] { new Rect(0, 0, 56, 56) }));
+    }
+
+    [Test]
+    public void ErodeUnderAPartialRegion_MatchesTheCompleteRenderRestrictedToThatRegion()
+    {
+        var sourceBounds = new Rect(0, 0, 100, 100);
+        var requestedRegion = new Rect(30, 30, 40, 40);
+
+        (Rect completeBounds, float[] completeAlpha, int completeWidth) =
+            RasterizeErodedSquare(sourceBounds, radius: 6, requestedRegion: null);
+        (Rect partialBounds, float[] partialAlpha, int partialWidth) =
+            RasterizeErodedSquare(sourceBounds, radius: 6, requestedRegion);
+
+        Assert.That(partialBounds, Is.EqualTo(requestedRegion));
+        Assert.That(completeBounds, Is.EqualTo(sourceBounds));
+
+        var offsetX = (int)(partialBounds.X - completeBounds.X);
+        var offsetY = (int)(partialBounds.Y - completeBounds.Y);
+        var partialHeight = partialAlpha.Length / partialWidth;
+        var mismatches = 0;
+        for (int y = 0; y < partialHeight; y++)
+        {
+            for (int x = 0; x < partialWidth; x++)
+            {
+                float expected = completeAlpha[((y + offsetY) * completeWidth) + x + offsetX];
+                float actual = partialAlpha[(y * partialWidth) + x];
+                if (MathF.Abs(expected - actual) > 0.01f)
+                    mismatches++;
+            }
+        }
+
+        Assert.That(mismatches, Is.Zero,
+            "a partially requested erode must match the complete render inside the same region");
+    }
+
+    [Test]
     public void OversizedElementAtHighScale_RendersWithoutExceedingTheDestinationFootprint()
     {
         const float scale = 4;
@@ -91,6 +154,46 @@ public sealed class LegacyFilterRequiredRegionTests
         var blur = new Blur();
         blur.Sigma.CurrentValue = new Size(sigma, sigma);
         return new FilterEffectRenderNode(blur.ToResource(CompositionContext.Default));
+    }
+
+    private static FilterEffectRenderNode CreateErodeNode(float radius)
+    {
+        var erode = new Erode();
+        erode.RadiusX.CurrentValue = radius;
+        erode.RadiusY.CurrentValue = radius;
+        return new FilterEffectRenderNode(erode.ToResource(CompositionContext.Default));
+    }
+
+    private static (Rect Bounds, float[] Alpha, int Width) RasterizeErodedSquare(
+        Rect sourceBounds,
+        float radius,
+        Rect? requestedRegion)
+    {
+        using FilterEffectRenderNode filter = CreateErodeNode(radius);
+        filter.AddChild(new RectangleRenderNode(sourceBounds, Brushes.Resource.White, null));
+        using var renderer = new RenderNodeRenderer(
+            filter,
+            new RenderNodeRendererOptions
+            {
+                DefaultRequest = new RenderNodeRenderRequest
+                {
+                    RequestedRegion = requestedRegion,
+                    CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Disabled,
+                },
+                TargetFactory = new BudgetedCpuTargetFactory(int.MaxValue),
+            });
+
+        using RenderNodeRasterization rasterization = renderer.Rasterize();
+        Bitmap bitmap = rasterization.Bitmap
+                        ?? throw new InvalidOperationException("The erode render produced no bitmap.");
+        Assert.That(bitmap.ColorType, Is.EqualTo(BitmapColorType.RgbaF16));
+
+        ReadOnlySpan<ushort> pixels = bitmap.GetPixelSpan<ushort>();
+        var alpha = new float[bitmap.Width * bitmap.Height];
+        for (int index = 0; index < alpha.Length; index++)
+            alpha[index] = (float)BitConverter.UInt16BitsToHalf(pixels[(index * 4) + 3]);
+
+        return (rasterization.Bounds, alpha, bitmap.Width);
     }
 
     private static long CountCoveredPixels(Bitmap bitmap)

@@ -1045,15 +1045,15 @@ internal sealed class RegionAnalyzer
         Rect? targetDomain)
     {
         if (outputRequirement.IsFull
-            || reference.BoundsRequirement != RenderFragmentBoundsRequirement.Finite
-            || !LegacyFilterSamplingSupport.TryResolve(payload.BoundsItems, out Thickness support))
+            || reference.BoundsRequirement != RenderFragmentBoundsRequirement.Finite)
         {
             return FullInputs(reference);
         }
 
-        Rect requested = outputRequirement
-            .Resolve(ResolveSemanticBounds(reference, targetDomain))
-            .Inflate(support);
+        Rect requestedOutput = outputRequirement.Resolve(ResolveSemanticBounds(reference, targetDomain));
+        if (!LegacyFilterSamplingSupport.TryResolveSampledInput(payload.BoundsItems, requestedOutput, out Rect requested))
+            return FullInputs(reference);
+
         var result = ImmutableArray.CreateBuilder<RequiredRegion>(reference.Inputs.Length);
         foreach (RenderFragmentReference input in reference.Inputs)
             result.Add(RestrictToSemanticCoverage(input, RequiredRegion.Region(requested), targetDomain));
