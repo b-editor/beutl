@@ -189,6 +189,27 @@ public sealed class ShaderAndAllocationFailureTests
     }
 
     [Test]
+    public void PreviewTargetAcquisitionFailure_SilentlyChangesThePixelsDeliveryRefusesToProduce()
+    {
+        static byte[] RasterizePreview(TrackingTargetFactory factory)
+        {
+            using var node = new ShaderNode(ShaderDescription.CurrentPixel(
+                "half4 apply(half4 color) { return color; }"));
+            using RenderNodeRenderer renderer = CreateRenderer(node, factory, RenderIntent.Preview);
+            using RenderNodeRasterization rasterization = renderer.Rasterize();
+            Assert.That(renderer.TargetPoolStatistics.LeasedTargets, Is.Zero);
+            return rasterization.Bitmap!.GetPixelSpan().ToArray();
+        }
+
+        byte[] intact = RasterizePreview(new TrackingTargetFactory());
+        byte[] degraded = RasterizePreview(new TrackingTargetFactory(failAt: 1));
+
+        Assert.That(degraded, Is.Not.EqualTo(intact),
+            "Preview absorbs the allocation failure and returns different pixels, which is why a "
+            + "delivery-grade render must use RenderIntent.Delivery and fail instead.");
+    }
+
+    [Test]
     public void ProgramCacheDisposal_ContinuesAfterEachProgramFaultAndSurfacesTheFirstFailure()
     {
         var cache = new ProgramCache<ThrowingProgram>(

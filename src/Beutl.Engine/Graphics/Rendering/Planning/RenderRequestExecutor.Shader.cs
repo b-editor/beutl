@@ -200,6 +200,7 @@ internal sealed partial class RenderRequestExecutor
                         output.EffectiveScale.Value,
                         _options.MaxWorkingScale,
                         output.RasterBounds.Size,
+                        _options.Intent,
                         output.DeviceBounds.Position);
                     canvas.Clear();
                     using (canvas.PushDeviceSpace())
@@ -553,6 +554,7 @@ internal sealed partial class RenderRequestExecutor
                     output.EffectiveScale.Value,
                     _options.MaxWorkingScale,
                     output.RasterBounds.Size,
+                    _options.Intent,
                     output.DeviceBounds.Position);
                 canvas.Clear();
                 using (canvas.PushDeviceSpace())

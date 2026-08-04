@@ -185,6 +185,32 @@ public sealed class LegacyFilterTypedSuffixExecutionTests
         });
     }
 
+    // The compatibility executor had the request intent in scope but opened every canvas on the
+    // RenderIntent.Preview default, so a delivery render degraded there instead of failing.
+    [TestCase(RenderIntent.Preview)]
+    [TestCase(RenderIntent.Delivery)]
+    public void CompatibilityGeometry_CallbackCanvasCarriesTheRequestIntent(RenderIntent intent)
+    {
+        Rect bounds = new(0, 0, 8, 6);
+        using EffectTargets targets = CreateSolidTargets(bounds, Colors.Red);
+        RenderIntent? observedIntent = null;
+
+        LegacyFilterEffectCompatibilityExecutor.ApplyGeometry(
+            targets,
+            GeometryDescription.Create(
+                session => session.Canvas.Use(canvas => observedIntent = canvas.Intent),
+                RenderBoundsContract.Identity,
+                RenderHitTestContract.AnyInput,
+                structuralKey: "legacy-compat-intent-geometry"),
+            outputScale: 1,
+            workingScale: 1,
+            maxWorkingScale: 1,
+            intent,
+            RenderRequestPurpose.Auxiliary);
+
+        Assert.That(observedIntent, Is.EqualTo(intent));
+    }
+
     [Test]
     public void GeometryAfterUnknownCustomEffect_UsesRuntimeBoundsAndPublishesShrink()
     {

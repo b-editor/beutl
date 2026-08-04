@@ -116,14 +116,20 @@ public class Renderer : IRenderer
         }
     }
 
-    public Renderer(int width, int height, float renderScale = 1f, float maxWorkingScale = float.PositiveInfinity)
+    public Renderer(
+        int width,
+        int height,
+        float renderScale = 1f,
+        float maxWorkingScale = float.PositiveInfinity,
+        RenderIntent intent = RenderIntent.Preview)
         : this(
             width,
             height,
             renderScale,
             maxWorkingScale,
             diagnostics: null,
-            surface: null)
+            surface: null,
+            intent: intent)
     {
     }
 
@@ -133,7 +139,8 @@ public class Renderer : IRenderer
         float renderScale,
         float maxWorkingScale,
         IRenderPipelineDiagnosticsState? diagnostics,
-        RenderTarget? surface)
+        RenderTarget? surface,
+        RenderIntent intent = RenderIntent.Preview)
     {
         static void DisposePreservingPrimaryFailure(IDisposable? value)
         {
@@ -147,11 +154,15 @@ public class Renderer : IRenderer
             }
         }
 
+        if (!Enum.IsDefined(intent))
+            throw new ArgumentOutOfRangeException(nameof(intent), intent, "Unknown render intent.");
+
         float outputScale = float.IsFinite(renderScale) && renderScale > 0f ? renderScale : 1f;
         float maxScale = RenderScaleUtilities.SanitizeMaxWorkingScale(maxWorkingScale);
         FrameSize = new PixelSize(width, height);
         OutputScale = outputScale;
         MaxWorkingScale = maxScale;
+        Intent = intent;
         DeviceSize = new PixelSize(
             (int)MathF.Ceiling(width * outputScale),
             (int)MathF.Ceiling(height * outputScale));
@@ -181,7 +192,7 @@ public class Renderer : IRenderer
                     }
 
                     var canvas = new ImmediateCanvas(actualSurface, outputScale, maxScale,
-                        logicalSize: FrameSize.ToSize(1));
+                        logicalSize: FrameSize.ToSize(1), intent: intent);
                     return (canvas, actualSurface);
                 }
                 catch
@@ -258,6 +269,13 @@ public class Renderer : IRenderer
 
     /// <summary>Working-scale ceiling. Preview: <c>2 * s_out</c>; export: <c>+Inf</c>.</summary>
     public float MaxWorkingScale { get; }
+
+    /// <summary>
+    /// Intent applied to every request this renderer issues. <see cref="RenderIntent.Preview"/> drops a
+    /// contribution whose intermediate target cannot be allocated; <see cref="RenderIntent.Delivery"/>
+    /// fails the render instead, so a delivery-grade output never silently loses content.
+    /// </summary>
+    public RenderIntent Intent { get; }
 
     /// <summary>
     /// The physical backing-surface size, <c>ceil(FrameSize × OutputScale)</c>.
@@ -461,7 +479,7 @@ public class Renderer : IRenderer
             {
                 DefaultRequest = new RenderNodeRenderRequest
                 {
-                    Intent = RenderIntent.Preview,
+                    Intent = Intent,
                     TargetDomain = new Rect(default, FrameSize.ToSize(1)),
                     OutputScale = OutputScale,
                     MaxWorkingScale = MaxWorkingScale,

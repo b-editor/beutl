@@ -2176,14 +2176,7 @@ public sealed class PlayerViewModel : IAsyncDisposable, IPreviewPlayer
                     missingSources.Count));
             }
 
-            // Throwaway renderer with disableResourceShare to avoid mutating live preview resources.
-            using var renderer = new SceneRenderer(
-                Scene,
-                renderScale: outputScale,
-                disableResourceShare: true,
-                maxWorkingScale: WorkingScaleCeiling.Export(),
-                forceOriginalSource: true);
-            renderer.CacheOptions = RenderCacheOptions.Disabled;
+            using var renderer = ExportRendererFactory.Create(Scene, outputScale);
 
             var compositionFrame = renderer.Compositor.EvaluateGraphics(CurrentFrame.Value);
             renderer.Render(compositionFrame);

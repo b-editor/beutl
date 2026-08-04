@@ -341,6 +341,7 @@ public sealed class RenderNodeRenderer : IDisposable
                 destination.Density,
                 maxWorkingScale,
                 executionLogicalSize,
+                request.Request.Options.Intent,
                 destination.DeviceOrigin);
             using (executionCanvas.PushDeviceSpace())
             using (SKImage priorTarget = destination._renderTarget.Value.Snapshot())
@@ -456,6 +457,7 @@ public sealed class RenderNodeRenderer : IDisposable
                     effectiveRequest.OutputScale,
                     effectiveRequest.MaxWorkingScale,
                     rasterBounds.Size,
+                    effectiveRequest.Intent,
                     deviceBounds.Position);
                 canvas.Clear();
 

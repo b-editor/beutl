@@ -20,10 +20,15 @@ public sealed class FilterEffectCompatibilityContractTests
         using var targets = new EffectTargets();
         using var builder = new SKImageFilterBuilder();
         using var activator = new FilterEffectActivator(targets, builder);
-        using var previewActivator = new FilterEffectActivator(
+        using var unboundedCeilingActivator = new FilterEffectActivator(
             targets,
             builder,
-            maxWorkingScale: 2);
+            maxWorkingScale: float.PositiveInfinity);
+        using var deliveryActivator = new FilterEffectActivator(
+            targets,
+            builder,
+            maxWorkingScale: 2,
+            intent: RenderIntent.Delivery);
 
         Type[] expectedParameterTypes =
         [
@@ -32,6 +37,7 @@ public sealed class FilterEffectCompatibilityContractTests
             typeof(float),
             typeof(float),
             typeof(float),
+            typeof(RenderIntent),
         ];
         System.Reflection.ParameterInfo[] constructorParameters = typeof(FilterEffectActivator)
             .GetConstructors()
@@ -43,10 +49,13 @@ public sealed class FilterEffectCompatibilityContractTests
 
         Assert.Multiple(() =>
         {
-            Assert.That(activator.Intent, Is.EqualTo(RenderIntent.Delivery));
+            Assert.That(activator.Intent, Is.EqualTo(RenderIntent.Preview));
             Assert.That(activator.Purpose, Is.EqualTo(RenderRequestPurpose.Auxiliary));
-            Assert.That(previewActivator.Intent, Is.EqualTo(RenderIntent.Preview));
-            Assert.That(previewActivator.Purpose, Is.EqualTo(RenderRequestPurpose.Auxiliary));
+            Assert.That(unboundedCeilingActivator.Intent, Is.EqualTo(RenderIntent.Preview),
+                "an unbounded working-scale ceiling must not promote a caller to delivery fail-fast");
+            Assert.That(deliveryActivator.Intent, Is.EqualTo(RenderIntent.Delivery),
+                "a finite working-scale ceiling must not demote an explicit delivery intent");
+            Assert.That(deliveryActivator.Purpose, Is.EqualTo(RenderRequestPurpose.Auxiliary));
             Assert.That(actualParameterTypes, Is.EqualTo(expectedParameterTypes),
                 "existing FilterEffect callers must retain the scale-only public constructor");
             Assert.That(constructorParameters.Skip(2).All(static parameter => parameter.IsOptional), Is.True);

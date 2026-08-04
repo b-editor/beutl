@@ -101,6 +101,7 @@ internal sealed partial class RenderRequestExecutor
                     request.Request.Options.OutputScale,
                     request.Request.Options.MaxWorkingScale,
                     rasterBounds.Size,
+                    request.Request.Options.Intent,
                     deviceBounds.Position);
                 canvas.Clear();
             }

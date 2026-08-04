@@ -135,7 +135,7 @@ public class CustomFilterEffectContext
         float scale)
     {
         ArgumentNullException.ThrowIfNull(brush);
-        return new BrushConstructor(bounds, Resolve(brush), blendMode, scale, MaxWorkingScale);
+        return new BrushConstructor(bounds, Resolve(brush), blendMode, scale, MaxWorkingScale, Intent);
     }
 
     /// <summary>The render request's output scale <c>s_out</c>, not a ceiling on this effect's working scale.</summary>
@@ -311,6 +311,7 @@ public class CustomFilterEffectContext
             target.RenderTarget,
             density,
             MaxWorkingScale,
-            logicalSize: target.Bounds.Size);
+            logicalSize: target.Bounds.Size,
+            intent: Intent);
     }
 }

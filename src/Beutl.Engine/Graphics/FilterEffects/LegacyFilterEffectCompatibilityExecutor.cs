@@ -185,7 +185,8 @@ internal static class LegacyFilterEffectCompatibilityExecutor
                     outputTarget,
                     output.Scale.Value,
                     maxWorkingScale,
-                    output.RasterBounds.Size);
+                    output.RasterBounds.Size,
+                    intent);
                 canvas.Clear();
                 using (canvas.PushDeviceSpace())
                 {
@@ -279,6 +280,7 @@ internal static class LegacyFilterEffectCompatibilityExecutor
                             output.Scale.Value,
                             maxWorkingScale,
                             output.RasterBounds.Size,
+                            intent,
                             output.DeviceBounds.Position),
                         CallbackCanvasCapability.Draw,
                         rasterBounds: output.RasterBounds);
@@ -369,7 +371,8 @@ internal static class LegacyFilterEffectCompatibilityExecutor
                 normalizedTarget,
                 normalized.Scale.Value,
                 maxWorkingScale,
-                normalized.RasterBounds.Size);
+                normalized.RasterBounds.Size,
+                intent);
             using (canvas.PushTransform(Matrix.CreateTranslation(
                        rasterTranslation.X,
                        rasterTranslation.Y)))
@@ -418,7 +421,8 @@ internal static class LegacyFilterEffectCompatibilityExecutor
                 croppedTarget,
                 cropped.Scale.Value,
                 maxWorkingScale,
-                cropped.RasterBounds.Size);
+                cropped.RasterBounds.Size,
+                intent);
             using (canvas.PushTransform(Matrix.CreateTranslation(
                        rasterTranslation.X,
                        rasterTranslation.Y)))
@@ -505,6 +509,7 @@ internal static class LegacyFilterEffectCompatibilityExecutor
                 density,
                 maxWorkingScale,
                 result.RasterBounds.Size,
+                intent,
                 result.DeviceBounds.Position);
             canvas.Clear();
             return result;

@@ -631,7 +631,10 @@ public sealed class RenderTargetPoolTests
             destination.Target.Value.Canvas.Clear(SKColors.Transparent);
             using var canvas = ImmediateCanvas.CreateExecutorManaged(
                 destination.Target,
-                logicalSize: new Size(4, 4));
+                density: 1f,
+                maxWorkingScale: float.PositiveInfinity,
+                logicalSize: new Size(4, 4),
+                intent: RenderIntent.Preview);
             var observedFlushes = new List<ImmediateCanvasFlushKind>();
 
             using (ImmediateCanvas.ObserveFlushes(observedFlushes.Add))

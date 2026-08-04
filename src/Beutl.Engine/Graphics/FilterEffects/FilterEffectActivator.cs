@@ -25,11 +25,12 @@ public sealed class FilterEffectActivator : IDisposable
         SKImageFilterBuilder builder,
         float outputScale = 1f,
         float workingScale = 1f,
-        float maxWorkingScale = float.PositiveInfinity)
+        float maxWorkingScale = float.PositiveInfinity,
+        RenderIntent intent = RenderIntent.Preview)
         : this(
             targets,
             builder,
-            ResolveLegacyIntent(maxWorkingScale),
+            intent,
             RenderRequestPurpose.Auxiliary,
             outputScale,
             workingScale,
@@ -166,16 +167,6 @@ public sealed class FilterEffectActivator : IDisposable
 
     /// <summary>Gets the explicit request purpose for this execution.</summary>
     public RenderRequestPurpose Purpose { get; }
-
-    // Canonical ceiling rule, plus a warning when it substitutes.
-    private static RenderIntent ResolveLegacyIntent(float maxWorkingScale)
-    {
-        // Before request classification was explicit, a finite ceiling denoted preview while
-        // +Inf (including the fallback for invalid values) selected delivery fail-fast behavior.
-        return float.IsFinite(maxWorkingScale) && maxWorkingScale > 0f
-            ? RenderIntent.Preview
-            : RenderIntent.Delivery;
-    }
 
     private static float SanitizeCeiling(float value, string name)
     {
@@ -353,7 +344,7 @@ public sealed class FilterEffectActivator : IDisposable
                     outputDeviceGridOffset,
                     w);
                 using (var canvas = new ImmediateCanvas(surface, w, MaxWorkingScale,
-                           logicalSize: rasterBounds.Size))
+                           logicalSize: rasterBounds.Size, intent: Intent))
                 {
                     canvas.Clear();
                     using (canvas.PushTransform(

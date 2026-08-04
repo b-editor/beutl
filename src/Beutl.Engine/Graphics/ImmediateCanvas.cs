@@ -55,8 +55,10 @@ public partial class ImmediateCanvas : IDisposable, IPopable
     private readonly bool _flushOnDispose;
 
     public ImmediateCanvas(RenderTarget renderTarget, float density = 1f,
-        float maxWorkingScale = float.PositiveInfinity, Size logicalSize = default)
-        : this(renderTarget, density, maxWorkingScale, logicalSize, flushOnDispose: true, deviceOrigin: default)
+        float maxWorkingScale = float.PositiveInfinity, Size logicalSize = default,
+        RenderIntent intent = RenderIntent.Preview)
+        : this(renderTarget, density, maxWorkingScale, logicalSize, intent, flushOnDispose: true,
+            deviceOrigin: default)
     {
     }
 
@@ -65,6 +67,7 @@ public partial class ImmediateCanvas : IDisposable, IPopable
         float density,
         float maxWorkingScale,
         Size logicalSize,
+        RenderIntent intent,
         bool flushOnDispose,
         PixelPoint deviceOrigin)
     {
@@ -72,6 +75,8 @@ public partial class ImmediateCanvas : IDisposable, IPopable
         if (density <= 0f || !float.IsFinite(density))
             throw new ArgumentOutOfRangeException(nameof(density), density,
                 "Density must be a positive finite value.");
+        if (!Enum.IsDefined(intent))
+            throw new ArgumentOutOfRangeException(nameof(intent), intent, "Unknown render intent.");
 
         _dispatcher = Dispatcher.Current;
         _flushOnDispose = flushOnDispose;
@@ -83,6 +88,7 @@ public partial class ImmediateCanvas : IDisposable, IPopable
         SurfaceDensity = density;
         _currentDensity = density;
         MaxWorkingScale = RenderScaleUtilities.SanitizeMaxWorkingScale(maxWorkingScale);
+        Intent = intent;
         if (density == 1f)
         {
             _baseTransform = Matrix.Identity;
@@ -117,6 +123,7 @@ public partial class ImmediateCanvas : IDisposable, IPopable
         _directBlendMode = parent._directBlendMode;
         _productRectangleCoverage = parent._productRectangleCoverage;
         MaxWorkingScale = parent.MaxWorkingScale;
+        Intent = parent.Intent;
         _baseTransform = parent._currentBaseTransform;
         _currentBaseTransform = parent._currentBaseTransform;
         _baseSaveCount = Canvas.Save();
@@ -168,6 +175,23 @@ public partial class ImmediateCanvas : IDisposable, IPopable
     /// <summary>Working-scale ceiling forwarded into nested pulls. <c>+Inf</c> = no ceiling.</summary>
     public float MaxWorkingScale { get; }
 
+    /// <summary>
+    /// Preview or delivery classification, inherited by brush intermediates and nested requests opened from
+    /// this canvas. <see cref="RenderIntent.Preview"/> degrades on an allocation failure;
+    /// <see cref="RenderIntent.Delivery"/> fails instead of dropping the contribution.
+    /// </summary>
+    public RenderIntent Intent { get; }
+
+    /// <summary>
+    /// Creates a brush constructor bound to this canvas's current density, working-scale ceiling and
+    /// render intent, so a caller painting onto this canvas never has to restate them.
+    /// </summary>
+    /// <param name="bounds">The logical frame the brush maps onto.</param>
+    /// <param name="brush">The brush to paint with, or <see langword="null"/> for no paint.</param>
+    /// <param name="blendMode">The blend mode to configure.</param>
+    public BrushConstructor CreateBrushConstructor(Rect bounds, Brush.Resource? brush, BlendMode blendMode)
+        => new(bounds, brush, blendMode, _currentDensity, MaxWorkingScale, Intent);
+
     public Matrix Transform
     {
         get { return _currentTransform; }
@@ -186,15 +210,17 @@ public partial class ImmediateCanvas : IDisposable, IPopable
 
     internal static ImmediateCanvas CreateExecutorManaged(
         RenderTarget renderTarget,
-        float density = 1f,
-        float maxWorkingScale = float.PositiveInfinity,
-        Size logicalSize = default,
+        float density,
+        float maxWorkingScale,
+        Size logicalSize,
+        RenderIntent intent,
         PixelPoint deviceOrigin = default)
         => new(
             renderTarget,
             density,
             maxWorkingScale,
             logicalSize,
+            intent,
             flushOnDispose: false,
             deviceOrigin);
 
@@ -533,6 +559,7 @@ public partial class ImmediateCanvas : IDisposable, IPopable
             {
                 DefaultRequest = new RenderNodeRenderRequest
                 {
+                    Intent = Intent,
                     OutputScale = _currentDensity,
                     MaxWorkingScale = MaxWorkingScale,
                     CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Enabled,
@@ -551,6 +578,7 @@ public partial class ImmediateCanvas : IDisposable, IPopable
             {
                 DefaultRequest = new RenderNodeRenderRequest
                 {
+                    Intent = Intent,
                     OutputScale = _currentDensity,
                     MaxWorkingScale = MaxWorkingScale,
                     CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Enabled,
@@ -1159,7 +1187,8 @@ public partial class ImmediateCanvas : IDisposable, IPopable
 
         RecordPixelOperation();
         int count = Canvas.SaveLayer(paint);
-        new BrushConstructor(bounds, mask, (BlendMode)paint.BlendMode, _currentDensity, MaxWorkingScale).ConfigurePaint(paint);
+        new BrushConstructor(bounds, mask, (BlendMode)paint.BlendMode, _currentDensity, MaxWorkingScale, Intent)
+            .ConfigurePaint(paint);
         _states.Push(new CanvasPushedState.MaskPushedState(count, invert, paint));
         return new PushedState(this, _states.Count);
     }
@@ -1177,7 +1206,8 @@ public partial class ImmediateCanvas : IDisposable, IPopable
             mask,
             (BlendMode)paint.BlendMode,
             _currentDensity,
-            MaxWorkingScale).ConfigurePaint(paint);
+            MaxWorkingScale,
+            Intent).ConfigurePaint(paint);
         _states.Push(new CanvasPushedState.MaskPushedState(count, invert, paint));
         return new PushedState(this, _states.Count);
     }
@@ -1594,7 +1624,8 @@ public partial class ImmediateCanvas : IDisposable, IPopable
                 pen.Brush,
                 ResolvePaintBlendMode(blendMode),
                 scale ?? _currentDensity,
-                MaxWorkingScale).ConfigurePaint(_sharedStrokePaint);
+                MaxWorkingScale,
+                Intent).ConfigurePaint(_sharedStrokePaint);
         }
     }
 
@@ -1613,7 +1644,8 @@ public partial class ImmediateCanvas : IDisposable, IPopable
                 pen.Brush,
                 ResolvePaintBlendMode(blendMode),
                 scale ?? _currentDensity,
-                MaxWorkingScale).ConfigurePaint(_sharedStrokePaint);
+                MaxWorkingScale,
+                Intent).ConfigurePaint(_sharedStrokePaint);
         }
     }
 
@@ -1625,7 +1657,8 @@ public partial class ImmediateCanvas : IDisposable, IPopable
             brush,
             ResolvePaintBlendMode(blendMode),
             scale ?? _currentDensity,
-            MaxWorkingScale).ConfigurePaint(_sharedFillPaint);
+            MaxWorkingScale,
+            Intent).ConfigurePaint(_sharedFillPaint);
     }
 
     private void ConfigureFillPaint(
@@ -1640,7 +1673,8 @@ public partial class ImmediateCanvas : IDisposable, IPopable
             brush,
             ResolvePaintBlendMode(blendMode),
             scale ?? _currentDensity,
-            MaxWorkingScale).ConfigurePaint(_sharedFillPaint);
+            MaxWorkingScale,
+            Intent).ConfigurePaint(_sharedFillPaint);
     }
 
     private BlendMode ResolvePaintBlendMode(BlendMode fallback)

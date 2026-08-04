@@ -11,18 +11,10 @@ public sealed class SceneRenderer : Renderer
         Scene scene,
         float renderScale = 1f,
         bool disableResourceShare = false,
-        float maxWorkingScale = float.PositiveInfinity)
-        : this(scene, renderScale, disableResourceShare, maxWorkingScale, forceOriginalSource: false)
-    {
-    }
-
-    public SceneRenderer(
-        Scene scene,
-        float renderScale,
-        bool disableResourceShare,
-        float maxWorkingScale,
-        bool forceOriginalSource)
-        : base(scene.FrameSize.Width, scene.FrameSize.Height, renderScale, maxWorkingScale)
+        float maxWorkingScale = float.PositiveInfinity,
+        bool forceOriginalSource = false,
+        RenderIntent intent = RenderIntent.Preview)
+        : base(scene.FrameSize.Width, scene.FrameSize.Height, renderScale, maxWorkingScale, intent)
     {
         _compositor = new SceneCompositor(scene)
         {

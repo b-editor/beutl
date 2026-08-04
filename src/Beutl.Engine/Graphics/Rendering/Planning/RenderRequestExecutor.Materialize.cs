@@ -282,6 +282,7 @@ internal sealed partial class RenderRequestExecutor
                     capture.EffectiveScale.Value,
                     _options.MaxWorkingScale,
                     capture.RasterBounds.Size,
+                    _options.Intent,
                     capture.DeviceBounds.Position);
                 canvas.DrawRenderTargetPixelsWithoutFlush(source.Target, 0, 0);
                 succeeded = true;

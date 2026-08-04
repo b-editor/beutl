@@ -228,6 +228,7 @@ internal sealed partial class RenderRequestExecutor
                     density,
                     _options.MaxWorkingScale,
                     output.RasterBounds.Size,
+                    _options.Intent,
                     output.DeviceBounds.Position);
                 canvas.Clear();
                 using (canvas.PushTransform(Matrix.CreateTranslation(
@@ -443,6 +444,7 @@ internal sealed partial class RenderRequestExecutor
                            scale.Value,
                            _options.MaxWorkingScale,
                            value.RasterBounds.Size,
+                           _options.Intent,
                            value.DeviceBounds.Position))
                 using (canvas.PushTransform(Matrix.CreateTranslation(
                            rasterTranslation.X,
@@ -506,6 +508,7 @@ internal sealed partial class RenderRequestExecutor
                            scale.Value,
                            _options.MaxWorkingScale,
                            value.RasterBounds.Size,
+                           _options.Intent,
                            value.DeviceBounds.Position))
                 using (canvas.PushTransform(Matrix.CreateTranslation(
                            rasterTranslation.X,
@@ -570,6 +573,7 @@ internal sealed partial class RenderRequestExecutor
                            scale.Value,
                            _options.MaxWorkingScale,
                            value.RasterBounds.Size,
+                           _options.Intent,
                            value.DeviceBounds.Position))
                 using (canvas.PushTransform(Matrix.CreateTranslation(
                            rasterTranslation.X,

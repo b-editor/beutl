@@ -11,7 +11,7 @@ namespace Beutl.Graphics;
 
 public readonly struct BrushConstructor(
     Rect bounds, Brush.Resource? brush, BlendMode blendMode, float scale = 1f,
-    float maxWorkingScale = float.PositiveInfinity)
+    float maxWorkingScale = float.PositiveInfinity, RenderIntent intent = RenderIntent.Preview)
 {
     private static readonly ILogger s_logger = Log.CreateLogger("BrushConstructor");
     private static readonly IRenderTargetFactory s_legacyRasterTargetFactory = new LegacyRasterTargetFactory();
@@ -22,8 +22,9 @@ public readonly struct BrushConstructor(
         ResolvedBrush brush,
         BlendMode blendMode,
         float scale = 1f,
-        float maxWorkingScale = float.PositiveInfinity)
-        : this(bounds, brush.Resource, blendMode, scale, maxWorkingScale)
+        float maxWorkingScale = float.PositiveInfinity,
+        RenderIntent intent = RenderIntent.Preview)
+        : this(bounds, brush.Resource, blendMode, scale, maxWorkingScale, intent)
     {
         _tileContent = brush.TileContent;
     }
@@ -43,12 +44,22 @@ public readonly struct BrushConstructor(
     /// <summary>Working-scale ceiling applied to brush-owned intermediates and scoped legacy nested pulls.</summary>
     public float MaxWorkingScale { get; } = RenderScaleUtilities.SanitizeMaxWorkingScale(maxWorkingScale);
 
+    /// <summary>
+    /// Preview or delivery classification of the render this brush paints into.
+    /// <see cref="RenderIntent.Preview"/> degrades when a brush-owned intermediate cannot be allocated;
+    /// <see cref="RenderIntent.Delivery"/> fails the render instead of shipping the brush without content.
+    /// </summary>
+    public RenderIntent Intent { get; } = Enum.IsDefined(intent)
+        ? intent
+        : throw new ArgumentOutOfRangeException(nameof(intent), intent, "Unknown render intent.");
+
     public void ConfigurePaint(SKPaint paint)
     {
         // Handle BrushPresenter by delegating to the target brush
         if (Brush is BrushPresenter.Resource presenter && presenter.Target != null)
         {
-            new BrushConstructor(Bounds, presenter.Target, BlendMode, Scale, MaxWorkingScale).ConfigurePaint(paint);
+            new BrushConstructor(Bounds, presenter.Target, BlendMode, Scale, MaxWorkingScale, Intent)
+                .ConfigurePaint(paint);
             return;
         }
 
@@ -85,7 +96,8 @@ public readonly struct BrushConstructor(
         // Handle BrushPresenter by delegating to the target brush
         if (Brush is BrushPresenter.Resource presenter && presenter.Target != null)
         {
-            return new BrushConstructor(Bounds, presenter.Target, BlendMode, Scale, MaxWorkingScale).CreateShader();
+            return new BrushConstructor(Bounds, presenter.Target, BlendMode, Scale, MaxWorkingScale, Intent)
+                .CreateShader();
         }
 
         float opacity = (Brush?.Opacity ?? 0) / 100f;
@@ -294,7 +306,7 @@ public readonly struct BrushConstructor(
             }
 
             // Density 1: the SetMatrix below builds an absolute device matrix with Scale(s) folded in.
-            using (var canvas = new ImmediateCanvas(intermediate, 1f, MaxWorkingScale))
+            using (var canvas = new ImmediateCanvas(intermediate, 1f, MaxWorkingScale, intent: Intent))
             using (var paintTmp = new SKPaint())
             {
                 canvas.Canvas.Clear();
@@ -397,7 +409,7 @@ public readonly struct BrushConstructor(
             }
             else
             {
-                using var canvas = new ImmediateCanvas(intermediate!, 1f, MaxWorkingScale);
+                using var canvas = new ImmediateCanvas(intermediate!, 1f, MaxWorkingScale, intent: Intent);
                 DrawDrawableTileIntermediate(canvas.Canvas, calc, content, s);
             }
 
@@ -490,7 +502,7 @@ public readonly struct BrushConstructor(
 
     private void ThrowIfDeliveryAllocationFailure(string message)
     {
-        if (float.IsPositiveInfinity(MaxWorkingScale))
+        if (Intent == RenderIntent.Delivery)
         {
             throw new InvalidOperationException(message);
         }
