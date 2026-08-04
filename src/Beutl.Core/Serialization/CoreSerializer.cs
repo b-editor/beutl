@@ -67,12 +67,6 @@ public static class CoreSerializer
 
         try
         {
-            if (!baseType.IsAssignableFrom(actualType))
-            {
-                throw new JsonException(
-                    $"Discriminator type {actualType.FullName} is not assignable to {baseType.FullName}.");
-            }
-
             var obj = Activator.CreateInstance(actualType) as ICoreSerializable
                       ?? throw new InvalidOperationException($"Could not create instance of type {actualType.FullName}.");
 
@@ -179,13 +173,7 @@ public static class CoreSerializer
         Type? actualType = type.IsSealed ? type : jsonObject.GetDiscriminator(type);
         if (actualType == null)
         {
-            throw new JsonException("Discriminator not found in JSON object.");
-        }
-
-        if (!type.IsAssignableFrom(actualType))
-        {
-            throw new JsonException(
-                $"Discriminator type {actualType.FullName} is not assignable to {type.FullName}.");
+            throw new InvalidOperationException("Discriminator not found in JSON object.");
         }
 
         try
@@ -239,11 +227,6 @@ public static class CoreSerializer
     public static void StoreToUri<T>(T obj, Uri uri, CoreSerializationMode? mode = null)
         where T : ICoreSerializable
     {
-        if (obj is CoreObject { IsStorageWriteSuppressed: true })
-        {
-            return;
-        }
-
         if (uri.Scheme == "file")
         {
             if (obj is CoreObject coreObj)
