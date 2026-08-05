@@ -107,6 +107,105 @@ public class FormattedTextRasterBoundsTests
         });
     }
 
+    private static IEnumerable<TestCaseData> ScaledRasterBoundsCases()
+    {
+        foreach (float size in s_sizes)
+        {
+            foreach (float scale in new[] { 0.25f, 0.5f, 0.75f })
+            {
+                yield return new TestCaseData(size, scale)
+                    .SetName($"GetRasterBounds_{size:g}_At{scale:g}_ContainsMaskWithFourSideHeadroom");
+            }
+        }
+    }
+
+    [TestCaseSource(nameof(ScaledRasterBoundsCases))]
+    public void GetRasterBounds_ContainsEveryRasterizedGlyphPixelAtADownscale(float size, float scale)
+    {
+        using FormattedText text = CreateText("AV glyph jog", size);
+        Rect raster = text.GetRasterBounds(scale);
+        Assert.That(raster.IsEmpty, Is.False);
+
+        var device = PixelRect.FromRect(raster, scale);
+        using var surface = SKSurface.Create(
+            new SKImageInfo(device.Width, device.Height, SKColorType.Rgba8888, SKAlphaType.Premul));
+        SKCanvas canvas = surface.Canvas;
+        canvas.Clear(SKColors.Transparent);
+        using (var paint = new SKPaint { Color = SKColors.White, IsAntialias = true })
+        {
+            canvas.Save();
+            canvas.Translate(-device.X, -device.Y);
+            canvas.DrawText(text.GetTextBlob(scale), 0, 0, paint);
+            canvas.Restore();
+        }
+
+        canvas.Flush();
+        using SKImage image = surface.Snapshot();
+        using SKBitmap bitmap = SKBitmap.FromImage(image);
+
+        int touchedLeft = bitmap.Width;
+        int touchedTop = bitmap.Height;
+        int touchedRight = -1;
+        int touchedBottom = -1;
+        for (int y = 0; y < bitmap.Height; y++)
+        {
+            for (int x = 0; x < bitmap.Width; x++)
+            {
+                if (bitmap.GetPixel(x, y).Alpha == 0)
+                    continue;
+
+                touchedLeft = Math.Min(touchedLeft, x);
+                touchedTop = Math.Min(touchedTop, y);
+                touchedRight = Math.Max(touchedRight, x);
+                touchedBottom = y;
+            }
+        }
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(touchedRight, Is.GreaterThanOrEqualTo(0),
+                "the fixture must actually rasterize glyphs");
+            Assert.That(touchedLeft, Is.GreaterThan(0),
+                "a mask touching column 0 means the downscaled footprint clips the glyphs on the left");
+            Assert.That(touchedTop, Is.GreaterThan(0),
+                "a mask touching row 0 means the downscaled footprint clips the glyphs above");
+            Assert.That(touchedRight, Is.LessThan(bitmap.Width - 1),
+                "a mask touching the last column means the downscaled footprint clips the glyphs on the right");
+            Assert.That(touchedBottom, Is.LessThan(bitmap.Height - 1),
+                "a mask touching the last row means the downscaled footprint clips the glyphs below");
+        });
+    }
+
+    [TestCase(0.25f)]
+    [TestCase(0.5f)]
+    [TestCase(0.75f)]
+    [TestCase(2f)]
+    public void GetRasterBounds_NeverNarrowsTheUnscaledFootprint(float scale)
+    {
+        using FormattedText text = CreateText("Your model", 48f);
+        Rect raster = text.RasterBounds;
+        Rect scaled = text.GetRasterBounds(scale);
+
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(scaled.X, Is.LessThanOrEqualTo(raster.X));
+            Assert.That(scaled.Y, Is.LessThanOrEqualTo(raster.Y));
+            Assert.That(scaled.Right, Is.GreaterThanOrEqualTo(raster.Right));
+            Assert.That(scaled.Bottom, Is.GreaterThanOrEqualTo(raster.Bottom));
+        }
+    }
+
+    [TestCase(1f)]
+    [TestCase(0f)]
+    [TestCase(-1f)]
+    [TestCase(float.NaN)]
+    public void GetRasterBounds_FallsBackToTheUnscaledFootprintForAScaleItCannotMeasure(float scale)
+    {
+        using FormattedText text = CreateText("Your model", 48f);
+
+        Assert.That(text.GetRasterBounds(scale), Is.EqualTo(text.RasterBounds));
+    }
+
     // Only the allocated footprint may widen: brush mapping and layout read the semantic bounds, and
     // moving them shifts gradients and alignment.
     [Test]

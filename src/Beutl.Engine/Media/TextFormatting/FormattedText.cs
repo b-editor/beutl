@@ -176,6 +176,27 @@ public class FormattedText : IEquatable<FormattedText>, IDisposable
         }
     }
 
+    /// <summary>
+    /// <see cref="RasterBounds"/> widened so that its device footprint at <paramref name="scale"/> still
+    /// clears the glyph masks by a whole device pixel.
+    /// </summary>
+    /// <remarks>
+    /// <see cref="RasterBounds"/> measures the masks hinted for scale 1, and hinting at another scale
+    /// moves them by more than rescaling that rectangle accounts for, so the footprint has to come from
+    /// a measurement at the scale that will actually be drawn. The result never narrows
+    /// <see cref="RasterBounds"/>, so a footprint can only gain room by asking for a scale.
+    /// </remarks>
+    public Rect GetRasterBounds(float scale)
+    {
+        MeasureAndSetField();
+        scale = NormalizeDensity(scale);
+        if (scale == 1f)
+            return _rasterBounds;
+
+        Rect scaled = _scaledCache.Get(scale).RasterBounds;
+        return scaled.IsEmpty ? _rasterBounds : _rasterBounds.Union(scaled);
+    }
+
     // テスト用
     internal Point AddToSKPath(SKPath path, Point point)
     {
@@ -469,12 +490,19 @@ public class FormattedText : IEquatable<FormattedText>, IDisposable
         }
     }
 
-    private (SKTextBlob? TextBlob, SKPath? StrokePath) MeasureScaledText(float density)
+    private (SKTextBlob? TextBlob, SKPath? StrokePath, Rect RasterBounds) MeasureScaledText(float density)
     {
-        (SKTextBlob? textBlob, SKPath fillPath, SKPath? strokePath, _, _, _, _) =
+        (SKTextBlob? textBlob, SKPath fillPath, SKPath? strokePath, _, _, _, Rect rasterBounds) =
             MeasureCore(density, updatePathList: false);
         fillPath.Dispose();
-        return (textBlob, strokePath);
+        return (
+            textBlob,
+            strokePath,
+            new Rect(
+                rasterBounds.X / density,
+                rasterBounds.Y / density,
+                rasterBounds.Width / density,
+                rasterBounds.Height / density));
     }
 
     private static float NormalizeDensity(float density)

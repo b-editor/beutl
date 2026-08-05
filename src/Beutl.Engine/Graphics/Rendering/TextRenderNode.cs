@@ -27,7 +27,7 @@ public sealed class TextRenderNode(FormattedText text, Brush.Resource? fill, Pen
     public override void Process(RenderNodeContext context)
     {
         FormattedText text = Text;
-        Rect rasterBounds = text.RasterBounds;
+        Rect rasterBounds = text.GetRasterBounds(context.OutputScale);
         if (rasterBounds.Width == 0 || rasterBounds.Height == 0)
             return;
 
