@@ -223,6 +223,7 @@ public sealed class RenderNodeAuthoringContractTests
                 Throws.TypeOf<ArgumentException>());
             Assert.That(() => context.ContributeValues(command), Throws.TypeOf<ArgumentException>());
 
+            context.Drop(targetLayer);
             context.PublishRange(
                 [opacityValue, maskValue, maskFallback, blend, targetScope, rawScope, rawCommand, layer]);
         });

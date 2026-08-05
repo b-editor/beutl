@@ -182,6 +182,8 @@ public sealed class ShaderAuthoringContractTests
                 Assert.That(() => context.Shader(scope, description), Throws.TypeOf<ArgumentException>());
             });
 
+            context.Drop(scope);
+            context.Drop(command);
             context.Publish(source);
         });
 

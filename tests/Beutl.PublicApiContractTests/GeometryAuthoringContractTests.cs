@@ -52,6 +52,7 @@ public sealed class GeometryAuthoringContractTests
                     structuralKey: "geometry-ineligible-command"));
 
             Assert.That(() => context.Geometry(command, description), Throws.TypeOf<ArgumentException>());
+            context.Drop(command);
             observedDescription = description;
             observedFragment = FragmentSnapshot.From(geometry);
             context.Publish(geometry);

@@ -57,17 +57,9 @@ public sealed class NodeRecordingTransactionTests
         var context = new RenderNodeContext(transaction);
         var publishedBounds = new Rect(0, 0, 10, 10);
         RenderFragmentHandle published = CreateSource(transaction, publishedBounds);
-        RenderFragmentHandle command = context.TargetCommand(
-            [],
-            TargetCommandDescription.Create(
-                static _ => { },
-                TargetRegion.Region(new Rect(0, 0, 10, 10)),
-                Rect.Empty,
-                RenderHitTestContract.None,
-                TargetAccess.ReadWrite,
-                structuralKey: "discarded-command"));
-        _ = context.Opacity(command, 0.25f);
-        _ = context.Opacity(command, 0.75f);
+        RenderFragmentHandle discarded = context.Blend(published, BlendMode.SrcOver);
+        _ = context.Opacity(discarded, 0.25f);
+        _ = context.Opacity(discarded, 0.75f);
         transaction.Publish(published);
 
         Assert.That(() => transaction.Commit(), Throws.Nothing);
@@ -106,6 +98,7 @@ public sealed class NodeRecordingTransactionTests
             Assert.That(rawFallback.CanBeUsedAsValueInput, Is.False);
         });
 
+        transaction.Drop(targetDependent);
         transaction.Publish(source);
         transaction.Commit();
     }

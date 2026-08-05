@@ -154,6 +154,12 @@ public sealed class RenderNodeContext
     public void Publish(RenderFragmentHandle fragment)
         => GetTransaction().Publish(fragment);
 
+    /// <summary>Abandons a recorded fragment so it is neither published nor executed.</summary>
+    /// <remarks>Required for a target-effect fragment recorded only to inspect its metadata.</remarks>
+    /// <param name="fragment">A non-null unpublished handle borrowed from the active transaction.</param>
+    public void Drop(RenderFragmentHandle fragment)
+        => GetTransaction().Drop(fragment);
+
     /// <summary>Publishes recorded fragment streams in enumeration order.</summary>
     /// <param name="fragments">A non-null sequence of non-null handles borrowed from the active transaction.</param>
     public void PublishRange(IEnumerable<RenderFragmentHandle> fragments)

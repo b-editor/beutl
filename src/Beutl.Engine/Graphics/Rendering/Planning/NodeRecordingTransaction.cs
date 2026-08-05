@@ -14,6 +14,7 @@ internal sealed class NodeRecordingTransaction : IRenderFragmentHandleOwner
     private readonly List<RenderResource> _resources = [];
     private readonly List<RecordedNestedRenderRequest> _nestedRequests = [];
     private readonly List<BuiltInBackdropBinding> _builtInBackdropBindings = [];
+    private HashSet<RenderFragmentReference>? _dropped;
     private bool _cacheDisabled;
 
     public NodeRecordingTransaction(
@@ -115,8 +116,7 @@ internal sealed class NodeRecordingTransaction : IRenderFragmentHandleOwner
 
     public void Publish(RenderFragmentHandle handle)
     {
-        RenderFragmentReference reference = GetReference(handle);
-        _publications.Add(reference);
+        PublishCore(GetReference(handle));
     }
 
     public void PassThrough()
@@ -124,8 +124,21 @@ internal sealed class NodeRecordingTransaction : IRenderFragmentHandleOwner
         VerifyActive();
         foreach (RenderFragmentHandle input in Inputs)
         {
-            _publications.Add(input.GetReference(this));
+            PublishCore(input.GetReference(this));
         }
+    }
+
+    public void Drop(RenderFragmentHandle fragment)
+    {
+        RenderFragmentReference reference = GetReference(fragment);
+        if (_publications.Contains(reference))
+        {
+            throw new InvalidOperationException(
+                "The render fragment was already published and cannot be dropped.");
+        }
+
+        (_dropped ??= new HashSet<RenderFragmentReference>(ReferenceEqualityComparer.Instance))
+            .Add(reference);
     }
 
     public void DisableRenderCache()
@@ -304,13 +317,16 @@ internal sealed class NodeRecordingTransaction : IRenderFragmentHandleOwner
     {
         VerifyActive();
         ImmutableArray<RecordedRenderFragmentEntry> fragments = [.. _fragments];
-        ValidatePublicationFanOut(SelectReachableFragments());
+        HashSet<RenderFragmentReference> reachable = SelectReachableFragments();
+        ValidateNoOrphanedTargetEffects(reachable);
+        ValidatePublicationFanOut(reachable);
         var commit = new NodeRecordingCommit(
             fragments,
             [.. _publications],
             [.. _resources],
             [.. _nestedRequests],
             [.. _builtInBackdropBindings],
+            _dropped is null ? [] : [.. _dropped],
             _cacheDisabled);
 
         try
@@ -413,6 +429,13 @@ internal sealed class NodeRecordingTransaction : IRenderFragmentHandleOwner
         _fragments.AddRange(child.Fragments);
         _resources.AddRange(child.Resources);
         _nestedRequests.AddRange(child.NestedRequests);
+        if (!child.Dropped.IsEmpty)
+        {
+            _dropped ??= new HashSet<RenderFragmentReference>(ReferenceEqualityComparer.Instance);
+            foreach (RenderFragmentReference dropped in child.Dropped)
+                _dropped.Add(dropped);
+        }
+
         foreach (BuiltInBackdropBinding binding in child.BuiltInBackdropBindings)
         {
             _builtInBackdropBindings.RemoveAll(item => ReferenceEquals(item.Identity, binding.Identity));
@@ -421,7 +444,7 @@ internal sealed class NodeRecordingTransaction : IRenderFragmentHandleOwner
         _cacheDisabled |= child.CacheDisabled;
     }
 
-    private ImmutableArray<RecordedRenderFragmentEntry> SelectReachableFragments()
+    private HashSet<RenderFragmentReference> SelectReachableFragments()
     {
         var reachable = new HashSet<RenderFragmentReference>(
             _publications,
@@ -436,15 +459,57 @@ internal sealed class NodeRecordingTransaction : IRenderFragmentHandleOwner
                 reachable.Add(input);
         }
 
-        return [.. _fragments.Where(entry => reachable.Contains(entry.Reference))];
+        return reachable;
+    }
+
+    private void ValidateNoOrphanedTargetEffects(
+        HashSet<RenderFragmentReference> reachable)
+    {
+        foreach (RecordedRenderFragmentEntry entry in _fragments)
+        {
+            RenderFragmentReference reference = entry.Reference;
+            if (!IsTargetEffect(reference.Kind)
+                || reachable.Contains(reference)
+                || _dropped?.Contains(reference) == true)
+            {
+                continue;
+            }
+
+            throw new InvalidOperationException(
+                "A recorded target-effect fragment was neither published nor consumed. "
+                + "Publish it, wrap it in a fragment you publish, or call Drop to abandon it "
+                + $"deliberately. Fragment kind: {reference.Kind}; recorded by: "
+                + $"{entry.Origin.GetType().FullName}.");
+        }
+    }
+
+    private static bool IsTargetEffect(RenderFragmentKind kind)
+        => kind is RenderFragmentKind.TargetCommand
+            or RenderFragmentKind.RawTargetCommand
+            or RenderFragmentKind.TargetScope
+            or RenderFragmentKind.RawTargetScope
+            or RenderFragmentKind.TargetLayerScope;
+
+    private void PublishCore(RenderFragmentReference reference)
+    {
+        if (_dropped?.Contains(reference) == true)
+        {
+            throw new InvalidOperationException(
+                "The render fragment was already dropped and cannot be published.");
+        }
+
+        _publications.Add(reference);
     }
 
     private void ValidatePublicationFanOut(
-        ImmutableArray<RecordedRenderFragmentEntry> fragments)
+        HashSet<RenderFragmentReference> reachable)
     {
         var counts = new Dictionary<RenderFragmentReference, int>(ReferenceEqualityComparer.Instance);
-        foreach (RecordedRenderFragmentEntry entry in fragments)
+        foreach (RecordedRenderFragmentEntry entry in _fragments)
         {
+            if (!reachable.Contains(entry.Reference))
+                continue;
+
             foreach (RenderFragmentReference input in entry.Reference.Inputs)
                 CountUse(input, counts);
         }
@@ -520,6 +585,7 @@ internal sealed record NodeRecordingCommit(
     ImmutableArray<RenderResource> Resources,
     ImmutableArray<RecordedNestedRenderRequest> NestedRequests,
     ImmutableArray<BuiltInBackdropBinding> BuiltInBackdropBindings,
+    ImmutableArray<RenderFragmentReference> Dropped,
     bool CacheDisabled);
 
 internal sealed record RecordedRenderFragmentEntry(
