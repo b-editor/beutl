@@ -88,11 +88,7 @@ public class RenderPipelineBenchmarks
 
 internal sealed class RenderPipelineBenchmarkSession : IDisposable
 {
-    private static readonly Rect s_targetDomain = new(
-        0,
-        0,
-        RenderPipelineBenchmarkScenes.ReferenceSize.Width,
-        RenderPipelineBenchmarkScenes.ReferenceSize.Height);
+    private static readonly Rect s_targetDomain = RenderPipelineBenchmarkScenes.TargetDomain;
 
     private readonly RenderPipelineBenchmarkSceneDefinition _scene;
     private readonly RenderNode _root;
@@ -521,13 +517,7 @@ internal sealed class RenderPipelineBenchmarkSession : IDisposable
 
     private static RenderNode CreateSmallObject(RenderPipelineBenchmarkSceneDefinition scene)
     {
-        int width = Math.Max(1, (int)MathF.Round(s_targetDomain.Width * scene.ContentScale));
-        int height = Math.Max(1, (int)MathF.Round(s_targetDomain.Height * scene.ContentScale));
-        var bounds = new Rect(
-            MathF.Floor((float)(s_targetDomain.Width - width) / 2),
-            MathF.Floor((float)(s_targetDomain.Height - height) / 2),
-            width,
-            height);
+        Rect bounds = RenderPipelineBenchmarkScenes.GetDrawableBounds(scene, 0);
         RenderNode current = WrapShader(CreateSource(scene, bounds), BenchmarkShader.Gamma);
         current = WrapOpacity(current, 0.75f);
         return WrapShader(current, BenchmarkShader.Invert);
@@ -536,18 +526,9 @@ internal sealed class RenderPipelineBenchmarkSession : IDisposable
     private static RenderNode CreateMultipleRoots(RenderPipelineBenchmarkSceneDefinition scene)
     {
         var root = new ContainerRenderNode();
-        const int margin = 12;
-        int width = (RenderPipelineBenchmarkScenes.ReferenceSize.Width - (margin * 3)) / 2;
-        int height = (RenderPipelineBenchmarkScenes.ReferenceSize.Height - (margin * 3)) / 2;
         for (int index = 0; index < scene.TopLevelDrawableCount; index++)
         {
-            int column = index & 1;
-            int row = index >> 1;
-            var bounds = new Rect(
-                margin + (column * (width + margin)),
-                margin + (row * (height + margin)),
-                width,
-                height);
+            Rect bounds = RenderPipelineBenchmarkScenes.GetDrawableBounds(scene, index);
             RenderNode source = WrapShader(CreateSource(scene, bounds, index), BenchmarkShader.ChannelRotate);
             var dependency = new BenchmarkTargetDependencyNode(bounds, index);
             dependency.AddChild(source);
@@ -1202,14 +1183,18 @@ internal sealed class RenderPipelineEvidenceFingerprint
            ?? assembly.GetName().Version?.ToString()
            ?? throw new InvalidOperationException($"Assembly '{assembly.FullName}' has no version.");
 
-    private static void Validate(RenderPipelineEvidenceFingerprint fingerprint)
+    internal static void Validate(RenderPipelineEvidenceFingerprint fingerprint)
     {
+        ArgumentNullException.ThrowIfNull(fingerprint);
         foreach (PropertyInfo property in typeof(RenderPipelineEvidenceFingerprint).GetProperties())
         {
             object? value = property.GetValue(fingerprint);
             if (value is string text
-                && (string.IsNullOrWhiteSpace(text)
-                    || text.Contains("unknown", StringComparison.OrdinalIgnoreCase)))
+                && (text.Contains("unknown", StringComparison.OrdinalIgnoreCase)
+                    || (string.IsNullOrWhiteSpace(text)
+                        && !EvidenceFingerprintRules.AllowsBlankValue(
+                            property.Name,
+                            fingerprint.VulkanDeviceType))))
             {
                 throw new InvalidOperationException(
                     $"Fingerprint field '{property.Name}' is missing or unknown.");

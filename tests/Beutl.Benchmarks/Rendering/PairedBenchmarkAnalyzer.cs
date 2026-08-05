@@ -3,6 +3,7 @@ using System.Security.Cryptography;
 using System.Text.Json;
 
 using Beutl.Graphics;
+using Beutl.Media;
 
 namespace Beutl.Benchmarks.Rendering;
 
@@ -1046,9 +1047,14 @@ internal static class PairedBenchmarkAnalyzer
 
             var environment = new SortedDictionary<string, string>(StringComparer.Ordinal);
             string? provenance = null;
+            string? deviceType = fingerprint.EnumerateObject()
+                .Where(static item => EvidenceFingerprintRules.IsDeviceTypeField(item.Name)
+                                      && item.Value.ValueKind == JsonValueKind.String)
+                .Select(static item => item.Value.GetString())
+                .FirstOrDefault();
             foreach (JsonProperty property in fingerprint.EnumerateObject())
             {
-                ValidateFingerprintValue(property, path);
+                ValidateFingerprintValue(property, path, deviceType);
                 string canonical = CanonicalJson(property.Value);
                 if (property.NameEquals(SourceProvenanceField))
                     provenance = property.Value.GetString();
@@ -1182,9 +1188,10 @@ internal static class PairedBenchmarkAnalyzer
             var mismatches = new List<string>(6);
             if (root.GetProperty("seed").GetInt32() != scene.Seed)
                 mismatches.Add("seed");
-            if (root.GetProperty("width").GetInt32() != RenderPipelineBenchmarkScenes.ReferenceSize.Width)
+            PixelSize outputSize = RenderPipelineBenchmarkScenes.GetOutputSize(scene);
+            if (root.GetProperty("width").GetInt32() != outputSize.Width)
                 mismatches.Add("width");
-            if (root.GetProperty("height").GetInt32() != RenderPipelineBenchmarkScenes.ReferenceSize.Height)
+            if (root.GetProperty("height").GetInt32() != outputSize.Height)
                 mismatches.Add("height");
             if (root.GetProperty("setupWarmupFrames").GetInt32()
                 != RenderPipelineBenchmarkConfig.SetupWarmupFrameCount)
@@ -1294,13 +1301,14 @@ internal static class PairedBenchmarkAnalyzer
             return text.ToLowerInvariant();
         }
 
-        private static void ValidateFingerprintValue(JsonProperty property, string path)
+        private static void ValidateFingerprintValue(JsonProperty property, string path, string? deviceType)
         {
             if (property.Value.ValueKind == JsonValueKind.String)
             {
                 string? text = property.Value.GetString();
-                if (string.IsNullOrWhiteSpace(text)
-                    || text.Contains("unknown", StringComparison.OrdinalIgnoreCase))
+                if (text?.Contains("unknown", StringComparison.OrdinalIgnoreCase) == true
+                    || (string.IsNullOrWhiteSpace(text)
+                        && !EvidenceFingerprintRules.AllowsBlankValue(property.Name, deviceType)))
                 {
                     throw new InvalidDataException(
                         $"Fingerprint field '{property.Name}' is missing or unknown in '{path}'.");

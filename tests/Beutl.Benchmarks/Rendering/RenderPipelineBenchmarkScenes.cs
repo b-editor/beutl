@@ -1,5 +1,6 @@
 ﻿using System.Collections.ObjectModel;
 
+using Beutl.Graphics;
 using Beutl.Media;
 
 namespace Beutl.Benchmarks.Rendering;
@@ -19,6 +20,13 @@ internal enum RenderPipelineBenchmarkBarrier
     TargetDependency,
 }
 
+internal enum RenderPipelineBenchmarkLayout
+{
+    TargetDomain,
+    CenteredContent,
+    DrawableGrid,
+}
+
 internal readonly record struct RenderPipelineBenchmarkFrameState(
     float AnimatedAmount,
     bool StructuralVariant);
@@ -34,7 +42,8 @@ internal sealed record RenderPipelineBenchmarkSceneDefinition
         RenderPipelineBenchmarkAnimation animation = RenderPipelineBenchmarkAnimation.None,
         RenderPipelineBenchmarkBarrier barrier = RenderPipelineBenchmarkBarrier.None,
         bool hasStaticPrefixCache = false,
-        bool hasTargetDependencies = false)
+        bool hasTargetDependencies = false,
+        RenderPipelineBenchmarkLayout layout = RenderPipelineBenchmarkLayout.TargetDomain)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(name);
         ArgumentOutOfRangeException.ThrowIfNegative(semanticStageCount);
@@ -54,6 +63,7 @@ internal sealed record RenderPipelineBenchmarkSceneDefinition
         Barrier = barrier;
         HasStaticPrefixCache = hasStaticPrefixCache;
         HasTargetDependencies = hasTargetDependencies;
+        Layout = layout;
     }
 
     public string Name { get; }
@@ -73,6 +83,8 @@ internal sealed record RenderPipelineBenchmarkSceneDefinition
     public bool HasStaticPrefixCache { get; }
 
     public bool HasTargetDependencies { get; }
+
+    public RenderPipelineBenchmarkLayout Layout { get; }
 
     public RenderPipelineBenchmarkFrameState GetFrameState(int frameIndex)
     {
@@ -99,7 +111,11 @@ internal static class RenderPipelineBenchmarkScenes
 {
     public const int SourceSeed = 20_040_719;
 
+    public const int DrawableGridMargin = 12;
+
     public static readonly PixelSize ReferenceSize = new(384, 216);
+
+    public static readonly Rect TargetDomain = new(0, 0, ReferenceSize.Width, ReferenceSize.Height);
 
     public static readonly PixelSize Hd1080 = new(1920, 1080);
 
@@ -135,14 +151,20 @@ internal static class RenderPipelineBenchmarkScenes
             SourceSeed + 8,
             semanticStageCount: 5,
             barrier: RenderPipelineBenchmarkBarrier.SpatialEffect),
-        new("SmallObjectFixedOverhead", SourceSeed + 9, semanticStageCount: 3, contentScale: 0.1f),
+        new(
+            "SmallObjectFixedOverhead",
+            SourceSeed + 9,
+            semanticStageCount: 3,
+            contentScale: 0.1f,
+            layout: RenderPipelineBenchmarkLayout.CenteredContent),
         new(
             "MultipleDrawablesTargetDependencies",
             SourceSeed + 10,
             semanticStageCount: 4,
             topLevelDrawableCount: 4,
             barrier: RenderPipelineBenchmarkBarrier.TargetDependency,
-            hasTargetDependencies: true),
+            hasTargetDependencies: true,
+            layout: RenderPipelineBenchmarkLayout.DrawableGrid),
     ];
 
     private static readonly IReadOnlyDictionary<string, RenderPipelineBenchmarkSceneDefinition> s_byName
@@ -157,6 +179,54 @@ internal static class RenderPipelineBenchmarkScenes
         return s_byName.TryGetValue(name, out RenderPipelineBenchmarkSceneDefinition? scene)
             ? scene
             : throw new ArgumentOutOfRangeException(nameof(name), name, "Unknown render-pipeline benchmark scene.");
+    }
+
+    /// <summary>
+    /// Bounds of one of a scene's top-level drawables, in the target domain.
+    /// </summary>
+    /// <remarks>
+    /// The benchmark harness draws from this and the frozen-workload gate checks recorded counters
+    /// against it, so the two cannot drift into disagreeing about a scene's rendered extent.
+    /// </remarks>
+    public static Rect GetDrawableBounds(RenderPipelineBenchmarkSceneDefinition scene, int index)
+    {
+        ArgumentNullException.ThrowIfNull(scene);
+        ArgumentOutOfRangeException.ThrowIfNegative(index);
+        ArgumentOutOfRangeException.ThrowIfGreaterThanOrEqual(index, scene.TopLevelDrawableCount);
+
+        switch (scene.Layout)
+        {
+            case RenderPipelineBenchmarkLayout.CenteredContent:
+                int contentWidth = Math.Max(1, (int)MathF.Round(TargetDomain.Width * scene.ContentScale));
+                int contentHeight = Math.Max(1, (int)MathF.Round(TargetDomain.Height * scene.ContentScale));
+                return new Rect(
+                    MathF.Floor((TargetDomain.Width - contentWidth) / 2),
+                    MathF.Floor((TargetDomain.Height - contentHeight) / 2),
+                    contentWidth,
+                    contentHeight);
+            case RenderPipelineBenchmarkLayout.DrawableGrid:
+                int cellWidth = (ReferenceSize.Width - (DrawableGridMargin * 3)) / 2;
+                int cellHeight = (ReferenceSize.Height - (DrawableGridMargin * 3)) / 2;
+                return new Rect(
+                    DrawableGridMargin + ((index & 1) * (cellWidth + DrawableGridMargin)),
+                    DrawableGridMargin + ((index >> 1) * (cellHeight + DrawableGridMargin)),
+                    cellWidth,
+                    cellHeight);
+            default:
+                return TargetDomain;
+        }
+    }
+
+    /// <summary>
+    /// Device extent a scene rasterizes to, which is the union of its top-level drawables.
+    /// </summary>
+    public static PixelSize GetOutputSize(RenderPipelineBenchmarkSceneDefinition scene)
+    {
+        ArgumentNullException.ThrowIfNull(scene);
+        Rect union = GetDrawableBounds(scene, 0);
+        for (int index = 1; index < scene.TopLevelDrawableCount; index++)
+            union = union.Union(GetDrawableBounds(scene, index));
+        return new PixelSize((int)union.Width, (int)union.Height);
     }
 
     public static Half[] CreateLinearPremultipliedRgba16F(

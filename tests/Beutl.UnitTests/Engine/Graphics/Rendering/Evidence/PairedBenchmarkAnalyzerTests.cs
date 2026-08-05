@@ -3,6 +3,7 @@ using System.Text.Json;
 using System.Text.Json.Nodes;
 
 using Beutl.Benchmarks.Rendering;
+using Beutl.Media;
 using Beutl.UnitTests.Engine.Graphics.Rendering.Baseline;
 
 namespace Beutl.UnitTests.Engine.Graphics.Rendering.Evidence;
@@ -329,6 +330,120 @@ public sealed class PairedBenchmarkAnalyzerTests
         Assert.That(exception!.Message, Does.Contain("output").IgnoreCase);
     }
 
+    [Test]
+    public void Analyze_AcceptsBlankDriverInfoOnlyForACpuDevice()
+    {
+        using var accepted = new AnalyzerFixture();
+        accepted.MutateCounterFingerprints(root =>
+        {
+            root["vulkanDeviceType"] = "Cpu";
+            root["vulkanDriverInfo"] = string.Empty;
+        });
+        using var rejected = new AnalyzerFixture();
+        rejected.MutateCounterFingerprints(root =>
+        {
+            root["vulkanDeviceType"] = "DiscreteGpu";
+            root["vulkanDriverInfo"] = string.Empty;
+        });
+
+        Assert.That(() => accepted.Analyze(), Throws.Nothing);
+        InvalidDataException? exception = Assert.Throws<InvalidDataException>(() => rejected.Analyze());
+        Assert.That(exception!.Message, Does.Contain("vulkanDriverInfo"));
+    }
+
+    [Test]
+    public void Analyze_RejectsAnUnknownDriverInfoEvenOnACpuDevice()
+    {
+        using var fixture = new AnalyzerFixture();
+        fixture.MutateCounterFingerprints(root =>
+        {
+            root["vulkanDeviceType"] = "Cpu";
+            root["vulkanDriverInfo"] = "unknown";
+        });
+
+        InvalidDataException? exception = Assert.Throws<InvalidDataException>(() => fixture.Analyze());
+
+        Assert.That(exception!.Message, Does.Contain("vulkanDriverInfo"));
+    }
+
+    [Test]
+    public void Analyze_RejectsABlankFieldOtherThanDriverInfoOnACpuDevice()
+    {
+        using var fixture = new AnalyzerFixture();
+        fixture.MutateCounterFingerprints(root =>
+        {
+            root["vulkanDeviceType"] = "Cpu";
+            root["vulkanDeviceName"] = string.Empty;
+        });
+
+        InvalidDataException? exception = Assert.Throws<InvalidDataException>(() => fixture.Analyze());
+
+        Assert.That(exception!.Message, Does.Contain("vulkanDeviceName"));
+    }
+
+    [Test]
+    public void FingerprintCapture_AcceptsBlankDriverInfoOnlyForACpuDevice()
+    {
+        RenderPipelineEvidenceFingerprint cpu = CreateFingerprint("Cpu", driverInfo: string.Empty);
+        RenderPipelineEvidenceFingerprint gpu = CreateFingerprint("DiscreteGpu", driverInfo: string.Empty);
+        RenderPipelineEvidenceFingerprint unknownOnCpu = CreateFingerprint("Cpu", driverInfo: "unknown");
+
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(() => RenderPipelineEvidenceFingerprint.Validate(cpu), Throws.Nothing);
+            Assert.That(
+                () => RenderPipelineEvidenceFingerprint.Validate(gpu),
+                Throws.TypeOf<InvalidOperationException>());
+            Assert.That(
+                () => RenderPipelineEvidenceFingerprint.Validate(unknownOnCpu),
+                Throws.TypeOf<InvalidOperationException>());
+        }
+    }
+
+    [Test]
+    public void FrozenWorkloadExtents_MatchTheGeometryTheBenchmarkDraws()
+    {
+        var sizes = RenderPipelineBenchmarkScenes.All.ToDictionary(
+            static scene => scene.Name,
+            RenderPipelineBenchmarkScenes.GetOutputSize,
+            StringComparer.Ordinal);
+
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(sizes["SingleShader"], Is.EqualTo(RenderPipelineBenchmarkScenes.ReferenceSize));
+            Assert.That(sizes["SmallObjectFixedOverhead"], Is.EqualTo(new PixelSize(38, 22)));
+            Assert.That(
+                sizes["MultipleDrawablesTargetDependencies"],
+                Is.EqualTo(new PixelSize(360, 192)));
+            Assert.That(
+                sizes.Values,
+                Has.Some.Not.EqualTo(RenderPipelineBenchmarkScenes.ReferenceSize),
+                "A per-scene extent check is only meaningful while some scene differs from the reference size.");
+        }
+    }
+
+    private static RenderPipelineEvidenceFingerprint CreateFingerprint(string deviceType, string driverInfo)
+    {
+        var fingerprint = new RenderPipelineEvidenceFingerprint
+        {
+            VulkanEnabledExtensions = ["VK_KHR_surface"],
+        };
+        foreach (System.Reflection.PropertyInfo property in
+                 typeof(RenderPipelineEvidenceFingerprint).GetProperties())
+        {
+            if (property.PropertyType == typeof(string))
+                property.SetValue(fingerprint, property.Name);
+        }
+
+        typeof(RenderPipelineEvidenceFingerprint)
+            .GetProperty(nameof(RenderPipelineEvidenceFingerprint.VulkanDeviceType))!
+            .SetValue(fingerprint, deviceType);
+        typeof(RenderPipelineEvidenceFingerprint)
+            .GetProperty(nameof(RenderPipelineEvidenceFingerprint.VulkanDriverInfo))!
+            .SetValue(fingerprint, driverInfo);
+        return fingerprint;
+    }
+
     public enum AcceptanceGate
     {
         Primary,
@@ -506,6 +621,15 @@ public sealed class PairedBenchmarkAnalyzerTests
             WriteObject(_runs[run].Results, root);
         }
 
+        public void MutateCounterFingerprints(Action<JsonObject> mutate)
+        {
+            foreach (AnalyzerRun run in Enum.GetValues<AnalyzerRun>())
+            {
+                foreach (RenderPipelineBenchmarkSceneDefinition scene in RenderPipelineBenchmarkScenes.All)
+                    MutateCounter(run, scene.Name, root => mutate(root["fingerprint"]!.AsObject()));
+            }
+        }
+
         public void MutateCounter(AnalyzerRun run, string caseName, Action<JsonObject> mutate)
         {
             string path = Path.Combine(_runs[run].Counters, caseName + ".json");
@@ -563,20 +687,22 @@ public sealed class PairedBenchmarkAnalyzerTests
             Directory.CreateDirectory(outputBlobs);
             WriteBenchmarkResults(results, sampleValue);
             File.WriteAllText(stdout, "synthetic benchmark output\n", new UTF8Encoding(false));
-            byte[] syntheticBlob = CreateSyntheticBlob();
             foreach (RenderPipelineBenchmarkSceneDefinition scene in RenderPipelineBenchmarkScenes.All)
             {
                 WriteCounter(Path.Combine(counters, scene.Name + ".json"), scene, sourceSha);
-                File.WriteAllBytes(Path.Combine(outputBlobs, scene.Name + ".rgba16f"), syntheticBlob);
+                File.WriteAllBytes(
+                    Path.Combine(outputBlobs, scene.Name + ".rgba16f"),
+                    CreateSyntheticBlob(scene));
             }
 
             return new RunPaths(results, counters, stdout, outputBlobs);
         }
 
-        private static byte[] CreateSyntheticBlob()
+        private static byte[] CreateSyntheticBlob(RenderPipelineBenchmarkSceneDefinition scene)
         {
-            int width = RenderPipelineBenchmarkScenes.ReferenceSize.Width;
-            int height = RenderPipelineBenchmarkScenes.ReferenceSize.Height;
+            PixelSize size = RenderPipelineBenchmarkScenes.GetOutputSize(scene);
+            int width = size.Width;
+            int height = size.Height;
             var payload = new byte[checked(width * height * 8)];
             for (int offset = 0; offset < payload.Length; offset += 8)
             {
@@ -626,13 +752,14 @@ public sealed class PairedBenchmarkAnalyzerTests
             RenderPipelineBenchmarkSceneDefinition scene,
             string sourceSha)
         {
+            PixelSize size = RenderPipelineBenchmarkScenes.GetOutputSize(scene);
             WriteObject(path, new JsonObject
             {
                 ["schemaVersion"] = 2,
                 ["caseName"] = scene.Name,
                 ["seed"] = scene.Seed,
-                ["width"] = RenderPipelineBenchmarkScenes.ReferenceSize.Width,
-                ["height"] = RenderPipelineBenchmarkScenes.ReferenceSize.Height,
+                ["width"] = size.Width,
+                ["height"] = size.Height,
                 ["setupWarmupFrames"] = RenderPipelineBenchmarkConfig.SetupWarmupFrameCount,
                 ["lifetime"] = RenderPipelineBenchmarkConfig.LifetimeContract,
                 ["requestShape"] = RenderPipelineBenchmarkConfig.RequestShapeContract,
@@ -645,17 +772,17 @@ public sealed class PairedBenchmarkAnalyzerTests
                 ["setupOutputBlobFile"] = $"{scene.Name}.rgba16f",
                 ["outputSha256"] = OutputSha256,
                 ["outputChecksum"] = OutputChecksum,
-                ["outputBounds"] = Bounds(),
+                ["outputBounds"] = Bounds(size),
                 ["measuredOutputSha256"] = OutputSha256,
                 ["measuredOutputChecksum"] = OutputChecksum,
-                ["measuredOutputBounds"] = Bounds(),
-                ["measuredWidth"] = 384,
-                ["measuredHeight"] = 216,
+                ["measuredOutputBounds"] = Bounds(size),
+                ["measuredWidth"] = size.Width,
+                ["measuredHeight"] = size.Height,
                 ["expectedMeasuredOutputSha256"] = OutputSha256,
                 ["expectedMeasuredOutputChecksum"] = OutputChecksum,
-                ["expectedMeasuredOutputBounds"] = Bounds(),
-                ["expectedMeasuredWidth"] = 384,
-                ["expectedMeasuredHeight"] = 216,
+                ["expectedMeasuredOutputBounds"] = Bounds(size),
+                ["expectedMeasuredWidth"] = size.Width,
+                ["expectedMeasuredHeight"] = size.Height,
                 ["setupLastRequestCounters"] = new JsonObject { ["Requests"] = 1 },
                 ["measuredLastRequestCounters"] = new JsonObject { ["Requests"] = 1 },
                 ["fingerprint"] = Fingerprint(sourceSha),
@@ -683,13 +810,13 @@ public sealed class PairedBenchmarkAnalyzerTests
         private static JsonArray Samples(double value, int count)
             => new(Enumerable.Repeat(value, count).Select(v => JsonValue.Create(v)).ToArray());
 
-        private static JsonObject Bounds()
+        private static JsonObject Bounds(PixelSize size)
             => new()
             {
                 ["x"] = 0,
                 ["y"] = 0,
-                ["width"] = 384,
-                ["height"] = 216,
+                ["width"] = size.Width,
+                ["height"] = size.Height,
             };
 
         private static JsonObject LoadObject(string path)
