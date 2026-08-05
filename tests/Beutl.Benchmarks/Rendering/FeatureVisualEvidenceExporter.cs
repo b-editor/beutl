@@ -1743,8 +1743,7 @@ internal sealed class FeatureExecutionProbeNode : ContainerRenderNode
             OpaqueRenderBoundsContract.Map(RenderBoundsContract.Identity),
             RenderHitTestContract.AnyInput,
             RenderValueCardinality.Single,
-            RenderScaleContract.PreserveInputSupply,
-            structuralKey: typeof(FeatureExecutionProbeNode));
+            RenderScaleContract.PreserveInputSupply);
         foreach (RenderFragmentHandle input in context.Inputs)
             context.Publish(context.OpaqueMap(input, description));
     }

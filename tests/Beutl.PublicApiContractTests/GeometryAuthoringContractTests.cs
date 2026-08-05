@@ -48,7 +48,6 @@ public sealed class GeometryAuthoringContractTests
                     TargetRegion.Region(inputBounds),
                     Rect.Empty,
                     RenderHitTestContract.None,
-                    TargetAccess.ReadWrite,
                     structuralKey: "geometry-ineligible-command"));
 
             Assert.That(() => context.Geometry(command, description), Throws.TypeOf<ArgumentException>());

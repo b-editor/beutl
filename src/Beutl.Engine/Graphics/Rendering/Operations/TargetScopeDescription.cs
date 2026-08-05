@@ -406,6 +406,17 @@ public sealed class RawTargetCommandDescription
         ArgumentNullException.ThrowIfNull(execute);
         RenderRectValidation.ThrowIfInvalidInput(queryBounds, nameof(queryBounds));
         hitTest.ThrowIfUninitialized(nameof(hitTest));
+        if (hitTest.Kind == RenderHitTestContractKind.AnyInput)
+        {
+            throw new ArgumentException(
+                "A raw target command has no logical value inputs and cannot use AnyInput hit testing.",
+                nameof(hitTest));
+        }
+
+        RenderDescriptionValidation.ThrowIfQueryContributionIncoherent(
+            queryBounds,
+            hitTest,
+            nameof(hitTest));
 
         return new RawTargetCommandDescription(
             execute,

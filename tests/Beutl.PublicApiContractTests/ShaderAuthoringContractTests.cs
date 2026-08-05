@@ -170,7 +170,6 @@ public sealed class ShaderAuthoringContractTests
                     TargetRegion.Region(bounds),
                     Rect.Empty,
                     RenderHitTestContract.None,
-                    TargetAccess.ReadWrite,
                     structuralKey: "shader-ineligible-command"));
             RenderFragmentHandle scope = context.TargetLayerScope([source, command], TargetRegion.Region(bounds));
 

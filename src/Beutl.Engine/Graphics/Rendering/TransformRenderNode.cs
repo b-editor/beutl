@@ -39,12 +39,9 @@ public sealed class TransformRenderNode(Matrix transform, TransformOperator tran
             : RenderBoundsContract.CreateFullInput(
                 metadataState.TransformBounds,
                 structuralKey: (typeof(TransformRenderNode), "singular-bounds"));
-        RenderHitTestContract hitTest = RenderHitTestContract.Custom(
-            metadataState.HitTest,
-            structuralKey: typeof(TransformRenderNode));
+        RenderHitTestContract hitTest = RenderHitTestContract.Custom(metadataState.HitTest);
         RenderScaleContract scale = RenderScaleContract.MapInputSupply(
-            new TransformScaleMapper(transform).Map,
-            structuralKey: typeof(TransformRenderNode));
+            new TransformScaleMapper(transform).Map);
         var runtimeIdentity = new RenderRuntimeIdentity((transform, transformOperator));
         // Set discards the ambient transform for the canvas base transform, so it moves the input even when
         // the matrix is identity.
@@ -79,7 +76,6 @@ public sealed class TransformRenderNode(Matrix transform, TransformOperator tran
                     hitTest,
                     scale,
                     gridMapping,
-                    structuralKey: typeof(TransformRenderNode),
                     runtimeIdentity: runtimeIdentity);
             context.Publish(context.TargetScope(input, description));
         }

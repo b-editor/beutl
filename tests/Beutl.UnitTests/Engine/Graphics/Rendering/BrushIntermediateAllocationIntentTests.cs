@@ -299,8 +299,6 @@ public sealed class BrushIntermediateAllocationIntentTests
                 TargetRegion.Region(bounds),
                 bounds,
                 RenderHitTestContract.None,
-                TargetAccess.ReadWrite,
-                structuralKey: typeof(TargetCommandProbeNode),
                 runtimeIdentity: new RenderRuntimeIdentity(typeof(TargetCommandProbeNode)));
             context.Publish(context.TargetCommand([], command));
         }

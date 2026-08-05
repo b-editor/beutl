@@ -267,7 +267,6 @@ public sealed class RenderNodeRendererSnapshotFastPathTests
                     Rect.Empty,
                     RenderHitTestContract.None,
                     TargetAccess.Readback,
-                    structuralKey: typeof(MaterializedSourceNode),
                     runtimeIdentity: new RenderRuntimeIdentity("snapshot-fast-path-readback"))));
         }
     }

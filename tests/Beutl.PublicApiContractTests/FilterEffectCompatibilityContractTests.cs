@@ -397,8 +397,7 @@ public sealed class FilterEffectCompatibilityContractTests
         : FilterEffectRenderNode(resource)
     {
         private static readonly RenderScaleContract s_scale = RenderScaleContract.Custom(
-            static metadata => metadata.OutputBounds.Width >= 40 ? 2 : 0.5f,
-            typeof(BoundsDependentWorkingScaleFilterNode));
+            static metadata => metadata.OutputBounds.Width >= 40 ? 2 : 0.5f);
 
         protected override RenderScaleContract? GetWorkingScaleContract() => s_scale;
     }
@@ -529,7 +528,6 @@ public sealed class FilterEffectCompatibilityContractTests
                 RenderHitTestContract.OutputBounds,
                 RenderValueCardinality.Single,
                 RenderScaleContract.MaterializeAtWorkingScale,
-                structuralKey: typeof(SolidSourceNode),
                 runtimeIdentity: new RenderRuntimeIdentity((bounds, color)));
             context.Publish(context.OpaqueSource(description));
         }

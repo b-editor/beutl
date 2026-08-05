@@ -359,7 +359,6 @@ public sealed class RegionAnalyzerTests
                 affectedRegion,
                 queryBounds,
                 RenderHitTestContract.OutputBounds,
-                TargetAccess.ReadWrite,
                 structuralKey: ("region-command", ++_nextId));
             return Stamp(new RenderFragmentReference(
                 RenderFragmentKind.TargetCommand,

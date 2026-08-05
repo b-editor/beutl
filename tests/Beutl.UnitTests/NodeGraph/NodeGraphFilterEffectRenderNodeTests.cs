@@ -1053,9 +1053,7 @@ internal sealed class ScaleProbeRenderNode(FilterEffect.Resource fe) : FilterEff
                     static metadata => RenderScaleUtilities.ResolveWorkingScale(
                         metadata.InputSupplies.ToArray(),
                         metadata.OutputScale,
-                        metadata.MaxWorkingScale),
-                    structuralKey: typeof(ScaleProbeRenderNode)),
-                structuralKey: typeof(ScaleProbeRenderNode));
+                        metadata.MaxWorkingScale)));
             context.Publish(context.OpaqueMap(input, description));
         }
     }
@@ -1309,8 +1307,6 @@ internal sealed class OrderOnlyCommandRenderNode(MixedPreviewGraphNode owner) : 
             TargetRegion.Empty,
             Rect.Empty,
             RenderHitTestContract.None,
-            TargetAccess.ReadWrite,
-            structuralKey: typeof(OrderOnlyCommandRenderNode),
             runtimeIdentity: new RenderRuntimeIdentity(typeof(OrderOnlyCommandRenderNode)))));
     }
 }
@@ -1333,7 +1329,6 @@ internal sealed class CountingOpaqueSourceRenderNode(Rect bounds) : RenderNode
             RenderHitTestContract.OutputBounds,
             RenderValueCardinality.Single,
             RenderScaleContract.MaterializeAtWorkingScale,
-            structuralKey: typeof(CountingOpaqueSourceRenderNode),
             runtimeIdentity: new RenderRuntimeIdentity(bounds))));
     }
 }
@@ -1363,7 +1358,6 @@ internal sealed class EmptyZeroOrOneRenderNode(Rect bounds) : RenderNode
             RenderHitTestContract.OutputBounds,
             RenderValueCardinality.ZeroOrOne,
             RenderScaleContract.MaterializeAtWorkingScale,
-            structuralKey: typeof(EmptyZeroOrOneRenderNode),
             runtimeIdentity: new RenderRuntimeIdentity(bounds))));
     }
 }

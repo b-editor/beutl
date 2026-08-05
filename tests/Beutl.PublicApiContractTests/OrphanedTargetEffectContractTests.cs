@@ -296,7 +296,6 @@ public sealed class OrphanedTargetEffectContractTests
                     TargetRegion.Region(s_bounds),
                     s_bounds,
                     RenderHitTestContract.None,
-                    TargetAccess.ReadWrite,
                     structuralKey: "orphan-target-command")),
             TargetEffectKind.RawTargetCommand => context.RawTargetCommand(
                 RawTargetCommandDescription.Create(

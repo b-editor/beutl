@@ -1053,8 +1053,7 @@ public sealed class RenderPipelineReconciliationTests
                 OpaqueRenderBoundsContract.Source(new Rect(0, 0, 16, 16)),
                 RenderHitTestContract.OutputBounds,
                 RenderValueCardinality.Single,
-                RenderScaleContract.MaterializeAtWorkingScale,
-                structuralKey: typeof(DestinationInvalidatingNode))));
+                RenderScaleContract.MaterializeAtWorkingScale)));
         }
     }
 
@@ -1076,7 +1075,6 @@ public sealed class RenderPipelineReconciliationTests
                 RenderHitTestContract.OutputBounds,
                 RenderValueCardinality.Single,
                 RenderScaleContract.MaterializeAtWorkingScale,
-                structuralKey: typeof(CacheableWorkNode),
                 runtimeIdentity: new RenderRuntimeIdentity(typeof(CacheableWorkNode)))));
         }
     }
@@ -1093,7 +1091,6 @@ public sealed class RenderPipelineReconciliationTests
                 RenderHitTestContract.OutputBounds,
                 RenderValueCardinality.ZeroOrOne,
                 RenderScaleContract.MaterializeAtWorkingScale,
-                structuralKey: typeof(NoOutputOpaqueNode),
                 runtimeIdentity: new RenderRuntimeIdentity(typeof(NoOutputOpaqueNode)))));
         }
     }
@@ -1142,8 +1139,6 @@ public sealed class RenderPipelineReconciliationTests
                 TargetRegion.Full,
                 Rect.Empty,
                 RenderHitTestContract.None,
-                TargetAccess.ReadWrite,
-                structuralKey: typeof(NoDrawTargetCommandNode),
                 runtimeIdentity: new RenderRuntimeIdentity(typeof(NoDrawTargetCommandNode)))));
         }
     }
@@ -1159,8 +1154,6 @@ public sealed class RenderPipelineReconciliationTests
                 TargetRegion.Empty,
                 Rect.Empty,
                 RenderHitTestContract.None,
-                TargetAccess.ReadWrite,
-                structuralKey: typeof(EmptyTargetCommandNode),
                 runtimeIdentity: new RenderRuntimeIdentity(typeof(EmptyTargetCommandNode)))));
         }
     }
@@ -1181,7 +1174,6 @@ public sealed class RenderPipelineReconciliationTests
                 RenderHitTestContract.OutputBounds,
                 RenderValueCardinality.ZeroOrOne,
                 RenderScaleContract.MaterializeAtWorkingScale,
-                structuralKey: typeof(UnpublishedOutputOpaqueNode),
                 runtimeIdentity: new RenderRuntimeIdentity(typeof(UnpublishedOutputOpaqueNode)))));
         }
     }
@@ -1244,7 +1236,6 @@ public sealed class RenderPipelineReconciliationTests
                 TargetRegion.Full,
                 Rect.Empty,
                 RenderHitTestContract.None,
-                TargetAccess.ReadWrite,
                 structuralKey: (typeof(DegenerateShaderRunNode), "clear"),
                 runtimeIdentity: new RenderRuntimeIdentity("degenerate-clear"))));
         }
@@ -1299,7 +1290,6 @@ public sealed class RenderPipelineReconciliationTests
                 RenderHitTestContract.OutputBounds,
                 RenderValueCardinality.Single,
                 RenderScaleContract.MaterializeAtWorkingScale,
-                structuralKey: typeof(ThrowingCacheableWorkNode),
                 runtimeIdentity: new RenderRuntimeIdentity(typeof(ThrowingCacheableWorkNode)))));
         }
     }

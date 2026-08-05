@@ -60,9 +60,7 @@ public sealed class SymbolicSupplyMappingTests
                     hitTest: RenderHitTestContract.AnyInput,
                     valueCardinality: RenderValueCardinality.Single,
                     scale: RenderScaleContract.MapInputSupply(
-                        HalfSupply,
-                        structuralKey: typeof(HalfInputSupplyRenderNode)),
-                    structuralKey: typeof(HalfInputSupplyRenderNode));
+                        HalfSupply));
                 context.Publish(context.OpaqueMap(input, description));
             }
         }

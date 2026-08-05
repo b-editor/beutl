@@ -627,7 +627,6 @@ public sealed class StructuralAndProgramCacheTests
                     TargetRegion.Empty,
                     Rect.Empty,
                     RenderHitTestContract.None,
-                    TargetAccess.ReadWrite,
                     inputReadbacks: ReadFirstInput
                         ? [RenderInputReadback.All, RenderInputReadback.None]
                         : [RenderInputReadback.None, RenderInputReadback.All],

@@ -82,14 +82,9 @@ public sealed class VideoSourceRenderNode(
                 (canvas, currentSource, currentFill, currentPen) =>
                     canvas.DrawVideoSource(currentSource, frame, currentFill, currentPen)),
             bounds: BrushRecorder.CreateSourceBounds(paint, bounds, typeof(VideoSourceRenderNode)),
-            hitTest: RenderHitTestContract.Custom(
-                hitTestState.Evaluate,
-                typeof(VideoSourceRenderNode)),
+            hitTest: RenderHitTestContract.Custom(hitTestState.Evaluate),
             valueCardinality: RenderValueCardinality.Single,
-            scale: RenderScaleContract.Custom(
-                new VideoScaleResolver(supplyDensity).Resolve,
-                typeof(VideoSourceRenderNode)),
-            structuralKey: typeof(VideoSourceRenderNode),
+            scale: RenderScaleContract.Custom(new VideoScaleResolver(supplyDensity).Resolve),
             runtimeIdentity: new RenderRuntimeIdentity((bounds, frame, supplyDensity, hitTestState)),
             resources: DeferredOpaqueSource.Resources(
                 [sourceResource, .. paint.Resources]));

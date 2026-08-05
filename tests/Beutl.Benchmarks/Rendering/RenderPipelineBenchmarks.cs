@@ -804,7 +804,6 @@ internal sealed class BenchmarkTargetDependencyNode(Rect bounds, int index) : Co
             TargetRegion.Region(bounds),
             bounds,
             RenderHitTestContract.OutputBounds,
-            TargetAccess.ReadWrite,
             structuralKey: $"render-pipeline-target-dependency-{index}",
             runtimeIdentity: new RenderRuntimeIdentity(index));
         context.Publish(context.TargetCommand(context.Inputs, command));

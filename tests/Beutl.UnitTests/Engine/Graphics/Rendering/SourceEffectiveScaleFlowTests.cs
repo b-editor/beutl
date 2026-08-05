@@ -465,8 +465,7 @@ public class SourceEffectiveScaleFlowTests
         try
         {
             var policy = new FilterEffectWorkingScalePolicy(RenderScaleContract.Custom(
-                ObserveBranchWorkingScale,
-                typeof(SourceEffectiveScaleFlowTests)));
+                ObserveBranchWorkingScale));
 
             EffectiveScale resolved = policy.Resolve(
                 [EffectiveScale.At(0.5f), EffectiveScale.At(2)],
@@ -1736,8 +1735,7 @@ public class SourceEffectiveScaleFlowTests
         : FilterEffectRenderNode(effect)
     {
         private static readonly RenderScaleContract s_scale = RenderScaleContract.Custom(
-            static _ => 2,
-            typeof(FixedWorkingScaleRenderNode));
+            static _ => 2);
 
         protected override RenderScaleContract? GetWorkingScaleContract() => s_scale;
     }
@@ -1774,8 +1772,7 @@ public class SourceEffectiveScaleFlowTests
         : FilterEffectRenderNode(effect)
     {
         private static readonly RenderScaleContract s_scale = RenderScaleContract.Custom(
-            ThrowWorkingScaleResolver,
-            typeof(ThrowingWorkingScaleRenderNode));
+            ThrowWorkingScaleResolver);
 
         public int HookCalls { get; private set; }
 
@@ -1798,7 +1795,6 @@ public class SourceEffectiveScaleFlowTests
                 region,
                 bounds,
                 RenderHitTestContract.None,
-                TargetAccess.ReadWrite,
                 structuralKey: new TargetCommandSourceIdentity(bounds, owningTargetDomain),
                 runtimeIdentity: new RenderRuntimeIdentity(
                     new TargetCommandSourceIdentity(bounds, owningTargetDomain)))));
@@ -1820,9 +1816,7 @@ public class SourceEffectiveScaleFlowTests
                 },
                 TargetRegion.Region(bounds),
                 bounds,
-                RenderHitTestContract.None,
-                TargetAccess.ReadWrite,
-                structuralKey: typeof(LayerTargetCommandProbeNode));
+                RenderHitTestContract.None);
             context.Publish(context.TargetCommand([layer], command));
         }
     }
@@ -1987,8 +1981,7 @@ public class SourceEffectiveScaleFlowTests
                     OpaqueRenderBoundsContract.Source(bounds),
                     RenderHitTestContract.None,
                     RenderValueCardinality.Single,
-                    RenderScaleContract.Vector,
-                    structuralKey: typeof(VectorSourceNode));
+                    RenderScaleContract.Vector);
                 context.Publish(context.OpaqueSource(source));
             }
         }
@@ -2401,8 +2394,7 @@ internal static class ScaleRecordingTestHelper
                     bounds: OpaqueRenderBoundsContract.Map(RenderBoundsContract.Identity),
                     hitTest: RenderHitTestContract.AnyInput,
                     valueCardinality: RenderValueCardinality.Single,
-                    scale: RenderScaleContract.MaterializeAtWorkingScale,
-                    structuralKey: typeof(MaterializeInputsRenderNode));
+                    scale: RenderScaleContract.MaterializeAtWorkingScale);
                 context.Publish(context.OpaqueMap(input, description));
             }
         }

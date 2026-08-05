@@ -858,9 +858,7 @@ public sealed class TargetScopeLoweringTests
                     session => session.Canvas.Use(canvas => canvas.Clear(color)),
                     TargetRegion.Full,
                     Rect.Empty,
-                    RenderHitTestContract.None,
-                    TargetAccess.ReadWrite,
-                    structuralKey: typeof(FullCommandNode))));
+                    RenderHitTestContract.None)));
         }
     }
 
@@ -875,8 +873,7 @@ public sealed class TargetScopeLoweringTests
                     TargetRegion.Region(region),
                     Rect.Empty,
                     RenderHitTestContract.None,
-                    TargetAccess.Readback,
-                    structuralKey: typeof(ReadbackCommandNode))));
+                    TargetAccess.Readback)));
         }
     }
 
@@ -898,8 +895,7 @@ public sealed class TargetScopeLoweringTests
                     TargetRegion.Full,
                     Rect.Empty,
                     RenderHitTestContract.None,
-                    TargetAccess.Readback,
-                    structuralKey: typeof(WritingReadbackCommandNode))));
+                    TargetAccess.Readback)));
         }
     }
 
@@ -913,9 +909,7 @@ public sealed class TargetScopeLoweringTests
                     static _ => { },
                     TargetRegion.Empty,
                     Rect.Empty,
-                    RenderHitTestContract.None,
-                    TargetAccess.ReadWrite,
-                    structuralKey: typeof(OrderOnlyCommandNode))));
+                    RenderHitTestContract.None)));
         }
     }
 
@@ -929,9 +923,7 @@ public sealed class TargetScopeLoweringTests
                     static _ => { },
                     TargetRegion.Region(bounds),
                     bounds,
-                    RenderHitTestContract.None,
-                    TargetAccess.ReadWrite,
-                    structuralKey: typeof(FiniteCommandNode))));
+                    RenderHitTestContract.None)));
         }
     }
 

@@ -124,7 +124,6 @@ public sealed class TargetCaptureValueWrapperTests
             static session => session.Canvas.Use(session.Input.Draw),
             RenderBoundsContract.Identity,
             RenderHitTestContract.AnyInput,
-            structuralKey: typeof(TargetCaptureValueWrapperNode),
             runtimeIdentity: new RenderRuntimeIdentity("target-capture-value-wrapper-identity"));
 
         public override void Process(RenderNodeContext context)

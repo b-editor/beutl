@@ -627,7 +627,6 @@ public sealed class GpuPassFusionScaleRegionTests
                 hitTest: RenderHitTestContract.OutputBounds,
                 valueCardinality: RenderValueCardinality.Single,
                 scale: RenderScaleContract.Custom(static _ => 2, typeof(ShiftedCallbackNode)),
-                structuralKey: typeof(ShiftedCallbackNode),
                 runtimeIdentity: new RenderRuntimeIdentity(bounds));
             context.Publish(context.OpaqueSource(description));
         }
@@ -678,7 +677,6 @@ public sealed class GpuPassFusionScaleRegionTests
                 },
                 RenderBoundsContract.Identity,
                 RenderHitTestContract.AnyInput,
-                structuralKey: typeof(TypedValueRoiNode),
                 runtimeIdentity: new RenderRuntimeIdentity("typed-roi-geometry"));
             RenderFragmentHandle current = context.Geometry(source, geometry);
             ShaderDescription shader = ShaderDescription.CurrentPixel(
@@ -694,8 +692,7 @@ public sealed class GpuPassFusionScaleRegionTests
                         ShaderRequiredRegion = execution.RequiredRegion;
                         ShaderDeviceBounds = execution.DeviceBounds;
                         writer.Set(value);
-                    },
-                    structuralKey: typeof(TypedValueRoiNode)));
+                    }));
             current = context.Shader(current, shader);
             TargetScopeDescription scope = TargetScopeDescription.Create(
                 session =>
@@ -710,7 +707,6 @@ public sealed class GpuPassFusionScaleRegionTests
                 RenderBoundsContract.Identity,
                 RenderHitTestContract.AnyInput,
                 RenderScaleContract.PreserveInputSupply,
-                structuralKey: typeof(TypedValueRoiNode),
                 runtimeIdentity: new RenderRuntimeIdentity("typed-roi-scope"));
             context.Publish(context.TargetScope(current, scope));
         }
@@ -754,7 +750,6 @@ public sealed class GpuPassFusionScaleRegionTests
                 RenderHitTestContract.OutputBounds,
                 RenderValueCardinality.Single,
                 RenderScaleContract.Custom(static _ => 2, typeof(TargetReadbackRoiNode)),
-                structuralKey: typeof(TargetReadbackRoiNode),
                 runtimeIdentity: new RenderRuntimeIdentity(typeof(TargetReadbackRoiNode))));
             context.Publish(source);
             context.Publish(context.TargetCommand(
@@ -789,7 +784,6 @@ public sealed class GpuPassFusionScaleRegionTests
                     Rect.Empty,
                     RenderHitTestContract.None,
                     TargetAccess.Readback,
-                    structuralKey: typeof(TargetReadbackRoiNode),
                     runtimeIdentity: new RenderRuntimeIdentity("target-readback-roi"))));
         }
     }

@@ -767,8 +767,6 @@ public sealed class RendererWideRecordingTests
                 TargetRegion.Full,
                 Rect.Empty,
                 RenderHitTestContract.None,
-                TargetAccess.ReadWrite,
-                structuralKey: typeof(OrderedTargetCommandNode),
                 runtimeIdentity: new RenderRuntimeIdentity("ordered-command"));
             context.Publish(context.TargetCommand([], description));
         }
@@ -801,7 +799,6 @@ public sealed class RendererWideRecordingTests
                 RenderHitTestContract.AnyInput,
                 RenderValueCardinality.Single,
                 RenderScaleContract.PreserveInputSupply,
-                structuralKey: typeof(OrderedCaptureNode),
                 runtimeIdentity: new RenderRuntimeIdentity("ordered-capture"));
             context.Publish(context.ContributeValues(context.OpaqueMap(capture, replay)));
         }
@@ -1106,7 +1103,6 @@ internal sealed class CacheMutationThreadProbeNode(
             RenderHitTestContract.OutputBounds,
             RenderValueCardinality.Single,
             RenderScaleContract.MaterializeAtWorkingScale,
-            structuralKey: typeof(CacheMutationThreadProbeNode),
             runtimeIdentity: new RenderRuntimeIdentity(typeof(CacheMutationThreadProbeNode)));
         context.Publish(context.OpaqueSource(description));
     }

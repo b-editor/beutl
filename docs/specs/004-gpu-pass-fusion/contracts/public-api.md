@@ -661,6 +661,8 @@ For `OpaqueMap`, `RenderValueCardinality.Single` means one output per invocation
 
 When `structuralKey` is null, the description uses the execution callback's method identity plus operation kind. `RenderScaleContract.Custom`, custom bounds, and custom hit-test contracts likewise default to their delegate method identities. A captured choice that changes operation/binding/topology shape belongs in an explicit equality-stable structural key. Pixel-affecting captured scalar/value data belongs in `runtimeIdentity`; leaving it null safely disables cross-request output-cache reuse for this recorded value.
 
+An explicit key is never mandatory on a public factory, and supplying the declaring node's `Type` is strictly worse than omitting it: a method identity names both the node and which callback within it, so `typeof(TheNode)` replaces a finer default with a coarser one and merges every callback that node records. Authors supply an explicit key only when the default cannot express the distinction they need — for example a compound key such as `(typeof(TheNode), "invertible-bounds")` that splits one callback into two structural identities, or a shared helper delegate whose method identity would otherwise merge unrelated authoring sites.
+
 The context methods are deliberately named `Opaque*`: an arbitrary callback is never treated as a semantic/fusible map based on author assertion.
 
 ## Materialized input description
@@ -858,6 +860,8 @@ public sealed class RawTargetCommandSession
 
 Both `RawTargetCommandDescription.Create` and `TargetCommandDescription.Create` validate `queryBounds` when the description is created. The accepted domain is every finite `Rect` with non-negative width and height. `Rect.Empty` is the conventional no-query value, although another finite zero-area rectangle is also accepted and preserves its authored origin. A non-finite coordinate/dimension or a negative width/height is rejected synchronously with `ArgumentException` for `queryBounds`.
 
+`queryBounds` and `hitTest` are validated as one query contribution rather than independently, because `Rect.Contains` is edge-inclusive: a zero-area rectangle still contains its own origin, so `RenderHitTestContract.OutputBounds` over `Rect.Empty` would hit-test true at logical `(0, 0)` while reporting no Measure contribution at all. A zero-area `queryBounds` therefore requires `RenderHitTestContract.None`, and any other contract is rejected synchronously with `ArgumentException` for `hitTest`. The order-only command idiom — a zero-area `queryBounds` with `RenderHitTestContract.None` — is unaffected. `RawTargetCommandDescription.Create` additionally rejects `RenderHitTestContract.AnyInput`, matching `TargetCaptureDescription.Create` and `MaterializedInputDescription.FromRenderTarget`: a raw command has no logical value inputs, so input hit testing can never report a hit.
+
 `RawTargetScope` is invoked once per input fragment and must call `ReplayInput` exactly once. It receives a raw current-target canvas specifically to migrate an existing custom decorator that cannot be expressed through Opacity, Blend, OpacityMask, typed `TargetLayerScope`, finite value `Layer`, or guarded transform/clip TargetScope. Both raw forms conservatively consume/produce the scope's `TargetRegion.Full` token with read/write access because an unguarded callback may draw, clear, snapshot, or touch pixels before/after replay and cannot be mechanically confined. A raw scope's Bounds/HitTest/Scale and a raw command's QueryBounds/HitTest describe only value/query metadata, never a trusted access limit. `RawTargetCommand` is invoked once with no value input and has value cardinality `None`, `EffectiveScale.Unbounded`, and `ContributesValuesToTarget == false`; wrap it in finite `Layer` when its painter result must become a value.
 
 Neither raw callback may dispose or retain the canvas/session/resource, but internal saves, layers, draws, snapshots, flushes, or nested raw hooks cannot be inspected or counted by the planner. Each fragment is therefore a `LegacyRawCanvas`/opaque-external boundary, sets `HasOpaqueExternalWork`, increments `OpaqueExternalExecutions`, disables whole-subtree caching/fusion through itself, and is excluded from exact internal pass/synchronization claims. Raw descriptions deliberately have no runtime cache identity: callback payload binds per request and whole-subtree output caching always bypasses. New code uses the typed vocabulary; the raw forms exist for behavioral completeness, not as optimization assertions. The migration census must classify every old `CreateLambda`/raw-canvas call site as guarded `Opaque*`, typed TargetCommand/capture/scope, RawTargetScope, or RawTargetCommand; no unclassified escape remains.
@@ -883,7 +887,7 @@ public sealed class TargetCommandDescription
         TargetRegion affectedRegion,
         Rect queryBounds,
         RenderHitTestContract hitTest,
-        TargetAccess access,
+        TargetAccess access = TargetAccess.ReadWrite,
         IEnumerable<RenderInputReadback>? inputReadbacks = null,
         object? structuralKey = null,
         RenderRuntimeIdentity? runtimeIdentity = null,

@@ -25,8 +25,6 @@ public sealed class ClearRenderNode(Color color) : RenderNode
             TargetRegion.Full,
             Rect.Empty,
             RenderHitTestContract.None,
-            TargetAccess.ReadWrite,
-            structuralKey: typeof(ClearRenderNode),
             runtimeIdentity: new RenderRuntimeIdentity(color));
         context.Publish(context.TargetCommand([], description));
     }

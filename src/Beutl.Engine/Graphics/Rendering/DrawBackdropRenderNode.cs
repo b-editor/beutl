@@ -32,8 +32,6 @@ public class DrawBackdropRenderNode(IBackdrop backdrop, Rect bounds) : RenderNod
                 TargetRegion.Region(bounds),
                 bounds,
                 RenderHitTestContract.OutputBounds,
-                TargetAccess.ReadWrite,
-                structuralKey: typeof(DrawBackdropRenderNode),
                 runtimeIdentity: new RenderRuntimeIdentity(bounds));
             context.Publish(context.TargetCommand([capture!], description));
             return;
@@ -44,7 +42,6 @@ public class DrawBackdropRenderNode(IBackdrop backdrop, Rect bounds) : RenderNod
             session => session.UseResource(resource, value => value.Draw(session.Canvas)),
             bounds,
             RenderHitTestContract.OutputBounds,
-            structuralKey: typeof(IBackdrop),
             resources: [resource]);
         context.Publish(context.RawTargetCommand(rawDescription));
     }

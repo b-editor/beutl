@@ -61,8 +61,6 @@ internal sealed class ParticleRenderNode(ParticleEmitter.Resource particle) : Re
             affectedRegion: TargetRegion.Region(totalBounds),
             queryBounds: totalBounds,
             hitTest: RenderHitTestContract.None,
-            access: TargetAccess.ReadWrite,
-            structuralKey: typeof(ParticleRenderNode),
             resources: [particlesToken]);
         RenderFragmentHandle painter = context.TargetCommand([source], description);
 
@@ -112,7 +110,6 @@ internal sealed class ParticleRenderNode(ParticleEmitter.Resource particle) : Re
             hitTest: RenderHitTestContract.OutputBounds,
             valueCardinality: RenderValueCardinality.Single,
             scale: RenderScaleContract.Vector,
-            structuralKey: typeof(ParticleFallbackSource),
             runtimeIdentity: new RenderRuntimeIdentity(bounds),
             resources: [fillToken]);
         return context.OpaqueSource(description);

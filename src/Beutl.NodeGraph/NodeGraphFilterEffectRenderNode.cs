@@ -276,8 +276,7 @@ internal sealed class FilterEffectInputBinding : IDisposable
                 TargetRegion.Empty,
                 Rect.Empty,
                 RenderHitTestContract.None,
-                TargetAccess.ReadWrite,
-                inputReadbacks,
+                inputReadbacks: inputReadbacks,
                 structuralKey: s_previewCommandStructuralKey,
                 runtimeIdentity: new RenderRuntimeIdentity(runtimeIdentity));
             _context.Publish(_context.TargetCommand(inputs, description));

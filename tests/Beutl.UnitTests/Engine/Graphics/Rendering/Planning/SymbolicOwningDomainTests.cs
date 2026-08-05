@@ -612,8 +612,7 @@ public sealed class SymbolicOwningDomainTests
                 GeometryDescription.Create(
                     static _ => { },
                     RenderBoundsContract.Identity,
-                    RenderHitTestContract.AnyInput,
-                    structuralKey: typeof(BuiltInDerivedFanOutNode)));
+                    RenderHitTestContract.AnyInput));
             RenderFragmentHandle contributing = context.ContributeValues(geometry);
             context.Publish(context.Layer([contributing], producerDomain));
             context.Publish(context.Layer([contributing], secondConsumerDomain));
@@ -677,8 +676,7 @@ internal sealed partial class SymbolicDomainFilterEffect : FilterEffect
         context.Geometry(GeometryDescription.Create(
             static _ => { },
             RenderBoundsContract.Identity,
-            RenderHitTestContract.AnyInput,
-            structuralKey: typeof(SymbolicDomainFilterEffect)));
+            RenderHitTestContract.AnyInput));
     }
 
     public override Resource ToResource(CompositionContext context)

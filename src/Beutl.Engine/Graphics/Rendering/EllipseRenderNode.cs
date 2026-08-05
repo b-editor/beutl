@@ -61,9 +61,7 @@ public sealed class EllipseRenderNode(Rect rect, Brush.Resource? fill, Pen.Resou
                 (canvas, currentFill, currentPen) =>
                     canvas.DrawEllipse(rect, currentFill, currentPen)),
             bounds: BrushRecorder.CreateSourceBounds(paint, bounds, typeof(EllipseRenderNode)),
-            hitTest: RenderHitTestContract.Custom(
-                (_, point) => hitTestState.HitTest(point),
-                typeof(EllipseRenderNode)),
+            hitTest: RenderHitTestContract.Custom((_, point) => hitTestState.HitTest(point)),
             scale: RenderScaleContract.Vector,
             deviceGridSensitivity: RenderDeviceGridSensitivity.Insensitive,
             structuralKey: typeof(EllipseRenderNode),

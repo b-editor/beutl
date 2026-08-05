@@ -61,9 +61,7 @@ public sealed class RectangleRenderNode(Rect rect, Brush.Resource? fill, Pen.Res
                 (canvas, currentFill, currentPen) =>
                     canvas.DrawRectangle(rect, currentFill, currentPen)),
             bounds: BrushRecorder.CreateSourceBounds(paint, bounds, typeof(RectangleRenderNode)),
-            hitTest: RenderHitTestContract.Custom(
-                (_, point) => hitTestState.HitTest(point),
-                typeof(RectangleRenderNode)),
+            hitTest: RenderHitTestContract.Custom((_, point) => hitTestState.HitTest(point)),
             scale: RenderScaleContract.Vector,
             deviceGridSensitivity: RenderDeviceGridSensitivity.Insensitive,
             structuralKey: typeof(RectangleRenderNode),

@@ -366,8 +366,7 @@ public sealed class DeclaredPlannerTraitContractTests
                     },
                     RenderBoundsContract.Identity,
                     RenderHitTestContract.AnyInput,
-                    RenderScaleContract.PreserveInputSupply,
-                    structuralKey: typeof(JitteringRawScopeNode))));
+                    RenderScaleContract.PreserveInputSupply)));
         }
     }
 
@@ -391,9 +390,7 @@ public sealed class DeclaredPlannerTraitContractTests
                     }),
                     TargetRegion.Region(s_bounds),
                     s_bounds,
-                    RenderHitTestContract.OutputBounds,
-                    TargetAccess.ReadWrite,
-                    structuralKey: typeof(JitteringCommandNode))));
+                    RenderHitTestContract.OutputBounds)));
         }
     }
 }

@@ -425,7 +425,6 @@ public sealed class RenderNodeRendererContractTests
                     TargetRegion.Full,
                     Rect.Empty,
                     RenderHitTestContract.None,
-                    TargetAccess.ReadWrite,
                     structuralKey: "singular-transform-full-command"));
             context.Publish(command);
         });
@@ -473,7 +472,6 @@ public sealed class RenderNodeRendererContractTests
                     TargetRegion.Empty,
                     Rect.Empty,
                     RenderHitTestContract.None,
-                    TargetAccess.ReadWrite,
                     structuralKey: "singular-transform-empty-command"));
             context.Publish(command);
         });
@@ -544,7 +542,6 @@ public sealed class RenderNodeRendererContractTests
                     TargetRegion.Full,
                     query,
                     RenderHitTestContract.OutputBounds,
-                    TargetAccess.ReadWrite,
                     structuralKey: "measurement-command"));
             context.Publish(command);
         });
@@ -867,7 +864,6 @@ public sealed class RenderNodeRendererContractTests
                     TargetRegion.Full,
                     Rect.Empty,
                     RenderHitTestContract.None,
-                    TargetAccess.ReadWrite,
                     structuralKey: ("render-target-domain", transform)));
             context.Publish(command);
         });

@@ -1862,7 +1862,6 @@ public sealed class RenderCacheResolutionTests
                         TargetRegion.Region(s_bounds),
                         Rect.Empty,
                         RenderHitTestContract.None,
-                        TargetAccess.ReadWrite,
                         runtimeIdentity: new RenderRuntimeIdentity("command")),
                     []);
                 cardinality = RenderValueCardinality.None;
@@ -2074,7 +2073,6 @@ public sealed class RenderCacheResolutionTests
                 RenderHitTestContract.OutputBounds,
                 RenderValueCardinality.Single,
                 RenderScaleContract.MaterializeAtWorkingScale,
-                structuralKey: typeof(CacheableNode),
                 runtimeIdentity: new RenderRuntimeIdentity("stable"));
             context.Publish(context.OpaqueSource(description));
         }
@@ -2112,7 +2110,6 @@ public sealed class RenderCacheResolutionTests
                 RenderHitTestContract.OutputBounds,
                 RenderValueCardinality.Single,
                 RenderScaleContract.MaterializeAtWorkingScale,
-                structuralKey: typeof(SolidCacheNode),
                 runtimeIdentity: new RenderRuntimeIdentity((typeof(SolidCacheNode), throwOnExecute)),
                 resources: [fillResource]);
             context.Publish(context.OpaqueSource(description));

@@ -63,7 +63,6 @@ internal sealed class FusionBoundaryRuntimeNode(
                     session => session.Canvas.Use(session.Input.Draw),
                     RenderBoundsContract.Identity,
                     RenderHitTestContract.AnyInput,
-                    structuralKey: typeof(FusionBoundaryRuntimeNode),
                     runtimeIdentity: new RenderRuntimeIdentity("geometry-identity")));
                 break;
 
@@ -84,7 +83,6 @@ internal sealed class FusionBoundaryRuntimeNode(
                         Rect.Empty,
                         RenderHitTestContract.None,
                         TargetAccess.Readback,
-                        structuralKey: typeof(FusionBoundaryRuntimeNode),
                         runtimeIdentity: new RenderRuntimeIdentity("target-readback"))));
                 return;
 
@@ -98,8 +96,7 @@ internal sealed class FusionBoundaryRuntimeNode(
                     OpaqueRenderDescription.Create(
                         CopySingleInput,
                         OpaqueRenderBoundsContract.FullInputs(
-                            static inputs => inputs.Single(),
-                            typeof(FusionBoundaryRuntimeNode)),
+                            static inputs => inputs.Single()),
                         RenderHitTestContract.AnyInput,
                         RenderValueCardinality.Dynamic,
                         RenderScaleContract.MaterializeAtWorkingScale,
@@ -183,7 +180,6 @@ internal sealed class AntialiasedCoverageBoundaryNode(Rect bounds) : RenderNode
             RenderHitTestContract.OutputBounds,
             RenderValueCardinality.Single,
             RenderScaleContract.MaterializeAtWorkingScale,
-            structuralKey: typeof(AntialiasedCoverageBoundaryNode),
             runtimeIdentity: new RenderRuntimeIdentity("aa-thin-stroke"));
         RenderFragmentHandle current = context.OpaqueSource(source);
         current = context.Shader(current, ShaderDescription.CurrentPixel(

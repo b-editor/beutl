@@ -160,7 +160,6 @@ public sealed class RenderNodeAuthoringContractTests
                     TargetRegion.Region(bounds),
                     bounds,
                     RenderHitTestContract.OutputBounds,
-                    TargetAccess.ReadWrite,
                     structuralKey: "eligibility-command"));
 
             RenderFragmentHandle opacityValue = context.Opacity(source, 0.5f);
@@ -342,7 +341,6 @@ public sealed class RenderNodeAuthoringContractTests
                     TargetRegion.Region(bounds),
                     Rect.Empty,
                     RenderHitTestContract.None,
-                    TargetAccess.ReadWrite,
                     structuralKey: "fan-out-command"));
             context.Publish(command);
             context.Publish(command);
@@ -361,7 +359,6 @@ public sealed class RenderNodeAuthoringContractTests
                     TargetRegion.Region(bounds),
                     Rect.Empty,
                     RenderHitTestContract.None,
-                    TargetAccess.ReadWrite,
                     structuralKey: "indirect-fan-out-command"));
             context.PublishRange([
                 context.Opacity(command, 0.5f),
@@ -377,7 +374,6 @@ public sealed class RenderNodeAuthoringContractTests
                     TargetRegion.Region(bounds),
                     Rect.Empty,
                     RenderHitTestContract.None,
-                    TargetAccess.ReadWrite,
                     structuralKey: "layer-fan-out-command"));
             context.Publish(context.Layer([command, command], bounds));
         });

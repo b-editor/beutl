@@ -42,12 +42,9 @@ public sealed class RectClipRenderNode(Rect clip, ClipOperation operation) : Con
                 metadata.TransformBounds,
                 metadata.GetRequiredInputBounds,
                 structuralKey: (typeof(RectClipRenderNode), "clip-bounds")),
-            RenderHitTestContract.Custom(
-                metadata.HitTest,
-                structuralKey: typeof(RectClipRenderNode)),
+            RenderHitTestContract.Custom(metadata.HitTest),
             RenderScaleContract.PreserveInputSupply,
             RenderDeviceGridMapping.Preserved,
-            structuralKey: typeof(RectClipRenderNode),
             runtimeIdentity: new RenderRuntimeIdentity((clip, operation)));
 
         foreach (RenderFragmentHandle input in context.Inputs)

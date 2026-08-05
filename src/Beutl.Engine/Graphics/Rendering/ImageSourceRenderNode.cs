@@ -68,13 +68,10 @@ public sealed class ImageSourceRenderNode(ImageSource.Resource source, Brush.Res
                 static (canvas, currentSource, currentFill, currentPen) =>
                     canvas.DrawImageSource(currentSource, currentFill, currentPen)),
             bounds: BrushRecorder.CreateSourceBounds(paint, bounds, typeof(ImageSourceRenderNode)),
-            hitTest: RenderHitTestContract.Custom(
-                hitTestState.Evaluate,
-                typeof(ImageSourceRenderNode)),
+            hitTest: RenderHitTestContract.Custom(hitTestState.Evaluate),
             valueCardinality: RenderValueCardinality.Single,
             // Bitmap at native 1:1 density; downstream transforms re-scale accordingly.
-            scale: RenderScaleContract.Custom(static _ => 1f, typeof(ImageSourceRenderNode)),
-            structuralKey: typeof(ImageSourceRenderNode),
+            scale: RenderScaleContract.Custom(static _ => 1f),
             runtimeIdentity: new RenderRuntimeIdentity((bounds, hitTestState)),
             resources: DeferredOpaqueSource.Resources(
                 [sourceResource, .. paint.Resources]));

@@ -378,7 +378,6 @@ public sealed class RenderDescriptionAndExecutionContractTests
                     TargetRegion.Region(bounds),
                     bounds,
                     RenderHitTestContract.None,
-                    TargetAccess.ReadWrite,
                     inputReadbacks: [default]),
                 Throws.TypeOf<ArgumentException>().With.Property("ParamName").EqualTo("inputReadbacks"));
         });
@@ -418,8 +417,7 @@ public sealed class RenderDescriptionAndExecutionContractTests
                     static _ => { },
                     default,
                     Rect.Empty,
-                    RenderHitTestContract.None,
-                    TargetAccess.ReadWrite),
+                    RenderHitTestContract.None),
                 Throws.TypeOf<ArgumentException>());
             Assert.That(
                 () => TargetScopeDescription.Create(

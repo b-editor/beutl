@@ -23,7 +23,6 @@ public sealed class TargetAuthoringContractTests
                     TargetRegion.Full,
                     Rect.Empty,
                     RenderHitTestContract.None,
-                    TargetAccess.ReadWrite,
                     structuralKey: "public-owning-target-layer"));
             RenderFragmentHandle layer = context.OwningTargetLayer([command]);
             RenderFragmentHandle consumer = context.OpaqueMap(
@@ -78,7 +77,6 @@ public sealed class TargetAuthoringContractTests
                     TargetRegion.Region(affected),
                     Rect.Empty,
                     RenderHitTestContract.None,
-                    TargetAccess.ReadWrite,
                     structuralKey: "empty-query-finite-write"));
             RenderFragmentHandle layer = context.Layer([command], domain);
             commandLayer = FragmentSnapshot.From(layer);
@@ -116,7 +114,6 @@ public sealed class TargetAuthoringContractTests
                     TargetRegion.Region(bounds),
                     queryBounds,
                     RenderHitTestContract.OutputBounds,
-                    TargetAccess.ReadWrite,
                     structuralKey: "guarded-command"));
             RenderFragmentHandle rawCommand = context.RawTargetCommand(
                 RawTargetCommandDescription.Create(
@@ -150,7 +147,6 @@ public sealed class TargetAuthoringContractTests
                     TargetRegion.Region(bounds),
                     queryBounds,
                     RenderHitTestContract.OutputBounds,
-                    TargetAccess.ReadWrite,
                     structuralKey: "finite-layer-command"));
             RenderFragmentHandle finiteLayer = context.Layer([source, finiteLayerCommand], bounds);
 
@@ -264,7 +260,6 @@ public sealed class TargetAuthoringContractTests
                     TargetRegion.Full,
                     query,
                     RenderHitTestContract.OutputBounds,
-                    TargetAccess.ReadWrite,
                     structuralKey: "full-writer"));
             recorded = true;
             context.Publish(command);
@@ -543,7 +538,6 @@ public sealed class TargetAuthoringContractTests
                     TargetRegion.Region(erased),
                     Rect.Empty,
                     RenderHitTestContract.None,
-                    TargetAccess.ReadWrite,
                     structuralKey: "finite-source-replace"));
             context.PublishRange([source, command]);
         });
@@ -595,7 +589,6 @@ public sealed class TargetAuthoringContractTests
             TargetRegion.Empty,
             Rect.Empty,
             RenderHitTestContract.None,
-            TargetAccess.ReadWrite,
             inputReadbacks: selectDynamicInput
                 ? [RenderInputReadback.All, RenderInputReadback.None]
                 : [RenderInputReadback.None, RenderInputReadback.All],
@@ -633,7 +626,6 @@ public sealed class TargetAuthoringContractTests
                     TargetRegion.Empty,
                     Rect.Empty,
                     RenderHitTestContract.None,
-                    TargetAccess.ReadWrite,
                     inputReadbacks: [RenderInputReadback.Values([1])],
                     structuralKey: "missing-local-readback-value"));
             context.PublishRange([source, command]);
@@ -659,7 +651,6 @@ public sealed class TargetAuthoringContractTests
                     TargetRegion.Empty,
                     Rect.Empty,
                     RenderHitTestContract.None,
-                    TargetAccess.ReadWrite,
                     inputReadbacks: [RenderInputReadback.All, RenderInputReadback.None],
                     structuralKey: "mismatched-input-readback-count"));
         });
@@ -787,7 +778,6 @@ public sealed class TargetAuthoringContractTests
                     TargetRegion.Region(bounds),
                     Rect.Empty,
                     RenderHitTestContract.None,
-                    TargetAccess.ReadWrite,
                     structuralKey: "ordered-guarded"));
             RenderFragmentHandle raw = context.RawTargetCommand(
                 RawTargetCommandDescription.Create(
@@ -907,7 +897,6 @@ public sealed class TargetAuthoringContractTests
                     TargetRegion.Region(bounds),
                     Rect.Empty,
                     RenderHitTestContract.None,
-                    TargetAccess.ReadWrite,
                     structuralKey: "inspect-capture-density"));
             RenderFragmentHandle layer = context.Layer([source, capture, inspectCapture], bounds);
             RenderFragmentHandle forceDenseMaterialization = context.OpaqueMap(
@@ -966,7 +955,6 @@ public sealed class TargetAuthoringContractTests
                     TargetRegion.Region(bounds),
                     Rect.Empty,
                     RenderHitTestContract.None,
-                    TargetAccess.ReadWrite,
                     structuralKey: "inspect-target-supply-capture-density"));
             RenderFragmentHandle layer = context.Layer([source, capture, inspectCapture], bounds);
             RenderFragmentHandle forceDenseMaterialization = context.OpaqueMap(
@@ -1064,6 +1052,98 @@ public sealed class TargetAuthoringContractTests
             RenderScaleContract.MaterializeAtWorkingScale,
             structuralKey: ("executing-expansion", bounds),
             runtimeIdentity: new RenderRuntimeIdentity(("expansion-runtime", bounds)));
+    }
+
+    [TestCaseSource(nameof(HitTestingContracts))]
+    public void TargetCommand_RejectsHitTestingOverAZeroAreaQueryRegion(RenderHitTestContract hitTest)
+    {
+        Assert.Multiple(() =>
+        {
+            Assert.That(
+                () => TargetCommandDescription.Create(
+                    static _ => { },
+                    TargetRegion.Region(new Rect(20, 30, 10, 10)),
+                    Rect.Empty,
+                    hitTest),
+                Throws.TypeOf<ArgumentException>().With.Property("ParamName").EqualTo("hitTest"));
+            Assert.That(
+                () => TargetCommandDescription.Create(
+                    static _ => { },
+                    TargetRegion.Region(new Rect(20, 30, 10, 10)),
+                    new Rect(20, 30, 10, 0),
+                    hitTest),
+                Throws.TypeOf<ArgumentException>().With.Property("ParamName").EqualTo("hitTest"));
+        });
+    }
+
+    [Test]
+    public void RawTargetCommand_RejectsHitTestingOverAZeroAreaQueryRegion_AndInputHitTesting()
+    {
+        Assert.Multiple(() =>
+        {
+            Assert.That(
+                () => RawTargetCommandDescription.Create(
+                    static _ => { },
+                    Rect.Empty,
+                    RenderHitTestContract.OutputBounds),
+                Throws.TypeOf<ArgumentException>().With.Property("ParamName").EqualTo("hitTest"));
+            Assert.That(
+                () => RawTargetCommandDescription.Create(
+                    static _ => { },
+                    new Rect(4, 5, 6, 7),
+                    RenderHitTestContract.AnyInput),
+                Throws.TypeOf<ArgumentException>().With.Property("ParamName").EqualTo("hitTest"));
+        });
+    }
+
+    [Test]
+    public void OrderOnlyCommands_KeepPairingAZeroAreaQueryRegionWithNoHitTesting()
+    {
+        Assert.Multiple(() =>
+        {
+            Assert.That(
+                TargetCommandDescription.Create(
+                    static _ => { },
+                    TargetRegion.Full,
+                    Rect.Empty,
+                    RenderHitTestContract.None).QueryBounds,
+                Is.EqualTo(Rect.Empty));
+            Assert.That(
+                RawTargetCommandDescription.Create(
+                    static _ => { },
+                    Rect.Empty,
+                    RenderHitTestContract.None).QueryBounds,
+                Is.EqualTo(Rect.Empty));
+        });
+    }
+
+    [Test]
+    public void TargetCommand_DefaultsToReadWriteAccess()
+    {
+        TargetCommandDescription implicitAccess = TargetCommandDescription.Create(
+            static _ => { },
+            TargetRegion.Full,
+            Rect.Empty,
+            RenderHitTestContract.None);
+        TargetCommandDescription statedReadback = TargetCommandDescription.Create(
+            static session => session.UseSnapshot(static _ => { }),
+            TargetRegion.Region(new Rect(0, 0, 4, 3)),
+            Rect.Empty,
+            RenderHitTestContract.None,
+            TargetAccess.Readback);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(implicitAccess.Access, Is.EqualTo(TargetAccess.ReadWrite));
+            Assert.That(statedReadback.Access, Is.EqualTo(TargetAccess.Readback));
+        });
+    }
+
+    private static IEnumerable<RenderHitTestContract> HitTestingContracts()
+    {
+        yield return RenderHitTestContract.OutputBounds;
+        yield return RenderHitTestContract.AnyInput;
+        yield return RenderHitTestContract.Custom(static (_, _) => true);
     }
 
     private static RenderNodeMeasurement Measure(

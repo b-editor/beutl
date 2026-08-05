@@ -144,9 +144,7 @@ public sealed class RenderNodeRendererDeviceBoundsTests
                     static _ => { },
                     TargetRegion.Full,
                     Rect.Empty,
-                    RenderHitTestContract.None,
-                    TargetAccess.ReadWrite,
-                    structuralKey: typeof(DomainProbeNode))));
+                    RenderHitTestContract.None)));
         }
     }
 }

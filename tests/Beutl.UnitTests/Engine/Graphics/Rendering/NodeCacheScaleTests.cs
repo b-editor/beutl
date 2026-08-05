@@ -240,9 +240,7 @@ public class NodeCacheScaleTests
                 hitTest: RenderHitTestContract.None,
                 valueCardinality: RenderValueCardinality.Single,
                 scale: RenderScaleContract.Custom(
-                    static _ => 4f,
-                    structuralKey: typeof(ConcreteSourceNode)),
-                structuralKey: typeof(ConcreteSourceNode),
+                    static _ => 4f),
                 runtimeIdentity: new RenderRuntimeIdentity(4f),
                 resources: [fillResource]);
             context.Publish(context.OpaqueSource(description));
@@ -292,9 +290,7 @@ public class NodeCacheScaleTests
                 hitTest: RenderHitTestContract.OutputBounds,
                 valueCardinality: RenderValueCardinality.Single,
                 scale: RenderScaleContract.Custom(
-                    static _ => 1,
-                    structuralKey: typeof(BoundedValueReplayNode)),
-                structuralKey: typeof(BoundedValueReplayNode),
+                    static _ => 1),
                 runtimeIdentity: new RenderRuntimeIdentity(bounds));
             RenderFragmentHandle source = context.OpaqueSource(sourceDescription);
             TargetScopeDescription replayDescription = TargetScopeDescription.CreateValueReplayMap(

@@ -1270,6 +1270,27 @@ internal static class RenderDescriptionValidation
         return structuralKey;
     }
 
+    /// <summary>
+    /// A hit-testing contract over a zero-area query region reports hits outside the bounds the operation gives
+    /// Measure — <see cref="Rect.Contains"/> is edge-inclusive, so even an empty rectangle still holds one point.
+    /// </summary>
+    public static void ThrowIfQueryContributionIncoherent(
+        Rect queryBounds,
+        RenderHitTestContract hitTest,
+        string parameterName)
+    {
+        if ((queryBounds.Width > 0 && queryBounds.Height > 0)
+            || hitTest.Kind == RenderHitTestContractKind.None)
+        {
+            return;
+        }
+
+        throw new ArgumentException(
+            "A zero-area queryBounds contributes no query region, so the hit-test contract must be "
+            + "RenderHitTestContract.None.",
+            parameterName);
+    }
+
     public static void ValidateRuntimeIdentity(RenderRuntimeIdentity? runtimeIdentity, string parameterName)
     {
         if (runtimeIdentity is not { } value)

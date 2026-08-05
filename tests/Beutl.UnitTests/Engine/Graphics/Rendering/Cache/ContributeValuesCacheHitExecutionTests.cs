@@ -203,7 +203,6 @@ public sealed class ContributeValuesCacheHitExecutionTests
                 RenderHitTestContract.OutputBounds,
                 RenderValueCardinality.Dynamic,
                 RenderScaleContract.MaterializeAtWorkingScale,
-                structuralKey: typeof(IndependentDensityProducerNode),
                 runtimeIdentity: new RenderRuntimeIdentity(typeof(IndependentDensityProducerNode)));
             RenderFragmentHandle expanded = context.OpaqueExpand([], description);
             context.Publish(context.ContributeValues(expanded));
@@ -235,7 +234,6 @@ public sealed class ContributeValuesCacheHitExecutionTests
                 RenderHitTestContract.OutputBounds,
                 RenderValueCardinality.Single,
                 RenderScaleContract.MaterializeAtWorkingScale,
-                structuralKey: typeof(IndependentDensityObserverNode),
                 runtimeIdentity: new RenderRuntimeIdentity(typeof(IndependentDensityObserverNode)));
             context.Publish(context.OpaqueCombine([input], description));
         }

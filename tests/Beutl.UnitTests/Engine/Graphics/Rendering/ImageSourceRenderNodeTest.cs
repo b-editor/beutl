@@ -176,8 +176,7 @@ public class ImageSourceRenderNodeTest
                     OpaqueRenderBoundsContract.Source(new Rect(0, 0, 1, 1)),
                     RenderHitTestContract.None,
                     RenderValueCardinality.Single,
-                    RenderScaleContract.Vector,
-                    structuralKey: typeof(InputFeedingNode)));
+                    RenderScaleContract.Vector));
             context.PublishRange(context.RecordNode(child, [input]));
         }
 

@@ -38,7 +38,6 @@ internal sealed class AudioVisualizerRenderNode(AudioVisualizerDrawable.Resource
                 current => current.RenderToCanvas(session.Canvas, bounds)),
             queryBounds: bounds,
             hitTest: RenderHitTestContract.None,
-            structuralKey: typeof(AudioVisualizerRenderNode),
             resources: [resourceToken]);
         RenderFragmentHandle rawPainter = context.RawTargetCommand(command);
 

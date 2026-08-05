@@ -44,12 +44,16 @@ public sealed class TargetCommandDescription
 
     internal Action<TargetCommandSession> Execute { get; }
 
+    /// <param name="access">
+    /// <see cref="TargetAccess.Readback"/> obliges the callback to consume
+    /// <see cref="TargetCommandSession.UseSnapshot"/> exactly once.
+    /// </param>
     public static TargetCommandDescription Create(
         Action<TargetCommandSession> execute,
         TargetRegion affectedRegion,
         Rect queryBounds,
         RenderHitTestContract hitTest,
-        TargetAccess access,
+        TargetAccess access = TargetAccess.ReadWrite,
         IEnumerable<RenderInputReadback>? inputReadbacks = null,
         object? structuralKey = null,
         RenderRuntimeIdentity? runtimeIdentity = null,
@@ -59,6 +63,10 @@ public sealed class TargetCommandDescription
         affectedRegion.ThrowIfUninitialized(nameof(affectedRegion));
         RenderRectValidation.ThrowIfInvalidInput(queryBounds, nameof(queryBounds));
         hitTest.ThrowIfUninitialized(nameof(hitTest));
+        RenderDescriptionValidation.ThrowIfQueryContributionIncoherent(
+            queryBounds,
+            hitTest,
+            nameof(hitTest));
         if (!Enum.IsDefined(access))
             throw new ArgumentOutOfRangeException(nameof(access), access, "The target access value is invalid.");
         if (access == TargetAccess.Readback && affectedRegion.Kind == TargetRegionKind.Empty)

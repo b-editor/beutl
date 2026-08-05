@@ -283,12 +283,8 @@ public sealed partial class DrawableGroup : Drawable, IFlowOperator
             TargetScopeDescription description = TargetScopeDescription.CreateValueReplayMap(
                 execute: session => ExecuteTransform(session, transform),
                 bounds: boundsContract,
-                hitTest: RenderHitTestContract.Custom(
-                    metadataState.HitTest,
-                    typeof(CustomTransformRenderNode)),
-                scale: RenderScaleContract.MapInputSupply(
-                    new TransformScaleMapper(transform).Map,
-                    typeof(CustomTransformRenderNode)),
+                hitTest: RenderHitTestContract.Custom(metadataState.HitTest),
+                scale: RenderScaleContract.MapInputSupply(new TransformScaleMapper(transform).Map),
                 deviceGridMapping: transform.IsIdentity
                     ? RenderDeviceGridMapping.Preserved
                     : RenderDeviceGridMapping.Remapped,

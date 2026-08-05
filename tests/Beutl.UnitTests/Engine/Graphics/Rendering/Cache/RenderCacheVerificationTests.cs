@@ -314,7 +314,7 @@ public sealed class RenderCacheVerificationTests
             Assert.That(exception.Message, Does.Contain("produced by TargetScope"));
             Assert.That(
                 exception.Message,
-                Does.Contain($"structural key '{typeof(MarkedTargetScopeNode).FullName}'"),
+                Does.Contain($"structural key '{MarkedTargetScopeNode.ScopeStructuralKey}'"),
                 "the target-scope payload carries a structural key and the message must report it");
         });
     }
@@ -483,7 +483,6 @@ public sealed class RenderCacheVerificationTests
                 RenderHitTestContract.OutputBounds,
                 RenderValueCardinality.Single,
                 RenderScaleContract.MaterializeAtWorkingScale,
-                structuralKey: typeof(ColorFillNode),
                 runtimeIdentity: new RenderRuntimeIdentity(identityKind == IdentityKind.Complete
                     ? (object)color
                     : typeof(ColorFillNode)));
@@ -526,7 +525,6 @@ public sealed class RenderCacheVerificationTests
                 RenderHitTestContract.OutputBounds,
                 RenderValueCardinality.Single,
                 RenderScaleContract.MaterializeAtWorkingScale,
-                structuralKey: typeof(CornerDefectNode),
                 runtimeIdentity: new RenderRuntimeIdentity(typeof(CornerDefectNode)));
             context.Publish(context.ContributeValues(context.OpaqueCombine([], description)));
         }
@@ -550,7 +548,6 @@ public sealed class RenderCacheVerificationTests
                 RenderHitTestContract.OutputBounds,
                 RenderValueCardinality.Single,
                 RenderScaleContract.MaterializeAtWorkingScale,
-                structuralKey: typeof(AlternatingColorNode),
                 runtimeIdentity: new RenderRuntimeIdentity(typeof(AlternatingColorNode)));
             context.Publish(context.ContributeValues(context.OpaqueCombine([], description)));
         }
@@ -576,7 +573,6 @@ public sealed class RenderCacheVerificationTests
                 RenderHitTestContract.OutputBounds,
                 RenderValueCardinality.Single,
                 RenderScaleContract.MaterializeAtWorkingScale,
-                structuralKey: typeof(ThrowOnReexecutionNode),
                 runtimeIdentity: new RenderRuntimeIdentity(typeof(ThrowOnReexecutionNode)));
             context.Publish(context.ContributeValues(context.OpaqueCombine([], description)));
         }
@@ -588,6 +584,8 @@ public sealed class RenderCacheVerificationTests
     // identity does not describe.
     private sealed class MarkedTargetScopeNode : RenderNode
     {
+        public const string ScopeStructuralKey = "marked-target-scope";
+
         public Color MarkerColor { get; set; } = Colors.Red;
 
         public override void Process(RenderNodeContext context)
@@ -603,7 +601,6 @@ public sealed class RenderCacheVerificationTests
                 RenderHitTestContract.OutputBounds,
                 RenderValueCardinality.Single,
                 RenderScaleContract.MaterializeAtWorkingScale,
-                structuralKey: typeof(MarkedTargetScopeNode),
                 runtimeIdentity: new RenderRuntimeIdentity(typeof(MarkedTargetScopeNode)));
             RenderFragmentHandle source =
                 context.ContributeValues(context.OpaqueCombine([], sourceDescription));
@@ -618,7 +615,7 @@ public sealed class RenderCacheVerificationTests
                 RenderBoundsContract.Identity,
                 RenderHitTestContract.AnyInput,
                 RenderScaleContract.PreserveInputSupply,
-                structuralKey: typeof(MarkedTargetScopeNode),
+                structuralKey: ScopeStructuralKey,
                 runtimeIdentity: new RenderRuntimeIdentity(typeof(MarkedTargetScopeNode)));
             context.Publish(context.Layer([context.TargetScope(source, scopeDescription)], s_bounds));
         }
@@ -648,7 +645,6 @@ public sealed class RenderCacheVerificationTests
                 RenderHitTestContract.AnyInput,
                 RenderValueCardinality.Single,
                 RenderScaleContract.MaterializeAtWorkingScale,
-                structuralKey: typeof(DefectiveConsumerNode),
                 runtimeIdentity: new RenderRuntimeIdentity(typeof(DefectiveConsumerNode)));
             context.Publish(context.OpaqueMap(input, description));
         }
@@ -676,7 +672,6 @@ public sealed class RenderCacheVerificationTests
                 RenderHitTestContract.AnyInput,
                 RenderValueCardinality.Single,
                 RenderScaleContract.MaterializeAtWorkingScale,
-                structuralKey: typeof(TintingConsumerNode),
                 runtimeIdentity: new RenderRuntimeIdentity(typeof(TintingConsumerNode)));
             context.Publish(context.OpaqueMap(input, description));
         }
