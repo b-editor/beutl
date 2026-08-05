@@ -81,6 +81,7 @@ public sealed class GeometryRenderNode(Geometry.Resource geometry, Brush.Resourc
                 static (state, point) => state.HitTest(point),
                 typeof(GeometryHitTestState)),
             scale: RenderScaleContract.Vector,
+            deviceGridSensitivity: RenderDeviceGridSensitivity.Insensitive,
             structuralKey: typeof(GeometryRenderNode),
             runtimeIdentity: new RenderRuntimeIdentity(bounds),
             resources: DeferredOpaqueSource.Resources(

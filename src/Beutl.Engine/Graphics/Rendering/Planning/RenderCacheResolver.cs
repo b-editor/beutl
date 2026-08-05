@@ -1293,7 +1293,7 @@ internal sealed class RenderCacheResolver
                 consumers);
             RenderFragmentReference[] transformRoots =
             [
-                .. sensitive.Where(reference => HasNonIdentityValueReplayAncestor(reference, consumers)),
+                .. sensitive.Where(reference => HasGridRemappingAncestor(reference, consumers)),
             ];
             HashSet<RenderFragmentReference> transformDependent = ExpandConnectedReferences(
                 transformRoots,
@@ -1345,11 +1345,11 @@ internal sealed class RenderCacheResolver
 
             if (reference.Payload is OpaqueRenderFragmentPayload opaque)
             {
-                bool isText = opaque.Description.StructuralKey is Type type
-                              && type == typeof(TextRenderNode);
+                bool declaresPhaseDependence = opaque.Description.DeviceGridSensitivity
+                                               == RenderDeviceGridSensitivity.PhaseDependent;
                 bool isDrawableBrushHost = reference.Kind == RenderFragmentKind.OpaqueCombine
                                            && opaque.Description.DirectReplay is not null;
-                if (isText || isDrawableBrushHost)
+                if (declaresPhaseDependence || isDrawableBrushHost)
                     return true;
             }
 
@@ -1383,7 +1383,7 @@ internal sealed class RenderCacheResolver
             return false;
         }
 
-        private static bool HasNonIdentityValueReplayAncestor(
+        private static bool HasGridRemappingAncestor(
             RenderFragmentReference reference,
             IReadOnlyDictionary<RenderFragmentReference, List<RenderFragmentReference>> consumers)
         {
@@ -1396,8 +1396,7 @@ internal sealed class RenderCacheResolver
                     continue;
                 if (current.Kind == RenderFragmentKind.TargetScope
                     && current.Payload is TargetScopeRenderFragmentPayload scope
-                    && scope.Description.IsValueReplayMap
-                    && IsNonIdentityTransform(scope.Description.RuntimeIdentity?.Key))
+                    && scope.Description.DeviceGridMapping == RenderDeviceGridMapping.Remapped)
                 {
                     return true;
                 }
@@ -1407,17 +1406,6 @@ internal sealed class RenderCacheResolver
             }
 
             return false;
-        }
-
-        private static bool IsNonIdentityTransform(object? runtimeIdentity)
-        {
-            return runtimeIdentity switch
-            {
-                Matrix matrix => !matrix.IsIdentity,
-                ValueTuple<Matrix, TransformOperator> tuple
-                    when tuple.Item2 == TransformOperator.Prepend => !tuple.Item1.IsIdentity,
-                _ => false,
-            };
         }
     }
 

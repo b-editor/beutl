@@ -67,6 +67,7 @@ public sealed class GeometryClipRenderNode(Geometry.Resource clip, ClipOperation
                 static (state, hitTest, point) => state.HitTest(hitTest, point),
                 structuralKey: typeof(GeometryClipRenderNode)),
             RenderScaleContract.PreserveInputSupply,
+            RenderDeviceGridMapping.Preserved,
             structuralKey: typeof(GeometryClipRenderNode),
             runtimeIdentity: new RenderRuntimeIdentity((geometryId, clip.Version, operation)),
             resources: [resource, hitTestResource]);

@@ -15,6 +15,7 @@ public sealed class PushRenderNode : ContainerRenderNode
             RenderBoundsContract.Identity,
             RenderHitTestContract.AnyInput,
             RenderScaleContract.PreserveInputSupply,
+            RenderDeviceGridMapping.Preserved,
             structuralKey: typeof(PushRenderNode),
             runtimeIdentity: new RenderRuntimeIdentity(typeof(PushRenderNode)));
 

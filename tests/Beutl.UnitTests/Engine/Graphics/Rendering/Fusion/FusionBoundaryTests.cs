@@ -371,6 +371,7 @@ public sealed class FusionBoundaryTests
             RenderHitTestContract.OutputBounds,
             RenderValueCardinality.ZeroOrOne,
             RenderScaleContract.MaterializeAtWorkingScale,
+            RenderDeviceGridSensitivity.Insensitive,
             typeof(FusionBoundaryTests),
             new RenderRuntimeIdentity("3d-test"));
         using CompiledRenderRequest compiled = Compile((requestId, cache) =>

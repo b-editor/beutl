@@ -76,6 +76,7 @@ public sealed class TextRenderNode(FormattedText text, Brush.Resource? fill, Pen
                 (currentText, point) => HitTest(currentText, hasFill, point),
                 typeof(TextRenderNode)),
             scale: RenderScaleContract.Vector,
+            deviceGridSensitivity: RenderDeviceGridSensitivity.PhaseDependent,
             structuralKey: typeof(TextRenderNode),
             runtimeIdentity: new RenderRuntimeIdentity(CreateRuntimeIdentity(text, bounds)),
             resources: DeferredOpaqueSource.Resources(

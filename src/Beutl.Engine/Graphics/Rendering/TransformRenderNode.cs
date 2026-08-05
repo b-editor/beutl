@@ -46,6 +46,12 @@ public sealed class TransformRenderNode(Matrix transform, TransformOperator tran
             new TransformScaleMapper(transform).Map,
             structuralKey: typeof(TransformRenderNode));
         var runtimeIdentity = new RenderRuntimeIdentity((transform, transformOperator));
+        // Set discards the ambient transform for the canvas base transform, so it moves the input even when
+        // the matrix is identity.
+        RenderDeviceGridMapping gridMapping =
+            transform.IsIdentity && transformOperator != TransformOperator.Set
+                ? RenderDeviceGridMapping.Preserved
+                : RenderDeviceGridMapping.Remapped;
 
         foreach (RenderFragmentHandle input in context.Inputs)
         {
@@ -56,12 +62,15 @@ public sealed class TransformRenderNode(Matrix transform, TransformOperator tran
                     session.ReplayInput();
                 }
             });
+            // Only Prepend places its matrix in the input's own logical space. Append and Set are defined
+            // against the ambient target transform, which the value graph has no representation of.
             TargetScopeDescription description = transformOperator == TransformOperator.Prepend
                 ? TargetScopeDescription.CreateValueReplayMap(
                     execute,
                     bounds,
                     hitTest,
                     scale,
+                    gridMapping,
                     structuralKey: typeof(TransformRenderNode),
                     runtimeIdentity: runtimeIdentity)
                 : TargetScopeDescription.Create(
@@ -69,6 +78,7 @@ public sealed class TransformRenderNode(Matrix transform, TransformOperator tran
                     bounds,
                     hitTest,
                     scale,
+                    gridMapping,
                     structuralKey: typeof(TransformRenderNode),
                     runtimeIdentity: runtimeIdentity);
             context.Publish(context.TargetScope(input, description));

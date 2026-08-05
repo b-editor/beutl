@@ -570,6 +570,7 @@ internal static class FailureTestSupport
                 RenderHitTestContract.OutputBounds,
                 cardinality ?? RenderValueCardinality.Single,
                 RenderScaleContract.MaterializeAtWorkingScale,
+                RenderDeviceGridSensitivity.Insensitive,
                 structuralKey ?? "failure-test-backend-source",
                 new RenderRuntimeIdentity(structuralKey ?? "failure-test-backend-runtime"));
     }

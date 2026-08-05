@@ -145,6 +145,7 @@ internal sealed class FusionBoundaryRuntimeNode(
             RenderHitTestContract.AnyInput,
             cardinality,
             RenderScaleContract.PreserveInputSupply,
+            deviceGridSensitivity: RenderDeviceGridSensitivity.Insensitive,
             structuralKey: (typeof(FusionBoundaryRuntimeNode), identity),
             runtimeIdentity: new RenderRuntimeIdentity(identity));
     }

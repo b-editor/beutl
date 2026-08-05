@@ -267,6 +267,7 @@ public class NodeCacheScaleTests
                 bounds: OpaqueRenderBoundsContract.Source(bounds),
                 hitTest: RenderHitTestContract.OutputBounds,
                 scale: RenderScaleContract.Vector,
+                deviceGridSensitivity: RenderDeviceGridSensitivity.Insensitive,
                 structuralKey: typeof(RasterApronSourceNode),
                 runtimeIdentity: new RenderRuntimeIdentity(bounds));
             context.Publish(context.OpaqueSource(description));
@@ -301,7 +302,8 @@ public class NodeCacheScaleTests
                 RenderBoundsContract.Identity,
                 RenderHitTestContract.AnyInput,
                 RenderScaleContract.PreserveInputSupply,
-                typeof(BoundedValueReplayNode),
+                RenderDeviceGridMapping.Preserved,
+                structuralKey: typeof(BoundedValueReplayNode),
                 runtimeIdentity: new RenderRuntimeIdentity(bounds));
             context.Publish(context.TargetScope(source, replayDescription));
         }

@@ -5,6 +5,35 @@ using Beutl.Media;
 
 namespace Beutl.Graphics.Rendering;
 
+/// <summary>
+/// Declares whether an opaque description's pixels depend on where the composition-device pixel grid falls.
+/// </summary>
+/// <remarks>
+/// The renderer reuses a cached output only when every value that shaped its pixels is part of the cache
+/// identity. Device-grid phase — the sub-pixel offset between the description's own coordinate space and the
+/// pixel centres it writes to — is one such value, and no bounds, density, or runtime identity carries it.
+/// </remarks>
+public enum RenderDeviceGridSensitivity : byte
+{
+    /// <summary>
+    /// The output is unchanged by a sub-pixel shift of the device grid, so it may be cached and reused across
+    /// device-grid phase changes and across a remapping replay.
+    /// </summary>
+    Insensitive,
+
+    /// <summary>
+    /// The output is a function of the device-grid phase, so a sub-pixel phase change or a remapping replay
+    /// ancestor produces different pixels than the cached output.
+    /// </summary>
+    /// <remarks>
+    /// Declare this for anything computed from where the pixel centres fall rather than resampled from a
+    /// stored raster. Analytic anti-aliased coverage — glyph rasterization, signed-distance-field text — is
+    /// one such source, and so are screen-space dithering, ordered noise, and pixel-grid overlays, which
+    /// compute no coverage at all yet still change with the phase.
+    /// </remarks>
+    PhaseDependent,
+}
+
 public sealed class OpaqueRenderDescription
 {
     private OpaqueRenderDescription(
@@ -13,6 +42,7 @@ public sealed class OpaqueRenderDescription
         RenderHitTestContract hitTest,
         RenderValueCardinality valueCardinality,
         RenderScaleContract scale,
+        RenderDeviceGridSensitivity deviceGridSensitivity,
         object structuralKey,
         RenderRuntimeIdentity? runtimeIdentity,
         IReadOnlyList<RenderInputReadback> inputReadbacks,
@@ -25,6 +55,7 @@ public sealed class OpaqueRenderDescription
         HitTest = hitTest;
         ValueCardinality = valueCardinality;
         Scale = scale;
+        DeviceGridSensitivity = deviceGridSensitivity;
         StructuralKey = structuralKey;
         RuntimeIdentity = runtimeIdentity;
         InputReadbacks = inputReadbacks;
@@ -40,6 +71,9 @@ public sealed class OpaqueRenderDescription
     public RenderValueCardinality ValueCardinality { get; }
 
     public RenderScaleContract Scale { get; }
+
+    /// <summary>Gets the declared dependency of this description's pixels on the device pixel grid.</summary>
+    public RenderDeviceGridSensitivity DeviceGridSensitivity { get; }
 
     public IReadOnlyList<RenderInputReadback> InputReadbacks { get; }
 
@@ -97,6 +131,7 @@ public sealed class OpaqueRenderDescription
         => new OpaqueRenderStructuralIdentity(
             topology,
             StructuralKey,
+            DeviceGridSensitivity,
             BackendBoundary,
             DirectReplay is not null);
 
@@ -109,6 +144,7 @@ public sealed class OpaqueRenderDescription
                 HitTest,
                 ValueCardinality,
                 Scale,
+                DeviceGridSensitivity,
                 StructuralKey,
                 RuntimeIdentity,
                 InputReadbacks,
@@ -116,12 +152,17 @@ public sealed class OpaqueRenderDescription
                 BackendBoundary,
                 directReplay: null);
 
+    /// <param name="deviceGridSensitivity">
+    /// The declared dependency of the produced pixels on the device-grid phase. The default states that the
+    /// output is unchanged by a sub-pixel shift of the grid, which lets the renderer cache and resample it.
+    /// </param>
     public static OpaqueRenderDescription Create(
         Action<OpaqueRenderSession> execute,
         OpaqueRenderBoundsContract bounds,
         RenderHitTestContract hitTest,
         RenderValueCardinality valueCardinality,
         RenderScaleContract scale,
+        RenderDeviceGridSensitivity deviceGridSensitivity = RenderDeviceGridSensitivity.Insensitive,
         object? structuralKey = null,
         RenderRuntimeIdentity? runtimeIdentity = null,
         IEnumerable<RenderInputReadback>? inputReadbacks = null,
@@ -132,6 +173,7 @@ public sealed class OpaqueRenderDescription
         hitTest.ThrowIfUninitialized(nameof(hitTest));
         valueCardinality.ThrowIfUninitialized(nameof(valueCardinality));
         scale.ThrowIfUninitialized(nameof(scale));
+        ThrowIfUndefined(deviceGridSensitivity);
 
         object resolvedStructuralKey = RenderDescriptionValidation.ResolveStructuralKey(
             structuralKey,
@@ -145,6 +187,7 @@ public sealed class OpaqueRenderDescription
             hitTest,
             valueCardinality,
             scale,
+            deviceGridSensitivity,
             resolvedStructuralKey,
             runtimeIdentity,
             Array.AsReadOnly(CopyInputReadbacks(inputReadbacks)),
@@ -159,6 +202,7 @@ public sealed class OpaqueRenderDescription
         OpaqueRenderBoundsContract bounds,
         RenderHitTestContract hitTest,
         RenderScaleContract scale,
+        RenderDeviceGridSensitivity deviceGridSensitivity,
         object structuralKey,
         RenderRuntimeIdentity? runtimeIdentity,
         IEnumerable<RenderResource>? resources = null)
@@ -168,6 +212,7 @@ public sealed class OpaqueRenderDescription
         ArgumentNullException.ThrowIfNull(bounds);
         hitTest.ThrowIfUninitialized(nameof(hitTest));
         scale.ThrowIfUninitialized(nameof(scale));
+        ThrowIfUndefined(deviceGridSensitivity);
         ArgumentNullException.ThrowIfNull(structuralKey);
         RenderIdentityKeyValidator.ThrowIfInvalid(structuralKey, nameof(structuralKey));
         RenderDescriptionValidation.ValidateRuntimeIdentity(runtimeIdentity, nameof(runtimeIdentity));
@@ -178,6 +223,7 @@ public sealed class OpaqueRenderDescription
             hitTest,
             RenderValueCardinality.Single,
             scale,
+            deviceGridSensitivity,
             structuralKey,
             runtimeIdentity,
             Array.AsReadOnly(Array.Empty<RenderInputReadback>()),
@@ -193,6 +239,7 @@ public sealed class OpaqueRenderDescription
         RenderHitTestContract hitTest,
         RenderValueCardinality valueCardinality,
         RenderScaleContract scale,
+        RenderDeviceGridSensitivity deviceGridSensitivity,
         object structuralKey,
         RenderRuntimeIdentity runtimeIdentity,
         IEnumerable<RenderResource>? resources = null)
@@ -204,6 +251,7 @@ public sealed class OpaqueRenderDescription
         hitTest.ThrowIfUninitialized(nameof(hitTest));
         valueCardinality.ThrowIfUninitialized(nameof(valueCardinality));
         scale.ThrowIfUninitialized(nameof(scale));
+        ThrowIfUndefined(deviceGridSensitivity);
         ArgumentNullException.ThrowIfNull(structuralKey);
         RenderIdentityKeyValidator.ThrowIfInvalid(structuralKey, nameof(structuralKey));
         RenderDescriptionValidation.ValidateRuntimeIdentity(runtimeIdentity, nameof(runtimeIdentity));
@@ -214,12 +262,19 @@ public sealed class OpaqueRenderDescription
             hitTest,
             valueCardinality,
             scale,
+            deviceGridSensitivity,
             structuralKey,
             runtimeIdentity,
             Array.AsReadOnly(Array.Empty<RenderInputReadback>()),
             RenderDescriptionValidation.CopyResources(resources, nameof(resources)),
             backendBoundary,
             directReplay: null);
+    }
+
+    private static void ThrowIfUndefined(RenderDeviceGridSensitivity deviceGridSensitivity)
+    {
+        if (!Enum.IsDefined(deviceGridSensitivity))
+            throw new ArgumentOutOfRangeException(nameof(deviceGridSensitivity));
     }
 
     internal IReadOnlyList<RenderInputReadback> ResolveInputReadbacks(
@@ -1196,6 +1251,7 @@ internal readonly record struct RenderScaleContractStructuralIdentity(
 internal readonly record struct OpaqueRenderStructuralIdentity(
     OpaqueRenderTopology Topology,
     object DescriptionKey,
+    RenderDeviceGridSensitivity DeviceGridSensitivity,
     RenderBackendBoundary BackendBoundary,
     bool HasEngineDirectReplay);
 

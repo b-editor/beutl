@@ -913,7 +913,7 @@ public sealed class RenderNodeRendererContractTests
             RenderHitTestContract.OutputBounds,
             RenderValueCardinality.Single,
             RenderScaleContract.MaterializeAtWorkingScale,
-            structuralKey,
+            structuralKey: structuralKey,
             runtimeIdentity: new RenderRuntimeIdentity(("source-runtime", structuralKey)));
     }
 

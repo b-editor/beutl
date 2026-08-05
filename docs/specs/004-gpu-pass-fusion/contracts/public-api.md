@@ -462,12 +462,19 @@ Every explicit `structuralKey`, `RenderRuntimeIdentity.Key`, and resource `cache
 ```csharp
 namespace Beutl.Graphics.Rendering;
 
+public enum RenderDeviceGridSensitivity : byte
+{
+    Insensitive,
+    PhaseDependent,
+}
+
 public sealed class OpaqueRenderDescription
 {
     public OpaqueRenderBoundsContract Bounds { get; }
     public RenderHitTestContract HitTest { get; }
     public RenderValueCardinality ValueCardinality { get; }
     public RenderScaleContract Scale { get; }
+    public RenderDeviceGridSensitivity DeviceGridSensitivity { get; }
     public IReadOnlyList<RenderInputReadback> InputReadbacks { get; }
     public object StructuralKey { get; }
     public RenderRuntimeIdentity? RuntimeIdentity { get; }
@@ -479,6 +486,7 @@ public sealed class OpaqueRenderDescription
         RenderHitTestContract hitTest,
         RenderValueCardinality valueCardinality,
         RenderScaleContract scale,
+        RenderDeviceGridSensitivity deviceGridSensitivity = RenderDeviceGridSensitivity.Insensitive,
         object? structuralKey = null,
         RenderRuntimeIdentity? runtimeIdentity = null,
         IEnumerable<RenderInputReadback>? inputReadbacks = null,
@@ -735,11 +743,18 @@ The engine's `GraphicsContext2D.Snapshot()` uses the same non-contributing captu
 ```csharp
 namespace Beutl.Graphics.Rendering;
 
+public enum RenderDeviceGridMapping : byte
+{
+    Remapped,
+    Preserved,
+}
+
 public sealed class TargetScopeDescription
 {
     public RenderBoundsContract Bounds { get; }
     public RenderHitTestContract HitTest { get; }
     public RenderScaleContract Scale { get; }
+    public RenderDeviceGridMapping DeviceGridMapping { get; }
     public object StructuralKey { get; }
     public RenderRuntimeIdentity? RuntimeIdentity { get; }
     public IReadOnlyList<RenderResource> Resources { get; }
@@ -749,6 +764,7 @@ public sealed class TargetScopeDescription
         RenderBoundsContract bounds,
         RenderHitTestContract hitTest,
         RenderScaleContract scale,
+        RenderDeviceGridMapping deviceGridMapping = RenderDeviceGridMapping.Remapped,
         object? structuralKey = null,
         RenderRuntimeIdentity? runtimeIdentity = null,
         IEnumerable<RenderResource>? resources = null);
@@ -771,7 +787,7 @@ public sealed class TargetScopeSession
 }
 ```
 
-The callback is invoked once per runtime input fragment against the current scoped target, which retains all preceding pixels and is never auto-cleared. It must call `ReplayInput` exactly once while `Canvas.Use` has its managed canvas active; the method replays that fragment on the same target. Missing, duplicate, retained, or out-of-scope replay is a deterministic execution failure. This session uses a narrower capability mode than opaque/Geometry drawing: only save/restore, transform, and clip operations that are mechanically known not to allocate a layer or emit pixels may surround `ReplayInput`; a resource-bearing clip must use a declared borrow. `Clear`, every independent draw, snapshot/readback, `PushLayer`, opacity/blend/paint/mask APIs that internally use `SaveLayer`, any hidden allocation, flush/submit, nested work, and unrelated resource use are rejected. Group isolation uses the typed `TargetLayerScope`; Opacity uses the typed `Opacity` recorder; engine blend/paint/mask nodes use planner-visible typed scope descriptors, and an arbitrary raw layered callback is `LegacyRawCanvas` opaque-external work. Additional pixel emission belongs in `TargetCommand` or an opaque value description. `Bounds`, `HitTest`, and `Scale` map each input's pure metadata; `PreserveInputSupply` keeps its density, while `MapInputSupply` publishes a transform-like density change after the corresponding input supply is known. Public `TargetScope` is an opaque fusion boundary even if its bounds look like identity. Engine-proven typed scopes use the same internal fragment shape but may participate in equivalence rewrites.
+The callback is invoked once per runtime input fragment against the current scoped target, which retains all preceding pixels and is never auto-cleared. It must call `ReplayInput` exactly once while `Canvas.Use` has its managed canvas active; the method replays that fragment on the same target. Missing, duplicate, retained, or out-of-scope replay is a deterministic execution failure. This session uses a narrower capability mode than opaque/Geometry drawing: only save/restore, transform, and clip operations that are mechanically known not to allocate a layer or emit pixels may surround `ReplayInput`; a resource-bearing clip must use a declared borrow. `Clear`, every independent draw, snapshot/readback, `PushLayer`, opacity/blend/paint/mask APIs that internally use `SaveLayer`, any hidden allocation, flush/submit, nested work, and unrelated resource use are rejected. Group isolation uses the typed `TargetLayerScope`; Opacity uses the typed `Opacity` recorder; engine blend/paint/mask nodes use planner-visible typed scope descriptors, and an arbitrary raw layered callback is `LegacyRawCanvas` opaque-external work. Additional pixel emission belongs in `TargetCommand` or an opaque value description. `Bounds`, `HitTest`, and `Scale` map each input's pure metadata; `PreserveInputSupply` keeps its density, while `MapInputSupply` publishes a transform-like density change after the corresponding input supply is known. `DeviceGridSensitivity` and `DeviceGridMapping` are declared planner facts, never inferred from a structural or runtime identity key. They are independent of value-input eligibility and of each other. `PhaseDependent` states that the description's pixels are a function of the device-grid phase — analytic anti-aliased coverage such as glyph or SDF rasterization, and equally screen-space dithering, ordered noise, or a pixel-grid overlay — so the render-output cache neither reuses it across a device-grid phase change nor under a `Remapped` scope ancestor; `Insensitive` is the default. `DeviceGridMapping` states only where the scope replays its input: `Remapped` is the conservative default because a scope callback's whole permitted vocabulary is save/restore, transform, and clip, and `Preserved` is an explicit promise that the callback leaves the target transform alone. A materializing scope may and must still declare `Remapped` when its callback transforms; declaring it never affects eligibility, and neither value contributes to structural plan identity — engine-owned value-replay-map eligibility does, while the mapping is a per-request planning fact. Public `TargetScope` is an opaque fusion boundary even if its bounds look like identity. Engine-proven typed scopes use the same internal fragment shape but may participate in equivalence rewrites.
 
 Finite value `Layer` flattens all supplied streams in authored order into one fragment with exactly one materializable composited value and always publishes `EffectiveScale.Unbounded`. Demand resolution selects its materialization density from every child supply, `OutputScale`, `MaxWorkingScale`, and downstream demand, so a denser downstream consumer can raise the Layer density without changing the Layer's public supply contract (`RenderNodeContext.Layer`, `RenderScaleUtilities.ResolveWorkingScale`). `TargetLayerScope` also flattens a mixed stream but exposes no independent outer value: it publishes `EffectiveScale.Unbounded`, preserves the input streams' aggregate `RenderValueCardinality` for dependency accounting, keeps its initialized `Full`, finite `Region`, or `Empty` target access in the fragment IR, and remains value-ineligible until explicitly localized by finite `Layer`. `TargetCommand` has no independent reusable pixel supply, publishes `EffectiveScale.Unbounded`, and has `RenderValueCardinality.None`; its effectful fragment plus `QueryBounds`/hit-test metadata remain observable. Public target capture has `Single`; output-derived capture modes publish concrete supply while `PreserveTargetSupply` remains `Unbounded` until execution against its active target. Materialized sources, WholeSource Shader, Geometry, and opaque materializations publish concrete supply according to their own contracts.
 

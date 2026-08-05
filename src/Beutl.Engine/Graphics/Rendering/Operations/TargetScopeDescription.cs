@@ -1,5 +1,31 @@
 ﻿namespace Beutl.Graphics.Rendering;
 
+/// <summary>
+/// Declares whether a guarded target scope replays its input onto the device pixel grid the input would have
+/// been rasterized against without the scope.
+/// </summary>
+/// <remarks>
+/// A scope callback's whole permitted vocabulary is save/restore, transform, and clip, so moving the replayed
+/// content onto a different grid is an ordinary thing for a scope to do rather than an exception. The planner
+/// therefore assumes <see cref="Remapped"/> unless the scope states otherwise: upstream content that declares
+/// <see cref="RenderDeviceGridSensitivity.PhaseDependent"/> is re-rasterized under a remapping scope instead
+/// of being resampled out of an output cache.
+/// </remarks>
+public enum RenderDeviceGridMapping : byte
+{
+    /// <summary>
+    /// The scope may replay its input onto a different device pixel grid. Declaring this for a scope that in
+    /// fact preserves the grid only costs upstream cache reuse; it never produces wrong pixels.
+    /// </summary>
+    Remapped,
+
+    /// <summary>
+    /// The scope replays its input onto the same device pixel grid, so device-grid phase dependent content
+    /// upstream keeps the phase its cached output was captured at.
+    /// </summary>
+    Preserved,
+}
+
 public sealed class TargetScopeDescription
 {
     private TargetScopeDescription(
@@ -7,6 +33,7 @@ public sealed class TargetScopeDescription
         RenderBoundsContract bounds,
         RenderHitTestContract hitTest,
         RenderScaleContract scale,
+        RenderDeviceGridMapping deviceGridMapping,
         object structuralKey,
         RenderRuntimeIdentity? runtimeIdentity,
         IReadOnlyList<RenderResource> resources,
@@ -16,6 +43,7 @@ public sealed class TargetScopeDescription
         Bounds = bounds;
         HitTest = hitTest;
         Scale = scale;
+        DeviceGridMapping = deviceGridMapping;
         StructuralKey = structuralKey;
         RuntimeIdentity = runtimeIdentity;
         Resources = resources;
@@ -28,6 +56,9 @@ public sealed class TargetScopeDescription
 
     public RenderScaleContract Scale { get; }
 
+    /// <summary>Gets the declared device pixel grid this scope replays its input onto.</summary>
+    public RenderDeviceGridMapping DeviceGridMapping { get; }
+
     public object StructuralKey { get; }
 
     public RenderRuntimeIdentity? RuntimeIdentity { get; }
@@ -38,48 +69,76 @@ public sealed class TargetScopeDescription
 
     internal bool IsValueReplayMap { get; }
 
+    /// <param name="deviceGridMapping">
+    /// The device pixel grid the callback replays its input onto. The default assumes a different grid;
+    /// declare <see cref="RenderDeviceGridMapping.Preserved"/> only when the callback leaves the target
+    /// transform alone.
+    /// </param>
     public static TargetScopeDescription Create(
         Action<TargetScopeSession> execute,
         RenderBoundsContract bounds,
         RenderHitTestContract hitTest,
         RenderScaleContract scale,
+        RenderDeviceGridMapping deviceGridMapping = RenderDeviceGridMapping.Remapped,
         object? structuralKey = null,
         RenderRuntimeIdentity? runtimeIdentity = null,
         IEnumerable<RenderResource>? resources = null)
-    {
-        ArgumentNullException.ThrowIfNull(execute);
-        bounds.ThrowIfUninitialized(nameof(bounds));
-        hitTest.ThrowIfUninitialized(nameof(hitTest));
-        scale.ThrowIfUninitialized(nameof(scale));
-        RenderDescriptionValidation.ValidateRuntimeIdentity(runtimeIdentity, nameof(runtimeIdentity));
-
-        return new TargetScopeDescription(
+        => CreateCore(
             execute,
             bounds,
             hitTest,
             scale,
-            RenderDescriptionValidation.ResolveStructuralKey(
-                structuralKey,
-                execute.Method,
-                nameof(structuralKey)),
+            deviceGridMapping,
+            structuralKey,
             runtimeIdentity,
-            RenderDescriptionValidation.CopyResources(resources, nameof(resources)),
+            resources,
             isValueReplayMap: false);
-    }
 
+    /// <summary>
+    /// Creates a scope the renderer lowers into the value graph instead of materializing its input.
+    /// </summary>
+    /// <remarks>
+    /// Eligibility is engine-owned because no declaration can establish it: the callback must be mechanically
+    /// restricted to allocation-free target state plus exactly one replay, which only an in-engine author can
+    /// guarantee. Public <see cref="Create"/> therefore always produces a materializing boundary.
+    /// </remarks>
     internal static TargetScopeDescription CreateValueReplayMap(
         Action<TargetScopeSession> execute,
         RenderBoundsContract bounds,
         RenderHitTestContract hitTest,
         RenderScaleContract scale,
+        RenderDeviceGridMapping deviceGridMapping,
         object structuralKey,
         RenderRuntimeIdentity? runtimeIdentity = null,
         IEnumerable<RenderResource>? resources = null)
+        => CreateCore(
+            execute,
+            bounds,
+            hitTest,
+            scale,
+            deviceGridMapping,
+            structuralKey,
+            runtimeIdentity,
+            resources,
+            isValueReplayMap: true);
+
+    private static TargetScopeDescription CreateCore(
+        Action<TargetScopeSession> execute,
+        RenderBoundsContract bounds,
+        RenderHitTestContract hitTest,
+        RenderScaleContract scale,
+        RenderDeviceGridMapping deviceGridMapping,
+        object? structuralKey,
+        RenderRuntimeIdentity? runtimeIdentity,
+        IEnumerable<RenderResource>? resources,
+        bool isValueReplayMap)
     {
         ArgumentNullException.ThrowIfNull(execute);
         bounds.ThrowIfUninitialized(nameof(bounds));
         hitTest.ThrowIfUninitialized(nameof(hitTest));
         scale.ThrowIfUninitialized(nameof(scale));
+        if (!Enum.IsDefined(deviceGridMapping))
+            throw new ArgumentOutOfRangeException(nameof(deviceGridMapping));
         RenderDescriptionValidation.ValidateRuntimeIdentity(runtimeIdentity, nameof(runtimeIdentity));
 
         return new TargetScopeDescription(
@@ -87,13 +146,14 @@ public sealed class TargetScopeDescription
             bounds,
             hitTest,
             scale,
+            deviceGridMapping,
             RenderDescriptionValidation.ResolveStructuralKey(
                 structuralKey,
                 execute.Method,
                 nameof(structuralKey)),
             runtimeIdentity,
             RenderDescriptionValidation.CopyResources(resources, nameof(resources)),
-            isValueReplayMap: true);
+            isValueReplayMap);
     }
 }
 

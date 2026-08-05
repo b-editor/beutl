@@ -65,6 +65,7 @@ public sealed class RectangleRenderNode(Rect rect, Brush.Resource? fill, Pen.Res
                 (_, point) => hitTestState.HitTest(point),
                 typeof(RectangleRenderNode)),
             scale: RenderScaleContract.Vector,
+            deviceGridSensitivity: RenderDeviceGridSensitivity.Insensitive,
             structuralKey: typeof(RectangleRenderNode),
             runtimeIdentity: new RenderRuntimeIdentity((rect, hitTestState)),
             resources: paint.Resources);

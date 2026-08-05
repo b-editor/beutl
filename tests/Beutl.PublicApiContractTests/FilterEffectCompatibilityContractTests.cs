@@ -511,7 +511,7 @@ public sealed class FilterEffectCompatibilityContractTests
             RenderHitTestContract.OutputBounds,
             RenderValueCardinality.Single,
             scale,
-            structuralKey);
+            structuralKey: structuralKey);
     }
 
     private sealed class SolidSourceNode(Rect bounds, Color color) : RenderNode

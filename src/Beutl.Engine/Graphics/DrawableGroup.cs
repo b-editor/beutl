@@ -289,6 +289,9 @@ public sealed partial class DrawableGroup : Drawable, IFlowOperator
                 scale: RenderScaleContract.MapInputSupply(
                     new TransformScaleMapper(transform).Map,
                     typeof(CustomTransformRenderNode)),
+                deviceGridMapping: transform.IsIdentity
+                    ? RenderDeviceGridMapping.Preserved
+                    : RenderDeviceGridMapping.Remapped,
                 structuralKey: typeof(CustomTransformRenderNode),
                 runtimeIdentity: new RenderRuntimeIdentity(transform));
             foreach (RenderFragmentHandle input in context.Inputs)

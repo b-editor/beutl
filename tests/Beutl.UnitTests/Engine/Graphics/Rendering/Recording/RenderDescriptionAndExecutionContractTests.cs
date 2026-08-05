@@ -25,7 +25,7 @@ public sealed class RenderDescriptionAndExecutionContractTests
             RenderValueCardinality.Single,
             RenderScaleContract.MaterializeAtWorkingScale,
             structuralKey: "opaque-source",
-            runtimeIdentity,
+            runtimeIdentity: runtimeIdentity,
             resources: [resource]);
 
         Assert.Multiple(() =>
@@ -342,7 +342,7 @@ public sealed class RenderDescriptionAndExecutionContractTests
             RenderBoundsContract.Identity,
             RenderHitTestContract.AnyInput,
             RenderScaleContract.PreserveInputSupply,
-            "scope");
+            structuralKey: "scope");
         RawTargetScopeDescription rawScope = RawTargetScopeDescription.Create(
             static _ => { },
             RenderBoundsContract.FullInput,
@@ -425,6 +425,79 @@ public sealed class RenderDescriptionAndExecutionContractTests
                 () => TargetScopeDescription.Create(
                     static _ => { }, default, RenderHitTestContract.None, RenderScaleContract.Vector),
                 Throws.TypeOf<ArgumentException>());
+        });
+    }
+
+    [Test]
+    public void EveryDescriptionFactory_RejectsAnUndefinedDeclaredPlannerTrait()
+    {
+        const RenderDeviceGridSensitivity undefinedSensitivity = (RenderDeviceGridSensitivity)7;
+        const RenderDeviceGridMapping undefinedMapping = (RenderDeviceGridMapping)7;
+        OpaqueRenderBoundsContract opaqueBounds = OpaqueRenderBoundsContract.Source(new Rect(0, 0, 8, 8));
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(
+                () => OpaqueRenderDescription.Create(
+                    static _ => { },
+                    opaqueBounds,
+                    RenderHitTestContract.OutputBounds,
+                    RenderValueCardinality.Single,
+                    RenderScaleContract.Vector,
+                    undefinedSensitivity,
+                    structuralKey: "undefined-sensitivity"),
+                Throws.TypeOf<ArgumentOutOfRangeException>()
+                    .With.Property(nameof(ArgumentOutOfRangeException.ParamName))
+                    .EqualTo("deviceGridSensitivity"));
+            Assert.That(
+                () => OpaqueRenderDescription.CreateEngineSource(
+                    static _ => { },
+                    static _ => { },
+                    opaqueBounds,
+                    RenderHitTestContract.OutputBounds,
+                    RenderScaleContract.Vector,
+                    undefinedSensitivity,
+                    structuralKey: "undefined-sensitivity",
+                    runtimeIdentity: null),
+                Throws.TypeOf<ArgumentOutOfRangeException>()
+                    .With.Property(nameof(ArgumentOutOfRangeException.ParamName))
+                    .EqualTo("deviceGridSensitivity"));
+            Assert.That(
+                () => OpaqueRenderDescription.CreateBackendBoundary(
+                    RenderBackendBoundary.Graphics3D,
+                    static _ => { },
+                    opaqueBounds,
+                    RenderHitTestContract.OutputBounds,
+                    RenderValueCardinality.Single,
+                    RenderScaleContract.Vector,
+                    undefinedSensitivity,
+                    structuralKey: "undefined-sensitivity",
+                    runtimeIdentity: new RenderRuntimeIdentity("undefined-sensitivity")),
+                Throws.TypeOf<ArgumentOutOfRangeException>()
+                    .With.Property(nameof(ArgumentOutOfRangeException.ParamName))
+                    .EqualTo("deviceGridSensitivity"));
+            Assert.That(
+                () => TargetScopeDescription.Create(
+                    static session => session.Canvas.Use(_ => session.ReplayInput()),
+                    RenderBoundsContract.Identity,
+                    RenderHitTestContract.AnyInput,
+                    RenderScaleContract.PreserveInputSupply,
+                    undefinedMapping,
+                    structuralKey: "undefined-mapping"),
+                Throws.TypeOf<ArgumentOutOfRangeException>()
+                    .With.Property(nameof(ArgumentOutOfRangeException.ParamName))
+                    .EqualTo("deviceGridMapping"));
+            Assert.That(
+                () => TargetScopeDescription.CreateValueReplayMap(
+                    static session => session.Canvas.Use(_ => session.ReplayInput()),
+                    RenderBoundsContract.Identity,
+                    RenderHitTestContract.AnyInput,
+                    RenderScaleContract.PreserveInputSupply,
+                    undefinedMapping,
+                    structuralKey: "undefined-mapping"),
+                Throws.TypeOf<ArgumentOutOfRangeException>()
+                    .With.Property(nameof(ArgumentOutOfRangeException.ParamName))
+                    .EqualTo("deviceGridMapping"));
         });
     }
 

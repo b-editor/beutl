@@ -46,6 +46,7 @@ public sealed class RectClipRenderNode(Rect clip, ClipOperation operation) : Con
                 metadata.HitTest,
                 structuralKey: typeof(RectClipRenderNode)),
             RenderScaleContract.PreserveInputSupply,
+            RenderDeviceGridMapping.Preserved,
             structuralKey: typeof(RectClipRenderNode),
             runtimeIdentity: new RenderRuntimeIdentity((clip, operation)));
 

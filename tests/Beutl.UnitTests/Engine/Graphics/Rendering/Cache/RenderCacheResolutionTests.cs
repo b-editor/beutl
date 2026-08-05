@@ -1588,7 +1588,8 @@ public sealed class RenderCacheResolutionTests
             boundsContract ?? RenderBoundsContract.Identity,
             RenderHitTestContract.AnyInput,
             RenderScaleContract.PreserveInputSupply,
-            key);
+            RenderDeviceGridMapping.Preserved,
+            structuralKey: key);
         return new RenderFragmentReference(
             RenderFragmentKind.TargetScope,
             bounds ?? input.Bounds,

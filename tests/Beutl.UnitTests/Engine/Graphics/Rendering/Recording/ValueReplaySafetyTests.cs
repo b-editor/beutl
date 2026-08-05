@@ -106,7 +106,8 @@ public sealed class ValueReplaySafetyTests
             RenderBoundsContract.Identity,
             RenderHitTestContract.AnyInput,
             RenderScaleContract.PreserveInputSupply,
-            key);
+            RenderDeviceGridMapping.Preserved,
+            structuralKey: key);
 
     private sealed class TargetCaptureReplayNode : RenderNode
     {

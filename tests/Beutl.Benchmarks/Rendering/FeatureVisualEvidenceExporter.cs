@@ -1899,6 +1899,7 @@ internal sealed class FeatureAnalyticLineNode : RenderNode
             bounds: OpaqueRenderBoundsContract.Source(s_bounds),
             hitTest: RenderHitTestContract.OutputBounds,
             scale: RenderScaleContract.Vector,
+            deviceGridSensitivity: RenderDeviceGridSensitivity.Insensitive,
             structuralKey: typeof(FeatureAnalyticLineNode),
             runtimeIdentity: new RenderRuntimeIdentity(typeof(FeatureAnalyticLineNode)));
         context.Publish(context.OpaqueSource(description));
@@ -1936,6 +1937,7 @@ internal sealed class FeatureAnalyticRoundRectNode : RenderNode
             bounds: OpaqueRenderBoundsContract.Source(s_bounds),
             hitTest: RenderHitTestContract.OutputBounds,
             scale: RenderScaleContract.Vector,
+            deviceGridSensitivity: RenderDeviceGridSensitivity.Insensitive,
             structuralKey: typeof(FeatureAnalyticRoundRectNode),
             runtimeIdentity: new RenderRuntimeIdentity(typeof(FeatureAnalyticRoundRectNode)));
         context.Publish(context.OpaqueSource(description));

@@ -65,6 +65,7 @@ public sealed class EllipseRenderNode(Rect rect, Brush.Resource? fill, Pen.Resou
                 (_, point) => hitTestState.HitTest(point),
                 typeof(EllipseRenderNode)),
             scale: RenderScaleContract.Vector,
+            deviceGridSensitivity: RenderDeviceGridSensitivity.Insensitive,
             structuralKey: typeof(EllipseRenderNode),
             runtimeIdentity: new RenderRuntimeIdentity((rect, hitTestState)),
             resources: paint.Resources);
