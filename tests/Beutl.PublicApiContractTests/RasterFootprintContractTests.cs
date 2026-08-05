@@ -97,6 +97,10 @@ public sealed class RasterFootprintContractTests
                 useMappedInputShader.IsGenericMethodDefinition,
                 Is.True);
             Assert.That(
+                useMappedInputShader.ReturnType,
+                Is.EqualTo(typeof(bool)),
+                "The mapped-input readback reports whether the callback ran so a degraded preview keeps its source target.");
+            Assert.That(
                 mappedInputParameters,
                 Is.EqualTo(new[]
                 {

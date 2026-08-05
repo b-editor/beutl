@@ -58,7 +58,7 @@ public sealed class CurrentPixelQuantizationTests
         });
     }
 
-    private static Drawable.Resource CreateDrawable(int invertCount, float amount = 100)
+    private static Drawable.Resource CreateDrawable(int invertCount)
     {
         var shape = new RectShape
         {
@@ -79,7 +79,7 @@ public sealed class CurrentPixelQuantizationTests
             {
                 group.Children.Add(new Invert
                 {
-                    Amount = { CurrentValue = amount },
+                    Amount = { CurrentValue = 100 },
                 });
             }
 

@@ -82,10 +82,19 @@ public sealed partial class SKSLScriptEffect : FilterEffect, IScriptCompilableEf
     {
         for (int i = 0; i < c.Targets.Count; i++)
         {
-            using var effectTarget = c.Targets[i];
+            EffectTarget effectTarget = c.Targets[i];
             EffectTarget output = c.CreateTargetLike(effectTarget);
             try
             {
+                if (output.RenderTarget is null || output.Scale.IsUnbounded)
+                {
+                    throw new InvalidOperationException(
+                        "The SKSL script effect has no materialized output target: CreateTargetLike could not "
+                        + $"replace the {effectTarget.DeviceBounds.Width}x{effectTarget.DeviceBounds.Height} px "
+                        + "source (a preceding CreateTargetLike warning names the failed allocation). "
+                        + "The effect fails visibly rather than rendering partially.");
+                }
+
                 using SKSLShaderBuilder builder = data.shader.CreateBuilder();
 
                 if (builder.Uniforms.Contains("progress"))
@@ -96,7 +105,7 @@ public sealed partial class SKSLScriptEffect : FilterEffect, IScriptCompilableEf
                     builder.Uniforms["time"] = data.time;
 
                 float w = output.Scale.Value;
-                int deviceWidth = output.RenderTarget!.Width;
+                int deviceWidth = output.RenderTarget.Width;
                 int deviceHeight = output.RenderTarget.Height;
                 if (builder.Uniforms.Contains("width"))
                     builder.Uniforms["width"] = (float)deviceWidth;
@@ -111,7 +120,7 @@ public sealed partial class SKSLScriptEffect : FilterEffect, IScriptCompilableEf
 
                 if (builder.Children.Contains("src"))
                 {
-                    c.UseMappedInputShader(
+                    bool rendered = c.UseMappedInputShader(
                         effectTarget,
                         output,
                         (Builder: builder, Shader: data.shader, Context: c, Output: output),
@@ -122,12 +131,18 @@ public sealed partial class SKSLScriptEffect : FilterEffect, IScriptCompilableEf
                         },
                         SKShaderTileMode.Clamp,
                         SKShaderTileMode.Clamp);
+                    if (!rendered)
+                    {
+                        output.Dispose();
+                        continue;
+                    }
                 }
                 else
                 {
                     data.shader.RenderToTarget(c, builder, output);
                 }
 
+                effectTarget.Dispose();
                 c.Targets[i] = output;
             }
             catch

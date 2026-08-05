@@ -616,7 +616,7 @@ public sealed class RasterFootprintMetadataTests
                 RenderRequestPurpose.Frame);
             int[] callbackEntries = [0];
 
-            context.UseMappedInputShader(
+            bool rendered = context.UseMappedInputShader(
                 source,
                 destination,
                 callbackEntries,
@@ -629,7 +629,11 @@ public sealed class RasterFootprintMetadataTests
                 SKShaderTileMode.Repeat,
                 SKShaderTileMode.Mirror);
 
-            Assert.That(callbackEntries[0], Is.EqualTo(1));
+            Assert.Multiple(() =>
+            {
+                Assert.That(callbackEntries[0], Is.EqualTo(1));
+                Assert.That(rendered, Is.True, "A successful readback must report that the callback ran.");
+            });
 
             Assert.Multiple(() =>
             {

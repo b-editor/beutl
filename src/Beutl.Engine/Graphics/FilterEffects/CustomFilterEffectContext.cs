@@ -355,11 +355,19 @@ public class CustomFilterEffectContext
     /// Supplies a borrowed GPU-backed snapshot shader for a materialized source, mapped into the
     /// destination's backing-buffer coordinates.
     /// </summary>
+    /// <returns>
+    /// <see langword="true"/> when <paramref name="use"/> ran. <see langword="false"/> when the source
+    /// could not be read back under <see cref="RenderIntent.Preview"/>: the callback never ran, so the
+    /// caller must keep its source target instead of committing a destination it never painted.
+    /// </returns>
+    /// <exception cref="InvalidOperationException">
+    /// The source could not be read back under <see cref="RenderIntent.Delivery"/>.
+    /// </exception>
     /// <remarks>
     /// The shader and its backing image are valid only during <paramref name="use"/>. The callback must
     /// complete every draw that references the shader and must not retain or dispose it.
     /// </remarks>
-    public void UseMappedInputShader<TState>(
+    public bool UseMappedInputShader<TState>(
         EffectTarget source,
         EffectTarget destination,
         TState state,
@@ -378,13 +386,41 @@ public class CustomFilterEffectContext
             throw new ArgumentException("The source must have a materialized target and concrete scale.", nameof(source));
         if (source.RenderTarget.Value is null)
             throw new ArgumentException("The source target has no backing surface to sample.", nameof(source));
+        if (destination.RenderTarget is null || destination.Scale.IsUnbounded)
+        {
+            throw new ArgumentException(
+                "The destination must have a materialized target and concrete scale.",
+                nameof(destination));
+        }
 
         source.RenderTarget.PrepareForSampling();
-        using SKImage image = source.RenderTarget.Value.Snapshot()
-            ?? throw new InvalidOperationException("The source surface could not be snapshotted for sampling.");
+        using SKImage? image = source.RenderTarget.Value.Snapshot();
+        if (image is null)
+        {
+            ThrowIfDeliveryReadbackFailure(Intent, source.DeviceBounds);
+            s_logger.LogWarning(
+                "The source surface could not be snapshotted for sampling ({Width}x{Height} px); the preview keeps the source pixels.",
+                source.DeviceBounds.Width,
+                source.DeviceBounds.Height);
+            return false;
+        }
+
         using SKShader sourceShader = image.ToShader(x, y);
         using SKShader mappedShader = CreateMappedInputShader(source, destination, sourceShader);
         use(state, mappedShader);
+        return true;
+    }
+
+    // The intent alone decides degrade-vs-fail, independently of the working-scale ceiling:
+    // a delivery render must not ship a frame the effect was never applied to.
+    internal static void ThrowIfDeliveryReadbackFailure(RenderIntent intent, PixelRect footprint)
+    {
+        if (intent == RenderIntent.Delivery)
+        {
+            throw new InvalidOperationException(
+                $"The source surface could not be snapshotted for sampling ({footprint.Width}x{footprint.Height} px); "
+                + "the delivery render fails instead of shipping an unfiltered frame.");
+        }
     }
 
     private static EffectTarget AllocateTarget(

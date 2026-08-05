@@ -1368,7 +1368,7 @@ Both new methods append to the same authored item order as existing Skia/color/c
 
 Each `Shader`/`Geometry` append is atomic. With valid current bounds, the context validates the description and ownership, invokes the pure forward bounds mapping, and validates the result before committing either the item or the new recording bounds. If validation or that mapping throws, returns an invalid/non-finite rectangle, or otherwise fails, the method leaves its previous item order and recording bounds unchanged. There is no identity fallback. The surrounding engine invocation of `FilterEffect.ApplyTo` is a nested transaction checkpoint over authored items, recording bounds, owned-resource transfers, and borrow registrations: an exception rolls all of them back to the state before that invocation, disposes newly owned resources best-effort, preserves the primary exception, and publishes no partial operation. This applies recursively to effect groups/presenters rather than leaving earlier child items visible after a later child fails.
 
-The existing `CustomEffect` recording method and its `CustomFilterEffectContext`/materialized `EffectTarget` callback surface remain available and execute later, but lower as an explicit legacy opaque-external island. Its physical-footprint contract is explicit:
+The existing `CustomEffect` recording method and its `CustomFilterEffectContext`/materialized `EffectTarget` callback surface remain available and execute later, but lower as an explicit legacy opaque-external island. `UseMappedInputShader` is a readback boundary and therefore follows the same `RenderIntent` rule as every other engine readback and allocation failure: a source that cannot be snapshotted fails a `RenderIntent.Delivery` execution and degrades a `RenderIntent.Preview` one. It reports that decision by returning whether the callback ran, so a degraded caller keeps its source target instead of committing a destination it never painted; the ceiling in `MaxWorkingScale` does not participate. Its physical-footprint contract is explicit:
 
 ```csharp
 public class CustomFilterEffectContext
@@ -1393,7 +1393,7 @@ public class CustomFilterEffectContext
         EffectTarget source,
         EffectTarget destination,
         SKShader sourceShader);
-    public void UseMappedInputShader<TState>(
+    public bool UseMappedInputShader<TState>(
         EffectTarget source,
         EffectTarget destination,
         TState state,
