@@ -9,7 +9,8 @@ namespace Beutl.PublicApiContractTests;
 /// <summary>
 /// Covers the two planner traits an out-of-tree render node may declare: an opaque description's dependence
 /// on the device-grid phase, and a target scope's device-grid mapping. Value-replay-map eligibility is
-/// deliberately absent — it stays engine-owned, so a public scope is always a materializing boundary.
+/// deliberately absent — it stays engine-owned, so a public scope is always a materializing boundary. The
+/// raw scope declares neither trait, so the planner must assume the worst of it.
 /// </summary>
 [TestFixture]
 public sealed class DeclaredPlannerTraitContractTests
@@ -76,6 +77,35 @@ public sealed class DeclaredPlannerTraitContractTests
                 producer.ExecuteCount,
                 Is.EqualTo(1),
                 "A grid-preserving scope keeps the phase the cached output was captured at.");
+        });
+    }
+
+    [Test]
+    public void AnOpaqueScopeIsTheOnlyUndeclarableAncestorThatMustBypassAPhaseDependentCache()
+    {
+        using var scopedProducer = new DeclaringSourceNode(RenderDeviceGridSensitivity.PhaseDependent);
+        scopedProducer.Cache.ReportRenderCount(RenderNodeCache.Count);
+        using var rawScope = new JitteringRawScopeNode(scopedProducer);
+
+        using var commandProducer = new DeclaringSourceNode(RenderDeviceGridSensitivity.PhaseDependent);
+        commandProducer.Cache.ReportRenderCount(RenderNodeCache.Count);
+        using var command = new JitteringCommandNode(commandProducer);
+
+        RasterizeAcrossAGridPhaseChange(rawScope, shift => rawScope.Jitter = shift);
+        RasterizeAcrossAGridPhaseChange(command, shift => command.Jitter = shift);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(
+                scopedProducer.ExecuteCount,
+                Is.EqualTo(2),
+                "A raw scope's callback is opaque to the planner, so it may replay its input onto any device "
+                + "pixel grid and phase-dependent content beneath it cannot be served from an output cache.");
+            Assert.That(
+                commandProducer.ExecuteCount,
+                Is.EqualTo(1),
+                "A guarded command receives its inputs as materialized values, so its own canvas state cannot "
+                + "change the grid they were rasterized against.");
         });
     }
 
@@ -228,6 +258,22 @@ public sealed class DeclaredPlannerTraitContractTests
             runtimeIdentity: new RenderRuntimeIdentity(("scope-runtime", structuralKey)));
     }
 
+    private static void RasterizeAcrossAGridPhaseChange(
+        RenderNode root,
+        Action<Vector> setJitter)
+    {
+        using RenderNodeRenderer renderer = CreateFrameRenderer(root);
+        setJitter(default);
+        using (RenderNodeRasterization first = renderer.Rasterize())
+        {
+            Assert.That(first.IsEmpty, Is.False);
+        }
+
+        setJitter(new Vector(s_subpixelShift.M31, s_subpixelShift.M32));
+        using RenderNodeRasterization second = renderer.Rasterize();
+        Assert.That(second.IsEmpty, Is.False);
+    }
+
     private static RenderNodeRenderer CreateFrameRenderer(RenderNode node)
         => new(
             node,
@@ -294,5 +340,60 @@ public sealed class DeclaredPlannerTraitContractTests
     private sealed class DelegateNode(Action<RenderNodeContext> process) : RenderNode
     {
         public override void Process(RenderNodeContext context) => process(context);
+    }
+
+    /// <remarks>
+    /// Reading the jitter while the callback executes rather than while recording keeps the producer's whole
+    /// cache identity identical across two frames that differ only in device-grid phase.
+    /// </remarks>
+    private sealed class JitteringRawScopeNode(RenderNode producer) : RenderNode
+    {
+        public Vector Jitter { get; set; }
+
+        public override void Process(RenderNodeContext context)
+        {
+            RenderFragmentHandle input = context.RecordNode(producer, []).Single();
+            context.Publish(context.RawTargetScope(
+                input,
+                RawTargetScopeDescription.Create(
+                    session =>
+                    {
+                        using (session.Canvas.PushTransform(
+                            Matrix.CreateTranslation(Jitter.X, Jitter.Y)))
+                        {
+                            session.ReplayInput();
+                        }
+                    },
+                    RenderBoundsContract.Identity,
+                    RenderHitTestContract.AnyInput,
+                    RenderScaleContract.PreserveInputSupply,
+                    structuralKey: typeof(JitteringRawScopeNode))));
+        }
+    }
+
+    private sealed class JitteringCommandNode(RenderNode producer) : RenderNode
+    {
+        public Vector Jitter { get; set; }
+
+        public override void Process(RenderNodeContext context)
+        {
+            RenderFragmentHandle input = context.RecordNode(producer, []).Single();
+            context.Publish(context.TargetCommand(
+                [input],
+                TargetCommandDescription.Create(
+                    session => session.Canvas.Use(canvas =>
+                    {
+                        using (canvas.PushTransform(
+                            Matrix.CreateTranslation(Jitter.X, Jitter.Y)))
+                        {
+                            session.Inputs.Single().Draw(canvas);
+                        }
+                    }),
+                    TargetRegion.Region(s_bounds),
+                    s_bounds,
+                    RenderHitTestContract.OutputBounds,
+                    TargetAccess.ReadWrite,
+                    structuralKey: typeof(JitteringCommandNode))));
+        }
     }
 }

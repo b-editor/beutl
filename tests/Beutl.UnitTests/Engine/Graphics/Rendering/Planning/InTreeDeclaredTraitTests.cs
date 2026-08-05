@@ -128,6 +128,14 @@ public sealed class InTreeDeclaredTraitTests
         push.AddChild(NewRectangleNode());
         using var rectClip = new RectClipRenderNode(s_domain, ClipOperation.Intersect);
         rectClip.AddChild(NewRectangleNode());
+        using var geometryClip = new GeometryClipRenderNode(
+            new RectGeometry
+            {
+                Width = { CurrentValue = s_domain.Width },
+                Height = { CurrentValue = s_domain.Height },
+            }.ToResource(CompositionContext.Default),
+            ClipOperation.Intersect);
+        geometryClip.AddChild(NewRectangleNode());
 
         Assert.Multiple(() =>
         {
@@ -136,6 +144,9 @@ public sealed class InTreeDeclaredTraitTests
                 Is.EqualTo(RenderDeviceGridMapping.Preserved));
             Assert.That(
                 RecordSingleScope(rectClip).DeviceGridMapping,
+                Is.EqualTo(RenderDeviceGridMapping.Preserved));
+            Assert.That(
+                RecordSingleScope(geometryClip).DeviceGridMapping,
                 Is.EqualTo(RenderDeviceGridMapping.Preserved));
         });
     }

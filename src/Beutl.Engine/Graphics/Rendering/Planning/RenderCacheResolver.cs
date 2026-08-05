@@ -1394,9 +1394,8 @@ internal sealed class RenderCacheResolver
             {
                 if (!visited.Add(current))
                     continue;
-                if (current.Kind == RenderFragmentKind.TargetScope
-                    && current.Payload is TargetScopeRenderFragmentPayload scope
-                    && scope.Description.DeviceGridMapping == RenderDeviceGridMapping.Remapped)
+                if (RenderFragmentDeviceGrid.ResolveMapping(current)
+                    == RenderDeviceGridMapping.Remapped)
                 {
                     return true;
                 }
