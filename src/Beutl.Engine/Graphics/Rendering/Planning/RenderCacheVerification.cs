@@ -26,6 +26,11 @@ internal static class RenderCacheVerification
     public static bool IsEnabled => Volatile.Read(ref s_scopeCount) != 0;
 
     /// <summary>Verifies every render request created while the returned scope is alive.</summary>
+    /// <remarks>
+    /// The switch is process-wide, not thread-scoped, because <c>Renderer</c> and <c>SceneRenderer</c> build
+    /// their requests on the render thread rather than the thread that opens the scope. A test that opens one
+    /// must therefore be <c>[NonParallelizable]</c>.
+    /// </remarks>
     public static IDisposable EnableForAllRequests()
     {
         Interlocked.Increment(ref s_scopeCount);

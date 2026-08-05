@@ -466,6 +466,17 @@ internal sealed class ExecutionIslandExecutionLedger
         _active.Clear();
     }
 
+    public ImmutableArray<ExecutionIslandId> CaptureActiveIslands() => [.. _active];
+
+    /// <summary>
+    /// Abandons only the islands that became active after <paramref name="captured"/> was taken, so a failed
+    /// nested execution leaves its enclosing islands free to complete.
+    /// </summary>
+    public void AbandonIslandsSince(ImmutableArray<ExecutionIslandId> captured)
+    {
+        _active.IntersectWith(captured);
+    }
+
     public void ValidateCompleted(
         bool allowSkippedIslands = false,
         IReadOnlySet<ExecutionIslandId>? regionEmptyIslands = null)

@@ -1,4 +1,7 @@
-﻿using Beutl.Graphics.Rendering.Cache;
+﻿using System.Collections.Immutable;
+using Beutl.Graphics.Rendering.Cache;
+using Beutl.Logging;
+using Microsoft.Extensions.Logging;
 
 namespace Beutl.Graphics.Rendering;
 
@@ -6,6 +9,9 @@ internal sealed partial class RenderRequestExecutor
 {
     private sealed partial class CompatibilityExecutionState
     {
+        private static readonly ILogger s_verificationLogger =
+            Log.CreateLogger("RenderCacheVerification");
+
         private void VerifyCacheHit(
             RenderFragmentReference fragment,
             RenderCacheHitSubstitution hit,
@@ -13,10 +19,18 @@ internal sealed partial class RenderRequestExecutor
             ImmediateCanvas currentTarget,
             EffectiveScale? requestedScale)
         {
-            IReadOnlyList<CompatibilityRenderValue> executedValues = ExecuteFragment(
-                fragment,
-                currentTarget,
-                requestedScale);
+            ImmutableArray<ExecutionIslandId> enclosingIslands = _executionLedger.CaptureActiveIslands();
+            IReadOnlyList<CompatibilityRenderValue> executedValues;
+            try
+            {
+                executedValues = ExecuteFragment(fragment, currentTarget, requestedScale);
+            }
+            catch (Exception exception)
+            {
+                AbandonVerification(fragment, hit, enclosingIslands, exception);
+                return;
+            }
+
             AddValueReferences(executedValues);
             try
             {
@@ -29,6 +43,30 @@ internal sealed partial class RenderRequestExecutor
                 if (fragment.Kind == RenderFragmentKind.ContributeValues)
                     CompleteFragmentUse(fragment.Inputs.Single());
             }
+        }
+
+        /// <summary>
+        /// Drops a verification re-execution that failed before producing anything to compare, leaving the
+        /// selected cached values served. The shipping path never runs this execution, so its failure is an
+        /// artifact of verification and must not remove content from the frame.
+        /// </summary>
+        private void AbandonVerification(
+            RenderFragmentReference fragment,
+            RenderCacheHitSubstitution hit,
+            ImmutableArray<ExecutionIslandId> enclosingIslands,
+            Exception exception)
+        {
+            _verificationExecutionAbandoned = true;
+            _executionLedger.AbandonIslandsSince(enclosingIslands);
+            if (fragment.Kind == RenderFragmentKind.ContributeValues)
+                CompleteFragmentUse(fragment.Inputs.Single());
+
+            s_verificationLogger.LogWarning(
+                exception,
+                "Render-cache verification could not re-execute the producer of cached fragment {FragmentId} "
+                + "({FragmentKind}); the cached output is served unverified.",
+                hit.OriginalProducerId.Value,
+                fragment.Kind);
         }
 
         private void CompareVerifiedCacheHit(
@@ -83,12 +121,15 @@ internal sealed partial class RenderRequestExecutor
             RenderCacheCandidate candidate = _cacheResolution.GetDecision(hit.CandidateId).Candidate;
             RenderFragmentReference producer = ResolveIdentityCarrier(fragment);
             return new RenderCacheOutputMismatchException(
-                "A render-cache runtime identity does not capture everything its producer draws with: "
-                + $"{difference}. Cached fragment {hit.OriginalProducerId.Value} ({fragment.Kind}) produced by "
-                + $"{producer.Kind} declared on node '{candidate.Cache?.NodeType?.FullName ?? "<unreachable>"}', "
+                "Replaying a render-cache producer under the runtime identity that selected its cached output "
+                + $"produced a different output: {difference}. Cached fragment {hit.OriginalProducerId.Value} "
+                + $"({fragment.Kind}) produced by {producer.Kind} declared on node "
+                + $"'{candidate.Cache?.NodeType?.FullName ?? "<unreachable>"}', "
                 + $"structural key '{Describe(GetStructuralKey(producer))}', "
                 + $"runtime identity '{Describe(GetRuntimeIdentity(producer))}'. "
-                + "Add every value the producer draws with to its runtime identity.");
+                + "Either the runtime identity omits a value the producer draws with, or the producer's "
+                + "callback is not idempotent and draws different pixels for the same identity. Verification "
+                + "cannot distinguish the two: check the identity first, then the callback.");
         }
 
         // A cache candidate is often a payload-less wrapper around the fragment carrying the authored identity.
@@ -105,12 +146,17 @@ internal sealed partial class RenderRequestExecutor
             return current;
         }
 
+        // A payload absent here reads as identity-less, so ResolveIdentityCarrier walks past its producer.
         private static object? GetStructuralKey(RenderFragmentReference fragment)
             => fragment.Payload switch
             {
                 ShaderRenderFragmentPayload shader => shader.Description.StructuralIdentity,
                 GeometryRenderFragmentPayload geometry => geometry.Description.StructuralIdentity,
                 OpaqueRenderFragmentPayload opaque => opaque.Description.StructuralKey,
+                TargetScopeRenderFragmentPayload scope => scope.Description.StructuralKey,
+                TargetCommandRenderFragmentPayload command => command.Description.StructuralKey,
+                RawTargetScopeRenderFragmentPayload rawScope => rawScope.Description.StructuralKey,
+                RawTargetCommandRenderFragmentPayload rawCommand => rawCommand.Description.StructuralKey,
                 _ => null,
             };
 

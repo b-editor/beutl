@@ -317,6 +317,7 @@ internal sealed partial class RenderRequestExecutor
         private int _synchronizations;
         private int _replayDepth;
         private bool _previewAllocationDropObserved;
+        private bool _verificationExecutionAbandoned;
         private Vector _activeDeviceGridOffset;
 
         public long? ActiveSubjectId { get; private set; }

@@ -411,7 +411,7 @@ internal sealed partial class RenderRequestExecutor
 
         public void ValidateExecutionCompleted(bool allowSkippedIslands)
             => _executionLedger.ValidateCompleted(
-                allowSkippedIslands || _previewAllocationDropObserved,
+                allowSkippedIslands || _previewAllocationDropObserved || _verificationExecutionAbandoned,
                 _regionEmptyIslands);
 
         private static bool IsRegionEmpty(ExecutionIsland island, RegionAnalysis regions)
