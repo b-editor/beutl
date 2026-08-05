@@ -133,12 +133,41 @@ public sealed class OrphanedTargetEffectContractTests
         Assert.That(rasterization.IsEmpty, Is.False);
     }
 
-    [Test]
-    public void UnpublishedTargetEffectInAChildNode_FailsTheParentRecording()
+    [TestCase(TargetEffectKind.TargetCommand)]
+    [TestCase(TargetEffectKind.RawTargetCommand)]
+    [TestCase(TargetEffectKind.TargetScope)]
+    [TestCase(TargetEffectKind.RawTargetScope)]
+    [TestCase(TargetEffectKind.TargetLayerScope)]
+    public void UnpublishedTargetEffectInAChildNode_FailsThatChildsOwnRecording(TargetEffectKind kind)
     {
         using var inner = new DelegateNode(context =>
         {
             RenderFragmentHandle source = context.OpaqueSource(ExecutingSource("nested-orphan-source"));
+            _ = RecordTargetEffect(context, kind, source);
+            context.Publish(source);
+        });
+        using var outer = new DelegateNode(context =>
+        {
+            context.PublishRange(context.RecordNode(inner, []));
+        });
+
+        Assert.That(
+            () => Rasterize(outer),
+            Throws.TypeOf<InvalidOperationException>()
+                .With.Message.StartsWith(
+                    "A recorded target-effect fragment was neither published nor consumed.")
+                .And.Message.Contains($"Fragment kind: {kind}"));
+    }
+
+    // Drop is not transitive and a parent never receives handles to a child's internal fragments,
+    // so a parent that walks away from a child's target-effect publication cannot be an authoring
+    // error — it is how every bounds-driven bail-out in the engine abandons a recorded subtree.
+    [Test]
+    public void AChildTargetEffectPublicationTheParentNeverConsumes_StaysLegal()
+    {
+        using var inner = new DelegateNode(context =>
+        {
+            RenderFragmentHandle source = context.OpaqueSource(ExecutingSource("nested-abandoned-source"));
             RenderFragmentHandle command = RecordTargetEffect(
                 context,
                 TargetEffectKind.TargetCommand,
@@ -151,10 +180,47 @@ public sealed class OrphanedTargetEffectContractTests
             context.Publish(outputs[0]);
         });
 
-        Assert.That(
-            () => Rasterize(outer),
-            Throws.TypeOf<InvalidOperationException>()
-                .With.Message.Contains("Fragment kind: TargetCommand"));
+        using RenderNodeRasterization rasterization = Rasterize(outer);
+
+        Assert.That(rasterization.IsEmpty, Is.False);
+    }
+
+    [Test]
+    public void AnEntirelyAbandonedChildRecording_StaysLegalAndDrawsNothing()
+    {
+        using var inner = new DelegateNode(context =>
+        {
+            RenderFragmentHandle source = context.OpaqueSource(ExecutingSource("discarded-source"));
+            context.Publish(RecordTargetEffect(context, TargetEffectKind.TargetScope, source));
+        });
+        using var outer = new DelegateNode(context =>
+        {
+            _ = context.RecordNode(inner, []);
+        });
+
+        using RenderNodeRasterization rasterization = Rasterize(outer);
+
+        Assert.That(rasterization.IsEmpty, Is.True);
+    }
+
+    [Test]
+    public void AChildDroppingAnInputItWasHanded_AbandonsTheParentsOwnTargetEffect()
+    {
+        using var inner = new DelegateNode(context => context.Drop(context.Inputs[0]));
+        using var outer = new DelegateNode(context =>
+        {
+            RenderFragmentHandle source = context.OpaqueSource(ExecutingSource("handed-over-source"));
+            RenderFragmentHandle command = RecordTargetEffect(
+                context,
+                TargetEffectKind.TargetCommand,
+                source);
+            context.RecordNode(inner, [command]);
+            context.Publish(context.OpaqueSource(ExecutingSource("surviving-source")));
+        });
+
+        using RenderNodeRasterization rasterization = Rasterize(outer);
+
+        Assert.That(rasterization.IsEmpty, Is.False);
     }
 
     [Test]
