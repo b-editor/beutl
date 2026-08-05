@@ -1,4 +1,6 @@
 ﻿using System.Collections.Immutable;
+using System.Reflection;
+using System.Runtime.CompilerServices;
 using Beutl.Graphics.Rendering.Cache;
 using Beutl.Logging;
 using Microsoft.Extensions.Logging;
@@ -175,8 +177,33 @@ internal sealed partial class RenderRequestExecutor
             => value switch
             {
                 null => "<none>",
-                Type type => type.FullName ?? type.Name,
+                Type type => DescribeType(type),
+                MethodInfo method => DescribeMethod(method),
                 _ => value.ToString() ?? value.GetType().Name,
             };
+
+        private static string DescribeType(Type type) => type.FullName ?? type.Name;
+
+        // MethodInfo.ToString() omits the declaring type, which is the only part naming the author's node.
+        private static string DescribeMethod(MethodInfo method)
+        {
+            if (method.DeclaringType is not { } declaringType)
+                return method.ToString() ?? method.Name;
+
+            return $"{DescribeType(ResolveAuthoredType(declaringType))}.{method.Name}";
+        }
+
+        // A lambda or local function lives in a compiler-generated type nested in the type that declared it.
+        private static Type ResolveAuthoredType(Type type)
+        {
+            Type current = type;
+            while (current.DeclaringType is { } declaring
+                   && current.IsDefined(typeof(CompilerGeneratedAttribute), inherit: false))
+            {
+                current = declaring;
+            }
+
+            return current;
+        }
     }
 }

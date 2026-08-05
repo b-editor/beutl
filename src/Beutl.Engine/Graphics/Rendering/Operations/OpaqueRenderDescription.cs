@@ -1271,8 +1271,13 @@ internal static class RenderDescriptionValidation
     }
 
     /// <summary>
-    /// A hit-testing contract over a zero-area query region reports hits outside the bounds the operation gives
-    /// Measure — <see cref="Rect.Contains"/> is edge-inclusive, so even an empty rectangle still holds one point.
+    /// A recorded query region is the whole region the operation reports to Measure and ROI, so a hit outside it
+    /// is a hit no consumer sized itself for. A zero-area region reports nothing, yet every hit-testing kind can
+    /// still answer true somewhere: <see cref="RenderHitTestContractKind.OutputBounds"/> because
+    /// <see cref="Rect.Contains"/> is edge-inclusive and an empty rectangle still holds its own origin,
+    /// <see cref="RenderHitTestContractKind.AnyInput"/> because it delegates to input regions the operation never
+    /// declared, and <see cref="RenderHitTestContractKind.Custom"/> because the callback answers for any point at
+    /// all. Only <see cref="RenderHitTestContractKind.None"/> is confined to an empty region.
     /// </summary>
     public static void ThrowIfQueryContributionIncoherent(
         Rect queryBounds,

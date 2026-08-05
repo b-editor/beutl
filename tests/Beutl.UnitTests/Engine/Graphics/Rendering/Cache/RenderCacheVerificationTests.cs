@@ -67,6 +67,33 @@ public sealed class RenderCacheVerificationTests
     }
 
     [Test]
+    [NonParallelizable]
+    public void DefaultStructuralKey_NamesTheDeclaringNodeNotOnlyTheCallbackSignature()
+    {
+        using var node = new ColorFillNode(IdentityKind.UnderSpecified);
+        node.Cache.ReportRenderCount(RenderNodeCache.Count);
+        using RenderNodeRenderer renderer = CreateRenderer(node);
+
+        using (RenderNodeRasterization _ = renderer.Rasterize())
+        {
+        }
+
+        node.Color = Colors.Blue;
+        RenderCacheOutputMismatchException? exception;
+        using (RenderCacheVerification.EnableForAllRequests())
+        {
+            exception = Assert.Throws<RenderCacheOutputMismatchException>(() => renderer.Rasterize());
+        }
+
+        TestContext.Out.WriteLine(exception!.Message);
+        Assert.That(
+            exception.Message,
+            Does.Contain($"structural key '{typeof(ColorFillNode).FullName}."),
+            "an unlabelled description defaults to its callback method, which only names the node through "
+            + "its declaring type");
+    }
+
+    [Test]
     public void CompleteRuntimeIdentity_MissesTheCacheWhenTheDrawnValueChanges()
     {
         using var node = new ColorFillNode(IdentityKind.Complete);

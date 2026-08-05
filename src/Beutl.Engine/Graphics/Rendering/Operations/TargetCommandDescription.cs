@@ -76,12 +76,12 @@ public sealed class TargetCommandDescription
                 nameof(affectedRegion));
         }
 
-        object resolvedStructuralKey = structuralKey is null
-            ? new TargetCommandStructuralIdentity(execute.Method, access)
-            : RenderDescriptionValidation.ResolveStructuralKey(
-                structuralKey,
-                execute.Method,
-                nameof(structuralKey));
+        // Access is its own component of both the structural plan key and the output-cache identity, so the
+        // default key stays the bare callback method and allocates nothing.
+        object resolvedStructuralKey = RenderDescriptionValidation.ResolveStructuralKey(
+            structuralKey,
+            execute.Method,
+            nameof(structuralKey));
         RenderDescriptionValidation.ValidateRuntimeIdentity(runtimeIdentity, nameof(runtimeIdentity));
         RenderInputReadback[] readbacks = CopyInputReadbacks(inputReadbacks);
 
@@ -261,7 +261,3 @@ public sealed class TargetCommandSession
             throw new InvalidOperationException("A readback target command must consume its snapshot exactly once.");
     }
 }
-
-internal readonly record struct TargetCommandStructuralIdentity(
-    System.Reflection.MethodInfo CallbackMethod,
-    TargetAccess Access);

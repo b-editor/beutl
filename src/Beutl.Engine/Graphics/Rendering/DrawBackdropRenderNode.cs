@@ -25,13 +25,17 @@ public class DrawBackdropRenderNode(IBackdrop backdrop, Rect bounds) : RenderNod
 
         IBackdrop backdrop = Backdrop;
         Rect bounds = Bounds;
+        // A zero-area canvas replays no pixels, so the backdrop covers no point a query can reach.
+        RenderHitTestContract hitTest = bounds.Width > 0 && bounds.Height > 0
+            ? RenderHitTestContract.OutputBounds
+            : RenderHitTestContract.None;
         if (context.TryBuiltInBackdrop(backdrop, out RenderFragmentHandle? capture))
         {
             TargetCommandDescription description = TargetCommandDescription.Create(
                 static session => session.Canvas.Use(canvas => session.Inputs[0].Draw(canvas)),
                 TargetRegion.Region(bounds),
                 bounds,
-                RenderHitTestContract.OutputBounds,
+                hitTest,
                 runtimeIdentity: new RenderRuntimeIdentity(bounds));
             context.Publish(context.TargetCommand([capture!], description));
             return;
@@ -41,7 +45,7 @@ public class DrawBackdropRenderNode(IBackdrop backdrop, Rect bounds) : RenderNod
         RawTargetCommandDescription rawDescription = RawTargetCommandDescription.Create(
             session => session.UseResource(resource, value => value.Draw(session.Canvas)),
             bounds,
-            RenderHitTestContract.OutputBounds,
+            hitTest,
             resources: [resource]);
         context.Publish(context.RawTargetCommand(rawDescription));
     }
