@@ -1244,7 +1244,7 @@ public sealed class SKSLShader : IDisposable
 
 `EffectTarget()` and the materialized `EffectTarget(RenderTarget, Rect, EffectiveScale)` constructor remain public for source-less and caller-materialized legacy effects. Only the operation-backed constructor is removed. The materialized constructor takes a shallow copy and derives the canonical zero-offset footprint. `Clone()` preserves `OriginalBounds`, current `Bounds`, `Scale`, `DeviceBounds`, and `DeviceGridOffset`; `EffectTargets.Clone()` uses that path for every retained target.
 
-Direct legacy activation retains its existing public scale-only constructor and historical allocation-failure classification: a positive-infinite (including sanitized invalid) `maxWorkingScale` selects delivery fail-fast behavior, while a finite positive ceiling selects preview drop behavior. Its request purpose is auxiliary. Engine-owned execution paths supply their explicit request classification internally:
+Direct legacy activation takes its allocation-failure classification from an explicit `RenderIntent` argument that defaults to `RenderIntent.Preview`; its request purpose remains auxiliary. `RenderIntent.Delivery` fails fast — an intermediate buffer that cannot be allocated throws `InvalidOperationException` rather than letting the layer vanish from a delivered frame — while `RenderIntent.Preview` logs the failed footprint and drops that target. `MaxWorkingScale` does not participate in this classification: it bounds the working scale only, so a preview with an infinite ceiling still degrades and a delivery with a finite ceiling still fails fast. Engine-owned execution paths supply their explicit request classification internally:
 
 ```csharp
 public sealed class FilterEffectActivator : IDisposable
@@ -1254,7 +1254,8 @@ public sealed class FilterEffectActivator : IDisposable
         SKImageFilterBuilder builder,
         float outputScale = 1f,
         float workingScale = 1f,
-        float maxWorkingScale = float.PositiveInfinity);
+        float maxWorkingScale = float.PositiveInfinity,
+        RenderIntent intent = RenderIntent.Preview);
 
     public SKImageFilterBuilder Builder { get; }
     public EffectTargets CurrentTargets { get; }
