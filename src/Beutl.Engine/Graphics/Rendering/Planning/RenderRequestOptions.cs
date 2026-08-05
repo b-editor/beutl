@@ -15,7 +15,8 @@ internal sealed class RenderRequestOptions
         FusionMode fusionMode = FusionMode.Enabled,
         RenderRequestOwner? owner = null,
         IRenderPipelineDiagnosticsState? diagnostics = null,
-        NestedRenderTargetBinding? targetBinding = null)
+        NestedRenderTargetBinding? targetBinding = null,
+        bool verifyCacheOutputs = false)
     {
         if (!Enum.IsDefined(intent))
         {
@@ -48,11 +49,13 @@ internal sealed class RenderRequestOptions
         OwnsOwner = owner is null;
         Diagnostics = diagnostics;
         TargetBinding = targetBinding;
+        VerifyCacheOutputs = verifyCacheOutputs;
         PlanIdentity = new RenderRequestPlanIdentity(
             Purpose,
             FusionMode,
             CachePolicy.IsEnabled,
-            CachePolicy.Rules);
+            CachePolicy.Rules,
+            VerifyCacheOutputs);
     }
 
     public RenderIntent Intent { get; }
@@ -76,6 +79,11 @@ internal sealed class RenderRequestOptions
     public IRenderPipelineDiagnosticsState? Diagnostics { get; }
 
     public NestedRenderTargetBinding? TargetBinding { get; }
+
+    /// <summary>
+    /// Gets whether every selected render-cache hit must also execute its producer and compare the two outputs.
+    /// </summary>
+    public bool VerifyCacheOutputs { get; }
 
     public RenderRequestPlanIdentity PlanIdentity { get; }
 
@@ -135,7 +143,8 @@ internal sealed class RenderRequestOptions
             FusionMode,
             Owner,
             Diagnostics,
-            targetBinding);
+            targetBinding,
+            VerifyCacheOutputs);
         nested.NestedPolicyParent = this;
         return nested;
     }
@@ -175,7 +184,8 @@ internal readonly record struct RenderRequestPlanIdentity(
     RenderRequestPurpose Purpose,
     FusionMode FusionMode,
     bool CacheEnabled,
-    RenderCacheRules CacheRules);
+    RenderCacheRules CacheRules,
+    bool VerifyCacheOutputs);
 
 internal enum FusionMode : byte
 {

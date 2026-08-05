@@ -55,6 +55,8 @@ public sealed record RenderNodeRenderRequest
     internal FusionMode FusionMode { get; init; } = FusionMode.Enabled;
 
     internal IRenderPipelineDiagnosticsState? Diagnostics { get; init; }
+
+    internal bool VerifyCacheOutputs { get; init; }
 }
 
 /// <summary>Configures renderer-lifetime ownership and the request used when an operation omits one.</summary>
@@ -811,7 +813,8 @@ public sealed class RenderNodeRenderer : IDisposable
             maxWorkingScale,
             renderRequest.CacheOptions,
             renderRequest.FusionMode,
-            diagnostics: renderRequest.Diagnostics));
+            diagnostics: renderRequest.Diagnostics,
+            verifyCacheOutputs: renderRequest.VerifyCacheOutputs || RenderCacheVerification.IsEnabled));
 
     private RenderNodeRenderRequest ResolveRequest(RenderNodeRenderRequest? request)
         => request is null

@@ -43,14 +43,17 @@ internal sealed class ExecutionIslandPlanner
             throw new ArgumentOutOfRangeException(nameof(fusionMode));
         ArgumentNullException.ThrowIfNull(budget);
 
-        HashSet<RenderFragmentId> cacheHitIds =
-        [
-            .. cacheResolution.Hits.Select(static hit => hit.OriginalProducerId),
-        ];
+        HashSet<RenderFragmentId> cacheHitIds = cacheResolution.CollectPrunedHitProducers();
         HashSet<RenderFragmentId> cacheCaptureIds =
         [
             .. cacheResolution.MissCaptures.Select(static capture => capture.ProducerId),
         ];
+        // A verified hit still executes, but it must materialize standalone so its output stays comparable.
+        foreach (RenderCacheHitSubstitution hit in cacheResolution.Hits)
+        {
+            if (hit.Verify)
+                cacheCaptureIds.Add(hit.OriginalProducerId);
+        }
         RenderFragmentReference[] references = GetOrderedReferences(graph, roots, cacheHitIds);
         var referenceSet = new HashSet<RenderFragmentReference>(
             references,

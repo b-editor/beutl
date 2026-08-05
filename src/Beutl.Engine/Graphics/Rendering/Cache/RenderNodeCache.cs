@@ -30,6 +30,8 @@ public sealed class RenderNodeCache(RenderNode node) : IDisposable
 
     internal float IdentityDensity => _storage.IdentityDensity;
 
+    internal Type? NodeType => _node.TryGetTarget(out RenderNode? node) ? node.GetType() : null;
+
     public bool IsDisposed { get; private set; }
 
     public void ReportRenderCount(int count)

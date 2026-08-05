@@ -346,9 +346,7 @@ internal sealed partial class RenderRequestExecutor
                 .Where(island => IsRegionEmpty(island, regions))
                 .Select(static island => island.Id)
                 .ToHashSet();
-            var cacheHitFragmentIds = cacheResolution.Hits
-                .Select(static hit => hit.OriginalProducerId)
-                .ToHashSet();
+            HashSet<RenderFragmentId> cacheHitFragmentIds = cacheResolution.CollectPrunedHitProducers();
             _resourceUses = ResourcePlanUseSchedule.Create(roots, cacheHitFragmentIds).BeginExecution();
             _cacheResolution = cacheResolution;
             _materializationDemands = materializationDemands

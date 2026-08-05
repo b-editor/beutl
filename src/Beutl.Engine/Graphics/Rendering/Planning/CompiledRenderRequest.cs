@@ -377,8 +377,7 @@ internal sealed class ExecutionIslandExecutionLedger
             graphReferences.Add(recorded.Id, reference);
         }
 
-        var cacheHits = new HashSet<RenderFragmentId>(
-            cacheResolution.Hits.Select(static hit => hit.OriginalProducerId));
+        HashSet<RenderFragmentId> cacheHits = cacheResolution.CollectPrunedHitProducers();
         HashSet<RenderFragmentReference> reachable = GetReachableReferences(
             roots,
             graphReferences,

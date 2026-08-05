@@ -84,28 +84,17 @@ internal sealed partial class RenderRequestExecutor
             IReadOnlyList<CompatibilityRenderValue> result;
             bool cacheHit = TryMaterializeCacheHit(
                 fragment,
-                out IReadOnlyList<CompatibilityRenderValue>? hitValues);
+                out IReadOnlyList<CompatibilityRenderValue>? hitValues,
+                out RenderCacheHitSubstitution? hit);
             if (cacheHit)
             {
                 result = hitValues!;
-            }
-            else if (_executionPlan.TryGetMembership(fragment, out ExecutionIslandMembership membership))
-            {
-                ExecutionIsland island = _executionLedger.Begin(fragment);
-                result = membership.ShaderRun is { } run
-                    ? ExecuteCompiledShaderRun(run, currentTarget, requestedScale)
-                    : MaterializePlannedFragment(fragment, currentTarget, requestedScale);
-                _executionLedger.Complete(island);
+                if (hit!.Verify)
+                    VerifyCacheHit(fragment, hit, result, currentTarget, requestedScale);
             }
             else
             {
-                result = fragment.Kind switch
-                {
-                    RenderFragmentKind.MaterializedInput => MaterializeExternal(fragment),
-                    RenderFragmentKind.ContributeValues => MaterializeSingleInput(fragment, currentTarget),
-                    _ => throw new InvalidOperationException(
-                        $"Executable fragment '{fragment.Kind}' is not assigned to an execution island."),
-                };
+                result = ExecuteFragment(fragment, currentTarget, requestedScale);
             }
             StageCacheCaptures(fragment, result);
             _values.Add(fragment, result);
@@ -113,6 +102,30 @@ internal sealed partial class RenderRequestExecutor
             if (fragment.Kind == RenderFragmentKind.ContributeValues && !cacheHit)
                 CompleteFragmentUse(fragment.Inputs.Single());
             return result;
+        }
+
+        private IReadOnlyList<CompatibilityRenderValue> ExecuteFragment(
+            RenderFragmentReference fragment,
+            ImmediateCanvas currentTarget,
+            EffectiveScale? requestedScale)
+        {
+            if (_executionPlan.TryGetMembership(fragment, out ExecutionIslandMembership membership))
+            {
+                ExecutionIsland island = _executionLedger.Begin(fragment);
+                IReadOnlyList<CompatibilityRenderValue> values = membership.ShaderRun is { } run
+                    ? ExecuteCompiledShaderRun(run, currentTarget, requestedScale)
+                    : MaterializePlannedFragment(fragment, currentTarget, requestedScale);
+                _executionLedger.Complete(island);
+                return values;
+            }
+
+            return fragment.Kind switch
+            {
+                RenderFragmentKind.MaterializedInput => MaterializeExternal(fragment),
+                RenderFragmentKind.ContributeValues => MaterializeSingleInput(fragment, currentTarget),
+                _ => throw new InvalidOperationException(
+                    $"Executable fragment '{fragment.Kind}' is not assigned to an execution island."),
+            };
         }
 
         private IReadOnlyList<CompatibilityRenderValue> MaterializePlannedFragment(
@@ -152,9 +165,11 @@ internal sealed partial class RenderRequestExecutor
 
         private bool TryMaterializeCacheHit(
             RenderFragmentReference fragment,
-            out IReadOnlyList<CompatibilityRenderValue>? values)
+            out IReadOnlyList<CompatibilityRenderValue>? values,
+            out RenderCacheHitSubstitution? hit)
         {
-            if (fragment.Id is not { } id || !_cacheHits.TryGetValue(id, out RenderCacheHitSubstitution? hit))
+            hit = null;
+            if (fragment.Id is not { } id || !_cacheHits.TryGetValue(id, out hit))
             {
                 values = null;
                 return false;
