@@ -140,7 +140,7 @@ public sealed class OrphanedTargetEffectContractTests
     [TestCase(TargetEffectKind.TargetLayerScope)]
     public void UnpublishedTargetEffectInAChildNode_FailsThatChildsOwnRecording(TargetEffectKind kind)
     {
-        using var inner = new DelegateNode(context =>
+        using var inner = new OrphaningChildNode(context =>
         {
             RenderFragmentHandle source = context.OpaqueSource(ExecutingSource("nested-orphan-source"));
             _ = RecordTargetEffect(context, kind, source);
@@ -156,22 +156,23 @@ public sealed class OrphanedTargetEffectContractTests
             Throws.TypeOf<InvalidOperationException>()
                 .With.Message.StartsWith(
                     "A recorded target-effect fragment was neither published nor consumed.")
-                .And.Message.Contains($"Fragment kind: {kind}"));
+                .And.Message.Contains($"Fragment kind: {kind}")
+                .And.Message.Contains($"recorded by: {typeof(OrphaningChildNode).FullName}"));
     }
 
-    // Drop is not transitive and a parent never receives handles to a child's internal fragments,
-    // so a parent that walks away from a child's target-effect publication cannot be an authoring
-    // error — it is how every bounds-driven bail-out in the engine abandons a recorded subtree.
+    // Drop is not transitive and a parent never receives handles to a child's internal fragments.
     [Test]
     public void AChildTargetEffectPublicationTheParentNeverConsumes_StaysLegal()
     {
+        int executions = 0;
         using var inner = new DelegateNode(context =>
         {
             RenderFragmentHandle source = context.OpaqueSource(ExecutingSource("nested-abandoned-source"));
             RenderFragmentHandle command = RecordTargetEffect(
                 context,
                 TargetEffectKind.TargetCommand,
-                source);
+                source,
+                () => executions++);
             context.PublishRange([source, command]);
         });
         using var outer = new DelegateNode(context =>
@@ -182,7 +183,11 @@ public sealed class OrphanedTargetEffectContractTests
 
         using RenderNodeRasterization rasterization = Rasterize(outer);
 
-        Assert.That(rasterization.IsEmpty, Is.False);
+        Assert.Multiple(() =>
+        {
+            Assert.That(rasterization.IsEmpty, Is.False);
+            Assert.That(executions, Is.Zero);
+        });
     }
 
     [Test]
@@ -366,6 +371,11 @@ public sealed class OrphanedTargetEffectContractTests
     }
 
     private sealed class DelegateNode(Action<RenderNodeContext> process) : RenderNode
+    {
+        public override void Process(RenderNodeContext context) => process(context);
+    }
+
+    private sealed class OrphaningChildNode(Action<RenderNodeContext> process) : RenderNode
     {
         public override void Process(RenderNodeContext context) => process(context);
     }

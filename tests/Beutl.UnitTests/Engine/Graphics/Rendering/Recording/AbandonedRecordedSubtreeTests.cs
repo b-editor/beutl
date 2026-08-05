@@ -5,15 +5,24 @@ using Beutl.Graphics.Rendering;
 using Beutl.Graphics.Shapes;
 using Beutl.Graphics.Transformation;
 using Beutl.Media;
+using SkiaSharp;
 
 namespace Beutl.UnitTests.Engine.Graphics.Rendering.Recording;
 
-// These nodes must record a child subtree before they can compute the bounds that decide whether
-// there is anything to draw, so their degenerate-bounds bail-out abandons a subtree that already
-// published target-effect fragments of its own.
+// These bail-outs learn there is nothing to draw only after recording a child subtree, so they
+// abandon a subtree that may already have published target-effect fragments of its own.
 [TestFixture]
 public sealed class AbandonedRecordedSubtreeTests
 {
+    private static readonly Rect s_ownerRect = new(0, 0, 32, 24);
+
+    public enum DegenerateBrushContent
+    {
+        NoDrawable,
+        DisabledDrawable,
+        ZeroAreaDrawable,
+    }
+
     [Test]
     public void ParticleRenderNode_WithParticlesScaledToZero_RendersNothingWithoutFailing()
     {
@@ -43,39 +52,64 @@ public sealed class AbandonedRecordedSubtreeTests
             + "abandoned must not fail the recording");
     }
 
-    [Test]
-    public void DrawableBrush_WithZeroAreaContent_RendersTheOwnerWithoutFailing()
+    [TestCase(DegenerateBrushContent.NoDrawable)]
+    [TestCase(DegenerateBrushContent.DisabledDrawable)]
+    [TestCase(DegenerateBrushContent.ZeroAreaDrawable)]
+    public void DrawableBrush_WithDegenerateContent_DrawsTheOwnerAndFillsNothing(
+        DegenerateBrushContent content)
     {
-        var content = new RectShape();
-        content.Width.CurrentValue = 18;
-        content.Height.CurrentValue = 12;
-        content.Fill.CurrentValue = Brushes.White;
-        var collapse = new ScaleTransform();
-        collapse.Scale.CurrentValue = 0;
-        content.Transform.CurrentValue = collapse;
+        using Brush.Resource brushResource = CreateDegenerateDrawableBrush(content);
+        var pen = new Pen
+        {
+            Thickness = { CurrentValue = 4 },
+            Brush = { CurrentValue = Brushes.White },
+            StrokeAlignment = { CurrentValue = StrokeAlignment.Inside },
+        };
+        using Pen.Resource penResource = pen.ToResource(CompositionContext.Default);
+        using var node = new RectangleRenderNode(s_ownerRect, brushResource, penResource);
 
-        var brush = new DrawableBrush(content);
-        using var brushResource = (Brush.Resource)brush.ToResource(CompositionContext.Default);
-        using var node = new RectangleRenderNode(new Rect(0, 0, 32, 24), brushResource, null);
-        using var owner = new RenderRequestOwner();
-        using var request = new RenderRequest(new RenderRequestOptions(
-            RenderIntent.Preview,
-            RenderRequestPurpose.Auxiliary,
-            outputScale: 1,
-            maxWorkingScale: 1,
-            owner: owner));
+        using RenderNodeRasterization rasterization = Rasterize(node);
 
-        RecordedRenderGraph graph = new RenderRequestRecorder(request).Record(node);
-        RenderFragmentReference root = GetSingleRoot(graph);
+        Assert.That(rasterization.IsEmpty, Is.False,
+            "the owner still has a stroke to draw, so degenerate brush content must not erase it");
+        Bitmap bitmap = rasterization.Bitmap
+            ?? throw new AssertionException("A non-empty rasterization must carry a bitmap.");
 
         Assert.Multiple(() =>
         {
-            Assert.That(root.Kind, Is.EqualTo(RenderFragmentKind.OpaqueSource),
-                "zero-area brush content is dropped from the paint, so the owner keeps no brush "
-                + "dependency");
-            Assert.That(root.Inputs, Is.Empty);
+            Assert.That(rasterization.Bounds, Is.EqualTo(s_ownerRect));
+            Assert.That(AlphaAt(bitmap, 2, 2), Is.GreaterThan(0.99f),
+                "the owner's stroke must be drawn");
+            Assert.That(AlphaAt(bitmap, 16, 12), Is.Zero,
+                "content that lowered to nothing must fill nothing, not a fallback colour");
         });
     }
+
+    private static Brush.Resource CreateDegenerateDrawableBrush(DegenerateBrushContent content)
+    {
+        if (content == DegenerateBrushContent.NoDrawable)
+            return (Brush.Resource)new DrawableBrush().ToResource(CompositionContext.Default);
+
+        var drawable = new RectShape();
+        drawable.Width.CurrentValue = 18;
+        drawable.Height.CurrentValue = 12;
+        drawable.Fill.CurrentValue = Brushes.White;
+        if (content == DegenerateBrushContent.DisabledDrawable)
+        {
+            drawable.IsEnabled = false;
+        }
+        else
+        {
+            var collapse = new ScaleTransform();
+            collapse.Scale.CurrentValue = 0;
+            drawable.Transform.CurrentValue = collapse;
+        }
+
+        return (Brush.Resource)new DrawableBrush(drawable).ToResource(CompositionContext.Default);
+    }
+
+    private static float AlphaAt(Bitmap bitmap, int x, int y)
+        => (float)BitConverter.UInt16BitsToHalf(bitmap.GetRow<ushort>(y)[(x * 4) + 3]);
 
     private static RenderNodeRasterization Rasterize(RenderNode node)
     {
@@ -87,15 +121,25 @@ public sealed class AbandonedRecordedSubtreeTests
                 {
                     CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Disabled,
                 },
+                TargetFactory = new CpuTargetFactory(),
             });
         return renderer.Rasterize();
     }
 
-    private static RenderFragmentReference GetSingleRoot(RecordedRenderGraph graph)
+    private sealed class CpuTargetFactory : IRenderTargetFactory
     {
-        RenderFragmentId rootId = graph.PublicationRoots.Single();
-        return (RenderFragmentReference)graph.Fragments
-            .Single(fragment => fragment.Id == rootId)
-            .Payload!;
+        public RenderTarget Create(RenderTargetAllocationDescriptor allocation)
+            => new CpuRenderTarget(allocation.DeviceSize.Width, allocation.DeviceSize.Height);
     }
+
+    private sealed class CpuRenderTarget(int width, int height)
+        : RenderTarget(
+            SKSurface.Create(new SKImageInfo(
+                width,
+                height,
+                SKColorType.RgbaF16,
+                SKAlphaType.Premul,
+                SKColorSpace.CreateSrgbLinear())),
+            width,
+            height);
 }

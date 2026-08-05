@@ -462,9 +462,7 @@ internal sealed class NodeRecordingTransaction : IRenderFragmentHandleOwner
         return reachable;
     }
 
-    // Only own-origin entries: an absorbed child already validated its own fragments before Absorb,
-    // and a parent cannot repair them anyway — it never receives handles to a child's internal
-    // fragments, and Drop is not transitive.
+    // Drop is not transitive and a parent never receives handles to a child's internal fragments.
     private void ValidateNoOrphanedTargetEffects(
         HashSet<RenderFragmentReference> reachable)
     {

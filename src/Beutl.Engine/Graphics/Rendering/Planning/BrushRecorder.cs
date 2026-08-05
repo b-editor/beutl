@@ -130,6 +130,12 @@ internal static class BrushRecorder
             if (brush is DrawableBrush.Resource drawableBrush)
             {
                 int dependencyIndex = RecordDrawableBrush(drawableBrush, out Rect? contentBoundsHint);
+                if (dependencyIndex < 0)
+                {
+                    // BrushConstructor rejects a DrawableBrush resource carrying no lowered content.
+                    return RecordedBrush.Empty;
+                }
+
                 return new RecordedBrush(
                     RecordedBrushKind.Drawable,
                     resource,
