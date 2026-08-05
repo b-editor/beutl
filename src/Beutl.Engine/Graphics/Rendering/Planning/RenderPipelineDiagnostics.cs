@@ -253,15 +253,11 @@ internal sealed class RenderPipelineDiagnosticRecorder
             return;
 
         ArgumentNullException.ThrowIfNull(fragments);
-        try
+        Guarded(fragments, static (recorder, entries) =>
         {
-            foreach (RecordedRenderFragmentEntry fragment in fragments)
-                RecordCommittedReference(fragment.Reference);
-        }
-        catch (Exception)
-        {
-            _faulted = true;
-        }
+            foreach (RecordedRenderFragmentEntry fragment in entries)
+                recorder.RecordCommittedReference(fragment.Reference);
+        });
     }
 
     private void RecordCommittedReference(RenderFragmentReference reference)
@@ -302,19 +298,9 @@ internal sealed class RenderPipelineDiagnosticRecorder
 
     internal void RecordNestedRequest(RenderRequestId requestId)
     {
-        if (_completed || _faulted)
-            return;
-
-        try
-        {
-            AddEvent(
-                RenderPipelineDiagnosticEventKind.NestedRequest,
-                relatedRequestId: requestId.Value);
-        }
-        catch (Exception)
-        {
-            _faulted = true;
-        }
+        Guarded(requestId, static (recorder, id) => recorder.AddEvent(
+            RenderPipelineDiagnosticEventKind.NestedRequest,
+            relatedRequestId: id.Value));
     }
 
     internal void RecordPlan(ExecutionIslandPlan plan)
@@ -323,11 +309,11 @@ internal sealed class RenderPipelineDiagnosticRecorder
             return;
 
         ArgumentNullException.ThrowIfNull(plan);
-        try
+        Guarded(plan, static (recorder, islandPlan) =>
         {
-            foreach (ExecutionIsland island in plan.Islands)
+            foreach (ExecutionIsland island in islandPlan.Islands)
             {
-                Increment(RenderPipelineCounter.ExecutionIslands);
+                recorder.Increment(RenderPipelineCounter.ExecutionIslands);
                 long subjectId = island.Fragments[^1].Value;
                 bool hasGpuPass = island.PlansGpuPass;
                 bool requiresSynchronization = island.Kind == ExecutionIslandKind.Readback;
@@ -341,28 +327,28 @@ internal sealed class RenderPipelineDiagnosticRecorder
                     island.ShaderRun?.Stages.Length ?? 0,
                     island.ShaderRun?.IsFused == true);
                 foreach (RenderFragmentId fragmentId in island.Fragments)
-                    _plannedWorkByFragment[fragmentId.Value] = work;
+                    recorder._plannedWorkByFragment[fragmentId.Value] = work;
 
                 if (hasGpuPass)
                 {
-                    Increment(RenderPipelineCounter.PlannedGpuPasses);
-                    AddEvent(RenderPipelineDiagnosticEventKind.PassPlanned, subjectId);
+                    recorder.Increment(RenderPipelineCounter.PlannedGpuPasses);
+                    recorder.AddEvent(RenderPipelineDiagnosticEventKind.PassPlanned, subjectId);
                 }
                 if (requiresSynchronization)
                 {
-                    AddEvent(RenderPipelineDiagnosticEventKind.SynchronizationPlanned, subjectId);
+                    recorder.AddEvent(RenderPipelineDiagnosticEventKind.SynchronizationPlanned, subjectId);
                     work.SynchronizationPlanned = true;
                 }
             }
 
-            foreach (ExecutionIslandBoundary boundary in plan.Boundaries)
+            foreach (ExecutionIslandBoundary boundary in islandPlan.Boundaries)
             {
                 long subjectId = boundary.AfterFragmentId?.Value
                     ?? boundary.BeforeFragmentId?.Value
                     ?? 0;
                 RenderPipelineBoundaryReason reason = MapBoundaryReason(boundary.Reason);
-                Increment(RenderPipelineCounter.OpaqueBoundaries);
-                AddEvent(
+                recorder.Increment(RenderPipelineCounter.OpaqueBoundaries);
+                recorder.AddEvent(
                     RenderPipelineDiagnosticEventKind.BoundaryPlanned,
                     subjectId,
                     boundaryReason: reason);
@@ -370,23 +356,23 @@ internal sealed class RenderPipelineDiagnosticRecorder
                 if (reason is RenderPipelineBoundaryReason.LegacyCustomEffect
                     or RenderPipelineBoundaryReason.LegacyRawCanvas)
                 {
-                    _hasOpaqueExternalWork = true;
-                    if (_fragments.TryGetValue(subjectId, out FragmentState? fragment))
+                    recorder._hasOpaqueExternalWork = true;
+                    if (recorder._fragments.TryGetValue(subjectId, out FragmentState? fragment))
                         fragment.IsOpaqueExternal = true;
                 }
 
                 if (reason == RenderPipelineBoundaryReason.ThreeD)
-                    Increment(RenderPipelineCounter.Opaque3DBoundaries);
+                    recorder.Increment(RenderPipelineCounter.Opaque3DBoundaries);
 
                 bool synchronization = reason is RenderPipelineBoundaryReason.Readback
                     or RenderPipelineBoundaryReason.BackendTransition
                     or RenderPipelineBoundaryReason.ThreeD;
                 bool transition = reason is RenderPipelineBoundaryReason.BackendTransition
                     or RenderPipelineBoundaryReason.ThreeD;
-                if (!_plannedWorkByFragment.TryGetValue(subjectId, out PlannedWork? work))
+                if (!recorder._plannedWorkByFragment.TryGetValue(subjectId, out PlannedWork? work))
                 {
                     work = new PlannedWork(subjectId, [subjectId], false, synchronization, transition, 0, false);
-                    _plannedWorkByFragment[subjectId] = work;
+                    recorder._plannedWorkByFragment[subjectId] = work;
                 }
                 else
                 {
@@ -397,273 +383,194 @@ internal sealed class RenderPipelineDiagnosticRecorder
                 if (synchronization && !work.SynchronizationPlanned)
                 {
                     work.SynchronizationPlanned = true;
-                    AddEvent(RenderPipelineDiagnosticEventKind.SynchronizationPlanned, subjectId);
+                    recorder.AddEvent(RenderPipelineDiagnosticEventKind.SynchronizationPlanned, subjectId);
                 }
                 if (transition && !work.BackendTransitionPlanned)
                 {
                     work.BackendTransitionPlanned = true;
-                    Increment(RenderPipelineCounter.PlannedBackendTransitions);
-                    AddEvent(RenderPipelineDiagnosticEventKind.BackendTransitionPlanned, subjectId);
+                    recorder.Increment(RenderPipelineCounter.PlannedBackendTransitions);
+                    recorder.AddEvent(RenderPipelineDiagnosticEventKind.BackendTransitionPlanned, subjectId);
                 }
             }
-        }
-        catch (Exception)
-        {
-            _faulted = true;
-        }
+        });
     }
 
     internal long[] RecordFragments(int count, RenderPipelineOutcome intendedOutcome)
     {
-        if (_completed || _faulted || count <= 0)
+        if (count <= 0)
             return [];
 
-        try
-        {
-            var result = new long[count];
-            for (int i = 0; i < result.Length; i++)
+        return Guarded(
+            (count, intendedOutcome),
+            [],
+            static (recorder, state) =>
             {
-                long subjectId = ++_nextSubjectId;
-                result[i] = subjectId;
-                bool isOpaqueExternal = intendedOutcome == RenderPipelineOutcome.Executed;
-                _fragments.Add(subjectId, new FragmentState(intendedOutcome, isOpaqueExternal));
-                Increment(RenderPipelineCounter.RecordedFragments);
-                AddEvent(RenderPipelineDiagnosticEventKind.FragmentRecorded, subjectId);
-
-                if (isOpaqueExternal)
+                var result = new long[state.count];
+                for (int i = 0; i < result.Length; i++)
                 {
-                    _hasOpaqueExternalWork = true;
-                    Increment(RenderPipelineCounter.OpaqueBoundaries);
-                    AddEvent(
-                        RenderPipelineDiagnosticEventKind.BoundaryPlanned,
-                        subjectId,
-                        boundaryReason: RenderPipelineBoundaryReason.LegacyRawCanvas);
+                    long subjectId = ++recorder._nextSubjectId;
+                    result[i] = subjectId;
+                    bool isOpaqueExternal = state.intendedOutcome == RenderPipelineOutcome.Executed;
+                    recorder._fragments.Add(subjectId, new FragmentState(state.intendedOutcome, isOpaqueExternal));
+                    recorder.Increment(RenderPipelineCounter.RecordedFragments);
+                    recorder.AddEvent(RenderPipelineDiagnosticEventKind.FragmentRecorded, subjectId);
+
+                    if (isOpaqueExternal)
+                    {
+                        recorder._hasOpaqueExternalWork = true;
+                        recorder.Increment(RenderPipelineCounter.OpaqueBoundaries);
+                        recorder.AddEvent(
+                            RenderPipelineDiagnosticEventKind.BoundaryPlanned,
+                            subjectId,
+                            boundaryReason: RenderPipelineBoundaryReason.LegacyRawCanvas);
+                    }
                 }
-            }
 
-            return result;
-        }
-        catch (Exception)
-        {
-            _faulted = true;
-            return [];
-        }
+                return result;
+            });
     }
-
-    internal void RecordCacheDecision(bool cacheHit)
-        => RecordCacheDecision(subjectId: 0, cacheHit);
 
     internal void RecordRenderCacheResolutionPasses(int passes)
     {
-        if (_completed || _faulted)
-            return;
-
-        try
+        Guarded(passes, static (recorder, value) =>
         {
-            if (passes <= 0)
+            if (value <= 0)
                 throw new ArgumentOutOfRangeException(nameof(passes));
-            Add(RenderPipelineCounter.RenderCacheResolutionPasses, passes);
-        }
-        catch (Exception)
-        {
-            _faulted = true;
-        }
+            recorder.Add(RenderPipelineCounter.RenderCacheResolutionPasses, value);
+        });
     }
 
     internal void RecordCacheDecision(long subjectId, bool cacheHit)
     {
-        if (_completed || _faulted)
-            return;
-
-        try
+        Guarded((subjectId, cacheHit), static (recorder, state) =>
         {
-            Increment(cacheHit
+            recorder.Increment(state.cacheHit
                 ? RenderPipelineCounter.RenderCacheHits
                 : RenderPipelineCounter.RenderCacheMisses);
-            AddEvent(RenderPipelineDiagnosticEventKind.CacheDecision, subjectId);
-        }
-        catch (Exception)
-        {
-            _faulted = true;
-        }
+            recorder.AddEvent(RenderPipelineDiagnosticEventKind.CacheDecision, state.subjectId);
+        });
     }
 
     internal void RecordProgramCacheDecision(long subjectId, bool cacheHit)
     {
-        if (_completed || _faulted)
-            return;
-
-        try
+        Guarded((subjectId, cacheHit), static (recorder, state) =>
         {
-            if (cacheHit)
+            if (state.cacheHit)
             {
-                Increment(RenderPipelineCounter.ProgramHits);
+                recorder.Increment(RenderPipelineCounter.ProgramHits);
             }
             else
             {
-                Increment(RenderPipelineCounter.ProgramMisses);
-                Increment(RenderPipelineCounter.ProgramCreations);
+                recorder.Increment(RenderPipelineCounter.ProgramMisses);
+                recorder.Increment(RenderPipelineCounter.ProgramCreations);
             }
-            AddEvent(RenderPipelineDiagnosticEventKind.CacheDecision, subjectId);
-        }
-        catch (Exception)
-        {
-            _faulted = true;
-        }
+            recorder.AddEvent(RenderPipelineDiagnosticEventKind.CacheDecision, state.subjectId);
+        });
     }
 
     internal void RecordStructuralPlanDecision(bool cacheHit, bool compiled)
     {
-        if (_completed || _faulted)
-            return;
-
-        try
+        Guarded((cacheHit, compiled), static (recorder, state) =>
         {
-            Increment(cacheHit
+            recorder.Increment(state.cacheHit
                 ? RenderPipelineCounter.StructuralPlanHits
                 : RenderPipelineCounter.StructuralPlanMisses);
-            if (compiled)
-                Increment(RenderPipelineCounter.StructuralPlanCompilations);
-            AddEvent(RenderPipelineDiagnosticEventKind.CacheDecision);
-        }
-        catch (Exception)
-        {
-            _faulted = true;
-        }
+            if (state.compiled)
+                recorder.Increment(RenderPipelineCounter.StructuralPlanCompilations);
+            recorder.AddEvent(RenderPipelineDiagnosticEventKind.CacheDecision);
+        });
     }
 
     internal void RecordAllOutcomes(RenderPipelineOutcome outcome)
     {
-        if (_completed || _faulted)
-            return;
-
-        try
+        Guarded(outcome, static (recorder, value) =>
         {
-            foreach (long subjectId in _fragments.Keys)
-                RecordOutcomeCore(subjectId, outcome);
-        }
-        catch (Exception)
-        {
-            _faulted = true;
-        }
+            foreach (long subjectId in recorder._fragments.Keys)
+                recorder.RecordOutcomeCore(subjectId, value);
+        });
     }
 
     internal void RecordFragmentExecuted(long subjectId)
     {
-        if (_completed || _faulted)
-            return;
-
-        try
+        Guarded(subjectId, static (recorder, id) =>
         {
-            if (_plannedWorkByFragment.TryGetValue(subjectId, out PlannedWork? work))
+            if (recorder._plannedWorkByFragment.TryGetValue(id, out PlannedWork? work))
             {
                 foreach (long fragmentId in work.FragmentIds)
-                    RecordOutcomeCore(fragmentId, RenderPipelineOutcome.Executed);
+                    recorder.RecordOutcomeCore(fragmentId, RenderPipelineOutcome.Executed);
             }
             else
             {
-                RecordOutcomeCore(subjectId, RenderPipelineOutcome.Executed);
+                recorder.RecordOutcomeCore(id, RenderPipelineOutcome.Executed);
             }
-        }
-        catch (Exception)
-        {
-            _faulted = true;
-        }
+        });
     }
 
     internal void RecordGpuPassExecuted(long subjectId)
     {
-        if (_completed || _faulted)
-            return;
-
-        try
+        Guarded(subjectId, static (recorder, id) =>
         {
-            if (!_plannedWorkByFragment.TryGetValue(subjectId, out PlannedWork? work)
+            if (!recorder._plannedWorkByFragment.TryGetValue(id, out PlannedWork? work)
                 || !work.HasGpuPass)
             {
                 throw new InvalidOperationException(
                     "An executed GPU pass must belong to planned GPU-pass work.");
             }
 
-            if (_executedPasses.Add(work.SubjectId))
+            if (recorder._executedPasses.Add(work.SubjectId))
             {
-                Increment(RenderPipelineCounter.ExecutedGpuPasses);
-                AddEvent(RenderPipelineDiagnosticEventKind.PassExecuted, work.SubjectId);
+                recorder.Increment(RenderPipelineCounter.ExecutedGpuPasses);
+                recorder.AddEvent(RenderPipelineDiagnosticEventKind.PassExecuted, work.SubjectId);
                 if (work.IsFused)
-                    Add(RenderPipelineCounter.FusedStages, work.ShaderStageCount);
+                    recorder.Add(RenderPipelineCounter.FusedStages, work.ShaderStageCount);
             }
-        }
-        catch (Exception)
-        {
-            _faulted = true;
-        }
+        });
     }
 
     internal void RecordSynchronizationExecuted(long subjectId)
     {
-        if (_completed || _faulted)
-            return;
-
-        try
+        Guarded(subjectId, static (recorder, id) =>
         {
-            if (!_plannedWorkByFragment.TryGetValue(subjectId, out PlannedWork? work)
+            if (!recorder._plannedWorkByFragment.TryGetValue(id, out PlannedWork? work)
                 || !work.RequiresSynchronization)
             {
                 throw new InvalidOperationException(
                     "An executed synchronization must belong to planned synchronization work.");
             }
 
-            Increment(RenderPipelineCounter.Synchronizations);
-            AddEvent(RenderPipelineDiagnosticEventKind.SynchronizationExecuted, work.SubjectId);
-        }
-        catch (Exception)
-        {
-            _faulted = true;
-        }
+            recorder.Increment(RenderPipelineCounter.Synchronizations);
+            recorder.AddEvent(RenderPipelineDiagnosticEventKind.SynchronizationExecuted, work.SubjectId);
+        });
     }
 
     internal void RecordBackendTransitionExecuted(long subjectId)
     {
-        if (_completed || _faulted)
-            return;
-
-        try
+        Guarded(subjectId, static (recorder, id) =>
         {
-            if (!_plannedWorkByFragment.TryGetValue(subjectId, out PlannedWork? work)
+            if (!recorder._plannedWorkByFragment.TryGetValue(id, out PlannedWork? work)
                 || !work.RequiresBackendTransition)
             {
                 throw new InvalidOperationException(
                     "An executed backend transition must belong to planned transition work.");
             }
-            if (_executedBackendTransitions.Add(work.SubjectId))
+            if (recorder._executedBackendTransitions.Add(work.SubjectId))
             {
-                Increment(RenderPipelineCounter.ExecutedBackendTransitions);
-                AddEvent(RenderPipelineDiagnosticEventKind.BackendTransitionExecuted, work.SubjectId);
+                recorder.Increment(RenderPipelineCounter.ExecutedBackendTransitions);
+                recorder.AddEvent(RenderPipelineDiagnosticEventKind.BackendTransitionExecuted, work.SubjectId);
             }
-        }
-        catch (Exception)
-        {
-            _faulted = true;
-        }
+        });
     }
 
     internal void RecordOpaqueExecution(long subjectId)
     {
-        if (_completed || _faulted)
-            return;
-
-        try
+        Guarded(subjectId, static (recorder, id) =>
         {
-            if (_fragments.TryGetValue(subjectId, out FragmentState? fragment)
+            if (recorder._fragments.TryGetValue(id, out FragmentState? fragment)
                 && fragment.IsOpaqueExternal)
             {
-                Increment(RenderPipelineCounter.OpaqueExternalExecutions);
+                recorder.Increment(RenderPipelineCounter.OpaqueExternalExecutions);
             }
-        }
-        catch (Exception)
-        {
-            _faulted = true;
-        }
+        });
     }
 
     internal void RecordIntermediateCreated()
@@ -671,217 +578,123 @@ internal sealed class RenderPipelineDiagnosticRecorder
 
     internal void RecordIntermediateAcquired(bool created, bool poolHit)
     {
-        if (_completed || _faulted)
-            return;
-
-        try
+        Guarded((created, poolHit), static (recorder, state) =>
         {
-            Increment(RenderPipelineCounter.IntermediateAcquires);
-            if (created)
-                Increment(RenderPipelineCounter.IntermediateCreates);
-            if (poolHit)
-                Increment(RenderPipelineCounter.PoolHits);
+            recorder.Increment(RenderPipelineCounter.IntermediateAcquires);
+            if (state.created)
+                recorder.Increment(RenderPipelineCounter.IntermediateCreates);
+            if (state.poolHit)
+                recorder.Increment(RenderPipelineCounter.PoolHits);
             else
-                Increment(RenderPipelineCounter.PoolMisses);
-            _liveIntermediates++;
-            SetMaximum(RenderPipelineCounter.PeakLiveIntermediates, _liveIntermediates);
-        }
-        catch (Exception)
-        {
-            _faulted = true;
-        }
+                recorder.Increment(RenderPipelineCounter.PoolMisses);
+            recorder._liveIntermediates++;
+            recorder.SetMaximum(RenderPipelineCounter.PeakLiveIntermediates, recorder._liveIntermediates);
+        });
     }
 
     internal void RecordPoolMissWithoutAcquisition(long count = 1)
     {
-        if (_completed || _faulted || count <= 0)
+        if (count <= 0)
             return;
 
-        try
-        {
-            Add(RenderPipelineCounter.PoolMisses, count);
-        }
-        catch (Exception)
-        {
-            _faulted = true;
-        }
+        Guarded(count, static (recorder, amount) => recorder.Add(RenderPipelineCounter.PoolMisses, amount));
     }
 
     internal void RecordPreviewAllocationDrop()
     {
-        if (_completed || _faulted)
-            return;
-
-        try
-        {
-            Increment(RenderPipelineCounter.PreviewAllocationDrops);
-        }
-        catch (Exception)
-        {
-            _faulted = true;
-        }
+        Guarded(static recorder => recorder.Increment(RenderPipelineCounter.PreviewAllocationDrops));
     }
 
     internal void RecordIntermediateDischarged()
     {
-        if (_completed || _faulted || _liveIntermediates <= 0)
+        if (_liveIntermediates <= 0)
             return;
 
-        try
+        Guarded(static recorder =>
         {
-            _liveIntermediates--;
-            Increment(RenderPipelineCounter.IntermediateDischarges);
-        }
-        catch (Exception)
-        {
-            _faulted = true;
-        }
+            recorder._liveIntermediates--;
+            recorder.Increment(RenderPipelineCounter.IntermediateDischarges);
+        });
     }
 
     internal void RecordExternalRootResource()
     {
-        if (_completed || _faulted)
-            return;
-
-        try
-        {
-            Increment(RenderPipelineCounter.ExternalRootResources);
-        }
-        catch (Exception)
-        {
-            _faulted = true;
-        }
+        Guarded(static recorder => recorder.Increment(RenderPipelineCounter.ExternalRootResources));
     }
 
     internal void RecordMaterialization(bool fullFrame)
     {
-        if (_completed || _faulted)
-            return;
-
-        try
-        {
-            Increment(fullFrame
-                ? RenderPipelineCounter.FullFrameMaterializations
-                : RenderPipelineCounter.RoiMaterializations);
-        }
-        catch (Exception)
-        {
-            _faulted = true;
-        }
+        Guarded(fullFrame, static (recorder, isFullFrame) => recorder.Increment(isFullFrame
+            ? RenderPipelineCounter.FullFrameMaterializations
+            : RenderPipelineCounter.RoiMaterializations));
     }
 
     internal void RecordCacheCaptureStaged(long subjectId)
     {
-        if (_completed || _faulted)
-            return;
-
-        try
-        {
-            _pendingCacheCaptures.Add(subjectId);
-        }
-        catch (Exception)
-        {
-            _faulted = true;
-        }
+        Guarded(subjectId, static (recorder, id) => recorder._pendingCacheCaptures.Add(id));
     }
 
     internal void RecordCacheCaptureRejected()
     {
-        if (_completed || _faulted)
-            return;
-
-        try
-        {
-            Increment(RenderPipelineCounter.RejectedRenderCacheCaptures);
-        }
-        catch (Exception)
-        {
-            _faulted = true;
-        }
+        Guarded(static recorder => recorder.Increment(RenderPipelineCounter.RejectedRenderCacheCaptures));
     }
 
     internal void CommitAcceptedCacheCaptures()
     {
-        if (_completed || _faulted)
-            return;
-
-        try
-        {
-            _cacheCapturesAccepted = true;
-        }
-        catch (Exception)
-        {
-            _faulted = true;
-        }
+        Guarded(static recorder => recorder._cacheCapturesAccepted = true);
     }
 
     internal void RecordOutcome(long subjectId, RenderPipelineOutcome outcome)
     {
-        if (_completed || _faulted)
-            return;
-
-        try
-        {
-            RecordOutcomeCore(subjectId, outcome);
-        }
-        catch (Exception)
-        {
-            _faulted = true;
-        }
+        Guarded(
+            (subjectId, outcome),
+            static (recorder, state) => recorder.RecordOutcomeCore(state.subjectId, state.outcome));
     }
 
     internal void RecordFailure(RenderPipelineFailurePhase phase, long? subjectId = null)
     {
-        if (_completed || _faulted || _failurePhase.HasValue)
+        if (_failurePhase.HasValue)
             return;
 
-        try
+        Guarded((phase, subjectId), static (recorder, state) =>
         {
-            _failurePhase = phase;
-            Increment(RenderPipelineCounter.Failures);
-            AddEvent(RenderPipelineDiagnosticEventKind.Failure, subjectId ?? 0, failurePhase: phase);
-            if (subjectId.HasValue)
+            recorder._failurePhase = state.phase;
+            recorder.Increment(RenderPipelineCounter.Failures);
+            recorder.AddEvent(
+                RenderPipelineDiagnosticEventKind.Failure,
+                state.subjectId ?? 0,
+                failurePhase: state.phase);
+            if (state.subjectId.HasValue)
             {
-                RecordOutcomeCore(subjectId.Value, RenderPipelineOutcome.Failed);
+                recorder.RecordOutcomeCore(state.subjectId.Value, RenderPipelineOutcome.Failed);
             }
-        }
-        catch (Exception)
-        {
-            _faulted = true;
-        }
+        });
     }
 
     internal void RecordCleanupFailure(long? subjectId = null)
     {
-        if (_completed || _faulted)
-            return;
-
-        try
+        Guarded(subjectId, static (recorder, id) =>
         {
-            if (!_failurePhase.HasValue)
+            if (!recorder._failurePhase.HasValue)
             {
-                _failurePhase = RenderPipelineFailurePhase.Cleanup;
-                Increment(RenderPipelineCounter.Failures);
-                AddEvent(
+                recorder._failurePhase = RenderPipelineFailurePhase.Cleanup;
+                recorder.Increment(RenderPipelineCounter.Failures);
+                recorder.AddEvent(
                     RenderPipelineDiagnosticEventKind.Failure,
-                    subjectId ?? 0,
+                    id ?? 0,
                     failurePhase: RenderPipelineFailurePhase.Cleanup);
-                if (subjectId.HasValue)
+                if (id.HasValue)
                 {
-                    RecordOutcomeCore(subjectId.Value, RenderPipelineOutcome.Failed);
+                    recorder.RecordOutcomeCore(id.Value, RenderPipelineOutcome.Failed);
                 }
             }
 
-            Increment(RenderPipelineCounter.CleanupFailures);
-            AddEvent(
+            recorder.Increment(RenderPipelineCounter.CleanupFailures);
+            recorder.AddEvent(
                 RenderPipelineDiagnosticEventKind.CleanupFailure,
-                subjectId ?? 0,
+                id ?? 0,
                 failurePhase: RenderPipelineFailurePhase.Cleanup);
-        }
-        catch (Exception)
-        {
-            _faulted = true;
-        }
+        });
     }
 
     internal void RecordFamilyFailure(RenderPipelineFailurePhase phase)
@@ -979,6 +792,56 @@ internal sealed class RenderPipelineDiagnosticRecorder
         fragment.Outcome = outcome;
         Increment(GetOutcomeCounter(outcome));
         AddEvent(RenderPipelineDiagnosticEventKind.OutcomeAssigned, subjectId, outcome: outcome);
+    }
+
+    // Diagnostics must not participate in, replace, or mask the render outcome.
+    private void Guarded(Action<RenderPipelineDiagnosticRecorder> body)
+    {
+        if (_completed || _faulted)
+            return;
+
+        try
+        {
+            body(this);
+        }
+        catch (Exception)
+        {
+            _faulted = true;
+        }
+    }
+
+    private void Guarded<TState>(TState state, Action<RenderPipelineDiagnosticRecorder, TState> body)
+    {
+        if (_completed || _faulted)
+            return;
+
+        try
+        {
+            body(this, state);
+        }
+        catch (Exception)
+        {
+            _faulted = true;
+        }
+    }
+
+    private TResult Guarded<TState, TResult>(
+        TState state,
+        TResult faultedResult,
+        Func<RenderPipelineDiagnosticRecorder, TState, TResult> body)
+    {
+        if (_completed || _faulted)
+            return faultedResult;
+
+        try
+        {
+            return body(this, state);
+        }
+        catch (Exception)
+        {
+            _faulted = true;
+            return faultedResult;
+        }
     }
 
     private void Increment(RenderPipelineCounter counter)
