@@ -155,54 +155,6 @@ public sealed class RenderExecutionInput
         RenderExecutionSessionToken token,
         Rect bounds,
         EffectiveScale effectiveScale,
-        SKImage image,
-        Func<Bitmap>? createSnapshot,
-        bool readbackDeclared)
-        : this(
-            token,
-            bounds,
-            effectiveScale,
-            PixelRect.FromRect(bounds, effectiveScale.Value),
-            image,
-            createSnapshot,
-            readbackDeclared)
-    {
-    }
-
-    internal RenderExecutionInput(
-        RenderExecutionSessionToken token,
-        Rect bounds,
-        EffectiveScale effectiveScale,
-        PixelRect deviceBounds,
-        SKImage image,
-        Func<Bitmap>? createSnapshot,
-        bool readbackDeclared)
-        : this(
-            token,
-            bounds,
-            effectiveScale,
-            deviceBounds,
-            (canvas, destination) => canvas.DrawExecutionInput(image, destination),
-            (canvas, point) => canvas.DrawExecutionInputDeviceSpace(image, point),
-            (x, y) => image.ToShader(
-                x,
-                y,
-                SKSamplingOptions.Default,
-                SKMatrix.CreateScaleTranslation(
-                    1f / effectiveScale.Value,
-                    1f / effectiveScale.Value,
-                    deviceBounds.X / effectiveScale.Value,
-                    deviceBounds.Y / effectiveScale.Value)),
-            createSnapshot,
-            readbackDeclared)
-    {
-        ArgumentNullException.ThrowIfNull(image);
-    }
-
-    internal RenderExecutionInput(
-        RenderExecutionSessionToken token,
-        Rect bounds,
-        EffectiveScale effectiveScale,
         PixelRect deviceBounds,
         Rect rasterBounds,
         SKImage image,

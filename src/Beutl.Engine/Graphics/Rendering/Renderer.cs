@@ -821,14 +821,6 @@ public class Renderer : IRenderer
             System.Runtime.ExceptionServices.ExceptionDispatchInfo.Capture(primary).Throw();
     }
 
-    private void DisposeAllEntries()
-    {
-        if (RenderThread.Dispatcher.CheckAccess())
-            DisposeAllEntriesCore();
-        else
-            RenderThread.Dispatcher.Invoke(DisposeAllEntriesCore);
-    }
-
     private void DisposeAllEntriesCore()
     {
         RenderThread.Dispatcher.VerifyAccess();

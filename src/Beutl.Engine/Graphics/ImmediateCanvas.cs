@@ -354,27 +354,6 @@ public partial class ImmediateCanvas : IDisposable, IPopable
     internal void DrawRenderTargetScaledWithoutFlush(RenderTarget renderTarget, Rect dest)
         => DrawRenderTargetScaledCore(renderTarget, dest, flushSource: false);
 
-    internal bool TryDrawRenderTargetPixelAlignedWithoutFlush(
-        RenderTarget renderTarget,
-        Rect dest,
-        float sourceDensity)
-    {
-        VerifyAccess();
-        VerifyNativeTargetOperation();
-        renderTarget.VerifyAccess();
-        if (!TryGetPixelAlignedDeviceOrigin(
-                dest,
-                sourceDensity,
-                new PixelSize(renderTarget.Width, renderTarget.Height),
-                out PixelPoint deviceOrigin))
-        {
-            return false;
-        }
-
-        DrawRenderTargetPixelsWithoutFlush(renderTarget, deviceOrigin.X, deviceOrigin.Y);
-        return true;
-    }
-
     internal bool CanDrawPixelAligned(
         Rect dest,
         float sourceDensity,

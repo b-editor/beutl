@@ -5,7 +5,6 @@ using Beutl.Graphics;
 using Beutl.Graphics.Effects;
 using Beutl.Graphics.Rendering;
 using Beutl.Graphics.Rendering.Cache;
-using Beutl.Graphics.Transformation;
 using Beutl.Media;
 using SkiaSharp;
 
@@ -526,38 +525,6 @@ public sealed class SymbolicOwningDomainTests
             TransformOperator.Prepend);
         result.AddChild(child);
         return result;
-    }
-
-    private static TransformEffect CreateTargetIndependentHalfScaleEffect()
-    {
-        var transform = new ScaleTransform();
-        transform.ScaleX.CurrentValue = 50;
-        transform.ScaleY.CurrentValue = 50;
-        var effect = new TransformEffect();
-        effect.Transform.CurrentValue = transform;
-        effect.ApplyToTarget.CurrentValue = false;
-        return effect;
-    }
-
-    private static Bitmap RenderToBitmap(RenderNode root, Rect targetDomain)
-    {
-        PixelSize size = PixelRect.FromRect(targetDomain).Size;
-        using var renderer = new RenderNodeRenderer(
-            root,
-            new RenderNodeRendererOptions
-            {
-                DefaultRequest = new RenderNodeRenderRequest
-                {
-                    TargetDomain = targetDomain,
-                    CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Disabled,
-                },
-                TargetFactory = new CpuTargetFactory(),
-            });
-        using var target = new CpuRenderTarget(size.Width, size.Height);
-        using var canvas = new ImmediateCanvas(target);
-        canvas.Clear();
-        renderer.Render(canvas);
-        return target.Snapshot();
     }
 
     private static CompiledRenderRequest Compile(

@@ -625,10 +625,6 @@ internal sealed class RenderCacheResolution
         MissCaptures = [.. decisions
             .Where(static item => item.MissCapture is not null)
             .Select(static item => item.MissCapture!)];
-        BoundaryFragmentIds = [.. Hits
-            .Select(static item => item.OriginalProducerId)
-            .Concat(MissCaptures.Select(static item => item.ProducerId))
-            .Distinct()];
     }
 
     public ImmutableArray<RenderCacheDecision> Decisions { get; }
@@ -636,8 +632,6 @@ internal sealed class RenderCacheResolution
     public ImmutableArray<RenderCacheHitSubstitution> Hits { get; }
 
     public ImmutableArray<RenderCacheMissCapture> MissCaptures { get; }
-
-    public ImmutableArray<RenderFragmentId> BoundaryFragmentIds { get; }
 
     public RenderCacheDecision GetDecision(RenderCacheCandidateId id)
         => Decisions.FirstOrDefault(item => item.Candidate.Id == id)
