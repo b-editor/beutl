@@ -17,9 +17,11 @@ public sealed class RenderDescriptionAllocationTests
     private const int SceneFrames = 40;
     private const int SceneWarmupFrames = 8;
 
-    // Headroom over the measured steady state, not a target: a per-call regression must fail, run-to-run
-    // variance must not.
-    private const long SceneBytesPerFrameCeiling = 4_000_000;
+    // Measured steady state is ~255,300 bytes/frame; observed runs span 254,968-255,336, a 0.14% spread. The
+    // headroom is for the platform-dependent part of the scene - font fallback for its TextBlock - rather than
+    // for measurement noise, so a whole-frame regression above roughly a fifth fails here while per-call
+    // regressions are caught by the comparative tests in this fixture.
+    private const long SceneBytesPerFrameCeiling = 300_000;
 
     private static readonly object s_explicitKey = new();
     private static readonly PixelSize s_frameSize = new(240, 160);
@@ -82,6 +84,34 @@ public sealed class RenderDescriptionAllocationTests
             tupleState,
             Is.LessThan(boxedState),
             "the binding stores the tuple in its own field, so no separate box is allocated");
+    }
+
+    [Test]
+    public void NestedTupleState_CostsNoMoreThanTheFlatTupleItValidatesAs()
+    {
+        WarmState();
+
+        long flat = MeasureBytesPerCall(
+            static () => TargetCommandDescription.Create(
+                (1, 2, 3, 4),
+                static (_, _) => { },
+                TargetRegion.Full,
+                Rect.Empty,
+                RenderHitTestContract.None));
+        long nested = MeasureBytesPerCall(
+            static () => TargetCommandDescription.Create(
+                ((1, 2), (3, 4)),
+                static (_, _) => { },
+                TargetRegion.Full,
+                Rect.Empty,
+                RenderHitTestContract.None));
+
+        TestContext.Out.WriteLine($"flat tuple state: {flat} bytes/call");
+        TestContext.Out.WriteLine($"nested tuple state: {nested} bytes/call");
+        Assert.That(
+            nested,
+            Is.LessThanOrEqualTo(flat),
+            "descending through tuple element types happens once per closed state type, not per call");
     }
 
     [Test]

@@ -606,6 +606,11 @@ public sealed class OpaqueRenderSession
         RenderResource<T> resource,
         Action<T> use)
         where T : class;
+
+    public void UseDeclaredResource<T>(
+        int declaredIndex,
+        Action<T> use)
+        where T : class;
 }
 
 public readonly record struct RenderExecutionInputRange(int StartIndex, int Count)
@@ -671,7 +676,21 @@ Each materialized input exposes immutable composition-device `DeviceBounds`, `De
 
 For `OpaqueMap`, `RenderValueCardinality.Single` means one output per invocation/input and `ZeroOrOne` permits per-input discard; other cardinalities are rejected. `OpaqueCombine` is limited to at most one total output. `OpaqueSource` and `OpaqueExpand` interpret the description cardinality as the total single-invocation result, and only `OpaqueExpand` may declare an arbitrary N-to-M range. Every case preserves authored output order.
 
-Every description whose output can be reused across requests takes its pixel-affecting values as one `state` argument and a non-capturing `Action<TSession, TState>`. A capturing `execute` is rejected synchronously with `ArgumentException`, so no per-frame value can reach the callback without also being in the cache key; `state` itself must satisfy the lightweight-immutable-key rules. A callback that needs a request-scoped resource token reaches it through `UseDeclaredResource` by its position in `resources`, because a token can never be part of a persistent identity. `CreateRequestLocal` is the named opt-out for state that cannot be a key at all; `RawTargetScopeDescription` and `RawTargetCommandDescription` have only that form, because an unguarded external callback is never reusable. When `structuralKey` is null, the description uses the execution callback's method identity plus operation kind. `RenderScaleContract.Custom`, custom bounds, and custom hit-test contracts likewise default to their delegate method identities. A captured choice that changes operation/binding/topology shape belongs in an explicit equality-stable structural key. Pixel-affecting data is not declared at all: it reaches the callback only as `state`, which the description publishes as its `RuntimeIdentity`. `CreateRequestLocal` is the explicit opt-out for a value that cannot be a lightweight immutable key, and gives every recording a fresh request-local identity.
+Every description whose output can be reused across requests takes its pixel-affecting values as one `state` argument and a non-capturing `Action<TSession, TState>`. A capturing `execute` is rejected synchronously with `ArgumentException`. What that buys is the **accidental** channel: the ordinary capturing lambda, which is what an author writes by mistake, can no longer reach the callback at all, and the runtime identity is now the default path rather than a separate `runtimeIdentity:` assertion the author had to remember to keep in step with the closure. That is worth having on its own — the previous shape let a caller omit `runtimeIdentity:` entirely and silently receive request-local caching, and let a declared identity drift out of step with a closure nothing checked against it. It is **not** a proof that every per-frame value is in the cache key, and it cannot be one: `TState : notnull` admits a mutable reference type whose identity is its reference, and the callback body is ordinary code that can read whatever is in scope.
+
+Five channels therefore stay open. An author who uses one owns the completeness of the resulting cache identity:
+
+1. **A mutable object referenced by `state`.** `state` holds the reference and a field behind it changes between frames; the identity compares equal because the reference did not change.
+2. **A `static` field read by the `static` callback.** No description member mentions it, and no recording-time rule can see it.
+3. **A capturing delegate one level down.** Placed directly in a state tuple this is rejected (see the validation depth below); placed inside a holder object that `state` references it is not.
+4. **A borrowed resource whose content changes behind a pinned `cacheKey`/`version`.** A token is deliberately not part of the identity, so the identity cannot observe the change.
+5. **A capturing delegate borrowed as a `RenderResource` and read back through `UseDeclaredResource`.** This is a special case of (4) and is the route this document recommends for a callback that needs a request-scoped value. `NodeGraphFilterEffectRenderNode.PublishDeferredPreviews` takes it: its capturing `replace` delegate did not stop capturing, it moved out of the callback closure into a declared resource under an author-declared identity, and that identity is only as complete as its author made it.
+
+Phase 0's `RenderCacheVerification` is the empirical backstop for exactly these cases. While it is enabled, every selected cache hit also re-executes its producer and compares the two outputs, so an identity that omits a value fails loudly with a `RenderCacheOutputMismatchException` naming the producing node and the first differing device pixel instead of silently serving stale pixels. It is the tool to reach for whenever one of the five channels is unavoidable. `RenderCacheIdentityChannelTests` drives all five as two-frame renders, pinning the stale result for each and the verification failure for one.
+
+`state` is validated against the lightweight-immutable-key rules to a defined depth. The walk descends through `ValueTuple`/`Tuple` elements to any nesting depth — a state carrying more than one value has to be a tuple, so that is the aggregate the API itself encourages — and stops at every other aggregate: a custom type's field set is not part of this API's vocabulary, so such a state is validated as one value. A sealed holder object carrying a mutable field or a capturing delegate is therefore accepted, which is channel (3) above. Everything decidable from the closed state type is decided once per closed type and costs nothing per call; an element whose declared type is `object`, an interface, an unsealed class, or a delegate is read by value, because a delegate's capture is a property of its instance rather than of its type. No state recorded anywhere in this repository declares such an element, so the recording path allocates exactly what it did before the walk existed.
+
+A callback that needs a request-scoped resource token reaches it through `UseDeclaredResource<T>(declaredIndex, use)` by its position in `resources`, because a token can never be part of a persistent identity. An out-of-range index throws `ArgumentOutOfRangeException` for `declaredIndex` and a mismatched `T` throws `InvalidOperationException` naming both the requested and the declared type. Position is the only address and `T` is the only check on it, so two declared resources of the same type make index 0 and index 1 indistinguishable: a later edit that prepends or reorders `resources` swaps them with the runtime type check still passing. This is documented rather than made verifiable because no available addressing scheme fixes it at an acceptable price — addressing by token is exactly what the non-capturing rule forbids, and addressing by name or by the resource's own `cacheKey` would change the `resources:` parameter shape on all six description families for a hazard that is narrow, local to one `Process` method, and already covered whenever the two resources differ in type. `CreateRequestLocal` is the named opt-out for state that cannot be a key at all; `RawTargetScopeDescription` and `RawTargetCommandDescription` have only that form, because an unguarded external callback is never reusable. When `structuralKey` is null, the description uses the execution callback's method identity plus operation kind. `RenderScaleContract.Custom`, custom bounds, and custom hit-test contracts likewise default to their delegate method identities. A captured choice that changes operation/binding/topology shape belongs in an explicit equality-stable structural key. Pixel-affecting data is not declared separately: the channel the API provides for it is `state`, which the description publishes as its `RuntimeIdentity`, subject to the five open channels above. `CreateRequestLocal` is the explicit opt-out for a value that cannot be a lightweight immutable key, and gives every recording a fresh request-local identity.
 
 An explicit key is never mandatory on a public factory, and whether the default beats `typeof(TheNode)` depends on where the callback is written. When the callback is a lambda or method declared in the node itself, the method identity names both the node and which callback within it, so `typeof(TheNode)` replaces a finer default with a coarser one and merges every callback that node records. When the callback is built inside a shared helper — a `_ => bounds` closure the helper itself creates, or a delegate the helper receives and forwards — every caller of that helper shares one method identity, so the default is coarser than the node label and carries none of the values the closure captured. That is why the factories whose `structuralKey` parameter is non-optional are exactly the ones that build or forward such a callback: `OpaqueRenderDescription.CreateEngineSource`/`CreateBackendBoundary`, `TargetScopeDescription.CreateValueReplayMap`, `RenderHitTestContract.FromResource`, and `BrushRecorder.CreateSourceBounds`. On those, the key must state whatever the shared callback closes over — for `CreateSourceBounds` the captured source rectangle and dependency count, not only the recording node's type.
 
@@ -806,6 +825,11 @@ public sealed class TargetScopeSession
 
     public void UseResource<T>(
         RenderResource<T> resource,
+        Action<T> use)
+        where T : class;
+
+    public void UseDeclaredResource<T>(
+        int declaredIndex,
         Action<T> use)
         where T : class;
 }
@@ -957,6 +981,11 @@ public sealed class TargetCommandSession
 
     public void UseResource<T>(
         RenderResource<T> resource,
+        Action<T> use)
+        where T : class;
+
+    public void UseDeclaredResource<T>(
+        int declaredIndex,
         Action<T> use)
         where T : class;
 }
@@ -1200,6 +1229,11 @@ public sealed class GeometrySession
 
     public void UseResource<T>(
         RenderResource<T> resource,
+        Action<T> use)
+        where T : class;
+
+    public void UseDeclaredResource<T>(
+        int declaredIndex,
         Action<T> use)
         where T : class;
     public void SetOutputBounds(Rect logicalBounds);

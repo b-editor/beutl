@@ -313,7 +313,10 @@ public sealed class TargetCommandSession
     /// <summary>Uses a resource by its position in the description's declared resource list.</summary>
     /// <remarks>
     /// The addressing mode a non-capturing callback needs: a resource token is request-scoped and can never be
-    /// part of a persistent identity, so it cannot travel through the description's state.
+    /// part of a persistent identity, so it cannot travel through the description's state. The position is the
+    /// only address, and <typeparamref name="T"/> is the only check on it: two declared resources of the same
+    /// type make index 0 and index 1 indistinguishable, so prepending or reordering <c>resources</c> silently
+    /// swaps which one this call reaches.
     /// </remarks>
     public void UseDeclaredResource<T>(int declaredIndex, Action<T> use)
         where T : class

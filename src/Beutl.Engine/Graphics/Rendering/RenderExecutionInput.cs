@@ -523,8 +523,14 @@ internal sealed class RenderExecutionSessionToken
 
         if (declaredResources[declaredIndex] is not RenderResource<T> resource)
         {
+            Type declaredType = declaredResources[declaredIndex].GetType();
+            string declaredValueType = declaredType.IsGenericType
+                ? DescribeType(declaredType.GetGenericArguments()[0])
+                : declaredType.Name;
             throw new InvalidOperationException(
-                $"Declared resource {declaredIndex} is not a RenderResource<{typeof(T).Name}>.");
+                $"Declared resource {declaredIndex} is a RenderResource<{declaredValueType}>, not a "
+                + $"RenderResource<{DescribeType(typeof(T))}>. Declared resources are addressed by their "
+                + "position in the description's resource list.");
         }
 
         UseResource(resource, declaredResources, use);
@@ -532,4 +538,9 @@ internal sealed class RenderExecutionSessionToken
 
     public bool IsResourceAuthorized(object resource)
         => _active && _authorizedResources.ContainsKey(resource);
+
+    // Nested resource types are all named "Resource", so the declaring type has to be part of the name for the
+    // message to distinguish two declared resources.
+    private static string DescribeType(Type type)
+        => type.DeclaringType is { } declaring ? $"{declaring.Name}.{type.Name}" : type.Name;
 }
