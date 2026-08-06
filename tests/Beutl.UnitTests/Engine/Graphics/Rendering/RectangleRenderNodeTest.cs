@@ -1,6 +1,7 @@
 ﻿using Beutl.Composition;
 using Beutl.Graphics;
 using Beutl.Graphics.Rendering;
+using Beutl.Graphics.Rendering.Cache;
 using Beutl.Media;
 
 namespace Beutl.UnitTests.Engine.Graphics.Rendering;
@@ -44,6 +45,79 @@ public class RectangleRenderNodeTest
         Assert.That(node.Update(rect2, fill1, penResource1), Is.True);
         Assert.That(node.Update(rect1, fill2, penResource1), Is.True);
         Assert.That(node.Update(rect1, fill1, penResource2), Is.True);
+    }
+
+    [Test]
+    public void Update_ShouldNotMarkChanges_WhenAllPropertiesMatch()
+    {
+        var rect = new Rect(0, 0, 100, 100);
+        var fill = Brushes.Resource.Red;
+        using var node = new RectangleRenderNode(rect, fill, null);
+        node.HasChanges = false;
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(node.Update(rect, fill, null), Is.False);
+            Assert.That(node.HasChanges, Is.False);
+        });
+    }
+
+    [Test]
+    public void Update_ShouldMarkChanges_WhenPropertiesDoNotMatch()
+    {
+        var rect1 = new Rect(0, 0, 100, 100);
+        var rect2 = new Rect(0, 0, 200, 200);
+        var fill1 = Brushes.Resource.Red;
+        var fill2 = Brushes.Resource.Blue;
+        var pen = new Pen();
+        pen.Brush.CurrentValue = Brushes.Black;
+        pen.Thickness.CurrentValue = 1;
+        var penResource = pen.ToResource(CompositionContext.Default);
+        using var node = new RectangleRenderNode(rect1, fill1, null);
+
+        node.HasChanges = false;
+        bool rectChanged = node.Update(rect2, fill1, null);
+        bool rectMarked = node.HasChanges;
+
+        node.HasChanges = false;
+        bool fillChanged = node.Update(rect2, fill2, null);
+        bool fillMarked = node.HasChanges;
+
+        node.HasChanges = false;
+        bool penChanged = node.Update(rect2, fill2, penResource);
+        bool penMarked = node.HasChanges;
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(rectChanged, Is.True);
+            Assert.That(rectMarked, Is.True);
+            Assert.That(fillChanged, Is.True);
+            Assert.That(fillMarked, Is.True);
+            Assert.That(penChanged, Is.True);
+            Assert.That(penMarked, Is.True);
+        });
+    }
+
+    [Test]
+    public void ChangedParameters_ShouldRevokeAnAdmittedCache()
+    {
+        var rect = new Rect(0, 0, 100, 100);
+        var fill = Brushes.Resource.Red;
+        using var node = new RectangleRenderNode(rect, fill, null);
+
+        for (int frame = 0; frame < RenderNodeCache.Count; frame++)
+        {
+            node.Update(rect, fill, null);
+            node.Cache.IncrementRenderCount();
+            node.HasChanges = false;
+        }
+
+        Assert.That(node.Cache.CanCache(), Is.True, "a stable rectangle must become a cache candidate");
+
+        node.Update(new Rect(0, 0, 200, 200), fill, null);
+        node.Cache.IncrementRenderCount();
+
+        Assert.That(node.Cache.CanCache(), Is.False);
     }
 
     [Test]

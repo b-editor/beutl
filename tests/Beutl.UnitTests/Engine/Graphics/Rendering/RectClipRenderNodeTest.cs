@@ -29,6 +29,74 @@ public class RectClipRenderNodeTest
     }
 
     [Test]
+    public void Update_ShouldNotMarkChanges_WhenAllPropertiesMatch()
+    {
+        var rect = new Rect(0, 0, 100, 100);
+        var operation = ClipOperation.Intersect;
+        using var node = new RectClipRenderNode(rect, operation);
+        node.HasChanges = false;
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(node.Update(rect, operation), Is.False);
+            Assert.That(node.HasChanges, Is.False);
+        });
+    }
+
+    [Test]
+    public void Update_ShouldMarkChanges_WhenPropertiesDoNotMatch()
+    {
+        var rect = new Rect(0, 0, 100, 100);
+        var operation = ClipOperation.Intersect;
+        using var node = new RectClipRenderNode(rect, operation);
+        node.HasChanges = false;
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(node.Update(default, operation), Is.True);
+            Assert.That(node.HasChanges, Is.True);
+        });
+    }
+
+    [Test]
+    public void UnchangedReRecording_ShouldAdmitTheClipScopeToTheCache()
+    {
+        var rect = new Rect(0, 0, 100, 100);
+        var operation = ClipOperation.Intersect;
+        using var node = new RectClipRenderNode(rect, operation);
+
+        for (int frame = 0; frame < RenderNodeCache.Count; frame++)
+        {
+            node.Update(rect, operation);
+            node.Cache.IncrementRenderCount();
+            node.HasChanges = false;
+        }
+
+        Assert.That(node.Cache.CanCache(), Is.True);
+    }
+
+    [Test]
+    public void UnchangedClipScope_ShouldNotBlockAnAncestorCache()
+    {
+        var rect = new Rect(0, 0, 100, 100);
+        var operation = ClipOperation.Intersect;
+        using var parent = new ContainerRenderNode();
+        var node = new RectClipRenderNode(rect, operation);
+        parent.AddChild(node);
+
+        for (int frame = 0; frame < RenderNodeCache.Count; frame++)
+        {
+            node.Update(rect, operation);
+            node.Cache.IncrementRenderCount();
+            node.HasChanges = false;
+            parent.Cache.IncrementRenderCount();
+            parent.HasChanges = false;
+        }
+
+        Assert.That(RenderNodeCacheHelper.CanCacheRecursive(parent), Is.True);
+    }
+
+    [Test]
     public void Measure_WithoutChild_ShouldReportNoFragments()
     {
         using var node = new RectClipRenderNode(new Rect(0, 0, 100, 100), ClipOperation.Intersect);

@@ -21,7 +21,11 @@ public sealed class RectClipRenderNode(Rect clip, ClipOperation operation) : Con
             changed = true;
         }
 
-        HasChanges = true;
+        if (changed)
+        {
+            HasChanges = true;
+        }
+
         return changed;
     }
 

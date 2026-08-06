@@ -24,7 +24,11 @@ public sealed class GeometryClipRenderNode(Geometry.Resource clip, ClipOperation
             changed = true;
         }
 
-        HasChanges = true;
+        if (changed)
+        {
+            HasChanges = true;
+        }
+
         return changed;
     }
 

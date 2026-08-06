@@ -207,6 +207,47 @@ public class GraphicsContext2DTests
     }
 
     [Test]
+    public void Pop_ShouldPropagateAChangeFollowedByAnUnchangedSibling()
+    {
+        var size = new Size(1920, 1080);
+        var fill = Brushes.Resource.White;
+        var ellipse = new Rect(0, 0, 20, 20);
+        using var root = new ContainerRenderNode();
+
+        using (var context = new GraphicsContext2D(root, size))
+        {
+            using (context.Push())
+            {
+                context.DrawRectangle(new Rect(0, 0, 10, 10), fill, null);
+                context.DrawEllipse(ellipse, fill, null);
+            }
+        }
+
+        ClearHasChanges(root);
+
+        using (var context = new GraphicsContext2D(root, size))
+        {
+            using (context.Push())
+            {
+                context.DrawRectangle(new Rect(0, 0, 30, 30), fill, null);
+                context.DrawEllipse(ellipse, fill, null);
+            }
+        }
+
+        Assert.That(root.HasChanges, Is.True);
+    }
+
+    private static void ClearHasChanges(RenderNode node)
+    {
+        node.HasChanges = false;
+        if (node is ContainerRenderNode container)
+        {
+            foreach (RenderNode child in container.Children)
+                ClearHasChanges(child);
+        }
+    }
+
+    [Test]
     public void Clear_ShouldCreateClearRenderNode()
     {
         var node = new ContainerRenderNode();

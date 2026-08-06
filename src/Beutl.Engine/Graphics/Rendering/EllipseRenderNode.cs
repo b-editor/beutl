@@ -22,6 +22,7 @@ public sealed class EllipseRenderNode(Rect rect, Brush.Resource? fill, Pen.Resou
             changed = true;
         }
 
+        HasChanges = changed;
         return changed;
     }
 
