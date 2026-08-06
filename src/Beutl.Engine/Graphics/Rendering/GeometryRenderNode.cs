@@ -42,14 +42,6 @@ public sealed class GeometryRenderNode(Geometry.Resource geometry, Brush.Resourc
             geometry,
             geometry.GetOriginal().Id,
             geometrySnapshot.Version);
-        RecordedPaint paint = BrushRecorder.RecordPaint(
-            context,
-            fill,
-            fillSnapshot?.Version ?? 0,
-            pen,
-            penSnapshot?.Version ?? 0,
-            bounds);
-
         var hitTestState = new GeometryHitTestState(geometry, fill, pen);
         var hitTestIdentity = new GeometryHitTestIdentity(
             geometry.GetOriginal().Id,
@@ -62,23 +54,22 @@ public sealed class GeometryRenderNode(Geometry.Resource geometry, Brush.Resourc
             hitTestState,
             hitTestIdentity);
 
-        OpaqueRenderDescription description = BrushRecorder.CreatePaintedContentSource(
-            content: geometryResource,
-            draw: static (canvas, currentGeometry, currentFill, currentPen) =>
-                canvas.DrawGeometry(currentGeometry, currentFill, currentPen),
-            paint: paint,
-            bounds: BrushRecorder.CreateSourceBounds(paint, bounds, typeof(GeometryRenderNode)),
+        context.Publish(context.PaintedSource(
+            state: bounds,
+            draw: static (session, _) => session.UseDeclaredResource<Geometry.Resource>(
+                0,
+                geometry => session.Canvas.DrawGeometry(geometry, session.Fill, session.Pen)),
+            fill: fillSnapshot,
+            pen: penSnapshot,
+            brushBounds: bounds,
+            outputBounds: bounds,
             hitTest: RenderHitTestContract.FromResource(
                 hitTestResource,
                 static (state, point) => state.HitTest(point),
                 typeof(GeometryHitTestState)),
             scale: RenderScaleContract.Vector,
-            deviceGridSensitivity: RenderDeviceGridSensitivity.Insensitive,
             structuralKey: typeof(GeometryRenderNode),
-            runtimeIdentity: new RenderRuntimeIdentity(bounds),
-            resources: DeferredOpaqueSource.Resources(
-                [geometryResource, hitTestResource, .. paint.Resources]));
-        context.Publish(BrushRecorder.RecordSource(context, paint, description));
+            resources: [geometryResource, hitTestResource]));
     }
 
     protected override void OnDispose(bool disposing)
@@ -132,7 +123,7 @@ internal static class DeferredOpaqueSource
         OpaqueRenderSession session,
         RenderResource<T> primary,
         RecordedPaint paint,
-        Action<ImmediateCanvas, T, ResolvedBrush, ResolvedPen> draw)
+        Action<ImmediateCanvas, T, LoweredBrush, LoweredPen> draw)
         where T : class
     {
         using OpaqueRenderOutput output = session.CreateOutput(session.RequiredRegion);

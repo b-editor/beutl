@@ -5,7 +5,7 @@ internal static class BrushExecutionResolver
     public static void UsePaint(
         OpaqueRenderSession session,
         RecordedPaint paint,
-        Action<ResolvedBrush, ResolvedPen> use)
+        Action<LoweredBrush, LoweredPen> use)
     {
         ArgumentNullException.ThrowIfNull(session);
         ArgumentNullException.ThrowIfNull(paint);
@@ -19,7 +19,7 @@ internal static class BrushExecutionResolver
     public static void UsePaint(
         EngineDirectRenderSession session,
         RecordedPaint paint,
-        Action<ResolvedBrush, ResolvedPen> use)
+        Action<LoweredBrush, LoweredPen> use)
     {
         ArgumentNullException.ThrowIfNull(session);
         ArgumentNullException.ThrowIfNull(paint);
@@ -35,7 +35,7 @@ internal static class BrushExecutionResolver
         IReadOnlyList<RenderResource> resources,
         IReadOnlyList<RenderExecutionInput> inputs,
         RecordedBrush brush,
-        Action<ResolvedBrush> use)
+        Action<LoweredBrush> use)
     {
         ArgumentNullException.ThrowIfNull(token);
         ArgumentNullException.ThrowIfNull(resources);
@@ -45,7 +45,7 @@ internal static class BrushExecutionResolver
 
         if (brush.Resource is null)
         {
-            use(ResolvedBrush.Empty);
+            use(LoweredBrush.Empty);
             return;
         }
 
@@ -58,11 +58,11 @@ internal static class BrushExecutionResolver
     private static void UsePen(
         OpaqueRenderSession session,
         RecordedPen pen,
-        Action<ResolvedPen> use)
+        Action<LoweredPen> use)
     {
         if (pen.Resource is null)
         {
-            use(ResolvedPen.Empty);
+            use(LoweredPen.Empty);
             return;
         }
 
@@ -71,17 +71,17 @@ internal static class BrushExecutionResolver
             resource => UseBrush(
                 session,
                 pen.Brush,
-                brush => use(new ResolvedPen(resource, brush))));
+                brush => use(new LoweredPen(resource, brush))));
     }
 
     private static void UsePen(
         EngineDirectRenderSession session,
         RecordedPen pen,
-        Action<ResolvedPen> use)
+        Action<LoweredPen> use)
     {
         if (pen.Resource is null)
         {
-            use(ResolvedPen.Empty);
+            use(LoweredPen.Empty);
             return;
         }
 
@@ -90,17 +90,17 @@ internal static class BrushExecutionResolver
             resource => UseBrush(
                 session,
                 pen.Brush,
-                brush => use(new ResolvedPen(resource, brush))));
+                brush => use(new LoweredPen(resource, brush))));
     }
 
     private static void UseBrush(
         OpaqueRenderSession session,
         RecordedBrush brush,
-        Action<ResolvedBrush> use)
+        Action<LoweredBrush> use)
     {
         if (brush.Resource is null)
         {
-            use(ResolvedBrush.Empty);
+            use(LoweredBrush.Empty);
             return;
         }
 
@@ -112,11 +112,11 @@ internal static class BrushExecutionResolver
     private static void UseBrush(
         EngineDirectRenderSession session,
         RecordedBrush brush,
-        Action<ResolvedBrush> use)
+        Action<LoweredBrush> use)
     {
         if (brush.Resource is null)
         {
-            use(ResolvedBrush.Empty);
+            use(LoweredBrush.Empty);
             return;
         }
 
@@ -129,11 +129,11 @@ internal static class BrushExecutionResolver
         IReadOnlyList<RenderExecutionInput> inputs,
         RecordedBrush brush,
         Media.Brush.Resource resource,
-        Action<ResolvedBrush> use)
+        Action<LoweredBrush> use)
     {
         if (!brush.HasDependency)
         {
-            use(new ResolvedBrush(resource, null));
+            use(new LoweredBrush(resource, null));
             return;
         }
 
@@ -144,7 +144,7 @@ internal static class BrushExecutionResolver
         }
 
         RenderExecutionInput input = inputs[brush.DependencyIndex];
-        input.UseShader(shader => use(new ResolvedBrush(
+        input.UseShader(shader => use(new LoweredBrush(
             resource,
             new BrushTileContent(
                 shader,

@@ -19,7 +19,7 @@ public readonly struct BrushConstructor(
 
     internal BrushConstructor(
         Rect bounds,
-        ResolvedBrush brush,
+        LoweredBrush brush,
         BlendMode blendMode,
         float scale = 1f,
         float maxWorkingScale = float.PositiveInfinity,

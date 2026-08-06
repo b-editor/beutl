@@ -20,6 +20,7 @@ internal static class RenderIdentityKeyValidator
         typeof(RenderCallbackCanvas),
         typeof(OpaqueRenderSession),
         typeof(OpaqueRenderOutput),
+        typeof(PaintedRenderSession),
         typeof(GeometrySession),
         typeof(ShaderExecutionContext),
         typeof(ShaderUniformWriter),
@@ -59,6 +60,7 @@ internal static class RenderIdentityKeyValidator
             or RenderCallbackCanvas
             or OpaqueRenderSession
             or OpaqueRenderOutput
+            or PaintedRenderSession
             or GeometrySession
             or ShaderExecutionContext
             or ShaderUniformWriter

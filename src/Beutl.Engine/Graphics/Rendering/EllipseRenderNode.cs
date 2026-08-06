@@ -36,32 +36,23 @@ public sealed class EllipseRenderNode(Rect rect, Brush.Resource? fill, Pen.Resou
         if (bounds.Width == 0 || bounds.Height == 0)
             return;
 
-        RecordedPaint paint = BrushRecorder.RecordPaint(
-            context,
-            fill,
-            fillSnapshot?.Version ?? 0,
-            pen,
-            penSnapshot?.Version ?? 0,
-            bounds);
         var hitTestState = new EllipseHitTestState(
             rect,
             fill is not null,
             pen?.StrokeAlignment ?? StrokeAlignment.Center,
             pen?.Thickness ?? 0);
 
-        OpaqueRenderDescription description = BrushRecorder.CreatePaintedSource(
-            state: rect,
-            draw: static (canvas, currentRect, currentFill, currentPen) =>
-                canvas.DrawEllipse(currentRect, currentFill, currentPen),
-            paint: paint,
-            bounds: BrushRecorder.CreateSourceBounds(paint, bounds, typeof(EllipseRenderNode)),
+        context.Publish(context.PaintedSource(
+            state: (rect, hitTestState),
+            draw: static (session, state) =>
+                session.Canvas.DrawEllipse(state.rect, session.Fill, session.Pen),
+            fill: fillSnapshot,
+            pen: penSnapshot,
+            brushBounds: bounds,
+            outputBounds: bounds,
             hitTest: RenderHitTestContract.Custom((_, point) => hitTestState.HitTest(point)),
             scale: RenderScaleContract.Vector,
-            deviceGridSensitivity: RenderDeviceGridSensitivity.Insensitive,
-            structuralKey: typeof(EllipseRenderNode),
-            runtimeIdentity: new RenderRuntimeIdentity((rect, hitTestState)),
-            resources: paint.Resources);
-        context.Publish(BrushRecorder.RecordSource(context, paint, description));
+            structuralKey: typeof(EllipseRenderNode)));
     }
 
     //https://github.com/AvaloniaUI/Avalonia/blob/release/0.10.21/src/Avalonia.Visuals/Rendering/SceneGraph/EllipseNode.cs

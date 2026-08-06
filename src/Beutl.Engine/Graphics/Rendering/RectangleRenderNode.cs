@@ -36,32 +36,23 @@ public sealed class RectangleRenderNode(Rect rect, Brush.Resource? fill, Pen.Res
         if (bounds.Width == 0 || bounds.Height == 0)
             return;
 
-        RecordedPaint paint = BrushRecorder.RecordPaint(
-            context,
-            fill,
-            fillSnapshot?.Version ?? 0,
-            pen,
-            penSnapshot?.Version ?? 0,
-            bounds);
         var hitTestState = new RectangleHitTestState(
             rect,
             fill is not null,
             pen?.StrokeAlignment ?? StrokeAlignment.Inside,
             pen?.Thickness ?? 0);
 
-        OpaqueRenderDescription description = BrushRecorder.CreatePaintedSource(
-            state: rect,
-            draw: static (canvas, currentRect, currentFill, currentPen) =>
-                canvas.DrawRectangle(currentRect, currentFill, currentPen),
-            paint: paint,
-            bounds: BrushRecorder.CreateSourceBounds(paint, bounds, typeof(RectangleRenderNode)),
+        context.Publish(context.PaintedSource(
+            state: (rect, hitTestState),
+            draw: static (session, state) =>
+                session.Canvas.DrawRectangle(state.rect, session.Fill, session.Pen),
+            fill: fillSnapshot,
+            pen: penSnapshot,
+            brushBounds: bounds,
+            outputBounds: bounds,
             hitTest: RenderHitTestContract.Custom((_, point) => hitTestState.HitTest(point)),
             scale: RenderScaleContract.Vector,
-            deviceGridSensitivity: RenderDeviceGridSensitivity.Insensitive,
-            structuralKey: typeof(RectangleRenderNode),
-            runtimeIdentity: new RenderRuntimeIdentity((rect, hitTestState)),
-            resources: paint.Resources);
-        context.Publish(BrushRecorder.RecordSource(context, paint, description));
+            structuralKey: typeof(RectangleRenderNode)));
     }
 
     private readonly record struct RectangleHitTestState(

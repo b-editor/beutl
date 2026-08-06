@@ -395,6 +395,8 @@ internal sealed class EngineDirectRenderSession
 
     internal ImmediateCanvas Canvas { get; }
 
+    internal RenderExecutionSessionToken Token => _token;
+
     internal IReadOnlyList<RenderExecutionInput> Inputs
     {
         get { _token.ThrowIfInactive(); return _inputs; }
@@ -1064,6 +1066,8 @@ public sealed class OpaqueRenderSession
         _publish = publish;
     }
 
+    internal RenderExecutionSessionToken Token => _token;
+
     public IReadOnlyList<RenderExecutionInput> Inputs
     {
         get { _token.ThrowIfInactive(); return _inputs; }
@@ -1351,6 +1355,21 @@ internal static class RenderDescriptionValidation
         string executeParameterName)
         where TState : notnull
     {
+        ValidateStatePassingCallback(state, execute, stateParameterName, executeParameterName);
+        return RenderExecutionChannel<TSession>.FromState(state, execute);
+    }
+
+    /// <summary>
+    /// Enforces the state-passing rule: the callback carries no captured value and the state is a valid
+    /// output-cache runtime identity.
+    /// </summary>
+    public static void ValidateStatePassingCallback<TState>(
+        TState state,
+        Delegate execute,
+        string stateParameterName,
+        string executeParameterName)
+        where TState : notnull
+    {
         ArgumentNullException.ThrowIfNull(execute, executeParameterName);
 
         // typeof(TState).IsValueType is a JIT-time constant, so a value-typed state never reaches the
@@ -1374,7 +1393,6 @@ internal static class RenderDescriptionValidation
         }
 
         RenderIdentityKeyValidator.ThrowIfInvalidState(state, stateParameterName);
-        return RenderExecutionChannel<TSession>.FromState(state, execute);
     }
 
     public static RenderExecutionChannel<TSession> CreateRequestLocalChannel<TSession>(
@@ -1521,6 +1539,7 @@ internal static class RenderDescriptionValidation
             or RenderCallbackCanvas
             or OpaqueRenderSession
             or OpaqueRenderOutput
+            or PaintedRenderSession
             or GeometrySession
             or ShaderExecutionContext
             or ShaderUniformWriter

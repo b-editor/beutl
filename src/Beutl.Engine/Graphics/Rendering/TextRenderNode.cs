@@ -42,13 +42,6 @@ public sealed class TextRenderNode(FormattedText text, Brush.Resource? fill, Pen
         RenderResource<FormattedText> textResource = context.Borrow(
             text,
             DeferredOpaqueSource.GetCacheKey(text));
-        RecordedPaint paint = BrushRecorder.RecordPaint(
-            context,
-            fill,
-            fillSnapshot?.Version ?? 0,
-            pen,
-            penSnapshot?.Version ?? 0,
-            bounds);
         RenderResource<Brush.Resource>? textBrushResource = textBrush is null
             ? null
             : context.Borrow(textBrush, BrushRecorder.GetResourceIdentity(textBrush), textBrush.Version);
@@ -57,23 +50,24 @@ public sealed class TextRenderNode(FormattedText text, Brush.Resource? fill, Pen
             : context.Borrow(textPen, BrushRecorder.GetResourceIdentity(textPen), textPen.Version);
         bool hasFill = fill is not null;
 
-        OpaqueRenderDescription description = BrushRecorder.CreatePaintedContentSource(
-            content: textResource,
-            draw: static (canvas, currentText, currentFill, currentPen) =>
-                canvas.DrawText(currentText, currentFill, currentPen),
-            paint: paint,
-            bounds: BrushRecorder.CreateSourceBounds(paint, rasterBounds, typeof(TextRenderNode)),
+        context.Publish(context.PaintedSource(
+            state: CreateRuntimeIdentity(text, bounds),
+            draw: static (session, _) => session.UseDeclaredResource<FormattedText>(
+                0,
+                currentText => session.Canvas.DrawText(currentText, session.Fill, session.Pen)),
+            fill: fillSnapshot,
+            pen: penSnapshot,
+            brushBounds: bounds,
+            outputBounds: rasterBounds,
             hitTest: RenderHitTestContract.FromResource(
                 textResource,
                 (currentText, point) => HitTest(currentText, hasFill, point),
                 typeof(TextRenderNode)),
             scale: RenderScaleContract.Vector,
-            deviceGridSensitivity: RenderDeviceGridSensitivity.PhaseDependent,
             structuralKey: typeof(TextRenderNode),
-            runtimeIdentity: new RenderRuntimeIdentity(CreateRuntimeIdentity(text, bounds)),
+            deviceGridSensitivity: RenderDeviceGridSensitivity.PhaseDependent,
             resources: DeferredOpaqueSource.Resources(
-                [textResource, textBrushResource, textPenResource, .. paint.Resources]));
-        context.Publish(BrushRecorder.RecordSource(context, paint, description));
+                [textResource, textBrushResource, textPenResource])));
     }
 
     private static bool HitTest(FormattedText text, bool hasFill, Point point)

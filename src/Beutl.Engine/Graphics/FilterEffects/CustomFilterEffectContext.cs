@@ -10,7 +10,7 @@ public class CustomFilterEffectContext
 {
     private static readonly ILogger s_logger = Log.CreateLogger("CustomFilterEffectContext");
     private readonly Vector _deviceGridOffset;
-    private readonly IReadOnlyDictionary<FilterEffectBrush, ResolvedBrush>? _brushes;
+    private readonly IReadOnlyDictionary<FilterEffectBrush, LoweredBrush>? _brushes;
 
     internal CustomFilterEffectContext(
         EffectTargets targets,
@@ -20,7 +20,7 @@ public class CustomFilterEffectContext
         float workingScale = 1f,
         float maxWorkingScale = float.PositiveInfinity,
         Vector? deviceGridOffset = null,
-        IReadOnlyDictionary<FilterEffectBrush, ResolvedBrush>? brushes = null)
+        IReadOnlyDictionary<FilterEffectBrush, LoweredBrush>? brushes = null)
     {
         _brushes = brushes;
         if (!Enum.IsDefined(intent))
@@ -92,7 +92,7 @@ public class CustomFilterEffectContext
         ArgumentNullException.ThrowIfNull(path);
         ArgumentNullException.ThrowIfNull(fill);
         ArgumentNullException.ThrowIfNull(pen);
-        canvas.DrawSKPath(path, strokeOnly, Resolve(fill), new ResolvedPen(pen.Resource, Resolve(pen.Brush)));
+        canvas.DrawSKPath(path, strokeOnly, Resolve(fill), new LoweredPen(pen.Resource, Resolve(pen.Brush)));
     }
 
     /// <summary>
@@ -123,10 +123,10 @@ public class CustomFilterEffectContext
             _brushes);
     }
 
-    private ResolvedBrush Resolve(FilterEffectBrush brush)
-        => _brushes is not null && _brushes.TryGetValue(brush, out ResolvedBrush resolved)
+    private LoweredBrush Resolve(FilterEffectBrush brush)
+        => _brushes is not null && _brushes.TryGetValue(brush, out LoweredBrush resolved)
             ? resolved
-            : new ResolvedBrush(brush.Resource, null);
+            : new LoweredBrush(brush.Resource, null);
 
     private BrushConstructor CreateBrushConstructor(
         FilterEffectBrush brush,

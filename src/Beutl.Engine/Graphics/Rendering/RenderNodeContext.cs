@@ -439,6 +439,94 @@ public sealed class RenderNodeContext
             hitTest);
     }
 
+    /// <summary>
+    /// Records one drawing performed under a lowered fill and pen, including any nested
+    /// <see cref="DrawableBrush"/> content.
+    /// </summary>
+    /// <param name="state">
+    /// Every pixel-affecting value the callback reads besides the paint, and the produced value's output-cache
+    /// runtime identity. It must be a lightweight immutable CPU value.
+    /// </param>
+    /// <param name="draw">
+    /// A non-capturing callback. Declare it <see langword="static"/>: a capture would let a per-frame value
+    /// shape the output without reaching <paramref name="state"/>, and is rejected.
+    /// </param>
+    /// <param name="fill">The fill brush and the version it was snapshotted at, or <see langword="null"/>.</param>
+    /// <param name="pen">The pen and the version it was snapshotted at, or <see langword="null"/>.</param>
+    /// <param name="brushBounds">
+    /// The finite coordinate frame the brushes map onto. It is the rectangle gradient stops, tile stretching,
+    /// and brush transforms resolve against, and is independent of <paramref name="outputBounds"/>.
+    /// </param>
+    /// <param name="outputBounds">The finite non-empty logical bounds of the produced value.</param>
+    /// <param name="hitTest">The CPU-only hit-test contract for the produced value.</param>
+    /// <param name="scale">The density contract for the produced value.</param>
+    /// <param name="structuralKey">
+    /// A required equality-stable key. The execution callback is assembled by a shared recorder helper, so its
+    /// method identity would name that helper rather than this source.
+    /// </param>
+    /// <param name="deviceGridSensitivity">
+    /// The declared dependency of the produced pixels on the device-grid phase.
+    /// </param>
+    /// <param name="resources">
+    /// The resources the callback reaches through <see cref="PaintedRenderSession.UseDeclaredResource"/>, in
+    /// the order it indexes them.
+    /// </param>
+    /// <returns>A new transaction-scoped value fragment. The result is not published automatically.</returns>
+    /// <remarks>
+    /// Lowering nested drawable content is part of recording: the content is recorded as ordinary fragments of
+    /// this request and its identity therefore reaches the output-cache key. A brush the recorder cannot lower
+    /// declaratively remains executable but disables render caching for this result.
+    /// </remarks>
+    public RenderFragmentHandle PaintedSource<TState>(
+        TState state,
+        Action<PaintedRenderSession, TState> draw,
+        (Brush.Resource Resource, int Version)? fill,
+        (Pen.Resource Resource, int Version)? pen,
+        Rect brushBounds,
+        Rect outputBounds,
+        RenderHitTestContract hitTest,
+        RenderScaleContract scale,
+        object structuralKey,
+        RenderDeviceGridSensitivity deviceGridSensitivity = RenderDeviceGridSensitivity.Insensitive,
+        IEnumerable<RenderResource>? resources = null)
+        where TState : notnull
+    {
+        ArgumentNullException.ThrowIfNull(structuralKey);
+        RenderDescriptionValidation.ValidateStatePassingCallback(
+            state,
+            draw,
+            nameof(state),
+            nameof(draw));
+        RenderIdentityKeyValidator.ThrowIfInvalid(structuralKey, nameof(structuralKey));
+        hitTest.ThrowIfUninitialized(nameof(hitTest));
+        scale.ThrowIfUninitialized(nameof(scale));
+        RenderRectValidation.ThrowIfInvalidInput(brushBounds, nameof(brushBounds));
+        RenderDescriptionValidation.ThrowIfFiniteNonEmpty(outputBounds, nameof(outputBounds));
+        GetTransaction();
+
+        IReadOnlyList<RenderResource> callbackResources =
+            RenderDescriptionValidation.CopyResources(resources, nameof(resources));
+        RecordedPaint paint = BrushRecorder.RecordPaint(
+            this,
+            fill?.Resource,
+            fill?.Version ?? 0,
+            pen?.Resource,
+            pen?.Version ?? 0,
+            brushBounds);
+        OpaqueRenderDescription description = BrushRecorder.CreatePaintedSource(
+            state,
+            draw,
+            paint,
+            callbackResources,
+            BrushRecorder.CreateSourceBounds(paint, outputBounds, structuralKey),
+            hitTest,
+            scale,
+            deviceGridSensitivity,
+            structuralKey,
+            new RenderRuntimeIdentity(state));
+        return BrushRecorder.RecordSource(this, paint, description);
+    }
+
     /// <summary>Records an opaque value source whose callback runs only during execution.</summary>
     /// <param name="description">
     /// A non-null caller-owned source-topology description whose declared resources belong to this request family.

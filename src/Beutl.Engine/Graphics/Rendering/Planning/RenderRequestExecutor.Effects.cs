@@ -479,7 +479,7 @@ internal sealed partial class RenderRequestExecutor
         private T RunWithResolvedBrushes<T>(
             LegacyFilterEffectRenderFragmentPayload payload,
             IReadOnlyList<CompatibilityRenderValue> brushValues,
-            Func<IReadOnlyDictionary<FilterEffectBrush, ResolvedBrush>?, T> use)
+            Func<IReadOnlyDictionary<FilterEffectBrush, LoweredBrush>?, T> use)
         {
             if (payload.Brushes.IsDefaultOrEmpty)
                 return use(null);
@@ -499,7 +499,7 @@ internal sealed partial class RenderRequestExecutor
                             requiresReadback: false,
                             readbackOwner: null,
                             images);
-                        var resolved = new Dictionary<FilterEffectBrush, ResolvedBrush>();
+                        var resolved = new Dictionary<FilterEffectBrush, LoweredBrush>();
                         ResolveBrush(
                             token,
                             payload,
@@ -533,9 +533,9 @@ internal sealed partial class RenderRequestExecutor
             RenderExecutionSessionToken token,
             LegacyFilterEffectRenderFragmentPayload payload,
             IReadOnlyList<RenderExecutionInput> inputs,
-            Dictionary<FilterEffectBrush, ResolvedBrush> resolved,
+            Dictionary<FilterEffectBrush, LoweredBrush> resolved,
             int index,
-            Action<IReadOnlyDictionary<FilterEffectBrush, ResolvedBrush>?> use)
+            Action<IReadOnlyDictionary<FilterEffectBrush, LoweredBrush>?> use)
         {
             if (index >= payload.Brushes.Length)
             {

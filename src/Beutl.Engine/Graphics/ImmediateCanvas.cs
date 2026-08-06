@@ -601,14 +601,14 @@ public partial class ImmediateCanvas : IDisposable, IPopable
         Canvas.DrawImage(img, 0, 0, new SKSamplingOptions(SKCubicResampler.Mitchell), _sharedFillPaint);
     }
 
-    internal void DrawBitmap(Bitmap bmp, ResolvedBrush fill, ResolvedPen pen)
+    public void DrawBitmap(Bitmap bmp, LoweredBrush fill, LoweredPen pen)
     {
         ObjectDisposedException.ThrowIf(bmp.IsDisposed, bmp);
         if (bmp.ByteCount <= 0)
             return;
 
         VerifyPixelOperation();
-        VerifyResolvedPaint(fill, pen);
+        VerifyLoweredPaint(fill, pen);
         ConfigureFillPaint(new Rect(new Size(bmp.Width, bmp.Height)), fill);
         using var image = SKImage.FromBitmap(bmp.SKBitmap);
         RecordPixelOperation();
@@ -640,14 +640,14 @@ public partial class ImmediateCanvas : IDisposable, IPopable
         Canvas.DrawImage(img, src, dest.ToSKRect(), new SKSamplingOptions(SKCubicResampler.Mitchell), _sharedFillPaint);
     }
 
-    internal void DrawBitmapScaled(Bitmap bmp, Rect dest, ResolvedBrush fill)
+    public void DrawBitmapScaled(Bitmap bmp, Rect dest, LoweredBrush fill)
     {
         ObjectDisposedException.ThrowIf(bmp.IsDisposed, bmp);
         if (bmp.ByteCount <= 0)
             return;
 
         VerifyPixelOperation();
-        VerifyResolvedBrush(fill, nameof(fill));
+        VerifyLoweredBrush(fill, nameof(fill));
         ConfigureFillPaint(new Rect(dest.Size), fill);
         using var image = SKImage.FromBitmap(bmp.SKBitmap);
         var source = SKRect.Create(bmp.Width, bmp.Height);
@@ -677,11 +677,11 @@ public partial class ImmediateCanvas : IDisposable, IPopable
         }
     }
 
-    internal void DrawImageSource(ImageSource.Resource source, ResolvedBrush fill, ResolvedPen pen)
+    public void DrawImageSource(ImageSource.Resource source, LoweredBrush fill, LoweredPen pen)
     {
         VerifyAccess();
         VerifyCallbackResource(source, nameof(source));
-        VerifyResolvedPaint(fill, pen);
+        VerifyLoweredPaint(fill, pen);
         if (source.Bitmap is { } bitmap)
             _executionToken!.AuthorizeResource(bitmap, () => DrawBitmap(bitmap, fill, pen));
     }
@@ -733,12 +733,12 @@ public partial class ImmediateCanvas : IDisposable, IPopable
     internal void DrawVideoSource(
         VideoSource.Resource source,
         int frame,
-        ResolvedBrush fill,
-        ResolvedPen pen)
+        LoweredBrush fill,
+        LoweredPen pen)
     {
         VerifyAccess();
         VerifyCallbackResource(source, nameof(source));
-        VerifyResolvedPaint(fill, pen);
+        VerifyLoweredPaint(fill, pen);
         if (!source.Read(frame, out var bitmapRef))
             return;
 
@@ -780,10 +780,10 @@ public partial class ImmediateCanvas : IDisposable, IPopable
         }
     }
 
-    internal void DrawEllipse(Rect rect, ResolvedBrush fill, ResolvedPen pen)
+    public void DrawEllipse(Rect rect, LoweredBrush fill, LoweredPen pen)
     {
         VerifyPixelOperation();
-        VerifyResolvedPaint(fill, pen);
+        VerifyLoweredPaint(fill, pen);
         ConfigureFillPaint(rect, fill);
         RecordPixelOperation();
         Canvas.DrawOval(rect.ToSKRect(), _sharedFillPaint);
@@ -815,10 +815,10 @@ public partial class ImmediateCanvas : IDisposable, IPopable
         }
     }
 
-    internal void DrawRectangle(Rect rect, ResolvedBrush fill, ResolvedPen pen)
+    public void DrawRectangle(Rect rect, LoweredBrush fill, LoweredPen pen)
     {
         VerifyPixelOperation();
-        VerifyResolvedPaint(fill, pen);
+        VerifyLoweredPaint(fill, pen);
         ConfigureFillPaint(rect, fill);
         RecordPixelOperation();
         Canvas.DrawRect(rect.ToSKRect(), _sharedFillPaint);
@@ -887,11 +887,11 @@ public partial class ImmediateCanvas : IDisposable, IPopable
         }
     }
 
-    internal void DrawText(FormattedText text, ResolvedBrush fill, ResolvedPen pen)
+    public void DrawText(FormattedText text, LoweredBrush fill, LoweredPen pen)
     {
         VerifyPixelOperation();
         VerifyCallbackResource(text, nameof(text));
-        VerifyResolvedPaint(fill, pen);
+        VerifyLoweredPaint(fill, pen);
         float density = _currentDensity;
         SKTextBlob? textBlob = text.GetTextBlob(density);
         if (textBlob is null)
@@ -971,7 +971,7 @@ public partial class ImmediateCanvas : IDisposable, IPopable
         }
     }
 
-    internal void DrawSKPath(SKPath skPath, bool strokeOnly, ResolvedBrush fill, ResolvedPen pen)
+    internal void DrawSKPath(SKPath skPath, bool strokeOnly, LoweredBrush fill, LoweredPen pen)
     {
         Rect rect = skPath.Bounds.ToGraphicsRect();
         if (!strokeOnly)
@@ -1015,11 +1015,11 @@ public partial class ImmediateCanvas : IDisposable, IPopable
         }
     }
 
-    internal void DrawGeometry(Geometry.Resource geometry, ResolvedBrush fill, ResolvedPen pen)
+    public void DrawGeometry(Geometry.Resource geometry, LoweredBrush fill, LoweredPen pen)
     {
         VerifyPixelOperation();
         VerifyCallbackResource(geometry, nameof(geometry));
-        VerifyResolvedPaint(fill, pen);
+        VerifyLoweredPaint(fill, pen);
         SKPath path = geometry.GetCachedPath();
         Rect rect = geometry.Bounds;
         ConfigureFillPaint(rect, fill);
@@ -1172,11 +1172,11 @@ public partial class ImmediateCanvas : IDisposable, IPopable
         return new PushedState(this, _states.Count);
     }
 
-    internal PushedState PushOpacityMask(ResolvedBrush mask, Rect bounds, bool invert = false)
+    internal PushedState PushOpacityMask(LoweredBrush mask, Rect bounds, bool invert = false)
     {
         VerifyAccess();
         VerifyHiddenLayerOperation();
-        VerifyResolvedBrush(mask, nameof(mask));
+        VerifyLoweredBrush(mask, nameof(mask));
         var paint = new SKPaint();
         RecordPixelOperation();
         int count = Canvas.SaveLayer(paint);
@@ -1578,14 +1578,14 @@ public partial class ImmediateCanvas : IDisposable, IPopable
         }
     }
 
-    private void VerifyResolvedPaint(ResolvedBrush fill, ResolvedPen pen)
+    private void VerifyLoweredPaint(LoweredBrush fill, LoweredPen pen)
     {
-        VerifyResolvedBrush(fill, nameof(fill));
+        VerifyLoweredBrush(fill, nameof(fill));
         VerifyCallbackResource(pen.Resource, nameof(pen));
-        VerifyResolvedBrush(pen.Brush, nameof(pen));
+        VerifyLoweredBrush(pen.Brush, nameof(pen));
     }
 
-    private void VerifyResolvedBrush(ResolvedBrush brush, string parameterName)
+    private void VerifyLoweredBrush(LoweredBrush brush, string parameterName)
     {
         VerifyCallbackResource(brush.Resource, parameterName);
         VerifyCallbackResource(brush.TileContent?.Shader, parameterName);
@@ -1610,7 +1610,7 @@ public partial class ImmediateCanvas : IDisposable, IPopable
 
     private void ConfigureStrokePaint(
         Rect bounds,
-        ResolvedPen pen,
+        LoweredPen pen,
         BlendMode blendMode = BlendMode.SrcOver,
         float? scale = null)
     {
@@ -1642,7 +1642,7 @@ public partial class ImmediateCanvas : IDisposable, IPopable
 
     private void ConfigureFillPaint(
         Rect bounds,
-        ResolvedBrush brush,
+        LoweredBrush brush,
         BlendMode blendMode = BlendMode.SrcOver,
         float? scale = null)
     {

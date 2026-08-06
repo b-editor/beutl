@@ -66,20 +66,6 @@ internal sealed class RecordedPaint(
     public bool HasRawExternalWork => Fill.IsRawExternal || Pen.Brush.IsRawExternal;
 }
 
-internal readonly record struct ResolvedBrush(
-    Brush.Resource? Resource,
-    BrushTileContent? TileContent)
-{
-    public static ResolvedBrush Empty => default;
-}
-
-internal readonly record struct ResolvedPen(
-    Pen.Resource? Resource,
-    ResolvedBrush Brush)
-{
-    public static ResolvedPen Empty => default;
-}
-
 internal sealed record BrushTileContent(
     SKShader Shader,
     Rect Bounds,

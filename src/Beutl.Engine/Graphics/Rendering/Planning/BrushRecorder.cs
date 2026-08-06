@@ -68,21 +68,27 @@ internal static class BrushRecorder
     /// The one authored drawing. It is invoked with the paint resolved for the running session, and both the
     /// materializing execution and the direct replay onto an existing target are built from it.
     /// </param>
+    /// <param name="callbackResources">
+    /// The resources the callback addresses by index. They are declared ahead of the paint's own slots so a
+    /// change in the paint's shape never shifts an index the callback uses.
+    /// </param>
     public static OpaqueRenderDescription CreatePaintedSource<TState>(
         TState state,
-        Action<ImmediateCanvas, TState, ResolvedBrush, ResolvedPen> draw,
+        Action<PaintedRenderSession, TState> draw,
         RecordedPaint paint,
+        IReadOnlyList<RenderResource> callbackResources,
         OpaqueRenderBoundsContract bounds,
         RenderHitTestContract hitTest,
         RenderScaleContract scale,
         RenderDeviceGridSensitivity deviceGridSensitivity,
         object structuralKey,
         RenderRuntimeIdentity? runtimeIdentity,
-        IEnumerable<RenderResource>? resources = null)
+        IEnumerable<RenderResource>? additionalResources = null)
     {
         ArgumentNullException.ThrowIfNull(draw);
         ArgumentNullException.ThrowIfNull(paint);
-        var source = new PaintedSource<TState>(state, paint, draw);
+        ArgumentNullException.ThrowIfNull(callbackResources);
+        var source = new PaintedSource<TState>(state, paint, callbackResources, draw);
         return OpaqueRenderDescription.CreateEngineSource(
             execute: source.Execute,
             directReplay: source.ExecuteDirect,
@@ -92,46 +98,41 @@ internal static class BrushRecorder
             deviceGridSensitivity: deviceGridSensitivity,
             structuralKey: structuralKey,
             runtimeIdentity: runtimeIdentity,
-            resources: resources);
+            resources: DeclareResources(callbackResources, additionalResources, paint));
     }
 
-    /// <summary>
-    /// Creates an engine source that draws borrowed <paramref name="content"/> under <paramref name="paint"/>.
-    /// </summary>
-    /// <param name="content">
-    /// The drawn content. It is resolved for the duration of the callback and must not be retained by it.
-    /// </param>
-    /// <param name="draw">
-    /// The one authored drawing. It is invoked with the resolved content and paint, and both the materializing
-    /// execution and the direct replay onto an existing target are built from it.
-    /// </param>
-    public static OpaqueRenderDescription CreatePaintedContentSource<TContent>(
-        RenderResource<TContent> content,
-        Action<ImmediateCanvas, TContent, ResolvedBrush, ResolvedPen> draw,
-        RecordedPaint paint,
-        OpaqueRenderBoundsContract bounds,
-        RenderHitTestContract hitTest,
-        RenderScaleContract scale,
-        RenderDeviceGridSensitivity deviceGridSensitivity,
-        object structuralKey,
-        RenderRuntimeIdentity? runtimeIdentity,
-        IEnumerable<RenderResource>? resources = null)
-        where TContent : class
+    private static IReadOnlyList<RenderResource> DeclareResources(
+        IReadOnlyList<RenderResource> callbackResources,
+        IEnumerable<RenderResource>? additionalResources,
+        RecordedPaint paint)
     {
-        ArgumentNullException.ThrowIfNull(content);
-        ArgumentNullException.ThrowIfNull(draw);
-        ArgumentNullException.ThrowIfNull(paint);
-        var source = new PaintedContentSource<TContent>(content, paint, draw);
-        return OpaqueRenderDescription.CreateEngineSource(
-            execute: source.Execute,
-            directReplay: source.ExecuteDirect,
-            bounds: bounds,
-            hitTest: hitTest,
-            scale: scale,
-            deviceGridSensitivity: deviceGridSensitivity,
-            structuralKey: structuralKey,
-            runtimeIdentity: runtimeIdentity,
-            resources: resources);
+        if (callbackResources.Count == 0 && additionalResources is null)
+            return paint.Resources;
+
+        var declared = new List<RenderResource>(callbackResources.Count + paint.Resources.Count);
+        foreach (RenderResource resource in callbackResources)
+            AddDistinct(declared, resource);
+        if (additionalResources is not null)
+        {
+            foreach (RenderResource resource in additionalResources)
+                AddDistinct(declared, resource);
+        }
+
+        foreach (RenderResource resource in paint.Resources)
+            AddDistinct(declared, resource);
+
+        return declared;
+    }
+
+    private static void AddDistinct(List<RenderResource> declared, RenderResource resource)
+    {
+        foreach (RenderResource existing in declared)
+        {
+            if (ReferenceEquals(existing.SlotIdentity, resource.SlotIdentity))
+                return;
+        }
+
+        declared.Add(resource);
     }
 
     public static RenderFragmentHandle RecordSource(
@@ -335,7 +336,8 @@ internal static class BrushRecorder
     private sealed class PaintedSource<TState>(
         TState state,
         RecordedPaint paint,
-        Action<ImmediateCanvas, TState, ResolvedBrush, ResolvedPen> draw)
+        IReadOnlyList<RenderResource> callbackResources,
+        Action<PaintedRenderSession, TState> draw)
     {
         public void Execute(OpaqueRenderSession session)
         {
@@ -344,7 +346,9 @@ internal static class BrushRecorder
                 BrushExecutionResolver.UsePaint(
                     session,
                     paint,
-                    (fill, pen) => draw(canvas, state, fill, pen)));
+                    (fill, pen) => draw(
+                        new PaintedRenderSession(session.Token, canvas, callbackResources, fill, pen),
+                        state)));
             session.Publish(output);
         }
 
@@ -353,35 +357,9 @@ internal static class BrushRecorder
             BrushExecutionResolver.UsePaint(
                 session,
                 paint,
-                (fill, pen) => draw(session.Canvas, state, fill, pen));
-        }
-    }
-
-    private sealed class PaintedContentSource<TContent>(
-        RenderResource<TContent> content,
-        RecordedPaint paint,
-        Action<ImmediateCanvas, TContent, ResolvedBrush, ResolvedPen> draw)
-        where TContent : class
-    {
-        public void Execute(OpaqueRenderSession session)
-        {
-            using OpaqueRenderOutput output = session.CreateOutput(session.RequiredRegion);
-            output.Canvas.Use(canvas =>
-                session.UseResource(content, value =>
-                    BrushExecutionResolver.UsePaint(
-                        session,
-                        paint,
-                        (fill, pen) => draw(canvas, value, fill, pen))));
-            session.Publish(output);
-        }
-
-        public void ExecuteDirect(EngineDirectRenderSession session)
-        {
-            session.UseResource(content, value =>
-                BrushExecutionResolver.UsePaint(
-                    session,
-                    paint,
-                    (fill, pen) => draw(session.Canvas, value, fill, pen)));
+                (fill, pen) => draw(
+                    new PaintedRenderSession(session.Token, session.Canvas, callbackResources, fill, pen),
+                    state));
         }
     }
 

@@ -1,4 +1,5 @@
 ﻿using Beutl.Composition;
+using Beutl.Engine;
 using Beutl.Graphics;
 using Beutl.Graphics.Effects;
 using Beutl.Graphics.Rendering;
@@ -239,6 +240,46 @@ public sealed class RenderCacheVerificationTests
         }
 
         Assert.That(RenderCacheVerification.IsEnabled, Is.False);
+    }
+
+    [Test]
+    [NonParallelizable]
+    public void LoweredDrawableBrushSource_PassesVerificationAcrossANestedContentChange()
+    {
+        var contentFill = new SolidColorBrush { Color = { CurrentValue = Colors.White } };
+        var content = new RectShape
+        {
+            Width = { CurrentValue = (float)s_bounds.Width },
+            Height = { CurrentValue = (float)s_bounds.Height },
+            Fill = { CurrentValue = contentFill },
+        };
+        var brush = new DrawableBrush(content) { Stretch = { CurrentValue = Stretch.Fill } };
+        using DrawableBrush.Resource brushResource = brush.ToResource(CompositionContext.Default);
+        using var node = new LoweredDrawableBrushNode(brushResource);
+        node.Cache.ReportRenderCount(RenderNodeCache.Count);
+        var diagnostics = new RenderPipelineDiagnosticsState();
+        using RenderNodeRenderer renderer = CreateRenderer(node, diagnostics);
+
+        long hits = 0;
+        using (RenderCacheVerification.EnableForAllRequests())
+        {
+            for (int frame = 0; frame < 2; frame++)
+            {
+                using RenderNodeRasterization rasterization = renderer.Rasterize();
+                Assert.That(rasterization.IsEmpty, Is.False);
+                hits += diagnostics.Latest[RenderPipelineCounter.RenderCacheHits];
+            }
+
+            contentFill.Color.CurrentValue = Colors.Blue;
+            bool updateOnly = false;
+            brushResource.Update(brush, CompositionContext.Default, ref updateOnly);
+
+            using RenderNodeRasterization changed = renderer.Rasterize();
+            Assert.That(TopLeft(changed), Is.EqualTo(ToPremultipliedHalfBits(Colors.Blue)));
+        }
+
+        Assert.That(hits, Is.GreaterThan(0),
+            "the identical frame must record a verified cache hit for the change to prove anything");
     }
 
     [Test]
@@ -735,6 +776,24 @@ public sealed class RenderCacheVerificationTests
                 RenderValueCardinality.Single,
                 RenderScaleContract.MaterializeAtWorkingScale);
             context.Publish(context.ContributeValues(context.OpaqueCombine([], description)));
+        }
+    }
+
+    private sealed class LoweredDrawableBrushNode(Brush.Resource fill) : RenderNode
+    {
+        public override void Process(RenderNodeContext context)
+        {
+            context.Publish(context.PaintedSource(
+                state: s_bounds,
+                draw: static (session, state) =>
+                    session.Canvas.DrawRectangle(state, session.Fill, session.Pen),
+                fill: fill.Capture(),
+                pen: null,
+                brushBounds: s_bounds,
+                outputBounds: s_bounds,
+                hitTest: RenderHitTestContract.OutputBounds,
+                scale: RenderScaleContract.Vector,
+                structuralKey: nameof(LoweredDrawableBrushNode)));
         }
     }
 

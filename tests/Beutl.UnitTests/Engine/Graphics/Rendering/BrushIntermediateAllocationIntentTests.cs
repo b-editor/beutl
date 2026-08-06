@@ -55,7 +55,7 @@ public sealed class BrushIntermediateAllocationIntentTests
         using SKShader tile = SKShader.CreateColor(SKColors.White);
         var constructor = new BrushConstructor(
             s_bounds,
-            new ResolvedBrush(brush, new BrushTileContent(tile, s_bounds, EffectiveScale.At(1f))),
+            new LoweredBrush(brush, new BrushTileContent(tile, s_bounds, EffectiveScale.At(1f))),
             BlendMode.SrcOver,
             UnallocatableScale,
             maxWorkingScale: 4f,
@@ -74,7 +74,7 @@ public sealed class BrushIntermediateAllocationIntentTests
         using SKShader tile = SKShader.CreateColor(SKColors.White);
         var constructor = new BrushConstructor(
             s_bounds,
-            new ResolvedBrush(brush, new BrushTileContent(tile, s_bounds, EffectiveScale.At(1f))),
+            new LoweredBrush(brush, new BrushTileContent(tile, s_bounds, EffectiveScale.At(1f))),
             BlendMode.SrcOver,
             UnallocatableScale,
             maxWorkingScale: float.PositiveInfinity,

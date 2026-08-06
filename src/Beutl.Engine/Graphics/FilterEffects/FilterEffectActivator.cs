@@ -15,7 +15,7 @@ public sealed class FilterEffectActivator : IDisposable
     private static readonly ILogger s_logger = Log.CreateLogger("FilterEffectActivator");
     private readonly SkRuntimeEffectProgramAcquirer? _injectedProgramAcquirer;
     private readonly Vector? _deviceGridOffset;
-    private readonly IReadOnlyDictionary<FilterEffectBrush, ResolvedBrush>? _brushes;
+    private readonly IReadOnlyDictionary<FilterEffectBrush, LoweredBrush>? _brushes;
     private ProgramCache<CachedSkRuntimeEffect>? _ownedProgramCache;
     private Dictionary<EffectTarget, PendingSkiaTarget>? _pendingSkiaTargets;
     private bool _customEffectBoundaryMaterialized;
@@ -68,7 +68,7 @@ public sealed class FilterEffectActivator : IDisposable
         float outputScale,
         float workingScale,
         float maxWorkingScale,
-        IReadOnlyDictionary<FilterEffectBrush, ResolvedBrush>? brushes)
+        IReadOnlyDictionary<FilterEffectBrush, LoweredBrush>? brushes)
         : this(
             targets,
             builder,
@@ -94,7 +94,7 @@ public sealed class FilterEffectActivator : IDisposable
         float maxWorkingScale,
         Vector deviceGridOffset,
         SkRuntimeEffectProgramAcquirer acquireProgram,
-        IReadOnlyDictionary<FilterEffectBrush, ResolvedBrush>? brushes = null)
+        IReadOnlyDictionary<FilterEffectBrush, LoweredBrush>? brushes = null)
         : this(
             targets,
             builder,
@@ -121,7 +121,7 @@ public sealed class FilterEffectActivator : IDisposable
         SkRuntimeEffectProgramAcquirer? acquireProgram,
         Vector? deviceGridOffset,
         bool ownsProgramCache,
-        IReadOnlyDictionary<FilterEffectBrush, ResolvedBrush>? brushes = null)
+        IReadOnlyDictionary<FilterEffectBrush, LoweredBrush>? brushes = null)
     {
         _brushes = brushes;
         ArgumentNullException.ThrowIfNull(targets);

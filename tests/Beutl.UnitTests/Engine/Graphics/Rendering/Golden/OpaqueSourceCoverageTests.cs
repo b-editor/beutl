@@ -160,10 +160,10 @@ public sealed class OpaqueSourceCoverageTests
                         1f / density,
                         deviceBounds.X / density,
                         deviceBounds.Y / density));
-                var fill = new ResolvedBrush(
+                var fill = new LoweredBrush(
                     shapeResource.Fill,
                     new BrushTileContent(shader, content.Bounds, EffectiveScale.At(density)));
-                canvas.DrawGeometry(geometry, fill, ResolvedPen.Empty);
+                canvas.DrawGeometry(geometry, fill, LoweredPen.Empty);
             }
             else
             {
