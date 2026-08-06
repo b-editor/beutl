@@ -62,19 +62,11 @@ public sealed class GeometryRenderNode(Geometry.Resource geometry, Brush.Resourc
             hitTestState,
             hitTestIdentity);
 
-        OpaqueRenderDescription description = OpaqueRenderDescription.CreateEngineSource(
-            execute: session => DeferredOpaqueSource.Execute(
-                session,
-                geometryResource,
-                paint,
-                static (canvas, currentGeometry, currentFill, currentPen) =>
-                    canvas.DrawGeometry(currentGeometry, currentFill, currentPen)),
-            directReplay: session => DeferredOpaqueSource.ExecuteDirect(
-                session,
-                geometryResource,
-                paint,
-                static (canvas, currentGeometry, currentFill, currentPen) =>
-                    canvas.DrawGeometry(currentGeometry, currentFill, currentPen)),
+        OpaqueRenderDescription description = BrushRecorder.CreatePaintedContentSource(
+            content: geometryResource,
+            draw: static (canvas, currentGeometry, currentFill, currentPen) =>
+                canvas.DrawGeometry(currentGeometry, currentFill, currentPen),
+            paint: paint,
             bounds: BrushRecorder.CreateSourceBounds(paint, bounds, typeof(GeometryRenderNode)),
             hitTest: RenderHitTestContract.FromResource(
                 hitTestResource,
@@ -139,25 +131,6 @@ internal static class DeferredOpaqueSource
     public static void Execute<T>(
         OpaqueRenderSession session,
         RenderResource<T> primary,
-        RenderResource<Brush.Resource>? fill,
-        RenderResource<Pen.Resource>? pen,
-        Action<ImmediateCanvas, T, Brush.Resource?, Pen.Resource?> draw)
-        where T : class
-    {
-        using OpaqueRenderOutput output = session.CreateOutput(session.RequiredRegion);
-        output.Canvas.Use(canvas =>
-            session.UseResource(primary, value =>
-                UseBrushResources(
-                    session,
-                    fill,
-                    pen,
-                    (currentFill, currentPen) => draw(canvas, value, currentFill, currentPen))));
-        session.Publish(output);
-    }
-
-    public static void Execute<T>(
-        OpaqueRenderSession session,
-        RenderResource<T> primary,
         RecordedPaint paint,
         Action<ImmediateCanvas, T, ResolvedBrush, ResolvedPen> draw)
         where T : class
@@ -170,87 +143,6 @@ internal static class DeferredOpaqueSource
                     paint,
                     (fill, pen) => draw(canvas, value, fill, pen))));
         session.Publish(output);
-    }
-
-    public static void ExecuteDirect<T>(
-        EngineDirectRenderSession session,
-        RenderResource<T> primary,
-        RecordedPaint paint,
-        Action<ImmediateCanvas, T, ResolvedBrush, ResolvedPen> draw)
-        where T : class
-    {
-        session.UseResource(primary, value =>
-            BrushExecutionResolver.UsePaint(
-                session,
-                paint,
-                (fill, pen) => draw(session.Canvas, value, fill, pen)));
-    }
-
-    public static void Execute(
-        OpaqueRenderSession session,
-        RenderResource<Brush.Resource>? fill,
-        RenderResource<Pen.Resource>? pen,
-        Action<ImmediateCanvas, Brush.Resource?, Pen.Resource?> draw)
-    {
-        using OpaqueRenderOutput output = session.CreateOutput(session.RequiredRegion);
-        output.Canvas.Use(canvas =>
-            UseBrushResources(
-                session,
-                fill,
-                pen,
-                (currentFill, currentPen) => draw(canvas, currentFill, currentPen)));
-        session.Publish(output);
-    }
-
-    public static void Execute(
-        OpaqueRenderSession session,
-        RecordedPaint paint,
-        Action<ImmediateCanvas, ResolvedBrush, ResolvedPen> draw)
-    {
-        using OpaqueRenderOutput output = session.CreateOutput(session.RequiredRegion);
-        output.Canvas.Use(canvas =>
-            BrushExecutionResolver.UsePaint(
-                session,
-                paint,
-                (fill, pen) => draw(canvas, fill, pen)));
-        session.Publish(output);
-    }
-
-    public static void ExecuteDirect(
-        EngineDirectRenderSession session,
-        RecordedPaint paint,
-        Action<ImmediateCanvas, ResolvedBrush, ResolvedPen> draw)
-    {
-        BrushExecutionResolver.UsePaint(
-            session,
-            paint,
-            (fill, pen) => draw(session.Canvas, fill, pen));
-    }
-
-    private static void UseBrushResources(
-        OpaqueRenderSession session,
-        RenderResource<Brush.Resource>? fill,
-        RenderResource<Pen.Resource>? pen,
-        Action<Brush.Resource?, Pen.Resource?> use)
-    {
-        if (fill is not null)
-        {
-            session.UseResource(fill, currentFill =>
-            {
-                if (pen is not null)
-                    session.UseResource(pen, currentPen => use(currentFill, currentPen));
-                else
-                    use(currentFill, null);
-            });
-        }
-        else if (pen is not null)
-        {
-            session.UseResource(pen, currentPen => use(null, currentPen));
-        }
-        else
-        {
-            use(null, null);
-        }
     }
 
     private sealed class ResourceCacheKey

@@ -49,17 +49,11 @@ public sealed class RectangleRenderNode(Rect rect, Brush.Resource? fill, Pen.Res
             pen?.StrokeAlignment ?? StrokeAlignment.Inside,
             pen?.Thickness ?? 0);
 
-        OpaqueRenderDescription description = OpaqueRenderDescription.CreateEngineSource(
-            execute: session => DeferredOpaqueSource.Execute(
-                session,
-                paint,
-                (canvas, currentFill, currentPen) =>
-                    canvas.DrawRectangle(rect, currentFill, currentPen)),
-            directReplay: session => DeferredOpaqueSource.ExecuteDirect(
-                session,
-                paint,
-                (canvas, currentFill, currentPen) =>
-                    canvas.DrawRectangle(rect, currentFill, currentPen)),
+        OpaqueRenderDescription description = BrushRecorder.CreatePaintedSource(
+            state: rect,
+            draw: static (canvas, currentRect, currentFill, currentPen) =>
+                canvas.DrawRectangle(currentRect, currentFill, currentPen),
+            paint: paint,
             bounds: BrushRecorder.CreateSourceBounds(paint, bounds, typeof(RectangleRenderNode)),
             hitTest: RenderHitTestContract.Custom((_, point) => hitTestState.HitTest(point)),
             scale: RenderScaleContract.Vector,

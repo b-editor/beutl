@@ -57,19 +57,11 @@ public sealed class TextRenderNode(FormattedText text, Brush.Resource? fill, Pen
             : context.Borrow(textPen, BrushRecorder.GetResourceIdentity(textPen), textPen.Version);
         bool hasFill = fill is not null;
 
-        OpaqueRenderDescription description = OpaqueRenderDescription.CreateEngineSource(
-            execute: session => DeferredOpaqueSource.Execute(
-                session,
-                textResource,
-                paint,
-                static (canvas, currentText, currentFill, currentPen) =>
-                    canvas.DrawText(currentText, currentFill, currentPen)),
-            directReplay: session => DeferredOpaqueSource.ExecuteDirect(
-                session,
-                textResource,
-                paint,
-                static (canvas, currentText, currentFill, currentPen) =>
-                    canvas.DrawText(currentText, currentFill, currentPen)),
+        OpaqueRenderDescription description = BrushRecorder.CreatePaintedContentSource(
+            content: textResource,
+            draw: static (canvas, currentText, currentFill, currentPen) =>
+                canvas.DrawText(currentText, currentFill, currentPen),
+            paint: paint,
             bounds: BrushRecorder.CreateSourceBounds(paint, rasterBounds, typeof(TextRenderNode)),
             hitTest: RenderHitTestContract.FromResource(
                 textResource,

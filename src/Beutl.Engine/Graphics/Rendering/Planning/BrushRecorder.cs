@@ -60,6 +60,80 @@ internal static class BrushRecorder
                 new BrushSourceBoundsIdentity(structuralKey, bounds, paint.Dependencies.Count));
     }
 
+    /// <summary>
+    /// Creates an engine source that draws <paramref name="state"/> under <paramref name="paint"/>.
+    /// </summary>
+    /// <param name="state">The immutable value the callback draws from.</param>
+    /// <param name="draw">
+    /// The one authored drawing. It is invoked with the paint resolved for the running session, and both the
+    /// materializing execution and the direct replay onto an existing target are built from it.
+    /// </param>
+    public static OpaqueRenderDescription CreatePaintedSource<TState>(
+        TState state,
+        Action<ImmediateCanvas, TState, ResolvedBrush, ResolvedPen> draw,
+        RecordedPaint paint,
+        OpaqueRenderBoundsContract bounds,
+        RenderHitTestContract hitTest,
+        RenderScaleContract scale,
+        RenderDeviceGridSensitivity deviceGridSensitivity,
+        object structuralKey,
+        RenderRuntimeIdentity? runtimeIdentity,
+        IEnumerable<RenderResource>? resources = null)
+    {
+        ArgumentNullException.ThrowIfNull(draw);
+        ArgumentNullException.ThrowIfNull(paint);
+        var source = new PaintedSource<TState>(state, paint, draw);
+        return OpaqueRenderDescription.CreateEngineSource(
+            execute: source.Execute,
+            directReplay: source.ExecuteDirect,
+            bounds: bounds,
+            hitTest: hitTest,
+            scale: scale,
+            deviceGridSensitivity: deviceGridSensitivity,
+            structuralKey: structuralKey,
+            runtimeIdentity: runtimeIdentity,
+            resources: resources);
+    }
+
+    /// <summary>
+    /// Creates an engine source that draws borrowed <paramref name="content"/> under <paramref name="paint"/>.
+    /// </summary>
+    /// <param name="content">
+    /// The drawn content. It is resolved for the duration of the callback and must not be retained by it.
+    /// </param>
+    /// <param name="draw">
+    /// The one authored drawing. It is invoked with the resolved content and paint, and both the materializing
+    /// execution and the direct replay onto an existing target are built from it.
+    /// </param>
+    public static OpaqueRenderDescription CreatePaintedContentSource<TContent>(
+        RenderResource<TContent> content,
+        Action<ImmediateCanvas, TContent, ResolvedBrush, ResolvedPen> draw,
+        RecordedPaint paint,
+        OpaqueRenderBoundsContract bounds,
+        RenderHitTestContract hitTest,
+        RenderScaleContract scale,
+        RenderDeviceGridSensitivity deviceGridSensitivity,
+        object structuralKey,
+        RenderRuntimeIdentity? runtimeIdentity,
+        IEnumerable<RenderResource>? resources = null)
+        where TContent : class
+    {
+        ArgumentNullException.ThrowIfNull(content);
+        ArgumentNullException.ThrowIfNull(draw);
+        ArgumentNullException.ThrowIfNull(paint);
+        var source = new PaintedContentSource<TContent>(content, paint, draw);
+        return OpaqueRenderDescription.CreateEngineSource(
+            execute: source.Execute,
+            directReplay: source.ExecuteDirect,
+            bounds: bounds,
+            hitTest: hitTest,
+            scale: scale,
+            deviceGridSensitivity: deviceGridSensitivity,
+            structuralKey: structuralKey,
+            runtimeIdentity: runtimeIdentity,
+            resources: resources);
+    }
+
     public static RenderFragmentHandle RecordSource(
         RenderNodeContext context,
         RecordedPaint paint,
@@ -255,6 +329,59 @@ internal static class BrushRecorder
                 throw new InvalidOperationException("The active DrawableBrush recording stack is corrupted.");
 
             active.RemoveAt(last);
+        }
+    }
+
+    private sealed class PaintedSource<TState>(
+        TState state,
+        RecordedPaint paint,
+        Action<ImmediateCanvas, TState, ResolvedBrush, ResolvedPen> draw)
+    {
+        public void Execute(OpaqueRenderSession session)
+        {
+            using OpaqueRenderOutput output = session.CreateOutput(session.RequiredRegion);
+            output.Canvas.Use(canvas =>
+                BrushExecutionResolver.UsePaint(
+                    session,
+                    paint,
+                    (fill, pen) => draw(canvas, state, fill, pen)));
+            session.Publish(output);
+        }
+
+        public void ExecuteDirect(EngineDirectRenderSession session)
+        {
+            BrushExecutionResolver.UsePaint(
+                session,
+                paint,
+                (fill, pen) => draw(session.Canvas, state, fill, pen));
+        }
+    }
+
+    private sealed class PaintedContentSource<TContent>(
+        RenderResource<TContent> content,
+        RecordedPaint paint,
+        Action<ImmediateCanvas, TContent, ResolvedBrush, ResolvedPen> draw)
+        where TContent : class
+    {
+        public void Execute(OpaqueRenderSession session)
+        {
+            using OpaqueRenderOutput output = session.CreateOutput(session.RequiredRegion);
+            output.Canvas.Use(canvas =>
+                session.UseResource(content, value =>
+                    BrushExecutionResolver.UsePaint(
+                        session,
+                        paint,
+                        (fill, pen) => draw(canvas, value, fill, pen))));
+            session.Publish(output);
+        }
+
+        public void ExecuteDirect(EngineDirectRenderSession session)
+        {
+            session.UseResource(content, value =>
+                BrushExecutionResolver.UsePaint(
+                    session,
+                    paint,
+                    (fill, pen) => draw(session.Canvas, value, fill, pen)));
         }
     }
 

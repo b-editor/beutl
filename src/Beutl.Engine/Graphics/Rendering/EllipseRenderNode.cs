@@ -49,17 +49,11 @@ public sealed class EllipseRenderNode(Rect rect, Brush.Resource? fill, Pen.Resou
             pen?.StrokeAlignment ?? StrokeAlignment.Center,
             pen?.Thickness ?? 0);
 
-        OpaqueRenderDescription description = OpaqueRenderDescription.CreateEngineSource(
-            execute: session => DeferredOpaqueSource.Execute(
-                session,
-                paint,
-                (canvas, currentFill, currentPen) =>
-                    canvas.DrawEllipse(rect, currentFill, currentPen)),
-            directReplay: session => DeferredOpaqueSource.ExecuteDirect(
-                session,
-                paint,
-                (canvas, currentFill, currentPen) =>
-                    canvas.DrawEllipse(rect, currentFill, currentPen)),
+        OpaqueRenderDescription description = BrushRecorder.CreatePaintedSource(
+            state: rect,
+            draw: static (canvas, currentRect, currentFill, currentPen) =>
+                canvas.DrawEllipse(currentRect, currentFill, currentPen),
+            paint: paint,
             bounds: BrushRecorder.CreateSourceBounds(paint, bounds, typeof(EllipseRenderNode)),
             hitTest: RenderHitTestContract.Custom((_, point) => hitTestState.HitTest(point)),
             scale: RenderScaleContract.Vector,
