@@ -8,6 +8,8 @@ public class ContainerRenderNode : RenderNode
 
     public IReadOnlyList<RenderNode> Children => _children;
 
+    public override ReadOnlySpan<RenderNode> ChildNodes => CollectionsMarshal.AsSpan(_children);
+
     public void AddChild(RenderNode item)
     {
         ArgumentNullException.ThrowIfNull(item);

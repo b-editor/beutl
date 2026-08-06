@@ -404,13 +404,7 @@ public class Renderer : IRenderer
         var pendingEntries = new List<Entry>();
         try
         {
-            foreach (var obj in frame.Objects)
-            {
-                if (obj is not Drawable.Resource drawableResource)
-                    continue;
-
-                pendingEntries.Add(PrepareDrawable(drawableResource));
-            }
+            PrepareEntries(frame, pendingEntries);
 
             _completeTarget.UpdateRoots(pendingEntries.Select(static entry => (RenderNode)entry.Node));
             _frameRenderer.Render(_immediateCanvas);
@@ -420,18 +414,50 @@ public class Renderer : IRenderer
             ClearFrame();
         }
 
+        RevalidateEntries(pendingEntries);
+        _allCurrentEntries.AddRange(pendingEntries);
+    }
+
+    private void PrepareEntries(CompositionFrame frame, List<Entry> destination)
+    {
+        foreach (var obj in frame.Objects)
+        {
+            if (obj is not Drawable.Resource drawableResource)
+                continue;
+
+            destination.Add(PrepareDrawable(drawableResource));
+        }
+    }
+
+    // Every entry must be prepared before any of them is revalidated: a referenced node is shared, so
+    // revalidating one entry mid-preparation clears a mark the entries after it have not read yet.
+    private void RevalidateEntries(List<Entry> entries)
+    {
         try
         {
-            foreach (Entry entry in pendingEntries)
+            foreach (Entry entry in entries)
             {
                 RevalidateAll(entry.Node);
                 entry.InvalidateBounds();
-                _allCurrentEntries.Add(entry);
             }
         }
         finally
         {
             _revalidatedNodes.Clear();
+        }
+    }
+
+    // A mark records that a node tree was rebuilt, so an entry that finished recording consumes its mark
+    // even when a later entry faults the frame. Only metadata publication waits for the whole frame.
+    private void RevalidateEntriesPreservingFrameFailure(List<Entry> entries)
+    {
+        try
+        {
+            RevalidateEntries(entries);
+        }
+        catch (Exception ex)
+        {
+            s_logger.LogDebug(ex, "Revalidating the entries recorded before a frame fault failed");
         }
     }
 
@@ -547,19 +573,10 @@ public class Renderer : IRenderer
         if (current.IsDisposed || !_revalidatedNodes.Add(current))
             return;
 
-        switch (current)
+        ReadOnlySpan<RenderNode> children = current.ChildNodes;
+        for (int i = 0; i < children.Length; i++)
         {
-            case ContainerRenderNode container:
-                for (int i = 0; i < container.Children.Count; i++)
-                {
-                    RevalidateAll(container.Children[i]);
-                }
-
-                break;
-
-            case ReferencesChildRenderNode reference when reference.Child is { } child:
-                RevalidateAll(child);
-                break;
+            RevalidateAll(children[i]);
         }
 
         RenderNodeCache cache = current.Cache;
@@ -585,22 +602,15 @@ public class Renderer : IRenderer
 
         try
         {
-            foreach (var obj in frame.Objects)
-            {
-                if (obj is not Drawable.Resource drawableResource)
-                    continue;
-
-                Entry entry = PrepareDrawable(drawableResource);
-                RevalidateAll(entry.Node);
-                entry.InvalidateBounds();
-                pendingEntries.Add(entry);
-            }
+            PrepareEntries(frame, pendingEntries);
         }
-        finally
+        catch
         {
-            _revalidatedNodes.Clear();
+            RevalidateEntriesPreservingFrameFailure(pendingEntries);
+            throw;
         }
 
+        RevalidateEntries(pendingEntries);
         _allCurrentEntries.AddRange(pendingEntries);
     }
 

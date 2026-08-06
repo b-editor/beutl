@@ -38,6 +38,53 @@ public class ReferencedChildRevalidationTests
     }
 
     [Test]
+    public void Frame_KeepsASharedMarkVisibleToEveryEntryThatReferencesIt()
+    {
+        RenderThread.Dispatcher.Invoke(() =>
+        {
+            using var child = new ContainerRenderNode();
+            var first = new ReferencingDrawable(child);
+            var second = new ReferencingDrawable(child);
+            using Renderer renderer = CreateRenderer();
+
+            renderer.UpdateFrame(CreateFrame(first, second));
+            child.HasChanges = true;
+            renderer.UpdateFrame(CreateFrame(first, second));
+
+            Assert.Multiple(() =>
+            {
+                Assert.That(first.LastRecordingObservedChange, Is.True,
+                    "the first entry never saw the shared mark");
+                Assert.That(second.LastRecordingObservedChange, Is.True,
+                    "the first entry's revalidation cleared the shared mark before the second entry recorded");
+                Assert.That(child.HasChanges, Is.False, "the shared mark outlived the frame");
+            });
+        });
+    }
+
+    [Test]
+    public void Frame_ResetsCacheAdmissionOfEveryReferenceToAChangedSharedChild()
+    {
+        RenderThread.Dispatcher.Invoke(() =>
+        {
+            using var child = new ContainerRenderNode();
+            var first = new ReferencingDrawable(child);
+            var second = new ReferencingDrawable(child);
+            using Renderer renderer = CreateRenderer();
+
+            renderer.UpdateFrame(CreateFrame(first, second));
+            ReferencesChildRenderNode secondReference = FindReference(renderer, second);
+            secondReference.Cache.ReportRenderCount(RenderNodeCache.Count - 1);
+            child.HasChanges = true;
+
+            renderer.UpdateFrame(CreateFrame(first, second));
+
+            Assert.That(secondReference.Cache.CanCache(), Is.False,
+                "the second reference reached the cache-admission threshold although the node it references changed");
+        });
+    }
+
+    [Test]
     public void StableFrames_CountAChildReachedByTwoReferencesOncePerFrame()
     {
         RenderThread.Dispatcher.Invoke(() =>
@@ -88,6 +135,13 @@ public class ReferencedChildRevalidationTests
         });
     }
 
+    private static ReferencesChildRenderNode FindReference(Renderer renderer, Drawable drawable)
+    {
+        DrawableRenderNode node = renderer.FindRenderNode(drawable)
+            ?? throw new InvalidOperationException("The drawable was never recorded.");
+        return node.Children.OfType<ReferencesChildRenderNode>().Single();
+    }
+
     private static Renderer CreateRenderer()
         => new(
             width: 16,
@@ -119,11 +173,13 @@ public class ReferencedChildRevalidationTests
 // Top-level partial because EngineObjectResourceGenerator does not support nested types.
 internal sealed partial class ReferencingDrawable(RenderNode child) : Drawable
 {
+    public bool LastRecordingObservedChange { get; private set; }
+
     public override void Render(GraphicsContext2D context, Drawable.Resource resource)
         => context.DrawNode(
             child,
             static node => new ReferencesChildRenderNode(node),
-            static (reference, node) => reference.Update(node));
+            (reference, node) => LastRecordingObservedChange = reference.Update(node));
 
     protected override Size MeasureCore(Size availableSize, Drawable.Resource resource) => new(4, 4);
 
