@@ -119,23 +119,6 @@ internal static class DeferredOpaqueSource
             .ToArray();
     }
 
-    public static void Execute<T>(
-        OpaqueRenderSession session,
-        RenderResource<T> primary,
-        RecordedPaint paint,
-        Action<ImmediateCanvas, T, LoweredBrush, LoweredPen> draw)
-        where T : class
-    {
-        using OpaqueRenderOutput output = session.CreateOutput(session.RequiredRegion);
-        output.Canvas.Use(canvas =>
-            session.UseResource(primary, value =>
-                BrushExecutionResolver.UsePaint(
-                    session,
-                    paint,
-                    (fill, pen) => draw(canvas, value, fill, pen))));
-        session.Publish(output);
-    }
-
     private sealed class ResourceCacheKey
     {
     }

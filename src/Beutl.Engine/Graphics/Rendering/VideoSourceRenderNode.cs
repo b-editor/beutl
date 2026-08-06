@@ -61,36 +61,29 @@ public sealed class VideoSourceRenderNode(
             source,
             source.GetOriginal().Id,
             sourceSnapshot.Version);
-        RecordedPaint paint = BrushRecorder.RecordPaint(
-            context,
-            fill,
-            fillSnapshot?.Version ?? 0,
-            pen,
-            penSnapshot?.Version ?? 0,
-            bounds);
         var hitTestState = new VideoHitTestState(
             bounds,
             fill is not null,
             pen?.StrokeAlignment ?? StrokeAlignment.Inside,
             pen?.Thickness ?? 0);
 
-        OpaqueRenderDescription description = OpaqueRenderDescription.CreateEngineSource(
-            execute: session => DeferredOpaqueSource.Execute(
-                session,
-                sourceResource,
-                paint,
-                (canvas, currentSource, currentFill, currentPen) =>
-                    canvas.DrawVideoSource(currentSource, frame, currentFill, currentPen)),
-            directReplay: null,
-            bounds: BrushRecorder.CreateSourceBounds(paint, bounds, typeof(VideoSourceRenderNode)),
+        context.Publish(context.PaintedSource(
+            state: (bounds, frame, supplyDensity, hitTestState),
+            draw: static (session, state) => session.UseDeclaredResource<VideoSource.Resource>(
+                0,
+                currentSource => session.Canvas.DrawVideoSource(
+                    currentSource,
+                    state.frame,
+                    session.Fill,
+                    session.Pen)),
+            fill: fillSnapshot,
+            pen: penSnapshot,
+            brushBounds: bounds,
+            outputBounds: bounds,
             hitTest: RenderHitTestContract.Custom(hitTestState.Evaluate),
             scale: RenderScaleContract.Custom(new VideoScaleResolver(supplyDensity).Resolve),
-            deviceGridSensitivity: RenderDeviceGridSensitivity.Insensitive,
             structuralKey: typeof(VideoSourceRenderNode),
-            runtimeIdentity: new RenderRuntimeIdentity((bounds, frame, supplyDensity, hitTestState)),
-            resources: DeferredOpaqueSource.Resources(
-                [sourceResource, .. paint.Resources]));
-        context.Publish(BrushRecorder.RecordSource(context, paint, description));
+            resources: [sourceResource]));
     }
 
     private readonly record struct VideoHitTestState(

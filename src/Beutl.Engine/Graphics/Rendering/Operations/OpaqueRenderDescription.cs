@@ -378,19 +378,16 @@ public sealed class OpaqueRenderDescription
 internal sealed class EngineDirectRenderSession
 {
     private readonly RenderExecutionSessionToken _token;
-    private readonly IReadOnlyList<RenderResource> _resources;
     private readonly IReadOnlyList<RenderExecutionInput> _inputs;
 
     internal EngineDirectRenderSession(
         RenderExecutionSessionToken token,
         ImmediateCanvas canvas,
-        IReadOnlyList<RenderExecutionInput> inputs,
-        IReadOnlyList<RenderResource> resources)
+        IReadOnlyList<RenderExecutionInput> inputs)
     {
         _token = token;
         Canvas = canvas;
         _inputs = inputs;
-        _resources = resources;
     }
 
     internal ImmediateCanvas Canvas { get; }
@@ -400,12 +397,6 @@ internal sealed class EngineDirectRenderSession
     internal IReadOnlyList<RenderExecutionInput> Inputs
     {
         get { _token.ThrowIfInactive(); return _inputs; }
-    }
-
-    internal void UseResource<T>(RenderResource<T> resource, Action<T> use)
-        where T : class
-    {
-        _token.UseResource(resource, _resources, use);
     }
 }
 
@@ -882,6 +873,17 @@ public readonly struct RenderScaleContract
     }
 
     internal RenderScaleContractKind Kind => _kind;
+
+    /// <summary>
+    /// Gets whether this contract declares no supply density of its own, so its output resolves to
+    /// <see cref="EffectiveScale.Unbounded"/> and adopts whatever density its consumer renders at.
+    /// </summary>
+    /// <remarks>
+    /// <see cref="PreserveInputSupply"/> and <see cref="MapInputSupply"/> can also resolve to
+    /// <see cref="EffectiveScale.Unbounded"/>, but only for a one-input map, whose supply is its input's rather
+    /// than the consumer's. Every other kind resolves to a concrete positive density.
+    /// </remarks>
+    internal bool DeclaresNoSupplyDensity => _kind == RenderScaleContractKind.Vector;
 
     internal object StructuralIdentity
     {

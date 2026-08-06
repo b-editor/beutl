@@ -47,37 +47,29 @@ public sealed class ImageSourceRenderNode(ImageSource.Resource source, Brush.Res
             source,
             source.GetOriginal().Id,
             sourceSnapshot.Version);
-        RecordedPaint paint = BrushRecorder.RecordPaint(
-            context,
-            fill,
-            fillSnapshot?.Version ?? 0,
-            pen,
-            penSnapshot?.Version ?? 0,
-            bounds);
         var hitTestState = new ImageHitTestState(
             bounds,
             fill is not null,
             pen?.StrokeAlignment ?? StrokeAlignment.Inside,
             pen?.Thickness ?? 0);
 
-        OpaqueRenderDescription description = OpaqueRenderDescription.CreateEngineSource(
-            execute: session => DeferredOpaqueSource.Execute(
-                session,
-                sourceResource,
-                paint,
-                static (canvas, currentSource, currentFill, currentPen) =>
-                    canvas.DrawImageSource(currentSource, currentFill, currentPen)),
-            directReplay: null,
-            bounds: BrushRecorder.CreateSourceBounds(paint, bounds, typeof(ImageSourceRenderNode)),
+        context.Publish(context.PaintedSource(
+            state: (bounds, hitTestState),
+            draw: static (session, _) => session.UseDeclaredResource<ImageSource.Resource>(
+                0,
+                currentSource => session.Canvas.DrawImageSource(
+                    currentSource,
+                    session.Fill,
+                    session.Pen)),
+            fill: fillSnapshot,
+            pen: penSnapshot,
+            brushBounds: bounds,
+            outputBounds: bounds,
             hitTest: RenderHitTestContract.Custom(hitTestState.Evaluate),
             // Bitmap at native 1:1 density; downstream transforms re-scale accordingly.
             scale: RenderScaleContract.Custom(static _ => 1f),
-            deviceGridSensitivity: RenderDeviceGridSensitivity.Insensitive,
             structuralKey: typeof(ImageSourceRenderNode),
-            runtimeIdentity: new RenderRuntimeIdentity((bounds, hitTestState)),
-            resources: DeferredOpaqueSource.Resources(
-                [sourceResource, .. paint.Resources]));
-        context.Publish(BrushRecorder.RecordSource(context, paint, description));
+            resources: [sourceResource]));
     }
 
     private readonly record struct ImageHitTestState(

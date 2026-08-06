@@ -73,12 +73,12 @@ internal sealed partial class RenderRequestExecutor
                                         readbackOwner: null,
                                         images);
                                     using (ObserveGpuPass(fragment))
+                                    using (destination.BeginDirectExecution(token))
                                     {
                                         replay(new EngineDirectRenderSession(
                                             token,
                                             destination,
-                                            executionInputs,
-                                            description.Resources));
+                                            executionInputs));
                                     }
                                 });
                         }

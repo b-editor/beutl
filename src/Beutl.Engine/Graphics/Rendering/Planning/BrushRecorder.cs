@@ -72,6 +72,13 @@ internal static class BrushRecorder
     /// The resources the callback addresses by index. They are declared ahead of the paint's own slots so a
     /// change in the paint's shape never shifts an index the callback uses.
     /// </param>
+    /// <param name="scale">
+    /// The declared density contract. Replaying straight onto an existing target renders at that target's
+    /// density, so only a contract that declares no density of its own — one whose output is
+    /// <see cref="EffectiveScale.Unbounded"/> and therefore already means "whatever the consumer renders at" —
+    /// keeps the direct path. A concrete declared density has to be materialized at, and is then resampled by
+    /// its consumer like any other supply.
+    /// </param>
     public static OpaqueRenderDescription CreatePaintedSource<TState>(
         TState state,
         Action<PaintedRenderSession, TState> draw,
@@ -91,7 +98,7 @@ internal static class BrushRecorder
         var source = new PaintedSource<TState>(state, paint, callbackResources, draw);
         return OpaqueRenderDescription.CreateEngineSource(
             execute: source.Execute,
-            directReplay: source.ExecuteDirect,
+            directReplay: scale.DeclaresNoSupplyDensity ? source.ExecuteDirect : null,
             bounds: bounds,
             hitTest: hitTest,
             scale: scale,
@@ -143,12 +150,14 @@ internal static class BrushRecorder
         ArgumentNullException.ThrowIfNull(context);
         ArgumentNullException.ThrowIfNull(paint);
         ArgumentNullException.ThrowIfNull(description);
-        OpaqueRenderDescription materializedDescription = description.WithoutDirectReplay();
-        if (paint.Dependencies.Count != 0)
-            return context.OpaqueCombine(paint.Dependencies, description);
-
-        return context.OpaqueSource(
-            paint.HasRawExternalWork ? materializedDescription : description);
+        // A brush the recorder could only keep executable runs BrushConstructor at execution time, which may
+        // start a nested renderer; that cannot happen on someone else's target.
+        OpaqueRenderDescription recorded = paint.HasRawExternalWork
+            ? description.WithoutDirectReplay()
+            : description;
+        return paint.Dependencies.Count != 0
+            ? context.OpaqueCombine(paint.Dependencies, recorded)
+            : context.OpaqueSource(recorded);
     }
 
     public static object GetResourceIdentity(EngineObject.Resource resource)

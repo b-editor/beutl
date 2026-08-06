@@ -10,10 +10,7 @@ internal static class BrushExecutionResolver
         ArgumentNullException.ThrowIfNull(session);
         ArgumentNullException.ThrowIfNull(paint);
         ArgumentNullException.ThrowIfNull(use);
-        UseBrush(
-            session,
-            paint.Fill,
-            fill => UsePen(session, paint.Pen, pen => use(fill, pen)));
+        UsePaint(session.Token, session.Inputs, paint, use);
     }
 
     public static void UsePaint(
@@ -24,10 +21,7 @@ internal static class BrushExecutionResolver
         ArgumentNullException.ThrowIfNull(session);
         ArgumentNullException.ThrowIfNull(paint);
         ArgumentNullException.ThrowIfNull(use);
-        UseBrush(
-            session,
-            paint.Fill,
-            fill => UsePen(session, paint.Pen, pen => use(fill, pen)));
+        UsePaint(session.Token, session.Inputs, paint, use);
     }
 
     public static void UseBrush(
@@ -52,80 +46,49 @@ internal static class BrushExecutionResolver
         token.UseResource(
             brush.Resource,
             resources,
-            resource => UseDependency(inputs, brush, resource, use));
+            resource => UseDependency(token, inputs, brush, resource, use));
+    }
+
+    private static void UsePaint(
+        RenderExecutionSessionToken token,
+        IReadOnlyList<RenderExecutionInput> inputs,
+        RecordedPaint paint,
+        Action<LoweredBrush, LoweredPen> use)
+    {
+        UseBrush(
+            token,
+            paint.Resources,
+            inputs,
+            paint.Fill,
+            fill => UsePen(token, inputs, paint, pen => use(fill, pen)));
     }
 
     private static void UsePen(
-        OpaqueRenderSession session,
-        RecordedPen pen,
+        RenderExecutionSessionToken token,
+        IReadOnlyList<RenderExecutionInput> inputs,
+        RecordedPaint paint,
         Action<LoweredPen> use)
     {
+        RecordedPen pen = paint.Pen;
         if (pen.Resource is null)
         {
             use(LoweredPen.Empty);
             return;
         }
 
-        session.UseResource(
+        token.UseResource(
             pen.Resource,
+            paint.Resources,
             resource => UseBrush(
-                session,
+                token,
+                paint.Resources,
+                inputs,
                 pen.Brush,
-                brush => use(new LoweredPen(resource, brush))));
-    }
-
-    private static void UsePen(
-        EngineDirectRenderSession session,
-        RecordedPen pen,
-        Action<LoweredPen> use)
-    {
-        if (pen.Resource is null)
-        {
-            use(LoweredPen.Empty);
-            return;
-        }
-
-        session.UseResource(
-            pen.Resource,
-            resource => UseBrush(
-                session,
-                pen.Brush,
-                brush => use(new LoweredPen(resource, brush))));
-    }
-
-    private static void UseBrush(
-        OpaqueRenderSession session,
-        RecordedBrush brush,
-        Action<LoweredBrush> use)
-    {
-        if (brush.Resource is null)
-        {
-            use(LoweredBrush.Empty);
-            return;
-        }
-
-        session.UseResource(
-            brush.Resource,
-            resource => UseDependency(session.Inputs, brush, resource, use));
-    }
-
-    private static void UseBrush(
-        EngineDirectRenderSession session,
-        RecordedBrush brush,
-        Action<LoweredBrush> use)
-    {
-        if (brush.Resource is null)
-        {
-            use(LoweredBrush.Empty);
-            return;
-        }
-
-        session.UseResource(
-            brush.Resource,
-            resource => UseDependency(session.Inputs, brush, resource, use));
+                brush => use(new LoweredPen(token, resource, brush))));
     }
 
     private static void UseDependency(
+        RenderExecutionSessionToken token,
         IReadOnlyList<RenderExecutionInput> inputs,
         RecordedBrush brush,
         Media.Brush.Resource resource,
@@ -133,7 +96,7 @@ internal static class BrushExecutionResolver
     {
         if (!brush.HasDependency)
         {
-            use(new LoweredBrush(resource, null));
+            use(new LoweredBrush(token, resource, null));
             return;
         }
 
@@ -145,6 +108,7 @@ internal static class BrushExecutionResolver
 
         RenderExecutionInput input = inputs[brush.DependencyIndex];
         input.UseShader(shader => use(new LoweredBrush(
+            token,
             resource,
             new BrushTileContent(
                 shader,

@@ -7,13 +7,21 @@ namespace Beutl.Graphics.Rendering;
 /// lowered while the request was recorded.
 /// </summary>
 /// <remarks>
-/// The lowered content is a renderer-owned view leased for the duration of the draw callback. Nothing about it
-/// is readable here, so an author can neither retain it past the callback nor release it.
+/// The lowered content is a renderer-owned view leased for the duration of the draw callback, and nothing
+/// about it is readable here. A copy that outlives the lease keeps no claim on it: every draw overload that
+/// accepts a lowered paint asks the leasing execution whether the payload is still held, and rejects the copy
+/// once it is not, whichever canvas the copy is handed to.
 /// </remarks>
 public readonly struct LoweredBrush
 {
-    internal LoweredBrush(Brush.Resource? resource, BrushTileContent? tileContent)
+    private readonly RenderExecutionSessionToken? _lease;
+
+    internal LoweredBrush(
+        RenderExecutionSessionToken? lease,
+        Brush.Resource? resource,
+        BrushTileContent? tileContent)
     {
+        _lease = lease;
         Resource = resource;
         TileContent = tileContent;
     }
@@ -27,13 +35,27 @@ public readonly struct LoweredBrush
     internal Brush.Resource? Resource { get; }
 
     internal BrushTileContent? TileContent { get; }
+
+    /// <remarks>
+    /// A brush with no lease was never resolved from a running execution — the empty brush, and the
+    /// engine-internal resolution of an already-registered filter-effect brush — so it holds nothing that can
+    /// expire and is always usable.
+    /// </remarks>
+    internal bool IsLeaseActive
+        => _lease is not { } lease
+           || (lease.IsResourceAuthorized(Resource!)
+               && (TileContent is null || lease.IsResourceAuthorized(TileContent.Shader)));
 }
 
 /// <summary>A pen bound to one running execution, together with its <see cref="LoweredBrush"/>.</summary>
+/// <remarks>Its lease behaves exactly like <see cref="LoweredBrush"/>'s.</remarks>
 public readonly struct LoweredPen
 {
-    internal LoweredPen(Pen.Resource? resource, LoweredBrush brush)
+    private readonly RenderExecutionSessionToken? _lease;
+
+    internal LoweredPen(RenderExecutionSessionToken? lease, Pen.Resource? resource, LoweredBrush brush)
     {
+        _lease = lease;
         Resource = resource;
         Brush = brush;
     }
@@ -47,13 +69,19 @@ public readonly struct LoweredPen
     internal Pen.Resource? Resource { get; }
 
     internal LoweredBrush Brush { get; }
+
+    internal bool IsLeaseActive
+        => (_lease is not { } lease || lease.IsResourceAuthorized(Resource!))
+           && Brush.IsLeaseActive;
 }
 
 /// <summary>The engine-owned facade a painted source's draw callback receives.</summary>
 /// <remarks>
 /// Its members are exactly those that mean the same thing whether the source materializes into its own target
-/// or replays straight onto an existing one, so one authored callback serves both paths. It is a value so that
-/// resolving a paint costs nothing on the render hot path; retaining a copy still reaches an inactive token.
+/// or replays straight onto an existing one, so one authored callback serves both paths. It is a value, so
+/// receiving it and reading its paint allocate nothing; reaching a declared resource goes through a callback,
+/// and a callback that reads this session or the source's state allocates one closure per draw.
+/// A retained copy reaches an inactive token.
 /// </remarks>
 public readonly struct PaintedRenderSession
 {

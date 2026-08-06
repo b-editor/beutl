@@ -92,7 +92,7 @@ public class CustomFilterEffectContext
         ArgumentNullException.ThrowIfNull(path);
         ArgumentNullException.ThrowIfNull(fill);
         ArgumentNullException.ThrowIfNull(pen);
-        canvas.DrawSKPath(path, strokeOnly, Resolve(fill), new LoweredPen(pen.Resource, Resolve(pen.Brush)));
+        canvas.DrawSKPath(path, strokeOnly, Resolve(fill), new LoweredPen(null, pen.Resource, Resolve(pen.Brush)));
     }
 
     /// <summary>
@@ -126,7 +126,7 @@ public class CustomFilterEffectContext
     private LoweredBrush Resolve(FilterEffectBrush brush)
         => _brushes is not null && _brushes.TryGetValue(brush, out LoweredBrush resolved)
             ? resolved
-            : new LoweredBrush(brush.Resource, null);
+            : new LoweredBrush(null, brush.Resource, null);
 
     private BrushConstructor CreateBrushConstructor(
         FilterEffectBrush brush,

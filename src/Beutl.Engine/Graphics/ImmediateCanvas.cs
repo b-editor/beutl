@@ -608,6 +608,7 @@ public partial class ImmediateCanvas : IDisposable, IPopable
             return;
 
         VerifyPixelOperation();
+        VerifyCallbackResource(bmp, nameof(bmp));
         VerifyLoweredPaint(fill, pen);
         ConfigureFillPaint(new Rect(new Size(bmp.Width, bmp.Height)), fill);
         using var image = SKImage.FromBitmap(bmp.SKBitmap);
@@ -647,6 +648,7 @@ public partial class ImmediateCanvas : IDisposable, IPopable
             return;
 
         VerifyPixelOperation();
+        VerifyCallbackResource(bmp, nameof(bmp));
         VerifyLoweredBrush(fill, nameof(fill));
         ConfigureFillPaint(new Rect(dest.Size), fill);
         using var image = SKImage.FromBitmap(bmp.SKBitmap);
@@ -680,6 +682,7 @@ public partial class ImmediateCanvas : IDisposable, IPopable
     public void DrawImageSource(ImageSource.Resource source, LoweredBrush fill, LoweredPen pen)
     {
         VerifyAccess();
+        VerifyExecutionScope(nameof(DrawImageSource));
         VerifyCallbackResource(source, nameof(source));
         VerifyLoweredPaint(fill, pen);
         if (source.Bitmap is { } bitmap)
@@ -730,13 +733,14 @@ public partial class ImmediateCanvas : IDisposable, IPopable
         }
     }
 
-    internal void DrawVideoSource(
+    public void DrawVideoSource(
         VideoSource.Resource source,
         int frame,
         LoweredBrush fill,
         LoweredPen pen)
     {
         VerifyAccess();
+        VerifyExecutionScope(nameof(DrawVideoSource));
         VerifyCallbackResource(source, nameof(source));
         VerifyLoweredPaint(fill, pen);
         if (!source.Read(frame, out var bitmapRef))
@@ -1172,6 +1176,12 @@ public partial class ImmediateCanvas : IDisposable, IPopable
         return new PushedState(this, _states.Count);
     }
 
+    /// <remarks>
+    /// This stays internal while its sibling draw overloads are public: it is SaveLayer-backed, and
+    /// <see cref="VerifyHiddenLayerOperation"/> rejects SaveLayer-backed state on every guarded callback
+    /// canvas, which is the only kind an author can reach. Its callers are executor replays onto their own
+    /// unguarded target.
+    /// </remarks>
     internal PushedState PushOpacityMask(LoweredBrush mask, Rect bounds, bool invert = false)
     {
         VerifyAccess();
@@ -1298,6 +1308,74 @@ public partial class ImmediateCanvas : IDisposable, IPopable
 
         _executionToken = token;
         _callbackCapability = capability;
+    }
+
+    /// <summary>
+    /// Attaches the guarded draw capability to this canvas for the duration of a direct replay, then detaches
+    /// it again.
+    /// </summary>
+    /// <remarks>
+    /// A direct replay writes onto a canvas the executor keeps using afterwards, so the capability cannot be
+    /// ended by <see cref="CloseWithoutFlush"/> the way an execution view's is. Transform and clip are left
+    /// untouched: attaching the guard must not change a single pixel of what the replay draws.
+    /// </remarks>
+    internal DirectExecutionScope BeginDirectExecution(RenderExecutionSessionToken token)
+    {
+        ArgumentNullException.ThrowIfNull(token);
+        VerifyAccess();
+        var outer = new DirectExecutionScope(
+            this,
+            token,
+            _executionToken,
+            _callbackCapability,
+            _callbackStateFloor,
+            _isReplayingTargetScope);
+        token.EnterCanvas(this, facade: null);
+        _executionToken = token;
+        _callbackCapability = CallbackCanvasCapability.Draw;
+        _callbackStateFloor = _states.Count;
+        _isReplayingTargetScope = false;
+        return outer;
+    }
+
+    private void EndDirectExecution(
+        RenderExecutionSessionToken token,
+        RenderExecutionSessionToken? outerToken,
+        CallbackCanvasCapability? outerCapability,
+        int outerStateFloor,
+        bool outerIsReplayingTargetScope)
+    {
+        try
+        {
+            // The destination outlives the replay, so state the callback left pushed has to be unwound here;
+            // an execution view gets the same treatment from CloseWithoutFlush.
+            while (_states.Count > _callbackStateFloor && _states.TryPop(out CanvasPushedState? state))
+                state.Pop(this);
+        }
+        finally
+        {
+            _executionToken = outerToken;
+            _callbackCapability = outerCapability;
+            _callbackStateFloor = outerStateFloor;
+            _isReplayingTargetScope = outerIsReplayingTargetScope;
+            token.ExitCanvas(this);
+        }
+    }
+
+    internal readonly struct DirectExecutionScope(
+        ImmediateCanvas canvas,
+        RenderExecutionSessionToken token,
+        RenderExecutionSessionToken? outerToken,
+        CallbackCanvasCapability? outerCapability,
+        int outerStateFloor,
+        bool outerIsReplayingTargetScope) : IDisposable
+    {
+        public void Dispose() => canvas.EndDirectExecution(
+            token,
+            outerToken,
+            outerCapability,
+            outerStateFloor,
+            outerIsReplayingTargetScope);
     }
 
     internal ImmediateCanvas CreateExecutionView()
@@ -1581,14 +1659,40 @@ public partial class ImmediateCanvas : IDisposable, IPopable
     private void VerifyLoweredPaint(LoweredBrush fill, LoweredPen pen)
     {
         VerifyLoweredBrush(fill, nameof(fill));
+        VerifyLease(pen.IsLeaseActive, nameof(pen));
         VerifyCallbackResource(pen.Resource, nameof(pen));
-        VerifyLoweredBrush(pen.Brush, nameof(pen));
+        VerifyCallbackResource(pen.Brush.Resource, nameof(pen));
+        VerifyCallbackResource(pen.Brush.TileContent?.Shader, nameof(pen));
     }
 
     private void VerifyLoweredBrush(LoweredBrush brush, string parameterName)
     {
+        VerifyLease(brush.IsLeaseActive, parameterName);
         VerifyCallbackResource(brush.Resource, parameterName);
         VerifyCallbackResource(brush.TileContent?.Shader, parameterName);
+    }
+
+    /// <remarks>
+    /// Unlike <see cref="VerifyCallbackResource"/> this asks the execution that resolved the paint, not this
+    /// canvas, so it also rejects a copy handed to a canvas the author owns.
+    /// </remarks>
+    private static void VerifyLease(bool isLeaseActive, string parameterName)
+    {
+        if (!isLeaseActive)
+        {
+            throw new InvalidOperationException(
+                $"The lowered paint passed as '{parameterName}' is outside the lease of the execution that "
+                + "resolved it.");
+        }
+    }
+
+    private void VerifyExecutionScope(string operationName)
+    {
+        if (_executionToken is null)
+        {
+            throw new InvalidOperationException(
+                $"{operationName} under a lowered paint is only available inside a render execution.");
+        }
     }
 
     private void ConfigureStrokePaint(Rect bounds, Pen.Resource? pen, BlendMode blendMode = BlendMode.SrcOver, float? scale = null)
