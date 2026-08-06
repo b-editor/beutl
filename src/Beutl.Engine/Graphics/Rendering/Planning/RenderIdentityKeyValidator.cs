@@ -43,6 +43,27 @@ internal static class RenderIdentityKeyValidator
         }
     }
 
+    /// <summary>
+    /// Validates a statically typed identity key without boxing a value-typed one.
+    /// </summary>
+    /// <remarks>
+    /// Every shape <see cref="ThrowIfInvalid"/> rejects other than a disposable is a reference type, so a value
+    /// type is decided from <typeparamref name="TState"/> alone and the verdict is computed once per closed type.
+    /// </remarks>
+    public static void ThrowIfInvalidState<TState>(in TState state, string parameterName)
+        where TState : notnull
+    {
+        if (typeof(TState).IsValueType)
+        {
+            if (ValueTypeStateVerdict<TState>.RejectionReason is { } reason)
+                throw new ArgumentException(reason, parameterName);
+
+            return;
+        }
+
+        ThrowIfInvalid(state!, parameterName);
+    }
+
     public static bool CapturesState(Delegate callback)
     {
         ArgumentNullException.ThrowIfNull(callback);
@@ -66,6 +87,15 @@ internal static class RenderIdentityKeyValidator
                    | BindingFlags.Public
                    | BindingFlags.NonPublic
                    | BindingFlags.DeclaredOnly).Length != 0;
+    }
+
+    private static class ValueTypeStateVerdict<TState>
+    {
+        internal static readonly string? RejectionReason =
+            typeof(IDisposable).IsAssignableFrom(typeof(TState))
+                ? "A persistent render identity key must be a lightweight, immutable CPU identity and cannot "
+                  + "retain a disposable value."
+                : null;
     }
 
     private static bool IsKnownMutableCollection(Type type)

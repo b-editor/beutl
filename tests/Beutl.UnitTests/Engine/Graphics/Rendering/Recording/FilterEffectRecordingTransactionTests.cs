@@ -22,7 +22,7 @@ public sealed class FilterEffectRecordingTransactionTests
                 static bounds => bounds.Inflate(new Thickness(2)),
                 static bounds => bounds.Inflate(new Thickness(2)),
                 "inflate-two"));
-        GeometryDescription geometry = GeometryDescription.Create(
+        GeometryDescription geometry = GeometryDescription.CreateRequestLocal(
             static _ => { },
             RenderBoundsContract.Create(
                 static bounds => bounds.Translate(new Vector(3, 4)),
@@ -66,7 +66,7 @@ public sealed class FilterEffectRecordingTransactionTests
                 static _ => throw new InvalidOperationException("bounds-failure"),
                 static bounds => bounds,
                 "throwing-bounds"));
-        GeometryDescription invalid = GeometryDescription.Create(
+        GeometryDescription invalid = GeometryDescription.CreateRequestLocal(
             static _ => { },
             RenderBoundsContract.Create(
                 static _ => Rect.Invalid,
@@ -124,7 +124,7 @@ public sealed class FilterEffectRecordingTransactionTests
             recording.Shader(ShaderDescription.CurrentPixel(IdentityShader)));
         var second = new CallbackFilterEffect((recording, _) =>
         {
-            recording.Geometry(GeometryDescription.Create(
+            recording.Geometry(GeometryDescription.CreateRequestLocal(
                 static _ => { },
                 RenderBoundsContract.Identity,
                 RenderHitTestContract.AnyInput,
@@ -161,7 +161,7 @@ public sealed class FilterEffectRecordingTransactionTests
         var second = new CallbackFilterEffect((recording, _) =>
         {
             recording.Own(secondResource, "second-owned", 1);
-            recording.Geometry(GeometryDescription.Create(
+            recording.Geometry(GeometryDescription.CreateRequestLocal(
                 static _ => { },
                 RenderBoundsContract.Identity,
                 RenderHitTestContract.AnyInput,
@@ -270,7 +270,7 @@ public sealed class FilterEffectRecordingTransactionTests
         using FilterEffectContext clone = context.Clone();
         using FilterEffectContext child = context.CreateChildContext();
 
-        GeometryDescription declared = GeometryDescription.Create(
+        GeometryDescription declared = GeometryDescription.CreateRequestLocal(
             session => session.UseResource(token, static _ => { }),
             RenderBoundsContract.Identity,
             RenderHitTestContract.AnyInput,

@@ -11,20 +11,21 @@ namespace Beutl.Graphics.Effects;
 /// </remarks>
 public sealed class GeometryDescription
 {
+    private readonly RenderExecutionChannel<GeometrySession> _execution;
+
     private GeometryDescription(
-        Action<GeometrySession> render,
+        RenderExecutionChannel<GeometrySession> execution,
         RenderBoundsContract bounds,
         RenderHitTestContract hitTest,
         object structuralKey,
-        RenderRuntimeIdentity? runtimeIdentity,
         bool requiresReadback,
         IReadOnlyList<RenderResource> resources)
     {
-        Render = render;
+        _execution = execution;
+        RuntimeIdentity = RenderDescriptionValidation.ResolveRuntimeIdentity(execution);
         Bounds = bounds;
         HitTest = hitTest;
         StructuralKey = structuralKey;
-        RuntimeIdentity = runtimeIdentity;
         RequiresReadback = requiresReadback;
         Resources = resources;
         StructuralIdentity = new GeometryStructuralIdentity(
@@ -47,10 +48,10 @@ public sealed class GeometryDescription
     /// </remarks>
     public object StructuralKey { get; }
 
-    /// <summary>Gets the optional complete identity of pixel-affecting runtime state captured by the callback.</summary>
+    /// <summary>Gets the complete identity of the pixel-affecting state passed to the render callback.</summary>
     /// <remarks>
-    /// <see langword="null"/> causes each recording to use a fresh request-local identity and disables
-    /// cross-request output-cache reuse for the geometry value.
+    /// <see langword="null"/> for a <see cref="CreateRequestLocal"/> description: each recording then uses a
+    /// fresh request-local identity and no cross-request output-cache reuse is possible for the geometry value.
     /// </remarks>
     public RenderRuntimeIdentity? RuntimeIdentity { get; }
 
@@ -64,24 +65,25 @@ public sealed class GeometryDescription
     /// </remarks>
     public IReadOnlyList<RenderResource> Resources { get; }
 
-    internal Action<GeometrySession> Render { get; }
+    internal void Render(GeometrySession session) => _execution.Invoke(session);
 
     internal object StructuralIdentity { get; }
 
     /// <summary>Creates an immutable deferred geometry description.</summary>
+    /// <param name="state">
+    /// Every pixel-affecting value the callback reads, and the complete output-cache runtime identity of the
+    /// geometry value. It must be a lightweight immutable CPU value.
+    /// </param>
     /// <param name="render">
-    /// The non-null callback invoked only during execution. Its borrowed session and facades are valid only for
-    /// that invocation and must not be retained.
+    /// A non-capturing callback invoked only during execution. Declare it <see langword="static"/>: a capture
+    /// would let a per-frame value shape the geometry without reaching <paramref name="state"/>, and is
+    /// rejected. The borrowed session and facades are valid only for that invocation and must not be retained.
     /// </param>
     /// <param name="bounds">An initialized pure input-to-output bounds contract.</param>
     /// <param name="hitTest">An initialized pure CPU output hit-test contract.</param>
     /// <param name="structuralKey">
     /// An optional equality-stable, parameter-independent key. <see langword="null"/> uses
-    /// <paramref name="render"/>'s method identity; shape-changing captured choices require an explicit key.
-    /// </param>
-    /// <param name="runtimeIdentity">
-    /// The optional complete identity of pixel-affecting captured state. <see langword="null"/> selects a fresh
-    /// request-local identity and prevents cross-request output-cache reuse.
+    /// <paramref name="render"/>'s method identity; shape-changing choices require an explicit key.
     /// </param>
     /// <param name="requiresReadback">Whether the callback may request declared readback of its input.</param>
     /// <param name="resources">
@@ -89,38 +91,79 @@ public sealed class GeometryDescription
     /// the sequence is copied immediately and no caller collection is retained.
     /// </param>
     /// <returns>An immutable deferred geometry description.</returns>
-    /// <exception cref="ArgumentNullException"><paramref name="render"/> is <see langword="null"/>.</exception>
-    /// <exception cref="ArgumentException">
-    /// A contract or identity is uninitialized or invalid, or <paramref name="resources"/> contains a null or
-    /// released resource.
+    /// <exception cref="ArgumentNullException">
+    /// <paramref name="render"/> or <paramref name="state"/> is <see langword="null"/>.
     /// </exception>
-    public static GeometryDescription Create(
+    /// <exception cref="ArgumentException">
+    /// A contract is uninitialized, <paramref name="render"/> captures, <paramref name="state"/> is not a valid
+    /// identity, or <paramref name="resources"/> contains a null or released resource.
+    /// </exception>
+    public static GeometryDescription Create<TState>(
+        TState state,
+        Action<GeometrySession, TState> render,
+        RenderBoundsContract bounds,
+        RenderHitTestContract hitTest,
+        object? structuralKey = null,
+        bool requiresReadback = false,
+        IEnumerable<RenderResource>? resources = null)
+        where TState : notnull
+        => CreateCore(
+            RenderDescriptionValidation.CreateStateChannel(
+                state,
+                render,
+                nameof(state),
+                nameof(render)),
+            bounds,
+            hitTest,
+            structuralKey,
+            requiresReadback,
+            resources);
+
+    /// <summary>
+    /// Creates a geometry description whose value can never satisfy a later request's cache lookup.
+    /// </summary>
+    /// <remarks>
+    /// The opt-out for a callback whose pixel-affecting state cannot be expressed as a lightweight immutable
+    /// key. The callback may capture, and the recorded value takes a fresh request-local identity every time.
+    /// </remarks>
+    public static GeometryDescription CreateRequestLocal(
         Action<GeometrySession> render,
         RenderBoundsContract bounds,
         RenderHitTestContract hitTest,
         object? structuralKey = null,
-        RenderRuntimeIdentity? runtimeIdentity = null,
         bool requiresReadback = false,
         IEnumerable<RenderResource>? resources = null)
+        => CreateCore(
+            RenderDescriptionValidation.CreateRequestLocalChannel(render, nameof(render)),
+            bounds,
+            hitTest,
+            structuralKey,
+            requiresReadback,
+            resources);
+
+    private static GeometryDescription CreateCore(
+        RenderExecutionChannel<GeometrySession> execution,
+        RenderBoundsContract bounds,
+        RenderHitTestContract hitTest,
+        object? structuralKey,
+        bool requiresReadback,
+        IEnumerable<RenderResource>? resources)
     {
-        ArgumentNullException.ThrowIfNull(render);
         bounds.ThrowIfUninitialized(nameof(bounds));
         hitTest.ThrowIfUninitialized(nameof(hitTest));
-        RenderDescriptionValidation.ValidateRuntimeIdentity(runtimeIdentity, nameof(runtimeIdentity));
         object resolvedStructuralKey = RenderDescriptionValidation.ResolveStructuralKey(
             structuralKey,
-            render.Method,
+            execution.Method,
             nameof(structuralKey));
         IReadOnlyList<RenderResource> resourceCopy = RenderDescriptionValidation.CopyResources(
             resources,
             nameof(resources));
 
         return new GeometryDescription(
-            render,
+            execution,
             bounds,
             hitTest,
             resolvedStructuralKey,
-            runtimeIdentity,
             requiresReadback,
             resourceCopy);
     }

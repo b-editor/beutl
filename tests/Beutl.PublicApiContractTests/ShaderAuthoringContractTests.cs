@@ -165,7 +165,7 @@ public sealed class ShaderAuthoringContractTests
             RenderFragmentHandle source = context.OpaqueSource(MetadataSource(bounds));
             RenderFragmentHandle command = context.TargetCommand(
                 [],
-                TargetCommandDescription.Create(
+                TargetCommandDescription.CreateRequestLocal(
                     static _ => throw new AssertionException("A metadata request must not execute the command."),
                     TargetRegion.Region(bounds),
                     Rect.Empty,
@@ -379,7 +379,7 @@ public sealed class ShaderAuthoringContractTests
 
     private static OpaqueRenderDescription MetadataSource(Rect bounds)
     {
-        return OpaqueRenderDescription.Create(
+        return OpaqueRenderDescription.CreateRequestLocal(
             static _ => throw new AssertionException("A metadata request must not execute the source."),
             OpaqueRenderBoundsContract.Source(bounds),
             RenderHitTestContract.OutputBounds,
@@ -391,18 +391,18 @@ public sealed class ShaderAuthoringContractTests
     private static OpaqueRenderDescription ExecutingSource(Rect bounds, Color color)
     {
         return OpaqueRenderDescription.Create(
-            session =>
+            (bounds, color),
+            static (session, state) =>
             {
                 using OpaqueRenderOutput output = session.CreateOutput(session.OutputBounds);
-                output.Canvas.Use(canvas => canvas.Clear(color));
+                output.Canvas.Use(canvas => canvas.Clear(state.color));
                 session.Publish(output);
             },
             OpaqueRenderBoundsContract.Source(bounds),
             RenderHitTestContract.OutputBounds,
             RenderValueCardinality.Single,
             RenderScaleContract.MaterializeAtWorkingScale,
-            structuralKey: (typeof(ShaderAuthoringContractTests), "executing-source"),
-            runtimeIdentity: new RenderRuntimeIdentity((bounds, color)));
+            structuralKey: (typeof(ShaderAuthoringContractTests), "executing-source"));
     }
 
     private sealed class MetadataSourceNode(Rect bounds) : RenderNode

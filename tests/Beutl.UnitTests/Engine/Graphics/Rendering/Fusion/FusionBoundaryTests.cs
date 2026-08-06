@@ -662,7 +662,7 @@ public sealed class FusionBoundaryTests
 
     private static GeometryRenderFragmentPayload GeometryPayload()
     {
-        GeometryDescription description = GeometryDescription.Create(
+        GeometryDescription description = GeometryDescription.CreateRequestLocal(
             static _ => { },
             RenderBoundsContract.Identity,
             RenderHitTestContract.OutputBounds);
@@ -681,7 +681,7 @@ public sealed class FusionBoundaryTests
                 => OpaqueRenderBoundsContract.FullInputs(static _ => s_bounds),
             _ => throw new ArgumentOutOfRangeException(nameof(topology)),
         };
-        OpaqueRenderDescription description = OpaqueRenderDescription.Create(
+        OpaqueRenderDescription description = OpaqueRenderDescription.CreateRequestLocal(
             static _ => { },
             bounds,
             RenderHitTestContract.OutputBounds,

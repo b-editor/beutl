@@ -235,7 +235,7 @@ public sealed class BrushIntermediateAllocationIntentTests
     {
         public override void Process(RenderNodeContext context)
         {
-            OpaqueRenderDescription description = OpaqueRenderDescription.Create(
+            OpaqueRenderDescription description = OpaqueRenderDescription.CreateRequestLocal(
                 session =>
                 {
                     using OpaqueRenderOutput output = session.CreateOutput(bounds);
@@ -246,8 +246,7 @@ public sealed class BrushIntermediateAllocationIntentTests
                 RenderHitTestContract.OutputBounds,
                 RenderValueCardinality.Single,
                 RenderScaleContract.MaterializeAtWorkingScale,
-                structuralKey: "brush-intent-probe-source",
-                runtimeIdentity: new RenderRuntimeIdentity("brush-intent-probe-source-runtime"));
+                structuralKey: "brush-intent-probe-source");
             context.Publish(context.OpaqueSource(description));
         }
     }
@@ -263,9 +262,10 @@ public sealed class BrushIntermediateAllocationIntentTests
                 _brush.GetOriginal().Id,
                 _brush.Version);
             OpaqueRenderDescription description = OpaqueRenderDescription.Create(
-                session => session.UseResource(brushToken, currentBrush =>
+                bounds,
+                static (session, state) => session.UseDeclaredResource<Brush.Resource>(0, currentBrush =>
                 {
-                    using OpaqueRenderOutput output = session.CreateOutput(bounds);
+                    using OpaqueRenderOutput output = session.CreateOutput(state);
                     output.Canvas.Use(canvas => canvas.DrawRectangle(
                         new Rect(0, 0, UnallocatableScale, UnallocatableScale),
                         currentBrush,
@@ -277,7 +277,6 @@ public sealed class BrushIntermediateAllocationIntentTests
                 RenderValueCardinality.Single,
                 RenderScaleContract.MaterializeAtWorkingScale,
                 structuralKey: "brush-intent-unallocatable-source",
-                runtimeIdentity: new RenderRuntimeIdentity("brush-intent-unallocatable-source-runtime"),
                 resources: [brushToken]);
             context.Publish(context.OpaqueSource(description));
         }
@@ -294,12 +293,11 @@ public sealed class BrushIntermediateAllocationIntentTests
     {
         public override void Process(RenderNodeContext context)
         {
-            TargetCommandDescription command = TargetCommandDescription.Create(
+            TargetCommandDescription command = TargetCommandDescription.CreateRequestLocal(
                 session => session.Canvas.Use(probe),
                 TargetRegion.Region(bounds),
                 bounds,
-                RenderHitTestContract.None,
-                runtimeIdentity: new RenderRuntimeIdentity(typeof(TargetCommandProbeNode)));
+                RenderHitTestContract.None);
             context.Publish(context.TargetCommand([], command));
         }
     }

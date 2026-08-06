@@ -100,7 +100,7 @@ public class WorkingScaleClampConsistencyTests
             new object(),
             []);
         var context = new RenderNodeContext(transaction);
-        RenderFragmentHandle handle = context.OpaqueSource(OpaqueRenderDescription.Create(
+        RenderFragmentHandle handle = context.OpaqueSource(OpaqueRenderDescription.CreateRequestLocal(
             static _ => { },
             OpaqueRenderBoundsContract.Source(bounds),
             RenderHitTestContract.None,

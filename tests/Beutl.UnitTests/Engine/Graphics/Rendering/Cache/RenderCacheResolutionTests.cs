@@ -1249,19 +1249,18 @@ public sealed class RenderCacheResolutionTests
     [Test]
     public void GeometryIdentity_DifferentStructureWithSameRuntimeIdentityDoesNotHit()
     {
-        var runtimeIdentity = new RenderRuntimeIdentity("stable-geometry");
         GeometryDescription firstDescription = GeometryDescription.Create(
-            static _ => { },
+            "stable-geometry",
+            RenderStableGeometry,
             RenderBoundsContract.Identity,
             RenderHitTestContract.OutputBounds,
-            structuralKey: "geometry-a",
-            runtimeIdentity);
+            structuralKey: "geometry-a");
         GeometryDescription secondDescription = GeometryDescription.Create(
-            static _ => { },
+            "stable-geometry",
+            RenderStableGeometry,
             RenderBoundsContract.Identity,
             RenderHitTestContract.OutputBounds,
-            structuralKey: "geometry-b",
-            runtimeIdentity);
+            structuralKey: "geometry-b");
         Assert.That(
             secondDescription.RuntimeIdentity,
             Is.EqualTo(firstDescription.RuntimeIdentity),
@@ -1805,7 +1804,7 @@ public sealed class RenderCacheResolutionTests
 
     private static GeometryRenderFragmentPayload CreateGeometryPayload()
     {
-        GeometryDescription description = GeometryDescription.Create(
+        GeometryDescription description = GeometryDescription.CreateRequestLocal(
             static _ => { },
             RenderBoundsContract.Identity,
             RenderHitTestContract.OutputBounds);
@@ -1818,7 +1817,7 @@ public sealed class RenderCacheResolutionTests
         float resolvedScale)
     {
         var identity = new FixedScaleIdentity(authoredScale);
-        OpaqueRenderDescription description = OpaqueRenderDescription.Create(
+        OpaqueRenderDescription description = OpaqueRenderDescription.CreateRequestLocal(
             static _ => { },
             OpaqueRenderBoundsContract.Map(RenderBoundsContract.Identity),
             RenderHitTestContract.AnyInput,
@@ -1858,11 +1857,11 @@ public sealed class RenderCacheResolutionTests
             case RenderFragmentKind.TargetCommand:
                 payload = new TargetCommandRenderFragmentPayload(
                     TargetCommandDescription.Create(
-                        static _ => { },
+                        "command",
+                        static (_, _) => { },
                         TargetRegion.Region(s_bounds),
                         Rect.Empty,
-                        RenderHitTestContract.None,
-                        runtimeIdentity: new RenderRuntimeIdentity("command")),
+                        RenderHitTestContract.None),
                     []);
                 cardinality = RenderValueCardinality.None;
                 contributes = false;
@@ -1871,7 +1870,7 @@ public sealed class RenderCacheResolutionTests
                 break;
             case RenderFragmentKind.RawTargetScope:
                 payload = new RawTargetScopeRenderFragmentPayload(
-                    RawTargetScopeDescription.Create(
+                    RawTargetScopeDescription.CreateRequestLocal(
                         static _ => { },
                         RenderBoundsContract.Identity,
                         RenderHitTestContract.AnyInput,
@@ -2053,6 +2052,10 @@ public sealed class RenderCacheResolutionTests
 
     private readonly record struct FixedScaleIdentity(float Scale);
 
+    private static void RenderStableGeometry(GeometrySession session, string state)
+    {
+    }
+
     private sealed record CollidingKey(string Value)
     {
         public override int GetHashCode() => 7;
@@ -2060,7 +2063,9 @@ public sealed class RenderCacheResolutionTests
 
     private sealed class CacheableNode(bool disableCache) : RenderNode
     {
-        public int ExecuteCount { get; private set; }
+        private readonly ExecutionProbe _probe = new();
+
+        public int ExecuteCount => _probe.Count;
 
         public override void Process(RenderNodeContext context)
         {
@@ -2068,21 +2073,27 @@ public sealed class RenderCacheResolutionTests
                 context.DisableRenderCache();
 
             OpaqueRenderDescription description = OpaqueRenderDescription.Create(
-                _ => ExecuteCount++,
+                ("stable", _probe),
+                static (_, state) => state._probe.Record(),
                 OpaqueRenderBoundsContract.Source(s_bounds),
                 RenderHitTestContract.OutputBounds,
                 RenderValueCardinality.Single,
-                RenderScaleContract.MaterializeAtWorkingScale,
-                runtimeIdentity: new RenderRuntimeIdentity("stable"));
+                RenderScaleContract.MaterializeAtWorkingScale);
             context.Publish(context.OpaqueSource(description));
         }
     }
 
     private sealed class SolidCacheNode(bool throwOnExecute = false) : RenderNode
     {
-        public int ExecuteCount { get; private set; }
+        private readonly SolidCacheProbe _probe = new();
 
-        public Action? OnExecute { get; set; }
+        public int ExecuteCount => _probe.Count;
+
+        public Action? OnExecute
+        {
+            get => _probe.OnExecute;
+            set => _probe.OnExecute = value;
+        }
 
         public override void Process(RenderNodeContext context)
         {
@@ -2092,14 +2103,14 @@ public sealed class RenderCacheResolutionTests
                 fill.GetOriginal().Id,
                 fill.Version);
             OpaqueRenderDescription description = OpaqueRenderDescription.Create(
-                session =>
+                (throwOnExecute, Probe: _probe),
+                static (session, state) =>
                 {
-                    ExecuteCount++;
-                    OnExecute?.Invoke();
-                    if (throwOnExecute)
+                    state.Probe.Record();
+                    if (state.throwOnExecute)
                         throw new InvalidOperationException("injected execution failure");
 
-                    session.UseResource(fillResource, currentFill =>
+                    session.UseDeclaredResource<Brush.Resource>(0, currentFill =>
                     {
                         using OpaqueRenderOutput output = session.CreateOutput(s_bounds);
                         output.Canvas.Use(canvas => canvas.DrawRectangle(s_bounds, currentFill, pen: null));
@@ -2110,9 +2121,21 @@ public sealed class RenderCacheResolutionTests
                 RenderHitTestContract.OutputBounds,
                 RenderValueCardinality.Single,
                 RenderScaleContract.MaterializeAtWorkingScale,
-                runtimeIdentity: new RenderRuntimeIdentity((typeof(SolidCacheNode), throwOnExecute)),
                 resources: [fillResource]);
             context.Publish(context.OpaqueSource(description));
+        }
+    }
+
+    private sealed class SolidCacheProbe
+    {
+        public int Count { get; private set; }
+
+        public Action? OnExecute { get; set; }
+
+        public void Record()
+        {
+            Count++;
+            OnExecute?.Invoke();
         }
     }
 

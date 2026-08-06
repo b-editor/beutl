@@ -28,24 +28,25 @@ public enum RenderDeviceGridMapping : byte
 
 public sealed class TargetScopeDescription
 {
+    private readonly RenderExecutionChannel<TargetScopeSession> _execution;
+
     private TargetScopeDescription(
-        Action<TargetScopeSession> execute,
+        RenderExecutionChannel<TargetScopeSession> execution,
         RenderBoundsContract bounds,
         RenderHitTestContract hitTest,
         RenderScaleContract scale,
         RenderDeviceGridMapping deviceGridMapping,
         object structuralKey,
-        RenderRuntimeIdentity? runtimeIdentity,
         IReadOnlyList<RenderResource> resources,
         bool isValueReplayMap)
     {
-        Execute = execute;
+        _execution = execution;
+        RuntimeIdentity = RenderDescriptionValidation.ResolveRuntimeIdentity(execution);
         Bounds = bounds;
         HitTest = hitTest;
         Scale = scale;
         DeviceGridMapping = deviceGridMapping;
         StructuralKey = structuralKey;
-        RuntimeIdentity = runtimeIdentity;
         Resources = resources;
         IsValueReplayMap = isValueReplayMap;
     }
@@ -65,32 +66,69 @@ public sealed class TargetScopeDescription
 
     public IReadOnlyList<RenderResource> Resources { get; }
 
-    internal Action<TargetScopeSession> Execute { get; }
+    internal void Execute(TargetScopeSession session) => _execution.Invoke(session);
 
     internal bool IsValueReplayMap { get; }
 
+    /// <param name="state">
+    /// Every pixel-affecting value the callback reads, and the complete output-cache runtime identity of the
+    /// scope. It must be a lightweight immutable CPU value.
+    /// </param>
+    /// <param name="execute">
+    /// A non-capturing callback. Declare it <see langword="static"/>: a capture would let a per-frame value
+    /// shape the output without reaching <paramref name="state"/>, and is rejected.
+    /// </param>
     /// <param name="deviceGridMapping">
     /// The device pixel grid the callback replays its input onto. The default assumes a different grid;
     /// declare <see cref="RenderDeviceGridMapping.Preserved"/> only when the callback leaves the target
     /// transform alone.
     /// </param>
-    public static TargetScopeDescription Create(
+    public static TargetScopeDescription Create<TState>(
+        TState state,
+        Action<TargetScopeSession, TState> execute,
+        RenderBoundsContract bounds,
+        RenderHitTestContract hitTest,
+        RenderScaleContract scale,
+        RenderDeviceGridMapping deviceGridMapping = RenderDeviceGridMapping.Remapped,
+        object? structuralKey = null,
+        IEnumerable<RenderResource>? resources = null)
+        where TState : notnull
+        => CreateCore(
+            RenderDescriptionValidation.CreateStateChannel(
+                state,
+                execute,
+                nameof(state),
+                nameof(execute)),
+            bounds,
+            hitTest,
+            scale,
+            deviceGridMapping,
+            structuralKey,
+            resources,
+            isValueReplayMap: false);
+
+    /// <summary>
+    /// Creates a scope whose output can never satisfy a later request's cache lookup.
+    /// </summary>
+    /// <remarks>
+    /// The opt-out for a callback whose pixel-affecting state cannot be expressed as a lightweight immutable
+    /// key. The callback may capture, and the recorded output takes a fresh request-local identity every time.
+    /// </remarks>
+    public static TargetScopeDescription CreateRequestLocal(
         Action<TargetScopeSession> execute,
         RenderBoundsContract bounds,
         RenderHitTestContract hitTest,
         RenderScaleContract scale,
         RenderDeviceGridMapping deviceGridMapping = RenderDeviceGridMapping.Remapped,
         object? structuralKey = null,
-        RenderRuntimeIdentity? runtimeIdentity = null,
         IEnumerable<RenderResource>? resources = null)
         => CreateCore(
-            execute,
+            RenderDescriptionValidation.CreateRequestLocalChannel(execute, nameof(execute)),
             bounds,
             hitTest,
             scale,
             deviceGridMapping,
             structuralKey,
-            runtimeIdentity,
             resources,
             isValueReplayMap: false);
 
@@ -112,46 +150,45 @@ public sealed class TargetScopeDescription
         RenderRuntimeIdentity? runtimeIdentity = null,
         IEnumerable<RenderResource>? resources = null)
         => CreateCore(
-            execute,
+            RenderDescriptionValidation.CreateDeclaredIdentityChannel(
+                execute,
+                runtimeIdentity,
+                nameof(execute),
+                nameof(runtimeIdentity)),
             bounds,
             hitTest,
             scale,
             deviceGridMapping,
             structuralKey,
-            runtimeIdentity,
             resources,
             isValueReplayMap: true);
 
     private static TargetScopeDescription CreateCore(
-        Action<TargetScopeSession> execute,
+        RenderExecutionChannel<TargetScopeSession> execution,
         RenderBoundsContract bounds,
         RenderHitTestContract hitTest,
         RenderScaleContract scale,
         RenderDeviceGridMapping deviceGridMapping,
         object? structuralKey,
-        RenderRuntimeIdentity? runtimeIdentity,
         IEnumerable<RenderResource>? resources,
         bool isValueReplayMap)
     {
-        ArgumentNullException.ThrowIfNull(execute);
         bounds.ThrowIfUninitialized(nameof(bounds));
         hitTest.ThrowIfUninitialized(nameof(hitTest));
         scale.ThrowIfUninitialized(nameof(scale));
         if (!Enum.IsDefined(deviceGridMapping))
             throw new ArgumentOutOfRangeException(nameof(deviceGridMapping));
-        RenderDescriptionValidation.ValidateRuntimeIdentity(runtimeIdentity, nameof(runtimeIdentity));
 
         return new TargetScopeDescription(
-            execute,
+            execution,
             bounds,
             hitTest,
             scale,
             deviceGridMapping,
             RenderDescriptionValidation.ResolveStructuralKey(
                 structuralKey,
-                execute.Method,
+                execution.Method,
                 nameof(structuralKey)),
-            runtimeIdentity,
             RenderDescriptionValidation.CopyResources(resources, nameof(resources)),
             isValueReplayMap);
     }
@@ -231,6 +268,17 @@ public sealed class TargetScopeSession
         _token.UseResource(resource, _resources, use);
     }
 
+    /// <summary>Uses a resource by its position in the description's declared resource list.</summary>
+    /// <remarks>
+    /// The addressing mode a non-capturing callback needs: a resource token is request-scoped and can never be
+    /// part of a persistent identity, so it cannot travel through the description's state.
+    /// </remarks>
+    public void UseDeclaredResource<T>(int declaredIndex, Action<T> use)
+        where T : class
+    {
+        _token.UseDeclaredResource(declaredIndex, _resources, use);
+    }
+
     internal void ValidateCompletion()
     {
         _token.ThrowIfInactive();
@@ -241,15 +289,17 @@ public sealed class TargetScopeSession
 
 public sealed class RawTargetScopeDescription
 {
+    private readonly RenderExecutionChannel<RawTargetScopeSession> _execution;
+
     private RawTargetScopeDescription(
-        Action<RawTargetScopeSession> execute,
+        RenderExecutionChannel<RawTargetScopeSession> execution,
         RenderBoundsContract bounds,
         RenderHitTestContract hitTest,
         RenderScaleContract scale,
         object structuralKey,
         IReadOnlyList<RenderResource> resources)
     {
-        Execute = execute;
+        _execution = execution;
         Bounds = bounds;
         HitTest = hitTest;
         Scale = scale;
@@ -267,9 +317,17 @@ public sealed class RawTargetScopeDescription
 
     public IReadOnlyList<RenderResource> Resources { get; }
 
-    internal Action<RawTargetScopeSession> Execute { get; }
+    internal void Execute(RawTargetScopeSession session) => _execution.Invoke(session);
 
-    public static RawTargetScopeDescription Create(
+    /// <summary>
+    /// Creates a raw scope whose output can never satisfy a later request's cache lookup.
+    /// </summary>
+    /// <remarks>
+    /// A raw scope hands an unguarded canvas to an opaque external callback, so the renderer can describe
+    /// nothing about what it draws and gives every recording a fresh request-local identity. There is no
+    /// state-passing form: no declared state could make the output reusable.
+    /// </remarks>
+    public static RawTargetScopeDescription CreateRequestLocal(
         Action<RawTargetScopeSession> execute,
         RenderBoundsContract bounds,
         RenderHitTestContract hitTest,
@@ -283,7 +341,7 @@ public sealed class RawTargetScopeDescription
         scale.ThrowIfUninitialized(nameof(scale));
 
         return new RawTargetScopeDescription(
-            execute,
+            RenderDescriptionValidation.CreateRequestLocalChannel(execute, nameof(execute)),
             bounds,
             hitTest,
             scale,
@@ -372,14 +430,16 @@ public sealed class RawTargetScopeSession
 
 public sealed class RawTargetCommandDescription
 {
+    private readonly RenderExecutionChannel<RawTargetCommandSession> _execution;
+
     private RawTargetCommandDescription(
-        Action<RawTargetCommandSession> execute,
+        RenderExecutionChannel<RawTargetCommandSession> execution,
         Rect queryBounds,
         RenderHitTestContract hitTest,
         object structuralKey,
         IReadOnlyList<RenderResource> resources)
     {
-        Execute = execute;
+        _execution = execution;
         QueryBounds = queryBounds;
         HitTest = hitTest;
         StructuralKey = structuralKey;
@@ -394,9 +454,17 @@ public sealed class RawTargetCommandDescription
 
     public IReadOnlyList<RenderResource> Resources { get; }
 
-    internal Action<RawTargetCommandSession> Execute { get; }
+    internal void Execute(RawTargetCommandSession session) => _execution.Invoke(session);
 
-    public static RawTargetCommandDescription Create(
+    /// <summary>
+    /// Creates a raw command whose effect on the target can never satisfy a later request's cache lookup.
+    /// </summary>
+    /// <remarks>
+    /// A raw command hands an unguarded canvas to an opaque external callback, so the renderer can describe
+    /// nothing about what it draws and gives every recording a fresh request-local identity. There is no
+    /// state-passing form: no declared state could make the output reusable.
+    /// </remarks>
+    public static RawTargetCommandDescription CreateRequestLocal(
         Action<RawTargetCommandSession> execute,
         Rect queryBounds,
         RenderHitTestContract hitTest,
@@ -419,7 +487,7 @@ public sealed class RawTargetCommandDescription
             nameof(hitTest));
 
         return new RawTargetCommandDescription(
-            execute,
+            RenderDescriptionValidation.CreateRequestLocalChannel(execute, nameof(execute)),
             queryBounds,
             hitTest,
             RenderDescriptionValidation.ResolveStructuralKey(

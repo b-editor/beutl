@@ -50,10 +50,11 @@ public sealed class GeometryClipRenderNode(Geometry.Resource clip, ClipOperation
             hitTestState,
             cacheKey: (geometryId, clip.Version, operation));
         TargetScopeDescription description = TargetScopeDescription.Create(
-            session => session.UseResource(resource, geometry =>
+            (geometryId, clip.Version, operation),
+            static (session, state) => session.UseDeclaredResource<Geometry.Resource>(0, geometry =>
                 session.Canvas.Use(canvas =>
                 {
-                    using (canvas.PushClip(geometry, operation))
+                    using (canvas.PushClip(geometry, state.operation))
                     {
                         session.ReplayInput();
                     }
@@ -68,7 +69,6 @@ public sealed class GeometryClipRenderNode(Geometry.Resource clip, ClipOperation
                 structuralKey: typeof(GeometryClipRenderNode)),
             RenderScaleContract.PreserveInputSupply,
             RenderDeviceGridMapping.Preserved,
-            runtimeIdentity: new RenderRuntimeIdentity((geometryId, clip.Version, operation)),
             resources: [resource, hitTestResource]);
 
         foreach (RenderFragmentHandle input in context.Inputs)

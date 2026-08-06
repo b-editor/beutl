@@ -121,10 +121,10 @@ public sealed class TargetCaptureValueWrapperTests
     private sealed class TargetCaptureValueWrapperNode(ValueWrapper wrapper) : RenderNode
     {
         private static readonly GeometryDescription s_identityGeometry = GeometryDescription.Create(
-            static session => session.Canvas.Use(session.Input.Draw),
+            "target-capture-value-wrapper-identity",
+            static (session, _) => session.Canvas.Use(session.Input.Draw),
             RenderBoundsContract.Identity,
-            RenderHitTestContract.AnyInput,
-            runtimeIdentity: new RenderRuntimeIdentity("target-capture-value-wrapper-identity"));
+            RenderHitTestContract.AnyInput);
 
         public override void Process(RenderNodeContext context)
         {

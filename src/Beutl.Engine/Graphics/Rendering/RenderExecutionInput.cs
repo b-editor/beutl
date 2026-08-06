@@ -505,6 +505,31 @@ internal sealed class RenderExecutionSessionToken
             });
     }
 
+    public void UseDeclaredResource<T>(
+        int declaredIndex,
+        IReadOnlyList<RenderResource> declaredResources,
+        Action<T> use)
+        where T : class
+    {
+        ThrowIfInactive();
+        ArgumentNullException.ThrowIfNull(declaredResources);
+        if ((uint)declaredIndex >= (uint)declaredResources.Count)
+        {
+            throw new ArgumentOutOfRangeException(
+                nameof(declaredIndex),
+                declaredIndex,
+                "The declared resource index is outside the description's declared resource list.");
+        }
+
+        if (declaredResources[declaredIndex] is not RenderResource<T> resource)
+        {
+            throw new InvalidOperationException(
+                $"Declared resource {declaredIndex} is not a RenderResource<{typeof(T).Name}>.");
+        }
+
+        UseResource(resource, declaredResources, use);
+    }
+
     public bool IsResourceAuthorized(object resource)
         => _active && _authorizedResources.ContainsKey(resource);
 }

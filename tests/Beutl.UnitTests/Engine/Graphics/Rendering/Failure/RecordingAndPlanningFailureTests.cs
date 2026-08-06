@@ -114,7 +114,7 @@ public sealed class RecordingAndPlanningFailureTests
             context.ApplyTransactional(() =>
             {
                 _ = context.Own(resource, "apply-owned", 1);
-                context.Geometry(GeometryDescription.Create(
+                context.Geometry(GeometryDescription.CreateRequestLocal(
                     static _ => { },
                     RenderBoundsContract.Create(
                         static bounds => bounds.Inflate(new Thickness(3)),
@@ -379,7 +379,7 @@ public sealed class RecordingAndPlanningFailureTests
             RenderBoundsContract bounds = failurePoint == BoundsFailure.Forward
                 ? RenderBoundsContract.Create(ThrowForward, static value => value, "throw-forward")
                 : RenderBoundsContract.Create(static value => value, ThrowBackward, "throw-backward");
-            GeometryDescription geometry = GeometryDescription.Create(
+            GeometryDescription geometry = GeometryDescription.CreateRequestLocal(
                 static _ => { },
                 bounds,
                 RenderHitTestContract.AnyInput,
@@ -555,14 +555,13 @@ internal static class FailureTestSupport
         };
 
         return backendBoundary == RenderBackendBoundary.None
-            ? OpaqueRenderDescription.Create(
+            ? OpaqueRenderDescription.CreateRequestLocal(
                 execute,
                 OpaqueRenderBoundsContract.Source(s_bounds),
                 RenderHitTestContract.OutputBounds,
                 cardinality ?? RenderValueCardinality.Single,
                 RenderScaleContract.MaterializeAtWorkingScale,
-                structuralKey: structuralKey ?? "failure-test-source",
-                runtimeIdentity: new RenderRuntimeIdentity(structuralKey ?? "failure-test-source-runtime"))
+                structuralKey: structuralKey ?? "failure-test-source")
             : OpaqueRenderDescription.CreateBackendBoundary(
                 backendBoundary,
                 execute,

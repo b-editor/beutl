@@ -32,17 +32,17 @@ public class DrawBackdropRenderNode(IBackdrop backdrop, Rect bounds) : RenderNod
         if (context.TryBuiltInBackdrop(backdrop, out RenderFragmentHandle? capture))
         {
             TargetCommandDescription description = TargetCommandDescription.Create(
-                static session => session.Canvas.Use(canvas => session.Inputs[0].Draw(canvas)),
+                bounds,
+                static (session, _) => session.Canvas.Use(canvas => session.Inputs[0].Draw(canvas)),
                 TargetRegion.Region(bounds),
                 bounds,
-                hitTest,
-                runtimeIdentity: new RenderRuntimeIdentity(bounds));
+                hitTest);
             context.Publish(context.TargetCommand([capture!], description));
             return;
         }
 
         RenderResource<IBackdrop> resource = context.Borrow(backdrop);
-        RawTargetCommandDescription rawDescription = RawTargetCommandDescription.Create(
+        RawTargetCommandDescription rawDescription = RawTargetCommandDescription.CreateRequestLocal(
             session => session.UseResource(resource, value => value.Draw(session.Canvas)),
             bounds,
             hitTest,

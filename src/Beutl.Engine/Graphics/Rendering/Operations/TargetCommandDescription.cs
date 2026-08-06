@@ -4,25 +4,26 @@ namespace Beutl.Graphics.Rendering;
 
 public sealed class TargetCommandDescription
 {
+    private readonly RenderExecutionChannel<TargetCommandSession> _execution;
+
     private TargetCommandDescription(
-        Action<TargetCommandSession> execute,
+        RenderExecutionChannel<TargetCommandSession> execution,
         TargetRegion affectedRegion,
         Rect queryBounds,
         RenderHitTestContract hitTest,
         TargetAccess access,
         IReadOnlyList<RenderInputReadback> inputReadbacks,
         object structuralKey,
-        RenderRuntimeIdentity? runtimeIdentity,
         IReadOnlyList<RenderResource> resources)
     {
-        Execute = execute;
+        _execution = execution;
+        RuntimeIdentity = RenderDescriptionValidation.ResolveRuntimeIdentity(execution);
         AffectedRegion = affectedRegion;
         QueryBounds = queryBounds;
         HitTest = hitTest;
         Access = access;
         InputReadbacks = inputReadbacks;
         StructuralKey = structuralKey;
-        RuntimeIdentity = runtimeIdentity;
         Resources = resources;
     }
 
@@ -42,13 +43,53 @@ public sealed class TargetCommandDescription
 
     public IReadOnlyList<RenderResource> Resources { get; }
 
-    internal Action<TargetCommandSession> Execute { get; }
+    internal void Execute(TargetCommandSession session) => _execution.Invoke(session);
 
+    /// <param name="state">
+    /// Every pixel-affecting value the callback reads, and the complete output-cache runtime identity of the
+    /// command. It must be a lightweight immutable CPU value.
+    /// </param>
+    /// <param name="execute">
+    /// A non-capturing callback. Declare it <see langword="static"/>: a capture would let a per-frame value
+    /// shape the target without reaching <paramref name="state"/>, and is rejected.
+    /// </param>
     /// <param name="access">
     /// <see cref="TargetAccess.Readback"/> obliges the callback to consume
     /// <see cref="TargetCommandSession.UseSnapshot"/> exactly once.
     /// </param>
-    public static TargetCommandDescription Create(
+    public static TargetCommandDescription Create<TState>(
+        TState state,
+        Action<TargetCommandSession, TState> execute,
+        TargetRegion affectedRegion,
+        Rect queryBounds,
+        RenderHitTestContract hitTest,
+        TargetAccess access = TargetAccess.ReadWrite,
+        IEnumerable<RenderInputReadback>? inputReadbacks = null,
+        object? structuralKey = null,
+        IEnumerable<RenderResource>? resources = null)
+        where TState : notnull
+        => CreateCore(
+            RenderDescriptionValidation.CreateStateChannel(
+                state,
+                execute,
+                nameof(state),
+                nameof(execute)),
+            affectedRegion,
+            queryBounds,
+            hitTest,
+            access,
+            inputReadbacks,
+            structuralKey,
+            resources);
+
+    /// <summary>
+    /// Creates a command whose effect on the target can never satisfy a later request's cache lookup.
+    /// </summary>
+    /// <remarks>
+    /// The opt-out for a callback whose pixel-affecting state cannot be expressed as a lightweight immutable
+    /// key. The callback may capture, and the recorded output takes a fresh request-local identity every time.
+    /// </remarks>
+    public static TargetCommandDescription CreateRequestLocal(
         Action<TargetCommandSession> execute,
         TargetRegion affectedRegion,
         Rect queryBounds,
@@ -56,10 +97,27 @@ public sealed class TargetCommandDescription
         TargetAccess access = TargetAccess.ReadWrite,
         IEnumerable<RenderInputReadback>? inputReadbacks = null,
         object? structuralKey = null,
-        RenderRuntimeIdentity? runtimeIdentity = null,
         IEnumerable<RenderResource>? resources = null)
+        => CreateCore(
+            RenderDescriptionValidation.CreateRequestLocalChannel(execute, nameof(execute)),
+            affectedRegion,
+            queryBounds,
+            hitTest,
+            access,
+            inputReadbacks,
+            structuralKey,
+            resources);
+
+    private static TargetCommandDescription CreateCore(
+        RenderExecutionChannel<TargetCommandSession> execution,
+        TargetRegion affectedRegion,
+        Rect queryBounds,
+        RenderHitTestContract hitTest,
+        TargetAccess access,
+        IEnumerable<RenderInputReadback>? inputReadbacks,
+        object? structuralKey,
+        IEnumerable<RenderResource>? resources)
     {
-        ArgumentNullException.ThrowIfNull(execute);
         affectedRegion.ThrowIfUninitialized(nameof(affectedRegion));
         RenderRectValidation.ThrowIfInvalidInput(queryBounds, nameof(queryBounds));
         hitTest.ThrowIfUninitialized(nameof(hitTest));
@@ -80,20 +138,18 @@ public sealed class TargetCommandDescription
         // default key stays the bare callback method and allocates nothing.
         object resolvedStructuralKey = RenderDescriptionValidation.ResolveStructuralKey(
             structuralKey,
-            execute.Method,
+            execution.Method,
             nameof(structuralKey));
-        RenderDescriptionValidation.ValidateRuntimeIdentity(runtimeIdentity, nameof(runtimeIdentity));
         RenderInputReadback[] readbacks = CopyInputReadbacks(inputReadbacks);
 
         return new TargetCommandDescription(
-            execute,
+            execution,
             affectedRegion,
             queryBounds,
             hitTest,
             access,
             Array.AsReadOnly(readbacks),
             resolvedStructuralKey,
-            runtimeIdentity,
             RenderDescriptionValidation.CopyResources(resources, nameof(resources)));
     }
 
@@ -252,6 +308,17 @@ public sealed class TargetCommandSession
         where T : class
     {
         _token.UseResource(resource, _resources, use);
+    }
+
+    /// <summary>Uses a resource by its position in the description's declared resource list.</summary>
+    /// <remarks>
+    /// The addressing mode a non-capturing callback needs: a resource token is request-scoped and can never be
+    /// part of a persistent identity, so it cannot travel through the description's state.
+    /// </remarks>
+    public void UseDeclaredResource<T>(int declaredIndex, Action<T> use)
+        where T : class
+    {
+        _token.UseDeclaredResource(declaredIndex, _resources, use);
     }
 
     internal void ValidateCompletion()

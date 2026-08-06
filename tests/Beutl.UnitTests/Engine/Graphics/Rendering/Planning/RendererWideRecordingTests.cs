@@ -757,7 +757,7 @@ public sealed class RendererWideRecordingTests
         public override void Process(RenderNodeContext context)
         {
             recorded[index] = true;
-            TargetCommandDescription description = TargetCommandDescription.Create(
+            TargetCommandDescription description = TargetCommandDescription.CreateRequestLocal(
                 session =>
                 {
                     Assert.That(recorded, Is.All.True);
@@ -766,8 +766,7 @@ public sealed class RendererWideRecordingTests
                 },
                 TargetRegion.Full,
                 Rect.Empty,
-                RenderHitTestContract.None,
-                runtimeIdentity: new RenderRuntimeIdentity("ordered-command"));
+                RenderHitTestContract.None);
             context.Publish(context.TargetCommand([], description));
         }
     }
@@ -786,7 +785,7 @@ public sealed class RendererWideRecordingTests
                 bounds,
                 RenderHitTestContract.None,
                 TargetCaptureScaleContract.MaterializeAtWorkingScale));
-            OpaqueRenderDescription replay = OpaqueRenderDescription.Create(
+            OpaqueRenderDescription replay = OpaqueRenderDescription.CreateRequestLocal(
                 session =>
                 {
                     Assert.That(recorded, Is.All.True);
@@ -798,8 +797,7 @@ public sealed class RendererWideRecordingTests
                 OpaqueRenderBoundsContract.Map(RenderBoundsContract.Identity),
                 RenderHitTestContract.AnyInput,
                 RenderValueCardinality.Single,
-                RenderScaleContract.PreserveInputSupply,
-                runtimeIdentity: new RenderRuntimeIdentity("ordered-capture"));
+                RenderScaleContract.PreserveInputSupply);
             context.Publish(context.ContributeValues(context.OpaqueMap(capture, replay)));
         }
     }
@@ -810,7 +808,7 @@ public sealed class RendererWideRecordingTests
         ICollection<string> executed,
         Action<OpaqueRenderSession, OpaqueRenderOutput> draw)
     {
-        return OpaqueRenderDescription.Create(
+        return OpaqueRenderDescription.CreateRequestLocal(
             session =>
             {
                 Assert.That(recorded, Is.All.True);
@@ -823,8 +821,7 @@ public sealed class RendererWideRecordingTests
             RenderHitTestContract.OutputBounds,
             RenderValueCardinality.Single,
             RenderScaleContract.MaterializeAtWorkingScale,
-            structuralKey: (typeof(RendererWideRecordingTests), name),
-            runtimeIdentity: new RenderRuntimeIdentity(name));
+            structuralKey: (typeof(RendererWideRecordingTests), name));
     }
 
     private sealed class DeferredProbeNode(
@@ -835,7 +832,7 @@ public sealed class RendererWideRecordingTests
         public override void Process(RenderNodeContext context)
         {
             recorded[index] = true;
-            var description = OpaqueRenderDescription.Create(
+            var description = OpaqueRenderDescription.CreateRequestLocal(
                 session =>
                 {
                     Assert.That(recorded, Is.All.True,
@@ -849,8 +846,7 @@ public sealed class RendererWideRecordingTests
                 RenderHitTestContract.OutputBounds,
                 RenderValueCardinality.Single,
                 RenderScaleContract.MaterializeAtWorkingScale,
-                structuralKey: (typeof(DeferredProbeNode), index),
-                runtimeIdentity: new RenderRuntimeIdentity(index));
+                structuralKey: (typeof(DeferredProbeNode), index));
             context.Publish(context.OpaqueSource(description));
         }
     }
@@ -1031,7 +1027,7 @@ internal sealed class ProductionTreeProbeNode(
             state.FrameRecordCalls[index]++;
         }
 
-        OpaqueRenderDescription description = OpaqueRenderDescription.Create(
+        OpaqueRenderDescription description = OpaqueRenderDescription.CreateRequestLocal(
             session =>
             {
                 int completedFrameRecordCount = state.FrameRecordCalls[index];
@@ -1050,8 +1046,7 @@ internal sealed class ProductionTreeProbeNode(
             RenderHitTestContract.OutputBounds,
             RenderValueCardinality.Single,
             RenderScaleContract.MaterializeAtWorkingScale,
-            structuralKey: (typeof(ProductionTreeProbeNode), index),
-            runtimeIdentity: new RenderRuntimeIdentity(index));
+            structuralKey: (typeof(ProductionTreeProbeNode), index));
         RenderFragmentHandle source = context.OpaqueSource(description);
         if (state.UseShaderProgram)
         {
@@ -1092,7 +1087,7 @@ internal sealed class CacheMutationThreadProbeNode(
 {
     public override void Process(RenderNodeContext context)
     {
-        OpaqueRenderDescription description = OpaqueRenderDescription.Create(
+        OpaqueRenderDescription description = OpaqueRenderDescription.CreateRequestLocal(
             session =>
             {
                 using OpaqueRenderOutput output = session.CreateOutput(session.OutputBounds);
@@ -1102,8 +1097,7 @@ internal sealed class CacheMutationThreadProbeNode(
             OpaqueRenderBoundsContract.Source(new Rect(0, 0, 8, 8)),
             RenderHitTestContract.OutputBounds,
             RenderValueCardinality.Single,
-            RenderScaleContract.MaterializeAtWorkingScale,
-            runtimeIdentity: new RenderRuntimeIdentity(typeof(CacheMutationThreadProbeNode)));
+            RenderScaleContract.MaterializeAtWorkingScale);
         context.Publish(context.OpaqueSource(description));
     }
 

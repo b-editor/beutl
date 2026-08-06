@@ -197,7 +197,7 @@ public sealed class LegacyFilterTypedSuffixExecutionTests
 
         LegacyFilterEffectCompatibilityExecutor.ApplyGeometry(
             targets,
-            GeometryDescription.Create(
+            GeometryDescription.CreateRequestLocal(
                 session => session.Canvas.Use(canvas => observedIntent = canvas.Intent),
                 RenderBoundsContract.Identity,
                 RenderHitTestContract.AnyInput,
@@ -227,7 +227,7 @@ public sealed class LegacyFilterTypedSuffixExecutionTests
                     foreach (EffectTarget target in execution.Targets)
                         target.Bounds = bounds;
                 });
-            context.Geometry(GeometryDescription.Create(
+            context.Geometry(GeometryDescription.CreateRequestLocal(
                 session =>
                 {
                     observedInput = session.Input.Bounds;
@@ -347,7 +347,7 @@ public sealed class LegacyFilterTypedSuffixExecutionTests
                     return expanded;
                 })));
         var downstreamEffect = new LegacySuffixCallbackFilterEffect((context, _) =>
-            context.Geometry(GeometryDescription.Create(
+            context.Geometry(GeometryDescription.CreateRequestLocal(
                 session =>
                 {
                     observedDownstreamInput = session.Input.Bounds;
@@ -480,7 +480,7 @@ public sealed class LegacyFilterTypedSuffixExecutionTests
                 },
                 static (bounds, _) => bounds));
         var observingEffect = new LegacySuffixCallbackFilterEffect((context, _) =>
-            context.Geometry(GeometryDescription.Create(
+            context.Geometry(GeometryDescription.CreateRequestLocal(
                 session =>
                 {
                     observedBounds = session.Input.Bounds;
@@ -679,7 +679,7 @@ public sealed class LegacyFilterTypedSuffixExecutionTests
                 static (_, _, _) => null,
                 static (_, current) => current));
         var observingEffect = new LegacySuffixCallbackFilterEffect((context, _) =>
-            context.Geometry(GeometryDescription.Create(
+            context.Geometry(GeometryDescription.CreateRequestLocal(
                 session =>
                 {
                     observedScale = session.Input.EffectiveScale;

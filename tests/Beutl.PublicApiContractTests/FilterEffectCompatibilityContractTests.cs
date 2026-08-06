@@ -504,7 +504,7 @@ public sealed class FilterEffectCompatibilityContractTests
         RenderScaleContract scale,
         object structuralKey)
     {
-        return OpaqueRenderDescription.Create(
+        return OpaqueRenderDescription.CreateRequestLocal(
             static _ => throw new AssertionException("Measure must not execute opaque callbacks."),
             OpaqueRenderBoundsContract.Source(bounds),
             RenderHitTestContract.OutputBounds,
@@ -518,17 +518,17 @@ public sealed class FilterEffectCompatibilityContractTests
         public override void Process(RenderNodeContext context)
         {
             OpaqueRenderDescription description = OpaqueRenderDescription.Create(
-                session =>
+                (bounds, color),
+                static (session, state) =>
                 {
                     using OpaqueRenderOutput output = session.CreateOutput(session.OutputBounds);
-                    output.Canvas.Use(canvas => canvas.Clear(color));
+                    output.Canvas.Use(canvas => canvas.Clear(state.color));
                     session.Publish(output);
                 },
                 OpaqueRenderBoundsContract.Source(bounds),
                 RenderHitTestContract.OutputBounds,
                 RenderValueCardinality.Single,
-                RenderScaleContract.MaterializeAtWorkingScale,
-                runtimeIdentity: new RenderRuntimeIdentity((bounds, color)));
+                RenderScaleContract.MaterializeAtWorkingScale);
             context.Publish(context.OpaqueSource(description));
         }
     }

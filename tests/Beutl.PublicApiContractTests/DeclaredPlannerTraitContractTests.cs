@@ -151,14 +151,14 @@ public sealed class DeclaredPlannerTraitContractTests
     [Test]
     public void UnstatedTraits_SelectTheDocumentedDefaults()
     {
-        OpaqueRenderDescription opaque = OpaqueRenderDescription.Create(
+        OpaqueRenderDescription opaque = OpaqueRenderDescription.CreateRequestLocal(
             static _ => { },
             OpaqueRenderBoundsContract.Source(s_bounds),
             RenderHitTestContract.OutputBounds,
             RenderValueCardinality.Single,
             RenderScaleContract.MaterializeAtWorkingScale,
             structuralKey: "unstated-opaque");
-        TargetScopeDescription scope = TargetScopeDescription.Create(
+        TargetScopeDescription scope = TargetScopeDescription.CreateRequestLocal(
             static session => session.Canvas.Use(_ => session.ReplayInput()),
             RenderBoundsContract.Identity,
             RenderHitTestContract.AnyInput,
@@ -178,7 +178,7 @@ public sealed class DeclaredPlannerTraitContractTests
     public void OpaqueRenderDescriptionCreate_RejectsAnUndefinedDeviceGridSensitivity()
     {
         ArgumentOutOfRangeException? exception = Assert.Throws<ArgumentOutOfRangeException>(
-            static () => OpaqueRenderDescription.Create(
+            static () => OpaqueRenderDescription.CreateRequestLocal(
                 static _ => { },
                 OpaqueRenderBoundsContract.Source(s_bounds),
                 RenderHitTestContract.OutputBounds,
@@ -194,7 +194,7 @@ public sealed class DeclaredPlannerTraitContractTests
     public void TargetScopeDescriptionCreate_RejectsAnUndefinedDeviceGridMapping()
     {
         ArgumentOutOfRangeException? exception = Assert.Throws<ArgumentOutOfRangeException>(
-            static () => TargetScopeDescription.Create(
+            static () => TargetScopeDescription.CreateRequestLocal(
                 static session => session.Canvas.Use(_ => session.ReplayInput()),
                 RenderBoundsContract.Identity,
                 RenderHitTestContract.AnyInput,
@@ -208,12 +208,13 @@ public sealed class DeclaredPlannerTraitContractTests
     private static OpaqueRenderDescription ExecutingSource(
         RenderDeviceGridSensitivity sensitivity,
         object structuralKey,
-        Action? beforePublish = null)
+        ExecutionProbe? probe = null)
     {
         return OpaqueRenderDescription.Create(
-            session =>
+            (structuralKey, probe),
+            static (session, state) =>
             {
-                beforePublish?.Invoke();
+                state.probe?.Record();
                 using OpaqueRenderOutput output = session.CreateOutput(session.OutputBounds);
                 output.Canvas.Use(static canvas => canvas.Clear(Colors.CornflowerBlue));
                 session.Publish(output);
@@ -223,8 +224,7 @@ public sealed class DeclaredPlannerTraitContractTests
             RenderValueCardinality.Single,
             RenderScaleContract.MaterializeAtWorkingScale,
             deviceGridSensitivity: sensitivity,
-            structuralKey: structuralKey,
-            runtimeIdentity: new RenderRuntimeIdentity(("source-runtime", structuralKey)));
+            structuralKey: structuralKey);
     }
 
     private static TargetScopeDescription ScopeDescription(
@@ -234,15 +234,16 @@ public sealed class DeclaredPlannerTraitContractTests
     {
         var boundsState = new TransformBoundsState(transform ?? Matrix.Identity);
         return TargetScopeDescription.Create(
-            session => session.Canvas.Use(canvas =>
+            (HasTransform: transform.HasValue, Transform: transform ?? Matrix.Identity),
+            static (session, state) => session.Canvas.Use(canvas =>
             {
-                if (transform is not { } matrix)
+                if (!state.HasTransform)
                 {
                     session.ReplayInput();
                     return;
                 }
 
-                using (canvas.PushTransform(matrix))
+                using (canvas.PushTransform(state.Transform))
                 {
                     session.ReplayInput();
                 }
@@ -254,8 +255,14 @@ public sealed class DeclaredPlannerTraitContractTests
             RenderHitTestContract.AnyInput,
             RenderScaleContract.PreserveInputSupply,
             mapping,
-            structuralKey: structuralKey,
-            runtimeIdentity: new RenderRuntimeIdentity(("scope-runtime", structuralKey)));
+            structuralKey: structuralKey);
+    }
+
+    private sealed class ExecutionProbe
+    {
+        public int Count { get; private set; }
+
+        public void Record() => Count++;
     }
 
     private static void RasterizeAcrossAGridPhaseChange(
@@ -312,14 +319,16 @@ public sealed class DeclaredPlannerTraitContractTests
 
     private sealed class DeclaringSourceNode(RenderDeviceGridSensitivity sensitivity) : RenderNode
     {
-        public int ExecuteCount { get; private set; }
+        private readonly ExecutionProbe _probe = new();
+
+        public int ExecuteCount => _probe.Count;
 
         public override void Process(RenderNodeContext context)
         {
             context.Publish(context.OpaqueSource(ExecutingSource(
                 sensitivity,
                 typeof(DeclaringSourceNode),
-                () => ExecuteCount++)));
+                _probe)));
         }
     }
 
@@ -355,7 +364,7 @@ public sealed class DeclaredPlannerTraitContractTests
             RenderFragmentHandle input = context.RecordNode(producer, []).Single();
             context.Publish(context.RawTargetScope(
                 input,
-                RawTargetScopeDescription.Create(
+                RawTargetScopeDescription.CreateRequestLocal(
                     session =>
                     {
                         using (session.Canvas.PushTransform(
@@ -379,7 +388,7 @@ public sealed class DeclaredPlannerTraitContractTests
             RenderFragmentHandle input = context.RecordNode(producer, []).Single();
             context.Publish(context.TargetCommand(
                 [input],
-                TargetCommandDescription.Create(
+                TargetCommandDescription.CreateRequestLocal(
                     session => session.Canvas.Use(canvas =>
                     {
                         using (canvas.PushTransform(

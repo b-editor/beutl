@@ -16,40 +16,88 @@ public sealed class GeometrySessionTests
         RenderResource<object> resource = registry.RegisterBorrowed(raw, "geometry-resource", 3);
         Action<GeometrySession> render = static _ => { };
         GeometryDescription description = GeometryDescription.Create(
-            render,
+            ("pixels", 4),
+            static (_, _) => { },
             RenderBoundsContract.Identity,
             RenderHitTestContract.AnyInput,
             structuralKey: "geometry",
-            runtimeIdentity: new RenderRuntimeIdentity(("pixels", 4)),
             requiresReadback: true,
             resources: [resource]);
+        GeometryDescription requestLocal = GeometryDescription.CreateRequestLocal(
+            render,
+            RenderBoundsContract.Identity,
+            RenderHitTestContract.AnyInput);
 
         Assert.Multiple(() =>
         {
             Assert.That(description.Bounds, Is.EqualTo(RenderBoundsContract.Identity));
             Assert.That(description.HitTest, Is.EqualTo(RenderHitTestContract.AnyInput));
             Assert.That(description.StructuralKey, Is.EqualTo("geometry"));
-            Assert.That(description.RuntimeIdentity, Is.EqualTo(new RenderRuntimeIdentity(("pixels", 4))));
+            Assert.That(description.RuntimeIdentity, Is.Not.Null);
             Assert.That(description.RequiresReadback, Is.True);
             Assert.That(description.Resources, Is.EqualTo(new[] { resource }));
-            Assert.That(description.Render, Is.SameAs(render));
+            Assert.That(requestLocal.RuntimeIdentity, Is.Null,
+                "A request-local description publishes no identity a later request could match.");
             Assert.That(
-                () => GeometryDescription.Create(null!, RenderBoundsContract.Identity, RenderHitTestContract.None),
+                () => GeometryDescription.CreateRequestLocal(null!, RenderBoundsContract.Identity, RenderHitTestContract.None),
                 Throws.TypeOf<ArgumentNullException>());
             Assert.That(
-                () => GeometryDescription.Create(render, default, RenderHitTestContract.None),
+                () => GeometryDescription.CreateRequestLocal(render, default, RenderHitTestContract.None),
                 Throws.TypeOf<ArgumentException>());
             Assert.That(
-                () => GeometryDescription.Create(render, RenderBoundsContract.Identity, default),
-                Throws.TypeOf<ArgumentException>());
-            Assert.That(
-                () => GeometryDescription.Create(
-                    render,
-                    RenderBoundsContract.Identity,
-                    RenderHitTestContract.None,
-                    runtimeIdentity: default(RenderRuntimeIdentity)),
+                () => GeometryDescription.CreateRequestLocal(render, RenderBoundsContract.Identity, default),
                 Throws.TypeOf<ArgumentException>());
         });
+    }
+
+    [Test]
+    public void Description_DerivesEqualIdentitiesFromEqualStateAndDistinctOnesFromDistinctState()
+    {
+        GeometryDescription first = GeometryDescription.Create(
+            ("pixels", 4),
+            RenderNothing,
+            RenderBoundsContract.Identity,
+            RenderHitTestContract.AnyInput);
+        GeometryDescription second = GeometryDescription.Create(
+            ("pixels", 4),
+            RenderNothing,
+            RenderBoundsContract.Identity,
+            RenderHitTestContract.AnyInput);
+        GeometryDescription different = GeometryDescription.Create(
+            ("pixels", 5),
+            RenderNothing,
+            RenderBoundsContract.Identity,
+            RenderHitTestContract.AnyInput);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(second.RuntimeIdentity, Is.EqualTo(first.RuntimeIdentity),
+                "Equal state must produce an identity a later request's cache lookup can match.");
+            Assert.That(different.RuntimeIdentity, Is.Not.EqualTo(first.RuntimeIdentity),
+                "A changed state value must change the identity, which is what makes a stale hit impossible.");
+        });
+    }
+
+    [Test]
+    public void Create_RejectsACapturingCallbackAndNamesTheStateParameter()
+    {
+        var color = Colors.Red;
+        ArgumentException? rejection = Assert.Throws<ArgumentException>(
+            () => GeometryDescription.Create(
+                "under-specified",
+                (session, _) => session.Canvas.Use(canvas => canvas.Clear(color)),
+                RenderBoundsContract.Identity,
+                RenderHitTestContract.AnyInput));
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(rejection!.ParamName, Is.EqualTo("render"));
+            Assert.That(rejection.Message, Does.Contain("state"));
+        });
+    }
+
+    private static void RenderNothing(GeometrySession session, (string Kind, int Value) state)
+    {
     }
 
     [Test]
@@ -110,7 +158,7 @@ public sealed class GeometrySessionTests
             bool requiresReadback,
             IEnumerable<RenderResource> resources)
         {
-            return GeometryDescription.Create(
+            return GeometryDescription.CreateRequestLocal(
                 static _ => { },
                 bounds,
                 hitTest,

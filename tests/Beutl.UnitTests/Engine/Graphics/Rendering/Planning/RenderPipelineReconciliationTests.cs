@@ -1048,7 +1048,7 @@ public sealed class RenderPipelineReconciliationTests
         public override void Process(RenderNodeContext context)
         {
             destination.Dispose();
-            context.Publish(context.OpaqueSource(OpaqueRenderDescription.Create(
+            context.Publish(context.OpaqueSource(OpaqueRenderDescription.CreateRequestLocal(
                 _ => ExecuteCount++,
                 OpaqueRenderBoundsContract.Source(new Rect(0, 0, 16, 16)),
                 RenderHitTestContract.OutputBounds,
@@ -1059,14 +1059,17 @@ public sealed class RenderPipelineReconciliationTests
 
     private sealed class CacheableWorkNode : RenderNode
     {
-        public int ExecuteCount { get; private set; }
+        private readonly ExecutionProbe _probe = new();
+
+        public int ExecuteCount => _probe.Count;
 
         public override void Process(RenderNodeContext context)
         {
             context.Publish(context.OpaqueSource(OpaqueRenderDescription.Create(
-                session =>
+                _probe,
+                static (session, probe) =>
                 {
-                    ExecuteCount++;
+                    probe.Record();
                     using OpaqueRenderOutput output = session.CreateOutput(new Rect(0, 0, 16, 16));
                     output.Canvas.Use(canvas => canvas.Clear(Colors.CornflowerBlue));
                     session.Publish(output);
@@ -1074,8 +1077,7 @@ public sealed class RenderPipelineReconciliationTests
                 OpaqueRenderBoundsContract.Source(new Rect(0, 0, 16, 16)),
                 RenderHitTestContract.OutputBounds,
                 RenderValueCardinality.Single,
-                RenderScaleContract.MaterializeAtWorkingScale,
-                runtimeIdentity: new RenderRuntimeIdentity(typeof(CacheableWorkNode)))));
+                RenderScaleContract.MaterializeAtWorkingScale)));
         }
     }
 
@@ -1085,13 +1087,12 @@ public sealed class RenderPipelineReconciliationTests
 
         public override void Process(RenderNodeContext context)
         {
-            context.Publish(context.OpaqueSource(OpaqueRenderDescription.Create(
+            context.Publish(context.OpaqueSource(OpaqueRenderDescription.CreateRequestLocal(
                 _ => ExecuteCount++,
                 OpaqueRenderBoundsContract.Source(new Rect(0, 0, 16, 16)),
                 RenderHitTestContract.OutputBounds,
                 RenderValueCardinality.ZeroOrOne,
-                RenderScaleContract.MaterializeAtWorkingScale,
-                runtimeIdentity: new RenderRuntimeIdentity(typeof(NoOutputOpaqueNode)))));
+                RenderScaleContract.MaterializeAtWorkingScale)));
         }
     }
 
@@ -1103,15 +1104,14 @@ public sealed class RenderPipelineReconciliationTests
 
         public override void Process(RenderNodeContext context)
         {
-            RenderFragmentHandle empty = context.OpaqueSource(OpaqueRenderDescription.Create(
+            RenderFragmentHandle empty = context.OpaqueSource(OpaqueRenderDescription.CreateRequestLocal(
                 _ => SourceExecutions++,
                 OpaqueRenderBoundsContract.Source(new Rect(0, 0, 16, 16)),
                 RenderHitTestContract.OutputBounds,
                 RenderValueCardinality.ZeroOrOne,
                 RenderScaleContract.MaterializeAtWorkingScale,
-                structuralKey: (typeof(EmptyInputGeometryNode), "source"),
-                runtimeIdentity: new RenderRuntimeIdentity("empty-source")));
-            context.Publish(context.Geometry(empty, GeometryDescription.Create(
+                structuralKey: (typeof(EmptyInputGeometryNode), "source")));
+            context.Publish(context.Geometry(empty, GeometryDescription.CreateRequestLocal(
                 session =>
                 {
                     GeometryExecutions++;
@@ -1119,8 +1119,7 @@ public sealed class RenderPipelineReconciliationTests
                 },
                 RenderBoundsContract.Identity,
                 RenderHitTestContract.AnyInput,
-                structuralKey: (typeof(EmptyInputGeometryNode), "geometry"),
-                runtimeIdentity: new RenderRuntimeIdentity("empty-input-geometry"))));
+                structuralKey: (typeof(EmptyInputGeometryNode), "geometry"))));
         }
     }
 
@@ -1130,7 +1129,7 @@ public sealed class RenderPipelineReconciliationTests
 
         public override void Process(RenderNodeContext context)
         {
-            context.Publish(context.TargetCommand([], TargetCommandDescription.Create(
+            context.Publish(context.TargetCommand([], TargetCommandDescription.CreateRequestLocal(
                 session =>
                 {
                     ExecuteCount++;
@@ -1138,8 +1137,7 @@ public sealed class RenderPipelineReconciliationTests
                 },
                 TargetRegion.Full,
                 Rect.Empty,
-                RenderHitTestContract.None,
-                runtimeIdentity: new RenderRuntimeIdentity(typeof(NoDrawTargetCommandNode)))));
+                RenderHitTestContract.None)));
         }
     }
 
@@ -1149,12 +1147,11 @@ public sealed class RenderPipelineReconciliationTests
 
         public override void Process(RenderNodeContext context)
         {
-            context.Publish(context.TargetCommand([], TargetCommandDescription.Create(
+            context.Publish(context.TargetCommand([], TargetCommandDescription.CreateRequestLocal(
                 _ => ExecuteCount++,
                 TargetRegion.Empty,
                 Rect.Empty,
-                RenderHitTestContract.None,
-                runtimeIdentity: new RenderRuntimeIdentity(typeof(EmptyTargetCommandNode)))));
+                RenderHitTestContract.None)));
         }
     }
 
@@ -1164,7 +1161,7 @@ public sealed class RenderPipelineReconciliationTests
 
         public override void Process(RenderNodeContext context)
         {
-            context.Publish(context.OpaqueSource(OpaqueRenderDescription.Create(
+            context.Publish(context.OpaqueSource(OpaqueRenderDescription.CreateRequestLocal(
                 session =>
                 {
                     ExecuteCount++;
@@ -1173,8 +1170,7 @@ public sealed class RenderPipelineReconciliationTests
                 OpaqueRenderBoundsContract.Source(new Rect(0, 0, 16, 16)),
                 RenderHitTestContract.OutputBounds,
                 RenderValueCardinality.ZeroOrOne,
-                RenderScaleContract.MaterializeAtWorkingScale,
-                runtimeIdentity: new RenderRuntimeIdentity(typeof(UnpublishedOutputOpaqueNode)))));
+                RenderScaleContract.MaterializeAtWorkingScale)));
         }
     }
 
@@ -1184,7 +1180,7 @@ public sealed class RenderPipelineReconciliationTests
 
         public override void Process(RenderNodeContext context)
         {
-            RenderFragmentHandle source = context.OpaqueSource(OpaqueRenderDescription.Create(
+            RenderFragmentHandle source = context.OpaqueSource(OpaqueRenderDescription.CreateRequestLocal(
                 session =>
                 {
                     using OpaqueRenderOutput output = session.CreateOutput(session.OutputBounds);
@@ -1194,9 +1190,8 @@ public sealed class RenderPipelineReconciliationTests
                 RenderHitTestContract.OutputBounds,
                 RenderValueCardinality.Single,
                 RenderScaleContract.MaterializeAtWorkingScale,
-                structuralKey: (typeof(DiscardingGeometryNode), "source"),
-                runtimeIdentity: new RenderRuntimeIdentity("discarding-geometry-source")));
-            context.Publish(context.Geometry(source, GeometryDescription.Create(
+                structuralKey: (typeof(DiscardingGeometryNode), "source")));
+            context.Publish(context.Geometry(source, GeometryDescription.CreateRequestLocal(
                 session =>
                 {
                     GeometryExecutions++;
@@ -1204,8 +1199,7 @@ public sealed class RenderPipelineReconciliationTests
                 },
                 RenderBoundsContract.Identity,
                 RenderHitTestContract.AnyInput,
-                structuralKey: (typeof(DiscardingGeometryNode), "geometry"),
-                runtimeIdentity: new RenderRuntimeIdentity("discarding-geometry"))));
+                structuralKey: (typeof(DiscardingGeometryNode), "geometry"))));
         }
     }
 
@@ -1220,24 +1214,22 @@ public sealed class RenderPipelineReconciliationTests
 
         public override void Process(RenderNodeContext context)
         {
-            RenderFragmentHandle source = context.OpaqueSource(OpaqueRenderDescription.Create(
+            RenderFragmentHandle source = context.OpaqueSource(OpaqueRenderDescription.CreateRequestLocal(
                 _ => SourceExecutions++,
                 OpaqueRenderBoundsContract.Source(new Rect(4, 5, 0, 6)),
                 RenderHitTestContract.None,
                 RenderValueCardinality.ZeroOrOne,
                 RenderScaleContract.MaterializeAtWorkingScale,
-                structuralKey: (typeof(DegenerateShaderRunNode), "source"),
-                runtimeIdentity: new RenderRuntimeIdentity("degenerate-source")));
+                structuralKey: (typeof(DegenerateShaderRunNode), "source")));
             RenderFragmentHandle current = context.Shader(source, s_first);
             current = context.Shader(current, s_second);
             context.Publish(current);
-            context.Publish(context.TargetCommand([], TargetCommandDescription.Create(
+            context.Publish(context.TargetCommand([], TargetCommandDescription.CreateRequestLocal(
                 session => session.Canvas.Use(canvas => canvas.Clear(Colors.Transparent)),
                 TargetRegion.Full,
                 Rect.Empty,
                 RenderHitTestContract.None,
-                structuralKey: (typeof(DegenerateShaderRunNode), "clear"),
-                runtimeIdentity: new RenderRuntimeIdentity("degenerate-clear"))));
+                structuralKey: (typeof(DegenerateShaderRunNode), "clear"))));
         }
     }
 
@@ -1247,7 +1239,7 @@ public sealed class RenderPipelineReconciliationTests
 
         public override void Process(RenderNodeContext context)
         {
-            RenderFragmentHandle source = context.OpaqueSource(OpaqueRenderDescription.Create(
+            RenderFragmentHandle source = context.OpaqueSource(OpaqueRenderDescription.CreateRequestLocal(
                 session =>
                 {
                     using OpaqueRenderOutput output = session.CreateOutput(session.OutputBounds);
@@ -1258,9 +1250,8 @@ public sealed class RenderPipelineReconciliationTests
                 RenderHitTestContract.OutputBounds,
                 RenderValueCardinality.Single,
                 RenderScaleContract.MaterializeAtWorkingScale,
-                structuralKey: (typeof(UnusedReadbackNode), "source"),
-                runtimeIdentity: new RenderRuntimeIdentity("unused-readback-source")));
-            context.Publish(context.Geometry(source, GeometryDescription.Create(
+                structuralKey: (typeof(UnusedReadbackNode), "source")));
+            context.Publish(context.Geometry(source, GeometryDescription.CreateRequestLocal(
                 session =>
                 {
                     GeometryExecutions++;
@@ -1269,7 +1260,6 @@ public sealed class RenderPipelineReconciliationTests
                 RenderBoundsContract.Identity,
                 RenderHitTestContract.AnyInput,
                 structuralKey: (typeof(UnusedReadbackNode), "geometry"),
-                runtimeIdentity: new RenderRuntimeIdentity("unused-readback-geometry"),
                 requiresReadback: true)));
         }
     }
@@ -1280,7 +1270,7 @@ public sealed class RenderPipelineReconciliationTests
 
         public override void Process(RenderNodeContext context)
         {
-            context.Publish(context.OpaqueSource(OpaqueRenderDescription.Create(
+            context.Publish(context.OpaqueSource(OpaqueRenderDescription.CreateRequestLocal(
                 _ =>
                 {
                     ExecuteCount++;
@@ -1289,8 +1279,7 @@ public sealed class RenderPipelineReconciliationTests
                 OpaqueRenderBoundsContract.Source(new Rect(0, 0, 16, 16)),
                 RenderHitTestContract.OutputBounds,
                 RenderValueCardinality.Single,
-                RenderScaleContract.MaterializeAtWorkingScale,
-                runtimeIdentity: new RenderRuntimeIdentity(typeof(ThrowingCacheableWorkNode)))));
+                RenderScaleContract.MaterializeAtWorkingScale)));
         }
     }
 
@@ -1298,7 +1287,7 @@ public sealed class RenderPipelineReconciliationTests
     {
         public override void Process(RenderNodeContext context)
         {
-            RenderFragmentHandle source = context.OpaqueSource(OpaqueRenderDescription.Create(
+            RenderFragmentHandle source = context.OpaqueSource(OpaqueRenderDescription.CreateRequestLocal(
                 session =>
                 {
                     using OpaqueRenderOutput output = session.CreateOutput(session.OutputBounds);
@@ -1309,8 +1298,7 @@ public sealed class RenderPipelineReconciliationTests
                 RenderHitTestContract.OutputBounds,
                 RenderValueCardinality.Single,
                 RenderScaleContract.MaterializeAtWorkingScale,
-                structuralKey: (typeof(LegacyFilterSetupFailureNode), "source"),
-                runtimeIdentity: new RenderRuntimeIdentity("legacy-setup-source")));
+                structuralKey: (typeof(LegacyFilterSetupFailureNode), "source")));
             FilterEffectContext? effectContext = new(new Rect(0, 0, 16, 16));
             try
             {
@@ -1349,7 +1337,7 @@ public sealed class RenderPipelineReconciliationTests
         }
 
         private static OpaqueRenderDescription CreateDescription(string key, Action onExecute)
-            => OpaqueRenderDescription.Create(
+            => OpaqueRenderDescription.CreateRequestLocal(
                 session =>
                 {
                     onExecute();
@@ -1361,8 +1349,7 @@ public sealed class RenderPipelineReconciliationTests
                 RenderHitTestContract.OutputBounds,
                 RenderValueCardinality.Single,
                 RenderScaleContract.MaterializeAtWorkingScale,
-                structuralKey: key,
-                runtimeIdentity: new RenderRuntimeIdentity(key));
+                structuralKey: key);
     }
 
     private sealed class ThrowingTargetFactory : IRenderTargetFactory

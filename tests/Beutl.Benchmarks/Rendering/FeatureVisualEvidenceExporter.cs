@@ -1732,7 +1732,7 @@ internal sealed class FeatureExecutionProbeNode : ContainerRenderNode
 
     public override void Process(RenderNodeContext context)
     {
-        OpaqueRenderDescription description = OpaqueRenderDescription.Create(
+        OpaqueRenderDescription description = OpaqueRenderDescription.CreateRequestLocal(
             session =>
             {
                 CallbackEntries++;

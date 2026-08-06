@@ -57,14 +57,14 @@ public sealed class RenderScaleMappingContractTests
                 : RenderScaleContract.Custom(
                     new FixedScaleResolver(inputSupply.Value).Resolve,
                     structuralKey: (typeof(SupplyMappingNode), inputSupply));
-            RenderFragmentHandle source = context.OpaqueSource(OpaqueRenderDescription.Create(
+            RenderFragmentHandle source = context.OpaqueSource(OpaqueRenderDescription.CreateRequestLocal(
                 execute: static _ => throw new AssertionException("Measurement must not execute opaque callbacks."),
                 bounds: OpaqueRenderBoundsContract.Source(s_bounds),
                 hitTest: RenderHitTestContract.None,
                 valueCardinality: RenderValueCardinality.Single,
                 scale: sourceScale,
                 structuralKey: (typeof(SupplyMappingNode), "source", inputSupply)));
-            RenderFragmentHandle mapped = context.OpaqueMap(source, OpaqueRenderDescription.Create(
+            RenderFragmentHandle mapped = context.OpaqueMap(source, OpaqueRenderDescription.CreateRequestLocal(
                 execute: static _ => throw new AssertionException("Measurement must not execute opaque callbacks."),
                 bounds: OpaqueRenderBoundsContract.Map(RenderBoundsContract.Identity),
                 hitTest: RenderHitTestContract.None,

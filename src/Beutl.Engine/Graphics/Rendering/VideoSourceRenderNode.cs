@@ -74,17 +74,19 @@ public sealed class VideoSourceRenderNode(
             pen?.StrokeAlignment ?? StrokeAlignment.Inside,
             pen?.Thickness ?? 0);
 
-        OpaqueRenderDescription description = OpaqueRenderDescription.Create(
+        OpaqueRenderDescription description = OpaqueRenderDescription.CreateEngineSource(
             execute: session => DeferredOpaqueSource.Execute(
                 session,
                 sourceResource,
                 paint,
                 (canvas, currentSource, currentFill, currentPen) =>
                     canvas.DrawVideoSource(currentSource, frame, currentFill, currentPen)),
+            directReplay: null,
             bounds: BrushRecorder.CreateSourceBounds(paint, bounds, typeof(VideoSourceRenderNode)),
             hitTest: RenderHitTestContract.Custom(hitTestState.Evaluate),
-            valueCardinality: RenderValueCardinality.Single,
             scale: RenderScaleContract.Custom(new VideoScaleResolver(supplyDensity).Resolve),
+            deviceGridSensitivity: RenderDeviceGridSensitivity.Insensitive,
+            structuralKey: typeof(VideoSourceRenderNode),
             runtimeIdentity: new RenderRuntimeIdentity((bounds, frame, supplyDensity, hitTestState)),
             resources: DeferredOpaqueSource.Resources(
                 [sourceResource, .. paint.Resources]));

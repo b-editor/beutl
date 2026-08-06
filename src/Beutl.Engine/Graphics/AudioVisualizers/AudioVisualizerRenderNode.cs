@@ -32,7 +32,7 @@ internal sealed class AudioVisualizerRenderNode(AudioVisualizerDrawable.Resource
             resource.GetOriginal().Id,
             snapshot.Version);
 
-        RawTargetCommandDescription command = RawTargetCommandDescription.Create(
+        RawTargetCommandDescription command = RawTargetCommandDescription.CreateRequestLocal(
             execute: session => session.UseResource(
                 resourceToken,
                 current => current.RenderToCanvas(session.Canvas, bounds)),

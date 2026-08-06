@@ -16,17 +16,23 @@ public sealed class RenderDescriptionAndExecutionContractTests
         RenderResource<object> resource = registry.RegisterBorrowed(value, "resource", 3);
         Action<OpaqueRenderSession> execute = static _ => { };
         OpaqueRenderBoundsContract bounds = OpaqueRenderBoundsContract.Source(new Rect(2, 3, 10, 20));
-        var runtimeIdentity = new RenderRuntimeIdentity(("pixels", 4));
 
         OpaqueRenderDescription description = OpaqueRenderDescription.Create(
-            execute,
+            ("pixels", 4),
+            static (_, _) => { },
             bounds,
             RenderHitTestContract.OutputBounds,
             RenderValueCardinality.Single,
             RenderScaleContract.MaterializeAtWorkingScale,
             structuralKey: "opaque-source",
-            runtimeIdentity: runtimeIdentity,
             resources: [resource]);
+        OpaqueRenderDescription requestLocal = OpaqueRenderDescription.CreateRequestLocal(
+            execute,
+            bounds,
+            RenderHitTestContract.OutputBounds,
+            RenderValueCardinality.Single,
+            RenderScaleContract.MaterializeAtWorkingScale,
+            structuralKey: "opaque-source-request-local");
 
         Assert.Multiple(() =>
         {
@@ -35,10 +41,11 @@ public sealed class RenderDescriptionAndExecutionContractTests
             Assert.That(description.ValueCardinality, Is.EqualTo(RenderValueCardinality.Single));
             Assert.That(description.Scale, Is.EqualTo(RenderScaleContract.MaterializeAtWorkingScale));
             Assert.That(description.StructuralKey, Is.EqualTo("opaque-source"));
-            Assert.That(description.RuntimeIdentity, Is.EqualTo(runtimeIdentity));
+            Assert.That(description.RuntimeIdentity, Is.Not.Null);
+            Assert.That(requestLocal.RuntimeIdentity, Is.Null,
+                "A request-local description publishes no identity a later request could match.");
             Assert.That(description.InputReadbacks, Is.Empty);
             Assert.That(description.Resources, Is.EqualTo(new[] { resource }));
-            Assert.That(description.Execute, Is.SameAs(execute));
             Assert.That(() => description.ThrowIfIncompatible(OpaqueRenderTopology.Source, "description"),
                 Throws.Nothing);
             Assert.That(() => description.ThrowIfIncompatible(OpaqueRenderTopology.Map, "description"),
@@ -48,27 +55,27 @@ public sealed class RenderDescriptionAndExecutionContractTests
         Assert.Multiple(() =>
         {
             Assert.That(
-                () => OpaqueRenderDescription.Create(
+                () => OpaqueRenderDescription.CreateRequestLocal(
                     null!, bounds, RenderHitTestContract.None, RenderValueCardinality.Single, RenderScaleContract.Vector),
                 Throws.TypeOf<ArgumentNullException>());
             Assert.That(
-                () => OpaqueRenderDescription.Create(
+                () => OpaqueRenderDescription.CreateRequestLocal(
                     execute, null!, RenderHitTestContract.None, RenderValueCardinality.Single, RenderScaleContract.Vector),
                 Throws.TypeOf<ArgumentNullException>());
             Assert.That(
-                () => OpaqueRenderDescription.Create(
+                () => OpaqueRenderDescription.CreateRequestLocal(
                     execute, bounds, default, RenderValueCardinality.Single, RenderScaleContract.Vector),
                 Throws.TypeOf<ArgumentException>());
             Assert.That(
-                () => OpaqueRenderDescription.Create(
+                () => OpaqueRenderDescription.CreateRequestLocal(
                     execute, bounds, RenderHitTestContract.None, default, RenderScaleContract.Vector),
                 Throws.TypeOf<ArgumentException>());
             Assert.That(
-                () => OpaqueRenderDescription.Create(
+                () => OpaqueRenderDescription.CreateRequestLocal(
                     execute, bounds, RenderHitTestContract.None, RenderValueCardinality.Single, default),
                 Throws.TypeOf<ArgumentException>());
             Assert.That(
-                () => OpaqueRenderDescription.Create(
+                () => OpaqueRenderDescription.CreateRequestLocal(
                     execute,
                     bounds,
                     RenderHitTestContract.None,
@@ -78,13 +85,14 @@ public sealed class RenderDescriptionAndExecutionContractTests
                 Throws.TypeOf<ArgumentException>().With.Property("ParamName").EqualTo("inputReadbacks"));
             Assert.That(
                 () => OpaqueRenderDescription.Create(
-                    execute,
+                    "state",
+                    (session, _) => execute(session),
                     bounds,
                     RenderHitTestContract.None,
                     RenderValueCardinality.Single,
-                    RenderScaleContract.Vector,
-                    runtimeIdentity: default(RenderRuntimeIdentity)),
-                Throws.TypeOf<ArgumentException>());
+                    RenderScaleContract.Vector),
+                Throws.TypeOf<ArgumentException>().With.Property("ParamName").EqualTo("execute"),
+                "a capturing callback could draw with a value the state never carried");
         });
     }
 
@@ -329,27 +337,27 @@ public sealed class RenderDescriptionAndExecutionContractTests
             RenderHitTestContract.OutputBounds,
             TargetCaptureScaleContract.MaterializeAtWorkingScale);
         TargetCommandDescription command = TargetCommandDescription.Create(
-            static _ => { },
+            ("command", 2),
+            static (_, _) => { },
             TargetRegion.Region(bounds),
             bounds,
             RenderHitTestContract.OutputBounds,
             TargetAccess.Readback,
             inputReadbacks: [RenderInputReadback.Values([0])],
-            structuralKey: "read-command",
-            runtimeIdentity: new RenderRuntimeIdentity(("command", 2)));
-        TargetScopeDescription scope = TargetScopeDescription.Create(
+            structuralKey: "read-command");
+        TargetScopeDescription scope = TargetScopeDescription.CreateRequestLocal(
             static _ => { },
             RenderBoundsContract.Identity,
             RenderHitTestContract.AnyInput,
             RenderScaleContract.PreserveInputSupply,
             structuralKey: "scope");
-        RawTargetScopeDescription rawScope = RawTargetScopeDescription.Create(
+        RawTargetScopeDescription rawScope = RawTargetScopeDescription.CreateRequestLocal(
             static _ => { },
             RenderBoundsContract.FullInput,
             RenderHitTestContract.AnyInput,
             RenderScaleContract.PreserveInputSupply,
             "raw-scope");
-        RawTargetCommandDescription rawCommand = RawTargetCommandDescription.Create(
+        RawTargetCommandDescription rawCommand = RawTargetCommandDescription.CreateRequestLocal(
             static _ => { },
             bounds,
             RenderHitTestContract.OutputBounds,
@@ -373,7 +381,7 @@ public sealed class RenderDescriptionAndExecutionContractTests
                 () => RenderInputReadback.Values([0, 0]),
                 Throws.TypeOf<ArgumentException>());
             Assert.That(
-                () => TargetCommandDescription.Create(
+                () => TargetCommandDescription.CreateRequestLocal(
                     static _ => { },
                     TargetRegion.Region(bounds),
                     bounds,
@@ -383,7 +391,7 @@ public sealed class RenderDescriptionAndExecutionContractTests
         });
 
         ArgumentException emptyReadback = Assert.Throws<ArgumentException>(
-            () => TargetCommandDescription.Create(
+            () => TargetCommandDescription.CreateRequestLocal(
                 static _ => { },
                 TargetRegion.Empty,
                 Rect.Empty,
@@ -413,14 +421,14 @@ public sealed class RenderDescriptionAndExecutionContractTests
                     TargetCaptureScaleContract.MaterializeAtWorkingScale),
                 Throws.TypeOf<ArgumentException>());
             Assert.That(
-                () => TargetCommandDescription.Create(
+                () => TargetCommandDescription.CreateRequestLocal(
                     static _ => { },
                     default,
                     Rect.Empty,
                     RenderHitTestContract.None),
                 Throws.TypeOf<ArgumentException>());
             Assert.That(
-                () => TargetScopeDescription.Create(
+                () => TargetScopeDescription.CreateRequestLocal(
                     static _ => { }, default, RenderHitTestContract.None, RenderScaleContract.Vector),
                 Throws.TypeOf<ArgumentException>());
         });
@@ -436,7 +444,7 @@ public sealed class RenderDescriptionAndExecutionContractTests
         Assert.Multiple(() =>
         {
             Assert.That(
-                () => OpaqueRenderDescription.Create(
+                () => OpaqueRenderDescription.CreateRequestLocal(
                     static _ => { },
                     opaqueBounds,
                     RenderHitTestContract.OutputBounds,
@@ -475,7 +483,7 @@ public sealed class RenderDescriptionAndExecutionContractTests
                     .With.Property(nameof(ArgumentOutOfRangeException.ParamName))
                     .EqualTo("deviceGridSensitivity"));
             Assert.That(
-                () => TargetScopeDescription.Create(
+                () => TargetScopeDescription.CreateRequestLocal(
                     static session => session.Canvas.Use(_ => session.ReplayInput()),
                     RenderBoundsContract.Identity,
                     RenderHitTestContract.AnyInput,

@@ -270,15 +270,22 @@ internal sealed class FilterEffectInputBinding : IDisposable
                     ? RenderInputReadback.Values([0])
                     : RenderInputReadback.None)
                 .ToArray();
-            object runtimeIdentity = preview.RuntimeIdentity;
+            // The preview sink is a capturing delegate, so it can never be a persistent identity and travels
+            // through the declared-resource channel instead. Its own identity is the preview's.
+            RenderResource<Func<Ref<Bitmap>?, Ref<Bitmap>?>> sink = _context.Borrow(
+                replace,
+                preview.RuntimeIdentity);
             TargetCommandDescription description = TargetCommandDescription.Create(
-                session => ExecutePreview(session, replace),
+                preview.RuntimeIdentity,
+                static (session, _) => session.UseDeclaredResource<Func<Ref<Bitmap>?, Ref<Bitmap>?>>(
+                    0,
+                    sink => ExecutePreview(session, sink)),
                 TargetRegion.Empty,
                 Rect.Empty,
                 RenderHitTestContract.None,
                 inputReadbacks: inputReadbacks,
                 structuralKey: s_previewCommandStructuralKey,
-                runtimeIdentity: new RenderRuntimeIdentity(runtimeIdentity));
+                resources: [sink]);
             _context.Publish(_context.TargetCommand(inputs, description));
         }
 

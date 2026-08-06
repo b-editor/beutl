@@ -590,7 +590,8 @@ public sealed class ExecutionIslandAuthorityTests
                 ? context.OpaqueMap(
                     current,
                     OpaqueRenderDescription.Create(
-                        static session =>
+                        "opaque-readback",
+                        static (session, _) =>
                         {
                             RenderExecutionInput input = session.Inputs.Single();
                             input.UseSnapshot(static _ => { });
@@ -603,12 +604,12 @@ public sealed class ExecutionIslandAuthorityTests
                         RenderValueCardinality.Single,
                         RenderScaleContract.PreserveInputSupply,
                         structuralKey: (typeof(DeclaredInputReadbackNode), "opaque"),
-                        runtimeIdentity: new RenderRuntimeIdentity("opaque-readback"),
                         inputReadbacks: [RenderInputReadback.All]))
                 : context.Geometry(
                     current,
                     GeometryDescription.Create(
-                        static session =>
+                        "geometry-readback",
+                        static (session, _) =>
                         {
                             session.Input.UseSnapshot(static _ => { });
                             session.Canvas.Use(session.Input.Draw);
@@ -616,7 +617,6 @@ public sealed class ExecutionIslandAuthorityTests
                         RenderBoundsContract.Identity,
                         RenderHitTestContract.AnyInput,
                         structuralKey: (typeof(DeclaredInputReadbackNode), "geometry"),
-                        runtimeIdentity: new RenderRuntimeIdentity("geometry-readback"),
                         requiresReadback: true));
             context.Publish(current);
         }

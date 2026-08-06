@@ -20,14 +20,15 @@ public sealed class GeometryAuthoringContractTests
         GeometryDescription? observedDescription = null;
         RenderResourceIdentity observedResourceIdentity = default;
         FragmentSnapshot observedFragment = default;
-        int renderCalls = 0;
+        var probe = new ExecutionProbe();
 
         using var node = new DelegateNode(context =>
         {
             RenderResource<GeometryResource> token = context.Borrow(resource, "metadata-resource", version: 4);
             observedResourceIdentity = token.CacheIdentity;
             GeometryDescription description = GeometryDescription.Create(
-                _ => renderCalls++,
+                ("geometry-runtime", probe),
+                static (_, state) => state.probe.Record(),
                 RenderBoundsContract.Create(
                     bounds => bounds.Inflate(new Thickness(2)),
                     required => required.Inflate(new Thickness(2)),
@@ -36,14 +37,13 @@ public sealed class GeometryAuthoringContractTests
                     GeometryHitTest,
                     structuralKey: "geometry-output-hit"),
                 structuralKey: "public-geometry",
-                runtimeIdentity: new RenderRuntimeIdentity("geometry-runtime"),
                 requiresReadback: true,
                 resources: [token]);
             RenderFragmentHandle source = context.OpaqueSource(MetadataSource(inputBounds));
             RenderFragmentHandle geometry = context.Geometry(source, description);
             RenderFragmentHandle command = context.TargetCommand(
                 [],
-                TargetCommandDescription.Create(
+                TargetCommandDescription.CreateRequestLocal(
                     static _ => throw new AssertionException("Metadata must not execute target commands."),
                     TargetRegion.Region(inputBounds),
                     Rect.Empty,
@@ -63,7 +63,7 @@ public sealed class GeometryAuthoringContractTests
 
         Assert.Multiple(() =>
         {
-            Assert.That(renderCalls, Is.Zero, "Bounds and hit-test requests are metadata-only.");
+            Assert.That(probe.Count, Is.Zero, "Bounds and hit-test requests are metadata-only.");
             Assert.That(hit, Is.True);
             Assert.That(measurement.OutputBounds, Is.EqualTo(outputBounds));
             Assert.That(measurement.QueryBounds, Is.EqualTo(outputBounds));
@@ -78,8 +78,8 @@ public sealed class GeometryAuthoringContractTests
             Assert.That(observedDescription.Bounds.GetRequiredInputBounds(outputBounds),
                 Is.EqualTo(outputBounds.Inflate(new Thickness(2))));
             Assert.That(observedDescription.StructuralKey, Is.EqualTo("public-geometry"));
-            Assert.That(observedDescription.RuntimeIdentity,
-                Is.EqualTo(new RenderRuntimeIdentity("geometry-runtime")));
+            Assert.That(observedDescription.RuntimeIdentity, Is.Not.Null,
+                "A state-passing description always publishes a runtime identity derived from its state.");
             Assert.That(observedDescription.RequiresReadback, Is.True);
             Assert.That(observedDescription.Resources, Has.Count.EqualTo(1));
             Assert.That(observedResourceIdentity,
@@ -146,7 +146,7 @@ public sealed class GeometryAuthoringContractTests
         using var node = new DelegateNode(context =>
         {
             RenderFragmentHandle source = context.OpaqueSource(ExecutingSource(bounds, Colors.White));
-            GeometryDescription description = GeometryDescription.Create(
+            GeometryDescription description = GeometryDescription.CreateRequestLocal(
                 session =>
                 {
                     executionCalls++;
@@ -156,8 +156,7 @@ public sealed class GeometryAuthoringContractTests
                 },
                 RenderBoundsContract.Identity,
                 RenderHitTestContract.OutputBounds,
-                structuralKey: "discard-after-shrink",
-                runtimeIdentity: new RenderRuntimeIdentity("discard-after-shrink-runtime"));
+                structuralKey: "discard-after-shrink");
             RenderFragmentHandle geometry = context.Geometry(source, description);
             Assert.That(geometry.ValueCardinality, Is.EqualTo(RenderValueCardinality.ZeroOrOne));
             context.Publish(geometry);
@@ -182,7 +181,7 @@ public sealed class GeometryAuthoringContractTests
         using var node = new DelegateNode(context =>
         {
             RenderFragmentHandle source = context.OpaqueSource(ExecutingSource(bounds, Colors.White));
-            GeometryDescription description = GeometryDescription.Create(
+            GeometryDescription description = GeometryDescription.CreateRequestLocal(
                 session => session.Input.UseSnapshot(static _ => { }),
                 RenderBoundsContract.Identity,
                 RenderHitTestContract.AnyInput,
@@ -244,7 +243,7 @@ public sealed class GeometryAuthoringContractTests
 
     private static OpaqueRenderDescription MetadataSource(Rect bounds)
     {
-        return OpaqueRenderDescription.Create(
+        return OpaqueRenderDescription.CreateRequestLocal(
             static _ => throw new AssertionException("A metadata request must not execute the source."),
             OpaqueRenderBoundsContract.Source(bounds),
             RenderHitTestContract.OutputBounds,
@@ -267,18 +266,25 @@ public sealed class GeometryAuthoringContractTests
     private static OpaqueRenderDescription ExecutingSource(Rect bounds, Color color)
     {
         return OpaqueRenderDescription.Create(
-            session =>
+            (bounds, color),
+            static (session, state) =>
             {
                 using OpaqueRenderOutput output = session.CreateOutput(session.OutputBounds);
-                output.Canvas.Use(canvas => canvas.Clear(color));
+                output.Canvas.Use(canvas => canvas.Clear(state.color));
                 session.Publish(output);
             },
             OpaqueRenderBoundsContract.Source(bounds),
             RenderHitTestContract.OutputBounds,
             RenderValueCardinality.Single,
             RenderScaleContract.MaterializeAtWorkingScale,
-            structuralKey: (typeof(GeometryAuthoringContractTests), "executing-source"),
-            runtimeIdentity: new RenderRuntimeIdentity((bounds, color)));
+            structuralKey: (typeof(GeometryAuthoringContractTests), "executing-source"));
+    }
+
+    private sealed class ExecutionProbe
+    {
+        public int Count { get; private set; }
+
+        public void Record() => Count++;
     }
 
     private sealed class SolidSourceNode(Rect bounds, Color color) : RenderNode
@@ -323,7 +329,7 @@ public sealed class GeometryAuthoringContractTests
                 declaredResource,
                 cacheKey: "plugin-geometry-resource",
                 version: 2);
-            context.Geometry(GeometryDescription.Create(
+            context.Geometry(GeometryDescription.CreateRequestLocal(
                 session =>
                 {
                     ExecutionCalls++;
@@ -357,7 +363,6 @@ public sealed class GeometryAuthoringContractTests
                 RenderBoundsContract.Identity,
                 RenderHitTestContract.OutputBounds,
                 structuralKey: "plugin-geometry",
-                runtimeIdentity: new RenderRuntimeIdentity("plugin-geometry-runtime"),
                 requiresReadback: true,
                 resources: [token]));
         }

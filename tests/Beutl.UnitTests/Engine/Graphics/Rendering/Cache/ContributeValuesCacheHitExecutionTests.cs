@@ -134,7 +134,8 @@ public sealed class ContributeValuesCacheHitExecutionTests
         {
             RenderFragmentHandle input = context.RecordNode(producer, []).Single();
             OpaqueRenderDescription description = OpaqueRenderDescription.Create(
-                session =>
+                nameof(ValueConsumerNode),
+                static (session, _) =>
                 {
                     using OpaqueRenderOutput output = session.CreateOutput(s_bounds);
                     output.Canvas.Use(session.Inputs[0].Draw);
@@ -144,8 +145,7 @@ public sealed class ContributeValuesCacheHitExecutionTests
                 RenderHitTestContract.AnyInput,
                 RenderValueCardinality.Single,
                 RenderScaleContract.MaterializeAtWorkingScale,
-                structuralKey: nameof(ValueConsumerNode),
-                runtimeIdentity: new RenderRuntimeIdentity(nameof(ValueConsumerNode)));
+                structuralKey: nameof(ValueConsumerNode));
             context.Publish(context.OpaqueMap(input, description));
         }
 
@@ -158,14 +158,17 @@ public sealed class ContributeValuesCacheHitExecutionTests
 
     private sealed class EmptyCombineContributionNode : RenderNode
     {
-        public int ExecuteCount { get; private set; }
+        private readonly ExecutionProbe _probe = new();
+
+        public int ExecuteCount => _probe.Count;
 
         public override void Process(RenderNodeContext context)
         {
             RenderFragmentHandle combined = context.OpaqueCombine([], OpaqueRenderDescription.Create(
-                session =>
+                _probe,
+                static (session, probe) =>
                 {
-                    ExecuteCount++;
+                    probe.Record();
                     using OpaqueRenderOutput output = session.CreateOutput(s_bounds);
                     output.Canvas.Use(canvas => canvas.Clear(Colors.White));
                     session.Publish(output);
@@ -176,22 +179,24 @@ public sealed class ContributeValuesCacheHitExecutionTests
                 RenderHitTestContract.OutputBounds,
                 RenderValueCardinality.ZeroOrOne,
                 RenderScaleContract.MaterializeAtWorkingScale,
-                structuralKey: nameof(EmptyCombineContributionNode),
-                runtimeIdentity: new RenderRuntimeIdentity(nameof(EmptyCombineContributionNode))));
+                structuralKey: nameof(EmptyCombineContributionNode)));
             context.Publish(context.ContributeValues(combined));
         }
     }
 
     private sealed class IndependentDensityProducerNode : RenderNode
     {
-        public int ExecuteCount { get; private set; }
+        private readonly ExecutionProbe _probe = new();
+
+        public int ExecuteCount => _probe.Count;
 
         public override void Process(RenderNodeContext context)
         {
             OpaqueRenderDescription description = OpaqueRenderDescription.Create(
-                session =>
+                _probe,
+                static (session, probe) =>
                 {
-                    ExecuteCount++;
+                    probe.Record();
                     using OpaqueRenderOutput left = session.CreateOutput(new Rect(0, 0, 8, 12), density: 1);
                     using OpaqueRenderOutput right = session.CreateOutput(new Rect(8, 0, 8, 12), density: 2);
                     left.Canvas.Use(canvas => canvas.Clear(Colors.Red));
@@ -202,8 +207,7 @@ public sealed class ContributeValuesCacheHitExecutionTests
                 OpaqueRenderBoundsContract.FullInputs(static _ => s_bounds),
                 RenderHitTestContract.OutputBounds,
                 RenderValueCardinality.Dynamic,
-                RenderScaleContract.MaterializeAtWorkingScale,
-                runtimeIdentity: new RenderRuntimeIdentity(typeof(IndependentDensityProducerNode)));
+                RenderScaleContract.MaterializeAtWorkingScale);
             RenderFragmentHandle expanded = context.OpaqueExpand([], description);
             context.Publish(context.ContributeValues(expanded));
         }
@@ -211,15 +215,18 @@ public sealed class ContributeValuesCacheHitExecutionTests
 
     private sealed class IndependentDensityObserverNode(IndependentDensityProducerNode producer) : RenderNode
     {
-        public List<float[]> ObservedScales { get; } = [];
+        private readonly RecordingProbe<float[]> _scaleProbe = new();
+
+        public IReadOnlyList<float[]> ObservedScales => _scaleProbe.Records;
 
         public override void Process(RenderNodeContext context)
         {
             RenderFragmentHandle input = context.RecordNode(producer, []).Single();
             OpaqueRenderDescription description = OpaqueRenderDescription.Create(
-                session =>
+                _scaleProbe,
+                static (session, probe) =>
                 {
-                    ObservedScales.Add(session.Inputs
+                    probe.Record(session.Inputs
                         .Select(static item => item.EffectiveScale.Value)
                         .ToArray());
                     using OpaqueRenderOutput output = session.CreateOutput(s_bounds);
@@ -233,8 +240,7 @@ public sealed class ContributeValuesCacheHitExecutionTests
                 OpaqueRenderBoundsContract.FullInputs(static _ => s_bounds),
                 RenderHitTestContract.OutputBounds,
                 RenderValueCardinality.Single,
-                RenderScaleContract.MaterializeAtWorkingScale,
-                runtimeIdentity: new RenderRuntimeIdentity(typeof(IndependentDensityObserverNode)));
+                RenderScaleContract.MaterializeAtWorkingScale);
             context.Publish(context.OpaqueCombine([input], description));
         }
 

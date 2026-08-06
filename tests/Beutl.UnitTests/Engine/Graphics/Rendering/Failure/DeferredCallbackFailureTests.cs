@@ -497,7 +497,7 @@ public sealed class DeferredCallbackFailureTests
             RenderFragmentHandle source = context.OpaqueSource(FailureTestSupport.SourceDescription(
                 structuralKey: $"geometry-source-{failurePoint}"));
             bool readback = failurePoint == GeometryFailure.DuplicateInputReadback;
-            GeometryDescription description = GeometryDescription.Create(
+            GeometryDescription description = GeometryDescription.CreateRequestLocal(
                 session =>
                 {
                     CallbackEntries++;
@@ -555,7 +555,7 @@ public sealed class DeferredCallbackFailureTests
 
             if (topology == OpaqueTopology.Source)
             {
-                context.Publish(context.OpaqueSource(OpaqueRenderDescription.Create(
+                context.Publish(context.OpaqueSource(OpaqueRenderDescription.CreateRequestLocal(
                     Fail,
                     OpaqueRenderBoundsContract.Source(s_bounds),
                     RenderHitTestContract.OutputBounds,
@@ -569,7 +569,7 @@ public sealed class DeferredCallbackFailureTests
                 structuralKey: $"opaque-{topology}-input-a"));
             if (topology == OpaqueTopology.Map)
             {
-                OpaqueRenderDescription map = OpaqueRenderDescription.Create(
+                OpaqueRenderDescription map = OpaqueRenderDescription.CreateRequestLocal(
                     Fail,
                     OpaqueRenderBoundsContract.Map(RenderBoundsContract.Identity),
                     RenderHitTestContract.AnyInput,
@@ -582,7 +582,7 @@ public sealed class DeferredCallbackFailureTests
 
             RenderFragmentHandle second = context.OpaqueSource(FailureTestSupport.SourceDescription(
                 structuralKey: $"opaque-{topology}-input-b"));
-            OpaqueRenderDescription many = OpaqueRenderDescription.Create(
+            OpaqueRenderDescription many = OpaqueRenderDescription.CreateRequestLocal(
                 Fail,
                 OpaqueRenderBoundsContract.FullInputs(
                     static bounds => bounds.Aggregate(default(Rect), static (result, value) => result.Union(value)),
@@ -606,7 +606,7 @@ public sealed class DeferredCallbackFailureTests
 
         public override void Process(RenderNodeContext context)
         {
-            OpaqueRenderDescription description = OpaqueRenderDescription.Create(
+            OpaqueRenderDescription description = OpaqueRenderDescription.CreateRequestLocal(
                 session =>
                 {
                     CallbackEntries++;
@@ -653,7 +653,7 @@ public sealed class DeferredCallbackFailureTests
                 Borrowed,
                 "undeclared-callback-resource",
                 0);
-            OpaqueRenderDescription description = OpaqueRenderDescription.Create(
+            OpaqueRenderDescription description = OpaqueRenderDescription.CreateRequestLocal(
                 session => session.UseResource(borrowed, static _ => { }),
                 OpaqueRenderBoundsContract.Source(s_bounds),
                 RenderHitTestContract.OutputBounds,
@@ -680,7 +680,7 @@ public sealed class DeferredCallbackFailureTests
         {
             RenderFragmentHandle source = context.OpaqueSource(FailureTestSupport.SourceDescription(
                 structuralKey: "retained-facade-source"));
-            OpaqueRenderDescription map = OpaqueRenderDescription.Create(
+            OpaqueRenderDescription map = OpaqueRenderDescription.CreateRequestLocal(
                 session =>
                 {
                     Session = session;

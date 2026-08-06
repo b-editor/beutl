@@ -21,11 +21,11 @@ public sealed class ClearRenderNode(Color color) : RenderNode
     {
         Color color = Color;
         TargetCommandDescription description = TargetCommandDescription.Create(
-            session => session.Canvas.Use(canvas => canvas.Clear(color)),
+            color,
+            static (session, state) => session.Canvas.Use(canvas => canvas.Clear(state)),
             TargetRegion.Full,
             Rect.Empty,
-            RenderHitTestContract.None,
-            runtimeIdentity: new RenderRuntimeIdentity(color));
+            RenderHitTestContract.None);
         context.Publish(context.TargetCommand([], description));
     }
 }

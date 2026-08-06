@@ -53,7 +53,7 @@ public sealed class SymbolicSupplyMappingTests
         {
             foreach (RenderFragmentHandle input in context.Inputs)
             {
-                OpaqueRenderDescription description = OpaqueRenderDescription.Create(
+                OpaqueRenderDescription description = OpaqueRenderDescription.CreateRequestLocal(
                     execute: static _ => throw new AssertionException(
                         "Metadata analysis must not execute opaque callbacks."),
                     bounds: OpaqueRenderBoundsContract.Map(RenderBoundsContract.Identity),

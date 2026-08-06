@@ -548,13 +548,13 @@ public sealed class StructuralAndProgramCacheTests
         public override void Process(RenderNodeContext context)
         {
             OpaqueRenderDescription source = OpaqueRenderDescription.Create(
-                static _ => { },
+                ("source-frame", Value),
+                static (_, _) => { },
                 OpaqueRenderBoundsContract.Source(Bounds),
                 RenderHitTestContract.OutputBounds,
                 RenderValueCardinality.Single,
                 RenderScaleContract.MaterializeAtWorkingScale,
-                structuralKey: "structural-cache-source",
-                runtimeIdentity: new RenderRuntimeIdentity(("source-frame", Value)));
+                structuralKey: "structural-cache-source");
             RenderFragmentHandle input = context.OpaqueSource(source);
             string shaderSource = StructuralVariant == 0 ? FirstSource : SecondSource;
             LastDescription = ShaderDescription.CurrentPixel(
@@ -621,7 +621,7 @@ public sealed class StructuralAndProgramCacheTests
             int selectedInput = ReadFirstInput ? 0 : 1;
             RenderFragmentHandle command = context.TargetCommand(
                 [first, second],
-                TargetCommandDescription.Create(
+                TargetCommandDescription.CreateRequestLocal(
                     session => session.Inputs[selectedInput].UseSnapshot(
                         _ => SnapshotCounts[selectedInput]++),
                     TargetRegion.Empty,
@@ -635,7 +635,7 @@ public sealed class StructuralAndProgramCacheTests
         }
 
         private static OpaqueRenderDescription CreateSource(string key)
-            => OpaqueRenderDescription.Create(
+            => OpaqueRenderDescription.CreateRequestLocal(
                 session =>
                 {
                     using OpaqueRenderOutput output = session.CreateOutput(session.OutputBounds);

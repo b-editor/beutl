@@ -307,7 +307,8 @@ public sealed class RawScopeNestingAndCaptureOffsetTests
     {
         public override void Process(RenderNodeContext context)
             => context.Publish(context.OpaqueSource(OpaqueRenderDescription.Create(
-                static session =>
+                "capture-offset-mark",
+                static (session, _) =>
                 {
                     using OpaqueRenderOutput output = session.CreateOutput(s_mark);
                     output.Canvas.Use(static canvas => canvas.Clear(s_markColor));
@@ -317,8 +318,7 @@ public sealed class RawScopeNestingAndCaptureOffsetTests
                 RenderHitTestContract.OutputBounds,
                 RenderValueCardinality.Single,
                 RenderScaleContract.MaterializeAtWorkingScale,
-                structuralKey: "capture-offset-mark",
-                runtimeIdentity: new RenderRuntimeIdentity("capture-offset-mark"))));
+                structuralKey: "capture-offset-mark")));
     }
 
     private sealed class NestedRawCommandNode : RenderNode
@@ -327,7 +327,7 @@ public sealed class RawScopeNestingAndCaptureOffsetTests
 
         public override void Process(RenderNodeContext context)
         {
-            RenderFragmentHandle nested = context.RawTargetCommand(RawTargetCommandDescription.Create(
+            RenderFragmentHandle nested = context.RawTargetCommand(RawTargetCommandDescription.CreateRequestLocal(
                 session =>
                 {
                     NestedExecutions++;
@@ -338,7 +338,7 @@ public sealed class RawScopeNestingAndCaptureOffsetTests
                 structuralKey: "raw-scope-nested-command"));
             context.Publish(context.RawTargetScope(
                 nested,
-                RawTargetScopeDescription.Create(
+                RawTargetScopeDescription.CreateRequestLocal(
                     static session => session.ReplayInput(),
                     RenderBoundsContract.FullInput,
                     RenderHitTestContract.AnyInput,

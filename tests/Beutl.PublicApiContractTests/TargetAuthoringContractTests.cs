@@ -18,7 +18,7 @@ public sealed class TargetAuthoringContractTests
         {
             RenderFragmentHandle command = context.TargetCommand(
                 [],
-                TargetCommandDescription.Create(
+                TargetCommandDescription.CreateRequestLocal(
                     _ => executions++,
                     TargetRegion.Full,
                     Rect.Empty,
@@ -72,7 +72,7 @@ public sealed class TargetAuthoringContractTests
         {
             RenderFragmentHandle command = context.TargetCommand(
                 [],
-                TargetCommandDescription.Create(
+                TargetCommandDescription.CreateRequestLocal(
                     static _ => { },
                     TargetRegion.Region(affected),
                     Rect.Empty,
@@ -109,21 +109,21 @@ public sealed class TargetAuthoringContractTests
             RenderFragmentHandle source = context.OpaqueSource(MetadataSource(bounds));
             RenderFragmentHandle command = context.TargetCommand(
                 [source],
-                TargetCommandDescription.Create(
+                TargetCommandDescription.CreateRequestLocal(
                     static _ => throw new AssertionException("Measure must not execute a guarded command."),
                     TargetRegion.Region(bounds),
                     queryBounds,
                     RenderHitTestContract.OutputBounds,
                     structuralKey: "guarded-command"));
             RenderFragmentHandle rawCommand = context.RawTargetCommand(
-                RawTargetCommandDescription.Create(
+                RawTargetCommandDescription.CreateRequestLocal(
                     static _ => throw new AssertionException("Measure must not execute a raw command."),
                     queryBounds,
                     RenderHitTestContract.OutputBounds,
                     structuralKey: "raw-command"));
             RenderFragmentHandle guardedScope = context.TargetScope(
                 source,
-                TargetScopeDescription.Create(
+                TargetScopeDescription.CreateRequestLocal(
                     static _ => throw new AssertionException("Measure must not execute a guarded scope."),
                     RenderBoundsContract.Identity,
                     RenderHitTestContract.AnyInput,
@@ -131,7 +131,7 @@ public sealed class TargetAuthoringContractTests
                     structuralKey: "guarded-scope"));
             RenderFragmentHandle rawScope = context.RawTargetScope(
                 source,
-                RawTargetScopeDescription.Create(
+                RawTargetScopeDescription.CreateRequestLocal(
                     static _ => throw new AssertionException("Measure must not execute a raw scope."),
                     RenderBoundsContract.Identity,
                     RenderHitTestContract.AnyInput,
@@ -142,7 +142,7 @@ public sealed class TargetAuthoringContractTests
                 TargetRegion.Region(bounds));
             RenderFragmentHandle finiteLayerCommand = context.TargetCommand(
                 [source],
-                TargetCommandDescription.Create(
+                TargetCommandDescription.CreateRequestLocal(
                     static _ => throw new AssertionException("Measure must not execute a guarded command."),
                     TargetRegion.Region(bounds),
                     queryBounds,
@@ -255,7 +255,7 @@ public sealed class TargetAuthoringContractTests
         {
             RenderFragmentHandle command = context.TargetCommand(
                 [],
-                TargetCommandDescription.Create(
+                TargetCommandDescription.CreateRequestLocal(
                     static _ => { },
                     TargetRegion.Full,
                     query,
@@ -466,7 +466,7 @@ public sealed class TargetAuthoringContractTests
         var bounds = new Rect(0, 0, 4, 3);
         int targetSnapshots = 0;
         int inputSnapshots = 0;
-        TargetCommandDescription description = TargetCommandDescription.Create(
+        TargetCommandDescription description = TargetCommandDescription.CreateRequestLocal(
             session =>
             {
                 session.UseSnapshot(_ => targetSnapshots++);
@@ -519,7 +519,7 @@ public sealed class TargetAuthoringContractTests
         var erased = new Rect(1, 1, 2, 1);
         using var node = new DelegateNode(context =>
         {
-            RenderFragmentHandle source = context.OpaqueSource(OpaqueRenderDescription.Create(
+            RenderFragmentHandle source = context.OpaqueSource(OpaqueRenderDescription.CreateRequestLocal(
                 session =>
                 {
                     using OpaqueRenderOutput output = session.CreateOutput(session.OutputBounds);
@@ -533,7 +533,7 @@ public sealed class TargetAuthoringContractTests
                 structuralKey: "finite-source-replace-background"));
             RenderFragmentHandle command = context.TargetCommand(
                 [],
-                TargetCommandDescription.Create(
+                TargetCommandDescription.CreateRequestLocal(
                     session => session.ReplaceAffectedRegion(Colors.Transparent),
                     TargetRegion.Region(erased),
                     Rect.Empty,
@@ -562,7 +562,7 @@ public sealed class TargetAuthoringContractTests
     {
         var bounds = new Rect(0, 0, 4, 3);
         int snapshots = 0;
-        TargetCommandDescription description = TargetCommandDescription.Create(
+        TargetCommandDescription description = TargetCommandDescription.CreateRequestLocal(
             session =>
             {
                 Assert.That(session.Inputs, Has.Count.EqualTo(3));
@@ -621,7 +621,7 @@ public sealed class TargetAuthoringContractTests
             RenderFragmentHandle source = context.OpaqueSource(ExecutingSource(bounds));
             RenderFragmentHandle command = context.TargetCommand(
                 [source],
-                TargetCommandDescription.Create(
+                TargetCommandDescription.CreateRequestLocal(
                     static _ => throw new AssertionException("Invalid readback must fail before callback entry."),
                     TargetRegion.Empty,
                     Rect.Empty,
@@ -646,7 +646,7 @@ public sealed class TargetAuthoringContractTests
             RenderFragmentHandle source = context.OpaqueSource(ExecutingSource(bounds));
             _ = context.TargetCommand(
                 [source],
-                TargetCommandDescription.Create(
+                TargetCommandDescription.CreateRequestLocal(
                     static _ => { },
                     TargetRegion.Empty,
                     Rect.Empty,
@@ -666,7 +666,7 @@ public sealed class TargetAuthoringContractTests
     {
         var bounds = new Rect(0, 0, 4, 3);
         int snapshots = 0;
-        OpaqueRenderDescription description = OpaqueRenderDescription.Create(
+        OpaqueRenderDescription description = OpaqueRenderDescription.CreateRequestLocal(
             session =>
             {
                 Assert.That(session.Inputs, Has.Count.EqualTo(3));
@@ -732,7 +732,7 @@ public sealed class TargetAuthoringContractTests
         using var node = new DelegateNode(context =>
         {
             RenderFragmentHandle source = context.OpaqueSource(ExecutingSource(bounds));
-            OpaqueRenderDescription description = OpaqueRenderDescription.Create(
+            OpaqueRenderDescription description = OpaqueRenderDescription.CreateRequestLocal(
                 session =>
                 {
                     using OpaqueRenderOutput large = session.CreateOutput(new Rect(0, 0, 8, 8), density: 1);
@@ -773,14 +773,14 @@ public sealed class TargetAuthoringContractTests
             RenderFragmentHandle first = context.OpaqueSource(ExecutingSource(bounds, () => order.Add("A"), "A"));
             RenderFragmentHandle guarded = context.TargetCommand(
                 [],
-                TargetCommandDescription.Create(
+                TargetCommandDescription.CreateRequestLocal(
                     _ => order.Add("guarded"),
                     TargetRegion.Region(bounds),
                     Rect.Empty,
                     RenderHitTestContract.None,
                     structuralKey: "ordered-guarded"));
             RenderFragmentHandle raw = context.RawTargetCommand(
-                RawTargetCommandDescription.Create(
+                RawTargetCommandDescription.CreateRequestLocal(
                     _ => order.Add("raw"),
                     Rect.Empty,
                     RenderHitTestContract.None,
@@ -810,7 +810,7 @@ public sealed class TargetAuthoringContractTests
             RenderFragmentHandle source = context.OpaqueSource(ExecutingSource(bounds));
             RenderFragmentHandle scope = context.TargetScope(
                 source,
-                TargetScopeDescription.Create(
+                TargetScopeDescription.CreateRequestLocal(
                     session => session.Canvas.Use(_ =>
                     {
                         session.ReplayInput();
@@ -832,7 +832,7 @@ public sealed class TargetAuthoringContractTests
             RenderFragmentHandle source = context.OpaqueSource(ExecutingSource(bounds));
             RenderFragmentHandle scope = context.RawTargetScope(
                 source,
-                RawTargetScopeDescription.Create(
+                RawTargetScopeDescription.CreateRequestLocal(
                     session =>
                     {
                         session.ReplayInput();
@@ -888,7 +888,7 @@ public sealed class TargetAuthoringContractTests
                     }, "output-derived-capture")));
             RenderFragmentHandle inspectCapture = context.TargetCommand(
                 [capture],
-                TargetCommandDescription.Create(
+                TargetCommandDescription.CreateRequestLocal(
                     session =>
                     {
                         captureInputScale = session.Inputs.Single().EffectiveScale.Value;
@@ -946,7 +946,7 @@ public sealed class TargetAuthoringContractTests
                     TargetCaptureScaleContract.PreserveTargetSupply));
             RenderFragmentHandle inspectCapture = context.TargetCommand(
                 [capture],
-                TargetCommandDescription.Create(
+                TargetCommandDescription.CreateRequestLocal(
                     session =>
                     {
                         captureInputScale = session.Inputs.Single().EffectiveScale.Value;
@@ -984,7 +984,7 @@ public sealed class TargetAuthoringContractTests
 
     private static OpaqueRenderDescription MetadataSource(Rect bounds)
     {
-        return OpaqueRenderDescription.Create(
+        return OpaqueRenderDescription.CreateRequestLocal(
             static _ => throw new AssertionException("Measure must not execute opaque source callbacks."),
             OpaqueRenderBoundsContract.Source(bounds),
             RenderHitTestContract.OutputBounds,
@@ -999,19 +999,31 @@ public sealed class TargetAuthoringContractTests
         object? structuralKey = null,
         RenderScaleContract? scale = null)
     {
-        return OpaqueRenderDescription.Create(
-            session =>
-            {
-                beforePublish?.Invoke();
-                using OpaqueRenderOutput output = session.CreateOutput(session.OutputBounds);
-                session.Publish(output);
-            },
-            OpaqueRenderBoundsContract.Source(bounds),
-            RenderHitTestContract.OutputBounds,
-            RenderValueCardinality.Single,
-            scale ?? RenderScaleContract.MaterializeAtWorkingScale,
-            structuralKey: structuralKey ?? ("executing-source", bounds),
-            runtimeIdentity: new RenderRuntimeIdentity(("source-runtime", structuralKey ?? bounds)));
+        return beforePublish is null
+            ? OpaqueRenderDescription.Create(
+                ("source-runtime", structuralKey ?? bounds),
+                static (session, _) =>
+                {
+                    using OpaqueRenderOutput output = session.CreateOutput(session.OutputBounds);
+                    session.Publish(output);
+                },
+                OpaqueRenderBoundsContract.Source(bounds),
+                RenderHitTestContract.OutputBounds,
+                RenderValueCardinality.Single,
+                scale ?? RenderScaleContract.MaterializeAtWorkingScale,
+                structuralKey: structuralKey ?? ("executing-source", bounds))
+            : OpaqueRenderDescription.CreateRequestLocal(
+                session =>
+                {
+                    beforePublish();
+                    using OpaqueRenderOutput output = session.CreateOutput(session.OutputBounds);
+                    session.Publish(output);
+                },
+                OpaqueRenderBoundsContract.Source(bounds),
+                RenderHitTestContract.OutputBounds,
+                RenderValueCardinality.Single,
+                scale ?? RenderScaleContract.MaterializeAtWorkingScale,
+                structuralKey: structuralKey ?? ("executing-source", bounds));
     }
 
     private static OpaqueRenderDescription ExecutingMap(
@@ -1019,7 +1031,7 @@ public sealed class TargetAuthoringContractTests
         Action<OpaqueRenderSession> observe,
         RenderScaleContract scale)
     {
-        return OpaqueRenderDescription.Create(
+        return OpaqueRenderDescription.CreateRequestLocal(
             session =>
             {
                 observe(session);
@@ -1037,7 +1049,8 @@ public sealed class TargetAuthoringContractTests
     private static OpaqueRenderDescription ExecutingExpansion(Rect bounds)
     {
         return OpaqueRenderDescription.Create(
-            session =>
+            ("expansion-runtime", bounds),
+            static (session, _) =>
             {
                 for (int index = 0; index < 2; index++)
                 {
@@ -1050,8 +1063,7 @@ public sealed class TargetAuthoringContractTests
             RenderHitTestContract.AnyInput,
             RenderValueCardinality.Dynamic,
             RenderScaleContract.MaterializeAtWorkingScale,
-            structuralKey: ("executing-expansion", bounds),
-            runtimeIdentity: new RenderRuntimeIdentity(("expansion-runtime", bounds)));
+            structuralKey: ("executing-expansion", bounds));
     }
 
     [TestCaseSource(nameof(HitTestingContracts))]
@@ -1060,14 +1072,14 @@ public sealed class TargetAuthoringContractTests
         Assert.Multiple(() =>
         {
             Assert.That(
-                () => TargetCommandDescription.Create(
+                () => TargetCommandDescription.CreateRequestLocal(
                     static _ => { },
                     TargetRegion.Region(new Rect(20, 30, 10, 10)),
                     Rect.Empty,
                     hitTest),
                 Throws.TypeOf<ArgumentException>().With.Property("ParamName").EqualTo("hitTest"));
             Assert.That(
-                () => TargetCommandDescription.Create(
+                () => TargetCommandDescription.CreateRequestLocal(
                     static _ => { },
                     TargetRegion.Region(new Rect(20, 30, 10, 10)),
                     new Rect(20, 30, 10, 0),
@@ -1082,13 +1094,13 @@ public sealed class TargetAuthoringContractTests
         Assert.Multiple(() =>
         {
             Assert.That(
-                () => RawTargetCommandDescription.Create(
+                () => RawTargetCommandDescription.CreateRequestLocal(
                     static _ => { },
                     Rect.Empty,
                     RenderHitTestContract.OutputBounds),
                 Throws.TypeOf<ArgumentException>().With.Property("ParamName").EqualTo("hitTest"));
             Assert.That(
-                () => RawTargetCommandDescription.Create(
+                () => RawTargetCommandDescription.CreateRequestLocal(
                     static _ => { },
                     new Rect(4, 5, 6, 7),
                     RenderHitTestContract.AnyInput),
@@ -1102,14 +1114,14 @@ public sealed class TargetAuthoringContractTests
         Assert.Multiple(() =>
         {
             Assert.That(
-                TargetCommandDescription.Create(
+                TargetCommandDescription.CreateRequestLocal(
                     static _ => { },
                     TargetRegion.Full,
                     Rect.Empty,
                     RenderHitTestContract.None).QueryBounds,
                 Is.EqualTo(Rect.Empty));
             Assert.That(
-                RawTargetCommandDescription.Create(
+                RawTargetCommandDescription.CreateRequestLocal(
                     static _ => { },
                     Rect.Empty,
                     RenderHitTestContract.None).QueryBounds,
@@ -1120,12 +1132,12 @@ public sealed class TargetAuthoringContractTests
     [Test]
     public void TargetCommand_DefaultsToReadWriteAccess()
     {
-        TargetCommandDescription implicitAccess = TargetCommandDescription.Create(
+        TargetCommandDescription implicitAccess = TargetCommandDescription.CreateRequestLocal(
             static _ => { },
             TargetRegion.Full,
             Rect.Empty,
             RenderHitTestContract.None);
-        TargetCommandDescription statedReadback = TargetCommandDescription.Create(
+        TargetCommandDescription statedReadback = TargetCommandDescription.CreateRequestLocal(
             static session => session.UseSnapshot(static _ => { }),
             TargetRegion.Region(new Rect(0, 0, 4, 3)),
             Rect.Empty,

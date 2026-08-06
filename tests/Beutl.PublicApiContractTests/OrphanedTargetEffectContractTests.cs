@@ -291,21 +291,21 @@ public sealed class OrphanedTargetEffectContractTests
         {
             TargetEffectKind.TargetCommand => context.TargetCommand(
                 [source],
-                TargetCommandDescription.Create(
+                TargetCommandDescription.CreateRequestLocal(
                     _ => onExecute?.Invoke(),
                     TargetRegion.Region(s_bounds),
                     s_bounds,
                     RenderHitTestContract.None,
                     structuralKey: "orphan-target-command")),
             TargetEffectKind.RawTargetCommand => context.RawTargetCommand(
-                RawTargetCommandDescription.Create(
+                RawTargetCommandDescription.CreateRequestLocal(
                     _ => onExecute?.Invoke(),
                     s_bounds,
                     RenderHitTestContract.None,
                     structuralKey: "orphan-raw-target-command")),
             TargetEffectKind.TargetScope => context.TargetScope(
                 source,
-                TargetScopeDescription.Create(
+                TargetScopeDescription.CreateRequestLocal(
                     session =>
                     {
                         onExecute?.Invoke();
@@ -317,7 +317,7 @@ public sealed class OrphanedTargetEffectContractTests
                     structuralKey: "orphan-target-scope")),
             TargetEffectKind.RawTargetScope => context.RawTargetScope(
                 source,
-                RawTargetScopeDescription.Create(
+                RawTargetScopeDescription.CreateRequestLocal(
                     session =>
                     {
                         onExecute?.Invoke();
@@ -341,7 +341,8 @@ public sealed class OrphanedTargetEffectContractTests
     private static OpaqueRenderDescription ExecutingSource(object structuralKey)
     {
         return OpaqueRenderDescription.Create(
-            static session =>
+            structuralKey,
+            static (session, _) =>
             {
                 using OpaqueRenderOutput output = session.CreateOutput(session.OutputBounds);
                 session.Publish(output);
@@ -350,8 +351,7 @@ public sealed class OrphanedTargetEffectContractTests
             RenderHitTestContract.OutputBounds,
             RenderValueCardinality.Single,
             RenderScaleContract.MaterializeAtWorkingScale,
-            structuralKey: structuralKey,
-            runtimeIdentity: new RenderRuntimeIdentity(structuralKey));
+            structuralKey: structuralKey);
     }
 
     private static RenderNodeRasterization Rasterize(RenderNode node)

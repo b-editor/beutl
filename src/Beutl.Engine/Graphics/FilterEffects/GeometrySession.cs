@@ -113,6 +113,17 @@ public sealed class GeometrySession
         _token.UseResource(resource, _resources, use);
     }
 
+    /// <summary>Uses a resource by its position in the description's declared resource list.</summary>
+    /// <remarks>
+    /// The addressing mode a non-capturing callback needs: a resource token is request-scoped and can never be
+    /// part of a persistent identity, so it cannot travel through the description's state.
+    /// </remarks>
+    public void UseDeclaredResource<T>(int declaredIndex, Action<T> use)
+        where T : class
+    {
+        _token.UseDeclaredResource(declaredIndex, _resources, use);
+    }
+
     public void SetOutputBounds(Rect logicalBounds)
     {
         _token.ThrowIfInactive();

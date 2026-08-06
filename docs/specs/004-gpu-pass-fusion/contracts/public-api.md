@@ -480,7 +480,20 @@ public sealed class OpaqueRenderDescription
     public RenderRuntimeIdentity? RuntimeIdentity { get; }
     public IReadOnlyList<RenderResource> Resources { get; }
 
-    public static OpaqueRenderDescription Create(
+    public static OpaqueRenderDescription Create<TState>(
+        TState state,
+        Action<OpaqueRenderSession, TState> execute,
+        OpaqueRenderBoundsContract bounds,
+        RenderHitTestContract hitTest,
+        RenderValueCardinality valueCardinality,
+        RenderScaleContract scale,
+        RenderDeviceGridSensitivity deviceGridSensitivity = RenderDeviceGridSensitivity.Insensitive,
+        object? structuralKey = null,
+        IEnumerable<RenderInputReadback>? inputReadbacks = null,
+        IEnumerable<RenderResource>? resources = null)
+        where TState : notnull;
+
+    public static OpaqueRenderDescription CreateRequestLocal(
         Action<OpaqueRenderSession> execute,
         OpaqueRenderBoundsContract bounds,
         RenderHitTestContract hitTest,
@@ -488,7 +501,6 @@ public sealed class OpaqueRenderDescription
         RenderScaleContract scale,
         RenderDeviceGridSensitivity deviceGridSensitivity = RenderDeviceGridSensitivity.Insensitive,
         object? structuralKey = null,
-        RenderRuntimeIdentity? runtimeIdentity = null,
         IEnumerable<RenderInputReadback>? inputReadbacks = null,
         IEnumerable<RenderResource>? resources = null);
 }
@@ -659,7 +671,7 @@ Each materialized input exposes immutable composition-device `DeviceBounds`, `De
 
 For `OpaqueMap`, `RenderValueCardinality.Single` means one output per invocation/input and `ZeroOrOne` permits per-input discard; other cardinalities are rejected. `OpaqueCombine` is limited to at most one total output. `OpaqueSource` and `OpaqueExpand` interpret the description cardinality as the total single-invocation result, and only `OpaqueExpand` may declare an arbitrary N-to-M range. Every case preserves authored output order.
 
-When `structuralKey` is null, the description uses the execution callback's method identity plus operation kind. `RenderScaleContract.Custom`, custom bounds, and custom hit-test contracts likewise default to their delegate method identities. A captured choice that changes operation/binding/topology shape belongs in an explicit equality-stable structural key. Pixel-affecting captured scalar/value data belongs in `runtimeIdentity`; leaving it null safely disables cross-request output-cache reuse for this recorded value.
+Every description whose output can be reused across requests takes its pixel-affecting values as one `state` argument and a non-capturing `Action<TSession, TState>`. A capturing `execute` is rejected synchronously with `ArgumentException`, so no per-frame value can reach the callback without also being in the cache key; `state` itself must satisfy the lightweight-immutable-key rules. A callback that needs a request-scoped resource token reaches it through `UseDeclaredResource` by its position in `resources`, because a token can never be part of a persistent identity. `CreateRequestLocal` is the named opt-out for state that cannot be a key at all; `RawTargetScopeDescription` and `RawTargetCommandDescription` have only that form, because an unguarded external callback is never reusable. When `structuralKey` is null, the description uses the execution callback's method identity plus operation kind. `RenderScaleContract.Custom`, custom bounds, and custom hit-test contracts likewise default to their delegate method identities. A captured choice that changes operation/binding/topology shape belongs in an explicit equality-stable structural key. Pixel-affecting data is not declared at all: it reaches the callback only as `state`, which the description publishes as its `RuntimeIdentity`. `CreateRequestLocal` is the explicit opt-out for a value that cannot be a lightweight immutable key, and gives every recording a fresh request-local identity.
 
 An explicit key is never mandatory on a public factory, and whether the default beats `typeof(TheNode)` depends on where the callback is written. When the callback is a lambda or method declared in the node itself, the method identity names both the node and which callback within it, so `typeof(TheNode)` replaces a finer default with a coarser one and merges every callback that node records. When the callback is built inside a shared helper — a `_ => bounds` closure the helper itself creates, or a delegate the helper receives and forwards — every caller of that helper shares one method identity, so the default is coarser than the node label and carries none of the values the closure captured. That is why the factories whose `structuralKey` parameter is non-optional are exactly the ones that build or forward such a callback: `OpaqueRenderDescription.CreateEngineSource`/`CreateBackendBoundary`, `TargetScopeDescription.CreateValueReplayMap`, `RenderHitTestContract.FromResource`, and `BrushRecorder.CreateSourceBounds`. On those, the key must state whatever the shared callback closes over — for `CreateSourceBounds` the captured source rectangle and dependency count, not only the recording node's type.
 
@@ -761,14 +773,24 @@ public sealed class TargetScopeDescription
     public RenderRuntimeIdentity? RuntimeIdentity { get; }
     public IReadOnlyList<RenderResource> Resources { get; }
 
-    public static TargetScopeDescription Create(
+    public static TargetScopeDescription Create<TState>(
+        TState state,
+        Action<TargetScopeSession, TState> execute,
+        RenderBoundsContract bounds,
+        RenderHitTestContract hitTest,
+        RenderScaleContract scale,
+        RenderDeviceGridMapping deviceGridMapping = RenderDeviceGridMapping.Remapped,
+        object? structuralKey = null,
+        IEnumerable<RenderResource>? resources = null)
+        where TState : notnull;
+
+    public static TargetScopeDescription CreateRequestLocal(
         Action<TargetScopeSession> execute,
         RenderBoundsContract bounds,
         RenderHitTestContract hitTest,
         RenderScaleContract scale,
         RenderDeviceGridMapping deviceGridMapping = RenderDeviceGridMapping.Remapped,
         object? structuralKey = null,
-        RenderRuntimeIdentity? runtimeIdentity = null,
         IEnumerable<RenderResource>? resources = null);
 }
 
@@ -806,7 +828,7 @@ public sealed class RawTargetScopeDescription
     public object StructuralKey { get; }
     public IReadOnlyList<RenderResource> Resources { get; }
 
-    public static RawTargetScopeDescription Create(
+    public static RawTargetScopeDescription CreateRequestLocal(
         Action<RawTargetScopeSession> execute,
         RenderBoundsContract bounds,
         RenderHitTestContract hitTest,
@@ -837,7 +859,7 @@ public sealed class RawTargetCommandDescription
     public object StructuralKey { get; }
     public IReadOnlyList<RenderResource> Resources { get; }
 
-    public static RawTargetCommandDescription Create(
+    public static RawTargetCommandDescription CreateRequestLocal(
         Action<RawTargetCommandSession> execute,
         Rect queryBounds,
         RenderHitTestContract hitTest,
@@ -884,7 +906,19 @@ public sealed class TargetCommandDescription
     public RenderRuntimeIdentity? RuntimeIdentity { get; }
     public IReadOnlyList<RenderResource> Resources { get; }
 
-    public static TargetCommandDescription Create(
+    public static TargetCommandDescription Create<TState>(
+        TState state,
+        Action<TargetCommandSession, TState> execute,
+        TargetRegion affectedRegion,
+        Rect queryBounds,
+        RenderHitTestContract hitTest,
+        TargetAccess access = TargetAccess.ReadWrite,
+        IEnumerable<RenderInputReadback>? inputReadbacks = null,
+        object? structuralKey = null,
+        IEnumerable<RenderResource>? resources = null)
+        where TState : notnull;
+
+    public static TargetCommandDescription CreateRequestLocal(
         Action<TargetCommandSession> execute,
         TargetRegion affectedRegion,
         Rect queryBounds,
@@ -892,7 +926,6 @@ public sealed class TargetCommandDescription
         TargetAccess access = TargetAccess.ReadWrite,
         IEnumerable<RenderInputReadback>? inputReadbacks = null,
         object? structuralKey = null,
-        RenderRuntimeIdentity? runtimeIdentity = null,
         IEnumerable<RenderResource>? resources = null);
 }
 
@@ -935,7 +968,7 @@ Target callbacks execute later against the currently scoped target session and b
 
 Every public callback is conservatively target-dependent: `ReadWrite` and `Readback` both consume the prior target token, and `Readback` additionally schedules CPU access. There is no public author-asserted write-only access because ordinary `SrcOver`, inherited opacity/blend/mask state, and most canvas draws read the prior destination. Engine-proven clear/source-replace commands may use an internal write-only classification under an enforceable capability. `TargetRegion.Full` means the complete finite domain of the current root, finite value Layer, or resolved `TargetLayerScope` target; `Empty` is an order-only/no-pixel access, and `Region(Rect)` is a validated finite composition-logical subregion. A built-in clear uses internal write-only `Full`; a destination snapshot uses `Full` readback; a finite backdrop draw uses `ReadWrite` and its bounds. Commands are preserved even when the affected region is `Empty`.
 
-`QueryBounds` and the mandatory CPU-only `HitTest` contract describe this command's visible/query contribution independently of the region it reads or writes; snapshot/readback/clear commands normally use empty query bounds plus `None`, while a backdrop draw over a positive-area canvas uses its declared bounds plus `OutputBounds`. They never authorize command reordering or elimination. Resources must be declared and are borrowed through the same scoped rules as opaque work. A null structural key defaults to the execution callback's method identity alone, matching every other factory: `Access` is already its own component of both the structural plan key and the output-cache identity, so folding it into the default key would only cost an allocation on a path that runs once per node per frame. Shape-changing captured choices require an explicit key. Pixel-affecting captured scalar/value data uses `runtimeIdentity`; null creates a fresh request-local cache identity.
+`QueryBounds` and the mandatory CPU-only `HitTest` contract describe this command's visible/query contribution independently of the region it reads or writes; snapshot/readback/clear commands normally use empty query bounds plus `None`, while a backdrop draw over a positive-area canvas uses its declared bounds plus `OutputBounds`. They never authorize command reordering or elimination. Resources must be declared and are borrowed through the same scoped rules as opaque work. A null structural key defaults to the execution callback's method identity alone, matching every other factory: `Access` is already its own component of both the structural plan key and the output-cache identity, so folding it into the default key would only cost an allocation on a path that runs once per node per frame. Shape-changing choices require an explicit key. Pixel-affecting scalar/value data travels as `state`, which becomes the output-cache identity; `CreateRequestLocal` opts out into a fresh request-local cache identity.
 
 For `TargetAccess.Readback`, the executor resolves the finite `AffectedRegion` as the command's `RequiredRegion`, snapshots that subset of the immutable preceding target token, and creates the callback canvas over the same region before invoking the command. `UseSnapshot` must then be called exactly once and supplies that pre-command bitmap synchronously; writes performed by the callback are not reflected in it. The bitmap's local pixel `(0, 0)` represents `Canvas.LogicalOrigin`, and its pixel dimensions match `Canvas.DeviceBounds.Size` (the canvas `RasterBounds` footprint), not the full backing target. The request disposes it before return, retained/disposed-by-author use is invalid, and failure preserves the callback exception while still releasing the bitmap. A callback that needs pixels after an intermediate write must split that work into a target command followed by `TargetCapture`/another command, making the synchronization visible. `ReadWrite` permits GPU-side target access through `Canvas` but does not imply CPU readback.
 
@@ -1132,12 +1165,21 @@ public sealed class GeometryDescription
     public bool RequiresReadback { get; }
     public IReadOnlyList<RenderResource> Resources { get; }
 
-    public static GeometryDescription Create(
+    public static GeometryDescription Create<TState>(
+        TState state,
+        Action<GeometrySession, TState> render,
+        RenderBoundsContract bounds,
+        RenderHitTestContract hitTest,
+        object? structuralKey = null,
+        bool requiresReadback = false,
+        IEnumerable<RenderResource>? resources = null)
+        where TState : notnull;
+
+    public static GeometryDescription CreateRequestLocal(
         Action<GeometrySession> render,
         RenderBoundsContract bounds,
         RenderHitTestContract hitTest,
         object? structuralKey = null,
-        RenderRuntimeIdentity? runtimeIdentity = null,
         bool requiresReadback = false,
         IEnumerable<RenderResource>? resources = null);
 }
@@ -1167,7 +1209,7 @@ public sealed class GeometrySession
 
 Geometry applies element-wise to one input stream and is never fused in this feature. Each input produces zero or one output, so it is an order-preserving `N -> 0..N` map; `DiscardOutput` is the only cardinality reduction and Geometry never expands. Its CPU-only hit-test contract is resolved from conservative metadata and cannot depend on executing readback. Each element uses the standard supply-driven `MaterializeAtWorkingScale` rule: start at `OutputScale`, raise to the concrete input supply when denser, cap by `MaxWorkingScale`, and apply the 16,384-axis clamp against that element's complete mapped output bounds. The resulting concrete density is published in the Geometry fragment metadata and supplied as `WorkingScale`/canvas density; later ROI cropping never changes it.
 
-Before each Geometry callback begins, the executor transparently clears its planner-owned output inside the already scheduled Geometry island; undefined pooled pixels are never author-visible, and the clear adds no separate pass or synchronization. The session, shared `RenderExecutionInput`, canvas facade, declared resource tokens, shader-use callbacks, and snapshot bitmap are borrowed for callback duration and follow the same scoped rules as opaque work. `UseSnapshot` throws unless readback was declared and scheduled, and the request disposes its bitmap before the method returns. `SetOutputBounds` accepts only a contained shrink of `OutputBounds`; `DiscardOutput` wins over shrink. A null structural key defaults to the render callback's method identity plus Geometry kind; shape-changing captured choices require an explicit equality-stable key. Pixel-affecting captured scalar/value data uses `runtimeIdentity`; null creates a fresh request-local identity and disables cross-request output-cache reuse for the recorded Geometry value. `GeometryDescription` uses reference equality and an internal structural comparer/key.
+Before each Geometry callback begins, the executor transparently clears its planner-owned output inside the already scheduled Geometry island; undefined pooled pixels are never author-visible, and the clear adds no separate pass or synchronization. The session, shared `RenderExecutionInput`, canvas facade, declared resource tokens, shader-use callbacks, and snapshot bitmap are borrowed for callback duration and follow the same scoped rules as opaque work. `UseSnapshot` throws unless readback was declared and scheduled, and the request disposes its bitmap before the method returns. `SetOutputBounds` accepts only a contained shrink of `OutputBounds`; `DiscardOutput` wins over shrink. A null structural key defaults to the render callback's method identity plus Geometry kind; shape-changing choices require an explicit equality-stable key. Pixel-affecting scalar/value data travels as `state`, which becomes the output-cache identity; `CreateRequestLocal` opts out into a fresh request-local identity and disables cross-request output-cache reuse for the recorded Geometry value. `GeometryDescription` uses reference equality and an internal structural comparer/key.
 
 ## FilterEffectContext additions
 

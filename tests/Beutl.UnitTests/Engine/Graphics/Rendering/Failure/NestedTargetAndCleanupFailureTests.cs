@@ -908,7 +908,7 @@ public sealed class NestedTargetAndCleanupFailureTests
                     TargetRegion.Region(s_bounds)),
                 _ => throw new ArgumentOutOfRangeException(),
             };
-            TargetScopeDescription caller = TargetScopeDescription.Create(
+            TargetScopeDescription caller = TargetScopeDescription.CreateRequestLocal(
                 session =>
                 {
                     try
@@ -943,7 +943,7 @@ public sealed class NestedTargetAndCleanupFailureTests
                     s_bounds,
                     RenderHitTestContract.OutputBounds,
                     TargetCaptureScaleContract.MaterializeAtWorkingScale)));
-            TargetScopeDescription caller = TargetScopeDescription.Create(
+            TargetScopeDescription caller = TargetScopeDescription.CreateRequestLocal(
                 session => session.Canvas.Use(_ =>
                 {
                     try
@@ -974,7 +974,7 @@ public sealed class NestedTargetAndCleanupFailureTests
         {
             if (failurePoint is TargetCallbackFailure.RawCommandCallback)
             {
-                RawTargetCommandDescription rawCommand = RawTargetCommandDescription.Create(
+                RawTargetCommandDescription rawCommand = RawTargetCommandDescription.CreateRequestLocal(
                     session =>
                     {
                         CallbackEntries++;
@@ -998,7 +998,7 @@ public sealed class NestedTargetAndCleanupFailureTests
             {
                 bool targetReadback = failurePoint == TargetCallbackFailure.MissingTargetReadback;
                 bool inputReadback = failurePoint == TargetCallbackFailure.DuplicateInputReadback;
-                TargetCommandDescription command = TargetCommandDescription.Create(
+                TargetCommandDescription command = TargetCommandDescription.CreateRequestLocal(
                     session =>
                     {
                         CallbackEntries++;
@@ -1036,7 +1036,7 @@ public sealed class NestedTargetAndCleanupFailureTests
                 or TargetCallbackFailure.ScopeMissingReplay
                 or TargetCallbackFailure.ScopeDoubleReplay)
             {
-                TargetScopeDescription scope = TargetScopeDescription.Create(
+                TargetScopeDescription scope = TargetScopeDescription.CreateRequestLocal(
                     session =>
                     {
                         CallbackEntries++;
@@ -1064,7 +1064,7 @@ public sealed class NestedTargetAndCleanupFailureTests
                 return;
             }
 
-            RawTargetScopeDescription rawScope = RawTargetScopeDescription.Create(
+            RawTargetScopeDescription rawScope = RawTargetScopeDescription.CreateRequestLocal(
                 session =>
                 {
                     CallbackEntries++;
@@ -1162,7 +1162,7 @@ public sealed class NestedTargetAndCleanupFailureTests
                 static value => value,
                 ThrowDuringRequiredInputBounds,
                 structuralKey: "nested-region-analysis-failure");
-            GeometryDescription geometry = GeometryDescription.Create(
+            GeometryDescription geometry = GeometryDescription.CreateRequestLocal(
                 static _ => { },
                 bounds,
                 RenderHitTestContract.AnyInput,
@@ -1206,7 +1206,7 @@ public sealed class NestedTargetAndCleanupFailureTests
     {
         public override void Process(RenderNodeContext context)
         {
-            OpaqueRenderDescription description = OpaqueRenderDescription.Create(
+            OpaqueRenderDescription description = OpaqueRenderDescription.CreateRequestLocal(
                 session =>
                 {
                     using OpaqueRenderOutput output = session.CreateOutput(bounds);
@@ -1232,7 +1232,7 @@ public sealed class NestedTargetAndCleanupFailureTests
         {
             NestedTarget = context.RecordNestedTarget(child, targetDomain);
             RecordedNestedRenderTarget nested = NestedTarget;
-            OpaqueRenderDescription description = OpaqueRenderDescription.Create(
+            OpaqueRenderDescription description = OpaqueRenderDescription.CreateRequestLocal(
                 session => session.UseNestedTarget(
                     nested.Binding,
                     image =>

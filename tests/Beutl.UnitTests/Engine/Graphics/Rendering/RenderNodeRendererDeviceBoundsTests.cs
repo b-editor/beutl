@@ -140,7 +140,7 @@ public sealed class RenderNodeRendererDeviceBoundsTests
             observe(context);
             context.Publish(context.TargetCommand(
                 [],
-                TargetCommandDescription.Create(
+                TargetCommandDescription.CreateRequestLocal(
                     static _ => { },
                     TargetRegion.Full,
                     Rect.Empty,

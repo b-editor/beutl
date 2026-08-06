@@ -773,13 +773,9 @@ public class NodeGraphFilterEffectRenderNodeTests
                 "Each PreviewNode runtime identity must remain stable across requests.");
             foreach (TargetCommandDescription command in firstCommands)
             {
-                object? closure = command.Execute.Target;
-                Assert.That(closure, Is.Not.Null);
-                FieldInfo[] captured = closure!.GetType().GetFields(
-                    BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic);
-                Assert.That(captured.Select(static field => field.FieldType),
-                    Is.EqualTo(new[] { typeof(Func<Ref<Bitmap>?, Ref<Bitmap>?>) }),
-                    "The deferred callback must retain only the replacement sink, not transaction handles.");
+                Assert.That(command.Resources, Has.Count.EqualTo(1),
+                    "The deferred callback reaches only the replacement sink, and reaches it as a declared "
+                    + "resource rather than a capture, so it can retain no transaction handle.");
             }
         });
 
@@ -1039,7 +1035,7 @@ internal sealed class ScaleProbeRenderNode(FilterEffect.Resource fe) : FilterEff
         // forwarded supply-driven scale can be observed without invoking a GPU filter during recording.
         foreach (RenderFragmentHandle input in context.Inputs)
         {
-            OpaqueRenderDescription description = OpaqueRenderDescription.Create(
+            OpaqueRenderDescription description = OpaqueRenderDescription.CreateRequestLocal(
                 execute: session =>
                 {
                     using OpaqueRenderOutput output = session.CreateOutput(session.OutputBounds);
@@ -1302,12 +1298,11 @@ internal sealed class OrderOnlyCommandRenderNode(MixedPreviewGraphNode owner) : 
 {
     public override void Process(RenderNodeContext context)
     {
-        context.Publish(context.TargetCommand([], TargetCommandDescription.Create(
+        context.Publish(context.TargetCommand([], TargetCommandDescription.CreateRequestLocal(
             _ => owner.CommandExecutionCount++,
             TargetRegion.Empty,
             Rect.Empty,
-            RenderHitTestContract.None,
-            runtimeIdentity: new RenderRuntimeIdentity(typeof(OrderOnlyCommandRenderNode)))));
+            RenderHitTestContract.None)));
     }
 }
 
@@ -1317,7 +1312,7 @@ internal sealed class CountingOpaqueSourceRenderNode(Rect bounds) : RenderNode
 
     public override void Process(RenderNodeContext context)
     {
-        context.Publish(context.OpaqueSource(OpaqueRenderDescription.Create(
+        context.Publish(context.OpaqueSource(OpaqueRenderDescription.CreateRequestLocal(
             session =>
             {
                 ExecutionCount++;
@@ -1328,8 +1323,7 @@ internal sealed class CountingOpaqueSourceRenderNode(Rect bounds) : RenderNode
             OpaqueRenderBoundsContract.Source(bounds),
             RenderHitTestContract.OutputBounds,
             RenderValueCardinality.Single,
-            RenderScaleContract.MaterializeAtWorkingScale,
-            runtimeIdentity: new RenderRuntimeIdentity(bounds))));
+            RenderScaleContract.MaterializeAtWorkingScale)));
     }
 }
 
@@ -1352,12 +1346,11 @@ internal sealed class EmptyZeroOrOneRenderNode(Rect bounds) : RenderNode
 
     public override void Process(RenderNodeContext context)
     {
-        context.Publish(context.OpaqueSource(OpaqueRenderDescription.Create(
+        context.Publish(context.OpaqueSource(OpaqueRenderDescription.CreateRequestLocal(
             _ => ExecutionCount++,
             OpaqueRenderBoundsContract.Source(bounds),
             RenderHitTestContract.OutputBounds,
             RenderValueCardinality.ZeroOrOne,
-            RenderScaleContract.MaterializeAtWorkingScale,
-            runtimeIdentity: new RenderRuntimeIdentity(bounds))));
+            RenderScaleContract.MaterializeAtWorkingScale)));
     }
 }

@@ -276,7 +276,7 @@ public sealed class RegionAnalyzerTests
             Rect bounds,
             EffectiveScale? scale = null)
         {
-            OpaqueRenderDescription description = OpaqueRenderDescription.Create(
+            OpaqueRenderDescription description = OpaqueRenderDescription.CreateRequestLocal(
                 static _ => { },
                 OpaqueRenderBoundsContract.Source(bounds),
                 RenderHitTestContract.OutputBounds,
@@ -307,7 +307,7 @@ public sealed class RegionAnalyzerTests
             Rect? recordedBounds = null)
         {
             Rect outputBounds = recordedBounds ?? bounds.TransformBounds(input.Bounds);
-            OpaqueRenderDescription description = OpaqueRenderDescription.Create(
+            OpaqueRenderDescription description = OpaqueRenderDescription.CreateRequestLocal(
                 static _ => { },
                 OpaqueRenderBoundsContract.Map(bounds),
                 RenderHitTestContract.AnyInput,
@@ -354,7 +354,7 @@ public sealed class RegionAnalyzerTests
 
         public RenderFragmentReference Command(TargetRegion affectedRegion, Rect queryBounds)
         {
-            TargetCommandDescription description = TargetCommandDescription.Create(
+            TargetCommandDescription description = TargetCommandDescription.CreateRequestLocal(
                 static _ => { },
                 affectedRegion,
                 queryBounds,

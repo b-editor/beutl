@@ -52,18 +52,11 @@ public sealed class TransformRenderNode(Matrix transform, TransformOperator tran
 
         foreach (RenderFragmentHandle input in context.Inputs)
         {
-            Action<TargetScopeSession> execute = session => session.Canvas.Use(canvas =>
-            {
-                using (canvas.PushTransform(transform, transformOperator))
-                {
-                    session.ReplayInput();
-                }
-            });
             // Only Prepend places its matrix in the input's own logical space. Append and Set are defined
             // against the ambient target transform, which the value graph has no representation of.
             TargetScopeDescription description = transformOperator == TransformOperator.Prepend
                 ? TargetScopeDescription.CreateValueReplayMap(
-                    execute,
+                    session => ExecuteTransform(session, (transform, transformOperator)),
                     bounds,
                     hitTest,
                     scale,
@@ -71,14 +64,27 @@ public sealed class TransformRenderNode(Matrix transform, TransformOperator tran
                     structuralKey: typeof(TransformRenderNode),
                     runtimeIdentity: runtimeIdentity)
                 : TargetScopeDescription.Create(
-                    execute,
+                    (transform, transformOperator),
+                    ExecuteTransform,
                     bounds,
                     hitTest,
                     scale,
-                    gridMapping,
-                    runtimeIdentity: runtimeIdentity);
+                    gridMapping);
             context.Publish(context.TargetScope(input, description));
         }
+    }
+
+    private static void ExecuteTransform(
+        TargetScopeSession session,
+        (Matrix Transform, TransformOperator Operator) state)
+    {
+        session.Canvas.Use(canvas =>
+        {
+            using (canvas.PushTransform(state.Transform, state.Operator))
+            {
+                session.ReplayInput();
+            }
+        });
     }
 
     /// <summary>

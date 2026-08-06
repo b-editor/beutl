@@ -131,7 +131,7 @@ public sealed class ValueReplaySafetyTests
         public override void Process(RenderNodeContext context)
         {
             var bounds = new Rect(0, 0, 24, 16);
-            RenderFragmentHandle source = context.OpaqueSource(OpaqueRenderDescription.Create(
+            RenderFragmentHandle source = context.OpaqueSource(OpaqueRenderDescription.CreateRequestLocal(
                 session =>
                 {
                     using OpaqueRenderOutput output = session.CreateOutput(bounds);

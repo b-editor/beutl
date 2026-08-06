@@ -800,12 +800,12 @@ internal sealed class BenchmarkTargetDependencyNode(Rect bounds, int index) : Co
     {
         context.PublishRange(context.Inputs);
         TargetCommandDescription command = TargetCommandDescription.Create(
-            static _ => { },
+            index,
+            static (_, _) => { },
             TargetRegion.Region(bounds),
             bounds,
             RenderHitTestContract.OutputBounds,
-            structuralKey: $"render-pipeline-target-dependency-{index}",
-            runtimeIdentity: new RenderRuntimeIdentity(index));
+            structuralKey: $"render-pipeline-target-dependency-{index}");
         context.Publish(context.TargetCommand(context.Inputs, command));
     }
 }

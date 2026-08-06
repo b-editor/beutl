@@ -854,7 +854,7 @@ public sealed class TargetScopeLoweringTests
             Color color = _color;
             context.Publish(context.TargetCommand(
                 [],
-                TargetCommandDescription.Create(
+                TargetCommandDescription.CreateRequestLocal(
                     session => session.Canvas.Use(canvas => canvas.Clear(color)),
                     TargetRegion.Full,
                     Rect.Empty,
@@ -868,7 +868,7 @@ public sealed class TargetScopeLoweringTests
         {
             context.Publish(context.TargetCommand(
                 [],
-                TargetCommandDescription.Create(
+                TargetCommandDescription.CreateRequestLocal(
                     session => session.UseSnapshot(static _ => { }),
                     TargetRegion.Region(region),
                     Rect.Empty,
@@ -885,7 +885,7 @@ public sealed class TargetScopeLoweringTests
         {
             context.Publish(context.TargetCommand(
                 [],
-                TargetCommandDescription.Create(
+                TargetCommandDescription.CreateRequestLocal(
                     session =>
                     {
                         ExecutionCount++;
@@ -905,7 +905,7 @@ public sealed class TargetScopeLoweringTests
         {
             context.Publish(context.TargetCommand(
                 [],
-                TargetCommandDescription.Create(
+                TargetCommandDescription.CreateRequestLocal(
                     static _ => { },
                     TargetRegion.Empty,
                     Rect.Empty,
@@ -919,7 +919,7 @@ public sealed class TargetScopeLoweringTests
         {
             context.Publish(context.TargetCommand(
                 [],
-                TargetCommandDescription.Create(
+                TargetCommandDescription.CreateRequestLocal(
                     static _ => { },
                     TargetRegion.Region(bounds),
                     bounds,
@@ -987,7 +987,7 @@ public sealed class TargetScopeLoweringTests
 
         public override void Process(RenderNodeContext context)
         {
-            OpaqueRenderDescription description = OpaqueRenderDescription.Create(
+            OpaqueRenderDescription description = OpaqueRenderDescription.CreateRequestLocal(
                 session =>
                 {
                     ExecuteCount++;

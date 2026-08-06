@@ -120,7 +120,7 @@ public sealed class ProductionResourceLifetimeTests
     private static OpaqueRenderDescription CreateSourceDescription(
         object key,
         Action? onExecute = null)
-        => OpaqueRenderDescription.Create(
+        => OpaqueRenderDescription.CreateRequestLocal(
             session =>
             {
                 onExecute?.Invoke();
@@ -132,13 +132,12 @@ public sealed class ProductionResourceLifetimeTests
             RenderHitTestContract.OutputBounds,
             RenderValueCardinality.Single,
             RenderScaleContract.MaterializeAtWorkingScale,
-            structuralKey: key,
-            runtimeIdentity: new RenderRuntimeIdentity(key));
+            structuralKey: key);
 
     private static OpaqueRenderDescription CreateMapDescription(
         object key,
         Action? onExecute = null)
-        => OpaqueRenderDescription.Create(
+        => OpaqueRenderDescription.CreateRequestLocal(
             session =>
             {
                 onExecute?.Invoke();
@@ -150,13 +149,12 @@ public sealed class ProductionResourceLifetimeTests
             RenderHitTestContract.AnyInput,
             RenderValueCardinality.Single,
             RenderScaleContract.PreserveInputSupply,
-            structuralKey: key,
-            runtimeIdentity: new RenderRuntimeIdentity(key));
+            structuralKey: key);
 
     private static OpaqueRenderDescription CreateCombineDescription(
         object key,
         Action? onExecute = null)
-        => OpaqueRenderDescription.Create(
+        => OpaqueRenderDescription.CreateRequestLocal(
             session =>
             {
                 onExecute?.Invoke();
@@ -174,8 +172,7 @@ public sealed class ProductionResourceLifetimeTests
             RenderHitTestContract.AnyInput,
             RenderValueCardinality.Single,
             RenderScaleContract.MaterializeAtWorkingScale,
-            structuralKey: key,
-            runtimeIdentity: new RenderRuntimeIdentity(key));
+            structuralKey: key);
 
     private sealed class CpuTargetFactory : IRenderTargetFactory
     {

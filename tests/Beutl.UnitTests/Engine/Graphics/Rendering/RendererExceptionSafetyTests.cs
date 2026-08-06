@@ -246,15 +246,15 @@ internal sealed class FixedOpsNode : RenderNode
             var resourceKey = (_recordingIdentity, index, context.Purpose);
             RenderResource<RecordedOperation> resource = context.Own(operation, resourceKey);
             OpaqueRenderDescription description = OpaqueRenderDescription.Create(
-                execute: session => session.UseResource(
-                    fillResource,
-                    fill => RecordedOperation.Execute(spec, session, fill)),
+                (resourceKey, spec),
+                static (session, state) => session.UseDeclaredResource<SolidColorBrush.Resource>(
+                    1,
+                    fill => RecordedOperation.Execute(state.spec, session, fill)),
                 bounds: OpaqueRenderBoundsContract.Source(spec.EffectiveBounds),
                 hitTest: RenderHitTestContract.OutputBounds,
                 valueCardinality: RenderValueCardinality.Single,
                 scale: RenderScaleContract.Vector,
                 structuralKey: (typeof(FixedOpsNode), index),
-                runtimeIdentity: new RenderRuntimeIdentity(resourceKey),
                 resources: [resource, fillResource]);
             context.Publish(context.OpaqueSource(description));
         }

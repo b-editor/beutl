@@ -260,14 +260,13 @@ public sealed class RenderNodeRendererSnapshotFastPathTests
 
             context.Publish(context.TargetCommand(
                 [],
-                TargetCommandDescription.Create(
+                TargetCommandDescription.CreateRequestLocal(
                     session => session.UseSnapshot(
                         bitmap => ReadbackSize = new PixelSize(bitmap.Width, bitmap.Height)),
                     TargetRegion.Region(bounds),
                     Rect.Empty,
                     RenderHitTestContract.None,
-                    TargetAccess.Readback,
-                    runtimeIdentity: new RenderRuntimeIdentity("snapshot-fast-path-readback"))));
+                    TargetAccess.Readback)));
         }
     }
 

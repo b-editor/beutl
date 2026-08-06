@@ -155,7 +155,7 @@ public sealed class RenderNodeAuthoringContractTests
             RenderFragmentHandle source = context.OpaqueSource(SourceDescription(bounds));
             RenderFragmentHandle command = context.TargetCommand(
                 [],
-                TargetCommandDescription.Create(
+                TargetCommandDescription.CreateRequestLocal(
                     static _ => throw new AssertionException("Metadata queries must not execute target commands."),
                     TargetRegion.Region(bounds),
                     bounds,
@@ -179,7 +179,7 @@ public sealed class RenderNodeAuthoringContractTests
             RenderFragmentHandle blend = context.Blend(source, BlendMode.SrcOver);
             RenderFragmentHandle targetScope = context.TargetScope(
                 source,
-                TargetScopeDescription.Create(
+                TargetScopeDescription.CreateRequestLocal(
                     static _ => throw new AssertionException("Metadata queries must not execute target scopes."),
                     RenderBoundsContract.Identity,
                     RenderHitTestContract.AnyInput,
@@ -187,14 +187,14 @@ public sealed class RenderNodeAuthoringContractTests
                     structuralKey: "guarded-scope"));
             RenderFragmentHandle rawScope = context.RawTargetScope(
                 source,
-                RawTargetScopeDescription.Create(
+                RawTargetScopeDescription.CreateRequestLocal(
                     static _ => throw new AssertionException("Metadata queries must not execute raw scopes."),
                     RenderBoundsContract.Identity,
                     RenderHitTestContract.AnyInput,
                     RenderScaleContract.PreserveInputSupply,
                     structuralKey: "raw-scope"));
             RenderFragmentHandle rawCommand = context.RawTargetCommand(
-                RawTargetCommandDescription.Create(
+                RawTargetCommandDescription.CreateRequestLocal(
                     static _ => throw new AssertionException("Metadata queries must not execute raw commands."),
                     bounds,
                     RenderHitTestContract.OutputBounds,
@@ -283,7 +283,7 @@ public sealed class RenderNodeAuthoringContractTests
             materialized = FragmentSnapshot.From(input);
 
             RenderFragmentHandle declaredResourceSource = context.OpaqueSource(
-                OpaqueRenderDescription.Create(
+                OpaqueRenderDescription.CreateRequestLocal(
                     static _ => throw new AssertionException("Measure must not execute opaque callbacks."),
                     OpaqueRenderBoundsContract.Source(new Rect(0, 0, 1, 1)),
                     RenderHitTestContract.None,
@@ -336,7 +336,7 @@ public sealed class RenderNodeAuthoringContractTests
         {
             RenderFragmentHandle command = context.TargetCommand(
                 [],
-                TargetCommandDescription.Create(
+                TargetCommandDescription.CreateRequestLocal(
                     static _ => { },
                     TargetRegion.Region(bounds),
                     Rect.Empty,
@@ -354,7 +354,7 @@ public sealed class RenderNodeAuthoringContractTests
         {
             RenderFragmentHandle command = context.TargetCommand(
                 [],
-                TargetCommandDescription.Create(
+                TargetCommandDescription.CreateRequestLocal(
                     static _ => { },
                     TargetRegion.Region(bounds),
                     Rect.Empty,
@@ -369,7 +369,7 @@ public sealed class RenderNodeAuthoringContractTests
         {
             RenderFragmentHandle command = context.TargetCommand(
                 [],
-                TargetCommandDescription.Create(
+                TargetCommandDescription.CreateRequestLocal(
                     static _ => { },
                     TargetRegion.Region(bounds),
                     Rect.Empty,
@@ -559,7 +559,7 @@ public sealed class RenderNodeAuthoringContractTests
             Assert.That(() => RenderValueCardinality.Range(-1, null), Throws.TypeOf<ArgumentOutOfRangeException>());
             Assert.That(() => RenderValueCardinality.Range(2, 1), Throws.TypeOf<ArgumentOutOfRangeException>());
             Assert.That(
-                () => OpaqueRenderDescription.Create(
+                () => OpaqueRenderDescription.CreateRequestLocal(
                     static _ => { },
                     OpaqueRenderBoundsContract.Source(new Rect(0, 0, 1, 1)),
                     RenderHitTestContract.None,
@@ -602,7 +602,7 @@ public sealed class RenderNodeAuthoringContractTests
         RenderValueCardinality cardinality,
         RenderScaleContract scale)
     {
-        return OpaqueRenderDescription.Create(
+        return OpaqueRenderDescription.CreateRequestLocal(
             static _ => throw new AssertionException("Metadata queries must not execute opaque callbacks."),
             OpaqueRenderBoundsContract.Source(bounds),
             RenderHitTestContract.OutputBounds,
@@ -613,7 +613,7 @@ public sealed class RenderNodeAuthoringContractTests
 
     private static OpaqueRenderDescription MapDescription(RenderValueCardinality cardinality)
     {
-        return OpaqueRenderDescription.Create(
+        return OpaqueRenderDescription.CreateRequestLocal(
             static _ => throw new AssertionException("Metadata queries must not execute opaque callbacks."),
             OpaqueRenderBoundsContract.Map(RenderBoundsContract.Identity),
             RenderHitTestContract.AnyInput,
@@ -624,7 +624,7 @@ public sealed class RenderNodeAuthoringContractTests
 
     private static OpaqueRenderDescription CombineDescription(RenderValueCardinality cardinality)
     {
-        return OpaqueRenderDescription.Create(
+        return OpaqueRenderDescription.CreateRequestLocal(
             static _ => throw new AssertionException("Metadata queries must not execute opaque callbacks."),
             OpaqueRenderBoundsContract.FullInputs(UnionAll, "union-all"),
             RenderHitTestContract.AnyInput,
@@ -635,7 +635,7 @@ public sealed class RenderNodeAuthoringContractTests
 
     private static OpaqueRenderDescription EmptyInputDescription(RenderValueCardinality cardinality)
     {
-        return OpaqueRenderDescription.Create(
+        return OpaqueRenderDescription.CreateRequestLocal(
             static _ => throw new AssertionException("Metadata queries must not execute opaque callbacks."),
             OpaqueRenderBoundsContract.FullInputs(
                 static _ => new Rect(40, 50, 3, 2),

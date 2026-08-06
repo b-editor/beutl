@@ -171,7 +171,7 @@ public class ImageSourceRenderNodeTest
         public override void Process(RenderNodeContext context)
         {
             RenderFragmentHandle input = context.OpaqueSource(
-                OpaqueRenderDescription.Create(
+                OpaqueRenderDescription.CreateRequestLocal(
                     static _ => throw new AssertionException("Metadata recording must not execute opaque callbacks."),
                     OpaqueRenderBoundsContract.Source(new Rect(0, 0, 1, 1)),
                     RenderHitTestContract.None,

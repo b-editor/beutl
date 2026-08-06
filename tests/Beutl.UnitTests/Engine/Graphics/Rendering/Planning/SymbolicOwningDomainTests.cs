@@ -609,7 +609,7 @@ public sealed class SymbolicOwningDomainTests
                 ShaderDescription.CurrentPixel(IdentityShader));
             RenderFragmentHandle geometry = context.Geometry(
                 shader,
-                GeometryDescription.Create(
+                GeometryDescription.CreateRequestLocal(
                     static _ => { },
                     RenderBoundsContract.Identity,
                     RenderHitTestContract.AnyInput));
@@ -673,7 +673,7 @@ internal sealed partial class SymbolicDomainFilterEffect : FilterEffect
             return;
 
         context.Shader(ShaderDescription.CurrentPixel(IdentityShader));
-        context.Geometry(GeometryDescription.Create(
+        context.Geometry(GeometryDescription.CreateRequestLocal(
             static _ => { },
             RenderBoundsContract.Identity,
             RenderHitTestContract.AnyInput));

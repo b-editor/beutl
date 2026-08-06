@@ -542,7 +542,7 @@ public sealed class RecordingSideEffectTests
                     "half4 apply(half4 color) { return color; }"));
             RenderFragmentHandle geometry = context.Geometry(
                 source,
-                GeometryDescription.Create(
+                GeometryDescription.CreateRequestLocal(
                     _ => tripwire.TouchAll(),
                     RenderBoundsContract.Identity,
                     RenderHitTestContract.AnyInput,
@@ -556,7 +556,7 @@ public sealed class RecordingSideEffectTests
                     TargetCaptureScaleContract.MaterializeAtWorkingScale));
             RenderFragmentHandle command = context.TargetCommand(
                 [source],
-                TargetCommandDescription.Create(
+                TargetCommandDescription.CreateRequestLocal(
                     _ => tripwire.TouchAll(),
                     TargetRegion.Full,
                     Bounds,
@@ -566,7 +566,7 @@ public sealed class RecordingSideEffectTests
                     structuralKey: "target-command-recording-probe"));
             RenderFragmentHandle scope = context.TargetScope(
                 source,
-                TargetScopeDescription.Create(
+                TargetScopeDescription.CreateRequestLocal(
                     _ => tripwire.TouchAll(),
                     RenderBoundsContract.Identity,
                     RenderHitTestContract.AnyInput,
@@ -574,14 +574,14 @@ public sealed class RecordingSideEffectTests
                     structuralKey: "target-scope-recording-probe"));
             RenderFragmentHandle rawScope = context.RawTargetScope(
                 source,
-                RawTargetScopeDescription.Create(
+                RawTargetScopeDescription.CreateRequestLocal(
                     _ => tripwire.TouchAll(),
                     RenderBoundsContract.Identity,
                     RenderHitTestContract.AnyInput,
                     RenderScaleContract.PreserveInputSupply,
                     structuralKey: "raw-target-scope-recording-probe"));
             RenderFragmentHandle rawCommand = context.RawTargetCommand(
-                RawTargetCommandDescription.Create(
+                RawTargetCommandDescription.CreateRequestLocal(
                     _ => tripwire.TouchAll(),
                     Bounds,
                     RenderHitTestContract.OutputBounds,
@@ -598,7 +598,7 @@ public sealed class RecordingSideEffectTests
             string key,
             int inputCount)
         {
-            return OpaqueRenderDescription.Create(
+            return OpaqueRenderDescription.CreateRequestLocal(
                 _ => tripwire.TouchAll(),
                 bounds,
                 RenderHitTestContract.OutputBounds,

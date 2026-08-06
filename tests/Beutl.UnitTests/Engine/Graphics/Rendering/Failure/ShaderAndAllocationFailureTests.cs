@@ -362,7 +362,7 @@ public sealed class ShaderAndAllocationFailureTests
     {
         public override void Process(RenderNodeContext context)
         {
-            OpaqueRenderDescription source = OpaqueRenderDescription.Create(
+            OpaqueRenderDescription source = OpaqueRenderDescription.CreateRequestLocal(
                 session =>
                 {
                     using OpaqueRenderOutput output = session.CreateOutput(session.OutputBounds);
@@ -373,8 +373,7 @@ public sealed class ShaderAndAllocationFailureTests
                 RenderHitTestContract.OutputBounds,
                 RenderValueCardinality.Single,
                 RenderScaleContract.MaterializeAtWorkingScale,
-                structuralKey: "shader-allocation-failure-source",
-                runtimeIdentity: new RenderRuntimeIdentity("shader-allocation-failure-source-runtime"));
+                structuralKey: "shader-allocation-failure-source");
             context.Publish(context.Shader(context.OpaqueSource(source), description));
         }
     }
@@ -400,7 +399,7 @@ public sealed class ShaderAndAllocationFailureTests
                 or RuntimeBindingFailure.DuplicateUniform
                 ? CreateUniformDescription()
                 : CreateResourceDescription(context);
-            RenderFragmentHandle source = context.OpaqueSource(OpaqueRenderDescription.Create(
+            RenderFragmentHandle source = context.OpaqueSource(OpaqueRenderDescription.CreateRequestLocal(
                 session =>
                 {
                     using OpaqueRenderOutput output = session.CreateOutput(session.OutputBounds);
@@ -411,8 +410,7 @@ public sealed class ShaderAndAllocationFailureTests
                 RenderHitTestContract.OutputBounds,
                 RenderValueCardinality.Single,
                 RenderScaleContract.MaterializeAtWorkingScale,
-                structuralKey: $"runtime-binding-source-{failurePoint}",
-                runtimeIdentity: new RenderRuntimeIdentity($"runtime-binding-source-{failurePoint}")));
+                structuralKey: $"runtime-binding-source-{failurePoint}"));
             context.Publish(context.Shader(source, description));
         }
 
@@ -471,7 +469,7 @@ public sealed class ShaderAndAllocationFailureTests
 
         public override void Process(RenderNodeContext context)
         {
-            context.Publish(context.OpaqueSource(OpaqueRenderDescription.Create(
+            context.Publish(context.OpaqueSource(OpaqueRenderDescription.CreateRequestLocal(
                 session =>
                 {
                     CallbackEntries++;
@@ -483,8 +481,7 @@ public sealed class ShaderAndAllocationFailureTests
                 RenderHitTestContract.OutputBounds,
                 RenderValueCardinality.Single,
                 RenderScaleContract.MaterializeAtWorkingScale,
-                structuralKey: "materialization-callback-failure",
-                runtimeIdentity: new RenderRuntimeIdentity("materialization-callback-failure"))));
+                structuralKey: "materialization-callback-failure")));
         }
     }
 

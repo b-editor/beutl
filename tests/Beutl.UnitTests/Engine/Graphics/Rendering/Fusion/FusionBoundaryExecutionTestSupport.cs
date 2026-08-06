@@ -59,11 +59,10 @@ internal sealed class FusionBoundaryRuntimeNode(
                 break;
 
             case FusionBoundaryRuntimeScenario.Geometry:
-                current = context.Geometry(current, GeometryDescription.Create(
+                current = context.Geometry(current, GeometryDescription.CreateRequestLocal(
                     session => session.Canvas.Use(session.Input.Draw),
                     RenderBoundsContract.Identity,
-                    RenderHitTestContract.AnyInput,
-                    runtimeIdentity: new RenderRuntimeIdentity("geometry-identity")));
+                    RenderHitTestContract.AnyInput));
                 break;
 
             case FusionBoundaryRuntimeScenario.OpaqueCallback:
@@ -77,13 +76,12 @@ internal sealed class FusionBoundaryRuntimeNode(
                 context.Publish(current);
                 context.Publish(context.TargetCommand(
                     [current],
-                    TargetCommandDescription.Create(
+                    TargetCommandDescription.CreateRequestLocal(
                         session => session.UseSnapshot(static _ => { }),
                         TargetRegion.Full,
                         Rect.Empty,
                         RenderHitTestContract.None,
-                        TargetAccess.Readback,
-                        runtimeIdentity: new RenderRuntimeIdentity("target-readback"))));
+                        TargetAccess.Readback)));
                 return;
 
             case FusionBoundaryRuntimeScenario.DestinationBlend:
@@ -93,15 +91,14 @@ internal sealed class FusionBoundaryRuntimeNode(
             case FusionBoundaryRuntimeScenario.DynamicExpansion:
                 current = context.OpaqueExpand(
                     [current],
-                    OpaqueRenderDescription.Create(
+                    OpaqueRenderDescription.CreateRequestLocal(
                         CopySingleInput,
                         OpaqueRenderBoundsContract.FullInputs(
                             static inputs => inputs.Single()),
                         RenderHitTestContract.AnyInput,
                         RenderValueCardinality.Dynamic,
                         RenderScaleContract.MaterializeAtWorkingScale,
-                        structuralKey: (typeof(FusionBoundaryRuntimeNode), "dynamic"),
-                        runtimeIdentity: new RenderRuntimeIdentity("dynamic")));
+                        structuralKey: (typeof(FusionBoundaryRuntimeNode), "dynamic")));
                 break;
 
             case FusionBoundaryRuntimeScenario.Graphics3D:
@@ -125,14 +122,13 @@ internal sealed class FusionBoundaryRuntimeNode(
     {
         if (backendBoundary == RenderBackendBoundary.None)
         {
-            return OpaqueRenderDescription.Create(
+            return OpaqueRenderDescription.CreateRequestLocal(
                 CopySingleInput,
                 OpaqueRenderBoundsContract.Map(RenderBoundsContract.Identity),
                 RenderHitTestContract.AnyInput,
                 cardinality,
                 RenderScaleContract.PreserveInputSupply,
-                structuralKey: (typeof(FusionBoundaryRuntimeNode), identity),
-                runtimeIdentity: new RenderRuntimeIdentity(identity));
+                structuralKey: (typeof(FusionBoundaryRuntimeNode), identity));
         }
 
         return OpaqueRenderDescription.CreateBackendBoundary(
@@ -159,7 +155,7 @@ internal sealed class AntialiasedCoverageBoundaryNode(Rect bounds) : RenderNode
 {
     public override void Process(RenderNodeContext context)
     {
-        OpaqueRenderDescription source = OpaqueRenderDescription.Create(
+        OpaqueRenderDescription source = OpaqueRenderDescription.CreateRequestLocal(
             session =>
             {
                 using OpaqueRenderOutput output = session.CreateOutput(session.OutputBounds);
@@ -179,8 +175,7 @@ internal sealed class AntialiasedCoverageBoundaryNode(Rect bounds) : RenderNode
             OpaqueRenderBoundsContract.Source(bounds),
             RenderHitTestContract.OutputBounds,
             RenderValueCardinality.Single,
-            RenderScaleContract.MaterializeAtWorkingScale,
-            runtimeIdentity: new RenderRuntimeIdentity("aa-thin-stroke"));
+            RenderScaleContract.MaterializeAtWorkingScale);
         RenderFragmentHandle current = context.OpaqueSource(source);
         current = context.Shader(current, ShaderDescription.CurrentPixel(
             "half4 apply(half4 color) { return color * color.a; }"));

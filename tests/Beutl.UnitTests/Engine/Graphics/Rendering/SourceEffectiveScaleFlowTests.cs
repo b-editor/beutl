@@ -1420,7 +1420,7 @@ public class SourceEffectiveScaleFlowTests
         {
             context.Shader(ShaderDescription.CurrentPixel(
                 "half4 apply(half4 color) { return color; }"));
-            context.Geometry(GeometryDescription.Create(
+            context.Geometry(GeometryDescription.CreateRequestLocal(
                 session =>
                 {
                     observedInputScale = session.Input.EffectiveScale;
@@ -1431,8 +1431,7 @@ public class SourceEffectiveScaleFlowTests
                 },
                 RenderBoundsContract.Identity,
                 RenderHitTestContract.AnyInput,
-                structuralKey: "working-scale-device-footprint-probe",
-                runtimeIdentity: new RenderRuntimeIdentity("working-scale-device-footprint-probe")));
+                structuralKey: "working-scale-device-footprint-probe"));
         });
         using var pipeline = ScaleRecordingTestHelper.Pipeline(
             ScaleRecordingTestHelper.Source(EffectiveScale.At(1), bounds),
@@ -1791,13 +1790,12 @@ public class SourceEffectiveScaleFlowTests
                 ? TargetRegion.Full
                 : TargetRegion.Region(bounds);
             context.Publish(context.TargetCommand([], TargetCommandDescription.Create(
-                static session => session.Canvas.Use(static _ => { }),
+                new TargetCommandSourceIdentity(bounds, owningTargetDomain),
+                static (session, _) => session.Canvas.Use(static _ => { }),
                 region,
                 bounds,
                 RenderHitTestContract.None,
-                structuralKey: new TargetCommandSourceIdentity(bounds, owningTargetDomain),
-                runtimeIdentity: new RenderRuntimeIdentity(
-                    new TargetCommandSourceIdentity(bounds, owningTargetDomain)))));
+                structuralKey: new TargetCommandSourceIdentity(bounds, owningTargetDomain))));
         }
     }
 
@@ -1808,7 +1806,7 @@ public class SourceEffectiveScaleFlowTests
         public override void Process(RenderNodeContext context)
         {
             RenderFragmentHandle layer = context.Layer(context.Inputs, bounds);
-            TargetCommandDescription command = TargetCommandDescription.Create(
+            TargetCommandDescription command = TargetCommandDescription.CreateRequestLocal(
                 session =>
                 {
                     observe(session.Inputs.Single().EffectiveScale);
@@ -1887,10 +1885,11 @@ public class SourceEffectiveScaleFlowTests
                 fill.Version);
             float density = _density;
             OpaqueRenderDescription source = OpaqueRenderDescription.Create(
-                session => session.UseResource(fillToken, currentFill =>
+                (_bounds, density),
+                static (session, state) => session.UseDeclaredResource<Brush.Resource>(0, currentFill =>
                 {
-                    using OpaqueRenderOutput output = session.CreateOutput(_bounds);
-                    output.Canvas.Use(canvas => canvas.DrawRectangle(_bounds, currentFill, null));
+                    using OpaqueRenderOutput output = session.CreateOutput(state._bounds);
+                    output.Canvas.Use(canvas => canvas.DrawRectangle(state._bounds, currentFill, null));
                     session.Publish(output);
                 }),
                 OpaqueRenderBoundsContract.Source(_bounds),
@@ -1900,8 +1899,6 @@ public class SourceEffectiveScaleFlowTests
                     new ConstantWorkingScaleResolver(density).Resolve,
                     "mutable-scale-contract"),
                 structuralKey: "mutable-scale-source",
-                runtimeIdentity: new RenderRuntimeIdentity(
-                    new MutableScaleSourceRuntimeIdentity(density)),
                 resources: [fillToken]);
             RenderFragmentHandle current = context.OpaqueSource(source);
             current = context.RecordNode(_preserve, [current]).Single();
@@ -1942,7 +1939,7 @@ public class SourceEffectiveScaleFlowTests
         }
 
         private static OpaqueRenderDescription CreateConsumer(float scale)
-            => OpaqueRenderDescription.Create(
+            => OpaqueRenderDescription.CreateRequestLocal(
                 execute: static session =>
                 {
                     using OpaqueRenderOutput output = session.CreateOutput(session.OutputBounds);
@@ -1970,7 +1967,7 @@ public class SourceEffectiveScaleFlowTests
         {
             public override void Process(RenderNodeContext context)
             {
-                OpaqueRenderDescription source = OpaqueRenderDescription.Create(
+                OpaqueRenderDescription source = OpaqueRenderDescription.CreateRequestLocal(
                     session =>
                     {
                         observedWorkingScales.Add(session.WorkingScale);
@@ -2347,6 +2344,8 @@ internal static class ScaleRecordingTestHelper
         EffectiveScale scale,
         Action<OpaqueRenderSession>? observe) : RenderNode
     {
+        private readonly SessionProbe<OpaqueRenderSession> _probe = new(observe);
+
         public override void Process(RenderNodeContext context)
         {
             Brush.Resource fill = Brushes.Resource.White;
@@ -2360,11 +2359,12 @@ internal static class ScaleRecordingTestHelper
                     new FixedScaleResolver(scale.Value).Resolve,
                     new FixedScaleIdentity(scale.Value));
             OpaqueRenderDescription description = OpaqueRenderDescription.Create(
-                execute: session => session.UseResource(fillToken, currentFill =>
+                (bounds, scale, _probe),
+                static (session, state) => session.UseDeclaredResource<Brush.Resource>(0, currentFill =>
                 {
-                    observe?.Invoke(session);
-                    using OpaqueRenderOutput output = session.CreateOutput(bounds);
-                    output.Canvas.Use(canvas => canvas.DrawRectangle(bounds, currentFill, null));
+                    state._probe.Observe(session);
+                    using OpaqueRenderOutput output = session.CreateOutput(state.bounds);
+                    output.Canvas.Use(canvas => canvas.DrawRectangle(state.bounds, currentFill, null));
                     session.Publish(output);
                 }),
                 bounds: OpaqueRenderBoundsContract.Source(bounds),
@@ -2372,7 +2372,6 @@ internal static class ScaleRecordingTestHelper
                 valueCardinality: RenderValueCardinality.Single,
                 scale: scaleContract,
                 structuralKey: new FixedScaleSourceIdentity(bounds, scale),
-                runtimeIdentity: new RenderRuntimeIdentity(new FixedScaleSourceIdentity(bounds, scale)),
                 resources: [fillToken]);
             context.Publish(context.OpaqueSource(description));
         }
@@ -2384,7 +2383,7 @@ internal static class ScaleRecordingTestHelper
         {
             foreach (RenderFragmentHandle input in context.Inputs)
             {
-                OpaqueRenderDescription description = OpaqueRenderDescription.Create(
+                OpaqueRenderDescription description = OpaqueRenderDescription.CreateRequestLocal(
                     execute: static session =>
                     {
                         using OpaqueRenderOutput output = session.CreateOutput(session.OutputBounds);

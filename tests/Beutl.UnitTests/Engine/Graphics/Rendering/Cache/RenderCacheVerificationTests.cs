@@ -18,9 +18,38 @@ public sealed class RenderCacheVerificationTests
     private static readonly PixelSize s_frameSize = new(240, 160);
 
     [Test]
-    public void UnderSpecifiedRuntimeIdentity_IsServedStaleWhenVerificationIsOff()
+    public void AnUnderSpecifiedIdentity_IsRejectedBeforeItCanReachTheCache()
     {
-        using var node = new ColorFillNode(IdentityKind.UnderSpecified);
+        var color = Colors.Red;
+        ArgumentException? rejection = Assert.Throws<ArgumentException>(
+            () => OpaqueRenderDescription.Create(
+                typeof(RenderCacheVerificationTests),
+                (session, _) =>
+                {
+                    using OpaqueRenderOutput output = session.CreateOutput(s_bounds);
+                    output.Canvas.Use(canvas => canvas.Clear(color));
+                    session.Publish(output);
+                },
+                OpaqueRenderBoundsContract.FullInputs(static _ => s_bounds),
+                RenderHitTestContract.OutputBounds,
+                RenderValueCardinality.Single,
+                RenderScaleContract.MaterializeAtWorkingScale));
+
+        TestContext.Out.WriteLine(rejection!.Message);
+        Assert.Multiple(() =>
+        {
+            Assert.That(rejection.ParamName, Is.EqualTo("execute"));
+            Assert.That(rejection.Message, Does.Contain("state"),
+                "the message must name the channel the captured value has to move into");
+            Assert.That(rejection.Message, Does.Contain("CreateRequestLocal"),
+                "the message must name the opt-out for a value that cannot be an identity");
+        });
+    }
+
+    [Test]
+    public void RequestLocalOutput_IsNeverServedFromAnEarlierRequest()
+    {
+        using var node = new RequestLocalColorFillNode();
         node.Cache.ReportRenderCount(RenderNodeCache.Count);
         var diagnostics = new RenderPipelineDiagnosticsState();
         using RenderNodeRenderer renderer = CreateRenderer(node, diagnostics);
@@ -30,39 +59,14 @@ public sealed class RenderCacheVerificationTests
         }
 
         node.Color = Colors.Blue;
-        using RenderNodeRasterization stale = renderer.Rasterize();
+        using RenderNodeRasterization repainted = renderer.Rasterize(VerifyingRequest(diagnostics));
 
         Assert.Multiple(() =>
         {
-            Assert.That(diagnostics.Latest[RenderPipelineCounter.RenderCacheHits], Is.EqualTo(1));
-            Assert.That(node.ExecuteCount, Is.EqualTo(1),
-                "the default configuration serves the cached output without re-executing the producer");
-            Assert.That(TopLeft(stale), Is.EqualTo(ToPremultipliedHalfBits(Colors.Red)),
-                "the under-specified identity silently serves the first frame's pixels");
-        });
-    }
-
-    [Test]
-    public void UnderSpecifiedRuntimeIdentity_FailsVerificationLoudly()
-    {
-        using var node = new ColorFillNode(IdentityKind.UnderSpecified);
-        node.Cache.ReportRenderCount(RenderNodeCache.Count);
-        using RenderNodeRenderer renderer = CreateRenderer(node);
-
-        using (RenderNodeRasterization _ = renderer.Rasterize())
-        {
-        }
-
-        node.Color = Colors.Blue;
-        var exception = Assert.Throws<RenderCacheOutputMismatchException>(
-            () => renderer.Rasterize(VerifyingRequest()));
-
-        TestContext.Out.WriteLine(exception!.Message);
-        Assert.Multiple(() =>
-        {
-            Assert.That(exception.Message, Does.Contain(nameof(ColorFillNode)));
-            Assert.That(exception.Message, Does.Contain("runtime identity"));
-            Assert.That(exception.Message, Does.Contain("device pixel"));
+            Assert.That(diagnostics.Latest[RenderPipelineCounter.RenderCacheHits], Is.Zero,
+                "a request-local identity can never satisfy a later request's cache lookup");
+            Assert.That(node.ExecuteCount, Is.EqualTo(2));
+            Assert.That(TopLeft(repainted), Is.EqualTo(ToPremultipliedHalfBits(Colors.Blue)));
         });
     }
 
@@ -70,7 +74,7 @@ public sealed class RenderCacheVerificationTests
     [NonParallelizable]
     public void DefaultStructuralKey_NamesTheDeclaringNodeNotOnlyTheCallbackSignature()
     {
-        using var node = new ColorFillNode(IdentityKind.UnderSpecified);
+        using var node = new CornerDefectNode();
         node.Cache.ReportRenderCount(RenderNodeCache.Count);
         using RenderNodeRenderer renderer = CreateRenderer(node);
 
@@ -78,7 +82,6 @@ public sealed class RenderCacheVerificationTests
         {
         }
 
-        node.Color = Colors.Blue;
         RenderCacheOutputMismatchException? exception;
         using (RenderCacheVerification.EnableForAllRequests())
         {
@@ -88,7 +91,7 @@ public sealed class RenderCacheVerificationTests
         TestContext.Out.WriteLine(exception!.Message);
         Assert.That(
             exception.Message,
-            Does.Contain($"structural key '{typeof(ColorFillNode).FullName}."),
+            Does.Contain($"structural key '{typeof(CornerDefectNode).FullName}."),
             "an unlabelled description defaults to its callback method, which only names the node through "
             + "its declaring type");
     }
@@ -96,7 +99,7 @@ public sealed class RenderCacheVerificationTests
     [Test]
     public void CompleteRuntimeIdentity_MissesTheCacheWhenTheDrawnValueChanges()
     {
-        using var node = new ColorFillNode(IdentityKind.Complete);
+        using var node = new ColorFillNode();
         node.Cache.ReportRenderCount(RenderNodeCache.Count);
         var diagnostics = new RenderPipelineDiagnosticsState();
         using RenderNodeRenderer renderer = CreateRenderer(node, diagnostics);
@@ -119,7 +122,7 @@ public sealed class RenderCacheVerificationTests
     [Test]
     public void UnchangedProducer_PassesVerificationAndStillHitsTheCache()
     {
-        using var node = new ColorFillNode(IdentityKind.Complete);
+        using var node = new ColorFillNode();
         node.Cache.ReportRenderCount(RenderNodeCache.Count);
         var diagnostics = new RenderPipelineDiagnosticsState();
         using RenderNodeRenderer renderer = CreateRenderer(node, diagnostics);
@@ -143,7 +146,7 @@ public sealed class RenderCacheVerificationTests
     [Test]
     public void ComposedGraph_PassesVerificationAcrossNestedCacheCandidates()
     {
-        using var producer = new ColorFillNode(IdentityKind.Complete);
+        using var producer = new ColorFillNode();
         producer.Cache.ReportRenderCount(RenderNodeCache.Count);
         using var consumer = new TintingConsumerNode(producer);
         consumer.Cache.ReportRenderCount(RenderNodeCache.Count);
@@ -221,7 +224,7 @@ public sealed class RenderCacheVerificationTests
     [NonParallelizable]
     public void EnableForAllRequests_TurnsVerificationOnWithoutTouchingTheRequest()
     {
-        using var node = new ColorFillNode(IdentityKind.UnderSpecified);
+        using var node = new CornerDefectNode();
         node.Cache.ReportRenderCount(RenderNodeCache.Count);
         using RenderNodeRenderer renderer = CreateRenderer(node);
 
@@ -229,7 +232,6 @@ public sealed class RenderCacheVerificationTests
         {
         }
 
-        node.Color = Colors.Blue;
         using (RenderCacheVerification.EnableForAllRequests())
         {
             Assert.That(RenderCacheVerification.IsEnabled, Is.True);
@@ -240,9 +242,9 @@ public sealed class RenderCacheVerificationTests
     }
 
     [Test]
-    public void UnderSpecifiedRuntimeIdentity_FailsVerificationWithFusionEnabled()
+    public void NonIdempotentCallback_FailsVerificationWithFusionEnabled()
     {
-        using var node = new ColorFillNode(IdentityKind.UnderSpecified);
+        using var node = new CornerDefectNode();
         node.Cache.ReportRenderCount(RenderNodeCache.Count);
         using RenderNodeRenderer renderer = CreateRenderer(node, fusionMode: FusionMode.Enabled);
 
@@ -250,11 +252,15 @@ public sealed class RenderCacheVerificationTests
         {
         }
 
-        node.Color = Colors.Blue;
         var exception = Assert.Throws<RenderCacheOutputMismatchException>(
             () => renderer.Rasterize(VerifyingRequest(fusionMode: FusionMode.Enabled)));
 
-        Assert.That(exception!.Message, Does.Contain(nameof(ColorFillNode)));
+        Assert.Multiple(() =>
+        {
+            Assert.That(exception!.Message, Does.Contain(nameof(CornerDefectNode)));
+            Assert.That(exception.Message, Does.Contain("runtime identity"));
+            Assert.That(exception.Message, Does.Contain("device pixel"));
+        });
     }
 
     [Test]
@@ -280,7 +286,7 @@ public sealed class RenderCacheVerificationTests
     [Test]
     public void DefectInConsumerNode_NamesTheConsumer()
     {
-        using var producer = new ColorFillNode(IdentityKind.Complete);
+        using var producer = new ColorFillNode();
         producer.Cache.ReportRenderCount(RenderNodeCache.Count);
         using var consumer = new DefectiveConsumerNode(producer);
         consumer.Cache.ReportRenderCount(RenderNodeCache.Count);
@@ -331,7 +337,6 @@ public sealed class RenderCacheVerificationTests
         {
         }
 
-        node.MarkerColor = Colors.Lime;
         var exception = Assert.Throws<RenderCacheOutputMismatchException>(
             () => renderer.Rasterize(VerifyingRequest(diagnostics)));
 
@@ -483,36 +488,29 @@ public sealed class RenderCacheVerificationTests
         }
     }
 
-    private enum IdentityKind
+    private sealed class ColorFillNode : RenderNode
     {
-        UnderSpecified,
-        Complete,
-    }
+        private readonly ExecutionProbe _probe = new();
 
-    private sealed class ColorFillNode(IdentityKind identityKind) : RenderNode
-    {
         public Color Color { get; set; } = Colors.Red;
 
-        public int ExecuteCount { get; private set; }
+        public int ExecuteCount => _probe.Count;
 
         public override void Process(RenderNodeContext context)
         {
-            Color color = Color;
             OpaqueRenderDescription description = OpaqueRenderDescription.Create(
-                session =>
+                (Color, _probe),
+                static (session, state) =>
                 {
-                    ExecuteCount++;
+                    state._probe.Record();
                     using OpaqueRenderOutput output = session.CreateOutput(s_bounds);
-                    output.Canvas.Use(canvas => canvas.Clear(color));
+                    output.Canvas.Use(canvas => canvas.Clear(state.Color));
                     session.Publish(output);
                 },
                 OpaqueRenderBoundsContract.FullInputs(static _ => s_bounds),
                 RenderHitTestContract.OutputBounds,
                 RenderValueCardinality.Single,
-                RenderScaleContract.MaterializeAtWorkingScale,
-                runtimeIdentity: new RenderRuntimeIdentity(identityKind == IdentityKind.Complete
-                    ? (object)color
-                    : typeof(ColorFillNode)));
+                RenderScaleContract.MaterializeAtWorkingScale);
             context.Publish(context.ContributeValues(context.OpaqueCombine([], description)));
         }
     }
@@ -522,14 +520,16 @@ public sealed class RenderCacheVerificationTests
         public const int DefectX = 12;
         public const int DefectY = 9;
 
-        private int _executions;
+        private readonly ExecutionProbe _probe = new();
 
         public override void Process(RenderNodeContext context)
         {
             OpaqueRenderDescription description = OpaqueRenderDescription.Create(
-                session =>
+                _probe,
+                static (session, probe) =>
                 {
-                    bool defective = ++_executions > 1;
+                    probe.Record();
+                    bool defective = probe.Count > 1;
                     using OpaqueRenderOutput output = session.CreateOutput(s_bounds);
                     output.Canvas.Use(canvas =>
                     {
@@ -551,22 +551,23 @@ public sealed class RenderCacheVerificationTests
                 OpaqueRenderBoundsContract.FullInputs(static _ => s_bounds),
                 RenderHitTestContract.OutputBounds,
                 RenderValueCardinality.Single,
-                RenderScaleContract.MaterializeAtWorkingScale,
-                runtimeIdentity: new RenderRuntimeIdentity(typeof(CornerDefectNode)));
+                RenderScaleContract.MaterializeAtWorkingScale);
             context.Publish(context.ContributeValues(context.OpaqueCombine([], description)));
         }
     }
 
     private sealed class AlternatingColorNode : RenderNode
     {
-        private int _executions;
+        private readonly ExecutionProbe _probe = new();
 
         public override void Process(RenderNodeContext context)
         {
             OpaqueRenderDescription description = OpaqueRenderDescription.Create(
-                session =>
+                _probe,
+                static (session, probe) =>
                 {
-                    Color color = _executions++ % 2 == 0 ? Colors.Red : Colors.Blue;
+                    probe.Record();
+                    Color color = probe.Count % 2 == 1 ? Colors.Red : Colors.Blue;
                     using OpaqueRenderOutput output = session.CreateOutput(s_bounds);
                     output.Canvas.Use(canvas => canvas.Clear(color));
                     session.Publish(output);
@@ -574,22 +575,25 @@ public sealed class RenderCacheVerificationTests
                 OpaqueRenderBoundsContract.FullInputs(static _ => s_bounds),
                 RenderHitTestContract.OutputBounds,
                 RenderValueCardinality.Single,
-                RenderScaleContract.MaterializeAtWorkingScale,
-                runtimeIdentity: new RenderRuntimeIdentity(typeof(AlternatingColorNode)));
+                RenderScaleContract.MaterializeAtWorkingScale);
             context.Publish(context.ContributeValues(context.OpaqueCombine([], description)));
         }
     }
 
     private sealed class ThrowOnReexecutionNode : RenderNode
     {
-        public int ExecuteAttempts { get; private set; }
+        private readonly ExecutionProbe _probe = new();
+
+        public int ExecuteAttempts => _probe.Count;
 
         public override void Process(RenderNodeContext context)
         {
             OpaqueRenderDescription description = OpaqueRenderDescription.Create(
-                session =>
+                _probe,
+                static (session, probe) =>
                 {
-                    if (++ExecuteAttempts > 1)
+                    probe.Record();
+                    if (probe.Count > 1)
                         throw new InvalidOperationException("The verification re-execution fails.");
 
                     using OpaqueRenderOutput output = session.CreateOutput(s_bounds);
@@ -599,26 +603,25 @@ public sealed class RenderCacheVerificationTests
                 OpaqueRenderBoundsContract.FullInputs(static _ => s_bounds),
                 RenderHitTestContract.OutputBounds,
                 RenderValueCardinality.Single,
-                RenderScaleContract.MaterializeAtWorkingScale,
-                runtimeIdentity: new RenderRuntimeIdentity(typeof(ThrowOnReexecutionNode)));
+                RenderScaleContract.MaterializeAtWorkingScale);
             context.Publish(context.ContributeValues(context.OpaqueCombine([], description)));
         }
     }
 
-    // Mirrors ParticleRenderNode: a target command carrying a structural key and no runtime identity, so the
-    // colour it paints is invisible to the cache key.
-    // A target scope whose structural key and runtime identity are both authored, painting a marker the
-    // identity does not describe.
+    // The scope's state and structural key are both complete, but its callback paints a different marker on
+    // each execution. State passing cannot fix non-idempotence, so verification must still report it against
+    // the scope's own structural key.
     private sealed class MarkedTargetScopeNode : RenderNode
     {
         public const string ScopeStructuralKey = "marked-target-scope";
 
-        public Color MarkerColor { get; set; } = Colors.Red;
+        private readonly ExecutionProbe _probe = new();
 
         public override void Process(RenderNodeContext context)
         {
             OpaqueRenderDescription sourceDescription = OpaqueRenderDescription.Create(
-                session =>
+                typeof(MarkedTargetScopeNode),
+                static (session, _) =>
                 {
                     using OpaqueRenderOutput output = session.CreateOutput(s_bounds);
                     output.Canvas.Use(canvas => canvas.Clear(Colors.White));
@@ -627,38 +630,39 @@ public sealed class RenderCacheVerificationTests
                 OpaqueRenderBoundsContract.FullInputs(static _ => s_bounds),
                 RenderHitTestContract.OutputBounds,
                 RenderValueCardinality.Single,
-                RenderScaleContract.MaterializeAtWorkingScale,
-                runtimeIdentity: new RenderRuntimeIdentity(typeof(MarkedTargetScopeNode)));
+                RenderScaleContract.MaterializeAtWorkingScale);
             RenderFragmentHandle source =
                 context.ContributeValues(context.OpaqueCombine([], sourceDescription));
 
-            Color marker = MarkerColor;
             TargetScopeDescription scopeDescription = TargetScopeDescription.Create(
-                session => session.Canvas.Use(canvas =>
+                _probe,
+                static (session, probe) => session.Canvas.Use(canvas =>
                 {
+                    probe.Record();
                     session.ReplayInput();
-                    FillRect(canvas, s_bounds, marker);
+                    FillRect(canvas, s_bounds, probe.Count > 1 ? Colors.Lime : Colors.Red);
                 }),
                 RenderBoundsContract.Identity,
                 RenderHitTestContract.AnyInput,
                 RenderScaleContract.PreserveInputSupply,
-                structuralKey: ScopeStructuralKey,
-                runtimeIdentity: new RenderRuntimeIdentity(typeof(MarkedTargetScopeNode)));
+                structuralKey: ScopeStructuralKey);
             context.Publish(context.Layer([context.TargetScope(source, scopeDescription)], s_bounds));
         }
     }
 
     private sealed class DefectiveConsumerNode(RenderNode producer) : RenderNode
     {
-        private int _executions;
+        private readonly ExecutionProbe _probe = new();
 
         public override void Process(RenderNodeContext context)
         {
             RenderFragmentHandle input = context.RecordNode(producer, []).Single();
             OpaqueRenderDescription description = OpaqueRenderDescription.Create(
-                session =>
+                _probe,
+                static (session, probe) =>
                 {
-                    bool defective = ++_executions > 1;
+                    probe.Record();
+                    bool defective = probe.Count > 1;
                     using OpaqueRenderOutput output = session.CreateOutput(s_bounds);
                     output.Canvas.Use(canvas =>
                     {
@@ -671,8 +675,7 @@ public sealed class RenderCacheVerificationTests
                 OpaqueRenderBoundsContract.Map(RenderBoundsContract.Identity),
                 RenderHitTestContract.AnyInput,
                 RenderValueCardinality.Single,
-                RenderScaleContract.MaterializeAtWorkingScale,
-                runtimeIdentity: new RenderRuntimeIdentity(typeof(DefectiveConsumerNode)));
+                RenderScaleContract.MaterializeAtWorkingScale);
             context.Publish(context.OpaqueMap(input, description));
         }
 
@@ -689,7 +692,8 @@ public sealed class RenderCacheVerificationTests
         {
             RenderFragmentHandle input = context.RecordNode(producer, []).Single();
             OpaqueRenderDescription description = OpaqueRenderDescription.Create(
-                session =>
+                typeof(TintingConsumerNode),
+                static (session, _) =>
                 {
                     using OpaqueRenderOutput output = session.CreateOutput(s_bounds);
                     output.Canvas.Use(session.Inputs[0].Draw);
@@ -698,8 +702,7 @@ public sealed class RenderCacheVerificationTests
                 OpaqueRenderBoundsContract.Map(RenderBoundsContract.Identity),
                 RenderHitTestContract.AnyInput,
                 RenderValueCardinality.Single,
-                RenderScaleContract.MaterializeAtWorkingScale,
-                runtimeIdentity: new RenderRuntimeIdentity(typeof(TintingConsumerNode)));
+                RenderScaleContract.MaterializeAtWorkingScale);
             context.Publish(context.OpaqueMap(input, description));
         }
 
@@ -707,6 +710,31 @@ public sealed class RenderCacheVerificationTests
         {
             producer.Dispose();
             base.OnDispose(disposing);
+        }
+    }
+
+    private sealed class RequestLocalColorFillNode : RenderNode
+    {
+        public Color Color { get; set; } = Colors.Red;
+
+        public int ExecuteCount { get; private set; }
+
+        public override void Process(RenderNodeContext context)
+        {
+            Color color = Color;
+            OpaqueRenderDescription description = OpaqueRenderDescription.CreateRequestLocal(
+                session =>
+                {
+                    ExecuteCount++;
+                    using OpaqueRenderOutput output = session.CreateOutput(s_bounds);
+                    output.Canvas.Use(canvas => canvas.Clear(color));
+                    session.Publish(output);
+                },
+                OpaqueRenderBoundsContract.FullInputs(static _ => s_bounds),
+                RenderHitTestContract.OutputBounds,
+                RenderValueCardinality.Single,
+                RenderScaleContract.MaterializeAtWorkingScale);
+            context.Publish(context.ContributeValues(context.OpaqueCombine([], description)));
         }
     }
 

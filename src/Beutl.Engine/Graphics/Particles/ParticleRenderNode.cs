@@ -54,7 +54,7 @@ internal sealed class ParticleRenderNode(ParticleEmitter.Resource particle) : Re
             particles,
             new ParticleSnapshotIdentity(resource.GetOriginal().Id, snapshot.Version),
             snapshot.Version);
-        TargetCommandDescription description = TargetCommandDescription.Create(
+        TargetCommandDescription description = TargetCommandDescription.CreateRequestLocal(
             execute: session => session.UseResource(
                 particlesToken,
                 current => DrawParticles(session, current)),
@@ -101,18 +101,23 @@ internal sealed class ParticleRenderNode(ParticleEmitter.Resource particle) : Re
             fill.GetOriginal().Id,
             fill.Version);
         OpaqueRenderDescription description = OpaqueRenderDescription.Create(
-            execute: session => DeferredOpaqueSource.Execute(
-                session,
-                fillToken,
-                pen: null,
-                (canvas, currentFill, _) => canvas.DrawEllipse(bounds, currentFill, null)),
+            bounds,
+            static (session, state) => DrawFallbackParticle(session, state),
             bounds: OpaqueRenderBoundsContract.Source(bounds),
             hitTest: RenderHitTestContract.OutputBounds,
             valueCardinality: RenderValueCardinality.Single,
             scale: RenderScaleContract.Vector,
-            runtimeIdentity: new RenderRuntimeIdentity(bounds),
             resources: [fillToken]);
         return context.OpaqueSource(description);
+    }
+
+    private static void DrawFallbackParticle(OpaqueRenderSession session, Rect bounds)
+    {
+        using OpaqueRenderOutput output = session.CreateOutput(session.RequiredRegion);
+        output.Canvas.Use(canvas => session.UseDeclaredResource<Brush.Resource>(
+            0,
+            fill => canvas.DrawEllipse(bounds, fill, null)));
+        session.Publish(output);
     }
 
     private static void DrawParticles(TargetCommandSession session, Particle[] particles)
