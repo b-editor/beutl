@@ -8,8 +8,6 @@ using Beutl.Media.Source;
 
 namespace Beutl.UnitTests.Engine.Graphics.Rendering;
 
-// Renderer.RevalidateAll owns the only clear of HasChanges, after IncrementRenderCount consumes it.
-// Update is one of several writers into the same frame, so it may only ever set the flag.
 [TestFixture]
 public class RenderNodeHasChangesTests
 {

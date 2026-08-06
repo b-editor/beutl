@@ -17,6 +17,11 @@ public class Renderer : IRenderer
     private readonly IRenderPipelineDiagnosticsState? _diagnostics;
     private readonly ConditionalWeakTable<Drawable, Entry> _nodeCache = new();
     private readonly List<Entry> _allCurrentEntries = [];
+
+    // One revalidation pass, not one entry: a referenced subtree is reachable from several entries
+    // and the cache-admission threshold counts one visit per frame.
+    private readonly HashSet<RenderNode> _revalidatedNodes = new(ReferenceEqualityComparer.Instance);
+
     private readonly ClearRenderNode _frameClear;
     private readonly CompleteTargetRenderNode _completeTarget;
     private RenderNodeRenderer _frameRenderer;
@@ -415,11 +420,18 @@ public class Renderer : IRenderer
             ClearFrame();
         }
 
-        foreach (Entry entry in pendingEntries)
+        try
         {
-            RevalidateAll(entry.Node);
-            entry.InvalidateBounds();
-            _allCurrentEntries.Add(entry);
+            foreach (Entry entry in pendingEntries)
+            {
+                RevalidateAll(entry.Node);
+                entry.InvalidateBounds();
+                _allCurrentEntries.Add(entry);
+            }
+        }
+        finally
+        {
+            _revalidatedNodes.Clear();
         }
     }
 
@@ -530,18 +542,27 @@ public class Renderer : IRenderer
         }
     }
 
-    private static void RevalidateAll(RenderNode current)
+    private void RevalidateAll(RenderNode current)
     {
-        RenderNodeCache cache = current.Cache;
+        if (current.IsDisposed || !_revalidatedNodes.Add(current))
+            return;
 
-        if (current is ContainerRenderNode c)
+        switch (current)
         {
-            foreach (RenderNode item in c.Children)
-            {
-                RevalidateAll(item);
-            }
+            case ContainerRenderNode container:
+                for (int i = 0; i < container.Children.Count; i++)
+                {
+                    RevalidateAll(container.Children[i]);
+                }
+
+                break;
+
+            case ReferencesChildRenderNode reference when reference.Child is { } child:
+                RevalidateAll(child);
+                break;
         }
 
+        RenderNodeCache cache = current.Cache;
         cache.IncrementRenderCount();
         current.HasChanges = false;
         if (cache.IsCached && !RenderNodeCacheHelper.CanCacheRecursive(current))
@@ -562,15 +583,22 @@ public class Renderer : IRenderer
         ClearFrame();
         var pendingEntries = new List<Entry>();
 
-        foreach (var obj in frame.Objects)
+        try
         {
-            if (obj is not Drawable.Resource drawableResource)
-                continue;
+            foreach (var obj in frame.Objects)
+            {
+                if (obj is not Drawable.Resource drawableResource)
+                    continue;
 
-            Entry entry = PrepareDrawable(drawableResource);
-            RevalidateAll(entry.Node);
-            entry.InvalidateBounds();
-            pendingEntries.Add(entry);
+                Entry entry = PrepareDrawable(drawableResource);
+                RevalidateAll(entry.Node);
+                entry.InvalidateBounds();
+                pendingEntries.Add(entry);
+            }
+        }
+        finally
+        {
+            _revalidatedNodes.Clear();
         }
 
         _allCurrentEntries.AddRange(pendingEntries);
