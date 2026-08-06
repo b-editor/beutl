@@ -21,7 +21,11 @@ public sealed class TransformRenderNode(Matrix transform, TransformOperator tran
             changed = true;
         }
 
-        HasChanges = changed;
+        if (changed)
+        {
+            HasChanges = true;
+        }
+
         return changed;
     }
 

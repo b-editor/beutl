@@ -37,7 +37,11 @@ internal sealed class Scene3DRenderNode(Scene3D.Resource scene) : RenderNode
             Bounds = new Rect(0, 0, scene.RenderWidth, scene.RenderHeight);
         }
 
-        HasChanges = changed;
+        if (changed)
+        {
+            HasChanges = true;
+        }
+
         return changed;
     }
 

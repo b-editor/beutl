@@ -302,6 +302,93 @@ public class GraphicsContext2DTests
         Assert.That(scope.HasChanges, Is.True);
     }
 
+    [Test]
+    public void Dispose_ShouldMarkTheRootContainerOfABareParameterChange()
+    {
+        var size = new Size(1920, 1080);
+        using var root = new ContainerRenderNode();
+
+        RecordBareRectangle(root, size, new Rect(0, 0, 10, 10));
+        ClearHasChanges(root);
+        RecordBareRectangle(root, size, new Rect(0, 0, 30, 30));
+
+        Assert.That(root.HasChanges, Is.True);
+    }
+
+    [Test]
+    public void Update_ShouldNotClearALeafMarkFromAnEarlierPassInTheSameFrame()
+    {
+        var size = new Size(1920, 1080);
+        var settled = new Rect(0, 0, 30, 30);
+        using var root = new ContainerRenderNode();
+
+        RecordBareEllipse(root, size, new Rect(0, 0, 10, 10));
+        ClearHasChanges(root);
+        RecordBareEllipse(root, size, settled);
+        RecordBareEllipse(root, size, settled);
+
+        var ellipse = (EllipseRenderNode)root.Children[0];
+        Assert.That(ellipse.HasChanges, Is.True);
+    }
+
+    [Test]
+    public void Update_ShouldNotClearAStructuralMarkFromAnEarlierPassInTheSameFrame()
+    {
+        var size = new Size(1920, 1080);
+        Matrix matrix = Matrix.CreateRotation(45);
+        using var root = new ContainerRenderNode();
+
+        RecordTransformScope(root, size, matrix, withEllipse: true);
+        ClearHasChanges(root);
+        RecordTransformScope(root, size, matrix, withEllipse: false);
+        RecordTransformScope(root, size, matrix, withEllipse: false);
+
+        var scope = (TransformRenderNode)root.Children[0];
+        Assert.That(scope.HasChanges, Is.True);
+    }
+
+    [Test]
+    public void Reset_ShouldRestartRecordingAtTheRootContainer()
+    {
+        var size = new Size(1920, 1080);
+        using var root = new ContainerRenderNode();
+
+        using (var context = new GraphicsContext2D(root, size))
+        {
+            context.Push();
+            context.Reset();
+            context.DrawRectangle(new Rect(0, 0, 10, 10), Brushes.Resource.White, null);
+        }
+
+        Assert.That(root.Children, Has.Count.EqualTo(1));
+        Assert.That(root.Children[0], Is.InstanceOf<RectangleRenderNode>());
+    }
+
+    private static void RecordBareRectangle(ContainerRenderNode root, Size size, Rect rect)
+    {
+        using var context = new GraphicsContext2D(root, size);
+        context.DrawRectangle(rect, Brushes.Resource.White, null);
+    }
+
+    private static void RecordBareEllipse(ContainerRenderNode root, Size size, Rect rect)
+    {
+        using var context = new GraphicsContext2D(root, size);
+        context.DrawEllipse(rect, Brushes.Resource.White, null);
+    }
+
+    private static void RecordTransformScope(
+        ContainerRenderNode root, Size size, Matrix matrix, bool withEllipse)
+    {
+        var fill = Brushes.Resource.White;
+        using var context = new GraphicsContext2D(root, size);
+        using (context.PushTransform(matrix))
+        {
+            context.DrawRectangle(new Rect(0, 0, 10, 10), fill, null);
+            if (withEllipse)
+                context.DrawEllipse(new Rect(0, 0, 20, 20), fill, null);
+        }
+    }
+
     private static void RecordTwoScopes(ContainerRenderNode root, Size size, Rect changing)
     {
         var fill = Brushes.Resource.White;

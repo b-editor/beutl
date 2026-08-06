@@ -22,7 +22,11 @@ public sealed class RectangleRenderNode(Rect rect, Brush.Resource? fill, Pen.Res
             changed = true;
         }
 
-        HasChanges = changed;
+        if (changed)
+        {
+            HasChanges = true;
+        }
+
         return changed;
     }
 

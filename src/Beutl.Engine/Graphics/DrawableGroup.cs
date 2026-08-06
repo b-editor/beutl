@@ -204,7 +204,11 @@ public sealed partial class DrawableGroup : Drawable, IFlowOperator
                 changed = true;
             }
 
-            HasChanges = changed;
+            if (changed)
+            {
+                HasChanges = true;
+            }
+
             return changed;
         }
 

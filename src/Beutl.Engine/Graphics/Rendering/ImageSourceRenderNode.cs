@@ -25,7 +25,11 @@ public sealed class ImageSourceRenderNode(ImageSource.Resource source, Brush.Res
             Bounds = PenHelper.GetBounds(new Rect(default, Source.Value.Resource.FrameSize.ToSize(1)), Pen?.Resource);
         }
 
-        HasChanges = changed;
+        if (changed)
+        {
+            HasChanges = true;
+        }
+
         return changed;
     }
 

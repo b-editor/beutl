@@ -17,6 +17,7 @@ public sealed class GraphicsContext2D(
     private readonly Stack<(ContainerRenderNode Container, int OperationIndex, bool HasChanges)> _nodes = [];
     private int _drawOperationindex;
 
+    private readonly ContainerRenderNode _rootContainer = container;
     private ContainerRenderNode _container = container;
 
     // Belongs to the innermost open scope, not to the pass: it accumulates until that scope closes.
@@ -208,6 +209,7 @@ public sealed class GraphicsContext2D(
     {
         _drawOperationindex = 0;
         _nodes.Clear();
+        _container = _rootContainer;
         _faulted = false;
         _hasChanges = false;
     }
