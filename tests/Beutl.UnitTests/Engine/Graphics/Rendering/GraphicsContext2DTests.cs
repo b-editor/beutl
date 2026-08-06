@@ -237,6 +237,98 @@ public class GraphicsContext2DTests
         Assert.That(root.HasChanges, Is.True);
     }
 
+    [Test]
+    public void Pop_ShouldNotMarkASiblingScopeWhoseSubtreeIsUnchanged()
+    {
+        var size = new Size(1920, 1080);
+        using var root = new ContainerRenderNode();
+
+        RecordTwoScopes(root, size, new Rect(0, 0, 10, 10));
+        ClearHasChanges(root);
+        RecordTwoScopes(root, size, new Rect(0, 0, 30, 30));
+
+        var changedScope = (ContainerRenderNode)root.Children[0];
+        var unchangedScope = (ContainerRenderNode)root.Children[1];
+        Assert.Multiple(() =>
+        {
+            Assert.That(changedScope.HasChanges, Is.True);
+            Assert.That(unchangedScope.HasChanges, Is.False);
+        });
+    }
+
+    [Test]
+    public void Pop_ShouldPropagateAChangeNestedTwoScopesDeepToTheRoot()
+    {
+        var size = new Size(1920, 1080);
+        using var root = new ContainerRenderNode();
+
+        RecordNestedRectangle(root, size, new Rect(0, 0, 10, 10));
+        ClearHasChanges(root);
+        RecordNestedRectangle(root, size, new Rect(0, 0, 30, 30));
+
+        var outer = (ContainerRenderNode)root.Children[0];
+        var inner = (ContainerRenderNode)outer.Children[0];
+        Assert.Multiple(() =>
+        {
+            Assert.That(inner.HasChanges, Is.True);
+            Assert.That(outer.HasChanges, Is.True);
+            Assert.That(root.HasChanges, Is.True);
+        });
+    }
+
+    [Test]
+    public void Pop_ShouldMarkTheEnclosingContainerOfAStructuralInsertion()
+    {
+        var size = new Size(1920, 1080);
+        var fill = Brushes.Resource.White;
+        using var root = new ContainerRenderNode();
+
+        using (var context = new GraphicsContext2D(root, size))
+        using (context.Push())
+        {
+            context.DrawRectangle(new Rect(0, 0, 10, 10), fill, null);
+        }
+
+        ClearHasChanges(root);
+
+        using (var context = new GraphicsContext2D(root, size))
+        using (context.Push())
+        {
+            context.DrawRectangle(new Rect(0, 0, 10, 10), fill, null);
+            context.DrawEllipse(new Rect(0, 0, 20, 20), fill, null);
+        }
+
+        var scope = (ContainerRenderNode)root.Children[0];
+        Assert.That(scope.HasChanges, Is.True);
+    }
+
+    private static void RecordTwoScopes(ContainerRenderNode root, Size size, Rect changing)
+    {
+        var fill = Brushes.Resource.White;
+        using var context = new GraphicsContext2D(root, size);
+        using (context.Push())
+        using (context.Push())
+        {
+            context.DrawRectangle(changing, fill, null);
+        }
+
+        using (context.Push())
+        using (context.Push())
+        {
+            context.DrawEllipse(new Rect(0, 0, 20, 20), fill, null);
+        }
+    }
+
+    private static void RecordNestedRectangle(ContainerRenderNode root, Size size, Rect rect)
+    {
+        using var context = new GraphicsContext2D(root, size);
+        using (context.Push())
+        using (context.Push())
+        {
+            context.DrawRectangle(rect, Brushes.Resource.White, null);
+        }
+    }
+
     private static void ClearHasChanges(RenderNode node)
     {
         node.HasChanges = false;

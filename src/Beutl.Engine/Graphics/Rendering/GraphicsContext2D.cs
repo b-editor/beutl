@@ -14,13 +14,12 @@ public sealed class GraphicsContext2D(
     float outputScale = 1f)
     : IDisposable, IPopable
 {
-    private readonly Stack<(ContainerRenderNode, int)> _nodes = [];
+    private readonly Stack<(ContainerRenderNode Container, int OperationIndex, bool HasChanges)> _nodes = [];
     private int _drawOperationindex;
 
     private ContainerRenderNode _container = container;
 
-    // Consumed only by Pop, so it must accumulate across the whole recording pass: a later unchanged
-    // operation may never clear an earlier change.
+    // Belongs to the innermost open scope, not to the pass: it accumulates until that scope closes.
     private bool _hasChanges;
     private bool _faulted;
 
@@ -82,10 +81,25 @@ public sealed class GraphicsContext2D(
 
     private void Push(ContainerRenderNode node)
     {
-        _nodes.Push((_container, _drawOperationindex + 1));
+        _nodes.Push((_container, _drawOperationindex + 1, _hasChanges));
 
         _drawOperationindex = 0;
         _container = node;
+        _hasChanges = false;
+    }
+
+    private void CloseScope(in (ContainerRenderNode Container, int OperationIndex, bool HasChanges) state)
+    {
+        if (!_faulted)
+        {
+            TrimTrailingNodes(_container, _drawOperationindex);
+            _container.HasChanges |= _hasChanges;
+        }
+
+        bool scopeChanges = _hasChanges;
+        _container = state.Container;
+        _drawOperationindex = state.OperationIndex;
+        _hasChanges = state.HasChanges | scopeChanges;
     }
 
     private T? Next<T>() where T : RenderNode
@@ -115,6 +129,7 @@ public sealed class GraphicsContext2D(
             return;
 
         TrimTrailingNodes(_container, _drawOperationindex);
+        _container.HasChanges |= _hasChanges;
     }
 
     private bool BeginRecordingOperation()
@@ -194,6 +209,7 @@ public sealed class GraphicsContext2D(
         _drawOperationindex = 0;
         _nodes.Clear();
         _faulted = false;
+        _hasChanges = false;
     }
 
     public MemoryNode<T> UseMemory<T>(T defaultValue)
@@ -518,55 +534,21 @@ public sealed class GraphicsContext2D(
 
     public void Pop(int count = -1)
     {
-        if (_faulted)
-        {
-            if (count < 0)
-            {
-                while (count < 0
-                       && _nodes.TryPop(out (ContainerRenderNode, int) state))
-                {
-                    _container = state.Item1;
-                    _drawOperationindex = state.Item2;
-                    count++;
-                }
-            }
-            else
-            {
-                while (_nodes.Count >= count
-                       && _nodes.TryPop(out (ContainerRenderNode, int) state))
-                {
-                    _container = state.Item1;
-                    _drawOperationindex = state.Item2;
-                }
-            }
-
-            return;
-        }
-
         if (count < 0)
         {
             while (count < 0
-                   && _nodes.TryPop(out (ContainerRenderNode, int) state))
+                   && _nodes.TryPop(out (ContainerRenderNode, int, bool) state))
             {
-                TrimTrailingNodes(_container, _drawOperationindex);
-
-                _container = state.Item1;
-                _container.HasChanges = _container.HasChanges || _hasChanges;
-                _drawOperationindex = state.Item2;
-
+                CloseScope(state);
                 count++;
             }
         }
         else
         {
             while (_nodes.Count >= count
-                   && _nodes.TryPop(out (ContainerRenderNode, int) state))
+                   && _nodes.TryPop(out (ContainerRenderNode, int, bool) state))
             {
-                TrimTrailingNodes(_container, _drawOperationindex);
-
-                _container = state.Item1;
-                _container.HasChanges = _container.HasChanges || _hasChanges;
-                _drawOperationindex = state.Item2;
+                CloseScope(state);
             }
         }
     }
