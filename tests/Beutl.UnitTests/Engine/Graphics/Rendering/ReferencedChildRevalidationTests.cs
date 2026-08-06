@@ -85,6 +85,44 @@ public class ReferencedChildRevalidationTests
     }
 
     [Test]
+    public void FaultedFrame_KeepsASharedMarkVisibleToAnEntryTheFaultSkipped()
+    {
+        RenderThread.Dispatcher.Invoke(() =>
+        {
+            using var child = new ContainerRenderNode();
+            var first = new ReferencingDrawable(child);
+            var faulting = new SwitchableFaultingDrawable();
+            var last = new ReferencingDrawable(child);
+            using Renderer renderer = CreateRenderer();
+
+            renderer.UpdateFrame(CreateFrame(first, faulting, last));
+
+            child.HasChanges = true;
+            faulting.ShouldFault = true;
+            Assert.That(
+                () => renderer.UpdateFrame(CreateFrame(first, faulting, last)),
+                Throws.TypeOf<InvalidOperationException>().With.Message.EqualTo("recording failed"));
+            Assert.Multiple(() =>
+            {
+                Assert.That(first.LastRecordingObservedChange, Is.True,
+                    "the entry recorded before the fault never saw the shared mark");
+                Assert.That(child.HasChanges, Is.True,
+                    "the faulted frame consumed the shared mark although the last entry never recorded");
+            });
+
+            faulting.ShouldFault = false;
+            renderer.UpdateFrame(CreateFrame(first, faulting, last));
+
+            Assert.Multiple(() =>
+            {
+                Assert.That(last.LastRecordingObservedChange, Is.True,
+                    "the entry the fault skipped never saw the shared mark");
+                Assert.That(child.HasChanges, Is.False, "the shared mark outlived the recovered frame");
+            });
+        });
+    }
+
+    [Test]
     public void StableFrames_CountAChildReachedByTwoReferencesOncePerFrame()
     {
         RenderThread.Dispatcher.Invoke(() =>
@@ -180,6 +218,26 @@ internal sealed partial class ReferencingDrawable(RenderNode child) : Drawable
             child,
             static node => new ReferencesChildRenderNode(node),
             (reference, node) => LastRecordingObservedChange = reference.Update(node));
+
+    protected override Size MeasureCore(Size availableSize, Drawable.Resource resource) => new(4, 4);
+
+    protected override void OnDraw(GraphicsContext2D context, Drawable.Resource resource)
+    {
+    }
+}
+
+internal sealed partial class SwitchableFaultingDrawable : Drawable
+{
+    public bool ShouldFault { get; set; }
+
+    public override void Render(GraphicsContext2D context, Drawable.Resource resource)
+    {
+        context.DrawRectangle(new Rect(0, 0, 4, 4), Brushes.Resource.White, null);
+        if (ShouldFault)
+        {
+            throw new InvalidOperationException("recording failed");
+        }
+    }
 
     protected override Size MeasureCore(Size availableSize, Drawable.Resource resource) => new(4, 4);
 

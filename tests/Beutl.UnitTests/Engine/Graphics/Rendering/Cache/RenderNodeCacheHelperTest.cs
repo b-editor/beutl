@@ -88,6 +88,25 @@ public class RenderNodeCacheHelperTest
     }
 
     [Test]
+    public void CanCacheRecursive_ShouldFollowEveryCompleteTargetRoot()
+    {
+        using var first = new ContainerRenderNode();
+        using var second = new ContainerRenderNode();
+        using var completeTarget = new CompleteTargetRenderNode(first, [second]);
+        completeTarget.Cache.ReportRenderCount(RenderNodeCache.Count);
+        first.Cache.ReportRenderCount(RenderNodeCache.Count);
+
+        bool withColdRoot = RenderNodeCacheHelper.CanCacheRecursive(completeTarget);
+        second.Cache.ReportRenderCount(RenderNodeCache.Count);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(withColdRoot, Is.False, "a root the complete target records through went unvisited");
+            Assert.That(RenderNodeCacheHelper.CanCacheRecursive(completeTarget), Is.True);
+        });
+    }
+
+    [Test]
     public void ClearCache_ShouldInvalidateCache()
     {
         // Arrange

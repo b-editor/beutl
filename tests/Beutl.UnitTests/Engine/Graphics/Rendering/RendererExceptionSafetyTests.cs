@@ -134,7 +134,9 @@ public class RendererExceptionSafetyTests
             Assert.That(() => renderer.UpdateFrame(frame), Throws.Nothing);
             Assert.Multiple(() =>
             {
-                Assert.That(first.RenderCalls, Is.EqualTo(1));
+                // A faulted frame revalidates nothing, so the entry that already recorded keeps its mark
+                // and re-records. Consuming it early would strand a mark on a node a skipped entry shares.
+                Assert.That(first.RenderCalls, Is.EqualTo(2));
                 Assert.That(faulting.RenderCalls, Is.EqualTo(2));
                 Assert.That(renderer.GetBoundary(first), Is.Not.Null);
                 Assert.That(renderer.GetBoundary(faulting), Is.Not.Null);

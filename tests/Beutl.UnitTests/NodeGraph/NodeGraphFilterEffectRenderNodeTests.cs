@@ -103,6 +103,27 @@ public class NodeGraphFilterEffectRenderNodeTests
         });
     }
 
+    // The render node leaves ChildNodes empty, so neither revalidation nor cache recursion can see the graph
+    // output subtree. That is sound only while the node itself never reaches the cache-admission threshold.
+    [Test]
+    public void RepeatedBuilds_NeverAdmitTheGraphRenderNodeToTheCache()
+    {
+        var effect = new NodeGraphFilterEffect();
+        using var resource = (NodeGraphFilterEffect.Resource)effect.ToResource(CompositionContext.Default);
+        using FilterEffectRenderNode node = resource.CreateRenderNode();
+
+        for (int i = 0; i < RenderNodeCache.Count + 1; i++)
+        {
+            bool updateOnly = false;
+            resource.Update(effect, CompositionContext.Default, ref updateOnly);
+            node.Update(resource);
+            node.Cache.IncrementRenderCount();
+
+            Assert.That(node.Cache.CanCache(), Is.False,
+                "a build left the graph render node cacheable although its subtree is invisible to the cache pass");
+        }
+    }
+
     [Test]
     public void ToResource_DefaultContext_LeavesProxyPreferencesOff()
     {

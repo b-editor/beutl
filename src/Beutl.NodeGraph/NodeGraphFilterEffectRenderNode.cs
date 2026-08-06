@@ -8,6 +8,12 @@ using Beutl.NodeGraph.Nodes;
 
 namespace Beutl.NodeGraph;
 
+// RenderNode.ChildNodes is deliberately left empty here. The graph output nodes this records through are read
+// back out of the snapshot by PullOutputValue and only exist once Evaluate has run for this frame's time and
+// composition flags; the next Snapshot.Build disposes them, so an array retained to back a span would hand the
+// traversals disposed nodes. Revalidation and cache recursion therefore stop at this node: the graph subtree
+// keeps its marks and is never render-cached. That is sound only while this node itself stays out of the cache,
+// which NodeGraphFilterEffect.Resource.Update guarantees by bumping Version on every build.
 internal class NodeGraphFilterEffectRenderNode(NodeGraphFilterEffect.Resource resource) : FilterEffectRenderNode(resource)
 {
     private static readonly IEqualityComparer<RenderNode> s_renderNodeReferenceComparer =

@@ -429,8 +429,9 @@ public class Renderer : IRenderer
         }
     }
 
-    // Every entry must be prepared before any of them is revalidated: a referenced node is shared, so
-    // revalidating one entry mid-preparation clears a mark the entries after it have not read yet.
+    // A mark on a shared node may only be consumed once every entry that reads it this frame has read it.
+    // Preparation therefore completes before any entry is revalidated, and a frame that faults during
+    // preparation revalidates nothing: the entries the fault skipped still owe those marks a read.
     private void RevalidateEntries(List<Entry> entries)
     {
         try
@@ -444,20 +445,6 @@ public class Renderer : IRenderer
         finally
         {
             _revalidatedNodes.Clear();
-        }
-    }
-
-    // A mark records that a node tree was rebuilt, so an entry that finished recording consumes its mark
-    // even when a later entry faults the frame. Only metadata publication waits for the whole frame.
-    private void RevalidateEntriesPreservingFrameFailure(List<Entry> entries)
-    {
-        try
-        {
-            RevalidateEntries(entries);
-        }
-        catch (Exception ex)
-        {
-            s_logger.LogDebug(ex, "Revalidating the entries recorded before a frame fault failed");
         }
     }
 
@@ -600,16 +587,7 @@ public class Renderer : IRenderer
         ClearFrame();
         var pendingEntries = new List<Entry>();
 
-        try
-        {
-            PrepareEntries(frame, pendingEntries);
-        }
-        catch
-        {
-            RevalidateEntriesPreservingFrameFailure(pendingEntries);
-            throw;
-        }
-
+        PrepareEntries(frame, pendingEntries);
         RevalidateEntries(pendingEntries);
         _allCurrentEntries.AddRange(pendingEntries);
     }
@@ -947,6 +925,8 @@ public class Renderer : IRenderer
 internal sealed class CompleteTargetRenderNode : RenderNode
 {
     private readonly RenderNode _first;
+
+    // Replaced rather than mutated, so a span handed out by ChildNodes survives an UpdateRoots mid-traversal.
     private RenderNode[] _roots;
 
     public CompleteTargetRenderNode(RenderNode first, IEnumerable<RenderNode> remaining)
@@ -967,6 +947,8 @@ internal sealed class CompleteTargetRenderNode : RenderNode
             throw new ArgumentException("A complete-target root sequence cannot contain null nodes.", nameof(remaining));
         _roots = roots;
     }
+
+    public override ReadOnlySpan<RenderNode> ChildNodes => _roots;
 
     public override void Process(RenderNodeContext context)
     {
