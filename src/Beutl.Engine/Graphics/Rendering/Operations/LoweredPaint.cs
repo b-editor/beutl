@@ -131,9 +131,11 @@ public readonly struct PaintedRenderSession
     /// <para>
     /// The only addressing mode a painted source has, and the reason this session carries no token-taking
     /// <c>UseResource</c> the way the other session types do. <see cref="RenderNodeContext.PaintedSource"/> is
-    /// state-passing only: the draw callback may not capture, and the state it does receive is the produced
-    /// value's output-cache runtime identity, which a request-scoped resource token can never be part of.
-    /// No token can therefore reach this callback, so position is the address.
+    /// state-passing only: the draw callback may not capture, and the sanctioned state channel rejects a
+    /// <see cref="RenderResource{T}"/> because the state is the produced value's output-cache runtime identity.
+    /// A token can still be carried physically, inside a sealed non-tuple state object the state walk does not
+    /// descend into, but that makes the runtime identity a per-frame reference and defeats output-cache reuse.
+    /// Position is the address by design, not by impossibility.
     /// </para>
     /// <para>
     /// The index addresses the <c>resources</c> argument the author passed to
