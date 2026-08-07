@@ -58,9 +58,32 @@ public class RendererExceptionSafetyTests
         });
     }
 
+    [Test]
+    public void RenderDrawable_RebuildsCachedNode_AfterTransientRenderFailure()
+    {
+        VulkanTestEnvironment.EnsureAvailable();
+        VulkanTestEnvironment.InvokeOnRenderThread(() =>
+        {
+            using var renderer = new Renderer(16, 16);
+            var drawable = new TransientFaultDrawable();
+            CompositionFrame frame = CreateFrame(drawable);
+
+            var first = Assert.Throws<InvalidOperationException>(() => renderer.Render(frame));
+
+            Assert.That(first!.Message, Is.EqualTo("transient"));
+            Assert.That(() => renderer.Render(frame), Throws.Nothing);
+            Assert.That(drawable.RenderCount, Is.EqualTo(2));
+        });
+    }
+
     private static CompositionFrame CreateFrame(params RenderNodeOperation[] operations)
     {
         var drawable = new FaultingDrawable(operations);
+        return CreateFrame(drawable);
+    }
+
+    private static CompositionFrame CreateFrame(Drawable drawable)
+    {
         var resource = (Drawable.Resource)drawable.ToResource(CompositionContext.Default);
         return new CompositionFrame(
             ImmutableArray.Create<EngineObject.Resource>(resource),
@@ -112,4 +135,41 @@ internal sealed partial class FaultingDrawable(RenderNodeOperation[] operations)
 internal sealed class FixedOpsNode(RenderNodeOperation[] operations) : RenderNode
 {
     public override RenderNodeOperation[] Process(RenderNodeContext context) => operations;
+}
+
+internal sealed partial class TransientFaultDrawable : Drawable
+{
+    public int RenderCount { get; private set; }
+
+    public override void Render(GraphicsContext2D context, Drawable.Resource resource)
+    {
+        RenderCount++;
+        bool shouldThrow = RenderCount == 1;
+        context.DrawNode(new TransientFaultNode(shouldThrow));
+    }
+
+    protected override Size MeasureCore(Size availableSize, Drawable.Resource resource) => new(4, 4);
+
+    protected override void OnDraw(GraphicsContext2D context, Drawable.Resource resource)
+    {
+    }
+}
+
+internal sealed class TransientFaultNode(bool shouldThrow) : RenderNode
+{
+    public override RenderNodeOperation[] Process(RenderNodeContext context)
+    {
+        return
+        [
+            RenderNodeOperation.CreateLambda(
+                new Rect(0, 0, 4, 4),
+                _ =>
+                {
+                    if (shouldThrow)
+                    {
+                        throw new InvalidOperationException("transient");
+                    }
+                })
+        ];
+    }
 }
