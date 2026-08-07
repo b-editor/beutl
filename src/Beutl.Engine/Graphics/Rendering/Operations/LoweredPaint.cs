@@ -141,16 +141,10 @@ public readonly struct PaintedRenderSession
     /// output-cache runtime identity, a <see cref="RenderResource{T}"/> in a tuple element is rejected, and so
     /// is a capturing callback. A sealed non-tuple state does pass validation and physically delivers a token,
     /// but it is an enumerated identity channel rather than a way to address resources: the author then owns the
-    /// identity contract by hand. A holder allocated per recording loses output-cache reuse unless it defines
-    /// value equality. A holder reused and mutated in place keeps reuse but cannot be an identity here at all,
-    /// because a painted source publishes the state object itself as the runtime identity: the cache stores that
-    /// reference, mutation moves both sides of the comparison at once, and
-    /// <see cref="object.Equals(object, object)"/> returns on reference equality before reaching the author's
-    /// override, so such a node draws its first frame once and then serves those pixels for every later frame.
-    /// A session recorded through a state-passing <c>Create</c> stores a per-recording binding instead and does
-    /// consult the author's equality, so this consequence is specific to a painted source.
-    /// A token left over from a finished request throws when leased. Position is the address by design, not by
-    /// impossibility.
+    /// identity contract by hand, and a state object mutated in place cannot discharge it: the cached identity
+    /// and the new one hold the same instance, so no equality the author writes observes the change and the
+    /// node draws its first frame once and then serves those pixels for every later frame. A token left over
+    /// from a finished request throws when leased. Position is the address by design, not by impossibility.
     /// </para>
     /// <para>
     /// The index addresses the <c>resources</c> argument the author passed to

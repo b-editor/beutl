@@ -1169,16 +1169,10 @@ public sealed class OpaqueRenderSession
     /// value's output-cache runtime identity: a <see cref="RenderResource"/> in a tuple element is rejected, and
     /// so is a capturing callback. A sealed non-tuple state does pass validation and physically delivers a token
     /// to this method, but it is an enumerated identity channel rather than a way to address resources — the
-    /// author then owns the identity contract by hand. A holder allocated per recording loses output-cache
-    /// reuse unless it defines value equality, and beyond that the outcome is not decided by the holder alone:
-    /// which object reaches the output-cache key depends on the channel that recorded the description. A
-    /// state-passing <c>Create</c> stores a per-recording binding that compares states through
-    /// <see cref="EqualityComparer{T}.Default"/>, so the author's equality is consulted;
-    /// <see cref="RenderNodeContext.PaintedSource"/> publishes the state object itself, so a holder mutated in
-    /// place moves both sides of the comparison and its equality is never reached. One holder therefore behaves
-    /// differently under different sessions, which is why this is an escape hatch rather than an addressing
-    /// mode. A token left over from a finished request throws when leased. Position is the address by design,
-    /// not by impossibility.
+    /// author then owns the identity contract by hand, and a state object mutated in place cannot discharge it:
+    /// the cached identity and the new one hold the same instance, so no equality the author writes observes
+    /// the change. A token left over from a finished request throws when leased. Position is the address by
+    /// design, not by impossibility.
     /// </remarks>
     public void UseResource<T>(RenderResource<T> resource, Action<T> use)
         where T : class
