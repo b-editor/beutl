@@ -108,7 +108,7 @@ internal static class DeferredOpaqueSource
     {
         ArgumentNullException.ThrowIfNull(resource);
         return resource is EngineObject.Resource engineResource
-            ? engineResource.GetOriginal().Id
+            ? EngineResourceIdentity.Of(engineResource)
             : s_resourceKeys.GetValue(resource, static _ => new ResourceCacheKey());
     }
 

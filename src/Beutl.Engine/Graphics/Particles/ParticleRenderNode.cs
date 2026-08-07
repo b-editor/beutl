@@ -98,7 +98,7 @@ internal sealed class ParticleRenderNode(ParticleEmitter.Resource particle) : Re
         Brush.Resource fill = Brushes.Resource.White;
         RenderResource<Brush.Resource> fillToken = context.Borrow(
             fill,
-            fill.GetOriginal().Id,
+            EngineResourceIdentity.Of(fill),
             fill.Version);
         OpaqueRenderDescription description = OpaqueRenderDescription.Create(
             bounds,
