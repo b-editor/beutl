@@ -124,17 +124,18 @@ internal sealed class ElementAdderImpl(EditViewModel context) : IElementAdder
             else if (MatchFileVideoOnly(desc.FileName))
             {
                 _logger.LogDebug("File is a video.");
-                // The audio companion goes to desc.Layer + 1; refuse the whole
-                // import rather than adding the video without its sound.
-                if (scene.IsLayerLocked(desc.Layer + 1))
+                // Probe the audio track so a video-only file (e.g. an .mkv without sound) does not
+                // get a SourceSound element that would crash on AudioInfo access (#2183).
+                bool hasAudio = HasAudioTrack(desc.FileName);
+                // The audio companion goes to desc.Layer + 1; refuse the whole import when that
+                // layer is locked and an audio companion is actually going to be created.
+                if (hasAudio && scene.IsLayerLocked(desc.Layer + 1))
                 {
                     NotificationService.ShowWarning(Strings.Lock, Strings.LayerIsLocked);
                     return;
                 }
 
                 Element element1 = CreateElementFor<SourceVideo>(out var t1);
-                Element element2 = CreateElementFor<SourceSound>(out var t2);
-                element2.ZIndex++;
                 var video = VideoSource.Open(desc.FileName);
                 t1.Source.CurrentValue = video;
                 var videoResource = TrySetDuration(
@@ -142,12 +143,19 @@ internal sealed class ElementAdderImpl(EditViewModel context) : IElementAdder
                     () => video.ToResource(CompositionContext.Default),
                     v => v.Duration);
 
-                var sound = SoundSource.Open(desc.FileName);
-                t2.Source.CurrentValue = sound;
-                var soundResource = TrySetDuration(
-                    element2,
-                    () => sound.ToResource(CompositionContext.Default),
-                    v => v.Duration);
+                Element? element2 = null;
+                SoundSource.Resource? soundResource = null;
+                if (hasAudio)
+                {
+                    element2 = CreateElementFor<SourceSound>(out var t2);
+                    element2.ZIndex++;
+                    var sound = SoundSource.Open(desc.FileName);
+                    t2.Source.CurrentValue = sound;
+                    soundResource = TrySetDuration(
+                        element2,
+                        () => sound.ToResource(CompositionContext.Default),
+                        v => v.Duration);
+                }
                 // VideoSource.Resource, SoundSource.ResourceのMediaReaderは参照カウンターで管理され、Resource間で共有される
                 // すぐに解放してしまうとこのDuration設定時とレンダリング時の2回MediaReaderが生成されてしまう
                 // 作成 -> 参照カウントを引く -> 解放 -> レンダラ側で作成 のようになってしまう
@@ -160,11 +168,14 @@ internal sealed class ElementAdderImpl(EditViewModel context) : IElementAdder
                 }, DispatchPriority.Low)));
 
                 CoreSerializer.StoreToUri(element1, element1.Uri!);
-                CoreSerializer.StoreToUri(element2, element2.Uri!);
                 scene.AddChild(element1);
-                scene.AddChild(element2);
-                // グループ化
-                scene.Groups.Add([element1.Id, element2.Id]);
+                if (element2 != null)
+                {
+                    CoreSerializer.StoreToUri(element2, element2.Uri!);
+                    scene.AddChild(element2);
+                    // グループ化
+                    scene.Groups.Add([element1.Id, element2.Id]);
+                }
                 scrollPos = (element1.Range, element1.ZIndex);
             }
             else if (MatchFileAudioOnly(desc.FileName))
@@ -323,6 +334,21 @@ internal sealed class ElementAdderImpl(EditViewModel context) : IElementAdder
         return MatchFileExtensions(filePath, DecoderRegistry.EnumerateDecoder()
             .SelectMany(x => x.VideoExtensions())
             .Distinct());
+    }
+
+    private static bool HasAudioTrack(string filePath)
+    {
+        try
+        {
+            using var reader = MediaReader.Open(filePath, new MediaOptions(MediaMode.Audio));
+            return reader.HasAudio;
+        }
+        catch
+        {
+            // Treat an unopenable audio stream (no audio track, or no usable decoder) as
+            // audio-less; the video import itself still proceeds.
+            return false;
+        }
     }
 
     private static bool MatchFileImage(string filePath)

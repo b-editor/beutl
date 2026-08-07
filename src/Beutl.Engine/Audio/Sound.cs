@@ -48,7 +48,9 @@ public abstract partial class Sound : EngineObject
         }
 
         var soundSource = resource.GetSoundSource();
-        if (soundSource == null)
+        // SampleRate <= 0 marks an unreadable source (e.g. a video-only file, #2183); composing a
+        // ResampleNode at zero rate would throw, so emit silence instead.
+        if (soundSource == null || soundSource.SampleRate <= 0)
         {
             context.Clear();
             return;

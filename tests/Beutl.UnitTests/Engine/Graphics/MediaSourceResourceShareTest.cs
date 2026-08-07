@@ -69,9 +69,9 @@ public class MediaSourceResourceShareTest
     [Test]
     public void SoundSource_SharedByDefault_ReusesMediaReader()
     {
-        var videoPath = TestMediaHelper.CreateTestVideoFile(80, 80, new Rational(30, 1), 60);
+        var audioPath = TestMediaHelper.CreateTestAudioFile(durationSeconds: 2.0);
         var soundSource = new SoundSource();
-        soundSource.ReadFrom(new Uri(videoPath));
+        soundSource.ReadFrom(new Uri(audioPath));
 
         using var a = soundSource.ToResource(CompositionContext.Default);
         using var b = soundSource.ToResource(CompositionContext.Default);
@@ -85,9 +85,9 @@ public class MediaSourceResourceShareTest
     [Test]
     public void SoundSource_DisableResourceShare_YieldsIndependentMediaReader()
     {
-        var videoPath = TestMediaHelper.CreateTestVideoFile(80, 80, new Rational(30, 1), 60);
+        var audioPath = TestMediaHelper.CreateTestAudioFile(durationSeconds: 2.0);
         var soundSource = new SoundSource();
-        soundSource.ReadFrom(new Uri(videoPath));
+        soundSource.ReadFrom(new Uri(audioPath));
 
         using var preview = soundSource.ToResource(CompositionContext.Default);
         using var encode = soundSource.ToResource(
@@ -152,9 +152,9 @@ public class MediaSourceResourceShareTest
     [Test]
     public void SoundSource_DisableResourceShare_DoesNotContaminateSharedCache()
     {
-        var videoPath = TestMediaHelper.CreateTestVideoFile(80, 80, new Rational(30, 1), 60);
+        var audioPath = TestMediaHelper.CreateTestAudioFile(durationSeconds: 2.0);
         var soundSource = new SoundSource();
-        soundSource.ReadFrom(new Uri(videoPath));
+        soundSource.ReadFrom(new Uri(audioPath));
 
         // エンコード側が先に Resource を生成しても、プレビュー側 (共有モード) は
         // エンコード専用 MediaReader を掴まない
@@ -215,8 +215,8 @@ public class MediaSourceResourceShareTest
     [Test]
     public void SoundSource_ReadFromDifferentUri_DoesNotShareStaleCounter()
     {
-        var pathOld = TestMediaHelper.CreateTestVideoFile(80, 80, new Rational(30, 1), 60);
-        var pathNew = TestMediaHelper.CreateTestVideoFile(120, 120, new Rational(30, 1), 60);
+        var pathOld = TestMediaHelper.CreateTestAudioFile(sampleRate: 44100, durationSeconds: 2.0);
+        var pathNew = TestMediaHelper.CreateTestAudioFile(sampleRate: 48000, durationSeconds: 3.0);
 
         var soundSource = new SoundSource();
         soundSource.ReadFrom(new Uri(pathOld));
@@ -230,5 +230,40 @@ public class MediaSourceResourceShareTest
         Assert.That(newResource.MediaReader, Is.Not.Null);
         Assert.That(newResource.MediaReader, Is.Not.SameAs(oldResource.MediaReader),
             "URI 切替後の Resource が旧 URI の MediaReader を共有してはならない");
+    }
+
+    // Regression for #2183: a video-only file (no audio track) must not crash SoundSource.Resource.
+    // The test decoder's TestMediaReader reports HasAudio == false for .testvideo files, mirroring the
+    // FFmpegReaderProxy behavior that threw "The stream does not exist." when AudioInfo was dereferenced.
+    [Test]
+    public void SoundSource_VideoOnlyFile_DoesNotThrowAndYieldsUnloadedResource()
+    {
+        var videoPath = TestMediaHelper.CreateTestVideoFile(80, 80, new Rational(30, 1), 60);
+        var soundSource = new SoundSource();
+        soundSource.ReadFrom(new Uri(videoPath));
+
+        using var resource = soundSource.ToResource(CompositionContext.Default);
+
+        Assert.That(resource.MediaReader, Is.Null,
+            "音声トラックのないメディアは MediaReader を保持してはならない (#2183)");
+        Assert.That(resource.Duration, Is.EqualTo(TimeSpan.Zero));
+        Assert.That(resource.SampleRate, Is.Zero);
+        Assert.That(resource.NumChannels, Is.Zero);
+    }
+
+    [Test]
+    public void SoundSource_VideoOnlyFile_RepeatedResource_DoesNotThrow()
+    {
+        var videoPath = TestMediaHelper.CreateTestVideoFile(80, 80, new Rational(30, 1), 60);
+        var soundSource = new SoundSource();
+        soundSource.ReadFrom(new Uri(videoPath));
+
+        using var a = soundSource.ToResource(CompositionContext.Default);
+        using var b = soundSource.ToResource(CompositionContext.Default);
+
+        // The unloaded result must be stable: opening the same video-only source again must not throw
+        // or resurrect a stale counter.
+        Assert.That(a.MediaReader, Is.Null);
+        Assert.That(b.MediaReader, Is.Null);
     }
 }
