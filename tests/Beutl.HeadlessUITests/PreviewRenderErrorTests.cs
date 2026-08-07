@@ -61,7 +61,10 @@ public class PreviewRenderErrorTests
     private static void DrainPendingPreviewRender()
     {
         HeadlessTestHelpers.Settle();
-        RenderThread.Dispatcher.Invoke(static () => { });
+        // The barrier is a blocking call; bound it so a render-thread deadlock or regression
+        // fails the test with a stack trace instead of hanging the whole headless run.
+        using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(10));
+        RenderThread.Dispatcher.Invoke(static () => { }, ct: timeout.Token);
         HeadlessTestHelpers.Settle();
     }
 
