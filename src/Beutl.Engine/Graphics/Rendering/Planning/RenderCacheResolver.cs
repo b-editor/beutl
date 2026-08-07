@@ -1408,7 +1408,7 @@ internal sealed class RenderCacheResolver
         }
     }
 
-    private sealed record CandidateTopology(
+    internal sealed record CandidateTopology(
         Dictionary<RenderCacheCandidateId, HashSet<RenderCacheCandidateId>> Descendants,
         RenderCacheCandidate[] ParentFirst);
 
@@ -1471,14 +1471,17 @@ internal sealed class RenderCacheResolver
         }
     }
 
-    private static CandidateTopology BuildCandidateTopology(
+    internal static CandidateTopology BuildCandidateTopology(
         RecordedRenderGraph graph,
         IReadOnlyDictionary<RenderFragmentId, RenderFragmentReference> references)
     {
         var result = new Dictionary<RenderCacheCandidateId, HashSet<RenderCacheCandidateId>>();
+        var reachable = new HashSet<RenderFragmentReference>(ReferenceEqualityComparer.Instance);
+        var pending = new Stack<RenderFragmentReference>();
         foreach (RenderCacheCandidate parent in graph.CacheCandidates)
         {
             var descendants = new HashSet<RenderCacheCandidateId>();
+            bool reachableResolved = false;
             foreach (RenderCacheCandidate child in graph.CacheCandidates)
             {
                 if (parent.Id == child.Id)
@@ -1490,7 +1493,13 @@ internal sealed class RenderCacheResolver
                     continue;
                 }
 
-                if (DependsOn(references[parent.FragmentId], references[child.FragmentId]))
+                if (!reachableResolved)
+                {
+                    CollectReachableInputs(references[parent.FragmentId], reachable, pending);
+                    reachableResolved = true;
+                }
+
+                if (reachable.Contains(references[child.FragmentId]))
                     descendants.Add(child.Id);
             }
             result.Add(parent.Id, descendants);
@@ -1501,22 +1510,22 @@ internal sealed class RenderCacheResolver
         return new CandidateTopology(result, parentFirst);
     }
 
-    private static bool DependsOn(
+    private static void CollectReachableInputs(
         RenderFragmentReference parent,
-        RenderFragmentReference possibleDescendant)
+        HashSet<RenderFragmentReference> reachable,
+        Stack<RenderFragmentReference> pending)
     {
-        var visited = new HashSet<RenderFragmentReference>(ReferenceEqualityComparer.Instance);
-        var pending = new Stack<RenderFragmentReference>(parent.Inputs);
+        reachable.Clear();
+        pending.Clear();
+        foreach (RenderFragmentReference input in parent.Inputs)
+            pending.Push(input);
         while (pending.TryPop(out RenderFragmentReference? current))
         {
-            if (ReferenceEquals(current, possibleDescendant))
-                return true;
-            if (!visited.Add(current))
+            if (!reachable.Add(current))
                 continue;
             foreach (RenderFragmentReference input in current.Inputs)
                 pending.Push(input);
         }
-        return false;
     }
 }
 
