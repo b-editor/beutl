@@ -12,12 +12,13 @@ namespace Beutl.PublicApiContractTests;
 /// <c>UseDeclaredResource</c>, or only one of them.
 /// </summary>
 /// <remarks>
-/// The sanctioned routes to a token are capture and the state tuple, and both are closed on a state-passing
-/// callback. A sealed non-tuple state object is the one route that stays open, because the state walk stops at
-/// every aggregate that is not a tuple. That is not a hole in the addressing rule but the price list for
-/// ignoring it: the state is the produced value's output-cache runtime identity, so a per-frame holder
-/// reference makes every lookup miss. A painted source therefore exposes the positional form only by design,
-/// not because no token could reach it.
+/// The state is the produced value's output-cache runtime identity. A resource token in a tuple element is
+/// rejected, and a capturing callback is rejected. A sealed non-tuple state does pass validation and physically
+/// delivers a token, but it is an enumerated identity channel rather than a way to address resources: the
+/// author then owns the identity contract by hand. A holder allocated per recording loses output-cache reuse;
+/// a reused or value-equal holder keeps reuse but its identity no longer tracks the resource, so a
+/// pixel-affecting change can be served from a stale cached output; and a token left over from a finished
+/// request throws when leased. Position is the address by design, not by impossibility.
 /// </remarks>
 [TestFixture]
 public sealed class DeclaredResourceAddressingContractTests
@@ -167,14 +168,15 @@ public sealed class DeclaredResourceAddressingContractTests
     }
 
     /// <summary>
-    /// The price of that channel, and the reason positional addressing is the sanctioned one. The state is the
-    /// produced value's output-cache runtime identity, and a holder is a fresh reference every recording.
+    /// One of the two ways of holding a holder, and the only one the fixture used to state as a general fact.
+    /// A node that allocates its holder inside <c>Process</c> hands the description a fresh reference every
+    /// recording, so its runtime identity cannot match the previous frame's.
     /// </summary>
     [Test]
-    public void ASealedHolderState_CostsEveryOutputCacheHitAValueStateWouldHaveEarned()
+    public void AHolderAllocatedPerRecording_LosesTheOutputCacheReuseAValueStateKeeps()
     {
-        using var holderState = new PaintedSourceNode(carryTheTokenInTheState: true);
-        using var valueState = new PaintedSourceNode(carryTheTokenInTheState: false);
+        using var holderState = new PaintedSourceNode(PaintedSourceStateShape.HolderPerRecording);
+        using var valueState = new PaintedSourceNode(PaintedSourceStateShape.Value);
 
         RasterizeTwice(holderState);
         RasterizeTwice(valueState);
@@ -185,8 +187,81 @@ public sealed class DeclaredResourceAddressingContractTests
                 "a lightweight immutable state compares equal across frames, so the second frame is served "
                 + "from the first frame's cached output");
             Assert.That(holderState.DrawCount, Is.EqualTo(2),
-                "a holder is a fresh reference every recording, so the runtime identity never matches and the "
-                + "cache is defeated for as long as the token travels that way");
+                "this node allocates its holder inside Process, so the identity it publishes is a fresh "
+                + "reference every recording. That is a property of how this node holds the holder, not of "
+                + "carrying a token in one — see AReusedHolderAndAValueEqualHolder_KeepTheOutputCacheHit");
+        });
+    }
+
+    /// <summary>
+    /// The other two ways, and the reason the cost of this channel cannot be stated as a lost cache hit. Both
+    /// of these states carry a resource token and both are served from the cached output.
+    /// </summary>
+    [Test]
+    public void AReusedHolderAndAValueEqualHolder_KeepTheOutputCacheHit()
+    {
+        using var reused = new PaintedSourceNode(PaintedSourceStateShape.HolderReusedAcrossRecordings);
+        using var valueEqual = new PaintedSourceNode(PaintedSourceStateShape.ValueEqualHolderPerRecording);
+
+        RasterizeTwice(reused);
+        RasterizeTwice(valueEqual);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(reused.DrawCount, Is.EqualTo(1),
+                "one holder reused across recordings, with its token refreshed each Process, is the same "
+                + "reference every frame, so the second frame is served from the cached output");
+            Assert.That(valueEqual.DrawCount, Is.EqualTo(1),
+                "a holder whose Equals/GetHashCode compare by value is equal to the previous frame's holder, "
+                + "so the second frame is served from the cached output while still carrying a token");
+        });
+    }
+
+    /// <summary>
+    /// What that retained hit actually costs, and the part that matters most with the render cache enabled: the
+    /// holder's identity no longer tracks what the callback draws with, so a pixel-affecting change is served
+    /// from a stale cached output and is silently dropped.
+    /// </summary>
+    [Test]
+    public void AReusedHolderState_ServesStalePixelsWhenItsCarriedValueChanges()
+    {
+        using var node = new MutatingHolderStateNode();
+        node.Cache.ReportRenderCount(RenderNodeCache.Count);
+
+        ulong first;
+        ulong second;
+        using (RenderNodeRenderer renderer = CreateRenderer(node, RenderCacheOptions.Enabled))
+        {
+            using (RenderNodeRasterization frame = renderer.Rasterize())
+            {
+                first = FirstPixel(frame);
+            }
+
+            node.Color = Colors.Lime;
+            using (RenderNodeRasterization frame = renderer.Rasterize())
+            {
+                second = FirstPixel(frame);
+            }
+        }
+
+        Color[] drawnUnderTheCache = [.. node.DrawnColors];
+
+        ulong withoutTheCache;
+        using (RenderNodeRenderer renderer = CreateRenderer(node, RenderCacheOptions.Disabled))
+        using (RenderNodeRasterization frame = renderer.Rasterize())
+        {
+            withoutTheCache = FirstPixel(frame);
+        }
+
+        TestContext.Out.WriteLine($"drawn under the cache: [{string.Join(", ", drawnUnderTheCache)}]");
+        Assert.Multiple(() =>
+        {
+            Assert.That(drawnUnderTheCache, Is.EqualTo(new[] { Colors.Red }),
+                "the second frame never re-ran the draw callback, so the changed colour was never drawn");
+            Assert.That(second, Is.EqualTo(first),
+                "the second frame is the first frame's cached pixels, served after the change");
+            Assert.That(withoutTheCache, Is.Not.EqualTo(first),
+                "the change was pixel-affecting, so those cached pixels are wrong and not merely identical");
         });
     }
 
@@ -227,6 +302,16 @@ public sealed class DeclaredResourceAddressingContractTests
     private static bool HasPublicMethod(Type session, string name)
         => session.GetMethods(BindingFlags.Public | BindingFlags.Instance)
             .Any(method => method.Name == name);
+
+    private static ulong FirstPixel(RenderNodeRasterization rasterization)
+    {
+        Assert.That(rasterization.IsEmpty, Is.False);
+        ReadOnlySpan<ushort> pixels = rasterization.Bitmap!.GetPixelSpan<ushort>();
+        return ((ulong)pixels[0] << 48)
+               | ((ulong)pixels[1] << 32)
+               | ((ulong)pixels[2] << 16)
+               | pixels[3];
+    }
 
     private static RenderNodeMeasurement Measure(RenderNode node)
     {
@@ -290,53 +375,105 @@ public sealed class DeclaredResourceAddressingContractTests
         public override void Process(RenderNodeContext context) => process(context);
     }
 
+    public enum PaintedSourceStateShape
+    {
+        Value,
+        HolderPerRecording,
+        HolderReusedAcrossRecordings,
+        ValueEqualHolderPerRecording,
+    }
+
     /// <remarks>
     /// The draw counter travels as a declared resource under a key that is equal across frames, so the only
-    /// thing that differs between the two variants is whether the state is a value or a holder.
+    /// thing that differs between the variants is the shape of the state.
     /// </remarks>
-    private sealed class PaintedSourceNode(bool carryTheTokenInTheState) : RenderNode
+    private sealed class PaintedSourceNode(PaintedSourceStateShape shape) : RenderNode
     {
         private readonly DrawCounter _counter = new();
+        private readonly ReusedTokenHolder _reused = new();
 
         public int DrawCount => _counter.Count;
 
         public override void Process(RenderNodeContext context)
         {
             RenderResource<DrawCounter> counter = context.Borrow(_counter, cacheKey: "counter", version: 1);
-            RenderFragmentHandle handle = carryTheTokenInTheState
-                ? context.PaintedSource(
-                    state: new CountingTokenHolder(counter),
-                    draw: static (session, state) => session.UseDeclaredResource<DrawCounter>(
-                        0,
-                        current => Draw(session, current)),
-                    fill: null,
-                    pen: null,
-                    brushBounds: s_bounds,
-                    outputBounds: s_bounds,
-                    hitTest: RenderHitTestContract.OutputBounds,
-                    scale: RenderScaleContract.Vector,
-                    structuralKey: typeof(PaintedSourceNode),
-                    resources: [counter])
-                : context.PaintedSource(
-                    state: s_bounds,
-                    draw: static (session, _) => session.UseDeclaredResource<DrawCounter>(
-                        0,
-                        current => Draw(session, current)),
-                    fill: null,
-                    pen: null,
-                    brushBounds: s_bounds,
-                    outputBounds: s_bounds,
-                    hitTest: RenderHitTestContract.OutputBounds,
-                    scale: RenderScaleContract.Vector,
-                    structuralKey: typeof(PaintedSourceNode),
-                    resources: [counter]);
+            RenderFragmentHandle handle = shape switch
+            {
+                PaintedSourceStateShape.Value => Record(context, s_bounds, counter),
+                PaintedSourceStateShape.HolderPerRecording =>
+                    Record(context, new CountingTokenHolder(counter), counter),
+                PaintedSourceStateShape.HolderReusedAcrossRecordings =>
+                    Record(context, _reused.Refresh(counter), counter),
+                _ => Record(context, new ValueEqualTokenHolder(counter, s_bounds), counter),
+            };
             context.Publish(context.ContributeValues(handle));
         }
+
+        private static RenderFragmentHandle Record<TState>(
+            RenderNodeContext context,
+            TState state,
+            RenderResource<DrawCounter> counter)
+            where TState : notnull
+            => context.PaintedSource(
+                state: state,
+                draw: static (session, _) => session.UseDeclaredResource<DrawCounter>(
+                    0,
+                    current => Draw(session, current)),
+                fill: null,
+                pen: null,
+                brushBounds: s_bounds,
+                outputBounds: s_bounds,
+                hitTest: RenderHitTestContract.OutputBounds,
+                scale: RenderScaleContract.Vector,
+                structuralKey: typeof(PaintedSourceNode),
+                resources: [counter]);
 
         private static void Draw(PaintedRenderSession session, DrawCounter counter)
         {
             counter.Record();
             session.Canvas.Clear(Colors.Red);
+        }
+    }
+
+    /// <remarks>
+    /// The shape a plugin author reaches for once the per-recording holder's lost cache hits show up in a
+    /// profile: one holder, kept alive by the node, with the request-scoped token refreshed every
+    /// <c>Process</c> because the previous request's token would throw when leased.
+    /// </remarks>
+    private sealed class MutatingHolderStateNode : RenderNode
+    {
+        private readonly DrawLog _log = new();
+        private readonly MutableHolder _holder = new();
+
+        public Color Color
+        {
+            get => _holder.Color;
+            set => _holder.Color = value;
+        }
+
+        public IReadOnlyList<Color> DrawnColors => _log.Colors;
+
+        public override void Process(RenderNodeContext context)
+        {
+            RenderResource<DrawLog> log = context.Borrow(_log, cacheKey: "log", version: 1);
+            _holder.Token = log;
+            context.Publish(context.ContributeValues(context.PaintedSource(
+                state: _holder,
+                draw: static (session, state) => session.UseDeclaredResource<DrawLog>(
+                    0,
+                    current =>
+                    {
+                        current.Record(state.Color);
+                        session.Canvas.Clear(state.Color);
+                    }),
+                fill: null,
+                pen: null,
+                brushBounds: s_bounds,
+                outputBounds: s_bounds,
+                hitTest: RenderHitTestContract.OutputBounds,
+                scale: RenderScaleContract.Vector,
+                structuralKey: typeof(MutatingHolderStateNode),
+                resources: [log])));
         }
     }
 
@@ -347,8 +484,46 @@ public sealed class DeclaredResourceAddressingContractTests
         public void Record() => Count++;
     }
 
+    private sealed class DrawLog
+    {
+        private readonly List<Color> _colors = [];
+
+        public IReadOnlyList<Color> Colors => _colors;
+
+        public void Record(Color color) => _colors.Add(color);
+    }
+
     private sealed class CountingTokenHolder(RenderResource<DrawCounter> token)
     {
         public RenderResource<DrawCounter> Token { get; } = token;
+    }
+
+    private sealed class ReusedTokenHolder
+    {
+        public RenderResource<DrawCounter>? Token { get; private set; }
+
+        public ReusedTokenHolder Refresh(RenderResource<DrawCounter> token)
+        {
+            Token = token;
+            return this;
+        }
+    }
+
+    private sealed class ValueEqualTokenHolder(RenderResource<DrawCounter> token, Rect bounds)
+    {
+        public RenderResource<DrawCounter> Token { get; } = token;
+
+        public override bool Equals(object? obj) => obj is ValueEqualTokenHolder other && other.Bounds == Bounds;
+
+        public override int GetHashCode() => Bounds.GetHashCode();
+
+        private Rect Bounds { get; } = bounds;
+    }
+
+    private sealed class MutableHolder
+    {
+        public Color Color { get; set; } = Colors.Red;
+
+        public RenderResource<DrawLog>? Token { get; set; }
     }
 }

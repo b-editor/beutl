@@ -49,16 +49,31 @@ public sealed class EngineResourceIdentityContractTests
         });
     }
 
+    /// <summary>
+    /// Both derivations end up as <see cref="object"/> keys in the same cache-key dictionary, so what has to
+    /// hold is that each one finds its own entry back and neither displaces the other — not merely that the two
+    /// are unequal, which the synthesized identity's distinct type makes true whatever <c>Of</c> returns.
+    /// </summary>
     [Test]
-    public void Of_OnADetachedResource_NeverCollidesWithABackingId()
+    public void Of_KeysADetachedAndAnAttachedResourceApartInOneCacheKeyDictionary()
     {
         using var detached = new PluginResource();
         Brush.Resource attached = Brushes.Resource.White;
 
-        Assert.That(
-            EngineResourceIdentity.Of(detached),
-            Is.Not.EqualTo(EngineResourceIdentity.Of(attached)),
-            "a synthesized identity is a distinct type, so no id a caller assigns can be made to match it");
+        var keys = new Dictionary<object, string>
+        {
+            [EngineResourceIdentity.Of(detached)] = "detached",
+            [EngineResourceIdentity.Of(attached)] = "attached",
+        };
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(keys, Has.Count.EqualTo(2),
+                "a synthesized identity must not land on the same entry as a backing object id");
+            Assert.That(keys[EngineResourceIdentity.Of(detached)], Is.EqualTo("detached"),
+                "a later read of the same detached resource must hash and compare back to its own entry");
+            Assert.That(keys[EngineResourceIdentity.Of(attached)], Is.EqualTo("attached"));
+        });
     }
 
     [Test]

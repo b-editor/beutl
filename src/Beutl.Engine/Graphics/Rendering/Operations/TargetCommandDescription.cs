@@ -308,10 +308,14 @@ public sealed class TargetCommandSession
     /// <remarks>
     /// The addressing mode for a callback that may capture: one recorded through <c>CreateRequestLocal</c>, or
     /// one whose runtime identity is declared separately from what it captures. A state-passing callback
-    /// addresses its resources through <c>UseDeclaredResource</c> instead, because its state is the
-    /// output-cache runtime identity and the state walk rejects a <see cref="RenderResource"/> element. Smuggling
-    /// a token in through a sealed non-tuple state object still reaches this method, at the price of a runtime
-    /// identity that differs every frame and never matches a cached output.
+    /// addresses its resources through <c>UseDeclaredResource</c> instead, because its state is the produced
+    /// value's output-cache runtime identity: a <see cref="RenderResource"/> in a tuple element is rejected, and
+    /// so is a capturing callback. A sealed non-tuple state does pass validation and physically delivers a token
+    /// to this method, but it is an enumerated identity channel rather than a way to address resources — the
+    /// author then owns the identity contract by hand. A holder allocated per recording loses output-cache
+    /// reuse; a reused or value-equal holder keeps reuse but its identity no longer tracks the resource, so a
+    /// pixel-affecting change can be served from a stale cached output; and a token left over from a finished
+    /// request throws when leased. Position is the address by design, not by impossibility.
     /// </remarks>
     public void UseResource<T>(RenderResource<T> resource, Action<T> use)
         where T : class
