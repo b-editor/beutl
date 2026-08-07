@@ -293,7 +293,7 @@ internal static class BrushRecorder
             using var node = new DrawableRenderNode(drawable);
             using (var graphics = new GraphicsContext2D(node, brushBounds.Size, context.OutputScale))
             {
-                drawable.GetOriginal().Render(graphics, drawable);
+                drawable.RequireOriginal().Render(graphics, drawable);
             }
 
             IReadOnlyList<RenderFragmentHandle> outputs = context.RecordSubtree(node);

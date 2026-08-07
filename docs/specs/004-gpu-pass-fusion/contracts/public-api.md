@@ -1,4 +1,4 @@
-# Public API Contract
+﻿# Public API Contract
 
 This contract fixes the public authoring shape for feature 004. Names and responsibilities below are normative for implementation; ordinary framework details such as XML documentation and nullable annotations may be completed without changing the model.
 
@@ -405,6 +405,35 @@ public class CompositionContext
 ```
 
 `CompositionContext.TargetDomain` carries the finite scene-frame domain into auxiliary composition consumers. `GraphSnapshot` copies and refreshes it on every evaluation, and standalone `PreviewNode`/`MeasureNode` pass it to `RenderNodeRendererOptions.DefaultRequest.TargetDomain`. `RenderNodeContext.TargetDomain` exposes the same request value to nested semantic consumers without resolving an owning-target-dependent handle early.
+
+```csharp
+namespace Beutl.Engine;
+
+public class EngineObject
+{
+    public class Resource
+    {
+        public bool IsAttached { get; }
+        public EngineObject GetOriginal();
+        public EngineObject RequireOriginal();
+    }
+}
+```
+
+`EngineObject.Resource.Update` is what attaches the backing engine object, so a resource built through its public constructor is detached and `GetOriginal()` returns null despite its non-nullable declaration. `IsAttached` tests for that without relying on the declaration, and `RequireOriginal()` throws `InvalidOperationException` naming the resource type when a member cannot proceed without a backing object. Members that can proceed — identity derivation, and any authoring path that reads its values from the resource — keep using `GetOriginal()` or avoid it entirely. `Geometry.Resource.ApplyTo`, `PathSegment.Resource.ApplyTo`, `PathFigure.Resource.ApplyTo`, `PathGeometry.Resource.HitTestFigure`, and `Mesh.Resource.ApplyTo` are the authoring members that moved onto the resource for this reason; see `breaking-changes.md`.
+
+A detached resource is not a hypothetical out-of-tree shape. In-tree production code mints and consumes one: `ColorExtensions.ToBrushResource` returns `new SolidColorBrush.Resource { … }` and `TextElementsBuilder` puts it on a `TextElement` for a `<color=…>` tag on the text-render path; `FormattedTextParser` builds a detached `SolidColorBrush.Resource` and `Pen.Resource` for a stroke tag; `AvaloniaTypeConverter.ToBtlImmutableGradientStop` and `GradientStopsEditor` build a detached `GradientStop.Resource`. Each was probed: `IsAttached` is false and `GetOriginal()` is null for all of them.
+
+### Declared defaults are not inherited by a detached resource
+
+The generator emits every value-property backing field as `private T _field = default!;`, so a detached resource starts each value property at `default(T)` rather than at the default its `IProperty` declares. A plugin author who hand-builds one and sets only the properties they care about therefore gets `default(T)` for the rest, which is not always inert: `new Pen.Resource { Thickness = 4, Brush = black }` has `TrimEnd = 0` against the attached `100`, and because `PenHelper.CreateTrimEffect` short-circuits only at `TrimStart == 0 && TrimEnd == 100`, the stroke is trimmed to nothing and `Geometry.Resource.GetRenderBounds` returns `0,0,0,0`. `new SolidColorBrush.Resource { Color = red }` has `Opacity = 0` and rasterizes nothing, which is why `ToBrushResource` sets `Opacity = 100` by hand. The workaround an author has is to set every property with a non-`default(T)` declared default explicitly.
+
+Emitting the declared default into the backing field was implemented and measured, then rejected on two independent grounds:
+
+- **It does not compile.** The generated `Resource` partial is emitted into its own file with no `using` directives and every type written `global::`-qualified, so a default expression copied verbatim from the engine-object class body does not bind. Copying the first argument of each `Property.Create*` initializer into the field initializer produced 86 `CS0103`/`CS0246` diagnostics in `Beutl.Engine` alone, on the unqualified names `Colors`, `GradingColor`, `Vector3`, `RelativePoint`, `RelativeRect`, `CornerRadius`, `Point`, `GradientSpreadMethod`, and `BandCountPreset`. Bare literals (`0f`, `100`, `true`, `null`) bind, and so do `const` fields and private statics of the enclosing type (`DefaultThresholdDb`, `GetDefaultScript()`), because the nested `Resource` can see them; the several hundred `Property.Create*` calls in `src/` that pass a default span more than a hundred distinct expressions — two independent counts of that set disagreed at the unit digit, so the exact figures are omitted rather than pinned here — and the non-literal ones are what fail. Making them bind needs a semantic-model-driven expression qualifier, which is a new generator subsystem rather than a field-initializer tweak, and constant-folding instead would cover only the literal subset and leave an author unable to predict which defaults they inherit.
+- **It would allocate on the attached render path.** A field initializer runs on every construction, including every attached one, where the value is overwritten by the first `CompareAndUpdate` before anything can observe it. Measured on `Curves`, whose nine `CurveMap` properties each declare `new CurveMap([…])`: `ToResource` allocates 168 B/construction today and 5136 B/construction with the defaults evaluated — a 30× regression for dead values.
+
+Neither objection rules out a future design (a static per-type default holder plus a qualifier would address both), so this is a rejected implementation, not a closed question.
 
 `EngineResourceIdentity.Of` is the only safe way to key on an `EngineObject.Resource`, and is renderer-wide for the same reason: nodes, brushes, filter effects, and 3D all key on the same resources, and a node needs the identity outside `Borrow` whenever it feeds a hit-test or structural key rather than a declared-resource registration. It returns the backing `EngineObject.Id`, or a synthesized `Guid` for a resource with no backing object, stable per `Resource` instance and held weakly — a caller that reallocates the resource every frame gets a new identity every frame. Returning `Guid` rather than `object` is what lets a caller hold the identity in a `Guid`-typed cache-key field without boxing on every `Process`, which is why the engine's own hit-test and structural keys can route through it; a synthesized identity is therefore the same shape as a backing object id, and a collision between the two is treated as a non-scenario rather than prevented by construction. The public `Borrow((Resource, Version))` overload derives its key the same way, but registers a borrow as well, so it is not a substitute when the identity is only wanted for comparison.
 

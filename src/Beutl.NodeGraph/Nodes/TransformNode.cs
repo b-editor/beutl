@@ -17,7 +17,7 @@ public partial class TransformNode : ConfigureNode
     {
         protected override void UpdateCore(GraphCompositionContext context)
         {
-            var node = GetOriginal();
+            var node = RequireOriginal();
             var matrix = context.HasConnection(node.Matrix)
                 ? Matrix
                 : Graphics.Matrix.Identity;

@@ -67,8 +67,7 @@ public static class AvaloniaTypeConverter
             r =>
             {
                 using var context = new GeometryContext();
-                var original = r.GetOriginal();
-                original.ApplyTo(context, r);
+                r.ApplyTo(context);
 
                 string svgPath = context.NativeObject.ToSvgPathData();
                 reactiveProperty.Value = Avalonia.Media.Geometry.Parse(svgPath);
@@ -475,7 +474,7 @@ public static class AvaloniaTypeConverter
                 // TODO: UI側の物理的なサイズをもとに描画するように変更する
                 using (var context = new GraphicsContext2D(node, new Graphics.Size(1920, 1080)))
                 {
-                    drawable.GetOriginal()!.Render(context, drawable);
+                    drawable.RequireOriginal().Render(context, drawable);
                 }
 
                 using var renderer = new RenderNodeRenderer(

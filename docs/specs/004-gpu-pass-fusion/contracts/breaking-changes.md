@@ -534,6 +534,77 @@ if (!rasterized.IsEmpty)
 
 Standalone `RenderNodeRenderer.Render`/`Rasterize` requests preserve `RenderNodeRenderRequest.Purpose`, which defaults to `Auxiliary`; direct frame hosts select `Frame` and warm-up hosts select `CacheWarmup` through that public descriptor. Pixel-executing calls reject metadata-only `Bounds`/`HitTest`. The production `Renderer` sets `Frame` on its default request. `Measure` is always `Bounds` and `HitTest` is always `HitTest`. There is no public list-returning rasterizer because an effectful fragment stream has one painter-ordered `RenderNodeRasterization` result.
 
+## Resource-side authoring dispatch
+
+`Geometry.ApplyTo`, `PathSegment.ApplyTo`, `PathFigure.ApplyTo`, `PathGeometry.HitTestFigure`, and
+`Mesh.ApplyTo` move from the engine object to its `Resource`. Their engine-object forms are removed; there is
+no forwarding overload.
+
+```csharp
+// before
+public override void ApplyTo(IGeometryContext context, Geometry.Resource resource)
+{
+    var r = (Resource)resource;
+    context.MoveTo(new Point(r.Width, 0));
+}
+
+// after
+public partial class Resource
+{
+    public override void ApplyTo(IGeometryContext context)
+    {
+        context.MoveTo(new Point(Width, 0));
+    }
+}
+```
+
+An override that read only resource values migrates by moving the body into the generated `Resource` partial,
+dropping the `resource` parameter and the `var r = (Resource)resource;` cast, and reading the members directly
+— that covers every in-tree override except `SKPathGeometry`, whose `ApplyTo` read `_path`, a field of the
+engine object; its owned `SKPath` moves onto the resource in the same change. An override that reaches for
+engine-object state the resource does not carry has to move that state across too.
+`PathGeometry.HitTestFigure(point, pen, resource)` becomes `PathGeometry.Resource.HitTestFigure(point, pen)`;
+`Mesh.ApplyTo(resource, out vertices, out indices)` becomes `Mesh.Resource.ApplyTo(out vertices, out indices)`.
+
+The motivation is that a `Resource` built through its public parameterless constructor has no backing engine
+object, so dispatching through `GetOriginal()` made every public member of `Geometry.Resource` and
+`Mesh.Resource` throw `NullReferenceException` for a shape the public constructors accept. Those members are
+non-virtual on a public subclassable type, so an out-of-tree author had no workaround. Dispatching on the
+resource removes the dereference: a hand-built resource produces the same path or mesh as its attached
+counterpart once it carries the same property values.
+
+That last qualifier is load-bearing. The generator emits each value-property backing field as
+`private T _field = default!;`, so a detached resource does **not** inherit the default its `IProperty`
+declares: `new Pen.Resource { Thickness = 4, Brush = black }` has `TrimEnd = 0` where the attached counterpart
+has `100`, which trims the stroke away and makes `GetRenderBounds` return `0,0,0,0`; `new
+SolidColorBrush.Resource { Color = red }` has `Opacity = 0`, which is why `ColorExtensions.ToBrushResource`
+sets it by hand. Emitting the declared default into the field was measured and rejected — see
+`docs/specs/004-gpu-pass-fusion/contracts/public-api.md`.
+
+`Geometry.Resource.GetCachedPath` additionally commits its version guard and cached context only after
+`ApplyTo` returns. A throwing author no longer installs a partially recorded path that later calls serve; each
+call retries the build and rethrows.
+
+`Geometry.Resource`'s stroke-path cache keys the pen through `EngineResourceIdentity.Of` rather than
+`Pen.Resource.GetOriginal()`, which is null for every detached pen and therefore made any two of them compare
+equal — the cache served the first pen's stroke for the second.
+
+`EngineObject.Resource` gains `IsAttached` and `RequireOriginal()`. `GetOriginal()` keeps its declared
+non-nullable return and still returns null for a detached resource. The dereferences this change migrated to
+`RequireOriginal()` — which raises `InvalidOperationException` naming the resource type instead of a
+`NullReferenceException` — cover `Drawable.Render` on both the immediate and the recording
+canvas, `MeasureInternal`, `GetTransformMatrix`, `ZIndex`, the generated `BindNodePortValues`, the hand-written
+`Beutl.NodeGraph` resource overrides beside it, and `AvaloniaTypeConverter`'s drawable-brush render.
+
+This document does not claim that list is complete, because a prose list of this kind already failed once: an
+earlier draft was written from a `GetOriginal().Member` search and so omitted `GraphicsContext2D.DrawDrawable`,
+which spells the same dereference across two statements and still threw. The line is held by
+`EngineObjectOriginalAccessCensusTests` instead, which counts call sites syntactically under `src/` and fails
+until a new one is accounted for deliberately. The calls that remain are mostly null-safe identity comparisons;
+they have not been individually probed for detached reachability, and the census is what forces that question
+to be asked when one is added. `EngineResourceIdentity.Of` continues to read `GetOriginal()`
+and synthesize an identity when it is null.
+
 ## Ownership summary
 
 - Context inputs and fragment handles are borrowed and never disposed by authors.

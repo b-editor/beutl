@@ -24,36 +24,53 @@ public abstract partial class Geometry : EngineObject
     [Display(Name = nameof(GraphicsStrings.Transform), ResourceType = typeof(GraphicsStrings))]
     public IProperty<Transform?> Transform { get; } = Property.Create<Transform?>(null);
 
-    public virtual void ApplyTo(IGeometryContext context, Resource resource)
-    {
-    }
-
     public partial class Resource
     {
         private int? _capturedVersion;
         private GeometryContext? _cachedPath;
-        private (Pen.Resource Resource, int Version)? _cachedPen;
+        private (Guid Identity, int Version)? _cachedPen;
         private SKPath? _cachedStrokePath;
 
         public Rect Bounds => GetCachedPath().TightBounds.ToGraphicsRect();
+
+        /// <summary>
+        /// Appends this geometry's outline to <paramref name="context"/>.
+        /// </summary>
+        /// <remarks>
+        /// An override reads every parameter it needs from this resource, so it must not reach for
+        /// <see cref="EngineObject.Resource.GetOriginal"/>.
+        /// </remarks>
+        public virtual void ApplyTo(IGeometryContext context)
+        {
+        }
 
         internal SKPath GetCachedPath()
         {
             ObjectDisposedException.ThrowIf(IsDisposed, this);
             if (_capturedVersion != Version || _cachedPath == null)
             {
-                _capturedVersion = Version;
+                // A throwing ApplyTo must not leave a half-built path behind the version guard, so the
+                // fields are replaced only once the new path is complete.
+                var built = new GeometryContext { FillType = FillType };
+                try
+                {
+                    ApplyTo(built);
+                    if (Transform != null)
+                    {
+                        built.Transform(Transform.Matrix);
+                    }
+                }
+                catch
+                {
+                    built.Dispose();
+                    throw;
+                }
+
                 _cachedStrokePath?.Dispose();
                 _cachedStrokePath = null;
                 _cachedPath?.Dispose();
-                var geometry = GetOriginal();
-
-                _cachedPath = new GeometryContext { FillType = FillType };
-                geometry.ApplyTo(_cachedPath, this);
-                if (Transform != null)
-                {
-                    _cachedPath.Transform(Transform.Matrix);
-                }
+                _cachedPath = built;
+                _capturedVersion = Version;
             }
 
             return _cachedPath.NativeObject;
@@ -62,15 +79,17 @@ public abstract partial class Geometry : EngineObject
         internal SKPath GetCachedStrokePath(Pen.Resource pen)
         {
             ObjectDisposedException.ThrowIf(IsDisposed, this);
+            // GetOriginal() is null for every detached pen, so keying on it makes any two of them compare equal.
+            Guid penIdentity = EngineResourceIdentity.Of(pen);
             if (_capturedVersion != Version
                 || _cachedPath == null
                 || _cachedStrokePath == null
                 || _cachedPen == null
-                || _cachedPen?.Resource.GetOriginal() != pen.GetOriginal()
+                || _cachedPen?.Identity != penIdentity
                 || _cachedPen?.Version != pen.Version)
             {
                 _cachedStrokePath?.Dispose();
-                _cachedPen = (pen, pen.Version);
+                _cachedPen = (penIdentity, pen.Version);
                 _cachedStrokePath = PenHelper.CreateStrokePath(GetCachedPath(), pen, Bounds);
             }
 

@@ -30,7 +30,7 @@ public partial class ExpressionNode : GraphNode
     {
         public override void Update(GraphCompositionContext context)
         {
-            var node = GetOriginal();
+            var node = RequireOriginal();
             var state = node._state;
             string? expression = Expression;
 

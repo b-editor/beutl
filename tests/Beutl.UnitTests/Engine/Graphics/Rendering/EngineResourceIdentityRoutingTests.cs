@@ -18,11 +18,9 @@ namespace Beutl.UnitTests.Engine.Graphics.Rendering;
 /// Each site keeps a <see cref="Guid"/>-typed identity element, so the routing has to stay allocation-free to be
 /// worth taking. The recorded end-to-end outcomes below are what each node actually does with a detached
 /// resource, measured rather than reasoned about. Which site a detached resource reaches first depends on which
-/// of a node's resources is detached, so the outcome is recorded per input shape rather than per node: a
-/// detached fill or pen makes <see cref="GeometryRenderNode"/>'s identity read the first failure and the routing
-/// rescues it completely, while a detached geometry fails earlier inside <c>Geometry.Resource</c> and is not
-/// rescued. <see cref="GeometryClipRenderNode"/>'s identity read was its first failure and the routing moves the
-/// failure one statement later, into that same <c>Geometry.Resource</c> defect.
+/// of a node's resources is detached, so the outcome is recorded per input shape rather than per node.
+/// <c>Geometry.Resource</c> now builds its path from itself, so a detached geometry no longer fails ahead of the
+/// routed identity read; <see cref="DetachedGeometryResourceTests"/> covers that path.
 /// </remarks>
 [TestFixture]
 public sealed class EngineResourceIdentityRoutingTests
@@ -87,35 +85,31 @@ public sealed class EngineResourceIdentityRoutingTests
     }
 
     [Test]
-    public void GeometryRenderNode_WithADetachedGeometry_StillFailsInsideGeometryResource()
+    public void GeometryRenderNode_WithADetachedGeometry_ReachesItsRoutedIdentityRead()
     {
-        using var geometry = new EllipseGeometry.Resource();
+        using var geometry = new EllipseGeometry.Resource { Width = 40, Height = 30 };
         using var node = new GeometryRenderNode(geometry, null, null);
-
-        Exception? failure = RecordAndCaptureFailure(node);
 
         using (Assert.EnterMultipleScope())
         {
-            Assert.That(failure, Is.TypeOf<NullReferenceException>());
-            Assert.That(DeepestFrameType(failure!), Is.EqualTo(typeof(Beutl.Media.Geometry.Resource)),
-                "GetRenderBounds dereferences the backing object before the routed identity read is reached");
+            Assert.That(RecordAndCaptureFailure(node), Is.Null,
+                "GetRenderBounds no longer dereferences the backing object, so recording reaches the routed read");
+            Assert.That(RecordedFragmentCount(node), Is.EqualTo(1));
         }
     }
 
     [Test]
-    public void GeometryClipRenderNode_MovesItsFirstFailureOffTheIdentityReadOntoTheNextStatement()
+    public void GeometryClipRenderNode_WithADetachedGeometry_RecordsItsScope()
     {
-        using var geometry = new EllipseGeometry.Resource();
+        using var geometry = new EllipseGeometry.Resource { Width = 40, Height = 30 };
         using var node = new GeometryClipRenderNode(geometry, ClipOperation.Intersect);
         node.AddChild(new RectangleRenderNode(new Rect(0, 0, 8, 8), null, null));
 
-        Exception? failure = RecordAndCaptureFailure(node);
-
         using (Assert.EnterMultipleScope())
         {
-            Assert.That(failure, Is.TypeOf<NullReferenceException>());
-            Assert.That(DeepestFrameType(failure!), Is.EqualTo(typeof(Beutl.Media.Geometry.Resource)),
-                "the identity read no longer throws, so the failure is now the Bounds read one statement later");
+            Assert.That(RecordAndCaptureFailure(node), Is.Null,
+                "the routed identity read and the Bounds read one statement later both survive detachment now");
+            Assert.That(RecordedFragmentCount(node), Is.EqualTo(1));
         }
     }
 

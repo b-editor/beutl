@@ -614,7 +614,7 @@ public class Renderer : IRenderer
     {
         RenderThread.Dispatcher.VerifyAccess();
         return [.. _allCurrentEntries
-            .Where(e => e.Node.Drawable?.Resource.GetOriginal().ZIndex == zIndex)
+            .Where(e => e.Node.Drawable?.Resource.RequireOriginal().ZIndex == zIndex)
             .Select(e => e.GetBounds())];
     }
 
@@ -654,7 +654,7 @@ public class Renderer : IRenderer
     {
         RenderThread.Dispatcher.VerifyAccess();
         return [.. _allCurrentEntries
-            .Where(e => e.Node.Drawable?.Resource.GetOriginal().ZIndex == zIndex)
+            .Where(e => e.Node.Drawable?.Resource.RequireOriginal().ZIndex == zIndex)
             .Select(e => e.RecalculateBounds())];
     }
 

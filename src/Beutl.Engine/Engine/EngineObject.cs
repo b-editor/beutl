@@ -387,7 +387,50 @@ public class EngineObject : Hierarchical, INotifyEdited
 
         public bool IsDisposed { get; private set; }
 
+        /// <summary>
+        /// Gets whether this resource has a backing engine object.
+        /// </summary>
+        /// <remarks>
+        /// Only <see cref="Update"/> attaches one, so a resource built through its public constructor rather
+        /// than through <see cref="ToResource"/> is detached. A detached resource's generated value properties
+        /// start at <c>default(T)</c>, not at the default its <c>IProperty</c> declares, so an author who wants
+        /// the attached counterpart's behaviour sets every property that has a non-<c>default(T)</c> declared
+        /// default — <c>Pen.Resource.TrimEnd</c> (100) and <c>Brush.Resource.Opacity</c> (100) among them.
+        /// </remarks>
+        public bool IsAttached => _original is not null;
+
+        /// <summary>
+        /// Gets the backing engine object, or <see langword="null"/> when <see cref="IsAttached"/> is false.
+        /// </summary>
+        /// <remarks>
+        /// <para>
+        /// A detached resource is a supported shape that in-tree production code mints and consumes, including
+        /// <see cref="Beutl.Media.ColorExtensions.ToBrushResource"/> (reached from
+        /// <c>TextElementsBuilder</c> on the text-render path), the <c>SolidColorBrush.Resource</c> and
+        /// <c>Pen.Resource</c> that <c>FormattedTextParser</c> builds for a stroke tag, and the
+        /// <c>GradientStop.Resource</c> the Avalonia editor adapters build. Despite the non-nullable
+        /// declaration this returns <see langword="null"/> for every one of them.
+        /// </para>
+        /// <para>
+        /// Use <see cref="RequireOriginal"/> when a null backing object cannot be handled, <see cref="IsAttached"/>
+        /// to branch on it, and <see cref="Beutl.Graphics.Rendering.EngineResourceIdentity.Of"/> to key on the
+        /// resource either way.
+        /// </para>
+        /// </remarks>
         public EngineObject GetOriginal() => _original;
+
+        /// <summary>
+        /// Gets the backing engine object, throwing when this resource is detached.
+        /// </summary>
+        /// <exception cref="InvalidOperationException">
+        /// This resource has no backing engine object.
+        /// </exception>
+        public EngineObject RequireOriginal()
+        {
+            return _original ?? throw new InvalidOperationException(
+                $"{GetType()} was constructed directly rather than through {nameof(EngineObject)}.{nameof(ToResource)}, "
+                + "so it has no backing engine object to dispatch to.");
+        }
 
         public virtual void Update(EngineObject obj, CompositionContext context, ref bool updateOnly)
         {
