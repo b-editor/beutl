@@ -1161,6 +1161,13 @@ public sealed class OpaqueRenderSession
         output.Publish(this, _publish);
     }
 
+    /// <summary>Uses a resource by its token.</summary>
+    /// <remarks>
+    /// The addressing mode for a callback that may capture: one recorded through <c>CreateRequestLocal</c>, or
+    /// one whose runtime identity is declared separately from what it captures. A state-passing callback cannot
+    /// reach a token at all — its state is the output-cache runtime identity, which a request-scoped token can
+    /// never be part of — and addresses its resources through <c>UseDeclaredResource</c> instead.
+    /// </remarks>
     public void UseResource<T>(RenderResource<T> resource, Action<T> use)
         where T : class
     {

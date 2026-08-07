@@ -128,10 +128,20 @@ public readonly struct PaintedRenderSession
 
     /// <summary>Uses a resource by its position in the source's own declared resource list.</summary>
     /// <remarks>
+    /// <para>
+    /// The only addressing mode a painted source has, and the reason this session carries no token-taking
+    /// <c>UseResource</c> the way the other session types do. <see cref="RenderNodeContext.PaintedSource"/> is
+    /// state-passing only: the draw callback may not capture, and the state it does receive is the produced
+    /// value's output-cache runtime identity, which a request-scoped resource token can never be part of.
+    /// No token can therefore reach this callback, so position is the address.
+    /// </para>
+    /// <para>
     /// The index addresses the <c>resources</c> argument the author passed to
     /// <see cref="RenderNodeContext.PaintedSource"/> and nothing else. The brush and pen slots the recorder
     /// added for the lowered paint live in a separate engine-owned space, so adding or removing a drawable
-    /// brush never shifts an author's index.
+    /// brush never shifts an author's index. <typeparamref name="T"/> is the only check on the index: two
+    /// declared resources of the same type make index 0 and index 1 indistinguishable.
+    /// </para>
     /// </remarks>
     public void UseDeclaredResource<T>(int declaredIndex, Action<T> use)
         where T : class
