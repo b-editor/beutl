@@ -22,6 +22,21 @@ public class VideoFileImportTests
 {
     private static readonly object s_registerLock = new();
     private static bool s_registered;
+    private static string? s_tempDir;
+
+    [OneTimeTearDown]
+    public void OneTimeTearDown()
+    {
+        try
+        {
+            if (s_tempDir != null && Directory.Exists(s_tempDir))
+                Directory.Delete(s_tempDir, recursive: true);
+        }
+        catch (Exception)
+        {
+            // Best-effort cleanup of the temp fixture; a leftover directory must not fail the run.
+        }
+    }
 
     private static Task ResetProjectAsync() => TestReset.ResetShellAsync();
 
@@ -111,10 +126,10 @@ public class VideoFileImportTests
 
     private static string CreateImportFile(string stem, bool withAudio)
     {
-        string dir = Path.Combine(Path.GetTempPath(), "beutl-import-tests");
-        Directory.CreateDirectory(dir);
+        s_tempDir ??= Path.Combine(Path.GetTempPath(), $"beutl-import-tests-{Guid.NewGuid():N}");
+        Directory.CreateDirectory(s_tempDir);
         string ext = withAudio ? ".vaudio" : ".vonly";
-        string path = Path.Combine(dir, $"{stem}-{Guid.NewGuid():N}{ext}");
+        string path = Path.Combine(s_tempDir, $"{stem}-{Guid.NewGuid():N}{ext}");
         File.WriteAllBytes(path, []);
         return path;
     }
