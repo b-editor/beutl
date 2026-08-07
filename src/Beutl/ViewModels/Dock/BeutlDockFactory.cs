@@ -29,6 +29,19 @@ public class BeutlDockFactory(EditViewModel editViewModel) : Factory
 
     public override IRootDock CreateLayout()
     {
+        return IsPortraitScene()
+            ? CreatePortraitLayout()
+            : CreateLandscapeLayout();
+    }
+
+    private bool IsPortraitScene()
+    {
+        var frameSize = editViewModel.Scene.FrameSize;
+        return frameSize.Height > frameSize.Width;
+    }
+
+    private IRootDock CreateLandscapeLayout()
+    {
         var leftDock = CreateAnchoredDock(DockAnchor.Left);
 
         var playerDockable = new PlayerToolDockable(editViewModel.Player, Strings.Preview);
@@ -59,6 +72,60 @@ public class BeutlDockFactory(EditViewModel editViewModel) : Factory
             topDock,
             CreateProportionalDockSplitter(),
             bottomDock);
+
+        var rootDock = CreateRootDock();
+        rootDock.Id = DockIds.Root;
+        rootDock.Title = "Editor";
+        rootDock.IsCollapsable = false;
+        rootDock.VisibleDockables = CreateList<IDockable>(root);
+        rootDock.ActiveDockable = root;
+        rootDock.DefaultDockable = root;
+
+        _rootDock = rootDock;
+        _anchorCacheDirty = true;
+        return rootDock;
+    }
+
+    private IRootDock CreatePortraitLayout()
+    {
+        var playerDockable = new PlayerToolDockable(editViewModel.Player, Strings.Preview);
+        var playerDock = CreateAnchoredDock(DockAnchor.Player);
+        playerDock.VisibleDockables = CreateList<IDockable>(playerDockable);
+        playerDock.ActiveDockable = playerDockable;
+
+        var leftDock = CreateAnchoredDock(DockAnchor.Left);
+        var rightDock = CreateAnchoredDock(DockAnchor.Right);
+
+        // Library / file browser | properties
+        var toolsRow = CreateProportionalDock();
+        toolsRow.Id = DockIds.ToolsRow;
+        toolsRow.Orientation = Orientation.Horizontal;
+        toolsRow.VisibleDockables = CreateList<IDockable>(
+            leftDock,
+            CreateProportionalDockSplitter(),
+            rightDock);
+
+        var bottomDock = CreateAnchoredDock(DockAnchor.Bottom);
+
+        var rightColumn = CreateProportionalDock();
+        rightColumn.Id = DockIds.RightColumn;
+        rightColumn.Orientation = Orientation.Vertical;
+        // Preview : tools column = 1 : 2 (the dock panel normalizes proportions).
+        playerDock.Proportion = 0.5;
+        rightColumn.Proportion = 1.0;
+        rightColumn.VisibleDockables = CreateList<IDockable>(
+            toolsRow,
+            CreateProportionalDockSplitter(),
+            bottomDock);
+
+        var root = CreateProportionalDock();
+        root.Id = DockIds.RootSplit;
+        root.Orientation = Orientation.Horizontal;
+        root.IsCollapsable = false;
+        root.VisibleDockables = CreateList<IDockable>(
+            playerDock,
+            CreateProportionalDockSplitter(),
+            rightColumn);
 
         var rootDock = CreateRootDock();
         rootDock.Id = DockIds.Root;
