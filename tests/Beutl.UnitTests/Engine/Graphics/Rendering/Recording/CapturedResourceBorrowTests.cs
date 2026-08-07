@@ -97,17 +97,31 @@ public sealed class CapturedResourceBorrowTests
             "Process runs per node per frame, so passing the snapshot must not box more than the pair did");
     }
 
+    /// <remarks>
+    /// The per-borrow cost is a few tens of bytes of boxing on top of a recording scaffold that allocates three
+    /// orders of magnitude more, so a single timed round resolves the difference to roughly one byte and any
+    /// unrelated allocation on this thread — a tiering re-JIT, a lazily grown pool — flips it. Allocation noise
+    /// is one-sided, because nothing an unrelated caller does can lower the counter, so the smallest of several
+    /// rounds is the steady-state cost and the estimate stops depending on which round was quiet.
+    /// </remarks>
     private static long MeasureBytesPerBorrow(Func<RenderNodeContext, RenderResource> borrow)
     {
         const int Iterations = 5000;
+        const int Rounds = 7;
         for (int index = 0; index < 200; index++)
             _ = BorrowIdentity(borrow);
 
-        long before = GC.GetAllocatedBytesForCurrentThread();
-        for (int index = 0; index < Iterations; index++)
-            _ = BorrowIdentity(borrow);
-        long after = GC.GetAllocatedBytesForCurrentThread();
-        return (after - before) / Iterations;
+        long quietestRound = long.MaxValue;
+        for (int round = 0; round < Rounds; round++)
+        {
+            long before = GC.GetAllocatedBytesForCurrentThread();
+            for (int index = 0; index < Iterations; index++)
+                _ = BorrowIdentity(borrow);
+            long after = GC.GetAllocatedBytesForCurrentThread();
+            quietestRound = Math.Min(quietestRound, after - before);
+        }
+
+        return quietestRound / Iterations;
     }
 
     private static RenderResourceIdentity BorrowIdentity(Func<RenderNodeContext, RenderResource> borrow)
