@@ -23,6 +23,13 @@ public sealed class RenderDescriptionAllocationTests
     // regressions are caught by the comparative tests in this fixture.
     private const long SceneBytesPerFrameCeiling = 300_000;
 
+    // The same scene with the render cache warm allocates about 289,400-289,500 bytes/frame. Each machine
+    // reports one deterministic value, but not the same one: two machines measured 105 bytes apart, so the
+    // figure is platform-specific rather than a property of the scene. The ceiling keeps the same
+    // proportional headroom as the cache-disabled budget above, for the same platform-dependent font
+    // fallback.
+    private const long WarmCacheSceneBytesPerFrameCeiling = 345_000;
+
     private static readonly object s_explicitKey = new();
     private static readonly PixelSize s_frameSize = new(240, 160);
 
@@ -116,18 +123,33 @@ public sealed class RenderDescriptionAllocationTests
 
     [Test]
     [NonParallelizable]
-    public void RepresentativeScene_AllocatesWithinItsPerFrameBudget()
+    public void RepresentativeScene_AllocatesWithinItsPerFrameBudget_WithTheCacheDisabled()
     {
-        long bytesPerFrame = RenderThread.Dispatcher.Invoke(MeasureSceneBytesPerFrame);
+        long bytesPerFrame = RenderThread.Dispatcher.Invoke(
+            static () => MeasureSceneBytesPerFrame(warmCache: false));
 
-        TestContext.Out.WriteLine($"representative scene: {bytesPerFrame} bytes/frame");
+        TestContext.Out.WriteLine($"representative scene, cache disabled: {bytesPerFrame} bytes/frame");
         Assert.That(
             bytesPerFrame,
             Is.LessThan(SceneBytesPerFrameCeiling),
             "recording one frame of the representative scene must stay within its allocation budget");
     }
 
-    private static long MeasureSceneBytesPerFrame()
+    [Test]
+    [NonParallelizable]
+    public void RepresentativeScene_AllocatesWithinItsPerFrameBudget_WithTheCacheActive()
+    {
+        long bytesPerFrame = RenderThread.Dispatcher.Invoke(
+            static () => MeasureSceneBytesPerFrame(warmCache: true));
+
+        TestContext.Out.WriteLine($"representative scene, cache active: {bytesPerFrame} bytes/frame");
+        Assert.That(
+            bytesPerFrame,
+            Is.LessThan(WarmCacheSceneBytesPerFrameCeiling),
+            "recording one frame with cache candidates recorded must stay within its allocation budget");
+    }
+
+    private static long MeasureSceneBytesPerFrame(bool warmCache)
     {
         Drawable.Resource[] resources = CreateSceneResources();
         try
@@ -147,18 +169,36 @@ public sealed class RenderDescriptionAllocationTests
                     DefaultRequest = new RenderNodeRenderRequest
                     {
                         TargetDomain = new Rect(default, s_frameSize.ToSize(1)),
-                        CacheOptions = RenderCacheOptions.Enabled,
+                        CacheOptions = warmCache
+                            ? RenderCacheOptions.Enabled
+                            : RenderCacheOptions.Disabled,
                         Purpose = RenderRequestPurpose.Frame,
                     },
                     TargetFactory = new CpuTargetFactory(),
                 });
 
+            var revalidated = new HashSet<RenderNode>(ReferenceEqualityComparer.Instance);
             for (int frame = 0; frame < SceneWarmupFrames; frame++)
+            {
+                if (warmCache)
+                    IncrementRenderCounts(root, revalidated);
                 renderer.Rasterize().Dispose();
+            }
+
+            if (warmCache && !root.Cache.CanCache())
+            {
+                throw new InvalidOperationException(
+                    "The warm-cache budget must measure a frame whose nodes are cache candidates.");
+            }
 
             long before = GC.GetAllocatedBytesForCurrentThread();
             for (int frame = 0; frame < SceneFrames; frame++)
+            {
+                if (warmCache)
+                    IncrementRenderCounts(root, revalidated);
                 renderer.Rasterize().Dispose();
+            }
+
             long after = GC.GetAllocatedBytesForCurrentThread();
             return (after - before) / SceneFrames;
         }
@@ -166,6 +206,31 @@ public sealed class RenderDescriptionAllocationTests
         {
             foreach (Drawable.Resource resource in resources)
                 resource.Dispose();
+        }
+    }
+
+    /// <summary>
+    /// Mirrors the per-frame walk in <c>Renderer.RevalidateAll</c>. Without it
+    /// <see cref="RenderNodeCache.CanCache"/> never reaches <see cref="RenderNodeCache.Count"/>, so no
+    /// cache candidate is recorded and the whole cache-resolution path stays out of the measurement.
+    /// </summary>
+    private static void IncrementRenderCounts(RenderNode root, HashSet<RenderNode> revalidated)
+    {
+        revalidated.Clear();
+        Visit(root);
+        return;
+
+        void Visit(RenderNode current)
+        {
+            if (current.IsDisposed || !revalidated.Add(current))
+                return;
+
+            ReadOnlySpan<RenderNode> children = current.ChildNodes;
+            for (int index = 0; index < children.Length; index++)
+                Visit(children[index]);
+
+            current.Cache.IncrementRenderCount();
+            current.HasChanges = false;
         }
     }
 
