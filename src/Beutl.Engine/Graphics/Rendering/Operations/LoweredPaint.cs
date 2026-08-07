@@ -129,24 +129,31 @@ public readonly struct PaintedRenderSession
     /// <summary>Uses a resource by its position in the source's own declared resource list.</summary>
     /// <remarks>
     /// <para>
-    /// The only addressing mode a painted source has, and the reason this session carries no token-taking
-    /// <c>UseResource</c> the way the other session types do. <see cref="RenderNodeContext.PaintedSource"/> is
-    /// state-passing only: the state is the produced value's output-cache runtime identity, a
-    /// <see cref="RenderResource{T}"/> in a tuple element is rejected, and so is a capturing callback. A sealed
-    /// non-tuple state does pass validation and physically delivers a token, but it is an enumerated identity
-    /// channel rather than a way to address resources: the author then owns the identity contract by hand. A
-    /// holder allocated per recording loses output-cache reuse; a reused or value-equal holder keeps reuse but
-    /// its identity no longer tracks the resource, so a pixel-affecting change can be served from a stale cached
-    /// output — a node that keeps one holder and mutates it in place draws its first frame once and then serves
-    /// those pixels for every later frame; and a token left over from a finished request throws when leased.
-    /// Position is the address by design, not by impossibility.
+    /// The fallback for a callback that needs two or more resources. One resource is addressed without an index
+    /// at all by the primary-resource overload of <see cref="RenderNodeContext.PaintedSource"/>, which declares
+    /// it for the author and hands the leased value to the draw callback as a parameter; that form is
+    /// compile-time safe and is what an in-tree source uses. Everything beyond that one resource has only its
+    /// position, because a request-scoped token can never travel through the state.
+    /// </para>
+    /// <para>
+    /// This session carries no token-taking <c>UseResource</c> the way the other session types do.
+    /// <see cref="RenderNodeContext.PaintedSource"/> is state-passing only: the state is the produced value's
+    /// output-cache runtime identity, a <see cref="RenderResource{T}"/> in a tuple element is rejected, and so
+    /// is a capturing callback. A sealed non-tuple state does pass validation and physically delivers a token,
+    /// but it is an enumerated identity channel rather than a way to address resources: the author then owns the
+    /// identity contract by hand. A holder allocated per recording loses output-cache reuse; a reused or
+    /// value-equal holder keeps reuse but its identity no longer tracks the resource, so a pixel-affecting
+    /// change can be served from a stale cached output — a node that keeps one holder and mutates it in place
+    /// draws its first frame once and then serves those pixels for every later frame; and a token left over from
+    /// a finished request throws when leased. Position is the address by design, not by impossibility.
     /// </para>
     /// <para>
     /// The index addresses the <c>resources</c> argument the author passed to
-    /// <see cref="RenderNodeContext.PaintedSource"/> and nothing else. The brush and pen slots the recorder
-    /// added for the lowered paint live in a separate engine-owned space, so adding or removing a drawable
-    /// brush never shifts an author's index. <typeparamref name="T"/> is the only check on the index: two
-    /// declared resources of the same type make index 0 and index 1 indistinguishable.
+    /// <see cref="RenderNodeContext.PaintedSource"/> and nothing else. Everything the recorder declared on the
+    /// author's behalf — the <c>primary</c> resource and the brush and pen slots for the lowered paint — lives
+    /// in a separate engine-owned space, so neither the primary form nor adding a drawable brush ever shifts an
+    /// author's index. <typeparamref name="T"/> is the only check on the index: two declared resources of the
+    /// same type make index 0 and index 1 indistinguishable.
     /// </para>
     /// </remarks>
     public void UseDeclaredResource<T>(int declaredIndex, Action<T> use)

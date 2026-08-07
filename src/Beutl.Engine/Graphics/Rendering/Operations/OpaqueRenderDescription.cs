@@ -1535,6 +1535,13 @@ internal static class RenderDescriptionValidation
         return result.Count == 0 ? Array.Empty<RenderResource>() : result.AsReadOnly();
     }
 
+    public static void ThrowIfUndeclarable(RenderResource resource, string parameterName)
+    {
+        ArgumentNullException.ThrowIfNull(resource, parameterName);
+        if (resource.RegistrationState == RenderResourceRegistrationState.Released)
+            throw new ArgumentException("A released render resource cannot be declared.", parameterName);
+    }
+
     public static void ThrowIfFiniteNonEmpty(Rect bounds, string parameterName)
     {
         RenderRectValidation.ThrowIfInvalidInput(bounds, parameterName);

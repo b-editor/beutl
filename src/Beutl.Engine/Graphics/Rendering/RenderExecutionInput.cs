@@ -518,7 +518,11 @@ internal sealed class RenderExecutionSessionToken
             throw new ArgumentOutOfRangeException(
                 nameof(declaredIndex),
                 declaredIndex,
-                "The declared resource index is outside the description's declared resource list.");
+                $"The declared resource index is outside the {declaredResources.Count} resource(s) this "
+                + "callback addresses. A painted source's draw callback addresses only the resources its "
+                + "author declared; the primary resource and the recorder's paint slots are engine-owned and "
+                + "are not part of that list, even though the description declares them. Every other session "
+                + "addresses the description's declared resource list.");
         }
 
         if (declaredResources[declaredIndex] is not RenderResource<T> resource)
@@ -530,7 +534,7 @@ internal sealed class RenderExecutionSessionToken
             throw new InvalidOperationException(
                 $"Declared resource {declaredIndex} is a RenderResource<{declaredValueType}>, not a "
                 + $"RenderResource<{DescribeType(typeof(T))}>. Declared resources are addressed by their "
-                + "position in the description's resource list.");
+                + "position in the list this callback addresses.");
         }
 
         UseResource(resource, declaredResources, use);

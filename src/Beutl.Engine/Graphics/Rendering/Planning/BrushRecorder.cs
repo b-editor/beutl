@@ -101,6 +101,69 @@ internal static class BrushRecorder
             resources: DeclareResources(callbackResources, additionalResources, paint));
     }
 
+    /// <remarks>
+    /// The primary resource is declared ahead of <paramref name="authorResources"/> so that the description's
+    /// list is exactly what a caller wrote by hand before this form existed, and it is leased by token rather
+    /// than by index. It stays out of the callback's positional space for the same reason the lowered paint's
+    /// slots do: it is the recorder's declaration, not the author's, so it can never shift an author's index.
+    /// </remarks>
+    public static OpaqueRenderDescription CreatePrimaryPaintedSource<TResource, TState>(
+        RenderResource<TResource> primary,
+        TState state,
+        Action<PaintedRenderSession, TResource, TState> draw,
+        RecordedPaint paint,
+        IReadOnlyList<RenderResource> authorResources,
+        OpaqueRenderBoundsContract bounds,
+        RenderHitTestContract hitTest,
+        RenderScaleContract scale,
+        RenderDeviceGridSensitivity deviceGridSensitivity,
+        object structuralKey,
+        RenderRuntimeIdentity? runtimeIdentity)
+        where TResource : class
+    {
+        ArgumentNullException.ThrowIfNull(primary);
+        ArgumentNullException.ThrowIfNull(draw);
+        ArgumentNullException.ThrowIfNull(paint);
+        ArgumentNullException.ThrowIfNull(authorResources);
+        IReadOnlyList<RenderResource> declared = DeclareResources(primary, authorResources, paint);
+        var source = new PrimaryPaintedSource<TResource, TState>(
+            primary,
+            state,
+            paint,
+            authorResources,
+            declared,
+            draw);
+        return OpaqueRenderDescription.CreateEngineSource(
+            execute: source.Execute,
+            directReplay: scale.DeclaresNoSupplyDensity ? source.ExecuteDirect : null,
+            bounds: bounds,
+            hitTest: hitTest,
+            scale: scale,
+            deviceGridSensitivity: deviceGridSensitivity,
+            structuralKey: structuralKey,
+            runtimeIdentity: runtimeIdentity,
+            resources: declared);
+    }
+
+    /// <remarks>
+    /// The primary is merged in here rather than prepended by the caller so that the primary form builds the
+    /// same single list the positional form does, and costs the same per recording.
+    /// </remarks>
+    private static IReadOnlyList<RenderResource> DeclareResources(
+        RenderResource primary,
+        IReadOnlyList<RenderResource> authorResources,
+        RecordedPaint paint)
+    {
+        var declared = new List<RenderResource>(authorResources.Count + paint.Resources.Count + 1);
+        AddDistinct(declared, primary);
+        foreach (RenderResource resource in authorResources)
+            AddDistinct(declared, resource);
+        foreach (RenderResource resource in paint.Resources)
+            AddDistinct(declared, resource);
+
+        return declared;
+    }
+
     private static IReadOnlyList<RenderResource> DeclareResources(
         IReadOnlyList<RenderResource> callbackResources,
         IEnumerable<RenderResource>? additionalResources,
@@ -349,6 +412,42 @@ internal static class BrushRecorder
                     new PaintedRenderSession(session.Token, session.Canvas, callbackResources, fill, pen),
                     state));
         }
+    }
+
+    private sealed class PrimaryPaintedSource<TResource, TState>(
+        RenderResource<TResource> primary,
+        TState state,
+        RecordedPaint paint,
+        IReadOnlyList<RenderResource> authorResources,
+        IReadOnlyList<RenderResource> declaredResources,
+        Action<PaintedRenderSession, TResource, TState> draw)
+        where TResource : class
+    {
+        public void Execute(OpaqueRenderSession session)
+        {
+            using OpaqueRenderOutput output = session.CreateOutput(session.RequiredRegion);
+            output.Canvas.Use(canvas =>
+                BrushExecutionResolver.UsePaint(
+                    session,
+                    paint,
+                    (fill, pen) => Draw(
+                        session.Token,
+                        new PaintedRenderSession(session.Token, canvas, authorResources, fill, pen))));
+            session.Publish(output);
+        }
+
+        public void ExecuteDirect(EngineDirectRenderSession session)
+        {
+            BrushExecutionResolver.UsePaint(
+                session,
+                paint,
+                (fill, pen) => Draw(
+                    session.Token,
+                    new PaintedRenderSession(session.Token, session.Canvas, authorResources, fill, pen)));
+        }
+
+        private void Draw(RenderExecutionSessionToken token, PaintedRenderSession painted)
+            => token.UseResource(primary, declaredResources, resource => draw(painted, resource, state));
     }
 
     private readonly record struct BrushSourceBoundsIdentity(

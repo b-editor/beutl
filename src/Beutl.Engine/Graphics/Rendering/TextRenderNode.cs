@@ -51,10 +51,10 @@ public sealed class TextRenderNode(FormattedText text, Brush.Resource? fill, Pen
         bool hasFill = fill is not null;
 
         context.Publish(context.PaintedSource(
+            primary: textResource,
             state: CreateRuntimeIdentity(text, bounds),
-            draw: static (session, _) => session.UseDeclaredResource<FormattedText>(
-                0,
-                currentText => session.Canvas.DrawText(currentText, session.Fill, session.Pen)),
+            draw: static (session, currentText, _) =>
+                session.Canvas.DrawText(currentText, session.Fill, session.Pen),
             fill: fillSnapshot,
             pen: penSnapshot,
             brushBounds: bounds,
@@ -66,8 +66,7 @@ public sealed class TextRenderNode(FormattedText text, Brush.Resource? fill, Pen
             scale: RenderScaleContract.Vector,
             structuralKey: typeof(TextRenderNode),
             deviceGridSensitivity: RenderDeviceGridSensitivity.PhaseDependent,
-            resources: DeferredOpaqueSource.Resources(
-                [textResource, textBrushResource, textPenResource])));
+            resources: DeferredOpaqueSource.Resources([textBrushResource, textPenResource])));
     }
 
     private static bool HitTest(FormattedText text, bool hasFill, Point point)

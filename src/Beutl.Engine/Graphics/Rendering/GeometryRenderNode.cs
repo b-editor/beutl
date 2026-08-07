@@ -56,10 +56,10 @@ public sealed class GeometryRenderNode(Geometry.Resource geometry, Brush.Resourc
             hitTestIdentity);
 
         context.Publish(context.PaintedSource(
+            primary: geometryResource,
             state: bounds,
-            draw: static (session, _) => session.UseDeclaredResource<Geometry.Resource>(
-                0,
-                geometry => session.Canvas.DrawGeometry(geometry, session.Fill, session.Pen)),
+            draw: static (session, geometry, _) =>
+                session.Canvas.DrawGeometry(geometry, session.Fill, session.Pen),
             fill: fillSnapshot,
             pen: penSnapshot,
             brushBounds: bounds,
@@ -70,7 +70,7 @@ public sealed class GeometryRenderNode(Geometry.Resource geometry, Brush.Resourc
                 typeof(GeometryHitTestState)),
             scale: RenderScaleContract.Vector,
             structuralKey: typeof(GeometryRenderNode),
-            resources: [geometryResource, hitTestResource]));
+            resources: [hitTestResource]));
     }
 
     protected override void OnDispose(bool disposing)

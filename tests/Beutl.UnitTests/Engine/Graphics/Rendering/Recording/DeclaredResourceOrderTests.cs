@@ -41,7 +41,9 @@ public sealed class DeclaredResourceOrderTests
                     fill.Id,
                     pen.Id,
                     pen.Brush.CurrentValue!.Id,
-                }), "index 0 is the geometry the draw callback addresses positionally");
+                }), "index 0 is the primary resource the recorder declared for the draw callback. The fill, "
+                    + "pen and pen-brush slots that follow the hit-test state are the recorder's own and are "
+                    + "not part of the list the callback addresses positionally");
                 Assert.That(declared[0].CacheIdentity.Version, Is.EqualTo(geometryResource.Version));
                 Assert.That(declared[1].CacheIdentity.Key, Is.Not.Null,
                     "the hit-test state carries a composite identity rather than a bare object id");

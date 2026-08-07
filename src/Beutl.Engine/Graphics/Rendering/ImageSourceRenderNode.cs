@@ -54,13 +54,10 @@ public sealed class ImageSourceRenderNode(ImageSource.Resource source, Brush.Res
             pen?.Thickness ?? 0);
 
         context.Publish(context.PaintedSource(
+            primary: sourceResource,
             state: (bounds, hitTestState),
-            draw: static (session, _) => session.UseDeclaredResource<ImageSource.Resource>(
-                0,
-                currentSource => session.Canvas.DrawImageSource(
-                    currentSource,
-                    session.Fill,
-                    session.Pen)),
+            draw: static (session, currentSource, _) =>
+                session.Canvas.DrawImageSource(currentSource, session.Fill, session.Pen),
             fill: fillSnapshot,
             pen: penSnapshot,
             brushBounds: bounds,
@@ -68,8 +65,7 @@ public sealed class ImageSourceRenderNode(ImageSource.Resource source, Brush.Res
             hitTest: RenderHitTestContract.Custom(hitTestState.Evaluate),
             // Bitmap at native 1:1 density; downstream transforms re-scale accordingly.
             scale: RenderScaleContract.Custom(static _ => 1f),
-            structuralKey: typeof(ImageSourceRenderNode),
-            resources: [sourceResource]));
+            structuralKey: typeof(ImageSourceRenderNode)));
     }
 
     private readonly record struct ImageHitTestState(
