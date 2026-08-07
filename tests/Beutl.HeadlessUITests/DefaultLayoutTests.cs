@@ -1,12 +1,12 @@
-using Avalonia.Headless.NUnit;
+﻿using Avalonia.Headless.NUnit;
 using Beutl.Editor.Components.ElementPropertyTab;
 using Beutl.Editor.Components.FileBrowserTab;
 using Beutl.Editor.Components.LibraryTab;
 using Beutl.ProjectSystem;
+using Beutl.Services.PrimitiveImpls;
 using Beutl.Testing.Headless;
 using Beutl.ViewModels;
 using Beutl.ViewModels.Dock;
-using Beutl.Services.PrimitiveImpls;
 using Dock.Model.Controls;
 using Dock.Model.Core;
 
