@@ -336,17 +336,20 @@ internal sealed class ElementAdderImpl(EditViewModel context) : IElementAdder
             .Distinct());
     }
 
-    private static bool HasAudioTrack(string filePath)
+    private bool HasAudioTrack(string filePath)
     {
         try
         {
             using var reader = MediaReader.Open(filePath, new MediaOptions(MediaMode.Audio));
             return reader.HasAudio;
         }
-        catch
+        catch (Exception ex)
         {
-            // Treat an unopenable audio stream (no audio track, or no usable decoder) as
-            // audio-less; the video import itself still proceeds.
+            // A failed audio open means either the file genuinely has no audio track, or the audio
+            // decoder is unavailable (e.g. missing FFmpeg natives, unsupported codec). Treat both as
+            // audio-less so the video import proceeds, but log the reason so a silently dropped
+            // audio companion stays diagnosable.
+            _logger.LogWarning(ex, "Failed to open the audio stream of '{File}' for track detection; importing as video-only.", filePath);
             return false;
         }
     }
