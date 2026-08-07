@@ -1146,7 +1146,13 @@ public sealed class RenderNodeContext
     /// </param>
     /// <param name="version">The pixel-affecting resource version.</param>
     /// <returns>A non-null declared resource handle that never transfers disposal ownership.</returns>
-    /// <remarks>The request borrows the resource only for its active family and never disposes it.</remarks>
+    /// <remarks>
+    /// The request borrows the resource only for its active family and never disposes it. Leaving
+    /// <paramref name="cacheKey"/> at its default is the safe choice for a volatile provider, not a neutral
+    /// one: it disables cross-request output-cache reuse for everything that declares this registration. For an
+    /// <see cref="EngineObject.Resource"/> the snapshot overload,
+    /// <see cref="Borrow{T}(ValueTuple{T, int})"/>, derives a coalescing key instead and does reuse.
+    /// </remarks>
     public RenderResource<T> Borrow<T>(T resource, object? cacheKey = null, long version = 0)
         where T : class
         => GetTransaction().Borrow(resource, cacheKey, version);
@@ -1162,10 +1168,18 @@ public sealed class RenderNodeContext
     /// </param>
     /// <returns>A non-null declared resource handle that never transfers disposal ownership.</returns>
     /// <remarks>
+    /// <para>
+    /// Unlike <see cref="Borrow{T}(T, object?, long)"/> with its default key, this overload always derives a
+    /// coalescing identity, so registrations of the same resource do reuse each other's cached output.
+    /// </para>
+    /// <para>
     /// The version is the snapshot's, never the resource's current one, so the recorded cache identity cannot
-    /// encode a version the node's <c>Update</c> never compared. The coalescing identity is the backing
-    /// <see cref="EngineObject.Id"/>, or a stable synthesized identity for a resource that has no backing
-    /// object.
+    /// encode a version the node's <c>Update</c> never compared. The identity is
+    /// <see cref="EngineResourceIdentity.Of"/>: the backing <see cref="EngineObject.Id"/>, or — for a resource
+    /// that never went through <see cref="EngineObject.ToResource"/> — a synthesized identity that is stable
+    /// per <see cref="EngineObject.Resource"/> instance and held weakly. A caller that reallocates such a
+    /// resource every frame therefore gets a new identity every frame and never reaches a cached output.
+    /// </para>
     /// </remarks>
     public RenderResource<T> Borrow<T>((T Resource, int Version) captured)
         where T : EngineObject.Resource

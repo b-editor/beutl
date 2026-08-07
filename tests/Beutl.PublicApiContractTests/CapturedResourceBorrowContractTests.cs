@@ -61,6 +61,37 @@ public sealed class CapturedResourceBorrowContractTests
         });
     }
 
+    /// <summary>
+    /// The two overloads sit one token apart and have opposite output-cache semantics, so the difference is
+    /// pinned rather than left to the reader of the call site.
+    /// </summary>
+    [Test]
+    public void ADefaultedCacheKey_NeverCoalescesWhereTheSnapshotOverloadAlwaysDoes()
+    {
+        var geometry = new EllipseGeometry { Width = { CurrentValue = 20 }, Height = { CurrentValue = 20 } };
+        using Geometry.Resource resource = (Geometry.Resource)geometry.ToResource(CompositionContext.Default);
+        (Geometry.Resource Resource, int Version) captured = resource.Capture()!.Value;
+
+        List<RenderResourceIdentity> defaulted = [];
+        List<RenderResourceIdentity> snapshot = [];
+        using var node = new DelegateSourceNode(context =>
+        {
+            defaulted.Add(context.Borrow(captured.Resource).CacheIdentity);
+            snapshot.Add(context.Borrow(captured).CacheIdentity);
+        });
+
+        _ = Measure(node);
+        _ = Measure(node);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(defaulted[0], Is.Not.EqualTo(defaulted[1]),
+                "a null cache key takes a fresh request-local identity, so nothing declaring it is ever reused");
+            Assert.That(snapshot[0], Is.EqualTo(snapshot[1]),
+                "the snapshot overload derives a coalescing key, so the same resource reaches the same entry");
+        });
+    }
+
     private static RenderNodeMeasurement Measure(RenderNode node)
     {
         using var renderer = new RenderNodeRenderer(

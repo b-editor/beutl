@@ -355,5 +355,4 @@ internal static class BrushRecorder
         object SourceKey,
         Rect Bounds,
         int DependencyCount);
-
 }
