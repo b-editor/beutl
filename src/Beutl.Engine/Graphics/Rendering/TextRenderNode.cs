@@ -44,10 +44,10 @@ public sealed class TextRenderNode(FormattedText text, Brush.Resource? fill, Pen
             DeferredOpaqueSource.GetCacheKey(text));
         RenderResource<Brush.Resource>? textBrushResource = textBrush is null
             ? null
-            : context.Borrow(textBrush, BrushRecorder.GetResourceIdentity(textBrush), textBrush.Version);
+            : context.Borrow(textBrush, EngineResourceIdentity.Of(textBrush), textBrush.Version);
         RenderResource<Pen.Resource>? textPenResource = textPen is null
             ? null
-            : context.Borrow(textPen, BrushRecorder.GetResourceIdentity(textPen), textPen.Version);
+            : context.Borrow(textPen, EngineResourceIdentity.Of(textPen), textPen.Version);
         bool hasFill = fill is not null;
 
         context.Publish(context.PaintedSource(
@@ -94,9 +94,9 @@ public sealed class TextRenderNode(FormattedText text, Brush.Resource? fill, Pen
             text.Spacing,
             text.Text,
             text.BeginOnNewLine,
-            textBrush is null ? null : BrushRecorder.GetResourceIdentity(textBrush),
+            textBrush is null ? null : EngineResourceIdentity.Of(textBrush),
             textBrush?.Version,
-            textPen is null ? null : BrushRecorder.GetResourceIdentity(textPen),
+            textPen is null ? null : EngineResourceIdentity.Of(textPen),
             textPen?.Version,
             bounds);
     }

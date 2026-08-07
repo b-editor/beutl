@@ -359,7 +359,7 @@ public sealed class FilterEffectContext : IDisposable
         if (pen is null)
             return FilterEffectPen.Empty;
 
-        _resourceState.Borrow(pen, BrushRecorder.GetResourceIdentity(pen), pen.Version);
+        _resourceState.Borrow(pen, EngineResourceIdentity.Of(pen), pen.Version);
         return new FilterEffectPen(pen, RegisterBrush(pen.Brush));
     }
 
@@ -1014,7 +1014,7 @@ internal sealed class FilterEffectResourceState
     public FilterEffectBrush RegisterBrush(Brush.Resource brush, Rect brushBounds, int firstUsableItemIndex)
     {
         ThrowIfTransferred();
-        object identity = BrushRecorder.GetResourceIdentity(brush);
+        object identity = EngineResourceIdentity.Of(brush);
         foreach (RegisteredEffectBrush registered in _brushes)
         {
             // The earlier registration already covers every operation the later one could paint from.

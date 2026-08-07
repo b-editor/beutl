@@ -27,10 +27,7 @@ internal sealed class AudioVisualizerRenderNode(AudioVisualizerDrawable.Resource
         AudioVisualizerDrawable.Resource resource = snapshot.Resource;
 
         var bounds = new Rect(0, 0, Math.Max(1f, resource.Width), Math.Max(1f, resource.Height));
-        RenderResource<AudioVisualizerDrawable.Resource> resourceToken = context.Borrow(
-            resource,
-            resource.GetOriginal().Id,
-            snapshot.Version);
+        RenderResource<AudioVisualizerDrawable.Resource> resourceToken = context.Borrow(snapshot);
 
         RawTargetCommandDescription command = RawTargetCommandDescription.CreateRequestLocal(
             execute: session => session.UseResource(

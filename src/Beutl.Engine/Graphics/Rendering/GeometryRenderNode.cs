@@ -42,10 +42,7 @@ public sealed class GeometryRenderNode(Geometry.Resource geometry, Brush.Resourc
         if (bounds.Width == 0 || bounds.Height == 0)
             return;
 
-        RenderResource<Geometry.Resource> geometryResource = context.Borrow(
-            geometry,
-            geometry.GetOriginal().Id,
-            geometrySnapshot.Version);
+        RenderResource<Geometry.Resource> geometryResource = context.Borrow(geometrySnapshot);
         var hitTestState = new GeometryHitTestState(geometry, fill, pen);
         var hitTestIdentity = new GeometryHitTestIdentity(
             geometry.GetOriginal().Id,

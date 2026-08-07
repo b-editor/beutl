@@ -61,10 +61,7 @@ public sealed class VideoSourceRenderNode(
         Brush.Resource? fill = fillSnapshot?.Resource;
         Pen.Resource? pen = penSnapshot?.Resource;
         float supplyDensity = source.SupplyDensity;
-        RenderResource<VideoSource.Resource> sourceResource = context.Borrow(
-            source,
-            source.GetOriginal().Id,
-            sourceSnapshot.Version);
+        RenderResource<VideoSource.Resource> sourceResource = context.Borrow(sourceSnapshot);
         var hitTestState = new VideoHitTestState(
             bounds,
             fill is not null,

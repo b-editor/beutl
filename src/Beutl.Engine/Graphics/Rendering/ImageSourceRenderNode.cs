@@ -44,13 +44,9 @@ public sealed class ImageSourceRenderNode(ImageSource.Resource source, Brush.Res
 
         (Brush.Resource Resource, int Version)? fillSnapshot = Fill;
         (Pen.Resource Resource, int Version)? penSnapshot = Pen;
-        ImageSource.Resource source = sourceSnapshot.Resource;
         Brush.Resource? fill = fillSnapshot?.Resource;
         Pen.Resource? pen = penSnapshot?.Resource;
-        RenderResource<ImageSource.Resource> sourceResource = context.Borrow(
-            source,
-            source.GetOriginal().Id,
-            sourceSnapshot.Version);
+        RenderResource<ImageSource.Resource> sourceResource = context.Borrow(sourceSnapshot);
         var hitTestState = new ImageHitTestState(
             bounds,
             fill is not null,

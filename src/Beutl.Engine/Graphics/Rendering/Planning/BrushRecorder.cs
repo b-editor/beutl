@@ -1,7 +1,4 @@
-﻿using System.Runtime.CompilerServices;
-
-using Beutl.Engine;
-using Beutl.Media;
+﻿using Beutl.Media;
 
 namespace Beutl.Graphics.Rendering;
 
@@ -9,10 +6,6 @@ internal static class BrushRecorder
 {
     [ThreadStatic]
     private static List<object>? s_activeDrawableBrushes;
-
-    private static readonly ConditionalWeakTable<EngineObject.Resource, DetachedResourceIdentityHolder>
-        s_detachedResourceIdentities = new();
-    private static long s_nextDetachedResourceIdentity;
 
     public static RecordedPaint RecordPaint(
         RenderNodeContext context,
@@ -160,20 +153,6 @@ internal static class BrushRecorder
             : context.OpaqueSource(recorded);
     }
 
-    public static object GetResourceIdentity(EngineObject.Resource resource)
-    {
-        ArgumentNullException.ThrowIfNull(resource);
-        EngineObject? original = resource.GetOriginal();
-        if (original is not null)
-            return original.Id;
-
-        return s_detachedResourceIdentities.GetValue(
-            resource,
-            static _ => new DetachedResourceIdentityHolder(
-                new DetachedResourceIdentity(Interlocked.Increment(ref s_nextDetachedResourceIdentity))))
-            .Identity;
-    }
-
     private sealed class Builder(RenderNodeContext context, Rect brushBounds)
     {
         private readonly List<RenderFragmentHandle> _dependencies = [];
@@ -192,7 +171,7 @@ internal static class BrushRecorder
 
             RenderResource<Pen.Resource> resource = context.Borrow(
                 pen,
-                GetResourceIdentity(pen),
+                EngineResourceIdentity.Of(pen),
                 version);
             _resources.Add(resource);
             RecordedBrush brush = RecordBrush(pen.Brush, pen.Brush?.Version ?? 0);
@@ -207,7 +186,7 @@ internal static class BrushRecorder
 
             RenderResource<Brush.Resource> resource = context.Borrow(
                 brush,
-                GetResourceIdentity(brush),
+                EngineResourceIdentity.Of(brush),
                 version == 0 ? brush.Version : version);
             _resources.Add(resource);
 
@@ -246,7 +225,7 @@ internal static class BrushRecorder
             if (drawable is null)
                 return -1;
 
-            object identity = GetResourceIdentity(brush);
+            object identity = EngineResourceIdentity.Of(brush);
             using ActiveDrawableBrushScope scope = EnterDrawableBrush(identity);
             using var node = new DrawableRenderNode(drawable);
             using (var graphics = new GraphicsContext2D(node, brushBounds.Size, context.OutputScale))
@@ -377,10 +356,4 @@ internal static class BrushRecorder
         Rect Bounds,
         int DependencyCount);
 
-    private readonly record struct DetachedResourceIdentity(long Value);
-
-    private sealed class DetachedResourceIdentityHolder(DetachedResourceIdentity identity)
-    {
-        public DetachedResourceIdentity Identity { get; } = identity;
-    }
 }

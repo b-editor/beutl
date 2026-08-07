@@ -1,4 +1,5 @@
 ﻿using System.Collections.Immutable;
+using Beutl.Engine;
 using Beutl.Graphics.Effects;
 using Beutl.Media;
 
@@ -1149,6 +1150,29 @@ public sealed class RenderNodeContext
     public RenderResource<T> Borrow<T>(T resource, object? cacheKey = null, long version = 0)
         where T : class
         => GetTransaction().Borrow(resource, cacheKey, version);
+
+    /// <summary>
+    /// Registers a caller-owned engine resource that the current request may borrow, taking its coalescing
+    /// identity and version from the snapshot <c>Capture()</c> produced.
+    /// </summary>
+    /// <typeparam name="T">The engine resource type.</typeparam>
+    /// <param name="captured">
+    /// A non-default snapshot of the resource and the version it was snapshotted at, as
+    /// <see cref="RenderNode"/> holds it and <c>Compare</c> tests it.
+    /// </param>
+    /// <returns>A non-null declared resource handle that never transfers disposal ownership.</returns>
+    /// <remarks>
+    /// The version is the snapshot's, never the resource's current one, so the recorded cache identity cannot
+    /// encode a version the node's <c>Update</c> never compared. The coalescing identity is the backing
+    /// <see cref="EngineObject.Id"/>, or a stable synthesized identity for a resource that has no backing
+    /// object.
+    /// </remarks>
+    public RenderResource<T> Borrow<T>((T Resource, int Version) captured)
+        where T : EngineObject.Resource
+    {
+        ArgumentNullException.ThrowIfNull(captured.Resource);
+        return Borrow(captured.Resource, EngineResourceIdentity.Of(captured.Resource), captured.Version);
+    }
 
     internal void RollbackResources(IReadOnlyList<RenderResource> resources)
         => GetTransaction().RollbackResources(resources);

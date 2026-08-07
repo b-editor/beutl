@@ -354,6 +354,9 @@ public sealed class RenderNodeContext
         object? cacheKey = null,
         long version = 0)
         where T : class;
+
+    public RenderResource<T> Borrow<T>((T Resource, int Version) captured)
+        where T : EngineObject.Resource;
 }
 
 public static class RenderScaleUtilities
@@ -465,6 +468,8 @@ public readonly record struct RenderRuntimeIdentity(object Key);
 `Own` requires `T : class, IDisposable` and transfers ownership immediately into the current transaction. The returned token can be declared by Shader, Geometry, materialized, opaque, target-scope, or target-command descriptions. It can be borrowed only through an authorized execution session callback. Rollback disposes it; commit moves it to the request exactly once; request teardown releases it exactly once. Context cloning/nesting shares a reference-counted request slot and never duplicates ownership. `RenderResource<T>` itself requires only a reference type because a borrowed managed resource has no disposal transfer.
 
 `Borrow` instead accepts any reference type and records a request-scoped read-only reference to an externally owned resource without accessing it or transferring disposal. A non-null `cacheKey` must be equality-stable and `version` must change whenever pixel-affecting contents change. A null key gives that registration a fresh request-local cache identity, safely disabling cross-request output-cache reuse without forcing a volatile provider to invent a stable key. The external owner guarantees the resource remains alive, compatible with its device/thread rules, and not concurrently mutated or exclusively leased until every executing request that borrowed it completes. The scoped `UseResource` callback also must not mutate pixel-affecting state. Exclusive mutation or consumption requires `Own`. Metadata-only requests create/release only the managed borrow token and neither touch nor dispose the raw resource. Request teardown invalidates the token but never disposes the borrowed value. This is the normal shape for a repeatable node that exposes an existing materialized target; `Own` remains available for a genuinely one-shot target.
+
+The `(T Resource, int Version)` overload is the shape an `EngineObject`-backed node already holds: it takes the snapshot `Capture()` produced and derives both halves of the identity from it, so the key cannot be paired with a version the node's `Compare`/`Update` never tested. Its key is the backing `EngineObject.Id`, or — for a `Resource` that never went through `ToResource` and therefore has no backing object, which the public `FilterEffectContext.RegisterBrush`/`RegisterPen` entry points accept — a stable synthesized identity held weakly against the resource. Reading `GetOriginal().Id` directly cannot serve that second case.
 
 The request family maintains one raw-resource table keyed by reference identity. A second `Own` of the same raw object, or any `Own`/`Borrow` mixture for that object, is rejected during recording before another transfer occurs. Repeated `Borrow` registrations of the same object with an explicit non-null key coalesce onto one request-family slot only when their cache keys compare equal and versions match; an explicit mismatch is rejected. Each null-key registration receives a distinct request-local slot/identity and never coalesces. The same valid token or coalesced borrowed slot may be declared by multiple descriptions, and each execution access remains callback-scoped.
 
