@@ -19,11 +19,19 @@ namespace Beutl.PublicApiContractTests;
 /// a reused or value-equal holder keeps reuse but its identity no longer tracks the resource, so a
 /// pixel-affecting change can be served from a stale cached output; and a token left over from a finished
 /// request throws when leased. Position is the address by design, not by impossibility.
+/// <para>
+/// Every holder-shaped state below leases the token it carries. Reaching the same resource by position instead
+/// would make these tests re-pin the mutable-state-holder channel
+/// <c>RenderCacheIdentityChannelTests.MutableObjectReferencedByState_IsServedStale</c> already covers, rather
+/// than the token channel they are named for.
+/// </para>
 /// </remarks>
 [TestFixture]
 public sealed class DeclaredResourceAddressingContractTests
 {
     private static readonly Rect s_bounds = new(0, 0, 8, 8);
+
+    private static RenderResource<Payload>? s_staticToken;
 
     [Test]
     public void APaintedSourceState_RejectsAResourceTokenInATupleElement()
@@ -168,6 +176,170 @@ public sealed class DeclaredResourceAddressingContractTests
     }
 
     /// <summary>
+    /// The three description factories the in-tree index-0 sites record through reject every route to a token
+    /// that they validate: a callback that captures it, and a token carried in a <c>state</c> tuple element.
+    /// </summary>
+    [Test]
+    public void TheThreeDescriptionFactories_RejectEveryValidatedRouteToAToken()
+    {
+        var rejections = new List<string>();
+        using var node = new DelegateSourceNode(context =>
+        {
+            RenderResource<Payload> token = context.Borrow(new Payload(), cacheKey: "payload");
+
+            rejections.Add(Reject(() => OpaqueRenderDescription.Create(
+                s_bounds,
+                (session, _) => session.UseResource(token, static _ => { }),
+                OpaqueRenderBoundsContract.Source(s_bounds),
+                RenderHitTestContract.OutputBounds,
+                RenderValueCardinality.Single,
+                RenderScaleContract.MaterializeAtWorkingScale,
+                structuralKey: "captured-opaque",
+                resources: [token])));
+            rejections.Add(Reject(() => TargetScopeDescription.Create(
+                s_bounds,
+                (session, _) => session.UseResource(token, static _ => { }),
+                RenderBoundsContract.Identity,
+                RenderHitTestContract.AnyInput,
+                RenderScaleContract.PreserveInputSupply,
+                RenderDeviceGridMapping.Preserved,
+                structuralKey: "captured-scope",
+                resources: [token])));
+            rejections.Add(Reject(() => TargetCommandDescription.Create(
+                s_bounds,
+                (session, _) => session.UseResource(token, static _ => { }),
+                TargetRegion.Region(s_bounds),
+                s_bounds,
+                RenderHitTestContract.None,
+                structuralKey: "captured-command",
+                resources: [token])));
+
+            rejections.Add(Reject(() => OpaqueRenderDescription.Create(
+                (s_bounds, token),
+                static (session, state) => session.UseResource(state.token, static _ => { }),
+                OpaqueRenderBoundsContract.Source(s_bounds),
+                RenderHitTestContract.OutputBounds,
+                RenderValueCardinality.Single,
+                RenderScaleContract.MaterializeAtWorkingScale,
+                structuralKey: "tupled-opaque",
+                resources: [token])));
+            rejections.Add(Reject(() => TargetScopeDescription.Create(
+                (s_bounds, token),
+                static (session, state) => session.UseResource(state.token, static _ => { }),
+                RenderBoundsContract.Identity,
+                RenderHitTestContract.AnyInput,
+                RenderScaleContract.PreserveInputSupply,
+                RenderDeviceGridMapping.Preserved,
+                structuralKey: "tupled-scope",
+                resources: [token])));
+            rejections.Add(Reject(() => TargetCommandDescription.Create(
+                (s_bounds, token),
+                static (session, state) => session.UseResource(state.token, static _ => { }),
+                TargetRegion.Region(s_bounds),
+                s_bounds,
+                RenderHitTestContract.None,
+                structuralKey: "tupled-command",
+                resources: [token])));
+        });
+
+        _ = Measure(node);
+
+        foreach (string rejection in rejections)
+            TestContext.Out.WriteLine(rejection);
+
+        Assert.That(rejections, Is.EqualTo(new[] { "execute", "execute", "execute", "state", "state", "state" }),
+            "capture is rejected on all three, and so is a token in a state tuple element, so no route these "
+            + "factories validate reaches the token form from a state-passing callback");
+    }
+
+    /// <summary>
+    /// Why the rejections above do not make the token form unreachable, and why the sealed holder is not the
+    /// only way past them. A <c>static</c> field is outside everything the state rules look at.
+    /// </summary>
+    [Test]
+    public void AStaticFieldReadByAStaticCallback_AlsoLeasesAToken()
+    {
+        Payload? leased = null;
+        Payload? borrowed = null;
+        using var node = new DelegateSourceNode(context =>
+        {
+            var payload = new Payload();
+            borrowed = payload;
+            RenderResource<Payload> token = context.Borrow(payload, cacheKey: "payload");
+            s_staticToken = token;
+            context.Publish(context.OpaqueSource(OpaqueRenderDescription.Create(
+                new LeasedTokenSink(value => leased = value),
+                static (session, sink) =>
+                {
+                    session.UseResource(s_staticToken!, sink.Lease);
+                    using OpaqueRenderOutput output = session.CreateOutput(session.OutputBounds);
+                    output.Canvas.Use(static canvas => canvas.Clear(Colors.Red));
+                    session.Publish(output);
+                },
+                OpaqueRenderBoundsContract.Source(s_bounds),
+                RenderHitTestContract.OutputBounds,
+                RenderValueCardinality.Single,
+                RenderScaleContract.MaterializeAtWorkingScale,
+                structuralKey: typeof(DeclaredResourceAddressingContractTests),
+                resources: [token])));
+        });
+
+        using RenderNodeRasterization rasterization = Rasterize(node);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(rasterization.IsEmpty, Is.False);
+            Assert.That(leased, Is.SameAs(borrowed),
+                "a static field is not part of state, so nothing validates it and the token arrives usable");
+        });
+    }
+
+    /// <summary>
+    /// The compile-time-safe route to the token that the rejections leave open, and what it costs. Recording
+    /// through <c>CreateRequestLocal</c> lets the callback capture the token outright, and buys that with a
+    /// fresh request-local identity every recording, so the result is never served from the output cache.
+    /// </summary>
+    [TestCase(true, 2)]
+    [TestCase(false, 1)]
+    public void CapturingATokenRequiresARequestLocalRecording_WhichGivesUpTheOutputCacheHit(
+        bool requestLocal,
+        int expectedExecutions)
+    {
+        var counter = new DrawCounter();
+        using var node = new DelegateSourceNode(context =>
+        {
+            RenderResource<DrawCounter> token = context.Borrow(counter, cacheKey: "counter", version: 1);
+            OpaqueRenderDescription description = requestLocal
+                ? OpaqueRenderDescription.CreateRequestLocal(
+                    session => session.UseResource(token, current => DrawAndCount(session, current)),
+                    OpaqueRenderBoundsContract.Source(s_bounds),
+                    RenderHitTestContract.OutputBounds,
+                    RenderValueCardinality.Single,
+                    RenderScaleContract.MaterializeAtWorkingScale,
+                    structuralKey: typeof(DeclaredResourceAddressingContractTests),
+                    resources: [token])
+                : OpaqueRenderDescription.Create(
+                    s_bounds,
+                    static (session, _) => session.UseDeclaredResource<DrawCounter>(
+                        0,
+                        current => DrawAndCount(session, current)),
+                    OpaqueRenderBoundsContract.Source(s_bounds),
+                    RenderHitTestContract.OutputBounds,
+                    RenderValueCardinality.Single,
+                    RenderScaleContract.MaterializeAtWorkingScale,
+                    structuralKey: typeof(DeclaredResourceAddressingContractTests),
+                    resources: [token]);
+            context.Publish(context.ContributeValues(context.OpaqueSource(description)));
+        });
+
+        RasterizeTwice(node);
+
+        Assert.That(counter.Count, Is.EqualTo(expectedExecutions),
+            "a request-local recording is the one route to a captured token that nothing has to be trusted "
+            + "for, and its price is that an unchanged second frame re-executes instead of being served");
+    }
+
+    /// <summary>
     /// One of the two ways of holding a holder, and the only one the fixture used to state as a general fact.
     /// A node that allocates its holder inside <c>Process</c> hands the description a fresh reference every
     /// recording, so its runtime identity cannot match the previous frame's.
@@ -175,8 +347,8 @@ public sealed class DeclaredResourceAddressingContractTests
     [Test]
     public void AHolderAllocatedPerRecording_LosesTheOutputCacheReuseAValueStateKeeps()
     {
-        using var holderState = new PaintedSourceNode(PaintedSourceStateShape.HolderPerRecording);
-        using var valueState = new PaintedSourceNode(PaintedSourceStateShape.Value);
+        using var holderState = new StateShapeSourceNode(StateShape.HolderPerRecording);
+        using var valueState = new StateShapeSourceNode(StateShape.Value);
 
         RasterizeTwice(holderState);
         RasterizeTwice(valueState);
@@ -200,8 +372,8 @@ public sealed class DeclaredResourceAddressingContractTests
     [Test]
     public void AReusedHolderAndAValueEqualHolder_KeepTheOutputCacheHit()
     {
-        using var reused = new PaintedSourceNode(PaintedSourceStateShape.HolderReusedAcrossRecordings);
-        using var valueEqual = new PaintedSourceNode(PaintedSourceStateShape.ValueEqualHolderPerRecording);
+        using var reused = new StateShapeSourceNode(StateShape.HolderReusedAcrossRecordings);
+        using var valueEqual = new StateShapeSourceNode(StateShape.ValueEqualHolderPerRecording);
 
         RasterizeTwice(reused);
         RasterizeTwice(valueEqual);
@@ -265,6 +437,63 @@ public sealed class DeclaredResourceAddressingContractTests
         });
     }
 
+    /// <summary>
+    /// Why the reused holder above refreshes its token every <c>Process</c>. A holder that keeps the token an
+    /// earlier request gave it hands the callback a released one, and leasing that is a hard failure rather
+    /// than a stale read.
+    /// </summary>
+    /// <remarks>
+    /// The failure is reached only when the callback runs, so the second assertion is the part that matters
+    /// with the render cache enabled: an unchanged holder is served from the cached output, and the stale token
+    /// stays latent until the first execution that actually leases it.
+    /// </remarks>
+    [Test]
+    public void ATokenLeftOverFromAFinishedRequest_ThrowsWhenLeased()
+    {
+        using var thrown = new StaleTokenNode();
+        InvalidOperationException? failure;
+        using (RenderNodeRenderer renderer = CreateRenderer(thrown, RenderCacheOptions.Disabled))
+        {
+            using (RenderNodeRasterization first = renderer.Rasterize())
+            {
+                Assert.That(first.IsEmpty, Is.False);
+            }
+
+            failure = Assert.Throws<InvalidOperationException>(() => renderer.Rasterize());
+        }
+
+        using var latent = new StaleTokenNode();
+        latent.Cache.ReportRenderCount(RenderNodeCache.Count);
+        Exception? underTheCache;
+        using (RenderNodeRenderer cached = CreateRenderer(latent, RenderCacheOptions.Enabled))
+        {
+            using (RenderNodeRasterization first = cached.Rasterize())
+            {
+                Assert.That(first.IsEmpty, Is.False);
+            }
+
+            try
+            {
+                using RenderNodeRasterization second = cached.Rasterize();
+                underTheCache = null;
+            }
+            catch (Exception ex)
+            {
+                underTheCache = ex;
+            }
+        }
+
+        TestContext.Out.WriteLine(failure!.Message);
+        Assert.Multiple(() =>
+        {
+            Assert.That(failure.Message, Does.Contain("no longer retains its request-scoped slot"),
+                "the second request's callback leased the first request's token");
+            Assert.That(underTheCache, Is.Null,
+                "an unchanged holder is served from the cached output, so the stale token is never leased");
+            Assert.That(latent.LeaseCount, Is.EqualTo(1));
+        });
+    }
+
     [Test]
     public void EachSession_ExposesTheAddressingModesItsChannelsCanReach()
     {
@@ -294,6 +523,21 @@ public sealed class DeclaredResourceAddressingContractTests
     {
         _ = resource;
         return 0;
+    }
+
+    private static void DrawAndCount(OpaqueRenderSession session, DrawCounter counter)
+    {
+        counter.Record();
+        using OpaqueRenderOutput output = session.CreateOutput(session.OutputBounds);
+        output.Canvas.Use(static canvas => canvas.Clear(Colors.Red));
+        session.Publish(output);
+    }
+
+    private static string Reject(Func<object> create)
+    {
+        ArgumentException? rejection = Assert.Throws<ArgumentException>(() => create());
+        TestContext.Out.WriteLine(rejection!.Message);
+        return rejection.ParamName!;
     }
 
     private static string Describe(Type session, bool token, bool positional)
@@ -370,12 +614,17 @@ public sealed class DeclaredResourceAddressingContractTests
         public Action<Payload> Lease { get; } = lease;
     }
 
+    private sealed class LeasedTokenSink(Action<Payload> lease)
+    {
+        public Action<Payload> Lease { get; } = lease;
+    }
+
     private sealed class DelegateSourceNode(Action<RenderNodeContext> process) : RenderNode
     {
         public override void Process(RenderNodeContext context) => process(context);
     }
 
-    public enum PaintedSourceStateShape
+    public enum StateShape
     {
         Value,
         HolderPerRecording,
@@ -383,11 +632,18 @@ public sealed class DeclaredResourceAddressingContractTests
         ValueEqualHolderPerRecording,
     }
 
+    private interface ITokenHolder
+    {
+        RenderResource<DrawCounter>? Token { get; }
+    }
+
     /// <remarks>
     /// The draw counter travels as a declared resource under a key that is equal across frames, so the only
-    /// thing that differs between the variants is the shape of the state.
+    /// thing that differs between the variants is the shape of the state. Each holder shape leases the token it
+    /// carries, which is the whole point of carrying one; the value shape has no token to lease and addresses
+    /// the same single declared resource by position.
     /// </remarks>
-    private sealed class PaintedSourceNode(PaintedSourceStateShape shape) : RenderNode
+    private sealed class StateShapeSourceNode(StateShape shape) : RenderNode
     {
         private readonly DrawCounter _counter = new();
         private readonly ReusedTokenHolder _reused = new();
@@ -399,39 +655,54 @@ public sealed class DeclaredResourceAddressingContractTests
             RenderResource<DrawCounter> counter = context.Borrow(_counter, cacheKey: "counter", version: 1);
             RenderFragmentHandle handle = shape switch
             {
-                PaintedSourceStateShape.Value => Record(context, s_bounds, counter),
-                PaintedSourceStateShape.HolderPerRecording =>
-                    Record(context, new CountingTokenHolder(counter), counter),
-                PaintedSourceStateShape.HolderReusedAcrossRecordings =>
-                    Record(context, _reused.Refresh(counter), counter),
-                _ => Record(context, new ValueEqualTokenHolder(counter, s_bounds), counter),
+                StateShape.Value => context.OpaqueSource(Describe(
+                    s_bounds,
+                    static (session, _) => session.UseDeclaredResource<DrawCounter>(
+                        0,
+                        current => Draw(session, current)),
+                    counter)),
+                StateShape.HolderPerRecording =>
+                    RecordHolder(context, new CountingTokenHolder(counter), counter),
+                StateShape.HolderReusedAcrossRecordings =>
+                    RecordHolder(context, _reused.Refresh(counter), counter),
+                _ => RecordHolder(context, new ValueEqualTokenHolder(counter, s_bounds), counter),
             };
             context.Publish(context.ContributeValues(handle));
         }
 
-        private static RenderFragmentHandle Record<TState>(
+        private static RenderFragmentHandle RecordHolder<TState>(
             RenderNodeContext context,
             TState state,
             RenderResource<DrawCounter> counter)
-            where TState : notnull
-            => context.PaintedSource(
-                state: state,
-                draw: static (session, _) => session.UseDeclaredResource<DrawCounter>(
-                    0,
+            where TState : class, ITokenHolder
+            => context.OpaqueSource(Describe(
+                state,
+                static (session, state) => session.UseResource(
+                    state.Token!,
                     current => Draw(session, current)),
-                fill: null,
-                pen: null,
-                brushBounds: s_bounds,
-                outputBounds: s_bounds,
-                hitTest: RenderHitTestContract.OutputBounds,
-                scale: RenderScaleContract.Vector,
-                structuralKey: typeof(PaintedSourceNode),
+                counter));
+
+        private static OpaqueRenderDescription Describe<TState>(
+            TState state,
+            Action<OpaqueRenderSession, TState> execute,
+            RenderResource<DrawCounter> counter)
+            where TState : notnull
+            => OpaqueRenderDescription.Create(
+                state,
+                execute,
+                OpaqueRenderBoundsContract.Source(s_bounds),
+                RenderHitTestContract.OutputBounds,
+                RenderValueCardinality.Single,
+                RenderScaleContract.MaterializeAtWorkingScale,
+                structuralKey: typeof(StateShapeSourceNode),
                 resources: [counter]);
 
-        private static void Draw(PaintedRenderSession session, DrawCounter counter)
+        private static void Draw(OpaqueRenderSession session, DrawCounter counter)
         {
             counter.Record();
-            session.Canvas.Clear(Colors.Red);
+            using OpaqueRenderOutput output = session.CreateOutput(session.OutputBounds);
+            output.Canvas.Use(static canvas => canvas.Clear(Colors.Red));
+            session.Publish(output);
         }
     }
 
@@ -457,23 +728,58 @@ public sealed class DeclaredResourceAddressingContractTests
         {
             RenderResource<DrawLog> log = context.Borrow(_log, cacheKey: "log", version: 1);
             _holder.Token = log;
-            context.Publish(context.ContributeValues(context.PaintedSource(
-                state: _holder,
-                draw: static (session, state) => session.UseDeclaredResource<DrawLog>(
-                    0,
+            context.Publish(context.ContributeValues(context.OpaqueSource(OpaqueRenderDescription.Create(
+                _holder,
+                static (session, state) => session.UseResource(
+                    state.Token!,
                     current =>
                     {
                         current.Record(state.Color);
-                        session.Canvas.Clear(state.Color);
+                        using OpaqueRenderOutput output = session.CreateOutput(session.OutputBounds);
+                        output.Canvas.Use(canvas => canvas.Clear(state.Color));
+                        session.Publish(output);
                     }),
-                fill: null,
-                pen: null,
-                brushBounds: s_bounds,
-                outputBounds: s_bounds,
-                hitTest: RenderHitTestContract.OutputBounds,
-                scale: RenderScaleContract.Vector,
+                OpaqueRenderBoundsContract.Source(s_bounds),
+                RenderHitTestContract.OutputBounds,
+                RenderValueCardinality.Single,
+                RenderScaleContract.MaterializeAtWorkingScale,
                 structuralKey: typeof(MutatingHolderStateNode),
-                resources: [log])));
+                resources: [log]))));
+        }
+    }
+
+    /// <remarks>
+    /// The token is captured on the first <c>Process</c> and never refreshed, which is the one thing the
+    /// reused-holder shape in <see cref="StateShapeSourceNode"/> does do.
+    /// </remarks>
+    private sealed class StaleTokenNode : RenderNode
+    {
+        private readonly DrawCounter _counter = new();
+        private readonly ReusedTokenHolder _holder = new();
+
+        public int LeaseCount => _counter.Count;
+
+        public override void Process(RenderNodeContext context)
+        {
+            RenderResource<DrawCounter> counter = context.Borrow(_counter, cacheKey: "counter", version: 1);
+            if (_holder.Token is null)
+                _holder.Refresh(counter);
+
+            context.Publish(context.ContributeValues(context.OpaqueSource(OpaqueRenderDescription.Create(
+                _holder,
+                static (session, state) =>
+                {
+                    session.UseResource(state.Token!, static current => current.Record());
+                    using OpaqueRenderOutput output = session.CreateOutput(session.OutputBounds);
+                    output.Canvas.Use(static canvas => canvas.Clear(Colors.Red));
+                    session.Publish(output);
+                },
+                OpaqueRenderBoundsContract.Source(s_bounds),
+                RenderHitTestContract.OutputBounds,
+                RenderValueCardinality.Single,
+                RenderScaleContract.MaterializeAtWorkingScale,
+                structuralKey: typeof(StaleTokenNode),
+                resources: [counter]))));
         }
     }
 
@@ -493,12 +799,12 @@ public sealed class DeclaredResourceAddressingContractTests
         public void Record(Color color) => _colors.Add(color);
     }
 
-    private sealed class CountingTokenHolder(RenderResource<DrawCounter> token)
+    private sealed class CountingTokenHolder(RenderResource<DrawCounter> token) : ITokenHolder
     {
-        public RenderResource<DrawCounter> Token { get; } = token;
+        public RenderResource<DrawCounter>? Token { get; } = token;
     }
 
-    private sealed class ReusedTokenHolder
+    private sealed class ReusedTokenHolder : ITokenHolder
     {
         public RenderResource<DrawCounter>? Token { get; private set; }
 
@@ -509,9 +815,9 @@ public sealed class DeclaredResourceAddressingContractTests
         }
     }
 
-    private sealed class ValueEqualTokenHolder(RenderResource<DrawCounter> token, Rect bounds)
+    private sealed class ValueEqualTokenHolder(RenderResource<DrawCounter> token, Rect bounds) : ITokenHolder
     {
-        public RenderResource<DrawCounter> Token { get; } = token;
+        public RenderResource<DrawCounter>? Token { get; } = token;
 
         public override bool Equals(object? obj) => obj is ValueEqualTokenHolder other && other.Bounds == Bounds;
 

@@ -60,14 +60,53 @@ public sealed class PrimaryPaintedSourceTests
     [Test]
     public void ThePrimaryFormAllocatesNoMorePerRasterizationThanThePositionalForm()
     {
-        long positional = MeasureBytesPerRasterization(usePrimary: false);
-        long primary = MeasureBytesPerRasterization(usePrimary: true);
+        long positional = MeasureBytesPerRasterization(
+            static shared => new PaintedNode(shared, usePrimary: false));
+        long primary = MeasureBytesPerRasterization(
+            static shared => new PaintedNode(shared, usePrimary: true));
 
         TestContext.Out.WriteLine($"positional form: {positional} bytes/rasterization");
         TestContext.Out.WriteLine($"primary form: {primary} bytes/rasterization");
+        TestContext.Out.WriteLine($"difference: {primary - positional} bytes/rasterization");
         Assert.That(primary, Is.LessThanOrEqualTo(positional),
             "the recorder took over the author's index, type argument and nested closure, so it must not have "
             + "added an allocation to a path that runs per node per frame");
+    }
+
+    /// <summary>
+    /// The same comparison on the shipped <see cref="GeometryRenderNode"/> rather than on a node built for the
+    /// test, against a reconstruction whose <c>Process</c> body differs only in recording the drawing through
+    /// the positional overload.
+    /// </summary>
+    /// <remarks>
+    /// Both nodes run in this one process against the same engine resources and the same paint, so the figure
+    /// is a difference between two recordings of one drawing rather than between two builds, and it isolates
+    /// the overload from the rest of the branch. The absolute totals move with the shared rasterization
+    /// scaffold; only the difference is a property of the two overloads.
+    /// </remarks>
+    [Test]
+    public void TheShippedGeometryRenderNodeAllocatesNoMoreThanThePositionalFormOfItsOwnBody()
+    {
+        long positional = MeasureBytesPerRasterization(
+            static shared => new PositionalGeometryRenderNode(shared));
+        long shipped = MeasureBytesPerRasterization(
+            static shared => new GeometryRenderNode(shared.Geometry, shared.Fill, shared.Pen));
+        long positionalRecording = MeasureBytesPerRecording(
+            static shared => new PositionalGeometryRenderNode(shared));
+        long shippedRecording = MeasureBytesPerRecording(
+            static shared => new GeometryRenderNode(shared.Geometry, shared.Fill, shared.Pen));
+
+        TestContext.Out.WriteLine($"positional body: {positional} bytes/rasterization, "
+            + $"{positionalRecording} bytes/recording");
+        TestContext.Out.WriteLine($"shipped node: {shipped} bytes/rasterization, "
+            + $"{shippedRecording} bytes/recording");
+        TestContext.Out.WriteLine($"difference: {shipped - positional} bytes/rasterization, "
+            + $"{shippedRecording - positionalRecording} bytes/recording");
+        Assert.Multiple(() =>
+        {
+            Assert.That(shipped, Is.LessThanOrEqualTo(positional));
+            Assert.That(shippedRecording, Is.LessThanOrEqualTo(positionalRecording));
+        });
     }
 
     private static object?[] DeclaredKeys(RenderNode node)
@@ -101,17 +140,23 @@ public sealed class PrimaryPaintedSourceTests
         Assert.That(second.IsEmpty, Is.False);
     }
 
-    private static long MeasureBytesPerRasterization(bool usePrimary)
+    private static long MeasureBytesPerRasterization(Func<SharedPaint, RenderNode> create)
+        => MeasureQuietestRound(iterations => RasterizeRepeatedly(create, iterations));
+
+    private static long MeasureBytesPerRecording(Func<SharedPaint, RenderNode> create)
+        => MeasureQuietestRound(iterations => RecordRepeatedly(create, iterations));
+
+    private static long MeasureQuietestRound(Action<int> run)
     {
         const int Iterations = 200;
         const int Rounds = 7;
-        RasterizeRepeatedly(usePrimary, 50);
+        run(50);
 
         long quietestRound = long.MaxValue;
         for (int round = 0; round < Rounds; round++)
         {
             long before = GC.GetAllocatedBytesForCurrentThread();
-            RasterizeRepeatedly(usePrimary, Iterations);
+            run(Iterations);
             long after = GC.GetAllocatedBytesForCurrentThread();
             quietestRound = Math.Min(quietestRound, after - before);
         }
@@ -119,14 +164,31 @@ public sealed class PrimaryPaintedSourceTests
         return quietestRound / Iterations;
     }
 
-    private static void RasterizeRepeatedly(bool usePrimary, int iterations)
+    private static void RasterizeRepeatedly(Func<SharedPaint, RenderNode> create, int iterations)
     {
         using var shared = new SharedPaint();
-        using var node = new PaintedNode(shared, usePrimary);
+        using RenderNode node = create(shared);
         using RenderNodeRenderer renderer = CreateRenderer(node, RenderCacheOptions.Disabled);
         for (int index = 0; index < iterations; index++)
         {
             using RenderNodeRasterization rasterization = renderer.Rasterize();
+        }
+    }
+
+    private static void RecordRepeatedly(Func<SharedPaint, RenderNode> create, int iterations)
+    {
+        using var shared = new SharedPaint();
+        using RenderNode node = create(shared);
+        using var owner = new RenderRequestOwner();
+        for (int index = 0; index < iterations; index++)
+        {
+            using var request = new RenderRequest(new RenderRequestOptions(
+                RenderIntent.Preview,
+                RenderRequestPurpose.Auxiliary,
+                outputScale: 1,
+                maxWorkingScale: 1,
+                owner: owner));
+            _ = new RenderRequestRecorder(request).Record(node);
         }
     }
 
@@ -155,16 +217,25 @@ public sealed class PrimaryPaintedSourceTests
             Height = { CurrentValue = 8 },
         };
 
+        private readonly Pen _pen = new()
+        {
+            Brush = { CurrentValue = Brushes.Black },
+            Thickness = { CurrentValue = 2 },
+        };
+
         public SharedPaint()
         {
             Geometry = _geometry.ToResource(CompositionContext.Default);
             Fill = (SolidColorBrush.Resource)new SolidColorBrush(Colors.Red)
                 .ToResource(CompositionContext.Default);
+            Pen = _pen.ToResource(CompositionContext.Default);
         }
 
         public Geometry.Resource Geometry { get; }
 
         public SolidColorBrush.Resource Fill { get; }
+
+        public Pen.Resource Pen { get; }
 
         public DrawCounter Counter { get; } = new();
 
@@ -172,7 +243,77 @@ public sealed class PrimaryPaintedSourceTests
         {
             Geometry.Dispose();
             Fill.Dispose();
+            Pen.Dispose();
         }
+    }
+
+    /// <remarks>
+    /// A copy of <see cref="GeometryRenderNode"/>'s <c>Process</c> body with one edit: the drawing is recorded
+    /// through the positional overload, so the geometry travels in <c>resources</c> and is reached by index.
+    /// Its hit-test state is a local equivalent of the node's private one.
+    /// </remarks>
+    private sealed class PositionalGeometryRenderNode(SharedPaint shared) : RenderNode
+    {
+        public override void Process(RenderNodeContext context)
+        {
+            (Geometry.Resource Resource, int Version) geometrySnapshot = shared.Geometry.Capture()!.Value;
+            (Brush.Resource Resource, int Version)? fillSnapshot = shared.Fill.Capture();
+            (Pen.Resource Resource, int Version)? penSnapshot = shared.Pen.Capture();
+            Geometry.Resource geometry = geometrySnapshot.Resource;
+            Brush.Resource? fill = fillSnapshot?.Resource;
+            Pen.Resource? pen = penSnapshot?.Resource;
+            Rect bounds = PenHelper.CalculateBoundsWithStrokeCap(geometry.GetRenderBounds(pen), pen);
+            if (bounds.Width == 0 || bounds.Height == 0)
+                return;
+
+            RenderResource<Geometry.Resource> geometryResource = context.Borrow(geometrySnapshot);
+            var hitTestState = new HitTestState(geometry, fill, pen);
+            var hitTestIdentity = new HitTestIdentity(
+                geometry.GetOriginal().Id,
+                geometrySnapshot.Version,
+                fill?.GetOriginal().Id,
+                fillSnapshot?.Version,
+                pen?.GetOriginal().Id,
+                penSnapshot?.Version);
+            RenderResource<HitTestState> hitTestResource = context.Borrow(hitTestState, hitTestIdentity);
+
+            context.Publish(context.PaintedSource(
+                state: bounds,
+                draw: static (session, _) => session.UseDeclaredResource<Geometry.Resource>(
+                    0,
+                    geometry => session.Canvas.DrawGeometry(geometry, session.Fill, session.Pen)),
+                fill: fillSnapshot,
+                pen: penSnapshot,
+                brushBounds: bounds,
+                outputBounds: bounds,
+                hitTest: RenderHitTestContract.FromResource(
+                    hitTestResource,
+                    static (state, point) => state.HitTest(point),
+                    typeof(HitTestState)),
+                scale: RenderScaleContract.Vector,
+                structuralKey: typeof(GeometryRenderNode),
+                resources: [geometryResource, hitTestResource]));
+        }
+
+        private sealed class HitTestState(
+            Geometry.Resource geometry,
+            Brush.Resource? fill,
+            Pen.Resource? pen)
+        {
+            public bool HitTest(Point point)
+            {
+                return (fill is not null && geometry.FillContains(point))
+                       || (pen is not null && geometry.StrokeContains(pen, point));
+            }
+        }
+
+        private readonly record struct HitTestIdentity(
+            Guid GeometryId,
+            int GeometryVersion,
+            Guid? FillId,
+            int? FillVersion,
+            Guid? PenId,
+            int? PenVersion);
     }
 
     private sealed class PaintedNode(SharedPaint shared, bool usePrimary) : RenderNode
