@@ -279,7 +279,7 @@ public sealed class RenderCacheIdentityChannelTests
 
     /// <summary>
     /// Channel 5: the route the contract itself recommends and
-    /// <c>NodeGraphFilterEffectRenderNode.PublishDeferredPreviews</c> took. The capturing delegate did not stop
+    /// <c>FilterEffectInputBinding.PublishDeferredPreviews</c> took. The capturing delegate did not stop
     /// capturing; it moved out of the callback closure into a declared resource under an author-declared identity.
     /// </summary>
     private sealed class BorrowedDelegateNode : ProbedRenderNode

@@ -142,9 +142,10 @@ public readonly struct PaintedRenderSession
     /// is a capturing callback. A sealed non-tuple state does pass validation and physically delivers a token,
     /// but it is an enumerated identity channel rather than a way to address resources: the author then owns the
     /// identity contract by hand. A holder allocated per recording loses output-cache reuse; a reused or
-    /// value-equal holder keeps reuse but its identity no longer tracks the resource, so a pixel-affecting
-    /// change can be served from a stale cached output — a node that keeps one holder and mutates it in place
-    /// draws its first frame once and then serves those pixels for every later frame; and a token left over from
+    /// value-equal holder keeps reuse, but the identity then tracks only what that holder's equality compares,
+    /// so a pixel-affecting change covered by neither it nor a declared resource's version is served from a
+    /// stale cached output — a node that keeps one holder and mutates it in place draws its first frame once and
+    /// then serves those pixels for every later frame; and a token left over from
     /// a finished request throws when leased. Position is the address by design, not by impossibility.
     /// </para>
     /// <para>
