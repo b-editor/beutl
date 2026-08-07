@@ -1170,10 +1170,12 @@ public sealed class OpaqueRenderSession
     /// so is a capturing callback. A sealed non-tuple state does pass validation and physically delivers a token
     /// to this method, but it is an enumerated identity channel rather than a way to address resources — the
     /// author then owns the identity contract by hand. A holder allocated per recording loses output-cache
-    /// reuse; a reused or value-equal holder keeps reuse, but the identity then tracks only what that holder's
-    /// equality compares, so a pixel-affecting change covered by neither it nor a declared resource's version is
-    /// served from a stale cached output; and a token left over from a finished request throws when leased.
-    /// Position is the address by design, not by impossibility.
+    /// reuse unless it defines value equality. A holder reused and mutated in place keeps reuse but cannot be
+    /// an identity at all: the cache stores the reference, mutation moves both sides of the comparison at once,
+    /// and <see cref="object.Equals(object, object)"/> returns on reference equality before reaching the
+    /// author's override — so a pixel-affecting change only that holder carries is served from a stale cached
+    /// output. A token left over from a finished request throws when leased. Position is the address by design,
+    /// not by impossibility.
     /// </remarks>
     public void UseResource<T>(RenderResource<T> resource, Action<T> use)
         where T : class
