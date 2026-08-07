@@ -16,11 +16,12 @@ namespace Beutl.PublicApiContractTests;
 /// rejected, and a capturing callback is rejected. A sealed non-tuple state does pass validation and physically
 /// delivers a token, but it is an enumerated identity channel rather than a way to address resources: the
 /// author then owns the identity contract by hand. A holder allocated per recording loses output-cache reuse;
-/// unless it defines value equality. A holder reused and mutated in place keeps reuse but cannot be an identity
-/// at all: the cache stores the reference, mutation moves both sides of the comparison at once, and
-/// <c>object.Equals(object, object)</c> returns on reference equality before reaching the author's override — so
-/// a pixel-affecting change only that holder carries is served from a stale cached output. A token left over
-/// from a finished request throws when leased. Position is the address by design, not by impossibility.
+/// unless it defines value equality, and beyond that the outcome is not decided by the holder alone: which
+/// object reaches the output-cache key depends on the channel that recorded the description. A state-passing
+/// <c>Create</c> stores a per-recording binding that compares states through <c>EqualityComparer&lt;T&gt;.Default</c>,
+/// so the author's equality is consulted; <c>PaintedSource</c> publishes the state object itself, so a holder
+/// mutated in place moves both sides of the comparison and its equality is never reached. A token left over from
+/// a finished request throws when leased. Position is the address by design, not by impossibility.
 /// <para>
 /// Every holder-shaped state below leases the token it carries. Reaching the same resource by position instead
 /// would make these tests re-pin the mutable-state-holder channel

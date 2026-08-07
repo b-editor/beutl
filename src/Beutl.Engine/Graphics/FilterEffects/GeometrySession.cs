@@ -116,11 +116,14 @@ public sealed class GeometrySession
     /// so is a capturing callback. A sealed non-tuple state does pass validation and physically delivers a token
     /// to this method, but it is an enumerated identity channel rather than a way to address resources — the
     /// author then owns the identity contract by hand. A holder allocated per recording loses output-cache
-    /// reuse unless it defines value equality. A holder reused and mutated in place keeps reuse but cannot be
-    /// an identity at all: the cache stores the reference, mutation moves both sides of the comparison at once,
-    /// and <see cref="object.Equals(object, object)"/> returns on reference equality before reaching the
-    /// author's override — so a pixel-affecting change only that holder carries is served from a stale cached
-    /// output. A token left over from a finished request throws when leased. Position is the address by design,
+    /// reuse unless it defines value equality, and beyond that the outcome is not decided by the holder alone:
+    /// which object reaches the output-cache key depends on the channel that recorded the description. A
+    /// state-passing <c>Create</c> stores a per-recording binding that compares states through
+    /// <see cref="EqualityComparer{T}.Default"/>, so the author's equality is consulted;
+    /// <see cref="RenderNodeContext.PaintedSource"/> publishes the state object itself, so a holder mutated in
+    /// place moves both sides of the comparison and its equality is never reached. One holder therefore behaves
+    /// differently under different sessions, which is why this is an escape hatch rather than an addressing
+    /// mode. A token left over from a finished request throws when leased. Position is the address by design,
     /// not by impossibility.
     /// </remarks>
     public void UseResource<T>(RenderResource<T> resource, Action<T> use)
