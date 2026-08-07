@@ -11,8 +11,9 @@ namespace Beutl.Audio.Graph;
 public sealed class AudioContext : IDisposable
 {
     private readonly List<AudioNode> _nodes = new();
-    private readonly Dictionary<AudioNode, List<AudioNode>> _connections = new();
-    private readonly HashSet<AudioNode> _outputNodes = new();
+    private readonly Dictionary<AudioNode, List<AudioNode>> _connections =
+        new(ReferenceEqualityComparer.Instance);
+    private readonly HashSet<AudioNode> _outputNodes = new(ReferenceEqualityComparer.Instance);
     private List<AudioNode>? _previousNodes;
     private AudioNode? _currentNode;
     private bool _disposed;
@@ -62,7 +63,7 @@ public sealed class AudioContext : IDisposable
         ThrowIfDisposed();
         ArgumentNullException.ThrowIfNull(node, nameof(node));
 
-        if (!_nodes.Contains(node))
+        if (!ContainsReference(_nodes, node))
         {
             _nodes.Add(node);
             _connections[node] = new List<AudioNode>();
@@ -107,7 +108,7 @@ public sealed class AudioContext : IDisposable
                 .FirstOrDefault(n => comparer(parameters, n));
             if (existing != null)
             {
-                _previousNodes.Remove(existing);
+                RemoveReference(_previousNodes, existing);
                 existing.ClearInputs();
                 updater(parameters, existing);
                 return AddNode(existing);
@@ -135,7 +136,7 @@ public sealed class AudioContext : IDisposable
                 .FirstOrDefault(n => source.Compare(n.Source));
             if (existing != null)
             {
-                _previousNodes.Remove(existing);
+                RemoveReference(_previousNodes, existing);
                 existing.ClearInputs();
                 return AddNode(existing);
             }
@@ -166,7 +167,7 @@ public sealed class AudioContext : IDisposable
             {
                 // Matched by Gain reference, so existing.Gain already == gain; no re-assignment needed
                 // (and Gain is now init-only).
-                _previousNodes.Remove(existing);
+                RemoveReference(_previousNodes, existing);
                 existing.ClearInputs();
                 return AddNode(existing);
             }
@@ -195,7 +196,7 @@ public sealed class AudioContext : IDisposable
                 .FirstOrDefault(n => n.Shift == shift);
             if (existing != null)
             {
-                _previousNodes.Remove(existing);
+                RemoveReference(_previousNodes, existing);
                 existing.ClearInputs();
                 return AddNode(existing);
             }
@@ -226,7 +227,7 @@ public sealed class AudioContext : IDisposable
                 .FirstOrDefault(n => n.Duration == duration && n.Start == start);
             if (existing != null)
             {
-                _previousNodes.Remove(existing);
+                RemoveReference(_previousNodes, existing);
                 existing.ClearInputs();
                 return AddNode(existing);
             }
@@ -254,7 +255,7 @@ public sealed class AudioContext : IDisposable
             var existing = _previousNodes.OfType<MixerNode>().FirstOrDefault();
             if (existing != null)
             {
-                _previousNodes.Remove(existing);
+                RemoveReference(_previousNodes, existing);
                 existing.ClearInputs();
                 return AddNode(existing);
             }
@@ -281,7 +282,7 @@ public sealed class AudioContext : IDisposable
                 .FirstOrDefault(n => n.SourceSampleRate == sourceSampleRate);
             if (existing != null)
             {
-                _previousNodes.Remove(existing);
+                RemoveReference(_previousNodes, existing);
                 existing.ClearInputs();
                 return AddNode(existing);
             }
@@ -310,7 +311,7 @@ public sealed class AudioContext : IDisposable
                 .FirstOrDefault(n => n.Speed == speed);
             if (existing != null)
             {
-                _previousNodes.Remove(existing);
+                RemoveReference(_previousNodes, existing);
                 existing.ClearInputs();
                 existing.Speed = speed;
                 return AddNode(existing);
@@ -353,12 +354,12 @@ public sealed class AudioContext : IDisposable
         ArgumentNullException.ThrowIfNull(source, nameof(source));
         ArgumentNullException.ThrowIfNull(destination, nameof(destination));
 
-        if (source == destination)
+        if (ReferenceEquals(source, destination))
             throw new ArgumentException("Cannot connect a node to itself.");
 
-        if (!_nodes.Contains(source))
+        if (!ContainsReference(_nodes, source))
             AddNode(source);
-        if (!_nodes.Contains(destination))
+        if (!ContainsReference(_nodes, destination))
             AddNode(destination);
 
         destination.AddInput(source);
@@ -377,7 +378,7 @@ public sealed class AudioContext : IDisposable
         ThrowIfDisposed();
         ArgumentNullException.ThrowIfNull(node, nameof(node));
 
-        if (!_nodes.Contains(node))
+        if (!ContainsReference(_nodes, node))
             AddNode(node);
 
         _outputNodes.Add(node);
@@ -393,7 +394,7 @@ public sealed class AudioContext : IDisposable
         ThrowIfDisposed();
         ArgumentNullException.ThrowIfNull(node, nameof(node));
 
-        if (!_nodes.Contains(node))
+        if (!ContainsReference(_nodes, node))
             throw new ArgumentException("Node must be added to the context first.", nameof(node));
 
         _currentNode = node;
@@ -469,19 +470,19 @@ public sealed class AudioContext : IDisposable
         ThrowIfDisposed();
         ArgumentNullException.ThrowIfNull(node, nameof(node));
 
-        if (!_nodes.Contains(node))
+        if (!ContainsReference(_nodes, node))
             return;
 
         // Remove from all connections
         _connections.Remove(node);
         foreach (var list in _connections.Values)
         {
-            list.Remove(node);
+            RemoveReference(list, node);
         }
 
         // Remove from other tracking
         _outputNodes.Remove(node);
-        if (_currentNode == node)
+        if (ReferenceEquals(_currentNode, node))
             _currentNode = null;
 
         // Clear inputs of other nodes that reference this one
@@ -491,7 +492,7 @@ public sealed class AudioContext : IDisposable
         }
 
         // Finally remove from nodes list
-        _nodes.Remove(node);
+        RemoveReference(_nodes, node);
     }
 
     /// <summary>
@@ -523,7 +524,7 @@ public sealed class AudioContext : IDisposable
         {
             foreach (var prevNode in _previousNodes)
             {
-                if (!_nodes.Contains(prevNode))
+                if (!ContainsReference(_nodes, prevNode))
                 {
                     foreach (AudioNode node in _nodes)
                     {
@@ -544,6 +545,31 @@ public sealed class AudioContext : IDisposable
 
         Clear();
         _disposed = true;
+    }
+
+    private static bool ContainsReference(IReadOnlyList<AudioNode> nodes, AudioNode node)
+    {
+        for (int i = 0; i < nodes.Count; i++)
+        {
+            if (ReferenceEquals(nodes[i], node))
+                return true;
+        }
+
+        return false;
+    }
+
+    private static bool RemoveReference(List<AudioNode> nodes, AudioNode node)
+    {
+        for (int i = 0; i < nodes.Count; i++)
+        {
+            if (ReferenceEquals(nodes[i], node))
+            {
+                nodes.RemoveAt(i);
+                return true;
+            }
+        }
+
+        return false;
     }
 
     private void ThrowIfDisposed()

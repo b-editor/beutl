@@ -23,4 +23,21 @@ internal static class LimiterParameters
     public const float MinMakeupGainDb = -24f;
     public const float MaxMakeupGainDb = 24f;
     public const float DefaultMakeupGainDb = 0f;
+
+    // Recomputes the ceiling from sampleRate (rather than reading LimiterNode's cached
+    // _maxLookaheadSamples) so latency can be reported before the node initializes its buffers.
+    // Must stay in sync with the clamp in LimiterNode.Derive; kept out of Derive, which runs
+    // per-sample on the animated path and cannot pay this recompute.
+    public static int ToLatencySamples(float lookaheadMs, int sampleRate)
+    {
+        if (sampleRate <= 0)
+            throw new ArgumentOutOfRangeException(nameof(sampleRate), "Sample rate must be positive.");
+
+        int maxLookaheadSamples = Math.Max(1, (int)(MaxLookaheadMs / 1000f * sampleRate) + 1);
+        if (!float.IsFinite(lookaheadMs))
+            lookaheadMs = MinLookaheadMs;
+
+        lookaheadMs = Math.Clamp(lookaheadMs, MinLookaheadMs, MaxLookaheadMs);
+        return Math.Clamp((int)(lookaheadMs / 1000f * sampleRate), 0, maxLookaheadSamples - 1);
+    }
 }

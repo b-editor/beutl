@@ -162,6 +162,34 @@ public class SpeedNodeTests
         }
     }
 
+    [Test]
+    public void ProcessAnimatedSpeed_At44100Hz_RequestsEverySourceSampleExactlyOnce()
+    {
+        const int sampleRate = 44100;
+        var input = new SourceRequestRecordingNode(sampleRate);
+        using var node = new SpeedNode { Speed = AnimatedSpeed(100f, 100f, 10.0) };
+        node.AddInput(input);
+
+        using AudioBuffer _ = node.Process(
+            new AudioProcessContext(
+                new TimeRange(TimeSpan.Zero, TimeSpan.FromSeconds(1)),
+                sampleRate,
+                new AnimationSampler(),
+                null));
+
+        Assert.That(input.Requests.Count, Is.GreaterThan(128),
+            "The render must cross the fractional-tick drift boundary.");
+
+        long expectedStart = 0;
+        for (int i = 0; i < input.Requests.Count; i++)
+        {
+            (long start, int count) = input.Requests[i];
+            Assert.That(start, Is.EqualTo(expectedStart),
+                $"Source request {i} repeated or skipped a sample.");
+            expectedStart += count;
+        }
+    }
+
     // Deterministic finite stereo source: a ramp for the first _length samples, silence beyond. Models
     // SourceNode zero-filling past end-of-source.
     private sealed class FiniteRampInputNode : AudioNode
@@ -191,6 +219,18 @@ public class SpeedNodeTests
             }
 
             return buffer;
+        }
+    }
+
+    private sealed class SourceRequestRecordingNode(int sampleRate) : AudioNode
+    {
+        public List<(long Start, int Count)> Requests { get; } = [];
+
+        public override AudioBuffer Process(AudioProcessContext context)
+        {
+            int count = context.GetSampleCount();
+            Requests.Add((AudioMath.TimeToSampleIndex(context.TimeRange.Start, sampleRate), count));
+            return new AudioBuffer(sampleRate, 2, count);
         }
     }
 

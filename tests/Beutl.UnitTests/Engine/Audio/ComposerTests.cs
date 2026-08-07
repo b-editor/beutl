@@ -13,6 +13,23 @@ namespace Beutl.UnitTests.Engine.Audio;
 public class ComposerTests
 {
     [Test]
+    public void Compose_EligibilityNotCaptured_Throws()
+    {
+        var range = new TimeRange(TimeSpan.Zero, TimeSpan.FromSeconds(1));
+        var frame = new CompositionFrame(
+            ImmutableArray<EngineObject.Resource>.Empty,
+            range,
+            default,
+            null);
+        using var composer = new Composer();
+
+        var exception = Assert.Throws<InvalidOperationException>(() => composer.Compose(range, frame));
+
+        Assert.That(exception!.Message, Does.Contain("eligibility snapshot"));
+        Assert.That(composer.IsAudioRendering, Is.False);
+    }
+
+    [Test]
     public void Compose_EmptyFrame_ReturnsSilentBufferWithCeilingSampleCount()
     {
         // Composer.BuildFinalOutput の silence fallback (mixedBuffer == null) が
@@ -23,7 +40,11 @@ public class ComposerTests
         const int sampleRate = 44100;
         var oneSampleTicksFloor = TimeSpan.TicksPerSecond / sampleRate;
         var range = new TimeRange(TimeSpan.Zero, TimeSpan.FromTicks(oneSampleTicksFloor + 1));
-        var frame = new CompositionFrame(ImmutableArray<EngineObject.Resource>.Empty, range, default);
+        var frame = new CompositionFrame(
+            ImmutableArray<EngineObject.Resource>.Empty,
+            range,
+            default,
+            CompositionEligibility.Empty);
 
         using var composer = new Composer { SampleRate = sampleRate };
         using AudioBuffer? buffer = composer.Compose(range, frame);
@@ -40,7 +61,11 @@ public class ComposerTests
     {
         const int sampleRate = 48000;
         var range = new TimeRange(TimeSpan.Zero, TimeSpan.FromSeconds(1));
-        var frame = new CompositionFrame(ImmutableArray<EngineObject.Resource>.Empty, range, default);
+        var frame = new CompositionFrame(
+            ImmutableArray<EngineObject.Resource>.Empty,
+            range,
+            default,
+            CompositionEligibility.Empty);
 
         using var composer = new Composer { SampleRate = sampleRate };
         using AudioBuffer? buffer = composer.Compose(range, frame);

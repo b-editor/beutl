@@ -11,8 +11,11 @@ public sealed class GainNode : AudioNode
         if (Inputs.Count != 1)
             throw new InvalidOperationException("Gain node requires exactly one input.");
 
-        var input = Inputs[0].Process(context);
+        return ProcessTail(Inputs[0].Process(context), context, draining: false);
+    }
 
+    protected override AudioBuffer ProcessTail(AudioBuffer input, AudioProcessContext context, bool draining)
+    {
         if (Gain.Animation is null)
         {
             return ProcessStaticGain(input);

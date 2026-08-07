@@ -57,6 +57,56 @@ public sealed class AudioProcessContext
     }
 
     /// <summary>
+    /// Returns a representable duration whose ceiling-based sample count is exactly
+    /// <paramref name="sampleCount"/>.
+    /// </summary>
+    /// <remarks>
+    /// <see cref="TimeSpan.FromSeconds(double)"/> may round a quotient upward by one tick. Feeding that
+    /// duration back through <see cref="GetSampleCount(TimeRange, int)"/> can therefore consume one
+    /// extra sample. Taking the greatest whole-tick duration that does not exceed the exact sample
+    /// boundary keeps stateful audio nodes and their callers on the same sample count.
+    /// </remarks>
+    /// <exception cref="ArgumentOutOfRangeException">
+    /// <paramref name="sampleCount"/> is negative, <paramref name="sampleRate"/> is not positive, or
+    /// the requested sample count cannot be represented at the given rate with <see cref="TimeSpan"/>
+    /// tick precision.
+    /// </exception>
+    public static TimeSpan GetDurationForSampleCount(int sampleCount, int sampleRate)
+    {
+        ArgumentOutOfRangeException.ThrowIfNegative(sampleCount);
+        ArgumentOutOfRangeException.ThrowIfNegativeOrZero(sampleRate);
+
+        if (sampleCount == 0)
+            return TimeSpan.Zero;
+
+        long ticks = (long)sampleCount * TimeSpan.TicksPerSecond / sampleRate;
+        if (ticks == 0)
+        {
+            throw new ArgumentOutOfRangeException(
+                nameof(sampleRate),
+                $"Sample rate {sampleRate} is too high to represent {sampleCount} samples as a positive TimeSpan.");
+        }
+
+        var duration = TimeSpan.FromTicks(ticks);
+        int roundTripped = GetSampleCount(new TimeRange(TimeSpan.Zero, duration), sampleRate);
+        while (roundTripped > sampleCount && ticks > 0)
+        {
+            duration = TimeSpan.FromTicks(--ticks);
+            roundTripped = GetSampleCount(new TimeRange(TimeSpan.Zero, duration), sampleRate);
+        }
+
+        if (roundTripped != sampleCount)
+        {
+            throw new ArgumentOutOfRangeException(
+                nameof(sampleRate),
+                $"Could not represent exactly {sampleCount} samples at sampleRate={sampleRate}; "
+                + $"the closest duration produced {roundTripped} samples.");
+        }
+
+        return duration;
+    }
+
+    /// <summary>
     /// Returns whether this chunk continues directly from a previous chunk that ended at <paramref name="previousEnd"/>.
     /// </summary>
     /// <remarks>
