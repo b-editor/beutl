@@ -134,13 +134,6 @@ public sealed class SoundSource : MediaSource
                     {
                         var reader = MediaReader.Open(soundSource.Uri.LocalPath, new(MediaMode.Audio));
                         _counter = new Counter<MediaReader>(reader, null);
-                        // DisableResourceShare 時は WeakReference を書き換えない。
-                        // 他 Renderer（プレビュー側）の共有カウンタを
-                        // エンコード専用カウンタで汚染してしまうため。
-                        if (!context.DisableResourceShare)
-                        {
-                            Volatile.Write(ref soundSource._mediaReaderRef, new WeakReference<Counter<MediaReader>>(_counter));
-                        }
                     }
                     catch
                     {
@@ -148,6 +141,30 @@ public sealed class SoundSource : MediaSource
                         _loadedUri = soundSource.Uri;
                         return;
                     }
+                }
+
+                // A media without an audio stream (e.g. a video-only file) cannot expose AudioInfo
+                // without throwing, so treat it as an unreadable source (#2183): release the reader
+                // and zero the metadata so callers safely see "no audio". Never publish such a
+                // counter to the shared cache, which would poison other resources with a silent
+                // source.
+                if (!_counter.Value.HasAudio)
+                {
+                    _counter.Release();
+                    _counter = null;
+                    Duration = TimeSpan.Zero;
+                    SampleRate = 0;
+                    NumChannels = 0;
+                    _loadedUri = soundSource.Uri;
+                    return;
+                }
+
+                if (!context.DisableResourceShare && shared is null)
+                {
+                    // When DisableResourceShare is set, do not rewrite the WeakReference: it would
+                    // contaminate other renderers' (preview-side) shared counter with an
+                    // encode-only counter.
+                    Volatile.Write(ref soundSource._mediaReaderRef, new WeakReference<Counter<MediaReader>>(_counter));
                 }
 
                 Duration = TimeSpan.FromSeconds(_counter.Value.AudioInfo.Duration.ToDouble());
