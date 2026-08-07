@@ -94,7 +94,7 @@ internal sealed class Scene3DRenderNode(Scene3D.Resource scene) : RenderNode
             textureBindings);
         RenderResource<SceneExecutionSnapshot> sceneToken = context.Borrow(
             execution,
-            new SceneSnapshotIdentity(scene.GetOriginal().Id, sceneSnapshot.Version),
+            new SceneSnapshotIdentity(EngineResourceIdentity.Of(scene), sceneSnapshot.Version),
             sceneSnapshot.Version);
 
         RenderResource[] resources =
@@ -114,7 +114,7 @@ internal sealed class Scene3DRenderNode(Scene3D.Resource scene) : RenderNode
             deviceGridSensitivity: RenderDeviceGridSensitivity.Insensitive,
             structuralKey: typeof(Scene3DRenderNode),
             runtimeIdentity: new RenderRuntimeIdentity(
-                new SceneRuntimeIdentity(scene.GetOriginal().Id, sceneSnapshot.Version, bounds)),
+                new SceneRuntimeIdentity(EngineResourceIdentity.Of(scene), sceneSnapshot.Version, bounds)),
             resources: resources);
         context.Publish(context.OpaqueSource(description));
     }

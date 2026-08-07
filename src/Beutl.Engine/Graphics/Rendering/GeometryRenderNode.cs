@@ -45,11 +45,11 @@ public sealed class GeometryRenderNode(Geometry.Resource geometry, Brush.Resourc
         RenderResource<Geometry.Resource> geometryResource = context.Borrow(geometrySnapshot);
         var hitTestState = new GeometryHitTestState(geometry, fill, pen);
         var hitTestIdentity = new GeometryHitTestIdentity(
-            geometry.GetOriginal().Id,
+            EngineResourceIdentity.Of(geometry),
             geometrySnapshot.Version,
-            fill?.GetOriginal().Id,
+            fill is null ? null : EngineResourceIdentity.Of(fill),
             fillSnapshot?.Version,
-            pen?.GetOriginal().Id,
+            pen is null ? null : EngineResourceIdentity.Of(pen),
             penSnapshot?.Version);
         RenderResource<GeometryHitTestState> hitTestResource = context.Borrow(
             hitTestState,

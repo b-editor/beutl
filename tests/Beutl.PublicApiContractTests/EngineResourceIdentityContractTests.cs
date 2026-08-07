@@ -1,4 +1,5 @@
-﻿using Beutl.Engine;
+﻿using System.Reflection;
+using Beutl.Engine;
 using Beutl.Graphics;
 using Beutl.Graphics.Rendering;
 using Beutl.Graphics.Rendering.Cache;
@@ -50,9 +51,10 @@ public sealed class EngineResourceIdentityContractTests
     }
 
     /// <summary>
-    /// Both derivations end up as <see cref="object"/> keys in the same cache-key dictionary, so what has to
-    /// hold is that each one finds its own entry back and neither displaces the other — not merely that the two
-    /// are unequal, which the synthesized identity's distinct type makes true whatever <c>Of</c> returns.
+    /// Both derivations are <see cref="Guid"/>s boxed into the same cache-key dictionary, so what has to hold
+    /// is that each one finds its own entry back and neither displaces the other. Nothing about the types keeps
+    /// them apart any more: a synthesized identity and a backing object id are the same shape, and the project
+    /// deliberately treats a collision between them as a non-scenario rather than guarding against it.
     /// </summary>
     [Test]
     public void Of_KeysADetachedAndAnAttachedResourceApartInOneCacheKeyDictionary()
@@ -74,6 +76,20 @@ public sealed class EngineResourceIdentityContractTests
                 "a later read of the same detached resource must hash and compare back to its own entry");
             Assert.That(keys[EngineResourceIdentity.Of(attached)], Is.EqualTo("attached"));
         });
+    }
+
+    /// <summary>
+    /// The return type is load-bearing: a <see cref="Guid"/> lets a caller hold the identity in a
+    /// <see cref="Guid"/>-typed cache-key field without boxing on every <c>Process</c>, which is what lets the
+    /// engine's own hit-test and structural keys route through this derivation at all.
+    /// </summary>
+    [Test]
+    public void Of_ReturnsAGuidSoACallerCanHoldItWithoutBoxing()
+    {
+        MethodInfo method = typeof(EngineResourceIdentity)
+            .GetMethod(nameof(EngineResourceIdentity.Of), BindingFlags.Public | BindingFlags.Static)!;
+
+        Assert.That(method.ReturnType, Is.EqualTo(typeof(Guid)));
     }
 
     [Test]

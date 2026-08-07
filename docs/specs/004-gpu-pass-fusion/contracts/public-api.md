@@ -377,7 +377,7 @@ public sealed class RenderNodeContext
 
 public static class EngineResourceIdentity
 {
-    public static object Of(EngineObject.Resource resource);
+    public static Guid Of(EngineObject.Resource resource);
 }
 
 public static class RenderScaleUtilities
@@ -406,7 +406,7 @@ public class CompositionContext
 
 `CompositionContext.TargetDomain` carries the finite scene-frame domain into auxiliary composition consumers. `GraphSnapshot` copies and refreshes it on every evaluation, and standalone `PreviewNode`/`MeasureNode` pass it to `RenderNodeRendererOptions.DefaultRequest.TargetDomain`. `RenderNodeContext.TargetDomain` exposes the same request value to nested semantic consumers without resolving an owning-target-dependent handle early.
 
-`EngineResourceIdentity.Of` is the only safe way to key on an `EngineObject.Resource`, and is renderer-wide for the same reason: nodes, brushes, filter effects, and 3D all key on the same resources, and a node needs the identity outside `Borrow` whenever it feeds a hit-test or structural key rather than a declared-resource registration. It returns the backing `EngineObject.Id`, or a synthesized identity for a resource with no backing object. That synthesized value is a distinct type, so no id a caller assigns can be made to collide with it, and it is stable per `Resource` instance and held weakly — a caller that reallocates the resource every frame gets a new identity every frame. The public `Borrow((Resource, Version))` overload derives its key the same way, but registers a borrow as well, so it is not a substitute when the identity is only wanted for comparison.
+`EngineResourceIdentity.Of` is the only safe way to key on an `EngineObject.Resource`, and is renderer-wide for the same reason: nodes, brushes, filter effects, and 3D all key on the same resources, and a node needs the identity outside `Borrow` whenever it feeds a hit-test or structural key rather than a declared-resource registration. It returns the backing `EngineObject.Id`, or a synthesized `Guid` for a resource with no backing object, stable per `Resource` instance and held weakly — a caller that reallocates the resource every frame gets a new identity every frame. Returning `Guid` rather than `object` is what lets a caller hold the identity in a `Guid`-typed cache-key field without boxing on every `Process`, which is why the engine's own hit-test and structural keys can route through it; a synthesized identity is therefore the same shape as a backing object id, and a collision between the two is treated as a non-scenario rather than prevented by construction. The public `Borrow((Resource, Version))` overload derives its key the same way, but registers a borrow as well, so it is not a substitute when the identity is only wanted for comparison.
 
 `RenderScaleUtilities` owns feature 003's pure density calculations because they are also used by 3D, brushes, export policy, and planner code outside a node-recording transaction. The old static members on `RenderNodeContext` are removed and all in-tree callers migrate in the same breaking change; no forwarding compatibility members remain on the context.
 

@@ -43,7 +43,7 @@ public sealed class GeometryClipRenderNode(Geometry.Resource clip, ClipOperation
             return;
 
         ClipOperation operation = Operation;
-        Guid geometryId = clip.Resource.GetOriginal().Id;
+        Guid geometryId = EngineResourceIdentity.Of(clip.Resource);
         var boundsMetadata = new GeometryClipBoundsMetadata(clip.Resource.Bounds, operation);
         RenderResource<Geometry.Resource> resource = context.Borrow(clip);
         var hitTestState = new GeometryClipHitTestState(clip.Resource, operation);

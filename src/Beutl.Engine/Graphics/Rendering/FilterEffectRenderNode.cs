@@ -198,7 +198,7 @@ public class FilterEffectRenderNode(FilterEffect.Resource filterEffect) : Contai
                         segment,
                         (
                             typeof(FilterEffectRenderNode),
-                            effectResource.GetOriginal().Id,
+                            EngineResourceIdentity.Of(effectResource),
                             legacySegment++),
                         effectSnapshot.Version);
                     segment = null;

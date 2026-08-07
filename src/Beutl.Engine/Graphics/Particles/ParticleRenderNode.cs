@@ -52,7 +52,7 @@ internal sealed class ParticleRenderNode(ParticleEmitter.Resource particle) : Re
 
         RenderResource<Particle[]> particlesToken = context.Borrow(
             particles,
-            new ParticleSnapshotIdentity(resource.GetOriginal().Id, snapshot.Version),
+            new ParticleSnapshotIdentity(EngineResourceIdentity.Of(resource), snapshot.Version),
             snapshot.Version);
         TargetCommandDescription description = TargetCommandDescription.CreateRequestLocal(
             execute: session => session.UseResource(
