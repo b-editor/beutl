@@ -45,7 +45,24 @@ public class PreviewRenderErrorTests
 
         TestShell.Editor.ActivateTabItem(scene);
         HeadlessTestHelpers.Settle();
-        return (EditViewModel)TestShell.Editor.SelectedTabItem.Value!.Context.Value;
+        EditViewModel editor = (EditViewModel)TestShell.Editor.SelectedTabItem.Value!.Context.Value;
+
+        // Opening a scene queues a preview render that is dispatched asynchronously to the
+        // render thread; when it succeeds it posts a clear of PreviewRenderError. Drain it
+        // (and the queued clear) so tests start from a settled state and a manual error set
+        // cannot be clobbered by the scene-open render's completion.
+        DrainPendingPreviewRender();
+        return editor;
+    }
+
+    // The scene-open preview render is dispatched asynchronously to the render thread;
+    // when it succeeds it queues a clear of PreviewRenderError. Drain it (and the queued
+    // clear) so a manual error set below is guaranteed to be the latest update.
+    private static void DrainPendingPreviewRender()
+    {
+        HeadlessTestHelpers.Settle();
+        RenderThread.Dispatcher.Invoke(static () => { });
+        HeadlessTestHelpers.Settle();
     }
 
     private static void AddFaultingDrawable(EditViewModel editor)
