@@ -8,6 +8,29 @@ namespace Beutl.UnitTests.Engine.Animation;
 
 public class KeyFrameTests
 {
+    public abstract class AbstractTestEasing : Easing
+    {
+    }
+
+    public sealed class PrivateConstructorTestEasing : Easing
+    {
+        private PrivateConstructorTestEasing()
+        {
+        }
+
+        public override float Ease(float progress) => progress;
+    }
+
+    public sealed class ThrowingConstructorTestEasing : Easing
+    {
+        public ThrowingConstructorTestEasing()
+        {
+            throw new InvalidOperationException("Constructor failure.");
+        }
+
+        public override float Ease(float progress) => progress;
+    }
+
     [Test]
     public void Serialize_ShouldCorrectlySerializeLinearEasing()
     {
@@ -83,5 +106,84 @@ public class KeyFrameTests
         Assert.That(easing.Y1, Is.EqualTo(0.2f));
         Assert.That(easing.X2, Is.EqualTo(0.3f));
         Assert.That(easing.Y2, Is.EqualTo(0.4f));
+    }
+
+    [TestCase(typeof(AbstractTestEasing))]
+    [TestCase(typeof(PrivateConstructorTestEasing))]
+    [TestCase(typeof(ThrowingConstructorTestEasing))]
+    public void Deserialize_NonInstantiableEasing_RecordsIncidentAndUsesLinearEasing(Type easingType)
+    {
+        int incidentsBefore = DeserializationIncidents.FallbackCount;
+        KeyFrame<int> keyFrame = Deserialize(TypeFormat.ToString(easingType));
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(keyFrame.Easing, Is.InstanceOf<LinearEasing>());
+            Assert.That(keyFrame.HasLossyEasing, Is.True);
+            Assert.That(DeserializationIncidents.FallbackCount, Is.EqualTo(incidentsBefore + 1));
+        });
+    }
+
+    [TestCase(42)]
+    [TestCase(true)]
+    public void Deserialize_NonStringPrimitiveEasing_RecordsIncident(object value)
+    {
+        int incidentsBefore = DeserializationIncidents.FallbackCount;
+        KeyFrame<int> keyFrame = Deserialize(JsonValue.Create(value));
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(keyFrame.Easing, Is.InstanceOf<LinearEasing>());
+            Assert.That(keyFrame.HasLossyEasing, Is.True);
+            Assert.That(DeserializationIncidents.FallbackCount, Is.EqualTo(incidentsBefore + 1));
+        });
+    }
+
+    [Test]
+    public void Deserialize_UnhandledEasingShape_RecordsIncident()
+    {
+        int incidentsBefore = DeserializationIncidents.FallbackCount;
+        KeyFrame<int> keyFrame = Deserialize(new JsonArray());
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(keyFrame.Easing, Is.InstanceOf<LinearEasing>());
+            Assert.That(keyFrame.HasLossyEasing, Is.True);
+            Assert.That(DeserializationIncidents.FallbackCount, Is.EqualTo(incidentsBefore + 1));
+        });
+    }
+
+    [Test]
+    public void Deserialize_PresentNullEasing_RecordsIncident()
+    {
+        int incidentsBefore = DeserializationIncidents.FallbackCount;
+        KeyFrame<int> keyFrame = Deserialize(null);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(keyFrame.Easing, Is.InstanceOf<LinearEasing>());
+            Assert.That(keyFrame.HasLossyEasing, Is.True);
+            Assert.That(DeserializationIncidents.FallbackCount, Is.EqualTo(incidentsBefore + 1));
+        });
+    }
+
+    [Test]
+    public void SettingEasingAfterLossyDeserialization_ClearsMarker()
+    {
+        KeyFrame<int> keyFrame = Deserialize("[Missing.Assembly]Missing.Namespace:MissingEasing");
+
+        keyFrame.Easing = new SplineEasing();
+
+        Assert.That(keyFrame.HasLossyEasing, Is.False);
+    }
+
+    private static KeyFrame<int> Deserialize(JsonNode? easingNode)
+    {
+        var keyFrame = new KeyFrame<int>();
+        var context = new Mock<ICoreSerializationContext>();
+        context.Setup(c => c.GetValue<JsonNode>(nameof(KeyFrame.Easing))).Returns(easingNode);
+        context.Setup(c => c.Contains(nameof(KeyFrame.Easing))).Returns(true);
+        keyFrame.Deserialize(context.Object);
+        return keyFrame;
     }
 }

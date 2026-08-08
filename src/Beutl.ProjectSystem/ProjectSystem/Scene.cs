@@ -14,6 +14,7 @@ using Beutl.Animation;
 using Beutl.Collections;
 using Beutl.Configuration;
 using Beutl.Engine;
+using Beutl.Engine.Expressions;
 using Beutl.Language;
 using Beutl.Media;
 using Beutl.Serialization;
@@ -59,6 +60,9 @@ public class Scene : ProjectItem, INotifyEdited
         RegexOptions.CultureInvariant);
     private static readonly Regex s_typePattern = new(
         "\"\\$type\"\\s*:\\s*(?<type>\"(?:\\\\.|[^\"\\\\])*\")",
+        RegexOptions.CultureInvariant);
+    private static readonly Regex s_legacyTypePattern = new(
+        "\"@type\"\\s*:\\s*(?<type>\"(?:\\\\.|[^\"\\\\])*\")",
         RegexOptions.CultureInvariant);
     public static readonly CoreProperty<PixelSize> FrameSizeProperty;
     public static readonly CoreProperty<Elements> ChildrenProperty;
@@ -769,6 +773,14 @@ public class Scene : ProjectItem, INotifyEdited
             .ToArray();
 
         var claimedIds = new HashSet<Guid> { Guid.Empty, Id };
+        foreach (CoreObject sceneObject in Layers.Cast<CoreObject>().Concat(Markers))
+        {
+            foreach (CoreObject graphObject in EnumerateSerializedGraphObjects(sceneObject).OfType<CoreObject>())
+            {
+                claimedIds.Add(graphObject.Id);
+            }
+        }
+
         var seenDescendants = new HashSet<CoreObject>(ReferenceEqualityComparer.Instance);
         var healthyChildren = Children
             .Where(static child => child.SuppressedStorageSource is null)
@@ -1011,13 +1023,20 @@ public class Scene : ProjectItem, INotifyEdited
                 Uri = uri,
                 IsEnabled = false,
             };
+            string? topLevelTypeName = TryGetTopLevelTypeName(rawText);
+            FallbackReason fallbackReason = topLevelTypeName is not null
+                                            && TypeFormat.ToType(topLevelTypeName) is null
+                ? FallbackReason.TypeNotFound
+                : FallbackReason.DeserializationFailed;
             var fallback = new FallbackEngineObject
             {
                 Name = "Unreadable element data",
-                Reason = FallbackReason.DeserializationFailed,
-                ErrorMessage = $"{ex.GetType().Name}: {ex.Message}",
+                Reason = fallbackReason,
+                ErrorMessage = fallbackReason == FallbackReason.DeserializationFailed
+                    ? $"{ex.GetType().Name}: {ex.Message}"
+                    : null,
             };
-            fallback.Json = CreateFallbackProjection(fallback, TryGetTopLevelTypeName(rawText));
+            fallback.Json = CreateFallbackProjection(fallback, topLevelTypeName);
             element.AddObject(fallback);
             MarkRecoveredElement(element, rawBytes, uri);
             return element;
@@ -1039,8 +1058,8 @@ public class Scene : ProjectItem, INotifyEdited
     internal static SuppressedStorageSource? TryResumeElementPersistence(Element element)
     {
         if (element.SuppressedStorageSource is not { } source
-            || source.HasNonFallbackIncidents
-            || EnumerateSerializedGraphFallbacks(element).Any())
+            || EnumerateSerializedGraphFallbacks(element).Any()
+            || EnumerateSerializedGraphObjects(element).OfType<KeyFrame>().Any(static keyFrame => keyFrame.HasLossyEasing))
         {
             return null;
         }
@@ -1107,26 +1126,35 @@ public class Scene : ProjectItem, INotifyEdited
             {
                 foreach (IProperty property in engineObject.Properties)
                 {
-                    if (property.CurrentValue is not IReference reference
-                        || !_pendingRecoveredElementIdMigrations.TryGetValue(reference.Id, out Guid migratedId))
+                    if (property.CurrentValue is IReference reference
+                        && _pendingRecoveredElementIdMigrations.TryGetValue(reference.Id, out Guid migratedId))
                     {
-                        continue;
+                        Element? target = Children.FirstOrDefault(child => child.Id == migratedId);
+                        property.CurrentValue = target is not null && reference.ObjectType.IsInstanceOfType(target)
+                            ? reference.Resolved(target)
+                            : Activator.CreateInstance(reference.GetType(), migratedId)!;
                     }
 
-                    Element? target = Children.FirstOrDefault(child => child.Id == migratedId);
-                    property.CurrentValue = target is not null && reference.ObjectType.IsInstanceOfType(target)
-                        ? reference.Resolved(target)
-                        : Activator.CreateInstance(reference.GetType(), migratedId)!;
+                    if (property.Expression is IReferenceExpression referenceExpression
+                        && _pendingRecoveredElementIdMigrations.TryGetValue(
+                            referenceExpression.ObjectId,
+                            out Guid migratedExpressionId))
+                    {
+                        property.Expression = (IExpression)Activator.CreateInstance(
+                            referenceExpression.GetType(),
+                            migratedExpressionId,
+                            referenceExpression.PropertyPath)!;
+                    }
                 }
             }
         }
     }
 
-    private static IEnumerable<object> EnumerateSerializedGraphObjects(Element element)
+    private static IEnumerable<object> EnumerateSerializedGraphObjects(object root)
     {
         var objects = new List<object>();
         var visited = new HashSet<object>(ReferenceEqualityComparer.Instance);
-        CollectSerializedGraphObjects(element, visited, objects);
+        CollectSerializedGraphObjects(root, visited, objects);
         return objects;
     }
 
@@ -1216,7 +1244,8 @@ public class Scene : ProjectItem, INotifyEdited
 
     private static string? TryGetTopLevelTypeName(string rawText)
     {
-        Match? match = FindTopLevelMatch(rawText, s_typePattern.Matches(rawText));
+        Match? match = FindTopLevelMatch(rawText, s_typePattern.Matches(rawText))
+                       ?? FindTopLevelMatch(rawText, s_legacyTypePattern.Matches(rawText));
         if (match is null)
         {
             return null;

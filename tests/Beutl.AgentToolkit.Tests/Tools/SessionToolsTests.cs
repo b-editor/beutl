@@ -98,7 +98,7 @@ public sealed class SessionToolsTests
     }
 
     [Test]
-    public async Task Open_project_warns_about_fallback_in_animation_keyframe_value()
+    public async Task Open_project_reports_fallback_and_lossy_easing_incidents_together()
     {
         const string MissingType = "[Beutl.Engine]Beutl.Engine:MissingAnimatedValue";
         string root = CreateWorkspace();
@@ -139,6 +139,7 @@ public sealed class SessionToolsTests
         JsonObject animationJson = objectJson["Animations"]![nameof(AnimatedValueHolder.AnimatedValue)]!.AsObject();
         JsonObject keyFrameJson = animationJson[nameof(KeyFrameAnimation.KeyFrames)]!.AsArray()[0]!.AsObject();
         keyFrameJson[nameof(IKeyFrame.Value)]!.AsObject()["$type"] = MissingType;
+        keyFrameJson[nameof(KeyFrame.Easing)] = "[Missing.Assembly]Missing.Namespace:MissingEasing";
         File.WriteAllText(elementPath, elementJson.ToJsonString());
 
         var manager = new AgentSessionManager();
@@ -153,12 +154,22 @@ public sealed class SessionToolsTests
             Assert.That(
                 opened.Value!.Warnings,
                 Has.Some.Contains(elementRelativePath).And.Some.Contains(nameof(FallbackReason.TypeNotFound)));
-            Assert.That(opened.Value.RecoveryIncidents, Has.Count.EqualTo(1));
-            Assert.That(opened.Value.RecoveryIncidents[0].ElementFile, Is.EqualTo(elementRelativePath));
-            Assert.That(opened.Value.RecoveryIncidents[0].Reason,
-                Is.EqualTo(nameof(FallbackReason.TypeNotFound)));
-            Assert.That(opened.Value.RecoveryIncidents[0].TypeName, Is.EqualTo(MissingType));
-            Assert.That(opened.Value.RecoveryIncidents[0].Message, Is.Null);
+            Assert.That(opened.Value.Warnings,
+                Has.Some.Contains(elementRelativePath).And.Some.Contains("replaced during load"));
+            Assert.That(opened.Value.RecoveryIncidents, Has.Count.EqualTo(2));
+            Assert.That(opened.Value.RecoveryIncidents.Select(static incident => incident.ElementFile),
+                Is.All.EqualTo(elementRelativePath));
+            Assert.That(opened.Value.RecoveryIncidents,
+                Has.One.Matches<RecoveryIncident>(incident =>
+                    incident.Reason == nameof(FallbackReason.TypeNotFound)
+                    && incident.TypeName == MissingType
+                    && incident.Message is null));
+            Assert.That(opened.Value.RecoveryIncidents,
+                Has.One.Matches<RecoveryIncident>(incident =>
+                    incident.Reason == nameof(FallbackReason.DeserializationFailed)
+                    && incident.TypeName is null
+                    && incident.Message != null
+                    && incident.Message.Contains("value was replaced during load", StringComparison.Ordinal)));
         });
     }
 
@@ -425,6 +436,10 @@ public sealed class SessionToolsTests
                 Is.EquivalentTo(new[] { "First scene", "Second scene" }));
             Assert.That(opened.Value.RecoveryIncidents.Select(static incident => incident.TypeName),
                 Is.All.EqualTo(MissingType));
+            Assert.That(opened.Value.RecoveryIncidents.Select(static incident => incident.Reason),
+                Is.All.EqualTo(nameof(FallbackReason.TypeNotFound)));
+            Assert.That(opened.Value.RecoveryIncidents.Select(static incident => incident.Message),
+                Is.All.Null);
         });
     }
 

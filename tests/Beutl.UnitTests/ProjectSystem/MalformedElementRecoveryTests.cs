@@ -4,8 +4,10 @@ using System.Text.Json;
 using System.Text.Json.Nodes;
 using Beutl.Animation;
 using Beutl.Animation.Easings;
+using Beutl.Composition;
 using Beutl.Editor;
 using Beutl.Engine;
+using Beutl.Engine.Expressions;
 using Beutl.Graphics.Shapes;
 using Beutl.Graphics.Transformation;
 using Beutl.ProjectSystem;
@@ -25,6 +27,7 @@ public sealed class MalformedElementRecoveryTests
         }
     }
 
+    [SuppressResourceClassGeneration]
     public sealed class ElementReferenceHolder : EngineObject
     {
         public ElementReferenceHolder()
@@ -33,6 +36,8 @@ public sealed class MalformedElementRecoveryTests
         }
 
         public IProperty<Reference<Element>> Target { get; } = Property.Create<Reference<Element>>();
+
+        public IProperty<Element?> ExpressionTarget { get; } = Property.Create<Element?>();
     }
 
     [SetUp]
@@ -115,7 +120,7 @@ public sealed class MalformedElementRecoveryTests
     }
 
     [Test]
-    public void Save_RepairedFallbackWithUnresolvableKeyFrameEasing_PreservesSidecarBytes()
+    public void Save_RepairedFallbackAndKeyFrameEasing_ResumesPersistenceAfterBothRepairs()
     {
         (Uri sceneUri, string elementPath) = CreatePersistedScene();
         Element element = CoreSerializer.RestoreFromUri<Element>(new Uri(elementPath));
@@ -145,18 +150,59 @@ public sealed class MalformedElementRecoveryTests
         Assert.That(recoveredElement.Objects[1], Is.InstanceOf<IFallback>());
 
         recoveredElement.Objects[1] = new RectShape();
+        SuppressedStorageSource? blocked = Scene.TryResumeElementPersistence(recoveredElement);
+        recoveredAnimation.KeyFrames.Single().Easing = new SplineEasing();
         SuppressedStorageSource? resumed = Scene.TryResumeElementPersistence(recoveredElement);
         CoreSerializer.StoreToUri(recovered, sceneUri);
 
         Assert.Multiple(() =>
         {
-            Assert.That(recoveredAnimation.KeyFrames.Single().Easing, Is.InstanceOf<LinearEasing>());
-            Assert.That(resumed, Is.Null);
-            Assert.That(recoveredElement.SuppressedStorageSource, Is.Not.Null);
-            Assert.That(recoveredElement.SuppressedStorageSource!.HasNonFallbackIncidents, Is.True);
+            Assert.That(blocked, Is.Null);
+            Assert.That(recoveredAnimation.KeyFrames.Single().Easing, Is.InstanceOf<SplineEasing>());
+            Assert.That(resumed, Is.Not.Null);
+            Assert.That(resumed!.HasNonFallbackIncidents, Is.True);
+            Assert.That(recoveredElement.SuppressedStorageSource, Is.Null);
             Assert.That(recoveredElement.Objects.OfType<IFallback>(), Is.Empty);
-            Assert.That(File.ReadAllBytes(elementPath), Is.EqualTo(originalBytes));
+            Assert.That(File.ReadAllBytes(elementPath), Is.Not.EqualTo(originalBytes));
         });
+    }
+
+    [TestCase("$type")]
+    [TestCase("@type")]
+    public void Restore_UnresolvableTopLevelType_UsesTypeNotFoundReason(string discriminatorKey)
+    {
+        const string MissingType = "[Missing.Assembly]Missing.Namespace:MissingElement";
+        (Uri sceneUri, string elementPath) = CreatePersistedScene();
+        File.WriteAllText(
+            elementPath,
+            $$"""{"{{discriminatorKey}}":"{{MissingType}}","Id":"{{Guid.NewGuid()}}"}""");
+
+        Element recovered = CoreSerializer.RestoreFromUri<Scene>(sceneUri).Children.Single();
+        var fallback = (IFallback)recovered.Objects.Single();
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(fallback.Reason, Is.EqualTo(FallbackReason.TypeNotFound));
+            Assert.That(fallback.ErrorMessage, Is.Null);
+            Assert.That(fallback.Json!["$type"]!.GetValue<string>(), Is.EqualTo(MissingType));
+        });
+    }
+
+    [Test]
+    public void Restore_TopLevelTypeScannerPrefersDollarType()
+    {
+        const string PreferredType = "[Missing.Assembly]Missing.Namespace:PreferredElement";
+        const string LegacyType = "[Missing.Assembly]Missing.Namespace:LegacyElement";
+        (Uri sceneUri, string elementPath) = CreatePersistedScene();
+        File.WriteAllText(
+            elementPath,
+            $$"""{"@type":"{{LegacyType}}","$type":"{{PreferredType}}","Id":"{{Guid.NewGuid()}}"}""");
+
+        var fallback = (IFallback)CoreSerializer.RestoreFromUri<Scene>(sceneUri)
+            .Children.Single()
+            .Objects.Single();
+
+        Assert.That(fallback.Json!["$type"]!.GetValue<string>(), Is.EqualTo(PreferredType));
     }
 
     [Test]
@@ -602,6 +648,30 @@ public sealed class MalformedElementRecoveryTests
     }
 
     [Test]
+    public void Restore_TopLevelIdMatchingTimelineLayerId_IsReassignedStably()
+    {
+        (Uri sceneUri, string elementPath) = CreatePersistedScene();
+        Scene source = CoreSerializer.RestoreFromUri<Scene>(sceneUri);
+        var layer = new TimelineLayer { Id = Guid.NewGuid(), ZIndex = 1 };
+        source.Layers.Add(layer);
+        CoreSerializer.StoreToUri(source, sceneUri);
+        File.WriteAllText(elementPath, $$"""{"Id":"{{layer.Id}}","Objects":[""");
+
+        Scene firstLoad = CoreSerializer.RestoreFromUri<Scene>(sceneUri);
+        Scene secondLoad = CoreSerializer.RestoreFromUri<Scene>(sceneUri);
+        Guid first = firstLoad.Children.Single().Id;
+        Guid second = secondLoad.Children.Single().Id;
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(firstLoad.Layers.Single().Id, Is.EqualTo(layer.Id));
+            Assert.That(first, Is.Not.EqualTo(layer.Id));
+            Assert.That(first, Is.Not.EqualTo(Guid.Empty));
+            Assert.That(second, Is.EqualTo(first));
+        });
+    }
+
+    [Test]
     public void Restore_TopLevelIdMatchingHealthyDescendantId_IsReassignedStably()
     {
         (Uri sceneUri, string[] elementPaths) =
@@ -755,6 +825,7 @@ public sealed class MalformedElementRecoveryTests
         recoveredScene.Groups.Add(ImmutableHashSet.Create(placeholder.Id, healthy.Id));
         var referenceHolder = new ElementReferenceHolder();
         referenceHolder.Target.CurrentValue = new Reference<Element>(placeholder.Id);
+        referenceHolder.ExpressionTarget.Expression = new ReferenceExpression<Element?>(placeholder.Id);
         healthy.AddObject(referenceHolder);
         CoreSerializer.StoreToUri(recoveredScene, sceneUri);
 
@@ -771,14 +842,21 @@ public sealed class MalformedElementRecoveryTests
         CoreSerializer.StoreToUri(repaired, repaired.Uri!);
 
         Scene reloaded = CoreSerializer.RestoreFromUri<Scene>(sceneUri);
+        // Expression evaluation resolves through the hierarchical root; give the standalone
+        // scene one, as the editor and agent sessions do in production.
+        var application = new BeutlApplication();
+        var project = new Project();
+        application.Project = project;
+        project.Items.Add(reloaded);
         Element reloadedRepaired = reloaded.Children.Single(
             child => child.Uri!.LocalPath == elementPaths[0]);
         Element reloadedHealthy = reloaded.Children.Single(
             child => child.Uri!.LocalPath == elementPaths[1]);
-        Reference<Element> migratedReference = reloadedHealthy.Objects
+        ElementReferenceHolder reloadedHolder = reloadedHealthy.Objects
             .OfType<ElementReferenceHolder>()
-            .Single()
-            .Target.CurrentValue;
+            .Single();
+        Reference<Element> migratedReference = reloadedHolder.Target.CurrentValue;
+        var migratedExpression = (IReferenceExpression)reloadedHolder.ExpressionTarget.Expression!;
 
         Assert.Multiple(() =>
         {
@@ -788,6 +866,10 @@ public sealed class MalformedElementRecoveryTests
                 Is.EqualTo(ImmutableHashSet.Create(repairedId, healthy.Id)));
             Assert.That(migratedReference.Id, Is.EqualTo(repairedId));
             Assert.That(migratedReference.Value, Is.SameAs(reloadedRepaired));
+            Assert.That(migratedExpression.ObjectId, Is.EqualTo(repairedId));
+            Assert.That(
+                reloadedHolder.ExpressionTarget.GetValue(CompositionContext.Default),
+                Is.SameAs(reloadedRepaired));
         });
     }
 

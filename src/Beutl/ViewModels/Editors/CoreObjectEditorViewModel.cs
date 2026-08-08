@@ -181,11 +181,16 @@ public sealed class CoreObjectEditorViewModel<T> : BaseEditorViewModel<T>, ICore
     public override bool ApplyTemplate(ObjectTemplateItem template)
     {
         if (template.CreateInstance() is not T instance) return false;
-        T? previous = PropertyAdapter.GetValue();
         IsExpanded.Value = true;
-        PropertyAdapter.SetValue(instance);
-        ResumeElementPersistenceAfterFallbackReplacement(previous);
-        Commit(CommandNames.ApplyTemplate);
+        if (EditingKeyFrame.Value is { } keyFrame)
+        {
+            SetValue(keyFrame.Value, instance, CommandNames.ApplyTemplate);
+        }
+        else
+        {
+            SetValue(PropertyAdapter.GetValue(), instance, CommandNames.ApplyTemplate);
+        }
+
         return true;
     }
 

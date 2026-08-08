@@ -1,5 +1,6 @@
 ﻿using System.Text.Json.Nodes;
 using Avalonia.Input;
+using Beutl.Animation;
 using Beutl.Composition;
 using Beutl.Editor.Components.Helpers;
 using Beutl.Engine;
@@ -151,7 +152,7 @@ public sealed class BrushEditorViewModel : BaseEditorViewModel, IFallbackObjectV
 
     public void SetJsonString(string? str)
     {
-        Brush? previous = Value.Value;
+        Brush? previous = GetEditingValue();
         SetValue(previous, FallbackHelper.DeserializeInstance<Brush>(str));
     }
 
@@ -164,7 +165,7 @@ public sealed class BrushEditorViewModel : BaseEditorViewModel, IFallbackObjectV
     {
         if (GetDefaultValue() is { } defaultValue)
         {
-            SetValue(Value.Value, (Brush?)defaultValue);
+            SetValue(GetEditingValue(), (Brush?)defaultValue);
         }
     }
 
@@ -177,10 +178,25 @@ public sealed class BrushEditorViewModel : BaseEditorViewModel, IFallbackObjectV
     {
         if (!EqualityComparer<Brush>.Default.Equals(oldValue, newValue))
         {
-            PropertyAdapter.SetValue(newValue);
+            if (EditingKeyFrame.Value is KeyFrame<Brush?> keyFrame)
+            {
+                keyFrame.Value = newValue;
+            }
+            else
+            {
+                PropertyAdapter.SetValue(newValue);
+            }
+
             ResumeElementPersistenceAfterFallbackReplacement(oldValue);
             Commit(commandName);
         }
+    }
+
+    private Brush? GetEditingValue()
+    {
+        return EditingKeyFrame.Value is KeyFrame<Brush?> keyFrame
+            ? keyFrame.Value
+            : (Brush?)PropertyAdapter.GetValue();
     }
 
     protected override ICoreSerializable? GetCopyTarget()
@@ -192,7 +208,7 @@ public sealed class BrushEditorViewModel : BaseEditorViewModel, IFallbackObjectV
     {
         if (template.CreateInstance() is not Brush instance) return false;
         IsExpanded.Value = true;
-        SetValue(Value.Value, instance, CommandNames.ApplyTemplate);
+        SetValue(GetEditingValue(), instance, CommandNames.ApplyTemplate);
         return true;
     }
 
@@ -201,7 +217,7 @@ public sealed class BrushEditorViewModel : BaseEditorViewModel, IFallbackObjectV
         if (!CoreObjectClipboard.TryDeserializeJson<Brush>(json, out var pasted)) return false;
 
         IsExpanded.Value = true;
-        SetValue(Value.Value, pasted, CommandNames.PasteObject);
+        SetValue(GetEditingValue(), pasted, CommandNames.PasteObject);
         return true;
     }
 

@@ -15,6 +15,53 @@ namespace Beutl.AgentToolkit.Tests.Reconciliation;
 public sealed class ReconcilerIdIntegrityTests
 {
     [Test]
+    public void Apply_repair_of_last_fallback_resumes_persistence_in_same_transaction()
+    {
+        Scene source = CreateSceneWithElement(out Element sourceElement);
+        sourceElement.AddObject(new RectShape());
+        CoreSerializer.StoreToUri(source, source.Uri!);
+        string elementPath = sourceElement.Uri!.LocalPath;
+        JsonObject elementJson = JsonNode.Parse(File.ReadAllText(elementPath))!.AsObject();
+        elementJson[nameof(Element.Objects)]!.AsArray()[0]!.AsObject()["$type"]
+            = "[Beutl.Engine]Beutl.Graphics.Shapes:MissingShape";
+        File.WriteAllText(elementPath, elementJson.ToJsonString());
+        byte[] originalBytes = File.ReadAllBytes(elementPath);
+
+        Scene recovered = CoreSerializer.RestoreFromUri<Scene>(source.Uri!);
+        Element recoveredElement = recovered.Children.Single();
+        var fallback = (EngineObject)recoveredElement.Objects.Single();
+        using var session = new AgentToolkitTestSession(recovered);
+        JsonObject desired = session.Documents.Read(recovered);
+        JsonObject repairedJson = CoreSerializer.SerializeToJsonObject(new RectShape
+        {
+            Name = "Repaired shape",
+        });
+        // Omit the Id: the reconciler mints one for the inserted entity and treats the
+        // subtree as new, the sanctioned replacement for a fallback whose type cannot
+        // change in place.
+        repairedJson.Remove(nameof(CoreObject.Id));
+        JsonObject desiredElement = desired["Elements"]!.AsArray()[0]!.AsObject();
+        desiredElement[nameof(Element.Objects)] = new JsonArray(repairedJson);
+
+        var reconciler = new Reconciler();
+        ReconcileResult result = reconciler.Apply(session, desired);
+        CoreSerializer.StoreToUri(recovered, recovered.Uri!);
+        byte[] repairedBytes = File.ReadAllBytes(elementPath);
+        bool undone = session.History.Undo();
+        File.WriteAllBytes(elementPath, originalBytes);
+        CoreSerializer.StoreToUri(recovered, recovered.Uri!);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(result.Plan.Valid, Is.True);
+            Assert.That(repairedBytes, Is.Not.EqualTo(originalBytes));
+            Assert.That(undone, Is.True);
+            Assert.That(recoveredElement.Objects.Single(), Is.SameAs(fallback));
+            Assert.That(File.ReadAllBytes(elementPath), Is.EqualTo(originalBytes));
+        });
+    }
+
+    [Test]
     public void Mint_missing_ids_avoids_reserved_collisions()
     {
         JsonObject document = CreateDocumentWithIdlessRect(out string mintPath);

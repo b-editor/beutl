@@ -187,8 +187,7 @@ public abstract class BaseEditorViewModel : IPropertyEditorContext, IServiceProv
 
     protected void ResumeElementPersistenceAfterFallbackReplacement(object? previous)
     {
-        if (previous is IFallback
-            && _element is not null
+        if (_element is { SuppressedStorageSource: not null }
             && Scene.TryResumeElementPersistence(_element) is { } suppression)
         {
             Element element = _element;

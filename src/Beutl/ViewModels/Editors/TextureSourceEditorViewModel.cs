@@ -117,8 +117,10 @@ public sealed class TextureSourceEditorViewModel : BaseEditorViewModel
     {
         if (Value.Value is DrawableTextureSource drawableSource)
         {
+            Drawable? previous = drawableSource.Drawable.CurrentValue;
             var drawable = (Drawable?)Activator.CreateInstance(type);
             drawableSource.Drawable.CurrentValue = drawable;
+            ResumeElementPersistenceAfterFallbackReplacement(previous);
             Commit();
         }
     }

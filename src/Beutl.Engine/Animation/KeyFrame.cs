@@ -1,4 +1,6 @@
-﻿using System.Text.Json.Nodes;
+﻿using System.Reflection;
+using System.Text.Json;
+using System.Text.Json.Nodes;
 
 using Beutl.Animation.Easings;
 using Beutl.Serialization;
@@ -34,8 +36,15 @@ public class KeyFrame : Hierarchical
     public Easing Easing
     {
         get => _easing;
-        set => SetAndRaise(EasingProperty, ref _easing, value);
+        set
+        {
+            HasLossyEasing = false;
+            SetAndRaise(EasingProperty, ref _easing, value);
+        }
     }
+
+    [NotAutoSerialized]
+    internal bool HasLossyEasing { get; private set; }
 
     public TimeSpan KeyTime
     {
@@ -49,23 +58,52 @@ public class KeyFrame : Hierarchical
     {
         base.Deserialize(context);
 
-        if (context.GetValue<JsonNode>(nameof(Easing)) is { } easingNode)
+        JsonNode? easingNode = context.GetValue<JsonNode>(nameof(Easing));
+        if (easingNode is null)
         {
-            if (easingNode is JsonValue easingTypeValue
-                && easingTypeValue.TryGetValue(out string? easingType))
+            if (context.Contains(nameof(Easing)))
             {
-                Type? type = TypeFormat.ToType(easingType);
-                if (type is null || !type.IsAssignableTo(typeof(Easing)))
+                UseFallbackEasing();
+            }
+        }
+        else if (easingNode is JsonValue easingTypeValue
+                 && easingTypeValue.TryGetValue(out string? easingType))
+        {
+            Type? type = TypeFormat.ToType(easingType);
+            if (type is null
+                || !type.IsAssignableTo(typeof(Easing))
+                || type.IsAbstract
+                || type.ContainsGenericParameters
+                || type.GetConstructor(Type.EmptyTypes) is null)
+            {
+                UseFallbackEasing();
+            }
+            else
+            {
+                try
                 {
-                    DeserializationIncidents.RecordFallback();
-                    Easing = new LinearEasing();
+                    if (Activator.CreateInstance(type) is Easing easing)
+                    {
+                        Easing = easing;
+                    }
+                    else
+                    {
+                        UseFallbackEasing();
+                    }
                 }
-                else if (Activator.CreateInstance(type) is Easing easing)
+                catch (Exception ex) when (ex is MissingMethodException
+                                                or MemberAccessException
+                                                or TargetInvocationException
+                                                or TypeInitializationException
+                                                or NotSupportedException)
                 {
-                    Easing = easing;
+                    UseFallbackEasing();
                 }
             }
-            else if (easingNode is JsonObject easingObject)
+        }
+        else if (easingNode is JsonObject easingObject)
+        {
+            try
             {
                 float x1 = (float?)easingObject["X1"] ?? 0;
                 float y1 = (float?)easingObject["Y1"] ?? 0;
@@ -74,7 +112,25 @@ public class KeyFrame : Hierarchical
 
                 Easing = new SplineEasing(x1, y1, x2, y2);
             }
+            catch (Exception ex) when (ex is JsonException
+                                            or FormatException
+                                            or InvalidOperationException
+                                            or ArgumentException)
+            {
+                UseFallbackEasing();
+            }
         }
+        else
+        {
+            UseFallbackEasing();
+        }
+    }
+
+    private void UseFallbackEasing()
+    {
+        DeserializationIncidents.RecordFallback();
+        Easing = new LinearEasing();
+        HasLossyEasing = true;
     }
 
     public override void Serialize(ICoreSerializationContext context)

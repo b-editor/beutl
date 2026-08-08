@@ -144,8 +144,7 @@ public sealed class SessionTools(
                         $"Element file '{elementFile}' contains content that could not be deserialized: {error}");
                 }
 
-                if (fallbacks.Count == 0
-                    && element.SuppressedStorageSource is { HasNonFallbackIncidents: true })
+                if (element.SuppressedStorageSource is { HasNonFallbackIncidents: true })
                 {
                     const string message
                         = "A value was replaced during load, and the original element file is preserved.";

@@ -243,7 +243,7 @@ public class ElementObjectServiceTests
     }
 
     [Test]
-    public void PasteOver_LastFallbackWithNonFallbackIncident_KeepsPersistenceSuppressionAndPreservesSidecar()
+    public void PasteOver_StaleNonFallbackIncidentFlagWithoutLiveMarker_ResumesPersistence()
     {
         _service.Add(_element, new FallbackEngineObject());
         byte[] originalBytes = "{ preserved lossy bytes"u8.ToArray();
@@ -258,8 +258,8 @@ public class ElementObjectServiceTests
         Assert.Multiple(() =>
         {
             Assert.That(outcome, Is.EqualTo(ObjectPasteOutcome.Pasted));
-            Assert.That(_element.SuppressedStorageSource, Is.SameAs(suppression));
-            Assert.That(File.ReadAllBytes(_element.Uri.LocalPath), Is.EqualTo(originalBytes));
+            Assert.That(_element.SuppressedStorageSource, Is.Null);
+            Assert.That(File.ReadAllBytes(_element.Uri.LocalPath), Is.Not.EqualTo(originalBytes));
         });
     }
 

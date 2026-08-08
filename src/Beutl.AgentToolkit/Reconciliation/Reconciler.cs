@@ -330,6 +330,7 @@ public sealed class Reconciler
     {
         JsonObject desiredDocument = PrepareDesired(session, desired);
         ReconcilePlan plan = PlanPrepared(session, desiredDocument, knownNewIds);
+        Element[] affectedSuppressedElements = GetAffectedSuppressedElements(session.Root, plan);
         session.History.ExecuteInTransaction(
             () =>
             {
@@ -337,6 +338,16 @@ public sealed class Reconciler
                 if (session.Root is Scene scene)
                 {
                     ProjectOperations.NormalizeSidecarUrisWithinProject(scene);
+                }
+
+                foreach (Element element in affectedSuppressedElements)
+                {
+                    if (Scene.TryResumeElementPersistence(element) is { } suppression)
+                    {
+                        session.History.Record(
+                            () => element.SuppressedStorageSource = null,
+                            () => element.SuppressedStorageSource = suppression);
+                    }
                 }
             },
             "Agent edit");
@@ -347,6 +358,31 @@ public sealed class Reconciler
         }
 
         return new ReconcileResult(plan, session.Documents.Read(session.Root));
+    }
+
+    private static Element[] GetAffectedSuppressedElements(CoreObject root, ReconcilePlan plan)
+    {
+        if (plan.Changes.Count == 0)
+        {
+            return [];
+        }
+
+        if (root is Element { SuppressedStorageSource: not null } element)
+        {
+            return [element];
+        }
+
+        if (root is not Scene scene)
+        {
+            return [];
+        }
+
+        return scene.Children
+            .Where(static child => child.SuppressedStorageSource is not null)
+            .Where(child => plan.Changes.Any(change =>
+                change.Path.StartsWith($"$/Elements[Id={child.Id}]", StringComparison.Ordinal)
+                || string.Equals(change.TargetId, child.Id.ToString(), StringComparison.Ordinal)))
+            .ToArray();
     }
 
     // Build the plan on the editor's dispatcher: PlanPrepared reads session.Documents/Root, so off
