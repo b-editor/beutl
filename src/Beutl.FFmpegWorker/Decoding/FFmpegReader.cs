@@ -16,6 +16,7 @@ namespace Beutl.FFmpegWorker.Decoding;
 public sealed class FFmpegReader : MediaReader
 {
     private readonly ILogger _logger = Log.CreateLogger<FFmpegReader>();
+
     private static readonly AVRational s_time_base = new() { num = 1, den = ffmpeg.AV_TIME_BASE };
 
 #pragma warning disable IDE1006 // 命名スタイル
@@ -374,13 +375,48 @@ public sealed class FFmpegReader : MediaReader
         if (FFmpegSeekDecision.ShouldReseek(currentUsable, skip))
         {
             SeekVideo(frame);
-            skip = 0;
+            if (!FFmpegSeekDecision.TryGetPostSeekSkip(_videoNowFrame, frame, out _))
+            {
+                // Past the target, and grabbing cannot go backwards. Approaching from the start of
+                // the stream is slow but reaches the frame; a picture served from an overshot
+                // position is stored in the frame cache and shown for that frame from then on.
+                SeekVideo(0);
+                if (!FFmpegSeekDecision.TryGetPostSeekSkip(_videoNowFrame, frame, out _))
+                    return null;
+            }
         }
 
-        for (int i = 0; i < skip; i++)
+        // Grab by position, not by count: a grab does not always advance exactly one frame (dropped
+        // or duplicated timestamps, reordered pictures), so counting grabs drifts off the request.
+        // A file whose timestamps never advance would spin here forever, so stop once grabbing has
+        // stopped moving the position.
+        const int MaxStalledGrabs = 16;
+        long lastPosition = long.MinValue;
+        int stalledGrabs = 0;
+        while (_videoNowFrame < frame)
         {
             if (!GrabVideo())
                 return null;
+
+            if (_videoNowFrame > lastPosition)
+            {
+                lastPosition = _videoNowFrame;
+                stalledGrabs = 0;
+            }
+            else if (++stalledGrabs > MaxStalledGrabs)
+            {
+                _logger.LogWarning(
+                    "Video decode stopped advancing at frame {Position} while seeking to {Frame}.",
+                    _videoNowFrame, frame);
+                return null;
+            }
+        }
+
+        if (_videoNowFrame != frame)
+        {
+            _logger.LogWarning(
+                "Video decode landed on frame {Position} for requested frame {Frame}; the picture belongs to another time.",
+                _videoNowFrame, frame);
         }
 
         // GrabVideo後にActiveVideoFrameを再取得

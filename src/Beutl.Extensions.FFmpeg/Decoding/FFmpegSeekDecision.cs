@@ -19,6 +19,16 @@ internal static class FFmpegSeekDecision
     public static bool ShouldReseek(bool currentUsable, long skip)
         => !currentUsable || skip > MaxSequentialSkip || skip < 0;
 
+    // A seek does not always reach the requested frame: the backward recovery gives up at the start
+    // of the stream, and the forward grab stops early when a frame fails to decode. Reports the
+    // frames still to grab, and false when the position is past the request — serving whatever frame
+    // sits there is what makes a seek hand back a neighbouring picture.
+    public static bool TryGetPostSeekSkip(long position, long requestedFrame, out long skip)
+    {
+        skip = requestedFrame - position;
+        return skip >= 0;
+    }
+
     // Compute the next prefetch target and report whether one exists before EOF:
     //   - baseFrame < 0: no frame has been requested yet, so there is nothing to prefetch ahead of.
     //   - nextFrame = baseFrame + cachedAhead + 1: the first frame after the already-cached run.

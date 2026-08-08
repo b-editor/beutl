@@ -23,6 +23,31 @@ public class FFmpegSeekDecisionTests
         Assert.That(FFmpegSeekDecision.ShouldReseek(currentUsable, skip), Is.True);
     }
 
+    [TestCase(40L, 40L, 0L)] // landed exactly on the request
+    [TestCase(37L, 40L, 3L)] // stopped short: grab the rest
+    [TestCase(0L, 40L, 40L)] // rewound to the start of the stream
+    public void TryGetPostSeekSkip_True_WhenPositionIsAtOrBeforeTheRequest(
+        long position, long requestedFrame, long expectedSkip)
+    {
+        bool result = FFmpegSeekDecision.TryGetPostSeekSkip(position, requestedFrame, out long skip);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(result, Is.True);
+            Assert.That(skip, Is.EqualTo(expectedSkip));
+        });
+    }
+
+    // Sequential grabbing cannot go backwards, so the frame sitting at an overshot position belongs
+    // to a different time than the one that was asked for.
+    [TestCase(41L, 40L)]
+    [TestCase(70L, 40L)]
+    [TestCase(1L, 0L)]
+    public void TryGetPostSeekSkip_False_WhenTheSeekOvershot(long position, long requestedFrame)
+    {
+        Assert.That(FFmpegSeekDecision.TryGetPostSeekSkip(position, requestedFrame, out _), Is.False);
+    }
+
     [TestCase(10, 0, 100L, 11)] // next frame right after base, well below EOF
     [TestCase(10, 3, 100L, 14)] // skip the cached run, target below EOF
     [TestCase(0, 0, 5L, 1)]

@@ -17,6 +17,14 @@
   </ItemGroup>
 
   <ItemGroup>
+    <!-- Shared video fixture: the ring-buffer lifetime test needs a real video stream, and this is
+         the only committed one. Linked, not duplicated. -->
+    <Content Include="..\Beutl.Extensions.MediaFoundation.Tests\Fixtures\sample.mp4"
+             Link="Fixtures\sample.mp4"
+             CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+
+  <ItemGroup>
     <ProjectReference Include="..\..\src\Beutl.FFmpegIpc\Beutl.FFmpegIpc.csproj" />
     <!-- MIT->MIT reference: the IPC proxy (FFmpegReaderProxy) and worker launcher
          (FFmpegWorkerProcess) live in the MIT extension, which does NOT reference the GPL
