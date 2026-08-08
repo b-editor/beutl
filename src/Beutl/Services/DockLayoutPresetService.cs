@@ -84,7 +84,9 @@ public sealed class DockLayoutPresetService
                                ?? Path.Combine(BeutlEnvironment.GetHomeDirectoryPath(), "dock-layout-presets.json");
 
     /// <summary>Adds a preset, or overwrites the one already using <paramref name="name"/>.</summary>
-    /// <returns>The added or updated item, or null when <paramref name="name"/> is blank.</returns>
+    /// <returns>
+    /// The added or updated item, or null when <paramref name="name"/> is blank or the write failed.
+    /// </returns>
     public DockLayoutPresetItem? Save(string name, JsonObject layout)
     {
         name = name.Trim();
@@ -101,22 +103,40 @@ public sealed class DockLayoutPresetService
             int index = _items.IndexOf(existing);
             var replacement = new DockLayoutPresetItem(existing.Name.Value, clone);
             _items[index] = replacement;
-            SaveItems();
+            if (!SaveItems())
+            {
+                _items[index] = existing;
+                return null;
+            }
+
             _logger.LogInformation("Overwrote dock layout preset '{Name}'.", name);
             return replacement;
         }
 
         var item = new DockLayoutPresetItem(name, clone);
         _items.Add(item);
-        SaveItems();
+        if (!SaveItems())
+        {
+            _items.Remove(item);
+            return null;
+        }
+
         _logger.LogInformation("Added dock layout preset '{Name}'.", name);
         return item;
     }
 
     public bool Remove(DockLayoutPresetItem item)
     {
-        if (!_items.Remove(item)) return false;
-        SaveItems();
+        int index = _items.IndexOf(item);
+        if (index < 0) return false;
+
+        _items.RemoveAt(index);
+        if (!SaveItems())
+        {
+            _items.Insert(index, item);
+            return false;
+        }
+
         _logger.LogInformation("Removed dock layout preset '{Name}'.", item.Name.Value);
         return true;
     }
@@ -126,19 +146,25 @@ public sealed class DockLayoutPresetService
         newName = newName.Trim();
         if (newName.Length == 0) return false;
         if (!_items.Contains(item)) return false;
+
+        string previousName = item.Name.Value;
         if (string.Equals(item.Name.Value, newName, StringComparison.OrdinalIgnoreCase))
         {
             // Same preset, possibly a case-only change — allow it.
             item.Name.Value = newName;
-            SaveItems();
-            return true;
+            if (SaveItems()) return true;
+
+            item.Name.Value = previousName;
+            return false;
         }
 
         if (Find(newName) is not null) return false;
 
         item.Name.Value = newName;
-        SaveItems();
-        return true;
+        if (SaveItems()) return true;
+
+        item.Name.Value = previousName;
+        return false;
     }
 
     public DockLayoutPresetItem? Find(string name)
@@ -149,10 +175,12 @@ public sealed class DockLayoutPresetService
 
     public bool Exists(string name) => Find(name) is not null;
 
-    public void SaveItems()
+    /// <summary>Writes the presets to disk.</summary>
+    /// <returns><c>true</c> when the store was written.</returns>
+    public bool SaveItems()
     {
         // Never overwrite a file we failed to read; a transient IO error would wipe every preset.
-        if (!_isRestored) return;
+        if (!_isRestored) return false;
 
         try
         {
@@ -165,10 +193,12 @@ public sealed class DockLayoutPresetService
             array.JsonSave(FilePath);
             _logger.LogInformation(
                 "Saved {Count} dock layout presets to file: {FilePath}", _items.Count, FilePath);
+            return true;
         }
         catch (Exception ex)
         {
             _logger.LogError(ex, "An exception has occurred while saving dock layout presets.");
+            return false;
         }
     }
 
@@ -188,6 +218,10 @@ public sealed class DockLayoutPresetService
             if (jsonNode is not JsonArray jsonArray)
             {
                 _logger.LogWarning("Invalid JSON format in dock layout preset file: {FilePath}", filePath);
+                // An unreadable file is not worth preserving: leaving _isRestored false would make
+                // every later save a silent no-op.
+                _items.Clear();
+                _isRestored = true;
                 return;
             }
 

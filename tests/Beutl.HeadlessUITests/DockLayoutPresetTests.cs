@@ -11,6 +11,7 @@ using Beutl.ViewModels.Dock;
 using Beutl.ViewModels.Tools;
 using Beutl.Views.Tools;
 using Dock.Model.Controls;
+using Dock.Model.Core;
 
 namespace Beutl.HeadlessUITests;
 
@@ -191,4 +192,98 @@ public class DockLayoutPresetTests
         }
     }
 
+    [AvaloniaTest]
+    public async Task Pinned_tools_are_enumerated_when_replacing_a_layout()
+    {
+        await ResetProjectAsync();
+        EditViewModel editor = await OpenEditorForNewScene("preset-pinned");
+
+        IRootDock root = editor.DockHost.Layout.Value;
+        BeutlToolDockable pinned = editor.DockHost.Factory.EnumerateTools()
+            .First(t => t.ToolContext.Extension is LibraryTabExtension);
+
+        // Pin the tool the way the dock does: out of VisibleDockables, into a pinned collection.
+        (pinned.Owner as IDock)?.VisibleDockables?.Remove(pinned);
+        root.LeftPinnedDockables ??= editor.DockHost.Factory.CreateList<IDockable>();
+        root.LeftPinnedDockables.Add(pinned);
+        HeadlessTestHelpers.Settle();
+
+        // A pinned tool is still owned by the layout, so enumeration must find it — otherwise its
+        // context leaks on replace and an all-pinned layout looks empty.
+        Assert.That(editor.DockHost.Factory.EnumerateTools(), Does.Contain(pinned));
+        Assert.That(
+            ToolExtensionNames(editor), Does.Contain(typeof(LibraryTabExtension).FullName));
+    }
+
+    [Test]
+    public void A_failed_write_rolls_back_the_in_memory_change()
+    {
+        // Pointing the store at a directory makes every write throw, standing in for an unwritable
+        // BEUTL_HOME. Reporting success there would lose the preset at the next restart.
+        string directoryAsFile = Path.Combine(Path.GetTempPath(), $"beutl-dock-presets-{Guid.NewGuid():N}");
+        Directory.CreateDirectory(directoryAsFile);
+        try
+        {
+            var service = new DockLayoutPresetService(directoryAsFile);
+            var layout = new JsonObject { ["DockLayout"] = new JsonObject { ["$type"] = "root" } };
+
+            Assert.That(service.Save("Editing", layout), Is.Null, "an unwritable store must report failure");
+            Assert.That(service.Items, Is.Empty, "the failed save must not linger in memory");
+        }
+        finally
+        {
+            Directory.Delete(directoryAsFile, recursive: true);
+        }
+    }
+
+    [Test]
+    public void Rename_and_remove_roll_back_when_the_write_fails()
+    {
+        string path = Path.Combine(Path.GetTempPath(), $"beutl-dock-presets-{Guid.NewGuid():N}.json");
+        try
+        {
+            var service = new DockLayoutPresetService(path);
+            var layout = new JsonObject { ["DockLayout"] = new JsonObject { ["$type"] = "root" } };
+            service.Save("Editing", layout);
+            service.Save("Grading", layout);
+
+            // Replacing the file with a directory makes the next write throw.
+            File.Delete(path);
+            Directory.CreateDirectory(path);
+
+            DockLayoutPresetItem editing = service.Items[0];
+            Assert.That(service.Rename(editing, "Rough cut"), Is.False);
+            Assert.That(editing.Name.Value, Is.EqualTo("Editing"), "a failed rename must not stick");
+
+            Assert.That(service.Remove(editing), Is.False);
+            Assert.That(service.Items.Select(i => i.Name.Value), Is.EqualTo(new[] { "Editing", "Grading" }));
+        }
+        finally
+        {
+            if (Directory.Exists(path)) Directory.Delete(path, recursive: true);
+            if (File.Exists(path)) File.Delete(path);
+        }
+    }
+
+    [Test]
+    public void An_unparsable_store_file_still_accepts_later_saves()
+    {
+        string path = Path.Combine(Path.GetTempPath(), $"beutl-dock-presets-{Guid.NewGuid():N}.json");
+        try
+        {
+            File.WriteAllText(path, "{ \"not\": \"an array\" }");
+
+            var service = new DockLayoutPresetService(path);
+            Assert.That(service.Items, Is.Empty);
+
+            var layout = new JsonObject { ["DockLayout"] = new JsonObject { ["$type"] = "root" } };
+            Assert.That(service.Save("Editing", layout), Is.Not.Null, "a bad file must not wedge the store");
+            Assert.That(new DockLayoutPresetService(path).Items.Select(i => i.Name.Value),
+                Is.EqualTo(new[] { "Editing" }));
+        }
+        finally
+        {
+            if (File.Exists(path)) File.Delete(path);
+        }
+    }
 }

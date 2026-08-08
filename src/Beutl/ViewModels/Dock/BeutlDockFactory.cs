@@ -295,6 +295,18 @@ public class BeutlDockFactory(EditViewModel editViewModel) : Factory
             if (root.HiddenDockables is { } hidden)
                 foreach (var c in hidden)
                     foreach (var g in Traverse(c)) yield return g;
+            // Pinned (auto-hidden) tools live outside VisibleDockables but are still owned by the
+            // layout — they are serialized and restored, so enumeration must see them too.
+            foreach (var pinned in new[]
+                     {
+                         root.LeftPinnedDockables, root.RightPinnedDockables,
+                         root.TopPinnedDockables, root.BottomPinnedDockables
+                     })
+            {
+                if (pinned is null) continue;
+                foreach (var c in pinned)
+                    foreach (var g in Traverse(c)) yield return g;
+            }
             if (root.Windows is { } windows)
                 foreach (var w in windows)
                     if (w.Layout is not null)

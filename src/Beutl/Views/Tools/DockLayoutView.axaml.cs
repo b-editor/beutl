@@ -29,6 +29,15 @@ public partial class DockLayoutView : UserControl
     private void OnItemDoubleTapped(object? sender, TappedEventArgs e)
     {
         if (ViewModel is not { } viewModel) return;
+
+        // DoubleTapped is attached to the ListBox, so a double click on a row action bubbles here
+        // too. Applying on top of the action the user actually pressed would be a surprise.
+        if (e.Source is ILogical source
+            && source.GetSelfAndLogicalAncestors().OfType<Button>().Any())
+        {
+            return;
+        }
+
         if (ItemFrom(e.Source) is not { } item) return;
 
         viewModel.Apply(item);

@@ -297,21 +297,50 @@ public sealed partial class MacWindow : Window
 
     private static void InitDockLayoutPresetMenu(MainViewModel viewModel, NativeMenu menu)
     {
+        // Renaming mutates Name.Value in place without a collection change, so each item's header
+        // follows its name observable. The subscriptions are keyed by menu item so removal and
+        // clear can dispose them.
+        var nameSubscriptions = new Dictionary<NativeMenuItem, IDisposable>();
+
         void AddItem(int index, DockLayoutPresetItem item)
         {
-            menu.Items.Insert(index, new NativeMenuItem
+            var menuItem = new NativeMenuItem
             {
-                // NativeMenuItem headers are static; a rename rebuilds the list instead.
                 Header = item.Name.Value,
                 Command = viewModel.MenuBar.ApplyDockLayout,
                 CommandParameter = item
-            });
+            };
+
+            nameSubscriptions[menuItem] = item.Name.Subscribe(name => menuItem.Header = name);
+            menu.Items.Insert(index, menuItem);
+        }
+
+        void RemoveAt(int index)
+        {
+            if (menu.Items[index] is NativeMenuItem menuItem
+                && nameSubscriptions.Remove(menuItem, out IDisposable? subscription))
+            {
+                subscription.Dispose();
+            }
+
+            menu.Items.RemoveAt(index);
+        }
+
+        void Clear()
+        {
+            foreach (IDisposable subscription in nameSubscriptions.Values)
+            {
+                subscription.Dispose();
+            }
+
+            nameSubscriptions.Clear();
+            menu.Items.Clear();
         }
 
         viewModel.MenuBar.DockLayoutPresets.ForEachItem(
             AddItem,
-            (i, _) => menu.Items.RemoveAt(i),
-            menu.Items.Clear);
+            (i, _) => RemoveAt(i),
+            Clear);
     }
 
     private async Task OpenToolWindowAsync(ToolWindowExtension extension)

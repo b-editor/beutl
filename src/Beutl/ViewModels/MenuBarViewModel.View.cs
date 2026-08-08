@@ -14,7 +14,7 @@ public partial class MenuBarViewModel
         ResetDockLayout = new ReactiveCommandSlim(isSceneOpened)
             .WithSubscribe(OnResetDockLayout);
 
-        ApplyDockLayout = new ReactiveCommandSlim<DockLayoutPresetItem>()
+        ApplyDockLayout = new ReactiveCommandSlim<DockLayoutPresetItem>(isSceneOpened)
             .WithSubscribe(OnApplyDockLayout);
 
         // Saving, renaming and deleting live in the dock layout tool tab.
