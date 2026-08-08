@@ -1,0 +1,127 @@
+<UserControl x:Class="Beutl.Views.Tools.DockLayoutView"
+             xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:icons="using:FluentIcons.Avalonia.Fluent"
+             xmlns:lang="using:Beutl.Language"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:services="using:Beutl.Services"
+             xmlns:viewModels="using:Beutl.ViewModels.Tools"
+             Name="Root"
+             d:DesignHeight="450"
+             d:DesignWidth="280"
+             x:CompileBindings="True"
+             x:DataType="viewModels:DockLayoutViewModel"
+             mc:Ignorable="d">
+    <UserControl.Styles>
+        <!--  Opacity rather than IsVisible: the row must not change height when actions appear.  -->
+        <Style Selector="ListBoxItem Button.row-action">
+            <Setter Property="Opacity" Value="0" />
+            <Setter Property="IsHitTestVisible" Value="False" />
+        </Style>
+        <Style Selector="ListBoxItem:pointerover Button.row-action">
+            <Setter Property="Opacity" Value="1" />
+            <Setter Property="IsHitTestVisible" Value="True" />
+        </Style>
+        <Style Selector="ListBoxItem:selected Button.row-action">
+            <Setter Property="Opacity" Value="1" />
+            <Setter Property="IsHitTestVisible" Value="True" />
+        </Style>
+    </UserControl.Styles>
+
+    <Grid RowDefinitions="Auto,*">
+        <Border Grid.Row="0"
+                Padding="4"
+                BorderBrush="{DynamicResource DividerStrokeColorDefaultBrush}"
+                BorderThickness="0,0,0,1">
+            <Grid ColumnDefinitions="*,Auto">
+                <TextBlock Grid.Column="0"
+                           Margin="8,0"
+                           VerticalAlignment="Center"
+                           FontWeight="DemiBold"
+                           Text="{x:Static lang:Strings.SavedDockLayouts}" />
+
+                <StackPanel Grid.Column="1"
+                            Orientation="Horizontal"
+                            Spacing="2">
+                    <Button Padding="6"
+                            Click="OnSaveClick"
+                            Theme="{StaticResource TransparentButton}"
+                            ToolTip.Tip="{x:Static lang:Strings.SaveCurrentDockLayout}">
+                        <icons:FluentIcon FontSize="16" Icon="Add" />
+                    </Button>
+                    <Button Padding="6"
+                            Click="OnResetClick"
+                            Theme="{StaticResource TransparentButton}"
+                            ToolTip.Tip="{x:Static lang:Strings.ResetDockLayout}">
+                        <icons:FluentIcon FontSize="16" Icon="ArrowReset" />
+                    </Button>
+                </StackPanel>
+            </Grid>
+        </Border>
+
+        <Panel Grid.Row="1">
+            <StackPanel Margin="16,24"
+                        VerticalAlignment="Top"
+                        IsVisible="{CompiledBinding !Items.Count}"
+                        Spacing="8">
+                <icons:FluentIcon HorizontalAlignment="Center"
+                                  FontSize="32"
+                                  Foreground="{DynamicResource TextFillColorTertiaryBrush}"
+                                  Icon="LayoutColumnThree" />
+                <TextBlock HorizontalAlignment="Center"
+                           Foreground="{DynamicResource TextFillColorSecondaryBrush}"
+                           Text="{x:Static lang:MessageStrings.NoDockLayoutPresets}"
+                           TextAlignment="Center"
+                           TextWrapping="Wrap" />
+            </StackPanel>
+
+            <ListBox x:Name="LayoutList"
+                     Background="Transparent"
+                     DoubleTapped="OnItemDoubleTapped"
+                     IsVisible="{CompiledBinding Items.Count}"
+                     ItemsSource="{CompiledBinding Items}"
+                     SelectedItem="{CompiledBinding SelectedItem.Value}"
+                     SelectionMode="Single">
+                <ListBox.ItemTemplate>
+                    <DataTemplate x:DataType="services:DockLayoutPresetItem">
+                        <Grid ColumnDefinitions="*,Auto">
+                            <TextBlock Grid.Column="0"
+                                       VerticalAlignment="Center"
+                                       Text="{CompiledBinding Name.Value}"
+                                       TextTrimming="CharacterEllipsis"
+                                       ToolTip.Tip="{CompiledBinding Name.Value}" />
+
+                            <StackPanel Grid.Column="1"
+                                        VerticalAlignment="Center"
+                                        Orientation="Horizontal"
+                                        Spacing="2">
+                                <Button Padding="6"
+                                        Classes="row-action"
+                                        Click="OnApplyClick"
+                                        Theme="{StaticResource TransparentButton}"
+                                        ToolTip.Tip="{x:Static lang:Strings.ApplyDockLayout}">
+                                    <icons:FluentIcon FontSize="16" Icon="Checkmark" />
+                                </Button>
+                                <Button Padding="6"
+                                        Classes="row-action"
+                                        Click="OnRenameClick"
+                                        Theme="{StaticResource TransparentButton}"
+                                        ToolTip.Tip="{x:Static lang:Strings.Rename}">
+                                    <icons:FluentIcon FontSize="16" Icon="Rename" />
+                                </Button>
+                                <Button Padding="6"
+                                        Classes="row-action"
+                                        Click="OnRemoveClick"
+                                        Theme="{StaticResource TransparentButton}"
+                                        ToolTip.Tip="{x:Static lang:Strings.Remove}">
+                                    <icons:FluentIcon FontSize="16" Icon="Delete" />
+                                </Button>
+                            </StackPanel>
+                        </Grid>
+                    </DataTemplate>
+                </ListBox.ItemTemplate>
+            </ListBox>
+        </Panel>
+    </Grid>
+</UserControl>

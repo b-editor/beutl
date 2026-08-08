@@ -1,9 +1,12 @@
-﻿using System.Diagnostics.CodeAnalysis;
+﻿using System.Collections.ObjectModel;
+using System.Diagnostics.CodeAnalysis;
 using System.Windows.Input;
 using Avalonia;
 using Avalonia.Collections;
 using Avalonia.Controls;
 using Avalonia.Controls.ApplicationLifetimes;
+using Avalonia.Controls.Primitives;
+using Avalonia.Data;
 using Avalonia.Platform.Storage;
 using Beutl.Api.Services;
 using Beutl.Configuration;
@@ -15,6 +18,8 @@ using Beutl.Services;
 using Beutl.ViewModels;
 using Beutl.ViewModels.Dialogs;
 using Beutl.Views.Dialogs;
+using DynamicData;
+using DynamicData.Binding;
 using FluentAvalonia.UI.Controls;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
@@ -61,6 +66,40 @@ public partial class MainView
 
         viewModel.MenuBar.ExportProject.Subscribe(OnExportProject).AddTo(_disposables);
         viewModel.MenuBar.ImportProject.Subscribe(OnImportProject).AddTo(_disposables);
+
+        InitializeDockLayoutPresetMenu(viewModel);
+    }
+
+    private void InitializeDockLayoutPresetMenu(MainViewModel viewModel)
+    {
+        MenuItem CreateDockLayoutMenuItem(DockLayoutPresetItem item)
+        {
+            var menuItem = new MenuItem
+            {
+                DataContext = item,
+                Command = viewModel.MenuBar.ApplyDockLayout,
+                CommandParameter = item
+            };
+            menuItem.Bind(HeaderedSelectingItemsControl.HeaderProperty, new Binding(
+                $"{nameof(DockLayoutPresetItem.Name)}.{nameof(item.Name.Value)}"));
+            return menuItem;
+        }
+
+        viewModel.MenuBar.DockLayoutPresets
+            .ToObservableChangeSet<ICoreReadOnlyList<DockLayoutPresetItem>, DockLayoutPresetItem>()
+            .ObserveOnUIDispatcher()
+            .Cast(CreateDockLayoutMenuItem)
+            .Bind(out ReadOnlyObservableCollection<MenuItem>? presetMenuItems)
+            .Subscribe()
+            .DisposeWith(_disposables);
+
+        dockLayoutPresetMenuItem.ItemsSource = presetMenuItems;
+
+        // An empty submenu would render as a dead-end, so hide the entry until presets exist.
+        viewModel.MenuBar.DockLayoutPresets.ObserveProperty(x => x.Count)
+            .ObserveOnUIDispatcher()
+            .Subscribe(count => dockLayoutPresetMenuItem.IsVisible = count > 0)
+            .DisposeWith(_disposables);
     }
 
     private void InitializeRecentItems(MainViewModel viewModel)

@@ -134,6 +134,7 @@ public sealed partial class MacWindow : Window
         NativeMenu? editorTabMenu = null;
         NativeMenu? toolTabMenu = null;
         NativeMenu? toolWindowMenu = null;
+        NativeMenu? dockLayoutPresetMenu = null;
         try
         {
             var rootMenu = NativeMenu.GetMenu(this)!;
@@ -141,12 +142,19 @@ public sealed partial class MacWindow : Window
             editorTabMenu = ((NativeMenuItem)viewMenuItem.Menu!.Items[0]).Menu;
             toolTabMenu = ((NativeMenuItem)viewMenuItem.Menu!.Items[1]).Menu;
             toolWindowMenu = ((NativeMenuItem)rootMenu.Items[3]).Menu;
+            // View > ... > "Apply dock layout" (see MacWindow.axaml).
+            dockLayoutPresetMenu = ((NativeMenuItem)viewMenuItem.Menu!.Items[^2]).Menu;
         }
         catch
         {
         }
 
         if (viewMenuItem == null || editorTabMenu == null || toolTabMenu == null || toolWindowMenu == null) return;
+
+        if (dockLayoutPresetMenu != null)
+        {
+            InitDockLayoutPresetMenu(viewModel, dockLayoutPresetMenu);
+        }
 
         // ToolTabExtensionをメニューに表示する
         NativeMenuItem CreateToolTabMenuItem(ToolTabExtension item)
@@ -285,6 +293,25 @@ public sealed partial class MacWindow : Window
             toolWindowMenu.Items.Insert,
             (i, _) => toolWindowMenu.Items.RemoveAt(i),
             toolWindowMenu.Items.Clear);
+    }
+
+    private static void InitDockLayoutPresetMenu(MainViewModel viewModel, NativeMenu menu)
+    {
+        void AddItem(int index, DockLayoutPresetItem item)
+        {
+            menu.Items.Insert(index, new NativeMenuItem
+            {
+                // NativeMenuItem headers are static; a rename rebuilds the list instead.
+                Header = item.Name.Value,
+                Command = viewModel.MenuBar.ApplyDockLayout,
+                CommandParameter = item
+            });
+        }
+
+        viewModel.MenuBar.DockLayoutPresets.ForEachItem(
+            AddItem,
+            (i, _) => menu.Items.RemoveAt(i),
+            menu.Items.Clear);
     }
 
     private async Task OpenToolWindowAsync(ToolWindowExtension extension)

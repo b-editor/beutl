@@ -191,11 +191,7 @@ public class DockHostViewModel : IDisposable, IJsonSerializable
     {
         _logger.LogInformation("Reading DockHostViewModel from JSON ({SceneId})", _sceneId);
 
-        var hasVersion = json.TryGetPropertyValue("_dockVersion", out var vNode) &&
-            vNode is JsonValue vVal && vVal.TryGetValue(out int version) &&
-            version == DockVersion;
-
-        if (hasVersion &&
+        if (IsCurrentVersion(json) &&
             json.TryGetPropertyValue("DockLayout", out var layoutNode) &&
             layoutNode is JsonObject layoutObj)
         {
@@ -237,6 +233,139 @@ public class DockHostViewModel : IDisposable, IJsonSerializable
     {
         ResetToDefaultLayout("user requested");
         OpenDefaultTabs();
+    }
+
+    /// <summary>
+    /// Captures the current layout in the same shape <see cref="WriteToJson"/> writes, for
+    /// <see cref="ApplyLayout"/> to restore later.
+    /// </summary>
+    /// <remarks>
+    /// Per-tool state (selected element ids, search text, ...) is dropped; it belongs to the scene
+    /// it was captured from.
+    /// </remarks>
+    public JsonObject CaptureLayout()
+    {
+        EnsureDefaultLayout();
+        var json = new JsonObject();
+        WriteToJson(json);
+        if (json["DockLayout"] is JsonObject layout)
+        {
+            StripToolState(layout);
+        }
+
+        return json;
+    }
+
+    // Keeps only what identifies a tab: its type and dockable id.
+    private static void StripToolState(JsonObject node)
+    {
+        if (node.TryGetPropertyValueAsJsonValue("$type", out string? type) && type == "tool")
+        {
+            foreach (string key in node.Select(p => p.Key)
+                         .Where(k => k is not ("$type" or "id" or "extension"))
+                         .ToArray())
+            {
+                node.Remove(key);
+            }
+
+            return;
+        }
+
+        foreach ((string _, JsonNode? child) in node.ToArray())
+        {
+            switch (child)
+            {
+                case JsonObject childObj:
+                    StripToolState(childObj);
+                    break;
+                case JsonArray childArray:
+                    foreach (JsonNode? item in childArray)
+                    {
+                        if (item is JsonObject itemObj) StripToolState(itemObj);
+                    }
+
+                    break;
+            }
+        }
+    }
+
+    /// <summary>
+    /// Replaces the current layout with a previously captured one.
+    /// </summary>
+    /// <remarks>
+    /// The outgoing tool contexts are disposed and the incoming layout builds fresh ones against
+    /// this editor, so a layout captured elsewhere restores the arrangement only.
+    /// </remarks>
+    public bool ApplyLayout(JsonObject layout)
+    {
+        _logger.LogInformation("Applying a saved dock layout ({SceneId})", _sceneId);
+
+        // Restore first: a malformed preset must not leave the editor without a layout.
+        IRootDock restored;
+        try
+        {
+            if (!IsCurrentVersion(layout))
+            {
+                _logger.LogWarning(
+                    "Saved dock layout was written by an incompatible version ({SceneId})", _sceneId);
+                return false;
+            }
+
+            if (!layout.TryGetPropertyValue("DockLayout", out JsonNode? layoutNode)
+                || layoutNode is not JsonObject layoutObj)
+            {
+                _logger.LogWarning("Saved dock layout has no DockLayout node ({SceneId})", _sceneId);
+                return false;
+            }
+
+            if (RestoreNode(layoutObj) is not IRootDock rootDock)
+            {
+                _logger.LogWarning("Saved dock layout did not restore to an IRootDock ({SceneId})", _sceneId);
+                return false;
+            }
+
+            restored = rootDock;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to restore a saved dock layout ({SceneId})", _sceneId);
+            return false;
+        }
+
+        // Dispose after the swap, and directly — CloseDockable would walk the old tree.
+        var previousTools = Factory.EnumerateTools().ToList();
+
+        Factory.SetRootDock(restored);
+        Factory.InitLayout(restored);
+        Layout.Value = restored;
+        _layoutInitialized = true;
+
+        foreach (BeutlToolDockable tool in previousTools)
+        {
+            try
+            {
+                tool.Dispose();
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Failed to dispose a replaced tool tab ({SceneId})", _sceneId);
+            }
+        }
+
+        if (!Factory.EnumerateTools().Any())
+        {
+            OpenDefaultTabs();
+        }
+
+        return true;
+    }
+
+    private static bool IsCurrentVersion(JsonObject json)
+    {
+        return json.TryGetPropertyValue("_dockVersion", out JsonNode? node)
+               && node is JsonValue value
+               && value.TryGetValue(out int version)
+               && version == DockVersion;
     }
 
     private void ResetToDefaultLayout(string reason)

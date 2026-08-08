@@ -125,6 +125,11 @@
                     <NativeMenuItemSeparator />
                     <NativeMenuItem Command="{CompiledBinding MenuBar.ResetDockLayout}"
                                     Header="{x:Static lang:Strings.ResetDockLayout}" />
+                    <NativeMenuItem Header="{x:Static lang:Strings.ApplyDockLayout}">
+                        <NativeMenu />
+                    </NativeMenuItem>
+                    <NativeMenuItem Command="{CompiledBinding MenuBar.OpenDockLayoutTab}"
+                                    Header="{x:Static lang:Strings.ManageDockLayouts}" />
                 </NativeMenu>
             </NativeMenuItem>
             <NativeMenuItem Header="{x:Static lang:Strings.Tools}">
