@@ -284,7 +284,7 @@ public sealed class LoweredBrushAuthoringContractTests
         {
             RenderResource<Brush.Resource> fillToken = context.Borrow(
                 fill,
-                fill.GetOriginal().Id,
+                fill.RequireOriginal().Id,
                 fill.Version);
             OpaqueRenderDescription description = OpaqueRenderDescription.Create(
                 rect,

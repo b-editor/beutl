@@ -535,6 +535,11 @@ public sealed class ShaderAuthoringContractTests
 
         public new sealed class Resource : FilterEffect.Resource
         {
+            public Resource()
+                : base(skipDefaultInitialization: true)
+            {
+            }
+
             public override FilterEffectRenderNode CreateRenderNode() => new(this);
         }
     }

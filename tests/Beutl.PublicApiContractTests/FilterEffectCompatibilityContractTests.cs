@@ -15,29 +15,37 @@ public sealed class FilterEffectCompatibilityContractTests
     private static readonly Rect s_bounds = new(3, 5, 12, 8);
 
     [Test]
-    public void LegacyExecutionContexts_PreserveScaleOnlyConstructorAndDefaultClassification()
+    public void ExecutionContexts_RequireExplicitIntentAndPurpose()
     {
         using var targets = new EffectTargets();
         using var builder = new SKImageFilterBuilder();
-        using var activator = new FilterEffectActivator(targets, builder);
+        using var activator = new FilterEffectActivator(
+            targets,
+            builder,
+            RenderIntent.Preview,
+            RenderRequestPurpose.Frame);
         using var unboundedCeilingActivator = new FilterEffectActivator(
             targets,
             builder,
+            RenderIntent.Preview,
+            RenderRequestPurpose.CacheWarmup,
             maxWorkingScale: float.PositiveInfinity);
         using var deliveryActivator = new FilterEffectActivator(
             targets,
             builder,
-            maxWorkingScale: 2,
-            intent: RenderIntent.Delivery);
+            RenderIntent.Delivery,
+            RenderRequestPurpose.Auxiliary,
+            maxWorkingScale: 2);
 
         Type[] expectedParameterTypes =
         [
             typeof(EffectTargets),
             typeof(SKImageFilterBuilder),
-            typeof(float),
-            typeof(float),
-            typeof(float),
             typeof(RenderIntent),
+            typeof(RenderRequestPurpose),
+            typeof(float),
+            typeof(float),
+            typeof(float),
         ];
         System.Reflection.ParameterInfo[] constructorParameters = typeof(FilterEffectActivator)
             .GetConstructors()
@@ -50,15 +58,18 @@ public sealed class FilterEffectCompatibilityContractTests
         Assert.Multiple(() =>
         {
             Assert.That(activator.Intent, Is.EqualTo(RenderIntent.Preview));
-            Assert.That(activator.Purpose, Is.EqualTo(RenderRequestPurpose.Auxiliary));
+            Assert.That(activator.Purpose, Is.EqualTo(RenderRequestPurpose.Frame));
             Assert.That(unboundedCeilingActivator.Intent, Is.EqualTo(RenderIntent.Preview),
                 "an unbounded working-scale ceiling must not promote a caller to delivery fail-fast");
+            Assert.That(unboundedCeilingActivator.Purpose, Is.EqualTo(RenderRequestPurpose.CacheWarmup));
             Assert.That(deliveryActivator.Intent, Is.EqualTo(RenderIntent.Delivery),
                 "a finite working-scale ceiling must not demote an explicit delivery intent");
             Assert.That(deliveryActivator.Purpose, Is.EqualTo(RenderRequestPurpose.Auxiliary));
             Assert.That(actualParameterTypes, Is.EqualTo(expectedParameterTypes),
-                "existing FilterEffect callers must retain the scale-only public constructor");
-            Assert.That(constructorParameters.Skip(2).All(static parameter => parameter.IsOptional), Is.True);
+                "the only public constructor must require both execution classifications");
+            Assert.That(constructorParameters[2].IsOptional, Is.False);
+            Assert.That(constructorParameters[3].IsOptional, Is.False);
+            Assert.That(constructorParameters.Skip(4).All(static parameter => parameter.IsOptional), Is.True);
             Assert.That(typeof(FilterEffectActivator).GetProperty(nameof(FilterEffectActivator.Intent))!.CanWrite,
                 Is.False);
             Assert.That(typeof(FilterEffectActivator).GetProperty(nameof(FilterEffectActivator.Purpose))!.CanWrite,
@@ -68,6 +79,33 @@ public sealed class FilterEffectCompatibilityContractTests
             Assert.That(typeof(CustomFilterEffectContext).GetProperty(nameof(CustomFilterEffectContext.Purpose))!.CanWrite,
                 Is.False);
         });
+    }
+
+    [Test]
+    public void ExplicitPurpose_ReachesTheCustomEffectCallback()
+    {
+        var bounds = new Rect(0, 0, 4, 4);
+        RenderRequestPurpose? observedPurpose = null;
+        using var renderTarget = new CpuRenderTarget(new PixelSize(4, 4));
+        using var targets = new EffectTargets
+        {
+            new EffectTarget(renderTarget, bounds, EffectiveScale.At(1)),
+        };
+        using var builder = new SKImageFilterBuilder();
+        using var activator = new FilterEffectActivator(
+            targets,
+            builder,
+            RenderIntent.Delivery,
+            RenderRequestPurpose.CacheWarmup);
+        using var context = new FilterEffectContext(bounds);
+        context.CustomEffect(
+            0,
+            (_, execution) => observedPurpose = execution.Purpose,
+            static (_, value) => value);
+
+        activator.Apply(context);
+
+        Assert.That(observedPurpose, Is.EqualTo(RenderRequestPurpose.CacheWarmup));
     }
 
     [Test]
@@ -366,7 +404,13 @@ public sealed class FilterEffectCompatibilityContractTests
             return resource;
         }
 
-        public new sealed class Resource : FilterEffect.Resource;
+        public new sealed class Resource : FilterEffect.Resource
+        {
+            public Resource()
+                : base(skipDefaultInitialization: true)
+            {
+            }
+        }
     }
 
     private sealed record LegacyMarker(List<string> Order, string Name);
@@ -390,7 +434,13 @@ public sealed class FilterEffectCompatibilityContractTests
             return resource;
         }
 
-        public new sealed class Resource : FilterEffect.Resource;
+        public new sealed class Resource : FilterEffect.Resource
+        {
+            public Resource()
+                : base(skipDefaultInitialization: true)
+            {
+            }
+        }
     }
 
     private sealed class BoundsDependentWorkingScaleFilterNode(FilterEffect.Resource resource)

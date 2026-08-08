@@ -124,7 +124,7 @@ public sealed class OpaqueSourceCoverageTests
 
     private static Bitmap RenderDirectSource(Drawable.Resource resource, float density)
     {
-        var shape = (RectShape)resource.GetOriginal();
+        RectShape shape = (RectShape)resource.RequireOriginal();
         var shapeResource = (RectShape.Resource)resource;
         Size frameSize = s_frame.ToSize(1);
         Size shapeSize = shape.MeasureInternal(frameSize, resource);
@@ -183,7 +183,7 @@ public sealed class OpaqueSourceCoverageTests
         using var node = new DrawableRenderNode(drawable);
         using (var context = new GraphicsContext2D(node, brushSize, density))
         {
-            drawable.GetOriginal().Render(context, drawable);
+            drawable.RequireOriginal().Render(context, drawable);
         }
 
         using var renderer = new RenderNodeRenderer(
@@ -216,7 +216,7 @@ public sealed class OpaqueSourceCoverageTests
     {
         var node = new DrawableRenderNode(resource);
         using var context = new GraphicsContext2D(node, s_frame.ToSize(1), density);
-        resource.GetOriginal().Render(context, resource);
+        resource.RequireOriginal().Render(context, resource);
         return node;
     }
 

@@ -747,14 +747,21 @@ public class GraphicsContext2DTests
     }
 }
 
-internal sealed partial class PartialFailureDrawable(
-    RenderNode child,
-    Exception failure) : Drawable
+internal sealed partial class PartialFailureDrawable : Drawable
 {
+    private readonly RenderNode _child;
+    private readonly Exception _failure;
+
+    public PartialFailureDrawable(RenderNode child, Exception failure)
+    {
+        _child = child;
+        _failure = failure;
+    }
+
     public override void Render(GraphicsContext2D context, Drawable.Resource resource)
     {
-        context.DrawNode(child);
-        throw failure;
+        context.DrawNode(_child);
+        throw _failure;
     }
 
     protected override Size MeasureCore(Size availableSize, Drawable.Resource resource)

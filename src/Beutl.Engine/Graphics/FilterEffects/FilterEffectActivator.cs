@@ -23,24 +23,6 @@ public sealed class FilterEffectActivator : IDisposable
     public FilterEffectActivator(
         EffectTargets targets,
         SKImageFilterBuilder builder,
-        float outputScale = 1f,
-        float workingScale = 1f,
-        float maxWorkingScale = float.PositiveInfinity,
-        RenderIntent intent = RenderIntent.Preview)
-        : this(
-            targets,
-            builder,
-            intent,
-            RenderRequestPurpose.Auxiliary,
-            outputScale,
-            workingScale,
-            maxWorkingScale)
-    {
-    }
-
-    internal FilterEffectActivator(
-        EffectTargets targets,
-        SKImageFilterBuilder builder,
         RenderIntent intent,
         RenderRequestPurpose purpose,
         float outputScale = 1f,

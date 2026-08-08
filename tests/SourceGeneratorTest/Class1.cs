@@ -7,7 +7,7 @@ public partial class Derived : EngineObject
 {
     public IProperty<float> X { get; } = Property.Create(0f);
 
-    public IProperty<float> Y { get; } = Property.Create(0f);
+    public IProperty<float> Y { get; } = Property.Create(17f);
 }
 
 public partial class Derived2 : Derived

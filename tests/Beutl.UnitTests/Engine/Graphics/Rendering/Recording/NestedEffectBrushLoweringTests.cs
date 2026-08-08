@@ -98,7 +98,11 @@ public sealed class NestedEffectBrushLoweringTests
             probeFailure);
         using EffectTargets targets = CreateSolidTargets(bounds);
         using var builder = new SKImageFilterBuilder();
-        using var activator = new FilterEffectActivator(targets, builder);
+        using var activator = new FilterEffectActivator(
+            targets,
+            builder,
+            RenderIntent.Preview,
+            RenderRequestPurpose.Auxiliary);
 
         InvalidOperationException? thrown = Assert.Throws<InvalidOperationException>(() => activator.Apply(segment));
 
@@ -128,7 +132,11 @@ public sealed class NestedEffectBrushLoweringTests
             authored._items);
         using EffectTargets targets = CreateSolidTargets(bounds);
         using var builder = new SKImageFilterBuilder();
-        using var activator = new FilterEffectActivator(targets, builder);
+        using var activator = new FilterEffectActivator(
+            targets,
+            builder,
+            RenderIntent.Preview,
+            RenderRequestPurpose.Auxiliary);
 
         InvalidOperationException? thrown = Assert.Throws<InvalidOperationException>(() => activator.Apply(segment));
 

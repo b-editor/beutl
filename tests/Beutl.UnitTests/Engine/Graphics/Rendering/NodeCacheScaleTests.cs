@@ -225,7 +225,7 @@ public class NodeCacheScaleTests
             Brush.Resource fill = Brushes.Resource.White;
             RenderResource<Brush.Resource> fillResource = context.Borrow(
                 fill,
-                fill.GetOriginal().Id,
+                fill.RequireOriginal().Id,
                 fill.Version);
             OpaqueRenderDescription description = OpaqueRenderDescription.Create(
                 _probe,

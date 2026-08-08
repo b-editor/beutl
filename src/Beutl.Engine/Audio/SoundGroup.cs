@@ -33,7 +33,7 @@ public sealed partial class SoundGroup : Sound, IFlowOperator
         // そのまま通す
         foreach (var child in r.Children)
         {
-            var original = child.GetOriginal();
+            Sound original = child.RequireOriginal();
             if (original.TimeRange.Start < TimeRange.Start)
             {
                 var internalContext = new AudioContext(context.SampleRate, context.ChannelCount);
@@ -80,7 +80,7 @@ public sealed partial class SoundGroup : Sound, IFlowOperator
 
         foreach (var child in r.Children)
         {
-            var original = child.GetOriginal();
+            Sound original = child.RequireOriginal();
             var internalContext = new AudioContext(context.SampleRate, context.ChannelCount);
             original.Compose(internalContext, child);
             foreach (AudioNode node in internalContext.Nodes)

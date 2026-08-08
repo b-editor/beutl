@@ -8,9 +8,8 @@ namespace Beutl.UnitTests.Engine.Graphics.Rendering;
 /// Covers the derivation every CWT-synthesized cache-key helper in the renderer routes through.
 /// </summary>
 /// <remarks>
-/// <see cref="EngineObject.Resource.GetOriginal"/> is declared non-nullable but is assigned only by
-/// <see cref="EngineObject.Resource.Update"/>, so reading <c>GetOriginal().Id</c> throws for any resource that
-/// never went through <see cref="EngineObject.ToResource"/> — a shape the public
+/// <see cref="EngineObject.Resource.GetOriginal"/> returns null for a resource that never went through
+/// <see cref="EngineObject.ToResource"/> — a shape the public
 /// <c>FilterEffectContext.RegisterBrush</c>/<c>RegisterPen</c> entry points accept.
 /// </remarks>
 [TestFixture]
@@ -19,11 +18,11 @@ public sealed class EngineResourceIdentityTests
     private const int Iterations = 20000;
 
     [Test]
-    public void ADetachedResource_ThrowsWhenItsBackingIdIsReadDirectly()
+    public void ADetachedResource_HasNoBackingObjectId()
     {
         using var detached = new EngineObject.Resource();
 
-        Assert.Throws<NullReferenceException>(() => _ = detached.GetOriginal().Id);
+        Assert.That(detached.GetOriginal(), Is.Null);
     }
 
     [Test]
@@ -61,11 +60,11 @@ public sealed class EngineResourceIdentityTests
 
         Assert.Multiple(() =>
         {
-            Assert.That(DeferredOpaqueSource.GetCacheKey(attached), Is.EqualTo(attached.GetOriginal().Id),
+            Assert.That(DeferredOpaqueSource.GetCacheKey(attached), Is.EqualTo(attached.RequireOriginal().Id),
                 "an attached resource keeps the cache identity it had before the helper was routed");
             Assert.That(
                 DeferredOpaqueSource.GetCacheKey(attached).GetHashCode(),
-                Is.EqualTo(attached.GetOriginal().Id.GetHashCode()),
+                Is.EqualTo(attached.RequireOriginal().Id.GetHashCode()),
                 "every consumer of this key buckets by hash before comparing");
         });
     }
@@ -76,7 +75,7 @@ public sealed class EngineResourceIdentityTests
         Brush.Resource attached = Brushes.Resource.White;
 
         long routed = MeasureBytesPerCall(() => DeferredOpaqueSource.GetCacheKey(attached));
-        long direct = MeasureBytesPerCall(() => attached.GetOriginal().Id);
+        long direct = MeasureBytesPerCall(() => attached.RequireOriginal().Id);
 
         TestContext.Out.WriteLine($"routed: {routed} bytes/call, direct: {direct} bytes/call");
         Assert.That(routed, Is.EqualTo(direct),

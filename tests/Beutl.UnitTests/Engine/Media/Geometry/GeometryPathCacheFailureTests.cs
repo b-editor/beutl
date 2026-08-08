@@ -119,6 +119,11 @@ public sealed class GeometryPathCacheFailureTests
 
     private sealed class ThrowingGeometryResource : Geometry.Resource
     {
+        public ThrowingGeometryResource()
+            : base(new FallbackGeometry())
+        {
+        }
+
         public bool Throw { get; set; } = true;
 
         public int Calls { get; private set; }

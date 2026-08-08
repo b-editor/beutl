@@ -41,6 +41,11 @@ public sealed class RenderNodeDrawable : Drawable
 
     public new sealed class Resource : Drawable.Resource
     {
+        internal Resource()
+            : base(skipDefaultInitialization: true)
+        {
+        }
+
         public RenderNode? GraphNode { get; set; }
 
         public override void Update(EngineObject obj, CompositionContext context, ref bool updateOnly)

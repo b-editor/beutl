@@ -599,7 +599,7 @@ public sealed class LosslessCompositeCoverageTests
 
     private static Bitmap RenderDirect(Drawable.Resource resource, float density)
     {
-        var shape = (Shape)resource.GetOriginal();
+        Shape shape = (Shape)resource.RequireOriginal();
         var shapeResource = (Shape.Resource)resource;
         Size frameSize = s_frame.ToSize(1);
         Size shapeSize = shape.MeasureInternal(frameSize, resource);
@@ -629,7 +629,7 @@ public sealed class LosslessCompositeCoverageTests
         using var node = new DrawableRenderNode(resource);
         using (var context = new GraphicsContext2D(node, frame.ToSize(1), density))
         {
-            resource.GetOriginal().Render(context, resource);
+            resource.RequireOriginal().Render(context, resource);
         }
 
         using var renderer = new RenderNodeRenderer(
@@ -679,5 +679,11 @@ internal sealed partial class IdentityTypedShaderEffect : FilterEffect
         return resource;
     }
 
-    public new sealed class Resource : FilterEffect.Resource;
+    public new sealed class Resource : FilterEffect.Resource
+    {
+        public Resource()
+            : base(skipDefaultInitialization: true)
+        {
+        }
+    }
 }

@@ -322,5 +322,11 @@ internal sealed partial class CallbackFilterEffect(
         return resource;
     }
 
-    public new sealed class Resource : FilterEffect.Resource;
+    public new sealed class Resource : FilterEffect.Resource
+    {
+        public Resource()
+            : base(skipDefaultInitialization: true)
+        {
+        }
+    }
 }

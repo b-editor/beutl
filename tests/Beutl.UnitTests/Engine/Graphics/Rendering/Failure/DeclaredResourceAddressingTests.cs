@@ -233,6 +233,6 @@ public sealed class DeclaredResourceAddressingTests
         private static RenderResource<SolidColorBrush.Resource> Borrow(
             RenderNodeContext context,
             SolidColorBrush.Resource brush)
-            => context.Borrow(brush, brush.GetOriginal().Id, brush.Version);
+            => context.Borrow(brush, brush.RequireOriginal().Id, brush.Version);
     }
 }

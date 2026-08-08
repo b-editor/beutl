@@ -5,6 +5,7 @@ using Avalonia.Headless.NUnit;
 using Avalonia.Media.Imaging;
 using Avalonia.Platform;
 using Beutl.Composition;
+using Beutl.Engine;
 using Beutl.Graphics;
 using Beutl.Graphics.Rendering;
 using Beutl.Graphics.Shapes;
@@ -718,6 +719,10 @@ internal sealed partial class BlockingThumbnailDrawable(
     float height,
     Brush.Resource? fill) : Drawable
 {
+    [ResourceDefaultValuesProvider]
+    private static BlockingThumbnailDrawable CreateResourceDefaultValues()
+        => new(0, 0, null);
+
     private readonly TaskCompletionSource<bool> _renderEntered =
         new(TaskCreationOptions.RunContinuationsAsynchronously);
     private readonly TaskCompletionSource<bool> _releaseRender =

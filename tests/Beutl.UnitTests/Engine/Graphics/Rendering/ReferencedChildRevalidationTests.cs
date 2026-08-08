@@ -209,13 +209,20 @@ public class ReferencedChildRevalidationTests
 }
 
 // Top-level partial because EngineObjectResourceGenerator does not support nested types.
-internal sealed partial class ReferencingDrawable(RenderNode child) : Drawable
+internal sealed partial class ReferencingDrawable : Drawable
 {
+    private readonly RenderNode _child;
+
+    public ReferencingDrawable(RenderNode child)
+    {
+        _child = child;
+    }
+
     public bool LastRecordingObservedChange { get; private set; }
 
     public override void Render(GraphicsContext2D context, Drawable.Resource resource)
         => context.DrawNode(
-            child,
+            _child,
             static node => new ReferencesChildRenderNode(node),
             (reference, node) => LastRecordingObservedChange = reference.Update(node));
 
