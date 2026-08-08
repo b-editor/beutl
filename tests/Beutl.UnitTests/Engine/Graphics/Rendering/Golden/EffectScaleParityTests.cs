@@ -192,35 +192,84 @@ public class EffectScaleParityTests
             e.Origin.CurrentValue = new RelativePoint(50, 30, RelativeUnit.Absolute);
             return e;
         }));
-        yield return new TestCaseData("DisplacementMap-DrawableMap", (Func<FilterEffect>)(() =>
+        foreach (TestCaseData testCase in DisplacementMapEffects())
+            yield return testCase;
+    }
+
+    public static IEnumerable<TestCaseData> DisplacementMapEffects()
+    {
+        yield return new TestCaseData(
+            "DisplacementMap-DrawableMap",
+            (Func<FilterEffect>)MakeDrawableDisplacementMapEffect);
+    }
+
+    private static FilterEffect MakeDrawableDisplacementMapEffect()
+    {
+        // Non-gradient (DrawableBrush) displacement map: exercises the tile-brush density path.
+        var stripes = new LinearGradientBrush();
+        stripes.StartPoint.CurrentValue = new RelativePoint(0, 0, RelativeUnit.Absolute);
+        stripes.EndPoint.CurrentValue = new RelativePoint(24, 0, RelativeUnit.Absolute);
+        stripes.SpreadMethod.CurrentValue = GradientSpreadMethod.Repeat;
+        stripes.GradientStops.Add(new GradientStop(Colors.White, 0));
+        stripes.GradientStops.Add(new GradientStop(Colors.White, 0.5f));
+        stripes.GradientStops.Add(new GradientStop(Colors.Black, 0.5f));
+        stripes.GradientStops.Add(new GradientStop(Colors.Black, 1));
+        var mapContent = new RectShape();
+        mapContent.AlignmentX.CurrentValue = AlignmentX.Center;
+        mapContent.AlignmentY.CurrentValue = AlignmentY.Center;
+        mapContent.Width.CurrentValue = 200;
+        mapContent.Height.CurrentValue = 200;
+        mapContent.Fill.CurrentValue = stripes;
+        var map = new DrawableBrush();
+        map.Drawable.CurrentValue = mapContent;
+        map.Stretch.CurrentValue = Stretch.Fill;
+        var transform = new DisplacementMapTranslateTransform();
+        transform.X.CurrentValue = 16;
+        transform.Y.CurrentValue = 0;
+        var effect = new DisplacementMapEffect();
+        effect.DisplacementMap.CurrentValue = map;
+        effect.Transform.CurrentValue = transform;
+        effect.Channel.CurrentValue = DisplacementMapChannel.Luminance;
+        return effect;
+    }
+
+    private static FilterEffect MakeNoDisplacementMapEffect()
+    {
+        var effect = new DisplacementMapEffect();
+        effect.DisplacementMap.CurrentValue = null;
+        return effect;
+    }
+
+    [TestCaseSource(nameof(DisplacementMapEffects))]
+    public void DisplacementMapEffect_ChangesIdentityOutput(string name, Func<FilterEffect> makeEffect)
+    {
+        VulkanTestEnvironment.EnsureAvailable();
+        VulkanTestEnvironment.InvokeOnRenderThread(() =>
         {
-            // Non-gradient (DrawableBrush) displacement map: exercises the tile-brush density path.
-            var stripes = new LinearGradientBrush();
-            stripes.StartPoint.CurrentValue = new RelativePoint(0, 0, RelativeUnit.Absolute);
-            stripes.EndPoint.CurrentValue = new RelativePoint(24, 0, RelativeUnit.Absolute);
-            stripes.SpreadMethod.CurrentValue = GradientSpreadMethod.Repeat;
-            stripes.GradientStops.Add(new GradientStop(Colors.White, 0));
-            stripes.GradientStops.Add(new GradientStop(Colors.White, 0.5f));
-            stripes.GradientStops.Add(new GradientStop(Colors.Black, 0.5f));
-            stripes.GradientStops.Add(new GradientStop(Colors.Black, 1));
-            var mapContent = new RectShape();
-            mapContent.AlignmentX.CurrentValue = AlignmentX.Center;
-            mapContent.AlignmentY.CurrentValue = AlignmentY.Center;
-            mapContent.Width.CurrentValue = 200;
-            mapContent.Height.CurrentValue = 200;
-            mapContent.Fill.CurrentValue = stripes;
-            var map = new DrawableBrush();
-            map.Drawable.CurrentValue = mapContent;
-            map.Stretch.CurrentValue = Stretch.Fill;
-            var transform = new DisplacementMapTranslateTransform();
-            transform.X.CurrentValue = 16;
-            transform.Y.CurrentValue = 0;
-            var e = new DisplacementMapEffect();
-            e.DisplacementMap.CurrentValue = map;
-            e.Transform.CurrentValue = transform;
-            e.Channel.CurrentValue = DisplacementMapChannel.Luminance;
-            return e;
-        }));
+            // A translate displacement over a flat fill is invisible under clamp sampling, so the source
+            // carries its own stripes; only a materialized map can move them.
+            using Bitmap mapped = GoldenImageHarness.RenderAtScale(
+                Make(makeEffect, MakeStripes(20)),
+                Frame,
+                1f);
+            using Bitmap identity = GoldenImageHarness.RenderAtScale(
+                Make(MakeNoDisplacementMapEffect, MakeStripes(20)),
+                Frame,
+                1f);
+
+            Assert.That(
+                ImageMetrics.FirstNonFinite(("mapped", mapped), ("identity", identity)),
+                Is.Null,
+                $"{name}: the drawable-map vacuity comparison requires finite renders");
+            double mae = ImageMetrics.MeanAbsoluteError(mapped, identity);
+            double ssim = ImageMetrics.Ssim(mapped, identity);
+            TestContext.WriteLine($"[{name}] mapped vs identity MAE={mae:F4} SSIM={ssim:F4}");
+            Assert.That(
+                mae,
+                Is.GreaterThan(0.001),
+                $"{name}: the drawable displacement map did not change the identity render; "
+                + "transparent map materialization would make the scale-parity case vacuous");
+        });
     }
 
     // Border whose thickness is a fixed logical width (10 px): iScale and iResolution are both load-bearing.
@@ -248,7 +297,22 @@ public class EffectScaleParityTests
         return e;
     }
 
-    private static Drawable.Resource Make(Func<FilterEffect> makeEffect)
+    private static LinearGradientBrush MakeStripes(float period)
+    {
+        var stripes = new LinearGradientBrush();
+        stripes.StartPoint.CurrentValue = new RelativePoint(0, 0, RelativeUnit.Absolute);
+        stripes.EndPoint.CurrentValue = new RelativePoint(period, 0, RelativeUnit.Absolute);
+        stripes.SpreadMethod.CurrentValue = GradientSpreadMethod.Repeat;
+        stripes.GradientStops.Add(new GradientStop(Colors.White, 0));
+        stripes.GradientStops.Add(new GradientStop(Colors.White, 0.5f));
+        stripes.GradientStops.Add(new GradientStop(Colors.Gray, 0.5f));
+        stripes.GradientStops.Add(new GradientStop(Colors.Gray, 1));
+        return stripes;
+    }
+
+    private static Drawable.Resource Make(Func<FilterEffect> makeEffect) => Make(makeEffect, Brushes.White);
+
+    private static Drawable.Resource Make(Func<FilterEffect> makeEffect, Brush fill)
     {
         var shape = new RectShape();
         shape.AlignmentX.CurrentValue = AlignmentX.Center;
@@ -256,7 +320,7 @@ public class EffectScaleParityTests
         shape.TransformOrigin.CurrentValue = RelativePoint.Center;
         shape.Width.CurrentValue = 140;
         shape.Height.CurrentValue = 90;
-        shape.Fill.CurrentValue = Brushes.White;
+        shape.Fill.CurrentValue = fill;
         var rotation = new RotationTransform();
         rotation.Rotation.CurrentValue = 21f;
         shape.Transform.CurrentValue = rotation;
@@ -268,7 +332,6 @@ public class EffectScaleParityTests
     public void Effect_Supersampled_KeepsLogicalAppearance(string name, Func<FilterEffect> makeEffect)
     {
         VulkanTestEnvironment.EnsureAvailable();
-
         // Non-finite pixels (SwiftShader blur artifact vs real scale defect) are distinguished by
         // determinism: same location on every attempt = real defect (FAIL); moving = artifact (INCONCLUSIVE).
         // Reference and scaled renders are scanned separately so a broken reference does not mask a scaled defect.
@@ -297,6 +360,9 @@ public class EffectScaleParityTests
 
                 // Parity is measurable: discard earlier transient non-finite records.
                 attempts.Clear();
+                Assert.That(
+                    HasFiniteVisibleContent(r1),
+                    $"{name}: the 1:1 reference must render finite visible content (SC-013 non-vacuity).");
                 double ssim = ImageMetrics.Ssim(r1, delivered);
                 // Windowed SSIM logged as diagnostic only (no universal floor; structural effects can be low).
                 double windowed = ImageMetrics.WindowedSsim(r1, delivered, 16);
@@ -341,6 +407,20 @@ public class EffectScaleParityTests
                 + string.Join("; ", attempts.Select(a => $"ref={a.Ref ?? "ok"}|scaled={a.Scaled ?? "ok"}"))
                 + $"] — {detail}; parity is verified on a hardware GPU.");
         }
+    }
+
+    private static bool HasFiniteVisibleContent(Bitmap bitmap)
+    {
+        ReadOnlySpan<ushort> pixels = bitmap.GetPixelSpan<ushort>();
+        for (int i = 3; i < pixels.Length; i += 4)
+        {
+            float a = (float)BitConverter.UInt16BitsToHalf(pixels[i]);
+            if (float.IsFinite(a) && a > 0f)
+            {
+                return true;
+            }
+        }
+        return false;
     }
 
     public static IEnumerable<TestCaseData> RepresentativeEffectsWithScales()

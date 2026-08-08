@@ -1,0 +1,1032 @@
+﻿using Beutl.Composition;
+using Beutl.Graphics;
+using Beutl.Graphics.Rendering;
+using Beutl.Graphics.Rendering.Cache;
+using Beutl.Graphics.Shapes;
+using Beutl.Media;
+using SkiaSharp;
+
+namespace Beutl.UnitTests.Engine.Graphics.Rendering.Planning;
+
+[TestFixture]
+public sealed class TargetScopeLoweringTests
+{
+    private static readonly Rect s_rootDomain = new(0, 0, 100, 60);
+
+    [Test]
+    public void RootSequence_ThreadsA_Clear_BThroughOneTargetTokenChain()
+    {
+        using var root = new ContainerRenderNode();
+        root.AddChild(new SourceNode(new Rect(0, 0, 20, 20), "root-a"));
+        root.AddChild(new ClearRenderNode(Colors.Transparent));
+        root.AddChild(new SourceNode(new Rect(40, 10, 20, 20), "root-b"));
+
+        using CompiledRenderRequest compiled = Compile(root, s_rootDomain);
+        TargetDependencyStep[] steps = compiled.TargetDependencies.Steps.ToArray();
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(steps.Select(static step => step.Kind), Is.EqualTo(new[]
+            {
+                TargetDependencyKind.Composite,
+                TargetDependencyKind.Command,
+                TargetDependencyKind.Composite,
+            }));
+            Assert.That(steps.Select(static step => step.ScopeId).Distinct().Count(), Is.EqualTo(1));
+            Assert.That(steps[1].InputToken, Is.EqualTo(steps[0].OutputToken));
+            Assert.That(steps[2].InputToken, Is.EqualTo(steps[1].OutputToken));
+            Assert.That(compiled.Measurement.OutputBounds, Is.EqualTo(s_rootDomain));
+            Assert.That(compiled.Measurement.QueryBounds, Is.EqualTo(new Rect(0, 0, 60, 30)));
+        });
+    }
+
+    [Test]
+    public void FiniteLayer_ThreadsA_Clear_BLocallyThenCompositesExactlyOnce()
+    {
+        var domain = new Rect(10, 20, 50, 30);
+        using var root = new ContainerRenderNode();
+        var layer = new LayerRenderNode(domain);
+        layer.AddChild(new SourceNode(new Rect(12, 22, 5, 4), "layer-a"));
+        layer.AddChild(new ClearRenderNode(Colors.Transparent));
+        layer.AddChild(new SourceNode(new Rect(30, 35, 6, 7), "layer-b"));
+        root.AddChild(layer);
+
+        using CompiledRenderRequest compiled = Compile(root, targetDomain: null);
+        TargetScopePlan local = FindOwnedScope(compiled, RenderFragmentKind.Layer);
+        TargetDependencyStep[] localSteps = compiled.TargetDependencies.Steps
+            .Where(step => step.ScopeId == local.Id)
+            .ToArray();
+        TargetDependencyStep outer = compiled.TargetDependencies.Steps.Single(step =>
+            step.Kind == TargetDependencyKind.ScopeComposite);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(local.ResolvedDomain, Is.EqualTo(domain));
+            Assert.That(local.IsOrderOnly, Is.False);
+            Assert.That(localSteps.Select(static step => step.Kind), Is.EqualTo(new[]
+            {
+                TargetDependencyKind.Composite,
+                TargetDependencyKind.Command,
+                TargetDependencyKind.Composite,
+            }));
+            Assert.That(localSteps[1].InputToken, Is.EqualTo(localSteps[0].OutputToken));
+            Assert.That(localSteps[2].InputToken, Is.EqualTo(localSteps[1].OutputToken));
+            Assert.That(outer.ScopeId, Is.Not.EqualTo(local.Id));
+            Assert.That(compiled.Measurement.OutputBounds, Is.EqualTo(domain));
+            Assert.That(compiled.Measurement.QueryBounds, Is.EqualTo(new Rect(12, 22, 24, 20)));
+        });
+    }
+
+    [Test]
+    public void FiniteLayerFanOutAcrossTargetDomains_ExecutesWithOneResolvedOwningScope()
+    {
+        var layerDomain = new Rect(0, 0, 24, 16);
+        var secondTargetDomain = new Rect(8, 4, 40, 24);
+        using var root = new LayerFanOutNode(layerDomain, secondTargetDomain);
+        using CompiledRenderRequest compiled = Compile(root, s_rootDomain);
+        int owningScopeCount = compiled.TargetDependencies.Scopes.Count(scope =>
+            scope.OwnerFragmentId is { } owner
+            && References(compiled.Graph)[owner].Kind == RenderFragmentKind.Layer);
+        using var renderer = new RenderNodeRenderer(
+            root,
+            new RenderNodeRendererOptions
+            {
+                DefaultRequest = new RenderNodeRenderRequest
+                {
+                    TargetDomain = s_rootDomain,
+                    CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Disabled,
+                },
+                TargetFactory = new CpuTargetFactory(),
+            });
+
+        using RenderNodeRasterization raster = renderer.Rasterize();
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(raster.Bitmap, Is.Not.Null);
+            Assert.That(owningScopeCount, Is.EqualTo(1));
+            Assert.That(root.SourceExecutionCount, Is.EqualTo(1));
+            Assert.That(AlphaAt(raster.Bitmap!, 4, 4), Is.GreaterThan(0.99f));
+        });
+    }
+
+    [Test]
+    public void TransformedFullTargetLayer_ResolvesAgainstMappedCurrentTargetDomain()
+    {
+        using var root = new ContainerRenderNode();
+        var transform = new TransformRenderNode(
+            Matrix.CreateTranslation(10, 0),
+            TransformOperator.Prepend);
+        var isolation = new LayerRenderNode(default);
+        isolation.AddChild(new ClearRenderNode(Colors.White));
+        transform.AddChild(isolation);
+        root.AddChild(transform);
+
+        using CompiledRenderRequest compiled = Compile(root, s_rootDomain);
+        TargetScopePlan transformed = FindOwnedScope(compiled, RenderFragmentKind.TargetScope);
+        TargetScopePlan isolated = FindOwnedScope(compiled, RenderFragmentKind.TargetLayerScope);
+        RenderFragmentReference transformedReference = References(compiled.Graph)[transformed.OwnerFragmentId!.Value];
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(transformed.ResolvedDomain, Is.EqualTo(new Rect(-10, 0, 100, 60)));
+            Assert.That(isolated.ResolvedDomain, Is.EqualTo(new Rect(-10, 0, 100, 60)));
+            Assert.That(isolated.ParentId, Is.EqualTo(transformed.Id));
+            Assert.That(compiled.Measurement.OutputBounds, Is.EqualTo(s_rootDomain));
+            Assert.That(compiled.Measurement.QueryBounds, Is.EqualTo(Rect.Empty));
+            Assert.That(compiled.ExecutionTargetBounds, Is.EqualTo(s_rootDomain));
+            Assert.That(
+                compiled.Regions.GetFragmentRequirement(transformedReference).Resolve(s_rootDomain),
+                Is.EqualTo(s_rootDomain));
+        });
+
+        var factory = new CpuTargetFactory();
+        using var renderer = new RenderNodeRenderer(
+            root,
+            new RenderNodeRendererOptions
+            {
+                DefaultRequest = new RenderNodeRenderRequest
+                {
+                    TargetDomain = s_rootDomain,
+                    CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Disabled,
+                },
+                TargetFactory = factory,
+            });
+        using RenderNodeRasterization raster = renderer.Rasterize();
+        Bitmap bitmap = raster.Bitmap!;
+        Assert.Multiple(() =>
+        {
+            Assert.That(raster.Bounds, Is.EqualTo(s_rootDomain));
+            Assert.That(bitmap, Is.Not.Null);
+            Assert.That(AlphaAt(bitmap, 0, 30), Is.GreaterThan(0.99f),
+                "The inverse-mapped local Full must include the root's left edge.");
+            Assert.That(AlphaAt(bitmap, 99, 30), Is.GreaterThan(0.99f),
+                "The local Full must still include the root's right edge.");
+        });
+    }
+
+    [Test]
+    public void ClippedTransformedFullTargetLayer_ResolvesAgainstTheClippedLocalDomain()
+    {
+        var clipDomain = new Rect(20, 0, 30, 60);
+        using var root = new RectClipRenderNode(clipDomain, ClipOperation.Intersect);
+        var transform = new TransformRenderNode(
+            Matrix.CreateTranslation(10, 0),
+            TransformOperator.Prepend);
+        var isolation = new LayerRenderNode(default);
+        isolation.AddChild(new ClearRenderNode(Colors.White));
+        transform.AddChild(isolation);
+        root.AddChild(transform);
+
+        using CompiledRenderRequest compiled = Compile(root, s_rootDomain);
+        IReadOnlyDictionary<RenderFragmentId, RenderFragmentReference> references = References(compiled.Graph);
+        TargetScopePlan[] mappedScopes = compiled.TargetDependencies.Scopes
+            .Where(scope => scope.OwnerFragmentId is { } owner
+                            && references[owner].Kind == RenderFragmentKind.TargetScope)
+            .ToArray();
+        TargetScopePlan clipped = mappedScopes.Single(scope =>
+            scope.ResolvedDomain == clipDomain);
+        TargetScopePlan transformed = mappedScopes.Single(scope =>
+            scope.ParentId == clipped.Id);
+        TargetScopePlan isolated = FindOwnedScope(compiled, RenderFragmentKind.TargetLayerScope);
+        RenderFragmentReference transformedReference = references[transformed.OwnerFragmentId!.Value];
+        var localDomain = new Rect(10, 0, 30, 60);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(transformed.ResolvedDomain, Is.EqualTo(localDomain));
+            Assert.That(isolated.ResolvedDomain, Is.EqualTo(localDomain));
+            Assert.That(isolated.ParentId, Is.EqualTo(transformed.Id));
+            Assert.That(compiled.Measurement.OutputBounds, Is.EqualTo(clipDomain));
+            Assert.That(compiled.Measurement.QueryBounds, Is.EqualTo(Rect.Empty));
+            Assert.That(compiled.ExecutionTargetBounds, Is.EqualTo(clipDomain));
+            Assert.That(
+                compiled.Regions.GetFragmentRequirement(transformedReference).Resolve(clipDomain),
+                Is.EqualTo(clipDomain));
+        });
+
+        using var renderer = new RenderNodeRenderer(
+            root,
+            new RenderNodeRendererOptions
+            {
+                DefaultRequest = new RenderNodeRenderRequest
+                {
+                    TargetDomain = s_rootDomain,
+                    CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Disabled,
+                },
+                TargetFactory = new CpuTargetFactory(),
+            });
+        using RenderNodeRasterization raster = renderer.Rasterize();
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(raster.Bounds, Is.EqualTo(clipDomain));
+            Assert.That(AlphaAt(raster.Bitmap!, 0, 30), Is.GreaterThan(0.99f));
+            Assert.That(AlphaAt(raster.Bitmap!, 29, 30), Is.GreaterThan(0.99f));
+        });
+    }
+
+    [Test]
+    public void TransformedRootReadback_MapsItsLocalAccessIntoTheRootExecutionTarget()
+    {
+        var localAccess = new Rect(5, 7, 20, 11);
+        using var root = new ContainerRenderNode();
+        root.AddChild(new OrderOnlyCommandNode());
+        var transform = new TransformRenderNode(
+            Matrix.CreateTranslation(10, 0),
+            TransformOperator.Prepend);
+        transform.AddChild(new ReadbackCommandNode(localAccess));
+        root.AddChild(transform);
+
+        using CompiledRenderRequest compiled = Compile(root, s_rootDomain);
+        RenderFragmentReference readback = References(compiled.Graph).Values.Single(reference =>
+            reference.Payload is TargetCommandRenderFragmentPayload payload
+            && payload.Description.Access == TargetAccess.Readback);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(compiled.SelectedOutputBounds, Is.EqualTo(new Rect(15, 7, 20, 11)));
+            Assert.That(
+                compiled.Regions.GetTargetAccessRequirement(readback).Resolve(s_rootDomain),
+                Is.EqualTo(localAccess));
+            Assert.That(
+                compiled.ExecutionTargetBounds,
+                Is.EqualTo(new Rect(15, 7, 20, 11)));
+        });
+    }
+
+    [Test]
+    public void FiniteReadbackRequirement_CrossesAnUnresolvedTargetScope()
+    {
+        var localAccess = new Rect(5, 7, 20, 11);
+        using var root = new ContainerRenderNode();
+        root.AddChild(new OrderOnlyCommandNode());
+        var transform = new TransformRenderNode(
+            Matrix.CreateTranslation(10, 0),
+            TransformOperator.Prepend);
+        transform.AddChild(new ReadbackCommandNode(localAccess));
+        root.AddChild(transform);
+
+        using CompiledRenderRequest compiled = Compile(root, targetDomain: null);
+
+        Assert.That(
+            compiled.ExecutionTargetBounds,
+            Is.EqualTo(new Rect(15, 7, 20, 11)));
+    }
+
+    [TestCase("opacity")]
+    [TestCase("blend")]
+    [TestCase("opacity-mask")]
+    public void TypedTargetStateScope_PreservesTargetOnlyFullWrite(string scopeKind)
+    {
+        using ContainerRenderNode root = scopeKind switch
+        {
+            "opacity" => new OpacityRenderNode(1),
+            "blend" => new BlendModeRenderNode(BlendMode.SrcOver),
+            "opacity-mask" => new OpacityMaskRenderNode(
+                Brushes.Resource.White,
+                s_rootDomain,
+                invert: false),
+            _ => throw new ArgumentOutOfRangeException(nameof(scopeKind)),
+        };
+        root.AddChild(new ClearRenderNode(Colors.White));
+        using var renderer = new RenderNodeRenderer(
+            root,
+            new RenderNodeRendererOptions
+            {
+                DefaultRequest = new RenderNodeRenderRequest
+                {
+                    TargetDomain = s_rootDomain,
+                    CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Disabled,
+                },
+                TargetFactory = new CpuTargetFactory(),
+            });
+
+        using RenderNodeRasterization raster = renderer.Rasterize();
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(raster.Bounds, Is.EqualTo(s_rootDomain));
+            Assert.That(AlphaAt(raster.Bitmap!, 0, 30), Is.GreaterThan(0.99f));
+            Assert.That(AlphaAt(raster.Bitmap!, 99, 30), Is.GreaterThan(0.99f));
+        });
+    }
+
+    [Test]
+    public void DestructiveBlend_LowersAsFullDomainTargetCommand()
+    {
+        var sourceBounds = new Rect(20, 10, 30, 20);
+        using var root = new BlendModeRenderNode(BlendMode.DstIn);
+        root.AddChild(new SourceNode(sourceBounds, "dst-in-source"));
+
+        using CompiledRenderRequest compiled = Compile(root, s_rootDomain);
+        RenderFragmentReference blend = References(compiled.Graph).Values.Single(reference =>
+            reference.Kind == RenderFragmentKind.Blend);
+        TargetDependencyStep step = compiled.TargetDependencies.Steps.Single(item =>
+            item.FragmentId == blend.Id);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(step.Kind, Is.EqualTo(TargetDependencyKind.Command));
+            Assert.That(compiled.Measurement.OutputBounds, Is.EqualTo(s_rootDomain));
+            Assert.That(compiled.Measurement.QueryBounds, Is.EqualTo(sourceBounds));
+            Assert.That(
+                compiled.Regions.GetTargetAccessRequirement(blend).Resolve(s_rootDomain),
+                Is.EqualTo(s_rootDomain));
+            Assert.That(
+                compiled.Regions.GetFragmentRequirement(blend).Resolve(s_rootDomain),
+                Is.EqualTo(s_rootDomain));
+        });
+    }
+
+    [Test]
+    public void NonDestructiveBlend_KeepsChildBoundsComposite()
+    {
+        var sourceBounds = new Rect(20, 10, 30, 20);
+        using var root = new BlendModeRenderNode(BlendMode.Multiply);
+        root.AddChild(new SourceNode(sourceBounds, "multiply-source"));
+
+        using CompiledRenderRequest compiled = Compile(root, s_rootDomain);
+        RenderFragmentReference blend = References(compiled.Graph).Values.Single(reference =>
+            reference.Kind == RenderFragmentKind.Blend);
+        TargetDependencyStep step = compiled.TargetDependencies.Steps.Single(item =>
+            item.FragmentId == blend.Id);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(step.Kind, Is.EqualTo(TargetDependencyKind.Composite));
+            Assert.That(compiled.Measurement.OutputBounds, Is.EqualTo(sourceBounds));
+            Assert.That(compiled.Measurement.QueryBounds, Is.EqualTo(sourceBounds));
+            Assert.That(compiled.Regions.GetTargetAccessRequirement(blend).IsEmpty, Is.True);
+        });
+    }
+
+    [TestCaseSource(nameof(AllBlendModes))]
+    public void BlendMode_FullTargetRegionClassificationMatchesTransparentSourceSemantics(
+        BlendMode blendMode)
+    {
+        bool transparentSourceChangesDestination = TransparentSourceChangesDestination(blendMode);
+
+        Assert.That(
+            BlendModeRenderNode.RequiresFullTargetRegion(blendMode),
+            Is.EqualTo(transparentSourceChangesDestination));
+    }
+
+    private static IEnumerable<BlendMode> AllBlendModes()
+        => Enum.GetValues<BlendMode>();
+
+    private static bool TransparentSourceChangesDestination(BlendMode blendMode)
+    {
+        var destination = new SKColor(53, 107, 181, 199);
+        using var bitmap = new SKBitmap(
+            new SKImageInfo(1, 1, SKColorType.Rgba8888, SKAlphaType.Premul));
+        using var canvas = new SKCanvas(bitmap);
+        canvas.Clear(destination);
+        SKColor before = bitmap.GetPixel(0, 0);
+        using var paint = new SKPaint
+        {
+            Color = SKColors.Transparent,
+            BlendMode = (SKBlendMode)blendMode,
+        };
+
+        canvas.DrawRect(SKRect.Create(1, 1), paint);
+
+        return bitmap.GetPixel(0, 0) != before;
+    }
+
+    [Test]
+    public void OpacityMask_DrawableBrushDependency_RemainsValueOnlyInTargetPlan()
+    {
+        var subjectBounds = new Rect(5, 6, 12, 8);
+        using Brush.Resource mask = CreateRemoteDrawableBrush();
+        using var root = new OpacityMaskRenderNode(mask, s_rootDomain, invert: false);
+        root.AddChild(new SourceNode(subjectBounds, "mask-subject"));
+
+        using CompiledRenderRequest compiled = Compile(root, s_rootDomain);
+        IReadOnlyDictionary<RenderFragmentId, RenderFragmentReference> references = References(compiled.Graph);
+        RenderFragmentReference maskRoot = references[compiled.Graph.PublicationRoots.Single()];
+        RenderFragmentReference maskDependency = maskRoot.Inputs[1];
+        TargetScopePlan dependencyScope = compiled.TargetDependencies.Scopes.Single(scope =>
+            scope.OwnerFragmentId == maskDependency.Id);
+        TargetDependencyStep[] steps = compiled.TargetDependencies.Steps.ToArray();
+        TargetDependencyStep rootComposite = steps.Single(step => step.FragmentId == maskRoot.Id);
+        int rootCompositeIndex = Array.IndexOf(steps, rootComposite);
+        HashSet<TargetScopeId> dependencyScopes = [dependencyScope.Id];
+        bool addedScope;
+        do
+        {
+            addedScope = false;
+            foreach (TargetScopePlan scope in compiled.TargetDependencies.Scopes)
+            {
+                if (scope.ParentId is { } parent
+                    && dependencyScopes.Contains(parent)
+                    && dependencyScopes.Add(scope.Id))
+                {
+                    addedScope = true;
+                }
+            }
+        }
+        while (addedScope);
+        int[] dependencyStepIndices = steps
+            .Select((step, index) => (step, index))
+            .Where(item => dependencyScopes.Contains(item.step.ScopeId))
+            .Select(static item => item.index)
+            .ToArray();
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(maskRoot.Kind, Is.EqualTo(RenderFragmentKind.OpacityMask));
+            Assert.That(maskDependency.Kind, Is.EqualTo(RenderFragmentKind.Layer));
+            Assert.That(maskDependency.CanBeUsedAsValueInput, Is.True);
+            Assert.That(maskRoot.CanBeUsedAsValueInput, Is.True);
+            Assert.That(maskDependency.Bounds.Intersects(subjectBounds), Is.False,
+                "The test mask dependency must stay remote from the subject bounds.");
+            Assert.That(dependencyStepIndices, Is.Not.Empty,
+                "The DrawableBrush layer must retain its internal materialization steps.");
+            Assert.That(dependencyStepIndices, Is.All.LessThan(rootCompositeIndex));
+            Assert.That(steps, Has.None.Matches<TargetDependencyStep>(step =>
+                step.FragmentId == maskDependency.Id
+                && step.Kind == TargetDependencyKind.ScopeComposite));
+            Assert.That(rootComposite.Kind, Is.EqualTo(TargetDependencyKind.Composite));
+            Assert.That(compiled.Measurement.OutputBounds, Is.EqualTo(subjectBounds));
+            Assert.That(compiled.Measurement.QueryBounds, Is.EqualTo(subjectBounds));
+            Assert.That(compiled.ExecutionTargetBounds, Is.EqualTo(subjectBounds));
+        });
+    }
+
+    [Test]
+    public void NestedOpacityMask_DrawableBrushDependencyScopesRemainInTargetPlan()
+    {
+        var subjectBounds = new Rect(5, 6, 12, 8);
+        using Brush.Resource mask = CreateRemoteDrawableBrush();
+        using var root = new OpacityRenderNode(0.5f);
+        var opacityMask = new OpacityMaskRenderNode(mask, s_rootDomain, invert: false);
+        opacityMask.AddChild(new SourceNode(subjectBounds, "nested-mask-subject"));
+        root.AddChild(opacityMask);
+
+        using CompiledRenderRequest compiled = Compile(root, s_rootDomain);
+        IReadOnlyDictionary<RenderFragmentId, RenderFragmentReference> references = References(compiled.Graph);
+        RenderFragmentReference opacityRoot = references[compiled.Graph.PublicationRoots.Single()];
+        RenderFragmentReference maskRoot = opacityRoot.Inputs.Single();
+        RenderFragmentReference maskDependency = maskRoot.Inputs[1];
+        TargetScopePlan dependencyScope = compiled.TargetDependencies.Scopes.Single(scope =>
+            scope.OwnerFragmentId == maskDependency.Id);
+        TargetDependencyStep[] steps = compiled.TargetDependencies.Steps.ToArray();
+        int maskCompositeIndex = Array.FindIndex(
+            steps,
+            step => step.FragmentId == maskRoot.Id
+                    && step.Kind == TargetDependencyKind.Composite);
+        HashSet<TargetScopeId> dependencyScopes = [dependencyScope.Id];
+        bool addedScope;
+        do
+        {
+            addedScope = false;
+            foreach (TargetScopePlan scope in compiled.TargetDependencies.Scopes)
+            {
+                if (scope.ParentId is { } parent
+                    && dependencyScopes.Contains(parent)
+                    && dependencyScopes.Add(scope.Id))
+                {
+                    addedScope = true;
+                }
+            }
+        }
+        while (addedScope);
+        int[] dependencyStepIndices = steps
+            .Select((step, index) => (step, index))
+            .Where(item => dependencyScopes.Contains(item.step.ScopeId))
+            .Select(static item => item.index)
+            .ToArray();
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(opacityRoot.Kind, Is.EqualTo(RenderFragmentKind.Opacity));
+            Assert.That(maskRoot.Kind, Is.EqualTo(RenderFragmentKind.OpacityMask));
+            Assert.That(maskDependency.Kind, Is.EqualTo(RenderFragmentKind.Layer));
+            Assert.That(maskRoot.HasTargetEffects, Is.True);
+            Assert.That(opacityRoot.HasTargetEffects, Is.True);
+            Assert.That(dependencyStepIndices, Is.Not.Empty,
+                "The nested DrawableBrush layer must retain its materialization scope.");
+            Assert.That(maskCompositeIndex, Is.GreaterThanOrEqualTo(0));
+            Assert.That(dependencyStepIndices, Is.All.LessThan(maskCompositeIndex));
+            Assert.That(compiled.Measurement.OutputBounds, Is.EqualTo(subjectBounds));
+            Assert.That(compiled.Measurement.QueryBounds, Is.EqualTo(subjectBounds));
+            Assert.That(compiled.ExecutionTargetBounds, Is.EqualTo(subjectBounds));
+        });
+    }
+
+    [Test]
+    public void OpacityMask_NonContributingCommandPrimary_ExcludesDrawableBrushDependencyFromTargetMetadata()
+    {
+        var commandBounds = new Rect(7, 8, 9, 6);
+        using Brush.Resource mask = CreateRemoteDrawableBrush();
+        using var root = new OpacityMaskRenderNode(mask, s_rootDomain, invert: false);
+        root.AddChild(new FiniteCommandNode(commandBounds));
+
+        using CompiledRenderRequest compiled = Compile(root, s_rootDomain);
+        RenderFragmentReference maskRoot = References(compiled.Graph)[compiled.Graph.PublicationRoots.Single()];
+        RenderFragmentReference maskDependency = maskRoot.Inputs[1];
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(maskRoot.Kind, Is.EqualTo(RenderFragmentKind.OpacityMask));
+            Assert.That(maskRoot.ContributesValuesToTarget, Is.False);
+            Assert.That(maskRoot.PotentiallyWritesTarget, Is.True);
+            Assert.That(maskDependency.Bounds.Intersects(commandBounds), Is.False,
+                "The test mask dependency must stay remote from the command metadata.");
+            Assert.That(compiled.Measurement.OutputBounds, Is.EqualTo(commandBounds));
+            Assert.That(compiled.Measurement.QueryBounds, Is.EqualTo(commandBounds));
+            Assert.That(compiled.ExecutionTargetBounds, Is.EqualTo(commandBounds));
+        });
+    }
+
+    [Test]
+    public void RootFullTargetLayer_ReplaysAndCompositesItsLocalTarget()
+    {
+        using var root = new EmptyTargetLayerNode(TargetRegion.Full);
+        root.AddChild(new FullCommandNode(Colors.White));
+        using var renderer = new RenderNodeRenderer(
+            root,
+            new RenderNodeRendererOptions
+            {
+                DefaultRequest = new RenderNodeRenderRequest
+                {
+                    TargetDomain = s_rootDomain,
+                    CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Disabled,
+                },
+                TargetFactory = new CpuTargetFactory(),
+            });
+
+        using RenderNodeRasterization raster = renderer.Rasterize();
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(raster.Bounds, Is.EqualTo(s_rootDomain));
+            Assert.That(AlphaAt(raster.Bitmap!, 0, 30), Is.GreaterThan(0.99f));
+            Assert.That(AlphaAt(raster.Bitmap!, 99, 30), Is.GreaterThan(0.99f));
+        });
+    }
+
+    [Test]
+    public void EmptyTargetLayer_RemainsOrderOnlyWithoutAChainOrPixelSteps()
+    {
+        using var root = new ContainerRenderNode();
+        var empty = new EmptyTargetLayerNode();
+        empty.AddChild(new SourceNode(new Rect(0, 0, 20, 20), "empty-source"));
+        empty.AddChild(new ClearRenderNode(Colors.Transparent));
+        root.AddChild(empty);
+        root.AddChild(new SourceNode(new Rect(30, 0, 10, 10), "after-empty"));
+
+        using CompiledRenderRequest compiled = Compile(root, s_rootDomain);
+        TargetScopePlan scope = FindOwnedScope(compiled, RenderFragmentKind.TargetLayerScope);
+        IReadOnlyDictionary<RenderFragmentId, RenderFragmentReference> references = References(compiled.Graph);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(scope.ResolvedDomain, Is.EqualTo(Rect.Empty));
+            Assert.That(scope.IsOrderOnly, Is.True);
+            Assert.That(compiled.TargetDependencies.Steps.Count(step => step.ScopeId == scope.Id), Is.Zero);
+            Assert.That(compiled.TargetDependencies.Steps.Length, Is.EqualTo(1));
+            Assert.That(
+                references[compiled.TargetDependencies.Steps.Single().FragmentId].Kind,
+                Is.EqualTo(RenderFragmentKind.OpaqueSource));
+            Assert.That(compiled.Measurement.OutputBounds, Is.EqualTo(new Rect(30, 0, 10, 10)));
+            Assert.That(compiled.Measurement.QueryBounds, Is.EqualTo(new Rect(30, 0, 10, 10)));
+        });
+    }
+
+    [Test]
+    public void EmptyTargetLayer_SuppressesChildExecutionAndCompletesTheIslandSchedule()
+    {
+        using var root = new ContainerRenderNode();
+        var empty = new EmptyTargetLayerNode();
+        var suppressed = new SourceNode(new Rect(0, 0, 20, 20), "suppressed");
+        var visible = new SourceNode(new Rect(30, 0, 10, 10), "visible", execute: true);
+        empty.AddChild(suppressed);
+        root.AddChild(empty);
+        root.AddChild(visible);
+        using var renderer = new RenderNodeRenderer(
+            root,
+            new RenderNodeRendererOptions
+            {
+                DefaultRequest = new RenderNodeRenderRequest
+                {
+                    TargetDomain = s_rootDomain,
+                    CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Disabled,
+                },
+                TargetFactory = new CpuTargetFactory(),
+            });
+
+        using RenderNodeRasterization raster = renderer.Rasterize();
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(suppressed.ExecuteCount, Is.Zero);
+            Assert.That(visible.ExecuteCount, Is.EqualTo(1));
+            Assert.That(raster.Bounds, Is.EqualTo(new Rect(30, 0, 10, 10)));
+            Assert.That(AlphaAt(raster.Bitmap!, 5, 5), Is.GreaterThan(0.99f));
+        });
+    }
+
+    [Test]
+    public void FullWithoutAnOwningDomain_FailsDuringLowering_NotDuringRecording()
+    {
+        using var fullCommand = new FullCommandNode();
+        using var owner = new RenderRequestOwner();
+        var request = new RenderRequest(Options(targetDomain: null, owner: owner));
+        RecordedRenderGraph graph = new RenderRequestRecorder(request).Record(fullCommand);
+
+        InvalidOperationException? error = Assert.Throws<RenderTargetDomainRequiredException>(
+            () => new RenderRequestCompiler().Compile(request, graph));
+
+        Assert.That(error!.Message, Does.Contain("finite").And.Contain("target domain").IgnoreCase);
+    }
+
+    [Test]
+    public void FullTargetCaptureBoundsOutsideFiniteLayer_AreRejectedDuringLowering()
+    {
+        var layerDomain = new Rect(10, 20, 30, 20);
+        var captureBounds = new Rect(5, 20, 10, 10);
+        using var root = new OutOfDomainCaptureLayerNode(layerDomain, captureBounds);
+
+        InvalidOperationException? error = Assert.Throws<InvalidOperationException>(
+            () =>
+            {
+                using CompiledRenderRequest _ = Compile(root, targetDomain: null);
+            });
+
+        Assert.That(
+            error!.Message,
+            Does.Contain("capture bounds").And.Contain("target domain").IgnoreCase);
+    }
+
+    [Test]
+    public void RequestedRegionDoesNotSupplyMissingTargetDomain_ButFiniteLayerDoes()
+    {
+        using var command = new FullCommandNode();
+        Assert.That(
+            () => Compile(command, targetDomain: null, requestedRegion: new Rect(2, 3, 4, 5)),
+            Throws.TypeOf<RenderTargetDomainRequiredException>());
+
+        using var root = new ContainerRenderNode();
+        var finite = new LayerRenderNode(new Rect(10, 20, 30, 40));
+        var nestedFull = new EmptyTargetLayerNode(TargetRegion.Full);
+        nestedFull.AddChild(new ClearRenderNode(Colors.Transparent));
+        finite.AddChild(nestedFull);
+        root.AddChild(finite);
+
+        using CompiledRenderRequest compiled = Compile(root, targetDomain: null);
+        TargetScopePlan isolated = FindOwnedScope(compiled, RenderFragmentKind.TargetLayerScope);
+        Assert.That(isolated.ResolvedDomain, Is.EqualTo(new Rect(10, 20, 30, 40)));
+    }
+
+    [Test]
+    public void FullClear_UsesOutputDomainButKeepsQueryAndHitTestingEmpty()
+    {
+        var domain = new Rect(10, 20, 40, 30);
+        using var root = new FullCommandNode(Colors.White);
+        using var renderer = new RenderNodeRenderer(
+            root,
+            new RenderNodeRendererOptions
+            {
+                DefaultRequest = new RenderNodeRenderRequest
+                {
+                    TargetDomain = domain,
+                    CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Disabled,
+                },
+                TargetFactory = new CpuTargetFactory(),
+            });
+
+        RenderNodeMeasurement measurement = renderer.Measure();
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(measurement.OutputBounds, Is.EqualTo(domain));
+            Assert.That(measurement.QueryBounds, Is.EqualTo(Rect.Empty));
+            Assert.That(renderer.HitTest(new Point(20, 25)), Is.False);
+        });
+
+        using RenderNodeRasterization raster = renderer.Rasterize();
+        Assert.That(AlphaAt(raster.Bitmap!, 20, 15), Is.GreaterThan(0.99f));
+    }
+
+    [Test]
+    public void ReadbackCommandWrites_AreIncludedInOutputPlanning()
+    {
+        using var root = new WritingReadbackCommandNode();
+        using var renderer = new RenderNodeRenderer(
+            root,
+            new RenderNodeRendererOptions
+            {
+                DefaultRequest = new RenderNodeRenderRequest
+                {
+                    TargetDomain = s_rootDomain,
+                    CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Disabled,
+                },
+                TargetFactory = new CpuTargetFactory(),
+            });
+
+        using RenderNodeRasterization raster = renderer.Rasterize();
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(root.ExecutionCount, Is.EqualTo(1));
+            Assert.That(raster.Bounds, Is.EqualTo(s_rootDomain));
+            Assert.That(raster.Bitmap, Is.Not.Null);
+            Assert.That(AlphaAt(raster.Bitmap!, 50, 30), Is.GreaterThan(0.99f));
+        });
+    }
+
+    [Test]
+    public void Rasterize_ReportsTheDeviceCoverOfAShiftedSelection_AndEmptySelectionDoesNotAllocate()
+    {
+        var factory = new CpuTargetFactory();
+        var shifted = new Rect(10.25f, 20.25f, 3.5f, 2.5f);
+        using var root = new SourceNode(shifted, "shifted-raster", execute: true);
+        using var renderer = new RenderNodeRenderer(
+            root,
+            new RenderNodeRendererOptions
+            {
+                DefaultRequest = new RenderNodeRenderRequest
+                {
+                    OutputScale = 2,
+                    CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Disabled,
+                },
+                TargetFactory = factory,
+            });
+
+        using (RenderNodeRasterization raster = renderer.Rasterize())
+        {
+            Assert.Multiple(() =>
+            {
+                Assert.That(raster.Bounds, Is.EqualTo(PixelRect.FromRect(shifted, 2).ToRect(2)));
+                Assert.That(raster.Bounds.Contains(shifted), Is.True);
+                Assert.That(raster.Bitmap, Is.Not.Null);
+                Assert.That(raster.OutputScale, Is.EqualTo(2));
+            });
+        }
+
+        int allocationsAfterShifted = factory.AllocationCount;
+        var emptySelection = new Rect(70, 80, 0, 5);
+        using var emptyRenderer = new RenderNodeRenderer(
+            root,
+            new RenderNodeRendererOptions
+            {
+                DefaultRequest = new RenderNodeRenderRequest
+                {
+                    RequestedRegion = emptySelection,
+                    CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Disabled,
+                },
+                TargetFactory = factory,
+            });
+        using RenderNodeRasterization empty = emptyRenderer.Rasterize();
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(empty.Bounds, Is.EqualTo(emptySelection));
+            Assert.That(empty.IsEmpty, Is.True);
+            Assert.That(empty.Bitmap, Is.Null);
+            Assert.That(factory.AllocationCount, Is.EqualTo(allocationsAfterShifted));
+        });
+    }
+
+    private static CompiledRenderRequest Compile(
+        RenderNode root,
+        Rect? targetDomain,
+        Rect? requestedRegion = null)
+    {
+        var request = new RenderRequest(Options(targetDomain, requestedRegion));
+        RecordedRenderGraph graph = new RenderRequestRecorder(request).Record(root);
+        return new RenderRequestCompiler().Compile(request, graph);
+    }
+
+    private static RenderRequestOptions Options(
+        Rect? targetDomain,
+        Rect? requestedRegion = null,
+        RenderRequestOwner? owner = null)
+        => new(
+            RenderIntent.Preview,
+            RenderRequestPurpose.Auxiliary,
+            targetDomain,
+            requestedRegion,
+            cachePolicy: RenderCacheOptions.Disabled,
+            owner: owner);
+
+    private static TargetScopePlan FindOwnedScope(
+        CompiledRenderRequest compiled,
+        RenderFragmentKind kind)
+    {
+        IReadOnlyDictionary<RenderFragmentId, RenderFragmentReference> references = References(compiled.Graph);
+        return compiled.TargetDependencies.Scopes.Single(scope =>
+            scope.OwnerFragmentId is { } owner && references[owner].Kind == kind);
+    }
+
+    private static IReadOnlyDictionary<RenderFragmentId, RenderFragmentReference> References(
+        RecordedRenderGraph graph)
+        => graph.Fragments.ToDictionary(
+            static fragment => fragment.Id,
+            static fragment => (RenderFragmentReference)fragment.Payload!);
+
+    private static float AlphaAt(Bitmap bitmap, int x, int y)
+    {
+        Span<ushort> row = bitmap.GetRow<ushort>(y);
+        return (float)BitConverter.UInt16BitsToHalf(row[(x * 4) + 3]);
+    }
+
+    private static Brush.Resource CreateRemoteDrawableBrush()
+    {
+        var content = new RectShape();
+        content.Width.CurrentValue = 10;
+        content.Height.CurrentValue = 8;
+        content.AlignmentX.CurrentValue = AlignmentX.Right;
+        content.AlignmentY.CurrentValue = AlignmentY.Bottom;
+        content.Fill.CurrentValue = Brushes.White;
+        var brush = new DrawableBrush(content);
+        return (Brush.Resource)brush.ToResource(CompositionContext.Default);
+    }
+
+    private sealed class FullCommandNode(Color? color = null) : RenderNode
+    {
+        private readonly Color _color = color ?? Colors.Transparent;
+
+        public override void Process(RenderNodeContext context)
+        {
+            Color color = _color;
+            context.Publish(context.TargetCommand(
+                [],
+                TargetCommandDescription.CreateRequestLocal(
+                    session => session.Canvas.Use(canvas => canvas.Clear(color)),
+                    TargetRegion.Full,
+                    Rect.Empty,
+                    RenderHitTestContract.None)));
+        }
+    }
+
+    private sealed class ReadbackCommandNode(Rect region) : RenderNode
+    {
+        public override void Process(RenderNodeContext context)
+        {
+            context.Publish(context.TargetCommand(
+                [],
+                TargetCommandDescription.CreateRequestLocal(
+                    session => session.UseSnapshot(static _ => { }),
+                    TargetRegion.Region(region),
+                    Rect.Empty,
+                    RenderHitTestContract.None,
+                    TargetAccess.Readback)));
+        }
+    }
+
+    private sealed class WritingReadbackCommandNode : RenderNode
+    {
+        public int ExecutionCount { get; private set; }
+
+        public override void Process(RenderNodeContext context)
+        {
+            context.Publish(context.TargetCommand(
+                [],
+                TargetCommandDescription.CreateRequestLocal(
+                    session =>
+                    {
+                        ExecutionCount++;
+                        session.UseSnapshot(static _ => { });
+                        session.Canvas.Use(static canvas => canvas.Clear(Colors.White));
+                    },
+                    TargetRegion.Full,
+                    Rect.Empty,
+                    RenderHitTestContract.None,
+                    TargetAccess.Readback)));
+        }
+    }
+
+    private sealed class OrderOnlyCommandNode : RenderNode
+    {
+        public override void Process(RenderNodeContext context)
+        {
+            context.Publish(context.TargetCommand(
+                [],
+                TargetCommandDescription.CreateRequestLocal(
+                    static _ => { },
+                    TargetRegion.Empty,
+                    Rect.Empty,
+                    RenderHitTestContract.None)));
+        }
+    }
+
+    private sealed class FiniteCommandNode(Rect bounds) : RenderNode
+    {
+        public override void Process(RenderNodeContext context)
+        {
+            context.Publish(context.TargetCommand(
+                [],
+                TargetCommandDescription.CreateRequestLocal(
+                    static _ => { },
+                    TargetRegion.Region(bounds),
+                    bounds,
+                    RenderHitTestContract.None)));
+        }
+    }
+
+    private sealed class EmptyTargetLayerNode(TargetRegion? region = null) : ContainerRenderNode
+    {
+        private readonly TargetRegion _region = region ?? TargetRegion.Empty;
+
+        public override void Process(RenderNodeContext context)
+            => context.Publish(context.TargetLayerScope(context.Inputs, _region));
+    }
+
+    private sealed class LayerFanOutNode : RenderNode
+    {
+        private readonly Rect _layerDomain;
+        private readonly Rect _secondTargetDomain;
+        private readonly SourceNode _source;
+
+        public LayerFanOutNode(Rect layerDomain, Rect secondTargetDomain)
+        {
+            _layerDomain = layerDomain;
+            _secondTargetDomain = secondTargetDomain;
+            _source = new SourceNode(layerDomain, "layer-fan-out", execute: true);
+        }
+
+        public int SourceExecutionCount => _source.ExecuteCount;
+
+        public override void Process(RenderNodeContext context)
+        {
+            RenderFragmentHandle source = context.RecordNode(_source, []).Single();
+            RenderFragmentHandle layer = context.Layer([source], _layerDomain);
+            context.Publish(layer);
+            context.Publish(context.TargetLayerScope(
+                [layer],
+                TargetRegion.Region(_secondTargetDomain)));
+        }
+
+        protected override void OnDispose(bool disposing)
+        {
+            _source.Dispose();
+            base.OnDispose(disposing);
+        }
+    }
+
+    private sealed class OutOfDomainCaptureLayerNode(Rect layerDomain, Rect captureBounds) : RenderNode
+    {
+        public override void Process(RenderNodeContext context)
+        {
+            RenderFragmentHandle capture = context.TargetCapture(TargetCaptureDescription.Create(
+                TargetRegion.Full,
+                captureBounds,
+                RenderHitTestContract.OutputBounds,
+                TargetCaptureScaleContract.MaterializeAtWorkingScale));
+            RenderFragmentHandle contributing = context.ContributeValues(capture);
+            context.Publish(context.Layer([contributing], layerDomain));
+        }
+    }
+
+    private sealed class SourceNode(Rect bounds, string key, bool execute = false) : RenderNode
+    {
+        public int ExecuteCount { get; private set; }
+
+        public override void Process(RenderNodeContext context)
+        {
+            OpaqueRenderDescription description = OpaqueRenderDescription.CreateRequestLocal(
+                session =>
+                {
+                    ExecuteCount++;
+                    if (!execute)
+                        throw new AssertionException("Metadata and lowering must not execute source callbacks.");
+
+                    using OpaqueRenderOutput output = session.CreateOutput(session.OutputBounds);
+                    output.Canvas.Use(static canvas => canvas.Clear(Colors.White));
+                    session.Publish(output);
+                },
+                OpaqueRenderBoundsContract.Source(bounds),
+                RenderHitTestContract.OutputBounds,
+                RenderValueCardinality.Single,
+                RenderScaleContract.MaterializeAtWorkingScale,
+                structuralKey: (typeof(SourceNode), key));
+            context.Publish(context.OpaqueSource(description));
+        }
+    }
+
+    private sealed class CpuTargetFactory : IRenderTargetFactory
+    {
+        public int AllocationCount { get; private set; }
+
+        public RenderTarget Create(RenderTargetAllocationDescriptor allocation)
+        {
+            PixelSize deviceSize = allocation.DeviceSize;
+            AllocationCount++;
+            return new CpuRenderTarget(deviceSize.Width, deviceSize.Height);
+        }
+    }
+
+    private sealed class CpuRenderTarget(int width, int height)
+        : RenderTarget(
+            SKSurface.Create(new SKImageInfo(
+                width,
+                height,
+                SKColorType.RgbaF16,
+                SKAlphaType.Premul,
+                SKColorSpace.CreateSrgbLinear())),
+            width,
+            height);
+}
