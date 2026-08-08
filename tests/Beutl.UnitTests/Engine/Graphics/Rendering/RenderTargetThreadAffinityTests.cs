@@ -139,6 +139,34 @@ public class RenderTargetThreadAffinityTests
     }
 
     [Test]
+    public void A_release_that_throws_after_the_wait_was_given_up_leaves_the_dispatcher_usable()
+    {
+        using var occupied = new ManualResetEventSlim(false);
+        using var release = new ManualResetEventSlim(false);
+
+        try
+        {
+            RenderThread.Dispatcher.Dispatch(() =>
+            {
+                occupied.Set();
+                release.Wait(TimeSpan.FromSeconds(60));
+            });
+            Assert.That(occupied.Wait(TimeSpan.FromSeconds(30)), Is.True, "the render thread never took the blocker");
+
+            Assert.DoesNotThrow(() => GpuResourceRelease.Run(
+                RenderThread.Dispatcher,
+                static () => throw new InvalidOperationException("release failed after the caller gave up")));
+        }
+        finally
+        {
+            release.Set();
+        }
+
+        Assert.That(RenderThread.Dispatcher.InvokeAsync(static () => { }).Wait(TimeSpan.FromSeconds(30)), Is.True,
+            "the render thread must keep draining after a queued release faulted");
+    }
+
+    [Test]
     public void Dispose_on_the_owning_thread_releases_inline()
     {
         RenderThread.Dispatcher.Invoke(() =>

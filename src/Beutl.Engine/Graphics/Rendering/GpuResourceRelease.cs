@@ -65,5 +65,14 @@ internal static class GpuResourceRelease
         s_logger.LogDebug(
             "GPU resource release is still queued after {Deadline}; leaving it to the render thread.",
             s_deadline);
+
+        // InvokeAsync runs the action inside a Task, so a failure lands there rather than in the
+        // dispatcher's exception handler. With the caller gone nothing would observe it, and a
+        // half-finished cleanup would look like a success.
+        _ = queued.ContinueWith(
+            static t => s_logger.LogWarning(t.Exception, "A GPU resource release failed after its caller stopped waiting"),
+            CancellationToken.None,
+            TaskContinuationOptions.OnlyOnFaulted | TaskContinuationOptions.ExecuteSynchronously,
+            TaskScheduler.Default);
     }
 }
