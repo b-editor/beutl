@@ -7,6 +7,7 @@ using System.Text.Json;
 
 using Beutl.Graphics.Backend;
 using Beutl.Graphics.Rendering;
+using Beutl.Benchmarks.Rendering;
 
 using Silk.NET.Vulkan;
 
@@ -221,8 +222,11 @@ internal sealed class TargetEvidenceFingerprint
         {
             object? value = property.GetValue(fingerprint);
             if (value is string text
-                && (string.IsNullOrWhiteSpace(text)
-                    || text.Contains("unknown", StringComparison.OrdinalIgnoreCase)))
+                && (text.Contains("unknown", StringComparison.OrdinalIgnoreCase)
+                    || (string.IsNullOrWhiteSpace(text)
+                        && !EvidenceFingerprintRules.AllowsBlankValue(
+                            property.Name,
+                            fingerprint.VulkanDeviceType))))
             {
                 throw new InvalidOperationException($"Fingerprint field '{property.Name}' is missing or unknown.");
             }

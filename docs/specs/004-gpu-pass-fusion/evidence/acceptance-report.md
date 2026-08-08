@@ -1,11 +1,15 @@
-# GPU Pass Fusion Acceptance Report (T115 / T123)
+# GPU Pass Fusion Acceptance Report (T115 recorded / T123 pending)
 
 Recorded on the authoritative Apple M3 / MoltenVK environment
 (macOS 26.5.2, MoltenVK 1.4.0, Metal 3, .NET 10.0.9, arm64). All artifacts referenced
 below are committed in this directory unless noted; every external raw result is
 identified by its SHA-256.
 
-## Tool provenance
+T115 records the historical run below. T123 remains pending because that run's
+`overallAcceptancePassed` value is false and its benchmark and visual revisions predate the
+current implementation; it is not final acceptance for the current source tree.
+
+## Frozen tool provenance
 
 | Tool | SHA-256 |
 |---|---|
@@ -14,11 +18,13 @@ identified by its SHA-256.
 | `run-paired-visual-evidence.sh` | `32b7713a007ec719d839335352ac2a75914b2d179512edd13943ff94f4c64b78` |
 | `refresh-intentional-visual-baselines.sh` | `f9ff3831d63cf0f3ed864e20d15731a38b2402b6ac8e0a4c4c0a6860af72d1f2` |
 | generator source bundle | `bb165d312af895b4f703441d96d4f42144036d7d6f8e875ae0101c4701b0414d` |
-| `run-paired-benchmarks.sh` | `f0085c75543380b0cbab805ff213347c5eeced64140a31f91021a80bedcf0198` |
+| `run-paired-benchmarks.sh` (historical manifest anchor) | `f0085c75543380b0cbab805ff213347c5eeced64140a31f91021a80bedcf0198` |
 
-These hashes match the committed scripts and the `evidenceTools` records in both
-frozen manifests. The recorded benchmark run predates the later review-driven runner
-hardening, so its own provenance records the runner version it actually executed,
+The first five hashes still match the committed frozen evidence tools. The benchmark-runner
+row is the historical value authenticated by the unchanged `evidenceTools` records in both
+frozen manifests; it intentionally does not identify the current hardened runner. The recorded
+benchmark run predates the later review-driven runner hardening, so its own provenance records
+the still-earlier runner version it actually executed,
 `7e33ff52ee0d1b1db367cc326953195e773afc18af23b0f6a6e72a06187893a8`.
 The current runner pins the baseline worktree and executes the documented discarded
 baseline warm-up before creating baseline A, feature, and baseline B artifacts. This
@@ -30,12 +36,19 @@ run provenance:
 
 | Current source | SHA-256 |
 |---|---|
-| `tests/Beutl.Benchmarks/Rendering/RenderPipelineBenchmarks.cs` | `1733c5c73f3fedc5977b5a0ab067e6ae391b33e5487a791fcf150d260636cf8a` |
-| `tests/Beutl.Benchmarks/Rendering/PairedBenchmarkAnalyzer.cs` | `e07e80bcf0da48cf8d0db1119b77c61b26f2e963e925299fdf0a684e4ef627e4` |
-| `target-benchmark-harness/TargetRenderPipelineBenchmarks.cs` | `2b334e5e5e874610d10c468dc9742dfee51f33fb91cb7e24765d191fe36f6eb2` |
+| `run-paired-benchmarks.sh` | `03a501f407f8b7b01dd833f51b4ab242c18cb7f486b3e0b6fbe72d8c103461a9` |
+| `tests/Beutl.Benchmarks/Rendering/RenderPipelineBenchmarks.cs` | `7cb2ce51c4f2ccfcb3c9e0a7be0e8952b49367141c343eaeb2a11af68e29acff` |
+| `tests/Beutl.Benchmarks/Rendering/PairedBenchmarkAnalyzer.cs` | `b9bcd4f7a90e5507825b9a8fb01816a80fe76d351c4558fbf4d6c7cc3a79db98` |
+| `tests/Beutl.Benchmarks/Rendering/EvidenceFingerprintRules.cs` | `995bc969b377ef2d291d30ab8f40954454ffaed28ba8cc62c86c815ed796eaf0` |
+| `target-benchmark-harness/TargetRenderPipelineBenchmarks.cs` | `68147d6871ae674ac87c3c38d39ac3b96d7e05ff683af22c9abf7c9e6182fe88` |
+| `target-benchmark-harness/TargetEvidenceFingerprint.cs` | `14a72d4426ec1dd313f991f1b2386317a6300edda6070a71d596e38bd613498a` |
+| `target-benchmark-harness/Beutl.GpuPassTargetBenchmarkHarness.csproj` | `8378064e86bcefb3ae29a9176c6bb161e0e8c0f4a614e284f783bc2c9a3d0462` |
+| `tests/Beutl.UnitTests/Engine/Graphics/Rendering/Evidence/PairedBenchmarkAnalyzerTests.cs` | `a36dc26bf3670dc334f070443f03841bbfa334d4a5026b6dc6f4f5719290eb55` |
 
-These hashes identify the current stricter implementation; they do not replace the
-historical harness hashes authenticated by the unchanged committed benchmark manifest.
+These hashes identify the current stricter implementation. The immutable-evidence tests keep
+the manifest's historical runner hash separate and independently pin the current runner hash;
+the current values do not replace historical harness hashes authenticated by the unchanged
+committed benchmark manifests.
 
 The current immutable trust-chain anchors are target visual manifest
 `e83694b68eb6a6daf3286ac5ace4bf8bf8e7816705fc6f4930652f124da06b7e` and
@@ -125,16 +138,17 @@ counter construction — counters and output hashes came from untimed replays ve
 against the timed run's cheap token): BenchmarkDotNet Monitoring strategy, warmup 3 +
 5 setup frames, 15 iterations × 1 invocation, three runs
 (baseline-A → feature → baseline-B) preceded by one discarded warm-up pass,
-bootstrap 100,000 iterations, seed 20040719, confidence 0.95. The analyzer verifies
-every case's outputs across the baseline repeats, the feature's setup/measured
-self-consistency, and exact no-effect-control equality; effect workloads are
-intentionally not byte-identical across pipelines (FR-019), so cross-pipeline
-equivalence is proven by the paired visual evidence.
-The current feature and starting-SHA harnesses strengthen that boundary without adding
-full-image hashing to the timed interval: cleanup hashes the retained final timed frame
-and requires exact bounds, dimensions, checksum, and SHA-256 equality with the untimed
-replay. The committed run predates this additional oracle, so its manifest and numeric
-results remain unchanged and continue to record the harness hashes that produced them.
+bootstrap 100,000 iterations, seed 20040719, confidence 0.95. The historical analyzer
+verifies every case's outputs across the baseline repeats, the feature's setup/measured
+self-consistency, and exact no-effect-control equality.
+The current schema-3 feature and starting-SHA harnesses strengthen that boundary without
+adding full-image hashing to the timed interval: cleanup archives both the retained setup
+and final timed RGBA16F frames, binds each blob to its counter SHA-256, and requires exact
+bounds, dimensions, checksum, and SHA-256 equality with the untimed replay. The current
+analyzer also applies the FR-019 semantic thresholds to both blobs across the two pipelines,
+including their logical origins. The committed run predates this additional oracle, so its
+manifest and numeric results remain unchanged and continue to record the harness hashes that
+produced them; satisfying T123 requires a new schema-3 run.
 Recorded run committed under
 [`paired-benchmark-run/`](paired-benchmark-run/) (manifest SHA-256
 `839eaf34e4fa5824a03333fa50418259ea3fca302a044eb767110afb6b676b1e`), feature code SHA `912ddda0484d0b8cde3c63b60deefa491a0c596c`.

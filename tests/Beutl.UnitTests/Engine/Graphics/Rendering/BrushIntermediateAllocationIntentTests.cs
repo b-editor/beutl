@@ -259,7 +259,7 @@ public sealed class BrushIntermediateAllocationIntentTests
         {
             RenderResource<Brush.Resource> brushToken = context.Borrow(
                 _brush,
-                _brush.GetOriginal().Id,
+                _brush.RequireOriginal().Id,
                 _brush.Version);
             OpaqueRenderDescription description = OpaqueRenderDescription.Create(
                 bounds,

@@ -127,7 +127,13 @@ internal sealed partial class TwoSegmentBrushEffect(Brush.Resource first, Brush.
         return created;
     }
 
-    public new sealed class Resource : FilterEffect.Resource;
+    public new sealed class Resource : FilterEffect.Resource
+    {
+        public Resource()
+            : base(skipDefaultInitialization: true)
+        {
+        }
+    }
 }
 
 [SuppressResourceClassGeneration]
@@ -152,7 +158,13 @@ internal sealed partial class BrushBeforeTypedOperationEffect(Brush.Resource bru
         return created;
     }
 
-    public new sealed class Resource : FilterEffect.Resource;
+    public new sealed class Resource : FilterEffect.Resource
+    {
+        public Resource()
+            : base(skipDefaultInitialization: true)
+        {
+        }
+    }
 }
 
 [SuppressResourceClassGeneration]
@@ -178,5 +190,11 @@ internal sealed partial class ReusedBrushAcrossTypedOperationEffect(Brush.Resour
         return created;
     }
 
-    public new sealed class Resource : FilterEffect.Resource;
+    public new sealed class Resource : FilterEffect.Resource
+    {
+        public Resource()
+            : base(skipDefaultInitialization: true)
+        {
+        }
+    }
 }

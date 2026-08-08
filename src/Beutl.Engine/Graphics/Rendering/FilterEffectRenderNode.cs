@@ -121,7 +121,7 @@ public class FilterEffectRenderNode(FilterEffect.Resource filterEffect) : Contai
         try
         {
             FilterEffect.Resource effectResource = effectSnapshot.Resource;
-            recordingContext.ApplyTransactional(effectResource.GetOriginal(), effectResource);
+            recordingContext.ApplyTransactional(effectResource.RequireOriginal(), effectResource);
             IReadOnlyList<IFEItem> items = recordingContext.GetOrderedItems();
             if (items.Count == 0)
             {

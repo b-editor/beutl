@@ -1881,7 +1881,7 @@ public class SourceEffectiveScaleFlowTests
             Brush.Resource fill = Brushes.Resource.White;
             RenderResource<Brush.Resource> fillToken = context.Borrow(
                 fill,
-                fill.GetOriginal().Id,
+                fill.RequireOriginal().Id,
                 fill.Version);
             float density = _density;
             OpaqueRenderDescription source = OpaqueRenderDescription.Create(
@@ -2181,6 +2181,11 @@ internal sealed partial class ClampToOutputEffect : FilterEffect
 
     public new sealed class Resource : FilterEffect.Resource
     {
+        public Resource()
+            : base(skipDefaultInitialization: true)
+        {
+        }
+
         public override FilterEffectRenderNode CreateRenderNode() => new ClampToOutputEscapeHatchNode(this);
     }
 }
@@ -2213,7 +2218,13 @@ internal sealed partial class WorkingScaleProbeEffect(Action<FilterEffectContext
         return resource;
     }
 
-    public new sealed class Resource : FilterEffect.Resource;
+    public new sealed class Resource : FilterEffect.Resource
+    {
+        public Resource()
+            : base(skipDefaultInitialization: true)
+        {
+        }
+    }
 }
 
 internal static class ScaleRecordingTestHelper
@@ -2351,7 +2362,7 @@ internal static class ScaleRecordingTestHelper
             Brush.Resource fill = Brushes.Resource.White;
             RenderResource<Brush.Resource> fillToken = context.Borrow(
                 fill,
-                fill.GetOriginal().Id,
+                fill.RequireOriginal().Id,
                 fill.Version);
             RenderScaleContract scaleContract = scale.IsUnbounded
                 ? RenderScaleContract.Vector

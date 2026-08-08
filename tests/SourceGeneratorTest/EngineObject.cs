@@ -5,8 +5,23 @@ using Beutl.Composition;
 
 namespace Beutl.Engine;
 
+[AttributeUsage(AttributeTargets.Method, AllowMultiple = false, Inherited = false)]
+public sealed class ResourceDefaultValuesProviderAttribute : Attribute;
+
 public class EngineObject
 {
+    protected readonly struct ResourceDefaultValuesConstruction
+    {
+    }
+
+    public EngineObject()
+    {
+    }
+
+    protected EngineObject(ResourceDefaultValuesConstruction construction)
+    {
+    }
+
     public virtual IReadOnlyList<IProperty> Properties => throw null!;
 
     internal int Version { get; private set; }
@@ -26,11 +41,23 @@ public class EngineObject
 
     public class Resource : IDisposable
     {
-        private EngineObject _original = null!;
+        private EngineObject? _original;
+
+        public Resource()
+        {
+        }
+
+        protected Resource(EngineObject defaultValues)
+        {
+        }
+
+        protected Resource(bool skipDefaultInitialization)
+        {
+        }
 
         public int Version { get; protected set; }
 
-        public EngineObject GetOriginal() => _original;
+        public EngineObject? GetOriginal() => _original;
 
         public EngineObject RequireOriginal() => _original ?? throw new InvalidOperationException();
 

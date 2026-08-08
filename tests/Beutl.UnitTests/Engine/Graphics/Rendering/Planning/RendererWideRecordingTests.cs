@@ -991,16 +991,23 @@ internal sealed class RendererWideTreeState(int count)
 }
 
 // Top-level partial because EngineObjectResourceGenerator does not support nested types.
-internal sealed partial class RendererWideProbeDrawable(
-    int index,
-    RendererWideTreeState state) : Drawable
+internal sealed partial class RendererWideProbeDrawable : Drawable
 {
+    private readonly int _index;
+    private readonly RendererWideTreeState _state;
+
+    public RendererWideProbeDrawable(int index, RendererWideTreeState state)
+    {
+        _index = index;
+        _state = state;
+    }
+
     public override void Render(GraphicsContext2D context, Drawable.Resource resource)
     {
-        state.BuildCalls[index]++;
-        var node = new ProductionTreeProbeNode(index, state);
+        _state.BuildCalls[_index]++;
+        var node = new ProductionTreeProbeNode(_index, _state);
         node.Cache.ReportRenderCount(RenderNodeCache.Count - 1);
-        state.Nodes[index] = node;
+        _state.Nodes[_index] = node;
         context.DrawNode(node);
     }
 
@@ -1067,12 +1074,18 @@ internal sealed class CacheMutationThreadState
 }
 
 // Top-level partial because EngineObjectResourceGenerator does not support nested types.
-internal sealed partial class CacheMutationThreadProbeDrawable(
-    CacheMutationThreadState state) : Drawable
+internal sealed partial class CacheMutationThreadProbeDrawable : Drawable
 {
+    private readonly CacheMutationThreadState _state;
+
+    public CacheMutationThreadProbeDrawable(CacheMutationThreadState state)
+    {
+        _state = state;
+    }
+
     public override void Render(GraphicsContext2D context, Drawable.Resource resource)
     {
-        context.DrawNode(new CacheMutationThreadProbeNode(state));
+        context.DrawNode(new CacheMutationThreadProbeNode(_state));
     }
 
     protected override Size MeasureCore(Size availableSize, Drawable.Resource resource) => new(8, 8);

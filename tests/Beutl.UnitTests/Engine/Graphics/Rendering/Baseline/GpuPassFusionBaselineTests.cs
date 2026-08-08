@@ -102,6 +102,10 @@ public sealed class GpuPassFusionBaselineTests
     public void ImmutableEvidence_HasPinnedManifestToolAndBlobIntegrity()
     {
         GpuPassFusionEvidenceManifest manifest = GpuPassFusionBaselineEvidence.LoadAndVerify();
+        GpuPassFusionBaselineEvidence.VerifyFileHash(
+            manifest.Paths.BenchmarkRunnerPath,
+            GpuPassFusionBaselineEvidence.ExpectedCurrentBenchmarkRunnerSha256,
+            "current paired benchmark runner");
 
         using (Assert.EnterMultipleScope())
         {
@@ -110,6 +114,9 @@ public sealed class GpuPassFusionBaselineTests
                 manifest.BaselineCodeSha,
                 Is.EqualTo(GpuPassFusionBaselineEvidence.ExpectedBaselineCodeSha));
             Assert.That(manifest.GeneratorSeed, Is.EqualTo(GpuPassFusionBaselineEvidence.ExpectedGeneratorSeed));
+            Assert.That(
+                manifest.EvidenceTools.BenchmarkRunnerSha256,
+                Is.EqualTo(GpuPassFusionBaselineEvidence.ExpectedHistoricalBenchmarkRunnerSha256));
             Assert.That(manifest.ArtifactHashes, Is.Not.Empty);
             Assert.That(manifest.Scenes.Count(scene => scene.Role == "parity"), Is.GreaterThan(0));
             Assert.That(

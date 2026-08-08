@@ -1,6 +1,8 @@
-﻿using System.Diagnostics;
+﻿using System.Buffers.Binary;
+using System.Diagnostics;
 using System.Security.Cryptography;
 using System.Text.Json;
+using System.Xml.Linq;
 
 using Beutl.Graphics;
 using Beutl.Media;
@@ -61,13 +63,29 @@ internal static class PairedBenchmarkAnalyzer
     ];
 
     public static int Run(string[] args, TextWriter output, TextWriter error)
+        => RunCore(args, output, error, DefaultBootstrapIterations);
+
+    internal static int RunForTest(
+        string[] args,
+        TextWriter output,
+        TextWriter error,
+        int bootstrapIterations)
+        => RunCore(args, output, error, bootstrapIterations);
+
+    private static int RunCore(
+        string[] args,
+        TextWriter output,
+        TextWriter error,
+        int bootstrapIterations)
     {
         ArgumentNullException.ThrowIfNull(args);
         ArgumentNullException.ThrowIfNull(output);
         ArgumentNullException.ThrowIfNull(error);
         try
         {
-            PairedBenchmarkAnalyzerOptions options = PairedBenchmarkAnalyzerOptions.Parse(args);
+            PairedBenchmarkAnalyzerOptions options = PairedBenchmarkAnalyzerOptions.Parse(
+                args,
+                bootstrapIterations);
             PairedBenchmarkManifest manifest = Analyze(options);
             string? parent = Path.GetDirectoryName(options.OutputPath);
             if (!string.IsNullOrEmpty(parent))
@@ -310,6 +328,10 @@ internal static class PairedBenchmarkAnalyzer
             featureCounters,
             options.BaselineOutputsPath,
             options.FeatureOutputsPath);
+        ValidateOutputBlobs(
+            baselineRepeatCounters,
+            options.BaselineRepeatOutputsPath,
+            "baseline repeat");
 
         var cases = new SortedDictionary<string, PairedBenchmarkCaseResult>(StringComparer.Ordinal);
         foreach (RenderPipelineBenchmarkSceneDefinition scene in RenderPipelineBenchmarkScenes.All)
@@ -775,41 +797,166 @@ internal static class PairedBenchmarkAnalyzer
     private static void ValidateCrossPipelineVisualParity(
         CounterRun baseline,
         CounterRun feature,
-        string? baselineOutputsPath,
-        string? featureOutputsPath)
+        string baselineOutputsPath,
+        string featureOutputsPath)
     {
-        if (baselineOutputsPath is null || featureOutputsPath is null)
-            return;
-
         foreach (RenderPipelineBenchmarkSceneDefinition scene in RenderPipelineBenchmarkScenes.All)
         {
             CounterCase baselineCase = baseline.Cases[scene.Name];
             CounterCase featureCase = feature.Cases[scene.Name];
-            string baselineBlob = baselineCase.SetupOutputBlobFile;
-            string featureBlob = featureCase.SetupOutputBlobFile;
-            if (string.IsNullOrEmpty(baselineBlob) || string.IsNullOrEmpty(featureBlob))
-                continue;
-
-            byte[] baselinePayload = File.ReadAllBytes(Path.Combine(baselineOutputsPath, baselineBlob));
-            byte[] featurePayload = File.ReadAllBytes(Path.Combine(featureOutputsPath, featureBlob));
-            int width = baselineCase.SetupOutputContract.Width;
-            int height = baselineCase.SetupOutputContract.Height;
-            Rgba16fParityMetrics full = Rgba16fEvidenceWriter.CalculateParity(
-                baselinePayload,
-                featurePayload,
-                width,
-                height,
-                region: null);
-            if (full.LinearLightSsim < 0.99
-                || full.LinearRgbMae > 0.02
-                || full.AlphaMae > 0.02)
-            {
-                throw new InvalidDataException(
-                    $"Benchmark case '{scene.Name}' feature output is not visually equivalent to its "
-                    + $"baseline: SSIM={full.LinearLightSsim:F6}, RGB MAE={full.LinearRgbMae:F6}, "
-                    + $"alpha MAE={full.AlphaMae:F6}.");
-            }
+            ValidateCrossPipelineOutput(
+                scene.Name,
+                "setup",
+                baselineOutputsPath,
+                baselineCase.SetupOutputBlobFile,
+                baselineCase.SetupOutputContract,
+                featureOutputsPath,
+                featureCase.SetupOutputBlobFile,
+                featureCase.SetupOutputContract);
+            ValidateCrossPipelineOutput(
+                scene.Name,
+                "measured",
+                baselineOutputsPath,
+                baselineCase.MeasuredOutputBlobFile,
+                baselineCase.MeasuredOutputContract,
+                featureOutputsPath,
+                featureCase.MeasuredOutputBlobFile,
+                featureCase.MeasuredOutputContract);
         }
+    }
+
+    private static void ValidateOutputBlobs(
+        CounterRun run,
+        string outputsPath,
+        string label)
+    {
+        foreach (RenderPipelineBenchmarkSceneDefinition scene in RenderPipelineBenchmarkScenes.All)
+        {
+            CounterCase item = run.Cases[scene.Name];
+            _ = ReadAndValidateOutputBlob(
+                outputsPath,
+                item.SetupOutputBlobFile,
+                scene.Name,
+                $"{label} setup",
+                item.SetupOutputContract);
+            _ = ReadAndValidateOutputBlob(
+                outputsPath,
+                item.MeasuredOutputBlobFile,
+                scene.Name,
+                $"{label} measured",
+                item.MeasuredOutputContract);
+        }
+    }
+
+    private static void ValidateCrossPipelineOutput(
+        string caseName,
+        string phase,
+        string baselineOutputsPath,
+        string baselineBlob,
+        CounterOutputContract baselineContract,
+        string featureOutputsPath,
+        string featureBlob,
+        CounterOutputContract featureContract)
+    {
+        ValidateMatchingCrossPipelineGeometry(caseName, phase, baselineContract, featureContract);
+        byte[] baselinePayload = ReadAndValidateOutputBlob(
+            baselineOutputsPath,
+            baselineBlob,
+            caseName,
+            $"baseline {phase}",
+            baselineContract);
+        byte[] featurePayload = ReadAndValidateOutputBlob(
+            featureOutputsPath,
+            featureBlob,
+            caseName,
+            $"feature {phase}",
+            featureContract);
+        Rgba16fParityMetrics full = Rgba16fEvidenceWriter.CalculateParity(
+            baselinePayload,
+            featurePayload,
+            baselineContract.Width,
+            baselineContract.Height,
+            region: null);
+        if (full.LinearLightSsim < 0.99
+            || full.LinearRgbMae > 0.02
+            || full.AlphaMae > 0.02)
+        {
+            throw new InvalidDataException(
+                $"Benchmark case '{caseName}' feature {phase} output is not visually equivalent to its "
+                + $"baseline: SSIM={full.LinearLightSsim:F6}, RGB MAE={full.LinearRgbMae:F6}, "
+                + $"alpha MAE={full.AlphaMae:F6}.");
+        }
+    }
+
+    private static void ValidateMatchingCrossPipelineGeometry(
+        string caseName,
+        string phase,
+        CounterOutputContract baseline,
+        CounterOutputContract feature)
+    {
+        var mismatches = new List<string>(3);
+        if (baseline.Width != feature.Width)
+            mismatches.Add("width");
+        if (baseline.Height != feature.Height)
+            mismatches.Add("height");
+        if (!string.Equals(baseline.Bounds, feature.Bounds, StringComparison.Ordinal))
+            mismatches.Add("outputBounds");
+        if (mismatches.Count != 0)
+        {
+            throw new InvalidDataException(
+                $"Cross-pipeline {phase} output geometry mismatch for '{caseName}': "
+                + $"{string.Join(", ", mismatches)}.");
+        }
+    }
+
+    private static byte[] ReadAndValidateOutputBlob(
+        string outputsPath,
+        string blobFile,
+        string caseName,
+        string label,
+        CounterOutputContract contract)
+    {
+        string path = Path.Combine(outputsPath, blobFile);
+        if (!File.Exists(path))
+            throw new FileNotFoundException($"Benchmark case '{caseName}' {label} output blob is missing.", path);
+        byte[] payload = File.ReadAllBytes(path);
+        long expectedLength = checked((long)contract.Width * contract.Height * 8);
+        if (payload.LongLength != expectedLength)
+        {
+            throw new InvalidDataException(
+                $"Benchmark case '{caseName}' {label} output blob must contain exactly "
+                + $"{expectedLength} RGBA16F bytes; observed {payload.LongLength}.");
+        }
+
+        string actualSha256 = Convert.ToHexString(SHA256.HashData(payload)).ToLowerInvariant();
+        if (!string.Equals(actualSha256, contract.Sha256, StringComparison.Ordinal))
+        {
+            throw new InvalidDataException(
+                $"Benchmark case '{caseName}' {label} output blob SHA-256 does not match its counter contract; "
+                + $"expected {contract.Sha256}, observed {actualSha256}.");
+        }
+
+        string actualChecksum = CalculateOutputBlobChecksum(payload);
+        if (!string.Equals(actualChecksum, contract.Checksum, StringComparison.Ordinal))
+        {
+            throw new InvalidDataException(
+                $"Benchmark case '{caseName}' {label} output blob checksum does not match its counter contract; "
+                + $"expected {contract.Checksum}, observed {actualChecksum}.");
+        }
+        return payload;
+    }
+
+    private static string CalculateOutputBlobChecksum(ReadOnlySpan<byte> payload)
+    {
+        const ulong offset = 14695981039346656037;
+        const ulong prime = 1099511628211;
+        ulong result = offset;
+        for (int byteOffset = 0; byteOffset < payload.Length; byteOffset += 26)
+        {
+            result ^= BinaryPrimitives.ReadUInt16LittleEndian(payload.Slice(byteOffset, 2));
+            result *= prime;
+        }
+        return result.ToString("x16");
     }
 
     private static void ValidateFeatureOutputContracts(CounterRun feature)
@@ -918,6 +1065,7 @@ internal static class PairedBenchmarkAnalyzer
     private static SortedDictionary<string, string> HashTrackedDirectory(string directory)
     {
         string root = Path.GetFullPath(directory);
+        string repositoryRoot = Path.GetFullPath(RunGit(root, "rev-parse", "--show-toplevel").Trim());
         var startInfo = new ProcessStartInfo
         {
             FileName = "git",
@@ -945,6 +1093,13 @@ internal static class PairedBenchmarkAnalyzer
         string[] tracked = standardOutput.Split('\0', StringSplitOptions.RemoveEmptyEntries);
         if (tracked.Length == 0)
             throw new InvalidDataException("The baseline harness contains no tracked source inputs.");
+        string[] untracked = RunGit(root, "ls-files", "--others", "--exclude-standard", "--", ".")
+            .Split('\n', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+        if (untracked.Length != 0)
+        {
+            throw new InvalidDataException(
+                $"The baseline harness contains untracked build inputs: {string.Join(", ", untracked)}");
+        }
         var result = new SortedDictionary<string, string>(StringComparer.Ordinal);
         foreach (string relative in tracked.Order(StringComparer.Ordinal))
         {
@@ -957,7 +1112,66 @@ internal static class PairedBenchmarkAnalyzer
             }
             result.Add(relative.Replace(Path.DirectorySeparatorChar, '/'), Sha256File(path));
         }
+
+        foreach (string projectPath in Directory.EnumerateFiles(root, "*.csproj", SearchOption.AllDirectories))
+        {
+            XDocument project = XDocument.Load(projectPath, LoadOptions.None);
+            foreach (XElement compile in project.Descendants()
+                         .Where(static element => element.Name.LocalName == "Compile"))
+            {
+                string? include = compile.Attribute("Include")?.Value;
+                if (string.IsNullOrWhiteSpace(include))
+                    continue;
+                if (include.Contains("$(", StringComparison.Ordinal)
+                    || include.IndexOfAny(['*', '?']) >= 0)
+                {
+                    throw new InvalidDataException(
+                        $"The baseline harness has an unsupported dynamic Compile Include: {include}");
+                }
+
+                string path = Path.GetFullPath(include, Path.GetDirectoryName(projectPath)!);
+                if (path.StartsWith(root + Path.DirectorySeparatorChar, StringComparison.Ordinal))
+                    continue;
+                if (!path.StartsWith(repositoryRoot + Path.DirectorySeparatorChar, StringComparison.Ordinal)
+                    || !File.Exists(path))
+                {
+                    throw new InvalidDataException(
+                        $"Linked baseline-harness input is missing or outside the repository: {include}");
+                }
+
+                string repositoryRelative = Path.GetRelativePath(repositoryRoot, path);
+                _ = RunGit(repositoryRoot, "ls-files", "--error-unmatch", "--", repositoryRelative);
+                string harnessRelative = Path.GetRelativePath(root, path)
+                    .Replace(Path.DirectorySeparatorChar, '/');
+                result.TryAdd(harnessRelative, Sha256File(path));
+            }
+        }
         return result;
+    }
+
+    private static string RunGit(string workingDirectory, params string[] arguments)
+    {
+        var startInfo = new ProcessStartInfo
+        {
+            FileName = "git",
+            RedirectStandardOutput = true,
+            RedirectStandardError = true,
+            UseShellExecute = false,
+            WorkingDirectory = workingDirectory,
+        };
+        foreach (string argument in arguments)
+            startInfo.ArgumentList.Add(argument);
+        using Process process = Process.Start(startInfo)
+            ?? throw new InvalidOperationException("Could not start git to inspect baseline-harness inputs.");
+        string standardOutput = process.StandardOutput.ReadToEnd();
+        string standardError = process.StandardError.ReadToEnd();
+        process.WaitForExit();
+        if (process.ExitCode != 0)
+        {
+            throw new InvalidOperationException(
+                $"Could not inspect baseline-harness inputs: {standardError.Trim()}");
+        }
+        return standardOutput;
     }
 
     private sealed class CounterRun
@@ -997,7 +1211,7 @@ internal static class PairedBenchmarkAnalyzer
                 string caseName = root.GetProperty("caseName").GetString()
                     ?? throw new InvalidDataException($"Counter file has no caseName: {path}");
                 int schemaVersion = root.GetProperty("schemaVersion").GetInt32();
-                if (schemaVersion != 2)
+                if (schemaVersion != 3)
                     throw new InvalidDataException($"Counter file '{path}' has unsupported schema {schemaVersion}.");
                 JsonElement fingerprint = root.GetProperty("fingerprint");
                 FingerprintParts parts = ParseFingerprint(fingerprint, path);
@@ -1172,10 +1386,29 @@ internal static class PairedBenchmarkAnalyzer
                     CanonicalJson(expectedMeasuredOutputBounds),
                     expectedMeasuredOutputSha256,
                     expectedMeasuredOutputChecksum),
-                root.TryGetProperty("setupOutputBlobFile", out JsonElement blobFile)
-                    && blobFile.ValueKind == JsonValueKind.String
-                    ? blobFile.GetString() ?? string.Empty
-                    : string.Empty);
+                ReadOutputBlobFile(root, "setupOutputBlobFile", path),
+                ReadOutputBlobFile(root, "measuredOutputBlobFile", path));
+        }
+
+        private static string ReadOutputBlobFile(JsonElement root, string name, string path)
+        {
+            if (!root.TryGetProperty(name, out JsonElement value)
+                || value.ValueKind != JsonValueKind.String
+                || string.IsNullOrWhiteSpace(value.GetString()))
+            {
+                throw new InvalidDataException($"Counter output blob field '{name}' is missing: {path}");
+            }
+
+            string fileName = value.GetString()!;
+            if (!string.Equals(fileName, Path.GetFileName(fileName), StringComparison.Ordinal)
+                || fileName.Contains('/')
+                || fileName.Contains('\\')
+                || !fileName.EndsWith(".rgba16f", StringComparison.Ordinal))
+            {
+                throw new InvalidDataException(
+                    $"Counter output blob field '{name}' is not a safe RGBA16F file name: {path}");
+            }
+            return fileName;
         }
 
         private static void ValidateFrozenWorkloadContract(JsonElement root, string caseName, string path)
@@ -1375,7 +1608,8 @@ internal static class PairedBenchmarkAnalyzer
         CounterOutputContract SetupOutputContract,
         CounterOutputContract MeasuredOutputContract,
         CounterOutputContract ExpectedMeasuredOutputContract,
-        string SetupOutputBlobFile);
+        string SetupOutputBlobFile,
+        string MeasuredOutputBlobFile);
 
     private sealed record CounterOutputContract(
         int Width,
@@ -1402,8 +1636,9 @@ internal sealed class PairedBenchmarkAnalyzerOptions
     public required string BaselineStdoutPath { get; init; }
     public required string BaselineRepeatStdoutPath { get; init; }
     public required string FeatureStdoutPath { get; init; }
-    public string? BaselineOutputsPath { get; init; }
-    public string? FeatureOutputsPath { get; init; }
+    public required string BaselineOutputsPath { get; init; }
+    public required string BaselineRepeatOutputsPath { get; init; }
+    public required string FeatureOutputsPath { get; init; }
     public required string BaselineSha { get; init; }
     public required string FeatureSha { get; init; }
     public required string BaselineCommand { get; init; }
@@ -1414,7 +1649,9 @@ internal sealed class PairedBenchmarkAnalyzerOptions
     public required string OutputPath { get; init; }
     public int BootstrapIterations { get; init; }
 
-    public static PairedBenchmarkAnalyzerOptions Parse(string[] args)
+    public static PairedBenchmarkAnalyzerOptions Parse(
+        string[] args,
+        int bootstrapIterations = PairedBenchmarkAnalyzer.DefaultBootstrapIterations)
     {
         var values = new Dictionary<string, string>(StringComparer.Ordinal);
         for (int index = 0; index < args.Length; index += 2)
@@ -1430,25 +1667,15 @@ internal sealed class PairedBenchmarkAnalyzerOptions
             "--baseline-results", "--baseline-repeat-results", "--feature-results",
             "--baseline-counters", "--baseline-repeat-counters", "--feature-counters",
             "--baseline-stdout", "--baseline-repeat-stdout", "--feature-stdout",
-            "--baseline-outputs", "--feature-outputs",
+            "--baseline-outputs", "--baseline-repeat-outputs", "--feature-outputs",
             "--baseline-sha", "--feature-sha", "--baseline-command", "--baseline-repeat-command",
             "--feature-command", "--runner-sha256", "--output",
-            "--baseline-harness", "--bootstrap-iterations",
+            "--baseline-harness",
         };
         string[] unknown = values.Keys.Where(key => !known.Contains(key)).ToArray();
         if (unknown.Length != 0)
             throw new ArgumentException($"Unknown option(s): {string.Join(", ", unknown)}. {Usage}");
 
-        int iterations = PairedBenchmarkAnalyzer.DefaultBootstrapIterations;
-        if (values.TryGetValue("--bootstrap-iterations", out string? iterationText)
-            && !int.TryParse(
-                iterationText,
-                System.Globalization.NumberStyles.None,
-                System.Globalization.CultureInfo.InvariantCulture,
-                out iterations))
-        {
-            throw new ArgumentException("--bootstrap-iterations must be a positive integer.");
-        }
         return new PairedBenchmarkAnalyzerOptions
         {
             BaselineResultsPath = FilePath(Require(values, "--baseline-results")),
@@ -1460,8 +1687,9 @@ internal sealed class PairedBenchmarkAnalyzerOptions
             BaselineStdoutPath = FilePath(Require(values, "--baseline-stdout")),
             BaselineRepeatStdoutPath = FilePath(Require(values, "--baseline-repeat-stdout")),
             FeatureStdoutPath = FilePath(Require(values, "--feature-stdout")),
-            BaselineOutputsPath = OptionalDirectoryPath(values.GetValueOrDefault("--baseline-outputs")),
-            FeatureOutputsPath = OptionalDirectoryPath(values.GetValueOrDefault("--feature-outputs")),
+            BaselineOutputsPath = DirectoryPath(Require(values, "--baseline-outputs")),
+            BaselineRepeatOutputsPath = DirectoryPath(Require(values, "--baseline-repeat-outputs")),
+            FeatureOutputsPath = DirectoryPath(Require(values, "--feature-outputs")),
             BaselineSha = Require(values, "--baseline-sha"),
             FeatureSha = Require(values, "--feature-sha"),
             BaselineCommand = Require(values, "--baseline-command"),
@@ -1470,7 +1698,7 @@ internal sealed class PairedBenchmarkAnalyzerOptions
             RunnerSha256 = Require(values, "--runner-sha256"),
             BaselineHarnessPath = DirectoryPath(Require(values, "--baseline-harness")),
             OutputPath = Path.GetFullPath(Require(values, "--output")),
-            BootstrapIterations = iterations,
+            BootstrapIterations = bootstrapIterations,
         };
     }
 
@@ -1491,17 +1719,16 @@ internal sealed class PairedBenchmarkAnalyzerOptions
         return Directory.Exists(path) ? path : throw new DirectoryNotFoundException(path);
     }
 
-    private static string? OptionalDirectoryPath(string? value)
-        => string.IsNullOrWhiteSpace(value) ? null : DirectoryPath(value);
-
     private const string Usage =
         "Usage: paired-analyze --baseline-results <json> --baseline-repeat-results <json> "
         + "--feature-results <json> --baseline-counters <dir> --baseline-repeat-counters <dir> "
         + "--feature-counters <dir> --baseline-stdout <file> --baseline-repeat-stdout <file> "
-        + "--feature-stdout <file> --baseline-sha <sha> --feature-sha <sha> "
+        + "--feature-stdout <file> --baseline-outputs <dir> --baseline-repeat-outputs <dir> "
+        + "--feature-outputs <dir> "
+        + "--baseline-sha <sha> --feature-sha <sha> "
         + "--baseline-command <command> --baseline-repeat-command <command> "
         + "--feature-command <command> --runner-sha256 <sha256> "
-        + "--baseline-harness <dir> --output <json> [--bootstrap-iterations <n>]";
+        + "--baseline-harness <dir> --output <json>";
 }
 
 internal sealed class PairedBenchmarkManifest

@@ -27,7 +27,7 @@ public partial class DelayAnimationEffect : FilterEffect
         var r = (Resource)resource;
         if (r.Effect == null) return;
 
-        var childEffect = r.Effect.GetOriginal();
+        FilterEffect childEffect = r.Effect.RequireOriginal();
         context.LowerNestedEffectBrushes(childEffect, r.Effect);
 
         context.CustomEffect(
@@ -115,6 +115,16 @@ public partial class DelayAnimationEffect : FilterEffect
 
     public new class Resource : FilterEffect.Resource
     {
+        internal Resource()
+            : this(skipDefaultInitialization: true)
+        {
+        }
+
+        protected Resource(bool skipDefaultInitialization)
+            : base(skipDefaultInitialization)
+        {
+        }
+
         private float _delay;
         private FilterEffect.Resource? _effect;
         private TimeSpan _globalTime;

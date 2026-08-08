@@ -51,8 +51,8 @@ public sealed class EngineResourceIdentityRoutingTests
         {
             foreach (EngineObject.Resource resource in resources)
             {
-                Assert.Throws<NullReferenceException>(() => _ = resource.GetOriginal().Id,
-                    $"{resource.GetType()} is detached, so the direct read is the shape being routed away from");
+                Assert.That(resource.GetOriginal(), Is.Null,
+                    $"{resource.GetType()} is detached, so it has no backing id");
                 Guid first = Guid.Empty;
                 Assert.DoesNotThrow(() => first = EngineResourceIdentity.Of(resource));
                 Assert.That(EngineResourceIdentity.Of(resource), Is.EqualTo(first),
@@ -129,7 +129,7 @@ public sealed class EngineResourceIdentityRoutingTests
     }
 
     [Test]
-    public void FilterEffectRenderNode_NeverReachesItsIdentityRead_BecauseApplyTransactionalRejectsTheNullOriginal()
+    public void FilterEffectRenderNode_RejectsADetachedEffectWithTheExplicitOriginalContract()
     {
         using var effect = new ShakeEffect.Resource { IsEnabled = true };
         using var node = new FilterEffectRenderNode(effect);
@@ -139,9 +139,8 @@ public sealed class EngineResourceIdentityRoutingTests
 
         using (Assert.EnterMultipleScope())
         {
-            Assert.That(failure, Is.TypeOf<ArgumentNullException>());
-            Assert.That(((ArgumentNullException)failure!).ParamName, Is.EqualTo("effect"),
-                "Process hands GetOriginal() to ApplyTransactional long before the legacy-segment Own key");
+            Assert.That(failure, Is.TypeOf<InvalidOperationException>());
+            Assert.That(failure!.Message, Does.Contain(nameof(EngineObject.ToResource)));
         }
     }
 
@@ -204,11 +203,11 @@ public sealed class EngineResourceIdentityRoutingTests
             Compare(
                 "GeometryRenderNode.cs:48,50,52",
                 () => s_geometrySink = new GeometryHitTestIdentityShape(
-                    geometryResource.GetOriginal().Id,
+                    geometryResource.RequireOriginal().Id,
                     geometryResource.Version,
-                    fillResource.GetOriginal().Id,
+                    fillResource.RequireOriginal().Id,
                     fillResource.Version,
-                    penResource.GetOriginal().Id,
+                    penResource.RequireOriginal().Id,
                     penResource.Version),
                 () => s_geometrySink = new GeometryHitTestIdentityShape(
                     EngineResourceIdentity.Of(geometryResource),
@@ -221,7 +220,7 @@ public sealed class EngineResourceIdentityRoutingTests
                 "GeometryClipRenderNode.cs:46",
                 () =>
                 {
-                    s_geometryClipSink = geometryResource.GetOriginal().Id;
+                    s_geometryClipSink = geometryResource.RequireOriginal().Id;
                     s_geometryClipStateSink =
                         (s_geometryClipSink, geometryResource.Version, ClipOperation.Intersect);
                 },
@@ -234,7 +233,7 @@ public sealed class EngineResourceIdentityRoutingTests
             Compare(
                 "ParticleRenderNode.cs:55",
                 () => s_particleSink = new ParticleSnapshotIdentityShape(
-                    emitterResource.GetOriginal().Id,
+                    emitterResource.RequireOriginal().Id,
                     emitterResource.Version),
                 () => s_particleSink = new ParticleSnapshotIdentityShape(
                     EngineResourceIdentity.Of(emitterResource),
@@ -242,13 +241,13 @@ public sealed class EngineResourceIdentityRoutingTests
             Compare(
                 "FilterEffectRenderNode.cs:201",
                 () => s_filterEffectSink =
-                    (typeof(FilterEffectRenderNode), effectResource.GetOriginal().Id, 0),
+                    (typeof(FilterEffectRenderNode), effectResource.RequireOriginal().Id, 0),
                 () => s_filterEffectSink =
                     (typeof(FilterEffectRenderNode), EngineResourceIdentity.Of(effectResource), 0)),
             Compare(
                 "Scene3DRenderNode.cs:97",
                 () => s_sceneSnapshotSink = new SceneSnapshotIdentityShape(
-                    sceneResource.GetOriginal().Id,
+                    sceneResource.RequireOriginal().Id,
                     sceneResource.Version),
                 () => s_sceneSnapshotSink = new SceneSnapshotIdentityShape(
                     EngineResourceIdentity.Of(sceneResource),
@@ -256,7 +255,7 @@ public sealed class EngineResourceIdentityRoutingTests
             Compare(
                 "Scene3DRenderNode.cs:117",
                 () => s_sceneRuntimeSink = new SceneRuntimeIdentityShape(
-                    sceneResource.GetOriginal().Id,
+                    sceneResource.RequireOriginal().Id,
                     sceneResource.Version,
                     bounds),
                 () => s_sceneRuntimeSink = new SceneRuntimeIdentityShape(

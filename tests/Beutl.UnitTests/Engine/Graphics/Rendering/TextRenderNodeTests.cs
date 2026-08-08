@@ -96,11 +96,18 @@ public class TextRenderNodeTests
     }
 }
 
-internal sealed partial class TextBrushBoundsProbeDrawable(ICollection<Size> observedSizes) : Drawable
+internal sealed partial class TextBrushBoundsProbeDrawable : Drawable
 {
+    private readonly ICollection<Size> _observedSizes;
+
+    public TextBrushBoundsProbeDrawable(ICollection<Size> observedSizes)
+    {
+        _observedSizes = observedSizes;
+    }
+
     protected override Size MeasureCore(Size availableSize, Drawable.Resource resource)
     {
-        observedSizes.Add(availableSize);
+        _observedSizes.Add(availableSize);
         return new Size(1, 1);
     }
 

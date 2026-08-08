@@ -235,6 +235,7 @@ dotnet run -c Release --artifacts-path "$temporary_build_root/analyzer" --projec
     --baseline-repeat-stdout "$output_root/baseline-b/raw-benchmark-stdout.txt" \
     --feature-stdout "$output_root/feature/raw-benchmark-stdout.txt" \
     --baseline-outputs "$output_root/baseline-a/output-blobs" \
+    --baseline-repeat-outputs "$output_root/baseline-b/output-blobs" \
     --feature-outputs "$output_root/feature/output-blobs" \
     --baseline-sha "$baseline_sha" \
     --feature-sha "$feature_sha" \

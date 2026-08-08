@@ -96,7 +96,7 @@ public sealed class CurrentPixelQuantizationTests
         {
             using (var graphics = new GraphicsContext2D(node, s_frame.ToSize(1), 1))
             {
-                resource.GetOriginal().Render(graphics, resource);
+                resource.RequireOriginal().Render(graphics, resource);
             }
 
             using RenderTarget target = RenderTarget.Create(s_frame.Width, s_frame.Height)

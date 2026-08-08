@@ -924,5 +924,11 @@ internal sealed partial class LegacySuffixCallbackFilterEffect(
         return resource;
     }
 
-    public new sealed class Resource : FilterEffect.Resource;
+    public new sealed class Resource : FilterEffect.Resource
+    {
+        public Resource()
+            : base(skipDefaultInitialization: true)
+        {
+        }
+    }
 }
