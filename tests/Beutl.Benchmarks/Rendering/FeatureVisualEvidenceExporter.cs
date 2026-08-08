@@ -479,7 +479,7 @@ internal static class FeatureVisualEvidenceExporter
             using (var drawable = new DrawableRenderNode(resource))
             {
                 using (var graphics = new GraphicsContext2D(drawable, s_frame.ToSize(1), outputScale))
-                    resource.GetOriginal().Render(graphics, resource);
+                    resource.RequireOriginal().Render(graphics, resource);
                 return RenderExistingNode(
                     drawable,
                     outputScale,

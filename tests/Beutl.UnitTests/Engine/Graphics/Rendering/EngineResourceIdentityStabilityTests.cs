@@ -98,7 +98,7 @@ public sealed class EngineResourceIdentityStabilityTests
         IReadOnlyList<string> recorded = DeclaredKeys(node, RenderFragmentKind.TargetCommand);
 
         Assert.That(recorded, Is.EqualTo(Describe(
-            (resource.GetOriginal().Id, resource.Version))).AsCollection);
+            (resource.RequireOriginal().Id, resource.Version))).AsCollection);
     }
 
     [Test]
@@ -113,7 +113,7 @@ public sealed class EngineResourceIdentityStabilityTests
         IReadOnlyList<string> recorded = DeclaredKeys(node, RenderFragmentKind.LegacyFilterEffect);
 
         Assert.That(recorded, Is.EqualTo(Describe(
-            (typeof(FilterEffectRenderNode), resource.GetOriginal().Id, 0))).AsCollection);
+            (typeof(FilterEffectRenderNode), resource.RequireOriginal().Id, 0))).AsCollection);
     }
 
     [Test]
@@ -135,10 +135,10 @@ public sealed class EngineResourceIdentityStabilityTests
         {
             Assert.That(
                 Describe(payload.Description.Resources[0].CacheIdentity.Key),
-                Is.EqualTo(Describe((resource.GetOriginal().Id, resource.Version))).AsCollection);
+                Is.EqualTo(Describe((resource.RequireOriginal().Id, resource.Version))).AsCollection);
             Assert.That(
                 Describe(payload.Description.RuntimeIdentity!.Value.Key),
-                Is.EqualTo(Describe((resource.GetOriginal().Id, resource.Version, bounds))).AsCollection);
+                Is.EqualTo(Describe((resource.RequireOriginal().Id, resource.Version, bounds))).AsCollection);
         }
     }
 
@@ -289,11 +289,11 @@ public sealed class EngineResourceIdentityStabilityTests
             RenderResource<Beutl.Media.Geometry.Resource> geometryResource = context.Borrow(geometrySnapshot);
             var hitTestState = new GeometryHitTestState(geometry, fill, pen);
             var hitTestIdentity = new GeometryHitTestIdentity(
-                geometry.GetOriginal().Id,
+                geometry.RequireOriginal().Id,
                 geometrySnapshot.Version,
-                fill?.GetOriginal().Id,
+                fill?.RequireOriginal().Id,
                 fillSnapshot?.Version,
-                pen?.GetOriginal().Id,
+                pen?.RequireOriginal().Id,
                 penSnapshot?.Version);
             RenderResource<GeometryHitTestState> hitTestResource = context.Borrow(
                 hitTestState,
@@ -363,7 +363,7 @@ public sealed class EngineResourceIdentityStabilityTests
                 return;
 
             ClipOperation operation = Operation;
-            Guid geometryId = clip.Resource.GetOriginal().Id;
+            Guid geometryId = clip.Resource.RequireOriginal().Id;
             var boundsMetadata = new GeometryClipBoundsMetadata(clip.Resource.Bounds, operation);
             RenderResource<Beutl.Media.Geometry.Resource> resource = context.Borrow(clip);
             var hitTestState = new GeometryClipHitTestState(clip.Resource, operation);

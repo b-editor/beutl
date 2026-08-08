@@ -687,7 +687,13 @@ internal sealed partial class SymbolicDomainFilterEffect : FilterEffect
         return resource;
     }
 
-    public new sealed class Resource : FilterEffect.Resource;
+    public new sealed class Resource : FilterEffect.Resource
+    {
+        public Resource()
+            : base(skipDefaultInitialization: true)
+        {
+        }
+    }
 }
 
 [SuppressResourceClassGeneration]
@@ -712,5 +718,11 @@ internal sealed partial class FiniteLegacyFilterEffect : FilterEffect
         return resource;
     }
 
-    public new sealed class Resource : FilterEffect.Resource;
+    public new sealed class Resource : FilterEffect.Resource
+    {
+        public Resource()
+            : base(skipDefaultInitialization: true)
+        {
+        }
+    }
 }

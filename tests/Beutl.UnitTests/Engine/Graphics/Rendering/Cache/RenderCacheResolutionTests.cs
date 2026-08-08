@@ -2100,7 +2100,7 @@ public sealed class RenderCacheResolutionTests
             Brush.Resource fill = Brushes.Resource.Red;
             RenderResource<Brush.Resource> fillResource = context.Borrow(
                 fill,
-                fill.GetOriginal().Id,
+                fill.RequireOriginal().Id,
                 fill.Version);
             OpaqueRenderDescription description = OpaqueRenderDescription.Create(
                 (throwOnExecute, Probe: _probe),

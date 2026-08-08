@@ -9,8 +9,8 @@ namespace Beutl.UnitTests.Engine;
 /// </summary>
 /// <remarks>
 /// <para>
-/// <see cref="Beutl.Engine.EngineObject.Resource.GetOriginal"/> is declared non-nullable but returns null for a
-/// resource that never went through <c>ToResource</c>, so each call site is a place where a detached resource
+/// <see cref="Beutl.Engine.EngineObject.Resource.GetOriginal"/> is nullable for a resource that never went
+/// through <c>ToResource</c>, so each call site is a place where a detached resource
 /// either has to be handled or provably cannot arrive. Prose cannot carry that list: the enumeration in the
 /// commit that introduced <c>RequireOriginal()</c> was written from a <c>GetOriginal().Member</c> search and
 /// therefore missed <c>GraphicsContext2D.DrawDrawable</c>, which spells the same dereference across two
@@ -32,20 +32,14 @@ public sealed class EngineObjectOriginalAccessCensusTests
         new Dictionary<string, int>(StringComparer.Ordinal)
         {
             ["src/Beutl.Editor.Components/PathEditorTab/Views/PathGeometryControl.cs"] = 2,
-            ["src/Beutl.Engine/Audio/Composing/Composer.cs"] = 1,
-            ["src/Beutl.Engine/Audio/SoundGroup.cs"] = 2,
             ["src/Beutl.Engine/Engine/EngineObject.cs"] = 2,
             ["src/Beutl.Engine/Engine/ResourceExtension.cs"] = 2,
             ["src/Beutl.Engine/Engine/ResourceReconciler.cs"] = 2,
-            ["src/Beutl.Engine/Graphics/AudioVisualizers/AudioVisualizerDrawable.cs"] = 1,
             ["src/Beutl.Engine/Graphics/DrawableTimeController.cs"] = 1,
-            ["src/Beutl.Engine/Graphics/FilterEffects/DelayAnimationEffect.cs"] = 3,
-            ["src/Beutl.Engine/Graphics/FilterEffects/FilterEffectGroup.cs"] = 1,
-            ["src/Beutl.Engine/Graphics/FilterEffects/FilterEffectPresenter.cs"] = 1,
+            ["src/Beutl.Engine/Graphics/FilterEffects/DelayAnimationEffect.cs"] = 2,
             ["src/Beutl.Engine/Graphics/ImmediateCanvas.cs"] = 1,
             ["src/Beutl.Engine/Graphics/Rendering/EngineResourceIdentity.cs"] = 1,
-            ["src/Beutl.Engine/Graphics/Rendering/FilterEffectRenderNode.cs"] = 1,
-            ["src/Beutl.Engine/Graphics/Rendering/Renderer.cs"] = 3,
+            ["src/Beutl.Engine/Graphics/Rendering/Renderer.cs"] = 2,
             ["src/Beutl.Engine/Graphics/Shapes/EllipseShape.cs"] = 1,
             ["src/Beutl.Engine/Graphics/Shapes/RectShape.cs"] = 1,
             ["src/Beutl.Engine/Graphics/Shapes/RoundedRectShape.cs"] = 1,
@@ -53,9 +47,9 @@ public sealed class EngineObjectOriginalAccessCensusTests
             ["src/Beutl.Engine/Graphics3D/Primitives/Plane3D.cs"] = 1,
             ["src/Beutl.Engine/Graphics3D/Primitives/Sphere3D.cs"] = 1,
             ["src/Beutl.Engine/Graphics3D/Scene3DRenderNode.cs"] = 1,
-            ["src/Beutl.NodeGraph/Composition/GraphSnapshot.cs"] = 4,
+            ["src/Beutl.NodeGraph/Composition/GraphSnapshot.cs"] = 1,
             ["src/Beutl.NodeGraph/Nodes/GeometryShapeNode.cs"] = 3,
-            ["src/Beutl.ProjectSystem/ProjectSystem/SceneDrawable.cs"] = 2,
+            ["src/Beutl.ProjectSystem/ProjectSystem/SceneDrawable.cs"] = 1,
             ["src/Beutl/Views/PlayerView.axaml.MouseControl.cs"] = 4,
         };
 

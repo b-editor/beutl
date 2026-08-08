@@ -269,11 +269,11 @@ public sealed class PrimaryPaintedSourceTests
             RenderResource<Geometry.Resource> geometryResource = context.Borrow(geometrySnapshot);
             var hitTestState = new HitTestState(geometry, fill, pen);
             var hitTestIdentity = new HitTestIdentity(
-                geometry.GetOriginal().Id,
+                geometry.RequireOriginal().Id,
                 geometrySnapshot.Version,
-                fill?.GetOriginal().Id,
+                fill?.RequireOriginal().Id,
                 fillSnapshot?.Version,
-                pen?.GetOriginal().Id,
+                pen?.RequireOriginal().Id,
                 penSnapshot?.Version);
             RenderResource<HitTestState> hitTestResource = context.Borrow(hitTestState, hitTestIdentity);
 

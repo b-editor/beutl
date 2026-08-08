@@ -23,7 +23,7 @@ public sealed class CapturedResourceBorrowTests
         RenderResourceIdentity fromCapture = BorrowIdentity(context => context.Borrow(captured));
         RenderResourceIdentity fromArguments = BorrowIdentity(context => context.Borrow(
             captured.Resource,
-            captured.Resource.GetOriginal().Id,
+            captured.Resource.RequireOriginal().Id,
             captured.Version));
 
         Assert.That(fromCapture, Is.EqualTo(fromArguments));
@@ -45,10 +45,8 @@ public sealed class CapturedResourceBorrowTests
 
         Assert.Multiple(() =>
         {
-            Assert.That(
-                () => first.GetOriginal().Id,
-                Throws.TypeOf<NullReferenceException>(),
-                "the derivation the call sites used before cannot serve a detached resource");
+            Assert.That(first.GetOriginal(), Is.Null,
+                "the nullable original contract reports that a detached resource has no backing id");
             Assert.That(firstIdentity, Is.EqualTo(firstAgain),
                 "a detached resource must coalesce with itself across requests");
             Assert.That(firstIdentity, Is.Not.EqualTo(secondIdentity),
@@ -88,7 +86,7 @@ public sealed class CapturedResourceBorrowTests
         long fromCapture = MeasureBytesPerBorrow(context => context.Borrow(captured));
         long fromArguments = MeasureBytesPerBorrow(context => context.Borrow(
             captured.Resource,
-            captured.Resource.GetOriginal().Id,
+            captured.Resource.RequireOriginal().Id,
             captured.Version));
 
         TestContext.Out.WriteLine($"captured snapshot: {fromCapture} bytes/borrow");

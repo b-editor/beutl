@@ -113,16 +113,12 @@ public sealed class GeometryStrokePathCacheTests
         }.ToResource(CompositionContext.Default);
     }
 
-    // A hand-built pen inherits default(T), not the declared default, so TrimEnd and MiterLimit are set
-    // explicitly here; leaving TrimEnd at 0 trims the stroke away entirely.
     private static Pen.Resource CreateDetachedPen(float thickness)
     {
         return new Pen.Resource
         {
             Brush = Colors.Black.ToBrushResource(),
             Thickness = thickness,
-            TrimEnd = 100,
-            MiterLimit = 10,
         };
     }
 }
