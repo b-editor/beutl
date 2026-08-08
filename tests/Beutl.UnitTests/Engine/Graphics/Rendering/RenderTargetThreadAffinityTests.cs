@@ -152,10 +152,18 @@ public class RenderTargetThreadAffinityTests
             completed = true;
         }));
 
-        Assert.That(caller.Wait(TimeSpan.FromSeconds(8)), Is.False,
-            "Run returned while the release it started was still executing");
+        try
+        {
+            // From a finally: the failure this asserts is Run returning early, which would leave the
+            // shared render dispatcher blocked in the callback and take out every later test.
+            Assert.That(caller.Wait(TimeSpan.FromSeconds(8)), Is.False,
+                "Run returned while the release it started was still executing");
+        }
+        finally
+        {
+            finish.Set();
+        }
 
-        finish.Set();
         Assert.That(caller.Wait(TimeSpan.FromSeconds(30)), Is.True);
         Assert.That(completed, Is.True);
     }

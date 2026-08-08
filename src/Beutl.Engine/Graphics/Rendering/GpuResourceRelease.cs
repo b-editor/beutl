@@ -51,8 +51,12 @@ internal static class GpuResourceRelease
         Task queued = dispatcher.InvokeAsync(Once);
         for (TimeSpan waited = TimeSpan.Zero; waited < s_deadline; waited += s_slice)
         {
-            if (queued.Wait(s_slice))
+            // Waited through the handle, not Task.Wait: that wraps a failed release in an
+            // AggregateException, and callers of the formerly inline API catch the release's own
+            // exception type. GetResult rethrows the original.
+            if (((IAsyncResult)queued).AsyncWaitHandle.WaitOne(s_slice))
             {
+                queued.GetAwaiter().GetResult();
                 return;
             }
 
