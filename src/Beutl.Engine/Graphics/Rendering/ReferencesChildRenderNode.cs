@@ -18,6 +18,14 @@ public class ReferencesChildRenderNode(RenderNode? child) : RenderNode
         return HasChanges;
     }
 
+    public override void PrepareForProcess(ImmediateCanvas canvas)
+    {
+        if (Child is { IsDisposed: false })
+        {
+            Child.PrepareForProcess(canvas);
+        }
+    }
+
     public override RenderNodeOperation[] Process(RenderNodeContext context)
     {
         if (Child != null && !Child.IsDisposed)

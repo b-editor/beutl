@@ -203,6 +203,7 @@ public class Renderer : IRenderer
         }
 
         RevalidateAll(entry.Node);
+        entry.Node.PrepareForProcess(_immediateCanvas);
         var processor = new RenderNodeProcessor(entry.Node, CacheOptions.IsEnabled, OutputScale, MaxWorkingScale);
         var ops = processor.PullToRoot();
         Rect bounds = Rect.Empty;
