@@ -1913,11 +1913,21 @@ public sealed class PlayerViewModel : IAsyncDisposable, IPreviewPlayer
                         {
                             cacheManager.Add(frame, bitmapRef);
                             cacheManager.UpdateBlocks();
+
+                            // An entry is a converted (and possibly reduced) copy of the snapshot,
+                            // so showing the snapshot here would make the same frame look one way
+                            // before it is cached and another way afterwards.
+                            if (cacheManager.TryGet(frame, out Ref<Bitmap>? stored))
+                            {
+                                bitmapRef.Dispose();
+                                bitmapRef = stored;
+                            }
                         }
 
-                        using (var canvas = new SKCanvas(bitmap.SKBitmap))
+                        using (var canvas = new SKCanvas(bitmapRef.Value.SKBitmap))
                         {
-                            DrawBoundaries(renderer, canvas, new(bitmap.Width, bitmap.Height), true);
+                            DrawBoundaries(renderer, canvas,
+                                new(bitmapRef.Value.Width, bitmapRef.Value.Height), true);
                         }
                     }
 
