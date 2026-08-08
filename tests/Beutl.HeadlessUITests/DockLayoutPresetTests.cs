@@ -141,6 +141,42 @@ public class DockLayoutPresetTests
     }
 
     [AvaloniaTest]
+    public async Task A_failed_restore_disposes_the_tools_it_already_built()
+    {
+        await ResetProjectAsync();
+        EditViewModel editor = await OpenEditorForNewScene("preset-partial-restore");
+
+        JsonObject captured = editor.DockHost.CaptureLayout();
+
+        // Corrupt the root so restoration walks the tree, builds tool contexts, and only then
+        // fails to produce an IRootDock.
+        var broken = (JsonObject)captured.DeepClone();
+        ((JsonObject)broken["DockLayout"]!)["$type"] = "proportional";
+
+        IRootDock layoutBefore = editor.DockHost.Layout.Value;
+        BeutlToolDockable[] liveBefore = editor.DockHost.Factory.EnumerateTools().ToArray();
+
+        // Each live tool tracks its selection through its context, so a disposed context stops
+        // mirroring. Record the current state to prove the survivors were left alone.
+        bool[] selectedBefore = liveBefore.Select(t => t.ToolContext.IsSelected.Value).ToArray();
+
+        Assert.That(editor.DockHost.ApplyLayout(broken), Is.False);
+        Assert.That(editor.DockHost.Layout.Value, Is.SameAs(layoutBefore), "the live layout must survive");
+        Assert.That(editor.DockHost.Factory.EnumerateTools(), Is.EquivalentTo(liveBefore));
+
+        // A disposed BeutlToolDockable stops mirroring IsSelected onto its context, so flipping it
+        // here proves the surviving tools were not caught up in the cleanup.
+        for (int i = 0; i < liveBefore.Length; i++)
+        {
+            liveBefore[i].IsSelected = !selectedBefore[i];
+            Assert.That(
+                liveBefore[i].ToolContext.IsSelected.Value, Is.EqualTo(!selectedBefore[i]),
+                "a surviving tool must still be wired to its context");
+            liveBefore[i].IsSelected = selectedBefore[i];
+        }
+    }
+
+    [AvaloniaTest]
     public async Task A_layout_from_an_incompatible_version_is_refused()
     {
         await ResetProjectAsync();

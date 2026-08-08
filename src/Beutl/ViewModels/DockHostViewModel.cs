@@ -17,6 +17,10 @@ public class DockHostViewModel : IDisposable, IJsonSerializable
     private readonly ILogger _logger = Log.CreateLogger<DockHostViewModel>();
     private bool _layoutInitialized;
 
+    // Set only while ApplyLayout is walking a restore, so a failure mid-walk can dispose the tools
+    // built so far. Null at every other time.
+    private List<BeutlToolDockable>? _restoredTools;
+
     public DockHostViewModel(string sceneId, EditViewModel editViewModel)
     {
         _sceneId = sceneId;
@@ -266,7 +270,9 @@ public class DockHostViewModel : IDisposable, IJsonSerializable
 
         // Restore first: a malformed preset must not leave the editor without a layout.
         IRootDock restored;
-        IDockable? partial = null;
+        // Collects every tool built during the walk, so a mid-walk failure can dispose them.
+        var built = new List<BeutlToolDockable>();
+        _restoredTools = built;
         try
         {
             if (!IsCurrentVersion(layout))
@@ -283,11 +289,10 @@ public class DockHostViewModel : IDisposable, IJsonSerializable
                 return false;
             }
 
-            partial = RestoreNode(layoutObj);
-            if (partial is not IRootDock rootDock)
+            if (RestoreNode(layoutObj) is not IRootDock rootDock)
             {
                 _logger.LogWarning("Saved dock layout did not restore to an IRootDock ({SceneId})", _sceneId);
-                DisposeRestored(partial);
+                DisposeAll(built, "partially restored");
                 return false;
             }
 
@@ -296,10 +301,12 @@ public class DockHostViewModel : IDisposable, IJsonSerializable
         catch (Exception ex)
         {
             _logger.LogError(ex, "Failed to restore a saved dock layout ({SceneId})", _sceneId);
-            // Restoration builds tool contexts as it walks the tree; the ones it managed to create
-            // before failing are unreachable now and would leak their subscriptions.
-            DisposeRestored(partial);
+            DisposeAll(built, "partially restored");
             return false;
+        }
+        finally
+        {
+            _restoredTools = null;
         }
 
         // Dispose after the swap, and directly — CloseDockable would walk the old tree.
@@ -310,17 +317,7 @@ public class DockHostViewModel : IDisposable, IJsonSerializable
         Layout.Value = restored;
         _layoutInitialized = true;
 
-        foreach (BeutlToolDockable tool in previousTools)
-        {
-            try
-            {
-                tool.Dispose();
-            }
-            catch (Exception ex)
-            {
-                _logger.LogWarning(ex, "Failed to dispose a replaced tool tab ({SceneId})", _sceneId);
-            }
-        }
+        DisposeAll(previousTools, "replaced");
 
         if (!Factory.EnumerateTools().Any())
         {
@@ -330,11 +327,9 @@ public class DockHostViewModel : IDisposable, IJsonSerializable
         return true;
     }
 
-    private void DisposeRestored(IDockable? root)
+    private void DisposeAll(IEnumerable<BeutlToolDockable> tools, string what)
     {
-        if (root is null) return;
-
-        foreach (BeutlToolDockable tool in BeutlDockFactory.Traverse(root).OfType<BeutlToolDockable>())
+        foreach (BeutlToolDockable tool in tools)
         {
             try
             {
@@ -342,7 +337,7 @@ public class DockHostViewModel : IDisposable, IJsonSerializable
             }
             catch (Exception ex)
             {
-                _logger.LogWarning(ex, "Failed to dispose a partially restored tool tab ({SceneId})", _sceneId);
+                _logger.LogWarning(ex, "Failed to dispose a {What} tool tab ({SceneId})", what, _sceneId);
             }
         }
     }
@@ -701,6 +696,10 @@ public class DockHostViewModel : IDisposable, IJsonSerializable
         var dockable = new BeutlToolDockable(ctx, _editViewModel);
         if (obj["id"]?.GetValue<string>() is { Length: > 0 } savedId)
             dockable.Id = savedId;
+
+        // Registered as soon as it exists so a failure deeper in the walk can still dispose it;
+        // waiting for RestoreNode to return would lose everything built before the throw.
+        _restoredTools?.Add(dockable);
         return dockable;
     }
 

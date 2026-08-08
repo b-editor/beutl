@@ -70,6 +70,11 @@ public partial class MainView
 
     private void InitializeDockLayoutPresetMenu(MainViewModel viewModel)
     {
+        // Keyed by menu item so a removed preset's header subscription goes away with it; leaving
+        // it in _disposables would pin the MenuItem — and through it the preset's layout JSON —
+        // for the rest of the session.
+        var headerSubscriptions = new Dictionary<MenuItem, IDisposable>();
+
         MenuItem CreateDockLayoutMenuItem(DockLayoutPresetItem item)
         {
             var menuItem = new MenuItem
@@ -82,17 +87,33 @@ public partial class MainView
             // A typed subscription rather than a string-path Binding: the surrounding XAML uses
             // compiled bindings, and a reflection path would silently blank the header if the
             // property were ever renamed.
-            item.Name.Subscribe(name => menuItem.Header = name).DisposeWith(_disposables);
+            headerSubscriptions[menuItem] = item.Name.Subscribe(name => menuItem.Header = name);
             return menuItem;
+        }
+
+        void DisposeMenuItem(MenuItem menuItem)
+        {
+            if (headerSubscriptions.Remove(menuItem, out IDisposable? subscription))
+            {
+                subscription.Dispose();
+            }
         }
 
         viewModel.MenuBar.DockLayoutPresets
             .ToObservableChangeSet<ICoreReadOnlyList<DockLayoutPresetItem>, DockLayoutPresetItem>()
             .ObserveOnUIDispatcher()
-            .Cast(CreateDockLayoutMenuItem)
+            .Transform(CreateDockLayoutMenuItem)
+            .OnItemRemoved(DisposeMenuItem)
             .Bind(out ReadOnlyObservableCollection<MenuItem>? presetMenuItems)
             .Subscribe()
             .DisposeWith(_disposables);
+
+        // The change set only fires OnItemRemoved while the view lives; drop the rest on teardown.
+        Disposable.Create(headerSubscriptions, subs =>
+        {
+            foreach (IDisposable subscription in subs.Values) subscription.Dispose();
+            subs.Clear();
+        }).DisposeWith(_disposables);
 
         dockLayoutPresetMenuItem.ItemsSource = presetMenuItems;
 
