@@ -103,7 +103,12 @@ public sealed class DockLayoutViewModel : IToolContext
         DockLayoutPresetItem? target = item ?? SelectedItem.Value;
         if (target is null) return;
 
-        _service.Remove(target);
+        if (!_service.Remove(target))
+        {
+            NotificationService.ShowError(Strings.DockLayout, MessageStrings.OperationFailed);
+            return;
+        }
+
         if (ReferenceEquals(SelectedItem.Value, target))
         {
             SelectedItem.Value = null;

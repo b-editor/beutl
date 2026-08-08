@@ -1,4 +1,5 @@
-﻿using System.Text.Json.Nodes;
+﻿using System.Text.Json;
+using System.Text.Json.Nodes;
 using Beutl.Logging;
 using Microsoft.Extensions.Logging;
 using Reactive.Bindings;
@@ -218,10 +219,7 @@ public sealed class DockLayoutPresetService
             if (jsonNode is not JsonArray jsonArray)
             {
                 _logger.LogWarning("Invalid JSON format in dock layout preset file: {FilePath}", filePath);
-                // An unreadable file is not worth preserving: leaving _isRestored false would make
-                // every later save a silent no-op.
-                _items.Clear();
-                _isRestored = true;
+                MarkUnusableFileRestored();
                 return;
             }
 
@@ -244,6 +242,20 @@ public sealed class DockLayoutPresetService
         catch (Exception ex)
         {
             _logger.LogError(ex, "An exception has occurred while restoring dock layout presets.");
+            if (ex is JsonException)
+            {
+                // Unparsable content, not a transient IO fault — the same dead end as a non-array
+                // root, so recover the same way instead of wedging every later save.
+                MarkUnusableFileRestored();
+            }
         }
+    }
+
+    // A file we can read but never use is not worth protecting: leaving _isRestored false would
+    // make every later save a silent no-op.
+    private void MarkUnusableFileRestored()
+    {
+        _items.Clear();
+        _isRestored = true;
     }
 }

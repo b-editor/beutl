@@ -271,13 +271,37 @@ public class DockLayoutPresetTests
         string path = Path.Combine(Path.GetTempPath(), $"beutl-dock-presets-{Guid.NewGuid():N}.json");
         try
         {
-            File.WriteAllText(path, "{ \"not\": \"an array\" }");
+            // Syntactically invalid, so this exercises the JsonNode.Parse failure path.
+            File.WriteAllText(path, "{ this is not json");
 
             var service = new DockLayoutPresetService(path);
             Assert.That(service.Items, Is.Empty);
 
             var layout = new JsonObject { ["DockLayout"] = new JsonObject { ["$type"] = "root" } };
             Assert.That(service.Save("Editing", layout), Is.Not.Null, "a bad file must not wedge the store");
+            Assert.That(new DockLayoutPresetService(path).Items.Select(i => i.Name.Value),
+                Is.EqualTo(new[] { "Editing" }));
+        }
+        finally
+        {
+            if (File.Exists(path)) File.Delete(path);
+        }
+    }
+
+    [Test]
+    public void A_store_file_that_is_not_an_array_still_accepts_later_saves()
+    {
+        string path = Path.Combine(Path.GetTempPath(), $"beutl-dock-presets-{Guid.NewGuid():N}.json");
+        try
+        {
+            // Parses, but the root is not the expected array.
+            File.WriteAllText(path, "{ \"not\": \"an array\" }");
+
+            var service = new DockLayoutPresetService(path);
+            Assert.That(service.Items, Is.Empty);
+
+            var layout = new JsonObject { ["DockLayout"] = new JsonObject { ["$type"] = "root" } };
+            Assert.That(service.Save("Editing", layout), Is.Not.Null);
             Assert.That(new DockLayoutPresetService(path).Items.Select(i => i.Name.Value),
                 Is.EqualTo(new[] { "Editing" }));
         }

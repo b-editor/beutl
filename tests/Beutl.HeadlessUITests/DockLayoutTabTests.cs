@@ -259,6 +259,41 @@ public class DockLayoutTabTests
     }
 
     [AvaloniaTest]
+    public async Task A_failed_remove_keeps_the_layout_and_the_selection()
+    {
+        await ResetProjectAsync();
+        EditViewModel editor = await OpenEditorForNewScene("tab-remove-failure");
+
+        string path = Path.Combine(BeutlHomeIsolation.CurrentHome!, $"presets-{Guid.NewGuid():N}.json");
+        var service = new DockLayoutPresetService(path);
+        var viewModel = new DockLayoutViewModel(editor, service);
+        viewModel.Save("Editing");
+
+        // Replacing the store file with a directory makes the next write throw.
+        File.Delete(path);
+        Directory.CreateDirectory(path);
+
+        try
+        {
+            DockLayoutPresetItem target = service.Items[0];
+            viewModel.SelectedItem.Value = target;
+
+            viewModel.Remove(target);
+
+            // The service rolled the delete back, so clearing the selection would leave the tab
+            // claiming nothing is selected while the row is still listed.
+            Assert.That(service.Items, Has.Count.EqualTo(1));
+            Assert.That(viewModel.SelectedItem.Value, Is.SameAs(target));
+            Assert.That(viewModel.HasSelection.Value, Is.True);
+        }
+        finally
+        {
+            Directory.Delete(path, recursive: true);
+            viewModel.Dispose();
+        }
+    }
+
+    [AvaloniaTest]
     public async Task Revealing_the_row_actions_does_not_change_the_row_height()
     {
         await ResetProjectAsync();
