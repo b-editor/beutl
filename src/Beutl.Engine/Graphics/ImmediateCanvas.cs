@@ -68,7 +68,7 @@ public partial class ImmediateCanvas : IDisposable, IPopable
         // GC path swallows; explicit Dispose() still surfaces errors.
         try
         {
-            Dispose();
+            Dispose(disposing: false);
         }
         catch
         {
@@ -143,7 +143,9 @@ public partial class ImmediateCanvas : IDisposable, IPopable
         Canvas.ClipPath(geometry.GetCachedPath(), operation.ToSKClipOperation(), true);
     }
 
-    public void Dispose()
+    public void Dispose() => Dispose(disposing: true);
+
+    private void Dispose(bool disposing)
     {
         void DisposeCore()
         {
@@ -174,10 +176,20 @@ public partial class ImmediateCanvas : IDisposable, IPopable
         // Claimed before queuing, not inside DisposeCore: GpuResourceRelease.Run can return with the
         // work still queued, and a second Dispose would then pass an IsDisposed that is still false
         // and queue a rival cleanup that disposes the shared paints again.
-        if (Interlocked.Exchange(ref _disposeClaimed, 1) == 0)
+        if (Interlocked.Exchange(ref _disposeClaimed, 1) != 0)
         {
-            GpuResourceRelease.Run(_dispatcher, DisposeCore);
+            return;
         }
+
+        // A finalizer must not block on another thread, so it hands the cleanup over instead of
+        // taking the bounded wait below.
+        if (!disposing && _dispatcher is { HasShutdownFinished: false } dispatcher && !dispatcher.CheckAccess())
+        {
+            dispatcher.Dispatch(DisposeCore);
+            return;
+        }
+
+        GpuResourceRelease.Run(_dispatcher, DisposeCore);
     }
 
     public void DrawSurface(SKSurface surface, Point point)

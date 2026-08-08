@@ -275,9 +275,11 @@ public class RenderTarget : IDisposable
                         Value = null;
                         if (value != null)
                         {
-                            // Dispatch would queue onto a loop that no longer drains, leaving the
-                            // native resource alive for the rest of the process.
-                            if (_dispatcher is { HasShutdownStarted: false } dispatcher
+                            // Finished, not Started: between the two the owner thread is still
+                            // running an operation, so disposing here could free a surface in use.
+                            // Past Finished, dispatching would queue onto a loop that no longer
+                            // drains and the native resource would outlive the process instead.
+                            if (_dispatcher is { HasShutdownFinished: false } dispatcher
                                 && !dispatcher.CheckAccess())
                             {
                                 dispatcher.Dispatch(value.Dispose);
