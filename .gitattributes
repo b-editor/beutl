@@ -61,3 +61,8 @@
 #*.PDF   diff=astextplain
 #*.rtf   diff=astextplain
 #*.RTF   diff=astextplain
+
+# Frozen RGBA16F evidence blobs. Git's `text: auto` heuristic classifies most of them as binary but
+# not all -- 6 of 132 leaked through as text -- so a regenerated baseline could produce a diff of
+# hundreds of thousands of unreadable lines. Declare the intent instead of leaving it to detection.
+*.rgba16f binary
