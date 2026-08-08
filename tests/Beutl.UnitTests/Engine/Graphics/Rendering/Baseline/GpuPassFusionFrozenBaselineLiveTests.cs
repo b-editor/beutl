@@ -16,6 +16,13 @@ public sealed class GpuPassFusionFrozenBaselineLiveTests
 
     private static IEnumerable<TestCaseData> Workloads()
     {
+        if (!GpuPassFusionEvidenceStackSliceGate.HasStack4EvidenceSlice)
+        {
+            yield return new TestCaseData(string.Empty)
+                .SetName("FrozenBaseline_RequiresStack4Evidence");
+            yield break;
+        }
+
         foreach (GpuPassFusionEvidenceScene scene in s_manifest.Value.Scenes.Where(scene => scene.Blob is not null))
         {
             yield return new TestCaseData(scene.Id)
@@ -26,6 +33,7 @@ public sealed class GpuPassFusionFrozenBaselineLiveTests
     [TestCaseSource(nameof(Workloads))]
     public void FrozenBaseline_LiveRenderMatchesReference(string sceneId)
     {
+        GpuPassFusionEvidenceStackSliceGate.RequireStack4EvidenceSlice();
         var graphicsContext = VulkanTestEnvironment.EnsureAvailable();
         GpuPassFusionEvidenceManifest manifest = s_manifest.Value;
         RenderPipelineEvidenceFingerprint currentFingerprint = VulkanTestEnvironment.InvokeOnRenderThread(
@@ -159,6 +167,7 @@ public sealed class GpuPassFusionFrozenBaselineLiveTests
     [Test]
     public void Scene3dWith2dTail_UsesProductionFilterBoundary()
     {
+        GpuPassFusionEvidenceStackSliceGate.RequireStack4EvidenceSlice();
         var graphicsContext = VulkanTestEnvironment.EnsureAvailable();
         if (!graphicsContext.Supports3DRendering)
             Assert.Ignore("The selected Vulkan device does not support Scene3D rendering.");

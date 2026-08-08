@@ -53,6 +53,7 @@ public sealed class GpuPassFusionBaselineTests
     [Test]
     public void IntentionalRefreshScript_StagesAllLinkedTrustAnchorsBeforePublishing()
     {
+        GpuPassFusionEvidenceStackSliceGate.RequireStack4EvidenceSlice();
         GpuPassFusionEvidencePaths paths = GpuPassFusionEvidencePaths.Discover();
         string script = File.ReadAllText(paths.RefreshScriptPath);
         string benchmarkTest = File.ReadAllText(Path.Combine(
@@ -101,6 +102,7 @@ public sealed class GpuPassFusionBaselineTests
     [Test]
     public void ImmutableEvidence_HasPinnedManifestToolAndBlobIntegrity()
     {
+        GpuPassFusionEvidenceStackSliceGate.RequireStack4EvidenceSlice();
         GpuPassFusionEvidenceManifest manifest = GpuPassFusionBaselineEvidence.LoadAndVerify();
         GpuPassFusionBaselineEvidence.VerifyFileHash(
             manifest.Paths.BenchmarkRunnerPath,
@@ -128,6 +130,7 @@ public sealed class GpuPassFusionBaselineTests
     [Test]
     public void ImmutableTargetBenchmark_HasPinnedSchemaProvenanceFileSetAndArtifactHashes()
     {
+        GpuPassFusionEvidenceStackSliceGate.RequireStack4EvidenceSlice();
         GpuPassFusionEvidenceManifest baseline = GpuPassFusionBaselineEvidence.LoadAndVerify();
         string directory = Path.Combine(baseline.Paths.EvidenceDirectory, "target-benchmark");
         string manifestPath = Path.Combine(directory, "manifest.json");
@@ -227,6 +230,7 @@ public sealed class GpuPassFusionBaselineTests
     [Test]
     public void PairedBenchmarkArchive_HasPinnedManifestFileSetAndArtifactHashes()
     {
+        GpuPassFusionEvidenceStackSliceGate.RequireStack4EvidenceSlice();
         GpuPassFusionEvidencePaths paths = GpuPassFusionEvidencePaths.Discover();
         string directory = Path.Combine(paths.EvidenceDirectory, "paired-benchmark-run");
         string manifestPath = Path.Combine(directory, "manifest.json");
