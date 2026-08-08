@@ -53,4 +53,5 @@ public class FFmpegSeekDecisionTests
             Assert.That(nextFrame, Is.EqualTo(-1));
         });
     }
+
 }

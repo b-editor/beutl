@@ -16,6 +16,7 @@ namespace Beutl.FFmpegWorker.Decoding;
 public sealed class FFmpegReader : MediaReader
 {
     private readonly ILogger _logger = Log.CreateLogger<FFmpegReader>();
+
     private static readonly AVRational s_time_base = new() { num = 1, den = ffmpeg.AV_TIME_BASE };
 
 #pragma warning disable IDE1006 // 命名スタイル
@@ -374,13 +375,30 @@ public sealed class FFmpegReader : MediaReader
         if (FFmpegSeekDecision.ShouldReseek(currentUsable, skip))
         {
             SeekVideo(frame);
-            skip = 0;
         }
 
-        for (int i = 0; i < skip; i++)
+        // Grab by position, not by count: a grab does not always advance exactly one frame (dropped
+        // or duplicated timestamps, reordered pictures), so counting grabs drifts off the request.
+        // A run of pictures whose timestamps round to the same position is finite, and GrabVideo
+        // reports false at end of stream, so the loop cannot outlive the input.
+        while (_videoNowFrame < frame)
         {
             if (!GrabVideo())
                 return null;
+        }
+
+        // Landing later than the request means no decoded picture maps to that frame number — a
+        // timestamp gap, or a variable frame rate. The nearest available picture is the answer for
+        // that frame; re-seeking to the start would decode the whole stream only to stop at the very
+        // same position, under the reader lock.
+        if (_videoNowFrame != frame)
+        {
+            // Expected on a variable frame rate or a stream with timestamp gaps, and it can hold for
+            // long stretches of frames, so it stays out of the warning stream the worker routes
+            // through its locked stdout logger on every decode and prefetch.
+            _logger.LogDebug(
+                "Video decode landed on frame {Position} for requested frame {Frame}.",
+                _videoNowFrame, frame);
         }
 
         // GrabVideo後にActiveVideoFrameを再取得

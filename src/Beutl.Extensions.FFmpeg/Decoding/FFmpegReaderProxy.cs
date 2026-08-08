@@ -15,6 +15,11 @@ namespace Beutl.Extensions.FFmpeg.Decoding;
 
 public sealed class FFmpegReaderProxy : MediaReader
 {
+    // The worker protects only the slot it served last, and it releases its reader lock before the
+    // response reaches us, so a second read on this proxy would let prefetch recycle the slot the
+    // first one is still copying out of.
+    private readonly Lock _readGate = new();
+
     private readonly ILogger _logger = Log.CreateLogger<FFmpegReaderProxy>();
     private readonly IpcConnection _connection;
     private readonly int _readerId;
@@ -70,7 +75,15 @@ public sealed class FFmpegReaderProxy : MediaReader
 
     public override bool HasAudio => _openResponse.HasAudio;
 
-    public override unsafe bool ReadVideo(int frame, [NotNullWhen(true)] out Ref<Bitmap>? image)
+    public override bool ReadVideo(int frame, [NotNullWhen(true)] out Ref<Bitmap>? image)
+    {
+        lock (_readGate)
+        {
+            return ReadVideoCore(frame, out image);
+        }
+    }
+
+    private unsafe bool ReadVideoCore(int frame, [NotNullWhen(true)] out Ref<Bitmap>? image)
     {
         var request = new ReadVideoRequest { ReaderId = _readerId, Frame = frame };
         var response = _connection.RequestAsync<ReadVideoRequest, ReadVideoResponse>(
@@ -102,25 +115,37 @@ public sealed class FFmpegReaderProxy : MediaReader
         var colorType = isHdr ? BitmapColorType.Rgba16161616 : BitmapColorType.Bgra8888;
         int rowBytes = response.Width * response.BytesPerPixel;
 
-        // ゼロコピー: 共有メモリを直接ポインタで参照するBitmapを作成
+        // The worker's prefetch thread recycles ring slots knowing only the single most recently
+        // served one, so a view into the slot can have its pixels replaced by a later prefetch while
+        // the frame is still being drawn. The picture has to leave shared memory before returning.
         var buffer = _videoBuffer!;
         byte* ptr = buffer.AcquirePointer();
         try
         {
             long readOffset = response.SlotDataOffset;
             var bmp = new Bitmap(
-                (IntPtr)(ptr + readOffset), response.Width, response.Height, rowBytes,
-                colorType, BitmapAlphaType.Unpremul, colorSpace);
+                response.Width, response.Height, colorType, BitmapAlphaType.Unpremul, colorSpace);
+            byte* source = ptr + readOffset;
+            byte* destination = (byte*)bmp.Data;
+            int destinationRowBytes = bmp.RowBytes;
+            for (int y = 0; y < response.Height; y++)
+            {
+                Buffer.MemoryCopy(
+                    source + (long)y * rowBytes,
+                    destination + (long)y * destinationRowBytes,
+                    destinationRowBytes,
+                    rowBytes);
+            }
 
-            image = Ref<Bitmap>.Create(bmp, onRelease: buffer.ReleasePointer);
+            image = Ref<Bitmap>.Create(bmp);
             return true;
         }
-        catch
+        finally
         {
             buffer.ReleasePointer();
-            throw;
         }
     }
+
 
     public override bool ReadAudio(int start, int length, [NotNullWhen(true)] out Ref<IPcm>? sound)
     {
