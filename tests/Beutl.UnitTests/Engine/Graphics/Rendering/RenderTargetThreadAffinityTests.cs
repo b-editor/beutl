@@ -144,16 +144,22 @@ public class RenderTargetThreadAffinityTests
     public void A_release_slower_than_the_deadline_is_waited_out_once_it_has_started()
     {
         using var finish = new ManualResetEventSlim(false);
+        using var started = new ManualResetEventSlim(false);
         var completed = false;
 
         Task caller = Task.Run(() => GpuResourceRelease.Run(RenderThread.Dispatcher, () =>
         {
+            started.Set();
             finish.Wait(TimeSpan.FromSeconds(60));
             completed = true;
         }));
 
         try
         {
+            // A caller the pool never scheduled satisfies the assertion below just as well.
+            Assert.That(started.Wait(TimeSpan.FromSeconds(30)), Is.True,
+                "the render thread never started the release");
+
             // From a finally: the failure this asserts is Run returning early, which would leave the
             // shared render dispatcher blocked in the callback and take out every later test.
             Assert.That(caller.Wait(TimeSpan.FromSeconds(8)), Is.False,
