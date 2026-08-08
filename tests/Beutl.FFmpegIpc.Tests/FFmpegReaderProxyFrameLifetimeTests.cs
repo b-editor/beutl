@@ -23,6 +23,9 @@ public class FFmpegReaderProxyFrameLifetimeTests
     private const int RingSlots = 4;
     private const int ReadsAfterHold = 12;
 
+    // More frames than the ring has slots, so a response has to displace an earlier one.
+    private const int ConcurrentFrames = 6;
+
     [Test]
     public void A_held_frame_keeps_its_pixels_while_later_frames_are_read()
     {
@@ -90,33 +93,39 @@ public class FFmpegReaderProxyFrameLifetimeTests
     }
 
     [Test]
-    public void Concurrent_reads_of_one_frame_return_the_same_picture()
+    public void Concurrent_reads_of_different_frames_each_return_their_own_picture()
     {
         MediaReader reader = OpenFixtureReader();
         using (reader)
         {
-            Assert.That(reader.ReadVideo(0, out Ref<Bitmap>? first), Is.True, "frame 0 must decode");
-            byte[] expected;
-            using (first)
+            var expected = new byte[ConcurrentFrames][];
+            for (int frame = 0; frame < ConcurrentFrames; frame++)
             {
-                expected = first!.Value.GetPixelSpan().ToArray();
+                Assert.That(reader.ReadVideo(frame, out Ref<Bitmap>? baseline), Is.True,
+                    $"frame {frame} must decode");
+                using (baseline)
+                {
+                    expected[frame] = baseline!.Value.GetPixelSpan().ToArray();
+                }
             }
 
-            // Unserialized reads of one proxy let prefetch recycle the slot one of them is copying.
+            // Differing frames, so a response moves the worker's served slot while an earlier copy is
+            // still running: unserialized, prefetch is free to recycle the slot being copied.
             var mismatch = 0;
-            Parallel.For(0, 24, _ =>
+            Parallel.For(0, ConcurrentFrames * 8, i =>
             {
-                if (!reader.ReadVideo(0, out Ref<Bitmap>? frame)) return;
-                using (frame)
+                int frame = i % ConcurrentFrames;
+                if (!reader.ReadVideo(frame, out Ref<Bitmap>? read)) return;
+                using (read)
                 {
-                    if (!frame!.Value.GetPixelSpan().SequenceEqual(expected))
+                    if (!read!.Value.GetPixelSpan().SequenceEqual(expected[frame]))
                     {
                         Interlocked.Increment(ref mismatch);
                     }
                 }
             });
 
-            Assert.That(mismatch, Is.Zero, "concurrent reads of the same frame returned different pixels");
+            Assert.That(mismatch, Is.Zero, "a concurrent read returned another frame's pixels");
         }
     }
 }
