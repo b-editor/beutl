@@ -1,4 +1,5 @@
-﻿using Beutl.Graphics.Rendering;
+﻿using Beutl.Graphics;
+using Beutl.Graphics.Rendering;
 using SkiaSharp;
 
 namespace Beutl.UnitTests.Engine.Graphics.Rendering;
@@ -99,6 +100,42 @@ public class RenderTargetThreadAffinityTests
 
         Assert.That(WaitUntilReleased(surface), Is.True,
             "the queued release should still run once the render thread drains it");
+    }
+
+    // Giving up leaves the cleanup queued with IsDisposed still false, so the second Dispose has to
+    // be turned away by something claimed before the queue, or the shared paints get disposed twice.
+    [Test]
+    public void Repeated_canvas_dispose_behind_a_busy_owning_thread_queues_one_cleanup()
+    {
+        ImmediateCanvas canvas = RenderThread.Dispatcher.Invoke(() =>
+            new ImmediateCanvas(RenderTarget.CreateNull(4, 4), 1f, 1f, new Size(4, 4)));
+        using var occupied = new ManualResetEventSlim(false);
+        using var release = new ManualResetEventSlim(false);
+
+        try
+        {
+            RenderThread.Dispatcher.Dispatch(() =>
+            {
+                occupied.Set();
+                release.Wait(TimeSpan.FromSeconds(60));
+            });
+            Assert.That(occupied.Wait(TimeSpan.FromSeconds(30)), Is.True, "the render thread never took the blocker");
+
+            Assert.That(Task.Run(canvas.Dispose).Wait(TimeSpan.FromSeconds(30)), Is.True);
+            Assert.That(canvas.IsDisposed, Is.False, "precondition: the first Dispose left the cleanup queued");
+
+            // Only a claim taken before queuing can turn the second call away without waiting; a
+            // guard on IsDisposed alone would queue a rival cleanup and block for the full deadline.
+            Assert.That(Task.Run(canvas.Dispose).Wait(TimeSpan.FromSeconds(1)), Is.True,
+                "a second Dispose must be turned away immediately, not queue another cleanup");
+        }
+        finally
+        {
+            release.Set();
+        }
+
+        RenderThread.Dispatcher.Invoke(() => { });
+        Assert.That(canvas.IsDisposed, Is.True);
     }
 
     [Test]

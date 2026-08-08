@@ -18,8 +18,10 @@ internal static class GpuResourceRelease
     /// Slow and stopped are not the same thing. A live dispatcher that has not got to the operation
     /// yet may be mid-frame and still using what <paramref name="release"/> would tear down, so the
     /// caller stops waiting rather than releasing off-thread — the queued operation still runs when
-    /// the dispatcher drains it. Only an observed shutdown, where nothing will ever drain, licenses
-    /// releasing here. Runs exactly once across both paths.
+    /// the dispatcher drains it. Only <see cref="Dispatcher.HasShutdownFinished"/> licenses releasing
+    /// here: <c>HasShutdownStarted</c> is set the moment <c>Shutdown()</c> is called and does not wait
+    /// for the operation already running, so it would still overlap a live frame. Runs exactly once
+    /// across both paths.
     /// </remarks>
     public static void Run(Dispatcher? dispatcher, Action release)
     {
@@ -38,7 +40,7 @@ internal static class GpuResourceRelease
             }
         }
 
-        if (dispatcher.HasShutdownStarted)
+        if (dispatcher.HasShutdownFinished)
         {
             Once();
             return;
@@ -52,8 +54,8 @@ internal static class GpuResourceRelease
                 return;
             }
 
-            // Re-checked every slice, so a shutdown starting after the check above is still caught.
-            if (dispatcher.HasShutdownStarted)
+            // Re-checked every slice, so a shutdown finishing after the check above is still caught.
+            if (dispatcher.HasShutdownFinished)
             {
                 Once();
                 return;

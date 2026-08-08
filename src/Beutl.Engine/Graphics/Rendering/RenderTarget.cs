@@ -197,7 +197,7 @@ public class RenderTarget : IDisposable
         SKSurfaceCounter<SKSurface> surface = _surface;
         SKSurfaceCounter<ITexture2D>? texture = _texture;
 
-        if (!disposing && _dispatcher is { HasShutdownStarted: false } dispatcher && !dispatcher.CheckAccess())
+        if (!disposing && _dispatcher is { HasShutdownFinished: false } dispatcher && !dispatcher.CheckAccess())
         {
             // A finalizer must not block on another thread, so it cannot use the bounded wait below.
             dispatcher.Dispatch(() => Release(surface, texture));

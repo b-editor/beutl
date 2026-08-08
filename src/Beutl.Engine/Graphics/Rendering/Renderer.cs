@@ -96,8 +96,9 @@ public class Renderer : IRenderer
         SafeStep(nameof(OnDispose), () => OnDispose(false));
 
         // The finalizer thread does not own these GPU resources and must not block waiting for the
-        // thread that does, so hand the release over unless that thread is already gone.
-        if (RenderThread.Dispatcher.HasShutdownStarted)
+        // thread that does, so hand the release over unless that thread is already gone. Finished,
+        // not Started: the latter is set before the operation already running has returned.
+        if (RenderThread.Dispatcher.HasShutdownFinished)
         {
             ReleaseGpuResources();
         }
@@ -266,12 +267,22 @@ public class Renderer : IRenderer
             // render thread. Queued rather than awaited so an edit never blocks behind a frame.
             RenderThread.Dispatcher.Dispatch(() =>
             {
-                if (weakRef.TryGetTarget(out Renderer? renderer)
-                    && renderer._nodeCache.TryGetValue(senderDrawable, out Entry? entry))
+                // Nothing awaits this, and the dispatcher has no UnhandledException handler, so an
+                // escaping exception would rethrow out of its loop and kill the render thread for
+                // the rest of the process.
+                try
                 {
-                    RenderNodeCacheHelper.ClearCache(entry.Node);
-                    entry.Dispose();
-                    renderer._nodeCache.Remove(senderDrawable);
+                    if (weakRef.TryGetTarget(out Renderer? renderer)
+                        && renderer._nodeCache.TryGetValue(senderDrawable, out Entry? entry))
+                    {
+                        RenderNodeCacheHelper.ClearCache(entry.Node);
+                        entry.Dispose();
+                        renderer._nodeCache.Remove(senderDrawable);
+                    }
+                }
+                catch (Exception ex)
+                {
+                    s_logger.LogWarning(ex, "Failed to release the render cache of a detached drawable");
                 }
             });
         }

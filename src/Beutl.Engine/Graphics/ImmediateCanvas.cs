@@ -15,6 +15,7 @@ public partial class ImmediateCanvas : IDisposable, IPopable
     private readonly SKPaint _sharedFillPaint = new();
     private readonly SKPaint _sharedStrokePaint = new();
     private readonly Stack<CanvasPushedState> _states = new();
+    private int _disposeClaimed;
     private Matrix _currentTransform;
     // Base CTM = CreateScale(SurfaceDensity); identity when density == 1.
     private readonly Matrix _baseTransform;
@@ -170,7 +171,10 @@ public partial class ImmediateCanvas : IDisposable, IPopable
             _sharedStrokePaint.Dispose();
         }
 
-        if (!IsDisposed)
+        // Claimed before queuing, not inside DisposeCore: GpuResourceRelease.Run can return with the
+        // work still queued, and a second Dispose would then pass an IsDisposed that is still false
+        // and queue a rival cleanup that disposes the shared paints again.
+        if (Interlocked.Exchange(ref _disposeClaimed, 1) == 0)
         {
             GpuResourceRelease.Run(_dispatcher, DisposeCore);
         }
