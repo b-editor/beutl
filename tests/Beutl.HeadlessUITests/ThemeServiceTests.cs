@@ -518,6 +518,7 @@ public class ThemeServiceTests
     private sealed class ThemeScope : IDisposable
     {
         private readonly IResourceProvider[] _mergedOnEntry;
+        private readonly ThemeVariant? _variantOnEntry;
 
         public ThemeScope()
         {
@@ -526,10 +527,10 @@ public class ThemeServiceTests
             // Reset before the snapshot rather than trusting the previous scope's Dispose — a test
             // that fails mid-body never reaches it, and the snapshot would then adopt the leak as
             // this scope's baseline. Only the accent and its derived tokens need it: the merged
-            // dictionaries are restored by diffing against this snapshot, and the theme variant is
-            // overwritten by every apply.
+            // dictionaries and the theme variant are restored from the snapshots below.
             ResetAccentState(Theme);
             _mergedOnEntry = [.. Application.Current.Resources.MergedDictionaries];
+            _variantOnEntry = Application.Current.RequestedThemeVariant;
             Config = new ViewConfig();
             Service = new ThemeService(Theme, Config);
         }
@@ -552,6 +553,7 @@ public class ThemeServiceTests
                 merged.Remove(applied);
             }
 
+            Application.Current.RequestedThemeVariant = _variantOnEntry;
             ClearRegistry();
         }
 

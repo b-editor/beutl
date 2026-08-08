@@ -24,7 +24,7 @@ public class DarkBorderThemeColorTests
     [AvaloniaTest]
     public void Selected_color_type_tab_paints_the_indeterminate_fill_under_the_border_theme()
     {
-        Application.Current!.RequestedThemeVariant = ThemeVariant.Dark;
+        using ThemeVariantScope themeScope = ThemeVariantScope.Use(ThemeVariant.Dark);
 
         var toggle = new ToggleButton { IsChecked = true, Content = new TextBlock { Text = "Solid" } };
         var window = new Window
@@ -65,7 +65,7 @@ public class DarkBorderThemeColorTests
     [AvaloniaTest]
     public void Indeterminate_toggle_fill_is_visible_under_the_border_theme()
     {
-        Application.Current!.RequestedThemeVariant = ThemeVariant.Dark;
+        using ThemeVariantScope themeScope = ThemeVariantScope.Use(ThemeVariant.Dark);
 
         var probe = new ToggleButton();
         var window = new Window { Content = probe, Width = 200, Height = 120 };
@@ -91,7 +91,7 @@ public class DarkBorderThemeColorTests
     [AvaloniaTest]
     public void Indeterminate_toggle_fill_mirrors_the_list_and_tree_selected_surface()
     {
-        Application.Current!.RequestedThemeVariant = ThemeVariant.Dark;
+        using ThemeVariantScope themeScope = ThemeVariantScope.Use(ThemeVariant.Dark);
 
         var probe = new ToggleButton();
         var window = new Window { Content = probe, Width = 200, Height = 120 };
@@ -124,8 +124,8 @@ public class DarkBorderThemeColorTests
     [AvaloniaTest]
     public void Custom_accent_retints_the_accent_fill_and_selected_surfaces()
     {
-        Application.Current!.RequestedThemeVariant = ThemeVariant.Dark;
-        FluentAvaloniaTheme faTheme = Application.Current.Styles.OfType<FluentAvaloniaTheme>().Single();
+        using ThemeVariantScope themeScope = ThemeVariantScope.Use(ThemeVariant.Dark);
+        FluentAvaloniaTheme faTheme = Application.Current!.Styles.OfType<FluentAvaloniaTheme>().Single();
 
         var probe = new Border();
         var window = new Window { Content = probe, Width = 200, Height = 120 };
@@ -172,7 +172,7 @@ public class DarkBorderThemeColorTests
     [AvaloniaTest]
     public void Disabled_text_input_matches_disabled_combobox_under_dark_theme()
     {
-        Application.Current!.RequestedThemeVariant = ThemeVariant.Dark;
+        using ThemeVariantScope themeScope = ThemeVariantScope.Use(ThemeVariant.Dark);
 
         var textBox = new TextBox { Text = "1920", Width = 160, IsEnabled = false };
         var comboBox = new ComboBox { ItemsSource = new[] { "Spectrum" }, SelectedIndex = 0, Width = 160, IsEnabled = false };
@@ -229,7 +229,7 @@ public class DarkBorderThemeColorTests
     [AvaloniaTest]
     public void Title_bar_bottom_border_matches_the_dock_splitter_under_the_border_theme()
     {
-        Application.Current!.RequestedThemeVariant = ThemeVariant.Dark;
+        using ThemeVariantScope themeScope = ThemeVariantScope.Use(ThemeVariant.Dark);
 
         var probe = new Border();
         var window = new Window { Content = probe, Width = 200, Height = 120 };
@@ -276,8 +276,8 @@ public class DarkBorderThemeColorTests
 
     private static void AssertMarkerGlyphContrasts(Color accent, Color expectedGlyph)
     {
-        Application.Current!.RequestedThemeVariant = ThemeVariant.Dark;
-        FluentAvaloniaTheme faTheme = Application.Current.Styles.OfType<FluentAvaloniaTheme>().Single();
+        using ThemeVariantScope themeScope = ThemeVariantScope.Use(ThemeVariant.Dark);
+        FluentAvaloniaTheme faTheme = Application.Current!.Styles.OfType<FluentAvaloniaTheme>().Single();
 
         var probe = new Border();
         var window = new Window { Content = probe, Width = 200, Height = 120 };
