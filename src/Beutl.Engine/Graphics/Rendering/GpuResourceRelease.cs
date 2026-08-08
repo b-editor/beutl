@@ -73,6 +73,14 @@ internal static class GpuResourceRelease
             }
         }
 
+        // The dispatcher may have picked the operation up during the last slice, after the check
+        // inside the loop; returning here would abandon a release that is already running.
+        if (Volatile.Read(ref started) == 1)
+        {
+            queued.GetAwaiter().GetResult();
+            return;
+        }
+
         s_logger.LogDebug(
             "GPU resource release is still queued after {Deadline}; leaving it to the render thread.",
             s_deadline);

@@ -276,21 +276,29 @@ public class Renderer : IRenderer
                     return;
                 }
 
+                // Independently guarded: a failed cache clear must not skip the entry's own
+                // disposal, which is the only thing that releases its node.
                 try
                 {
                     RenderNodeCacheHelper.ClearCache(entry.Node);
+                }
+                catch (Exception ex)
+                {
+                    s_logger.LogWarning(ex, "Failed to clear the render cache of a detached drawable");
+                }
+
+                try
+                {
                     entry.Dispose();
                 }
                 catch (Exception ex)
                 {
-                    s_logger.LogWarning(ex, "Failed to release the render cache of a detached drawable");
+                    s_logger.LogWarning(ex, "Failed to dispose the render entry of a detached drawable");
                 }
-                finally
-                {
-                    // The handler is already unsubscribed, so an entry left behind by a failed
-                    // cleanup would be reused by a reattached drawable and never retried.
-                    renderer._nodeCache.Remove(senderDrawable);
-                }
+
+                // The handler is already unsubscribed, so an entry left behind would be reused by a
+                // reattached drawable and never retried.
+                renderer._nodeCache.Remove(senderDrawable);
             });
         }
 
