@@ -138,9 +138,8 @@ internal sealed class BufferedPlayer : IPlayer
 
                             activeCacheManager.Add(frame, bitmap);
 
-                            // Queue the stored entry rather than the snapshot it was made from: an
-                            // entry is a converted (and possibly reduced) copy, so a frame must not
-                            // look one way on the pass that renders it and another on replay.
+                            // An entry is a converted, possibly reduced copy of the snapshot, so a
+                            // frame must not look one way here and another on replay.
                             if (activeCacheManager.TryGet(frame, out Ref<Bitmap>? stored))
                             {
                                 _queue.Enqueue(new(stored, frame));

@@ -1914,9 +1914,8 @@ public sealed class PlayerViewModel : IAsyncDisposable, IPreviewPlayer
                             cacheManager.Add(frame, bitmapRef);
                             cacheManager.UpdateBlocks();
 
-                            // An entry is a converted (and possibly reduced) copy of the snapshot,
-                            // so showing the snapshot here would make the same frame look one way
-                            // before it is cached and another way afterwards.
+                            // An entry is a converted, possibly reduced copy of the snapshot, so a
+                            // frame must not look one way here and another once it is cached.
                             if (cacheManager.TryGet(frame, out Ref<Bitmap>? stored))
                             {
                                 bitmapRef.Dispose();

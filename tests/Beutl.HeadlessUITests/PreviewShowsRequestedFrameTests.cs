@@ -21,8 +21,8 @@ namespace Beutl.HeadlessUITests;
 
 /// <summary>
 /// Whatever the preview shows has to be the picture of the frame the playhead is on. The frame cache
-/// keys entries on the frame number alone, so a mistake anywhere in the store / lookup / present path
-/// shows up as a picture belonging to some other frame.
+/// keys entries on the frame number alone, so a mistake in the store / lookup / present path shows up
+/// as a picture belonging to some other frame.
 /// </summary>
 [TestFixture]
 public class PreviewShowsRequestedFrameTests
@@ -98,8 +98,7 @@ public class PreviewShowsRequestedFrameTests
                     Width = { CurrentValue = 160 },
                     Height = { CurrentValue = 120 },
                     // A gradient, not a flat fill: a flat colour survives the cache's 8-bit
-                    // conversion untouched, so it cannot show whether the entry and the render
-                    // agree.
+                    // conversion untouched and could not show a mismatch.
                     Fill = { CurrentValue = NewGradient(color) }
                 }));
             HeadlessTestHelpers.Settle();
@@ -211,9 +210,8 @@ public class PreviewShowsRequestedFrameTests
     }
 
     /// <summary>
-    /// A drag moves the playhead faster than a frame can be rendered, so requests pile up and only
-    /// the last one matters. Once the playhead settles, the preview has to end up on that frame and
-    /// not on whichever superseded render happened to publish last.
+    /// A drag outruns rendering, so requests pile up. Once the playhead settles the preview has to end
+    /// up on that frame, not on whichever superseded render published last.
     /// </summary>
     [AvaloniaTest]
     public async Task A_burst_of_seeks_settles_on_the_last_requested_frame()
@@ -281,10 +279,9 @@ public class PreviewShowsRequestedFrameTests
     }
 
     /// <summary>
-    /// A cache entry is a converted, possibly reduced copy of the render, so a frame that is served
-    /// from the cache must be the same picture the preview showed when it was rendered. Otherwise
-    /// scrubbing across the edge of a cached range alternates between two renditions of neighbouring
-    /// frames.
+    /// A cache entry is a converted, possibly reduced copy of the render, so a frame served from the
+    /// cache must be the picture the preview showed when it was rendered — otherwise scrubbing across
+    /// the edge of a cached range alternates between two renditions.
     /// </summary>
     [AvaloniaTest]
     public async Task A_frame_looks_the_same_freshly_rendered_and_replayed_from_the_cache()
@@ -334,14 +331,13 @@ public class PreviewShowsRequestedFrameTests
     }
 
     /// <summary>
-    /// Playback produces through <c>BufferedPlayer</c>, a different producer from the scrub path, and
-    /// it stores every frame it renders. What it hands to the preview has to be that stored entry —
-    /// the snapshot it was made from is a different rendition (RgbaF16/linear at full size), so
-    /// queueing it would make a frame change appearance the moment it came back from the cache.
+    /// <c>BufferedPlayer</c> is a different producer from the scrub path, and it stores every frame it
+    /// renders. What it hands to the preview has to be that stored entry: the snapshot it was made from
+    /// is a different rendition (RgbaF16/linear at full size).
     /// </summary>
     /// <remarks>
-    /// The producer is driven directly instead of through <c>Player.Play()</c>: playback advances on
-    /// a wall-clock timer, which a loaded CI runner on software rendering cannot be relied on to turn.
+    /// Driven directly rather than through <c>Player.Play()</c>, which advances on a wall-clock timer a
+    /// loaded CI runner on software rendering cannot be relied on to turn.
     /// </remarks>
     [AvaloniaTest]
     public async Task The_playback_producer_queues_the_rendition_it_stores_in_the_cache()
@@ -358,8 +354,8 @@ public class PreviewShowsRequestedFrameTests
                 nameof(The_playback_producer_queues_the_rendition_it_stores_in_the_cache));
             SeekTo(editor, 0);
             DrainRenders();
-            // Building the editor and settling the seek already render frame 0 into the cache, and
-            // the producer would then take its cache-hit branch and never reach the one under test.
+            // Building the editor already renders frame 0 into the cache, and the producer would then
+            // take its cache-hit branch and never reach the one under test.
             editor.FrameCacheManager.Value.Clear();
 
             var isPlaying = new ReactivePropertySlim<bool>(true);
