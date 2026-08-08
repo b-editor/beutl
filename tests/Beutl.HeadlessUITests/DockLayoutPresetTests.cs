@@ -2,6 +2,10 @@
 using Avalonia.Controls;
 using Avalonia.Headless.NUnit;
 using Beutl.Editor.Components.LibraryTab;
+using Beutl.Editor.Models;
+using Beutl.Editor.Services;
+using Beutl.Extensibility;
+using Beutl.Graphics.Shapes;
 using Beutl.ProjectSystem;
 using Beutl.Services;
 using Beutl.Services.PrimitiveImpls;
@@ -189,6 +193,48 @@ public class DockLayoutPresetTests
         finally
         {
             if (File.Exists(path)) File.Delete(path);
+        }
+    }
+
+    [AvaloniaTest]
+    public async Task Capturing_a_layout_does_not_write_per_scene_view_state()
+    {
+        await ResetProjectAsync();
+        EditViewModel editor = await OpenEditorForNewScene("preset-no-side-effects");
+
+        // The element property tab writes a per-element config from its serializer, but only once
+        // an element is selected — so select one to arm the side effect.
+        var adder = (IElementAdder)editor.GetService(typeof(IElementAdder))!;
+        adder.AddElement(new ElementDescription(
+            Start: TimeSpan.Zero,
+            Length: TimeSpan.FromSeconds(1),
+            Layer: 0,
+            EngineObjectFactory: () => new RectShape()));
+        HeadlessTestHelpers.Settle();
+
+        var selection = (IEditorSelection)editor.GetService(typeof(IEditorSelection))!;
+        selection.SelectedObject.Value = editor.Scene.Children[0];
+        HeadlessTestHelpers.Settle();
+
+        // Some tool serializers write their own per-scene config as a side effect. Capturing a
+        // layout discards tool state anyway, so it must not invoke them at all.
+        string sceneDir = Path.GetDirectoryName(editor.Scene.Uri!.LocalPath)!;
+        string[] before = ConfigFiles(sceneDir);
+
+        editor.DockHost.CaptureLayout();
+        HeadlessTestHelpers.Settle();
+
+        Assert.That(ConfigFiles(sceneDir), Is.EqualTo(before),
+            "capturing a layout must not touch the scene's view-state files");
+
+        static string[] ConfigFiles(string dir)
+        {
+            return Directory.Exists(dir)
+                ? Directory.GetFiles(dir, "*.config", SearchOption.AllDirectories)
+                    .Select(f => $"{f}:{new FileInfo(f).Length}")
+                    .OrderBy(f => f)
+                    .ToArray()
+                : [];
         }
     }
 

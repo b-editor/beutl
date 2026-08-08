@@ -246,47 +246,11 @@ public class DockHostViewModel : IDisposable, IJsonSerializable
     public JsonObject CaptureLayout()
     {
         EnsureDefaultLayout();
-        var json = new JsonObject();
-        WriteToJson(json);
-        if (json["DockLayout"] is JsonObject layout)
+        return new JsonObject
         {
-            StripToolState(layout);
-        }
-
-        return json;
-    }
-
-    // Keeps only what identifies a tab: its type and dockable id.
-    private static void StripToolState(JsonObject node)
-    {
-        if (node.TryGetPropertyValueAsJsonValue("$type", out string? type) && type == "tool")
-        {
-            foreach (string key in node.Select(p => p.Key)
-                         .Where(k => k is not ("$type" or "id" or "extension"))
-                         .ToArray())
-            {
-                node.Remove(key);
-            }
-
-            return;
-        }
-
-        foreach ((string _, JsonNode? child) in node.ToArray())
-        {
-            switch (child)
-            {
-                case JsonObject childObj:
-                    StripToolState(childObj);
-                    break;
-                case JsonArray childArray:
-                    foreach (JsonNode? item in childArray)
-                    {
-                        if (item is JsonObject itemObj) StripToolState(itemObj);
-                    }
-
-                    break;
-            }
-        }
+            ["_dockVersion"] = DockVersion,
+            ["DockLayout"] = SaveNode(Layout.Value, includeToolState: false),
+        };
     }
 
     /// <summary>
@@ -302,6 +266,7 @@ public class DockHostViewModel : IDisposable, IJsonSerializable
 
         // Restore first: a malformed preset must not leave the editor without a layout.
         IRootDock restored;
+        IDockable? partial = null;
         try
         {
             if (!IsCurrentVersion(layout))
@@ -318,9 +283,11 @@ public class DockHostViewModel : IDisposable, IJsonSerializable
                 return false;
             }
 
-            if (RestoreNode(layoutObj) is not IRootDock rootDock)
+            partial = RestoreNode(layoutObj);
+            if (partial is not IRootDock rootDock)
             {
                 _logger.LogWarning("Saved dock layout did not restore to an IRootDock ({SceneId})", _sceneId);
+                DisposeRestored(partial);
                 return false;
             }
 
@@ -329,6 +296,9 @@ public class DockHostViewModel : IDisposable, IJsonSerializable
         catch (Exception ex)
         {
             _logger.LogError(ex, "Failed to restore a saved dock layout ({SceneId})", _sceneId);
+            // Restoration builds tool contexts as it walks the tree; the ones it managed to create
+            // before failing are unreachable now and would leak their subscriptions.
+            DisposeRestored(partial);
             return false;
         }
 
@@ -360,6 +330,23 @@ public class DockHostViewModel : IDisposable, IJsonSerializable
         return true;
     }
 
+    private void DisposeRestored(IDockable? root)
+    {
+        if (root is null) return;
+
+        foreach (BeutlToolDockable tool in BeutlDockFactory.Traverse(root).OfType<BeutlToolDockable>())
+        {
+            try
+            {
+                tool.Dispose();
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Failed to dispose a partially restored tool tab ({SceneId})", _sceneId);
+            }
+        }
+    }
+
     private static bool IsCurrentVersion(JsonObject json)
     {
         return json.TryGetPropertyValue("_dockVersion", out JsonNode? node)
@@ -386,21 +373,21 @@ public class DockHostViewModel : IDisposable, IJsonSerializable
         EnsureDefaultLayout();
     }
 
-    private JsonObject SaveNode(IDockable node)
+    private JsonObject SaveNode(IDockable node, bool includeToolState = true)
     {
         return node switch
         {
-            IRootDock root => SaveRootDock(root),
+            IRootDock root => SaveRootDock(root, includeToolState),
             IProportionalDockSplitter => new JsonObject { ["$type"] = "splitter" },
-            IProportionalDock prop => SaveProportionalDock(prop),
-            IToolDock toolDock => SaveToolDock(toolDock),
-            BeutlToolDockable tool => SaveBeutlTool(tool),
+            IProportionalDock prop => SaveProportionalDock(prop, includeToolState),
+            IToolDock toolDock => SaveToolDock(toolDock, includeToolState),
+            BeutlToolDockable tool => SaveBeutlTool(tool, includeToolState),
             PlayerToolDockable => new JsonObject { ["$type"] = "player" },
             _ => new JsonObject { ["$type"] = "unknown" },
         };
     }
 
-    private JsonObject SaveRootDock(IRootDock root)
+    private JsonObject SaveRootDock(IRootDock root, bool includeToolState)
     {
         var obj = new JsonObject
         {
@@ -412,15 +399,15 @@ public class DockHostViewModel : IDisposable, IJsonSerializable
         {
             var children = new JsonArray();
             foreach (var child in visible)
-                children.Add(SaveNode(child));
+                children.Add(SaveNode(child, includeToolState));
             obj["children"] = children;
         }
 
-        SaveDockableList(obj, "hidden", root.HiddenDockables);
-        SaveDockableList(obj, "leftPinned", root.LeftPinnedDockables);
-        SaveDockableList(obj, "rightPinned", root.RightPinnedDockables);
-        SaveDockableList(obj, "topPinned", root.TopPinnedDockables);
-        SaveDockableList(obj, "bottomPinned", root.BottomPinnedDockables);
+        SaveDockableList(obj, "hidden", root.HiddenDockables, includeToolState);
+        SaveDockableList(obj, "leftPinned", root.LeftPinnedDockables, includeToolState);
+        SaveDockableList(obj, "rightPinned", root.RightPinnedDockables, includeToolState);
+        SaveDockableList(obj, "topPinned", root.TopPinnedDockables, includeToolState);
+        SaveDockableList(obj, "bottomPinned", root.BottomPinnedDockables, includeToolState);
 
         if (root.Windows is { Count: > 0 } windows)
         {
@@ -430,7 +417,7 @@ public class DockHostViewModel : IDisposable, IJsonSerializable
                 if (w.Layout is null) continue;
                 var wObj = new JsonObject
                 {
-                    ["layout"] = SaveNode(w.Layout),
+                    ["layout"] = SaveNode(w.Layout, includeToolState),
                     ["x"] = w.X,
                     ["y"] = w.Y,
                     ["width"] = w.Width,
@@ -448,16 +435,16 @@ public class DockHostViewModel : IDisposable, IJsonSerializable
         return obj;
     }
 
-    private void SaveDockableList(JsonObject parent, string key, IList<IDockable>? list)
+    private void SaveDockableList(JsonObject parent, string key, IList<IDockable>? list, bool includeToolState)
     {
         if (list is not { Count: > 0 }) return;
         var array = new JsonArray();
         foreach (var item in list)
-            array.Add(SaveNode(item));
+            array.Add(SaveNode(item, includeToolState));
         parent[key] = array;
     }
 
-    private JsonObject SaveProportionalDock(IProportionalDock prop)
+    private JsonObject SaveProportionalDock(IProportionalDock prop, bool includeToolState)
     {
         var obj = new JsonObject
         {
@@ -472,14 +459,14 @@ public class DockHostViewModel : IDisposable, IJsonSerializable
         {
             var children = new JsonArray();
             foreach (var child in visible)
-                children.Add(SaveNode(child));
+                children.Add(SaveNode(child, includeToolState));
             obj["children"] = children;
         }
 
         return obj;
     }
 
-    private JsonObject SaveToolDock(IToolDock toolDock)
+    private JsonObject SaveToolDock(IToolDock toolDock, bool includeToolState)
     {
         var obj = new JsonObject
         {
@@ -499,7 +486,7 @@ public class DockHostViewModel : IDisposable, IJsonSerializable
             for (int i = 0; i < visible.Count; i++)
             {
                 var child = visible[i];
-                tools.Add(SaveNode(child));
+                tools.Add(SaveNode(child, includeToolState));
                 if (child == toolDock.ActiveDockable)
                     activeDockableIndex = i;
             }
@@ -512,7 +499,7 @@ public class DockHostViewModel : IDisposable, IJsonSerializable
         return obj;
     }
 
-    private static JsonObject SaveBeutlTool(BeutlToolDockable dockable)
+    private static JsonObject SaveBeutlTool(BeutlToolDockable dockable, bool includeToolState)
     {
         var ctx = dockable.ToolContext;
         var obj = new JsonObject
@@ -523,7 +510,14 @@ public class DockHostViewModel : IDisposable, IJsonSerializable
         var extObj = new JsonObject();
         extObj.WriteDiscriminator(ctx.Extension.GetType());
         obj["extension"] = extObj;
-        ctx.WriteToJson(obj);
+
+        // A tool's serializer can have side effects (some write their own per-scene state file), so
+        // a preset capture must not invoke it just to discard the result.
+        if (includeToolState)
+        {
+            ctx.WriteToJson(obj);
+        }
+
         return obj;
     }
 
