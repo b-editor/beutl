@@ -46,7 +46,7 @@ public sealed partial class FrameCacheManager : IDisposable
                 FrameCacheOptions old = _options;
                 _options = value;
 
-                if (!old.ProducesSameCacheData(value, FrameSize))
+                if (!old.ProducesSameCacheData(value))
                 {
                     Clear();
                 }

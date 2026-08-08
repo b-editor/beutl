@@ -260,15 +260,28 @@ public class FrameCacheManagerTests
     }
 
     [Test]
-    public void ReassigningEquivalentOptions_KeepsTheEntries()
+    public void ReassigningTheSameOptions_KeepsTheEntries()
     {
         using FrameCacheManager manager = NewManager(new FrameCacheOptions(FrameCacheScale.Original, FrameCacheColorType.BGRA));
 
         Add(manager, 0);
 
-        // Manual with the frame's own size stores exactly what Original does.
-        manager.Options = manager.Options with { Scale = FrameCacheScale.Manual, Size = FrameSize };
+        manager.Options = manager.Options with { };
 
         Assert.That(Contains(manager, 0), Is.True);
+    }
+
+    [Test]
+    public void SwitchingScaleMode_DropsTheEntries_EvenWhenTheLogicalSizesAgree()
+    {
+        using FrameCacheManager manager = NewManager(new FrameCacheOptions(FrameCacheScale.Original, FrameCacheColorType.BGRA));
+
+        Add(manager, 0);
+
+        // Manual with the frame's own size resolves to the same logical size as Original, but an
+        // entry is encoded from the rendered snapshot, whose size is the device size.
+        manager.Options = manager.Options with { Scale = FrameCacheScale.Manual, Size = FrameSize };
+
+        Assert.That(Contains(manager, 0), Is.False);
     }
 }
