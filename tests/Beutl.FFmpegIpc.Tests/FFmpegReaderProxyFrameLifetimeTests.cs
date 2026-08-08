@@ -10,11 +10,10 @@ namespace Beutl.FFmpegIpc.Tests;
 /// Process-level IPC lifetime test: a frame handed back by <c>FFmpegReaderProxy.ReadVideo</c> must
 /// keep its pixels for as long as the caller holds it.
 /// <para>
-/// The worker decodes into a small ring of shared-memory slots and its prefetch thread recycles them
-/// knowing only the single most recently served slot, so a frame that aliased its slot would have its
-/// pixels replaced by a later read — the caller would still be holding a valid-looking bitmap whose
-/// picture now belongs to a different time. The preview then draws that picture, and with the frame
-/// cache on it is stored under the original frame number and shown from then on.
+/// The worker decodes into a small ring of shared-memory slots and recycles them knowing only the most
+/// recently served one, so a frame aliasing its slot has its pixels replaced by a later read: a
+/// valid-looking bitmap whose picture belongs to a different time, which the frame cache then stores
+/// under the original frame number.
 /// </para>
 /// </summary>
 [TestFixture, NonParallelizable]
@@ -103,9 +102,7 @@ public class FFmpegReaderProxyFrameLifetimeTests
                 expected = first!.Value.GetPixelSpan().ToArray();
             }
 
-            // The worker releases its reader lock before the response arrives and protects only the
-            // slot it served last, so two unserialized readers of one proxy can have prefetch
-            // recycle the slot one of them is still copying out of.
+            // Unserialized reads of one proxy let prefetch recycle the slot one of them is copying.
             var mismatch = 0;
             Parallel.For(0, 24, _ =>
             {

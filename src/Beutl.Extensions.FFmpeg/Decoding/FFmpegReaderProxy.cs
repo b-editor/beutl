@@ -16,9 +16,9 @@ namespace Beutl.Extensions.FFmpeg.Decoding;
 
 public sealed class FFmpegReaderProxy : MediaReader
 {
-    // The worker protects only the slot it served last, and it releases its reader lock before the
-    // response reaches us, so a second read on this proxy would let prefetch recycle the slot the
-    // first one is still copying out of.
+    // The worker protects only the slot it served last and releases its reader lock before the
+    // response reaches us, so a second read here would let prefetch recycle the slot the first is
+    // still copying out of.
     private readonly Lock _readGate = new();
 
     private readonly ILogger _logger = Log.CreateLogger<FFmpegReaderProxy>();
@@ -116,17 +116,15 @@ public sealed class FFmpegReaderProxy : MediaReader
         var colorType = isHdr ? BitmapColorType.Rgba16161616 : BitmapColorType.Bgra8888;
         int rowBytes = response.Width * response.BytesPerPixel;
 
-        // The worker's prefetch thread recycles ring slots knowing only the single most recently
-        // served one, so a view into the slot can have its pixels replaced by a later prefetch while
-        // the frame is still being drawn. The picture has to leave shared memory before returning.
+        // The worker's prefetch recycles ring slots knowing only the most recently served one, so a
+        // view into the slot can have its pixels replaced while the frame is still being drawn.
         var buffer = _videoBuffer!;
         byte* ptr = buffer.AcquirePointer();
         try
         {
             long readOffset = response.SlotDataOffset;
-            // Probe the stride first: the copy below fills rowBytes of each row, so it only covers
-            // the whole buffer when the destination has no padding. With padding, the clearing
-            // constructor is what keeps those bytes from being whatever was there before.
+            // The copy below fills rowBytes of each row, so it covers the whole buffer only when the
+            // destination has no padding; with padding the clear is what those bytes get.
             int destinationRowBytes = new SKImageInfo(
                 response.Width, response.Height, colorType.ToSKColorType()).RowBytes;
             var bmp = destinationRowBytes == rowBytes

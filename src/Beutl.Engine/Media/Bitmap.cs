@@ -40,10 +40,9 @@ public sealed class Bitmap : ICloneable, IDisposable
     /// Allocates a bitmap whose pixels are left as the allocator handed them back.
     /// </summary>
     /// <remarks>
-    /// For a caller that writes every byte of every row before anything reads them — a full-frame
-    /// copy, typically. The constructor clears the buffer, which for a 4K frame is a
-    /// destination-sized write thrown away by the copy that follows. Anything that does not fill the
-    /// whole buffer, padding included, has to use the constructor instead: what is left here is
+    /// For a caller that writes every byte of every row before anything reads them; the constructor's
+    /// clear is a destination-sized write a full-frame copy throws away. Anything that leaves part of
+    /// the buffer — padding included — unwritten has to use the constructor: what is left here is
     /// whatever the previous owner of that memory wrote.
     /// </remarks>
     public static Bitmap CreateUninitialized(int width, int height,

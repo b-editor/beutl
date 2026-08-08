@@ -377,25 +377,22 @@ public sealed class FFmpegReader : MediaReader
             SeekVideo(frame);
         }
 
-        // Grab by position, not by count: a grab does not always advance exactly one frame (dropped
-        // or duplicated timestamps, reordered pictures), so counting grabs drifts off the request.
-        // A run of pictures whose timestamps round to the same position is finite, and GrabVideo
-        // reports false at end of stream, so the loop cannot outlive the input.
+        // By position, not by count: a grab does not always advance exactly one frame (dropped or
+        // duplicated timestamps, reordered pictures), so counting grabs drifts off the request. A run
+        // rounding to the same position is finite and GrabVideo reports false at end of stream.
         while (_videoNowFrame < frame)
         {
             if (!GrabVideo())
                 return null;
         }
 
-        // Landing later than the request means no decoded picture maps to that frame number — a
-        // timestamp gap, or a variable frame rate. The nearest available picture is the answer for
-        // that frame; re-seeking to the start would decode the whole stream only to stop at the very
-        // same position, under the reader lock.
+        // Landing later means no decoded picture maps to that frame number — a timestamp gap, or a
+        // variable frame rate. The nearest picture is the answer; re-seeking to the start would decode
+        // the whole stream under the reader lock only to stop at the very same position.
         if (_videoNowFrame != frame)
         {
-            // Expected on a variable frame rate or a stream with timestamp gaps, and it can hold for
-            // long stretches of frames, so it stays out of the warning stream the worker routes
-            // through its locked stdout logger on every decode and prefetch.
+            // Expected on a variable frame rate, and it can hold for long stretches, so it stays out
+            // of the warning stream the worker routes through its locked stdout logger.
             _logger.LogDebug(
                 "Video decode landed on frame {Position} for requested frame {Frame}.",
                 _videoNowFrame, frame);
