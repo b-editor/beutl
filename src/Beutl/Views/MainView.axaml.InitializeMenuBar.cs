@@ -5,8 +5,6 @@ using Avalonia;
 using Avalonia.Collections;
 using Avalonia.Controls;
 using Avalonia.Controls.ApplicationLifetimes;
-using Avalonia.Controls.Primitives;
-using Avalonia.Data;
 using Avalonia.Platform.Storage;
 using Beutl.Api.Services;
 using Beutl.Configuration;
@@ -80,8 +78,11 @@ public partial class MainView
                 Command = viewModel.MenuBar.ApplyDockLayout,
                 CommandParameter = item
             };
-            menuItem.Bind(HeaderedSelectingItemsControl.HeaderProperty, new Binding(
-                $"{nameof(DockLayoutPresetItem.Name)}.{nameof(item.Name.Value)}"));
+
+            // A typed subscription rather than a string-path Binding: the surrounding XAML uses
+            // compiled bindings, and a reflection path would silently blank the header if the
+            // property were ever renamed.
+            item.Name.Subscribe(name => menuItem.Header = name).DisposeWith(_disposables);
             return menuItem;
         }
 

@@ -214,7 +214,9 @@ public sealed class DockLayoutPresetService
                 return;
             }
 
-            using FileStream stream = File.Open(filePath, FileMode.Open);
+            // Read-only: applying a layout needs no write access, so a read-only preset file must
+            // still load rather than throwing before it is parsed.
+            using FileStream stream = File.Open(filePath, FileMode.Open, FileAccess.Read, FileShare.Read);
             JsonNode? jsonNode = JsonNode.Parse(stream);
             if (jsonNode is not JsonArray jsonArray)
             {

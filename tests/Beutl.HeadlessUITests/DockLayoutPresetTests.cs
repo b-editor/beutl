@@ -335,6 +335,32 @@ public class DockLayoutPresetTests
     }
 
     [Test]
+    public void A_read_only_store_file_still_loads()
+    {
+        string path = Path.Combine(Path.GetTempPath(), $"beutl-dock-presets-{Guid.NewGuid():N}.json");
+        try
+        {
+            new DockLayoutPresetService(path)
+                .Save("Editing", new JsonObject { ["DockLayout"] = new JsonObject { ["$type"] = "root" } });
+
+            // Applying a layout needs read access only, so a read-only file must still load.
+            File.SetAttributes(path, FileAttributes.ReadOnly);
+
+            Assert.That(
+                new DockLayoutPresetService(path).Items.Select(i => i.Name.Value),
+                Is.EqualTo(new[] { "Editing" }));
+        }
+        finally
+        {
+            if (File.Exists(path))
+            {
+                File.SetAttributes(path, FileAttributes.Normal);
+                File.Delete(path);
+            }
+        }
+    }
+
+    [Test]
     public void A_store_file_that_is_not_an_array_still_accepts_later_saves()
     {
         string path = Path.Combine(Path.GetTempPath(), $"beutl-dock-presets-{Guid.NewGuid():N}.json");
