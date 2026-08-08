@@ -59,6 +59,9 @@ public static class CoreSerializer
 
     public static object DeserializeFromJsonObject(JsonObject json, Type baseType, CoreSerializerOptions? options = null)
     {
+        // A sealed baseType deliberately ignores any present discriminator: sealed wrapper types
+        // (e.g. Optional<T>) legitimately carry the wrapped payload's $type on their own node and
+        // interpret it themselves during Deserialize.
         Type? actualType = baseType.IsSealed ? baseType : json.GetDiscriminator(baseType);
         if (actualType == null)
         {
@@ -67,6 +70,12 @@ public static class CoreSerializer
 
         try
         {
+            if (!baseType.IsAssignableFrom(actualType))
+            {
+                throw new InvalidCastException(
+                    $"Discriminator type '{actualType}' is not assignable to the expected type '{baseType}'.");
+            }
+
             var obj = Activator.CreateInstance(actualType) as ICoreSerializable
                       ?? throw new InvalidOperationException($"Could not create instance of type {actualType.FullName}.");
 
@@ -83,6 +92,7 @@ public static class CoreSerializer
             if (obj is IFallback fallbackObj)
             {
                 fallbackObj.Reason = FallbackReason.TypeNotFound;
+                DeserializationIncidents.RecordFallback();
             }
 
             return obj;
@@ -158,7 +168,10 @@ public static class CoreSerializer
         // 互換性処理
         // 1.x で作成されたファイルでは一部のオブジェクトに $type が付与されないため、
         // 期待される型に基づいてディスクリミネータを補完する。
-        if (!node.TryGetDiscriminator(out Type? _))
+        // Presence is checked on the property key alone: a present-but-unparsable or non-string
+        // discriminator must fail as an unknown type, not silently deserialize as the legacy
+        // default and overwrite the original data on the next save.
+        if (!jsonObject.ContainsKey("$type") && !jsonObject.ContainsKey("@type"))
         {
             if (type == typeof(ProjectItem))
             {
@@ -174,6 +187,14 @@ public static class CoreSerializer
         if (actualType == null)
         {
             throw new InvalidOperationException("Discriminator not found in JSON object.");
+        }
+
+        if (!type.IsAssignableFrom(actualType))
+        {
+            // Reject before instantiating: deserializing the declared type first would run its own
+            // load side effects (e.g. a Scene declared in a .belm globs and reopens element files).
+            throw new InvalidCastException(
+                $"Discriminator type '{actualType}' is not assignable to the expected type '{type}'.");
         }
 
         try
@@ -192,6 +213,7 @@ public static class CoreSerializer
             if (obj is IFallback fallbackObj)
             {
                 fallbackObj.Reason = FallbackReason.TypeNotFound;
+                DeserializationIncidents.RecordFallback();
             }
 
             return obj;
@@ -227,6 +249,84 @@ public static class CoreSerializer
     public static void StoreToUri<T>(T obj, Uri uri, CoreSerializationMode? mode = null)
         where T : ICoreSerializable
     {
+        if (obj is CoreObject { SuppressedStorageSource: { } suppressed } suppressedObj)
+        {
+            if (uri == suppressed.SourceUri)
+            {
+                // The source location is skip-protected only while the on-disk bytes still match
+                // the retained recovery bytes. A repair that was undone (or any other mutation
+                // that rewrote the sidecar) must not leave repaired bytes on disk for a still-
+                // suppressed object: restore the retained bytes verbatim so the next open sees the
+                // same recovery state the undo recorded.
+                string sourcePath = uri.LocalPath;
+                if (File.Exists(sourcePath)
+                    && !File.ReadAllBytes(sourcePath).AsSpan().SequenceEqual(suppressed.RawBytes))
+                {
+                    WriteBytesAtomically(sourcePath, suppressed.RawBytes);
+                }
+
+                return;
+            }
+
+            if (uri.Scheme != "file")
+            {
+                throw new JsonException();
+            }
+
+            // Rehomed (save-as): the retained bytes move verbatim so the new project copy keeps the
+            // element. The suppression record is never mutated — the source location stays
+            // skip-protected even if a failed multi-file save rolls Uri back afterwards.
+            string rehomedPath = uri.LocalPath;
+            if (File.Exists(rehomedPath))
+            {
+                suppressedObj.Uri = uri;
+                return;
+            }
+
+            string? rehomedDirectory = Path.GetDirectoryName(rehomedPath);
+            if (rehomedDirectory != null)
+            {
+                Directory.CreateDirectory(rehomedDirectory);
+            }
+
+            string tempPath = $"{rehomedPath}.{Guid.NewGuid():N}.tmp";
+            try
+            {
+                using (var stream = new FileStream(
+                           tempPath,
+                           FileMode.CreateNew,
+                           FileAccess.Write,
+                           FileShare.None))
+                {
+                    stream.Write(suppressed.RawBytes);
+                    stream.Flush(flushToDisk: true);
+                }
+
+                try
+                {
+                    File.Move(tempPath, rehomedPath, overwrite: false);
+                }
+                catch (IOException) when (File.Exists(rehomedPath))
+                {
+                    suppressedObj.Uri = uri;
+                    return;
+                }
+            }
+            finally
+            {
+                try
+                {
+                    File.Delete(tempPath);
+                }
+                catch
+                {
+                }
+            }
+
+            suppressedObj.Uri = uri;
+            return;
+        }
+
         if (uri.Scheme == "file")
         {
             if (obj is CoreObject coreObj)
@@ -277,6 +377,35 @@ public static class CoreSerializer
         else
         {
             throw new JsonException();
+        }
+    }
+
+    private static void WriteBytesAtomically(string path, byte[] bytes)
+    {
+        string tempPath = $"{path}.{Guid.NewGuid():N}.tmp";
+        try
+        {
+            using (var stream = new FileStream(
+                       tempPath,
+                       FileMode.CreateNew,
+                       FileAccess.Write,
+                       FileShare.None))
+            {
+                stream.Write(bytes);
+                stream.Flush(flushToDisk: true);
+            }
+
+            File.Move(tempPath, path, overwrite: true);
+        }
+        finally
+        {
+            try
+            {
+                File.Delete(tempPath);
+            }
+            catch
+            {
+            }
         }
     }
 }

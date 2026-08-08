@@ -153,16 +153,59 @@ public sealed class FileEditingSession : IEditingSession, IEditingSessionDispatc
                 Path.Combine(projectDirectory, projectName),
                 sceneName,
                 usedDirs);
+            string? previousSceneDirectory = scene.Uri is { IsFile: true } previousSceneUri
+                ? Path.GetDirectoryName(previousSceneUri.LocalPath)
+                : null;
             scene.Uri = new Uri(scenePath);
+            string sceneDirectory = Path.GetDirectoryName(scenePath)!;
+            var assignedElementPaths = new HashSet<string>(
+                StringComparer.FromComparison(PathComparison.ForCurrentPlatform));
             foreach (Element element in scene.Children)
             {
-                element.Uri = null;
+                // Keep each sidecar's relative path across Save As: a recovered element's stable
+                // fallback identity is derived from its scene-relative path, so a regenerated
+                // path would change the element's Id when the copy is reopened.
+                if (element.Uri is { IsFile: true } previousUri)
+                {
+                    string relativePath = previousSceneDirectory != null
+                        ? Path.GetRelativePath(previousSceneDirectory, previousUri.LocalPath)
+                        : Path.GetFileName(previousUri.LocalPath);
+                    string sceneRoot = Path.TrimEndingDirectorySeparator(Path.GetFullPath(sceneDirectory));
+                    string resolvedPath = Path.GetFullPath(Path.Combine(sceneRoot, relativePath));
+                    if (!resolvedPath.StartsWith(
+                            sceneRoot + Path.DirectorySeparatorChar,
+                            PathComparison.ForCurrentPlatform))
+                    {
+                        resolvedPath = Path.Combine(sceneRoot, Path.GetFileName(previousUri.LocalPath));
+                    }
+
+                    resolvedPath = ReserveUniqueElementPath(resolvedPath, assignedElementPaths);
+                    element.Uri = new Uri(resolvedPath);
+                }
+                else
+                {
+                    element.Uri = null;
+                }
             }
 
             index++;
         }
 
         AcceptExternalStamp();
+    }
+
+    private static string ReserveUniqueElementPath(string path, ISet<string> assignedPaths)
+    {
+        string candidate = path;
+        string directory = Path.GetDirectoryName(path)!;
+        string name = Path.GetFileNameWithoutExtension(path);
+        string extension = Path.GetExtension(path);
+        for (int suffix = 2; !assignedPaths.Add(candidate); suffix++)
+        {
+            candidate = Path.Combine(directory, $"{name}-{suffix}{extension}");
+        }
+
+        return candidate;
     }
 
     // Save As rehomes the project/scene/element URIs and then writes; run capture → rehome → save —

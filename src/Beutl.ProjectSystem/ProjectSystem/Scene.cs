@@ -1,12 +1,20 @@
-﻿using System.Collections.Immutable;
+﻿using System.Collections;
+using System.Collections.Concurrent;
+using System.Collections.Immutable;
 using System.Collections.Specialized;
 using System.ComponentModel;
 using System.ComponentModel.DataAnnotations;
 using System.Diagnostics;
+using System.Security.Cryptography;
+using System.Text;
 using System.Text.Json;
 using System.Text.Json.Nodes;
+using System.Text.RegularExpressions;
+using Beutl.Animation;
 using Beutl.Collections;
 using Beutl.Configuration;
+using Beutl.Engine;
+using Beutl.Engine.Expressions;
 using Beutl.Language;
 using Beutl.Media;
 using Beutl.Serialization;
@@ -43,6 +51,19 @@ public enum ElementOverlapHandling
 
 public class Scene : ProjectItem, INotifyEdited
 {
+    private const int MaxRecoveredIdCollisionAttempts = 1024;
+    private const string RecoveredDescendantIdsKey = "RecoveredDescendantIds";
+    private const string RecoveredElementIdsKey = "RecoveredElementIds";
+    private static readonly Guid s_recoveredElementNamespace = new("dfad2f76-1d04-5593-ae3b-f371fb1f42ee");
+    private static readonly Regex s_idPattern = new(
+        "\"Id\"\\s*:\\s*\"(?<id>[0-9a-fA-F-]{36})\"",
+        RegexOptions.CultureInvariant);
+    private static readonly Regex s_typePattern = new(
+        "\"\\$type\"\\s*:\\s*(?<type>\"(?:\\\\.|[^\"\\\\])*\")",
+        RegexOptions.CultureInvariant);
+    private static readonly Regex s_legacyTypePattern = new(
+        "\"@type\"\\s*:\\s*(?<type>\"(?:\\\\.|[^\"\\\\])*\")",
+        RegexOptions.CultureInvariant);
     public static readonly CoreProperty<PixelSize> FrameSizeProperty;
     public static readonly CoreProperty<Elements> ChildrenProperty;
     public static readonly CoreProperty<TimeSpan> StartProperty;
@@ -55,6 +76,13 @@ public class Scene : ProjectItem, INotifyEdited
     private readonly Elements _children;
     private readonly HierarchicalList<TimelineLayer> _layers;
     private readonly HierarchicalList<SceneMarker> _markers;
+    private readonly Dictionary<string, Guid> _recoveredDescendantIds = new(StringComparer.Ordinal);
+    private readonly Dictionary<CoreObject, (Guid OriginalId, Guid AssignedId, int Occurrence)> _recoveredDescendantRemaps
+        = new(ReferenceEqualityComparer.Instance);
+    private readonly Dictionary<string, Guid> _recoveredElementIds = new(StringComparer.Ordinal);
+    private readonly Dictionary<Guid, Guid> _pendingRecoveredElementIdMigrations = [];
+    private readonly Dictionary<Guid, Guid> _pendingRecoveredDescendantIdMigrations = [];
+    private readonly System.Collections.Concurrent.ConcurrentDictionary<CoreObject, byte> _idlessRecoveredDescendants = new();
     private TimeSpan _start = TimeSpan.FromMinutes(0);
     private TimeSpan _duration = TimeSpan.FromMinutes(5);
     private PixelSize _frameSize;
@@ -539,6 +567,30 @@ public class Scene : ProjectItem, INotifyEdited
         context.SetValue("Height", FrameSize.Height);
         context.SetValue("Groups", Groups.Select(ids => string.Join(':', ids)).ToArray());
         context.SetValue(nameof(Markers), Markers);
+        RebuildRecoveredElementIds();
+        if (_recoveredElementIds.Count > 0)
+        {
+            var recoveredElementIds = new JsonObject();
+            foreach ((string path, Guid id) in _recoveredElementIds.OrderBy(static item => item.Key, StringComparer.Ordinal))
+            {
+                recoveredElementIds[path] = id.ToString();
+            }
+
+            context.SetValue(RecoveredElementIdsKey, recoveredElementIds);
+        }
+
+        if (_recoveredDescendantIds.Count > 0)
+        {
+            var recoveredDescendantIds = new JsonObject();
+            foreach ((string key, Guid id) in _recoveredDescendantIds.OrderBy(
+                         static item => item.Key,
+                         StringComparer.Ordinal))
+            {
+                recoveredDescendantIds[key] = id.ToString();
+            }
+
+            context.SetValue(RecoveredDescendantIdsKey, recoveredDescendantIds);
+        }
 
         if (context.Mode.HasFlag(CoreSerializationMode.SaveReferencedObjects))
         {
@@ -596,6 +648,38 @@ public class Scene : ProjectItem, INotifyEdited
             FrameSize = new PixelSize(context.GetValue<int>("Width"), context.GetValue<int>("Height"));
         }
 
+        _pendingRecoveredElementIdMigrations.Clear();
+        _pendingRecoveredDescendantIdMigrations.Clear();
+        _idlessRecoveredDescendants.Clear();
+        _recoveredDescendantIds.Clear();
+        _recoveredDescendantRemaps.Clear();
+        _recoveredElementIds.Clear();
+        if (context.GetValue<JsonNode>(RecoveredElementIdsKey) is JsonObject recoveredElementIds)
+        {
+            foreach ((string path, JsonNode? idNode) in recoveredElementIds)
+            {
+                if (idNode is JsonValue idValue
+                    && idValue.TryGetValue(out string? idText)
+                    && Guid.TryParse(idText, out Guid id))
+                {
+                    _recoveredElementIds[NormalizeRelativePath(path)] = id;
+                }
+            }
+        }
+
+        if (context.GetValue<JsonNode>(RecoveredDescendantIdsKey) is JsonObject recoveredDescendantIds)
+        {
+            foreach ((string key, JsonNode? idNode) in recoveredDescendantIds)
+            {
+                if (idNode is JsonValue idValue
+                    && idValue.TryGetValue(out string? idText)
+                    && Guid.TryParse(idText, out Guid id))
+                {
+                    _recoveredDescendantIds[NormalizeRelativePath(key)] = id;
+                }
+            }
+        }
+
         if (context.GetValue<JsonNode>(nameof(Elements)) is { } elementsJson)
         {
             if (elementsJson is JsonObject elementsObject)
@@ -637,6 +721,7 @@ public class Scene : ProjectItem, INotifyEdited
             {
                 var ids = group.Split(':')
                     .Select(s => Guid.TryParse(s, out Guid id) ? id : Guid.Empty)
+                    .Select(id => _pendingRecoveredElementIdMigrations.GetValueOrDefault(id, id))
                     .Where(i => i != Guid.Empty && Children.Any(e => e.Id == i))
                     .ToImmutableHashSet();
                 if (ids.Count >= 2)
@@ -670,12 +755,712 @@ public class Scene : ProjectItem, INotifyEdited
             Children.Remove(item);
         }
 
-        Children.AddRange(urisAdd.AsParallel().Select(CoreSerializer.RestoreFromUri<Element>));
+        Children.AddRange(urisAdd.AsParallel().Select(RestoreElementOrFallback));
+        ReassignDuplicateRecoveredIds();
+        MigrateRecoveredElementReferences();
 
         activity?.SetTag("addCount", urisAdd.Length);
         activity?.SetTag("removeCount", elementsRemove.Length);
         activity?.SetTag("childrenCount", Children.Count);
     }
+
+    private void ReassignDuplicateRecoveredIds()
+    {
+        string sceneDirectory = Path.GetDirectoryName(Uri!.LocalPath)!;
+        var recoveredChildren = Children
+            .Where(static child => child.SuppressedStorageSource is not null)
+            .Select(child => (
+                Child: child,
+                RelativePath: NormalizeRelativePath(
+                    Path.GetRelativePath(sceneDirectory, child.Uri!.LocalPath))))
+            .OrderBy(static item => item.RelativePath, StringComparer.Ordinal)
+            .ToArray();
+
+        var claimedIds = new HashSet<Guid> { Guid.Empty, Id };
+        foreach (CoreObject sceneObject in Layers.Cast<CoreObject>().Concat(Markers))
+        {
+            foreach (CoreObject graphObject in EnumerateSerializedGraphObjects(sceneObject).OfType<CoreObject>())
+            {
+                claimedIds.Add(graphObject.Id);
+            }
+        }
+
+        var seenDescendants = new HashSet<CoreObject>(ReferenceEqualityComparer.Instance);
+        var healthyChildren = Children
+            .Where(static child => child.SuppressedStorageSource is null)
+            .Select(child => (
+                Child: child,
+                RelativePath: NormalizeRelativePath(
+                    Path.GetRelativePath(sceneDirectory, child.Uri!.LocalPath))))
+            .OrderBy(static item => item.RelativePath, StringComparer.Ordinal)
+            .ToArray();
+        foreach ((Element child, string _) in healthyChildren)
+        {
+            claimedIds.Add(child.Id);
+            foreach (CoreObject descendant in EnumerateSerializedGraphDescendants(child))
+            {
+                seenDescendants.Add(descendant);
+                claimedIds.Add(descendant.Id);
+            }
+        }
+
+        foreach ((Element child, string relativePath) in healthyChildren)
+        {
+            if (_recoveredElementIds.Remove(relativePath, out Guid placeholderId)
+                && placeholderId != child.Id)
+            {
+                _pendingRecoveredElementIdMigrations.TryAdd(placeholderId, child.Id);
+            }
+        }
+
+        var recoveredPaths = recoveredChildren
+            .Select(static item => item.RelativePath)
+            .ToHashSet(StringComparer.Ordinal);
+        foreach (string path in _recoveredElementIds.Keys.Where(path => !recoveredPaths.Contains(path)).ToArray())
+        {
+            _recoveredElementIds.Remove(path);
+        }
+
+        var persistedChildren = new HashSet<Element>();
+        foreach ((Element child, string relativePath) in recoveredChildren)
+        {
+            if (_recoveredElementIds.TryGetValue(relativePath, out Guid persistedId))
+            {
+                // A persisted remap that a healthy element now owns is stale; drop it so the
+                // derivation loop assigns a fresh deterministic identity instead of a duplicate.
+                if (claimedIds.Add(persistedId))
+                {
+                    child.Id = persistedId;
+                    persistedChildren.Add(child);
+                }
+                else
+                {
+                    _recoveredElementIds.Remove(relativePath);
+                }
+            }
+        }
+
+        foreach ((Element child, string relativePath) in recoveredChildren)
+        {
+            if (persistedChildren.Contains(child))
+            {
+                continue;
+            }
+
+            if (claimedIds.Add(child.Id))
+            {
+                continue;
+            }
+
+            bool assigned = false;
+            for (int attempt = 0; attempt < MaxRecoveredIdCollisionAttempts; attempt++)
+            {
+                string candidateName = attempt == 0
+                    ? relativePath
+                    : $"{relativePath}#{attempt}";
+                Guid candidate = CreateVersion5Guid(s_recoveredElementNamespace, candidateName);
+                if (claimedIds.Add(candidate))
+                {
+                    child.Id = candidate;
+                    assigned = true;
+                    break;
+                }
+            }
+
+            if (!assigned)
+            {
+                throw new InvalidOperationException(
+                    $"Could not assign a unique recovered element Id for '{relativePath}'.");
+            }
+        }
+
+        foreach ((Element child, string relativePath) in recoveredChildren)
+        {
+            _recoveredElementIds[relativePath] = child.Id;
+        }
+
+        var persistedDescendantIds = new Dictionary<string, Guid>(
+            _recoveredDescendantIds,
+            StringComparer.Ordinal);
+        _recoveredDescendantIds.Clear();
+        _recoveredDescendantRemaps.Clear();
+        var pendingDescendantRemaps
+            = new Dictionary<CoreObject, (string RemapKey, Guid OriginalId, int Occurrence)>(
+                ReferenceEqualityComparer.Instance);
+        foreach ((Element child, string relativePath) in recoveredChildren)
+        {
+            var occurrences = new Dictionary<Guid, int>();
+            int idlessOccurrence = 0;
+            foreach (CoreObject descendant in EnumerateSerializedGraphDescendants(child))
+            {
+                if (!seenDescendants.Add(descendant))
+                {
+                    continue;
+                }
+
+                bool idless = _idlessRecoveredDescendants.ContainsKey(descendant);
+                Guid originalId = idless ? Guid.Empty : descendant.Id;
+                int occurrence = idless
+                    ? idlessOccurrence++
+                    : occurrences.GetValueOrDefault(originalId);
+                if (!idless)
+                {
+                    occurrences[originalId] = occurrence + 1;
+                }
+
+                string remapKey = CreateRecoveredDescendantKey(relativePath, originalId, occurrence);
+                if (persistedDescendantIds.TryGetValue(remapKey, out Guid persistedId))
+                {
+                    if (claimedIds.Add(persistedId))
+                    {
+                        descendant.Id = persistedId;
+                        RecordRecoveredDescendantRemap(
+                            descendant,
+                            remapKey,
+                            originalId,
+                            persistedId,
+                            occurrence);
+                        continue;
+                    }
+
+                    pendingDescendantRemaps[descendant] = (remapKey, originalId, occurrence);
+                }
+                else if (!claimedIds.Add(originalId))
+                {
+                    pendingDescendantRemaps[descendant] = (remapKey, originalId, occurrence);
+                }
+            }
+        }
+
+        foreach ((Element child, string relativePath) in recoveredChildren)
+        {
+            foreach (CoreObject descendant in EnumerateSerializedGraphDescendants(child))
+            {
+                if (!pendingDescendantRemaps.Remove(
+                        descendant,
+                        out (string RemapKey, Guid OriginalId, int Occurrence) remap))
+                {
+                    continue;
+                }
+
+                bool assigned = false;
+                for (int attempt = 0; attempt < MaxRecoveredIdCollisionAttempts; attempt++)
+                {
+                    string candidateName = attempt == 0
+                        ? remap.RemapKey
+                        : $"{remap.RemapKey}#{attempt}";
+                    Guid candidate = CreateVersion5Guid(s_recoveredElementNamespace, candidateName);
+                    if (claimedIds.Add(candidate))
+                    {
+                        descendant.Id = candidate;
+                        RecordRecoveredDescendantRemap(
+                            descendant,
+                            remap.RemapKey,
+                            remap.OriginalId,
+                            candidate,
+                            remap.Occurrence);
+                        assigned = true;
+                        break;
+                    }
+                }
+
+                if (!assigned)
+                {
+                    throw new InvalidOperationException(
+                        $"Could not assign a unique recovered descendant Id for '{relativePath}'.");
+                }
+
+                if (descendant is IFallback fallback)
+                {
+                    EnsureFallbackProjection(fallback);
+                }
+            }
+        }
+    }
+
+    private void RecordRecoveredDescendantRemap(
+        CoreObject descendant,
+        string remapKey,
+        Guid originalId,
+        Guid assignedId,
+        int occurrence)
+    {
+        _recoveredDescendantIds[remapKey] = assignedId;
+        _recoveredDescendantRemaps[descendant] = (originalId, assignedId, occurrence);
+        if (originalId != Guid.Empty)
+        {
+            _pendingRecoveredDescendantIdMigrations.TryAdd(originalId, assignedId);
+        }
+
+        if (descendant is IFallback fallback)
+        {
+            EnsureFallbackProjection(fallback);
+        }
+    }
+
+    private Element RestoreElementOrFallback(Uri uri)
+    {
+        int fallbackCountBefore = DeserializationIncidents.FallbackCount;
+        try
+        {
+            Element element = CoreSerializer.RestoreFromUri<Element>(uri);
+            IFallback[] fallbacks = EnumerateSerializedGraphFallbacks(element).ToArray();
+            int incidentCount = DeserializationIncidents.FallbackCount - fallbackCountBefore;
+
+            if (fallbacks.Length > 0 || incidentCount > 0)
+            {
+                foreach (IFallback fallback in fallbacks)
+                {
+                    if (fallback is CoreObject fallbackObject
+                        && !HasSerializedId(fallback.Json))
+                    {
+                        _idlessRecoveredDescendants.TryAdd(fallbackObject, 0);
+                    }
+
+                    EnsureFallbackProjection(fallback);
+                }
+
+                MarkRecoveredElement(
+                    element,
+                    File.ReadAllBytes(uri.LocalPath),
+                    uri,
+                    incidentCount > fallbacks.Length);
+            }
+
+            return element;
+        }
+        // Any non-filesystem failure is a content problem the recovery path must absorb — value
+        // converters throw freely (e.g. FormatException from Color.Parse); filesystem failures
+        // still propagate so a genuinely unreadable project keeps failing loudly.
+        catch (Exception ex) when (!ExceptionHelpers.ContainsFileSystemFailure(ex))
+        {
+            // Raw bytes, not text: the sidecar must survive rehoming byte-identically even when it
+            // holds a BOM, another encoding, or undecodable bytes. The lossy decode is only scanned
+            // for top-level recovery metadata.
+            byte[] rawBytes = File.ReadAllBytes(uri.LocalPath);
+            string rawText = Encoding.UTF8.GetString(rawBytes);
+            var element = new Element
+            {
+                Id = ResolveRecoveredElementId(rawText, uri),
+                Name = Path.GetFileNameWithoutExtension(uri.LocalPath),
+                Uri = uri,
+                IsEnabled = false,
+            };
+            string? topLevelTypeName = TryGetTopLevelTypeName(rawText);
+            FallbackReason fallbackReason = topLevelTypeName is not null
+                                            && TypeFormat.ToType(topLevelTypeName) is null
+                ? FallbackReason.TypeNotFound
+                : FallbackReason.DeserializationFailed;
+            var fallback = new FallbackEngineObject
+            {
+                Name = "Unreadable element data",
+                Reason = fallbackReason,
+                ErrorMessage = fallbackReason == FallbackReason.DeserializationFailed
+                    ? $"{ex.GetType().Name}: {ex.Message}"
+                    : null,
+            };
+            fallback.Json = CreateFallbackProjection(fallback, topLevelTypeName);
+            element.AddObject(fallback);
+            _idlessRecoveredDescendants.TryAdd(fallback, 0);
+            MarkRecoveredElement(element, rawBytes, uri);
+            return element;
+        }
+    }
+
+    private static bool HasSerializedId(JsonObject? json)
+    {
+        return json is not null
+            && json.TryGetPropertyValue(nameof(CoreObject.Id), out JsonNode? idNode)
+            && idNode is JsonValue idValue
+            && idValue.TryGetValue(out string? idText)
+            && Guid.TryParse(idText, out Guid id)
+            && id != Guid.Empty;
+    }
+
+    private static void MarkRecoveredElement(
+        Element element,
+        byte[] rawBytes,
+        Uri uri,
+        bool hasNonFallbackIncidents = false)
+    {
+        element.SuppressedStorageSource = new SuppressedStorageSource(
+            rawBytes,
+            uri,
+            hasNonFallbackIncidents);
+    }
+
+    internal static SuppressedStorageSource? TryResumeElementPersistence(Element element)
+    {
+        if (element.SuppressedStorageSource is not { } source
+            || EnumerateSerializedGraphFallbacks(element).Any()
+            || EnumerateSerializedGraphObjects(element).OfType<KeyFrame>().Any(static keyFrame => keyFrame.HasLossyEasing))
+        {
+            return null;
+        }
+
+        element.SuppressedStorageSource = null;
+        return source;
+    }
+
+    private static IEnumerable<IFallback> EnumerateSerializedGraphFallbacks(Element element)
+    {
+        return EnumerateSerializedGraphObjects(element).OfType<IFallback>();
+    }
+
+    private static IEnumerable<CoreObject> EnumerateSerializedGraphDescendants(Element element)
+    {
+        return EnumerateSerializedGraphObjects(element)
+            .OfType<CoreObject>()
+            .Where(value => !ReferenceEquals(value, element));
+    }
+
+    private void MigrateRecoveredElementReferences()
+    {
+        if (_pendingRecoveredElementIdMigrations.Count == 0
+            && _pendingRecoveredDescendantIdMigrations.Count == 0)
+        {
+            return;
+        }
+
+        foreach (Element element in Children)
+        {
+            foreach (EngineObject engineObject in EnumerateSerializedGraphObjects(element).OfType<EngineObject>())
+            {
+                foreach (IProperty property in engineObject.Properties)
+                {
+                    if (property.CurrentValue is IReference reference
+                        && (TryGetMigratedId(reference.Id, out Guid migratedId)))
+                    {
+                        property.CurrentValue = ResolveMigratedReference(reference, migratedId);
+                    }
+
+                    if (property.Expression is IReferenceExpression referenceExpression
+                        && TryGetMigratedId(referenceExpression.ObjectId, out Guid migratedExpressionId))
+                    {
+                        property.Expression = (IExpression)Activator.CreateInstance(
+                            referenceExpression.GetType(),
+                            migratedExpressionId,
+                            referenceExpression.PropertyPath)!;
+                    }
+                }
+            }
+        }
+    }
+
+    private bool TryGetMigratedId(Guid originalId, out Guid migratedId)
+    {
+        return _pendingRecoveredElementIdMigrations.TryGetValue(originalId, out migratedId)
+               || _pendingRecoveredDescendantIdMigrations.TryGetValue(originalId, out migratedId);
+    }
+
+    private object ResolveMigratedReference(IReference reference, Guid migratedId)
+    {
+        CoreObject? target = EnumerateSerializedGraphObjects(Children)
+            .OfType<CoreObject>()
+            .FirstOrDefault(candidate => candidate.Id == migratedId);
+        return target is not null && reference.ObjectType.IsInstanceOfType(target)
+            ? reference.Resolved(target)
+            : Activator.CreateInstance(reference.GetType(), migratedId)!;
+    }
+
+    private static IEnumerable<object> EnumerateSerializedGraphObjects(object root)
+    {
+        var objects = new List<object>();
+        var visited = new HashSet<object>(ReferenceEqualityComparer.Instance);
+        CollectSerializedGraphObjects(root, visited, objects);
+        return objects;
+    }
+
+    private static void CollectSerializedGraphObjects(
+        object? value,
+        ISet<object> visited,
+        ICollection<object> objects)
+    {
+        if (value is null or string
+            || (!value.GetType().IsValueType && !visited.Add(value)))
+        {
+            return;
+        }
+
+        if (value is CoreObject or IFallback)
+        {
+            objects.Add(value);
+        }
+
+        if (value is IHierarchical hierarchical)
+        {
+            foreach (IHierarchical child in hierarchical.HierarchicalChildren)
+            {
+                CollectSerializedGraphObjects(child, visited, objects);
+            }
+        }
+
+        if (value is EngineObject engineObject)
+        {
+            foreach (IProperty property in engineObject.Properties)
+            {
+                CollectSerializedGraphObjects(property.CurrentValue, visited, objects);
+                if (property.Animation is IKeyFrameAnimation animation)
+                {
+                    foreach (IKeyFrame keyFrame in animation.KeyFrames)
+                    {
+                        CollectSerializedGraphObjects(keyFrame, visited, objects);
+                        CollectSerializedGraphObjects(keyFrame.Value, visited, objects);
+                    }
+                }
+            }
+        }
+
+        if (value is System.Collections.IDictionary dictionary)
+        {
+            foreach (object? item in dictionary.Values)
+            {
+                CollectSerializedGraphObjects(item, visited, objects);
+            }
+        }
+        else if (value is IEnumerable enumerable)
+        {
+            foreach (object? item in enumerable)
+            {
+                CollectSerializedGraphObjects(item, visited, objects);
+            }
+        }
+    }
+
+    private static void EnsureFallbackProjection(IFallback fallback)
+    {
+        if (fallback is not CoreObject coreObject)
+        {
+            return;
+        }
+
+        JsonObject json = fallback.Json ?? new JsonObject();
+        if (!json.ContainsKey("$type") && !json.ContainsKey("@type"))
+        {
+            json.WriteDiscriminator(coreObject.GetType());
+        }
+
+        json[nameof(CoreObject.Id)] = coreObject.Id.ToString();
+        fallback.Json = json;
+    }
+
+    private static JsonObject CreateFallbackProjection(FallbackEngineObject fallback, string? typeName = null)
+    {
+        var json = new JsonObject
+        {
+            [nameof(CoreObject.Id)] = fallback.Id.ToString(),
+            [nameof(CoreObject.Name)] = fallback.Name,
+        };
+        if (typeName is not null)
+        {
+            json["$type"] = typeName;
+        }
+        else
+        {
+            json.WriteDiscriminator(typeof(FallbackEngineObject));
+        }
+
+        return json;
+    }
+
+    private static string? TryGetTopLevelTypeName(string rawText)
+    {
+        Match? match = FindTopLevelMatch(rawText, s_typePattern.Matches(rawText))
+                       ?? FindTopLevelMatch(rawText, s_legacyTypePattern.Matches(rawText));
+        if (match is null)
+        {
+            return null;
+        }
+
+        try
+        {
+            return JsonSerializer.Deserialize<string>(match.Groups["type"].Value);
+        }
+        catch (JsonException)
+        {
+            return null;
+        }
+    }
+
+    private Guid ResolveRecoveredElementId(string rawText, Uri uri)
+    {
+        // Only a top-level Id may name the element: a nested object's or quoted Id would collide
+        // with live objects, so anything else falls through to the deterministic filename Guid.
+        MatchCollection matches = s_idPattern.Matches(rawText);
+        Match? topLevelMatch = FindTopLevelMatch(rawText, matches);
+        if (topLevelMatch != null
+            && Guid.TryParse(topLevelMatch.Groups["id"].Value, out Guid topLevelId)
+            && topLevelId != Guid.Empty)
+        {
+            return topLevelId;
+        }
+
+        string sceneDirectory = Path.GetDirectoryName(Uri!.LocalPath)!;
+        string relativePath = NormalizeRelativePath(Path.GetRelativePath(sceneDirectory, uri.LocalPath));
+        return CreateVersion5Guid(s_recoveredElementNamespace, relativePath);
+    }
+
+    private void RebuildRecoveredElementIds()
+    {
+        if (Uri is null)
+        {
+            return;
+        }
+
+        var recoveredChildren = Children.Where(
+                static child => child.SuppressedStorageSource is not null)
+            .ToArray();
+        if (recoveredChildren.Length == 0
+            && _recoveredElementIds.Count == 0
+            && _recoveredDescendantIds.Count == 0
+            && _recoveredDescendantRemaps.Count == 0)
+        {
+            return;
+        }
+
+        string sceneDirectory = Path.GetDirectoryName(Uri.LocalPath)!;
+        var descendantRemaps = new Dictionary<CoreObject, (Guid OriginalId, Guid AssignedId, int Occurrence)>(
+            _recoveredDescendantRemaps,
+            ReferenceEqualityComparer.Instance);
+        _recoveredDescendantIds.Clear();
+        _recoveredDescendantRemaps.Clear();
+        _recoveredElementIds.Clear();
+        foreach (Element child in recoveredChildren)
+        {
+            string relativePath = NormalizeRelativePath(
+                Path.GetRelativePath(sceneDirectory, child.Uri!.LocalPath));
+            _recoveredElementIds[relativePath] = child.Id;
+            foreach (CoreObject descendant in EnumerateSerializedGraphDescendants(child))
+            {
+                if (descendantRemaps.TryGetValue(
+                        descendant,
+                        out (Guid OriginalId, Guid AssignedId, int Occurrence) remap)
+                    && descendant.Id == remap.AssignedId)
+                {
+                    string remapKey = CreateRecoveredDescendantKey(
+                        relativePath,
+                        remap.OriginalId,
+                        remap.Occurrence);
+                    _recoveredDescendantIds[remapKey] = remap.AssignedId;
+                    _recoveredDescendantRemaps[descendant] = remap;
+                }
+            }
+        }
+    }
+
+    private static string CreateRecoveredDescendantKey(string relativePath, Guid originalId, int occurrence)
+    {
+        return $"{relativePath}!{originalId:D}#{occurrence}";
+    }
+
+    private static string NormalizeRelativePath(string path)
+    {
+        return path.Replace('\\', '/');
+    }
+
+    private static Match? FindTopLevelMatch(string rawText, MatchCollection matches)
+    {
+        int rootStart = 0;
+        while (rootStart < rawText.Length
+               && (char.IsWhiteSpace(rawText[rootStart]) || rawText[rootStart] == '\uFEFF'))
+        {
+            rootStart++;
+        }
+
+        if (rootStart >= rawText.Length || rawText[rootStart] != '{')
+        {
+            return null;
+        }
+
+        int matchIndex = 0;
+        int objectDepth = 0;
+        int arrayDepth = 0;
+        bool inString = false;
+        bool escaped = false;
+
+        for (int i = rootStart; i < rawText.Length && matchIndex < matches.Count; i++)
+        {
+            Match match = matches[matchIndex];
+            if (i == match.Index)
+            {
+                if (!inString && objectDepth == 1 && arrayDepth == 0)
+                {
+                    return match;
+                }
+
+                matchIndex++;
+            }
+
+            char current = rawText[i];
+            if (inString)
+            {
+                if (escaped)
+                {
+                    escaped = false;
+                }
+                else if (current == '\\')
+                {
+                    escaped = true;
+                }
+                else if (current == '"')
+                {
+                    inString = false;
+                }
+            }
+            else if (current == '"')
+            {
+                inString = true;
+            }
+            else if (current == '{')
+            {
+                objectDepth++;
+            }
+            else if (current == '}' && objectDepth > 0)
+            {
+                objectDepth--;
+                if (objectDepth == 0)
+                {
+                    return null;
+                }
+            }
+            else if (current == '[')
+            {
+                arrayDepth++;
+            }
+            else if (current == ']' && arrayDepth > 0)
+            {
+                arrayDepth--;
+            }
+        }
+
+        return null;
+    }
+
+    private static Guid CreateVersion5Guid(Guid namespaceId, string name)
+    {
+        byte[] namespaceBytes = namespaceId.ToByteArray();
+        SwapGuidByteOrder(namespaceBytes);
+        byte[] nameBytes = Encoding.UTF8.GetBytes(name);
+        byte[] source = new byte[namespaceBytes.Length + nameBytes.Length];
+        namespaceBytes.CopyTo(source, 0);
+        nameBytes.CopyTo(source, namespaceBytes.Length);
+
+        byte[] hash = SHA1.HashData(source);
+        hash[6] = (byte)((hash[6] & 0x0f) | 0x50);
+        hash[8] = (byte)((hash[8] & 0x3f) | 0x80);
+        Array.Resize(ref hash, 16);
+        SwapGuidByteOrder(hash);
+        return new Guid(hash);
+    }
+
+    private static void SwapGuidByteOrder(Span<byte> bytes)
+    {
+        (bytes[0], bytes[3]) = (bytes[3], bytes[0]);
+        (bytes[1], bytes[2]) = (bytes[2], bytes[1]);
+        (bytes[4], bytes[5]) = (bytes[5], bytes[4]);
+        (bytes[6], bytes[7]) = (bytes[7], bytes[6]);
+    }
+
 
     private void UpdateInclude()
     {
@@ -1035,7 +1820,7 @@ public class Scene : ProjectItem, INotifyEdited
             if (_element != null)
             {
                 string fileName = _element.Uri!.LocalPath;
-                if (File.Exists(fileName))
+                if (_element.SuppressedStorageSource is null && File.Exists(fileName))
                 {
                     File.Delete(fileName);
                 }

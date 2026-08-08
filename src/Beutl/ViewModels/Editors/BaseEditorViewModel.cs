@@ -185,6 +185,18 @@ public abstract class BaseEditorViewModel : IPropertyEditorContext, IServiceProv
 
     protected ImmutableArray<CoreObject?> GetStorables() => [_element];
 
+    protected void ResumeElementPersistenceAfterFallbackReplacement(object? previous)
+    {
+        if (_element is { SuppressedStorageSource: not null }
+            && Scene.TryResumeElementPersistence(_element) is { } suppression)
+        {
+            Element element = _element;
+            this.GetRequiredService<HistoryManager>().Record(
+                () => element.SuppressedStorageSource = null,
+                () => element.SuppressedStorageSource = suppression);
+        }
+    }
+
     public void Dispose()
     {
         if (!IsDisposed)
@@ -544,6 +556,11 @@ public abstract class BaseEditorViewModel<T> : BaseEditorViewModel
 
     public void SetValue(T? oldValue, T? newValue)
     {
+        SetValue(oldValue, newValue, null);
+    }
+
+    internal void SetValue(T? oldValue, T? newValue, string? commandName)
+    {
         if (!EqualityComparer<T>.Default.Equals(oldValue, newValue))
         {
             if (EditingKeyFrame.Value is { } kf)
@@ -556,22 +573,27 @@ public abstract class BaseEditorViewModel<T> : BaseEditorViewModel
                 prop.SetValue(newValue);
             }
 
-            Commit();
+            ResumeElementPersistenceAfterFallbackReplacement(oldValue);
+            Commit(commandName);
         }
     }
 
     public void SetValue(T? newValue)
     {
+        T? oldValue;
         if (EditingKeyFrame.Value is { } kf)
         {
+            oldValue = kf.Value;
             kf.Value = newValue!;
         }
         else
         {
             IPropertyAdapter<T> prop = PropertyAdapter;
+            oldValue = prop.GetValue();
             prop.SetValue(newValue);
         }
 
+        ResumeElementPersistenceAfterFallbackReplacement(oldValue);
         Commit();
     }
 

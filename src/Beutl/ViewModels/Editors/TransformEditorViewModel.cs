@@ -212,7 +212,8 @@ public sealed class TransformEditorViewModel : ValueEditorViewModel<Transform?>,
 
     public void SetJsonString(string? str)
     {
-        SetValue(Value.Value, FallbackHelper.DeserializeInstance<Transform>(str));
+        Transform? previous = Value.Value;
+        SetValue(previous, FallbackHelper.DeserializeInstance<Transform>(str));
     }
 
     public override void Accept(IPropertyEditorContextVisitor visitor)

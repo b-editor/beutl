@@ -45,6 +45,14 @@ public sealed class ElementObjectService : IElementObjectService
         if (!element.Objects.Contains(obj)) return false;
 
         element.RemoveObject(obj);
+        if (obj is IFallback
+            && Scene.TryResumeElementPersistence(element) is { } suppression)
+        {
+            _historyManager.Record(
+                () => element.SuppressedStorageSource = null,
+                () => element.SuppressedStorageSource = suppression);
+        }
+
         _historyManager.Commit(CommandNames.RemoveObject);
         return true;
     }
@@ -80,11 +88,20 @@ public sealed class ElementObjectService : IElementObjectService
 
         try
         {
+            EngineObject previous = element.Objects[index];
             EngineObject? obj = Activator.CreateInstance(type) as EngineObject;
             if (obj is null) return ObjectPasteOutcome.MissingType;
 
             CoreSerializer.PopulateFromJsonObject(obj, type, newJson);
             element.Objects[index] = obj;
+            if (previous is IFallback
+                && Scene.TryResumeElementPersistence(element) is { } suppression)
+            {
+                _historyManager.Record(
+                    () => element.SuppressedStorageSource = null,
+                    () => element.SuppressedStorageSource = suppression);
+            }
+
             _historyManager.Commit(CommandNames.PasteObject);
             return ObjectPasteOutcome.Pasted;
         }

@@ -280,7 +280,8 @@ public sealed class FilterEffectEditorViewModel : ValueEditorViewModel<FilterEff
 
     public void SetJsonString(string? str)
     {
-        SetValue(Value.Value, FallbackHelper.DeserializeInstance<FilterEffect>(str));
+        FilterEffect? previous = Value.Value;
+        SetValue(previous, FallbackHelper.DeserializeInstance<FilterEffect>(str));
     }
 
     protected override void Dispose(bool disposing)

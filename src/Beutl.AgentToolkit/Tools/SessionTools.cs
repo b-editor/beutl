@@ -1,12 +1,16 @@
-﻿using System.ComponentModel;
+﻿using System.Collections;
+using System.ComponentModel;
 using System.Globalization;
 using Beutl.AgentToolkit.Common;
 using Beutl.AgentToolkit.Reconciliation;
 using Beutl.AgentToolkit.Rendering;
 using Beutl.AgentToolkit.Sessions;
 using Beutl.AgentToolkit.Workspace;
+using Beutl.Animation;
 using Beutl.Editor;
+using Beutl.Engine;
 using Beutl.ProjectSystem;
+using Beutl.Serialization;
 using ModelContextProtocol.Server;
 
 namespace Beutl.AgentToolkit.Tools;
@@ -15,7 +19,20 @@ public sealed record SceneSummary(string SceneId, string Name, int Width, int He
 
 public sealed record SessionSummary(IReadOnlyList<SceneSummary> Scenes);
 
-public sealed record OpenProjectResponse(string Session, string Source, SessionSummary Summary);
+public sealed record RecoveryIncident(
+    string SceneId,
+    string SceneName,
+    string ElementFile,
+    string Reason,
+    string? TypeName,
+    string? Message);
+
+public sealed record OpenProjectResponse(string Session, string Source, SessionSummary Summary)
+{
+    public IReadOnlyList<string> Warnings { get; init; } = [];
+
+    public IReadOnlyList<RecoveryIncident> RecoveryIncidents { get; init; } = [];
+}
 
 public sealed record CreateProjectResponse(string Session, string SavedPath, SessionSummary Summary);
 
@@ -68,11 +85,124 @@ public sealed class SessionTools(
             }
 
             ProjectSessionResult result = await projects.OpenProjectAsync(fullPath, cancellationToken).ConfigureAwait(false);
+            DeserializationWarningCollection recovery = result.Session.ReadOnSession(
+                () => CollectDeserializationWarnings(result.Project));
             return new OpenProjectResponse(
                 result.Session.SessionId,
                 result.Session.Source.ToString(),
-                CreateSummary(result.Session, result.Project));
+                CreateSummary(result.Session, result.Project))
+            {
+                Warnings = recovery.Warnings,
+                RecoveryIncidents = recovery.RecoveryIncidents,
+            };
         });
+    }
+
+    private static DeserializationWarningCollection CollectDeserializationWarnings(Project project)
+    {
+        var warnings = new List<string>();
+        var incidents = new List<RecoveryIncident>();
+        foreach (Scene scene in project.Items.OfType<Scene>())
+        {
+            foreach (Element element in scene.Children)
+            {
+                var fallbacks = new List<IFallback>();
+                var visited = new HashSet<object>(ReferenceEqualityComparer.Instance);
+                foreach (EngineObject obj in element.Objects)
+                {
+                    CollectFallbacks(obj, visited, fallbacks);
+                }
+
+                string elementFile = element.Uri is { IsFile: true } uri
+                    && scene.Uri is { IsFile: true } sceneUri
+                    ? Path.GetRelativePath(
+                        Path.GetDirectoryName(sceneUri.LocalPath)!,
+                        uri.LocalPath).Replace('\\', '/')
+                    : element.Name;
+                foreach (IFallback fallback in fallbacks)
+                {
+                    fallback.TryGetTypeName(out string? typeName);
+                    if (string.Equals(
+                            typeName,
+                            IdentityHelper.WriteDiscriminator(fallback.GetType()),
+                            StringComparison.Ordinal))
+                    {
+                        typeName = null;
+                    }
+
+                    incidents.Add(new RecoveryIncident(
+                        scene.Id.ToString(),
+                        scene.Name,
+                        elementFile,
+                        fallback.Reason.ToString(),
+                        typeName,
+                        fallback.ErrorMessage));
+                    string error = string.IsNullOrWhiteSpace(fallback.ErrorMessage)
+                        ? fallback.Reason.ToString()
+                        : fallback.ErrorMessage;
+                    warnings.Add(
+                        $"Element file '{elementFile}' contains content that could not be deserialized: {error}");
+                }
+
+                if (element.SuppressedStorageSource is { HasNonFallbackIncidents: true })
+                {
+                    const string message
+                        = "A value was replaced during load, and the original element file is preserved.";
+                    incidents.Add(new RecoveryIncident(
+                        scene.Id.ToString(),
+                        scene.Name,
+                        elementFile,
+                        nameof(FallbackReason.DeserializationFailed),
+                        null,
+                        message));
+                    warnings.Add($"Element file '{elementFile}' could not be loaded without replacement: {message}");
+                }
+            }
+        }
+
+        return new DeserializationWarningCollection(warnings, incidents);
+    }
+
+    private sealed record DeserializationWarningCollection(
+        IReadOnlyList<string> Warnings,
+        IReadOnlyList<RecoveryIncident> RecoveryIncidents);
+
+    private static void CollectFallbacks(
+        object? value,
+        ISet<object> visited,
+        ICollection<IFallback> fallbacks)
+    {
+        if (value is null or string || !visited.Add(value))
+            return;
+
+        if (value is IFallback fallback)
+        {
+            fallbacks.Add(fallback);
+            return;
+        }
+
+        if (value is EngineObject engineObject)
+        {
+            foreach (IProperty property in engineObject.Properties)
+            {
+                CollectFallbacks(property.CurrentValue, visited, fallbacks);
+                if (property.Animation is IKeyFrameAnimation animation)
+                {
+                    foreach (IKeyFrame keyFrame in animation.KeyFrames)
+                    {
+                        CollectFallbacks(keyFrame.Value, visited, fallbacks);
+                    }
+                }
+            }
+        }
+
+        if (value is IEnumerable enumerable)
+        {
+            foreach (object? item in enumerable)
+            {
+                CollectFallbacks(item, visited, fallbacks);
+            }
+        }
     }
 
     [McpServerTool(Name = "create_project")]
