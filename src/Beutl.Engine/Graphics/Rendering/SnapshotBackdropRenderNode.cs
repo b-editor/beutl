@@ -26,7 +26,15 @@ public class SnapshotBackdropRenderNode : RenderNode, IBackdrop
         // cannot know because it runs before any operation of the tree has rendered.
         return
         [
-            RenderNodeOperation.CreateLambda(default, Capture)
+            RenderNodeOperation.CreateLambda(default, canvas =>
+            {
+                // Already captured if a consumer rasterized during processing asked for the picture
+                // first; capturing again would be a second full-surface readback for that frame.
+                if (!_capturedThisPass)
+                {
+                    Capture(canvas);
+                }
+            })
         ];
     }
 
