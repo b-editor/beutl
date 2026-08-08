@@ -55,6 +55,12 @@
   </ItemGroup>
 
   <ItemGroup>
+    <!-- The shell E2E suite is the one test project that references this app; it drives the
+         playback producer directly rather than through the wall-clock timer. -->
+    <InternalsVisibleTo Include="Beutl.HeadlessUITests" />
+  </ItemGroup>
+
+  <ItemGroup>
     <PackageReference Include="AsyncImageLoader.Avalonia" />
     <PackageReference Include="Avalonia" />
     <PackageReference Include="Avalonia.Controls.ItemsRepeater" />

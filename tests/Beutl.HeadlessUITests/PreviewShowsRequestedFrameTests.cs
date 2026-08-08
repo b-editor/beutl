@@ -10,9 +10,11 @@ using Beutl.Graphics.Shapes;
 using Beutl.Media;
 using Beutl.Media.Pixel;
 using Beutl.Media.Source;
+using Beutl.Models;
 using Beutl.ProjectSystem;
 using Beutl.Testing.Headless;
 using Beutl.ViewModels;
+using Reactive.Bindings;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace Beutl.HeadlessUITests;
@@ -332,13 +334,17 @@ public class PreviewShowsRequestedFrameTests
     }
 
     /// <summary>
-    /// Playback renders through <c>BufferedPlayer</c>, a different producer from the scrub path, and
+    /// Playback produces through <c>BufferedPlayer</c>, a different producer from the scrub path, and
     /// it stores every frame it renders. What it hands to the preview has to be that stored entry —
     /// the snapshot it was made from is a different rendition (RgbaF16/linear at full size), so
     /// queueing it would make a frame change appearance the moment it came back from the cache.
     /// </summary>
+    /// <remarks>
+    /// The producer is driven directly instead of through <c>Player.Play()</c>: playback advances on
+    /// a wall-clock timer, which a loaded CI runner on software rendering cannot be relied on to turn.
+    /// </remarks>
     [AvaloniaTest]
-    public async Task Playing_publishes_the_rendition_it_stores_in_the_cache()
+    public async Task The_playback_producer_queues_the_rendition_it_stores_in_the_cache()
     {
         await TestReset.ResetShellAsync();
         GpuTestGate.EnsureAvailable();
@@ -348,33 +354,41 @@ public class PreviewShowsRequestedFrameTests
         config.IsFrameCacheEnabled = true;
         try
         {
-            EditViewModel editor = await NewSegmentedEditor(nameof(Playing_publishes_the_rendition_it_stores_in_the_cache));
+            EditViewModel editor = await NewSegmentedEditor(
+                nameof(The_playback_producer_queues_the_rendition_it_stores_in_the_cache));
             SeekTo(editor, 0);
             DrainRenders();
 
-            var published = new List<BitmapColorType>();
-            using (editor.Player.PreviewImage.Subscribe(frame =>
-                   {
-                       if (editor.Player.IsPlaying.Value && frame?.Value is { IsDisposed: false } bitmap)
-                       {
-                           published.Add(bitmap.ColorType);
-                       }
-                   }))
+            var isPlaying = new ReactivePropertySlim<bool>(true);
+            using var cts = new CancellationTokenSource();
+            using var player = new BufferedPlayer(editor, editor.Scene, isPlaying, Rate, cts.Token);
+            player.Start();
+
+            var produced = new List<BitmapColorType>();
+            var stopwatch = Stopwatch.StartNew();
+            while (produced.Count == 0 && stopwatch.Elapsed < TimeSpan.FromSeconds(30))
             {
-                editor.Player.Play();
-                // One published frame already settles which rendition the producer queues, and a CI
-                // runner on software rendering needs room to produce even that.
-                await WaitUntilAsync(() => published.Count >= 1, TimeSpan.FromSeconds(30));
-                await editor.Player.Pause();
+                while (player.TryDequeue(out IPlayer.Frame frame))
+                {
+                    using (frame.Bitmap)
+                    {
+                        produced.Add(frame.Bitmap.Value.ColorType);
+                    }
+                }
+
+                if (produced.Count == 0 && player.ProducerStopped) break;
+                HeadlessTestHelpers.Settle();
+                await Task.Delay(10);
             }
 
-            DrainRenders();
+            isPlaying.Value = false;
+            cts.Cancel();
 
-            Assert.That(published, Is.Not.Empty, "playback published no frame");
-            Assert.That(published, Is.All.EqualTo(BitmapColorType.Bgra8888),
-                "playback published the raw snapshot instead of the entry it stored");
+            Assert.That(produced, Is.Not.Empty, "the producer queued no frame");
+            Assert.That(produced, Is.All.EqualTo(BitmapColorType.Bgra8888),
+                "the producer queued the raw snapshot instead of the entry it stored");
             Assert.That(editor.FrameCacheManager.Value.TryGet(0, out Ref<Bitmap>? stored), Is.True,
-                "playback stored nothing for frame 0");
+                "the producer stored nothing for frame 0");
             stored!.Dispose();
         }
         finally
