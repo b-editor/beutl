@@ -10,6 +10,7 @@ using Beutl.Media.Music;
 using Beutl.Media.Music.Samples;
 using Beutl.Media.Source;
 using Microsoft.Extensions.Logging;
+using SkiaSharp;
 
 namespace Beutl.Extensions.FFmpeg.Decoding;
 
@@ -123,11 +124,19 @@ public sealed class FFmpegReaderProxy : MediaReader
         try
         {
             long readOffset = response.SlotDataOffset;
-            var bmp = new Bitmap(
-                response.Width, response.Height, colorType, BitmapAlphaType.Unpremul, colorSpace);
+            // Probe the stride first: the copy below fills rowBytes of each row, so it only covers
+            // the whole buffer when the destination has no padding. With padding, the clearing
+            // constructor is what keeps those bytes from being whatever was there before.
+            int destinationRowBytes = new SKImageInfo(
+                response.Width, response.Height, colorType.ToSKColorType()).RowBytes;
+            var bmp = destinationRowBytes == rowBytes
+                ? Bitmap.CreateUninitialized(
+                    response.Width, response.Height, colorType, BitmapAlphaType.Unpremul, colorSpace)
+                : new Bitmap(
+                    response.Width, response.Height, colorType, BitmapAlphaType.Unpremul, colorSpace);
             byte* source = ptr + readOffset;
             byte* destination = (byte*)bmp.Data;
-            int destinationRowBytes = bmp.RowBytes;
+            destinationRowBytes = bmp.RowBytes;
             for (int y = 0; y < response.Height; y++)
             {
                 Buffer.MemoryCopy(

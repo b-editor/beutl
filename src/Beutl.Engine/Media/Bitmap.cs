@@ -17,13 +17,41 @@ public sealed class Bitmap : ICloneable, IDisposable
         BitmapColorType colorType = BitmapColorType.Bgra8888,
         BitmapAlphaType alphaType = BitmapAlphaType.Unpremul,
         BitmapColorSpace? colorSpace = null)
+        : this(width, height, colorType, alphaType, colorSpace, clear: true)
+    {
+    }
+
+    private Bitmap(int width, int height,
+        BitmapColorType colorType, BitmapAlphaType alphaType, BitmapColorSpace? colorSpace, bool clear)
     {
         ThrowOutOfRange(width, height);
         _colorSpace = colorSpace ?? BitmapColorSpace.Srgb;
         var info = new SKImageInfo(width, height, colorType.ToSKColorType(), alphaType.ToSKAlphaType(), _colorSpace.SKColorSpace);
         _skBitmap = new SKBitmap(info);
-        _skBitmap.Erase(SKColor.Empty);
+        if (clear)
+        {
+            _skBitmap.Erase(SKColor.Empty);
+        }
+
         _ownsData = true;
+    }
+
+    /// <summary>
+    /// Allocates a bitmap whose pixels are left as the allocator handed them back.
+    /// </summary>
+    /// <remarks>
+    /// For a caller that writes every byte of every row before anything reads them — a full-frame
+    /// copy, typically. The constructor clears the buffer, which for a 4K frame is a
+    /// destination-sized write thrown away by the copy that follows. Anything that does not fill the
+    /// whole buffer, padding included, has to use the constructor instead: what is left here is
+    /// whatever the previous owner of that memory wrote.
+    /// </remarks>
+    public static Bitmap CreateUninitialized(int width, int height,
+        BitmapColorType colorType = BitmapColorType.Bgra8888,
+        BitmapAlphaType alphaType = BitmapAlphaType.Unpremul,
+        BitmapColorSpace? colorSpace = null)
+    {
+        return new Bitmap(width, height, colorType, alphaType, colorSpace, clear: false);
     }
 
     public Bitmap(SKBitmap skBitmap)

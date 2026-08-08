@@ -140,4 +140,46 @@ public class BitmapTests
         Assert.That(converted.ColorType, Is.EqualTo(BitmapColorType.Rgba8888));
         Assert.That(converted.Width, Is.EqualTo(bitmap.Width));
     }
+
+    [Test]
+    public void CreateUninitialized_DescribesTheSameBufferAsTheConstructor()
+    {
+        using var cleared = new Bitmap(16, 9, BitmapColorType.Bgra8888, BitmapAlphaType.Premul);
+        using Bitmap raw = Bitmap.CreateUninitialized(16, 9, BitmapColorType.Bgra8888, BitmapAlphaType.Premul);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(raw.Width, Is.EqualTo(cleared.Width));
+            Assert.That(raw.Height, Is.EqualTo(cleared.Height));
+            Assert.That(raw.ColorType, Is.EqualTo(cleared.ColorType));
+            Assert.That(raw.AlphaType, Is.EqualTo(cleared.AlphaType));
+            Assert.That(raw.ColorSpace, Is.EqualTo(cleared.ColorSpace));
+            Assert.That(raw.RowBytes, Is.EqualTo(cleared.RowBytes));
+            Assert.That(raw.ByteCount, Is.EqualTo(cleared.ByteCount));
+            Assert.That(raw.Data, Is.Not.EqualTo(IntPtr.Zero));
+        });
+    }
+
+    [Test]
+    public void CreateUninitialized_KeepsEveryByteTheCallerWrites()
+    {
+        using Bitmap raw = Bitmap.CreateUninitialized(16, 9, BitmapColorType.Bgra8888, BitmapAlphaType.Premul);
+
+        Span<byte> pixels = raw.GetPixelSpan();
+        for (int i = 0; i < pixels.Length; i++)
+        {
+            pixels[i] = (byte)(i % 251);
+        }
+
+        ReadOnlySpan<byte> written = raw.GetPixelSpan();
+        for (int i = 0; i < written.Length; i++)
+        {
+            if (written[i] != (byte)(i % 251))
+            {
+                Assert.Fail($"byte {i} read back as {written[i]}");
+            }
+        }
+
+        Assert.Pass();
+    }
 }
