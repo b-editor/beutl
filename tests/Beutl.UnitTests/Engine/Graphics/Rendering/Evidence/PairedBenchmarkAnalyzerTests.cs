@@ -219,6 +219,7 @@ public sealed class PairedBenchmarkAnalyzerTests
     [Test]
     public void PairedRunner_RejectsHarnessesThatDoNotAuthenticateTheExecutedBinary()
     {
+        GpuPassFusionEvidenceStackSliceGate.RequireStack4EvidenceSlice();
         string runner = File.ReadAllText(Path.Combine(
             GpuPassFusionEvidencePaths.Discover().EvidenceDirectory,
             "run-paired-benchmarks.sh"));
@@ -518,6 +519,15 @@ public sealed class PairedBenchmarkAnalyzerTests
 
         private readonly Dictionary<AnalyzerRun, RunPaths> _runs;
 
+        private static string ResolveBaselineHarnessPath()
+        {
+            GpuPassFusionEvidencePaths paths = GpuPassFusionEvidencePaths.Discover();
+            string targetHarness = Path.Combine(paths.EvidenceDirectory, "target-benchmark-harness");
+            return GpuPassFusionEvidenceStackSliceGate.HasStack4EvidenceSlice
+                ? targetHarness
+                : Path.Combine(paths.RepositoryRoot, "tests", "Beutl.Benchmarks", "Rendering");
+        }
+
         public AnalyzerFixture()
         {
             Root = Path.Combine(Path.GetTempPath(), $"beutl-paired-analyzer-{Guid.NewGuid():N}");
@@ -563,8 +573,7 @@ public sealed class PairedBenchmarkAnalyzerTests
                 "--baseline-repeat-command", "synthetic baseline B",
                 "--feature-command", "synthetic feature",
                 "--runner-sha256", RunnerSha256,
-                "--baseline-harness", GpuPassFusionEvidencePaths.Discover().EvidenceDirectory
-                    + Path.DirectorySeparatorChar + "target-benchmark-harness",
+                "--baseline-harness", ResolveBaselineHarnessPath(),
                 "--output", OutputPath,
                 "--bootstrap-iterations", "1000",
             ];
@@ -668,9 +677,7 @@ public sealed class PairedBenchmarkAnalyzerTests
                 BaselineRepeatCommand = "synthetic baseline B",
                 FeatureCommand = "synthetic feature",
                 RunnerSha256 = RunnerSha256,
-                BaselineHarnessPath = Path.Combine(
-                    GpuPassFusionEvidencePaths.Discover().EvidenceDirectory,
-                    "target-benchmark-harness"),
+                BaselineHarnessPath = ResolveBaselineHarnessPath(),
                 OutputPath = OutputPath,
                 BootstrapIterations = 1000,
             };

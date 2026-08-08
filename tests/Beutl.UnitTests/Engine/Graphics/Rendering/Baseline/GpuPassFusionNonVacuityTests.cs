@@ -13,6 +13,13 @@ public sealed class GpuPassFusionNonVacuityTests
     {
         get
         {
+            if (!GpuPassFusionEvidenceStackSliceGate.HasStack4EvidenceSlice)
+            {
+                yield return new TestCaseData(string.Empty)
+                    .SetName("RecordedNonVacuity_RequiresStack4Evidence");
+                yield break;
+            }
+
             foreach (GpuPassFusionEvidenceScene scene in s_manifest.Value.Scenes.Where(
                          item => item.Role == "parity"))
             {
@@ -25,6 +32,7 @@ public sealed class GpuPassFusionNonVacuityTests
     [TestCaseSource(nameof(ParityWorkloads))]
     public void RecordedNonVacuity_IsRecomputedFromReferenceAndControl(string sceneId)
     {
+        GpuPassFusionEvidenceStackSliceGate.RequireStack4EvidenceSlice();
         GpuPassFusionEvidenceScene scene = s_manifest.Value.GetScene(sceneId);
         GpuPassFusionNonVacuityRecord recorded = scene.NonVacuity
             ?? throw new InvalidDataException($"Parity scene '{scene.Id}' has no recorded non-vacuity evidence.");
@@ -57,6 +65,7 @@ public sealed class GpuPassFusionNonVacuityTests
     [TestCase("primary-control-invert-disabled")]
     public void PrimaryChain_EachDisabledStageIsNonVacuous(string controlSceneId)
     {
+        GpuPassFusionEvidenceStackSliceGate.RequireStack4EvidenceSlice();
         GpuPassFusionEvidenceManifest manifest = s_manifest.Value;
         GpuPassFusionEvidenceScene referenceScene = manifest.GetScene("primary-cross-node");
         GpuPassFusionEvidenceScene controlScene = manifest.GetScene(controlSceneId);

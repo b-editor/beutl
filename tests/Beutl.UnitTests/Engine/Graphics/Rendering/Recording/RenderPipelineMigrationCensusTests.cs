@@ -1,4 +1,7 @@
 ﻿using System.Text.RegularExpressions;
+
+using Beutl.UnitTests.Engine.Graphics.Rendering.Baseline;
+
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
@@ -165,9 +168,22 @@ public sealed class RenderPipelineMigrationCensusTests
             Assert.That(buildOutputs, Is.Empty);
             Assert.That(corpus.Documents.Select(document => document.RelativePath),
                 Does.Not.Contain(HistoricalEvidencePatch));
+        }
+    }
+
+    [Test]
+    public void HistoricalEvidencePatch_ExistsOutsideCompiledSourceCorpus()
+    {
+        GpuPassFusionEvidenceStackSliceGate.RequireStack4EvidenceSlice();
+        SourceCorpus corpus = s_corpus.Value;
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(corpus.Documents.Select(document => document.RelativePath),
+                Does.Not.Contain(HistoricalEvidencePatch));
             Assert.That(File.Exists(Path.Combine(corpus.RepositoryRoot, HistoricalEvidencePatch)), Is.True,
                 "The historical patch should exist but remain outside the compiled-source corpus.");
-        }
+        });
     }
 
     [Test]

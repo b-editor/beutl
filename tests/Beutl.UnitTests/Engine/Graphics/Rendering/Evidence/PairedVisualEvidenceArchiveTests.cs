@@ -20,6 +20,7 @@ public sealed class PairedVisualEvidenceArchiveTests
     [Test]
     public void HistoricalResultAndInputsMatchThePinnedRunAndEveryBlobHash()
     {
+        GpuPassFusionEvidenceStackSliceGate.RequireStack4EvidenceSlice();
         string evidence = GpuPassFusionEvidencePaths.Discover().EvidenceDirectory;
         string resultPath = Path.Combine(evidence, "paired-visual-result.json");
         string archivedResultPath = Path.Combine(evidence, "paired-visual-run", "paired-result.json");
