@@ -14,8 +14,8 @@ using Beutl.Models;
 using Beutl.ProjectSystem;
 using Beutl.Testing.Headless;
 using Beutl.ViewModels;
-using Reactive.Bindings;
 using Microsoft.Extensions.DependencyInjection;
+using Reactive.Bindings;
 
 namespace Beutl.HeadlessUITests;
 
