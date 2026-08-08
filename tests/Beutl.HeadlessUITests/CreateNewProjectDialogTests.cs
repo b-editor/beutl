@@ -364,6 +364,64 @@ public class CreateNewProjectDialogTests
         }
     }
 
+    [AvaloniaTest]
+    public async Task Version_control_initialization_failure_keeps_created_project_open_and_notifies_user()
+    {
+        await TestReset.ResetShellAsync();
+        INotificationServiceHandler previousHandler = NotificationService.Handler;
+        var notifications = new CaptureNotificationHandler();
+        int initializationRequests = 0;
+        try
+        {
+            NotificationService.Handler = notifications;
+            var initializer = new TestVersionControlInitializer(
+                _ => Task.FromResult(new GitAvailability(
+                    GitAvailabilityState.Installed,
+                    "git",
+                    new Version(2, 50, 0),
+                    LfsInstalled: false)),
+                (_, _) =>
+                {
+                    Interlocked.Increment(ref initializationRequests);
+                    return Task.FromException<bool>(
+                        new IOException("simulated Git initialization failure"));
+                });
+            var viewModel = new CreateNewProjectViewModel(
+                TestShell.Project,
+                initializer,
+                _ => Task.FromResult<GitIdentity?>(
+                    new GitIdentity("Beutl Headless Test", "headless@example.invalid")));
+            await WaitUntilAsync(() => viewModel.IsGitAvailable.Value);
+            string location = Path.Combine(
+                Beutl.Testing.Headless.BeutlHomeIsolation.CurrentHome!,
+                "create-initialization-failure");
+            Directory.CreateDirectory(location);
+            viewModel.Location.Value = location;
+            viewModel.Name.Value = "created-project";
+            viewModel.TrackHistory.Value = true;
+            Beutl.Testing.Headless.HeadlessTestHelpers.Settle();
+
+            await viewModel.Create.ExecuteAsync();
+
+            Notification notification = notifications.Notifications.Single();
+            Assert.Multiple(() =>
+            {
+                Assert.That(TestShell.Project.CurrentProject.Value, Is.Not.Null);
+                Assert.That(
+                    Path.GetFileName(TestShell.Project.CurrentProject.Value?.Uri?.LocalPath),
+                    Is.EqualTo("created-project.bep"));
+                Assert.That(Volatile.Read(ref initializationRequests), Is.EqualTo(1));
+                Assert.That(notification.Type, Is.EqualTo(NotificationType.Error));
+                Assert.That(notification.Message, Is.EqualTo("simulated Git initialization failure"));
+            });
+        }
+        finally
+        {
+            NotificationService.Handler = previousHandler;
+            await TestReset.ResetShellAsync();
+        }
+    }
+
     private static async Task WaitUntilAsync(Func<bool> predicate)
     {
         using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(10));
@@ -403,5 +461,12 @@ public class CreateNewProjectDialogTests
         {
             return initializeCurrentProjectAsync(requestIdentityAsync, cancellationToken);
         }
+    }
+
+    private sealed class CaptureNotificationHandler : INotificationServiceHandler
+    {
+        public List<Notification> Notifications { get; } = [];
+
+        public void Show(Notification notification) => Notifications.Add(notification);
     }
 }

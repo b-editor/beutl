@@ -1,5 +1,6 @@
 ﻿using System.Diagnostics.CodeAnalysis;
 using System.IO.Compression;
+using Beutl.IO;
 using Beutl.Language;
 using Beutl.Logging;
 using Beutl.Serialization;
@@ -62,6 +63,11 @@ public sealed class ProjectPackageService
 
         try
         {
+            ExternalResourceCollector.SerializationGraph graph
+                = ExternalResourceCollector.DiscoverSerializationGraph(project);
+            IReadOnlyList<CoreObject> projectObjects = graph.Objects;
+            EnsureUniqueObjectIds(projectObjects);
+
             // Step 1: Create a temporary directory
             progress?.Report((Strings.ExportingProject, 0.0));
             tempDir = Path.Combine(Path.GetTempPath(), $"beutl_export_{Guid.NewGuid():N}");
@@ -72,12 +78,19 @@ public sealed class ProjectPackageService
             string tempProjectDir = Path.Combine(tempDir, Path.GetFileName(projectDir));
             progress?.Report((Strings.ExportingProject, 0.1));
             await CopyDirectoryAsync(projectDir, tempProjectDir, cancellationToken);
+            HashSet<CoreObject> stagedStorageObjects = await MaterializeProjectStructureAsync(
+                projectObjects,
+                projectDir,
+                tempProjectDir,
+                cancellationToken);
 
             // Step 3: Open the temporary project
             string tempProjectFile = Path.Combine(tempProjectDir, Path.GetFileName(project.Uri.LocalPath));
             Uri tempProjectUri = new(tempProjectFile);
             progress?.Report((Strings.ExportingProject, 0.2));
             Project tempProject = CoreSerializer.RestoreFromUri<Project>(tempProjectUri);
+            EnsureUniqueObjectIds(
+                ExternalResourceCollector.DiscoverSerializationGraph(tempProject).Objects);
 
             // Step 4: Attach to the virtual root
             progress?.Report((Strings.ExportingProject, 0.3));
@@ -86,7 +99,29 @@ public sealed class ProjectPackageService
 
             // Step 5: Collect and copy external files
             progress?.Report((Strings.ExportingProject, 0.4));
-            ExternalResourceCollector collector = ExternalResourceCollector.Collect(project, projectDir);
+            ExternalResourceCollector collector = ExternalResourceCollector.Collect(
+                graph,
+                projectDir,
+                stagedStorageObjects);
+            if (collector.UnaddressableFileSources.Count > 0)
+            {
+                throw new InvalidDataException(
+                    "Project contains a file source that cannot be safely relocated.");
+            }
+
+            if (collector.RelocationOwners.Any(owner =>
+                    !ReferenceEquals(project.FindById(owner.Id), owner)))
+            {
+                throw new InvalidDataException(
+                    "Project contains a relocation owner that cannot be resolved by ID.");
+            }
+
+            if (collector.FileSources.Any(source =>
+                    ExternalResourceCollector.IsInReservedProjectPath(source.OriginalUri, projectDir)))
+            {
+                throw new InvalidDataException(
+                    "Project references a resource in a reserved structural directory.");
+            }
 
             fileResult = await _relocationService.RelocateFileSourcesAsync(
                 collector.FileSources,
@@ -304,10 +339,15 @@ public sealed class ProjectPackageService
 
     private static bool IsGitMetadataPathSegment(string segment)
     {
+        return IsPortableReservedPathSegment(segment, ".git");
+    }
+
+    private static bool IsPortableReservedPathSegment(string segment, string reservedName)
+    {
         int streamSeparator = segment.IndexOf(':');
         string portableName = (streamSeparator >= 0 ? segment[..streamSeparator] : segment)
             .TrimEnd(' ', '.');
-        return string.Equals(portableName, ".git", StringComparison.OrdinalIgnoreCase);
+        return string.Equals(portableName, reservedName, StringComparison.OrdinalIgnoreCase);
     }
 
     /// <summary>
@@ -338,6 +378,90 @@ public sealed class ProjectPackageService
             string destSubDir = Path.Combine(destDir, dirName);
             await CopyDirectoryAsync(subDir, destSubDir, cancellationToken);
         }
+    }
+
+    private static async Task<HashSet<CoreObject>> MaterializeProjectStructureAsync(
+        IReadOnlyList<CoreObject> projectObjects,
+        string projectDirectory,
+        string stagingDirectory,
+        CancellationToken cancellationToken)
+    {
+        string fullProjectDirectory = Path.GetFullPath(projectDirectory);
+        var stagedStorageObjects = new HashSet<CoreObject>(ReferenceEqualityComparer.Instance);
+        IEnumerable<CoreObject> storageObjects = projectObjects.Where(static obj => obj is not IFileSource);
+
+        foreach (CoreObject obj in storageObjects)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            if (obj.Uri is not { IsFile: true } uri)
+            {
+                continue;
+            }
+
+            string sourcePath = Path.GetFullPath(uri.LocalPath);
+            string relativePath = Path.GetRelativePath(fullProjectDirectory, sourcePath);
+            if (IsOutsideDirectory(relativePath))
+            {
+                continue;
+            }
+
+            if (ContainsGitMetadataPath(relativePath)
+                || ContainsBeutlMetadataPath(relativePath))
+            {
+                throw new InvalidDataException(
+                    $"Project object '{obj.Id}' uses a reserved structural path.");
+            }
+
+            stagedStorageObjects.Add(obj);
+            string destinationPath = Path.Combine(stagingDirectory, relativePath);
+            if (File.Exists(destinationPath))
+            {
+                continue;
+            }
+
+            string? destinationDirectory = Path.GetDirectoryName(destinationPath);
+            if (destinationDirectory is null)
+            {
+                throw new InvalidDataException("Project structure path has no parent directory.");
+            }
+
+            Directory.CreateDirectory(destinationDirectory);
+            await CopyFileAsync(sourcePath, destinationPath, cancellationToken);
+        }
+
+        return stagedStorageObjects;
+    }
+
+    private static void EnsureUniqueObjectIds(IReadOnlyList<CoreObject> objects)
+    {
+        var objectsById = new Dictionary<Guid, CoreObject>();
+        foreach (CoreObject obj in objects)
+        {
+            if (objectsById.TryGetValue(obj.Id, out CoreObject? existing)
+                && !ReferenceEquals(existing, obj))
+            {
+                throw new InvalidDataException($"Project contains duplicate CoreObject ID '{obj.Id}'.");
+            }
+
+            objectsById[obj.Id] = obj;
+        }
+    }
+
+    private static bool IsOutsideDirectory(string relativePath)
+    {
+        return Path.IsPathFullyQualified(relativePath)
+               || relativePath == ".."
+               || relativePath.StartsWith($"..{Path.DirectorySeparatorChar}", StringComparison.Ordinal)
+               || relativePath.StartsWith($"..{Path.AltDirectorySeparatorChar}", StringComparison.Ordinal);
+    }
+
+    internal static bool ContainsBeutlMetadataPath(string entryPath)
+    {
+        string[] segments = entryPath.Split(
+            ['/', '\\'],
+            StringSplitOptions.RemoveEmptyEntries);
+        return segments.Any(segment =>
+            IsPortableReservedPathSegment(segment, ".beutl"));
     }
 
     private static bool ShouldSkipEntry(string path, bool isDirectory)
@@ -374,7 +498,7 @@ public sealed class ProjectPackageService
     private static bool HasReservedName(string path, string reservedName)
     {
         string name = Path.GetFileName(Path.TrimEndingDirectorySeparator(path));
-        return string.Equals(name, reservedName, StringComparison.OrdinalIgnoreCase);
+        return IsPortableReservedPathSegment(name, reservedName);
     }
 
     /// <summary>

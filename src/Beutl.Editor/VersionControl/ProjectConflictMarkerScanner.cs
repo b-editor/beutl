@@ -1,11 +1,14 @@
-﻿namespace Beutl.Editor.VersionControl;
+﻿using System.Buffers;
+using System.Text;
+
+namespace Beutl.Editor.VersionControl;
 
 internal static class ProjectConflictMarkerScanner
 {
     private const int ScanChunkSize = 4096;
+    private const int MinimumMarkerLength = 1;
 
-    private static readonly byte[] s_conflictMarkerBytes = "<<<<<<< "u8.ToArray();
-
+    private static readonly byte[] s_utf8Bom = [0xef, 0xbb, 0xbf];
     private static readonly HashSet<string> s_projectExtensions = new(
         [".bep", ".scene", ".belm"],
         StringComparer.OrdinalIgnoreCase);
@@ -143,34 +146,215 @@ internal static class ProjectConflictMarkerScanner
         long scanLength,
         CancellationToken cancellationToken)
     {
-        int overlapCapacity = s_conflictMarkerBytes.Length - 1;
-        byte[] buffer = new byte[ScanChunkSize + overlapCapacity];
-        int overlapLength = 0;
+        byte[] buffer = new byte[ScanChunkSize];
+        long lineLength = 0;
+        long prefixRunLength = 0;
+        long expectedMarkerLength = 0;
+        byte firstByte = 0;
+        byte byteAfterRun = 0;
+        byte lastByte = 0;
+        byte[] pendingRuneBytes = new byte[4];
+        int pendingRuneByteCount = 0;
+        bool hasLabelContent = false;
+        MarkerSequenceState state = MarkerSequenceState.None;
         long remaining = scanLength;
-        while (remaining > 0)
+
+        bool ProcessByte(byte value)
+        {
+            if (value == (byte)'\n')
+            {
+                long contentLength = lineLength > 0 && lastByte == (byte)'\r'
+                    ? lineLength - 1
+                    : lineLength;
+                bool result = ProcessLine(
+                    firstByte,
+                    prefixRunLength,
+                    byteAfterRun,
+                    hasLabelContent || pendingRuneByteCount > 0,
+                    contentLength,
+                    ref state,
+                    ref expectedMarkerLength);
+                lineLength = 0;
+                prefixRunLength = 0;
+                firstByte = 0;
+                byteAfterRun = 0;
+                pendingRuneByteCount = 0;
+                hasLabelContent = false;
+                return result;
+            }
+
+            if (lineLength == 0)
+            {
+                firstByte = value;
+                prefixRunLength = 1;
+            }
+            else if (lineLength == prefixRunLength)
+            {
+                if (value == firstByte)
+                {
+                    prefixRunLength++;
+                }
+                else
+                {
+                    byteAfterRun = value;
+                }
+            }
+            else if (!hasLabelContent
+                     && HasNonWhitespaceRune(
+                         value,
+                         pendingRuneBytes,
+                         ref pendingRuneByteCount))
+            {
+                hasLabelContent = true;
+            }
+
+            lineLength++;
+            lastByte = value;
+            return false;
+        }
+
+        int initialLength = 0;
+        bool reachedEnd = false;
+        while (initialLength < s_utf8Bom.Length && remaining > 0)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            int requested = (int)Math.Min(s_utf8Bom.Length - initialLength, remaining);
+            int read = await stream.ReadAsync(
+                buffer.AsMemory(initialLength, requested),
+                cancellationToken).ConfigureAwait(false);
+            if (read == 0)
+            {
+                reachedEnd = true;
+                break;
+            }
+
+            initialLength += read;
+            remaining -= read;
+        }
+
+        int initialOffset = initialLength == s_utf8Bom.Length
+                            && buffer.AsSpan(0, initialLength).SequenceEqual(s_utf8Bom)
+            ? initialLength
+            : 0;
+        for (int i = initialOffset; i < initialLength; i++)
+        {
+            if (ProcessByte(buffer[i]))
+            {
+                return true;
+            }
+        }
+
+        while (!reachedEnd && remaining > 0)
         {
             cancellationToken.ThrowIfCancellationRequested();
             int requested = (int)Math.Min(ScanChunkSize, remaining);
             int read = await stream.ReadAsync(
-                buffer.AsMemory(overlapLength, requested),
+                buffer.AsMemory(0, requested),
                 cancellationToken).ConfigureAwait(false);
             if (read == 0)
             {
-                return false;
+                break;
             }
 
             remaining -= read;
-            int bufferedLength = overlapLength + read;
-            if (buffer.AsSpan(0, bufferedLength).IndexOf(s_conflictMarkerBytes) >= 0)
+            for (int i = 0; i < read; i++)
             {
-                return true;
+                if (ProcessByte(buffer[i]))
+                {
+                    return true;
+                }
             }
+        }
 
-            overlapLength = Math.Min(overlapCapacity, bufferedLength);
-            buffer.AsSpan(bufferedLength - overlapLength, overlapLength).CopyTo(buffer);
+        long finalContentLength = lineLength > 0 && lastByte == (byte)'\r'
+            ? lineLength - 1
+            : lineLength;
+        return ProcessLine(
+            firstByte,
+            prefixRunLength,
+            byteAfterRun,
+            hasLabelContent || pendingRuneByteCount > 0,
+            finalContentLength,
+            ref state,
+            ref expectedMarkerLength);
+    }
+
+    private static bool ProcessLine(
+        byte firstByte,
+        long prefixRunLength,
+        byte byteAfterRun,
+        bool hasLabelContent,
+        long lineLength,
+        ref MarkerSequenceState state,
+        ref long expectedMarkerLength)
+    {
+        if (IsLabeledMarker(
+                firstByte,
+                prefixRunLength,
+                byteAfterRun,
+                hasLabelContent,
+                lineLength,
+                (byte)'<'))
+        {
+            state = MarkerSequenceState.StartSeen;
+            expectedMarkerLength = prefixRunLength;
+        }
+        else if (state == MarkerSequenceState.StartSeen
+                 && firstByte == (byte)'='
+                 && prefixRunLength == expectedMarkerLength
+                 && lineLength == prefixRunLength)
+        {
+            state = MarkerSequenceState.SeparatorSeen;
+        }
+        else if (state == MarkerSequenceState.SeparatorSeen
+                 && prefixRunLength == expectedMarkerLength
+                 && IsLabeledMarker(
+                     firstByte,
+                     prefixRunLength,
+                     byteAfterRun,
+                     hasLabelContent,
+                     lineLength,
+                     (byte)'>'))
+        {
+            return true;
         }
 
         return false;
+    }
+
+    private static bool IsLabeledMarker(
+        byte firstByte,
+        long prefixRunLength,
+        byte byteAfterRun,
+        bool hasLabelContent,
+        long lineLength,
+        byte markerByte)
+    {
+        return firstByte == markerByte
+               && prefixRunLength >= MinimumMarkerLength
+               && lineLength - prefixRunLength >= 2
+               && byteAfterRun == (byte)' '
+               && hasLabelContent;
+    }
+
+    private static bool HasNonWhitespaceRune(
+        byte value,
+        byte[] pendingRuneBytes,
+        ref int pendingRuneByteCount)
+    {
+        pendingRuneBytes[pendingRuneByteCount++] = value;
+        OperationStatus status = Rune.DecodeFromUtf8(
+            pendingRuneBytes.AsSpan(0, pendingRuneByteCount),
+            out Rune rune,
+            out _);
+        if (status == OperationStatus.NeedMoreData
+            && pendingRuneByteCount < pendingRuneBytes.Length)
+        {
+            return false;
+        }
+
+        pendingRuneByteCount = 0;
+        return status != OperationStatus.Done || !Rune.IsWhiteSpace(rune);
     }
 
     internal static bool ShouldDescendInto(string directory)
@@ -193,5 +377,12 @@ internal static class ProjectConflictMarkerScanner
         {
             return false;
         }
+    }
+
+    private enum MarkerSequenceState
+    {
+        None,
+        StartSeen,
+        SeparatorSeen,
     }
 }

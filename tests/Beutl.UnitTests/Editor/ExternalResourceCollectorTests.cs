@@ -1,7 +1,9 @@
-﻿using Beutl.Editor;
+﻿using Beutl.Collections;
+using Beutl.Editor;
 using Beutl.Engine;
 using Beutl.IO;
 using Beutl.Media;
+using Beutl.Serialization;
 
 namespace Beutl.UnitTests.Editor;
 
@@ -63,6 +65,72 @@ public class ExternalResourceCollectorTests
         {
             Assert.That(collector.FileSources, Is.Empty);
             Assert.That(collector.FontFamilies, Is.Empty);
+        });
+    }
+
+    [Test]
+    public void Collect_WithStagedStorageObject_ExcludesOnlyThatObjectByReference()
+    {
+        string stagedFile = Path.Combine(_externalDir, "staged.sidecar");
+        string collidingFile = Path.Combine(_externalDir, "colliding.resource");
+        File.WriteAllText(stagedFile, "staged");
+        File.WriteAllText(collidingFile, "resource");
+        Guid sharedId = Guid.NewGuid();
+        var staged = new TestHierarchical
+        {
+            Id = sharedId,
+            Uri = new Uri(stagedFile),
+        };
+        var colliding = new TestHierarchical
+        {
+            Id = sharedId,
+            Uri = new Uri(collidingFile),
+        };
+        var root = new TestHierarchical();
+        root.AddChild(staged);
+        root.AddChild(colliding);
+        var stagedObjects = new HashSet<CoreObject>(ReferenceEqualityComparer.Instance)
+        {
+            staged,
+        };
+
+        ExternalResourceCollector collector = ExternalResourceCollector.Collect(
+            root,
+            _testProjectDir,
+            stagedObjects);
+
+        Assert.That(collector.FileSources, Has.Count.EqualTo(1));
+        Assert.That(
+            collector.FileSources.Single().OriginalUri.LocalPath,
+            Is.EqualTo(collidingFile));
+    }
+
+    [Test]
+    public void Collect_WithPlainCoreObjectProperties_TraversesSerializationGraphWithoutWritingSidecars()
+    {
+        string directPath = Path.Combine(_externalDir, "direct.sidecar");
+        string listedPath = Path.Combine(_externalDir, "listed.sidecar");
+        var direct = new TestPlainSidecar { Uri = new Uri(directPath) };
+        var listed = new TestPlainSidecar { Uri = new Uri(listedPath) };
+        var root = new TestSerializationOwner
+        {
+            Sidecar = direct,
+            Sidecars = [listed],
+        };
+
+        ExternalResourceCollector collector = ExternalResourceCollector.Collect(root, _testProjectDir);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(
+                collector.FileSources.Select(source => source.OriginalUri.LocalPath),
+                Is.EquivalentTo(new[] { directPath, listedPath }));
+            Assert.That(File.Exists(directPath), Is.False);
+            Assert.That(File.Exists(listedPath), Is.False);
+            Assert.That(root.SerializationContext, Is.Not.Null);
+            Assert.That(
+                root.SerializationContext?.Mode,
+                Is.EqualTo(CoreSerializationMode.Write | CoreSerializationMode.EmbedReferencedObjects));
         });
     }
 
@@ -207,6 +275,32 @@ public class ExternalResourceCollectorTests
 
         // Assert
         Assert.That(collector.FontFamilies, Is.Empty);
+    }
+
+    [Test]
+    public void Collect_WithOptionalFontFamily_CollectsFontFamily()
+    {
+        var fontFamily = new FontFamily("OptionalFont");
+        var root = new TestEngineObjectWithOptionalFontFamily(fontFamily);
+
+        ExternalResourceCollector collector = ExternalResourceCollector.Collect(root, _testProjectDir);
+
+        Assert.That(
+            collector.FontFamilies.Select(item => item.Name),
+            Is.EquivalentTo(new[] { "OptionalFont" }));
+    }
+
+    [Test]
+    public void Collect_WithTypeface_CollectsFontFamily()
+    {
+        var fontFamily = new FontFamily("TypefaceFont");
+        var root = new TestEngineObjectWithTypeface(new Typeface(fontFamily));
+
+        ExternalResourceCollector collector = ExternalResourceCollector.Collect(root, _testProjectDir);
+
+        Assert.That(
+            collector.FontFamilies.Select(item => item.Name),
+            Is.EquivalentTo(new[] { "TypefaceFont" }));
     }
 
     [Test]
@@ -579,6 +673,31 @@ public class ExternalResourceCollectorTests
     }
 
     [SuppressResourceClassGeneration]
+    private class TestEngineObjectWithOptionalFontFamily : EngineObject
+    {
+        public TestEngineObjectWithOptionalFontFamily(FontFamily fontFamily)
+        {
+            ScanProperties<TestEngineObjectWithOptionalFontFamily>();
+            FontFamily.CurrentValue = new Optional<FontFamily>(fontFamily);
+        }
+
+        public IProperty<Optional<FontFamily>> FontFamily { get; }
+            = Property.Create<Optional<FontFamily>>();
+    }
+
+    [SuppressResourceClassGeneration]
+    private class TestEngineObjectWithTypeface : EngineObject
+    {
+        public TestEngineObjectWithTypeface(Typeface typeface)
+        {
+            ScanProperties<TestEngineObjectWithTypeface>();
+            Typeface.CurrentValue = typeface;
+        }
+
+        public IProperty<Typeface> Typeface { get; } = Property.Create<Typeface>();
+    }
+
+    [SuppressResourceClassGeneration]
     private class TestEngineObjectWithNestedHierarchical : EngineObject
     {
         public TestEngineObjectWithNestedHierarchical(IHierarchical? nested)
@@ -609,4 +728,45 @@ public class ExternalResourceCollectorTests
             HierarchicalChildren.Add(child);
         }
     }
+
+    private sealed class TestSerializationOwner : Hierarchical
+    {
+        public static readonly CoreProperty<TestPlainSidecar?> SidecarProperty;
+        public static readonly CoreProperty<CoreList<TestPlainSidecar>> SidecarsProperty;
+        private TestPlainSidecar? _sidecar;
+        private CoreList<TestPlainSidecar> _sidecars = [];
+
+        static TestSerializationOwner()
+        {
+            SidecarProperty = ConfigureProperty<TestPlainSidecar?, TestSerializationOwner>(nameof(Sidecar))
+                .Accessor(owner => owner.Sidecar, (owner, value) => owner.Sidecar = value)
+                .Register();
+            SidecarsProperty = ConfigureProperty<CoreList<TestPlainSidecar>, TestSerializationOwner>(
+                    nameof(Sidecars))
+                .Accessor(owner => owner.Sidecars, (owner, value) => owner.Sidecars = value)
+                .Register();
+        }
+
+        public TestPlainSidecar? Sidecar
+        {
+            get => _sidecar;
+            set => SetAndRaise(SidecarProperty, ref _sidecar, value);
+        }
+
+        public CoreList<TestPlainSidecar> Sidecars
+        {
+            get => _sidecars;
+            set => SetAndRaise(SidecarsProperty, ref _sidecars, value);
+        }
+
+        public ICoreSerializationContext? SerializationContext { get; private set; }
+
+        public override void Serialize(ICoreSerializationContext context)
+        {
+            SerializationContext = ThreadLocalSerializationContext.Current;
+            base.Serialize(context);
+        }
+    }
+
+    private sealed class TestPlainSidecar : CoreObject;
 }

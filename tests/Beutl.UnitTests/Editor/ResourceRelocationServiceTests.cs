@@ -1,6 +1,7 @@
 ﻿using Beutl.Editor;
 using Beutl.Logging;
 using Beutl.Media;
+using Beutl.Media.Source;
 using Beutl.ProjectSystem;
 using Microsoft.Extensions.Logging;
 
@@ -82,6 +83,31 @@ public class ResourceRelocationServiceTests
             Assert.That(result.FailedResources, Has.Count.EqualTo(1));
             Assert.That(result.FailedResources[0], Does.Contain(id.ToString()));
             Assert.That(result.FailedResources[0], Does.Contain("NonExistentProperty"));
+        });
+    }
+
+    [Test]
+    public async Task RelocateFileSourcesAsync_WithRegisteredFileSourceProperty_ReplacesValue()
+    {
+        var service = new ResourceRelocationService();
+        string sourceFilePath = Path.Combine(_testDir, "registered-source.png");
+        await File.WriteAllTextAsync(sourceFilePath, "registered source");
+        var source = new ImageSource();
+        source.ReadFrom(new Uri(sourceFilePath));
+        var item = new TestFileSourceProjectItem { Source = source };
+        var project = new Project();
+        project.Items.Add(item);
+        var sources = new[] { (item.Id, nameof(TestFileSourceProjectItem.Source), source.Uri) };
+
+        RelocationResult result = await service.RelocateFileSourcesAsync(sources, project, _projectDir);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(result.SuccessCount, Is.EqualTo(1));
+            Assert.That(result.FailedResources, Is.Empty);
+            Assert.That(item.Source, Is.Not.SameAs(source));
+            Assert.That(item.Source?.Uri.LocalPath, Does.StartWith(Path.Combine(_projectDir, "resources")));
+            Assert.That(File.ReadAllText(item.Source!.Uri.LocalPath), Is.EqualTo("registered source"));
         });
     }
 
@@ -290,5 +316,24 @@ public class ResourceRelocationServiceTests
             Assert.That(result.SuccessCount, Is.EqualTo(0));
             Assert.That(result.FailedResources, Is.Empty);
         });
+    }
+
+    private sealed class TestFileSourceProjectItem : ProjectItem
+    {
+        public static readonly CoreProperty<ImageSource?> SourceProperty;
+        private ImageSource? _source;
+
+        static TestFileSourceProjectItem()
+        {
+            SourceProperty = ConfigureProperty<ImageSource?, TestFileSourceProjectItem>(nameof(Source))
+                .Accessor(item => item.Source, (item, value) => item.Source = value)
+                .Register();
+        }
+
+        public ImageSource? Source
+        {
+            get => _source;
+            set => SetAndRaise(SourceProperty, ref _source, value);
+        }
     }
 }

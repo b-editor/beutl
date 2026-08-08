@@ -113,9 +113,16 @@ public sealed class CreateNewProjectViewModel
             if (project is not null
                 && initializeVersionControl)
             {
-                await _versionControlInitializer.InitializeCurrentProjectAsync(
-                    _requestIdentityAsync,
-                    CancellationToken.None);
+                try
+                {
+                    await _versionControlInitializer.InitializeCurrentProjectAsync(
+                        _requestIdentityAsync,
+                        CancellationToken.None);
+                }
+                catch (Exception ex)
+                {
+                    await ex.Handle();
+                }
             }
         });
     }
