@@ -1150,6 +1150,89 @@ public class VersionControlTabViewModelTests
             Times.Once);
     }
 
+    [TestCase(
+        false,
+        TestName = "Restore_rejects_coordinator_result_after_service_rebind")]
+    [TestCase(
+        true,
+        TestName = "Restore_rejects_coordinator_result_after_disposal")]
+    public async Task Restore_rejects_coordinator_result_after_generation_ends(
+        bool disposeViewModel)
+    {
+        CommitInfo commit = CreateCommit(2, SnapshotKind.Save);
+        string repositoryRoot = Path.Combine(
+            Path.GetTempPath(),
+            "beutl-version-control-tab-shared-repository");
+        Mock<IProjectVersionControlService> originatingService = CreateServiceMock();
+        originatingService.SetupGet(x => x.Repository)
+            .Returns(new RepositoryInfo(
+                repositoryRoot,
+                Path.Combine(repositoryRoot, "project-a")));
+        originatingService.Setup(x => x.GetHistoryAsync(
+                It.IsAny<int>(),
+                It.IsAny<int>(),
+                It.IsAny<CancellationToken>()))
+            .ReturnsAsync([commit]);
+        Mock<IProjectVersionControlService> replacementService = CreateServiceMock();
+        replacementService.SetupGet(x => x.Repository)
+            .Returns(new RepositoryInfo(
+                repositoryRoot,
+                Path.Combine(repositoryRoot, "project-b")));
+        var coordinatorStarted = new TaskCompletionSource<CancellationToken>(
+            TaskCreationOptions.RunContinuationsAsynchronously);
+        var coordinatorRelease = new TaskCompletionSource(
+            TaskCreationOptions.RunContinuationsAsynchronously);
+        var coordinator = new Mock<IProjectVersionControlCoordinator>();
+        coordinator.Setup(x => x.RestoreAsync(
+                commit.Sha,
+                It.IsAny<CancellationToken>()))
+            .Returns(async (string _, CancellationToken cancellationToken) =>
+            {
+                coordinatorStarted.TrySetResult(cancellationToken);
+                await coordinatorRelease.Task;
+                return true;
+            });
+        coordinator.SetReturnsDefault(
+            Task.FromResult<IReadOnlyList<ProjectRecoveryInfo>>([]));
+        using var serviceSource =
+            new ReactivePropertySlim<IProjectVersionControlService?>(originatingService.Object);
+        using var viewModel = new VersionControlTabViewModel(
+            Mock.Of<ToolTabExtension>(),
+            Mock.Of<IEditorContext>(),
+            serviceSource,
+            coordinator.Object,
+            action => action());
+        await viewModel.Initialization;
+
+        Task<bool> restore = viewModel.RestoreAsync(commit);
+        CancellationToken coordinatorToken = await coordinatorStarted.Task
+            .WaitAsync(TimeSpan.FromSeconds(2));
+        if (disposeViewModel)
+        {
+            viewModel.Dispose();
+        }
+        else
+        {
+            serviceSource.Value = replacementService.Object;
+            await viewModel.Initialization;
+        }
+
+        coordinatorRelease.TrySetResult();
+        bool restored = await restore.WaitAsync(TimeSpan.FromSeconds(2));
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(restored, Is.False);
+            Assert.That(coordinatorToken.CanBeCanceled, Is.True);
+            Assert.That(coordinatorToken.IsCancellationRequested, Is.True);
+        });
+        coordinator.Verify(
+            x => x.RestoreAsync(
+                commit.Sha,
+                It.IsAny<CancellationToken>()),
+            Times.Once);
+    }
+
     [Test]
     public async Task Restore_to_new_branch_uses_prompted_name_and_coordinator_cycle()
     {
@@ -1184,6 +1267,160 @@ public class VersionControlTabViewModelTests
         bool restored = await viewModel.RestoreToNewBranchAsync(commit);
 
         Assert.That(restored, Is.True);
+        coordinator.Verify(
+            x => x.RestoreToNewBranchAsync(
+                commit.Sha,
+                "restored-version",
+                It.IsAny<CancellationToken>()),
+            Times.Once);
+    }
+
+    [TestCase(
+        false,
+        TestName = "Restore_to_new_branch_rejects_prompt_result_after_service_rebind")]
+    [TestCase(
+        true,
+        TestName = "Restore_to_new_branch_rejects_prompt_result_after_disposal")]
+    public async Task Restore_to_new_branch_rejects_prompt_result_after_generation_ends(
+        bool disposeViewModel)
+    {
+        CommitInfo commit = CreateCommit(2, SnapshotKind.Save);
+        string repositoryRoot = Path.Combine(
+            Path.GetTempPath(),
+            "beutl-version-control-tab-shared-repository");
+        Mock<IProjectVersionControlService> originatingService = CreateServiceMock();
+        originatingService.SetupGet(x => x.Repository)
+            .Returns(new RepositoryInfo(
+                repositoryRoot,
+                Path.Combine(repositoryRoot, "project-a")));
+        originatingService.Setup(x => x.GetHistoryAsync(
+                It.IsAny<int>(),
+                It.IsAny<int>(),
+                It.IsAny<CancellationToken>()))
+            .ReturnsAsync([commit]);
+        Mock<IProjectVersionControlService> replacementService = CreateServiceMock();
+        replacementService.SetupGet(x => x.Repository)
+            .Returns(new RepositoryInfo(
+                repositoryRoot,
+                Path.Combine(repositoryRoot, "project-b")));
+        var coordinator = new Mock<IProjectVersionControlCoordinator>();
+        coordinator.Setup(x => x.RestoreToNewBranchAsync(
+                commit.Sha,
+                "restored-version",
+                It.IsAny<CancellationToken>()))
+            .ReturnsAsync(true);
+        coordinator.SetReturnsDefault(
+            Task.FromResult<IReadOnlyList<ProjectRecoveryInfo>>([]));
+        var promptStarted = new TaskCompletionSource(
+            TaskCreationOptions.RunContinuationsAsynchronously);
+        var promptCompletion = new TaskCompletionSource<string?>(
+            TaskCreationOptions.RunContinuationsAsynchronously);
+        using var serviceSource =
+            new ReactivePropertySlim<IProjectVersionControlService?>(originatingService.Object);
+        using var viewModel = new VersionControlTabViewModel(
+            Mock.Of<ToolTabExtension>(),
+            Mock.Of<IEditorContext>(),
+            serviceSource,
+            coordinator.Object,
+            action => action())
+        {
+            RequestBranchNameAsync = _ =>
+            {
+                promptStarted.TrySetResult();
+                return promptCompletion.Task;
+            },
+        };
+        await viewModel.Initialization;
+
+        Task<bool> restore = viewModel.RestoreToNewBranchAsync(commit);
+        await promptStarted.Task.WaitAsync(TimeSpan.FromSeconds(2));
+        if (disposeViewModel)
+        {
+            viewModel.Dispose();
+        }
+        else
+        {
+            serviceSource.Value = replacementService.Object;
+            await viewModel.Initialization;
+        }
+
+        promptCompletion.TrySetResult("restored-version");
+
+        Assert.That(await restore.WaitAsync(TimeSpan.FromSeconds(2)), Is.False);
+        coordinator.Verify(
+            x => x.RestoreToNewBranchAsync(
+                It.IsAny<string>(),
+                It.IsAny<string>(),
+                It.IsAny<CancellationToken>()),
+            Times.Never);
+    }
+
+    [Test]
+    public async Task Restore_to_new_branch_cancels_coordinator_after_service_rebind()
+    {
+        CommitInfo commit = CreateCommit(3, SnapshotKind.Save);
+        string repositoryRoot = Path.Combine(
+            Path.GetTempPath(),
+            "beutl-version-control-tab-shared-repository");
+        Mock<IProjectVersionControlService> originatingService = CreateServiceMock();
+        originatingService.SetupGet(x => x.Repository)
+            .Returns(new RepositoryInfo(
+                repositoryRoot,
+                Path.Combine(repositoryRoot, "project-a")));
+        originatingService.Setup(x => x.GetHistoryAsync(
+                It.IsAny<int>(),
+                It.IsAny<int>(),
+                It.IsAny<CancellationToken>()))
+            .ReturnsAsync([commit]);
+        Mock<IProjectVersionControlService> replacementService = CreateServiceMock();
+        replacementService.SetupGet(x => x.Repository)
+            .Returns(new RepositoryInfo(
+                repositoryRoot,
+                Path.Combine(repositoryRoot, "project-b")));
+        var coordinatorStarted = new TaskCompletionSource<CancellationToken>(
+            TaskCreationOptions.RunContinuationsAsynchronously);
+        var coordinatorRelease = new TaskCompletionSource(
+            TaskCreationOptions.RunContinuationsAsynchronously);
+        var coordinator = new Mock<IProjectVersionControlCoordinator>();
+        coordinator.Setup(x => x.RestoreToNewBranchAsync(
+                commit.Sha,
+                "restored-version",
+                It.IsAny<CancellationToken>()))
+            .Returns(async (string _, string _, CancellationToken cancellationToken) =>
+            {
+                coordinatorStarted.TrySetResult(cancellationToken);
+                await coordinatorRelease.Task;
+                return true;
+            });
+        coordinator.SetReturnsDefault(
+            Task.FromResult<IReadOnlyList<ProjectRecoveryInfo>>([]));
+        using var serviceSource =
+            new ReactivePropertySlim<IProjectVersionControlService?>(originatingService.Object);
+        using var viewModel = new VersionControlTabViewModel(
+            Mock.Of<ToolTabExtension>(),
+            Mock.Of<IEditorContext>(),
+            serviceSource,
+            coordinator.Object,
+            action => action())
+        {
+            RequestBranchNameAsync = _ => Task.FromResult<string?>("restored-version"),
+        };
+        await viewModel.Initialization;
+
+        Task<bool> restore = viewModel.RestoreToNewBranchAsync(commit);
+        CancellationToken coordinatorToken = await coordinatorStarted.Task
+            .WaitAsync(TimeSpan.FromSeconds(2));
+        serviceSource.Value = replacementService.Object;
+        await viewModel.Initialization;
+        coordinatorRelease.TrySetResult();
+        bool restored = await restore.WaitAsync(TimeSpan.FromSeconds(2));
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(restored, Is.False);
+            Assert.That(coordinatorToken.CanBeCanceled, Is.True);
+            Assert.That(coordinatorToken.IsCancellationRequested, Is.True);
+        });
         coordinator.Verify(
             x => x.RestoreToNewBranchAsync(
                 commit.Sha,
@@ -1421,6 +1658,68 @@ public class VersionControlTabViewModelTests
                 "https://example.invalid/new.git",
                 It.IsAny<CancellationToken>()),
             Times.Once);
+    }
+
+    [TestCase(
+        false,
+        TestName = "Set_remote_rejects_prompt_result_after_service_rebind")]
+    [TestCase(
+        true,
+        TestName = "Set_remote_rejects_prompt_result_after_disposal")]
+    public async Task Set_remote_rejects_prompt_result_after_generation_ends(
+        bool disposeViewModel)
+    {
+        Mock<IProjectVersionControlService> originatingService = CreateServiceMock();
+        Mock<IProjectVersionControlService> replacementService = CreateServiceMock();
+        var coordinator = new Mock<IProjectVersionControlCoordinator>();
+        coordinator.SetReturnsDefault(
+            Task.FromResult<IReadOnlyList<ProjectRecoveryInfo>>([]));
+        var promptStarted = new TaskCompletionSource(
+            TaskCreationOptions.RunContinuationsAsynchronously);
+        var promptCompletion = new TaskCompletionSource<string?>(
+            TaskCreationOptions.RunContinuationsAsynchronously);
+        using var serviceSource =
+            new ReactivePropertySlim<IProjectVersionControlService?>(originatingService.Object);
+        using var viewModel = new VersionControlTabViewModel(
+            Mock.Of<ToolTabExtension>(),
+            Mock.Of<IEditorContext>(),
+            serviceSource,
+            coordinator.Object,
+            action => action())
+        {
+            RequestRemoteUrlAsync = _ =>
+            {
+                promptStarted.TrySetResult();
+                return promptCompletion.Task;
+            },
+        };
+        await viewModel.Initialization;
+
+        Task configure = viewModel.SetRemoteAsync();
+        await promptStarted.Task.WaitAsync(TimeSpan.FromSeconds(2));
+        if (disposeViewModel)
+        {
+            viewModel.Dispose();
+        }
+        else
+        {
+            serviceSource.Value = replacementService.Object;
+            await viewModel.Initialization;
+        }
+
+        promptCompletion.TrySetResult("https://example.invalid/new.git");
+        await configure.WaitAsync(TimeSpan.FromSeconds(2));
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(viewModel.RemoteUrl.Value, Is.Not.EqualTo("https://example.invalid/new.git"));
+            Assert.That(viewModel.HasRemote.Value, Is.False);
+        });
+        coordinator.Verify(
+            x => x.SetRemoteAsync(
+                It.IsAny<string>(),
+                It.IsAny<CancellationToken>()),
+            Times.Never);
     }
 
     [Test]

@@ -479,6 +479,46 @@ public class TitleBarBranchViewModelTests
             Times.Never);
     }
 
+    [Test]
+    public async Task Rebind_during_branch_name_prompt_prevents_creation()
+    {
+        Mock<IProjectVersionControlService> originatingService = CreateServiceMock();
+        Mock<IProjectVersionControlService> replacementService = CreateServiceMock();
+        var branchName = new TaskCompletionSource<string?>(
+            TaskCreationOptions.RunContinuationsAsynchronously);
+        var promptStarted = new TaskCompletionSource(
+            TaskCreationOptions.RunContinuationsAsynchronously);
+        var coordinator = new Mock<IProjectVersionControlCoordinator>();
+        using var serviceSource =
+            new ReactivePropertySlim<IProjectVersionControlService?>(originatingService.Object);
+        using var viewModel = new TitleBarBranchViewModel(
+            serviceSource,
+            CreateGitAvailabilitySource(),
+            coordinator.Object,
+            action => action())
+        {
+            RequestNewBranchNameAsync = () =>
+            {
+                promptStarted.TrySetResult();
+                return branchName.Task;
+            },
+        };
+        await viewModel.Initialization;
+
+        Task operation = viewModel.CreateBranchAsync();
+        await promptStarted.Task.WaitAsync(TimeSpan.FromSeconds(2));
+        serviceSource.Value = replacementService.Object;
+        await viewModel.Initialization;
+        branchName.SetResult("late-branch");
+        await operation;
+
+        coordinator.Verify(
+            item => item.CreateBranchAsync(
+                It.IsAny<string>(),
+                It.IsAny<CancellationToken>()),
+            Times.Never);
+    }
+
     [TestCase("main", 0, 0, "main")]
     [TestCase("main", 2, 0, "main ↑2")]
     [TestCase("main", 0, 1, "main ↓1")]

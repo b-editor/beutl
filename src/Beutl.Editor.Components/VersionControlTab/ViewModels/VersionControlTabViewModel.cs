@@ -468,22 +468,50 @@ public sealed class VersionControlTabViewModel : IToolContext
 
     private async Task<bool> ConfigureRemoteAsync()
     {
-        if (_versionControlCoordinator is null || IsRemoteOperationRunning.Value)
+        IProjectVersionControlCoordinator? coordinator = _versionControlCoordinator;
+        IProjectVersionControlService? service = _service;
+        int revision = _serviceRevision;
+        if (coordinator is null
+            || service is null
+            || _disposed
+            || IsRemoteOperationRunning.Value)
+        {
+            return false;
+        }
+
+        CancellationToken cancellationToken;
+        try
+        {
+            cancellationToken =
+                _serviceBindingCancellation?.Token ?? CancellationToken.None;
+        }
+        catch (ObjectDisposedException)
+        {
+            return false;
+        }
+
+        if (!IsCurrentService(service, revision, cancellationToken))
         {
             return false;
         }
 
         string? remoteUrl = await RequestRemoteUrlAsync(
             HasRemote.Value ? RemoteUrl.Value : null);
-        if (string.IsNullOrWhiteSpace(remoteUrl))
+        if (!IsCurrentService(service, revision, cancellationToken)
+            || string.IsNullOrWhiteSpace(remoteUrl))
         {
             return false;
         }
 
         string normalizedUrl = remoteUrl.Trim();
-        await _versionControlCoordinator.SetRemoteAsync(
+        await coordinator.SetRemoteAsync(
             normalizedUrl,
-            CancellationToken.None);
+            cancellationToken);
+        if (!IsCurrentService(service, revision, cancellationToken))
+        {
+            return false;
+        }
+
         await RefreshRemotesAsync();
         RemoteUrl.Value = normalizedUrl;
         HasRemote.Value = true;
@@ -659,36 +687,89 @@ public sealed class VersionControlTabViewModel : IToolContext
 
     internal Task<bool> RestoreAsync(CommitInfo commit)
     {
-        if (_versionControlCoordinator is null)
-        {
-            return Task.FromResult(false);
-        }
-
-        return RunRestoreRequestAsync(
-            () => _versionControlCoordinator.RestoreAsync(
+        return RunRestoreForCurrentServiceAsync(
+            (coordinator, _, _, cancellationToken) => coordinator.RestoreAsync(
                 commit.Sha,
-                CancellationToken.None));
+                cancellationToken));
     }
 
     internal Task<bool> RestoreToNewBranchAsync(CommitInfo commit)
     {
-        if (_versionControlCoordinator is null)
+        return RunRestoreForCurrentServiceAsync(async (
+            coordinator,
+            service,
+            revision,
+            cancellationToken) =>
+        {
+            string? branchName = await RequestBranchNameAsync(commit);
+            if (!IsCurrentService(service, revision, cancellationToken)
+                || string.IsNullOrWhiteSpace(branchName))
+            {
+                return false;
+            }
+
+            return await coordinator.RestoreToNewBranchAsync(
+                commit.Sha,
+                branchName.Trim(),
+                cancellationToken);
+        });
+    }
+
+    private Task<bool> RunRestoreForCurrentServiceAsync(
+        Func<
+            IProjectVersionControlCoordinator,
+            IProjectVersionControlService,
+            int,
+            CancellationToken,
+            Task<bool>> operation)
+    {
+        IProjectVersionControlCoordinator? coordinator = _versionControlCoordinator;
+        IProjectVersionControlService? service = _service;
+        int revision = _serviceRevision;
+        if (coordinator is null
+            || service is null
+            || _disposed)
+        {
+            return Task.FromResult(false);
+        }
+
+        CancellationToken cancellationToken;
+        try
+        {
+            cancellationToken =
+                _serviceBindingCancellation?.Token ?? CancellationToken.None;
+        }
+        catch (ObjectDisposedException)
+        {
+            return Task.FromResult(false);
+        }
+
+        if (!IsCurrentService(service, revision, cancellationToken))
         {
             return Task.FromResult(false);
         }
 
         return RunRestoreRequestAsync(async () =>
         {
-            string? branchName = await RequestBranchNameAsync(commit);
-            if (string.IsNullOrWhiteSpace(branchName))
+            if (!IsCurrentService(service, revision, cancellationToken))
             {
                 return false;
             }
 
-            return await _versionControlCoordinator.RestoreToNewBranchAsync(
-                commit.Sha,
-                branchName.Trim(),
-                CancellationToken.None);
+            try
+            {
+                bool result = await operation(
+                    coordinator,
+                    service,
+                    revision,
+                    cancellationToken);
+                return IsCurrentService(service, revision, cancellationToken)
+                       && result;
+            }
+            catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+            {
+                return false;
+            }
         });
     }
 

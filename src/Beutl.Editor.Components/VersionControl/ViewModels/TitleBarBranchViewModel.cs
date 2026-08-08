@@ -215,14 +215,21 @@ internal sealed class TitleBarBranchViewModel : IDisposable
             return;
         }
 
+        IProjectVersionControlService? service = _service;
+        int revision = _serviceRevision;
+        if (service is null
+            || !IsCurrentServiceBinding(service, revision, CancellationToken.None))
+        {
+            return;
+        }
+
         if (!TryGetLifetimeToken(out CancellationToken lifetimeToken))
         {
             return;
         }
 
         string? branchName = await RequestNewBranchNameAsync();
-        if (_disposed
-            || lifetimeToken.IsCancellationRequested
+        if (!IsCurrentServiceBinding(service, revision, lifetimeToken)
             || string.IsNullOrWhiteSpace(branchName))
         {
             return;
