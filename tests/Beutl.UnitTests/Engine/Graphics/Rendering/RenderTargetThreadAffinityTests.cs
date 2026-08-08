@@ -138,6 +138,28 @@ public class RenderTargetThreadAffinityTests
         Assert.That(canvas.IsDisposed, Is.True);
     }
 
+    // The deadline exists for a release that never starts. Once it is running on the owner thread,
+    // returning early would report free resources that are still being torn down.
+    [Test]
+    public void A_release_slower_than_the_deadline_is_waited_out_once_it_has_started()
+    {
+        using var finish = new ManualResetEventSlim(false);
+        var completed = false;
+
+        Task caller = Task.Run(() => GpuResourceRelease.Run(RenderThread.Dispatcher, () =>
+        {
+            finish.Wait(TimeSpan.FromSeconds(60));
+            completed = true;
+        }));
+
+        Assert.That(caller.Wait(TimeSpan.FromSeconds(8)), Is.False,
+            "Run returned while the release it started was still executing");
+
+        finish.Set();
+        Assert.That(caller.Wait(TimeSpan.FromSeconds(30)), Is.True);
+        Assert.That(completed, Is.True);
+    }
+
     [Test]
     public void A_release_that_throws_after_the_wait_was_given_up_leaves_the_dispatcher_usable()
     {

@@ -270,19 +270,26 @@ public class Renderer : IRenderer
                 // Nothing awaits this, and the dispatcher has no UnhandledException handler, so an
                 // escaping exception would rethrow out of its loop and kill the render thread for
                 // the rest of the process.
+                if (!weakRef.TryGetTarget(out Renderer? renderer)
+                    || !renderer._nodeCache.TryGetValue(senderDrawable, out Entry? entry))
+                {
+                    return;
+                }
+
                 try
                 {
-                    if (weakRef.TryGetTarget(out Renderer? renderer)
-                        && renderer._nodeCache.TryGetValue(senderDrawable, out Entry? entry))
-                    {
-                        RenderNodeCacheHelper.ClearCache(entry.Node);
-                        entry.Dispose();
-                        renderer._nodeCache.Remove(senderDrawable);
-                    }
+                    RenderNodeCacheHelper.ClearCache(entry.Node);
+                    entry.Dispose();
                 }
                 catch (Exception ex)
                 {
                     s_logger.LogWarning(ex, "Failed to release the render cache of a detached drawable");
+                }
+                finally
+                {
+                    // The handler is already unsubscribed, so an entry left behind by a failed
+                    // cleanup would be reused by a reattached drawable and never retried.
+                    renderer._nodeCache.Remove(senderDrawable);
                 }
             });
         }

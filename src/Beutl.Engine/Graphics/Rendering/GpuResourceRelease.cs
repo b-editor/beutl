@@ -32,8 +32,10 @@ internal static class GpuResourceRelease
         }
 
         int claimed = 0;
+        int started = 0;
         void Once()
         {
+            Volatile.Write(ref started, 1);
             if (Interlocked.Exchange(ref claimed, 1) == 0)
             {
                 release();
@@ -51,6 +53,15 @@ internal static class GpuResourceRelease
         {
             if (queued.Wait(s_slice))
             {
+                return;
+            }
+
+            // Already running on the owner thread: the deadline guards against work that never
+            // starts, not against a release that is simply slow, and returning here would tell the
+            // caller the resources are free while they are still being torn down.
+            if (Volatile.Read(ref started) == 1)
+            {
+                queued.GetAwaiter().GetResult();
                 return;
             }
 
