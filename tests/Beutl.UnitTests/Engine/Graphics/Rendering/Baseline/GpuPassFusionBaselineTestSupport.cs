@@ -1015,6 +1015,21 @@ internal sealed record GpuPassFusionEvidenceManifest(
     }
 }
 
+internal static class GpuPassFusionEvidenceStackSliceGate
+{
+    private const string MissingCorpusReason =
+        "Stack 3/5 intentionally excludes immutable GPU evidence; corpus-backed checks run from stack 4/5 onward.";
+
+    public static bool HasStack4EvidenceSlice
+        => Directory.Exists(GpuPassFusionEvidencePaths.Discover().EvidenceDirectory);
+
+    public static void RequireStack4EvidenceSlice()
+    {
+        if (!HasStack4EvidenceSlice)
+            Assert.Ignore(MissingCorpusReason);
+    }
+}
+
 internal sealed record GpuPassFusionEvidencePaths(
     string RepositoryRoot,
     string EvidenceDirectory,
