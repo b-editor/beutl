@@ -15,6 +15,11 @@ namespace Beutl.Extensions.FFmpeg.Decoding;
 
 public sealed class FFmpegReaderProxy : MediaReader
 {
+    // The worker protects only the slot it served last, and it releases its reader lock before the
+    // response reaches us, so a second read on this proxy would let prefetch recycle the slot the
+    // first one is still copying out of.
+    private readonly Lock _readGate = new();
+
     private readonly ILogger _logger = Log.CreateLogger<FFmpegReaderProxy>();
     private readonly IpcConnection _connection;
     private readonly int _readerId;
@@ -70,11 +75,16 @@ public sealed class FFmpegReaderProxy : MediaReader
 
     public override bool HasAudio => _openResponse.HasAudio;
 
-    public override unsafe bool ReadVideo(int frame, [NotNullWhen(true)] out Ref<Bitmap>? image)
+    public override bool ReadVideo(int frame, [NotNullWhen(true)] out Ref<Bitmap>? image)
     {
-        // Every read, including the ones the worker answers from its ring without decoding. The
-        // decode-side trace only fires on a real decode, so it cannot say which video frame a given
-        // preview frame actually drew.
+        lock (_readGate)
+        {
+            return ReadVideoCore(frame, out image);
+        }
+    }
+
+    private unsafe bool ReadVideoCore(int frame, [NotNullWhen(true)] out Ref<Bitmap>? image)
+    {
         var request = new ReadVideoRequest { ReaderId = _readerId, Frame = frame };
         var response = _connection.RequestAsync<ReadVideoRequest, ReadVideoResponse>(
             MessageType.ReadVideo, MessageType.ReadVideoResult, request).AsTask().GetAwaiter().GetResult();

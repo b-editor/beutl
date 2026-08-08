@@ -78,4 +78,12 @@ public class FFmpegSeekDecisionTests
             Assert.That(nextFrame, Is.EqualTo(-1));
         });
     }
+
+    [Test]
+    public void TryGetPostSeekSkip_PastTheRequest_LeavesNoSkipToUse()
+    {
+        Assert.That(FFmpegSeekDecision.TryGetPostSeekSkip(position: 120, requestedFrame: 100, out long skip),
+            Is.False);
+        Assert.That(skip, Is.Zero, "a failed TryGet must not hand back a negative grab count");
+    }
 }

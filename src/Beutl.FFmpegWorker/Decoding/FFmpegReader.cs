@@ -375,15 +375,6 @@ public sealed class FFmpegReader : MediaReader
         if (FFmpegSeekDecision.ShouldReseek(currentUsable, skip))
         {
             SeekVideo(frame);
-            if (!FFmpegSeekDecision.TryGetPostSeekSkip(_videoNowFrame, frame, out _))
-            {
-                // Past the target, and grabbing cannot go backwards. Approaching from the start of
-                // the stream is slow but reaches the frame; a picture served from an overshot
-                // position is stored in the frame cache and shown for that frame from then on.
-                SeekVideo(0);
-                if (!FFmpegSeekDecision.TryGetPostSeekSkip(_videoNowFrame, frame, out _))
-                    return null;
-            }
         }
 
         // Grab by position, not by count: a grab does not always advance exactly one frame (dropped
@@ -412,10 +403,14 @@ public sealed class FFmpegReader : MediaReader
             }
         }
 
+        // Landing later than the request means no decoded picture maps to that frame number — a
+        // timestamp gap, or a variable frame rate. The nearest available picture is the answer for
+        // that frame; re-seeking to the start would decode the whole stream only to stop at the very
+        // same position, under the reader lock.
         if (_videoNowFrame != frame)
         {
             _logger.LogWarning(
-                "Video decode landed on frame {Position} for requested frame {Frame}; the picture belongs to another time.",
+                "Video decode landed on frame {Position} for requested frame {Frame}.",
                 _videoNowFrame, frame);
         }
 

@@ -25,8 +25,15 @@ internal static class FFmpegSeekDecision
     // sits there is what makes a seek hand back a neighbouring picture.
     public static bool TryGetPostSeekSkip(long position, long requestedFrame, out long skip)
     {
-        skip = requestedFrame - position;
-        return skip >= 0;
+        long remaining = requestedFrame - position;
+        if (remaining < 0)
+        {
+            skip = 0;
+            return false;
+        }
+
+        skip = remaining;
+        return true;
     }
 
     // Compute the next prefetch target and report whether one exists before EOF:
