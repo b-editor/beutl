@@ -29,6 +29,8 @@ public class PreviewFrameOrderIndependenceTests
 {
     private const int Rate = 30;
     private const int FrameCount = 16;
+    private const int SquareWidth = 80;
+    private const int SquareHeight = 60;
 
     // A frame already visited stands for a frame-cache hit and takes the UpdateFrame route; a frame
     // reached for the first time is a miss and has to match the baseline picture.
@@ -183,16 +185,16 @@ public class PreviewFrameOrderIndependenceTests
         {
             using var media = new SceneMedia(preferProxy: false, withEffect: false);
 
-            var square = new RectShape();
-            square.Width.CurrentValue = 80;
-            square.Height.CurrentValue = 60;
-            square.Fill.CurrentValue = new SolidColorBrush(Colors.White);
+            var shape = new RectShape();
+            shape.Width.CurrentValue = SquareWidth;
+            shape.Height.CurrentValue = SquareHeight;
+            shape.Fill.CurrentValue = new SolidColorBrush(Colors.White);
 
             var glass = new SourceBackdrop();
             glass.Clear.CurrentValue = true;
 
             var group = new DrawableGroup();
-            group.Children.Add(square);
+            group.Children.Add(shape);
             group.Children.Add(glass);
 
             Scene scene = media.NewSceneWith(group);
@@ -202,16 +204,21 @@ public class PreviewFrameOrderIndependenceTests
             using Bitmap snapshot = renderer.Snapshot();
             using Bitmap srgb = snapshot.Convert(
                 BitmapColorType.Bgra8888, BitmapAlphaType.Unpremul, BitmapColorSpace.Srgb);
+            // Only inside the square's own footprint: the clip below the group covers the rest of
+            // the frame, so counting bright pixels across the whole output would pass on the clip.
+            var square = new PixelRect(
+                (srgb.Width - SquareWidth) / 2, (srgb.Height - SquareHeight) / 2, SquareWidth, SquareHeight);
             int white = 0;
-            for (int y = 0; y < srgb.Height; y++)
+            for (int y = square.Y + 4; y < square.Bottom - 4; y++)
             {
-                foreach (Bgra8888 pixel in srgb.GetRow<Bgra8888>(y))
+                ReadOnlySpan<Bgra8888> row = srgb.GetRow<Bgra8888>(y);
+                for (int x = square.X + 4; x < square.Right - 4; x++)
                 {
-                    if (pixel.R > 200 && pixel.G > 200 && pixel.B > 200) white++;
+                    if (row[x].R > 200 && row[x].G > 200 && row[x].B > 200) white++;
                 }
             }
 
-            Assert.That(white, Is.GreaterThan(1000),
+            Assert.That(white, Is.EqualTo((square.Width - 8) * (square.Height - 8)),
                 "the clearing backdrop erased the sibling drawn before it inside the group");
         });
     }
