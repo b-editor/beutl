@@ -728,12 +728,50 @@ internal sealed class GitCliRunner : IGitCliRunner
             {
                 lockPaths.Add(branchLockPath);
             }
+
+            lockPaths.AddRange(GetRefLockPaths(gitDirectory));
         }
         catch (Exception ex) when (ex is IOException
                                    or UnauthorizedAccessException
                                    or ArgumentException
                                    or NotSupportedException)
         {
+        }
+
+        return lockPaths;
+    }
+
+    private IReadOnlyList<string> GetRefLockPaths(string gitDirectory)
+    {
+        string commonDirectory = GetCommonDirectory(gitDirectory);
+        string refsDirectory = Path.GetFullPath(Path.Combine(commonDirectory, "refs"));
+        if (!Directory.Exists(refsDirectory))
+        {
+            return [];
+        }
+
+        string refsPrefix = Path.TrimEndingDirectorySeparator(refsDirectory)
+                             + Path.DirectorySeparatorChar;
+        var lockPaths = new List<string>();
+        foreach (string candidate in Directory.EnumerateFiles(
+                     refsDirectory,
+                     "*.lock",
+                     SearchOption.AllDirectories))
+        {
+            string fullPath = Path.GetFullPath(candidate);
+            if (!fullPath.StartsWith(refsPrefix, PathComparison))
+            {
+                continue;
+            }
+
+            if (ContainsReparsePoint(
+                    commonDirectory,
+                    Path.GetDirectoryName(fullPath)!))
+            {
+                continue;
+            }
+
+            lockPaths.Add(fullPath);
         }
 
         return lockPaths;

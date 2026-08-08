@@ -645,6 +645,40 @@ public class GitCliRunnerTests : RealGitTestRepository
     }
 
     [Test]
+    public async Task Stale_remote_tracking_ref_lock_is_recoverable()
+    {
+        string lockPath = Path.Combine(
+            Root,
+            ".git",
+            "refs",
+            "remotes",
+            "origin",
+            "main.lock");
+        Directory.CreateDirectory(Path.GetDirectoryName(lockPath)!);
+        var now = new DateTimeOffset(2026, 1, 2, 12, 0, 0, TimeSpan.Zero);
+        await File.WriteAllTextAsync(lockPath, "stale");
+        File.SetLastWriteTimeUtc(
+            lockPath,
+            (now - GitCliRunner.StaleLockAge - TimeSpan.FromMinutes(1)).UtcDateTime);
+        var runner = new GitCliRunner(
+            GitPath,
+            TimeSpan.FromSeconds(10),
+            IsolatedGitEnvironment,
+            new FakeTimeProvider(now));
+
+        RepositoryLockInfo? recoverable = runner.GetRecoverableRepositoryLock(Repository);
+
+        Assert.That(recoverable, Is.Not.Null);
+        Assert.That(
+            RepositoryPathComparer.AreEquivalent(recoverable!.LockPath, lockPath),
+            Is.True);
+        Assert.That(
+            runner.RemoveRecoverableRepositoryLock(Repository, recoverable),
+            Is.True);
+        Assert.That(File.Exists(lockPath), Is.False);
+    }
+
+    [Test]
     public async Task Current_branch_ref_lock_does_not_follow_a_directory_link_outside_git_data()
     {
         string externalDirectory = CreateTemporaryDirectory();
