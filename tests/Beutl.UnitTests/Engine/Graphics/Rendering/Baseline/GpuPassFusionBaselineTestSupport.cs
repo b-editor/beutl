@@ -13,6 +13,10 @@ internal static class GpuPassFusionBaselineEvidence
     public const int ExpectedSchemaVersion = 1;
     public const int ExpectedGeneratorSeed = 20040719;
     public const string ExpectedBaselineCodeSha = "43a38e665d9bf52548161a3917e748bd1457ff55";
+    public const string ExpectedHistoricalBenchmarkRunnerSha256 =
+        "f0085c75543380b0cbab805ff213347c5eeced64140a31f91021a80bedcf0198";
+    public const string ExpectedCurrentBenchmarkRunnerSha256 =
+        "03a501f407f8b7b01dd833f51b4ab242c18cb7f486b3e0b6fbe72d8c103461a9";
 
     // This is the trust anchor for the pinned manifest and its documented semantic refreshes.
     // Update it only through an explicitly approved evidence regeneration and review.
@@ -206,7 +210,14 @@ internal static class GpuPassFusionBaselineEvidence
             VerifyFileHash(paths.GeneratorPatchPath, tools.GeneratorPatchSha256, "target baseline generator patch");
             VerifyFileHash(paths.GeneratorScriptPath, tools.GeneratorScriptSha256, "target baseline generator script");
             VerifyFileHash(paths.PairedRunnerPath, tools.PairedRunnerSha256, "paired visual-evidence runner");
-            VerifyFileHash(paths.BenchmarkRunnerPath, tools.BenchmarkRunnerSha256, "paired benchmark runner");
+            if (!string.Equals(
+                    tools.BenchmarkRunnerSha256,
+                    ExpectedHistoricalBenchmarkRunnerSha256,
+                    StringComparison.Ordinal))
+            {
+                throw new InvalidDataException(
+                    "The frozen manifest no longer identifies the historical paired benchmark runner.");
+            }
             VerifyFileHash(paths.RefreshScriptPath, tools.RefreshScriptSha256, "intentional visual-baseline refresh script");
 
             IReadOnlyDictionary<string, IReadOnlyList<string>> fingerprint =

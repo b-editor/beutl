@@ -1,4 +1,5 @@
-﻿using System.Text;
+﻿using System.Security.Cryptography;
+using System.Text;
 using System.Text.Json;
 using System.Text.Json.Nodes;
 
@@ -18,7 +19,11 @@ public sealed class PairedBenchmarkAnalyzerTests
         using var output = new StringWriter();
         using var error = new StringWriter();
 
-        int exitCode = PairedBenchmarkAnalyzer.Run(fixture.CreateArguments(), output, error);
+        int exitCode = PairedBenchmarkAnalyzer.RunForTest(
+            fixture.CreateArguments(),
+            output,
+            error,
+            bootstrapIterations: 1000);
 
         Assert.That(exitCode, Is.Zero, error.ToString());
         using JsonDocument manifest = JsonDocument.Parse(File.ReadAllBytes(fixture.OutputPath));
@@ -33,7 +38,55 @@ public sealed class PairedBenchmarkAnalyzerTests
             Assert.That(
                 root.GetProperty("cases").EnumerateObject().Select(static item => item.Name),
                 Is.EquivalentTo(RenderPipelineBenchmarkScenes.All.Select(static scene => scene.Name)));
+            Assert.That(
+                root.GetProperty("baselineHarnessFileSha256")
+                    .EnumerateObject()
+                    .Select(static item => item.Name),
+                Does.Contain("../../../../../tests/Beutl.Benchmarks/Rendering/EvidenceFingerprintRules.cs"),
+                "the manifest must authenticate source-linked inputs compiled into the target harness");
         });
+    }
+
+    [TestCase("--baseline-outputs")]
+    [TestCase("--baseline-repeat-outputs")]
+    [TestCase("--feature-outputs")]
+    public void Run_RequiresEveryOutputDirectory(string option)
+    {
+        using var fixture = new AnalyzerFixture();
+        var arguments = fixture.CreateArguments().ToList();
+        int index = arguments.IndexOf(option);
+        arguments.RemoveRange(index, 2);
+        using var output = new StringWriter();
+        using var error = new StringWriter();
+
+        int exitCode = PairedBenchmarkAnalyzer.Run(arguments.ToArray(), output, error);
+
+        Assert.That(exitCode, Is.EqualTo(1));
+        Assert.That(error.ToString(), Does.Contain($"Missing required option '{option}'"));
+    }
+
+    [Test]
+    public void Run_RejectsBootstrapIterationOverrides()
+    {
+        using var fixture = new AnalyzerFixture();
+        string[] arguments = [.. fixture.CreateArguments(), "--bootstrap-iterations", "1000"];
+        using var output = new StringWriter();
+        using var error = new StringWriter();
+
+        int exitCode = PairedBenchmarkAnalyzer.Run(arguments, output, error);
+
+        Assert.That(exitCode, Is.EqualTo(1));
+        Assert.That(error.ToString(), Does.Contain("Unknown option(s): --bootstrap-iterations"));
+    }
+
+    [Test]
+    public void FormalOptions_AlwaysUseTheRequiredBootstrapIterationCount()
+    {
+        using var fixture = new AnalyzerFixture();
+
+        PairedBenchmarkAnalyzerOptions options = PairedBenchmarkAnalyzerOptions.Parse(fixture.CreateArguments());
+
+        Assert.That(options.BootstrapIterations, Is.EqualTo(PairedBenchmarkAnalyzer.DefaultBootstrapIterations));
     }
 
     [TestCase(AcceptanceGate.Primary)]
@@ -188,19 +241,185 @@ public sealed class PairedBenchmarkAnalyzerTests
     public void Analyze_RejectsFeatureOutputThatDiffersVisuallyFromBaseline()
     {
         using var fixture = new AnalyzerFixture();
-        string featureBlob = Path.Combine(
-            fixture.FeatureRun.OutputBlobs,
-            "ShaderOpacityShader.rgba16f");
+        string featureBlob = fixture.GetOutputBlobPath(
+            AnalyzerRun.Feature,
+            "ParameterOnlyAnimation",
+            OutputPhase.Setup);
         byte[] corrupted = File.ReadAllBytes(featureBlob);
         for (int index = 0; index < corrupted.Length; index += 2)
             corrupted[index] ^= 0xff;
-        File.WriteAllBytes(featureBlob, corrupted);
+        fixture.ReplaceOutputBlob(
+            AnalyzerRun.Feature,
+            "ParameterOnlyAnimation",
+            OutputPhase.Setup,
+            corrupted,
+            updateCounterContract: true);
 
         InvalidDataException? exception = Assert.Throws<InvalidDataException>(() => fixture.Analyze());
 
         Assert.That(
             exception!.Message,
-            Does.Contain("visually equivalent").And.Contain("ShaderOpacityShader"));
+            Does.Contain("visually equivalent").And.Contain("ParameterOnlyAnimation"));
+    }
+
+    [TestCase(OutputPhase.Setup)]
+    [TestCase(OutputPhase.Measured)]
+    public void Analyze_RejectsOutputBlobWhoseHashDoesNotMatchItsCounter(OutputPhase phase)
+    {
+        using var fixture = new AnalyzerFixture();
+        string path = fixture.GetOutputBlobPath(AnalyzerRun.Feature, "ShaderOpacityShader", phase);
+        byte[] corrupted = File.ReadAllBytes(path);
+        corrupted[0] ^= 0xff;
+        fixture.ReplaceOutputBlob(
+            AnalyzerRun.Feature,
+            "ShaderOpacityShader",
+            phase,
+            corrupted,
+            updateCounterContract: false);
+
+        InvalidDataException? exception = Assert.Throws<InvalidDataException>(() => fixture.Analyze());
+
+        Assert.That(
+            exception!.Message,
+                Does.Contain("SHA-256").And.Contain("ShaderOpacityShader").And.Contain(phase.ToString()).IgnoreCase);
+    }
+
+    [TestCase(OutputPhase.Setup)]
+    [TestCase(OutputPhase.Measured)]
+    public void Analyze_RejectsOutputBlobWhoseChecksumDoesNotMatchItsCounter(OutputPhase phase)
+    {
+        using var fixture = new AnalyzerFixture();
+        fixture.MutateCounter(
+            AnalyzerRun.Feature,
+            "ParameterOnlyAnimation",
+            root =>
+            {
+                if (phase == OutputPhase.Setup)
+                {
+                    root["outputChecksum"] = "cccccccccccccccc";
+                }
+                else
+                {
+                    root["measuredOutputChecksum"] = "cccccccccccccccc";
+                    root["expectedMeasuredOutputChecksum"] = "cccccccccccccccc";
+                }
+            });
+
+        InvalidDataException? exception = Assert.Throws<InvalidDataException>(() => fixture.Analyze());
+
+        Assert.That(
+            exception!.Message,
+            Does.Contain("checksum")
+                .And.Contain("ParameterOnlyAnimation")
+                .And.Contain(phase.ToString()).IgnoreCase);
+    }
+
+    [TestCase(OutputPhase.Setup)]
+    [TestCase(OutputPhase.Measured)]
+    public void Analyze_RejectsBaselineRepeatBlobWhoseHashDoesNotMatchItsCounter(OutputPhase phase)
+    {
+        using var fixture = new AnalyzerFixture();
+        string path = fixture.GetOutputBlobPath(
+            AnalyzerRun.BaselineRepeat,
+            "ShaderOpacityShader",
+            phase);
+        byte[] corrupted = File.ReadAllBytes(path);
+        corrupted[0] ^= 0xff;
+        fixture.ReplaceOutputBlob(
+            AnalyzerRun.BaselineRepeat,
+            "ShaderOpacityShader",
+            phase,
+            corrupted,
+            updateCounterContract: false);
+
+        InvalidDataException? exception = Assert.Throws<InvalidDataException>(() => fixture.Analyze());
+
+        Assert.That(
+            exception!.Message,
+            Does.Contain("SHA-256")
+                .And.Contain("baseline repeat")
+                .And.Contain("ShaderOpacityShader")
+                .And.Contain(phase.ToString()).IgnoreCase);
+    }
+
+    [Test]
+    public void Analyze_RejectsMissingOutputBlobContract()
+    {
+        using var fixture = new AnalyzerFixture();
+        fixture.MutateCounter(
+            AnalyzerRun.Feature,
+            "ShaderOpacityShader",
+            root => root["measuredOutputBlobFile"] = string.Empty);
+
+        InvalidDataException? exception = Assert.Throws<InvalidDataException>(() => fixture.Analyze());
+
+        Assert.That(exception!.Message, Does.Contain("measuredOutputBlobFile"));
+    }
+
+    [Test]
+    public void Analyze_RejectsMissingOutputBlobFile()
+    {
+        using var fixture = new AnalyzerFixture();
+        File.Delete(fixture.GetOutputBlobPath(
+            AnalyzerRun.Feature,
+            "ShaderOpacityShader",
+            OutputPhase.Measured));
+
+        FileNotFoundException? exception = Assert.Throws<FileNotFoundException>(() => fixture.Analyze());
+
+        Assert.That(
+            exception!.Message,
+            Does.Contain("feature measured").And.Contain("ShaderOpacityShader"));
+    }
+
+    [Test]
+    public void Analyze_RejectsAnimatedMeasuredOutputThatDiffersFromBaseline()
+    {
+        using var fixture = new AnalyzerFixture();
+        string path = fixture.GetOutputBlobPath(
+            AnalyzerRun.Feature,
+            "ParameterOnlyAnimation",
+            OutputPhase.Measured);
+        byte[] corrupted = File.ReadAllBytes(path);
+        for (int index = 0; index < corrupted.Length; index += 2)
+            corrupted[index] ^= 0xff;
+        fixture.ReplaceOutputBlob(
+            AnalyzerRun.Feature,
+            "ParameterOnlyAnimation",
+            OutputPhase.Measured,
+            corrupted,
+            updateCounterContract: true);
+
+        InvalidDataException? exception = Assert.Throws<InvalidDataException>(() => fixture.Analyze());
+
+        Assert.That(
+            exception!.Message,
+            Does.Contain("feature measured output")
+                .And.Contain("visually equivalent")
+                .And.Contain("ParameterOnlyAnimation"));
+    }
+
+    [Test]
+    public void Analyze_RejectsCrossPipelineOutputBoundsShift()
+    {
+        using var fixture = new AnalyzerFixture();
+        fixture.MutateCounter(
+            AnalyzerRun.Feature,
+            "ShaderOpacityShader",
+            root =>
+            {
+                root["outputBounds"]!["x"] = 1;
+                root["measuredOutputBounds"]!["x"] = 1;
+                root["expectedMeasuredOutputBounds"]!["x"] = 1;
+            });
+
+        InvalidDataException? exception = Assert.Throws<InvalidDataException>(() => fixture.Analyze());
+
+        Assert.That(
+            exception!.Message,
+            Does.Contain("Cross-pipeline setup output geometry")
+                .And.Contain("outputBounds")
+                .And.Contain("ShaderOpacityShader"));
     }
 
     [Test]
@@ -231,6 +450,37 @@ public sealed class PairedBenchmarkAnalyzerTests
             Assert.That(runner, Does.Contain("Benchmark harness source revision mismatch"));
             Assert.That(runner, Does.Contain("Beutl.GpuPassTargetBenchmarkHarness"));
             Assert.That(runner, Does.Contain("Beutl.Benchmarks"));
+        });
+    }
+
+    [Test]
+    public void TargetHarness_CompletesVerifiedObservationBeforeRetainingItsBitmap()
+    {
+        string source = File.ReadAllText(Path.Combine(
+            GpuPassFusionEvidencePaths.Discover().EvidenceDirectory,
+            "target-benchmark-harness",
+            "TargetRenderPipelineBenchmarks.cs"));
+        int methodStart = source.IndexOf(
+            "private TargetObservedFrame RenderAndObserve(",
+            StringComparison.Ordinal);
+        Assert.That(methodStart, Is.GreaterThanOrEqualTo(0));
+        int methodEnd = source.IndexOf(
+            "private static TargetObservedFrame CompleteObservation(",
+            methodStart,
+            StringComparison.Ordinal);
+        Assert.That(methodEnd, Is.GreaterThan(methodStart));
+        string method = source[methodStart..methodEnd];
+
+        int completeObservation = method.IndexOf(
+            "observed = CompleteObservation(frame, bitmap, counters);",
+            StringComparison.Ordinal);
+        int retainSetup = method.IndexOf("_lastSetupBitmap = bitmap;", StringComparison.Ordinal);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(completeObservation, Is.GreaterThanOrEqualTo(0));
+            Assert.That(retainSetup, Is.GreaterThan(completeObservation),
+                "the verified setup bitmap must be hashed before local ownership is transferred");
         });
     }
 
@@ -467,6 +717,12 @@ public sealed class PairedBenchmarkAnalyzerTests
         Feature,
     }
 
+    public enum OutputPhase
+    {
+        Setup,
+        Measured,
+    }
+
     private sealed class AnalyzerFixture : IDisposable
     {
         public const string AlternateSha256 =
@@ -477,10 +733,6 @@ public sealed class PairedBenchmarkAnalyzerTests
         private const string FeatureSha = "1111111111111111111111111111111111111111";
         private const string RunnerSha256 =
             "2222222222222222222222222222222222222222222222222222222222222222";
-        private const string OutputSha256 =
-            "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
-        private const string OutputChecksum = "bbbbbbbbbbbbbbbb";
-
         private static readonly string[] s_fingerprintFields =
         [
             "beutlEngineAssemblyVersion",
@@ -546,8 +798,6 @@ public sealed class PairedBenchmarkAnalyzerTests
 
         public string OutputPath { get; }
 
-        public RunPaths FeatureRun => _runs[AnalyzerRun.Feature];
-
         public PairedBenchmarkManifest Analyze()
             => PairedBenchmarkAnalyzer.Analyze(CreateOptions());
 
@@ -567,6 +817,9 @@ public sealed class PairedBenchmarkAnalyzerTests
                 "--baseline-stdout", baseline.Stdout,
                 "--baseline-repeat-stdout", repeat.Stdout,
                 "--feature-stdout", feature.Stdout,
+                "--baseline-outputs", baseline.OutputBlobs,
+                "--baseline-repeat-outputs", repeat.OutputBlobs,
+                "--feature-outputs", feature.OutputBlobs,
                 "--baseline-sha", BaselineSha,
                 "--feature-sha", FeatureSha,
                 "--baseline-command", "synthetic baseline A",
@@ -575,7 +828,6 @@ public sealed class PairedBenchmarkAnalyzerTests
                 "--runner-sha256", RunnerSha256,
                 "--baseline-harness", ResolveBaselineHarnessPath(),
                 "--output", OutputPath,
-                "--bootstrap-iterations", "1000",
             ];
         }
 
@@ -647,6 +899,39 @@ public sealed class PairedBenchmarkAnalyzerTests
             WriteObject(path, root);
         }
 
+        public string GetOutputBlobPath(AnalyzerRun run, string caseName, OutputPhase phase)
+            => Path.Combine(_runs[run].OutputBlobs, OutputBlobFile(caseName, phase));
+
+        public void ReplaceOutputBlob(
+            AnalyzerRun run,
+            string caseName,
+            OutputPhase phase,
+            byte[] payload,
+            bool updateCounterContract)
+        {
+            File.WriteAllBytes(GetOutputBlobPath(run, caseName, phase), payload);
+            if (!updateCounterContract)
+                return;
+
+            string sha256 = Sha256(payload);
+            string checksum = Checksum(payload);
+            MutateCounter(run, caseName, root =>
+            {
+                if (phase == OutputPhase.Setup)
+                {
+                    root["outputSha256"] = sha256;
+                    root["outputChecksum"] = checksum;
+                }
+                else
+                {
+                    root["measuredOutputSha256"] = sha256;
+                    root["measuredOutputChecksum"] = checksum;
+                    root["expectedMeasuredOutputSha256"] = sha256;
+                    root["expectedMeasuredOutputChecksum"] = checksum;
+                }
+            });
+        }
+
         public void Dispose()
         {
             if (Directory.Exists(Root))
@@ -670,6 +955,7 @@ public sealed class PairedBenchmarkAnalyzerTests
                 BaselineRepeatStdoutPath = repeat.Stdout,
                 FeatureStdoutPath = feature.Stdout,
                 BaselineOutputsPath = baseline.OutputBlobs,
+                BaselineRepeatOutputsPath = repeat.OutputBlobs,
                 FeatureOutputsPath = feature.OutputBlobs,
                 BaselineSha = BaselineSha,
                 FeatureSha = FeatureSha,
@@ -696,10 +982,22 @@ public sealed class PairedBenchmarkAnalyzerTests
             File.WriteAllText(stdout, "synthetic benchmark output\n", new UTF8Encoding(false));
             foreach (RenderPipelineBenchmarkSceneDefinition scene in RenderPipelineBenchmarkScenes.All)
             {
-                WriteCounter(Path.Combine(counters, scene.Name + ".json"), scene, sourceSha);
+                byte[] setupBlob = CreateSyntheticBlob(scene);
+                byte[] measuredBlob = CreateSyntheticBlob(scene);
                 File.WriteAllBytes(
-                    Path.Combine(outputBlobs, scene.Name + ".rgba16f"),
-                    CreateSyntheticBlob(scene));
+                    Path.Combine(outputBlobs, OutputBlobFile(scene.Name, OutputPhase.Setup)),
+                    setupBlob);
+                File.WriteAllBytes(
+                    Path.Combine(outputBlobs, OutputBlobFile(scene.Name, OutputPhase.Measured)),
+                    measuredBlob);
+                WriteCounter(
+                    Path.Combine(counters, scene.Name + ".json"),
+                    scene,
+                    sourceSha,
+                    Sha256(setupBlob),
+                    Checksum(setupBlob),
+                    Sha256(measuredBlob),
+                    Checksum(measuredBlob));
             }
 
             return new RunPaths(results, counters, stdout, outputBlobs);
@@ -757,12 +1055,16 @@ public sealed class PairedBenchmarkAnalyzerTests
         private static void WriteCounter(
             string path,
             RenderPipelineBenchmarkSceneDefinition scene,
-            string sourceSha)
+            string sourceSha,
+            string setupOutputSha256,
+            string setupOutputChecksum,
+            string measuredOutputSha256,
+            string measuredOutputChecksum)
         {
             PixelSize size = RenderPipelineBenchmarkScenes.GetOutputSize(scene);
             WriteObject(path, new JsonObject
             {
-                ["schemaVersion"] = 2,
+                ["schemaVersion"] = 3,
                 ["caseName"] = scene.Name,
                 ["seed"] = scene.Seed,
                 ["width"] = size.Width,
@@ -776,17 +1078,18 @@ public sealed class PairedBenchmarkAnalyzerTests
                 ["barrier"] = scene.Barrier.ToString(),
                 ["hasStaticPrefixCache"] = scene.HasStaticPrefixCache,
                 ["hasTargetDependencies"] = scene.HasTargetDependencies,
-                ["setupOutputBlobFile"] = $"{scene.Name}.rgba16f",
-                ["outputSha256"] = OutputSha256,
-                ["outputChecksum"] = OutputChecksum,
+                ["setupOutputBlobFile"] = OutputBlobFile(scene.Name, OutputPhase.Setup),
+                ["measuredOutputBlobFile"] = OutputBlobFile(scene.Name, OutputPhase.Measured),
+                ["outputSha256"] = setupOutputSha256,
+                ["outputChecksum"] = setupOutputChecksum,
                 ["outputBounds"] = Bounds(size),
-                ["measuredOutputSha256"] = OutputSha256,
-                ["measuredOutputChecksum"] = OutputChecksum,
+                ["measuredOutputSha256"] = measuredOutputSha256,
+                ["measuredOutputChecksum"] = measuredOutputChecksum,
                 ["measuredOutputBounds"] = Bounds(size),
                 ["measuredWidth"] = size.Width,
                 ["measuredHeight"] = size.Height,
-                ["expectedMeasuredOutputSha256"] = OutputSha256,
-                ["expectedMeasuredOutputChecksum"] = OutputChecksum,
+                ["expectedMeasuredOutputSha256"] = measuredOutputSha256,
+                ["expectedMeasuredOutputChecksum"] = measuredOutputChecksum,
                 ["expectedMeasuredOutputBounds"] = Bounds(size),
                 ["expectedMeasuredWidth"] = size.Width,
                 ["expectedMeasuredHeight"] = size.Height,
@@ -825,6 +1128,26 @@ public sealed class PairedBenchmarkAnalyzerTests
                 ["width"] = size.Width,
                 ["height"] = size.Height,
             };
+
+        private static string OutputBlobFile(string caseName, OutputPhase phase)
+            => $"{caseName}.{(phase == OutputPhase.Setup ? "setup" : "measured")}.rgba16f";
+
+        private static string Sha256(byte[] payload)
+            => Convert.ToHexString(SHA256.HashData(payload)).ToLowerInvariant();
+
+        private static string Checksum(ReadOnlySpan<byte> payload)
+        {
+            const ulong offset = 14695981039346656037;
+            const ulong prime = 1099511628211;
+            ulong result = offset;
+            for (int byteOffset = 0; byteOffset < payload.Length; byteOffset += 26)
+            {
+                result ^= System.Buffers.Binary.BinaryPrimitives.ReadUInt16LittleEndian(
+                    payload.Slice(byteOffset, 2));
+                result *= prime;
+            }
+            return result.ToString("x16");
+        }
 
         private static JsonObject LoadObject(string path)
             => JsonNode.Parse(File.ReadAllBytes(path))!.AsObject();

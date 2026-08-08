@@ -1,0 +1,96 @@
+{
+  "schemaVersion": 2,
+  "caseName": "MultipleDrawablesTargetDependencies",
+  "seed": 20040729,
+  "width": 360,
+  "height": 192,
+  "setupWarmupFrames": 5,
+  "lifetime": "persistent-root-pipeline-and-version-available-structural-program-render-cache-target-pool-state",
+  "requestShape": "complete-target-surface-request-with-rgba16f-readback",
+  "outputSha256": "dae2311a1e3844aa422b90e974062d54943d9c13c91c668f619daf25f0079900",
+  "outputChecksum": "a4065cc90d21c345",
+  "outputBounds": "12, 12, 360, 192",
+  "measuredOutputSha256": "dae2311a1e3844aa422b90e974062d54943d9c13c91c668f619daf25f0079900",
+  "measuredOutputChecksum": "a4065cc90d21c345",
+  "measuredOutputBounds": "12, 12, 360, 192",
+  "measuredWidth": 360,
+  "measuredHeight": 192,
+  "expectedMeasuredOutputSha256": "dae2311a1e3844aa422b90e974062d54943d9c13c91c668f619daf25f0079900",
+  "expectedMeasuredOutputChecksum": "a4065cc90d21c345",
+  "expectedMeasuredOutputBounds": "12, 12, 360, 192",
+  "expectedMeasuredWidth": 360,
+  "expectedMeasuredHeight": 192,
+  "fingerprint": {
+    "osDescription": "macOS 26.5.2",
+    "osVersion": "Unix 26.5.2",
+    "osBuild": "25F84",
+    "osArchitecture": "Arm64",
+    "processArchitecture": "Arm64",
+    "runtimeIdentifier": "osx-arm64",
+    "frameworkDescription": ".NET 10.0.9",
+    "environmentVersion": "10.0.9",
+    "rendererBackend": "Metal",
+    "skiaBackend": "Metal",
+    "deviceSelection": "automatic-no-preferred-device",
+    "vulkanApiVersion": "1.2.323",
+    "vulkanVendorId": "0x0000106b",
+    "vulkanDeviceId": "0x1a050209",
+    "vulkanDeviceType": "IntegratedGpu",
+    "vulkanDeviceName": "Apple M3",
+    "vulkanDeviceUuid": "0000106b1a0502090000000000000000",
+    "vulkanDriverUuid": "4d564b00000028a01a05020900000000",
+    "vulkanDriverId": "DriverIDMoltenvk",
+    "vulkanDriverName": "MoltenVK",
+    "vulkanDriverInfo": "1.4.0",
+    "vulkanDriverVersionRaw": "10400",
+    "vulkanDriverVersionDecoded": "0.2.2208",
+    "vulkanEnabledExtensions": [
+      "VK_EXT_metal_objects",
+      "VK_EXT_metal_surface",
+      "VK_EXT_swapchain_colorspace",
+      "VK_KHR_get_physical_device_properties2",
+      "VK_KHR_portability_enumeration",
+      "VK_KHR_portability_subset",
+      "VK_KHR_surface",
+      "VK_KHR_swapchain"
+    ],
+    "metalDeviceName": "Apple M3",
+    "metalRegistryId": "0x00000001000003a8",
+    "metalFeatureFamily": "spdisplays_metal4",
+    "metalDriver": "Apple Metal shipped with macOS build 25F84",
+    "skiaSharpManagedVersion": "3.119.4\u002Brelease-3.119.4.f568ac94dd768ef9a2f593537cfde2dd0d348ef5.f568ac94dd768ef9a2f593537cfde2dd0d348ef5",
+    "skiaSharpNativeVersion": "119.0",
+    "silkNetVulkanVersion": "2.23.0\u002B94605142f7b7bd6e69c9201e8e721d245c69eb7e",
+    "beutlEngineAssemblyVersion": "2.99.99\u002B43a38e665d9bf52548161a3917e748bd1457ff55"
+  },
+  "setupLastRequestCounters": {
+    "CompletedRequests": 1,
+    "Failures": 0,
+    "LegacyOperationExecutions": 8,
+    "RenderCacheHits": 0,
+    "SemanticStages": 4,
+    "TargetDependencies": 4,
+    "TopLevelDrawables": 4
+  },
+  "measuredLastRequestCounters": {
+    "CompletedRequests": 1,
+    "Failures": 0,
+    "LegacyOperationExecutions": 8,
+    "RenderCacheHits": 0,
+    "SemanticStages": 4,
+    "TargetDependencies": 4,
+    "TopLevelDrawables": 4
+  },
+  "lastExecutionStatistics": {
+    "LegacyOperationExecutions": 8
+  },
+  "structuralPlanCacheStatistics": {
+    "UnavailableOnStartingSha": 1
+  },
+  "programCacheStatistics": {
+    "UnavailableOnStartingSha": 1
+  },
+  "targetPoolStatistics": {
+    "UnavailableOnStartingSha": 1
+  }
+}
