@@ -59,9 +59,13 @@ public partial class FrameCacheManager
             try
             {
                 // Resize if needed
+                // Alpha type is part of the stored representation: the branch below draws into a
+                // Premul surface and ToBitmap describes entries that way, so unpremultiplied input
+                // that skipped it would have its translucent colors read as premultiplied.
                 if (newSize.Width < size.Width ||
                     newSize.Height < size.Height ||
                     bitmap.ColorType != BitmapColorType.Bgra8888 ||
+                    bitmap.AlphaType != BitmapAlphaType.Premul ||
                     bitmap.ColorSpace != BitmapColorSpace.Srgb)
                 {
                     var newWidth = Math.Min(size.Width, newSize.Width);

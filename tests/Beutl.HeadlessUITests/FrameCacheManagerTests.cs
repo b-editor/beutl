@@ -188,6 +188,78 @@ public class FrameCacheManagerTests
     }
 
     [Test]
+    public void RoundTrip_UnpremultipliedNativeFrame_PreservesTheRenderedColors()
+    {
+        // Already BGRA/sRGB, so nothing but the alpha type can send this through the conversion path.
+        using var source = new Bitmap(Side, Side, BitmapColorType.Bgra8888, BitmapAlphaType.Unpremul);
+        var translucent = new Bgra8888(40, 80, 200, 128);
+        source.GetPixelSpan<Bgra8888>().Fill(translucent);
+
+        using Bitmap expected = source.Convert(
+            BitmapColorType.Bgra8888, BitmapAlphaType.Premul, BitmapColorSpace.Srgb);
+
+        using FrameCacheManager manager = NewManager(
+            new FrameCacheOptions(FrameCacheScale.Original, FrameCacheColorType.BGRA));
+
+        using (Ref<Bitmap> reference = Ref<Bitmap>.Create(source.Clone()))
+        {
+            manager.Add(0, reference);
+        }
+
+        Assert.That(manager.TryGet(0, out Ref<Bitmap>? cached), Is.True);
+        using (cached)
+        {
+            Bgra8888 e = expected.GetPixelSpan<Bgra8888>()[Side / 2 * Side + Side / 2];
+            Bgra8888 a = cached!.Value.GetPixelSpan<Bgra8888>()[Side / 2 * Side + Side / 2];
+
+            Assert.Multiple(() =>
+            {
+                Assert.That((int)a.A, Is.EqualTo((int)e.A).Within(2), "alpha");
+                Assert.That((int)a.R, Is.EqualTo((int)e.R).Within(2), "red");
+                Assert.That((int)a.G, Is.EqualTo((int)e.G).Within(2), "green");
+                Assert.That((int)a.B, Is.EqualTo((int)e.B).Within(2), "blue");
+            });
+        }
+    }
+
+    [Test]
+    public void AnEntryThatExactlyFitsTheBudget_IsKept()
+    {
+        using FrameCacheManager manager = NewManager(
+            new FrameCacheOptions(FrameCacheScale.Original, FrameCacheColorType.BGRA), EntryBytes);
+
+        Add(manager, 0);
+        Thread.Sleep(200);
+
+        Assert.That(Contains(manager, 0), Is.True);
+    }
+
+    [Test]
+    public void ReRenderingALockedFrame_RefreshesThePicture()
+    {
+        using FrameCacheManager manager = NewManager(
+            new FrameCacheOptions(FrameCacheScale.Original, FrameCacheColorType.BGRA));
+
+        Add(manager, 0);
+        manager.Lock(0, 1);
+
+        using (var replacement = new Bitmap(Side, Side, BitmapColorType.Bgra8888, BitmapAlphaType.Premul))
+        {
+            replacement.GetPixelSpan<Bgra8888>().Fill(new Bgra8888(200, 20, 30, 255));
+            using Ref<Bitmap> reference = Ref<Bitmap>.Create(replacement.Clone());
+            manager.Add(0, reference);
+        }
+
+        Assert.That(manager.TryGet(0, out Ref<Bitmap>? cached), Is.True);
+        using (cached)
+        {
+            Bgra8888 pixel = cached!.Value.GetPixelSpan<Bgra8888>()[Side / 2 * Side + Side / 2];
+            Assert.That((int)pixel.R, Is.EqualTo(200).Within(2),
+                "a locked entry is pinned against deletion, not frozen");
+        }
+    }
+
+    [Test]
     public void ReassigningEquivalentOptions_KeepsTheEntries()
     {
         using FrameCacheManager manager = NewManager(new FrameCacheOptions(FrameCacheScale.Original, FrameCacheColorType.BGRA));

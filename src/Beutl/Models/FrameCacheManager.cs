@@ -38,16 +38,18 @@ public sealed partial class FrameCacheManager : IDisposable
         get => _options;
         set
         {
-            FrameCacheOptions old;
+            // Under one lock: releasing it between the assignment and the invalidation lets a
+            // concurrent TryGet return an entry encoded with the old options after the new ones are
+            // published, and a concurrent Add create a correctly encoded entry that Clear then drops.
             lock (_lock)
             {
-                old = _options;
+                FrameCacheOptions old = _options;
                 _options = value;
-            }
 
-            if (!old.ProducesSameCacheData(value, FrameSize))
-            {
-                Clear();
+                if (!old.ProducesSameCacheData(value, FrameSize))
+                {
+                    Clear();
+                }
             }
         }
     }
@@ -67,8 +69,14 @@ public sealed partial class FrameCacheManager : IDisposable
         {
             if (_entries.TryGetValue(frame, out CacheEntry? old))
             {
-                // Locked entries are excluded from _size (see Lock), so only this branch adjusts it.
-                if (!old.IsLocked)
+                if (old.IsLocked)
+                {
+                    // Locked pins an entry against eviction and deletion; it does not freeze the
+                    // picture. Locked entries are excluded from _size (see Lock), so refreshing one
+                    // leaves the accounting alone.
+                    old.SetBitmap(bitmap, Options);
+                }
+                else
                 {
                     _size -= old.ByteCount;
                     old.SetBitmap(bitmap, Options);
@@ -83,7 +91,7 @@ public sealed partial class FrameCacheManager : IDisposable
             }
         }
 
-        if (_size >= _maxSize.Value)
+        if (_size > _maxSize.Value)
         {
             Task.Run(AutoDelete);
         }
@@ -243,7 +251,7 @@ public sealed partial class FrameCacheManager : IDisposable
         {
             foreach (KeyValuePair<int, CacheEntry> item in items)
             {
-                if (_size < _maxSize.Value)
+                if (_size <= _maxSize.Value)
                     break;
 
                 _size -= item.Value.ByteCount;
@@ -267,7 +275,7 @@ public sealed partial class FrameCacheManager : IDisposable
                 }
 
                 DeleteRange(item.Start, item.Start + item.Length);
-                if (_size < _maxSize.Value)
+                if (_size <= _maxSize.Value)
                     return;
             }
 
@@ -285,13 +293,13 @@ public sealed partial class FrameCacheManager : IDisposable
                 int loop = 5;
                 FrameCacheDeletionStrategy strategy = Options.DeletionStrategy;
 
-                while (_size >= _maxSize.Value && loop >= 0)
+                while (_size > _maxSize.Value && loop >= 0)
                 {
                     if (strategy == FrameCacheDeletionStrategy.BackwardBlock)
                     {
                         DeleteBackwardBlock();
                         strategy = FrameCacheDeletionStrategy.Far;
-                        if (_size < _maxSize.Value)
+                        if (_size <= _maxSize.Value)
                         {
                             return;
                         }

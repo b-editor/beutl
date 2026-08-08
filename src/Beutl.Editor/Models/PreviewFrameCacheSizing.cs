@@ -9,7 +9,8 @@ namespace Beutl.Models;
 public static class PreviewFrameCacheSizing
 {
     /// <summary>
-    /// Returns the cache entry size, or null if the panel is at least as large as the frame.
+    /// Returns the reduced cache entry size, or null when there is nothing to gain from reducing:
+    /// the panel is at least as large as the frame, or the reduction rounds down to 1.
     /// </summary>
     /// <remarks>
     /// The reduction is rounded down so an entry is never coarser than what the panel shows. A
