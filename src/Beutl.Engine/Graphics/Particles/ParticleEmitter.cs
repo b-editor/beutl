@@ -182,6 +182,16 @@ public partial class ParticleEmitter : Drawable
 
     public new class Resource : Drawable.Resource
     {
+        internal Resource()
+            : this(skipDefaultInitialization: true)
+        {
+        }
+
+        protected Resource(bool skipDefaultInitialization)
+            : base(skipDefaultInitialization)
+        {
+        }
+
         private readonly ParticleSimulator _simulator = new();
 
         private int _seed;

@@ -88,6 +88,16 @@ public partial class ShakeEffect : FilterEffect
 
     public new class Resource : FilterEffect.Resource
     {
+        internal Resource()
+            : this(skipDefaultInitialization: true)
+        {
+        }
+
+        protected Resource(bool skipDefaultInitialization)
+            : base(skipDefaultInitialization)
+        {
+        }
+
         private float _strengthX;
         private float _strengthY;
         private float _speed;

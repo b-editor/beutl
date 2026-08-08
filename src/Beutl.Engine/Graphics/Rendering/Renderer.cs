@@ -450,7 +450,7 @@ public class Renderer : IRenderer
 
     private Entry PrepareDrawable(Drawable.Resource resource)
     {
-        var drawable = resource.GetOriginal();
+        Drawable drawable = resource.RequireOriginal();
         Entry entry;
         bool shouldRender;
 

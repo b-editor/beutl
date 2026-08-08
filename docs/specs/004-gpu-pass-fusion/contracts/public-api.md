@@ -409,31 +409,69 @@ public class CompositionContext
 ```csharp
 namespace Beutl.Engine;
 
+[AttributeUsage(AttributeTargets.Method, AllowMultiple = false, Inherited = false)]
+public sealed class ResourceDefaultValuesProviderAttribute : Attribute;
+
 public class EngineObject
 {
+    protected readonly struct ResourceDefaultValuesConstruction
+    {
+    }
+
+    protected EngineObject(ResourceDefaultValuesConstruction construction);
+
     public class Resource
     {
+        public Resource();
+        protected Resource(EngineObject defaultValues);
+        protected Resource(bool skipDefaultInitialization);
+
+        public bool IsEnabled { get; set; }
         public bool IsAttached { get; }
-        public EngineObject GetOriginal();
+        public EngineObject? GetOriginal();
         public EngineObject RequireOriginal();
     }
 }
 ```
 
-`EngineObject.Resource.Update` is what attaches the backing engine object, so a resource built through its public constructor is detached and `GetOriginal()` returns null despite its non-nullable declaration. `IsAttached` tests for that without relying on the declaration, and `RequireOriginal()` throws `InvalidOperationException` naming the resource type when a member cannot proceed without a backing object. Members that can proceed — identity derivation, and any authoring path that reads its values from the resource — keep using `GetOriginal()` or avoid it entirely. `Geometry.Resource.ApplyTo`, `PathSegment.Resource.ApplyTo`, `PathFigure.Resource.ApplyTo`, `PathGeometry.Resource.HitTestFigure`, and `Mesh.Resource.ApplyTo` are the authoring members that moved onto the resource for this reason; see `breaking-changes.md`.
+`EngineObject.Resource.Update` is what attaches the backing engine object, so a resource built through its public constructor is detached and `GetOriginal()` returns null. The base return and each generated typed return are nullable. `IsAttached` tests for that state, and `RequireOriginal()` throws `InvalidOperationException` naming the resource type when a member cannot proceed without a backing object. Members that can proceed — identity derivation, and any authoring path that reads its values from the resource — keep using `GetOriginal()` or avoid it entirely. `Geometry.Resource.ApplyTo`, `PathSegment.Resource.ApplyTo`, `PathFigure.Resource.ApplyTo`, `PathGeometry.Resource.HitTestFigure`, and `Mesh.Resource.ApplyTo` are the authoring members that moved onto the resource for this reason; see `breaking-changes.md`.
+
+`ResourceDefaultValuesConstruction` and the matching protected constructor are a generator-only extension contract. When a type has no explicit defaults provider, generated constructors use this path to execute the author's declaration and instance initializers without running ordinary constructor bodies. The resulting object is only a defaults source, not an application object; plugin code must not call the marker constructor directly. A type that declares a valid `[ResourceDefaultValuesProvider]` bypasses this marker path and lets the provider construct the defaults source explicitly.
 
 A detached resource is not a hypothetical out-of-tree shape. In-tree production code mints and consumes one: `ColorExtensions.ToBrushResource` returns `new SolidColorBrush.Resource { … }` and `TextElementsBuilder` puts it on a `TextElement` for a `<color=…>` tag on the text-render path; `FormattedTextParser` builds a detached `SolidColorBrush.Resource` and `Pen.Resource` for a stroke tag; `AvaloniaTypeConverter.ToBtlImmutableGradientStop` and `GradientStopsEditor` build a detached `GradientStop.Resource`. Each was probed: `IsAttached` is false and `GetOriginal()` is null for all of them.
 
-### Declared defaults are not inherited by a detached resource
+### Detached resources inherit declared defaults
 
-The generator emits every value-property backing field as `private T _field = default!;`, so a detached resource starts each value property at `default(T)` rather than at the default its `IProperty` declares. A plugin author who hand-builds one and sets only the properties they care about therefore gets `default(T)` for the rest, which is not always inert: `new Pen.Resource { Thickness = 4, Brush = black }` has `TrimEnd = 0` against the attached `100`, and because `PenHelper.CreateTrimEffect` short-circuits only at `TrimStart == 0 && TrimEnd == 100`, the stroke is trimmed to nothing and `Geometry.Resource.GetRenderBounds` returns `0,0,0,0`. `new SolidColorBrush.Resource { Color = red }` has `Opacity = 0` and rasterizes nothing, which is why `ToBrushResource` sets `Opacity = 100` by hand. The workaround an author has is to set every property with a non-`default(T)` declared default explicitly.
+The public generated `Resource()` constructor initializes each generated value property from its declared `IProperty.DefaultValue`. It also materializes a non-null EngineObject-valued default through `ToResource(CompositionContext.Default)` and owns that nested resource until disposal. Consequently, a detached `new Pen.Resource { Thickness = 4, Brush = black }` retains `TrimEnd = 100` and `MiterLimit = 10`, while a detached `new SolidColorBrush.Resource { Color = red }` retains `Opacity = 100`; they match an attached resource unless the author overrides a value.
 
-Emitting the declared default into the backing field was implemented and measured, then rejected on two independent grounds:
+The public base `EngineObject.Resource()` likewise starts with `IsEnabled = true`, matching an ordinary `EngineObject`. A generated typed resource copies `IsEnabled` from its defaults owner: the automatic initializer-only owner retains the declared `true`, while an explicit provider can deliberately return an owner with a different value.
 
-- **It does not compile.** The generated `Resource` partial is emitted into its own file with no `using` directives and every type written `global::`-qualified, so a default expression copied verbatim from the engine-object class body does not bind. Copying the first argument of each `Property.Create*` initializer into the field initializer produced 86 `CS0103`/`CS0246` diagnostics in `Beutl.Engine` alone, on the unqualified names `Colors`, `GradingColor`, `Vector3`, `RelativePoint`, `RelativeRect`, `CornerRadius`, `Point`, `GradientSpreadMethod`, and `BandCountPreset`. Bare literals (`0f`, `100`, `true`, `null`) bind, and so do `const` fields and private statics of the enclosing type (`DefaultThresholdDb`, `GetDefaultScript()`), because the nested `Resource` can see them; the several hundred `Property.Create*` calls in `src/` that pass a default span more than a hundred distinct expressions — two independent counts of that set disagreed at the unit digit, so the exact figures are omitted rather than pinned here — and the non-literal ones are what fail. Making them bind needs a semantic-model-driven expression qualifier, which is a new generator subsystem rather than a field-initializer tweak, and constant-folding instead would cover only the literal subset and leave an author unable to predict which defaults they inherit.
-- **It would allocate on the attached render path.** A field initializer runs on every construction, including every attached one, where the value is overwritten by the first `CompareAndUpdate` before anything can observe it. Measured on `Curves`, whose nine `CurveMap` properties each declare `new CurveMap([…])`: `ToResource` allocates 168 B/construction today and 5136 B/construction with the defaults evaluated — a 30× regression for dead values.
+Without an explicit provider, the generator obtains those defaults from one temporary owner constructed through the generator-only marker constructor. This evaluates the original semantically bound declaration and instance initializers rather than copying their source expressions into a generated file. The accepted declaration-time shapes are intentionally narrow:
 
-Neither objection rules out a future design (a static per-type default holder plus a qualifier would address both), so this is a rejected implementation, not a closed question.
+- An auto-property has a declaration initializer, and no instance constructor assigns that property again.
+- A computed property directly returns a non-static `readonly` field on the current instance. That field has a declaration initializer, and no instance constructor assigns it again. The direct return may be expression-bodied, an expression-bodied getter, or a getter body containing one `return`; conversions and parentheses around the field are allowed. A method call, conditional, mutable field, lazy initializer, or multi-statement getter is not declaration-time storage.
+
+`BESG003` rejects every generated value/object `IProperty` outside those shapes, including a declaration-initialized property or backing field that an ordinary constructor replaces. `BESG004` rejects a primary-constructor owner because the marker path cannot supply its arguments. An author can migrate either shape without hand-writing the complete generated contract by declaring exactly one provider on that owner:
+
+```csharp
+public partial class PluginEffect(string preset) : FilterEffect
+{
+    [ResourceDefaultValuesProvider]
+    private static PluginEffect CreateResourceDefaultValues()
+        => new("default-preset");
+
+    public IProperty<float> Amount { get; }
+        = Property.CreateAnimatable(100f);
+}
+```
+
+The provider method may be non-public, but it must be static, parameterless, non-generic, and return the declaring owner type; `BESG005` rejects an invalid signature or multiple annotated methods. It must return a non-null owner whose generated `IProperty` members expose the intended detached defaults. The direct concrete generated `Resource()` invokes the most-derived provider exactly once and passes that same owner through the complete base-resource constructor chain; base providers are not invoked separately. If any base owner declares an explicit provider, each generated derived owner therefore declares its own provider that constructs the most-derived type. `BESG006` prevents the derived type from falling back to the initializer-only chain and thereby bypassing the base owner's explicit construction contract. Providers are not inherited as defaults factories.
+
+The attached `ToResource` path uses a separate internal construction path. It invokes neither the marker defaults source nor an explicit provider, so it does not evaluate or allocate detached-only defaults that its first update would overwrite. Generated abstract `Resource` types no longer expose a protected parameterless constructor: a hand-written or generation-suppressed attached resource explicitly chains to `base(skipDefaultInitialization: true)`, while a detached resource that promises declared-default parity explicitly chains to `base(defaultValues)` with an owner constructed by its chosen defaults factory. This makes an omitted default-initialization decision a compile error instead of silently preserving `default(T)`. Implementing the complete `Resource`/`ToResource` contract manually remains the escape hatch when neither automatic declaration-time storage nor an explicit owner factory represents the intended contract.
+
+The hand-written resources for `ParticleEmitter`, `ShakeEffect`, `DelayAnimationEffect`, `NodeGraphDrawable`, `NodeGraphFilterEffect`, and `RenderNodeDrawable` are attached-only: their parameterless constructors are internal, and their owners expose them through `ToResource(CompositionContext)` after a successful `Update`. They do not promise detached authoring of their read-only evaluated fields.
+
+A generated property backed by an `IProperty<T>` whose `T` is an `EngineObject` type, nullable or non-null, is an owning resource slot rather than a borrowed reference. A non-null declared object default is materialized through `ToResource(CompositionContext.Default)`. Assigning a different resource transfers ownership to the containing resource and immediately disposes the previous value; assigning the same instance is a no-op. Disposing the containing resource disposes the currently held value.
 
 `EngineResourceIdentity.Of` is the only safe way to key on an `EngineObject.Resource`, and is renderer-wide for the same reason: nodes, brushes, filter effects, and 3D all key on the same resources, and a node needs the identity outside `Borrow` whenever it feeds a hit-test or structural key rather than a declared-resource registration. It returns the backing `EngineObject.Id`, or a synthesized `Guid` for a resource with no backing object, stable per `Resource` instance and held weakly — a caller that reallocates the resource every frame gets a new identity every frame. Returning `Guid` rather than `object` is what lets a caller hold the identity in a `Guid`-typed cache-key field without boxing on every `Process`, which is why the engine's own hit-test and structural keys can route through it; a synthesized identity is therefore the same shape as a backing object id, and a collision between the two is treated as a non-scenario rather than prevented by construction. The public `Borrow((Resource, Version))` overload derives its key the same way, but registers a borrow as well, so it is not a substitute when the identity is only wanted for comparison.
 
@@ -1431,7 +1469,7 @@ public sealed class SKSLShader : IDisposable
 
 `EffectTarget()` and the materialized `EffectTarget(RenderTarget, Rect, EffectiveScale)` constructor remain public for source-less and caller-materialized legacy effects. Only the operation-backed constructor is removed. The materialized constructor takes a shallow copy and derives the canonical zero-offset footprint. `Clone()` preserves `OriginalBounds`, current `Bounds`, `Scale`, `DeviceBounds`, and `DeviceGridOffset`; `EffectTargets.Clone()` uses that path for every retained target.
 
-Direct legacy activation takes its allocation-failure classification from an explicit `RenderIntent` argument that defaults to `RenderIntent.Preview`; its request purpose remains auxiliary. `RenderIntent.Delivery` fails fast — an intermediate buffer that cannot be allocated throws `InvalidOperationException` rather than letting the layer vanish from a delivered frame — while `RenderIntent.Preview` logs the failed footprint and drops that target. `MaxWorkingScale` does not participate in this classification: it bounds the working scale only, so a preview with an infinite ceiling still degrades and a delivery with a finite ceiling still fails fast. Engine-owned execution paths supply their explicit request classification internally:
+Direct legacy activation requires both execution classifications: `RenderIntent` controls allocation-failure behavior and `RenderRequestPurpose` identifies frame, cache-warmup, or auxiliary work all the way through a custom callback. `RenderIntent.Delivery` fails fast — an intermediate buffer that cannot be allocated throws `InvalidOperationException` rather than letting the layer vanish from a delivered frame — while `RenderIntent.Preview` logs the failed footprint and drops that target. `MaxWorkingScale` does not participate in this classification: it bounds the working scale only, so a preview with an infinite ceiling still degrades and a delivery with a finite ceiling still fails fast. There is one public constructor and no compatibility overload that silently recreates preview/auxiliary behavior:
 
 ```csharp
 public sealed class FilterEffectActivator : IDisposable
@@ -1439,10 +1477,11 @@ public sealed class FilterEffectActivator : IDisposable
     public FilterEffectActivator(
         EffectTargets targets,
         SKImageFilterBuilder builder,
+        RenderIntent intent,
+        RenderRequestPurpose purpose,
         float outputScale = 1f,
         float workingScale = 1f,
-        float maxWorkingScale = float.PositiveInfinity,
-        RenderIntent intent = RenderIntent.Preview);
+        float maxWorkingScale = float.PositiveInfinity);
 
     public SKImageFilterBuilder Builder { get; }
     public EffectTargets CurrentTargets { get; }

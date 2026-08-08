@@ -50,6 +50,11 @@ public sealed partial class NodeGraphDrawable : Drawable
 
     public new sealed class Resource : Drawable.Resource
     {
+        internal Resource()
+            : base(skipDefaultInitialization: true)
+        {
+        }
+
         private readonly GraphSnapshot _snapshot = new();
         private GraphModel? _model;
 

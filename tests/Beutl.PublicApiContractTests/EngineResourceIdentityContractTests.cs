@@ -14,7 +14,7 @@ namespace Beutl.PublicApiContractTests;
 /// <remarks>
 /// <c>Borrow</c> derives the same identity but necessarily registers a borrow, so it is not an option for a key
 /// the node only wants to compare. Without a public derivation the only route left is
-/// <c>GetOriginal().Id</c>, which throws for a resource that never went through
+/// <c>GetOriginal()?.Id</c>, which has no backing id for a resource that never went through
 /// <see cref="EngineObject.ToResource"/> — and a resource is publicly constructible and subclassable, so that
 /// is a shape a plugin reaches without doing anything unusual.
 /// </remarks>
@@ -30,11 +30,20 @@ public sealed class EngineResourceIdentityContractTests
     }
 
     [Test]
-    public void ADetachedResource_ThrowsOnTheOnlyOtherPublicRouteToItsIdentity()
+    public void ADetachedResource_ReturnsNullThroughTheNullableOriginalContract()
     {
         using var detached = new PluginResource();
 
-        Assert.Throws<NullReferenceException>(() => _ = detached.GetOriginal().Id);
+        Assert.That(detached.GetOriginal(), Is.Null);
+    }
+
+    [Test]
+    public void GetOriginal_DeclaresItsNullableReturnInMetadata()
+    {
+        MethodInfo method = typeof(EngineObject.Resource).GetMethod(nameof(EngineObject.Resource.GetOriginal))!;
+        NullabilityInfo nullability = new NullabilityInfoContext().Create(method.ReturnParameter);
+
+        Assert.That(nullability.ReadState, Is.EqualTo(NullabilityState.Nullable));
     }
 
     [Test]
@@ -97,7 +106,7 @@ public sealed class EngineResourceIdentityContractTests
     {
         Brush.Resource attached = Brushes.Resource.White;
 
-        Assert.That(EngineResourceIdentity.Of(attached), Is.EqualTo(attached.GetOriginal().Id));
+        Assert.That(EngineResourceIdentity.Of(attached), Is.EqualTo(attached.RequireOriginal().Id));
     }
 
     [Test]

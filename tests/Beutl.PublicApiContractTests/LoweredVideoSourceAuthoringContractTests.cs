@@ -79,7 +79,7 @@ public sealed class LoweredVideoSourceAuthoringContractTests
         {
             RenderResource<VideoSource.Resource> sourceResource = context.Borrow(
                 source,
-                source.GetOriginal().Id,
+                source.RequireOriginal().Id,
                 source.Version);
 
             context.Publish(context.PaintedSource(

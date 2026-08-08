@@ -154,7 +154,7 @@ public abstract partial class AudioVisualizerDrawable : Drawable
             if (!needsRecompose) return;
 
             var targetRange = new TimeRange(targetStart, targetDuration);
-            Sound sound = _source.GetOriginal();
+            Sound sound = _source.RequireOriginal();
 
             if (!ReferenceEquals(_frameObjectsSource, _source))
             {
