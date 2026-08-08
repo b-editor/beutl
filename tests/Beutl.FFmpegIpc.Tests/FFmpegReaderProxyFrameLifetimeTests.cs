@@ -109,15 +109,27 @@ public class FFmpegReaderProxyFrameLifetimeTests
                 }
             }
 
+            for (int a = 0; a < expected.Length; a++)
+            {
+                for (int b = a + 1; b < expected.Length; b++)
+                {
+                    Assert.That(expected[a], Is.Not.EqualTo(expected[b]),
+                        $"frames {a} and {b} look the same, so a mixed-up frame would compare equal");
+                }
+            }
+
             // Differing frames, so a response moves the worker's served slot while an earlier copy is
             // still running: unserialized, prefetch is free to recycle the slot being copied.
+            const int Reads = ConcurrentFrames * 8;
             var mismatch = 0;
-            Parallel.For(0, ConcurrentFrames * 8, i =>
+            var succeeded = 0;
+            Parallel.For(0, Reads, i =>
             {
                 int frame = i % ConcurrentFrames;
                 if (!reader.ReadVideo(frame, out Ref<Bitmap>? read)) return;
                 using (read)
                 {
+                    Interlocked.Increment(ref succeeded);
                     if (!read!.Value.GetPixelSpan().SequenceEqual(expected[frame]))
                     {
                         Interlocked.Increment(ref mismatch);
@@ -125,6 +137,7 @@ public class FFmpegReaderProxyFrameLifetimeTests
                 }
             });
 
+            Assert.That(succeeded, Is.EqualTo(Reads), "a concurrent read failed outright");
             Assert.That(mismatch, Is.Zero, "a concurrent read returned another frame's pixels");
         }
     }

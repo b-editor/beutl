@@ -60,6 +60,7 @@ public class FFmpegSeekDecisionTests
         Assert.That(FFmpegSeekDecision.ResolveFramePosition(true, 42L, 7L), Is.EqualTo(42L));
     }
 
+    [TestCase(-1L, 0L)] // nothing decoded yet, or a seek that reset the estimate to its target
     [TestCase(0L, 1L)]
     [TestCase(41L, 42L)]
     public void ResolveFramePosition_WithoutATimestamp_FollowsThePreviousPosition(

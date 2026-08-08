@@ -41,7 +41,9 @@ public sealed class FFmpegReader : MediaReader
     private SampleConverter? _sampleConverter;
     private long _audioNowTimestamp;
     private long _audioNextTimestamp;
-    private long _videoNowFrame;
+    // -1, not 0, so the first picture of a stream that carries no timestamp resolves to frame 0
+    // rather than 1. See FFmpegSeekDecision.ResolveFramePosition.
+    private long _videoNowFrame = -1;
     private int _samplesReturn;
     private bool _audioSeek;
     private double _videoTimeBaseDouble;
@@ -631,6 +633,9 @@ public sealed class FFmpegReader : MediaReader
                 MidpointRounding.AwayFromZero);
             _demuxer.Seek(timestamp, -1);
             ffmpeg.avcodec_flush_buffers(_videoDecoder);
+            // The seek moved the decoder, so the position carried over from before it is no longer
+            // what a timestamp-less first picture follows; the target is the estimate to fall back on.
+            _videoNowFrame = targetFrame - 1;
             GrabVideo();
         }
 
