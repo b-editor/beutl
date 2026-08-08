@@ -25,45 +25,70 @@ public sealed class ImageSourceRenderNode(ImageSource.Resource source, Brush.Res
             Bounds = PenHelper.GetBounds(new Rect(default, Source.Value.Resource.FrameSize.ToSize(1)), Pen?.Resource);
         }
 
-        HasChanges = changed;
+        if (changed)
+        {
+            HasChanges = true;
+        }
+
         return changed;
     }
 
-    public override RenderNodeOperation[] Process(RenderNodeContext context)
+    public override void Process(RenderNodeContext context)
     {
-        if (!Source.HasValue) return [];
+        if (Source is not { } sourceSnapshot)
+            return;
 
-        return
-        [
-            RenderNodeOperation.CreateLambda(
-                bounds: Bounds,
-                render: canvas =>
-                {
-                    canvas.DrawImageSource(Source.Value.Resource, Fill?.Resource, Pen?.Resource);
-                },
-                hitTest: HitTest,
-                // Bitmap at native 1:1 density; downstream transforms re-scale accordingly.
-                effectiveScale: EffectiveScale.At(1f)
-            )
-        ];
+        Rect bounds = Bounds;
+        if (bounds.Width == 0 || bounds.Height == 0)
+            return;
+
+        (Brush.Resource Resource, int Version)? fillSnapshot = Fill;
+        (Pen.Resource Resource, int Version)? penSnapshot = Pen;
+        Brush.Resource? fill = fillSnapshot?.Resource;
+        Pen.Resource? pen = penSnapshot?.Resource;
+        RenderResource<ImageSource.Resource> sourceResource = context.Borrow(sourceSnapshot);
+        var hitTestState = new ImageHitTestState(
+            bounds,
+            fill is not null,
+            pen?.StrokeAlignment ?? StrokeAlignment.Inside,
+            pen?.Thickness ?? 0);
+
+        context.Publish(context.PaintedSource(
+            primary: sourceResource,
+            state: (bounds, hitTestState),
+            draw: static (session, currentSource, _) =>
+                session.Canvas.DrawImageSource(currentSource, session.Fill, session.Pen),
+            fill: fillSnapshot,
+            pen: penSnapshot,
+            brushBounds: bounds,
+            outputBounds: bounds,
+            hitTest: RenderHitTestContract.Custom(hitTestState.Evaluate),
+            // Bitmap at native 1:1 density; downstream transforms re-scale accordingly.
+            scale: RenderScaleContract.Custom(static _ => 1f),
+            structuralKey: typeof(ImageSourceRenderNode)));
     }
 
-    private bool HitTest(Point point)
+    private readonly record struct ImageHitTestState(
+        Rect Bounds,
+        bool HasFill,
+        StrokeAlignment StrokeAlignment,
+        float Thickness)
     {
-        StrokeAlignment alignment = Pen?.Resource.StrokeAlignment ?? StrokeAlignment.Inside;
-        float thickness = Pen?.Resource.Thickness ?? 0;
-        thickness = PenHelper.GetRealThickness(alignment, thickness);
+        public bool HitTest(Point point)
+        {
+            float realThickness = PenHelper.GetRealThickness(StrokeAlignment, Thickness);
 
-        if (Fill != null)
-        {
-            Rect rect = Bounds.Inflate(thickness);
-            return rect.ContainsExclusive(point);
-        }
-        else
-        {
-            Rect borderRect = Bounds.Inflate(thickness);
-            Rect emptyRect = Bounds.Deflate(thickness);
+            if (HasFill)
+            {
+                Rect rect = Bounds.Inflate(realThickness);
+                return rect.ContainsExclusive(point);
+            }
+
+            Rect borderRect = Bounds.Inflate(realThickness);
+            Rect emptyRect = Bounds.Deflate(realThickness);
             return borderRect.ContainsExclusive(point) && !emptyRect.ContainsExclusive(point);
         }
+
+        public bool Evaluate(RenderHitTestContext _, Point point) => HitTest(point);
     }
 }

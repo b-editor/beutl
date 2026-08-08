@@ -27,7 +27,8 @@ public partial class DelayAnimationEffect : FilterEffect
         var r = (Resource)resource;
         if (r.Effect == null) return;
 
-        var childEffect = r.Effect.GetOriginal();
+        FilterEffect childEffect = r.Effect.RequireOriginal();
+        context.LowerNestedEffectBrushes(childEffect, r.Effect);
 
         context.CustomEffect(
             (delay: r.Delay, globalTime: r.GlobalTime, childEffect, cache: r.DelayedResources,
@@ -77,16 +78,13 @@ public partial class DelayAnimationEffect : FilterEffect
                     // Forward output scale and working density into the nested re-application.
                     using var childFEContext = new FilterEffectContext(
                         target.Bounds, effectContext.OutputScale, effectContext.WorkingScale);
-                    data.childEffect.ApplyTo(childFEContext, data.cache[j]);
+                    childFEContext.ApplyTransactional(data.childEffect, data.cache[j]);
 
                     target.OriginalBounds = target.Bounds.WithX(0).WithY(0);
                     using var singleTargets = new EffectTargets();
                     singleTargets.Add(target.Clone());
                     using var builder = new SKImageFilterBuilder();
-                    // Forward the working-scale ceiling into the nested pull.
-                    using var activator = new FilterEffectActivator(
-                        singleTargets, builder, effectContext.OutputScale, effectContext.WorkingScale,
-                        effectContext.MaxWorkingScale);
+                    using var activator = effectContext.CreateNestedActivator(singleTargets, builder);
                     activator.Apply(childFEContext);
                     activator.Flush(false);
 
@@ -117,6 +115,16 @@ public partial class DelayAnimationEffect : FilterEffect
 
     public new class Resource : FilterEffect.Resource
     {
+        internal Resource()
+            : this(skipDefaultInitialization: true)
+        {
+        }
+
+        protected Resource(bool skipDefaultInitialization)
+            : base(skipDefaultInitialization)
+        {
+        }
+
         private float _delay;
         private FilterEffect.Resource? _effect;
         private TimeSpan _globalTime;

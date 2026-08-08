@@ -43,7 +43,11 @@ public sealed class FilterEffectCrashSafetyTests
         effect.ApplyTo(feCtx, effect.ToResource(new CompositionContext(TimeSpan.Zero)));
 
         using var builder = new SKImageFilterBuilder();
-        using var activator = new FilterEffectActivator(targets, builder);
+        using var activator = new FilterEffectActivator(
+            targets,
+            builder,
+            RenderIntent.Delivery,
+            RenderRequestPurpose.Auxiliary);
         Assert.DoesNotThrow(() => activator.Apply(feCtx));
 
         foreach (EffectTarget target in activator.CurrentTargets)
@@ -80,7 +84,11 @@ public sealed class FilterEffectCrashSafetyTests
             effect.ApplyTo(feCtx, effect.ToResource(new CompositionContext(TimeSpan.Zero)));
 
             using var builder = new SKImageFilterBuilder();
-            using var activator = new FilterEffectActivator(targets, builder);
+            using var activator = new FilterEffectActivator(
+                targets,
+                builder,
+                RenderIntent.Delivery,
+                RenderRequestPurpose.Auxiliary);
             Assert.DoesNotThrow(() => activator.Apply(feCtx));
         });
     }

@@ -40,6 +40,11 @@ public sealed partial class NodeGraphFilterEffect : FilterEffect
 
     public new sealed class Resource : FilterEffect.Resource
     {
+        internal Resource()
+            : base(skipDefaultInitialization: true)
+        {
+        }
+
         public GraphSnapshot Snapshot { get; } = new();
 
         public GraphModel? Model { get; private set; }

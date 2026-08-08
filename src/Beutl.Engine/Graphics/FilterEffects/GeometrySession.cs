@@ -1,0 +1,164 @@
+﻿using Beutl.Graphics.Rendering;
+using Beutl.Media;
+
+namespace Beutl.Graphics.Effects;
+
+public sealed class GeometrySession
+{
+    private readonly RenderExecutionSessionToken _token;
+    private readonly IReadOnlyList<RenderResource> _resources;
+    private readonly Rect _allocatedOutputBounds;
+    private Rect _outputBounds;
+    private bool _discarded;
+
+    internal GeometrySession(
+        RenderExecutionSessionToken token,
+        RenderExecutionInput input,
+        Rect outputBounds,
+        Rect requiredRegion,
+        PixelRect deviceBounds,
+        float outputScale,
+        float workingScale,
+        float maxWorkingScale,
+        RenderIntent intent,
+        RenderRequestPurpose purpose,
+        RenderCallbackCanvas canvas,
+        IReadOnlyList<RenderResource> resources)
+    {
+        ArgumentNullException.ThrowIfNull(token);
+        ArgumentNullException.ThrowIfNull(input);
+        ArgumentNullException.ThrowIfNull(canvas);
+        ArgumentNullException.ThrowIfNull(resources);
+        RenderRectValidation.ThrowIfInvalidInput(outputBounds, nameof(outputBounds));
+        RenderRectValidation.ThrowIfInvalidInput(requiredRegion, nameof(requiredRegion));
+        if (!float.IsFinite(outputScale) || outputScale <= 0)
+            throw new ArgumentOutOfRangeException(nameof(outputScale));
+        if (!float.IsFinite(workingScale) || workingScale <= 0)
+            throw new ArgumentOutOfRangeException(nameof(workingScale));
+        maxWorkingScale = RenderScaleUtilities.SanitizeMaxWorkingScale(maxWorkingScale);
+
+        _token = token;
+        _resources = resources;
+        _allocatedOutputBounds = outputBounds;
+        _outputBounds = outputBounds;
+        Input = input;
+        RequiredRegion = requiredRegion;
+        DeviceBounds = deviceBounds;
+        OutputScale = outputScale;
+        WorkingScale = workingScale;
+        MaxWorkingScale = maxWorkingScale;
+        Intent = intent;
+        Purpose = purpose;
+        Canvas = canvas;
+    }
+
+    public RenderExecutionInput Input
+    {
+        get { _token.ThrowIfInactive(); return field; }
+    }
+
+    public Rect OutputBounds
+    {
+        get { _token.ThrowIfInactive(); return _outputBounds; }
+    }
+
+    public Rect RequiredRegion
+    {
+        get { _token.ThrowIfInactive(); return field; }
+    }
+
+    public PixelRect DeviceBounds
+    {
+        get { _token.ThrowIfInactive(); return field; }
+    }
+
+    public PixelSize DeviceSize
+    {
+        get { _token.ThrowIfInactive(); return DeviceBounds.Size; }
+    }
+
+    public float OutputScale
+    {
+        get { _token.ThrowIfInactive(); return field; }
+    }
+
+    public float WorkingScale
+    {
+        get { _token.ThrowIfInactive(); return field; }
+    }
+
+    public float MaxWorkingScale
+    {
+        get { _token.ThrowIfInactive(); return field; }
+    }
+
+    public RenderIntent Intent
+    {
+        get { _token.ThrowIfInactive(); return field; }
+    }
+
+    public RenderRequestPurpose Purpose
+    {
+        get { _token.ThrowIfInactive(); return field; }
+    }
+
+    public RenderCallbackCanvas Canvas
+    {
+        get { _token.ThrowIfInactive(); return field; }
+    }
+
+    /// <summary>Uses a resource by its token.</summary>
+    /// <remarks>
+    /// The addressing mode for a callback that may capture: one recorded through <c>CreateRequestLocal</c>, or
+    /// one whose runtime identity is declared separately from what it captures. A state-passing callback
+    /// addresses its resources through <c>UseDeclaredResource</c> instead, because its state is the produced
+    /// value's output-cache runtime identity: a <see cref="RenderResource"/> in a tuple element is rejected, and
+    /// so is a capturing callback. A sealed non-tuple state does pass validation and physically delivers a token
+    /// to this method, but it is an enumerated identity channel rather than a way to address resources — the
+    /// author then owns the identity contract by hand, and a state object mutated in place cannot discharge it:
+    /// the cached identity and the new one hold the same instance, so no equality the author writes observes
+    /// the change. A token left over from a finished request throws when leased. Position is the address by
+    /// design, not by impossibility.
+    /// </remarks>
+    public void UseResource<T>(RenderResource<T> resource, Action<T> use)
+        where T : class
+    {
+        _token.UseResource(resource, _resources, use);
+    }
+
+    /// <summary>Uses a resource by its position in the description's declared resource list.</summary>
+    /// <remarks>
+    /// The addressing mode a non-capturing callback needs: a resource token is request-scoped and can never be
+    /// part of a persistent identity, so it cannot travel through the description's state. The position is the
+    /// only address, and <typeparamref name="T"/> is the only check on it: two declared resources of the same
+    /// type make index 0 and index 1 indistinguishable, so prepending or reordering <c>resources</c> silently
+    /// swaps which one this call reaches.
+    /// </remarks>
+    public void UseDeclaredResource<T>(int declaredIndex, Action<T> use)
+        where T : class
+    {
+        _token.UseDeclaredResource(declaredIndex, _resources, use);
+    }
+
+    public void SetOutputBounds(Rect logicalBounds)
+    {
+        _token.ThrowIfInactive();
+        RenderRectValidation.ThrowIfInvalidInput(logicalBounds, nameof(logicalBounds));
+        if (!RenderDescriptionValidation.Contains(_allocatedOutputBounds, logicalBounds))
+        {
+            throw new ArgumentException(
+                "Geometry output bounds may only shrink within the allocated output bounds.",
+                nameof(logicalBounds));
+        }
+
+        _outputBounds = logicalBounds;
+    }
+
+    public void DiscardOutput()
+    {
+        _token.ThrowIfInactive();
+        _discarded = true;
+    }
+
+    internal bool IsOutputDiscarded => _discarded;
+}

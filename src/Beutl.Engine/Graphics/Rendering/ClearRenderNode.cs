@@ -17,8 +17,15 @@ public sealed class ClearRenderNode(Color color) : RenderNode
         return false;
     }
 
-    public override RenderNodeOperation[] Process(RenderNodeContext context)
+    public override void Process(RenderNodeContext context)
     {
-        return [RenderNodeOperation.CreateLambda(Rect.Empty, canvas => canvas.Clear(Color))];
+        Color color = Color;
+        TargetCommandDescription description = TargetCommandDescription.Create(
+            color,
+            static (session, state) => session.Canvas.Use(canvas => canvas.Clear(state)),
+            TargetRegion.Full,
+            Rect.Empty,
+            RenderHitTestContract.None);
+        context.Publish(context.TargetCommand([], description));
     }
 }

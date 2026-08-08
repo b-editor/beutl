@@ -13,6 +13,15 @@ namespace Beutl.UnitTests.Engine.Graphics.Backend;
 public class ImmediateCanvasDensityTests
 {
     [Test]
+    public void Constructor_NullRenderTarget_ThrowsArgumentNullException()
+    {
+        ArgumentNullException? exception = Assert.Throws<ArgumentNullException>(
+            () => _ = new ImmediateCanvas(null!));
+
+        Assert.That(exception!.ParamName, Is.EqualTo("renderTarget"));
+    }
+
+    [Test]
     public void Density1_Construction_IsTrueNoOp()
     {
         VulkanTestEnvironment.EnsureAvailable();

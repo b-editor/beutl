@@ -27,17 +27,22 @@ internal static class GoldenImageHarness
         using var node = new DrawableRenderNode(resource);
         using (var ctx = new GraphicsContext2D(node, logicalSize.ToSize(1), scale))
         {
-            resource.GetOriginal().Render(ctx, resource);
+            resource.RequireOriginal().Render(ctx, resource);
         }
 
-        var processor = new RenderNodeProcessor(node, useRenderCache: false, outputScale: scale);
-        RenderNodeOperation[] ops = processor.PullToRoot();
-
-        foreach (RenderNodeOperation op in ops)
-        {
-            op.Render(canvas);
-            op.Dispose();
-        }
+        using var renderer = new RenderNodeRenderer(
+            node,
+            new RenderNodeRendererOptions
+            {
+                DefaultRequest = new RenderNodeRenderRequest
+                {
+                    Intent = RenderIntent.Delivery,
+                    TargetDomain = new Rect(default, logicalSize.ToSize(1)),
+                    OutputScale = scale,
+                    CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Disabled,
+                },
+            });
+        renderer.Render(canvas);
 
         return target.Snapshot();
     }

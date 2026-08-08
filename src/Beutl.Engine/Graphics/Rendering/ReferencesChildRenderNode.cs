@@ -1,38 +1,43 @@
 ﻿namespace Beutl.Graphics.Rendering;
 
 // 単一の子ノードを参照するだけで、Disposeしないノード
-public class ReferencesChildRenderNode(RenderNode? child) : RenderNode
+public class ReferencesChildRenderNode : RenderNode
 {
-    public RenderNode? Child { get; private set; } = child;
+    // An array, not a plain field: ChildNodes hands out a span, and Update runs once per frame.
+    private RenderNode[] _child;
+
+    public ReferencesChildRenderNode(RenderNode? child)
+    {
+        _child = child is null ? [] : [child];
+    }
+
+    public RenderNode? Child => _child.Length == 0 ? null : _child[0];
+
+    public override ReadOnlySpan<RenderNode> ChildNodes => _child;
 
     public bool Update(RenderNode? item)
     {
         if (Child != item)
         {
             HasChanges = true;
+            _child = item is null ? [] : [item];
         }
 
         HasChanges |= item?.HasChanges == true;
-        Child = item;
 
         return HasChanges;
     }
 
-    public override RenderNodeOperation[] Process(RenderNodeContext context)
+    public override void Process(RenderNodeContext context)
     {
-        if (Child != null && !Child.IsDisposed)
+        if (Child is { IsDisposed: false } child)
         {
-            // Forward the working-scale ceiling into the nested pull.
-            var processor = new RenderNodeProcessor(
-                Child, context.IsRenderCacheEnabled, context.OutputScale, context.MaxWorkingScale);
-            return processor.PullToRoot();
+            context.PublishRange(context.RecordSubtree(child));
         }
-
-        return [];
     }
 
     protected override void OnDispose(bool disposing)
     {
-        Child = null;
+        _child = [];
     }
 }

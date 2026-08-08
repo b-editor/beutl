@@ -60,7 +60,7 @@ public partial class GeometryNode<T> : GraphNode
     {
         public override void Update(GraphCompositionContext context)
         {
-            var node = GetOriginal();
+            var node = RequireOriginal();
             OutputPort = node.Object;
         }
     }

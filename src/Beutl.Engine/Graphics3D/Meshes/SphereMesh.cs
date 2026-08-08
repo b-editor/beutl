@@ -39,11 +39,13 @@ public sealed partial class SphereMesh : Mesh
     [Range(2, 128), NumberStep(1, 1)]
     public IProperty<int> Rings { get; } = Property.CreateAnimatable(16);
 
-    /// <inheritdoc />
-    public override void ApplyTo(Mesh.Resource resource, out Vertex3D[] vertices, out uint[] indices)
+    public partial class Resource
     {
-        var r = (Resource)resource;
-        GenerateSphere(r.Radius, r.Segments, r.Rings, out vertices, out indices);
+        /// <inheritdoc />
+        public override void ApplyTo(out Vertex3D[] vertices, out uint[] indices)
+        {
+            GenerateSphere(Radius, Segments, Rings, out vertices, out indices);
+        }
     }
 
     /// <summary>

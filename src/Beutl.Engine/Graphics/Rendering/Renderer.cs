@@ -1,5 +1,6 @@
 ﻿using System.Runtime.CompilerServices;
 using Beutl.Composition;
+using Beutl.Graphics.Backend;
 using Beutl.Graphics.Rendering.Cache;
 using Beutl.Logging;
 using Beutl.Media;
@@ -13,81 +14,239 @@ public class Renderer : IRenderer
 
     private readonly ImmediateCanvas _immediateCanvas;
     private readonly RenderTarget _surface;
+    private readonly IRenderPipelineDiagnosticsState? _diagnostics;
     private readonly ConditionalWeakTable<Drawable, Entry> _nodeCache = new();
     private readonly List<Entry> _allCurrentEntries = [];
+
+    // One revalidation pass, not one entry: a referenced subtree is reachable from several entries
+    // and the cache-admission threshold counts one visit per frame.
+    private readonly HashSet<RenderNode> _revalidatedNodes = new(ReferenceEqualityComparer.Instance);
+
+    private readonly ClearRenderNode _frameClear;
+    private readonly CompleteTargetRenderNode _completeTarget;
+    private RenderNodeRenderer _frameRenderer;
     private RenderCacheOptions _cacheOptions = RenderCacheOptions.CreateFromGlobalConfiguration();
 
-    private class Entry(DrawableRenderNode node) : IDisposable
+    private class Entry(DrawableRenderNode node, RenderNodeRenderer renderer) : IDisposable
     {
+        private Rect _bounds;
+
         ~Entry()
         {
-            Dispose();
+            try
+            {
+                var dispatcher = RenderThread.Dispatcher;
+                if (!dispatcher.HasShutdownStarted)
+                {
+                    dispatcher.Dispatch(() =>
+                    {
+                        try
+                        {
+                            Dispose();
+                        }
+                        catch
+                        {
+                            // Finalizers cannot surface renderer or node cleanup failures.
+                        }
+                    }, ct: CancellationToken.None);
+                }
+            }
+            catch
+            {
+                // Finalizers cannot surface dispatch failures.
+            }
         }
 
         public DrawableRenderNode Node { get; } = node;
 
-        public Rect Bounds { get; set; }
+        public RenderNodeRenderer Renderer { get; } = renderer;
 
         public bool IsDisposed { get; private set; }
 
+        public void InvalidateBounds()
+        {
+            _bounds = default;
+            HasValidBounds = false;
+        }
+
+        public Rect GetBounds()
+        {
+            if (!HasValidBounds)
+            {
+                _bounds = Renderer.Measure().QueryBounds;
+                HasValidBounds = true;
+            }
+
+            return _bounds;
+        }
+
+        public Rect RecalculateBounds()
+        {
+            _bounds = Renderer.Measure().QueryBounds;
+            HasValidBounds = true;
+            return _bounds;
+        }
+
+        private bool HasValidBounds { get; set; }
+
         public void Dispose()
         {
+            RenderThread.Dispatcher.VerifyAccess();
             if (!IsDisposed)
             {
-                Node.Dispose();
                 IsDisposed = true;
+                Exception? primary = null;
+                try
+                {
+                    Renderer.Dispose();
+                }
+                catch (Exception ex)
+                {
+                    primary = ex;
+                }
+
+                try
+                {
+                    Node.Dispose();
+                }
+                catch (Exception ex)
+                {
+                    primary ??= ex;
+                }
+
                 GC.SuppressFinalize(this);
+                if (primary is not null)
+                    System.Runtime.ExceptionServices.ExceptionDispatchInfo.Capture(primary).Throw();
             }
         }
     }
 
-    public Renderer(int width, int height, float renderScale = 1f, float maxWorkingScale = float.PositiveInfinity)
+    public Renderer(
+        int width,
+        int height,
+        float renderScale = 1f,
+        float maxWorkingScale = float.PositiveInfinity,
+        RenderIntent intent = RenderIntent.Preview)
+        : this(
+            width,
+            height,
+            renderScale,
+            maxWorkingScale,
+            diagnostics: null,
+            surface: null,
+            intent: intent)
     {
+    }
+
+    internal Renderer(
+        int width,
+        int height,
+        float renderScale,
+        float maxWorkingScale,
+        IRenderPipelineDiagnosticsState? diagnostics,
+        RenderTarget? surface,
+        RenderIntent intent = RenderIntent.Preview)
+    {
+        static void DisposePreservingPrimaryFailure(IDisposable? value)
+        {
+            try
+            {
+                value?.Dispose();
+            }
+            catch
+            {
+                // Constructor cleanup must not replace the failure that triggered it.
+            }
+        }
+
+        if (!Enum.IsDefined(intent))
+        {
+            // This constructor owns `surface` from entry.
+            DisposePreservingPrimaryFailure(surface);
+            throw new ArgumentOutOfRangeException(nameof(intent), intent, "Unknown render intent.");
+        }
+
         float outputScale = float.IsFinite(renderScale) && renderScale > 0f ? renderScale : 1f;
-        float maxScale = RenderNodeContext.SanitizeMaxWorkingScale(maxWorkingScale);
+        float maxScale = RenderScaleUtilities.SanitizeMaxWorkingScale(maxWorkingScale);
         FrameSize = new PixelSize(width, height);
         OutputScale = outputScale;
         MaxWorkingScale = maxScale;
+        Intent = intent;
         DeviceSize = new PixelSize(
             (int)MathF.Ceiling(width * outputScale),
             (int)MathF.Ceiling(height * outputScale));
-        (_immediateCanvas, _surface) = RenderThread.Dispatcher.Invoke(() =>
+        _diagnostics = diagnostics;
+        _frameClear = new ClearRenderNode(default);
+        _completeTarget = new CompleteTargetRenderNode(_frameClear, []);
+        _frameRenderer = CreateEntryRenderer(
+            _completeTarget,
+            RenderRequestPurpose.Frame,
+            _diagnostics);
+        try
         {
-            RenderTarget surface = RenderTarget.Create(DeviceSize.Width, DeviceSize.Height)
-                                   ?? throw new InvalidOperationException(
-                                       $"Could not create a canvas of this size. (width: {DeviceSize.Width}, height: {DeviceSize.Height})");
+            (_immediateCanvas, _surface) = RenderThread.Dispatcher.Invoke(() =>
+            {
+                RenderTarget? actualSurface = null;
+                try
+                {
+                    actualSurface = surface
+                        ?? RenderTarget.Create(DeviceSize.Width, DeviceSize.Height)
+                        ?? throw new InvalidOperationException(
+                            $"Could not create a canvas of this size. (width: {DeviceSize.Width}, height: {DeviceSize.Height})");
+                    if (actualSurface.Width != DeviceSize.Width || actualSurface.Height != DeviceSize.Height)
+                    {
+                        throw new ArgumentException(
+                            "The injected render target must match the renderer device size.",
+                            nameof(surface));
+                    }
 
-            var canvas = new ImmediateCanvas(surface, outputScale, maxScale,
-                logicalSize: FrameSize.ToSize(1));
-            return (canvas, surface);
-        });
+                    var canvas = new ImmediateCanvas(actualSurface, outputScale, maxScale,
+                        logicalSize: FrameSize.ToSize(1), intent: intent);
+                    return (canvas, actualSurface);
+                }
+                catch
+                {
+                    DisposePreservingPrimaryFailure(actualSurface);
+                    throw;
+                }
+            });
+        }
+        catch
+        {
+            // Construction transferred ownership of these helpers before the surface was created.
+            // Release all of them, but never replace the constructor's primary failure.
+            DisposePreservingPrimaryFailure(_frameRenderer);
+            DisposePreservingPrimaryFailure(_completeTarget);
+            DisposePreservingPrimaryFailure(_frameClear);
+
+            throw;
+        }
     }
 
     ~Renderer()
     {
-        // A finalizer must never throw. Each step is guarded independently so a failure cannot
-        // skip releasing the GPU surface.
+        // A finalizer must never throw or release render-owned resources from the finalizer thread.
         if (IsDisposed)
             return;
 
-        static void SafeStep(string step, Action action)
+        _isDisposed = true;
+        try
         {
-            try
-            {
-                action();
-            }
-            catch (Exception ex)
-            {
-                s_logger.LogDebug(ex, "Renderer finalizer: {Step} threw during last-resort disposal", step);
-            }
+            OnDispose(false);
+        }
+        catch (Exception ex)
+        {
+            s_logger.LogDebug(ex, "Renderer finalizer: OnDispose threw during last-resort disposal");
         }
 
-        _isDisposed = true;
-        SafeStep(nameof(OnDispose), () => OnDispose(false));
-        SafeStep(nameof(_immediateCanvas), () => _immediateCanvas?.Dispose());
-        SafeStep(nameof(_surface), () => _surface?.Dispose());
-        SafeStep(nameof(ClearAllCaches), ClearAllCaches);
-        SafeStep(nameof(DisposeAllEntries), DisposeAllEntries);
+        try
+        {
+            DispatchFinalizerRenderResourceCleanup();
+        }
+        catch (Exception ex)
+        {
+            s_logger.LogDebug(ex, "Renderer finalizer: cleanup dispatch threw during last-resort disposal");
+        }
     }
 
     private volatile bool _isDisposed;
@@ -102,8 +261,11 @@ public class Renderer : IRenderer
         set
         {
             ArgumentNullException.ThrowIfNull(value);
-            ClearAllCaches();
-            _cacheOptions = value;
+            ObjectDisposedException.ThrowIf(IsDisposed, this);
+            if (RenderThread.Dispatcher.CheckAccess())
+                SetCacheOptionsCore(value);
+            else
+                RenderThread.Dispatcher.Invoke(() => SetCacheOptionsCore(value));
         }
     }
 
@@ -118,26 +280,100 @@ public class Renderer : IRenderer
     public float MaxWorkingScale { get; }
 
     /// <summary>
+    /// Intent applied to every request this renderer issues. <see cref="RenderIntent.Preview"/> drops a
+    /// contribution whose intermediate target cannot be allocated; <see cref="RenderIntent.Delivery"/>
+    /// fails the render instead, so a delivery-grade output never silently loses content.
+    /// </summary>
+    public RenderIntent Intent { get; }
+
+    /// <summary>
     /// The physical backing-surface size, <c>ceil(FrameSize × OutputScale)</c>.
     /// Ceiling preserves fractional edge pixels; only place OutputScale sizes a surface.
     /// </summary>
     public PixelSize DeviceSize { get; }
+
+    internal StructuralPlanCacheStatistics FrameStructuralPlanCacheStatistics
+        => _frameRenderer.StructuralPlanCacheStatistics;
+
+    internal ProgramCacheStatistics FrameProgramCacheStatistics
+        => _frameRenderer.ProgramCacheStatistics;
+
+    internal RenderTargetPoolStatistics FrameTargetPoolStatistics
+        => _frameRenderer.TargetPoolStatistics;
+
+    internal long RetainedRenderTargetBytes
+        => _frameRenderer.TargetPoolStatistics.RetainedBytes
+           + _nodeCache.Sum(static pair => pair.Value.Renderer.TargetPoolStatistics.RetainedBytes);
+
+    internal IRenderPipelineDiagnosticsState? Diagnostics => _diagnostics;
 
     public void Dispose()
     {
         if (!IsDisposed)
         {
             _isDisposed = true;
-            OnDispose(true);
-            _immediateCanvas.Dispose();
-            _surface.Dispose();
-            ClearAllCaches();
-            DisposeAllEntries();
+            Exception? primary = null;
+
+            CaptureCleanupFailure(() => OnDispose(true), ref primary);
+            Exception? renderResourceFailure = null;
+
+            if (RenderThread.Dispatcher.CheckAccess())
+            {
+                renderResourceFailure = DisposeRenderResourcesCore();
+            }
+            else
+            {
+                CaptureCleanupFailure(
+                    () => RenderThread.Dispatcher.Invoke(
+                        () => renderResourceFailure = DisposeRenderResourcesCore()),
+                    ref primary);
+            }
+
+            primary ??= renderResourceFailure;
             GC.SuppressFinalize(this);
+
+            if (primary is not null)
+                System.Runtime.ExceptionServices.ExceptionDispatchInfo.Capture(primary).Throw();
         }
     }
 
-    /// <remarks><see cref="IsDisposed"/> is already <c>true</c> when this method is called.</remarks>
+    private static void CaptureCleanupFailure(Action action, ref Exception? primary)
+    {
+        try
+        {
+            action();
+        }
+        catch (Exception ex)
+        {
+            primary ??= ex;
+        }
+    }
+
+    private Exception? DisposeRenderResourcesCore()
+    {
+        RenderThread.Dispatcher.VerifyAccess();
+        Exception? primary = null;
+        CaptureCleanupFailure(() => _completeTarget?.UpdateRoots([]), ref primary);
+        CaptureCleanupFailure(() => _frameRenderer?.Dispose(), ref primary);
+        CaptureCleanupFailure(() => _completeTarget?.Dispose(), ref primary);
+        CaptureCleanupFailure(() => _frameClear?.Dispose(), ref primary);
+        CaptureCleanupFailure(() => _immediateCanvas?.Dispose(), ref primary);
+        CaptureCleanupFailure(() => _surface?.Dispose(), ref primary);
+        CaptureCleanupFailure(ClearEntryCachesCore, ref primary);
+        CaptureCleanupFailure(DisposeAllEntriesCore, ref primary);
+        return primary;
+    }
+
+    /// <summary>Releases resources owned by a derived renderer.</summary>
+    /// <param name="disposing">
+    /// <c>true</c> when called synchronously by <see cref="Dispose"/>; <c>false</c> when called by the finalizer.
+    /// </param>
+    /// <remarks>
+    /// <see cref="IsDisposed"/> is already <c>true</c> when this method is called. The <c>true</c> path runs
+    /// inline and synchronously on the thread calling <see cref="Dispose"/>. The <c>false</c> path runs inline
+    /// on the finalizer thread before render-resource cleanup is dispatched, and must not access
+    /// render-thread-affine resources.
+    /// </remarks>
     protected virtual void OnDispose(bool disposing)
     {
     }
@@ -152,12 +388,8 @@ public class Renderer : IRenderer
         {
             IsGraphicsRendering = true;
             Time = frame.Time.Start;
-            ClearFrame();
-
             using (_immediateCanvas.Push())
             {
-                _immediateCanvas.Clear();
-
                 RenderObjects(frame);
             }
         }
@@ -169,66 +401,122 @@ public class Renderer : IRenderer
 
     private void RenderObjects(CompositionFrame frame)
     {
+        var pendingEntries = new List<Entry>();
+        try
+        {
+            PrepareEntries(frame, pendingEntries);
+
+            _completeTarget.UpdateRoots(pendingEntries.Select(static entry => (RenderNode)entry.Node));
+            _frameRenderer.Render(_immediateCanvas);
+        }
+        finally
+        {
+            ClearFrame();
+        }
+
+        RevalidateEntries(pendingEntries);
+        _allCurrentEntries.AddRange(pendingEntries);
+    }
+
+    private void PrepareEntries(CompositionFrame frame, List<Entry> destination)
+    {
         foreach (var obj in frame.Objects)
         {
             if (obj is not Drawable.Resource drawableResource)
                 continue;
-            var entry = RenderDrawable(drawableResource);
-            _allCurrentEntries.Add(entry);
+
+            destination.Add(PrepareDrawable(drawableResource));
         }
     }
 
-    private Entry RenderDrawable(Drawable.Resource resource)
+    // A mark on a shared node may only be consumed once every entry that reads it this frame has read it.
+    // Preparation therefore completes before any entry is revalidated, and a frame that faults during
+    // preparation revalidates nothing: the entries the fault skipped still owe those marks a read.
+    private void RevalidateEntries(List<Entry> entries)
     {
-        var drawable = resource.GetOriginal();
+        try
+        {
+            foreach (Entry entry in entries)
+            {
+                RevalidateAll(entry.Node);
+                entry.InvalidateBounds();
+            }
+        }
+        finally
+        {
+            _revalidatedNodes.Clear();
+        }
+    }
+
+    private Entry PrepareDrawable(Drawable.Resource resource)
+    {
+        Drawable drawable = resource.RequireOriginal();
         Entry entry;
         bool shouldRender;
 
         if (!_nodeCache.TryGetValue(drawable, out entry!))
         {
             AddDetachedHandler(drawable);
-            entry = new Entry(new DrawableRenderNode(resource));
+            entry = CreateEntry(resource);
             _nodeCache.Add(drawable, entry);
             shouldRender = true;
         }
         else
         {
-            shouldRender = entry.Node.Update(resource);
+            shouldRender = entry.Node.Update(resource) || entry.Node.HasChanges;
         }
 
         if (shouldRender)
         {
-            using var ctx = new GraphicsContext2D(entry.Node, FrameSize.ToSize(1), OutputScale);
-            drawable.Render(ctx, resource);
+            try
+            {
+                using var ctx = new GraphicsContext2D(entry.Node, FrameSize.ToSize(1), OutputScale);
+                drawable.Render(ctx, resource);
+            }
+            catch
+            {
+                entry.Node.HasChanges = true;
+                throw;
+            }
         }
 
-        RevalidateAll(entry.Node);
-        var processor = new RenderNodeProcessor(entry.Node, CacheOptions.IsEnabled, OutputScale, MaxWorkingScale);
-        var ops = processor.PullToRoot();
-        Rect bounds = Rect.Empty;
-        int consumed = 0;
+        return entry;
+    }
+
+    private Entry CreateEntry(Drawable.Resource resource)
+    {
+        var node = new DrawableRenderNode(resource);
         try
         {
-            foreach (var op in ops)
-            {
-                op.Render(_immediateCanvas);
-                bounds = bounds.Union(op.Bounds);
-                // consumed++ trails op.Bounds (a throw site) so a throw before op.Dispose leaves
-                // this op in the cleanup sweep below.
-                consumed++;
-                op.Dispose();
-            }
+            return new Entry(node, CreateEntryRenderer(node));
         }
         catch
         {
-            RenderNodeOperation.DisposeAll(ops.AsSpan(consumed));
+            node.Dispose();
             throw;
         }
-
-        entry.Bounds = bounds;
-        RenderNodeCacheHelper.MakeCache(entry.Node, CacheOptions, OutputScale, MaxWorkingScale);
-        return entry;
     }
+
+    private RenderNodeRenderer CreateEntryRenderer(
+        RenderNode node,
+        RenderRequestPurpose purpose = RenderRequestPurpose.Auxiliary,
+        IRenderPipelineDiagnosticsState? diagnostics = null,
+        RenderCacheOptions? cacheOptions = null)
+        => new(
+            node,
+            new RenderNodeRendererOptions
+            {
+                DefaultRequest = new RenderNodeRenderRequest
+                {
+                    Intent = Intent,
+                    TargetDomain = new Rect(default, FrameSize.ToSize(1)),
+                    OutputScale = OutputScale,
+                    MaxWorkingScale = MaxWorkingScale,
+                    CacheOptions = cacheOptions ?? CacheOptions,
+                    Purpose = purpose,
+                    Diagnostics = diagnostics,
+                },
+            });
 
     private void AddDetachedHandler(Drawable drawable)
     {
@@ -238,12 +526,9 @@ public class Renderer : IRenderer
         {
             if (sender is not Drawable senderDrawable) return;
 
-            if (weakRef.TryGetTarget(out Renderer? renderer)
-                && renderer._nodeCache.TryGetValue(senderDrawable, out Entry? entry))
+            if (weakRef.TryGetTarget(out Renderer? renderer))
             {
-                RenderNodeCacheHelper.ClearCache(entry.Node);
-                entry.Dispose();
-                renderer._nodeCache.Remove(senderDrawable);
+                renderer.EvictEntry(senderDrawable);
             }
 
             senderDrawable.DetachedFromHierarchy -= Handler;
@@ -252,18 +537,36 @@ public class Renderer : IRenderer
         drawable.DetachedFromHierarchy += Handler;
     }
 
-    private static void RevalidateAll(RenderNode current)
+    private void EvictEntry(Drawable drawable)
     {
-        RenderNodeCache cache = current.Cache;
+        if (RenderThread.Dispatcher.CheckAccess())
+            EvictEntryCore(drawable);
+        else
+            RenderThread.Dispatcher.Invoke(() => EvictEntryCore(drawable));
+    }
 
-        if (current is ContainerRenderNode c)
+    private void EvictEntryCore(Drawable drawable)
+    {
+        RenderThread.Dispatcher.VerifyAccess();
+        if (_nodeCache.TryGetValue(drawable, out Entry? entry))
         {
-            foreach (RenderNode item in c.Children)
-            {
-                RevalidateAll(item);
-            }
+            _nodeCache.Remove(drawable);
+            DisposeEntryCore(entry, clearCache: true);
+        }
+    }
+
+    private void RevalidateAll(RenderNode current)
+    {
+        if (current.IsDisposed || !_revalidatedNodes.Add(current))
+            return;
+
+        ReadOnlySpan<RenderNode> children = current.ChildNodes;
+        for (int i = 0; i < children.Length; i++)
+        {
+            RevalidateAll(children[i]);
         }
 
+        RenderNodeCache cache = current.Cache;
         cache.IncrementRenderCount();
         current.HasChanges = false;
         if (cache.IsCached && !RenderNodeCacheHelper.CanCacheRecursive(current))
@@ -282,37 +585,11 @@ public class Renderer : IRenderer
         RenderThread.Dispatcher.VerifyAccess();
         Time = frame.Time.Start;
         ClearFrame();
+        var pendingEntries = new List<Entry>();
 
-        foreach (var obj in frame.Objects)
-        {
-            if (obj is not Drawable.Resource drawableResource)
-                continue;
-
-            var drawable = drawableResource.GetOriginal();
-            Entry entry;
-            bool shouldRender;
-
-            if (!_nodeCache.TryGetValue(drawable, out entry!))
-            {
-                AddDetachedHandler(drawable);
-                entry = new Entry(new DrawableRenderNode(drawableResource));
-                _nodeCache.Add(drawable, entry);
-                shouldRender = true;
-            }
-            else
-            {
-                shouldRender = entry.Node.Update(drawableResource);
-            }
-
-            if (shouldRender)
-            {
-                using var ctx = new GraphicsContext2D(entry.Node, FrameSize.ToSize(1), OutputScale);
-                drawable.Render(ctx, drawableResource);
-            }
-
-            RevalidateAll(entry.Node);
-            _allCurrentEntries.Add(entry);
-        }
+        PrepareEntries(frame, pendingEntries);
+        RevalidateEntries(pendingEntries);
+        _allCurrentEntries.AddRange(pendingEntries);
     }
 
     public Drawable? HitTest(CompositionFrame frame, Point point)
@@ -324,21 +601,9 @@ public class Renderer : IRenderer
         {
             Entry entry = _allCurrentEntries[i];
             // Same scale pair as the render pass to avoid thrashing scale-stateful nodes.
-            var processor = new RenderNodeProcessor(entry.Node, CacheOptions.IsEnabled, OutputScale, MaxWorkingScale);
-            var arr = processor.PullToRoot();
-            try
+            if (entry.Renderer.HitTest(point))
             {
-                if (arr.Any(op => op.HitTest(point)))
-                {
-                    return entry.Node.Drawable?.Resource.GetOriginal();
-                }
-            }
-            finally
-            {
-                foreach (var op in arr)
-                {
-                    op.Dispose();
-                }
+                return entry.Node.Drawable?.Resource.GetOriginal();
             }
         }
 
@@ -347,7 +612,10 @@ public class Renderer : IRenderer
 
     public Rect[] GetBoundaries(int zIndex)
     {
-        return [.. _allCurrentEntries.Where(e => e.Node.Drawable?.Resource.GetOriginal().ZIndex == zIndex).Select(e => e.Bounds)];
+        RenderThread.Dispatcher.VerifyAccess();
+        return [.. _allCurrentEntries
+            .Where(e => e.Node.Drawable?.Resource.RequireOriginal().ZIndex == zIndex)
+            .Select(e => e.GetBounds())];
     }
 
     public Rect? GetBoundary(Drawable drawable)
@@ -357,7 +625,7 @@ public class Renderer : IRenderer
         {
             if (_allCurrentEntries.Contains(entry))
             {
-                return entry.Bounds;
+                return entry.GetBounds();
             }
             // An entry exists but is not included in the current frame (stale). Suggests a draw-lifecycle mismatch.
             if (s_logger.IsEnabled(LogLevel.Debug))
@@ -379,31 +647,15 @@ public class Renderer : IRenderer
         return null;
     }
 
+    /// <summary>Recalculates and caches current-frame bounds for drawables at the specified z-index.</summary>
+    /// <remarks>This method must be called on the render thread.</remarks>
+    /// <exception cref="InvalidOperationException">The caller does not have render-thread access.</exception>
     public Rect[] RecalculateBoundaries(int zIndex)
     {
-        return [.. _allCurrentEntries.Where(e => e.Node.Drawable?.Resource.GetOriginal().ZIndex == zIndex).Select(e =>
-        {
-            var processor = new RenderNodeProcessor(e.Node, CacheOptions.IsEnabled, OutputScale, MaxWorkingScale);
-            var ops = processor.PullToRoot();
-            Rect bounds = Rect.Empty;
-            int consumed = 0;
-            try
-            {
-                foreach (var op in ops)
-                {
-                    bounds = bounds.Union(op.Bounds);
-                    consumed++;
-                    op.Dispose();
-                }
-            }
-            catch
-            {
-                RenderNodeOperation.DisposeAll(ops.AsSpan(consumed));
-                throw;
-            }
-            e.Bounds = bounds;
-            return bounds;
-        })];
+        RenderThread.Dispatcher.VerifyAccess();
+        return [.. _allCurrentEntries
+            .Where(e => e.Node.Drawable?.Resource.RequireOriginal().ZIndex == zIndex)
+            .Select(e => e.RecalculateBounds())];
     }
 
     public DrawableRenderNode? FindRenderNode(Drawable drawable)
@@ -468,25 +720,191 @@ public class Renderer : IRenderer
     /// </summary>
     public Bitmap CreateSnapshotBitmap() => _surface.CreateSnapshotBitmap();
 
-    public void ClearAllCaches()
+    /// <summary>
+    /// Releases reusable intermediate render targets retained by this renderer.
+    /// </summary>
+    /// <returns>The number of pooled target bytes released.</returns>
+    /// <remarks>
+    /// Call this between frames on long-running delivery renders to bound backend memory. The current
+    /// output surface and compiled render plans remain intact, so the next frame only recreates the
+    /// intermediate targets it needs.
+    /// </remarks>
+    public long ReleaseRetainedRenderTargets()
     {
-        var entries = _nodeCache.ToArray();
-        _nodeCache.Clear();
-        foreach (var item in entries)
-        {
-            RenderNodeCacheHelper.ClearCache(item.Value.Node);
-            item.Value.Dispose();
-        }
+        ObjectDisposedException.ThrowIf(IsDisposed, this);
+        return RenderThread.Dispatcher.CheckAccess()
+            ? ReleaseRetainedRenderTargetsCore()
+            : RenderThread.Dispatcher.Invoke(ReleaseRetainedRenderTargetsCore);
     }
 
-    private void DisposeAllEntries()
+    private long ReleaseRetainedRenderTargetsCore()
     {
-        foreach (var item in _nodeCache)
+        RenderThread.Dispatcher.VerifyAccess();
+        long released = _frameRenderer.ReleaseRetainedTargets();
+        foreach (KeyValuePair<Drawable, Entry> pair in _nodeCache)
+        {
+            released = checked(released + pair.Value.Renderer.ReleaseRetainedTargets());
+        }
+
+        if (released > 0 && GraphicsContextFactory.SharedContext is { } context)
+        {
+            // Disposing an SKSurface only unlocks its backing allocation; Ganesh may retain that allocation
+            // in the shared resource cache. Submit completed work before purging the released scratch bytes
+            // so Metal/Vulkan can actually return them instead of growing once per delivery frame.
+            context.SkiaContext.Flush(submit: true, synchronous: true);
+            GpuResourceReclaimQueue.DrainAfterContextSync();
+            context.SkiaContext.PurgeUnlockedResources(released, preferScratchResources: true);
+        }
+
+        return released;
+    }
+
+    public void ClearAllCaches()
+    {
+        ObjectDisposedException.ThrowIf(IsDisposed, this);
+        if (RenderThread.Dispatcher.CheckAccess())
+            ClearAllCachesCore();
+        else
+            RenderThread.Dispatcher.Invoke(ClearAllCachesCore);
+    }
+
+    private void SetCacheOptionsCore(RenderCacheOptions value)
+    {
+        ResetAllCachesCore(value, updateCacheOptions: true);
+    }
+
+    private void ClearAllCachesCore()
+    {
+        ResetAllCachesCore(_cacheOptions, updateCacheOptions: false);
+    }
+
+    private void ResetAllCachesCore(RenderCacheOptions cacheOptions, bool updateCacheOptions)
+    {
+        RenderThread.Dispatcher.VerifyAccess();
+        ObjectDisposedException.ThrowIf(IsDisposed, this);
+        Exception? primary = null;
+        CaptureCleanupFailure(() => _completeTarget.UpdateRoots([]), ref primary);
+
+        RenderNodeRenderer? replacement = null;
+        try
+        {
+            replacement = CreateEntryRenderer(
+                _completeTarget,
+                RenderRequestPurpose.Frame,
+                _diagnostics,
+                cacheOptions);
+        }
+        catch (Exception ex)
+        {
+            primary ??= ex;
+        }
+
+        if (replacement is not null)
+        {
+            RenderNodeRenderer previous = _frameRenderer;
+            _frameRenderer = replacement;
+            if (updateCacheOptions)
+                _cacheOptions = cacheOptions;
+            CaptureCleanupFailure(previous.Dispose, ref primary);
+        }
+
+        CaptureCleanupFailure(ClearEntryCachesCore, ref primary);
+
+        if (primary is not null)
+            System.Runtime.ExceptionServices.ExceptionDispatchInfo.Capture(primary).Throw();
+    }
+
+    private void ClearEntryCachesCore()
+    {
+        RenderThread.Dispatcher.VerifyAccess();
+        var entries = _nodeCache?.ToArray() ?? [];
+        _nodeCache?.Clear();
+        _allCurrentEntries?.Clear();
+        Exception? primary = null;
+        foreach (var item in entries)
+        {
+            try
+            {
+                DisposeEntryCore(item.Value, clearCache: true);
+            }
+            catch (Exception ex)
+            {
+                primary ??= ex;
+            }
+        }
+
+        if (primary is not null)
+            System.Runtime.ExceptionServices.ExceptionDispatchInfo.Capture(primary).Throw();
+    }
+
+    private void DisposeAllEntriesCore()
+    {
+        RenderThread.Dispatcher.VerifyAccess();
+        var entries = _nodeCache?.ToArray() ?? [];
+        _nodeCache?.Clear();
+        Exception? primary = null;
+        foreach (var item in entries)
         {
             // Compositor側でDisposeされるのでResourceはDisposeせず、NodeだけがDisposeされるようにする
-            item.Value.Dispose();
+            try
+            {
+                DisposeEntryCore(item.Value, clearCache: false);
+            }
+            catch (Exception ex)
+            {
+                primary ??= ex;
+            }
         }
-        _nodeCache.Clear();
+
+        if (primary is not null)
+            System.Runtime.ExceptionServices.ExceptionDispatchInfo.Capture(primary).Throw();
+    }
+
+    private static void DisposeEntryCore(Entry entry, bool clearCache)
+    {
+        RenderThread.Dispatcher.VerifyAccess();
+        Exception? primary = null;
+        if (clearCache)
+        {
+            try
+            {
+                RenderNodeCacheHelper.ClearCache(entry.Node);
+            }
+            catch (Exception ex)
+            {
+                primary = ex;
+            }
+        }
+
+        try
+        {
+            entry.Dispose();
+        }
+        catch (Exception ex)
+        {
+            primary ??= ex;
+        }
+
+        if (primary is not null)
+            System.Runtime.ExceptionServices.ExceptionDispatchInfo.Capture(primary).Throw();
+    }
+
+    private void DispatchFinalizerRenderResourceCleanup()
+    {
+        var dispatcher = RenderThread.Dispatcher;
+        if (dispatcher.HasShutdownStarted)
+            return;
+
+        dispatcher.Dispatch(() =>
+        {
+            Exception? primary = DisposeRenderResourcesCore();
+            if (primary is not null)
+            {
+                s_logger.LogDebug(
+                    primary,
+                    "Renderer finalizer: render resource cleanup threw during last-resort disposal");
+            }
+        }, ct: CancellationToken.None);
     }
 
     public static ImmediateCanvas GetInternalCanvas(Renderer renderer)
@@ -497,5 +915,44 @@ public class Renderer : IRenderer
     public static RenderTarget GetInternalRenderTarget(Renderer renderer)
     {
         return renderer._surface;
+    }
+}
+
+/// <summary>
+/// Records the complete ordered set of roots for one target before any of them execute. The roots remain
+/// externally owned; this request-local facade never retains fragment handles or disposes render nodes.
+/// </summary>
+internal sealed class CompleteTargetRenderNode : RenderNode
+{
+    private readonly RenderNode _first;
+
+    // Replaced rather than mutated, so a span handed out by ChildNodes survives an UpdateRoots mid-traversal.
+    private RenderNode[] _roots;
+
+    public CompleteTargetRenderNode(RenderNode first, IEnumerable<RenderNode> remaining)
+    {
+        ArgumentNullException.ThrowIfNull(first);
+        ArgumentNullException.ThrowIfNull(remaining);
+        _first = first;
+        _roots = [first, .. remaining];
+        if (_roots.Any(static root => root is null))
+            throw new ArgumentException("A complete-target root sequence cannot contain null nodes.", nameof(remaining));
+    }
+
+    public void UpdateRoots(IEnumerable<RenderNode> remaining)
+    {
+        ArgumentNullException.ThrowIfNull(remaining);
+        RenderNode[] roots = [_first, .. remaining];
+        if (roots.Any(static root => root is null))
+            throw new ArgumentException("A complete-target root sequence cannot contain null nodes.", nameof(remaining));
+        _roots = roots;
+    }
+
+    public override ReadOnlySpan<RenderNode> ChildNodes => _roots;
+
+    public override void Process(RenderNodeContext context)
+    {
+        foreach (RenderNode root in _roots)
+            context.PublishRange(context.RecordSubtree(root));
     }
 }
