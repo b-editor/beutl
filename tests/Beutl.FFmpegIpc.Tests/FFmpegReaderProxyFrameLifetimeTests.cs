@@ -21,6 +21,7 @@ namespace Beutl.FFmpegIpc.Tests;
 public class FFmpegReaderProxyFrameLifetimeTests
 {
     // DecodingHandler.DefaultSlotCount is 4; reading well past that wraps the ring several times.
+    private const int RingSlots = 4;
     private const int ReadsAfterHold = 12;
 
     [Test]
@@ -34,13 +35,19 @@ public class FFmpegReaderProxyFrameLifetimeTests
         {
             byte[] pixelsWhenRead = held!.Value.GetPixelSpan().ToArray();
 
+            int recycled = 0;
             for (int frame = 1; frame <= ReadsAfterHold; frame++)
             {
                 if (reader.ReadVideo(frame, out Ref<Bitmap>? other))
                 {
                     other.Dispose();
+                    recycled++;
                 }
             }
+
+            // Fewer reads than the ring has slots would never come back around to the held one.
+            Assert.That(recycled, Is.GreaterThanOrEqualTo(RingSlots),
+                "the fixture did not serve enough frames to wrap the ring");
 
             byte[] pixelsAfterLaterReads = held.Value.GetPixelSpan().ToArray();
 

@@ -379,28 +379,12 @@ public sealed class FFmpegReader : MediaReader
 
         // Grab by position, not by count: a grab does not always advance exactly one frame (dropped
         // or duplicated timestamps, reordered pictures), so counting grabs drifts off the request.
-        // A file whose timestamps never advance would spin here forever, so stop once grabbing has
-        // stopped moving the position.
-        const int MaxStalledGrabs = 16;
-        long lastPosition = long.MinValue;
-        int stalledGrabs = 0;
+        // A run of pictures whose timestamps round to the same position is finite, and GrabVideo
+        // reports false at end of stream, so the loop cannot outlive the input.
         while (_videoNowFrame < frame)
         {
             if (!GrabVideo())
                 return null;
-
-            if (_videoNowFrame > lastPosition)
-            {
-                lastPosition = _videoNowFrame;
-                stalledGrabs = 0;
-            }
-            else if (++stalledGrabs > MaxStalledGrabs)
-            {
-                _logger.LogWarning(
-                    "Video decode stopped advancing at frame {Position} while seeking to {Frame}.",
-                    _videoNowFrame, frame);
-                return null;
-            }
         }
 
         // Landing later than the request means no decoded picture maps to that frame number — a
@@ -409,7 +393,10 @@ public sealed class FFmpegReader : MediaReader
         // same position, under the reader lock.
         if (_videoNowFrame != frame)
         {
-            _logger.LogWarning(
+            // Expected on a variable frame rate or a stream with timestamp gaps, and it can hold for
+            // long stretches of frames, so it stays out of the warning stream the worker routes
+            // through its locked stdout logger on every decode and prefetch.
+            _logger.LogDebug(
                 "Video decode landed on frame {Position} for requested frame {Frame}.",
                 _videoNowFrame, frame);
         }
