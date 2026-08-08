@@ -20,20 +20,33 @@ public class PreviewFrameCacheSizingTests
     }
 
     [Test]
-    public void DeriveCacheSize_OddDenominator_IsBumpedToEven()
+    public void DeriveCacheSize_OddDenominator_KeepsTheOddReduction()
     {
-        // scale = 1/3 -> den = 3 -> bumped to 4 -> 480x270.
+        // scale = 1/3 -> den = 3 -> 640x360, matching the panel exactly. Rounding the denominator
+        // up to 4 would store 480x270 and show a softer picture than a freshly rendered frame.
         PixelSize? size = PreviewFrameCacheSizing.DeriveCacheSize(new Size(640, 360), Frame);
-        Assert.That(size, Is.EqualTo(new PixelSize(480, 270)));
+        Assert.That(size, Is.EqualTo(new PixelSize(640, 360)));
     }
 
     [Test]
-    public void DeriveCacheSize_PanelJustBelowFrameSize_StillCachesAtHalf()
+    public void DeriveCacheSize_PanelJustBelowFrameSize_DoesNotReduce()
     {
-        // scale 0.9 -> den = (int)(1 / 0.9) = 1 -> bumped to 2: any panel smaller than the frame
-        // caches at most at half size (matches the historical MaxFrameSize setter).
-        PixelSize? size = PreviewFrameCacheSizing.DeriveCacheSize(new Size(1728, 972), Frame);
-        Assert.That(size, Is.EqualTo(new PixelSize(960, 540)));
+        // scale 0.9 -> den = 1: halving here would show 960x540 on a 1728x972 panel.
+        Assert.That(PreviewFrameCacheSizing.DeriveCacheSize(new Size(1728, 972), Frame), Is.Null);
+    }
+
+    [Test]
+    public void DeriveCacheSize_NeverStoresLessThanThePanelShows()
+    {
+        for (int panelWidth = 16; panelWidth <= 1920; panelWidth += 7)
+        {
+            var panel = new Size(panelWidth, panelWidth * 1080f / 1920f);
+            PixelSize? size = PreviewFrameCacheSizing.DeriveCacheSize(panel, Frame);
+            if (size is not { } cache) continue;
+
+            Assert.That(cache.Width, Is.GreaterThanOrEqualTo((int)panel.Width),
+                $"panel {panelWidth}px would be upscaled from a {cache.Width}px entry");
+        }
     }
 
     [Test]
