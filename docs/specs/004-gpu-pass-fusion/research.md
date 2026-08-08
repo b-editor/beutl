@@ -16,12 +16,12 @@ There are no unresolved design questions in this planning phase.
 
 The solid-brush experiment that supplied a linear-sRGB `SKColorF` shader did not
 remove CurrentPixel quantization on the authoritative MoltenVK backend. An authored
-sRGB red byte of 51 reached both an identity CurrentPixel stage and a paired inverse
-CurrentPixel chain as linear `8 / 255` (`0.03137207`), which encodes back to sRGB byte 49.
-Because the identity and paired-transform paths agree, the loss occurs at the backend
-materialization boundary before the CurrentPixel operations, not in the transform or
+sRGB red byte of 51 reached both an identity CurrentPixel stage and a two-Invert
+chain as linear `8 / 255` (`0.03137207`), which encodes back to sRGB byte 49.
+Because the identity and double-Invert paths agree, the loss occurs at the backend
+materialization boundary before the CurrentPixel operations, not in Invert or
 fusion. A brush shader cannot bypass that boundary, so solid brushes retain their
-plain `SKColor` path. The regression compares the paired transform with an identity stage
+plain `SKColor` path. The regression compares double-Invert with an identity stage
 that crosses the same materialization boundary instead of imposing a
 backend-dependent direct-draw byte.
 
@@ -30,7 +30,7 @@ exporter appended a custom `FeatureEvidenceShaderNode` directly to the opaque
 Scene3D fragment. That helper requires a materializable value and therefore
 correctly triggered the planner guardrail. Production `FilterEffectRenderNode`
 inserts the finite Layer required to convert that backend fragment into a 2D value.
-The workload now attaches the existing 65% color-inversion filter to `Scene3D`, matching
+The workload now attaches the original `Invert(65%)` filter to `Scene3D`, matching
 the pinned generator and exercising the production boundary. Repairing the harness
 also exposed that the frozen tail blob is entirely transparent: the legacy
 generator recorded the old executor dropping the filtered 3D output. The live

@@ -1,71 +1,344 @@
 ﻿using System.ComponentModel.DataAnnotations;
+using System.Numerics;
 using Beutl.Engine;
+using Beutl.Graphics.Rendering;
 using Beutl.Language;
-using Beutl.Logging;
 using Beutl.Media;
 using Beutl.Utilities;
-using Microsoft.Extensions.Logging;
 using SkiaSharp;
 
 namespace Beutl.Graphics.Effects;
 
 public abstract partial class DisplacementMapTransform : EngineObject
 {
+    private const string LegacyDrawableMapShaderSource =
+        """
+        uniform shader src;
+        uniform shader uDisplacementMap;
+
+        uniform int uMode;
+        uniform float2 uVector;
+        uniform float uAngle;
+        uniform float2 uPivot;
+        uniform int uChannel;
+        uniform int uSigned;
+
+        float getDisplacement(half4 dispColor) {
+            float d;
+            if (uChannel == 0) d = dispColor.a;
+            else {
+                if (uChannel == 1) d = dot(dispColor.rgb, half3(0.2126, 0.7152, 0.0722));
+                else if (uChannel == 2) d = dispColor.r;
+                else if (uChannel == 3) d = dispColor.g;
+                else d = dispColor.b;
+                d = d * dispColor.a;
+            }
+            if (uSigned != 0) d = d * 2.0 - 1.0;
+            return d;
+        }
+
+        half4 main(float2 coord) {
+            float disp = getDisplacement(uDisplacementMap.eval(coord));
+            if (uMode == 0) {
+                return src.eval(coord + uVector * disp);
+            }
+            if (uMode == 1) {
+                float2 scale = max(
+                    mix(float2(1.0, 1.0), uVector, disp),
+                    float2(0.001, 0.001));
+                return src.eval((coord - uPivot) / scale + uPivot);
+            }
+
+            float2 rotation = float2(cos(uAngle * disp), sin(uAngle * disp));
+            float2 uv = coord - uPivot;
+            uv = float2(
+                uv.x * rotation.x - uv.y * rotation.y,
+                uv.x * rotation.y + uv.y * rotation.x);
+            return src.eval(uv + uPivot);
+        }
+        """;
+
+    private static readonly Lazy<SKSLShader> s_legacyDrawableMapShader =
+        new(() => SKSLShader.Create(LegacyDrawableMapShaderSource));
+
     public partial class Resource
     {
         internal abstract void ApplyTo(
             FilterEffectBrush displacementMap, GradientSpreadMethod spreadMethod,
             DisplacementMapChannel channel, bool signed, FilterEffectContext context);
     }
+
+    private protected static RenderResource<Brush.Resource> BorrowDisplacementMap(
+        FilterEffectContext context,
+        FilterEffectBrush displacementMap)
+    {
+        Brush.Resource resource = displacementMap.Resource
+            ?? throw new ArgumentException(
+                "The displacement-map handle refers to no brush.",
+                nameof(displacementMap));
+        return context.Borrow(resource, displacementMap.Identity, resource.Version);
+    }
+
+    private protected static void AddDisplacementBindings(
+        ShaderBindingBuilder bindings,
+        RenderResource<Brush.Resource> displacementMap,
+        DisplacementMapChannel channel,
+        bool signed)
+    {
+        bindings.Resource(
+            "uDisplacementMap",
+            displacementMap,
+            ShaderResourceCoordinateSpace.OutputDevice,
+            CreateDisplacementMapShader,
+            structuralKey: typeof(DisplacementMapTransform),
+            cachePolicy: ShaderBindingCachePolicy.ReuseFromSnapshot);
+        bindings.Uniform("uChannel", (int)channel);
+        bindings.Uniform("uSigned", signed ? 1 : 0);
+    }
+
+    private protected static void BindScaledVector(
+        ShaderUniformWriter writer,
+        Vector2 value,
+        ShaderExecutionContext context)
+        => writer.Set(value * context.WorkingScale);
+
+    private protected static void BindPivot(
+        ShaderUniformWriter writer,
+        Vector2 center,
+        ShaderExecutionContext context)
+    {
+        var semanticOrigin = context.OutputBounds.Position - context.LogicalOrigin;
+        writer.Set(new Vector2(
+            (semanticOrigin.X + context.OutputBounds.Width / 2 + center.X) * context.WorkingScale,
+            (semanticOrigin.Y + context.OutputBounds.Height / 2 + center.Y) * context.WorkingScale));
+    }
+
+    private protected static bool TryApplyLegacyDrawableMap(
+        FilterEffectContext context,
+        FilterEffectBrush displacementMap,
+        GradientSpreadMethod spreadMethod,
+        DisplacementMapChannel channel,
+        bool signed,
+        DrawableMapTransformKind kind,
+        Vector2 vector,
+        float angle,
+        Vector2 center)
+    {
+        if (ResolveDrawableBrush(displacementMap.Resource) is null)
+            return false;
+
+        context.CustomEffect(
+            new LegacyDrawableMapData(
+                displacementMap,
+                spreadMethod,
+                channel,
+                signed,
+                kind,
+                vector,
+                angle,
+                center),
+            ApplyLegacyDrawableMap,
+            static (_, bounds) => bounds);
+        return true;
+    }
+
+    private static DrawableBrush.Resource? ResolveDrawableBrush(Brush.Resource? brush)
+    {
+        var seen = new HashSet<Brush.Resource>(ReferenceEqualityComparer.Instance);
+        while (brush is BrushPresenter.Resource presenter)
+        {
+            if (!seen.Add(brush))
+            {
+                throw new InvalidOperationException(
+                    "A BrushPresenter cycle was detected while lowering a displacement map.");
+            }
+
+            if (presenter.Target is not { } target)
+                return null;
+            brush = target;
+        }
+
+        return brush as DrawableBrush.Resource;
+    }
+
+    private static void ApplyLegacyDrawableMap(
+        LegacyDrawableMapData data,
+        CustomFilterEffectContext context)
+    {
+        for (int i = 0; i < context.Targets.Count; i++)
+        {
+            EffectTarget effectTarget = context.Targets[i];
+            EffectTarget output = context.CreateTargetLike(effectTarget);
+            try
+            {
+                float density = output.Scale.Value;
+                using SKShader displacementMapShaderRaw = context.CreateBrushShader(
+                        data.Map,
+                        new Rect(effectTarget.Bounds.Size),
+                        BlendMode.SrcOver,
+                        density)
+                    ?? throw new InvalidOperationException(
+                        "DrawableBrush legacy materialization did not produce a displacement-map shader.");
+
+                Vector semanticOrigin = effectTarget.Bounds.Position - effectTarget.RasterBounds.Position;
+                SKMatrix mapMatrix = SKMatrix.CreateScaleTranslation(
+                    density,
+                    density,
+                    (float)semanticOrigin.X * density,
+                    (float)semanticOrigin.Y * density);
+                using SKShader? mappedDisplacementMap = mapMatrix.IsIdentity
+                    ? null
+                    : displacementMapShaderRaw.WithLocalMatrix(mapMatrix);
+                SKShader displacementMapShader = mappedDisplacementMap ?? displacementMapShaderRaw;
+
+                using SKSLShaderBuilder builder = s_legacyDrawableMapShader.Value.CreateBuilder();
+                builder.Children["uDisplacementMap"] = displacementMapShader;
+                builder.Uniforms["uMode"] = (int)data.Kind;
+                builder.Uniforms["uVector"] = data.Kind == DrawableMapTransformKind.Translate
+                    ? new SKPoint(data.Vector.X * density, data.Vector.Y * density)
+                    : new SKPoint(data.Vector.X, data.Vector.Y);
+                builder.Uniforms["uAngle"] = data.Angle;
+                builder.Uniforms["uPivot"] = new SKPoint(
+                    (float)(semanticOrigin.X + effectTarget.Bounds.Width / 2 + data.Center.X) * density,
+                    (float)(semanticOrigin.Y + effectTarget.Bounds.Height / 2 + data.Center.Y) * density);
+                builder.Uniforms["uChannel"] = (int)data.Channel;
+                builder.Uniforms["uSigned"] = data.Signed ? 1 : 0;
+
+                SKShaderTileMode tileMode = data.SpreadMethod.ToSKShaderTileMode();
+                bool rendered = context.UseMappedInputShader(
+                    effectTarget,
+                    output,
+                    (Builder: builder, Shader: s_legacyDrawableMapShader.Value, Context: context, Output: output),
+                    static (state, mappedSource) =>
+                    {
+                        state.Builder.Children["src"] = mappedSource;
+                        state.Shader.RenderToTarget(state.Context, state.Builder, state.Output);
+                    },
+                    tileMode,
+                    tileMode);
+                if (!rendered)
+                {
+                    output.Dispose();
+                    continue;
+                }
+
+                effectTarget.Dispose();
+                context.Targets[i] = output;
+            }
+            catch
+            {
+                output.Dispose();
+                throw;
+            }
+        }
+    }
+
+    private static void CreateDisplacementMapShader(
+        ShaderResourceWriter writer,
+        Brush.Resource displacementMap,
+        ShaderExecutionContext context)
+    {
+        SKShader? shader = new BrushConstructor(
+                new Rect(context.OutputBounds.Size),
+                displacementMap,
+                BlendMode.SrcOver,
+                context.WorkingScale,
+                context.MaxWorkingScale,
+                context.Intent)
+            .CreateShader();
+        if (shader is null)
+        {
+            writer.Set(SKShader.CreateColor(SKColors.Transparent));
+            return;
+        }
+
+        SKShader? mapped = null;
+        try
+        {
+            var semanticOrigin = context.OutputBounds.Position - context.LogicalOrigin;
+            SKMatrix localMatrix = SKMatrix.CreateScaleTranslation(
+                context.WorkingScale,
+                context.WorkingScale,
+                semanticOrigin.X * context.WorkingScale,
+                semanticOrigin.Y * context.WorkingScale);
+            if (localMatrix.IsIdentity)
+            {
+                writer.Set(shader);
+                shader = null;
+                return;
+            }
+
+            mapped = shader.WithLocalMatrix(localMatrix);
+            if (mapped is null)
+            {
+                writer.Set(shader);
+                shader = null;
+            }
+            else
+            {
+                writer.Set(mapped);
+                mapped = null;
+            }
+        }
+        finally
+        {
+            mapped?.Dispose();
+            shader?.Dispose();
+        }
+    }
+
+    private protected enum DrawableMapTransformKind : byte
+    {
+        Translate,
+        Scale,
+        Rotation,
+    }
+
+    private readonly record struct LegacyDrawableMapData(
+        FilterEffectBrush Map,
+        GradientSpreadMethod SpreadMethod,
+        DisplacementMapChannel Channel,
+        bool Signed,
+        DrawableMapTransformKind Kind,
+        Vector2 Vector,
+        float Angle,
+        Vector2 Center);
 }
 
 [Display(Name = nameof(GraphicsStrings.TranslateTransform), ResourceType = typeof(GraphicsStrings))]
 public partial class DisplacementMapTranslateTransform : DisplacementMapTransform
 {
-    private static readonly ILogger s_logger = Log.CreateLogger<DisplacementMapTranslateTransform>();
-    private static readonly SKSLShader? s_shader;
+    private const string ShaderSource =
+        """
+        uniform shader src;
+        uniform shader uDisplacementMap;
 
-    static DisplacementMapTranslateTransform()
-    {
-        // SKSLコード（child shaderとして uBaseTexture と uDisplacementMap を使用）
-        string sksl =
-            """
-            uniform shader uBaseTexture;
-            uniform shader uDisplacementMap;
+        uniform float2 uTranslation;
+        uniform int uChannel;
+        uniform int uSigned;
 
-            uniform float2 uTranslation;
-            uniform float2 uPivot;
-            uniform int uChannel;
-            uniform int uSigned;
-
-            float getDisplacement(half4 dispColor) {
-                float d;
-                if (uChannel == 0) d = dispColor.a;
-                else {
-                    if (uChannel == 1) d = dot(dispColor.rgb, half3(0.2126, 0.7152, 0.0722));
-                    else if (uChannel == 2) d = dispColor.r;
-                    else if (uChannel == 3) d = dispColor.g;
-                    else d = dispColor.b;
-                    d = d * dispColor.a;
-                }
-                if (uSigned != 0) d = d * 2.0 - 1.0;
-                return d;
+        float getDisplacement(half4 dispColor) {
+            float d;
+            if (uChannel == 0) d = dispColor.a;
+            else {
+                if (uChannel == 1) d = dot(dispColor.rgb, half3(0.2126, 0.7152, 0.0722));
+                else if (uChannel == 2) d = dispColor.r;
+                else if (uChannel == 3) d = dispColor.g;
+                else d = dispColor.b;
+                d = d * dispColor.a;
             }
-
-            half4 main(float2 coord) {
-                half4 dispColor = uDisplacementMap.eval(coord);
-                float2 offset = uTranslation * getDisplacement(dispColor);
-
-                float2 uv = coord + offset;
-                return uBaseTexture.eval(uv);
-            }
-            """;
-
-        if (!SKSLShader.TryCreate(sksl, out s_shader, out string? errorText))
-        {
-            s_logger.LogError("Failed to compile SKSL: {ErrorText}", errorText);
+            if (uSigned != 0) d = d * 2.0 - 1.0;
+            return d;
         }
-    }
+
+        half4 main(float2 coord) {
+            half4 dispColor = uDisplacementMap.eval(coord);
+            float2 offset = uTranslation * getDisplacement(dispColor);
+
+            float2 uv = coord + offset;
+            return src.eval(uv);
+        }
+        """;
 
     public DisplacementMapTranslateTransform()
     {
@@ -84,49 +357,35 @@ public partial class DisplacementMapTranslateTransform : DisplacementMapTransfor
             FilterEffectBrush displacementMap, GradientSpreadMethod spreadMethod,
             DisplacementMapChannel channel, bool signed, FilterEffectContext context)
         {
-            if (s_shader is null) throw new InvalidOperationException("Failed to compile SKSL.");
+            if (TryApplyLegacyDrawableMap(
+                    context,
+                    displacementMap,
+                    spreadMethod,
+                    channel,
+                    signed,
+                    DrawableMapTransformKind.Translate,
+                    new Vector2(X, Y),
+                    angle: 0,
+                    center: default))
+            {
+                return;
+            }
 
-            context.CustomEffect((displacementMap, this, spreadMethod, channel, signed, X, Y),
-                (d, c) =>
+            RenderResource<Brush.Resource> map = BorrowDisplacementMap(context, displacementMap);
+            context.Shader(ShaderDescription.WholeSource(
+                ShaderSource,
+                RenderBoundsContract.FullInput,
+                bindings =>
                 {
-                    var (map, _, sm, ch, isSigned, x, y) = d;
-                    for (int i = 0; i < c.Targets.Count; i++)
-                    {
-                        using EffectTarget effectTarget = c.Targets[i];
-                        var renderTarget = effectTarget.RenderTarget!;
-                        // Use the clamped density so uniforms / map brush match the buffer.
-                        float w = c.ResolveTargetDensity(effectTarget.Bounds);
-                        using var displacementMapShaderRaw = c.CreateBrushShader(
-                            map,
-                            new Rect(effectTarget.Bounds.Size),
-                            BlendMode.SrcOver,
-                            w);
-                        // Scale the map's local matrix by w so it cross-samples at device-px coords.
-                        using SKShader? displacementMapShaderScaled =
-                            w != 1f && displacementMapShaderRaw is { } rawShader
-                                ? rawShader.WithLocalMatrix(SKMatrix.CreateScale(w, w))
-                                : null;
-                        SKShader? displacementMapShader = displacementMapShaderScaled ?? displacementMapShaderRaw;
-
-                        using var image = renderTarget.Value.Snapshot();
-                        using var baseShader = image.ToShader(sm.ToSKShaderTileMode(), sm.ToSKShaderTileMode());
-
-                        // SKRuntimeShaderBuilderを作成して、child shaderとuniformを設定
-                        var builder = s_shader.CreateBuilder();
-
-                        // child shaderとしてテクスチャ用のシェーダーを設定
-                        builder.Children["uBaseTexture"] = baseShader;
-                        builder.Children["uDisplacementMap"] = displacementMapShader;
-
-                        // Absolute-px translation scales by w (shader operates in device px).
-                        builder.Uniforms["uTranslation"] = new SKPoint(x * w, y * w);
-                        builder.Uniforms["uChannel"] = (int)ch;
-                        builder.Uniforms["uSigned"] = isSigned ? 1 : 0;
-
-                        // 新しいターゲットに適用
-                        c.Targets[i] = s_shader.ApplyToNewTarget(c, builder, effectTarget.Bounds);
-                    }
-                });
+                    AddDisplacementBindings(bindings, map, channel, signed);
+                    bindings.Uniform(
+                        "uTranslation",
+                        new Vector2(X, Y),
+                        BindScaledVector,
+                        structuralKey: typeof(DisplacementMapTranslateTransform),
+                        cachePolicy: ShaderBindingCachePolicy.ReuseFromSnapshot);
+                },
+                spreadMethod.ToSKShaderTileMode()));
         }
     }
 }
@@ -134,49 +393,38 @@ public partial class DisplacementMapTranslateTransform : DisplacementMapTransfor
 [Display(Name = nameof(GraphicsStrings.Scale), ResourceType = typeof(GraphicsStrings))]
 public partial class DisplacementMapScaleTransform : DisplacementMapTransform
 {
-    private static readonly ILogger s_logger = Log.CreateLogger<DisplacementMapScaleTransform>();
-    private static readonly SKSLShader? s_shader;
+    private const string ShaderSource =
+        """
+        uniform shader src;
+        uniform shader uDisplacementMap;
 
-    static DisplacementMapScaleTransform()
-    {
-        string sksl =
-            """
-            uniform shader uBaseTexture;
-            uniform shader uDisplacementMap;
+        uniform float2 uScale;
+        uniform float2 uPivot;
+        uniform int uChannel;
+        uniform int uSigned;
 
-            uniform float2 uScale;
-            uniform float2 uPivot;
-            uniform int uChannel;
-            uniform int uSigned;
-
-            float getDisplacement(half4 dispColor) {
-                float d;
-                if (uChannel == 0) d = dispColor.a;
-                else {
-                    if (uChannel == 1) d = dot(dispColor.rgb, half3(0.2126, 0.7152, 0.0722));
-                    else if (uChannel == 2) d = dispColor.r;
-                    else if (uChannel == 3) d = dispColor.g;
-                    else d = dispColor.b;
-                    d = d * dispColor.a;
-                }
-                if (uSigned != 0) d = d * 2.0 - 1.0;
-                return d;
+        float getDisplacement(half4 dispColor) {
+            float d;
+            if (uChannel == 0) d = dispColor.a;
+            else {
+                if (uChannel == 1) d = dot(dispColor.rgb, half3(0.2126, 0.7152, 0.0722));
+                else if (uChannel == 2) d = dispColor.r;
+                else if (uChannel == 3) d = dispColor.g;
+                else d = dispColor.b;
+                d = d * dispColor.a;
             }
-
-            half4 main(float2 coord) {
-                half4 dispColor = uDisplacementMap.eval(coord);
-                float2 s = max(mix(float2(1.0, 1.0), uScale, getDisplacement(dispColor)), float2(0.001, 0.001));
-
-                float2 uv = (coord - uPivot) / s + uPivot;
-                return uBaseTexture.eval(uv);
-            }
-            """;
-
-        if (!SKSLShader.TryCreate(sksl, out s_shader, out string? errorText))
-        {
-            s_logger.LogError("Failed to compile SKSL: {ErrorText}", errorText);
+            if (uSigned != 0) d = d * 2.0 - 1.0;
+            return d;
         }
-    }
+
+        half4 main(float2 coord) {
+            half4 dispColor = uDisplacementMap.eval(coord);
+            float2 s = max(mix(float2(1.0, 1.0), uScale, getDisplacement(dispColor)), float2(0.001, 0.001));
+
+            float2 uv = (coord - uPivot) / s + uPivot;
+            return src.eval(uv);
+        }
+        """;
 
     public DisplacementMapScaleTransform()
     {
@@ -204,54 +452,42 @@ public partial class DisplacementMapScaleTransform : DisplacementMapTransform
             FilterEffectBrush displacementMap, GradientSpreadMethod spreadMethod,
             DisplacementMapChannel channel, bool signed, FilterEffectContext context)
         {
-            if (s_shader is null) throw new InvalidOperationException("Failed to compile SKSL.");
+            if (TryApplyLegacyDrawableMap(
+                    context,
+                    displacementMap,
+                    spreadMethod,
+                    channel,
+                    signed,
+                    DrawableMapTransformKind.Scale,
+                    new Vector2(
+                        Scale * ScaleX / 10000,
+                        Scale * ScaleY / 10000),
+                    angle: 0,
+                    center: new Vector2(CenterX, CenterY)))
+            {
+                return;
+            }
 
-            context.CustomEffect(
-                (displacementMap, spreadMethod, channel, signed, x: Scale * ScaleX / 10000,
-                    y: Scale * ScaleY / 10000, center: new Point(CenterX, CenterY)),
-                (d, c) =>
+            RenderResource<Brush.Resource> map = BorrowDisplacementMap(context, displacementMap);
+            context.Shader(ShaderDescription.WholeSource(
+                ShaderSource,
+                RenderBoundsContract.FullInput,
+                bindings =>
                 {
-                    var (map, sm, ch, isSigned, scaleX, scaleY, center) = d;
-                    for (int i = 0; i < c.Targets.Count; i++)
-                    {
-                        using var effectTarget = c.Targets[i];
-                        var renderTarget = effectTarget.RenderTarget!;
-                        // Use the clamped density so uniforms / map brush match the buffer.
-                        float w = c.ResolveTargetDensity(effectTarget.Bounds);
-                        using var displacementMapShaderRaw = c.CreateBrushShader(
-                            map,
-                            new Rect(effectTarget.Bounds.Size),
-                            BlendMode.SrcOver,
-                            w);
-                        // Scale the map's local matrix by w so it cross-samples at device-px coords.
-                        using SKShader? displacementMapShaderScaled =
-                            w != 1f && displacementMapShaderRaw is { } rawShader
-                                ? rawShader.WithLocalMatrix(SKMatrix.CreateScale(w, w))
-                                : null;
-                        SKShader? displacementMapShader = displacementMapShaderScaled ?? displacementMapShaderRaw;
-
-                        using var image = renderTarget.Value.Snapshot();
-                        using var baseShader = image.ToShader(sm.ToSKShaderTileMode(), sm.ToSKShaderTileMode());
-
-                        // SKRuntimeShaderBuilderを作成して、child shaderとuniformを設定
-                        var builder = s_shader.CreateBuilder();
-
-                        // child shaderとしてテクスチャ用のシェーダーを設定
-                        builder.Children["uBaseTexture"] = baseShader;
-                        builder.Children["uDisplacementMap"] = displacementMapShader;
-
-                        // uScale is density-independent; the pivot maps logical-px to device-px, so it scales by w.
-                        builder.Uniforms["uScale"] = new SKPoint(scaleX, scaleY);
-                        builder.Uniforms["uPivot"] = new SKPoint(
-                            (effectTarget.Bounds.Width / 2 + center.X) * w,
-                            (effectTarget.Bounds.Height / 2 + center.Y) * w);
-                        builder.Uniforms["uChannel"] = (int)ch;
-                        builder.Uniforms["uSigned"] = isSigned ? 1 : 0;
-
-                        // 新しいターゲットに適用
-                        c.Targets[i] = s_shader.ApplyToNewTarget(c, builder, effectTarget.Bounds);
-                    }
-                });
+                    AddDisplacementBindings(bindings, map, channel, signed);
+                    bindings.Uniform(
+                        "uScale",
+                        new Vector2(
+                            Scale * ScaleX / 10000,
+                            Scale * ScaleY / 10000));
+                    bindings.Uniform(
+                        "uPivot",
+                        new Vector2(CenterX, CenterY),
+                        BindPivot,
+                        structuralKey: typeof(DisplacementMapScaleTransform),
+                        cachePolicy: ShaderBindingCachePolicy.ReuseFromSnapshot);
+                },
+                spreadMethod.ToSKShaderTileMode()));
         }
     }
 }
@@ -259,52 +495,41 @@ public partial class DisplacementMapScaleTransform : DisplacementMapTransform
 [Display(Name = nameof(GraphicsStrings.Rotation), ResourceType = typeof(GraphicsStrings))]
 public partial class DisplacementMapRotationTransform : DisplacementMapTransform
 {
-    private static readonly ILogger s_logger = Log.CreateLogger<DisplacementMapRotationTransform>();
-    private static readonly SKSLShader? s_shader;
+    private const string ShaderSource =
+        """
+        uniform shader src;
+        uniform shader uDisplacementMap;
 
-    static DisplacementMapRotationTransform()
-    {
-        string sksl =
-            """
-            uniform shader uBaseTexture;
-            uniform shader uDisplacementMap;
+        uniform float uAngle;
+        uniform float2 uPivot;
+        uniform int uChannel;
+        uniform int uSigned;
 
-            uniform float uAngle;
-            uniform float2 uPivot;
-            uniform int uChannel;
-            uniform int uSigned;
-
-            float getDisplacement(half4 dispColor) {
-                float d;
-                if (uChannel == 0) d = dispColor.a;
-                else {
-                    if (uChannel == 1) d = dot(dispColor.rgb, half3(0.2126, 0.7152, 0.0722));
-                    else if (uChannel == 2) d = dispColor.r;
-                    else if (uChannel == 3) d = dispColor.g;
-                    else d = dispColor.b;
-                    d = d * dispColor.a;
-                }
-                if (uSigned != 0) d = d * 2.0 - 1.0;
-                return d;
+        float getDisplacement(half4 dispColor) {
+            float d;
+            if (uChannel == 0) d = dispColor.a;
+            else {
+                if (uChannel == 1) d = dot(dispColor.rgb, half3(0.2126, 0.7152, 0.0722));
+                else if (uChannel == 2) d = dispColor.r;
+                else if (uChannel == 3) d = dispColor.g;
+                else d = dispColor.b;
+                d = d * dispColor.a;
             }
-
-            half4 main(float2 coord) {
-                half4 dispColor = uDisplacementMap.eval(coord);
-                float disp = getDisplacement(dispColor);
-                float2 offset = float2(cos(uAngle * disp), sin(uAngle * disp));
-
-                float2 uv = coord - uPivot;
-                float2 rotated = float2(uv.x * offset.x - uv.y * offset.y, uv.x * offset.y + uv.y * offset.x);
-                uv = rotated + uPivot;
-                return uBaseTexture.eval(uv);
-            }
-            """;
-
-        if (!SKSLShader.TryCreate(sksl, out s_shader, out string? errorText))
-        {
-            s_logger.LogError("Failed to compile SKSL: {ErrorText}", errorText);
+            if (uSigned != 0) d = d * 2.0 - 1.0;
+            return d;
         }
-    }
+
+        half4 main(float2 coord) {
+            half4 dispColor = uDisplacementMap.eval(coord);
+            float disp = getDisplacement(dispColor);
+            float2 offset = float2(cos(uAngle * disp), sin(uAngle * disp));
+
+            float2 uv = coord - uPivot;
+            float2 rotated = float2(uv.x * offset.x - uv.y * offset.y, uv.x * offset.y + uv.y * offset.x);
+            uv = rotated + uPivot;
+            return src.eval(uv);
+        }
+        """;
 
     public DisplacementMapRotationTransform()
     {
@@ -326,53 +551,36 @@ public partial class DisplacementMapRotationTransform : DisplacementMapTransform
             FilterEffectBrush displacementMap, GradientSpreadMethod spreadMethod,
             DisplacementMapChannel channel, bool signed, FilterEffectContext context)
         {
-            if (s_shader is null) throw new InvalidOperationException("Failed to compile SKSL.");
+            if (TryApplyLegacyDrawableMap(
+                    context,
+                    displacementMap,
+                    spreadMethod,
+                    channel,
+                    signed,
+                    DrawableMapTransformKind.Rotation,
+                    vector: default,
+                    angle: MathUtilities.Deg2Rad(Rotation),
+                    center: new Vector2(CenterX, CenterY)))
+            {
+                return;
+            }
 
-            context.CustomEffect(
-                (displacementMap, spreadMethod, channel, signed, Rotation, new Point(CenterX, CenterY)),
-                (d, c) =>
+            RenderResource<Brush.Resource> map = BorrowDisplacementMap(context, displacementMap);
+            context.Shader(ShaderDescription.WholeSource(
+                ShaderSource,
+                RenderBoundsContract.FullInput,
+                bindings =>
                 {
-                    var (map, sm, ch, isSigned, rotation, center) = d;
-                    for (int i = 0; i < c.Targets.Count; i++)
-                    {
-                        using var effectTarget = c.Targets[i];
-                        var renderTarget = effectTarget.RenderTarget!;
-                        // Use the clamped density so uniforms / map brush match the buffer.
-                        float w = c.ResolveTargetDensity(effectTarget.Bounds);
-                        using var displacementMapShaderRaw = c.CreateBrushShader(
-                            map,
-                            new Rect(effectTarget.Bounds.Size),
-                            BlendMode.SrcOver,
-                            w);
-                        // Scale the map's local matrix by w so it cross-samples at device-px coords.
-                        using SKShader? displacementMapShaderScaled =
-                            w != 1f && displacementMapShaderRaw is { } rawShader
-                                ? rawShader.WithLocalMatrix(SKMatrix.CreateScale(w, w))
-                                : null;
-                        SKShader? displacementMapShader = displacementMapShaderScaled ?? displacementMapShaderRaw;
-
-                        using var image = renderTarget.Value.Snapshot();
-                        using var baseShader = image.ToShader(sm.ToSKShaderTileMode(), sm.ToSKShaderTileMode());
-
-                        // SKRuntimeShaderBuilderを作成して、child shaderとuniformを設定
-                        var builder = s_shader.CreateBuilder();
-
-                        // child shaderとしてテクスチャ用のシェーダーを設定
-                        builder.Children["uBaseTexture"] = baseShader;
-                        builder.Children["uDisplacementMap"] = displacementMapShader;
-
-                        // Pivot maps logical-px to device-px (scales by w); the angle is density-independent.
-                        builder.Uniforms["uAngle"] = MathUtilities.Deg2Rad(rotation);
-                        builder.Uniforms["uPivot"] = new SKPoint(
-                            (effectTarget.Bounds.Width / 2 + center.X) * w,
-                            (effectTarget.Bounds.Height / 2 + center.Y) * w);
-                        builder.Uniforms["uChannel"] = (int)ch;
-                        builder.Uniforms["uSigned"] = isSigned ? 1 : 0;
-
-                        // 新しいターゲットに適用
-                        c.Targets[i] = s_shader.ApplyToNewTarget(c, builder, effectTarget.Bounds);
-                    }
-                });
+                    AddDisplacementBindings(bindings, map, channel, signed);
+                    bindings.Uniform("uAngle", MathUtilities.Deg2Rad(Rotation));
+                    bindings.Uniform(
+                        "uPivot",
+                        new Vector2(CenterX, CenterY),
+                        BindPivot,
+                        structuralKey: typeof(DisplacementMapRotationTransform),
+                        cachePolicy: ShaderBindingCachePolicy.ReuseFromSnapshot);
+                },
+                spreadMethod.ToSKShaderTileMode()));
         }
     }
 }

@@ -82,39 +82,74 @@ public sealed partial class SKSLScriptEffect : FilterEffect, IScriptCompilableEf
     {
         for (int i = 0; i < c.Targets.Count; i++)
         {
-            using var effectTarget = c.Targets[i];
-            var renderTarget = effectTarget.RenderTarget!;
+            EffectTarget effectTarget = c.Targets[i];
+            EffectTarget output = c.CreateTargetLike(effectTarget);
+            try
+            {
+                if (output.RenderTarget is null || output.Scale.IsUnbounded)
+                {
+                    throw new InvalidOperationException(
+                        "The SKSL script effect has no materialized output target: CreateTargetLike could not "
+                        + $"replace the {effectTarget.DeviceBounds.Width}x{effectTarget.DeviceBounds.Height} px "
+                        + "source (a preceding CreateTargetLike warning names the failed allocation). "
+                        + "The effect fails visibly rather than rendering partially.");
+                }
 
-            using var image = renderTarget.Value.Snapshot();
-            using var baseShader = image.ToShader();
+                using SKSLShaderBuilder builder = data.shader.CreateBuilder();
 
-            var builder = data.shader.CreateBuilder();
-            var effect = data.shader.Effect;
+                if (builder.Uniforms.Contains("progress"))
+                    builder.Uniforms["progress"] = data.progress;
+                if (builder.Uniforms.Contains("duration"))
+                    builder.Uniforms["duration"] = data.duration;
+                if (builder.Uniforms.Contains("time"))
+                    builder.Uniforms["time"] = data.time;
 
-            if (effect.Children.Contains("src"))
-                builder.Children["src"] = baseShader;
-            if (effect.Uniforms.Contains("progress"))
-                builder.Uniforms["progress"] = data.progress;
-            if (effect.Uniforms.Contains("duration"))
-                builder.Uniforms["duration"] = data.duration;
-            if (effect.Uniforms.Contains("time"))
-                builder.Uniforms["time"] = data.time;
-            // Resolution uniforms report device px at the clamped buffer density.
-            float w = c.ResolveTargetDensity(effectTarget.Bounds);
-            (int devW, int devH) = CustomFilterEffectContext.DeviceBufferSize(effectTarget.Bounds, w);
-            if (effect.Uniforms.Contains("width"))
-                builder.Uniforms["width"] = (float)devW;
-            if (effect.Uniforms.Contains("height"))
-                builder.Uniforms["height"] = (float)devH;
-            if (effect.Uniforms.Contains("iResolution"))
-                builder.Uniforms["iResolution"] = new SKPoint(devW, devH);
-            if (effect.Uniforms.Contains("iScale"))
-                builder.Uniforms["iScale"] = w;
-            if (effect.Uniforms.Contains("iTime"))
-                builder.Uniforms["iTime"] = data.time;
+                float w = output.Scale.Value;
+                int deviceWidth = output.RenderTarget.Width;
+                int deviceHeight = output.RenderTarget.Height;
+                if (builder.Uniforms.Contains("width"))
+                    builder.Uniforms["width"] = (float)deviceWidth;
+                if (builder.Uniforms.Contains("height"))
+                    builder.Uniforms["height"] = (float)deviceHeight;
+                if (builder.Uniforms.Contains("iResolution"))
+                    builder.Uniforms["iResolution"] = new SKPoint(deviceWidth, deviceHeight);
+                if (builder.Uniforms.Contains("iScale"))
+                    builder.Uniforms["iScale"] = w;
+                if (builder.Uniforms.Contains("iTime"))
+                    builder.Uniforms["iTime"] = data.time;
 
-            // 新しいターゲットに適用
-            c.Targets[i] = data.shader.ApplyToNewTarget(c, builder, effectTarget.Bounds);
+                if (builder.Children.Contains("src"))
+                {
+                    bool rendered = c.UseMappedInputShader(
+                        effectTarget,
+                        output,
+                        (Builder: builder, Shader: data.shader, Context: c, Output: output),
+                        static (state, mappedSource) =>
+                        {
+                            state.Builder.Children["src"] = mappedSource;
+                            state.Shader.RenderToTarget(state.Context, state.Builder, state.Output);
+                        },
+                        SKShaderTileMode.Clamp,
+                        SKShaderTileMode.Clamp);
+                    if (!rendered)
+                    {
+                        output.Dispose();
+                        continue;
+                    }
+                }
+                else
+                {
+                    data.shader.RenderToTarget(c, builder, output);
+                }
+
+                effectTarget.Dispose();
+                c.Targets[i] = output;
+            }
+            catch
+            {
+                output.Dispose();
+                throw;
+            }
         }
     }
 
