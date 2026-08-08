@@ -59,9 +59,12 @@ public partial class FrameCacheManager
             try
             {
                 // Resize if needed
+                // Alpha type is part of the stored representation: the branch below draws into a
+                // Premul surface, so unpremultiplied input that skipped it would be read as premultiplied.
                 if (newSize.Width < size.Width ||
                     newSize.Height < size.Height ||
                     bitmap.ColorType != BitmapColorType.Bgra8888 ||
+                    bitmap.AlphaType != BitmapAlphaType.Premul ||
                     bitmap.ColorSpace != BitmapColorSpace.Srgb)
                 {
                     var newWidth = Math.Min(size.Width, newSize.Width);
@@ -144,7 +147,9 @@ public partial class FrameCacheManager
         {
             if (!_isYuv)
             {
-                var bitmap = new Bitmap(_width, _height);
+                // ToCacheData draws into a Premul surface; labelling those pixels Unpremul makes the
+                // preview premultiply them a second time and darkens every translucent area.
+                var bitmap = new Bitmap(_width, _height, BitmapColorType.Bgra8888, BitmapAlphaType.Premul);
                 int srcStride = _width * 4;
                 int dstStride = bitmap.RowBytes;
 
@@ -171,7 +176,7 @@ public partial class FrameCacheManager
             }
             else
             {
-                var bitmap = new Bitmap(_width, _height);
+                var bitmap = new Bitmap(_width, _height, BitmapColorType.Bgra8888, BitmapAlphaType.Premul);
                 fixed (byte* yuvPtr = _data)
                 {
                     YuvConversion.I420ToBgra(yuvPtr, (byte*)bitmap.Data, bitmap.RowBytes, _width, _height);
