@@ -66,6 +66,41 @@ public class RenderTargetThreadAffinityTests
         Assert.That(target.IsDisposed, Is.True);
     }
 
+    // Slow is not stopped: a dispatcher that has not drained the release yet may be mid-frame and
+    // still using what the release would tear down, so waiting must time out into leaving the work
+    // queued, never into releasing here.
+    [Test]
+    public void Dispose_gives_up_waiting_rather_than_releasing_off_a_busy_owning_thread()
+    {
+        ProbeRenderTarget target = CreateOnRenderThread(out SKSurface surface);
+        using var occupied = new ManualResetEventSlim(false);
+        using var release = new ManualResetEventSlim(false);
+
+        try
+        {
+            RenderThread.Dispatcher.Dispatch(() =>
+            {
+                occupied.Set();
+                release.Wait(TimeSpan.FromSeconds(60));
+            });
+            Assert.That(occupied.Wait(TimeSpan.FromSeconds(30)), Is.True, "the render thread never took the blocker");
+
+            Task dispose = Task.Run(target.Dispose);
+
+            Assert.That(dispose.Wait(TimeSpan.FromSeconds(30)), Is.True,
+                "Dispose must stop waiting on a busy dispatcher instead of blocking its caller indefinitely");
+            Assert.That(surface.Handle, Is.Not.EqualTo(IntPtr.Zero),
+                "giving up must leave the release queued, not run it on the calling thread while the render thread is live");
+        }
+        finally
+        {
+            release.Set();
+        }
+
+        Assert.That(WaitUntilReleased(surface), Is.True,
+            "the queued release should still run once the render thread drains it");
+    }
+
     [Test]
     public void Dispose_on_the_owning_thread_releases_inline()
     {
@@ -80,6 +115,21 @@ public class RenderTargetThreadAffinityTests
                 "disposal on the owning thread must release the surface before it returns, not queue it");
             Assert.That(target.IsDisposed, Is.True);
         });
+    }
+
+    private static bool WaitUntilReleased(SKSurface surface)
+    {
+        for (int i = 0; i < 300; i++)
+        {
+            if (surface.Handle == IntPtr.Zero)
+            {
+                return true;
+            }
+
+            Thread.Sleep(10);
+        }
+
+        return false;
     }
 
     private static bool WaitUntilBlocked(Thread thread)

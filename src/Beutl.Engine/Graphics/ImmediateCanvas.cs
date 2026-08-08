@@ -172,14 +172,7 @@ public partial class ImmediateCanvas : IDisposable, IPopable
 
         if (!IsDisposed)
         {
-            if (_dispatcher == null)
-            {
-                DisposeCore();
-            }
-            else
-            {
-                _dispatcher?.Invoke(DisposeCore);
-            }
+            GpuResourceRelease.Run(_dispatcher, DisposeCore);
         }
     }
 
