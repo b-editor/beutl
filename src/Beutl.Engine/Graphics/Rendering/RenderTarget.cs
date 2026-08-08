@@ -194,25 +194,17 @@ public class RenderTarget : IDisposable
         // Skia's GPU context is thread-affine, so the surface and its shared texture have to be
         // released on the dispatcher that allocated them — releasing from another thread corrupts
         // the context and faults the render thread later. ImmediateCanvas.Dispose hops the same way.
-        // Once that dispatcher is shutting down nothing can run there, so release in place instead.
-        if (_dispatcher is { HasShutdownStarted: false } dispatcher && !dispatcher.CheckAccess())
-        {
-            SKSurfaceCounter<SKSurface> surface = _surface;
-            SKSurfaceCounter<ITexture2D>? texture = _texture;
-            if (disposing)
-            {
-                dispatcher.Invoke(() => Release(surface, texture));
-            }
-            else
-            {
-                // A finalizer must not block on another thread.
-                dispatcher.Dispatch(() => Release(surface, texture));
-            }
+        SKSurfaceCounter<SKSurface> surface = _surface;
+        SKSurfaceCounter<ITexture2D>? texture = _texture;
 
+        if (!disposing && _dispatcher is { HasShutdownStarted: false } dispatcher && !dispatcher.CheckAccess())
+        {
+            // A finalizer must not block on another thread, so it cannot use the bounded wait below.
+            dispatcher.Dispatch(() => Release(surface, texture));
             return;
         }
 
-        Release(_surface, _texture);
+        GpuResourceRelease.Run(_dispatcher, () => Release(surface, texture));
     }
 
     private static void Release(SKSurfaceCounter<SKSurface> surface, SKSurfaceCounter<ITexture2D>? texture)
@@ -283,16 +275,12 @@ public class RenderTarget : IDisposable
                         Value = null;
                         if (value != null)
                         {
-                            if (_dispatcher != null)
+                            // Dispatch would queue onto a loop that no longer drains, leaving the
+                            // native resource alive for the rest of the process.
+                            if (_dispatcher is { HasShutdownStarted: false } dispatcher
+                                && !dispatcher.CheckAccess())
                             {
-                                if (_dispatcher.CheckAccess())
-                                {
-                                    value.Dispose();
-                                }
-                                else
-                                {
-                                    _dispatcher.Dispatch(value.Dispose);
-                                }
+                                dispatcher.Dispatch(value.Dispose);
                             }
                             else
                             {

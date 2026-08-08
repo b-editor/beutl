@@ -86,7 +86,9 @@ public class Renderer : IRenderer
         {
             SafeStep(nameof(_immediateCanvas), () => _immediateCanvas?.Dispose());
             SafeStep(nameof(_surface), () => _surface?.Dispose());
-            SafeStep(nameof(ClearAllCaches), ClearAllCaches);
+            // Core, not the public wrapper: this already runs on the render thread, or in place
+            // because it is gone — either way the wrapper's bounded wait must not re-enter here.
+            SafeStep(nameof(ClearAllCachesCore), ClearAllCachesCore);
             SafeStep(nameof(DisposeAllEntries), DisposeAllEntries);
         }
 
@@ -146,11 +148,11 @@ public class Renderer : IRenderer
             OnDispose(true);
             // The canvas, the surface and every cached node hold GPU resources owned by the render
             // thread, so tear them down there — the constructor allocates them the same way.
-            RenderThread.Dispatcher.Invoke(() =>
+            GpuResourceRelease.Run(RenderThread.Dispatcher, () =>
             {
                 _immediateCanvas.Dispose();
                 _surface.Dispose();
-                ClearAllCaches();
+                ClearAllCachesCore();
                 DisposeAllEntries();
             });
             GC.SuppressFinalize(this);
@@ -497,16 +499,18 @@ public class Renderer : IRenderer
     // cached nodes hold GPU resources the render thread owns.
     public void ClearAllCaches()
     {
-        RenderThread.Dispatcher.Invoke(() =>
+        GpuResourceRelease.Run(RenderThread.Dispatcher, ClearAllCachesCore);
+    }
+
+    private void ClearAllCachesCore()
+    {
+        var entries = _nodeCache.ToArray();
+        _nodeCache.Clear();
+        foreach (var item in entries)
         {
-            var entries = _nodeCache.ToArray();
-            _nodeCache.Clear();
-            foreach (var item in entries)
-            {
-                RenderNodeCacheHelper.ClearCache(item.Value.Node);
-                item.Value.Dispose();
-            }
-        });
+            RenderNodeCacheHelper.ClearCache(item.Value.Node);
+            item.Value.Dispose();
+        }
     }
 
     private void DisposeAllEntries()
