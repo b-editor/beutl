@@ -5,6 +5,7 @@ using Beutl.Graphics.Effects;
 using Beutl.Graphics.Rendering.Cache;
 using Beutl.Graphics.Shapes;
 using Beutl.Media;
+using Beutl.Media.Pixel;
 using Beutl.Media.Decoding;
 using Beutl.Media.Proxy;
 using Beutl.Media.Source;
@@ -168,6 +169,53 @@ public class PreviewFrameOrderIndependenceTests
         });
     }
 
+    /// <summary>
+    /// A backdrop that follows a sibling inside the same group has to composite that sibling. It is
+    /// the sibling's drawing operation, not the state the group started from, that the backdrop
+    /// stands on — a clearing backdrop capturing too early would wipe the sibling and redraw an
+    /// empty surface.
+    /// </summary>
+    [Test]
+    public void BackdropInsideAGroupCompositesTheSiblingDrawnBeforeIt()
+    {
+        VulkanTestEnvironment.EnsureAvailable();
+        VulkanTestEnvironment.InvokeOnRenderThread(() =>
+        {
+            using var media = new SceneMedia(preferProxy: false, withEffect: false);
+
+            var square = new RectShape();
+            square.Width.CurrentValue = 80;
+            square.Height.CurrentValue = 60;
+            square.Fill.CurrentValue = new SolidColorBrush(Colors.White);
+
+            var glass = new SourceBackdrop();
+            glass.Clear.CurrentValue = true;
+
+            var group = new DrawableGroup();
+            group.Children.Add(square);
+            group.Children.Add(glass);
+
+            Scene scene = media.NewSceneWith(group);
+            using var renderer = new SceneRenderer(scene) { CacheOptions = RenderCacheOptions.Default };
+            renderer.Render(renderer.Compositor.EvaluateGraphics(TimeSpan.Zero));
+
+            using Bitmap snapshot = renderer.Snapshot();
+            using Bitmap srgb = snapshot.Convert(
+                BitmapColorType.Bgra8888, BitmapAlphaType.Unpremul, BitmapColorSpace.Srgb);
+            int white = 0;
+            for (int y = 0; y < srgb.Height; y++)
+            {
+                foreach (Bgra8888 pixel in srgb.GetRow<Bgra8888>(y))
+                {
+                    if (pixel.R > 200 && pixel.G > 200 && pixel.B > 200) white++;
+                }
+            }
+
+            Assert.That(white, Is.GreaterThan(1000),
+                "the clearing backdrop erased the sibling drawn before it inside the group");
+        });
+    }
+
     private static string RenderAndHash(SceneRenderer renderer, int frame)
     {
         renderer.Render(renderer.Compositor.EvaluateGraphics(frame.ToTimeSpan(Rate)));
@@ -203,7 +251,9 @@ public class PreviewFrameOrderIndependenceTests
 
         // A single moving clip never lets the render-node cache engage. A real project mixes a static
         // subtree, which does get cached, with clips that enter and leave the playhead's range.
-        public Scene NewScene()
+        public Scene NewScene() => NewSceneWith(null);
+
+        public Scene NewSceneWith(Drawable? extra)
         {
             var scene = new Scene(160, 120, string.Empty)
             {
@@ -236,6 +286,11 @@ public class PreviewFrameOrderIndependenceTests
                 }
 
                 return scene;
+            }
+
+            if (extra != null)
+            {
+                scene.Children.Add(NewElement(extra, TimeSpan.Zero, TimeSpan.FromSeconds(4), zIndex: 3));
             }
 
             var overlay = NewClip(new PixelSize(80, 60));

@@ -9,17 +9,28 @@ public class SnapshotBackdropRenderNode : RenderNode, IBackdrop
 
     public override void PrepareForProcess(ImmediateCanvas canvas)
     {
-        _bitmap?.Dispose();
-        using var renderTarget = RenderTarget.GetRenderTarget(canvas);
-        _bitmap = renderTarget.Snapshot();
-        // Record the surface density (not current Density, which PushDeviceSpace resets to 1).
-        _captureScale = canvas.SurfaceDensity;
+        Capture(canvas);
     }
 
     public override RenderNodeOperation[] Process(RenderNodeContext context)
     {
         context.IsRenderCacheEnabled = false;
-        return [];
+        // Capturing again here keeps the backdrop operation-relative: a backdrop that follows a
+        // sibling inside the same group has to see what that sibling drew, which PrepareForProcess
+        // cannot know because it runs before any operation of the tree has rendered.
+        return
+        [
+            RenderNodeOperation.CreateLambda(default, Capture)
+        ];
+    }
+
+    private void Capture(ImmediateCanvas canvas)
+    {
+        _bitmap?.Dispose();
+        using var renderTarget = RenderTarget.GetRenderTarget(canvas);
+        _bitmap = renderTarget.Snapshot();
+        // Record the surface density (not current Density, which PushDeviceSpace resets to 1).
+        _captureScale = canvas.SurfaceDensity;
     }
 
     public void Draw(ImmediateCanvas canvas)
