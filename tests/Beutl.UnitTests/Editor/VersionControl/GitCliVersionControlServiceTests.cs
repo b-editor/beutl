@@ -551,11 +551,11 @@ public class GitCliVersionControlServiceTests : RealGitTestRepository
             Assert.That(
                 File.ReadAllText(Path.Combine(projectRoot, ".gitattributes")),
                 Does.Contain(
-                    "resources/**/*.[mM][pP]4 filter=lfs diff=lfs merge=lfs -text\n"));
+                    "**/*.[mM][pP]4 filter=lfs diff=lfs merge=lfs -text\n"));
             Assert.That(
                 File.ReadAllText(Path.Combine(projectRoot, ".gitattributes")),
                 Does.Contain(
-                    "resources/**/*.[pP][nN][gG] filter=lfs diff=lfs merge=lfs -text\n"));
+                    "**/*.[pP][nN][gG] filter=lfs diff=lfs merge=lfs -text\n"));
             Assert.That(
                 File.ReadAllText(Path.Combine(projectRoot, ".gitattributes")),
                 Does.Contain("# BEGIN BEUTL MANAGED LFS\n"));
@@ -581,12 +581,12 @@ public class GitCliVersionControlServiceTests : RealGitTestRepository
 
         const string lfsAttributes = " filter=lfs diff=lfs merge=lfs -text";
         string[] actualPatterns = File.ReadAllLines(Path.Combine(projectRoot, ".gitattributes"))
-            .Where(static line => line.StartsWith("resources/**/*", StringComparison.Ordinal)
+            .Where(static line => line.StartsWith("**/*", StringComparison.Ordinal)
                 && line.EndsWith(lfsAttributes, StringComparison.Ordinal))
             .Select(static line => line[..^lfsAttributes.Length])
             .ToArray();
         string[] expectedPatterns = s_expectedSupportedMediaExtensions
-            .Select(static extension => $"resources/**/*{CreateTestCaseInsensitiveGlob(extension)}")
+            .Select(static extension => $"**/*{CreateTestCaseInsensitiveGlob(extension)}")
             .ToArray();
 
         Assert.Multiple(() =>
@@ -613,7 +613,7 @@ public class GitCliVersionControlServiceTests : RealGitTestRepository
         Assert.That(
             await File.ReadAllTextAsync(Path.Combine(Root, ".gitattributes")),
             Does.Contain(
-                "resources/**/*.[mM][pP]4 filter=lfs diff=lfs merge=lfs -text\n"));
+                "**/*.[mM][pP]4 filter=lfs diff=lfs merge=lfs -text\n"));
         string[] paths =
         [
             "resources/CLIP.MP4",
@@ -623,6 +623,8 @@ public class GitCliVersionControlServiceTests : RealGitTestRepository
             "resources/raw.DnG",
             "resources/photo.HeIf",
             "resources/photo.AvIf",
+            "assets/CLIP.MP4",
+            "root-clip.PnG",
         ];
         GitCommandResult attributes = await RunGitAsync(
             ["check-attr", "filter", "--", .. paths]);
@@ -713,6 +715,47 @@ public class GitCliVersionControlServiceTests : RealGitTestRepository
         await CommitFileAsync("project.bep", "initial\n", "initial");
         string relativePath = $"resources/large{extension}";
         string mediaPath = Path.Combine(Root, relativePath.Replace('/', Path.DirectorySeparatorChar));
+        Directory.CreateDirectory(Path.GetDirectoryName(mediaPath)!);
+        await File.WriteAllBytesAsync(mediaPath, [0]);
+        var notices = new List<VersionControlPolicyNotice>();
+        var config = new VersionControlConfig { LargeMediaWarningThresholdMb = 0 };
+        using var service = new GitCliVersionControlService(
+            CreateInstalledLocator(lfsInstalled: false, config),
+            Repository,
+            watcher: null,
+            _ => CreateRunner(),
+            policyNoticeSink: (notice, _) =>
+            {
+                notices.Add(notice);
+                return Task.CompletedTask;
+            });
+
+        CommitResult result = await service.CommitAllAsync(
+            "large media",
+            SnapshotKind.Manual,
+            CancellationToken.None);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(result, Is.TypeOf<CommitResult.Committed>());
+            Assert.That(
+                notices,
+                Is.EqualTo(new[]
+                {
+                    new VersionControlPolicyNotice.LargeMediaWithoutLfs(relativePath, 1),
+                }));
+        });
+    }
+
+    [TestCase("assets/large.mp4")]
+    [TestCase("root-large.mov")]
+    public async Task CommitAllAsync_warns_for_large_media_outside_the_resources_directory(
+        string relativePath)
+    {
+        await CommitFileAsync("project.bep", "initial\n", "initial");
+        string mediaPath = Path.Combine(
+            Root,
+            relativePath.Replace('/', Path.DirectorySeparatorChar));
         Directory.CreateDirectory(Path.GetDirectoryName(mediaPath)!);
         await File.WriteAllBytesAsync(mediaPath, [0]);
         var notices = new List<VersionControlPolicyNotice>();

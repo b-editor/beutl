@@ -234,7 +234,7 @@ internal sealed class GitCliVersionControlService :
     private static readonly string[] s_lfsAttributeLines =
         s_supportedMediaExtensions
             .Select(static extension =>
-                $"resources/**/*{CreateCaseInsensitiveGlob(extension)} "
+                $"**/*{CreateCaseInsensitiveGlob(extension)} "
                 + "filter=lfs diff=lfs merge=lfs -text")
             .ToArray();
 
@@ -6702,8 +6702,7 @@ internal sealed class GitCliVersionControlService :
             return null;
         }
 
-        if (!projectRelativePath.StartsWith("resources/", StringComparison.OrdinalIgnoreCase)
-            || !s_mediaExtensions.Contains(Path.GetExtension(projectRelativePath)))
+        if (!s_mediaExtensions.Contains(Path.GetExtension(projectRelativePath)))
         {
             return null;
         }
