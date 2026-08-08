@@ -19,6 +19,15 @@ internal static class FFmpegSeekDecision
     public static bool ShouldReseek(bool currentUsable, long skip)
         => !currentUsable || skip > MaxSequentialSkip || skip < 0;
 
+    // A decoded picture without a timestamp cannot be placed on the frame grid: converting the
+    // no-timestamp sentinel puts it at an extreme position, and a loop that grabs until the position
+    // reaches the request would consume the rest of the stream. Reported as the one after the previous
+    // position, which is what counting grabs assumed.
+    public static long ResolveFramePosition(bool hasTimestamp, long convertedPosition, long previousPosition)
+    {
+        return hasTimestamp ? convertedPosition : previousPosition + 1;
+    }
+
     // Compute the next prefetch target and report whether one exists before EOF:
     //   - baseFrame < 0: no frame has been requested yet, so there is nothing to prefetch ahead of.
     //   - nextFrame = baseFrame + cachedAhead + 1: the first frame after the already-cached run.

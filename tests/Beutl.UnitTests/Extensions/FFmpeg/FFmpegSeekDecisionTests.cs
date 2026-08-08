@@ -54,4 +54,19 @@ public class FFmpegSeekDecisionTests
         });
     }
 
+    [Test]
+    public void ResolveFramePosition_WithATimestamp_UsesTheConvertedPosition()
+    {
+        Assert.That(FFmpegSeekDecision.ResolveFramePosition(true, 42L, 7L), Is.EqualTo(42L));
+    }
+
+    [TestCase(0L, 1L)]
+    [TestCase(41L, 42L)]
+    public void ResolveFramePosition_WithoutATimestamp_FollowsThePreviousPosition(
+        long previousPosition, long expected)
+    {
+        // long.MinValue is FFmpeg's no-timestamp sentinel; converting it lands far outside the stream.
+        Assert.That(FFmpegSeekDecision.ResolveFramePosition(false, long.MinValue, previousPosition),
+            Is.EqualTo(expected));
+    }
 }

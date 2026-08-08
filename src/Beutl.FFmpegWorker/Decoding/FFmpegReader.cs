@@ -655,7 +655,8 @@ public sealed class FFmpegReader : MediaReader
         var frame = ActiveVideoFrame;
         if (frame == null || _videoStream == null) return 0;
         double f = (frame.Pts - _videoStream.StartTime) * _videoTimeBaseDouble * _videoAvgFrameRateDouble + 0.5;
-        return (long)f;
+        return FFmpegSeekDecision.ResolveFramePosition(
+            frame.Pts != ffmpeg.AV_NOPTS_VALUE, (long)f, _videoNowFrame);
     }
 
     private void ConfigureVideoStream()
