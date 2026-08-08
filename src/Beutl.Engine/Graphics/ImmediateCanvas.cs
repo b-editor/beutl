@@ -248,12 +248,14 @@ public partial class ImmediateCanvas : IDisposable, IPopable
         using var node = new DrawableRenderNode(drawable);
         using var context = new GraphicsContext2D(node, LogicalSize, _currentDensity);
         drawable.GetOriginal().Render(context, drawable);
+        node.PrepareForProcess(this);
         var processor = new RenderNodeProcessor(node, true, _currentDensity, MaxWorkingScale);
         processor.Render(this);
     }
 
     public void DrawNode(RenderNode node)
     {
+        node.PrepareForProcess(this);
         var processor = new RenderNodeProcessor(node, true, _currentDensity, MaxWorkingScale);
         processor.Render(this);
     }

@@ -7,20 +7,19 @@ public class SnapshotBackdropRenderNode : RenderNode, IBackdrop
     private Bitmap? _bitmap;
     private float _captureScale = 1f;
 
+    public override void PrepareForProcess(ImmediateCanvas canvas)
+    {
+        _bitmap?.Dispose();
+        using var renderTarget = RenderTarget.GetRenderTarget(canvas);
+        _bitmap = renderTarget.Snapshot();
+        // Record the surface density (not current Density, which PushDeviceSpace resets to 1).
+        _captureScale = canvas.SurfaceDensity;
+    }
+
     public override RenderNodeOperation[] Process(RenderNodeContext context)
     {
         context.IsRenderCacheEnabled = false;
-        return
-        [
-            RenderNodeOperation.CreateLambda(default, canvas =>
-            {
-                _bitmap?.Dispose();
-                using var renderTarget = RenderTarget.GetRenderTarget(canvas);
-                _bitmap = renderTarget.Snapshot();
-                // Record the surface density (not current Density, which PushDeviceSpace resets to 1).
-                _captureScale = canvas.SurfaceDensity;
-            })
-        ];
+        return [];
     }
 
     public void Draw(ImmediateCanvas canvas)
