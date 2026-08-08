@@ -358,6 +358,9 @@ public class PreviewShowsRequestedFrameTests
                 nameof(The_playback_producer_queues_the_rendition_it_stores_in_the_cache));
             SeekTo(editor, 0);
             DrainRenders();
+            // Building the editor and settling the seek already render frame 0 into the cache, and
+            // the producer would then take its cache-hit branch and never reach the one under test.
+            editor.FrameCacheManager.Value.Clear();
 
             var isPlaying = new ReactivePropertySlim<bool>(true);
             using var cts = new CancellationTokenSource();
