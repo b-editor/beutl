@@ -1,7 +1,5 @@
 ﻿using System.Collections.Immutable;
 using System.Diagnostics.CodeAnalysis;
-using Beutl.Configuration;
-using Beutl.Editor.Models;
 using Beutl.Media;
 using Beutl.Media.Source;
 using Reactive.Bindings;
@@ -14,22 +12,45 @@ public sealed partial class FrameCacheManager : IDisposable
     private readonly object _lock = new();
     private readonly ReadOnlyReactivePropertySlim<long> _maxSize;
     private long _size;
+    private FrameCacheOptions _options;
 
     public event Action<ImmutableArray<CacheBlock>>? BlocksUpdated;
 
-    public FrameCacheManager(PixelSize frameSize, FrameCacheOptions options)
+    /// <summary>Creates a frame cache for frames of <paramref name="frameSize"/>.</summary>
+    /// <param name="maxSize">Cache budget in bytes. Must publish a value on subscribe.</param>
+    public FrameCacheManager(PixelSize frameSize, FrameCacheOptions options, IObservable<long> maxSize)
     {
+        ArgumentNullException.ThrowIfNull(maxSize);
         FrameSize = frameSize;
-        Options = options;
-
-        _maxSize = GlobalConfiguration.Instance.EditorConfig.GetObservable(EditorConfig.FrameCacheMaxSizeProperty)
-            .Select(v => (long)(v * 1024 * 1024))
-            .ToReadOnlyReactivePropertySlim();
+        _options = options;
+        _maxSize = maxSize.ToReadOnlyReactivePropertySlim();
     }
 
-    public ImmutableArray<CacheBlock> Blocks { get; private set; }
+    public ImmutableArray<CacheBlock> Blocks { get; private set; } = [];
 
-    public FrameCacheOptions Options { get; set; }
+    /// <summary>
+    /// Cache-entry format. Assigning options that change the stored representation drops every entry:
+    /// the existing ones were encoded under the previous options, and mixing the two makes playback
+    /// alternate between resolutions.
+    /// </summary>
+    public FrameCacheOptions Options
+    {
+        get => _options;
+        set
+        {
+            FrameCacheOptions old;
+            lock (_lock)
+            {
+                old = _options;
+                _options = value;
+            }
+
+            if (!old.ProducesSameCacheData(value, FrameSize))
+            {
+                Clear();
+            }
+        }
+    }
 
     // 再生中のフレーム
     public int CurrentFrame { get; set; }
@@ -46,8 +67,13 @@ public sealed partial class FrameCacheManager : IDisposable
         {
             if (_entries.TryGetValue(frame, out CacheEntry? old))
             {
+                // Locked entries are excluded from _size (see Lock), so only this branch adjusts it.
                 if (!old.IsLocked)
+                {
+                    _size -= old.ByteCount;
                     old.SetBitmap(bitmap, Options);
+                    _size += old.ByteCount;
+                }
             }
             else
             {
@@ -184,12 +210,16 @@ public sealed partial class FrameCacheManager : IDisposable
 
             _size = 0;
             _entries.Clear();
-            BlocksUpdated?.Invoke([]);
+            Blocks = [];
+            BlocksUpdated?.Invoke(Blocks);
         }
     }
 
     private void AutoDelete()
     {
+        // Queued by Add via Task.Run, so it can still be scheduled after Dispose released _maxSize.
+        if (_isDisposed) return;
+
         int currentFrame = CurrentFrame;
         KeyValuePair<int, CacheEntry>[] GetOldCaches(long targetCount)
         {
@@ -249,31 +279,47 @@ public sealed partial class FrameCacheManager : IDisposable
 
         lock (_lock)
         {
-            int loop = 5;
-            FrameCacheDeletionStrategy strategy = Options.DeletionStrategy;
-
-            while (_size >= _maxSize.Value && loop >= 0)
+            int countBefore = _entries.Count;
+            try
             {
-                if (strategy == FrameCacheDeletionStrategy.BackwardBlock)
+                int loop = 5;
+                FrameCacheDeletionStrategy strategy = Options.DeletionStrategy;
+
+                while (_size >= _maxSize.Value && loop >= 0)
                 {
-                    DeleteBackwardBlock();
-                    strategy = FrameCacheDeletionStrategy.Far;
-                    if (_size < _maxSize.Value)
+                    if (strategy == FrameCacheDeletionStrategy.BackwardBlock)
                     {
-                        return;
+                        DeleteBackwardBlock();
+                        strategy = FrameCacheDeletionStrategy.Far;
+                        if (_size < _maxSize.Value)
+                        {
+                            return;
+                        }
                     }
+
+                    long excess = _size - _maxSize.Value;
+                    int sizePerCache = Math.Max(1, CalculateBitmapByteSize(
+                        Options.GetSize(FrameSize), Options.ColorType == FrameCacheColorType.YUV));
+                    // At least one, so an excess smaller than a single entry still makes progress
+                    // instead of spinning the loop out with an empty deletion set.
+                    long targetCount = Math.Max(1, excess / sizePerCache);
+
+                    KeyValuePair<int, CacheEntry>[] items = strategy == FrameCacheDeletionStrategy.Old
+                        ? GetOldCaches(targetCount)
+                        : GetFarCaches(targetCount);
+                    DeleteItems(items);
+
+                    loop--;
                 }
-
-                long excess = _size - _maxSize.Value;
-                int sizePerCache = CalculateBitmapByteSize(Options.GetSize(FrameSize), Options.ColorType == FrameCacheColorType.YUV);
-                long targetCount = excess / sizePerCache;
-
-                var items = Options.DeletionStrategy == FrameCacheDeletionStrategy.Old
-                    ? GetOldCaches(targetCount)
-                    : GetFarCaches(targetCount);
-                DeleteItems(items);
-
-                loop--;
+            }
+            finally
+            {
+                // Eviction is the only removal path that does not go through DeleteAndUpdateBlocks,
+                // so without this the timeline keeps painting evicted ranges as cached.
+                if (_entries.Count != countBefore)
+                {
+                    UpdateBlocks();
+                }
             }
         }
     }

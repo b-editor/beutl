@@ -19,4 +19,9 @@ public record FrameCacheOptions(
             _ => PixelSize.FromSize(original.ToSize(0.5f), 0.5f)
         };
     }
+
+    internal bool ProducesSameCacheData(FrameCacheOptions other, PixelSize frameSize)
+    {
+        return ColorType == other.ColorType && GetSize(frameSize) == other.GetSize(frameSize);
+    }
 }

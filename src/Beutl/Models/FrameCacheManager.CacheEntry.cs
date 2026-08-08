@@ -144,7 +144,10 @@ public partial class FrameCacheManager
         {
             if (!_isYuv)
             {
-                var bitmap = new Bitmap(_width, _height);
+                // ToCacheData draws into a Premul surface, so the entry has to describe itself that
+                // way; labelling premultiplied pixels Unpremul makes the preview premultiply them a
+                // second time and darkens every translucent area.
+                var bitmap = new Bitmap(_width, _height, BitmapColorType.Bgra8888, BitmapAlphaType.Premul);
                 int srcStride = _width * 4;
                 int dstStride = bitmap.RowBytes;
 
@@ -171,7 +174,7 @@ public partial class FrameCacheManager
             }
             else
             {
-                var bitmap = new Bitmap(_width, _height);
+                var bitmap = new Bitmap(_width, _height, BitmapColorType.Bgra8888, BitmapAlphaType.Premul);
                 fixed (byte* yuvPtr = _data)
                 {
                     YuvConversion.I420ToBgra(yuvPtr, (byte*)bitmap.Data, bitmap.RowBytes, _width, _height);

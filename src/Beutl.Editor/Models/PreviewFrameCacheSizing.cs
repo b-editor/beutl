@@ -11,6 +11,11 @@ public static class PreviewFrameCacheSizing
     /// <summary>
     /// Returns the cache entry size, or null if the panel is at least as large as the frame.
     /// </summary>
+    /// <remarks>
+    /// The reduction is rounded down so an entry is never coarser than what the panel shows. A
+    /// coarser entry would make a cached frame visibly softer than a freshly rendered one, and the
+    /// preview alternates between the two as it crosses cache boundaries.
+    /// </remarks>
     public static PixelSize? DeriveCacheSize(Size maxFrameSize, PixelSize frameSize)
     {
         Size frame = frameSize.ToSize(1);
@@ -23,11 +28,12 @@ public static class PreviewFrameCacheSizing
         }
 
         int den = (int)(1f / scale);
-        if (den % 2 == 1)
+        if (den <= 1)
         {
-            den++;
+            return null;
         }
 
-        return PixelSize.FromSize(frame, 1f / den);
+        PixelSize reduced = PixelSize.FromSize(frame, 1f / den);
+        return new PixelSize(Math.Max(1, reduced.Width), Math.Max(1, reduced.Height));
     }
 }
