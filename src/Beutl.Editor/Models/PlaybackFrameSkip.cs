@@ -8,9 +8,8 @@ internal static class PlaybackFrameSkip
     /// consumer has moved past it.
     /// </summary>
     /// <remarks>
-    /// The result never overshoots <paramref name="requestedFrame"/>. The consumer displays whatever
-    /// the producer hands it, so a later frame would put a future frame on screen and then freeze the
-    /// preview until the playback clock caught up with it.
+    /// Never overshoots <paramref name="requestedFrame"/>: the consumer displays whatever it is handed,
+    /// so a later frame puts a future picture on screen and freezes there until the clock catches up.
     /// </remarks>
     public static int ResolveNextFrame(int producedFrame, int? requestedFrame)
     {

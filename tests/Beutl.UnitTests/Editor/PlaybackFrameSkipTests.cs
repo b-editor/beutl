@@ -2,9 +2,8 @@
 
 namespace Beutl.UnitTests.Editor;
 
-// Tests for PlaybackFrameSkip.ResolveNextFrame. BufferedPlayer's producer loop uses it to catch up
-// with the playback consumer, which displays every frame it dequeues — so a result past the consumer's
-// request is a future frame on screen followed by a freeze until the clock reaches it.
+// The playback consumer displays every frame it dequeues, so a result past its request is a future
+// picture on screen followed by a freeze until the clock reaches it.
 [TestFixture]
 public class PlaybackFrameSkipTests
 {
