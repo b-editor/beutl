@@ -25,7 +25,13 @@ internal sealed class BufferedPlayer : IPlayer
     private readonly BufferedPlayerWaitGate _waitRenderGate;
     private readonly BufferedPlayerWaitGate _waitTimerGate;
     private readonly IDisposable _disposable;
-    private int? _requestedFrame;
+
+    // Written by the playback consumer thread, read by the producer. Plain int rather than int? so
+    // both sides see a whole value: Nullable<int> is two fields and can tear across threads.
+    // int.MinValue rather than -1: a frame number comes from the clock and can legitimately be
+    // negative, and a request for that frame must not read as "no request".
+    private const int NoRequestedFrame = int.MinValue;
+    private int _requestedFrame = NoRequestedFrame;
     private RenderFailure? _renderFailure;
     private volatile bool _isDisposed;
 
@@ -81,7 +87,7 @@ internal sealed class BufferedPlayer : IPlayer
                 _logger.LogInformation("Start rendering from frame {StartFrame} to {DurationFrame}", startFrame,
                     durationFrame);
                 int endFrame = (int)_scene.Start.ToFrameNumber(_rate) + durationFrame;
-                for (; frame < endFrame; frame++)
+                while (frame < endFrame)
                 {
                     if (_isDisposed || _playbackToken.IsCancellationRequested || !_isPlaying.Value)
                     {
@@ -145,15 +151,18 @@ internal sealed class BufferedPlayer : IPlayer
                     if (!_isDisposed && !_playbackToken.IsCancellationRequested && _isPlaying.Value)
                         _editViewModel.BufferStatus.EndTime.Value = time;
 
-                    int? requestedFrame = _requestedFrame;
-                    if (requestedFrame > frame)
+                    int requestedFrame = Volatile.Read(ref _requestedFrame);
+                    int nextFrame = PlaybackFrameSkip.ResolveNextFrame(
+                        frame, requestedFrame == NoRequestedFrame ? null : requestedFrame);
+                    if (nextFrame > frame + 1)
                     {
                         _logger.LogDebug(
-                            "Frame delay detected. Requested frame {RequestedFrame} is greater than current frame {Frame}",
-                            requestedFrame, frame);
-                        frame = requestedFrame.Value + (requestedFrame.Value - frame) * 2;
-                        _requestedFrame = null;
+                            "Frame delay detected. Skipping from frame {Frame} to requested frame {NextFrame}",
+                            frame, nextFrame);
+                        Interlocked.CompareExchange(ref _requestedFrame, NoRequestedFrame, requestedFrame);
                     }
+
+                    frame = nextFrame;
                 }
 
                 _logger.LogInformation("Rendering completed.");
@@ -234,7 +243,7 @@ internal sealed class BufferedPlayer : IPlayer
 
     public void Skipped(int requestedFrame)
     {
-        _requestedFrame = requestedFrame;
+        Volatile.Write(ref _requestedFrame, requestedFrame);
     }
 
     public void Dispose()
