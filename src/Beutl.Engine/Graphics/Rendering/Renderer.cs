@@ -82,12 +82,30 @@ public class Renderer : IRenderer
             }
         }
 
+        void ReleaseGpuResources()
+        {
+            SafeStep(nameof(_immediateCanvas), () => _immediateCanvas?.Dispose());
+            SafeStep(nameof(_surface), () => _surface?.Dispose());
+            // Core, not the public wrapper: this already runs on the render thread, or in place
+            // because it is gone — either way the wrapper's bounded wait must not re-enter here.
+            SafeStep(nameof(ClearAllCachesCore), ClearAllCachesCore);
+            SafeStep(nameof(DisposeAllEntries), DisposeAllEntries);
+        }
+
         _isDisposed = true;
         SafeStep(nameof(OnDispose), () => OnDispose(false));
-        SafeStep(nameof(_immediateCanvas), () => _immediateCanvas?.Dispose());
-        SafeStep(nameof(_surface), () => _surface?.Dispose());
-        SafeStep(nameof(ClearAllCaches), ClearAllCaches);
-        SafeStep(nameof(DisposeAllEntries), DisposeAllEntries);
+
+        // The finalizer thread does not own these GPU resources and must not block waiting for the
+        // thread that does, so hand the release over unless that thread is already gone. Finished,
+        // not Started: the latter is set before the operation already running has returned.
+        if (RenderThread.Dispatcher.HasShutdownFinished)
+        {
+            ReleaseGpuResources();
+        }
+        else
+        {
+            SafeStep(nameof(ReleaseGpuResources), () => RenderThread.Dispatcher.Dispatch(ReleaseGpuResources));
+        }
     }
 
     private volatile bool _isDisposed;
@@ -129,10 +147,15 @@ public class Renderer : IRenderer
         {
             _isDisposed = true;
             OnDispose(true);
-            _immediateCanvas.Dispose();
-            _surface.Dispose();
-            ClearAllCaches();
-            DisposeAllEntries();
+            // The canvas, the surface and every cached node hold GPU resources owned by the render
+            // thread, so tear them down there — the constructor allocates them the same way.
+            GpuResourceRelease.Run(RenderThread.Dispatcher, () =>
+            {
+                _immediateCanvas.Dispose();
+                _surface.Dispose();
+                ClearAllCachesCore();
+                DisposeAllEntries();
+            });
             GC.SuppressFinalize(this);
         }
     }
@@ -238,15 +261,30 @@ public class Renderer : IRenderer
         {
             if (sender is not Drawable senderDrawable) return;
 
-            if (weakRef.TryGetTarget(out Renderer? renderer)
-                && renderer._nodeCache.TryGetValue(senderDrawable, out Entry? entry))
-            {
-                RenderNodeCacheHelper.ClearCache(entry.Node);
-                entry.Dispose();
-                renderer._nodeCache.Remove(senderDrawable);
-            }
-
             senderDrawable.DetachedFromHierarchy -= Handler;
+
+            // Detaching happens on the edit thread, but the entry's cache is GPU state owned by the
+            // render thread. Queued rather than awaited so an edit never blocks behind a frame.
+            RenderThread.Dispatcher.Dispatch(() =>
+            {
+                // Nothing awaits this, and the dispatcher has no UnhandledException handler, so an
+                // escaping exception would rethrow out of its loop and kill the render thread for
+                // the rest of the process.
+                try
+                {
+                    if (weakRef.TryGetTarget(out Renderer? renderer)
+                        && renderer._nodeCache.TryGetValue(senderDrawable, out Entry? entry))
+                    {
+                        RenderNodeCacheHelper.ClearCache(entry.Node);
+                        entry.Dispose();
+                        renderer._nodeCache.Remove(senderDrawable);
+                    }
+                }
+                catch (Exception ex)
+                {
+                    s_logger.LogWarning(ex, "Failed to release the render cache of a detached drawable");
+                }
+            });
         }
 
         drawable.DetachedFromHierarchy += Handler;
@@ -468,7 +506,14 @@ public class Renderer : IRenderer
     /// </summary>
     public Bitmap CreateSnapshotBitmap() => _surface.CreateSnapshotBitmap();
 
+    // Callers reach this from the UI thread (a cache-option change, an export teardown), but the
+    // cached nodes hold GPU resources the render thread owns.
     public void ClearAllCaches()
+    {
+        GpuResourceRelease.Run(RenderThread.Dispatcher, ClearAllCachesCore);
+    }
+
+    private void ClearAllCachesCore()
     {
         var entries = _nodeCache.ToArray();
         _nodeCache.Clear();

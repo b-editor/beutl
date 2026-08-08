@@ -1,0 +1,69 @@
+﻿using Beutl.Logging;
+using Beutl.Threading;
+using Microsoft.Extensions.Logging;
+
+namespace Beutl.Graphics.Rendering;
+
+internal static class GpuResourceRelease
+{
+    private static readonly ILogger s_logger = Log.CreateLogger(typeof(GpuResourceRelease));
+    private static readonly TimeSpan s_slice = TimeSpan.FromMilliseconds(50);
+    private static readonly TimeSpan s_deadline = TimeSpan.FromSeconds(5);
+
+    /// <summary>
+    /// Runs <paramref name="release"/> on <paramref name="dispatcher"/>, the thread that owns the
+    /// GPU resources it frees.
+    /// </summary>
+    /// <remarks>
+    /// Slow and stopped are not the same thing. A live dispatcher that has not got to the operation
+    /// yet may be mid-frame and still using what <paramref name="release"/> would tear down, so the
+    /// caller stops waiting rather than releasing off-thread — the queued operation still runs when
+    /// the dispatcher drains it. Only <see cref="Dispatcher.HasShutdownFinished"/> licenses releasing
+    /// here: <c>HasShutdownStarted</c> is set the moment <c>Shutdown()</c> is called and does not wait
+    /// for the operation already running, so it would still overlap a live frame. Runs exactly once
+    /// across both paths.
+    /// </remarks>
+    public static void Run(Dispatcher? dispatcher, Action release)
+    {
+        if (dispatcher is null || dispatcher.CheckAccess())
+        {
+            release();
+            return;
+        }
+
+        int claimed = 0;
+        void Once()
+        {
+            if (Interlocked.Exchange(ref claimed, 1) == 0)
+            {
+                release();
+            }
+        }
+
+        if (dispatcher.HasShutdownFinished)
+        {
+            Once();
+            return;
+        }
+
+        Task queued = dispatcher.InvokeAsync(Once);
+        for (TimeSpan waited = TimeSpan.Zero; waited < s_deadline; waited += s_slice)
+        {
+            if (queued.Wait(s_slice))
+            {
+                return;
+            }
+
+            // Re-checked every slice, so a shutdown finishing after the check above is still caught.
+            if (dispatcher.HasShutdownFinished)
+            {
+                Once();
+                return;
+            }
+        }
+
+        s_logger.LogDebug(
+            "GPU resource release is still queued after {Deadline}; leaving it to the render thread.",
+            s_deadline);
+    }
+}
