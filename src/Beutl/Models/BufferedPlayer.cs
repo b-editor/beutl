@@ -28,7 +28,9 @@ internal sealed class BufferedPlayer : IPlayer
 
     // Written by the playback consumer thread, read by the producer. Plain int rather than int? so
     // both sides see a whole value: Nullable<int> is two fields and can tear across threads.
-    private const int NoRequestedFrame = -1;
+    // int.MinValue rather than -1: a frame number comes from the clock and can legitimately be
+    // negative, and a request for that frame must not read as "no request".
+    private const int NoRequestedFrame = int.MinValue;
     private int _requestedFrame = NoRequestedFrame;
     private RenderFailure? _renderFailure;
     private volatile bool _isDisposed;

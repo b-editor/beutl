@@ -42,4 +42,11 @@ public class PlaybackFrameSkipTests
             }
         }
     }
+
+    [Test]
+    public void ARequestForANegativeFrameIsStillARequest()
+    {
+        Assert.That(PlaybackFrameSkip.ResolveNextFrame(producedFrame: -10, requestedFrame: -3),
+            Is.EqualTo(-3));
+    }
 }

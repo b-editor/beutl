@@ -1,6 +1,6 @@
 ﻿namespace Beutl.Models;
 
-public static class PlaybackFrameSkip
+internal static class PlaybackFrameSkip
 {
     /// <summary>
     /// Returns the frame the playback producer renders next after finishing
