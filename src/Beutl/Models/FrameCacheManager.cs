@@ -29,18 +29,16 @@ public sealed partial class FrameCacheManager : IDisposable
     public ImmutableArray<CacheBlock> Blocks { get; private set; } = [];
 
     /// <summary>
-    /// Cache-entry format. Assigning options that change the stored representation drops every entry:
-    /// the existing ones were encoded under the previous options, and mixing the two makes playback
-    /// alternate between resolutions.
+    /// Cache-entry format. Assigning options that change the stored representation drops every entry;
+    /// mixing the two makes playback alternate between resolutions.
     /// </summary>
     public FrameCacheOptions Options
     {
         get => _options;
         set
         {
-            // Under one lock: releasing it between the assignment and the invalidation lets a
-            // concurrent TryGet return an entry encoded with the old options after the new ones are
-            // published, and a concurrent Add create a correctly encoded entry that Clear then drops.
+            // One lock: releasing it between the assignment and the invalidation lets a concurrent
+            // TryGet return an entry encoded with the options it just replaced.
             lock (_lock)
             {
                 FrameCacheOptions old = _options;
@@ -72,8 +70,7 @@ public sealed partial class FrameCacheManager : IDisposable
                 if (old.IsLocked)
                 {
                     // Locked pins an entry against eviction and deletion; it does not freeze the
-                    // picture. Locked entries are excluded from _size (see Lock), so refreshing one
-                    // leaves the accounting alone.
+                    // picture. Locked entries are excluded from _size (see Lock).
                     old.SetBitmap(bitmap, Options);
                 }
                 else

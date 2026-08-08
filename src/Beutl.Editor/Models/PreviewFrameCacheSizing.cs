@@ -13,9 +13,8 @@ public static class PreviewFrameCacheSizing
     /// the panel is at least as large as the frame, or the reduction rounds down to 1.
     /// </summary>
     /// <remarks>
-    /// The reduction is rounded down so an entry is never coarser than what the panel shows. A
-    /// coarser entry would make a cached frame visibly softer than a freshly rendered one, and the
-    /// preview alternates between the two as it crosses cache boundaries.
+    /// Rounded down, so an entry is never coarser than the panel: a coarser one looks softer than a
+    /// freshly rendered frame, and the preview alternates between the two across cache boundaries.
     /// </remarks>
     public static PixelSize? DeriveCacheSize(Size maxFrameSize, PixelSize frameSize)
     {

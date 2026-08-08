@@ -10,8 +10,8 @@ using SkiaSharp;
 namespace Beutl.HeadlessUITests;
 
 /// <summary>
-/// The timeline paints cache blocks purely from <see cref="FrameCacheManager.BlocksUpdated"/>, and the
-/// preview shows whatever an entry holds, so eviction and option changes both have to be observable.
+/// The timeline paints cache blocks purely from <see cref="FrameCacheManager.BlocksUpdated"/>, so
+/// eviction and option changes both have to be observable.
 /// </summary>
 [TestFixture]
 public class FrameCacheManagerTests
@@ -139,9 +139,8 @@ public class FrameCacheManagerTests
     }
 
     /// <summary>
-    /// A rendered frame is premultiplied; the preview draws the cache entry through the same code
-    /// path as a fresh snapshot, so the entry has to describe its own pixels the same way or
-    /// translucent areas change appearance the moment a frame comes from the cache.
+    /// The preview draws a cache entry through the same path as a fresh snapshot, so the entry has to
+    /// describe its pixels the same way or translucent areas change the moment a frame is cached.
     /// </summary>
     [Test]
     public void RoundTrip_TranslucentFrame_PreservesTheRenderedColors()

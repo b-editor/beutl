@@ -60,8 +60,7 @@ public partial class FrameCacheManager
             {
                 // Resize if needed
                 // Alpha type is part of the stored representation: the branch below draws into a
-                // Premul surface and ToBitmap describes entries that way, so unpremultiplied input
-                // that skipped it would have its translucent colors read as premultiplied.
+                // Premul surface, so unpremultiplied input that skipped it would be read as premultiplied.
                 if (newSize.Width < size.Width ||
                     newSize.Height < size.Height ||
                     bitmap.ColorType != BitmapColorType.Bgra8888 ||
@@ -148,9 +147,8 @@ public partial class FrameCacheManager
         {
             if (!_isYuv)
             {
-                // ToCacheData draws into a Premul surface, so the entry has to describe itself that
-                // way; labelling premultiplied pixels Unpremul makes the preview premultiply them a
-                // second time and darkens every translucent area.
+                // ToCacheData draws into a Premul surface; labelling those pixels Unpremul makes the
+                // preview premultiply them a second time and darkens every translucent area.
                 var bitmap = new Bitmap(_width, _height, BitmapColorType.Bgra8888, BitmapAlphaType.Premul);
                 int srcStride = _width * 4;
                 int dstStride = bitmap.RowBytes;
