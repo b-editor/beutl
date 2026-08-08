@@ -117,6 +117,68 @@ public class ElementObjectServiceTests
     }
 
     [Test]
+    public void Remove_LastFallback_ClearsPersistenceSuppression()
+    {
+        var fallback = new FallbackEngineObject();
+        _service.Add(_element, fallback);
+        var suppression = new SuppressedStorageSource([], _element.Uri!);
+        _element.SuppressedStorageSource = suppression;
+
+        bool removed = _service.Remove(_element, fallback);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(removed, Is.True);
+            Assert.That(_element.Objects, Is.Empty);
+            Assert.That(_element.SuppressedStorageSource, Is.Null);
+        });
+    }
+
+    [Test]
+    public void Remove_LastFallback_UndoRestoresPersistenceSuppressionAndPreservesSidecar()
+    {
+        var fallback = new FallbackEngineObject();
+        _service.Add(_element, fallback);
+        byte[] originalBytes = "{ preserved fallback bytes"u8.ToArray();
+        File.WriteAllBytes(_element.Uri!.LocalPath, originalBytes);
+        var suppression = new SuppressedStorageSource(originalBytes, _element.Uri);
+        _element.SuppressedStorageSource = suppression;
+
+        bool removed = _service.Remove(_element, fallback);
+        bool undone = _history.Undo();
+        CoreSerializer.StoreToUri(_element, _element.Uri);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(removed, Is.True);
+            Assert.That(undone, Is.True);
+            Assert.That(_element.Objects.Single(), Is.SameAs(fallback));
+            Assert.That(_element.SuppressedStorageSource, Is.SameAs(suppression));
+            Assert.That(File.ReadAllBytes(_element.Uri.LocalPath), Is.EqualTo(originalBytes));
+        });
+    }
+
+    [Test]
+    public void Remove_WhenAnotherFallbackRemains_KeepsPersistenceSuppression()
+    {
+        var first = new FallbackEngineObject();
+        var second = new FallbackEngineObject();
+        _service.Add(_element, first);
+        _service.Add(_element, second);
+        var suppression = new SuppressedStorageSource([], _element.Uri!);
+        _element.SuppressedStorageSource = suppression;
+
+        bool removed = _service.Remove(_element, first);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(removed, Is.True);
+            Assert.That(_element.Objects.Single(), Is.SameAs(second));
+            Assert.That(_element.SuppressedStorageSource, Is.SameAs(suppression));
+        });
+    }
+
+    [Test]
     public void Move_SameIndex_NoOp()
     {
         _service.Add(_element, new TestEngineObject());

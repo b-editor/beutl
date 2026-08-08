@@ -45,6 +45,14 @@ public sealed class ElementObjectService : IElementObjectService
         if (!element.Objects.Contains(obj)) return false;
 
         element.RemoveObject(obj);
+        if (obj is IFallback
+            && Scene.TryResumeElementPersistence(element) is { } suppression)
+        {
+            _historyManager.Record(
+                () => element.SuppressedStorageSource = null,
+                () => element.SuppressedStorageSource = suppression);
+        }
+
         _historyManager.Commit(CommandNames.RemoveObject);
         return true;
     }

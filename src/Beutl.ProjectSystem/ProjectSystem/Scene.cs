@@ -81,6 +81,8 @@ public class Scene : ProjectItem, INotifyEdited
         = new(ReferenceEqualityComparer.Instance);
     private readonly Dictionary<string, Guid> _recoveredElementIds = new(StringComparer.Ordinal);
     private readonly Dictionary<Guid, Guid> _pendingRecoveredElementIdMigrations = [];
+    private readonly Dictionary<Guid, Guid> _pendingRecoveredDescendantIdMigrations = [];
+    private readonly System.Collections.Concurrent.ConcurrentDictionary<CoreObject, byte> _idlessRecoveredDescendants = new();
     private TimeSpan _start = TimeSpan.FromMinutes(0);
     private TimeSpan _duration = TimeSpan.FromMinutes(5);
     private PixelSize _frameSize;
@@ -647,6 +649,8 @@ public class Scene : ProjectItem, INotifyEdited
         }
 
         _pendingRecoveredElementIdMigrations.Clear();
+        _pendingRecoveredDescendantIdMigrations.Clear();
+        _idlessRecoveredDescendants.Clear();
         _recoveredDescendantIds.Clear();
         _recoveredDescendantRemaps.Clear();
         _recoveredElementIds.Clear();
@@ -886,6 +890,7 @@ public class Scene : ProjectItem, INotifyEdited
         foreach ((Element child, string relativePath) in recoveredChildren)
         {
             var occurrences = new Dictionary<Guid, int>();
+            int idlessOccurrence = 0;
             foreach (CoreObject descendant in EnumerateSerializedGraphDescendants(child))
             {
                 if (!seenDescendants.Add(descendant))
@@ -893,9 +898,16 @@ public class Scene : ProjectItem, INotifyEdited
                     continue;
                 }
 
-                Guid originalId = descendant.Id;
-                int occurrence = occurrences.GetValueOrDefault(originalId);
-                occurrences[originalId] = occurrence + 1;
+                bool idless = _idlessRecoveredDescendants.ContainsKey(descendant);
+                Guid originalId = idless ? Guid.Empty : descendant.Id;
+                int occurrence = idless
+                    ? idlessOccurrence++
+                    : occurrences.GetValueOrDefault(originalId);
+                if (!idless)
+                {
+                    occurrences[originalId] = occurrence + 1;
+                }
+
                 string remapKey = CreateRecoveredDescendantKey(relativePath, originalId, occurrence);
                 if (persistedDescendantIds.TryGetValue(remapKey, out Guid persistedId))
                 {
@@ -975,6 +987,11 @@ public class Scene : ProjectItem, INotifyEdited
     {
         _recoveredDescendantIds[remapKey] = assignedId;
         _recoveredDescendantRemaps[descendant] = (originalId, assignedId, occurrence);
+        if (originalId != Guid.Empty)
+        {
+            _pendingRecoveredDescendantIdMigrations.TryAdd(originalId, assignedId);
+        }
+
         if (descendant is IFallback fallback)
         {
             EnsureFallbackProjection(fallback);
@@ -994,6 +1011,12 @@ public class Scene : ProjectItem, INotifyEdited
             {
                 foreach (IFallback fallback in fallbacks)
                 {
+                    if (fallback is CoreObject fallbackObject
+                        && !HasSerializedId(fallback.Json))
+                    {
+                        _idlessRecoveredDescendants.TryAdd(fallbackObject, 0);
+                    }
+
                     EnsureFallbackProjection(fallback);
                 }
 
@@ -1009,7 +1032,7 @@ public class Scene : ProjectItem, INotifyEdited
         // Any non-filesystem failure is a content problem the recovery path must absorb — value
         // converters throw freely (e.g. FormatException from Color.Parse); filesystem failures
         // still propagate so a genuinely unreadable project keeps failing loudly.
-        catch (Exception ex) when (!ContainsFileSystemFailure(ex))
+        catch (Exception ex) when (!ExceptionHelpers.ContainsFileSystemFailure(ex))
         {
             // Raw bytes, not text: the sidecar must survive rehoming byte-identically even when it
             // holds a BOM, another encoding, or undecodable bytes. The lossy decode is only scanned
@@ -1038,9 +1061,20 @@ public class Scene : ProjectItem, INotifyEdited
             };
             fallback.Json = CreateFallbackProjection(fallback, topLevelTypeName);
             element.AddObject(fallback);
+            _idlessRecoveredDescendants.TryAdd(fallback, 0);
             MarkRecoveredElement(element, rawBytes, uri);
             return element;
         }
+    }
+
+    private static bool HasSerializedId(JsonObject? json)
+    {
+        return json is not null
+            && json.TryGetPropertyValue(nameof(CoreObject.Id), out JsonNode? idNode)
+            && idNode is JsonValue idValue
+            && idValue.TryGetValue(out string? idText)
+            && Guid.TryParse(idText, out Guid id)
+            && id != Guid.Empty;
     }
 
     private static void MarkRecoveredElement(
@@ -1068,39 +1102,6 @@ public class Scene : ProjectItem, INotifyEdited
         return source;
     }
 
-    private static bool ContainsFileSystemFailure(Exception exception)
-    {
-        var pending = new Stack<Exception>();
-        var visited = new HashSet<Exception>(ReferenceEqualityComparer.Instance);
-        pending.Push(exception);
-        while (pending.TryPop(out Exception? current))
-        {
-            if (!visited.Add(current))
-            {
-                continue;
-            }
-
-            if (current is IOException or UnauthorizedAccessException)
-            {
-                return true;
-            }
-
-            if (current is AggregateException aggregate)
-            {
-                foreach (Exception inner in aggregate.InnerExceptions)
-                {
-                    pending.Push(inner);
-                }
-            }
-            else if (current.InnerException is { } inner)
-            {
-                pending.Push(inner);
-            }
-        }
-
-        return false;
-    }
-
     private static IEnumerable<IFallback> EnumerateSerializedGraphFallbacks(Element element)
     {
         return EnumerateSerializedGraphObjects(element).OfType<IFallback>();
@@ -1115,7 +1116,8 @@ public class Scene : ProjectItem, INotifyEdited
 
     private void MigrateRecoveredElementReferences()
     {
-        if (_pendingRecoveredElementIdMigrations.Count == 0)
+        if (_pendingRecoveredElementIdMigrations.Count == 0
+            && _pendingRecoveredDescendantIdMigrations.Count == 0)
         {
             return;
         }
@@ -1127,18 +1129,13 @@ public class Scene : ProjectItem, INotifyEdited
                 foreach (IProperty property in engineObject.Properties)
                 {
                     if (property.CurrentValue is IReference reference
-                        && _pendingRecoveredElementIdMigrations.TryGetValue(reference.Id, out Guid migratedId))
+                        && (TryGetMigratedId(reference.Id, out Guid migratedId)))
                     {
-                        Element? target = Children.FirstOrDefault(child => child.Id == migratedId);
-                        property.CurrentValue = target is not null && reference.ObjectType.IsInstanceOfType(target)
-                            ? reference.Resolved(target)
-                            : Activator.CreateInstance(reference.GetType(), migratedId)!;
+                        property.CurrentValue = ResolveMigratedReference(reference, migratedId);
                     }
 
                     if (property.Expression is IReferenceExpression referenceExpression
-                        && _pendingRecoveredElementIdMigrations.TryGetValue(
-                            referenceExpression.ObjectId,
-                            out Guid migratedExpressionId))
+                        && TryGetMigratedId(referenceExpression.ObjectId, out Guid migratedExpressionId))
                     {
                         property.Expression = (IExpression)Activator.CreateInstance(
                             referenceExpression.GetType(),
@@ -1148,6 +1145,22 @@ public class Scene : ProjectItem, INotifyEdited
                 }
             }
         }
+    }
+
+    private bool TryGetMigratedId(Guid originalId, out Guid migratedId)
+    {
+        return _pendingRecoveredElementIdMigrations.TryGetValue(originalId, out migratedId)
+               || _pendingRecoveredDescendantIdMigrations.TryGetValue(originalId, out migratedId);
+    }
+
+    private object ResolveMigratedReference(IReference reference, Guid migratedId)
+    {
+        CoreObject? target = EnumerateSerializedGraphObjects(Children)
+            .OfType<CoreObject>()
+            .FirstOrDefault(candidate => candidate.Id == migratedId);
+        return target is not null && reference.ObjectType.IsInstanceOfType(target)
+            ? reference.Resolved(target)
+            : Activator.CreateInstance(reference.GetType(), migratedId)!;
     }
 
     private static IEnumerable<object> EnumerateSerializedGraphObjects(object root)
@@ -1191,13 +1204,21 @@ public class Scene : ProjectItem, INotifyEdited
                 {
                     foreach (IKeyFrame keyFrame in animation.KeyFrames)
                     {
+                        CollectSerializedGraphObjects(keyFrame, visited, objects);
                         CollectSerializedGraphObjects(keyFrame.Value, visited, objects);
                     }
                 }
             }
         }
 
-        if (value is IEnumerable enumerable)
+        if (value is System.Collections.IDictionary dictionary)
+        {
+            foreach (object? item in dictionary.Values)
+            {
+                CollectSerializedGraphObjects(item, visited, objects);
+            }
+        }
+        else if (value is IEnumerable enumerable)
         {
             foreach (object? item in enumerable)
             {

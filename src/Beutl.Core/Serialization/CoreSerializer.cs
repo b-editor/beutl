@@ -253,6 +253,18 @@ public static class CoreSerializer
         {
             if (uri == suppressed.SourceUri)
             {
+                // The source location is skip-protected only while the on-disk bytes still match
+                // the retained recovery bytes. A repair that was undone (or any other mutation
+                // that rewrote the sidecar) must not leave repaired bytes on disk for a still-
+                // suppressed object: restore the retained bytes verbatim so the next open sees the
+                // same recovery state the undo recorded.
+                string sourcePath = uri.LocalPath;
+                if (File.Exists(sourcePath)
+                    && !File.ReadAllBytes(sourcePath).AsSpan().SequenceEqual(suppressed.RawBytes))
+                {
+                    WriteBytesAtomically(sourcePath, suppressed.RawBytes);
+                }
+
                 return;
             }
 
@@ -365,6 +377,35 @@ public static class CoreSerializer
         else
         {
             throw new JsonException();
+        }
+    }
+
+    private static void WriteBytesAtomically(string path, byte[] bytes)
+    {
+        string tempPath = $"{path}.{Guid.NewGuid():N}.tmp";
+        try
+        {
+            using (var stream = new FileStream(
+                       tempPath,
+                       FileMode.CreateNew,
+                       FileAccess.Write,
+                       FileShare.None))
+            {
+                stream.Write(bytes);
+                stream.Flush(flushToDisk: true);
+            }
+
+            File.Move(tempPath, path, overwrite: true);
+        }
+        finally
+        {
+            try
+            {
+                File.Delete(tempPath);
+            }
+            catch
+            {
+            }
         }
     }
 }

@@ -48,7 +48,6 @@ public sealed class ReconcilerIdIntegrityTests
         CoreSerializer.StoreToUri(recovered, recovered.Uri!);
         byte[] repairedBytes = File.ReadAllBytes(elementPath);
         bool undone = session.History.Undo();
-        File.WriteAllBytes(elementPath, originalBytes);
         CoreSerializer.StoreToUri(recovered, recovered.Uri!);
 
         Assert.Multiple(() =>

@@ -40,6 +40,29 @@ public sealed class MalformedElementRecoveryTests
         public IProperty<Element?> ExpressionTarget { get; } = Property.Create<Element?>();
     }
 
+    [SuppressResourceClassGeneration]
+    public sealed class DictionaryTransformHolder : EngineObject
+    {
+        public DictionaryTransformHolder()
+        {
+            ScanProperties<DictionaryTransformHolder>();
+        }
+
+        public IProperty<Dictionary<string, Transform>> Transforms { get; }
+            = Property.Create<Dictionary<string, Transform>>();
+    }
+
+    [SuppressResourceClassGeneration]
+    public sealed class TransformReferenceHolder : EngineObject
+    {
+        public TransformReferenceHolder()
+        {
+            ScanProperties<TransformReferenceHolder>();
+        }
+
+        public IProperty<Reference<Transform>> Target { get; } = Property.Create<Reference<Transform>>();
+    }
+
     [SetUp]
     public void SetUp()
     {
@@ -1103,6 +1126,100 @@ public sealed class MalformedElementRecoveryTests
         CoreSerializer.StoreToUri(recovered, new Uri(rehomedPath));
 
         Assert.That(File.ReadAllBytes(rehomedPath), Is.EqualTo(repairedBytes));
+    }
+
+    [Test]
+    public void Restore_IdlessRecoveredDescendant_IsAssignedStableOccurrenceId()
+    {
+        (Uri sceneUri, string[] elementPaths) =
+            CreatePersistedSceneWithElements("recovered.belm");
+        Element source = CoreSerializer.RestoreFromUri<Scene>(sceneUri).Children.Single();
+        var sourceShape = (RectShape)source.Objects.Single();
+        sourceShape.Transform.CurrentValue = new RotationTransform();
+        CoreSerializer.StoreToUri(source, source.Uri!);
+
+        JsonObject json = JsonNode.Parse(File.ReadAllText(elementPaths[0]))!.AsObject();
+        JsonObject transformJson = FindObjectByDiscriminator(json, "RotationTransform")!;
+        transformJson["$type"] = "[Beutl.Engine]Beutl.Graphics.Transformation:DoesNotExist";
+        transformJson.Remove(nameof(CoreObject.Id));
+        File.WriteAllText(elementPaths[0], json.ToJsonString());
+
+        Scene firstLoad = CoreSerializer.RestoreFromUri<Scene>(sceneUri);
+        Guid firstId = ((CoreObject)GetTransformFallback(firstLoad, elementPaths[0])).Id;
+        CoreSerializer.StoreToUri(firstLoad, sceneUri);
+
+        Scene secondLoad = CoreSerializer.RestoreFromUri<Scene>(sceneUri);
+        Guid secondId = ((CoreObject)GetTransformFallback(secondLoad, elementPaths[0])).Id;
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(firstId, Is.Not.EqualTo(Guid.Empty));
+            Assert.That(secondId, Is.EqualTo(firstId));
+        });
+    }
+
+    [Test]
+    public void TryResumeElementPersistence_DictionaryValuedFallback_StaysBlocked()
+    {
+        (Uri sceneUri, string elementPath) = CreatePersistedScene();
+        Element element = CoreSerializer.RestoreFromUri<Element>(new Uri(elementPath));
+        var holder = new DictionaryTransformHolder();
+        holder.Transforms.CurrentValue = new Dictionary<string, Transform>
+        {
+            ["rotation"] = new FallbackTransform(),
+        };
+        element.AddObject(holder);
+        byte[] originalBytes = "{ preserved fallback bytes"u8.ToArray();
+        File.WriteAllBytes(elementPath, originalBytes);
+        element.SuppressedStorageSource = new SuppressedStorageSource(originalBytes, element.Uri!);
+
+        SuppressedStorageSource? suppression = Scene.TryResumeElementPersistence(element);
+
+        Assert.That(suppression, Is.Null);
+    }
+
+    [Test]
+    public void Restore_RemappedRecoveredDescendant_MigratesDirectReference()
+    {
+        (Uri sceneUri, string[] elementPaths) =
+            CreatePersistedSceneWithElements("healthy.belm", "recovered.belm");
+        Scene source = CoreSerializer.RestoreFromUri<Scene>(sceneUri);
+        Element healthySource = source.Children.Single(child => child.Uri!.LocalPath == elementPaths[0]);
+        var healthyShapeSource = (RectShape)healthySource.Objects.Single();
+        healthyShapeSource.Transform.CurrentValue = new RotationTransform();
+        Guid claimantId = healthyShapeSource.Transform.CurrentValue!.Id;
+        Element recoveredSource = source.Children.Single(child => child.Uri!.LocalPath == elementPaths[1]);
+        var recoveredShapeSource = (RectShape)recoveredSource.Objects.Single();
+        recoveredShapeSource.Transform.CurrentValue = new RotationTransform { Id = claimantId };
+        var referenceHolder = new TransformReferenceHolder();
+        referenceHolder.Target.CurrentValue = new Reference<Transform>(claimantId);
+        healthySource.AddObject(referenceHolder);
+        CoreSerializer.StoreToUri(recoveredSource, recoveredSource.Uri!);
+        CoreSerializer.StoreToUri(healthySource, healthySource.Uri!);
+
+        JsonObject json = JsonNode.Parse(File.ReadAllText(elementPaths[1]))!.AsObject();
+        JsonObject transformJson = FindObjectByDiscriminator(json, "RotationTransform")!;
+        transformJson["$type"] = "[Beutl.Engine]Beutl.Graphics.Transformation:DoesNotExist";
+        transformJson[nameof(CoreObject.Id)] = claimantId.ToString();
+        File.WriteAllText(elementPaths[1], json.ToJsonString());
+
+        Scene recovered = CoreSerializer.RestoreFromUri<Scene>(sceneUri);
+        Element recoveredHealthy = recovered.Children.Single(child => child.Uri!.LocalPath == elementPaths[0]);
+        Element recoveredElement = recovered.Children.Single(child => child.Uri!.LocalPath == elementPaths[1]);
+        Guid remappedId = ((CoreObject)GetTransformFallback(recovered, elementPaths[1])).Id;
+        var migratedReference = (Reference<Transform>)recoveredHealthy.Objects
+            .OfType<TransformReferenceHolder>()
+            .Single()
+            .Target.CurrentValue;
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(remappedId, Is.Not.EqualTo(claimantId));
+            Assert.That(migratedReference.Id, Is.EqualTo(remappedId));
+            Assert.That(
+                migratedReference.Value,
+                Is.SameAs(((RectShape)recoveredElement.Objects.Single()).Transform.CurrentValue));
+        });
     }
 
     [Test]

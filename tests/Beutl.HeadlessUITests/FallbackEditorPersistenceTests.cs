@@ -43,6 +43,8 @@ public sealed class FallbackEditorPersistenceTests
     [AvaloniaTest]
     public void BrushTryPasteJson_LastFallbackResumesPersistenceInReplacementTransaction()
     {
+        TestReset.ResetShellAsync().GetAwaiter().GetResult();
+
         string root = Path.Combine(
             BeutlHomeIsolation.CurrentHome!,
             $"fallback-editor-{Guid.NewGuid():N}");
@@ -92,7 +94,6 @@ public sealed class FallbackEditorPersistenceTests
             CoreSerializer.StoreToUri(recoveredElement, recoveredElement.Uri!);
             byte[] repairedBytes = File.ReadAllBytes(elementPath);
             bool undone = history.Undo();
-            File.WriteAllBytes(elementPath, originalBytes);
             CoreSerializer.StoreToUri(recoveredElement, recoveredElement.Uri!);
 
             Assert.Multiple(() =>
@@ -116,6 +117,8 @@ public sealed class FallbackEditorPersistenceTests
     [AvaloniaTest]
     public void EasingRepair_ResumesPersistenceAndWritesRepairedSidecar()
     {
+        TestReset.ResetShellAsync().GetAwaiter().GetResult();
+
         string root = CreateRoot();
         try
         {
@@ -155,6 +158,8 @@ public sealed class FallbackEditorPersistenceTests
     [AvaloniaTest]
     public void CoreObjectApplyTemplate_UpdatesEditingKeyFrameOnly()
     {
+        TestReset.ResetShellAsync().GetAwaiter().GetResult();
+
         var holder = new EditorValueHolder();
         var property = (AnimatableProperty<EngineObject>)holder.CoreValue;
         var propertyValue = new RectShape();
@@ -181,6 +186,8 @@ public sealed class FallbackEditorPersistenceTests
     [AvaloniaTest]
     public void GeometryApplyTemplate_UpdatesEditingKeyFrameOnly()
     {
+        TestReset.ResetShellAsync().GetAwaiter().GetResult();
+
         var holder = new EditorValueHolder();
         var property = (AnimatableProperty<Geometry?>)holder.GeometryValue;
         var propertyValue = new RectGeometry();
@@ -207,6 +214,8 @@ public sealed class FallbackEditorPersistenceTests
     [AvaloniaTest]
     public void BrushApplyTemplate_UpdatesEditingKeyFrameOnly()
     {
+        TestReset.ResetShellAsync().GetAwaiter().GetResult();
+
         var holder = new EditorValueHolder();
         var property = (AnimatableProperty<Brush?>)holder.BrushValue;
         var propertyValue = new SolidColorBrush(Colors.Red);
@@ -234,6 +243,8 @@ public sealed class FallbackEditorPersistenceTests
     [AvaloniaTest]
     public void TextureDrawableTypeRepair_ResumesPersistenceInReplacementTransaction()
     {
+        TestReset.ResetShellAsync().GetAwaiter().GetResult();
+
         string root = CreateRoot();
         try
         {
@@ -276,7 +287,70 @@ public sealed class FallbackEditorPersistenceTests
             CoreSerializer.StoreToUri(recoveredElement, recoveredElement.Uri!);
             byte[] repairedBytes = File.ReadAllBytes(elementPath);
             bool undone = context.History.Undo();
-            File.WriteAllBytes(elementPath, originalBytes);
+            CoreSerializer.StoreToUri(recoveredElement, recoveredElement.Uri!);
+
+            Assert.Multiple(() =>
+            {
+                Assert.That(repairedBytes, Is.Not.EqualTo(originalBytes));
+                Assert.That(undone, Is.True);
+                Assert.That(recoveredTexture.Drawable.CurrentValue, Is.InstanceOf<FallbackDrawable>());
+                Assert.That(File.ReadAllBytes(elementPath), Is.EqualTo(originalBytes));
+            });
+        }
+        finally
+        {
+            Directory.Delete(root, true);
+        }
+    }
+
+    [AvaloniaTest]
+    public void TextureDrawableTargetRepair_ResumesPersistenceInReplacementTransaction()
+    {
+        TestReset.ResetShellAsync().GetAwaiter().GetResult();
+
+        string root = CreateRoot();
+        try
+        {
+            var sceneUri = new Uri(Path.Combine(root, "scene.scene"));
+            string elementPath = Path.Combine(root, "element.belm");
+            var scene = new Scene(64, 64, "Scene") { Uri = sceneUri };
+            var holder = new EditorValueHolder();
+            var texture = new DrawableTextureSource();
+            texture.Drawable.CurrentValue = new RectShape();
+            holder.TextureValue.CurrentValue = texture;
+            var element = new Element
+            {
+                Length = TimeSpan.FromSeconds(1),
+                Uri = new Uri(elementPath),
+            };
+            element.AddObject(holder);
+            scene.Children.Add(element);
+            CoreSerializer.StoreToUri(scene, sceneUri);
+
+            JsonObject elementJson = JsonNode.Parse(File.ReadAllText(elementPath))!.AsObject();
+            JsonObject drawableJson = FindObjectWithProperty(elementJson, nameof(DrawableTextureSource.Drawable))!
+                [nameof(DrawableTextureSource.Drawable)]!.AsObject();
+            drawableJson["$type"] = "[Beutl.Engine]Beutl.Graphics:MissingDrawable";
+            File.WriteAllText(elementPath, elementJson.ToJsonString());
+            byte[] originalBytes = File.ReadAllBytes(elementPath);
+
+            Scene recoveredScene = CoreSerializer.RestoreFromUri<Scene>(sceneUri);
+            Element recoveredElement = recoveredScene.Children.Single();
+            var recoveredHolder = (EditorValueHolder)recoveredElement.Objects.Single();
+            var recoveredTexture = (DrawableTextureSource)recoveredHolder.TextureValue.CurrentValue!;
+            Assert.That(recoveredTexture.Drawable.CurrentValue, Is.InstanceOf<FallbackDrawable>());
+            using var context = new EditorTestContext(recoveredElement);
+            var adapter = new SimplePropertyAdapter<TextureSource?>(
+                (SimpleProperty<TextureSource?>)recoveredHolder.TextureValue,
+                recoveredHolder);
+            using var viewModel = new TextureSourceEditorViewModel(adapter);
+            viewModel.Accept(new Visitor(recoveredElement, context.History));
+
+            var target = new RectShape();
+            viewModel.SetDrawableTarget(target);
+            CoreSerializer.StoreToUri(recoveredElement, recoveredElement.Uri!);
+            byte[] repairedBytes = File.ReadAllBytes(elementPath);
+            bool undone = context.History.Undo();
             CoreSerializer.StoreToUri(recoveredElement, recoveredElement.Uri!);
 
             Assert.Multiple(() =>

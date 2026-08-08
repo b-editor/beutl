@@ -1,9 +1,11 @@
 ﻿using System.Reflection;
+using System.Runtime.ExceptionServices;
 using System.Text.Json;
 using System.Text.Json.Nodes;
 
 using Beutl.Animation.Easings;
 using Beutl.Serialization;
+using Beutl.Utilities;
 using Beutl.Validation;
 
 namespace Beutl.Animation;
@@ -13,6 +15,7 @@ public class KeyFrame : Hierarchical
     public static readonly CoreProperty<Easing> EasingProperty;
     public static readonly CoreProperty<TimeSpan> KeyTimeProperty;
     private Easing _easing;
+    private Easing? _lossyFallbackEasing;
     private TimeSpan _keyTime;
 
     protected KeyFrame()
@@ -36,15 +39,11 @@ public class KeyFrame : Hierarchical
     public Easing Easing
     {
         get => _easing;
-        set
-        {
-            HasLossyEasing = false;
-            SetAndRaise(EasingProperty, ref _easing, value);
-        }
+        set => SetAndRaise(EasingProperty, ref _easing, value);
     }
 
     [NotAutoSerialized]
-    internal bool HasLossyEasing { get; private set; }
+    internal bool HasLossyEasing => ReferenceEquals(_easing, _lossyFallbackEasing);
 
     public TimeSpan KeyTime
     {
@@ -97,25 +96,35 @@ public class KeyFrame : Hierarchical
                                                 or TypeInitializationException
                                                 or NotSupportedException)
                 {
+                    if (ExceptionHelpers.ContainsFileSystemFailure(ex))
+                    {
+                        if (ex.InnerException is { } inner)
+                        {
+                            ExceptionDispatchInfo.Capture(inner).Throw();
+                        }
+
+                        throw;
+                    }
+
                     UseFallbackEasing();
                 }
             }
         }
         else if (easingNode is JsonObject easingObject)
         {
-            try
+            if (easingObject.Count == 4
+                && easingObject["X1"] is JsonValue x1Value
+                && easingObject["Y1"] is JsonValue y1Value
+                && easingObject["X2"] is JsonValue x2Value
+                && easingObject["Y2"] is JsonValue y2Value
+                && x1Value.TryGetValue<float>(out float x1)
+                && y1Value.TryGetValue<float>(out float y1)
+                && x2Value.TryGetValue<float>(out float x2)
+                && y2Value.TryGetValue<float>(out float y2))
             {
-                float x1 = (float?)easingObject["X1"] ?? 0;
-                float y1 = (float?)easingObject["Y1"] ?? 0;
-                float x2 = (float?)easingObject["X2"] ?? 1;
-                float y2 = (float?)easingObject["Y2"] ?? 1;
-
                 Easing = new SplineEasing(x1, y1, x2, y2);
             }
-            catch (Exception ex) when (ex is JsonException
-                                            or FormatException
-                                            or InvalidOperationException
-                                            or ArgumentException)
+            else
             {
                 UseFallbackEasing();
             }
@@ -129,8 +138,8 @@ public class KeyFrame : Hierarchical
     private void UseFallbackEasing()
     {
         DeserializationIncidents.RecordFallback();
-        Easing = new LinearEasing();
-        HasLossyEasing = true;
+        _lossyFallbackEasing = new LinearEasing();
+        Easing = _lossyFallbackEasing;
     }
 
     public override void Serialize(ICoreSerializationContext context)

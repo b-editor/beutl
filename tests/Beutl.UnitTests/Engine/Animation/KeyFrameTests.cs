@@ -1,4 +1,5 @@
-﻿using System.Text.Json.Nodes;
+﻿using System.IO;
+using System.Text.Json.Nodes;
 using Beutl.Animation;
 using Beutl.Animation.Easings;
 using Beutl.Serialization;
@@ -26,6 +27,16 @@ public class KeyFrameTests
         public ThrowingConstructorTestEasing()
         {
             throw new InvalidOperationException("Constructor failure.");
+        }
+
+        public override float Ease(float progress) => progress;
+    }
+
+    public sealed class FilesystemThrowingConstructorTestEasing : Easing
+    {
+        public FilesystemThrowingConstructorTestEasing()
+        {
+            throw new IOException("Constructor could not access its storage.");
         }
 
         public override float Ease(float progress) => progress;
@@ -175,6 +186,74 @@ public class KeyFrameTests
         keyFrame.Easing = new SplineEasing();
 
         Assert.That(keyFrame.HasLossyEasing, Is.False);
+    }
+
+    [Test]
+    public void RestoringLossyFallbackEasingViaSetter_RestoresMarker()
+    {
+        KeyFrame<int> keyFrame = Deserialize("[Missing.Assembly]Missing.Namespace:MissingEasing");
+        Easing lossyFallback = keyFrame.Easing;
+        Assert.That(keyFrame.HasLossyEasing, Is.True);
+
+        // Simulates the undo path: UpdatePropertyValueOperation routes the old value back
+        // through the Easing setter, which must restore the lossy marker by identity.
+        keyFrame.Easing = new SplineEasing();
+        Assert.That(keyFrame.HasLossyEasing, Is.False);
+
+        keyFrame.Easing = lossyFallback;
+
+        Assert.That(keyFrame.HasLossyEasing, Is.True);
+    }
+
+    [Test]
+    public void Deserialize_FilesystemFailureFromEasingConstructor_Propagates()
+    {
+        int incidentsBefore = DeserializationIncidents.FallbackCount;
+
+        Assert.Throws<IOException>(
+            () => Deserialize(TypeFormat.ToString(typeof(FilesystemThrowingConstructorTestEasing))));
+
+        Assert.That(DeserializationIncidents.FallbackCount, Is.EqualTo(incidentsBefore));
+    }
+
+    [Test]
+    public void Deserialize_UnknownTypedObjectEasing_RecordsIncident()
+    {
+        int incidentsBefore = DeserializationIncidents.FallbackCount;
+        var easingObject = new JsonObject
+        {
+            ["$type"] = "[Missing.Assembly]Missing.Namespace:MissingEasing",
+            ["Unrelated"] = 42,
+        };
+
+        KeyFrame<int> keyFrame = Deserialize(easingObject);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(keyFrame.Easing, Is.InstanceOf<LinearEasing>());
+            Assert.That(keyFrame.HasLossyEasing, Is.True);
+            Assert.That(DeserializationIncidents.FallbackCount, Is.EqualTo(incidentsBefore + 1));
+        });
+    }
+
+    [Test]
+    public void Deserialize_ObjectEasingWithPartialSplineCoordinates_RecordsIncident()
+    {
+        int incidentsBefore = DeserializationIncidents.FallbackCount;
+        var easingObject = new JsonObject
+        {
+            ["X1"] = 0.1f,
+            ["Y1"] = 0.2f,
+        };
+
+        KeyFrame<int> keyFrame = Deserialize(easingObject);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(keyFrame.Easing, Is.InstanceOf<LinearEasing>());
+            Assert.That(keyFrame.HasLossyEasing, Is.True);
+            Assert.That(DeserializationIncidents.FallbackCount, Is.EqualTo(incidentsBefore + 1));
+        });
     }
 
     private static KeyFrame<int> Deserialize(JsonNode? easingNode)
