@@ -190,13 +190,40 @@ public class RenderTarget : IDisposable
         if (IsDisposed) return;
 
         IsDisposed = true;
+
+        // Skia's GPU context is thread-affine, so the surface and its shared texture have to be
+        // released on the dispatcher that allocated them — releasing from another thread corrupts
+        // the context and faults the render thread later. ImmediateCanvas.Dispose hops the same way.
+        // Once that dispatcher is shutting down nothing can run there, so release in place instead.
+        if (_dispatcher is { HasShutdownStarted: false } dispatcher && !dispatcher.CheckAccess())
+        {
+            SKSurfaceCounter<SKSurface> surface = _surface;
+            SKSurfaceCounter<ITexture2D>? texture = _texture;
+            if (disposing)
+            {
+                dispatcher.Invoke(() => Release(surface, texture));
+            }
+            else
+            {
+                // A finalizer must not block on another thread.
+                dispatcher.Dispatch(() => Release(surface, texture));
+            }
+
+            return;
+        }
+
+        Release(_surface, _texture);
+    }
+
+    private static void Release(SKSurfaceCounter<SKSurface> surface, SKSurfaceCounter<ITexture2D>? texture)
+    {
         try
         {
-            _surface.Release();
+            surface.Release();
         }
         finally
         {
-            _texture?.Release();
+            texture?.Release();
         }
     }
 
