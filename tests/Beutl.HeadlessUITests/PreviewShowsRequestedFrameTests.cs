@@ -1,4 +1,5 @@
-﻿using System.Reactive.Disposables;
+﻿using System.Diagnostics;
+using System.Reactive.Disposables;
 using Avalonia.Headless.NUnit;
 using Beutl.Configuration;
 using Beutl.Editor.Models;
@@ -87,8 +88,8 @@ public class PreviewShowsRequestedFrameTests
             (bool r, bool g, bool b) = s_segmentChannels[i];
             var color = new Color(255, r ? (byte)255 : (byte)0, g ? (byte)255 : (byte)0, b ? (byte)255 : (byte)0);
             adder.AddElement(new ElementDescription(
-                Start: TimeSpan.FromSeconds(i * SegmentFrames / (double)Rate),
-                Length: TimeSpan.FromSeconds(SegmentFrames / (double)Rate),
+                Start: FrameTime(i * SegmentFrames),
+                Length: FrameTime(SegmentFrames),
                 Layer: 0,
                 EngineObjectFactory: () => new RectShape
                 {
@@ -105,9 +106,30 @@ public class PreviewShowsRequestedFrameTests
         return editor;
     }
 
+    // Ticks, not seconds: a frame boundary computed in double can land just off the grid, which
+    // makes two segments overlap or leave a gap.
+    private static TimeSpan FrameTime(int frame) =>
+        TimeSpan.FromTicks(frame * TimeSpan.TicksPerSecond / Rate);
+
     private static void SeekTo(EditViewModel editor, int frame)
     {
-        editor.Player.CurrentFrame.Value = TimeSpan.FromSeconds(frame / (double)Rate);
+        editor.Player.CurrentFrame.Value = FrameTime(frame);
+    }
+
+    // Playback advances on a timer, so pumping the dispatcher is not enough to make frames appear.
+    private static async Task WaitUntilAsync(Func<bool> condition, TimeSpan timeout)
+    {
+        var stopwatch = Stopwatch.StartNew();
+        while (!condition())
+        {
+            if (stopwatch.Elapsed >= timeout)
+            {
+                Assert.Fail($"Condition was not met within {timeout}.");
+            }
+
+            HeadlessTestHelpers.Settle();
+            await Task.Delay(10);
+        }
     }
 
     private static void DrainRenders()
@@ -146,8 +168,8 @@ public class PreviewShowsRequestedFrameTests
     [AvaloniaTest]
     public async Task Scrubbing_over_cached_frames_always_shows_the_frame_under_the_playhead()
     {
-        GpuTestGate.EnsureAvailable();
         await TestReset.ResetShellAsync();
+        GpuTestGate.EnsureAvailable();
         using IDisposable autoSave = SuspendAutoSave();
 
         try
@@ -194,8 +216,8 @@ public class PreviewShowsRequestedFrameTests
     [AvaloniaTest]
     public async Task A_burst_of_seeks_settles_on_the_last_requested_frame()
     {
-        GpuTestGate.EnsureAvailable();
         await TestReset.ResetShellAsync();
+        GpuTestGate.EnsureAvailable();
         using IDisposable autoSave = SuspendAutoSave();
 
         try
@@ -265,8 +287,8 @@ public class PreviewShowsRequestedFrameTests
     [AvaloniaTest]
     public async Task A_frame_looks_the_same_freshly_rendered_and_replayed_from_the_cache()
     {
-        GpuTestGate.EnsureAvailable();
         await TestReset.ResetShellAsync();
+        GpuTestGate.EnsureAvailable();
         using IDisposable autoSave = SuspendAutoSave();
 
         try
@@ -305,6 +327,57 @@ public class PreviewShowsRequestedFrameTests
         }
         finally
         {
+            await TestReset.ResetShellAsync();
+        }
+    }
+
+    /// <summary>
+    /// Playback renders through <c>BufferedPlayer</c>, a different producer from the scrub path, and
+    /// it stores every frame it renders. What it hands to the preview has to be that stored entry —
+    /// the snapshot it was made from is a different rendition (RgbaF16/linear at full size), so
+    /// queueing it would make a frame change appearance the moment it came back from the cache.
+    /// </summary>
+    [AvaloniaTest]
+    public async Task Playing_publishes_the_rendition_it_stores_in_the_cache()
+    {
+        await TestReset.ResetShellAsync();
+        GpuTestGate.EnsureAvailable();
+        using IDisposable autoSave = SuspendAutoSave();
+        EditorConfig config = GlobalConfiguration.Instance.EditorConfig;
+        bool cacheWasEnabled = config.IsFrameCacheEnabled;
+        config.IsFrameCacheEnabled = true;
+        try
+        {
+            EditViewModel editor = await NewSegmentedEditor(nameof(Playing_publishes_the_rendition_it_stores_in_the_cache));
+            SeekTo(editor, 0);
+            DrainRenders();
+
+            var published = new List<BitmapColorType>();
+            using (editor.Player.PreviewImage.Subscribe(frame =>
+                   {
+                       if (editor.Player.IsPlaying.Value && frame?.Value is { IsDisposed: false } bitmap)
+                       {
+                           published.Add(bitmap.ColorType);
+                       }
+                   }))
+            {
+                editor.Player.Play();
+                await WaitUntilAsync(() => published.Count >= 3, TimeSpan.FromSeconds(10));
+                await editor.Player.Pause();
+            }
+
+            DrainRenders();
+
+            Assert.That(published, Is.Not.Empty, "playback published no frame");
+            Assert.That(published, Is.All.EqualTo(BitmapColorType.Bgra8888),
+                "playback published the raw snapshot instead of the entry it stored");
+            Assert.That(editor.FrameCacheManager.Value.TryGet(0, out Ref<Bitmap>? stored), Is.True,
+                "playback stored nothing for frame 0");
+            stored!.Dispose();
+        }
+        finally
+        {
+            config.IsFrameCacheEnabled = cacheWasEnabled;
             await TestReset.ResetShellAsync();
         }
     }
