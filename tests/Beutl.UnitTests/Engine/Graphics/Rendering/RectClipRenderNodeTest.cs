@@ -1,5 +1,7 @@
 ﻿using Beutl.Graphics;
 using Beutl.Graphics.Rendering;
+using Beutl.Graphics.Rendering.Cache;
+using Beutl.Media;
 
 namespace Beutl.UnitTests.Engine.Graphics.Rendering;
 
@@ -27,26 +29,175 @@ public class RectClipRenderNodeTest
     }
 
     [Test]
-    public void Process_WithoutInput_ShouldReturnEmptyRenderNodeOperation()
+    public void Update_ShouldNotMarkChanges_WhenAllPropertiesMatch()
     {
-        var context = new RenderNodeContext([]);
+        var rect = new Rect(0, 0, 100, 100);
+        var operation = ClipOperation.Intersect;
+        using var node = new RectClipRenderNode(rect, operation);
+        node.HasChanges = false;
 
-        var node = new RectClipRenderNode(new Rect(0, 0, 100, 100), ClipOperation.Intersect);
-        var operations = node.Process(context);
-
-        Assert.That(operations, Is.Empty);
+        Assert.Multiple(() =>
+        {
+            Assert.That(node.Update(rect, operation), Is.False);
+            Assert.That(node.HasChanges, Is.False);
+        });
     }
 
     [Test]
-    public void Process_WithInput_ShouldReturnExpectedRenderNodeOperation()
+    public void Update_ShouldMarkChanges_WhenPropertiesDoNotMatch()
     {
-        var context = new RenderNodeContext([
-            RenderNodeOperation.CreateLambda(default, _ => {  })
-        ]);
+        var rect = new Rect(0, 0, 100, 100);
+        var operation = ClipOperation.Intersect;
+        using var node = new RectClipRenderNode(rect, operation);
+        node.HasChanges = false;
 
-        var node = new RectClipRenderNode(new Rect(0, 0, 100, 100), ClipOperation.Intersect);
-        var operations = node.Process(context);
+        Assert.Multiple(() =>
+        {
+            Assert.That(node.Update(default, operation), Is.True);
+            Assert.That(node.HasChanges, Is.True);
+        });
+    }
 
-        Assert.That(operations, Is.Not.Empty);
+    [Test]
+    public void UnchangedReRecording_ShouldAdmitTheClipScopeToTheCache()
+    {
+        var rect = new Rect(0, 0, 100, 100);
+        var operation = ClipOperation.Intersect;
+        using var node = new RectClipRenderNode(rect, operation);
+
+        for (int frame = 0; frame < RenderNodeCache.Count; frame++)
+        {
+            node.Update(rect, operation);
+            node.Cache.IncrementRenderCount();
+            node.HasChanges = false;
+        }
+
+        Assert.That(node.Cache.CanCache(), Is.True);
+    }
+
+    [Test]
+    public void UnchangedClipScope_ShouldNotBlockAnAncestorCache()
+    {
+        var rect = new Rect(0, 0, 100, 100);
+        var operation = ClipOperation.Intersect;
+        using var parent = new ContainerRenderNode();
+        var node = new RectClipRenderNode(rect, operation);
+        parent.AddChild(node);
+
+        for (int frame = 0; frame < RenderNodeCache.Count; frame++)
+        {
+            node.Update(rect, operation);
+            node.Cache.IncrementRenderCount();
+            node.HasChanges = false;
+            parent.Cache.IncrementRenderCount();
+            parent.HasChanges = false;
+        }
+
+        Assert.That(RenderNodeCacheHelper.CanCacheRecursive(parent), Is.True);
+    }
+
+    [Test]
+    public void Measure_WithoutChild_ShouldReportNoFragments()
+    {
+        using var node = new RectClipRenderNode(new Rect(0, 0, 100, 100), ClipOperation.Intersect);
+        using var renderer = CreateRenderer(node);
+        RenderNodeMeasurement measurement = renderer.Measure();
+
+        Assert.That(measurement.HasFragments, Is.False);
+    }
+
+    [Test]
+    public void Measure_WithChild_ShouldReportScopedFragment()
+    {
+        using var node = new RectClipRenderNode(new Rect(0, 0, 100, 100), ClipOperation.Intersect);
+        node.AddChild(new RectangleRenderNode(
+            new Rect(10, 20, 30, 40),
+            Brushes.Resource.White,
+            null));
+        using var renderer = CreateRenderer(node);
+        RenderNodeMeasurement measurement = renderer.Measure();
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(measurement.HasFragments, Is.True);
+            Assert.That(measurement.HasContributingValues, Is.True);
+            Assert.That(measurement.OutputBounds, Is.EqualTo(new Rect(10, 20, 30, 40)));
+        });
+    }
+
+    [Test]
+    public void Intersect_ClipsOutputBoundsAndHitTesting()
+    {
+        var clip = new Rect(20, 10, 30, 40);
+        using var node = new RectClipRenderNode(clip, ClipOperation.Intersect);
+        node.AddChild(new RectangleRenderNode(
+            new Rect(0, 0, 100, 100),
+            Brushes.Resource.White,
+            null));
+        using var renderer = CreateRenderer(node);
+
+        RenderNodeMeasurement measurement = renderer.Measure();
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(measurement.OutputBounds, Is.EqualTo(clip));
+            Assert.That(measurement.QueryBounds, Is.EqualTo(clip));
+            Assert.That(renderer.HitTest(new Point(25, 25)), Is.True);
+            Assert.That(renderer.HitTest(new Point(10, 25)), Is.False);
+        });
+    }
+
+    [Test]
+    public void RuntimeClipChanges_ReuseTheStructuralPlan()
+    {
+        using var cache = new StructuralPlanCache();
+        using var node = new RectClipRenderNode(
+            new Rect(10, 10, 40, 40),
+            ClipOperation.Intersect);
+        node.AddChild(new RectangleRenderNode(
+            new Rect(0, 0, 100, 100),
+            Brushes.Resource.White,
+            null));
+
+        using (Compile(cache, node))
+        {
+        }
+
+        node.Update(new Rect(20, 20, 30, 30), ClipOperation.Difference);
+        using CompiledRenderRequest compiled = Compile(cache, node);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(compiled.Measurement.OutputBounds, Is.EqualTo(new Rect(0, 0, 100, 100)));
+            Assert.That(cache.Statistics.Compilations, Is.EqualTo(1));
+            Assert.That(cache.Statistics.Hits, Is.EqualTo(1));
+        });
+    }
+
+    private static RenderNodeRenderer CreateRenderer(RenderNode node)
+        => new(node, new RenderNodeRendererOptions
+        {
+            DefaultRequest = new RenderNodeRenderRequest
+            {
+                CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Disabled,
+            },
+        });
+
+    private static CompiledRenderRequest Compile(StructuralPlanCache cache, RenderNode node)
+    {
+        var request = new RenderRequest(new RenderRequestOptions(
+            RenderIntent.Preview,
+            RenderRequestPurpose.Auxiliary,
+            cachePolicy: RenderCacheOptions.Disabled));
+        try
+        {
+            RecordedRenderGraph graph = new RenderRequestRecorder(request).Record(node);
+            return new RenderRequestCompiler(cache).Compile(request, graph);
+        }
+        catch
+        {
+            request.Dispose();
+            throw;
+        }
     }
 }

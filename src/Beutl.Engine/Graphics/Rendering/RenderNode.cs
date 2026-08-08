@@ -22,9 +22,20 @@ public abstract class RenderNode : IDisposable
 
     public bool HasChanges { get; set; }
 
+    /// <summary>The nodes this node records through, in recording order.</summary>
+    /// <remarks>
+    /// Content dependency, not ownership: a node that only references another node and never disposes it
+    /// still reports it here, because revalidation and cache validity follow what a node's output is built
+    /// from. Disposal and cache teardown follow ownership instead. The relation must be acyclic and the
+    /// span must stay valid while a caller iterates it. A node that discovers what it records through only
+    /// while processing, and so cannot hold a stable span, leaves this empty: both traversals then stop at
+    /// it, so nothing below it is revalidated or render-cached and the node itself must never be cacheable.
+    /// </remarks>
+    public virtual ReadOnlySpan<RenderNode> ChildNodes => default;
+
     public RenderNodeCache Cache { get; }
 
-    public abstract RenderNodeOperation[] Process(RenderNodeContext context);
+    public abstract void Process(RenderNodeContext context);
 
     public void Dispose()
     {

@@ -2,16 +2,25 @@
 
 public sealed class PushRenderNode : ContainerRenderNode
 {
-    public override RenderNodeOperation[] Process(RenderNodeContext context)
+    public override void Process(RenderNodeContext context)
     {
-        return context.Input.Select(r =>
-            RenderNodeOperation.CreateDecorator(r, canvas =>
+        TargetScopeDescription description = TargetScopeDescription.Create(
+            typeof(PushRenderNode),
+            static (session, _) => session.Canvas.Use(canvas =>
             {
                 using (canvas.Push())
                 {
-                    r.Render(canvas);
+                    session.ReplayInput();
                 }
-            }))
-            .ToArray();
+            }),
+            RenderBoundsContract.Identity,
+            RenderHitTestContract.AnyInput,
+            RenderScaleContract.PreserveInputSupply,
+            RenderDeviceGridMapping.Preserved);
+
+        foreach (RenderFragmentHandle input in context.Inputs)
+        {
+            context.Publish(context.TargetScope(input, description));
+        }
     }
 }

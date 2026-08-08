@@ -1,5 +1,6 @@
 ﻿using System.Collections.Immutable;
 using System.ComponentModel.DataAnnotations;
+using System.Runtime.ExceptionServices;
 using Beutl.Composition;
 using Beutl.Engine;
 using Beutl.Graphics;
@@ -34,11 +35,14 @@ public sealed partial class SceneDrawable : Drawable
     protected override void OnDraw(GraphicsContext2D context, Drawable.Resource resource)
     {
         var r = (Resource)resource;
+        var parameters = new SceneBitmapParameters(r, context.OutputScale);
         context.DrawNode(
-            r,
-            static r => new SceneBitmapRenderNode(r),
-            static (node, r) => node.Update(r));
+            parameters,
+            static parameters => SceneBitmapRenderNode.Create(parameters),
+            static (node, parameters) => node.Update(parameters));
     }
+
+    private readonly record struct SceneBitmapParameters(Resource Resource, float OutputScale);
 
     private readonly struct CapturedCompositionFrame(CompositionFrame frame)
     {
@@ -154,72 +158,180 @@ public sealed partial class SceneDrawable : Drawable
         }
     }
 
-    private class SceneBitmapRenderNode(Resource resource) : RenderNode
+    private class SceneBitmapRenderNode : ContainerRenderNode
     {
-        private Renderer? _renderer;
+        private float _outputScale;
+        private PixelSize _frameSize;
 
-        public (Resource Resource, int Version)? Scene { get; set; } = resource.Capture();
+        public (Resource Resource, int Version)? Scene { get; private set; }
 
-        public bool Update(Resource resource)
+        public static SceneBitmapRenderNode Create(SceneBitmapParameters parameters)
         {
-            if (!resource.Compare(Scene))
+            var node = new SceneBitmapRenderNode();
+            try
             {
-                Scene = resource.Capture();
-                HasChanges = true;
-                return true;
+                node.Update(parameters);
+                return node;
             }
-
-            return false;
+            catch
+            {
+                node.Dispose();
+                throw;
+            }
         }
 
-        public override RenderNodeOperation[] Process(RenderNodeContext context)
+        public bool Update(SceneBitmapParameters parameters)
+        {
+            Resource resource = parameters.Resource;
+            float outputScale = parameters.OutputScale;
+            bool sceneChanged = !resource.Compare(Scene);
+            bool scaleChanged = _outputScale != outputScale;
+            if (!sceneChanged && !scaleChanged)
+                return false;
+
+            CompositionFrame? frame = resource.Frame;
+            PixelSize frameSize = frame?.Size ?? default;
+            bool rebuildAll = scaleChanged || frameSize != _frameSize;
+            ReconcileChildren(frame, outputScale, rebuildAll);
+
+            Scene = resource.Capture();
+            _outputScale = outputScale;
+            _frameSize = frameSize;
+            HasChanges = true;
+            return true;
+        }
+
+        private void ReconcileChildren(
+            CompositionFrame? frame,
+            float outputScale,
+            bool rebuildAll)
+        {
+            int childIndex = 0;
+            if (frame is { } currentFrame)
+            {
+                Size canvasSize = currentFrame.Size.ToSize(1);
+                foreach (EngineObject.Resource item in currentFrame.Objects)
+                {
+                    if (item is not Drawable.Resource drawableResource)
+                        continue;
+
+                    Drawable drawable = drawableResource.GetOriginal();
+                    DrawableRenderNode? node = childIndex < Children.Count
+                        ? Children[childIndex] as DrawableRenderNode
+                        : null;
+                    bool canReuse = node?.Drawable is { } captured
+                                    && ReferenceEquals(captured.Resource.GetOriginal(), drawable);
+                    if (canReuse)
+                    {
+                        bool resourceChanged = !drawableResource.Compare(node!.Drawable);
+                        if (resourceChanged || rebuildAll)
+                        {
+                            RebuildChildTransactionally(
+                                node,
+                                drawable,
+                                drawableResource,
+                                canvasSize,
+                                outputScale);
+                        }
+                    }
+                    else
+                    {
+                        node = new DrawableRenderNode(drawableResource);
+                        try
+                        {
+                            using var graphics = new GraphicsContext2D(
+                                node,
+                                canvasSize,
+                                outputScale);
+                            drawable.Render(graphics, drawableResource);
+
+                            if (childIndex < Children.Count)
+                                SetChild(childIndex, node);
+                            else
+                                AddChild(node);
+                        }
+                        catch
+                        {
+                            node.Dispose();
+                            throw;
+                        }
+                    }
+
+                    childIndex++;
+                }
+            }
+
+            if (childIndex < Children.Count)
+            {
+                RenderNode[] removed = [.. Children.Skip(childIndex)];
+                RemoveRange(childIndex, Children.Count - childIndex);
+                DisposeAll(removed);
+            }
+        }
+
+        private static void RebuildChildTransactionally(
+            DrawableRenderNode destination,
+            Drawable drawable,
+            Drawable.Resource resource,
+            Size canvasSize,
+            float outputScale)
+        {
+            using var candidate = new DrawableRenderNode(resource);
+            using (var graphics = new GraphicsContext2D(
+                       candidate,
+                       canvasSize,
+                       outputScale))
+            {
+                drawable.Render(graphics, resource);
+            }
+
+            RenderNode[] previous = [.. destination.Children];
+            destination.BringFrom(candidate);
+            DisposeAll(previous);
+            destination.Update(resource);
+            destination.HasChanges = true;
+        }
+
+        private static void DisposeAll(IEnumerable<RenderNode> nodes)
+        {
+            List<Exception>? failures = null;
+            foreach (RenderNode node in nodes)
+            {
+                try
+                {
+                    node.Dispose();
+                }
+                catch (Exception ex)
+                {
+                    (failures ??= []).Add(ex);
+                }
+            }
+
+            if (failures is [var failure])
+                ExceptionDispatchInfo.Capture(failure).Throw();
+            if (failures is { Count: > 1 })
+            {
+                throw new AggregateException(
+                    "One or more nested-scene nodes failed to dispose.",
+                    failures);
+            }
+        }
+
+        public override void Process(RenderNodeContext context)
         {
             var frame = Scene?.Resource.Frame;
             if (frame == null)
-                return [];
+                return;
 
-            // Inherit the outer render scale so nested scenes are not rasterized at 1x and upscaled.
-            float w = context.OutputScale;
-            var size = frame.Value.Size;
-            if (_renderer == null
-                || _renderer.FrameSize != size
-                || _renderer.OutputScale != w
-                || _renderer.MaxWorkingScale != context.MaxWorkingScale)
-            {
-                _renderer?.Dispose();
-                _renderer = new Renderer(size.Width, size.Height, w, context.MaxWorkingScale);
-            }
-
-            Renderer renderer = _renderer;
-            var bounds = new Rect(0, 0, size.Width, size.Height);
-            return
-            [
-                RenderNodeOperation.CreateLambda(
-                    bounds,
-                    canvas =>
-                    {
-                        renderer.Render(frame.Value);
-                        RenderTarget renderTarget = Renderer.GetInternalRenderTarget(renderer);
-                        // Point-blit only when both buffer and canvas are at density 1; otherwise use scaled blit.
-                        if (w == 1f && canvas.Density == 1f)
-                        {
-                            canvas.DrawRenderTarget(renderTarget, default);
-                        }
-                        else
-                        {
-                            canvas.DrawRenderTargetScaled(renderTarget, bounds);
-                        }
-                    },
-                    effectiveScale: EffectiveScale.At(w))
-            ];
+            PixelSize size = frame.Value.Size;
+            var domain = new Rect(0, 0, size.Width, size.Height);
+            context.Publish(context.Layer(context.Inputs, domain));
         }
 
         protected override void OnDispose(bool disposing)
         {
-            base.OnDispose(disposing);
             Scene = null;
-            _renderer?.Dispose();
-            _renderer = null;
+            base.OnDispose(disposing);
         }
     }
 }

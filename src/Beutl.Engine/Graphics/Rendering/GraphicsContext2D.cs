@@ -1,8 +1,10 @@
 ﻿using Beutl.Graphics.Effects;
 using Beutl.Graphics.Transformation;
+using Beutl.Logging;
 using Beutl.Media;
 using Beutl.Media.Source;
 using Beutl.Media.TextFormatting;
+using Microsoft.Extensions.Logging;
 
 namespace Beutl.Graphics.Rendering;
 
@@ -12,13 +14,15 @@ public sealed class GraphicsContext2D(
     float outputScale = 1f)
     : IDisposable, IPopable
 {
-    private readonly Stack<(ContainerRenderNode, int)> _nodes = [];
+    private readonly Stack<(ContainerRenderNode Container, int OperationIndex, bool HasChanges)> _nodes = [];
     private int _drawOperationindex;
 
+    private readonly ContainerRenderNode _rootContainer = container;
     private ContainerRenderNode _container = container;
 
-    // 下位のノードで変更があったとき、上位に伝搬するためのフィールド。Pop時に上位ノードのHasChangesを変更する用。
+    // Belongs to the innermost open scope, not to the pass: it accumulates until that scope closes.
     private bool _hasChanges;
+    private bool _faulted;
 
     /// <summary>The logical viewport size (float, not rounded to device pixels).</summary>
     public Size Size => canvasSize;
@@ -40,14 +44,31 @@ public sealed class GraphicsContext2D(
 
     private void Add(RenderNode node)
     {
-        if (_drawOperationindex < _container.Children.Count)
+        try
         {
-            Untracked(_container.Children[_drawOperationindex]);
-            _container.SetChild(_drawOperationindex, node);
+            if (_drawOperationindex < _container.Children.Count)
+            {
+                Untracked(_container.Children[_drawOperationindex]);
+                _container.SetChild(_drawOperationindex, node);
+            }
+            else
+            {
+                _container.AddChild(node);
+            }
         }
-        else
+        catch
         {
-            _container.AddChild(node);
+            try
+            {
+                node.Dispose();
+            }
+            catch (Exception cleanupFailure)
+            {
+                // Preserve the recording failure that prevented ownership transfer.
+                ReportCleanupFailure(cleanupFailure, "disposing a rejected render node");
+            }
+
+            throw;
         }
 
         _hasChanges = true;
@@ -61,10 +82,25 @@ public sealed class GraphicsContext2D(
 
     private void Push(ContainerRenderNode node)
     {
-        _nodes.Push((_container, _drawOperationindex + 1));
+        _nodes.Push((_container, _drawOperationindex + 1, _hasChanges));
 
         _drawOperationindex = 0;
         _container = node;
+        _hasChanges = false;
+    }
+
+    private void CloseScope(in (ContainerRenderNode Container, int OperationIndex, bool HasChanges) state)
+    {
+        if (!_faulted)
+        {
+            TrimTrailingNodes(_container, _drawOperationindex);
+            _container.HasChanges |= _hasChanges;
+        }
+
+        bool scopeChanges = _hasChanges;
+        _container = state.Container;
+        _drawOperationindex = state.OperationIndex;
+        _hasChanges = state.HasChanges | scopeChanges;
     }
 
     private T? Next<T>() where T : RenderNode
@@ -90,17 +126,97 @@ public sealed class GraphicsContext2D(
 
     public void Dispose()
     {
-        _container.RemoveRange(_drawOperationindex, _container.Children.Count - _drawOperationindex);
+        if (_faulted)
+            return;
+
+        TrimTrailingNodes(_container, _drawOperationindex);
+        _container.HasChanges |= _hasChanges;
+    }
+
+    private bool BeginRecordingOperation()
+    {
+        bool wasFaulted = _faulted;
+        _faulted = true;
+        return wasFaulted;
+    }
+
+    private void CompleteRecordingOperation(bool wasFaulted)
+    {
+        _faulted = wasFaulted;
+    }
+
+    private void TrimTrailingNodes(ContainerRenderNode container, int start)
+    {
+        RenderNode[] removed;
+        try
+        {
+            int count = container.Children.Count - start;
+            if (count == 0)
+                return;
+
+            removed = [.. container.Children.Skip(start)];
+            container.RemoveRange(start, count);
+            container.HasChanges = true;
+            _hasChanges = true;
+        }
+        catch (Exception cleanupFailure)
+        {
+            // Recording cleanup must not replace an exception already leaving the caller.
+            ReportCleanupFailure(cleanupFailure, "detaching trailing render nodes");
+            return;
+        }
+
+        foreach (RenderNode node in removed)
+        {
+            try
+            {
+                node.Dispose();
+            }
+            catch (Exception cleanupFailure)
+            {
+                // Continue discharging every detached node.
+                ReportCleanupFailure(cleanupFailure, "disposing a detached render node");
+            }
+
+            try
+            {
+                Untracked(node);
+            }
+            catch (Exception cleanupFailure)
+            {
+                // Untracking notifications are cleanup and must not escape Dispose/Pop.
+                ReportCleanupFailure(cleanupFailure, "notifying a detached render node");
+            }
+        }
+    }
+
+    private static void ReportCleanupFailure(Exception exception, string operation)
+    {
+        try
+        {
+            Log.CreateLogger<GraphicsContext2D>().LogWarning(
+                exception,
+                "GraphicsContext2D cleanup failed while {Operation}; continuing cleanup.",
+                operation);
+        }
+        catch
+        {
+            // Logging must not replace either the recording failure or the cleanup failure being suppressed.
+        }
     }
 
     public void Reset()
     {
         _drawOperationindex = 0;
         _nodes.Clear();
+        _container = _rootContainer;
+        _faulted = false;
+        _hasChanges = false;
     }
 
     public MemoryNode<T> UseMemory<T>(T defaultValue)
     {
+        bool wasFaulted = BeginRecordingOperation();
         MemoryNode<T>? next = Next<MemoryNode<T>>();
 
         if (next == null)
@@ -110,6 +226,7 @@ public sealed class GraphicsContext2D(
         }
 
         ++_drawOperationindex;
+        CompleteRecordingOperation(wasFaulted);
         return next;
     }
 
@@ -120,6 +237,7 @@ public sealed class GraphicsContext2D(
 
     public void Clear()
     {
+        bool wasFaulted = BeginRecordingOperation();
         ClearRenderNode? next = Next<ClearRenderNode>();
 
         if (next == null || !next.Equals(default))
@@ -128,10 +246,12 @@ public sealed class GraphicsContext2D(
         }
 
         ++_drawOperationindex;
+        CompleteRecordingOperation(wasFaulted);
     }
 
     public void Clear(Color color)
     {
+        bool wasFaulted = BeginRecordingOperation();
         ClearRenderNode? next = Next<ClearRenderNode>();
 
         if (next == null || !next.Equals(color))
@@ -140,10 +260,12 @@ public sealed class GraphicsContext2D(
         }
 
         ++_drawOperationindex;
+        CompleteRecordingOperation(wasFaulted);
     }
 
     public void DrawImageSource(ImageSource.Resource source, Brush.Resource? fill, Pen.Resource? pen)
     {
+        bool wasFaulted = BeginRecordingOperation();
         if (fill != null) ObjectDisposedException.ThrowIf(fill.IsDisposed, fill);
         if (pen != null) ObjectDisposedException.ThrowIf(pen.IsDisposed, pen);
         ArgumentNullException.ThrowIfNull(source);
@@ -157,14 +279,16 @@ public sealed class GraphicsContext2D(
         }
         else
         {
-            _hasChanges = next.Update(source, fill, pen);
+            _hasChanges |= next.Update(source, fill, pen);
         }
 
         ++_drawOperationindex;
+        CompleteRecordingOperation(wasFaulted);
     }
 
     public void DrawVideoSource(VideoSource.Resource source, TimeSpan frame, Brush.Resource? fill, Pen.Resource? pen)
     {
+        bool wasFaulted = BeginRecordingOperation();
         if (fill != null) ObjectDisposedException.ThrowIf(fill.IsDisposed, fill);
         if (pen != null) ObjectDisposedException.ThrowIf(pen.IsDisposed, pen);
         ArgumentNullException.ThrowIfNull(source);
@@ -173,10 +297,12 @@ public sealed class GraphicsContext2D(
         Rational rate = source.FrameRate;
         double frameNum = frame.TotalSeconds * (rate.Numerator / (double)rate.Denominator);
         DrawVideoSource(source, (int)frameNum, fill, pen);
+        CompleteRecordingOperation(wasFaulted);
     }
 
     public void DrawVideoSource(VideoSource.Resource source, int frame, Brush.Resource? fill, Pen.Resource? pen)
     {
+        bool wasFaulted = BeginRecordingOperation();
         if (fill != null) ObjectDisposedException.ThrowIf(fill.IsDisposed, fill);
         if (pen != null) ObjectDisposedException.ThrowIf(pen.IsDisposed, pen);
         ArgumentNullException.ThrowIfNull(source);
@@ -190,14 +316,16 @@ public sealed class GraphicsContext2D(
         }
         else
         {
-            _hasChanges = next.Update(source, frame, fill, pen);
+            _hasChanges |= next.Update(source, frame, fill, pen);
         }
 
         ++_drawOperationindex;
+        CompleteRecordingOperation(wasFaulted);
     }
 
     public void DrawEllipse(Rect rect, Brush.Resource? fill, Pen.Resource? pen)
     {
+        bool wasFaulted = BeginRecordingOperation();
         if (fill != null) ObjectDisposedException.ThrowIf(fill.IsDisposed, fill);
         if (pen != null) ObjectDisposedException.ThrowIf(pen.IsDisposed, pen);
 
@@ -209,14 +337,16 @@ public sealed class GraphicsContext2D(
         }
         else
         {
-            _hasChanges = next.Update(rect, fill, pen);
+            _hasChanges |= next.Update(rect, fill, pen);
         }
 
         ++_drawOperationindex;
+        CompleteRecordingOperation(wasFaulted);
     }
 
     public void DrawGeometry(Geometry.Resource geometry, Brush.Resource? fill, Pen.Resource? pen)
     {
+        bool wasFaulted = BeginRecordingOperation();
         if (fill != null) ObjectDisposedException.ThrowIf(fill.IsDisposed, fill);
         if (pen != null) ObjectDisposedException.ThrowIf(pen.IsDisposed, pen);
         ArgumentNullException.ThrowIfNull(geometry);
@@ -230,14 +360,16 @@ public sealed class GraphicsContext2D(
         }
         else
         {
-            _hasChanges = next.Update(geometry, fill, pen);
+            _hasChanges |= next.Update(geometry, fill, pen);
         }
 
         ++_drawOperationindex;
+        CompleteRecordingOperation(wasFaulted);
     }
 
     public void DrawRectangle(Rect rect, Brush.Resource? fill, Pen.Resource? pen)
     {
+        bool wasFaulted = BeginRecordingOperation();
         if (fill != null) ObjectDisposedException.ThrowIf(fill.IsDisposed, fill);
         if (pen != null) ObjectDisposedException.ThrowIf(pen.IsDisposed, pen);
 
@@ -249,14 +381,16 @@ public sealed class GraphicsContext2D(
         }
         else
         {
-            _hasChanges = next.Update(rect, fill, pen);
+            _hasChanges |= next.Update(rect, fill, pen);
         }
 
         ++_drawOperationindex;
+        CompleteRecordingOperation(wasFaulted);
     }
 
     public void DrawText(FormattedText text, Brush.Resource? fill, Pen.Resource? pen)
     {
+        bool wasFaulted = BeginRecordingOperation();
         if (fill != null) ObjectDisposedException.ThrowIf(fill.IsDisposed, fill);
         if (pen != null) ObjectDisposedException.ThrowIf(pen.IsDisposed, pen);
         ArgumentNullException.ThrowIfNull(text);
@@ -269,17 +403,21 @@ public sealed class GraphicsContext2D(
         }
         else
         {
-            _hasChanges = next.Update(text, fill, pen);
+            _hasChanges |= next.Update(text, fill, pen);
         }
 
         ++_drawOperationindex;
+        CompleteRecordingOperation(wasFaulted);
     }
 
     public void DrawDrawable(Drawable.Resource drawable)
     {
+        bool wasFaulted = BeginRecordingOperation();
         ArgumentNullException.ThrowIfNull(drawable);
         ObjectDisposedException.ThrowIf(drawable.IsDisposed, drawable);
 
+        ContainerRenderNode parent = _container;
+        int operationIndex = _drawOperationindex;
         DrawableRenderNode? next = Next<DrawableRenderNode>();
 
         if (next == null)
@@ -288,15 +426,22 @@ public sealed class GraphicsContext2D(
         }
         else
         {
-            _hasChanges = next.Update(drawable);
+            _hasChanges |= next.Update(drawable);
             Push(next);
         }
 
         int count = _nodes.Count;
+        CompleteRecordingOperation(wasFaulted);
         try
         {
-            var obj = drawable.GetOriginal();
+            var obj = drawable.RequireOriginal();
             obj.Render(this, drawable);
+        }
+        catch
+        {
+            _faulted = true;
+            TrimTrailingNodes(parent, operationIndex);
+            throw;
         }
         finally
         {
@@ -306,6 +451,7 @@ public sealed class GraphicsContext2D(
 
     public void DrawNode(RenderNode node)
     {
+        bool wasFaulted = BeginRecordingOperation();
         ArgumentNullException.ThrowIfNull(node);
         ObjectDisposedException.ThrowIf(node.IsDisposed, node);
 
@@ -317,32 +463,44 @@ public sealed class GraphicsContext2D(
         }
 
         ++_drawOperationindex;
+        CompleteRecordingOperation(wasFaulted);
     }
 
     public void DrawNode<TNode, TParams>(in TParams parameters, Func<TParams, TNode> createNode,
         Func<TNode, TParams, bool> updateNode)
         where TNode : RenderNode
     {
+        bool wasFaulted = BeginRecordingOperation();
         ArgumentNullException.ThrowIfNull(createNode);
         ArgumentNullException.ThrowIfNull(updateNode);
 
         TNode? next = Next<TNode>();
 
-        if (next == null)
+        try
         {
-            TNode node = createNode(parameters);
-            Add(node);
+            if (next == null)
+            {
+                TNode node = createNode(parameters);
+                Add(node);
+            }
+            else
+            {
+                _hasChanges |= updateNode(next, parameters);
+            }
         }
-        else
+        catch
         {
-            _hasChanges = updateNode(next, parameters);
+            _faulted = true;
+            throw;
         }
 
         ++_drawOperationindex;
+        CompleteRecordingOperation(wasFaulted);
     }
 
     public void DrawBackdrop(IBackdrop backdrop)
     {
+        bool wasFaulted = BeginRecordingOperation();
         ArgumentNullException.ThrowIfNull(backdrop);
 
         DrawBackdropRenderNode? next = Next<DrawBackdropRenderNode>();
@@ -354,14 +512,16 @@ public sealed class GraphicsContext2D(
         }
         else
         {
-            _hasChanges = next.Update(backdrop, b);
+            _hasChanges |= next.Update(backdrop, b);
         }
 
         ++_drawOperationindex;
+        CompleteRecordingOperation(wasFaulted);
     }
 
     public IBackdrop Snapshot()
     {
+        bool wasFaulted = BeginRecordingOperation();
         SnapshotBackdropRenderNode? next = Next<SnapshotBackdropRenderNode>();
 
         if (next == null)
@@ -370,6 +530,7 @@ public sealed class GraphicsContext2D(
         }
 
         ++_drawOperationindex;
+        CompleteRecordingOperation(wasFaulted);
         return next;
     }
 
@@ -378,47 +539,25 @@ public sealed class GraphicsContext2D(
         if (count < 0)
         {
             while (count < 0
-                   && _nodes.TryPop(out (ContainerRenderNode, int) state))
+                   && _nodes.TryPop(out (ContainerRenderNode, int, bool) state))
             {
-                foreach (RenderNode node in _container.Children.Take(_drawOperationindex..))
-                {
-                    _hasChanges = true;
-                    node.Dispose();
-                    Untracked(node);
-                }
-
-                _container.RemoveRange(_drawOperationindex, _container.Children.Count - _drawOperationindex);
-
-                _container = state.Item1;
-                _container.HasChanges = _container.HasChanges || _hasChanges;
-                _drawOperationindex = state.Item2;
-
+                CloseScope(state);
                 count++;
             }
         }
         else
         {
             while (_nodes.Count >= count
-                   && _nodes.TryPop(out (ContainerRenderNode, int) state))
+                   && _nodes.TryPop(out (ContainerRenderNode, int, bool) state))
             {
-                foreach (RenderNode node in _container.Children.Take(_drawOperationindex..))
-                {
-                    _hasChanges = true;
-                    node.Dispose();
-                    Untracked(node);
-                }
-
-                _container.RemoveRange(_drawOperationindex, _container.Children.Count - _drawOperationindex);
-
-                _container = state.Item1;
-                _container.HasChanges = _container.HasChanges || _hasChanges;
-                _drawOperationindex = state.Item2;
+                CloseScope(state);
             }
         }
     }
 
     public PushedState Push()
     {
+        bool wasFaulted = BeginRecordingOperation();
         PushRenderNode? next = Next<PushRenderNode>();
 
         if (next == null)
@@ -430,11 +569,14 @@ public sealed class GraphicsContext2D(
             Push(next);
         }
 
-        return new(this, _nodes.Count);
+        var result = new PushedState(this, _nodes.Count);
+        CompleteRecordingOperation(wasFaulted);
+        return result;
     }
 
     public PushedState PushLayer(Rect limit = default)
     {
+        bool wasFaulted = BeginRecordingOperation();
         LayerRenderNode? next = Next<LayerRenderNode>();
 
         if (next == null)
@@ -443,15 +585,18 @@ public sealed class GraphicsContext2D(
         }
         else
         {
-            _hasChanges = next.Update(limit);
+            _hasChanges |= next.Update(limit);
             Push(next);
         }
 
-        return new(this, _nodes.Count);
+        var result = new PushedState(this, _nodes.Count);
+        CompleteRecordingOperation(wasFaulted);
+        return result;
     }
 
     public PushedState PushBlendMode(BlendMode blendMode)
     {
+        bool wasFaulted = BeginRecordingOperation();
         BlendModeRenderNode? next = Next<BlendModeRenderNode>();
 
         if (next == null)
@@ -460,15 +605,18 @@ public sealed class GraphicsContext2D(
         }
         else
         {
-            _hasChanges = next.Update(blendMode);
+            _hasChanges |= next.Update(blendMode);
             Push(next);
         }
 
-        return new(this, _nodes.Count);
+        var result = new PushedState(this, _nodes.Count);
+        CompleteRecordingOperation(wasFaulted);
+        return result;
     }
 
     public PushedState PushClip(Rect clip, ClipOperation operation = ClipOperation.Intersect)
     {
+        bool wasFaulted = BeginRecordingOperation();
         RectClipRenderNode? next = Next<RectClipRenderNode>();
 
         if (next == null)
@@ -477,15 +625,18 @@ public sealed class GraphicsContext2D(
         }
         else
         {
-            _hasChanges = next.Update(clip, operation);
+            _hasChanges |= next.Update(clip, operation);
             Push(next);
         }
 
-        return new(this, _nodes.Count);
+        var result = new PushedState(this, _nodes.Count);
+        CompleteRecordingOperation(wasFaulted);
+        return result;
     }
 
     public PushedState PushClip(Geometry.Resource geometry, ClipOperation operation = ClipOperation.Intersect)
     {
+        bool wasFaulted = BeginRecordingOperation();
         ArgumentNullException.ThrowIfNull(geometry);
         ObjectDisposedException.ThrowIf(geometry.IsDisposed, geometry);
 
@@ -497,15 +648,18 @@ public sealed class GraphicsContext2D(
         }
         else
         {
-            _hasChanges = next.Update(geometry, operation);
+            _hasChanges |= next.Update(geometry, operation);
             Push(next);
         }
 
-        return new(this, _nodes.Count);
+        var result = new PushedState(this, _nodes.Count);
+        CompleteRecordingOperation(wasFaulted);
+        return result;
     }
 
     public PushedState PushOpacity(float opacity)
     {
+        bool wasFaulted = BeginRecordingOperation();
         OpacityRenderNode? next = Next<OpacityRenderNode>();
 
         if (next == null)
@@ -514,18 +668,22 @@ public sealed class GraphicsContext2D(
         }
         else
         {
-            _hasChanges = next.Update(opacity);
+            _hasChanges |= next.Update(opacity);
             Push(next);
         }
 
-        return new(this, _nodes.Count);
+        var result = new PushedState(this, _nodes.Count);
+        CompleteRecordingOperation(wasFaulted);
+        return result;
     }
 
     public PushedState PushFilterEffect(FilterEffect.Resource effect)
     {
+        bool wasFaulted = BeginRecordingOperation();
         ArgumentNullException.ThrowIfNull(effect);
         ObjectDisposedException.ThrowIf(effect.IsDisposed, effect);
 
+        PushedState result;
         switch (effect)
         {
             case FilterEffectGroup.Resource group:
@@ -535,14 +693,20 @@ public sealed class GraphicsContext2D(
                     PushFilterEffect(item);
                 }
 
-                return new(this, _nodes.Count);
+                result = new PushedState(this, _nodes.Count);
+                break;
             default:
-                return effect.Push(this);
+                result = effect.Push(this);
+                break;
         }
+
+        CompleteRecordingOperation(wasFaulted);
+        return result;
     }
 
     public PushedState PushOpacityMask(Brush.Resource mask, Rect bounds, bool invert = false)
     {
+        bool wasFaulted = BeginRecordingOperation();
         ArgumentNullException.ThrowIfNull(mask);
         ObjectDisposedException.ThrowIf(mask.IsDisposed, mask);
 
@@ -554,15 +718,18 @@ public sealed class GraphicsContext2D(
         }
         else
         {
-            _hasChanges = next.Update(mask, bounds, invert);
+            _hasChanges |= next.Update(mask, bounds, invert);
             Push(next);
         }
 
-        return new(this, _nodes.Count);
+        var result = new PushedState(this, _nodes.Count);
+        CompleteRecordingOperation(wasFaulted);
+        return result;
     }
 
     public PushedState PushTransform(Matrix matrix, TransformOperator transformOperator = TransformOperator.Prepend)
     {
+        bool wasFaulted = BeginRecordingOperation();
         TransformRenderNode? next = Next<TransformRenderNode>();
 
         if (next == null)
@@ -571,16 +738,19 @@ public sealed class GraphicsContext2D(
         }
         else
         {
-            _hasChanges = next.Update(matrix, transformOperator);
+            _hasChanges |= next.Update(matrix, transformOperator);
             Push(next);
         }
 
-        return new(this, _nodes.Count);
+        var result = new PushedState(this, _nodes.Count);
+        CompleteRecordingOperation(wasFaulted);
+        return result;
     }
 
     public PushedState PushTransform(Transform.Resource transform,
         TransformOperator transformOperator = TransformOperator.Prepend)
     {
+        bool wasFaulted = BeginRecordingOperation();
         ArgumentNullException.ThrowIfNull(transform);
         ObjectDisposedException.ThrowIf(transform.IsDisposed, transform);
 
@@ -592,17 +762,20 @@ public sealed class GraphicsContext2D(
         }
         else
         {
-            _hasChanges = next.Update(matrix, transformOperator);
+            _hasChanges |= next.Update(matrix, transformOperator);
             Push(next);
         }
 
-        return new(this, _nodes.Count);
+        var result = new PushedState(this, _nodes.Count);
+        CompleteRecordingOperation(wasFaulted);
+        return result;
     }
 
     public PushedState PushNode<TNode, TParams>(in TParams parameters, Func<TParams, TNode> createNode,
         Func<TNode, TParams, bool> updateNode)
         where TNode : ContainerRenderNode
     {
+        bool wasFaulted = BeginRecordingOperation();
         ArgumentNullException.ThrowIfNull(createNode);
         ArgumentNullException.ThrowIfNull(updateNode);
 
@@ -615,10 +788,12 @@ public sealed class GraphicsContext2D(
         }
         else
         {
-            _hasChanges = updateNode(next, parameters);
+            _hasChanges |= updateNode(next, parameters);
             Push(next);
         }
 
-        return new(this, _nodes.Count);
+        var result = new PushedState(this, _nodes.Count);
+        CompleteRecordingOperation(wasFaulted);
+        return result;
     }
 }

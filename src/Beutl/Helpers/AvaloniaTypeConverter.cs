@@ -1,4 +1,5 @@
 ﻿using System.Collections.Specialized;
+using System.Reactive;
 using Avalonia;
 using Avalonia.Media.Imaging;
 using Avalonia.Threading;
@@ -66,8 +67,7 @@ public static class AvaloniaTypeConverter
             r =>
             {
                 using var context = new GeometryContext();
-                var original = r.GetOriginal();
-                original.ApplyTo(context, r);
+                r.ApplyTo(context);
 
                 string svgPath = context.NativeObject.ToSvgPathData();
                 reactiveProperty.Value = Avalonia.Media.Geometry.Parse(svgPath);
@@ -230,73 +230,718 @@ public static class AvaloniaTypeConverter
             case Media.DrawableBrush db:
                 {
                     var imageBrush = new ImageBrush();
-                    DrawableImageBrushHandler? handler = null;
-                    var d = AdaptEngineObject(
-                        db, time,
-                        (o, rc) => o.ToResource(rc),
-                        r =>
-                        {
-                            handler ??= new DrawableImageBrushHandler(r, imageBrush);
-                            handler.Update();
-                        });
-
-                    return (imageBrush, d, null);
+                    var subscription = new DrawableBrushSubscription(
+                        db,
+                        time,
+                        imageBrush,
+                        RenderThread.Dispatcher);
+                    return (imageBrush, subscription, null);
                 }
         }
 
         return default;
     }
 
-    public sealed class DrawableImageBrushHandler
+    private sealed class DrawableBrushSubscription : IDisposable
     {
+        private readonly object _gate = new();
+        private readonly Media.DrawableBrush _drawableBrush;
+        private readonly ImageBrush _imageBrush;
+        private readonly Beutl.Threading.Dispatcher _renderDispatcher;
+        private readonly CompositionContext _compositionContext = new(TimeSpan.Zero);
+        private readonly CancellationTokenSource _lifetime = new();
+        private readonly SingleAssignmentDisposable _subscription = new();
+        private DrawableBrush.Resource? _resource;
+        private DrawableImageBrushHandler? _handler;
+        private int _lastVersion = -1;
+        private bool _disposed;
+
+        public DrawableBrushSubscription(
+            Media.DrawableBrush drawableBrush,
+            IObservable<TimeSpan> time,
+            ImageBrush imageBrush,
+            Beutl.Threading.Dispatcher renderDispatcher)
+        {
+            _drawableBrush = drawableBrush;
+            _imageBrush = imageBrush;
+            _renderDispatcher = renderDispatcher;
+            _renderDispatcher.ShutdownStarted += OnRenderDispatcherShutdown;
+
+            IObservable<Unit> edits = Observable.FromEventPattern(
+                    h => _drawableBrush.Edited += h,
+                    h => _drawableBrush.Edited -= h)
+                .Select(static _ => Unit.Default)
+                .Publish(Unit.Default)
+                .RefCount();
+
+            _subscription.Disposable = edits
+                .CombineLatest(time)
+                .Subscribe(value => QueueUpdate(value.Second));
+
+            if (_renderDispatcher.HasShutdownStarted)
+                Dispose();
+        }
+
+        public void Dispose()
+        {
+            DrawableImageBrushHandler? handler;
+            lock (_gate)
+            {
+                if (_disposed)
+                    return;
+
+                _disposed = true;
+                _lifetime.Cancel();
+                handler = _handler;
+                _handler = null;
+                _resource = null;
+            }
+
+            _renderDispatcher.ShutdownStarted -= OnRenderDispatcherShutdown;
+            _subscription.Dispose();
+            handler?.Dispose();
+            _lifetime.Dispose();
+        }
+
+        private void QueueUpdate(TimeSpan time)
+        {
+            lock (_gate)
+            {
+                if (_disposed || _renderDispatcher.HasShutdownStarted)
+                    return;
+
+                _renderDispatcher.Dispatch(
+                    () => ApplyUpdate(time),
+                    DispatchPriority.Low,
+                    _lifetime.Token);
+            }
+        }
+
+        private void ApplyUpdate(TimeSpan time)
+        {
+            DrawableImageBrushHandler handler;
+            lock (_gate)
+            {
+                if (_disposed)
+                    return;
+
+                _compositionContext.Time = time;
+                if (_resource is null)
+                {
+                    DrawableBrush.Resource resource =
+                        (DrawableBrush.Resource)_drawableBrush.ToResource(_compositionContext);
+                    try
+                    {
+                        handler = new DrawableImageBrushHandler(
+                            resource,
+                            _imageBrush,
+                            _renderDispatcher);
+                    }
+                    catch
+                    {
+                        resource.Dispose();
+                        throw;
+                    }
+
+                    _resource = resource;
+                    _handler = handler;
+                }
+                else
+                {
+                    bool updateOnly = false;
+                    _resource.Update(_drawableBrush, _compositionContext, ref updateOnly);
+                    handler = _handler!;
+                }
+
+                if (_resource.Version == _lastVersion)
+                    return;
+
+                _lastVersion = _resource.Version;
+            }
+
+            handler.Update();
+        }
+
+        private void OnRenderDispatcherShutdown(object? sender, EventArgs e)
+        {
+            Dispose();
+        }
+    }
+
+    public sealed class DrawableImageBrushHandler : IDisposable
+    {
+        private readonly object _gate = new();
         private WriteableBitmap? _bitmap;
         private CancellationTokenSource? _cts;
         private readonly ImageBrush _imageBrush;
         private readonly DrawableBrush.Resource _drawableBrush;
+        private readonly Beutl.Threading.Dispatcher _renderDispatcher;
+        private readonly HashSet<UpdateState> _activeUpdates = [];
+        private bool _disposed;
+        private bool _resourceDisposalScheduled;
+        private bool _resourceDisposed;
 
         public DrawableImageBrushHandler(DrawableBrush.Resource drawableBrush, ImageBrush imageBrush)
+            : this(drawableBrush, imageBrush, RenderThread.Dispatcher)
+        {
+        }
+
+        internal DrawableImageBrushHandler(
+            DrawableBrush.Resource drawableBrush,
+            ImageBrush imageBrush,
+            Beutl.Threading.Dispatcher renderDispatcher)
         {
             _imageBrush = imageBrush;
             _drawableBrush = drawableBrush;
+            _renderDispatcher = renderDispatcher;
+            _renderDispatcher.ShutdownStarted += OnRenderDispatcherShutdown;
+            if (_renderDispatcher.HasShutdownStarted)
+                OnRenderDispatcherShutdown(_renderDispatcher, EventArgs.Empty);
         }
 
         public void Update()
         {
-            _cts?.Cancel();
-            _cts = new CancellationTokenSource();
-            var token = _cts.Token;
-
-            RenderThread.Dispatcher.Dispatch(async () =>
+            UpdateState update;
+            lock (_gate)
             {
-                if (_drawableBrush.Drawable == null) return;
-                var node = new DrawableRenderNode(_drawableBrush.Drawable);
+                if (_disposed || _renderDispatcher.HasShutdownStarted)
+                    return;
+
+                _cts?.Cancel();
+                var updateCts = new CancellationTokenSource();
+                _cts = updateCts;
+                update = new UpdateState(updateCts);
+                _activeUpdates.Add(update);
+            }
+
+            try
+            {
+                _renderDispatcher.Dispatch(
+                    () => ExecuteUpdate(update),
+                    DispatchPriority.Low,
+                    CancellationToken.None);
+            }
+            catch
+            {
+                CompleteUpdate(update);
+                throw;
+            }
+        }
+
+        public void Dispose()
+        {
+            bool disposeResource;
+            lock (_gate)
+            {
+                if (_disposed)
+                    return;
+
+                _disposed = true;
+                foreach (UpdateState update in _activeUpdates)
+                    update.Cancellation.Cancel();
+                _cts = null;
+                disposeResource = ScheduleResourceDisposalIfIdle();
+            }
+
+            DisposeUiResources();
+            if (disposeResource)
+                DispatchResourceDisposal();
+        }
+
+        private void ExecuteUpdate(UpdateState update)
+        {
+            lock (_gate)
+            {
+                if (!_activeUpdates.Contains(update)
+                    || update.Phase != UpdatePhase.Queued)
+                {
+                    return;
+                }
+
+                update.Phase = UpdatePhase.Rendering;
+            }
+
+            WriteableBitmap? nextBitmap = null;
+            bool publicationQueued = false;
+            try
+            {
+                CancellationToken token = update.Cancellation.Token;
+                var drawable = _drawableBrush.Drawable;
+                if (token.IsCancellationRequested || drawable == null)
+                    return;
+
+                using var node = new DrawableRenderNode(drawable);
                 // TODO: UI側の物理的なサイズをもとに描画するように変更する
                 using (var context = new GraphicsContext2D(node, new Graphics.Size(1920, 1080)))
                 {
-                    _drawableBrush.Drawable.GetOriginal()!.Render(context, _drawableBrush.Drawable);
+                    drawable.RequireOriginal().Render(context, drawable);
                 }
 
-                var processor = new RenderNodeProcessor(node, false);
-                using var bitmap = processor.RasterizeAndConcat();
-
-                var previous = _bitmap;
-                var pixelSize = new PixelSize(bitmap.Width, bitmap.Height);
-                _bitmap = bitmap.ToAvaWriteableBitmap(null);
-
-                await Dispatcher.UIThread.InvokeAsync(() =>
-                {
-                    _imageBrush.Stretch = _drawableBrush.Stretch switch
+                using var renderer = new RenderNodeRenderer(
+                    node,
+                    new RenderNodeRendererOptions
                     {
-                        Stretch.Fill => Avalonia.Media.Stretch.Fill,
-                        Stretch.Uniform => Avalonia.Media.Stretch.Uniform,
-                        Stretch.UniformToFill => Avalonia.Media.Stretch.UniformToFill,
-                        Stretch.None => Avalonia.Media.Stretch.None,
-                        _ => Avalonia.Media.Stretch.Fill,
-                    };
-                    _imageBrush.Source = _bitmap;
+                        DefaultRequest = new RenderNodeRenderRequest
+                        {
+                            Intent = RenderIntent.Preview,
+                            TargetDomain = new Graphics.Rect(0, 0, 1920, 1080),
+                            CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Disabled,
+                        },
+                    });
+                using RenderNodeRasterization rasterization = renderer.Rasterize();
+                Media.Bitmap? bitmap = rasterization.Bitmap;
+                if (token.IsCancellationRequested || bitmap is null)
+                    return;
+
+                nextBitmap = bitmap.ToAvaWriteableBitmap(null);
+                if (token.IsCancellationRequested)
+                    return;
+
+                Avalonia.Media.Stretch stretch = _drawableBrush.Stretch switch
+                {
+                    Stretch.Fill => Avalonia.Media.Stretch.Fill,
+                    Stretch.Uniform => Avalonia.Media.Stretch.Uniform,
+                    Stretch.UniformToFill => Avalonia.Media.Stretch.UniformToFill,
+                    Stretch.None => Avalonia.Media.Stretch.None,
+                    _ => Avalonia.Media.Stretch.Fill,
+                };
+                lock (_gate)
+                {
+                    if (!_activeUpdates.Contains(update))
+                        return;
+
+                    update.Phase = UpdatePhase.Publishing;
+                }
+
+                var publication = new BitmapPublication(
+                    this,
+                    nextBitmap,
+                    stretch,
+                    update);
+                nextBitmap = null;
+                publicationQueued = true;
+                publication.Queue();
+
+                bool disposeResource;
+                lock (_gate)
+                {
+                    disposeResource = ScheduleResourceDisposalIfIdle();
+                }
+
+                if (disposeResource)
+                    DispatchResourceDisposal();
+            }
+            finally
+            {
+                nextBitmap?.Dispose();
+                if (!publicationQueued)
+                    CompleteUpdate(update);
+            }
+        }
+
+        private void PublishBitmap(
+            WriteableBitmap bitmap,
+            Avalonia.Media.Stretch stretch,
+            UpdateState update)
+        {
+            // Avalonia property notifications are synchronous and may re-enter Dispose.
+            // Reserve the old owner first, update the brush without the gate, then commit ownership.
+            WriteableBitmap? previous;
+            lock (_gate)
+            {
+                if (_disposed
+                    || update.Cancellation.IsCancellationRequested
+                    || !_activeUpdates.Contains(update))
+                {
+                    bitmap.Dispose();
+                    return;
+                }
+
+                previous = _bitmap;
+            }
+
+            Avalonia.Media.Stretch previousStretch = _imageBrush.Stretch;
+            bool stretchTouched = false;
+            bool sourceTouched = false;
+            bool committed = false;
+            Exception? failure = null;
+            try
+            {
+                if (CanContinueBitmapPublication(previous, update))
+                {
+                    stretchTouched = true;
+                    _imageBrush.Stretch = stretch;
+                    if (CanContinueBitmapPublication(previous, update))
+                    {
+                        sourceTouched = true;
+                        _imageBrush.Source = bitmap;
+
+                        lock (_gate)
+                        {
+                            if (!_disposed
+                                && !update.Cancellation.IsCancellationRequested
+                                && _activeUpdates.Contains(update)
+                                && ReferenceEquals(_bitmap, previous)
+                                && ReferenceEquals(_imageBrush.Source, bitmap))
+                            {
+                                _bitmap = bitmap;
+                                committed = true;
+                            }
+                        }
+                    }
+                }
+            }
+            finally
+            {
+                if (committed)
+                {
                     previous?.Dispose();
-                }, DispatcherPriority.Background);
-            }, DispatchPriority.Low, token);
+                }
+                else
+                {
+                    try
+                    {
+                        RollBackBitmapPublication(
+                            bitmap,
+                            previous,
+                            previousStretch,
+                            stretchTouched,
+                            sourceTouched);
+                    }
+                    catch (Exception ex)
+                    {
+                        failure = ex;
+                    }
+                    finally
+                    {
+                        bitmap.Dispose();
+                    }
+                }
+            }
+
+            if (failure is not null)
+                System.Runtime.ExceptionServices.ExceptionDispatchInfo.Capture(failure).Throw();
+        }
+
+        private bool CanContinueBitmapPublication(
+            WriteableBitmap? previous,
+            UpdateState update)
+        {
+            lock (_gate)
+            {
+                return !_disposed
+                       && !update.Cancellation.IsCancellationRequested
+                       && _activeUpdates.Contains(update)
+                       && ReferenceEquals(_bitmap, previous);
+            }
+        }
+
+        private void RollBackBitmapPublication(
+            WriteableBitmap bitmap,
+            WriteableBitmap? previous,
+            Avalonia.Media.Stretch previousStretch,
+            bool stretchTouched,
+            bool sourceTouched)
+        {
+            Exception? rollbackFailure = null;
+
+            if (sourceTouched && ReferenceEquals(_imageBrush.Source, bitmap))
+            {
+                bool restorePrevious;
+                lock (_gate)
+                {
+                    restorePrevious = !_disposed && ReferenceEquals(_bitmap, previous);
+                }
+
+                try
+                {
+                    _imageBrush.Source = restorePrevious ? previous : null;
+                }
+                catch (Exception ex)
+                {
+                    rollbackFailure = ex;
+                }
+            }
+
+            bool restoreStretch;
+            lock (_gate)
+            {
+                restoreStretch = !_disposed && ReferenceEquals(_bitmap, previous);
+            }
+
+            if (stretchTouched && restoreStretch)
+            {
+                try
+                {
+                    _imageBrush.Stretch = previousStretch;
+                }
+                catch (Exception ex)
+                {
+                    rollbackFailure = rollbackFailure is null
+                        ? ex
+                        : new AggregateException(
+                            "Bitmap publication rollback failed.",
+                            rollbackFailure,
+                            ex);
+                }
+            }
+
+            if (rollbackFailure is not null)
+                System.Runtime.ExceptionServices.ExceptionDispatchInfo.Capture(rollbackFailure).Throw();
+        }
+
+        private void CompleteUpdate(UpdateState update)
+        {
+            bool disposeResource;
+            lock (_gate)
+            {
+                if (!_activeUpdates.Remove(update))
+                    return;
+
+                if (ReferenceEquals(_cts, update.Cancellation))
+                    _cts = null;
+
+                disposeResource = ScheduleResourceDisposalIfIdle();
+            }
+
+            update.Cancellation.Dispose();
+            if (disposeResource)
+                DispatchResourceDisposal();
+        }
+
+        private bool ScheduleResourceDisposalIfIdle()
+        {
+            if (!_disposed
+                || _activeUpdates.Any(static update => update.Phase != UpdatePhase.Publishing)
+                || _resourceDisposalScheduled)
+            {
+                return false;
+            }
+
+            _resourceDisposalScheduled = true;
+            return true;
+        }
+
+        private void DispatchResourceDisposal()
+        {
+            if (_renderDispatcher.HasShutdownStarted)
+            {
+                DisposeResource();
+                return;
+            }
+
+            try
+            {
+                _renderDispatcher.Dispatch(
+                    DisposeResource,
+                    DispatchPriority.Low,
+                    CancellationToken.None);
+            }
+            catch
+            {
+                DisposeResource();
+                throw;
+            }
+        }
+
+        private void DisposeUiResources()
+        {
+            WriteableBitmap? bitmap;
+            lock (_gate)
+            {
+                bitmap = _bitmap;
+                _bitmap = null;
+            }
+
+            if (Dispatcher.UIThread.CheckAccess())
+            {
+                try
+                {
+                    _imageBrush.Source = null;
+                }
+                finally
+                {
+                    bitmap?.Dispose();
+                }
+            }
+            else
+            {
+                new BitmapCleanup(_imageBrush, bitmap).Queue();
+            }
+        }
+
+        private void OnRenderDispatcherShutdown(object? sender, EventArgs e)
+        {
+            List<UpdateState> abandoned = [];
+            bool disposeUiResources;
+            bool disposeResource;
+            lock (_gate)
+            {
+                disposeUiResources = !_disposed;
+                _disposed = true;
+                foreach (UpdateState update in _activeUpdates)
+                {
+                    update.Cancellation.Cancel();
+                    if (update.Phase == UpdatePhase.Queued)
+                        abandoned.Add(update);
+                }
+
+                foreach (UpdateState update in abandoned)
+                    _activeUpdates.Remove(update);
+
+                _cts = null;
+                disposeResource = ScheduleResourceDisposalIfIdle();
+            }
+
+            foreach (UpdateState update in abandoned)
+                update.Cancellation.Dispose();
+
+            if (disposeUiResources)
+                DisposeUiResources();
+
+            if (disposeResource || _resourceDisposalScheduled)
+                DisposeResource();
+        }
+
+        private void DisposeResource()
+        {
+            lock (_gate)
+            {
+                if (_resourceDisposed)
+                    return;
+
+                _resourceDisposed = true;
+            }
+
+            _renderDispatcher.ShutdownStarted -= OnRenderDispatcherShutdown;
+            _drawableBrush.Dispose();
+        }
+
+        private sealed class BitmapPublication(
+            DrawableImageBrushHandler owner,
+            WriteableBitmap bitmap,
+            Avalonia.Media.Stretch stretch,
+            UpdateState update)
+        {
+            private DispatcherOperation? _operation;
+            private WriteableBitmap? _bitmap = bitmap;
+            private int _completed;
+
+            public void Queue()
+            {
+                try
+                {
+                    DispatcherOperation operation = Dispatcher.UIThread.InvokeAsync(
+                        Publish,
+                        DispatcherPriority.Background);
+                    _operation = operation;
+                    operation.Completed += OnTerminal;
+                    operation.Aborted += OnTerminal;
+                    if (operation.Status is DispatcherOperationStatus.Completed
+                        or DispatcherOperationStatus.Aborted)
+                    {
+                        Complete();
+                    }
+                }
+                catch
+                {
+                    Complete();
+                }
+            }
+
+            private void Publish()
+            {
+                WriteableBitmap? owned = Interlocked.Exchange(ref _bitmap, null);
+                if (owned is not null)
+                    owner.PublishBitmap(owned, stretch, update);
+            }
+
+            private void OnTerminal(object? sender, EventArgs e)
+            {
+                Complete();
+            }
+
+            private void Complete()
+            {
+                if (Interlocked.Exchange(ref _completed, 1) != 0)
+                    return;
+
+                if (_operation is { } operation)
+                {
+                    operation.Completed -= OnTerminal;
+                    operation.Aborted -= OnTerminal;
+                }
+
+                Interlocked.Exchange(ref _bitmap, null)?.Dispose();
+                owner.CompleteUpdate(update);
+            }
+        }
+
+        private sealed class BitmapCleanup(ImageBrush imageBrush, WriteableBitmap? bitmap)
+        {
+            private DispatcherOperation? _operation;
+            private WriteableBitmap? _bitmap = bitmap;
+            private int _completed;
+
+            public void Queue()
+            {
+                try
+                {
+                    DispatcherOperation operation = Dispatcher.UIThread.InvokeAsync(
+                        ClearSource,
+                        DispatcherPriority.Background);
+                    _operation = operation;
+                    operation.Completed += OnTerminal;
+                    operation.Aborted += OnTerminal;
+                    if (operation.Status is DispatcherOperationStatus.Completed
+                        or DispatcherOperationStatus.Aborted)
+                    {
+                        Complete();
+                    }
+                }
+                catch
+                {
+                    Complete();
+                }
+            }
+
+            private void ClearSource()
+            {
+                imageBrush.Source = null;
+            }
+
+            private void OnTerminal(object? sender, EventArgs e)
+            {
+                Complete();
+            }
+
+            private void Complete()
+            {
+                if (Interlocked.Exchange(ref _completed, 1) != 0)
+                    return;
+
+                if (_operation is { } operation)
+                {
+                    operation.Completed -= OnTerminal;
+                    operation.Aborted -= OnTerminal;
+                }
+
+                Interlocked.Exchange(ref _bitmap, null)?.Dispose();
+            }
+        }
+
+        private sealed class UpdateState(CancellationTokenSource cancellation)
+        {
+            public CancellationTokenSource Cancellation { get; } = cancellation;
+
+            public UpdatePhase Phase { get; set; }
+        }
+
+        private enum UpdatePhase
+        {
+            Queued,
+            Rendering,
+            Publishing,
         }
     }
 }

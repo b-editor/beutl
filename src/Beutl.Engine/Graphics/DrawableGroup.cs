@@ -42,6 +42,7 @@ public sealed partial class DrawableGroup : Drawable, IFlowOperator
                            Media.AlignmentX.Left, Media.AlignmentY.Top, b.boundsMemory)))
             using (context.PushOpacity(resource.Opacity / 100f))
             using (r.FilterEffect == null ? new() : context.PushFilterEffect(r.FilterEffect))
+            using (context.PushLayer())
             using (context.PushNode(
                        boundsMemory,
                        b => new BoundsObserveNode(b),
@@ -135,10 +136,10 @@ public sealed partial class DrawableGroup : Drawable, IFlowOperator
             return false;
         }
 
-        public override RenderNodeOperation[] Process(RenderNodeContext context)
+        public override void Process(RenderNodeContext context)
         {
-            MemoryNode.Value = context.CalculateBounds();
-            return context.Input;
+            MemoryNode.Value = context.CalculateRecordedInputBoundsHint();
+            context.PassThrough();
         }
     }
 
@@ -203,7 +204,11 @@ public sealed partial class DrawableGroup : Drawable, IFlowOperator
                 changed = true;
             }
 
-            HasChanges = changed;
+            if (changed)
+            {
+                HasChanges = true;
+            }
+
             return changed;
         }
 
@@ -264,30 +269,69 @@ public sealed partial class DrawableGroup : Drawable, IFlowOperator
             return new Point(x, y);
         }
 
-        public override RenderNodeOperation[] Process(RenderNodeContext context)
+        public override void Process(RenderNodeContext context)
         {
             var bounds = Bounds.Value;
             var transform = GetTransformMatrix(bounds);
-            return context.Input.Select(r =>
-                    RenderNodeOperation.CreateLambda(
-                        r.Bounds.TransformToAABB(transform),
-                        canvas =>
-                        {
-                            using (canvas.PushTransform(transform))
-                            {
-                                r.Render(canvas);
-                            }
-                        },
-                        hitTest: point =>
-                        {
-                            if (transform.HasInverse)
-                                point *= transform.Invert();
-                            return r.HitTest(point);
-                        },
-                        onDispose: r.Dispose,
-                        // Re-scale a bitmap child's supply density through the transform boundary.
-                        effectiveScale: TransformRenderNode.RescaleDensity(r.EffectiveScale, transform)))
-                .ToArray();
+            bool hasInverse = transform.HasInverse;
+            Matrix inverse = hasInverse ? transform.Invert() : Matrix.Identity;
+            var metadataState = new CustomTransformMetadataState(transform, hasInverse, inverse);
+            RenderBoundsContract boundsContract = hasInverse
+                ? RenderBoundsContract.Create(
+                    metadataState.TransformBounds,
+                    metadataState.GetRequiredInputBounds,
+                    structuralKey: (typeof(CustomTransformRenderNode), "invertible-bounds"))
+                : RenderBoundsContract.CreateFullInput(
+                    metadataState.TransformBounds,
+                    structuralKey: (typeof(CustomTransformRenderNode), "singular-bounds"));
+            TargetScopeDescription description = TargetScopeDescription.CreateValueReplayMap(
+                execute: session => ExecuteTransform(session, transform),
+                bounds: boundsContract,
+                hitTest: RenderHitTestContract.Custom(metadataState.HitTest),
+                scale: RenderScaleContract.MapInputSupply(new TransformScaleMapper(transform).Map),
+                deviceGridMapping: transform.IsIdentity
+                    ? RenderDeviceGridMapping.Preserved
+                    : RenderDeviceGridMapping.Remapped,
+                structuralKey: typeof(CustomTransformRenderNode),
+                runtimeIdentity: new RenderRuntimeIdentity(transform));
+            foreach (RenderFragmentHandle input in context.Inputs)
+            {
+                context.Publish(context.TargetScope(input, description));
+            }
+        }
+
+        private static void ExecuteTransform(TargetScopeSession session, Matrix transform)
+        {
+            session.Canvas.Use(canvas =>
+            {
+                using (canvas.PushTransform(transform))
+                {
+                    session.ReplayInput();
+                }
+            });
+        }
+
+        private readonly record struct CustomTransformMetadataState(
+            Matrix Transform,
+            bool HasInverse,
+            Matrix Inverse)
+        {
+            public Rect TransformBounds(Rect inputBounds) => inputBounds.TransformToAABB(Transform);
+
+            public Rect GetRequiredInputBounds(Rect outputBounds) => outputBounds.TransformToAABB(Inverse);
+
+            public bool HitTest(RenderHitTestContext context, Point point)
+            {
+                if (HasInverse)
+                    point *= Inverse;
+                return context.Inputs[0].HitTest(point);
+            }
+        }
+
+        private readonly record struct TransformScaleMapper(Matrix Transform)
+        {
+            public EffectiveScale Map(EffectiveScale inputSupply)
+                => TransformRenderNode.RescaleDensity(inputSupply, Transform);
         }
     }
 }

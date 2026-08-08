@@ -1,6 +1,7 @@
 ﻿using Beutl.Composition;
 using Beutl.Graphics;
 using Beutl.Graphics.Rendering;
+using Beutl.Graphics.Rendering.Cache;
 using Beutl.Media;
 
 namespace Beutl.UnitTests.Engine.Graphics.Rendering;
@@ -47,7 +48,80 @@ public class RectangleRenderNodeTest
     }
 
     [Test]
-    public void Process_ShouldReturnCorrectRenderNodeOperation()
+    public void Update_ShouldNotMarkChanges_WhenAllPropertiesMatch()
+    {
+        var rect = new Rect(0, 0, 100, 100);
+        var fill = Brushes.Resource.Red;
+        using var node = new RectangleRenderNode(rect, fill, null);
+        node.HasChanges = false;
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(node.Update(rect, fill, null), Is.False);
+            Assert.That(node.HasChanges, Is.False);
+        });
+    }
+
+    [Test]
+    public void Update_ShouldMarkChanges_WhenPropertiesDoNotMatch()
+    {
+        var rect1 = new Rect(0, 0, 100, 100);
+        var rect2 = new Rect(0, 0, 200, 200);
+        var fill1 = Brushes.Resource.Red;
+        var fill2 = Brushes.Resource.Blue;
+        var pen = new Pen();
+        pen.Brush.CurrentValue = Brushes.Black;
+        pen.Thickness.CurrentValue = 1;
+        var penResource = pen.ToResource(CompositionContext.Default);
+        using var node = new RectangleRenderNode(rect1, fill1, null);
+
+        node.HasChanges = false;
+        bool rectChanged = node.Update(rect2, fill1, null);
+        bool rectMarked = node.HasChanges;
+
+        node.HasChanges = false;
+        bool fillChanged = node.Update(rect2, fill2, null);
+        bool fillMarked = node.HasChanges;
+
+        node.HasChanges = false;
+        bool penChanged = node.Update(rect2, fill2, penResource);
+        bool penMarked = node.HasChanges;
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(rectChanged, Is.True);
+            Assert.That(rectMarked, Is.True);
+            Assert.That(fillChanged, Is.True);
+            Assert.That(fillMarked, Is.True);
+            Assert.That(penChanged, Is.True);
+            Assert.That(penMarked, Is.True);
+        });
+    }
+
+    [Test]
+    public void ChangedParameters_ShouldRevokeAnAdmittedCache()
+    {
+        var rect = new Rect(0, 0, 100, 100);
+        var fill = Brushes.Resource.Red;
+        using var node = new RectangleRenderNode(rect, fill, null);
+
+        for (int frame = 0; frame < RenderNodeCache.Count; frame++)
+        {
+            node.Update(rect, fill, null);
+            node.Cache.IncrementRenderCount();
+            node.HasChanges = false;
+        }
+
+        Assert.That(node.Cache.CanCache(), Is.True, "a stable rectangle must become a cache candidate");
+
+        node.Update(new Rect(0, 0, 200, 200), fill, null);
+        node.Cache.IncrementRenderCount();
+
+        Assert.That(node.Cache.CanCache(), Is.False);
+    }
+
+    [Test]
+    public void Measure_ShouldReportRecordedFragment()
     {
         var rect = new Rect(0, 0, 100, 100);
         var fill = Brushes.Resource.Red;
@@ -55,13 +129,16 @@ public class RectangleRenderNodeTest
         pen.Brush.CurrentValue = Brushes.Black;
         pen.Thickness.CurrentValue = 1;
         var penResource = pen.ToResource(CompositionContext.Default);
-        var context = new RenderNodeContext([]);
+        using var node = new RectangleRenderNode(rect, fill, penResource);
+        using var renderer = CreateRenderer(node);
+        RenderNodeMeasurement measurement = renderer.Measure();
 
-        var node = new RectangleRenderNode(rect, fill, penResource);
-        var operations = node.Process(context);
-
-        Assert.That(operations, Is.Not.Null);
-        Assert.That(operations.Length, Is.EqualTo(1));
+        Assert.Multiple(() =>
+        {
+            Assert.That(measurement.HasFragments, Is.True);
+            Assert.That(measurement.HasContributingValues, Is.True);
+            Assert.That(measurement.ValueCardinality, Is.EqualTo(RenderValueCardinality.Single));
+        });
     }
 
     [Test]
@@ -73,13 +150,11 @@ public class RectangleRenderNodeTest
         pen.Brush.CurrentValue = Brushes.Black;
         pen.Thickness.CurrentValue = 1;
         var penResource = pen.ToResource(CompositionContext.Default);
-        var context = new RenderNodeContext([]);
-
-        var node = new RectangleRenderNode(rect, fill, penResource);
-        var operations = node.Process(context);
+        using var node = new RectangleRenderNode(rect, fill, penResource);
+        using var renderer = CreateRenderer(node);
         var point = new Point(50, 50);
 
-        Assert.That(operations[0].HitTest(point), Is.True);
+        Assert.That(renderer.HitTest(point), Is.True);
     }
 
     [Test]
@@ -91,13 +166,11 @@ public class RectangleRenderNodeTest
         pen.Brush.CurrentValue = Brushes.Black;
         pen.Thickness.CurrentValue = 1;
         var penResource = pen.ToResource(CompositionContext.Default);
-        var context = new RenderNodeContext([]);
-
-        var node = new RectangleRenderNode(rect, fill, penResource);
-        var operations = node.Process(context);
+        using var node = new RectangleRenderNode(rect, fill, penResource);
+        using var renderer = CreateRenderer(node);
         var point = new Point(150, 150);
 
-        Assert.That(operations[0].HitTest(point), Is.False);
+        Assert.That(renderer.HitTest(point), Is.False);
     }
 
     [Test]
@@ -108,12 +181,19 @@ public class RectangleRenderNodeTest
         pen.Brush.CurrentValue = Brushes.Black;
         pen.Thickness.CurrentValue = 50;
         var penResource = pen.ToResource(CompositionContext.Default);
-        var context = new RenderNodeContext([]);
-
-        var node = new RectangleRenderNode(rect, null, penResource);
-        var operations = node.Process(context);
+        using var node = new RectangleRenderNode(rect, null, penResource);
+        using var renderer = CreateRenderer(node);
         var point = new Point(30, 50);
 
-        Assert.That(operations[0].HitTest(point), Is.True);
+        Assert.That(renderer.HitTest(point), Is.True);
     }
+
+    private static RenderNodeRenderer CreateRenderer(RenderNode node)
+        => new(node, new RenderNodeRendererOptions
+        {
+            DefaultRequest = new RenderNodeRenderRequest
+            {
+                CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Disabled,
+            },
+        });
 }

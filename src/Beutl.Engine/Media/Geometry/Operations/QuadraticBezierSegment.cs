@@ -25,12 +25,6 @@ public sealed partial class QuadraticBezierSegment : PathSegment
     [Display(Name = nameof(GraphicsStrings.EndPoint), ResourceType = typeof(GraphicsStrings))]
     public IProperty<Point> EndPoint { get; } = Property.CreateAnimatable<Point>();
 
-    public override void ApplyTo(IGeometryContext context, PathSegment.Resource resource)
-    {
-        var r = (Resource)resource;
-        context.QuadraticTo(r.ControlPoint, r.EndPoint);
-    }
-
     public override IProperty<Point> GetEndPoint()
     {
         return EndPoint;
@@ -38,6 +32,11 @@ public sealed partial class QuadraticBezierSegment : PathSegment
 
     public partial class Resource
     {
+        public override void ApplyTo(IGeometryContext context)
+        {
+            context.QuadraticTo(ControlPoint, EndPoint);
+        }
+
         public override Point? GetEndPoint()
         {
             return EndPoint;

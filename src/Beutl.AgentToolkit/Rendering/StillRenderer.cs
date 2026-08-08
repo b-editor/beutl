@@ -3,10 +3,10 @@ using Beutl.Engine.Expressions;
 using Beutl.Graphics;
 using Beutl.Graphics.Backend;
 using Beutl.Graphics.Rendering;
-using Beutl.Graphics.Rendering.Cache;
 using Beutl.Graphics.Shapes;
 using Beutl.Graphics3D;
 using Beutl.Media;
+using Beutl.Models;
 using Beutl.ProjectSystem;
 
 namespace Beutl.AgentToolkit.Rendering;
@@ -168,11 +168,7 @@ public sealed class StillRenderer
         float normalizedScale = float.IsFinite(renderScale) && renderScale > 0f ? renderScale : 1f;
         return await RenderThread.Dispatcher.InvokeAsync(() =>
         {
-            // Agent still render is a final output, so force original media (proxies are preview-only);
-            // otherwise the default PreferProxy setting would decode cached proxies here.
-            using var renderer = new SceneRenderer(
-                scene, normalizedScale, disableResourceShare: true, maxWorkingScale: float.PositiveInfinity, forceOriginalSource: true);
-            renderer.CacheOptions = RenderCacheOptions.Disabled;
+            using var renderer = ExportRendererFactory.Create(scene, normalizedScale);
 
             ThrowIfSourcesMissing(scene, time + scene.Start);
             var frame = renderer.Compositor.EvaluateGraphics(time + scene.Start);
@@ -198,11 +194,7 @@ public sealed class StillRenderer
         float normalizedScale = float.IsFinite(renderScale) && renderScale > 0f ? renderScale : 1f;
         return await RenderThread.Dispatcher.InvokeAsync(() =>
         {
-            // Agent still render is a final output, so force original media (proxies are preview-only);
-            // otherwise the default PreferProxy setting would decode cached proxies here.
-            using var renderer = new SceneRenderer(
-                scene, normalizedScale, disableResourceShare: true, maxWorkingScale: float.PositiveInfinity, forceOriginalSource: true);
-            renderer.CacheOptions = RenderCacheOptions.Disabled;
+            using var renderer = ExportRendererFactory.Create(scene, normalizedScale);
 
             ThrowIfSourcesMissing(scene, time + scene.Start);
             var frame = renderer.Compositor.EvaluateGraphics(time + scene.Start);

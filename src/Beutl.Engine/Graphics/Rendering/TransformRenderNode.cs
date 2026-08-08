@@ -21,31 +21,74 @@ public sealed class TransformRenderNode(Matrix transform, TransformOperator tran
             changed = true;
         }
 
-        HasChanges = changed;
+        if (changed)
+        {
+            HasChanges = true;
+        }
+
         return changed;
     }
 
-    public override RenderNodeOperation[] Process(RenderNodeContext context)
+    public override void Process(RenderNodeContext context)
     {
-        return context.Input.Select(r =>
-            RenderNodeOperation.CreateLambda(
-                r.Bounds.TransformToAABB(Transform),
-                canvas =>
-                {
-                    using (canvas.PushTransform(Transform, TransformOperator))
-                    {
-                        r.Render(canvas);
-                    }
-                },
-                hitTest: point =>
-                {
-                    if (Transform.HasInverse)
-                        point *= Transform.Invert();
-                    return r.HitTest(point);
-                },
-                onDispose: r.Dispose,
-                effectiveScale: RescaleDensity(r.EffectiveScale, Transform)))
-            .ToArray();
+        Matrix transform = Transform;
+        TransformOperator transformOperator = TransformOperator;
+        Matrix inverse = transform.HasInverse ? transform.Invert() : default;
+        var metadataState = new TransformMetadataState(transform, transform.HasInverse, inverse);
+        RenderBoundsContract bounds = transform.HasInverse
+            ? RenderBoundsContract.Create(
+                metadataState.TransformBounds,
+                metadataState.GetRequiredInputBounds,
+                structuralKey: (typeof(TransformRenderNode), "invertible-bounds"))
+            : RenderBoundsContract.CreateFullInput(
+                metadataState.TransformBounds,
+                structuralKey: (typeof(TransformRenderNode), "singular-bounds"));
+        RenderHitTestContract hitTest = RenderHitTestContract.Custom(metadataState.HitTest);
+        RenderScaleContract scale = RenderScaleContract.MapInputSupply(
+            new TransformScaleMapper(transform).Map);
+        var runtimeIdentity = new RenderRuntimeIdentity((transform, transformOperator));
+        // Set discards the ambient transform for the canvas base transform, so it moves the input even when
+        // the matrix is identity.
+        RenderDeviceGridMapping gridMapping =
+            transform.IsIdentity && transformOperator != TransformOperator.Set
+                ? RenderDeviceGridMapping.Preserved
+                : RenderDeviceGridMapping.Remapped;
+
+        foreach (RenderFragmentHandle input in context.Inputs)
+        {
+            // Only Prepend places its matrix in the input's own logical space. Append and Set are defined
+            // against the ambient target transform, which the value graph has no representation of.
+            TargetScopeDescription description = transformOperator == TransformOperator.Prepend
+                ? TargetScopeDescription.CreateValueReplayMap(
+                    session => ExecuteTransform(session, (transform, transformOperator)),
+                    bounds,
+                    hitTest,
+                    scale,
+                    gridMapping,
+                    structuralKey: typeof(TransformRenderNode),
+                    runtimeIdentity: runtimeIdentity)
+                : TargetScopeDescription.Create(
+                    (transform, transformOperator),
+                    ExecuteTransform,
+                    bounds,
+                    hitTest,
+                    scale,
+                    gridMapping);
+            context.Publish(context.TargetScope(input, description));
+        }
+    }
+
+    private static void ExecuteTransform(
+        TargetScopeSession session,
+        (Matrix Transform, TransformOperator Operator) state)
+    {
+        session.Canvas.Use(canvas =>
+        {
+            using (canvas.PushTransform(state.Transform, state.Operator))
+            {
+                session.ReplayInput();
+            }
+        });
     }
 
     /// <summary>
@@ -71,5 +114,28 @@ public sealed class TransformRenderNode(Matrix transform, TransformOperator tran
             d = input.Value;
 
         return EffectiveScale.At(d);
+    }
+
+    private readonly record struct TransformMetadataState(
+        Matrix Transform,
+        bool HasInverse,
+        Matrix Inverse)
+    {
+        public Rect TransformBounds(Rect value) => value.TransformToAABB(Transform);
+
+        public Rect GetRequiredInputBounds(Rect value) => value.TransformToAABB(Inverse);
+
+        public bool HitTest(RenderHitTestContext metadata, Point point)
+        {
+            if (HasInverse)
+                point *= Inverse;
+            return metadata.Inputs[0].HitTest(point);
+        }
+    }
+
+    private readonly record struct TransformScaleMapper(Matrix Transform)
+    {
+        public EffectiveScale Map(EffectiveScale inputSupply)
+            => RescaleDensity(inputSupply, Transform);
     }
 }

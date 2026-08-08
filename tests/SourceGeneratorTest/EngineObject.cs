@@ -32,6 +32,8 @@ public class EngineObject
 
         public EngineObject GetOriginal() => _original;
 
+        public EngineObject RequireOriginal() => _original ?? throw new InvalidOperationException();
+
         public virtual void Update(EngineObject obj, CompositionContext context, ref bool updateOnly)
         {
             _original = obj;

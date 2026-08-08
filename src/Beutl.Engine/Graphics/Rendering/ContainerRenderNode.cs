@@ -8,6 +8,8 @@ public class ContainerRenderNode : RenderNode
 
     public IReadOnlyList<RenderNode> Children => _children;
 
+    public override ReadOnlySpan<RenderNode> ChildNodes => CollectionsMarshal.AsSpan(_children);
+
     public void AddChild(RenderNode item)
     {
         ArgumentNullException.ThrowIfNull(item);
@@ -39,9 +41,9 @@ public class ContainerRenderNode : RenderNode
         containerNode._children.Clear();
     }
 
-    public override RenderNodeOperation[] Process(RenderNodeContext context)
+    public override void Process(RenderNodeContext context)
     {
-        return context.Input;
+        context.PassThrough();
     }
 
     protected override void OnDispose(bool disposing)

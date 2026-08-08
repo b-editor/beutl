@@ -8,13 +8,34 @@ using SkiaSharp;
 
 namespace Beutl.Graphics;
 
+internal enum ImmediateCanvasFlushKind : byte
+{
+    CanvasClose,
+    SourceSurface,
+    PrepareForSampling,
+}
+
 public partial class ImmediateCanvas : IDisposable, IPopable
 {
-    internal readonly RenderTarget _renderTarget;
+    private static readonly AsyncLocal<FlushObserverScope?> s_flushObserver = new();
+    private static readonly AsyncLocal<PixelOperationObserverScope?> s_pixelOperationObserver = new();
+    private static readonly Lazy<SKRuntimeEffect> s_rectCoverageEffect = new(CreateRectCoverageEffect);
+
+    // A tent kernel has no negative lobe, so a resampled composite cannot emit a value outside the
+    // range of the samples it interpolated.
+    private static readonly SKSamplingOptions s_compositeSampling = new(SKFilterMode.Linear, SKMipmapMode.None);
+
+    private readonly RenderTarget _renderTargetValue;
     private readonly Dispatcher? _dispatcher;
     private readonly SKPaint _sharedFillPaint = new();
     private readonly SKPaint _sharedStrokePaint = new();
     private readonly Stack<CanvasPushedState> _states = new();
+
+    internal bool HasActiveSaveLayer => _states.Any(static state => state is
+        CanvasPushedState.LayerPushedState
+        or CanvasPushedState.MaskPushedState
+        or CanvasPushedState.BlendModePushedState
+        or CanvasPushedState.OpacityPushedState);
     private Matrix _currentTransform;
     // Base CTM = CreateScale(SurfaceDensity); identity when density == 1.
     private readonly Matrix _baseTransform;
@@ -25,22 +46,49 @@ public partial class ImmediateCanvas : IDisposable, IPopable
     private float _currentDensity;
     // Base matrix for the Set transform operator: _baseTransform normally, identity inside PushDeviceSpace().
     private Matrix _currentBaseTransform;
+    private RenderExecutionSessionToken? _executionToken;
+    private CallbackCanvasCapability? _callbackCapability;
+    private bool _isReplayingTargetScope;
+    private BlendMode? _directBlendMode;
+    private bool _productRectangleCoverage;
+    private int _callbackStateFloor;
+    private readonly bool _flushOnDispose;
 
     public ImmediateCanvas(RenderTarget renderTarget, float density = 1f,
-        float maxWorkingScale = float.PositiveInfinity, Size logicalSize = default)
+        float maxWorkingScale = float.PositiveInfinity, Size logicalSize = default,
+        RenderIntent intent = RenderIntent.Preview)
+        : this(renderTarget, density, maxWorkingScale, logicalSize, intent, flushOnDispose: true,
+            deviceOrigin: default)
     {
+    }
+
+    private ImmediateCanvas(
+        RenderTarget renderTarget,
+        float density,
+        float maxWorkingScale,
+        Size logicalSize,
+        RenderIntent intent,
+        bool flushOnDispose,
+        PixelPoint deviceOrigin)
+    {
+        ArgumentNullException.ThrowIfNull(renderTarget);
         if (density <= 0f || !float.IsFinite(density))
             throw new ArgumentOutOfRangeException(nameof(density), density,
                 "Density must be a positive finite value.");
+        if (!Enum.IsDefined(intent))
+            throw new ArgumentOutOfRangeException(nameof(intent), intent, "Unknown render intent.");
 
         _dispatcher = Dispatcher.Current;
-        _renderTarget = renderTarget;
+        _flushOnDispose = flushOnDispose;
+        _renderTargetValue = renderTarget;
         Canvas = _renderTarget.Value.Canvas;
         DeviceSize = new PixelSize(renderTarget.Width, renderTarget.Height);
+        DeviceOrigin = deviceOrigin;
         LogicalSize = logicalSize.IsDefault ? DeviceSize.ToSize(density) : logicalSize;
         SurfaceDensity = density;
         _currentDensity = density;
-        MaxWorkingScale = RenderNodeContext.SanitizeMaxWorkingScale(maxWorkingScale);
+        MaxWorkingScale = RenderScaleUtilities.SanitizeMaxWorkingScale(maxWorkingScale);
+        Intent = intent;
         if (density == 1f)
         {
             _baseTransform = Matrix.Identity;
@@ -58,6 +106,29 @@ public partial class ImmediateCanvas : IDisposable, IPopable
 
         _currentBaseTransform = _baseTransform;
         _renderTarget.BeginDraw();
+    }
+
+    private ImmediateCanvas(ImmediateCanvas parent)
+    {
+        parent.VerifyAccess();
+        _dispatcher = Dispatcher.Current;
+        _flushOnDispose = false;
+        _renderTargetValue = parent._renderTargetValue;
+        Canvas = parent.Canvas;
+        DeviceSize = parent.DeviceSize;
+        DeviceOrigin = parent.DeviceOrigin;
+        LogicalSize = parent.LogicalSize;
+        SurfaceDensity = parent.SurfaceDensity;
+        _currentDensity = parent._currentDensity;
+        _directBlendMode = parent._directBlendMode;
+        _productRectangleCoverage = parent._productRectangleCoverage;
+        MaxWorkingScale = parent.MaxWorkingScale;
+        Intent = parent.Intent;
+        _baseTransform = parent._currentBaseTransform;
+        _currentBaseTransform = parent._currentBaseTransform;
+        _baseSaveCount = Canvas.Save();
+        _currentTransform = Canvas.TotalMatrix.ToMatrix();
+        _renderTargetValue.BeginDraw();
     }
 
     ~ImmediateCanvas()
@@ -87,6 +158,8 @@ public partial class ImmediateCanvas : IDisposable, IPopable
     /// <summary>The physical backing-surface size in device pixels (<c>ceil(LogicalSize × SurfaceDensity)</c>).</summary>
     public PixelSize DeviceSize { get; }
 
+    internal PixelPoint DeviceOrigin { get; }
+
     /// <summary>
     /// Pixel density of the current coordinate space. Equals <see cref="SurfaceDensity"/> normally;
     /// 1 inside a <see cref="PushDeviceSpace"/> block.
@@ -101,6 +174,23 @@ public partial class ImmediateCanvas : IDisposable, IPopable
 
     /// <summary>Working-scale ceiling forwarded into nested pulls. <c>+Inf</c> = no ceiling.</summary>
     public float MaxWorkingScale { get; }
+
+    /// <summary>
+    /// Preview or delivery classification, inherited by brush intermediates and nested requests opened from
+    /// this canvas. <see cref="RenderIntent.Preview"/> degrades on an allocation failure;
+    /// <see cref="RenderIntent.Delivery"/> fails instead of dropping the contribution.
+    /// </summary>
+    public RenderIntent Intent { get; }
+
+    /// <summary>
+    /// Creates a brush constructor bound to this canvas's current density, working-scale ceiling and
+    /// render intent, so a caller painting onto this canvas never has to restate them.
+    /// </summary>
+    /// <param name="bounds">The logical frame the brush maps onto.</param>
+    /// <param name="brush">The brush to paint with, or <see langword="null"/> for no paint.</param>
+    /// <param name="blendMode">The blend mode to configure.</param>
+    public BrushConstructor CreateBrushConstructor(Rect bounds, Brush.Resource? brush, BlendMode blendMode)
+        => new(bounds, brush, blendMode, _currentDensity, MaxWorkingScale, Intent);
 
     public Matrix Transform
     {
@@ -118,16 +208,77 @@ public partial class ImmediateCanvas : IDisposable, IPopable
 
     internal SKCanvas Canvas { get; }
 
+    internal static ImmediateCanvas CreateExecutorManaged(
+        RenderTarget renderTarget,
+        float density,
+        float maxWorkingScale,
+        Size logicalSize,
+        RenderIntent intent,
+        PixelPoint deviceOrigin = default)
+        => new(
+            renderTarget,
+            density,
+            maxWorkingScale,
+            logicalSize,
+            intent,
+            flushOnDispose: false,
+            deviceOrigin);
+
+    internal static IDisposable ObserveFlushes(Action<ImmediateCanvasFlushKind> observer)
+    {
+        ArgumentNullException.ThrowIfNull(observer);
+        var scope = new FlushObserverScope(s_flushObserver.Value, observer);
+        s_flushObserver.Value = scope;
+        return scope;
+    }
+
+    internal static IDisposable ObservePixelOperations(Action observer)
+    {
+        ArgumentNullException.ThrowIfNull(observer);
+        var scope = new PixelOperationObserverScope(s_pixelOperationObserver.Value, observer);
+        s_pixelOperationObserver.Value = scope;
+        return scope;
+    }
+
+    internal RenderTarget _renderTarget
+    {
+        get
+        {
+            if (_callbackCapability is not null && !_isReplayingTargetScope)
+            {
+                throw new InvalidOperationException(
+                    "The backing render target cannot be extracted from a guarded callback canvas.");
+            }
+
+            return _renderTargetValue;
+        }
+    }
+
     public void Clear()
     {
-        VerifyAccess();
+        VerifyPixelOperation(isClear: true);
+        RecordPixelOperation();
         Canvas.Clear();
     }
 
     public void Clear(Color color)
     {
-        VerifyAccess();
+        VerifyPixelOperation(isClear: true);
+        RecordPixelOperation();
         Canvas.Clear(color.ToSKColor());
+    }
+
+    internal void ReplaceAffectedRegion(Color color)
+    {
+        VerifyPixelOperation();
+        RecordPixelOperation();
+        using var paint = new SKPaint
+        {
+            Color = color.ToSKColor(),
+            BlendMode = SKBlendMode.Src,
+            IsAntialias = false,
+        };
+        Canvas.DrawPaint(paint);
     }
 
     public void ClipRect(Rect clip, ClipOperation operation = ClipOperation.Intersect)
@@ -139,132 +290,293 @@ public partial class ImmediateCanvas : IDisposable, IPopable
     public void ClipPath(Geometry.Resource geometry, ClipOperation operation = ClipOperation.Intersect)
     {
         VerifyAccess();
+        VerifyCallbackResource(geometry, nameof(geometry));
         Canvas.ClipPath(geometry.GetCachedPath(), operation.ToSKClipOperation(), true);
     }
 
     public void Dispose()
     {
-        void DisposeCore()
+        if (_executionToken is not null && !IsDisposed)
         {
-            // Must suppress finalizer before GPU ops that might throw.
-            IsDisposed = true;
-            GC.SuppressFinalize(this);
-            try
-            {
-                // Flush GPU work while surface and paints are still alive.
-                GraphicsContextFactory.SharedContext?.SkiaContext.Flush(true, true);
-
-                // Undo the base Save() (density != 1). Guard Canvas.Handle: SkiaSharp may have
-                // zeroed it during GrContext teardown; RestoreToCount on a zero Handle SIGSEGVs.
-                if (_baseSaveCount >= 0 && Canvas is not null && Canvas.Handle != IntPtr.Zero)
-                {
-                    Canvas.RestoreToCount(_baseSaveCount);
-                }
-            }
-            catch
-            {
-                // Best-effort GPU-state cleanup; never abort disposal (or crash the finalizer thread) on it.
-            }
-
-            _sharedFillPaint.Dispose();
-            _sharedStrokePaint.Dispose();
+            throw new InvalidOperationException(
+                "Executor-managed callback canvases cannot be disposed by callback code.");
         }
 
         if (!IsDisposed)
         {
             if (_dispatcher == null)
             {
-                DisposeCore();
+                CloseCore(_flushOnDispose);
             }
             else
             {
-                _dispatcher?.Invoke(DisposeCore);
+                _dispatcher.Invoke(() => CloseCore(_flushOnDispose));
             }
         }
     }
 
     public void DrawSurface(SKSurface surface, Point point)
     {
+        VerifyAccess();
+        VerifyNativeTargetOperation();
         _sharedFillPaint.Reset();
+        ApplyDirectBlendMode(_sharedFillPaint);
         _sharedFillPaint.IsAntialias = true;
 
+        RecordPixelOperation();
         Canvas.DrawSurface(surface, point.X, point.Y, _sharedFillPaint);
 
         surface.Flush(true, true);
+        RecordFlush(ImmediateCanvasFlushKind.SourceSurface);
     }
 
     public void DrawRenderTarget(RenderTarget renderTarget, Point point)
     {
+        VerifyAccess();
+        VerifyNativeTargetOperation();
         // NOTE: renderTargetを保持しておいて次回Flushされたときに開放すると効率的
         renderTarget.VerifyAccess();
         _sharedFillPaint.Reset();
+        ApplyDirectBlendMode(_sharedFillPaint);
         _sharedFillPaint.IsAntialias = true;
 
+        RecordPixelOperation();
         Canvas.DrawSurface(renderTarget.Value, point.X, point.Y, _sharedFillPaint);
 
         renderTarget.Value.Flush(true, true);
+        RecordFlush(ImmediateCanvasFlushKind.SourceSurface);
     }
 
-    // Draw a buffer into a logical destination rect (Mitchell resample).
+    // Draw a buffer into a logical destination rect.
     public void DrawRenderTargetScaled(RenderTarget renderTarget, Rect dest)
+        => DrawRenderTargetScaledCore(renderTarget, dest, flushSource: true);
+
+    internal void DrawRenderTargetScaledWithoutFlush(RenderTarget renderTarget, Rect dest)
+        => DrawRenderTargetScaledCore(renderTarget, dest, flushSource: false);
+
+    internal bool CanDrawPixelAligned(
+        Rect dest,
+        float sourceDensity,
+        PixelSize sourceSize)
     {
         VerifyAccess();
+        VerifyNativeTargetOperation();
+        return TryGetPixelAlignedDeviceOrigin(
+            dest,
+            sourceDensity,
+            sourceSize,
+            out _);
+    }
+
+    private bool TryGetPixelAlignedDeviceOrigin(
+        Rect dest,
+        float sourceDensity,
+        PixelSize sourceSize,
+        out PixelPoint deviceOrigin)
+    {
+        deviceOrigin = default;
+        Matrix transform = _currentTransform;
+        if (_currentDensity != sourceDensity
+            || transform.M11 != sourceDensity
+            || transform.M22 != sourceDensity
+            || transform.M12 != 0
+            || transform.M13 != 0
+            || transform.M21 != 0
+            || transform.M23 != 0
+            || transform.M33 != 1)
+        {
+            return false;
+        }
+
+        PixelRect deviceBounds = PixelRect.FromRect(dest, sourceDensity);
+        if (deviceBounds.Size != sourceSize
+            || deviceBounds.ToRect(sourceDensity) != dest)
+        {
+            return false;
+        }
+
+        Point mappedOrigin = dest.Position * transform;
+        int x = (int)MathF.Round(mappedOrigin.X);
+        int y = (int)MathF.Round(mappedOrigin.Y);
+        if (MathF.Abs(mappedOrigin.X - x) > 0.0001f
+            || MathF.Abs(mappedOrigin.Y - y) > 0.0001f)
+        {
+            return false;
+        }
+
+        deviceOrigin = new PixelPoint(x, y);
+        return true;
+    }
+
+    internal void DrawRenderTargetPixelsWithoutFlush(RenderTarget renderTarget, int x, int y)
+    {
+        VerifyAccess();
+        VerifyNativeTargetOperation();
         renderTarget.VerifyAccess();
 
         using SKImage image = renderTarget.Value.Snapshot();
-        DrawImageScaled(image, dest);
-
-        renderTarget.Value.Flush(true, true);
+        _sharedFillPaint.Reset();
+        ApplyDirectBlendMode(_sharedFillPaint);
+        _sharedFillPaint.IsAntialias = false;
+        var source = SKRect.Create(image.Width, image.Height);
+        var destination = SKRect.Create(x, y, image.Width, image.Height);
+        using (PushDeviceSpace())
+        {
+            RecordPixelOperation();
+            Canvas.DrawImage(
+                image,
+                source,
+                destination,
+                new SKSamplingOptions(SKFilterMode.Nearest, SKMipmapMode.None),
+                _sharedFillPaint);
+        }
     }
 
-    // Draw a pre-snapshotted image into a logical destination rect (Mitchell resample).
-    public void DrawImageScaled(SKImage image, Rect dest)
+    /// <summary>
+    /// Maps <paramref name="dest"/> through the active transform and reports the device origin when the
+    /// mapping lands a <paramref name="sourceSize"/> buffer on exact device pixels, so a copy is lossless.
+    /// </summary>
+    private bool TryGetLosslessDeviceOrigin(Rect dest, PixelSize sourceSize, out PixelPoint deviceOrigin)
+    {
+        deviceOrigin = default;
+        Matrix transform = _currentTransform;
+        if (transform.M12 != 0
+            || transform.M13 != 0
+            || transform.M21 != 0
+            || transform.M23 != 0
+            || transform.M33 != 1)
+        {
+            return false;
+        }
+
+        Point mappedOrigin = dest.Position * transform;
+        Point mappedFar = new Point(dest.Right, dest.Bottom) * transform;
+        int x = (int)MathF.Round(mappedOrigin.X);
+        int y = (int)MathF.Round(mappedOrigin.Y);
+        if (MathF.Abs(mappedOrigin.X - x) > 0.0001f
+            || MathF.Abs(mappedOrigin.Y - y) > 0.0001f
+            || MathF.Abs(mappedFar.X - (x + sourceSize.Width)) > 0.0001f
+            || MathF.Abs(mappedFar.Y - (y + sourceSize.Height)) > 0.0001f)
+        {
+            return false;
+        }
+
+        deviceOrigin = new PixelPoint(x, y);
+        return true;
+    }
+
+    private void DrawRenderTargetScaledCore(RenderTarget renderTarget, Rect dest, bool flushSource)
     {
         VerifyAccess();
+        VerifyNativeTargetOperation();
+        renderTarget.VerifyAccess();
+
+        // Resampling a buffer that already lands on exact device pixels only softens and rings it.
+        if (TryGetLosslessDeviceOrigin(
+                dest,
+                new PixelSize(renderTarget.Width, renderTarget.Height),
+                out PixelPoint deviceOrigin))
+        {
+            DrawRenderTargetPixelsWithoutFlush(renderTarget, deviceOrigin.X, deviceOrigin.Y);
+        }
+        else
+        {
+            using SKImage image = renderTarget.Value.Snapshot();
+            DrawImageScaled(image, dest);
+        }
+
+        if (flushSource)
+        {
+            renderTarget.Value.Flush(true, true);
+            RecordFlush(ImmediateCanvasFlushKind.SourceSurface);
+        }
+    }
+
+    // Draw a pre-snapshotted image into a logical destination rect.
+    public void DrawImageScaled(SKImage image, Rect dest)
+    {
+        VerifyPixelOperation();
+        VerifyCallbackResource(image, nameof(image));
         _sharedFillPaint.Reset();
+        ApplyDirectBlendMode(_sharedFillPaint);
         _sharedFillPaint.IsAntialias = true;
 
         var src = SKRect.Create(image.Width, image.Height);
-        Canvas.DrawImage(image, src, dest.ToSKRect(), new SKSamplingOptions(SKCubicResampler.Mitchell), _sharedFillPaint);
+        RecordPixelOperation();
+        Canvas.DrawImage(image, src, dest.ToSKRect(), s_compositeSampling, _sharedFillPaint);
     }
 
     // Draw a surface into its own logical footprint (pixel size / density) at the given origin.
     public void DrawSurfaceScaled(SKSurface surface, Point origin, float scale)
     {
         VerifyAccess();
+        VerifyNativeTargetOperation();
         _sharedFillPaint.Reset();
+        ApplyDirectBlendMode(_sharedFillPaint);
         _sharedFillPaint.IsAntialias = true;
 
         using SKImage image = surface.Snapshot();
         var src = SKRect.Create(image.Width, image.Height);
         var dest = SKRect.Create((float)origin.X, (float)origin.Y, image.Width / scale, image.Height / scale);
-        Canvas.DrawImage(image, src, dest, new SKSamplingOptions(SKCubicResampler.Mitchell), _sharedFillPaint);
+        RecordPixelOperation();
+        Canvas.DrawImage(image, src, dest, s_compositeSampling, _sharedFillPaint);
 
         surface.Flush(true, true);
+        RecordFlush(ImmediateCanvasFlushKind.SourceSurface);
     }
 
     public void DrawDrawable(Drawable.Resource drawable)
     {
+        VerifyAccess();
+        VerifyNestedExecutionOperation();
         using var node = new DrawableRenderNode(drawable);
         using var context = new GraphicsContext2D(node, LogicalSize, _currentDensity);
-        drawable.GetOriginal().Render(context, drawable);
-        var processor = new RenderNodeProcessor(node, true, _currentDensity, MaxWorkingScale);
-        processor.Render(this);
+        drawable.RequireOriginal().Render(context, drawable);
+        using var renderer = new RenderNodeRenderer(
+            node,
+            new RenderNodeRendererOptions
+            {
+                DefaultRequest = new RenderNodeRenderRequest
+                {
+                    Intent = Intent,
+                    OutputScale = _currentDensity,
+                    MaxWorkingScale = MaxWorkingScale,
+                    CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Enabled,
+                },
+            });
+        renderer.Render(this);
     }
 
     public void DrawNode(RenderNode node)
     {
-        var processor = new RenderNodeProcessor(node, true, _currentDensity, MaxWorkingScale);
-        processor.Render(this);
+        VerifyAccess();
+        VerifyNestedExecutionOperation();
+        using var renderer = new RenderNodeRenderer(
+            node,
+            new RenderNodeRendererOptions
+            {
+                DefaultRequest = new RenderNodeRenderRequest
+                {
+                    Intent = Intent,
+                    OutputScale = _currentDensity,
+                    MaxWorkingScale = MaxWorkingScale,
+                    CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Enabled,
+                },
+            });
+        renderer.Render(this);
     }
 
     public void DrawBackdrop(IBackdrop backdrop)
     {
+        VerifyAccess();
+        VerifyNestedExecutionOperation();
         backdrop.Draw(this);
     }
 
     public IBackdrop Snapshot()
     {
+        VerifyAccess();
+        VerifyNestedExecutionOperation();
         // Use SurfaceDensity (not Density, which PushDeviceSpace lowers to 1) so the backdrop un-scales correctly.
         return new TmpBackdrop(_renderTarget.Snapshot(), SurfaceDensity);
     }
@@ -276,13 +588,37 @@ public partial class ImmediateCanvas : IDisposable, IPopable
         if (bmp.ByteCount <= 0)
             return;
 
-        VerifyAccess();
+        VerifyPixelOperation();
+        VerifyCallbackResource(bmp, nameof(bmp));
+        VerifyCallbackResource(fill, nameof(fill));
+        VerifyCallbackResource(pen, nameof(pen));
         var size = new Size(bmp.Width, bmp.Height);
         ConfigureFillPaint(new(size), fill);
 
         using var img = SKImage.FromBitmap(bmp.SKBitmap);
 
+        RecordPixelOperation();
         Canvas.DrawImage(img, 0, 0, new SKSamplingOptions(SKCubicResampler.Mitchell), _sharedFillPaint);
+    }
+
+    public void DrawBitmap(Bitmap bmp, LoweredBrush fill, LoweredPen pen)
+    {
+        ObjectDisposedException.ThrowIf(bmp.IsDisposed, bmp);
+        if (bmp.ByteCount <= 0)
+            return;
+
+        VerifyPixelOperation();
+        VerifyCallbackResource(bmp, nameof(bmp));
+        VerifyLoweredPaint(fill, pen);
+        ConfigureFillPaint(new Rect(new Size(bmp.Width, bmp.Height)), fill);
+        using var image = SKImage.FromBitmap(bmp.SKBitmap);
+        RecordPixelOperation();
+        Canvas.DrawImage(
+            image,
+            0,
+            0,
+            new SKSamplingOptions(SKCubicResampler.Mitchell),
+            _sharedFillPaint);
     }
 
     // Draw a bitmap into a logical destination rect (Mitchell resample).
@@ -293,26 +629,73 @@ public partial class ImmediateCanvas : IDisposable, IPopable
         if (bmp.ByteCount <= 0)
             return;
 
-        VerifyAccess();
+        VerifyPixelOperation();
+        VerifyCallbackResource(bmp, nameof(bmp));
+        VerifyCallbackResource(fill, nameof(fill));
         ConfigureFillPaint(new(dest.Size), fill);
 
         using var img = SKImage.FromBitmap(bmp.SKBitmap);
         var src = SKRect.Create(bmp.Width, bmp.Height);
 
+        RecordPixelOperation();
         Canvas.DrawImage(img, src, dest.ToSKRect(), new SKSamplingOptions(SKCubicResampler.Mitchell), _sharedFillPaint);
+    }
+
+    public void DrawBitmapScaled(Bitmap bmp, Rect dest, LoweredBrush fill)
+    {
+        ObjectDisposedException.ThrowIf(bmp.IsDisposed, bmp);
+        if (bmp.ByteCount <= 0)
+            return;
+
+        VerifyPixelOperation();
+        VerifyCallbackResource(bmp, nameof(bmp));
+        VerifyLoweredBrush(fill, nameof(fill));
+        ConfigureFillPaint(new Rect(dest.Size), fill);
+        using var image = SKImage.FromBitmap(bmp.SKBitmap);
+        var source = SKRect.Create(bmp.Width, bmp.Height);
+        RecordPixelOperation();
+        Canvas.DrawImage(
+            image,
+            source,
+            dest.ToSKRect(),
+            new SKSamplingOptions(SKCubicResampler.Mitchell),
+            _sharedFillPaint);
     }
 
     public void DrawImageSource(ImageSource.Resource source, Brush.Resource? fill, Pen.Resource? pen)
     {
+        VerifyAccess();
+        if (_executionToken is null)
+            VerifyNestedExecutionOperation();
+        else
+            VerifyCallbackResource(source, nameof(source));
         var bitmap = source.Bitmap;
         if (bitmap != null)
         {
-            DrawBitmap(bitmap, fill, pen);
+            if (_executionToken is null)
+                DrawBitmap(bitmap, fill, pen);
+            else
+                _executionToken.AuthorizeResource(bitmap, () => DrawBitmap(bitmap, fill, pen));
         }
+    }
+
+    public void DrawImageSource(ImageSource.Resource source, LoweredBrush fill, LoweredPen pen)
+    {
+        VerifyAccess();
+        VerifyExecutionScope(nameof(DrawImageSource));
+        VerifyCallbackResource(source, nameof(source));
+        VerifyLoweredPaint(fill, pen);
+        if (source.Bitmap is { } bitmap)
+            _executionToken!.AuthorizeResource(bitmap, () => DrawBitmap(bitmap, fill, pen));
     }
 
     public void DrawVideoSource(VideoSource.Resource source, TimeSpan frame, Brush.Resource? fill, Pen.Resource? pen)
     {
+        VerifyAccess();
+        if (_executionToken is null)
+            VerifyNestedExecutionOperation();
+        else
+            VerifyCallbackResource(source, nameof(source));
         Rational rate = source.FrameRate;
         double frameNum = frame.TotalSeconds * (rate.Numerator / (double)rate.Denominator);
         DrawVideoSource(source, (int)frameNum, fill, pen);
@@ -320,27 +703,75 @@ public partial class ImmediateCanvas : IDisposable, IPopable
 
     public void DrawVideoSource(VideoSource.Resource source, int frame, Brush.Resource? fill, Pen.Resource? pen)
     {
+        VerifyAccess();
+        if (_executionToken is null)
+            VerifyNestedExecutionOperation();
+        else
+            VerifyCallbackResource(source, nameof(source));
         if (source.Read(frame, out var bitmapRef))
         {
             using (bitmapRef)
             {
-                if (source.ProxyResolution == null)
+                void DrawFrame()
                 {
-                    DrawBitmap(bitmapRef.Value, fill, pen);
+                    if (source.ProxyResolution == null)
+                    {
+                        DrawBitmap(bitmapRef.Value, fill, pen);
+                    }
+                    else
+                    {
+                        var dest = new Rect(default, source.LogicalFrameSize.ToSize(1));
+                        DrawBitmapScaled(bitmapRef.Value, dest, fill);
+                    }
                 }
+
+                if (_executionToken is null)
+                    DrawFrame();
                 else
-                {
-                    var dest = new Rect(default, source.LogicalFrameSize.ToSize(1));
-                    DrawBitmapScaled(bitmapRef.Value, dest, fill);
-                }
+                    _executionToken.AuthorizeResource(bitmapRef.Value, DrawFrame);
             }
+        }
+    }
+
+    public void DrawVideoSource(
+        VideoSource.Resource source,
+        int frame,
+        LoweredBrush fill,
+        LoweredPen pen)
+    {
+        VerifyAccess();
+        VerifyExecutionScope(nameof(DrawVideoSource));
+        VerifyCallbackResource(source, nameof(source));
+        VerifyLoweredPaint(fill, pen);
+        if (!source.Read(frame, out var bitmapRef))
+            return;
+
+        using (bitmapRef)
+        {
+            _executionToken!.AuthorizeResource(
+                bitmapRef.Value,
+                () =>
+                {
+                    if (source.ProxyResolution is null)
+                    {
+                        DrawBitmap(bitmapRef.Value, fill, pen);
+                    }
+                    else
+                    {
+                        var destination = new Rect(default, source.LogicalFrameSize.ToSize(1));
+                        DrawBitmapScaled(bitmapRef.Value, destination, fill);
+                    }
+                });
         }
     }
 
     public void DrawEllipse(Rect rect, Brush.Resource? fill, Pen.Resource? pen)
     {
-        VerifyAccess();
+        VerifyPixelOperation();
+        VerifyCallbackResource(fill, nameof(fill));
+        VerifyCallbackResource(pen, nameof(pen));
         ConfigureFillPaint(rect, fill);
+        RecordPixelOperation();
         Canvas.DrawOval(rect.ToSKRect(), _sharedFillPaint);
 
         if (pen != null && pen.Thickness != 0)
@@ -353,10 +784,29 @@ public partial class ImmediateCanvas : IDisposable, IPopable
         }
     }
 
+    public void DrawEllipse(Rect rect, LoweredBrush fill, LoweredPen pen)
+    {
+        VerifyPixelOperation();
+        VerifyLoweredPaint(fill, pen);
+        ConfigureFillPaint(rect, fill);
+        RecordPixelOperation();
+        Canvas.DrawOval(rect.ToSKRect(), _sharedFillPaint);
+
+        if (pen.Resource is { Thickness: not 0 })
+        {
+            using var path = new SKPath();
+            path.AddOval(rect.ToSKRect());
+            DrawSKPath(path, true, fill, pen);
+        }
+    }
+
     public void DrawRectangle(Rect rect, Brush.Resource? fill, Pen.Resource? pen)
     {
-        VerifyAccess();
+        VerifyPixelOperation();
+        VerifyCallbackResource(fill, nameof(fill));
+        VerifyCallbackResource(pen, nameof(pen));
         ConfigureFillPaint(rect, fill);
+        RecordPixelOperation();
         Canvas.DrawRect(rect.ToSKRect(), _sharedFillPaint);
 
         if (pen != null && pen.Thickness != 0)
@@ -369,9 +819,28 @@ public partial class ImmediateCanvas : IDisposable, IPopable
         }
     }
 
+    public void DrawRectangle(Rect rect, LoweredBrush fill, LoweredPen pen)
+    {
+        VerifyPixelOperation();
+        VerifyLoweredPaint(fill, pen);
+        ConfigureFillPaint(rect, fill);
+        RecordPixelOperation();
+        Canvas.DrawRect(rect.ToSKRect(), _sharedFillPaint);
+
+        if (pen.Resource is { Thickness: not 0 })
+        {
+            using var path = new SKPath();
+            path.AddRect(rect.ToSKRect());
+            DrawSKPath(path, true, fill, pen);
+        }
+    }
+
     public void DrawText(FormattedText text, Brush.Resource? fill, Pen.Resource? pen)
     {
-        VerifyAccess();
+        VerifyPixelOperation();
+        VerifyCallbackResource(text, nameof(text));
+        VerifyCallbackResource(fill, nameof(fill));
+        VerifyCallbackResource(pen, nameof(pen));
         float density = _currentDensity;
         SKTextBlob? textBlob = text.GetTextBlob(density);
         if (textBlob is null)
@@ -383,6 +852,7 @@ public partial class ImmediateCanvas : IDisposable, IPopable
         if (density == 1f)
         {
             ConfigureFillPaint(text.Bounds, fill);
+            RecordPixelOperation();
             Canvas.DrawText(textBlob, 0, 0, _sharedFillPaint);
 
             if (pen != null
@@ -403,6 +873,7 @@ public partial class ImmediateCanvas : IDisposable, IPopable
                 // The blob is shaped at device density, so its glyphs already span Bounds * density
                 // under this CTM. Pass scale 1 so the density isn't applied twice to brush patterns.
                 ConfigureFillPaint(text.Bounds * density, fill, scale: 1f);
+                RecordPixelOperation();
                 Canvas.DrawText(textBlob, 0, 0, _sharedFillPaint);
 
                 if (pen != null
@@ -410,6 +881,51 @@ public partial class ImmediateCanvas : IDisposable, IPopable
                     && text.GetStrokePath(density) is { } stroke)
                 {
                     ConfigureStrokePaint(new(text.Bounds.Size * density), pen, scale: 1f);
+                    Canvas.DrawPath(stroke, _sharedStrokePaint);
+                }
+            }
+            finally
+            {
+                Canvas.RestoreToCount(count);
+            }
+        }
+    }
+
+    public void DrawText(FormattedText text, LoweredBrush fill, LoweredPen pen)
+    {
+        VerifyPixelOperation();
+        VerifyCallbackResource(text, nameof(text));
+        VerifyLoweredPaint(fill, pen);
+        float density = _currentDensity;
+        SKTextBlob? textBlob = text.GetTextBlob(density);
+        if (textBlob is null)
+            return;
+
+        if (density == 1f)
+        {
+            ConfigureFillPaint(text.Bounds, fill);
+            RecordPixelOperation();
+            Canvas.DrawText(textBlob, 0, 0, _sharedFillPaint);
+            if (pen.Resource is { Thickness: > 0 }
+                && text.GetStrokePath() is { } stroke)
+            {
+                ConfigureStrokePaint(new Rect(text.Bounds.Size), pen);
+                Canvas.DrawPath(stroke, _sharedStrokePaint);
+            }
+        }
+        else
+        {
+            int count = Canvas.Save();
+            try
+            {
+                Canvas.SetMatrix((SKMatrix44)CreateDensityScaledContentTransform(density).ToSKMatrix());
+                ConfigureFillPaint(text.Bounds * density, fill, scale: 1f);
+                RecordPixelOperation();
+                Canvas.DrawText(textBlob, 0, 0, _sharedFillPaint);
+                if (pen.Resource is { Thickness: > 0 }
+                    && text.GetStrokePath(density) is { } stroke)
+                {
+                    ConfigureStrokePaint(new Rect(text.Bounds.Size * density), pen, scale: 1f);
                     Canvas.DrawPath(stroke, _sharedStrokePaint);
                 }
             }
@@ -445,6 +961,7 @@ public partial class ImmediateCanvas : IDisposable, IPopable
         if (!strokeOnly)
         {
             ConfigureFillPaint(rect, fill);
+            RecordPixelOperation();
             Canvas.DrawPath(skPath, _sharedFillPaint);
         }
 
@@ -453,18 +970,43 @@ public partial class ImmediateCanvas : IDisposable, IPopable
             ConfigureStrokePaint(rect, pen);
 
             using SKPath strokePath = PenHelper.CreateStrokePath(skPath, pen, rect);
+            RecordPixelOperation();
+            Canvas.DrawPath(strokePath, _sharedStrokePaint);
+        }
+    }
+
+    internal void DrawSKPath(SKPath skPath, bool strokeOnly, LoweredBrush fill, LoweredPen pen)
+    {
+        Rect rect = skPath.Bounds.ToGraphicsRect();
+        if (!strokeOnly)
+        {
+            ConfigureFillPaint(rect, fill);
+            RecordPixelOperation();
+            Canvas.DrawPath(skPath, _sharedFillPaint);
+        }
+
+        if (pen.Resource is { Thickness: > 0 } resource)
+        {
+            ConfigureStrokePaint(rect, pen);
+            using SKPath strokePath = PenHelper.CreateStrokePath(skPath, resource, rect);
+            RecordPixelOperation();
             Canvas.DrawPath(strokePath, _sharedStrokePaint);
         }
     }
 
     public void DrawGeometry(Geometry.Resource geometry, Brush.Resource? fill, Pen.Resource? pen)
     {
-        VerifyAccess();
+        VerifyPixelOperation();
+        VerifyCallbackResource(geometry, nameof(geometry));
+        VerifyCallbackResource(fill, nameof(fill));
+        VerifyCallbackResource(pen, nameof(pen));
         SKPath skPath = geometry.GetCachedPath();
         Rect rect = geometry.Bounds;
 
         ConfigureFillPaint(geometry.Bounds, fill);
-        Canvas.DrawPath(skPath, _sharedFillPaint);
+        RecordPixelOperation();
+        if (!TryDrawProductCoverageRectangle(geometry, _sharedFillPaint))
+            Canvas.DrawPath(skPath, _sharedFillPaint);
 
         if (pen != null && pen.Thickness > 0)
         {
@@ -477,13 +1019,35 @@ public partial class ImmediateCanvas : IDisposable, IPopable
         }
     }
 
+    public void DrawGeometry(Geometry.Resource geometry, LoweredBrush fill, LoweredPen pen)
+    {
+        VerifyPixelOperation();
+        VerifyCallbackResource(geometry, nameof(geometry));
+        VerifyLoweredPaint(fill, pen);
+        SKPath path = geometry.GetCachedPath();
+        Rect rect = geometry.Bounds;
+        ConfigureFillPaint(rect, fill);
+        RecordPixelOperation();
+        if (!TryDrawProductCoverageRectangle(geometry, _sharedFillPaint))
+            Canvas.DrawPath(path, _sharedFillPaint);
+
+        if (pen.Resource is { Thickness: > 0 } resource)
+        {
+            ConfigureStrokePaint(rect, pen);
+            if (geometry.GetCachedStrokePath(resource) is { } stroke)
+                Canvas.DrawPath(stroke, _sharedStrokePaint);
+        }
+    }
+
     public void Pop(int count = -1)
     {
         VerifyAccess();
+        int stateFloor = _executionToken is null ? 0 : _callbackStateFloor;
 
         if (count < 0)
         {
-            while (count < 0
+            while (_states.Count > stateFloor
+                   && count < 0
                    && _states.TryPop(out CanvasPushedState? state))
             {
                 state.Pop(this);
@@ -492,7 +1056,8 @@ public partial class ImmediateCanvas : IDisposable, IPopable
         }
         else
         {
-            while (_states.Count >= count
+            while (_states.Count > stateFloor
+                   && _states.Count >= count
                    && _states.TryPop(out CanvasPushedState? state))
             {
                 state.Pop(this);
@@ -512,33 +1077,43 @@ public partial class ImmediateCanvas : IDisposable, IPopable
     public PushedState PushLayer(Rect limit = default)
     {
         VerifyAccess();
+        VerifyHiddenLayerOperation();
         int count;
         if (limit == default)
         {
+            RecordPixelOperation();
             count = Canvas.SaveLayer();
         }
         else
         {
             using (var paint = new SKPaint())
             {
+                RecordPixelOperation();
                 count = Canvas.SaveLayer(limit.ToSKRect(), paint);
             }
         }
 
-        _states.Push(new CanvasPushedState.SKCanvasPushedState(count));
+        _states.Push(new CanvasPushedState.LayerPushedState(count));
         return new PushedState(this, _states.Count);
     }
 
     internal PushedState PushPaint(SKPaint paint, Rect? rect = null)
     {
         VerifyAccess();
+        VerifyHiddenLayerOperation();
         int count;
         if (rect.HasValue)
+        {
+            RecordPixelOperation();
             count = Canvas.SaveLayer(rect.Value.ToSKRect(), paint);
+        }
         else
+        {
+            RecordPixelOperation();
             count = Canvas.SaveLayer(paint);
+        }
 
-        _states.Push(new CanvasPushedState.SKCanvasPushedState(count));
+        _states.Push(new CanvasPushedState.LayerPushedState(count));
         return new PushedState(this, _states.Count);
     }
 
@@ -555,6 +1130,7 @@ public partial class ImmediateCanvas : IDisposable, IPopable
     public PushedState PushClip(Geometry.Resource geometry, ClipOperation operation = ClipOperation.Intersect)
     {
         VerifyAccess();
+        VerifyCallbackResource(geometry, nameof(geometry));
         int count = Canvas.Save();
         ClipPath(geometry, operation);
 
@@ -565,10 +1141,21 @@ public partial class ImmediateCanvas : IDisposable, IPopable
     public PushedState PushOpacity(float opacity)
     {
         VerifyAccess();
+        VerifyHiddenLayerOperation();
         float oldOpacity = Opacity;
         Opacity *= opacity;
-        var paint = new SKPaint();
 
+        RecordPixelOperation();
+        if (oldOpacity == 1f && opacity == 1f)
+        {
+            // Skia sizes an isolation layer from the active clip, and rasterizing into that smaller
+            // surface changes antialiased coverage. A fully opaque group is SrcOver-associative, so
+            // the layer would only be an identity pass that perturbs coverage.
+            _states.Push(new CanvasPushedState.SKCanvasPushedState(Canvas.Save()));
+            return new PushedState(this, _states.Count);
+        }
+
+        var paint = new SKPaint();
         int count = Canvas.SaveLayer(paint);
         paint.Color = new SKColor(0, 0, 0, (byte)(Opacity * 255));
         _states.Push(new CanvasPushedState.OpacityPushedState(oldOpacity, count, paint));
@@ -578,10 +1165,38 @@ public partial class ImmediateCanvas : IDisposable, IPopable
     public PushedState PushOpacityMask(Brush.Resource mask, Rect bounds, bool invert = false)
     {
         VerifyAccess();
+        VerifyHiddenLayerOperation();
         var paint = new SKPaint();
 
+        RecordPixelOperation();
         int count = Canvas.SaveLayer(paint);
-        new BrushConstructor(bounds, mask, (BlendMode)paint.BlendMode, _currentDensity, MaxWorkingScale).ConfigurePaint(paint);
+        new BrushConstructor(bounds, mask, (BlendMode)paint.BlendMode, _currentDensity, MaxWorkingScale, Intent)
+            .ConfigurePaint(paint);
+        _states.Push(new CanvasPushedState.MaskPushedState(count, invert, paint));
+        return new PushedState(this, _states.Count);
+    }
+
+    /// <remarks>
+    /// This stays internal while its sibling draw overloads are public: it is SaveLayer-backed, and
+    /// <see cref="VerifyHiddenLayerOperation"/> rejects SaveLayer-backed state on every guarded callback
+    /// canvas, which is the only kind an author can reach. Its callers are executor replays onto their own
+    /// unguarded target.
+    /// </remarks>
+    internal PushedState PushOpacityMask(LoweredBrush mask, Rect bounds, bool invert = false)
+    {
+        VerifyAccess();
+        VerifyHiddenLayerOperation();
+        VerifyLoweredBrush(mask, nameof(mask));
+        var paint = new SKPaint();
+        RecordPixelOperation();
+        int count = Canvas.SaveLayer(paint);
+        new BrushConstructor(
+            bounds,
+            mask,
+            (BlendMode)paint.BlendMode,
+            _currentDensity,
+            MaxWorkingScale,
+            Intent).ConfigurePaint(paint);
         _states.Push(new CanvasPushedState.MaskPushedState(count, invert, paint));
         return new PushedState(this, _states.Count);
     }
@@ -639,13 +1254,36 @@ public partial class ImmediateCanvas : IDisposable, IPopable
     public PushedState PushBlendMode(BlendMode blendMode)
     {
         VerifyAccess();
+        VerifyHiddenLayerOperation();
         BlendMode tmp = BlendMode;
+        bool previousProductRectangleCoverage = _productRectangleCoverage;
         BlendMode = blendMode;
+        _productRectangleCoverage = blendMode == BlendMode.DstIn;
         var paint = new SKPaint();
         paint.BlendMode = (SKBlendMode)blendMode;
 
+        RecordPixelOperation();
         int count = Canvas.SaveLayer(paint);
-        _states.Push(new CanvasPushedState.BlendModePushedState(tmp, count, paint));
+        _states.Push(new CanvasPushedState.BlendModePushedState(
+            tmp,
+            previousProductRectangleCoverage,
+            count,
+            paint));
+        return new PushedState(this, _states.Count);
+    }
+
+    internal PushedState PushDirectBlendMode(BlendMode blendMode)
+    {
+        VerifyAccess();
+        int count = Canvas.Save();
+        BlendMode previousBlendMode = BlendMode;
+        BlendMode? previousDirectBlendMode = _directBlendMode;
+        BlendMode = blendMode;
+        _directBlendMode = blendMode;
+        _states.Push(new CanvasPushedState.DirectBlendModePushedState(
+            previousBlendMode,
+            previousDirectBlendMode,
+            count));
         return new PushedState(this, _states.Count);
     }
 
@@ -654,6 +1292,407 @@ public partial class ImmediateCanvas : IDisposable, IPopable
         ObjectDisposedException.ThrowIf(IsDisposed, this);
 
         _dispatcher?.VerifyAccess();
+        if (_executionToken is not null && !_executionToken.IsActiveCanvas(this))
+            throw new InvalidOperationException("The executor-managed callback canvas is no longer active.");
+    }
+
+    internal void ConfigureExecutionCallback(
+        RenderExecutionSessionToken token,
+        CallbackCanvasCapability capability)
+    {
+        ArgumentNullException.ThrowIfNull(token);
+        if (_executionToken is not null)
+            throw new InvalidOperationException("The canvas already has an execution capability.");
+        if (!token.IsActiveCanvas(this))
+            throw new InvalidOperationException("The canvas must be active before a capability is attached.");
+
+        _executionToken = token;
+        _callbackCapability = capability;
+    }
+
+    /// <summary>
+    /// Attaches the guarded draw capability to this canvas for the duration of a direct replay, then detaches
+    /// it again.
+    /// </summary>
+    /// <remarks>
+    /// A direct replay writes onto a canvas the executor keeps using afterwards, so the capability cannot be
+    /// ended by <see cref="CloseWithoutFlush"/> the way an execution view's is. Transform and clip are left
+    /// untouched: attaching the guard must not change a single pixel of what the replay draws.
+    /// </remarks>
+    internal DirectExecutionScope BeginDirectExecution(RenderExecutionSessionToken token)
+    {
+        ArgumentNullException.ThrowIfNull(token);
+        VerifyAccess();
+        var outer = new DirectExecutionScope(
+            this,
+            token,
+            _executionToken,
+            _callbackCapability,
+            _callbackStateFloor,
+            _isReplayingTargetScope);
+        token.EnterCanvas(this, facade: null);
+        _executionToken = token;
+        _callbackCapability = CallbackCanvasCapability.Draw;
+        _callbackStateFloor = _states.Count;
+        _isReplayingTargetScope = false;
+        return outer;
+    }
+
+    private void EndDirectExecution(
+        RenderExecutionSessionToken token,
+        RenderExecutionSessionToken? outerToken,
+        CallbackCanvasCapability? outerCapability,
+        int outerStateFloor,
+        bool outerIsReplayingTargetScope)
+    {
+        try
+        {
+            // The destination outlives the replay, so state the callback left pushed has to be unwound here;
+            // an execution view gets the same treatment from CloseWithoutFlush.
+            while (_states.Count > _callbackStateFloor && _states.TryPop(out CanvasPushedState? state))
+                state.Pop(this);
+        }
+        finally
+        {
+            _executionToken = outerToken;
+            _callbackCapability = outerCapability;
+            _callbackStateFloor = outerStateFloor;
+            _isReplayingTargetScope = outerIsReplayingTargetScope;
+            token.ExitCanvas(this);
+        }
+    }
+
+    internal readonly struct DirectExecutionScope(
+        ImmediateCanvas canvas,
+        RenderExecutionSessionToken token,
+        RenderExecutionSessionToken? outerToken,
+        CallbackCanvasCapability? outerCapability,
+        int outerStateFloor,
+        bool outerIsReplayingTargetScope) : IDisposable
+    {
+        public void Dispose() => canvas.EndDirectExecution(
+            token,
+            outerToken,
+            outerCapability,
+            outerStateFloor,
+            outerIsReplayingTargetScope);
+    }
+
+    internal ImmediateCanvas CreateExecutionView()
+    {
+        VerifyAccess();
+        if (_executionToken is not null && !_isReplayingTargetScope)
+        {
+            throw new InvalidOperationException(
+                "An executor-managed callback canvas cannot create another execution view.");
+        }
+
+        return new ImmediateCanvas(this);
+    }
+
+    internal void ConfigureRawExecutionCallback(RenderExecutionSessionToken token)
+    {
+        ArgumentNullException.ThrowIfNull(token);
+        if (_executionToken is not null)
+            throw new InvalidOperationException("The canvas already has an execution capability.");
+        if (!token.IsActiveCanvas(this))
+            throw new InvalidOperationException("The canvas must be active before a capability is attached.");
+
+        _executionToken = token;
+        _callbackCapability = null;
+        _callbackStateFloor = _states.Count;
+    }
+
+    internal void PinExecutionCallbackState()
+    {
+        VerifyAccess();
+        if (_executionToken is null)
+            throw new InvalidOperationException("Only an execution callback canvas can pin its base state.");
+
+        _callbackStateFloor = _states.Count;
+    }
+
+    internal void CloseWithoutFlush()
+    {
+        if (IsDisposed)
+            return;
+
+        if (_dispatcher == null)
+        {
+            CloseCore(flush: false);
+        }
+        else
+        {
+            _dispatcher.Invoke(() => CloseCore(flush: false));
+        }
+    }
+
+    internal void DrawExecutionInput(SKImage image, Rect destination)
+    {
+        ArgumentNullException.ThrowIfNull(image);
+        VerifyPixelOperation();
+        _sharedFillPaint.Reset();
+        ApplyDirectBlendMode(_sharedFillPaint);
+        _sharedFillPaint.IsAntialias = true;
+        RecordPixelOperation();
+        Canvas.DrawImage(
+            image,
+            SKRect.Create(image.Width, image.Height),
+            destination.ToSKRect(),
+            new SKSamplingOptions(SKCubicResampler.Mitchell),
+            _sharedFillPaint);
+    }
+
+    internal void DrawExecutionInputDeviceSpace(SKImage image, Point localDevicePoint)
+    {
+        ArgumentNullException.ThrowIfNull(image);
+        VerifyPixelOperation();
+        using (PushDeviceSpace())
+        {
+            _sharedFillPaint.Reset();
+            ApplyDirectBlendMode(_sharedFillPaint);
+            _sharedFillPaint.IsAntialias = true;
+            RecordPixelOperation();
+            Canvas.DrawImage(
+                image,
+                localDevicePoint.X,
+                localDevicePoint.Y,
+                new SKSamplingOptions(SKCubicResampler.Mitchell),
+                _sharedFillPaint);
+        }
+    }
+
+    /// <summary>
+    /// Replays a target scope's recorded input, permitting nested render work for the replay's duration.
+    /// </summary>
+    internal void ReplayTargetScopeInput(Action<ImmediateCanvas> replay)
+    {
+        ArgumentNullException.ThrowIfNull(replay);
+        VerifyAccess();
+        if (_executionToken is null
+            || (_callbackCapability is not null and not CallbackCanvasCapability.TargetScope)
+            || _isReplayingTargetScope)
+        {
+            throw new InvalidOperationException("A target-scope replay is not active for this canvas.");
+        }
+
+        _isReplayingTargetScope = true;
+        try
+        {
+            replay(this);
+        }
+        finally
+        {
+            _isReplayingTargetScope = false;
+        }
+    }
+
+    private void CloseCore(bool flush)
+    {
+        // Must suppress the finalizer before any backend operation that might throw.
+        IsDisposed = true;
+        GC.SuppressFinalize(this);
+        try
+        {
+            if (flush && GraphicsContextFactory.SharedContext is { } context)
+            {
+                context.SkiaContext.Flush(true, true);
+                RecordFlush(ImmediateCanvasFlushKind.CanvasClose);
+                GpuResourceReclaimQueue.DrainAfterContextSync();
+            }
+
+            while (_states.TryPop(out CanvasPushedState? state))
+            {
+                state.Pop(this);
+            }
+
+            // Undo the base Save() (density != 1). Guard Canvas.Handle: SkiaSharp may have
+            // zeroed it during GrContext teardown; RestoreToCount on a zero Handle SIGSEGVs.
+            if (_baseSaveCount >= 0 && Canvas is not null && Canvas.Handle != IntPtr.Zero)
+            {
+                Canvas.RestoreToCount(_baseSaveCount);
+            }
+        }
+        catch
+        {
+            // Best-effort backend-state cleanup; disposal must still release managed paints.
+        }
+        finally
+        {
+            _sharedFillPaint.Dispose();
+            _sharedStrokePaint.Dispose();
+        }
+    }
+
+    internal static void RecordFlush(ImmediateCanvasFlushKind kind)
+    {
+        for (FlushObserverScope? scope = s_flushObserver.Value; scope is not null; scope = scope.Parent)
+        {
+            try
+            {
+                scope.Observer(kind);
+            }
+            catch
+            {
+                // Test observation must never affect rendering or cleanup.
+            }
+        }
+    }
+
+    private static void RecordPixelOperation()
+    {
+        for (PixelOperationObserverScope? scope = s_pixelOperationObserver.Value;
+             scope is not null;
+             scope = scope.Parent)
+        {
+            try
+            {
+                scope.Observer();
+            }
+            catch
+            {
+                // Diagnostics observation must never affect rendering or cleanup.
+            }
+        }
+    }
+
+    private sealed class FlushObserverScope(
+        FlushObserverScope? parent,
+        Action<ImmediateCanvasFlushKind> observer) : IDisposable
+    {
+        private bool _disposed;
+
+        public FlushObserverScope? Parent { get; } = parent;
+
+        public Action<ImmediateCanvasFlushKind> Observer { get; } = observer;
+
+        public void Dispose()
+        {
+            if (_disposed)
+                return;
+            _disposed = true;
+            if (!ReferenceEquals(s_flushObserver.Value, this))
+                throw new InvalidOperationException("Immediate-canvas flush observers must be closed in LIFO order.");
+            s_flushObserver.Value = Parent;
+        }
+    }
+
+    private sealed class PixelOperationObserverScope(
+        PixelOperationObserverScope? parent,
+        Action observer) : IDisposable
+    {
+        private bool _disposed;
+
+        public PixelOperationObserverScope? Parent { get; } = parent;
+
+        public Action Observer { get; } = observer;
+
+        public void Dispose()
+        {
+            if (_disposed)
+                return;
+            _disposed = true;
+            if (!ReferenceEquals(s_pixelOperationObserver.Value, this))
+                throw new InvalidOperationException("Immediate-canvas pixel-operation observers must be closed in LIFO order.");
+            s_pixelOperationObserver.Value = Parent;
+        }
+    }
+
+    private void VerifyPixelOperation(bool isClear = false)
+    {
+        VerifyAccess();
+        switch (_callbackCapability)
+        {
+            case CallbackCanvasCapability.TargetScope when !_isReplayingTargetScope:
+                throw new InvalidOperationException(
+                    "A target-scope callback may only surround ReplayInput with transform and clip state.");
+            case CallbackCanvasCapability.TargetCommandEmpty:
+                throw new InvalidOperationException("An empty target command cannot perform pixel operations.");
+            case CallbackCanvasCapability.TargetCommandRegion when isClear:
+                throw new InvalidOperationException(
+                    "The native clear operation is valid only for a full target command region.");
+        }
+    }
+
+    private void VerifyHiddenLayerOperation()
+    {
+        if (_callbackCapability is not null && !_isReplayingTargetScope)
+        {
+            throw new InvalidOperationException(
+                "SaveLayer-backed state is not available on a guarded callback canvas.");
+        }
+    }
+
+    private void VerifyNestedExecutionOperation()
+    {
+        if (_callbackCapability is not null && !_isReplayingTargetScope)
+        {
+            throw new InvalidOperationException(
+                "Nested render work, snapshots, and legacy raw callbacks are not available on a guarded callback canvas.");
+        }
+    }
+
+    private void VerifyNativeTargetOperation()
+    {
+        if (_callbackCapability is not null && !_isReplayingTargetScope)
+        {
+            throw new InvalidOperationException(
+                "Raw surfaces and render targets are not available on a guarded callback canvas.");
+        }
+    }
+
+    private void VerifyCallbackResource(object? resource, string parameterName)
+    {
+        if (resource is null
+            || _executionToken is null
+            || _callbackCapability is null
+            || _isReplayingTargetScope)
+            return;
+
+        if (!_executionToken.IsResourceAuthorized(resource))
+        {
+            throw new InvalidOperationException(
+                $"The resource passed as '{parameterName}' is not authorized in the active execution scope.");
+        }
+    }
+
+    private void VerifyLoweredPaint(LoweredBrush fill, LoweredPen pen)
+    {
+        VerifyLoweredBrush(fill, nameof(fill));
+        VerifyLease(pen.IsLeaseActive, nameof(pen));
+        VerifyCallbackResource(pen.Resource, nameof(pen));
+        VerifyCallbackResource(pen.Brush.Resource, nameof(pen));
+        VerifyCallbackResource(pen.Brush.TileContent?.Shader, nameof(pen));
+    }
+
+    private void VerifyLoweredBrush(LoweredBrush brush, string parameterName)
+    {
+        VerifyLease(brush.IsLeaseActive, parameterName);
+        VerifyCallbackResource(brush.Resource, parameterName);
+        VerifyCallbackResource(brush.TileContent?.Shader, parameterName);
+    }
+
+    /// <remarks>
+    /// Unlike <see cref="VerifyCallbackResource"/> this asks the execution that resolved the paint, not this
+    /// canvas, so it also rejects a copy handed to a canvas the author owns.
+    /// </remarks>
+    private static void VerifyLease(bool isLeaseActive, string parameterName)
+    {
+        if (!isLeaseActive)
+        {
+            throw new InvalidOperationException(
+                $"The lowered paint passed as '{parameterName}' is outside the lease of the execution that "
+                + "resolved it.");
+        }
+    }
+
+    private void VerifyExecutionScope(string operationName)
+    {
+        if (_executionToken is null)
+        {
+            throw new InvalidOperationException(
+                $"{operationName} under a lowered paint is only available inside a render execution.");
+        }
     }
 
     private void ConfigureStrokePaint(Rect bounds, Pen.Resource? pen, BlendMode blendMode = BlendMode.SrcOver, float? scale = null)
@@ -663,13 +1702,156 @@ public partial class ImmediateCanvas : IDisposable, IPopable
         if (pen != null && pen.Thickness != 0)
         {
             _sharedStrokePaint.IsStroke = false;
-            new BrushConstructor(bounds, pen.Brush, blendMode, scale ?? _currentDensity, MaxWorkingScale).ConfigurePaint(_sharedStrokePaint);
+            new BrushConstructor(
+                bounds,
+                pen.Brush,
+                ResolvePaintBlendMode(blendMode),
+                scale ?? _currentDensity,
+                MaxWorkingScale,
+                Intent).ConfigurePaint(_sharedStrokePaint);
+        }
+    }
+
+    private void ConfigureStrokePaint(
+        Rect bounds,
+        LoweredPen pen,
+        BlendMode blendMode = BlendMode.SrcOver,
+        float? scale = null)
+    {
+        _sharedStrokePaint.Reset();
+        if (pen.Resource is { Thickness: not 0 })
+        {
+            _sharedStrokePaint.IsStroke = false;
+            new BrushConstructor(
+                bounds,
+                pen.Brush,
+                ResolvePaintBlendMode(blendMode),
+                scale ?? _currentDensity,
+                MaxWorkingScale,
+                Intent).ConfigurePaint(_sharedStrokePaint);
         }
     }
 
     private void ConfigureFillPaint(Rect bounds, Brush.Resource? brush, BlendMode blendMode = BlendMode.SrcOver, float? scale = null)
     {
         _sharedFillPaint.Reset();
-        new BrushConstructor(bounds, brush, blendMode, scale ?? _currentDensity, MaxWorkingScale).ConfigurePaint(_sharedFillPaint);
+        new BrushConstructor(
+            bounds,
+            brush,
+            ResolvePaintBlendMode(blendMode),
+            scale ?? _currentDensity,
+            MaxWorkingScale,
+            Intent).ConfigurePaint(_sharedFillPaint);
+    }
+
+    private void ConfigureFillPaint(
+        Rect bounds,
+        LoweredBrush brush,
+        BlendMode blendMode = BlendMode.SrcOver,
+        float? scale = null)
+    {
+        _sharedFillPaint.Reset();
+        new BrushConstructor(
+            bounds,
+            brush,
+            ResolvePaintBlendMode(blendMode),
+            scale ?? _currentDensity,
+            MaxWorkingScale,
+            Intent).ConfigurePaint(_sharedFillPaint);
+    }
+
+    private BlendMode ResolvePaintBlendMode(BlendMode fallback)
+        => _directBlendMode ?? fallback;
+
+    private void ApplyDirectBlendMode(SKPaint paint)
+    {
+        if (_directBlendMode is { } blendMode)
+            paint.BlendMode = (SKBlendMode)blendMode;
+    }
+
+    private bool TryDrawProductCoverageRectangle(Geometry.Resource geometry, SKPaint paint)
+    {
+        // Skia's path antialiasing may publish one-axis coverage at a fractional rectangle corner.
+        // A Porter-Duff mask needs the geometric area product, because the same coverage is later
+        // applied to every pixel in the isolated target-layer domain.
+        if ((_directBlendMode != BlendMode.DstOut && !_productRectangleCoverage)
+            || geometry.GetOriginal() is not RectGeometry
+            || _currentTransform.M12 != 0
+            || _currentTransform.M13 != 0
+            || _currentTransform.M21 != 0
+            || _currentTransform.M23 != 0
+            || _currentTransform.M33 != 1)
+        {
+            return false;
+        }
+
+        var rectangle = (RectGeometry.Resource)geometry;
+        if (rectangle.Width <= 0 || rectangle.Height <= 0)
+        {
+            return true;
+        }
+
+        SKColor previousColor = paint.Color;
+        SKShader? previousShader = paint.Shader;
+        using SKShader? ownedSourceShader = previousShader is null
+            ? SKShader.CreateColor(new SKColor(
+                previousColor.Red,
+                previousColor.Green,
+                previousColor.Blue,
+                255))
+            : null;
+        SKShader sourceShader = previousShader ?? ownedSourceShader!;
+        using var uniforms = new SKRuntimeEffectUniforms(s_rectCoverageEffect.Value);
+        using var children = new SKRuntimeEffectChildren(s_rectCoverageEffect.Value);
+        uniforms["left"] = (float)geometry.Bounds.Left;
+        uniforms["top"] = (float)geometry.Bounds.Top;
+        uniforms["right"] = (float)geometry.Bounds.Right;
+        uniforms["bottom"] = (float)geometry.Bounds.Bottom;
+        uniforms["scaleX"] = MathF.Abs(_currentTransform.M11);
+        uniforms["scaleY"] = MathF.Abs(_currentTransform.M22);
+        children["src"] = sourceShader;
+        using SKShader coverageShader = s_rectCoverageEffect.Value.ToShader(uniforms, children);
+        bool previousAntialias = paint.IsAntialias;
+        try
+        {
+            paint.Color = new SKColor(255, 255, 255, previousColor.Alpha);
+            paint.Shader = coverageShader;
+            paint.IsAntialias = false;
+            Canvas.DrawPaint(paint);
+        }
+        finally
+        {
+            paint.Shader = previousShader;
+            paint.Color = previousColor;
+            paint.IsAntialias = previousAntialias;
+        }
+
+        return true;
+    }
+
+    private static SKRuntimeEffect CreateRectCoverageEffect()
+    {
+        const string source =
+            """
+            uniform shader src;
+            uniform float left;
+            uniform float top;
+            uniform float right;
+            uniform float bottom;
+            uniform float scaleX;
+            uniform float scaleY;
+
+            half4 main(float2 p)
+            {
+                float x = clamp((p.x - left) * scaleX + 0.5, 0.0, 1.0)
+                    * clamp((right - p.x) * scaleX + 0.5, 0.0, 1.0);
+                float y = clamp((p.y - top) * scaleY + 0.5, 0.0, 1.0)
+                    * clamp((bottom - p.y) * scaleY + 0.5, 0.0, 1.0);
+                return src.eval(p) * half(x * y);
+            }
+            """;
+        return SKRuntimeEffect.CreateShader(source, out string? errorText)
+               ?? throw new InvalidOperationException(
+                   $"Failed to compile the rectangle coverage shader: {errorText}");
     }
 }

@@ -1,7 +1,11 @@
 ﻿using System.ComponentModel;
 using System.Reactive;
+using System.Runtime.ExceptionServices;
 using Beutl.Collections.Pooled;
+using Beutl.Graphics.Rendering;
+using Beutl.Logging;
 using Beutl.Media;
+using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.ObjectPool;
 using SkiaSharp;
 using FilterEffectOrFEItem = object;
@@ -24,8 +28,16 @@ internal sealed class ArrayPooledObjectPolicy<T>(int length) : IPooledObjectPoli
 
 public sealed class FilterEffectContext : IDisposable
 {
+    private static readonly ILogger s_logger = Log.CreateLogger("FilterEffectContext");
     internal readonly PooledList<IFEItem> _items;
     internal readonly PooledList<IFEItem> _renderTimeItems;
+    private readonly FilterEffectResourceState _resourceState;
+    private readonly Lazy<float> _workingScale;
+    private readonly bool _hasResolvedWorkingScale;
+    private readonly Rect _brushAuthoringBounds;
+    // A probe context registers on behalf of the operation the caller is about to author, not of its own items.
+    private readonly int? _brushRegistrationIndexOverride;
+    private bool _disposed;
 
     internal static readonly ObjectPool<float[]> s_colorMatPool;
 
@@ -35,10 +47,70 @@ public sealed class FilterEffectContext : IDisposable
     }
 
     public FilterEffectContext(Rect bounds, float outputScale = 1f, float workingScale = 1f)
+        : this(
+            bounds,
+            bounds,
+            outputScale,
+            CreateResolvedWorkingScale(workingScale),
+            hasResolvedWorkingScale: true,
+            new FilterEffectResourceState(renderContext: null))
     {
-        Bounds = OriginalBounds = bounds;
+    }
+
+    internal FilterEffectContext(
+        Rect bounds,
+        float outputScale,
+        float workingScale,
+        RenderNodeContext renderContext,
+        bool hasResolvedWorkingScale = true)
+        : this(
+            bounds,
+            bounds,
+            outputScale,
+            CreateResolvedWorkingScale(workingScale),
+            hasResolvedWorkingScale,
+            new FilterEffectResourceState(renderContext))
+    {
+    }
+
+    internal FilterEffectContext(
+        Rect bounds,
+        Rect brushAuthoringBounds,
+        float outputScale,
+        Func<float> resolveWorkingScale,
+        RenderNodeContext renderContext,
+        bool hasResolvedWorkingScale = true)
+        : this(
+            bounds,
+            brushAuthoringBounds,
+            outputScale,
+            new Lazy<float>(resolveWorkingScale ?? throw new ArgumentNullException(nameof(resolveWorkingScale))),
+            hasResolvedWorkingScale,
+            new FilterEffectResourceState(renderContext))
+    {
+    }
+
+    private FilterEffectContext(
+        Rect bounds,
+        Rect brushAuthoringBounds,
+        float outputScale,
+        Lazy<float> workingScale,
+        bool hasResolvedWorkingScale,
+        FilterEffectResourceState resourceState)
+    {
+        if (resourceState.IsRecorded && brushAuthoringBounds.IsInvalid)
+        {
+            throw new ArgumentException(
+                "A recorded filter-effect context requires a finite brush authoring frame.",
+                nameof(brushAuthoringBounds));
+        }
+
+        _bounds = OriginalBounds = bounds;
+        _brushAuthoringBounds = brushAuthoringBounds;
         OutputScale = outputScale;
-        WorkingScale = workingScale;
+        _workingScale = workingScale;
+        _hasResolvedWorkingScale = hasResolvedWorkingScale;
+        _resourceState = resourceState;
         _renderTimeItems = [];
         _items = [];
     }
@@ -46,14 +118,38 @@ public sealed class FilterEffectContext : IDisposable
     private FilterEffectContext(FilterEffectContext obj)
     {
         OriginalBounds = obj.OriginalBounds;
-        Bounds = obj.Bounds;
+        _bounds = obj._bounds;
+        _brushAuthoringBounds = obj._brushAuthoringBounds;
         OutputScale = obj.OutputScale;
-        WorkingScale = obj.WorkingScale;
+        _workingScale = obj._workingScale;
+        _hasResolvedWorkingScale = obj._hasResolvedWorkingScale;
+        _resourceState = obj._resourceState.AddReference();
+        _brushRegistrationIndexOverride = obj._brushRegistrationIndexOverride;
+        NestedBrushLoweringFailure = obj.NestedBrushLoweringFailure;
         _renderTimeItems = new PooledList<IFEItem>(obj._renderTimeItems);
         _items = new PooledList<IFEItem>(obj._items);
     }
 
-    public Rect Bounds { get; internal set; }
+    private FilterEffectContext(
+        FilterEffectContext obj,
+        Rect bounds,
+        bool? hasResolvedWorkingScale = null,
+        int? brushRegistrationIndexOverride = null)
+    {
+        OriginalBounds = _bounds = bounds;
+        _brushAuthoringBounds = obj._brushAuthoringBounds;
+        OutputScale = obj.OutputScale;
+        _workingScale = obj._workingScale;
+        _hasResolvedWorkingScale = hasResolvedWorkingScale ?? obj._hasResolvedWorkingScale;
+        _resourceState = obj._resourceState.AddReference();
+        _brushRegistrationIndexOverride = brushRegistrationIndexOverride;
+        _renderTimeItems = [];
+        _items = [];
+    }
+
+    private Rect _bounds;
+
+    internal Rect Bounds => _bounds;
 
     public Rect OriginalBounds { get; }
 
@@ -63,25 +159,65 @@ public sealed class FilterEffectContext : IDisposable
     public float OutputScale { get; }
 
     /// <summary>
-    /// The density <c>w</c> at which intermediate buffers are allocated (<c>ceil(bounds * w)</c>).
-    /// Resolved per-effect via <see cref="Beutl.Graphics.Rendering.RenderNodeContext.ResolveWorkingScale"/>.
+    /// The nominal effect-input density <c>w</c> from which authored operations negotiate their buffers using the
+    /// canonical near-edge/far-edge composition-device footprint.
+    /// Resolved per-effect via <see cref="Beutl.Graphics.Rendering.RenderScaleUtilities.ResolveWorkingScale"/>.
     /// </summary>
-    public float WorkingScale { get; }
+    /// <remarks>An expanding operation may run below this value after its own per-buffer dimension clamp.</remarks>
+    /// <exception cref="InvalidOperationException">
+    /// The effect is being authored against unresolved or branch-dependent input metadata, so one final working
+    /// scale is not available. Use <see cref="TryGetWorkingScale"/> to probe availability and defer device-pixel
+    /// math to execution-time shader, geometry, or custom-effect callbacks.
+    /// </exception>
+    public float WorkingScale
+        => TryGetWorkingScale(out float workingScale)
+            ? workingScale
+            : throw new InvalidOperationException(
+                "The filter-effect working scale is unavailable because its input metadata is unresolved or "
+                + "different branches may lower at different densities. Use TryGetWorkingScale during ApplyTo "
+                + "and perform device-pixel math in an "
+                + "execution-time shader, geometry, or custom-effect callback.");
+
+    /// <summary>Tries to get the nominal effect-input working density available while authoring this effect.</summary>
+    /// <param name="workingScale">
+    /// Receives the positive finite working density, or <see langword="default"/> when input metadata is unresolved
+    /// or multiple input branches may lower at different densities.
+    /// </param>
+    /// <returns>
+    /// <see langword="true"/> when one concrete effect-input density is available;
+    /// otherwise <see langword="false"/> because the inputs are unresolved or branch-dependent.
+    /// </returns>
+    /// <remarks>
+    /// A later bounds-expanding operation may apply the per-buffer dimension clamp and run below this nominal
+    /// density. Use this value only for scale-independent recording decisions; read the operation-specific density
+    /// or actual target scale from the execution-time shader, geometry, or custom-effect context for device math.
+    /// A <see langword="false"/> result requires scale-independent recording.
+    /// </remarks>
+    public bool TryGetWorkingScale(out float workingScale)
+    {
+        workingScale = _hasResolvedWorkingScale ? _workingScale.Value : default;
+        return _hasResolvedWorkingScale;
+    }
+
+    private static Lazy<float> CreateResolvedWorkingScale(float workingScale)
+        => new(() => workingScale);
 
     public FilterEffectContext Clone()
     {
+        ThrowIfDisposed();
         return new FilterEffectContext(this);
     }
 
     public FilterEffectContext CreateChildContext()
     {
-        // 今はnewしているが、キャッシュする予定
-        return new FilterEffectContext(Bounds, OutputScale, WorkingScale);
+        ThrowIfDisposed();
+        return new FilterEffectContext(this, _bounds);
     }
 
     private void AddItem(IFEItem item)
     {
-        if (!Bounds.IsInvalid)
+        ThrowIfDisposed();
+        if (!_bounds.IsInvalid)
         {
             _items.Add(item);
         }
@@ -91,13 +227,187 @@ public sealed class FilterEffectContext : IDisposable
         }
     }
 
+    // GetOrderedItems concatenates the two lists, and an item only moves to the render-time list once the bounds
+    // are invalid for good, so this is the ordered index the next authored operation will occupy.
+    private int NextItemIndex => _items.Count + _renderTimeItems.Count;
+
+    /// <summary>
+    /// The <see cref="Exception.Data"/> key under which a swallowed <see cref="LowerNestedEffectBrushes"/> failure
+    /// is re-attached to whatever the execution of this recording raises.
+    /// </summary>
+    public const string NestedBrushLoweringFailureKey = "NestedEffectBrushLoweringFailure";
+
+    /// <summary>
+    /// The first failure <see cref="LowerNestedEffectBrushes"/> swallowed, or <see langword="null"/> when the
+    /// pre-pass never failed.
+    /// </summary>
+    internal Exception? NestedBrushLoweringFailure { get; private set; }
+
+    public void Shader(ShaderDescription description)
+    {
+        ArgumentNullException.ThrowIfNull(description);
+        _resourceState.ValidateResources(
+            description.Resources.Select(static binding => binding.Resource),
+            nameof(description));
+        AppendDescription(new FEItem_Shader(description));
+    }
+
+    public void Geometry(GeometryDescription description)
+    {
+        ArgumentNullException.ThrowIfNull(description);
+        _resourceState.ValidateResources(description.Resources, nameof(description));
+        AppendDescription(new FEItem_Geometry(description));
+    }
+
+    /// <summary>
+    /// Registers a brush this effect paints with from an execution-time callback and lowers any nested
+    /// <see cref="DrawableBrush"/> content into the recorded render graph.
+    /// </summary>
+    /// <param name="brush">The brush resource, or <see langword="null"/> for an absent brush.</param>
+    /// <returns>
+    /// A handle to pass into custom-effect callback data and resolve through
+    /// <see cref="CustomFilterEffectContext.CreateBrushShader"/>.
+    /// </returns>
+    /// <remarks>
+    /// Nested drawable content is recorded against this effect's input frame. A brush registered outside a recorded
+    /// render request — a standalone <see cref="FilterEffectContext"/> — carries no lowered content, so nested
+    /// drawable content stays unresolvable there.
+    /// The handle stays usable from every operation authored after this call, however many operations that is and
+    /// whatever they are; registering a brush that is already registered returns the existing handle without
+    /// narrowing where it may be painted.
+    /// </remarks>
+    public FilterEffectBrush RegisterBrush(Brush.Resource? brush)
+    {
+        ThrowIfDisposed();
+        if (brush is null)
+            return FilterEffectBrush.Empty;
+
+        return _resourceState.RegisterBrush(
+            brush,
+            _brushAuthoringBounds,
+            _brushRegistrationIndexOverride ?? NextItemIndex);
+    }
+
+    /// <summary>
+    /// Lowers the nested <see cref="DrawableBrush"/> content of an effect that this effect re-applies from one of
+    /// its own execution-time callbacks.
+    /// </summary>
+    /// <param name="effect">The non-null nested effect that will be re-applied at execution time.</param>
+    /// <param name="resource">The non-null resource snapshot to record <paramref name="effect"/> against.</param>
+    /// <remarks>
+    /// Only the nested effect's brush, pen, and resource registrations are kept; its operations are discarded, so
+    /// the caller still authors whatever it re-applies. The lowered content is recorded once against this effect's
+    /// input frame at <paramref name="resource"/>'s composition time, which is the only time the recorder can see;
+    /// a re-application at a different composition time reuses that recorded brush.
+    /// Pair this with <see cref="CustomFilterEffectContext.CreateNestedActivator"/> so the re-application resolves
+    /// the lowered content.
+    /// This is a best-effort pre-pass: outside a recorded render request, and when
+    /// <paramref name="effect"/> fails to record, it lowers nothing and leaves this context unchanged. The
+    /// re-application itself stays authoritative for both the operations and any failure they raise; a swallowed
+    /// pre-pass failure is logged and re-attached to whatever the execution of this recording raises, under the
+    /// <see cref="NestedBrushLoweringFailureKey"/> entry of its <see cref="Exception.Data"/>.
+    /// The pre-pass reports a resolved working scale to <paramref name="effect"/> even when this context's own
+    /// inputs are branch-dependent, because the re-application runs against a materialized target and therefore
+    /// always offers one.
+    /// </remarks>
+    public void LowerNestedEffectBrushes(FilterEffect effect, FilterEffect.Resource resource)
+    {
+        ArgumentNullException.ThrowIfNull(effect);
+        ArgumentNullException.ThrowIfNull(resource);
+        ThrowIfDisposed();
+        if (!_resourceState.IsRecorded)
+            return;
+
+        using var probe = new FilterEffectContext(
+            this,
+            _bounds,
+            hasResolvedWorkingScale: true,
+            // A probe's item indices are its own, not the real recording's, so a nested probe inherits the override.
+            brushRegistrationIndexOverride: _brushRegistrationIndexOverride ?? NextItemIndex);
+        int resourceCount = _resourceState.Count;
+        try
+        {
+            probe.ApplyTransactional(effect, resource);
+        }
+        catch (Exception ex)
+        {
+            NestedBrushLoweringFailure ??= ex;
+            s_logger.LogWarning(
+                ex,
+                "Pre-lowering the nested brushes of {Effect} failed; its nested drawable content stays unresolved.",
+                effect.GetType());
+            return;
+        }
+
+        // Only the brush registrations survive the probe: the operations are discarded, so anything the discarded
+        // operations owned or borrowed would be held for the whole request without ever being executed.
+        _resourceState.RollbackResourcesUnusedByBrushes(resourceCount);
+    }
+
+    /// <summary>
+    /// Registers a pen this effect strokes with from an execution-time callback and lowers any nested
+    /// <see cref="DrawableBrush"/> content in its brush into the recorded render graph.
+    /// </summary>
+    /// <param name="pen">The pen resource, or <see langword="null"/> for an absent pen.</param>
+    /// <returns>
+    /// A handle to pass into custom-effect callback data and stroke with through
+    /// <see cref="CustomFilterEffectContext.DrawPath"/>.
+    /// </returns>
+    public FilterEffectPen RegisterPen(Pen.Resource? pen)
+    {
+        ThrowIfDisposed();
+        if (pen is null)
+            return FilterEffectPen.Empty;
+
+        _resourceState.Borrow(pen, EngineResourceIdentity.Of(pen), pen.Version);
+        return new FilterEffectPen(pen, RegisterBrush(pen.Brush));
+    }
+
+    internal IReadOnlyList<RegisteredEffectBrush> RegisteredBrushes => _resourceState.RegisteredBrushes;
+
+    public RenderResource<T> Own<T>(T resource, object? cacheKey = null, long version = 0)
+        where T : class, IDisposable
+    {
+        ThrowIfDisposed();
+        return _resourceState.Own(resource, cacheKey, version);
+    }
+
+    public RenderResource<T> Borrow<T>(T resource, object? cacheKey = null, long version = 0)
+        where T : class
+    {
+        ThrowIfDisposed();
+        return _resourceState.Borrow(resource, cacheKey, version);
+    }
+
+    private void AppendDescription(IFEItem item)
+    {
+        ThrowIfDisposed();
+        if (_bounds.IsInvalid)
+        {
+            _renderTimeItems.Add(item);
+            return;
+        }
+
+        Rect nextBounds = item.TransformBounds(_bounds);
+        _items.Add(item);
+        _bounds = nextBounds;
+    }
+
+    /// <param name="transformSamplingBounds">
+    /// Maps a requested output region to the input region the filter reads while producing it. Omit it when
+    /// the footprint is not proven; the region analyzer then materializes the complete input instead of
+    /// inferring a footprint from <paramref name="transformBounds"/>, which may be narrower than what the
+    /// filter reads.
+    /// </param>
     [EditorBrowsable(EditorBrowsableState.Never)]
     public void AppendSkiaFilter<T>(T data, Func<T, SKImageFilter?, FilterEffectActivator, SKImageFilter?> factory,
-        Func<T, Rect, Rect> transformBounds)
+        Func<T, Rect, Rect> transformBounds, Func<T, Rect, Rect>? transformSamplingBounds = null)
         where T : IEquatable<T>
     {
-        AddItem(new FEItem_Skia<T>(data, factory, transformBounds));
-        Bounds = transformBounds.Invoke(data, Bounds);
+        AppendDescription(new FEItem_Skia<T>(data, factory, transformBounds)
+        {
+            TransformSamplingBounds = transformSamplingBounds,
+        });
     }
 
     [EditorBrowsable(EditorBrowsableState.Never)]
@@ -115,6 +425,9 @@ public sealed class FilterEffectContext : IDisposable
                 t.sigma.Width, t.sigma.Height, t.color.ToSKColor(), input),
             transformBounds: static (t, bounds) => bounds
                 .Translate(t.position)
+                .Inflate(new Thickness(t.sigma.Width * 3, t.sigma.Height * 3)),
+            transformSamplingBounds: static (t, region) => region
+                .Translate(-t.position)
                 .Inflate(new Thickness(t.sigma.Width * 3, t.sigma.Height * 3)));
     }
 
@@ -126,6 +439,9 @@ public sealed class FilterEffectContext : IDisposable
                 t.sigma.Height, t.color.ToSKColor(), input),
             transformBounds: static (t, bounds) => bounds.Union(bounds
                 .Translate(t.position)
+                .Inflate(new Thickness(t.sigma.Width * 3, t.sigma.Height * 3))),
+            transformSamplingBounds: static (t, region) => region.Union(region
+                .Translate(-t.position)
                 .Inflate(new Thickness(t.sigma.Width * 3, t.sigma.Height * 3))));
     }
 
@@ -146,7 +462,9 @@ public sealed class FilterEffectContext : IDisposable
                 return SKImageFilter.CreateBlur(sigma.Width, sigma.Height, input);
             },
             transformBounds: static (sigma, bounds) =>
-                bounds.Inflate(new Thickness(sigma.Width * 3, sigma.Height * 3)));
+                bounds.Inflate(new Thickness(sigma.Width * 3, sigma.Height * 3)),
+            transformSamplingBounds: static (sigma, region) =>
+                region.Inflate(new Thickness(sigma.Width * 3, sigma.Height * 3)));
     }
 
     // https://github.com/Shopify/react-native-skia/blob/c7740e30234e6b0a49721ab954c4a848e42d7edb/package/src/dom/nodes/paint/ImageFilters.ts#L25
@@ -201,11 +519,60 @@ public sealed class FilterEffectContext : IDisposable
 
     public void Transform(Matrix matrix, BitmapInterpolationMode bitmapInterpolationMode)
     {
+        // No sampling footprint: the resampling apron is a device-pixel quantity, and the density the
+        // segment finally runs at is unknown here, so no logical margin can bound it.
         AppendSkiaFilter(
             (matrix, bitmapInterpolationMode),
             (data, input, _) => SKImageFilter.CreateMatrix(data.matrix.ToSKMatrix(),
                 data.bitmapInterpolationMode.ToSKSamplingOptions(), input),
             (data, rect) => rect.TransformToAABB(data.matrix));
+    }
+
+    /// <summary>
+    /// Appends a Skia matrix image filter whose matrix is resolved from the execution-time target
+    /// bounds via <paramref name="matrixFactory"/> when the input bounds are symbolic.
+    /// </summary>
+    /// <remarks>
+    /// When <see cref="Bounds"/> is concrete the matrix is resolved from it immediately, matching
+    /// <see cref="Transform(Matrix, BitmapInterpolationMode)"/>. When it is
+    /// <see cref="Rect.Invalid"/> (symbolic owning-domain input) the matrix is resolved once from
+    /// the combined execution-time target bounds and reused for every target.
+    /// </remarks>
+    public void Transform<T>(T data, Func<T, Rect, Matrix> matrixFactory,
+        BitmapInterpolationMode bitmapInterpolationMode)
+        where T : IEquatable<T>
+    {
+        if (!_bounds.IsInvalid)
+        {
+            Transform(matrixFactory(data, _bounds), bitmapInterpolationMode);
+            return;
+        }
+
+        // The matrix is resolved from the first bounds observation (the combined execution-time
+        // target bounds) and then fixed, so every target transforms with the same matrix.
+        Matrix resolved = default;
+        bool resolvedSet = false;
+        Func<(T Data, Func<T, Rect, Matrix> MatrixFactory, BitmapInterpolationMode Mode), Rect, Rect> transformBounds =
+            (d, rect) =>
+            {
+                if (rect.IsInvalid)
+                    return Rect.Invalid;
+                if (!resolvedSet)
+                {
+                    resolved = d.MatrixFactory(d.Data, rect);
+                    resolvedSet = true;
+                }
+                return rect.TransformToAABB(resolved);
+            };
+        AppendDescription(new FEItem_Skia<(T Data, Func<T, Rect, Matrix> MatrixFactory, BitmapInterpolationMode Mode)>(
+            (data, matrixFactory, bitmapInterpolationMode),
+            (d, input, activator) => SKImageFilter.CreateMatrix(
+                d.MatrixFactory(d.Data, activator.CurrentTargets.CalculateBounds()).ToSKMatrix(),
+                d.Mode.ToSKSamplingOptions(), input),
+            transformBounds)
+        {
+            ResolveBoundsAtExecutionTime = true,
+        });
     }
 
     public void MatrixConvolution(
@@ -217,6 +584,8 @@ public sealed class FilterEffectContext : IDisposable
         GradientSpreadMethod spreadMethod,
         bool convolveAlpha)
     {
+        // No sampling footprint: the spread method resolves against the extent of whatever input it is
+        // given, so a cropped input would change the result inside the requested region.
         AppendSkiaFilter(
             (kernelSize, kernel, gain, bias, kernelOffset, spreadMethod, convolveAlpha),
             (data, input, _) => SKImageFilter.CreateMatrixConvolution(
@@ -247,7 +616,9 @@ public sealed class FilterEffectContext : IDisposable
         AppendSkiaFilter(
             (radiusX, radiusY),
             (data, input, _) => SKImageFilter.CreateErode(data.radiusX, data.radiusY, input),
-            (data, rect) => rect);
+            (data, rect) => rect,
+            // Erode shrinks its declared output but still reads the whole radius neighbourhood.
+            (data, region) => region.Inflate(MorphologyRadius(data.radiusX, data.radiusY)));
     }
 
     public void Dilate(float radiusX, float radiusY)
@@ -255,8 +626,13 @@ public sealed class FilterEffectContext : IDisposable
         AppendSkiaFilter(
             (radiusX, radiusY),
             (data, input, _) => SKImageFilter.CreateDilate(data.radiusX, data.radiusY, input),
-            (data, rect) => rect.Inflate(new Thickness(data.radiusX, data.radiusY)));
+            (data, rect) => rect.Inflate(new Thickness(data.radiusX, data.radiusY)),
+            (data, region) => region.Inflate(MorphologyRadius(data.radiusX, data.radiusY)));
     }
+
+    // Skia rejects a negative morphology radius, so such a filter degrades to a pass-through.
+    private static Thickness MorphologyRadius(float radiusX, float radiusY)
+        => new(MathF.Max(radiusX, 0), MathF.Max(radiusY, 0));
 
     public void ColorMatrix(in ColorMatrix matrix)
     {
@@ -428,7 +804,7 @@ public sealed class FilterEffectContext : IDisposable
 
     public void BlendMode(Brush.Resource? brush, BlendMode blendMode)
     {
-        static void ApplyCore((Brush.Resource? Brush, BlendMode BlendMode) data, CustomFilterEffectContext context)
+        static void ApplyCore((FilterEffectBrush Brush, BlendMode BlendMode) data, CustomFilterEffectContext context)
         {
             for (int i = 0; i < context.Targets.Count; i++)
             {
@@ -439,9 +815,8 @@ public sealed class FilterEffectContext : IDisposable
                     EffectTarget newTarget = context.CreateTarget(target.Bounds);
                     // Read density from the target (may be clamped), not context.WorkingScale.
                     float w = newTarget.Scale.Value;
-                    var c = new BrushConstructor(new(size), data.Brush, data.BlendMode, w, context.MaxWorkingScale);
                     using var brushPaint = new SKPaint();
-                    c.ConfigurePaint(brushPaint);
+                    context.ConfigureBrushPaint(brushPaint, data.Brush, new Rect(size), data.BlendMode, w);
 
                     using (ImmediateCanvas newCanvas = context.Open(newTarget))
                     {
@@ -461,21 +836,28 @@ public sealed class FilterEffectContext : IDisposable
             }
         }
 
-        CustomEffect((brush, blendMode), ApplyCore, (_, r) => r);
+        CustomEffect((RegisterBrush(brush), blendMode), ApplyCore, (_, r) => r);
     }
 
     public void CustomEffect<T>(T data, Action<T, CustomFilterEffectContext> action,
         Func<T, Rect, Rect> transformBounds)
         where T : IEquatable<T>
     {
-        AddItem(new FEItem_CustomEffect<T>(data, action, transformBounds));
-        Bounds = transformBounds.Invoke(data, Bounds);
+        AppendDescription(new FEItem_CustomEffect<T>(data, action, transformBounds));
     }
 
+    /// <summary>
+    /// Appends an opaque custom effect whose output bounds cannot be determined during recording.
+    /// </summary>
+    /// <remarks>
+    /// The unknown bounds remain symbolic through later effects and are resolved to the complete finite local
+    /// domain of the owning destination or target scope after enclosing transforms and clips are known. A
+    /// target-less root request requires an explicit target domain.
+    /// </remarks>
     public void CustomEffect<T>(T data, Action<T, CustomFilterEffectContext> action)
     {
         AddItem(new FEItem_CustomEffect<T>(data, action, null));
-        Bounds = Rect.Invalid;
+        _bounds = Rect.Invalid;
     }
 
     public int CountItems()
@@ -483,9 +865,353 @@ public sealed class FilterEffectContext : IDisposable
         return _items.Count;
     }
 
+    internal IReadOnlyList<IFEItem> GetOrderedItems()
+    {
+        ThrowIfDisposed();
+        return _renderTimeItems.Count == 0
+            ? _items.ToArray()
+            : [.. _items, .. _renderTimeItems];
+    }
+
+    internal void ApplyTransactional(FilterEffect effect, FilterEffect.Resource resource)
+    {
+        ArgumentNullException.ThrowIfNull(effect);
+        ArgumentNullException.ThrowIfNull(resource);
+        ApplyTransactional(() => effect.ApplyTo(this, resource));
+    }
+
+    internal void ApplyTransactional(Action apply)
+    {
+        ArgumentNullException.ThrowIfNull(apply);
+        ThrowIfDisposed();
+
+        int itemCount = _items.Count;
+        int renderTimeItemCount = _renderTimeItems.Count;
+        int resourceCount = _resourceState.Count;
+        int brushCount = _resourceState.BrushCount;
+        Rect bounds = _bounds;
+        try
+        {
+            apply();
+        }
+        catch (Exception ex)
+        {
+            ExceptionDispatchInfo primary = ExceptionDispatchInfo.Capture(ex);
+            while (_items.Count > itemCount)
+                _items.RemoveAt(_items.Count - 1);
+            while (_renderTimeItems.Count > renderTimeItemCount)
+                _renderTimeItems.RemoveAt(_renderTimeItems.Count - 1);
+            _bounds = bounds;
+            _resourceState.RollbackBrushesTo(brushCount);
+            try
+            {
+                _resourceState.RollbackTo(resourceCount, ex);
+            }
+            catch (Exception cleanupFailure)
+            {
+                const string key = "FilterEffectResourceRollbackFailure";
+                ex.Data[key] = ex.Data[key] is Exception previousFailure
+                    ? new AggregateException(
+                        "Multiple filter-effect resource rollback failures occurred.",
+                        previousFailure,
+                        cleanupFailure)
+                    : cleanupFailure;
+            }
+
+            primary.Throw();
+        }
+    }
+
+    internal void TransferResources() => _resourceState.Transfer();
+
+    internal void PrepareStandaloneResourcesForExecution()
+        => _resourceState.CommitStandaloneResources();
+
+    internal static FilterEffectContext CreateLegacySegment(
+        Rect bounds,
+        float outputScale,
+        float workingScale,
+        IEnumerable<IFEItem> items,
+        Exception? nestedBrushLoweringFailure = null)
+    {
+        ArgumentNullException.ThrowIfNull(items);
+        var context = new FilterEffectContext(bounds, outputScale, workingScale)
+        {
+            NestedBrushLoweringFailure = nestedBrushLoweringFailure,
+        };
+        bool hasDeferredBounds = false;
+        foreach (IFEItem item in items)
+        {
+            context.AddItem(item);
+            if (item is IFEItem_Skia { ResolveBoundsAtExecutionTime: true })
+            {
+                // A deferred-bound item resolves its bounds at execution time; authoring it
+                // here against the provisional segment input would freeze the wrong matrix.
+                hasDeferredBounds = true;
+                continue;
+            }
+
+            if (!context._bounds.IsInvalid)
+                context._bounds = item.TransformBounds(context._bounds);
+        }
+
+        // The segment output is only known after the deferred item resolves at execution time.
+        if (hasDeferredBounds)
+            context._bounds = Rect.Invalid;
+
+        return context;
+    }
+
     public void Dispose()
     {
+        if (_disposed)
+            return;
+
+        _disposed = true;
         _items.Dispose();
         _renderTimeItems.Dispose();
+        _resourceState.ReleaseReference();
+    }
+
+    private void ThrowIfDisposed() => ObjectDisposedException.ThrowIf(_disposed, this);
+}
+
+/// <param name="FirstUsableItemIndex">
+/// The ordered index of the first operation that could paint with <paramref name="Handle"/>. Every later
+/// operation could too, so a legacy segment must take this brush unless its own last operation precedes it.
+/// </param>
+internal sealed record RegisteredEffectBrush(
+    FilterEffectBrush Handle,
+    RecordedBrush Brush,
+    IReadOnlyList<RenderFragmentHandle> Dependencies,
+    IReadOnlyList<RenderResource> Resources,
+    int FirstUsableItemIndex);
+
+internal sealed class FilterEffectResourceState
+{
+    private readonly RenderNodeContext? _renderContext;
+    private readonly RenderRequestResourceRegistry? _standaloneRegistry;
+    private readonly List<RenderResource> _resources = [];
+    private readonly List<RegisteredEffectBrush> _brushes = [];
+    private int _references = 1;
+    private bool _transferred;
+
+    public FilterEffectResourceState(RenderNodeContext? renderContext)
+    {
+        _renderContext = renderContext;
+        if (renderContext is null)
+            _standaloneRegistry = new RenderRequestResourceRegistry();
+    }
+
+    public bool IsRecorded => _renderContext is not null;
+
+    public int Count => _resources.Count;
+
+    public int BrushCount => _brushes.Count;
+
+    public IReadOnlyList<RegisteredEffectBrush> RegisteredBrushes => _brushes;
+
+    public FilterEffectBrush RegisterBrush(Brush.Resource brush, Rect brushBounds, int firstUsableItemIndex)
+    {
+        ThrowIfTransferred();
+        object identity = EngineResourceIdentity.Of(brush);
+        foreach (RegisteredEffectBrush registered in _brushes)
+        {
+            // The earlier registration already covers every operation the later one could paint from.
+            if (Equals(registered.Handle.Identity, identity))
+                return registered.Handle;
+        }
+
+        var handle = new FilterEffectBrush(brush, identity);
+        if (_renderContext is null)
+        {
+            // Without a recording transaction there is no graph to lower nested content into; the handle stays
+            // declarative and BrushConstructor rejects unlowered drawable content at execution.
+            _brushes.Add(new RegisteredEffectBrush(handle, RecordedBrush.Empty, [], [], firstUsableItemIndex));
+            return handle;
+        }
+
+        RecordedBrushPlan plan = BrushRecorder.RecordStandaloneBrush(
+            _renderContext,
+            brush,
+            brush.Version,
+            brushBounds);
+        _resources.AddRange(plan.Resources);
+        _brushes.Add(
+            new RegisteredEffectBrush(handle, plan.Brush, plan.Dependencies, plan.Resources, firstUsableItemIndex));
+        return handle;
+    }
+
+    /// <summary>
+    /// Rolls back every resource registered after <paramref name="count"/> that no registered brush depends on.
+    /// </summary>
+    public void RollbackResourcesUnusedByBrushes(int count)
+    {
+        if (count < 0 || count > _resources.Count)
+            throw new ArgumentOutOfRangeException(nameof(count));
+        if (count == _resources.Count)
+            return;
+
+        var kept = new HashSet<RenderResource>(ReferenceEqualityComparer.Instance);
+        foreach (RegisteredEffectBrush brush in _brushes)
+        {
+            foreach (RenderResource resource in brush.Resources)
+                kept.Add(resource);
+        }
+
+        RenderResource[] removed = _resources.Skip(count).Where(item => !kept.Contains(item)).ToArray();
+        if (removed.Length == 0)
+            return;
+
+        for (int index = _resources.Count - 1; index >= count; index--)
+        {
+            if (!kept.Contains(_resources[index]))
+                _resources.RemoveAt(index);
+        }
+
+        Rollback(removed, primaryFailure: null);
+    }
+
+    public void RollbackBrushesTo(int count)
+    {
+        if (count < 0 || count > _brushes.Count)
+            throw new ArgumentOutOfRangeException(nameof(count));
+        if (count == _brushes.Count)
+            return;
+
+        _brushes.RemoveRange(count, _brushes.Count - count);
+    }
+
+    public FilterEffectResourceState AddReference()
+    {
+        if (_references <= 0)
+            throw new ObjectDisposedException(nameof(FilterEffectResourceState));
+        _references++;
+        return this;
+    }
+
+    public RenderResource<T> Own<T>(T resource, object? cacheKey, long version)
+        where T : class, IDisposable
+    {
+        ThrowIfTransferred();
+        RenderResource<T> token = _renderContext is not null
+            ? _renderContext.Own(resource, cacheKey, version)
+            : _standaloneRegistry!.RegisterOwned(resource, cacheKey, version);
+        _resources.Add(token);
+        return token;
+    }
+
+    public RenderResource<T> Borrow<T>(T resource, object? cacheKey, long version)
+        where T : class
+    {
+        ThrowIfTransferred();
+        RenderResource<T> token = _renderContext is not null
+            ? _renderContext.Borrow(resource, cacheKey, version)
+            : _standaloneRegistry!.RegisterBorrowed(resource, cacheKey, version);
+        _resources.Add(token);
+        return token;
+    }
+
+    public void ValidateResources(IEnumerable<RenderResource> resources, string parameterName)
+    {
+        ArgumentNullException.ThrowIfNull(resources);
+        foreach (RenderResource resource in resources)
+        {
+            if (!_resources.Any(item => ReferenceEquals(item.SlotIdentity, resource.SlotIdentity))
+                || resource.RegistrationState == RenderResourceRegistrationState.Released)
+            {
+                throw new ArgumentException(
+                    "Every declared resource must be registered by this FilterEffectContext family.",
+                    parameterName);
+            }
+        }
+    }
+
+    public void RollbackTo(int count, Exception? primaryFailure = null)
+    {
+        if (count < 0 || count > _resources.Count)
+            throw new ArgumentOutOfRangeException(nameof(count));
+        if (count == _resources.Count)
+            return;
+
+        RenderResource[] removed = _resources.Skip(count).ToArray();
+        _resources.RemoveRange(count, _resources.Count - count);
+        Rollback(removed, primaryFailure);
+    }
+
+    private void Rollback(RenderResource[] removed, Exception? primaryFailure)
+    {
+        if (_renderContext is not null)
+        {
+            if (primaryFailure is null)
+                _renderContext.RollbackResources(removed);
+            else
+            {
+                Exception? cleanupFailure =
+                    _renderContext.RollbackResourcesAndCapture(removed, primaryFailure);
+                if (cleanupFailure is not null)
+                    throw cleanupFailure;
+            }
+
+            return;
+        }
+
+        List<Exception>? failures = null;
+        for (int index = removed.Length - 1; index >= 0; index--)
+        {
+            try
+            {
+                _standaloneRegistry!.Rollback(removed[index]);
+            }
+            catch (Exception ex)
+            {
+                (failures ??= []).Add(ex);
+            }
+        }
+
+        if (failures is not null)
+            throw new AggregateException("Filter-effect resource rollback failed.", failures);
+    }
+
+    public void Transfer()
+    {
+        ThrowIfTransferred();
+        _transferred = true;
+    }
+
+    public void CommitStandaloneResources()
+    {
+        if (_standaloneRegistry is null)
+            return;
+
+        foreach (RenderResource resource in _resources)
+        {
+            if (resource.RegistrationState == RenderResourceRegistrationState.Pending)
+                _standaloneRegistry.Commit(resource);
+        }
+    }
+
+    public void ReleaseReference()
+    {
+        if (_references <= 0)
+            return;
+        _references--;
+        if (_references != 0)
+            return;
+
+        if (_standaloneRegistry is not null)
+        {
+            _standaloneRegistry.Dispose();
+            return;
+        }
+
+        if (!_transferred)
+            RollbackTo(0);
+    }
+
+    private void ThrowIfTransferred()
+    {
+        if (_transferred)
+            throw new InvalidOperationException("Filter-effect resources were already transferred to the render request.");
     }
 }

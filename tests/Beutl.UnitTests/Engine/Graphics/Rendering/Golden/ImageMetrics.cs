@@ -2,9 +2,25 @@
 
 namespace Beutl.UnitTests.Engine.Graphics.Rendering.Golden;
 
-// Image-quality metrics over RgbaF16 (linear) bitmaps. Pure CPU math.
+internal readonly record struct RgbaMaximumError(double Red, double Green, double Blue, double Alpha)
+{
+    public double Maximum => Math.Max(Math.Max(Red, Green), Math.Max(Blue, Alpha));
+
+    public double this[int channel] => channel switch
+    {
+        0 => Red,
+        1 => Green,
+        2 => Blue,
+        3 => Alpha,
+        _ => throw new ArgumentOutOfRangeException(nameof(channel)),
+    };
+}
+
+// Image-quality metrics over linear-premultiplied RgbaF16 bitmaps. Pure CPU math.
 internal static class ImageMetrics
 {
+    private const int ChannelCount = 4;
+
     // ITU-R BT.709 luma weights, applied in linear light.
     private const float LumaR = 0.2126f;
     private const float LumaG = 0.7152f;
@@ -14,62 +30,205 @@ internal static class ImageMetrics
     public static double MeanAbsoluteError(Bitmap a, Bitmap b)
     {
         EnsureComparable(a, b);
-        ReadOnlySpan<ushort> pa = a.GetPixelSpan<ushort>();
-        ReadOnlySpan<ushort> pb = b.GetPixelSpan<ushort>();
-        int pixels = a.Width * a.Height;
 
         double sum = 0;
-        for (int i = 0; i < pixels; i++)
+        for (int y = 0; y < a.Height; y++)
         {
-            int o = i * 4;
-            for (int c = 0; c < 3; c++)
+            ReadOnlySpan<ushort> rowA = a.GetRow<ushort>(y);
+            ReadOnlySpan<ushort> rowB = b.GetRow<ushort>(y);
+            for (int x = 0; x < a.Width; x++)
             {
-                float va = HalfBitsToFloat(pa[o + c]);
-                float vb = HalfBitsToFloat(pb[o + c]);
-                sum += Math.Abs(va - vb);
+                int offset = x * ChannelCount;
+                for (int channel = 0; channel < 3; channel++)
+                {
+                    sum += Math.Abs(
+                        HalfBitsToFloat(rowA[offset + channel]) - HalfBitsToFloat(rowB[offset + channel]));
+                }
             }
         }
 
-        return sum / (pixels * 3);
+        return sum / ((double)a.Width * a.Height * 3);
+    }
+
+    /// <summary>
+    /// Mean absolute error over alpha. RGB MAE and luminance SSIM intentionally do not include this channel.
+    /// </summary>
+    public static double AlphaMeanAbsoluteError(Bitmap a, Bitmap b)
+    {
+        EnsureComparable(a, b);
+
+        double sum = 0;
+        for (int y = 0; y < a.Height; y++)
+        {
+            ReadOnlySpan<ushort> rowA = a.GetRow<ushort>(y);
+            ReadOnlySpan<ushort> rowB = b.GetRow<ushort>(y);
+            for (int x = 0; x < a.Width; x++)
+            {
+                int alpha = x * ChannelCount + 3;
+                sum += Math.Abs(HalfBitsToFloat(rowA[alpha]) - HalfBitsToFloat(rowB[alpha]));
+            }
+        }
+
+        return sum / ((double)a.Width * a.Height);
+    }
+
+    /// <summary>Returns the largest absolute error independently for each RGBA channel.</summary>
+    public static RgbaMaximumError MaximumAbsoluteErrorPerChannel(Bitmap a, Bitmap b)
+    {
+        EnsureComparable(a, b);
+
+        double red = 0;
+        double green = 0;
+        double blue = 0;
+        double alpha = 0;
+
+        for (int y = 0; y < a.Height; y++)
+        {
+            ReadOnlySpan<ushort> rowA = a.GetRow<ushort>(y);
+            ReadOnlySpan<ushort> rowB = b.GetRow<ushort>(y);
+            for (int x = 0; x < a.Width; x++)
+            {
+                int offset = x * ChannelCount;
+                red = Math.Max(red, AbsoluteError(rowA[offset], rowB[offset]));
+                green = Math.Max(green, AbsoluteError(rowA[offset + 1], rowB[offset + 1]));
+                blue = Math.Max(blue, AbsoluteError(rowA[offset + 2], rowB[offset + 2]));
+                alpha = Math.Max(alpha, AbsoluteError(rowA[offset + 3], rowB[offset + 3]));
+            }
+        }
+
+        return new RgbaMaximumError(red, green, blue, alpha);
+    }
+
+    /// <summary>
+    /// Computes RGBA MAE over the nontrivial coverage band in <paramref name="reference"/>.
+    /// </summary>
+    /// <remarks>
+    /// Coverage bounds are exclusive. Deriving the mask only from the frozen reference keeps the oracle independent
+    /// of the implementation under test. A reference with no qualifying pixel is rejected so an edge-specific
+    /// assertion cannot pass vacuously.
+    /// </remarks>
+    public static double EdgeBandMeanAbsoluteError(
+        Bitmap reference,
+        Bitmap actual,
+        float minimumCoverage = 0,
+        float maximumCoverage = 1)
+    {
+        EnsureComparable(reference, actual);
+        ValidateCoverageBounds(minimumCoverage, maximumCoverage);
+
+        double sum = 0;
+        long pixelCount = 0;
+        for (int y = 0; y < reference.Height; y++)
+        {
+            ReadOnlySpan<ushort> referenceRow = reference.GetRow<ushort>(y);
+            ReadOnlySpan<ushort> actualRow = actual.GetRow<ushort>(y);
+            for (int x = 0; x < reference.Width; x++)
+            {
+                int offset = x * ChannelCount;
+                if (!IsInCoverageBand(referenceRow, offset, minimumCoverage, maximumCoverage))
+                    continue;
+
+                for (int channel = 0; channel < ChannelCount; channel++)
+                {
+                    sum += AbsoluteError(referenceRow[offset + channel], actualRow[offset + channel]);
+                }
+
+                pixelCount++;
+            }
+        }
+
+        if (pixelCount == 0)
+            throw new InvalidOperationException("The reference bitmap contains no pixel in the requested coverage band.");
+
+        return sum / (pixelCount * ChannelCount);
+    }
+
+    /// <summary>
+    /// Returns the largest absolute error independently for each RGBA channel over the reference coverage band.
+    /// </summary>
+    public static RgbaMaximumError EdgeBandMaximumAbsoluteErrorPerChannel(
+        Bitmap reference,
+        Bitmap actual,
+        float minimumCoverage = 0,
+        float maximumCoverage = 1)
+    {
+        EnsureComparable(reference, actual);
+        ValidateCoverageBounds(minimumCoverage, maximumCoverage);
+
+        double red = 0;
+        double green = 0;
+        double blue = 0;
+        double alpha = 0;
+        long pixelCount = 0;
+
+        for (int y = 0; y < reference.Height; y++)
+        {
+            ReadOnlySpan<ushort> referenceRow = reference.GetRow<ushort>(y);
+            ReadOnlySpan<ushort> actualRow = actual.GetRow<ushort>(y);
+            for (int x = 0; x < reference.Width; x++)
+            {
+                int offset = x * ChannelCount;
+                if (!IsInCoverageBand(referenceRow, offset, minimumCoverage, maximumCoverage))
+                    continue;
+
+                red = Math.Max(red, AbsoluteError(referenceRow[offset], actualRow[offset]));
+                green = Math.Max(green, AbsoluteError(referenceRow[offset + 1], actualRow[offset + 1]));
+                blue = Math.Max(blue, AbsoluteError(referenceRow[offset + 2], actualRow[offset + 2]));
+                alpha = Math.Max(alpha, AbsoluteError(referenceRow[offset + 3], actualRow[offset + 3]));
+                pixelCount++;
+            }
+        }
+
+        if (pixelCount == 0)
+            throw new InvalidOperationException("The reference bitmap contains no pixel in the requested coverage band.");
+
+        return new RgbaMaximumError(red, green, blue, alpha);
     }
 
     /// <summary>Global SSIM over linear luminance. Returns 1.0 for identical inputs.</summary>
     public static double Ssim(Bitmap a, Bitmap b)
     {
         EnsureComparable(a, b);
-        ReadOnlySpan<ushort> pa = a.GetPixelSpan<ushort>();
-        ReadOnlySpan<ushort> pb = b.GetPixelSpan<ushort>();
-        int pixels = a.Width * a.Height;
 
-        double meanA = 0, meanB = 0;
-        for (int i = 0; i < pixels; i++)
+        double meanA = 0;
+        double meanB = 0;
+        for (int y = 0; y < a.Height; y++)
         {
-            meanA += Luma(pa, i);
-            meanB += Luma(pb, i);
+            ReadOnlySpan<ushort> rowA = a.GetRow<ushort>(y);
+            ReadOnlySpan<ushort> rowB = b.GetRow<ushort>(y);
+            for (int x = 0; x < a.Width; x++)
+            {
+                meanA += Luma(rowA, x);
+                meanB += Luma(rowB, x);
+            }
         }
 
+        double pixels = (double)a.Width * a.Height;
         meanA /= pixels;
         meanB /= pixels;
 
-        double varA = 0, varB = 0, cov = 0;
-        for (int i = 0; i < pixels; i++)
+        double varianceA = 0;
+        double varianceB = 0;
+        double covariance = 0;
+        for (int y = 0; y < a.Height; y++)
         {
-            double da = Luma(pa, i) - meanA;
-            double db = Luma(pb, i) - meanB;
-            varA += da * da;
-            varB += db * db;
-            cov += da * db;
+            ReadOnlySpan<ushort> rowA = a.GetRow<ushort>(y);
+            ReadOnlySpan<ushort> rowB = b.GetRow<ushort>(y);
+            for (int x = 0; x < a.Width; x++)
+            {
+                double deltaA = Luma(rowA, x) - meanA;
+                double deltaB = Luma(rowB, x) - meanB;
+                varianceA += deltaA * deltaA;
+                varianceB += deltaB * deltaB;
+                covariance += deltaA * deltaB;
+            }
         }
 
-        varA /= pixels;
-        varB /= pixels;
-        cov /= pixels;
+        varianceA /= pixels;
+        varianceB /= pixels;
+        covariance /= pixels;
 
-        const double c1 = 0.01 * 0.01;
-        const double c2 = 0.03 * 0.03;
-        double num = (2 * meanA * meanB + c1) * (2 * cov + c2);
-        double den = (meanA * meanA + meanB * meanB + c1) * (varA + varB + c2);
-        return num / den;
+        return Ssim(meanA, meanB, varianceA, varianceB, covariance);
     }
 
     /// <summary>
@@ -78,67 +237,21 @@ internal static class ImageMetrics
     public static double WindowedSsim(Bitmap a, Bitmap b, int windowSize = 16)
     {
         EnsureComparable(a, b);
-        if (windowSize <= 0) throw new ArgumentOutOfRangeException(nameof(windowSize));
-        ReadOnlySpan<ushort> pa = a.GetPixelSpan<ushort>();
-        ReadOnlySpan<ushort> pb = b.GetPixelSpan<ushort>();
-        int w = a.Width, h = a.Height;
+        if (windowSize <= 0)
+            throw new ArgumentOutOfRangeException(nameof(windowSize));
 
-        double min = 1.0;
-        for (int ty = 0; ty < h; ty += windowSize)
+        double minimum = 1;
+        for (int top = 0; top < a.Height; top += windowSize)
         {
-            for (int tx = 0; tx < w; tx += windowSize)
+            for (int left = 0; left < a.Width; left += windowSize)
             {
-                int x1 = Math.Min(tx + windowSize, w);
-                int y1 = Math.Min(ty + windowSize, h);
-                double s = WindowSsim(pa, pb, w, tx, ty, x1, y1);
-                if (s < min) min = s;
+                int right = Math.Min(left + windowSize, a.Width);
+                int bottom = Math.Min(top + windowSize, a.Height);
+                minimum = Math.Min(minimum, WindowSsim(a, b, left, top, right, bottom));
             }
         }
 
-        return min;
-    }
-
-    private static double WindowSsim(
-        ReadOnlySpan<ushort> pa, ReadOnlySpan<ushort> pb, int stride, int x0, int y0, int x1, int y1)
-    {
-        int n = (x1 - x0) * (y1 - y0);
-        double meanA = 0, meanB = 0;
-        for (int y = y0; y < y1; y++)
-        {
-            for (int x = x0; x < x1; x++)
-            {
-                int i = y * stride + x;
-                meanA += Luma(pa, i);
-                meanB += Luma(pb, i);
-            }
-        }
-
-        meanA /= n;
-        meanB /= n;
-
-        double varA = 0, varB = 0, cov = 0;
-        for (int y = y0; y < y1; y++)
-        {
-            for (int x = x0; x < x1; x++)
-            {
-                int i = y * stride + x;
-                double da = Luma(pa, i) - meanA;
-                double db = Luma(pb, i) - meanB;
-                varA += da * da;
-                varB += db * db;
-                cov += da * db;
-            }
-        }
-
-        varA /= n;
-        varB /= n;
-        cov /= n;
-
-        const double c1 = 0.01 * 0.01;
-        const double c2 = 0.03 * 0.03;
-        double num = (2 * meanA * meanB + c1) * (2 * cov + c2);
-        double den = (meanA * meanA + meanB * meanB + c1) * (varA + varB + c2);
-        return num / den;
+        return minimum;
     }
 
     /// <summary>
@@ -146,28 +259,31 @@ internal static class ImageMetrics
     /// </summary>
     public static double AliasingEnergy(Bitmap bitmap)
     {
-        int w = bitmap.Width, h = bitmap.Height;
-        ReadOnlySpan<ushort> p = bitmap.GetPixelSpan<ushort>();
+        EnsureSupported(bitmap, nameof(bitmap));
 
         double sum = 0;
         long count = 0;
-        for (int y = 0; y < h; y++)
+        for (int y = 0; y < bitmap.Height; y++)
         {
-            for (int x = 0; x < w; x++)
+            ReadOnlySpan<ushort> row = bitmap.GetRow<ushort>(y);
+            ReadOnlySpan<ushort> nextRow = y + 1 < bitmap.Height
+                ? bitmap.GetRow<ushort>(y + 1)
+                : default;
+
+            for (int x = 0; x < bitmap.Width; x++)
             {
-                int i = y * w + x;
-                double l = Luma(p, i);
-                if (x + 1 < w)
+                double luminance = Luma(row, x);
+                if (x + 1 < bitmap.Width)
                 {
-                    double d = l - Luma(p, i + 1);
-                    sum += d * d;
+                    double difference = luminance - Luma(row, x + 1);
+                    sum += difference * difference;
                     count++;
                 }
 
-                if (y + 1 < h)
+                if (y + 1 < bitmap.Height)
                 {
-                    double d = l - Luma(p, i + w);
-                    sum += d * d;
+                    double difference = luminance - Luma(nextRow, x);
+                    sum += difference * difference;
                     count++;
                 }
             }
@@ -183,14 +299,19 @@ internal static class ImageMetrics
     {
         foreach ((string label, Bitmap bitmap) in bitmaps)
         {
-            ReadOnlySpan<ushort> px = bitmap.GetPixelSpan<ushort>();
-            for (int i = 0; i < px.Length; i++)
+            EnsureSupported(bitmap, nameof(bitmaps));
+            for (int y = 0; y < bitmap.Height; y++)
             {
-                float v = HalfBitsToFloat(px[i]);
-                if (!float.IsFinite(v))
+                ReadOnlySpan<ushort> row = bitmap.GetRow<ushort>(y);
+                for (int x = 0; x < bitmap.Width; x++)
                 {
-                    int pixel = i / 4;
-                    return $"{label} (x={pixel % bitmap.Width}, y={pixel / bitmap.Width}, c={i % 4}) = {v}";
+                    int offset = x * ChannelCount;
+                    for (int channel = 0; channel < ChannelCount; channel++)
+                    {
+                        float value = HalfBitsToFloat(row[offset + channel]);
+                        if (!float.IsFinite(value))
+                            return $"{label} (x={x}, y={y}, c={channel}) = {value}";
+                    }
                 }
             }
         }
@@ -198,19 +319,117 @@ internal static class ImageMetrics
         return null;
     }
 
-    private static double Luma(ReadOnlySpan<ushort> px, int pixelIndex)
+    private static double WindowSsim(Bitmap a, Bitmap b, int left, int top, int right, int bottom)
     {
-        int o = pixelIndex * 4;
-        return LumaR * HalfBitsToFloat(px[o]) + LumaG * HalfBitsToFloat(px[o + 1]) + LumaB * HalfBitsToFloat(px[o + 2]);
+        int count = (right - left) * (bottom - top);
+        double meanA = 0;
+        double meanB = 0;
+        for (int y = top; y < bottom; y++)
+        {
+            ReadOnlySpan<ushort> rowA = a.GetRow<ushort>(y);
+            ReadOnlySpan<ushort> rowB = b.GetRow<ushort>(y);
+            for (int x = left; x < right; x++)
+            {
+                meanA += Luma(rowA, x);
+                meanB += Luma(rowB, x);
+            }
+        }
+
+        meanA /= count;
+        meanB /= count;
+
+        double varianceA = 0;
+        double varianceB = 0;
+        double covariance = 0;
+        for (int y = top; y < bottom; y++)
+        {
+            ReadOnlySpan<ushort> rowA = a.GetRow<ushort>(y);
+            ReadOnlySpan<ushort> rowB = b.GetRow<ushort>(y);
+            for (int x = left; x < right; x++)
+            {
+                double deltaA = Luma(rowA, x) - meanA;
+                double deltaB = Luma(rowB, x) - meanB;
+                varianceA += deltaA * deltaA;
+                varianceB += deltaB * deltaB;
+                covariance += deltaA * deltaB;
+            }
+        }
+
+        varianceA /= count;
+        varianceB /= count;
+        covariance /= count;
+
+        return Ssim(meanA, meanB, varianceA, varianceB, covariance);
     }
+
+    private static double Ssim(
+        double meanA,
+        double meanB,
+        double varianceA,
+        double varianceB,
+        double covariance)
+    {
+        const double c1 = 0.01 * 0.01;
+        const double c2 = 0.03 * 0.03;
+        double numerator = (2 * meanA * meanB + c1) * (2 * covariance + c2);
+        double denominator = (meanA * meanA + meanB * meanB + c1) * (varianceA + varianceB + c2);
+        return numerator / denominator;
+    }
+
+    private static bool IsInCoverageBand(
+        ReadOnlySpan<ushort> referenceRow,
+        int offset,
+        float minimumCoverage,
+        float maximumCoverage)
+    {
+        float alpha = HalfBitsToFloat(referenceRow[offset + 3]);
+        return alpha > minimumCoverage && alpha < maximumCoverage;
+    }
+
+    private static void ValidateCoverageBounds(float minimumCoverage, float maximumCoverage)
+    {
+        if (!float.IsFinite(minimumCoverage) || minimumCoverage < 0 || minimumCoverage >= 1)
+            throw new ArgumentOutOfRangeException(nameof(minimumCoverage));
+        if (!float.IsFinite(maximumCoverage) || maximumCoverage <= 0 || maximumCoverage > 1)
+            throw new ArgumentOutOfRangeException(nameof(maximumCoverage));
+        if (minimumCoverage >= maximumCoverage)
+            throw new ArgumentException("Minimum coverage must be less than maximum coverage.");
+    }
+
+    private static double Luma(ReadOnlySpan<ushort> row, int x)
+    {
+        int offset = x * ChannelCount;
+        return LumaR * HalfBitsToFloat(row[offset])
+               + LumaG * HalfBitsToFloat(row[offset + 1])
+               + LumaB * HalfBitsToFloat(row[offset + 2]);
+    }
+
+    private static double AbsoluteError(ushort a, ushort b)
+        => Math.Abs(HalfBitsToFloat(a) - HalfBitsToFloat(b));
 
     private static float HalfBitsToFloat(ushort bits) => (float)BitConverter.UInt16BitsToHalf(bits);
 
     private static void EnsureComparable(Bitmap a, Bitmap b)
     {
+        ArgumentNullException.ThrowIfNull(a);
+        ArgumentNullException.ThrowIfNull(b);
         if (a.Width != b.Width || a.Height != b.Height)
             throw new ArgumentException($"Bitmap sizes differ: {a.Width}x{a.Height} vs {b.Width}x{b.Height}.");
-        if (a.ColorType != BitmapColorType.RgbaF16 || b.ColorType != BitmapColorType.RgbaF16)
-            throw new ArgumentException("ImageMetrics expects RgbaF16 bitmaps (linear).");
+
+        EnsureSupported(a, nameof(a));
+        EnsureSupported(b, nameof(b));
+    }
+
+    private static void EnsureSupported(Bitmap bitmap, string parameterName)
+    {
+        ArgumentNullException.ThrowIfNull(bitmap);
+        if (bitmap.ColorType != BitmapColorType.RgbaF16
+            || bitmap.AlphaType != BitmapAlphaType.Premul
+            || bitmap.ColorSpace != BitmapColorSpace.LinearSrgb)
+        {
+            throw new ArgumentException(
+                "ImageMetrics expects linear-sRGB, premultiplied RgbaF16 bitmaps.",
+                parameterName);
+        }
     }
 }

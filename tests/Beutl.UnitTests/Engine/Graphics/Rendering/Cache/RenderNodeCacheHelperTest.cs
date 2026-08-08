@@ -2,11 +2,23 @@
 using Beutl.Graphics.Rendering;
 using Beutl.Graphics.Rendering.Cache;
 using Beutl.Media;
+using SkiaSharp;
 
 namespace Beutl.UnitTests.Engine.Graphics.Rendering.Cache;
 
 public class RenderNodeCacheHelperTest
 {
+    [Test]
+    public void DefaultPolicy_IsDisabledAndCacheRequiresExplicitOptIn()
+    {
+        Assert.Multiple(() =>
+        {
+            Assert.That(RenderCacheOptions.Default.IsEnabled, Is.False);
+            Assert.That(RenderCacheOptions.Default, Is.SameAs(RenderCacheOptions.Disabled));
+            Assert.That(RenderCacheOptions.Enabled.IsEnabled, Is.True);
+        });
+    }
+
     [Test]
     public void CanCacheRecursive_ShouldReturnFalse_WhenCacheCannotCache()
     {
@@ -76,35 +88,22 @@ public class RenderNodeCacheHelperTest
     }
 
     [Test]
-    public void CanCacheRecursiveChildrenOnly_ShouldReturnFalse_WhenAnyChildCannotCache()
+    public void CanCacheRecursive_ShouldFollowEveryCompleteTargetRoot()
     {
-        // Arrange
-        var childNode = new EllipseRenderNode(new Rect(0, 0, 100, 100), Brushes.Resource.White, null);
-        var containerNode = new ContainerRenderNode();
-        containerNode.AddChild(childNode);
-        containerNode.Cache.ReportRenderCount(3);
+        using var first = new ContainerRenderNode();
+        using var second = new ContainerRenderNode();
+        using var completeTarget = new CompleteTargetRenderNode(first, [second]);
+        completeTarget.Cache.ReportRenderCount(RenderNodeCache.Count);
+        first.Cache.ReportRenderCount(RenderNodeCache.Count);
 
-        // Act
-        var result = RenderNodeCacheHelper.CanCacheRecursiveChildrenOnly(containerNode);
+        bool withColdRoot = RenderNodeCacheHelper.CanCacheRecursive(completeTarget);
+        second.Cache.ReportRenderCount(RenderNodeCache.Count);
 
-        // Assert
-        Assert.That(result, Is.False);
-    }
-
-    [Test]
-    public void CanCacheRecursiveChildrenOnly_ShouldReturnTrue_WhenAllChildrenCanCache()
-    {
-        // Arrange
-        var childNode = new EllipseRenderNode(new Rect(0, 0, 100, 100), Brushes.Resource.White, null);
-        var containerNode = new ContainerRenderNode();
-        containerNode.AddChild(childNode);
-        childNode.Cache.ReportRenderCount(3);
-
-        // Act
-        bool result = RenderNodeCacheHelper.CanCacheRecursiveChildrenOnly(containerNode);
-
-        // Assert
-        Assert.That(result, Is.True);
+        Assert.Multiple(() =>
+        {
+            Assert.That(withColdRoot, Is.False, "a root the complete target records through went unvisited");
+            Assert.That(RenderNodeCacheHelper.CanCacheRecursive(completeTarget), Is.True);
+        });
     }
 
     [Test]
@@ -112,9 +111,11 @@ public class RenderNodeCacheHelperTest
     {
         // Arrange
         using var node = new EllipseRenderNode(new Rect(0, 0, 100, 100), Brushes.Resource.White, null);
+        Rect bounds = new(0, 0, 100, 100);
         using (var renderTarget = RenderTarget.CreateNull(100, 100))
         {
-            node.Cache.StoreCache(renderTarget, new Rect(0, 0, 100, 100));
+            RenderNodeCache.PublishAtomically(
+                [RenderCacheTestSupport.CreatePublication(node.Cache, renderTarget, bounds)]);
         }
 
         // Act
@@ -130,9 +131,11 @@ public class RenderNodeCacheHelperTest
         // Arrange
         using var node = new ContainerRenderNode();
         using var childNode = new EllipseRenderNode(new Rect(0, 0, 100, 100), Brushes.Resource.White, null);
+        Rect bounds = new(0, 0, 100, 100);
         using (var renderTarget = RenderTarget.CreateNull(100, 100))
         {
-            childNode.Cache.StoreCache(renderTarget, new Rect(0, 0, 100, 100));
+            RenderNodeCache.PublishAtomically(
+                [RenderCacheTestSupport.CreatePublication(childNode.Cache, renderTarget, bounds)]);
         }
         node.AddChild(childNode);
 
@@ -144,89 +147,128 @@ public class RenderNodeCacheHelperTest
     }
 
     [Test]
-    public void MakeCache_ShouldCreateCache_WhenCacheIsEnabledAndCanCache()
+    public void FrameRequest_ShouldPublishEligibleCacheCandidates()
     {
-        // Arrange
+        using var containerNode = new ContainerRenderNode();
         var childNode = new EllipseRenderNode(new Rect(0, 0, 100, 100), Brushes.Resource.White, null);
-        var containerNode = new ContainerRenderNode();
         containerNode.AddChild(childNode);
         childNode.Cache.ReportRenderCount(3);
         containerNode.Cache.ReportRenderCount(3);
-        var cacheOptions = new RenderCacheOptions(true, RenderCacheRules.Default);
+        using var renderer = CreateFrameRenderer(containerNode);
 
-        // Act
-        RenderNodeCacheHelper.MakeCache(containerNode, cacheOptions);
+        using (renderer.Rasterize())
+        {
+        }
 
-        // Assert
-        Assert.That(containerNode.Cache.IsCached, Is.True);
+        Assert.Multiple(() =>
+        {
+            Assert.That(containerNode.Cache.IsCached, Is.True);
+            Assert.That(childNode.Cache.IsCached, Is.True);
+        });
     }
 
     [Test]
-    public void MakeCache_ShouldNotCreateCache_WhenCacheIsDisabled()
+    public void FrameRequest_ShouldNotPublishWhenCachePolicyIsDisabled()
     {
-        // Arrange
+        using var containerNode = new ContainerRenderNode();
         var childNode = new EllipseRenderNode(new Rect(0, 0, 100, 100), Brushes.Resource.White, null);
-        var containerNode = new ContainerRenderNode();
         containerNode.AddChild(childNode);
         childNode.Cache.ReportRenderCount(3);
         containerNode.Cache.ReportRenderCount(3);
-        var cacheOptions = new RenderCacheOptions(false, RenderCacheRules.Default);
+        using var renderer = CreateFrameRenderer(containerNode, useRenderCache: false);
 
-        // Act
-        RenderNodeCacheHelper.MakeCache(containerNode, cacheOptions);
+        using (renderer.Rasterize())
+        {
+        }
 
-        // Assert
-        Assert.That(containerNode.Cache.IsCached, Is.False);
+        Assert.Multiple(() =>
+        {
+            Assert.That(containerNode.Cache.IsCached, Is.False);
+            Assert.That(childNode.Cache.IsCached, Is.False);
+        });
     }
 
     [Test]
-    public void MakeCache_ShouldNotCreateCache_WhenCannotCacheChildren()
+    public void FrameRequest_ShouldSelectWarmParentWithoutRequiringWarmChildren()
     {
-        // Arrange
+        using var containerNode = new ContainerRenderNode();
         var childNode = new EllipseRenderNode(new Rect(0, 0, 100, 100), Brushes.Resource.White, null);
-        var containerNode = new ContainerRenderNode();
         containerNode.AddChild(childNode);
         containerNode.Cache.ReportRenderCount(3);
-        var cacheOptions = new RenderCacheOptions(true, RenderCacheRules.Default);
+        using var renderer = CreateFrameRenderer(containerNode);
 
-        // Act
-        RenderNodeCacheHelper.MakeCache(containerNode, cacheOptions);
+        using (renderer.Rasterize())
+        {
+        }
 
-        // Assert
-        Assert.That(containerNode.Cache.IsCached, Is.False);
+        Assert.Multiple(() =>
+        {
+            Assert.That(containerNode.Cache.IsCached, Is.True);
+            Assert.That(childNode.Cache.IsCached, Is.False);
+        });
     }
 
-    [Test]
-    public void CreateDefaultCache_ShouldStoreCache_WhenCacheRulesMatch()
+    [TestCase(10_404, true)]
+    [TestCase(10_403, false)]
+    public void FrameRequest_ShouldApplyConfiguredCacheRulesToPhysicalCapture(int maxPixels, bool expectedCached)
     {
-        // Arrange
+        using var containerNode = new ContainerRenderNode();
         var childNode = new EllipseRenderNode(new Rect(0, 0, 100, 100), Brushes.Resource.White, null);
-        var containerNode = new ContainerRenderNode();
         containerNode.AddChild(childNode);
         childNode.Cache.ReportRenderCount(3);
         containerNode.Cache.ReportRenderCount(3);
-        var cacheOptions = new RenderCacheOptions(true, new RenderCacheRules(10000, 1));
+        using var renderer = CreateFrameRenderer(
+            containerNode,
+            cacheRules: new RenderCacheRules(maxPixels, 1));
 
-        // Act
-        RenderNodeCacheHelper.CreateDefaultCache(containerNode, cacheOptions);
+        using (renderer.Rasterize())
+        {
+        }
 
-        // Assert
-        Assert.That(containerNode.Cache.IsCached, Is.True);
+        Assert.That(containerNode.Cache.IsCached, Is.EqualTo(expectedCached));
     }
 
-    [Test]
-    public void CreateDefaultCache_ShouldNotStoreCache_WhenCacheRulesDoNotMatch()
+    private static RenderNodeRenderer CreateFrameRenderer(
+        RenderNode node,
+        bool useRenderCache = true,
+        RenderCacheRules? cacheRules = null)
+        => new(
+            node,
+            new RenderNodeRendererOptions
+            {
+                DefaultRequest = new RenderNodeRenderRequest
+                {
+                    TargetDomain = new Rect(0, 0, 100, 100),
+                    CacheOptions = new RenderCacheOptions(
+                        useRenderCache,
+                        cacheRules ?? RenderCacheRules.Default),
+                    Purpose = RenderRequestPurpose.Frame,
+                },
+                TargetFactory = new CpuTargetFactory(),
+            });
+
+    private sealed class CpuTargetFactory : IRenderTargetFactory
     {
-        // Arrange
-        var childNode = new EllipseRenderNode(new Rect(0, 0, 100, 100), Brushes.Resource.White, null);
-        var containerNode = new ContainerRenderNode();
-        containerNode.AddChild(childNode);
-        var cacheOptions = new RenderCacheOptions(true, new RenderCacheRules(1, 1));
+        private static readonly SKColorSpace s_colorSpace = SKColorSpace.CreateSrgbLinear();
 
-        // Act
-        RenderNodeCacheHelper.CreateDefaultCache(containerNode, cacheOptions);
+        public RenderTarget Create(RenderTargetAllocationDescriptor allocation)
+            => new CpuRenderTarget(allocation.DeviceSize);
 
-        // Assert
-        Assert.That(containerNode.Cache.IsCached, Is.False);
+        private sealed class CpuRenderTarget : RenderTarget
+        {
+            public CpuRenderTarget(PixelSize size)
+                : base(
+                    SKSurface.Create(new SKImageInfo(
+                        size.Width,
+                        size.Height,
+                        SKColorType.RgbaF16,
+                        SKAlphaType.Premul,
+                        s_colorSpace))
+                    ?? throw new InvalidOperationException("Could not create a CPU cache-test target."),
+                    size.Width,
+                    size.Height)
+            {
+            }
+        }
     }
 }

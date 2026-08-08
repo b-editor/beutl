@@ -23,46 +23,49 @@ public sealed partial class PathFigure : EngineObject
 
     public IListProperty<PathSegment> Segments { get; } = Property.CreateList<PathSegment>();
 
-    public void ApplyTo(IGeometryContext context, Resource resource)
+    public partial class Resource
     {
-        bool skipFirst = false;
-        if (!resource.StartPoint.IsInvalid)
+        public void ApplyTo(IGeometryContext context)
         {
-            context.MoveTo(resource.StartPoint);
-        }
-        else if (resource.Segments.Count > 0)
-        {
-            if (resource.IsClosed)
+            bool skipFirst = false;
+            if (!StartPoint.IsInvalid)
             {
-                var endPoint = resource.Segments[^1].GetEndPoint();
-                if (endPoint.HasValue)
+                context.MoveTo(StartPoint);
+            }
+            else if (Segments.Count > 0)
+            {
+                if (IsClosed)
                 {
-                    context.MoveTo(endPoint.Value);
+                    var endPoint = Segments[^1].GetEndPoint();
+                    if (endPoint.HasValue)
+                    {
+                        context.MoveTo(endPoint.Value);
+                    }
+                }
+                else
+                {
+                    var endPoint = Segments[0].GetEndPoint();
+                    if (endPoint.HasValue)
+                    {
+                        context.MoveTo(endPoint.Value);
+                        skipFirst = true;
+                    }
                 }
             }
-            else
+
+            foreach (PathSegment.Resource item in Segments)
             {
-                var endPoint = resource.Segments[0].GetEndPoint();
-                if (endPoint.HasValue)
+                if (skipFirst)
                 {
-                    context.MoveTo(endPoint.Value);
-                    skipFirst = true;
+                    skipFirst = false;
+                    continue;
                 }
-            }
-        }
 
-        foreach (PathSegment.Resource item in resource.Segments)
-        {
-            if (skipFirst)
-            {
-                skipFirst = false;
-                continue;
+                item.ApplyTo(context);
             }
 
-            item.GetOriginal().ApplyTo(context, item);
+            if (IsClosed)
+                context.Close();
         }
-
-        if (resource.IsClosed)
-            context.Close();
     }
 }

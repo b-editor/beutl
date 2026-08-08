@@ -122,11 +122,11 @@ public class FormattedTextDisposalTests
         FormattedText ft = CreateText("AB");
         IReadOnlyList<Geometry.Resource> geometries = ft.ToGeometies();
 
-        // The per-glyph SKPath lives on the SKPathGeometry the resource wraps, not in the resource's
-        // cached render path; capture those handles so we can assert they were released by Dispose.
+        // The per-glyph SKPath is owned separately from the resource's cached render path; capture those
+        // handles so we can assert they were released by Dispose.
         List<SKPath> glyphPaths = geometries
             .OfType<SKPathGeometry.Resource>()
-            .Select(r => r.GetOriginal().Path)
+            .Select(r => r.Path)
             .Where(p => p is not null)
             .Select(p => p!)
             .ToList();
@@ -168,7 +168,7 @@ public class FormattedTextDisposalTests
 
         List<SKPath> trailingGlyphPaths = trailingResources
             .OfType<SKPathGeometry.Resource>()
-            .Select(r => r.GetOriginal().Path)
+            .Select(r => r.Path)
             .Where(p => p is not null)
             .Select(p => p!)
             .ToList();

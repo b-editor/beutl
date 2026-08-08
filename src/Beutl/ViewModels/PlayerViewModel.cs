@@ -2074,24 +2074,28 @@ public sealed class PlayerViewModel : IAsyncDisposable, IPreviewPlayer
         return await RenderThread.Dispatcher.InvokeAsync(() =>
         {
             if (Scene == null) throw new Exception("Scene is null.");
-            SceneRenderer renderer = EditViewModel.Renderer.Value;
-            var resource = drawable.ToResource(new CompositionContext(CurrentFrame.Value));
-            PixelSize frameSize = renderer.FrameSize;
+            SceneRenderer sceneRenderer = EditViewModel.Renderer.Value;
+            using var resource = drawable.ToResource(new CompositionContext(CurrentFrame.Value));
+            PixelSize frameSize = sceneRenderer.FrameSize;
             using var root = new DrawableRenderNode(resource);
             using (var context = new GraphicsContext2D(root, frameSize.ToSize(1)))
             {
                 drawable.Render(context, resource);
             }
 
-            var processor = new RenderNodeProcessor(root, false);
-            var bounds = Rect.Empty;
-            foreach (var op in processor.PullToRoot())
-            {
-                bounds = bounds.Union(op.Bounds);
-                op.Dispose();
-            }
-
-            return PixelRect.FromRect(bounds).Size;
+            using var renderer = new RenderNodeRenderer(
+                root,
+                new RenderNodeRendererOptions
+                {
+                    DefaultRequest = new RenderNodeRenderRequest
+                    {
+                        Intent = RenderIntent.Preview,
+                        TargetDomain = new Rect(default, frameSize.ToSize(1)),
+                        OutputScale = 1,
+                        CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Disabled,
+                    },
+                });
+            return PixelRect.FromRect(renderer.Measure().QueryBounds).Size;
         });
     }
 
@@ -2105,19 +2109,36 @@ public sealed class PlayerViewModel : IAsyncDisposable, IPreviewPlayer
         return await RenderThread.Dispatcher.InvokeAsync(() =>
         {
             if (Scene == null) throw new Exception("Scene is null.");
-            // TODO: Rendererに特定のDrawableのみを描画するクラスを追加する
-            SceneRenderer renderer = EditViewModel.Renderer.Value;
-            var resource = drawable.ToResource(new CompositionContext(CurrentFrame.Value));
-            PixelSize frameSize = renderer.FrameSize;
+            SceneRenderer sceneRenderer = EditViewModel.Renderer.Value;
+            using var resource = drawable.ToResource(new CompositionContext(CurrentFrame.Value));
+            PixelSize frameSize = sceneRenderer.FrameSize;
             using var root = new DrawableRenderNode(resource);
-            using (var context = new GraphicsContext2D(root, frameSize.ToSize(1)))
+            using (var context = new GraphicsContext2D(root, frameSize.ToSize(1), outputScale))
             {
                 drawable.Render(context, resource);
             }
 
-            var processor = new RenderNodeProcessor(
-                root, false, outputScale, WorkingScaleCeiling.Export());
-            return processor.RasterizeAndConcat();
+            var request = new RenderNodeRenderRequest
+            {
+                Intent = RenderIntent.Delivery,
+                TargetDomain = new Rect(default, frameSize.ToSize(1)),
+                OutputScale = outputScale,
+                MaxWorkingScale = WorkingScaleCeiling.Export(),
+                CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Disabled,
+            };
+            using var renderer = new RenderNodeRenderer(
+                root,
+                new RenderNodeRendererOptions
+                {
+                    DefaultRequest = request,
+                });
+            Rect queryBounds = renderer.Measure().QueryBounds;
+            using RenderNodeRasterization rasterization = renderer.Rasterize(request with
+            {
+                RequestedRegion = queryBounds,
+            });
+            return rasterization.Bitmap?.Clone()
+                ?? throw new InvalidOperationException("The selected drawable produced no raster output.");
         });
     }
 
@@ -2155,14 +2176,7 @@ public sealed class PlayerViewModel : IAsyncDisposable, IPreviewPlayer
                     missingSources.Count));
             }
 
-            // Throwaway renderer with disableResourceShare to avoid mutating live preview resources.
-            using var renderer = new SceneRenderer(
-                Scene,
-                renderScale: outputScale,
-                disableResourceShare: true,
-                maxWorkingScale: WorkingScaleCeiling.Export(),
-                forceOriginalSource: true);
-            renderer.CacheOptions = RenderCacheOptions.Disabled;
+            using var renderer = ExportRendererFactory.Create(Scene, outputScale);
 
             var compositionFrame = renderer.Compositor.EvaluateGraphics(CurrentFrame.Value);
             renderer.Render(compositionFrame);

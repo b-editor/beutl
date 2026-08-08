@@ -150,50 +150,51 @@ public sealed partial class PathGeometry : Geometry
         }
     }
 
-    public override void ApplyTo(IGeometryContext context, Geometry.Resource resource)
+    public partial class Resource
     {
-        base.ApplyTo(context, resource);
-        var r = (Resource)resource;
-
-        foreach (PathFigure.Resource item in r.Figures)
+        public override void ApplyTo(IGeometryContext context)
         {
-            item.GetOriginal().ApplyTo(context, item);
-        }
-    }
+            base.ApplyTo(context);
 
-    public PathFigure.Resource? HitTestFigure(Point point, Pen.Resource? pen, Geometry.Resource resource)
-    {
-        var r = (Resource)resource;
-        Rect bounds = resource.Bounds;
-
-        foreach (PathFigure.Resource item in r.Figures)
-        {
-            using (var context = new GeometryContext())
+            foreach (PathFigure.Resource item in Figures)
             {
-                context.FillType = r.FillType;
-                item.GetOriginal().ApplyTo(context, item);
-                if (r.Transform != null)
-                {
-                    context.Transform(r.Transform.Matrix);
-                }
-
-                if (context.NativeObject.Contains(point.X, point.Y))
-                {
-                    return item;
-                }
-
-                if (pen != null)
-                {
-                    using SKPath strokePath = PenHelper.CreateStrokePath(context.NativeObject, pen, bounds);
-                    if (strokePath.Contains(point.X, point.Y))
-                    {
-                        return item;
-                    }
-                }
-
+                item.ApplyTo(context);
             }
         }
 
-        return null;
+        public PathFigure.Resource? HitTestFigure(Point point, Pen.Resource? pen)
+        {
+            Rect bounds = Bounds;
+
+            foreach (PathFigure.Resource item in Figures)
+            {
+                using (var context = new GeometryContext())
+                {
+                    context.FillType = FillType;
+                    item.ApplyTo(context);
+                    if (Transform != null)
+                    {
+                        context.Transform(Transform.Matrix);
+                    }
+
+                    if (context.NativeObject.Contains(point.X, point.Y))
+                    {
+                        return item;
+                    }
+
+                    if (pen != null)
+                    {
+                        using SKPath strokePath = PenHelper.CreateStrokePath(context.NativeObject, pen, bounds);
+                        if (strokePath.Contains(point.X, point.Y))
+                        {
+                            return item;
+                        }
+                    }
+
+                }
+            }
+
+            return null;
+        }
     }
 }

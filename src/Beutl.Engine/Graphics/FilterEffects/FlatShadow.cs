@@ -31,10 +31,11 @@ public partial class FlatShadow : FilterEffect
     public override void ApplyTo(FilterEffectContext context, FilterEffect.Resource resource)
     {
         var r = (Resource)resource;
-        context.CustomEffect((r.Angle, r.Length, r.Brush, r.ShadowOnly), Apply, TransformBounds);
+        context.CustomEffect(
+            (r.Angle, r.Length, Brush: context.RegisterBrush(r.Brush), r.ShadowOnly), Apply, TransformBounds);
     }
 
-    private static Rect TransformBounds((float Angle, float Length, Brush.Resource? Brush, bool ShadowOnly) data,
+    private static Rect TransformBounds((float Angle, float Length, FilterEffectBrush Brush, bool ShadowOnly) data,
         Rect rect)
     {
         float length = data.Length;
@@ -50,7 +51,7 @@ public partial class FlatShadow : FilterEffect
         return new Rect(rect.X - (xAbs - x) / 2, rect.Y - (yAbs - y) / 2, width, height);
     }
 
-    private static void Apply((float Angle, float Length, Brush.Resource? Brush, bool ShadowOnly) data,
+    private static void Apply((float Angle, float Length, FilterEffectBrush Brush, bool ShadowOnly) data,
         CustomFilterEffectContext context)
     {
         static SKPath CreatePath(Bitmap src)
@@ -74,7 +75,7 @@ public partial class FlatShadow : FilterEffect
             return skpath;
         }
 
-        Brush.Resource? brush = data.Brush;
+        FilterEffectBrush brush = data.Brush;
         float length = data.Length;
         float radian = MathUtilities.Deg2Rad(data.Angle);
 
@@ -122,9 +123,8 @@ public partial class FlatShadow : FilterEffect
                 }
 
                 // SrcIn brush at the buffer's real density (wOut).
-                var c = new BrushConstructor(new(newTarget.Bounds.Size), brush, BlendMode.SrcIn, wOut,
-                    context.MaxWorkingScale);
-                c.ConfigurePaint(brushPaint);
+                context.ConfigureBrushPaint(
+                    brushPaint, brush, new Rect(newTarget.Bounds.Size), BlendMode.SrcIn, wOut);
                 newCanvas.Canvas.DrawRect(SKRect.Create(newTarget.Bounds.Width, newTarget.Bounds.Height), brushPaint);
 
                 if (!data.ShadowOnly)

@@ -64,7 +64,13 @@ public sealed partial class BasicMaterial : Material3D
         // Default texture (1x1 pixel)
         private ITexture2D? _defaultWhiteTexture;
 
-        internal override IPipeline3D? Pipeline => _pipeline;
+        protected internal override IPipeline3D? Pipeline => _pipeline;
+
+        protected internal override IEnumerable<TextureSource.Resource> EnumerateTextureSources()
+        {
+            if (DiffuseMap is not null)
+                yield return DiffuseMap;
+        }
 
         public override void EnsurePipeline(RenderContext3D context)
         {

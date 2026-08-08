@@ -41,7 +41,11 @@ public class PixelSortEffectTests
             effect.ApplyTo(feCtx, resource);
 
             using var builder = new SKImageFilterBuilder();
-            using var activator = new FilterEffectActivator(targets, builder);
+            using var activator = new FilterEffectActivator(
+                targets,
+                builder,
+                RenderIntent.Delivery,
+                RenderRequestPurpose.Auxiliary);
             activator.Apply(feCtx);
             activator.Flush(false);
 
@@ -79,23 +83,26 @@ public class PixelSortEffectTests
             effect.ApplyTo(feCtx, resource);
 
             using var builder = new SKImageFilterBuilder();
-            using var activator = new FilterEffectActivator(targets, builder);
+            using var activator = new FilterEffectActivator(
+                targets,
+                builder,
+                RenderIntent.Delivery,
+                RenderRequestPurpose.Auxiliary);
             Assert.DoesNotThrow(() => activator.Apply(feCtx));
             Assert.DoesNotThrow(() => activator.Flush(false));
         });
     }
 
-    [TestCase(float.PositiveInfinity, ExpectedResult = true)]
-    [TestCase(2f, ExpectedResult = false)]
-    [TestCase(1f, ExpectedResult = false)]
-    public bool ShouldRethrowPassFailure_rethrows_shader_failures_only_on_delivery(float maxWorkingScale)
-        => PixelSortEffect.ShouldRethrowPassFailure(new InvalidOperationException("pass failed"), maxWorkingScale);
+    [TestCase(RenderIntent.Delivery, ExpectedResult = true)]
+    [TestCase(RenderIntent.Preview, ExpectedResult = false)]
+    public bool ShouldRethrowPassFailure_rethrows_shader_failures_only_on_delivery(RenderIntent intent)
+        => PixelSortEffect.ShouldRethrowPassFailure(new InvalidOperationException("pass failed"), intent);
 
     [Test]
     public void ShouldRethrowPassFailure_always_rethrows_cancellation()
     {
         Assert.That(
-            PixelSortEffect.ShouldRethrowPassFailure(new OperationCanceledException(), 2f),
+            PixelSortEffect.ShouldRethrowPassFailure(new OperationCanceledException(), RenderIntent.Preview),
             Is.True);
     }
 
@@ -105,9 +112,58 @@ public class PixelSortEffectTests
         Assert.Multiple(() =>
         {
             Assert.Throws<InvalidOperationException>(
-                () => PixelSortEffect.ThrowIfDeliveryAllocationFailure(float.PositiveInfinity, 0));
+                () => PixelSortEffect.ThrowIfDeliveryAllocationFailure(RenderIntent.Delivery, 0));
             Assert.DoesNotThrow(
-                () => PixelSortEffect.ThrowIfDeliveryAllocationFailure(2f, 0));
+                () => PixelSortEffect.ThrowIfDeliveryAllocationFailure(RenderIntent.Preview, 0));
+        });
+    }
+
+    // The working-scale ceiling used to stand in for the intent; the two are now independent inputs.
+    [TestCase(RenderIntent.Delivery, float.PositiveInfinity)]
+    [TestCase(RenderIntent.Delivery, 2f)]
+    public void DeliveryIntent_DecidesFailFast_IndependentlyOfTheWorkingScaleCeiling(
+        RenderIntent intent, float maxWorkingScale)
+    {
+        using var targets = new EffectTargets();
+        var context = new CustomFilterEffectContext(
+            targets,
+            intent,
+            RenderRequestPurpose.Auxiliary,
+            outputScale: 1f,
+            workingScale: 1f,
+            maxWorkingScale: maxWorkingScale);
+
+        Assert.Multiple(() =>
+        {
+            Assert.Throws<InvalidOperationException>(
+                () => PixelSortEffect.ThrowIfDeliveryAllocationFailure(context.Intent, 0));
+            Assert.That(
+                PixelSortEffect.ShouldRethrowPassFailure(new InvalidOperationException(), context.Intent),
+                Is.True);
+        });
+    }
+
+    [TestCase(RenderIntent.Preview, float.PositiveInfinity)]
+    [TestCase(RenderIntent.Preview, 2f)]
+    public void PreviewIntent_DecidesDegradation_IndependentlyOfTheWorkingScaleCeiling(
+        RenderIntent intent, float maxWorkingScale)
+    {
+        using var targets = new EffectTargets();
+        var context = new CustomFilterEffectContext(
+            targets,
+            intent,
+            RenderRequestPurpose.Auxiliary,
+            outputScale: 1f,
+            workingScale: 1f,
+            maxWorkingScale: maxWorkingScale);
+
+        Assert.Multiple(() =>
+        {
+            Assert.DoesNotThrow(
+                () => PixelSortEffect.ThrowIfDeliveryAllocationFailure(context.Intent, 0));
+            Assert.That(
+                PixelSortEffect.ShouldRethrowPassFailure(new InvalidOperationException(), context.Intent),
+                Is.False);
         });
     }
 
