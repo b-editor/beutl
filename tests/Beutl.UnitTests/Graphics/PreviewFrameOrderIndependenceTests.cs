@@ -372,6 +372,9 @@ public class PreviewFrameOrderIndependenceTests
         public void Dispose()
         {
             DecoderRegistry.ProxyResolver = null;
+            // Resolving a proxy touches the store, which schedules a delayed flush; without draining
+            // it here that task recreates the directory this is about to delete, or races the delete.
+            _store?.FlushAsync(CancellationToken.None).GetAwaiter().GetResult();
             if (Directory.Exists(_root))
             {
                 Directory.Delete(_root, true);

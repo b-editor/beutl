@@ -6,10 +6,16 @@ public class SnapshotBackdropRenderNode : RenderNode, IBackdrop
 {
     private Bitmap? _bitmap;
     private float _captureScale = 1f;
+    private ImmediateCanvas? _pendingCanvas;
+    private bool _capturedThisPass;
 
     public override void PrepareForProcess(ImmediateCanvas canvas)
     {
-        Capture(canvas);
+        // Remembered, not captured: Snapshot reads back the whole surface, and the capture operation
+        // below is the one that lands in the right place in the stream. This canvas is only used
+        // when a consumer is rasterized during processing and asks for the picture first.
+        _pendingCanvas = canvas;
+        _capturedThisPass = false;
     }
 
     public override RenderNodeOperation[] Process(RenderNodeContext context)
@@ -26,6 +32,7 @@ public class SnapshotBackdropRenderNode : RenderNode, IBackdrop
 
     private void Capture(ImmediateCanvas canvas)
     {
+        _capturedThisPass = true;
         _bitmap?.Dispose();
         using var renderTarget = RenderTarget.GetRenderTarget(canvas);
         _bitmap = renderTarget.Snapshot();
@@ -35,6 +42,13 @@ public class SnapshotBackdropRenderNode : RenderNode, IBackdrop
 
     public void Draw(ImmediateCanvas canvas)
     {
+        if (!_capturedThisPass && _pendingCanvas != null)
+        {
+            // A filter effect rasterizes its input while the tree is being processed, so the capture
+            // operation has not run yet. Fall back to the canvas the pass is compositing onto.
+            Capture(_pendingCanvas);
+        }
+
         if (_bitmap != null)
         {
             // Un-scale by the capture's density, not the replay canvas's density.
@@ -55,5 +69,6 @@ public class SnapshotBackdropRenderNode : RenderNode, IBackdrop
         base.OnDispose(disposing);
         _bitmap?.Dispose();
         _bitmap = null;
+        _pendingCanvas = null;
     }
 }
