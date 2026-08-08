@@ -203,17 +203,27 @@ internal sealed class RenderPipelineBenchmarkSession : IDisposable
 
         string? outputBlobsPath = RenderPipelineBenchmarkConfig.GetOutputBlobsPath();
         string setupBlobFile = string.Empty;
-        if (outputBlobsPath is not null && _lastSetupRasterization?.Bitmap is { } setupBitmap)
+        string measuredBlobFile = string.Empty;
+        if (outputBlobsPath is not null)
         {
-            setupBlobFile = _scene.Name + ".rgba16f";
-            byte[] payload = Rgba16fEvidenceWriter.Encode(setupBitmap);
+            Bitmap setupBitmap = _lastSetupRasterization?.Bitmap
+                ?? throw new InvalidOperationException("The final setup output was not retained for evidence.");
+            Bitmap measuredBitmap = _lastMeasuredRasterization?.Bitmap
+                ?? throw new InvalidOperationException("The final measured output was not retained for evidence.");
+            setupBlobFile = _scene.Name + ".setup.rgba16f";
+            measuredBlobFile = _scene.Name + ".measured.rgba16f";
             Directory.CreateDirectory(outputBlobsPath);
-            File.WriteAllBytes(Path.Combine(outputBlobsPath, setupBlobFile), payload);
+            File.WriteAllBytes(
+                Path.Combine(outputBlobsPath, setupBlobFile),
+                Rgba16fEvidenceWriter.Encode(setupBitmap));
+            File.WriteAllBytes(
+                Path.Combine(outputBlobsPath, measuredBlobFile),
+                Rgba16fEvidenceWriter.Encode(measuredBitmap));
         }
 
         return new RenderPipelineBenchmarkCounterRecord
         {
-            SchemaVersion = 2,
+            SchemaVersion = 3,
             CaseName = _scene.Name,
             Seed = _scene.Seed,
             Width = setup.Width,
@@ -231,6 +241,7 @@ internal sealed class RenderPipelineBenchmarkSession : IDisposable
             OutputChecksum = setup.Checksum.ToString("x16"),
             OutputBounds = setup.Bounds,
             SetupOutputBlobFile = setupBlobFile,
+            MeasuredOutputBlobFile = measuredBlobFile,
             MeasuredOutputSha256 = measured.Sha256,
             MeasuredOutputChecksum = measured.Checksum.ToString("x16"),
             MeasuredOutputBounds = measured.Bounds,
@@ -950,6 +961,7 @@ internal sealed class RenderPipelineBenchmarkCounterRecord
     public string OutputChecksum { get; init; } = string.Empty;
     public Rect OutputBounds { get; init; }
     public string SetupOutputBlobFile { get; init; } = string.Empty;
+    public string MeasuredOutputBlobFile { get; init; } = string.Empty;
     public string MeasuredOutputSha256 { get; init; } = string.Empty;
     public string MeasuredOutputChecksum { get; init; } = string.Empty;
     public Rect MeasuredOutputBounds { get; init; }

@@ -197,17 +197,23 @@ internal sealed class TargetRenderPipelineBenchmarkSession : IDisposable
 
         string? outputBlobsPath = TargetRenderPipelineBenchmarkConfig.GetOutputBlobsPath();
         string setupBlobFile = string.Empty;
-        if (outputBlobsPath is not null && _lastSetupBitmap is { } setupBitmap)
+        string measuredBlobFile = string.Empty;
+        if (outputBlobsPath is not null)
         {
-            setupBlobFile = _scene.Name + ".rgba16f";
-            byte[] payload = setupBitmap.GetPixelSpan().ToArray();
+            Bitmap setupBitmap = _lastSetupBitmap
+                ?? throw new InvalidOperationException("The final setup output was not retained for evidence.");
+            Bitmap measuredBitmap = _lastMeasuredBitmap
+                ?? throw new InvalidOperationException("The final measured output was not retained for evidence.");
+            setupBlobFile = _scene.Name + ".setup.rgba16f";
+            measuredBlobFile = _scene.Name + ".measured.rgba16f";
             Directory.CreateDirectory(outputBlobsPath);
-            File.WriteAllBytes(Path.Combine(outputBlobsPath, setupBlobFile), payload);
+            File.WriteAllBytes(Path.Combine(outputBlobsPath, setupBlobFile), setupBitmap.GetPixelSpan().ToArray());
+            File.WriteAllBytes(Path.Combine(outputBlobsPath, measuredBlobFile), measuredBitmap.GetPixelSpan().ToArray());
         }
 
         return new TargetRenderPipelineCounterRecord
         {
-            SchemaVersion = 2,
+            SchemaVersion = 3,
             CaseName = _scene.Name,
             Seed = _scene.Seed,
             Width = setup.Width,
@@ -225,6 +231,7 @@ internal sealed class TargetRenderPipelineBenchmarkSession : IDisposable
             OutputChecksum = setup.Checksum.ToString("x16"),
             OutputBounds = setup.Bounds,
             SetupOutputBlobFile = setupBlobFile,
+            MeasuredOutputBlobFile = measuredBlobFile,
             MeasuredOutputSha256 = timedMeasured.Sha256,
             MeasuredOutputChecksum = timedMeasured.Checksum.ToString("x16"),
             MeasuredOutputBounds = timedMeasured.Bounds,
@@ -329,6 +336,22 @@ internal sealed class TargetRenderPipelineBenchmarkSession : IDisposable
                 string.Empty,
                 0,
                 null);
+            TargetObservedFrame observed = frame;
+            if (verifyOutput)
+            {
+                var counters = new SortedDictionary<string, long>(StringComparer.Ordinal)
+                {
+                    ["CompletedRequests"] = 1,
+                    ["LegacyOperationExecutions"] = operations.Length,
+                    ["SemanticStages"] = _scene.SemanticStageCount,
+                    ["TopLevelDrawables"] = _scene.TopLevelDrawableCount,
+                    ["TargetDependencies"] = _scene.HasTargetDependencies ? _scene.TopLevelDrawableCount : 0,
+                    ["RenderCacheHits"] = _scene.HasStaticPrefixCache ? 1 : 0,
+                    ["Failures"] = 0,
+                };
+                observed = CompleteObservation(frame, bitmap, counters);
+            }
+
             if (retainBitmap)
             {
                 _lastMeasuredBitmap = bitmap;
@@ -339,21 +362,7 @@ internal sealed class TargetRenderPipelineBenchmarkSession : IDisposable
                 _lastSetupBitmap = bitmap;
                 bitmap = null!;
             }
-
-            if (!verifyOutput)
-                return frame;
-
-            var counters = new SortedDictionary<string, long>(StringComparer.Ordinal)
-            {
-                ["CompletedRequests"] = 1,
-                ["LegacyOperationExecutions"] = operations.Length,
-                ["SemanticStages"] = _scene.SemanticStageCount,
-                ["TopLevelDrawables"] = _scene.TopLevelDrawableCount,
-                ["TargetDependencies"] = _scene.HasTargetDependencies ? _scene.TopLevelDrawableCount : 0,
-                ["RenderCacheHits"] = _scene.HasStaticPrefixCache ? 1 : 0,
-                ["Failures"] = 0,
-            };
-            return CompleteObservation(frame, bitmap, counters);
+            return observed;
         }
         finally
         {
@@ -793,6 +802,7 @@ internal sealed class TargetRenderPipelineCounterRecord
     public string OutputChecksum { get; init; } = string.Empty;
     public Rect OutputBounds { get; init; }
     public string SetupOutputBlobFile { get; init; } = string.Empty;
+    public string MeasuredOutputBlobFile { get; init; } = string.Empty;
     public string MeasuredOutputSha256 { get; init; } = string.Empty;
     public string MeasuredOutputChecksum { get; init; } = string.Empty;
     public Rect MeasuredOutputBounds { get; init; }

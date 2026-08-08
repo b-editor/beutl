@@ -20,5 +20,7 @@
   <ItemGroup>
     <PackageReference Include="BenchmarkDotNet" />
     <ProjectReference Include="$(BaselineEngineProject)" />
+    <Compile Include="../../../../../tests/Beutl.Benchmarks/Rendering/EvidenceFingerprintRules.cs"
+             Link="Rendering/EvidenceFingerprintRules.cs" />
   </ItemGroup>
 </Project>
