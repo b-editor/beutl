@@ -17,6 +17,25 @@ public sealed partial class FallbackEngineObject : EngineObject, IFallback;
 [FallbackType(typeof(FallbackEngineObject))]
 public class EngineObject : Hierarchical, INotifyEdited
 {
+    /// <summary>
+    /// Identifies construction performed only to read the declared defaults of generated resource properties.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// Reserved for code emitted by <c>Beutl.Engine.SourceGenerators</c>. When no
+    /// <see cref="ResourceDefaultValuesProviderAttribute"/> is declared, the generated constructor chain runs
+    /// instance field and property initializers but intentionally skips user constructor bodies. Consequently,
+    /// every generated value or object <see cref="IProperty"/> must be available from declaration-time state.
+    /// </para>
+    /// <para>
+    /// This path creates only a short-lived defaults source. It does not establish invariants implemented by an
+    /// ordinary constructor and must not be used to construct an application or plugin object directly.
+    /// </para>
+    /// </remarks>
+    protected readonly struct ResourceDefaultValuesConstruction
+    {
+    }
+
     // これらのプロパティは描画時ではなく編集時に更新されるべき
     public static readonly CoreProperty<bool> IsTimeAnchorProperty;
     public static readonly CoreProperty<bool> IsEnabledProperty;
@@ -53,6 +72,23 @@ public class EngineObject : Hierarchical, INotifyEdited
             .Register();
 
         AffectsRender<EngineObject>(IsEnabledProperty, IsTimeAnchorProperty, ZIndexProperty, TimeRangeProperty);
+    }
+
+    public EngineObject()
+    {
+    }
+
+    /// <summary>
+    /// Initializes the source object used by generated detached-resource constructors to read property defaults.
+    /// </summary>
+    /// <param name="construction">The generator-only construction marker.</param>
+    /// <remarks>
+    /// The generated public resource constructor uses this overload only when the owner has no explicit
+    /// <see cref="ResourceDefaultValuesProviderAttribute"/>. Application and plugin code constructs usable engine
+    /// objects through their ordinary constructors.
+    /// </remarks>
+    protected EngineObject(ResourceDefaultValuesConstruction construction)
+    {
     }
 
     public virtual IReadOnlyList<IProperty> Properties => _properties;
@@ -374,12 +410,56 @@ public class EngineObject : Hierarchical, INotifyEdited
 
     public class Resource : IDisposable
     {
+        /// <summary>
+        /// Initializes an enabled detached base resource.
+        /// </summary>
+        public Resource()
+        {
+            IsEnabled = true;
+        }
+
+        /// <summary>
+        /// Initializes generated resource properties from their declared defaults.
+        /// </summary>
+        /// <param name="defaultValues">
+        /// The provider-created or generator-created source whose properties provide the default values.
+        /// </param>
+        /// <remarks>
+        /// Generated resource constructors use this overload automatically. A hand-written detached resource may
+        /// use it when it deliberately supplies an owner whose declared defaults initialize the derived resource.
+        /// </remarks>
+        protected Resource(EngineObject defaultValues)
+        {
+            IsEnabled = defaultValues.IsEnabled;
+        }
+
+        /// <summary>
+        /// Initializes an attached resource without evaluating defaults that <see cref="Update"/> replaces.
+        /// </summary>
+        /// <param name="skipDefaultInitialization">
+        /// The generator, or a hand-written attached-resource factory, passes <see langword="true"/> when the
+        /// resource will be populated immediately by <see cref="Update"/>.
+        /// </param>
+        /// <remarks>
+        /// This path intentionally leaves detached defaults uninitialized. Do not expose the resource before its
+        /// first successful <see cref="Update"/>.
+        /// </remarks>
+        protected Resource(bool skipDefaultInitialization)
+        {
+            if (!skipDefaultInitialization)
+            {
+                throw new ArgumentException(
+                    "Attached-resource construction must explicitly opt out of detached default initialization.",
+                    nameof(skipDefaultInitialization));
+            }
+        }
+
         ~Resource()
         {
             Dispose(false);
         }
 
-        private EngineObject _original = null!;
+        private EngineObject? _original;
 
         public int Version { get; set; }
 
@@ -392,10 +472,8 @@ public class EngineObject : Hierarchical, INotifyEdited
         /// </summary>
         /// <remarks>
         /// Only <see cref="Update"/> attaches one, so a resource built through its public constructor rather
-        /// than through <see cref="ToResource"/> is detached. A detached resource's generated value properties
-        /// start at <c>default(T)</c>, not at the default its <c>IProperty</c> declares, so an author who wants
-        /// the attached counterpart's behaviour sets every property that has a non-<c>default(T)</c> declared
-        /// default — <c>Pen.Resource.TrimEnd</c> (100) and <c>Brush.Resource.Opacity</c> (100) among them.
+        /// than through <see cref="ToResource"/> is detached. Generated value properties on that detached
+        /// resource start at the defaults declared by their corresponding <see cref="IProperty"/> instances.
         /// </remarks>
         public bool IsAttached => _original is not null;
 
@@ -408,8 +486,8 @@ public class EngineObject : Hierarchical, INotifyEdited
         /// <see cref="Beutl.Media.ColorExtensions.ToBrushResource"/> (reached from
         /// <c>TextElementsBuilder</c> on the text-render path), the <c>SolidColorBrush.Resource</c> and
         /// <c>Pen.Resource</c> that <c>FormattedTextParser</c> builds for a stroke tag, and the
-        /// <c>GradientStop.Resource</c> the Avalonia editor adapters build. Despite the non-nullable
-        /// declaration this returns <see langword="null"/> for every one of them.
+        /// <c>GradientStop.Resource</c> the Avalonia editor adapters build. This returns
+        /// <see langword="null"/> for every one of them.
         /// </para>
         /// <para>
         /// Use <see cref="RequireOriginal"/> when a null backing object cannot be handled, <see cref="IsAttached"/>
@@ -417,7 +495,7 @@ public class EngineObject : Hierarchical, INotifyEdited
         /// resource either way.
         /// </para>
         /// </remarks>
-        public EngineObject GetOriginal() => _original;
+        public EngineObject? GetOriginal() => _original;
 
         /// <summary>
         /// Gets the backing engine object, throwing when this resource is detached.

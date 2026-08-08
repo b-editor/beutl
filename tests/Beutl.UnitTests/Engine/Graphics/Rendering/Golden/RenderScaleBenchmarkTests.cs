@@ -122,7 +122,7 @@ public class RenderScaleBenchmarkTests
             _node = new DrawableRenderNode(resource);
             using (var context = new GraphicsContext2D(_node, _logicalSize, scale))
             {
-                resource.GetOriginal().Render(context, resource);
+                resource.RequireOriginal().Render(context, resource);
             }
 
             _renderer = new RenderNodeRenderer(

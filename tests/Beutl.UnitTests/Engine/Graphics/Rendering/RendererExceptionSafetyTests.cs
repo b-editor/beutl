@@ -169,12 +169,19 @@ public class RendererExceptionSafetyTests
 }
 
 // Top-level partial because EngineObjectResourceGenerator does not support nested types.
-internal sealed partial class FaultingDrawable(RecordedOperationSpec[] operations) : Drawable
+internal sealed partial class FaultingDrawable : Drawable
 {
+    private readonly RecordedOperationSpec[] _operations;
+
+    public FaultingDrawable(RecordedOperationSpec[] operations)
+    {
+        _operations = operations;
+    }
+
     public ICollection<string> Discharged { get; set; } = new List<string>();
 
     public override void Render(GraphicsContext2D context, Drawable.Resource resource)
-        => context.DrawNode(new FixedOpsNode(operations, Discharged));
+        => context.DrawNode(new FixedOpsNode(_operations, Discharged));
 
     protected override Size MeasureCore(Size availableSize, Drawable.Resource resource) => new(4, 4);
 
@@ -183,9 +190,14 @@ internal sealed partial class FaultingDrawable(RecordedOperationSpec[] operation
     }
 }
 
-internal sealed partial class RecordingFailureDrawable(int failures) : Drawable
+internal sealed partial class RecordingFailureDrawable : Drawable
 {
-    private int _remainingFailures = failures;
+    private int _remainingFailures;
+
+    public RecordingFailureDrawable(int failures)
+    {
+        _remainingFailures = failures;
+    }
 
     public int RenderCalls { get; private set; }
 

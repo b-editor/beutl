@@ -11,9 +11,8 @@ namespace Beutl.Graphics.Rendering;
 /// <remarks>
 /// <para>
 /// This is the only safe way to key on an engine resource. <see cref="EngineObject.Resource.GetOriginal"/> is
-/// declared non-nullable but its backing field is assigned only by <see cref="EngineObject.Resource.Update"/>,
-/// so a resource that never went through <see cref="EngineObject.ToResource"/> returns null and makes
-/// <c>GetOriginal().Id</c> throw <see cref="NullReferenceException"/>.
+/// null for a resource that never went through <see cref="EngineObject.ToResource"/>; comparing those missing
+/// backing ids directly would make any two detached resources compare equal.
 /// </para>
 /// <para>
 /// The derivation is renderer-wide rather than a recorder or effect responsibility: nodes, brushes, filter

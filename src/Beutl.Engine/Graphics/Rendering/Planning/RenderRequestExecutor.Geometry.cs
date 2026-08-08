@@ -75,9 +75,9 @@ internal sealed partial class RenderRequestExecutor
                         if (selectedBounds != requiredRegion)
                         {
                             CompatibilityRenderValue cropped = CropValue(
-                                fragment,
                                 output,
-                                selectedBounds);
+                                selectedBounds,
+                                allowPreviewDrop: true);
                             ReleaseUnpublished(output);
                             output = cropped;
                         }
@@ -172,13 +172,22 @@ internal sealed partial class RenderRequestExecutor
             RenderFragmentReference fragment,
             CompatibilityRenderValue source,
             Rect selectedBounds)
+            => CropValue(
+                source,
+                selectedBounds,
+                _previewDropEligibleMaterializations.Contains(fragment));
+
+        private CompatibilityRenderValue CropValue(
+            CompatibilityRenderValue source,
+            Rect selectedBounds,
+            bool allowPreviewDrop)
         {
             CompatibilityRenderValue cropped = CreateOwnedValue(
                 selectedBounds,
                 source.EffectiveScale,
                 source.CompleteBounds,
                 deviceGridOffset: source.DeviceGridOffset,
-                allowPreviewDrop: _previewDropEligibleMaterializations.Contains(fragment));
+                allowPreviewDrop: allowPreviewDrop);
             bool succeeded = false;
             try
             {
@@ -355,9 +364,9 @@ internal sealed partial class RenderRequestExecutor
                                 if (value.Bounds != output.Bounds)
                                 {
                                     CompatibilityRenderValue cropped = CropValue(
-                                        fragment,
                                         value,
-                                        output.Bounds);
+                                        output.Bounds,
+                                        allowPreviewDrop: _previewDropEligibleMaterializations.Contains(fragment));
                                     ReleaseUnpublished(value);
                                     outputLeases[output] = cropped;
                                     value = cropped;

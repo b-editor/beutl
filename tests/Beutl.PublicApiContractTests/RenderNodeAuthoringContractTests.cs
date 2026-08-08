@@ -709,7 +709,13 @@ public sealed class RenderNodeAuthoringContractTests
             return resource;
         }
 
-        public new sealed class Resource : FilterEffect.Resource;
+        public new sealed class Resource : FilterEffect.Resource
+        {
+            public Resource()
+                : base(skipDefaultInitialization: true)
+            {
+            }
+        }
     }
 
     private readonly record struct FragmentSnapshot(

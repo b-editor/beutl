@@ -30,7 +30,13 @@ public sealed class MaterialTextureAuthoringContractTests : PublicApiContractTes
         });
     }
 
-    private abstract class MaterialResourceUsingDefaultTextureEnumeration : Material3D.Resource;
+    private abstract class MaterialResourceUsingDefaultTextureEnumeration : Material3D.Resource
+    {
+        protected MaterialResourceUsingDefaultTextureEnumeration()
+            : base(skipDefaultInitialization: true)
+        {
+        }
+    }
 
     [SuppressResourceClassGeneration]
     private sealed partial class PluginMaterial : Material3D
@@ -43,16 +49,24 @@ public sealed class MaterialTextureAuthoringContractTests : PublicApiContractTes
             return resource;
         }
 
-        public new sealed class Resource(DrawableTextureSource.Resource? texture) : Material3D.Resource
+        public new sealed class Resource : Material3D.Resource
         {
+            private readonly DrawableTextureSource.Resource? _texture;
+
+            public Resource(DrawableTextureSource.Resource? texture)
+                : base(new PluginMaterial())
+            {
+                _texture = texture;
+            }
+
             protected override IPipeline3D? Pipeline => null;
 
             public TextureSource.Resource[] DeclaredTextures => [.. EnumerateTextureSources()];
 
             protected override IEnumerable<TextureSource.Resource> EnumerateTextureSources()
             {
-                if (texture is not null)
-                    yield return texture;
+                if (_texture is not null)
+                    yield return _texture;
             }
 
             public override void EnsurePipeline(RenderContext3D context)

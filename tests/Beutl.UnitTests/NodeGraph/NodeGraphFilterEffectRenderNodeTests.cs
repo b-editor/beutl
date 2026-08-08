@@ -1044,6 +1044,11 @@ internal sealed partial class ScaleProbeEffect : FilterEffect
 
     public new sealed class Resource : FilterEffect.Resource
     {
+        public Resource()
+            : base(skipDefaultInitialization: true)
+        {
+        }
+
         public override FilterEffectRenderNode CreateRenderNode() => new ScaleProbeRenderNode(this);
     }
 }
@@ -1100,7 +1105,7 @@ internal sealed partial class MeasureCaptureNode : GraphNode
     {
         public override void Update(GraphCompositionContext context)
         {
-            var node = (MeasureCaptureNode)GetOriginal();
+            MeasureCaptureNode node = RequireOriginal();
             node.Value = new Rect(X, Y, Width, Height);
         }
     }
@@ -1122,7 +1127,7 @@ internal sealed partial class FixedRenderNodeGraphNode : GraphNode
     {
         public override void Update(GraphCompositionContext context)
         {
-            Output = ((FixedRenderNodeGraphNode)GetOriginal()).Value;
+            Output = RequireOriginal().Value;
         }
     }
 }
@@ -1188,7 +1193,7 @@ internal sealed partial class CountingPassThroughGraphNode : GraphNode
 
         public override void Update(GraphCompositionContext context)
         {
-            var node = (CountingPassThroughGraphNode)GetOriginal();
+            CountingPassThroughGraphNode node = RequireOriginal();
             node.EvaluationCount++;
             if (Input is null)
             {
@@ -1266,7 +1271,7 @@ internal sealed partial class MixedPreviewGraphNode : GraphNode
                 return;
             }
 
-            var node = (MixedPreviewGraphNode)GetOriginal();
+            MixedPreviewGraphNode node = RequireOriginal();
             _renderNode ??= new NonOwningMixedContainerRenderNode(node);
             _renderNode.SetInput(Input);
             Output = _renderNode;

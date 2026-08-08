@@ -1,4 +1,5 @@
 ﻿using System.Numerics;
+using System.Reflection;
 using Beutl.Composition;
 using Beutl.Engine;
 using Beutl.Graphics;
@@ -85,6 +86,37 @@ public sealed class DetachedResourceAuthoringContractTests
     }
 
     [Test]
+    public void ResourceDefaultValueConstruction_IsAProtectedGeneratorContract()
+    {
+        Type marker = typeof(EngineObject).GetNestedType(
+            "ResourceDefaultValuesConstruction",
+            BindingFlags.NonPublic)!;
+        ConstructorInfo constructor = typeof(EngineObject).GetConstructor(
+            BindingFlags.Instance | BindingFlags.NonPublic,
+            binder: null,
+            [marker],
+            modifiers: null)!;
+        ConstructorInfo defaultValuesResourceConstructor = typeof(EngineObject.Resource).GetConstructor(
+            BindingFlags.Instance | BindingFlags.NonPublic,
+            binder: null,
+            [typeof(EngineObject)],
+            modifiers: null)!;
+        ConstructorInfo attachedResourceConstructor = typeof(EngineObject.Resource).GetConstructor(
+            BindingFlags.Instance | BindingFlags.NonPublic,
+            binder: null,
+            [typeof(bool)],
+            modifiers: null)!;
+
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(marker.IsNestedFamily, Is.True);
+            Assert.That(constructor.IsFamily, Is.True);
+            Assert.That(defaultValuesResourceConstructor.IsFamily, Is.True);
+            Assert.That(attachedResourceConstructor.IsFamily, Is.True);
+        }
+    }
+
+    [Test]
     public void TwoDetachedPens_AreNotTreatedAsOneByTheStrokeCache()
     {
         using var geometry = new PluginGeometry.Resource { Side = 100 };
@@ -99,13 +131,11 @@ public sealed class DetachedResourceAuthoringContractTests
     }
 
     /// <summary>
-    /// The generator emits each value-property backing field as <c>default!</c>, so a hand-built resource does
-    /// not inherit the default its <c>IProperty</c> declares. This pins that gap: a plugin author has to set
-    /// <c>TrimEnd</c> and <c>Opacity</c> by hand, and a future change that closes the gap has to update this
-    /// contract deliberately.
+    /// A hand-built resource inherits the same declared defaults as its attached counterpart without requiring
+    /// plugin authors to repeat every non-zero default in an object initializer.
     /// </summary>
     [Test]
-    public void ADetachedResource_StartsItsValuePropertiesAtDefaultRatherThanTheDeclaredDefault()
+    public void ADetachedResource_StartsItsValuePropertiesAtTheDeclaredDefaults()
     {
         using var bare = new Pen.Resource { Thickness = 4, Brush = new SolidColorBrush.Resource() };
         using Pen.Resource attached = new Pen
@@ -117,24 +147,55 @@ public sealed class DetachedResourceAuthoringContractTests
 
         using (Assert.EnterMultipleScope())
         {
-            Assert.That(bare.TrimEnd, Is.Zero);
+            Assert.That(bare.IsEnabled, Is.True);
+            Assert.That(attached.IsEnabled, Is.True);
+            Assert.That(bare.TrimEnd, Is.EqualTo(100));
             Assert.That(attached.TrimEnd, Is.EqualTo(100));
-            Assert.That(bare.MiterLimit, Is.Zero);
+            Assert.That(bare.MiterLimit, Is.EqualTo(10));
             Assert.That(attached.MiterLimit, Is.EqualTo(10));
-            Assert.That(new SolidColorBrush.Resource { Color = Colors.Red }.Opacity, Is.Zero);
-            Assert.That(geometry.GetRenderBounds(bare), Is.EqualTo(default(Rect)),
-                "TrimEnd = 0 trims the stroke away, so an unset declared default is not inert");
+            Assert.That(new SolidColorBrush.Resource { Color = Colors.Red }.Opacity, Is.EqualTo(100));
+            Assert.That(geometry.GetRenderBounds(bare), Is.EqualTo(geometry.GetRenderBounds(attached)));
         }
+    }
+
+    [Test]
+    public void ResourceDefaultsProvider_AllowsPrimaryConstructorPluginAuthoring()
+    {
+        using var resource = new PluginProviderBackedObject.Resource();
+
+        Assert.That(resource.Amount, Is.EqualTo(73));
+    }
+
+    [Test]
+    public void ADetachedResource_OwnsItsDeclaredObjectDefaultAndItsReplacement()
+    {
+        var resource = new PluginObjectDefaultOwner.Resource();
+        PluginObjectDefault.Resource declaredDefault = resource.Child
+            ?? throw new AssertionException("the declared non-null object default was not materialized");
+        var replacement = new PluginObjectDefault.Resource();
+
+        resource.Child = replacement;
+
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(declaredDefault.IsAttached, Is.True);
+            Assert.That(declaredDefault.IsDisposed, Is.True,
+                "replacing a generated object default must release the resource the owner created");
+            Assert.That(replacement.IsDisposed, Is.False);
+        }
+
+        resource.Dispose();
+
+        Assert.That(replacement.IsDisposed, Is.True,
+            "a resource property setter transfers ownership of the replacement to its owner");
     }
 
     private static Pen.Resource DetachedPen(float thickness)
     {
         return new Pen.Resource
         {
-            Brush = new SolidColorBrush.Resource { Color = Colors.Black, Opacity = 100 },
+            Brush = new SolidColorBrush.Resource { Color = Colors.Black },
             Thickness = thickness,
-            TrimEnd = 100,
-            MiterLimit = 10,
         };
     }
 }
@@ -206,4 +267,23 @@ public sealed partial class PluginMesh : Mesh
             indices = [0, 1, 2];
         }
     }
+}
+
+public sealed partial class PluginObjectDefault : EngineObject
+{
+}
+
+public sealed partial class PluginObjectDefaultOwner : EngineObject
+{
+    public IProperty<PluginObjectDefault?> Child { get; }
+        = Property.Create<PluginObjectDefault?>(new PluginObjectDefault());
+}
+
+public sealed partial class PluginProviderBackedObject(float amount) : EngineObject
+{
+    public IProperty<float> Amount { get; } = Property.Create(amount);
+
+    [ResourceDefaultValuesProvider]
+    private static PluginProviderBackedObject CreateResourceDefaultValues()
+        => new(73);
 }

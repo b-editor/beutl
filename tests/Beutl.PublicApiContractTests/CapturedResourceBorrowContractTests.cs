@@ -24,7 +24,7 @@ public sealed class CapturedResourceBorrowContractTests
             fromCapture = context.Borrow(captured).CacheIdentity;
             fromArguments = context.Borrow(
                     captured.Resource,
-                    captured.Resource.GetOriginal().Id,
+                    captured.Resource.RequireOriginal().Id,
                     captured.Version)
                 .CacheIdentity;
         });
