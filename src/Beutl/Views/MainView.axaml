@@ -15,6 +15,7 @@
              Padding="0"
              d:DesignHeight="450"
              d:DesignWidth="800"
+             x:CompileBindings="True"
              x:DataType="vm:MainViewModel"
              Focusable="True"
              mc:Ignorable="d">
@@ -145,6 +146,13 @@
                               InputGesture="{h:GetCommandGesture Exit,
                                                                  ExtensionType={x:Type p:MainViewExtension}}" />
                 </MenuItem>
+                <MenuItem Header="{x:Static lang:Strings.Project}">
+                    <MenuItem Command="{CompiledBinding MenuBar.EnableVersionControl}"
+                              Header="{x:Static lang:Strings.VersionControl_Enable}"
+                              IsEnabled="{CompiledBinding IsProjectOpened.Value}" />
+                    <MenuItem Command="{CompiledBinding MenuBar.CommitVersion}"
+                              Header="{x:Static lang:Strings.VersionControl_Commit}" />
+                </MenuItem>
                 <!--  編集  -->
                 <MenuItem Header="{x:Static lang:Strings.Edit}">
                     <!--  元に戻す  -->
@@ -216,17 +224,24 @@
                 </MenuItem>
             </Menu>
 
-            <views:TitleBreadcrumbBar Name="TitleBreadcrumbBar"
-                                      Grid.Column="2"
-                                      wnd:AppWindow.AllowInteractionInTitleBar="True"
-                                      DataContext="{Binding TitleBreadcrumbBar}" />
+            <StackPanel Grid.Column="2"
+                        Orientation="Horizontal"
+                        Spacing="8">
+                <views:TitleBreadcrumbBar Name="TitleBreadcrumbBar"
+                                          Margin="8,0,0,0"
+                                          wnd:AppWindow.AllowInteractionInTitleBar="True"
+                                          DataContext="{Binding TitleBreadcrumbBar}" />
+                <views:TitleBarBranchView x:Name="TitleBarBranchWidget"
+                                          VerticalAlignment="Center"
+                                          wnd:AppWindow.AllowInteractionInTitleBar="True"
+                                          DataContext="{Binding TitleBarBranch}" />
+            </StackPanel>
 
             <StackPanel Grid.Column="3"
                         Margin="0,0,4,0"
                         HorizontalAlignment="Right"
                         Orientation="Horizontal"
                         Spacing="8">
-
                 <TextBlock VerticalAlignment="Center"
                            Foreground="{DynamicResource TextFillColorSecondaryBrush}"
                            IsVisible="{CompiledBinding IsDebuggerAttached}"

@@ -1,18 +1,78 @@
-﻿using Avalonia.Headless.NUnit;
+﻿using System.Text.Json.Nodes;
+using Avalonia.Headless.NUnit;
 using Beutl.Editor.Models;
 using Beutl.Editor.Services;
+using Beutl.Extensibility;
 using Beutl.Graphics.Shapes;
 using Beutl.ProjectSystem;
 using Beutl.Services;
+using Beutl.Services.PrimitiveImpls;
 using Beutl.Testing.Headless;
 using Beutl.ViewModels;
 using Beutl.ViewModels.Tools;
+using Reactive.Bindings;
 
 namespace Beutl.HeadlessUITests;
 
 [TestFixture]
 public class ExportTests
 {
+    private sealed class TestCoreObject : CoreObject;
+
+    private sealed class TestOutputContext(string fileName) : IOutputContext
+    {
+        private readonly ReactivePropertySlim<bool> _isEncoding = new();
+        private int _disposeCount;
+
+        public OutputExtension Extension => SceneOutputExtension.Instance;
+
+        public CoreObject Object { get; } = new TestCoreObject
+        {
+            Uri = new Uri(Path.Combine(BeutlHomeIsolation.CurrentHome!, fileName))
+        };
+
+        public IReactiveProperty<string> Name { get; } = new ReactivePropertySlim<string>(fileName);
+
+        public IReadOnlyReactiveProperty<bool> IsIndeterminate { get; }
+            = new ReactivePropertySlim<bool>();
+
+        public IReadOnlyReactiveProperty<bool> IsEncoding => _isEncoding;
+
+        public IReadOnlyReactiveProperty<double> Progress { get; }
+            = new ReactivePropertySlim<double>();
+
+        public int DisposeCount => Volatile.Read(ref _disposeCount);
+
+        public event EventHandler? Started;
+
+        public event EventHandler? Finished;
+
+        public void Start()
+        {
+            _isEncoding.Value = true;
+            Started?.Invoke(this, EventArgs.Empty);
+        }
+
+        public void Finish()
+        {
+            _isEncoding.Value = false;
+            Finished?.Invoke(this, EventArgs.Empty);
+        }
+
+        public void Dispose()
+        {
+            Interlocked.Increment(ref _disposeCount);
+        }
+
+        public void WriteToJson(JsonObject json)
+        {
+        }
+
+        public void ReadFromJson(JsonObject json)
+        {
+        }
+    }
+
     private static Task ResetProjectAsync() => TestReset.ResetShellAsync();
 
     private static string NewWorkspace(string name)
@@ -101,6 +161,146 @@ public class ExportTests
         // and CanEncode stays false (SelectedEncoder is still null).
         Assert.That(output.Encoders, Is.Empty);
         Assert.That(output.CanEncode.Value, Is.False);
+    }
+
+    [AvaloniaTest]
+    public async Task OutputProfileItem_dispose_during_encoding_waits_for_finished()
+    {
+        await ResetProjectAsync();
+        EditViewModel editor = await OpenEditorWithRectangle("export-dispose-active");
+        var context = new TestOutputContext("export-dispose-active.scene");
+        var item = new OutputProfileItem(context, editor, TestShell.Editor);
+
+        context.Start();
+        try
+        {
+            item.Dispose();
+
+            Assert.That(context.DisposeCount, Is.Zero);
+            AssertWorktreeMutationBlocked();
+
+            context.Finish();
+
+            Assert.That(context.DisposeCount, Is.EqualTo(1));
+            AssertWorktreeMutationAvailable();
+        }
+        finally
+        {
+            context.Finish();
+            item.Dispose();
+        }
+    }
+
+    [AvaloniaTest]
+    public async Task OutputTabViewModel_remove_item_refuses_active_encoding()
+    {
+        await ResetProjectAsync();
+        EditViewModel editor = await OpenEditorWithRectangle("export-remove-active");
+        var viewModel = new OutputTabViewModel(editor);
+        var context = new TestOutputContext("export-remove-active.scene");
+        var item = new OutputProfileItem(context, editor, TestShell.Editor);
+        viewModel.Items.Add(item);
+        viewModel.SelectedItem.Value = item;
+
+        context.Start();
+        try
+        {
+            viewModel.RemoveItem(item);
+
+            Assert.Multiple(() =>
+            {
+                Assert.That(viewModel.Items, Does.Contain(item));
+                Assert.That(viewModel.SelectedItem.Value, Is.SameAs(item));
+                Assert.That(context.DisposeCount, Is.Zero);
+            });
+            AssertWorktreeMutationBlocked();
+
+            context.Finish();
+            viewModel.RemoveItem(item);
+
+            Assert.Multiple(() =>
+            {
+                Assert.That(viewModel.Items, Does.Not.Contain(item));
+                Assert.That(context.DisposeCount, Is.EqualTo(1));
+            });
+            AssertWorktreeMutationAvailable();
+        }
+        finally
+        {
+            context.Finish();
+            viewModel.Dispose();
+        }
+    }
+
+    [AvaloniaTest]
+    public async Task OutputProfileItem_dispose_and_finished_race_disposes_once()
+    {
+        await ResetProjectAsync();
+        EditViewModel editor = await OpenEditorWithRectangle("export-dispose-race");
+        var context = new TestOutputContext("export-dispose-race.scene");
+        var item = new OutputProfileItem(context, editor, TestShell.Editor);
+        using var gate = new ManualResetEventSlim();
+
+        context.Start();
+        Task disposeTask = Task.Run(() =>
+        {
+            gate.Wait();
+            item.Dispose();
+        });
+        Task finishTask = Task.Run(() =>
+        {
+            gate.Wait();
+            context.Finish();
+        });
+
+        gate.Set();
+        await Task.WhenAll(disposeTask, finishTask);
+        item.Dispose();
+        context.Finish();
+
+        Assert.That(context.DisposeCount, Is.EqualTo(1));
+        AssertWorktreeMutationAvailable();
+    }
+
+    [AvaloniaTest]
+    public async Task OutputProfileItem_dispose_when_idle_is_immediate_and_idempotent()
+    {
+        await ResetProjectAsync();
+        EditViewModel editor = await OpenEditorWithRectangle("export-dispose-idle");
+        var context = new TestOutputContext("export-dispose-idle.scene");
+        var item = new OutputProfileItem(context, editor, TestShell.Editor);
+
+        item.Dispose();
+        item.Dispose();
+
+        Assert.That(context.DisposeCount, Is.EqualTo(1));
+        AssertWorktreeMutationAvailable();
+    }
+
+    private static void AssertWorktreeMutationBlocked()
+    {
+        IDisposable? operation = TestShell.Editor.TryBeginWorktreeMutation();
+        try
+        {
+            Assert.That(operation, Is.Null);
+        }
+        finally
+        {
+            operation?.Dispose();
+        }
+    }
+
+    private static void AssertWorktreeMutationAvailable()
+    {
+        IDisposable? operation = TestShell.Editor.TryBeginWorktreeMutation();
+        try
+        {
+            Assert.That(operation, Is.Not.Null);
+        }
+        finally
+        {
+            operation?.Dispose();
+        }
     }
 
     // B2 (b) — selecting a real FFmpeg encoder and running the full export is BLOCKED headless, so

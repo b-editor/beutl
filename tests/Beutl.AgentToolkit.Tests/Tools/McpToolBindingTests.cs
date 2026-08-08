@@ -318,6 +318,7 @@ public sealed class McpToolBindingTests
                 .AddSingleton<QualityAnalyzer>()
                 .AddSingleton<EncoderRegistration>()
                 .AddSingleton<VideoExporter>()
+                .AddSingleton<IOutputOperationLeaseProvider>(StandaloneOutputOperationLeaseProvider.Instance)
                 .AddSingleton<RenderJobManager>()
                 .AddSingleton<FileSessionSource>()
                 .AddSingleton<IProjectSessionGateway, FileProjectSessionGateway>()
@@ -348,7 +349,7 @@ public sealed class McpToolBindingTests
         public async ValueTask DisposeAsync()
         {
             await _host.StopAsync().ConfigureAwait(false);
-            _host.Dispose();
+            await ((IAsyncDisposable)_host).DisposeAsync().ConfigureAwait(false);
             _clientInput.Dispose();
             _serverOutput.Dispose();
             _serverInput.Dispose();

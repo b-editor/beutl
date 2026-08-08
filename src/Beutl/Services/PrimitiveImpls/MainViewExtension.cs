@@ -46,6 +46,8 @@ public class MainViewExtension : ViewExtension
             new ContextCommandKeyGesture("Ctrl+Shift+S"),
             new ContextCommandKeyGesture("Cmd+Shift+S", OSPlatform.OSX),
         ]),
+        new("EnableVersionControl", Strings.VersionControl_Enable, "", []),
+        new("CommitVersion", Strings.VersionControl_Commit, "", []),
         new("CloseProject", Strings.CloseProject, Strings.CloseProject_Description,
         [
             new ContextCommandKeyGesture("Ctrl+Shift+F4"),

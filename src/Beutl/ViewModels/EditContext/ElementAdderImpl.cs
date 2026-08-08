@@ -32,6 +32,11 @@ internal sealed class ElementAdderImpl(EditViewModel context) : IElementAdder
         _logger.LogInformation("Adding new element with description: {Description}", desc);
 
         Scene scene = _context.Scene;
+        if (!EnsureSceneIsSaved(scene))
+        {
+            return;
+        }
+
         if (scene.IsLayerLocked(desc.Layer))
         {
             NotificationService.ShowWarning(Strings.Lock, Strings.LayerIsLocked);
@@ -42,13 +47,14 @@ internal sealed class ElementAdderImpl(EditViewModel context) : IElementAdder
         {
             _logger.LogDebug("Creating new element with start: {Start}, length: {Length}, layer: {Layer}", desc.Start,
                 desc.Length, desc.Layer);
-            return new Element()
+            var element = new Element
             {
                 Start = desc.Start,
                 Length = desc.Length,
                 ZIndex = desc.Layer,
-                Uri = RandomFileNameGenerator.GenerateUri(scene.Uri!, EditorConstants.ElementFileExtension)
             };
+            element.Uri = ElementFileNaming.GetUri(scene.Uri!, element.Id);
+            return element;
         }
 
         void SetAccentColor(Element element, string str)
@@ -256,6 +262,11 @@ internal sealed class ElementAdderImpl(EditViewModel context) : IElementAdder
         _logger.LogInformation("Adding element from template: {TemplateName}", template.Name.Value);
 
         Scene scene = _context.Scene;
+        if (!EnsureSceneIsSaved(scene))
+        {
+            return;
+        }
+
         if (scene.IsLayerLocked(layer))
         {
             NotificationService.ShowWarning(Strings.Lock, Strings.LayerIsLocked);
@@ -295,7 +306,7 @@ internal sealed class ElementAdderImpl(EditViewModel context) : IElementAdder
             return;
         }
 
-        newElement.Uri = RandomFileNameGenerator.GenerateUri(scene.Uri!, EditorConstants.ElementFileExtension);
+        newElement.Uri = ElementFileNaming.GetUri(scene.Uri!, newElement.Id);
 
         CoreSerializer.StoreToUri(newElement, newElement.Uri!);
         scene.AddChild(newElement);
@@ -305,6 +316,20 @@ internal sealed class ElementAdderImpl(EditViewModel context) : IElementAdder
         timeline?.ScrollTo.Execute((newElement.Range, newElement.ZIndex));
 
         _logger.LogInformation("Element from template added successfully.");
+    }
+
+    private bool EnsureSceneIsSaved(Scene scene)
+    {
+        if (scene.Uri is not null)
+        {
+            return true;
+        }
+
+        _logger.LogWarning("Cannot add an element before the scene is saved.");
+        NotificationService.ShowWarning(
+            Strings.File,
+            Strings.ElementAdder_ProjectNotSaved);
+        return false;
     }
 
     private static bool MatchFileExtensions(string filePath, IEnumerable<string> extensions)

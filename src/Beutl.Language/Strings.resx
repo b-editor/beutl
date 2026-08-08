@@ -983,6 +983,9 @@
   <data name="Duplicate_FallbackFailed" xml:space="preserve">
     <value>The move fallback also failed; the timeline state may not match what you see.</value>
   </data>
+  <data name="ElementAdder_ProjectNotSaved" xml:space="preserve">
+    <value>Save the project before adding clips.</value>
+  </data>
   <data name="AboutBeutl" xml:space="preserve">
     <value>About Beutl</value>
   </data>
@@ -1524,5 +1527,312 @@ Example: GetProperty&lt;double&gt;("{GUID}.Opacity")</value>
   </data>
   <data name="ProxyJobStatusWithMessageFormat" xml:space="preserve">
     <value>{0}: {1}</value>
+  </data>
+  <data name="VersionControl" xml:space="preserve">
+    <value>Version Control</value>
+  </data>
+  <data name="VersionControl_Enable" xml:space="preserve">
+    <value>Enable Version Control…</value>
+  </data>
+  <data name="VersionControl_UntrackedExplanation" xml:space="preserve">
+    <value>Track this project with Git to record versions automatically when you save.</value>
+  </data>
+  <data name="VersionControl_DownloadGit" xml:space="preserve">
+    <value>Download Git</value>
+  </data>
+  <data name="VersionControl_TrackHistory" xml:space="preserve">
+    <value>Track history with Git</value>
+  </data>
+  <data name="VersionControl_Commit" xml:space="preserve">
+    <value>Commit Version…</value>
+  </data>
+  <data name="VersionControl_Push" xml:space="preserve">
+    <value>Push</value>
+  </data>
+  <data name="VersionControl_Pull" xml:space="preserve">
+    <value>Pull</value>
+  </data>
+  <data name="VersionControl_Restore" xml:space="preserve">
+    <value>Restore</value>
+  </data>
+  <data name="VersionControl_RestoreToNewBranch" xml:space="preserve">
+    <value>Restore to New Branch…</value>
+  </data>
+  <data name="VersionControl_NewBranch" xml:space="preserve">
+    <value>New Branch…</value>
+  </data>
+  <data name="VersionControl_Switch" xml:space="preserve">
+    <value>Switch</value>
+  </data>
+  <data name="VersionControl_History" xml:space="preserve">
+    <value>Version History</value>
+  </data>
+  <data name="VersionControl_ChangedFiles" xml:space="preserve">
+    <value>Changed Files</value>
+  </data>
+  <data name="VersionControl_CommitMessage" xml:space="preserve">
+    <value>Commit message</value>
+  </data>
+  <data name="VersionControl_SnapshotManual" xml:space="preserve">
+    <value>Manual</value>
+  </data>
+  <data name="VersionControl_SnapshotSave" xml:space="preserve">
+    <value>Saved</value>
+  </data>
+  <data name="VersionControl_SnapshotClose" xml:space="preserve">
+    <value>Closed</value>
+  </data>
+  <data name="VersionControl_SnapshotSafety" xml:space="preserve">
+    <value>Safety Snapshot</value>
+  </data>
+  <data name="VersionControl_SnapshotRestore" xml:space="preserve">
+    <value>Restored</value>
+  </data>
+  <data name="VersionControl_SnapshotRecovery" xml:space="preserve">
+    <value>Recovered</value>
+  </data>
+  <data name="VersionControl_SnapshotInit" xml:space="preserve">
+    <value>Initialized</value>
+  </data>
+  <data name="VersionControl_NothingToCommit" xml:space="preserve">
+    <value>There is nothing new to record.</value>
+  </data>
+  <data name="VersionControl_CommitNow" xml:space="preserve">
+    <value>Commit</value>
+  </data>
+  <data name="VersionControl_CommitCreated" xml:space="preserve">
+    <value>The version was recorded.</value>
+  </data>
+  <data name="VersionControl_GitNotInstalled" xml:space="preserve">
+    <value>Git is required to track project history.</value>
+  </data>
+  <data name="VersionControl_GitTooOldFormat" xml:space="preserve">
+    <value>Git 2.23 or later is required. The installed version is {0}.</value>
+  </data>
+  <data name="VersionControl_InstallGitWindows" xml:space="preserve">
+    <value>Install Git for Windows, then restart Beutl.</value>
+  </data>
+  <data name="VersionControl_InstallGitMacOS" xml:space="preserve">
+    <value>Install the Xcode Command Line Tools or Git with Homebrew, then restart Beutl.</value>
+  </data>
+  <data name="VersionControl_InstallGitLinux" xml:space="preserve">
+    <value>Install Git with your distribution's package manager, then restart Beutl.</value>
+  </data>
+  <data name="VersionControl_ErrorTitle" xml:space="preserve">
+    <value>Version Control Error</value>
+  </data>
+  <data name="VersionControl_ConflictGuidance" xml:space="preserve">
+    <value>This repository has unresolved conflicts. Resolve them with an external Git tool before continuing.</value>
+  </data>
+  <data name="VersionControl_ConflictMarkerWarningTitle" xml:space="preserve">
+    <value>Conflict Markers Detected</value>
+  </data>
+  <data name="VersionControl_ConflictMarkerWarning" xml:space="preserve">
+    <value>The project contains unresolved conflict markers in:
+
+{0}
+
+Resolve the conflicts with an external Git tool before editing. The project may not open correctly.</value>
+  </data>
+  <data name="VersionControl_IdentityTitle" xml:space="preserve">
+    <value>Set Commit Identity</value>
+  </data>
+  <data name="VersionControl_IdentityName" xml:space="preserve">
+    <value>Name</value>
+  </data>
+  <data name="VersionControl_IdentityEmail" xml:space="preserve">
+    <value>Email</value>
+  </data>
+  <data name="VersionControl_MissingIdentityNotice" xml:space="preserve">
+    <value>Automatic version-control snapshots are paused because this repository has no commit identity. Create a manual version to set a repository-local name and email, then save again.</value>
+  </data>
+  <data name="VersionControl_RestoreConfirmation" xml:space="preserve">
+    <value>The project will close and reopen, and the current undo history will be cleared. Continue?</value>
+  </data>
+  <data name="VersionControl_ExportInProgress" xml:space="preserve">
+    <value>This version control operation is unavailable while an export is running.</value>
+  </data>
+  <data name="VersionControl_RecoveryFailed" xml:space="preserve">
+    <value>The operation failed, and the original project state could not be recovered. Operation error: {0} Recovery error: {1}</value>
+  </data>
+  <data name="VersionControl_PullTransitionUncertain" xml:space="preserve">
+    <value>The protected repository transition lost ownership or could not verify recovery. Use Recover Project in Version Control, or reopen the project from Recent Projects to recover it before loading. If Beutl cannot safely change the worktree, it preserves the checkpoint at a durable Git reference.</value>
+  </data>
+  <data name="VersionControl_PendingPullRecoveryConfirmation" xml:space="preserve">
+    <value>A protected pull for {0} did not finish cleanly at {1:g}. Recover the saved project state before loading the project? Any project state replaced by recovery will be reloaded, clearing its undo history.</value>
+  </data>
+  <data name="VersionControl_PendingPullRecoveryGuidance" xml:space="preserve">
+    <value>A protected pull did not finish cleanly. A saved project state is available for recovery.</value>
+  </data>
+  <data name="VersionControl_RecoverPendingPull" xml:space="preserve">
+    <value>Recover Project</value>
+  </data>
+  <data name="VersionControl_PullRecovered" xml:space="preserve">
+    <value>The pull could not be completed, but the saved project state was recovered.</value>
+  </data>
+  <data name="VersionControl_CheckpointReappliedOnRecoveryBranch" xml:space="preserve">
+    <value>The saved project state was restored as local changes. A durable copy remains on branch '{0}'.</value>
+  </data>
+  <data name="VersionControl_CheckpointPreservedOnRecoveryBranch" xml:space="preserve">
+    <value>Beutl could not safely change the current worktree. The saved project state remains at Git reference '{0}'. Inspect that reference with Git.</value>
+  </data>
+  <data name="VersionControl_BranchFormat" xml:space="preserve">
+    <value>Branch: {0}</value>
+  </data>
+  <data name="VersionControl_CurrentBranch" xml:space="preserve">
+    <value>Current branch</value>
+  </data>
+  <data name="VersionControl_Branches" xml:space="preserve">
+    <value>Branches</value>
+  </data>
+  <data name="VersionControl_AheadBehindFormat" xml:space="preserve">
+    <value>{0} ahead, {1} behind</value>
+  </data>
+  <data name="VersionControl_DirtySummaryFormat" xml:space="preserve">
+    <value>{0} changed file(s)</value>
+  </data>
+  <data name="VersionControl_WorktreeClean" xml:space="preserve">
+    <value>Working tree clean</value>
+  </data>
+  <data name="VersionControl_LoadMore" xml:space="preserve">
+    <value>Load More</value>
+  </data>
+  <data name="VersionControl_Diff" xml:space="preserve">
+    <value>Diff</value>
+  </data>
+  <data name="VersionControl_NoRepository" xml:space="preserve">
+    <value>This project is not tracked with Git.</value>
+  </data>
+  <data name="VersionControl_NoHistory" xml:space="preserve">
+    <value>No versions have been recorded yet.</value>
+  </data>
+  <data name="VersionControl_HistoryEmptyHint" xml:space="preserve">
+    <value>No versions yet — saving the project records one automatically</value>
+  </data>
+  <data name="VersionControl_ChangedFilesEmptyHint" xml:space="preserve">
+    <value>Select a version to see its changes</value>
+  </data>
+  <data name="VersionControl_DiffEmptyHint" xml:space="preserve">
+    <value>Select a file to see its diff</value>
+  </data>
+  <data name="VersionControl_TimeJustNow" xml:space="preserve">
+    <value>Just now</value>
+  </data>
+  <data name="VersionControl_TimeMinuteAgo" xml:space="preserve">
+    <value>1 minute ago</value>
+  </data>
+  <data name="VersionControl_TimeMinutesAgoFormat" xml:space="preserve">
+    <value>{0} minutes ago</value>
+  </data>
+  <data name="VersionControl_TimeHourAgo" xml:space="preserve">
+    <value>1 hour ago</value>
+  </data>
+  <data name="VersionControl_TimeHoursAgoFormat" xml:space="preserve">
+    <value>{0} hours ago</value>
+  </data>
+  <data name="VersionControl_TimeDayAgo" xml:space="preserve">
+    <value>1 day ago</value>
+  </data>
+  <data name="VersionControl_TimeDaysAgoFormat" xml:space="preserve">
+    <value>{0} days ago</value>
+  </data>
+  <data name="VersionControl_BranchName" xml:space="preserve">
+    <value>Branch name</value>
+  </data>
+  <data name="VersionControl_CreateBranchTitle" xml:space="preserve">
+    <value>Restore to a New Branch</value>
+  </data>
+  <data name="VersionControl_CreateBranch" xml:space="preserve">
+    <value>Create Branch</value>
+  </data>
+  <data name="VersionControl_SwitchBranch" xml:space="preserve">
+    <value>Switch Branch</value>
+  </data>
+  <data name="VersionControl_SwitchBranchConfirmation" xml:space="preserve">
+    <value>The project will close and reopen on branch "{0}", and the current undo history will be cleared. Any saved changes will be recorded in a safety snapshot first. Continue?</value>
+  </data>
+  <data name="VersionControl_PullConfirmation" xml:space="preserve">
+    <value>The project will close and reopen after pulling fast-forward updates, and the current undo history will be cleared. Any saved changes will be recorded in a safety snapshot first. Continue?</value>
+  </data>
+  <data name="VersionControl_EnclosingRepositoryScopeFormat" xml:space="preserve">
+    <value>Branch and remote operations apply to the enclosing repository: {0}</value>
+  </data>
+  <data name="VersionControl_RemoteUrl" xml:space="preserve">
+    <value>Remote URL</value>
+  </data>
+  <data name="VersionControl_SetRemote" xml:space="preserve">
+    <value>Set remote…</value>
+  </data>
+  <data name="VersionControl_SetRemoteTitle" xml:space="preserve">
+    <value>Set Remote</value>
+  </data>
+  <data name="VersionControl_UpToDate" xml:space="preserve">
+    <value>Up to date</value>
+  </data>
+  <data name="VersionControl_PublishBranch" xml:space="preserve">
+    <value>Publish branch…</value>
+  </data>
+  <data name="VersionControl_PullCountFormat" xml:space="preserve">
+    <value>Pull ↓{0}</value>
+  </data>
+  <data name="VersionControl_PushCountFormat" xml:space="preserve">
+    <value>Push ↑{0}</value>
+  </data>
+  <data name="VersionControl_RemoteConnected" xml:space="preserve">
+    <value>The remote was connected.</value>
+  </data>
+  <data name="VersionControl_Pushing" xml:space="preserve">
+    <value>Pushing versions…</value>
+  </data>
+  <data name="VersionControl_Pulling" xml:space="preserve">
+    <value>Pulling versions…</value>
+  </data>
+  <data name="VersionControl_RemoteOperationSucceeded" xml:space="preserve">
+    <value>The remote operation completed.</value>
+  </data>
+  <data name="VersionControl_RemoteOperationCanceled" xml:space="preserve">
+    <value>The remote operation was canceled.</value>
+  </data>
+  <data name="VersionControl_LfsQuotaNotice" xml:space="preserve">
+    <value>Large media is stored with Git LFS. Remote hosting quotas may apply to LFS storage and bandwidth.</value>
+  </data>
+  <data name="VersionControl_LargeMediaWarningFormat" xml:space="preserve">
+    <value>{0} is large and Git LFS is not active. Committing it can permanently increase repository history size. The commit will continue.</value>
+  </data>
+  <data name="VersionControl_EnclosingRepositoryFound" xml:space="preserve">
+    <value>This project is inside an existing Git repository.</value>
+  </data>
+  <data name="VersionControl_UseEnclosingRepository" xml:space="preserve">
+    <value>Use Enclosing Repository</value>
+  </data>
+  <data name="VersionControl_LeaveUnmanaged" xml:space="preserve">
+    <value>Leave Unmanaged</value>
+  </data>
+  <data name="VersionControl_AuthenticationFailed" xml:space="preserve">
+    <value>Authentication failed. Check your Git credential helper or SSH agent.</value>
+  </data>
+  <data name="VersionControl_Diverged" xml:space="preserve">
+    <value>The local and remote histories have diverged. Resolve this with an external Git tool.</value>
+  </data>
+  <data name="VersionControl_RepositoryDirty" xml:space="preserve">
+    <value>Pull requires the entire repository to be clean. Commit or stash changes outside the project, then try again.</value>
+  </data>
+  <data name="VersionControl_Offline" xml:space="preserve">
+    <value>The remote could not be reached. Check your network connection and try again.</value>
+  </data>
+  <data name="VersionControl_StaleLockGuidance" xml:space="preserve">
+    <value>A stale Git repository lock is blocking version control operations.</value>
+  </data>
+  <data name="VersionControl_RemoveStaleLock" xml:space="preserve">
+    <value>Remove Stale Lock</value>
+  </data>
+  <data name="VersionControl_StaleLockConfirmation" xml:space="preserve">
+    <value>Git left a repository lock more than 10 minutes ago, and Beutl has no active Git process. Remove the stale lock?</value>
+  </data>
+  <data name="VersionControl_StaleLockRemoved" xml:space="preserve">
+    <value>The stale Git repository lock was removed. Retry the version control operation.</value>
+  </data>
+  <data name="VersionControl_WorktreeOperationInProgress" xml:space="preserve">
+    <value>Project files are being updated by version control. Wait for the operation to finish, then try again.</value>
   </data>
 </root>

@@ -1,0 +1,250 @@
+<UserControl x:Name="Root"
+             x:Class="Beutl.Editor.Components.VersionControlTab.Views.VersionControlTabView"
+             xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:lang="using:Beutl.Language"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:views="using:Beutl.Editor.Components.VersionControlTab.Views"
+             xmlns:vm="using:Beutl.Editor.Components.VersionControlTab.ViewModels"
+             d:DesignHeight="640"
+             d:DesignWidth="420"
+             x:CompileBindings="True"
+             x:DataType="vm:VersionControlTabViewModel"
+             mc:Ignorable="d">
+    <UserControl.Styles>
+        <Style Selector="TextBlock.sectionHeader">
+            <Setter Property="FontSize" Value="12" />
+            <Setter Property="FontWeight" Value="SemiBold" />
+            <Setter Property="Foreground" Value="{DynamicResource TextFillColorSecondaryBrush}" />
+        </Style>
+        <Style Selector="TextBlock.secondary">
+            <Setter Property="FontSize" Value="11" />
+            <Setter Property="Foreground" Value="{DynamicResource TextFillColorSecondaryBrush}" />
+            <Setter Property="TextTrimming" Value="CharacterEllipsis" />
+        </Style>
+        <Style Selector="Border.kindBadge">
+            <Setter Property="Padding" Value="6,2" />
+            <Setter Property="Background" Value="{DynamicResource SubtleFillColorSecondaryBrush}" />
+            <Setter Property="CornerRadius" Value="8" />
+        </Style>
+        <Style Selector="Border.kindBadge.manual">
+            <Setter Property="Background" Value="{DynamicResource AccentFillColorSecondaryBrush}" />
+        </Style>
+        <Style Selector="Border.kindBadge.close">
+            <Setter Property="Background" Value="{DynamicResource SubtleFillColorSecondaryBrush}" />
+        </Style>
+        <Style Selector="Border.kindBadge.init">
+            <Setter Property="Background" Value="{DynamicResource SubtleFillColorSecondaryBrush}" />
+        </Style>
+        <Style Selector="Border.kindBadge.restore">
+            <Setter Property="Background" Value="{DynamicResource SystemFillColorSuccessBackgroundBrush}" />
+        </Style>
+        <Style Selector="Border.kindBadge.safety">
+            <Setter Property="Background" Value="{DynamicResource SystemFillColorCautionBackgroundBrush}" />
+        </Style>
+        <Style Selector="Border.kindBadge.save">
+            <Setter Property="Background" Value="{DynamicResource SubtleFillColorSecondaryBrush}" />
+        </Style>
+        <Style Selector="TextBlock.diffLine">
+            <Setter Property="FontFamily" Value="Consolas, Menlo, monospace" />
+            <Setter Property="FontSize" Value="12" />
+            <Setter Property="TextWrapping" Value="NoWrap" />
+        </Style>
+        <Style Selector="TextBlock.diffLine.added">
+            <Setter Property="Foreground" Value="{DynamicResource SystemFillColorSuccessBrush}" />
+        </Style>
+        <Style Selector="TextBlock.diffLine.removed">
+            <Setter Property="Foreground" Value="{DynamicResource SystemFillColorCriticalBrush}" />
+        </Style>
+        <Style Selector="TextBlock.diffLine.header">
+            <Setter Property="Foreground" Value="{DynamicResource AccentTextFillColorPrimaryBrush}" />
+        </Style>
+        <Style Selector="SplitButton.primaryDisabled /template/ Button#PART_PrimaryButton">
+            <Setter Property="IsEnabled" Value="False" />
+        </Style>
+    </UserControl.Styles>
+
+    <Grid RowDefinitions="Auto,*">
+        <Border x:Name="PendingPullRecoveryBanner"
+                Grid.Row="0"
+                Margin="8"
+                Padding="10"
+                Background="{DynamicResource SystemFillColorCautionBackgroundBrush}"
+                CornerRadius="4"
+                IsVisible="{Binding HasPendingPullRecovery.Value}">
+            <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
+                <TextBlock VerticalAlignment="Center"
+                           Text="{x:Static lang:Strings.VersionControl_PendingPullRecoveryGuidance}"
+                           TextWrapping="Wrap" />
+                <Button x:Name="RecoverPendingPullButton"
+                        Grid.Column="1"
+                        Command="{Binding RecoverPendingPullCommand}"
+                        Content="{x:Static lang:Strings.VersionControl_RecoverPendingPull}" />
+            </Grid>
+        </Border>
+
+        <Border Grid.Row="1"
+                Margin="20"
+                HorizontalAlignment="Center"
+                VerticalAlignment="Center"
+                IsVisible="{Binding HasBlockingGuidance.Value}">
+            <StackPanel HorizontalAlignment="Center" Spacing="12">
+                <TextBlock MaxWidth="360"
+                           Text="{Binding StatusMessage.Value}"
+                           TextAlignment="Center"
+                           TextWrapping="Wrap" />
+                <HyperlinkButton x:Name="DownloadGitButton"
+                                 HorizontalAlignment="Center"
+                                 Command="{Binding DownloadGitCommand}"
+                                 Content="{x:Static lang:Strings.VersionControl_DownloadGit}"
+                                 IsVisible="{Binding IsUnavailable.Value}" />
+            </StackPanel>
+        </Border>
+
+        <Grid Grid.Row="1"
+              IsVisible="{Binding !HasBlockingGuidance.Value}"
+              RowDefinitions="Auto,Auto,*">
+            <Border Grid.Row="0"
+                    Padding="10,8"
+                    BorderBrush="{DynamicResource DividerStrokeColorDefaultBrush}"
+                    BorderThickness="0,0,0,1"
+                    IsVisible="{Binding IsTracked.Value}">
+                <Grid RowDefinitions="Auto,Auto">
+                    <TextBlock Classes="secondary"
+                               Text="{Binding DirtySummary.Value}" />
+                    <TextBlock Grid.Row="1"
+                               Margin="0,4,0,0"
+                               Classes="secondary"
+                               IsVisible="{Binding IsNestedRepository.Value}"
+                               Text="{Binding RepositoryScopeText.Value}"
+                               TextWrapping="Wrap" />
+                </Grid>
+            </Border>
+
+            <StackPanel Grid.Row="1">
+                <Border Margin="8"
+                        Padding="10"
+                        Background="{DynamicResource SystemFillColorCautionBackgroundBrush}"
+                        CornerRadius="4"
+                        IsVisible="{Binding HasRecoverableLock.Value}">
+                    <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
+                        <TextBlock VerticalAlignment="Center"
+                                   Text="{x:Static lang:Strings.VersionControl_StaleLockGuidance}"
+                                   TextWrapping="Wrap" />
+                        <Button Grid.Column="1"
+                                Command="{Binding RemoveStaleLockCommand}"
+                                Content="{x:Static lang:Strings.VersionControl_RemoveStaleLock}" />
+                    </Grid>
+                </Border>
+            </StackPanel>
+
+            <Grid Grid.Row="2">
+                <Border x:Name="UntrackedProjectPanel"
+                        Margin="20"
+                        Padding="20"
+                        HorizontalAlignment="Center"
+                        VerticalAlignment="Center"
+                        BorderBrush="{DynamicResource CardStrokeColorDefaultBrush}"
+                        BorderThickness="1"
+                        CornerRadius="8"
+                        IsVisible="{Binding !IsTracked.Value}">
+                    <StackPanel MaxWidth="340" HorizontalAlignment="Center" Spacing="10">
+                        <TextBlock FontSize="16"
+                                   FontWeight="SemiBold"
+                                   Text="{x:Static lang:Strings.VersionControl_NoRepository}"
+                                   TextAlignment="Center"
+                                   TextWrapping="Wrap" />
+                        <TextBlock Classes="secondary"
+                                   Text="{x:Static lang:Strings.VersionControl_UntrackedExplanation}"
+                                   TextAlignment="Center"
+                                   TextWrapping="Wrap" />
+                        <Button x:Name="EnableVersionControlButton"
+                                HorizontalAlignment="Center"
+                                Command="{Binding EnableVersionControlCommand}"
+                                Content="{x:Static lang:Strings.VersionControl_Enable}"
+                                IsVisible="{Binding CanEnableVersionControl.Value}" />
+                    </StackPanel>
+                </Border>
+
+                <Grid IsVisible="{Binding IsTracked.Value}"
+                      RowDefinitions="Auto,*">
+                    <Grid x:Name="CommitComposer"
+                          Margin="8,8,8,0"
+                          RowDefinitions="Auto,Auto,Auto"
+                          RowSpacing="6">
+                        <TextBox x:Name="CommitMessageTextBox"
+                                 AcceptsReturn="True"
+                                 MaxLines="6"
+                                 MinLines="3"
+                                 ScrollViewer.VerticalScrollBarVisibility="Auto"
+                                 Text="{Binding CommitMessage.Value}"
+                                 TextWrapping="Wrap"
+                                 Watermark="{x:Static lang:Strings.VersionControl_CommitMessage}" />
+                        <SplitButton x:Name="PrimaryActionSplitButton"
+                                     Grid.Row="1"
+                                     HorizontalAlignment="Stretch"
+                                     HorizontalContentAlignment="Center"
+                                     Classes.primaryDisabled="{Binding !IsPrimaryActionEnabled.Value}"
+                                     Command="{Binding InvokePrimaryActionCommand}"
+                                     Content="{Binding PrimaryAction.Value.Label}">
+                            <SplitButton.Flyout>
+                                <MenuFlyout Placement="Pointer">
+                                    <MenuItem x:Name="CommitMenuItem"
+                                              Command="{Binding CommitCommand}"
+                                              Header="{x:Static lang:Strings.VersionControl_CommitNow}" />
+                                    <MenuItem x:Name="PushMenuItem"
+                                              Command="{Binding PushCommand}"
+                                              Header="{x:Static lang:Strings.VersionControl_Push}" />
+                                    <MenuItem x:Name="PullMenuItem"
+                                              Command="{Binding PullCommand}"
+                                              Header="{x:Static lang:Strings.VersionControl_Pull}" />
+                                    <MenuItem x:Name="SetRemoteMenuItem"
+                                              Command="{Binding SetRemoteCommand}"
+                                              Header="{x:Static lang:Strings.VersionControl_SetRemote}" />
+                                    <MenuItem x:Name="CancelRemoteOperationMenuItem"
+                                              Command="{Binding CancelRemoteOperationCommand}"
+                                              Header="{x:Static lang:Strings.Cancel}"
+                                              IsVisible="{Binding IsRemoteOperationRunning.Value}" />
+                                </MenuFlyout>
+                            </SplitButton.Flyout>
+                        </SplitButton>
+                        <TextBlock Grid.Row="2"
+                                   Classes="secondary"
+                                   IsVisible="{Binding IsRemoteOperationRunning.Value}"
+                                   Text="{Binding RemoteProgress.Value}"
+                                   TextTrimming="CharacterEllipsis" />
+                    </Grid>
+
+                    <Grid x:Name="WideLayoutRoot"
+                          Grid.Row="1"
+                          ColumnDefinitions="2*,5,3*"
+                          IsVisible="{Binding !#Root.IsNarrowLayout}">
+                        <views:VersionControlHistoryView x:Name="WideHistoryView"
+                                                         Grid.Column="0" />
+                        <GridSplitter Grid.Column="1"
+                                      Background="{DynamicResource DividerStrokeColorDefaultBrush}"
+                                      ResizeDirection="Columns" />
+                        <views:VersionControlChangesView x:Name="WideChangesView"
+                                                         Grid.Column="2" />
+                    </Grid>
+
+                    <Grid x:Name="NarrowLayoutRoot"
+                          Grid.Row="1"
+                          IsVisible="{Binding #Root.IsNarrowLayout}">
+                        <views:VersionControlHistoryView x:Name="NarrowHistoryRoot"
+                                                         DrillDownOnSelection="True"
+                                                         IsVisible="{Binding !ShowingDetail.Value}" />
+                        <Grid x:Name="NarrowDetailRoot"
+                              IsVisible="{Binding ShowingDetail.Value}"
+                              RowDefinitions="Auto,*">
+                            <views:VersionControlDetailHeaderView x:Name="NarrowDetailHeader" />
+                            <views:VersionControlChangesView x:Name="NarrowChangesView"
+                                                             Grid.Row="1" />
+                        </Grid>
+                    </Grid>
+                </Grid>
+            </Grid>
+        </Grid>
+    </Grid>
+</UserControl>

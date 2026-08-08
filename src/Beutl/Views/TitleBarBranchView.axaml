@@ -1,0 +1,132 @@
+<UserControl x:Class="Beutl.Views.TitleBarBranchView"
+             xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:icons="using:FluentIcons.Avalonia.Fluent"
+             xmlns:lang="using:Beutl.Language"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:vm="using:Beutl.Editor.Components.VersionControl.ViewModels"
+             d:DesignHeight="36"
+             d:DesignWidth="180"
+             x:CompileBindings="True"
+             x:DataType="vm:TitleBarBranchViewModel"
+             IsVisible="{Binding IsVisible.Value}"
+             mc:Ignorable="d">
+    <UserControl.Styles>
+        <Style Selector="TextBlock.branchName.current">
+            <Setter Property="FontWeight" Value="SemiBold" />
+        </Style>
+    </UserControl.Styles>
+
+    <Button x:Name="TitleBarBranchButton"
+            VerticalAlignment="Center"
+            Theme="{StaticResource LiteButtonStyle}"
+            ToolTip.Tip="{Binding AheadBehindText.Value}">
+        <Button.Flyout>
+            <Flyout FlyoutPresenterTheme="{StaticResource CompactFlyoutPresenterTheme}"
+                    Opening="OnBranchFlyoutOpening">
+                <StackPanel MaxWidth="320" Spacing="4">
+                    <Border Padding="16,4">
+                        <StackPanel Spacing="4">
+                            <TextBlock FontSize="11"
+                                       Foreground="{DynamicResource TextFillColorSecondaryBrush}"
+                                       Text="{x:Static lang:Strings.VersionControl_CurrentBranch}" />
+                            <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="8">
+                                <icons:FluentIcon VerticalAlignment="Center"
+                                                  FontSize="16"
+                                                  Icon="BranchFork" />
+                                <TextBlock x:Name="CurrentBranchHeader"
+                                           Grid.Column="1"
+                                           VerticalAlignment="Center"
+                                           FontWeight="SemiBold"
+                                           Text="{Binding CurrentBranchName.Value}"
+                                           TextTrimming="CharacterEllipsis" />
+                                <StackPanel Grid.Column="2"
+                                            VerticalAlignment="Center"
+                                            Orientation="Horizontal"
+                                            Spacing="4">
+                                    <Border Padding="6,1"
+                                            Background="{DynamicResource SubtleFillColorSecondaryBrush}"
+                                            CornerRadius="8"
+                                            IsVisible="{Binding HasAhead.Value}">
+                                        <TextBlock FontSize="10"
+                                                   Text="{Binding AheadCount.Value, StringFormat='↑{0}'}" />
+                                    </Border>
+                                    <Border Padding="6,1"
+                                            Background="{DynamicResource SubtleFillColorSecondaryBrush}"
+                                            CornerRadius="8"
+                                            IsVisible="{Binding HasBehind.Value}">
+                                        <TextBlock FontSize="10"
+                                                   Text="{Binding BehindCount.Value, StringFormat='↓{0}'}" />
+                                    </Border>
+                                </StackPanel>
+                            </Grid>
+                        </StackPanel>
+                    </Border>
+
+                    <Separator Height="1" Background="{DynamicResource DividerStrokeColorDefaultBrush}" />
+
+                    <TextBlock Margin="16,4,16,0"
+                               FontSize="11"
+                               Foreground="{DynamicResource TextFillColorSecondaryBrush}"
+                               Text="{x:Static lang:Strings.VersionControl_Branches}" />
+
+                    <ScrollViewer MaxHeight="320"
+                                  HorizontalScrollBarVisibility="Disabled"
+                                  VerticalScrollBarVisibility="Auto">
+                        <ItemsControl x:Name="BranchList"
+                                      ItemsSource="{Binding Branches}">
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate x:DataType="vm:TitleBarBranchItemViewModel">
+                                    <Button HorizontalContentAlignment="Stretch"
+                                            Click="OnBranchClick"
+                                            IsEnabled="{Binding CanSwitch.Value}"
+                                            Theme="{StaticResource CompactFlyoutItemButtonTheme}">
+                                        <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
+                                            <TextBlock VerticalAlignment="Center"
+                                                       Classes.current="{Binding IsCurrent}"
+                                                       Classes="branchName"
+                                                       Text="{Binding Name}"
+                                                       TextTrimming="CharacterEllipsis" />
+                                            <icons:FluentIcon x:Name="CurrentBranchMark"
+                                                              Grid.Column="1"
+                                                              HorizontalAlignment="Right"
+                                                              VerticalAlignment="Center"
+                                                              FontSize="13"
+                                                              Foreground="{DynamicResource AccentTextFillColorPrimaryBrush}"
+                                                              Icon="Checkmark"
+                                                              IsVisible="{Binding IsCurrent}" />
+                                        </Grid>
+                                    </Button>
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+                    </ScrollViewer>
+
+                    <Separator Height="1" Background="{DynamicResource DividerStrokeColorDefaultBrush}" />
+
+                    <Button HorizontalContentAlignment="Stretch"
+                            Command="{Binding CreateBranchCommand}"
+                            Theme="{StaticResource CompactFlyoutItemButtonTheme}">
+                        <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
+                            <TextBlock VerticalAlignment="Center"
+                                       Text="{x:Static lang:Strings.VersionControl_NewBranch}" />
+                            <icons:FluentIcon Grid.Column="1"
+                                              HorizontalAlignment="Right"
+                                              VerticalAlignment="Center"
+                                              FontSize="14"
+                                              Icon="Add" />
+                        </Grid>
+                    </Button>
+                </StackPanel>
+            </Flyout>
+        </Button.Flyout>
+        <StackPanel Orientation="Horizontal" Spacing="5">
+            <icons:FluentIcon VerticalAlignment="Center" Icon="BranchFork" />
+            <TextBlock MaxWidth="220"
+                       VerticalAlignment="Center"
+                       Text="{Binding DisplayText.Value}"
+                       TextTrimming="CharacterEllipsis" />
+        </StackPanel>
+    </Button>
+</UserControl>

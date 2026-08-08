@@ -25,15 +25,19 @@ public sealed class AgentHostEndpoint : IAsyncDisposable
 {
     internal const int DefaultPort = 59737;
 
-    private static readonly TimeSpan s_shutdownTimeout = TimeSpan.FromSeconds(2);
     private static readonly ILogger s_logger = Log.CreateLogger<AgentHostEndpoint>();
     private readonly ProjectService _projectService;
     private readonly EditorService _editorService;
     private readonly AiAgentConfig _config;
     private readonly int _preferredPort;
+    private readonly Func<CancellationToken, Task> _beforeStopAsync;
+    private readonly Func<CancellationToken, Task> _afterStartAsync;
+    private readonly Func<RenderJobManager> _renderJobManagerFactory;
     private readonly object _lifecycleLock = new();
     private bool _stopRequested;
     private WebApplication? _application;
+    private Task? _startTask;
+    private Task? _drainTask;
 
     public AgentHostEndpoint(ProjectService projectService, EditorService editorService)
         : this(projectService, editorService, GlobalConfiguration.Instance.AiAgentConfig)
@@ -91,7 +95,33 @@ public sealed class AgentHostEndpoint : IAsyncDisposable
     }
 
     internal AgentHostEndpoint(ProjectService projectService, EditorService editorService, int preferredPort, string token)
-        : this(projectService, editorService, preferredPort, token, GlobalConfiguration.Instance.AiAgentConfig)
+        : this(
+            projectService,
+            editorService,
+            preferredPort,
+            token,
+            GlobalConfiguration.Instance.AiAgentConfig,
+            static _ => Task.CompletedTask)
+    {
+    }
+
+    internal AgentHostEndpoint(
+        ProjectService projectService,
+        EditorService editorService,
+        int preferredPort,
+        string token,
+        Func<CancellationToken, Task> beforeStopAsync,
+        Func<CancellationToken, Task>? afterStartAsync = null,
+        Func<RenderJobManager>? renderJobManagerFactory = null)
+        : this(
+            projectService,
+            editorService,
+            preferredPort,
+            token,
+            GlobalConfiguration.Instance.AiAgentConfig,
+            beforeStopAsync,
+            afterStartAsync,
+            renderJobManagerFactory)
     {
     }
 
@@ -100,7 +130,10 @@ public sealed class AgentHostEndpoint : IAsyncDisposable
         EditorService editorService,
         int preferredPort,
         string token,
-        AiAgentConfig config)
+        AiAgentConfig config,
+        Func<CancellationToken, Task>? beforeStopAsync = null,
+        Func<CancellationToken, Task>? afterStartAsync = null,
+        Func<RenderJobManager>? renderJobManagerFactory = null)
     {
         ArgumentNullException.ThrowIfNull(config);
 
@@ -118,6 +151,9 @@ public sealed class AgentHostEndpoint : IAsyncDisposable
         _editorService = editorService;
         _config = config;
         _preferredPort = preferredPort;
+        _beforeStopAsync = beforeStopAsync ?? (static _ => Task.CompletedTask);
+        _afterStartAsync = afterStartAsync ?? (static _ => Task.CompletedTask);
+        _renderJobManagerFactory = renderJobManagerFactory ?? (static () => new RenderJobManager());
         Token = token;
     }
 
@@ -125,14 +161,83 @@ public sealed class AgentHostEndpoint : IAsyncDisposable
 
     public Uri? EndpointUri { get; private set; }
 
-    public bool IsRunning => _application is not null;
-
-    public async Task StartAsync(CancellationToken cancellationToken = default)
+    public bool IsRunning
     {
+        get
+        {
+            lock (_lifecycleLock)
+            {
+                return !_stopRequested && _application is not null;
+            }
+        }
+    }
+
+    public Task StartAsync(CancellationToken cancellationToken = default)
+    {
+        TaskCompletionSource completion;
         lock (_lifecycleLock)
         {
             // A stop requested before (or during) startup must win: never start after RequestStop.
-            if (_application is not null || _stopRequested)
+            if (_stopRequested)
+            {
+                return Task.CompletedTask;
+            }
+
+            // Retain the single startup task so a concurrent stop can join startup before reporting
+            // that the endpoint is fully drained.
+            if (_startTask is not null)
+            {
+                return _startTask;
+            }
+
+            completion = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+            _startTask = completion.Task;
+        }
+
+        _ = CompleteStartAsync(completion, cancellationToken);
+        return completion.Task;
+    }
+
+    private async Task CompleteStartAsync(TaskCompletionSource completion, CancellationToken cancellationToken)
+    {
+        try
+        {
+            await StartCoreAsync(cancellationToken).ConfigureAwait(false);
+            completion.TrySetResult();
+        }
+        catch (OperationCanceledException ex)
+        {
+            ResetFailedStartAttempt(completion.Task);
+            completion.TrySetCanceled(ex.CancellationToken);
+        }
+        catch (Exception ex)
+        {
+            ResetFailedStartAttempt(completion.Task);
+            completion.TrySetException(ex);
+        }
+    }
+
+    private void ResetFailedStartAttempt(Task startTask)
+    {
+        lock (_lifecycleLock)
+        {
+            // Preserve the task when a concurrent stop already captured it for draining. Otherwise
+            // a transient cancellation or startup failure must not make this endpoint permanently
+            // unable to retry.
+            if (!_stopRequested && ReferenceEquals(_startTask, startTask))
+            {
+                _startTask = null;
+            }
+        }
+    }
+
+    private async Task StartCoreAsync(CancellationToken cancellationToken)
+    {
+        lock (_lifecycleLock)
+        {
+            // RequestStop may win after StartAsync publishes its retained task but before this
+            // runner begins. In that case there is no host to create or drain.
+            if (_stopRequested)
             {
                 return;
             }
@@ -146,6 +251,7 @@ public sealed class AgentHostEndpoint : IAsyncDisposable
             try
             {
                 await app.StartAsync(cancellationToken).ConfigureAwait(false);
+                await _afterStartAsync(cancellationToken).ConfigureAwait(false);
 
                 string address = app.Services
                     .GetRequiredService<IServer>()
@@ -160,21 +266,16 @@ public sealed class AgentHostEndpoint : IAsyncDisposable
                 lock (_lifecycleLock)
                 {
                     stopRequested = _stopRequested;
+                    // The canonical drain takes ownership after the retained startup task
+                    // completes. Keep the app reachable even when stop won during startup.
+                    _application = app;
                     if (!stopRequested)
                     {
-                        _application = app;
-                        // Publish EndpointUri only after the stop check: TakeApplication already
+                        // Publish EndpointUri only after the stop check: RequestStopCore already
                         // cleared it (while still null), so setting it before this check would leave
                         // a dead URL visible to the settings page after a stop-during-startup race.
                         EndpointUri = endpointUri;
                     }
-                }
-
-                // RequestStop ran while app.StartAsync was in flight (so it couldn't see/take
-                // _application): stop the just-started host here instead of leaving it running.
-                if (stopRequested)
-                {
-                    await StopAndDisposeAsync(app, cancellationToken).ConfigureAwait(false);
                 }
 
                 return;
@@ -182,6 +283,15 @@ public sealed class AgentHostEndpoint : IAsyncDisposable
             catch (Exception ex) when (IsAddressInUse(ex))
             {
                 await app.DisposeAsync().ConfigureAwait(false);
+
+                lock (_lifecycleLock)
+                {
+                    if (_stopRequested)
+                    {
+                        return;
+                    }
+                }
+
                 if (port >= IPEndPoint.MaxPort)
                 {
                     throw;
@@ -214,28 +324,22 @@ public sealed class AgentHostEndpoint : IAsyncDisposable
         });
     }
 
-    public async Task StopAsync(CancellationToken cancellationToken = default)
+    public Task StopAsync(CancellationToken cancellationToken = default)
     {
-        WebApplication? app = TakeApplication();
-
-        if (app is not null)
-        {
-            await StopAndDisposeAsync(app, cancellationToken).ConfigureAwait(false);
-        }
+        Task drain = RequestStopCore();
+        return cancellationToken.CanBeCanceled
+            ? drain.WaitAsync(cancellationToken)
+            : drain;
     }
 
     public void RequestStop()
     {
-        WebApplication? app = TakeApplication();
-        if (app is not null)
-        {
-            _ = StopAndDisposeWithTimeoutAsync(app);
-        }
+        _ = ObserveDrainFailureAsync(RequestStopCore());
     }
 
-    public async ValueTask DisposeAsync()
+    public ValueTask DisposeAsync()
     {
-        await StopAsync().ConfigureAwait(false);
+        return new ValueTask(RequestStopCore());
     }
 
     private WebApplication CreateApplication(int port)
@@ -261,6 +365,7 @@ public sealed class AgentHostEndpoint : IAsyncDisposable
             .AddSingleton(_ => new CreativeMemoryStore(workspaceRoot))
             .AddSingleton<AgentSessionManager>()
             .AddSingleton<IWorkspaceGuard>(_ => new WorkspaceGuard(workspaceRoot))
+            .AddSingleton<IOutputOperationLeaseProvider, EditorOutputOperationLeaseProvider>()
             .AddSingleton<DestructiveGuard>()
             .AddSingleton<StillRenderer>()
             .AddSingleton<StoryboardRenderer>()
@@ -269,7 +374,7 @@ public sealed class AgentHostEndpoint : IAsyncDisposable
             .AddSingleton<QualityAnalyzer>()
             .AddSingleton<EncoderRegistration>()
             .AddSingleton<VideoExporter>()
-            .AddSingleton<RenderJobManager>();
+            .AddSingleton(_ => _renderJobManagerFactory());
 
         builder.Services
             .AddMcpServer()
@@ -283,57 +388,124 @@ public sealed class AgentHostEndpoint : IAsyncDisposable
             .WithTools<RenderTools>();
 
         WebApplication app = builder.Build();
+        // Give the background-job manager the same explicit lifetime as this host. Resolving it
+        // here also prevents shutdown from constructing a never-used manager only to dispose it.
+        _ = app.Services.GetRequiredService<RenderJobManager>();
         app.Use(RequireToken);
         app.MapMcp("/mcp");
         return app;
     }
 
-    // Latch _stopRequested and take the app in the same critical section StartAsync uses to publish
-    // it, so a stop during an in-flight startup is never dropped (StartAsync re-checks the latch
-    // before publishing and stops the host itself if it lost the race).
-    private WebApplication? TakeApplication()
+    // Latch ingress and publish one canonical, failure-bearing drain task in the same critical
+    // section StartAsync uses. Caller cancellation only limits StopAsync's wait; it never abandons
+    // the retained cleanup that every later stop/dispose call joins.
+    private Task RequestStopCore()
     {
-        WebApplication? app;
+        TaskCompletionSource completion;
+        Task? startTask;
         lock (_lifecycleLock)
         {
             _stopRequested = true;
+            EndpointUri = null;
+
+            if (_drainTask is not null)
+            {
+                return _drainTask;
+            }
+
+            startTask = _startTask;
+            completion = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+            _drainTask = completion.Task;
+        }
+
+        _ = CompleteDrainAsync(completion, startTask);
+        return completion.Task;
+    }
+
+    private async Task CompleteDrainAsync(
+        TaskCompletionSource completion,
+        Task? startTask)
+    {
+        try
+        {
+            await DrainCoreAsync(startTask).ConfigureAwait(false);
+            completion.TrySetResult();
+        }
+        catch (OperationCanceledException ex)
+        {
+            completion.TrySetCanceled(ex.CancellationToken);
+        }
+        catch (Exception ex)
+        {
+            completion.TrySetException(ex);
+        }
+    }
+
+    private async Task DrainCoreAsync(Task? startTask)
+    {
+        if (startTask is not null)
+        {
+            try
+            {
+                await startTask.ConfigureAwait(false);
+            }
+            catch (Exception ex)
+            {
+                // StartAsync owns reporting startup failures. Its cleanup completes before the
+                // startup task faults, so observing it here is sufficient for lifecycle quiescence.
+                _ = ex;
+            }
+        }
+
+        WebApplication? app;
+        lock (_lifecycleLock)
+        {
             app = _application;
             _application = null;
         }
 
-        EndpointUri = null;
-        return app;
+        if (app is null)
+        {
+            return;
+        }
+
+        await StopAndDisposeAsync(app, CancellationToken.None).ConfigureAwait(false);
     }
 
-    private static async Task StopAndDisposeWithTimeoutAsync(WebApplication app)
+    private static async Task ObserveDrainFailureAsync(Task drain)
     {
-        using var cts = new CancellationTokenSource(s_shutdownTimeout);
-
         try
         {
-            await StopAndDisposeAsync(app, cts.Token).ConfigureAwait(false);
-        }
-        catch (OperationCanceledException)
-        {
-        }
-        catch (ObjectDisposedException)
-        {
+            await drain.ConfigureAwait(false);
         }
         catch (Exception ex)
         {
-            _ = ex;
+            s_logger.LogError(ex, "The agent host endpoint failed to drain.");
         }
     }
 
-    private static async Task StopAndDisposeAsync(WebApplication app, CancellationToken cancellationToken)
+    private async Task StopAndDisposeAsync(WebApplication app, CancellationToken cancellationToken)
     {
         try
         {
+            await _beforeStopAsync(cancellationToken).ConfigureAwait(false);
             await app.StopAsync(cancellationToken).ConfigureAwait(false);
         }
         finally
         {
-            await app.DisposeAsync().ConfigureAwait(false);
+            try
+            {
+                // Background jobs outlive their initiating MCP request. Cancel and await every
+                // terminal path before the host releases the project/editor services they lease.
+                await app.Services
+                    .GetRequiredService<RenderJobManager>()
+                    .DisposeAsync()
+                    .ConfigureAwait(false);
+            }
+            finally
+            {
+                await app.DisposeAsync().ConfigureAwait(false);
+            }
         }
     }
 
@@ -384,5 +556,21 @@ public sealed class AgentHostEndpoint : IAsyncDisposable
         return CryptographicOperations.FixedTimeEquals(
             Encoding.UTF8.GetBytes(provided),
             Encoding.UTF8.GetBytes(expected));
+    }
+}
+
+internal sealed class EditorOutputOperationLeaseProvider : IOutputOperationLeaseProvider
+{
+    private readonly EditorService _editorService;
+
+    public EditorOutputOperationLeaseProvider(EditorService editorService)
+    {
+        ArgumentNullException.ThrowIfNull(editorService);
+        _editorService = editorService;
+    }
+
+    public IDisposable? TryBeginOutputOperation()
+    {
+        return _editorService.TryBeginOutputOperation();
     }
 }

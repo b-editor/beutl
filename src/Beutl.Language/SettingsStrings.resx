@@ -627,4 +627,43 @@
     <value>Reinstall</value>
     <comment/>
   </data>
+  <data name="VersionControl_EnableForNewProjects" xml:space="preserve">
+    <value>Track new projects by default</value>
+  </data>
+  <data name="VersionControl_EnableForNewProjects_Description" xml:space="preserve">
+    <value>Preselect Git history tracking after Git availability is shown in the new-project dialog</value>
+  </data>
+  <data name="VersionControl_AutoCommitOnSave" xml:space="preserve">
+    <value>Record versions on save</value>
+  </data>
+  <data name="VersionControl_AutoCommitOnSave_Description" xml:space="preserve">
+    <value>Create an automatic Git snapshot after explicit project saves</value>
+  </data>
+  <data name="VersionControl_AutoCommitOnClose" xml:space="preserve">
+    <value>Record a version on close</value>
+  </data>
+  <data name="VersionControl_AutoCommitOnClose_Description" xml:space="preserve">
+    <value>Create a final automatic Git snapshot when a tracked project closes</value>
+  </data>
+  <data name="VersionControl_GitExecutablePath" xml:space="preserve">
+    <value>Git executable</value>
+  </data>
+  <data name="VersionControl_GitExecutablePath_Description" xml:space="preserve">
+    <value>Use a specific Git executable, or leave blank to detect Git automatically</value>
+  </data>
+  <data name="VersionControl_GitExecutablePath_Automatic" xml:space="preserve">
+    <value>Automatic</value>
+  </data>
+  <data name="VersionControl_UseLfsWhenAvailable" xml:space="preserve">
+    <value>Use Git LFS when available</value>
+  </data>
+  <data name="VersionControl_UseLfsWhenAvailable_Description" xml:space="preserve">
+    <value>Configure supported media patterns for Git LFS when Git LFS is installed</value>
+  </data>
+  <data name="VersionControl_LargeMediaWarningThresholdMb" xml:space="preserve">
+    <value>Large media warning threshold (MB)</value>
+  </data>
+  <data name="VersionControl_LargeMediaWarningThresholdMb_Description" xml:space="preserve">
+    <value>Warn before committing media at or above this size without Git LFS</value>
+  </data>
 </root>

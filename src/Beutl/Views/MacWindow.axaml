@@ -12,6 +12,7 @@
         Title="{Binding WindowTitle.Value}"
         d:DesignHeight="720"
         d:DesignWidth="1280"
+        x:CompileBindings="True"
         x:DataType="vm:MainViewModel"
         Background="{DynamicResource MainWindowBackground}"
         Icon="avares://Beutl.Controls/Assets/logo.png"
@@ -94,6 +95,15 @@
                                     Gesture="{h:GetCommandGesture Exit,
                                                                   ExtensionType={x:Type p:MainViewExtension}}"
                                     Header="{x:Static lang:Strings.Exit}" />
+                </NativeMenu>
+            </NativeMenuItem>
+            <NativeMenuItem Header="{x:Static lang:Strings.Project}">
+                <NativeMenu>
+                    <NativeMenuItem Command="{CompiledBinding MenuBar.EnableVersionControl}"
+                                    Header="{x:Static lang:Strings.VersionControl_Enable}"
+                                    IsEnabled="{CompiledBinding IsProjectOpened.Value}" />
+                    <NativeMenuItem Command="{CompiledBinding MenuBar.CommitVersion}"
+                                    Header="{x:Static lang:Strings.VersionControl_Commit}" />
                 </NativeMenu>
             </NativeMenuItem>
             <!--  編集  -->

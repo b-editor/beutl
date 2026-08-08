@@ -3,6 +3,7 @@ using System.Runtime.InteropServices;
 using System.Security.Cryptography;
 using Beutl.Api.Services;
 using Beutl.Configuration;
+using Beutl.Editor.VersionControl;
 using Reactive.Bindings;
 
 namespace Beutl.Services;
@@ -71,6 +72,11 @@ public sealed class EditorService
 {
     private readonly CoreList<EditorTabItem> _tabItems;
     private readonly ExtensionProvider _extensionProvider;
+    private readonly ReactivePropertySlim<IProjectVersionControlService?>
+        _projectVersionControlService = new();
+    private readonly object _workspaceOperationSync = new();
+    private int _activeOutputOperations;
+    private bool _worktreeMutationActive;
 
     public EditorService(ExtensionProvider extensionProvider)
     {
@@ -78,11 +84,71 @@ public sealed class EditorService
 
         _extensionProvider = extensionProvider;
         _tabItems = new() { ResetBehavior = ResetBehavior.Remove };
+        ProjectVersionControlService = _projectVersionControlService
+            .ToReadOnlyReactivePropertySlim();
     }
 
     public ICoreList<EditorTabItem> TabItems => _tabItems;
 
     public IReactiveProperty<EditorTabItem?> SelectedTabItem { get; } = new ReactivePropertySlim<EditorTabItem?>();
+
+    internal IReadOnlyReactiveProperty<IProjectVersionControlService?>
+        ProjectVersionControlService
+    { get; }
+
+    internal IProjectVersionControlCoordinator? ProjectVersionControlCoordinator { get; set; }
+
+    internal void PublishProjectVersionControlService(
+        IProjectVersionControlService? service)
+    {
+        _projectVersionControlService.Value = service;
+    }
+
+    internal IDisposable? TryBeginOutputOperation()
+    {
+        lock (_workspaceOperationSync)
+        {
+            if (_worktreeMutationActive)
+            {
+                return null;
+            }
+
+            _activeOutputOperations++;
+            return new WorkspaceOperationLease(this, isOutput: true);
+        }
+    }
+
+    internal IDisposable? TryBeginWorktreeMutation()
+    {
+        lock (_workspaceOperationSync)
+        {
+            if (_worktreeMutationActive || _activeOutputOperations > 0)
+            {
+                return null;
+            }
+
+            _worktreeMutationActive = true;
+            return new WorkspaceOperationLease(this, isOutput: false);
+        }
+    }
+
+    private void EndWorkspaceOperation(bool isOutput)
+    {
+        lock (_workspaceOperationSync)
+        {
+            if (isOutput)
+            {
+                if (_activeOutputOperations > 0)
+                {
+                    _activeOutputOperations--;
+                }
+            }
+            else
+            {
+                _worktreeMutationActive = false;
+            }
+        }
+    }
 
     public bool TryGetTabItem(CoreObject obj, [NotNullWhen(true)] out EditorTabItem? result)
     {
@@ -128,5 +194,18 @@ public sealed class EditorService
     {
         TabItems.Remove(item);
         await item.DisposeAsync();
+    }
+
+    private sealed class WorkspaceOperationLease(EditorService owner, bool isOutput) : IDisposable
+    {
+        private int _disposed;
+
+        public void Dispose()
+        {
+            if (Interlocked.Exchange(ref _disposed, 1) == 0)
+            {
+                owner.EndWorkspaceOperation(isOutput);
+            }
+        }
     }
 }

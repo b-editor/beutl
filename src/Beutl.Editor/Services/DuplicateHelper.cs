@@ -159,7 +159,7 @@ public static class DuplicateHelper
                 newElement.Start = newElement.Start - minStart + anchorStart;
                 newElement.ZIndex = newElement.ZIndex - minZIndex + anchorZIndex;
 
-                Uri uri = RandomFileNameGenerator.GenerateUri(scene.Uri, EditorConstants.ElementFileExtension);
+                Uri uri = ElementFileNaming.GetUri(scene.Uri, newElement.Id);
                 CoreSerializer.StoreToUri(newElement, uri);
                 stagedFiles.Add(uri.LocalPath);
             }

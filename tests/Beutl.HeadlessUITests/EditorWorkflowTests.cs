@@ -80,6 +80,35 @@ public class EditorWorkflowTests
     }
 
     [AvaloniaTest]
+    public async Task AddElement_requires_the_scene_to_have_a_saved_location()
+    {
+        await ResetProjectAsync();
+        EditViewModel editor = await OpenEditorForNewScene("addelem-unsaved");
+        Uri savedUri = editor.Scene.Uri!;
+        var adder = (IElementAdder)editor.GetService(typeof(IElementAdder))!;
+
+        try
+        {
+            editor.Scene.Uri = null;
+
+            Assert.DoesNotThrow(() => adder.AddElement(new ElementDescription(
+                Start: TimeSpan.Zero,
+                Length: TimeSpan.FromSeconds(2),
+                Layer: 0,
+                EngineObjectFactory: () => new RectShape())));
+            Assert.Multiple(() =>
+            {
+                Assert.That(editor.Scene.Children, Is.Empty);
+                Assert.That(editor.HistoryManager.CanUndo, Is.False);
+            });
+        }
+        finally
+        {
+            editor.Scene.Uri = savedUri;
+        }
+    }
+
+    [AvaloniaTest]
     public async Task EditProperty_through_the_editor_records_a_second_history_entry()
     {
         await ResetProjectAsync();

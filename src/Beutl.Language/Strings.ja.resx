@@ -978,6 +978,9 @@
   <data name="Duplicate_FallbackFailed" xml:space="preserve">
     <value>移動のフォールバックも失敗しました。タイムラインの状態と表示が一致しない可能性があります。</value>
   </data>
+  <data name="ElementAdder_ProjectNotSaved" xml:space="preserve">
+    <value>クリップを追加する前にプロジェクトを保存してください。</value>
+  </data>
   <data name="AboutBeutl" xml:space="preserve">
     <value>Beutlについて</value>
   </data>
@@ -1518,5 +1521,312 @@ GetProperty&lt;T&gt;("path") または GetProperty&lt;T&gt;(guid, "propertyName"
   </data>
   <data name="ProxyJobStatusWithMessageFormat" xml:space="preserve">
     <value>{0}: {1}</value>
+  </data>
+  <data name="VersionControl" xml:space="preserve">
+    <value>バージョン管理</value>
+  </data>
+  <data name="VersionControl_Enable" xml:space="preserve">
+    <value>バージョン管理を有効化…</value>
+  </data>
+  <data name="VersionControl_UntrackedExplanation" xml:space="preserve">
+    <value>このプロジェクトを Git で管理すると、保存時にバージョンが自動的に記録されます。</value>
+  </data>
+  <data name="VersionControl_DownloadGit" xml:space="preserve">
+    <value>Git をダウンロード</value>
+  </data>
+  <data name="VersionControl_TrackHistory" xml:space="preserve">
+    <value>Git で履歴を記録</value>
+  </data>
+  <data name="VersionControl_Commit" xml:space="preserve">
+    <value>バージョンをコミット…</value>
+  </data>
+  <data name="VersionControl_Push" xml:space="preserve">
+    <value>プッシュ</value>
+  </data>
+  <data name="VersionControl_Pull" xml:space="preserve">
+    <value>プル</value>
+  </data>
+  <data name="VersionControl_Restore" xml:space="preserve">
+    <value>復元</value>
+  </data>
+  <data name="VersionControl_RestoreToNewBranch" xml:space="preserve">
+    <value>新しいブランチに復元…</value>
+  </data>
+  <data name="VersionControl_NewBranch" xml:space="preserve">
+    <value>新しいブランチ…</value>
+  </data>
+  <data name="VersionControl_Switch" xml:space="preserve">
+    <value>切り替え</value>
+  </data>
+  <data name="VersionControl_History" xml:space="preserve">
+    <value>バージョン履歴</value>
+  </data>
+  <data name="VersionControl_ChangedFiles" xml:space="preserve">
+    <value>変更されたファイル</value>
+  </data>
+  <data name="VersionControl_CommitMessage" xml:space="preserve">
+    <value>コミットメッセージ</value>
+  </data>
+  <data name="VersionControl_SnapshotManual" xml:space="preserve">
+    <value>手動</value>
+  </data>
+  <data name="VersionControl_SnapshotSave" xml:space="preserve">
+    <value>保存</value>
+  </data>
+  <data name="VersionControl_SnapshotClose" xml:space="preserve">
+    <value>終了時</value>
+  </data>
+  <data name="VersionControl_SnapshotSafety" xml:space="preserve">
+    <value>安全スナップショット</value>
+  </data>
+  <data name="VersionControl_SnapshotRestore" xml:space="preserve">
+    <value>復元</value>
+  </data>
+  <data name="VersionControl_SnapshotRecovery" xml:space="preserve">
+    <value>復旧</value>
+  </data>
+  <data name="VersionControl_SnapshotInit" xml:space="preserve">
+    <value>初期化</value>
+  </data>
+  <data name="VersionControl_NothingToCommit" xml:space="preserve">
+    <value>記録する新しい変更はありません。</value>
+  </data>
+  <data name="VersionControl_CommitNow" xml:space="preserve">
+    <value>コミット</value>
+  </data>
+  <data name="VersionControl_CommitCreated" xml:space="preserve">
+    <value>バージョンを記録しました。</value>
+  </data>
+  <data name="VersionControl_GitNotInstalled" xml:space="preserve">
+    <value>プロジェクト履歴を記録するには Git が必要です。</value>
+  </data>
+  <data name="VersionControl_GitTooOldFormat" xml:space="preserve">
+    <value>Git 2.23 以降が必要です。インストール済みのバージョンは {0} です。</value>
+  </data>
+  <data name="VersionControl_InstallGitWindows" xml:space="preserve">
+    <value>Git for Windows をインストールしてから Beutl を再起動してください。</value>
+  </data>
+  <data name="VersionControl_InstallGitMacOS" xml:space="preserve">
+    <value>Xcode コマンドラインツール、または Homebrew で Git をインストールしてから Beutl を再起動してください。</value>
+  </data>
+  <data name="VersionControl_InstallGitLinux" xml:space="preserve">
+    <value>ディストリビューションのパッケージマネージャーで Git をインストールしてから Beutl を再起動してください。</value>
+  </data>
+  <data name="VersionControl_ErrorTitle" xml:space="preserve">
+    <value>バージョン管理エラー</value>
+  </data>
+  <data name="VersionControl_ConflictGuidance" xml:space="preserve">
+    <value>このリポジトリには未解決の競合があります。続行する前に外部の Git ツールで解決してください。</value>
+  </data>
+  <data name="VersionControl_ConflictMarkerWarningTitle" xml:space="preserve">
+    <value>競合マーカーが検出されました</value>
+  </data>
+  <data name="VersionControl_ConflictMarkerWarning" xml:space="preserve">
+    <value>プロジェクト内の次のファイルに未解決の競合マーカーがあります:
+
+{0}
+
+編集する前に外部の Git ツールで競合を解決してください。プロジェクトを正しく開けない場合があります。</value>
+  </data>
+  <data name="VersionControl_IdentityTitle" xml:space="preserve">
+    <value>コミット作成者の設定</value>
+  </data>
+  <data name="VersionControl_IdentityName" xml:space="preserve">
+    <value>名前</value>
+  </data>
+  <data name="VersionControl_IdentityEmail" xml:space="preserve">
+    <value>メールアドレス</value>
+  </data>
+  <data name="VersionControl_MissingIdentityNotice" xml:space="preserve">
+    <value>このリポジトリにコミット作成者が設定されていないため、自動スナップショットを一時停止しました。手動バージョンを作成してリポジトリ専用の名前とメールアドレスを設定してから、もう一度保存してください。</value>
+  </data>
+  <data name="VersionControl_RestoreConfirmation" xml:space="preserve">
+    <value>プロジェクトを閉じて再度開くため、現在の取り消し履歴は消去されます。続行しますか？</value>
+  </data>
+  <data name="VersionControl_ExportInProgress" xml:space="preserve">
+    <value>書き出しの実行中は、このバージョン管理操作を実行できません。</value>
+  </data>
+  <data name="VersionControl_RecoveryFailed" xml:space="preserve">
+    <value>操作に失敗し、元のプロジェクト状態も復元できませんでした。操作エラー: {0} 復旧エラー: {1}</value>
+  </data>
+  <data name="VersionControl_PullTransitionUncertain" xml:space="preserve">
+    <value>保護されたリポジトリ遷移の所有権が失われたか、復旧を検証できませんでした。バージョン管理の「プロジェクトを復旧」を使用するか、「最近使ったプロジェクト」から再度開くと読み込み前に復旧できます。作業ツリーを安全に変更できない場合、Beutl はチェックポイントを永続的な Git 参照に保持します。</value>
+  </data>
+  <data name="VersionControl_PendingPullRecoveryConfirmation" xml:space="preserve">
+    <value>{0} の保護されたプルが {1:g} に正常終了しませんでした。プロジェクトを読み込む前に保存された状態を復旧しますか？復旧で置き換えられるプロジェクト状態は再読み込みされ、取り消し履歴が消去されます。</value>
+  </data>
+  <data name="VersionControl_PendingPullRecoveryGuidance" xml:space="preserve">
+    <value>保護されたプルが正常終了しませんでした。保存されたプロジェクト状態から復旧できます。</value>
+  </data>
+  <data name="VersionControl_RecoverPendingPull" xml:space="preserve">
+    <value>プロジェクトを復旧</value>
+  </data>
+  <data name="VersionControl_PullRecovered" xml:space="preserve">
+    <value>プルは完了できませんでしたが、保存されたプロジェクト状態を復旧しました。</value>
+  </data>
+  <data name="VersionControl_CheckpointReappliedOnRecoveryBranch" xml:space="preserve">
+    <value>保存されたプロジェクト状態をローカル変更として復旧しました。永続的なコピーはブランチ '{0}' に保持されています。</value>
+  </data>
+  <data name="VersionControl_CheckpointPreservedOnRecoveryBranch" xml:space="preserve">
+    <value>現在の作業ツリーを安全に変更できませんでした。保存されたプロジェクト状態は Git 参照 '{0}' に保持されています。Git でこの参照を確認してください。</value>
+  </data>
+  <data name="VersionControl_BranchFormat" xml:space="preserve">
+    <value>ブランチ: {0}</value>
+  </data>
+  <data name="VersionControl_CurrentBranch" xml:space="preserve">
+    <value>現在のブランチ</value>
+  </data>
+  <data name="VersionControl_Branches" xml:space="preserve">
+    <value>ブランチ</value>
+  </data>
+  <data name="VersionControl_AheadBehindFormat" xml:space="preserve">
+    <value>{0} 先行、{1} 遅延</value>
+  </data>
+  <data name="VersionControl_DirtySummaryFormat" xml:space="preserve">
+    <value>変更されたファイル: {0}</value>
+  </data>
+  <data name="VersionControl_WorktreeClean" xml:space="preserve">
+    <value>作業ツリーに変更はありません</value>
+  </data>
+  <data name="VersionControl_LoadMore" xml:space="preserve">
+    <value>さらに読み込む</value>
+  </data>
+  <data name="VersionControl_Diff" xml:space="preserve">
+    <value>差分</value>
+  </data>
+  <data name="VersionControl_NoRepository" xml:space="preserve">
+    <value>このプロジェクトは Git で管理されていません。</value>
+  </data>
+  <data name="VersionControl_NoHistory" xml:space="preserve">
+    <value>記録されたバージョンはありません。</value>
+  </data>
+  <data name="VersionControl_HistoryEmptyHint" xml:space="preserve">
+    <value>バージョンはまだありません — プロジェクトを保存すると自動的に記録されます</value>
+  </data>
+  <data name="VersionControl_ChangedFilesEmptyHint" xml:space="preserve">
+    <value>変更内容を表示するバージョンを選択してください</value>
+  </data>
+  <data name="VersionControl_DiffEmptyHint" xml:space="preserve">
+    <value>差分を表示するファイルを選択してください</value>
+  </data>
+  <data name="VersionControl_TimeJustNow" xml:space="preserve">
+    <value>たった今</value>
+  </data>
+  <data name="VersionControl_TimeMinuteAgo" xml:space="preserve">
+    <value>1分前</value>
+  </data>
+  <data name="VersionControl_TimeMinutesAgoFormat" xml:space="preserve">
+    <value>{0}分前</value>
+  </data>
+  <data name="VersionControl_TimeHourAgo" xml:space="preserve">
+    <value>1時間前</value>
+  </data>
+  <data name="VersionControl_TimeHoursAgoFormat" xml:space="preserve">
+    <value>{0}時間前</value>
+  </data>
+  <data name="VersionControl_TimeDayAgo" xml:space="preserve">
+    <value>1日前</value>
+  </data>
+  <data name="VersionControl_TimeDaysAgoFormat" xml:space="preserve">
+    <value>{0}日前</value>
+  </data>
+  <data name="VersionControl_BranchName" xml:space="preserve">
+    <value>ブランチ名</value>
+  </data>
+  <data name="VersionControl_CreateBranchTitle" xml:space="preserve">
+    <value>新しいブランチに復元</value>
+  </data>
+  <data name="VersionControl_CreateBranch" xml:space="preserve">
+    <value>ブランチを作成</value>
+  </data>
+  <data name="VersionControl_SwitchBranch" xml:space="preserve">
+    <value>ブランチを切り替え</value>
+  </data>
+  <data name="VersionControl_SwitchBranchConfirmation" xml:space="preserve">
+    <value>プロジェクトを閉じてブランチ「{0}」で開き直すため、現在の取り消し履歴は消去されます。保存済みの変更は、最初に安全スナップショットへ記録されます。続行しますか？</value>
+  </data>
+  <data name="VersionControl_PullConfirmation" xml:space="preserve">
+    <value>fast-forward 更新のプル後にプロジェクトを閉じて開き直すため、現在の取り消し履歴は消去されます。保存済みの変更は、最初に安全スナップショットへ記録されます。続行しますか？</value>
+  </data>
+  <data name="VersionControl_EnclosingRepositoryScopeFormat" xml:space="preserve">
+    <value>ブランチとリモートの操作は親リポジトリ全体に適用されます: {0}</value>
+  </data>
+  <data name="VersionControl_RemoteUrl" xml:space="preserve">
+    <value>リモート URL</value>
+  </data>
+  <data name="VersionControl_SetRemote" xml:space="preserve">
+    <value>リモートを設定…</value>
+  </data>
+  <data name="VersionControl_SetRemoteTitle" xml:space="preserve">
+    <value>リモートの設定</value>
+  </data>
+  <data name="VersionControl_UpToDate" xml:space="preserve">
+    <value>最新です</value>
+  </data>
+  <data name="VersionControl_PublishBranch" xml:space="preserve">
+    <value>ブランチを公開…</value>
+  </data>
+  <data name="VersionControl_PullCountFormat" xml:space="preserve">
+    <value>プル ↓{0}</value>
+  </data>
+  <data name="VersionControl_PushCountFormat" xml:space="preserve">
+    <value>プッシュ ↑{0}</value>
+  </data>
+  <data name="VersionControl_RemoteConnected" xml:space="preserve">
+    <value>リモートに接続しました。</value>
+  </data>
+  <data name="VersionControl_Pushing" xml:space="preserve">
+    <value>バージョンをプッシュしています…</value>
+  </data>
+  <data name="VersionControl_Pulling" xml:space="preserve">
+    <value>バージョンをプルしています…</value>
+  </data>
+  <data name="VersionControl_RemoteOperationSucceeded" xml:space="preserve">
+    <value>リモート操作が完了しました。</value>
+  </data>
+  <data name="VersionControl_RemoteOperationCanceled" xml:space="preserve">
+    <value>リモート操作をキャンセルしました。</value>
+  </data>
+  <data name="VersionControl_LfsQuotaNotice" xml:space="preserve">
+    <value>大きなメディアは Git LFS で保存されます。リモートホスティングでは、LFS のストレージ容量と帯域幅に上限が適用される場合があります。</value>
+  </data>
+  <data name="VersionControl_LargeMediaWarningFormat" xml:space="preserve">
+    <value>{0} は大きなファイルですが、Git LFS が有効ではありません。コミットするとリポジトリ履歴のサイズが恒久的に増える可能性があります。コミットは続行されます。</value>
+  </data>
+  <data name="VersionControl_EnclosingRepositoryFound" xml:space="preserve">
+    <value>このプロジェクトは既存の Git リポジトリ内にあります。</value>
+  </data>
+  <data name="VersionControl_UseEnclosingRepository" xml:space="preserve">
+    <value>親リポジトリを使用</value>
+  </data>
+  <data name="VersionControl_LeaveUnmanaged" xml:space="preserve">
+    <value>管理しない</value>
+  </data>
+  <data name="VersionControl_AuthenticationFailed" xml:space="preserve">
+    <value>認証に失敗しました。Git の資格情報ヘルパーまたは SSH エージェントを確認してください。</value>
+  </data>
+  <data name="VersionControl_Diverged" xml:space="preserve">
+    <value>ローカルとリモートの履歴が分岐しています。外部の Git ツールで解決してください。</value>
+  </data>
+  <data name="VersionControl_RepositoryDirty" xml:space="preserve">
+    <value>プルするにはリポジトリ全体をクリーンにする必要があります。プロジェクト外の変更をコミットまたはスタッシュしてから再試行してください。</value>
+  </data>
+  <data name="VersionControl_Offline" xml:space="preserve">
+    <value>リモートに接続できませんでした。ネットワーク接続を確認して再試行してください。</value>
+  </data>
+  <data name="VersionControl_StaleLockGuidance" xml:space="preserve">
+    <value>古い Git リポジトリロックにより、バージョン管理操作が妨げられています。</value>
+  </data>
+  <data name="VersionControl_RemoveStaleLock" xml:space="preserve">
+    <value>古いロックを削除</value>
+  </data>
+  <data name="VersionControl_StaleLockConfirmation" xml:space="preserve">
+    <value>Git のリポジトリロックが作成から 10 分以上経過しており、Beutl が実行中の Git プロセスはありません。この古いロックを削除しますか？</value>
+  </data>
+  <data name="VersionControl_StaleLockRemoved" xml:space="preserve">
+    <value>古い Git リポジトリロックを削除しました。バージョン管理操作を再試行してください。</value>
+  </data>
+  <data name="VersionControl_WorktreeOperationInProgress" xml:space="preserve">
+    <value>バージョン管理がプロジェクトファイルを更新しています。処理の完了後に再試行してください。</value>
   </data>
 </root>

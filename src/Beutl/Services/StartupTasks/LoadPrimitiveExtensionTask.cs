@@ -58,6 +58,7 @@ public sealed class LoadPrimitiveExtensionTask : StartupTask
         ScriptEditorExtension.Instance,
         FileBrowserTabExtension.Instance,
         HistoryTabExtension.Instance,
+        VersionControlTabExtension.Instance,
         TerminalTabExtension.Instance,
         DarkBorderThemeExtension.Instance
     ];

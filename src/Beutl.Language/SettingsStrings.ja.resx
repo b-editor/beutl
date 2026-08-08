@@ -623,4 +623,43 @@
     <value>再インストール</value>
     <comment/>
   </data>
+  <data name="VersionControl_EnableForNewProjects" xml:space="preserve">
+    <value>新規プロジェクトを既定で追跡</value>
+  </data>
+  <data name="VersionControl_EnableForNewProjects_Description" xml:space="preserve">
+    <value>新規プロジェクト画面に Git の利用可否が表示された後、履歴追跡をあらかじめ選択します</value>
+  </data>
+  <data name="VersionControl_AutoCommitOnSave" xml:space="preserve">
+    <value>保存時にバージョンを記録</value>
+  </data>
+  <data name="VersionControl_AutoCommitOnSave_Description" xml:space="preserve">
+    <value>プロジェクトを明示的に保存した後、Git スナップショットを自動作成します</value>
+  </data>
+  <data name="VersionControl_AutoCommitOnClose" xml:space="preserve">
+    <value>閉じるときにバージョンを記録</value>
+  </data>
+  <data name="VersionControl_AutoCommitOnClose_Description" xml:space="preserve">
+    <value>追跡中のプロジェクトを閉じるとき、最後の Git スナップショットを自動作成します</value>
+  </data>
+  <data name="VersionControl_GitExecutablePath" xml:space="preserve">
+    <value>Git 実行ファイル</value>
+  </data>
+  <data name="VersionControl_GitExecutablePath_Description" xml:space="preserve">
+    <value>使用する Git 実行ファイルを指定します。空欄の場合は自動検出します</value>
+  </data>
+  <data name="VersionControl_GitExecutablePath_Automatic" xml:space="preserve">
+    <value>自動</value>
+  </data>
+  <data name="VersionControl_UseLfsWhenAvailable" xml:space="preserve">
+    <value>利用可能な場合は Git LFS を使用</value>
+  </data>
+  <data name="VersionControl_UseLfsWhenAvailable_Description" xml:space="preserve">
+    <value>Git LFS がインストールされている場合、対応するメディア形式を Git LFS 用に設定します</value>
+  </data>
+  <data name="VersionControl_LargeMediaWarningThresholdMb" xml:space="preserve">
+    <value>大きなメディアの警告しきい値（MB）</value>
+  </data>
+  <data name="VersionControl_LargeMediaWarningThresholdMb_Description" xml:space="preserve">
+    <value>Git LFS を使わず、このサイズ以上のメディアをコミットする前に警告します</value>
+  </data>
 </root>

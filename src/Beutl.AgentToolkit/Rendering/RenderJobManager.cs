@@ -25,7 +25,7 @@ public sealed record RenderJobSnapshot(
 // Background render/export jobs so a long render is not killed by the MCP client request timeout.
 // Jobs are serialized (single-flight) because all stills share the one RenderThread and each export
 // builds its own graphics context; concurrent background renders would race those resources.
-public sealed class RenderJobManager : IDisposable
+public sealed class RenderJobManager : IAsyncDisposable
 {
     private sealed class JobRecord
     {
@@ -33,7 +33,10 @@ public sealed class RenderJobManager : IDisposable
         public required string Kind { get; init; }
         public required DateTimeOffset StartedAt { get; init; }
         public required CancellationTokenSource Cts { get; init; }
+        public required IDisposable OutputOperationLease { get; init; }
         public object Sync { get; } = new();
+        public TaskCompletionSource Completion { get; } = new(
+            TaskCreationOptions.RunContinuationsAsynchronously);
         public RenderJobState State { get; set; } = RenderJobState.Running;
         public JsonNode? Result { get; set; }
         public Exception? Failure { get; set; }
@@ -42,25 +45,47 @@ public sealed class RenderJobManager : IDisposable
 
     private readonly ConcurrentDictionary<string, JobRecord> _jobs = new();
     private readonly SemaphoreSlim _gate = new(1, 1);
-    private bool _disposed;
+    private readonly object _lifecycleLock = new();
+    private Task? _disposalTask;
 
-    public string Enqueue(string kind, Func<CancellationToken, Task<JsonNode>> work)
+    /// <summary>
+    /// Queues a background render or export and transfers the output-operation lease to the job.
+    /// </summary>
+    /// <param name="kind">The job kind reported in snapshots.</param>
+    /// <param name="work">The asynchronous work to run under the single-flight gate.</param>
+    /// <param name="outputOperationLease">
+    /// The lease to hold through the terminal path. The caller retains ownership when this method
+    /// throws; after a successful return, the job owns and releases it exactly once.
+    /// </param>
+    /// <returns>The generated job identifier.</returns>
+    public string Enqueue(
+        string kind,
+        Func<CancellationToken, Task<JsonNode>> work,
+        IDisposable outputOperationLease)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(kind);
         ArgumentNullException.ThrowIfNull(work);
-        ObjectDisposedException.ThrowIf(_disposed, this);
+        ArgumentNullException.ThrowIfNull(outputOperationLease);
 
-        string jobId = Convert.ToHexString(RandomNumberGenerator.GetBytes(8)).ToLowerInvariant();
-        var record = new JobRecord
+        JobRecord record;
+        lock (_lifecycleLock)
         {
-            JobId = jobId,
-            Kind = kind,
-            StartedAt = DateTimeOffset.UtcNow,
-            Cts = new CancellationTokenSource()
-        };
-        _jobs[jobId] = record;
+            ObjectDisposedException.ThrowIf(_disposalTask is not null, this);
+
+            string jobId = Convert.ToHexString(RandomNumberGenerator.GetBytes(8)).ToLowerInvariant();
+            record = new JobRecord
+            {
+                JobId = jobId,
+                Kind = kind,
+                StartedAt = DateTimeOffset.UtcNow,
+                Cts = new CancellationTokenSource(),
+                OutputOperationLease = outputOperationLease
+            };
+            _jobs[jobId] = record;
+        }
+
         _ = RunAsync(record, work);
-        return jobId;
+        return record.JobId;
     }
 
     public RenderJobSnapshot? Get(string jobId)
@@ -135,45 +160,55 @@ public sealed class RenderJobManager : IDisposable
     private async Task RunAsync(JobRecord record, Func<CancellationToken, Task<JsonNode>> work)
     {
         bool acquired = false;
+        RenderJobState terminalState = RenderJobState.Running;
+        JsonNode? result = null;
+        Exception? failure = null;
         try
         {
             await _gate.WaitAsync(record.Cts.Token).ConfigureAwait(false);
             acquired = true;
-            JsonNode result = await work(record.Cts.Token).ConfigureAwait(false);
-            lock (record.Sync)
-            {
-                record.Result = result;
-                record.State = RenderJobState.Completed;
-            }
+            result = await work(record.Cts.Token).ConfigureAwait(false);
+            terminalState = RenderJobState.Completed;
         }
         catch (OperationCanceledException)
         {
-            lock (record.Sync)
-            {
-                record.State = RenderJobState.Cancelled;
-            }
+            terminalState = RenderJobState.Cancelled;
         }
         catch (Exception ex)
         {
-            lock (record.Sync)
-            {
-                record.Failure = ex;
-                record.State = RenderJobState.Failed;
-            }
+            failure = ex;
+            terminalState = RenderJobState.Failed;
         }
         finally
         {
+            try
+            {
+                record.OutputOperationLease.Dispose();
+            }
+            catch (Exception ex)
+            {
+                failure ??= ex;
+                terminalState = RenderJobState.Failed;
+            }
+            finally
+            {
+                if (acquired)
+                {
+                    _gate.Release();
+                }
+
+                record.Cts.Dispose();
+            }
+
             lock (record.Sync)
             {
+                record.Result = terminalState == RenderJobState.Completed ? result : null;
+                record.Failure = failure;
+                record.State = terminalState;
                 record.CompletedAt = DateTimeOffset.UtcNow;
             }
 
-            if (acquired)
-            {
-                _gate.Release();
-            }
-
-            record.Cts.Dispose();
+            record.Completion.TrySetResult();
         }
     }
 
@@ -189,15 +224,33 @@ public sealed class RenderJobManager : IDisposable
         };
     }
 
-    public void Dispose()
+    public ValueTask DisposeAsync()
     {
-        if (_disposed)
+        TaskCompletionSource completion;
+        JobRecord[] jobs;
+        Task disposalTask;
+
+        lock (_lifecycleLock)
         {
-            return;
+            if (_disposalTask is not null)
+            {
+                return new ValueTask(_disposalTask);
+            }
+
+            completion = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+            disposalTask = completion.Task;
+            _disposalTask = disposalTask;
+            jobs = [.. _jobs.Values];
         }
 
-        _disposed = true;
-        foreach (JobRecord record in _jobs.Values)
+        _ = CompleteDisposalAsync(jobs, completion);
+        return new ValueTask(disposalTask);
+    }
+
+    private async Task CompleteDisposalAsync(JobRecord[] jobs, TaskCompletionSource completion)
+    {
+        List<Exception> failures = [];
+        foreach (JobRecord record in jobs)
         {
             try
             {
@@ -206,8 +259,47 @@ public sealed class RenderJobManager : IDisposable
             catch (ObjectDisposedException)
             {
             }
+            catch (AggregateException ex)
+            {
+                failures.AddRange(ex.Flatten().InnerExceptions);
+            }
+            catch (Exception ex)
+            {
+                failures.Add(ex);
+            }
         }
 
-        _gate.Dispose();
+        try
+        {
+            await Task.WhenAll(jobs.Select(static record => record.Completion.Task)).ConfigureAwait(false);
+        }
+        catch (AggregateException ex)
+        {
+            failures.AddRange(ex.Flatten().InnerExceptions);
+        }
+        catch (Exception ex)
+        {
+            failures.Add(ex);
+        }
+
+        try
+        {
+            _gate.Dispose();
+        }
+        catch (Exception ex)
+        {
+            failures.Add(ex);
+        }
+
+        if (failures.Count == 0)
+        {
+            completion.TrySetResult();
+        }
+        else
+        {
+            completion.TrySetException(new AggregateException(
+                "One or more render jobs failed while the manager was draining.",
+                failures));
+        }
     }
 }

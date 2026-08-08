@@ -6,6 +6,8 @@
     </PropertyGroup>
 
     <ItemGroup>
+        <InternalsVisibleTo Include="Beutl" />
+        <InternalsVisibleTo Include="Beutl.HeadlessUITests" />
         <InternalsVisibleTo Include="Beutl.UnitTests" />
     </ItemGroup>
 
