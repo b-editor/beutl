@@ -50,7 +50,8 @@ public class RenderTargetThreadAffinityTests
             // observation below and let an inline release pass unnoticed.
             disposer.Start();
             Assert.That(entered.Wait(TimeSpan.FromSeconds(30)), Is.True);
-            WaitUntilBlocked(disposer);
+            Assert.That(WaitUntilBlocked(disposer), Is.True,
+                "Dispose never blocked while the owning render thread was occupied");
 
             Assert.That(surface.Handle, Is.Not.EqualTo(IntPtr.Zero),
                 "the surface was released while the render thread was blocked, so Dispose released it on the calling thread");
@@ -81,11 +82,18 @@ public class RenderTargetThreadAffinityTests
         });
     }
 
-    private static void WaitUntilBlocked(Thread thread)
+    private static bool WaitUntilBlocked(Thread thread)
     {
-        for (int i = 0; i < 300 && (thread.ThreadState & ThreadState.WaitSleepJoin) == 0; i++)
+        for (int i = 0; i < 300; i++)
         {
+            if ((thread.ThreadState & ThreadState.WaitSleepJoin) != 0)
+            {
+                return true;
+            }
+
             Thread.Sleep(10);
         }
+
+        return false;
     }
 }
