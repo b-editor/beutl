@@ -16,12 +16,10 @@ using Beutl.UnitTests.Engine.Graphics.Rendering;
 namespace Beutl.UnitTests.Graphics;
 
 /// <summary>
-/// The picture a renderer produces for a frame must depend only on that frame. The preview takes two
-/// different routes depending on the frame cache: a miss rasterizes through <c>Render</c>, a hit only
-/// runs <c>UpdateFrame</c>, which advances the render-node bookkeeping without drawing. Scrubbing
-/// interleaves the two, so any state one route leaves behind for the other shows up as a frame drawn
-/// with another frame's picture — and with the frame cache on, that picture is then stored under the
-/// wrong frame number and shown from then on.
+/// The picture a renderer produces for a frame must depend only on that frame. A frame-cache miss
+/// rasterizes through <c>Render</c>, a hit only runs <c>UpdateFrame</c>, and scrubbing interleaves the
+/// two, so state one route leaves for the other shows up as a frame drawn with another frame's
+/// picture — which the cache then stores under that frame number.
 /// </summary>
 [TestFixture]
 [NonParallelizable]
@@ -84,8 +82,6 @@ public class PreviewFrameOrderIndependenceTests
                 {
                     baseline[frame] = RenderAndHash(renderer, frame);
 
-                    // Re-rendering the same time on the same renderer must reproduce the picture
-                    // exactly; anything that does not is non-determinism, not a cache mistake.
                     Assert.That(RenderAndHash(renderer, frame), Is.EqualTo(baseline[frame]),
                         $"frame {frame} rendered differently when rendered twice in a row");
                 }
@@ -109,8 +105,7 @@ public class PreviewFrameOrderIndependenceTests
                         $"frame {frame} rendered a different picture after the scrub reached it");
                 }
 
-                // Turning the frame cache off and on re-renders frames that were only visited through
-                // UpdateFrame while it was on.
+                // Stands for turning the frame cache off and on: every frame is rendered again.
                 foreach (int frame in s_recheck)
                 {
                     Assert.That(RenderAndHash(renderer, frame), Is.EqualTo(baseline[frame]),
@@ -122,8 +117,7 @@ public class PreviewFrameOrderIndependenceTests
 
     /// <summary>
     /// <see cref="SourceBackdrop"/> composites whatever has already been drawn beneath it, so its
-    /// picture comes from render state rather than from the frame's own time. Two of them stacked
-    /// over a clip is the shape a real project uses.
+    /// picture comes from render state rather than from the frame's own time.
     /// </summary>
     [Test]
     public void BackdropFrameIsTheSameWhetherOrNotCacheHitsPrecededIt()
@@ -172,10 +166,8 @@ public class PreviewFrameOrderIndependenceTests
     }
 
     /// <summary>
-    /// A backdrop that follows a sibling inside the same group has to composite that sibling. It is
-    /// the sibling's drawing operation, not the state the group started from, that the backdrop
-    /// stands on — a clearing backdrop capturing too early would wipe the sibling and redraw an
-    /// empty surface.
+    /// A backdrop that follows a sibling inside the same group composites that sibling's drawing
+    /// operation, not the state the group started from.
     /// </summary>
     [Test]
     public void BackdropInsideAGroupCompositesTheSiblingDrawnBeforeIt()
@@ -204,8 +196,8 @@ public class PreviewFrameOrderIndependenceTests
             using Bitmap snapshot = renderer.Snapshot();
             using Bitmap srgb = snapshot.Convert(
                 BitmapColorType.Bgra8888, BitmapAlphaType.Unpremul, BitmapColorSpace.Srgb);
-            // Only inside the square's own footprint: the clip below the group covers the rest of
-            // the frame, so counting bright pixels across the whole output would pass on the clip.
+            // The clip below the group covers the rest of the frame, so a whole-output count of
+            // bright pixels would pass on the clip.
             var square = new PixelRect(
                 (srgb.Width - SquareWidth) / 2, (srgb.Height - SquareHeight) / 2, SquareWidth, SquareHeight);
             int white = 0;
@@ -379,8 +371,8 @@ public class PreviewFrameOrderIndependenceTests
         public void Dispose()
         {
             DecoderRegistry.ProxyResolver = null;
-            // Resolving a proxy touches the store, which schedules a delayed flush; without draining
-            // it here that task recreates the directory this is about to delete, or races the delete.
+            // A resolved proxy touches the store, scheduling a delayed flush that would recreate this
+            // directory after the delete, or race it.
             _store?.FlushAsync(CancellationToken.None).GetAwaiter().GetResult();
             if (Directory.Exists(_root))
             {
