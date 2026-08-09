@@ -244,6 +244,70 @@ public sealed class NestedRepositoryTests : RealGitTestRepository
         });
     }
 
+    [TestCase(false)]
+    [TestCase(true)]
+    public async Task Initialize_rejects_required_content_beneath_a_nested_git_repository(
+        bool useGitFile)
+    {
+        string projectRoot = CreateProjectDirectory();
+        await File.WriteAllTextAsync(Path.Combine(projectRoot, "project.bep"), "{}\n");
+        string nestedRoot = Path.Combine(projectRoot, "embedded");
+        Directory.CreateDirectory(nestedRoot);
+        await File.WriteAllTextAsync(Path.Combine(nestedRoot, "nested.scene"), "{}\n");
+        if (useGitFile)
+        {
+            await File.WriteAllTextAsync(
+                Path.Combine(nestedRoot, ".git"),
+                "gitdir: ../git-metadata\n");
+        }
+        else
+        {
+            Directory.CreateDirectory(Path.Combine(nestedRoot, ".git"));
+        }
+
+        var selectedRepository = new RepositoryInfo(Root, projectRoot);
+        using GitCliVersionControlService service = CreateUnassociatedService();
+
+        InvalidOperationException? exception = Assert.ThrowsAsync<InvalidOperationException>(
+            async () => await service.InitializeAsync(
+                new InitOptions(selectedRepository, UseLfsWhenAvailable: false),
+                CancellationToken.None));
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(exception!.Message, Does.Contain("nested Git repository 'embedded'"));
+            Assert.That(service.Repository, Is.Null);
+            Assert.That(File.Exists(Path.Combine(projectRoot, ".gitignore")), Is.False);
+            Assert.That(File.Exists(Path.Combine(projectRoot, ".gitattributes")), Is.False);
+        });
+    }
+
+    [Test]
+    public async Task Snapshot_rejects_required_content_beneath_a_nested_git_repository()
+    {
+        string projectRoot = CreateProjectDirectory();
+        await File.WriteAllTextAsync(Path.Combine(projectRoot, "project.bep"), "baseline\n");
+        await RunGitAsync("add", "--", "nested/project/project.bep");
+        await RunGitAsync("commit", "-m", "baseline project");
+        string nestedRoot = Path.Combine(projectRoot, "embedded");
+        Directory.CreateDirectory(Path.Combine(nestedRoot, ".git"));
+        await File.WriteAllTextAsync(Path.Combine(nestedRoot, "nested.scene"), "{}\n");
+        var repository = new RepositoryInfo(Root, projectRoot);
+        using var service = new GitCliVersionControlService(
+            CreateInstalledLocator(),
+            repository,
+            watcher: null,
+            _ => CreateRunner());
+
+        InvalidOperationException? exception = Assert.ThrowsAsync<InvalidOperationException>(
+            async () => await service.CommitAllAsync(
+                "beutl: snapshot on save",
+                SnapshotKind.Save,
+                CancellationToken.None));
+
+        Assert.That(exception!.Message, Does.Contain("nested Git repository 'embedded'"));
+    }
+
     [TestCase(".gitignore")]
     [TestCase(".gitattributes")]
     public async Task Initialize_detects_an_ignored_future_hygiene_file(string fileName)

@@ -1265,6 +1265,7 @@ internal sealed class GitCliVersionControlService :
     {
         await EnsureNotConflictedCoreAsync(cancellationToken).ConfigureAwait(false);
         RepositoryInfo repository = GetRepository();
+        ValidateRequiredProjectFileLayout(repository.ProjectRoot);
         IGitCliRunner runner = await GetInstalledRunnerCoreAsync(cancellationToken).ConfigureAwait(false);
         CheckedOutBranchTip baseHead = await GetCheckedOutBranchTipCoreAsync(repository, runner, cancellationToken)
             .ConfigureAwait(false);
@@ -1303,10 +1304,18 @@ internal sealed class GitCliVersionControlService :
                 ["read-tree", baseHead.Commit],
                 indexOptions,
                 cancellationToken).ConfigureAwait(false);
+            var addArguments = new List<string>
+            {
+                "add",
+                "-A",
+                "--",
+                CreateSnapshotBasePathspec(repository),
+            };
+            addArguments.AddRange(CreateSnapshotExcludePathspecs(repository));
             await runner.RunAsync(
                 repository,
-                ["add", "-A", "--", repository.Pathspec],
-                indexOptions,
+                addArguments,
+                indexOptions with { UseLiteralPathspecs = false },
                 cancellationToken).ConfigureAwait(false);
             GitCommandResult tree = await runner.RunAsync(
                 repository,
@@ -4562,13 +4571,27 @@ internal sealed class GitCliVersionControlService :
         RepositoryInfo repository = GetRepository();
         IGitCliRunner runner = await GetInstalledRunnerCoreAsync(cancellationToken).ConfigureAwait(false);
         bool isFirstRemote = (await GetRemotesCoreAsync(cancellationToken).ConfigureAwait(false)).Count == 0;
-        await runner.RunAsync(
-            repository,
-            isFirstRemote
-                ? ["remote", "add", "origin", url]
-                : ["remote", "set-url", "origin", url],
-            GitCommandOptions.Local,
-            cancellationToken).ConfigureAwait(false);
+        if (isFirstRemote)
+        {
+            await runner.RunAsync(
+                repository,
+                ["remote", "add", "origin", url],
+                GitCommandOptions.Local,
+                cancellationToken).ConfigureAwait(false);
+        }
+        else
+        {
+            await runner.RunAsync(
+                repository,
+                ["config", "--local", "--replace-all", "remote.origin.pushurl", url],
+                GitCommandOptions.Local,
+                cancellationToken).ConfigureAwait(false);
+            await runner.RunAsync(
+                repository,
+                ["remote", "set-url", "origin", url],
+                GitCommandOptions.Local,
+                cancellationToken).ConfigureAwait(false);
+        }
 
         if (isFirstRemote)
         {
@@ -7765,8 +7788,13 @@ internal sealed class GitCliVersionControlService :
         var pending = new Stack<(
             string Directory,
             bool IsResourceDirectory,
-            string? SymbolicLinkDirectory)>();
-        pending.Push((projectRoot, IsResourceDirectory: false, SymbolicLinkDirectory: null));
+            string? SymbolicLinkDirectory,
+            string? NestedRepositoryDirectory)>();
+        pending.Push((
+            projectRoot,
+            IsResourceDirectory: false,
+            SymbolicLinkDirectory: null,
+            NestedRepositoryDirectory: null));
         var visitedDirectories = new HashSet<string>(
             OperatingSystem.IsWindows() ? StringComparer.OrdinalIgnoreCase : StringComparer.Ordinal);
         var options = new EnumerationOptions { AttributesToSkip = 0 };
@@ -7795,6 +7823,15 @@ internal sealed class GitCliVersionControlService :
                             $"The required project content beneath symbolic-link directory '{relativeLink}' cannot be snapshotted safely.");
                     }
 
+                    if (item.NestedRepositoryDirectory is not null)
+                    {
+                        string relativeRepository = NormalizeGitPath(Path.GetRelativePath(
+                            projectRoot,
+                            item.NestedRepositoryDirectory));
+                        throw new InvalidOperationException(
+                            $"The required project content beneath nested Git repository '{relativeRepository}' cannot be snapshotted safely.");
+                    }
+
                     yield return file;
                 }
             }
@@ -7811,6 +7848,14 @@ internal sealed class GitCliVersionControlService :
                         ".git",
                         StringComparison.OrdinalIgnoreCase))
                 {
+                    string? nestedRepositoryDirectory = item.NestedRepositoryDirectory;
+                    if (nestedRepositoryDirectory is null
+                        && (Directory.Exists(Path.Combine(child, ".git"))
+                            || File.Exists(Path.Combine(child, ".git"))))
+                    {
+                        nestedRepositoryDirectory = child;
+                    }
+
                     pending.Push((
                         child,
                         item.IsResourceDirectory
@@ -7818,7 +7863,8 @@ internal sealed class GitCliVersionControlService :
                         item.SymbolicLinkDirectory
                         ?? ((File.GetAttributes(child) & FileAttributes.ReparsePoint) != 0
                             ? child
-                            : null)));
+                            : null),
+                        nestedRepositoryDirectory));
                 }
             }
         }

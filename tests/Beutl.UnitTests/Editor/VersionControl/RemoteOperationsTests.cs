@@ -33,6 +33,47 @@ public sealed class RemoteOperationsTests : RealGitTestRepository
     }
 
     [Test]
+    public async Task SetRemote_replaces_an_existing_push_url()
+    {
+        await CommitFileAsync("project.bep", "initial\n", "initial");
+        string originalRemote = await CreateBareRemoteAsync();
+        string stalePushRemote = await CreateBareRemoteAsync();
+        string secondStalePushRemote = await CreateBareRemoteAsync();
+        string replacementRemote = await CreateBareRemoteAsync();
+        using var service = CreateService();
+        await service.SetRemoteAsync(originalRemote, CancellationToken.None);
+        await RunGitAsync(
+            "remote",
+            "set-url",
+            "--push",
+            "origin",
+            stalePushRemote);
+        await RunGitAsync(
+            "remote",
+            "set-url",
+            "--add",
+            "--push",
+            "origin",
+            secondStalePushRemote);
+
+        await service.SetRemoteAsync(replacementRemote, CancellationToken.None);
+        string fetchUrl = (await RunGitAsync("remote", "get-url", "origin")).Stdout.Trim();
+        string[] pushUrls = (await RunGitAsync(
+                "remote",
+                "get-url",
+                "--push",
+                "--all",
+                "origin"))
+            .Stdout.Split('\n', StringSplitOptions.RemoveEmptyEntries);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(fetchUrl, Is.EqualTo(replacementRemote));
+            Assert.That(pushUrls, Is.EqualTo(new[] { replacementRemote }));
+        });
+    }
+
+    [Test]
     public async Task PullFastForward_updates_the_worktree_from_a_local_bare_remote()
     {
         await CommitFileAsync("project.bep", "initial\n", "initial");

@@ -3239,6 +3239,45 @@ public class GitCliVersionControlServiceTests : RealGitTestRepository
     }
 
     [Test]
+    public async Task Project_checkpoint_excludes_modified_tracked_local_state()
+    {
+        string profilePath = Path.Combine(Root, ".beutl", "output-profile.json");
+        string temporaryPath = Path.Combine(Root, "render.tmp");
+        Directory.CreateDirectory(Path.GetDirectoryName(profilePath)!);
+        await File.WriteAllTextAsync(Path.Combine(Root, "project.bep"), "baseline project\n");
+        await File.WriteAllTextAsync(profilePath, "baseline profile\n");
+        await File.WriteAllTextAsync(temporaryPath, "baseline temporary\n");
+        await RunGitAsync("add", "-A");
+        await RunGitAsync("commit", "-m", "baseline");
+        await File.WriteAllTextAsync(Path.Combine(Root, "project.bep"), "checkpoint project\n");
+        await File.WriteAllTextAsync(profilePath, "local profile\n");
+        await File.WriteAllTextAsync(temporaryPath, "local temporary\n");
+        using var service = CreateService();
+
+        ProjectCheckpoint checkpoint = await service.CreateProjectCheckpointAsync(
+            "beutl: filtered checkpoint",
+            CancellationToken.None);
+        string checkpointProject = (await RunGitAsync(
+            "show",
+            $"{checkpoint.Commit}:project.bep")).Stdout;
+        string checkpointProfile = (await RunGitAsync(
+            "show",
+            $"{checkpoint.Commit}:.beutl/output-profile.json")).Stdout;
+        string checkpointTemporary = (await RunGitAsync(
+            "show",
+            $"{checkpoint.Commit}:render.tmp")).Stdout;
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(checkpointProject, Is.EqualTo("checkpoint project\n"));
+            Assert.That(checkpointProfile, Is.EqualTo("baseline profile\n"));
+            Assert.That(checkpointTemporary, Is.EqualTo("baseline temporary\n"));
+            Assert.That(File.ReadAllText(profilePath), Is.EqualTo("local profile\n"));
+            Assert.That(File.ReadAllText(temporaryPath), Is.EqualTo("local temporary\n"));
+        });
+    }
+
+    [Test]
     public async Task Branch_tip_rollback_reports_unsafe_when_an_external_operation_starts_after_checkout()
     {
         await CommitFileAsync("project.bep", "base\n", "initial");
