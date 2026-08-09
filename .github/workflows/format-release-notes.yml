@@ -101,8 +101,8 @@ jobs:
             - DO NOT publish the release, edit the tag, modify assets, or open issues/PRs.
             - DO NOT touch any other release.
             - Idempotency — decide from the fetched body:
-              - It already contains `releases/download/${{ inputs.tag }}/Beutl-${{ inputs.semVer }}.flatpak` → already fully reformatted; exit without changes.
-              - It contains `releases/download/${{ inputs.tag }}/` but NOT that Flatpak link → it was formatted by an older revision of this workflow. Do NOT rebuild the whole body (it is no longer the auto-generated one, so a rebuild would mangle it): insert ONLY the Flatpak bullet directly after the `[Debian package](...)` bullet, leave every other byte of the body unchanged, and apply it with the step 3 `gh release edit` command. Preserve the release's current draft state — pass `--draft=true` only when the `isDraft` you fetched in step 1 was true, so repairing an already-published release does not unpublish it.
+              - It already contains `https://github.com/${{ github.repository }}/releases/download/${{ inputs.tag }}/Beutl-${{ inputs.semVer }}.flatpak` → already fully reformatted; exit without changes.
+              - It contains `https://github.com/${{ github.repository }}/releases/download/${{ inputs.tag }}/` but NOT that Flatpak link → it was formatted by an older revision of this workflow. Do NOT rebuild the whole body (it is no longer the auto-generated one, so a rebuild would mangle it): insert ONLY the Flatpak bullet directly after the `[Debian package](...)` bullet, leave every other byte of the body unchanged, and apply it with the step 3 `gh release edit` command. Preserve the release's current draft state — pass `--draft=true` only when the `isDraft` you fetched in step 1 was true, so repairing an already-published release does not unpublish it.
               - Neither → the body is the auto-generated one; do the full reformat described above.
 
       - name: Verify the release notes were reformatted
@@ -123,9 +123,10 @@ jobs:
             echo "::error::Release notes for $TAG were not reformatted (no download links found). The Claude step finished without editing the body."
             exit 1
           fi
-          if printf '%s' "$body" | grep -qF "releases/download/$TAG/Beutl-$SEM_VER.flatpak"; then
+          flatpak_url="https://github.com/$REPO/releases/download/$TAG/Beutl-$SEM_VER.flatpak"
+          if printf '%s' "$body" | grep -qF "$flatpak_url"; then
             echo "Release notes link the Flatpak bundle."
           else
-            echo "::error::Release notes for $TAG are missing the Flatpak download link (Beutl-$SEM_VER.flatpak)."
+            echo "::error::Release notes for $TAG are missing the Flatpak download link ($flatpak_url)."
             exit 1
           fi
