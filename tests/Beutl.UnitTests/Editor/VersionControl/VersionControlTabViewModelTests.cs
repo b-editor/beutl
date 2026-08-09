@@ -1677,6 +1677,71 @@ public class VersionControlTabViewModelTests
             Times.Once);
     }
 
+    [TestCase("https://user:secret@example.invalid/repository.git")]
+    [TestCase("https://user@example.invalid/repository.git")]
+    [TestCase("https://example.invalid/repository.git?access_token=secret")]
+    [TestCase("https://example.invalid/repository.git#access_token=secret")]
+    [TestCase("ssh://git:secret@example.invalid/repository.git")]
+    public async Task Set_remote_prompt_omits_unsafe_existing_url(string remoteUrl)
+    {
+        Mock<IProjectVersionControlService> service = CreateServiceMock();
+        service.Setup(x => x.GetRemotesAsync(It.IsAny<CancellationToken>()))
+            .ReturnsAsync([new RemoteInfo("origin", remoteUrl)]);
+        var coordinator = new Mock<IProjectVersionControlCoordinator>();
+        using VersionControlTabViewModel viewModel = CreateViewModel(
+            service.Object,
+            coordinator.Object);
+        string? prefilledUrl = "not requested";
+        viewModel.RequestRemoteUrlAsync = currentUrl =>
+        {
+            prefilledUrl = currentUrl;
+            return Task.FromResult<string?>(null);
+        };
+        await viewModel.Initialization;
+
+        await viewModel.SetRemoteAsync();
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(viewModel.HasRemote.Value, Is.True);
+            Assert.That(viewModel.RemoteUrl.Value, Is.Empty);
+            Assert.That(prefilledUrl, Is.Empty);
+        });
+        coordinator.Verify(
+            x => x.SetRemoteAsync(
+                It.IsAny<string>(),
+                It.IsAny<CancellationToken>()),
+            Times.Never);
+    }
+
+    [Test]
+    public async Task Set_remote_prompt_preserves_passwordless_ssh_username()
+    {
+        const string RemoteUrl = "ssh://git@example.invalid/repository.git";
+        Mock<IProjectVersionControlService> service = CreateServiceMock();
+        service.Setup(x => x.GetRemotesAsync(It.IsAny<CancellationToken>()))
+            .ReturnsAsync([new RemoteInfo("origin", RemoteUrl)]);
+        var coordinator = new Mock<IProjectVersionControlCoordinator>();
+        using VersionControlTabViewModel viewModel = CreateViewModel(
+            service.Object,
+            coordinator.Object);
+        string? prefilledUrl = null;
+        viewModel.RequestRemoteUrlAsync = currentUrl =>
+        {
+            prefilledUrl = currentUrl;
+            return Task.FromResult<string?>(null);
+        };
+        await viewModel.Initialization;
+
+        await viewModel.SetRemoteAsync();
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(viewModel.RemoteUrl.Value, Is.EqualTo(RemoteUrl));
+            Assert.That(prefilledUrl, Is.EqualTo(RemoteUrl));
+        });
+    }
+
     [TestCase(
         false,
         TestName = "Set_remote_rejects_prompt_result_after_service_rebind")]

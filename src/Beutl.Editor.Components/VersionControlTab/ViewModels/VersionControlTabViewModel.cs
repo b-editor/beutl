@@ -1351,7 +1351,35 @@ public sealed class VersionControlTabViewModel : IToolContext
         }
 
         HasRemote.Value = remote is not null;
-        RemoteUrl.Value = remote?.Url ?? string.Empty;
+        RemoteUrl.Value = GetRemoteUrlForPresentation(remote?.Url);
+    }
+
+    private static string GetRemoteUrlForPresentation(string? url)
+    {
+        if (string.IsNullOrWhiteSpace(url))
+        {
+            return string.Empty;
+        }
+
+        if (!Uri.TryCreate(url, UriKind.Absolute, out Uri? uri))
+        {
+            return url;
+        }
+
+        if (!string.IsNullOrEmpty(uri.Query)
+            || !string.IsNullOrEmpty(uri.Fragment))
+        {
+            return string.Empty;
+        }
+
+        if (string.IsNullOrEmpty(uri.UserInfo))
+        {
+            return url;
+        }
+
+        bool isSsh = string.Equals(uri.Scheme, "ssh", StringComparison.OrdinalIgnoreCase);
+        bool hasPassword = Uri.UnescapeDataString(uri.UserInfo).Contains(':');
+        return isSsh && !hasPassword ? url : string.Empty;
     }
 
     private async Task LoadNextPageCoreAsync(
