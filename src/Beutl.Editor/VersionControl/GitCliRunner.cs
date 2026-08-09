@@ -208,18 +208,18 @@ internal sealed class GitCliRunner : IGitCliRunner
         bool throwOnFailure)
     {
         using var process = new Process { StartInfo = startInfo };
-        try
-        {
-            process.Start();
-        }
-        catch (System.ComponentModel.Win32Exception ex)
-        {
-            throw new GitOperationException(-1, ex.Message);
-        }
-
         Interlocked.Increment(ref _activeProcesses);
         try
         {
+            try
+            {
+                process.Start();
+            }
+            catch (System.ComponentModel.Win32Exception ex)
+            {
+                throw new GitOperationException(-1, ex.Message);
+            }
+
             Task<(string Output, bool Truncated)> stdoutTask = ReadStandardOutputAsync(
                 process.StandardOutput.BaseStream,
                 maxStdoutBytes);

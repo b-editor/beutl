@@ -174,6 +174,17 @@ public sealed class MainViewModel : BasePageViewModel, IContextCommandHandler, I
 
     public override void Dispose()
     {
+        _ = ShutdownAsync();
+        _ = ObserveShutdownCompletionAsync();
+    }
+
+    public ValueTask DisposeAsync()
+    {
+        return new ValueTask(ShutdownAsync());
+    }
+
+    private void BeginCompositionDisposal()
+    {
         if (Interlocked.Exchange(ref _disposed, 1) != 0)
         {
             return;
@@ -181,13 +192,6 @@ public sealed class MainViewModel : BasePageViewModel, IContextCommandHandler, I
 
         _agentHostEndpoint.RequestStop();
         _ = CompleteDisposalAsync();
-        _ = ObserveDisposalCompletionAsync();
-    }
-
-    public ValueTask DisposeAsync()
-    {
-        Dispose();
-        return new ValueTask(_disposalCompletion.Task);
     }
 
     private async Task CompleteDisposalAsync()
@@ -251,15 +255,15 @@ public sealed class MainViewModel : BasePageViewModel, IContextCommandHandler, I
         }
     }
 
-    private async Task ObserveDisposalCompletionAsync()
+    private async Task ObserveShutdownCompletionAsync()
     {
         try
         {
-            await _disposalCompletion.Task;
+            await ShutdownAsync();
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Failed to dispose the main view-model composition root.");
+            _logger.LogError(ex, "Failed to shut down the main view-model composition root.");
         }
     }
 
@@ -320,7 +324,8 @@ public sealed class MainViewModel : BasePageViewModel, IContextCommandHandler, I
         }
         finally
         {
-            await DisposeAsync();
+            BeginCompositionDisposal();
+            await _disposalCompletion.Task;
         }
     }
 

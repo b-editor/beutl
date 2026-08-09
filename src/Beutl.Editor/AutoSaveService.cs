@@ -33,7 +33,6 @@ public sealed class AutoSaveService : IDisposable
     public void SaveObjects(IEnumerable<CoreObject> objectsToSave)
     {
         ThrowIfDisposed();
-
         // 各オブジェクトを保存
         foreach (CoreObject obj in objectsToSave)
         {

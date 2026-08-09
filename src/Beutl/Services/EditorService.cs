@@ -3,6 +3,7 @@ using System.Runtime.InteropServices;
 using System.Security.Cryptography;
 using Beutl.Api.Services;
 using Beutl.Configuration;
+using Beutl.Editor;
 using Beutl.Editor.VersionControl;
 using Beutl.Serialization;
 using Reactive.Bindings;
@@ -69,21 +70,36 @@ public sealed class EditorTabItem : IAsyncDisposable
     }
 }
 
-public sealed class EditorService
+public sealed class EditorService : IOutputOperationLeaseProvider
 {
     private readonly CoreList<EditorTabItem> _tabItems;
     private readonly ExtensionProvider _extensionProvider;
+    private readonly Action<Project, Uri> _serializeProject;
     private readonly ReactivePropertySlim<IProjectVersionControlService?>
         _projectVersionControlService = new();
     private readonly object _workspaceOperationSync = new();
+    private readonly SemaphoreSlim _projectFileWriteGate = new(1, 1);
+    private TaskCompletionSource? _worktreeMutationCompletion;
     private int _activeOutputOperations;
+    private int _activeProjectFileWrites;
     private bool _worktreeMutationActive;
 
     public EditorService(ExtensionProvider extensionProvider)
+        : this(
+            extensionProvider,
+            static (project, uri) => CoreSerializer.StoreToUri(project, uri))
+    {
+    }
+
+    internal EditorService(
+        ExtensionProvider extensionProvider,
+        Action<Project, Uri> serializeProject)
     {
         ArgumentNullException.ThrowIfNull(extensionProvider);
+        ArgumentNullException.ThrowIfNull(serializeProject);
 
         _extensionProvider = extensionProvider;
+        _serializeProject = serializeProject;
         _tabItems = new() { ResetBehavior = ResetBehavior.Remove };
         ProjectVersionControlService = _projectVersionControlService
             .ToReadOnlyReactivePropertySlim();
@@ -98,6 +114,17 @@ public sealed class EditorService
     { get; }
 
     internal IProjectVersionControlCoordinator? ProjectVersionControlCoordinator { get; set; }
+
+    internal bool IsWorktreeMutationActive
+    {
+        get
+        {
+            lock (_workspaceOperationSync)
+            {
+                return _worktreeMutationActive;
+            }
+        }
+    }
 
     internal void PublishProjectVersionControlService(
         IProjectVersionControlService? service)
@@ -115,7 +142,46 @@ public sealed class EditorService
             }
 
             _activeOutputOperations++;
-            return new WorkspaceOperationLease(this, isOutput: true);
+            return new WorkspaceOperationLease(this, WorkspaceOperationKind.Output);
+        }
+    }
+
+    IDisposable? IOutputOperationLeaseProvider.TryBeginOutputOperation()
+    {
+        return TryBeginOutputOperation();
+    }
+
+    internal async ValueTask<IDisposable> BeginProjectFileWriteAsync(
+        CancellationToken cancellationToken)
+    {
+        await _projectFileWriteGate.WaitAsync(cancellationToken);
+        try
+        {
+            while (true)
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+                Task waitForWorktreeMutation;
+                lock (_workspaceOperationSync)
+                {
+                    if (!_worktreeMutationActive)
+                    {
+                        _activeProjectFileWrites++;
+                        return new WorkspaceOperationLease(
+                            this,
+                            WorkspaceOperationKind.ProjectFileWrite);
+                    }
+
+                    waitForWorktreeMutation = _worktreeMutationCompletion?.Task
+                                              ?? Task.CompletedTask;
+                }
+
+                await waitForWorktreeMutation.WaitAsync(cancellationToken);
+            }
+        }
+        catch
+        {
+            _projectFileWriteGate.Release();
+            throw;
         }
     }
 
@@ -123,13 +189,17 @@ public sealed class EditorService
     {
         lock (_workspaceOperationSync)
         {
-            if (_worktreeMutationActive || _activeOutputOperations > 0)
+            if (_worktreeMutationActive
+                || _activeOutputOperations > 0
+                || _activeProjectFileWrites > 0)
             {
                 return null;
             }
 
             _worktreeMutationActive = true;
-            return new WorkspaceOperationLease(this, isOutput: false);
+            _worktreeMutationCompletion = new TaskCompletionSource(
+                TaskCreationOptions.RunContinuationsAsynchronously);
+            return new WorkspaceOperationLease(this, WorkspaceOperationKind.WorktreeMutation);
         }
     }
 
@@ -139,35 +209,73 @@ public sealed class EditorService
     {
         ArgumentNullException.ThrowIfNull(project);
         cancellationToken.ThrowIfCancellationRequested();
-        CoreSerializer.StoreToUri(project, project.Uri!);
-
-        foreach (EditorTabItem item in TabItems.ToArray())
+        Uri projectUri = project.Uri
+                         ?? throw new InvalidOperationException(
+                             "The project must have a file URI before it can be saved.");
+        EditorTabItem[] tabItems = TabItems.ToArray();
+        bool[] enabledStates = new bool[tabItems.Length];
+        for (int i = 0; i < tabItems.Length; i++)
         {
-            cancellationToken.ThrowIfCancellationRequested();
-            if (item.Commands.Value is { } commands && !await commands.OnSave())
+            enabledStates[i] = tabItems[i].Context.Value.IsEnabled.Value;
+            tabItems[i].Context.Value.IsEnabled.Value = false;
+        }
+
+        try
+        {
+            await Task.Run(
+                () => _serializeProject(project, projectUri),
+                cancellationToken);
+
+            foreach (EditorTabItem item in tabItems)
             {
-                return false;
+                cancellationToken.ThrowIfCancellationRequested();
+                if (item.Commands.Value is { } commands && !await commands.OnSave())
+                {
+                    return false;
+                }
+            }
+
+            return true;
+        }
+        finally
+        {
+            for (int i = 0; i < tabItems.Length; i++)
+            {
+                if (tabItems[i].Context.Value is { } context)
+                {
+                    context.IsEnabled.Value = enabledStates[i];
+                }
+            }
+        }
+    }
+
+    private void EndWorkspaceOperation(WorkspaceOperationKind kind)
+    {
+        TaskCompletionSource? completedWorktreeMutation = null;
+        bool releaseProjectFileWrite = false;
+        lock (_workspaceOperationSync)
+        {
+            switch (kind)
+            {
+                case WorkspaceOperationKind.Output when _activeOutputOperations > 0:
+                    _activeOutputOperations--;
+                    break;
+                case WorkspaceOperationKind.ProjectFileWrite when _activeProjectFileWrites > 0:
+                    _activeProjectFileWrites--;
+                    releaseProjectFileWrite = true;
+                    break;
+                case WorkspaceOperationKind.WorktreeMutation:
+                    _worktreeMutationActive = false;
+                    completedWorktreeMutation = _worktreeMutationCompletion;
+                    _worktreeMutationCompletion = null;
+                    break;
             }
         }
 
-        return true;
-    }
-
-    private void EndWorkspaceOperation(bool isOutput)
-    {
-        lock (_workspaceOperationSync)
+        completedWorktreeMutation?.TrySetResult();
+        if (releaseProjectFileWrite)
         {
-            if (isOutput)
-            {
-                if (_activeOutputOperations > 0)
-                {
-                    _activeOutputOperations--;
-                }
-            }
-            else
-            {
-                _worktreeMutationActive = false;
-            }
+            _projectFileWriteGate.Release();
         }
     }
 
@@ -217,7 +325,9 @@ public sealed class EditorService
         await item.DisposeAsync();
     }
 
-    private sealed class WorkspaceOperationLease(EditorService owner, bool isOutput) : IDisposable
+    private sealed class WorkspaceOperationLease(
+        EditorService owner,
+        WorkspaceOperationKind kind) : IDisposable
     {
         private int _disposed;
 
@@ -225,8 +335,15 @@ public sealed class EditorService
         {
             if (Interlocked.Exchange(ref _disposed, 1) == 0)
             {
-                owner.EndWorkspaceOperation(isOutput);
+                owner.EndWorkspaceOperation(kind);
             }
         }
+    }
+
+    private enum WorkspaceOperationKind
+    {
+        Output,
+        ProjectFileWrite,
+        WorktreeMutation,
     }
 }

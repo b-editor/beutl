@@ -375,6 +375,88 @@ public class RepositoryWatcherTests
     }
 
     [Test]
+    public async Task Sustained_changes_raise_at_the_maximum_debounce_delay()
+    {
+        var timeProvider = new FakeTimeProvider();
+        using var watcher = new RepositoryWatcher(
+            new RepositoryInfo(_tempDirectory, _tempDirectory),
+            timeProvider,
+            startWatching: false);
+        int raised = 0;
+        var completion = new TaskCompletionSource(
+            TaskCreationOptions.RunContinuationsAsynchronously);
+        watcher.Changed += (_, _) =>
+        {
+            Interlocked.Increment(ref raised);
+            completion.TrySetResult();
+        };
+
+        watcher.NotifyPathChanged(Path.Combine(_tempDirectory, "first.belm"));
+        for (int i = 0; i < 4; i++)
+        {
+            timeProvider.Advance(TimeSpan.FromMilliseconds(400));
+            watcher.NotifyPathChanged(Path.Combine(_tempDirectory, $"change-{i}.belm"));
+        }
+
+        timeProvider.Advance(TimeSpan.FromMilliseconds(399));
+        Assert.That(Volatile.Read(ref raised), Is.Zero);
+
+        timeProvider.Advance(TimeSpan.FromMilliseconds(1));
+        await completion.Task.WaitAsync(TimeSpan.FromSeconds(2));
+
+        Assert.That(Volatile.Read(ref raised), Is.EqualTo(1));
+    }
+
+    [Test]
+    public async Task Metadata_watcher_enable_does_not_hold_the_callback_lock()
+    {
+        string projectRoot = Path.Combine(_tempDirectory, "project");
+        string metadataRoot = Path.Combine(_tempDirectory, ".git");
+        string infoDirectory = Path.Combine(metadataRoot, "info");
+        Directory.CreateDirectory(projectRoot);
+        Directory.CreateDirectory(Path.Combine(metadataRoot, "refs"));
+        Directory.CreateDirectory(infoDirectory);
+        var createdWatchers = new List<TrackingFileSystemWatcher>();
+        var enableEntered = new TaskCompletionSource(
+            TaskCreationOptions.RunContinuationsAsynchronously);
+        var releaseEnable = new TaskCompletionSource(
+            TaskCreationOptions.RunContinuationsAsynchronously);
+        bool blockReplacement = false;
+        var watcher = new RepositoryWatcher(
+            new RepositoryInfo(_tempDirectory, projectRoot),
+            TimeProvider.System,
+            startWatching: true,
+            watcherFactory: path =>
+            {
+                var created = new TrackingFileSystemWatcher(path);
+                createdWatchers.Add(created);
+                return created;
+            },
+            watcherEnabler: _ =>
+            {
+                if (blockReplacement)
+                {
+                    enableEntered.TrySetResult();
+                    releaseEnable.Task.GetAwaiter().GetResult();
+                }
+            });
+        TrackingFileSystemWatcher metadataWatcher = createdWatchers.Single(created =>
+            !created.IncludeSubdirectories
+            && PathsEqual(created.Path, metadataRoot));
+
+        blockReplacement = true;
+        Task refresh = Task.Run(() => metadataWatcher.RaiseChanged("info"));
+        await enableEntered.Task.WaitAsync(TimeSpan.FromSeconds(2));
+
+        Task disposal = Task.Run(watcher.Dispose);
+        await disposal.WaitAsync(TimeSpan.FromSeconds(2));
+        releaseEnable.TrySetResult();
+        await refresh.WaitAsync(TimeSpan.FromSeconds(2));
+
+        Assert.That(createdWatchers.Last().IsDisposed, Is.True);
+    }
+
+    [Test]
     public async Task Changed_is_raised_on_a_background_thread()
     {
         var timeProvider = new FakeTimeProvider();

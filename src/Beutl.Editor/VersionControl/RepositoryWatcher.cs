@@ -5,14 +5,17 @@ internal sealed class RepositoryWatcher : IDisposable
     private static readonly string[] AncestorRuleFileNames = [".gitignore", ".gitattributes"];
 
     internal static readonly TimeSpan DebounceInterval = TimeSpan.FromMilliseconds(500);
+    internal static readonly TimeSpan MaximumDebounceDelay = TimeSpan.FromSeconds(2);
 
     private readonly object _sync = new();
     private readonly string _repoRoot;
     private readonly string _projectRoot;
     private readonly ITimer _debounceTimer;
+    private readonly TimeProvider _timeProvider;
     private readonly Func<string, FileSystemWatcher> _watcherFactory;
     private readonly Action<FileSystemWatcher> _watcherEnabler;
     private readonly List<FileSystemWatcher> _watchers = [];
+    private long? _debounceWindowStartedTimestamp;
     private bool _disposed;
 
     internal RepositoryWatcher(RepositoryInfo repository, TimeProvider? timeProvider = null)
@@ -31,6 +34,7 @@ internal sealed class RepositoryWatcher : IDisposable
         ArgumentNullException.ThrowIfNull(timeProvider);
         _repoRoot = repository.RepoRoot;
         _projectRoot = repository.ProjectRoot;
+        _timeProvider = timeProvider;
         _watcherFactory = watcherFactory ?? (static path => new FileSystemWatcher(path));
         _watcherEnabler = watcherEnabler ?? (static watcher => watcher.EnableRaisingEvents = true);
         _debounceTimer = timeProvider.CreateTimer(
@@ -323,7 +327,8 @@ internal sealed class RepositoryWatcher : IDisposable
     private void AddGitMetadataWatcher(
         string watchedDirectory,
         string metadataRoot,
-        bool includeSubdirectories)
+        bool includeSubdirectories,
+        bool rejectDuplicate = false)
     {
         AddWatcher(
             watchedDirectory,
@@ -341,10 +346,18 @@ internal sealed class RepositoryWatcher : IDisposable
                 watcher.Deleted += changed;
                 watcher.Renamed += renamed;
                 watcher.Error += OnWatcherError;
-            });
+            },
+            rejectDuplicate
+                ? watchers => watchers.Any(watcher =>
+                    watcher.IncludeSubdirectories == includeSubdirectories
+                    && PathsEqual(watcher.Path, watchedDirectory))
+                : null);
     }
 
-    private void AddWatcher(string directory, Action<FileSystemWatcher> configure)
+    private void AddWatcher(
+        string directory,
+        Action<FileSystemWatcher> configure,
+        Func<IReadOnlyList<FileSystemWatcher>, bool>? conflicts = null)
     {
         FileSystemWatcher watcher = _watcherFactory(directory)
                                     ?? throw new InvalidOperationException(
@@ -352,15 +365,20 @@ internal sealed class RepositoryWatcher : IDisposable
         try
         {
             configure(watcher);
-            _watchers.Add(watcher);
-            try
+            _watcherEnabler(watcher);
+            bool accepted;
+            lock (_sync)
             {
-                _watcherEnabler(watcher);
+                accepted = !_disposed && conflicts?.Invoke(_watchers) != true;
+                if (accepted)
+                {
+                    _watchers.Add(watcher);
+                }
             }
-            catch
+
+            if (!accepted)
             {
-                _watchers.Remove(watcher);
-                throw;
+                watcher.Dispose();
             }
         }
         catch
@@ -441,18 +459,23 @@ internal sealed class RepositoryWatcher : IDisposable
 
         try
         {
+            bool shouldAttach;
             lock (_sync)
             {
-                if (_disposed
-                    || _watchers.Any(watcher =>
+                shouldAttach = !_disposed
+                    && !_watchers.Any(watcher =>
                         watcher.IncludeSubdirectories == includeSubdirectories
                         && PathsEqual(watcher.Path, directory))
-                    || !Directory.Exists(directory))
-                {
-                    return;
-                }
+                    && Directory.Exists(directory);
+            }
 
-                AddGitMetadataWatcher(directory, metadataRoot, includeSubdirectories);
+            if (shouldAttach)
+            {
+                AddGitMetadataWatcher(
+                    directory,
+                    metadataRoot,
+                    includeSubdirectories,
+                    rejectDuplicate: true);
             }
         }
         catch (Exception ex)
@@ -549,7 +572,18 @@ internal sealed class RepositoryWatcher : IDisposable
                 return;
             }
 
-            _debounceTimer.Change(DebounceInterval, Timeout.InfiniteTimeSpan);
+            long now = _timeProvider.GetTimestamp();
+            _debounceWindowStartedTimestamp ??= now;
+            TimeSpan elapsed = _timeProvider.GetElapsedTime(
+                _debounceWindowStartedTimestamp.Value,
+                now);
+            TimeSpan maximumRemaining = MaximumDebounceDelay - elapsed;
+            TimeSpan dueTime = maximumRemaining <= TimeSpan.Zero
+                ? TimeSpan.Zero
+                : TimeSpan.FromTicks(Math.Min(
+                    DebounceInterval.Ticks,
+                    maximumRemaining.Ticks));
+            _debounceTimer.Change(dueTime, Timeout.InfiniteTimeSpan);
         }
     }
 
@@ -561,6 +595,8 @@ internal sealed class RepositoryWatcher : IDisposable
             {
                 return;
             }
+
+            _debounceWindowStartedTimestamp = null;
         }
 
         ThreadPool.UnsafeQueueUserWorkItem(

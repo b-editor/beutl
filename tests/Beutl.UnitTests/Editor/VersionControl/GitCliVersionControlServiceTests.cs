@@ -76,11 +76,12 @@ public class GitCliVersionControlServiceTests : RealGitTestRepository
     {
         string projectRoot = CreateTemporaryDirectory();
         await File.WriteAllTextAsync(Path.Combine(projectRoot, "project.bep"), "{}\n");
+        var runner = new RecordingArgumentsRunner(CreateRunner());
         using var service = new GitCliVersionControlService(
             CreateInstalledLocator(),
             repository: null,
             watcher: null,
-            _ => CreateRunner());
+            _ => runner);
 
         Assert.ThrowsAsync<GitIdentityRequiredException>(
             async () => await service.InitializeAsync(
@@ -144,6 +145,11 @@ public class GitCliVersionControlServiceTests : RealGitTestRepository
             Assert.That(count.Stdout.Trim(), Is.EqualTo("1"));
             Assert.That(log.Stdout, Does.StartWith("beutl: initialize version control\n"));
             Assert.That(log.Stdout, Does.Contain("Beutl-Snapshot: init"));
+            Assert.That(
+                runner.Commands.Single(command =>
+                    IsCommitCommand(command)
+                    && command.Contains("Beutl-Snapshot: init")),
+                Does.Contain("--no-gpg-sign"));
             Assert.That(
                 File.ReadAllText(Path.Combine(projectRoot, ".gitignore")),
                 Is.EqualTo("**/.beutl/\n*.tmp\n"));
@@ -2149,6 +2155,39 @@ public class GitCliVersionControlServiceTests : RealGitTestRepository
         {
             Assert.That(parsedCommands, Has.Count.EqualTo(3));
             Assert.That(parsedCommands, Has.All.Contains("--no-show-signature"));
+        });
+    }
+
+    [Test]
+    public async Task Automatic_snapshots_disable_signing_while_manual_commits_preserve_user_configuration()
+    {
+        await CommitFileAsync("project.bep", "baseline\n", "baseline");
+        var runner = new RecordingArgumentsRunner(CreateRunner());
+        using var service = new GitCliVersionControlService(
+            CreateInstalledLocator(),
+            Repository,
+            watcher: null,
+            _ => runner);
+
+        await File.WriteAllTextAsync(Path.Combine(Root, "project.bep"), "automatic\n");
+        await service.CommitAllAsync(
+            "beutl: snapshot on save",
+            SnapshotKind.Save,
+            CancellationToken.None);
+        await File.WriteAllTextAsync(Path.Combine(Root, "project.bep"), "manual\n");
+        await service.CommitAllAsync(
+            "manual snapshot",
+            SnapshotKind.Manual,
+            CancellationToken.None);
+
+        IReadOnlyList<string>[] commits = runner.Commands
+            .Where(IsCommitCommand)
+            .ToArray();
+        Assert.Multiple(() =>
+        {
+            Assert.That(commits, Has.Length.EqualTo(2));
+            Assert.That(commits[0], Does.Contain("--no-gpg-sign"));
+            Assert.That(commits[1], Does.Not.Contain("--no-gpg-sign"));
         });
     }
 

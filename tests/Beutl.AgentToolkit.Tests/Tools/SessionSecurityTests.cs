@@ -4,6 +4,7 @@ using Beutl.AgentToolkit.Rendering;
 using Beutl.AgentToolkit.Sessions;
 using Beutl.AgentToolkit.Tools;
 using Beutl.AgentToolkit.Workspace;
+using Beutl.Extensibility;
 using Beutl.ProjectSystem;
 
 namespace Beutl.AgentToolkit.Tests.Tools;

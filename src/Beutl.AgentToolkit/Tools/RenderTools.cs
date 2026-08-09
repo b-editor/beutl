@@ -9,6 +9,7 @@ using Beutl.AgentToolkit.Reconciliation;
 using Beutl.AgentToolkit.Rendering;
 using Beutl.AgentToolkit.Sessions;
 using Beutl.AgentToolkit.Workspace;
+using Beutl.Extensibility;
 using Beutl.Extensions.FFmpeg;
 using Beutl.Graphics;
 using Beutl.Graphics.Rendering;

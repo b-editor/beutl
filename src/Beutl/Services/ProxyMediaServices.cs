@@ -2,6 +2,7 @@
 
 using Beutl.Configuration;
 using Beutl.Editor;
+using Beutl.Extensibility;
 using Beutl.Logging;
 using Beutl.Media.Decoding;
 using Beutl.Media.Proxy;
@@ -480,7 +481,7 @@ internal sealed class ProxyMediaServices : IAsyncDisposable
     private static Project? s_openProjectSourcesProject;
     private static IReadOnlySet<string>? s_openProjectSources;
 
-    private sealed class ProxyOutputOperationGate
+    internal sealed class ProxyOutputOperationGate
     {
         private Func<IDisposable?>? _tryBeginOutputOperation;
 
@@ -491,15 +492,12 @@ internal sealed class ProxyMediaServices : IAsyncDisposable
         }
 
         public IDisposable? TryBeginOutputOperation()
-            => Volatile.Read(ref _tryBeginOutputOperation)?.Invoke() ?? UnrestrictedLease.Instance;
-    }
-
-    private sealed class UnrestrictedLease : IDisposable
-    {
-        public static UnrestrictedLease Instance { get; } = new();
-
-        public void Dispose()
         {
+            Func<IDisposable?>? tryBeginOutputOperation =
+                Volatile.Read(ref _tryBeginOutputOperation);
+            return tryBeginOutputOperation is null
+                ? StandaloneOutputOperationLeaseProvider.Instance.TryBeginOutputOperation()
+                : tryBeginOutputOperation();
         }
     }
 

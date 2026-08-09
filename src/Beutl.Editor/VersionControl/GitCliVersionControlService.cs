@@ -5550,6 +5550,7 @@ internal sealed class GitCliVersionControlService :
                     "-c",
                     "core.logAllRefUpdates=true",
                     "commit",
+                    "--no-gpg-sign",
                     "-m",
                     "beutl: initialize version control",
                     "-m",
@@ -5982,6 +5983,7 @@ internal sealed class GitCliVersionControlService :
         };
         if (kind != SnapshotKind.Manual)
         {
+            arguments.Add("--no-gpg-sign");
             arguments.Add("-m");
             arguments.Add($"Beutl-Snapshot: {kind.ToString().ToLowerInvariant()}");
         }

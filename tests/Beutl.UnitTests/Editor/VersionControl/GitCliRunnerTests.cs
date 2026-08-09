@@ -8,6 +8,22 @@ namespace Beutl.UnitTests.Editor.VersionControl;
 public class GitCliRunnerTests : RealGitTestRepository
 {
     [Test]
+    public void Failed_process_start_clears_the_active_process_count()
+    {
+        string missingExecutable = Path.Combine(
+            Root,
+            $"missing-git-{Guid.NewGuid():N}");
+        var runner = new GitCliRunner(missingExecutable);
+
+        Assert.ThrowsAsync<GitOperationException>(async () => await runner.RunAsync(
+            Repository,
+            ["status"],
+            GitCommandOptions.Local,
+            CancellationToken.None));
+        Assert.That(runner.HasActiveProcess, Is.False);
+    }
+
+    [Test]
     public void CreateStartInfo_uses_argument_list_and_required_environment()
     {
         var runner = new GitCliRunner(GitPath);

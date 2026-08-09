@@ -112,7 +112,9 @@ public class ExportTests
         await ResetProjectAsync();
         EditViewModel editor = await OpenEditorWithRectangle("exportvm");
 
-        using var output = new OutputViewModel(editor);
+        using var output = new OutputViewModel(
+            editor,
+            StandaloneOutputOperationLeaseProvider.Instance);
         HeadlessTestHelpers.Settle();
 
         Assert.That(output.Model, Is.SameAs(editor.Scene));
@@ -133,7 +135,9 @@ public class ExportTests
         // 5000 * 4 = 20000 > MaxBufferDimension (16384), so a 4x factor overflows the buffer.
         editor.Scene.FrameSize = new Media.PixelSize(5000, 240);
 
-        using var output = new OutputViewModel(editor);
+        using var output = new OutputViewModel(
+            editor,
+            StandaloneOutputOperationLeaseProvider.Instance);
         HeadlessTestHelpers.Settle();
         Assert.That(output.SupersampleWarning.Value, Is.Null);
 
@@ -153,7 +157,9 @@ public class ExportTests
         await ResetProjectAsync();
         EditViewModel editor = await OpenEditorWithRectangle("exportnoenc");
 
-        using var output = new OutputViewModel(editor);
+        using var output = new OutputViewModel(
+            editor,
+            StandaloneOutputOperationLeaseProvider.Instance);
         output.DestinationFile.Value = Path.Combine(NewWorkspace("exportnoenc"), "out.mp4");
         HeadlessTestHelpers.Settle();
 
@@ -189,6 +195,39 @@ public class ExportTests
             context.Finish();
             item.Dispose();
         }
+    }
+
+    [AvaloniaTest]
+    public async Task OutputViewModel_refuses_start_without_throwing_when_the_lease_is_unavailable()
+    {
+        await ResetProjectAsync();
+        EditViewModel editor = await OpenEditorWithRectangle("export-refused");
+        using var output = new OutputViewModel(
+            editor,
+            new RefusingOutputOperationLeaseProvider());
+
+        Assert.DoesNotThrowAsync(output.StartEncode);
+
+        Assert.That(output.IsEncoding.Value, Is.False);
+    }
+
+    [AvaloniaTest]
+    public async Task OutputViewModel_releases_the_lease_when_a_started_subscriber_throws()
+    {
+        await ResetProjectAsync();
+        EditViewModel editor = await OpenEditorWithRectangle("export-started-failure");
+        var provider = new TrackingOutputOperationLeaseProvider();
+        using var output = new OutputViewModel(editor, provider);
+        output.Started += (_, _) => throw new InvalidOperationException("subscriber failed");
+
+        Assert.DoesNotThrowAsync(output.StartEncode);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(provider.Acquired, Is.EqualTo(1));
+            Assert.That(provider.Released, Is.EqualTo(1));
+            Assert.That(output.IsEncoding.Value, Is.False);
+        });
     }
 
     [AvaloniaTest]
@@ -300,6 +339,43 @@ public class ExportTests
         finally
         {
             operation?.Dispose();
+        }
+    }
+
+    private sealed class RefusingOutputOperationLeaseProvider : IOutputOperationLeaseProvider
+    {
+        public IDisposable? TryBeginOutputOperation()
+        {
+            return null;
+        }
+    }
+
+    private sealed class TrackingOutputOperationLeaseProvider : IOutputOperationLeaseProvider
+    {
+        private int _acquired;
+        private int _released;
+
+        public int Acquired => Volatile.Read(ref _acquired);
+
+        public int Released => Volatile.Read(ref _released);
+
+        public IDisposable TryBeginOutputOperation()
+        {
+            Interlocked.Increment(ref _acquired);
+            return new CallbackDisposable(() => Interlocked.Increment(ref _released));
+        }
+    }
+
+    private sealed class CallbackDisposable(Action dispose) : IDisposable
+    {
+        private int _disposed;
+
+        public void Dispose()
+        {
+            if (Interlocked.Exchange(ref _disposed, 1) == 0)
+            {
+                dispose();
+            }
         }
     }
 

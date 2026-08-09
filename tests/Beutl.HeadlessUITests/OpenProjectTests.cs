@@ -26,6 +26,53 @@ public class OpenProjectTests
     }
 
     [AvaloniaTest]
+    public async Task OpenProject_skips_preflight_when_the_project_file_is_missing()
+    {
+        await ResetProjectAsync();
+        string missingFile = Path.Combine(NewWorkspace("missing-preflight"), "missing.bep");
+        int preflightCalls = 0;
+        Func<ProjectService.ProjectOpenAttempt, CancellationToken,
+            Task<ProjectService.ProjectOpenPreparation?>> preflight = (_, _) =>
+        {
+            preflightCalls++;
+            return Task.FromResult<ProjectService.ProjectOpenPreparation?>(null);
+        };
+        TestShell.Project.OpeningPreflight += preflight;
+        try
+        {
+            await TestShell.Project.OpenProject(missingFile);
+
+            Assert.That(preflightCalls, Is.Zero);
+        }
+        finally
+        {
+            TestShell.Project.OpeningPreflight -= preflight;
+        }
+    }
+
+    [Test]
+    public async Task ProjectOpenAttempt_complete_waits_for_in_progress_cancellation()
+    {
+        var attempt = new ProjectService.ProjectOpenAttempt(1, "project.bep");
+        var cancellationEntered = new TaskCompletionSource(
+            TaskCreationOptions.RunContinuationsAsynchronously);
+        var releaseCancellation = new TaskCompletionSource(
+            TaskCreationOptions.RunContinuationsAsynchronously);
+        using CancellationTokenRegistration registration = attempt.CancellationToken.Register(() =>
+        {
+            cancellationEntered.TrySetResult();
+            releaseCancellation.Task.GetAwaiter().GetResult();
+        });
+
+        Task cancel = Task.Run(attempt.CancelIfPending);
+        await cancellationEntered.Task.WaitAsync(TimeSpan.FromSeconds(2));
+
+        Assert.DoesNotThrow(attempt.Complete);
+        releaseCancellation.TrySetResult();
+        Assert.DoesNotThrowAsync(async () => await cancel.WaitAsync(TimeSpan.FromSeconds(2)));
+    }
+
+    [AvaloniaTest]
     public async Task OpenProject_loads_a_persisted_project_file()
     {
         await ResetProjectAsync();

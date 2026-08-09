@@ -360,7 +360,6 @@ public class ProjectConflictMarkerScannerTests
         Assert.That(result, Is.Null);
     }
 
-    [TestCase(1, false)]
     [TestCase(7, false)]
     [TestCase(7, true)]
     [TestCase(9, false)]
@@ -385,6 +384,24 @@ public class ProjectConflictMarkerScannerTests
             CancellationToken.None);
 
         Assert.That(result, Is.EqualTo(conflictFile));
+    }
+
+    [TestCase(1)]
+    [TestCase(6)]
+    public async Task FindFirstAsync_rejects_markers_shorter_than_git_minimum(int markerSize)
+    {
+        string projectFile = Path.Combine(_root, "project.bep");
+        string conflictFile = Path.Combine(_root, "conflict.scene");
+        await File.WriteAllTextAsync(projectFile, "{}\n");
+        await File.WriteAllTextAsync(
+            conflictFile,
+            $"{new string('<', markerSize)} ours\n{{\"value\":1}}\n{new string('=', markerSize)}\n{{\"value\":2}}\n{new string('>', markerSize)} theirs\n");
+
+        string? result = await ProjectConflictMarkerScanner.FindFirstAsync(
+            projectFile,
+            CancellationToken.None);
+
+        Assert.That(result, Is.Null);
     }
 
     [Test]

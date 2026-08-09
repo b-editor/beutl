@@ -6,7 +6,7 @@ namespace Beutl.Editor.VersionControl;
 internal static class ProjectConflictMarkerScanner
 {
     private const int ScanChunkSize = 4096;
-    private const int MinimumMarkerLength = 1;
+    private const int MinimumMarkerLength = 7;
 
     private static readonly byte[] s_utf8Bom = [0xef, 0xbb, 0xbf];
     private static readonly HashSet<string> s_projectExtensions = new(

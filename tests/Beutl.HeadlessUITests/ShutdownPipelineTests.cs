@@ -340,7 +340,7 @@ public class ShutdownPipelineTests
     }
 
     [AvaloniaTest]
-    public async Task MainViewModel_dispose_only_releases_resources()
+    public async Task MainViewModel_dispose_closes_the_project_before_releasing_resources()
     {
         await TestReset.ResetShellAsync();
         var viewModel = new MainViewModel();
@@ -352,17 +352,18 @@ public class ShutdownPipelineTests
         };
 
         viewModel.ProjectService.Closing += closing;
-        Project project = SetOpenProject("synchronous-dispose");
+        SetOpenProject("synchronous-dispose");
         try
         {
             viewModel.Dispose();
             viewModel.Dispose();
+            await viewModel.DisposeAsync().AsTask().WaitAsync(TimeSpan.FromSeconds(5));
 
             Assert.Multiple(() =>
             {
-                Assert.That(closingCalls, Is.Zero);
-                Assert.That(viewModel.ProjectService.CurrentProject.Value, Is.SameAs(project));
-                Assert.That(BeutlApplication.Current.Project, Is.SameAs(project));
+                Assert.That(closingCalls, Is.EqualTo(1));
+                Assert.That(viewModel.ProjectService.CurrentProject.Value, Is.Null);
+                Assert.That(BeutlApplication.Current.Project, Is.Null);
             });
         }
         finally

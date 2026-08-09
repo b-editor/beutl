@@ -3,6 +3,7 @@ using Beutl.AgentToolkit.Rendering;
 using Beutl.AgentToolkit.Sessions;
 using Beutl.AgentToolkit.Tools;
 using Beutl.AgentToolkit.Workspace;
+using Beutl.Extensibility;
 using Beutl.Logging;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;

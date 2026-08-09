@@ -8,6 +8,7 @@ using Beutl.AgentToolkit.Rendering;
 using Beutl.AgentToolkit.Sessions;
 using Beutl.Api.Services;
 using Beutl.Configuration;
+using Beutl.Extensibility;
 using Beutl.Services;
 using ModelContextProtocol.Client;
 using ModelContextProtocol.Protocol;
@@ -21,7 +22,7 @@ public sealed class AgentHostEndpointTests
     {
         await TestReset.ResetShellAsync();
         var editorService = new EditorService(new ExtensionProvider());
-        var provider = new EditorOutputOperationLeaseProvider(editorService);
+        IOutputOperationLeaseProvider provider = editorService;
 
         using (IDisposable worktreeMutation = editorService.TryBeginWorktreeMutation()!)
         {

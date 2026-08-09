@@ -29,11 +29,14 @@ public sealed class SceneOutputExtension : OutputExtension
         };
     }
 
-    public override bool TryCreateContext(IEditorContext editorContext, [NotNullWhen(true)] out IOutputContext? context)
+    public override bool TryCreateContext(
+        IEditorContext editorContext,
+        IOutputOperationLeaseProvider outputOperations,
+        [NotNullWhen(true)] out IOutputContext? context)
     {
         if (editorContext is EditViewModel editViewModel)
         {
-            context = new OutputViewModel(editViewModel);
+            context = new OutputViewModel(editViewModel, outputOperations);
             return true;
         }
         else

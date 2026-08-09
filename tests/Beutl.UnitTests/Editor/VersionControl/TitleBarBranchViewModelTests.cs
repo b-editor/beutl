@@ -10,6 +10,21 @@ namespace Beutl.UnitTests.Editor.VersionControl;
 public class TitleBarBranchViewModelTests
 {
     [Test]
+    public void Linked_binding_cancellation_handles_a_disposed_source()
+    {
+        var source = new CancellationTokenSource();
+        CancellationToken token = source.Token;
+        source.Dispose();
+
+        CancellationTokenSource? linked = null;
+        Assert.DoesNotThrow(() =>
+            linked = TitleBarBranchViewModel.TryCreateLinkedCancellation(
+                token,
+                CancellationToken.None));
+        linked?.Dispose();
+    }
+
+    [Test]
     public async Task Visibility_tracks_project_repository_and_git_availability()
     {
         var coordinator = new Mock<IProjectVersionControlCoordinator>();

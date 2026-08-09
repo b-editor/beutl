@@ -11,6 +11,7 @@ using Beutl.AgentToolkit.Tools;
 using Beutl.AgentToolkit.Workspace;
 using Beutl.Editor;
 using Beutl.Engine;
+using Beutl.Extensibility;
 using Beutl.Graphics;
 using Beutl.Graphics.Shapes;
 using Beutl.Graphics.Transformation;

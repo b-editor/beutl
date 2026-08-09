@@ -1360,6 +1360,14 @@ public sealed class VersionControlCoordinator :
                 RemoteOpResult result = await ownedService.ExecuteExclusiveAsync(
                     async service =>
                     {
+                        if (!await _editorService.SaveProjectFilesAsync(
+                                project,
+                                cancellationToken))
+                        {
+                            return new RemoteOpResult.Failed(
+                                "The open project could not be saved before pulling.");
+                        }
+
                         WorkspaceStatus status = await service.GetStatusAsync(cancellationToken);
                         if (!EnsureRepositoryIsNotConflicted(status))
                         {

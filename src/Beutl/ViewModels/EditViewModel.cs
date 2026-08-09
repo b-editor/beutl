@@ -32,6 +32,7 @@ public sealed partial class EditViewModel : IEditorContext, ISupportAutoSaveEdit
 {
     private readonly ILogger _logger = Log.CreateLogger<EditViewModel>();
     private readonly AutoSaveService _autoSaveService = new();
+    private readonly CancellationTokenSource _autoSaveCancellation = new();
     private readonly HistoryMutationPlaybackGuard _historyMutationPlaybackGuard = new();
 
     private readonly CompositeDisposable _disposables = [];
@@ -394,18 +395,28 @@ public sealed partial class EditViewModel : IEditorContext, ISupportAutoSaveEdit
 
     private void AutoSave(IList<ChangeOperation> list)
     {
-        Dispatcher.UIThread.InvokeAsync(() =>
+        Dispatcher.UIThread.InvokeAsync(async () =>
         {
-            _autoSaveService.AutoSave(list);
-
-            // ビューステートを保存
             try
             {
+                using IDisposable fileWrite =
+                    await EditorService.BeginProjectFileWriteAsync(
+                        _autoSaveCancellation.Token);
+                if (_disposed)
+                {
+                    return;
+                }
+
+                _autoSaveService.AutoSave(list);
                 SaveState();
+            }
+            catch (OperationCanceledException)
+                when (_autoSaveCancellation.IsCancellationRequested)
+            {
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "An exception occurred while saving the view state.");
+                _logger.LogError(ex, "An exception occurred while auto-saving the editor state.");
             }
         });
     }
@@ -595,8 +606,20 @@ public sealed partial class EditViewModel : IEditorContext, ISupportAutoSaveEdit
         // Block any proxy-invalidation flush already posted to the UI thread from running after this
         // nulls Scene / disposes FrameCacheManager below.
         _disposed = true;
+        _autoSaveCancellation.Cancel();
         GlobalConfiguration.Instance.EditorConfig.PropertyChanged -= OnEditorConfigPropertyChanged;
-        SaveState();
+        if (!EditorService.IsWorktreeMutationActive)
+        {
+            using IDisposable fileWrite = await EditorService.BeginProjectFileWriteAsync(
+                CancellationToken.None);
+            SaveState();
+        }
+        else
+        {
+            _logger.LogDebug(
+                "Skipping the final view-state save during a worktree mutation ({SceneId}).",
+                SceneId);
+        }
         _editorSelection.SelectedObject.Value = null;
         // Player を破棄する前にイベント購読を外し、Subject 破棄後の OnNext を抑止する。
         DisposeCommandStateNotifier();

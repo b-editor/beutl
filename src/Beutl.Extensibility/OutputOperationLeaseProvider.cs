@@ -1,6 +1,4 @@
-﻿using Beutl.AgentToolkit.Common;
-
-namespace Beutl.AgentToolkit.Rendering;
+﻿namespace Beutl.Extensibility;
 
 /// <summary>
 /// Coordinates output work with host operations that can replace or mutate the output workspace.
@@ -18,7 +16,7 @@ public interface IOutputOperationLeaseProvider
 }
 
 /// <summary>
-/// Allows output operations when the toolkit runs without an editor workspace coordinator.
+/// Allows output operations when no editor workspace coordinator is present.
 /// </summary>
 public sealed class StandaloneOutputOperationLeaseProvider : IOutputOperationLeaseProvider
 {
@@ -45,14 +43,4 @@ public sealed class StandaloneOutputOperationLeaseProvider : IOutputOperationLea
         {
         }
     }
-}
-
-internal sealed class OutputOperationBusyException : Exception
-{
-    public OutputOperationBusyException()
-        : base("Another workspace operation is in progress, so the output operation cannot start.")
-    {
-    }
-
-    public string Code => ErrorCode.WorkspaceBusy;
 }

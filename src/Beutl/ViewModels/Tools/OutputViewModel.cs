@@ -35,9 +35,16 @@ public sealed class OutputViewModel : IOutputContext, ISupportOutputPreset
     private CancellationTokenSource? _lastCts;
     private string? _activeDestination;
 
-    public OutputViewModel(EditViewModel editViewModel)
+    private readonly IOutputOperationLeaseProvider _outputOperations;
+
+    public OutputViewModel(
+        EditViewModel editViewModel,
+        IOutputOperationLeaseProvider outputOperations)
     {
+        ArgumentNullException.ThrowIfNull(outputOperations);
+
         _editViewModel = editViewModel;
+        _outputOperations = outputOperations;
         Model = editViewModel.Scene;
         Controller = SelectedEncoder
             .CombineLatest(DestinationFile)
@@ -224,6 +231,16 @@ public sealed class OutputViewModel : IOutputContext, ISupportOutputPreset
 
     public async Task StartEncode()
     {
+        using IDisposable? outputOperation = _outputOperations.TryBeginOutputOperation();
+        if (outputOperation is null)
+        {
+            ProgressText.Value = Strings.VersionControl_WorktreeOperationInProgress;
+            NotificationService.ShowInformation(
+                Strings.VersionControl,
+                Strings.VersionControl_WorktreeOperationInProgress);
+            return;
+        }
+
         // Defensive re-check: reject if supersampled surface cannot be allocated.
         if (SupersampleWarning.Value is { } supersampleWarning)
         {
@@ -280,7 +297,6 @@ public sealed class OutputViewModel : IOutputContext, ISupportOutputPreset
             FrameProgressText.Value = "0 / 0";
             _activeDestination = DestinationFile.Value;
             Started?.Invoke(this, EventArgs.Empty);
-
             stopwatch.Start();
 
             await Task.Run(async () =>

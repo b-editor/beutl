@@ -109,6 +109,15 @@ public sealed class ProjectService
                 return;
             }
 
+            if (!File.Exists(file))
+            {
+                _logger.LogInformation(
+                    "Skipping project open preflight: file is unavailable. File: {File}",
+                    file);
+                NotificationService.ShowInformation(Strings.File, MessageStrings.FileDoesNotExist);
+                return;
+            }
+
             IReadOnlyList<ProjectOpenPreparation> preparations;
             try
             {
@@ -743,6 +752,8 @@ public sealed class ProjectService
         private readonly CancellationTokenSource _cancellation = new();
         private readonly object _gate = new();
         private ProjectOpenAttemptState _state;
+        private bool _cancellationInProgress;
+        private bool _disposeCancellationWhenCancelCompletes;
 
         internal ProjectOpenAttempt(long id, string projectFile)
         {
@@ -782,23 +793,47 @@ public sealed class ProjectService
                 if (cancel)
                 {
                     _state = ProjectOpenAttemptState.Cancelled;
+                    _cancellationInProgress = true;
                 }
             }
 
             if (cancel)
             {
-                _cancellation.Cancel();
+                bool disposeCancellation;
+                try
+                {
+                    _cancellation.Cancel();
+                }
+                finally
+                {
+                    lock (_gate)
+                    {
+                        _cancellationInProgress = false;
+                        disposeCancellation = _disposeCancellationWhenCancelCompletes;
+                    }
+
+                    if (disposeCancellation)
+                    {
+                        _cancellation.Dispose();
+                    }
+                }
             }
         }
 
         internal void Complete()
         {
+            bool disposeCancellation;
             lock (_gate)
             {
                 _state = ProjectOpenAttemptState.Completed;
+                disposeCancellation = !_cancellationInProgress;
+                _disposeCancellationWhenCancelCompletes = !disposeCancellation;
             }
 
-            _cancellation.Dispose();
+            if (disposeCancellation)
+            {
+                _cancellation.Dispose();
+            }
         }
     }
 

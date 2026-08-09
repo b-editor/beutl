@@ -14,7 +14,6 @@ public sealed class OutputProfileItem : IDisposable
     private readonly ILogger<OutputProfileItem> _logger = Log.CreateLogger<OutputProfileItem>();
     private readonly EditorService _editorService;
     private readonly object _outputOperationSync = new();
-    private IDisposable? _outputOperation;
     private int _eventHandlersInProgress;
     private bool _disposeRequested;
     private bool _contextDisposed;
@@ -45,14 +44,6 @@ public sealed class OutputProfileItem : IDisposable
                 return;
             }
 
-            if (_outputOperation is not null)
-            {
-                return;
-            }
-
-            _outputOperation = _editorService.TryBeginOutputOperation()
-                               ?? throw new InvalidOperationException(
-                                   Strings.VersionControl_WorktreeOperationInProgress);
             _outputReportedFinished = false;
             _eventHandlersInProgress++;
         }
@@ -79,7 +70,6 @@ public sealed class OutputProfileItem : IDisposable
 
     private void OnFinished(object? sender, EventArgs e)
     {
-        IDisposable? operation;
         lock (_outputOperationSync)
         {
             if (_contextDisposed)
@@ -89,13 +79,10 @@ public sealed class OutputProfileItem : IDisposable
 
             _eventHandlersInProgress++;
             _outputReportedFinished = true;
-            operation = _outputOperation;
-            _outputOperation = null;
         }
 
         try
         {
-            operation?.Dispose();
             _logger.LogDebug("Output finished for file: {File}", Context.Object.Uri);
 
             if (_editorService.TryGetTabItem(Context.Object, out EditorTabItem? tabItem))
@@ -144,8 +131,7 @@ public sealed class OutputProfileItem : IDisposable
                 return _contextDisposed;
             }
 
-            if (_outputOperation is not null
-                || _eventHandlersInProgress > 0
+            if (_eventHandlersInProgress > 0
                 || Context.IsEncoding.Value)
             {
                 return false;
@@ -182,7 +168,6 @@ public sealed class OutputProfileItem : IDisposable
     {
         if (!_disposeRequested
             || _contextDisposed
-            || _outputOperation is not null
             || _eventHandlersInProgress > 0
             || (!_outputReportedFinished && Context.IsEncoding.Value))
         {
@@ -231,7 +216,10 @@ public sealed class OutputProfileItem : IDisposable
             if (contextJson != null
                 && extension != null
                 && File.Exists(file)
-                && extension.TryCreateContext(editorContext, out IOutputContext? context))
+                && extension.TryCreateContext(
+                    editorContext,
+                    editorService,
+                    out IOutputContext? context))
             {
                 context.ReadFromJson(contextJson.AsObject());
                 logger.LogInformation("OutputProfileItem created from JSON. File: {File}, Context: {Context}", file,
@@ -273,7 +261,10 @@ public sealed class OutputService(EditViewModel editViewModel) : IDisposable
 
     public void AddItem(string file, OutputExtension extension)
     {
-        if (!extension.TryCreateContext(editViewModel, out IOutputContext? context))
+        if (!extension.TryCreateContext(
+                editViewModel,
+                _editorService,
+                out IOutputContext? context))
         {
             _logger.LogError("Failed to create context for file: {File}", file);
             throw new Exception("Failed to create context");

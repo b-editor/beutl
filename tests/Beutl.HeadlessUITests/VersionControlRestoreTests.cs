@@ -5169,6 +5169,7 @@ public class VersionControlRestoreTests
             await File.WriteAllTextAsync(
                 Path.Combine(projectRoot, "local-marker.txt"),
                 "local safety state\n");
+            project.Variables["unsavedPullState"] = "persisted before pull";
             Project beforePull = TestShell.Project.CurrentProject.Value!;
             TestShell.VersionControl.ConfirmPullAsync = _ => Task.FromResult(true);
             RemoteOpResult pullResult = await TestShell.VersionControl.PullAsync();
@@ -5211,6 +5212,9 @@ public class VersionControlRestoreTests
                 Assert.That(
                     File.ReadAllText(Path.Combine(projectRoot, "local-marker.txt")),
                     Is.EqualTo("local safety state\n"));
+                Assert.That(
+                    TestShell.Project.CurrentProject.Value!.Variables["unsavedPullState"],
+                    Is.EqualTo("persisted before pull"));
                 Assert.That(checkpointRefs, Is.Empty);
                 Assert.That(status.IsClean, Is.True);
             });

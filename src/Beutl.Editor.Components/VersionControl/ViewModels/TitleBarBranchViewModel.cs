@@ -152,14 +152,37 @@ internal sealed class TitleBarBranchViewModel : IDisposable
             return;
         }
 
-        using var linkedCancellation =
-            CancellationTokenSource.CreateLinkedTokenSource(
+        CancellationTokenSource? linkedCancellation = TryCreateLinkedCancellation(
+            bindingToken,
+            cancellationToken);
+        if (linkedCancellation is null)
+        {
+            return;
+        }
+
+        using (linkedCancellation)
+        {
+            await RefreshCoreAsync(
+                service,
+                _serviceRevision,
+                linkedCancellation.Token);
+        }
+    }
+
+    internal static CancellationTokenSource? TryCreateLinkedCancellation(
+        CancellationToken bindingToken,
+        CancellationToken cancellationToken)
+    {
+        try
+        {
+            return CancellationTokenSource.CreateLinkedTokenSource(
                 bindingToken,
                 cancellationToken);
-        await RefreshCoreAsync(
-            service,
-            _serviceRevision,
-            linkedCancellation.Token);
+        }
+        catch (ObjectDisposedException)
+        {
+            return null;
+        }
     }
 
     internal async Task SwitchBranchAsync(
