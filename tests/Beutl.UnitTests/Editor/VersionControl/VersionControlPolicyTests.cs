@@ -461,6 +461,41 @@ public sealed class VersionControlPolicyTests : RealGitTestRepository
     }
 
     [Test]
+    public async Task Inherited_lfs_attributes_show_the_quota_notice_for_a_nested_project()
+    {
+        string projectRoot = Path.Combine(Root, "nested-project");
+        Directory.CreateDirectory(projectRoot);
+        await File.WriteAllTextAsync(
+            Path.Combine(Root, ".gitattributes"),
+            "nested-project/resources/*.[mM][pP]4 filter=lfs diff=lfs merge=lfs -text\n");
+        await File.WriteAllTextAsync(
+            Path.Combine(projectRoot, ".gitattributes"),
+            "*.bep text eol=lf\n");
+        await File.WriteAllTextAsync(Path.Combine(projectRoot, "project.bep"), "{}\n");
+        await RunGitAsync("add", "--", ".gitattributes", "nested-project");
+        await RunGitAsync("commit", "-m", "nested project");
+        var notices = new List<VersionControlPolicyNotice>();
+        var repository = new RepositoryInfo(Root, projectRoot);
+        using var service = CreateService(
+            new VersionControlConfig { UseLfsWhenAvailable = false },
+            lfsInstalled: true,
+            notice =>
+            {
+                notices.Add(notice);
+                return Task.CompletedTask;
+            },
+            repository);
+
+        await service.SetRemoteAsync(
+            Path.Combine(Root, "nested-remote.git"),
+            CancellationToken.None);
+
+        Assert.That(
+            notices,
+            Is.EqualTo(new[] { new VersionControlPolicyNotice.LfsRemoteQuota() }));
+    }
+
+    [Test]
     public async Task Existing_remote_with_active_lfs_shows_the_quota_notice_when_reconfigured()
     {
         await CommitFileAsync("project.bep", "initial\n", "initial");

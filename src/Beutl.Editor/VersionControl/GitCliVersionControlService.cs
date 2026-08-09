@@ -5680,7 +5680,7 @@ internal sealed class GitCliVersionControlService :
         await TryQueueStatusChangedCoreAsync().ConfigureAwait(false);
     }
 
-    private static async Task EnsureInitializationPreflightCoreAsync(
+    private async Task EnsureInitializationPreflightCoreAsync(
         RepositoryInfo repository,
         IGitCliRunner runner,
         CancellationToken cancellationToken)
@@ -5695,7 +5695,7 @@ internal sealed class GitCliVersionControlService :
             .ConfigureAwait(false);
     }
 
-    private static async Task EnsureRepositoryHygienePreflightCoreAsync(
+    private async Task EnsureRepositoryHygienePreflightCoreAsync(
         RepositoryInfo repository,
         IGitCliRunner runner,
         CancellationToken cancellationToken)
@@ -5710,7 +5710,7 @@ internal sealed class GitCliVersionControlService :
             .ConfigureAwait(false);
     }
 
-    private static async Task EnsureRepositoryStatusAndIgnorePreflightCoreAsync(
+    private async Task EnsureRepositoryStatusAndIgnorePreflightCoreAsync(
         RepositoryInfo repository,
         IGitCliRunner runner,
         CancellationToken cancellationToken)
@@ -6634,7 +6634,7 @@ internal sealed class GitCliVersionControlService :
 
         string acknowledgementKey = LfsQuotaNoticeConfigKeyPrefix
                                     + GetConfigKeyHash(repository.Pathspec);
-        if (!await IsLfsActiveAsync(repository, cancellationToken).ConfigureAwait(false)
+        if (!await IsLfsActiveAsync(repository, runner, cancellationToken).ConfigureAwait(false)
             || await GetLocalBooleanConfigAsync(
                 repository,
                 runner,
@@ -6948,6 +6948,7 @@ internal sealed class GitCliVersionControlService :
 
     private async Task<bool> IsLfsActiveAsync(
         RepositoryInfo repository,
+        IGitCliRunner runner,
         CancellationToken cancellationToken)
     {
         (GitAvailability availability, _) = await GetGitRuntimeCoreAsync(cancellationToken)
@@ -6957,15 +6958,18 @@ internal sealed class GitCliVersionControlService :
             return false;
         }
 
-        string attributesPath = Path.Combine(repository.ProjectRoot, ".gitattributes");
-        if (!File.Exists(attributesPath))
-        {
-            return false;
-        }
-
-        string contents = await File.ReadAllTextAsync(attributesPath, cancellationToken)
+        string prefix = repository.Pathspec == "." ? string.Empty : repository.Pathspec + "/";
+        string[] mediaPaths = GetRequiredProjectRelativePaths(repository.ProjectRoot)
+            .Where(path => s_mediaExtensions.Contains(Path.GetExtension(path)))
+            .Select(path => prefix + path)
+            .ToArray();
+        HashSet<string> coveredPaths = await GetEffectiveLfsPathsAsync(
+                repository,
+                runner,
+                mediaPaths,
+                cancellationToken)
             .ConfigureAwait(false);
-        return contents.Contains("filter=lfs", StringComparison.Ordinal);
+        return coveredPaths.Count > 0;
     }
 
     private static string? GetLargeMediaPath(
@@ -7522,7 +7526,7 @@ internal sealed class GitCliVersionControlService :
         }
     }
 
-    private static async Task<string?> FindIgnoredRequiredProjectPathAsync(
+    private async Task<string?> FindIgnoredRequiredProjectPathAsync(
         RepositoryInfo repository,
         IGitCliRunner runner,
         CancellationToken cancellationToken)
@@ -7546,7 +7550,7 @@ internal sealed class GitCliVersionControlService :
             .ConfigureAwait(false);
     }
 
-    private static async Task<string?> FindIgnoredExistingRequiredProjectPathAsync(
+    private async Task<string?> FindIgnoredExistingRequiredProjectPathAsync(
         RepositoryInfo repository,
         IGitCliRunner runner,
         CancellationToken cancellationToken)
@@ -7575,7 +7579,22 @@ internal sealed class GitCliVersionControlService :
                 "Git could not safely determine whether required project files are ignored.");
         }
 
-        return GitCliRunner.SplitNullSeparated(result.Stdout).FirstOrDefault();
+        string? ignoredPath = GitCliRunner.SplitNullSeparated(result.Stdout).FirstOrDefault();
+        if (ignoredPath is not null)
+        {
+            return ignoredPath;
+        }
+
+        string prefix = repository.Pathspec == "." ? string.Empty : repository.Pathspec + "/";
+        return await FindIgnoredPathAsync(
+                repository,
+                runner,
+                GetSerializedProjectRelativePaths(repository.ProjectRoot)
+                    .Select(path => prefix + path),
+                environmentOverrides: null,
+                includeTrackedFiles: true,
+                cancellationToken)
+            .ConfigureAwait(false);
     }
 
     private static bool HasOnlyExcludedBeutlDirectoryWarnings(
@@ -7749,7 +7768,7 @@ internal sealed class GitCliVersionControlService :
         return builder.ToString();
     }
 
-    private static async Task<string?> FindIgnoredRequiredProjectPathBeforeInitAsync(
+    private async Task<string?> FindIgnoredRequiredProjectPathBeforeInitAsync(
         RepositoryInfo repository,
         IGitCliRunner runner,
         CancellationToken cancellationToken)
@@ -7828,8 +7847,9 @@ internal sealed class GitCliVersionControlService :
         }
     }
 
-    private static IReadOnlyList<string> GetRequiredProjectRelativePaths(string projectRoot)
+    private IReadOnlyList<string> GetRequiredProjectRelativePaths(string projectRoot)
     {
+        IReadOnlySet<string> serializedPaths = GetSerializedProjectRelativePaths(projectRoot);
         var paths = new HashSet<string>(StringComparer.Ordinal)
         {
             ".gitignore",
@@ -7845,13 +7865,49 @@ internal sealed class GitCliVersionControlService :
 
         if (Directory.Exists(projectRoot))
         {
-            foreach (string path in EnumerateRequiredProjectFiles(projectRoot))
+            foreach (string path in EnumerateRequiredProjectFiles(projectRoot, serializedPaths))
             {
                 paths.Add(NormalizeGitPath(Path.GetRelativePath(projectRoot, path)));
             }
         }
 
+        paths.UnionWith(serializedPaths);
+
         return [.. paths];
+    }
+
+    private IReadOnlySet<string> GetSerializedProjectRelativePaths(string projectRoot)
+    {
+        var paths = new HashSet<string>(StringComparer.Ordinal);
+        if (_projectFile is null || !File.Exists(_projectFile))
+        {
+            return paths;
+        }
+
+        Project project = CoreSerializer.RestoreFromUri<Project>(new Uri(_projectFile));
+        ExternalResourceCollector.SerializationGraph graph =
+            ExternalResourceCollector.DiscoverSerializationGraph(project);
+        foreach (Uri uri in graph.Objects
+                     .Select(static obj => obj.Uri)
+                     .Concat(graph.UnaddressableFileSources)
+                     .OfType<Uri>())
+        {
+            if (!uri.IsFile)
+            {
+                continue;
+            }
+
+            string relativePath = Path.GetRelativePath(projectRoot, uri.LocalPath);
+            if (!Path.IsPathFullyQualified(relativePath)
+                && relativePath != ".."
+                && !relativePath.StartsWith($"..{Path.DirectorySeparatorChar}", StringComparison.Ordinal)
+                && !relativePath.StartsWith($"..{Path.AltDirectorySeparatorChar}", StringComparison.Ordinal))
+            {
+                paths.Add(NormalizeGitPath(relativePath));
+            }
+        }
+
+        return paths;
     }
 
     private static IReadOnlyList<string> CreatePullFetchArguments(
@@ -7872,14 +7928,18 @@ internal sealed class GitCliVersionControlService :
         ];
     }
 
-    private static void ValidateRequiredProjectFileLayout(string projectRoot)
+    private void ValidateRequiredProjectFileLayout(string projectRoot)
     {
-        foreach (string _ in EnumerateRequiredProjectFiles(projectRoot))
+        foreach (string _ in EnumerateRequiredProjectFiles(
+                     projectRoot,
+                     GetSerializedProjectRelativePaths(projectRoot)))
         {
         }
     }
 
-    private static IEnumerable<string> EnumerateRequiredProjectFiles(string projectRoot)
+    private static IEnumerable<string> EnumerateRequiredProjectFiles(
+        string projectRoot,
+        IReadOnlySet<string> serializedPaths)
     {
         var pending = new Stack<(
             string Directory,
@@ -7905,19 +7965,18 @@ internal sealed class GitCliVersionControlService :
             foreach (string file in Directory.EnumerateFiles(item.Directory, "*", options))
             {
                 string extension = Path.GetExtension(file);
+                string relativeFile = NormalizeGitPath(Path.GetRelativePath(projectRoot, file));
                 if (!string.Equals(extension, ".tmp", StringComparison.OrdinalIgnoreCase)
                     && (item.IsResourceDirectory
                         || s_projectFileExtensions.Contains(extension)
-                        || s_mediaExtensions.Contains(extension)))
+                        || s_mediaExtensions.Contains(extension)
+                        || serializedPaths.Contains(relativeFile)))
                 {
                     var fileInfo = new FileInfo(file);
                     fileInfo.Refresh();
                     if (fileInfo.LinkTarget is not null
                         || (fileInfo.Attributes & FileAttributes.ReparsePoint) != 0)
                     {
-                        string relativeFile = NormalizeGitPath(Path.GetRelativePath(
-                            projectRoot,
-                            file));
                         throw new InvalidOperationException(
                             $"The required project file symbolic link '{relativeFile}' cannot be snapshotted safely.");
                     }

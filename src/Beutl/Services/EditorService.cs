@@ -4,6 +4,7 @@ using System.Security.Cryptography;
 using Beutl.Api.Services;
 using Beutl.Configuration;
 using Beutl.Editor.VersionControl;
+using Beutl.Serialization;
 using Reactive.Bindings;
 
 namespace Beutl.Services;
@@ -130,6 +131,26 @@ public sealed class EditorService
             _worktreeMutationActive = true;
             return new WorkspaceOperationLease(this, isOutput: false);
         }
+    }
+
+    internal async Task<bool> SaveProjectFilesAsync(
+        Project project,
+        CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(project);
+        cancellationToken.ThrowIfCancellationRequested();
+        CoreSerializer.StoreToUri(project, project.Uri!);
+
+        foreach (EditorTabItem item in TabItems.ToArray())
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            if (item.Commands.Value is { } commands && !await commands.OnSave())
+            {
+                return false;
+            }
+        }
+
+        return true;
     }
 
     private void EndWorkspaceOperation(bool isOutput)

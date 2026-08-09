@@ -1060,6 +1060,17 @@ public sealed class VersionControlCoordinator :
                         return false;
                     }
 
+                    if (!await _editorService.SaveProjectFilesAsync(
+                            project,
+                            CancellationToken.None))
+                    {
+                        PublishNotification(() =>
+                            NotificationService.ShowError(
+                                Strings.VersionControl,
+                                MessageStrings.OperationFailed));
+                        return false;
+                    }
+
                     status = await service.GetStatusAsync(CancellationToken.None);
                     if (!EnsureRepositoryIsNotConflicted(status))
                     {

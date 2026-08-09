@@ -1606,6 +1606,40 @@ public class GitCliVersionControlServiceTests : RealGitTestRepository
         Assert.That(exception!.Message, Does.Contain(".beutl/linked.scene"));
     }
 
+    [Test]
+    public async Task CommitAllAsync_rejects_an_ignored_plugin_project_item_sidecar()
+    {
+        string projectFile = Path.Combine(Root, "project.bep");
+        string sidecarFile = Path.Combine(Root, "plugin-data", "item.custom-sidecar");
+        Directory.CreateDirectory(Path.GetDirectoryName(sidecarFile)!);
+        var item = new ProjectPackageServiceTests.PackageTestProjectItem
+        {
+            Uri = new Uri(sidecarFile),
+        };
+        CoreSerializer.StoreToUri<ProjectItem>(item, item.Uri);
+        var project = new Project();
+        project.Items.Add(item);
+        CoreSerializer.StoreToUri(project, new Uri(projectFile));
+        await File.WriteAllTextAsync(
+            Path.Combine(Root, ".gitignore"),
+            "*.custom-sidecar\n");
+        await RunGitAsync("add", "--", "project.bep", ".gitignore");
+        await RunGitAsync("commit", "-m", "plugin project item");
+        using var service = new GitCliVersionControlService(
+            CreateInstalledLocator(),
+            Repository,
+            isWorktreeMutationAllowed: static () => true,
+            projectFile: projectFile);
+
+        InvalidOperationException? exception = Assert.ThrowsAsync<InvalidOperationException>(
+            async () => await service.CommitAllAsync(
+                "beutl: snapshot on save",
+                SnapshotKind.Save,
+                CancellationToken.None));
+
+        Assert.That(exception!.Message, Does.Contain("plugin-data/item.custom-sidecar"));
+    }
+
     [TestCase(".beutl", ".beutl")]
     [TestCase(".BeUtL", ".BeUtL")]
     [TestCase(".beutl", ".beutl/child")]

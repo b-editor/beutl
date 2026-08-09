@@ -7,13 +7,16 @@ using Beutl.Configuration;
 using Beutl.Editor.Models;
 using Beutl.Editor.Services;
 using Beutl.Editor.VersionControl;
+using Beutl.Extensibility;
 using Beutl.Graphics.Shapes;
 using Beutl.Language;
 using Beutl.ProjectSystem;
 using Beutl.Serialization;
 using Beutl.Services;
+using Beutl.Services.PrimitiveImpls;
 using Beutl.Testing.Headless;
 using Beutl.ViewModels;
+using Reactive.Bindings;
 
 namespace Beutl.HeadlessUITests;
 
@@ -4384,6 +4387,135 @@ public class VersionControlRestoreTests
             await TestReset.ResetShellAsync();
             config.GitExecutablePath = oldGitPath;
             config.UseLfsWhenAvailable = oldUseLfs;
+        }
+    }
+
+    [AvaloniaTest]
+    public async Task Branch_creation_saves_in_memory_scene_edits_before_switching()
+    {
+        await TestReset.ResetShellAsync();
+        using var environment = new IsolatedGitEnvironment();
+        string gitPath = ProbeGitOrIgnore();
+        VersionControlConfig config = GlobalConfiguration.Instance.VersionControlConfig;
+        EditorConfig editorConfig = GlobalConfiguration.Instance.EditorConfig;
+        string? oldGitPath = config.GitExecutablePath;
+        bool oldAutoCommitOnSave = config.AutoCommitOnSave;
+        bool oldAutoCommitOnClose = config.AutoCommitOnClose;
+        bool oldUseLfs = config.UseLfsWhenAvailable;
+        bool oldAutoSave = editorConfig.IsAutoSaveEnabled;
+        var oldConfirmSwitchBranchAsync =
+            TestShell.VersionControl.ConfirmSwitchBranchAsync;
+
+        try
+        {
+            config.GitExecutablePath = gitPath;
+            config.AutoCommitOnSave = false;
+            config.AutoCommitOnClose = false;
+            config.UseLfsWhenAvailable = false;
+            editorConfig.IsAutoSaveEnabled = false;
+
+            (Project project, EditViewModel editor) = await CreateTrackedProjectAsync(
+                "version-control-branch-in-memory-save");
+            var adder = (IElementAdder)editor.GetService(typeof(IElementAdder))!;
+            AddRectangle(adder, layer: 0);
+            HeadlessTestHelpers.Settle();
+            Assert.That(
+                (await TestShell.VersionControl.CurrentService!.GetStatusAsync(
+                    CancellationToken.None)).IsClean,
+                Is.True);
+            TestShell.VersionControl.ConfirmSwitchBranchAsync = (_, _) => Task.FromResult(true);
+
+            Assert.That(
+                await TestShell.VersionControl.CreateBranchAsync("saved-edit"),
+                Is.True);
+            HeadlessTestHelpers.Settle();
+
+            Project reopenedProject = TestShell.Project.CurrentProject.Value!;
+            Scene reopenedScene = reopenedProject.Items.OfType<Scene>().Single();
+            IReadOnlyList<CommitInfo> history =
+                await TestShell.VersionControl.CurrentService!.GetHistoryAsync(
+                    0,
+                    20,
+                    CancellationToken.None);
+            Assert.Multiple(() =>
+            {
+                Assert.That(reopenedScene.Children, Has.Count.EqualTo(1));
+                Assert.That(
+                    history.Any(commit =>
+                        commit.Kind == SnapshotKind.Safety
+                        && commit.Subject == "beutl: safety snapshot before switch"),
+                    Is.True);
+            });
+        }
+        finally
+        {
+            TestShell.VersionControl.ConfirmSwitchBranchAsync =
+                oldConfirmSwitchBranchAsync;
+            await TestReset.ResetShellAsync();
+            config.GitExecutablePath = oldGitPath;
+            config.AutoCommitOnSave = oldAutoCommitOnSave;
+            config.AutoCommitOnClose = oldAutoCommitOnClose;
+            config.UseLfsWhenAvailable = oldUseLfs;
+            editorConfig.IsAutoSaveEnabled = oldAutoSave;
+        }
+    }
+
+    [AvaloniaTest]
+    public async Task Branch_creation_stops_when_an_open_editor_cannot_save()
+    {
+        await TestReset.ResetShellAsync();
+        VersionControlCoordinator? coordinator = null;
+        try
+        {
+            Project project = await CreateProjectForFakeVersionControlAsync(
+                "version-control-branch-save-failure");
+            string projectRoot = Path.GetDirectoryName(project.Uri!.LocalPath)!;
+            var repository = new RepositoryInfo(projectRoot, projectRoot);
+            var tip = new CheckedOutBranchTip(
+                "refs/heads/main",
+                "1111111111111111111111111111111111111111");
+            var backend = new PullCycleTestBackend(repository, repository, tip)
+            {
+                Status = new WorkspaceStatus(
+                    "main",
+                    Ahead: 0,
+                    Behind: 0,
+                    Changes: [],
+                    HasConflicts: false),
+            };
+            var editorService = new EditorService(new ExtensionProvider());
+            var failedCommands = new FailedSaveCommands();
+            editorService.TabItems.Add(new EditorTabItem(
+                new FailedSaveEditorContext(project, failedCommands)));
+            coordinator = new VersionControlCoordinator(
+                TestShell.Project,
+                editorService,
+                new VersionControlConfig(),
+                installationLocator: null,
+                serviceFactory: _ => backend);
+            coordinator.ConfirmSwitchBranchAsync = (_, _) => Task.FromResult(true);
+            await WaitUntilAsync(() => ReferenceEquals(coordinator.CurrentService, backend));
+
+            bool created = await coordinator.CreateBranchAsync("blocked-save");
+            HeadlessTestHelpers.Settle();
+
+            Assert.Multiple(() =>
+            {
+                Assert.That(created, Is.False);
+                Assert.That(failedCommands.SaveCalls, Is.EqualTo(1));
+                Assert.That(backend.CommitAllCalls, Is.Zero);
+                Assert.That(backend.CreateBranchCalls, Is.Zero);
+                Assert.That(TestShell.Project.CurrentProject.Value, Is.SameAs(project));
+            });
+        }
+        finally
+        {
+            if (coordinator is not null)
+            {
+                await coordinator.DisposeAsync();
+            }
+
+            await TestReset.ResetShellAsync();
         }
     }
 
@@ -8847,6 +8979,47 @@ public class VersionControlRestoreTests
         public bool FileExists(string path) => false;
 
         public string? GetEnvironmentVariable(string name) => null;
+    }
+
+    private sealed class FailedSaveEditorContext(
+        CoreObject obj,
+        FailedSaveCommands commands) : IEditorContext
+    {
+        public CoreObject Object { get; } = obj;
+
+        public EditorExtension Extension => SceneEditorExtension.Instance;
+
+        public IReactiveProperty<bool> IsEnabled { get; } =
+            new ReactivePropertySlim<bool>(true);
+
+        public IKnownEditorCommands? Commands { get; } = commands;
+
+        public object? GetService(Type serviceType) => null;
+
+        public T? FindToolTab<T>(Func<T, bool> condition)
+            where T : IToolContext
+            => default;
+
+        public T? FindToolTab<T>()
+            where T : IToolContext
+            => default;
+
+        public bool OpenToolTab(IToolContext item) => false;
+
+        public void CloseToolTab(IToolContext item)
+        {
+        }
+    }
+
+    private sealed class FailedSaveCommands : IKnownEditorCommands
+    {
+        public int SaveCalls { get; private set; }
+
+        public ValueTask<bool> OnSave()
+        {
+            SaveCalls++;
+            return ValueTask.FromResult(false);
+        }
     }
 
     private sealed class PullCycleTestBackend :
