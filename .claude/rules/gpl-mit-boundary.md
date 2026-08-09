@@ -5,6 +5,8 @@ paths:
   - "src/Beutl.Extensions.FFmpeg/**"
   - "src/Beutl.Extensions.MediaFoundation/**"
   - "src/Beutl.Extensions.AVFoundation/**"
+  - "nukebuild/**"
+  - "packages/**"
 ---
 
 # GPL / MIT boundary rules
@@ -17,6 +19,6 @@ Hard rules:
 2. **All communication between MIT code and the GPL worker goes through `Beutl.FFmpegIpc`** (Protocol + Transport + SharedMemory). It uses `PipeStream` + length-prefixed JSON and a `ConcurrentDictionary<id, TaskCompletionSource>` for request correlation.
 3. **Source files may be shared via `<Compile Include="..." Link="..." />`** so the GPL worker can reuse extension code without taking a project reference. Keep the linked file's logic free of MIT-only dependencies.
 4. **Do not embed FFmpeg native binaries into the main app.** They belong only with `Beutl.FFmpegWorker`'s output.
-5. **Distribution**: the main MIT executable and the GPL worker ship as separate binaries that communicate via IPC. This separation is the license firewall and must remain visible in the project layout.
+5. **Distribution**: the main MIT executable and the GPL worker ship as separate binaries that communicate via IPC. This separation is the license firewall and must remain visible in the project layout. Every artifact containing the worker must also ship the MIT license, GPL license, worker notice, third-party notices, and any platform-specific license metadata in that platform's standard location.
 
 If a feature seems to require a direct call into FFmpeg from a MIT project, that is a design red flag — surface it instead of routing around the boundary.
