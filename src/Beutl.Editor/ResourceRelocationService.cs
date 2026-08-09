@@ -118,7 +118,7 @@ public class ResourceRelocationService
             var engineProp = engineObject.Properties.FirstOrDefault(p => p.Name == propertyName);
             if (engineProp?.CurrentValue is IFileSource fileSource)
             {
-                engineProp.CurrentValue = CreateRelocatedFileSource(fileSource, newUri);
+                engineProp.CurrentValue = RelocateFileSource(fileSource, newUri);
                 return;
             }
         }
@@ -128,7 +128,7 @@ public class ResourceRelocationService
             var property = PropertyRegistry.FindRegistered(obj, propertyName);
             if (property != null && obj.GetValue(property) is IFileSource fileSource)
             {
-                obj.SetValue(property, CreateRelocatedFileSource(fileSource, newUri));
+                obj.SetValue(property, RelocateFileSource(fileSource, newUri));
                 return;
             }
 
@@ -148,11 +148,10 @@ public class ResourceRelocationService
         throw new InvalidOperationException("Failed to update URI: Object or property not found.");
     }
 
-    private static IFileSource CreateRelocatedFileSource(IFileSource source, Uri newUri)
+    private static IFileSource RelocateFileSource(IFileSource source, Uri newUri)
     {
-        var newInstance = (IFileSource)Activator.CreateInstance(source.GetType())!;
-        newInstance.ReadFrom(newUri);
-        return newInstance;
+        source.ReadFrom(newUri);
+        return source;
     }
 
     /// <summary>

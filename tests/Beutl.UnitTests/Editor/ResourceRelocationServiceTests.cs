@@ -105,9 +105,39 @@ public class ResourceRelocationServiceTests
         {
             Assert.That(result.SuccessCount, Is.EqualTo(1));
             Assert.That(result.FailedResources, Is.Empty);
-            Assert.That(item.Source, Is.Not.SameAs(source));
+            Assert.That(item.Source, Is.SameAs(source));
             Assert.That(item.Source?.Uri.LocalPath, Does.StartWith(Path.Combine(_projectDir, "resources")));
             Assert.That(File.ReadAllText(item.Source!.Uri.LocalPath), Is.EqualTo("registered source"));
+        });
+    }
+
+    [Test]
+    public async Task RelocateFileSourcesAsync_preserves_a_file_source_without_a_default_constructor()
+    {
+        var service = new ResourceRelocationService();
+        string sourceFilePath = Path.Combine(_testDir, "stateful-source.bin");
+        await File.WriteAllTextAsync(sourceFilePath, "stateful source");
+        var source = new StatefulFileSource(sourceFilePath, "preserved setting");
+        var item = new StatefulFileSourceProjectItem { Source = source };
+        var project = new Project();
+        project.Items.Add(item);
+        var sources = new[]
+        {
+            (item.Id, nameof(StatefulFileSourceProjectItem.Source), source.Uri),
+        };
+
+        RelocationResult result = await service.RelocateFileSourcesAsync(
+            sources,
+            project,
+            _projectDir);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(result.SuccessCount, Is.EqualTo(1));
+            Assert.That(result.FailedResources, Is.Empty);
+            Assert.That(item.Source, Is.SameAs(source));
+            Assert.That(item.Source?.Setting, Is.EqualTo("preserved setting"));
+            Assert.That(item.Source?.Uri.LocalPath, Does.StartWith(Path.Combine(_projectDir, "resources")));
         });
     }
 
@@ -334,6 +364,38 @@ public class ResourceRelocationServiceTests
         {
             get => _source;
             set => SetAndRaise(SourceProperty, ref _source, value);
+        }
+    }
+
+    private sealed class StatefulFileSourceProjectItem : ProjectItem
+    {
+        public static readonly CoreProperty<StatefulFileSource?> SourceProperty;
+        private StatefulFileSource? _source;
+
+        static StatefulFileSourceProjectItem()
+        {
+            SourceProperty = ConfigureProperty<StatefulFileSource?, StatefulFileSourceProjectItem>(
+                    nameof(Source))
+                .Accessor(item => item.Source, (item, value) => item.Source = value)
+                .Register();
+        }
+
+        public StatefulFileSource? Source
+        {
+            get => _source;
+            set => SetAndRaise(SourceProperty, ref _source, value);
+        }
+    }
+
+    private sealed class StatefulFileSource(string path, string setting) : Beutl.IO.IFileSource
+    {
+        public Uri Uri { get; private set; } = new(path);
+
+        public string Setting { get; } = setting;
+
+        public void ReadFrom(Uri uri)
+        {
+            Uri = uri;
         }
     }
 }
