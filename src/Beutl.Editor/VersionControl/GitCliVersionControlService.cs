@@ -262,6 +262,32 @@ internal sealed class GitCliVersionControlService :
         "**/*.[tT][mM][pP]",
     ];
 
+    private static IReadOnlyList<string> CreateSnapshotExcludePathspecs(
+        RepositoryInfo repository)
+    {
+        string prefix = repository.Pathspec == "."
+            ? string.Empty
+            : EscapeGitGlobPath(repository.Pathspec) + "/";
+        return s_ignoredOptionalProjectPathspecSuffixes
+            .Select(suffix => $":(top,exclude,glob){prefix}{suffix}")
+            .ToArray();
+    }
+
+    private static string CreateSnapshotBasePathspec(RepositoryInfo repository)
+    {
+        return repository.Pathspec == "."
+            ? "."
+            : $":(top,literal){repository.Pathspec}";
+    }
+
+    private static string CreateSnapshotCommitPathspec(RepositoryInfo repository)
+    {
+        string prefix = repository.Pathspec == "."
+            ? string.Empty
+            : EscapeGitGlobPath(repository.Pathspec) + "/";
+        return $":(top,glob){prefix}**";
+    }
+
     private static readonly string[] s_repositoryOperationRefs =
     [
         "MERGE_HEAD",
@@ -606,6 +632,43 @@ internal sealed class GitCliVersionControlService :
                 kind,
                 cancellationToken),
             cancellationToken);
+    }
+
+    public Task<bool> RevisionContainsProjectFileAsync(
+        string sha,
+        string projectFile,
+        CancellationToken cancellationToken)
+    {
+        ThrowIfDisposed();
+        GitRevisionValidator.ValidateCommitId(sha, nameof(sha));
+        ArgumentException.ThrowIfNullOrWhiteSpace(projectFile);
+        return RunSerializedAsync(
+            () => RevisionContainsProjectFileCoreAsync(sha, projectFile, cancellationToken),
+            cancellationToken);
+    }
+
+    private async Task<bool> RevisionContainsProjectFileCoreAsync(
+        string sha,
+        string projectFile,
+        CancellationToken cancellationToken)
+    {
+        RepositoryInfo repository = GetRepository();
+        IGitCliRunner runner = await GetInstalledRunnerCoreAsync(cancellationToken)
+            .ConfigureAwait(false);
+        string relativeProjectFile = GetRecoveryProjectFile(repository, projectFile);
+        try
+        {
+            await runner.RunAsync(
+                repository,
+                ["cat-file", "-e", $"{sha}:{relativeProjectFile}"],
+                GitCommandOptions.Local,
+                cancellationToken).ConfigureAwait(false);
+            return true;
+        }
+        catch (GitOperationException ex) when (ex.ExitCode == 128)
+        {
+            return false;
+        }
     }
 
     public Task<BranchTipRollbackResult> TryRollbackBranchTipAsync(
@@ -2814,6 +2877,19 @@ internal sealed class GitCliVersionControlService :
         return true;
     }
 
+    private static string GetBranchShortName(string refName)
+    {
+        const string Prefix = "refs/heads/";
+        if (!refName.StartsWith(Prefix, StringComparison.Ordinal))
+        {
+            throw new ArgumentException(
+                "An attached local branch ref is required.",
+                nameof(refName));
+        }
+
+        return refName[Prefix.Length..];
+    }
+
     private static async Task<CheckedOutBranchTip?> TryGetCheckedOutBranchTipAsync(
         RepositoryInfo repository,
         IGitCliRunner runner,
@@ -3279,7 +3355,7 @@ internal sealed class GitCliVersionControlService :
             refUpdateWorktreePath,
             refUpdateWorktreePath);
         var transitionCheckoutOptions = new GitCommandOptions(
-            GitCommandExecutionKind.Local,
+            GitCommandExecutionKind.LocalWithLfs,
             new Dictionary<string, string?>
             {
                 ["GIT_WORK_TREE"] = repository.RepoRoot,
@@ -4031,26 +4107,57 @@ internal sealed class GitCliVersionControlService :
     {
         RepositoryInfo repository = GetRepository();
         IGitCliRunner runner = await GetInstalledRunnerCoreAsync(cancellationToken).ConfigureAwait(false);
-        return await GetStatusCoreAsync(repository, runner, cancellationToken).ConfigureAwait(false);
+        return await GetStatusCoreAsync(
+                repository,
+                runner,
+                cancellationToken,
+                extraPathspecs: null)
+            .ConfigureAwait(false);
+    }
+
+    private async Task<WorkspaceStatus> GetSnapshotStatusCoreAsync(
+        CancellationToken cancellationToken)
+    {
+        RepositoryInfo repository = GetRepository();
+        IGitCliRunner runner = await GetInstalledRunnerCoreAsync(cancellationToken).ConfigureAwait(false);
+        return await GetStatusCoreAsync(
+                repository,
+                runner,
+                cancellationToken,
+                CreateSnapshotExcludePathspecs(repository))
+            .ConfigureAwait(false);
     }
 
     private static async Task<WorkspaceStatus> GetStatusCoreAsync(
         RepositoryInfo repository,
         IGitCliRunner runner,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken,
+        IReadOnlyList<string>? extraPathspecs = null)
     {
+        string projectPathspec = extraPathspecs is null
+            ? repository.Pathspec
+            : CreateSnapshotBasePathspec(repository);
+        var arguments = new List<string>
+        {
+            "status",
+            "--porcelain=v2",
+            "--branch",
+            "--untracked-files=all",
+            "-z",
+            "--",
+            projectPathspec,
+        };
+        if (extraPathspecs is not null)
+        {
+            arguments.AddRange(extraPathspecs);
+        }
+
         GitCommandResult result = await runner.RunAsync(
             repository,
-            [
-                "status",
-                "--porcelain=v2",
-                "--branch",
-                "--untracked-files=all",
-                "-z",
-                "--",
-                repository.Pathspec,
-            ],
-            GitCommandOptions.Local,
+            arguments,
+            new GitCommandOptions(
+                GitCommandExecutionKind.Local,
+                UseLiteralPathspecs: extraPathspecs is null),
             cancellationToken).ConfigureAwait(false);
         WorkspaceStatus status = ParseStatus(result.Stdout);
         if (!repository.IsNestedInForeignRepo || status.HasConflicts)
@@ -4079,6 +4186,7 @@ internal sealed class GitCliVersionControlService :
             repository,
             [
                 "log",
+                "--no-show-signature",
                 "--format=%H%x00%h%x00%an%x00%aI%x00%s%x00%(trailers:key=Beutl-Snapshot,valueonly)%x00",
                 "-z",
                 $"--skip={skip}",
@@ -4100,7 +4208,16 @@ internal sealed class GitCliVersionControlService :
         IGitCliRunner runner = await GetInstalledRunnerCoreAsync(cancellationToken).ConfigureAwait(false);
         GitCommandResult result = await runner.RunAsync(
             repository,
-            ["show", "--name-status", "--format=", "-z", sha, "--", repository.Pathspec],
+            [
+                "show",
+                "--no-show-signature",
+                "--name-status",
+                "--format=",
+                "-z",
+                sha,
+                "--",
+                repository.Pathspec,
+            ],
             GitCommandOptions.Local,
             cancellationToken).ConfigureAwait(false);
         return ParseCommitFiles(result.Stdout);
@@ -4118,7 +4235,16 @@ internal sealed class GitCliVersionControlService :
             : ValidateDiffPath(repository, path);
         GitCommandResult result = await runner.RunAsync(
             repository,
-            ["show", "--format=", "--no-ext-diff", "--unified=3", sha, "--", pathspec],
+            [
+                "show",
+                "--no-show-signature",
+                "--format=",
+                "--no-ext-diff",
+                "--unified=3",
+                sha,
+                "--",
+                pathspec,
+            ],
             GitCommandOptions.Local with { MaxStdoutBytes = MaxDiffBytes },
             cancellationToken).ConfigureAwait(false);
         return result.StdoutTruncated
@@ -4503,11 +4629,12 @@ internal sealed class GitCliVersionControlService :
                 "The checked-out branch changed before the pull preflight started.");
         }
 
+        bool hasOrigin = (await GetRemotesCoreAsync(cancellationToken).ConfigureAwait(false)).Count > 0;
         try
         {
             await runner.RunAsync(
                 repository,
-                ["fetch"],
+                hasOrigin ? ["fetch", "origin"] : ["fetch"],
                 GitCommandOptions.Network,
                 cancellationToken).ConfigureAwait(false);
         }
@@ -4517,12 +4644,15 @@ internal sealed class GitCliVersionControlService :
             return new PullPreflightResult(MapRemoteFailure(ex), RequiresTransition: false);
         }
 
+        string upstreamRef = hasOrigin
+            ? $"refs/remotes/origin/{GetBranchShortName(expectedCurrent.RefName)}"
+            : "@{upstream}";
         GitCommandResult upstreamResult;
         try
         {
             upstreamResult = await runner.RunAsync(
                 repository,
-                ["rev-parse", "--verify", "@{upstream}^{commit}"],
+                ["rev-parse", "--verify", $"{upstreamRef}^{{commit}}"],
                 GitCommandOptions.Local,
                 cancellationToken).ConfigureAwait(false);
         }
@@ -4647,11 +4777,12 @@ internal sealed class GitCliVersionControlService :
             }
         }
 
+        bool hasOrigin = (await GetRemotesCoreAsync(cancellationToken).ConfigureAwait(false)).Count > 0;
         try
         {
             await runner.RunAsync(
                 repository,
-                ["fetch"],
+                hasOrigin ? ["fetch", "origin"] : ["fetch"],
                 GitCommandOptions.Network,
                 cancellationToken).ConfigureAwait(false);
         }
@@ -4661,12 +4792,15 @@ internal sealed class GitCliVersionControlService :
             return new FastForwardPullResult(MapRemoteFailure(ex), expectedCurrent);
         }
 
+        string upstreamRef = hasOrigin
+            ? $"refs/remotes/origin/{GetBranchShortName(expectedCurrent.RefName)}"
+            : "@{upstream}";
         GitCommandResult upstreamResult;
         try
         {
             upstreamResult = await runner.RunAsync(
                 repository,
-                ["rev-parse", "--verify", "@{upstream}^{commit}"],
+                ["rev-parse", "--verify", $"{upstreamRef}^{{commit}}"],
                 GitCommandOptions.Local,
                 cancellationToken).ConfigureAwait(false);
         }
@@ -5687,7 +5821,7 @@ internal sealed class GitCliVersionControlService :
                 cancellationToken)
             .ConfigureAwait(false);
         ThrowIfRequiredProjectPathIgnored(ignoredPath);
-        WorkspaceStatus status = await GetStatusCoreAsync(cancellationToken).ConfigureAwait(false);
+        WorkspaceStatus status = await GetSnapshotStatusCoreAsync(cancellationToken).ConfigureAwait(false);
         ThrowIfConflicted(status);
         await EnsureNoExternalRepositoryOperationAsync(
                 repository,
@@ -5751,7 +5885,9 @@ internal sealed class GitCliVersionControlService :
         }
 
         arguments.Add("--");
-        arguments.Add(repository.Pathspec);
+        arguments.Add(CreateSnapshotCommitPathspec(repository));
+        IReadOnlyList<string> snapshotExcludes = CreateSnapshotExcludePathspecs(repository);
+        arguments.AddRange(snapshotExcludes);
         await EnsureNoExternalRepositoryOperationAsync(
                 repository,
                 runner,
@@ -5759,10 +5895,20 @@ internal sealed class GitCliVersionControlService :
             .ConfigureAwait(false);
         try
         {
+            var addArguments = new List<string>
+            {
+                "-c",
+                "advice.addIgnoredFile=false",
+                "add",
+                "-A",
+                "--",
+                CreateSnapshotBasePathspec(repository),
+            };
+            addArguments.AddRange(snapshotExcludes);
             await runner.RunAsync(
                 repository,
-                ["add", "-A", "--", repository.Pathspec],
-                GitCommandOptions.Local,
+                addArguments,
+                GitCommandOptions.Local with { UseLiteralPathspecs = false },
                 cancellationToken).ConfigureAwait(false);
             await runner.RunAsync(
                 repository,
@@ -5772,7 +5918,10 @@ internal sealed class GitCliVersionControlService :
                     new Dictionary<string, string?>
                     {
                         ["GIT_REFLOG_ACTION"] = reflogAction,
-                    }),
+                    })
+                {
+                    UseLiteralPathspecs = false,
+                },
                 cancellationToken).ConfigureAwait(false);
         }
         catch (Exception operationException)
@@ -7580,7 +7729,8 @@ internal sealed class GitCliVersionControlService :
                 string extension = Path.GetExtension(file);
                 if (!string.Equals(extension, ".tmp", StringComparison.OrdinalIgnoreCase)
                     && (item.IsResourceDirectory
-                        || s_projectFileExtensions.Contains(extension)))
+                        || s_projectFileExtensions.Contains(extension)
+                        || s_mediaExtensions.Contains(extension)))
                 {
                     yield return file;
                 }
@@ -8023,6 +8173,15 @@ internal sealed class GitCliVersionControlService :
                 sourceCommit,
                 message,
                 kind,
+                cancellationToken);
+
+        public Task<bool> RevisionContainsProjectFileAsync(
+            string sha,
+            string projectFile,
+            CancellationToken cancellationToken)
+            => _service.RevisionContainsProjectFileCoreAsync(
+                sha,
+                projectFile,
                 cancellationToken);
 
         public Task<BranchTipRollbackResult> TryRollbackBranchTipAsync(

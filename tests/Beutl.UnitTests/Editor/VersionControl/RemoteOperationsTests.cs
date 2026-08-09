@@ -62,6 +62,39 @@ public sealed class RemoteOperationsTests : RealGitTestRepository
     }
 
     [Test]
+    public async Task PullFastForward_uses_origin_when_branch_tracks_another_remote()
+    {
+        await CommitFileAsync("project.bep", "initial\n", "initial");
+        string originRoot = await CreateBareRemoteAsync();
+        string upstreamRoot = await CreateBareRemoteAsync();
+        using var service = CreateService();
+        await service.SetRemoteAsync(originRoot, CancellationToken.None);
+        Assert.That(
+            await service.PushAsync(progress: null, CancellationToken.None),
+            Is.TypeOf<RemoteOpResult.Success>());
+
+        await RunGitAsync("remote", "add", "upstream", upstreamRoot);
+        await RunGitAsync("push", "upstream", "main");
+        await RunGitAsync("branch", "--set-upstream-to=upstream/main", "main");
+
+        RepositoryInfo originPeer = await CloneRemoteAsync(originRoot);
+        await CommitInRepositoryAsync(originPeer, "project.bep", "from origin\n", "origin update");
+        CheckedOutBranchTip expected = await service.GetCheckedOutBranchTipAsync(CancellationToken.None);
+
+        FastForwardPullResult pull = await service.PullFastForwardAsync(
+            expected,
+            checkpoint: null,
+            Path.Combine(Root, "project.bep"),
+            CancellationToken.None);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(pull.Result, Is.TypeOf<RemoteOpResult.Success>());
+            Assert.That(File.ReadAllText(Path.Combine(Root, "project.bep")), Is.EqualTo("from origin\n"));
+        });
+    }
+
+    [Test]
     public async Task Clean_pull_rejects_an_incoming_project_symlink_outside_the_root()
     {
         if (OperatingSystem.IsWindows())

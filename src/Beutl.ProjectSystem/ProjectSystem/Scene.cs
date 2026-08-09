@@ -752,7 +752,11 @@ public class Scene : ProjectItem, INotifyEdited
 
     private static string NormalizeElementPattern(string pattern)
     {
-        return pattern.Replace('\\', '/');
+        // On Windows a backslash is a directory separator; on Unix it is a
+        // literal filename character and must survive serialization unchanged.
+        return OperatingSystem.IsWindows()
+            ? pattern.Replace('\\', '/')
+            : pattern;
     }
 
     private void Layers_CollectionChanged(object? sender, NotifyCollectionChangedEventArgs e)

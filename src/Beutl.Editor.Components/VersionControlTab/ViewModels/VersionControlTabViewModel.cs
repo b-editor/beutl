@@ -451,6 +451,14 @@ public sealed class VersionControlTabViewModel : IToolContext
         catch (GitIdentityRequiredException)
         {
         }
+        catch (OperationCanceledException)
+        {
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "The manual commit command failed.");
+            NotificationService.ShowError(Strings.VersionControl_ErrorTitle, ex.Message);
+        }
     }
 
     public async Task SetRemoteAsync()

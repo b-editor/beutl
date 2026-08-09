@@ -12,12 +12,14 @@ internal sealed record GitCommandResult(
 internal enum GitCommandExecutionKind
 {
     Local,
+    LocalWithLfs,
     Network,
 }
 
 internal enum GitExecutionPolicy
 {
     Local,
+    LocalWithLfs,
     NetworkWithConfiguredSsh,
     NetworkWithDefaultOpenSsh,
 }
@@ -67,6 +69,7 @@ internal sealed class GitCliRunner : IGitCliRunner
     private static readonly string[] s_repositoryLocalEnvironmentVariables =
     [
         "GIT_ALTERNATE_OBJECT_DIRECTORIES",
+        "GIT_CEILING_DIRECTORIES",
         "GIT_CONFIG",
         "GIT_CONFIG_PARAMETERS",
         "GIT_CONFIG_COUNT",
@@ -432,6 +435,11 @@ internal sealed class GitCliRunner : IGitCliRunner
         if (options.ExecutionKind == GitCommandExecutionKind.Local)
         {
             return GitExecutionPolicy.Local;
+        }
+
+        if (options.ExecutionKind == GitCommandExecutionKind.LocalWithLfs)
+        {
+            return GitExecutionPolicy.LocalWithLfs;
         }
 
         if (options.ExecutionKind != GitCommandExecutionKind.Network)

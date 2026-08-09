@@ -2133,6 +2133,21 @@ public sealed class VersionControlCoordinator :
                         return false;
                     }
 
+                    if (!await service.RevisionContainsProjectFileAsync(
+                            sha,
+                            projectFile,
+                            cancellationToken))
+                    {
+                        PublishNotification(() =>
+                            NotificationService.ShowWarning(
+                                Strings.VersionControl,
+                                string.Format(
+                                    System.Globalization.CultureInfo.CurrentCulture,
+                                    Strings.VersionControl_RevisionMissingProject,
+                                    GetShortSha(sha))));
+                        return false;
+                    }
+
                     WorkspaceStatus status = await service.GetStatusAsync(cancellationToken);
                     if (status.HasConflicts)
                     {

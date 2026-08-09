@@ -1456,6 +1456,23 @@ public class VersionControlTabViewModelTests
     }
 
     [Test]
+    public async Task Manual_commit_handles_general_failures_without_faulting_the_command()
+    {
+        Mock<IProjectVersionControlService> service = CreateServiceMock();
+        var coordinator = new Mock<IProjectVersionControlCoordinator>();
+        coordinator.Setup(x => x.CommitManualAsync(
+                "rough cut",
+                It.IsAny<CancellationToken>()))
+            .ThrowsAsync(new InvalidOperationException("hook rejected the commit"));
+        using var viewModel = CreateViewModel(service.Object, coordinator.Object);
+        await viewModel.Initialization;
+        viewModel.CommitMessage.Value = "rough cut";
+
+        Assert.DoesNotThrowAsync(async () => await viewModel.CommitManualAsync());
+        Assert.That(viewModel.CommitMessage.Value, Is.EqualTo("rough cut"));
+    }
+
+    [Test]
     public async Task Manual_commit_treats_an_unresolved_committed_sha_as_success()
     {
         Mock<IProjectVersionControlService> service = CreateServiceMock();

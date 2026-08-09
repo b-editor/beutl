@@ -23,7 +23,7 @@ public class SceneTests
     }
 
     [Test]
-    public void Windows_style_exclude_is_accepted_and_serialized_with_forward_slashes()
+    public void Element_patterns_preserve_unix_backslashes_and_normalize_windows_separators()
     {
         string scenePath = Path.Combine(_tempDirectory, "project.scene");
         string includedPath = Path.Combine(_tempDirectory, "elements", "included.belm");
@@ -50,13 +50,17 @@ public class SceneTests
             restored,
             new CoreSerializerOptions { BaseUri = restored.Uri });
         JsonObject elements = roundTrip["Elements"]!.AsObject();
+        string expectedInclude = OperatingSystem.IsWindows() ? "**/*.belm" : "**\\*.belm";
+        string expectedExclude = OperatingSystem.IsWindows()
+            ? "elements/excluded.belm"
+            : "elements\\excluded.belm";
 
         Assert.Multiple(() =>
         {
             Assert.That(restored.Children.Select(x => Path.GetFileName(x.Uri!.LocalPath)),
                 Is.EquivalentTo(new[] { "included.belm" }));
-            Assert.That((string?)elements["Include"], Is.EqualTo("**/*.belm"));
-            Assert.That((string?)elements["Exclude"], Is.EqualTo("elements/excluded.belm"));
+            Assert.That((string?)elements["Include"], Is.EqualTo(expectedInclude));
+            Assert.That((string?)elements["Exclude"], Is.EqualTo(expectedExclude));
         });
     }
 }

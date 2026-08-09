@@ -1649,6 +1649,9 @@ Resolve the conflicts with an external Git tool before editing. The project may 
   <data name="VersionControl_RestoreConfirmation" xml:space="preserve">
     <value>The project will close and reopen, and the current undo history will be cleared. Continue?</value>
   </data>
+  <data name="VersionControl_RevisionMissingProject" xml:space="preserve">
+    <value>The revision {0} does not contain the current project file, so it cannot be restored.</value>
+  </data>
   <data name="VersionControl_ExportInProgress" xml:space="preserve">
     <value>This version control operation is unavailable while an export is running.</value>
   </data>

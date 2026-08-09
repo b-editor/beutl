@@ -38,6 +38,47 @@ public class GitCliRunnerTests : RealGitTestRepository
     }
 
     [Test]
+    public void CreateStartInfo_removes_ambient_discovery_ceiling()
+    {
+        string? original = Environment.GetEnvironmentVariable("GIT_CEILING_DIRECTORIES");
+        try
+        {
+            Environment.SetEnvironmentVariable("GIT_CEILING_DIRECTORIES", Repository.RepoRoot);
+            var runner = new GitCliRunner(
+                GitPath,
+                TimeSpan.FromSeconds(10),
+                IsolatedGitEnvironment);
+
+            ProcessStartInfo startInfo = runner.CreateStartInfo(
+                Repository,
+                ["rev-parse", "--show-toplevel"],
+                GitExecutionPolicy.Local);
+
+            Assert.That(startInfo.Environment.ContainsKey("GIT_CEILING_DIRECTORIES"), Is.False);
+        }
+        finally
+        {
+            Environment.SetEnvironmentVariable("GIT_CEILING_DIRECTORIES", original);
+        }
+    }
+
+    [Test]
+    public async Task LocalWithLfs_commands_use_caller_cancellation_without_local_timeout()
+    {
+        var runner = new GitCliRunner(
+            GitPath,
+            TimeSpan.FromMilliseconds(50),
+            IsolatedGitEnvironment);
+        using var cancellation = new CancellationTokenSource(TimeSpan.FromMilliseconds(200));
+
+        Assert.ThrowsAsync<OperationCanceledException>(async () => await runner.RunAsync(
+            Repository,
+            ["-c", "alias.wait=!sleep 1", "wait"],
+            new GitCommandOptions(GitCommandExecutionKind.LocalWithLfs),
+            cancellation.Token));
+    }
+
+    [Test]
     public async Task CreateStartInfo_adds_batch_mode_for_default_open_ssh()
     {
         GitCliRunner runner = CreateSshIsolatedRunner();

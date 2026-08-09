@@ -122,6 +122,11 @@ internal interface IProjectVersionControlTransaction
         SnapshotKind kind,
         CancellationToken cancellationToken);
 
+    Task<bool> RevisionContainsProjectFileAsync(
+        string sha,
+        string projectFile,
+        CancellationToken cancellationToken);
+
     Task<BranchTipRollbackResult> TryRollbackBranchTipAsync(
         CheckedOutBranchTip expectedCurrent,
         CheckedOutBranchTip target,

@@ -7486,6 +7486,83 @@ public class VersionControlRestoreTests
     }
 
     [AvaloniaTest]
+    public async Task Restore_rejects_revision_without_project_file_before_confirmation_or_close()
+    {
+        await TestReset.ResetShellAsync();
+        using var environment = new IsolatedGitEnvironment();
+        string gitPath = ProbeGitOrIgnore();
+        VersionControlConfig config = GlobalConfiguration.Instance.VersionControlConfig;
+        string? oldGitPath = config.GitExecutablePath;
+        bool oldAutoCommitOnSave = config.AutoCommitOnSave;
+        bool oldAutoCommitOnClose = config.AutoCommitOnClose;
+        bool oldUseLfs = config.UseLfsWhenAvailable;
+        var oldConfirmRestoreAsync = TestShell.VersionControl.ConfirmRestoreAsync;
+
+        try
+        {
+            config.GitExecutablePath = gitPath;
+            config.AutoCommitOnSave = false;
+            config.AutoCommitOnClose = false;
+            config.UseLfsWhenAvailable = false;
+
+            (Project project, _) = await CreateTrackedProjectAsync(
+                "version-control-reject-missing-project");
+            string projectFile = project.Uri!.LocalPath;
+            string projectRoot = Path.GetDirectoryName(projectFile)!;
+            string projectPathspec = Path.GetRelativePath(projectRoot, projectFile)
+                .Replace('\\', '/');
+            string originalTip = (await RunGitAsync(
+                gitPath,
+                projectRoot,
+                "rev-parse",
+                "HEAD")).Trim();
+            await RunGitAsync(gitPath, projectRoot, "rm", "--", projectPathspec);
+            await RunGitAsync(gitPath, projectRoot, "commit", "-m", "remove project file");
+            string missingProjectRevision = (await RunGitAsync(
+                gitPath,
+                projectRoot,
+                "rev-parse",
+                "HEAD")).Trim();
+            await RunGitAsync(gitPath, projectRoot, "reset", "--hard", originalTip);
+            HeadlessTestHelpers.Settle();
+
+            int confirmationCalls = 0;
+            TestShell.VersionControl.ConfirmRestoreAsync = _ =>
+            {
+                confirmationCalls++;
+                return Task.FromResult(true);
+            };
+
+            Assert.That(
+                await TestShell.VersionControl.RestoreAsync(missingProjectRevision),
+                Is.False);
+            HeadlessTestHelpers.Settle();
+
+            string currentBranch = await RunGitAsync(
+                gitPath,
+                projectRoot,
+                "branch",
+                "--show-current");
+            Assert.Multiple(() =>
+            {
+                Assert.That(confirmationCalls, Is.Zero);
+                Assert.That(TestShell.Project.CurrentProject.Value, Is.SameAs(project));
+                Assert.That(currentBranch.Trim(), Is.EqualTo("main"));
+                Assert.That(File.Exists(projectFile), Is.True);
+            });
+        }
+        finally
+        {
+            TestShell.VersionControl.ConfirmRestoreAsync = oldConfirmRestoreAsync;
+            await TestReset.ResetShellAsync();
+            config.GitExecutablePath = oldGitPath;
+            config.AutoCommitOnSave = oldAutoCommitOnSave;
+            config.AutoCommitOnClose = oldAutoCommitOnClose;
+            config.UseLfsWhenAvailable = oldUseLfs;
+        }
+    }
+
+    [AvaloniaTest]
     public async Task Restore_to_new_branch_rejects_invalid_existing_and_shorthand_names_before_confirmation_or_close()
     {
         await TestReset.ResetShellAsync();
@@ -8853,6 +8930,14 @@ public class VersionControlRestoreTests
             CancellationToken cancellationToken)
         {
             return Task.FromResult<CommitResult>(new CommitResult.NoChanges());
+        }
+
+        public Task<bool> RevisionContainsProjectFileAsync(
+            string sha,
+            string projectFile,
+            CancellationToken cancellationToken)
+        {
+            return Task.FromResult(true);
         }
 
         public Task SetRemoteAsync(string url, CancellationToken cancellationToken)

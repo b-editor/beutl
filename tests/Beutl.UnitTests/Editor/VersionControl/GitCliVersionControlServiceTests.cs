@@ -928,6 +928,29 @@ public class GitCliVersionControlServiceTests : RealGitTestRepository
     }
 
     [Test]
+    public async Task InitializeAsync_rejects_ignored_media_outside_resources_directory()
+    {
+        await CommitFileAsync("baseline.txt", "baseline\n", "baseline");
+        Directory.CreateDirectory(Path.Combine(Root, "assets"));
+        await File.WriteAllTextAsync(Path.Combine(Root, "assets", "clip.mp4"), "media\n");
+        await File.WriteAllTextAsync(Path.Combine(Root, ".gitignore"), "/assets/\n");
+        await RunGitAsync("add", "--", ".gitignore");
+        await RunGitAsync("commit", "-m", "ignore project media");
+        using var service = new GitCliVersionControlService(
+            CreateInstalledLocator(),
+            repository: null,
+            watcher: null,
+            _ => CreateRunner());
+
+        InvalidOperationException? exception = Assert.ThrowsAsync<InvalidOperationException>(
+            async () => await service.InitializeAsync(
+                new InitOptions(Repository, UseLfsWhenAvailable: false),
+                CancellationToken.None));
+
+        Assert.That(exception!.Message, Does.Contain("ignore rules"));
+    }
+
+    [Test]
     public async Task EnsureRepositoryHygieneAsync_is_idempotent_and_does_not_stage_or_commit()
     {
         await CommitFileAsync("project.bep", "{}\n", "existing repository");
@@ -2008,6 +2031,64 @@ public class GitCliVersionControlServiceTests : RealGitTestRepository
             CancellationToken.None)).Single();
 
         Assert.That(recovery.Kind, Is.EqualTo(SnapshotKind.Recovery));
+    }
+
+    [Test]
+    public async Task History_and_commit_views_disable_signature_output()
+    {
+        await CommitFileAsync("project.bep", "one\n", "baseline");
+        await File.WriteAllTextAsync(Path.Combine(Root, "project.bep"), "two\n");
+        var runner = new RecordingArgumentsRunner(CreateRunner());
+        using var service = new GitCliVersionControlService(
+            CreateInstalledLocator(),
+            Repository,
+            watcher: null,
+            _ => runner);
+        CommitResult result = await service.CommitAllAsync(
+            "beutl: snapshot on save",
+            SnapshotKind.Save,
+            CancellationToken.None);
+        string sha = ((CommitRevision.Known)((CommitResult.Committed)result).Revision).Sha;
+        runner.Commands.Clear();
+
+        await service.GetHistoryAsync(0, 10, CancellationToken.None);
+        await service.GetCommitFilesAsync(sha, CancellationToken.None);
+        await service.GetDiffAsync(sha, "project.bep", CancellationToken.None);
+
+        IReadOnlyList<IReadOnlyList<string>> parsedCommands = runner.Commands
+            .Where(static command => command.FirstOrDefault() is "log" or "show")
+            .ToArray();
+        Assert.Multiple(() =>
+        {
+            Assert.That(parsedCommands, Has.Count.EqualTo(3));
+            Assert.That(parsedCommands, Has.All.Contains("--no-show-signature"));
+        });
+    }
+
+    [Test]
+    public async Task RevisionContainsProjectFileAsync_rejects_revisions_without_the_project_file()
+    {
+        await CommitFileAsync("baseline.txt", "baseline\n", "baseline");
+        string baseline = (await RunGitAsync("rev-parse", "HEAD")).Stdout.Trim();
+        await CommitFileAsync("project.bep", "{}\n", "add project");
+        string projectRevision = (await RunGitAsync("rev-parse", "HEAD")).Stdout.Trim();
+        using var service = CreateService();
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(
+                service.RevisionContainsProjectFileAsync(
+                    projectRevision,
+                    Path.Combine(Root, "project.bep"),
+                    CancellationToken.None).GetAwaiter().GetResult(),
+                Is.True);
+            Assert.That(
+                service.RevisionContainsProjectFileAsync(
+                    baseline,
+                    Path.Combine(Root, "project.bep"),
+                    CancellationToken.None).GetAwaiter().GetResult(),
+                Is.False);
+        });
     }
 
     [Test]
@@ -4588,6 +4669,37 @@ public class GitCliVersionControlServiceTests : RealGitTestRepository
                 return Task.FromResult(new GitCommandResult(0, "", ""));
             }
 
+            return inner.RunAsync(
+                repository,
+                arguments,
+                options,
+                cancellationToken,
+                stderrProgress);
+        }
+
+        public RepositoryLockInfo? GetRecoverableRepositoryLock(RepositoryInfo repository)
+            => inner.GetRecoverableRepositoryLock(repository);
+
+        public bool RemoveRecoverableRepositoryLock(
+            RepositoryInfo repository,
+            RepositoryLockInfo lockInfo)
+            => inner.RemoveRecoverableRepositoryLock(repository, lockInfo);
+    }
+
+    private sealed class RecordingArgumentsRunner(IGitCliRunner inner) : IGitCliRunner
+    {
+        public List<IReadOnlyList<string>> Commands { get; } = [];
+
+        public bool HasActiveProcess => inner.HasActiveProcess;
+
+        public Task<GitCommandResult> RunAsync(
+            RepositoryInfo repository,
+            IReadOnlyList<string> arguments,
+            GitCommandOptions options,
+            CancellationToken cancellationToken,
+            IProgress<string>? stderrProgress = null)
+        {
+            Commands.Add(arguments.ToArray());
             return inner.RunAsync(
                 repository,
                 arguments,

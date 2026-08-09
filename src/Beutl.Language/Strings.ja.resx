@@ -1643,6 +1643,9 @@ GetProperty&lt;T&gt;("path") または GetProperty&lt;T&gt;(guid, "propertyName"
   <data name="VersionControl_RestoreConfirmation" xml:space="preserve">
     <value>プロジェクトを閉じて再度開くため、現在の取り消し履歴は消去されます。続行しますか？</value>
   </data>
+  <data name="VersionControl_RevisionMissingProject" xml:space="preserve">
+    <value>リビジョン {0} には現在のプロジェクトファイルが含まれていないため、復元できません。</value>
+  </data>
   <data name="VersionControl_ExportInProgress" xml:space="preserve">
     <value>書き出しの実行中は、このバージョン管理操作を実行できません。</value>
   </data>

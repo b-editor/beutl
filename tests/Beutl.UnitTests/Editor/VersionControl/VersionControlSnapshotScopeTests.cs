@@ -52,6 +52,39 @@ public class VersionControlSnapshotScopeTests : RealGitTestRepository
                       || change.Path == unchangedElement));
     }
 
+    [Test]
+    public async Task Snapshot_excludes_tracked_Beutl_state_and_tmp_files()
+    {
+        await WriteProjectFileAsync("project.bep", "baseline\n");
+        await WriteProjectFileAsync(".beutl/output-profile.json", "old\n");
+        await WriteProjectFileAsync("render-cache.tmp", "old\n");
+        await RunGitAsync("add", "-A", "--", ".");
+        await RunGitAsync("commit", "-m", "baseline");
+
+        await WriteProjectFileAsync(".gitignore", "**/.beutl/\n*.tmp\n");
+        await RunGitAsync("add", "--", ".gitignore");
+        await RunGitAsync("commit", "-m", "add hygiene rules");
+
+        await WriteProjectFileAsync("project.bep", "changed\n");
+        await WriteProjectFileAsync(".beutl/output-profile.json", "machine-local\n");
+        await WriteProjectFileAsync("render-cache.tmp", "machine-local\n");
+        using var service = CreateService();
+
+        var revision = (CommitRevision.Known)((CommitResult.Committed)await service.CommitAllAsync(
+            "beutl: snapshot on save",
+            SnapshotKind.Save,
+            CancellationToken.None)).Revision;
+        IReadOnlyList<FileChange> changedFiles = await service.GetCommitFilesAsync(
+            revision.Sha,
+            CancellationToken.None);
+
+        Assert.That(
+            changedFiles,
+            Is.EqualTo([new FileChange("project.bep", FileChangeStatus.Modified)]));
+        GitCommandResult status = await RunGitAsync("status", "--porcelain=v1");
+        Assert.That(status.Stdout, Is.EqualTo(" M .beutl/output-profile.json\n M render-cache.tmp\n"));
+    }
+
     private GitCliVersionControlService CreateService()
     {
         return new GitCliVersionControlService(
