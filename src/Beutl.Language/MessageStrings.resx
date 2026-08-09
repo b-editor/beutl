@@ -29,6 +29,12 @@
   <data name="OperationCompletedSuccessfully" xml:space="preserve">
     <value>The operation completed successfully.</value>
   </data>
+  <data name="NoDockLayoutPresets" xml:space="preserve">
+    <value>No dock layouts have been saved yet.</value>
+  </data>
+  <data name="DockLayoutSaved" xml:space="preserve">
+    <value>Saved the dock layout '{0}'.</value>
+  </data>
   <data name="ExportProjectPartialFailure" xml:space="preserve">
     <value>Export completed, but {0} resources failed to copy. The exported package may be incomplete.</value>
   </data>
