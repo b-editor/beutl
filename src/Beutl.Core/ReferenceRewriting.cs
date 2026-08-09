@@ -16,14 +16,21 @@ public interface IReferenceRewriteContext
 /// Represents a value that can rebuild itself after its contained references are rewritten.
 /// </summary>
 /// <remarks>
-/// Implementations are responsible for preserving all non-reference state. The returned value must
-/// have the same runtime type as the original value; otherwise the rewrite is ignored.
+/// Implementations are responsible for preserving all non-reference state. The rewrite target must
+/// have the same runtime type as the source. It is memoized before population so aliases and cycles
+/// resolve to the same replacement instance.
 /// </remarks>
 public interface IReferenceRewritable
 {
     /// <summary>
-    /// Returns an equivalent value whose contained references were processed by
-    /// <paramref name="context"/>.
+    /// Creates the target that receives rewritten references. Implementations that mutate in place
+    /// may return <see langword="this"/>; rebuilding implementations return a shallow target whose
+    /// reference-bearing members can be populated by <see cref="RewriteReferences"/>.
     /// </summary>
-    object RewriteReferences(IReferenceRewriteContext context);
+    IReferenceRewritable CreateReferenceRewriteTarget();
+
+    /// <summary>
+    /// Rewrites this target's reference-bearing members through <paramref name="context"/>.
+    /// </summary>
+    void RewriteReferences(IReferenceRewriteContext context);
 }

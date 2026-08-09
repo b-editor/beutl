@@ -128,7 +128,7 @@ public class AnimatablePropertyTests
         property.ValueChanged += (_, e) => args = e;
         property.Edited += (_, _) => edited++;
 
-        ((IPropertyValueReplacer)property).ReplaceCurrentValue(replacement);
+        property.ReplaceCurrentValue(replacement);
 
         Assert.Multiple(() =>
         {

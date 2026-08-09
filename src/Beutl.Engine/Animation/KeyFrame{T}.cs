@@ -5,7 +5,7 @@ using Beutl.Validation;
 
 namespace Beutl.Animation;
 
-public sealed class KeyFrame<T> : KeyFrame, IKeyFrame, IKeyFrameValueReplacer
+public sealed class KeyFrame<T> : KeyFrame, IKeyFrame
 {
     public static readonly CoreProperty<T?> ValueProperty;
     internal static readonly Animator<T> s_animator;
@@ -55,7 +55,7 @@ public sealed class KeyFrame<T> : KeyFrame, IKeyFrame, IKeyFrameValueReplacer
         }
     }
 
-    void IKeyFrameValueReplacer.ReplaceValue(object? value)
+    void IKeyFrame.ReplaceValue(object? value)
     {
         if (value is T typed)
         {

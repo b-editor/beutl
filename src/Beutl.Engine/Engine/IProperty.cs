@@ -24,6 +24,12 @@ public interface IProperty : INotifyEdited
 
     object? CurrentValue { get; set; }
 
+    /// <summary>
+    /// Validates and installs <paramref name="value"/>, replacing distinct reference-type values
+    /// even when they compare equal while preserving the normal notification semantics.
+    /// </summary>
+    void ReplaceCurrentValue(object? value);
+
     string Name { get; }
 
     Type ValueType { get; }
@@ -61,23 +67,13 @@ public interface IProperty : INotifyEdited
     JsonNode? SerializeExpression();
 }
 
-/// <summary>
-/// Replaces a property's current value when a distinct reference compares equal to the current one.
-/// </summary>
-public interface IPropertyValueReplacer
-{
-    /// <summary>
-    /// Validates and installs <paramref name="value"/> using reference identity for reference types
-    /// and normal equality for value types, while preserving the property's notification semantics.
-    /// </summary>
-    void ReplaceCurrentValue(object? value);
-}
-
 public interface IProperty<T> : IProperty
 {
     new T DefaultValue { get; }
 
     new T CurrentValue { get; set; }
+
+    void ReplaceCurrentValue(T value);
 
     new IAnimation<T>? Animation { get; set; }
 
@@ -114,6 +110,22 @@ public interface IProperty<T> : IProperty
             {
                 throw new InvalidCastException();
             }
+        }
+    }
+
+    void IProperty.ReplaceCurrentValue(object? value)
+    {
+        if (value is T typed)
+        {
+            ReplaceCurrentValue(typed);
+        }
+        else if (value is null && !typeof(T).IsValueType)
+        {
+            ReplaceCurrentValue(default!);
+        }
+        else
+        {
+            throw new InvalidCastException();
         }
     }
 

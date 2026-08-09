@@ -9,6 +9,18 @@ namespace Beutl.UnitTests.Engine.Animation;
 
 public class KeyFrameTests
 {
+    private sealed class EqualityValue(string key, string state)
+    {
+        public string Key { get; } = key;
+
+        public string State { get; } = state;
+
+        public override bool Equals(object? obj)
+            => obj is EqualityValue other && Key == other.Key;
+
+        public override int GetHashCode() => Key.GetHashCode(StringComparison.Ordinal);
+    }
+
     public abstract class AbstractTestEasing : Easing
     {
     }
@@ -117,6 +129,52 @@ public class KeyFrameTests
         Assert.That(easing.Y1, Is.EqualTo(0.2f));
         Assert.That(easing.X2, Is.EqualTo(0.3f));
         Assert.That(easing.Y2, Is.EqualTo(0.4f));
+    }
+
+    [Test]
+    public void Deserialize_SplineEasingWithExtensionData_PreservesControlPoints()
+    {
+        var keyFrame = new KeyFrame<int>();
+        var context = new Mock<ICoreSerializationContext>();
+        var easingNode = new JsonObject
+        {
+            ["X1"] = 0.1f,
+            ["Y1"] = 0.2f,
+            ["X2"] = 0.3f,
+            ["Y2"] = 0.4f,
+            ["Extension"] = true,
+        };
+        context.Setup(c => c.GetValue<JsonNode>(It.IsAny<string>())).Returns(easingNode);
+        context.Setup(c => c.Contains(It.IsAny<string>())).Returns(false);
+
+        keyFrame.Deserialize(context.Object);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(keyFrame.Easing, Is.InstanceOf<SplineEasing>());
+            Assert.That(((SplineEasing)keyFrame.Easing).X1, Is.EqualTo(0.1f));
+            Assert.That(keyFrame.HasLossyEasing, Is.False);
+        });
+    }
+
+    [Test]
+    public void ReplaceValue_ThroughBaseContract_ReplacesEquivalentReferenceOnce()
+    {
+        var current = new EqualityValue("same", "old");
+        var replacement = new EqualityValue("same", "new");
+        IKeyFrame keyFrame = new KeyFrame<EqualityValue> { Value = current };
+        int changes = 0;
+        ((CoreObject)keyFrame).PropertyChanged += (_, e) =>
+            changes += e.PropertyName == nameof(IKeyFrame.Value) ? 1 : 0;
+
+        keyFrame.ReplaceValue(replacement);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(keyFrame.Value, Is.SameAs(replacement));
+            Assert.That(((EqualityValue)keyFrame.Value!).State, Is.EqualTo("new"));
+            Assert.That(changes, Is.EqualTo(1));
+        });
     }
 
     [TestCase(typeof(AbstractTestEasing))]

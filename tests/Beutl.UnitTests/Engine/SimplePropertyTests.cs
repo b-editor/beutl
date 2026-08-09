@@ -113,7 +113,7 @@ public class SimplePropertyTests
         property.ValueChanged += (_, e) => args = e;
         property.Edited += (_, _) => edited++;
 
-        ((IPropertyValueReplacer)property).ReplaceCurrentValue(replacement);
+        ((IProperty)property).ReplaceCurrentValue(replacement);
 
         Assert.Multiple(() =>
         {

@@ -1,4 +1,5 @@
 ﻿using Beutl.Composition;
+using Beutl.Collections;
 using Beutl.Engine;
 
 namespace Beutl.UnitTests.Engine;
@@ -65,6 +66,18 @@ public class ListPropertyTests
 
         Assert.That(property.CurrentValue, Is.SameAs(originalRef));
         Assert.That(property, Is.EqualTo(new[] { 10, 20 }));
+    }
+
+    [Test]
+    public void ReplaceCurrentValue_ThroughBaseContract_ReplacesContents()
+    {
+        var property = Make<int>();
+        property.AddRange([1, 2, 3]);
+        IProperty baseProperty = property;
+
+        baseProperty.ReplaceCurrentValue(new CoreList<int>([4, 5]));
+
+        Assert.That(property, Is.EqualTo(new[] { 4, 5 }));
     }
 
     [Test]

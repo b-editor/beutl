@@ -13,7 +13,8 @@ internal sealed record SuppressedStorageSource(
     bool HasNonFallbackIncidents = false,
     JsonObject[]? UntraversedFallbacks = null,
     SuppressedReferencedStorageSource[]? ReferencedStorageSources = null,
-    string? SourceRootPath = null)
+    string? SourceRootPath = null,
+    SuppressedRecoveryIncident[]? RecoveryIncidents = null)
 {
     /// <summary>
     /// True when this suppression record was put back by undoing an in-process repair. Only a
@@ -28,3 +29,8 @@ internal sealed record SuppressedReferencedStorageSource(
     byte[] RawBytes,
     string RelativePath,
     string ElementRelativePath);
+
+internal sealed record SuppressedRecoveryIncident(
+    string Reason,
+    string? TypeName,
+    string? Message);

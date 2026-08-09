@@ -186,9 +186,9 @@ public sealed class SessionToolsTests
                     && incident.Message is null));
             Assert.That(opened.Value.RecoveryIncidents,
                 Has.One.Matches<RecoveryIncident>(incident =>
-                    incident.Reason == nameof(FallbackReason.DeserializationFailed)
-                    && incident.TypeName is null
-                    && incident.Message is null));
+                    incident.Reason == nameof(FallbackReason.TypeNotFound)
+                    && incident.TypeName == "[Missing.Assembly]Missing.Namespace:MissingEasing"
+                    && incident.Message!.Contains("could not be resolved", StringComparison.Ordinal)));
         });
     }
 
@@ -250,9 +250,13 @@ public sealed class SessionToolsTests
             Assert.That(opened.Value.RecoveryIncidents, Has.Count.EqualTo(1));
             Assert.That(opened.Value.RecoveryIncidents[0].ElementFile, Is.EqualTo(elementRelativePath));
             Assert.That(opened.Value.RecoveryIncidents[0].Reason,
-                Is.EqualTo(nameof(FallbackReason.DeserializationFailed)));
-            Assert.That(opened.Value.RecoveryIncidents[0].TypeName, Is.Null);
-            Assert.That(opened.Value.RecoveryIncidents[0].Message, Is.Null);
+                Is.EqualTo(nameof(FallbackReason.TypeNotFound)));
+            Assert.That(
+                opened.Value.RecoveryIncidents[0].TypeName,
+                Is.EqualTo("[Missing.Assembly]Missing.Namespace:MissingEasing"));
+            Assert.That(
+                opened.Value.RecoveryIncidents[0].Message,
+                Does.Contain("could not be resolved"));
         });
     }
 
@@ -350,45 +354,26 @@ public sealed class SessionToolsTests
     }
 
     [Test]
-    public void CollectFallbacks_TraversesDictionaryValues()
+    public void SerializedGraphTraversal_TraversesDictionaryValues()
     {
         var fallback = new FallbackTransform();
-        var fallbacks = new List<IFallback>();
-        MethodInfo method = typeof(SessionTools).GetMethod(
-            "CollectFallbacks",
-            BindingFlags.NonPublic | BindingFlags.Static)!;
-
-        method.Invoke(
-            null,
-            new object?[]
-            {
-                new Dictionary<string, Transform> { ["broken"] = fallback },
-                new HashSet<object>(),
-                fallbacks,
-            });
+        IFallback[] fallbacks = SerializedGraphTraversal.Enumerate(
+                new Dictionary<string, Transform> { ["broken"] = fallback })
+            .OfType<IFallback>()
+            .ToArray();
 
         Assert.That(fallbacks, Has.One.SameAs(fallback));
     }
 
     [Test]
-    public void CollectFallbacks_TraversesElementHierarchyOutsideObjects()
+    public void SerializedGraphTraversal_TraversesElementHierarchyOutsideObjects()
     {
         var element = new Element();
         var fallback = new FallbackTransform();
         ((IModifiableHierarchical)element).AddChild(fallback);
-        var fallbacks = new List<IFallback>();
-        MethodInfo method = typeof(SessionTools).GetMethod(
-            "CollectFallbacks",
-            BindingFlags.NonPublic | BindingFlags.Static)!;
-
-        method.Invoke(
-            null,
-            new object?[]
-            {
-                element,
-                new HashSet<object>(),
-                fallbacks,
-            });
+        IFallback[] fallbacks = SerializedGraphTraversal.Enumerate(element)
+            .OfType<IFallback>()
+            .ToArray();
 
         Assert.Multiple(() =>
         {
@@ -398,26 +383,16 @@ public sealed class SessionToolsTests
     }
 
     [Test]
-    public void CollectFallbacks_TraversesRegisteredCorePropertiesAndOptionalValues()
+    public void SerializedGraphTraversal_TraversesRegisteredCorePropertiesAndOptionalValues()
     {
         var fallback = new FallbackTransform();
         var element = new RegisteredOptionalTransformElement
         {
             PluginTransform = new Optional<Transform>(fallback),
         };
-        var fallbacks = new List<IFallback>();
-        MethodInfo method = typeof(SessionTools).GetMethod(
-            "CollectFallbacks",
-            BindingFlags.NonPublic | BindingFlags.Static)!;
-
-        method.Invoke(
-            null,
-            new object?[]
-            {
-                element,
-                new HashSet<object>(),
-                fallbacks,
-            });
+        IFallback[] fallbacks = SerializedGraphTraversal.Enumerate(element)
+            .OfType<IFallback>()
+            .ToArray();
 
         Assert.That(fallbacks, Has.One.SameAs(fallback));
     }

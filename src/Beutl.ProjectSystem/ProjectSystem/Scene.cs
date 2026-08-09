@@ -6,6 +6,7 @@ using System.ComponentModel;
 using System.ComponentModel.DataAnnotations;
 using System.Diagnostics;
 using System.Reflection;
+using System.Runtime.CompilerServices;
 using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
@@ -80,12 +81,11 @@ public class Scene : ProjectItem, INotifyEdited
     private readonly HierarchicalList<SceneMarker> _markers;
     private readonly Dictionary<string, Guid> _recoveredDescendantIds = new(StringComparer.Ordinal);
     private readonly Dictionary<string, Guid> _recoveredDescendantIdentities = new(StringComparer.Ordinal);
-    private readonly Dictionary<CoreObject, (Guid OriginalId, Guid AssignedId, int Occurrence)> _recoveredDescendantRemaps
-        = new(ReferenceEqualityComparer.Instance);
+    private readonly ConditionalWeakTable<CoreObject, RecoveredDescendantRemap> _recoveredDescendantRemaps = new();
     private readonly Dictionary<string, Guid> _recoveredElementIds = new(StringComparer.Ordinal);
     private readonly Dictionary<Guid, Guid> _pendingRecoveredElementIdMigrations = [];
     private readonly Dictionary<Guid, Guid> _pendingRecoveredDescendantIdMigrations = [];
-    private readonly System.Collections.Concurrent.ConcurrentDictionary<CoreObject, byte> _idlessRecoveredDescendants = new();
+    private readonly ConditionalWeakTable<CoreObject, IdlessRecoveredDescendant> _idlessRecoveredDescendants = new();
     private TimeSpan _start = TimeSpan.FromMinutes(0);
     private TimeSpan _duration = TimeSpan.FromMinutes(5);
     private PixelSize _frameSize;
@@ -570,11 +570,13 @@ public class Scene : ProjectItem, INotifyEdited
         context.SetValue("Height", FrameSize.Height);
         context.SetValue("Groups", Groups.Select(ids => string.Join(':', ids)).ToArray());
         context.SetValue(nameof(Markers), Markers);
-        RebuildRecoveredElementIds();
-        if (_recoveredElementIds.Count > 0)
+        RecoveredSerializationState recoveredState = BuildRecoveredSerializationState();
+        if (recoveredState.ElementIds.Count > 0)
         {
             var recoveredElementIds = new JsonObject();
-            foreach ((string path, Guid id) in _recoveredElementIds.OrderBy(static item => item.Key, StringComparer.Ordinal))
+            foreach ((string path, Guid id) in recoveredState.ElementIds.OrderBy(
+                         static item => item.Key,
+                         StringComparer.Ordinal))
             {
                 recoveredElementIds[path] = id.ToString();
             }
@@ -582,10 +584,10 @@ public class Scene : ProjectItem, INotifyEdited
             context.SetValue(RecoveredElementIdsKey, recoveredElementIds);
         }
 
-        if (_recoveredDescendantIds.Count > 0)
+        if (recoveredState.DescendantIds.Count > 0)
         {
             var recoveredDescendantIds = new JsonObject();
-            foreach ((string key, Guid id) in _recoveredDescendantIds.OrderBy(
+            foreach ((string key, Guid id) in recoveredState.DescendantIds.OrderBy(
                          static item => item.Key,
                          StringComparer.Ordinal))
             {
@@ -595,10 +597,10 @@ public class Scene : ProjectItem, INotifyEdited
             context.SetValue(RecoveredDescendantIdsKey, recoveredDescendantIds);
         }
 
-        if (_recoveredDescendantIdentities.Count > 0)
+        if (recoveredState.DescendantIdentities.Count > 0)
         {
             var recoveredDescendantIdentities = new JsonObject();
-            foreach ((string key, Guid id) in _recoveredDescendantIdentities.OrderBy(
+            foreach ((string key, Guid id) in recoveredState.DescendantIdentities.OrderBy(
                          static item => item.Key,
                          StringComparer.Ordinal))
             {
@@ -1008,7 +1010,7 @@ public class Scene : ProjectItem, INotifyEdited
                     continue;
                 }
 
-                bool idless = _idlessRecoveredDescendants.ContainsKey(descendant);
+                        bool idless = _idlessRecoveredDescendants.TryGetValue(descendant, out _);
                 Guid originalId = idless ? Guid.Empty : descendant.Id;
                 int occurrence = idless
                     ? idlessOccurrence++
@@ -1062,10 +1064,6 @@ public class Scene : ProjectItem, INotifyEdited
                     candidate,
                     remap.Occurrence);
 
-                if (descendant is IFallback fallback)
-                {
-                    EnsureFallbackProjection(fallback);
-                }
             }
         }
 
@@ -1152,7 +1150,10 @@ public class Scene : ProjectItem, INotifyEdited
         int occurrence)
     {
         _recoveredDescendantIds[remapKey] = assignedId;
-        _recoveredDescendantRemaps[descendant] = (originalId, assignedId, occurrence);
+        _recoveredDescendantRemaps.Remove(descendant);
+        _recoveredDescendantRemaps.Add(
+            descendant,
+            new RecoveredDescendantRemap(originalId, assignedId, occurrence));
         if (originalId != Guid.Empty)
         {
             _pendingRecoveredDescendantIdMigrations.TryAdd(originalId, assignedId);
@@ -1178,9 +1179,17 @@ public class Scene : ProjectItem, INotifyEdited
                 var traversedFallbacks = new HashSet<IFallback>(
                     fallbacks,
                     ReferenceEqualityComparer.Instance);
-                JsonObject[] untraversedFallbacks = incidentCapture.Fallbacks
-                    .Where(fallback => !traversedFallbacks.Contains(fallback) && fallback.Json != null)
-                    .Select(fallback => fallback.Json!.DeepClone().AsObject())
+                DeserializationIncidents.DeserializationIncident[] untraversedIncidents
+                    = incidentCapture.Incidents
+                        .Where(incident => incident.Fallback is null
+                                           || !traversedFallbacks.Contains(incident.Fallback))
+                        .ToArray();
+                JsonObject[] untraversedFallbacks = untraversedIncidents
+                    .Where(static incident => incident.Fallback?.Json != null)
+                    .Select(static incident => incident.Fallback!.Json!.DeepClone().AsObject())
+                    .ToArray();
+                SuppressedRecoveryIncident[] recoveryIncidents = untraversedIncidents
+                    .Select(CreateSuppressedRecoveryIncident)
                     .ToArray();
                 foreach (IFallback fallback in fallbacks)
                 {
@@ -1192,7 +1201,9 @@ public class Scene : ProjectItem, INotifyEdited
                         }
                         else
                         {
-                            _idlessRecoveredDescendants.TryAdd(fallbackObject, 0);
+                            _idlessRecoveredDescendants.GetValue(
+                                fallbackObject,
+                                static _ => new IdlessRecoveredDescendant());
                         }
                     }
 
@@ -1203,16 +1214,15 @@ public class Scene : ProjectItem, INotifyEdited
                     element,
                     File.ReadAllBytes(uri.LocalPath),
                     uri,
-                    incidentCount > fallbacks.Length,
-                    untraversedFallbacks);
+                    recoveryIncidents.Length > 0,
+                    untraversedFallbacks,
+                    recoveryIncidents);
             }
 
             return element;
         }
-        // Any non-filesystem failure is a content problem the recovery path must absorb — value
-        // converters throw freely (e.g. FormatException from Color.Parse); filesystem failures
-        // still propagate so a genuinely unreadable project keeps failing loudly.
-        catch (Exception ex) when (!ExceptionHelpers.ContainsFileSystemFailure(ex))
+        catch (Exception ex) when (!ExceptionHelpers.ContainsFatalFailure(ex)
+                                   && !ExceptionHelpers.ContainsNonRecoverableFileSystemFailure(ex))
         {
             // Raw bytes, not text: the sidecar must survive rehoming byte-identically even when it
             // holds a BOM, another encoding, or undecodable bytes. The lossy decode is only scanned
@@ -1243,7 +1253,9 @@ public class Scene : ProjectItem, INotifyEdited
             };
             fallback.Json = CreateFallbackProjection(fallback, topLevelTypeName);
             element.AddObject(fallback);
-            _idlessRecoveredDescendants.TryAdd(fallback, 0);
+            _idlessRecoveredDescendants.GetValue(
+                fallback,
+                static _ => new IdlessRecoveredDescendant());
             MarkRecoveredElement(element, rawBytes, uri);
             return element;
         }
@@ -1260,12 +1272,15 @@ public class Scene : ProjectItem, INotifyEdited
                && id != Guid.Empty;
     }
 
+    private sealed class IdlessRecoveredDescendant;
+
     private void MarkRecoveredElement(
         Element element,
         byte[] rawBytes,
         Uri uri,
         bool hasNonFallbackIncidents = false,
-        JsonObject[]? untraversedFallbacks = null)
+        JsonObject[]? untraversedFallbacks = null,
+        SuppressedRecoveryIncident[]? recoveryIncidents = null)
     {
         string sourceRootPath = Path.GetDirectoryName(Uri?.LocalPath ?? uri.LocalPath)
                                 ?? throw new JsonException("Recovered element has no source directory.");
@@ -1275,7 +1290,26 @@ public class Scene : ProjectItem, INotifyEdited
             hasNonFallbackIncidents,
             untraversedFallbacks,
             CollectReferencedStorageSources(element, uri, sourceRootPath),
-            sourceRootPath);
+            sourceRootPath,
+            recoveryIncidents);
+    }
+
+    private static SuppressedRecoveryIncident CreateSuppressedRecoveryIncident(
+        DeserializationIncidents.DeserializationIncident incident)
+    {
+        if (incident.Fallback is { } fallback)
+        {
+            fallback.TryGetTypeName(out string? typeName);
+            return new SuppressedRecoveryIncident(
+                fallback.Reason.ToString(),
+                typeName,
+                fallback.ErrorMessage);
+        }
+
+        return new SuppressedRecoveryIncident(
+            incident.Reason?.ToString() ?? nameof(FallbackReason.DeserializationFailed),
+            incident.TypeName,
+            incident.Message);
     }
 
     private static SuppressedReferencedStorageSource[]? CollectReferencedStorageSources(
@@ -1285,29 +1319,29 @@ public class Scene : ProjectItem, INotifyEdited
     {
         string sourceRoot = Path.TrimEndingDirectorySeparator(Path.GetFullPath(sourceRootPath));
         string resolvedSourceRoot = Path.TrimEndingDirectorySeparator(
-            FilePathBoundary.ResolveDeepestExistingTarget(sourceRoot));
+            PathBoundary.ResolveDeepestExistingTarget(sourceRoot));
         string elementPath = Path.GetFullPath(elementUri.LocalPath);
-        string resolvedElementPath = FilePathBoundary.ResolveDeepestExistingTarget(elementPath);
-        if (!FilePathBoundary.IsPathInsideRoot(resolvedSourceRoot, resolvedElementPath))
+        string resolvedElementPath = PathBoundary.ResolveDeepestExistingTarget(elementPath);
+        if (!PathBoundary.IsPathInsideRoot(resolvedSourceRoot, resolvedElementPath))
         {
             return null;
         }
 
         string elementDirectory = Path.GetDirectoryName(elementPath)
                                   ?? throw new JsonException("Recovered element has no source directory.");
-        var seenPaths = new HashSet<string>(FilePathBoundary.Comparer);
+        var seenPaths = new HashSet<string>(PathBoundary.Comparer);
         var result = new List<SuppressedReferencedStorageSource>();
         foreach (string sourcePath in EnumerateSerializedGraphObjects(element)
             .OfType<CoreObject>()
             .Where(static coreObject => coreObject.Uri is { IsFile: true })
             .Select(static coreObject => Path.GetFullPath(coreObject.Uri!.LocalPath)))
         {
-            string resolvedSourcePath = FilePathBoundary.ResolveDeepestExistingTarget(sourcePath);
+            string resolvedSourcePath = PathBoundary.ResolveDeepestExistingTarget(sourcePath);
             if (string.Equals(
                     resolvedSourcePath,
                     resolvedElementPath,
-                    FilePathBoundary.Comparison)
-                || !FilePathBoundary.IsPathInsideRoot(resolvedSourceRoot, resolvedSourcePath)
+                    PathBoundary.Comparison)
+                || !PathBoundary.IsPathInsideRoot(resolvedSourceRoot, resolvedSourcePath)
                 || !File.Exists(sourcePath)
                 || !seenPaths.Add(resolvedSourcePath))
             {
@@ -1335,6 +1369,53 @@ public class Scene : ProjectItem, INotifyEdited
 
         element.SuppressedStorageSource = null;
         return source;
+    }
+
+    internal static SuppressedStorageSource? TryResumeElementPersistence(
+        Element element,
+        object? removedValue)
+    {
+        if (element.SuppressedStorageSource is not { } source
+            || !MayContainRemovedRecoveryBlocker(element, removedValue, source))
+        {
+            return null;
+        }
+
+        return TryResumeElementPersistence(element);
+    }
+
+    private static bool MayContainRemovedRecoveryBlocker(
+        Element element,
+        object? removedValue,
+        SuppressedStorageSource source)
+    {
+        if (removedValue is null)
+        {
+            return false;
+        }
+
+        if (SerializedGraphTraversal.Enumerate(removedValue).Any(static value =>
+                value is IFallback or KeyFrame { HasLossyEasing: true }))
+        {
+            return true;
+        }
+
+        if (source.UntraversedFallbacks is not { Length: > 0 } snapshots)
+        {
+            return false;
+        }
+
+        try
+        {
+            JsonNode serializedValue = CoreSerializer.SerializeToJsonNode(
+                removedValue,
+                new CoreSerializerOptions { BaseUri = element.Uri });
+            return snapshots.Any(snapshot => ContainsEquivalentJsonNode(serializedValue, snapshot));
+        }
+        catch (Exception ex) when (!ExceptionHelpers.ContainsFatalFailure(ex))
+        {
+            return true;
+        }
     }
 
     private static bool HasUnresolvedUntraversedFallback(
@@ -1389,7 +1470,13 @@ public class Scene : ProjectItem, INotifyEdited
             return;
         }
 
-        var rewriteState = new RecoveredReferenceRewriteState();
+        var referenceTargets = new Dictionary<Guid, CoreObject>();
+        foreach (CoreObject candidate in EnumerateSerializedGraphObjects(Children).OfType<CoreObject>())
+        {
+            referenceTargets.TryAdd(candidate.Id, candidate);
+        }
+
+        var rewriteState = new RecoveredReferenceRewriteState(referenceTargets);
         foreach (CoreObject coreObject in EnumerateSerializedGraphObjects(this).OfType<CoreObject>())
         {
             foreach (CoreProperty property in PropertyRegistry.GetRegistered(coreObject.GetType()))
@@ -1419,14 +1506,7 @@ public class Scene : ProjectItem, INotifyEdited
                 object? migratedValue = MigrateRecoveredReferenceValue(currentValue, rewriteState);
                 if (HasReferenceRewrite(currentValue, migratedValue))
                 {
-                    if (property is IPropertyValueReplacer replacer)
-                    {
-                        replacer.ReplaceCurrentValue(migratedValue);
-                    }
-                    else
-                    {
-                        property.CurrentValue = migratedValue;
-                    }
+                    property.ReplaceCurrentValue(migratedValue);
                 }
 
                 if (property.Expression is IReferenceExpression referenceExpression
@@ -1446,14 +1526,7 @@ public class Scene : ProjectItem, INotifyEdited
                             rewriteState);
                         if (HasReferenceRewrite(keyFrameValue, migratedKeyFrameValue))
                         {
-                            if (keyFrame is IKeyFrameValueReplacer replacer)
-                            {
-                                replacer.ReplaceValue(migratedKeyFrameValue);
-                            }
-                            else
-                            {
-                                keyFrame.Value = migratedKeyFrameValue;
-                            }
+                            keyFrame.ReplaceValue(migratedKeyFrameValue);
                         }
                     }
                 }
@@ -1467,12 +1540,13 @@ public class Scene : ProjectItem, INotifyEdited
                || _pendingRecoveredDescendantIdMigrations.TryGetValue(originalId, out migratedId);
     }
 
-    private object ResolveMigratedReference(IReference reference, Guid migratedId)
+    private static object ResolveMigratedReference(
+        IReference reference,
+        Guid migratedId,
+        RecoveredReferenceRewriteState state)
     {
-        CoreObject? target = EnumerateSerializedGraphObjects(Children)
-            .OfType<CoreObject>()
-            .FirstOrDefault(candidate => candidate.Id == migratedId);
-        if (target is not null && reference.ObjectType.IsInstanceOfType(target))
+        if (state.ReferenceTargets.TryGetValue(migratedId, out CoreObject? target)
+            && reference.ObjectType.IsInstanceOfType(target))
         {
             return reference.Resolved(target);
         }
@@ -1487,11 +1561,11 @@ public class Scene : ProjectItem, INotifyEdited
         if (value is IReference reference)
         {
             object rewritten = TryGetMigratedId(reference.Id, out Guid migratedId)
-                ? ResolveMigratedReference(reference, migratedId)
+                ? ResolveMigratedReference(reference, migratedId, state)
                 : value;
             if (HasReferenceRewrite(value, rewritten))
             {
-                state.RewriteCount++;
+                state.RecordRewrite();
             }
 
             return rewritten;
@@ -1527,9 +1601,16 @@ public class Scene : ProjectItem, INotifyEdited
         bool trackReference = !value.GetType().IsValueType;
         if (trackReference)
         {
-            if (state.Memo.TryGetValue(value, out object? cached))
+            if (state.Memo.TryGetValue(value, out RecoveredReferenceRewriteEntry? cached))
             {
-                return cached;
+                if (state.ActiveRewritables.TryPeek(out RecoveredReferenceRewriteEntry? parent))
+                {
+                    parent.Dependencies.Add(cached);
+                }
+
+                return cached.ShouldUseTargetDuringTraversal()
+                    ? cached.Target
+                    : cached.Source;
             }
 
             if (!state.Active.Add(value))
@@ -1543,44 +1624,95 @@ public class Scene : ProjectItem, INotifyEdited
             object? rewrittenValue = value;
             if (value is IReferenceRewritable rewritable)
             {
-                int rewriteCount = state.RewriteCount;
-                object rewritten = rewritable.RewriteReferences(
-                    new RecoveredReferenceRewriteContext(this, state));
-                if (state.RewriteCount != rewriteCount
-                    && rewritten is not null
-                    && rewritten.GetType() == value.GetType())
+                IReferenceRewritable target = rewritable.CreateReferenceRewriteTarget();
+                if (target is not null && target.GetType() == value.GetType())
                 {
-                    rewrittenValue = rewritten;
+                    var entry = new RecoveredReferenceRewriteEntry(value, target);
+                    if (state.ActiveRewritables.TryPeek(out RecoveredReferenceRewriteEntry? parent))
+                    {
+                        parent.Dependencies.Add(entry);
+                    }
+
+                    state.Memo[value] = entry;
+                    state.ActiveRewritables.Push(entry);
+                    try
+                    {
+                        target.RewriteReferences(new RecoveredReferenceRewriteContext(this, state));
+                    }
+                    finally
+                    {
+                        state.ActiveRewritables.Pop();
+                    }
+
+                    entry.Complete = true;
+                    if (entry.ShouldUseTargetDuringTraversal())
+                    {
+                        rewrittenValue = target;
+                    }
                 }
             }
             else if (value is IDictionary dictionary)
             {
+                int rewriteCount = state.RewriteCount;
                 foreach (object key in dictionary.Keys.Cast<object>().ToArray())
                 {
                     object? item = dictionary[key];
                     object? migratedItem = MigrateRecoveredReferenceValue(item, state);
                     if (HasReferenceRewrite(item, migratedItem))
                     {
+                        if (dictionary.IsReadOnly)
+                        {
+                            state.RewriteCount = rewriteCount;
+                            return value;
+                        }
+
                         dictionary[key] = migratedItem;
                     }
                 }
             }
             else if (value is IList list)
             {
+                int rewriteCount = state.RewriteCount;
+                object?[] rewrittenItems = new object?[list.Count];
+                bool hasRewrittenItem = false;
                 for (int i = 0; i < list.Count; i++)
                 {
                     object? item = list[i];
                     object? migratedItem = MigrateRecoveredReferenceValue(item, state);
-                    if (HasReferenceRewrite(item, migratedItem))
+                    rewrittenItems[i] = migratedItem;
+                    hasRewrittenItem |= HasReferenceRewrite(item, migratedItem);
+                }
+
+                if (hasRewrittenItem)
+                {
+                    if (!list.IsReadOnly)
                     {
-                        list[i] = migratedItem;
+                        for (int i = 0; i < list.Count; i++)
+                        {
+                            list[i] = rewrittenItems[i];
+                        }
+                    }
+                    else if (TryRebuildReadOnlyList(list, rewrittenItems) is { } rebuilt)
+                    {
+                        rewrittenValue = rebuilt;
+                    }
+                    else
+                    {
+                        state.RewriteCount = rewriteCount;
                     }
                 }
             }
 
             if (trackReference)
             {
-                state.Memo[value] = rewrittenValue;
+                if (!state.Memo.ContainsKey(value))
+                {
+                    state.Memo[value] = new RecoveredReferenceRewriteEntry(value, rewrittenValue)
+                    {
+                        Complete = true,
+                        DirectChanged = HasReferenceRewrite(value, rewrittenValue),
+                    };
+                }
             }
 
             return rewrittenValue;
@@ -1592,6 +1724,45 @@ public class Scene : ProjectItem, INotifyEdited
                 state.Active.Remove(value);
             }
         }
+    }
+
+    private static object? TryRebuildReadOnlyList(IList source, object?[] items)
+    {
+        Type sourceType = source.GetType();
+        Type? elementType = sourceType.GetInterfaces()
+            .Where(static type => type.IsGenericType
+                                  && type.GetGenericTypeDefinition() == typeof(IList<>))
+            .Select(static type => type.GetGenericArguments()[0])
+            .FirstOrDefault();
+        if (elementType is null)
+        {
+            return null;
+        }
+
+        Array array = Array.CreateInstance(elementType, items.Length);
+        try
+        {
+            for (int i = 0; i < items.Length; i++)
+            {
+                array.SetValue(items[i], i);
+            }
+
+            foreach (ConstructorInfo constructor in sourceType.GetConstructors())
+            {
+                ParameterInfo[] parameters = constructor.GetParameters();
+                if (parameters.Length == 1 && parameters[0].ParameterType.IsInstanceOfType(array))
+                {
+                    return constructor.Invoke([array]);
+                }
+            }
+        }
+        catch (Exception ex) when (ex is ArgumentException
+                                       or TargetInvocationException
+                                       or MemberAccessException)
+        {
+        }
+
+        return null;
     }
 
     private static bool HasReferenceRewrite(object? current, object? rewritten)
@@ -1622,99 +1793,64 @@ public class Scene : ProjectItem, INotifyEdited
         }
     }
 
-    private sealed class RecoveredReferenceRewriteState
+    private sealed class RecoveredReferenceRewriteState(
+        IReadOnlyDictionary<Guid, CoreObject> referenceTargets)
     {
+        public IReadOnlyDictionary<Guid, CoreObject> ReferenceTargets { get; } = referenceTargets;
+
         public HashSet<object> Active { get; } = new(ReferenceEqualityComparer.Instance);
 
-        public Dictionary<object, object?> Memo { get; } = new(ReferenceEqualityComparer.Instance);
+        public Dictionary<object, RecoveredReferenceRewriteEntry> Memo { get; }
+            = new(ReferenceEqualityComparer.Instance);
+
+        public Stack<RecoveredReferenceRewriteEntry> ActiveRewritables { get; } = new();
 
         public int RewriteCount { get; set; }
+
+        public void RecordRewrite()
+        {
+            RewriteCount++;
+            if (ActiveRewritables.TryPeek(out RecoveredReferenceRewriteEntry? entry))
+            {
+                entry.DirectChanged = true;
+            }
+        }
+    }
+
+    private sealed class RecoveredReferenceRewriteEntry(object source, object? target)
+    {
+        public object Source { get; } = source;
+
+        public object? Target { get; } = target;
+
+        public HashSet<RecoveredReferenceRewriteEntry> Dependencies { get; }
+            = new(ReferenceEqualityComparer.Instance);
+
+        public bool DirectChanged { get; set; }
+
+        public bool Complete { get; set; }
+
+        public bool ShouldUseTargetDuringTraversal()
+        {
+            return !Complete
+                   || Dependencies.Any(static dependency => !dependency.Complete)
+                   || IsChanged(new HashSet<RecoveredReferenceRewriteEntry>(ReferenceEqualityComparer.Instance));
+        }
+
+        private bool IsChanged(ISet<RecoveredReferenceRewriteEntry> visited)
+        {
+            if (DirectChanged)
+            {
+                return true;
+            }
+
+            return visited.Add(this)
+                   && Dependencies.Any(dependency => dependency.IsChanged(visited));
+        }
     }
 
     private static IEnumerable<object> EnumerateSerializedGraphObjects(object root)
-    {
-        var objects = new List<object>();
-        var visited = new HashSet<object>(ReferenceEqualityComparer.Instance);
-        CollectSerializedGraphObjects(root, visited, objects);
-        return objects;
-    }
-
-    private static void CollectSerializedGraphObjects(
-        object? value,
-        ISet<object> visited,
-        ICollection<object> objects)
-    {
-        if (value is null or string
-            || (!value.GetType().IsValueType && !visited.Add(value)))
-        {
-            return;
-        }
-
-        if (value is IOptional optional)
-        {
-            if (optional.HasValue)
-            {
-                CollectSerializedGraphObjects(optional.ToObject().Value, visited, objects);
-            }
-
-            return;
-        }
-
-        if (value is CoreObject or IFallback)
-        {
-            objects.Add(value);
-        }
-
-        if (value is IHierarchical hierarchical)
-        {
-            foreach (IHierarchical child in hierarchical.HierarchicalChildren)
-            {
-                CollectSerializedGraphObjects(child, visited, objects);
-            }
-        }
-
-        if (value is EngineObject engineObject)
-        {
-            foreach (IProperty property in engineObject.Properties)
-            {
-                CollectSerializedGraphObjects(property.CurrentValue, visited, objects);
-                if (property.Animation is IKeyFrameAnimation animation)
-                {
-                    foreach (IKeyFrame keyFrame in animation.KeyFrames)
-                    {
-                        CollectSerializedGraphObjects(keyFrame, visited, objects);
-                        CollectSerializedGraphObjects(keyFrame.Value, visited, objects);
-                    }
-                }
-            }
-        }
-
-        if (value is CoreObject coreObject)
-        {
-            foreach (CoreProperty property in PropertyRegistry.GetRegistered(coreObject.GetType()))
-            {
-                if (property.GetMetadata<CorePropertyMetadata>(coreObject.GetType()).ShouldSerialize)
-                {
-                    CollectSerializedGraphObjects(coreObject.GetValue(property), visited, objects);
-                }
-            }
-        }
-
-        if (value is System.Collections.IDictionary dictionary)
-        {
-            foreach (object? item in dictionary.Values)
-            {
-                CollectSerializedGraphObjects(item, visited, objects);
-            }
-        }
-        else if (value is IEnumerable enumerable)
-        {
-            foreach (object? item in enumerable)
-            {
-                CollectSerializedGraphObjects(item, visited, objects);
-            }
-        }
-    }
+        => SerializedGraphTraversal.Enumerate(root);
 
     private static IEnumerable<(CoreObject Object, SerializedGraphPath Path)> EnumerateSerializedGraphDescendantPaths(
         Element element)
@@ -2139,69 +2275,79 @@ public class Scene : ProjectItem, INotifyEdited
         return false;
     }
 
-    private void RebuildRecoveredElementIds()
+    private RecoveredSerializationState BuildRecoveredSerializationState()
     {
         if (Uri is null)
         {
-            return;
+            return new RecoveredSerializationState(
+                new Dictionary<string, Guid>(_recoveredElementIds, StringComparer.Ordinal),
+                new Dictionary<string, Guid>(_recoveredDescendantIds, StringComparer.Ordinal),
+                new Dictionary<string, Guid>(_recoveredDescendantIdentities, StringComparer.Ordinal));
         }
 
         var recoveredChildren = Children.Where(
                 static child => child.SuppressedStorageSource is not null)
             .ToArray();
-        if (recoveredChildren.Length == 0
-            && _recoveredElementIds.Count == 0
-            && _recoveredDescendantIds.Count == 0
-            && _recoveredDescendantIdentities.Count == 0
-            && _recoveredDescendantRemaps.Count == 0)
+        if (recoveredChildren.Length == 0)
         {
-            return;
+            return RecoveredSerializationState.Empty;
         }
 
         string sceneDirectory = Path.GetDirectoryName(Uri.LocalPath)!;
-        var descendantRemaps = new Dictionary<CoreObject, (Guid OriginalId, Guid AssignedId, int Occurrence)>(
-            _recoveredDescendantRemaps,
-            ReferenceEqualityComparer.Instance);
-        _recoveredDescendantIds.Clear();
-        _recoveredDescendantIdentities.Clear();
-        _recoveredDescendantRemaps.Clear();
-        _recoveredElementIds.Clear();
+        var elementIds = new Dictionary<string, Guid>(StringComparer.Ordinal);
+        var descendantIds = new Dictionary<string, Guid>(StringComparer.Ordinal);
+        var descendantIdentities = new Dictionary<string, Guid>(StringComparer.Ordinal);
         foreach (Element child in recoveredChildren)
         {
             string relativePath = NormalizeRelativePath(
                 Path.GetRelativePath(sceneDirectory, child.Uri!.LocalPath));
-            _recoveredElementIds[relativePath] = child.Id;
+            elementIds[relativePath] = child.Id;
             foreach ((CoreObject descendant, SerializedGraphPath graphPath) in
                      EnumerateSerializedGraphDescendantPaths(child))
             {
                 if (descendant is IFallback)
                 {
                     string identityKey = CreateRecoveredDescendantIdentityKey(relativePath, graphPath.Stable);
-                    _recoveredDescendantIdentities[identityKey] = descendant.Id;
+                    descendantIdentities[identityKey] = descendant.Id;
                     if (graphPath.Positional != graphPath.Stable)
                     {
                         string positionalIdentityKey = CreateRecoveredDescendantIdentityKey(
                             relativePath,
                             graphPath.Positional);
-                        _recoveredDescendantIdentities[positionalIdentityKey] = descendant.Id;
+                        descendantIdentities[positionalIdentityKey] = descendant.Id;
                     }
                 }
 
-                if (descendantRemaps.TryGetValue(
-                        descendant,
-                        out (Guid OriginalId, Guid AssignedId, int Occurrence) remap)
+                if (_recoveredDescendantRemaps.TryGetValue(descendant, out RecoveredDescendantRemap? remap)
                     && descendant.Id == remap.AssignedId)
                 {
                     string remapKey = CreateRecoveredDescendantKey(
                         relativePath,
                         remap.OriginalId,
                         remap.Occurrence);
-                    _recoveredDescendantIds[remapKey] = remap.AssignedId;
-                    _recoveredDescendantRemaps[descendant] = remap;
+                    descendantIds[remapKey] = remap.AssignedId;
                 }
             }
         }
+
+        return new RecoveredSerializationState(elementIds, descendantIds, descendantIdentities);
     }
+
+    private sealed record RecoveredSerializationState(
+        IReadOnlyDictionary<string, Guid> ElementIds,
+        IReadOnlyDictionary<string, Guid> DescendantIds,
+        IReadOnlyDictionary<string, Guid> DescendantIdentities)
+    {
+        public static RecoveredSerializationState Empty { get; } = new(
+            new Dictionary<string, Guid>(),
+            new Dictionary<string, Guid>(),
+            new Dictionary<string, Guid>());
+    }
+
+    private sealed record RecoveredDescendantRemap(
+        Guid OriginalId,
+        Guid AssignedId,
+        int Occurrence);
 
     private static string CreateRecoveredDescendantKey(string relativePath, Guid originalId, int occurrence)
     {

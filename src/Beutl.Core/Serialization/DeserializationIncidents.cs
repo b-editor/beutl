@@ -19,17 +19,30 @@ internal static class DeserializationIncidents
 
     internal static void RecordFallback(IFallback? fallback = null)
     {
+        Record(new DeserializationIncident(fallback, null, null, null));
+    }
+
+    internal static void RecordFallback(
+        FallbackReason reason,
+        string? typeName,
+        string? message)
+    {
+        Record(new DeserializationIncident(null, reason, typeName, message));
+    }
+
+    private static void Record(DeserializationIncident incident)
+    {
         t_fallbackCount++;
         for (Capture? capture = t_capture; capture != null; capture = capture.Parent)
         {
-            capture.Record(fallback);
+            capture.Record(incident);
         }
     }
 
     internal sealed class Capture : IDisposable
     {
         private readonly int _initialCount;
-        private List<IFallback>? _fallbacks;
+        private List<DeserializationIncident>? _incidents;
         private bool _disposed;
 
         internal Capture(Capture? parent)
@@ -43,15 +56,10 @@ internal static class DeserializationIncidents
 
         internal int Count => t_fallbackCount - _initialCount;
 
-        internal IReadOnlyList<IFallback> Fallbacks => _fallbacks ?? [];
+        internal IReadOnlyList<DeserializationIncident> Incidents => _incidents ?? [];
 
-        internal void Record(IFallback? fallback)
-        {
-            if (fallback != null)
-            {
-                (_fallbacks ??= []).Add(fallback);
-            }
-        }
+        internal void Record(DeserializationIncident incident)
+            => (_incidents ??= []).Add(incident);
 
         public void Dispose()
         {
@@ -69,4 +77,10 @@ internal static class DeserializationIncidents
             _disposed = true;
         }
     }
+
+    internal sealed record DeserializationIncident(
+        IFallback? Fallback,
+        FallbackReason? Reason,
+        string? TypeName,
+        string? Message);
 }

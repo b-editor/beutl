@@ -41,7 +41,7 @@ public static class ProjectOperations
         string scenePath = ReserveUniqueScenePath(
             projectDirectory,
             projectName,
-            new HashSet<string>(StringComparer.FromComparison(PathComparison.ForCurrentPlatform)));
+            new HashSet<string>(StringComparer.FromComparison(PathBoundary.Comparison)));
 
         var scene = new Scene(options.Width, options.Height, projectName)
         {
@@ -161,7 +161,7 @@ public static class ProjectOperations
 
     private static void NullDuplicateSidecarUris(Project project)
     {
-        var used = new HashSet<string>(StringComparer.FromComparison(PathComparison.ForCurrentPlatform));
+        var used = new HashSet<string>(StringComparer.FromComparison(PathBoundary.Comparison));
         foreach (Scene scene in project.Items.OfType<Scene>())
         {
             if (scene.Uri is not null && !used.Add(ResolveSidecarPath(scene.Uri)))
@@ -184,21 +184,53 @@ public static class ProjectOperations
         return PathBoundary.ResolveDeepestExistingTarget(Path.GetFullPath(uri.LocalPath));
     }
 
-    // A project loaded from disk can carry scene/element sidecar URIs pointing outside the project
-    // directory (hand-edited or malicious). StoreToUri writes each referenced sidecar to its own Uri,
-    // so drop any that escape the project tree and let the Ensure* helpers regenerate them inside it.
     private static void RehomeSidecarsOutsideProject(Project project, string projectDirectory, Scene scene)
     {
+        string? previousSceneDirectory = scene.Uri is { IsFile: true } previousSceneUri
+            ? Path.GetDirectoryName(previousSceneUri.LocalPath)
+            : null;
         if (scene.Uri is not null && !IsInsideDirectory(projectDirectory, scene.Uri.LocalPath))
         {
             scene.Uri = null;
+            EnsureSceneUri(project, scene);
         }
 
+        if (scene.Uri is null)
+        {
+            return;
+        }
+
+        string sceneDirectory = Path.GetDirectoryName(scene.Uri.LocalPath)
+                                ?? throw new InvalidOperationException("Scene Uri must have a directory.");
+        var usedPaths = scene.Children
+            .Where(element => element.Uri is not null
+                              && IsInsideDirectory(projectDirectory, element.Uri.LocalPath))
+            .Select(element => ResolveSidecarPath(element.Uri!))
+            .ToHashSet(StringComparer.FromComparison(PathBoundary.Comparison));
         foreach (Element element in scene.Children)
         {
             if (element.Uri is not null && !IsInsideDirectory(projectDirectory, element.Uri.LocalPath))
             {
-                element.Uri = null;
+                string relativePath = previousSceneDirectory is not null
+                    ? Path.GetRelativePath(previousSceneDirectory, element.Uri.LocalPath)
+                    : Path.GetFileName(element.Uri.LocalPath);
+                string candidate = Path.GetFullPath(Path.Combine(sceneDirectory, relativePath));
+                if (!IsInsideDirectory(sceneDirectory, candidate))
+                {
+                    candidate = Path.Combine(sceneDirectory, Path.GetFileName(element.Uri.LocalPath));
+                }
+
+                string uniqueCandidate = candidate;
+                string name = Path.GetFileNameWithoutExtension(candidate);
+                string extension = Path.GetExtension(candidate);
+                for (int suffix = 2; !usedPaths.Add(ResolveSidecarPath(new Uri(uniqueCandidate))); suffix++)
+                {
+                    uniqueCandidate = Path.Combine(
+                        Path.GetDirectoryName(candidate)!,
+                        $"{name}-{suffix}{extension}");
+                }
+
+                element.Uri = CreateFileUri(uniqueCandidate);
             }
         }
     }
@@ -211,7 +243,7 @@ public static class ProjectOperations
         string root = Path.TrimEndingDirectorySeparator(
             PathBoundary.ResolveDeepestExistingTarget(Path.GetFullPath(directory)));
         string full = PathBoundary.ResolveDeepestExistingTarget(Path.GetFullPath(candidate));
-        StringComparison comparison = PathComparison.ForCurrentPlatform;
+        StringComparison comparison = PathBoundary.Comparison;
         return full.StartsWith(root + Path.DirectorySeparatorChar, comparison)
                || string.Equals(full, root, comparison);
     }
@@ -293,7 +325,7 @@ public static class ProjectOperations
             .Select(item => Path.GetDirectoryName(item.Uri!.LocalPath))
             .Where(dir => dir is not null)
             .Select(dir => Path.GetFullPath(dir!))
-            .ToHashSet(StringComparer.FromComparison(PathComparison.ForCurrentPlatform));
+            .ToHashSet(StringComparer.FromComparison(PathBoundary.Comparison));
 
         return CreateFileUri(ReserveUniqueScenePath(projectDirectory, sceneName, used));
     }

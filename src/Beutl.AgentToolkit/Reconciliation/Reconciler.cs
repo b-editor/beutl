@@ -381,11 +381,29 @@ public sealed class Reconciler
             return [];
         }
 
+        var affectedIds = new HashSet<Guid>();
+        const string pathPrefix = "$/Elements[Id=";
+        foreach (var change in plan.Changes)
+        {
+            if (Guid.TryParse(change.TargetId, out Guid targetId))
+            {
+                affectedIds.Add(targetId);
+            }
+
+            if (change.Path.StartsWith(pathPrefix, StringComparison.Ordinal))
+            {
+                int end = change.Path.IndexOf(']', pathPrefix.Length);
+                if (end >= 0
+                    && Guid.TryParse(change.Path.AsSpan(pathPrefix.Length, end - pathPrefix.Length), out Guid pathId))
+                {
+                    affectedIds.Add(pathId);
+                }
+            }
+        }
+
         return scene.Children
             .Where(static child => child.SuppressedStorageSource is not null)
-            .Where(child => plan.Changes.Any(change =>
-                change.Path.StartsWith($"$/Elements[Id={child.Id}]", StringComparison.Ordinal)
-                || string.Equals(change.TargetId, child.Id.ToString(), StringComparison.Ordinal)))
+            .Where(child => affectedIds.Contains(child.Id))
             .ToArray();
     }
 
@@ -721,8 +739,7 @@ public sealed class Reconciler
     private static Dictionary<FallbackIdentity, int> CollectFallbackIdentities(CoreObject root)
     {
         var identities = new Dictionary<FallbackIdentity, int>();
-        var visited = new HashSet<object>(ReferenceEqualityComparer.Instance);
-        TraverseSerializedGraph(root, "$", visited, (node, _) =>
+        SerializedGraphTraversal.Visit(root, "$", (node, _) =>
         {
             if (node is IFallback fallback)
             {
@@ -742,8 +759,7 @@ public sealed class Reconciler
         Dictionary<FallbackIdentity, int> existingFallbacks)
     {
         FallbackOccurrence? result = null;
-        var visited = new HashSet<object>(ReferenceEqualityComparer.Instance);
-        TraverseSerializedGraph(root, path, visited, (node, nodePath) =>
+        SerializedGraphTraversal.Visit(root, path, (node, nodePath) =>
         {
             if (node is not IFallback fallback)
             {
@@ -775,181 +791,6 @@ public sealed class Reconciler
             : new FallbackIdentity(
                 null,
                 $"{fallback.GetType().AssemblyQualifiedName}|{fallback.Json?.ToJsonString()}");
-    }
-
-    private static bool TraverseSerializedGraph(
-        object? value,
-        string path,
-        HashSet<object> visited,
-        Func<object, string, bool> visitObject)
-    {
-        if (value is null or string)
-        {
-            return false;
-        }
-
-        if (value is IOptional optional)
-        {
-            return optional.HasValue
-                   && TraverseSerializedGraph(
-                       optional.ToObject().Value,
-                       path,
-                       visited,
-                       visitObject);
-        }
-
-        if (!value.GetType().IsValueType && !visited.Add(value))
-        {
-            return false;
-        }
-
-        if (value is CoreObject or IFallback)
-        {
-            if (visitObject(value, path))
-            {
-                return true;
-            }
-        }
-
-        if (value is CoreObject coreObject)
-        {
-            switch (coreObject)
-            {
-                case Scene scene:
-                    for (int i = 0; i < scene.Children.Count; i++)
-                    {
-                        if (TraverseSerializedGraph(
-                                scene.Children[i],
-                                $"{path}/Elements[{i}]",
-                                visited,
-                                visitObject))
-                        {
-                            return true;
-                        }
-                    }
-                    break;
-
-                case Element element:
-                    for (int i = 0; i < element.Objects.Count; i++)
-                    {
-                        if (TraverseSerializedGraph(
-                                element.Objects[i],
-                                $"{path}/Objects[{i}]",
-                                visited,
-                                visitObject))
-                        {
-                            return true;
-                        }
-                    }
-                    break;
-
-                case EngineObject engineObject:
-                    foreach (IProperty property in engineObject.Properties)
-                    {
-                        if (TraverseSerializedGraph(
-                                property.CurrentValue,
-                                $"{path}/{property.Name}",
-                                visited,
-                                visitObject))
-                        {
-                            return true;
-                        }
-
-                        if (property.Animation is IKeyFrameAnimation animation)
-                        {
-                            int index = 0;
-                            foreach (IKeyFrame keyFrame in animation.KeyFrames)
-                            {
-                                if (TraverseSerializedGraph(
-                                        keyFrame.Value,
-                                        $"{path}/Animations/{property.Name}/KeyFrames[{index}]/Value",
-                                        visited,
-                                        visitObject))
-                                {
-                                    return true;
-                                }
-
-                                index++;
-                            }
-                        }
-                    }
-                    break;
-            }
-
-            foreach (CoreProperty property in PropertyRegistry.GetRegistered(coreObject.GetType()))
-            {
-                if (!property.GetMetadata<CorePropertyMetadata>(coreObject.GetType()).ShouldSerialize)
-                {
-                    continue;
-                }
-
-                if (TraverseSerializedGraph(
-                        coreObject.GetValue(property),
-                        $"{path}/{property.Name}",
-                        visited,
-                        visitObject))
-                {
-                    return true;
-                }
-            }
-
-            if (coreObject is IHierarchical hierarchical)
-            {
-                int index = 0;
-                foreach (IHierarchical child in hierarchical.HierarchicalChildren)
-                {
-                    if (TraverseSerializedGraph(
-                            child,
-                            $"{path}/HierarchicalChildren[{index}]",
-                            visited,
-                            visitObject))
-                    {
-                        return true;
-                    }
-
-                    index++;
-                }
-            }
-
-            return false;
-        }
-
-        if (value is IDictionary dictionary)
-        {
-            int index = 0;
-            foreach (object? item in dictionary.Values)
-            {
-                if (TraverseSerializedGraph(
-                        item,
-                        $"{path}[{index}]",
-                        visited,
-                        visitObject))
-                {
-                    return true;
-                }
-
-                index++;
-            }
-        }
-        else if (value is IEnumerable enumerable)
-        {
-            int index = 0;
-            foreach (object? item in enumerable)
-            {
-                if (TraverseSerializedGraph(
-                        item,
-                        $"{path}[{index}]",
-                        visited,
-                        visitObject))
-                {
-                    return true;
-                }
-
-                index++;
-            }
-        }
-
-        return false;
     }
 
     private static string CreateFallbackHint(FallbackOccurrence occurrence)

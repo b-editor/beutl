@@ -14,3 +14,4 @@
 [assembly: InternalsVisibleTo("Beutl.FFmpegWorker.Tests")]
 [assembly: InternalsVisibleTo("Beutl.AgentToolkit.Mcp")]
 [assembly: InternalsVisibleTo("Beutl.AgentToolkit")]
+[assembly: InternalsVisibleTo("Beutl.AgentToolkit.Tests")]

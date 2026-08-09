@@ -140,7 +140,7 @@ public sealed class FileEditingSession : IEditingSession, IEditingSessionDispatc
         // directory unique to the new project (its file name); regenerating from the scene name
         // alone would collide with — and overwrite — the source project's .scene/.belm files when
         // both projects live in the same folder.
-        var usedDirs = new HashSet<string>(StringComparer.FromComparison(PathComparison.ForCurrentPlatform));
+        var usedDirs = new HashSet<string>(StringComparer.FromComparison(PathBoundary.Comparison));
         int index = 1;
         foreach (Scene scene in Project.Items.OfType<Scene>())
         {
@@ -159,7 +159,7 @@ public sealed class FileEditingSession : IEditingSession, IEditingSessionDispatc
             scene.Uri = new Uri(scenePath);
             string sceneDirectory = Path.GetDirectoryName(scenePath)!;
             var assignedElementPaths = new HashSet<string>(
-                StringComparer.FromComparison(PathComparison.ForCurrentPlatform));
+                StringComparer.FromComparison(PathBoundary.Comparison));
             foreach (Element element in scene.Children)
             {
                 // Keep each sidecar's relative path across Save As: a recovered element's stable
@@ -174,7 +174,7 @@ public sealed class FileEditingSession : IEditingSession, IEditingSessionDispatc
                     string resolvedPath = Path.GetFullPath(Path.Combine(sceneRoot, relativePath));
                     if (!resolvedPath.StartsWith(
                             sceneRoot + Path.DirectorySeparatorChar,
-                            PathComparison.ForCurrentPlatform))
+                            PathBoundary.Comparison))
                     {
                         resolvedPath = Path.Combine(sceneRoot, Path.GetFileName(previousUri.LocalPath));
                     }

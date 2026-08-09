@@ -66,6 +66,9 @@ public class ListProperty<T> : IListProperty<T>
         set => _items.Replace(value);
     }
 
+    public void ReplaceCurrentValue(ICoreList<T> value)
+        => _items.Replace(value);
+
     public IAnimation<ICoreList<T>>? Animation
     {
         get => null;

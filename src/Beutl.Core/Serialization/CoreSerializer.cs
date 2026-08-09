@@ -321,18 +321,29 @@ public static class CoreSerializer
                 throw new JsonException();
             }
 
-            CopyReferencedStorageSources(suppressed, uri, authorizedRootPath);
-
             // Rehomed (save-as): the retained bytes move verbatim so the new project copy keeps the
             // element. SourceUri stays unchanged so the source location remains skip-protected if a
             // failed multi-file save rolls Uri back afterwards.
             string rehomedPath = uri.LocalPath;
             if (File.Exists(rehomedPath))
             {
-                RestoreReinstatedBytes(suppressed, rehomedPath);
+                try
+                {
+                    EnsureExistingBytesMatch(rehomedPath, suppressed.RawBytes);
+                }
+                catch
+                {
+                    suppressedObj.Uri = suppressed.SourceUri;
+                    throw;
+                }
+
+                suppressed.WasReinstated = false;
+                CopyReferencedStorageSources(suppressed, uri, authorizedRootPath);
                 suppressedObj.Uri = uri;
                 return;
             }
+
+            CopyReferencedStorageSources(suppressed, uri, authorizedRootPath);
 
             string? rehomedDirectory = Path.GetDirectoryName(rehomedPath);
             if (rehomedDirectory != null)
@@ -359,7 +370,17 @@ public static class CoreSerializer
                 }
                 catch (IOException) when (File.Exists(rehomedPath))
                 {
-                    RestoreReinstatedBytes(suppressed, rehomedPath);
+                    try
+                    {
+                        EnsureExistingBytesMatch(rehomedPath, suppressed.RawBytes);
+                    }
+                    catch
+                    {
+                        suppressedObj.Uri = suppressed.SourceUri;
+                        throw;
+                    }
+
+                    suppressed.WasReinstated = false;
                     suppressedObj.Uri = uri;
                     return;
                 }
@@ -449,7 +470,7 @@ public static class CoreSerializer
         }
 
         string destinationRoot = Path.TrimEndingDirectorySeparator(
-            FilePathBoundary.ResolveDeepestExistingTarget(
+            PathBoundary.ResolveDeepestExistingTarget(
                 authorizedRootPath
                 ?? Path.GetDirectoryName(rehomedUri.LocalPath)
                 ?? throw new JsonException("Rehomed element has no destination directory.")));
@@ -465,8 +486,8 @@ public static class CoreSerializer
             }
 
             string destination = Path.GetFullPath(Path.Combine(destinationRoot, relativePath));
-            string resolvedDestination = FilePathBoundary.ResolveDeepestExistingTarget(destination);
-            if (!FilePathBoundary.IsPathInsideRoot(destinationRoot, resolvedDestination))
+            string resolvedDestination = PathBoundary.ResolveDeepestExistingTarget(destination);
+            if (!PathBoundary.IsPathInsideRoot(destinationRoot, resolvedDestination))
             {
                 throw new JsonException($"Retained sidecar escapes the Save As root: {relativePath}");
             }
@@ -476,14 +497,23 @@ public static class CoreSerializer
 
         foreach ((SuppressedReferencedStorageSource source, string destination) in copies)
         {
-            WriteBytesAtomicallyIfMissing(destination, source.RawBytes);
+            if (File.Exists(destination))
+            {
+                EnsureExistingBytesMatch(destination, source.RawBytes);
+            }
+        }
+
+        foreach ((SuppressedReferencedStorageSource source, string destination) in copies)
+        {
+            WriteBytesAtomicallyIfMatchingOrMissing(destination, source.RawBytes);
         }
     }
 
-    private static void WriteBytesAtomicallyIfMissing(string path, byte[] bytes)
+    private static void WriteBytesAtomicallyIfMatchingOrMissing(string path, byte[] bytes)
     {
         if (File.Exists(path))
         {
+            EnsureExistingBytesMatch(path, bytes);
             return;
         }
 
@@ -512,6 +542,7 @@ public static class CoreSerializer
             }
             catch (IOException) when (File.Exists(path))
             {
+                EnsureExistingBytesMatch(path, bytes);
             }
         }
         finally
@@ -523,6 +554,14 @@ public static class CoreSerializer
             catch
             {
             }
+        }
+    }
+
+    private static void EnsureExistingBytesMatch(string path, byte[] expectedBytes)
+    {
+        if (!File.ReadAllBytes(path).AsSpan().SequenceEqual(expectedBytes))
+        {
+            throw new IOException($"The retained sidecar destination already contains different data: '{path}'.");
         }
     }
 

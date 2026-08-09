@@ -106,9 +106,9 @@ public sealed class SessionTools(
         {
             foreach (Element element in scene.Children)
             {
-                var fallbacks = new List<IFallback>();
-                var visited = new HashSet<object>(ReferenceEqualityComparer.Instance);
-                CollectFallbacks(element, visited, fallbacks);
+                IFallback[] fallbacks = SerializedGraphTraversal.Enumerate(element)
+                    .OfType<IFallback>()
+                    .ToArray();
 
                 string elementFile = element.Uri is { IsFile: true } uri
                     && scene.Uri is { IsFile: true } sceneUri
@@ -141,18 +141,28 @@ public sealed class SessionTools(
                         $"Element file '{elementFile}' contains content that could not be deserialized: {error}");
                 }
 
-                if (element.SuppressedStorageSource is { HasNonFallbackIncidents: true })
+                if (element.SuppressedStorageSource is { HasNonFallbackIncidents: true } source)
                 {
-                    const string message
-                        = "A value was replaced during load, and the original element file is preserved.";
-                    incidents.Add(new RecoveryIncident(
-                        scene.Id.ToString(),
-                        scene.Name,
-                        elementFile,
-                        nameof(FallbackReason.DeserializationFailed),
-                        null,
-                        null));
-                    warnings.Add($"Element file '{elementFile}' could not be loaded without replacement: {message}");
+                    SuppressedRecoveryIncident[] recoveryIncidents
+                        = source.RecoveryIncidents is { Length: > 0 } details
+                            ? details
+                            : [new SuppressedRecoveryIncident(
+                                nameof(FallbackReason.DeserializationFailed),
+                                null,
+                                "A value was replaced during load, and the original element file is preserved.")];
+                    foreach (SuppressedRecoveryIncident recoveryIncident in recoveryIncidents)
+                    {
+                        incidents.Add(new RecoveryIncident(
+                            scene.Id.ToString(),
+                            scene.Name,
+                            elementFile,
+                            recoveryIncident.Reason,
+                            recoveryIncident.TypeName,
+                            recoveryIncident.Message));
+                        string message = recoveryIncident.Message ?? recoveryIncident.Reason;
+                        warnings.Add(
+                            $"Element file '{elementFile}' had a value replaced during load: {message}");
+                    }
                 }
             }
         }
@@ -163,83 +173,6 @@ public sealed class SessionTools(
     private sealed record DeserializationWarningCollection(
         IReadOnlyList<string> Warnings,
         IReadOnlyList<RecoveryIncident> RecoveryIncidents);
-
-    private static void CollectFallbacks(
-        object? value,
-        ISet<object> visited,
-        ICollection<IFallback> fallbacks)
-    {
-        if (value is null or string)
-            return;
-
-        if (value is IOptional optional)
-        {
-            if (optional.HasValue)
-            {
-                CollectFallbacks(optional.ToObject().Value, visited, fallbacks);
-            }
-
-            return;
-        }
-
-        if (!visited.Add(value))
-            return;
-
-        if (value is IFallback fallback)
-        {
-            fallbacks.Add(fallback);
-            return;
-        }
-
-        if (value is IHierarchical hierarchical)
-        {
-            foreach (IHierarchical child in hierarchical.HierarchicalChildren)
-            {
-                CollectFallbacks(child, visited, fallbacks);
-            }
-        }
-
-        if (value is CoreObject coreObject)
-        {
-            foreach (CoreProperty property in PropertyRegistry.GetRegistered(coreObject.GetType()))
-            {
-                if (property.GetMetadata<CorePropertyMetadata>(coreObject.GetType()).ShouldSerialize)
-                {
-                    CollectFallbacks(coreObject.GetValue(property), visited, fallbacks);
-                }
-            }
-        }
-
-        if (value is EngineObject engineObject)
-        {
-            foreach (IProperty property in engineObject.Properties)
-            {
-                CollectFallbacks(property.CurrentValue, visited, fallbacks);
-                if (property.Animation is IKeyFrameAnimation animation)
-                {
-                    foreach (IKeyFrame keyFrame in animation.KeyFrames)
-                    {
-                        CollectFallbacks(keyFrame.Value, visited, fallbacks);
-                    }
-                }
-            }
-        }
-
-        if (value is System.Collections.IDictionary dictionary)
-        {
-            foreach (object? item in dictionary.Values)
-            {
-                CollectFallbacks(item, visited, fallbacks);
-            }
-        }
-        else if (value is IEnumerable enumerable)
-        {
-            foreach (object? item in enumerable)
-            {
-                CollectFallbacks(item, visited, fallbacks);
-            }
-        }
-    }
 
     [McpServerTool(Name = "create_project")]
     [Description("Creates and saves a new Beutl .bep project with one scene, then makes it the active editing session. In the in-app host the project opens in the Beutl editor (single open project, LiveEditor session); in the stdio host it becomes a file-backed session. Paths without an extension are saved as .bep; .beutl is reserved for project packages. The output path is restricted to BEUTL_WORKSPACE.")]
@@ -344,7 +277,7 @@ public sealed class SessionTools(
             {
                 string writePath = NormalizeProjectPath(workspace, path, nameof(path));
                 string currentPath = fileSession.Project.Uri?.LocalPath ?? string.Empty;
-                if (!string.Equals(Path.GetFullPath(currentPath), Path.GetFullPath(writePath), PathComparison.ForCurrentPlatform))
+                if (!string.Equals(Path.GetFullPath(currentPath), Path.GetFullPath(writePath), PathBoundary.Comparison))
                 {
                     destructiveGuard.EnsureOverwriteAllowed(writePath, confirmOverwrite);
                     fileSession.SaveAs(writePath, skipConflictCheck: confirmOverwrite);

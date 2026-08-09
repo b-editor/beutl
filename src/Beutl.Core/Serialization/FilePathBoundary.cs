@@ -1,6 +1,6 @@
-﻿namespace Beutl.Serialization;
+﻿namespace Beutl;
 
-internal static class FilePathBoundary
+internal static class PathBoundary
 {
     private static readonly StringComparison s_comparison = OperatingSystem.IsWindows()
         ? StringComparison.OrdinalIgnoreCase
@@ -51,7 +51,7 @@ internal static class FilePathBoundary
         return Path.GetFullPath(resolved);
     }
 
-    private static string ResolveExistingPath(string path)
+    public static string ResolveExistingPath(string path)
     {
         string absolute = Path.GetFullPath(path);
         string root = Path.GetPathRoot(absolute) ?? absolute;

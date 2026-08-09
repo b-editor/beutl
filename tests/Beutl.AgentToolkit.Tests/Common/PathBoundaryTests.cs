@@ -34,7 +34,7 @@ public sealed class PathBoundaryTests
         string resolved = PathBoundary.ResolveDeepestExistingTarget(linkPath);
 
         Assert.That(
-            resolved.StartsWith(_tempRoot, PathComparison.ForCurrentPlatform),
+            resolved.StartsWith(_tempRoot, PathBoundary.Comparison),
             Is.False,
             $"A broken symlink must resolve to its target, not its in-root path. Got: {resolved}");
         Assert.That(resolved, Is.EqualTo(Path.GetFullPath(missingTarget)));
@@ -83,7 +83,7 @@ public sealed class PathBoundaryTests
             string resolved = PathBoundary.ResolveExistingPath(Path.Combine(link, "leaf.txt"));
 
             Assert.That(
-                resolved.StartsWith(_tempRoot, PathComparison.ForCurrentPlatform),
+                resolved.StartsWith(_tempRoot, PathBoundary.Comparison),
                 Is.False,
                 $"An intermediate symlinked directory must resolve to its target, not its in-root path. Got: {resolved}");
             Assert.That(resolved, Is.EqualTo(outsideLeaf));

@@ -10,7 +10,7 @@ using ValidationContext = Beutl.Validation.ValidationContext;
 namespace Beutl.Engine;
 
 public class SimpleProperty<T>(T defaultValue, IValidator<T>? validator = null)
-    : IProperty<T>, IPropertyValueReplacer
+    : IProperty<T>
 {
     private IValidator<T>? _validator = validator;
     private T _currentValue = defaultValue;
@@ -39,9 +39,10 @@ public class SimpleProperty<T>(T defaultValue, IValidator<T>? validator = null)
     private void SetCurrentValue(T value, bool replaceEquivalent)
     {
         var validatedValue = ValidateAndCoerce(value);
-        bool hasReplacement = replaceEquivalent && !typeof(T).IsValueType
-            ? !ReferenceEquals(_currentValue, validatedValue)
-            : !EqualityComparer<T>.Default.Equals(_currentValue, validatedValue);
+        bool hasReplacement = ValueReplacement.RequiresReplacement(
+            _currentValue,
+            validatedValue,
+            replaceEquivalent);
         if (hasReplacement)
         {
             var oldValue = _currentValue;
@@ -66,21 +67,8 @@ public class SimpleProperty<T>(T defaultValue, IValidator<T>? validator = null)
         }
     }
 
-    void IPropertyValueReplacer.ReplaceCurrentValue(object? value)
-    {
-        if (value is T typed)
-        {
-            SetCurrentValue(typed, replaceEquivalent: true);
-        }
-        else if (value is null && !typeof(T).IsValueType)
-        {
-            SetCurrentValue(default!, replaceEquivalent: true);
-        }
-        else
-        {
-            throw new InvalidCastException();
-        }
-    }
+    public void ReplaceCurrentValue(T value)
+        => SetCurrentValue(value, replaceEquivalent: true);
 
     public IAnimation<T>? Animation
     {

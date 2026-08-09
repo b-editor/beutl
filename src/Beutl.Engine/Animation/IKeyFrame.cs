@@ -17,12 +17,13 @@ public interface IKeyFrame : ICoreObject, INotifyEdited, IHierarchical
 
     object? Value { get; set; }
 
+    /// <summary>
+    /// Installs <paramref name="value"/>, replacing distinct reference-type values even when they
+    /// compare equal while preserving the normal validation and notification semantics.
+    /// </summary>
+    void ReplaceValue(object? value);
+
     Easing Easing { get; set; }
 
     //void SetDuration(TimeSpan timeSpan);
-}
-
-internal interface IKeyFrameValueReplacer
-{
-    void ReplaceValue(object? value);
 }

@@ -6,3 +6,4 @@
 [assembly: InternalsVisibleTo("Beutl.Editor.Components")]
 [assembly: InternalsVisibleTo("Beutl.UnitTests")]
 [assembly: InternalsVisibleTo("Beutl.AgentToolkit")]
+[assembly: InternalsVisibleTo("Beutl.AgentToolkit.Tests")]

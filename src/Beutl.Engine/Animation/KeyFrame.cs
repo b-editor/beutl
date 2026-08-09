@@ -62,20 +62,32 @@ public class KeyFrame : Hierarchical
         {
             if (context.Contains(nameof(Easing)))
             {
-                UseFallbackEasing();
+                UseFallbackEasing(
+                    FallbackReason.DeserializationFailed,
+                    null,
+                    "The easing value is null.");
             }
         }
         else if (easingNode is JsonValue easingTypeValue
                  && easingTypeValue.TryGetValue(out string? easingType))
         {
             Type? type = TypeFormat.ToType(easingType);
-            if (type is null
-                || !type.IsAssignableTo(typeof(Easing))
+            if (type is null)
+            {
+                UseFallbackEasing(
+                    FallbackReason.TypeNotFound,
+                    easingType,
+                    $"The easing type '{easingType}' could not be resolved.");
+            }
+            else if (!type.IsAssignableTo(typeof(Easing))
                 || type.IsAbstract
                 || type.ContainsGenericParameters
                 || type.GetConstructor(Type.EmptyTypes) is null)
             {
-                UseFallbackEasing();
+                UseFallbackEasing(
+                    FallbackReason.DeserializationFailed,
+                    easingType,
+                    $"The easing type '{easingType}' cannot be instantiated as an Easing.");
             }
             else
             {
@@ -87,7 +99,10 @@ public class KeyFrame : Hierarchical
                     }
                     else
                     {
-                        UseFallbackEasing();
+                        UseFallbackEasing(
+                            FallbackReason.DeserializationFailed,
+                            easingType,
+                            $"The easing type '{easingType}' did not create an Easing instance.");
                     }
                 }
                 catch (Exception ex) when (ex is MissingMethodException
@@ -106,14 +121,16 @@ public class KeyFrame : Hierarchical
                         throw;
                     }
 
-                    UseFallbackEasing();
+                    UseFallbackEasing(
+                        FallbackReason.DeserializationFailed,
+                        easingType,
+                        $"{ex.GetType().Name}: {ex.Message}");
                 }
             }
         }
         else if (easingNode is JsonObject easingObject)
         {
-            if (easingObject.Count == 4
-                && easingObject["X1"] is JsonValue x1Value
+            if (easingObject["X1"] is JsonValue x1Value
                 && easingObject["Y1"] is JsonValue y1Value
                 && easingObject["X2"] is JsonValue x2Value
                 && easingObject["Y2"] is JsonValue y2Value
@@ -126,18 +143,27 @@ public class KeyFrame : Hierarchical
             }
             else
             {
-                UseFallbackEasing();
+                UseFallbackEasing(
+                    FallbackReason.DeserializationFailed,
+                    null,
+                    "The spline easing object does not contain four valid control-point values.");
             }
         }
         else
         {
-            UseFallbackEasing();
+            UseFallbackEasing(
+                FallbackReason.DeserializationFailed,
+                null,
+                "The easing value has an unsupported JSON representation.");
         }
     }
 
-    private void UseFallbackEasing()
+    private void UseFallbackEasing(
+        FallbackReason reason,
+        string? typeName,
+        string message)
     {
-        DeserializationIncidents.RecordFallback();
+        DeserializationIncidents.RecordFallback(reason, typeName, message);
         _lossyFallbackEasing = new LinearEasing();
         Easing = _lossyFallbackEasing;
     }

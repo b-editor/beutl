@@ -1,4 +1,6 @@
-﻿namespace Beutl.Utilities;
+﻿using System.Reflection;
+
+namespace Beutl.Utilities;
 
 /// <summary>
 /// Exception inspection helpers shared by recovery paths that must distinguish
@@ -12,6 +14,19 @@ public static class ExceptionHelpers
     /// including failures wrapped by reflection or aggregation.
     /// </summary>
     public static bool ContainsFileSystemFailure(Exception exception)
+        => Contains(exception, static current => current is IOException or UnauthorizedAccessException);
+
+    public static bool ContainsFatalFailure(Exception exception)
+        => Contains(exception, static current => current is OutOfMemoryException
+            or StackOverflowException
+            or AccessViolationException
+            or OperationCanceledException);
+
+    public static bool ContainsNonRecoverableFileSystemFailure(Exception exception)
+        => Contains(exception, static current => current is UnauthorizedAccessException
+            or IOException and not FileNotFoundException);
+
+    private static bool Contains(Exception exception, Func<Exception, bool> predicate)
     {
         var pending = new Stack<Exception>();
         var visited = new HashSet<Exception>(ReferenceEqualityComparer.Instance);
@@ -24,7 +39,7 @@ public static class ExceptionHelpers
                 continue;
             }
 
-            if (current is IOException or UnauthorizedAccessException)
+            if (predicate(current))
             {
                 return true;
             }
@@ -34,6 +49,16 @@ public static class ExceptionHelpers
                 foreach (Exception inner in aggregate.InnerExceptions)
                 {
                     pending.Push(inner);
+                }
+            }
+            else if (current is ReflectionTypeLoadException reflectionLoad)
+            {
+                foreach (Exception? loaderException in reflectionLoad.LoaderExceptions)
+                {
+                    if (loaderException is not null)
+                    {
+                        pending.Push(loaderException);
+                    }
                 }
             }
             else if (current.InnerException is { } inner)

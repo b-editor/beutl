@@ -235,7 +235,7 @@ public abstract class CoreObject : ICoreObject
             oldEntry is Entry<TValue> entryT)
         {
             TValue? oldValue = entryT.Value;
-            if (HasValueReplacement(oldValue, value, forceReferenceReplacement))
+            if (ValueReplacement.RequiresReplacement(oldValue, value, forceReferenceReplacement))
             {
                 entryT.Value = value;
                 RaisePropertyChanged(property, metadata, value, oldValue);
@@ -243,23 +243,13 @@ public abstract class CoreObject : ICoreObject
         }
         else
         {
-            if (HasValueReplacement(metadata.DefaultValue, value, forceReferenceReplacement))
+            if (ValueReplacement.RequiresReplacement(metadata.DefaultValue, value, forceReferenceReplacement))
             {
                 entryT = new Entry<TValue> { Value = value, };
                 Values[property.Id] = entryT;
                 RaisePropertyChanged(property, metadata, value, metadata.DefaultValue);
             }
         }
-    }
-
-    private static bool HasValueReplacement<TValue>(
-        TValue? current,
-        TValue? replacement,
-        bool forceReferenceReplacement)
-    {
-        return forceReferenceReplacement && !typeof(TValue).IsValueType
-            ? !ReferenceEquals(current, replacement)
-            : !EqualityComparer<TValue>.Default.Equals(current, replacement);
     }
 
     public void SetValue(CoreProperty property, object? value)
@@ -317,9 +307,7 @@ public abstract class CoreObject : ICoreObject
         CorePropertyMetadata<T>? metadata = property.GetMetadata<CorePropertyMetadata<T>>(GetType());
         ValidateProperty(metadata, property, ref value!);
 
-        bool result = forceReferenceReplacement && !typeof(T).IsValueType
-            ? !ReferenceEquals(field, value)
-            : !EqualityComparer<T>.Default.Equals(field, value);
+        bool result = ValueReplacement.RequiresReplacement(field, value, forceReferenceReplacement);
         if (result)
         {
             T old = field;

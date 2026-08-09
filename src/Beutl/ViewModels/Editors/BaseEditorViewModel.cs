@@ -188,7 +188,7 @@ public abstract class BaseEditorViewModel : IPropertyEditorContext, IServiceProv
     protected void ResumeElementPersistenceAfterFallbackReplacement(object? previous)
     {
         if (_element is { SuppressedStorageSource: not null }
-            && Scene.TryResumeElementPersistence(_element) is { } suppression)
+            && Scene.TryResumeElementPersistence(_element, previous) is { } suppression)
         {
             Element element = _element;
             this.GetRequiredService<HistoryManager>().Record(

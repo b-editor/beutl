@@ -2,7 +2,7 @@
 
 namespace Beutl.UnitTests.Core;
 
-public sealed class FilePathBoundaryTests
+public sealed class PathBoundaryTests
 {
     [Test]
     public void IsPathInsideRoot_UsesPlatformPathCaseSemantics()
@@ -14,7 +14,7 @@ public sealed class FilePathBoundaryTests
             "sidecar.json");
 
         Assert.That(
-            FilePathBoundary.IsPathInsideRoot(root, differentlyCasedPath),
+            PathBoundary.IsPathInsideRoot(root, differentlyCasedPath),
             Is.EqualTo(OperatingSystem.IsWindows()));
     }
 }

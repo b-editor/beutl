@@ -9,7 +9,7 @@ using ValidationContext = Beutl.Validation.ValidationContext;
 
 namespace Beutl.Engine;
 
-public class AnimatableProperty<T> : IProperty<T>, IPropertyValueReplacer
+public class AnimatableProperty<T> : IProperty<T>
 {
     private T _currentValue;
     private IAnimation<T>? _animation;
@@ -48,9 +48,10 @@ public class AnimatableProperty<T> : IProperty<T>, IPropertyValueReplacer
     private void SetCurrentValue(T value, bool replaceEquivalent)
     {
         var validatedValue = ValidateAndCoerce(value);
-        bool hasReplacement = replaceEquivalent && !typeof(T).IsValueType
-            ? !ReferenceEquals(_currentValue, validatedValue)
-            : !EqualityComparer<T>.Default.Equals(_currentValue, validatedValue);
+        bool hasReplacement = ValueReplacement.RequiresReplacement(
+            _currentValue,
+            validatedValue,
+            replaceEquivalent);
         if (hasReplacement)
         {
             var oldValue = _currentValue;
@@ -75,21 +76,8 @@ public class AnimatableProperty<T> : IProperty<T>, IPropertyValueReplacer
         }
     }
 
-    void IPropertyValueReplacer.ReplaceCurrentValue(object? value)
-    {
-        if (value is T typed)
-        {
-            SetCurrentValue(typed, replaceEquivalent: true);
-        }
-        else if (value is null && !typeof(T).IsValueType)
-        {
-            SetCurrentValue(default!, replaceEquivalent: true);
-        }
-        else
-        {
-            throw new InvalidCastException();
-        }
-    }
+    public void ReplaceCurrentValue(T value)
+        => SetCurrentValue(value, replaceEquivalent: true);
 
     public IAnimation<T>? Animation
     {

@@ -1,6 +1,6 @@
-﻿using Beutl.AgentToolkit.Common;
-using Beutl.AgentToolkit.Sessions;
+﻿using Beutl.AgentToolkit.Sessions;
 using Beutl.ProjectSystem;
+using Beutl.Serialization;
 
 namespace Beutl.AgentToolkit.Tests.Sessions;
 
@@ -73,10 +73,56 @@ public sealed class ProjectOperationsTests
 
         string regeneratedDir = Path.GetDirectoryName(scene.Uri!.LocalPath)!;
         Assert.That(
-            regeneratedDir.StartsWith(projectDir, PathComparison.ForCurrentPlatform),
+            regeneratedDir.StartsWith(projectDir, PathBoundary.Comparison),
             Is.True,
             $"Scene sidecar must be regenerated inside the project directory, got: {scene.Uri.LocalPath}");
         Assert.That(File.Exists(outside), Is.False, "The out-of-project sidecar must not be written.");
+    }
+
+    [Test]
+    public void Save_RehomesRecoveredElementOutsideProject_WithoutChangingItsRelativeName()
+    {
+        Project project = ProjectOperations.CreateProject(new ProjectCreateOptions(
+            Path.Combine(_tempRoot, "proj.bep"),
+            Width: 1920,
+            Height: 1080,
+            FrameRate: 30,
+            Duration: TimeSpan.FromSeconds(10)));
+        Scene scene = project.Items.OfType<Scene>().Single();
+        string outsideDirectory = Path.Combine(
+            Path.GetDirectoryName(_tempRoot)!,
+            "project-operations-outside-" + Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(outsideDirectory);
+        try
+        {
+            string outsidePath = Path.Combine(outsideDirectory, "recovered.belm");
+            byte[] retainedBytes = "{ malformed recovered element"u8.ToArray();
+            File.WriteAllBytes(outsidePath, retainedBytes);
+            var recovered = new Element
+            {
+                Name = "Recovered",
+                Length = TimeSpan.FromSeconds(1),
+                Uri = new Uri(outsidePath),
+                SuppressedStorageSource = new SuppressedStorageSource(retainedBytes, new Uri(outsidePath)),
+            };
+            scene.Children.Add(recovered);
+
+            ProjectOperations.Save(project);
+
+            string sceneDirectory = Path.GetDirectoryName(scene.Uri!.LocalPath)!;
+            Assert.Multiple(() =>
+            {
+                Assert.That(Path.GetDirectoryName(recovered.Uri!.LocalPath), Is.EqualTo(sceneDirectory));
+                Assert.That(Path.GetFileName(recovered.Uri.LocalPath), Is.EqualTo("recovered.belm"));
+                Assert.That(File.ReadAllBytes(recovered.Uri.LocalPath), Is.EqualTo(retainedBytes));
+                Assert.That(CoreSerializer.RestoreFromUri<Project>(project.Uri!).Items.OfType<Scene>()
+                    .Single().Children, Has.Count.EqualTo(1));
+            });
+        }
+        finally
+        {
+            Directory.Delete(outsideDirectory, recursive: true);
+        }
     }
 
     // Two scenes carrying the same in-project sidecar Uri would overwrite each other on save; Save must
@@ -137,7 +183,7 @@ public sealed class ProjectOperationsTests
 
             string regenerated = PathBoundary.ResolveDeepestExistingTarget(scene.Uri!.LocalPath);
             Assert.That(
-                regenerated.StartsWith(projectDir, PathComparison.ForCurrentPlatform),
+                regenerated.StartsWith(projectDir, PathBoundary.Comparison),
                 Is.True,
                 $"Scene sidecar must be regenerated inside the project directory, got: {regenerated}");
             Assert.That(Directory.EnumerateFileSystemEntries(outsideDir), Is.Empty);
@@ -208,12 +254,12 @@ public sealed class ProjectOperationsTests
         Assert.Multiple(() =>
         {
             Assert.That(
-                Path.GetFullPath(scene.Uri!.LocalPath).StartsWith(projectDir, PathComparison.ForCurrentPlatform),
+                Path.GetFullPath(scene.Uri!.LocalPath).StartsWith(projectDir, PathBoundary.Comparison),
                 Is.True,
                 $"Scene sidecar must be rehomed inside the project, got: {scene.Uri.LocalPath}");
             Assert.That(element.Uri, Is.Not.Null);
             Assert.That(
-                Path.GetFullPath(element.Uri!.LocalPath).StartsWith(projectDir, PathComparison.ForCurrentPlatform),
+                Path.GetFullPath(element.Uri!.LocalPath).StartsWith(projectDir, PathBoundary.Comparison),
                 Is.True,
                 $"Element sidecar must be inside the project, got: {element.Uri!.LocalPath}");
             Assert.That(Directory.Exists(outsideDir), Is.False, "No out-of-project directory may be created.");

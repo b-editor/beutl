@@ -13,8 +13,7 @@ public interface IReferenceExpression : IExpression
     /// <summary>
     /// Returns an equivalent expression targeting <paramref name="objectId"/>, preserving the
     /// concrete implementation and its property path, or <see langword="null"/> when the
-    /// implementation cannot preserve all of its state while rebinding. Implementations that
-    /// support rebinding must override this method explicitly.
+    /// implementation cannot preserve all of its state while rebinding.
     /// </summary>
-    IReferenceExpression? Rebind(Guid objectId) => null;
+    IReferenceExpression? Rebind(Guid objectId);
 }
