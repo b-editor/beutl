@@ -68,7 +68,7 @@ jobs:
                  - `**Improvements & Refactoring**` → `**改善・リファクタリング**`
                  - `**Bug Fixes**` → `**バグ修正**`
                  - `**Other**` → `**その他**`
-                 - Download link labels: `Installer` → `インストーラー`, `Installer (.NET Runtime required)` → `インストーラー (.NET Runtime 必須)`, `Zip (arm64)` / `Zip (x64)` はそのまま、`Debian package` → `Debian パッケージ`, `Zip (.NET Runtime required)` → `Zip (.NET Runtime 必須)`.
+                 - Download link labels: `Installer` → `インストーラー`, `Installer (.NET Runtime required)` → `インストーラー (.NET Runtime 必須)`, `Zip (arm64)` / `Zip (x64)` はそのまま、`Debian package` → `Debian パッケージ`, `Flatpak` はそのまま、`Zip (.NET Runtime required)` → `Zip (.NET Runtime 必須)`.
                - Inside the `<details><summary>Changelog</summary>` block, keep the auto-generated `* <prefix>: ... by @user in <PR-URL>` lines untranslated (they are PR titles).
                - Translate the `**Full Changelog**` line label to `**フルチェンジログ**` but keep the URL.
                - Do not add or remove sections.

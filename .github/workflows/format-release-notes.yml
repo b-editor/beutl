@@ -66,6 +66,7 @@ jobs:
                     - `[Zip (x64)](https://github.com/${{ github.repository }}/releases/download/${{ inputs.tag }}/Beutl.osx_x64.app.zip)`
                   - Linux
                     - `[Debian package](https://github.com/${{ github.repository }}/releases/download/${{ inputs.tag }}/beutl_${{ inputs.simpleVer }}-${{ inputs.revision }}ubuntu22.04_amd64.deb)`
+                    - `[Flatpak](https://github.com/${{ github.repository }}/releases/download/${{ inputs.tag }}/Beutl-${{ inputs.semVer }}.flatpak)`
                     - `[Zip (.NET Runtime required)](https://github.com/${{ github.repository }}/releases/download/${{ inputs.tag }}/Beutl-linux-x64-${{ inputs.semVer }}.zip)`
                     - `[Zip](https://github.com/${{ github.repository }}/releases/download/${{ inputs.tag }}/Beutl-linux-x64-standalone-${{ inputs.semVer }}.zip)`
 
@@ -105,6 +106,7 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           TAG: ${{ inputs.tag }}
+          SEM_VER: ${{ inputs.semVer }}
           REPO: ${{ github.repository }}
         run: |
           set -euo pipefail
@@ -116,5 +118,11 @@ jobs:
             echo "Release notes contain the platform download links — reformatting succeeded."
           else
             echo "::error::Release notes for $TAG were not reformatted (no download links found). The Claude step finished without editing the body."
+            exit 1
+          fi
+          if printf '%s' "$body" | grep -qF "releases/download/$TAG/Beutl-$SEM_VER.flatpak"; then
+            echo "Release notes link the Flatpak bundle."
+          else
+            echo "::error::Release notes for $TAG are missing the Flatpak download link (Beutl-$SEM_VER.flatpak)."
             exit 1
           fi
