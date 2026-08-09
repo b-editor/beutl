@@ -4629,15 +4629,23 @@ internal sealed class GitCliVersionControlService :
         }
         else
         {
-            await runner.RunAsync(
+            await UpdateLocalConfigAtomicallyAsync(
                 repository,
-                ["config", "--local", "--replace-all", "remote.origin.pushurl", url],
-                GitCommandOptions.Local,
-                cancellationToken).ConfigureAwait(false);
-            await runner.RunAsync(
-                repository,
-                ["remote", "set-url", "origin", url],
-                GitCommandOptions.Local,
+                runner,
+                async (stagingPath, updateCancellation) =>
+                {
+                    await runner.RunAsync(
+                        repository,
+                        ["config", "--file", stagingPath, "--replace-all", "remote.origin.url", url],
+                        GitCommandOptions.Local,
+                        updateCancellation).ConfigureAwait(false);
+                    await runner.RunAsync(
+                        repository,
+                        ["config", "--file", stagingPath, "--replace-all", "remote.origin.pushurl", url],
+                        GitCommandOptions.Local,
+                        updateCancellation).ConfigureAwait(false);
+                },
+                "remote update",
                 cancellationToken).ConfigureAwait(false);
         }
 
@@ -6423,6 +6431,33 @@ internal sealed class GitCliVersionControlService :
         GitIdentity identity,
         CancellationToken cancellationToken)
     {
+        await UpdateLocalConfigAtomicallyAsync(
+            repository,
+            runner,
+            async (stagingPath, updateCancellation) =>
+            {
+                await runner.RunAsync(
+                    repository,
+                    ["config", "--file", stagingPath, "--replace-all", "user.name", identity.Name],
+                    GitCommandOptions.Local,
+                    updateCancellation).ConfigureAwait(false);
+                await runner.RunAsync(
+                    repository,
+                    ["config", "--file", stagingPath, "--replace-all", "user.email", identity.Email],
+                    GitCommandOptions.Local,
+                    updateCancellation).ConfigureAwait(false);
+            },
+            "identity update",
+            cancellationToken).ConfigureAwait(false);
+    }
+
+    private async Task UpdateLocalConfigAtomicallyAsync(
+        RepositoryInfo repository,
+        IGitCliRunner runner,
+        Func<string, CancellationToken, Task> stageUpdate,
+        string operationName,
+        CancellationToken cancellationToken)
+    {
         string configPath = await ResolveGitPathAsync(
                 repository,
                 runner,
@@ -6489,16 +6524,7 @@ internal sealed class GitCliVersionControlService :
                     await stagingStream.FlushAsync(cancellationToken).ConfigureAwait(false);
                 }
 
-                await runner.RunAsync(
-                    repository,
-                    ["config", "--file", stagingPath, "--replace-all", "user.name", identity.Name],
-                    GitCommandOptions.Local,
-                    cancellationToken).ConfigureAwait(false);
-                await runner.RunAsync(
-                    repository,
-                    ["config", "--file", stagingPath, "--replace-all", "user.email", identity.Email],
-                    GitCommandOptions.Local,
-                    cancellationToken).ConfigureAwait(false);
+                await stageUpdate(stagingPath, cancellationToken).ConfigureAwait(false);
 
                 stagedConfig = await File.ReadAllBytesAsync(stagingPath, cancellationToken)
                     .ConfigureAwait(false);
@@ -6510,7 +6536,7 @@ internal sealed class GitCliVersionControlService :
                 if (!originalConfig.AsSpan().SequenceEqual(currentConfig))
                 {
                     throw new InvalidOperationException(
-                        "The local Git configuration changed while the identity update was staged.");
+                        $"The local Git configuration changed while the {operationName} was staged.");
                 }
 
                 cancellationToken.ThrowIfCancellationRequested();
@@ -6534,7 +6560,7 @@ internal sealed class GitCliVersionControlService :
             if (!originalConfig.AsSpan().SequenceEqual(finalConfig))
             {
                 throw new InvalidOperationException(
-                    "The local Git configuration changed before the staged identity was committed.");
+                    $"The local Git configuration changed before the staged {operationName} was committed.");
             }
 
             File.Move(lockPath, configPath, overwrite: true);
@@ -6554,7 +6580,7 @@ internal sealed class GitCliVersionControlService :
                 {
                     LogWarningBestEffort(
                         ex,
-                        "Failed to release the local Git configuration lock after an identity update failure.");
+                        $"Failed to release the local Git configuration lock after a {operationName} failure.");
                 }
             }
         }

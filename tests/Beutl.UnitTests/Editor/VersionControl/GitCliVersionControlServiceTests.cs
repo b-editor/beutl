@@ -4125,6 +4125,35 @@ public class GitCliVersionControlServiceTests : RealGitTestRepository
         });
     }
 
+    [Test]
+    public async Task SetRemoteAsync_preserves_fetch_and_push_urls_when_staged_update_fails()
+    {
+        const string oldFetchUrl = "https://example.invalid/old-fetch.git";
+        const string oldPushUrl = "https://example.invalid/old-push.git";
+        const string newUrl = "https://example.invalid/new.git";
+        await RunGitAsync("remote", "add", "origin", oldFetchUrl);
+        await RunGitAsync("config", "--local", "--replace-all", "remote.origin.pushurl", oldPushUrl);
+        var runner = new FailingStagedRemoteConfigRunner(CreateRunner());
+        using var service = new GitCliVersionControlService(
+            CreateInstalledLocator(),
+            Repository,
+            watcher: null,
+            _ => runner);
+
+        Assert.ThrowsAsync<IOException>(async () =>
+            await service.SetRemoteAsync(newUrl, CancellationToken.None));
+
+        string fetchUrl = (await RunGitAsync("remote", "get-url", "origin")).Stdout.Trim();
+        string pushUrl = (await RunGitAsync("remote", "get-url", "--push", "origin")).Stdout.Trim();
+        Assert.Multiple(() =>
+        {
+            Assert.That(fetchUrl, Is.EqualTo(oldFetchUrl));
+            Assert.That(pushUrl, Is.EqualTo(oldPushUrl));
+            Assert.That(runner.StagedFailureCount, Is.EqualTo(1));
+            Assert.That(File.Exists(Path.Combine(Root, ".git", "config.lock")), Is.False);
+        });
+    }
+
     [TestCase("https://user:secret@example.invalid/repository.git")]
     [TestCase("http://user:secret@example.invalid/repository.git")]
     [TestCase("https://user@example.invalid/repository.git")]
@@ -4619,14 +4648,59 @@ public class GitCliVersionControlServiceTests : RealGitTestRepository
                 options,
                 cancellationToken,
                 stderrProgress);
-            if (arguments.Count > 1
-                && arguments[0] == "remote"
-                && arguments[1] is "add" or "set-url")
+            if ((arguments.Count > 1
+                 && arguments[0] == "remote"
+                 && arguments[1] is "add" or "set-url")
+                || (arguments.Count > 5
+                    && arguments[0] == "config"
+                    && arguments[1] == "--file"
+                    && arguments[4] == "remote.origin.pushurl"))
             {
                 Volatile.Write(ref _remoteMutated, 1);
             }
 
             return result;
+        }
+
+        public RepositoryLockInfo? GetRecoverableRepositoryLock(RepositoryInfo repository)
+            => inner.GetRecoverableRepositoryLock(repository);
+
+        public bool RemoveRecoverableRepositoryLock(
+            RepositoryInfo repository,
+            RepositoryLockInfo lockInfo)
+            => inner.RemoveRecoverableRepositoryLock(repository, lockInfo);
+    }
+
+    private sealed class FailingStagedRemoteConfigRunner(IGitCliRunner inner) : IGitCliRunner
+    {
+        private int _stagedFailureCount;
+
+        public int StagedFailureCount => Volatile.Read(ref _stagedFailureCount);
+
+        public bool HasActiveProcess => inner.HasActiveProcess;
+
+        public Task<GitCommandResult> RunAsync(
+            RepositoryInfo repository,
+            IReadOnlyList<string> arguments,
+            GitCommandOptions options,
+            CancellationToken cancellationToken,
+            IProgress<string>? stderrProgress = null)
+        {
+            if (arguments.Count > 5
+                && arguments[0] == "config"
+                && arguments[1] == "--file"
+                && arguments[4] == "remote.origin.pushurl")
+            {
+                Interlocked.Increment(ref _stagedFailureCount);
+                throw new IOException("staged push URL update failed");
+            }
+
+            return inner.RunAsync(
+                repository,
+                arguments,
+                options,
+                cancellationToken,
+                stderrProgress);
         }
 
         public RepositoryLockInfo? GetRecoverableRepositoryLock(RepositoryInfo repository)

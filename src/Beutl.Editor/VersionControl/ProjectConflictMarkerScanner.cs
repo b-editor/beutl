@@ -18,10 +18,6 @@ internal static class ProjectConflictMarkerScanner
             ".git",
             ".idea",
             ".vs",
-            "bin",
-            "node_modules",
-            "obj",
-            "packages",
         ],
         StringComparer.OrdinalIgnoreCase);
 

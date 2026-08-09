@@ -597,6 +597,12 @@ public sealed class VersionControlCoordinator :
         ArgumentException.ThrowIfNullOrWhiteSpace(message);
         using NonTransactionalOperationLease operation =
             await BeginNonTransactionalOperationAsync(cancellationToken);
+        using IDisposable? worktreeMutation = TryBeginWorktreeMutation();
+        if (worktreeMutation is null)
+        {
+            throw new InvalidOperationException(Strings.VersionControl_ExportInProgress);
+        }
+
         CancellationToken operationCancellation = operation.CancellationToken;
         IProjectVersionControlBackend service = GetTrackedBackend();
         try
@@ -1054,6 +1060,12 @@ public sealed class VersionControlCoordinator :
                         return false;
                     }
 
+                    status = await service.GetStatusAsync(CancellationToken.None);
+                    if (!EnsureRepositoryIsNotConflicted(status))
+                    {
+                        return false;
+                    }
+
                     CheckedOutBranchTip originalTip = await service.GetCheckedOutBranchTipAsync(
                         CancellationToken.None);
                     if (!status.IsClean)
@@ -1372,7 +1384,7 @@ public sealed class VersionControlCoordinator :
                                 originalHead,
                                 checkpoint,
                                 projectFile,
-                                CancellationToken.None);
+                                cancellationToken);
 
                             RemoteOpResult result = pull.Result;
                             expectedCurrentHead = pull.Tip;
@@ -2189,6 +2201,16 @@ public sealed class VersionControlCoordinator :
                             branchName,
                             CancellationToken.None))
                     {
+                        return false;
+                    }
+
+                    status = await service.GetStatusAsync(CancellationToken.None);
+                    if (status.HasConflicts)
+                    {
+                        PublishNotification(() =>
+                            NotificationService.ShowWarning(
+                                Strings.VersionControl,
+                                Strings.VersionControl_ConflictGuidance));
                         return false;
                     }
 

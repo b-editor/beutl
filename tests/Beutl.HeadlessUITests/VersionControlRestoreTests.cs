@@ -206,6 +206,109 @@ public class VersionControlRestoreTests
     }
 
     [AvaloniaTest]
+    public async Task Manual_commit_is_blocked_while_an_output_operation_is_active()
+    {
+        await TestReset.ResetShellAsync();
+        VersionControlCoordinator? coordinator = null;
+
+        try
+        {
+            Project project = await CreateProjectForFakeVersionControlAsync(
+                "version-control-manual-during-output");
+            string projectRoot = Path.GetDirectoryName(project.Uri!.LocalPath)!;
+            var repository = new RepositoryInfo(projectRoot, projectRoot);
+            var tip = new CheckedOutBranchTip(
+                "refs/heads/main",
+                "1111111111111111111111111111111111111111");
+            var backend = new PullCycleTestBackend(repository, repository, tip);
+            var editorService = new EditorService(new ExtensionProvider());
+            coordinator = new VersionControlCoordinator(
+                TestShell.Project,
+                editorService,
+                new VersionControlConfig(),
+                installationLocator: null,
+                serviceFactory: _ => backend);
+            await WaitUntilAsync(() => ReferenceEquals(coordinator.CurrentService, backend));
+
+            using IDisposable outputOperation = editorService.TryBeginOutputOperation()!;
+            Assert.ThrowsAsync<InvalidOperationException>(async () =>
+                await coordinator.CommitManualAsync("blocked commit"));
+            Assert.That(backend.CommitAllCalls, Is.Zero);
+        }
+        finally
+        {
+            if (coordinator is not null)
+            {
+                await coordinator.DisposeAsync().AsTask().WaitAsync(TimeSpan.FromSeconds(5));
+            }
+
+            await TestReset.ResetShellAsync();
+        }
+    }
+
+    [AvaloniaTest]
+    public async Task Manual_commit_reservation_blocks_output_until_commit_completes()
+    {
+        await TestReset.ResetShellAsync();
+        VersionControlCoordinator? coordinator = null;
+        Task<CommitResult>? commit = null;
+        var commitStarted = new TaskCompletionSource(
+            TaskCreationOptions.RunContinuationsAsynchronously);
+        var releaseCommit = new TaskCompletionSource(
+            TaskCreationOptions.RunContinuationsAsynchronously);
+
+        try
+        {
+            Project project = await CreateProjectForFakeVersionControlAsync(
+                "version-control-output-during-manual");
+            string projectRoot = Path.GetDirectoryName(project.Uri!.LocalPath)!;
+            var repository = new RepositoryInfo(projectRoot, projectRoot);
+            var tip = new CheckedOutBranchTip(
+                "refs/heads/main",
+                "1111111111111111111111111111111111111111");
+            var backend = new PullCycleTestBackend(repository, repository, tip)
+            {
+                CommitAllStarted = commitStarted,
+                CommitAllRelease = releaseCommit.Task,
+            };
+            var editorService = new EditorService(new ExtensionProvider());
+            coordinator = new VersionControlCoordinator(
+                TestShell.Project,
+                editorService,
+                new VersionControlConfig(),
+                installationLocator: null,
+                serviceFactory: _ => backend);
+            await WaitUntilAsync(() => ReferenceEquals(coordinator.CurrentService, backend));
+
+            commit = coordinator.CommitManualAsync("manual commit");
+            await commitStarted.Task.WaitAsync(TimeSpan.FromSeconds(5));
+            using IDisposable? blockedOutput = editorService.TryBeginOutputOperation();
+            Assert.That(blockedOutput, Is.Null);
+
+            releaseCommit.TrySetResult();
+            await commit.WaitAsync(TimeSpan.FromSeconds(5));
+            commit = null;
+            using IDisposable? outputAfterCommit = editorService.TryBeginOutputOperation();
+            Assert.That(outputAfterCommit, Is.Not.Null);
+        }
+        finally
+        {
+            releaseCommit.TrySetResult();
+            if (commit is not null)
+            {
+                await commit.WaitAsync(TimeSpan.FromSeconds(5));
+            }
+
+            if (coordinator is not null)
+            {
+                await coordinator.DisposeAsync().AsTask().WaitAsync(TimeSpan.FromSeconds(5));
+            }
+
+            await TestReset.ResetShellAsync();
+        }
+    }
+
+    [AvaloniaTest]
     public async Task Save_snapshot_reservation_blocks_output_until_commit_completes()
     {
         await TestReset.ResetShellAsync();
@@ -4682,7 +4785,15 @@ public class VersionControlRestoreTests
                 "refs/heads/main",
                 "1111111111111111111111111111111111111111");
             var discovery = new PullCycleTestBackend(repository: null, repository, tip);
-            var backend = new PullCycleTestBackend(repository, repository, tip);
+            var backend = new PullCycleTestBackend(repository, repository, tip)
+            {
+                Status = new WorkspaceStatus(
+                    "main",
+                    Ahead: 0,
+                    Behind: 0,
+                    Changes: [],
+                    HasConflicts: false),
+            };
             backend.EnqueueCanCreateBranchResult(true);
             backend.EnqueueCanCreateBranchResult(true);
             backend.EnqueueCanCreateBranchResult(false);
@@ -4698,6 +4809,12 @@ public class VersionControlRestoreTests
             coordinator.ConfirmSwitchBranchAsync = (_, _) =>
             {
                 confirmations++;
+                backend.Status = new WorkspaceStatus(
+                    "main",
+                    Ahead: 0,
+                    Behind: 0,
+                    Changes: [new FileChange("late.scene", FileChangeStatus.Modified)],
+                    HasConflicts: false);
                 return Task.FromResult(true);
             };
             await WaitUntilAsync(() => ReferenceEquals(coordinator.CurrentService, backend));
@@ -7896,7 +8013,15 @@ public class VersionControlRestoreTests
                 "refs/heads/main",
                 "1111111111111111111111111111111111111111");
             var discovery = new PullCycleTestBackend(repository: null, repository, tip);
-            var backend = new PullCycleTestBackend(repository, repository, tip);
+            var backend = new PullCycleTestBackend(repository, repository, tip)
+            {
+                Status = new WorkspaceStatus(
+                    "main",
+                    Ahead: 0,
+                    Behind: 0,
+                    Changes: [],
+                    HasConflicts: false),
+            };
             backend.EnqueueCanCreateBranchResult(true);
             backend.EnqueueCanCreateBranchResult(true);
             backend.EnqueueCanCreateBranchResult(false);
@@ -7912,6 +8037,12 @@ public class VersionControlRestoreTests
             coordinator.ConfirmRestoreAsync = _ =>
             {
                 confirmations++;
+                backend.Status = new WorkspaceStatus(
+                    "main",
+                    Ahead: 0,
+                    Behind: 0,
+                    Changes: [new FileChange("late.scene", FileChangeStatus.Modified)],
+                    HasConflicts: false);
                 return Task.FromResult(true);
             };
             await WaitUntilAsync(() => ReferenceEquals(coordinator.CurrentService, backend));
@@ -8226,6 +8357,86 @@ public class VersionControlRestoreTests
             }
 
             await TestReset.ResetShellAsync();
+            config.AutoCommitOnClose = oldAutoCommitOnClose;
+        }
+    }
+
+    [AvaloniaTest]
+    public async Task Pull_cancellation_reaches_the_final_fetch_and_reopens_the_project()
+    {
+        await TestReset.ResetShellAsync();
+        VersionControlConfig config = GlobalConfiguration.Instance.VersionControlConfig;
+        bool oldAutoCommitOnSave = config.AutoCommitOnSave;
+        bool oldAutoCommitOnClose = config.AutoCommitOnClose;
+        VersionControlCoordinator? coordinator = null;
+        var pullStarted = new TaskCompletionSource(
+            TaskCreationOptions.RunContinuationsAsynchronously);
+
+        try
+        {
+            config.AutoCommitOnSave = false;
+            config.AutoCommitOnClose = false;
+            Project project = await CreateProjectForFakeVersionControlAsync(
+                "version-control-pull-final-fetch-cancellation");
+            string projectRoot = Path.GetDirectoryName(project.Uri!.LocalPath)!;
+            var repository = new RepositoryInfo(projectRoot, projectRoot);
+            var originalTip = new CheckedOutBranchTip(
+                "refs/heads/main",
+                "1111111111111111111111111111111111111111");
+            var discovery = new PullCycleTestBackend(repository: null, repository, originalTip);
+            var backend = new PullCycleTestBackend(repository, repository, originalTip)
+            {
+                Status = new WorkspaceStatus(
+                    "main",
+                    Ahead: 0,
+                    Behind: 0,
+                    Changes: [],
+                    HasConflicts: false),
+                PullOverride = async cancellationToken =>
+                {
+                    pullStarted.TrySetResult();
+                    await Task.Delay(Timeout.InfiniteTimeSpan, cancellationToken);
+                    throw new InvalidOperationException("The cancelled fetch unexpectedly completed.");
+                },
+            };
+            var editorService = new EditorService(new ExtensionProvider());
+            coordinator = new VersionControlCoordinator(
+                TestShell.Project,
+                editorService,
+                config,
+                installationLocator: null,
+                serviceFactory: candidate => candidate is null ? discovery : backend);
+            coordinator.ConfirmPullAsync = _ => Task.FromResult(true);
+            await WaitUntilAsync(() => ReferenceEquals(coordinator.CurrentService, backend));
+
+            using var cancellation = new CancellationTokenSource();
+            Task<RemoteOpResult> pull = coordinator.PullAsync(cancellation.Token);
+            await pullStarted.Task.WaitAsync(TimeSpan.FromSeconds(5));
+            Assert.That(TestShell.Project.CurrentProject.Value, Is.Null);
+
+            cancellation.Cancel();
+            Assert.ThrowsAsync<OperationCanceledException>(async () =>
+                await pull.WaitAsync(TimeSpan.FromSeconds(5)));
+            HeadlessTestHelpers.Settle();
+
+            Assert.Multiple(() =>
+            {
+                Assert.That(backend.PullCalls, Is.EqualTo(1));
+                Assert.That(TestShell.Project.CurrentProject.Value, Is.Not.Null);
+                Assert.That(
+                    TestShell.Project.CurrentProject.Value!.Uri!.LocalPath,
+                    Is.EqualTo(project.Uri!.LocalPath));
+            });
+        }
+        finally
+        {
+            if (coordinator is not null)
+            {
+                await coordinator.DisposeAsync();
+            }
+
+            await TestReset.ResetShellAsync();
+            config.AutoCommitOnSave = oldAutoCommitOnSave;
             config.AutoCommitOnClose = oldAutoCommitOnClose;
         }
     }
@@ -8692,6 +8903,8 @@ public class VersionControlRestoreTests
 
         public Task? PreflightRelease { get; init; }
 
+        public Func<CancellationToken, Task<FastForwardPullResult>>? PullOverride { get; init; }
+
         public TaskCompletionSource? PendingPullLookupStarted { get; set; }
 
         public Task? PendingPullLookupRelease { get; set; }
@@ -8699,7 +8912,7 @@ public class VersionControlRestoreTests
         public PendingPullRecoveryOutcome PendingRecoveryOutcome { get; init; } =
             PendingPullRecoveryOutcome.RestoredOriginal;
 
-        public WorkspaceStatus Status { get; init; } = DirtyStatus;
+        public WorkspaceStatus Status { get; set; } = DirtyStatus;
 
         public IReadOnlyList<BranchInfo> Branches { get; init; } =
             [new BranchInfo("main", true, null)];
@@ -8920,20 +9133,25 @@ public class VersionControlRestoreTests
             return Task.FromResult(checkpoint);
         }
 
-        public Task<FastForwardPullResult> PullFastForwardAsync(
+        public async Task<FastForwardPullResult> PullFastForwardAsync(
             CheckedOutBranchTip expectedCurrent,
             ProjectCheckpoint? checkpoint,
             string projectFile,
             CancellationToken cancellationToken)
         {
             PullCalls++;
+            if (PullOverride is not null)
+            {
+                return await PullOverride(cancellationToken);
+            }
+
             if (PullResult.Recovery is { } recovery
                 && !_pendingPullRecoveries.Any(candidate => candidate.Id == recovery.Id))
             {
                 _pendingPullRecoveries.Add(recovery);
             }
 
-            return Task.FromResult(PullResult);
+            return PullResult;
         }
 
         public Task<PendingPullRecovery> PersistPendingPullRecoveryAsync(

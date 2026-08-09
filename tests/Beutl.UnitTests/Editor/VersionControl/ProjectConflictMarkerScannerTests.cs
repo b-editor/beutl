@@ -123,6 +123,34 @@ public class ProjectConflictMarkerScannerTests
         });
     }
 
+    [TestCase("bin")]
+    [TestCase("node_modules")]
+    [TestCase("obj")]
+    [TestCase("packages")]
+    public async Task FindFirstAsync_scans_project_files_under_common_directory_names(
+        string directoryName)
+    {
+        string projectFile = Path.Combine(_root, "project.bep");
+        string directory = Path.Combine(_root, directoryName, "nested");
+        string conflictFile = Path.Combine(directory, "conflict.scene");
+        Directory.CreateDirectory(directory);
+        await File.WriteAllTextAsync(projectFile, "{}\n");
+        await File.WriteAllTextAsync(conflictFile, LfConflict);
+
+        string? result = await ProjectConflictMarkerScanner.FindFirstAsync(
+            projectFile,
+            CancellationToken.None);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(result, Is.EqualTo(conflictFile));
+            Assert.That(
+                ProjectConflictMarkerScanner.ShouldDescendInto(
+                    Path.Combine(_root, directoryName)),
+                Is.True);
+        });
+    }
+
     [Test]
     public async Task FindFirstAsync_rejects_a_project_file_symbolic_link_outside_the_project_root()
     {
