@@ -353,6 +353,33 @@ public sealed class SessionToolsTests
     }
 
     [Test]
+    public void CollectFallbacks_TraversesElementHierarchyOutsideObjects()
+    {
+        var element = new Element();
+        var fallback = new FallbackTransform();
+        ((IModifiableHierarchical)element).AddChild(fallback);
+        var fallbacks = new List<IFallback>();
+        MethodInfo method = typeof(SessionTools).GetMethod(
+            "CollectFallbacks",
+            BindingFlags.NonPublic | BindingFlags.Static)!;
+
+        method.Invoke(
+            null,
+            new object?[]
+            {
+                element,
+                new HashSet<object>(),
+                fallbacks,
+            });
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(element.Objects, Is.Empty);
+            Assert.That(fallbacks, Has.One.SameAs(fallback));
+        });
+    }
+
+    [Test]
     public async Task Open_project_warning_paths_distinguish_same_named_sidecars_in_different_directories()
     {
         string root = CreateWorkspace();
@@ -400,7 +427,7 @@ public sealed class SessionToolsTests
     }
 
     [Test]
-    public async Task Open_project_incidents_distinguish_same_named_sidecars_across_scenes_and_keep_top_level_type()
+    public async Task Open_project_incidents_distinguish_same_named_sidecars_and_decode_escaped_top_level_type()
     {
         const string MissingType = "[Missing.Assembly]Missing.Namespace:MissingElement";
         string root = CreateWorkspace();
@@ -436,7 +463,7 @@ public sealed class SessionToolsTests
             Element element = scene.Children.Single();
             File.WriteAllText(
                 element.Uri!.LocalPath,
-                $$"""{"$type":"{{MissingType}}","Id":"{{element.Id}}","Name":"Clip"}""");
+                $$"""{"\u0024type":"{{MissingType}}","Id":"{{element.Id}}","Name":"Clip"}""");
         }
 
         var manager = new AgentSessionManager();

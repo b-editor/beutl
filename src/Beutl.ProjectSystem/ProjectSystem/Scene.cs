@@ -989,7 +989,10 @@ public class Scene : ProjectItem, INotifyEdited
 
         foreach (CoreObject sceneObject in Layers.Cast<CoreObject>().Concat(Markers))
         {
-            retainedIds.Add(sceneObject.Id);
+            foreach (CoreObject graphObject in EnumerateSerializedGraphObjects(sceneObject).OfType<CoreObject>())
+            {
+                retainedIds.Add(graphObject.Id);
+            }
         }
 
         foreach (Guid originalId in _pendingRecoveredDescendantIdMigrations.Keys.ToArray())
@@ -1068,14 +1071,15 @@ public class Scene : ProjectItem, INotifyEdited
             // for top-level recovery metadata.
             byte[] rawBytes = File.ReadAllBytes(uri.LocalPath);
             string rawText = Encoding.UTF8.GetString(rawBytes);
+            JsonObject? root = TryParseTopLevelObject(rawText);
             var element = new Element
             {
-                Id = ResolveRecoveredElementId(rawText, uri),
+                Id = ResolveRecoveredElementId(rawText, root, uri),
                 Name = Path.GetFileNameWithoutExtension(uri.LocalPath),
                 Uri = uri,
                 IsEnabled = false,
             };
-            string? topLevelTypeName = TryGetTopLevelTypeName(rawText);
+            string? topLevelTypeName = TryGetTopLevelTypeName(rawText, root);
             FallbackReason fallbackReason = topLevelTypeName is not null
                                             && TypeFormat.ToType(topLevelTypeName) is null
                 ? FallbackReason.TypeNotFound
@@ -1349,8 +1353,25 @@ public class Scene : ProjectItem, INotifyEdited
         return json;
     }
 
-    private static string? TryGetTopLevelTypeName(string rawText)
+    private static JsonObject? TryParseTopLevelObject(string rawText)
     {
+        try
+        {
+            return JsonNode.Parse(rawText) as JsonObject;
+        }
+        catch (JsonException)
+        {
+            return null;
+        }
+    }
+
+    private static string? TryGetTopLevelTypeName(string rawText, JsonObject? root)
+    {
+        if (root?.TryGetDiscriminator(out string? parsedTypeName) == true)
+        {
+            return parsedTypeName;
+        }
+
         Match? match = FindTopLevelMatch(rawText, s_typePattern.Matches(rawText))
                        ?? FindTopLevelMatch(rawText, s_legacyTypePattern.Matches(rawText));
         if (match is null)
@@ -1368,18 +1389,11 @@ public class Scene : ProjectItem, INotifyEdited
         }
     }
 
-    private Guid ResolveRecoveredElementId(string rawText, Uri uri)
+    private Guid ResolveRecoveredElementId(string rawText, JsonObject? root, Uri uri)
     {
-        try
+        if (TryGetSerializedId(root, out Guid parsedId))
         {
-            if (JsonNode.Parse(rawText) is JsonObject root
-                && TryGetSerializedId(root, out Guid parsedId))
-            {
-                return parsedId;
-            }
-        }
-        catch (JsonException)
-        {
+            return parsedId;
         }
 
         // Only a top-level Id may name the element: a nested object's or quoted Id would collide

@@ -1405,6 +1405,59 @@ public sealed class MalformedElementRecoveryTests
     }
 
     [Test]
+    public void ReassignDuplicateRecoveredIds_RetainsIdsFromLayerAndMarkerGraphs()
+    {
+        Guid layerClaimantId = Guid.NewGuid();
+        Guid markerClaimantId = Guid.NewGuid();
+        var layerClaimant = new RotationTransform { Id = layerClaimantId };
+        var markerClaimant = new RotationTransform { Id = markerClaimantId };
+        var layer = new TimelineLayer();
+        var marker = new SceneMarker();
+        ((IModifiableHierarchical)layer).AddChild(layerClaimant);
+        ((IModifiableHierarchical)marker).AddChild(markerClaimant);
+
+        var layerReference = new TransformReferenceHolder();
+        layerReference.Target.CurrentValue = new Reference<Transform>(layerClaimantId);
+        var markerReference = new TransformReferenceHolder();
+        markerReference.Target.CurrentValue = new Reference<Transform>(markerClaimantId);
+        var healthy = new Element { Uri = new Uri(Path.Combine(_root, "healthy.belm")) };
+        healthy.AddObject(layerReference);
+        healthy.AddObject(markerReference);
+
+        var layerFallback = new FallbackTransform { Id = layerClaimantId };
+        var markerFallback = new FallbackTransform { Id = markerClaimantId };
+        var recovered = new Element { Uri = new Uri(Path.Combine(_root, "recovered.belm")) };
+        recovered.AddObject(layerFallback);
+        recovered.AddObject(markerFallback);
+        recovered.SuppressedStorageSource = new SuppressedStorageSource([], recovered.Uri);
+
+        var scene = new Scene { Uri = new Uri(Path.Combine(_root, "hierarchy.scene")) };
+        scene.Layers.Add(layer);
+        scene.Markers.Add(marker);
+        scene.Children.Add(healthy);
+        scene.Children.Add(recovered);
+        MethodInfo reassign = typeof(Scene).GetMethod(
+            "ReassignDuplicateRecoveredIds",
+            BindingFlags.Instance | BindingFlags.NonPublic)!;
+        MethodInfo migrate = typeof(Scene).GetMethod(
+            "MigrateRecoveredElementReferences",
+            BindingFlags.Instance | BindingFlags.NonPublic)!;
+
+        reassign.Invoke(scene, null);
+        migrate.Invoke(scene, null);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(layerFallback.Id, Is.Not.EqualTo(layerClaimantId));
+            Assert.That(markerFallback.Id, Is.Not.EqualTo(markerClaimantId));
+            Assert.That(layerReference.Target.CurrentValue.Id, Is.EqualTo(layerClaimantId));
+            Assert.That(markerReference.Target.CurrentValue.Id, Is.EqualTo(markerClaimantId));
+            Assert.That(layerClaimant.Id, Is.EqualTo(layerClaimantId));
+            Assert.That(markerClaimant.Id, Is.EqualTo(markerClaimantId));
+        });
+    }
+
+    [Test]
     public void SaveAs_CopiesRecoveredSidecarBytesToTheNewLocation()
     {
         (Uri sceneUri, string elementPath) = CreatePersistedScene();

@@ -108,10 +108,7 @@ public sealed class SessionTools(
             {
                 var fallbacks = new List<IFallback>();
                 var visited = new HashSet<object>(ReferenceEqualityComparer.Instance);
-                foreach (EngineObject obj in element.Objects)
-                {
-                    CollectFallbacks(obj, visited, fallbacks);
-                }
+                CollectFallbacks(element, visited, fallbacks);
 
                 string elementFile = element.Uri is { IsFile: true } uri
                     && scene.Uri is { IsFile: true } sceneUri
@@ -179,6 +176,14 @@ public sealed class SessionTools(
         {
             fallbacks.Add(fallback);
             return;
+        }
+
+        if (value is IHierarchical hierarchical)
+        {
+            foreach (IHierarchical child in hierarchical.HierarchicalChildren)
+            {
+                CollectFallbacks(child, visited, fallbacks);
+            }
         }
 
         if (value is EngineObject engineObject)
