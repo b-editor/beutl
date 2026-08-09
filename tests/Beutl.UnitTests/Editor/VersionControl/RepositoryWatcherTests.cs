@@ -33,6 +33,24 @@ public class RepositoryWatcherTests
         Assert.That(RepositoryWatcher.ShouldExcludePath(_tempDirectory, path), Is.True);
     }
 
+    [Test]
+    public void Unix_literal_backslashes_do_not_create_metadata_segments()
+    {
+        if (OperatingSystem.IsWindows())
+        {
+            Assert.Ignore("Backslashes are directory separators on Windows.");
+        }
+
+        string projectPath = Path.Combine(_tempDirectory, @".beutl\clip.scene");
+        string metadataPath = Path.Combine(_tempDirectory, @"refs\heads\main");
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(RepositoryWatcher.ShouldExcludePath(_tempDirectory, projectPath), Is.False);
+            Assert.That(RepositoryWatcher.ShouldIncludeGitMetadataPath(_tempDirectory, metadataPath), Is.False);
+        });
+    }
+
     [TestCase("index", true)]
     [TestCase("HEAD", true)]
     [TestCase("packed-refs", true)]

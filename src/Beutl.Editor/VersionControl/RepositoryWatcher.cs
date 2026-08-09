@@ -57,7 +57,7 @@ internal sealed class RepositoryWatcher : IDisposable
 
     internal static bool ShouldExcludePath(string projectRoot, string path)
     {
-        string relativePath = Path.GetRelativePath(projectRoot, path).Replace('\\', '/');
+        string relativePath = NormalizeDirectorySeparators(Path.GetRelativePath(projectRoot, path));
         if (relativePath == ".."
             || relativePath.StartsWith("../", StringComparison.Ordinal)
             || Path.IsPathFullyQualified(relativePath))
@@ -77,7 +77,7 @@ internal sealed class RepositoryWatcher : IDisposable
 
     internal static bool ShouldIncludeGitMetadataPath(string metadataRoot, string path)
     {
-        string relativePath = Path.GetRelativePath(metadataRoot, path).Replace('\\', '/');
+        string relativePath = NormalizeDirectorySeparators(Path.GetRelativePath(metadataRoot, path));
         if (relativePath == ".."
             || relativePath.StartsWith("../", StringComparison.Ordinal)
             || Path.IsPathFullyQualified(relativePath))
@@ -101,6 +101,9 @@ internal sealed class RepositoryWatcher : IDisposable
                    or "refs"
                || relativePath.StartsWith("refs/", StringComparison.Ordinal);
     }
+
+    private static string NormalizeDirectorySeparators(string path)
+        => OperatingSystem.IsWindows() ? path.Replace('\\', '/') : path;
 
     internal static (string GitDirectory, string CommonDirectory)? ResolveGitMetadataDirectories(
         string repoRoot)
