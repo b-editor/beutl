@@ -12,6 +12,7 @@ using Beutl.Extensibility;
 using Beutl.Graphics;
 using Beutl.Graphics.Effects;
 using Beutl.Graphics.Shapes;
+using Beutl.Graphics.Transformation;
 using Beutl.Graphics3D.Textures;
 using Beutl.Media;
 using Beutl.ProjectSystem;
@@ -116,6 +117,24 @@ public sealed class FallbackEditorPersistenceTests
                 Directory.Delete(root, true);
             }
         }
+    }
+
+    [AvaloniaTest]
+    public void BrushPresenterClearTarget_LastFallbackResumesPersistenceInReplacementTransaction()
+    {
+        AssertPresenterTargetClearResumesPersistence(PresenterKind.Brush);
+    }
+
+    [AvaloniaTest]
+    public void TransformPresenterClearTarget_LastFallbackResumesPersistenceInReplacementTransaction()
+    {
+        AssertPresenterTargetClearResumesPersistence(PresenterKind.Transform);
+    }
+
+    [AvaloniaTest]
+    public void FilterEffectPresenterClearTarget_LastFallbackResumesPersistenceInReplacementTransaction()
+    {
+        AssertPresenterTargetClearResumesPersistence(PresenterKind.FilterEffect);
     }
 
     [AvaloniaTest]
@@ -572,6 +591,138 @@ public sealed class FallbackEditorPersistenceTests
         return animation;
     }
 
+    private static void AssertPresenterTargetClearResumesPersistence(PresenterKind kind)
+    {
+        TestReset.ResetShellAsync().GetAwaiter().GetResult();
+
+        string root = CreateRoot();
+        try
+        {
+            var sceneUri = new Uri(Path.Combine(root, "scene.scene"));
+            string elementPath = Path.Combine(root, "element.belm");
+            var shape = new RectShape();
+            SetPresenter(shape, kind);
+            var element = new Element
+            {
+                Length = TimeSpan.FromSeconds(1),
+                Uri = new Uri(elementPath),
+            };
+            element.AddObject(shape);
+            var scene = new Scene(64, 64, "Scene") { Uri = sceneUri };
+            scene.Children.Add(element);
+            CoreSerializer.StoreToUri(scene, sceneUri);
+
+            JsonObject elementJson = JsonNode.Parse(File.ReadAllText(elementPath))!.AsObject();
+            JsonObject targetJson = FindObjectWithProperty(elementJson, nameof(BrushPresenter.Target))!
+                [nameof(BrushPresenter.Target)]!.AsObject();
+            targetJson["$type"] = kind switch
+            {
+                PresenterKind.Brush => "[Beutl.Engine]Beutl.Media:MissingBrush",
+                PresenterKind.Transform => "[Beutl.Engine]Beutl.Graphics.Transformation:MissingTransform",
+                PresenterKind.FilterEffect => "[Beutl.Engine]Beutl.Graphics.Effects:MissingFilterEffect",
+                _ => throw new ArgumentOutOfRangeException(nameof(kind)),
+            };
+            File.WriteAllText(elementPath, elementJson.ToJsonString());
+            byte[] originalBytes = File.ReadAllBytes(elementPath);
+
+            Scene recoveredScene = CoreSerializer.RestoreFromUri<Scene>(sceneUri);
+            Element recoveredElement = recoveredScene.Children.Single();
+            var recoveredShape = (RectShape)recoveredElement.Objects.Single();
+            Assert.That(GetPresenterTarget(recoveredShape, kind), Is.InstanceOf<IFallback>());
+            using var context = new EditorTestContext(recoveredElement);
+            using BaseEditorViewModel viewModel = CreatePresenterEditor(recoveredShape, kind);
+            viewModel.Accept(new Visitor(recoveredElement, context.History));
+
+            ClearPresenterTarget(viewModel, kind);
+            CoreSerializer.StoreToUri(recoveredElement, recoveredElement.Uri!);
+            byte[] repairedBytes = File.ReadAllBytes(elementPath);
+            bool undone = context.History.Undo();
+            CoreSerializer.StoreToUri(recoveredElement, recoveredElement.Uri!);
+
+            Assert.Multiple(() =>
+            {
+                Assert.That(repairedBytes, Is.Not.EqualTo(originalBytes));
+                Assert.That(undone, Is.True);
+                Assert.That(GetPresenterTarget(recoveredShape, kind), Is.InstanceOf<IFallback>());
+                Assert.That(File.ReadAllBytes(elementPath), Is.EqualTo(originalBytes));
+            });
+        }
+        finally
+        {
+            Directory.Delete(root, true);
+        }
+    }
+
+    private static void SetPresenter(RectShape shape, PresenterKind kind)
+    {
+        switch (kind)
+        {
+            case PresenterKind.Brush:
+                shape.Fill.CurrentValue = new BrushPresenter
+                {
+                    Target = { CurrentValue = new SolidColorBrush(Colors.Red) },
+                };
+                break;
+            case PresenterKind.Transform:
+                shape.Transform.CurrentValue = new TransformPresenter
+                {
+                    Target = { CurrentValue = new TranslateTransform() },
+                };
+                break;
+            case PresenterKind.FilterEffect:
+                shape.FilterEffect.CurrentValue = new FilterEffectPresenter
+                {
+                    Target = { CurrentValue = new Blur() },
+                };
+                break;
+            default:
+                throw new ArgumentOutOfRangeException(nameof(kind));
+        }
+    }
+
+    private static BaseEditorViewModel CreatePresenterEditor(RectShape shape, PresenterKind kind)
+    {
+        return kind switch
+        {
+            PresenterKind.Brush => new BrushEditorViewModel(
+                new SimplePropertyAdapter<Brush?>((SimpleProperty<Brush?>)shape.Fill, shape)),
+            PresenterKind.Transform => new TransformEditorViewModel(
+                new SimplePropertyAdapter<Transform?>((SimpleProperty<Transform?>)shape.Transform, shape)),
+            PresenterKind.FilterEffect => new FilterEffectEditorViewModel(
+                new SimplePropertyAdapter<FilterEffect?>((SimpleProperty<FilterEffect?>)shape.FilterEffect, shape)),
+            _ => throw new ArgumentOutOfRangeException(nameof(kind)),
+        };
+    }
+
+    private static object? GetPresenterTarget(RectShape shape, PresenterKind kind)
+    {
+        return kind switch
+        {
+            PresenterKind.Brush => ((BrushPresenter)shape.Fill.CurrentValue!).Target.CurrentValue,
+            PresenterKind.Transform => ((TransformPresenter)shape.Transform.CurrentValue!).Target.CurrentValue,
+            PresenterKind.FilterEffect => ((FilterEffectPresenter)shape.FilterEffect.CurrentValue!).Target.CurrentValue,
+            _ => throw new ArgumentOutOfRangeException(nameof(kind)),
+        };
+    }
+
+    private static void ClearPresenterTarget(BaseEditorViewModel viewModel, PresenterKind kind)
+    {
+        switch (kind)
+        {
+            case PresenterKind.Brush:
+                ((BrushEditorViewModel)viewModel).SetTarget(null);
+                break;
+            case PresenterKind.Transform:
+                ((TransformEditorViewModel)viewModel).SetTarget(null);
+                break;
+            case PresenterKind.FilterEffect:
+                ((FilterEffectEditorViewModel)viewModel).SetTarget(null);
+                break;
+            default:
+                throw new ArgumentOutOfRangeException(nameof(kind));
+        }
+    }
+
     private static void AssertPenRepairAndUndo(
         Element recoveredElement,
         EditorValueHolder recoveredHolder,
@@ -741,5 +892,12 @@ public sealed class FallbackEditorPersistenceTests
         public void Visit(IPropertyEditorContext context)
         {
         }
+    }
+
+    private enum PresenterKind
+    {
+        Brush,
+        Transform,
+        FilterEffect,
     }
 }

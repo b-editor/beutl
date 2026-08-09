@@ -295,6 +295,7 @@ public sealed class TransformEditorViewModel : ValueEditorViewModel<Transform?>,
     {
         if (Value.Value is IPresenter<Transform> presenter)
         {
+            Transform? previous = presenter.Target.CurrentValue;
             if (target != null)
             {
                 var expression = Expression.CreateReference<Transform>(target.Id);
@@ -305,6 +306,7 @@ public sealed class TransformEditorViewModel : ValueEditorViewModel<Transform?>,
                 presenter.Target.Expression = null;
                 presenter.Target.CurrentValue = null;
             }
+            ResumeElementPersistenceAfterFallbackReplacement(previous);
             Commit();
         }
     }

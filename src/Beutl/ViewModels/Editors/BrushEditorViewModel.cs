@@ -279,6 +279,7 @@ public sealed class BrushEditorViewModel : BaseEditorViewModel, IFallbackObjectV
     {
         if (Value.Value is IPresenter<Brush> presenter)
         {
+            Brush? previous = presenter.Target.CurrentValue;
             if (target != null)
             {
                 presenter.Target.Expression = Expression.CreateReference<Brush>(target.Id);
@@ -288,6 +289,7 @@ public sealed class BrushEditorViewModel : BaseEditorViewModel, IFallbackObjectV
                 presenter.Target.Expression = null;
                 presenter.Target.CurrentValue = null;
             }
+            ResumeElementPersistenceAfterFallbackReplacement(previous);
             Commit();
         }
     }
