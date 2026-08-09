@@ -34,7 +34,7 @@ public abstract class RenderNode : IDisposable
 }
 ```
 
-The old `RenderNodeOperation[] Process(RenderNodeContext)` signature is removed in the same change. There is no returning overload or obsolete bridge. Construction, finalization, idempotent disposal, `Cache` disposal, and the protected `OnDispose` customization point otherwise retain the current-main lifecycle so an out-of-tree derived node remains constructible and disposable.
+The old `RenderNodeOperation[] Process(RenderNodeContext)` signature and current-main `PrepareForProcess(ImmediateCanvas)` hook are removed in the same change. There is no returning overload or obsolete bridge. Work formerly performed by `PrepareForProcess` must be recorded as a typed/opaque fragment in `Process`; recording receives no live canvas and performs no pixel/resource operation. Construction, finalization, idempotent disposal, `Cache` disposal, and the protected `OnDispose` customization point otherwise retain the current-main lifecycle so an out-of-tree derived node remains constructible and disposable.
 
 ## Fragment handle
 
@@ -169,6 +169,22 @@ public sealed record RenderNodeRenderRequest
     public float MaxWorkingScale { get; init; } = float.PositiveInfinity;
     public Cache.RenderCacheOptions CacheOptions { get; init; } = Cache.RenderCacheOptions.Default;
     public RenderRequestPurpose Purpose { get; init; } = RenderRequestPurpose.Auxiliary;
+    public RenderAllocationBudget AllocationBudget { get; init; } = RenderAllocationBudget.Default;
+}
+
+public sealed record RenderAllocationBudget
+{
+    public const long DefaultMaximumLiveBytes = 1L * 1024 * 1024 * 1024;
+    public const int DefaultMaximumLiveTargets = 256;
+
+    public RenderAllocationBudget(
+        long maximumLiveBytes = DefaultMaximumLiveBytes,
+        int maximumLiveTargets = DefaultMaximumLiveTargets);
+
+    public long MaximumLiveBytes { get; }
+    public int MaximumLiveTargets { get; }
+
+    public static RenderAllocationBudget Default { get; }
 }
 
 public enum RenderTargetPixelFormat : byte
@@ -192,6 +208,7 @@ public readonly record struct RenderTargetAllocationDescriptor
 
 public interface IRenderTargetFactory
 {
+    int MaximumDimension { get; }
     RenderTarget? Create(RenderTargetAllocationDescriptor allocation);
 }
 
@@ -291,8 +308,8 @@ public sealed class RenderNodeContext
         RenderHitTestContract hitTest,
         RenderScaleContract scale,
         object structuralKey,
-        RenderDeviceGridSensitivity deviceGridSensitivity = RenderDeviceGridSensitivity.Insensitive,
-        IEnumerable<RenderResource>? resources = null)
+        RenderDeviceGridSensitivity deviceGridSensitivity = RenderDeviceGridSensitivity.PhaseDependent,
+        IEnumerable<RenderResourceBinding>? resources = null)
         where TState : notnull;
 
     public RenderFragmentHandle PaintedSource<TResource, TState>(
@@ -306,8 +323,8 @@ public sealed class RenderNodeContext
         RenderHitTestContract hitTest,
         RenderScaleContract scale,
         object structuralKey,
-        RenderDeviceGridSensitivity deviceGridSensitivity = RenderDeviceGridSensitivity.Insensitive,
-        IEnumerable<RenderResource>? resources = null)
+        RenderDeviceGridSensitivity deviceGridSensitivity = RenderDeviceGridSensitivity.PhaseDependent,
+        IEnumerable<RenderResourceBinding>? resources = null)
         where TResource : class
         where TState : notnull;
 
@@ -505,8 +522,10 @@ A generated property backed by an `IProperty<T>` whose `T` is an `EngineObject` 
 - `TargetScope` is an order/cardinality-preserving per-fragment map for allocation-free transform/clip state. It replays each input exactly once on the same target. `Opacity`, `Blend`, and `OpacityMask` are planner-visible typed layer scopes. `OpacityMask` declaratively snapshots the `Brush.Resource` during recording; `brushBounds` remains the brush coordinate/mapping frame used by the existing `PushOpacityMask`, not a clip or transparent-outside region. The recorder copies scalar brush state synchronously, includes brush version, mapping bounds, invert, and nested resource identities in output-cache identity, converts every retained image/drawable/native payload to request-owned internal borrow slots before `Process` returns, lowers solid/gradient/perlin/image masks to internal shader/resource dependencies, and records DrawableBrush content as inherited nested fragments. It never retains an undeclared raw brush, invokes `BrushConstructor`, or starts a renderer in the execution callback. Unknown retained custom-brush behavior lowers to `LegacyRawCanvas` rather than being mislabeled exact. A scope is distinct from `Layer`: it does not independently define a mixed child sequence. The planner may canonicalize a typed scope into a pure value edge only after proving target-state equivalence.
 - `RawTargetScope` is the explicit migration escape hatch for an old custom decorator whose raw canvas behavior cannot be expressed by the typed vocabulary. It is always opaque-external, cannot fuse or make exact whole-request pass/synchronization claims, and is not the default for new code.
 - `RawTargetCommand` is the zero-input counterpart for an existing raw callback that directly reads or mutates the current painter target. It is never used as a guarded value-source API; new independent sources use `OpaqueSource` or `MaterializedInput`.
-- `PaintedSource` is the one public entry point for drawing under a `Brush.Resource`/`Pen.Resource` pair whose nested `DrawableBrush` content must be lowered. It lowers the paint during recording — the content becomes ordinary inherited fragments of this request, so its identity reaches the output-cache key — then records the drawing as an `OpaqueSource` (declarative paint) or an `OpaqueCombine` over the lowered content (drawable paint). It publishes `RenderValueCardinality.Single` and is value-input eligible; it never produces a target scope, and a brush the recorder can only execute raw disables render caching for the result. The callback receives a `PaintedRenderSession` carrying the canvas and the resolved `LoweredBrush`/`LoweredPen`, which the public `ImmediateCanvas` draw overloads accept. Ownership of the lowered content stays with the renderer: it is leased for the callback and the author never sees a shader, a native handle, or its resource slot. `PaintedRenderSession.UseDeclaredResource` addresses only the author's own `resources` argument, so the recorder's brush/pen slots cannot shift an author index. `structuralKey` is non-optional for the shared-helper reason stated under [Opaque compatibility descriptions](#opaque-compatibility-descriptions): the execution callback belongs to the recorder helper, not to the calling node.
-- `PaintedSource` has a second, primary-resource form. Every painted source in the tree draws exactly one resource, and every one of them reached it the same way: `UseDeclaredResource<TResource>(0, value => ...)` inside the draw callback. That is four things the author had to keep in step by hand — the index, the type argument, the call itself, and a nested closure — for a resource the recorder was going to declare anyway. The primary form takes `RenderResource<TResource> primary` and an `Action<PaintedRenderSession, TResource, TState> draw`; the recorder declares `primary` ahead of `resources`, leases it for the duration of the callback, and passes the leased value in as a parameter. The resource is type-checked at compile time, and the form has no ambiguity mode: there is exactly one primary and it is named, not looked up.
+- `PaintedSource` is the one public entry point for drawing under a `Brush.Resource`/`Pen.Resource` pair whose nested `DrawableBrush` content must be lowered. It lowers the paint during recording — the content becomes ordinary inherited fragments of this request, so its identity reaches the output-cache key — then records the drawing as an `OpaqueSource` (declarative paint) or an `OpaqueCombine` over the lowered content (drawable paint). It publishes `RenderValueCardinality.Single` and is value-input eligible; it never produces a target scope, and a brush the recorder can only execute raw disables render caching for the result. The callback receives the normatively declared `PaintedRenderSession`, `LoweredBrush`, and `LoweredPen` surfaces above. Its author-declared resources are `RenderResourceBinding` values and are leased by stable ordinal name; recorder-owned brush/pen slots never enter that namespace. `structuralKey` is non-optional because the execution callback belongs to the recorder helper, not to the calling node.
+- `PaintedSource` has a primary-resource form for the common one-resource case. It takes `RenderResource<TResource> primary` and an `Action<PaintedRenderSession, TResource, TState> draw`; the recorder declares and leases `primary`, then passes the typed raw value directly to the callback. Additional resources use named bindings, so neither adding paint resources nor reordering author bindings changes lookup.
+
+<details><summary>Historical positional-resource experiment (superseded and non-normative)</summary>
   - The declared list is unchanged. `primary` is element 0 followed by `resources` and then the recorder's paint slots, which is exactly what an author previously wrote as `resources: [primary, ...]`, so nothing an output-cache key is built from moves. `DeclaredResourceOrderTests` still pins `GeometryRenderNode`'s `[geometry, hit-test, fill, pen, penBrush]`, and `PrimaryPaintedSourceTests` pins the two forms declaring the same identities in the same order.
   - `primary` is outside the callback's positional space, exactly like the recorder's paint slots, so `UseDeclaredResource` indices still count from the author's own first resource and adopting the primary form renumbers nothing. It is also unreachable that way: it is already leased for the callback, and a nested lease of the same resource is rejected.
   - The output-cache identity is unchanged: `state` is still the whole runtime identity, and the wrapper the recorder builds around the three-argument delegate is not part of it, so an unchanged second frame is still served from the first frame's cached output.
@@ -516,6 +535,8 @@ A generated property backed by an `IProperty<T>` whose `T` is an `EngineObject` 
   - Those are caller-owned description factories, not recorder methods. `RenderDescriptionValidation.CopyResources` rejects a null or released element and copies; it does not merge, de-duplicate, or reorder, and each factory hands that copy straight to the description, so a description's `Resources` holds exactly its caller's elements in its caller's order, and that list is what its session is handed at execution. `BrushRecorder` does own such a merge — it folds `primary`, the author's `resources`, and the lowered paint's slots into one declared list, de-duplicated by slot identity — and `PaintedRenderSession` addresses the author's own list separately from it, which is what keeps `primary` outside the positional space. The other three sessions address the description's declared list itself, so a `primary` parameter on those factories would either renumber every `UseDeclaredResource` index its caller wrote, or push that same two-list split into three public description types.
   - Adding the parameter to three more factories would triple the new public surface to remove an index from three call sites.
   - `UseResource` is reachable at these three sites, but never for free, which is what the earlier "supported alternative" rationale got wrong. All three record through the state-passing `Create(state, static callback, …)` overload — `OpaqueRenderDescription.Create` in `ParticleRenderNode.RecordFallbackSource`, `TargetScopeDescription.Create` in `GeometryClipRenderNode.Process`, `TargetCommandDescription.Create` in `FilterEffectInputBinding.PublishDeferredPreviews` — and every one of those overloads rejects a callback that captures the token and rejects a token carried in a `state` tuple element, so nothing those factories validate hands these callbacks a token. Two routes get one anyway, and each has a price. Moving the recording to the sibling `CreateRequestLocal` is compile-time safe and needs nothing trusted: the callback simply captures the token. It buys that with a fresh request-local identity every recording, so the result is never served from the output cache — an unchanged second frame re-executes instead of being served. Keeping the state-passing recording and routing the token past the state rules — through a sealed non-tuple holder carried in `state`, or a `static` field the callback reads, both of which physically deliver a leasable token — is the enumerated identity channel under [Opaque compatibility descriptions](#opaque-compatibility-descriptions). By itself it costs neither a cache hit nor correct pixels at these three sites: a leased resource must still be declared, and declaration writes its `CacheIdentity` into the output-cache key whichever channel the token travelled through, so a version bump on the declared resource still invalidates the entry. What it costs is that the author now owns the channel's lifetime and its identity, and nothing validates either. A `static` field holds one slot for the whole type, so two recordings in one frame make the first callback lease the second's token. That usually throws — `The render resource was not declared by this operation.` at execution, or `Repeated explicit Borrow registrations must use equal cache keys and matching versions.` at recording — but not always: the authorization check is membership of the leased slot in the operation's declared list, so a mis-lease passes silently whenever both operations happen to declare both resources, or whenever both borrows coalesce onto one slot. A token kept past its own request throws `A released render resource no longer retains its request-scoped slot.`. What any of these shapes costs in output-cache terms is deliberately not enumerated here; see [Opaque compatibility descriptions](#opaque-compatibility-descriptions). Keeping the index is the third price, and the cheapest of the three at these sites. `DeclaredResourceAddressingContractTests` pins each part: the six rejections across the three factories, the cache hit `CreateRequestLocal` gives up, and the `static` field that leases anyway.
+</details>
+
 - A painted source runs on the same guarded callback canvas whichever path it takes. When the planner replays it straight onto an existing target instead of materializing it, the engine attaches the guarded `Draw` capability to that target for the callback's duration and detaches it afterwards, unwinding any state the callback left pushed; it changes no transform or clip, so the replay stays byte-identical. Every guard the materializing path enforces — declared-resource authorization, no `SaveLayer`-backed state, no nested render work, snapshots, raw surfaces, or legacy raw callbacks, and no popping below the executor's own state — therefore also holds on the direct path.
 - `LoweredBrush`/`LoweredPen` carry the execution lease that resolved them, not just the payload. Every draw overload that accepts one asks that execution whether the payload is still held, so a copy an author retains past the callback is rejected wherever it is used, including on a canvas the author constructed. Retention is a deterministic failure rather than a released native handle.
 - Whether a painted source may be replayed directly is derived from its declared `RenderScaleContract`, not authored. A direct replay renders at the destination target's density, which is only what the source declared when the contract declares no supply density of its own — `RenderScaleContract.Vector`, whose resolved supply is `EffectiveScale.Unbounded` and therefore already means "whatever the consumer renders at". A concrete declared density (`Custom`, `MaterializeAtWorkingScale`) materializes at that density and is resampled by its consumer like any other supply. `PreserveInputSupply`/`MapInputSupply` can also resolve to `Unbounded`, but they are valid only for a one-input `OpaqueMap`, never for the source/combine topology a painted source records. A brush the recorder could only keep executable additionally suppresses the direct path in both topologies, because its `BrushConstructor` may start a nested renderer.
@@ -558,6 +579,14 @@ public sealed class RenderResource<T> : RenderResource
     where T : class
 {
     // No public Value property and no public constructor.
+    public RenderResourceBinding Bind(string name);
+}
+
+public sealed class RenderResourceBinding
+{
+    public RenderResourceBinding(string name, RenderResource resource);
+    public string Name { get; }
+    public RenderResource Resource { get; }
 }
 
 public readonly record struct RenderResourceIdentity(object Key, long Version);
@@ -602,7 +631,7 @@ public sealed class OpaqueRenderDescription
     public IReadOnlyList<RenderInputReadback> InputReadbacks { get; }
     public object StructuralKey { get; }
     public RenderRuntimeIdentity? RuntimeIdentity { get; }
-    public IReadOnlyList<RenderResource> Resources { get; }
+    public IReadOnlyList<RenderResourceBinding> Resources { get; }
 
     public static OpaqueRenderDescription Create<TState>(
         TState state,
@@ -611,10 +640,10 @@ public sealed class OpaqueRenderDescription
         RenderHitTestContract hitTest,
         RenderValueCardinality valueCardinality,
         RenderScaleContract scale,
-        RenderDeviceGridSensitivity deviceGridSensitivity = RenderDeviceGridSensitivity.Insensitive,
+        RenderDeviceGridSensitivity deviceGridSensitivity = RenderDeviceGridSensitivity.PhaseDependent,
         object? structuralKey = null,
         IEnumerable<RenderInputReadback>? inputReadbacks = null,
-        IEnumerable<RenderResource>? resources = null)
+        IEnumerable<RenderResourceBinding>? resources = null)
         where TState : notnull;
 
     public static OpaqueRenderDescription CreateRequestLocal(
@@ -623,10 +652,10 @@ public sealed class OpaqueRenderDescription
         RenderHitTestContract hitTest,
         RenderValueCardinality valueCardinality,
         RenderScaleContract scale,
-        RenderDeviceGridSensitivity deviceGridSensitivity = RenderDeviceGridSensitivity.Insensitive,
+        RenderDeviceGridSensitivity deviceGridSensitivity = RenderDeviceGridSensitivity.PhaseDependent,
         object? structuralKey = null,
         IEnumerable<RenderInputReadback>? inputReadbacks = null,
-        IEnumerable<RenderResource>? resources = null);
+        IEnumerable<RenderResourceBinding>? resources = null);
 }
 
 public readonly struct RenderInputReadback
@@ -732,9 +761,47 @@ public sealed class OpaqueRenderSession
         where T : class;
 
     public void UseDeclaredResource<T>(
-        int declaredIndex,
+        string name,
         Action<T> use)
         where T : class;
+}
+
+public readonly struct LoweredBrush
+{
+    public static LoweredBrush Empty { get; }
+    public bool IsEmpty { get; }
+}
+
+public readonly struct LoweredPen
+{
+    public static LoweredPen Empty { get; }
+    public bool IsEmpty { get; }
+}
+
+public readonly struct PaintedRenderSession
+{
+    public ImmediateCanvas Canvas { get; }
+    public LoweredBrush Fill { get; }
+    public LoweredPen Pen { get; }
+
+    public void UseDeclaredResource<T>(string name, Action<T> use)
+        where T : class;
+}
+
+public partial class ImmediateCanvas
+{
+    public void DrawEllipse(Rect rect, LoweredBrush fill, LoweredPen pen);
+    public void DrawRectangle(Rect rect, LoweredBrush fill, LoweredPen pen);
+    public void DrawGeometry(Geometry.Resource geometry, LoweredBrush fill, LoweredPen pen);
+    public void DrawText(FormattedText text, LoweredBrush fill, LoweredPen pen);
+    public void DrawBitmap(Bitmap bitmap, LoweredBrush fill, LoweredPen pen);
+    public void DrawBitmapScaled(Bitmap bitmap, Rect destination, LoweredBrush fill);
+    public void DrawImageSource(ImageSource.Resource source, LoweredBrush fill, LoweredPen pen);
+    public void DrawVideoSource(
+        VideoSource.Resource source,
+        int frame,
+        LoweredBrush fill,
+        LoweredPen pen);
 }
 
 public readonly record struct RenderExecutionInputRange(int StartIndex, int Count)
@@ -800,24 +867,11 @@ Each materialized input exposes immutable composition-device `DeviceBounds`, `De
 
 For `OpaqueMap`, `RenderValueCardinality.Single` means one output per invocation/input and `ZeroOrOne` permits per-input discard; other cardinalities are rejected. `OpaqueCombine` is limited to at most one total output. `OpaqueSource` and `OpaqueExpand` interpret the description cardinality as the total single-invocation result, and only `OpaqueExpand` may declare an arbitrary N-to-M range. Every case preserves authored output order.
 
-Every public description factory takes its pixel-affecting values as one `state` argument and a non-capturing `Action<TSession, TState>`. A capturing `execute` is rejected synchronously with `ArgumentException`. The engine-owned factories named later in this section — `OpaqueRenderDescription.CreateEngineSource`, `CreateBackendBoundary`, and `TargetScopeDescription.CreateValueReplayMap` — are the exception: they still take a capturing callback under a hand-declared identity, and their outputs are cache-reusable. What that buys is the **accidental** channel: the ordinary capturing lambda, which is what an author writes by mistake, can no longer reach the callback at all, and the runtime identity is now the default path rather than a separate `runtimeIdentity:` assertion the author had to remember to keep in step with the closure. That is worth having on its own — the previous shape let a caller omit `runtimeIdentity:` entirely and silently receive request-local caching, and let a declared identity drift out of step with a closure nothing checked against it. It is **not** a proof that every per-frame value is in the cache key, and it cannot be one: `TState : notnull` admits a mutable reference type whose identity is its reference, and the callback body is ordinary code that can read whatever is in scope.
+Every public description factory takes its pixel-affecting values as one `state` argument and a non-capturing `Action<TSession, TState>`. A capturing callback is rejected synchronously. `state` is copied into the description and must be deeply immutable: primitive/string/type values, immutable value tuples/record structs, or sealed immutable records whose instance fields are readonly and recursively immutable. Mutable reference holders, mutable collections, delegates, `object`/interface-typed escape hatches, disposable/native/request/session/resource objects, and states whose equality omits a pixel-affecting value are rejected. A caller snapshots mutable authoring state into an immutable value/version record before `Create`; when no complete immutable snapshot exists it uses `CreateRequestLocal`, which deliberately prevents cross-request output-cache reuse. `RenderCacheVerification` remains an evidence/debugging check, never the production safeguard for an invalid identity.
 
-Six channels therefore stay open. An author who uses one owns the completeness of the resulting cache identity:
+Declared callback resources use `RenderResourceBinding`, created with `resource.Bind("stable-name")`. Every description copies its bindings and rejects null, empty/duplicate names, released tokens, and a name/type mismatch. `UseDeclaredResource<T>(name, use)` resolves by ordinal string name, so prepending or reordering resources — including two resources of the same `T` — cannot silently change which object the callback leases. Binding names and resource types are structural identity; names plus resource identities/versions are output-cache identity. `OpaqueRenderSession`, `GeometrySession`, `TargetScopeSession`, `TargetCommandSession`, and `PaintedRenderSession` expose this named form. Request-local/engine-declared callbacks may additionally use `UseResource(token, use)` after declaring the same token. Raw sessions retain token-only access because their callbacks are intentionally request-local. `DeclaredResourceAddressingContractTests` must prove reorder stability, duplicate/missing/name-type failures, every session surface, and output-cache invalidation.
 
-1. **A mutable object referenced by `state`.** `state` holds the reference and a field behind it changes between frames; the identity compares equal because the reference did not change.
-2. **A `static` field read by the `static` callback.** No description member mentions it, and no recording-time rule can see it.
-3. **A capturing delegate one level down.** Placed directly in a state tuple this is rejected (see the validation depth below); placed inside a holder object that `state` references it is not.
-4. **A borrowed resource whose content changes behind a pinned `cacheKey`/`version`.** A token is deliberately not part of the identity, so the identity cannot observe the change.
-5. **A capturing delegate borrowed as a `RenderResource` and read back through `UseDeclaredResource`.** This is a special case of (4) and is the route this document recommends for a callback that needs a request-scoped value. `FilterEffectInputBinding.PublishDeferredPreviews` takes it: its capturing `replace` delegate did not stop capturing, it moved out of the callback closure into a declared resource under an author-declared identity, and that identity is only as complete as its author made it.
-6. **A state type whose own equality is coarser than the pixels it feeds.** `state` is compared with `EqualityComparer<TState>.Default`, so a type that overrides `Equals`/`GetHashCode` or implements `IEquatable<T>` to ignore a pixel-affecting member reports two different frames as the same identity. This holds for a reference-typed and a struct-typed state alike, and no recording-time rule can see it: the API cannot know which members of an author's type reach the canvas.
-
-Phase 0's `RenderCacheVerification` is the empirical backstop for exactly these cases. While it is enabled, every selected cache hit also re-executes its producer and compares the two outputs, so an identity that omits a value fails loudly with a `RenderCacheOutputMismatchException` naming the producing node and the first differing device pixel instead of silently serving stale pixels. It is the tool to reach for whenever one of these channels is unavoidable. `RenderCacheIdentityChannelTests` drives them as two-frame renders, pinning the stale result for each and the verification failure for one.
-
-`state` is validated against the lightweight-immutable-key rules to a defined depth. The walk descends through `ValueTuple`/`Tuple` elements whose declared type is itself a tuple, to any nesting depth — a state carrying more than one value has to be a tuple, so that is the aggregate the API itself encourages — and stops at every other aggregate: a custom type's field set is not part of this API's vocabulary, so such a state is validated as one value. A sealed holder object carrying a mutable field or a capturing delegate is therefore accepted, which is channel (3) above. So is a tuple boxed into an `object` element, because the walk dispatches on the declared element type rather than the runtime one. Everything decidable from the closed state type is decided once per closed type and costs nothing per call; an element whose declared type is `object`, an interface, an unsealed class, or a delegate is read by value, because a delegate's capture is a property of its instance rather than of its type.
-
-A callback that needs a request-scoped resource token reaches it through `UseDeclaredResource<T>(declaredIndex, use)` by its position in `resources`, because a token can never be part of a persistent identity. An out-of-range index throws `ArgumentOutOfRangeException` for `declaredIndex` and a mismatched `T` throws `InvalidOperationException` naming both the requested and the declared type. Position is the only address and `T` is the only check on it, so two declared resources of the same type make index 0 and index 1 indistinguishable: a later edit that prepends or reorders `resources` swaps them with the runtime type check still passing. This is documented rather than made verifiable because no available addressing scheme fixes it at an acceptable price — addressing by token is exactly what the non-capturing rule forbids, and addressing by name or by the resource's own `cacheKey` would change the `resources:` parameter shape on all six description families for a hazard that is narrow, local to one `Process` method, and already covered whenever the two resources differ in type. `CreateRequestLocal` is the named opt-out for state that cannot be a key at all; `RawTargetScopeDescription` and `RawTargetCommandDescription` have only that form, because an unguarded external callback is never reusable.
-
-Which of the two addressing modes a session exposes is decided by the channels that reach it cheaply, not by convenience. A callback normally holds a token only by capturing it, and capture is permitted exactly on the channels whose runtime identity does not come from the callback's state: `CreateRequestLocal`, and the declared-identity form where the author supplies a `RenderRuntimeIdentity` separately from what the callback captures. So `OpaqueRenderSession`, `GeometrySession`, `TargetScopeSession`, and `TargetCommandSession` expose both `UseResource(token, use)` and `UseDeclaredResource(index, use)`; `RawTargetScopeSession` and `RawTargetCommandSession` expose only the token form; and `PaintedRenderSession` exposes only the positional form, because `PaintedSource` is state-passing only — its `draw` may not capture, and its `state` is the produced value's runtime identity, which rejects a `RenderResource` element. The one resource a painted source draws does not go through that positional form at all: the primary-resource overload has the recorder declare and lease it and hand it to the callback as a parameter, so the index remains only for the second and later resources. That rejection is not absolute, and the asymmetry does not rest on claiming it is. Channel (3) above — a sealed non-tuple state object the state walk stops at — physically carries a token into any state-passing callback, and the state-passing sessions that do expose `UseResource` accept it there. What that channel is, though, is an enumerated identity channel rather than a way to address resources: the state is the produced value's output-cache runtime identity, so the author who uses it owns the identity contract by hand, and every way of holding the holder costs something. A holder allocated per recording is a fresh reference every frame, so the identity never matches and output-cache reuse is lost outright. Value equality over something stable across recordings is necessary to get any reuse back. A state object mutated in place cannot serve as an identity at all: the cached identity and the new one hold the same instance, so no equality the author writes observes the change, and a node that keeps one holder and mutates it in place draws its first frame once and then serves those pixels for every later frame. Beyond those two, this document deliberately does not enumerate what the channel costs. Six successive attempts to state it — in terms of reference short-circuits, of value equality, of which object reaches the key, of a divergence between recording channels — were each falsified by probes, most recently by measuring that the claimed divergence is not observable at all. The route is unsupported, its cost is not a property of the author's code alone, and an author who needs a request-scoped value in a state-passing callback should declare it as a resource and address it by position. And a token from an earlier, finished request throws when leased — `InvalidOperationException`, "A released render resource no longer retains its request-scoped slot." — so refreshing the token per `Process` is mandatory, which is exactly the write that a reused holder's identity does not observe. That failure is reached only when the callback actually runs, so under an enabled render cache a stale token in an unchanged holder stays latent until the first execution that leases it. Position is the address by design, not by impossibility. `DeclaredResourceAddressingContractTests` pins the two rejections, the open sealed-holder channel, the reuse a per-recording holder loses, the reuse a reused holder keeps, the stale pixels that reuse then serves, and the leftover token's failure and latency, plus the per-session surface. Its holder-shaped states lease the token they carry, so those pins are about the token channel rather than about the mutable-state-holder channel `RenderCacheIdentityChannelTests` already covers. When `structuralKey` is null, the description uses the execution callback's method identity plus operation kind. `RenderScaleContract.Custom`, custom bounds, and custom hit-test contracts likewise default to their delegate method identities. A captured choice that changes operation/binding/topology shape belongs in an explicit equality-stable structural key. Pixel-affecting data is not declared separately: the channel the API provides for it is `state`, which the description publishes as its `RuntimeIdentity`, subject to the six open channels above.
+When `structuralKey` is null, the description uses the execution callback's method identity plus operation kind. `RenderScaleContract.Custom`, custom bounds, and custom hit-test contracts likewise default to their delegate method identities. A captured choice that changes operation/binding/topology shape belongs in an explicit equality-stable structural key.
 
 An explicit key is never mandatory on a public factory, and whether the default beats `typeof(TheNode)` depends on where the callback is written. When the callback is a lambda or method declared in the node itself, the method identity names both the node and which callback within it, so `typeof(TheNode)` replaces a finer default with a coarser one and merges every callback that node records. When the callback is built inside a shared helper — a `_ => bounds` closure the helper itself creates, or a delegate the helper receives and forwards — every caller of that helper shares one method identity, so the default is coarser than the node label and carries none of the values the closure captured. That is why the factories whose `structuralKey` parameter is non-optional are exactly the ones that build or forward such a callback: `OpaqueRenderDescription.CreateEngineSource`/`CreateBackendBoundary`, `TargetScopeDescription.CreateValueReplayMap`, `RenderHitTestContract.FromResource`, `BrushRecorder.CreateSourceBounds`, `BrushRecorder.CreatePaintedSource`/`CreatePrimaryPaintedSource`, and the public `RenderNodeContext.PaintedSource` overloads built on them. On those, the key must state whatever the shared callback closes over — for `CreateSourceBounds` the captured source rectangle and dependency count, not only the recording node's type.
 
@@ -884,9 +938,9 @@ public sealed class TargetCaptureDescription
 
 `TargetCaptureScaleContract.MaterializeAtWorkingScale` and `Custom` declare a concrete output-derived sampling boundary. With no value inputs, the standard form starts at `OutputScale`, caps by `MaxWorkingScale`, and applies the 16,384-axis clamp to `Bounds`; `Custom` receives an empty `InputSupplies` list and may use only `OutputBounds`, `OutputScale`, and `MaxWorkingScale` from its `RenderScaleContext` before following the same validation/cap/clamp. Neither form receives enclosing-scope density supply.
 
-`TargetCaptureScaleContract.PreserveTargetSupply` is the explicit lossless alternative for backdrop-style operations. It remains late-bound during recording and exposes `EffectiveScale.Unbounded` on the transaction-scoped handle; during execution it materializes at the linear magnitude of the active target transform — surface pixels per unit of the local logical space the authored `Bounds` are recorded in. A denser enclosing scope therefore remains dense before a later Shader, replay, or other value consumer, and so does a scope made denser by a local scaling transform, which the owning target's own density does not account for.
+`TargetCaptureScaleContract.PreserveTargetSupply` is the explicit lossless alternative for backdrop-style operations. It remains late-bound during recording and exposes `EffectiveScale.Unbounded` on the transaction-scoped handle; during execution it materializes at the finer of the two active target-transform axis densities — surface pixels per unit of the local logical space the authored `Bounds` are recorded in. A denser enclosing scope therefore remains dense before a later Shader, replay, or other value consumer, and so does a scope made denser by a local scaling transform, which the owning target's own density does not account for.
 
-A single density cannot describe both axes of an anisotropic target transform, and the authored `Bounds` span the local space of both. The resolved density is therefore the geometric mean of the two axis scales, which holds the capture at the target's own pixel count under any transform; taking the finer axis instead would inflate the allocation by the unbounded anisotropy ratio. Axis scales that agree — the common case, including a target with no local transform — reduce to that shared scale exactly, so an isotropic scope still captures at its full supply.
+A single scalar density cannot encode two different axis scales without either losing samples or oversampling one axis. `PreserveTargetSupply` chooses the maximum absolute axis scale, preserving every source sample on both axes and oversampling only the coarser axis; it never averages or takes a geometric mean. The normal per-buffer dimension clamp and the request-wide live byte/count budget still apply, so extreme anisotropy fails/degrades through the declared allocation policy rather than silently discarding detail. Axis scales that agree reduce to that shared scale exactly.
 
 A capture under a singular target transform is empty, not an error: the whole surface collapses onto a point, so no local region has a preimage of non-zero area and there is nothing to sample. Singular here means `Matrix.TryInvert` rejects the transform, which it does whenever the determinant falls under an absolute `10 * MathUtilities.FloatEpsilon` — for a uniform scale, roughly 0.0011 and below, zero included. An element whose scale animates through zero with a backdrop under it therefore renders normally.
 
@@ -917,7 +971,7 @@ public sealed class TargetScopeDescription
     public RenderDeviceGridMapping DeviceGridMapping { get; }
     public object StructuralKey { get; }
     public RenderRuntimeIdentity? RuntimeIdentity { get; }
-    public IReadOnlyList<RenderResource> Resources { get; }
+    public IReadOnlyList<RenderResourceBinding> Resources { get; }
 
     public static TargetScopeDescription Create<TState>(
         TState state,
@@ -927,7 +981,7 @@ public sealed class TargetScopeDescription
         RenderScaleContract scale,
         RenderDeviceGridMapping deviceGridMapping = RenderDeviceGridMapping.Remapped,
         object? structuralKey = null,
-        IEnumerable<RenderResource>? resources = null)
+        IEnumerable<RenderResourceBinding>? resources = null)
         where TState : notnull;
 
     public static TargetScopeDescription CreateRequestLocal(
@@ -937,7 +991,7 @@ public sealed class TargetScopeDescription
         RenderScaleContract scale,
         RenderDeviceGridMapping deviceGridMapping = RenderDeviceGridMapping.Remapped,
         object? structuralKey = null,
-        IEnumerable<RenderResource>? resources = null);
+        IEnumerable<RenderResourceBinding>? resources = null);
 }
 
 public sealed class TargetScopeSession
@@ -956,7 +1010,7 @@ public sealed class TargetScopeSession
         where T : class;
 
     public void UseDeclaredResource<T>(
-        int declaredIndex,
+        string name,
         Action<T> use)
         where T : class;
 }
@@ -977,7 +1031,7 @@ public sealed class RawTargetScopeDescription
     public RenderHitTestContract HitTest { get; }
     public RenderScaleContract Scale { get; }
     public object StructuralKey { get; }
-    public IReadOnlyList<RenderResource> Resources { get; }
+    public IReadOnlyList<RenderResourceBinding> Resources { get; }
 
     public static RawTargetScopeDescription CreateRequestLocal(
         Action<RawTargetScopeSession> execute,
@@ -985,7 +1039,7 @@ public sealed class RawTargetScopeDescription
         RenderHitTestContract hitTest,
         RenderScaleContract scale,
         object? structuralKey = null,
-        IEnumerable<RenderResource>? resources = null);
+        IEnumerable<RenderResourceBinding>? resources = null);
 }
 
 public sealed class RawTargetScopeSession
@@ -1008,14 +1062,14 @@ public sealed class RawTargetCommandDescription
     public Rect QueryBounds { get; }
     public RenderHitTestContract HitTest { get; }
     public object StructuralKey { get; }
-    public IReadOnlyList<RenderResource> Resources { get; }
+    public IReadOnlyList<RenderResourceBinding> Resources { get; }
 
     public static RawTargetCommandDescription CreateRequestLocal(
         Action<RawTargetCommandSession> execute,
         Rect queryBounds,
         RenderHitTestContract hitTest,
         object? structuralKey = null,
-        IEnumerable<RenderResource>? resources = null);
+        IEnumerable<RenderResourceBinding>? resources = null);
 }
 
 public sealed class RawTargetCommandSession
@@ -1055,7 +1109,7 @@ public sealed class TargetCommandDescription
     public IReadOnlyList<RenderInputReadback> InputReadbacks { get; }
     public object StructuralKey { get; }
     public RenderRuntimeIdentity? RuntimeIdentity { get; }
-    public IReadOnlyList<RenderResource> Resources { get; }
+    public IReadOnlyList<RenderResourceBinding> Resources { get; }
 
     public static TargetCommandDescription Create<TState>(
         TState state,
@@ -1066,7 +1120,7 @@ public sealed class TargetCommandDescription
         TargetAccess access = TargetAccess.ReadWrite,
         IEnumerable<RenderInputReadback>? inputReadbacks = null,
         object? structuralKey = null,
-        IEnumerable<RenderResource>? resources = null)
+        IEnumerable<RenderResourceBinding>? resources = null)
         where TState : notnull;
 
     public static TargetCommandDescription CreateRequestLocal(
@@ -1077,7 +1131,7 @@ public sealed class TargetCommandDescription
         TargetAccess access = TargetAccess.ReadWrite,
         IEnumerable<RenderInputReadback>? inputReadbacks = null,
         object? structuralKey = null,
-        IEnumerable<RenderResource>? resources = null);
+        IEnumerable<RenderResourceBinding>? resources = null);
 }
 
 public readonly struct TargetRegion
@@ -1112,7 +1166,7 @@ public sealed class TargetCommandSession
         where T : class;
 
     public void UseDeclaredResource<T>(
-        int declaredIndex,
+        string name,
         Action<T> use)
         where T : class;
 }
@@ -1319,7 +1373,7 @@ public sealed class GeometryDescription
     public object StructuralKey { get; }
     public RenderRuntimeIdentity? RuntimeIdentity { get; }
     public bool RequiresReadback { get; }
-    public IReadOnlyList<RenderResource> Resources { get; }
+    public IReadOnlyList<RenderResourceBinding> Resources { get; }
 
     public static GeometryDescription Create<TState>(
         TState state,
@@ -1328,7 +1382,7 @@ public sealed class GeometryDescription
         RenderHitTestContract hitTest,
         object? structuralKey = null,
         bool requiresReadback = false,
-        IEnumerable<RenderResource>? resources = null)
+        IEnumerable<RenderResourceBinding>? resources = null)
         where TState : notnull;
 
     public static GeometryDescription CreateRequestLocal(
@@ -1337,7 +1391,7 @@ public sealed class GeometryDescription
         RenderHitTestContract hitTest,
         object? structuralKey = null,
         bool requiresReadback = false,
-        IEnumerable<RenderResource>? resources = null);
+        IEnumerable<RenderResourceBinding>? resources = null);
 }
 
 public sealed class GeometrySession
@@ -1360,7 +1414,7 @@ public sealed class GeometrySession
         where T : class;
 
     public void UseDeclaredResource<T>(
-        int declaredIndex,
+        string name,
         Action<T> use)
         where T : class;
     public void SetOutputBounds(Rect logicalBounds);

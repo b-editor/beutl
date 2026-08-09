@@ -265,7 +265,7 @@ Diagnostics record request ID, parent request ID, purpose, intent, root target i
 The behavioral baseline is target code SHA:
 
 ```text
-43a38e665d9bf52548161a3917e748bd1457ff55
+83e63689d8c72bd0b7fbd4cb01d9e468d7a78c53
 ```
 
 Before scheduling behavior changes, create a new target-specific golden/provenance category with an out-of-tree generator and a paired visual-evidence driver. The committed visual-baseline tooling consists only of:
@@ -491,6 +491,25 @@ BEUTL_REQUIRE_GPU=1 dotnet test tests/Beutl.Graphics3DTests/Beutl.Graphics3DTest
   -f net10.0 --filter "TestCategory=GpuPassFusionGpu"
 dotnet run -c Release --project tests/Beutl.Benchmarks -- \
   --filter '*RenderPipelineBenchmarks*'
+
+# Mandatory paired visual gate. The output path must not exist yet; the feature
+# exporter command must produce manifest.json plus row-packed *.rgba16f files.
+docs/specs/004-gpu-pass-fusion/evidence/run-paired-visual-evidence.sh \
+  --feature-worktree <clean-feature-worktree> \
+  --output-dir <nonexistent-create-only-visual-output-dir> \
+  --feature-command '<feature-export-command>'
+
+# Mandatory external paired benchmark gate. The baseline worktree must be clean
+# and pinned to the actual pre-feature parent; the output directory must already
+# exist and be empty.
+test "$(git -C <clean-baseline-worktree> rev-parse HEAD)" = \
+  83e63689d8c72bd0b7fbd4cb01d9e468d7a78c53
+docs/specs/004-gpu-pass-fusion/evidence/run-paired-benchmarks.sh \
+  <clean-baseline-worktree> \
+  <clean-feature-worktree> \
+  <existing-empty-benchmark-output-directory>
 ```
 
 Tests selected by `TestCategory=GpuPassFusionGpu` carry the NUnit `GpuPassFusionGpu` category. The two hardware-required commands run on a capable GPU/Vulkan or configured software device; the UnitTests canary prevents a vacuous category run, and the Graphics3D project is invoked separately rather than assumed to be selected through the UnitTests assembly. `ShaderFallbackTests` and ordinary fallback/public-contract tests must pass independently of either GPU gate and must not skip for lack of a preferred GPU.
+
+The paired visual runner regenerates the target from the pinned starting SHA, passes `BEUTL_GPU_PASS_EVIDENCE_OUTPUT_DIR`, `BEUTL_GPU_PASS_TARGET_OUTPUT_DIR`, `BEUTL_GPU_PASS_BASELINE_MANIFEST`, `BEUTL_GPU_PASS_EVIDENCE_MODE=feature`, and `BEUTL_REQUIRE_GPU=1` to the feature command, and hard-fails source/environment/output parity. The paired benchmark runner owns the 100,000-resample paired bootstrap and 95% confidence interval. Completion fails unless the primary warmed `ShaderOpacityShader` feature/pooled-stable-baseline A+B median-ratio interval has upper bound below `1.0`, the baseline-repeat interval contains `1.0` with symmetric factor at most `1.20`, every control/barrier interval stays below its case-specific repeat factor, and every schema, provenance, and output-parity gate passes. The in-tree BenchmarkDotNet command alone satisfies none of these paired gates.

@@ -199,7 +199,7 @@ Immutable description of one element-wise Shader operation.
 | uniform names/types/order | Structural | Binding signature. |
 | uniform values/providers | Runtime | Direct values bind canonically; custom providers may use final bounds/density/device context. |
 | child/sampler names/types/order | Structural | Binding signature and resource budget. |
-| child/sampler coordinate spaces | Structural | Value, output-logical, or output-device; CurrentPixel accepts value only. |
+| child/sampler coordinate spaces | Structural | Value or output-device; CurrentPixel accepts value only, and output-logical coordinates are derived explicitly from execution context. |
 | child/sampler providers/resources | Runtime | Resolved only by the executor. |
 | runtime identities | Runtime | Canonical uniform values, resource key/version, and request-unique binder identities unless snapshot reuse is selected. |
 | bounds contract | Structural behavior | Identity for CurrentPixel; mandatory explicit contract for WholeSource. |

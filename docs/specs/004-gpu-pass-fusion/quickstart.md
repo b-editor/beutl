@@ -8,7 +8,7 @@ This guide is for implementing the feature after `/speckit-tasks` has generated 
 set -euo pipefail
 
 expected_branch=speckit/004-gpu-pass-fusion
-expected_baseline_sha=43a38e665d9bf52548161a3917e748bd1457ff55
+expected_baseline_sha=83e63689d8c72bd0b7fbd4cb01d9e468d7a78c53
 
 test "$(git branch --show-current)" = "$expected_branch"
 test -z "$(git status --porcelain=v1 --untracked-files=all)"
@@ -24,7 +24,7 @@ speckit/004-gpu-pass-fusion
 The behavioral baseline recorded by this plan is:
 
 ```text
-43a38e665d9bf52548161a3917e748bd1457ff55
+83e63689d8c72bd0b7fbd4cb01d9e468d7a78c53
 ```
 
 The evidence SHA is an immutable behavioral ancestor, not the feature branch's current merge base. The stacked PRs and bottom-up merges legitimately advance `merge-base HEAD origin/main`; the guard therefore verifies ancestry while the branch name identifies the integration history.

@@ -7,7 +7,7 @@ The slice-2 auditor's stored integration message carrying this public change mus
 ```text
 refactor(engine)!: record complete render requests before execution
 
-BREAKING CHANGE: Beutl.Engine, Beutl.Editor, Beutl.NodeGraph, Beutl.ProjectSystem, Beutl.AgentToolkit, application render-node consumers, and out-of-tree Engine/plugin RenderNode implementations now use void Process(RenderNodeContext), context-owned RenderFragmentHandle values, and high-level request entry points. Executable/disposable RenderNodeOperation, RenderNodeProcessor Pull APIs, OperationWrapperRenderNode.SetOperations, and operation-backed EffectTarget members were removed. RenderNodeContext is now an engine-created sealed recorder: Input/CalculateBounds/the cache setter migrate to Inputs/TryCalculateInputBounds/DisableRenderCache, and its static scale helpers move to RenderScaleUtilities. RenderFragmentHandle no longer exposes direct Bounds, EffectiveScale, or HitTest members; authors use TryGetMetadata and TryHitTest and must handle symbolic owning-target dependencies. Rasterize now returns one owned RenderNodeRasterization carrying its logical Bounds, OutputScale, and nullable Bitmap; Measure reports separate OutputBounds and QueryBounds. Existing FilterEffect.ApplyTo operation calls remain available, but the FilterEffectContext.Bounds property is removed (engine-internal only) and symbolic inputs may make WorkingScale unavailable: effect authors must use TryGetWorkingScale and defer bounds/scale-dependent parameters to Shader, Geometry, or CustomEffect execution callbacks. Custom nodes returned by FilterEffect.Resource.CreateRenderNode must migrate.
+BREAKING CHANGE: Beutl.Engine, Beutl.Editor, Beutl.NodeGraph, Beutl.ProjectSystem, Beutl.AgentToolkit, application render-node consumers, and out-of-tree Engine/plugin RenderNode implementations now use void Process(RenderNodeContext), context-owned RenderFragmentHandle values, and high-level request entry points. Executable/disposable RenderNodeOperation, RenderNode.PrepareForProcess(ImmediateCanvas), RenderNodeProcessor Pull APIs, OperationWrapperRenderNode.SetOperations, and operation-backed EffectTarget members were removed. PrepareForProcess work migrates to ordered typed/opaque fragments recorded from Process without a live canvas. RenderNodeContext is now an engine-created sealed recorder: Input/CalculateBounds/the cache setter migrate to Inputs/TryCalculateInputBounds/DisableRenderCache, and its static scale helpers move to RenderScaleUtilities. RenderFragmentHandle no longer exposes direct Bounds, EffectiveScale, or HitTest members; authors use TryGetMetadata and TryHitTest and must handle symbolic owning-target dependencies. Rasterize now returns one owned RenderNodeRasterization carrying its logical Bounds, OutputScale, and nullable Bitmap; Measure reports separate OutputBounds and QueryBounds. Existing FilterEffect.ApplyTo operation calls remain available, but the FilterEffectContext.Bounds property is removed (engine-internal only) and symbolic inputs may make WorkingScale unavailable: effect authors must use TryGetWorkingScale and defer bounds/scale-dependent parameters to Shader, Geometry, or CustomEffect execution callbacks. Custom nodes returned by FilterEffect.Resource.CreateRenderNode must migrate.
 
 BREAKING CHANGE: `RenderNodeCacheHelper.MakeCache`, `CreateDefaultCache`, and `CanCacheRecursiveChildrenOnly`, together with `RenderNodeCache.RejectCache` and `IsCacheRejected`, are removed. Cache lookup, miss capture, and atomic publication now occur only inside the complete request after dependency and region analysis; callers render through `RenderNodeRenderer`/the production `Renderer` and use `Invalidate` or `RenderNodeCacheHelper.ClearCache` to discard retained entries.
 
@@ -30,6 +30,12 @@ BREAKING CHANGE: Generated abstract `Resource` types no longer expose a protecte
 BREAKING CHANGE: A generated property backed by an `IProperty<T>` whose `T` is an `EngineObject` type, nullable or non-null, is an owning resource slot. Assigning a different nested resource now immediately disposes the previous value, assigning the same instance is a no-op, and disposing the containing resource disposes its current value. Callers must not retain the replaced resource for later use or share one owned nested resource between independently disposed owners.
 
 BREAKING CHANGE: `FilterEffectActivator` has one public constructor that requires explicit `RenderIntent` and `RenderRequestPurpose` arguments before its optional scale arguments. Direct hosts must classify preview/delivery behavior and frame/cache-warmup/auxiliary purpose explicitly; the former scale-only constructor and implicit auxiliary purpose are removed.
+
+BREAKING CHANGE: Opaque, Geometry, target-scope, target-command, and painted callbacks no longer address declared resources by integer position. Description `resources` arguments and `Resources` properties now use `RenderResourceBinding`; create one with `resource.Bind("stable-name")` and replace `UseDeclaredResource<T>(index, use)` with `UseDeclaredResource<T>("stable-name", use)`. Binding names are unique ordinal strings and participate in structural/output-cache identity.
+
+BREAKING CHANGE: State-passing callback factories reject mutable reference holders and other states that are not deeply immutable snapshots. Copy every pixel-affecting value and version into an immutable value tuple/record before `Create`, or migrate to `CreateRequestLocal` when no complete reusable snapshot exists. The latter intentionally disables cross-request output-cache reuse.
+
+BREAKING CHANGE: `RenderNodeRenderRequest` now carries a non-null `AllocationBudget`, and `IRenderTargetFactory` reports `MaximumDimension`. Custom factories must report their backend/device texture-axis ceiling; requests share their live byte/target ledger with nested requests and fail/degrade through `RenderIntent` when the budget is exceeded.
 ```
 
 No `[Obsolete]` shim, returning overload, `V2` type, or executable compatibility wrapper remains after the same change.
@@ -39,6 +45,7 @@ No `[Obsolete]` shim, returning overload, `V2` type, or executable compatibility
 The following public model is removed:
 
 - `RenderNodeOperation[] RenderNode.Process(RenderNodeContext)`;
+- `RenderNode.PrepareForProcess(ImmediateCanvas)`; migrate its backdrop/current-target preparation to an ordered `TargetCapture`, `TargetCommand`, guarded opaque fragment, or backend boundary recorded from `Process` without touching a live canvas;
 - public subclassing of `RenderNodeOperation`;
 - `RenderNodeOperation : IDisposable`;
 - `RenderNodeOperation.Render(ImmediateCanvas)`;
@@ -171,7 +178,8 @@ Before, a node returned a lambda/decorator that owned and rendered its child. Af
 private OpaqueRenderDescription CreateDescription()
 {
     return OpaqueRenderDescription.Create(
-        execute: session =>
+        state: typeof(MyDecoratorNode),
+        execute: static (session, _) =>
         {
             using var output = session.CreateOutput(session.OutputBounds);
             output.Canvas.Use(canvas => session.Inputs[0].Draw(canvas));
@@ -181,8 +189,7 @@ private OpaqueRenderDescription CreateDescription()
         hitTest: RenderHitTestContract.AnyInput,
         valueCardinality: RenderValueCardinality.Single,
         scale: RenderScaleContract.PreserveInputSupply,
-        structuralKey: typeof(MyDecoratorNode),
-        runtimeIdentity: new RenderRuntimeIdentity(typeof(MyDecoratorNode)));
+        structuralKey: typeof(MyDecoratorNode));
 }
 
 public override void Process(RenderNodeContext context)
@@ -232,13 +239,14 @@ public override void Process(RenderNodeContext context)
     RenderFragmentHandle outputs = context.OpaqueExpand(
         context.Inputs,
         OpaqueRenderDescription.Create(
-            execute: ExpandAtExecution,
+            state: (Count, Seed),
+            execute: static (session, state) =>
+                ExpandAtExecution(session, state.Count, state.Seed),
             bounds: _operationBoundsContract,
             hitTest: RenderHitTestContract.OutputBounds,
             valueCardinality: RenderValueCardinality.Dynamic,
             scale: RenderScaleContract.MaterializeAtWorkingScale,
-            structuralKey: typeof(MyExpansionNode),
-            runtimeIdentity: new RenderRuntimeIdentity((Count, Seed))));
+            structuralKey: typeof(MyExpansionNode)));
 
     context.Publish(outputs);
 }
@@ -294,7 +302,8 @@ public override void Process(RenderNodeContext context)
     RenderFragmentHandle command = context.TargetCommand(
         context.Inputs,
         TargetCommandDescription.Create(
-            execute: session => session.Canvas.Use(canvas =>
+            state: _contentVersion,
+            execute: static (session, _) => session.Canvas.Use(canvas =>
             {
                 foreach (RenderExecutionInput input in session.Inputs)
                     input.Draw(canvas);
@@ -304,8 +313,7 @@ public override void Process(RenderNodeContext context)
             hitTest: RenderHitTestContract.OutputBounds,
             access: TargetAccess.ReadWrite,
             inputReadbacks: null,
-            structuralKey: typeof(BackdropCommandNode),
-            runtimeIdentity: new RenderRuntimeIdentity(_contentVersion)));
+            structuralKey: typeof(BackdropCommandNode)));
 
     context.Publish(command);
 }
