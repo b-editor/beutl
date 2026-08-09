@@ -43,7 +43,7 @@ Beutl's main app is **MIT-licensed**; only `Beutl.FFmpegWorker` is **GPL-3.0-or-
      `LICENSE.FFmpegWorker`, and `THIRD_PARTY_NOTICES.md`.
    - Install platform-specific license metadata in its standard location, such
      as `/usr/share/doc/beutl/copyright` for Debian packages and
-     `/app/share/licenses/net.beditor.Beutl` for Flatpak packages.
+     `/app/share/licenses/net.beditor.Beutl/beutl` for Flatpak packages.
 
 ## How to add a new FFmpeg-backed feature
 

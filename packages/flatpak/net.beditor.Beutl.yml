@@ -36,14 +36,13 @@ finish-args:
 modules:
   - name: beutl
     buildsystem: simple
-    license-files:
-      - beutl-bin/LICENSE
-      - beutl-bin/LICENSE.GPL
-      - beutl-bin/LICENSE.FFmpegWorker
-      - beutl-bin/THIRD_PARTY_NOTICES.md
     build-commands:
       - mkdir -p /app/lib/beutl
       - cp -r beutl-bin/. /app/lib/beutl/
+      - install -Dm644 beutl-bin/LICENSE "$FLATPAK_DEST/share/licenses/$FLATPAK_ID/beutl/LICENSE"
+      - install -Dm644 beutl-bin/LICENSE.GPL "$FLATPAK_DEST/share/licenses/$FLATPAK_ID/beutl/LICENSE.GPL"
+      - install -Dm644 beutl-bin/LICENSE.FFmpegWorker "$FLATPAK_DEST/share/licenses/$FLATPAK_ID/beutl/LICENSE.FFmpegWorker"
+      - install -Dm644 beutl-bin/THIRD_PARTY_NOTICES.md "$FLATPAK_DEST/share/licenses/$FLATPAK_ID/beutl/THIRD_PARTY_NOTICES.md"
       - chmod +x /app/lib/beutl/Beutl
       - chmod +x /app/lib/beutl/Beutl.ExceptionHandler
       - chmod +x /app/lib/beutl/Beutl.PackageTools.UI

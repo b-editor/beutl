@@ -100,6 +100,7 @@ public class ReleaseLicensePackagingTests
         string installer = File.ReadAllText(Path.Combine(repositoryRoot, "nukebuild", "beutl-setup.iss"));
         string flatpak = File.ReadAllText(
             Path.Combine(repositoryRoot, "packages", "flatpak", "net.beditor.Beutl.yml"));
+        const string flatpakLicenseDirectory = "$FLATPAK_DEST/share/licenses/$FLATPAK_ID/beutl";
         string flatpakMetainfo = File.ReadAllText(
             Path.Combine(repositoryRoot, "packages", "flatpak", "net.beditor.Beutl.metainfo.xml"));
         string copyrightPath = Path.Combine(
@@ -116,7 +117,7 @@ public class ReleaseLicensePackagingTests
             Assert.That(
                 installer,
                 Does.Contain("Source: \"{#MySource}\\*\"; DestDir: \"{app}\"; Flags: ignoreversion recursesubdirs"));
-            Assert.That(flatpak, Does.Contain("license-files:"));
+            Assert.That(flatpak, Does.Not.Contain("license-files:"));
 
             foreach (string outputName in new[]
                      {
@@ -126,7 +127,10 @@ public class ReleaseLicensePackagingTests
                          "THIRD_PARTY_NOTICES.md",
                      })
             {
-                Assert.That(flatpak, Does.Contain($"- beutl-bin/{outputName}"));
+                Assert.That(
+                    flatpak,
+                    Does.Contain(
+                        $"install -Dm644 beutl-bin/{outputName} \"{flatpakLicenseDirectory}/{outputName}\""));
             }
 
             Assert.That(
