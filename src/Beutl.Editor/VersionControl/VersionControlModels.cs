@@ -520,15 +520,26 @@ internal static partial class GitDiagnosticSanitizer
 {
     internal static string RedactCredentials(string value)
     {
-        return string.IsNullOrEmpty(value)
-            ? value
-            : CredentialUrlRegex().Replace(value, "${scheme}***@");
+        if (string.IsNullOrEmpty(value))
+        {
+            return value;
+        }
+
+        string redacted = CredentialUrlRegex().Replace(value, "${scheme}***@");
+        return UrlQueryOrFragmentRegex().Replace(
+            redacted,
+            "${url}${separator}***");
     }
 
     [GeneratedRegex(
         @"(?<scheme>[a-z][a-z0-9+.-]*://)[^/\s@]+@",
         RegexOptions.IgnoreCase | RegexOptions.CultureInvariant)]
     private static partial Regex CredentialUrlRegex();
+
+    [GeneratedRegex(
+        @"(?<url>[a-z][a-z0-9+.-]*://[^\s?#'\""<>]*)(?<separator>[?#])[^\s'\""<>]*",
+        RegexOptions.IgnoreCase | RegexOptions.CultureInvariant)]
+    private static partial Regex UrlQueryOrFragmentRegex();
 }
 
 public sealed class GitOperationException : Exception

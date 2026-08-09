@@ -434,12 +434,21 @@ public class GitCliRunnerTests : RealGitTestRepository
         });
     }
 
-    [Test]
-    public async Task Progress_reader_redacts_url_credentials_before_reporting_or_returning_stderr()
+    [TestCase(
+        "https://user:super-secret-token@example.invalid/repo.git/",
+        "https://***@example.invalid/repo.git/")]
+    [TestCase(
+        "https://example.invalid/repo.git?access_token=super-secret-token",
+        "https://example.invalid/repo.git?***")]
+    [TestCase(
+        "https://example.invalid/repo.git#access_token=super-secret-token",
+        "https://example.invalid/repo.git#***")]
+    public async Task Progress_reader_redacts_url_credentials_before_reporting_or_returning_stderr(
+        string remoteUrl,
+        string redactedUrl)
     {
         const string secret = "super-secret-token";
-        string stderr =
-            $"fatal: Authentication failed for 'https://user:{secret}@example.invalid/repo.git/'\n";
+        string stderr = $"fatal: Authentication failed for '{remoteUrl}'\n";
         var progress = new RecordingProgress();
 
         string captured = await GitCliRunner.ReadStandardErrorAsync(
@@ -453,7 +462,7 @@ public class GitCliRunnerTests : RealGitTestRepository
             Assert.That(progress.Messages[0], Does.Not.Contain(secret));
             Assert.That(
                 progress.Messages[0],
-                Does.Contain("https://***@example.invalid/repo.git/"));
+                Does.Contain(redactedUrl));
         });
     }
 
