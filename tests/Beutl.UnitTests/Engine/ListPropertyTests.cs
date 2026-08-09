@@ -1,5 +1,5 @@
-﻿using Beutl.Composition;
-using Beutl.Collections;
+﻿using Beutl.Collections;
+using Beutl.Composition;
 using Beutl.Engine;
 
 namespace Beutl.UnitTests.Engine;

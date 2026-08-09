@@ -1,4 +1,4 @@
-namespace Beutl;
+﻿namespace Beutl;
 
 internal static class ValueReplacement
 {

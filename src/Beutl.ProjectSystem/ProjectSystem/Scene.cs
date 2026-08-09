@@ -1010,7 +1010,7 @@ public class Scene : ProjectItem, INotifyEdited
                     continue;
                 }
 
-                        bool idless = _idlessRecoveredDescendants.TryGetValue(descendant, out _);
+                bool idless = _idlessRecoveredDescendants.TryGetValue(descendant, out _);
                 Guid originalId = idless ? Guid.Empty : descendant.Id;
                 int occurrence = idless
                     ? idlessOccurrence++
