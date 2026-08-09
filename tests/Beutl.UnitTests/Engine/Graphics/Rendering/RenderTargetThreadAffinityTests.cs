@@ -124,8 +124,7 @@ public class RenderTargetThreadAffinityTests
             Assert.That(Task.Run(canvas.Dispose).Wait(TimeSpan.FromSeconds(30)), Is.True);
             Assert.That(canvas.IsDisposed, Is.False, "precondition: the first Dispose left the cleanup queued");
 
-            // Only a claim taken before queuing can turn the second call away without waiting; a
-            // guard on IsDisposed alone would queue a rival cleanup and block for the full deadline.
+            // A guard on IsDisposed alone would queue a rival cleanup and block for the full deadline.
             Assert.That(Task.Run(canvas.Dispose).Wait(TimeSpan.FromSeconds(1)), Is.True,
                 "a second Dispose must be turned away immediately, not queue another cleanup");
         }
@@ -160,8 +159,8 @@ public class RenderTargetThreadAffinityTests
             Assert.That(started.Wait(TimeSpan.FromSeconds(30)), Is.True,
                 "the render thread never started the release");
 
-            // From a finally: the failure this asserts is Run returning early, which would leave the
-            // shared render dispatcher blocked in the callback and take out every later test.
+            // Under the finally: a failure would otherwise leave the shared render dispatcher
+            // blocked in the callback and take out every later test.
             Assert.That(caller.Wait(TimeSpan.FromSeconds(8)), Is.False,
                 "Run returned while the release it started was still executing");
         }

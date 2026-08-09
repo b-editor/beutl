@@ -193,7 +193,7 @@ public class RenderTarget : IDisposable
 
         // Skia's GPU context is thread-affine, so the surface and its shared texture have to be
         // released on the dispatcher that allocated them — releasing from another thread corrupts
-        // the context and faults the render thread later. ImmediateCanvas.Dispose hops the same way.
+        // the context and faults the render thread later.
         SKSurfaceCounter<SKSurface> surface = _surface;
         SKSurfaceCounter<ITexture2D>? texture = _texture;
 

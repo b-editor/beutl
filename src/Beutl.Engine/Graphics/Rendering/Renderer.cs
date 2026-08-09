@@ -148,7 +148,7 @@ public class Renderer : IRenderer
             _isDisposed = true;
             OnDispose(true);
             // The canvas, the surface and every cached node hold GPU resources owned by the render
-            // thread, so tear them down there — the constructor allocates them the same way.
+            // thread, so tear them down there.
             GpuResourceRelease.Run(RenderThread.Dispatcher, () =>
             {
                 _immediateCanvas.Dispose();
@@ -267,9 +267,8 @@ public class Renderer : IRenderer
             // render thread. Queued rather than awaited so an edit never blocks behind a frame.
             RenderThread.Dispatcher.Dispatch(() =>
             {
-                // Nothing awaits this, and the dispatcher has no UnhandledException handler, so an
-                // escaping exception would rethrow out of its loop and kill the render thread for
-                // the rest of the process.
+                // Nothing awaits this and the dispatcher has no UnhandledException handler, so an
+                // escaping exception would rethrow out of its loop and kill the render thread.
                 if (!weakRef.TryGetTarget(out Renderer? renderer)
                     || !renderer._nodeCache.TryGetValue(senderDrawable, out Entry? entry))
                 {

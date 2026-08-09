@@ -173,16 +173,14 @@ public partial class ImmediateCanvas : IDisposable, IPopable
             _sharedStrokePaint.Dispose();
         }
 
-        // Claimed before queuing, not inside DisposeCore: GpuResourceRelease.Run can return with the
-        // work still queued, and a second Dispose would then pass an IsDisposed that is still false
-        // and queue a rival cleanup that disposes the shared paints again.
+        // Claimed here, not inside DisposeCore: Run can return with the cleanup still queued, so a
+        // second Dispose would see IsDisposed false and queue a rival one, double-disposing the paints.
         if (Interlocked.Exchange(ref _disposeClaimed, 1) != 0)
         {
             return;
         }
 
-        // A finalizer must not block on another thread, so it hands the cleanup over instead of
-        // taking the bounded wait below.
+        // A finalizer must not block on another thread, so it cannot take the bounded wait below.
         if (!disposing && _dispatcher is { HasShutdownFinished: false } dispatcher && !dispatcher.CheckAccess())
         {
             dispatcher.Dispatch(DisposeCore);

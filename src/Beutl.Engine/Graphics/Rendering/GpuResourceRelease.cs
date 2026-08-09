@@ -52,17 +52,16 @@ internal static class GpuResourceRelease
         for (TimeSpan waited = TimeSpan.Zero; waited < s_deadline; waited += s_slice)
         {
             // Waited through the handle, not Task.Wait: that wraps a failed release in an
-            // AggregateException, and callers of the formerly inline API catch the release's own
-            // exception type. GetResult rethrows the original.
+            // AggregateException, but callers catch the release's own exception type. GetResult
+            // rethrows the original.
             if (((IAsyncResult)queued).AsyncWaitHandle.WaitOne(s_slice))
             {
                 queued.GetAwaiter().GetResult();
                 return;
             }
 
-            // Already running on the owner thread: the deadline guards against work that never
-            // starts, not against a release that is simply slow, and returning here would tell the
-            // caller the resources are free while they are still being torn down.
+            // Already running on the owner thread: the deadline guards work that never starts, not
+            // a slow release, and returning would report resources free that are still being torn down.
             if (Volatile.Read(ref started) == 1)
             {
                 queued.GetAwaiter().GetResult();
